@@ -104,13 +104,14 @@ Các công nghệ chỉ được xác định ở tài liệu Architecture/Techn
 | ACT-09 | Marketplace Operator         | Vận hành đơn hàng Shopee/TikTok                             |
 | ACT-10 | Offline Sales Staff          | Bán hàng tại cửa hàng/chợ/tạp hóa/đại lý                    |
 | ACT-11 | Customer Service             | Hỗ trợ khách hàng, khiếu nại, đổi trả                       |
-| ACT-12 | Sales Manager                | Quản lý bán hàng, giá, đơn hàng, chương trình bán hàng      |
-| ACT-13 | Content Manager              | Quản lý bài viết, nội dung Website và SEO                   |
+| ACT-12 | Sales Manager                | Quản lý bán hàng, giá, đơn hàng, chương trình bán hàng, xem báo cáo bán hàng và xem tồn kho |
+| ACT-13 | Content Manager              | Quản lý bài viết, nội dung Website, SEO và xem thống kê hiệu quả nội dung/SEO |
 | ACT-14 | Marketing Staff              | Lập kế hoạch nội dung, chiến dịch Marketing và theo dõi KPI |
 | ACT-15 | Inventory/Supply Manager     | Theo dõi cung ứng, hạn sử dụng, kế hoạch sản xuất           |
-| ACT-16 | Executive / Business Manager | Phân tích và ra quyết định kinh doanh                       |
+| ACT-16 | Executive / Business Manager | Xem Dashboard, phân tích doanh thu, lợi nhuận và ra quyết định chiến lược kinh doanh |
 | ACT-17 | System Administrator         | Quản trị tài khoản, Role, Permission và hệ thống            |
 | ACT-18 | Auditor / Security Operator  | Kiểm tra Audit Log và truy vết hoạt động                    |
+| ACT-19 | Accountant / Finance Staff   | Đối soát thanh toán, xem thống kê doanh thu, chi phí, thuế và lập báo cáo tài chính |
 
 ---
 
@@ -147,13 +148,14 @@ Các công nghệ chỉ được xác định ở tài liệu Architecture/Techn
 | Marketplace Operator | Đồng bộ và xử lý đơn từ sàn           |
 | Offline Sales        | Bán hàng trực tiếp và báo cáo tồn     |
 | CSKH                 | Hỗ trợ khách hàng                     |
-| Sales Manager        | Điều hành hoạt động bán hàng          |
-| Content Manager      | Quản lý nội dung                      |
+| Sales Manager        | Điều hành hoạt động bán hàng và theo dõi doanh số |
+| Content Manager      | Quản lý nội dung và theo dõi hiệu quả SEO |
 | Marketing            | Xây dựng và đánh giá chiến dịch       |
 | Supply Manager       | Quản lý Batch, HSD và cung ứng        |
-| Executive            | Phân tích và quyết định               |
+| Executive            | Xem Dashboard và ra quyết định chiến lược |
 | System Admin         | Tài khoản, Role, Permission           |
 | Auditor              | Truy vết và kiểm tra Audit            |
+| Accountant / Finance | Đối soát tài chính, kế toán và thuế   |
 
 ---
 
@@ -271,6 +273,15 @@ Một đơn Marketplace phải có mã tham chiếu của nền tảng gốc.
 ### BR-MKTPLACE-04
 Không được tạo trùng đơn nội bộ khi đồng bộ lại cùng một đơn Marketplace.
 
+### BR-MKTPLACE-05
+Khi hệ thống ghi nhận đơn hàng mới từ Marketplace, tồn kho khả dụng nội bộ phải được trừ/tạm giữ ngay lập tức để tránh bán vượt mức trên các kênh khác.
+
+### BR-MKTPLACE-06
+Khi đơn hàng bị hủy từ phía Marketplace, hệ thống nội bộ phải tự động cập nhật trạng thái Hủy và hoàn trả lại tồn kho tương ứng.
+
+### BR-MKTPLACE-07
+Giá trị đơn hàng ghi nhận trên hệ thống nội bộ phải tuân theo giá thanh toán thực tế trên sàn (bao gồm các khoản trợ giá, phí sàn) để phục vụ đối soát chính xác.
+
 ---
 
 # 12. BUSINESS RULES — OFFLINE SALES
@@ -287,6 +298,15 @@ Nhân viên phải báo cáo số lượng bán, tồn, hàng hỏng và hàng t
 ### BR-OFFLINE-04
 Tồn kho Offline phải được đối soát với tồn kho hệ thống.
 
+### BR-OFFLINE-05
+Mỗi giao dịch bán Offline phải được ghi nhận thành một đơn hàng (Order) trên hệ thống để đảm bảo đồng bộ dữ liệu thống kê khách hàng.
+
+### BR-OFFLINE-06
+Nhân viên Offline Sales chỉ được phép bán đúng giá hệ thống hoặc áp dụng mức chiết khấu/khuyến mãi nằm trong thẩm quyền được cấp.
+
+### BR-OFFLINE-07
+Doanh thu thực thu (Tiền mặt, Chuyển khoản) cuối ca phải khớp với tổng giá trị hàng hóa đã báo cáo bán ra.
+
 ---
 
 # 13. BUSINESS RULES — REVIEW
@@ -299,6 +319,15 @@ Review phải gắn với sản phẩm/Variant tương ứng.
 
 ### BR-REVIEW-03
 Nội dung review vi phạm chính sách có thể bị ẩn hoặc xử lý bởi nhân viên có quyền.
+
+### BR-REVIEW-04
+Điểm đánh giá bắt buộc phải nằm trong thang đo chuẩn (từ 1 đến 5 sao).
+
+### BR-REVIEW-05
+Nhân viên được phân quyền (CSKH / Manager) có quyền trả lời (Reply) đánh giá của khách hàng, và phản hồi này sẽ được hiển thị công khai.
+
+### BR-REVIEW-06
+Khách hàng được phép chỉnh sửa đánh giá trong một khoảng thời gian nhất định (ví dụ: 30 ngày) kể từ lúc đăng.
 
 ---
 
@@ -320,6 +349,12 @@ Audit phải xác định được:
 
 ### BR-AUDIT-03
 Audit Log sau khi ghi phải có cơ chế bảo vệ chống sửa/xóa trái phép.
+
+### BR-AUDIT-04
+Chỉ những tài khoản có đặc quyền (Auditor, System Administrator) mới được phép tra cứu và trích xuất Audit Log.
+
+### BR-AUDIT-05
+Audit Log phải được lưu trữ tối thiểu theo thời gian quy định (ví dụ: 1 năm hoặc vĩnh viễn) và không có chức năng xóa thủ công trên giao diện.
 
 ---
 
