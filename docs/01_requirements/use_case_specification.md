@@ -705,23 +705,5 @@ graph TB
 
 ---
 
-## VI. HƯỚNG DẪN THỰC THI & CÔNG CỤ VẼ SƠ ĐỒ UML CHUẨN
-
-### 6.1. Hướng Dẫn Vẽ Sơ Đồ Sử Dụng Công Cụ Trực Quan
-Bạn có thể dễ dàng chuyển đổi các đặc tả trong tài liệu này thành các bản vẽ đồ họa chuyên nghiệp bằng các công cụ:
-1. **Draw.io (`app.diagrams.net`)**:
-   - Sử dụng thư viện hình dạng **UML Use Case** chuẩn (Actor hình người que, Use Case hình Oval Elip, đường nét đứt có mũi tên cho `<<include>>` và `<<extend>>`).
-   - Có thể sao chép trực tiếp các sơ đồ phân rã từ Mục 3 của tài liệu này để vẽ thành từng trang Diagram riêng biệt.
-2. **PlantUML / Mermaid**:
-   - Toàn bộ mã nguồn sơ đồ trong tài liệu này được viết bằng chuẩn **Mermaid Markdown**. Bạn có thể xem trực tiếp hoặc xuất ra file ảnh PNG/SVG chất lượng cao.
-3. **Visual Paradigm / StarUML**:
-   - Sử dụng để xuất ra tài liệu báo cáo đồ án chính thức kèm từ điển dữ liệu (Data Dictionary).
-
-### 6.2. Quy Tắc Chuẩn Khi Vẽ Sơ Đồ Use Case (UML Standards Checklist)
-- [x] **Hình Elip (Use Case)**: Đặt tên bằng **Động từ + Danh từ** (Ví dụ: *Khởi tạo đơn hàng*, *Sinh mã VietQR*, *Phân tích RFM*).
-- [x] **Quan hệ `<<include>>`**: Biểu diễn hành động bắt buộc phải thực hiện trong Use Case cha (Mũi tên nét đứt hướng từ Use Case gốc tới Use Case được include).
-- [x] **Quan hệ `<<extend>>`**: Biểu diễn hành động mở rộng có điều kiện (Mũi tên nét đứt hướng từ Use Case mở rộng về Use Case gốc).
-- [x] **Ranh giới hệ thống (System Boundary)**: Vẽ khung bao bọc các Use Case bên trong, các Actor nằm ở bên ngoài khung.
-
 ---
 *Tài liệu này là bản đặc tả thiết kế Use Case chính thức, được lưu trữ tại `docs/01_requirements/use_case_specification.md` làm nền tảng cho việc thiết kế sơ đồ Class, Sequence và hiện thực hóa mã nguồn dự án.*
