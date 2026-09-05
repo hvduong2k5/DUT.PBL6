@@ -48,13 +48,12 @@ Dự án được tổ chức theo cấu trúc **Monorepo** chuẩn mực công 
 │   └── scripts/                   # Scripts khởi tạo CSDL đa dịch vụ & Seed dữ liệu giả lập (1.000 orders)
 │
 ├── docs/                          # Hồ sơ Tài liệu Kỹ thuật Chuẩn mực Học thuật
-│   ├── 01_requirements/          # Khảo sát Người dùng, User Personas, User Stories, Use Case Specs
+│   ├── 01_requirements/          # Product Backlog, Sprint Planning, Use Cases, NFR/FR, Epics
 │   ├── 02_architecture/          # Tài liệu Thiết kế Kiến trúc SAD, SAGA Sequences, ERD chuẩn 3NF
 │   ├── 03_api_specs/             # OpenAPI / Swagger Specifications & Event Protocols
 │   ├── 04_testing/               # Kế hoạch Kiểm thử, Test Suites, Báo cáo Load Test k6
 │   └── 05_deployment/            # Hướng dẫn Cài đặt, Triển khai & Vận hành Hệ thống
 │
-├── backlog_software.md            # Kế hoạch 12 tuần (6 Sprints) & Bảng phân rã Task chi tiết
 └── README.md                      # Hướng dẫn tổng quan dự án
 ```
 
@@ -102,5 +101,6 @@ docker compose -f infra/docker/docker-compose.infra.yml up -d
 ---
 
 ## IV. TÀI LIỆU THAM KHẢO CHÍNH
-- 📄 [backlog_software.md](file:///e:/DUT.K1N4/PBL/backlog_software.md): Kế hoạch phát triển chi tiết trong 12 tuần (6 Sprints).
-- 📄 [docs/01_requirements/khao_sat_nguoi_dung_va_phan_tich_yeu_cau.md](file:///e:/DUT.K1N4/PBL/docs/01_requirements/khao_sat_nguoi_dung_va_phan_tich_yeu_cau.md): Khảo sát người dùng, phân tích đối thủ Thiên Hương, User Stories & Đặc tả Use Cases.
+- 📄 [01_Product_Backlog.md](./docs/01_requirements/01_Product_Backlog.md): Bản đồ User Story, Actor, Business Rules.
+- 📄 [02_Sprint_Planning.md](./docs/01_requirements/02_Sprint_Planning.md): Kế hoạch 12 tuần, MVP, DoD & Quản trị rủi ro.
+- 📄 [use_case_specification.md](./docs/01_requirements/use_case_specification.md): Đặc tả tương tác hệ thống.
