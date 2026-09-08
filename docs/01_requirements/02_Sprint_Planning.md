@@ -90,7 +90,7 @@ Việc phân kỳ tuân theo thứ tự ưu tiên trong Product Backlog: `Must H
 | **Procurement** | Supplier Profile, PO, Supply Planning, PO Receiving (US-PROC-01~04) |
 
 
-## SẢN PHẨM SAU GIAI ĐOẠN 1 (CHUỖI 03 MVP) SẼ PHÁT TRIỂN THÀNH GÌ?
+## SẢN PHẨM SAU CHUỖI 03 MVP SẼ PHÁT TRIỂN THÀNH GÌ?
 
 Sau các MVP, sản phẩm không chỉ là website bán mè xửng. Đây sẽ là một **nền tảng thương mại điện tử đa kênh tập trung vào sản phẩm OCOP thực phẩm**, nơi cùng một dữ liệu sản phẩm, SKU, tồn kho và đơn hàng được dùng xuyên suốt các kênh bán.
 
