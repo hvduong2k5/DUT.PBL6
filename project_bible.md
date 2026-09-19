@@ -124,8 +124,8 @@ Hệ thống phân tách rạch ròi 3 luồng tín hiệu để đảm bảo an
 ## 7. HIỆN TRẠNG KỸ THUẬT & QUYẾT ĐỊNH THIẾT KẾ CHO TỪNG SERVICE
 
 ### 7.1. MS-01: `inventory-service`
-- **Tài liệu thiết kế chi tiết:** [`docs/inventory_architecture_design.md`](file:///d:/PROJECT/PBL6/DUT.PBL6/docs/inventory_architecture_design.md) & [`docs/inventory_database_design.md`](file:///d:/PROJECT/PBL6/DUT.PBL6/docs/inventory_database_design.md).
-- **Bộ kịch bản kiểm thử Unit Tests:** [`docs/inventory_unit_tests.md`](file:///d:/PROJECT/PBL6/DUT.PBL6/docs/inventory_unit_tests.md) (Bao phủ Invariants, FEFO Allocator, Use Cases với Mock, Idempotency và Background Workers).
+- **Tài liệu thiết kế chi tiết:** [`docs/inventory-service/inventory_architecture_design.md`](file:///d:/PROJECT/PBL6/DUT.PBL6/docs/inventory-service/inventory_architecture_design.md) & [`docs/inventory-service/inventory_database_design.md`](file:///d:/PROJECT/PBL6/DUT.PBL6/docs/inventory-service/inventory_database_design.md).
+- **Bộ kịch bản kiểm thử Unit Tests:** [`docs/inventory-service/inventory_unit_tests.md`](file:///d:/PROJECT/PBL6/DUT.PBL6/docs/inventory-service/inventory_unit_tests.md) (Bao phủ Invariants, FEFO Allocator, Use Cases với Mock, Idempotency và Background Workers).
 - **Tech Stack:** **Go (Golang)** + **PostgreSQL 16** (`inventory_db`) + **Redis 7.2** (Redlock) + **Apache Kafka** (Saga Events) + **gRPC**.
 - **Kiến trúc nội bộ:** Clean Architecture kết hợp DDD (Domain -> Application/Use Cases -> Infrastructure -> Presentation).
 - **Cơ sở dữ liệu:** Chuẩn 3NF với các bảng `inventory_items`, `batches`, `stock_reservations`, `stock_reservation_allocations`, `stock_adjustments`, `idempotency_keys`. Tích hợp các ràng buộc CHECK và Partial Index cho FEFO query (`exp_date ASC` với `status IN ('ACTIVE', 'NEAR_EXPIRY')`). Migration DDL: `migrations/000001_init_inventory_schema.up.sql`.
@@ -144,7 +144,7 @@ Hệ thống phân tách rạch ròi 3 luồng tín hiệu để đảm bảo an
     + **Phòng vệ Transaction trong `PostgresTxManager`:** Thêm `defer func() { _ = tx.Rollback() }()` ngay sau khi tạo `sqlTx` đảm bảo rollback an toàn khi xảy ra runtime panic hoặc lỗi trả về từ callback. Bổ sung nil checks cho DB và callback function.
     + **Chuẩn hóa Timezone UTC toàn diện:** Đổi toàn bộ `time.Now()` thành `time.Now().UTC()` trên toàn bộ Domain Entities (`StockReservation`, `InventoryItem`, `Batch`) và tầng PostgreSQL Repository updates (`UpdateItem`, `UpdateReservation`).
     + **Cải tiến độ bền RedlockService:** Giữ token trong sync.Map khi script Lua `Eval` gặp lỗi mạng tạm thời, cho phép caller retry giải phóng lock an toàn thay vì mất token và rò rỉ lock trên Redis; phòng vệ nil context.
-    + **DDL Outbox Pattern:** Bổ sung bảng `outbox_events` (`CHECK (retry_count >= 0)`, `error_message TEXT`) và partial index `idx_outbox_pending` (`WHERE status = 'PENDING'`) vào migration `000001_init_inventory_schema.up.sql` / `down.sql`, đồng bộ vào `docs/inventory_database_design.md`.
+    + **DDL Outbox Pattern:** Bổ sung bảng `outbox_events` (`CHECK (retry_count >= 0)`, `error_message TEXT`) và partial index `idx_outbox_pending` (`WHERE status = 'PENDING'`) vào migration `000001_init_inventory_schema.up.sql` / `down.sql`, đồng bộ vào `docs/inventory-service/inventory_database_design.md`.
   - **Tổng kết kiểm thử Bước 4:** Đạt **76/76 test cases PASS 100%** trên toàn bộ service (chạy fresh bằng `go test -count=1 ./...`). Usecase: 27/27, Entity: 14/14, Domain Service: 11/11, Postgres: 18/18, Redis: 6/6.
   - `Slice 4.5 & 4.6`: Tạm hoãn theo kế hoạch chờ UI/Frontend và cụm Kafka.
 

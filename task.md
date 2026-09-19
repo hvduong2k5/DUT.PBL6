@@ -35,9 +35,9 @@
   - [ ] `apps/web-admin` (React Vite, Shadcn UI, BI ECharts Dashboard)
   - [ ] `apps/mobile-app` (Flutter / React Native, Mobile BFF integration)
 - [ ] **Lộ trình Triển khai chuyên biệt cho `inventory-service` (MS-01):**
-  - [x] **Bước 1:** Thu thập thông tin `inventory-service` từ toàn bộ tài liệu dự án ra file đặc tả (`docs/inventory_service_specs.md`)
-  - [x] **Bước 2:** Thiết kế kiến trúc dịch vụ (`docs/inventory_architecture_design.md`), CSDL độc lập (`docs/inventory_database_design.md`), và vẽ sơ đồ luồng Mermaid
-  - [x] **Bước 3:** Lập danh sách toàn diện các kịch bản Unit Test cho service (`docs/inventory_unit_tests.md`)
+  - [x] **Bước 1:** Thu thập thông tin `inventory-service` từ toàn bộ tài liệu dự án ra file đặc tả (`docs/inventory-service/inventory_service_specs.md`)
+  - [x] **Bước 2:** Thiết kế kiến trúc dịch vụ (`docs/inventory-service/inventory_architecture_design.md`), CSDL độc lập (`docs/inventory-service/inventory_database_design.md`), và vẽ sơ đồ luồng Mermaid
+  - [x] **Bước 3:** Lập danh sách toàn diện các kịch bản Unit Test cho service (`docs/inventory-service/inventory_unit_tests.md`)
   - [x] **Bước 4: Tiến hành lập trình mã nguồn (Code implementation) & Kiểm thử vi mô:**
     - [x] **Slice 4.1:** Scaffolding Go module (`services/inventory-service`), cấu trúc Clean Architecture & Domain Entities (`InventoryItem`, `Batch`, `StockReservation`)
     - [x] **Slice 4.2:** Thuật toán phân bổ FEFO (`fefo_allocator.go`) & Unit Tests Domain Logic (`go test ./internal/domain/...`) - Đã pass 100% (UT-INV-DOMAIN-01..03, UT-INV-FEFO-01..06, near-expiry & expired tests)
