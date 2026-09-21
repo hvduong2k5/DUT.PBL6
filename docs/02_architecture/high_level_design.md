@@ -5,69 +5,52 @@
 
 ---
 
-## MỤC LỤC CHI TIẾT
+## MỤC LỤC CHI TIẾT (CHUẨN HÓA THEO 9 BƯỚC THIẾT KẾ KIẾN TRÚC HỆ THỐNG)
 
-1. [Tổng Quan Kiến Trúc & Mô Hình 3 Mặt Phẳng (Three Architectural Planes)](#1-tổng-quan-kiến-trúc--mô-hình-3-mặt-phẳng-three-architectural-planes)
-   - 1.1. Bản chất cốt lõi: Business Event ≠ Audit Event ≠ Telemetry Signals
-   - 1.2. Sơ đồ kiến trúc 3 Mặt phẳng tổng thể
-2. [Tầng Biên (North - South): Hệ Thống Giao Tiếp Với Các Loại Client Như Thế Nào?](#2-tầng-biên-north---south-hệ-thống-giao-tiếp-với-các-loại-client-như-thế-nào)
-   - 2.1. Web D2C, POS Quầy Xưởng & Web Admin CMS (RESTful over HTTPS)
-   - 2.2. Vai trò Gateway: Local JWT Validation & Trusted Context Injection
-   - 2.3. Native Mobile App & Lớp Đệm Chuyên Biệt Mobile BFF (GraphQL over HTTPS)
-   - 2.4. Sàn Thương Mại Điện Tử Ngoại Vi Shopee / TikTok Shop (Webhook & Open API)
-3. [Tầng Nội Bộ (East - West): Các Microservices Giao Tiếp Với Nhau Như Thế Nào?](#3-tầng-nội-bộ-east---west-các-microservices-giao-tiếp-với-nhau-như-thế-nào)
-   - 3.1. Khung Chuẩn Hóa 4 Quy Tắc Giao Tiếp (The 4 Communication Patterns Framework)
-   - 3.2. Bản Chất Saga Orchestration: Mô Thức Điều Phối Nghiệp Vụ, Không Phải Giao Thức Mạng
-   - 3.3. Tách Biệt Ranh Giới Logic Bên Trong Order Service: Order Domain vs Saga Orchestrator
-   - 3.4. Mô Hình Hybrid Saga & Nguyên Tắc Tập Trung Hóa Đền Bù (Centralized Compensation)
-   - 3.5. Tối Ưu Hóa Phân Quyền: Loại Bỏ Runtime Blocking Dependency Vào Identity Service
-   - 3.6. Đánh Giá & Danh Bạ Ma Trận Giao Tiếp Chi Tiết Toàn Bộ 18 Microservices
-4. [Diễn Giải Chi Tiết Các Hợp Đồng Đồng Bộ (gRPC Synchronous on Critical Path)](#4-diễn-giải-chi-tiết-các-hợp-đồng-đồng-bộ-grpc-synchronous-on-critical-path)
-   - 4.1. Hợp đồng Khóa tồn kho tức thời (`ReserveStock`) giữa Order/Channel và Inventory
-   - 4.2. Hợp đồng Giải phóng tồn kho (`ReleaseReservation`) khi hủy đơn hoặc hết hạn
-   - 4.3. Hợp đồng Thẩm định giá bán & SKU (`ValidatePriceAndSKU`) giữa Order và Catalog
-   - 4.4. Hợp đồng Thẩm định mã giảm giá (`ValidateVoucher`) giữa Order và Promotion
-   - 4.5. Hợp đồng Tính cước vận chuyển chuẩn (`CalculateShippingFee`) giữa Order và Shipping
-   - 4.6. Hợp đồng Lấy bằng chứng đóng gói Video (`GetPackingVideoUrl`) giữa Care và Fulfillment
-   - 4.7. Hợp đồng Thẩm duyệt đặc quyền động (`CheckSpecializedPermission`) giữa Services và Identity
-5. [Diễn Giải Chi Tiết Các Hợp Đồng Bất Đồng Bộ (Kafka Domain Events on Workflows)](#5-diễn-giải-chi-tiết-các-hợp-đồng-bất-đồng-bộ-kafka-domain-events-on-workflows)
-   - 5.1. Tối thiểu hóa PII trong sự kiện "Đơn hàng đã thanh toán" (`OrderPaidEvent`)
-   - 5.2. Phân định dữ liệu: Dữ liệu Nghiệp vụ vs Dữ liệu Kiểm toán vs Dữ liệu Phân tích
-   - 5.3. Chuẩn hóa Analytics Ingestion: Bỏ cơ chế Wildcard lắng nghe bừa bãi
-   - 5.4. Sự kiện "Đóng gói hoàn tất & Niêm phong" (`PackingCompletedEvent`)
-   - 5.5. Sự kiện "Biến động mức tồn kho" (`StockLevelChangedEvent`)
-   - 5.6. Sự kiện "Nhập kho nguyên liệu mè/đậu mới" (`GoodsReceivedEvent`)
-   - 5.7. Sự kiện "Cảnh báo Lô hàng cận hạn sử dụng FEFO" (`ExpiryWarningEvent`)
-   - 5.8. Cơ chế bảo vệ hàng đợi: Retry Topic & Dead Letter Queue (DLQ)
-6. [Mặt Phẳng Kiểm Toán Pháp Lý (Audit Plane & Tamper-Evident Architecture)](#6-mặt-phẳng-kiểm-toán-pháp-lý-audit-plane--tamper-evident-architecture)
-   - 6.1. Vì sao Audit phải tách rời khỏi Business Transaction Flow?
-   - 6.2. Giải quyết bài toán Hash Chain trong Hệ Thống Phân Tán: Entity-Level Chain
-   - 6.3. Đối soát toàn vẹn định kỳ: Periodic Merkle Tree Checkpoint & WORM Storage
-   - 6.4. Định nghĩa chuẩn xác: Tamper-Evident Audit Trail (Phát hiện can thiệp)
-7. [Mặt Phẳng Giám Sát Viễn Trắc (Observability Plane & OpenTelemetry Architecture)](#7-mặt-phẳng-giám-sát-viễn-trắc-observability-plane--opentelemetry-architecture)
-   - 7.1. Kiến trúc thu thập Telemetry: Microservices → OTel Collector → Backends
-   - 7.2. Bảo toàn chuỗi vết phân tán W3C Trace Context (`traceparent`) qua HTTP, gRPC và Kafka
-   - 7.3. Bộ 4 Tín hiệu vàng (Golden Signals) trên Prometheus, Grafana & Jaeger
-8. [Hành Trình Thực Tế Của Một Giao Dịch Điển Hình (Story Walkthrough Bằng Lời)](#8-hành-trình-thực-tế-của-một-giao-dịch-điển-hình-story-walkthrough-bằng-lời)
-9. [Các Luồng Nghiệp Vụ Mở Rộng & Trọng Yếu Theo Yêu Cầu Đề Bài](#9-các-luồng-nghiệp-vụ-mở-rộng--trọng-yếu-theo-yêu-cầu-đề-bài)
-   - 9.1. Luồng Khiếu Nại, Kiểm Định & Hoàn Tiền Phân Tán (Return & Refund Saga - FR-06, FR-15)
-   - 9.2. Luồng Trải Nghiệm Tặng Quà Gửi Hộ & In Thiệp Mừng (Gifting Experience - FR-28)
-   - 9.3. Luồng Báo Giá Đơn Sỉ & In Logo Hộp Quà Doanh Nghiệp (B2B Corporate Quotation - FR-19)
-   - 9.4. Luồng Tích Điểm Thân Thiết Loyalty & Mua Lại Reorder (EPIC 17, FR-18)
-   - 9.5. Luồng Tìm Kiếm Thông Minh Elasticsearch & Trợ Lý Gợi Ý Quà Tết AI (AI Discovery & DSS - EPIC 03, FR-31)
-10. [Ma Trận Ánh Xạ Truy Xuất Yêu Cầu Toàn Diện (Requirements Traceability Matrix)](#10-ma-trận-ánh-xạ-truy-xuất-yêu-cầu-toàn-diện-requirements-traceability-matrix)
-   - 10.1. Ma trận ánh xạ 31 Yêu Cầu Chức Năng (FR-01 đến FR-31)
-   - 10.2. Ma trận ánh xạ 11 Yêu Cầu Phi Chức Năng (NFR-01 đến NFR-11)
-11. [Phụ Lục Đặc Tả Kỹ Thuật (Technical Contracts & Schemas)](#11-phụ-lục-đặc-tả-kỹ-thuật-technical-contracts--schemas)
-   - 11.1. File Protobuf Definitions (`.proto`)
-   - 11.2. File Kafka CloudEvents Schemas (JSON)
-   - 11.3. File REST & GraphQL Edge Contracts
-12. [Tổng Kết Nguyên Tắc Quản Trị Kiến Trúc](#12-tổng-kết-nguyên-tắc-quản-trị-kiến-trúc)
+1. [Chương 1: Tổng Quan Hệ Thống, Actor & Client Surface (Bước 1)](#1-tổng-quan-hệ-thống-actor--client-surface-bước-1)
+   - 1.1. Tuyên ngôn phân định cốt lõi: Business Event ≠ Audit Event ≠ Telemetry Signals
+   - 1.2. Danh bạ Actor & Kênh tương tác hệ thống (Actor & Client Surface Matrix)
+   - 1.3. Sơ đồ kiến trúc 3 Mặt phẳng tổng thể của toàn bộ hệ thống
+2. [Chương 2: Tầng Biên (North - South): Giao Tiếp Với Clients & Bên Thứ Ba (Bước 2)](#2-tầng-biên-north---south-giao-tiếp-với-clients--bên-thứ-ba-bước-2)
+   - 2.1. Web D2C, POS Quầy Xưởng & Web Admin CMS: Chuẩn RESTful API (JSON over HTTPS)
+   - 2.2. Vai trò của API Gateway: Local JWT Validation & Trusted Context Injection
+   - 2.3. Native Mobile App & Lớp đệm chuyên biệt Mobile BFF: Chuẩn GraphQL over HTTPS
+   - 2.4. Sàn Thương mại điện tử ngoại vi (Shopee, TikTok Shop): Webhook & Open API qua ACL
+3. [Chương 3: Nguyên Tắc Giao Tiếp Nội Bộ (East - West): Chốt Luật Sync / Async (Bước 3)](#3-nguyên-tắc-giao-tiếp-nội-bộ-east---west-chốt-luật-sync--async-bước-3)
+   - 3.1. Khung chuẩn hóa 4 Quy tắc Giao tiếp (The 4 Communication Patterns Framework)
+   - 3.2. Bản chất Saga Orchestration: Mô thức điều phối nghiệp vụ, không phải giao thức mạng
+   - 3.3. Tách biệt ranh giới logic bên trong Order Service: Order Domain vs Saga Orchestrator
+   - 3.4. Mô hình Hybrid Saga & Nguyên tắc Tập trung hóa Đền bù (Centralized Compensation)
+   - 3.5. Tối ưu hóa phân quyền: Loại bỏ runtime blocking dependency vào Identity Service
+   - 3.6. Đánh giá & Danh bạ ma trận giao tiếp chi tiết toàn bộ 18 Microservices
+4. [Chương 4: Luồng Nghiệp Vụ Lõi (Critical Path): Áp Luật Vào Luồng Đặt Hàng & Thanh Toán D2C (Bước 4)](#4-luồng-nghiệp-vụ-lõi-critical-path-áp-luật-vào-luồng-đặt-hàng--thanh-toán-d2c-bước-4)
+   - 4.1. Kiến trúc Luồng Đặt hàng & Thanh toán chuẩn (Checkout D2C Critical Path)
+   - 4.2. Sơ đồ tuần tự tương tác kỹ thuật (Sequence Diagram)
+   - 4.3. Phân tích đường găng & Tính đúng đắn kỹ thuật (Critical Path Analysis)
+5. [Chương 5: Hợp Đồng Giao Tiếp Chi Tiết (Hệ Quả Của Luồng: Sync Trước, Async Sau) (Bước 5)](#5-hợp-đồng-giao-tiếp-chi-tiết-hệ-quả-của-luồng-sync-trước-async-sau-bước-5)
+   - 5.1. Các Hợp đồng Đồng bộ (gRPC Synchronous on Critical Path: `ReserveStock`, `ValidatePrice`, `ValidateVoucher`...)
+   - 5.2. Các Hợp đồng Bất đồng bộ (Kafka Domain Events on Workflows: `OrderPaidEvent`, `PackingCompletedEvent`, DLQ...)
+6. [Chương 6: Các Mặt Phẳng Độc Lập Xuyên Suốt (Cross-cutting Concerns) (Bước 6)](#6-các-mặt-phẳng-độc-lập-xuyên-suốt-cross-cutting-concerns-bước-6)
+   - 6.1. Mặt phẳng Kiểm toán Pháp lý (Audit Plane & Tamper-Evident Architecture - Hash Chain & Merkle Checkpoint)
+   - 6.2. Mặt phẳng Giám sát Viễn trắc (Observability Plane & OpenTelemetry Architecture - OTel Collector & Golden Signals)
+7. [Chương 7: Story Walkthrough Bằng Lời: Bắt Lỗi Mâu Thuẫn Trong Kịch Bản Thực Tế (Bước 7)](#7-story-walkthrough-bằng-lời-bắt-lỗi-mâu-thuẫn-trong-kịch-bản-thực-tế-bước-7)
+   - 7.1. Story Walkthrough 1 — Hành trình thực tế của một giao dịch D2C điển hình (Khách mua kẹo, VietQR, kịch bản đền bù 15m)
+   - 7.2. Story Walkthrough 2 — Hành trình nhập đơn sàn Marketplace & Cơ chế Khóa tồn / Đền bù phân tán (Marketplace Inbound Saga)
+8. [Chương 8: Các Luồng Nghiệp Vụ Mở Rộng (Tái Dùng Luật Ở Bước 3, Không Tự Bịa Luật) (Bước 8)](#8-các-luồng-nghiệp-vụ-mở-rộng-tái-dùng-luật-ở-bước-3-không-tự-bịa-luật-bước-8)
+   - 8.1. Luồng Khiếu nại, Kiểm định & Hoàn tiền Phân tán (Return & Refund Saga - FR-06, FR-15)
+   - 8.2. Luồng Trải nghiệm Tặng quà gửi hộ & In thiệp mừng (Gifting Experience - FR-28)
+   - 8.3. Luồng Báo giá Đơn sỉ & In Logo Hộp quà Doanh nghiệp (B2B Corporate Quotation - FR-19)
+   - 8.4. Luồng Tích điểm Thân thiết Loyalty & Mua lại Reorder (EPIC 17, FR-18)
+   - 8.5. Luồng Tìm kiếm thông minh Elasticsearch & Trợ lý Gợi ý quà Tết AI (AI Discovery & DSS - EPIC 03, FR-31)
+9. [Chương 9: Ma Trận Ánh Xạ Truy Xuất Yêu Cầu & Phụ Lục Kỹ Thuật (Bước 9)](#9-ma-trận-ánh-xạ-truy-xuất-yêu-cầu--phụ-lục-kỹ-thuật-bước-9)
+   - 9.1. Ma trận ánh xạ 31 Yêu cầu Chức năng (FR-01 đến FR-31)
+   - 9.2. Ma trận ánh xạ 11 Yêu cầu Phi chức năng (NFR-01 đến NFR-11)
+   - 9.3. Phụ lục đặc tả kỹ thuật (Protobuf, Kafka CloudEvents JSON, REST/GraphQL)
+   - 9.4. Tổng kết Nguyên tắc Quản trị Kiến trúc
 
 ---
 
-## 1. TỔNG QUAN KIẾN TRÚC & MÔ HÌNH 3 MẶT PHẲNG (THREE ARCHITECTURAL PLANES)
-
+## 1. TỔNG QUAN HỆ THỐNG, ACTOR & CLIENT SURFACE (BƯỚC 1)
 Một trong những sai lầm kinh điển khi thiết kế hệ thống Microservices là **gom mọi loại thông điệp vào cùng một tư duy**: *"Cứ có việc gì là Service phát event lên Kafka cho service khác consume"*. Cách tiếp cận này làm mờ nhạt ranh giới trách nhiệm, kéo theo việc rò rỉ dữ liệu nhạy cảm (PII) và biến hệ thống giám sát hoặc kiểm toán thành điểm nghẽn của các giao dịch mua sắm cốt lõi.
 
 Hệ sinh thái Mè Xửng O Mạ tách biệt hoàn toàn kiến trúc thành **3 Mặt Phẳng Độc Lập (Three Architectural Planes)**:
@@ -100,13 +83,39 @@ Hệ sinh thái Mè Xửng O Mạ tách biệt hoàn toàn kiến trúc thành *
                                                           Grafana Dashboard
 ```
 
-### 1.1. Tuyên Ngôn Phân Định Cốt Lõi (Core Axiom) → \mathbf{Business\ Event\ \neq\ Audit\ Event\ \neq\ Telemetry\ Signals\ (Trace\ /\ Metric\ /\ Log)} → - **Business Event (Sự kiện Nghiệp vụ):** Biểu thị một sự thay đổi trạng thái trong vòng đời của thực thể kinh doanh (ví dụ: `OrderPaidEvent`, `StockLevelChangedEvent`). Nó chứa dữ liệu tối thiểu cần thiết để kích hoạt các bước tiếp theo của chuỗi cung ứng.
+---
+
+### 1.1. Tuyên Ngôn Phân Định Cốt Lõi (Core Axiom)
+
+$$\mathbf{Business\ Event\ \neq\ Audit\ Event\ \neq\ Telemetry\ Signals\ (Trace\ /\ Metric\ /\ Log)}$$
+
+- **Business Event (Sự kiện Nghiệp vụ):** Biểu thị một sự thay đổi trạng thái trong vòng đời của thực thể kinh doanh (ví dụ: `OrderPaidEvent`, `StockLevelChangedEvent`). Nó chứa dữ liệu tối thiểu cần thiết để kích hoạt các bước tiếp theo của chuỗi cung ứng.
 - **Audit Event (Sự kiện Kiểm toán):** Biểu thị một **Bằng chứng an ninh và pháp lý (Security Evidence)** trả lời câu hỏi: *Ai (Who) đã làm gì (What) vào thời điểm nào (When) ở đâu (Where), trước khi sửa giá trị là bao nhiêu (Before) và sau khi sửa là bao nhiêu (After)?*. Đây là dữ liệu tuân thủ (Compliance), không bao giờ được trở thành điều kiện tiên quyết (Runtime blocking dependency) của luồng mua sắm.
 - **Telemetry Signals (Tín hiệu Viễn trắc):** Gồm Metrics (chỉ số CPU, RPS, P95), Traces (cây tiến trình W3C `traceparent`), và Logs (nhật ký debug). Đây là dữ liệu đo lường kỹ thuật, được đẩy thẳng sang bộ thu thập **OpenTelemetry Collector**, tuyệt đối không đi qua Kafka của tầng nghiệp vụ và không dịch vụ nào phải "chờ" giám sát mới được chạy tiếp.
 
 ---
 
-### 1.2. Sơ Đồ Kiến Trúc Chi Tiết Của Toàn Bộ Hệ Thống
+---
+
+### 1.2. Danh Bạ Actor & Kênh Tương Tác Hệ Thống (Actor & Client Surface Matrix)
+
+Hệ sinh thái Mè Xửng O Mạ phục vụ đa dạng các nhóm tác nhân nội bộ và ngoại vi thông qua các kênh tương tác (Surface / Channels) chuyên biệt:
+
+| Nhóm Tác Nhân (Actors) | Kênh Tương Tác (Surface / Device) | Giao Thức / Phương Thức | Mục Tiêu Nghiệp Vụ Chính |
+| :--- | :--- | :--- | :--- |
+| **Khách Hàng Cá Nhân (D2C Consumer)** | Web Portal (`omamx.vn`), Mobile App (iOS/Android) | Next.js Web (REST over HTTPS), Flutter App (GraphQL BFF) | Tìm kiếm kẹo OCOP, giỏ hàng, Checkout thanh toán VietQR, tra cứu vận đơn, viết review sản phẩm. |
+| **Khách Mua Sàn (Marketplace Shopper)** | Gian hàng Shopee Mall, TikTok Shop O Mạ | Webhook sự kiện của sàn $\rightarrow$ `channel-service` | Mua hàng qua sàn TMĐT, đơn tự động đồng bộ về xưởng để đóng gói chung kho tồn vật lý. |
+| **Khách Mua Quầy Xưởng (Offline POS)** | Quầy bán lẻ tại Xưởng Kẹo Huế, Điểm bán OCOP | POS App (Offline-First Tablet) $\rightarrow$ `channel-service` | Mua kẹo trực tiếp tại xưởng, thanh toán tiền mặt/quẹt thẻ, in bill tức thời. |
+| **Khách Doanh Nghiệp (B2B Corporate)** | Cổng Khách Sỉ B2B (`b2b.omamx.vn`) | Web Portal (REST over HTTPS) $\rightarrow$ API Gateway | Gửi yêu cầu báo giá sỉ (500+ hộp), tải file logo in hộp quà Tết, quản lý công nợ A/R. |
+| **Thợ Đóng Gói (Packing Operator)** | Tablet chuyên dụng gắn tại bàn đóng gói xưởng kẹo | Web App nội bộ $\rightarrow$ API Gateway | Nhận Picking Task theo lô FEFO, quét mã vạch, quay video đóng gói, dán tem Seal niêm phong. |
+| **Thủ Kho & Thu Mua (Warehouse & Procurement)** | Web Admin quản lý Kho xưởng & Thu mua | Web Admin (React HTTPS) $\rightarrow$ API Gateway | Kiểm kê tồn kho đa kho, nhập lô nguyên liệu mè/đậu từ Hợp tác xã Huế, xuất hàng cho bưu tá. |
+| **Nhân Viên CSKH (Customer Support)** | Web Admin Phân hệ Ticket Chăm Sóc | Web Admin (React HTTPS) $\rightarrow$ API Gateway | Tiếp nhận khiếu nại kẹo vỡ, tra cứu video đóng gói (TTL 15m), duyệt đổi trả hàng. |
+| **Kế Toán & Ban Giám Đốc (Finance & Executives)** | Web Admin Kế toán, Analytics Dashboard | Web Admin (React HTTPS), ClickHouse OLAP | Xuất hóa đơn VAT điện tử, duyệt hoàn tiền lớn, đối soát doanh thu đa kênh, DSS AI dự báo vụ Tết. |
+| **Đối Tác Vận Chuyển 3PL & Ngân Hàng** | Open API GHN, ViettelPost, Cổng VietQR | Webhook bảo mật (HMAC SHA-256) | Bắn tín hiệu thanh toán tiền về, cập nhật tọa độ hành trình bưu tá giao kẹo. |
+
+---
+
+### 1.3. Sơ Đồ Kiến Trúc Chi Tiết Của Toàn Bộ Hệ Thống
 
 ```mermaid
 flowchart TB
@@ -134,7 +143,7 @@ flowchart TB
         direction TB
         MS04["<b>MS-04: order-service</b><br/>Port: 8004 | DB: PostgreSQL<br/><i>Saga Coordinator / Checkout Flow</i>"]
         MS01["<b>MS-01: inventory-service</b><br/>Port: 8001 | DB: PG + Redis<br/><i>Anti-Overselling / FEFO Batches</i>"]
-        MS02["<b>MS-02: fulfillment-service</b><br/>Port: 8002 | DB: PG + MinIO S3<br/><i>Packing Video / Seal Verification</i>"]
+        MS02["<b>MS-02: fulfillment-service</b><br/>Port: 8002 | DB: PG + AWS S3<br/><i>Packing Video / Seal Verification</i>"]
         MS03["<b>MS-03: traceability-service</b><br/>Port: 8003 | DB: PostgreSQL<br/><i>OCOP Heritage QR / Origin Tracking</i>"]
         MS05["<b>MS-05: catalog-service</b><br/>Port: 8005 | DB: PG + ES"]
         MS07["<b>MS-07: promotion-service</b><br/>Port: 8007 | DB: PG + Redis"]
@@ -200,7 +209,9 @@ flowchart TB
 
 ---
 
-## 2. TẦNG BIÊN (NORTH - SOUTH): HỆ THỐNG GIAO TIẾP VỚI CÁC LOẠI CLIENT NHƯ THẾ NÀO?
+---
+
+## 2. TẦNG BIÊN (NORTH - SOUTH): GIAO TIẾP VỚI CLIENTS & BÊN THỨ BA (BƯỚC 2)
 
 Giao tiếp North - South (Bắc - Nam) là luồng kết nối giữa các ứng dụng bên ngoài (Client) đi vào hạ tầng Backend của hệ thống Mè Xửng O Mạ. Mọi kết nối bắt buộc phải đi qua **API Gateway** đóng vai trò cổng kiểm soát trung tâm.
 
@@ -271,7 +282,9 @@ Hệ thống Mè Xửng O Mạ áp dụng mô hình **Xác thực phi tập trun
 
 ---
 
-## 3. TẦNG NỘI BỘ (EAST - WEST): CÁC MICROSERVICES GIAO TIẾP VỚI NHAU NHƯ THẾ NÀO?
+---
+
+## 3. NGUYÊN TẮC GIAO TIẾP NỘI BỘ (EAST - WEST): CHỐT LUẬT SYNC / ASYNC (BƯỚC 3)
 
 Giao tiếp East - West (Đông - Tây) là mạng lưới liên lạc nội bộ giữa 18 Microservices nằm phía sau API Gateway. Để hệ thống vận hành bền bỉ, thông suốt và không bao giờ bị nghẽn mạch, toàn bộ các tương tác nội bộ được chuẩn hóa theo các nguyên tắc kỹ thuật phân tán dưới đây.
 
@@ -457,10 +470,10 @@ Khách đặt hàng
 
 | Mã & Tên Service | Cổng & CSDL Sở Hữu | Giao Tiếp gRPC (Sync Critical Path) | Giao Tiếp Kafka (Async Business Plane) | Giao Tiếp Biên (North-South via Gateway) |
 | :--- | :--- | :--- | :--- | :--- |
-| **MS-01**<br/>`inventory-service` | Port: 8001<br/>DB: PostgreSQL + Redis (Redlock) | **Nhận (Provider):**<br/>• `ReserveStock` (từ MS-04, MS-13)<br/>• `ReleaseReservation` (từ MS-04 Saga)<br/>• `GetStockLevel` (Query từ MS-04, MS-08, MS-13)<br/>**Gọi (Consumer):** Không | **Nghe (Consume):**<br/>• `OrderPaidEvent` (MS-04 - trừ kho FEFO)<br/>• `GoodsReceivedEvent` (MS-08 - tạo Lô mới)<br/>• `ReturnInspectedEvent` (MS-06 - restock)<br/>**Bắn (Publish):**<br/>• `StockLevelChangedEvent`<br/>• `StockReservedEvent`<br/>• `ExpiryWarningEvent` | • `/api/v1/admin/inventory/*` (Thủ kho kiểm kê, điều chỉnh tồn thủ công) |
-| **MS-02**<br/>`fulfillment-service` | Port: 8002<br/>DB: PostgreSQL + MinIO S3 (Video) | **Nhận (Provider):**<br/>• `GetPackingVideoUrl` (Query từ MS-06 - TTL 15m)<br/>**Gọi (Consumer):** Không | **Nghe (Consume - Bất đồng bộ):**<br/>• `OrderPaidEvent` (MS-04 - tạo Picking Task)<br/>**Bắn (Publish):**<br/>• `PackingJobAcceptedEvent`<br/>• `PackingCompletedEvent` | • `/api/v1/staff/packing/*` (Tablet xưởng quay video & dán seal niêm phong) |
+| **MS-01**<br/>`inventory-service` | Port: 8001<br/>DB: PostgreSQL + Redis (Redlock) | **Nhận (Provider):**<br/>• `ReserveStock` (từ MS-04 Saga Orchestrator)<br/>• `ReleaseReservation` (từ MS-04 Saga Compensation)<br/>• `GetStockLevel` (Query từ MS-04, MS-08, MS-13)<br/>**Gọi (Consumer):** Không | **Nghe (Consume):**<br/>• `OrderPaidEvent` (MS-04 - trừ kho FEFO)<br/>• `GoodsReceivedEvent` (MS-08 - tạo Lô mới)<br/>• `ReturnInspectedEvent` (MS-06 - restock)<br/>**Bắn (Publish):**<br/>• `StockLevelChangedEvent`<br/>• `StockReservedEvent`<br/>• `ExpiryWarningEvent` | • `/api/v1/admin/inventory/*` (Thủ kho kiểm kê, điều chỉnh tồn thủ công) |
+| **MS-02**<br/>`fulfillment-service` | Port: 8002<br/>DB: PostgreSQL + AWS S3 (Video) | **Nhận (Provider):**<br/>• `GetPackingVideoUrl` (Query từ MS-06 - TTL 15m)<br/>**Gọi (Consumer):** Không | **Nghe (Consume - Bất đồng bộ):**<br/>• `OrderPaidEvent` (MS-04 - tạo Picking Task)<br/>**Bắn (Publish):**<br/>• `PackingJobAcceptedEvent`<br/>• `PackingCompletedEvent` | • `/api/v1/staff/packing/*` (Tablet xưởng quay video & dán seal niêm phong) |
 | **MS-03**<br/>`traceability-service`| Port: 8003<br/>DB: PostgreSQL | **Nhận:** Không<br/>**Gọi:** Không | **Nghe (Consume):**<br/>• `PackingCompletedEvent` (MS-02 - gán Lô kẹo)<br/>• `GoodsReceivedEvent` (MS-08 - vùng mè Huế)<br/>**Bắn (Publish):**<br/>• `BatchQrActivatedEvent` | • `/api/v1/trace/{qr_code}` (Public cho người tiêu dùng quét tem OCOP) |
-| **MS-04**<br/>`order-service` | Port: 8004<br/>DB: PostgreSQL + Redis (Cart) | **Nhận (Provider):**<br/>• `CreateInternalOrder` (từ MS-13)<br/>**Gọi (Consumer qua Saga/gRPC):**<br/>• MS-01 (`ReserveStock`, `ReleaseReservation`)<br/>• MS-05 (`ValidatePriceAndSKU`, `GetProductDetail`)<br/>• MS-07 (`ValidateVoucher`)<br/>• MS-12 (`CalculateShippingFee`)<br/>• MS-15 (`GetCustomerProfile`)<br/>• MS-16 (Chỉ gọi khi có Dynamic Policy) | **Nghe (Consume):**<br/>• `PackingCompletedEvent` (MS-02)<br/>• `ShipmentDeliveredEvent` (MS-12)<br/>• `MarketplaceOrderImportedEvent` (MS-13)<br/>**Bắn (Publish):**<br/>• `OrderPlacedEvent`<br/>• `OrderPaidEvent` (Không chứa PII)<br/>• `OrderCancelledEvent`<br/>• `OrderCompletedEvent` | • `POST /api/v1/checkout`<br/>• `/api/v1/orders/*`<br/>• `/api/v1/payments/vietqr/callback` (Webhook ngân hàng) |
+| **MS-04**<br/>`order-service` | Port: 8004<br/>DB: PostgreSQL + Redis (Cart) | **Nhận (Provider):**<br/>• `CreatePOSOrder` (từ MS-13 quầy POS)<br/>**Gọi (Consumer qua Saga/gRPC):**<br/>• MS-01 (`ReserveStock`, `ReleaseReservation`)<br/>• MS-05 (`ValidatePriceAndSKU`, `GetProductDetail`)<br/>• MS-07 (`ValidateVoucher`)<br/>• MS-12 (`CalculateShippingFee`)<br/>• MS-15 (`GetCustomerProfile`)<br/>• MS-16 (Chỉ gọi khi có Dynamic Policy) | **Nghe (Consume):**<br/>• `MarketplaceOrderImportedEvent` (MS-13 - khởi động Marketplace Inbound Saga)<br/>• `PackingCompletedEvent` (MS-02)<br/>• `ShipmentDeliveredEvent` (MS-12)<br/>**Bắn (Publish):**<br/>• `OrderPlacedEvent`<br/>• `OrderPaidEvent` (Không chứa PII)<br/>• `MarketplaceOrderStockFailedEvent` (Báo MS-13 xử lý hủy/báo lỗi sàn khi hết tồn)<br/>• `OrderCancelledEvent`<br/>• `OrderCompletedEvent` | • `POST /api/v1/checkout`<br/>• `/api/v1/orders/*`<br/>• `/api/v1/payments/vietqr/callback` (Webhook ngân hàng) |
 | **MS-05**<br/>`catalog-service` | Port: 8005<br/>DB: PostgreSQL + Elasticsearch | **Nhận (Provider):**<br/>• `ValidatePriceAndSKU` (từ MS-04)<br/>• `GetProductDetail` (từ MS-04, MS-11, Mobile BFF)<br/>• `GetProductPrice` (từ MS-13)<br/>**Gọi (Consumer):** Không | **Nghe (Consume):**<br/>• `StockLevelChangedEvent` (MS-01 - làm mới cache tồn Redis)<br/>**Bắn (Publish):**<br/>• `ProductPriceChangedEvent`<br/>• `ProductCreatedEvent` | • `/api/v1/products/*`<br/>• `/api/v1/categories/*`<br/>• `/api/v1/search` (Fuzzy Search qua Elasticsearch) |
 | **MS-06**<br/>`care-service` | Port: 8006<br/>DB: MongoDB | **Nhận:** Không<br/>**Gọi (Consumer):**<br/>• MS-02 (`GetPackingVideoUrl` - Query video khiếu nại) | **Nghe (Consume):**<br/>• `OrderCompletedEvent` (MS-04 - mở quyền viết review xác thực)<br/>**Bắn (Publish):**<br/>• `ReturnTicketApprovedEvent`<br/>• `ReturnInspectedEvent`<br/>• `ReviewSubmittedEvent` | • `/api/v1/tickets/*` (Gửi khiếu nại vỡ kẹo)<br/>• `/api/v1/returns/*` (Yêu cầu đổi trả)<br/>• `/api/v1/reviews/*` (Đánh giá kèm ảnh) |
 | **MS-07**<br/>`promotion-service` | Port: 8007<br/>DB: PostgreSQL + Redis | **Nhận (Provider):**<br/>• `ValidateVoucher` (từ MS-04)<br/>**Gọi (Consumer):** Không | **Nghe (Consume):**<br/>• `OrderPaidEvent` (MS-04 - ghi nhận dùng voucher)<br/>• `OrderCompletedEvent` (MS-04 - tích điểm 1%)<br/>• `ExpiryWarningEvent` (MS-01 - tạo Flash Sale xả hàng cận date)<br/>**Bắn (Publish):**<br/>• `VoucherUsedEvent`<br/>• `LoyaltyPointsEarnedEvent` | • `/api/v1/promotions/*`<br/>• `/api/v1/coupons/*`<br/>• `/api/v1/loyalty/*` |
@@ -469,7 +482,7 @@ Khách đặt hàng
 | **MS-10**<br/>`content-service` | Port: 8010<br/>DB: PostgreSQL | **Nhận:** Không<br/>**Gọi (Consumer):** Không | **Nghe (Consume):**<br/>• `ProductCreatedEvent` (MS-05 - sinh bản nháp bài viết SEO làng nghề)<br/>**Bắn (Publish):**<br/>• `ArticlePublishedEvent` | • `/api/v1/articles/*`<br/>• `/api/v1/blog/*`<br/>• `/api/v1/seo/*` (Metadata chuẩn Schema.org) |
 | **MS-11**<br/>`analytics-service` | Port: 8011<br/>DB: ClickHouse + MongoDB | **Nhận:** Không<br/>**Gọi (Consumer):**<br/>• MS-05 (`GetProductDetail`) | **Nghe (Consume ĐÚNG TOPIC):**<br/>• `order.paid`, `order.completed`<br/>• `inventory.stock_level_changed`<br/>• `marketplace.order_imported`<br/>• `voucher.used`<br/>*(CẤM Wildcard nghe bừa bãi mọi topic)*<br/>**Bắn (Publish):**<br/>• `DssForecastCompletedEvent` | • `/api/v1/admin/analytics/*` (Dashboard GMV real-time)<br/>• `/api/v1/ai/recommendations` (AI giỏ quà Tết) |
 | **MS-12**<br/>`shipping-service` | Port: 8012<br/>DB: PostgreSQL | **Nhận (Provider):**<br/>• `CalculateShippingFee` (từ MS-04)<br/>**Gọi (Consumer):** Không | **Nghe (Consume):**<br/>• `PackingCompletedEvent` (MS-02 - gọi API 3PL tạo vận đơn)<br/>**Bắn (Publish):**<br/>• `ShipmentCreatedEvent`<br/>• `ShipmentDeliveredEvent`<br/>• `ShipmentFailedEvent` | • `/api/v1/webhooks/logistics/ghn`<br/>• `/api/v1/webhooks/logistics/viettelpost` (Đồng bộ lộ trình bưu tá) |
-| **MS-13**<br/>`channel-service` | Port: 8013<br/>DB: PostgreSQL | **Nhận:** Không<br/>**Gọi (Consumer):**<br/>• MS-01 (`ReserveStock` - khóa tồn ngay khi có đơn sàn)<br/>• MS-04 (`CreateInternalOrder` - tạo đơn nội bộ) | **Nghe (Consume):**<br/>• `StockLevelChangedEvent` (MS-01 - sync số lượng khả dụng lên Shopee/TikTok)<br/>**Bắn (Publish):**<br/>• `MarketplaceOrderImportedEvent` | • `/api/v1/webhooks/marketplace/shopee`<br/>• `/api/v1/webhooks/marketplace/tiktok`<br/>• `/api/v1/pos/*` (Giao diện quầy thu ngân offline) |
+| **MS-13**<br/>`channel-service` | Port: 8013<br/>DB: PostgreSQL | **Nhận:** Không<br/>**Gọi (Consumer):**<br/>• MS-04 (`CreatePOSOrder` - tạo đơn quầy trực tiếp)<br/>• MS-05 (`GetProductPrice` - tra cứu giá niêm yết khi đồng bộ sàn) | **Nghe (Consume):**<br/>• `StockLevelChangedEvent` (MS-01 - sync số lượng khả dụng lên Shopee/TikTok)<br/>• `MarketplaceOrderStockFailedEvent` (MS-04 Saga - xử lý hủy đơn sàn / cảnh báo CSKH khi hết tồn dùng chung)<br/>**Bắn (Publish):**<br/>• `MarketplaceOrderImportedEvent` (chuẩn hóa từ Webhook sàn đưa vào Saga) | • `/api/v1/webhooks/marketplace/shopee`<br/>• `/api/v1/webhooks/marketplace/tiktok`<br/>• `/api/v1/pos/*` (Giao diện quầy thu ngân offline) |
 | **MS-14**<br/>`marketing-service` | Port: 8014<br/>DB: PostgreSQL | **Nhận:** Không<br/>**Gọi (Consumer):** Không | **Nghe (Consume):**<br/>• `UserRegisteredEvent` (MS-16)<br/>• `ExpiryWarningEvent` (MS-01 - phát động chiến dịch xả hàng cận date)<br/>**Bắn (Publish):**<br/>• `CampaignLaunchedEvent` | • `/api/v1/admin/marketing/*`<br/>• `/api/v1/admin/campaigns/*` (Phân bổ ngân sách quảng cáo) |
 | **MS-15**<br/>`profile-service` | Port: 8015<br/>DB: PostgreSQL | **Nhận (Provider):**<br/>• `GetCustomerProfile` (Query từ MS-04, MS-06)<br/>• `GetDeliveryAddress` (Query từ MS-04, MS-02)<br/>**Gọi (Consumer):** Không | **Nghe (Consume):**<br/>• `UserRegisteredEvent` (MS-16 - tạo hồ sơ trống)<br/>**Bắn (Publish):**<br/>• `ProfileUpdatedEvent` | • `/api/v1/profile/*`<br/>• `/api/v1/profile/addresses/*` (Sổ địa chỉ nhận kẹo) |
 | **MS-16**<br/>`identity-service` | Port: 8016<br/>DB: PostgreSQL + Redis | **Nhận (Provider):**<br/>• `GetJwksPublicKey` (Gateway nạp cache)<br/>• `CheckSpecializedPermission` (Quyết định động)<br/>**Gọi (Consumer):** Không | **Nghe:** Không<br/>**Bắn (Publish):**<br/>• `UserRegisteredEvent`<br/>• `UserDeactivatedEvent`<br/>• `PasswordChangedEvent` | • `/api/v1/auth/login`<br/>• `/api/v1/auth/register`<br/>• `/api/v1/auth/refresh`<br/>• `/api/v1/auth/logout` |
@@ -478,18 +491,121 @@ Khách đặt hàng
 
 ---
 
-## 4. DIỄN GIẢI CHI TIẾT CÁC HỢP ĐỒNG ĐỒNG BỘ (gRPC SYNCHRONOUS ON CRITICAL PATH)
+---
+
+## 4. LUỒNG NGHIỆP VỤ LÕI (CRITICAL PATH): ÁP LUẬT VÀO LUỒNG ĐẶT HÀNG & THANH TOÁN D2C (BƯỚC 4)
+
+### 4.1. Kiến Trúc Luồng Đặt Hàng & Thanh Toán Chuẩn (Checkout D2C Critical Path)
+
+Áp dụng chặt chẽ **Khung 4 Quy tắc Giao tiếp** và **Nguyên tắc Tập trung hóa Đền bù (Mục 3.4)** đã chốt ở Chương 3, luồng nghiệp vụ mua hàng trực tiếp (D2C) qua Website (`omamx.vn`) và Mobile App đại diện cho luồng giao dịch sâu và quan trọng nhất của toàn hệ thống.
+
+Tại đây, hệ thống giải quyết trọn vẹn 3 bài toán kiến trúc sống còn:
+1. **Bảo vệ trải nghiệm người dùng (Độ trễ API Critical Path < 200ms - NFR-01):** Khách hàng không thể chờ đợi quá 0.5s để biết đơn hàng có được xác nhận hay không.
+2. **Bảo vệ tính toàn vẹn tồn kho tuyệt đối (Anti-Overselling - NFR-06):** Tuyệt đối không được bán vượt quá số lượng kẹo thực tế có trong kho xưởng Huế.
+3. **Tách rời chuỗi cung ứng hậu kỳ (Decoupled Downstream Workflows):** Đóng gói, giao hàng, phát hành hóa đơn VAT, gửi tin ZNS và nạp kho phân tích dữ liệu **hoàn toàn không được phép nằm trên đường găng (Off the Critical Path)**.
+
+---
+
+### 4.2. Sơ Đồ Tuần Tự Tương Tác Kỹ Thuật (Sequence Diagram)
+
+Sơ đồ dưới đây đặc tả chi tiết sự phối hợp nhịp nhàng giữa **gRPC Synchronous Commands (trên Critical Path)** và **Apache Kafka Asynchronous Events (cho Downstream Handshakes & Workflows)**:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Customer as Khách Hàng (D2C)
+    participant Gateway as API Gateway (Kong)
+    participant Order as MS-04: Order Service (Saga)
+    participant Inventory as MS-01: Inventory Service
+    participant Catalog as MS-05: Catalog Service
+    participant Promotion as MS-07: Promotion Service
+    participant PaymentGW as Ngân Hàng / VietQR
+    participant Kafka as Apache Kafka (Unified Broker)
+    participant Fulfillment as MS-02: Fulfillment Service
+    participant Shipping as MS-12: Shipping Service
+    participant Notif as MS-17: Notification Service
+
+    Note over Customer,Promotion: GIAI ĐOẠN 1: CRITICAL PATH CHECKOUT (ĐỒNG BỘ < 200ms)
+    Customer->>Gateway: POST /api/v1/checkout (JWT Token, Cart Items, Address)
+    Gateway->>Gateway: Validate JWT qua Cached JWKS (0.05ms) + Sanitize Headers
+    Gateway->>Order: Forward Request kèm X-User-Id, X-User-Roles, traceparent
+    Order->>Order: Local DB Tx: Khởi tạo Order DRAFT + Saga State IN_PROGRESS
+    
+    par gRPC Synchronous Verification trên Critical Path
+        Order->>Inventory: gRPC: ReserveStock(order_id, items, ttl=15m)
+        Inventory->>Inventory: DB Tx (SELECT FOR UPDATE): Khóa tồn 15m trong stock_reservations
+        Inventory-->>Order: Response: RESERVATION_STATUS_SUCCESS
+    and
+        Order->>Catalog: gRPC: ValidatePriceAndSKU(items)
+        Catalog-->>Order: Response: VALID (Đúng giá niêm yết)
+    and
+        Order->>Promotion: gRPC: ValidateVoucher(voucher_code, customer_id)
+        Promotion-->>Order: Response: VALID (Đủ điều kiện giảm 10%)
+    end
+
+    Order->>Order: Local DB Tx: Update status = PENDING_PAYMENT, Sinh VietQR động
+    Order-->>Gateway: Trả về Order Summary + Mã VietQR (345.000 VND)
+    Gateway-->>Customer: Hiển thị màn hình Quét mã VietQR (Đồng hồ đếm ngược 15:00)
+
+    Note over Customer,Notif: GIAI ĐOẠN 2: THANH TOÁN & BẤT ĐỒNG BỘ HẬU KỲ (ASYNC WORKFLOW)
+    Customer->>PaymentGW: Quét mã VietQR chuyển tiền qua App Ngân hàng
+    PaymentGW->>Gateway: Webhook: POST /api/v1/payments/vietqr/callback (HMAC-SHA256)
+    Gateway->>Order: Forward Webhook (Verify HMAC Signature)
+    
+    Order->>Order: Local DB Tx: Order status = PAID + Ghi Outbox OrderPaidEvent
+    Order-->>Gateway: HTTP 200 OK
+    Gateway-->>PaymentGW: HTTP 200 OK (Xác nhận nhận tiền)
+
+    Note over Order,Notif: GIAI ĐOẠN 3: PHÁT SỰ KIỆN KAFKA CHO CHUỖI CUNG ỨNG HẬU KỲ
+    Order->>Kafka: Outbox Poller publish: OrderPaidEvent (shipping_address_id, no PII)
+    
+    par Các dịch vụ hạ nguồn tiêu thụ độc lập (Non-blocking)
+        Kafka->>Fulfillment: Consume: OrderPaidEvent -> Tạo Picking Task tại xưởng Huế
+        Kafka->>Inventory: Consume: OrderPaidEvent -> Trừ tồn kho vật lý chính thức (FEFO)
+        Kafka->>Notif: Consume: OrderPaidEvent -> Bắn tin nhắn Zalo ZNS / SMS xác nhận đơn
+    end
+```
+
+---
+
+### 4.3. Phân Tích Đường Găng & Tính Đúng Đắn Kỹ Thuật (Critical Path Analysis)
+
+| Tiêu Chí Phân Tích | Quyết Định Thiết Kế Trên Đường Găng | Cơ Sở Khoa Học & Chuẩn Hóa Theo Chương 3 |
+| :--- | :--- | :--- |
+| **Khóa tồn kho (`ReserveStock`)** | **BẮT BUỘC gRPC Đồng Bộ (Synchronous)** | Thỏa mãn Quy tắc 2 (Command Critical Path): Cần biết kết quả ngay lập tức trong 20ms để quyết định có mở cổng thanh toán cho khách hay không. Tuyệt đối không để khách chuyển tiền khi kho đã hết kẹo (chống bán lố). |
+| **Thẩm định giá (`ValidatePriceAndSKU`)** | **BẮT BUỘC gRPC Đồng Bộ (Synchronous)** | Thao tác Query Critical Path (Quy tắc 1): Chặn đứng gian lận client-side sửa giá gói tin HTTP trước khi cấp mã VietQR. |
+| **Thẩm định voucher (`ValidateVoucher`)** | **BẮT BUỘC gRPC Đồng Bộ (Synchronous)** | Thao tác Query Critical Path (Quy tắc 1): Đảm bảo mã giảm giá hợp lệ và ngân sách chương trình khuyến mãi còn đủ. |
+| **Đóng gói tại xưởng (`fulfillment-service`)** | **HOÀN TOÀN Bất Đồng Bộ (Asynchronous Kafka)** | Thỏa mãn Quy tắc 4 (Event Chuyển Giao Quy Trình): Thợ xưởng cần vài chục phút để nhặt kẹo và quay video. Việc đóng gói không thể và không được phép bắt khách hàng phải chờ đợi trên màn hình checkout! |
+| **Vận chuyển 3PL (`shipping-service`)** | **HOÀN TOÀN Bất Đồng Bộ (Asynchronous Kafka)** | Chờ đóng gói xong mới gọi API tạo vận đơn GHN/ViettelPost. Khách không cần đợi bưu tá nhận đơn mới được coi là mua hàng thành công. |
+| **Thông báo Zalo/SMS (`notification-service`)** | **HOÀN TOÀN Bất Đồng Bộ (Asynchronous Kafka)** | Nếu mạng viễn thông hoặc cổng Zalo ZNS bị chậm 5 giây, giao dịch mua kẹo vẫn hoàn tất tức thì trong 150ms mà không bị treo. |
+
+---
+
+## 5. HỢP ĐỒNG GIAO TIẾP CHI TIẾT (HỆ QUẢ CỦA LUỒNG: SYNC TRƯỚC, ASYNC SAU) (BƯỚC 5)
+
+> [!NOTE]
+> **Nguyên Lý Thiết Kế: Hợp Đồng Là Hệ Quả Sinh Ra Từ Luồng Nghiệp Vụ, Không Phải Ngược Lại!**
+> Sau khi đã xác lập rõ ràng Luồng Nghiệp Vụ Lõi (Chương 4), các yêu cầu trao đổi dữ liệu giữa các dịch vụ trở nên hoàn toàn minh bạch. Dưới đây là đặc tả chi tiết toàn bộ các hợp đồng kỹ thuật: **Hợp đồng gRPC đồng bộ trên Critical Path (Mục 5.1)** và **Hợp đồng Kafka Domain Events cho chuỗi cung ứng bất đồng bộ (Mục 5.2)**.
+
+---
+
+### 5.1. Các Hợp Đồng Đồng Bộ (gRPC Synchronous on Critical Path)
 
 Các hợp đồng này sử dụng công nghệ **gRPC trên nền tảng HTTP/2**, truyền tải dữ liệu dạng nhị phân siêu nén (Protocol Buffers), mang lại độ trễ cực thấp (< 10ms) và tính an toàn kiểu dữ liệu tuyệt đối khi biên dịch.
 
 ---
 
-### 4.1. Hợp Đồng Khóa Tồn Kho Tức Thời (`ReserveStock`)
+Các hợp đồng này sử dụng công nghệ **gRPC trên nền tảng HTTP/2**, truyền tải dữ liệu dạng nhị phân siêu nén (Protocol Buffers), mang lại độ trễ cực thấp (< 10ms) và tính an toàn kiểu dữ liệu tuyệt đối khi biên dịch.
+
+---
+
+#### 5.1.1. Hợp Đồng Khóa Tồn Kho Tức Thời (`ReserveStock`)
 *Đây là hợp đồng mang tính sống còn nhất của toàn bộ hệ thống, bảo vệ nguyên tắc kinh doanh bất di bất dịch: Tuyệt đối không được bán vượt quá số lượng kẹo thực tế có trong kho xưởng (Anti-Overselling).*
 
-- **Bên Tiêu Thụ (Consumer / Customer):** 
-  - `order-service` (khi khách mua qua Website/App).
-  - `channel-service` (khi đơn hàng từ Shopee/TikTok Shop đổ về).
+- **Bên Tiêu Thụ Duy Nhất (Sole Consumer):** `order-service` (Saga Orchestrator điều phối cả giao dịch Checkout D2C Web/App lẫn luồng Import đơn sàn Marketplace Inbound Saga).
+> [!IMPORTANT]
+> **Quy Tắc Kiến Trúc: Tuyệt Đối CẤM `channel-service` Gọi Trực Tiếp `ReserveStock`!**
+> Nếu `channel-service` tự tay gọi gRPC `ReserveStock` sang Inventory rồi mới gọi tạo đơn sang Order Service, hệ thống sẽ rơi vào tình huống "Dual-Write Không Có Đền Bù" (Uncoordinated Distributed Dual-Write). Nếu bước tạo đơn phía sau thất bại hoặc timeout, `order-service` hoàn toàn không biết đơn hàng tồn tại để kích hoạt đền bù, dẫn đến **Tồn kho bị khóa mồ côi (Orphaned Reservation)** làm sai lệch số lượng hàng bán. Do đó, `channel-service` chỉ đóng vai trò Anti-Corruption Layer (ACL) phát sự kiện `MarketplaceOrderImportedEvent` lên Kafka; chính Saga Orchestrator trong `order-service` tiêu thụ sự kiện này và độc quyền gọi `ReserveStock`, bảo đảm 100% nguyên tắc Centralized Compensation của Mục 3.4.
 - **Bên Cung Cấp (Provider):** `inventory-service` (Dịch vụ quản lý kho & lô hàng).
 - **Giao thức:** gRPC qua cổng nội bộ 8001.
 - **Bản chất nghiệp vụ:** Khi khách hàng bấm "Đặt hàng", hệ thống không thể dự đoán bừa là trong kho còn kẹo hay không. Bắt buộc phải có xác nhận chính thức từ cơ sở dữ liệu kho rằng "Đã giữ riêng số hộp kẹo này trong 15 phút" thì mới được phép cấp mã VietQR cho khách thanh toán.
@@ -511,7 +627,7 @@ Các hợp đồng này sử dụng công nghệ **gRPC trên nền tảng HTTP/
 
 ---
 
-### 4.2. Hợp Đồng Giải Phóng Tồn Kho Khóa Tạm (`ReleaseReservation`)
+#### 5.1.2. Hợp Đồng Giải Phóng Tồn Kho Khóa Tạm (`ReleaseReservation`)
 - **Bên Tiêu Thụ (Consumer):** `order-service`.
 - **Bên Cung Cấp (Provider):** `inventory-service`.
 - **Giao thức:** gRPC.
@@ -521,7 +637,7 @@ Các hợp đồng này sử dụng công nghệ **gRPC trên nền tảng HTTP/
 
 ---
 
-### 4.3. Hợp Đồng Thẩm Định Giá Bán & Mã Hàng (`ValidatePriceAndSKU`)
+#### 5.1.3. Hợp Đồng Thẩm Định Giá Bán & Mã Hàng (`ValidatePriceAndSKU`)
 - **Bên Tiêu Thụ (Consumer):** `order-service`.
 - **Bên Cung Cấp (Provider):** `catalog-service` (Dịch vụ Quản lý Danh mục & Giá).
 - **Giao thức:** gRPC qua cổng nội bộ 8005.
@@ -533,7 +649,7 @@ Các hợp đồng này sử dụng công nghệ **gRPC trên nền tảng HTTP/
 
 ---
 
-### 4.4. Hợp Đồng Thẩm Định Mã Giảm Giá & Voucher (`ValidateVoucher`)
+#### 5.1.4. Hợp Đồng Thẩm Định Mã Giảm Giá & Voucher (`ValidateVoucher`)
 - **Bên Tiêu Thụ (Consumer):** `order-service`.
 - **Bên Cung Cấp (Provider):** `promotion-service` (Dịch vụ Khuyến mãi & Voucher).
 - **Giao thức:** gRPC qua cổng nội bộ 8007.
@@ -543,7 +659,7 @@ Các hợp đồng này sử dụng công nghệ **gRPC trên nền tảng HTTP/
 
 ---
 
-### 4.5. Hợp Đồng Tính Cước Vận Chuyển Chuẩn (`CalculateShippingFee`)
+#### 5.1.5. Hợp Đồng Tính Cước Vận Chuyển Chuẩn (`CalculateShippingFee`)
 - **Bên Tiêu Thụ (Consumer):** `order-service`.
 - **Bên Cung Cấp (Provider):** `shipping-service` (Dịch vụ Vận chuyển & Giao vận).
 - **Giao thức:** gRPC qua cổng nội bộ 8012.
@@ -553,7 +669,7 @@ Các hợp đồng này sử dụng công nghệ **gRPC trên nền tảng HTTP/
 
 ---
 
-### 4.6. Hợp Đồng Lấy Bằng Chứng Đóng Gói Video (`GetPackingVideoUrl`)
+#### 5.1.6. Hợp Đồng Lấy Bằng Chứng Đóng Gói Video (`GetPackingVideoUrl`)
 - **Bên Tiêu Thụ (Consumer):** `care-service` (Dịch vụ Chăm sóc Khách hàng & Giải quyết Khiếu nại).
 - **Bên Cung Cấp (Provider):** `fulfillment-service` (Dịch vụ Đóng gói & Xử lý Kiện hàng).
 - **Giao thức:** gRPC qua cổng nội bộ 8002.
@@ -566,7 +682,7 @@ Các hợp đồng này sử dụng công nghệ **gRPC trên nền tảng HTTP/
 
 ---
 
-### 4.7. Hợp Đồng Thẩm Duyệt Đặc Quyền Động (`CheckSpecializedPermission`)
+#### 5.1.7. Hợp Đồng Thẩm Duyệt Đặc Quyền Động (`CheckSpecializedPermission`)
 - **Bên Tiêu Thụ (Consumer):** `order-service`, `finance-service`.
 - **Bên Cung Cấp (Provider):** `identity-service` (Dịch vụ Định danh & Phân quyền IAM).
 - **Giao thức:** gRPC qua cổng nội bộ 8016.
@@ -576,9 +692,15 @@ Các hợp đồng này sử dụng công nghệ **gRPC trên nền tảng HTTP/
 
 ---
 
-## 5. DIỄN GIẢI CHI TIẾT CÁC HỢP ĐỒNG BẤT ĐỒNG BỘ (KAFKA DOMAIN EVENTS ON WORKFLOWS)
+---
 
-### 5.1. Tối Thiểu Hóa PII Trong Sự Kiện "Đơn Hàng Đã Thanh Toán" (`OrderPaidEvent`)
+### 5.2. Các Hợp Đồng Bất Đồng Bộ (Kafka Domain Events on Workflows)
+
+Các sự kiện này đại diện cho sự thay đổi trạng thái bất biến trong quá khứ (*"Fact that already happened"*). Các dịch vụ phát sinh sự kiện sử dụng mô hình **Transactional Outbox Pattern** để đảm bảo dữ liệu ghi vào CSDL cục bộ và thông điệp bắn lên Kafka luôn nhất quán 100% (At-least-once Delivery).
+
+---
+
+#### 5.2.1. Tối Thiểu Hóa PII Trong Sự Kiện "Đơn Hàng Đã Thanh Toán" (`OrderPaidEvent`)
 Một nguyên tắc bảo mật thông tin (Data Privacy) cốt lõi là: **Sự kiện bắn qua Message Broker càng ít dữ liệu cá nhân nhạy cảm (PII) càng tốt**.
 
 Trong thiết kế cũ, `OrderPaidEvent` chứa cả tên khách hàng, số điện thoại và địa chỉ nhà chi tiết. Khi bắn lên Kafka, sự kiện này được tiêu thụ bởi cả `inventory-service`, `finance-service`, `analytics-service` → Vô hình trung làm rò rỉ dữ liệu cá nhân của khách hàng đến các service hoàn toàn không cần địa chỉ nhà (như kho chỉ cần trừ số lượng, kế toán chỉ cần số tiền, analytics chỉ cần kênh bán)!
@@ -625,7 +747,7 @@ Trong thiết kế cũ, `OrderPaidEvent` chứa cả tên khách hàng, số đi
 
 ---
 
-### 5.2. Phân Định Dữ Liệu: Nghiệp Vụ vs Kiểm Toán vs Phân Tích
+#### 5.2.2. Phân Định Dữ Liệu: Nghiệp Vụ vs Kiểm Toán vs Phân Tích
 Tuyệt đối không dùng chung một "Generic Event" cồng kềnh cho cả 3 mục đích:
 
 | Tiêu Chí So Sánh | Dữ Liệu Nghiệp Vụ (`OrderPaidEvent`) | Dữ Liệu Kiểm Toán (`AuditEvent`) | Dữ Liệu Phân Tích (`Analytics Ingestion`) |
@@ -637,7 +759,7 @@ Tuyệt đối không dùng chung một "Generic Event" cồng kềnh cho cả 3
 
 ---
 
-### 5.3. Chuẩn Hóa Analytics Ingestion: Bỏ Cơ Chế Wildcard Lắng Nghe Bừa Bãi
+#### 5.2.3. Chuẩn Hóa Analytics Ingestion: Bỏ Cơ Chế Wildcard Lắng Nghe Bừa Bãi
 Trong thiết kế sơ khởi, `analytics-service` được ghi là *"Lắng nghe Wildcard MỌI sự kiện hệ thống `order.*`, `inventory.*`..."*. Trong môi trường production với 18 microservices và hàng trăm loại event, cơ chế wildcard này sẽ làm:
 1. Consumer của Analytics bị quá tải vì phải nhai nuốt hàng triệu event vụn vặt (như session heartbeats, token refresh, audit pings).
 2. Vi phạm nguyên tắc bảo mật khi Analytics đọc được các sự kiện nội bộ nhạy cảm.
@@ -651,7 +773,7 @@ Trong thiết kế sơ khởi, `analytics-service` được ghi là *"Lắng ngh
 
 ---
 
-### 5.4. Sự Kiện "Đóng Gói Hoàn Tất & Niêm Phong" (`PackingCompletedEvent`)
+#### 5.2.4. Sự Kiện "Đóng Gói Hoàn Tất & Niêm Phong" (`PackingCompletedEvent`)
 - **Bên Phát (Publisher):** `fulfillment-service`.
 - **Kênh (Topic):** `fulfillment.events.v1` (Khóa phân vùng Partition Key theo `order_id`).
 - **Nội dung:** `order_id`, `packer_staff_id`, `package_seal_code`, `total_weight_grams`, thông tin video (storage key, sha256 checksum), và danh sách Lô thực tế (`batch_code`, `mfg_date`, `exp_date`).
@@ -662,7 +784,7 @@ Trong thiết kế sơ khởi, `analytics-service` được ghi là *"Lắng ngh
 
 ---
 
-### 5.5. Sự Kiện "Biến Động Số Lượng Tồn Kho" (`StockLevelChangedEvent`)
+#### 5.2.5. Sự Kiện "Biến Động Số Lượng Tồn Kho" (`StockLevelChangedEvent`)
 - **Bên Phát:** `inventory-service` → **Topic:** `inventory.events.v1` (Partition Key theo `sku_code`).
 - **Nội dung:** `sku_code`, `physical_qty`, `reserved_qty`, `available_qty`, `change_reason`.
 - **Người tiêu thụ:**
@@ -671,7 +793,7 @@ Trong thiết kế sơ khởi, `analytics-service` được ghi là *"Lắng ngh
 
 ---
 
-### 5.6. Sự Kiện "Nhập Kho Nguyên Liệu Mè/Đậu Mới" (`GoodsReceivedEvent`)
+#### 5.2.6. Sự Kiện "Nhập Kho Nguyên Liệu Mè/Đậu Mới" (`GoodsReceivedEvent`)
 - **Bên Phát:** `procurement-service` → **Topic:** `procurement.events.v1`.
 - **Nội dung:** `po_number`, `supplier_id`, số lượng cân thực nhận, ngày thu hoạch, hạn dùng.
 - **Người tiêu thụ:**
@@ -680,7 +802,7 @@ Trong thiết kế sơ khởi, `analytics-service` được ghi là *"Lắng ngh
 
 ---
 
-### 5.7. Sự Kiện "Cảnh Báo Lô Hàng Cận Hạn Sử Dụng FEFO" (`ExpiryWarningEvent`)
+#### 5.2.7. Sự Kiện "Cảnh Báo Lô Hàng Cận Hạn Sử Dụng FEFO" (`ExpiryWarningEvent`)
 - **Bên Phát:** `inventory-service` (chạy job quét 01:00 AM) → **Topic:** `inventory.events.v1`.
 - **Nội dung:** Danh sách các Lô kẹo mè xửng có HSD cận kề dưới 45 ngày.
 - **Người tiêu thụ:**
@@ -689,7 +811,7 @@ Trong thiết kế sơ khởi, `analytics-service` được ghi là *"Lắng ngh
 
 ---
 
-### 5.8. Cơ Chế Bảo Vệ Hàng Đợi: Retry Topic & Dead Letter Queue (DLQ)
+#### 5.2.8. Cơ Chế Bảo Vệ Hàng Đợi: Retry Topic & Dead Letter Queue (DLQ)
 Áp dụng chiến lược phòng thủ 3 tầng:
 1. **Immediate Retry (3 lần):** Thử lại ngay lập tức với Exponential Backoff (1s, 2s, 4s).
 2. **Retry Topic (`*.retry.v1`):** Hoãn 60 giây để chờ dịch vụ hạ nguồn hồi phục.
@@ -697,9 +819,21 @@ Trong thiết kế sơ khởi, `analytics-service` được ghi là *"Lắng ngh
 
 ---
 
-## 6. MẶT PHẲNG KIỂM TOÁN PHÁP LÝ (AUDIT PLANE & TAMPER-EVIDENT ARCHITECTURE)
+---
 
-### 6.1. Vì Sao Audit Phải Tách Rời Khỏi Business Transaction Flow?
+## 6. CÁC MẶT PHẲNG ĐỘC LẬP XUYÊN SUỐT (CROSS-CUTTING CONCERNS) (BƯỚC 6)
+
+> [!IMPORTANT]
+> **Nguyên Tắc Tách Bạch Hạ Tầng:**
+> Mặt phẳng Kiểm toán Pháp lý (Audit Plane) và Mặt phẳng Giám sát Viễn trắc (Observability Plane) là hai mối quan tâm xuyên suốt (Cross-cutting Concerns). Chúng phục vụ mục đích an ninh, tuân thủ và vận hành kỹ thuật, **tuyệt đối không được hòa lẫn vào Business Plane và không bao giờ được phép làm nghẽn mạch (blocking) luồng giao dịch mua sắm kẹo của khách hàng**.
+
+---
+
+### 6.1. Mặt Phẳng Kiểm Toán Pháp Lý (Audit Plane & Tamper-Evident Architecture)
+
+---
+
+#### 6.1.1. Vì Sao Audit Phải Tách Rời Khỏi Business Transaction Flow?
 Trong thiết kế đồng bộ sai lầm:
 ```text
 Khách đặt hàng ──> Order Service ──gRPC──> Inventory Service
@@ -724,7 +858,7 @@ Giao dịch mua bán của khách hàng hoàn tất 100% độc lập. Nếu `au
 
 ---
 
-### 6.2. Giải Quyết Bài Toán Hash Chain Trong Hệ Thống Phân Tán: Entity-Level Chain
+#### 6.1.2. Giải Quyết Bài Toán Hash Chain Trong Hệ Thống Phân Tán: Entity-Level Chain
 Nhiều tài liệu thiết kế tuyên bố: *"Hệ thống dùng Hash Chain toàn cục nối đuôi nhau như Blockchain: Record sau băm kèm mã băm của Record trước"*.
 
 **Thực Tế Kỹ Thuật (Reality Check):**
@@ -741,7 +875,7 @@ Thay vì cố tạo một chuỗi băm toàn cục vô lý, hệ thống băm ch
 
 ---
 
-### 6.3. Đối Soát Toàn Vẹn Định Kỳ: Periodic Merkle Tree Checkpoint & WORM Storage
+#### 6.1.3. Đối Soát Toàn Vẹn Định Kỳ: Periodic Merkle Tree Checkpoint & WORM Storage
 Để bảo vệ toàn bộ các chuỗi băm phân tán, hệ thống áp dụng cơ chế **Cây Merkle định kỳ (Periodic Merkle Tree Checkpoint)**:
 1. Vào cuối mỗi giờ (hoặc cuối ngày), `audit-service` gom toàn bộ các Audit Records phát sinh trong block giờ đó, dựng thành một cây **Merkle Tree**.
 2. Tính toán mã băm gốc duy nhất đại diện cho toàn bộ dữ liệu của giờ đó: **Merkle Root Hash**.
@@ -749,7 +883,7 @@ Thay vì cố tạo một chuỗi băm toàn cục vô lý, hệ thống băm ch
 
 ---
 
-### 6.4. Định Nghĩa Chuẩn Xác: Tamper-Evident Audit Trail (Phát Hiện Can Thiệp)
+#### 6.1.4. Định Nghĩa Chuẩn Xác: Tamper-Evident Audit Trail (Phát Hiện Can Thiệp)
 > [!IMPORTANT]
 > **Đính chính khái niệm kỹ thuật:**
 > Tuyệt đối không tuyên bố: *"Cơ sở dữ liệu bất biến tuyệt đối, kể cả DB Administrator cũng không thể can thiệp"*.
@@ -760,9 +894,13 @@ Thay vì cố tạo một chuỗi băm toàn cục vô lý, hệ thống băm ch
 
 ---
 
-## 7. MẶT PHẲNG GIÁM SÁT VIỄN TRẮC (OBSERVABILITY PLANE & OPENTELEMETRY ARCHITECTURE)
+---
 
-### 7.1. Kiến Trúc Thu Thập Telemetry: OTel Collector Data Plane
+### 6.2. Mặt Phẳng Giám Sát Viễn Trắc (Observability Plane & OpenTelemetry Architecture)
+
+---
+
+#### 6.2.1. Kiến Trúc Thu Thập Telemetry: OTel Collector Data Plane
 Dịch vụ nghiệp vụ không bao giờ được "gọi" sang một Observability Service bằng gRPC hay Kafka. Việc theo dõi sức khỏe hệ thống phải diễn ra trong suốt và không cản trở luồng chạy chính.
 
 Mô hình triển khai chuẩn quốc tế:
@@ -779,7 +917,7 @@ Mô hình triển khai chuẩn quốc tế:
 
 ---
 
-### 7.2. Bảo Toàn Chuỗi Vết Phân Tán W3C Trace Context (`traceparent`)
+#### 6.2.2. Bảo Toàn Chuỗi Vết Phân Tán W3C Trace Context (`traceparent`)
 Hệ thống duy trì một mã vết duy nhất xuyên suốt qua cả 3 môi trường giao tiếp:
 
 ```text
@@ -799,7 +937,7 @@ Nhờ cơ chế này, công cụ Jaeger có thể vẽ được cây thác nư�
 
 ---
 
-### 7.3. Bộ 4 Tín Hiệu Vàng (Golden Signals) Trên Prometheus & Grafana
+#### 6.2.3. Bộ 4 Tín Hiệu Vàng (Golden Signals) Trên Prometheus & Grafana
 - **Độ trễ (Latency):** Giám sát thời gian phản hồi P95 và P99 của từng API (cảnh báo nếu > 2s).
 - **Lưu lượng (Traffic):** Đo số lượng yêu cầu mỗi giây (RPS) vào từng microservice.
 - **Tỷ lệ lỗi (Errors):** Đếm số mã lỗi HTTP 5xx hoặc gRPC `INTERNAL_ERROR`.
@@ -807,13 +945,24 @@ Nhờ cơ chế này, công cụ Jaeger có thể vẽ được cây thác nư�
 
 ---
 
-## 8. HÀNH TRÌNH THỰC TẾ CỦA MỘT GIAO DỊCH ĐIỂN HÌNH (STORY WALKTHROUGH BẰNG LỜI)
+---
 
-Dưới đây là câu chuyện diễn giải chi tiết từng mili-giây diễn biến của một đơn hàng mua mè xửng Huế trên website theo đúng mô hình **Hybrid Saga Orchestration**:
+## 7. STORY WALKTHROUGH BẰNG LỜI: BẮT LỖI MÂU THUẪN TRONG KỊCH BẢN THỰC TẾ (BƯỚC 7)
+
+> [!TIP]
+> **Giá Trị Thực Sự Của Story Walkthrough:**
+> Story Walkthrough (Kể chuyện hành trình thực tế từng mili-giây) không phải là một đoạn văn miêu tả thông thường, mà là **công cụ kiểm chứng kiến trúc tối thượng để bắt lỗi mâu thuẫn giữa luồng cụ thể và luật đã chốt ở Chương 3**.
+> Nhờ Story Walkthrough, chúng ta đã phát hiện và loại bỏ mâu thuẫn nghiêm trọng của `channel-service` khi tự ý gọi `ReserveStock`, bảo vệ tuyệt đối nguyên tắc **Centralized Compensation** của hệ thống!
 
 ---
 
-### Giai Đoạn 1: Khách Bấm Nút "Đặt Mua 2 Hộp Mè Xửng Giòn" Trên Website (Thời gian: 0.15 giây)
+### 7.1. Story Walkthrough 1 — Hành Trình Thực Tế Của Một Giao Dịch D2C Điển Hình
+
+Dưới đây là câu chuyện diễn giải chi tiết từng mili-giây diễn biến của một đơn hàng mua mè xửng Huế trên Website/App theo đúng mô hình **Hybrid Saga Orchestration**:
+
+---
+
+#### Giai Đoạn 1: Khách Bấm Nút "Đặt Mua 2 Hộp Mè Xửng Giòn" Trên Website (Thời gian: 0.15 giây)
 1. **Khách hàng** bấm nút "Đặt Hàng" trên Web D2C. Trình duyệt gửi gói tin `POST /api/v1/checkout` kèm JWT Token qua HTTPS tới **API Gateway**.
 2. **API Gateway:**
    - Sử dụng Public Key (JWKS) lưu trên RAM để xác thực chữ ký JWT trong **0.05ms** (không gọi `identity-service`).
@@ -831,7 +980,7 @@ Dưới đây là câu chuyện diễn giải chi tiết từng mili-giây diễ
 
 ---
 
-### Kịch Bản Đền Bù Phân Tán (Ngoại Lệ: Nếu Thanh Toán Thất Bại / Hết Hạn 15 Phút):
+#### Kịch Bản Đền Bù Phân Tán (Ngoại Lệ: Nếu Thanh Toán Thất Bại / Hết Hạn 15 Phút):
 - Nếu sau 15 phút khách không chuyển tiền hoặc bấm nút "Hủy đơn":
 - **Saga Orchestrator** trong `order-service` phát hiện sự kiện hết hạn (`PaymentTimeout` hoặc `UserCancelled`).
 - **Saga Orchestrator chịu trách nhiệm 100% việc kích hoạt Compensation Command:** Gọi gRPC `ReleaseReservation` sang `inventory-service`.
@@ -840,7 +989,7 @@ Dưới đây là câu chuyện diễn giải chi tiết từng mili-giây diễ
 
 ---
 
-### Giai Đoạn 2: Khách Quét Mã VietQR Thành Công (Thời gian: 0.1 giây)
+#### Giai Đoạn 2: Khách Quét Mã VietQR Thành Công (Thời gian: 0.1 giây)
 1. Khách mở App Ngân hàng quét mã VietQR và xác nhận chuyển tiền. Tiền về tài khoản ngân hàng của xưởng O Mạ.
 2. Cổng thanh toán VietQR bắn gói tin Webhook bảo mật (kèm chữ ký HMAC-SHA256) vào API Gateway → Gateway chuyển tới **`order-service`**.
 3. **Saga Orchestrator** nhận thông báo thanh toán thành công (`PaymentSucceeded`):
@@ -852,13 +1001,13 @@ Dưới đây là câu chuyện diễn giải chi tiết từng mili-giây diễ
 
 ---
 
-### Giai Đoạn 3: Chuỗi Cung Ứng & Hậu Kỳ Bất Đồng Bộ (Hoàn Toàn Không Chờ Đợi)
+#### Giai Đoạn 3: Chuỗi Cung Ứng & Hậu Kỳ Bất Đồng Bộ (Hoàn Toàn Không Chờ Đợi)
 Outbox Poller quét bảng outbox và phát sự kiện `OrderPaidEvent` lên Kafka topic `order.events.v1`. Các dịch vụ hạ nguồn tự do tiêu thụ độc lập:
 
 1. **`fulfillment-service` (Xử lý Đóng Gói Tại Xưởng):**
    - Consume `OrderPaidEvent` → Tự động tạo một **Picking Task** (Nhiệm vụ nhặt hàng) trên hệ thống.
    - Màn hình tablet tại xưởng kẹo Huế phát tiếng chuông báo có đơn mới. Thợ đóng gói ra kệ lấy đúng 2 hộp mè xửng giòn theo nguyên tắc FEFO (lô sản xuất sớm nhất).
-   - Thợ đặt hộp kẹo lên bàn đóng gói, quét mã vạch và bấm nút quay video trên tablet. Camera tự động quay cận cảnh kẹo nguyên vẹn, dán tem niêm phong O Mạ (Seal Code: `SEAL-8899`) và tải video lên MinIO S3.
+   - Thợ đặt hộp kẹo lên bàn đóng gói, quét mã vạch và bấm nút quay video trên tablet. Camera tự động quay cận cảnh kẹo nguyên vẹn, dán tem niêm phong O Mạ (Seal Code: `SEAL-8899`) và tải video lên AWS S3.
    - `fulfillment-service` phát sự kiện `PackingCompletedEvent` lên Kafka topic `fulfillment.events.v1`.
 2. **`shipping-service` (Điều Phối Vận Chuyển 3PL):**
    - Consume `PackingCompletedEvent` → Tự động gọi Open API của ViettelPost/Giao Hàng Nhanh tạo vận đơn giao hàng và in phiếu bưu tá dán lên mặt thùng.
@@ -872,9 +1021,107 @@ Outbox Poller quét bảng outbox và phát sự kiện `OrderPaidEvent` lên Ka
 
 ---
 
-## 9. CÁC LUỒNG NGHIỆP VỤ MỞ RỘNG & TRỌNG YẾU THEO YÊU CẦU ĐỀ BÀI
+---
 
-### 9.1. Luồng Khiếu Nại, Kiểm Định & Hoàn Tiền Phân Tán (Return & Refund Saga - FR-06, FR-15)
+### 7.2. Story Walkthrough 2 — Hành Trình Nhập Đơn Sàn Marketplace & Cơ Chế Khóa Tồn / Đền Bù Phân Tán (Marketplace Inbound Saga - FR-13, NFR-06)
+
+Khác với Website D2C nơi khách hàng chủ động tương tác với giao diện Checkout, đơn hàng từ sàn TMĐT (Shopee, TikTok Shop) đổ về hệ thống thông qua **Webhook bất đồng bộ của bên thứ ba**. Hệ thống Mè Xửng O Mạ sử dụng **Kho tồn chung (Shared Physical Inventory Pool)** giữa D2C và Marketplace để tối ưu hóa vốn lưu động và vòng quay hàng hóa.
+
+Dưới đây là diễn biến chi tiết của luồng nhập đơn sàn, chứng minh việc tuân thủ triệt để **Nguyên tắc Centralized Compensation** (Mục 3.4) và cách thức khắc phục mâu thuẫn kiến trúc:
+
+```text
+Shopee / TikTok Shop
+       │ Webhook (HTTPS Inbound)
+       ▼
+MS-13: channel-service (Anti-Corruption Layer)
+       │ - Thẩm định chữ ký & Check Idempotency Key
+       │ - Normalize raw payload sang Canonical Event Model
+       │ - Ghi DB cục bộ (marketplace_orders)
+       │
+       ▼ Kafka Topic: channel.events.v1
+MarketplaceOrderImportedEvent (Asynchronous)
+       │
+       ▼
+MS-04: order-service (SAGA ORCHESTRATOR)
+       │ 1. Khởi tạo Order (status: IMPORTED_PENDING_STOCK)
+       │ 2. Khởi tạo Saga State (type: MARKETPLACE_IMPORT_SAGA)
+       │
+       ▼ gRPC Synchronous Command: ReserveStock()
+MS-01: inventory-service
+       │ - PostgreSQL: SELECT ... FOR UPDATE
+       │ - Khóa tồn 15m trong stock_reservations
+       │
+       ├─────────────────────────────────────────┐
+       ▼ [Thành Công: SUCCESS]                   ▼ [Thất Bại: INSUFFICIENT_STOCK]
+Order chuyển PAID / CONFIRMED             Order chuyển RESERVATION_FAILED
+Outbox: OrderPaidEvent                    Outbox: MarketplaceOrderStockFailedEvent
+       │ (Kafka Async)                           │ (Kafka Async)
+       ▼                                         ▼
+MS-02: fulfillment-service                MS-13: channel-service
+(Nhặt kẹo xưởng & đóng gói)               (Gọi Partner API hủy đơn / CS Alert)
+```
+
+#### Giai Đoạn 1: Tiếp Nhận Webhook Đơn Sàn Tại `channel-service` (Thời gian: 0.05 giây)
+1. Khách mua 5 hộp kẹo mè xửng giòn trên gian hàng Shopee Mall của O Mạ. Shopee gửi Webhook `POST /api/v1/webhooks/marketplace/shopee` tới **API Gateway** $\rightarrow$ chuyển tiếp tới **`channel-service`**.
+2. **`channel-service` (Đóng vai trò Anti-Corruption Layer - ACL):**
+   - Xác thực chữ ký số HMAC từ Shopee Secret Token để chống giả mạo Webhook.
+   - Kiểm tra `order_sn` của Shopee trong Redis Idempotency Store: Nếu đã tiếp nhận rồi thì lập tức trả HTTP 200 OK ngay (bảo vệ chống trùng lặp Webhook Retry).
+   - Ánh xạ mã sản phẩm từ sàn sang mã SKU nội bộ: Shopee Item ID `9928172` $\rightarrow$ SKU nội bộ `MX-GION-500G`.
+   - Lưu bản ghi raw webhook vào bảng `marketplace_orders` trong `channel_db`.
+   - **Phát sự kiện nghiệp vụ bất đồng bộ:** Ghi bản ghi `MarketplaceOrderImportedEvent` vào bảng Transactional Outbox.
+   - Trả về phản hồi HTTP 200 OK cho Shopee trong vòng **50ms**.
+3. *Đặc điểm cốt lõi:* `channel-service` **TUYỆT ĐỐI KHÔNG tự tay gọi gRPC sang Kho (`ReserveStock`) hay sang Đơn hàng**. Nó thuần túy đóng vai trò Ingestion Layer, bảo vệ hệ sinh thái không bị nghẽn mạch ngay cả trong sự kiện Megasale 11/11 hay 12/12.
+
+#### Giai Đoạn 2: Saga Orchestrator Khởi Động & Khóa Tồn Kho Dùng Chung (Thời gian: 0.03 giây)
+1. Outbox Poller phát sự kiện `MarketplaceOrderImportedEvent` lên Kafka topic `channel.events.v1`.
+2. **`order-service` (Saga Orchestrator) tiêu thụ sự kiện:**
+   - Tạo bản ghi đơn hàng nội bộ mới trong PostgreSQL với trạng thái ban đầu: `status = IMPORTED_PENDING_STOCK`.
+   - Tạo bản ghi phân tán trong bảng `saga_states` (`saga_type: MARKETPLACE_IMPORT_SAGA`, `correlation_id: ORD-SHOPEE-8821`, `status: IN_PROGRESS`).
+3. **Thực hiện bước Critical Path:**
+   - Saga Orchestrator phát lệnh **gRPC Synchronous Command `ReserveStock`** sang **`inventory-service`**.
+   - `inventory-service` mở Transaction PostgreSQL với `SELECT ... FOR UPDATE` trên bảng `inventory_stocks`, kiểm tra số lượng tồn kho khả dụng dùng chung.
+
+#### Kịch Bản 1 (Happy Path - Kho Còn Kẹo):
+1. `inventory-service` xác nhận còn đủ 5 hộp mè xửng giòn $\rightarrow$ Ghi tăng `reserved_qty`, tạo bản ghi khóa tồn và trả về gRPC Response `status = RESERVATION_STATUS_SUCCESS`.
+2. **Saga Orchestrator:**
+   - Cập nhật Saga State sang `COMPLETED`.
+   - Vì đơn sàn Shopee đã được sàn bảo chứng thanh toán (hoặc COD có hợp đồng đối soát), Order Domain chuyển ngay trạng thái đơn hàng sang `PAID` / `CONFIRMED`.
+   - Ghi `OrderPaidEvent` vào Transactional Outbox của `order-service`.
+3. Outbox phát `OrderPaidEvent` lên Kafka $\rightarrow$ **`fulfillment-service`** tự động tạo Picking Task cho thợ đóng gói tại xưởng Huế, quy trình hậu kỳ diễn ra hoàn toàn tương tự đơn D2C.
+
+#### Kịch Bản 2 (Failure Path - Bán Vượt Tồn Khi Hai Kênh Tranh Chấp):
+1. **Tình huống:** Đúng vào giây đó, khách trên Website D2C vừa hoàn tất mua nốt những hộp kẹo cuối cùng. Kho dùng chung thực tế chỉ còn 2 hộp, không đủ 5 hộp theo đơn Shopee.
+2. `inventory-service` trả về gRPC Response: `status = RESERVATION_STATUS_INSUFFICIENT_STOCK`, kèm số lượng khả dụng chỉ còn `available_qty = 2`.
+3. **Saga Orchestrator Xử Lý Thất Bại Ngay Tại Nguồn (Out-of-Stock Escalation):**
+   - Đánh dấu Saga State là `FAILED_OUT_OF_STOCK`.
+   - Cập nhật đơn hàng nội bộ thành `status = RESERVATION_FAILED`.
+   - Phát sự kiện nghiệp vụ `MarketplaceOrderStockFailedEvent` lên Kafka topic `order.events.v1` với payload chứa `external_order_id`, SKU thiếu, số lượng hụt.
+4. **`channel-service` tiêu thụ sự kiện `MarketplaceOrderStockFailedEvent`:**
+   - Tự động gọi Open API của Shopee yêu cầu hủy đơn do hết hàng (hoặc gửi cảnh báo đỏ khẩn cấp lên Dashboard cho Quản lý Kênh nếu muốn điều phối kẹo từ cửa hàng trưng bày sang bù đắp).
+   - Đảm bảo điểm phạt vận hành (Non-fulfillment rate) của shop trên sàn được kiểm soát tối ưu.
+
+#### Kịch Bản 3 (Centralized Compensation - Xử Lý Sự Cố Timeout & Mạng Phân Tán):
+> [!IMPORTANT]
+> **Đây chính là lý do vì sao Channel Service không được tự gọi ReserveStock:**
+> Giả sử sau khi gọi `ReserveStock` thành công tại Kho (5 hộp kẹo đã bị khóa trong DB kho), tiến trình `order-service` bị Crash do sập nguồn hoặc Database Deadlock không thể ghi nhận đơn hàng:
+> 1. **Nếu Channel Service tự gọi:** Vì Channel Service không có Saga State Machine, nó sẽ không biết trạng thái bên Order Service sống hay chết, dẫn tới 5 hộp kẹo bị "khóa treo vĩnh viễn" (Orphaned Reservation) trong kho xưởng Huế.
+> 2. **Khi theo đúng luật Centralized Compensation:** Bản ghi trong bảng `saga_states` của `order-service` đang ở trạng thái `IN_PROGRESS`.
+>    - Sau timeout ngưỡng quy định (hoặc khi service khởi động lại quét qua `saga_states`), **Saga Background Watcher** của `order-service` phát hiện bước này chưa hoàn tất hợp lệ.
+>    - **Saga Orchestrator là thực thể duy nhất kích hoạt Compensation Command:** Tự động phát lệnh gRPC `ReleaseReservation` sang `inventory-service` để giải phóng ngay 5 hộp kẹo về tồn kho khả dụng.
+>    - Toàn bộ tính đúng đắn của dữ liệu được phục hồi 100%, không xảy ra rò rỉ tồn kho hay dữ liệu mồ côi.
+
+---
+
+---
+
+## 8. CÁC LUỒNG NGHIỆP VỤ MỞ RỘNG (TÁI DÙNG LUẬT Ở BƯỚC 3, KHÔNG TỰ BỊA LUẬT) (BƯỚC 8)
+
+> [!NOTE]
+> **Nguyên Tắc Bất Biến:** Mọi luồng nghiệp vụ mở rộng trong hệ thống đều phải **tái sử dụng triệt để bộ 4 quy tắc giao tiếp và cơ chế Saga Orchestration đã chốt ở Chương 3**, tuyệt đối không tự phát minh ra các kiểu giao tiếp chéo mới gây phân mảnh kiến trúc.
+
+---
+
+### 8.1. Luồng Khiếu Nại, Kiểm Định & Hoàn Tiền Phân Tán (Return & Refund Saga - FR-06, FR-15)
 1. **Khách gửi Ticket:** Khách gửi ticket khiếu nại kẹo bị vỡ kèm ảnh chụp qua Web/App tới `care-service`.
 2. **Đối chiếu video xưởng:** Nhân viên CSKH dùng gRPC `GetPackingVideoUrl` gọi sang `fulfillment-service` lấy Pre-signed URL video (TTL 15m) để kiểm tra xem kẹo lúc đóng tại xưởng có nguyên vẹn không.
 3. **Duyệt đổi trả:** Sales Manager duyệt chấp thuận → Hệ thống phát sự kiện `ReturnApprovedEvent`.
@@ -885,14 +1132,18 @@ Outbox Poller quét bảng outbox và phát sự kiện `OrderPaidEvent` lên Ka
 
 ---
 
-### 9.2. Luồng Trải Nghiệm Tặng Quà Gửi Hộ & In Thiệp Mừng (Gifting Experience - FR-28)
+---
+
+### 8.2. Luồng Trải Nghiệm Tặng Quà Gửi Hộ & In Thiệp Mừng (Gifting Experience - FR-28)
 - Khi checkout, khách tick chọn *"Gửi làm quà tặng người thân"*, nhập địa chỉ người nhận riêng, tick chọn **"Ẩn giá tiền trên bưu kiện"** và nhập lời chúc tâm tình.
 - `order-service` gắn cờ `is_gift = true` và lưu lời chúc.
 - `fulfillment-service` khi in Phiếu đóng gói sẽ **tự động ẩn toàn bộ giá tiền**, đồng thời máy in tại xưởng tự động **in ra một tấm thiệp chúc mừng O Mạ trang nhã** xếp ngay ngắn vào hộp quà.
 
 ---
 
-### 9.3. Luồng Báo Giá Đơn Sỉ & In Logo Hộp Quà Doanh Nghiệp (B2B Corporate Quotation - FR-19)
+---
+
+### 8.3. Luồng Báo Giá Đơn Sỉ & In Logo Hộp Quà Doanh Nghiệp (B2B Corporate Quotation - FR-19)
 - Doanh nghiệp tạo yêu cầu báo giá số lượng lớn (ví dụ: 500 hộp) và tải lên file Vector Logo công ty.
 - Phân hệ B2B trong `order-service` tạo bản ghi `Quotation`.
 - Giám đốc Kinh doanh thẩm duyệt chiết khấu trên Web Admin → Phát sự kiện `QuotationApprovedEvent`.
@@ -900,22 +1151,30 @@ Outbox Poller quét bảng outbox và phát sự kiện `OrderPaidEvent` lên Ka
 
 ---
 
-### 9.4. Luồng Tích Điểm Thân Thiết Loyalty & Mua Lại Reorder (EPIC 17, FR-18)
+---
+
+### 8.4. Luồng Tích Điểm Thân Thiết Loyalty & Mua Lại Reorder (EPIC 17, FR-18)
 - Tích điểm tự động 1% khi đơn hàng hoàn tất (`COMPLETED`).
 - Cấn trừ điểm trực tiếp vào tiền thanh toán tại bước Checkout (1 điểm = 1.000 VND).
 - Tính năng **1-Click Reorder** trên Mobile App tự động kiểm tra lại giá mới nhất qua gRPC và nạp nhanh vào giỏ hàng.
 
 ---
 
-### 9.5. Luồng Tìm Kiếm Thông Minh Elasticsearch & Trợ Lý Gợi Ý Quà Tết AI (AI Discovery & DSS - EPIC 03, FR-31)
+---
+
+### 8.5. Luồng Tìm Kiếm Thông Minh Elasticsearch & Trợ Lý Gợi Ý Quà Tết AI (AI Discovery & DSS - EPIC 03, FR-31)
 - `catalog-service` đồng bộ dữ liệu sang **Elasticsearch**: Tìm kiếm mờ không dấu (Fuzzy search *"me xung"* ra *"Mè xửng giòn"*), lọc sao OCOP 4 sao/5 sao.
 - `analytics-service` vận hành **AI DSS Gift Assistant**: Hỏi nhu cầu người nhận và khoảng ngân sách để tự động ghép combo giỏ quà Tết vừa vặn nhất.
 
 ---
 
-## 10. MA TRẬN ÁNH XẠ TRUY XUẤT YÊU CẦU TOÀN DIỆN (REQUIREMENTS TRACEABILITY MATRIX)
+---
 
-### 10.1. Ma Trận Ánh Xạ 31 Yêu Cầu Chức Năng (FR-01 đến FR-31)
+## 9. MA TRẬN ÁNH XẠ TRUY XUẤT YÊU CẦU & PHỤ LỤC KỸ THUẬT (BƯỚC 9)
+
+---
+
+### 9.1. Ma Trận Ánh Xạ 31 Yêu Cầu Chức Năng (FR-01 đến FR-31)
 
 | Mã FR | Tên Yêu Cầu Chức Năng | Microservice Chịu Trách Nhiệm | Giao Thức & Mặt Phẳng | CSDL Sở Hữu | Cơ Chế Kỹ Thuật Hiện Thực Hóa |
 | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -929,7 +1188,7 @@ Outbox Poller quét bảng outbox và phát sự kiện `OrderPaidEvent` lên Ka
 | **FR-08** | Inventory | MS-01 `inventory-service` | gRPC `ReserveStock`, Kafka | PostgreSQL + Redis | Quản lý tồn SKU & Batch, `SELECT FOR UPDATE`, Redis Redlock |
 | **FR-09** | Expiry | MS-01 `inventory-service` | Kafka `ExpiryWarningEvent` | PostgreSQL | Quản lý NSX, HSD, thuật toán xuất kho FEFO, Scheduled Job 01:00 AM |
 | **FR-10** | Packing | MS-02 `fulfillment-service`| Kafka, Tablet Web | PostgreSQL | Màn hình tablet xưởng, in tem nhãn giao hàng, quét mã vạch |
-| **FR-11** | Packing Video | MS-02 `fulfillment-service`| gRPC `GetPackingVideoUrl` | MinIO / S3 Storage | Quay video đóng gói, Pre-signed URL TTL 15m, SHA-256 Checksum, Tem Seal |
+| **FR-11** | Packing Video | MS-02 `fulfillment-service`| gRPC `GetPackingVideoUrl` | AWS S3 Storage | Quay video đóng gói, Pre-signed URL TTL 15m, SHA-256 Checksum, Tem Seal |
 | **FR-12** | Logistics | MS-12 `shipping-service` | REST API 3PL, Kafka | PostgreSQL | Kết nối Open API GHN/ViettelPost, đồng bộ lộ trình shipper thời gian thực |
 | **FR-13** | Marketplace | MS-13 `channel-service` | Webhook HTTP, gRPC Sync | PostgreSQL | Đồng bộ 2 chiều Shopee/TikTok Shop, chống bán lố (Anti-overselling) |
 | **FR-14** | Offline Sales | MS-13 `channel-service` | REST POS, gRPC | PostgreSQL | Phần mềm POS offline quầy xưởng, in bill, đối soát tiền mặt cuối ca |
@@ -953,7 +1212,7 @@ Outbox Poller quét bảng outbox và phát sự kiện `OrderPaidEvent` lên Ka
 
 ---
 
-### 10.2. Ma Trận Ánh Xạ 11 Yêu Cầu Phi Chức Năng (NFR-01 đến NFR-11)
+### 9.2. Ma Trận Ánh Xạ 11 Yêu Cầu Phi Chức Năng (NFR-01 đến NFR-11)
 
 | Mã NFR | Tên Yêu Cầu | Ràng Buộc & Tiêu Chuẩn Kỹ Thuật | Giải Pháp Kiến Trúc & Biện Pháp Đảm Bảo Trong HLD |
 | :--- | :--- | :--- | :--- |
@@ -965,15 +1224,17 @@ Outbox Poller quét bảng outbox và phát sự kiện `OrderPaidEvent` lên Ka
 | **NFR-06** | Data Integrity | Tuyệt đối chống bán vượt tồn (Anti-overselling) | PostgreSQL `SELECT FOR UPDATE` + Redis Redlock + Saga Orchestration khóa tồn 15m. |
 | **NFR-07** | Audit Integrity | Phát hiện sửa đổi/xóa trái phép nhật ký kiểm toán | **Tamper-Evident Entity Hash Chain** kết hợp **Periodic Merkle Checkpoint** trên WORM. |
 | **NFR-08** | Privacy | Bảo vệ thông tin đời tư khách hàng (PII) | **Tối thiểu hóa PII trong `OrderPaidEvent`**, chỉ dùng `shipping_address_id`. |
-| **NFR-09** | Media Security | Video đóng gói là dữ liệu nội bộ nhạy cảm | Lưu bucket riêng trên MinIO/S3, **chỉ cấp Pre-signed URL TTL 15 phút**, băm SHA-256. |
+| **NFR-09** | Media Security | Video đóng gói là dữ liệu nội bộ nhạy cảm | Lưu bucket riêng trên AWS S3, **chỉ cấp Pre-signed URL TTL 15 phút**, băm SHA-256. |
 | **NFR-10** | Scalability | Mở rộng tải giao dịch và dữ liệu lớn phân tích | Kiến trúc phân tán vô hướng (Stateless), Kafka phân vùng Topic, ClickHouse cho OLAP. |
 | **NFR-11** | Observability | Giám sát sức khỏe hệ thống và truy vết lỗi | **OpenTelemetry Collector Architecture**, W3C `traceparent` qua Jaeger Waterfall & Prometheus. |
 
 ---
 
-## 11. PHỤ LỤC ĐẶC TẢ KỸ THUẬT (TECHNICAL CONTRACTS & SCHEMAS)
+---
 
-### 11.1. File Protobuf Definitions (`.proto`)
+### 9.3. Phụ Lục Đặc Tả Kỹ Thuật (Technical Contracts & Schemas)
+
+#### 9.3.1. File Protobuf Definitions (`.proto`)
 
 #### A. Contract Quản Lý Tồn Kho: `inventory.proto`
 ```protobuf
@@ -1109,7 +1370,7 @@ message SpecializedPermissionResponse {
 
 ---
 
-### 11.2. File Kafka CloudEvents Schemas (JSON)
+#### 9.3.2. File Kafka CloudEvents Schemas (JSON)
 
 #### A. Schema Sự Kiện `OrderPaidEvent` (Đã Tối Thiểu Hóa PII)
 ```json
@@ -1176,7 +1437,7 @@ message SpecializedPermissionResponse {
 
 ---
 
-### 11.3. File REST & GraphQL Edge Contracts
+#### 9.3.3. File REST & GraphQL Edge Contracts
 
 #### A. REST API Checkout Endpoint (`POST /api/v1/checkout`)
 - **Headers:**
@@ -1205,7 +1466,9 @@ message SpecializedPermissionResponse {
 
 ---
 
-## 12. TỔNG KẾT NGUYÊN TẮC QUẢN TRỊ KIẾN TRÚC
+---
+
+### 9.4. Tổng Kết Nguyên Tắc Quản Trị Kiến Trúc
 
 1. **Phân Tách 3 Mặt Phẳng:** 
    - Business Plane (gRPC & Kafka) không bị nghẽn bởi Audit Plane.
