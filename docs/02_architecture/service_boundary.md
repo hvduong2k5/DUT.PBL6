@@ -969,13 +969,13 @@ GET  /api/v1/shipments/{order_id}/tracking  # Khách theo dõi lộ trình
 | `inventory.stock.changed` | `StockLevelChangedEvent` | MS-01 | Gọi Partner API đẩy tồn mới lên Shopee/TikTok |
 | `catalog.product.published` | `ProductPublishedEvent` | MS-05 | Đồng bộ sản phẩm mới lên sàn |
 | `catalog.price.changed` | `PriceChangedEvent` | MS-05 | Cập nhật giá trên sàn |
+| `order.events.v1` | `MarketplaceOrderStockFailedEvent` | MS-04 | Hủy đơn trên sàn hoặc báo CSKH khi kho hết tồn |
 
 #### Service Dependencies
 
 | Dependency | Loại | Mục đích |
 | :--- | :--- | :--- |
-| MS-04 `order-service` | gRPC Sync | Tạo đơn nội bộ từ POS transaction |
-| MS-01 `inventory-service` | gRPC Sync | Lock tồn kho ngay khi nhận đơn sàn (anti-overselling) |
+| MS-04 `order-service` | gRPC Sync | Tạo đơn nội bộ từ POS transaction (`CreatePOSOrder`) |
 | EXT-04 Shopee/TikTok Partner API | REST HTTPS | Đồng bộ tồn kho, nhận webhook đơn hàng |
 
 ---
@@ -1406,8 +1406,7 @@ graph LR
     ORD -->|"ValidateVoucher (2s CB)"| PRO
     ORD -->|"CalculateShippingFee (2s CB)"| SHP
     CRE -->|"GetPackingVideoUrl (2s CB)"| FUL
-    CHN["MS-13<br/>channel-service"] -->|"ReserveStock (2s CB)"| INV
-    CHN -->|"CreatePOSOrder (2s CB)"| ORD
+    CHN["MS-13<br/>channel-service"] -->|"CreatePOSOrder (2s CB)"| ORD
 
     IDN -.->|"ValidateToken (ALL services)"| ORD
     IDN -.->|"ValidateToken"| INV
