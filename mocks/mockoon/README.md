@@ -1,4 +1,31 @@
-# O Ma Authentication MVP — Mockoon
+# O Ma Web MVP — Mockoon
+
+## Customer Profile & Address Book
+
+- Environment: `oma-customer-profile-mvp.json`
+- Port: `4011`
+- Base URL: `http://127.0.0.1:4011/api/v1`
+- UI: D2C-012 `/account/profile`, D2C-013 `/account/addresses`
+- Data/API source: `../../docs/ui_web/CUSTOMER_PROFILE_DATA_API_MATRIX.md`
+
+```powershell
+npx @mockoon/cli validate --data .\mocks\mockoon\oma-customer-profile-mvp.json
+npx @mockoon/cli start --data .\mocks\mockoon\oma-customer-profile-mvp.json
+```
+
+| Capability | Method | Route |
+| --- | --- | --- |
+| `PROFILE-C01` | GET | `/customers/me/profile` |
+| `PROFILE-C02` | PATCH | `/customers/me/profile` |
+| `ADDRESS-C01` | GET | `/customers/me/addresses` |
+| `ADDRESS-C02` | POST | `/customers/me/addresses` |
+| `ADDRESS-C03` | PATCH | `/customers/me/addresses/:addressId` |
+| `ADDRESS-C04` | DELETE | `/customers/me/addresses/:addressId` |
+| `ADDRESS-C05` | PUT | `/customers/me/addresses/:addressId/default` |
+
+Chọn state bằng `X-Mock-Scenario`; danh sách scenario nằm trong `CUSTOMER_PROFILE_DATA_API_MATRIX.md`. Environment là mock stateless: UI giữ state sau mutation để mô phỏng tương tác trong một phiên phát triển.
+
+## Authentication MVP
 
 Mockoon environment phục vụ phát triển UI cho D2C-009 Login, D2C-010 Registration và D2C-011 Recovery.
 

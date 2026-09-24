@@ -19,7 +19,7 @@ export function SiteHeader() {
           <Link href="/#qua-bieu">Quà Biếu Tặng</Link>
           <Link href="/#cau-chuyen">Câu Chuyện Huế</Link>
         </nav>
-        <Link className="account-button" href="/login" aria-label="Tài khoản Tri Kỷ">♙</Link>
+        <Link className="account-button" href="/account/profile" aria-label="Tài khoản Tri Kỷ">♙</Link>
       </div>
     </header>
   );
