@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "StockReservedEvent",
+  "description": "Sự kiện phát ra khi tồn kho kẹo mè xửng được khóa tạm giữ chỗ thành công. Topic: inventory.events.v1. Partition Key: sku_code",
+  "type": "object",
+  "required": ["specversion", "id", "source", "type", "subject", "time", "datacontenttype", "traceparent", "data"],
+  "properties": {
+    "specversion": { "type": "string", "enum": ["1.0"] },
+    "id": { "type": "string" },
+    "source": { "type": "string", "format": "uri", "example": "https://omama.vn/services/inventory-service" },
+    "type": { "type": "string", "enum": ["vn.omama.inventory.stock.reserved.v1"] },
+    "subject": { "type": "string", "example": "sku:MX-GION-500G" },
+    "time": { "type": "string", "format": "date-time" },
+    "datacontenttype": { "type": "string", "enum": ["application/json"] },
+    "traceparent": { "type": "string" },
+    "data": {
+      "type": "object",
+      "required": ["reservation_id", "order_id", "sku_code", "quantity", "warehouse_id", "expires_at"],
+      "properties": {
+        "reservation_id": { "type": "string" },
+        "order_id": { "type": "string" },
+        "sku_code": { "type": "string" },
+        "quantity": { "type": "integer", "minimum": 1 },
+        "warehouse_id": { "type": "string" },
+        "available_qty_after": { "type": "integer", "description": "Số lượng khả dụng còn lại sau khi khóa" },
+        "expires_at": { "type": "string", "format": "date-time" }
+      }
+    }
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "OrderCancelledEvent",
+  "description": "Sự kiện phát ra khi đơn hàng bị hủy (do khách chủ động hủy hoặc quá hạn thanh toán 15 phút). Topic: order.events.v1. Partition Key: order_id",
+  "type": "object",
+  "required": ["specversion", "id", "source", "type", "subject", "time", "datacontenttype", "traceparent", "data"],
+  "properties": {
+    "specversion": { "type": "string", "enum": ["1.0"] },
+    "id": { "type": "string" },
+    "source": { "type": "string", "format": "uri" },
+    "type": { "type": "string", "enum": ["vn.omama.order.cancelled.v1"] },
+    "subject": { "type": "string" },
+    "time": { "type": "string", "format": "date-time" },
+    "datacontenttype": { "type": "string", "enum": ["application/json"] },
+    "traceparent": { "type": "string" },
+    "data": {
+      "type": "object",
+      "required": ["order_id", "customer_id", "cancel_reason", "cancelled_at", "cancelled_by"],
+      "properties": {
+        "order_id": { "type": "string" },
+        "customer_id": { "type": "string" },
+        "cancel_reason": {
+          "type": "string",
+          "enum": ["PAYMENT_TIMEOUT_15M", "USER_CANCELLED", "OUT_OF_STOCK", "FRAUD_DETECTED", "ADMIN_FORCE_CANCEL"]
+        },
+        "cancelled_at": { "type": "string", "format": "date-time" },
+        "cancelled_by": { "type": "string" },
+        "reservation_id": { "type": "string", "description": "Mã giữ tồn đã được nhả" },
+        "voucher_lock_id": { "type": "string", "description": "Mã giữ voucher đã được nhả" }
+      }
+    }
+  }
+}

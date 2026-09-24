@@ -1,0 +1,129 @@
+syntax = "proto3";
+
+package omamx.catalog.v1;
+
+import "common/v1/types.proto";
+import "common/v1/errors.proto";
+
+option go_package = "github.com/omamx/proto/catalog/v1;catalogv1";
+option java_multiple_files = true;
+option java_package = "com.omamx.proto.catalog.v1";
+
+// =============================================================================
+// HỢP ĐỒNG DỊCH VỤ DANH MỤC & GIÁ BÁN OCOP HUẾ (MS-05: CATALOG SERVICE)
+// Điểm neo trên Critical Path: Thẩm định giá bán chống gian lận F12/Inspect
+// =============================================================================
+
+service CatalogService {
+  // Thẩm định tính hợp lệ của mã SKU và đối chiếu giá bán client gửi lên (Critical Path < 15ms)
+  rpc ValidatePriceAndSKU(ValidatePriceAndSKURequest) returns (ValidatePriceAndSKUResponse);
+
+  // Truy vấn thông tin chi tiết của một biến thể kẹo mè xửng theo mã SKU
+  rpc GetProductVariant(GetProductVariantRequest) returns (GetProductVariantResponse);
+
+  // Truy vấn danh sách biến thể sản phẩm theo bộ lọc (Có phân trang)
+  rpc ListProductVariants(ListProductVariantsRequest) returns (ListProductVariantsResponse);
+}
+
+// Mặt hàng cần kiểm tra giá bán
+message PriceCheckItem {
+  // Mã SKU của biến thể kẹo (Ví dụ: "MX-GION-500G")
+  string sku_code = 1;
+
+  // Đơn giá mà phía Client (Web/Mobile) gửi lên để kiểm tra
+  omamx.common.v1.Money client_unit_price = 2;
+
+  // Số lượng mua
+  int32 quantity = 3;
+}
+
+// Yêu cầu thẩm định giá bán
+message ValidatePriceAndSKURequest {
+  // Khóa chống lặp (Bắt buộc trên mọi command)
+  string idempotency_key = 1;
+
+  // Kênh bán hàng (D2C_WEB, MOBILE_APP, B2B_WHOLESALE, POS_QUAY)
+  string channel = 2;
+
+  // Danh sách các mặt hàng và mức giá cần kiểm định
+  repeated PriceCheckItem items = 3;
+}
+
+// Chi tiết sai lệch giá phát hiện được
+message PriceDiscrepancy {
+  string sku_code = 1;
+  omamx.common.v1.Money client_unit_price = 2;
+  omamx.common.v1.Money authoritative_unit_price = 3;
+  string discrepancy_reason = 4;
+}
+
+// Phản hồi kết quả thẩm định giá bán
+message ValidatePriceAndSKUResponse {
+  // Kết quả hợp lệ: true nếu toàn bộ mã hàng hợp lệ và đúng giá 100%
+  bool is_valid = 1;
+
+  // Tổng số tiền chuẩn xác của giỏ hàng được tính toán lại từ Database gốc của Catalog
+  omamx.common.v1.Money canonical_subtotal = 2;
+
+  // Danh sách chi tiết các mặt hàng bị sai lệch giá hoặc ngừng bán (nếu có)
+  repeated PriceDiscrepancy discrepancies = 3;
+
+  // Chi tiết lỗi chuẩn hóa nếu phát hiện gian lận giá
+  optional omamx.common.v1.ErrorDetail error = 4;
+}
+
+// Yêu cầu lấy thông tin biến thể sản phẩm
+message GetProductVariantRequest {
+  string sku_code = 1;
+}
+
+// Thông tin chi tiết một biến thể kẹo mè xửng O Mạ
+message ProductVariantDetail {
+  string sku_code = 1;
+  string product_id = 2;
+  string variant_name = 3; // Ví dụ: "Kẹo Mè Xửng Giòn Huế - Hộp 500g"
+  
+  // Đơn giá bán lẻ niêm yết
+  omamx.common.v1.Money unit_price = 4;
+
+  // Khối lượng tịnh bảo đảm độ chính xác (Ví dụ: "500.00" gram)
+  omamx.common.v1.Weight net_weight = 5;
+
+  // Xếp hạng sao tiêu chuẩn OCOP (Ví dụ: "OCOP_4_STAR")
+  string ocop_rating = 6;
+
+  // Loại đóng gói bao bì (Ví dụ: "HOP_GIAY_KRAFT", "GOI_HUT_CHAN_KHONG")
+  string packaging_type = 7;
+
+  // Thời hạn sử dụng tính bằng số ngày (Shelf Life, ví dụ: 90 ngày)
+  int32 shelf_life_days = 8;
+
+  // Trạng thái sản phẩm (true: đang bán, false: tạm ngừng sản xuất)
+  bool is_active = 9;
+}
+
+// Phản hồi thông tin biến thể
+message GetProductVariantResponse {
+  ProductVariantDetail variant = 1;
+}
+
+// Yêu cầu danh sách biến thể
+message ListProductVariantsRequest {
+  // Bộ lọc phân trang
+  omamx.common.v1.PaginationRequest pagination = 1;
+
+  // Lọc theo danh mục sản phẩm (Optional)
+  optional string category_id = 2;
+
+  // Lọc theo xếp hạng OCOP (Optional)
+  optional string ocop_rating = 3;
+
+  // Chỉ lấy các sản phẩm đang kích hoạt bán (Mặc định: true)
+  optional bool active_only = 4;
+}
+
+// Phản hồi danh sách biến thể
+message ListProductVariantsResponse {
+  repeated ProductVariantDetail variants = 1;
+  omamx.common.v1.PaginationResponse pagination = 2;
+}

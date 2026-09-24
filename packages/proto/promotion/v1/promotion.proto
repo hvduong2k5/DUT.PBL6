@@ -1,0 +1,106 @@
+syntax = "proto3";
+
+package omamx.promotion.v1;
+
+import "google/protobuf/timestamp.proto";
+import "common/v1/types.proto";
+import "common/v1/errors.proto";
+
+option go_package = "github.com/omamx/proto/promotion/v1;promotionv1";
+option java_multiple_files = true;
+option java_package = "com.omamx.proto.promotion.v1";
+
+// =============================================================================
+// HỢP ĐỒNG DỊCH VỤ KHUYẾN MÃI & VOUCHER (MS-07: PROMOTION SERVICE)
+// Điểm neo trên Critical Path: Khóa tạm Voucher trong 15 phút chống dùng đồng thời
+// =============================================================================
+
+service PromotionService {
+  // Thẩm định điều kiện áp dụng và tạm khóa 1 lượt dùng voucher (Critical Path < 20ms)
+  rpc ValidateAndLockVoucher(ValidateAndLockVoucherRequest) returns (ValidateAndLockVoucherResponse);
+
+  // Mở khóa hoàn trả lượt dùng voucher khi đơn hàng bị hủy hoặc hết hạn thanh toán
+  rpc ReleaseVoucher(ReleaseVoucherRequest) returns (ReleaseVoucherResponse);
+
+  // Tính toán nhanh số tiền giảm giá dự kiến mà không khóa voucher (Dùng khi xem giỏ hàng)
+  rpc CalculateDiscount(CalculateDiscountRequest) returns (CalculateDiscountResponse);
+}
+
+// Loại giảm giá của voucher
+enum DiscountType {
+  DISCOUNT_TYPE_UNSPECIFIED = 0;
+  DISCOUNT_TYPE_FIXED_AMOUNT = 1;    // Giảm số tiền cố định (Ví dụ: Giảm 30.000đ)
+  DISCOUNT_TYPE_PERCENTAGE = 2;      // Giảm theo phần trăm (Ví dụ: Giảm 10%, có trần tối đa)
+  DISCOUNT_TYPE_FREE_SHIPPING = 3;   // Miễn phí vận chuyển (Trừ thẳng vào phí ship)
+}
+
+// Yêu cầu thẩm định và khóa voucher
+message ValidateAndLockVoucherRequest {
+  // Khóa chống lặp bắt buộc
+  string idempotency_key = 1;
+
+  // Mã voucher khách hàng nhập (Ví dụ: "OMAMA_FREESHIP_30K", "TET_HUE_GIFT_50K")
+  string voucher_code = 2;
+
+  // Mã đơn hàng đang thực hiện checkout
+  string order_id = 3;
+
+  // Mã khách hàng áp dụng voucher
+  string customer_id = 4;
+
+  // Tổng tiền hàng trước giảm giá
+  omamx.common.v1.Money order_subtotal = 5;
+
+  // Thời gian khóa giữ chỗ voucher (Mặc định: 15 phút, khớp với TTL của khóa kho)
+  int32 ttl_minutes = 6;
+}
+
+// Phản hồi kết quả thẩm định và khóa voucher
+message ValidateAndLockVoucherResponse {
+  // Trạng thái hợp lệ: true nếu thỏa mãn toàn bộ điều kiện
+  bool is_valid = 1;
+
+  // Số tiền được giảm giá thực tế (Bắt buộc dùng optional)
+  optional omamx.common.v1.Money discount_amount = 2;
+
+  // Loại hình giảm giá
+  DiscountType discount_type = 3;
+
+  // Mã khóa giữ voucher trong cơ sở dữ liệu (UUID)
+  optional string voucher_lock_id = 4;
+
+  // Thời điểm khóa voucher hết hiệu lực
+  optional google.protobuf.Timestamp expires_at = 5;
+
+  // Chi tiết lỗi nếu voucher không hợp lệ (Hết hạn, chưa đủ tiền tối thiểu, v.v.)
+  optional omamx.common.v1.ErrorDetail error = 6;
+}
+
+// Yêu cầu mở khóa voucher khi Saga kích hoạt đền bù
+message ReleaseVoucherRequest {
+  string idempotency_key = 1;
+  string voucher_code = 2;
+  string voucher_lock_id = 3;
+  string order_id = 4;
+  string release_reason = 5;
+}
+
+// Phản hồi mở khóa voucher
+message ReleaseVoucherResponse {
+  bool is_released = 1;
+  string message = 2;
+}
+
+// Yêu cầu tính toán giảm giá thử nghiệm
+message CalculateDiscountRequest {
+  string voucher_code = 1;
+  string customer_id = 2;
+  omamx.common.v1.Money order_subtotal = 3;
+}
+
+// Phản hồi tính toán giảm giá thử nghiệm
+message CalculateDiscountResponse {
+  bool is_applicable = 1;
+  optional omamx.common.v1.Money estimated_discount = 2;
+  string description = 3;
+}
