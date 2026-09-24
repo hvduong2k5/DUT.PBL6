@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { AuthPage } from "@/components/site-shell";
+import { AuthPage } from "@/components/layout/auth-page";
 import { getSafeReturnUrl } from "@/lib/auth/return-url";
 import { LoginForm } from "./login-form";
 

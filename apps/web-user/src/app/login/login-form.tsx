@@ -39,9 +39,9 @@ export function LoginForm({ returnUrl }: { returnUrl: string }) {
       {error ? <StatusNotice>{error}</StatusNotice> : null}
       <FormField id="email" name="email" type="email" label="Email Tri Kỷ" icon="✉" placeholder="tri.ky@example.com" autoComplete="email" required error={fieldErrors.email} />
       <FormField id="password" name="password" type="password" label="Mật khẩu" icon="⌑" placeholder="Nhập mật khẩu của bạn" autoComplete="current-password" required error={fieldErrors.password} />
-      <div className="form-options"><label className="checkbox"><input type="checkbox" name="rememberMe" /> <span>Ghi nhớ đăng nhập trên thiết bị này</span></label><Link href={`/khoi-phuc-quyen-truy-cap${query}`}>Quên mật khẩu?</Link></div>
+      <div className="form-options"><label className="checkbox"><input type="checkbox" name="rememberMe" /> <span>Ghi nhớ đăng nhập trên thiết bị này</span></label><Link href={`/account-recovery${query}`}>Quên mật khẩu?</Link></div>
       <SubmitButton pending={pending}>Hồi Cung Đăng Nhập <span aria-hidden="true">→</span></SubmitButton>
-      <p className="switch-flow">Chưa có tài khoản Tri Kỷ? <Link href={`/dang-ky${query}`}>Đăng ký ngay</Link></p>
+      <p className="switch-flow">Chưa có tài khoản Tri Kỷ? <Link href={`/register${query}`}>Đăng ký ngay</Link></p>
       {returnUrl.startsWith("/thanh-toan") ? <Link className="guest-link" href={returnUrl}>Tiếp tục thanh toán với tư cách khách</Link> : null}
       <div className="security-note">♢ Phiên đăng nhập được bảo vệ bằng cookie HttpOnly; mật khẩu không được lưu trên trình duyệt.</div>
     </form>

@@ -19,14 +19,14 @@ Next.js App Router application cho Web D2C. Authentication MVP hiện gồm đă
    npm run dev
    ```
 
-3. Mở `http://localhost:3000/dang-nhap`.
+3. Mở `http://localhost:3000/login`.
 
 Next Route Handler tại `/api/auth/*` làm BFF proxy tới `AUTH_UPSTREAM_URL`, do đó component không gọi trực tiếp URL Mockoon. Header `X-Mock-Scenario` chỉ được forward ngoài production và có thể thử qua query `?mockScenario=<scenario-name>`.
 
 Magic link local dùng URL mẫu:
 
-- Registration: `/dang-ky?verificationToken=mock-token`
-- Recovery: `/khoi-phuc-quyen-truy-cap?recoveryToken=mock-token`
+- Registration: `/register?verificationToken=mock-token`
+- Recovery: `/account-recovery?recoveryToken=mock-token`
 
 ## Quality checks
 

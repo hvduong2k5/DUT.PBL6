@@ -21,7 +21,7 @@ function RegistrationVerification({ token, returnUrl }: { token: string; returnU
     started.current = true;
     authService.confirmRegistration(token).then(() => window.location.assign(returnUrl)).catch((caught) => setError(getSafeErrorMessage(caught)));
   }, [returnUrl, token]);
-  return error ? <><StatusNotice>{error}</StatusNotice><Link className="secondary-link full-width" href="/dang-ky">Bắt đầu đăng ký lại</Link></> : <div className="center-state"><span className="large-spinner" /><h2>Đang xác minh email...</h2><p>Vui lòng giữ nguyên cửa sổ này.</p></div>;
+  return error ? <><StatusNotice>{error}</StatusNotice><Link className="secondary-link full-width" href="/register">Bắt đầu đăng ký lại</Link></> : <div className="center-state"><span className="large-spinner" /><h2>Đang xác minh email...</h2><p>Vui lòng giữ nguyên cửa sổ này.</p></div>;
 }
 
 function RegistrationForm({ returnUrl }: { returnUrl: string }) {
@@ -63,7 +63,7 @@ function RegistrationForm({ returnUrl }: { returnUrl: string }) {
   }
 
   if (result) return (
-    <div className="center-state email-sent"><span className="state-icon">✉</span><span className="eyebrow">Đăng ký thành công</span><h2>Kiểm tra hộp thư của bạn</h2><p>Chúng tôi đã gửi liên kết xác minh đến <strong>{result.delivery.maskedDestination}</strong>. Liên kết có hiệu lực trong 24 giờ.</p>{resendMessage ? <StatusNotice tone="success">{resendMessage}</StatusNotice> : null}{error ? <StatusNotice>{error}</StatusNotice> : null}<button className="secondary-button" onClick={resend} disabled={pending}>Gửi lại email xác minh</button><p className="dev-hint">Local mock: mở <code>/dang-ky?verificationToken=mock-token</code> để thử bước xác minh.</p></div>
+    <div className="center-state email-sent"><span className="state-icon">✉</span><span className="eyebrow">Đăng ký thành công</span><h2>Kiểm tra hộp thư của bạn</h2><p>Chúng tôi đã gửi liên kết xác minh đến <strong>{result.delivery.maskedDestination}</strong>. Liên kết có hiệu lực trong 24 giờ.</p>{resendMessage ? <StatusNotice tone="success">{resendMessage}</StatusNotice> : null}{error ? <StatusNotice>{error}</StatusNotice> : null}<button className="secondary-button" onClick={resend} disabled={pending}>Gửi lại email xác minh</button><p className="dev-hint">Local mock: mở <code>/register?verificationToken=mock-token</code> để thử bước xác minh.</p></div>
   );
 
   const query = returnUrl === "/" ? "" : `?returnUrl=${encodeURIComponent(returnUrl)}`;
@@ -77,7 +77,7 @@ function RegistrationForm({ returnUrl }: { returnUrl: string }) {
       <label className="checkbox terms"><input type="checkbox" name="terms" aria-describedby={fieldErrors.termsVersion ? "terms-error" : undefined} /><span>Tôi đồng ý với <a href="#terms">Quy chế Thẻ Tri Kỷ</a> và Chính sách Bảo mật.</span></label>
       {fieldErrors.termsVersion ? <span className="field-error" id="terms-error">{fieldErrors.termsVersion}</span> : null}
       <SubmitButton pending={pending}>Đăng Ký &amp; Gửi Email Xác Minh</SubmitButton>
-      <p className="switch-flow">Đã sở hữu tài khoản? <Link href={`/dang-nhap${query}`}>Đăng nhập ngay →</Link></p>
+      <p className="switch-flow">Đã sở hữu tài khoản? <Link href={`/login${query}`}>Đăng nhập ngay →</Link></p>
     </form>
   );
 }
