@@ -1,13 +1,13 @@
 # UI Web Data & API Matrix
 
-> Trạng thái: Baseline v0.2 — Product decisions approved; endpoint vẫn provisional
+> Trạng thái: Baseline v0.3 — OpenAPI candidate proposed; chờ Backend/Architecture/Security review
 > Ngày lập: 2026-09-24
 > Vertical slice: Authentication MVP
-> Liên quan: `SCOPE_TRACEABILITY.md`
+> Liên quan: `SCOPE_TRACEABILITY.md`, `../03_api_specs/authentication-mvp.openapi.yaml`
 
 ## 1. Cách sử dụng tài liệu
 
-Tài liệu này mô tả dữ liệu mà UI thực sự cần và các capability API cần mô phỏng để phát triển D2C-009/010/011. Tên endpoint và schema dưới đây là **candidate** để tạo Mockoon; chúng chỉ trở thành contract sau khi được Backend và Architecture review.
+Tài liệu này mô tả dữ liệu mà UI thực sự cần và các capability API đã được mô phỏng để phát triển D2C-009/010/011. Từ implementation thực tế, candidate đã được biểu diễn bằng OpenAPI tại `docs/03_api_specs/authentication-mvp.openapi.yaml`; nó chỉ trở thành contract được duyệt sau Backend, Architecture và Security review.
 
 Quy ước trạng thái field:
 
@@ -303,12 +303,13 @@ HTTP status còn ghi “cần thống nhất” phải được chốt trong API
 | `AUTH-C07`, `C08`, `C09`, `C10` | `US-AUTH-05`, `FR-AUTH-06`, `UC-AUTH-05`, EPIC 28 dependency | D2C-011 |
 | `AUTH-C11` | `US-AUTH-01`, `FR-AUTH-01`, `FR-AUTH-09`, `UC-AUTH-01` | D2C-009 ↔ D2C-006 |
 
-## 10. Điều kiện nâng thành API Contract Candidate
+## 10. Điều kiện phê duyệt API Contract Candidate
 
-Matrix này chỉ được chuyển thành OpenAPI candidate sau khi:
+OpenAPI candidate hiện tại chỉ được đổi trạng thái sang Approved sau khi:
 
 1. Backend/Architecture xác nhận BFF cookie flow, internal JWT/refresh rotation, CSRF và Redis revocation.
 2. Backend xác nhận HTTP status, endpoint naming và error taxonomy.
 3. Notification team xác nhận contract gửi email magic link và trusted frontend origin.
-4. Frontend hoàn thành một vòng implement bằng Mockoon và loại bỏ field không dùng.
+4. Frontend xử lý hoặc thống nhất các implementation gap ghi trong `AUTHENTICATION_MVP_CONTRACT_REVIEW.md`.
 5. Security review account enumeration, rate limiting, reset proof, cookie flags và open redirect.
+6. Mockoon, frontend types và contract tests được đồng bộ theo bản đã review.
