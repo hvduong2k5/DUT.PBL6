@@ -1,0 +1,29 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "LoyaltyPointsEarnedEvent",
+  "description": "Sự kiện phát ra khi đơn hàng hoàn tất 7 ngày (OrderCompleted) và khách hàng được cộng 1% giá trị đơn hàng vào điểm tích lũy. Topic: promotion.events.v1. Partition Key: customer_id",
+  "type": "object",
+  "required": ["specversion", "id", "source", "type", "subject", "time", "datacontenttype", "traceparent", "data"],
+  "properties": {
+    "specversion": { "type": "string", "enum": ["1.0"] },
+    "id": { "type": "string" },
+    "source": { "type": "string", "format": "uri" },
+    "type": { "type": "string", "enum": ["vn.omama.promotion.loyalty.points.earned.v1"] },
+    "subject": { "type": "string", "example": "customer:CUST-9876" },
+    "time": { "type": "string", "format": "date-time" },
+    "datacontenttype": { "type": "string", "enum": ["application/json"] },
+    "traceparent": { "type": "string" },
+    "data": {
+      "type": "object",
+      "required": ["customer_id", "order_id", "points_earned", "new_total_points", "earned_at"],
+      "properties": {
+        "customer_id": { "type": "string" },
+        "order_id": { "type": "string" },
+        "points_earned": { "type": "integer", "minimum": 1, "description": "1% giá trị đơn hàng quy đổi (100.000đ = 1.000 điểm)" },
+        "new_total_points": { "type": "integer" },
+        "current_loyalty_tier": { "type": "string", "enum": ["BRONZE", "SILVER", "GOLD", "VIP_OCOP"] },
+        "earned_at": { "type": "string", "format": "date-time" }
+      }
+    }
+  }
+}

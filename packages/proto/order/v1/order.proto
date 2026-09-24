@@ -1,0 +1,180 @@
+syntax = "proto3";
+
+package omamx.order.v1;
+
+import "google/protobuf/timestamp.proto";
+import "common/v1/types.proto";
+import "common/v1/errors.proto";
+
+option go_package = "github.com/omamx/proto/order/v1;orderv1";
+option java_multiple_files = true;
+option java_package = "com.omamx.proto.order.v1";
+
+// =============================================================================
+// HỢP ĐỒNG DỊCH VỤ QUẢN LÝ ĐƠN HÀNG & ĐIỀU PHỐI SAGA (MS-04: ORDER SERVICE)
+// Độc quyền sở hữu máy trạng thái đơn hàng và kích hoạt đền bù tập trung
+// =============================================================================
+
+service OrderService {
+  // Tạo đơn hàng trực tiếp tại quầy bán lẻ offline (POS Quầy Xưởng Hương Thủy & Cửa hàng Huế)
+  // Bên Tiêu Thụ Duy Nhất: MS-13 channel-service (Phân hệ POS)
+  // TUYỆT ĐỐI CẤM dùng RPC này cho đơn sàn Shopee/TikTok (Đơn sàn đi qua Kafka MarketplaceOrderImportedEvent)
+  rpc CreatePOSOrder(CreatePOSOrderRequest) returns (CreatePOSOrderResponse);
+
+  // Truy vấn chi tiết đơn hàng kèm trạng thái thanh toán và thông tin giao vận
+  rpc GetOrderDetail(GetOrderDetailRequest) returns (GetOrderDetailResponse);
+
+  // Khách hàng hoặc Quản trị viên yêu cầu hủy đơn hàng (Kích hoạt Saga Compensation)
+  rpc CancelOrder(CancelOrderRequest) returns (CancelOrderResponse);
+}
+
+// Vòng đời trạng thái thực thể Đơn hàng (Tuân thủ triệt để stateDiagram-v2)
+enum OrderStatus {
+  ORDER_STATUS_UNSPECIFIED = 0;              // Mặc định bắt buộc 0
+
+  ORDER_STATUS_DRAFT = 1;                    // Đang khởi tạo, khóa tồn kho
+  ORDER_STATUS_PENDING_PAYMENT = 2;         // Đã giữ tồn 15m, đang chờ quét VietQR
+  ORDER_STATUS_PAID = 3;                     // Đã thanh toán thành công (HMAC verified)
+  ORDER_STATUS_PROCESSING = 4;               // Xưởng Huế tiếp nhận đóng gói
+  ORDER_STATUS_PACKED = 5;                   // Đã niêm phong tem Seal O Mạ, có video S3
+  ORDER_STATUS_SHIPPED = 6;                  // Đã bàn giao bưu tá 3PL (GHN/ViettelPost)
+  ORDER_STATUS_DELIVERED = 7;                // Giao hàng thành công đến tay khách
+  ORDER_STATUS_COMPLETED = 8;                // Đơn hoàn tất sau 7 ngày không khiếu nại (Tích loyalty)
+
+  // Trạng thái hủy và hoàn trả
+  ORDER_STATUS_CANCELLED_TIMEOUT = 9;        // Hủy tự động do quá hạn 15 phút không thanh toán
+  ORDER_STATUS_CANCELLED_BY_USER = 10;       // Khách chủ động hủy khi chưa thanh toán
+  ORDER_STATUS_CANCELLED_OUT_OF_STOCK = 11;  // Hủy do không đủ tồn kho khả dụng
+  ORDER_STATUS_RETURN_REQUESTED = 12;        // Khách gửi khiếu nại kẹo vỡ/hỏng
+  ORDER_STATUS_REFUNDED = 13;                // Đã kiểm định video seal và hoàn tiền
+}
+
+// Mặt hàng chi tiết trong đơn hàng
+message OrderItem {
+  string sku_code = 1;
+  string product_name = 2;
+  int32 quantity = 3;
+
+  // Đơn giá tại thời điểm đặt hàng (Snapshot)
+  omamx.common.v1.Money unit_price = 4;
+
+  // Thành tiền = unit_price * quantity
+  omamx.common.v1.Money total_price = 5;
+
+  // Ghi chú đóng gói cho mặt hàng (Optional)
+  optional string item_notes = 6;
+}
+
+// Thông tin thanh toán đính kèm đơn hàng
+message PaymentInfo {
+  string payment_method = 1; // VIETQR, COD, B2B_BANK_TRANSFER
+  string payment_status = 2; // PENDING, PAID, REFUNDED
+
+  // Đường link ảnh QR VietQR động (chứa cú pháp chuyển khoản và số tiền chính xác)
+  optional string vietqr_url = 3;
+
+  // Thời điểm nhận được tiền từ ngân hàng
+  optional google.protobuf.Timestamp paid_at = 4;
+
+  // Mã giao dịch ngân hàng đối soát
+  optional string bank_transaction_id = 5;
+}
+
+// Yêu cầu tạo đơn hàng trực tiếp tại quầy POS offline
+message CreatePOSOrderRequest {
+  // Idempotency Key bắt buộc
+  string idempotency_key = 1;
+
+  // Mã khách hàng (Nếu khách vãng lai không đăng ký tài khoản, gán "GUEST_OFFLINE")
+  string customer_id = 2;
+
+  // Mã quầy thu ngân / chi nhánh (Ví dụ: "POS-KHO-HUONG-THUY", "POS-STORE-HOA-BINH")
+  string pos_terminal_id = 3;
+
+  // Mã nhân viên thu ngân tại quầy
+  string cashier_staff_id = 4;
+
+  // Danh sách mặt hàng kẹo mua tại quầy
+  repeated OrderItem items = 5;
+
+  // Phương thức thanh toán tại quầy (CASH, VIETQR_DYNAMIC_POS, CARD)
+  string payment_method = 6;
+
+  // Mã voucher khuyến mãi (Nếu có)
+  optional string voucher_code = 7;
+
+  // Bối cảnh kiểm toán
+  optional omamx.common.v1.AuditContext audit_context = 8;
+}
+
+// Phản hồi tạo đơn hàng tại quầy POS
+message CreatePOSOrderResponse {
+  string order_id = 1;
+  OrderStatus status = 2;
+
+  // Tổng tiền hàng trước giảm giá
+  omamx.common.v1.Money subtotal_amount = 3;
+
+  // Số tiền giảm giá từ voucher (Bắt buộc dùng optional để phân biệt 0đ với không áp mã)
+  optional omamx.common.v1.Money discount_amount = 4;
+
+  // Tổng số tiền khách hàng thực tế phải thanh toán tại quầy
+  omamx.common.v1.Money final_amount = 5;
+
+  // Thông tin thanh toán VietQR nếu khách chọn quét mã QR tại màn hình quầy thu ngân
+  PaymentInfo payment = 6;
+
+  // Lỗi nếu tạo thất bại (ví dụ hết hàng tại kho xưởng)
+  optional omamx.common.v1.ErrorDetail error = 7;
+}
+
+// Yêu cầu truy vấn chi tiết đơn hàng
+message GetOrderDetailRequest {
+  string order_id = 1;
+  
+  // Xác thực quyền truy cập: Chỉ chủ đơn hoặc Admin/Staff mới được xem
+  string requesting_user_id = 2;
+}
+
+// Phản hồi chi tiết đơn hàng
+message GetOrderDetailResponse {
+  string order_id = 1;
+  string customer_id = 2;
+  string channel = 3;
+  OrderStatus status = 4;
+
+  repeated OrderItem items = 5;
+  omamx.common.v1.Address shipping_address = 6;
+
+  omamx.common.v1.Money subtotal_amount = 7;
+  optional omamx.common.v1.Money discount_amount = 8;
+  optional omamx.common.v1.Money shipping_fee = 9;
+  omamx.common.v1.Money final_amount = 10;
+
+  PaymentInfo payment = 11;
+
+  // Mã vận đơn giao vận 3PL (nếu đã bàn giao)
+  optional string tracking_code = 12;
+  optional string shipping_carrier = 13;
+
+  // Mã tem seal niêm phong gói kẹo O Mạ
+  optional string seal_code = 14;
+
+  google.protobuf.Timestamp created_at = 15;
+  google.protobuf.Timestamp updated_at = 16;
+}
+
+// Yêu cầu hủy đơn hàng
+message CancelOrderRequest {
+  string idempotency_key = 1;
+  string order_id = 2;
+  string cancel_reason = 3;
+  string cancelled_by_user_id = 4;
+}
+
+// Phản hồi hủy đơn hàng
+message CancelOrderResponse {
+  bool is_cancelled = 1;
+  OrderStatus final_status = 2;
+  string message = 3;
+}
