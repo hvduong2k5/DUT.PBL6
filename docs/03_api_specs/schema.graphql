@@ -1,0 +1,582 @@
+"""
+=============================================================================
+ĐẶC TẢ GRAPHQL SCHEMA - MOBILE BFF (BACKEND-FOR-FRONTEND)
+HỆ SINH THÁI THƯƠNG MẠI ĐIỆN TỬ ĐẶC SẢN MÈ XỬNG O MẠ (HUẾ)
+=============================================================================
+Được định tuyến qua API Gateway tại endpoint /graphql (Port 4000).
+Thiết kế chuẩn mở GraphQL Foundation, hoàn toàn độc lập công nghệ (Technology-Agnostic),
+phục vụ mọi nền tảng di động (Flutter, React Native, iOS Swift/SwiftUI, Android Kotlin/Compose, KMP)
+theo chuẩn NFR-02 (Mobile First): Gom nhiều truy vấn trong 1 Single Round-trip,
+cắt giảm 70% dung lượng gói tin qua mạng 4G/5G và tối ưu pin thiết bị di động.
+"""
+
+scalar DateTime
+scalar JSON
+
+# =============================================================================
+# ENUMS
+# =============================================================================
+
+enum OrderStatus {
+  PENDING_PAYMENT
+  PAID
+  PROCESSING
+  PACKED
+  SHIPPING
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  UNPAID
+  PAID
+  REFUNDED
+}
+
+enum PaymentMethod {
+  VIETQR
+  COD
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
+  FREESHIP
+}
+
+enum MembershipTier {
+  BRONZE
+  SILVER
+  GOLD
+  DIAMOND
+}
+
+enum BannerTargetType {
+  PRODUCT
+  CATEGORY
+  PROMOTION
+  EXTERNAL_LINK
+}
+
+enum ProductSortInput {
+  PRICE_ASC
+  PRICE_DESC
+  BEST_SELLING
+  NEWEST
+}
+
+# =============================================================================
+# TYPES CỐT LÕI
+# =============================================================================
+
+"""
+Chuẩn biểu diễn tiền tệ an toàn BigInt (Tránh lỗi làm tròn số thực IEEE 754)
+"""
+type Money {
+  currencyCode: String!
+  units: String!
+  nanos: Int!
+  formatted: String!
+}
+
+"""
+Danh mục sản phẩm OCOP Cố Đô Huế
+"""
+type Category {
+  id: ID!
+  name: String!
+  slug: String!
+  description: String
+  imageUrl: String
+  parentId: ID
+  children: [Category!]!
+}
+
+"""
+Biến thể đóng gói / SKU sản phẩm (Hộp 500g, 300g, Gói quà biếu)
+"""
+type ProductVariant {
+  id: ID!
+  skuCode: String!
+  name: String!
+  weightGram: Int!
+  price: Money!
+  originalPrice: Money
+  stockAvailable: Int!
+  inStock: Boolean!
+}
+
+"""
+Thông tin sản phẩm mè xửng OCOP
+"""
+type Product {
+  id: ID!
+  name: String!
+  slug: String!
+  summary: String
+  description: String!
+  images: [String!]!
+  thumbnailUrl: String!
+  basePrice: Money!
+  ocopStar: Int!
+  ocopCertificateNo: String
+  story: String
+  category: Category!
+  variants: [ProductVariant!]!
+  reviewsSummary: ReviewsSummary!
+  inStock: Boolean!
+  isFeatured: Boolean!
+}
+
+"""
+Banner trình chiếu trang chủ ứng dụng
+"""
+type Banner {
+  id: ID!
+  title: String!
+  imageUrl: String!
+  targetType: BannerTargetType!
+  targetValue: String!
+  orderIndex: Int!
+}
+
+"""
+Mã khuyến mãi / Voucher ưu đãi
+"""
+type Voucher {
+  code: String!
+  title: String!
+  discountType: DiscountType!
+  discountValue: Int!
+  minOrderAmount: Money!
+  maxDiscountAmount: Money
+  expiresAt: DateTime!
+  isApplicable: Boolean!
+}
+
+"""
+Món hàng trong giỏ mua sắm lưu phiên Redis
+"""
+type CartItem {
+  id: ID!
+  skuCode: String!
+  product: Product!
+  variant: ProductVariant!
+  quantity: Int!
+  unitPrice: Money!
+  subtotalPrice: Money!
+  inStock: Boolean!
+}
+
+"""
+Chi tiết giỏ hàng và tổng giá trị tính toán
+"""
+type Cart {
+  id: ID!
+  items: [CartItem!]!
+  totalItems: Int!
+  subtotalAmount: Money!
+  appliedVoucher: Voucher
+  discountAmount: Money!
+  estimatedShippingFee: Money!
+  finalAmount: Money!
+}
+
+"""
+Địa chỉ nhận hàng của khách
+"""
+type Address {
+  id: ID!
+  recipientName: String!
+  phoneNumber: String!
+  streetAddress: String!
+  ward: String!
+  district: String!
+  province: String!
+  isDefault: Boolean!
+}
+
+"""
+Hồ sơ người dùng cá nhân & Trạng thái tích lũy Mè Xửng Xu
+"""
+type CustomerProfile {
+  id: ID!
+  phoneNumber: String!
+  fullName: String!
+  email: String
+  avatarUrl: String
+  membershipTier: MembershipTier!
+  loyaltyPoints: Int!
+  pendingOrdersCount: Int!
+  shippingOrdersCount: Int!
+  completedOrdersCount: Int!
+  defaultAddress: Address
+}
+
+"""
+Món hàng trong đơn đã tạo
+"""
+type OrderItem {
+  skuCode: String!
+  productName: String!
+  variantName: String!
+  thumbnailUrl: String!
+  quantity: Int!
+  unitPrice: Money!
+  subtotalPrice: Money!
+}
+
+"""
+Mốc kiểm tra hành trình vận đơn
+"""
+type OrderCheckpoint {
+  status: String!
+  timestamp: DateTime!
+  location: String!
+  description: String!
+}
+
+"""
+Theo dõi vận chuyển & Bằng chứng đóng gói bảo vệ đơn hàng
+"""
+type OrderTracking {
+  orderId: ID!
+  trackingCode: String!
+  carrierName: String!
+  currentStatus: String!
+  sealCode: String
+  packingVideoUrl: String
+  shipperName: String
+  shipperPhone: String
+  estimatedDeliveryAt: DateTime
+  checkpoints: [OrderCheckpoint!]!
+}
+
+"""
+Thông tin đơn hàng chi tiết
+"""
+type Order {
+  id: ID!
+  orderNumber: String!
+  status: OrderStatus!
+  paymentStatus: PaymentStatus!
+  paymentMethod: PaymentMethod!
+  shippingAddress: Address!
+  items: [OrderItem!]!
+  subtotalAmount: Money!
+  discountAmount: Money!
+  shippingFee: Money!
+  finalAmount: Money!
+  vietqrUrl: String
+  paymentExpiresAt: DateTime
+  tracking: OrderTracking
+  createdAt: DateTime!
+}
+
+"""
+Hồ sơ minh bạch truy xuất nguồn gốc OCOP 4 sao
+"""
+type OCOPTraceability {
+  qrCode: String!
+  productName: String!
+  batchCode: String!
+  ocopStar: Int!
+  ocopCertificateNo: String!
+  productionDate: String!
+  expiryDate: String!
+  workshopLocation: String!
+  artisanName: String!
+  foodSafetyCert: String!
+  rawMaterialsOrigin: String!
+  craftingVideoUrl: String
+}
+
+"""
+Đánh giá sản phẩm đã mua
+"""
+type Review {
+  id: ID!
+  customerName: String!
+  customerAvatarUrl: String
+  rating: Int!
+  comment: String!
+  mediaUrls: [String!]!
+  isVerifiedPurchase: Boolean!
+  sellerReply: String
+  createdAt: DateTime!
+}
+
+"""
+Tổng hợp thống kê đánh giá
+"""
+type ReviewsSummary {
+  averageRating: Float!
+  totalReviews: Int!
+  starCounts: [Int!]!
+  latestReviews: [Review!]!
+}
+
+# =============================================================================
+# SCREEN AGGREGATION PAYLOADS (Gom màn hình NFR-02)
+# =============================================================================
+
+"""
+Dữ liệu trọn gói cho Màn hình Trang Chủ (Home Screen)
+Mobile gọi 1 query duy nhất để lấy toàn bộ dữ liệu vẽ giao diện
+"""
+type HomeScreenData {
+  banners: [Banner!]!
+  categories: [Category!]!
+  featuredProducts: [Product!]!
+  bestSellerProducts: [Product!]!
+  activeVouchers: [Voucher!]!
+  unreadNotificationCount: Int!
+  profileSummary: CustomerProfile
+}
+
+"""
+Dữ liệu trọn gói cho Màn hình Chi Tiết Sản Phẩm (Product Detail Screen)
+"""
+type ProductDetailScreenData {
+  product: Product!
+  relatedProducts: [Product!]!
+  vouchers: [Voucher!]!
+  traceabilityPreview: OCOPTraceability
+}
+
+"""
+Dữ liệu trọn gói cho Màn hình Giỏ Hàng (Cart Screen)
+"""
+type CartScreenData {
+  cart: Cart!
+  suggestedVouchers: [Voucher!]!
+  defaultAddress: Address
+}
+
+"""
+Dữ liệu tính toán trước khi bấm Đặt Hàng (Checkout Preview)
+"""
+type CheckoutPreviewData {
+  subtotal: Money!
+  discount: Money!
+  shippingFee: Money!
+  finalAmount: Money!
+  applicableVoucher: Voucher
+  availablePaymentMethods: [PaymentMethod!]!
+}
+
+# =============================================================================
+# INPUT TYPES
+# =============================================================================
+
+input AddToCartInput {
+  skuCode: String!
+  quantity: Int!
+}
+
+input UpdateCartItemInput {
+  itemId: ID!
+  quantity: Int!
+}
+
+input GuestAddressInput {
+  recipientName: String!
+  phoneNumber: String!
+  streetAddress: String!
+  ward: String!
+  district: String!
+  province: String!
+}
+
+input MobileCheckoutInput {
+  idempotencyKey: String!
+  addressId: ID
+  guestAddress: GuestAddressInput
+  voucherCode: String
+  paymentMethod: PaymentMethod!
+  isGift: Boolean
+  giftMessage: String
+}
+
+input SubmitReviewInput {
+  orderId: ID!
+  skuCode: String!
+  rating: Int!
+  comment: String!
+  mediaUrls: [String!]
+}
+
+input UpdateProfileInput {
+  fullName: String
+  email: String
+  avatarUrl: String
+}
+
+input SaveAddressInput {
+  id: ID
+  recipientName: String!
+  phoneNumber: String!
+  streetAddress: String!
+  ward: String!
+  district: String!
+  province: String!
+  isDefault: Boolean
+}
+
+# =============================================================================
+# MUTATION RESULTS
+# =============================================================================
+
+type CheckoutResult {
+  orderId: ID!
+  orderNumber: String!
+  status: OrderStatus!
+  finalAmount: Money!
+  vietqrUrl: String
+  paymentExpiresAt: DateTime
+}
+
+type CancelOrderResult {
+  isCancelled: Boolean!
+  orderId: ID!
+  status: OrderStatus!
+}
+
+# =============================================================================
+# ROOT QUERY & MUTATION
+# =============================================================================
+
+type Query {
+  """
+  Tải trọn vẹn dữ liệu màn hình Trang chủ trong 1 round-trip duy nhất
+  """
+  homeScreenData: HomeScreenData!
+
+  """
+  Tải dữ liệu danh mục & danh sách sản phẩm phân trang
+  """
+  catalogScreenData(
+    categoryId: ID
+    page: Int = 1
+    pageSize: Int = 20
+    sortBy: ProductSortInput = BEST_SELLING
+  ): [Product!]!
+
+  """
+  Tải trọn vẹn dữ liệu màn hình Chi tiết sản phẩm
+  """
+  productDetailScreen(id: ID, slug: String): ProductDetailScreenData
+
+  """
+  Tải trọn vẹn dữ liệu màn hình Giỏ hàng
+  """
+  cartScreenData: CartScreenData!
+
+  """
+  Xem trước hóa đơn & phí vận chuyển trước khi xác nhận đặt hàng
+  """
+  checkoutPreview(
+    addressId: ID!
+    voucherCode: String
+  ): CheckoutPreviewData!
+
+  """
+  Lấy danh sách lịch sử đơn hàng của tôi
+  """
+  myOrders(
+    status: OrderStatus
+    page: Int = 1
+    pageSize: Int = 10
+  ): [Order!]!
+
+  """
+  Xem chi tiết đơn hàng
+  """
+  orderDetail(orderId: ID!): Order
+
+  """
+  Theo dõi hành trình giao nhận & xem video niêm phong seal
+  """
+  orderTracking(orderId: ID!): OrderTracking
+
+  """
+  Quét mã QR tra cứu hồ sơ OCOP 4 sao công khai
+  """
+  ocopTraceability(qrCode: String!): OCOPTraceability
+
+  """
+  Lấy thông tin hồ sơ cá nhân & điểm tích lũy Mè Xửng Xu
+  """
+  myProfile: CustomerProfile
+
+  """
+  Tìm kiếm nhanh sản phẩm qua ElasticSearch
+  """
+  searchProducts(
+    query: String!
+    page: Int = 1
+    pageSize: Int = 10
+  ): [Product!]!
+}
+
+type Mutation {
+  """
+  Thêm nhanh sản phẩm vào giỏ hàng
+  """
+  quickAddToCart(input: AddToCartInput!): Cart!
+
+  """
+  Cập nhật số lượng món hàng trong giỏ
+  """
+  updateCartItem(input: UpdateCartItemInput!): Cart!
+
+  """
+  Xóa món hàng khỏi giỏ
+  """
+  removeCartItem(itemId: ID!): Cart!
+
+  """
+  Dọn sạch toàn bộ giỏ hàng
+  """
+  clearCart: Boolean!
+
+  """
+  Áp dụng mã giảm giá vào giỏ hàng
+  """
+  applyVoucher(voucherCode: String!): Cart!
+
+  """
+  Gỡ bỏ mã giảm giá đang áp dụng
+  """
+  removeVoucher: Cart!
+
+  """
+  Kích hoạt Saga Checkout trên đường găng Critical Path
+  """
+  initiateCheckout(input: MobileCheckoutInput!): CheckoutResult!
+
+  """
+  Hủy đơn hàng chưa thanh toán và giải phóng tồn kho tức thời
+  """
+  cancelOrder(orderId: ID!, reason: String!): CancelOrderResult!
+
+  """
+  Gửi đánh giá Verified Review kèm ảnh chụp
+  """
+  submitReview(input: SubmitReviewInput!): Review!
+
+  """
+  Cập nhật thông tin tài khoản
+  """
+  updateProfile(input: UpdateProfileInput!): CustomerProfile!
+
+  """
+  Lưu hoặc cập nhật địa chỉ giao hàng
+  """
+  saveAddress(input: SaveAddressInput!): Address!
+
+  """
+  Xóa địa chỉ giao hàng
+  """
+  deleteAddress(addressId: ID!): Boolean!
+}

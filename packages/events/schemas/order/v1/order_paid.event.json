@@ -1,0 +1,68 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "OrderPaidEvent",
+  "description": "Sự kiện bắn ra từ MS-04 Order Service sau khi Webhook ngân hàng VietQR xác nhận tiền đã về tài khoản (HMAC hợp lệ). Topic: order.events.v1. Partition Key: order_id",
+  "type": "object",
+  "required": ["specversion", "id", "source", "type", "subject", "time", "datacontenttype", "traceparent", "data"],
+  "properties": {
+    "specversion": { "type": "string", "enum": ["1.0"] },
+    "id": { "type": "string", "description": "UUID v4 định danh duy nhất sự kiện" },
+    "source": { "type": "string", "format": "uri", "example": "https://omama.vn/services/order-service" },
+    "type": { "type": "string", "enum": ["vn.omama.order.paid.v1"] },
+    "subject": { "type": "string", "example": "order_id:ORD-20261015-0042" },
+    "time": { "type": "string", "format": "date-time" },
+    "datacontenttype": { "type": "string", "enum": ["application/json"] },
+    "traceparent": { "type": "string", "description": "W3C Traceparent Header phục vụ phân tán OTel" },
+    "data": {
+      "type": "object",
+      "required": ["order_id", "customer_id", "shipping_address_id", "channel", "final_paid_amount", "payment", "items"],
+      "properties": {
+        "order_id": { "type": "string" },
+        "customer_id": { "type": "string" },
+        "shipping_address_id": { "type": "string", "description": "ID tham chiếu địa chỉ, không truyền trực tiếp PII chi tiết" },
+        "channel": { "type": "string", "enum": ["D2C_WEB", "MOBILE_APP", "SHOPEE", "TIKTOK", "POS_QUAY"] },
+        "final_paid_amount": {
+          "type": "object",
+          "required": ["currency_code", "units", "nanos"],
+          "properties": {
+            "currency_code": { "type": "string", "example": "VND" },
+            "units": { "type": "integer", "description": "Số tiền thực trả (VND)" },
+            "nanos": { "type": "integer", "enum": [0] }
+          }
+        },
+        "payment": {
+          "type": "object",
+          "required": ["payment_method", "bank_transaction_id", "paid_at"],
+          "properties": {
+            "payment_method": { "type": "string", "enum": ["VIETQR", "COD", "B2B_TRANSFER"] },
+            "bank_transaction_id": { "type": "string" },
+            "paid_at": { "type": "string", "format": "date-time" }
+          }
+        },
+        "is_gift": { "type": "boolean" },
+        "gift_message": { "type": "string" },
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["sku_code", "quantity", "unit_price"],
+            "properties": {
+              "sku_code": { "type": "string", "example": "MX-GION-500G" },
+              "quantity": { "type": "integer", "minimum": 1 },
+              "unit_price": {
+                "type": "object",
+                "required": ["currency_code", "units", "nanos"],
+                "properties": {
+                  "currency_code": { "type": "string" },
+                  "units": { "type": "integer" },
+                  "nanos": { "type": "integer" }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

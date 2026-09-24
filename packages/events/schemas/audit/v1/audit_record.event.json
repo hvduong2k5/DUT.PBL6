@@ -1,0 +1,34 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AuditRecordEvent",
+  "description": "Sự kiện kiểm toán pháp lý bắn sang Audit Plane (MS-18). Topic: audit.events.v1. Partition Key: entity_id. Đảm bảo toàn vẹn bằng Hash Chain SHA-256.",
+  "type": "object",
+  "required": ["specversion", "id", "source", "type", "subject", "time", "datacontenttype", "traceparent", "data"],
+  "properties": {
+    "specversion": { "type": "string", "enum": ["1.0"] },
+    "id": { "type": "string" },
+    "source": { "type": "string", "format": "uri" },
+    "type": { "type": "string", "enum": ["vn.omama.audit.record.v1"] },
+    "subject": { "type": "string", "example": "entity:inventory:SKU-GION-500G" },
+    "time": { "type": "string", "format": "date-time" },
+    "datacontenttype": { "type": "string", "enum": ["application/json"] },
+    "traceparent": { "type": "string" },
+    "data": {
+      "type": "object",
+      "required": ["actor_id", "actor_role", "ip_address", "action", "entity_type", "entity_id", "before_state", "after_state", "prev_entity_hash", "current_entity_hash"],
+      "properties": {
+        "actor_id": { "type": "string" },
+        "actor_role": { "type": "string" },
+        "ip_address": { "type": "string" },
+        "action": { "type": "string", "example": "INVENTORY_ADJUST" },
+        "entity_type": { "type": "string", "example": "INVENTORY_ITEM" },
+        "entity_id": { "type": "string", "example": "SKU-GION-500G" },
+        "before_state": { "type": "object" },
+        "after_state": { "type": "object" },
+        "change_reason": { "type": "string" },
+        "prev_entity_hash": { "type": "string", "description": "Mã băm SHA-256 của bản ghi trước trong chuỗi Hash Chain" },
+        "current_entity_hash": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$", "description": "SHA-256(prev_hash + actor + payload + timestamp)" }
+      }
+    }
+  }
+}

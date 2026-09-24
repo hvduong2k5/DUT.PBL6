@@ -1,0 +1,25 @@
+version: v1
+plugins:
+  # Plugin sinh mã nguồn TypeScript / Node.js cho Order Service & Gateway (Dùng ts-proto hỗ trợ BigInt)
+  - plugin: buf.build/community/stephenh-ts-proto:v1.176.0
+    out: ../../packages/common/src/proto-gen
+    opt:
+      - env=node
+      - esModuleInterop=true
+      - outputServices=grpc-js
+      - outputEncodeMethods=true
+      - outputJsonMethods=true
+      - forceLong=bigint   # BẮT BUỘC: Đảm bảo int64 sinh ra BigInt trong Node.js, không mất độ chính xác
+      - stringEnums=false
+      - useOptionals=messages
+
+  # Plugin sinh mã nguồn Go cho Inventory Service & Core Services
+  - plugin: buf.build/protocolbuffers/go:v1.34.1
+    out: ../../packages/common/src/proto-gen-go
+    opt:
+      - paths=source_relative
+
+  - plugin: buf.build/grpc/go:v1.3.0
+    out: ../../packages/common/src/proto-gen-go
+    opt:
+      - paths=source_relative
