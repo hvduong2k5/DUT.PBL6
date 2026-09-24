@@ -1,14 +1,17 @@
 # Ô Mạ Web User
 
-Next.js App Router application cho Web D2C. Hiện có Authentication MVP cùng Customer Profile & Address Book MVP.
+Next.js App Router application cho Web D2C. Hiện có Authentication, Customer Profile & Address Book, cùng Product Discovery MVP.
+
+Product Discovery dùng Mockoon `oma-product-discovery-mvp.json` tại port `4012`. Sau khi chạy mock và web app, mở `http://localhost:3000/products`. Có thể kiểm tra state lỗi/loading bằng `?mockScenario=catalog-error` hoặc `?mockScenario=catalog-slow`.
 
 ## Local development
 
-1. Khởi động hai Mockoon environment từ repository root (mỗi lệnh ở một terminal):
+1. Khởi động các Mockoon environment cần dùng từ repository root (mỗi lệnh ở một terminal):
 
    ```powershell
    npx @mockoon/cli start --data .\mocks\mockoon\oma-auth-mvp.json
    npx @mockoon/cli start --data .\mocks\mockoon\oma-customer-profile-mvp.json
+   npx @mockoon/cli start --data .\mocks\mockoon\oma-product-discovery-mvp.json
    ```
 
 2. Cài dependency và chạy web app:

@@ -1,0 +1,469 @@
+openapi: 3.1.0
+info:
+  title: Ô Mạ Product Discovery MVP API
+  version: 0.1.0-candidate
+  summary: Candidate public catalog contract derived from the implemented Web D2C discovery flow.
+  license:
+    name: Proprietary - internal project use
+    identifier: LicenseRef-Proprietary
+  description: |
+    Proposed public API contract for catalog browsing, keyword search, SKU-level
+    filtering, sorting and pagination. It awaits Backend and Architecture review
+    and is not an approved production contract.
+
+    Browser components call the same-origin Next.js BFF at `/api/catalog/*`.
+    The BFF forwards to the API Gateway paths described here. Local-only
+    `X-Mock-Scenario` and Mockoon CRUD query names are intentionally absent.
+servers:
+  - url: /api/v1
+    description: API Gateway relative base URL
+tags:
+  - name: Product Discovery
+    description: Public catalog discovery. Authentication is not required.
+
+paths:
+  /catalog/products:
+    get:
+      tags: [Product Discovery]
+      operationId: discoverProducts
+      summary: Browse, search and filter public sellable products
+      description: |
+        Returns at most one summary per product. Price, weight, package and stock
+        filters are evaluated against sellable SKUs, not inferred from product-level
+        data. `matchedOffer` is the SKU selected by the server from those satisfying
+        all supplied SKU-level filters.
+
+        Only approved and published products are eligible. An SKU is available only
+        when its sellable stock is positive and its relevant lot is not expired or
+        blocked. Exact inventory quantity is never exposed by this endpoint.
+
+        Keyword matching is case-insensitive and accent-insensitive for Vietnamese.
+        Results use a stable product-ID tie-breaker after the requested sort.
+      parameters:
+        - $ref: "#/components/parameters/SearchKeyword"
+        - $ref: "#/components/parameters/Category"
+        - $ref: "#/components/parameters/ProductTypeFilter"
+        - $ref: "#/components/parameters/MinPrice"
+        - $ref: "#/components/parameters/MaxPrice"
+        - $ref: "#/components/parameters/Weights"
+        - $ref: "#/components/parameters/InStock"
+        - $ref: "#/components/parameters/Sort"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: Product summaries matching the requested discovery criteria.
+          headers:
+            X-Total-Count:
+              $ref: "#/components/headers/TotalCount"
+            X-Filtered-Count:
+              $ref: "#/components/headers/FilteredCount"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProductSummary"
+              examples:
+                catalog:
+                  value:
+                    - id: PRD-001
+                      slug: banh-ngu-sac-cung-dinh
+                      name: Bánh Ngũ Sắc Cung Đình
+                      shortDescription: Năm sắc bánh thanh nhã từ đậu xanh và hạt sen.
+                      categorySlug: banh-cung-dinh
+                      categoryName: Bánh Cung Đình
+                      productType: CAKE
+                      imageUrl: https://cdn.example.com/products/banh-ngu-sac.jpg
+                      ocopStars: 4
+                      badges: [Di sản Cố Đô]
+                      matchedOffer:
+                        skuId: SKU-001-250
+                        label: Hộp 250g
+                        priceVnd: 185000
+                        weightGrams: 250
+                        packageType: BOX
+                        isAvailable: true
+        "400":
+          $ref: "#/components/responses/InvalidQuery"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /catalog/discovery-config:
+    get:
+      tags: [Product Discovery]
+      operationId: getProductDiscoveryConfig
+      summary: Get filter metadata for the public catalog
+      description: |
+        Returns display metadata accepted by the discovery endpoint. Options that
+        currently have no public sellable products may be omitted. Customer-review
+        rating filters are intentionally absent until EPIC 15 supplies approved data.
+      responses:
+        "200":
+          description: Current discovery filter metadata.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DiscoveryConfig"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+components:
+  parameters:
+    SearchKeyword:
+      name: q
+      in: query
+      required: false
+      description: Trimmed keyword; internal repeated whitespace is collapsed before matching.
+      schema:
+        type: string
+        minLength: 2
+        maxLength: 100
+      example: hạt sen
+    Category:
+      name: category
+      in: query
+      required: false
+      description: Category slug returned by discovery-config.
+      schema:
+        type: string
+        pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        maxLength: 100
+      example: banh-cung-dinh
+    ProductTypeFilter:
+      name: productType
+      in: query
+      required: false
+      schema:
+        $ref: "#/components/schemas/ProductType"
+    MinPrice:
+      name: minPrice
+      in: query
+      required: false
+      description: Inclusive minimum SKU selling price in integer VND.
+      schema:
+        type: integer
+        format: int64
+        minimum: 0
+        maximum: 100000000
+    MaxPrice:
+      name: maxPrice
+      in: query
+      required: false
+      description: Inclusive maximum SKU selling price in integer VND; must be at least minPrice.
+      schema:
+        type: integer
+        format: int64
+        minimum: 0
+        maximum: 100000000
+    Weights:
+      name: weights
+      in: query
+      required: false
+      description: Comma-separated accepted SKU net weights in grams.
+      style: form
+      explode: false
+      schema:
+        type: array
+        maxItems: 10
+        uniqueItems: true
+        items:
+          type: integer
+          minimum: 1
+          maximum: 5000
+      example: [150, 250]
+    InStock:
+      name: inStock
+      in: query
+      required: false
+      description: When true, exclude products without an available matching SKU.
+      schema:
+        type: boolean
+        default: false
+    Sort:
+      name: sort
+      in: query
+      required: false
+      description: RELEVANCE falls back to CURATED when q is absent.
+      schema:
+        type: string
+        enum: [CURATED, RELEVANCE, PRICE_ASC, PRICE_DESC, NAME_ASC]
+        default: CURATED
+    Page:
+      name: page
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 10000
+        default: 1
+    PageSize:
+      name: pageSize
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 24
+        default: 9
+
+  headers:
+    TotalCount:
+      description: Number of public catalog products before applying query filters.
+      schema:
+        type: integer
+        minimum: 0
+    FilteredCount:
+      description: Number of products after all query filters and before pagination.
+      schema:
+        type: integer
+        minimum: 0
+
+  schemas:
+    ProductType:
+      type: string
+      enum: [CAKE, CANDY, TEA, GIFT_SET]
+    ProductSummary:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - slug
+        - name
+        - shortDescription
+        - categorySlug
+        - categoryName
+        - productType
+        - imageUrl
+        - ocopStars
+        - badges
+        - matchedOffer
+      properties:
+        id:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: PRD-001
+        slug:
+          type: string
+          pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          maxLength: 160
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        shortDescription:
+          type: string
+          maxLength: 500
+        categorySlug:
+          type: string
+          pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          maxLength: 100
+        categoryName:
+          type: string
+          minLength: 1
+          maxLength: 150
+        productType:
+          $ref: "#/components/schemas/ProductType"
+        imageUrl:
+          type: string
+          format: uri
+          maxLength: 2048
+        ocopStars:
+          type: [integer, "null"]
+          minimum: 3
+          maximum: 5
+          description: OCOP certification level, not a customer-review rating.
+        badges:
+          type: array
+          maxItems: 5
+          uniqueItems: true
+          items:
+            type: string
+            minLength: 1
+            maxLength: 50
+        matchedOffer:
+          $ref: "#/components/schemas/MatchedOffer"
+    MatchedOffer:
+      type: object
+      additionalProperties: false
+      required: [skuId, label, priceVnd, weightGrams, packageType, isAvailable]
+      description: A sellable SKU matching every supplied SKU-level filter.
+      properties:
+        skuId:
+          type: string
+          minLength: 1
+          maxLength: 100
+        label:
+          type: string
+          minLength: 1
+          maxLength: 100
+        priceVnd:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 100000000
+        weightGrams:
+          type: integer
+          minimum: 1
+          maximum: 5000
+        packageType:
+          type: string
+          minLength: 1
+          maxLength: 50
+          example: BOX
+        isAvailable:
+          type: boolean
+          description: Derived availability only; exact stock quantity is not public.
+    CategoryOption:
+      type: object
+      additionalProperties: false
+      required: [slug, name]
+      properties:
+        slug:
+          type: string
+          pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          maxLength: 100
+        name:
+          type: string
+          minLength: 1
+          maxLength: 150
+    ProductTypeOption:
+      type: object
+      additionalProperties: false
+      required: [value, label]
+      properties:
+        value:
+          $ref: "#/components/schemas/ProductType"
+        label:
+          type: string
+          minLength: 1
+          maxLength: 100
+    PricePreset:
+      type: object
+      additionalProperties: false
+      required: [label]
+      properties:
+        label:
+          type: string
+          minLength: 1
+          maxLength: 100
+        minPrice:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 100000000
+        maxPrice:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 100000000
+    DiscoveryConfig:
+      type: object
+      additionalProperties: false
+      required: [categories, productTypes, weightOptions, pricePresets]
+      properties:
+        categories:
+          type: array
+          uniqueItems: true
+          items:
+            $ref: "#/components/schemas/CategoryOption"
+        productTypes:
+          type: array
+          uniqueItems: true
+          items:
+            $ref: "#/components/schemas/ProductTypeOption"
+        weightOptions:
+          type: array
+          uniqueItems: true
+          items:
+            type: integer
+            minimum: 1
+            maximum: 5000
+        pricePresets:
+          type: array
+          items:
+            $ref: "#/components/schemas/PricePreset"
+    ApiFieldError:
+      type: object
+      additionalProperties: false
+      required: [field, code, message]
+      properties:
+        field:
+          type: string
+          example: minPrice
+        code:
+          type: string
+          example: INVALID_RANGE
+        message:
+          type: string
+          example: Giá tối thiểu không được lớn hơn giá tối đa.
+    ApiError:
+      type: object
+      additionalProperties: false
+      required: [code, message, requestId]
+      properties:
+        code:
+          type: string
+          example: INVALID_QUERY
+        message:
+          type: string
+          example: Bộ lọc sản phẩm không hợp lệ.
+        errors:
+          type: array
+          items:
+            $ref: "#/components/schemas/ApiFieldError"
+        requestId:
+          type: string
+          example: REQ-DISCOVERY-400
+
+  responses:
+    InvalidQuery:
+      description: One or more discovery query values are invalid.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+          examples:
+            invalidPriceRange:
+              value:
+                code: INVALID_QUERY
+                message: Bộ lọc sản phẩm không hợp lệ.
+                errors:
+                  - field: price
+                    code: INVALID_RANGE
+                    message: Giá tối thiểu không được lớn hơn giá tối đa.
+                requestId: REQ-DISCOVERY-400
+    RateLimited:
+      description: Public discovery request rate exceeded.
+      headers:
+        Retry-After:
+          description: Seconds until the client may retry.
+          schema:
+            type: integer
+            minimum: 1
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    InternalError:
+      description: Unexpected catalog failure.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    ServiceUnavailable:
+      description: Catalog or a required dependency is temporarily unavailable.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"

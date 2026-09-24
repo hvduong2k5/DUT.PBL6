@@ -1,5 +1,27 @@
 # O Ma Web MVP — Mockoon
 
+## Product Discovery MVP
+
+- Environment: `oma-product-discovery-mvp.json`
+- Port: `4012`
+- Base URL: `http://127.0.0.1:4012/api/v1`
+- UI: D2C-002 `/products`
+- Data/API source: `../../docs/ui_web/PRODUCT_DISCOVERY_DATA_API_MATRIX.md`
+
+```powershell
+npx @mockoon/cli validate --data .\mocks\mockoon\oma-product-discovery-mvp.json
+npx @mockoon/cli start --data .\mocks\mockoon\oma-product-discovery-mvp.json
+```
+
+| Capability | Method | Route |
+| --- | --- | --- |
+| `DISC-C01` | GET | `/catalog/products` |
+| `DISC-C02` | GET | `/catalog/discovery-config` |
+
+`DISC-C01` là Mockoon CRUD route nối với data bucket để tìm kiếm, lọc, sắp xếp và phân trang có hành vi thật. UI chỉ gọi qua BFF `/api/catalog/*`; các field chỉ mục nội bộ của mock không bị lộ ra response public.
+
+Scenario local: `catalog-error`, `catalog-slow`, `config-error`, `config-slow`. Trên UI dùng `?mockScenario=<name>`.
+
 ## Customer Profile & Address Book
 
 - Environment: `oma-customer-profile-mvp.json`

@@ -12,12 +12,16 @@ export function SiteHeader() {
       </div>
       <div className="main-nav">
         <BrandMark />
+        <form className="header-search" action="/products" method="get" role="search">
+          <label className="sr-only" htmlFor="header-search">Tìm sản phẩm</label>
+          <input id="header-search" name="q" minLength={2} placeholder="Tìm mè xửng, hạt sen, trà…" />
+          <button type="submit" aria-label="Tìm kiếm">⌕</button>
+        </form>
         <nav aria-label="Điều hướng chính">
           <Link href="/">Trang Chủ</Link>
-          <Link href="/#bo-suu-tap">Bánh &amp; Kẹo Cung Đình</Link>
-          <Link href="/#tra-sen">Mè Xửng &amp; Trà Sen</Link>
-          <Link href="/#qua-bieu">Quà Biếu Tặng</Link>
-          <Link href="/#cau-chuyen">Câu Chuyện Huế</Link>
+          <Link href="/products?category=banh-cung-dinh">Bánh Cung Đình</Link>
+          <Link href="/products?category=me-xung-keo-hue">Mè Xửng</Link>
+          <Link href="/products?category=qua-bieu">Quà Biếu</Link>
         </nav>
         <Link className="account-button" href="/account/profile" aria-label="Tài khoản Tri Kỷ">♙</Link>
       </div>
