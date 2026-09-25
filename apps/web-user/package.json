@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "dev:cart": "node scripts/dev-cart.mjs",
+    "dev:checkout": "node scripts/dev-checkout.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",

@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { getInitiallySelectedItemIds, getSelectedCartSummary, reconcileSelectedItemIds } from "@/lib/cart/selection";
 import type { Cart, CartItem } from "@/lib/cart/types";
@@ -17,6 +17,7 @@ function CartLoading() {
 }
 
 export function CartFlow() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const scenario = searchParams.get("mockScenario") ?? undefined;
   const [cart, setCart] = useState<Cart | null>(null);
@@ -120,14 +121,21 @@ export function CartFlow() {
     setStatusMessage("");
   }
 
+  function continueToCheckout() {
+    if (!selectedItemIds.length) return;
+    const params = new URLSearchParams({ items: selectedItemIds.join(",") });
+    if (scenario) params.set("cartScenario", scenario);
+    router.push(`/checkout?${params}`);
+  }
+
   return (
     <main className="cart-page">
       <nav className="cart-breadcrumbs" aria-label="Breadcrumb"><Link href="/">Trang chủ</Link><span aria-hidden="true">/</span><strong>Giỏ hàng</strong></nav>
 
       <ol className="cart-steps" aria-label="Tiến trình mua hàng">
         <li className="active" aria-current="step"><span>1</span><div><strong>Giỏ hàng</strong><small>Kiểm tra sản phẩm</small></div></li>
-        <li><span>2</span><div><strong>Thông tin đặt hàng</strong><small>Feature tiếp theo</small></div></li>
-        <li><span>3</span><div><strong>Hoàn tất</strong><small>Chưa phát sinh Order</small></div></li>
+        <li><span>2</span><div><strong>Thông tin đặt hàng</strong><small>Giao hàng &amp; xác nhận</small></div></li>
+        <li><span>3</span><div><strong>Hoàn tất</strong><small>Chờ thanh toán</small></div></li>
       </ol>
 
       <header className="cart-heading">
@@ -201,9 +209,9 @@ export function CartFlow() {
             <dl className="cart-selection-summary"><div><dt>Đã chọn thanh toán</dt><dd>{selectedSummary.lineCount} dòng · {selectedSummary.itemCount} sản phẩm</dd></div><div className="total"><dt>Tạm tính hàng đã chọn</dt><dd>{VND.format(selectedSummary.subtotalVnd)}</dd></div></dl>
             {cart.hasBlockingIssues ? <div className="cart-blocking-note" role="status"><strong>Có sản phẩm không khả dụng</strong><p>Các dòng này không thể chọn và không được tính vào phần chuẩn bị Checkout.</p></div> : null}
             <p className="cart-summary-disclaimer">Chưa gồm phí vận chuyển, ưu đãi và tổng thanh toán. Chỉ dòng đã chọn được chuẩn bị cho Checkout; giỏ hàng không giữ tồn hoặc cố định giá.</p>
-            <button type="button" className="cart-checkout" disabled={selectedSummary.lineCount === 0} onClick={() => setStatusMessage(`Đã chọn ${selectedSummary.lineCount} dòng (${selectedSummary.itemCount} sản phẩm). Checkout sẽ được hoàn thiện ở feature tiếp theo; chưa có Order, reservation hay payment nào được tạo.`)}>{selectedSummary.lineCount === 0 ? "Chọn sản phẩm để tiếp tục" : `Checkout ${selectedSummary.lineCount} dòng — sắp ra mắt`}</button>
+            <button type="button" className="cart-checkout" disabled={selectedSummary.lineCount === 0} onClick={continueToCheckout}>{selectedSummary.lineCount === 0 ? "Chọn sản phẩm để tiếp tục" : `Thanh toán ${selectedSummary.lineCount} dòng →`}</button>
             {statusMessage ? <p className="cart-checkout-note" role="status">{statusMessage}</p> : null}
-            <div className="cart-boundary"><strong>Phạm vi hiện tại</strong><p>Giá và khả dụng được kiểm tra lại. Shipping, voucher, payment và đặt hàng chưa hoạt động.</p></div>
+            <div className="cart-boundary"><strong>Trước khi đặt hàng</strong><p>Checkout sẽ kiểm tra lại giá, khả dụng, địa chỉ và phí vận chuyển. Payment chỉ bắt đầu sau khi Order hợp lệ được tạo.</p></div>
           </aside>
         </div>
       )}

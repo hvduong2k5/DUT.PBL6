@@ -23,12 +23,20 @@ Thư mục này chứa các API contract theo vòng đời `candidate → review
 | `shopping-cart-mvp.openapi.yaml` | `0.1.0-candidate` | OpenAPI đề xuất từ UI đã duyệt, implementation và Mockoon. |
 | `SHOPPING_CART_MVP_CONTRACT_REVIEW.md` | `PROPOSED / NOT APPROVED` | Ranh giới Cart/Checkout, implementation findings và câu hỏi cần review. |
 
+## Checkout MVP
+
+| Artefact | Trạng thái | Mục đích |
+| --- | --- | --- |
+| `checkout-mvp.openapi.yaml` | `0.1.0-candidate` | OpenAPI đề xuất từ UI Checkout đã duyệt, implementation và Mockoon. |
+| `CHECKOUT_MVP_CONTRACT_REVIEW.md` | `PROPOSED / NOT APPROVED` | Session, shipping quote, atomic reservation/Order và Payment boundary cần review. |
+
 Validate bằng Redocly recommended rules:
 
 ```powershell
 npx @redocly/cli lint .\docs\03_api_specs\authentication-mvp.openapi.yaml
 npx @redocly/cli lint .\docs\03_api_specs\customer-profile-mvp.openapi.yaml
 npx @redocly/cli lint .\docs\03_api_specs\shopping-cart-mvp.openapi.yaml
+npx @redocly/cli lint .\docs\03_api_specs\checkout-mvp.openapi.yaml
 ```
 
 Candidate không được coi là production contract cho đến khi Backend, Architecture và Security phê duyệt. Mockoon chỉ được đồng bộ theo thay đổi contract sau review.

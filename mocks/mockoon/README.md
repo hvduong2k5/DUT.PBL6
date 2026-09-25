@@ -1,5 +1,33 @@
 # O Ma Web MVP — Mockoon
 
+## Checkout MVP
+
+Khởi động Product Discovery → Product Detail → Cart → Checkout → Next.js bằng một lệnh:
+
+```powershell
+cd apps\web-user
+npm run dev:checkout
+```
+
+- Environment: `oma-checkout-mvp.json`
+- Port: `4015`
+- Base URL: `http://127.0.0.1:4015/api/v1`
+- UI: D2C-006 `/checkout` (đi từ `/cart?mockScenario=cart-prefilled`)
+- Data/API source: `../../docs/ui_web/CHECKOUT_DATA_API_MATRIX.md`
+
+```powershell
+npx @mockoon/cli validate --data .\mocks\mockoon\oma-checkout-mvp.json
+npx @mockoon/cli start --data .\mocks\mockoon\oma-checkout-mvp.json
+```
+
+| Capability | Browser/BFF route | Mock executable route |
+| --- | --- | --- |
+| `CHK-C01` | `POST /api/checkout/prepare` | `GET /checkout/bootstrap` + Cart projection |
+| `CHK-C02` | `POST /api/checkout/shipping-quotes` | `POST /checkout/shipping-quotes` |
+| `CHK-C03` | `POST /api/checkout/confirm` | `POST /checkout/confirm` |
+
+Scenario: `registered-customer`, `shipping-unavailable`, `shipping-error`, `shipping-slow`, `confirm-stock-conflict`, `confirm-price-changed`, `confirm-error`, `confirm-slow`. `X-Mock-Scenario` chỉ dùng local/test. Mock Checkout không đánh dấu Order `PAID` và không public exact inventory/warehouse/Batch.
+
 ## Shopping Cart MVP
 
 Khởi động trọn luồng Product Discovery → Product Detail → Cart → Next.js bằng một lệnh:
