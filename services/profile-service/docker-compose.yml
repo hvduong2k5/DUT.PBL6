@@ -1,0 +1,77 @@
+services:
+  profile-db:
+    image: pgvector/pgvector:pg16
+    container_name: omamx-profile-db
+    environment:
+      POSTGRES_USER: omamx_user
+      POSTGRES_PASSWORD: omamx_password
+      POSTGRES_DB: profile_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./migrations/000001_init_schema.up.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U omamx_user -d profile_db"]
+      interval: 3s
+      timeout: 3s
+      retries: 5
+
+  profile-redis:
+    image: redis:6.2-alpine
+    container_name: omamx-profile-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 5
+
+  profile-kafka:
+    image: apache/kafka:latest
+    container_name: omamx-profile-kafka
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:29092,CONTROLLER://:9093,EXTERNAL://:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://profile-kafka:29092,EXTERNAL://localhost:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@profile-kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_NUM_PARTITIONS: 3
+    ports:
+      - "9092:9092"
+
+  profile-service:
+    image: omamx/profile-service:latest
+    container_name: omamx-profile-service
+    environment:
+      HTTP_PORT: "8080"
+      GRPC_PORT: "50051"
+      DATABASE_URL: "postgres://omamx_user:omamx_password@profile-db:5432/profile_db?sslmode=disable"
+      REDIS_ADDR: "profile-redis:6379"
+      VAULT_ADDR: "http://profile-vault:8200"
+      VAULT_TOKEN: "root"
+      VAULT_KEY_NAME: "profile-pii-kek"
+      KAFKA_BROKERS: "profile-kafka:29092"
+      TOPIC_PROFILE_EVENTS: "profile.events.v1"
+      USE_VAULT_MOCK_DEV: "true"
+    ports:
+      - "8080:8080"
+      - "50051:50051"
+    depends_on:
+      profile-db:
+        condition: service_healthy
+      profile-redis:
+        condition: service_healthy
+      profile-kafka:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  pgdata:
