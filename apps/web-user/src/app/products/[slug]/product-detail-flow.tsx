@@ -4,8 +4,11 @@ import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { CartApiError } from "@/lib/cart/types";
+import { MAX_CART_ITEM_QUANTITY } from "@/lib/cart/validation";
 import type { ProductDetail, ProductSku } from "@/lib/product-detail/types";
 import { ProductDetailApiError } from "@/lib/product-detail/types";
+import { cartService } from "@/services/cart-service";
 import { productDetailService } from "@/services/product-detail-service";
 
 const VND = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 });
@@ -37,6 +40,9 @@ export function ProductDetailFlow({ slug }: { slug: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<{ status?: number; message: string }>();
   const [selectionMessage, setSelectionMessage] = useState("");
+  const [quantity, setQuantity] = useState(1);
+  const [addingToCart, setAddingToCart] = useState(false);
+  const [addedToCart, setAddedToCart] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
 
   useEffect(() => {
@@ -48,6 +54,8 @@ export function ProductDetailFlow({ slug }: { slug: string }) {
       setProduct(null);
       setSelectedSkuId(undefined);
       setSelectionMessage("");
+      setQuantity(1);
+      setAddedToCart(false);
       return productDetailService.getBySlug(slug, scenario);
     }).then((payload) => {
       if (!active) return;
@@ -74,15 +82,31 @@ export function ProductDetailFlow({ slug }: { slug: string }) {
     if (!sku.isAvailable) return;
     setSelectedSkuId(sku.skuId);
     setSelectionMessage("");
+    setAddedToCart(false);
     if (sku.imageUrl) setActiveImageUrl(sku.imageUrl);
   }
 
-  function confirmIntegrationPoint() {
+  async function addToCart() {
     if (!selectedSku) {
       setSelectionMessage("Vui lòng chọn một quy cách đang có thể mua trước khi tiếp tục.");
       return;
     }
-    setSelectionMessage(`Đã chọn ${selectedSku.label} (${selectedSku.skuId}). Tính năng giỏ hàng sẽ được hoàn thiện trong EPIC 05; sản phẩm chưa được thêm vào giỏ.`);
+    if (!Number.isInteger(quantity) || quantity < 1 || quantity > MAX_CART_ITEM_QUANTITY) {
+      setSelectionMessage(`Số lượng phải là số nguyên từ 1 đến ${MAX_CART_ITEM_QUANTITY}.`);
+      return;
+    }
+    setAddingToCart(true);
+    setAddedToCart(false);
+    setSelectionMessage("");
+    try {
+      const cart = await cartService.addItem({ skuId: selectedSku.skuId, quantity }, scenario);
+      setAddedToCart(true);
+      setSelectionMessage(`Đã thêm ${quantity} × ${selectedSku.label} vào giỏ. Giỏ hiện có ${cart.itemCount} sản phẩm.`);
+    } catch (cause) {
+      setSelectionMessage(cause instanceof CartApiError ? cause.message : "Không thể thêm vào giỏ hàng lúc này.");
+    } finally {
+      setAddingToCart(false);
+    }
   }
 
   if (loading) return <main className="product-detail-page"><ProductDetailLoading /></main>;
@@ -150,8 +174,16 @@ export function ProductDetailFlow({ slug }: { slug: string }) {
             {selectedSku ? <dl><div><dt>Khối lượng</dt><dd>{selectedSku.weightGrams}g</dd></div><div><dt>Hương vị</dt><dd>{selectedSku.flavor || "Nguyên bản"}</dd></div><div><dt>Đóng gói</dt><dd>{selectedSku.packageType}</dd></div><div><dt>Khả dụng</dt><dd className="available">Có thể chọn</dd></div></dl> : <p>Chưa chọn SKU. Không có quy cách nào được ngầm xác nhận.</p>}
           </div>
 
-          <button className="cart-integration-button" type="button" disabled={!hasAvailableSku} onClick={confirmIntegrationPoint}>{hasAvailableSku ? (selectedSku ? "Giỏ hàng sắp ra mắt" : "Chọn SKU để tiếp tục") : "Tạm thời không thể mua"}</button>
-          {selectionMessage ? <p id="sku-message" className={selectedSku ? "integration-note" : "selection-error"} role={selectedSku ? "status" : "alert"}>{selectionMessage}</p> : <p id="sku-message" className="integration-caption">Integration point cho Shopping Cart — chưa phát sinh yêu cầu thêm giỏ.</p>}
+          <div className="detail-cart-actions">
+            <label htmlFor="detail-quantity">Số lượng</label>
+            <div className="detail-quantity-control">
+              <button type="button" aria-label="Giảm số lượng" disabled={!selectedSku || addingToCart || quantity <= 1} onClick={() => setQuantity((value) => Math.max(1, value - 1))}>−</button>
+              <input id="detail-quantity" type="number" min="1" max={MAX_CART_ITEM_QUANTITY} value={quantity} disabled={!selectedSku || addingToCart} onChange={(event) => setQuantity(Number(event.currentTarget.value))} />
+              <button type="button" aria-label="Tăng số lượng" disabled={!selectedSku || addingToCart || quantity >= MAX_CART_ITEM_QUANTITY} onClick={() => setQuantity((value) => Math.min(MAX_CART_ITEM_QUANTITY, value + 1))}>+</button>
+            </div>
+            <button className="cart-integration-button" type="button" disabled={!hasAvailableSku || addingToCart} onClick={addToCart}>{!hasAvailableSku ? "Tạm thời không thể mua" : addingToCart ? "Đang thêm vào giỏ…" : selectedSku ? "Thêm vào giỏ hàng" : "Chọn SKU để tiếp tục"}</button>
+          </div>
+          {selectionMessage ? <div id="sku-message" className={addedToCart ? "integration-note" : "selection-error"} role={addedToCart ? "status" : "alert"}><p>{selectionMessage}</p>{addedToCart ? <Link href="/cart">Xem giỏ hàng →</Link> : null}</div> : <p id="sku-message" className="integration-caption">Giỏ hàng không giữ tồn hoặc cố định giá; hệ thống sẽ kiểm tra lại khi mở cart.</p>}
         </div>
       </section>
 

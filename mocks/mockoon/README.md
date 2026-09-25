@@ -1,5 +1,36 @@
 # O Ma Web MVP — Mockoon
 
+## Shopping Cart MVP
+
+Khởi động trọn luồng Product Discovery → Product Detail → Cart → Next.js bằng một lệnh:
+
+```powershell
+cd apps\web-user
+npm run dev:cart
+```
+
+Hoặc chạy riêng environment Cart từ repository root như bên dưới.
+
+- Environment: `oma-shopping-cart-mvp.json`
+- Port: `4014`
+- Base URL: `http://127.0.0.1:4014/api/v1`
+- UI: D2C-005 `/cart` và Add to Cart tại `/products/[slug]`
+- Data/API source: `../../docs/ui_web/SHOPPING_CART_DATA_API_MATRIX.md`
+
+```powershell
+npx @mockoon/cli validate --data .\mocks\mockoon\oma-shopping-cart-mvp.json
+npx @mockoon/cli start --data .\mocks\mockoon\oma-shopping-cart-mvp.json
+```
+
+| Capability | Browser/BFF route | Mock-only executable route |
+| --- | --- | --- |
+| `CART-C01` | `GET /api/cart` | CRUD `/internal/cart-lines`, `/internal/cart-sku-projections` |
+| `CART-C02` | `POST /api/cart/items` | BFF lookup + CRUD mutation |
+| `CART-C03` | `PATCH /api/cart/items/{itemId}` | BFF ownership check + CRUD mutation |
+| `CART-C04` | `DELETE /api/cart/items/{itemId}` | BFF ownership check + CRUD mutation |
+
+Data bucket giữ state Add/Update/Delete trong thời gian Mockoon chạy. Browser không gọi `/internal/*`; BFF strip `contextId`, `maxPurchasableQuantity` và cú pháp CRUD. Scenario: `cart-prefilled`, `cart-empty`, `price-changed`, `cart-unavailable`, `sku-unavailable`, `quantity-unavailable`, `cart-error`, `cart-slow`. Header `X-Mock-Scenario` chỉ dùng local/test.
+
 ## Product Discovery MVP
 
 - Environment: `oma-product-discovery-mvp.json`
