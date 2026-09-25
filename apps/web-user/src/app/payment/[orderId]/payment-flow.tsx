@@ -129,7 +129,7 @@ export function PaymentFlow({ orderId }: { orderId: string }) {
 
       {error ? <div className="payment-action-error" role="alert">{error}</div> : null}
       {copyMessage ? <div className="payment-toast" role="status">{copyMessage}</div> : null}
-      <section className="payment-actions"><div><button className="primary-button" type="button" disabled={checking} onClick={checkStatus}>{checking ? <><span className="spinner" />Đang kiểm tra…</> : "Kiểm tra trạng thái thanh toán"}</button>{canRetry ? <button className="secondary-button" type="button" disabled={retrying} onClick={retryPayment}>{retrying ? "Đang tạo…" : "Tạo lần thử mới"}</button> : null}</div><p><strong>Không thấy trạng thái mới?</strong> Việc xác minh có thể cần thêm thời gian. Đừng thanh toán lặp khi giao dịch cũ chưa rõ kết quả.</p><Link href="/products">Tiếp tục khám phá sản phẩm</Link></section>
+      <section className="payment-actions"><div><button className="primary-button" type="button" disabled={checking} onClick={checkStatus}>{checking ? <><span className="spinner" />Đang kiểm tra…</> : "Kiểm tra trạng thái thanh toán"}</button><Link className="secondary-link" href={`/orders/${encodeURIComponent(orderId)}/confirmation`}>Xem xác nhận Order</Link>{canRetry ? <button className="secondary-button" type="button" disabled={retrying} onClick={retryPayment}>{retrying ? "Đang tạo…" : "Tạo lần thử mới"}</button> : null}</div><p><strong>Không thấy trạng thái mới?</strong> Việc xác minh có thể cần thêm thời gian. Đừng thanh toán lặp khi giao dịch cũ chưa rõ kết quả.</p><Link href="/products">Tiếp tục khám phá sản phẩm</Link></section>
     </main>
   );
 }

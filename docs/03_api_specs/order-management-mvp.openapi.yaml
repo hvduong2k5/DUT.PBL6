@@ -1,0 +1,1080 @@
+openapi: 3.1.0
+info:
+  title: Ô Mạ Order Management MVP API
+  version: 0.1.0-candidate
+  summary: Candidate Order Management contract derived from the approved Web D2C implementation.
+  license:
+    name: Proprietary - internal project use
+    identifier: LicenseRef-Proprietary
+  description: |
+    PROPOSED / NOT APPROVED contract for Customer Order history, Order detail and
+    public timeline, Guest ownership verification, and eligible Order cancellation.
+    It awaits Backend, Architecture, Security, Payment, Inventory, Shipping and
+    Product review.
+
+    Browser components call same-origin Next.js BFF paths under `/api/orders`.
+    The BFF calls the API Gateway resource paths documented here. Order identifiers
+    are not credentials. Registered Customer access is scoped by authenticated
+    identity; Guest access requires a short-lived grant bound to exactly one Order.
+
+    Order, Payment and Shipping retain separate canonical states. Cancellation is
+    re-evaluated by the server at command time and is idempotent. Cancelling a paid
+    Order may create a refund obligation, but never represents the refund as complete.
+servers:
+  - url: /api/v1
+    description: API Gateway relative base URL
+tags:
+  - name: Orders
+    description: Customer-visible Order history, immutable snapshot, timeline and cancellation.
+  - name: Guest Order Access
+    description: Enumeration-resistant proof-of-ownership flow for Guest Order access.
+
+paths:
+  /customers/me/orders:
+    get:
+      tags: [Orders]
+      operationId: listMyOrders
+      summary: List Orders owned by the authenticated Customer
+      description: |
+        Returns only Orders in the current Customer identity scope. The caller cannot
+        supply a customer identifier, owner contact, internal source or arbitrary sort.
+        Search may match the public Order number and immutable product-name snapshots.
+      security:
+        - CustomerSession: []
+      parameters:
+        - $ref: "#/components/parameters/OrderSearch"
+        - $ref: "#/components/parameters/OrderStatusFilter"
+        - $ref: "#/components/parameters/OrderYear"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: Page of Orders in the current Customer scope.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderListResponse"
+              examples:
+                default:
+                  $ref: "#/components/examples/OrderList"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/CustomerAuthenticationRequired"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /orders/{orderId}:
+    parameters:
+      - $ref: "#/components/parameters/OrderId"
+    get:
+      tags: [Orders]
+      operationId: getOrder
+      summary: Get a Customer-visible Order snapshot and timeline
+      description: |
+        The caller must own the Order through the current Customer identity or a valid
+        Guest grant bound to this Order. Missing and out-of-scope Orders use the same
+        public response to reduce identifier enumeration.
+
+        Product, price, recipient and address values are immutable purchase snapshots.
+        The public timeline is an allowlisted projection and must not expose staff,
+        warehouse, fraud, reconciliation, carrier credential or audit internals.
+      security:
+        - CustomerSession: []
+        - GuestOrderAccess: []
+      responses:
+        "200":
+          description: Current Customer-visible Order projection.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderDetail"
+              examples:
+                processing:
+                  $ref: "#/components/examples/ProcessingOrder"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/OrderAccessRequired"
+        "404":
+          $ref: "#/components/responses/OrderNotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /orders/{orderId}/cancellations:
+    parameters:
+      - $ref: "#/components/parameters/OrderId"
+    post:
+      tags: [Orders]
+      operationId: cancelOrder
+      summary: Cancel an eligible Order idempotently
+      description: |
+        Re-checks ownership and cancellation eligibility against canonical Order,
+        Payment, reservation and Shipping state at command time. A prior `canCancel`
+        projection is advisory and does not guarantee command success.
+
+        Replays with the same idempotency key and logical request return the original
+        result without repeating the transition, reservation release or refund handoff.
+        A paid Order may return `refundRequired=true` and `PENDING_HANDOFF`; this is an
+        obligation only and must not be presented as a completed refund.
+      security:
+        - CustomerSession: []
+        - GuestOrderAccess: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CancelOrderRequest"
+            examples:
+              changedMind:
+                value:
+                  reasonCode: CHANGED_MIND
+                  note: Tôi muốn thay đổi sản phẩm.
+      responses:
+        "200":
+          description: Order cancelled, or the original idempotent result replayed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CancelOrderResult"
+              examples:
+                paidOrder:
+                  value:
+                    orderId: order-mock-20260926-001
+                    status: CANCELLED
+                    cancelledAt: "2026-09-26T04:15:00Z"
+                    reservationReleaseRequested: true
+                    refundRequired: true
+                    refundStatus: PENDING_HANDOFF
+                    message: Nghĩa vụ hoàn tiền đã được chuyển sang quy trình riêng; chưa thể coi là đã hoàn tiền.
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/OrderAccessRequired"
+        "403":
+          $ref: "#/components/responses/ForbiddenMutation"
+        "404":
+          $ref: "#/components/responses/OrderNotFound"
+        "409":
+          $ref: "#/components/responses/CancellationConflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /orders/guest-access/challenges:
+    post:
+      tags: [Guest Order Access]
+      operationId: createGuestOrderChallenge
+      summary: Request a Guest Order ownership challenge
+      description: |
+        Accepts a public Order number and the phone or email used at Checkout. Any
+        syntactically valid combination receives the same neutral `202` shape and
+        comparable timing, whether or not it matches an Order. `maskedDestination`
+        must be derived from the submitted contact, not disclose stored contact data.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateGuestChallengeRequest"
+            examples:
+              phone:
+                value:
+                  orderNumber: OMA-260926-001
+                  contact: "0914288668"
+      responses:
+        "202":
+          description: Neutral acknowledgement; no existence or match is disclosed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GuestChallenge"
+              examples:
+                accepted:
+                  value:
+                    challengeId: guest-order-challenge-001
+                    maskedDestination: 0914 *** 668
+                    expiresAt: "2026-09-26T03:15:00Z"
+                    resendAfterSeconds: 60
+                    message: Nếu thông tin phù hợp, mã xác minh đã được gửi.
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /orders/guest-access/challenges/{challengeId}/verify:
+    parameters:
+      - $ref: "#/components/parameters/ChallengeId"
+    post:
+      tags: [Guest Order Access]
+      operationId: verifyGuestOrderChallenge
+      summary: Verify a Guest challenge and issue an Order-scoped grant
+      description: |
+        Verifies a short-lived one-time code under attempt and resend limits. Success
+        issues a short-lived HttpOnly Guest grant bound to exactly one Order. OTP and
+        grant values must never be logged, returned in URLs or exposed to browser JavaScript.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyGuestChallengeRequest"
+            examples:
+              otp:
+                value:
+                  otp: "789214"
+      responses:
+        "200":
+          description: Challenge verified and Order-scoped Guest grant issued.
+          headers:
+            Set-Cookie:
+              description: HttpOnly, Secure, SameSite-protected Guest Order access grant.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GuestVerificationResult"
+              examples:
+                verified:
+                  value:
+                    orderId: order-mock-20260926-001
+                    orderNumber: OMA-260926-001
+                    orderPath: /orders/order-mock-20260926-001
+                    accessExpiresAt: "2026-09-26T03:20:00Z"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "410":
+          $ref: "#/components/responses/ChallengeExpired"
+        "422":
+          $ref: "#/components/responses/InvalidOtp"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+components:
+  securitySchemes:
+    CustomerSession:
+      type: apiKey
+      in: cookie
+      name: oma_customer_session
+      description: Candidate Customer session representation. Gateway identity propagation remains under Architecture review.
+    GuestOrderAccess:
+      type: apiKey
+      in: cookie
+      name: oma_order_guest_access
+      description: Short-lived server-issued grant bound to exactly one Order; never an Order identifier alone.
+
+  parameters:
+    OrderId:
+      name: orderId
+      in: path
+      required: true
+      description: Opaque Order identifier. It grants no access by itself.
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 100
+        pattern: "^[A-Za-z0-9-]+$"
+      example: order-mock-20260926-001
+    ChallengeId:
+      name: challengeId
+      in: path
+      required: true
+      description: Opaque, short-lived Guest challenge identifier.
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 100
+        pattern: "^[A-Za-z0-9-]+$"
+      example: guest-order-challenge-001
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Unique key for one logical cancellation command. Uncertain retries reuse the same key.
+      schema:
+        type: string
+        minLength: 10
+        maxLength: 100
+        pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{9,99}$"
+      example: order-cancel-550e8400-e29b-41d4-a716-446655440000
+    OrderSearch:
+      name: q
+      in: query
+      description: Public Order number or immutable product-name snapshot search.
+      schema:
+        type: string
+        minLength: 2
+        maxLength: 80
+    OrderStatusFilter:
+      name: status
+      in: query
+      description: Optional canonical Order status filter.
+      schema:
+        $ref: "#/components/schemas/OrderStatus"
+    OrderYear:
+      name: year
+      in: query
+      description: UTC placement year, not earlier than 2020.
+      schema:
+        type: integer
+        minimum: 2020
+        maximum: 2100
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 1000
+        default: 1
+    PageSize:
+      name: pageSize
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 20
+        default: 10
+
+  schemas:
+    OrderStatus:
+      type: string
+      enum: [PENDING_PAYMENT, PAID, CONFIRMED, PROCESSING, PACKED, SHIPPED, DELIVERED, COMPLETED, DELIVERY_FAILED, EXPIRED, CANCELLED]
+    PaymentStatus:
+      type: string
+      enum: [PENDING, PAID, UNPAID, REFUND_PENDING, COD_PENDING_COLLECTION]
+    ShippingStatus:
+      type: string
+      enum: [NOT_SHIPPED, READY, IN_TRANSIT, DELIVERED, FAILED]
+    Currency:
+      type: string
+      const: VND
+    CancelReasonCode:
+      type: string
+      enum: [CHANGED_MIND, WRONG_INFORMATION, OTHER]
+
+    OrderPreviewItem:
+      type: object
+      additionalProperties: false
+      required: [name, quantity]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 999
+
+    OrderListItem:
+      type: object
+      additionalProperties: false
+      required: [orderId, orderNumber, placedAt, status, statusLabel, paymentStatus, shippingStatus, totalVnd, currency, itemCount, previewItems, canCancel, cancelPolicyMessage]
+      properties:
+        orderId:
+          type: string
+          minLength: 8
+          maxLength: 100
+        orderNumber:
+          type: string
+          pattern: "^OMA-[A-Z0-9-]{6,30}$"
+        placedAt:
+          type: string
+          format: date-time
+        status:
+          $ref: "#/components/schemas/OrderStatus"
+        statusLabel:
+          type: string
+          minLength: 1
+          maxLength: 100
+        paymentStatus:
+          $ref: "#/components/schemas/PaymentStatus"
+        shippingStatus:
+          $ref: "#/components/schemas/ShippingStatus"
+        totalVnd:
+          type: integer
+          format: int64
+          minimum: 0
+        currency:
+          $ref: "#/components/schemas/Currency"
+        itemCount:
+          type: integer
+          minimum: 1
+          maximum: 999
+        previewItems:
+          type: array
+          minItems: 1
+          maxItems: 4
+          items:
+            $ref: "#/components/schemas/OrderPreviewItem"
+        canCancel:
+          type: boolean
+          description: Advisory projection; command-time eligibility is authoritative.
+        cancelPolicyMessage:
+          type: string
+          minLength: 1
+          maxLength: 300
+
+    OrderListResponse:
+      type: object
+      additionalProperties: false
+      required: [items, page, pageSize, totalItems, totalPages]
+      properties:
+        items:
+          type: array
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/OrderListItem"
+        page:
+          type: integer
+          minimum: 1
+        pageSize:
+          type: integer
+          minimum: 1
+          maximum: 20
+        totalItems:
+          type: integer
+          minimum: 0
+        totalPages:
+          type: integer
+          minimum: 0
+
+    OrderLine:
+      type: object
+      additionalProperties: false
+      required: [lineId, productName, skuLabel, quantity, unitPriceVnd, lineSubtotalVnd]
+      properties:
+        lineId:
+          type: string
+          minLength: 1
+          maxLength: 100
+        productName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        skuLabel:
+          type: string
+          minLength: 1
+          maxLength: 200
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 999
+        unitPriceVnd:
+          type: integer
+          format: int64
+          minimum: 0
+        lineSubtotalVnd:
+          type: integer
+          format: int64
+          minimum: 0
+
+    PaymentProjection:
+      type: object
+      additionalProperties: false
+      required: [method, status, label]
+      properties:
+        method:
+          type: string
+          enum: [BANK_TRANSFER, COD]
+        status:
+          $ref: "#/components/schemas/PaymentStatus"
+        label:
+          type: string
+          minLength: 1
+          maxLength: 100
+
+    ShippingProjection:
+      type: object
+      additionalProperties: false
+      required: [methodName, status, label, trackingCode, estimatedDelivery]
+      properties:
+        methodName:
+          type: string
+          minLength: 1
+          maxLength: 160
+        status:
+          $ref: "#/components/schemas/ShippingStatus"
+        label:
+          type: string
+          minLength: 1
+          maxLength: 100
+        trackingCode:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 100
+            - type: "null"
+        estimatedDelivery:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 160
+            - type: "null"
+
+    OrderPricing:
+      type: object
+      additionalProperties: false
+      required: [subtotalVnd, shippingFeeVnd, discountVnd, totalVnd, currency]
+      properties:
+        subtotalVnd:
+          type: integer
+          format: int64
+          minimum: 0
+        shippingFeeVnd:
+          type: integer
+          format: int64
+          minimum: 0
+        discountVnd:
+          type: integer
+          format: int64
+          minimum: 0
+        totalVnd:
+          type: integer
+          format: int64
+          minimum: 0
+        currency:
+          $ref: "#/components/schemas/Currency"
+
+    RecipientSnapshot:
+      type: object
+      additionalProperties: false
+      required: [fullName, phoneDisplay, emailDisplay, addressDisplay, deliveryNote]
+      properties:
+        fullName:
+          type: string
+          minLength: 1
+          maxLength: 160
+        phoneDisplay:
+          type: string
+          minLength: 1
+          maxLength: 40
+        emailDisplay:
+          type: string
+          minLength: 1
+          maxLength: 254
+        addressDisplay:
+          type: string
+          minLength: 1
+          maxLength: 500
+        deliveryNote:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 500
+            - type: "null"
+
+    TimelineEvent:
+      type: object
+      additionalProperties: false
+      required: [code, label, description, occurredAt, state]
+      properties:
+        code:
+          type: string
+          pattern: "^[A-Z][A-Z0-9_]+$"
+        label:
+          type: string
+          minLength: 1
+          maxLength: 120
+        description:
+          type: string
+          minLength: 1
+          maxLength: 500
+        occurredAt:
+          type: string
+          format: date-time
+        state:
+          type: string
+          enum: [COMPLETED, CURRENT, UPCOMING]
+
+    CancellationReason:
+      type: object
+      additionalProperties: false
+      required: [code, label]
+      properties:
+        code:
+          $ref: "#/components/schemas/CancelReasonCode"
+        label:
+          type: string
+          minLength: 1
+          maxLength: 120
+
+    CancellationProjection:
+      type: object
+      additionalProperties: false
+      required: [canCancel, cancelBy, message, allowedReasons]
+      properties:
+        canCancel:
+          type: boolean
+        cancelBy:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: "null"
+        message:
+          type: string
+          minLength: 1
+          maxLength: 300
+        allowedReasons:
+          type: array
+          maxItems: 10
+          items:
+            $ref: "#/components/schemas/CancellationReason"
+
+    OrderDetail:
+      type: object
+      additionalProperties: false
+      required: [orderId, orderNumber, source, placedAt, status, statusLabel, statusDescription, payment, shipping, lines, pricing, recipient, timeline, cancellation]
+      properties:
+        orderId:
+          type: string
+          minLength: 8
+          maxLength: 100
+        orderNumber:
+          type: string
+          pattern: "^OMA-[A-Z0-9-]{6,30}$"
+        source:
+          type: string
+          const: WEB_D2C
+        placedAt:
+          type: string
+          format: date-time
+        status:
+          $ref: "#/components/schemas/OrderStatus"
+        statusLabel:
+          type: string
+          minLength: 1
+          maxLength: 100
+        statusDescription:
+          type: string
+          minLength: 1
+          maxLength: 500
+        payment:
+          $ref: "#/components/schemas/PaymentProjection"
+        shipping:
+          $ref: "#/components/schemas/ShippingProjection"
+        lines:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/OrderLine"
+        pricing:
+          $ref: "#/components/schemas/OrderPricing"
+        recipient:
+          $ref: "#/components/schemas/RecipientSnapshot"
+        timeline:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/TimelineEvent"
+        cancellation:
+          $ref: "#/components/schemas/CancellationProjection"
+
+    CancelOrderRequest:
+      type: object
+      additionalProperties: false
+      required: [reasonCode]
+      properties:
+        reasonCode:
+          $ref: "#/components/schemas/CancelReasonCode"
+        note:
+          type: string
+          minLength: 1
+          maxLength: 300
+          description: Required by business validation when reasonCode is OTHER.
+
+    CancelOrderResult:
+      type: object
+      additionalProperties: false
+      required: [orderId, status, cancelledAt, reservationReleaseRequested, refundRequired, refundStatus, message]
+      properties:
+        orderId:
+          type: string
+          minLength: 8
+          maxLength: 100
+        status:
+          type: string
+          const: CANCELLED
+        cancelledAt:
+          type: string
+          format: date-time
+        reservationReleaseRequested:
+          type: boolean
+          description: A release obligation was recorded; not proof that Inventory completed it.
+        refundRequired:
+          type: boolean
+        refundStatus:
+          oneOf:
+            - type: string
+              const: PENDING_HANDOFF
+            - type: "null"
+          description: Null when no refund is required; never means refund completed.
+        message:
+          type: string
+          minLength: 1
+          maxLength: 300
+
+    CreateGuestChallengeRequest:
+      type: object
+      additionalProperties: false
+      required: [orderNumber, contact]
+      properties:
+        orderNumber:
+          type: string
+          pattern: "^OMA-[A-Z0-9-]{6,30}$"
+        contact:
+          type: string
+          minLength: 8
+          maxLength: 254
+          description: Phone or email supplied at Checkout; normalized server-side.
+
+    GuestChallenge:
+      type: object
+      additionalProperties: false
+      required: [challengeId, maskedDestination, expiresAt, resendAfterSeconds, message]
+      properties:
+        challengeId:
+          type: string
+          minLength: 8
+          maxLength: 100
+        maskedDestination:
+          type: string
+          minLength: 1
+          maxLength: 254
+          description: Masked form of caller-supplied contact, never proof of an Order match.
+        expiresAt:
+          type: string
+          format: date-time
+        resendAfterSeconds:
+          type: integer
+          minimum: 1
+          maximum: 300
+        message:
+          type: string
+          minLength: 1
+          maxLength: 300
+
+    VerifyGuestChallengeRequest:
+      type: object
+      additionalProperties: false
+      required: [otp]
+      properties:
+        otp:
+          type: string
+          pattern: "^[0-9]{6}$"
+          writeOnly: true
+
+    GuestVerificationResult:
+      type: object
+      additionalProperties: false
+      required: [orderId, orderNumber, orderPath, accessExpiresAt]
+      properties:
+        orderId:
+          type: string
+          minLength: 8
+          maxLength: 100
+        orderNumber:
+          type: string
+          pattern: "^OMA-[A-Z0-9-]{6,30}$"
+        orderPath:
+          type: string
+          pattern: "^/orders/[A-Za-z0-9-]{8,100}$"
+          description: Same-origin UI path; never contains an access token.
+        accessExpiresAt:
+          type: string
+          format: date-time
+
+    FieldError:
+      type: object
+      additionalProperties: false
+      required: [field, message]
+      properties:
+        field:
+          type: string
+          minLength: 1
+          maxLength: 100
+        message:
+          type: string
+          minLength: 1
+          maxLength: 300
+
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      required: [code, message, requestId]
+      properties:
+        code:
+          type: string
+          pattern: "^[A-Z][A-Z0-9_]+$"
+        message:
+          type: string
+          minLength: 1
+          maxLength: 300
+        requestId:
+          type: string
+          minLength: 1
+          maxLength: 100
+        errors:
+          type: array
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/FieldError"
+        retryAfterSeconds:
+          type: integer
+          minimum: 1
+          maximum: 86400
+
+  responses:
+    InvalidRequest:
+      description: Method, path, identifier or query is invalid.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: INVALID_REQUEST
+            message: Yêu cầu Order không hợp lệ.
+            requestId: req-order-invalid-001
+    ValidationFailed:
+      description: Request fields fail validation.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: VALIDATION_ERROR
+            message: Thông tin chưa hợp lệ.
+            requestId: req-order-validation-001
+            errors:
+              - field: reasonCode
+                message: Hãy chọn lý do hủy hợp lệ.
+    CustomerAuthenticationRequired:
+      description: No valid authenticated Customer context.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: CUSTOMER_AUTHENTICATION_REQUIRED
+            message: Vui lòng đăng nhập để xem lịch sử Order.
+            requestId: req-order-auth-001
+    OrderAccessRequired:
+      description: No valid Customer context or Order-scoped Guest grant.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: ORDER_ACCESS_REQUIRED
+            message: Phiên truy cập Order đã hết hạn hoặc không hợp lệ.
+            requestId: req-order-access-001
+    ForbiddenMutation:
+      description: Request origin or mutation protection failed.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: ORIGIN_NOT_ALLOWED
+            message: Request origin không được phép.
+            requestId: req-order-origin-001
+    OrderNotFound:
+      description: Order does not exist or is outside caller scope; ownership is not disclosed.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: ORDER_NOT_FOUND
+            message: Không tìm thấy Order phù hợp.
+            requestId: req-order-not-found-001
+    CancellationConflict:
+      description: Cancellation is no longer eligible or the idempotency key conflicts.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          examples:
+            notEligible:
+              value:
+                code: ORDER_CANCELLATION_NOT_ALLOWED
+                message: Order đã đi qua mốc cho phép tự hủy.
+                requestId: req-order-cancel-001
+            idempotencyConflict:
+              value:
+                code: IDEMPOTENCY_CONFLICT
+                message: Idempotency key đã được dùng cho yêu cầu khác.
+                requestId: req-order-idempotency-001
+    ChallengeExpired:
+      description: Guest verification challenge expired or was already consumed.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: GUEST_CHALLENGE_EXPIRED
+            message: Phiên xác minh đã hết hạn. Vui lòng yêu cầu mã mới.
+            requestId: req-order-challenge-expired-001
+    InvalidOtp:
+      description: OTP is invalid; response does not disclose Order/contact matching.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: GUEST_OTP_INVALID
+            message: Mã xác minh không hợp lệ.
+            requestId: req-order-otp-invalid-001
+    RateLimited:
+      description: Too many list, detail, challenge, verification or cancellation requests.
+      headers:
+        Retry-After:
+          description: Seconds until another request may be attempted.
+          schema:
+            type: integer
+            minimum: 1
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: ORDER_RATE_LIMITED
+            message: Có quá nhiều yêu cầu. Vui lòng thử lại sau.
+            requestId: req-order-rate-001
+            retryAfterSeconds: 60
+    InternalError:
+      description: Unexpected Order processing failure; no success may be inferred.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: ORDER_ERROR
+            message: Không thể xử lý Order lúc này.
+            requestId: req-order-error-001
+    ServiceUnavailable:
+      description: Order service or a required dependency is temporarily unavailable.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: ORDER_UPSTREAM_UNAVAILABLE
+            message: Dịch vụ Order đang tạm thời gián đoạn.
+            requestId: req-order-unavailable-001
+
+  examples:
+    OrderList:
+      value:
+        items:
+          - orderId: order-mock-20260926-001
+            orderNumber: OMA-260926-001
+            placedAt: "2026-09-26T03:05:00Z"
+            status: PROCESSING
+            statusLabel: Đang chuẩn bị
+            paymentStatus: PAID
+            shippingStatus: NOT_SHIPPED
+            totalVnd: 665000
+            currency: VND
+            itemCount: 3
+            previewItems:
+              - name: Bánh Ngũ Sắc Cung Đình
+                quantity: 2
+            canCancel: true
+            cancelPolicyMessage: Có thể tự hủy trước khi bắt đầu đóng gói.
+        page: 1
+        pageSize: 10
+        totalItems: 1
+        totalPages: 1
+    ProcessingOrder:
+      value:
+        orderId: order-mock-20260926-001
+        orderNumber: OMA-260926-001
+        source: WEB_D2C
+        placedAt: "2026-09-26T03:05:00Z"
+        status: PROCESSING
+        statusLabel: Đang chuẩn bị
+        statusDescription: Order đã được xác nhận và đang chuẩn bị đóng gói.
+        payment:
+          method: BANK_TRANSFER
+          status: PAID
+          label: Đã thanh toán
+        shipping:
+          methodName: Giao tiêu chuẩn
+          status: NOT_SHIPPED
+          label: Chưa bàn giao vận chuyển
+          trackingCode: null
+          estimatedDelivery: Dự kiến 28–30/09/2026
+        lines:
+          - lineId: line-order-cake
+            productName: Bánh Ngũ Sắc Cung Đình
+            skuLabel: Hộp Thượng Hạng 250g
+            quantity: 2
+            unitPriceVnd: 185000
+            lineSubtotalVnd: 370000
+        pricing:
+          subtotalVnd: 665000
+          shippingFeeVnd: 0
+          discountVnd: 0
+          totalVnd: 665000
+          currency: VND
+        recipient:
+          fullName: Nguyễn Văn An
+          phoneDisplay: 0914 *** 668
+          emailDisplay: an***@example.test
+          addressDisplay: Tầng 3, 84 Nguyễn Huệ, Phú Nhuận, Huế
+          deliveryNote: Gọi trước khi giao.
+        timeline:
+          - code: ORDER_CREATED
+            label: Order đã tạo
+            description: Snapshot mua hàng đã được ghi nhận.
+            occurredAt: "2026-09-26T03:05:00Z"
+            state: COMPLETED
+          - code: ORDER_PROCESSING
+            label: Đang chuẩn bị
+            description: Order đã chuyển sang công đoạn chuẩn bị.
+            occurredAt: "2026-09-26T04:00:00Z"
+            state: CURRENT
+        cancellation:
+          canCancel: true
+          cancelBy: "2026-09-26T05:00:00Z"
+          message: Có thể gửi yêu cầu hủy trước khi bắt đầu đóng gói.
+          allowedReasons:
+            - code: CHANGED_MIND
+              label: Thay đổi nhu cầu
+            - code: WRONG_INFORMATION
+              label: Thông tin nhận hàng chưa đúng
+            - code: OTHER
+              label: Lý do khác

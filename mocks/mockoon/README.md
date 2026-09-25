@@ -1,5 +1,35 @@
 # O Ma Web MVP — Mockoon
 
+## Order Management MVP
+
+Khởi động Order Management Mockoon và Next.js. Script chỉ bật mock cần cho feature này để tránh chiếm tài nguyên không cần thiết:
+
+```powershell
+cd apps\web-user
+npm run dev:orders
+```
+
+- Environment: `oma-order-management-mvp.json`
+- Port: `4017`
+- Base URL: `http://127.0.0.1:4017/api/v1`
+- UI: D2C-008 `/orders/{orderId}/confirmation`, D2C-014 `/account/orders`, D2C-015 `/orders/{orderId}`, D2C-016 `/track-order`
+- Data/API source: `../../docs/ui_web/ORDER_MANAGEMENT_DATA_API_MATRIX.md`
+
+```powershell
+npx @mockoon/cli validate --data .\mocks\mockoon\oma-order-management-mvp.json
+npx @mockoon/cli start --data .\mocks\mockoon\oma-order-management-mvp.json
+```
+
+| Capability | Browser/BFF route | Mock executable route |
+| --- | --- | --- |
+| `ORD-C01` | `GET /api/orders` | `GET /customers/me/orders` |
+| `ORD-C02` | `GET /api/orders/{orderId}` | `GET /orders/:orderId` |
+| `ORD-C03` | `POST /api/orders/{orderId}/cancellations` | `POST /orders/:orderId/cancellations` |
+| `ORD-C04` | `POST /api/orders/guest-access/challenges` | cùng path |
+| `ORD-C05` | `POST /api/orders/guest-access/challenges/{challengeId}/verify` | cùng path |
+
+Guest fixture: `OMA-260926-001`, `0914288668`, OTP `789214`. Scenario và boundary đầy đủ nằm trong data matrix; browser không gọi Mockoon trực tiếp.
+
 ## Payment MVP
 
 Khởi động Product Discovery → Product Detail → Cart → Checkout → Payment → Next.js bằng một lệnh:

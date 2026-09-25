@@ -1,10 +1,20 @@
 # Ô Mạ Web User
 
-Next.js App Router application cho Web D2C. Hiện có Authentication, Customer Profile & Address Book, Product Discovery, Product Detail, Shopping Cart, Checkout và Payment MVP.
+Next.js App Router application cho Web D2C. Hiện có Authentication, Customer Profile & Address Book, Product Discovery, Product Detail, Shopping Cart, Checkout, Payment và Order Management MVP.
 
 Product Discovery dùng Mockoon `oma-product-discovery-mvp.json` tại port `4012`. Sau khi chạy mock và web app, mở `http://localhost:3000/products`. Có thể kiểm tra state lỗi/loading bằng `?mockScenario=catalog-error` hoặc `?mockScenario=catalog-slow`.
 
 ## Local development
+
+### Order Management development
+
+Từ `apps/web-user`, khởi động Order Management Mockoon (`4017`) và Next.js. Script chỉ bật mock cần cho feature này để giảm tài nguyên; dùng script của feature trước nếu cần kiểm tra xuyên suốt luồng mua hàng:
+
+```powershell
+npm run dev:orders
+```
+
+Các route kiểm tra chính: `/orders/order-mock-20260926-001/confirmation`, `/account/orders`, `/orders/order-mock-20260926-001` và `/track-order`. Guest fixture local dùng Order `OMA-260926-001`, contact `0914288668`, OTP `789214`.
 
 ### Payment development
 
@@ -42,6 +52,7 @@ Chạy riêng `npm run dev` **không** khởi động Mockoon. Khi đó `/api/ca
    npx @mockoon/cli start --data .\mocks\mockoon\oma-shopping-cart-mvp.json
    npx @mockoon/cli start --data .\mocks\mockoon\oma-checkout-mvp.json
    npx @mockoon/cli start --data .\mocks\mockoon\oma-payment-mvp.json
+   npx @mockoon/cli start --data .\mocks\mockoon\oma-order-management-mvp.json
    ```
 
 2. Cài dependency và chạy web app:

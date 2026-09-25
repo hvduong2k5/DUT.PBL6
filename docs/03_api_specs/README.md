@@ -37,6 +37,13 @@ Thư mục này chứa các API contract theo vòng đời `candidate → review
 | `payment-mvp.openapi.yaml` | `0.1.0-candidate` | OpenAPI đề xuất từ UI Payment đã duyệt, implementation và Mockoon. |
 | `PAYMENT_MVP_CONTRACT_REVIEW.md` | `PROPOSED / NOT APPROVED` | Trusted verification, Bank Transfer/QR, COD, retry và reconciliation boundary cần review. |
 
+## Order Management MVP
+
+| Artefact | Trạng thái | Mục đích |
+| --- | --- | --- |
+| `order-management-mvp.openapi.yaml` | `0.1.0-candidate` | OpenAPI đề xuất từ UI Order Management đã duyệt, implementation và Mockoon. |
+| `ORDER_MANAGEMENT_MVP_CONTRACT_REVIEW.md` | `PROPOSED / NOT APPROVED` | Ownership Customer/Guest, state projection, cancellation idempotency và cross-domain handoff cần review. |
+
 Validate bằng Redocly recommended rules:
 
 ```powershell
@@ -45,6 +52,7 @@ npx @redocly/cli lint .\docs\03_api_specs\customer-profile-mvp.openapi.yaml
 npx @redocly/cli lint .\docs\03_api_specs\shopping-cart-mvp.openapi.yaml
 npx @redocly/cli lint .\docs\03_api_specs\checkout-mvp.openapi.yaml
 npx @redocly/cli lint .\docs\03_api_specs\payment-mvp.openapi.yaml
+npx @redocly/cli lint .\docs\03_api_specs\order-management-mvp.openapi.yaml
 ```
 
 Candidate không được coi là production contract cho đến khi Backend, Architecture và Security phê duyệt. Mockoon chỉ được đồng bộ theo thay đổi contract sau review.

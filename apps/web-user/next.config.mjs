@@ -2,6 +2,9 @@
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  experimental: {
+    cpus: 1
+  },
   images: {
     remotePatterns: [{ protocol: "https", hostname: "lh3.googleusercontent.com" }]
   }
