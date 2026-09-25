@@ -231,3 +231,35 @@ Quy trình đồng bộ đúng:
 6. Frontend đổi base URL sang API Gateway và chạy lại contract/E2E tests.
 
 Nếu Mockoon và OpenAPI khác nhau, OpenAPI đã được review là nguồn sự thật ưu tiên.
+
+## Product Detail & SKU Selection MVP
+
+Environment `oma-product-detail-mvp.json` chạy ở port `4013`, API prefix `/api/v1`. Environment phục vụ UI `/products/[slug]` và được Next.js BFF gọi qua server-only `PRODUCT_DETAIL_UPSTREAM_URL`.
+
+```powershell
+npx @mockoon/cli validate --data .\mocks\mockoon\oma-product-detail-mvp.json
+npx @mockoon/cli start --data .\mocks\mockoon\oma-product-detail-mvp.json
+```
+
+| Capability | Method | Route | Default behavior |
+| --- | --- | --- | --- |
+| Health | GET | `/health` | `200` local health |
+| `DETAIL-C01` | GET | `/catalog/products/:slug` | Public product detail hoặc `404` |
+
+Các fixture theo slug:
+
+- `banh-ngu-sac-cung-dinh`: nhiều SKU, không có confirmed selection ban đầu.
+- `tra-sen-tinh-tam`: một SKU khả dụng để kiểm tra auto-select.
+- Slug khác: `404 PRODUCT_NOT_FOUND`.
+
+Scenario local/test qua `X-Mock-Scenario`:
+
+| Scenario | HTTP/state |
+| --- | --- |
+| `all-unavailable` | `200`, toàn bộ SKU disabled |
+| `missing-optional-food-info` | `200`, thiếu allergen/certification optional |
+| `product-not-found` | `404` |
+| `product-error` | `500` |
+| `product-slow` | `200` sau 3 giây |
+
+`X-Mock-Scenario` không phải API production. UI chỉ dùng query `mockScenario` trong development, BFF chuyển thành header và không forward ở production. Exact stock, warehouse, cost price, internal status và internal unavailable reason trong fixture chỉ dùng để kiểm tra BFF projection; browser không được nhận các field này.

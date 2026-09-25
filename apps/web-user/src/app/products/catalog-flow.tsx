@@ -26,31 +26,23 @@ function ProductCard({ product }: { product: ProductSummary }) {
   const offer = product.matchedOffer;
   return (
     <article className="product-card">
-      <div className="product-image">
+      <Link className="product-image" href={`/products/${product.slug}`} aria-label={`Xem chi tiết ${product.name}`}>
         <Image src={product.imageUrl} alt={product.name} fill sizes="(max-width: 760px) 100vw, (max-width: 1100px) 50vw, 30vw" />
         <div className="product-badges">
           {product.ocopStars ? <span>OCOP {product.ocopStars} sao</span> : null}
           {product.badges.slice(0, 1).map((badge) => <span className="soft" key={badge}>{badge}</span>)}
         </div>
         {!offer.isAvailable ? <span className="sold-out-badge">Tạm hết hàng</span> : null}
-      </div>
+      </Link>
       <div className="product-card-content">
         <p className="product-category">{product.categoryName}</p>
-        <h2>{product.name}</h2>
+        <h2><Link href={`/products/${product.slug}`}>{product.name}</Link></h2>
         <p className="product-description">{product.shortDescription}</p>
         <div className="product-offer-row">
           <div><strong>{VND.format(offer.priceVnd)}</strong><span>{offer.label}</span></div>
           <span className={offer.isAvailable ? "stock-status" : "stock-status unavailable"}>{offer.isAvailable ? "Còn hàng" : "Hết hàng"}</span>
         </div>
-        <details className="product-quick-view">
-          <summary>Xem lựa chọn phù hợp <span aria-hidden="true">＋</span></summary>
-          <div>
-            <span>Mã SKU: {offer.skuId}</span>
-            <span>Khối lượng: {offer.weightGrams}g</span>
-            <span>Kiểu đóng gói: {offer.packageType}</span>
-            <small>Chi tiết sản phẩm và mua hàng sẽ được mở ở feature tiếp theo.</small>
-          </div>
-        </details>
+        <Link className="product-detail-link" href={`/products/${product.slug}`}>Xem chi tiết &amp; chọn quy cách <span aria-hidden="true">→</span></Link>
       </div>
     </article>
   );
