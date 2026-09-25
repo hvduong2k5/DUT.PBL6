@@ -6,6 +6,7 @@ import {
   validatePrepareCheckoutInput,
   validateQuoteShippingInput
 } from "@/lib/checkout/validation";
+import { paymentAccessCookie } from "@/lib/payment/access";
 import { NextRequest, NextResponse } from "next/server";
 
 const CART_COOKIE = "oma_cart_context";
@@ -310,9 +311,20 @@ export async function handleCheckoutRequest(request: NextRequest, path: string[]
       discountVnd: 0,
       totalVnd: subtotalVnd + shipping.feeVnd,
       nextStep: upstreamConfirmation.nextStep,
+      paymentPath: `/payment/${encodeURIComponent(upstreamConfirmation.orderId)}`,
       message: upstreamConfirmation.message
     };
-    return withCartCookie(NextResponse.json(confirmation, { status: 201 }), contextId, shouldSet);
+    const response = withCartCookie(NextResponse.json(confirmation, { status: 201 }), contextId, shouldSet);
+    const now = Date.now();
+    response.headers.append("Set-Cookie", paymentAccessCookie({
+      orderId: confirmation.orderId,
+      orderNumber: confirmation.orderNumber,
+      method: confirmation.paymentMethod,
+      amountVnd: confirmation.totalVnd,
+      paymentExpiresAt: new Date(now + 15 * 60 * 1000).toISOString(),
+      accessExpiresAt: now + 30 * 60 * 1000
+    }));
+    return response;
   } catch (cause) {
     if (cause instanceof UpstreamHttpError) {
       const status = cause.status >= 400 && cause.status <= 599 ? cause.status : 500;

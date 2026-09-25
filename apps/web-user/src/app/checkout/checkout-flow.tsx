@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import type {
   CheckoutConfirmation,
@@ -51,6 +51,7 @@ function optionLabel(address: SavedCheckoutAddress) {
 }
 
 export function CheckoutFlow() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const itemIds = useMemo(() => (searchParams.get("items") ?? "").split(",").filter(Boolean), [searchParams]);
   const mockScenario = searchParams.get("mockScenario") ?? undefined;
@@ -170,6 +171,7 @@ export function CheckoutFlow() {
         priceChangesAcknowledged: priceAcknowledged
       }, requestOptions);
       setConfirmation(result);
+      router.push(result.paymentPath);
     } catch (cause) {
       if (cause instanceof CheckoutApiError) {
         setSubmitError(cause.itemIssues.length ? `${cause.message} ${cause.itemIssues.map((issue) => issue.message).join(" ")}` : cause.message);
@@ -212,8 +214,8 @@ export function CheckoutFlow() {
           <h1 id="checkout-confirmed-title">Đơn {confirmation.orderNumber} đang chờ bước tiếp theo</h1>
           <p>{confirmation.message}</p>
           <dl><div><dt>Trạng thái đơn</dt><dd>{confirmation.status === "PENDING_PAYMENT" ? "Chờ thanh toán" : "Đã tiếp nhận"}</dd></div><div><dt>Tổng thanh toán</dt><dd>{VND.format(confirmation.totalVnd)}</dd></div><div><dt>Giữ hàng đến</dt><dd>{new Date(confirmation.reservationExpiresAt).toLocaleString("vi-VN")}</dd></div></dl>
-          <div className="checkout-payment-boundary" role="status"><strong>Payment chưa được triển khai</strong><p>Order vẫn là <code>UNPAID</code>; Checkout không tự đánh dấu đã thanh toán. Luồng VietQR/COD sẽ được nối ở feature Payment.</p></div>
-          <div className="checkout-confirmed-actions"><Link className="primary-link" href="/products">Tiếp tục khám phá</Link><Link className="secondary-link" href="/cart">Mở giỏ hàng</Link></div>
+          <div className="checkout-payment-boundary" role="status"><strong>Đang chuyển sang Payment</strong><p>Order vẫn là <code>UNPAID</code>. Trạng thái chỉ thay đổi sau khi Payment nhận xác minh hợp lệ.</p></div>
+          <div className="checkout-confirmed-actions"><Link className="primary-link" href={confirmation.paymentPath}>Tiếp tục thanh toán</Link><Link className="secondary-link" href="/cart">Mở giỏ hàng</Link></div>
         </section>
       </main>
     );

@@ -1,10 +1,22 @@
 # Ô Mạ Web User
 
-Next.js App Router application cho Web D2C. Hiện có Authentication, Customer Profile & Address Book, Product Discovery, Product Detail và Shopping Cart MVP.
+Next.js App Router application cho Web D2C. Hiện có Authentication, Customer Profile & Address Book, Product Discovery, Product Detail, Shopping Cart, Checkout và Payment MVP.
 
 Product Discovery dùng Mockoon `oma-product-discovery-mvp.json` tại port `4012`. Sau khi chạy mock và web app, mở `http://localhost:3000/products`. Có thể kiểm tra state lỗi/loading bằng `?mockScenario=catalog-error` hoặc `?mockScenario=catalog-slow`.
 
 ## Local development
+
+### Payment development
+
+Từ `apps/web-user`, dùng một lệnh để khởi động toàn bộ luồng Product Discovery (`4012`) → Product Detail (`4013`) → Shopping Cart (`4014`) → Checkout (`4015`) → Payment (`4016`) và Next.js:
+
+```powershell
+npm run dev:payment
+```
+
+Mở `/cart?mockScenario=cart-prefilled`, chọn sản phẩm, sang Checkout và xác nhận Order. Ứng dụng sẽ chuyển đến `/payment/{orderId}`. Payment chỉ dùng tài khoản/QR demo và không được dùng để chuyển tiền thật.
+
+Các trạng thái có thể kiểm tra bằng cách thêm query vào URL Payment: `payment-confirmed`, `payment-failed`, `payment-expired`, `payment-mismatch`, `payment-error`, `payment-slow` hoặc `payment-not-found`.
 
 ### Shopping Cart development
 
@@ -28,6 +40,8 @@ Chạy riêng `npm run dev` **không** khởi động Mockoon. Khi đó `/api/ca
    npx @mockoon/cli start --data .\mocks\mockoon\oma-product-discovery-mvp.json
    npx @mockoon/cli start --data .\mocks\mockoon\oma-product-detail-mvp.json
    npx @mockoon/cli start --data .\mocks\mockoon\oma-shopping-cart-mvp.json
+   npx @mockoon/cli start --data .\mocks\mockoon\oma-checkout-mvp.json
+   npx @mockoon/cli start --data .\mocks\mockoon\oma-payment-mvp.json
    ```
 
 2. Cài dependency và chạy web app:
@@ -39,9 +53,9 @@ Chạy riêng `npm run dev` **không** khởi động Mockoon. Khi đó `/api/ca
    npm run dev
    ```
 
-3. Mở `http://localhost:3000/products`, `/products/banh-ngu-sac-cung-dinh` hoặc `/cart`.
+3. Mở `http://localhost:3000/products`, `/products/banh-ngu-sac-cung-dinh`, `/cart` hoặc đi qua Checkout để nhận quyền truy cập `/payment/{orderId}`.
 
-Next Route Handler tại `/api/auth/*`, `/api/customer/*`, `/api/catalog/*` và `/api/cart/*` làm BFF; component không gọi trực tiếp URL Mockoon. Header `X-Mock-Scenario` chỉ được forward ngoài production và có thể thử qua query `?mockScenario=<scenario-name>`.
+Next Route Handler tại `/api/auth/*`, `/api/customer/*`, `/api/catalog/*`, `/api/cart/*`, `/api/checkout/*` và `/api/payments/*` làm BFF; component không gọi trực tiếp URL Mockoon. Header `X-Mock-Scenario` chỉ được forward ngoài production và có thể thử qua query `?mockScenario=<scenario-name>`.
 
 Magic link local dùng URL mẫu:
 

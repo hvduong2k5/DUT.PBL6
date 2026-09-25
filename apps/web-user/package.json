@@ -6,6 +6,7 @@
     "dev": "next dev",
     "dev:cart": "node scripts/dev-cart.mjs",
     "dev:checkout": "node scripts/dev-checkout.mjs",
+    "dev:payment": "node scripts/dev-payment.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",

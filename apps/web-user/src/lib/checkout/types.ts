@@ -100,6 +100,7 @@ export interface CheckoutConfirmation {
   discountVnd: number;
   totalVnd: number;
   nextStep: "PAYMENT_REQUIRED" | "ORDER_PLACED";
+  paymentPath: string;
   message: string;
 }
 

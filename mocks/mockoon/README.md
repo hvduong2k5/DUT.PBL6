@@ -1,5 +1,33 @@
 # O Ma Web MVP — Mockoon
 
+## Payment MVP
+
+Khởi động Product Discovery → Product Detail → Cart → Checkout → Payment → Next.js bằng một lệnh:
+
+```powershell
+cd apps\web-user
+npm run dev:payment
+```
+
+- Environment: `oma-payment-mvp.json`
+- Port: `4016`
+- Base URL: `http://127.0.0.1:4016/api/v1`
+- UI: D2C-007 `/payment/{orderId}` sau khi xác nhận `/checkout`
+- Data/API source: `../../docs/ui_web/PAYMENT_DATA_API_MATRIX.md`
+
+```powershell
+npx @mockoon/cli validate --data .\mocks\mockoon\oma-payment-mvp.json
+npx @mockoon/cli start --data .\mocks\mockoon\oma-payment-mvp.json
+```
+
+| Capability | Browser/BFF route | Mock executable route |
+| --- | --- | --- |
+| `PAY-C01` | `GET /api/payments/orders/{orderId}` | `GET /payments/orders/:orderId` |
+| `PAY-C02` | `GET /api/payments/orders/{orderId}/status` | `GET /payments/orders/:orderId/status` |
+| `PAY-C03` | `POST /api/payments/orders/{orderId}/attempts` | `POST /payments/orders/:orderId/attempts` |
+
+Scenario: `payment-confirmed`, `payment-failed`, `payment-expired`, `payment-mismatch`, `payment-error`, `payment-slow`, `payment-not-found`, `retry-not-eligible`. Mock chỉ dùng QR/tài khoản demo; browser return hoặc thao tác UI không tự đánh dấu Order `PAID`.
+
 ## Checkout MVP
 
 Khởi động Product Discovery → Product Detail → Cart → Checkout → Next.js bằng một lệnh:
