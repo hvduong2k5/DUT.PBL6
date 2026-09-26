@@ -19,10 +19,11 @@ export function SiteHeader() {
         </form>
         <nav aria-label="Điều hướng chính">
           <Link href="/">Trang Chủ</Link>
-          <Link href="/products?category=banh-cung-dinh">Bánh Cung Đình</Link>
-          <Link href="/products?category=me-xung-keo-hue">Mè Xửng</Link>
-          <Link href="/products?category=qua-bieu">Quà Biếu</Link>
-          <Link href="/support/request">Chăm Sóc Tri Kỷ</Link>
+          <Link href="/products?category=banh-cung-dinh">Bánh &amp; Kẹo Cung Đình</Link>
+          <Link href="/products?category=me-xung-keo-hue">Mè Xửng &amp; Trà Sen</Link>
+          <Link href="/products?category=qua-bieu">Quà Biếu Tặng</Link>
+          <Link href="/#heritage-story">Câu Chuyện Huế</Link>
+          <Link href="/#ocop-traceability">Truy Xuất OCOP</Link>
         </nav>
         <Link className="track-order-link" href="/track-order">Tra cứu đơn</Link>
         <Link className="cart-header-button" href="/cart" aria-label="Mở giỏ hàng">♧<span>Giỏ hàng</span></Link>
