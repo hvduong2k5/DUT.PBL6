@@ -1,0 +1,234 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.omamx.catalog.repository.mybatis.ProductMapper">
+
+    <!-- ── ResultMap ──────────────────────────────────────────────────────────── -->
+    <resultMap id="ProductResultMap" type="com.omamx.catalog.domain.entity.Product">
+        <id     property="id"               column="id"/>
+        <result property="categoryId"       column="category_id"/>
+        <result property="name"             column="name"/>
+        <result property="slug"             column="slug"/>
+        <result property="description"      column="description"/>
+        <result property="ingredients"      column="ingredients"/>
+        <result property="storageGuide"     column="storage_guide"/>
+        <result property="ocopStar"         column="ocop_star"/>
+        <result property="ocopCertificateNo" column="ocop_certificate_no"/>
+        <result property="story"            column="story"/>
+        <result property="approvalStatus"   column="approval_status"
+                typeHandler="org.apache.ibatis.type.EnumTypeHandler"/>
+        <result property="listingStatus"    column="listing_status"
+                typeHandler="org.apache.ibatis.type.EnumTypeHandler"/>
+        <result property="approvedBy"       column="approved_by"/>
+        <result property="approvedAt"       column="approved_at"/>
+        <result property="version"          column="version"/>
+        <result property="createdBy"        column="created_by"/>
+        <result property="createdAt"        column="created_at"/>
+        <result property="updatedAt"        column="updated_at"/>
+        <!-- Denormalized from JOIN -->
+        <result property="categoryName"     column="category_name"/>
+    </resultMap>
+
+    <!-- ── SQL Fragments ─────────────────────────────────────────────────────── -->
+    <sql id="selectPublicBase">
+        SELECT
+            p.id,
+            p.category_id,
+            p.name,
+            p.slug,
+            p.description,
+            p.ingredients,
+            p.storage_guide,
+            p.ocop_star,
+            p.ocop_certificate_no,
+            p.story,
+            p.approval_status,
+            p.listing_status,
+            p.approved_by,
+            p.approved_at,
+            p.version,
+            p.created_by,
+            p.created_at,
+            p.updated_at,
+            c.name AS category_name
+        FROM products p
+        LEFT JOIN categories c ON c.id = p.category_id
+        WHERE p.approval_status = 'APPROVED'
+          AND p.listing_status = 'ACTIVE'
+    </sql>
+
+    <!-- ── Queries ────────────────────────────────────────────────────────────── -->
+
+    <!-- findPublicProducts: lọc + phân trang -->
+    <select id="findPublicProducts" resultMap="ProductResultMap">
+        <include refid="selectPublicBase"/>
+        <if test="categoryId != null">
+            AND p.category_id = #{categoryId}
+        </if>
+        <if test="ocopStar != null">
+            AND p.ocop_star = #{ocopStar}
+        </if>
+        <if test="minPrice != null or maxPrice != null">
+            AND EXISTS (
+                SELECT 1 FROM channel_prices cp
+                JOIN product_variants pv ON pv.id = cp.variant_id
+                WHERE pv.product_id = p.id
+                  AND cp.channel = #{channel}
+                  AND cp.status = 'ACTIVE'
+                <if test="minPrice != null">
+                    AND cp.amount_units &gt;= #{minPrice}
+                </if>
+                <if test="maxPrice != null">
+                    AND cp.amount_units &lt;= #{maxPrice}
+                </if>
+            )
+        </if>
+        <choose>
+            <when test="sortBy == 'PRICE_ASC'">
+                ORDER BY (
+                    SELECT MIN(cp.amount_units)
+                    FROM channel_prices cp
+                    JOIN product_variants pv ON pv.id = cp.variant_id
+                    WHERE pv.product_id = p.id AND cp.status = 'ACTIVE'
+                ) ASC
+            </when>
+            <when test="sortBy == 'PRICE_DESC'">
+                ORDER BY (
+                    SELECT MIN(cp.amount_units)
+                    FROM channel_prices cp
+                    JOIN product_variants pv ON pv.id = cp.variant_id
+                    WHERE pv.product_id = p.id AND cp.status = 'ACTIVE'
+                ) DESC
+            </when>
+            <when test="sortBy == 'NEWEST'">
+                ORDER BY p.created_at DESC
+            </when>
+            <otherwise>
+                ORDER BY p.created_at DESC <!-- BEST_SELLING: sẽ dùng analytics data phase 2 -->
+            </otherwise>
+        </choose>
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <!-- countPublicProducts -->
+    <select id="countPublicProducts" resultType="long">
+        SELECT COUNT(DISTINCT p.id)
+        FROM products p
+        WHERE p.approval_status = 'APPROVED'
+          AND p.listing_status = 'ACTIVE'
+        <if test="categoryId != null">
+            AND p.category_id = #{categoryId}
+        </if>
+        <if test="ocopStar != null">
+            AND p.ocop_star = #{ocopStar}
+        </if>
+        <if test="minPrice != null or maxPrice != null">
+            AND EXISTS (
+                SELECT 1 FROM channel_prices cp
+                JOIN product_variants pv ON pv.id = cp.variant_id
+                WHERE pv.product_id = p.id
+                  AND cp.channel = #{channel}
+                  AND cp.status = 'ACTIVE'
+                <if test="minPrice != null">
+                    AND cp.amount_units &gt;= #{minPrice}
+                </if>
+                <if test="maxPrice != null">
+                    AND cp.amount_units &lt;= #{maxPrice}
+                </if>
+            )
+        </if>
+    </select>
+
+    <!-- findPublicById -->
+    <select id="findPublicById" resultMap="ProductResultMap">
+        <include refid="selectPublicBase"/>
+        AND p.id = #{id}
+    </select>
+
+    <!-- findPublicBySlug -->
+    <select id="findPublicBySlug" resultMap="ProductResultMap">
+        <include refid="selectPublicBase"/>
+        AND p.slug = #{slug}
+    </select>
+
+    <!-- findById (admin) -->
+    <select id="findById" resultMap="ProductResultMap">
+        SELECT
+            p.*,
+            c.name AS category_name
+        FROM products p
+        LEFT JOIN categories c ON c.id = p.category_id
+        WHERE p.id = #{id}
+    </select>
+
+    <!-- existsBySlug -->
+    <select id="existsBySlug" resultType="boolean">
+        SELECT EXISTS(
+            SELECT 1 FROM products
+            WHERE slug = #{slug}
+            <if test="excludeId != null">
+                AND id != #{excludeId}
+            </if>
+        )
+    </select>
+
+    <!-- ── Commands ───────────────────────────────────────────────────────────── -->
+
+    <!-- insert -->
+    <insert id="insert" parameterType="com.omamx.catalog.domain.entity.Product">
+        INSERT INTO products (
+            id, category_id, name, slug, description, ingredients,
+            storage_guide, ocop_star, ocop_certificate_no, story,
+            approval_status, listing_status, version, created_by,
+            created_at, updated_at
+        ) VALUES (
+            #{id}, #{categoryId}, #{name}, #{slug}, #{description}, #{ingredients},
+            #{storageGuide}, #{ocopStar}, #{ocopCertificateNo}, #{story},
+            #{approvalStatus}::approval_status, #{listingStatus}::listing_status,
+            #{version}, #{createdBy},
+            NOW(), NOW()
+        )
+    </insert>
+
+    <!-- update với optimistic locking -->
+    <update id="update" parameterType="com.omamx.catalog.domain.entity.Product">
+        UPDATE products SET
+            category_id         = #{categoryId},
+            name                = #{name},
+            slug                = #{slug},
+            description         = #{description},
+            ingredients         = #{ingredients},
+            storage_guide       = #{storageGuide},
+            ocop_star           = #{ocopStar},
+            ocop_certificate_no = #{ocopCertificateNo},
+            story               = #{story},
+            version             = version + 1,
+            updated_at          = NOW()
+        WHERE id = #{id}
+          AND version = #{version}
+    </update>
+
+    <!-- updateApprovalStatus -->
+    <update id="updateApprovalStatus">
+        UPDATE products SET
+            approval_status = #{approvalStatus}::approval_status,
+            approved_by     = #{approvedBy},
+            approved_at     = CASE WHEN #{approvalStatus} = 'APPROVED' THEN NOW() ELSE NULL END,
+            version         = version + 1,
+            updated_at      = NOW()
+        WHERE id = #{id}
+          AND version = #{expectedVersion}
+    </update>
+
+    <!-- updateListingStatus -->
+    <update id="updateListingStatus">
+        UPDATE products SET
+            listing_status = #{listingStatus}::listing_status,
+            version        = version + 1,
+            updated_at     = NOW()
+        WHERE id = #{id}
+          AND version = #{expectedVersion}
+    </update>
+
+</mapper>

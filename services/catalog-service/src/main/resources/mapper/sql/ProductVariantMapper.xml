@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.omamx.catalog.repository.mybatis.ProductVariantMapper">
+
+    <resultMap id="VariantResultMap" type="com.omamx.catalog.domain.entity.ProductVariant">
+        <id     property="id"           column="id"/>
+        <result property="productId"    column="product_id"/>
+        <result property="skuCode"      column="sku_code"/>
+        <result property="variantName"  column="variant_name"/>
+        <result property="weightValue"  column="weight_value"/>
+        <result property="weightUnit"   column="weight_unit"/>
+        <result property="flavor"       column="flavor"/>
+        <result property="packagingType" column="packaging_type"/>
+        <result property="shelfLifeDays" column="shelf_life_days"/>
+        <result property="listingStatus" column="listing_status"
+                typeHandler="org.apache.ibatis.type.EnumTypeHandler"/>
+        <result property="version"      column="version"/>
+        <result property="createdAt"    column="created_at"/>
+        <result property="updatedAt"    column="updated_at"/>
+    </resultMap>
+
+    <select id="findActiveByProductId" resultMap="VariantResultMap">
+        SELECT * FROM product_variants
+        WHERE product_id = #{productId}
+          AND listing_status = 'ACTIVE'
+        ORDER BY created_at ASC
+    </select>
+
+    <select id="findAllByProductId" resultMap="VariantResultMap">
+        SELECT * FROM product_variants
+        WHERE product_id = #{productId}
+        ORDER BY created_at ASC
+    </select>
+
+    <select id="findBySkuCode" resultMap="VariantResultMap">
+        SELECT * FROM product_variants WHERE sku_code = #{skuCode}
+    </select>
+
+    <select id="findById" resultMap="VariantResultMap">
+        SELECT * FROM product_variants WHERE id = #{id}
+    </select>
+
+    <select id="existsBySkuCode" resultType="boolean">
+        SELECT EXISTS(
+            SELECT 1 FROM product_variants
+            WHERE sku_code = #{skuCode}
+            <if test="excludeId != null">
+                AND id != #{excludeId}
+            </if>
+        )
+    </select>
+
+    <!-- findByFilter: phục vụ gRPC ListProductVariants -->
+    <select id="findByFilter" resultMap="VariantResultMap">
+        SELECT pv.*
+        FROM product_variants pv
+        JOIN products p ON p.id = pv.product_id
+        WHERE 1=1
+        <if test="categoryId != null">
+            AND p.category_id = #{categoryId}
+        </if>
+        <if test="ocopRating != null">
+            AND p.ocop_star = CAST(REPLACE(#{ocopRating}, 'OCOP_', '') AS INT)
+        </if>
+        <if test="activeOnly != null and activeOnly">
+            AND pv.listing_status = 'ACTIVE'
+            AND p.approval_status = 'APPROVED'
+            AND p.listing_status  = 'ACTIVE'
+        </if>
+        ORDER BY pv.created_at ASC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countByFilter" resultType="long">
+        SELECT COUNT(pv.id)
+        FROM product_variants pv
+        JOIN products p ON p.id = pv.product_id
+        WHERE 1=1
+        <if test="categoryId != null">
+            AND p.category_id = #{categoryId}
+        </if>
+        <if test="ocopRating != null">
+            AND p.ocop_star = CAST(REPLACE(#{ocopRating}, 'OCOP_', '') AS INT)
+        </if>
+        <if test="activeOnly != null and activeOnly">
+            AND pv.listing_status = 'ACTIVE'
+            AND p.approval_status = 'APPROVED'
+            AND p.listing_status  = 'ACTIVE'
+        </if>
+    </select>
+
+    <insert id="insert" parameterType="com.omamx.catalog.domain.entity.ProductVariant">
+        INSERT INTO product_variants (
+            id, product_id, sku_code, variant_name,
+            weight_value, weight_unit, flavor, packaging_type,
+            shelf_life_days, listing_status, version,
+            created_at, updated_at
+        ) VALUES (
+            #{id}, #{productId}, #{skuCode}, #{variantName},
+            #{weightValue}, #{weightUnit}, #{flavor}, #{packagingType}::packaging_type,
+            #{shelfLifeDays}, #{listingStatus}::variant_listing_status, #{version},
+            NOW(), NOW()
+        )
+    </insert>
+
+    <update id="update" parameterType="com.omamx.catalog.domain.entity.ProductVariant">
+        UPDATE product_variants SET
+            variant_name    = #{variantName},
+            weight_value    = #{weightValue},
+            weight_unit     = #{weightUnit},
+            flavor          = #{flavor},
+            packaging_type  = #{packagingType}::packaging_type,
+            shelf_life_days = #{shelfLifeDays},
+            version         = version + 1,
+            updated_at      = NOW()
+        WHERE id = #{id}
+          AND version = #{version}
+    </update>
+
+    <update id="updateListingStatus">
+        UPDATE product_variants SET
+            listing_status = #{listingStatus}::variant_listing_status,
+            version        = version + 1,
+            updated_at     = NOW()
+        WHERE id = #{id}
+          AND version = #{expectedVersion}
+    </update>
+
+</mapper>

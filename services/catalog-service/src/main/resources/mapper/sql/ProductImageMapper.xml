@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.omamx.catalog.domain.mapper.ProductImageMapper">
+
+    <resultMap id="ImageResultMap" type="com.omamx.catalog.domain.entity.ProductImage">
+        <id     property="id"          column="id"/>
+        <result property="productId"   column="product_id"/>
+        <result property="objectKey"   column="object_key"/>
+        <result property="altText"     column="alt_text"/>
+        <result property="role"        column="role"/>
+        <result property="position"    column="position"/>
+        <result property="mediaStatus" column="media_status"/>
+        <result property="createdAt"   column="created_at"/>
+        <result property="updatedAt"   column="updated_at"/>
+    </resultMap>
+
+    <select id="findApprovedByProductId" resultMap="ImageResultMap">
+        SELECT * FROM product_images
+        WHERE product_id = #{productId}
+          AND media_status = 'APPROVED'
+        ORDER BY position ASC
+    </select>
+
+    <select id="findAllByProductId" resultMap="ImageResultMap">
+        SELECT * FROM product_images
+        WHERE product_id = #{productId}
+        ORDER BY position ASC
+    </select>
+
+    <insert id="insert" parameterType="com.omamx.catalog.domain.entity.ProductImage">
+        INSERT INTO product_images (id, product_id, object_key, alt_text, role, position, media_status, created_at, updated_at)
+        VALUES (#{id}, #{productId}, #{objectKey}, #{altText}, #{role}::image_role, #{position}, #{mediaStatus}::media_status, NOW(), NOW())
+    </insert>
+
+    <update id="update" parameterType="com.omamx.catalog.domain.entity.ProductImage">
+        UPDATE product_images SET
+            alt_text    = #{altText},
+            role        = #{role}::image_role,
+            position    = #{position},
+            media_status = #{mediaStatus}::media_status,
+            updated_at  = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM product_images WHERE id = #{id}
+    </delete>
+
+</mapper>

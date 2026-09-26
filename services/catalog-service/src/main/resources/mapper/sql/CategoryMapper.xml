@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.omamx.catalog.repository.mybatis.CategoryMapper">
+
+    <resultMap id="CategoryResultMap" type="com.omamx.catalog.domain.entity.Category">
+        <id     property="id"          column="id"/>
+        <result property="parentId"    column="parent_id"/>
+        <result property="name"        column="name"/>
+        <result property="slug"        column="slug"/>
+        <result property="description" column="description"/>
+        <result property="imageUrl"    column="image_url"/>
+        <result property="position"    column="position"/>
+        <result property="isActive"    column="is_active"/>
+        <result property="createdAt"   column="created_at"/>
+        <result property="updatedAt"   column="updated_at"/>
+    </resultMap>
+
+    <select id="findRootCategories" resultMap="CategoryResultMap">
+        SELECT * FROM categories
+        WHERE parent_id IS NULL AND is_active = TRUE
+        ORDER BY position ASC, name ASC
+    </select>
+
+    <select id="findByParentId" resultMap="CategoryResultMap">
+        SELECT * FROM categories
+        WHERE parent_id = #{parentId} AND is_active = TRUE
+        ORDER BY position ASC, name ASC
+    </select>
+
+    <select id="findAllActive" resultMap="CategoryResultMap">
+        SELECT * FROM categories
+        WHERE is_active = TRUE
+        ORDER BY position ASC, name ASC
+    </select>
+
+    <select id="findById" resultMap="CategoryResultMap">
+        SELECT * FROM categories WHERE id = #{id}
+    </select>
+
+    <select id="findBySlug" resultMap="CategoryResultMap">
+        SELECT * FROM categories WHERE slug = #{slug} AND is_active = TRUE
+    </select>
+
+    <select id="existsBySlug" resultType="boolean">
+        SELECT EXISTS(
+            SELECT 1 FROM categories
+            WHERE slug = #{slug}
+            <if test="excludeId != null">
+                AND id != #{excludeId}
+            </if>
+        )
+    </select>
+
+    <insert id="insert" parameterType="com.omamx.catalog.domain.entity.Category">
+        INSERT INTO categories (id, parent_id, name, slug, description, image_url, position, is_active, created_at, updated_at)
+        VALUES (#{id}, #{parentId}, #{name}, #{slug}, #{description}, #{imageUrl}, #{position}, #{isActive}, NOW(), NOW())
+    </insert>
+
+    <update id="update" parameterType="com.omamx.catalog.domain.entity.Category">
+        UPDATE categories SET
+            parent_id   = #{parentId},
+            name        = #{name},
+            slug        = #{slug},
+            description = #{description},
+            image_url   = #{imageUrl},
+            position    = #{position},
+            is_active   = #{isActive},
+            updated_at  = NOW()
+        WHERE id = #{id}
+    </update>
+
+</mapper>
