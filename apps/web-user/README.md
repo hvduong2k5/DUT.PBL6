@@ -6,6 +6,16 @@ Product Discovery dùng Mockoon `oma-product-discovery-mvp.json` tại port `401
 
 ## Local development
 
+### Return & Refund development
+
+Từ `apps/web-user`, khởi động Return & Refund Mockoon (`4018`) và Next.js. Script chỉ bật mock cần cho feature này:
+
+```powershell
+npm run dev:returns
+```
+
+Các route kiểm tra chính: `/orders/order-mock-20260926-001/after-sales/request` và `/after-sales/return-case-mock-001`.
+
 ### Order Management development
 
 Từ `apps/web-user`, khởi động Order Management Mockoon (`4017`) và Next.js. Script chỉ bật mock cần cho feature này để giảm tài nguyên; dùng script của feature trước nếu cần kiểm tra xuyên suốt luồng mua hàng:

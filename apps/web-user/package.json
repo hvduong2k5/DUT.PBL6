@@ -8,6 +8,7 @@
     "dev:checkout": "node scripts/dev-checkout.mjs",
     "dev:payment": "node scripts/dev-payment.mjs",
     "dev:orders": "node scripts/dev-orders.mjs",
+    "dev:returns": "node scripts/dev-returns.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",

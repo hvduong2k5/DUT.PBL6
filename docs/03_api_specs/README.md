@@ -44,6 +44,13 @@ Thư mục này chứa các API contract theo vòng đời `candidate → review
 | `order-management-mvp.openapi.yaml` | `0.1.0-candidate` | OpenAPI đề xuất từ UI Order Management đã duyệt, implementation và Mockoon. |
 | `ORDER_MANAGEMENT_MVP_CONTRACT_REVIEW.md` | `PROPOSED / NOT APPROVED` | Ownership Customer/Guest, state projection, cancellation idempotency và cross-domain handoff cần review. |
 
+## Return & Refund MVP
+
+| Artefact | Trạng thái | Mục đích |
+| --- | --- | --- |
+| `return-refund-mvp.openapi.yaml` | `0.1.0-candidate` | OpenAPI đề xuất từ UI Return & Refund đã duyệt, implementation và Mockoon. |
+| `RETURN_REFUND_MVP_CONTRACT_REVIEW.md` | `PROPOSED / NOT APPROVED` | Eligibility, evidence/media, Case lifecycle, pickup, inspection và Refund orchestration cần review. |
+
 Validate bằng Redocly recommended rules:
 
 ```powershell
@@ -53,6 +60,7 @@ npx @redocly/cli lint .\docs\03_api_specs\shopping-cart-mvp.openapi.yaml
 npx @redocly/cli lint .\docs\03_api_specs\checkout-mvp.openapi.yaml
 npx @redocly/cli lint .\docs\03_api_specs\payment-mvp.openapi.yaml
 npx @redocly/cli lint .\docs\03_api_specs\order-management-mvp.openapi.yaml
+npx @redocly/cli lint .\docs\03_api_specs\return-refund-mvp.openapi.yaml
 ```
 
 Candidate không được coi là production contract cho đến khi Backend, Architecture và Security phê duyệt. Mockoon chỉ được đồng bộ theo thay đổi contract sau review.

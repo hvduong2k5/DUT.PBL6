@@ -1,5 +1,34 @@
 # O Ma Web MVP — Mockoon
 
+## Return & Refund MVP
+
+Khởi động Return & Refund Mockoon và Next.js bằng một lệnh:
+
+```powershell
+cd apps\web-user
+npm run dev:returns
+```
+
+- Environment: `oma-return-refund-mvp.json`
+- Port: `4018`
+- Base URL: `http://127.0.0.1:4018/api/v1`
+- UI: D2C-017 `/orders/{orderId}/after-sales/request`, D2C-018 `/after-sales/{caseId}`
+- Data/API source: `../../docs/ui_web/RETURN_REFUND_DATA_API_MATRIX.md`
+
+```powershell
+npx @mockoon/cli validate --data .\mocks\mockoon\oma-return-refund-mvp.json
+npx @mockoon/cli start --data .\mocks\mockoon\oma-return-refund-mvp.json
+```
+
+| Capability | Browser/BFF route | Mock executable route |
+| --- | --- | --- |
+| `RET-C01` | `GET /api/returns/orders/{orderId}/eligibility` | `GET /orders/:orderId/return-eligibility` |
+| `RET-C02` | `POST /api/returns` | `POST /return-cases` |
+| `RET-C03` | `GET /api/returns/{caseId}` | `GET /return-cases/:caseId` |
+| `RET-C04` | `POST /api/returns/{caseId}/supplements` | `POST /return-cases/:caseId/supplements` |
+
+Case fixture: `return-case-mock-001` / `RMA-2410-0082`. Scenario và boundary đầy đủ nằm trong data matrix; browser không gọi Mockoon trực tiếp và local không lưu binary upload.
+
 ## Order Management MVP
 
 Khởi động Order Management Mockoon và Next.js. Script chỉ bật mock cần cho feature này để tránh chiếm tài nguyên không cần thiết:
