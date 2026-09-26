@@ -2,9 +2,9 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
-<mapper namespace="com.omamx.catalog.domain.mapper.ProductImageMapper">
+<mapper namespace="com.hvduong.catalog.domain.mapper.ProductImageMapper">
 
-    <resultMap id="ImageResultMap" type="com.omamx.catalog.domain.entity.ProductImage">
+    <resultMap id="ImageResultMap" type="com.hvduong.catalog.domain.entity.ProductImage">
         <id     property="id"          column="id"/>
         <result property="productId"   column="product_id"/>
         <result property="objectKey"   column="object_key"/>
@@ -29,12 +29,12 @@
         ORDER BY position ASC
     </select>
 
-    <insert id="insert" parameterType="com.omamx.catalog.domain.entity.ProductImage">
+    <insert id="insert" parameterType="com.hvduong.catalog.domain.entity.ProductImage">
         INSERT INTO product_images (id, product_id, object_key, alt_text, role, position, media_status, created_at, updated_at)
         VALUES (#{id}, #{productId}, #{objectKey}, #{altText}, #{role}::image_role, #{position}, #{mediaStatus}::media_status, NOW(), NOW())
     </insert>
 
-    <update id="update" parameterType="com.omamx.catalog.domain.entity.ProductImage">
+    <update id="update" parameterType="com.hvduong.catalog.domain.entity.ProductImage">
         UPDATE product_images SET
             alt_text    = #{altText},
             role        = #{role}::image_role,

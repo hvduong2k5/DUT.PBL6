@@ -5,7 +5,7 @@ plugins {
     id 'com.google.protobuf' version '0.9.4'
 }
 
-group = 'com.omamx'
+group = 'com.hvduong'
 version = '1.0.0-SNAPSHOT'
 
 java {

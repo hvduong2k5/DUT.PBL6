@@ -2,10 +2,10 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
-<mapper namespace="com.omamx.catalog.repository.mybatis.ProductMapper">
+<mapper namespace="com.hvduong.catalog.repository.mybatis.ProductMapper">
 
     <!-- ── ResultMap ──────────────────────────────────────────────────────────── -->
-    <resultMap id="ProductResultMap" type="com.omamx.catalog.domain.entity.Product">
+    <resultMap id="ProductResultMap" type="com.hvduong.catalog.domain.entity.Product">
         <id     property="id"               column="id"/>
         <result property="categoryId"       column="category_id"/>
         <result property="name"             column="name"/>
@@ -176,7 +176,7 @@
     <!-- ── Commands ───────────────────────────────────────────────────────────── -->
 
     <!-- insert -->
-    <insert id="insert" parameterType="com.omamx.catalog.domain.entity.Product">
+    <insert id="insert" parameterType="com.hvduong.catalog.domain.entity.Product">
         INSERT INTO products (
             id, category_id, name, slug, description, ingredients,
             storage_guide, ocop_star, ocop_certificate_no, story,
@@ -192,7 +192,7 @@
     </insert>
 
     <!-- update với optimistic locking -->
-    <update id="update" parameterType="com.omamx.catalog.domain.entity.Product">
+    <update id="update" parameterType="com.hvduong.catalog.domain.entity.Product">
         UPDATE products SET
             category_id         = #{categoryId},
             name                = #{name},

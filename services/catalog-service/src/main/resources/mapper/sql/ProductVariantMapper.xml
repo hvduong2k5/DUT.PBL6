@@ -2,9 +2,9 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
-<mapper namespace="com.omamx.catalog.repository.mybatis.ProductVariantMapper">
+<mapper namespace="com.hvduong.catalog.repository.mybatis.ProductVariantMapper">
 
-    <resultMap id="VariantResultMap" type="com.omamx.catalog.domain.entity.ProductVariant">
+    <resultMap id="VariantResultMap" type="com.hvduong.catalog.domain.entity.ProductVariant">
         <id     property="id"           column="id"/>
         <result property="productId"    column="product_id"/>
         <result property="skuCode"      column="sku_code"/>
@@ -91,7 +91,7 @@
         </if>
     </select>
 
-    <insert id="insert" parameterType="com.omamx.catalog.domain.entity.ProductVariant">
+    <insert id="insert" parameterType="com.hvduong.catalog.domain.entity.ProductVariant">
         INSERT INTO product_variants (
             id, product_id, sku_code, variant_name,
             weight_value, weight_unit, flavor, packaging_type,
@@ -105,7 +105,7 @@
         )
     </insert>
 
-    <update id="update" parameterType="com.omamx.catalog.domain.entity.ProductVariant">
+    <update id="update" parameterType="com.hvduong.catalog.domain.entity.ProductVariant">
         UPDATE product_variants SET
             variant_name    = #{variantName},
             weight_value    = #{weightValue},

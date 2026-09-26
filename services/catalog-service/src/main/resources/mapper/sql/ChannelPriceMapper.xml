@@ -2,9 +2,9 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
-<mapper namespace="com.omamx.catalog.repository.mybatis.ChannelPriceMapper">
+<mapper namespace="com.hvduong.catalog.repository.mybatis.ChannelPriceMapper">
 
-    <resultMap id="PriceResultMap" type="com.omamx.catalog.domain.entity.ChannelPrice">
+    <resultMap id="PriceResultMap" type="com.hvduong.catalog.domain.entity.ChannelPrice">
         <id     property="id"           column="id"/>
         <result property="variantId"    column="variant_id"/>
         <result property="channel"      column="channel"
@@ -48,7 +48,7 @@
         SELECT * FROM channel_prices WHERE id = #{id}
     </select>
 
-    <insert id="insert" parameterType="com.omamx.catalog.domain.entity.ChannelPrice">
+    <insert id="insert" parameterType="com.hvduong.catalog.domain.entity.ChannelPrice">
         INSERT INTO channel_prices (
             id, variant_id, channel, currency_code,
             amount_units, amount_nanos, status,

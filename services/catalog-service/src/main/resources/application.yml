@@ -47,7 +47,7 @@ mybatis:
     default-statement-timeout: 30
     cache-enabled: false
     lazy-loading-enabled: false
-  type-aliases-package: com.omamx.catalog.domain.entity
+  type-aliases-package: com.hvduong.catalog.domain.entity
 
 grpc:
   server:
