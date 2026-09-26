@@ -1,0 +1,11 @@
+version: v1
+name: buf.build/omamx/omama-contracts
+lint:
+  use:
+    - DEFAULT
+  except:
+    - PACKAGE_VERSION_SUFFIX
+  enum_zero_value_suffix: _UNSPECIFIED
+breaking:
+  use:
+    - FILE

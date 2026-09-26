@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "StockReleasedEvent",
+  "description": "Sự kiện phát ra khi tồn kho kẹo mè xửng được giải phóng hoàn trả sau khi hủy đơn/timeout. Topic: inventory.events.v1. Partition Key: sku_code",
+  "type": "object",
+  "required": ["specversion", "id", "source", "type", "subject", "time", "datacontenttype", "traceparent", "data"],
+  "properties": {
+    "specversion": { "type": "string", "enum": ["1.0"] },
+    "id": { "type": "string" },
+    "source": { "type": "string", "format": "uri" },
+    "type": { "type": "string", "enum": ["vn.omama.inventory.stock.released.v1"] },
+    "subject": { "type": "string" },
+    "time": { "type": "string", "format": "date-time" },
+    "datacontenttype": { "type": "string", "enum": ["application/json"] },
+    "traceparent": { "type": "string" },
+    "data": {
+      "type": "object",
+      "required": ["reservation_id", "order_id", "sku_code", "quantity_released", "warehouse_id", "release_reason"],
+      "properties": {
+        "reservation_id": { "type": "string" },
+        "order_id": { "type": "string" },
+        "sku_code": { "type": "string" },
+        "quantity_released": { "type": "integer", "minimum": 1 },
+        "warehouse_id": { "type": "string" },
+        "available_qty_after": { "type": "integer" },
+        "release_reason": { "type": "string" }
+      }
+    }
+  }
+}

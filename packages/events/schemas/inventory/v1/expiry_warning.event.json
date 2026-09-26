@@ -1,0 +1,31 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ExpiryWarningEvent",
+  "description": "Sự kiện phát ra từ Scheduled Job của Inventory Service khi quét thấy lô kẹo mè xửng còn dưới 45 ngày hạn sử dụng (FEFO Warning). Topic: inventory.events.v1. Partition Key: sku_code",
+  "type": "object",
+  "required": ["specversion", "id", "source", "type", "subject", "time", "datacontenttype", "traceparent", "data"],
+  "properties": {
+    "specversion": { "type": "string", "enum": ["1.0"] },
+    "id": { "type": "string" },
+    "source": { "type": "string", "format": "uri", "example": "https://omama.vn/services/inventory-service" },
+    "type": { "type": "string", "enum": ["vn.omama.inventory.batch.expiry.warning.v1"] },
+    "subject": { "type": "string", "example": "batch:LOT-OMAMA-20260801-01" },
+    "time": { "type": "string", "format": "date-time" },
+    "datacontenttype": { "type": "string", "enum": ["application/json"] },
+    "traceparent": { "type": "string" },
+    "data": {
+      "type": "object",
+      "required": ["batch_code", "sku_code", "warehouse_id", "remaining_quantity", "best_before", "days_until_expiry", "recommended_action", "detected_at"],
+      "properties": {
+        "batch_code": { "type": "string", "example": "LOT-OMAMA-20260801-01" },
+        "sku_code": { "type": "string", "example": "MX-GION-500G" },
+        "warehouse_id": { "type": "string", "example": "KHO-HUONG-THUY" },
+        "remaining_quantity": { "type": "integer", "minimum": 1 },
+        "best_before": { "type": "string", "format": "date-time" },
+        "days_until_expiry": { "type": "integer", "maximum": 45 },
+        "recommended_action": { "type": "string", "enum": ["FLASH_SALE_PROMOTION", "INTERNAL_STAFF_DISCOUNT", "PREPARE_QUARANTINE"] },
+        "detected_at": { "type": "string", "format": "date-time" }
+      }
+    }
+  }
+}

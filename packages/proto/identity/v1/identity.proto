@@ -1,0 +1,69 @@
+syntax = "proto3";
+
+package omamx.identity.v1;
+
+import "common/v1/types.proto";
+import "common/v1/errors.proto";
+
+option go_package = "github.com/omamx/proto/identity/v1;identityv1";
+option java_multiple_files = true;
+option java_package = "com.omamx.proto.identity.v1";
+
+// =============================================================================
+// HỢP ĐỒNG DỊCH VỤ ĐỊNH DANH & PHÂN QUYỀN ĐỘNG (MS-16: IDENTITY SERVICE)
+// Điểm thẩm duyệt đặc quyền nhạy cảm tài chính (HLD Mục 3.5, 4.7)
+// Loại bỏ blocking dependency vào luồng đọc thường; chỉ gọi khi có Dynamic Policy
+// =============================================================================
+
+service IdentityService {
+  // Thẩm duyệt phân quyền động (ABAC/PBAC) cho các hành động có rủi ro tài chính cao
+  // Ví dụ: "Kế toán duyệt Refund > 10 triệu VND", "Giám đốc duyệt chiết khấu B2B > 25%"
+  rpc CheckSpecializedPermission(SpecializedPermissionRequest) returns (SpecializedPermissionResponse);
+
+  // Cung cấp public key JWKS để API Gateway nạp vào cache cục bộ định kỳ (Local JWT Validation)
+  rpc GetJwksPublicKey(GetJwksPublicKeyRequest) returns (GetJwksPublicKeyResponse);
+}
+
+// Yêu cầu thẩm duyệt quyền động
+message SpecializedPermissionRequest {
+  // Mã người dùng thực hiện thao tác
+  string user_id = 1;
+
+  // Hành động yêu cầu thẩm duyệt (Ví dụ: "FINANCE_REFUND_APPROVE", "B2B_DISCOUNT_APPLY")
+  string action = 2;
+
+  // Thuộc tính ngữ cảnh động phục vụ đánh giá chính sách (Context Attributes)
+  // Ví dụ: {"refund_amount": "15000000", "discount_percentage": "28", "order_channel": "B2B"}
+  map<string, string> context_attributes = 3;
+
+  // Bối cảnh kiểm toán
+  optional omamx.common.v1.AuditContext audit_context = 4;
+}
+
+// Phản hồi kết quả thẩm duyệt quyền động
+message SpecializedPermissionResponse {
+  // Quyết định: true nếu được phép thực hiện, false nếu bị từ chối
+  bool is_allowed = 1;
+
+  // Lý do đưa ra quyết định (Phục vụ hiển thị UI và ghi nhận vào Audit Plane)
+  string decision_reason = 2;
+
+  // Cấp bậc thẩm duyệt được yêu cầu (Ví dụ: "DIRECTOR_APPROVAL_REQUIRED")
+  optional string required_approval_level = 3;
+
+  // Chi tiết lỗi nếu phát sinh sự cố trong quá trình thẩm duyệt
+  optional omamx.common.v1.ErrorDetail error = 4;
+}
+
+// Yêu cầu lấy JWKS Public Key
+message GetJwksPublicKeyRequest {
+  // Key ID (Optional - nếu bỏ trống sẽ lấy key active mới nhất)
+  optional string key_id = 1;
+}
+
+// Phản hồi JWKS Public Key
+message GetJwksPublicKeyResponse {
+  string key_id = 1;
+  string algorithm = 2;      // Ví dụ: "RS256" hoặc "EdDSA"
+  string public_key_pem = 3;  // Chuỗi chứng chỉ khóa công khai định dạng PEM
+}

@@ -1,0 +1,50 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "MarketplaceOrderImportedEvent",
+  "description": "Sự kiện phát ra từ MS-13 Channel Service khi nhận Webhook đơn hàng mới từ Shopee/TikTok Shop. Topic: channel.events.v1. Partition Key: marketplace_order_id",
+  "type": "object",
+  "required": ["specversion", "id", "source", "type", "subject", "time", "datacontenttype", "traceparent", "data"],
+  "properties": {
+    "specversion": { "type": "string", "enum": ["1.0"] },
+    "id": { "type": "string" },
+    "source": { "type": "string", "format": "uri", "example": "https://omama.vn/services/channel-service" },
+    "type": { "type": "string", "enum": ["vn.omama.channel.marketplace.order.imported.v1"] },
+    "subject": { "type": "string", "example": "marketplace_order_id:SHP-20261015-8821" },
+    "time": { "type": "string", "format": "date-time" },
+    "datacontenttype": { "type": "string", "enum": ["application/json"] },
+    "traceparent": { "type": "string" },
+    "data": {
+      "type": "object",
+      "required": ["marketplace_platform", "marketplace_order_id", "buyer_username", "order_status_on_platform", "items", "imported_at"],
+      "properties": {
+        "marketplace_platform": { "type": "string", "enum": ["SHOPEE", "TIKTOK_SHOP", "LAZADA"] },
+        "marketplace_order_id": { "type": "string" },
+        "buyer_username": { "type": "string" },
+        "order_status_on_platform": { "type": "string", "example": "READY_TO_SHIP" },
+        "shipping_carrier": { "type": "string" },
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["sku_code", "quantity", "unit_price"],
+            "properties": {
+              "sku_code": { "type": "string", "example": "MX-GION-500G" },
+              "quantity": { "type": "integer", "minimum": 1 },
+              "unit_price": {
+                "type": "object",
+                "required": ["currency_code", "units", "nanos"],
+                "properties": {
+                  "currency_code": { "type": "string" },
+                  "units": { "type": "integer" },
+                  "nanos": { "type": "integer" }
+                }
+              }
+            }
+          }
+        },
+        "imported_at": { "type": "string", "format": "date-time" }
+      }
+    }
+  }
+}
