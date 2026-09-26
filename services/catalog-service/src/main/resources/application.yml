@@ -48,6 +48,7 @@ mybatis:
     cache-enabled: false
     lazy-loading-enabled: false
   type-aliases-package: com.hvduong.catalog.domain.entity
+  type-handlers-package: com.hvduong.catalog.config
 
 grpc:
   server:

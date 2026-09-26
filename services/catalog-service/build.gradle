@@ -36,7 +36,7 @@ repositories {
 ext {
     set('mapstructVersion', '1.5.5.Final')
     set('grpcSpringVersion', '3.1.0.RELEASE')
-    set('grpcVersion', '1.65.1')
+    set('grpcVersion', '1.62.2')
     set('protobufVersion', '3.25.3')
 }
 
