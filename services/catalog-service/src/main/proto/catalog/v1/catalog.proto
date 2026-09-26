@@ -1,0 +1,179 @@
+syntax = "proto3";
+
+package hvduong.catalog.v1;
+
+option java_multiple_files = true;
+option java_package = "com.hvduong.catalog.grpc.v1";
+option java_outer_classname = "CatalogProto";
+
+service CatalogService {
+  rpc ListCategories(Empty) returns (ListCategoriesResponse);
+  rpc ListProducts(ListProductsRequest) returns (ListProductsResponse);
+  rpc GetProduct(GetProductRequest) returns (GetProductResponse);
+  rpc SearchProducts(SearchProductsRequest) returns (ListProductsResponse);
+  rpc GetProductVariant(GetProductVariantRequest) returns (GetProductVariantResponse);
+  rpc ValidatePriceAndSku(ValidatePriceAndSkuRequest) returns (ValidatePriceAndSkuResponse);
+
+  rpc CreateProduct(CreateProductRpcRequest) returns (ProductCommandResponse);
+  rpc UpdateProduct(UpdateProductRpcRequest) returns (ProductCommandResponse);
+  rpc TransitionProduct(ProductTransitionRequest) returns (ProductCommandResponse);
+  rpc CreateVariant(CreateVariantRpcRequest) returns (ProductCommandResponse);
+  rpc UpdateVariantPrices(UpdateVariantPricesRpcRequest) returns (ProductCommandResponse);
+}
+
+message Empty {}
+
+enum SalesChannel {
+  SALES_CHANNEL_UNSPECIFIED = 0;
+  D2C_WEB = 1;
+  MOBILE_APP = 2;
+  B2B_WHOLESALE = 3;
+  POS_QUAY = 4;
+  SHOPEE = 5;
+  TIKTOK = 6;
+}
+
+enum SortBy {
+  SORT_BY_UNSPECIFIED = 0;
+  NEWEST = 1;
+  PRICE_ASC = 2;
+  PRICE_DESC = 3;
+  BEST_SELLING = 4;
+}
+
+enum ProductTransition {
+  PRODUCT_TRANSITION_UNSPECIFIED = 0;
+  SUBMIT_FOR_REVIEW = 1;
+  APPROVE = 2;
+  REJECT = 3;
+  SUSPEND = 4;
+  ARCHIVE = 5;
+}
+
+message Pagination { int32 page = 1; int32 page_size = 2; }
+message PageInfo { int32 page = 1; int32 page_size = 2; int64 total = 3; int32 total_pages = 4; }
+message Money { string currency_code = 1; int64 units = 2; int32 nanos = 3; }
+
+message Category {
+  string category_id = 1;
+  string parent_id = 2;
+  string name = 3;
+  string slug = 4;
+  string description = 5;
+  string image_url = 6;
+  int32 position = 7;
+  repeated Category children = 8;
+}
+message ListCategoriesResponse { repeated Category categories = 1; }
+
+message ProductVariant {
+  string variant_id = 1;
+  string sku_code = 2;
+  string name = 3;
+  string weight_value = 4;
+  string weight_unit = 5;
+  string flavor = 6;
+  string packaging_type = 7;
+  int32 shelf_life_days = 8;
+  Money price = 9;
+  string listing_status = 10;
+}
+
+message ProductListItem {
+  string product_id = 1;
+  string name = 2;
+  string slug = 3;
+  string summary = 4;
+  string thumbnail_url = 5;
+  Money base_price = 6;
+  int32 ocop_star = 7;
+  string category_name = 8;
+  bool in_stock = 9;
+}
+
+message ProductDetail {
+  string product_id = 1;
+  string category_id = 2;
+  string category_name = 3;
+  string name = 4;
+  string slug = 5;
+  string description = 6;
+  string ingredients = 7;
+  string storage_guide = 8;
+  int32 ocop_star = 9;
+  string ocop_certificate_no = 10;
+  string story = 11;
+  string approval_status = 12;
+  string listing_status = 13;
+  repeated string image_urls = 14;
+  repeated ProductVariant variants = 15;
+  int64 created_at_epoch_millis = 16;
+  int64 updated_at_epoch_millis = 17;
+  int64 version = 18;
+}
+
+message ProductFilter {
+  optional string category_id = 1;
+  optional int32 ocop_star = 2;
+  optional int64 min_price = 3;
+  optional int64 max_price = 4;
+  SortBy sort_by = 5;
+  SalesChannel channel = 6;
+}
+message ListProductsRequest { ProductFilter filter = 1; Pagination pagination = 2; }
+message ListProductsResponse { repeated ProductListItem products = 1; PageInfo page_info = 2; }
+message GetProductRequest { string id_or_slug = 1; SalesChannel channel = 2; }
+message GetProductResponse { ProductDetail product = 1; }
+message SearchProductsRequest { string query = 1; Pagination pagination = 2; }
+message GetProductVariantRequest { string sku_code = 1; }
+message GetProductVariantResponse { ProductVariant variant = 1; }
+
+message PriceCheckItem { string sku_code = 1; int32 quantity = 2; Money client_unit_price = 3; }
+message PriceDiscrepancy {
+  string sku_code = 1;
+  Money client_unit_price = 2;
+  Money authoritative_unit_price = 3;
+  string reason = 4;
+}
+message ValidatePriceAndSkuRequest { string idempotency_key = 1; SalesChannel channel = 2; repeated PriceCheckItem items = 3; }
+message ValidatePriceAndSkuResponse { bool valid = 1; Money canonical_subtotal = 2; repeated PriceDiscrepancy discrepancies = 3; }
+
+message ProductInput {
+  string category_id = 1;
+  string name = 2;
+  string slug = 3;
+  string description = 4;
+  string ingredients = 5;
+  string storage_guide = 6;
+  optional int32 ocop_star = 7;
+  string ocop_certificate_no = 8;
+  string story = 9;
+}
+message ProductPatch {
+  optional string category_id = 1;
+  optional string name = 2;
+  optional string slug = 3;
+  optional string description = 4;
+  optional string ingredients = 5;
+  optional string storage_guide = 6;
+  optional int32 ocop_star = 7;
+  optional string ocop_certificate_no = 8;
+  optional string story = 9;
+}
+message CreateProductRpcRequest { ProductInput product = 1; string actor_id = 2; }
+message UpdateProductRpcRequest { string product_id = 1; ProductPatch product = 2; int64 expected_version = 3; string actor_id = 4; }
+message ProductTransitionRequest { string product_id = 1; int64 expected_version = 2; string actor_id = 3; ProductTransition transition = 4; }
+message VariantInput {
+  string sku_code = 1;
+  string variant_name = 2;
+  string weight_value = 3;
+  string weight_unit = 4;
+  string flavor = 5;
+  string packaging_type = 6;
+  optional int32 shelf_life_days = 7;
+  int64 base_price_units = 8;
+}
+message CreateVariantRpcRequest { string product_id = 1; VariantInput variant = 2; string actor_id = 3; }
+message PriceEntry { SalesChannel channel = 1; int64 amount_units = 2; string currency_code = 3; }
+message UpdateVariantPricesRpcRequest { string product_id = 1; string variant_id = 2; repeated PriceEntry prices = 3; string actor_id = 4; }
+message ProductCommandResponse { ProductDetail product = 1; }

@@ -1,0 +1,66 @@
+spring:
+  application:
+    name: catalog-service
+
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:om_catalog_db}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgrespassword}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+
+  flyway:
+    enabled: ${FLYWAY_ENABLED:true}
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    validate-on-migrate: true
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:redispassword}
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    deserialization:
+      fail-on-unknown-properties: false
+    default-property-inclusion: non_null
+
+mybatis:
+  mapper-locations: classpath:mapper/sql/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+    default-fetch-size: 100
+    default-statement-timeout: 30
+    cache-enabled: false
+    lazy-loading-enabled: false
+  type-aliases-package: com.omamx.catalog.domain.entity
+
+grpc:
+  server:
+    port: ${GRPC_PORT:8005}
+    security:
+      enabled: false
+
+catalog:
+  cache:
+    product-ttl-seconds: ${REDIS_TTL_SECONDS:3600}
+    category-ttl-seconds: 86400
+
+logging:
+  level:
+    "[com.hvduong.catalog]": DEBUG
+    "[org.mybatis]": DEBUG
