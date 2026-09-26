@@ -378,6 +378,24 @@ Quy trình đồng bộ đúng:
 
 Nếu Mockoon và OpenAPI khác nhau, OpenAPI đã được review là nguồn sự thật ưu tiên.
 
+## Customer Service MVP
+
+Environment `oma-customer-service-mvp.json` chạy ở port `4019`, API prefix `/api/v1`. Environment phục vụ UI `/support/request` và `/support/tickets/:ticketId` qua Next.js BFF.
+
+```powershell
+npx @mockoon/cli validate --data .\mocks\mockoon\oma-customer-service-mvp.json
+npx @mockoon/cli start --disable-log-to-file --data .\mocks\mockoon\oma-customer-service-mvp.json
+```
+
+| Capability | Method | Route |
+| --- | --- | --- |
+| Context | GET | `/support/context` |
+| Create Ticket | POST | `/support/tickets` |
+| Ticket detail | GET | `/support/tickets/:ticketId` |
+| Public reply | POST | `/support/tickets/:ticketId/messages` |
+
+Fixture chính: `support-ticket-mock-001` / `TCK-2410-0195`. Danh sách scenario đầy đủ và ranh giới dữ liệu nằm trong `docs/ui_web/CUSTOMER_SERVICE_DATA_API_MATRIX.md`. `X-Mock-Scenario` chỉ dành cho local/test và không được chuyển tới API Gateway production.
+
 ## Product Detail & SKU Selection MVP
 
 Environment `oma-product-detail-mvp.json` chạy ở port `4013`, API prefix `/api/v1`. Environment phục vụ UI `/products/[slug]` và được Next.js BFF gọi qua server-only `PRODUCT_DETAIL_UPSTREAM_URL`.

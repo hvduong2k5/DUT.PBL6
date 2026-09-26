@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { BrandMark } from "./brand-mark";
 
 export function SiteFooter() {
@@ -15,7 +16,7 @@ export function SiteFooter() {
         </div>
         <div>
           <h2>Chăm Sóc &amp; Hỗ Trợ</h2>
-          <p>Hướng dẫn đặt hàng</p><p>Chính sách vận chuyển</p><p>Cam kết nguồn gốc</p>
+          <p><Link href="/support/request">Trung tâm hỗ trợ khách hàng</Link></p><p>Chính sách vận chuyển</p><p>Cam kết nguồn gốc</p>
         </div>
         <div>
           <h2>Phòng Trưng Bày &amp; Xưởng Bánh</h2>

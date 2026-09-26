@@ -22,6 +22,7 @@ export function SiteHeader() {
           <Link href="/products?category=banh-cung-dinh">Bánh Cung Đình</Link>
           <Link href="/products?category=me-xung-keo-hue">Mè Xửng</Link>
           <Link href="/products?category=qua-bieu">Quà Biếu</Link>
+          <Link href="/support/request">Chăm Sóc Tri Kỷ</Link>
         </nav>
         <Link className="track-order-link" href="/track-order">Tra cứu đơn</Link>
         <Link className="cart-header-button" href="/cart" aria-label="Mở giỏ hàng">♧<span>Giỏ hàng</span></Link>

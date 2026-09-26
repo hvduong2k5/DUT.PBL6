@@ -1,0 +1,929 @@
+openapi: 3.1.0
+info:
+  title: Ô Mạ Customer Service MVP API
+  version: 0.1.0-candidate
+  summary: Candidate Customer Service contract derived from the approved Web D2C implementation.
+  license:
+    name: Proprietary - internal project use
+    identifier: LicenseRef-Proprietary
+  description: |
+    PROPOSED / NOT APPROVED contract for loading Customer-safe support context,
+    creating an idempotent Ticket, reading its public projection and adding public
+    Customer messages. It awaits Backend, Architecture, Security, Customer Service,
+    Notification, Media and Product review.
+
+    Browser components call same-origin Next.js BFF paths under `/api/support`.
+    The BFF calls the API Gateway paths documented here. Ticket and Order identifiers
+    are not credentials. Registered Customer ownership or a short-lived Guest grant
+    bound to one Ticket is checked for every read and message operation.
+
+    Customer-selected priority is a request, not the canonical internal priority or
+    SLA decision. This API never exposes internal notes, routing scores, private staff
+    identity, escalation rules, Audit payloads or provider credentials. A Ticket may
+    reference other domains but cannot mutate Order, Payment, Shipment, Return,
+    Inventory or Notification state directly.
+servers:
+  - url: /api/v1
+    description: API Gateway relative base URL
+tags:
+  - name: Support Context
+    description: Customer-safe options and linkable Order projections for a new Ticket.
+  - name: Support Tickets
+    description: Public Ticket creation, detail and Customer conversation operations.
+
+paths:
+  /support/ticket-context:
+    get:
+      tags: [Support Context]
+      operationId: getSupportTicketContext
+      summary: Get context for creating a support Ticket
+      description: |
+        Returns subject and requested-priority options, attachment policy and Orders
+        already authorized for the current Customer. Anonymous callers receive Guest
+        context without account or Order data. The response must not infer ownership
+        from email, phone or an easily guessed Order number.
+      security:
+        - CustomerSession: []
+        - {}
+      responses:
+        "200":
+          description: Customer-safe support form context.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupportContext"
+              examples:
+                registered:
+                  $ref: "#/components/examples/RegisteredContext"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /support/tickets:
+    post:
+      tags: [Support Tickets]
+      operationId: createSupportTicket
+      summary: Create an idempotent Customer support Ticket
+      description: |
+        Creates a Ticket for a registered Customer or a Guest who passed the approved
+        anti-abuse challenge. For Guests, contact data remains unverified until the
+        approved verification flow completes. A Guest cannot link an Order unless a
+        separate Order access grant proves authorization.
+
+        `requestedPriority` is Customer input only. The service computes canonical
+        priority, queue and SLA independently. `attachmentIds` must reference media
+        already uploaded, confirmed and authorized through the approved Media service.
+      security:
+        - CustomerSession: []
+        - GuestChallenge: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSupportTicketRequest"
+            examples:
+              registeredCustomer:
+                value:
+                  subjectCode: PRODUCT_ADVICE
+                  title: Tư vấn bảo quản bánh và thưởng trà
+                  message: Tôi cần hướng dẫn bảo quản Bánh Phục Linh và cách hãm Trà Sen.
+                  requestedPriority: IMPORTANT
+                  linkedOrderId: order-mock-20260926-001
+                  attachmentIds: [attachment-7fd78444-940f-4d21-93eb-99c8c85c8428]
+              guest:
+                value:
+                  subjectCode: OTHER
+                  title: Tư vấn chọn quà biếu
+                  message: Tôi cần tư vấn một phần quà phù hợp cho lễ mừng thọ.
+                  requestedPriority: NORMAL
+                  contact:
+                    displayName: Nguyễn Minh An
+                    email: minhan@example.com
+                    phone: "+84912345678"
+                  attachmentIds: []
+      responses:
+        "201":
+          description: Ticket created, or the original idempotent result replayed. Guest implementations may also set a scoped HttpOnly access cookie.
+          headers:
+            Set-Cookie:
+              description: Optional short-lived Guest Ticket access grant. Exact cookie attributes require Security review.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateSupportTicketResult"
+              examples:
+                created:
+                  value:
+                    ticketId: support-ticket-mock-001
+                    ticketNumber: TCK-2410-0195
+                    status: NEW
+                    createdAt: "2026-10-24T09:20:00Z"
+                    message: Yêu cầu đã được tiếp nhận. Ban Chăm Sóc Tri Kỷ sẽ phản hồi sớm.
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/SupportAccessRequired"
+        "403":
+          $ref: "#/components/responses/ForbiddenMutation"
+        "409":
+          $ref: "#/components/responses/CreateTicketConflict"
+        "413":
+          $ref: "#/components/responses/AttachmentTooLarge"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /support/tickets/{ticketId}:
+    parameters:
+      - $ref: "#/components/parameters/TicketId"
+    get:
+      tags: [Support Tickets]
+      operationId: getSupportTicket
+      summary: Get a Customer-safe Ticket projection
+      description: |
+        Returns only public Ticket fields and public conversation messages. Missing
+        Tickets and Tickets outside caller scope use the same public response. Internal
+        notes, queue, assignment history, routing data, private employee identity,
+        escalation policy, Audit records and notification-provider payloads are excluded.
+      security:
+        - CustomerSession: []
+        - GuestTicketAccess: []
+      responses:
+        "200":
+          description: Current Customer-safe Ticket projection.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupportTicketDetail"
+              examples:
+                inProgress:
+                  $ref: "#/components/examples/InProgressTicket"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/SupportAccessRequired"
+        "404":
+          $ref: "#/components/responses/TicketNotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /support/tickets/{ticketId}/messages:
+    parameters:
+      - $ref: "#/components/parameters/TicketId"
+    post:
+      tags: [Support Tickets]
+      operationId: addSupportTicketMessage
+      summary: Add an idempotent public Customer message
+      description: |
+        Adds a public Customer message to a Ticket that currently allows replies.
+        This operation cannot create an internal note, assign or escalate a Ticket,
+        alter SLA, send a staff reply, or mutate a linked domain resource.
+
+        Attachment references must already be confirmed and authorized. Delivery to
+        external notification channels is asynchronous and does not determine whether
+        the message was durably recorded.
+      security:
+        - CustomerSession: []
+        - GuestTicketAccess: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddSupportMessageRequest"
+            examples:
+              additionalContext:
+                value:
+                  message: Tôi xin bổ sung rằng buổi lễ bắt đầu lúc 18 giờ ngày mai.
+                  attachmentIds: []
+      responses:
+        "201":
+          description: Public message recorded, or the original idempotent result replayed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupportMessage"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/SupportAccessRequired"
+        "403":
+          $ref: "#/components/responses/ForbiddenMutation"
+        "404":
+          $ref: "#/components/responses/TicketNotFound"
+        "409":
+          $ref: "#/components/responses/MessageConflict"
+        "413":
+          $ref: "#/components/responses/AttachmentTooLarge"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+components:
+  securitySchemes:
+    CustomerSession:
+      type: apiKey
+      in: cookie
+      name: oma_customer_session
+      description: Candidate Customer session representation. Gateway identity propagation remains under Architecture review.
+    GuestChallenge:
+      type: apiKey
+      in: header
+      name: X-Guest-Challenge
+      description: Short-lived proof from the approved anti-abuse challenge for public Ticket creation.
+    GuestTicketAccess:
+      type: apiKey
+      in: cookie
+      name: oma_support_guest_access
+      description: Short-lived, revocable server-issued grant bound to exactly one Guest Ticket.
+
+  parameters:
+    TicketId:
+      name: ticketId
+      in: path
+      required: true
+      description: Opaque Ticket identifier. It grants no access by itself.
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 100
+        pattern: "^[A-Za-z0-9-]+$"
+      example: support-ticket-mock-001
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Unique key for one logical mutation. An uncertain retry reuses the same key.
+      schema:
+        type: string
+        minLength: 16
+        maxLength: 120
+        pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{15,119}$"
+      example: support-ticket-550e8400-e29b-41d4-a716-446655440000
+
+  schemas:
+    CustomerMode:
+      type: string
+      enum: [REGISTERED, GUEST]
+    SupportSubjectCode:
+      type: string
+      enum: [PRODUCT_ADVICE, ORDER_HELP, DELIVERY_HELP, PAYMENT_HELP, RETURN_HELP, OTHER]
+    SupportPriority:
+      type: string
+      description: Customer-requested priority only; not the canonical internal priority.
+      enum: [NORMAL, IMPORTANT, URGENT]
+    SupportTicketStatus:
+      type: string
+      description: Customer-visible projection, not an authorization to transition state.
+      enum: [NEW, IN_PROGRESS, WAITING_CUSTOMER, RESOLVED, CLOSED]
+    AttachmentState:
+      type: string
+      enum: [READY, PROCESSING, REJECTED]
+
+    CustomerProjection:
+      type: object
+      additionalProperties: false
+      required: [displayName, emailDisplay, phoneDisplay]
+      properties:
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 100
+        emailDisplay:
+          type: string
+          minLength: 1
+          maxLength: 254
+        phoneDisplay:
+          type: string
+          minLength: 1
+          maxLength: 40
+        membershipLabel:
+          type: string
+          minLength: 1
+          maxLength: 100
+
+    SubjectOption:
+      type: object
+      additionalProperties: false
+      required: [code, label, description]
+      properties:
+        code:
+          $ref: "#/components/schemas/SupportSubjectCode"
+        label:
+          type: string
+          minLength: 1
+          maxLength: 160
+        description:
+          type: string
+          minLength: 1
+          maxLength: 500
+
+    PriorityOption:
+      type: object
+      additionalProperties: false
+      required: [code, label, description, responsePromiseLabel]
+      properties:
+        code:
+          $ref: "#/components/schemas/SupportPriority"
+        label:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: string
+          minLength: 1
+          maxLength: 500
+        responsePromiseLabel:
+          type: string
+          minLength: 1
+          maxLength: 160
+
+    LinkableOrder:
+      type: object
+      additionalProperties: false
+      required: [orderId, orderNumber, statusLabel, placedAt, summary]
+      properties:
+        orderId:
+          type: string
+          minLength: 8
+          maxLength: 100
+        orderNumber:
+          type: string
+          minLength: 1
+          maxLength: 60
+        statusLabel:
+          type: string
+          minLength: 1
+          maxLength: 160
+        placedAt:
+          type: string
+          format: date-time
+        summary:
+          type: string
+          minLength: 1
+          maxLength: 500
+
+    AttachmentPolicy:
+      type: object
+      additionalProperties: false
+      required: [allowedMediaTypes, maxFiles, maxBytesPerFile]
+      properties:
+        allowedMediaTypes:
+          type: array
+          minItems: 1
+          maxItems: 20
+          uniqueItems: true
+          items:
+            type: string
+            enum: [image/jpeg, image/png, image/webp, application/pdf]
+        maxFiles:
+          type: integer
+          minimum: 0
+          maximum: 20
+        maxBytesPerFile:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 52428800
+
+    SupportContext:
+      type: object
+      additionalProperties: false
+      required: [customerMode, customer, subjects, priorities, linkableOrders, servicePromise, attachmentPolicy]
+      properties:
+        customerMode:
+          $ref: "#/components/schemas/CustomerMode"
+        customer:
+          oneOf:
+            - $ref: "#/components/schemas/CustomerProjection"
+            - type: "null"
+        subjects:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items:
+            $ref: "#/components/schemas/SubjectOption"
+        priorities:
+          type: array
+          minItems: 1
+          maxItems: 10
+          items:
+            $ref: "#/components/schemas/PriorityOption"
+        linkableOrders:
+          type: array
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/LinkableOrder"
+        servicePromise:
+          type: string
+          minLength: 1
+          maxLength: 500
+        attachmentPolicy:
+          $ref: "#/components/schemas/AttachmentPolicy"
+
+    GuestContact:
+      type: object
+      additionalProperties: false
+      required: [displayName, email]
+      properties:
+        displayName:
+          type: string
+          minLength: 2
+          maxLength: 100
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        phone:
+          type: string
+          minLength: 8
+          maxLength: 20
+          pattern: "^[0-9+() .-]+$"
+
+    CreateSupportTicketRequest:
+      type: object
+      additionalProperties: false
+      required: [subjectCode, title, message, requestedPriority, attachmentIds]
+      properties:
+        subjectCode:
+          $ref: "#/components/schemas/SupportSubjectCode"
+        title:
+          type: string
+          minLength: 5
+          maxLength: 160
+        message:
+          type: string
+          minLength: 10
+          maxLength: 3000
+        requestedPriority:
+          $ref: "#/components/schemas/SupportPriority"
+        linkedOrderId:
+          type: string
+          minLength: 8
+          maxLength: 100
+          pattern: "^[A-Za-z0-9-]+$"
+          description: Accepted only when caller has a Customer or Guest Order grant for this Order.
+        contact:
+          $ref: "#/components/schemas/GuestContact"
+        attachmentIds:
+          type: array
+          maxItems: 5
+          uniqueItems: true
+          description: Confirmed, caller-owned attachment references issued by the approved Media service.
+          items:
+            type: string
+            minLength: 8
+            maxLength: 100
+            pattern: "^[A-Za-z0-9-]+$"
+
+    CreateSupportTicketResult:
+      type: object
+      additionalProperties: false
+      required: [ticketId, ticketNumber, status, createdAt, message]
+      properties:
+        ticketId:
+          type: string
+          minLength: 8
+          maxLength: 100
+        ticketNumber:
+          type: string
+          pattern: "^TCK-[A-Z0-9-]{6,30}$"
+        status:
+          type: string
+          const: NEW
+        createdAt:
+          type: string
+          format: date-time
+        message:
+          type: string
+          minLength: 1
+          maxLength: 300
+
+    PublicAttachment:
+      type: object
+      additionalProperties: false
+      required: [attachmentId, label, mediaType, state]
+      properties:
+        attachmentId:
+          type: string
+          minLength: 8
+          maxLength: 100
+        label:
+          type: string
+          minLength: 1
+          maxLength: 180
+        mediaType:
+          type: string
+          enum: [image/jpeg, image/png, image/webp, application/pdf]
+        state:
+          $ref: "#/components/schemas/AttachmentState"
+
+    SupportMessage:
+      type: object
+      additionalProperties: false
+      required: [messageId, senderRole, senderDisplayName, message, occurredAt, attachments]
+      properties:
+        messageId:
+          type: string
+          minLength: 8
+          maxLength: 100
+        senderRole:
+          type: string
+          enum: [CUSTOMER, SUPPORT, SYSTEM]
+        senderDisplayName:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Public display identity, never an internal staff identifier.
+        message:
+          type: string
+          minLength: 1
+          maxLength: 3000
+        occurredAt:
+          type: string
+          format: date-time
+        attachments:
+          type: array
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/PublicAttachment"
+
+    ServicePromise:
+      type: object
+      additionalProperties: false
+      required: [label, targetAt, met]
+      properties:
+        label:
+          type: string
+          minLength: 1
+          maxLength: 160
+        targetAt:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: "null"
+        met:
+          oneOf:
+            - type: boolean
+            - type: "null"
+
+    PublicAssignee:
+      type: object
+      additionalProperties: false
+      required: [displayName, roleLabel]
+      properties:
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 100
+        roleLabel:
+          type: string
+          minLength: 1
+          maxLength: 160
+
+    ProductSnapshot:
+      type: object
+      additionalProperties: false
+      required: [name, variant, quantity, priceVnd]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        variant:
+          type: string
+          minLength: 1
+          maxLength: 200
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 999
+        priceVnd:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Historical display snapshot, not a client-controlled financial amount.
+
+    LinkedOrderProjection:
+      type: object
+      additionalProperties: false
+      required: [orderId, orderNumber, statusLabel, products]
+      properties:
+        orderId:
+          type: string
+          minLength: 8
+          maxLength: 100
+        orderNumber:
+          type: string
+          minLength: 1
+          maxLength: 60
+        statusLabel:
+          type: string
+          minLength: 1
+          maxLength: 160
+        products:
+          type: array
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/ProductSnapshot"
+
+    SupportTicketDetail:
+      type: object
+      additionalProperties: false
+      required: [ticketId, ticketNumber, createdAt, updatedAt, status, statusLabel, statusDescription, subjectLabel, title, requestedPriority, requestedPriorityLabel, servicePromise, publicAssignee, linkedOrder, messages, canReply]
+      properties:
+        ticketId:
+          type: string
+          minLength: 8
+          maxLength: 100
+        ticketNumber:
+          type: string
+          pattern: "^TCK-[A-Z0-9-]{6,30}$"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        status:
+          $ref: "#/components/schemas/SupportTicketStatus"
+        statusLabel:
+          type: string
+          minLength: 1
+          maxLength: 160
+        statusDescription:
+          type: string
+          minLength: 1
+          maxLength: 500
+        subjectLabel:
+          type: string
+          minLength: 1
+          maxLength: 160
+        title:
+          type: string
+          minLength: 1
+          maxLength: 160
+        requestedPriority:
+          $ref: "#/components/schemas/SupportPriority"
+        requestedPriorityLabel:
+          type: string
+          minLength: 1
+          maxLength: 100
+        servicePromise:
+          $ref: "#/components/schemas/ServicePromise"
+        publicAssignee:
+          oneOf:
+            - $ref: "#/components/schemas/PublicAssignee"
+            - type: "null"
+        linkedOrder:
+          oneOf:
+            - $ref: "#/components/schemas/LinkedOrderProjection"
+            - type: "null"
+        messages:
+          type: array
+          maxItems: 1000
+          items:
+            $ref: "#/components/schemas/SupportMessage"
+        canReply:
+          type: boolean
+
+    AddSupportMessageRequest:
+      type: object
+      additionalProperties: false
+      required: [message, attachmentIds]
+      properties:
+        message:
+          type: string
+          minLength: 10
+          maxLength: 3000
+        attachmentIds:
+          type: array
+          maxItems: 5
+          uniqueItems: true
+          items:
+            type: string
+            minLength: 8
+            maxLength: 100
+            pattern: "^[A-Za-z0-9-]+$"
+
+    ErrorItem:
+      type: object
+      additionalProperties: false
+      required: [field, message]
+      properties:
+        field:
+          type: string
+          minLength: 1
+          maxLength: 200
+        message:
+          type: string
+          minLength: 1
+          maxLength: 500
+
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      required: [code, message, requestId]
+      properties:
+        code:
+          type: string
+          pattern: "^[A-Z][A-Z0-9_]+$"
+        message:
+          type: string
+          minLength: 1
+          maxLength: 500
+        requestId:
+          type: string
+          minLength: 1
+          maxLength: 100
+        retryAfterSeconds:
+          type: integer
+          minimum: 1
+          maximum: 86400
+        existingTicketId:
+          type: string
+          minLength: 8
+          maxLength: 100
+        errors:
+          type: array
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/ErrorItem"
+
+  responses:
+    InvalidRequest:
+      description: Request syntax, path or header is invalid.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    SupportAccessRequired:
+      description: Customer session, Guest challenge or Ticket-scoped Guest grant is missing or invalid.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    ForbiddenMutation:
+      description: Caller is authenticated but cannot perform this operation or link the requested resource.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    TicketNotFound:
+      description: Ticket is missing or outside caller scope; the response does not distinguish these cases.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    CreateTicketConflict:
+      description: Idempotency conflict or an approved duplicate-detection policy found an existing Ticket.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    MessageConflict:
+      description: Ticket is closed to public messages, or the idempotency key was reused with a different payload.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    AttachmentTooLarge:
+      description: One or more attachments exceed the approved policy.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    ValidationFailed:
+      description: Semantically invalid fields.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    RateLimited:
+      description: Rate limit exceeded.
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+            minimum: 1
+          description: Seconds before the caller should retry.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    InternalError:
+      description: Unexpected server-side failure without internal details.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    ServiceUnavailable:
+      description: A required dependency is unavailable.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+  examples:
+    RegisteredContext:
+      value:
+        customerMode: REGISTERED
+        customer:
+          displayName: Nguyễn Văn Bảo Long
+          emailDisplay: baolong.nguyen@heritage.vn
+          phoneDisplay: 0914 *** 668
+          membershipLabel: Hội viên Tri Kỷ Hoàng Cung
+        subjects:
+          - code: PRODUCT_ADVICE
+            label: Tư vấn phối ngự trà & lễ vật biếu tặng Cung Đình
+            description: Nghệ nhân và bếp trưởng hỗ trợ câu hỏi về ẩm thực cung đình.
+        priorities:
+          - code: IMPORTANT
+            label: Ưu tiên Cố Đô
+            description: Tiếp nhận xử lý trong 2–4 giờ.
+            responsePromiseLabel: Trong 2–4 giờ
+        linkableOrders:
+          - orderId: order-mock-20260926-001
+            orderNumber: OMA-260926-001
+            statusLabel: Đã giao thành công
+            placedAt: "2026-09-23T03:20:00Z"
+            summary: Bánh Phục Linh Ngũ Sắc và Trà Sen Hồ Tịnh Tâm
+        servicePromise: Phản hồi trong vòng 2 giờ làm việc.
+        attachmentPolicy:
+          allowedMediaTypes: [image/jpeg, image/png, image/webp, application/pdf]
+          maxFiles: 5
+          maxBytesPerFile: 10485760
+
+    InProgressTicket:
+      value:
+        ticketId: support-ticket-mock-001
+        ticketNumber: TCK-2410-0195
+        createdAt: "2026-10-24T09:20:00Z"
+        updatedAt: "2026-10-24T10:05:00Z"
+        status: IN_PROGRESS
+        statusLabel: Đang xử lý — đã có phản hồi từ nghệ nhân
+        statusDescription: Ban Chăm Sóc Tri Kỷ đang đồng hành và chờ trao đổi tiếp theo.
+        subjectLabel: Tư vấn phối ngự trà & lễ vật biếu tặng
+        title: Tư vấn cách bảo quản Bánh Phục Linh và nghi thức dâng Trà Sen
+        requestedPriority: IMPORTANT
+        requestedPriorityLabel: Ưu tiên Cố Đô
+        servicePromise:
+          label: Đạt chuẩn 25 phút
+          targetAt: "2026-10-24T11:20:00Z"
+          met: true
+        publicAssignee:
+          displayName: Nghệ nhân Tôn Nữ Diệu Hạnh
+          roleLabel: Trưởng ban Cố vấn Hương vị
+        linkedOrder:
+          orderId: order-mock-20260926-001
+          orderNumber: OMA-260926-001
+          statusLabel: Đã giao thành công
+          products:
+            - name: Bánh Phục Linh Ngũ Sắc
+              variant: Hộp sơn mài
+              quantity: 2
+              priceVnd: 245000
+        messages:
+          - messageId: message-customer-001
+            senderRole: CUSTOMER
+            senderDisplayName: Nguyễn Văn Bảo Long
+            message: Nhờ quý nghệ nhân hướng dẫn cách bày trí bánh và nghi thức pha trà phù hợp.
+            occurredAt: "2026-10-24T09:20:00Z"
+            attachments:
+              - attachmentId: attachment-001
+                label: khay-tra.jpg
+                mediaType: image/jpeg
+                state: READY
+          - messageId: message-support-001
+            senderRole: SUPPORT
+            senderDisplayName: Nghệ nhân Tôn Nữ Diệu Hạnh
+            message: Bánh nên được bày trên đĩa sứ men trắng; trà sen dùng nước khoảng 85°C.
+            occurredAt: "2026-10-24T09:45:00Z"
+            attachments: []
+        canReply: true
