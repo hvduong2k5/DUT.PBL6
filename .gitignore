@@ -52,10 +52,7 @@ Thumbs.db
 *.swp
 *.swo
 
-# Documentation drafts / Requirements
-docs/01_requirements/*
-!docs/01_requirements/.gitkeep
-docs/khao_sat_nguoi_dung_va_phan_tich_yeu_cau.md
+# Large binary office files
 *.docx
 
 # Logs & Traces

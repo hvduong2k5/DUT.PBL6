@@ -1,0 +1,39 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "RefundProcessedEvent",
+  "description": "Sự kiện phát ra khi MS-09 Finance Service hoàn tất chuyển tiền hoàn trả cho khách hàng (sau khi kiểm định hàng trả về xưởng). Topic: finance.events.v1. Partition Key: order_id",
+  "type": "object",
+  "required": ["specversion", "id", "source", "type", "subject", "time", "datacontenttype", "traceparent", "data"],
+  "properties": {
+    "specversion": { "type": "string", "enum": ["1.0"] },
+    "id": { "type": "string" },
+    "source": { "type": "string", "format": "uri" },
+    "type": { "type": "string", "enum": ["vn.omama.finance.refund.processed.v1"] },
+    "subject": { "type": "string", "example": "order_id:ORD-20261015-0042" },
+    "time": { "type": "string", "format": "date-time" },
+    "datacontenttype": { "type": "string", "enum": ["application/json"] },
+    "traceparent": { "type": "string" },
+    "data": {
+      "type": "object",
+      "required": ["refund_id", "order_id", "customer_id", "return_ticket_id", "refund_amount", "refund_method", "bank_reference_code", "processed_at"],
+      "properties": {
+        "refund_id": { "type": "string" },
+        "order_id": { "type": "string" },
+        "customer_id": { "type": "string" },
+        "return_ticket_id": { "type": "string" },
+        "refund_amount": {
+          "type": "object",
+          "required": ["currency_code", "units", "nanos"],
+          "properties": {
+            "currency_code": { "type": "string" },
+            "units": { "type": "integer" },
+            "nanos": { "type": "integer" }
+          }
+        },
+        "refund_method": { "type": "string", "enum": ["BANK_TRANSFER_VIETQR", "ORIGINAL_PAYMENT_METHOD"] },
+        "bank_reference_code": { "type": "string" },
+        "processed_at": { "type": "string", "format": "date-time" }
+      }
+    }
+  }
+}

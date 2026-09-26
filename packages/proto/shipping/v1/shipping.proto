@@ -1,0 +1,129 @@
+syntax = "proto3";
+
+package omamx.shipping.v1;
+
+import "google/protobuf/timestamp.proto";
+import "common/v1/types.proto";
+import "common/v1/errors.proto";
+
+option go_package = "github.com/omamx/proto/shipping/v1;shippingv1";
+option java_multiple_files = true;
+option java_package = "com.omamx.proto.shipping.v1";
+
+// =============================================================================
+// HỢP ĐỒNG DỊCH VỤ GIAO VẬN & LOGISTICS 3PL (MS-12: SHIPPING SERVICE)
+// Điểm neo trên Critical Path: Tính toán cước phí vận chuyển tức thời theo địa chỉ
+// =============================================================================
+
+service ShippingService {
+  // Tính toán phí vận chuyển chính xác theo địa chỉ và khối lượng kiện hàng (Critical Path < 30ms)
+  rpc CalculateShippingFee(CalculateShippingFeeRequest) returns (CalculateShippingFeeResponse);
+
+  // Tạo phiếu gửi hàng sang đơn vị 3PL (GHN/ViettelPost) sau khi kẹo đã niêm phong xong
+  rpc CreateShipment(CreateShipmentRequest) returns (CreateShipmentResponse);
+
+  // Tra cứu hành trình vận chuyển thời gian thực của bưu kiện
+  rpc TrackShipment(TrackShipmentRequest) returns (TrackShipmentResponse);
+}
+
+// Yêu cầu tính phí vận chuyển
+message CalculateShippingFeeRequest {
+  // Khóa chống lặp
+  string idempotency_key = 1;
+
+  // Địa chỉ nơi giao hàng của khách
+  omamx.common.v1.Address destination_address = 2;
+
+  // Tổng khối lượng ước tính của các hộp kẹo trong đơn
+  omamx.common.v1.Weight total_weight = 3;
+
+  // Đối tác vận chuyển ưu tiên (Optional: "GHN", "VIETTEL_POST", để trống hệ thống tự chọn tối ưu)
+  optional string preferred_carrier = 4;
+
+  // Đơn hàng có quà tặng dễ vỡ cần đóng bọc xốp bóng khí cao cấp (Mè xửng giòn O Mạ)
+  bool is_fragile = 5;
+}
+
+// Phản hồi tính phí vận chuyển
+message CalculateShippingFeeResponse {
+  // Cước phí vận chuyển chính xác (Đã bao gồm VAT và phụ phí bảo hiểm hàng dễ vỡ OCOP)
+  omamx.common.v1.Money shipping_fee = 1;
+
+  // Tên đơn vị vận chuyển được chọn (Ví dụ: "GIAO_HANG_NHANH", "VIETTEL_POST")
+  string carrier = 2;
+
+  // Tên gói dịch vụ giao vận (Ví dụ: "Giao Hàng Tiêu Chuẩn Huế - Hà Nội 48h")
+  string service_name = 3;
+
+  // Số ngày dự kiến giao đến nơi (Ví dụ: 2 ngày)
+  int32 estimated_delivery_days = 4;
+
+  // Lỗi nếu địa chỉ không được hỗ trợ giao vận
+  optional omamx.common.v1.ErrorDetail error = 5;
+}
+
+// Yêu cầu bàn giao bưu kiện sang 3PL
+message CreateShipmentRequest {
+  string idempotency_key = 1;
+  string order_id = 2;
+  omamx.common.v1.Address destination_address = 3;
+  omamx.common.v1.Weight parcel_weight = 4;
+  string carrier = 5;
+
+  // Mã số tem Seal O Mạ đã dán niêm phong lên hộp
+  string seal_code = 6;
+
+  // Ghi chú cho bưu tá (Ví dụ: "Đặc sản mè xửng giòn Huế, xin nhẹ tay, cho xem hàng")
+  optional string shipping_notes = 7;
+}
+
+// Phản hồi tạo bưu kiện 3PL
+message CreateShipmentResponse {
+  // Mã vận đơn của đối tác giao hàng (Tracking Number, ví dụ: "GHN202610150998")
+  string tracking_code = 1;
+
+  // Mã định danh đơn hàng trên hệ thống của hãng vận chuyển
+  string carrier_order_id = 2;
+
+  // Nhãn in phiếu giao hàng (Dạng URL file PDF in nhiệt kích thước A6)
+  optional string shipping_label_url = 3;
+
+  // Thời gian dự kiến bưu tá đến kho Huế lấy hàng
+  google.protobuf.Timestamp estimated_pickup_time = 4;
+
+  // Thời gian dự kiến giao đến tay người nhận
+  google.protobuf.Timestamp estimated_delivery_time = 5;
+}
+
+// Trạng thái vận chuyển
+enum ShipmentStatus {
+  SHIPMENT_STATUS_UNSPECIFIED = 0;
+  SHIPMENT_STATUS_READY_FOR_PICKUP = 1; // Đang chờ bưu tá đến lấy tại kho Hương Thủy
+  SHIPMENT_STATUS_PICKED_UP = 2;        // Bưu tá đã lấy kiện hàng rời kho
+  SHIPMENT_STATUS_IN_TRANSIT = 3;       // Đang trung chuyển liên tỉnh
+  SHIPMENT_STATUS_OUT_FOR_DELIVERY = 4; // Shipper đang đi phát hàng
+  SHIPMENT_STATUS_DELIVERED = 5;        // Giao hàng thành công
+  SHIPMENT_STATUS_DELIVERY_FAILED = 6;  // Giao không thành công (Khách bận/Sai địa chỉ)
+  SHIPMENT_STATUS_RETURNING = 7;        // Đang chuyển hoàn về Huế
+  SHIPMENT_STATUS_RETURNED = 8;         // Đã hoàn nhập kho
+}
+
+// Yêu cầu tra cứu hành trình
+message TrackShipmentRequest {
+  string tracking_code = 1;
+}
+
+// Điểm mốc lịch sử hành trình giao hàng
+message TrackingCheckpoint {
+  google.protobuf.Timestamp timestamp = 1;
+  string location = 2;     // Ví dụ: "Bưu cục Trung Chuyển Huế", "Kho Mega Long Biên"
+  string description = 3;  // Ví dụ: "Kiện hàng đã xuất bưu cục"
+}
+
+// Phản hồi tra cứu hành trình
+message TrackShipmentResponse {
+  string tracking_code = 1;
+  string carrier = 2;
+  ShipmentStatus current_status = 3;
+  repeated TrackingCheckpoint checkpoints = 4;
+}

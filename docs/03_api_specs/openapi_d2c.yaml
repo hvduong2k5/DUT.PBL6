@@ -1,0 +1,2119 @@
+openapi: 3.0.3
+info:
+  title: API Tầng Biên D2C, B2B & Webhooks Đối Tác (Mè Xửng O Mạ)
+  description: >
+    Tài liệu đặc tả toàn diện các cổng giao tiếp RESTful API (North-South Edge) được định tuyến qua API Gateway (Kong / Nginx).
+    Hệ thống thiết kế chuẩn mở, hoàn toàn độc lập công nghệ (Technology-Agnostic), phục vụ đa dạng client:
+    - Web Clients: D2C E-Commerce Web, B2B Portal, Admin CMS (tùy chọn Next.js, React, Vue, Svelte, Nuxt, Angular...).
+    - Mobile & POS Clients: Ứng dụng di động (Flutter, React Native, iOS/Android Native), thiết bị POS quầy bán lẻ offline.
+    - Đối tác ngoại vi: Các Webhook đối soát tài chính ngân hàng (VietQR), Sàn TMĐT (Shopee, TikTok Shop) và Đơn vị vận chuyển (GHN).
+    
+    Các nguyên tắc thiết kế cốt lõi:
+    - Phân nhóm theo Swagger Tags nghiệp vụ rõ ràng, chuẩn hóa trải nghiệm tra cứu API.
+    - Chuẩn tiền tệ an toàn Money (đơn vị BigInt units + nanos) tránh lỗi làm tròn JavaScript IEEE 754.
+    - Header X-Idempotency-Key bắt buộc trên các luồng ghi nhạy cảm (Checkout, Hủy đơn, Thanh toán).
+    - Chuẩn mã lỗi hợp nhất Unified Error Model với thông điệp người dùng bằng Tiếng Việt và HTTP Status Code tương ứng.
+  version: 1.0.0
+servers:
+  - url: https://api.omama.vn
+    description: Production API Gateway
+  - url: http://localhost:8000
+    description: Local API Gateway (Docker Compose)
+  - url: http://localhost:4010
+    description: Prism Mock Server (Dành cho kiểm thử giao diện độc lập)
+
+tags:
+  - name: Authentication & Identity
+    description: Đăng ký, đăng nhập tài khoản khách hàng, cấp mới JWT Token và xác thực danh tính.
+  - name: Catalog & Product Discovery
+    description: Cây danh mục đặc sản OCOP, tra cứu sản phẩm, tìm kiếm toàn văn ElasticSearch, chi tiết SKU & giá niêm yết.
+  - name: Shopping Cart Session
+    description: Quản lý giỏ hàng lưu phiên Redis (TTL 30 ngày) cho cả khách vãng lai và thành viên đăng nhập.
+  - name: Checkout & Order Management
+    description: Khởi tạo đơn hàng D2C (Critical Path Saga), tra cứu chi tiết, lịch sử đơn, hủy đơn và theo dõi hành trình vận đơn.
+  - name: Customer Profile & Address Book
+    description: Quản lý hồ sơ người dùng cá nhân và sổ địa chỉ giao hàng nhiều điểm.
+  - name: Promotions & Loyalty
+    description: Khám phá voucher giảm giá, thẩm định mã ưu đãi trước khi đặt, tra cứu điểm tích lũy thành viên.
+  - name: Customer Care & Reviews
+    description: Đánh giá sản phẩm đã mua (Verified Review), gửi yêu cầu đổi trả/hoàn tiền kèm bằng chứng ảnh/video.
+  - name: OCOP Traceability
+    description: Cổng tra cứu công khai thông tin nguồn gốc OCOP Huế (vùng trồng mè, quy trình nấu kẹo thủ công, chứng nhận VSATTP).
+  - name: Partner & Financial Webhooks
+    description: "Điểm tiếp nhận Webhook đối tác: VietQR, Sàn TMĐT (Shopee, TikTok Shop), Đơn vị vận chuyển (GHN)."
+
+paths:
+  # =========================================================================
+  # 1. AUTHENTICATION & IDENTITY
+  # =========================================================================
+  /api/v1/auth/register:
+    post:
+      tags:
+        - Authentication & Identity
+      summary: Đăng ký tài khoản khách hàng cá nhân (D2C)
+      description: Tạo tài khoản mới bằng số điện thoại, mật khẩu và họ tên. Sau khi đăng ký thành công, hệ thống tự động cấp phát cặp JWT Tokens.
+      operationId: registerCustomer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Đăng ký thành công và trả về thông tin người dùng kèm token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Dữ liệu không hợp lệ hoặc số điện thoại không đúng định dạng Việt Nam
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Số điện thoại hoặc email đã được đăng ký trước đó
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/auth/login:
+    post:
+      tags:
+        - Authentication & Identity
+      summary: Đăng nhập hệ thống bằng Số điện thoại & Mật khẩu
+      description: Xác thực danh tính người dùng qua MS-16 Identity Service, trả về Access Token (15m) và Refresh Token (7d).
+      operationId: loginCustomer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Đăng nhập thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Sai số điện thoại hoặc mật khẩu
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Tài khoản đã bị tạm khóa do vi phạm chính sách
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/auth/refresh:
+    post:
+      tags:
+        - Authentication & Identity
+      summary: Cấp mới Access Token bằng Refresh Token
+      description: Sử dụng Refresh Token hợp lệ để nhận cặp token mới khi Access Token hết hạn.
+      operationId: refreshToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '200':
+          description: Cấp token mới thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokens'
+        '401':
+          description: Refresh Token không hợp lệ hoặc đã hết hạn
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/auth/logout:
+    post:
+      tags:
+        - Authentication & Identity
+      summary: Đăng xuất và thu hồi phiên làm việc
+      description: Đưa Refresh Token vào danh sách đen (Blacklist trên Redis) và hủy phiên đăng nhập hiện tại.
+      operationId: logoutCustomer
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Đăng xuất thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Đăng xuất thành công."
+        '401':
+          description: Chưa đăng nhập hoặc token không hợp lệ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/auth/me:
+    get:
+      tags:
+        - Authentication & Identity
+      summary: Lấy thông tin danh tính tài khoản đang đăng nhập
+      description: Trả về thông tin cơ bản của người dùng hiện tại dựa trên JWT Access Token.
+      operationId: getCurrentUser
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Thông tin danh tính người dùng
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '401':
+          description: Chưa xác thực
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # =========================================================================
+  # 2. CATALOG & PRODUCT DISCOVERY
+  # =========================================================================
+  /api/v1/categories:
+    get:
+      tags:
+        - Catalog & Product Discovery
+      summary: Lấy danh sách cây danh mục sản phẩm OCOP
+      description: Trả về toàn bộ danh mục sản phẩm (Kẹo mè xửng giòn, mè xửng dẻo, kẹo gương, trà cung đình, hộp quà Tết...). Dữ liệu được cache Redis 24h.
+      operationId: getCategories
+      responses:
+        '200':
+          description: Danh sách danh mục sản phẩm
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  categories:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Category'
+
+  /api/v1/products:
+    get:
+      tags:
+        - Catalog & Product Discovery
+      summary: Danh sách sản phẩm kèm bộ lọc & phân trang
+      description: Hỗ trợ lọc theo danh mục, mức sao OCOP, khoảng giá và sắp xếp (bán chạy, giá tăng/giảm, mới nhất). Phục vụ trang danh sách Web FE.
+      operationId: getProducts
+      parameters:
+        - name: category_id
+          in: query
+          required: false
+          schema:
+            type: string
+          example: "CAT-ME-XUNG-GION"
+        - name: ocop_star
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 3
+            maximum: 5
+          example: 4
+        - name: min_price
+          in: query
+          required: false
+          schema:
+            type: integer
+          example: 50000
+        - name: max_price
+          in: query
+          required: false
+          schema:
+            type: integer
+          example: 300000
+        - name: sort_by
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [PRICE_ASC, PRICE_DESC, BEST_SELLING, NEWEST]
+            default: BEST_SELLING
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Danh sách sản phẩm thỏa mãn điều kiện lọc
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductListResponse'
+
+  /api/v1/products/{id_or_slug}:
+    get:
+      tags:
+        - Catalog & Product Discovery
+      summary: Lấy thông tin chi tiết sản phẩm & các biến thể SKU
+      description: Tra cứu theo ID hoặc đường dẫn thân thiện SEO (slug). Bao gồm mô tả, câu chuyện OCOP, hình ảnh, các biến thể SKU kèm giá niêm yết và trạng thái tồn kho.
+      operationId: getProductDetail
+      parameters:
+        - name: id_or_slug
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "keo-me-xung-gion-thu-cong-hop-500g"
+      responses:
+        '200':
+          description: Chi tiết sản phẩm
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductDetail'
+        '404':
+          description: Không tìm thấy sản phẩm
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/products/search:
+    get:
+      tags:
+        - Catalog & Product Discovery
+      summary: Tìm kiếm sản phẩm toàn văn bằng ElasticSearch
+      description: Hỗ trợ tìm kiếm theo từ khóa có dấu / không dấu Tiếng Việt, tự động gợi ý từ khóa (Autocomplete) và trả về kết quả phù hợp nhất.
+      operationId: searchProducts
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+          example: "mè xửng mè đen ít đường"
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Kết quả tìm kiếm
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductSearchResponse'
+
+  # =========================================================================
+  # 3. SHOPPING CART SESSION
+  # =========================================================================
+  /api/v1/cart:
+    get:
+      tags:
+        - Shopping Cart Session
+      summary: Lấy thông tin giỏ hàng hiện tại
+      description: Đọc dữ liệu giỏ hàng từ Redis. Hỗ trợ cả người dùng đã đăng nhập (User ID) và khách vãng lai (qua header X-Session-Id).
+      operationId: getCart
+      parameters:
+        - name: X-Session-Id
+          in: header
+          required: false
+          description: Mã định danh phiên vãng lai khi chưa đăng nhập
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Chi tiết giỏ hàng và danh sách món hàng đã chọn
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+
+    delete:
+      tags:
+        - Shopping Cart Session
+      summary: Xóa sạch toàn bộ giỏ hàng
+      description: Làm trống giỏ hàng hiện tại trong Redis session.
+      operationId: clearCart
+      parameters:
+        - name: X-Session-Id
+          in: header
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Đã xóa sạch giỏ hàng
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Giỏ hàng đã được dọn trống."
+
+  /api/v1/cart/items:
+    post:
+      tags:
+        - Shopping Cart Session
+      summary: Thêm sản phẩm vào giỏ hàng
+      description: Bổ sung một biến thể SKU vào giỏ hàng với số lượng chỉ định. Nếu SKU đã có sẵn, hệ thống tự động cộng dồn số lượng.
+      operationId: addToCart
+      parameters:
+        - name: X-Session-Id
+          in: header
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddToCartRequest'
+      responses:
+        '200':
+          description: Thêm vào giỏ hàng thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+        '400':
+          description: Số lượng không hợp lệ hoặc SKU không tồn tại
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/cart/items/{item_id}:
+    put:
+      tags:
+        - Shopping Cart Session
+      summary: Cập nhật số lượng của một món trong giỏ
+      description: Thay đổi số lượng mua của một SKU cụ thể.
+      operationId: updateCartItem
+      parameters:
+        - name: item_id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "ITEM-9901"
+        - name: X-Session-Id
+          in: header
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [quantity]
+              properties:
+                quantity:
+                  type: integer
+                  minimum: 1
+                  example: 3
+      responses:
+        '200':
+          description: Cập nhật số lượng thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+
+    delete:
+      tags:
+        - Shopping Cart Session
+      summary: Xóa một món hàng khỏi giỏ
+      description: Gỡ bỏ một SKU cụ thể ra khỏi giỏ hàng.
+      operationId: removeCartItem
+      parameters:
+        - name: item_id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "ITEM-9901"
+        - name: X-Session-Id
+          in: header
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Xóa món hàng thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+
+  # =========================================================================
+  # 4. CHECKOUT & ORDER MANAGEMENT
+  # =========================================================================
+  /api/v1/checkout:
+    post:
+      tags:
+        - Checkout & Order Management
+      summary: Khởi tạo đơn hàng D2C và nhận mã thanh toán VietQR động
+      description: >
+        Thao tác nằm trên Critical Path (< 150ms). API Gateway chuyển tiếp yêu cầu sang MS-04 Order Service,
+        kích hoạt Saga Orchestrator khóa tồn kho 15m (MS-01), thẩm định giá (MS-05), khóa voucher (MS-07) và tính phí vận chuyển (MS-12).
+      operationId: createCheckoutOrder
+      parameters:
+        - name: X-Idempotency-Key
+          in: header
+          required: true
+          description: Khóa bất biến duy nhất (UUID v4) chống lặp giao dịch khi mạng chập chờn
+          schema:
+            type: string
+            format: uuid
+            example: "9a8b7c6d-5e4f-3a2b-1c0d-e9f8a7b6c5d4"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckoutRequest'
+      responses:
+        '201':
+          description: Khởi tạo đơn hàng và khóa tồn thành công, cấp mã VietQR
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckoutResponse'
+        '400':
+          description: Lỗi dữ liệu hoặc vi phạm điều kiện nghiệp vụ (Hết hàng, sai giá, voucher hết hạn)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Trùng lặp Idempotency Key hoặc Voucher đang bị khóa bởi phiên khác
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Cầu dao ngắt mạch (Circuit Breaker) đang bật do dịch vụ kho quá tải
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/orders:
+    get:
+      tags:
+        - Checkout & Order Management
+      summary: Lấy danh sách lịch sử đơn hàng của khách hàng
+      description: Trả về danh sách đơn hàng của người dùng hiện tại kèm bộ lọc trạng thái đơn (Chờ thanh toán, Đang đóng gói, Đang giao, Đã hoàn tất, Đã hủy).
+      operationId: getMyOrders
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [PENDING_PAYMENT, PAID, PROCESSING, PACKED, SHIPPING, COMPLETED, CANCELLED]
+          example: "SHIPPING"
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Danh sách đơn hàng
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderListResponse'
+        '401':
+          description: Chưa đăng nhập
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/orders/{order_id}:
+    get:
+      tags:
+        - Checkout & Order Management
+      summary: Lấy thông tin chi tiết đơn hàng
+      description: Tra cứu toàn bộ chi tiết đơn hàng gồm các món kẹo, địa chỉ nhận, mã vận đơn GHN, mã niêm phong seal và tổng tiền thanh toán.
+      operationId: getOrderDetail
+      parameters:
+        - name: order_id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "ORD-20261015-0042"
+      responses:
+        '200':
+          description: Thông tin chi tiết đơn hàng
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDetail'
+        '404':
+          description: Không tìm thấy đơn hàng
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/orders/{order_id}/cancel:
+    post:
+      tags:
+        - Checkout & Order Management
+      summary: Khách hàng chủ động hủy đơn hàng (Khi chưa thanh toán)
+      description: Áp dụng khi đơn hàng đang ở trạng thái PENDING_PAYMENT. Hệ thống tự động giải phóng tồn kho đã khóa và hủy phiên thanh toán.
+      operationId: cancelOrder
+      parameters:
+        - name: order_id
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "ORD-20261015-0042"
+        - name: X-Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [cancel_reason]
+              properties:
+                cancel_reason:
+                  type: string
+                  example: "Đổi ý muốn chọn sang hộp kẹo mè xửng dẻo"
+      responses:
+        '200':
+          description: Hủy đơn thành công, giải phóng tồn kho tức thời
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  is_cancelled:
+                    type: boolean
+                    example: true
+                  status:
+                    type: string
+                    example: "CANCELLED_BY_USER"
+
+  /api/v1/orders/{order_id}/tracking:
+    get:
+      tags:
+        - Checkout & Order Management
+      summary: Theo dõi tiến độ đóng gói & hành trình vận chuyển thực tế
+      description: Tích hợp thông tin từ MS-02 Fulfillment (mã niêm phong seal, link video quay lúc đóng thùng) và MS-12 Shipping (tọa độ shipper, các trạm hub trung chuyển GHN).
+      operationId: getOrderTracking
+      parameters:
+        - name: order_id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "ORD-20261015-0042"
+      responses:
+        '200':
+          description: Dữ liệu hành trình vận chuyển và bằng chứng đóng gói
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderTrackingInfo'
+        '404':
+          description: Không tìm thấy đơn hàng hoặc đơn chưa bàn giao vận chuyển
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # =========================================================================
+  # 5. CUSTOMER PROFILE & ADDRESS BOOK
+  # =========================================================================
+  /api/v1/profile:
+    get:
+      tags:
+        - Customer Profile & Address Book
+      summary: Lấy thông tin hồ sơ cá nhân
+      operationId: getProfile
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Thông tin hồ sơ khách hàng
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+
+    put:
+      tags:
+        - Customer Profile & Address Book
+      summary: Cập nhật thông tin hồ sơ cá nhân
+      operationId: updateProfile
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+      responses:
+        '200':
+          description: Cập nhật hồ sơ thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+
+  /api/v1/profile/addresses:
+    get:
+      tags:
+        - Customer Profile & Address Book
+      summary: Lấy danh sách sổ địa chỉ nhận hàng
+      operationId: getAddresses
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Danh sách địa chỉ nhận hàng đã lưu
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  addresses:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Address'
+
+    post:
+      tags:
+        - Customer Profile & Address Book
+      summary: Thêm địa chỉ nhận hàng mới
+      operationId: addAddress
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Address'
+      responses:
+        '201':
+          description: Thêm địa chỉ mới thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Address'
+
+  /api/v1/profile/addresses/{address_id}:
+    put:
+      tags:
+        - Customer Profile & Address Book
+      summary: Sửa thông tin địa chỉ nhận hàng
+      operationId: updateAddress
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: address_id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "ADDR-1029"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Address'
+      responses:
+        '200':
+          description: Cập nhật địa chỉ thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Address'
+
+    delete:
+      tags:
+        - Customer Profile & Address Book
+      summary: Xóa địa chỉ nhận hàng
+      operationId: deleteAddress
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: address_id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "ADDR-1029"
+      responses:
+        '200':
+          description: Xóa địa chỉ thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Đã xóa địa chỉ khỏi danh bạ."
+
+  # =========================================================================
+  # 6. PROMOTIONS & LOYALTY
+  # =========================================================================
+  /api/v1/promotions/vouchers:
+    get:
+      tags:
+        - Promotions & Loyalty
+      summary: Danh sách voucher & mã khuyến mãi đang phát hành
+      description: Trả về các mã giảm giá công khai hoặc mã được cá nhân hóa cho hạng thành viên của người dùng.
+      operationId: getAvailableVouchers
+      parameters:
+        - name: channel
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [D2C_WEB, MOBILE_APP]
+            default: D2C_WEB
+      responses:
+        '200':
+          description: Danh sách voucher khả dụng
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  vouchers:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Voucher'
+
+  /api/v1/promotions/validate:
+    post:
+      tags:
+        - Promotions & Loyalty
+      summary: Thẩm định mã giảm giá trước khi đặt hàng
+      description: Kiểm tra điều kiện áp dụng voucher (giá trị đơn tối thiểu, danh mục kẹo hợp lệ, hạn sử dụng, số lượt còn lại).
+      operationId: validateVoucher
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ValidateVoucherRequest'
+      responses:
+        '200':
+          description: Kết quả thẩm định voucher
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidateVoucherResponse'
+        '400':
+          description: Voucher không hợp lệ hoặc không đủ điều kiện áp dụng
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/loyalty/points:
+    get:
+      tags:
+        - Promotions & Loyalty
+      summary: Tra cứu điểm tích lũy & hạng thẻ thành viên
+      description: Lấy số điểm Mè Xửng Xu hiện có, hạng thành viên (Đồng, Bạc, Vàng, Kim Cương) và lịch sử cộng/trừ điểm.
+      operationId: getLoyaltyPoints
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Dữ liệu điểm thưởng thành viên
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoyaltyPoints'
+        '401':
+          description: Chưa đăng nhập
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # =========================================================================
+  # 7. CUSTOMER CARE & REVIEWS
+  # =========================================================================
+  /api/v1/reviews/products/{product_id}:
+    get:
+      tags:
+        - Customer Care & Reviews
+      summary: Danh sách đánh giá đã xác thực (Verified Reviews) của sản phẩm
+      description: Trả về nhận xét của những khách hàng đã thực sự mua và nhận sản phẩm thành công.
+      operationId: getProductReviews
+      parameters:
+        - name: product_id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "PROD-MX-GION-500"
+        - name: rating
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 5
+          example: 5
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 1
+      responses:
+        '200':
+          description: Danh sách đánh giá
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewListResponse'
+
+  /api/v1/reviews:
+    post:
+      tags:
+        - Customer Care & Reviews
+      summary: Đăng bài đánh giá chất lượng sản phẩm
+      description: Chỉ cho phép người dùng đăng review khi đơn hàng tương ứng đã ở trạng thái COMPLETED trong vòng 30 ngày.
+      operationId: submitReview
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitReviewRequest'
+      responses:
+        '201':
+          description: Gửi đánh giá thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Review'
+        '400':
+          description: Khách hàng chưa mua sản phẩm này hoặc đơn chưa hoàn thành
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/returns:
+    post:
+      tags:
+        - Customer Care & Reviews
+      summary: Gửi yêu cầu đổi trả / hoàn tiền (Ticket Khiếu nại)
+      description: Khách gửi yêu cầu khi kẹo bị rách bao bì, quá hạn, hỏng vị hoặc giao sai phân loại. Bắt buộc đính kèm ảnh chụp/video bằng chứng.
+      operationId: createReturnRequest
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateReturnRequest'
+      responses:
+        '201':
+          description: Tiếp nhận ticket đổi trả thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReturnTicket'
+        '400':
+          description: Đơn hàng quá thời hạn khiếu nại (48h kể từ lúc nhận hàng)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/returns/{return_id}:
+    get:
+      tags:
+        - Customer Care & Reviews
+      summary: Tra cứu tiến độ xử lý yêu cầu đổi trả / hoàn tiền
+      operationId: getReturnDetail
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: return_id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "RET-20261016-0012"
+      responses:
+        '200':
+          description: Trạng thái và kết quả đối soát của ticket
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReturnTicket'
+
+  # =========================================================================
+  # 8. OCOP TRACEABILITY
+  # =========================================================================
+  /api/v1/trace/{qr_code}:
+    get:
+      tags:
+        - OCOP Traceability
+      summary: Tra cứu nguồn gốc xuất xứ kẹo OCOP qua mã QR trên bao bì
+      description: >
+        Endpoint mở công khai (Public No-Auth). Khách hàng hoặc cơ quan quản lý nhà nước quét mã QR trên hộp kẹo Mè Xửng O Mạ
+        để xem hồ sơ nguồn gốc: Xưởng sản xuất Hương Thủy, lô mẻ nấu (Batch/Lot), ngày đóng gói, vùng trồng mè vừng & đậu phụng,
+        kết quả xét nghiệm an toàn VSTP và chứng nhận OCOP 4 sao Tỉnh Thừa Thiên Huế.
+      operationId: getOCOPTraceability
+      parameters:
+        - name: qr_code
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "QR-OMA-20261015-LOT08"
+      responses:
+        '200':
+          description: Thông tin truy xuất nguồn gốc OCOP đầy đủ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OCOPTraceability'
+        '404':
+          description: Mã QR không tồn tại trên hệ thống xuất xưởng O Mạ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # =========================================================================
+  # 9. PARTNER & FINANCIAL WEBHOOKS
+  # =========================================================================
+  /api/v1/payments/vietqr/callback:
+    post:
+      tags:
+        - Partner & Financial Webhooks
+      summary: Webhook tiếp nhận thông báo tiền về từ cổng Ngân hàng VietQR
+      description: >
+        Nhận thông báo biến động số dư tài khoản ngân hàng. Bắt buộc kiểm tra chữ ký HMAC-SHA256 trên header X-Signature.
+      operationId: handleVietQRWebhook
+      parameters:
+        - name: X-Signature
+          in: header
+          required: true
+          description: Chữ ký số HMAC-SHA256 của toàn bộ raw body tính bằng Secret Key
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VietQRWebhookPayload'
+      responses:
+        '200':
+          description: Xác thực chữ ký thành công và đã cập nhật trạng thái PAID
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "SUCCESS"
+        '401':
+          description: Chữ ký HMAC không khớp (Cảnh báo giả mạo)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/webhooks/marketplace/shopee:
+    post:
+      tags:
+        - Partner & Financial Webhooks
+      summary: Webhook tiếp nhận thông báo đơn hàng mới từ sàn Shopee Open Platform
+      description: >
+        Nhận gói tin Inbound từ Shopee khi có đơn phát sinh trên gian hàng chính hãng O Mạ.
+        API Gateway chuyển vào MS-13 Channel Service để ánh xạ mã sản phẩm sàn sang mã SKU nội bộ, sau đó bắn sự kiện MarketplaceOrderImportedEvent.
+      operationId: handleShopeeWebhook
+      parameters:
+        - name: Authorization
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MarketplaceWebhookPayload'
+      responses:
+        '200':
+          description: Tiếp nhận thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 0
+                  message:
+                    type: string
+                    example: "success"
+
+  /api/v1/webhooks/marketplace/tiktok:
+    post:
+      tags:
+        - Partner & Financial Webhooks
+      summary: Webhook tiếp nhận thông báo đơn hàng mới từ sàn TikTok Shop
+      description: Nhận sự kiện đơn hàng tạo mới từ TikTok Shop Open API.
+      operationId: handleTikTokWebhook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MarketplaceWebhookPayload'
+      responses:
+        '200':
+          description: Tiếp nhận thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 0
+
+  /api/v1/webhooks/logistics/ghn:
+    post:
+      tags:
+        - Partner & Financial Webhooks
+      summary: Webhook cập nhật trạng thái vận đơn từ hãng vận chuyển Giao Hàng Nhanh (GHN)
+      description: Cập nhật trạng thái giao nhận hàng (Đang lấy hàng, Đang trung chuyển, Đang phát hàng, Đã giao thành công, Giao thất bại).
+      operationId: handleGHNWebhook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GHNWebhookPayload'
+      responses:
+        '200':
+          description: Đã ghi nhận trạng thái vận chuyển
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+
+# =========================================================================
+# COMPONENTS & DATA SCHEMAS
+# =========================================================================
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Nhập Access Token dạng Bearer <token>
+
+  schemas:
+    Money:
+      type: object
+      required: [currency_code, units, nanos]
+      description: Chuẩn tiền tệ an toàn BigInt (units biểu diễn bằng int64 dạng integer an toàn hoặc string)
+      properties:
+        currency_code:
+          type: string
+          example: "VND"
+        units:
+          type: integer
+          format: int64
+          example: 345000
+        nanos:
+          type: integer
+          example: 0
+
+    Address:
+      type: object
+      required: [recipient_name, phone_number, street_address, ward, district, province]
+      properties:
+        id:
+          type: string
+          example: "ADDR-1029"
+        recipient_name:
+          type: string
+          example: "Nguyễn Văn An"
+        phone_number:
+          type: string
+          example: "0905123456"
+        street_address:
+          type: string
+          example: "123 Lê Duẩn"
+        ward:
+          type: string
+          example: "Phường Thuận Hòa"
+        district:
+          type: string
+          example: "Thành phố Huế"
+        province:
+          type: string
+          example: "Tỉnh Thừa Thiên Huế"
+        is_default:
+          type: boolean
+          example: true
+
+    UserProfile:
+      type: object
+      required: [customer_id, phone_number, full_name]
+      properties:
+        customer_id:
+          type: string
+          example: "CUST-8820"
+        phone_number:
+          type: string
+          example: "0905123456"
+        full_name:
+          type: string
+          example: "Nguyễn Văn An"
+        email:
+          type: string
+          format: email
+          example: "an.nguyen@example.com"
+        avatar_url:
+          type: string
+          format: uri
+          example: "https://cdn.omama.vn/avatars/u8820.jpg"
+        membership_tier:
+          type: string
+          enum: [BRONZE, SILVER, GOLD, DIAMOND]
+          example: "GOLD"
+        loyalty_points:
+          type: integer
+          example: 450
+
+    UpdateProfileRequest:
+      type: object
+      properties:
+        full_name:
+          type: string
+          example: "Nguyễn Văn An"
+        email:
+          type: string
+          format: email
+          example: "an.nguyen@example.com"
+        avatar_url:
+          type: string
+          format: uri
+
+    RegisterRequest:
+      type: object
+      required: [phone_number, password, full_name]
+      properties:
+        phone_number:
+          type: string
+          example: "0905123456"
+        password:
+          type: string
+          format: password
+          example: "MatKhauAnToan@2026"
+        full_name:
+          type: string
+          example: "Nguyễn Văn An"
+        email:
+          type: string
+          format: email
+          example: "an.nguyen@example.com"
+
+    LoginRequest:
+      type: object
+      required: [phone_number, password]
+      properties:
+        phone_number:
+          type: string
+          example: "0905123456"
+        password:
+          type: string
+          format: password
+          example: "MatKhauAnToan@2026"
+
+    RefreshTokenRequest:
+      type: object
+      required: [refresh_token]
+      properties:
+        refresh_token:
+          type: string
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+    AuthTokens:
+      type: object
+      required: [access_token, refresh_token, token_type, expires_in]
+      properties:
+        access_token:
+          type: string
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        refresh_token:
+          type: string
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        token_type:
+          type: string
+          example: "Bearer"
+        expires_in:
+          type: integer
+          example: 900
+
+    AuthResponse:
+      type: object
+      required: [user, tokens]
+      properties:
+        user:
+          $ref: '#/components/schemas/UserProfile'
+        tokens:
+          $ref: '#/components/schemas/AuthTokens'
+
+    Category:
+      type: object
+      required: [category_id, name, slug]
+      properties:
+        category_id:
+          type: string
+          example: "CAT-ME-XUNG-GION"
+        name:
+          type: string
+          example: "Mè Xửng Giòn Truyền Thống"
+        slug:
+          type: string
+          example: "me-xung-gion"
+        description:
+          type: string
+          example: "Kẹo mè xửng giòn hạt mè vàng ươm, thơm mùi đậu phụng và đường non."
+        image_url:
+          type: string
+          format: uri
+          example: "https://cdn.omama.vn/categories/cat_gion.jpg"
+        parent_id:
+          type: string
+          nullable: true
+          example: null
+
+    ProductListItem:
+      type: object
+      required: [product_id, name, slug, thumbnail_url, base_price, ocop_star, in_stock]
+      properties:
+        product_id:
+          type: string
+          example: "PROD-MX-GION-500"
+        name:
+          type: string
+          example: "Kẹo Mè Xửng Giòn O Mạ Hộp 500g"
+        slug:
+          type: string
+          example: "keo-me-xung-gion-o-ma-hop-500g"
+        summary:
+          type: string
+          example: "Đặc sản mè xửng giòn Huế truyền thống, chuẩn OCOP 4 sao."
+        thumbnail_url:
+          type: string
+          format: uri
+          example: "https://cdn.omama.vn/products/mx_gion_500g_thumb.jpg"
+        base_price:
+          $ref: '#/components/schemas/Money'
+        ocop_star:
+          type: integer
+          example: 4
+        category_name:
+          type: string
+          example: "Mè Xửng Giòn"
+        in_stock:
+          type: boolean
+          example: true
+
+    ProductVariant:
+      type: object
+      required: [variant_id, sku_code, name, price, stock_available]
+      properties:
+        variant_id:
+          type: string
+          example: "VAR-001"
+        sku_code:
+          type: string
+          example: "MX-GION-500G"
+        name:
+          type: string
+          example: "Hộp 500g (20 phong kẹo rời)"
+        weight_gram:
+          type: integer
+          example: 500
+        price:
+          $ref: '#/components/schemas/Money'
+        original_price:
+          $ref: '#/components/schemas/Money'
+        stock_available:
+          type: integer
+          example: 150
+
+    ProductDetail:
+      type: object
+      required: [product_id, name, slug, description, images, ocop_star, variants]
+      properties:
+        product_id:
+          type: string
+          example: "PROD-MX-GION-500"
+        name:
+          type: string
+          example: "Kẹo Mè Xửng Giòn O Mạ Hộp 500g"
+        slug:
+          type: string
+          example: "keo-me-xung-gion-o-ma-hop-500g"
+        description:
+          type: string
+          example: "Mè xửng giòn là tuyệt tác ẩm thực Cố Đô Huế. Nấu thủ công từ đường mạch nha, mè vừng trắng bùi ngậy và đậu phụng tuyển chọn."
+        images:
+          type: array
+          items:
+            type: string
+            format: uri
+          example:
+            - "https://cdn.omama.vn/products/mx_gion_1.jpg"
+            - "https://cdn.omama.vn/products/mx_gion_2.jpg"
+        ocop_star:
+          type: integer
+          example: 4
+        ocop_certificate_no:
+          type: string
+          example: "OCOP-TTH-2024-089"
+        story:
+          type: string
+          example: "Sinh ra từ làng nghề Hương Thủy ven sông Hương, nghệ nhân O Mạ gìn giữ ngọn lửa nấu kẹo 3 đời..."
+        variants:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductVariant'
+
+    ProductListResponse:
+      type: object
+      required: [items, total, page, page_size, total_pages]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductListItem'
+        total:
+          type: integer
+          example: 45
+        page:
+          type: integer
+          example: 1
+        page_size:
+          type: integer
+          example: 20
+        total_pages:
+          type: integer
+          example: 3
+
+    ProductSearchResponse:
+      type: object
+      required: [query, items, total]
+      properties:
+        query:
+          type: string
+          example: "mè xửng mè đen"
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductListItem'
+        total:
+          type: integer
+          example: 8
+
+    CartItem:
+      type: object
+      required: [item_id, sku_code, product_name, variant_name, thumbnail_url, unit_price, quantity, subtotal, in_stock]
+      properties:
+        item_id:
+          type: string
+          example: "ITEM-9901"
+        sku_code:
+          type: string
+          example: "MX-GION-500G"
+        product_name:
+          type: string
+          example: "Kẹo Mè Xửng Giòn O Mạ Hộp 500g"
+        variant_name:
+          type: string
+          example: "Hộp 500g"
+        thumbnail_url:
+          type: string
+          format: uri
+          example: "https://cdn.omama.vn/products/mx_gion_thumb.jpg"
+        unit_price:
+          $ref: '#/components/schemas/Money'
+        quantity:
+          type: integer
+          example: 2
+        subtotal:
+          $ref: '#/components/schemas/Money'
+        in_stock:
+          type: boolean
+          example: true
+
+    Cart:
+      type: object
+      required: [cart_id, items, total_items, subtotal_amount]
+      properties:
+        cart_id:
+          type: string
+          example: "CART-SESSION-88402"
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CartItem'
+        total_items:
+          type: integer
+          example: 3
+        subtotal_amount:
+          $ref: '#/components/schemas/Money'
+
+    AddToCartRequest:
+      type: object
+      required: [sku_code, quantity]
+      properties:
+        sku_code:
+          type: string
+          example: "MX-GION-500G"
+        quantity:
+          type: integer
+          minimum: 1
+          example: 2
+
+    CheckoutRequestItem:
+      type: object
+      required: [sku_code, quantity, price]
+      properties:
+        sku_code:
+          type: string
+          example: "MX-GION-500G"
+        quantity:
+          type: integer
+          minimum: 1
+          example: 2
+        price:
+          $ref: '#/components/schemas/Money'
+
+    CheckoutRequest:
+      type: object
+      required: [channel, shipping_address, items, payment_method]
+      properties:
+        channel:
+          type: string
+          enum: [D2C_WEB, MOBILE_APP, POS_QUAY]
+          example: "D2C_WEB"
+        shipping_address:
+          $ref: '#/components/schemas/Address'
+        voucher_code:
+          type: string
+          example: "OMAMA_FREESHIP_30K"
+        payment_method:
+          type: string
+          enum: [VIETQR, COD]
+          example: "VIETQR"
+        is_gift:
+          type: boolean
+          example: true
+        gift_message:
+          type: string
+          example: "Mến tặng gia đình bác dịp Tết Bính Ngọ!"
+        items:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/CheckoutRequestItem'
+
+    CheckoutResponse:
+      type: object
+      required: [order_id, status, final_amount, vietqr_url, payment_expires_at]
+      properties:
+        order_id:
+          type: string
+          example: "ORD-20261015-0042"
+        status:
+          type: string
+          example: "PENDING_PAYMENT"
+        subtotal_amount:
+          $ref: '#/components/schemas/Money'
+        discount_amount:
+          $ref: '#/components/schemas/Money'
+        shipping_fee:
+          $ref: '#/components/schemas/Money'
+        final_amount:
+          $ref: '#/components/schemas/Money'
+        vietqr_url:
+          type: string
+          format: uri
+          example: "https://img.vietqr.io/image/970422-0123456789-compact.png?amount=345000&addInfo=ORD202610150042"
+        payment_expires_at:
+          type: string
+          format: date-time
+          example: "2026-10-15T08:45:00.000Z"
+
+    OrderListItem:
+      type: object
+      required: [order_id, status, total_items, final_amount, created_at]
+      properties:
+        order_id:
+          type: string
+          example: "ORD-20261015-0042"
+        status:
+          type: string
+          example: "SHIPPING"
+        total_items:
+          type: integer
+          example: 2
+        final_amount:
+          $ref: '#/components/schemas/Money'
+        created_at:
+          type: string
+          format: date-time
+          example: "2026-10-15T08:30:00.000Z"
+
+    OrderListResponse:
+      type: object
+      required: [orders, total, page, page_size]
+      properties:
+        orders:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderListItem'
+        total:
+          type: integer
+          example: 12
+        page:
+          type: integer
+          example: 1
+        page_size:
+          type: integer
+          example: 10
+
+    OrderDetail:
+      type: object
+      required: [order_id, status, items, final_amount, created_at]
+      properties:
+        order_id:
+          type: string
+          example: "ORD-20261015-0042"
+        status:
+          type: string
+          example: "PAID"
+        shipping_address:
+          $ref: '#/components/schemas/Address'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CheckoutRequestItem'
+        subtotal_amount:
+          $ref: '#/components/schemas/Money'
+        discount_amount:
+          $ref: '#/components/schemas/Money'
+        shipping_fee:
+          $ref: '#/components/schemas/Money'
+        final_amount:
+          $ref: '#/components/schemas/Money'
+        tracking_code:
+          type: string
+          example: "GHN202610150998"
+        seal_code:
+          type: string
+          example: "SEAL-OMA-20261015-8899"
+        packing_video_url:
+          type: string
+          format: uri
+          example: "https://video.omama.vn/packing/ORD202610150042.mp4"
+        created_at:
+          type: string
+          format: date-time
+          example: "2026-10-15T08:30:00.000Z"
+
+    OrderCheckpoint:
+      type: object
+      required: [status, timestamp, location, description]
+      properties:
+        status:
+          type: string
+          example: "IN_TRANSIT"
+        timestamp:
+          type: string
+          format: date-time
+          example: "2026-10-15T14:20:00.000Z"
+        location:
+          type: string
+          example: "Kho trung chuyển GHN Huế"
+        description:
+          type: string
+          example: "Kiện hàng kẹo mè xửng đã nhập kho phân loại và chuẩn bị chuyển đi Đà Nẵng."
+
+    OrderTrackingInfo:
+      type: object
+      required: [order_id, tracking_code, carrier_name, current_status, checkpoints]
+      properties:
+        order_id:
+          type: string
+          example: "ORD-20261015-0042"
+        tracking_code:
+          type: string
+          example: "GHN202610150998"
+        carrier_name:
+          type: string
+          example: "Giao Hàng Nhanh (GHN Express)"
+        current_status:
+          type: string
+          example: "IN_TRANSIT"
+        seal_code:
+          type: string
+          example: "SEAL-OMA-20261015-8899"
+        packing_video_url:
+          type: string
+          format: uri
+          example: "https://video.omama.vn/packing/ORD202610150042.mp4"
+        shipper_name:
+          type: string
+          example: "Trần Văn Bình"
+        shipper_phone:
+          type: string
+          example: "0912345678"
+        checkpoints:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderCheckpoint'
+
+    Voucher:
+      type: object
+      required: [voucher_code, title, discount_type, discount_value, min_order_amount, expires_at]
+      properties:
+        voucher_code:
+          type: string
+          example: "OMAMA_FREESHIP_30K"
+        title:
+          type: string
+          example: "Miễn phí vận chuyển 30k cho đơn từ 200k"
+        discount_type:
+          type: string
+          enum: [PERCENTAGE, FIXED_AMOUNT, FREESHIP]
+          example: "FREESHIP"
+        discount_value:
+          type: integer
+          example: 30000
+        min_order_amount:
+          type: integer
+          example: 200000
+        max_discount_amount:
+          type: integer
+          example: 30000
+        expires_at:
+          type: string
+          format: date-time
+          example: "2026-11-30T23:59:59.000Z"
+
+    ValidateVoucherRequest:
+      type: object
+      required: [voucher_code, subtotal_amount]
+      properties:
+        voucher_code:
+          type: string
+          example: "OMAMA_FREESHIP_30K"
+        subtotal_amount:
+          type: integer
+          example: 250000
+
+    ValidateVoucherResponse:
+      type: object
+      required: [is_valid, discount_amount, message]
+      properties:
+        is_valid:
+          type: boolean
+          example: true
+        discount_amount:
+          $ref: '#/components/schemas/Money'
+        message:
+          type: string
+          example: "Áp dụng mã miễn phí vận chuyển 30.000đ thành công!"
+
+    LoyaltyPoints:
+      type: object
+      required: [customer_id, current_points, tier, points_to_vnd_rate]
+      properties:
+        customer_id:
+          type: string
+          example: "CUST-8820"
+        current_points:
+          type: integer
+          example: 450
+        tier:
+          type: string
+          enum: [BRONZE, SILVER, GOLD, DIAMOND]
+          example: "GOLD"
+        points_to_vnd_rate:
+          type: integer
+          example: 100
+
+    Review:
+      type: object
+      required: [review_id, customer_name, rating, comment, is_verified_purchase, created_at]
+      properties:
+        review_id:
+          type: string
+          example: "REV-20261016-090"
+        customer_name:
+          type: string
+          example: "Nguyễn V. A."
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+          example: 5
+        comment:
+          type: string
+          example: "Kẹo mè xửng giòn ăn rất bùi, mè rang chín thơm lừng, vị ngọt thanh không hề gắt!"
+        media_urls:
+          type: array
+          items:
+            type: string
+            format: uri
+          example:
+            - "https://cdn.omama.vn/reviews/rev1.jpg"
+        is_verified_purchase:
+          type: boolean
+          example: true
+        created_at:
+          type: string
+          format: date-time
+          example: "2026-10-16T09:00:00.000Z"
+        seller_reply:
+          type: string
+          example: "Dạ O Mạ cảm ơn quý khách đã tin dùng đặc sản Huế ạ!"
+
+    ReviewListResponse:
+      type: object
+      required: [reviews, average_rating, total_reviews]
+      properties:
+        average_rating:
+          type: number
+          format: float
+          example: 4.8
+        total_reviews:
+          type: integer
+          example: 86
+        reviews:
+          type: array
+          items:
+            $ref: '#/components/schemas/Review'
+
+    SubmitReviewRequest:
+      type: object
+      required: [order_id, sku_code, rating, comment]
+      properties:
+        order_id:
+          type: string
+          example: "ORD-20261015-0042"
+        sku_code:
+          type: string
+          example: "MX-GION-500G"
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+          example: 5
+        comment:
+          type: string
+          example: "Kẹo ngon giòn rụm, đóng gói rất kỹ có tem niêm phong seal."
+        media_urls:
+          type: array
+          items:
+            type: string
+            format: uri
+
+    CreateReturnRequest:
+      type: object
+      required: [order_id, sku_code, quantity, reason, evidence_media_urls, refund_bank_code, refund_account_number, refund_account_holder]
+      properties:
+        order_id:
+          type: string
+          example: "ORD-20261015-0042"
+        sku_code:
+          type: string
+          example: "MX-GION-500G"
+        quantity:
+          type: integer
+          example: 1
+        reason:
+          type: string
+          example: "Bao bì phong kẹo bị rách hở khí trong quá trình vận chuyển đường dài"
+        evidence_media_urls:
+          type: array
+          items:
+            type: string
+            format: uri
+          minItems: 1
+          example:
+            - "https://cdn.omama.vn/returns/evidence_01.jpg"
+        refund_bank_code:
+          type: string
+          example: "MBBANK"
+        refund_account_number:
+          type: string
+          example: "0905123456"
+        refund_account_holder:
+          type: string
+          example: "NGUYEN VAN AN"
+
+    ReturnTicket:
+      type: object
+      required: [return_id, order_id, status, reason, created_at]
+      properties:
+        return_id:
+          type: string
+          example: "RET-20261016-0012"
+        order_id:
+          type: string
+          example: "ORD-20261015-0042"
+        status:
+          type: string
+          enum: [REQUESTED, INSPECTING, APPROVED, REFUNDED, REJECTED]
+          example: "REQUESTED"
+        reason:
+          type: string
+          example: "Bao bì phong kẹo bị rách"
+        refund_amount:
+          $ref: '#/components/schemas/Money'
+        created_at:
+          type: string
+          format: date-time
+          example: "2026-10-16T10:15:00.000Z"
+
+    OCOPTraceability:
+      type: object
+      required: [qr_code, product_name, batch_code, ocop_star, production_date, expiry_date, workshop_location]
+      properties:
+        qr_code:
+          type: string
+          example: "QR-OMA-20261015-LOT08"
+        product_name:
+          type: string
+          example: "Kẹo Mè Xửng Giòn O Mạ Huế"
+        batch_code:
+          type: string
+          example: "LOT-20261015-G08"
+        ocop_star:
+          type: integer
+          example: 4
+        ocop_certificate_no:
+          type: string
+          example: "OCOP-TTH-2024-089"
+        production_date:
+          type: string
+          format: date
+          example: "2026-10-15"
+        expiry_date:
+          type: string
+          format: date
+          example: "2027-04-15"
+        workshop_location:
+          type: string
+          example: "Xưởng Mè Xửng O Mạ, Thị xã Hương Thủy, Tỉnh Thừa Thiên Huế"
+        artisan_name:
+          type: string
+          example: "Nghệ nhân Lê Thị O Mạ"
+        food_safety_cert:
+          type: string
+          example: "Số 128/2024/ATTP-TTH do Chi cục An toàn VSTP Thừa Thiên Huế cấp"
+        raw_materials_origin:
+          type: string
+          example: "Mè vàng Quảng Điền, Đậu phụng A Lưới, Gừng tươi Bạch Mã"
+        crafting_video_url:
+          type: string
+          format: uri
+          example: "https://video.omama.vn/ocop/crafting_process_gion.mp4"
+
+    VietQRWebhookPayload:
+      type: object
+      required: [transaction_id, order_id, amount, paid_at]
+      properties:
+        transaction_id:
+          type: string
+          example: "FT2628891048201"
+        order_id:
+          type: string
+          example: "ORD-20261015-0042"
+        amount:
+          type: integer
+          example: 345000
+        bank_code:
+          type: string
+          example: "MBBANK"
+        account_number:
+          type: string
+          example: "0123456789"
+        paid_at:
+          type: string
+          format: date-time
+          example: "2026-10-15T08:30:12.000Z"
+
+    MarketplaceWebhookPayload:
+      type: object
+      required: [platform, order_sn, status, buyer_username, order_items]
+      properties:
+        platform:
+          type: string
+          enum: [SHOPEE, TIKTOK]
+          example: "SHOPEE"
+        order_sn:
+          type: string
+          example: "2610159AKJ3812"
+        status:
+          type: string
+          example: "READY_TO_SHIP"
+        buyer_username:
+          type: string
+          example: "khachhang_hue2026"
+        order_items:
+          type: array
+          items:
+            type: object
+            required: [ext_item_id, ext_model_id, quantity, price]
+            properties:
+              ext_item_id:
+                type: string
+                example: "192837465"
+              ext_model_id:
+                type: string
+                example: "99881122"
+              quantity:
+                type: integer
+                example: 2
+              price:
+                type: integer
+                example: 110000
+
+    GHNWebhookPayload:
+      type: object
+      required: [OrderCode, Status, Time]
+      properties:
+        OrderCode:
+          type: string
+          example: "GHN202610150998"
+        Status:
+          type: string
+          enum: [ready_to_pick, picking, delivering, delivered, return]
+          example: "delivered"
+        Time:
+          type: string
+          format: date-time
+          example: "2026-10-16T15:30:00.000Z"
+        CurrentWarehouse:
+          type: string
+          example: "Bưu cục GHN Quận Hải Châu - Đà Nẵng"
+        Note:
+          type: string
+          example: "Khách đã kiểm tra tem niêm phong và nhận hàng thành công"
+
+    ErrorResponse:
+      type: object
+      required: [error_code, user_message, dev_message, domain]
+      properties:
+        error_code:
+          type: string
+          example: "ERR_INVENTORY_INSUFFICIENT_STOCK"
+        user_message:
+          type: string
+          example: "Sản phẩm đã hết hàng hoặc số lượng khả dụng không đủ."
+        dev_message:
+          type: string
+          example: "SKU MX-GION-500G available qty is 1, requested 2"
+        domain:
+          type: string
+          example: "inventory"
+        timestamp:
+          type: string
+          format: date-time
+          example: "2026-10-15T08:30:00.120Z"
