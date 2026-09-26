@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PackingCompletedEvent",
+  "description": "Sự kiện phát ra khi thợ xưởng Huế hoàn tất đóng gói, dán tem Seal O Mạ và nạp video kiểm định lên S3. Topic: fulfillment.events.v1. Partition Key: order_id",
+  "type": "object",
+  "required": ["specversion", "id", "source", "type", "subject", "time", "datacontenttype", "traceparent", "data"],
+  "properties": {
+    "specversion": { "type": "string", "enum": ["1.0"] },
+    "id": { "type": "string" },
+    "source": { "type": "string", "format": "uri", "example": "https://omama.vn/services/fulfillment-service" },
+    "type": { "type": "string", "enum": ["vn.omama.fulfillment.packing.completed.v1"] },
+    "subject": { "type": "string", "example": "order_id:ORD-20261015-0042" },
+    "time": { "type": "string", "format": "date-time" },
+    "datacontenttype": { "type": "string", "enum": ["application/json"] },
+    "traceparent": { "type": "string" },
+    "data": {
+      "type": "object",
+      "required": ["order_id", "packer_staff_id", "seal_code", "s3_video_object_key", "video_checksum_sha256", "scanned_batch_codes", "packed_at"],
+      "properties": {
+        "order_id": { "type": "string" },
+        "packer_staff_id": { "type": "string" },
+        "seal_code": { "type": "string", "example": "SEAL-OMA-20261015-8899" },
+        "s3_video_object_key": { "type": "string", "example": "packing-evidence/2026/10/15/ORD-20261015-0042.mp4" },
+        "video_checksum_sha256": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+        "scanned_batch_codes": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "packed_at": { "type": "string", "format": "date-time" }
+      }
+    }
+  }
+}

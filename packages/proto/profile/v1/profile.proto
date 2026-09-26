@@ -1,0 +1,92 @@
+syntax = "proto3";
+
+package omamx.profile.v1;
+
+import "google/protobuf/timestamp.proto";
+import "common/v1/types.proto";
+import "common/v1/errors.proto";
+
+option go_package = "github.com/omamx/proto/profile/v1;profilev1";
+option java_multiple_files = true;
+option java_package = "com.omamx.proto.profile.v1";
+
+// =============================================================================
+// HỢP ĐỒNG DỊCH VỤ HỒ SƠ KHÁCH HÀNG & SỔ ĐỊA CHỈ (MS-15: PROFILE SERVICE)
+// Điểm neo của cơ chế Address Snapshot (database_design.md mục 4.1):
+// Cung cấp thông tin địa chỉ chuẩn xác từ sổ địa chỉ để Order Service chụp snapshot bất biến
+// =============================================================================
+
+service ProfileService {
+  // Lấy thông tin hồ sơ khách hàng (Query từ MS-04 Order, MS-06 Care)
+  rpc GetCustomerProfile(GetCustomerProfileRequest) returns (GetCustomerProfileResponse);
+
+  // Lấy chi tiết một địa chỉ giao nhận cụ thể để lưu Address Snapshot vào đơn hàng (Query từ MS-04, MS-02)
+  rpc GetDeliveryAddress(GetDeliveryAddressRequest) returns (GetDeliveryAddressResponse);
+
+  // Lấy danh sách sổ địa chỉ nhận hàng của khách hàng
+  rpc ListDeliveryAddresses(ListDeliveryAddressesRequest) returns (ListDeliveryAddressesResponse);
+}
+
+// Yêu cầu lấy hồ sơ khách hàng
+message GetCustomerProfileRequest {
+  string customer_id = 1;
+}
+
+// Thông tin hồ sơ khách hàng
+message CustomerProfileDetail {
+  string customer_id = 1;
+  string full_name = 2;
+  string phone_number = 3;
+  optional string email = 4;
+
+  // Hạng thành viên thân thiết (Ví dụ: "BRONZE", "SILVER", "GOLD", "VIP_OCOP")
+  string loyalty_tier = 5;
+
+  // Số điểm tích lũy hiện có
+  int32 loyalty_points = 6;
+
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
+}
+
+// Phản hồi hồ sơ khách hàng
+message GetCustomerProfileResponse {
+  CustomerProfileDetail profile = 1;
+  optional omamx.common.v1.ErrorDetail error = 2;
+}
+
+// Yêu cầu lấy chi tiết một địa chỉ nhận hàng
+message GetDeliveryAddressRequest {
+  // Mã định danh bản ghi địa chỉ trong sổ địa chỉ
+  string address_id = 1;
+
+  // Mã khách hàng sở hữu (Bắt buộc để kiểm tra phân quyền sở hữu địa chỉ)
+  string customer_id = 2;
+}
+
+// Phản hồi chi tiết địa chỉ nhận hàng
+message GetDeliveryAddressResponse {
+  string address_id = 1;
+  omamx.common.v1.Address address = 2;
+  bool is_default = 3;
+  string label = 4; // Ví dụ: "Nhà riêng", "Cơ quan", "Gửi tặng người thân"
+  optional omamx.common.v1.ErrorDetail error = 5;
+}
+
+// Yêu cầu danh sách sổ địa chỉ
+message ListDeliveryAddressesRequest {
+  string customer_id = 1;
+}
+
+// Bản ghi địa chỉ trong danh sách
+message DeliveryAddressEntry {
+  string address_id = 1;
+  omamx.common.v1.Address address = 2;
+  bool is_default = 3;
+  string label = 4;
+}
+
+// Phản hồi danh sách sổ địa chỉ
+message ListDeliveryAddressesResponse {
+  repeated DeliveryAddressEntry addresses = 1;
+}
