@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GoodsReceivedEvent",
+  "description": "Sự kiện phát ra khi xưởng Hương Thủy nhập nguyên liệu mè/đậu từ Hợp tác xã Huế hoặc nhập kẹo thành phẩm. Topic: procurement.events.v1. Partition Key: sku_code",
+  "type": "object",
+  "required": ["specversion", "id", "source", "type", "subject", "time", "datacontenttype", "traceparent", "data"],
+  "properties": {
+    "specversion": { "type": "string", "enum": ["1.0"] },
+    "id": { "type": "string" },
+    "source": { "type": "string", "format": "uri", "example": "https://omama.vn/services/procurement-service" },
+    "type": { "type": "string", "enum": ["vn.omama.procurement.goods.received.v1"] },
+    "subject": { "type": "string", "example": "sku:NGUYEN-LIEU-ME-TRANG-HUE" },
+    "time": { "type": "string", "format": "date-time" },
+    "datacontenttype": { "type": "string", "enum": ["application/json"] },
+    "traceparent": { "type": "string" },
+    "data": {
+      "type": "object",
+      "required": ["receipt_id", "po_number", "supplier_id", "sku_code", "quantity_received", "unit", "warehouse_id", "received_at"],
+      "properties": {
+        "receipt_id": { "type": "string" },
+        "po_number": { "type": "string", "example": "PO-2026-0881" },
+        "supplier_id": { "type": "string", "example": "SUP-HTX-QUANG-THO" },
+        "supplier_name": { "type": "string", "example": "Hợp Tác Xã Nông Nghiệp Quảng Thọ - Thừa Thiên Huế" },
+        "sku_code": { "type": "string" },
+        "quantity_received": { "type": "number", "minimum": 0.01 },
+        "unit": { "type": "string", "example": "KG" },
+        "warehouse_id": { "type": "string", "example": "KHO-HUONG-THUY" },
+        "raw_material_origin_region": { "type": "string", "example": "Vùng mè cát Quảng Điền, Thừa Thiên Huế" },
+        "received_at": { "type": "string", "format": "date-time" }
+      }
+    }
+  }
+}

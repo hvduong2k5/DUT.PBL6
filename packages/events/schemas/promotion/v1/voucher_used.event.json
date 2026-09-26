@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "VoucherUsedEvent",
+  "description": "Sự kiện phát ra khi đơn hàng thanh toán thành công và voucher chính thức được ghi nhận đã sử dụng. Topic: promotion.events.v1. Partition Key: customer_id",
+  "type": "object",
+  "required": ["specversion", "id", "source", "type", "subject", "time", "datacontenttype", "traceparent", "data"],
+  "properties": {
+    "specversion": { "type": "string", "enum": ["1.0"] },
+    "id": { "type": "string" },
+    "source": { "type": "string", "format": "uri", "example": "https://omama.vn/services/promotion-service" },
+    "type": { "type": "string", "enum": ["vn.omama.promotion.voucher.used.v1"] },
+    "subject": { "type": "string", "example": "customer:CUST-9876" },
+    "time": { "type": "string", "format": "date-time" },
+    "datacontenttype": { "type": "string", "enum": ["application/json"] },
+    "traceparent": { "type": "string" },
+    "data": {
+      "type": "object",
+      "required": ["voucher_code", "order_id", "customer_id", "discount_amount", "used_at"],
+      "properties": {
+        "voucher_code": { "type": "string", "example": "OMAMA_FREESHIP_30K" },
+        "order_id": { "type": "string" },
+        "customer_id": { "type": "string" },
+        "discount_amount": {
+          "type": "object",
+          "required": ["currency_code", "units", "nanos"],
+          "properties": {
+            "currency_code": { "type": "string" },
+            "units": { "type": "integer" },
+            "nanos": { "type": "integer" }
+          }
+        },
+        "used_at": { "type": "string", "format": "date-time" }
+      }
+    }
+  }
+}

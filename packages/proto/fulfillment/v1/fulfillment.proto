@@ -1,0 +1,88 @@
+syntax = "proto3";
+
+package omamx.fulfillment.v1;
+
+import "google/protobuf/timestamp.proto";
+import "common/v1/types.proto";
+import "common/v1/errors.proto";
+
+option go_package = "github.com/omamx/proto/fulfillment/v1;fulfillmentv1";
+option java_multiple_files = true;
+option java_package = "com.omamx.proto.fulfillment.v1";
+
+// =============================================================================
+// HỢP ĐỒNG DỊCH VỤ ĐÓNG GÓI & BẰNG CHỨNG TEM SEAL (MS-02: FULFILLMENT SERVICE)
+// Điểm bảo vệ khiếu nại kẹo vỡ: Cung cấp Pre-signed S3 URL video niêm phong tem Seal O Mạ
+// =============================================================================
+
+service FulfillmentService {
+  // Lấy Pre-signed S3 URL video niêm phong tem Seal O Mạ phục vụ đối soát khiếu nại (NFR-09)
+  rpc GetPackingVideoUrl(GetPackingVideoUrlRequest) returns (GetPackingVideoUrlResponse);
+
+  // Thợ xưởng quét mã vạch lô hàng FEFO và nạp video niêm phong tem Seal hoàn tất đóng gói
+  rpc SubmitPackingEvidence(SubmitPackingEvidenceRequest) returns (SubmitPackingEvidenceResponse);
+}
+
+// Yêu cầu lấy link video đóng gói niêm phong
+message GetPackingVideoUrlRequest {
+  // Mã đơn hàng cần tra cứu
+  string order_id = 1;
+
+  // Người thực hiện yêu cầu (Chỉ CSKH, Thủ kho hoặc chính Chủ sở hữu đơn hàng)
+  string requesting_user_id = 2;
+
+  // Vai trò của người yêu cầu ("CUSTOMER", "CUSTOMER_SERVICE", "WAREHOUSE_MANAGER")
+  string user_role = 3;
+}
+
+// Phản hồi link video đóng gói
+message GetPackingVideoUrlResponse {
+  // Đơn hàng có video đóng gói hợp lệ hay không
+  bool has_video = 1;
+
+  // Đường link Pre-signed S3 an toàn có thời hạn (Hết hạn sau 15 phút - NFR-09)
+  optional string presigned_video_url = 2;
+
+  // Thời điểm đường link hết hạn
+  optional google.protobuf.Timestamp expires_at = 3;
+
+  // Mã số tem Seal O Mạ dán trên kiện hàng (Ví dụ: "SEAL-OMA-20261015-8899")
+  optional string seal_code = 4;
+
+  // Mã băm SHA-256 toàn vẹn của tệp video trên S3 (Chống sửa video giả mạo)
+  optional string video_checksum_sha256 = 5;
+
+  // Chi tiết lỗi nếu không tìm thấy video hoặc không đủ quyền truy cập
+  optional omamx.common.v1.ErrorDetail error = 6;
+}
+
+// Yêu cầu xác nhận hoàn tất đóng gói kẹo
+message SubmitPackingEvidenceRequest {
+  // Khóa chống lặp giao dịch
+  string idempotency_key = 1;
+
+  // Mã đơn hàng
+  string order_id = 2;
+
+  // Mã nhân viên/thợ xưởng Huế đóng gói
+  string packer_staff_id = 3;
+
+  // Mã số tem Seal O Mạ vừa dán niêm phong lên hộp
+  string seal_code = 4;
+
+  // S3 Object Key nơi video đóng gói đã được tải lên AWS S3
+  string s3_video_object_key = 5;
+
+  // Mã băm SHA-256 toàn vẹn của video
+  string video_checksum_sha256 = 6;
+
+  // Danh sách các mã lô hàng FEFO đã quét barcode thực tế khi bốc kẹo
+  repeated string scanned_batch_codes = 7;
+}
+
+// Phản hồi xác nhận hoàn tất đóng gói
+message SubmitPackingEvidenceResponse {
+  bool is_confirmed = 1;
+  string fulfillment_task_id = 2;
+  google.protobuf.Timestamp packed_at = 3;
+}

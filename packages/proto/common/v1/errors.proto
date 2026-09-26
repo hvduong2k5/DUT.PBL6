@@ -1,0 +1,92 @@
+syntax = "proto3";
+
+package omamx.common.v1;
+
+option go_package = "github.com/omamx/proto/common/v1;commonv1";
+option java_multiple_files = true;
+option java_package = "com.omamx.proto.common.v1";
+
+// =============================================================================
+// MÔ HÌNH LỖI NGHIỆP VỤ THỐNG NHẤT TOÀN HỆ THỐNG (UNIFIED ERROR MODEL)
+// Map trực tiếp vào google.rpc.Status & google.rpc.ErrorInfo của gRPC
+// Đồng thời cho phép API Gateway dịch chuẩn sang HTTP Status + JSON Body
+// =============================================================================
+
+enum ErrorCode {
+  // 0 BẮT BUỘC là UNSPECIFIED (Tuân thủ luật cứng của Protobuf3)
+  ERROR_CODE_UNSPECIFIED = 0;
+
+  // --- LỖI HỆ THỐNG DÙNG CHUNG (1 - 99) ---
+  ERR_INTERNAL_SERVER_ERROR = 1;
+  ERR_INVALID_ARGUMENT = 2;
+  ERR_UNAUTHENTICATED = 3;
+  ERR_PERMISSION_DENIED = 4;
+  ERR_RESOURCE_NOT_FOUND = 5;
+  ERR_IDEMPOTENCY_CONFLICT = 6;       // Trùng Idempotency Key nhưng payload gửi lên khác bản ghi trước
+  ERR_CIRCUIT_BREAKER_OPEN = 7;       // Cầu dao bảo vệ dịch vụ đang ngắt mạch
+  ERR_DEADLINE_EXCEEDED = 8;          // Quá thời gian chờ phản hồi (Strict Timeout 2.0s)
+
+  // --- LỖI MIỀN TỒN KHO & LÔ HÀNG (MS-01: INVENTORY - 100 - 199) ---
+  ERR_INVENTORY_INSUFFICIENT_STOCK = 100;     // Hết hàng hoặc số lượng khả dụng < số lượng yêu cầu
+  ERR_INVENTORY_SKU_NOT_FOUND = 101;          // Không tìm thấy mã sản phẩm trong kho
+  ERR_INVENTORY_SKU_INACTIVE = 102;           // Mặt hàng kẹo đã ngừng sản xuất / ngừng bán
+  ERR_INVENTORY_RESERVATION_NOT_FOUND = 103;  // Không tìm thấy phiếu khóa tồn kho
+  ERR_INVENTORY_RESERVATION_EXPIRED = 104;    // Phiếu giữ chỗ đã hết hạn 15 phút
+  ERR_INVENTORY_BATCH_QUARANTINED = 105;      // Lô kẹo đang bị cách ly kiểm định / cận date tiêu hủy
+
+  // --- LỖI MIỀN DANH MỤC & GIÁ (MS-05: CATALOG - 200 - 299) ---
+  ERR_CATALOG_PRICE_TAMPERED = 200;           // Phát hiện hành vi sửa giá từ phía client
+  ERR_CATALOG_PRODUCT_OUT_OF_SEASON = 201;    // Kẹo mùa vụ (ví dụ: Mè xửng truyền thống Tết) chưa mở bán
+  ERR_CATALOG_VARIANT_MISMATCH = 202;         // Biến thể SKU không khớp với sản phẩm cha
+
+  // --- LỖI MIỀN KHUYẾN MÃI & VOUCHER (MS-07: PROMOTION - 300 - 399) ---
+  ERR_PROMOTION_VOUCHER_NOT_FOUND = 300;      // Mã voucher không tồn tại
+  ERR_PROMOTION_VOUCHER_EXPIRED = 301;        // Mã giảm giá đã hết hạn sử dụng
+  ERR_PROMOTION_USAGE_LIMIT_EXCEEDED = 302;   // Voucher đã hết lượt sử dụng trên toàn hệ thống / trên tài khoản
+  ERR_PROMOTION_MIN_ORDER_AMOUNT_NOT_MET = 303; // Giá trị đơn hàng chưa đạt mức tối thiểu áp mã
+  ERR_PROMOTION_VOUCHER_ALREADY_LOCKED = 304; // Voucher đang bị tạm giữ bởi một giao dịch checkout khác
+
+  // --- LỖI MIỀN ĐƠN HÀNG & SAGA (MS-04: ORDER - 400 - 499) ---
+  ERR_ORDER_NOT_FOUND = 400;                  // Không tìm thấy đơn hàng
+  ERR_ORDER_INVALID_STATE_TRANSITION = 401;   // Chuyển trạng thái đơn không hợp lệ (Ví dụ: Đã CANCELLED mà đòi PAID)
+  ERR_ORDER_ALREADY_PAID = 402;               // Đơn hàng này đã được thanh toán trước đó
+  ERR_ORDER_PAYMENT_TIMEOUT = 403;            // Đơn hàng bị hủy tự động do quá hạn thanh toán 15 phút
+  ERR_ORDER_CANCELLED_BY_USER = 404;          // Khách hàng chủ động hủy đơn
+  ERR_ORDER_SAGA_COMPENSATION_FAILED = 405;   // Đền bù phân tán gặp sự cố (Cần can thiệp vận hành)
+
+  // --- LỖI MIỀN THANH TOÁN (MS-19 / PAYMENT MODULE - 500 - 599) ---
+  ERR_PAYMENT_GATEWAY_UNAVAILABLE = 500;      // Cổng thanh toán VietQR / Napas gặp sự cố
+  ERR_PAYMENT_HMAC_VERIFICATION_FAILED = 501; // Chữ ký bảo mật Webhook ngân hàng không hợp lệ
+  ERR_PAYMENT_AMOUNT_MISMATCH = 502;          // Số tiền ngân hàng báo về không khớp với giá trị đơn hàng
+  ERR_PAYMENT_TRANSACTION_EXPIRED = 503;      // Giao dịch thanh toán hết hiệu lực
+
+  // --- LỖI MIỀN VẬN CHUYỂN (MS-12: SHIPPING - 600 - 699) ---
+  ERR_SHIPPING_SERVICE_UNAVAILABLE = 600;     // Đối tác giao vận 3PL (GHN/ViettelPost) không phản hồi
+  ERR_SHIPPING_ADDRESS_UNSUPPORTED = 601;     // Địa chỉ nằm ngoài phạm vi giao hàng
+  ERR_SHIPPING_WEIGHT_EXCEEDED = 602;         // Kiện kẹo vượt quá trọng lượng tối đa của một bưu kiện
+
+  // --- LỖI MIỀN FULFILLMENT & TEM SEAL (MS-02: FULFILLMENT - 700 - 799) ---
+  ERR_FULFILLMENT_VIDEO_NOT_FOUND = 700;      // Chưa có video đóng gói niêm phong trên AWS S3
+  ERR_FULFILLMENT_SEAL_CODE_INVALID = 701;    // Mã tem seal O Mạ trên kiện hàng không khớp hệ thống
+}
+
+// Cấu trúc chi tiết mô tả lỗi trả về kèm theo gRPC status
+message ErrorDetail {
+  // Mã lỗi nghiệp vụ định danh duy nhất
+  ErrorCode error_code = 1;
+
+  // Thông điệp thân thiện hiển thị cho người dùng (Tiếng Việt)
+  string user_message = 2;
+
+  // Thông điệp kỹ thuật phục vụ lập trình viên debug
+  string dev_message = 3;
+
+  // Miền nghiệp vụ phát sinh lỗi (Ví dụ: "inventory", "payment", "order")
+  string domain = 4;
+
+  // Metadata bổ sung (Ví dụ: "sku_code": "MX-GION-500G", "available_qty": "1")
+  map<string, string> metadata = 5;
+
+  // Đường dẫn hướng dẫn xử lý hoặc tài liệu API (Optional)
+  optional string help_link = 6;
+}

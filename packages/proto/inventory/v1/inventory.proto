@@ -1,0 +1,204 @@
+syntax = "proto3";
+
+package omamx.inventory.v1;
+
+import "google/protobuf/timestamp.proto";
+import "common/v1/types.proto";
+import "common/v1/errors.proto";
+
+option go_package = "github.com/omamx/proto/inventory/v1;inventoryv1";
+option java_multiple_files = true;
+option java_package = "com.omamx.proto.inventory.v1";
+
+// =============================================================================
+// HỢP ĐỒNG GIAO TIẾP DỊCH VỤ QUẢN LÝ KHO & LÔ HÀNG FEFO (MS-01: INVENTORY SERVICE)
+// Điểm neo trên Critical Path: Khóa tồn kho tức thời chống Over-selling (NFR-06)
+// =============================================================================
+
+service InventoryService {
+  // Khóa giữ chỗ tồn kho tức thời trong 15 phút (Command Critical Path < 20ms)
+  // Chỉ duy nhất MS-04 Order Saga Orchestrator được quyền gọi RPC này
+  rpc ReserveStock(ReserveStockRequest) returns (ReserveStockResponse);
+
+  // Giải phóng tồn kho khóa tạm khi đơn hàng bị hủy hoặc quá hạn 15 phút
+  // Kích hoạt bởi cơ chế Centralized Compensation của MS-04
+  rpc ReleaseReservation(ReleaseReservationRequest) returns (ReleaseReservationResponse);
+
+  // Truy vấn số lượng tồn kho vật lý và khả dụng theo danh sách mã SKU
+  rpc GetStockLevel(GetStockLevelRequest) returns (GetStockLevelResponse);
+
+  // Truy vấn thông tin lô hàng kẹo mè xửng theo chiến lược FEFO (First Expired, First Out)
+  rpc GetBatchFEFODetails(GetBatchFEFODetailsRequest) returns (GetBatchFEFODetailsResponse);
+}
+
+// Trạng thái của thao tác giữ chỗ tồn kho
+enum ReservationStatus {
+  RESERVATION_STATUS_UNSPECIFIED = 0; // Giá trị 0 mặc định bắt buộc
+  RESERVATION_STATUS_SUCCESS = 1;      // Khóa tồn thành công toàn bộ mặt hàng
+  RESERVATION_STATUS_INSUFFICIENT = 2; // Không đủ tồn khả dụng (Hết hàng hoặc thiếu số lượng)
+  RESERVATION_STATUS_SKU_NOT_FOUND = 3;// Mã SKU không tồn tại trong danh mục kho
+  RESERVATION_STATUS_SKU_INACTIVE = 4; // Sản phẩm tạm ngưng kinh doanh
+}
+
+// Mặt hàng kẹo yêu cầu khóa giữ chỗ
+message ReserveItem {
+  // Mã biến thể sản phẩm (Ví dụ: "MX-GION-500G", "MX-DEO-HOMEMADE-300G")
+  string sku_code = 1;
+
+  // Số lượng hộp kẹo muốn mua (Bắt buộc > 0)
+  int32 quantity = 2;
+}
+
+// Yêu cầu khóa tồn kho
+message ReserveStockRequest {
+  // Khóa chống lặp giao dịch (Idempotency Key bắt buộc để retry an toàn)
+  string idempotency_key = 1;
+
+  // Mã định danh đơn hàng cần giữ chỗ (Ví dụ: "ORD-20261015-0042")
+  string order_id = 2;
+
+  // Danh sách các mặt hàng kẹo mè xửng cần khóa
+  repeated ReserveItem items = 3;
+
+  // Thời gian giữ chỗ (Mặc định: 15 phút)
+  int32 ttl_minutes = 4;
+
+  // Kênh bán hàng phát sinh yêu cầu (D2C_WEB, MOBILE_APP, SHOPEE, TIKTOK, POS_QUAY)
+  string channel = 5;
+
+  // Mã kho xuất phát (Optional - nếu để trống, hệ thống tự động chọn kho mặc định)
+  optional string preferred_warehouse_id = 6;
+}
+
+// Chi tiết mặt hàng bị thiếu hàng khi không thể khóa tồn
+message UnavailableItemDetail {
+  string sku_code = 1;
+  int32 requested_quantity = 2;
+  int32 available_quantity = 3;
+}
+
+// Phản hồi kết quả khóa tồn kho
+message ReserveStockResponse {
+  // Trạng thái tổng quát của thao tác giữ chỗ
+  ReservationStatus status = 1;
+
+  // Mã phiếu giữ chỗ tồn kho trong cơ sở dữ liệu (UUID chuỗi)
+  optional string reservation_id = 2;
+
+  // Thời điểm chính xác phiếu giữ chỗ sẽ tự động hết hạn nếu chưa thanh toán
+  // Tuân thủ chuẩn google.protobuf.Timestamp (Tránh lỗi sai lệch Timezone)
+  optional google.protobuf.Timestamp expires_at = 3;
+
+  // Danh sách các mặt hàng không đáp ứng đủ số lượng (Chỉ có khi status = INSUFFICIENT)
+  repeated UnavailableItemDetail unavailable_items = 4;
+
+  // Chi tiết mã lỗi và thông điệp chuẩn hóa nếu thất bại
+  optional omamx.common.v1.ErrorDetail error = 5;
+}
+
+// Yêu cầu giải phóng tồn kho đã khóa
+message ReleaseReservationRequest {
+  // Khóa chống lặp giao dịch bắt buộc trên mọi lệnh ghi
+  string idempotency_key = 1;
+
+  // Mã đơn hàng tương ứng
+  string order_id = 2;
+
+  // Mã phiếu giữ chỗ cần giải phóng
+  string reservation_id = 3;
+
+  // Lý do giải phóng tồn (Ví dụ: "PAYMENT_TIMEOUT_15M", "USER_CANCELLED", "ORDER_REJECTED")
+  string release_reason = 4;
+
+  // Bối cảnh kiểm toán (Ai thực hiện giải phóng: "SYSTEM_SAGA" hoặc "CUSTOMER")
+  optional omamx.common.v1.AuditContext audit_context = 5;
+}
+
+// Phản hồi kết quả giải phóng tồn kho
+message ReleaseReservationResponse {
+  // Xác nhận đã giải phóng thành công hay chưa
+  bool is_released = 1;
+
+  // Số lượng mặt hàng đã được cộng hoàn trả lại vào tồn khả dụng
+  int32 total_items_restored = 2;
+
+  // Thông điệp kết quả
+  string message = 3;
+}
+
+// Yêu cầu truy vấn mức tồn kho
+message GetStockLevelRequest {
+  // Danh sách mã SKU cần kiểm tra tồn kho
+  repeated string sku_codes = 1;
+
+  // Mã kho cần kiểm tra (Optional - nếu bỏ trống sẽ lấy tổng trên toàn hệ thống)
+  optional string warehouse_id = 2;
+}
+
+// Thông tin mức tồn kho của từng SKU
+message StockLevelItem {
+  string sku_code = 1;
+
+  // Tồn kho vật lý đang có trong các ngăn kệ
+  int32 physical_quantity = 2;
+
+  // Số lượng đang bị tạm khóa (chờ thanh toán 15m hoặc chờ thợ đóng gói)
+  int32 reserved_quantity = 3;
+
+  // Số lượng kẹo thực tế có thể mở bán cho khách (Available = Physical - Reserved)
+  int32 available_quantity = 4;
+
+  // Cảnh báo trạng thái tồn kho (Ví dụ: "IN_STOCK", "LOW_STOCK", "OUT_OF_STOCK")
+  string stock_status = 5;
+}
+
+// Phản hồi truy vấn mức tồn kho
+message GetStockLevelResponse {
+  repeated StockLevelItem items = 1;
+}
+
+// Trạng thái kiểm định chất lượng OCOP của lô kẹo mè xửng
+enum BatchQualityStatus {
+  BATCH_QUALITY_STATUS_UNSPECIFIED = 0;
+  BATCH_QUALITY_STATUS_QA_TESTING = 1;     // Đang kiểm định vệ sinh ATTP & độ giòn
+  BATCH_QUALITY_STATUS_ACTIVE_FEFO = 2;    // Đạt chuẩn OCOP - Đang lưu hành xuất bán
+  BATCH_QUALITY_STATUS_EXPIRING_SOON = 3;  // Cận date (còn dưới 45 ngày) - Ưu tiên xả hàng
+  BATCH_QUALITY_STATUS_QUARANTINED = 4;    // Cách ly tiêu hủy / Đổi trả xưởng
+  BATCH_QUALITY_STATUS_DEPLETED = 5;       // Đã xuất bán hết sạch lô
+}
+
+// Yêu cầu tra cứu chi tiết lô hàng FEFO
+message GetBatchFEFODetailsRequest {
+  string sku_code = 1;
+  optional string warehouse_id = 2;
+}
+
+// Thông tin chi tiết một lô sản xuất kẹo mè xửng
+message BatchItemDetail {
+  // Mã số lô sản xuất (Ví dụ: "LOT-OMAMA-20261001-01")
+  string batch_code = 1;
+
+  // Ngày sản xuất kẹo tại xưởng Huế
+  google.protobuf.Timestamp manufactured_at = 2;
+
+  // Hạn sử dụng tốt nhất (FEFO Date - căn cứ xuất kho trước)
+  google.protobuf.Timestamp best_before = 3;
+
+  // Số ngày còn lại trước khi hết hạn
+  int32 days_until_expiry = 4;
+
+  // Số lượng hộp kẹo còn lại trong lô này
+  int32 remaining_quantity = 5;
+
+  // Trạng thái chất lượng OCOP
+  BatchQualityStatus quality_status = 6;
+
+  // Mã tem truy xuất nguồn gốc OCOP gắn kèm lô
+  string ocop_trace_qr_code = 7;
+}
+
+// Phản hồi danh sách lô hàng sắp xếp theo thứ tự FEFO (Hạn dùng gần nhất xếp đầu)
+message GetBatchFEFODetailsResponse {
+  string sku_code = 1;
+  repeated BatchItemDetail batches = 2;
+}
