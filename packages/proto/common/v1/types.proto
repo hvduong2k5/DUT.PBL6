@@ -1,0 +1,110 @@
+syntax = "proto3";
+
+package omamx.common.v1;
+
+option go_package = "github.com/omamx/proto/common/v1;commonv1";
+option java_multiple_files = true;
+option java_package = "com.omamx.proto.common.v1";
+
+// =============================================================================
+// THƯ VIỆN KIỂU DỮ LIỆU CHUẨN DÙNG CHUNG TOÀN HỆ THỐNG (COMMON TYPES)
+// Tuân thủ triệt để: google.type.Money pattern, BigInt-safe, Decimal string
+// =============================================================================
+
+// Chuẩn tiền tệ quốc tế hóa, chống tràn số Number.MAX_SAFE_INTEGER trên Node.js
+message Money {
+  // Mã tiền tệ 3 ký tự theo chuẩn ISO 4217 (Ví dụ: "VND", "USD")
+  string currency_code = 1;
+
+  // Phần nguyên của số tiền (Ví dụ: 110000 trong 110.000 VND).
+  // Chú ý: Ở phía Node.js, bắt buộc parse trường này bằng BigInt(units), tuyệt đối không dùng Number().
+  int64 units = 2;
+
+  // Số đơn vị nano (10^-9) của số tiền. Với đồng Việt Nam (VND) không có hào/xu, trường này luôn = 0.
+  int32 nanos = 3;
+}
+
+// Địa chỉ giao nhận hàng hóa 4 cấp chuẩn hóa hành chính Việt Nam
+message Address {
+  // Họ và tên người nhận kiện hàng
+  string recipient_name = 1;
+
+  // Số điện thoại người nhận (Định dạng E.164 hoặc số di động VN 10 chữ số)
+  string phone_number = 2;
+
+  // Địa chỉ chi tiết (Số nhà, ngõ, tên đường)
+  string street_address = 3;
+
+  // Phường / Xã / Thị trấn (Ví dụ: "Phường Thuận Hòa")
+  string ward = 4;
+
+  // Quận / Huyện / Thị xã / Thành phố trực thuộc tỉnh (Ví dụ: "Thành phố Huế")
+  string district = 5;
+
+  // Tỉnh / Thành phố trực thuộc trung ương (Ví dụ: "Tỉnh Thừa Thiên Huế")
+  string province = 6;
+
+  // Mã quốc gia theo ISO 3166-1 alpha-2 (Mặc định là "VN")
+  string country_code = 7;
+
+  // Mã bưu chính (Optional)
+  optional string postal_code = 8;
+}
+
+// Đơn vị đo lường trọng lượng kẹo mè xửng và nguyên liệu
+enum WeightUnit {
+  WEIGHT_UNIT_UNSPECIFIED = 0;
+  WEIGHT_UNIT_GRAM = 1;
+  WEIGHT_UNIT_KILOGRAM = 2;
+}
+
+// Kiểu định lượng trọng lượng với độ chính xác cao (Tránh sai số IEEE-754 giữa Node.js, Python và Go)
+message Weight {
+  // Giá trị khối lượng biểu diễn dưới dạng chuỗi số thập phân (Ví dụ: "500.00", "0.250")
+  string decimal_value = 1;
+
+  // Đơn vị đo lường
+  WeightUnit unit = 2;
+}
+
+// Tham số phân trang dùng cho các truy vấn danh sách (Query List)
+message PaginationRequest {
+  // Số thứ tự trang cần lấy (Bắt đầu từ 1)
+  int32 page = 1;
+
+  // Số lượng bản ghi tối đa trên một trang (Mặc định: 20, Tối đa: 100)
+  int32 page_size = 2;
+}
+
+// Kết quả phân trang trả về từ các truy vấn danh sách
+message PaginationResponse {
+  // Trang hiện tại
+  int32 current_page = 1;
+
+  // Số lượng phần tử trên trang hiện tại
+  int32 page_size = 2;
+
+  // Tổng số lượng bản ghi thỏa mãn điều kiện lọc
+  int64 total_items = 3;
+
+  // Tổng số trang
+  int32 total_pages = 4;
+}
+
+// Bối cảnh kiểm toán (Audit Context) được truyền qua gRPC Metadata để phục vụ Audit Plane
+message AuditContext {
+  // Mã định danh người dùng hoặc hệ thống thực hiện thao tác (Ví dụ: "STAFF-WH-02", "CUST-9876")
+  string actor_id = 1;
+
+  // Vai trò của người thực hiện (Ví dụ: "CUSTOMER", "WAREHOUSE_STAFF", "SYSTEM_SAGA")
+  string actor_role = 2;
+
+  // Địa chỉ IP của client gọi yêu cầu
+  string client_ip = 3;
+
+  // Chuỗi vết dấu phân tán W3C Distributed Tracing (traceparent)
+  string traceparent = 4;
+
+  // User-Agent của ứng dụng client
+  optional string user_agent = 5;
+}

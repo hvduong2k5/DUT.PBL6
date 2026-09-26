@@ -1,0 +1,31 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ReturnTicketApprovedEvent",
+  "description": "Sự kiện phát ra khi CSKH chấp thuận yêu cầu đổi trả kẹo vỡ/hỏng sau khi đối soát video đóng gói có tem Seal O Mạ. Topic: care.events.v1. Partition Key: order_id",
+  "type": "object",
+  "required": ["specversion", "id", "source", "type", "subject", "time", "datacontenttype", "traceparent", "data"],
+  "properties": {
+    "specversion": { "type": "string", "enum": ["1.0"] },
+    "id": { "type": "string" },
+    "source": { "type": "string", "format": "uri", "example": "https://omama.vn/services/care-service" },
+    "type": { "type": "string", "enum": ["vn.omama.care.return.ticket.approved.v1"] },
+    "subject": { "type": "string", "example": "order_id:ORD-20261015-0042" },
+    "time": { "type": "string", "format": "date-time" },
+    "datacontenttype": { "type": "string", "enum": ["application/json"] },
+    "traceparent": { "type": "string" },
+    "data": {
+      "type": "object",
+      "required": ["return_ticket_id", "order_id", "customer_id", "approved_action", "seal_evidence_inspected", "approved_by_staff_id", "approved_at"],
+      "properties": {
+        "return_ticket_id": { "type": "string" },
+        "order_id": { "type": "string" },
+        "customer_id": { "type": "string" },
+        "approved_action": { "type": "string", "enum": ["REFUND_ONLY", "RETURN_AND_REFUND", "RESEND_NEW_BOX"] },
+        "seal_evidence_inspected": { "type": "boolean", "description": "Đã đối soát video đóng gói có seal nguyên vẹn trên S3" },
+        "approved_by_staff_id": { "type": "string" },
+        "notes": { "type": "string", "example": "Khách nhận hộp kẹo bị móp méo do đơn vị vận chuyển làm rơi" },
+        "approved_at": { "type": "string", "format": "date-time" }
+      }
+    }
+  }
+}
