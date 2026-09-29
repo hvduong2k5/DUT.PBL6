@@ -16,6 +16,9 @@ java {
 
 sourceSets {
     main {
+        proto {
+            srcDir '../../packages/proto'
+        }
         java {
             srcDirs 'build/generated/source/proto/main/java'
             srcDirs 'build/generated/source/proto/main/grpc'
