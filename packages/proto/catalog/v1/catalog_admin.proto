@@ -1,0 +1,66 @@
+syntax = "proto3";
+
+package hvduong.catalog.v1;
+
+import "catalog/v1/catalog_public.proto";
+
+option java_multiple_files = true;
+option java_package = "com.hvduong.catalog.grpc.v1";
+option java_outer_classname = "CatalogAdminProto";
+
+service CatalogAdminService {
+  rpc CreateProduct(CreateProductRpcRequest) returns (ProductCommandResponse);
+  rpc UpdateProduct(UpdateProductRpcRequest) returns (ProductCommandResponse);
+  rpc TransitionProduct(ProductTransitionRequest) returns (ProductCommandResponse);
+  rpc CreateVariant(CreateVariantRpcRequest) returns (ProductCommandResponse);
+  rpc UpdateVariantPrices(UpdateVariantPricesRpcRequest) returns (ProductCommandResponse);
+}
+
+enum ProductTransition {
+  PRODUCT_TRANSITION_UNSPECIFIED = 0;
+  SUBMIT_FOR_REVIEW = 1;
+  APPROVE = 2;
+  REJECT = 3;
+  SUSPEND = 4;
+  ARCHIVE = 5;
+}
+
+message ProductInput {
+  string category_id = 1;
+  string name = 2;
+  string slug = 3;
+  string description = 4;
+  string ingredients = 5;
+  string storage_guide = 6;
+  optional int32 ocop_star = 7;
+  string ocop_certificate_no = 8;
+  string story = 9;
+}
+message ProductPatch {
+  optional string category_id = 1;
+  optional string name = 2;
+  optional string slug = 3;
+  optional string description = 4;
+  optional string ingredients = 5;
+  optional string storage_guide = 6;
+  optional int32 ocop_star = 7;
+  optional string ocop_certificate_no = 8;
+  optional string story = 9;
+}
+message CreateProductRpcRequest { ProductInput product = 1; string actor_id = 2; }
+message UpdateProductRpcRequest { string product_id = 1; ProductPatch product = 2; int64 expected_version = 3; string actor_id = 4; }
+message ProductTransitionRequest { string product_id = 1; int64 expected_version = 2; string actor_id = 3; ProductTransition transition = 4; }
+message VariantInput {
+  string sku_code = 1;
+  string variant_name = 2;
+  string weight_value = 3;
+  string weight_unit = 4;
+  string flavor = 5;
+  string packaging_type = 6;
+  optional int32 shelf_life_days = 7;
+  int64 base_price_units = 8;
+}
+message CreateVariantRpcRequest { string product_id = 1; VariantInput variant = 2; string actor_id = 3; }
+message PriceEntry { SalesChannel channel = 1; int64 amount_units = 2; string currency_code = 3; }
+message UpdateVariantPricesRpcRequest { string product_id = 1; string variant_id = 2; repeated PriceEntry prices = 3; string actor_id = 4; }
+message ProductCommandResponse { ProductDetail product = 1; }

@@ -16,6 +16,7 @@ import com.hvduong.catalog.common.enums.SalesChannel;
 import com.hvduong.catalog.common.enums.SortBy;
 import com.hvduong.catalog.common.response.PageResponse;
 import com.hvduong.catalog.grpc.v1.*;
+import com.omamx.proto.common.v1.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -205,9 +206,9 @@ public class CatalogGrpcMapper {
     }
 
     public ListProductsResponse toListProductsResponse(PageResponse<ProductListItemResponse> page) {
-        var pageInfo = PageInfo.newBuilder()
-                .setPage(page.getPage()).setPageSize(page.getPageSize())
-                .setTotal(page.getTotal()).setTotalPages(page.getTotalPages()).build();
+        var pageInfo = PaginationResponse.newBuilder()
+                .setCurrentPage(page.getPage()).setPageSize(page.getPageSize())
+                .setTotalItems(page.getTotal()).setTotalPages(page.getTotalPages()).build();
         return ListProductsResponse.newBuilder()
                 .addAllProducts(page.getItems().stream().map(this::toProductListItemProto).collect(Collectors.toList()))
                 .setPageInfo(pageInfo).build();

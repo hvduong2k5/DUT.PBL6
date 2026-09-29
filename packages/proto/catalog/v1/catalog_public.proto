@@ -1,0 +1,122 @@
+syntax = "proto3";
+
+package hvduong.catalog.v1;
+
+option java_multiple_files = true;
+option java_package = "com.hvduong.catalog.grpc.v1";
+option java_outer_classname = "CatalogPublicProto";
+
+import "common/v1/types.proto";
+
+service CatalogPublicService {
+  rpc ListCategories(Empty) returns (ListCategoriesResponse);
+  rpc ListProducts(ListProductsRequest) returns (ListProductsResponse);
+  rpc GetProduct(GetProductRequest) returns (GetProductResponse);
+  rpc SearchProducts(SearchProductsRequest) returns (ListProductsResponse);
+  rpc GetProductVariant(GetProductVariantRequest) returns (GetProductVariantResponse);
+  rpc ValidatePriceAndSku(ValidatePriceAndSkuRequest) returns (ValidatePriceAndSkuResponse);
+}
+
+message Empty {}
+
+enum SalesChannel {
+  SALES_CHANNEL_UNSPECIFIED = 0;
+  D2C_WEB = 1;
+  MOBILE_APP = 2;
+  B2B_WHOLESALE = 3;
+  POS_QUAY = 4;
+  SHOPEE = 5;
+  TIKTOK = 6;
+}
+
+enum SortBy {
+  SORT_BY_UNSPECIFIED = 0;
+  NEWEST = 1;
+  PRICE_ASC = 2;
+  PRICE_DESC = 3;
+  BEST_SELLING = 4;
+}
+
+message Category {
+  string category_id = 1;
+  string parent_id = 2;
+  string name = 3;
+  string slug = 4;
+  string description = 5;
+  string image_url = 6;
+  int32 position = 7;
+  repeated Category children = 8;
+}
+message ListCategoriesResponse { repeated Category categories = 1; }
+
+message ProductVariant {
+  string variant_id = 1;
+  string sku_code = 2;
+  string name = 3;
+  string weight_value = 4;
+  string weight_unit = 5;
+  string flavor = 6;
+  string packaging_type = 7;
+  int32 shelf_life_days = 8;
+  omamx.common.v1.Money price = 9;
+  string listing_status = 10;
+}
+
+message ProductListItem {
+  string product_id = 1;
+  string name = 2;
+  string slug = 3;
+  string summary = 4;
+  string thumbnail_url = 5;
+  omamx.common.v1.Money base_price = 6;
+  int32 ocop_star = 7;
+  string category_name = 8;
+  bool in_stock = 9;
+}
+
+message ProductDetail {
+  string product_id = 1;
+  string category_id = 2;
+  string category_name = 3;
+  string name = 4;
+  string slug = 5;
+  string description = 6;
+  string ingredients = 7;
+  string storage_guide = 8;
+  int32 ocop_star = 9;
+  string ocop_certificate_no = 10;
+  string story = 11;
+  string approval_status = 12;
+  string listing_status = 13;
+  repeated string image_urls = 14;
+  repeated ProductVariant variants = 15;
+  int64 created_at_epoch_millis = 16;
+  int64 updated_at_epoch_millis = 17;
+  int64 version = 18;
+}
+
+message ProductFilter {
+  optional string category_id = 1;
+  optional int32 ocop_star = 2;
+  optional int64 min_price = 3;
+  optional int64 max_price = 4;
+  SortBy sort_by = 5;
+  SalesChannel channel = 6;
+}
+message ListProductsRequest { ProductFilter filter = 1; omamx.common.v1.PaginationRequest pagination = 2; }
+message ListProductsResponse { repeated ProductListItem products = 1; omamx.common.v1.PaginationResponse page_info = 2; }
+message GetProductRequest { string id_or_slug = 1; SalesChannel channel = 2; }
+message GetProductResponse { ProductDetail product = 1; }
+message SearchProductsRequest { string query = 1; omamx.common.v1.PaginationRequest pagination = 2; }
+message GetProductVariantRequest { string sku_code = 1; }
+message GetProductVariantResponse { ProductVariant variant = 1; }
+
+message PriceCheckItem { string sku_code = 1; int32 quantity = 2; omamx.common.v1.Money client_unit_price = 3; }
+message PriceDiscrepancy {
+  string sku_code = 1;
+  omamx.common.v1.Money client_unit_price = 2;
+  omamx.common.v1.Money authoritative_unit_price = 3;
+  string reason = 4;
+}
+message ValidatePriceAndSkuRequest { string idempotency_key = 1; SalesChannel channel = 2; repeated PriceCheckItem items = 3; }
+message ValidatePriceAndSkuResponse { bool valid = 1; omamx.common.v1.Money canonical_subtotal = 2; repeated PriceDiscrepancy discrepancies = 3; }
