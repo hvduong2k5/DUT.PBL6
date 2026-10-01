@@ -14,6 +14,30 @@ npx @mockoon/cli start --disable-log-to-file --data .\mocks\mockoon\customer_ext
 
 Các BFF dùng `CUSTOMER_CORE_UPSTREAM_URL` cho API gốc và `CUSTOMER_EXTENSIONS_UPSTREAM_URL` cho API mở rộng.
 
+## Web Admin API thống nhất
+
+- Toàn bộ API dành cho `apps/web-admin` được đặt trong `admin_extensions.json`, cổng `4030`.
+- Không thêm route `/admin/*` vào `mobile_pbl.json` hoặc `customer_extensions.json`.
+- Khi triển khai module Admin mới, bổ sung route vào duy nhất file Admin này cho đến khi có upstream backend thật.
+
+```powershell
+npx @mockoon/cli start --disable-log-to-file --data .\mocks\mockoon\admin_extensions.json
+```
+
+Các route đầu tiên phục vụ Web Admin `ADM-034`:
+
+| Method | Route | UI |
+| --- | --- | --- |
+| `GET` | `/admin/session` | Phiên nhân viên, role, effective permission và scope |
+| `GET` | `/admin/b2b/quote-requests` | Hàng đợi Sales B2B |
+| `GET` | `/admin/b2b/quote-requests/:requestId` | Chi tiết trong popup |
+| `GET` | `/admin/b2b/quote-requests/:requestId/versions` | Lịch sử và preview snapshot từng Quote Version |
+| `POST` | `/admin/b2b/quote-requests/:requestId/actions` | Phân công, yêu cầu bổ sung, lập/phát hành/thu hồi/từ chối quote và chuyển Order |
+
+`apps/web-admin` chạy cổng `3001` và dùng `ADMIN_API_UPSTREAM_URL=http://127.0.0.1:4030/api/v1`. Trong local có thể đặt `ADMIN_MOCK_ROLE=SALES_MANAGER`, `CUSTOMER_SERVICE` hoặc `VIEW_ONLY` để kiểm tra việc hiển thị theo permission. Header mock này chỉ do BFF local tạo; production không được nhận role do browser tự khai báo.
+
+Để kiểm tra optimistic concurrency của `US-B2B-03`, mở UI với `?mockScenario=admin-b2b-concurrency-conflict`. Mọi mutation phải gửi `expectedRevision`; mock trả `409 B2B_CONCURRENCY_CONFLICT` và UI yêu cầu tải lại dữ liệu trước khi tiếp tục.
+
 ### Customer B2B extension
 
 Đặt `CUSTOMER_MOCK_ACTOR=B2B` trong `apps/web-user/.env.local` để phiên Customer đã đăng nhập nhận projection B2B ở môi trường local. Biến này chỉ phục vụ Mockoon; production phải suy ra actor/capability từ danh tính và quan hệ đại diện doanh nghiệp đã xác minh.

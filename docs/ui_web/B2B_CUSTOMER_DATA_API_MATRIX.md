@@ -32,7 +32,7 @@
 
 ## Việc còn lại
 
-1. Web Admin tối thiểu cho Sales Manager (`US-B2B-03`) và permission nội bộ.
+1. Hoàn thiện phần còn lại của Web Admin `ADM-034`: withdraw, chuyển Order, history/message/SLA và tệp thật. Hàng đợi, chi tiết và các hành động chính đã có tại `apps/web-admin`; xem `B2B_ADMIN_DATA_API_MATRIX.md`.
 2. API upload/scan tài liệu thật và quản lý phiên bản logo.
 3. Luồng `NEEDS_INFO` để Customer bổ sung dữ liệu có lịch sử trao đổi.
 4. Định nghĩa đăng ký/xác minh pháp nhân, nhiều đại diện và một tài khoản đại diện nhiều doanh nghiệp.
