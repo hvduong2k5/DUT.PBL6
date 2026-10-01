@@ -5,9 +5,11 @@ const validCreate = {
   orderId: "order-mock-20260926-001",
   lines: [{ lineId: "line-order-gift", quantity: 1 }],
   reasonCode: "DAMAGED_IN_TRANSIT",
-  preferredResolution: "REPLACEMENT",
   details: "Góc hộp bị móp khi nhận hàng.",
-  evidence: [],
+  evidenceMediaUrls: ["https://cdn.example.vn/returns/evidence-01.jpg"],
+  refundBankCode: "MBBANK",
+  refundAccountNumber: "0905123456",
+  refundAccountHolder: "NGUYEN VAN AN",
   idempotencyKey: "return-case-550e8400-e29b-41d4-a716-446655440000"
 };
 
@@ -30,10 +32,10 @@ describe("Return body validation", () => {
     expect(validateCreateReturnCase(validCreate).data?.lines[0]).toEqual({ lineId: "line-order-gift", quantity: 1 });
   });
 
-  it("rejects duplicate lines and oversized evidence", () => {
-    const result = validateCreateReturnCase({ ...validCreate, lines: [...validCreate.lines, ...validCreate.lines], evidence: [{ clientReference: "evidence-001", fileName: "large.mp4", mediaType: "video/mp4", sizeBytes: 16 * 1024 * 1024 }] });
-    expect(result.errors.some((error) => error.field.startsWith("lines."))).toBe(true);
-    expect(result.errors.some((error) => error.field.startsWith("evidence."))).toBe(true);
+  it("rejects multiple lines and invalid evidence URLs", () => {
+    const result = validateCreateReturnCase({ ...validCreate, lines: [...validCreate.lines, { lineId: "line-other-gift", quantity: 1 }], evidenceMediaUrls: ["not-a-url"] });
+    expect(result.errors.some((error) => error.field === "lines")).toBe(true);
+    expect(result.errors.some((error) => error.field.startsWith("evidenceMediaUrls."))).toBe(true);
   });
 
   it("validates supplement idempotency and length", () => {

@@ -25,9 +25,20 @@ export interface CheckoutRecipient {
 export interface ShippingAddress {
   provinceCode: string;
   provinceName: string;
-  districtCode: string;
-  districtName: string;
+  wardCode: string;
+  wardName: string;
   addressLine: string;
+}
+
+export interface CheckoutWard {
+  wardCode: string;
+  wardName: string;
+}
+
+export interface CheckoutProvince {
+  provinceCode: string;
+  provinceName: string;
+  wards: CheckoutWard[];
 }
 
 export interface SavedCheckoutAddress {
@@ -47,7 +58,10 @@ export interface CheckoutPreparation {
   requiresPriceAcknowledgement: boolean;
   notices: Array<{ code: "PRICE_CHANGED"; itemId: string; message: string }>;
   customerMode: "GUEST" | "REGISTERED";
+  defaultRecipient?: CheckoutRecipient;
   savedAddresses: SavedCheckoutAddress[];
+  locations: CheckoutProvince[];
+  accountDataWarning?: string;
 }
 
 export interface ShippingOption {
@@ -56,6 +70,7 @@ export interface ShippingOption {
   description: string;
   feeVnd: number;
   estimatedDelivery: string;
+  calculatedAtCheckout?: boolean;
 }
 
 export interface ShippingQuote {
@@ -86,9 +101,11 @@ export interface ConfirmCheckoutInput {
   idempotencyKey: string;
   priceRevalidatedAt: string;
   priceChangesAcknowledged: boolean;
+  voucherCode?: string;
 }
 
 export interface CheckoutConfirmation {
+  customerMode: "GUEST" | "REGISTERED";
   orderId: string;
   orderNumber: string;
   status: "PENDING_PAYMENT" | "PLACED";
@@ -102,11 +119,15 @@ export interface CheckoutConfirmation {
   nextStep: "PAYMENT_REQUIRED" | "ORDER_PLACED";
   paymentPath: string;
   message: string;
+  vietQrUrl?: string;
+  paymentExpiresAt?: string;
 }
 
 interface CheckoutErrorBody {
   code?: string;
   message?: string;
+  error_code?: string;
+  user_message?: string;
   requestId?: string;
   errors?: Array<{ field: string; message: string }>;
   itemIssues?: Array<{ itemId: string; code: string; message: string }>;
@@ -120,10 +141,10 @@ export class CheckoutApiError extends Error {
   readonly itemIssues: Array<{ itemId: string; code: string; message: string }>;
 
   constructor(status: number, body: CheckoutErrorBody) {
-    super(body.message || "Không thể tiếp tục thanh toán lúc này.");
+    super(body.user_message || body.message || "Không thể tiếp tục thanh toán lúc này.");
     this.name = "CheckoutApiError";
     this.status = status;
-    this.code = body.code || "UNKNOWN_ERROR";
+    this.code = body.error_code || body.code || "UNKNOWN_ERROR";
     this.requestId = body.requestId;
     this.errors = body.errors ?? [];
     this.itemIssues = body.itemIssues ?? [];

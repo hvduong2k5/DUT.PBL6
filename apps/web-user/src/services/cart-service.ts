@@ -28,5 +28,8 @@ export const cartService = {
   },
   removeItem(itemId: string, mockScenario?: string): Promise<Cart> {
     return requestCart(`/items/${encodeURIComponent(itemId)}`, { method: "DELETE" }, mockScenario);
+  },
+  clear(mockScenario?: string): Promise<Cart> {
+    return requestCart("", { method: "DELETE" }, mockScenario);
   }
 };

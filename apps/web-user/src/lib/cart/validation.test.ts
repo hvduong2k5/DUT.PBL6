@@ -4,6 +4,7 @@ import { parseCartRoute, validateAddCartItemInput, validateUpdateCartItemInput }
 describe("parseCartRoute", () => {
   it("allows only the cart capability paths", () => {
     expect(parseCartRoute("GET", [], new URLSearchParams())).toMatchObject({ operation: "get-cart" });
+    expect(parseCartRoute("DELETE", [], new URLSearchParams())).toMatchObject({ operation: "clear-cart" });
     expect(parseCartRoute("POST", ["items"], new URLSearchParams())).toMatchObject({ operation: "add-item" });
     expect(parseCartRoute("PATCH", ["items", "line-123"], new URLSearchParams())).toMatchObject({ operation: "update-item", itemId: "line-123" });
     expect(parseCartRoute("DELETE", ["items", "line-123"], new URLSearchParams())).toMatchObject({ operation: "remove-item" });

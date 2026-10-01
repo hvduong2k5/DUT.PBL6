@@ -7,51 +7,24 @@ import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
 import {
   AddressInput,
-  AddressType,
-  AdministrativeArea,
   CustomerAddress,
   CustomerApiError,
   CustomerProfile
 } from "@/lib/customer/types";
+import type { CheckoutProvince } from "@/lib/checkout/types";
 import { FieldErrors, normalizePhone, validateAddress } from "@/lib/customer/validation";
 import { customerService } from "@/services/customer-service";
 
-interface AreaOption {
-  province: AdministrativeArea;
-  districts: Array<{ area: AdministrativeArea; wards: AdministrativeArea[] }>;
-}
-
-const AREAS: AreaOption[] = [
-  {
-    province: { code: "VN-HUE", name: "Thành phố Huế" },
-    districts: [
-      { area: { code: "HUE-CENTER", name: "Khu vực trung tâm Huế" }, wards: [
-        { code: "PHU-HOI", name: "Phường Phú Hội" }, { code: "THUAN-HOA", name: "Phường Thuận Hóa" }, { code: "AN-CUU", name: "Phường An Cựu" }
-      ] }
-    ]
-  },
-  {
-    province: { code: "VN-DNG", name: "Thành phố Đà Nẵng" },
-    districts: [
-      { area: { code: "NGU-HANH-SON", name: "Ngũ Hành Sơn" }, wards: [
-        { code: "HOA-HAI", name: "Phường Hòa Hải" }, { code: "MY-AN", name: "Phường Mỹ An" }
-      ] }
-    ]
-  }
-];
-
 const EMPTY_AREA = { code: "", name: "" };
 const EMPTY_FORM: AddressInput = {
-  label: "", type: "HOME", recipientName: "", recipientPhone: "", province: EMPTY_AREA,
-  district: null, ward: EMPTY_AREA, addressLine: "", deliveryNote: null, isDefault: false
+  label: "Địa chỉ nhận hàng", type: "HOME", recipientName: "", recipientPhone: "", province: EMPTY_AREA,
+  ward: EMPTY_AREA, addressLine: "", deliveryNote: null, isDefault: false
 };
-
-const TYPE_LABEL: Record<AddressType, string> = { HOME: "Nhà riêng", OFFICE: "Văn phòng", GIFT: "Biếu tặng", OTHER: "Khác" };
 
 function addressToInput(address: CustomerAddress): AddressInput {
   return {
     label: address.label, type: address.type, recipientName: address.recipientName,
-    recipientPhone: address.recipientPhone, province: address.province, district: address.district,
+    recipientPhone: address.recipientPhone, province: address.province,
     ward: address.ward, addressLine: address.addressLine, deliveryNote: address.deliveryNote,
     isDefault: address.isDefault
   };
@@ -61,6 +34,7 @@ export function AddressBookFlow() {
   const started = useRef(false);
   const [profile, setProfile] = useState<CustomerProfile | null>(null);
   const [addresses, setAddresses] = useState<CustomerAddress[]>([]);
+  const [locations, setLocations] = useState<CheckoutProvince[]>([]);
   const [form, setForm] = useState<AddressInput>(EMPTY_FORM);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -69,16 +43,16 @@ export function AddressBookFlow() {
   const [loading, setLoading] = useState(true);
   const [busyAction, setBusyAction] = useState<string | null>(null);
 
-  const selectedProvince = useMemo(() => AREAS.find((item) => item.province.code === form.province.code), [form.province.code]);
-  const selectedDistrict = useMemo(() => selectedProvince?.districts.find((item) => item.area.code === form.district?.code), [selectedProvince, form.district?.code]);
+  const selectedProvince = useMemo(() => locations.find((item) => item.provinceCode === form.province.code), [form.province.code, locations]);
 
   async function load() {
     setLoading(true);
     setNotice(null);
     try {
-      const [profileResult, addressResult] = await Promise.all([customerService.getProfile(), customerService.getAddresses()]);
+      const [profileResult, addressResult, locationResult] = await Promise.all([customerService.getProfile(), customerService.getAddresses(), customerService.getLocations()]);
       setProfile(profileResult);
       setAddresses(addressResult.items);
+      setLocations(locationResult.provinces);
     } catch (error) {
       setNotice({ kind: "error", text: error instanceof Error ? error.message : "Không thể tải sổ địa chỉ." });
     } finally {
@@ -89,8 +63,8 @@ export function AddressBookFlow() {
   useEffect(() => {
     if (started.current) return;
     started.current = true;
-    Promise.all([customerService.getProfile(), customerService.getAddresses()])
-      .then(([profileResult, addressResult]) => { setProfile(profileResult); setAddresses(addressResult.items); })
+    Promise.all([customerService.getProfile(), customerService.getAddresses(), customerService.getLocations()])
+      .then(([profileResult, addressResult, locationResult]) => { setProfile(profileResult); setAddresses(addressResult.items); setLocations(locationResult.provinces); })
       .catch((error: unknown) => setNotice({ kind: "error", text: error instanceof Error ? error.message : "Không thể tải sổ địa chỉ." }))
       .finally(() => setLoading(false));
   }, []);
@@ -207,25 +181,21 @@ export function AddressBookFlow() {
         <div className="section-title"><div><span className="eyebrow">Địa chỉ đang áp dụng</span><h2 id="address-list-title">{addresses.length} điểm nhận hàng</h2></div><span>Mặc định được ưu tiên khi Checkout</span></div>
         {addresses.length === 0 ? <div className="account-card empty-address"><span>⌖</span><h3>Sổ địa chỉ còn trống</h3><p>Thêm địa chỉ đầu tiên để rút ngắn bước nhập thông tin nhận hàng.</p><button className="primary-button" onClick={openCreate}>Thêm địa chỉ đầu tiên</button></div> :
           <div className="address-list">{addresses.map((address) => <article className={`address-card ${address.isDefault ? "default" : ""}`} key={address.id}>
-            <div className="address-card-top"><div className="address-labels"><span className={`address-type ${address.type.toLowerCase()}`}>{TYPE_LABEL[address.type]}</span>{address.isDefault && <span className="default-chip">Mặc định</span>}</div><div className="address-actions">{!address.isDefault && <button disabled={Boolean(busyAction)} onClick={() => void setDefault(address)}>{busyAction === `default-${address.id}` ? "Đang đặt…" : "Đặt mặc định"}</button>}<button onClick={() => openEdit(address)}>Chỉnh sửa</button><button className="danger-link" disabled={Boolean(busyAction)} onClick={() => void remove(address)}>{busyAction === `delete-${address.id}` ? "Đang xóa…" : "Xóa"}</button></div></div>
+            <div className="address-card-top"><div className="address-labels"><span className="address-type home">Địa chỉ nhận hàng</span>{address.isDefault && <span className="default-chip">Mặc định</span>}</div><div className="address-actions">{!address.isDefault && <button disabled={Boolean(busyAction)} onClick={() => void setDefault(address)}>{busyAction === `default-${address.id}` ? "Đang đặt…" : "Đặt mặc định"}</button>}<button onClick={() => openEdit(address)}>Chỉnh sửa</button><button className="danger-link" disabled={Boolean(busyAction)} onClick={() => void remove(address)}>{busyAction === `delete-${address.id}` ? "Đang xóa…" : "Xóa"}</button></div></div>
             <h3>{address.recipientName} <span>· {address.recipientPhone}</span></h3>
-            <p className="address-line">⌖ {address.addressLine}, {address.ward.name}{address.district ? `, ${address.district.name}` : ""}, {address.province.name}</p>
+            <p className="address-line">⌖ {address.addressLine}, {address.ward.name}, {address.province.name}</p>
             {address.deliveryNote && <p className="delivery-note">Ghi chú: {address.deliveryNote}</p>}
           </article>)}</div>}
       </section>}
 
     {showForm && profile && <form id="address-editor" className="account-card address-form" onSubmit={save} noValidate>
       <header className="card-heading"><span className="heading-icon">⌖</span><div><h2>{editingId ? "Chỉnh sửa địa chỉ" : "Thiết lập địa chỉ nhận hàng mới"}</h2><p>Thông tin này sẽ được kiểm tra lại trước khi xác nhận đơn hàng.</p></div><span className="privacy-chip">Bảo mật thông tin</span></header>
-      <fieldset className="address-type-choices"><legend>Tính chất địa chỉ</legend>{(["HOME", "OFFICE", "GIFT", "OTHER"] as AddressType[]).map((type) => <label className={form.type === type ? "selected" : ""} key={type}><input type="radio" name="addressType" checked={form.type === type} onChange={() => update("type", type)} /><span>{TYPE_LABEL[type]}</span><small>{type === "HOME" ? "Tư gia, dinh thự" : type === "OFFICE" ? "Văn phòng làm việc" : type === "GIFT" ? "Gửi tặng người thân" : "Điểm nhận khác"}</small></label>)}</fieldset>
       <div className="address-form-grid">
-        <label className="account-field"><span>Tên gợi nhớ <b>*</b></span><input value={form.label} placeholder="Ví dụ: Nhà riêng" onChange={(event) => update("label", event.target.value)} aria-invalid={Boolean(errors.label)} />{errors.label && <small>{errors.label}</small>}</label>
         <label className="account-field"><span>Họ và tên người nhận <b>*</b></span><input value={form.recipientName} onChange={(event) => update("recipientName", event.target.value)} aria-invalid={Boolean(errors.recipientName)} />{errors.recipientName && <small>{errors.recipientName}</small>}</label>
         <label className="account-field"><span>Số điện thoại liên lạc <b>*</b></span><input inputMode="tel" value={form.recipientPhone} onChange={(event) => update("recipientPhone", event.target.value)} aria-invalid={Boolean(errors.recipientPhone)} />{errors.recipientPhone && <small>{errors.recipientPhone}</small>}</label>
-        <label className="account-field"><span>Tỉnh / Thành phố <b>*</b></span><select value={form.province.code} onChange={(event) => { const next = AREAS.find((item) => item.province.code === event.target.value); update("province", next?.province ?? EMPTY_AREA); update("district", null); update("ward", EMPTY_AREA); }}><option value="">Chọn tỉnh / thành phố</option>{AREAS.map((item) => <option key={item.province.code} value={item.province.code}>{item.province.name}</option>)}</select>{errors.province && <small>{errors.province}</small>}</label>
-        <label className="account-field"><span>Khu vực / Quận huyện</span><select value={form.district?.code ?? ""} disabled={!selectedProvince} onChange={(event) => { const next = selectedProvince?.districts.find((item) => item.area.code === event.target.value); update("district", next?.area ?? null); update("ward", EMPTY_AREA); }}><option value="">Chọn khu vực</option>{selectedProvince?.districts.map((item) => <option key={item.area.code} value={item.area.code}>{item.area.name}</option>)}</select></label>
-        <label className="account-field"><span>Phường / Xã <b>*</b></span><select value={form.ward.code} disabled={!selectedDistrict} onChange={(event) => update("ward", selectedDistrict?.wards.find((item) => item.code === event.target.value) ?? EMPTY_AREA)}><option value="">Chọn phường / xã</option>{selectedDistrict?.wards.map((item) => <option key={item.code} value={item.code}>{item.name}</option>)}</select>{errors.ward && <small>{errors.ward}</small>}</label>
+        <label className="account-field"><span>Tỉnh / Thành phố <b>*</b></span><select value={form.province.code} onChange={(event) => { const next = locations.find((item) => item.provinceCode === event.target.value); update("province", next ? { code: next.provinceCode, name: next.provinceName } : EMPTY_AREA); update("ward", EMPTY_AREA); }}><option value="">Chọn tỉnh / thành phố</option>{locations.map((item) => <option key={item.provinceCode} value={item.provinceCode}>{item.provinceName}</option>)}</select>{errors.province && <small>{errors.province}</small>}</label>
+        <label className="account-field"><span>Phường / Xã <b>*</b></span><select value={form.ward.code} disabled={!selectedProvince} onChange={(event) => { const next = selectedProvince?.wards.find((item) => item.wardCode === event.target.value); update("ward", next ? { code: next.wardCode, name: next.wardName } : EMPTY_AREA); }}><option value="">Chọn phường / xã</option>{selectedProvince?.wards.map((item) => <option key={item.wardCode} value={item.wardCode}>{item.wardName}</option>)}</select>{errors.ward && <small>{errors.ward}</small>}</label>
         <label className="account-field wide"><span>Số nhà, ngõ, tên đường <b>*</b></span><input value={form.addressLine} placeholder="Ví dụ: 54 Lê Lợi" onChange={(event) => update("addressLine", event.target.value)} aria-invalid={Boolean(errors.addressLine)} />{errors.addressLine && <small>{errors.addressLine}</small>}</label>
-        <label className="account-field wide"><span>Lưu ý giao hàng</span><textarea value={form.deliveryNote ?? ""} placeholder="Giờ nhận hàng, điểm dễ nhận biết…" onChange={(event) => update("deliveryNote", event.target.value || null)} aria-invalid={Boolean(errors.deliveryNote)} />{errors.deliveryNote && <small>{errors.deliveryNote}</small>}</label>
       </div>
       <label className="checkbox address-default"><input type="checkbox" checked={Boolean(form.isDefault)} onChange={(event) => update("isDefault", event.target.checked)} /> Đặt địa chỉ này làm mặc định cho các đơn hàng tương lai</label>
       <footer className="form-footer"><span>Đơn hàng đã tạo luôn giữ snapshot địa chỉ riêng.</span><div><button type="button" className="secondary-button" onClick={closeForm}>Hủy bỏ</button><button className="primary-button" disabled={busyAction === "save"}>{busyAction === "save" && <span className="spinner" />}{busyAction === "save" ? "Đang lưu…" : "Lưu địa chỉ"}</button></div></footer>

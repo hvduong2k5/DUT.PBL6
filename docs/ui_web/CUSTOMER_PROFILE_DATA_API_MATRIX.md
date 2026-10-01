@@ -29,8 +29,7 @@
 | `recipientName` | Bắt buộc, 2–100 ký tự | Có thể khác tên profile. |
 | `recipientPhone` | Bắt buộc | Validation phone như profile. |
 | `provinceCode/name` | Bắt buộc | Code theo danh mục thống nhất với Checkout/Shipping. |
-| `districtCode/name` | Tùy thuộc nguồn địa giới/provider | Candidate hỗ trợ để tương thích provider; không dùng làm identifier duy nhất. |
-| `wardCode/name` | Bắt buộc | Code theo danh mục thống nhất. |
+| `wardCode/name` | Bắt buộc | Cấp hành chính trực tiếp dưới Tỉnh/Thành phố; code theo danh mục thống nhất. |
 | `addressLine` | Bắt buộc, 5–200 ký tự | Số nhà, đường, tòa nhà… |
 | `deliveryNote` | Tùy chọn, tối đa 500 ký tự | Không chứa chỉ dẫn bí mật/credential. |
 | `isDefault` | Server-controlled | Tối đa một địa chỉ mặc định. |
@@ -73,8 +72,7 @@ Không có `customerId` trong path vì browser chỉ thao tác trên tài nguyê
   "type": "HOME",
   "recipientName": "Tôn Thất Hoàng",
   "recipientPhone": "+84912345892",
-  "province": { "code": "VN-TTH", "name": "Thành phố Huế" },
-  "district": { "code": "HUE-CENTER", "name": "Khu vực trung tâm Huế" },
+  "province": { "code": "HUE", "name": "Thành phố Huế" },
   "ward": { "code": "PHU-HOI", "name": "Phường Phú Hội" },
   "addressLine": "54 Lê Lợi",
   "deliveryNote": "Gọi trước khi giao.",

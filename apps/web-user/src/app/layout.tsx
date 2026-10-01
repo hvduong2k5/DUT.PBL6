@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { CustomerSessionProvider } from "@/components/auth/customer-session-provider";
+import { CartSummaryProvider } from "@/components/cart/cart-summary-provider";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -7,5 +9,5 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="vi"><body>{children}</body></html>;
+  return <html lang="vi"><body><CustomerSessionProvider><CartSummaryProvider>{children}</CartSummaryProvider></CustomerSessionProvider></body></html>;
 }

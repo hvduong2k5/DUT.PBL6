@@ -11,7 +11,8 @@ const children = new Set();
 let shuttingDown = false;
 
 const mockServices = [
-  { name: "Order Management Mockoon", port: 4017, file: "oma-order-management-mvp.json" }
+  { name: "Customer Core Mockoon", port: 4010, file: "mobile_pbl.json" },
+  { name: "Customer Extensions Mockoon", port: 4020, file: "customer_extensions.json" }
 ];
 
 function isPortOpen(port) {

@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { parseCheckoutRoute, validateConfirmCheckoutInput, validatePrepareCheckoutInput, validateQuoteShippingInput } from "./validation";
 
 const address = {
-  provinceCode: "HUE", provinceName: "Thành phố Huế", districtCode: "PHU-NHUAN",
-  districtName: "Phường Phú Nhuận", addressLine: "Tầng 3, 84 Nguyễn Huệ"
+  provinceCode: "HUE", provinceName: "Thành phố Huế", wardCode: "PHU-NHUAN",
+  wardName: "Phường Phú Nhuận", addressLine: "Tầng 3, 84 Nguyễn Huệ"
 };
 
 describe("Checkout route allowlist", () => {
@@ -38,7 +38,7 @@ describe("Checkout request validation", () => {
       itemIds: ["line-1"], recipient: { fullName: "Nguyễn Văn An", phone: "0914288668", email: "an@example.com" },
       address, shippingOptionId: "STANDARD", paymentMethod: "BANK_TRANSFER",
       idempotencyKey: "checkout-request-123456", priceRevalidatedAt: "2026-09-25T10:00:00.000Z",
-      priceChangesAcknowledged: false
+      priceChangesAcknowledged: false, voucherCode: "OMAMA_FREESHIP_30K"
     });
     expect(result.errors).toEqual([]);
   });

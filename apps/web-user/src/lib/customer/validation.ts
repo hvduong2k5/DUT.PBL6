@@ -3,6 +3,7 @@ import type { AddressInput, ProfileInput } from "./types";
 export type FieldErrors = Record<string, string>;
 
 const PHONE_ALLOWED = /^[+\d\s().-]+$/u;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/u;
 
 export function normalizePhone(value: string): string {
   return value.trim().replace(/[\s().-]/gu, "");
@@ -21,6 +22,9 @@ export function validateProfile(input: ProfileInput): FieldErrors {
 
   if (fullName.length < 2) errors.fullName = "Họ và tên phải có ít nhất 2 ký tự.";
   if (fullName.length > 100) errors.fullName = "Họ và tên không được quá 100 ký tự.";
+  const email = input.email.trim();
+  if (!email) errors.email = "Vui lòng nhập email liên hệ.";
+  else if (email.length > 254 || !EMAIL_PATTERN.test(email)) errors.email = "Email chưa đúng định dạng.";
   if (input.phone && !isValidPhone(input.phone)) errors.phone = "Số điện thoại chưa đúng định dạng.";
   if (input.dateOfBirth && input.dateOfBirth > new Date().toISOString().slice(0, 10)) {
     errors.dateOfBirth = "Ngày sinh không được ở tương lai.";

@@ -13,8 +13,7 @@ const SORT_OPTIONS = [
   ["CURATED", "Tuyển chọn"],
   ["RELEVANCE", "Liên quan nhất"],
   ["PRICE_ASC", "Giá thấp đến cao"],
-  ["PRICE_DESC", "Giá cao đến thấp"],
-  ["NAME_ASC", "Tên A–Z"]
+  ["PRICE_DESC", "Giá cao đến thấp"]
 ] as const;
 
 function samePricePreset(params: URLSearchParams, preset: PricePreset): boolean {
@@ -144,7 +143,7 @@ export function CatalogFlow() {
 
   function resetFilters(clearKeyword = false) {
     navigate((next) => {
-      ["category", "productType", "minPrice", "maxPrice", "weights", "inStock"].forEach((key) => next.delete(key));
+      ["category", "productType", "minPrice", "maxPrice", "ocopStars", "weights", "inStock"].forEach((key) => next.delete(key));
       if (clearKeyword) {
         next.delete("q");
         next.delete("sort");
@@ -160,10 +159,12 @@ export function CatalogFlow() {
     const productType = config.productTypes.find((item) => item.value === params.get("productType"));
     const weights = (params.get("weights") ?? "").split(",").filter(Boolean).map(Number);
     const price = config.pricePresets.find((preset) => samePricePreset(params, preset));
+    const ocopStars = params.get("ocopStars");
     if (params.get("q")) items.push({ key: "q", label: `“${params.get("q")}”`, clear: (next) => { next.delete("q"); next.delete("sort"); setKeyword(""); } });
     if (category) items.push({ key: "category", label: category.name, clear: (next) => next.delete("category") });
     if (productType) items.push({ key: "productType", label: productType.label, clear: (next) => next.delete("productType") });
     if (price) items.push({ key: "price", label: price.label, clear: (next) => { next.delete("minPrice"); next.delete("maxPrice"); } });
+    if (ocopStars) items.push({ key: "ocopStars", label: `OCOP ${ocopStars} sao`, clear: (next) => next.delete("ocopStars") });
     weights.forEach((weight) => items.push({ key: `weight-${weight}`, label: `${weight}g`, clear: (next) => {
       const remaining = weights.filter((item) => item !== weight);
       if (remaining.length) next.set("weights", remaining.join(",")); else next.delete("weights");
@@ -196,10 +197,10 @@ export function CatalogFlow() {
           {config ? <>
             <fieldset><legend>Danh mục</legend><label className={!params.get("category") ? "selected" : ""}><input type="radio" name="category" checked={!params.get("category")} onChange={() => navigate((next) => next.delete("category"))} />Tất cả thức quà</label>{config.categories.map((category) => <label className={params.get("category") === category.slug ? "selected" : ""} key={category.slug}><input type="radio" name="category" checked={params.get("category") === category.slug} onChange={() => navigate((next) => next.set("category", category.slug))} />{category.name}</label>)}</fieldset>
             <fieldset><legend>Khoảng giá</legend><label className={!params.get("minPrice") && !params.get("maxPrice") ? "selected" : ""}><input type="radio" name="price" checked={!params.get("minPrice") && !params.get("maxPrice")} onChange={() => setPrice()} />Tất cả mức giá</label>{config.pricePresets.map((preset) => <label className={samePricePreset(params, preset) ? "selected" : ""} key={preset.label}><input type="radio" name="price" checked={samePricePreset(params, preset)} onChange={() => setPrice(preset)} />{preset.label}</label>)}</fieldset>
-            <fieldset><legend>Khối lượng</legend><div className="weight-options">{config.weightOptions.map((weight) => { const checked = (params.get("weights") ?? "").split(",").includes(String(weight)); return <label className={checked ? "selected" : ""} key={weight}><input type="checkbox" checked={checked} onChange={() => toggleWeight(weight)} />{weight}g</label>; })}</div></fieldset>
-            <fieldset><legend>Loại sản phẩm</legend>{config.productTypes.map((type) => <label className={params.get("productType") === type.value ? "selected" : ""} key={type.value}><input type="checkbox" checked={params.get("productType") === type.value} onChange={() => navigate((next) => { if (next.get("productType") === type.value) next.delete("productType"); else next.set("productType", type.value satisfies ProductType); })} />{type.label}</label>)}</fieldset>
-            <fieldset className="availability-filter"><legend>Khả dụng</legend><label className={params.get("inStock") === "true" ? "selected" : ""}><input type="checkbox" checked={params.get("inStock") === "true"} onChange={(event) => navigate((next) => { if (event.target.checked) next.set("inStock", "true"); else next.delete("inStock"); })} /><span><b>Chỉ sản phẩm còn hàng</b><small>Không tính lô hết hạn</small></span></label></fieldset>
-            <div className="rating-coming"><span>★</span><div><b>Đánh giá khách hàng</b><small>Sẽ mở khi có dữ liệu thật từ hệ thống đánh giá.</small></div></div>
+            <fieldset><legend>Chứng nhận OCOP</legend><label className={!params.get("ocopStars") ? "selected" : ""}><input type="radio" name="ocopStars" checked={!params.get("ocopStars")} onChange={() => navigate((next) => next.delete("ocopStars"))} />Tất cả hạng sao</label>{[5, 4, 3].map((stars) => <label className={params.get("ocopStars") === String(stars) ? "selected" : ""} key={stars}><input type="radio" name="ocopStars" checked={params.get("ocopStars") === String(stars)} onChange={() => navigate((next) => next.set("ocopStars", String(stars)))} />OCOP {stars} sao</label>)}</fieldset>
+            {config.weightOptions.length ? <fieldset><legend>Khối lượng</legend><div className="weight-options">{config.weightOptions.map((weight) => { const checked = (params.get("weights") ?? "").split(",").includes(String(weight)); return <label className={checked ? "selected" : ""} key={weight}><input type="checkbox" checked={checked} onChange={() => toggleWeight(weight)} />{weight}g</label>; })}</div></fieldset> : null}
+            {config.productTypes.length ? <fieldset><legend>Loại sản phẩm</legend>{config.productTypes.map((type) => <label className={params.get("productType") === type.value ? "selected" : ""} key={type.value}><input type="checkbox" checked={params.get("productType") === type.value} onChange={() => navigate((next) => { if (next.get("productType") === type.value) next.delete("productType"); else next.set("productType", type.value satisfies ProductType); })} />{type.label}</label>)}</fieldset> : null}
+            <div className="rating-coming"><span>★</span><div><b>Đánh giá khách hàng</b><small>Xem nhận xét đã xác minh tại trang chi tiết sản phẩm.</small></div></div>
           </> : null}
         </aside>
 

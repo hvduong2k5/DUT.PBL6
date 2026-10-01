@@ -8,6 +8,8 @@ import { CartApiError } from "@/lib/cart/types";
 import { MAX_CART_ITEM_QUANTITY } from "@/lib/cart/validation";
 import type { ProductDetail, ProductSku } from "@/lib/product-detail/types";
 import { ProductDetailApiError } from "@/lib/product-detail/types";
+import { ProductReviewsSection } from "@/components/product/product-reviews";
+import { useCartSummary } from "@/components/cart/cart-summary-provider";
 import { cartService } from "@/services/cart-service";
 import { productDetailService } from "@/services/product-detail-service";
 
@@ -32,6 +34,7 @@ function ProductDetailLoading() {
 }
 
 export function ProductDetailFlow({ slug }: { slug: string }) {
+  const { updateFromCart } = useCartSummary();
   const searchParams = useSearchParams();
   const scenario = searchParams.get("mockScenario") ?? undefined;
   const [product, setProduct] = useState<ProductDetail | null>(null);
@@ -100,6 +103,7 @@ export function ProductDetailFlow({ slug }: { slug: string }) {
     setSelectionMessage("");
     try {
       const cart = await cartService.addItem({ skuId: selectedSku.skuId, quantity }, scenario);
+      updateFromCart(cart);
       setAddedToCart(true);
       setSelectionMessage(`Đã thêm ${quantity} × ${selectedSku.label} vào giỏ. Giỏ hiện có ${cart.itemCount} sản phẩm.`);
     } catch (cause) {
@@ -129,11 +133,12 @@ export function ProductDetailFlow({ slug }: { slug: string }) {
   if (!product) return null;
 
   const activeImage = activeImageUrl ?? product.images[0]?.url;
+  const foodInformation = product.foodInformation;
   return (
     <main className="product-detail-page" aria-live="polite">
       <nav className="detail-breadcrumbs" aria-label="Breadcrumb">
         <Link href="/">Trang chủ</Link><span aria-hidden="true">/</span>
-        <Link href={`/products?category=${product.category.slug}`}>{product.category.name}</Link><span aria-hidden="true">/</span>
+        {product.category ? <><Link href={`/products?category=${product.category.slug}`}>{product.category.name}</Link><span aria-hidden="true">/</span></> : <><Link href="/products">Sản phẩm</Link><span aria-hidden="true">/</span></>}
         <strong>{product.name}</strong>
       </nav>
 
@@ -147,7 +152,7 @@ export function ProductDetailFlow({ slug }: { slug: string }) {
         </div>
 
         <div className="detail-purchase-panel">
-          <p className="eyebrow">{product.category.name}</p>
+          <p className="eyebrow">{product.category?.name ?? "Đặc sản OCOP"}</p>
           <h1>{product.name}</h1>
           <p className="detail-lead">{product.shortDescription}</p>
 
@@ -191,17 +196,19 @@ export function ProductDetailFlow({ slug }: { slug: string }) {
 
       <section className="product-story" aria-labelledby="product-story-title">
         <div><p className="eyebrow">Thông tin đã công bố</p><h2 id="product-story-title">Câu chuyện của thức quà</h2><p>{product.longDescription}</p></div>
-        <aside><span>Phân loại</span><strong>{product.category.name}</strong><span>Dòng sản phẩm</span><strong>{product.productType}</strong>{product.ocopCertification ? <><span>Chứng nhận</span><strong>{product.ocopCertification.label}</strong></> : null}</aside>
+        <aside>{product.category ? <><span>Phân loại</span><strong>{product.category.name}</strong></> : null}{product.productType ? <><span>Dòng sản phẩm</span><strong>{product.productType}</strong></> : null}{product.ocopCertification ? <><span>Chứng nhận</span><strong>{product.ocopCertification.label}</strong></> : null}</aside>
       </section>
 
-      <section className="food-information" aria-labelledby="food-title">
+      {foodInformation ? <section className="food-information" aria-labelledby="food-title">
         <div className="section-heading"><p className="eyebrow">Thông tin thực phẩm</p><h2 id="food-title">Hiểu rõ trước khi lựa chọn</h2><p>Dữ liệu catalog chung; ngày cụ thể của Batch/Lot không được hiển thị tại đây.</p></div>
         <div className="food-grid">
-          <article><span aria-hidden="true">✦</span><h3>Thành phần</h3><p>{product.foodInformation.ingredients}</p>{product.foodInformation.allergenStatement ? <div className="allergen-note"><strong>Cảnh báo dị ứng</strong><p>{product.foodInformation.allergenStatement}</p></div> : null}</article>
-          <article><span aria-hidden="true">⌂</span><h3>Bảo quản</h3><p>{product.foodInformation.storageInstructions}</p></article>
-          <article><span aria-hidden="true">◷</span><h3>Ngày sản xuất &amp; hạn dùng</h3><dl><dt>Ngày sản xuất</dt><dd>{product.foodInformation.manufacturingDatePolicy}</dd><dt>Hạn sử dụng catalog</dt><dd>{product.foodInformation.shelfLifeDescription}</dd></dl><small>Đây là chính sách shelf-life, không phải ngày của lô hàng sẽ giao.</small></article>
+          <article><span aria-hidden="true">✦</span><h3>Thành phần</h3><p>{foodInformation.ingredients}</p>{foodInformation.allergenStatement ? <div className="allergen-note"><strong>Cảnh báo dị ứng</strong><p>{foodInformation.allergenStatement}</p></div> : null}</article>
+          <article><span aria-hidden="true">⌂</span><h3>Bảo quản</h3><p>{foodInformation.storageInstructions}</p></article>
+          <article><span aria-hidden="true">◷</span><h3>Ngày sản xuất &amp; hạn dùng</h3><dl><dt>Ngày sản xuất</dt><dd>{foodInformation.manufacturingDatePolicy}</dd><dt>Hạn sử dụng catalog</dt><dd>{foodInformation.shelfLifeDescription}</dd></dl><small>Đây là chính sách shelf-life, không phải ngày của lô hàng sẽ giao.</small></article>
         </div>
-      </section>
+      </section> : <section className="food-information" aria-labelledby="food-title"><div className="section-heading"><p className="eyebrow">Thông tin thực phẩm</p><h2 id="food-title">Thông tin đang được cập nhật</h2><p>API sản phẩm hiện chưa công bố thành phần, cảnh báo dị ứng và hướng dẫn bảo quản. Vui lòng kiểm tra nhãn trên bao bì hoặc tra cứu lô hàng trước khi sử dụng.</p><Link className="product-detail-link" href="/trace/QR-OMA-20261015-LOT08">Xem mẫu hồ sơ truy xuất <span aria-hidden="true">→</span></Link></div></section>}
+
+      <ProductReviewsSection key={product.id} productId={product.id} productName={product.name} mockScenario={scenario} />
     </main>
   );
 }

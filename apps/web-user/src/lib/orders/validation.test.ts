@@ -25,6 +25,7 @@ describe("Order mutation validation", () => {
 
   it("normalizes Guest lookup and requires a six-digit OTP", () => {
     expect(validateGuestChallenge({ orderNumber: "#oma-260926-001", contact: "0914 288 668" }).data).toEqual({ orderNumber: "OMA-260926-001", contact: "0914288668" });
+    expect(validateGuestChallenge({ orderNumber: "ord-20261015-0042", contact: "guest@example.com" }).data).toEqual({ orderNumber: "ORD-20261015-0042", contact: "guest@example.com" });
     expect(validateGuestOtp({ otp: "789214" }).data?.otp).toBe("789214");
     expect(validateGuestOtp({ otp: "123" }).errors[0].field).toBe("otp");
   });

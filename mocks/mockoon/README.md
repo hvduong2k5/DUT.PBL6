@@ -1,5 +1,19 @@
 # O Ma Web MVP — Mockoon
 
+## Customer API thống nhất
+
+- API Customer gốc: `mobile_pbl.json`, cổng `4010`.
+- API Customer mở rộng: `customer_extensions.json`, cổng `4020`.
+- File mở rộng hiện gom toàn bộ route chưa có trong API gốc cho Password Recovery, Guest Order (gồm cấp quyền sau Checkout), Customer Support, Customer capability projection và danh mục địa chỉ Checkout hai cấp.
+- Không thêm route Customer mới vào các file MVP riêng; `mobile_pbl.json` cũng không bị sửa.
+
+```powershell
+npx @mockoon/cli start --disable-log-to-file --data .\mocks\mockoon\mobile_pbl.json
+npx @mockoon/cli start --disable-log-to-file --data .\mocks\mockoon\customer_extensions.json
+```
+
+Các BFF dùng `CUSTOMER_CORE_UPSTREAM_URL` cho API gốc và `CUSTOMER_EXTENSIONS_UPSTREAM_URL` cho API mở rộng.
+
 ## Return & Refund MVP
 
 Khởi động Return & Refund Mockoon và Next.js bằng một lệnh:
@@ -31,6 +45,8 @@ Case fixture: `return-case-mock-001` / `RMA-2410-0082`. Scenario và boundary đ
 
 ## Order Management MVP
 
+> Legacy reference: UI Customer hiện dùng `mobile_pbl.json` cho Order đã đăng nhập và `customer_extensions.json` cho Guest Order. File MVP này không còn là upstream mặc định.
+
 Khởi động Order Management Mockoon và Next.js. Script chỉ bật mock cần cho feature này để tránh chiếm tài nguyên không cần thiết:
 
 ```powershell
@@ -56,8 +72,9 @@ npx @mockoon/cli start --data .\mocks\mockoon\oma-order-management-mvp.json
 | `ORD-C03` | `POST /api/orders/{orderId}/cancellations` | `POST /orders/:orderId/cancellations` |
 | `ORD-C04` | `POST /api/orders/guest-access/challenges` | cùng path |
 | `ORD-C05` | `POST /api/orders/guest-access/challenges/{challengeId}/verify` | cùng path |
+| Guest Checkout grant | nội bộ BFF sau `POST /api/checkout/confirm` | `POST /orders/guest-access/grants` trong `customer_extensions.json` |
 
-Guest fixture: `OMA-260926-001`, `0914288668`, OTP `789214`. Scenario và boundary đầy đủ nằm trong data matrix; browser không gọi Mockoon trực tiếp.
+Guest fixture của Customer flow: `ORD-20261015-0042`, `0914288668`, OTP `789214`. Validator vẫn chấp nhận mã `OMA-*` từ fixture legacy; browser không gọi Mockoon trực tiếp.
 
 ## Payment MVP
 
@@ -194,6 +211,8 @@ npx @mockoon/cli start --data .\mocks\mockoon\oma-customer-profile-mvp.json
 Chọn state bằng `X-Mock-Scenario`; danh sách scenario nằm trong `CUSTOMER_PROFILE_DATA_API_MATRIX.md`. Environment là mock stateless: UI giữ state sau mutation để mô phỏng tương tác trong một phiên phát triển.
 
 ## Authentication MVP
+
+> Legacy reference: đăng ký/đăng nhập/session hiện dùng `mobile_pbl.json`; Password Recovery dùng `customer_extensions.json`. File MVP này không còn là upstream mặc định.
 
 Mockoon environment phục vụ phát triển UI cho D2C-009 Login, D2C-010 Registration và D2C-011 Recovery.
 
@@ -379,6 +398,8 @@ Quy trình đồng bộ đúng:
 Nếu Mockoon và OpenAPI khác nhau, OpenAPI đã được review là nguồn sự thật ưu tiên.
 
 ## Customer Service MVP
+
+> Legacy reference: các route Support đã được hợp nhất vào `customer_extensions.json`. File MVP này chỉ được giữ để đối chiếu scope cũ.
 
 Environment `oma-customer-service-mvp.json` chạy ở port `4019`, API prefix `/api/v1`. Environment phục vụ UI `/support/request` và `/support/tickets/:ticketId` qua Next.js BFF.
 

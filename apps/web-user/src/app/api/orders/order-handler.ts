@@ -1,37 +1,19 @@
-import type {
-  CancelOrderResult,
-  GuestChallenge,
-  GuestVerification,
-  OrderDetail,
-  OrderListItem,
-  OrderListResponse,
-  OrderPaymentStatus,
-  OrderShippingStatus,
-  OrderStatus
-} from "@/lib/orders/types";
+import {
+  mapCustomerCoreCancellation,
+  mapCustomerCoreOrderDetail,
+  mapCustomerCoreOrderListItem,
+  type CustomerCoreOrderDetail,
+  type CustomerCoreOrderListItem,
+  type CustomerCoreTracking
+} from "@/lib/orders/customer-core";
+import type { GuestChallenge, GuestVerification, OrderListResponse } from "@/lib/orders/types";
 import { parseOrderRoute, validateCancelOrder, validateGuestChallenge, validateGuestOtp } from "@/lib/orders/validation";
+import { fetchCustomerCapabilities } from "@/lib/auth/capability-server";
+import { GUEST_ORDER_ACCESS_COOKIE, decodeGuestOrderAccess, encodeGuestOrderAccess } from "@/lib/orders/guest-access";
 import { NextRequest, NextResponse } from "next/server";
 
-const ORDER_STATUSES = new Set<OrderStatus>(["PENDING_PAYMENT", "PAID", "CONFIRMED", "PROCESSING", "PACKED", "SHIPPED", "DELIVERED", "COMPLETED", "DELIVERY_FAILED", "EXPIRED", "CANCELLED"]);
-const PAYMENT_STATUSES = new Set<OrderPaymentStatus>(["PENDING", "PAID", "UNPAID", "REFUND_PENDING", "COD_PENDING_COLLECTION"]);
-const SHIPPING_STATUSES = new Set<OrderShippingStatus>(["NOT_SHIPPED", "READY", "IN_TRANSIT", "DELIVERED", "FAILED"]);
-
-interface UpstreamError {
-  code?: string;
-  message?: string;
-  requestId?: string;
-  retryAfterSeconds?: number;
-  errors?: Array<{ field: string; message: string }>;
-}
-
-class UpstreamHttpError extends Error {
-  constructor(readonly status: number, readonly body: UpstreamError = {}) {
-    super(body.message || `Order upstream returned ${status}`);
-  }
-}
-
-function errorResponse(code: string, message: string, status: number, errors: Array<{ field: string; message: string }> = [], retryAfterSeconds?: number) {
-  return NextResponse.json({ code, message, errors, retryAfterSeconds, requestId: `BFF-ORDER-${code}` }, { status });
+function errorResponse(code: string, message: string, status: number, errors: Array<{ field: string; message: string }> = []) {
+  return NextResponse.json({ code, message, errors, requestId: `BFF-ORDER-${code}` }, { status });
 }
 
 function hasTrustedOrigin(request: NextRequest) {
@@ -47,105 +29,54 @@ async function readJson(request: NextRequest): Promise<unknown> {
   try { return await request.json(); } catch { return undefined; }
 }
 
-async function upstream(path: string, method: string, request: NextRequest, scenario?: string, body?: object, idempotencyKey?: string) {
-  const base = (process.env.ORDER_UPSTREAM_URL ?? "http://127.0.0.1:4017/api/v1").replace(/\/$/u, "");
+function upstreamHeaders(request: NextRequest, scenario?: string, hasBody = false, idempotencyKey?: string) {
   const headers = new Headers({ Accept: "application/json" });
   const cookie = request.headers.get("cookie");
+  const authorization = request.headers.get("authorization");
+  const accessToken = request.cookies.get("oma_access_token")?.value;
   if (cookie) headers.set("Cookie", cookie);
-  if (body) headers.set("Content-Type", "application/json");
-  if (idempotencyKey) headers.set("Idempotency-Key", idempotencyKey);
+  if (authorization) headers.set("Authorization", authorization);
+  else if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
+  if (hasBody) headers.set("Content-Type", "application/json");
+  if (idempotencyKey) headers.set("X-Idempotency-Key", idempotencyKey);
   if (process.env.NODE_ENV !== "production" && scenario) headers.set("X-Mock-Scenario", scenario);
-  const response = await fetch(`${base}/${path}`, { method, headers, body: body ? JSON.stringify(body) : undefined, cache: "no-store", redirect: "manual" });
+  return headers;
+}
+
+async function upstream(request: NextRequest, path: string, method: string, scenario?: string, body?: unknown, idempotencyKey?: string) {
+  const base = (process.env.CUSTOMER_CORE_UPSTREAM_URL ?? "http://127.0.0.1:4010/api/v1").replace(/\/$/u, "");
+  const response = await fetch(`${base}/${path}`, {
+    method,
+    headers: upstreamHeaders(request, scenario, body !== undefined, idempotencyKey),
+    body: body === undefined ? undefined : JSON.stringify(body),
+    cache: "no-store",
+    redirect: "manual"
+  });
+  const contentType = response.headers.get("content-type") ?? "";
+  const payload = contentType.includes("application/json") ? await response.json() as unknown : undefined;
+  return { response, payload };
+}
+
+async function extensionUpstream(request: NextRequest, path: string, scenario?: string, body?: unknown) {
+  const base = (process.env.CUSTOMER_EXTENSIONS_UPSTREAM_URL ?? "http://127.0.0.1:4020/api/v1").replace(/\/$/u, "");
+  const response = await fetch(`${base}/${path}`, {
+    method: "POST",
+    headers: upstreamHeaders(request, scenario, body !== undefined),
+    body: body === undefined ? undefined : JSON.stringify(body),
+    cache: "no-store",
+    redirect: "manual"
+  });
   const contentType = response.headers.get("content-type") ?? "";
   const payload = contentType.includes("application/json") ? await response.json() as Record<string, unknown> : {};
-  if (!response.ok) throw new UpstreamHttpError(response.status, payload);
   return { response, payload };
 }
 
 function text(value: unknown, fallback = "") { return typeof value === "string" ? value : fallback; }
-function integer(value: unknown, fallback = 0) { return Number.isInteger(value) && Number(value) >= 0 ? Number(value) : fallback; }
-function dateTime(value: unknown, fallback = new Date(0).toISOString()) { return typeof value === "string" && !Number.isNaN(Date.parse(value)) ? value : fallback; }
-function nullableText(value: unknown) { return typeof value === "string" ? value : null; }
+function dateTime(value: unknown) { return typeof value === "string" && !Number.isNaN(Date.parse(value)) ? value : new Date().toISOString(); }
+function positiveInteger(value: unknown, fallback: number) { return Number.isInteger(value) && Number(value) > 0 ? Number(value) : fallback; }
 
-function publicListItem(value: unknown): OrderListItem | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  const source = value as Record<string, unknown>;
-  if (typeof source.orderId !== "string" || typeof source.orderNumber !== "string" || !ORDER_STATUSES.has(source.status as OrderStatus)) return null;
-  const previews = Array.isArray(source.previewItems) ? source.previewItems.flatMap((item) => {
-    if (!item || typeof item !== "object" || Array.isArray(item)) return [];
-    const preview = item as Record<string, unknown>;
-    return typeof preview.name === "string" ? [{ name: preview.name, quantity: integer(preview.quantity, 1) }] : [];
-  }).slice(0, 4) : [];
-  return {
-    orderId: source.orderId,
-    orderNumber: source.orderNumber,
-    placedAt: dateTime(source.placedAt),
-    status: source.status as OrderStatus,
-    statusLabel: text(source.statusLabel, source.status as string),
-    paymentStatus: PAYMENT_STATUSES.has(source.paymentStatus as OrderPaymentStatus) ? source.paymentStatus as OrderPaymentStatus : "UNPAID",
-    shippingStatus: SHIPPING_STATUSES.has(source.shippingStatus as OrderShippingStatus) ? source.shippingStatus as OrderShippingStatus : "NOT_SHIPPED",
-    totalVnd: integer(source.totalVnd),
-    currency: "VND",
-    itemCount: integer(source.itemCount),
-    previewItems: previews,
-    canCancel: source.canCancel === true,
-    cancelPolicyMessage: text(source.cancelPolicyMessage)
-  };
-}
-
-function publicDetail(value: Record<string, unknown>): OrderDetail {
-  const payment = value.payment && typeof value.payment === "object" && !Array.isArray(value.payment) ? value.payment as Record<string, unknown> : {};
-  const shipping = value.shipping && typeof value.shipping === "object" && !Array.isArray(value.shipping) ? value.shipping as Record<string, unknown> : {};
-  const pricing = value.pricing && typeof value.pricing === "object" && !Array.isArray(value.pricing) ? value.pricing as Record<string, unknown> : {};
-  const recipient = value.recipient && typeof value.recipient === "object" && !Array.isArray(value.recipient) ? value.recipient as Record<string, unknown> : {};
-  const cancellation = value.cancellation && typeof value.cancellation === "object" && !Array.isArray(value.cancellation) ? value.cancellation as Record<string, unknown> : {};
-  if (typeof value.orderId !== "string" || typeof value.orderNumber !== "string" || !ORDER_STATUSES.has(value.status as OrderStatus)) throw new Error("Invalid Order detail projection");
-  const lines = Array.isArray(value.lines) ? value.lines.flatMap((item) => {
-    if (!item || typeof item !== "object" || Array.isArray(item)) return [];
-    const line = item as Record<string, unknown>;
-    if (typeof line.lineId !== "string" || typeof line.productName !== "string") return [];
-    return [{ lineId: line.lineId, productName: line.productName, skuLabel: text(line.skuLabel), quantity: integer(line.quantity, 1), unitPriceVnd: integer(line.unitPriceVnd), lineSubtotalVnd: integer(line.lineSubtotalVnd) }];
-  }) : [];
-  const timeline = Array.isArray(value.timeline) ? value.timeline.flatMap((item) => {
-    if (!item || typeof item !== "object" || Array.isArray(item)) return [];
-    const event = item as Record<string, unknown>;
-    const state = ["COMPLETED", "CURRENT", "UPCOMING"].includes(text(event.state)) ? text(event.state) as "COMPLETED" | "CURRENT" | "UPCOMING" : "UPCOMING";
-    if (typeof event.code !== "string" || typeof event.label !== "string") return [];
-    return [{ code: event.code, label: event.label, description: text(event.description), occurredAt: dateTime(event.occurredAt), state }];
-  }) : [];
-  const reasons = Array.isArray(cancellation.allowedReasons) ? cancellation.allowedReasons.flatMap((item) => {
-    if (!item || typeof item !== "object" || Array.isArray(item)) return [];
-    const reason = item as Record<string, unknown>;
-    return ["CHANGED_MIND", "WRONG_INFORMATION", "OTHER"].includes(text(reason.code)) && typeof reason.label === "string" ? [{ code: reason.code as "CHANGED_MIND" | "WRONG_INFORMATION" | "OTHER", label: reason.label }] : [];
-  }) : [];
-  return {
-    orderId: value.orderId,
-    orderNumber: value.orderNumber,
-    source: "WEB_D2C",
-    placedAt: dateTime(value.placedAt),
-    status: value.status as OrderStatus,
-    statusLabel: text(value.statusLabel, value.status as string),
-    statusDescription: text(value.statusDescription),
-    payment: { method: payment.method === "COD" ? "COD" : "BANK_TRANSFER", status: PAYMENT_STATUSES.has(payment.status as OrderPaymentStatus) ? payment.status as OrderPaymentStatus : "UNPAID", label: text(payment.label) },
-    shipping: { methodName: text(shipping.methodName), status: SHIPPING_STATUSES.has(shipping.status as OrderShippingStatus) ? shipping.status as OrderShippingStatus : "NOT_SHIPPED", label: text(shipping.label), trackingCode: nullableText(shipping.trackingCode), estimatedDelivery: nullableText(shipping.estimatedDelivery) },
-    lines,
-    pricing: { subtotalVnd: integer(pricing.subtotalVnd), shippingFeeVnd: integer(pricing.shippingFeeVnd), discountVnd: integer(pricing.discountVnd), totalVnd: integer(pricing.totalVnd), currency: "VND" },
-    recipient: { fullName: text(recipient.fullName), phoneDisplay: text(recipient.phoneDisplay), emailDisplay: text(recipient.emailDisplay), addressDisplay: text(recipient.addressDisplay), deliveryNote: nullableText(recipient.deliveryNote) },
-    timeline,
-    cancellation: { canCancel: cancellation.canCancel === true, cancelBy: cancellation.cancelBy === null ? null : dateTime(cancellation.cancelBy, ""), message: text(cancellation.message), allowedReasons: reasons }
-  };
-}
-
-function publicCancellation(value: Record<string, unknown>, orderId: string): CancelOrderResult {
-  return {
-    orderId,
-    status: "CANCELLED",
-    cancelledAt: dateTime(value.cancelledAt, new Date().toISOString()),
-    reservationReleaseRequested: value.reservationReleaseRequested === true,
-    refundRequired: value.refundRequired === true,
-    refundStatus: value.refundRequired === true ? "PENDING_HANDOFF" : null,
-    message: text(value.message, "Yêu cầu hủy Order đã được ghi nhận.")
-  };
+function relayError(payload: unknown, status: number) {
+  return NextResponse.json(payload && typeof payload === "object" ? payload : { error_code: "ERR_ORDER", user_message: "Không thể xử lý đơn hàng lúc này." }, { status });
 }
 
 export async function handleOrderRequest(request: NextRequest, path: string[]): Promise<NextResponse> {
@@ -154,50 +85,115 @@ export async function handleOrderRequest(request: NextRequest, path: string[]): 
   if (process.env.NODE_ENV === "production" && route.mockScenario) return errorResponse("INVALID_REQUEST", "Mock scenario không khả dụng trong production.", 400);
   if (request.method !== "GET" && !hasTrustedOrigin(request)) return errorResponse("ORIGIN_NOT_ALLOWED", "Request origin không được phép.", 403);
 
+  if (route.operation === "list" || route.operation === "cancel" || route.operation === "detail") {
+    const accessToken = request.cookies.get("oma_access_token")?.value;
+    const guestAccess = decodeGuestOrderAccess(request.cookies.get(GUEST_ORDER_ACCESS_COOKIE)?.value);
+    if (route.operation === "detail" && !accessToken && guestAccess) {
+      if (guestAccess.orderId !== route.orderId) return errorResponse("GUEST_ORDER_FORBIDDEN", "Quyền Guest chỉ hợp lệ cho đúng Order đã được xác minh.", 403);
+    } else {
+      if (!accessToken) return errorResponse("AUTH_REQUIRED", "Vui lòng đăng nhập hoặc xác minh quyền sở hữu Order.", 401);
+      try {
+        const projection = await fetchCustomerCapabilities(accessToken);
+        if (!projection.capabilities.includes("ORDER_HISTORY_VIEW")) return errorResponse("CAPABILITY_FORBIDDEN", "Tài khoản không có quyền xem hoặc quản lý Order.", 403);
+      } catch {
+        return errorResponse("CAPABILITY_UNAVAILABLE", "Chưa thể kiểm tra quyền Customer lúc này.", 503);
+      }
+    }
+  }
+
   try {
+    if (route.operation === "guest-challenge") {
+      const parsed = validateGuestChallenge(await readJson(request));
+      if (!parsed.data) return errorResponse("VALIDATION_ERROR", "Thông tin tra cứu chưa hợp lệ.", 422, parsed.errors);
+      const result = await extensionUpstream(request, "orders/guest-access/challenges", route.mockScenario, parsed.data);
+      if (!result.response.ok) return relayError(result.payload, result.response.status);
+      const challenge: GuestChallenge = {
+        challengeId: text(result.payload.challengeId),
+        maskedDestination: text(result.payload.maskedDestination),
+        expiresAt: dateTime(result.payload.expiresAt),
+        resendAfterSeconds: Math.min(300, positiveInteger(result.payload.resendAfterSeconds, 60)),
+        message: text(result.payload.message)
+      };
+      return NextResponse.json(challenge, { status: 202 });
+    }
+
+    if (route.operation === "guest-verify" && route.challengeId) {
+      const parsed = validateGuestOtp(await readJson(request));
+      if (!parsed.data) return errorResponse("VALIDATION_ERROR", "Mã xác minh chưa hợp lệ.", 422, parsed.errors);
+      const result = await extensionUpstream(request, `orders/guest-access/challenges/${encodeURIComponent(route.challengeId)}/verify`, route.mockScenario, parsed.data);
+      if (!result.response.ok) return relayError(result.payload, result.response.status);
+      const verification: GuestVerification = {
+        orderId: text(result.payload.orderId),
+        orderNumber: text(result.payload.orderNumber),
+        orderPath: text(result.payload.orderPath),
+        accessExpiresAt: dateTime(result.payload.accessExpiresAt)
+      };
+      const upstreamAccessExpiresAt = Date.parse(verification.accessExpiresAt);
+      if (!verification.orderId || !verification.orderNumber || !Number.isFinite(upstreamAccessExpiresAt) || upstreamAccessExpiresAt <= Date.now()) {
+        return errorResponse("GUEST_ACCESS_INVALID", "Phản hồi xác minh Guest Order không hợp lệ.", 502);
+      }
+      const accessExpiresAt = Math.min(upstreamAccessExpiresAt, Date.now() + 30 * 60 * 1000);
+      verification.accessExpiresAt = new Date(accessExpiresAt).toISOString();
+      const response = NextResponse.json(verification);
+      response.cookies.set(GUEST_ORDER_ACCESS_COOKIE, encodeGuestOrderAccess({
+        orderId: verification.orderId,
+        orderNumber: verification.orderNumber,
+        accessExpiresAt
+      }), {
+        path: "/api/orders",
+        httpOnly: true,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+        maxAge: Math.max(1, Math.floor((accessExpiresAt - Date.now()) / 1000))
+      });
+      return response;
+    }
+
     if (route.operation === "list" && route.filters) {
-      const { payload } = await upstream("customers/me/orders", "GET", request, route.mockScenario);
-      const items = (Array.isArray(payload.items) ? payload.items : []).map(publicListItem).filter((item): item is OrderListItem => Boolean(item));
+      const params = new URLSearchParams({ page: String(route.filters.page), page_size: String(route.filters.pageSize) });
+      if (route.filters.status !== "ALL") params.set("status", route.filters.status === "SHIPPED" ? "SHIPPING" : route.filters.status);
+      const { response, payload } = await upstream(request, `orders?${params}`, "GET", route.mockScenario);
+      if (!response.ok) return relayError(payload, response.status);
+      const source = payload as { orders?: CustomerCoreOrderListItem[]; total?: number; page?: number; page_size?: number };
       const query = route.filters.q.toLocaleLowerCase("vi");
-      const filtered = items.filter((item) => (!query || item.orderNumber.toLocaleLowerCase("vi").includes(query) || item.previewItems.some((preview) => preview.name.toLocaleLowerCase("vi").includes(query))) && (route.filters!.status === "ALL" || item.status === route.filters!.status) && (!route.filters!.year || new Date(item.placedAt).getUTCFullYear() === route.filters!.year));
-      const start = (route.filters.page - 1) * route.filters.pageSize;
-      const customerSource = payload.customer && typeof payload.customer === "object" && !Array.isArray(payload.customer) ? payload.customer as Record<string, unknown> : {};
-      const result: OrderListResponse = { items: filtered.slice(start, start + route.filters.pageSize), page: route.filters.page, pageSize: route.filters.pageSize, totalItems: filtered.length, totalPages: Math.max(1, Math.ceil(filtered.length / route.filters.pageSize)), customer: { displayName: text(customerSource.displayName, "Thành viên Tri Kỷ"), email: text(customerSource.email) } };
+      const items = (source.orders ?? []).map(mapCustomerCoreOrderListItem).filter((item) => (
+        (!query || item.orderNumber.toLocaleLowerCase("vi").includes(query))
+        && (!route.filters!.year || new Date(item.placedAt).getFullYear() === route.filters!.year)
+      ));
+      const hasLocalFilter = Boolean(query || route.filters.year);
+      const totalItems = hasLocalFilter ? items.length : source.total ?? items.length;
+      const result: OrderListResponse = {
+        items,
+        page: source.page ?? route.filters.page,
+        pageSize: source.page_size ?? route.filters.pageSize,
+        totalItems,
+        totalPages: Math.max(1, Math.ceil(totalItems / (source.page_size ?? route.filters.pageSize))),
+        customer: { displayName: "Thành viên Tri Kỷ", email: "" }
+      };
       return NextResponse.json(result);
     }
 
     if (route.operation === "detail" && route.orderId) {
-      const { payload } = await upstream(`orders/${encodeURIComponent(route.orderId)}`, "GET", request, route.mockScenario);
-      return NextResponse.json(publicDetail(payload));
+      const detailResult = await upstream(request, `orders/${encodeURIComponent(route.orderId)}`, "GET", route.mockScenario);
+      if (!detailResult.response.ok) return relayError(detailResult.payload, detailResult.response.status);
+      const trackingResult = await upstream(request, `orders/${encodeURIComponent(route.orderId)}/tracking`, "GET", route.mockScenario);
+      const tracking = trackingResult.response.ok ? trackingResult.payload as CustomerCoreTracking : undefined;
+      const detail = mapCustomerCoreOrderDetail(detailResult.payload as CustomerCoreOrderDetail, tracking);
+      if (detail.orderId !== route.orderId) return errorResponse("ORDER_ID_MISMATCH", "Dữ liệu Order không khớp với Order đã được yêu cầu.", 502);
+      return NextResponse.json(detail);
     }
 
     if (route.operation === "cancel" && route.orderId) {
       const parsed = validateCancelOrder(await readJson(request));
       if (!parsed.data) return errorResponse("VALIDATION_ERROR", "Thông tin hủy Order chưa hợp lệ.", 422, parsed.errors);
-      const { payload } = await upstream(`orders/${encodeURIComponent(route.orderId)}/cancellations`, "POST", request, route.mockScenario, { reasonCode: parsed.data.reasonCode, note: parsed.data.note }, parsed.data.idempotencyKey);
-      return NextResponse.json(publicCancellation(payload, route.orderId));
+      const reasonLabels = { CHANGED_MIND: "Thay đổi nhu cầu", WRONG_INFORMATION: "Thông tin đặt hàng chưa đúng", OTHER: "Lý do khác" };
+      const { response, payload } = await upstream(request, `orders/${encodeURIComponent(route.orderId)}/cancel`, "POST", route.mockScenario, { cancel_reason: parsed.data.note || reasonLabels[parsed.data.reasonCode] }, parsed.data.idempotencyKey);
+      if (!response.ok) return relayError(payload, response.status);
+      return NextResponse.json(mapCustomerCoreCancellation(route.orderId));
     }
 
-    if (route.operation === "guest-challenge") {
-      const parsed = validateGuestChallenge(await readJson(request));
-      if (!parsed.data) return errorResponse("VALIDATION_ERROR", "Thông tin tra cứu chưa hợp lệ.", 422, parsed.errors);
-      const { payload } = await upstream("orders/guest-access/challenges", "POST", request, route.mockScenario, parsed.data);
-      const result: GuestChallenge = { challengeId: text(payload.challengeId), maskedDestination: text(payload.maskedDestination), expiresAt: dateTime(payload.expiresAt), resendAfterSeconds: Math.min(300, Math.max(1, integer(payload.resendAfterSeconds, 60))), message: text(payload.message) };
-      return NextResponse.json(result, { status: 202 });
-    }
-
-    const parsed = validateGuestOtp(await readJson(request));
-    if (!parsed.data || !route.challengeId) return errorResponse("VALIDATION_ERROR", "Mã xác minh chưa hợp lệ.", 422, parsed.errors);
-    const { payload, response: upstreamResponse } = await upstream(`orders/guest-access/challenges/${encodeURIComponent(route.challengeId)}/verify`, "POST", request, route.mockScenario, parsed.data);
-    const result: GuestVerification = { orderId: text(payload.orderId), orderNumber: text(payload.orderNumber), orderPath: text(payload.orderPath), accessExpiresAt: dateTime(payload.accessExpiresAt) };
-    const response = NextResponse.json(result);
-    const setCookie = upstreamResponse.headers.get("set-cookie");
-    if (setCookie) response.headers.append("Set-Cookie", setCookie);
-    return response;
-  } catch (cause) {
-    if (cause instanceof UpstreamHttpError) {
-      return errorResponse(cause.body.code || "ORDER_ERROR", cause.body.message || "Không thể xử lý Order lúc này.", cause.status >= 400 && cause.status <= 599 ? cause.status : 500, cause.body.errors ?? [], cause.body.retryAfterSeconds);
-    }
-    return errorResponse("ORDER_UPSTREAM_UNAVAILABLE", "Không thể kết nối dịch vụ Order. Hãy kiểm tra Mockoon hoặc API Gateway.", 503);
+    return errorResponse("NOT_FOUND", "Order route is not available.", 404);
+  } catch {
+    return errorResponse("ORDER_UPSTREAM_UNAVAILABLE", "Không thể kết nối dịch vụ Order. Hãy kiểm tra Mockoon customer API.", 503);
   }
 }

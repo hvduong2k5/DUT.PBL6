@@ -17,7 +17,7 @@ export interface ProductSummary {
   shortDescription: string;
   categorySlug: string;
   categoryName: string;
-  productType: ProductType;
+  productType?: ProductType;
   imageUrl: string;
   ocopStars: number | null;
   badges: string[];
@@ -58,6 +58,8 @@ export interface CatalogResult {
 interface CatalogErrorBody {
   code?: string;
   message?: string;
+  error_code?: string;
+  user_message?: string;
   requestId?: string;
   errors?: Array<{ field: string; message: string }>;
 }
@@ -69,10 +71,10 @@ export class CatalogApiError extends Error {
   readonly errors: Array<{ field: string; message: string }>;
 
   constructor(status: number, body: CatalogErrorBody) {
-    super(body.message || "Không thể tải sản phẩm lúc này.");
+    super(body.user_message || body.message || "Không thể tải sản phẩm lúc này.");
     this.name = "CatalogApiError";
     this.status = status;
-    this.code = body.code || "UNKNOWN_ERROR";
+    this.code = body.error_code || body.code || "UNKNOWN_ERROR";
     this.requestId = body.requestId;
     this.errors = body.errors ?? [];
   }

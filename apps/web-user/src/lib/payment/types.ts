@@ -22,6 +22,7 @@ export interface PaymentSummary {
   expiresAt: string;
   instructions: PaymentInstructions | null;
   checkedAt: string;
+  vietQrUrl?: string;
 }
 
 export interface PaymentStatusResult {
@@ -44,6 +45,8 @@ export interface PaymentRetryResult {
 interface PaymentErrorBody {
   code?: string;
   message?: string;
+  error_code?: string;
+  user_message?: string;
   requestId?: string;
   errors?: Array<{ field: string; message: string }>;
 }
@@ -55,10 +58,10 @@ export class PaymentApiError extends Error {
   readonly errors: Array<{ field: string; message: string }>;
 
   constructor(status: number, body: PaymentErrorBody) {
-    super(body.message || "Không thể xử lý thanh toán lúc này.");
+    super(body.user_message || body.message || "Không thể xử lý thanh toán lúc này.");
     this.name = "PaymentApiError";
     this.status = status;
-    this.code = body.code || "UNKNOWN_ERROR";
+    this.code = body.error_code || body.code || "UNKNOWN_ERROR";
     this.requestId = body.requestId;
     this.errors = body.errors ?? [];
   }

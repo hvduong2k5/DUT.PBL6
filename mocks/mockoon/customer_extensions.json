@@ -1,0 +1,1606 @@
+{
+  "uuid": "b0000000-0000-4000-8000-000000000001",
+  "lastMigration": 29,
+  "name": "O Ma - Customer Extensions",
+  "endpointPrefix": "api/v1",
+  "latency": 0,
+  "port": 4020,
+  "hostname": "127.0.0.1",
+  "routes": [
+    {
+      "uuid": "10000000-0000-4000-8000-000000000048",
+      "type": "http",
+      "documentation": "AUTH-C07/C10 — Request or resend a neutral password-recovery email response.",
+      "method": "post",
+      "endpoint": "auth/recovery-requests",
+      "responses": [
+        {
+          "uuid": "10000000-0000-4000-8000-000000000042",
+          "body": "{\n  \"accepted\": true,\n  \"messageCode\": \"RECOVERY_REQUEST_ACCEPTED\"\n}",
+          "latency": 0,
+          "statusCode": 202,
+          "label": "recovery-request-unknown",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "recovery-request-unknown",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000043",
+          "body": "{\n  \"code\": \"RATE_LIMITED\",\n  \"message\": \"Vui lòng chờ trước khi yêu cầu lại.\",\n  \"requestId\": \"REQ-REC-429\"\n}",
+          "latency": 0,
+          "statusCode": 429,
+          "label": "recovery-rate-limited",
+          "headers": [
+            {
+              "key": "Retry-After",
+              "value": "60"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "recovery-rate-limited",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000044",
+          "body": "{\n  \"code\": \"NOTIFICATION_DELIVERY_FAILED\",\n  \"message\": \"Chưa thể xử lý yêu cầu lúc này. Vui lòng thử lại.\",\n  \"requestId\": \"REQ-REC-503\"\n}",
+          "latency": 0,
+          "statusCode": 503,
+          "label": "recovery-delivery-failed",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "recovery-delivery-failed",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000045",
+          "body": "{\n  \"code\": \"INTERNAL_SERVER_ERROR\",\n  \"message\": \"Đã xảy ra lỗi hệ thống.\",\n  \"requestId\": \"REQ-REC-500\"\n}",
+          "latency": 0,
+          "statusCode": 500,
+          "label": "recovery-server-error",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "recovery-server-error",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000046",
+          "body": "{\n  \"accepted\": true,\n  \"messageCode\": \"RECOVERY_REQUEST_ACCEPTED\"\n}",
+          "latency": 3000,
+          "statusCode": 202,
+          "label": "recovery-slow",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "recovery-slow",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000047",
+          "body": "{\n  \"accepted\": true,\n  \"messageCode\": \"RECOVERY_REQUEST_ACCEPTED\"\n}",
+          "latency": 0,
+          "statusCode": 202,
+          "label": "recovery-request-accepted",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "enabled": true,
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "10000000-0000-4000-8000-000000000055",
+      "type": "http",
+      "documentation": "AUTH-C08 — Exchange a password-recovery magic-link token for a restricted reset proof.",
+      "method": "post",
+      "endpoint": "auth/recovery-requests/verify",
+      "responses": [
+        {
+          "uuid": "10000000-0000-4000-8000-000000000049",
+          "body": "{\n  \"code\": \"RECOVERY_REQUEST_INVALID\",\n  \"message\": \"Liên kết khôi phục không hợp lệ.\",\n  \"requestId\": \"REQ-RECV-422\"\n}",
+          "latency": 0,
+          "statusCode": 422,
+          "label": "recovery-link-invalid",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "recovery-link-invalid",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000050",
+          "body": "{\n  \"code\": \"RECOVERY_REQUEST_EXPIRED\",\n  \"message\": \"Liên kết khôi phục đã hết hạn.\",\n  \"requestId\": \"REQ-RECV-410\"\n}",
+          "latency": 0,
+          "statusCode": 410,
+          "label": "recovery-link-expired",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "recovery-link-expired",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000051",
+          "body": "{\n  \"code\": \"RECOVERY_REQUEST_ALREADY_USED\",\n  \"message\": \"Liên kết khôi phục đã được sử dụng.\",\n  \"requestId\": \"REQ-RECV-409\"\n}",
+          "latency": 0,
+          "statusCode": 409,
+          "label": "recovery-link-used",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "recovery-link-used",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000052",
+          "body": "{\n  \"code\": \"INTERNAL_SERVER_ERROR\",\n  \"message\": \"Đã xảy ra lỗi hệ thống.\",\n  \"requestId\": \"REQ-RECV-500\"\n}",
+          "latency": 0,
+          "statusCode": 500,
+          "label": "recovery-verify-server-error",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "recovery-verify-server-error",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000053",
+          "body": "{\n  \"verified\": true,\n  \"resetProof\": \"mock-reset-proof-valid\",\n  \"expiresAt\": \"{{dateTimeShift minutes=5}}\"\n}",
+          "latency": 3000,
+          "statusCode": 200,
+          "label": "recovery-verify-slow",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "recovery-verify-slow",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000054",
+          "body": "{\n  \"verified\": true,\n  \"resetProof\": \"mock-reset-proof-valid\",\n  \"expiresAt\": \"{{dateTimeShift minutes=5}}\"\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "recovery-verify-success",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "enabled": true,
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "10000000-0000-4000-8000-000000000063",
+      "type": "http",
+      "documentation": "AUTH-C09 — Reset password, revoke all sessions, and require normal login.",
+      "method": "post",
+      "endpoint": "auth/recovery-requests/reset",
+      "responses": [
+        {
+          "uuid": "10000000-0000-4000-8000-000000000056",
+          "body": "{\n  \"code\": \"VALIDATION_ERROR\",\n  \"message\": \"Password does not satisfy the approved policy.\",\n  \"errors\": [\n    {\n      \"field\": \"newPassword\",\n      \"code\": \"PASSWORD_TOO_SHORT\",\n      \"message\": \"Mật khẩu phải có ít nhất 15 ký tự\"\n    },\n    {\n      \"field\": \"newPassword\",\n      \"code\": \"PASSWORD_MISSING_UPPERCASE\",\n      \"message\": \"Mật khẩu phải có ít nhất một chữ hoa\"\n    },\n    {\n      \"field\": \"newPassword\",\n      \"code\": \"PASSWORD_MISSING_LOWERCASE\",\n      \"message\": \"Mật khẩu phải có ít nhất một chữ thường\"\n    },\n    {\n      \"field\": \"newPassword\",\n      \"code\": \"PASSWORD_MISSING_DIGIT\",\n      \"message\": \"Mật khẩu phải có ít nhất một chữ số\"\n    },\n    {\n      \"field\": \"newPassword\",\n      \"code\": \"PASSWORD_MISSING_SPECIAL\",\n      \"message\": \"Mật khẩu phải có ít nhất một ký tự đặc biệt\"\n    }\n  ],\n  \"requestId\": \"REQ-RESET-422\"\n}",
+          "latency": 0,
+          "statusCode": 422,
+          "label": "recovery-reset-validation",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "recovery-reset-validation",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000057",
+          "body": "{\n  \"code\": \"RESET_PROOF_INVALID\",\n  \"message\": \"Yêu cầu đặt lại mật khẩu không hợp lệ.\",\n  \"requestId\": \"REQ-RESET-PROOF-422\"\n}",
+          "latency": 0,
+          "statusCode": 422,
+          "label": "recovery-reset-proof-invalid",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "recovery-reset-proof-invalid",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000058",
+          "body": "{\n  \"code\": \"RESET_PROOF_EXPIRED\",\n  \"message\": \"Yêu cầu đặt lại mật khẩu đã hết hạn.\",\n  \"requestId\": \"REQ-RESET-PROOF-410\"\n}",
+          "latency": 0,
+          "statusCode": 410,
+          "label": "recovery-reset-proof-expired",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "recovery-reset-proof-expired",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000059",
+          "body": "{\n  \"code\": \"RESET_PROOF_ALREADY_USED\",\n  \"message\": \"Yêu cầu đặt lại mật khẩu đã được sử dụng.\",\n  \"requestId\": \"REQ-RESET-PROOF-409\"\n}",
+          "latency": 0,
+          "statusCode": 409,
+          "label": "recovery-reset-proof-used",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "recovery-reset-proof-used",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000060",
+          "body": "{\n  \"code\": \"INTERNAL_SERVER_ERROR\",\n  \"message\": \"Đã xảy ra lỗi hệ thống.\",\n  \"requestId\": \"REQ-RESET-500\"\n}",
+          "latency": 0,
+          "statusCode": 500,
+          "label": "recovery-reset-server-error",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "recovery-reset-server-error",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000061",
+          "body": "",
+          "latency": 3000,
+          "statusCode": 204,
+          "label": "recovery-reset-slow",
+          "headers": [
+            {
+              "key": "Set-Cookie",
+              "value": "__Host-oma_session=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax"
+            },
+            {
+              "key": "Clear-Site-Data",
+              "value": "\"cache\", \"cookies\", \"storage\""
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "recovery-reset-slow",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000062",
+          "body": "",
+          "latency": 0,
+          "statusCode": 204,
+          "label": "recovery-reset-success",
+          "headers": [
+            {
+              "key": "Set-Cookie",
+              "value": "__Host-oma_session=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax"
+            },
+            {
+              "key": "Clear-Site-Data",
+              "value": "\"cache\", \"cookies\", \"storage\""
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "enabled": true,
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "80000000-0000-4000-8000-000000000040",
+      "type": "http",
+      "method": "post",
+      "endpoint": "orders/guest-access/challenges",
+      "documentation": "ORD-C04 neutral Guest ownership challenge response.",
+      "responses": [
+        {
+          "uuid": "80000000-0000-4000-8000-000000000041",
+          "body": "{\"challengeId\":\"guest-order-challenge-001\",\"maskedDestination\":\"0914 *** 668\",\"expiresAt\":\"2030-09-26T03:15:00Z\",\"resendAfterSeconds\":60,\"message\":\"Nếu thông tin phù hợp, mã xác minh đã được gửi.\"}",
+          "latency": 0,
+          "statusCode": 202,
+          "label": "guest-invalid-neutral",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "guest-invalid",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "80000000-0000-4000-8000-000000000042",
+          "body": "{\"challengeId\":\"guest-order-challenge-001\",\"maskedDestination\":\"0914 *** 668\",\"expiresAt\":\"2030-09-26T03:15:00Z\",\"resendAfterSeconds\":60,\"message\":\"Nếu thông tin phù hợp, mã xác minh đã được gửi.\"}",
+          "latency": 0,
+          "statusCode": 202,
+          "label": "guest-challenge-created",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "80000000-0000-4000-8000-000000000050",
+      "type": "http",
+      "method": "post",
+      "endpoint": "orders/guest-access/challenges/:challengeId/verify",
+      "documentation": "ORD-C05 verify Guest OTP. Local fixture OTP is 789214.",
+      "responses": [
+        {
+          "uuid": "80000000-0000-4000-8000-000000000051",
+          "body": "{\"code\":\"GUEST_OTP_INVALID\",\"message\":\"Mã xác minh không hợp lệ.\",\"requestId\":\"REQ-ORD-GUEST-422\"}",
+          "latency": 0,
+          "statusCode": 422,
+          "label": "guest-otp-invalid",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "guest-otp-invalid",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "80000000-0000-4000-8000-000000000052",
+          "body": "{\"code\":\"GUEST_CHALLENGE_EXPIRED\",\"message\":\"Phiên xác minh đã hết hạn. Vui lòng yêu cầu mã mới.\",\"requestId\":\"REQ-ORD-GUEST-410\"}",
+          "latency": 0,
+          "statusCode": 410,
+          "label": "guest-otp-expired",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "guest-otp-expired",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "80000000-0000-4000-8000-000000000053",
+          "body": "{\"code\":\"ORDER_RATE_LIMITED\",\"message\":\"Có quá nhiều lần xác minh. Vui lòng thử lại sau.\",\"retryAfterSeconds\":60,\"requestId\":\"REQ-ORD-GUEST-429\"}",
+          "latency": 0,
+          "statusCode": 429,
+          "label": "guest-rate-limited",
+          "headers": [
+            {
+              "key": "Retry-After",
+              "value": "60"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "guest-rate-limited",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "80000000-0000-4000-8000-000000000054",
+          "body": "{\"orderId\":\"ORD-20261015-0042\",\"orderNumber\":\"ORD-20261015-0042\",\"orderPath\":\"/orders/ORD-20261015-0042\",\"accessExpiresAt\":\"{{dateTimeShift minutes=30}}\"}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "guest-verified",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "a0000000-0000-4000-8000-000000000008",
+      "type": "http",
+      "method": "get",
+      "endpoint": "support/context",
+      "documentation": "SUP-C01 customer-safe support form context.",
+      "responses": [
+        {
+          "uuid": "a0000000-0000-4000-8000-000000000004",
+          "body": "{\"customerMode\":\"GUEST\",\"customer\":null,\"subjects\":[{\"code\":\"PRODUCT_ADVICE\",\"label\":\"Tư vấn phối ngự trà & lễ vật biếu tặng Cung Đình\",\"description\":\"Nghệ nhân và bếp trưởng hỗ trợ thẩm định câu hỏi về ẩm thực cung đình.\"},{\"code\":\"ORDER_HELP\",\"label\":\"Hỗ trợ đơn hàng\",\"description\":\"Thông tin đặt hàng và trạng thái được hiển thị từ nguồn Order.\"},{\"code\":\"DELIVERY_HELP\",\"label\":\"Giao nhận thức quà\",\"description\":\"Hỗ trợ thông tin giao nhận, không tự thay đổi Shipment.\"},{\"code\":\"PAYMENT_HELP\",\"label\":\"Thanh toán\",\"description\":\"Hỗ trợ tra cứu, không xác nhận thanh toán thay Payment.\"},{\"code\":\"RETURN_HELP\",\"label\":\"Đổi trả & hậu mãi\",\"description\":\"Ticket giữ trao đổi; Return Case sở hữu quyết định nghiệp vụ.\"},{\"code\":\"OTHER\",\"label\":\"Chủ đề khác\",\"description\":\"Các câu hỏi khác dành cho Ban Chăm Sóc Tri Kỷ.\"}],\"priorities\":[{\"code\":\"NORMAL\",\"label\":\"Bình thường\",\"description\":\"Phản hồi trong vòng 24 giờ làm việc\",\"responsePromiseLabel\":\"Trong 24 giờ\"},{\"code\":\"IMPORTANT\",\"label\":\"Ưu tiên Cố Đô\",\"description\":\"Tiếp nhận xử lý trong 2–4 giờ\",\"responsePromiseLabel\":\"Trong 2–4 giờ\"},{\"code\":\"URGENT\",\"label\":\"Khẩn cấp gia lễ\",\"description\":\"Lễ tiệc diễn ra gấp, cần xác minh lại\",\"responsePromiseLabel\":\"Ưu tiên thẩm định\"}],\"linkableOrders\":[],\"servicePromise\":\"Phản hồi trong vòng 2 giờ làm việc (07:30–21:30 hằng ngày).\",\"attachmentPolicy\":{\"allowedMediaTypes\":[\"image/jpeg\",\"image/png\",\"image/webp\",\"application/pdf\"],\"maxFiles\":5,\"maxBytesPerFile\":10485760}}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "context-guest",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "context-guest",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "a0000000-0000-4000-8000-000000000005",
+          "body": "{\"code\":\"SUPPORT_ERROR\",\"message\":\"Chưa thể tải trung tâm hỗ trợ.\",\"requestId\":\"REQ-SUP-CONTEXT-500\"}",
+          "latency": 0,
+          "statusCode": 500,
+          "label": "context-error",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "context-error",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "a0000000-0000-4000-8000-000000000006",
+          "body": "{\"customerMode\":\"REGISTERED\",\"customer\":{\"displayName\":\"Nguyễn Văn Bảo Long\",\"emailDisplay\":\"baolong.nguyen@heritage.vn\",\"phoneDisplay\":\"0914 *** 668\",\"membershipLabel\":\"Hội viên Tri Kỷ Hoàng Cung\"},\"subjects\":[{\"code\":\"PRODUCT_ADVICE\",\"label\":\"Tư vấn phối ngự trà & lễ vật biếu tặng Cung Đình\",\"description\":\"Nghệ nhân và bếp trưởng hỗ trợ thẩm định câu hỏi về ẩm thực cung đình.\"},{\"code\":\"ORDER_HELP\",\"label\":\"Hỗ trợ đơn hàng\",\"description\":\"Thông tin đặt hàng và trạng thái được hiển thị từ nguồn Order.\"},{\"code\":\"DELIVERY_HELP\",\"label\":\"Giao nhận thức quà\",\"description\":\"Hỗ trợ thông tin giao nhận, không tự thay đổi Shipment.\"},{\"code\":\"PAYMENT_HELP\",\"label\":\"Thanh toán\",\"description\":\"Hỗ trợ tra cứu, không xác nhận thanh toán thay Payment.\"},{\"code\":\"RETURN_HELP\",\"label\":\"Đổi trả & hậu mãi\",\"description\":\"Ticket giữ trao đổi; Return Case sở hữu quyết định nghiệp vụ.\"},{\"code\":\"OTHER\",\"label\":\"Chủ đề khác\",\"description\":\"Các câu hỏi khác dành cho Ban Chăm Sóc Tri Kỷ.\"}],\"priorities\":[{\"code\":\"NORMAL\",\"label\":\"Bình thường\",\"description\":\"Phản hồi trong vòng 24 giờ làm việc\",\"responsePromiseLabel\":\"Trong 24 giờ\"},{\"code\":\"IMPORTANT\",\"label\":\"Ưu tiên Cố Đô\",\"description\":\"Tiếp nhận xử lý trong 2–4 giờ\",\"responsePromiseLabel\":\"Trong 2–4 giờ\"},{\"code\":\"URGENT\",\"label\":\"Khẩn cấp gia lễ\",\"description\":\"Lễ tiệc diễn ra gấp, cần xác minh lại\",\"responsePromiseLabel\":\"Ưu tiên thẩm định\"}],\"linkableOrders\":[{\"orderId\":\"order-mock-20260926-001\",\"orderNumber\":\"OMA-260926-001\",\"statusLabel\":\"Đã giao thành công\",\"placedAt\":\"2026-09-23T03:20:00Z\",\"summary\":\"Bánh Phục Linh Ngũ Sắc, Mè Xửng Dẻo Thượng Hạng, Trà Sen Hồ Tịnh Tâm\"}],\"servicePromise\":\"Phản hồi trong vòng 2 giờ làm việc (07:30–21:30 hằng ngày).\",\"attachmentPolicy\":{\"allowedMediaTypes\":[\"image/jpeg\",\"image/png\",\"image/webp\",\"application/pdf\"],\"maxFiles\":5,\"maxBytesPerFile\":10485760}}",
+          "latency": 3000,
+          "statusCode": 200,
+          "label": "context-slow",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "context-slow",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "a0000000-0000-4000-8000-000000000007",
+          "body": "{\"customerMode\":\"REGISTERED\",\"customer\":{\"displayName\":\"Nguyễn Văn Bảo Long\",\"emailDisplay\":\"baolong.nguyen@heritage.vn\",\"phoneDisplay\":\"0914 *** 668\",\"membershipLabel\":\"Hội viên Tri Kỷ Hoàng Cung\"},\"subjects\":[{\"code\":\"PRODUCT_ADVICE\",\"label\":\"Tư vấn phối ngự trà & lễ vật biếu tặng Cung Đình\",\"description\":\"Nghệ nhân và bếp trưởng hỗ trợ thẩm định câu hỏi về ẩm thực cung đình.\"},{\"code\":\"ORDER_HELP\",\"label\":\"Hỗ trợ đơn hàng\",\"description\":\"Thông tin đặt hàng và trạng thái được hiển thị từ nguồn Order.\"},{\"code\":\"DELIVERY_HELP\",\"label\":\"Giao nhận thức quà\",\"description\":\"Hỗ trợ thông tin giao nhận, không tự thay đổi Shipment.\"},{\"code\":\"PAYMENT_HELP\",\"label\":\"Thanh toán\",\"description\":\"Hỗ trợ tra cứu, không xác nhận thanh toán thay Payment.\"},{\"code\":\"RETURN_HELP\",\"label\":\"Đổi trả & hậu mãi\",\"description\":\"Ticket giữ trao đổi; Return Case sở hữu quyết định nghiệp vụ.\"},{\"code\":\"OTHER\",\"label\":\"Chủ đề khác\",\"description\":\"Các câu hỏi khác dành cho Ban Chăm Sóc Tri Kỷ.\"}],\"priorities\":[{\"code\":\"NORMAL\",\"label\":\"Bình thường\",\"description\":\"Phản hồi trong vòng 24 giờ làm việc\",\"responsePromiseLabel\":\"Trong 24 giờ\"},{\"code\":\"IMPORTANT\",\"label\":\"Ưu tiên Cố Đô\",\"description\":\"Tiếp nhận xử lý trong 2–4 giờ\",\"responsePromiseLabel\":\"Trong 2–4 giờ\"},{\"code\":\"URGENT\",\"label\":\"Khẩn cấp gia lễ\",\"description\":\"Lễ tiệc diễn ra gấp, cần xác minh lại\",\"responsePromiseLabel\":\"Ưu tiên thẩm định\"}],\"linkableOrders\":[{\"orderId\":\"order-mock-20260926-001\",\"orderNumber\":\"OMA-260926-001\",\"statusLabel\":\"Đã giao thành công\",\"placedAt\":\"2026-09-23T03:20:00Z\",\"summary\":\"Bánh Phục Linh Ngũ Sắc, Mè Xửng Dẻo Thượng Hạng, Trà Sen Hồ Tịnh Tâm\"}],\"servicePromise\":\"Phản hồi trong vòng 2 giờ làm việc (07:30–21:30 hằng ngày).\",\"attachmentPolicy\":{\"allowedMediaTypes\":[\"image/jpeg\",\"image/png\",\"image/webp\",\"application/pdf\"],\"maxFiles\":5,\"maxBytesPerFile\":10485760}}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "context-default",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "a0000000-0000-4000-8000-000000000014",
+      "type": "http",
+      "method": "post",
+      "endpoint": "support/tickets",
+      "documentation": "SUP-C02 idempotent Ticket creation.",
+      "responses": [
+        {
+          "uuid": "a0000000-0000-4000-8000-000000000009",
+          "body": "{\"code\":\"DUPLICATE_TICKET\",\"message\":\"Yêu cầu này đã được tiếp nhận trước đó.\",\"requestId\":\"REQ-SUP-CREATE-409\",\"existingTicketId\":\"support-ticket-mock-001\"}",
+          "latency": 0,
+          "statusCode": 409,
+          "label": "create-duplicate",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "create-duplicate",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "a0000000-0000-4000-8000-000000000010",
+          "body": "{\"code\":\"ORDER_LINK_NOT_ALLOWED\",\"message\":\"Không thể liên kết Order này với yêu cầu hỗ trợ.\",\"requestId\":\"REQ-SUP-CREATE-403\"}",
+          "latency": 0,
+          "statusCode": 403,
+          "label": "create-order-forbidden",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "create-order-forbidden",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "a0000000-0000-4000-8000-000000000011",
+          "body": "{\"code\":\"SUPPORT_ERROR\",\"message\":\"Chưa thể tạo Ticket hỗ trợ.\",\"requestId\":\"REQ-SUP-CREATE-500\"}",
+          "latency": 0,
+          "statusCode": 500,
+          "label": "create-error",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "create-error",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "a0000000-0000-4000-8000-000000000012",
+          "body": "{\"ticketId\":\"support-ticket-mock-001\",\"ticketNumber\":\"TCK-2410-0195\",\"status\":\"NEW\",\"createdAt\":\"2026-10-24T09:20:00Z\",\"message\":\"Yêu cầu đã được tiếp nhận. Ban Chăm Sóc Tri Kỷ sẽ phản hồi sớm.\"}",
+          "latency": 3000,
+          "statusCode": 201,
+          "label": "create-slow",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "create-slow",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "a0000000-0000-4000-8000-000000000013",
+          "body": "{\"ticketId\":\"support-ticket-mock-001\",\"ticketNumber\":\"TCK-2410-0195\",\"status\":\"NEW\",\"createdAt\":\"2026-10-24T09:20:00Z\",\"message\":\"Yêu cầu đã được tiếp nhận. Ban Chăm Sóc Tri Kỷ sẽ phản hồi sớm.\"}",
+          "latency": 0,
+          "statusCode": 201,
+          "label": "create-default",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "a0000000-0000-4000-8000-000000000023",
+      "type": "http",
+      "method": "get",
+      "endpoint": "support/tickets/:ticketId",
+      "documentation": "SUP-C03 customer-safe Ticket detail.",
+      "responses": [
+        {
+          "uuid": "a0000000-0000-4000-8000-000000000015",
+          "body": "{\"ticketId\":\"support-ticket-mock-001\",\"ticketNumber\":\"TCK-2410-0195\",\"createdAt\":\"2026-10-24T09:20:00Z\",\"updatedAt\":\"2026-10-24T09:20:00Z\",\"status\":\"NEW\",\"statusLabel\":\"Đã tiếp nhận\",\"statusDescription\":\"Ticket đã được ghi nhận và đang chờ phân công.\",\"subjectLabel\":\"Tư vấn phối ngự trà & lễ vật biếu tặng\",\"title\":\"Tư vấn cách bảo quản Bánh Phục Linh & Nghi thức dâng Trà Sen mừng đại thọ\",\"requestedPriority\":\"IMPORTANT\",\"requestedPriorityLabel\":\"Ưu tiên Cố Đô\",\"servicePromise\":{\"label\":\"Đạt chuẩn 25 phút\",\"targetAt\":\"2026-10-24T11:20:00Z\",\"met\":true},\"publicAssignee\":null,\"linkedOrder\":{\"orderId\":\"order-mock-20260926-001\",\"orderNumber\":\"OMA-260926-001\",\"statusLabel\":\"Đã giao thành công\",\"products\":[{\"name\":\"Bánh Phục Linh Ngũ Sắc\",\"variant\":\"Hộp sơn mài\",\"quantity\":2,\"priceVnd\":245000},{\"name\":\"Trà Sen Tịnh Tâm Thượng Hạng\",\"variant\":\"Hũ gốm ngự\",\"quantity\":1,\"priceVnd\":480000}]},\"messages\":[{\"messageId\":\"msg-customer-001\",\"senderRole\":\"CUSTOMER\",\"senderDisplayName\":\"Nguyễn Văn Bảo Long\",\"message\":\"Kính gửi Ô Mạ, chiều mai gia đình tôi có tổ chức lễ mừng đại thọ. Tôi vừa nhận 2 hộp Bánh Phục Linh Ngũ Sắc và 1 hũ Trà Sen Tịnh Tâm trong đơn hàng #OMA-260926-001.\\n\\nNhờ quý nghệ nhân hướng dẫn cách bày trí bánh và nghi thức pha trà phù hợp.\",\"occurredAt\":\"2026-10-24T09:20:00Z\",\"attachments\":[{\"attachmentId\":\"att-001\",\"label\":\"khay_tra_dong_co_do_chuan_bi_tiec.jpg\",\"mediaType\":\"image/jpeg\",\"state\":\"READY\"}]}],\"canReply\":true}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "ticket-new",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "ticket-new",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "a0000000-0000-4000-8000-000000000016",
+          "body": "{\"ticketId\":\"support-ticket-mock-001\",\"ticketNumber\":\"TCK-2410-0195\",\"createdAt\":\"2026-10-24T09:20:00Z\",\"updatedAt\":\"2026-10-24T10:05:00Z\",\"status\":\"WAITING_CUSTOMER\",\"statusLabel\":\"Chờ Tri Kỷ phản hồi\",\"statusDescription\":\"Ban Chăm Sóc cần thêm thông tin công khai từ quý khách.\",\"subjectLabel\":\"Tư vấn phối ngự trà & lễ vật biếu tặng\",\"title\":\"Tư vấn cách bảo quản Bánh Phục Linh & Nghi thức dâng Trà Sen mừng đại thọ\",\"requestedPriority\":\"IMPORTANT\",\"requestedPriorityLabel\":\"Ưu tiên Cố Đô\",\"servicePromise\":{\"label\":\"Đạt chuẩn 25 phút\",\"targetAt\":\"2026-10-24T11:20:00Z\",\"met\":true},\"publicAssignee\":{\"displayName\":\"Nghệ nhân Tôn Nữ Diệu Hạnh\",\"roleLabel\":\"Trưởng ban Cố vấn Hương vị\"},\"linkedOrder\":{\"orderId\":\"order-mock-20260926-001\",\"orderNumber\":\"OMA-260926-001\",\"statusLabel\":\"Đã giao thành công\",\"products\":[{\"name\":\"Bánh Phục Linh Ngũ Sắc\",\"variant\":\"Hộp sơn mài\",\"quantity\":2,\"priceVnd\":245000},{\"name\":\"Trà Sen Tịnh Tâm Thượng Hạng\",\"variant\":\"Hũ gốm ngự\",\"quantity\":1,\"priceVnd\":480000}]},\"messages\":[{\"messageId\":\"msg-customer-001\",\"senderRole\":\"CUSTOMER\",\"senderDisplayName\":\"Nguyễn Văn Bảo Long\",\"message\":\"Kính gửi Ô Mạ, chiều mai gia đình tôi có tổ chức lễ mừng đại thọ. Tôi vừa nhận 2 hộp Bánh Phục Linh Ngũ Sắc và 1 hũ Trà Sen Tịnh Tâm trong đơn hàng #OMA-260926-001.\\n\\nNhờ quý nghệ nhân hướng dẫn cách bày trí bánh và nghi thức pha trà phù hợp.\",\"occurredAt\":\"2026-10-24T09:20:00Z\",\"attachments\":[{\"attachmentId\":\"att-001\",\"label\":\"khay_tra_dong_co_do_chuan_bi_tiec.jpg\",\"mediaType\":\"image/jpeg\",\"state\":\"READY\"}]},{\"messageId\":\"msg-support-001\",\"senderRole\":\"SUPPORT\",\"senderDisplayName\":\"Nghệ nhân Tôn Nữ Diệu Hạnh\",\"message\":\"Đa tạ Quý tri kỷ Bảo Long! Toàn thể nghệ nhân Ô Mạ xin kính chúc Trưởng lão Nguyễn Khoa Thức phúc như Đông Hải, thọ tỷ Nam Sơn.\\n\\nBánh Phục Linh nên được bày trên đĩa sứ men trắng, mỗi vị trí cách nhau một khoảng nhỏ. Trà sen sao nhẹ với nước khoảng 85°C, tráng ấm trước khi hãm và dùng chén thành mỏng.\",\"occurredAt\":\"2026-10-24T09:45:00Z\",\"attachments\":[{\"attachmentId\":\"att-002\",\"label\":\"Nghi_Thuc_Ngu_Tra_Va_Bay_Banh_O_Ma.pdf\",\"mediaType\":\"application/pdf\",\"state\":\"READY\"}]}],\"canReply\":true}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "ticket-waiting",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "ticket-waiting",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "a0000000-0000-4000-8000-000000000017",
+          "body": "{\"ticketId\":\"support-ticket-mock-001\",\"ticketNumber\":\"TCK-2410-0195\",\"createdAt\":\"2026-10-24T09:20:00Z\",\"updatedAt\":\"2026-10-24T10:05:00Z\",\"status\":\"RESOLVED\",\"statusLabel\":\"Đã giải quyết\",\"statusDescription\":\"Nội dung hỗ trợ đã được giải đáp. Quý khách vẫn có thể phản hồi theo chính sách mở lại.\",\"subjectLabel\":\"Tư vấn phối ngự trà & lễ vật biếu tặng\",\"title\":\"Tư vấn cách bảo quản Bánh Phục Linh & Nghi thức dâng Trà Sen mừng đại thọ\",\"requestedPriority\":\"IMPORTANT\",\"requestedPriorityLabel\":\"Ưu tiên Cố Đô\",\"servicePromise\":{\"label\":\"Đạt chuẩn 25 phút\",\"targetAt\":\"2026-10-24T11:20:00Z\",\"met\":true},\"publicAssignee\":{\"displayName\":\"Nghệ nhân Tôn Nữ Diệu Hạnh\",\"roleLabel\":\"Trưởng ban Cố vấn Hương vị\"},\"linkedOrder\":{\"orderId\":\"order-mock-20260926-001\",\"orderNumber\":\"OMA-260926-001\",\"statusLabel\":\"Đã giao thành công\",\"products\":[{\"name\":\"Bánh Phục Linh Ngũ Sắc\",\"variant\":\"Hộp sơn mài\",\"quantity\":2,\"priceVnd\":245000},{\"name\":\"Trà Sen Tịnh Tâm Thượng Hạng\",\"variant\":\"Hũ gốm ngự\",\"quantity\":1,\"priceVnd\":480000}]},\"messages\":[{\"messageId\":\"msg-customer-001\",\"senderRole\":\"CUSTOMER\",\"senderDisplayName\":\"Nguyễn Văn Bảo Long\",\"message\":\"Kính gửi Ô Mạ, chiều mai gia đình tôi có tổ chức lễ mừng đại thọ. Tôi vừa nhận 2 hộp Bánh Phục Linh Ngũ Sắc và 1 hũ Trà Sen Tịnh Tâm trong đơn hàng #OMA-260926-001.\\n\\nNhờ quý nghệ nhân hướng dẫn cách bày trí bánh và nghi thức pha trà phù hợp.\",\"occurredAt\":\"2026-10-24T09:20:00Z\",\"attachments\":[{\"attachmentId\":\"att-001\",\"label\":\"khay_tra_dong_co_do_chuan_bi_tiec.jpg\",\"mediaType\":\"image/jpeg\",\"state\":\"READY\"}]},{\"messageId\":\"msg-support-001\",\"senderRole\":\"SUPPORT\",\"senderDisplayName\":\"Nghệ nhân Tôn Nữ Diệu Hạnh\",\"message\":\"Đa tạ Quý tri kỷ Bảo Long! Toàn thể nghệ nhân Ô Mạ xin kính chúc Trưởng lão Nguyễn Khoa Thức phúc như Đông Hải, thọ tỷ Nam Sơn.\\n\\nBánh Phục Linh nên được bày trên đĩa sứ men trắng, mỗi vị trí cách nhau một khoảng nhỏ. Trà sen sao nhẹ với nước khoảng 85°C, tráng ấm trước khi hãm và dùng chén thành mỏng.\",\"occurredAt\":\"2026-10-24T09:45:00Z\",\"attachments\":[{\"attachmentId\":\"att-002\",\"label\":\"Nghi_Thuc_Ngu_Tra_Va_Bay_Banh_O_Ma.pdf\",\"mediaType\":\"application/pdf\",\"state\":\"READY\"}]},{\"messageId\":\"msg-customer-002\",\"senderRole\":\"CUSTOMER\",\"senderDisplayName\":\"Nguyễn Văn Bảo Long\",\"message\":\"Cảm ơn Nghệ nhân Diệu Hạnh rất nhiều! Chỉ dẫn vô cùng chu đáo, nhã nhặn và chuẩn mực văn hiến Huế.\",\"occurredAt\":\"2026-10-24T10:05:00Z\",\"attachments\":[]}],\"canReply\":true}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "ticket-resolved",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "ticket-resolved",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "a0000000-0000-4000-8000-000000000018",
+          "body": "{\"ticketId\":\"support-ticket-mock-001\",\"ticketNumber\":\"TCK-2410-0195\",\"createdAt\":\"2026-10-24T09:20:00Z\",\"updatedAt\":\"2026-10-24T10:05:00Z\",\"status\":\"CLOSED\",\"statusLabel\":\"Đã đóng\",\"statusDescription\":\"Ticket đã đóng trao đổi. Vui lòng tạo Ticket mới nếu cần hỗ trợ khác.\",\"subjectLabel\":\"Tư vấn phối ngự trà & lễ vật biếu tặng\",\"title\":\"Tư vấn cách bảo quản Bánh Phục Linh & Nghi thức dâng Trà Sen mừng đại thọ\",\"requestedPriority\":\"IMPORTANT\",\"requestedPriorityLabel\":\"Ưu tiên Cố Đô\",\"servicePromise\":{\"label\":\"Đạt chuẩn 25 phút\",\"targetAt\":\"2026-10-24T11:20:00Z\",\"met\":true},\"publicAssignee\":{\"displayName\":\"Nghệ nhân Tôn Nữ Diệu Hạnh\",\"roleLabel\":\"Trưởng ban Cố vấn Hương vị\"},\"linkedOrder\":{\"orderId\":\"order-mock-20260926-001\",\"orderNumber\":\"OMA-260926-001\",\"statusLabel\":\"Đã giao thành công\",\"products\":[{\"name\":\"Bánh Phục Linh Ngũ Sắc\",\"variant\":\"Hộp sơn mài\",\"quantity\":2,\"priceVnd\":245000},{\"name\":\"Trà Sen Tịnh Tâm Thượng Hạng\",\"variant\":\"Hũ gốm ngự\",\"quantity\":1,\"priceVnd\":480000}]},\"messages\":[{\"messageId\":\"msg-customer-001\",\"senderRole\":\"CUSTOMER\",\"senderDisplayName\":\"Nguyễn Văn Bảo Long\",\"message\":\"Kính gửi Ô Mạ, chiều mai gia đình tôi có tổ chức lễ mừng đại thọ. Tôi vừa nhận 2 hộp Bánh Phục Linh Ngũ Sắc và 1 hũ Trà Sen Tịnh Tâm trong đơn hàng #OMA-260926-001.\\n\\nNhờ quý nghệ nhân hướng dẫn cách bày trí bánh và nghi thức pha trà phù hợp.\",\"occurredAt\":\"2026-10-24T09:20:00Z\",\"attachments\":[{\"attachmentId\":\"att-001\",\"label\":\"khay_tra_dong_co_do_chuan_bi_tiec.jpg\",\"mediaType\":\"image/jpeg\",\"state\":\"READY\"}]},{\"messageId\":\"msg-support-001\",\"senderRole\":\"SUPPORT\",\"senderDisplayName\":\"Nghệ nhân Tôn Nữ Diệu Hạnh\",\"message\":\"Đa tạ Quý tri kỷ Bảo Long! Toàn thể nghệ nhân Ô Mạ xin kính chúc Trưởng lão Nguyễn Khoa Thức phúc như Đông Hải, thọ tỷ Nam Sơn.\\n\\nBánh Phục Linh nên được bày trên đĩa sứ men trắng, mỗi vị trí cách nhau một khoảng nhỏ. Trà sen sao nhẹ với nước khoảng 85°C, tráng ấm trước khi hãm và dùng chén thành mỏng.\",\"occurredAt\":\"2026-10-24T09:45:00Z\",\"attachments\":[{\"attachmentId\":\"att-002\",\"label\":\"Nghi_Thuc_Ngu_Tra_Va_Bay_Banh_O_Ma.pdf\",\"mediaType\":\"application/pdf\",\"state\":\"READY\"}]},{\"messageId\":\"msg-customer-002\",\"senderRole\":\"CUSTOMER\",\"senderDisplayName\":\"Nguyễn Văn Bảo Long\",\"message\":\"Cảm ơn Nghệ nhân Diệu Hạnh rất nhiều! Chỉ dẫn vô cùng chu đáo, nhã nhặn và chuẩn mực văn hiến Huế.\",\"occurredAt\":\"2026-10-24T10:05:00Z\",\"attachments\":[]}],\"canReply\":false}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "ticket-closed",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "ticket-closed",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "a0000000-0000-4000-8000-000000000019",
+          "body": "{\"code\":\"TICKET_NOT_FOUND\",\"message\":\"Ticket không tồn tại hoặc bạn không có quyền xem.\",\"requestId\":\"REQ-SUP-TICKET-404\"}",
+          "latency": 0,
+          "statusCode": 404,
+          "label": "ticket-not-found",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "ticket-not-found",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "a0000000-0000-4000-8000-000000000020",
+          "body": "{\"code\":\"SUPPORT_ERROR\",\"message\":\"Chưa thể tải Ticket hỗ trợ.\",\"requestId\":\"REQ-SUP-TICKET-500\"}",
+          "latency": 0,
+          "statusCode": 500,
+          "label": "ticket-error",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "ticket-error",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "a0000000-0000-4000-8000-000000000021",
+          "body": "{\"ticketId\":\"support-ticket-mock-001\",\"ticketNumber\":\"TCK-2410-0195\",\"createdAt\":\"2026-10-24T09:20:00Z\",\"updatedAt\":\"2026-10-24T10:05:00Z\",\"status\":\"IN_PROGRESS\",\"statusLabel\":\"Đang xử lý — đã có phản hồi từ nghệ nhân\",\"statusDescription\":\"Ban Chăm Sóc Tri Kỷ đang đồng hành và chờ trao đổi tiếp theo của quý khách.\",\"subjectLabel\":\"Tư vấn phối ngự trà & lễ vật biếu tặng\",\"title\":\"Tư vấn cách bảo quản Bánh Phục Linh & Nghi thức dâng Trà Sen mừng đại thọ\",\"requestedPriority\":\"IMPORTANT\",\"requestedPriorityLabel\":\"Ưu tiên Cố Đô\",\"servicePromise\":{\"label\":\"Đạt chuẩn 25 phút\",\"targetAt\":\"2026-10-24T11:20:00Z\",\"met\":true},\"publicAssignee\":{\"displayName\":\"Nghệ nhân Tôn Nữ Diệu Hạnh\",\"roleLabel\":\"Trưởng ban Cố vấn Hương vị\"},\"linkedOrder\":{\"orderId\":\"order-mock-20260926-001\",\"orderNumber\":\"OMA-260926-001\",\"statusLabel\":\"Đã giao thành công\",\"products\":[{\"name\":\"Bánh Phục Linh Ngũ Sắc\",\"variant\":\"Hộp sơn mài\",\"quantity\":2,\"priceVnd\":245000},{\"name\":\"Trà Sen Tịnh Tâm Thượng Hạng\",\"variant\":\"Hũ gốm ngự\",\"quantity\":1,\"priceVnd\":480000}]},\"messages\":[{\"messageId\":\"msg-customer-001\",\"senderRole\":\"CUSTOMER\",\"senderDisplayName\":\"Nguyễn Văn Bảo Long\",\"message\":\"Kính gửi Ô Mạ, chiều mai gia đình tôi có tổ chức lễ mừng đại thọ. Tôi vừa nhận 2 hộp Bánh Phục Linh Ngũ Sắc và 1 hũ Trà Sen Tịnh Tâm trong đơn hàng #OMA-260926-001.\\n\\nNhờ quý nghệ nhân hướng dẫn cách bày trí bánh và nghi thức pha trà phù hợp.\",\"occurredAt\":\"2026-10-24T09:20:00Z\",\"attachments\":[{\"attachmentId\":\"att-001\",\"label\":\"khay_tra_dong_co_do_chuan_bi_tiec.jpg\",\"mediaType\":\"image/jpeg\",\"state\":\"READY\"}]},{\"messageId\":\"msg-support-001\",\"senderRole\":\"SUPPORT\",\"senderDisplayName\":\"Nghệ nhân Tôn Nữ Diệu Hạnh\",\"message\":\"Đa tạ Quý tri kỷ Bảo Long! Toàn thể nghệ nhân Ô Mạ xin kính chúc Trưởng lão Nguyễn Khoa Thức phúc như Đông Hải, thọ tỷ Nam Sơn.\\n\\nBánh Phục Linh nên được bày trên đĩa sứ men trắng, mỗi vị trí cách nhau một khoảng nhỏ. Trà sen sao nhẹ với nước khoảng 85°C, tráng ấm trước khi hãm và dùng chén thành mỏng.\",\"occurredAt\":\"2026-10-24T09:45:00Z\",\"attachments\":[{\"attachmentId\":\"att-002\",\"label\":\"Nghi_Thuc_Ngu_Tra_Va_Bay_Banh_O_Ma.pdf\",\"mediaType\":\"application/pdf\",\"state\":\"READY\"}]},{\"messageId\":\"msg-customer-002\",\"senderRole\":\"CUSTOMER\",\"senderDisplayName\":\"Nguyễn Văn Bảo Long\",\"message\":\"Cảm ơn Nghệ nhân Diệu Hạnh rất nhiều! Chỉ dẫn vô cùng chu đáo, nhã nhặn và chuẩn mực văn hiến Huế.\",\"occurredAt\":\"2026-10-24T10:05:00Z\",\"attachments\":[]}],\"canReply\":true}",
+          "latency": 3000,
+          "statusCode": 200,
+          "label": "ticket-slow",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "ticket-slow",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "a0000000-0000-4000-8000-000000000022",
+          "body": "{\"ticketId\":\"support-ticket-mock-001\",\"ticketNumber\":\"TCK-2410-0195\",\"createdAt\":\"2026-10-24T09:20:00Z\",\"updatedAt\":\"2026-10-24T10:05:00Z\",\"status\":\"IN_PROGRESS\",\"statusLabel\":\"Đang xử lý — đã có phản hồi từ nghệ nhân\",\"statusDescription\":\"Ban Chăm Sóc Tri Kỷ đang đồng hành và chờ trao đổi tiếp theo của quý khách.\",\"subjectLabel\":\"Tư vấn phối ngự trà & lễ vật biếu tặng\",\"title\":\"Tư vấn cách bảo quản Bánh Phục Linh & Nghi thức dâng Trà Sen mừng đại thọ\",\"requestedPriority\":\"IMPORTANT\",\"requestedPriorityLabel\":\"Ưu tiên Cố Đô\",\"servicePromise\":{\"label\":\"Đạt chuẩn 25 phút\",\"targetAt\":\"2026-10-24T11:20:00Z\",\"met\":true},\"publicAssignee\":{\"displayName\":\"Nghệ nhân Tôn Nữ Diệu Hạnh\",\"roleLabel\":\"Trưởng ban Cố vấn Hương vị\"},\"linkedOrder\":{\"orderId\":\"order-mock-20260926-001\",\"orderNumber\":\"OMA-260926-001\",\"statusLabel\":\"Đã giao thành công\",\"products\":[{\"name\":\"Bánh Phục Linh Ngũ Sắc\",\"variant\":\"Hộp sơn mài\",\"quantity\":2,\"priceVnd\":245000},{\"name\":\"Trà Sen Tịnh Tâm Thượng Hạng\",\"variant\":\"Hũ gốm ngự\",\"quantity\":1,\"priceVnd\":480000}]},\"messages\":[{\"messageId\":\"msg-customer-001\",\"senderRole\":\"CUSTOMER\",\"senderDisplayName\":\"Nguyễn Văn Bảo Long\",\"message\":\"Kính gửi Ô Mạ, chiều mai gia đình tôi có tổ chức lễ mừng đại thọ. Tôi vừa nhận 2 hộp Bánh Phục Linh Ngũ Sắc và 1 hũ Trà Sen Tịnh Tâm trong đơn hàng #OMA-260926-001.\\n\\nNhờ quý nghệ nhân hướng dẫn cách bày trí bánh và nghi thức pha trà phù hợp.\",\"occurredAt\":\"2026-10-24T09:20:00Z\",\"attachments\":[{\"attachmentId\":\"att-001\",\"label\":\"khay_tra_dong_co_do_chuan_bi_tiec.jpg\",\"mediaType\":\"image/jpeg\",\"state\":\"READY\"}]},{\"messageId\":\"msg-support-001\",\"senderRole\":\"SUPPORT\",\"senderDisplayName\":\"Nghệ nhân Tôn Nữ Diệu Hạnh\",\"message\":\"Đa tạ Quý tri kỷ Bảo Long! Toàn thể nghệ nhân Ô Mạ xin kính chúc Trưởng lão Nguyễn Khoa Thức phúc như Đông Hải, thọ tỷ Nam Sơn.\\n\\nBánh Phục Linh nên được bày trên đĩa sứ men trắng, mỗi vị trí cách nhau một khoảng nhỏ. Trà sen sao nhẹ với nước khoảng 85°C, tráng ấm trước khi hãm và dùng chén thành mỏng.\",\"occurredAt\":\"2026-10-24T09:45:00Z\",\"attachments\":[{\"attachmentId\":\"att-002\",\"label\":\"Nghi_Thuc_Ngu_Tra_Va_Bay_Banh_O_Ma.pdf\",\"mediaType\":\"application/pdf\",\"state\":\"READY\"}]},{\"messageId\":\"msg-customer-002\",\"senderRole\":\"CUSTOMER\",\"senderDisplayName\":\"Nguyễn Văn Bảo Long\",\"message\":\"Cảm ơn Nghệ nhân Diệu Hạnh rất nhiều! Chỉ dẫn vô cùng chu đáo, nhã nhặn và chuẩn mực văn hiến Huế.\",\"occurredAt\":\"2026-10-24T10:05:00Z\",\"attachments\":[]}],\"canReply\":true}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "ticket-default",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "a0000000-0000-4000-8000-000000000029",
+      "type": "http",
+      "method": "post",
+      "endpoint": "support/tickets/:ticketId/messages",
+      "documentation": "SUP-C04 idempotent public Customer reply.",
+      "responses": [
+        {
+          "uuid": "a0000000-0000-4000-8000-000000000024",
+          "body": "{\"code\":\"TICKET_COMMUNICATION_CLOSED\",\"message\":\"Ticket đã đóng trao đổi. Hãy tạo yêu cầu mới.\",\"requestId\":\"REQ-SUP-MSG-409\"}",
+          "latency": 0,
+          "statusCode": 409,
+          "label": "message-closed",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "message-closed",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "a0000000-0000-4000-8000-000000000025",
+          "body": "{\"code\":\"SUPPORT_RATE_LIMITED\",\"message\":\"Bạn gửi phản hồi quá nhanh. Vui lòng thử lại sau.\",\"requestId\":\"REQ-SUP-MSG-429\",\"retryAfterSeconds\":30}",
+          "latency": 0,
+          "statusCode": 429,
+          "label": "message-rate-limited",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "message-rate-limited",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "a0000000-0000-4000-8000-000000000026",
+          "body": "{\"code\":\"SUPPORT_ERROR\",\"message\":\"Chưa thể gửi phản hồi.\",\"requestId\":\"REQ-SUP-MSG-500\"}",
+          "latency": 0,
+          "statusCode": 500,
+          "label": "message-error",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "message-error",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "a0000000-0000-4000-8000-000000000027",
+          "body": "{\"messageId\":\"msg-customer-new\",\"senderRole\":\"CUSTOMER\",\"senderDisplayName\":\"Nguyễn Văn Bảo Long\",\"message\":\"Nội dung phản hồi đã được ghi nhận.\",\"occurredAt\":\"2026-10-24T10:20:00Z\",\"attachments\":[]}",
+          "latency": 3000,
+          "statusCode": 201,
+          "label": "message-slow",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "message-slow",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "a0000000-0000-4000-8000-000000000028",
+          "body": "{\"messageId\":\"msg-customer-new\",\"senderRole\":\"CUSTOMER\",\"senderDisplayName\":\"Nguyễn Văn Bảo Long\",\"message\":\"Nội dung phản hồi đã được ghi nhận.\",\"occurredAt\":\"2026-10-24T10:20:00Z\",\"attachments\":[]}",
+          "latency": 0,
+          "statusCode": 201,
+          "label": "message-default",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "b0000000-0000-4000-8000-000000000010",
+      "type": "http",
+      "documentation": "Customer actor/capability projection. X-Customer-Actor is derived server-side by the BFF for local Mockoon only.",
+      "method": "get",
+      "endpoint": "customer/capabilities",
+      "responses": [
+        {
+          "uuid": "b0000000-0000-4000-8000-000000000011",
+          "body": "{\"actor\":\"REGISTERED\",\"capabilities\":[\"CATALOG_VIEW\",\"CART_MANAGE\",\"CHECKOUT_CREATE\",\"GUEST_ORDER_TRACK\",\"SUPPORT_CREATE\",\"PROFILE_MANAGE\",\"ADDRESS_MANAGE\",\"ORDER_HISTORY_VIEW\",\"LOYALTY_VIEW\",\"REVIEW_CREATE\"],\"version\":1}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "capabilities-registered",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Customer-Actor",
+              "value": "REGISTERED",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "b0000000-0000-4000-8000-000000000012",
+          "body": "{\"actor\":\"GUEST\",\"capabilities\":[\"CATALOG_VIEW\",\"CART_MANAGE\",\"CHECKOUT_CREATE\",\"GUEST_ORDER_TRACK\",\"SUPPORT_CREATE\"],\"version\":1}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "capabilities-guest",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "enabled": true,
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "c0000000-0000-4000-8000-000000000010",
+      "type": "http",
+      "documentation": "Grant short-lived access to the exact Guest Order immediately after a successful Checkout. The BFF signs the browser cookie and binds it to orderId.",
+      "method": "post",
+      "endpoint": "orders/guest-access/grants",
+      "responses": [
+        {
+          "uuid": "c0000000-0000-4000-8000-000000000011",
+          "body": "{\"code\":\"GUEST_ACCESS_GRANT_FAILED\",\"message\":\"Chưa thể cấp quyền xem Guest Order.\",\"requestId\":\"REQ-GUEST-GRANT-500\"}",
+          "latency": 0,
+          "statusCode": 500,
+          "label": "guest-grant-error",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "guest-grant-error",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "c0000000-0000-4000-8000-000000000012",
+          "body": "{\"granted\":true,\"accessExpiresAt\":\"{{dateTimeShift minutes=30}}\"}",
+          "latency": 0,
+          "statusCode": 201,
+          "label": "guest-grant-created",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "enabled": true,
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "d0000000-0000-4000-8000-000000000010",
+      "type": "http",
+      "documentation": "Two-level administrative location projection for Checkout: Province/City -> Ward/Commune. No district level is exposed.",
+      "method": "get",
+      "endpoint": "locations/checkout",
+      "responses": [
+        {
+          "uuid": "d0000000-0000-4000-8000-000000000011",
+          "body": "{\"code\":\"CHECKOUT_LOCATIONS_UNAVAILABLE\",\"message\":\"Chưa thể tải danh mục Tỉnh/Thành phố và Phường/Xã.\",\"requestId\":\"REQ-LOC-500\"}",
+          "latency": 0,
+          "statusCode": 500,
+          "label": "locations-error",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "locations-error",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "d0000000-0000-4000-8000-000000000012",
+          "body": "{\"version\":\"2026-10\",\"provinces\":[{\"provinceCode\":\"HUE\",\"provinceName\":\"Thành phố Huế\",\"wards\":[{\"wardCode\":\"THUAN-HOA\",\"wardName\":\"Phường Thuận Hòa\"},{\"wardCode\":\"PHU-NHUAN\",\"wardName\":\"Phường Phú Nhuận\"},{\"wardCode\":\"VY-DA\",\"wardName\":\"Phường Vỹ Dạ\"},{\"wardCode\":\"KIM-LONG\",\"wardName\":\"Phường Kim Long\"}]},{\"provinceCode\":\"DA-NANG\",\"provinceName\":\"Thành phố Đà Nẵng\",\"wards\":[{\"wardCode\":\"HAI-CHAU\",\"wardName\":\"Phường Hải Châu\"},{\"wardCode\":\"SON-TRA\",\"wardName\":\"Phường Sơn Trà\"}]}]}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "locations-default",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "enabled": true,
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    }
+  ],
+  "proxyMode": false,
+  "proxyHost": "",
+  "proxyRemovePrefix": false,
+  "tlsOptions": {
+    "enabled": false,
+    "type": "CERT",
+    "pfxPath": "",
+    "certPath": "",
+    "keyPath": "",
+    "caPath": "",
+    "passphrase": ""
+  },
+  "cors": true,
+  "headers": [
+    {
+      "key": "Content-Type",
+      "value": "application/json; charset=utf-8"
+    },
+    {
+      "key": "Cache-Control",
+      "value": "no-store"
+    },
+    {
+      "key": "X-Mock-Environment",
+      "value": "oma-customer-extensions"
+    }
+  ],
+  "proxyReqHeaders": [],
+  "proxyResHeaders": [],
+  "data": [],
+  "folders": [],
+  "rootChildren": [
+    {
+      "type": "route",
+      "uuid": "10000000-0000-4000-8000-000000000048"
+    },
+    {
+      "type": "route",
+      "uuid": "10000000-0000-4000-8000-000000000055"
+    },
+    {
+      "type": "route",
+      "uuid": "10000000-0000-4000-8000-000000000063"
+    },
+    {
+      "type": "route",
+      "uuid": "80000000-0000-4000-8000-000000000040"
+    },
+    {
+      "type": "route",
+      "uuid": "80000000-0000-4000-8000-000000000050"
+    },
+    {
+      "type": "route",
+      "uuid": "a0000000-0000-4000-8000-000000000008"
+    },
+    {
+      "type": "route",
+      "uuid": "a0000000-0000-4000-8000-000000000014"
+    },
+    {
+      "type": "route",
+      "uuid": "a0000000-0000-4000-8000-000000000023"
+    },
+    {
+      "type": "route",
+      "uuid": "a0000000-0000-4000-8000-000000000029"
+    },
+    {
+      "type": "route",
+      "uuid": "b0000000-0000-4000-8000-000000000010"
+    },
+    {
+      "type": "route",
+      "uuid": "c0000000-0000-4000-8000-000000000010"
+    },
+    {
+      "type": "route",
+      "uuid": "d0000000-0000-4000-8000-000000000010"
+    }
+  ],
+  "callbacks": []
+}

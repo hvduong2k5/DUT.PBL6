@@ -15,6 +15,7 @@ const SCENARIO_PATTERN = /^[a-z0-9-]+$/u;
 const PHONE_PATTERN = /^(?:\+84|0)(?:\d[ .-]?){8,10}\d$/u;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/u;
 const PAYMENT_METHODS = new Set<CheckoutPaymentMethod>(["BANK_TRANSFER", "COD"]);
+const VOUCHER_PATTERN = /^[A-Z0-9_-]{3,50}$/u;
 
 export type CheckoutOperation = "prepare" | "quote-shipping" | "confirm";
 
@@ -72,12 +73,12 @@ export function validateRecipient(value: unknown): FieldError[] {
 }
 
 export function validateShippingAddress(value: unknown): FieldError[] {
-  if (!isRecord(value) || !hasOnlyKeys(value, ["provinceCode", "provinceName", "districtCode", "districtName", "addressLine"])) return [{ field: "address", message: "Địa chỉ giao hàng không hợp lệ." }];
+  if (!isRecord(value) || !hasOnlyKeys(value, ["provinceCode", "provinceName", "wardCode", "wardName", "addressLine"])) return [{ field: "address", message: "Địa chỉ giao hàng không hợp lệ." }];
   const errors: FieldError[] = [];
   if (!isTrimmedText(value.provinceCode, 2, 32) || !OPTION_ID_PATTERN.test(value.provinceCode)) errors.push({ field: "provinceCode", message: "Vui lòng chọn Tỉnh/Thành phố." });
   if (!isTrimmedText(value.provinceName, 2, 100)) errors.push({ field: "provinceName", message: "Tên Tỉnh/Thành phố không hợp lệ." });
-  if (!isTrimmedText(value.districtCode, 2, 32) || !OPTION_ID_PATTERN.test(value.districtCode)) errors.push({ field: "districtCode", message: "Vui lòng chọn Phường/Xã giao hàng." });
-  if (!isTrimmedText(value.districtName, 2, 100)) errors.push({ field: "districtName", message: "Tên Phường/Xã không hợp lệ." });
+  if (!isTrimmedText(value.wardCode, 2, 32) || !OPTION_ID_PATTERN.test(value.wardCode)) errors.push({ field: "wardCode", message: "Vui lòng chọn Phường/Xã giao hàng." });
+  if (!isTrimmedText(value.wardName, 2, 100)) errors.push({ field: "wardName", message: "Tên Phường/Xã không hợp lệ." });
   if (!isTrimmedText(value.addressLine, 8, 250)) errors.push({ field: "addressLine", message: "Địa chỉ cụ thể cần từ 8 đến 250 ký tự." });
   return errors;
 }
@@ -100,7 +101,7 @@ export function validateQuoteShippingInput(value: unknown): { data?: QuoteShippi
 }
 
 export function validateConfirmCheckoutInput(value: unknown): { data?: ConfirmCheckoutInput; errors: FieldError[] } {
-  if (!isRecord(value) || !hasOnlyKeys(value, ["checkoutSessionId", "itemIds", "recipient", "address", "shippingOptionId", "paymentMethod", "idempotencyKey", "priceRevalidatedAt", "priceChangesAcknowledged"])) {
+  if (!isRecord(value) || !hasOnlyKeys(value, ["checkoutSessionId", "itemIds", "recipient", "address", "shippingOptionId", "paymentMethod", "idempotencyKey", "priceRevalidatedAt", "priceChangesAcknowledged", "voucherCode"])) {
     return { errors: [{ field: "body", message: "Yêu cầu xác nhận Checkout không hợp lệ." }] };
   }
   const errors: FieldError[] = [];
@@ -112,6 +113,7 @@ export function validateConfirmCheckoutInput(value: unknown): { data?: ConfirmCh
   if (typeof value.idempotencyKey !== "string" || !IDEMPOTENCY_KEY_PATTERN.test(value.idempotencyKey)) errors.push({ field: "idempotencyKey", message: "Khóa chống gửi lặp không hợp lệ." });
   if (typeof value.priceRevalidatedAt !== "string" || Number.isNaN(Date.parse(value.priceRevalidatedAt))) errors.push({ field: "priceRevalidatedAt", message: "Mốc kiểm tra giá không hợp lệ." });
   if (typeof value.priceChangesAcknowledged !== "boolean") errors.push({ field: "priceChangesAcknowledged", message: "Xác nhận thay đổi giá không hợp lệ." });
+  if (value.voucherCode !== undefined && (typeof value.voucherCode !== "string" || !VOUCHER_PATTERN.test(value.voucherCode))) errors.push({ field: "voucherCode", message: "Mã ưu đãi không hợp lệ." });
   if (errors.length) return { errors };
   return { data: value as unknown as ConfirmCheckoutInput, errors: [] };
 }

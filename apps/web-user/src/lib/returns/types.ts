@@ -16,8 +16,8 @@ export interface ReturnEligibilityLine {
 export interface ReturnEligibility {
   orderId: string;
   orderNumber: string;
-  deliveredAt: string;
-  policyWindowEndsAt: string;
+  deliveredAt: string | null;
+  policyWindowEndsAt: string | null;
   eligible: boolean;
   policyMessage: string;
   lines: ReturnEligibilityLine[];
@@ -37,10 +37,11 @@ export interface CreateReturnCaseInput {
   orderId: string;
   lines: Array<{ lineId: string; quantity: number }>;
   reasonCode: ReturnReason;
-  preferredResolution: ReturnResolution;
   details: string;
-  pickupNote?: string;
-  evidence: EvidenceMetadata[];
+  evidenceMediaUrls: string[];
+  refundBankCode: string;
+  refundAccountNumber: string;
+  refundAccountHolder: string;
   idempotencyKey: string;
 }
 
@@ -77,6 +78,7 @@ export interface ReturnCaseDetail {
   status: ReturnCaseStatus;
   statusLabel: string;
   statusDescription: string;
+  reason: string;
   steps: ReturnCaseStep[];
   decision: { label: string; summary: string; decidedAt: string } | null;
   items: Array<{ lineId: string; productName: string; skuLabel: string; quantity: number; unitPriceVnd: number; requestedResolution: ReturnResolution; approvedResolution: ReturnResolution | null }>;
@@ -89,6 +91,8 @@ export interface ReturnCaseDetail {
 interface ReturnErrorBody {
   code?: string;
   message?: string;
+  error_code?: string;
+  user_message?: string;
   requestId?: string;
   retryAfterSeconds?: number;
   existingCaseId?: string;
@@ -104,10 +108,10 @@ export class ReturnApiError extends Error {
   readonly errors: Array<{ field: string; message: string }>;
 
   constructor(status: number, body: ReturnErrorBody) {
-    super(body.message || "Không thể xử lý hồ sơ hậu mãi lúc này.");
+    super(body.user_message || body.message || "Không thể xử lý hồ sơ hậu mãi lúc này.");
     this.name = "ReturnApiError";
     this.status = status;
-    this.code = body.code || "UNKNOWN_ERROR";
+    this.code = body.error_code || body.code || "UNKNOWN_ERROR";
     this.requestId = body.requestId;
     this.retryAfterSeconds = body.retryAfterSeconds;
     this.existingCaseId = body.existingCaseId;

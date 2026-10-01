@@ -25,6 +25,10 @@ export function isValidEmail(value: string): boolean {
   return EMAIL_PATTERN.test(value.trim());
 }
 
+export function isValidPhoneNumber(value: string): boolean {
+  return /^(?:\+84|0)[0-9]{9,10}$/u.test(value.trim().replace(/[ .-]/gu, ""));
+}
+
 export function passwordCodePointLength(value: string): number {
   return Array.from(value).length;
 }

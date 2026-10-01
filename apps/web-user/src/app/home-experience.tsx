@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { FormEvent, useState } from "react";
+import { useRouter } from "next/navigation";
 
 const HERO_IMAGE = "https://lh3.googleusercontent.com/aida-public/AB6AXuBgDTnNDpDqWayHGmfgdpMZ7xrIpepsmqvZgohQd66eSgDGKr7krs5KknIa7b4nRGLRpZ1FQt5ye-7UfbqbiPvJvJk1WwXIrbwaCwIrTdJFFNr3ykdI5S8DWq6OdVN3-EKG57DFKRSrBew_wdq8j-i8jLch_hKQsGgnqbqtyN9t9H5K_e3TDwZ3WbFQPlBv1Hz4dJd1EJUaLXqGEKZh5C-4YeKNuxpklujrvtUvGDeZTK552UkmRfHd";
 
@@ -21,9 +22,9 @@ const products = [
 ];
 
 export function HomeExperience() {
+  const router = useRouter();
   const [toast, setToast] = useState("");
   const [batchCode, setBatchCode] = useState("");
-  const [traceVisible, setTraceVisible] = useState(false);
   const [newsletterSent, setNewsletterSent] = useState(false);
 
   function showToast(message: string) {
@@ -37,8 +38,9 @@ export function HomeExperience() {
 
   function trace(event: FormEvent) {
     event.preventDefault();
-    if (!batchCode.trim()) return;
-    setTraceVisible(true);
+    const code = batchCode.trim();
+    if (!code) return;
+    router.push(`/trace/${encodeURIComponent(code)}`);
   }
 
   function newsletter(event: FormEvent<HTMLFormElement>) {
@@ -60,7 +62,7 @@ export function HomeExperience() {
 
     <section className="home-section story-section" id="heritage-story"><div className="heritage-shell story-grid"><div className="story-image"><Image width={900} height={730} sizes="(max-width: 760px) 100vw, 50vw" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBiLL5AFZW-DydVfKZ7zKeSltMseWtTFpfWLjT5ZzSJycGotLnk0OhH8AoxyW55RkoPKmec5YgpO1fkuEU6yUKpsZpOAvCr0xatSiDqMbTQtISycTRhD59e62URjIywRXc48YOMhvQ4ltiaXVclO7zhN7zHoXrYcpH2kmHwdAGoHN8-caFlsCGbiAk1JDmwyld8Si4P5xrykFNkek9KccyrMcc_0fCnhUxdbeOakGqdoVt2oSmG1m9F" alt="Nghệ nhân Ô Mạ làm bánh trong nhà vườn Kim Long" /><aside><span>◎</span><div><strong>Chuẩn VSATTP Quốc Tế</strong><small>ISO 22000:2018</small><p>100% không chất bảo quản công nghiệp, giữ vị bằng phương pháp ngào đường cát tự nhiên.</p></div></aside></div><div className="story-copy"><span className="section-kicker">▧ Chuyện Làng Nghề Kim Long</span><h2>Ba Đời Gìn Giữ Mật Mã Hương Vị Của Các Bậc Ngự Trù</h2><p>Khởi nguồn từ xưởng bánh thủ công nhỏ ven bờ sông Hương thuộc làng cổ Kim Long vào những năm 1950, Ô Mạ được nuôi dưỡng bởi công thức bí truyền của cụ cố từng phục vụ tại ngự trù Nội đình Huế.</p><p>Từng chiếc mè xửng vàng óng, từng đĩa mứt gừng cay đượm không đơn thuần là món điểm tâm thưởng trà, mà là tác phẩm kết tinh từ tính cách trầm mặc, tỉ mỉ và tôn kính cội nguồn.</p><div className="story-notes"><article><span>♧</span><div><strong>Nguồn Gốc Bản Địa</strong><small>Hạt sen Tịnh Tâm, mè rang cát An Cựu, mạch nha Kim Long.</small></div></article><article><span>✣</span><div><strong>Kỹ Nghệ Thủ Công</strong><small>Ngào lửa củi thanh trà, nhào nặn khuôn gỗ chạm trổ hoa văn.</small></div></article></div><Link href="/products">Đọc toàn bộ biên niên sử Ô Mạ Huế →</Link></div></div></section>
 
-    <section className="trace-section" id="ocop-traceability"><div className="heritage-shell"><div className="trace-panel"><div className="trace-copy"><span className="heritage-pill">⌗ Hệ Thống Số Hóa Nông Sản Cố Đô</span><h2>Minh Bạch Nguồn Gốc Chuẩn OCOP 4 Sao</h2><p>Mỗi hộp bánh mứt Ô Mạ khi xuất xưởng đều gắn liền mã định danh độc bản. Nhập mã số Batch trên nhãn hộp hoặc quét mã QR để thẩm định vùng canh tác sen Tịnh Tâm, nhật ký ngào mứt và kết quả kiểm nghiệm VSATTP.</p><form onSubmit={trace}><div><input value={batchCode} onChange={(event) => { setBatchCode(event.target.value); setTraceVisible(false); }} placeholder="Nhập mã lô (VD: HUE-2025-BATCH09)" required /><button type="button" onClick={() => setBatchCode("HUE-2025-BATCH09")}>Mã mẫu</button></div><button>⌕ Kiểm Tra Ngay</button></form>{traceVisible ? <div className="trace-result"><strong>✓ Lô hàng hợp lệ: {batchCode}</strong><p>Thu hái tại vùng sen Hồ Tịnh Tâm; kiểm nghiệm VSATTP đạt chuẩn OCOP 4 sao.</p></div> : null}</div><div className="trace-proofs"><article><span>♧</span><strong>100% Thuần Tự Nhiên</strong><small>Không phẩm màu nhân tạo</small></article><article><span>✺</span><strong>Chuẩn OCOP 4 Sao</strong><small>Chứng nhận cấp Tỉnh</small></article><article><span>⌾</span><strong>Bảo Hộ Chỉ Dẫn Địa Lý</strong><small>Đặc sản sông Hương</small></article><article><span>✈</span><strong>Đạt Chuẩn Xuất Khẩu</strong><small>Nhật Bản, Pháp &amp; Hoa Kỳ</small></article></div></div></div></section>
+    <section className="trace-section" id="ocop-traceability"><div className="heritage-shell"><div className="trace-panel"><div className="trace-copy"><span className="heritage-pill">⌗ Hệ Thống Số Hóa Nông Sản Cố Đô</span><h2>Minh Bạch Nguồn Gốc Chuẩn OCOP 4 Sao</h2><p>Mỗi hộp bánh mứt Ô Mạ khi xuất xưởng đều gắn liền mã định danh độc bản. Nhập mã QR trên nhãn hộp để thẩm định vùng nguyên liệu, lô sản xuất và chứng nhận VSATTP.</p><form onSubmit={trace}><div><input value={batchCode} onChange={(event) => setBatchCode(event.target.value)} placeholder="Nhập mã QR (VD: QR-OMA-20261015-LOT08)" required /><button type="button" onClick={() => setBatchCode("QR-OMA-20261015-LOT08")}>Mã mẫu</button></div><button>⌕ Kiểm Tra Ngay</button></form></div><div className="trace-proofs"><article><span>♧</span><strong>100% Thuần Tự Nhiên</strong><small>Không phẩm màu nhân tạo</small></article><article><span>✺</span><strong>Chuẩn OCOP 4 Sao</strong><small>Chứng nhận cấp Tỉnh</small></article><article><span>⌾</span><strong>Bảo Hộ Chỉ Dẫn Địa Lý</strong><small>Đặc sản sông Hương</small></article><article><span>✈</span><strong>Đạt Chuẩn Xuất Khẩu</strong><small>Nhật Bản, Pháp &amp; Hoa Kỳ</small></article></div></div></div></section>
 
     <section className="newsletter-section"><div className="heritage-shell newsletter-panel"><div><span>♧ Món Quà Tri Kỷ Bốn Phương</span><h2>Đăng Ký Nhận Hương Trà Cố Đô &amp; Giảm 10% Cho Đơn Hàng Đầu Tiên</h2><p>Trở thành tri âm của Ô Mạ để nhận cẩm nang thưởng trà theo mùa cung đình, những câu chuyện di sản kinh thành và ưu đãi đặc quyền dịp lễ Tết.</p></div><div><form onSubmit={newsletter}><input type="email" required placeholder="Nhập địa chỉ thư điện tử của bạn…" /><button>Đăng Ký →</button></form>{newsletterSent ? <strong>✓ Cảm ơn quý khách! Mã TRIKY10 đã được gửi đến email.</strong> : <small>Chúng tôi cam kết tôn trọng quyền riêng tư và không gửi thư rác.</small>}</div></div></section>
     {toast ? <div className="home-toast" role="status">✓ {toast}</div> : null}

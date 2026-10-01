@@ -40,17 +40,19 @@ export interface ProductDetail {
   name: string;
   shortDescription: string;
   longDescription: string;
-  category: ProductCategory;
-  productType: string;
+  category?: ProductCategory;
+  productType?: string;
   images: ProductImage[];
   ocopCertification?: OcopCertification | null;
-  foodInformation: FoodInformation;
+  foodInformation?: FoodInformation;
   skus: ProductSku[];
 }
 
 interface ProductDetailErrorBody {
   code?: string;
   message?: string;
+  error_code?: string;
+  user_message?: string;
   requestId?: string;
   errors?: Array<{ field: string; message: string }>;
 }
@@ -62,10 +64,10 @@ export class ProductDetailApiError extends Error {
   readonly errors: Array<{ field: string; message: string }>;
 
   constructor(status: number, body: ProductDetailErrorBody) {
-    super(body.message || "Không thể tải chi tiết sản phẩm lúc này.");
+    super(body.user_message || body.message || "Không thể tải chi tiết sản phẩm lúc này.");
     this.name = "ProductDetailApiError";
     this.status = status;
-    this.code = body.code || "UNKNOWN_ERROR";
+    this.code = body.error_code || body.code || "UNKNOWN_ERROR";
     this.requestId = body.requestId;
     this.errors = body.errors ?? [];
   }

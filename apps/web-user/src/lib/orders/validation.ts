@@ -2,7 +2,7 @@ import type { CancelOrderInput, CancelReasonCode, OrderStatus } from "./types";
 
 const ORDER_ID_PATTERN = /^[A-Za-z0-9-]{8,100}$/u;
 const CHALLENGE_ID_PATTERN = /^[A-Za-z0-9-]{8,100}$/u;
-const ORDER_NUMBER_PATTERN = /^OMA-[A-Z0-9-]{6,30}$/u;
+const ORDER_NUMBER_PATTERN = /^(?:OMA|ORD)-[A-Z0-9-]{6,30}$/u;
 const SCENARIO_PATTERN = /^[a-z0-9-]+$/u;
 const IDEMPOTENCY_PATTERN = /^order-cancel-[0-9a-f-]{36}$/u;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/u;

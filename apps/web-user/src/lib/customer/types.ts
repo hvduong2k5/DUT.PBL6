@@ -25,7 +25,6 @@ export interface CustomerAddress {
   recipientName: string;
   recipientPhone: string;
   province: AdministrativeArea;
-  district: AdministrativeArea | null;
   ward: AdministrativeArea;
   addressLine: string;
   deliveryNote: string | null;
@@ -41,6 +40,7 @@ export interface AddressList {
 
 export interface ProfileInput {
   fullName: string;
+  email: string;
   phone: string | null;
   dateOfBirth: string | null;
   gender: Gender | null;
@@ -52,7 +52,6 @@ export interface AddressInput {
   recipientName: string;
   recipientPhone: string;
   province: AdministrativeArea;
-  district: AdministrativeArea | null;
   ward: AdministrativeArea;
   addressLine: string;
   deliveryNote: string | null;
@@ -68,6 +67,8 @@ export interface ApiFieldError {
 interface ApiErrorBody {
   code?: string;
   message?: string;
+  error_code?: string;
+  user_message?: string;
   errors?: ApiFieldError[];
   requestId?: string;
 }
@@ -79,10 +80,10 @@ export class CustomerApiError extends Error {
   readonly requestId?: string;
 
   constructor(status: number, body: ApiErrorBody) {
-    super(body.message || "Không thể xử lý yêu cầu lúc này.");
+    super(body.user_message || body.message || "Không thể xử lý yêu cầu lúc này.");
     this.name = "CustomerApiError";
     this.status = status;
-    this.code = body.code || "UNKNOWN_ERROR";
+    this.code = body.error_code || body.code || "UNKNOWN_ERROR";
     this.errors = body.errors ?? [];
     this.requestId = body.requestId;
   }

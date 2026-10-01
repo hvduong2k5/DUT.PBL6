@@ -1,14 +1,19 @@
+"use client";
+
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { useCustomerSession } from "@/components/auth/customer-session-provider";
+import { LogoutButton } from "./logout-button";
 
 interface AccountShellProps {
-  active: "profile" | "addresses" | "orders";
+  active: "profile" | "addresses" | "orders" | "loyalty";
   customerName?: string;
   customerEmail?: string;
   children: ReactNode;
 }
 
 export function AccountShell({ active, customerName = "Thành viên Tri Kỷ", customerEmail, children }: AccountShellProps) {
+  const { hasCapability } = useCustomerSession();
   const initial = customerName.trim().charAt(0).toLocaleUpperCase("vi") || "Ô";
   return (
     <main className="account-page">
@@ -22,11 +27,12 @@ export function AccountShell({ active, customerName = "Thành viên Tri Kỷ", c
             <div><strong>{customerName}</strong>{customerEmail && <small>{customerEmail}</small>}</div>
           </section>
           <nav className="account-menu" aria-label="Điều hướng tài khoản">
-            <Link className={active === "profile" ? "active" : ""} href="/account/profile"><span>♙</span> Hồ sơ cá nhân <b>›</b></Link>
-            <Link className={active === "addresses" ? "active" : ""} href="/account/addresses"><span>⌖</span> Sổ địa chỉ nhận hàng <b>›</b></Link>
-            <Link className={active === "orders" ? "active" : ""} href="/account/orders"><span>▤</span> Đơn hàng của tôi <b>›</b></Link>
-            <span className="account-menu-disabled"><span>♡</span> Điểm &amp; ưu đãi <small>Sắp có</small></span>
+            {hasCapability("PROFILE_MANAGE") ? <Link className={active === "profile" ? "active" : ""} href="/account/profile"><span>♙</span> Hồ sơ cá nhân <b>›</b></Link> : null}
+            {hasCapability("ADDRESS_MANAGE") ? <Link className={active === "addresses" ? "active" : ""} href="/account/addresses"><span>⌖</span> Sổ địa chỉ nhận hàng <b>›</b></Link> : null}
+            {hasCapability("ORDER_HISTORY_VIEW") ? <Link className={active === "orders" ? "active" : ""} href="/account/orders"><span>▤</span> Đơn hàng của tôi <b>›</b></Link> : null}
+            {hasCapability("LOYALTY_VIEW") ? <Link className={active === "loyalty" ? "active" : ""} href="/account/loyalty"><span>♡</span> Điểm &amp; ưu đãi <b>›</b></Link> : null}
           </nav>
+          <LogoutButton />
           <div className="account-help"><span>☏</span><p><strong>Cần hỗ trợ?</strong><br />Hotline Tri Kỷ: 1900 68 Hue</p></div>
         </aside>
         <div className="account-content">{children}</div>

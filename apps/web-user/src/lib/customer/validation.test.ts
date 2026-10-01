@@ -13,8 +13,13 @@ describe("customer profile validation", () => {
   });
 
   it("rejects a future birthday", () => {
-    expect(validateProfile({ fullName: "Tôn Thất Hoàng", phone: null, dateOfBirth: "2999-01-01", gender: null }))
+    expect(validateProfile({ fullName: "Tôn Thất Hoàng", email: "hoang@example.com", phone: null, dateOfBirth: "2999-01-01", gender: null }))
       .toHaveProperty("dateOfBirth");
+  });
+
+  it("requires a valid contact email", () => {
+    expect(validateProfile({ fullName: "Tôn Thất Hoàng", email: "email-sai", phone: null, dateOfBirth: null, gender: null }))
+      .toHaveProperty("email");
   });
 
   it("requires delivery identity and a detailed address", () => {
@@ -24,7 +29,6 @@ describe("customer profile validation", () => {
       recipientName: "",
       recipientPhone: "123",
       province: { code: "", name: "" },
-      district: null,
       ward: { code: "", name: "" },
       addressLine: "1",
       deliveryNote: null

@@ -31,5 +31,5 @@ export function parseProductDetailRequest(path: string[], params: URLSearchParam
 }
 
 export function toProductDetailUpstreamPath(slug: string): string {
-  return `catalog/products/${encodeURIComponent(slug)}`;
+  return `products/${encodeURIComponent(slug)}`;
 }

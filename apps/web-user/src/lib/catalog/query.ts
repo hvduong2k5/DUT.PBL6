@@ -10,6 +10,7 @@ export interface CatalogQuery {
   productType?: ProductType;
   minPrice?: number;
   maxPrice?: number;
+  ocopStars?: number;
   weights: number[];
   inStock: boolean;
   sort: CatalogSort;
@@ -57,6 +58,8 @@ export function parseCatalogQuery(params: URLSearchParams): QueryValidation {
     errors.push({ field: "price", message: "Giá tối thiểu không được lớn hơn giá tối đa." });
   }
 
+  const ocopStars = parseInteger(params.get("ocopStars"), "ocopStars", 3, 5, errors);
+
   const rawWeights = params.get("weights");
   const weights = rawWeights ? [...new Set(rawWeights.split(",").map(Number))] : [];
   if (weights.some((weight) => !Number.isInteger(weight) || weight < 1 || weight > 5_000) || weights.length > 10) {
@@ -78,28 +81,23 @@ export function parseCatalogQuery(params: URLSearchParams): QueryValidation {
   const pageSize = parseInteger(params.get("pageSize"), "pageSize", 1, 24, errors) ?? 9;
 
   if (errors.length) return { errors };
-  return { errors, query: { q, category, productType, minPrice, maxPrice, weights, inStock, sort, page, pageSize } };
+  return { errors, query: { q, category, productType, minPrice, maxPrice, ocopStars, weights, inStock, sort, page, pageSize } };
 }
 
-export function toMockoonQuery(query: CatalogQuery): URLSearchParams {
-  const result = new URLSearchParams({ page: String(query.page), limit: String(query.pageSize) });
-  if (query.q) result.set("search", query.q);
-  if (query.category) result.set("categorySlug_eq", query.category);
-  if (query.productType) result.set("productType_eq", query.productType);
-  if (query.minPrice !== undefined) result.set("priceVnd_gte", String(query.minPrice));
-  if (query.maxPrice !== undefined) result.set("priceVnd_lte", String(query.maxPrice));
-  if (query.weights.length) result.set("weightGrams_like", `^(${query.weights.join("|")})$`);
-  if (query.inStock) result.set("isAvailable_eq", "true");
+export function toCustomerCoreQuery(query: CatalogQuery): URLSearchParams {
+  const result = new URLSearchParams({ page: String(query.page), page_size: String(query.pageSize) });
+  if (query.q) result.set("q", query.q);
+  if (query.category) result.set("category_id", query.category);
+  if (query.minPrice !== undefined) result.set("min_price", String(query.minPrice));
+  if (query.maxPrice !== undefined) result.set("max_price", String(query.maxPrice));
+  if (query.ocopStars !== undefined) result.set("ocop_star", String(query.ocopStars));
 
-  const sorting: Record<CatalogSort, [string, "asc" | "desc"]> = {
-    CURATED: ["curatedRank", "asc"],
-    RELEVANCE: ["curatedRank", "asc"],
-    PRICE_ASC: ["priceVnd", "asc"],
-    PRICE_DESC: ["priceVnd", "desc"],
-    NAME_ASC: ["name", "asc"]
+  const sorting: Partial<Record<CatalogSort, "PRICE_ASC" | "PRICE_DESC" | "BEST_SELLING">> = {
+    CURATED: "BEST_SELLING",
+    PRICE_ASC: "PRICE_ASC",
+    PRICE_DESC: "PRICE_DESC"
   };
-  const [sort, order] = sorting[query.sort];
-  result.set("sort", sort);
-  result.set("order", order);
+  const sort = sorting[query.sort];
+  if (sort && !query.q) result.set("sort_by", sort);
   return result;
 }

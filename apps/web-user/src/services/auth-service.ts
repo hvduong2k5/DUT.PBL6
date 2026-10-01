@@ -3,7 +3,6 @@ import {
   AuthApiError,
   AuthenticatedSession,
   RegistrationConfirmation,
-  RegistrationResult,
   RecoveryVerification
 } from "@/lib/auth/types";
 
@@ -57,7 +56,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 }
 
 export const authService = {
-  login(input: { email: string; password: string; rememberMe: boolean }) {
+  login(input: { phoneNumber: string; password: string; rememberMe: boolean }) {
     return request<AuthenticatedSession>("/login", { method: "POST", body: input });
   },
   me() {
@@ -66,8 +65,11 @@ export const authService = {
   logout() {
     return request<void>("/logout", { method: "POST" });
   },
-  register(input: { displayName: string; email: string; password: string; termsVersion: string }) {
-    return request<RegistrationResult>("/register", { method: "POST", body: input });
+  register(input: { fullName: string; phoneNumber: string; email?: string; password: string }) {
+    return request<AuthenticatedSession>("/register", { method: "POST", body: input });
+  },
+  refresh() {
+    return request<{ refreshed: true }>("/refresh", { method: "POST" });
   },
   confirmRegistration(verificationToken: string) {
     return request<RegistrationConfirmation>("/registration-verifications/confirm", {

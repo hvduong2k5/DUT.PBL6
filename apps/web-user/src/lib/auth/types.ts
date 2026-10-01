@@ -4,6 +4,10 @@ export interface CustomerSummary {
   id: string;
   displayName: string;
   status: CustomerStatus;
+  phoneNumber?: string;
+  email?: string;
+  membershipTier?: "BRONZE" | "SILVER" | "GOLD" | "DIAMOND";
+  loyaltyPoints?: number;
 }
 
 export interface AuthenticatedSession {
@@ -45,8 +49,10 @@ export interface ApiFieldError {
 }
 
 export interface ApiErrorBody {
-  code: string;
-  message: string;
+  code?: string;
+  message?: string;
+  error_code?: string;
+  user_message?: string;
   errors?: ApiFieldError[];
   requestId?: string;
   retryAfter?: string;
@@ -60,10 +66,10 @@ export class AuthApiError extends Error {
   readonly retryAfter?: string;
 
   constructor(status: number, body: ApiErrorBody) {
-    super(body.message || "Không thể xử lý yêu cầu lúc này.");
+    super(body.user_message || body.message || "Không thể xử lý yêu cầu lúc này.");
     this.name = "AuthApiError";
     this.status = status;
-    this.code = body.code || "UNKNOWN_ERROR";
+    this.code = body.error_code || body.code || "UNKNOWN_ERROR";
     this.errors = body.errors ?? [];
     this.requestId = body.requestId;
     this.retryAfter = body.retryAfter;

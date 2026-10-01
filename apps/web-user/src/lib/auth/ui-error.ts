@@ -18,6 +18,11 @@ const SAFE_ERROR_COPY: Record<string, string> = {
   RATE_LIMITED: "Bạn đã gửi quá nhiều yêu cầu. Vui lòng chờ rồi thử lại.",
   NOTIFICATION_DELIVERY_FAILED: "Chưa thể gửi email lúc này. Vui lòng thử lại.",
   AUTH_UPSTREAM_UNAVAILABLE: "Không thể kết nối dịch vụ xác thực. Vui lòng thử lại sau.",
+  ERR_AUTH_UNAUTHORIZED: "Số điện thoại hoặc mật khẩu chưa chính xác.",
+  ERR_AUTH_FORBIDDEN: "Tài khoản hiện không được phép thực hiện thao tác này.",
+  ERR_CONFLICT: "Số điện thoại hoặc email đã được sử dụng.",
+  ERR_VALIDATION: "Thông tin chưa hợp lệ. Vui lòng kiểm tra lại.",
+  AUTH_FEATURE_NOT_SUPPORTED: "API customer hiện chưa hỗ trợ chức năng này.",
   INTERNAL_SERVER_ERROR: "Hệ thống đang bận. Vui lòng thử lại sau."
 };
 
@@ -28,7 +33,7 @@ export function getFieldErrors(error: unknown): Record<string, string> {
 
 export function getSafeErrorMessage(error: unknown): string {
   if (error instanceof AuthApiError) {
-    return SAFE_ERROR_COPY[error.code] ?? "Không thể xử lý yêu cầu lúc này. Vui lòng thử lại.";
+    return SAFE_ERROR_COPY[error.code] ?? error.message;
   }
   return "Không thể kết nối hệ thống. Vui lòng kiểm tra mạng và thử lại.";
 }

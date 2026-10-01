@@ -34,8 +34,8 @@ Cart upstream `4014` chỉ được BFF dùng để đọc internal cart lines v
   "address": {
     "provinceCode": "HUE",
     "provinceName": "Thành phố Huế",
-    "districtCode": "PHU-NHUAN",
-    "districtName": "Phường Phú Nhuận",
+    "wardCode": "PHU-NHUAN",
+    "wardName": "Phường Phú Nhuận",
     "addressLine": "Tầng 3, 84 Nguyễn Huệ"
   }
 }
@@ -55,8 +55,8 @@ Cart upstream `4014` chỉ được BFF dùng để đọc internal cart lines v
   "address": {
     "provinceCode": "HUE",
     "provinceName": "Thành phố Huế",
-    "districtCode": "PHU-NHUAN",
-    "districtName": "Phường Phú Nhuận",
+    "wardCode": "PHU-NHUAN",
+    "wardName": "Phường Phú Nhuận",
     "addressLine": "Tầng 3, 84 Nguyễn Huệ"
   },
   "shippingOptionId": "STANDARD",

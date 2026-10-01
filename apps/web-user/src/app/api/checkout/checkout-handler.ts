@@ -1,108 +1,47 @@
 import { randomUUID } from "node:crypto";
-import type { CheckoutLine, CheckoutPreparation, SavedCheckoutAddress, ShippingOption, ShippingQuote } from "@/lib/checkout/types";
+import { mapCustomerCoreCart, type CustomerCoreCart } from "@/lib/cart/customer-core";
+import {
+  buildCustomerCoreCheckoutRequest,
+  mapCustomerCoreCheckoutPreferences,
+  mapCustomerCoreCheckoutConfirmation,
+  type CustomerCoreCheckoutResponse
+} from "@/lib/checkout/customer-core";
+import type { CheckoutLine, CheckoutPreparation, ShippingQuote } from "@/lib/checkout/types";
+import { parseCheckoutLocations } from "@/lib/checkout/locations";
+import type { CustomerCoreAddress, CustomerCoreProfile } from "@/lib/customer/customer-core";
 import {
   parseCheckoutRoute,
   validateConfirmCheckoutInput,
   validatePrepareCheckoutInput,
   validateQuoteShippingInput
 } from "@/lib/checkout/validation";
-import { paymentAccessCookie } from "@/lib/payment/access";
+import { PAYMENT_ACCESS_COOKIE, encodePaymentAccess, type PaymentAccessClaim } from "@/lib/payment/access";
+import { fetchCustomerCapabilities } from "@/lib/auth/capability-server";
+import { GUEST_ORDER_ACCESS_COOKIE, encodeGuestOrderAccess, type GuestOrderAccessClaim } from "@/lib/orders/guest-access";
 import { NextRequest, NextResponse } from "next/server";
 
 const CART_COOKIE = "oma_cart_context";
 const CART_CONTEXT_PATTERN = /^[0-9a-f-]{36}$/u;
-const CART_MOCK_CONTEXTS = new Set(["cart-prefilled", "cart-empty", "price-changed", "cart-unavailable"]);
-
-interface CartLineRecord {
-  id: string;
-  contextId: string;
-  skuId: string;
-  quantity: number;
-  unitPriceVndAtAddition: number;
-  productSlug: string;
-  productName: string;
-  imageUrl: string;
-  imageAlt: string;
-  skuLabel: string;
-  weightGrams: number;
-  flavor?: string | null;
-  packageType: string;
-}
-
-interface SkuProjection {
-  skuId: string;
-  productSlug: string;
-  productName: string;
-  imageUrl: string;
-  imageAlt: string;
-  skuLabel: string;
-  weightGrams: number;
-  flavor?: string | null;
-  packageType: string;
-  unitPriceVnd: number;
-  isAvailable: boolean;
-  unavailableReason?: string | null;
-  maxPurchasableQuantity: number;
-}
-
-interface CheckoutBootstrap {
-  customerMode: "GUEST" | "REGISTERED";
-  savedAddresses: SavedCheckoutAddress[];
-}
-
-interface UpstreamConfirmation {
-  orderId: string;
-  orderNumber: string;
-  status: "PENDING_PAYMENT" | "PLACED";
-  paymentStatus: "UNPAID";
-  reservationExpiresAt: string;
-  nextStep: "PAYMENT_REQUIRED" | "ORDER_PLACED";
-  message: string;
-}
-
-interface UpstreamErrorBody {
-  code?: string;
-  message?: string;
-  errors?: Array<{ field: string; message: string }>;
-  itemIssues?: Array<{ itemId: string; code: string; message: string }>;
-}
-
-class UpstreamHttpError extends Error {
-  constructor(readonly status: number, readonly body: UpstreamErrorBody = {}) {
-    super(body.message || `Checkout upstream returned ${status}`);
-  }
-}
-
-function cartCookieHeader(contextId: string): string {
-  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
-  return `${CART_COOKIE}=${contextId}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000${secure}`;
-}
 
 function withCartCookie(response: NextResponse, contextId: string, shouldSet: boolean): NextResponse {
-  if (shouldSet) response.headers.append("Set-Cookie", cartCookieHeader(contextId));
+  if (shouldSet) response.cookies.set(CART_COOKIE, contextId, {
+    path: "/",
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 2_592_000
+  });
   return response;
 }
 
-function errorResponse(
-  code: string,
-  message: string,
-  status: number,
-  contextId: string,
-  shouldSet: boolean,
-  errors: Array<{ field: string; message: string }> = [],
-  itemIssues: Array<{ itemId: string; code: string; message: string }> = []
-) {
-  return withCartCookie(NextResponse.json({ code, message, errors, itemIssues, requestId: `BFF-CHECKOUT-${code}` }, { status }), contextId, shouldSet);
+function errorResponse(code: string, message: string, status: number, contextId: string, shouldSet: boolean, errors: Array<{ field: string; message: string }> = []) {
+  return withCartCookie(NextResponse.json({ code, message, errors, requestId: `BFF-CHECKOUT-${code}` }, { status }), contextId, shouldSet);
 }
 
-function getCartContext(request: NextRequest, cartScenario?: string) {
+function getCartContext(request: NextRequest) {
   const existing = request.cookies.get(CART_COOKIE)?.value;
   const validExisting = existing && CART_CONTEXT_PATTERN.test(existing) ? existing : undefined;
-  const contextId = validExisting ?? randomUUID();
-  const mockContextId = process.env.NODE_ENV !== "production" && cartScenario && CART_MOCK_CONTEXTS.has(cartScenario)
-    ? `mock-${cartScenario}`
-    : contextId;
-  return { contextId, mockContextId, shouldSet: !validExisting };
+  return { contextId: validExisting ?? randomUUID(), shouldSet: !validExisting };
 }
 
 async function readJsonBody(request: NextRequest): Promise<unknown> {
@@ -113,117 +52,159 @@ async function readJsonBody(request: NextRequest): Promise<unknown> {
   }
 }
 
-async function upstreamJson<T>(baseUrl: string, path: string, scenario?: string, init: RequestInit = {}): Promise<T> {
-  const headers = new Headers(init.headers);
-  headers.set("Accept", "application/json");
-  if (init.body) headers.set("Content-Type", "application/json");
+function upstreamHeaders(request: NextRequest, contextId: string, scenario?: string, hasBody = false) {
+  const headers = new Headers({ Accept: "application/json", "X-Session-Id": contextId });
+  const authorization = request.headers.get("authorization");
+  const accessToken = request.cookies.get("oma_access_token")?.value;
+  const cookie = request.headers.get("cookie");
+  if (authorization) headers.set("Authorization", authorization);
+  else if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
+  if (cookie) headers.set("Cookie", cookie);
+  if (hasBody) headers.set("Content-Type", "application/json");
   if (process.env.NODE_ENV !== "production" && scenario) headers.set("X-Mock-Scenario", scenario);
-  const response = await fetch(`${baseUrl.replace(/\/$/u, "")}/${path}`, { ...init, headers, cache: "no-store", redirect: "manual" });
-  const contentType = response.headers.get("content-type") ?? "";
-  const payload = contentType.includes("application/json") ? await response.json() : undefined;
-  if (!response.ok) throw new UpstreamHttpError(response.status, (payload ?? {}) as UpstreamErrorBody);
-  return payload as T;
+  return headers;
 }
 
-async function loadSelectedLines(contextId: string, itemIds: string[], cartScenario?: string): Promise<CheckoutLine[]> {
-  const cartBase = process.env.CART_UPSTREAM_URL ?? "http://127.0.0.1:4014/api/v1";
-  const params = new URLSearchParams({ contextId_eq: contextId, sort: "createdAt", order: "asc" });
-  const [lines, projections] = await Promise.all([
-    upstreamJson<CartLineRecord[]>(cartBase, `internal/cart-lines?${params}`, cartScenario),
-    upstreamJson<SkuProjection[]>(cartBase, "internal/cart-sku-projections", cartScenario)
-  ]);
+async function loadSelectedLines(request: NextRequest, contextId: string, itemIds: string[], scenario?: string): Promise<CheckoutLine[]> {
+  const base = (process.env.CUSTOMER_CORE_UPSTREAM_URL ?? "http://127.0.0.1:4010/api/v1").replace(/\/$/u, "");
+  const response = await fetch(`${base}/cart`, { headers: upstreamHeaders(request, contextId, scenario), cache: "no-store", redirect: "manual" });
+  const payload = await response.json() as CustomerCoreCart & { error_code?: string; user_message?: string };
+  if (!response.ok) throw { status: response.status, payload };
+  const cart = mapCustomerCoreCart(payload);
   const requested = new Set(itemIds);
-  const selected = lines.filter((line) => requested.has(line.id));
+  const selected = cart.items.filter((item) => requested.has(item.itemId));
   if (selected.length !== requested.size) {
-    const found = new Set(selected.map((line) => line.id));
-    throw new UpstreamHttpError(409, {
-      code: "CART_CHANGED",
-      message: "Giỏ hàng đã thay đổi. Vui lòng quay lại giỏ và chọn lại sản phẩm.",
-      itemIssues: itemIds.filter((itemId) => !found.has(itemId)).map((itemId) => ({ itemId, code: "ITEM_NOT_FOUND", message: "Dòng sản phẩm không còn trong giỏ hiện tại." }))
-    });
+    throw { status: 409, payload: { error_code: "CART_CHANGED", user_message: "Giỏ hàng đã thay đổi. Vui lòng quay lại giỏ và chọn lại sản phẩm." } };
   }
-  const projectionBySku = new Map(projections.map((projection) => [projection.skuId, projection]));
-  const issues: Array<{ itemId: string; code: string; message: string }> = [];
-  const result = selected.map((line) => {
-    const current = projectionBySku.get(line.skuId);
-    if (!current?.isAvailable) issues.push({ itemId: line.id, code: "SKU_UNAVAILABLE", message: current?.unavailableReason || "Quy cách này không còn khả dụng." });
-    else if (line.quantity > current.maxPurchasableQuantity) issues.push({ itemId: line.id, code: "QUANTITY_UNAVAILABLE", message: "Số lượng hiện không thể đáp ứng. Vui lòng điều chỉnh giỏ hàng." });
-    const unitPriceVnd = current?.unitPriceVnd ?? line.unitPriceVndAtAddition;
-    return {
-      itemId: line.id,
-      productSlug: current?.productSlug ?? line.productSlug,
-      productName: current?.productName ?? line.productName,
-      imageUrl: current?.imageUrl ?? line.imageUrl,
-      imageAlt: current?.imageAlt ?? line.imageAlt,
-      skuId: line.skuId,
-      skuLabel: current?.skuLabel ?? line.skuLabel,
-      weightGrams: current?.weightGrams ?? line.weightGrams,
-      flavor: current?.flavor ?? line.flavor,
-      packageType: current?.packageType ?? line.packageType,
-      unitPriceVnd,
-      quantity: line.quantity,
-      lineSubtotalVnd: unitPriceVnd * line.quantity,
-      priceChanged: Boolean(current && unitPriceVnd !== line.unitPriceVndAtAddition),
-      previousUnitPriceVnd: current && unitPriceVnd !== line.unitPriceVndAtAddition ? line.unitPriceVndAtAddition : null
-    } satisfies CheckoutLine;
-  });
-  if (issues.length) throw new UpstreamHttpError(409, { code: "CHECKOUT_ITEMS_UNAVAILABLE", message: "Một số sản phẩm cần được điều chỉnh trước khi Checkout.", itemIssues: issues });
-  return result;
+  if (selected.some((item) => !item.isAvailable)) {
+    throw { status: 409, payload: { error_code: "CHECKOUT_ITEMS_UNAVAILABLE", user_message: "Một số sản phẩm đã hết hàng. Vui lòng kiểm tra lại giỏ." } };
+  }
+  return selected.map((item) => ({
+    itemId: item.itemId,
+    productSlug: item.productSlug,
+    productName: item.productName,
+    imageUrl: item.imageUrl,
+    imageAlt: item.imageAlt,
+    skuId: item.skuId,
+    skuLabel: item.skuLabel,
+    weightGrams: item.weightGrams,
+    flavor: item.flavor,
+    packageType: item.packageType,
+    unitPriceVnd: item.unitPriceVnd,
+    quantity: item.quantity,
+    lineSubtotalVnd: item.lineSubtotalVnd ?? item.unitPriceVnd * item.quantity,
+    priceChanged: false,
+    previousUnitPriceVnd: null
+  }));
 }
 
-function publicShippingQuote(value: ShippingQuote): ShippingQuote {
-  const options = Array.isArray(value.options) ? value.options.filter((option): option is ShippingOption => (
-    typeof option?.shippingOptionId === "string"
-    && typeof option.name === "string"
-    && typeof option.description === "string"
-    && Number.isInteger(option.feeVnd) && option.feeVnd >= 0
-    && typeof option.estimatedDelivery === "string"
-  )).map((option) => ({
-    shippingOptionId: option.shippingOptionId,
-    name: option.name,
-    description: option.description,
-    feeVnd: option.feeVnd,
-    estimatedDelivery: option.estimatedDelivery
-  })) : [];
-  return { options, quotedAt: value.quotedAt, expiresAt: value.expiresAt };
+async function loadRegisteredCheckoutPreferences(request: NextRequest, contextId: string, canReadProfile: boolean, canReadAddresses: boolean) {
+  const base = (process.env.CUSTOMER_CORE_UPSTREAM_URL ?? "http://127.0.0.1:4010/api/v1").replace(/\/$/u, "");
+  const load = async (path: string) => {
+    const response = await fetch(`${base}/${path}`, { headers: upstreamHeaders(request, contextId), cache: "no-store", redirect: "manual" });
+    if (!response.ok) throw new Error(`Registered checkout source ${path} returned ${response.status}`);
+    return await response.json() as unknown;
+  };
+  const [profileResult, addressesResult] = await Promise.allSettled([
+    canReadProfile ? load("profile") : Promise.resolve(undefined),
+    canReadAddresses ? load("profile/addresses") : Promise.resolve(undefined)
+  ]);
+  const profile = profileResult.status === "fulfilled" ? profileResult.value as CustomerCoreProfile | undefined : undefined;
+  const addressPayload = addressesResult.status === "fulfilled" ? addressesResult.value as { addresses?: CustomerCoreAddress[] } | undefined : undefined;
+  const preferences = mapCustomerCoreCheckoutPreferences(profile, addressPayload?.addresses ?? []);
+  const unavailable = (canReadProfile && profileResult.status === "rejected") || (canReadAddresses && addressesResult.status === "rejected");
+  return {
+    ...preferences,
+    ...(unavailable ? { accountDataWarning: "Chưa thể tải đầy đủ hồ sơ hoặc sổ địa chỉ. Bạn vẫn có thể nhập thông tin nhận hàng cho đơn này." } : {})
+  };
 }
 
-function publicBootstrap(value: CheckoutBootstrap): CheckoutBootstrap {
-  const savedAddresses = Array.isArray(value.savedAddresses) ? value.savedAddresses.map((saved) => ({
-    addressId: saved.addressId,
-    label: saved.label,
-    recipient: { fullName: saved.recipient.fullName, phone: saved.recipient.phone, email: saved.recipient.email },
-    address: {
-      provinceCode: saved.address.provinceCode,
-      provinceName: saved.address.provinceName,
-      districtCode: saved.address.districtCode,
-      districtName: saved.address.districtName,
-      addressLine: saved.address.addressLine
-    },
-    isDefault: Boolean(saved.isDefault)
-  })) : [];
-  return { customerMode: value.customerMode === "REGISTERED" ? "REGISTERED" : "GUEST", savedAddresses };
+async function loadCheckoutLocations(request: NextRequest, contextId: string, scenario?: string) {
+  const base = (process.env.CUSTOMER_EXTENSIONS_UPSTREAM_URL ?? "http://127.0.0.1:4020/api/v1").replace(/\/$/u, "");
+  const response = await fetch(`${base}/locations/checkout`, { headers: upstreamHeaders(request, contextId, scenario), cache: "no-store", redirect: "manual" });
+  const contentType = response.headers.get("content-type") ?? "";
+  const payload = contentType.includes("application/json") ? await response.json() as unknown : undefined;
+  if (!response.ok) throw { status: response.status, payload };
+  const locations = parseCheckoutLocations(payload);
+  if (!locations) throw { status: 502, payload: { code: "CHECKOUT_LOCATIONS_INVALID", message: "Danh mục Tỉnh/Thành phố và Phường/Xã không hợp lệ." } };
+  return locations;
 }
 
-function preparation(lines: CheckoutLine[], bootstrap: CheckoutBootstrap): CheckoutPreparation {
-  const priceRevalidatedAt = new Date().toISOString();
-  const changed = lines.filter((line) => line.priceChanged);
+function preparation(
+  lines: CheckoutLine[],
+  customerMode: "GUEST" | "REGISTERED",
+  locations: CheckoutPreparation["locations"],
+  preferences: Pick<CheckoutPreparation, "defaultRecipient" | "savedAddresses" | "accountDataWarning"> = { savedAddresses: [] }
+): CheckoutPreparation {
   return {
     checkoutSessionId: `checkout-${randomUUID()}`,
     items: lines,
     itemCount: lines.reduce((total, line) => total + line.quantity, 0),
     subtotalVnd: lines.reduce((total, line) => total + line.lineSubtotalVnd, 0),
-    priceRevalidatedAt,
-    requiresPriceAcknowledgement: changed.length > 0,
-    notices: changed.map((line) => ({ code: "PRICE_CHANGED", itemId: line.itemId, message: `Giá ${line.skuLabel} đã được cập nhật theo giá bán hiện tại.` })),
-    customerMode: bootstrap.customerMode,
-    savedAddresses: bootstrap.savedAddresses
+    priceRevalidatedAt: new Date().toISOString(),
+    requiresPriceAcknowledgement: false,
+    notices: [],
+    customerMode,
+    defaultRecipient: preferences.defaultRecipient,
+    savedAddresses: preferences.savedAddresses,
+    locations,
+    accountDataWarning: preferences.accountDataWarning
   };
+}
+
+function calculatedShippingQuote(): ShippingQuote {
+  const now = Date.now();
+  return {
+    options: [{
+      shippingOptionId: "CALCULATED-AT-CHECKOUT",
+      name: "Giao hàng tiêu chuẩn",
+      description: "Phí được hệ thống tính khi tạo đơn",
+      feeVnd: 0,
+      estimatedDelivery: "Thời gian giao dự kiến sẽ hiển thị trong chi tiết đơn",
+      calculatedAtCheckout: true
+    }],
+    quotedAt: new Date(now).toISOString(),
+    expiresAt: new Date(now + 15 * 60 * 1000).toISOString()
+  };
+}
+
+function isUpstreamFailure(value: unknown): value is { status: number; payload: unknown } {
+  return Boolean(value && typeof value === "object" && "status" in value && "payload" in value);
+}
+
+async function grantGuestOrderAccess(
+  request: NextRequest,
+  claim: Omit<GuestOrderAccessClaim, "accessExpiresAt">,
+  contact: { phone: string; email?: string },
+  idempotencyKey: string,
+  scenario?: string
+): Promise<GuestOrderAccessClaim> {
+  const base = (process.env.CUSTOMER_EXTENSIONS_UPSTREAM_URL ?? "http://127.0.0.1:4020/api/v1").replace(/\/$/u, "");
+  const headers = upstreamHeaders(request, randomUUID(), scenario, true);
+  headers.set("X-Idempotency-Key", idempotencyKey);
+  const response = await fetch(`${base}/orders/guest-access/grants`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ ...claim, contact }),
+    cache: "no-store",
+    redirect: "manual"
+  });
+  const contentType = response.headers.get("content-type") ?? "";
+  const payload = contentType.includes("application/json") ? await response.json() as Record<string, unknown> : {};
+  if (!response.ok) throw { status: response.status, payload };
+  const expiresAt = typeof payload.accessExpiresAt === "string" ? Date.parse(payload.accessExpiresAt) : Number.NaN;
+  if (payload.granted !== true || !Number.isFinite(expiresAt) || expiresAt <= Date.now() || expiresAt > Date.now() + 24 * 60 * 60 * 1000) {
+    throw {
+      status: 502,
+      payload: { code: "GUEST_ACCESS_GRANT_INVALID", message: "Order đã được tạo nhưng chưa thể cấp quyền xem đơn cho Guest." }
+    };
+  }
+  return { ...claim, accessExpiresAt: expiresAt };
 }
 
 export async function handleCheckoutRequest(request: NextRequest, path: string[]): Promise<NextResponse> {
   const route = parseCheckoutRoute(request.method, path, request.nextUrl.searchParams);
-  const { contextId, mockContextId, shouldSet } = getCartContext(request, route.cartScenario);
+  const { contextId, shouldSet } = getCartContext(request);
   if (route.error || !route.operation) {
     const notFound = route.error?.field === "path";
     return errorResponse(notFound ? "NOT_FOUND" : "INVALID_REQUEST", route.error?.message ?? "Yêu cầu không hợp lệ.", notFound ? 404 : 400, contextId, shouldSet, route.error ? [route.error] : []);
@@ -231,108 +212,94 @@ export async function handleCheckoutRequest(request: NextRequest, path: string[]
   if (process.env.NODE_ENV === "production" && (route.mockScenario || route.cartScenario)) {
     return errorResponse("INVALID_REQUEST", "Mock scenario không khả dụng trong production.", 400, contextId, shouldSet);
   }
+  let customerMode: "GUEST" | "REGISTERED" = "GUEST";
+  let canReadProfile = false;
+  let canReadAddresses = false;
+  try {
+    const projection = await fetchCustomerCapabilities(request.cookies.get("oma_access_token")?.value);
+    if (!projection.capabilities.includes("CHECKOUT_CREATE")) return errorResponse("CAPABILITY_FORBIDDEN", "Actor hiện tại không có quyền tạo Checkout.", 403, contextId, shouldSet);
+    customerMode = projection.actor === "GUEST" ? "GUEST" : "REGISTERED";
+    canReadProfile = projection.capabilities.includes("PROFILE_MANAGE");
+    canReadAddresses = projection.capabilities.includes("ADDRESS_MANAGE");
+  } catch {
+    return errorResponse("CAPABILITY_UNAVAILABLE", "Chưa thể kiểm tra quyền Customer lúc này.", 503, contextId, shouldSet);
+  }
 
-  const checkoutBase = process.env.CHECKOUT_UPSTREAM_URL ?? "http://127.0.0.1:4015/api/v1";
   try {
     const body = await readJsonBody(request);
     if (route.operation === "prepare") {
       const parsed = validatePrepareCheckoutInput(body);
       if (!parsed.data) return errorResponse("INVALID_REQUEST", "Sản phẩm Checkout chưa hợp lệ.", 422, contextId, shouldSet, parsed.errors);
-      const [lines, bootstrap] = await Promise.all([
-        loadSelectedLines(mockContextId, parsed.data.itemIds, route.cartScenario),
-        upstreamJson<CheckoutBootstrap>(checkoutBase, "checkout/bootstrap", route.mockScenario)
+      const [lines, locations, preferences] = await Promise.all([
+        loadSelectedLines(request, contextId, parsed.data.itemIds, route.cartScenario),
+        loadCheckoutLocations(request, contextId, route.mockScenario),
+        customerMode === "REGISTERED"
+          ? loadRegisteredCheckoutPreferences(request, contextId, canReadProfile, canReadAddresses)
+          : Promise.resolve({ savedAddresses: [] })
       ]);
-      return withCartCookie(NextResponse.json(preparation(lines, publicBootstrap(bootstrap))), contextId, shouldSet);
+      return withCartCookie(NextResponse.json(preparation(lines, customerMode, locations, preferences)), contextId, shouldSet);
     }
 
     if (route.operation === "quote-shipping") {
       const parsed = validateQuoteShippingInput(body);
       if (!parsed.data) return errorResponse("VALIDATION_ERROR", "Địa chỉ giao hàng chưa hợp lệ.", 422, contextId, shouldSet, parsed.errors);
-      const lines = await loadSelectedLines(mockContextId, parsed.data.itemIds, route.cartScenario);
-      const quote = await upstreamJson<ShippingQuote>(checkoutBase, "checkout/shipping-quotes", route.mockScenario, {
-        method: "POST",
-        body: JSON.stringify({
-          checkoutSessionId: parsed.data.checkoutSessionId,
-          address: parsed.data.address,
-          parcel: {
-            itemCount: lines.reduce((total, line) => total + line.quantity, 0),
-            totalWeightGrams: lines.reduce((total, line) => total + line.weightGrams * line.quantity, 0)
-          }
-        })
-      });
-      return withCartCookie(NextResponse.json(publicShippingQuote(quote)), contextId, shouldSet);
+      await loadSelectedLines(request, contextId, parsed.data.itemIds, route.cartScenario);
+      return withCartCookie(NextResponse.json(calculatedShippingQuote()), contextId, shouldSet);
     }
 
     const parsed = validateConfirmCheckoutInput(body);
     if (!parsed.data) return errorResponse("VALIDATION_ERROR", "Thông tin xác nhận đơn chưa hợp lệ.", 422, contextId, shouldSet, parsed.errors);
-    const lines = await loadSelectedLines(mockContextId, parsed.data.itemIds, route.cartScenario);
-    if (lines.some((line) => line.priceChanged) && !parsed.data.priceChangesAcknowledged) {
-      return errorResponse("PRICE_ACKNOWLEDGEMENT_REQUIRED", "Vui lòng xác nhận giá hiện tại trước khi đặt hàng.", 409, contextId, shouldSet);
-    }
-    const quote = publicShippingQuote(await upstreamJson<ShippingQuote>(checkoutBase, "checkout/shipping-quotes", undefined, {
+    const lines = await loadSelectedLines(request, contextId, parsed.data.itemIds, route.cartScenario);
+    const checkoutBody = buildCustomerCoreCheckoutRequest(lines, parsed.data.recipient, parsed.data.address, parsed.data.paymentMethod, parsed.data.voucherCode);
+    const base = (process.env.CUSTOMER_CORE_UPSTREAM_URL ?? "http://127.0.0.1:4010/api/v1").replace(/\/$/u, "");
+    const headers = upstreamHeaders(request, contextId, route.mockScenario, true);
+    headers.set("X-Idempotency-Key", parsed.data.idempotencyKey);
+    const upstream = await fetch(`${base}/checkout`, {
       method: "POST",
-      body: JSON.stringify({
-        checkoutSessionId: parsed.data.checkoutSessionId,
-        address: parsed.data.address,
-        parcel: {
-          itemCount: lines.reduce((total, line) => total + line.quantity, 0),
-          totalWeightGrams: lines.reduce((total, line) => total + line.weightGrams * line.quantity, 0)
-        }
-      })
-    }));
-    if (!Number.isFinite(Date.parse(quote.expiresAt)) || Date.parse(quote.expiresAt) <= Date.now()) {
-      return errorResponse("SHIPPING_QUOTE_EXPIRED", "Báo phí vận chuyển đã hết hiệu lực. Vui lòng tính lại phí.", 409, contextId, shouldSet);
-    }
-    const shipping = quote.options.find((option) => option.shippingOptionId === parsed.data!.shippingOptionId);
-    if (!shipping) return errorResponse("SHIPPING_OPTION_UNAVAILABLE", "Phương thức giao hàng đã chọn không còn khả dụng. Vui lòng tính lại phí.", 409, contextId, shouldSet);
-    const subtotalVnd = lines.reduce((total, line) => total + line.lineSubtotalVnd, 0);
-    const upstreamConfirmation = await upstreamJson<UpstreamConfirmation>(checkoutBase, "checkout/confirm", route.mockScenario, {
-      method: "POST",
-      headers: { "Idempotency-Key": parsed.data.idempotencyKey },
-      body: JSON.stringify({
-        checkoutSessionId: parsed.data.checkoutSessionId,
-        idempotencyKey: parsed.data.idempotencyKey,
-        recipient: parsed.data.recipient,
-        shippingAddress: parsed.data.address,
-        shipping,
-        paymentMethod: parsed.data.paymentMethod,
-        commercialSnapshot: { lines, subtotalVnd, shippingFeeVnd: shipping.feeVnd, discountVnd: 0, totalVnd: subtotalVnd + shipping.feeVnd }
-      })
+      headers,
+      body: JSON.stringify(checkoutBody),
+      cache: "no-store",
+      redirect: "manual"
     });
-    const confirmation = {
-      orderId: upstreamConfirmation.orderId,
-      orderNumber: upstreamConfirmation.orderNumber,
-      status: upstreamConfirmation.status,
-      paymentStatus: "UNPAID" as const,
-      paymentMethod: parsed.data.paymentMethod,
-      reservationExpiresAt: upstreamConfirmation.reservationExpiresAt,
-      subtotalVnd,
-      shippingFeeVnd: shipping.feeVnd,
-      discountVnd: 0,
-      totalVnd: subtotalVnd + shipping.feeVnd,
-      nextStep: upstreamConfirmation.nextStep,
-      paymentPath: `/payment/${encodeURIComponent(upstreamConfirmation.orderId)}`,
-      message: upstreamConfirmation.message
-    };
+    const upstreamPayload = await upstream.json() as CustomerCoreCheckoutResponse & { error_code?: string; user_message?: string };
+    if (!upstream.ok) throw { status: upstream.status, payload: upstreamPayload };
+    const confirmation = mapCustomerCoreCheckoutConfirmation(upstreamPayload, parsed.data.paymentMethod, customerMode);
+    const guestClaim = customerMode === "GUEST" ? await grantGuestOrderAccess(
+      request,
+      { orderId: confirmation.orderId, orderNumber: confirmation.orderNumber },
+      { phone: parsed.data.recipient.phone, ...(parsed.data.recipient.email ? { email: parsed.data.recipient.email } : {}) },
+      parsed.data.idempotencyKey,
+      route.mockScenario
+    ) : undefined;
     const response = withCartCookie(NextResponse.json(confirmation, { status: 201 }), contextId, shouldSet);
-    const now = Date.now();
-    response.headers.append("Set-Cookie", paymentAccessCookie({
+    if (guestClaim) response.cookies.set(GUEST_ORDER_ACCESS_COOKIE, encodeGuestOrderAccess(guestClaim), {
+      path: "/api/orders",
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      maxAge: Math.max(1, Math.floor((guestClaim.accessExpiresAt - Date.now()) / 1000))
+    });
+    const paymentClaim: PaymentAccessClaim = {
       orderId: confirmation.orderId,
       orderNumber: confirmation.orderNumber,
       method: confirmation.paymentMethod,
       amountVnd: confirmation.totalVnd,
-      paymentExpiresAt: new Date(now + 15 * 60 * 1000).toISOString(),
-      accessExpiresAt: now + 30 * 60 * 1000
-    }));
+      paymentExpiresAt: confirmation.paymentExpiresAt ?? confirmation.reservationExpiresAt,
+      accessExpiresAt: Date.now() + 30 * 60 * 1000,
+      vietQrUrl: confirmation.vietQrUrl
+    };
+    response.cookies.set(PAYMENT_ACCESS_COOKIE, encodePaymentAccess(paymentClaim), {
+      path: "/api/payments",
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      maxAge: Math.max(1, Math.floor((paymentClaim.accessExpiresAt - Date.now()) / 1000))
+    });
     return response;
   } catch (cause) {
-    if (cause instanceof UpstreamHttpError) {
-      const status = cause.status >= 400 && cause.status <= 599 ? cause.status : 500;
-      return errorResponse(cause.body.code || "CHECKOUT_ERROR", cause.body.message || "Không thể xử lý Checkout lúc này.", status, contextId, shouldSet, cause.body.errors ?? [], cause.body.itemIssues ?? []);
+    if (isUpstreamFailure(cause)) {
+      return withCartCookie(NextResponse.json(cause.payload, { status: cause.status }), contextId, shouldSet);
     }
-    const message = process.env.NODE_ENV === "production"
-      ? "Dịch vụ Checkout đang tạm gián đoạn. Vui lòng thử lại sau."
-      : "Checkout Mockoon chưa sẵn sàng trên port 4015 hoặc Cart Mockoon chưa chạy trên port 4014.";
-    return errorResponse("CHECKOUT_UPSTREAM_UNAVAILABLE", message, 503, contextId, shouldSet);
+    return errorResponse("CHECKOUT_UPSTREAM_UNAVAILABLE", "Dịch vụ Checkout đang tạm gián đoạn. Hãy kiểm tra Mockoon customer API.", 503, contextId, shouldSet);
   }
 }

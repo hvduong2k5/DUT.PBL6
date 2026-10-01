@@ -5,14 +5,14 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import { AccountShell } from "@/components/account/account-shell";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
-import { CustomerApiError, CustomerProfile, Gender, ProfileInput } from "@/lib/customer/types";
+import { CustomerApiError, CustomerProfile, ProfileInput } from "@/lib/customer/types";
 import { FieldErrors, normalizePhone, validateProfile } from "@/lib/customer/validation";
 import { customerService } from "@/services/customer-service";
 
-const EMPTY: ProfileInput = { fullName: "", phone: null, dateOfBirth: null, gender: null };
+const EMPTY: ProfileInput = { fullName: "", email: "", phone: null, dateOfBirth: null, gender: null };
 
 function toForm(profile: CustomerProfile): ProfileInput {
-  return { fullName: profile.fullName, phone: profile.phone, dateOfBirth: profile.dateOfBirth, gender: profile.gender };
+  return { fullName: profile.fullName, email: profile.email, phone: profile.phone, dateOfBirth: profile.dateOfBirth, gender: profile.gender };
 }
 
 function formatUpdatedAt(value: string): string {
@@ -68,6 +68,7 @@ export function ProfileFlow() {
     setNotice(null);
     const payload: ProfileInput = {
       fullName: form.fullName.trim(),
+      email: form.email.trim(),
       phone: form.phone ? normalizePhone(form.phone) : null,
       dateOfBirth: form.dateOfBirth || null,
       gender: form.gender
@@ -91,7 +92,7 @@ export function ProfileFlow() {
   return <><SiteHeader /><AccountShell active="profile" customerName={profile?.fullName} customerEmail={profile?.email}>
     <section className="account-hero">
       <div><span className="eyebrow">Quản trị Tri Kỷ</span><h1>Hồ sơ cá nhân</h1><p>Cập nhật thông tin liên hệ để hành trình đặt quà thuận tiện và chính xác.</p></div>
-      <span className="verified-badge">✓ Email đã xác minh</span>
+      {profile?.email ? <span className="verified-badge">Email liên hệ đã lưu</span> : null}
     </section>
 
     {loading ? <section className="account-card center-state" aria-live="polite"><span className="large-spinner" /><p>Đang mở hồ sơ Tri Kỷ…</p></section> : !profile ?
@@ -101,14 +102,10 @@ export function ProfileFlow() {
         {notice && <div className={`status-notice ${notice.kind}`} role="status">{notice.text}</div>}
         <div className="profile-grid">
           <label className="account-field wide"><span>Họ và tên <b>*</b></span><input value={form.fullName} onChange={(event) => update("fullName", event.target.value)} aria-invalid={Boolean(errors.fullName)} />{errors.fullName && <small>{errors.fullName}</small>}</label>
-          <label className="account-field"><span>Số điện thoại</span><input inputMode="tel" placeholder="0912 345 892" value={form.phone ?? ""} onChange={(event) => update("phone", event.target.value || null)} aria-invalid={Boolean(errors.phone)} />{errors.phone && <small>{errors.phone}</small>}</label>
-          <label className="account-field"><span>Email đăng nhập</span><div className="readonly-input"><span>{profile.email}</span><b>Đã xác minh</b></div><em>Đổi email cần quy trình xác minh riêng và chưa thuộc feature này.</em></label>
-          <label className="account-field"><span>Ngày sinh</span><input type="date" max={new Date().toISOString().slice(0, 10)} value={form.dateOfBirth ?? ""} onChange={(event) => update("dateOfBirth", event.target.value || null)} aria-invalid={Boolean(errors.dateOfBirth)} />{errors.dateOfBirth && <small>{errors.dateOfBirth}</small>}</label>
-          <fieldset className="account-field gender-field"><legend>Giới tính</legend><div className="choice-row">
-            {[["MALE", "Nam"], ["FEMALE", "Nữ"], ["OTHER", "Khác"], ["PREFER_NOT_TO_SAY", "Không chia sẻ"]].map(([value, label]) => <label key={value} className={form.gender === value ? "selected" : ""}><input type="radio" name="gender" checked={form.gender === value} onChange={() => update("gender", value as Gender)} />{label}</label>)}
-          </div></fieldset>
+          <label className="account-field"><span>Số điện thoại tài khoản</span><div className="readonly-input"><span>{profile.phone ?? "Chưa có"}</span></div><em>API hiện chưa hỗ trợ đổi số điện thoại từ hồ sơ.</em></label>
+          <label className="account-field"><span>Email liên hệ <b>*</b></span><input type="email" autoComplete="email" value={form.email} onChange={(event) => update("email", event.target.value)} aria-invalid={Boolean(errors.email)} />{errors.email ? <small>{errors.email}</small> : <em>API cho phép cập nhật email nhưng chưa cung cấp trạng thái xác minh.</em>}</label>
         </div>
-        <footer className="form-footer"><span>Lần cập nhật gần nhất: {formatUpdatedAt(profile.updatedAt)}</span><div><button type="button" className="secondary-button" onClick={() => { setForm(toForm(profile)); setErrors({}); setNotice(null); }}>Hủy thay đổi</button><button className="primary-button" disabled={saving}>{saving && <span className="spinner" />}{saving ? "Đang lưu…" : "Lưu thay đổi"}</button></div></footer>
+        <footer className="form-footer"><span>Dữ liệu được tải lúc: {formatUpdatedAt(profile.updatedAt)}</span><div><button type="button" className="secondary-button" onClick={() => { setForm(toForm(profile)); setErrors({}); setNotice(null); }}>Hủy thay đổi</button><button className="primary-button" disabled={saving}>{saving && <span className="spinner" />}{saving ? "Đang lưu…" : "Lưu thay đổi"}</button></div></footer>
       </form>}
   </AccountShell><SiteFooter /></>;
 }

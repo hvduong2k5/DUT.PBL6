@@ -1,7 +1,15 @@
+"use client";
+
 import Link from "next/link";
+import { useCustomerSession } from "@/components/auth/customer-session-provider";
+import { useCartSummary } from "@/components/cart/cart-summary-provider";
 import { BrandMark } from "./brand-mark";
 
 export function SiteHeader() {
+  const { status, customer } = useCustomerSession();
+  const { itemCount } = useCartSummary();
+  const authenticated = status === "authenticated" && customer;
+  const initial = customer?.displayName.trim().charAt(0).toLocaleUpperCase("vi") || "♙";
   return (
     <header className="site-header">
       <div className="utility-bar">
@@ -24,10 +32,11 @@ export function SiteHeader() {
           <Link href="/products?category=qua-bieu">Quà Biếu Tặng</Link>
           <Link href="/#heritage-story">Câu Chuyện Huế</Link>
           <Link href="/#ocop-traceability">Truy Xuất OCOP</Link>
+          <Link href="/promotions">Ưu Đãi Tri Kỷ</Link>
         </nav>
         <Link className="track-order-link" href="/track-order">Tra cứu đơn</Link>
-        <Link className="cart-header-button" href="/cart" aria-label="Mở giỏ hàng">♧<span>Giỏ hàng</span></Link>
-        <Link className="account-button" href="/account/profile" aria-label="Tài khoản Tri Kỷ">♙</Link>
+        <Link className="cart-header-button" href="/cart" aria-label={itemCount === null ? "Mở giỏ hàng" : `Mở giỏ hàng, ${itemCount} sản phẩm`}>♧<span>Giỏ hàng</span>{itemCount !== null ? <b>{itemCount > 99 ? "99+" : itemCount}</b> : null}</Link>
+        <Link className={`account-button ${authenticated ? "authenticated" : ""}`} href={authenticated ? "/account/profile" : "/login?returnUrl=%2Faccount%2Fprofile"} aria-label={authenticated ? `Tài khoản của ${customer.displayName}` : "Đăng nhập tài khoản Tri Kỷ"} title={authenticated ? customer.displayName : "Đăng nhập"}>{status === "loading" ? "…" : initial}</Link>
       </div>
     </header>
   );

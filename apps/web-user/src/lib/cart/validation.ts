@@ -6,7 +6,7 @@ const SKU_ID_PATTERN = /^[A-Z0-9][A-Z0-9-]{1,63}$/u;
 const ITEM_ID_PATTERN = /^[A-Za-z0-9-]{1,80}$/u;
 const SCENARIO_PATTERN = /^[a-z0-9-]+$/u;
 
-export type CartOperation = "get-cart" | "add-item" | "update-item" | "remove-item";
+export type CartOperation = "get-cart" | "clear-cart" | "add-item" | "update-item" | "remove-item";
 
 export interface CartRouteValidation {
   operation?: CartOperation;
@@ -35,6 +35,7 @@ export function parseCartRoute(method: string, path: string[], params: URLSearch
   }
 
   if (method === "GET" && path.length === 0) return { operation: "get-cart", mockScenario };
+  if (method === "DELETE" && path.length === 0) return { operation: "clear-cart", mockScenario };
   if (method === "POST" && path.length === 1 && path[0] === "items") return { operation: "add-item", mockScenario };
 
   if ((method === "PATCH" || method === "DELETE") && path.length === 2 && path[0] === "items") {

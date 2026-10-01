@@ -22,6 +22,6 @@ describe("parseProductDetailRequest", () => {
 
 describe("toProductDetailUpstreamPath", () => {
   it("maps a validated slug to the fixed upstream namespace", () => {
-    expect(toProductDetailUpstreamPath("tra-sen-tinh-tam")).toBe("catalog/products/tra-sen-tinh-tam");
+    expect(toProductDetailUpstreamPath("tra-sen-tinh-tam")).toBe("products/tra-sen-tinh-tam");
   });
 });

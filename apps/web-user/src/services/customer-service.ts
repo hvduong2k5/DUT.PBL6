@@ -6,6 +6,7 @@ import {
   CustomerProfile,
   ProfileInput
 } from "@/lib/customer/types";
+import type { CheckoutProvince } from "@/lib/checkout/types";
 
 type RequestOptions = Omit<RequestInit, "body"> & { body?: object };
 
@@ -47,6 +48,9 @@ export const customerService = {
   },
   getAddresses() {
     return request<AddressList>("/addresses");
+  },
+  getLocations() {
+    return request<{ provinces: CheckoutProvince[] }>("/locations");
   },
   createAddress(input: AddressInput) {
     return request<CustomerAddress>("/addresses", { method: "POST", body: input });

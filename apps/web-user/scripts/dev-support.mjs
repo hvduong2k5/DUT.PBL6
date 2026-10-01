@@ -9,7 +9,7 @@ const repositoryRoot = path.resolve(appDirectory, "..", "..");
 const useShell = process.platform === "win32";
 const children = new Set();
 let shuttingDown = false;
-const mockService = { name: "Customer Service Mockoon", port: 4019, file: "oma-customer-service-mvp.json" };
+const mockService = { name: "Customer Extensions Mockoon", port: 4020, file: "customer_extensions.json" };
 
 function isPortOpen(port) {
   return new Promise((resolve) => {

@@ -10,6 +10,7 @@ export interface PaymentAccessClaim {
   amountVnd: number;
   paymentExpiresAt: string;
   accessExpiresAt: number;
+  vietQrUrl?: string;
 }
 
 function secret(): string {
@@ -40,6 +41,7 @@ export function decodePaymentAccess(value: string | undefined): PaymentAccessCla
     if (!claim || typeof claim.orderId !== "string" || typeof claim.orderNumber !== "string") return undefined;
     if (!(["BANK_TRANSFER", "COD"] as string[]).includes(claim.method)) return undefined;
     if (!Number.isInteger(claim.amountVnd) || claim.amountVnd < 0 || !Number.isFinite(Date.parse(claim.paymentExpiresAt))) return undefined;
+    if (claim.vietQrUrl !== undefined && (typeof claim.vietQrUrl !== "string" || !claim.vietQrUrl.startsWith("https://"))) return undefined;
     if (!Number.isInteger(claim.accessExpiresAt) || claim.accessExpiresAt <= Date.now()) return undefined;
     return claim;
   } catch {

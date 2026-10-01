@@ -102,6 +102,8 @@ export interface GuestVerification {
 interface OrderErrorBody {
   code?: string;
   message?: string;
+  error_code?: string;
+  user_message?: string;
   requestId?: string;
   retryAfterSeconds?: number;
   errors?: Array<{ field: string; message: string }>;
@@ -115,10 +117,10 @@ export class OrderApiError extends Error {
   readonly errors: Array<{ field: string; message: string }>;
 
   constructor(status: number, body: OrderErrorBody) {
-    super(body.message || "Không thể xử lý Order lúc này.");
+    super(body.user_message || body.message || "Không thể xử lý Order lúc này.");
     this.name = "OrderApiError";
     this.status = status;
-    this.code = body.code || "UNKNOWN_ERROR";
+    this.code = body.error_code || body.code || "UNKNOWN_ERROR";
     this.requestId = body.requestId;
     this.retryAfterSeconds = body.retryAfterSeconds;
     this.errors = body.errors ?? [];

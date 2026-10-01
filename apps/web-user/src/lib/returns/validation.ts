@@ -1,13 +1,10 @@
-import type { CreateReturnCaseInput, EvidenceMetadata, ReturnReason, ReturnResolution } from "./types";
+import type { CreateReturnCaseInput, ReturnReason } from "./types";
 
 const ID_PATTERN = /^[A-Za-z0-9-]{8,100}$/u;
 const SCENARIO_PATTERN = /^[a-z0-9-]+$/u;
 const CREATE_KEY_PATTERN = /^return-case-[0-9a-f-]{36}$/u;
 const SUPPLEMENT_KEY_PATTERN = /^return-supplement-[0-9a-f-]{36}$/u;
 const REASONS = new Set<ReturnReason>(["DAMAGED_IN_TRANSIT", "WRONG_ITEM", "QUALITY_ISSUE", "OTHER"]);
-const RESOLUTIONS = new Set<ReturnResolution>(["REPLACEMENT", "ORIGINAL_PAYMENT_REFUND", "LOYALTY_CREDIT"]);
-const MEDIA_TYPES = new Set<EvidenceMetadata["mediaType"]>(["image/jpeg", "image/png", "image/webp", "video/mp4"]);
-const MAX_FILE_SIZE = 15 * 1024 * 1024;
 
 export type ReturnOperation = "eligibility" | "create" | "detail" | "supplement";
 
@@ -36,7 +33,7 @@ export function validateCreateReturnCase(value: unknown): { data?: CreateReturnC
   if (!value || typeof value !== "object" || Array.isArray(value)) return { errors: [{ field: "body", message: "Hồ sơ hậu mãi không hợp lệ." }] };
   const source = value as Record<string, unknown>;
   const errors: Array<{ field: string; message: string }> = [];
-  const allowed = new Set(["orderId", "lines", "reasonCode", "preferredResolution", "details", "pickupNote", "evidence", "idempotencyKey"]);
+  const allowed = new Set(["orderId", "lines", "reasonCode", "details", "evidenceMediaUrls", "refundBankCode", "refundAccountNumber", "refundAccountHolder", "idempotencyKey"]);
   if (Object.keys(source).some((key) => !allowed.has(key))) errors.push({ field: "body", message: "Hồ sơ chứa trường không được hỗ trợ." });
   const orderId = cleanText(source.orderId);
   if (!ID_PATTERN.test(orderId)) errors.push({ field: "orderId", message: "Order không hợp lệ." });
@@ -51,32 +48,35 @@ export function validateCreateReturnCase(value: unknown): { data?: CreateReturnC
     seen.add(lineId);
     return [{ lineId, quantity }];
   }) : [];
-  if (!lines.length || lines.length > 20) errors.push({ field: "lines", message: "Hãy chọn từ 1 đến 20 dòng hàng." });
+  if (lines.length !== 1) errors.push({ field: "lines", message: "Mỗi yêu cầu chỉ hỗ trợ đúng một sản phẩm." });
 
   const reasonCode = cleanText(source.reasonCode) as ReturnReason;
-  const preferredResolution = cleanText(source.preferredResolution) as ReturnResolution;
   const details = cleanText(source.details);
-  const pickupNote = cleanText(source.pickupNote);
   if (!REASONS.has(reasonCode)) errors.push({ field: "reasonCode", message: "Hãy chọn lý do hợp lệ." });
-  if (!RESOLUTIONS.has(preferredResolution)) errors.push({ field: "preferredResolution", message: "Hãy chọn phương án mong muốn." });
   if (details.length < 10 || details.length > 1000) errors.push({ field: "details", message: "Mô tả cần 10–1000 ký tự." });
-  if (pickupNote.length > 300) errors.push({ field: "pickupNote", message: "Ghi chú thu hồi tối đa 300 ký tự." });
 
-  const evidence = Array.isArray(source.evidence) ? source.evidence.flatMap((item, index) => {
-    if (!item || typeof item !== "object" || Array.isArray(item)) { errors.push({ field: `evidence.${index}`, message: "Tệp bằng chứng không hợp lệ." }); return []; }
-    const file = item as Record<string, unknown>;
-    const clientReference = cleanText(file.clientReference);
-    const fileName = cleanText(file.fileName);
-    const mediaType = cleanText(file.mediaType) as EvidenceMetadata["mediaType"];
-    const sizeBytes = Number(file.sizeBytes);
-    if (!ID_PATTERN.test(clientReference) || !fileName || fileName.length > 200 || !MEDIA_TYPES.has(mediaType) || !Number.isInteger(sizeBytes) || sizeBytes < 1 || sizeBytes > MAX_FILE_SIZE) { errors.push({ field: `evidence.${index}`, message: "Tệp không đáp ứng chính sách loại hoặc kích thước." }); return []; }
-    return [{ clientReference, fileName, mediaType, sizeBytes }];
+  const evidenceMediaUrls = Array.isArray(source.evidenceMediaUrls) ? source.evidenceMediaUrls.flatMap((item, index) => {
+    const value = cleanText(item);
+    try {
+      const url = new URL(value);
+      if (!["http:", "https:"].includes(url.protocol)) throw new Error("protocol");
+      return [url.toString()];
+    } catch {
+      errors.push({ field: `evidenceMediaUrls.${index}`, message: "URL bằng chứng không hợp lệ." });
+      return [];
+    }
   }) : [];
-  if (evidence.length > 5 || (Array.isArray(source.evidence) && source.evidence.length > 5)) errors.push({ field: "evidence", message: "Tối đa 5 tệp bằng chứng." });
+  if (evidenceMediaUrls.length < 1 || evidenceMediaUrls.length > 5) errors.push({ field: "evidenceMediaUrls", message: "Cần từ 1 đến 5 URL bằng chứng." });
+  const refundBankCode = cleanText(source.refundBankCode).toUpperCase();
+  const refundAccountNumber = cleanText(source.refundAccountNumber);
+  const refundAccountHolder = cleanText(source.refundAccountHolder).toUpperCase();
+  if (!/^[A-Z0-9_-]{2,30}$/u.test(refundBankCode)) errors.push({ field: "refundBankCode", message: "Mã ngân hàng không hợp lệ." });
+  if (!/^[0-9]{6,30}$/u.test(refundAccountNumber)) errors.push({ field: "refundAccountNumber", message: "Số tài khoản cần từ 6 đến 30 chữ số." });
+  if (refundAccountHolder.length < 2 || refundAccountHolder.length > 100) errors.push({ field: "refundAccountHolder", message: "Tên chủ tài khoản không hợp lệ." });
   const idempotencyKey = cleanText(source.idempotencyKey);
   if (!CREATE_KEY_PATTERN.test(idempotencyKey)) errors.push({ field: "idempotencyKey", message: "Khóa chống gửi lặp không hợp lệ." });
   if (errors.length) return { errors };
-  return { data: { orderId, lines, reasonCode, preferredResolution, details, pickupNote: pickupNote || undefined, evidence, idempotencyKey }, errors: [] };
+  return { data: { orderId, lines, reasonCode, details, evidenceMediaUrls, refundBankCode, refundAccountNumber, refundAccountHolder, idempotencyKey }, errors: [] };
 }
 
 export function validateSupplement(value: unknown) {
@@ -90,5 +90,3 @@ export function validateSupplement(value: unknown) {
   if (!SUPPLEMENT_KEY_PATTERN.test(idempotencyKey)) errors.push({ field: "idempotencyKey", message: "Khóa chống gửi lặp không hợp lệ." });
   return errors.length ? { errors } : { data: { message, idempotencyKey }, errors };
 }
-
-export const returnEvidencePolicy = { maxFiles: 5, maxFileSize: MAX_FILE_SIZE, mediaTypes: MEDIA_TYPES };
