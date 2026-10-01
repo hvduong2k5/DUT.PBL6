@@ -4,7 +4,7 @@
 
 - API Customer gốc: `mobile_pbl.json`, cổng `4010`.
 - API Customer mở rộng: `customer_extensions.json`, cổng `4020`.
-- File mở rộng hiện gom toàn bộ route chưa có trong API gốc cho Password Recovery, Guest Order (gồm cấp quyền sau Checkout), Customer Support, Customer capability projection và danh mục địa chỉ Checkout hai cấp.
+- File mở rộng hiện gom toàn bộ route chưa có trong API gốc cho Password Recovery, Guest Order (gồm cấp quyền sau Checkout), Customer Support, Customer capability projection, B2B Customer và danh mục địa chỉ Checkout hai cấp.
 - Không thêm route Customer mới vào các file MVP riêng; `mobile_pbl.json` cũng không bị sửa.
 
 ```powershell
@@ -13,6 +13,19 @@ npx @mockoon/cli start --disable-log-to-file --data .\mocks\mockoon\customer_ext
 ```
 
 Các BFF dùng `CUSTOMER_CORE_UPSTREAM_URL` cho API gốc và `CUSTOMER_EXTENSIONS_UPSTREAM_URL` cho API mở rộng.
+
+### Customer B2B extension
+
+Đặt `CUSTOMER_MOCK_ACTOR=B2B` trong `apps/web-user/.env.local` để phiên Customer đã đăng nhập nhận projection B2B ở môi trường local. Biến này chỉ phục vụ Mockoon; production phải suy ra actor/capability từ danh tính và quan hệ đại diện doanh nghiệp đã xác minh.
+
+| Method | Route | UI |
+| --- | --- | --- |
+| `GET` | `/b2b/context` | Hồ sơ doanh nghiệp, catalog mua sỉ và yêu cầu gần đây tại `/b2b` |
+| `POST` | `/b2b/quote-requests` | Gửi yêu cầu báo giá có chống trùng |
+| `GET` | `/b2b/quotes/:quoteId` | Chi tiết Quote Version đã phát hành |
+| `POST` | `/b2b/quotes/:quoteId/accept` | Chấp thuận đúng phiên bản và nhận tham chiếu Order B2B |
+
+Mock chỉ lưu metadata logo/tài liệu; upload binary, quét an toàn và signed URL thuộc Media/Object Storage. Giao diện nội bộ Sales Manager chưa nằm trong `web-user`.
 
 ## Return & Refund MVP
 

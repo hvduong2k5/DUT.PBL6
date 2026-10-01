@@ -1378,6 +1378,33 @@
           "callbacks": []
         },
         {
+          "uuid": "b0000000-0000-4000-8000-000000000013",
+          "body": "{\"actor\":\"B2B\",\"capabilities\":[\"CATALOG_VIEW\",\"CART_MANAGE\",\"CHECKOUT_CREATE\",\"GUEST_ORDER_TRACK\",\"SUPPORT_CREATE\",\"PROFILE_MANAGE\",\"ADDRESS_MANAGE\",\"ORDER_HISTORY_VIEW\",\"LOYALTY_VIEW\",\"REVIEW_CREATE\",\"B2B_COMPANY_VIEW\",\"B2B_QUOTE_CREATE\",\"B2B_QUOTE_VIEW\",\"B2B_QUOTE_ACCEPT\"],\"version\":1}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "capabilities-b2b",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Customer-Actor",
+              "value": "B2B",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
           "uuid": "b0000000-0000-4000-8000-000000000012",
           "body": "{\"actor\":\"GUEST\",\"capabilities\":[\"CATALOG_VIEW\",\"CART_MANAGE\",\"CHECKOUT_CREATE\",\"GUEST_ORDER_TRACK\",\"SUPPORT_CREATE\"],\"version\":1}",
           "latency": 0,
@@ -1519,6 +1546,210 @@
       "responseMode": null,
       "streamingMode": null,
       "streamingInterval": 0
+    },
+    {
+      "uuid": "e0000000-0000-4000-8000-000000000010",
+      "type": "http",
+      "documentation": "Verified B2B organization, quote-request form options and recent customer-owned requests.",
+      "method": "get",
+      "endpoint": "b2b/context",
+      "responses": [
+        {
+          "uuid": "e0000000-0000-4000-8000-000000000012",
+          "body": "{\"code\":\"B2B_CONTEXT_UNAVAILABLE\",\"message\":\"Chưa thể tải hồ sơ doanh nghiệp lúc này.\"}",
+          "latency": 0,
+          "statusCode": 503,
+          "label": "b2b-context-error",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [{ "target": "header", "modifier": "X-Mock-Scenario", "value": "b2b-context-error", "invert": false, "operator": "equals" }],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "e0000000-0000-4000-8000-000000000011",
+          "body": "{\"organization\":{\"organizationId\":\"org-fpt-central\",\"legalName\":\"Tập đoàn Công nghệ & Tài chính FPT - Chi nhánh Miền Trung\",\"taxCode\":\"0101248141\",\"representativeName\":\"Bà Trần Hoàng Uyên Thư\",\"representativeTitle\":\"Trưởng phòng Đối ngoại\",\"phone\":\"0935882199\",\"email\":\"thutran@fpt.com.vn\",\"invoiceAddress\":\"Tòa nhà FPT Complex, Khu đô thị FPT City, Phường Ngũ Hành Sơn, Thành phố Đà Nẵng\",\"verificationStatus\":\"VERIFIED\"},\"deliveryProvinces\":[{\"provinceCode\":\"HUE\",\"provinceName\":\"Thành phố Huế\"},{\"provinceCode\":\"DA-NANG\",\"provinceName\":\"Thành phố Đà Nẵng\"}],\"catalog\":[{\"skuId\":\"SKU-GIFT-ROYAL\",\"name\":\"Set Hoàng Gia Ngự Sắc\",\"variant\":\"Hộp gỗ khắc logo · 4 món bánh\",\"unitPriceVnd\":1250000,\"minimumQuantity\":30},{\"skuId\":\"SKU-GIFT-TRI-KY\",\"name\":\"Set Cố Đô Tri Kỷ\",\"variant\":\"Hộp gấm thêu hoa văn triều Nguyễn\",\"unitPriceVnd\":750000,\"minimumQuantity\":50},{\"skuId\":\"SKU-GIFT-THANH-NHA\",\"name\":\"Set Di Sản Thanh Nhã\",\"variant\":\"Nhãn OCOP và thiệp doanh nghiệp\",\"unitPriceVnd\":420000,\"minimumQuantity\":100}],\"recentRequests\":[{\"requestId\":\"b2br-2025-fpt-08\",\"requestNumber\":\"B2BR-2026-FPT-08\",\"status\":\"QUOTED\",\"statusLabel\":\"Đã phát hành báo giá\",\"submittedAt\":\"2026-09-22T03:30:00.000Z\",\"totalQuantity\":200,\"purposeLabel\":\"Tri ân khách hàng VIP\",\"quoteId\":\"quote-2025-fpt08\"},{\"requestId\":\"b2br-2025-fpt-07\",\"requestNumber\":\"B2BR-2026-FPT-07\",\"status\":\"NEEDS_INFO\",\"statusLabel\":\"Cần bổ sung thông tin\",\"submittedAt\":\"2026-09-18T08:15:00.000Z\",\"totalQuantity\":120,\"purposeLabel\":\"Quà hội nghị\"}],\"discountTiers\":[{\"minimumQuantity\":30,\"maximumQuantity\":100,\"discountPercent\":10,\"label\":\"Tri ân doanh nghiệp\"},{\"minimumQuantity\":101,\"maximumQuantity\":300,\"discountPercent\":18,\"label\":\"Số lượng vừa\"},{\"minimumQuantity\":301,\"maximumQuantity\":500,\"discountPercent\":25,\"label\":\"Bao bì và miễn phí\"},{\"minimumQuantity\":501,\"discountPercent\":30,\"label\":\"Thiết kế hậu riêng\"}],\"attachmentPolicy\":{\"allowedMediaTypes\":[\"image/png\",\"image/jpeg\",\"image/webp\",\"image/svg+xml\",\"application/pdf\"],\"maxFiles\":3,\"maxBytesPerFile\":26214400}}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "b2b-context-default",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "enabled": true,
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "e0000000-0000-4000-8000-000000000020",
+      "type": "http",
+      "documentation": "Create an idempotent customer-owned B2B quote request. File entries are metadata; object upload and scan remain external.",
+      "method": "post",
+      "endpoint": "b2b/quote-requests",
+      "responses": [
+        {
+          "uuid": "e0000000-0000-4000-8000-000000000022",
+          "body": "{\"code\":\"B2B_REQUEST_REJECTED\",\"message\":\"Yêu cầu chưa đạt số lượng tối thiểu hoặc thiếu dữ liệu bắt buộc.\",\"errors\":[{\"field\":\"items\",\"message\":\"Số lượng chưa đạt MOQ của SKU.\"}]}",
+          "latency": 0,
+          "statusCode": 422,
+          "label": "b2b-request-validation",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [{ "target": "header", "modifier": "X-Mock-Scenario", "value": "b2b-request-validation", "invert": false, "operator": "equals" }],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "e0000000-0000-4000-8000-000000000021",
+          "body": "{\"requestId\":\"b2br-2026-fpt-09\",\"requestNumber\":\"B2BR-2026-FPT-09\",\"status\":\"REQUESTED\",\"statusLabel\":\"Đã tiếp nhận\",\"submittedAt\":\"2026-10-01T03:15:00.000Z\",\"totalQuantity\":200,\"purposeLabel\":\"Tri ân khách hàng VIP & đối tác\",\"message\":\"Ô Mạ đã tiếp nhận yêu cầu. Chuyên viên B2B sẽ phản hồi trong 2 giờ làm việc.\"}",
+          "latency": 0,
+          "statusCode": 201,
+          "label": "b2b-request-created",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "enabled": true,
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "e0000000-0000-4000-8000-000000000030",
+      "type": "http",
+      "documentation": "Customer-safe released quote detail. Drafts and internal notes are never projected.",
+      "method": "get",
+      "endpoint": "b2b/quotes/:quoteId",
+      "responses": [
+        {
+          "uuid": "e0000000-0000-4000-8000-000000000032",
+          "body": "{\"code\":\"B2B_QUOTE_NOT_AVAILABLE\",\"message\":\"Báo giá không tồn tại, không thuộc doanh nghiệp hoặc chưa được phát hành.\"}",
+          "latency": 0,
+          "statusCode": 404,
+          "label": "b2b-quote-not-found",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [{ "target": "header", "modifier": "X-Mock-Scenario", "value": "b2b-quote-not-found", "invert": false, "operator": "equals" }],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "e0000000-0000-4000-8000-000000000031",
+          "body": "{\"quoteId\":\"quote-2025-fpt08\",\"quoteNumber\":\"QUOTE-2026-FPT08\",\"version\":3,\"status\":\"SENT\",\"statusLabel\":\"Đã phát hành — chờ doanh nghiệp duyệt\",\"issuedAt\":\"2026-09-25T02:30:00.000Z\",\"expiresAt\":\"2026-11-05T16:59:59.000Z\",\"organization\":{\"organizationId\":\"org-fpt-central\",\"legalName\":\"Tập đoàn Công nghệ & Tài chính FPT - Chi nhánh Miền Trung\",\"taxCode\":\"0101248141\"},\"contact\":{\"displayName\":\"Lê Thị Đoan Trang\",\"title\":\"Chuyên viên phụ trách doanh nghiệp\",\"phone\":\"0905128688\",\"email\":\"b2b@omabanhmuthue.vn\"},\"items\":[{\"skuId\":\"SKU-GIFT-ROYAL\",\"name\":\"Bánh Phục Linh Ngự Sắc Hoàng Cung\",\"variant\":\"Hộp gỗ 250g · Bộ tinh hoa ngự thiện\",\"quantity\":200,\"unitPriceVnd\":220000,\"lineTotalVnd\":44000000},{\"skuId\":\"SKU-GIFT-TRI-KY\",\"name\":\"Mè Xửng Dẻo Ngự Thiện Hạt Sen\",\"variant\":\"Gói 300g hạt chân không\",\"quantity\":200,\"unitPriceVnd\":165000,\"lineTotalVnd\":33000000},{\"skuId\":\"SKU-GIFT-THANH-NHA\",\"name\":\"Trà Sen Hồ Tịnh Tâm Thượng Phẩm\",\"variant\":\"Hộp thiếc 100g\",\"quantity\":200,\"unitPriceVnd\":240000,\"lineTotalVnd\":48000000}],\"customizations\":[\"200 hộp gỗ khắc laser logo FPT\",\"200 thiệp chúc Tết thiết kế riêng\",\"Túi giấy màu nhận diện doanh nghiệp\"],\"totals\":{\"merchandiseVnd\":170000000,\"discountVnd\":30600000,\"customizationVnd\":0,\"vatVnd\":11152000,\"grandTotalVnd\":150552000,\"depositPercent\":30,\"depositVnd\":45165600,\"remainingVnd\":105386400},\"terms\":[{\"title\":\"Tiến độ giao hàng bảo đảm\",\"description\":\"Đợt 1 giao 150 hộp ngày 15/10 tại Đà Nẵng; đợt 2 giao 50 hộp tại Huế trước 16:00 ngày 18/10/2026.\"},{\"title\":\"Hóa đơn và nghĩa vụ thuế\",\"description\":\"Xuất hóa đơn điện tử GTGT theo yêu cầu; đơn giá đã bao gồm VAT và phí tùy biến đã chốt.\"},{\"title\":\"Bảo toàn hương vị và đổi trả\",\"description\":\"Cam kết đổi mới miễn phí với sản phẩm lỗi khách quan theo chính sách đính kèm.\"},{\"title\":\"Bảo mật danh sách VIP\",\"description\":\"Thông tin người nhận do doanh nghiệp cung cấp chỉ dùng để hoàn tất giao nhận.\"},{\"title\":\"Lộ trình thanh toán hai đợt\",\"description\":\"Đặt cọc 30% khi ký điện tử; phần còn lại thanh toán trong 20 ngày sau nghiệm thu.\"}],\"payment\":{\"bankName\":\"Vietcombank · CN Huế\",\"accountName\":\"CÔNG TY TNHH BÁNH MỨT CUNG ĐÌNH Ô MẠ\",\"accountNumberMasked\":\"**** 8288\",\"transferContent\":\"COC HD FPT08\"},\"canAccept\":true}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "b2b-quote-sent",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "enabled": true,
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "e0000000-0000-4000-8000-000000000040",
+      "type": "http",
+      "documentation": "Accept exactly the released quote version and create one B2B order reference. Acceptance does not mark the order paid.",
+      "method": "post",
+      "endpoint": "b2b/quotes/:quoteId/accept",
+      "responses": [
+        {
+          "uuid": "e0000000-0000-4000-8000-000000000042",
+          "body": "{\"code\":\"B2B_QUOTE_NOT_ACCEPTABLE\",\"message\":\"Báo giá đã hết hạn, bị thay thế hoặc không còn ở phiên bản có thể chấp thuận.\"}",
+          "latency": 0,
+          "statusCode": 409,
+          "label": "b2b-quote-conflict",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [{ "target": "header", "modifier": "X-Mock-Scenario", "value": "b2b-quote-conflict", "invert": false, "operator": "equals" }],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "e0000000-0000-4000-8000-000000000041",
+          "body": "{\"quoteId\":\"quote-2025-fpt08\",\"status\":\"ACCEPTED\",\"acceptedAt\":\"2026-10-01T03:30:00.000Z\",\"orderId\":\"ord-b2b-fpt08\",\"orderNumber\":\"B2B-2026-FPT08\",\"message\":\"Đã ghi nhận chấp thuận Quote Version 3 và tạo Order B2B chờ đặt cọc.\"}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "b2b-quote-accepted",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "enabled": true,
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
     }
   ],
   "proxyMode": false,
@@ -1600,6 +1831,22 @@
     {
       "type": "route",
       "uuid": "d0000000-0000-4000-8000-000000000010"
+    },
+    {
+      "type": "route",
+      "uuid": "e0000000-0000-4000-8000-000000000010"
+    },
+    {
+      "type": "route",
+      "uuid": "e0000000-0000-4000-8000-000000000020"
+    },
+    {
+      "type": "route",
+      "uuid": "e0000000-0000-4000-8000-000000000030"
+    },
+    {
+      "type": "route",
+      "uuid": "e0000000-0000-4000-8000-000000000040"
     }
   ],
   "callbacks": []

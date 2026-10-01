@@ -19,7 +19,8 @@ Tài liệu này theo dõi mức hoàn thiện giao diện customer dựa trên 
 |---|---|---|---|---|
 | Authentication | Đăng ký, đăng nhập, làm mới phiên, Auth Guard và đăng xuất | `POST /auth/register`, `POST /auth/login`, `POST /auth/refresh`, `POST /auth/logout`, `GET /auth/me` | **Đã tích hợp** | Xác minh số điện thoại chờ API hỗ trợ |
 | Authentication extension | Yêu cầu, xác minh liên kết và đặt lại mật khẩu | `POST /auth/recovery-requests`, `/verify`, `/reset` trong `customer_extensions.json` | **Đã tích hợp** | Thay mock mở rộng bằng API backend khi contract chính thức có sẵn |
-| Customer capability extension | Projection actor/capability cho Guest và Registered | `GET /customer/capabilities` trong `customer_extensions.json` | **Đã tích hợp** | B2B cần projection theo organization/contract; Marketplace và Offline tiếp tục được xem là channel/customer source, không mặc định là web role |
+| Customer capability extension | Projection actor/capability cho Guest, Registered và B2B | `GET /customer/capabilities` trong `customer_extensions.json` | **Đã tích hợp** | B2B được cấp capability theo tư cách đại diện doanh nghiệp; Marketplace và Offline tiếp tục được xem là channel/customer source, không mặc định là web role |
+| B2B Customer extension | Hồ sơ doanh nghiệp, tạo yêu cầu báo giá, logo metadata, danh sách gần đây, xem/chấp thuận Quote Version | `GET /b2b/context`, `POST /b2b/quote-requests`, `GET /b2b/quotes/:id`, `POST /b2b/quotes/:id/accept` trong `customer_extensions.json` | **Đã tích hợp lát cắt Customer** | Upload binary/scan thật và giao diện Sales Manager xử lý/phát hành Quote thuộc lát cắt tiếp theo |
 | Discovery | Danh mục | `GET /categories` | **Đã tích hợp** | Bổ sung thêm nhóm danh mục khi API có dữ liệu |
 | Discovery | Danh sách, lọc, tìm kiếm và lọc chứng nhận OCOP 3–5 sao | `GET /products`, `GET /products/search` với `ocop_star` | **Đã tích hợp** | Khối lượng, loại sản phẩm và trạng thái tồn kho chờ API hỗ trợ bộ lọc tương ứng |
 | Product | Chi tiết và chọn biến thể | `GET /products/:id_or_slug` | **Đã tích hợp** | Thông tin thực phẩm sẽ hiển thị khi API bổ sung trường dữ liệu |
@@ -48,11 +49,11 @@ Tài liệu này theo dõi mức hoàn thiện giao diện customer dựa trên 
 
 ## Ngoài phạm vi file Mockoon này
 
-Các màn hình customer trong backlog như Social Login, Guest Checkout, B2B, Content, Notification và Gifting không được coi là hoàn tất chỉ từ `mobile_pbl.json`. Password Recovery, Guest Order và Customer Support hiện dùng chung `customer_extensions.json`; các capability còn lại tiếp tục chờ API bổ sung.
+Các màn hình customer trong backlog như Social Login, Content, Notification và Gifting không được coi là hoàn tất chỉ từ `mobile_pbl.json`. Password Recovery, Guest Order, Customer Support và lát cắt Customer B2B hiện dùng chung `customer_extensions.json`; các capability còn lại tiếp tục chờ API bổ sung.
 
 ## Quy ước mock mở rộng
 
-`mobile_pbl.json` tiếp tục là nguồn Customer API gốc và không bị sửa. Mọi endpoint, payload hoặc permission projection chưa có trong file này được gom vào duy nhất `mocks/mockoon/customer_extensions.json`; không tạo thêm mock riêng theo từng MVP. File mở rộng hiện chứa Password Recovery, Guest Order, Customer Support và Customer capability projection, chạy tại `http://127.0.0.1:4020/api/v1`.
+`mobile_pbl.json` tiếp tục là nguồn Customer API gốc và không bị sửa. Mọi endpoint, payload hoặc permission projection chưa có trong file này được gom vào duy nhất `mocks/mockoon/customer_extensions.json`; không tạo thêm mock riêng theo từng MVP. File mở rộng hiện chứa Password Recovery, Guest Order, Customer Support, B2B Customer và Customer capability projection, chạy tại `http://127.0.0.1:4020/api/v1`.
 
 ## Lưu ý Mockoon
 

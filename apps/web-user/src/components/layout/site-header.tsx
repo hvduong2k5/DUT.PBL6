@@ -6,7 +6,7 @@ import { useCartSummary } from "@/components/cart/cart-summary-provider";
 import { BrandMark } from "./brand-mark";
 
 export function SiteHeader() {
-  const { status, customer } = useCustomerSession();
+  const { status, customer, hasCapability } = useCustomerSession();
   const { itemCount } = useCartSummary();
   const authenticated = status === "authenticated" && customer;
   const initial = customer?.displayName.trim().charAt(0).toLocaleUpperCase("vi") || "♙";
@@ -30,6 +30,7 @@ export function SiteHeader() {
           <Link href="/products?category=banh-cung-dinh">Bánh &amp; Kẹo Cung Đình</Link>
           <Link href="/products?category=me-xung-keo-hue">Mè Xửng &amp; Trà Sen</Link>
           <Link href="/products?category=qua-bieu">Quà Biếu Tặng</Link>
+          {hasCapability("B2B_QUOTE_VIEW") ? <Link href="/b2b">Báo Giá Sỉ B2B</Link> : null}
           <Link href="/#heritage-story">Câu Chuyện Huế</Link>
           <Link href="/#ocop-traceability">Truy Xuất OCOP</Link>
           <Link href="/promotions">Ưu Đãi Tri Kỷ</Link>

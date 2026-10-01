@@ -8,7 +8,11 @@ export const CUSTOMER_CAPABILITIES = [
   "ADDRESS_MANAGE",
   "ORDER_HISTORY_VIEW",
   "LOYALTY_VIEW",
-  "REVIEW_CREATE"
+  "REVIEW_CREATE",
+  "B2B_COMPANY_VIEW",
+  "B2B_QUOTE_CREATE",
+  "B2B_QUOTE_VIEW",
+  "B2B_QUOTE_ACCEPT"
 ] as const;
 
 export type CustomerCapability = (typeof CUSTOMER_CAPABILITIES)[number];
