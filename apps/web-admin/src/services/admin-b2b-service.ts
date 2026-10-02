@@ -1,4 +1,4 @@
-import type { AdminB2BActionInput, AdminB2BActionResult, AdminB2BList, AdminB2BQuoteVersionHistory, AdminB2BRequestDetail } from "@/lib/b2b/types";
+import type { AdminB2BActionInput, AdminB2BActionResult, AdminB2BFileHistory, AdminB2BList, AdminB2BQuoteVersionHistory, AdminB2BRequestDetail } from "@/lib/b2b/types";
 import { AdminB2BApiError } from "@/lib/b2b/types";
 
 async function request<T>(path: string, init: RequestInit = {}, mockScenario?: string): Promise<T> {
@@ -13,6 +13,7 @@ async function request<T>(path: string, init: RequestInit = {}, mockScenario?: s
 export const adminB2BService = {
   list(mockScenario?: string) { return request<AdminB2BList>("/quote-requests", {}, mockScenario); },
   detail(requestId: string, mockScenario?: string) { return request<AdminB2BRequestDetail>(`/quote-requests/${encodeURIComponent(requestId)}`, {}, mockScenario); },
+  files(requestId: string, mockScenario?: string) { return request<AdminB2BFileHistory>(`/quote-requests/${encodeURIComponent(requestId)}/files`, {}, mockScenario); },
   versions(requestId: string, currentVersion: number, currentStatus: string, mockScenario?: string) { return request<AdminB2BQuoteVersionHistory>(`/quote-requests/${encodeURIComponent(requestId)}/versions?currentVersion=${currentVersion}&currentStatus=${encodeURIComponent(currentStatus)}`, {}, mockScenario); },
   act(requestId: string, input: AdminB2BActionInput, mockScenario?: string) { return request<AdminB2BActionResult>(`/quote-requests/${encodeURIComponent(requestId)}/actions`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) }, mockScenario); }
 };

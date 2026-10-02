@@ -31,10 +31,33 @@ Các route đầu tiên phục vụ Web Admin `ADM-034`:
 | `GET` | `/admin/session` | Phiên nhân viên, role, effective permission và scope |
 | `GET` | `/admin/b2b/quote-requests` | Hàng đợi Sales B2B |
 | `GET` | `/admin/b2b/quote-requests/:requestId` | Chi tiết trong popup |
+| `GET` | `/admin/b2b/quote-requests/:requestId/files` | Metadata và lịch sử phiên bản tài liệu, yêu cầu `B2B_FILE_VIEW` |
 | `GET` | `/admin/b2b/quote-requests/:requestId/versions` | Lịch sử và preview snapshot từng Quote Version |
 | `POST` | `/admin/b2b/quote-requests/:requestId/actions` | Phân công, yêu cầu bổ sung, lập/phát hành/thu hồi/từ chối quote và chuyển Order |
+| `GET` | `/admin/access/employees` | Danh sách Employee System Access theo `US-ADM-01~03` |
+| `GET` | `/admin/access/employees/:employeeId` | Access Review: Role Assignment và Permission hiệu lực theo `US-ADM-07` |
+| `GET` | `/admin/access/roles` | Danh mục Role theo `US-ADM-04` |
+| `GET` | `/admin/access/roles/:roleCode` | Chi tiết Role, Permission và mức ảnh hưởng trước thay đổi |
+| `GET` | `/admin/access/permissions` | Danh mục Permission theo `US-ADM-05` |
+| `GET` | `/admin/access/permissions/:permissionCode` | Chi tiết Permission và nơi đang sử dụng |
+| `GET` | `/admin/catalog/products` | Danh sách Product, trạng thái bán và tổng hợp SKU theo Epic 04 |
+| `GET` | `/admin/catalog/products/:productId` | Chi tiết Product, SKU, giá cơ bản và thông tin thực phẩm catalog |
+| `GET` | `/admin/inventory/skus` | Số dư tồn kho theo SKU và rủi ro HSD theo Epic 09 |
+| `GET` | `/admin/inventory/skus/:skuId` | Phân rã Batch/Lot và lịch sử biến động được phép xem |
+| `GET` | `/admin/orders` | Hàng đợi Order, nguồn, Payment và SLA theo `US-ORD-05~06` |
+| `GET` | `/admin/orders/:orderId` | Snapshot Order và trạng thái Payment/Reservation/Packing/Shipping tách biệt |
+| `GET` | `/admin/packing/tasks` | Hàng đợi Packing Task, phân công, ưu tiên và SLA theo Epic 10 |
+| `GET` | `/admin/packing/tasks/:taskId` | Snapshot SKU/Batch, điều kiện đầu vào và checklist Packing chỉ đọc |
+| `GET` | `/admin/shipping/shipments` | Danh sách Shipment, provider, bàn giao và ngoại lệ theo Epic 11 |
+| `GET` | `/admin/shipping/shipments/:shipmentId` | Package, phí, COD và sự kiện tracking/ánh xạ chỉ đọc |
+| `GET` | `/admin/payments/cases` | Hàng đợi Payment và kết quả đối soát với Order theo Epic 07 |
+| `GET` | `/admin/payments/cases/:caseId` | Attempt, Transaction, so sánh và lịch sử bằng chứng chỉ đọc |
+| `GET` | `/admin/returns/cases` | Hàng đợi Return/Refund Case theo Epic 14 |
+| `GET` | `/admin/returns/cases/:caseId` | Order line, Payment, Shipment, media, hàng trả và Refund chỉ đọc |
+| `GET` | `/admin/support/tickets` | Hàng đợi Ticket nội bộ theo Epic 16 — Giai đoạn 2 |
+| `GET` | `/admin/support/tickets/:ticketId` | Hội thoại, ghi chú nội bộ, SLA và ngữ cảnh nguồn chỉ đọc |
 
-`apps/web-admin` chạy cổng `3001` và dùng `ADMIN_API_UPSTREAM_URL=http://127.0.0.1:4030/api/v1`. Trong local có thể đặt `ADMIN_MOCK_ROLE=SALES_MANAGER`, `CUSTOMER_SERVICE` hoặc `VIEW_ONLY` để kiểm tra việc hiển thị theo permission. Header mock này chỉ do BFF local tạo; production không được nhận role do browser tự khai báo.
+`apps/web-admin` chạy cổng `3001` và dùng `ADMIN_API_UPSTREAM_URL=http://127.0.0.1:4030/api/v1`. Trong local, đặt `ADMIN_MOCK_PROFILE` để chọn một projection Permission/Scope như `SALES_MANAGER`, `CUSTOMER_SERVICE`, `VIEW_ONLY`, `WAREHOUSE_MANAGEMENT`, `WAREHOUSE_WORKBENCH`, `PACKING_MANAGEMENT`, `PACKING_WORKBENCH`, `DELIVERY_WORKBENCH`, `ACCOUNTANT` hoặc `SYSTEM_ADMIN`. Profile mock không phải role: hai profile Warehouse cùng trả role `WAREHOUSE`, còn hai profile Packing cùng trả role `PACKING`, nhưng mỗi profile có Permission khác nhau. `WAREHOUSE_STAFF` chỉ là profile local cũ. Header profile chỉ do BFF local tạo; production không được tin giá trị profile do browser tự khai báo. `ADMIN_MOCK_ROLE` chỉ được giữ làm biến tương thích tạm thời cho cấu hình local cũ.
 
 Để kiểm tra optimistic concurrency của `US-B2B-03`, mở UI với `?mockScenario=admin-b2b-concurrency-conflict`. Mọi mutation phải gửi `expectedRevision`; mock trả `409 B2B_CONCURRENCY_CONFLICT` và UI yêu cầu tải lại dữ liệu trước khi tiếp tục.
 

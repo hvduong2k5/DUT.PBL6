@@ -8,11 +8,51 @@ export const ADMIN_PERMISSIONS = [
   "B2B_QUOTE_ISSUE",
   "B2B_QUOTE_WITHDRAW",
   "B2B_QUOTE_REJECT",
-  "B2B_ORDER_CONVERT"
+  "B2B_ORDER_CONVERT",
+  "PRODUCT_VIEW",
+  "INVENTORY_VIEW",
+  "INVENTORY_MANAGEMENT_VIEW",
+  "BATCH_VIEW",
+  "WAREHOUSE_WORKBENCH_VIEW",
+  "INVENTORY_RECEIPT_CREATE",
+  "INVENTORY_ISSUE_CREATE",
+  "INVENTORY_ADJUSTMENT_CREATE",
+  "ORDER_VIEW",
+  "ORDER_SENSITIVE_VIEW",
+  "PACKING_TASK_VIEW",
+  "PACKING_MANAGEMENT_VIEW",
+  "PACKING_WORKBENCH_VIEW",
+  "PACKING_CHECKLIST_UPDATE",
+  "PACKING_TASK_COMPLETE",
+  "SHIPMENT_VIEW",
+  "SHIPMENT_MANAGEMENT_VIEW",
+  "DELIVERY_WORKBENCH_VIEW",
+  "SHIPMENT_SENSITIVE_VIEW",
+  "PAYMENT_VIEW",
+  "PAYMENT_RECONCILIATION_VIEW",
+  "PAYMENT_SENSITIVE_VIEW",
+  "RETURN_CASE_VIEW",
+  "RETURN_EVIDENCE_VIEW",
+  "RETURN_FINANCIAL_VIEW",
+  "TICKET_QUEUE_VIEW",
+  "TICKET_CONVERSATION_VIEW",
+  "TICKET_CONTEXT_VIEW",
+  "TICKET_INTERNAL_NOTE_VIEW",
+  "EMPLOYEE_ACCOUNT_VIEW",
+  "EMPLOYEE_ACCOUNT_CREATE",
+  "EMPLOYEE_ACCOUNT_UPDATE",
+  "EMPLOYEE_ACCOUNT_LOCK",
+  "ROLE_VIEW",
+  "ROLE_MANAGE",
+  "PERMISSION_VIEW",
+  "PERMISSION_MANAGE",
+  "ROLE_ASSIGN",
+  "ACCESS_REVIEW_VIEW"
 ] as const;
 
 export type AdminPermission = (typeof ADMIN_PERMISSIONS)[number];
-export type AdminRole = "SALES_MANAGER" | "CUSTOMER_SERVICE" | "B2B_VIEWER";
+// Role codes are data-driven by Access Management. UI authorization must use atomic permissions, not this value.
+export type AdminRole = string;
 
 export interface AdminSession {
   authenticated: true;
@@ -28,7 +68,7 @@ export function parseAdminSession(value: unknown): AdminSession | undefined {
   const source = value as Record<string, unknown>;
   const employee = source.employee && typeof source.employee === "object" && !Array.isArray(source.employee) ? source.employee as Record<string, unknown> : undefined;
   if (source.authenticated !== true || !employee || !Array.isArray(source.roles) || !Array.isArray(source.permissions) || !Array.isArray(source.scopes) || !Number.isInteger(source.version)) return undefined;
-  const roles = source.roles.filter((item): item is AdminRole => ["SALES_MANAGER", "CUSTOMER_SERVICE", "B2B_VIEWER"].includes(String(item)));
+  const roles = source.roles.filter((item): item is AdminRole => typeof item === "string" && Boolean(item.trim()));
   const permissions = source.permissions.filter((item): item is AdminPermission => ADMIN_PERMISSIONS.includes(item as AdminPermission));
   if (roles.length !== source.roles.length || permissions.length !== source.permissions.length) return undefined;
   const scopes: AdminSession["scopes"] = source.scopes.flatMap((item): AdminSession["scopes"] => {

@@ -1,6 +1,41 @@
 export type AdminB2BStatus = "REQUESTED" | "NEEDS_INFO" | "DRAFT" | "SENT" | "ACCEPTED" | "REJECTED" | "EXPIRED" | "WITHDRAWN" | "CONVERTED";
 export type AdminB2BSlaState = "ON_TRACK" | "AT_RISK" | "OVERDUE";
 export type AdminB2BAction = "VIEW" | "ASSIGN" | "REQUEST_INFO" | "CREATE_DRAFT" | "ISSUE" | "WITHDRAW" | "REJECT" | "CONVERT_ORDER";
+export type AdminB2BFileScanStatus = "SAFE" | "PROCESSING" | "REJECTED";
+
+export interface AdminB2BFileSummary {
+  fileId: string;
+  fileName: string;
+  mediaType: string;
+  scanStatus: AdminB2BFileScanStatus;
+}
+
+export interface AdminB2BFileVersion {
+  version: number;
+  isCurrent: boolean;
+  fileName: string;
+  mediaType: string;
+  sizeBytes: number;
+  scanStatus: AdminB2BFileScanStatus;
+  uploadedAt: string;
+  uploadedByLabel: string;
+  referencedByQuoteVersions: number[];
+}
+
+export interface AdminB2BFileRecord {
+  fileId: string;
+  purposeLabel: string;
+  ownerOrganizationId: string;
+  ownerOrganizationName: string;
+  currentVersion: number;
+  versions: AdminB2BFileVersion[];
+}
+
+export interface AdminB2BFileHistory {
+  requestId: string;
+  requestNumber: string;
+  items: AdminB2BFileRecord[];
+}
 
 export interface AdminB2BRequestSummary {
   requestId: string;
@@ -37,7 +72,7 @@ export interface AdminB2BRequestDetail extends AdminB2BRequestSummary {
   notes: string;
   items: Array<{ skuId: string; name: string; variant: string; quantity: number; catalogPriceVnd: number }>;
   customizations: string[];
-  files: Array<{ fileId: string; fileName: string; mediaType: string; scanStatus: "SAFE" | "PROCESSING" | "REJECTED" }>;
+  files: AdminB2BFileSummary[];
   quote: null | { quoteId: string; version: number; status: "DRAFT" | "SENT" | "ACCEPTED" | "SUPERSEDED"; subtotalVnd: number; discountPercent: number; customizationVnd: number; shippingVnd: number; vatPercent: number; grandTotalVnd: number; expiresAt: string };
   activity: Array<{ occurredAt: string; actorLabel: string; description: string }>;
   allowedActions: AdminB2BAction[];

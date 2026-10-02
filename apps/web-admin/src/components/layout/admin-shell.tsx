@@ -8,7 +8,31 @@ import { useAdminSession } from "@/components/auth/admin-session-provider";
 
 const NAVIGATION: Array<{ group: string; items: Array<{ href: string; label: string; icon: string; permission: AdminPermission }> }> = [
   { group: "Tổng quan", items: [{ href: "/", label: "Bảng điều khiển", icon: "⌂", permission: "ADMIN_DASHBOARD_VIEW" }] },
-  { group: "Kinh doanh", items: [{ href: "/b2b/quotes", label: "Báo giá B2B", icon: "▤", permission: "B2B_REQUEST_VIEW" }] }
+  { group: "Công việc của tôi", items: [
+    { href: "/work/warehouse", label: "Warehouse Workbench", icon: "▦", permission: "WAREHOUSE_WORKBENCH_VIEW" },
+    { href: "/work/packing", label: "Workbench đóng gói", icon: "▣", permission: "PACKING_WORKBENCH_VIEW" },
+    { href: "/work/delivery", label: "Công việc giao hàng", icon: "▰", permission: "DELIVERY_WORKBENCH_VIEW" }
+  ] },
+  { group: "Danh mục", items: [{ href: "/catalog/products", label: "Sản phẩm & SKU", icon: "◇", permission: "PRODUCT_VIEW" }] },
+  { group: "Vận hành", items: [
+    { href: "/inventory", label: "Tồn kho & Batch", icon: "▦", permission: "INVENTORY_MANAGEMENT_VIEW" },
+    { href: "/packing", label: "Quản lý đóng gói", icon: "▧", permission: "PACKING_MANAGEMENT_VIEW" },
+    { href: "/shipping", label: "Quản lý giao vận", icon: "▰", permission: "SHIPMENT_MANAGEMENT_VIEW" }
+  ] },
+  { group: "Kinh doanh", items: [
+    { href: "/orders", label: "Đơn hàng", icon: "▣", permission: "ORDER_VIEW" },
+    { href: "/payments", label: "Thanh toán", icon: "◫", permission: "PAYMENT_VIEW" },
+    { href: "/b2b/quotes", label: "Báo giá B2B", icon: "▤", permission: "B2B_REQUEST_VIEW" }
+  ] },
+  { group: "Hậu mãi", items: [
+    { href: "/returns", label: "Đổi trả & hoàn tiền", icon: "↺", permission: "RETURN_CASE_VIEW" },
+    { href: "/support/tickets", label: "Ticket hỗ trợ", icon: "◇", permission: "TICKET_QUEUE_VIEW" }
+  ] },
+  { group: "Quản trị", items: [
+    { href: "/administration/employees", label: "Tài khoản nhân viên", icon: "♙", permission: "EMPLOYEE_ACCOUNT_VIEW" },
+    { href: "/administration/roles", label: "Role", icon: "◈", permission: "ROLE_VIEW" },
+    { href: "/administration/permissions", label: "Permission", icon: "⌘", permission: "PERMISSION_VIEW" }
+  ] }
 ];
 
 export function AdminShell({ children }: { children: ReactNode }) {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { parseAdminSession, type AdminPermission, type AdminSession } from "@/lib/auth/types";
-import type { AdminB2BAction, AdminB2BActionResult, AdminB2BList, AdminB2BQuoteVersion, AdminB2BQuoteVersionHistory, AdminB2BQuoteVersionStatus, AdminB2BRequestDetail, AdminB2BRequestSummary, AdminB2BSlaState, AdminB2BStatus } from "@/lib/b2b/types";
+import type { AdminB2BAction, AdminB2BActionResult, AdminB2BFileHistory, AdminB2BFileRecord, AdminB2BFileScanStatus, AdminB2BList, AdminB2BQuoteVersion, AdminB2BQuoteVersionHistory, AdminB2BQuoteVersionStatus, AdminB2BRequestDetail, AdminB2BRequestSummary, AdminB2BSlaState, AdminB2BStatus } from "@/lib/b2b/types";
 import { parseAdminB2BPath, validateAdminB2BAction } from "@/lib/b2b/validation";
 
 interface UpstreamError { code?: string; message?: string; errors?: Array<{ field: string; message: string }> }
@@ -17,13 +17,13 @@ const VERSION_STATUSES = new Set<AdminB2BQuoteVersionStatus>(["DRAFT", "SENT", "
 
 function responseError(code: string, message: string, status: number, errors: Array<{ field: string; message: string }> = []) { return NextResponse.json({ code, message, errors, requestId: `BFF-ADMIN-B2B-${code}` }, { status }); }
 function baseUrl() { return (process.env.ADMIN_API_UPSTREAM_URL ?? "http://127.0.0.1:4030/api/v1").replace(/\/$/u, ""); }
-function mockRole() { return process.env.NODE_ENV === "production" ? "" : process.env.ADMIN_MOCK_ROLE ?? "SALES_MANAGER"; }
+function mockProfile() { return process.env.NODE_ENV === "production" ? "" : process.env.ADMIN_MOCK_PROFILE ?? process.env.ADMIN_MOCK_ROLE ?? "SALES_MANAGER"; }
 function headers(request: NextRequest, body = false, idempotencyKey?: string) {
   const result = new Headers({ Accept: "application/json" });
   const authorization = request.headers.get("authorization");
   if (authorization) result.set("Authorization", authorization);
-  const role = mockRole();
-  if (role) result.set("X-Admin-Role", role);
+  const profile = mockProfile();
+  if (profile) result.set("X-Admin-Profile", profile);
   if (body) result.set("Content-Type", "application/json");
   if (idempotencyKey) result.set("Idempotency-Key", idempotencyKey);
   const scenario = request.nextUrl.searchParams.get("mockScenario");
@@ -59,12 +59,12 @@ function mapList(payload: Record<string, unknown>): AdminB2BList {
   for (const terminal of [{ status: "WITHDRAWN", label: "Đã thu hồi" }, { status: "CONVERTED", label: "Đã chuyển Order" }] as const) if (!statusCounts.some((item) => item.status === terminal.status)) statusCounts.push({ ...terminal, count: items.filter((item) => item.status === terminal.status).length });
   return { items, statusCounts, owners: array(payload.owners).map((value) => { const item = record(value) ? value : {}; return { employeeId: string(item.employeeId), displayName: string(item.displayName) }; }), updatedAt: date(payload.updatedAt) };
 }
-function mapDetail(payload: Record<string, unknown>): AdminB2BRequestDetail {
+function mapDetail(payload: Record<string, unknown>, canViewFiles: boolean): AdminB2BRequestDetail {
   const summary = mapSummary(payload);
   const company = record(payload.company) ? payload.company : {};
   const requester = record(payload.requester) ? payload.requester : {};
   const quote = record(payload.quote) ? payload.quote : null;
-  return { ...summary, company: { legalName: string(company.legalName), taxCode: string(company.taxCode), invoiceAddress: string(company.invoiceAddress), verificationStatus: company.verificationStatus === "PENDING" ? "PENDING" : "VERIFIED" }, requester: { displayName: string(requester.displayName), title: string(requester.title), phone: string(requester.phone), email: string(requester.email) }, purposeLabel: string(payload.purposeLabel), requestedDeliveryDate: date(payload.requestedDeliveryDate), deliveryLocation: string(payload.deliveryLocation), notes: string(payload.notes), items: array(payload.items).map((value) => { const item = record(value) ? value : {}; return { skuId: string(item.skuId), name: string(item.name), variant: string(item.variant), quantity: Math.max(1, number(item.quantity, 1)), catalogPriceVnd: Math.max(0, number(item.catalogPriceVnd)) }; }), customizations: array(payload.customizations).map((value) => string(value)).filter(Boolean), files: array(payload.files).map((value) => { const item = record(value) ? value : {}; const scan = string(item.scanStatus); return { fileId: string(item.fileId), fileName: string(item.fileName), mediaType: string(item.mediaType), scanStatus: scan === "PROCESSING" || scan === "REJECTED" ? scan : "SAFE" }; }), quote: quote ? { quoteId: string(quote.quoteId), version: Math.max(1, number(quote.version, 1)), status: ["DRAFT", "SENT", "ACCEPTED", "SUPERSEDED"].includes(string(quote.status)) ? string(quote.status) as "DRAFT" | "SENT" | "ACCEPTED" | "SUPERSEDED" : "DRAFT", subtotalVnd: number(quote.subtotalVnd), discountPercent: number(quote.discountPercent), customizationVnd: number(quote.customizationVnd), shippingVnd: number(quote.shippingVnd), vatPercent: number(quote.vatPercent), grandTotalVnd: number(quote.grandTotalVnd), expiresAt: date(quote.expiresAt) } : null, activity: array(payload.activity).map((value) => { const item = record(value) ? value : {}; return { occurredAt: date(item.occurredAt), actorLabel: string(item.actorLabel), description: string(item.description) }; }), allowedActions: array(payload.allowedActions).filter((value): value is AdminB2BAction => ACTIONS.has(string(value) as AdminB2BAction)) };
+  return { ...summary, company: { legalName: string(company.legalName), taxCode: string(company.taxCode), invoiceAddress: string(company.invoiceAddress), verificationStatus: company.verificationStatus === "PENDING" ? "PENDING" : "VERIFIED" }, requester: { displayName: string(requester.displayName), title: string(requester.title), phone: string(requester.phone), email: string(requester.email) }, purposeLabel: string(payload.purposeLabel), requestedDeliveryDate: date(payload.requestedDeliveryDate), deliveryLocation: string(payload.deliveryLocation), notes: string(payload.notes), items: array(payload.items).map((value) => { const item = record(value) ? value : {}; return { skuId: string(item.skuId), name: string(item.name), variant: string(item.variant), quantity: Math.max(1, number(item.quantity, 1)), catalogPriceVnd: Math.max(0, number(item.catalogPriceVnd)) }; }), customizations: array(payload.customizations).map((value) => string(value)).filter(Boolean), files: canViewFiles ? array(payload.files).map((value) => { const item = record(value) ? value : {}; const scan = string(item.scanStatus); return { fileId: string(item.fileId), fileName: string(item.fileName), mediaType: string(item.mediaType), scanStatus: scan === "SAFE" || scan === "REJECTED" ? scan : "PROCESSING" }; }) : [], quote: quote ? { quoteId: string(quote.quoteId), version: Math.max(1, number(quote.version, 1)), status: ["DRAFT", "SENT", "ACCEPTED", "SUPERSEDED"].includes(string(quote.status)) ? string(quote.status) as "DRAFT" | "SENT" | "ACCEPTED" | "SUPERSEDED" : "DRAFT", subtotalVnd: number(quote.subtotalVnd), discountPercent: number(quote.discountPercent), customizationVnd: number(quote.customizationVnd), shippingVnd: number(quote.shippingVnd), vatPercent: number(quote.vatPercent), grandTotalVnd: number(quote.grandTotalVnd), expiresAt: date(quote.expiresAt) } : null, activity: array(payload.activity).map((value) => { const item = record(value) ? value : {}; return { occurredAt: date(item.occurredAt), actorLabel: string(item.actorLabel), description: string(item.description) }; }), allowedActions: array(payload.allowedActions).filter((value): value is AdminB2BAction => ACTIONS.has(string(value) as AdminB2BAction)) };
 }
 
 function mapVersion(value: unknown): AdminB2BQuoteVersion {
@@ -87,6 +87,35 @@ function mapVersionHistory(payload: Record<string, unknown>): AdminB2BQuoteVersi
   return { requestId: string(payload.requestId), requestNumber: string(payload.requestNumber), items: array(payload.items).map(mapVersion).sort((left, right) => right.version - left.version) };
 }
 
+function fileScanStatus(value: unknown): AdminB2BFileScanStatus {
+  const status = string(value);
+  return status === "SAFE" || status === "REJECTED" ? status : "PROCESSING";
+}
+
+function mapFileRecord(value: unknown): AdminB2BFileRecord {
+  const item = record(value) ? value : {};
+  const versions = array(item.versions).map((value) => {
+    const version = record(value) ? value : {};
+    return {
+      version: Math.max(1, number(version.version, 1)),
+      isCurrent: version.isCurrent === true,
+      fileName: string(version.fileName),
+      mediaType: string(version.mediaType),
+      sizeBytes: Math.max(0, number(version.sizeBytes)),
+      scanStatus: fileScanStatus(version.scanStatus),
+      uploadedAt: date(version.uploadedAt),
+      uploadedByLabel: string(version.uploadedByLabel),
+      referencedByQuoteVersions: array(version.referencedByQuoteVersions).map((entry) => number(entry)).filter((entry) => Number.isInteger(entry) && entry > 0)
+    };
+  }).sort((left, right) => right.version - left.version);
+  const currentVersion = Math.max(1, number(item.currentVersion, versions.find((version) => version.isCurrent)?.version ?? versions[0]?.version ?? 1));
+  return { fileId: string(item.fileId), purposeLabel: string(item.purposeLabel), ownerOrganizationId: string(item.ownerOrganizationId), ownerOrganizationName: string(item.ownerOrganizationName), currentVersion, versions: versions.map((version) => ({ ...version, isCurrent: version.version === currentVersion })) };
+}
+
+function mapFileHistory(payload: Record<string, unknown>): AdminB2BFileHistory {
+  return { requestId: string(payload.requestId), requestNumber: string(payload.requestNumber), items: array(payload.items).map(mapFileRecord) };
+}
+
 const ACTION_PERMISSION: Record<Exclude<AdminB2BAction, "VIEW">, AdminPermission> = { ASSIGN: "B2B_REQUEST_ASSIGN", REQUEST_INFO: "B2B_REQUEST_INFO_REQUEST", CREATE_DRAFT: "B2B_QUOTE_DRAFT", ISSUE: "B2B_QUOTE_ISSUE", WITHDRAW: "B2B_QUOTE_WITHDRAW", REJECT: "B2B_QUOTE_REJECT", CONVERT_ORDER: "B2B_ORDER_CONVERT" };
 
 export async function handleAdminB2B(request: NextRequest, path: string[]) {
@@ -98,7 +127,11 @@ export async function handleAdminB2B(request: NextRequest, path: string[]) {
     const currentSession = await session(request);
     if (!currentSession.permissions.includes("B2B_REQUEST_VIEW")) return responseError("PERMISSION_FORBIDDEN", "Nhân viên không có quyền xem yêu cầu B2B.", 403);
     if (route.kind === "list") return NextResponse.json(mapList(await upstream(request, "admin/b2b/quote-requests")));
-    if (route.kind === "detail") return NextResponse.json(mapDetail(await upstream(request, `admin/b2b/quote-requests/${encodeURIComponent(route.requestId)}`)));
+    if (route.kind === "detail") return NextResponse.json(mapDetail(await upstream(request, `admin/b2b/quote-requests/${encodeURIComponent(route.requestId)}`), currentSession.permissions.includes("B2B_FILE_VIEW")));
+    if (route.kind === "files") {
+      if (!currentSession.permissions.includes("B2B_FILE_VIEW")) return responseError("PERMISSION_FORBIDDEN", "Nhân viên không có quyền xem tài liệu B2B.", 403);
+      return NextResponse.json(mapFileHistory(await upstream(request, `admin/b2b/quote-requests/${encodeURIComponent(route.requestId)}/files`)));
+    }
     if (route.kind === "versions") {
       const history = mapVersionHistory(await upstream(request, `admin/b2b/quote-requests/${encodeURIComponent(route.requestId)}/versions`));
       const currentVersion = Number(request.nextUrl.searchParams.get("currentVersion"));

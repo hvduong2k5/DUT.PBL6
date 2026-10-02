@@ -1,6 +1,6 @@
 # Quy chuẩn giao diện Web Admin
 
-**Cập nhật:** 2026-10-02  
+**Cập nhật:** 2026-10-03
 **Ứng dụng:** `apps/web-admin`
 
 Tài liệu này ghi lại quy chuẩn chính đã chốt cho giao diện nhân viên nội bộ. Epic và Product Backlog xác định phạm vi nghiệp vụ; `UI_SCREEN_SPECIFICATION_FOR_STITCH_AI.md` chỉ được dùng để tham khảo cách tổ chức màn hình. Khi cách trình bày khác nhau, quy chuẩn trong tài liệu này được ưu tiên cho Web Admin.
@@ -18,6 +18,9 @@ Tài liệu này ghi lại quy chuẩn chính đã chốt cho giao diện nhân 
 
 - Web Admin là ứng dụng riêng trong `apps/web-admin`; không ghép vai trò nhân viên vào `apps/web-user`.
 - Nhân viên dùng một loại tài khoản nội bộ. `Role` và `Permission` là hai khái niệm riêng: Role gom nhiều Permission, còn giao diện và BFF kiểm tra Permission nguyên tử tại thời điểm xem hoặc thao tác.
+- Không tách role chỉ để biểu diễn cấp quản lý và nhân viên thường trong cùng nghiệp vụ. Ví dụ cùng dùng role `PACKING`; quyền vào trang quản lý, Workbench và phạm vi `ALL`/`ASSIGNED_ONLY` do Permission + Scope quyết định.
+- Mã role là dữ liệu do Access Management cung cấp và không được dùng làm union đóng trong frontend. Permission mà UI/BFF thực sự hỗ trợ vẫn được khai báo rõ để kiểm tra authorization.
+- Profile Mockoon chỉ là bộ dữ liệu thử Permission/Scope, không phải role thật. Tên profile được chọn bằng `ADMIN_MOCK_PROFILE` trong môi trường local.
 - Sidebar chỉ hiển thị module mà phiên hiện tại có quyền xem. Việc ẩn menu/nút không thay thế kiểm tra authorization tại BFF/API.
 - Scope dữ liệu như `ALL` hoặc `ASSIGNED_ONLY` đi cùng permission và phải được upstream thật áp dụng khi truy vấn.
 
@@ -39,10 +42,11 @@ Tài liệu này ghi lại quy chuẩn chính đã chốt cho giao diện nhân 
 Mọi trang quản lý danh sách như danh mục, sản phẩm, người dùng hoặc yêu cầu nghiệp vụ dùng cùng thứ tự:
 
 1. Page header và các hành động toàn trang như `Thêm...`, `Tạo...`, `Làm mới`.
-2. Thanh chọn trạng thái dạng tab, có số lượng khi dữ liệu hỗ trợ.
-3. Thanh tìm kiếm và bộ lọc theo nghiệp vụ; luôn có thao tác đặt lại.
-4. Bảng chỉ chứa các cột nhận diện/tóm tắt cần thiết, không nhồi toàn bộ chi tiết item.
-5. Phân trang hoặc thông tin số bản ghi.
+2. Cụm KPI card nằm ngay dưới page header và trước khu vực danh sách. Thông thường dùng 3–4 chỉ số tổng quan quan trọng nhất của module; chỉ số phải truy được về Epic/API hoặc được upstream cung cấp, không tự suy diễn công thức nghiệp vụ ở frontend.
+3. Thanh chọn trạng thái dạng tab, có số lượng khi dữ liệu hỗ trợ.
+4. Thanh tìm kiếm và bộ lọc theo nghiệp vụ; luôn có thao tác đặt lại.
+5. Bảng chỉ chứa các cột nhận diện/tóm tắt cần thiết, không nhồi toàn bộ chi tiết item.
+6. Phân trang hoặc thông tin số bản ghi.
 
 Cột cuối của bảng luôn là cột tùy chọn với nút `•••`. Nút mở dropdown các hành động mà nhân viên được phép thực hiện và trạng thái item cho phép.
 
@@ -57,6 +61,14 @@ Cột cuối của bảng luôn là cột tùy chọn với nút `•••`. N�
 
 Mỗi trang cần chủ động thiết kế loading, empty, filtered-empty, API error, permission denied và action pending/error/success. Deep link hoặc request trực tiếp vẫn phải kiểm tra lại permission ở server.
 
-## 8. Màn tham chiếu đầu tiên
+## 8. Trang quản lý và Workbench
+
+- Trang quản lý dành cho actor có quyền giám sát phạm vi `ALL` hoặc `TEAM`; dùng KPI, bộ lọc và bảng để theo dõi nhiều item. Permission mở trang quản lý phải tách khỏi permission làm việc cá nhân.
+- Workbench là trang thực hiện quy trình nhiều bước của nhân viên, thường nằm trong nhóm `Công việc của tôi`. Workbench chỉ lấy item thuộc scope `ASSIGNED_ONLY`, trình bày hướng dẫn/dữ liệu cần thao tác và các bước nghiệp vụ theo Epic.
+- Một nhân viên không có quyền quản lý không thấy menu quản lý và không được gọi API danh sách toàn bộ. Một lead không tự động có quyền thao tác thay nhân viên nếu chưa được cấp permission workbench và được phân công phù hợp.
+- CRUD hoặc hành động đơn giản trên trang quản lý vẫn dùng modal. Quy trình nhiều bước có thể có Workbench riêng; các bước xác nhận có ảnh hưởng trong Workbench vẫn dùng popup xác nhận khi cần.
+- Sidebar, page/BFF và upstream đều kiểm tra permission; BFF/upstream còn kiểm tra data scope và quan hệ phân công trên từng record.
+
+## 9. Màn tham chiếu đầu tiên
 
 `/b2b/quotes` là implementation tham chiếu ban đầu của quy chuẩn: header + sidebar, page header, status tabs, search/filter, bảng cơ bản, cột `•••`, dropdown theo quyền/trạng thái và toàn bộ hành động trong modal.

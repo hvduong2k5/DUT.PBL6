@@ -6,7 +6,7 @@
 **Ứng dụng:** `apps/web-admin`  
 **Mock Admin:** `mocks/mockoon/admin_extensions.json`, cổng `4030`
 
-**Nguồn phạm vi:** `US-B2B-03`, đặc biệt các scenario “Hai nhân viên cập nhật đồng thời”, “Sửa Quote đã phát hành” và `FR-B2B-07~12`. Các nội dung SLA escalation/message thread ở Mục 8 của Epic vẫn là điểm cần chốt nên không được tự mở rộng từ UI specification.
+**Nguồn phạm vi:** `US-B2B-02~03`, đặc biệt các scenario quản lý phiên bản/từ chối truy cập tệp, “Hai nhân viên cập nhật đồng thời”, “Sửa Quote đã phát hành” và `FR-B2B-04~12`. Các nội dung SLA escalation/message thread, preview vector, giới hạn file và retention ở Mục 8 của Epic vẫn là điểm cần chốt nên không được tự mở rộng từ UI specification.
 
 ## Phạm vi đã triển khai
 
@@ -15,6 +15,7 @@
 | Phiên nhân viên và projection quyền | `GET /api/admin/session` | `GET /admin/session` | Đã tích hợp |
 | Hàng đợi yêu cầu B2B | `GET /api/admin/b2b/quote-requests` | `GET /admin/b2b/quote-requests` | Đã tích hợp |
 | Chi tiết yêu cầu | `GET /api/admin/b2b/quote-requests/:requestId` | cùng path không có `/api` | Đã tích hợp trong modal |
+| Metadata và lịch sử phiên bản tài liệu B2B | `GET /api/admin/b2b/quote-requests/:requestId/files` | cùng path không có `/api` | Đã tích hợp trong modal, yêu cầu `B2B_FILE_VIEW` |
 | Lịch sử Quote Version và immutable snapshot | `GET /api/admin/b2b/quote-requests/:requestId/versions` | cùng path không có `/api` | Đã tích hợp trong modal |
 | Phân công, yêu cầu bổ sung, lập nháp, phát hành, thu hồi, từ chối, chuyển Order | `POST /api/admin/b2b/quote-requests/:requestId/actions` | cùng path không có `/api` | Đã tích hợp trong modal |
 | Chống ghi đè đồng thời | Mọi mutation gửi `expectedRevision`; BFF trả `409 B2B_CONCURRENCY_CONFLICT` khi revision cũ | scenario `admin-b2b-concurrency-conflict` trên action route | Đã tích hợp, buộc tải lại/đối chiếu |
@@ -27,7 +28,7 @@ Màn `/b2b/quotes` có status tabs, tìm theo mã/doanh nghiệp/mã số thuế
 - `CUSTOMER_SERVICE`: xem, yêu cầu bổ sung và xem tệp; không có quyền lập hoặc phát hành báo giá.
 - `B2B_VIEWER`: chỉ xem.
 - Đây là fixture phục vụ UI, không phải quy tắc role cố định của production. Production trả effective permissions sau khi tổng hợp Role và assignment thực tế.
-- BFF kiểm tra `B2B_REQUEST_VIEW` cho list/detail và permission riêng cho từng mutation. Upstream production vẫn phải kiểm tra lại permission, scope và transition nghiệp vụ.
+- BFF kiểm tra `B2B_REQUEST_VIEW` cho list/detail, loại metadata tệp khỏi detail nếu thiếu `B2B_FILE_VIEW`, trả `403` cho file-history route nếu thiếu quyền và kiểm tra permission riêng cho từng mutation. Upstream production vẫn phải kiểm tra lại permission, scope và transition nghiệp vụ.
 
 ## Quy tắc trạng thái trên UI
 
@@ -45,13 +46,13 @@ Màn `/b2b/quotes` có status tabs, tìm theo mã/doanh nghiệp/mã số thuế
 
 - Mutation trả acknowledgement và UI cập nhật projection trong phiên; Mockoon chưa lưu state bền qua lần tải lại.
 - Quote Builder đang mô phỏng chiết khấu, phí tùy biến, vận chuyển, VAT, ngày hết hạn và điều khoản. Tổng tiền phía UI chỉ là preview; backend thật phải tính và xác nhận lại.
-- Tệp mới chỉ có metadata/scan status; chưa có upload binary, signed URL hoặc malware scan thật.
+- Tài liệu đã có metadata theo phiên bản, bản hiện hành, kích thước, trạng thái `SAFE/PROCESSING/REJECTED` và liên kết Quote Version làm căn cứ. BFF không trả storage reference/object key; chưa có upload/download binary, signed URL, preview vector hoặc malware scan thật.
 - Thu hồi và conversion sang Order đã có UI/BFF/mock acknowledgement; upstream thật vẫn phải kiểm tra transition, availability, chống trùng và tạo Order thực tế.
 - Version history đã hiển thị preview Customer-compatible và giữ snapshot chỉ đọc cho phiên bản đã phát hành; mock dùng một bộ fixture V1–V3 và BFF giới hạn theo version hiện tại của dòng được chọn.
 - Concurrency dùng optimistic revision: UI gửi revision đã tải, mutation thành công tăng revision; conflict khóa nút gửi lại cho đến khi tải dữ liệu mới.
 - Không triển khai message thread hai chiều hoặc SLA escalation khi Epic chưa chốt ranh giới với Ticket/Notification và chính sách SLA.
 - Audit explorer thuộc phạm vi Epic/Audit tương ứng, chưa được suy diễn thành chức năng của ADM-034.
-- Mock fixture dùng `ADMIN_MOCK_ROLE`; production không được tin header role do browser gửi.
+- Mock fixture ưu tiên `ADMIN_MOCK_PROFILE` (`ADMIN_MOCK_ROLE` chỉ tương thích cấu hình local cũ); production không được tin header profile do browser gửi.
 
 ## Chạy local
 
@@ -61,7 +62,7 @@ cd apps\web-admin
 npm run dev
 ```
 
-Mặc định Web Admin chạy ở `http://localhost:3001`. Chọn fixture bằng `ADMIN_MOCK_ROLE=SALES_MANAGER`, `CUSTOMER_SERVICE` hoặc `VIEW_ONLY` trong `.env.local`.
+Mặc định Web Admin chạy ở `http://localhost:3001`. Chọn fixture bằng `ADMIN_MOCK_PROFILE=SALES_MANAGER`, `CUSTOMER_SERVICE` hoặc `VIEW_ONLY` trong `.env.local`.
 
 ## Việc còn lại của ADM-034
 
@@ -69,4 +70,4 @@ Mặc định Web Admin chạy ở `http://localhost:3001`. Chọn fixture bằn
 2. Kết nối `WITHDRAW` và conversion với backend Order/Inventory thật, gồm kiểm tra transition và idempotency.
 3. Nối Quote Version history/snapshot hiện có với persistence và concurrency version thật.
 4. Chờ Product Owner chốt ranh giới message/Ticket/Notification và chính sách SLA trước khi mở rộng UI.
-5. Upload/download tệp có scan và quyền truy cập theo `US-B2B-02`; Audit UI chỉ làm khi Epic sở hữu màn được đưa vào scope.
+5. Chờ chốt loại/dung lượng/số lượng, preview vector, retention và quyền sử dụng thương hiệu trước khi làm upload/download tệp thật; Audit UI chỉ làm khi Epic sở hữu màn được đưa vào scope.

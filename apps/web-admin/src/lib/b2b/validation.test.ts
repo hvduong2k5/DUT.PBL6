@@ -5,6 +5,7 @@ describe("admin B2B validation", () => {
   it("allows list, detail and popup action routes only", () => {
     expect(parseAdminB2BPath(["quote-requests"]).kind).toBe("list");
     expect(parseAdminB2BPath(["quote-requests", "req-1"]).kind).toBe("detail");
+    expect(parseAdminB2BPath(["quote-requests", "req-1", "files"]).kind).toBe("files");
     expect(parseAdminB2BPath(["quote-requests", "req-1", "versions"]).kind).toBe("versions");
     expect(parseAdminB2BPath(["quote-requests", "req-1", "actions"]).kind).toBe("action");
     expect(parseAdminB2BPath(["quotes"]).kind).toBe("invalid");

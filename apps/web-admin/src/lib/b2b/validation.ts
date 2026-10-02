@@ -7,6 +7,7 @@ const text = (value: unknown) => typeof value === "string" ? value.trim() : "";
 export function parseAdminB2BPath(path: string[]) {
   if (path.length === 1 && path[0] === "quote-requests") return { kind: "list" as const };
   if (path.length === 2 && path[0] === "quote-requests" && path[1]) return { kind: "detail" as const, requestId: path[1] };
+  if (path.length === 3 && path[0] === "quote-requests" && path[1] && path[2] === "files") return { kind: "files" as const, requestId: path[1] };
   if (path.length === 3 && path[0] === "quote-requests" && path[1] && path[2] === "versions") return { kind: "versions" as const, requestId: path[1] };
   if (path.length === 3 && path[0] === "quote-requests" && path[1] && path[2] === "actions") return { kind: "action" as const, requestId: path[1] };
   return { kind: "invalid" as const };

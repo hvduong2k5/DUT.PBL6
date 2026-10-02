@@ -3,26 +3,26 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAdminSession } from "@/components/auth/admin-session-provider";
-import type { AdminB2BAction, AdminB2BActionInput, AdminB2BList, AdminB2BQuoteVersionHistory, AdminB2BRequestDetail, AdminB2BRequestSummary, AdminB2BStatus } from "@/lib/b2b/types";
+import type { AdminB2BAction, AdminB2BActionInput, AdminB2BFileHistory, AdminB2BList, AdminB2BQuoteVersionHistory, AdminB2BRequestDetail, AdminB2BRequestSummary, AdminB2BStatus } from "@/lib/b2b/types";
 import { AdminB2BApiError } from "@/lib/b2b/types";
 import { adminB2BService } from "@/services/admin-b2b-service";
 
 const VND = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 });
 const DATE = new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
 const DATE_TIME = new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
-type ModalAction = "VIEW" | "VERSION_HISTORY" | "ASSIGN" | "REQUEST_INFO" | "CREATE_DRAFT" | "ISSUE" | "WITHDRAW" | "REJECT" | "CONVERT_ORDER";
+type ModalAction = "VIEW" | "FILES" | "VERSION_HISTORY" | "ASSIGN" | "REQUEST_INFO" | "CREATE_DRAFT" | "ISSUE" | "WITHDRAW" | "REJECT" | "CONVERT_ORDER";
 
-const ACTION_LABELS: Record<ModalAction, string> = { VIEW: "Xem chi tiết", VERSION_HISTORY: "Lịch sử phiên bản", ASSIGN: "Phân công phụ trách", REQUEST_INFO: "Yêu cầu bổ sung", CREATE_DRAFT: "Lập phiên bản báo giá", ISSUE: "Phát hành báo giá", WITHDRAW: "Thu hồi báo giá", REJECT: "Từ chối yêu cầu", CONVERT_ORDER: "Chuyển thành đơn hàng" };
+const ACTION_LABELS: Record<ModalAction, string> = { VIEW: "Xem chi tiết", FILES: "Tài liệu doanh nghiệp", VERSION_HISTORY: "Lịch sử phiên bản", ASSIGN: "Phân công phụ trách", REQUEST_INFO: "Yêu cầu bổ sung", CREATE_DRAFT: "Lập phiên bản báo giá", ISSUE: "Phát hành báo giá", WITHDRAW: "Thu hồi báo giá", REJECT: "Từ chối yêu cầu", CONVERT_ORDER: "Chuyển thành đơn hàng" };
 const STATUS_ACTIONS: Record<AdminB2BStatus, ModalAction[]> = {
-  REQUESTED: ["VIEW", "ASSIGN", "REQUEST_INFO", "CREATE_DRAFT", "REJECT"],
-  NEEDS_INFO: ["VIEW", "ASSIGN", "CREATE_DRAFT", "REJECT"],
-  DRAFT: ["VIEW", "VERSION_HISTORY", "ASSIGN", "REQUEST_INFO", "CREATE_DRAFT", "ISSUE", "REJECT"],
-  SENT: ["VIEW", "VERSION_HISTORY", "ASSIGN", "CREATE_DRAFT", "WITHDRAW"],
-  ACCEPTED: ["VIEW", "VERSION_HISTORY", "CONVERT_ORDER"],
-  REJECTED: ["VIEW"],
-  EXPIRED: ["VIEW", "VERSION_HISTORY", "CREATE_DRAFT"],
-  WITHDRAWN: ["VIEW", "VERSION_HISTORY", "CREATE_DRAFT"],
-  CONVERTED: ["VIEW", "VERSION_HISTORY"]
+  REQUESTED: ["VIEW", "FILES", "ASSIGN", "REQUEST_INFO", "CREATE_DRAFT", "REJECT"],
+  NEEDS_INFO: ["VIEW", "FILES", "ASSIGN", "CREATE_DRAFT", "REJECT"],
+  DRAFT: ["VIEW", "FILES", "VERSION_HISTORY", "ASSIGN", "REQUEST_INFO", "CREATE_DRAFT", "ISSUE", "REJECT"],
+  SENT: ["VIEW", "FILES", "VERSION_HISTORY", "ASSIGN", "CREATE_DRAFT", "WITHDRAW"],
+  ACCEPTED: ["VIEW", "FILES", "VERSION_HISTORY", "CONVERT_ORDER"],
+  REJECTED: ["VIEW", "FILES"],
+  EXPIRED: ["VIEW", "FILES", "VERSION_HISTORY", "CREATE_DRAFT"],
+  WITHDRAWN: ["VIEW", "FILES", "VERSION_HISTORY", "CREATE_DRAFT"],
+  CONVERTED: ["VIEW", "FILES", "VERSION_HISTORY"]
 };
 
 function StatusBadge({ row }: { row: Pick<AdminB2BRequestSummary, "status" | "statusLabel"> }) { return <span className={`admin-status status-${row.status.toLowerCase()}`}>{row.statusLabel}</span>; }
@@ -46,6 +46,7 @@ export function B2BQuoteWorkspace() {
   const [modal, setModal] = useState<{ action: ModalAction; row: AdminB2BRequestSummary } | null>(null);
   const [detail, setDetail] = useState<AdminB2BRequestDetail | null>(null);
   const [history, setHistory] = useState<AdminB2BQuoteVersionHistory | null>(null);
+  const [fileHistory, setFileHistory] = useState<AdminB2BFileHistory | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [actionError, setActionError] = useState("");
   const [actionConflict, setActionConflict] = useState(false);
@@ -66,7 +67,7 @@ export function B2BQuoteWorkspace() {
   }, [data, owner, query, sla, status]);
 
   const openModal = useCallback(async (action: ModalAction, row: AdminB2BRequestSummary) => {
-    setMenuId(""); setModal({ action, row }); setDetail(null); setHistory(null); setActionError(""); setActionConflict(false);
+    setMenuId(""); setModal({ action, row }); setDetail(null); setHistory(null); setFileHistory(null); setActionError(""); setActionConflict(false);
     if (["VIEW", "CREATE_DRAFT", "ISSUE"].includes(action)) {
       setDetailLoading(true);
       try { setDetail(await adminB2BService.detail(row.requestId, scenario)); }
@@ -77,6 +78,12 @@ export function B2BQuoteWorkspace() {
       setDetailLoading(true);
       try { setHistory(await adminB2BService.versions(row.requestId, row.currentQuoteVersion, row.status, scenario)); }
       catch (cause) { setActionError(cause instanceof AdminB2BApiError ? cause.message : "Không thể tải lịch sử phiên bản."); }
+      finally { setDetailLoading(false); }
+    }
+    if (action === "FILES") {
+      setDetailLoading(true);
+      try { setFileHistory(await adminB2BService.files(row.requestId, scenario)); }
+      catch (cause) { setActionError(cause instanceof AdminB2BApiError ? cause.message : "Không thể tải tài liệu doanh nghiệp."); }
       finally { setDetailLoading(false); }
     }
   }, [scenario]);
@@ -101,6 +108,7 @@ export function B2BQuoteWorkspace() {
 
   function firstDraftable() { const row = data?.items.find((item) => item.status === "REQUESTED" || item.status === "NEEDS_INFO"); if (row) void openModal("CREATE_DRAFT", row); else setToast("Không có yêu cầu phù hợp để lập báo giá mới."); }
   const allowed = (action: ModalAction) => {
+    if (action === "FILES") return hasPermission("B2B_FILE_VIEW");
     if (action === "VIEW" || action === "VERSION_HISTORY") return true;
     const required = { ASSIGN: "B2B_REQUEST_ASSIGN", REQUEST_INFO: "B2B_REQUEST_INFO_REQUEST", CREATE_DRAFT: "B2B_QUOTE_DRAFT", ISSUE: "B2B_QUOTE_ISSUE", WITHDRAW: "B2B_QUOTE_WITHDRAW", REJECT: "B2B_QUOTE_REJECT", CONVERT_ORDER: "B2B_ORDER_CONVERT" } as const;
     return hasPermission(required[action as Exclude<AdminB2BAction, "VIEW">]);
@@ -122,11 +130,11 @@ export function B2BQuoteWorkspace() {
     </section>
 
     {toast ? <div className="admin-toast" role="status">✓ {toast}</div> : null}
-    {modal ? <ActionModal modal={modal} detail={detail} history={history} detailLoading={detailLoading} owners={data.owners} error={actionError} conflict={actionConflict} pending={actionPending} onClose={() => setModal(null)} onReload={() => { setModal(null); void load(); }} onAct={act} /> : null}
+    {modal ? <ActionModal modal={modal} detail={detail} history={history} fileHistory={fileHistory} canViewFiles={hasPermission("B2B_FILE_VIEW")} detailLoading={detailLoading} owners={data.owners} error={actionError} conflict={actionConflict} pending={actionPending} onClose={() => setModal(null)} onReload={() => { setModal(null); void load(); }} onAct={act} /> : null}
   </div>;
 }
 
-function ActionModal({ modal, detail, history, detailLoading, owners, error, conflict, pending, onClose, onReload, onAct }: { modal: { action: ModalAction; row: AdminB2BRequestSummary }; detail: AdminB2BRequestDetail | null; history: AdminB2BQuoteVersionHistory | null; detailLoading: boolean; owners: AdminB2BList["owners"]; error: string; conflict: boolean; pending: boolean; onClose: () => void; onReload: () => void; onAct: (input: Omit<AdminB2BActionInput, "idempotencyKey" | "expectedRevision">) => Promise<void> }) {
+function ActionModal({ modal, detail, history, fileHistory, canViewFiles, detailLoading, owners, error, conflict, pending, onClose, onReload, onAct }: { modal: { action: ModalAction; row: AdminB2BRequestSummary }; detail: AdminB2BRequestDetail | null; history: AdminB2BQuoteVersionHistory | null; fileHistory: AdminB2BFileHistory | null; canViewFiles: boolean; detailLoading: boolean; owners: AdminB2BList["owners"]; error: string; conflict: boolean; pending: boolean; onClose: () => void; onReload: () => void; onAct: (input: Omit<AdminB2BActionInput, "idempotencyKey" | "expectedRevision">) => Promise<void> }) {
   const [reason, setReason] = useState("");
   const [assigneeId, setAssigneeId] = useState(modal.row.owner?.employeeId ?? owners[0]?.employeeId ?? "");
   const [discountPercent, setDiscountPercent] = useState(detail?.quote?.discountPercent ?? 18);
@@ -140,7 +148,8 @@ function ActionModal({ modal, detail, history, detailLoading, owners, error, con
   const subtotal = detail?.items.reduce((sum, item) => sum + item.catalogPriceVnd * item.quantity, 0) ?? 0;
   const grandTotal = (subtotal * (1 - discountPercent / 100) + customizationVnd + shippingVnd) * (1 + vatPercent / 100);
   function submit(event: FormEvent) { event.preventDefault(); if (modal.action === "ASSIGN") void onAct({ action: "ASSIGN", assigneeId }); else if (modal.action === "REQUEST_INFO") void onAct({ action: "REQUEST_INFO", reason }); else if (modal.action === "WITHDRAW") void onAct({ action: "WITHDRAW", reason }); else if (modal.action === "REJECT") void onAct({ action: "REJECT", reason }); else if (modal.action === "ISSUE") void onAct({ action: "ISSUE", reason: reason || "Phát hành báo giá sau khi đã rà soát đầy đủ." }); else if (modal.action === "CONVERT_ORDER") void onAct({ action: "CONVERT_ORDER", invoiceSnapshotConfirmed, availabilityCheckAcknowledged }); else if (modal.action === "CREATE_DRAFT") void onAct({ action: "CREATE_DRAFT", quote: { discountPercent, customizationVnd, shippingVnd, vatPercent, expiresAt, terms } }); }
-  if (modal.action === "VIEW") return <Modal title={`Chi tiết ${modal.row.requestNumber}`} subtitle={modal.row.companyName} onClose={onClose} wide>{detailLoading ? <div className="admin-modal-loading">Đang tải chi tiết…</div> : detail ? <DetailContent detail={detail} /> : <div className="admin-inline-error">{error}</div>}</Modal>;
+  if (modal.action === "VIEW") return <Modal title={`Chi tiết ${modal.row.requestNumber}`} subtitle={modal.row.companyName} onClose={onClose} wide>{detailLoading ? <div className="admin-modal-loading">Đang tải chi tiết…</div> : detail ? <DetailContent detail={detail} canViewFiles={canViewFiles} /> : <div className="admin-inline-error">{error}</div>}</Modal>;
+  if (modal.action === "FILES") return <Modal title={`Tài liệu ${modal.row.requestNumber}`} subtitle={`${modal.row.companyName} · Chỉ hiển thị metadata được cấp quyền`} onClose={onClose} wide>{detailLoading ? <div className="admin-modal-loading">Đang tải lịch sử tài liệu…</div> : fileHistory ? <FileHistoryContent history={fileHistory} /> : <div className="admin-inline-error">{error}</div>}</Modal>;
   if (modal.action === "VERSION_HISTORY") return <Modal title={`Lịch sử ${modal.row.requestNumber}`} subtitle={`${modal.row.companyName} · Snapshot theo từng Quote Version`} onClose={onClose} wide>{detailLoading ? <div className="admin-modal-loading">Đang tải lịch sử phiên bản…</div> : history ? <VersionHistoryContent history={history} /> : <div className="admin-inline-error">{error}</div>}</Modal>;
   return <Modal title={ACTION_LABELS[modal.action]} subtitle={`${modal.row.requestNumber} · ${modal.row.companyName}`} onClose={onClose} wide={modal.action === "CREATE_DRAFT"}><form className="admin-action-form" onSubmit={submit}>
     {detailLoading ? <div className="admin-modal-loading">Đang tải dữ liệu…</div> : null}
@@ -170,6 +179,32 @@ function VersionHistoryContent({ history }: { history: AdminB2BQuoteVersionHisto
   </div>;
 }
 
-function DetailContent({ detail }: { detail: AdminB2BRequestDetail }) {
-  return <div className="admin-detail"><div className="admin-detail-summary"><StatusBadge row={detail} /><span className={`admin-sla sla-${detail.slaState.toLowerCase()}`}>● {detail.slaLabel}</span><span>{detail.owner?.displayName ?? "Chưa phân công"}</span></div><div className="admin-detail-grid"><section><h3>Doanh nghiệp</h3><dl><div><dt>Pháp nhân</dt><dd>{detail.company.legalName}</dd></div><div><dt>Mã số thuế</dt><dd>{detail.company.taxCode}</dd></div><div><dt>Đại diện</dt><dd>{detail.requester.displayName} · {detail.requester.title}</dd></div><div><dt>Liên hệ</dt><dd>{detail.requester.phone}<br />{detail.requester.email}</dd></div><div><dt>Địa chỉ hóa đơn</dt><dd>{detail.company.invoiceAddress}</dd></div></dl></section><section><h3>Nhu cầu</h3><dl><div><dt>Mục đích</dt><dd>{detail.purposeLabel}</dd></div><div><dt>Ngày giao dự kiến</dt><dd>{DATE.format(new Date(detail.requestedDeliveryDate))}</dd></div><div><dt>Khu vực giao</dt><dd>{detail.deliveryLocation}</dd></div><div><dt>Ghi chú</dt><dd>{detail.notes || "Không có"}</dd></div></dl></section></div><section className="admin-detail-section"><h3>Dòng sản phẩm</h3><table><thead><tr><th>SKU/Sản phẩm</th><th>Quy cách</th><th>Số lượng</th><th>Giá catalog</th></tr></thead><tbody>{detail.items.map((item) => <tr key={item.skuId}><td><strong>{item.name}</strong><small>{item.skuId}</small></td><td>{item.variant}</td><td>{item.quantity} set</td><td>{VND.format(item.catalogPriceVnd)}</td></tr>)}</tbody></table></section><div className="admin-detail-grid"><section><h3>Tùy biến</h3><ul>{detail.customizations.map((item) => <li key={item}>✓ {item}</li>)}</ul></section><section><h3>Tệp doanh nghiệp</h3>{detail.files.map((file) => <div className="admin-file-row" key={file.fileId}><span>▧</span><div><strong>{file.fileName}</strong><small>{file.mediaType}</small></div><em>{file.scanStatus === "SAFE" ? "An toàn" : file.scanStatus}</em></div>)}</section></div><section className="admin-detail-section"><h3>Lịch sử hoạt động</h3><div className="admin-activity">{detail.activity.map((item) => <article key={`${item.occurredAt}-${item.description}`}><span /><div><strong>{item.description}</strong><small>{item.actorLabel} · {DATE_TIME.format(new Date(item.occurredAt))}</small></div></article>)}</div></section></div>;
+function fileSize(sizeBytes: number) {
+  if (sizeBytes < 1024) return `${sizeBytes} B`;
+  if (sizeBytes < 1024 * 1024) return `${(sizeBytes / 1024).toFixed(1)} KB`;
+  return `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function FileHistoryContent({ history }: { history: AdminB2BFileHistory }) {
+  const initialFile = history.items[0];
+  const initialVersion = initialFile?.versions.find((item) => item.isCurrent) ?? initialFile?.versions[0];
+  const [selection, setSelection] = useState(initialFile && initialVersion ? `${initialFile.fileId}:${initialVersion.version}` : "");
+  const [selectedFileId, selectedVersionText] = selection.split(":");
+  const selectedFile = history.items.find((item) => item.fileId === selectedFileId) ?? initialFile;
+  const selectedVersion = selectedFile?.versions.find((item) => item.version === Number(selectedVersionText)) ?? selectedFile?.versions.find((item) => item.isCurrent) ?? selectedFile?.versions[0];
+  if (!selectedFile || !selectedVersion) return <div className="admin-empty"><span>▧</span><h3>Chưa có tài liệu</h3><p>Yêu cầu này chưa liên kết logo hoặc tài liệu thiết kế nào.</p></div>;
+  const statusLabel = selectedVersion.scanStatus === "SAFE" ? "An toàn" : selectedVersion.scanStatus === "PROCESSING" ? "Đang kiểm tra" : "Bị từ chối";
+  return <div className="admin-file-history">
+    <aside className="admin-file-list"><header><strong>{history.items.length} tài liệu</strong><small>Chọn từng phiên bản để đối chiếu</small></header>{history.items.map((file) => <section key={file.fileId}><div><b>{file.purposeLabel}</b><small>{file.fileId}</small></div>{file.versions.map((version) => <button type="button" className={selectedFile.fileId === file.fileId && selectedVersion.version === version.version ? "active" : ""} onClick={() => setSelection(`${file.fileId}:${version.version}`)} key={`${file.fileId}-${version.version}`}><span><b>Version {version.version}</b>{version.isCurrent ? <em>Hiện hành</em> : null}</span><small>{version.fileName}</small><small>{DATE_TIME.format(new Date(version.uploadedAt))}</small></button>)}</section>)}</aside>
+    <article className="admin-file-preview"><header><div><span className="eyebrow">B2B File Metadata</span><h3>{selectedVersion.fileName}</h3><p>{selectedFile.purposeLabel} · Version {selectedVersion.version}</p></div><div className="admin-snapshot-state"><em className={`admin-file-status file-${selectedVersion.scanStatus.toLowerCase()}`}>{statusLabel}</em><b>{selectedVersion.isCurrent ? "Phiên bản hiện hành" : "Phiên bản lịch sử"}</b></div></header>
+      <div className="admin-file-meta"><span><small>Mã tài liệu</small><b>{selectedFile.fileId}</b></span><span><small>Loại tệp</small><b>{selectedVersion.mediaType}</b></span><span><small>Kích thước</small><b>{fileSize(selectedVersion.sizeBytes)}</b></span><span><small>Thời điểm tải</small><b>{DATE_TIME.format(new Date(selectedVersion.uploadedAt))}</b></span></div>
+      <section><h4>Chủ sở hữu và liên kết nghiệp vụ</h4><dl><div><dt>Doanh nghiệp</dt><dd>{selectedFile.ownerOrganizationName}</dd></div><div><dt>Mã doanh nghiệp</dt><dd>{selectedFile.ownerOrganizationId}</dd></div><div><dt>Quote Request</dt><dd>{history.requestNumber}</dd></div><div><dt>Người tải</dt><dd>{selectedVersion.uploadedByLabel}</dd></div><div><dt>Căn cứ Quote Version</dt><dd>{selectedVersion.referencedByQuoteVersions.length ? selectedVersion.referencedByQuoteVersions.map((version) => `V${version}`).join(", ") : "Chưa được dùng làm căn cứ cho Quote đã phát hành"}</dd></div></dl></section>
+      <section className="admin-file-safety"><h4>Trạng thái sử dụng</h4><p>{selectedVersion.scanStatus === "SAFE" ? "Tệp đã hoàn tất kiểm tra an toàn và có thể được nhân viên có quyền sử dụng làm căn cứ xử lý." : selectedVersion.scanStatus === "PROCESSING" ? "Tệp đang được kiểm tra an toàn; chưa nên dùng làm căn cứ phát hành Quote." : "Tệp không đạt kiểm tra an toàn và không được sử dụng làm căn cứ xử lý."}</p></section>
+      <footer>Giao diện chỉ hiển thị metadata đã được cấp quyền. Đường dẫn lưu trữ, object key và thao tác tải/preview nhị phân không được trả về ở phạm vi này.</footer>
+    </article>
+  </div>;
+}
+
+function DetailContent({ detail, canViewFiles }: { detail: AdminB2BRequestDetail; canViewFiles: boolean }) {
+  return <div className="admin-detail"><div className="admin-detail-summary"><StatusBadge row={detail} /><span className={`admin-sla sla-${detail.slaState.toLowerCase()}`}>● {detail.slaLabel}</span><span>{detail.owner?.displayName ?? "Chưa phân công"}</span></div><div className="admin-detail-grid"><section><h3>Doanh nghiệp</h3><dl><div><dt>Pháp nhân</dt><dd>{detail.company.legalName}</dd></div><div><dt>Mã số thuế</dt><dd>{detail.company.taxCode}</dd></div><div><dt>Đại diện</dt><dd>{detail.requester.displayName} · {detail.requester.title}</dd></div><div><dt>Liên hệ</dt><dd>{detail.requester.phone}<br />{detail.requester.email}</dd></div><div><dt>Địa chỉ hóa đơn</dt><dd>{detail.company.invoiceAddress}</dd></div></dl></section><section><h3>Nhu cầu</h3><dl><div><dt>Mục đích</dt><dd>{detail.purposeLabel}</dd></div><div><dt>Ngày giao dự kiến</dt><dd>{DATE.format(new Date(detail.requestedDeliveryDate))}</dd></div><div><dt>Khu vực giao</dt><dd>{detail.deliveryLocation}</dd></div><div><dt>Ghi chú</dt><dd>{detail.notes || "Không có"}</dd></div></dl></section></div><section className="admin-detail-section"><h3>Dòng sản phẩm</h3><table><thead><tr><th>SKU/Sản phẩm</th><th>Quy cách</th><th>Số lượng</th><th>Giá catalog</th></tr></thead><tbody>{detail.items.map((item) => <tr key={item.skuId}><td><strong>{item.name}</strong><small>{item.skuId}</small></td><td>{item.variant}</td><td>{item.quantity} set</td><td>{VND.format(item.catalogPriceVnd)}</td></tr>)}</tbody></table></section><div className="admin-detail-grid"><section><h3>Tùy biến</h3><ul>{detail.customizations.map((item) => <li key={item}>✓ {item}</li>)}</ul></section><section><h3>Tệp doanh nghiệp</h3>{canViewFiles ? detail.files.length ? detail.files.map((file) => <div className="admin-file-row" key={file.fileId}><span>▧</span><div><strong>{file.fileName}</strong><small>{file.mediaType}</small></div><em>{file.scanStatus === "SAFE" ? "An toàn" : file.scanStatus === "PROCESSING" ? "Đang kiểm tra" : "Bị từ chối"}</em></div>) : <p className="admin-file-empty">Chưa có tài liệu được liên kết.</p> : <p className="admin-file-permission">Bạn không có quyền xem metadata tài liệu B2B.</p>}</section></div><section className="admin-detail-section"><h3>Lịch sử hoạt động</h3><div className="admin-activity">{detail.activity.map((item) => <article key={`${item.occurredAt}-${item.description}`}><span /><div><strong>{item.description}</strong><small>{item.actorLabel} · {DATE_TIME.format(new Date(item.occurredAt))}</small></div></article>)}</div></section></div>;
 }
