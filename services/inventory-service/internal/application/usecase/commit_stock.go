@@ -16,6 +16,7 @@ type CommitStockDeductionUseCase struct {
 	repo        port.InventoryRepository
 	txManager   port.TransactionManager
 	lockService port.LockService
+	outboxRepo  port.OutboxRepository
 }
 
 // NewCommitStockDeductionUseCase creates a new CommitStockDeductionUseCase.
@@ -23,11 +24,17 @@ func NewCommitStockDeductionUseCase(
 	repo port.InventoryRepository,
 	txManager port.TransactionManager,
 	lockService port.LockService,
+	outboxRepo ...port.OutboxRepository,
 ) *CommitStockDeductionUseCase {
+	var obRepo port.OutboxRepository
+	if len(outboxRepo) > 0 {
+		obRepo = outboxRepo[0]
+	}
 	return &CommitStockDeductionUseCase{
 		repo:        repo,
 		txManager:   txManager,
 		lockService: lockService,
+		outboxRepo:  obRepo,
 	}
 }
 
@@ -138,6 +145,7 @@ func (uc *CommitStockDeductionUseCase) Execute(ctx context.Context, orderID stri
 		}
 		sort.Strings(skus)
 
+		itemMap := make(map[string]*entity.InventoryItem)
 		for _, s := range skus {
 			item, err := uc.repo.GetItemBySKUForUpdate(ctx, tx, s)
 			if err != nil {
@@ -149,6 +157,7 @@ func (uc *CommitStockDeductionUseCase) Execute(ctx context.Context, orderID stri
 			if err := uc.repo.UpdateItem(ctx, tx, item); err != nil {
 				return err
 			}
+			itemMap[s] = item
 		}
 
 		// STEP 2: Aggregate BatchIDs, sort canonical, lock and update batches
@@ -175,6 +184,50 @@ func (uc *CommitStockDeductionUseCase) Execute(ctx context.Context, orderID stri
 			}
 			if err := uc.repo.UpdateBatch(ctx, tx, batch); err != nil {
 				return err
+			}
+		}
+
+		// STEP 3: Emit Outbox Event for committed stock deduction
+		if uc.outboxRepo != nil {
+			var warehouseID string
+			if len(skus) > 0 && itemMap[skus[0]] != nil {
+				warehouseID = itemMap[skus[0]].WarehouseID.String()
+			}
+			if warehouseID == "" {
+				warehouseID = entity.DefaultWarehouseID.String()
+			}
+
+			committedItems := make([]entity.StockCommittedItem, 0, len(skus))
+			for _, s := range skus {
+				committedItems = append(committedItems, entity.StockCommittedItem{
+					SKUCode:  s,
+					Quantity: skuAllocMap[s],
+				})
+			}
+
+			if len(committedItems) > 0 {
+				ce, err := entity.NewStockCommittedCloudEvent(
+					res.ID.String(),
+					orderID,
+					warehouseID,
+					committedItems,
+					"",
+				)
+				if err != nil {
+					return err
+				}
+				outboxEvent, err := entity.NewOutboxEvent(
+					"StockReservation",
+					res.ID.String(),
+					entity.EventTypeStockCommitted,
+					ce,
+				)
+				if err != nil {
+					return err
+				}
+				if err := uc.outboxRepo.SaveEvent(ctx, tx, outboxEvent); err != nil {
+					return err
+				}
 			}
 		}
 

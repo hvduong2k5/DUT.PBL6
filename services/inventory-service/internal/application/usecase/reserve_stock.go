@@ -23,6 +23,7 @@ type ReserveStockUseCase struct {
 	repo        port.InventoryRepository
 	txManager   port.TransactionManager
 	lockService port.LockService
+	outboxRepo  port.OutboxRepository
 }
 
 // NewReserveStockUseCase creates a new ReserveStockUseCase.
@@ -30,11 +31,17 @@ func NewReserveStockUseCase(
 	repo port.InventoryRepository,
 	txManager port.TransactionManager,
 	lockService port.LockService,
+	outboxRepo ...port.OutboxRepository,
 ) *ReserveStockUseCase {
+	var obRepo port.OutboxRepository
+	if len(outboxRepo) > 0 {
+		obRepo = outboxRepo[0]
+	}
 	return &ReserveStockUseCase{
 		repo:        repo,
 		txManager:   txManager,
 		lockService: lockService,
+		outboxRepo:  obRepo,
 	}
 }
 
@@ -117,6 +124,7 @@ func (uc *ReserveStockUseCase) Execute(
 
 	txErr := uc.txManager.ExecuteInTransaction(ctx, func(tx port.Transaction) error {
 		var allAllocations []entity.ReservationItemAllocation
+		itemEntities := make(map[string]*entity.InventoryItem)
 
 		for _, sku := range sortedSKUs {
 			reqQty := consolidated[sku]
@@ -129,6 +137,7 @@ func (uc *ReserveStockUseCase) Execute(
 			if itemEntity.AvailableQty() < reqQty {
 				return entity.ErrInsufficientStock
 			}
+			itemEntities[sku] = itemEntity
 
 			// Lock active batches for this SKU ordered by exp_date ASC
 			batches, err := uc.repo.GetActiveBatchesBySKUForUpdate(ctx, tx, sku)
@@ -178,6 +187,38 @@ func (uc *ReserveStockUseCase) Execute(
 
 		if err := uc.repo.CreateReservation(ctx, tx, newRes); err != nil {
 			return err
+		}
+
+		// Save Outbox Event(s) within the same DB transaction
+		if uc.outboxRepo != nil {
+			for _, sku := range sortedSKUs {
+				item := itemEntities[sku]
+				ce, err := entity.NewStockReservedCloudEvent(
+					newRes.ID.String(),
+					orderID,
+					sku,
+					item.WarehouseID.String(),
+					consolidated[sku],
+					item.AvailableQty(),
+					newRes.ExpiresAt,
+					"",
+				)
+				if err != nil {
+					return err
+				}
+				outboxEvent, err := entity.NewOutboxEvent(
+					"StockReservation",
+					newRes.ID.String(),
+					entity.EventTypeStockReserved,
+					ce,
+				)
+				if err != nil {
+					return err
+				}
+				if err := uc.outboxRepo.SaveEvent(ctx, tx, outboxEvent); err != nil {
+					return err
+				}
+			}
 		}
 
 		reservation = newRes

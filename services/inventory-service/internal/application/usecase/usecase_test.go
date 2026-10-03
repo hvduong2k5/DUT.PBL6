@@ -69,6 +69,22 @@ func (m *MockInventoryRepository) UpdateItem(ctx context.Context, tx port.Transa
 	return args.Error(0)
 }
 
+func (m *MockInventoryRepository) GetItemsBySKUs(ctx context.Context, skus []string) ([]*entity.InventoryItem, error) {
+	args := m.Called(ctx, skus)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*entity.InventoryItem), args.Error(1)
+}
+
+func (m *MockInventoryRepository) GetBatchesBySKU(ctx context.Context, sku string) ([]*entity.Batch, error) {
+	args := m.Called(ctx, sku)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*entity.Batch), args.Error(1)
+}
+
 func (m *MockInventoryRepository) GetActiveBatchesBySKUForUpdate(ctx context.Context, tx port.Transaction, sku string) ([]*entity.Batch, error) {
 	args := m.Called(ctx, tx, sku)
 	if args.Get(0) == nil {
@@ -103,6 +119,14 @@ func (m *MockInventoryRepository) CreateReservation(ctx context.Context, tx port
 	return args.Error(0)
 }
 
+func (m *MockInventoryRepository) GetReservationByID(ctx context.Context, id uuid.UUID) (*entity.StockReservation, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*entity.StockReservation), args.Error(1)
+}
+
 func (m *MockInventoryRepository) GetReservationByOrderID(ctx context.Context, orderID string) (*entity.StockReservation, error) {
 	args := m.Called(ctx, orderID)
 	if args.Get(0) == nil {
@@ -122,6 +146,22 @@ func (m *MockInventoryRepository) GetReservationByOrderIDForUpdate(ctx context.C
 func (m *MockInventoryRepository) UpdateReservation(ctx context.Context, tx port.Transaction, res *entity.StockReservation) error {
 	args := m.Called(ctx, tx, res)
 	return args.Error(0)
+}
+
+func (m *MockInventoryRepository) GetExpiredPendingReservations(ctx context.Context, now time.Time, limit int) ([]*entity.StockReservation, error) {
+	args := m.Called(ctx, now, limit)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*entity.StockReservation), args.Error(1)
+}
+
+func (m *MockInventoryRepository) GetBatchesNearExpiry(ctx context.Context, thresholdDate time.Time, limit int) ([]*entity.Batch, error) {
+	args := m.Called(ctx, thresholdDate, limit)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*entity.Batch), args.Error(1)
 }
 
 type MockLockService struct {
@@ -373,6 +413,80 @@ func TestUT_INV_APP_05_ReleaseReservation_Idempotency(t *testing.T) {
 	mockRepo.AssertNotCalled(t, "UpdateReservation", mock.Anything, mock.Anything, mock.Anything)
 	mockRepo.AssertNotCalled(t, "UpdateBatch", mock.Anything, mock.Anything, mock.Anything)
 	mockRepo.AssertNotCalled(t, "UpdateItem", mock.Anything, mock.Anything, mock.Anything)
+}
+
+func TestReleaseReservation_ByIDOnly(t *testing.T) {
+	ctx := context.Background()
+	mockRepo := new(MockInventoryRepository)
+	mockTxManager := new(MockTransactionManager)
+	mockLock := new(MockLockService)
+
+	orderID := "ORDER-2026-BY-RES-ID"
+	resID := uuid.New()
+	sku := "SKU-OC-MEXUNG-001"
+	batchID := uuid.New()
+
+	existingRes, err := entity.NewStockReservation(orderID, entity.DefaultReservationTTL, []entity.ReservationItemAllocation{
+		{
+			ID:           uuid.New(),
+			SKU:          sku,
+			BatchID:      batchID,
+			AllocatedQty: 15,
+		},
+	})
+	require.NoError(t, err)
+	existingRes.ID = resID
+	existingRes.Status = entity.ReservationStatusPending
+
+	batch := &entity.Batch{
+		ID:          batchID,
+		SKU:         sku,
+		PhysicalQty: 100,
+		ReservedQty: 15,
+		Status:      entity.BatchStatusActive,
+	}
+	item := &entity.InventoryItem{
+		SKU:         sku,
+		PhysicalQty: 100,
+		ReservedQty: 15,
+		Status:      entity.ItemStatusActive,
+	}
+
+	mockRepo.On("GetReservationByID", ctx, resID).Return(existingRes, nil)
+	mockLock.On("AcquireLock", ctx, "lock:inventory:sku:"+sku, 3*time.Second).Return(true, nil)
+	mockLock.On("ReleaseLock", mock.Anything, "lock:inventory:sku:"+sku).Return(nil)
+
+	mockTxManager.On("ExecuteInTransaction", ctx, mock.Anything).Return(nil)
+	mockRepo.On("GetReservationByOrderIDForUpdate", ctx, mock.Anything, orderID).Return(existingRes, nil)
+	mockRepo.On("UpdateReservation", ctx, mock.Anything, mock.MatchedBy(func(r *entity.StockReservation) bool {
+		return r.Status == entity.ReservationStatusReleased
+	})).Return(nil)
+
+	mockRepo.On("GetItemBySKUForUpdate", ctx, mock.Anything, sku).Return(item, nil)
+	mockRepo.On("UpdateItem", ctx, mock.Anything, mock.MatchedBy(func(i *entity.InventoryItem) bool {
+		return i.ReservedQty == 0
+	})).Return(nil)
+
+	mockRepo.On("GetBatchByID", ctx, mock.Anything, batchID).Return(batch, nil)
+	mockRepo.On("UpdateBatch", ctx, mock.Anything, mock.MatchedBy(func(b *entity.Batch) bool {
+		return b.ReservedQty == 0
+	})).Return(nil)
+
+	uc := usecase.NewReleaseReservationUseCase(mockRepo, mockTxManager, mockLock)
+
+	// When: Gọi ExecuteWithResult với orderID rỗng và reservationID
+	totalRestored, err := uc.ExecuteWithResult(ctx, "", resID.String())
+
+	// Then
+	require.NoError(t, err)
+	assert.Equal(t, 15, totalRestored)
+	assert.Equal(t, entity.ReservationStatusReleased, existingRes.Status)
+	assert.Equal(t, 0, batch.ReservedQty)
+	assert.Equal(t, 0, item.ReservedQty)
+
+	mockRepo.AssertExpectations(t)
+	mockLock.AssertExpectations(t)
+	mockTxManager.AssertExpectations(t)
 }
 
 // UT-INV-APP-06: Đơn hàng thanh toán thành công, xác nhận trừ thật số lượng

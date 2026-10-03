@@ -145,9 +145,66 @@ Hệ thống phân tách rạch ròi 3 luồng tín hiệu để đảm bảo an
     + **Chuẩn hóa Timezone UTC toàn diện:** Đổi toàn bộ `time.Now()` thành `time.Now().UTC()` trên toàn bộ Domain Entities (`StockReservation`, `InventoryItem`, `Batch`) và tầng PostgreSQL Repository updates (`UpdateItem`, `UpdateReservation`).
     + **Cải tiến độ bền RedlockService:** Giữ token trong sync.Map khi script Lua `Eval` gặp lỗi mạng tạm thời, cho phép caller retry giải phóng lock an toàn thay vì mất token và rò rỉ lock trên Redis; phòng vệ nil context.
     + **DDL Outbox Pattern:** Bổ sung bảng `outbox_events` (`CHECK (retry_count >= 0)`, `error_message TEXT`) và partial index `idx_outbox_pending` (`WHERE status = 'PENDING'`) vào migration `000001_init_inventory_schema.up.sql` / `down.sql`, đồng bộ vào `docs/inventory-service/inventory_database_design.md`.
-  - **Tổng kết kiểm thử Bước 4:** Đạt **76/76 test cases PASS 100%** trên toàn bộ service (chạy fresh bằng `go test -count=1 ./...`). Usecase: 27/27, Entity: 14/14, Domain Service: 11/11, Postgres: 18/18, Redis: 6/6.
-  - `Slice 4.5 & 4.6`: Tạm hoãn theo kế hoạch chờ UI/Frontend và cụm Kafka.
-
+  - `Slice 4.5 (Tầng Presentation gRPC, Query Use Cases & Entrypoint Server)`:
+    + **Sinh mã Go Protobuf (`pkg/proto/`):** Tự động sinh `inventoryv1` (`inventory.pb.go`, `inventory_grpc.pb.go`) và `commonv1` (`types.pb.go`, `errors.pb.go`) qua `buf generate` với module path chuẩn `dut-pbl6/inventory-service/pkg/proto/...`.
+    + **2 Query Use Cases mới:** `GetStockLevelUseCase` (tính toán `available_qty`, `stock_status` gồm IN_STOCK, LOW_STOCK, OUT_OF_STOCK, deduplicate SKUs) và `GetBatchFEFODetailsUseCase` (truy vấn danh sách lô theo FEFO `exp_date ASC`, tự động cập nhật trạng thái cận date / expired). Bổ sung phương thức `GetItemsBySKUs` và `GetBatchesBySKU` vào `port.InventoryRepository` và `PostgresInventoryRepository`.
+    + **gRPC Presentation Handler (`internal/presentation/grpc/handler.go`):** Cài đặt `InventoryServiceServer` đầy đủ 4 RPCs: `ReserveStock`, `ReleaseReservation`, `GetStockLevel`, `GetBatchFEFODetails`. Xử lý chuyển đổi mã trạng thái chuẩn (`codes.OK`, `codes.InvalidArgument`, `codes.ResourceExhausted`, `codes.NotFound`, `codes.Internal`) và đóng gói `commonv1.ErrorDetail` vào gRPC Status Details.
+    + **Hardening & Khắc phục khiếm khuyết Presentation Layer:**
+      * Bổ sung `GetReservationByID` vào repository và use case, hỗ trợ giải phóng tồn kho khi caller chỉ cung cấp `reservation_id` (trước đây bị lỗi `ErrInvalidBatchData`).
+      * Triển khai `ExecuteWithResult` tính toán chính xác số lượng tồn kho được hoàn trả và gán vào `total_items_restored` trong `ReleaseReservationResponse` (trước đây luôn = 0).
+      * Khắc phục triệt để lỗi phân loại chất lượng lô hàng quá hạn trong `GetBatchFEFODetails`: Lô quá hạn (`!now.Before(exp_date)` hoặc `EXPIRED`) bắt buộc chuyển sang `QUARANTINED`, ngăn chặn lỗi bán hàng quá hạn do điều kiện `daysUntil <= 45` bị kích hoạt sai.
+      * Tăng cường xác thực chuỗi rỗng/chỉ chứa khoảng trắng (whitespace-only) trên toàn bộ các tham số đầu vào (`order_id`, `sku_code`, `sku_codes`, `reservation_id`).
+      * Bổ sung bài kiểm thử tích hợp mạng gRPC thật (In-Memory `bufconn`) xác thực toàn bộ quá trình đóng gói, truyền tải HTTP/2 và giải mã Status Details `ErrorDetail` qua wire.
+    + **Entrypoint Server (`cmd/server/main.go`):** Khởi tạo gRPC server lắng nghe cổng `8001` (hỗ trợ ENV `PORT`, `DB_URL`, `REDIS_ADDR`), wire toàn bộ Dependency Injection (PostgreSQL connection pool, Redis client & adapter, repositories, use cases, gRPC server registration, reflection), hỗ trợ Graceful Shutdown an toàn trên `SIGINT`/`SIGTERM` với timeout 10s.
+    + **Tổng kết kiểm thử Bước 4:** Đạt **125/125 test cases PASS 100%** (chạy fresh bằng `go test -count=1 ./...`). Bao gồm 26 tests cho Presentation gRPC Handler, 33 tests Usecase, 14 tests Entity, 11 tests Domain Service, 22 tests Postgres Repo, 6 tests Redis Redlock.
+  - `Slice 4.6 (Trục sự kiện Kafka, Transactional Outbox Pattern & Background Sweeper Workers)`:
+    + **Transactional Outbox Pattern trong Use Cases:**
+      * Định nghĩa entity `OutboxEvent` (`internal/domain/entity/outbox.go`) và CloudEvents 1.0 JSON payloads chuẩn (`StockReservedEventData`, `StockReleasedEventData`, `ExpiryWarningEventData`, `OrderPaidEventData`).
+      * Trong `ReserveStockUseCase`: ghi bản ghi `outbox_events` với event type `vn.omama.inventory.stock.reserved.v1` trong cùng DB transaction ACID với việc cập nhật items, batches và tạo reservation.
+      * Trong `ReleaseReservationUseCase`: ghi bản ghi `outbox_events` với event type `vn.omama.inventory.stock.released.v1` trong cùng DB transaction khi giải phóng hàng.
+      * Mở rộng `port.OutboxRepository` và cài đặt `PostgresOutboxRepository` (`internal/infrastructure/postgres/outbox.go`).
+    + **Transactional Outbox Publisher Worker (`internal/infrastructure/worker/outbox_publisher.go`):**
+      * Quét các sự kiện `PENDING` theo batch (`BatchSize: 50`) từ bảng `outbox_events` sử dụng partial index `idx_outbox_pending`.
+      * Tự động trích xuất Partition Key (`sku_code`) từ CloudEvent payload và xuất bản lên topic `inventory.events.v1` qua port `port.EventPublisher`.
+      * Cập nhật trạng thái `PUBLISHED` kèm `processed_at = NOW()`, hoặc ghi nhận `retry_count` kèm `error_message` khi gặp lỗi broker.
+      * Hỗ trợ Exponential Backoff (`baseBackoff * 2^(retry-1)`) và chuyển sang `FAILED` khi đạt ngưỡng `MaxRetries: 5`.
+    + **Background Sweeper Workers:**
+      * `TTLReservationCleanupWorker` (`internal/infrastructure/worker/cleanup_worker.go`): Chạy định kỳ (mặc định 60s), quét bảng `stock_reservations` lấy các bản ghi `PENDING` có `expires_at < NOW()`, ủy quyền cho `ReleaseReservationUseCase` để hoàn trả tồn kho an toàn và tự động ghi outbox release event.
+      * `ExpiryCheckWorker` (`internal/infrastructure/worker/expiry_worker.go`): Chạy định kỳ (mặc định 24h), quét các lô có `exp_date <= NOW() + 45 days`. Lô cận date chuyển sang `NEAR_EXPIRY` và phát sinh outbox event `vn.omama.inventory.batch.expiry.warning.v1`. Lô đã hết hạn (`exp_date <= NOW()`) chuyển sang `EXPIRED` (hoặc `QUARANTINE` nếu còn hàng đang giữ chỗ).
+    + **Tầng Presentation Kafka Consumer (`internal/presentation/kafka/consumer.go`):**
+      * Cài đặt `OrderPaidHandler` tiêu thụ sự kiện `vn.omama.order.paid.v1` từ topic `order.events.v1`.
+      * Phòng vệ Idempotency 2 lớp: Tầng Consumer qua `IdempotencyRepository` (`idemp:kafka:order.events.v1:order_paid:<order_id>`) và Tầng Use Case qua trạng thái reservation `COMMITTED`.
+      * Kích hoạt `CommitStockDeductionUseCase` để trừ kho vật lý vĩnh viễn và đổi reservation sang `COMMITTED`.
+      * `KafkaConsumerListener`: Quản lý vòng lặp tiêu thụ và commit offset tin cậy qua `MessageReader`.
+    + **Hạ tầng Kafka (`internal/infrastructure/kafka/producer.go`):** Cài đặt `KafkaProducer` dựa trên `segmentio/kafka-go` và `LogEventPublisher` làm fallback khi chạy môi trường local dev chưa có cụm Kafka.
+    + **Tích hợp Entrypoint Server (`cmd/server/main.go`):** Wire toàn bộ 3 Background Workers và Kafka Consumer Listener song song cùng gRPC Server; hỗ trợ Graceful Shutdown an toàn dọn dẹp tài nguyên (dừng workers, đóng Kafka connections, đóng gRPC server, đóng DB và Redis pools).
+    + **Tổng kết kiểm thử Bước 4:** Đạt **161/161 test cases PASS 100%** (36 test cases mới cho Outbox Entity, Postgres Outbox Repo, Outbox Use Cases, Outbox Publisher Worker, Sweeper Workers, Kafka Consumer & Producer).
+  - `Slice 4.7 (Bộ Dữ Liệu Mẫu OCOP Huế, Khởi Tạo Hạ Tầng Docker & Kiểm Thử Postman gRPC)`:
+    + **Dữ liệu mẫu (`services/inventory-service/migrations/seed_sample_data.sql`):**
+      * Định nghĩa 5 SKU Mè xửng O Mạ Huế (`MX-GION-500G`, `MX-DEO-300G`, `KE-ME-GUONG-250G`, `MX-KHOAI-LANG-400G`, `MX-MAT-ONG-350G`) phủ đủ các trạng thái tồn kho (`IN_STOCK`, `LOW_STOCK`, `OUT_OF_STOCK`).
+      * 11 lô sản xuất (`batches`) với các trạng thái (`EXPIRED`, `NEAR_EXPIRY` <= 45 ngày, `ACTIVE`, `QUARANTINE`) tính toán động theo `CURRENT_DATE +/- INTERVAL` duy trì tính hợp lệ vĩnh viễn cho thuật toán FEFO và Zero Expired Sale.
+      * Phiếu giữ chỗ mẫu PENDING (`ORD-TEST-HUEDAC-9999`) khóa sẵn 10 gói `MX-DEO-300G` với TTL 2 giờ, phục vụ kiểm thử ngay RPC `ReleaseReservation`.
+      * Cơ chế Idempotent Re-run dọn sạch bảng (TRUNCATE bao gồm cả `outbox_events` & `idempotency_keys`).
+    + **Tự động hóa 1-click (`infra/scripts/init-inventory-data.ps1`):**
+      * Tự động phát hiện và khởi động Windows Service `com.docker.service` & `Docker Desktop.exe` kèm vòng lặp chờ an toàn.
+      * Khởi chạy `om-postgres` (PostgreSQL 16) và `om-redis` (Redis 7.2) qua `docker-compose.infra.yml`.
+      * Kiểm tra kết nối SQL thật sự (`SELECT 1`), tránh lỗi false-positive do temporary server của `initdb` gây ngắt kết nối (`FATAL: database system is shutting down`).
+      * Nạp Schema Migration và Seed Data an toàn qua `docker cp` + `psql -f`, triệt tiêu hoàn toàn lỗi UTF-8 BOM (`\xEF\xBB\xBF`) và lỗi sai lệch encoding trên Windows PowerShell 5.1/7.
+    + **Bộ Kiểm Thử & Xác Minh Live (`cmd/testclient/main.go`):**
+      * Đã kiểm thử live roundtrip 100% thành công trên gRPC server port 8001 cho toàn bộ 4 RPCs (`GetStockLevel`, `GetBatchFEFODetails`, `ReserveStock`, `ReleaseReservation`), kiểm tra Idempotency và kiểm thử biên (mua vượt tồn kho hợp lệ trả về `ResourceExhausted`).
+  - `Slice 4.8 (Senior Engineering & Architectural Hardening - Pragmatic Triage Patch & Review)`:
+    + **P0 - Khắc phục Idempotency Tiên Nghiệm trong Kafka Consumer (`internal/presentation/kafka/consumer.go`):**
+      * Phát hiện lỗi: Trước đây, `OrderPaidHandler` gọi `idempotencyRepo.CheckOrSet` trước khi gọi `commitStockUC.Execute`. Nếu usecase gặp lỗi tạm thời (ví dụ DB bận, timeout mạng), key idempotency đã nằm trong DB; khi Kafka redeliver message, consumer thấy key đã tồn tại nên bỏ qua luôn, dẫn đến đơn hàng không bao giờ bị trừ tồn vật lý (Lost Stock Deduction) và sau 15 phút sẽ bị worker dọn dẹp xả bán cho người khác.
+      * Giải pháp: Đổi thứ tự thực thi — gọi `commitStockUC.Execute` trước (dựa vào tính idempotent sẵn có của usecase/DB: nếu reservation đã `COMMITTED` thì return nil an toàn). Chỉ ghi nhận `idempotencyRepo.CheckOrSet` SAU KHI commit thành công hoặc reservation đã xử lý xong. Khi usecase lỗi, không ghi key, bảo đảm Kafka retry an toàn.
+      * Bổ sung Panic Recovery: Tích hợp `defer recover()` bắt mọi runtime panic trong `OrderPaidHandler.Handle` và `KafkaConsumerListener.run`, in stack trace và trả về lỗi, ngăn chặn hoàn toàn việc goroutine consumer làm crash sập toàn bộ microservice.
+    + **P1 - Bổ sung gRPC Panic Recovery Interceptor (`cmd/server/main.go` & `cmd/server/main_test.go`):**
+      * Đăng ký `recoveryUnaryServerInterceptor` và `recoveryStreamServerInterceptor` chuẩn trong `grpc.NewServer(grpc.ChainUnaryInterceptor(...), grpc.ChainStreamInterceptor(...))`.
+      * Tự động bắt mọi runtime panic trong cả Unary lẫn Streaming RPC handlers, ghi log stack trace đầy đủ và trả về mã gRPC `codes.Internal` ("internal server error") cho client, triệt tiêu nguy cơ crash sập toàn bộ tiến trình (bảo vệ sống còn cho 3 background workers và Kafka consumer).
+    + **P1 - Bổ sung Outbox Event khi Commit Trừ kho (`internal/application/usecase/commit_stock.go` & `internal/domain/entity/outbox.go`):**
+      * Định nghĩa CloudEvents 1.0 schema: `vn.omama.inventory.stock.committed.v1` (`EventTypeStockCommitted`) và tạo file schema JSON chuẩn tại `packages/events/schemas/inventory/v1/stock_committed.event.json`.
+      * Inject `outboxRepo` vào `CommitStockDeductionUseCase`.
+      * Trong cùng Database Transaction với thao tác trừ kho lô & item, phát sinh sự kiện outbox `vn.omama.inventory.stock.committed.v1` chứa `order_id`, `reservation_id`, `warehouse_id` (đơn định theo `skus[0]`), và danh sách SKU cùng số lượng đã trừ, sẵn sàng phục vụ cho `analytics-service` và `shipping-service`.
+    + **Tổng kết kiểm thử:** 100% test cases trên toàn bộ module PASS (**166+ tests**), bao gồm các kịch bản commit retry, outbox transaction failure, panic interceptor recovery (unary & stream), handler panic recovery, CheckOrSet failure, và outbox publisher dispatching với partition key `order_id`.
 
 ---
 

@@ -76,6 +76,69 @@ func (r *PostgresInventoryRepository) UpdateItem(ctx context.Context, tx port.Tr
 	return err
 }
 
+// GetItemsBySKUs retrieves inventory items for a list of SKUs.
+func (r *PostgresInventoryRepository) GetItemsBySKUs(ctx context.Context, skus []string) ([]*entity.InventoryItem, error) {
+	if len(skus) == 0 {
+		return nil, nil
+	}
+	placeholders := make([]string, len(skus))
+	args := make([]any, len(skus))
+	for i, s := range skus {
+		placeholders[i] = fmt.Sprintf("$%d", i+1)
+		args[i] = s
+	}
+	query := fmt.Sprintf(`SELECT sku, warehouse_id, physical_qty, reserved_qty, status, updated_at
+              FROM inventory_items WHERE sku IN (%s)`, strings.Join(placeholders, ","))
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var items []*entity.InventoryItem
+	for rows.Next() {
+		item := &entity.InventoryItem{}
+		var status string
+		err := rows.Scan(&item.SKU, &item.WarehouseID, &item.PhysicalQty, &item.ReservedQty, &status, &item.UpdatedAt)
+		if err != nil {
+			return nil, err
+		}
+		item.Status = entity.ItemStatus(status)
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+// GetBatchesBySKU queries all batches for a given SKU ordered by FEFO (exp_date ASC, created_at ASC).
+func (r *PostgresInventoryRepository) GetBatchesBySKU(ctx context.Context, sku string) ([]*entity.Batch, error) {
+	query := `SELECT id, batch_code, sku, supplier_id, mfg_date, exp_date, physical_qty, reserved_qty, status, created_at
+              FROM batches
+              WHERE sku = $1
+              ORDER BY exp_date ASC, created_at ASC`
+	rows, err := r.db.QueryContext(ctx, query, sku)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var batches []*entity.Batch
+	for rows.Next() {
+		b := &entity.Batch{}
+		var status string
+		err := rows.Scan(
+			&b.ID, &b.BatchCode, &b.SKU, &b.SupplierID,
+			&b.MfgDate, &b.ExpDate, &b.PhysicalQty, &b.ReservedQty,
+			&status, &b.CreatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		b.Status = entity.BatchStatus(status)
+		batches = append(batches, b)
+	}
+	return batches, rows.Err()
+}
+
 // GetActiveBatchesBySKUForUpdate queries active and near-expiry batches for a SKU ordered by FEFO and locks them.
 func (r *PostgresInventoryRepository) GetActiveBatchesBySKUForUpdate(ctx context.Context, tx port.Transaction, sku string) ([]*entity.Batch, error) {
 	query := `SELECT id, batch_code, sku, supplier_id, mfg_date, exp_date, physical_qty, reserved_qty, status, created_at
@@ -208,6 +271,13 @@ func (r *PostgresInventoryRepository) CreateReservation(ctx context.Context, tx 
 	return nil
 }
 
+// GetReservationByID retrieves a reservation and its allocations by reservation UUID.
+func (r *PostgresInventoryRepository) GetReservationByID(ctx context.Context, reservationID uuid.UUID) (*entity.StockReservation, error) {
+	query := `SELECT id, order_id, status, expires_at, created_at, updated_at
+              FROM stock_reservations WHERE id = $1`
+	return r.scanReservation(ctx, r.db.QueryRowContext(ctx, query, reservationID), nil)
+}
+
 // GetReservationByOrderID retrieves a reservation and its allocations by orderID.
 func (r *PostgresInventoryRepository) GetReservationByOrderID(ctx context.Context, orderID string) (*entity.StockReservation, error) {
 	query := `SELECT id, order_id, status, expires_at, created_at, updated_at
@@ -262,4 +332,85 @@ func (r *PostgresInventoryRepository) UpdateReservation(ctx context.Context, tx 
 	_, err := r.getExecutor(tx).ExecContext(ctx, query,
 		string(res.Status), time.Now().UTC(), res.ID)
 	return err
+}
+
+// GetExpiredPendingReservations queries stock_reservations that are PENDING and expired before the given timestamp.
+func (r *PostgresInventoryRepository) GetExpiredPendingReservations(ctx context.Context, now time.Time, limit int) ([]*entity.StockReservation, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	query := `SELECT id, order_id, status, expires_at, created_at, updated_at
+              FROM stock_reservations
+              WHERE status = 'PENDING' AND expires_at < $1
+              ORDER BY expires_at ASC
+              LIMIT $2`
+	rows, err := r.db.QueryContext(ctx, query, now.UTC(), limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var reservations []*entity.StockReservation
+	for rows.Next() {
+		res := &entity.StockReservation{}
+		var status string
+		if err := rows.Scan(&res.ID, &res.OrderID, &status, &res.ExpiresAt, &res.CreatedAt, &res.UpdatedAt); err != nil {
+			return nil, err
+		}
+		res.Status = entity.ReservationStatus(status)
+		reservations = append(reservations, res)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	// Fetch allocations for each reservation
+	for _, res := range reservations {
+		queryAlloc := `SELECT id, reservation_id, sku, batch_id, allocated_qty
+                       FROM stock_reservation_allocations WHERE reservation_id = $1`
+		allocRows, err := r.db.QueryContext(ctx, queryAlloc, res.ID)
+		if err != nil {
+			return nil, err
+		}
+		for allocRows.Next() {
+			var alloc entity.ReservationItemAllocation
+			if err := allocRows.Scan(&alloc.ID, &alloc.ReservationID, &alloc.SKU, &alloc.BatchID, &alloc.AllocatedQty); err != nil {
+				allocRows.Close()
+				return nil, err
+			}
+			res.Allocations = append(res.Allocations, alloc)
+		}
+		allocRows.Close()
+	}
+
+	return reservations, nil
+}
+
+// GetBatchesNearExpiry queries batches that are ACTIVE or NEAR_EXPIRY with exp_date <= thresholdDate.
+func (r *PostgresInventoryRepository) GetBatchesNearExpiry(ctx context.Context, thresholdDate time.Time, limit int) ([]*entity.Batch, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	query := `SELECT id, batch_code, sku, supplier_id, mfg_date, exp_date, physical_qty, reserved_qty, status, created_at
+              FROM batches
+              WHERE status IN ('ACTIVE', 'NEAR_EXPIRY') AND exp_date <= $1
+              ORDER BY exp_date ASC
+              LIMIT $2`
+	rows, err := r.db.QueryContext(ctx, query, thresholdDate.UTC(), limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var batches []*entity.Batch
+	for rows.Next() {
+		b := &entity.Batch{}
+		var status string
+		if err := rows.Scan(&b.ID, &b.BatchCode, &b.SKU, &b.SupplierID, &b.MfgDate, &b.ExpDate, &b.PhysicalQty, &b.ReservedQty, &status, &b.CreatedAt); err != nil {
+			return nil, err
+		}
+		b.Status = entity.BatchStatus(status)
+		batches = append(batches, b)
+	}
+	return batches, rows.Err()
 }
