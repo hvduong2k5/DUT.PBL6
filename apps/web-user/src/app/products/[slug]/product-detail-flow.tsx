@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -9,6 +8,7 @@ import { MAX_CART_ITEM_QUANTITY } from "@/lib/cart/validation";
 import type { ProductDetail, ProductSku } from "@/lib/product-detail/types";
 import { ProductDetailApiError } from "@/lib/product-detail/types";
 import { ProductReviewsSection } from "@/components/product/product-reviews";
+import { ProductImage } from "@/components/product/product-image";
 import { useCartSummary } from "@/components/cart/cart-summary-provider";
 import { cartService } from "@/services/cart-service";
 import { productDetailService } from "@/services/product-detail-service";
@@ -145,10 +145,10 @@ export function ProductDetailFlow({ slug }: { slug: string }) {
       <section className="detail-hero">
         <div className="product-gallery">
           <div className="gallery-main">
-            {activeImage ? <Image src={activeImage} alt={product.images.find((image) => image.url === activeImage)?.alt ?? product.name} fill priority loading="eager" sizes="(max-width: 860px) 100vw, 52vw" /> : <div className="gallery-empty">Chưa có ảnh sản phẩm</div>}
+            {activeImage ? <ProductImage src={activeImage} alt={product.images.find((image) => image.url === activeImage)?.alt ?? product.name} fill priority loading="eager" sizes="(max-width: 860px) 100vw, 52vw" /> : <div className="gallery-empty">Chưa có ảnh sản phẩm</div>}
             {product.ocopCertification ? <span className="gallery-certification">✺ {product.ocopCertification.label}</span> : null}
           </div>
-          {product.images.length > 1 ? <div className="gallery-thumbnails" aria-label="Ảnh sản phẩm">{product.images.map((image) => <button type="button" className={activeImage === image.url ? "active" : ""} aria-pressed={activeImage === image.url} onClick={() => setActiveImageUrl(image.url)} key={image.id}><Image src={image.url} alt={image.alt} fill sizes="92px" /></button>)}</div> : null}
+          {product.images.length > 1 ? <div className="gallery-thumbnails" aria-label="Ảnh sản phẩm">{product.images.map((image) => <button type="button" className={activeImage === image.url ? "active" : ""} aria-pressed={activeImage === image.url} onClick={() => setActiveImageUrl(image.url)} key={image.id}><ProductImage src={image.url} alt={image.alt} fill sizes="92px" /></button>)}</div> : null}
         </div>
 
         <div className="detail-purchase-panel">
@@ -157,9 +157,9 @@ export function ProductDetailFlow({ slug }: { slug: string }) {
           <p className="detail-lead">{product.shortDescription}</p>
 
           <div className="detail-price" aria-live="polite">
-            <span>{selectedSku ? "Giá bán của quy cách đã chọn" : "Khoảng giá theo quy cách"}</span>
-            <strong>{formatPrice(product, selectedSku)}</strong>
-            <small>Giá bán Website, chưa áp dụng khuyến mãi.</small>
+            <span>{selectedSku ? `Tạm tính cho ${quantity} sản phẩm` : "Khoảng giá theo quy cách"}</span>
+            <strong>{selectedSku ? VND.format(selectedSku.priceVnd * quantity) : formatPrice(product)}</strong>
+            <small>{selectedSku ? `Đơn giá ${VND.format(selectedSku.priceVnd)} · Chưa áp dụng khuyến mãi.` : "Giá bán Website, chưa áp dụng khuyến mãi."}</small>
           </div>
 
           <fieldset className="sku-picker" aria-describedby="sku-guidance sku-message">

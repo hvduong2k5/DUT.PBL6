@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { emptyCart, mapCustomerCoreCart, type CustomerCoreCart } from "@/lib/cart/customer-core";
+import { emptyCart, mapCustomerCoreCart, withCartItemQuantity, type CustomerCoreCart } from "@/lib/cart/customer-core";
 import { parseCartRoute, validateAddCartItemInput, validateUpdateCartItemInput } from "@/lib/cart/validation";
 import { fetchCustomerCapabilities } from "@/lib/auth/capability-server";
 import { NextRequest, NextResponse } from "next/server";
@@ -92,6 +92,7 @@ export async function handleCartRequest(request: NextRequest, path: string[]): P
     let upstreamPath = "cart";
     let upstreamMethod = "GET";
     let upstreamBody: unknown;
+    let requestedQuantity: number | undefined;
 
     if (validation.operation === "add-item") {
       const parsed = validateAddCartItemInput(await readJsonBody(request));
@@ -105,6 +106,7 @@ export async function handleCartRequest(request: NextRequest, path: string[]): P
       upstreamPath = `cart/items/${encodeURIComponent(validation.itemId!)}`;
       upstreamMethod = "PUT";
       upstreamBody = parsed.data;
+      requestedQuantity = parsed.data.quantity;
     } else if (validation.operation === "remove-item") {
       upstreamPath = `cart/items/${encodeURIComponent(validation.itemId!)}`;
       upstreamMethod = "DELETE";
@@ -112,7 +114,11 @@ export async function handleCartRequest(request: NextRequest, path: string[]): P
 
     const { response, payload } = await callUpstream(request, upstreamPath, upstreamMethod, contextId, validation.mockScenario, upstreamBody);
     if (!response.ok) return upstreamError(payload, response.status, contextId, shouldSet);
-    return withContextCookie(NextResponse.json(mapCustomerCoreCart(payload as CustomerCoreCart), { status: response.status }), contextId, shouldSet);
+    let cart = mapCustomerCoreCart(payload as CustomerCoreCart);
+    if (process.env.NODE_ENV !== "production" && validation.operation === "update-item" && requestedQuantity !== undefined) {
+      cart = withCartItemQuantity(cart, validation.itemId!, requestedQuantity);
+    }
+    return withContextCookie(NextResponse.json(cart, { status: response.status }), contextId, shouldSet);
   } catch {
     return errorResponse(
       "CART_UPSTREAM_UNAVAILABLE",

@@ -77,3 +77,8 @@ Tên folder, route và code identifier dùng tiếng Anh; nội dung hiển th�
 - EPIC 14 ↔ EPIC 16 ownership cho conversation/supplement.
 - Return Shipment/pickup, Warehouse inspection và Inventory disposition handoff.
 - Refund/loyalty consent, amount ceiling, idempotency và trusted completion event.
+
+## Vấn đề fixture đang theo dõi
+
+- `ORD-20261015-0042` được Order detail trả về ở trạng thái `PAID` và Shipment `IN_TRANSIT`, nên lối vào tạo hậu mãi trên trang chi tiết bị ẩn đúng theo điều kiện `DELIVERED/COMPLETED`.
+- Trong khi đó, Return eligibility mock vẫn cho phép mở trực tiếp `/orders/ORD-20261015-0042/after-sales/request`. Cần đồng bộ fixture hoặc bổ sung một Order đã giao riêng trước khi coi luồng kiểm thử end-to-end là hoàn chỉnh.

@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -10,6 +9,7 @@ import { CartApiError } from "@/lib/cart/types";
 import { MAX_CART_ITEM_QUANTITY } from "@/lib/cart/validation";
 import { cartService } from "@/services/cart-service";
 import { useCartSummary } from "@/components/cart/cart-summary-provider";
+import { ProductImage } from "@/components/product/product-image";
 
 const VND = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 });
 
@@ -195,7 +195,7 @@ export function CartFlow() {
                     <input type="checkbox" checked={selected} disabled={!item.isAvailable} onChange={() => toggleItemSelection(item)} aria-label={`Chọn ${item.productName} để thanh toán`} />
                   </label>
                   <Link className="cart-line-image" href={`/products/${item.productSlug}`} aria-label={`Mở ${item.productName}`}>
-                    <Image src={item.imageUrl} alt={item.imageAlt} fill sizes="(max-width: 640px) 108px, 150px" />
+                    <ProductImage src={item.imageUrl} alt={item.imageAlt} fill sizes="(max-width: 640px) 108px, 150px" />
                   </Link>
                   <div className="cart-line-info">
                     <span>{item.isAvailable ? "Có thể mua" : "Cần xử lý"}</span>

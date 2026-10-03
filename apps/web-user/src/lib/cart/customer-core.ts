@@ -41,6 +41,7 @@ function weightFromVariant(name: string) {
 }
 
 function mapItem(item: CustomerCoreCartItem): CartItem {
+  const lineSubtotalVnd = item.unit_price.units * item.quantity;
   return {
     itemId: item.item_id,
     productId: "",
@@ -56,7 +57,7 @@ function mapItem(item: CustomerCoreCartItem): CartItem {
     previousUnitPriceVnd: null,
     priceChanged: false,
     quantity: item.quantity,
-    lineSubtotalVnd: item.in_stock ? item.subtotal.units : null,
+    lineSubtotalVnd: item.in_stock ? lineSubtotalVnd : null,
     isAvailable: item.in_stock,
     unavailableReason: item.in_stock ? null : "Sản phẩm hiện không còn hàng."
   };
@@ -66,14 +67,30 @@ export function mapCustomerCoreCart(cart: CustomerCoreCart): Cart {
   const items = cart.items.map(mapItem);
   return {
     items,
-    itemCount: cart.total_items,
-    subtotalVnd: cart.subtotal_amount.units,
+    itemCount: items.reduce((total, item) => total + item.quantity, 0),
+    subtotalVnd: items.reduce((total, item) => total + (item.lineSubtotalVnd ?? 0), 0),
     hasBlockingIssues: items.some((item) => !item.isAvailable),
     notices: items.filter((item) => !item.isAvailable).map((item) => ({
       code: "SKU_UNAVAILABLE" as const,
       itemId: item.itemId,
       message: item.unavailableReason ?? "Sản phẩm hiện không còn hàng."
     })),
+    updatedAt: new Date().toISOString()
+  };
+}
+
+export function withCartItemQuantity(cart: Cart, itemId: string, quantity: number): Cart {
+  const items = cart.items.map((item) => item.itemId === itemId ? {
+    ...item,
+    quantity,
+    lineSubtotalVnd: item.isAvailable ? item.unitPriceVnd * quantity : null
+  } : item);
+
+  return {
+    ...cart,
+    items,
+    itemCount: items.reduce((total, item) => total + item.quantity, 0),
+    subtotalVnd: items.reduce((total, item) => total + (item.lineSubtotalVnd ?? 0), 0),
     updatedAt: new Date().toISOString()
   };
 }

@@ -1,12 +1,12 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { CatalogResult, DiscoveryConfig, PricePreset, ProductSummary, ProductType } from "@/lib/catalog/types";
 import { CatalogApiError } from "@/lib/catalog/types";
 import { catalogService } from "@/services/catalog-service";
+import { ProductImage } from "@/components/product/product-image";
 
 const VND = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 });
 const SORT_OPTIONS = [
@@ -26,7 +26,7 @@ function ProductCard({ product }: { product: ProductSummary }) {
   return (
     <article className="product-card">
       <Link className="product-image" href={`/products/${product.slug}`} aria-label={`Xem chi tiết ${product.name}`}>
-        <Image src={product.imageUrl} alt={product.name} fill sizes="(max-width: 760px) 100vw, (max-width: 1100px) 50vw, 30vw" />
+        <ProductImage src={product.imageUrl} alt={product.name} fill sizes="(max-width: 760px) 100vw, (max-width: 1100px) 50vw, 30vw" />
         <div className="product-badges">
           {product.ocopStars ? <span>OCOP {product.ocopStars} sao</span> : null}
           {product.badges.slice(0, 1).map((badge) => <span className="soft" key={badge}>{badge}</span>)}
