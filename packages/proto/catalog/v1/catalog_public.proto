@@ -7,14 +7,45 @@ option java_package = "com.hvduong.catalog.grpc.v1";
 option java_outer_classname = "CatalogPublicProto";
 
 import "common/v1/types.proto";
+import "google/api/annotations.proto";
 
 service CatalogPublicService {
-  rpc ListCategories(Empty) returns (ListCategoriesResponse);
-  rpc ListProducts(ListProductsRequest) returns (ListProductsResponse);
-  rpc GetProduct(GetProductRequest) returns (GetProductResponse);
-  rpc SearchProducts(SearchProductsRequest) returns (ListProductsResponse);
-  rpc GetProductVariant(GetProductVariantRequest) returns (GetProductVariantResponse);
-  rpc ValidatePriceAndSku(ValidatePriceAndSkuRequest) returns (ValidatePriceAndSkuResponse);
+  rpc ListCategories(Empty) returns (ListCategoriesResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/categories"
+    };
+  }
+  
+  rpc ListProducts(ListProductsRequest) returns (ListProductsResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/products"
+    };
+  }
+  
+  rpc GetProduct(GetProductRequest) returns (GetProductResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/products/{id_or_slug}"
+    };
+  }
+  
+  rpc SearchProducts(SearchProductsRequest) returns (ListProductsResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/products/search"
+    };
+  }
+  
+  rpc GetProductVariant(GetProductVariantRequest) returns (GetProductVariantResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/products/variants/{sku_code}"
+    };
+  }
+  
+  rpc ValidatePriceAndSku(ValidatePriceAndSkuRequest) returns (ValidatePriceAndSkuResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/internal/prices/validate"
+      body: "*"
+    };
+  }
 }
 
 message Empty {}
@@ -60,6 +91,7 @@ message ProductVariant {
   int32 shelf_life_days = 8;
   omamx.common.v1.Money price = 9;
   string listing_status = 10;
+  optional int32 minimum_quantity = 11;
 }
 
 message ProductListItem {

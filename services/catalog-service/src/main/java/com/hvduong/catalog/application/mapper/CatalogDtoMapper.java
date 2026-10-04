@@ -59,6 +59,53 @@ public interface CatalogDtoMapper {
     @Mapping(source = "amountNanos", target = "nanos")
     MoneyResponse toMoneyResponse(ChannelPrice price);
 
+    // ── Admin ─────────────────────────────────────────────────────────────────
+    @Mapping(source = "id",            target = "productId")
+    @Mapping(source = "listingStatus", target = "saleStatus")
+    @Mapping(target = "saleStatusLabel", ignore = true)
+    @Mapping(target = "skuCount",      ignore = true)
+    @Mapping(target = "onSaleSkuCount",ignore = true)
+    @Mapping(target = "basePriceFromVnd", ignore = true)
+    @Mapping(target = "foodInformationComplete", ignore = true)
+    @Mapping(target = "updatedAt",     ignore = true)
+    @Mapping(source = "version",       target = "revision")
+    @Mapping(target = "categoryName",  ignore = true)
+    com.hvduong.catalog.application.dto.response.AdminProductListItemResponse toAdminListItemResponse(Product product);
+
+    List<com.hvduong.catalog.application.dto.response.AdminProductListItemResponse> toAdminListItemResponseList(List<Product> products);
+
+    @Mapping(source = "id",            target = "productId")
+    @Mapping(source = "listingStatus", target = "saleStatus")
+    @Mapping(target = "saleStatusLabel", ignore = true)
+    @Mapping(target = "skuCount",      ignore = true)
+    @Mapping(target = "onSaleSkuCount",ignore = true)
+    @Mapping(target = "basePriceFromVnd", ignore = true)
+    @Mapping(target = "foodInformationComplete", ignore = true)
+    @Mapping(target = "updatedAt",     ignore = true)
+    @Mapping(source = "version",       target = "revision")
+    @Mapping(target = "categoryName",  ignore = true)
+    @Mapping(target = "shortDescription", source = "description")
+    @Mapping(target = "longDescription",  ignore = true)
+    @Mapping(target = "coverImageUrl",    ignore = true)
+    @Mapping(target = "coverImageAlt",    ignore = true)
+    @Mapping(target = "foodInformation",  ignore = true)
+    @Mapping(target = "skus",             ignore = true)
+    com.hvduong.catalog.application.dto.response.AdminProductDetailResponse toAdminDetailResponse(Product product);
+
+    @Mapping(source = "id",            target = "skuId")
+    @Mapping(source = "listingStatus", target = "saleStatus")
+    @Mapping(source = "variantName",   target = "label")
+    @Mapping(source = "weightValue",   target = "weightGrams")
+    @Mapping(source = "packagingType", target = "packageType")
+    @Mapping(target = "basePriceVnd",  ignore = true)
+    @Mapping(target = "currency",      ignore = true)
+    @Mapping(target = "saleStatusLabel", ignore = true)
+    @Mapping(target = "updatedAt",     ignore = true)
+    @Mapping(target = "revision",      ignore = true)
+    com.hvduong.catalog.application.dto.response.AdminProductDetailResponse.AdminProductSkuResponse toAdminSkuResponse(ProductVariant variant);
+
+    List<com.hvduong.catalog.application.dto.response.AdminProductDetailResponse.AdminProductSkuResponse> toAdminSkuResponseList(List<ProductVariant> variants);
+
     // ── Helpers ───────────────────────────────────────────────────────────────
     @Named("listingToInStock")
     default boolean listingStatusToInStock(ListingStatus status) {

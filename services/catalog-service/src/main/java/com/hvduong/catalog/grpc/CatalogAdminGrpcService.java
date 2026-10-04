@@ -10,12 +10,15 @@ import net.devh.boot.grpc.server.service.GrpcService;
 
 import java.util.UUID;
 
+import com.hvduong.catalog.application.service.CatalogService;
+
 @Slf4j
 @GrpcService
 @RequiredArgsConstructor
 public class CatalogAdminGrpcService extends CatalogAdminServiceGrpc.CatalogAdminServiceImplBase {
 
     private final CatalogAdminService adminService;
+    private final CatalogService catalogService;
     private final CatalogGrpcMapper grpcMapper;
 
     @Override
@@ -93,6 +96,30 @@ public class CatalogAdminGrpcService extends CatalogAdminServiceGrpc.CatalogAdmi
                     req, request.getActorId());
             return ProductCommandResponse.newBuilder()
                     .setProduct(grpcMapper.toProductDetailProto(result)).build();
+        });
+    }
+
+    @Override
+    public void listAdminProducts(ListAdminProductsRequest request,
+                                  StreamObserver<ListAdminProductsResponse> observer) {
+        log.info("[gRPC] listAdminProducts: page={}", request.getPage());
+        complete(observer, () -> {
+            var page = request.getPage() > 0 ? request.getPage() : 1;
+            var size = request.getPageSize() > 0 ? request.getPageSize() : 20;
+            var result = catalogService.getAdminProducts(page, size);
+            return grpcMapper.toListAdminProductsResponse(result);
+        });
+    }
+
+    @Override
+    public void getAdminProduct(GetAdminProductRequest request,
+                                StreamObserver<GetAdminProductResponse> observer) {
+        log.info("[gRPC] getAdminProduct: id={}", request.getProductId());
+        complete(observer, () -> {
+            var result = catalogService.getAdminProductDetail(request.getProductId());
+            return GetAdminProductResponse.newBuilder()
+                    .setProduct(grpcMapper.toAdminProductDetailProto(result))
+                    .build();
         });
     }
 

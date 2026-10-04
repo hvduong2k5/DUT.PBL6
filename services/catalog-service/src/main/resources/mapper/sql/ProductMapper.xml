@@ -162,6 +162,22 @@
         WHERE p.id = #{id}
     </select>
 
+    <!-- findAll (admin) -->
+    <select id="findAll" resultMap="ProductResultMap">
+        SELECT
+            p.*,
+            c.name AS category_name
+        FROM products p
+        LEFT JOIN categories c ON c.id = p.category_id
+        ORDER BY p.created_at DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <!-- countAll (admin) -->
+    <select id="countAll" resultType="long">
+        SELECT COUNT(id) FROM products
+    </select>
+
     <!-- existsBySlug -->
     <select id="existsBySlug" resultType="boolean">
         SELECT EXISTS(

@@ -152,6 +152,59 @@ public class CatalogServiceImpl implements CatalogService {
     }
 
     @Override
+    public PageResponse<com.hvduong.catalog.application.dto.response.AdminProductListItemResponse> getAdminProducts(int page, int pageSize) {
+        log.debug("[CATALOG] getAdminProducts: page={}, pageSize={}", page, pageSize);
+        
+        int offset = (page - 1) * pageSize;
+        List<Product> products = productMapper.findAll(offset, pageSize);
+        long total = productMapper.countAll();
+        
+        List<com.hvduong.catalog.application.dto.response.AdminProductListItemResponse> items = products.stream()
+                .map(dtoMapper::toAdminListItemResponse)
+                .collect(Collectors.toList());
+        
+        return PageResponse.of(items, page, pageSize, total);
+    }
+
+    @Override
+    public com.hvduong.catalog.application.dto.response.AdminProductDetailResponse getAdminProductDetail(String productId) {
+        log.debug("[CATALOG] getAdminProductDetail: productId={}", productId);
+        
+        UUID id;
+        try {
+            id = UUID.fromString(productId);
+        } catch (IllegalArgumentException e) {
+            throw new CatalogException(ErrorCode.CATALOG_PRODUCT_NOT_FOUND, "ID không hợp lệ: " + productId);
+        }
+        
+        Product product = productMapper.findById(id)
+                .orElseThrow(() -> new CatalogException(ErrorCode.CATALOG_PRODUCT_NOT_FOUND, "Không tìm thấy sản phẩm: " + productId));
+                
+        com.hvduong.catalog.application.dto.response.AdminProductDetailResponse response = dtoMapper.toAdminDetailResponse(product);
+        
+        // Cập nhật foodInformation
+        com.hvduong.catalog.application.dto.response.AdminProductDetailResponse.AdminFoodInformationResponse foodInfo = 
+            new com.hvduong.catalog.application.dto.response.AdminProductDetailResponse.AdminFoodInformationResponse(
+                product.getIngredients(),
+                "Thông tin cảnh báo dị ứng đang được cập nhật",
+                product.getStorageGuide(),
+                "Ngày sản xuất ghi trên bao bì",
+                "Hạn sử dụng ghi trên bao bì"
+            );
+        response.setFoodInformation(foodInfo);
+        
+        // Cập nhật SKUs
+        List<ProductVariant> variants = variantMapper.findActiveByProductId(id);
+        List<com.hvduong.catalog.application.dto.response.AdminProductDetailResponse.AdminProductSkuResponse> skus = variants.stream()
+            .map(dtoMapper::toAdminSkuResponse)
+            .collect(Collectors.toList());
+            
+        response.setSkus(skus);
+        
+        return response;
+    }
+
+    @Override
     public PriceValidationResponse validatePrices(PriceValidationRequest request) {
         SalesChannel channel = request.getChannel() == null ? SalesChannel.D2C_WEB : request.getChannel();
         List<PriceValidationResponse.Discrepancy> discrepancies = new ArrayList<>();

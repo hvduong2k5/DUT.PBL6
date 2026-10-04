@@ -3,17 +3,59 @@ syntax = "proto3";
 package hvduong.catalog.v1;
 
 import "catalog/v1/catalog_public.proto";
+import "google/api/annotations.proto";
 
 option java_multiple_files = true;
 option java_package = "com.hvduong.catalog.grpc.v1";
 option java_outer_classname = "CatalogAdminProto";
 
 service CatalogAdminService {
-  rpc CreateProduct(CreateProductRpcRequest) returns (ProductCommandResponse);
-  rpc UpdateProduct(UpdateProductRpcRequest) returns (ProductCommandResponse);
-  rpc TransitionProduct(ProductTransitionRequest) returns (ProductCommandResponse);
-  rpc CreateVariant(CreateVariantRpcRequest) returns (ProductCommandResponse);
-  rpc UpdateVariantPrices(UpdateVariantPricesRpcRequest) returns (ProductCommandResponse);
+  rpc CreateProduct(CreateProductRpcRequest) returns (ProductCommandResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/admin/catalog/products"
+      body: "*"
+    };
+  }
+  
+  rpc UpdateProduct(UpdateProductRpcRequest) returns (ProductCommandResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/admin/catalog/products/{product_id}"
+      body: "*"
+    };
+  }
+  
+  rpc TransitionProduct(ProductTransitionRequest) returns (ProductCommandResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/admin/catalog/products/{product_id}/transition"
+      body: "*"
+    };
+  }
+  
+  rpc CreateVariant(CreateVariantRpcRequest) returns (ProductCommandResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/admin/catalog/products/{product_id}/variants"
+      body: "*"
+    };
+  }
+  
+  rpc UpdateVariantPrices(UpdateVariantPricesRpcRequest) returns (ProductCommandResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/admin/catalog/products/{product_id}/variants/{variant_id}/prices"
+      body: "*"
+    };
+  }
+  
+  rpc ListAdminProducts(ListAdminProductsRequest) returns (ListAdminProductsResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/admin/catalog/products"
+    };
+  }
+  
+  rpc GetAdminProduct(GetAdminProductRequest) returns (GetAdminProductResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/admin/catalog/products/{product_id}"
+    };
+  }
 }
 
 enum ProductTransition {
@@ -64,3 +106,80 @@ message CreateVariantRpcRequest { string product_id = 1; VariantInput variant = 
 message PriceEntry { SalesChannel channel = 1; int64 amount_units = 2; string currency_code = 3; }
 message UpdateVariantPricesRpcRequest { string product_id = 1; string variant_id = 2; repeated PriceEntry prices = 3; string actor_id = 4; }
 message ProductCommandResponse { ProductDetail product = 1; }
+
+message AdminFoodInformation {
+  string ingredients = 1;
+  string allergen_statement = 2;
+  string storage_instructions = 3;
+  string manufacturing_date_policy = 4;
+  string shelf_life_description = 5;
+}
+
+message AdminProductSku {
+  string sku_id = 1;
+  string sku_code = 2;
+  string label = 3;
+  int32 weight_grams = 4;
+  string flavor = 5;
+  string package_type = 6;
+  int64 base_price_vnd = 7;
+  string currency = 8;
+  string sale_status = 9;
+  string sale_status_label = 10;
+  string updated_at = 11;
+  int64 revision = 12;
+}
+
+message AdminProductDetail {
+  string product_id = 1;
+  string name = 2;
+  string category_id = 3;
+  string category_name = 4;
+  string sale_status = 5;
+  string sale_status_label = 6;
+  int32 sku_count = 7;
+  int32 on_sale_sku_count = 8;
+  int64 base_price_from_vnd = 9;
+  bool food_information_complete = 10;
+  string updated_at = 11;
+  int64 revision = 12;
+  string short_description = 13;
+  string long_description = 14;
+  string cover_image_url = 15;
+  string cover_image_alt = 16;
+  AdminFoodInformation food_information = 17;
+  repeated AdminProductSku skus = 18;
+}
+
+message AdminProductListItem {
+  string product_id = 1;
+  string name = 2;
+  string category_id = 3;
+  string category_name = 4;
+  string sale_status = 5;
+  string sale_status_label = 6;
+  int32 sku_count = 7;
+  int32 on_sale_sku_count = 8;
+  int64 base_price_from_vnd = 9;
+  bool food_information_complete = 10;
+  string updated_at = 11;
+  int64 revision = 12;
+}
+
+message ListAdminProductsRequest {
+  int32 page = 1;
+  int32 page_size = 2;
+}
+
+message ListAdminProductsResponse {
+  repeated AdminProductListItem items = 1;
+  int32 total = 2;
+}
+
+message GetAdminProductRequest {
+  string product_id = 1;
+}
+
+message GetAdminProductResponse {
+  AdminProductDetail product = 1;
+}

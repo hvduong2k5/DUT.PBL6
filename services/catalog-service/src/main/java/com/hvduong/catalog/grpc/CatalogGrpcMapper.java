@@ -12,6 +12,8 @@ import com.hvduong.catalog.application.dto.response.ProductDetailResponse;
 import com.hvduong.catalog.application.dto.response.ProductListItemResponse;
 import com.hvduong.catalog.application.dto.response.ProductVariantResponse;
 import com.hvduong.catalog.application.dto.response.PriceValidationResponse;
+import com.hvduong.catalog.application.dto.response.AdminProductListItemResponse;
+import com.hvduong.catalog.application.dto.response.AdminProductDetailResponse;
 import com.hvduong.catalog.common.enums.SalesChannel;
 import com.hvduong.catalog.common.enums.SortBy;
 import com.hvduong.catalog.common.response.PageResponse;
@@ -202,6 +204,7 @@ public class CatalogGrpcMapper {
                 .setListingStatus(str(resp.getListingStatus()));
         if (resp.getShelfLifeDays() != null) builder.setShelfLifeDays(resp.getShelfLifeDays());
         if (resp.getPrice() != null) builder.setPrice(toMoneyProto(resp.getPrice()));
+        if (resp.getMinimumQuantity() != null) builder.setMinimumQuantity(resp.getMinimumQuantity());
         return builder.build();
     }
 
@@ -210,7 +213,7 @@ public class CatalogGrpcMapper {
                 .setCurrentPage(page.getPage()).setPageSize(page.getPageSize())
                 .setTotalItems(page.getTotal()).setTotalPages(page.getTotalPages()).build();
         return ListProductsResponse.newBuilder()
-                .addAllProducts(page.getItems().stream().map(this::toProductListItemProto).collect(Collectors.toList()))
+                .addAllProducts(page.getItems().stream().map(item -> toProductListItemProto(item)).collect(Collectors.toList()))
                 .setPageInfo(pageInfo).build();
     }
 
@@ -230,6 +233,81 @@ public class CatalogGrpcMapper {
                                     .setUnits(d.getAuthoritativeUnitPrice()).setNanos(0).build())
                             .setReason(str(d.getReason())).build()));
         }
+        return builder.build();
+    }
+
+    public AdminProductListItem toAdminProductListItemProto(AdminProductListItemResponse resp) {
+        var builder = AdminProductListItem.newBuilder()
+                .setProductId(str(resp.getProductId()))
+                .setName(str(resp.getName()))
+                .setCategoryId(str(resp.getCategoryId()))
+                .setCategoryName(str(resp.getCategoryName()))
+                .setSaleStatus(str(resp.getSaleStatus()))
+                .setSaleStatusLabel(str(resp.getSaleStatusLabel()));
+        if (resp.getSkuCount() != null) builder.setSkuCount(resp.getSkuCount());
+        if (resp.getOnSaleSkuCount() != null) builder.setOnSaleSkuCount(resp.getOnSaleSkuCount());
+        if (resp.getBasePriceFromVnd() != null) builder.setBasePriceFromVnd(resp.getBasePriceFromVnd());
+        if (resp.getFoodInformationComplete() != null) builder.setFoodInformationComplete(resp.getFoodInformationComplete());
+        builder.setUpdatedAt(str(resp.getUpdatedAt()));
+        if (resp.getRevision() != null) builder.setRevision(resp.getRevision());
+        return builder.build();
+    }
+    
+    public ListAdminProductsResponse toListAdminProductsResponse(PageResponse<AdminProductListItemResponse> page) {
+        return ListAdminProductsResponse.newBuilder()
+                .addAllItems(page.getItems().stream().map(item -> toAdminProductListItemProto(item)).collect(Collectors.toList()))
+                .setTotal((int) page.getTotal()).build();
+    }
+
+    public AdminProductDetail toAdminProductDetailProto(AdminProductDetailResponse resp) {
+        var builder = AdminProductDetail.newBuilder()
+                .setProductId(str(resp.getProductId()))
+                .setName(str(resp.getName()))
+                .setCategoryId(str(resp.getCategoryId()))
+                .setCategoryName(str(resp.getCategoryName()))
+                .setSaleStatus(str(resp.getSaleStatus()))
+                .setSaleStatusLabel(str(resp.getSaleStatusLabel()))
+                .setShortDescription(str(resp.getShortDescription()))
+                .setLongDescription(str(resp.getLongDescription()))
+                .setCoverImageUrl(str(resp.getCoverImageUrl()))
+                .setCoverImageAlt(str(resp.getCoverImageAlt()));
+                
+        if (resp.getSkuCount() != null) builder.setSkuCount(resp.getSkuCount());
+        if (resp.getOnSaleSkuCount() != null) builder.setOnSaleSkuCount(resp.getOnSaleSkuCount());
+        if (resp.getBasePriceFromVnd() != null) builder.setBasePriceFromVnd(resp.getBasePriceFromVnd());
+        if (resp.getFoodInformationComplete() != null) builder.setFoodInformationComplete(resp.getFoodInformationComplete());
+        builder.setUpdatedAt(str(resp.getUpdatedAt()));
+        if (resp.getRevision() != null) builder.setRevision(resp.getRevision());
+        
+        if (resp.getFoodInformation() != null) {
+            builder.setFoodInformation(AdminFoodInformation.newBuilder()
+                .setIngredients(str(resp.getFoodInformation().getIngredients()))
+                .setAllergenStatement(str(resp.getFoodInformation().getAllergenStatement()))
+                .setStorageInstructions(str(resp.getFoodInformation().getStorageInstructions()))
+                .setManufacturingDatePolicy(str(resp.getFoodInformation().getManufacturingDatePolicy()))
+                .setShelfLifeDescription(str(resp.getFoodInformation().getShelfLifeDescription()))
+                .build());
+        }
+        
+        if (resp.getSkus() != null) {
+            resp.getSkus().forEach(s -> {
+                var skuBuilder = AdminProductSku.newBuilder()
+                    .setSkuId(str(s.getSkuId()))
+                    .setSkuCode(str(s.getSkuCode()))
+                    .setLabel(str(s.getLabel()))
+                    .setFlavor(str(s.getFlavor()))
+                    .setPackageType(str(s.getPackageType()))
+                    .setCurrency(str(s.getCurrency()))
+                    .setSaleStatus(str(s.getSaleStatus()))
+                    .setSaleStatusLabel(str(s.getSaleStatusLabel()))
+                    .setUpdatedAt(str(s.getUpdatedAt()));
+                if (s.getWeightGrams() != null) skuBuilder.setWeightGrams(s.getWeightGrams());
+                if (s.getBasePriceVnd() != null) skuBuilder.setBasePriceVnd(s.getBasePriceVnd());
+                if (s.getRevision() != null) skuBuilder.setRevision(s.getRevision());
+                builder.addSkus(skuBuilder.build());
+            });
+        }
+        
         return builder.build();
     }
 

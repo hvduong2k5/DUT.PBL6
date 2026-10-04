@@ -24,4 +24,5 @@ public class ProductVariantResponse {
     private Integer shelfLifeDays;
     private MoneyResponse price;
     private String listingStatus;
+    private Integer minimumQuantity;
 }

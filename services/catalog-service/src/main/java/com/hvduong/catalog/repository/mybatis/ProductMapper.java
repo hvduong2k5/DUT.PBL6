@@ -40,6 +40,10 @@ public interface ProductMapper {
 
     Optional<Product> findById(@Param("id") UUID id);
 
+    List<Product> findAll(@Param("offset") int offset, @Param("limit") int limit);
+
+    long countAll();
+
     boolean existsBySlug(@Param("slug") String slug, @Param("excludeId") UUID excludeId);
 
     void insert(Product product);

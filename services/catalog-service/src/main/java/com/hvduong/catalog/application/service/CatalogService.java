@@ -29,4 +29,8 @@ public interface CatalogService {
     ProductVariantResponse getVariantBySkuCode(String skuCode);
 
     PriceValidationResponse validatePrices(PriceValidationRequest request);
+
+    PageResponse<com.hvduong.catalog.application.dto.response.AdminProductListItemResponse> getAdminProducts(int page, int pageSize);
+
+    com.hvduong.catalog.application.dto.response.AdminProductDetailResponse getAdminProductDetail(String productId);
 }
