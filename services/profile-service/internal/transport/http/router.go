@@ -18,6 +18,7 @@ type RouterConfig struct {
 	ProfileHandler  *ProfileHandler
 	AddressHandler  *AddressHandler
 	EmployeeHandler *EmployeeHandler
+	ClaimHandler    *ClaimHandler
 	Pool            *pgxpool.Pool
 	RedisClient     *redis.Client
 }
@@ -34,7 +35,7 @@ func NewRouter(cfg RouterConfig) http.Handler {
 	// CORS Config
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"*"},
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "X-Request-ID", "X-User-ID", "X-User-Role"},
 		ExposedHeaders:   []string{"Link", "X-Request-ID"},
 		AllowCredentials: true,
@@ -64,9 +65,19 @@ func NewRouter(cfg RouterConfig) http.Handler {
 				a.Get("/", cfg.AddressHandler.ListAddresses)
 				a.Post("/", cfg.AddressHandler.CreateAddress)
 				a.Post("/validate", cfg.AddressHandler.ValidateAddress)
+				a.Post("/validate-consistency", cfg.AddressHandler.ValidateConsistency)
 				a.Put("/{id}/default", cfg.AddressHandler.SwitchDefaultAddress)
+				a.Patch("/{id}/default", cfg.AddressHandler.SwitchDefaultAddress)
 				a.Delete("/{id}", cfg.AddressHandler.DeleteAddress)
 			})
+
+			// Guest Claims Sub-routes
+			if cfg.ClaimHandler != nil {
+				p.Route("/guest-claims", func(gc chi.Router) {
+					gc.Post("/", cfg.ClaimHandler.CreateClaim)
+					gc.Get("/{order_id}", cfg.ClaimHandler.GetClaimStatus)
+				})
+			}
 		})
 
 		// Admin & HR Routes

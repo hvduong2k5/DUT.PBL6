@@ -183,16 +183,22 @@ type Cart {
 }
 
 """
-Địa chỉ nhận hàng của khách
+Địa chỉ nhận hàng của khách (Hỗ trợ mô hình hành chính 2 cấp hậu sáp nhập theo ADR-002)
 """
 type Address {
   id: ID!
   recipientName: String!
   phoneNumber: String!
   streetAddress: String!
-  ward: String!
-  district: String!
-  province: String!
+  wardCode: String
+  wardName: String!
+  provinceCode: String
+  provinceName: String!
+  latitude: Float
+  longitude: Float
+  ward: String @deprecated(reason: "Sáp nhập 2 cấp theo ADR-002; dùng wardName thay thế")
+  district: String @deprecated(reason: "Sáp nhập 2 cấp theo ADR-002; bãi bỏ cấp quận huyện")
+  province: String @deprecated(reason: "Sáp nhập 2 cấp theo ADR-002; dùng provinceName thay thế")
   isDefault: Boolean!
 }
 
@@ -383,9 +389,27 @@ input GuestAddressInput {
   recipientName: String!
   phoneNumber: String!
   streetAddress: String!
-  ward: String!
-  district: String!
-  province: String!
+  wardCode: String
+  wardName: String!
+  provinceCode: String
+  provinceName: String!
+  ward: String
+  district: String
+  province: String
+}
+
+input ValidateAddressConsistencyInput {
+  streetAddress: String!
+  wardCode: String
+  wardName: String
+  provinceCode: String
+  provinceName: String
+}
+
+input ClaimGuestOrderInput {
+  orderId: ID!
+  phoneNumber: String!
+  otp: String!
 }
 
 input MobileCheckoutInput {
@@ -417,10 +441,31 @@ input SaveAddressInput {
   recipientName: String!
   phoneNumber: String!
   streetAddress: String!
-  ward: String!
-  district: String!
-  province: String!
+  wardCode: String
+  wardName: String!
+  provinceCode: String
+  provinceName: String!
+  latitude: Float
+  longitude: Float
+  ward: String
+  district: String
+  province: String
   isDefault: Boolean
+}
+
+type AddressConsistencyResult {
+  isValid: Boolean!
+  warningMessage: String
+  matchedWardName: String
+  matchedProvinceName: String
+  confidence: Float!
+}
+
+type ClaimGuestOrderResult {
+  success: Boolean!
+  claimedOrderId: ID!
+  awardedLoyaltyPoints: Int!
+  message: String!
 }
 
 # =============================================================================
@@ -510,6 +555,11 @@ type Query {
   myProfile: CustomerProfile
 
   """
+  Lấy danh sách sổ địa chỉ nhận hàng của người dùng
+  """
+  myAddresses: [Address!]!
+
+  """
   Tìm kiếm nhanh sản phẩm qua ElasticSearch
   """
   searchProducts(
@@ -576,7 +626,22 @@ type Mutation {
   saveAddress(input: SaveAddressInput!): Address!
 
   """
+  Thiết lập địa chỉ mặc định (Sử dụng cơ chế Atomic Single-Default Transaction)
+  """
+  setDefaultAddress(addressId: ID!): Address!
+
+  """
   Xóa địa chỉ giao hàng
   """
   deleteAddress(addressId: ID!): Boolean!
+
+  """
+  Kiểm tra tính tương thích giữa số nhà/tên đường và phường xã/tỉnh thành đã chọn
+  """
+  validateAddressConsistency(input: ValidateAddressConsistencyInput!): AddressConsistencyResult!
+
+  """
+  Gán đơn hàng vãng lai (Guest Order) vào tài khoản thành viên để tích lũy Mè Xửng Xu
+  """
+  claimGuestOrder(input: ClaimGuestOrderInput!): ClaimGuestOrderResult!
 }

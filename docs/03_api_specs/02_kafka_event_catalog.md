@@ -21,7 +21,7 @@ Tất cả các sự kiện bất đồng bộ được quản lý trong thư m�
 | **`promotion.events.v1`** | `customer_id` | `promotion-service` (MS-07) | • `analytics-service` (MS-11 - phân tích hiệu quả ROI voucher)<br/>• `notification-service` (MS-17 - thông báo cộng điểm thưởng) | Ghi nhận voucher đã dùng (`VoucherUsed`) và tích điểm loyalty (`LoyaltyPointsEarned`). |
 | **`care.events.v1`** | `order_id` | `care-service` (MS-06) | • `finance-service` (MS-09 - kích hoạt hoàn tiền sau đối soát)<br/>• `inventory-service` (MS-01 - nhập lại kho hàng đổi trả còn nguyên vẹn)<br/>• `notification-service` (MS-17) | CSKH xử lý khiếu nại kẹo vỡ/đổi trả (`ReturnTicketApproved`, `ReturnInspected`, `ReviewSubmitted`). |
 | **`procurement.events.v1`** | `sku_code` | `procurement-service` (MS-08) | • `inventory-service` (MS-01 - tạo Lô hàng FEFO mới)<br/>• `finance-service` (MS-09 - ghi nhận công nợ AP với HTX mè Huế)<br/>• `traceability-service` (MS-03 - ghi nhận vùng nguyên liệu mè cát Quảng Điền) | Quản lý thu mua nguyên liệu mè/đậu Huế (`GoodsReceived`, `PurchaseOrderApproved`). |
-| **`profile.events.v1`** | `customer_id` / `employee_id` | `profile-service` (MS-15) | • `analytics-service` (MS-11 - đồng bộ nhân khẩu học)<br/>• `marketing-service` (MS-14 - cập nhật sở thích kẹo)<br/>• `notification-service` (MS-17 - cảnh báo chứng chỉ VSATTP cho quản đốc)<br/>• `fulfillment-service` (MS-02 - phân quyền nhân sự đóng gói mới) | Vòng đời hồ sơ khách hàng & nhân sự (`ProfileUpdated`, `DefaultAddressSwitched`, `EmployeeOnboarded`, `StaffComplianceWarningEvent`). |
+| **`profile.events.v1`** | `customer_id` / `employee_id` | `profile-service` (MS-15) | • `order-service` (MS-04 - cập nhật chủ đơn vãng lai & đổi default addr)<br/>• `promotion-service` (MS-07 - cộng điểm Mè Xửng Xu)<br/>• `analytics-service` (MS-11 - đồng bộ nhân khẩu học)<br/>• `notification-service` (MS-17 - cảnh báo chứng chỉ VSATTP cho quản đốc)<br/>• `fulfillment-service` (MS-02 - phân quyền nhân sự đóng gói mới) | Vòng đời hồ sơ khách hàng, liên kết đơn & nhân sự (`ProfileUpdated`, `DefaultAddressSwitched`, `GuestOrderClaimed`, `EmployeeOnboarded`, `StaffComplianceWarningEvent`). |
 | **`identity.events.v1`** | `user_id` | `identity-service` (MS-16) | • `profile-service` (MS-15 - tự động tạo hồ sơ rỗng ban đầu)<br/>• `marketing-service` (MS-14 - kích hoạt chiến dịch chào mừng khách mới) | Quản lý tài khoản định danh (`UserRegistered`, `UserDeactivated`, `PasswordChanged`). |
 | **`audit.events.v1`** | `entity_id` | Tất cả 18 Services | • `audit-service` (MS-18 - Audit Plane) | Ghi nhận chứng cứ kiểm toán pháp lý không thể chối bỏ bằng Hash Chain SHA-256 (`AuditRecordEvent`). |
 
@@ -83,4 +83,11 @@ Tất cả các sự kiện bất đồng bộ được quản lý trong thư m�
 - **Tác vụ của các Consumer:**
   - `notification-service`: Gửi email và thông báo Zalo ZNS cảnh báo đỏ cho Quản đốc xưởng Hương Thủy và Trưởng phòng HR lên danh sách gia hạn tập huấn kịp thời, đảm bảo 100% điều kiện pháp lý của chuẩn OCOP 4 sao.
   - `fulfillment-service`: Cảnh báo điều phối không xếp ca phụ trách dán tem kiểm định cho nhân sự có chứng chỉ hết hạn.
+
+### 2.8. Sự Kiện Liên Kết Đơn Hàng Vãng Lai `GuestOrderClaimedEvent` (`vn.omama.profile.guest_order_claimed.v1`)
+- **Topic:** `profile.events.v1` | **Partition Key:** `customer_id`
+- **Thời điểm bắn:** Khi khách hàng đăng nhập liên kết thành công một đơn hàng cũ từng đặt dưới danh nghĩa khách vãng lai (Guest Checkout) thông qua OTP SMS.
+- **Tác vụ của các Consumer:**
+  - `order-service` (MS-04): Cập nhật `customer_id` của đơn hàng từ `NULL/GUEST` thành `customer_id` chính thức của thành viên.
+  - `promotion-service` (MS-07): Đọc tổng giá trị đơn hàng đã hoàn tất trong quá khứ để tích lũy **Mè Xửng Xu** vào ví điểm thưởng của tài khoản.
 

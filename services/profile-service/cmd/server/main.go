@@ -110,12 +110,14 @@ func main() {
 	custRepo := repository.NewCustomerRepository(dbPool)
 	addrRepo := repository.NewAddressRepository(dbPool)
 	empRepo := repository.NewEmployeeRepository(dbPool)
+	claimRepo := repository.NewClaimRepository(dbPool)
 	fuzzyMatcher := usecase.NewAddressFuzzyMatcher()
 
 	// 8. Initialize Usecases
 	custUsecase := usecase.NewCustomerUsecase(custRepo, dualLayerCache, dbPool)
 	addrUsecase := usecase.NewAddressUsecase(addrRepo, fuzzyMatcher, dualLayerCache, dbPool)
 	empUsecase := usecase.NewEmployeeUsecase(empRepo, envelopeEncryptor)
+	claimUsecase := usecase.NewClaimUsecase(claimRepo, dbPool)
 
 	// 9. Initialize & Start Background Workers
 	outboxPublisher := worker.NewOutboxPublisher(dbPool, kafkaProducer, cfg.OutboxBatchSize, cfg.OutboxPollInterval)
@@ -134,6 +136,7 @@ func main() {
 		ProfileHandler:  transportHTTP.NewProfileHandler(custUsecase),
 		AddressHandler:  transportHTTP.NewAddressHandler(addrUsecase),
 		EmployeeHandler: transportHTTP.NewEmployeeHandler(empUsecase),
+		ClaimHandler:    transportHTTP.NewClaimHandler(claimUsecase),
 		Pool:            dbPool,
 		RedisClient:     redisClient,
 	})

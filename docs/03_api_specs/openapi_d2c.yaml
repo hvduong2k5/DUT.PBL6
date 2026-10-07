@@ -825,6 +825,127 @@ paths:
                     type: string
                     example: "Đã xóa địa chỉ khỏi danh bạ."
 
+  /api/v1/profile/addresses/{address_id}/default:
+    patch:
+      tags:
+        - Customer Profile & Address Book
+      summary: Chuyển đổi nguyên tử địa chỉ mặc định (Atomic Default Switch)
+      operationId: switchDefaultAddress
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: address_id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "01923400-0001-7000-8000-000000000001"
+      responses:
+        '200':
+          description: Đã chuyển đổi địa chỉ mặc định thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "default address switched successfully"
+                  default_address_id:
+                    type: string
+                    example: "01923400-0001-7000-8000-000000000001"
+        '404':
+          description: Không tìm thấy địa chỉ
+
+  /api/v1/profile/addresses/validate:
+    post:
+      tags:
+        - Customer Profile & Address Book
+      summary: Chuẩn hóa địa chỉ gõ tự do bằng thuật toán Fuzzy Match ADR-003
+      operationId: validateAddressFuzzy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddressValidationRequest'
+      responses:
+        '200':
+          description: Kết quả so khớp mờ đơn vị hành chính
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AddressValidationResponse'
+
+  /api/v1/profile/addresses/validate-consistency:
+    post:
+      tags:
+        - Customer Profile & Address Book
+      summary: Kiểm tra tính nhất quán giữa tên đường gõ tay và xã/phường dropdown toàn quốc
+      operationId: validateAddressConsistency
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddressConsistencyRequest'
+      responses:
+        '200':
+          description: Kết quả kiểm tra tính nhất quán ngữ nghĩa địa chỉ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AddressConsistencyResponse'
+
+  /api/v1/profile/guest-claims:
+    post:
+      tags:
+        - Customer Profile & Address Book
+      summary: Khởi tạo liên kết đơn hàng cũ đã đặt dưới danh nghĩa khách vãng lai (Guest Checkout)
+      operationId: claimGuestOrder
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GuestOrderClaimRequest'
+      responses:
+        '201':
+          description: Liên kết đơn hàng thành công và tích lũy Mè Xửng Xu
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GuestOrderClaimResponse'
+        '409':
+          description: Đơn hàng đã được liên kết bởi tài khoản khác
+
+  /api/v1/profile/guest-claims/{order_id}:
+    get:
+      tags:
+        - Customer Profile & Address Book
+      summary: Tra cứu trạng thái liên kết đơn hàng vãng lai
+      operationId: getGuestClaimStatus
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: order_id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "ORD-1024"
+      responses:
+        '200':
+          description: Thông tin trạng thái liên kết đơn hàng
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GuestOrderClaimResponse'
+        '404':
+          description: Không tìm thấy liên kết cho đơn hàng này
+
   # =========================================================================
   # 6. PROMOTIONS & LOYALTY
   # =========================================================================
@@ -1218,11 +1339,11 @@ components:
 
     Address:
       type: object
-      required: [recipient_name, phone_number, street_address, ward, district, province]
+      required: [recipient_name, phone_number, street_address, ward_code, ward_name, province_code, province_name]
       properties:
         id:
           type: string
-          example: "ADDR-1029"
+          example: "01923400-0001-7000-8000-000000000001"
         recipient_name:
           type: string
           example: "Nguyễn Văn An"
@@ -1231,19 +1352,151 @@ components:
           example: "0905123456"
         street_address:
           type: string
-          example: "123 Lê Duẩn"
-        ward:
+          example: "29 Mai Lão Bạng"
+        ward_code:
           type: string
-          example: "Phường Thuận Hòa"
-        district:
+          example: "WARD-TL-013"
+        ward_name:
+          type: string
+          example: "Phường Thuận Lộc"
+        province_code:
+          type: string
+          example: "75"
+        province_name:
           type: string
           example: "Thành phố Huế"
-        province:
+        latitude:
+          type: number
+          format: double
+          example: 16.47892
+        longitude:
+          type: number
+          format: double
+          example: 107.57815
+        label:
           type: string
-          example: "Tỉnh Thừa Thiên Huế"
+          enum: [HOME, OFFICE, GIFT_RECIPIENT, OTHER]
+          example: "HOME"
         is_default:
           type: boolean
           example: true
+
+    AddressConsistencyRequest:
+      type: object
+      required: [street_address, ward_code, province_code]
+      properties:
+        street_address:
+          type: string
+          example: "29 Mai Lão Bạng"
+        ward_code:
+          type: string
+          example: "WARD-VD-005"
+        province_code:
+          type: string
+          example: "75"
+
+    AddressConsistencyResponse:
+      type: object
+      properties:
+        is_consistent:
+          type: boolean
+          example: false
+        confidence_score:
+          type: number
+          format: double
+          example: 0.95
+        warning_level:
+          type: string
+          enum: [VERIFIED, MISMATCH_DETECTED, MULTI_WARD_STREET, UNVERIFIED_NEW_STREET]
+          example: "MISMATCH_DETECTED"
+        detected_street:
+          type: string
+          example: "Mai Lão Bạng"
+        selected_ward:
+          type: object
+          properties:
+            code:
+              type: string
+              example: "WARD-VD-005"
+            name:
+              type: string
+              example: "Phường Vỹ Dạ"
+        suggested_ward:
+          type: object
+          properties:
+            code:
+              type: string
+              example: "WARD-TL-013"
+            name:
+              type: string
+              example: "Phường Thuận Lộc"
+            reason:
+              type: string
+              example: "Tuyến đường 'Mai Lão Bạng' thuộc Phường Thuận Lộc, không thuộc Phường Vỹ Dạ."
+        coordinates:
+          type: object
+          properties:
+            latitude:
+              type: number
+              format: double
+              example: 16.47892
+            longitude:
+              type: number
+              format: double
+              example: 107.57815
+        message:
+          type: string
+          example: "Phát hiện mâu thuẫn: Tuyến đường 'Mai Lão Bạng' thuộc Phường Thuận Lộc."
+
+    AddressValidationRequest:
+      type: object
+      required: [raw_address]
+      properties:
+        raw_address:
+          type: string
+          example: "29 mai lao bang, hue"
+
+    AddressValidationResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          example: "WARD-TL-013"
+        name:
+          type: string
+          example: "Thuận Lộc"
+        score:
+          type: number
+          format: double
+          example: 0.92
+
+    GuestOrderClaimRequest:
+      type: object
+      required: [order_id, phone_number]
+      properties:
+        order_id:
+          type: string
+          example: "ORD-1024"
+        phone_number:
+          type: string
+          example: "0905123456"
+
+    GuestOrderClaimResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Guest order claimed successfully"
+        order_id:
+          type: string
+          example: "ORD-1024"
+        customer_id:
+          type: string
+          example: "01923400-0001-7000-8000-000000000001"
+        claimed_at:
+          type: string
+          format: date-time
+          example: "2026-10-03T10:00:00Z"
 
     UserProfile:
       type: object

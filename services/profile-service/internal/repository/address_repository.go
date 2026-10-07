@@ -226,3 +226,53 @@ func (r *AddressRepository) DeleteAddress(ctx context.Context, customerID, addre
 	}
 	return nil
 }
+
+type StreetWardMapping struct {
+	ID                   uuid.UUID `json:"id"`
+	StreetName           string    `json:"street_name"`
+	StreetNameUnaccented string    `json:"street_name_unaccented"`
+	WardCode             string    `json:"ward_code"`
+	WardName             string    `json:"ward_name"`
+	ProvinceCode         string    `json:"province_code"`
+	Latitude             *float64  `json:"latitude,omitempty"`
+	Longitude            *float64  `json:"longitude,omitempty"`
+	IsPrimary            bool      `json:"is_primary"`
+}
+
+// FindStreetMappings queries matching street-to-ward mappings for a given province and unaccented street name.
+func (r *AddressRepository) FindStreetMappings(ctx context.Context, provinceCode, streetNameUnaccented string) ([]StreetWardMapping, error) {
+	query := `
+		SELECT m.id, m.street_name, m.street_name_unaccented, m.ward_code, COALESCE(w.name, m.ward_code),
+		       m.province_code, m.latitude, m.longitude, m.is_primary
+		FROM street_ward_mappings m
+		LEFT JOIN administrative_units w ON m.ward_code = w.code
+		WHERE (m.province_code = $1 OR $1 = '')
+		  AND (m.street_name_unaccented = $2 OR $2 ILIKE '%' || m.street_name_unaccented || '%' OR m.street_name_unaccented % $2)
+		ORDER BY m.is_primary DESC
+		LIMIT 10
+	`
+	rows, err := r.pool.Query(ctx, query, provinceCode, streetNameUnaccented)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var mappings []StreetWardMapping
+	for rows.Next() {
+		var m StreetWardMapping
+		if err := rows.Scan(
+			&m.ID, &m.StreetName, &m.StreetNameUnaccented, &m.WardCode, &m.WardName,
+			&m.ProvinceCode, &m.Latitude, &m.Longitude, &m.IsPrimary,
+		); err == nil {
+			mappings = append(mappings, m)
+		}
+	}
+	return mappings, rows.Err()
+}
+
+// GetWardName fetches official name of a ward by its code.
+func (r *AddressRepository) GetWardName(ctx context.Context, wardCode string) (string, error) {
+	var name string
+	err := r.pool.QueryRow(ctx, `SELECT name FROM administrative_units WHERE code = $1`, wardCode).Scan(&name)
+	return name, err
+}

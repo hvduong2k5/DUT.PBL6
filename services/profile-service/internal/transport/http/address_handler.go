@@ -199,3 +199,25 @@ func (h *AddressHandler) ValidateAddress(w http.ResponseWriter, r *http.Request)
 
 	writeJSON(w, http.StatusOK, result)
 }
+
+// ValidateConsistency handles POST /api/v1/profile/addresses/validate-consistency
+func (h *AddressHandler) ValidateConsistency(w http.ResponseWriter, r *http.Request) {
+	var req usecase.ConsistencyVerificationRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSONError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.StreetAddress == "" || req.WardCode == "" {
+		writeJSONError(w, http.StatusBadRequest, "street_address and ward_code are required")
+		return
+	}
+
+	result, err := h.addressUsecase.ValidateAddressConsistency(r.Context(), req)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, result)
+}

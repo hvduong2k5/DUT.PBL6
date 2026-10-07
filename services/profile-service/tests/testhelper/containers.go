@@ -144,6 +144,22 @@ CREATE TABLE IF NOT EXISTS outbox_events (
 );
 
 CREATE INDEX IF NOT EXISTS idx_outbox_unpublished ON outbox_events(created_at) WHERE published_at IS NULL;
+
+-- 8. STREET WARD MAPPINGS
+CREATE TABLE IF NOT EXISTS street_ward_mappings (
+    id UUID PRIMARY KEY,
+    street_name VARCHAR(150) NOT NULL,
+    street_name_unaccented VARCHAR(150) NOT NULL,
+    ward_code VARCHAR(20) NOT NULL,
+    province_code VARCHAR(20) NOT NULL,
+    latitude DECIMAL(10, 7),
+    longitude DECIMAL(10, 7),
+    is_primary BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_street_province_unaccented ON street_ward_mappings (province_code, street_name_unaccented);
+CREATE INDEX IF NOT EXISTS idx_street_ward ON street_ward_mappings (ward_code);
 `
 
 // SetupPostgresContainer boots a real PostgreSQL 16 container and initializes the DDL schema.

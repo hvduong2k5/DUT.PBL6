@@ -1,0 +1,307 @@
+_format_version: "3.0"
+_transform: true
+
+# ==============================================================================
+# 1. UPSTREAMS & SERVICES (18 MICROSERVICES ROUTING TABLE)
+# ==============================================================================
+services:
+  # ----------------------------------------------------------------------------
+  # MS-00: API GATEWAY ROOT / HEALTH INFO ROUTE
+  # ----------------------------------------------------------------------------
+  - name: gateway-info-service
+    url: http://127.0.0.1:8001/status
+    connect_timeout: 2000
+    read_timeout: 3000
+    write_timeout: 3000
+    retries: 0
+    routes:
+      - name: gateway-root-welcome-route
+        paths:
+          - /
+        strip_path: true
+        methods:
+          - GET
+          - OPTIONS
+  # ----------------------------------------------------------------------------
+  # MS-16: IDENTITY SERVICE (Auth, JWT Issuance, JWKS)
+  # ----------------------------------------------------------------------------
+  - name: identity-service
+    url: http://identity-service:8016
+    connect_timeout: 3000
+    read_timeout: 5000
+    write_timeout: 5000
+    retries: 2
+    routes:
+      - name: auth-public-routes
+        paths:
+          - /api/v1/auth/login
+          - /api/v1/auth/register
+          - /api/v1/auth/refresh
+          - /api/v1/auth/forgot-password
+          - /.well-known/jwks.json
+        strip_path: false
+        methods:
+          - POST
+          - GET
+          - OPTIONS
+
+  # ----------------------------------------------------------------------------
+  # MS-15: PROFILE SERVICE (Profiles, Address Book, Staff)
+  # ----------------------------------------------------------------------------
+  - name: profile-service
+    url: http://omamx-profile-service:8080
+    connect_timeout: 2000
+    read_timeout: 5000
+    write_timeout: 5000
+    retries: 1
+    routes:
+      - name: profile-customer-routes
+        paths:
+          - /api/v1/profiles
+        strip_path: false
+        methods:
+          - GET
+          - PUT
+          - PATCH
+          - OPTIONS
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify:
+                - exp
+              secret_is_base64: false
+      - name: profile-admin-routes
+        paths:
+          - /api/v1/admin/employees
+          - /api/v1/admin/customers
+        strip_path: false
+        methods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - OPTIONS
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify:
+                - exp
+
+  # ----------------------------------------------------------------------------
+  # MS-05: CATALOG SERVICE (Products, Categories, Search)
+  # ----------------------------------------------------------------------------
+  - name: catalog-service
+    url: http://catalog-service:8005
+    connect_timeout: 2000
+    read_timeout: 3000
+    write_timeout: 3000
+    retries: 2
+    routes:
+      - name: catalog-public-routes
+        paths:
+          - /api/v1/products
+          - /api/v1/categories
+          - /api/v1/search
+        strip_path: false
+        methods:
+          - GET
+          - OPTIONS
+
+  # ----------------------------------------------------------------------------
+  # MS-04: ORDER SERVICE (Cart sessions, Checkout Saga, Order Tracking)
+  # ----------------------------------------------------------------------------
+  - name: order-service
+    url: http://order-service:8004
+    connect_timeout: 2000
+    read_timeout: 8000
+    write_timeout: 8000
+    retries: 0 # Prohibit retries on mutations/checkout to prevent duplicate orders
+    routes:
+      - name: cart-routes
+        paths:
+          - /api/v1/cart
+        strip_path: false
+        methods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - OPTIONS
+      - name: order-checkout-routes
+        paths:
+          - /api/v1/orders
+        strip_path: false
+        methods:
+          - GET
+          - POST
+          - OPTIONS
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify:
+                - exp
+          - name: rate-limiting
+            config:
+              minute: 30
+              policy: local
+
+  # ----------------------------------------------------------------------------
+  # MS-07: PROMOTION SERVICE (Vouchers, Loyalty)
+  # ----------------------------------------------------------------------------
+  - name: promotion-service
+    url: http://promotion-service:8007
+    connect_timeout: 2000
+    read_timeout: 3000
+    write_timeout: 3000
+    retries: 1
+    routes:
+      - name: promotion-routes
+        paths:
+          - /api/v1/promotions
+          - /api/v1/vouchers
+        strip_path: false
+        methods:
+          - GET
+          - POST
+          - OPTIONS
+
+  # ----------------------------------------------------------------------------
+  # MS-13: CHANNEL SERVICE (Shopee / TikTok Shop Webhooks & POS Sync)
+  # ----------------------------------------------------------------------------
+  - name: channel-service
+    url: http://channel-service:8013
+    connect_timeout: 3000
+    read_timeout: 5000
+    write_timeout: 5000
+    retries: 1
+    routes:
+      - name: marketplace-webhooks
+        paths:
+          - /webhooks/marketplace
+        strip_path: false
+        methods:
+          - POST
+          - OPTIONS
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 1200
+              policy: local
+
+  # ----------------------------------------------------------------------------
+  # PARTNER WEBHOOKS: VIETQR CALLBACK
+  # ----------------------------------------------------------------------------
+  - name: payment-webhook-handler
+    url: http://order-service:8004
+    connect_timeout: 3000
+    read_timeout: 5000
+    write_timeout: 5000
+    retries: 1
+    routes:
+      - name: vietqr-callback-route
+        paths:
+          - /payments/vietqr/callback
+        strip_path: false
+        methods:
+          - POST
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 600
+              policy: local
+
+  # ----------------------------------------------------------------------------
+  # MOBILE BFF: GRAPHQL ENDPOINT
+  # ----------------------------------------------------------------------------
+  - name: mobile-bff-service
+    url: http://mobile-bff:4000
+    connect_timeout: 2000
+    read_timeout: 5000
+    write_timeout: 5000
+    retries: 1
+    routes:
+      - name: mobile-graphql-route
+        paths:
+          - /graphql
+        strip_path: false
+        methods:
+          - POST
+          - OPTIONS
+
+# ==============================================================================
+# 2. GLOBAL PLUGINS (SECURITY, TRACING, METRICS, CORS)
+# ==============================================================================
+plugins:
+  # 1. CORS plugin
+  - name: cors
+    config:
+      origins:
+        - "*"
+      methods:
+        - GET
+        - POST
+        - PUT
+        - PATCH
+        - DELETE
+        - OPTIONS
+      headers:
+        - Accept
+        - Accept-Version
+        - Content-Length
+        - Content-Type
+        - Authorization
+        - X-Request-Id
+        - X-Idempotency-Key
+      exposed_headers:
+        - X-Request-Id
+        - Content-Range
+      credentials: true
+      max_age: 3600
+
+  # 2. Correlation ID plugin for distributed tracing
+  - name: correlation-id
+    config:
+      header_name: X-Request-Id
+      generator: uuid#counter
+      echo_downstream: true
+
+  # 3. Request Transformer: Zero-Trust Security (Header Sanitization)
+  - name: request-transformer
+    config:
+      remove:
+        headers:
+          - X-User-Id
+          - X-User-Role
+          - X-User-Permissions
+          - X-Internal-Caller
+
+  # 4. Global Rate Limiting
+  - name: rate-limiting
+    config:
+      minute: 300
+      limit_by: ip
+      policy: local
+      fault_tolerant: true
+      hide_client_headers: false
+
+  # 5. Prometheus Metrics Plugin
+  - name: prometheus
+    config:
+      per_consumer: false
+      status_code_metrics: true
+      latency_metrics: true
+      bandwidth_metrics: true
+      upstream_health_metrics: true
+
+# ==============================================================================
+# 3. CONSUMERS & AUTH CREDENTIALS (FOR LOCAL DEV & TESTING)
+# ==============================================================================
+consumers:
+  - username: omamx-test-customer
+    custom_id: "customer_001"
+
+jwt_secrets:
+  - consumer: omamx-test-customer
+    key: "omamx-identity-issuer"
+    secret: "omamx-secret-jwt-key-for-local-development-2026-very-secure"
+    algorithm: "HS256"

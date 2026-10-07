@@ -3,6 +3,8 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -139,4 +141,154 @@ func (u *AddressUsecase) GetDeliveryAddressCheckout(ctx context.Context, address
 		return u.addrRepo.GetAddressByID(ctx, addressID)
 	}
 	return u.addrRepo.GetDefaultAddress(ctx, customerID)
+}
+
+// ConsistencyVerificationRequest DTO for cross-field address validation
+type ConsistencyVerificationRequest struct {
+	StreetAddress string `json:"street_address"`
+	WardCode      string `json:"ward_code"`
+	ProvinceCode  string `json:"province_code"`
+}
+
+type WardReference struct {
+	Code   string `json:"code"`
+	Name   string `json:"name"`
+	Reason string `json:"reason,omitempty"`
+}
+
+type ConsistencyCoordinates struct {
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
+}
+
+type AddressConsistencyResponse struct {
+	IsConsistent    bool                    `json:"is_consistent"`
+	ConfidenceScore float64                 `json:"confidence_score"`
+	WarningLevel    string                  `json:"warning_level"` // "VERIFIED", "MISMATCH_DETECTED", "MULTI_WARD_STREET", "UNVERIFIED_NEW_STREET"
+	DetectedStreet  string                  `json:"detected_street"`
+	SelectedWard    WardReference           `json:"selected_ward"`
+	SuggestedWard   *WardReference          `json:"suggested_ward,omitempty"`
+	Coordinates     *ConsistencyCoordinates `json:"coordinates,omitempty"`
+	Message         string                  `json:"message"`
+}
+
+// ExtractStreetName extracts the street component by stripping house numbers, alley prefixes, etc.
+func ExtractStreetName(raw string) string {
+	cleaned := strings.TrimSpace(raw)
+	// Regex removing house numbers, kiệt, ngõ, hẻm, số at the beginning
+	re := regexp.MustCompile(`^(?i)(?:nhà\s*số\s*|số\s*|kiệt\s*\d+[a-zA-Z\/\d\-\.]*\s*|ngõ\s*\d+[a-zA-Z\/\d\-\.]*\s*|hẻm\s*\d+[a-zA-Z\/\d\-\.]*\s*|\d+[a-zA-Z\/\d\-\.]*[\s,]+)*`)
+	cleaned = re.ReplaceAllString(cleaned, "")
+	cleaned = strings.Trim(cleaned, " ,.-")
+	if cleaned == "" {
+		return raw
+	}
+	return cleaned
+}
+
+// ValidateAddressConsistency verifies whether the typed street address matches the selected ward dropdown.
+func (u *AddressUsecase) ValidateAddressConsistency(ctx context.Context, req ConsistencyVerificationRequest) (*AddressConsistencyResponse, error) {
+	if strings.TrimSpace(req.StreetAddress) == "" {
+		return nil, fmt.Errorf("street_address cannot be empty")
+	}
+
+	detectedStreet := ExtractStreetName(req.StreetAddress)
+	unaccentedStreet := strings.ToLower(StripVietnameseTones(detectedStreet))
+
+	// Fetch official ward name for the user's selected dropdown
+	selectedWardName, err := u.addrRepo.GetWardName(ctx, req.WardCode)
+	if err != nil || selectedWardName == "" {
+		selectedWardName = req.WardCode
+	}
+
+	selectedWardRef := WardReference{
+		Code: req.WardCode,
+		Name: selectedWardName,
+	}
+
+	// Tra cứu CSDL tuyến đường (hỗ trợ toàn quốc)
+	mappings, err := u.addrRepo.FindStreetMappings(ctx, req.ProvinceCode, unaccentedStreet)
+	if err != nil || len(mappings) == 0 {
+		// Fallback: Tuyến đường chưa có trong từ điển định tuyến nhanh (ngõ hẻm sâu hoặc tỉnh thành khác)
+		// -> KHÔNG block người dùng, trả về UNVERIFIED_NEW_STREET với is_consistent = true
+		return &AddressConsistencyResponse{
+			IsConsistent:    true,
+			ConfidenceScore: 0.70,
+			WarningLevel:    "UNVERIFIED_NEW_STREET",
+			DetectedStreet:  detectedStreet,
+			SelectedWard:    selectedWardRef,
+			Message:         fmt.Sprintf("Tuyến đường '%s' chưa có trong danh mục định tuyến nhanh. Hệ thống sẽ giao hàng theo số nhà và phường/xã '%s' đã chọn.", detectedStreet, selectedWardName),
+		}, nil
+	}
+
+	// Kiểm tra xem ward_code của người dùng có nằm trong các phường mà con đường đi qua không
+	var matchedMapping *repository.StreetWardMapping
+	for _, m := range mappings {
+		if m.WardCode == req.WardCode {
+			mappingCopy := m
+			matchedMapping = &mappingCopy
+			break
+		}
+	}
+
+	// TRƯỜNG HỢP 1: HOÀN TOÀN KHỚP
+	if matchedMapping != nil {
+		var coords *ConsistencyCoordinates
+		if matchedMapping.Latitude != nil && matchedMapping.Longitude != nil {
+			coords = &ConsistencyCoordinates{
+				Latitude:  *matchedMapping.Latitude,
+				Longitude: *matchedMapping.Longitude,
+			}
+		}
+
+		warningLevel := "VERIFIED"
+		message := fmt.Sprintf("Địa chỉ hợp lệ. Tuyến đường '%s' thuộc '%s'.", detectedStreet, selectedWardName)
+		if len(mappings) > 1 {
+			warningLevel = "MULTI_WARD_STREET"
+			message = fmt.Sprintf("Tuyến đường '%s' trải dài qua nhiều phường. Lựa chọn '%s' của bạn hoàn toàn hợp lệ.", detectedStreet, selectedWardName)
+		}
+
+		return &AddressConsistencyResponse{
+			IsConsistent:    true,
+			ConfidenceScore: 1.0,
+			WarningLevel:    warningLevel,
+			DetectedStreet:  detectedStreet,
+			SelectedWard:    selectedWardRef,
+			Coordinates:     coords,
+			Message:         message,
+		}, nil
+	}
+
+	// TRƯỜNG HỢP 2: PHÁT HIỆN MÂU THUẪN (MISMATCH DETECTED)
+	primaryMapping := mappings[0]
+	for _, m := range mappings {
+		if m.IsPrimary {
+			primaryMapping = m
+			break
+		}
+	}
+
+	var coords *ConsistencyCoordinates
+	if primaryMapping.Latitude != nil && primaryMapping.Longitude != nil {
+		coords = &ConsistencyCoordinates{
+			Latitude:  *primaryMapping.Latitude,
+			Longitude: *primaryMapping.Longitude,
+		}
+	}
+
+	suggestedWard := &WardReference{
+		Code:   primaryMapping.WardCode,
+		Name:   primaryMapping.WardName,
+		Reason: fmt.Sprintf("Tuyến đường '%s' thuộc %s, không thuộc %s.", detectedStreet, primaryMapping.WardName, selectedWardName),
+	}
+
+	return &AddressConsistencyResponse{
+		IsConsistent:    false,
+		ConfidenceScore: 0.95,
+		WarningLevel:    "MISMATCH_DETECTED",
+		DetectedStreet:  detectedStreet,
+		SelectedWard:    selectedWardRef,
+		SuggestedWard:   suggestedWard,
+		Coordinates:     coords,
+		Message:         fmt.Sprintf("Phát hiện mâu thuẫn: Tuyến đường '%s' thuộc %s. Bạn có muốn đổi sang %s không?", detectedStreet, primaryMapping.WardName, primaryMapping.WardName),
+	}, nil
 }
