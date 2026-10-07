@@ -44,8 +44,8 @@ func (r *CustomerRepository) Create(ctx context.Context, c *domain.CustomerProfi
 // GetByID retrieves a customer profile by its primary UUID.
 func (r *CustomerRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.CustomerProfile, error) {
 	query := `
-		SELECT id, user_id, full_name, phone_number, email, date_of_birth, gender,
-		       avatar_url, preferences, status, version, created_at, updated_at
+		SELECT id, user_id, full_name, phone_number, COALESCE(email, ''), date_of_birth, COALESCE(gender, 'UNSPECIFIED'),
+		       COALESCE(avatar_url, ''), COALESCE(preferences, '{}'::jsonb), status, version, created_at, updated_at
 		FROM customer_profiles
 		WHERE id = $1
 	`
@@ -91,8 +91,8 @@ func (r *CustomerRepository) UpdateProfileWithOptimisticLock(
 		    version = version + 1,
 		    updated_at = NOW()
 		WHERE id = $1 AND version = $5
-		RETURNING id, user_id, full_name, phone_number, email, date_of_birth, gender,
-		          avatar_url, preferences, status, version, created_at, updated_at
+		RETURNING id, user_id, full_name, phone_number, COALESCE(email, ''), date_of_birth, COALESCE(gender, 'UNSPECIFIED'),
+		          COALESCE(avatar_url, ''), COALESCE(preferences, '{}'::jsonb), status, version, created_at, updated_at
 	`
 
 	var updated domain.CustomerProfile

@@ -45,7 +45,7 @@ func NewRouter(cfg RouterConfig) http.Handler {
 	// Operational & Observability Endpoints
 	r.Get("/metrics", promhttp.Handler().ServeHTTP)
 	r.Get("/healthz", healthCheck(cfg.Pool, cfg.RedisClient))
-	r.Get("/livez", func(w http.ResponseWriter, r *http.Request) {
+	r.HandleFunc("/livez", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"status": "alive"}`))
 	})
@@ -66,6 +66,9 @@ func NewRouter(cfg RouterConfig) http.Handler {
 				a.Post("/", cfg.AddressHandler.CreateAddress)
 				a.Post("/validate", cfg.AddressHandler.ValidateAddress)
 				a.Post("/validate-consistency", cfg.AddressHandler.ValidateConsistency)
+				a.Get("/{id}", cfg.AddressHandler.GetAddress)
+				a.Post("/{id}", cfg.AddressHandler.GetAddress)
+				a.Put("/{id}", cfg.AddressHandler.UpdateAddress)
 				a.Put("/{id}/default", cfg.AddressHandler.SwitchDefaultAddress)
 				a.Patch("/{id}/default", cfg.AddressHandler.SwitchDefaultAddress)
 				a.Delete("/{id}", cfg.AddressHandler.DeleteAddress)
@@ -78,14 +81,20 @@ func NewRouter(cfg RouterConfig) http.Handler {
 					gc.Get("/{order_id}", cfg.ClaimHandler.GetClaimStatus)
 				})
 			}
+
+			// Employee VSATTP Compliance
+			if cfg.EmployeeHandler != nil {
+				p.Get("/employees/compliance", cfg.EmployeeHandler.GetCompliance)
+			}
 		})
 
 		// Admin & HR Routes
 		api.Route("/admin", func(adm chi.Router) {
-			adm.Use(middleware.RequireRole("ADMIN", "HR_MANAGER"))
+			adm.Use(middleware.RequireRole("ADMIN", "HR_MANAGER", "HR_ADMIN"))
 			adm.Route("/employees", func(e chi.Router) {
 				e.Get("/", cfg.EmployeeHandler.ListEmployees)
 				e.Post("/", cfg.EmployeeHandler.CreateEmployee)
+				e.Get("/compliance", cfg.EmployeeHandler.GetCompliance)
 				e.Get("/{id}", cfg.EmployeeHandler.GetEmployeeDetail)
 			})
 		})

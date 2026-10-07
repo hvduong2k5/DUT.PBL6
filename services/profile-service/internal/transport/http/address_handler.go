@@ -87,6 +87,12 @@ func (h *AddressHandler) CreateAddress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	normLabel, err := domain.NormalizeAddressLabel(req.Label)
+	if err != nil {
+		writeJSONError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
 	addr := &domain.ShippingAddress{
 		CustomerID:    customerID,
 		RecipientName: req.RecipientName,
@@ -98,7 +104,7 @@ func (h *AddressHandler) CreateAddress(w http.ResponseWriter, r *http.Request) {
 		ProvinceName:  req.ProvinceName,
 		Latitude:      req.Latitude,
 		Longitude:     req.Longitude,
-		Label:         req.Label,
+		Label:         normLabel,
 		IsDefault:     req.IsDefault,
 	}
 
@@ -109,6 +115,97 @@ func (h *AddressHandler) CreateAddress(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusCreated, addr)
 }
+
+// UpdateAddress handles PUT /api/v1/profile/addresses/{id}
+func (h *AddressHandler) UpdateAddress(w http.ResponseWriter, r *http.Request) {
+	customerID, ok := middleware.GetUserIDFromContext(r.Context())
+	if !ok {
+		if paramID := r.URL.Query().Get("customer_id"); paramID != "" {
+			if parsed, err := uuid.Parse(paramID); err == nil {
+				customerID = parsed
+				ok = true
+			}
+		}
+	}
+	if !ok {
+		writeJSONError(w, http.StatusUnauthorized, "unauthorized: missing customer identity")
+		return
+	}
+
+	addressIDStr := chi.URLParam(r, "id")
+	addressID, err := uuid.Parse(addressIDStr)
+	if err != nil {
+		writeJSONError(w, http.StatusBadRequest, "invalid address id")
+		return
+	}
+
+	var req CreateAddressRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSONError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	normLabel, err := domain.NormalizeAddressLabel(req.Label)
+	if err != nil {
+		writeJSONError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	addr := &domain.ShippingAddress{
+		ID:            addressID,
+		CustomerID:    customerID,
+		RecipientName: req.RecipientName,
+		PhoneNumber:   req.PhoneNumber,
+		StreetAddress: req.StreetAddress,
+		WardCode:      req.WardCode,
+		WardName:      req.WardName,
+		ProvinceCode:  req.ProvinceCode,
+		ProvinceName:  req.ProvinceName,
+		Latitude:      req.Latitude,
+		Longitude:     req.Longitude,
+		Label:         normLabel,
+	}
+
+	if err := h.addressUsecase.UpdateAddress(r.Context(), addr); err != nil {
+		if errors.Is(err, domain.ErrAddressNotFound) {
+			writeJSONError(w, http.StatusNotFound, "address not found")
+			return
+		}
+		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	updatedAddr, err := h.addressUsecase.GetAddressByID(r.Context(), addressID)
+	if err == nil && updatedAddr != nil {
+		writeJSON(w, http.StatusOK, updatedAddr)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, addr)
+}
+
+// GetAddress handles GET /api/v1/profile/addresses/{id} and POST simulation requests
+func (h *AddressHandler) GetAddress(w http.ResponseWriter, r *http.Request) {
+	addressIDStr := chi.URLParam(r, "id")
+	addressID, err := uuid.Parse(addressIDStr)
+	if err != nil {
+		writeJSONError(w, http.StatusBadRequest, "invalid address id")
+		return
+	}
+
+	addr, err := h.addressUsecase.GetAddressByID(r.Context(), addressID)
+	if err != nil {
+		if errors.Is(err, domain.ErrAddressNotFound) {
+			writeJSONError(w, http.StatusNotFound, "address not found")
+			return
+		}
+		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, addr)
+}
+
 
 // SwitchDefaultAddress handles PUT /api/v1/profile/addresses/{id}/default
 func (h *AddressHandler) SwitchDefaultAddress(w http.ResponseWriter, r *http.Request) {
@@ -142,9 +239,10 @@ func (h *AddressHandler) SwitchDefaultAddress(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]string{
+	writeJSON(w, http.StatusOK, map[string]any{
 		"message":            "default address switched successfully",
 		"default_address_id": addressID.String(),
+		"is_default":         true,
 	})
 }
 

@@ -23,6 +23,25 @@ func NewAddressRepository(pool *pgxpool.Pool) *AddressRepository {
 
 // CreateAddress inserts a new shipping address.
 func (r *AddressRepository) CreateAddress(ctx context.Context, addr *domain.ShippingAddress) error {
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	if addr.IsDefault {
+		// Demote previous default address
+		_, err = tx.Exec(ctx,
+			`UPDATE shipping_addresses 
+			 SET is_default = FALSE, updated_at = CURRENT_TIMESTAMP 
+			 WHERE customer_id = $1 AND is_default = TRUE AND is_deleted = FALSE`,
+			addr.CustomerID,
+		)
+		if err != nil {
+			return fmt.Errorf("failed resetting existing default address: %w", err)
+		}
+	}
+
 	query := `
 		INSERT INTO shipping_addresses (
 			id, customer_id, recipient_name, phone_number, street_address,
@@ -32,12 +51,63 @@ func (r *AddressRepository) CreateAddress(ctx context.Context, addr *domain.Ship
 			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16
 		)
 	`
-	_, err := r.pool.Exec(ctx, query,
+	_, err = tx.Exec(ctx, query,
 		addr.ID, addr.CustomerID, addr.RecipientName, addr.PhoneNumber, addr.StreetAddress,
 		addr.WardCode, addr.WardName, addr.ProvinceCode, addr.ProvinceName,
 		addr.Latitude, addr.Longitude, addr.Label, addr.IsDefault, addr.IsDeleted, addr.CreatedAt, addr.UpdatedAt,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+
+	if addr.IsDefault {
+		outboxPayload, err := json.Marshal(map[string]any{
+			"customer_id":        addr.CustomerID.String(),
+			"default_address_id": addr.ID.String(),
+			"switched_at":        time.Now().UTC(),
+		})
+		if err == nil {
+			_, _ = tx.Exec(ctx,
+				`INSERT INTO outbox_events (id, aggregate_type, aggregate_id, event_type, payload, topic) 
+				 VALUES ($1, 'Address', $2, 'DefaultAddressSwitchedEvent', $3, 'profile.events.v1')`,
+				uuid.New(), addr.CustomerID.String(), outboxPayload,
+			)
+		}
+	}
+
+	return tx.Commit(ctx)
+}
+
+// UpdateAddress updates an existing shipping address.
+func (r *AddressRepository) UpdateAddress(ctx context.Context, addr *domain.ShippingAddress) error {
+	query := `
+		UPDATE shipping_addresses
+		SET recipient_name = $1,
+		    phone_number = $2,
+		    street_address = $3,
+		    ward_code = $4,
+		    ward_name = $5,
+		    province_code = $6,
+		    province_name = $7,
+		    latitude = $8,
+		    longitude = $9,
+		    label = $10,
+		    updated_at = CURRENT_TIMESTAMP
+		WHERE id = $11 AND customer_id = $12 AND is_deleted = FALSE
+	`
+	tag, err := r.pool.Exec(ctx, query,
+		addr.RecipientName, addr.PhoneNumber, addr.StreetAddress,
+		addr.WardCode, addr.WardName, addr.ProvinceCode, addr.ProvinceName,
+		addr.Latitude, addr.Longitude, addr.Label,
+		addr.ID, addr.CustomerID,
+	)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return domain.ErrAddressNotFound
+	}
+	return nil
 }
 
 // SwitchDefaultAddress atomically switches default shipping address for a customer.

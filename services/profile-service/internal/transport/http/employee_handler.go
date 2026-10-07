@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/omamx/profile-service/internal/domain"
 	"github.com/omamx/profile-service/internal/usecase"
 )
 
@@ -79,3 +80,25 @@ func (h *EmployeeHandler) ListEmployees(w http.ResponseWriter, r *http.Request) 
 
 	writeJSON(w, http.StatusOK, employees)
 }
+
+// GetCompliance handles GET /api/v1/profile/employees/compliance and /api/v1/admin/employees/compliance
+func (h *EmployeeHandler) GetCompliance(w http.ResponseWriter, r *http.Request) {
+	thresholdDays := 30
+	if daysStr := r.URL.Query().Get("days"); daysStr != "" {
+		if d, err := strconv.Atoi(daysStr); err == nil && d > 0 {
+			thresholdDays = d
+		}
+	}
+
+	expiring, err := h.employeeUsecase.FindExpiringCertificates(r.Context(), thresholdDays)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	if expiring == nil {
+		expiring = []*domain.EmployeeProfile{}
+	}
+	writeJSON(w, http.StatusOK, expiring)
+}
+

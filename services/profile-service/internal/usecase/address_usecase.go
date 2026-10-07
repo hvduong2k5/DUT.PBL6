@@ -84,6 +84,20 @@ func (u *AddressUsecase) DeleteAddress(ctx context.Context, customerID, addressI
 	return nil
 }
 
+// UpdateAddress updates address fields and invalidates customer cache.
+func (u *AddressUsecase) UpdateAddress(ctx context.Context, addr *domain.ShippingAddress) error {
+	if err := u.addrRepo.UpdateAddress(ctx, addr); err != nil {
+		return err
+	}
+	_ = u.cache.Invalidate(ctx, addr.CustomerID.String())
+	return nil
+}
+
+// GetAddressByID fetches a specific active address by ID.
+func (u *AddressUsecase) GetAddressByID(ctx context.Context, id uuid.UUID) (*domain.ShippingAddress, error) {
+	return u.addrRepo.GetAddressByID(ctx, id)
+}
+
 // ValidateAddress runs the 2-Stage Fuzzy Matching pipeline against administrative units.
 // Note: This is an Async/UI path and is STRICTLY excluded from the Checkout Critical Path.
 func (u *AddressUsecase) ValidateAddress(ctx context.Context, userInput string) (*MatchResult, error) {

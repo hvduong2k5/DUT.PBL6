@@ -10,6 +10,7 @@ services:
       - "5432:5432"
     volumes:
       - ./migrations/000001_init_schema.up.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
+      - ./migrations/000002_street_mappings_and_national_seed.up.sql:/docker-entrypoint-initdb.d/02_street_mappings.sql:ro
       - pgdata:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U omamx_user -d profile_db"]
@@ -48,6 +49,7 @@ services:
       - "9092:9092"
 
   profile-service:
+    build: .
     image: omamx/profile-service:latest
     container_name: omamx-profile-service
     environment:

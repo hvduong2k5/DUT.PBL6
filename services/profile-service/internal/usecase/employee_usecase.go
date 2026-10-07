@@ -136,3 +136,9 @@ func (u *EmployeeUsecase) GetEmployeeDetail(ctx context.Context, id uuid.UUID) (
 func (u *EmployeeUsecase) ListEmployees(ctx context.Context, departmentID, status string, limit, offset int) ([]*domain.EmployeeProfile, error) {
 	return u.repo.ListEmployees(ctx, departmentID, status, limit, offset)
 }
+
+// FindExpiringCertificates retrieves employees whose food safety certificates expire within thresholdDays.
+func (u *EmployeeUsecase) FindExpiringCertificates(ctx context.Context, thresholdDays int) ([]*domain.EmployeeProfile, error) {
+	return u.repo.FindExpiringCertificates(ctx, thresholdDays)
+}
+
