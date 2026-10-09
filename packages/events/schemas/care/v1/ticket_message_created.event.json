@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "TicketMessageCreatedEvent",
+  "description": "Published when Care Service stores a new customer-visible ticket message. The message content is deliberately omitted to minimize PII. Topic: care.events.v1. Partition key: ticket_id.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["specversion", "id", "source", "type", "subject", "time", "datacontenttype", "data"],
+  "properties": {
+    "specversion": { "type": "string", "const": "1.0" },
+    "id": { "type": "string", "format": "uuid" },
+    "source": { "type": "string", "const": "https://omama.vn/services/care-service" },
+    "type": { "type": "string", "const": "vn.omama.care.ticket.message.created.v1" },
+    "subject": { "type": "string", "pattern": "^SUPPORT_TICKET:" },
+    "time": { "type": "string", "format": "date-time" },
+    "datacontenttype": { "type": "string", "const": "application/json" },
+    "traceparent": { "type": "string" },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ticket_id", "message_id", "customer_id", "created_at"],
+      "properties": {
+        "ticket_id": { "type": "string", "format": "uuid" },
+        "message_id": { "type": "string", "format": "uuid" },
+        "customer_id": { "type": "string", "format": "uuid" },
+        "created_at": { "type": "string", "format": "date-time" }
+      }
+    }
+  }
+}
+

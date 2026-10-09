@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "TicketCreatedEvent",
+  "description": "Published when Care Service atomically accepts a new support ticket. Topic: care.events.v1. Partition key: ticket_id.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["specversion", "id", "source", "type", "subject", "time", "datacontenttype", "data"],
+  "properties": {
+    "specversion": { "type": "string", "const": "1.0" },
+    "id": { "type": "string", "format": "uuid" },
+    "source": { "type": "string", "const": "https://omama.vn/services/care-service" },
+    "type": { "type": "string", "const": "vn.omama.care.ticket.created.v1" },
+    "subject": { "type": "string", "pattern": "^SUPPORT_TICKET:" },
+    "time": { "type": "string", "format": "date-time" },
+    "datacontenttype": { "type": "string", "const": "application/json" },
+    "traceparent": { "type": "string" },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ticket_id", "ticket_code", "customer_id", "category", "priority", "status", "created_at"],
+      "properties": {
+        "ticket_id": { "type": "string", "format": "uuid" },
+        "ticket_code": { "type": "string" },
+        "customer_id": { "type": "string", "format": "uuid" },
+        "category": {
+          "type": "string",
+          "enum": ["ORDER", "PAYMENT", "SHIPPING", "PRODUCT_QUALITY", "RETURN_REFUND", "ACCOUNT", "OTHER"]
+        },
+        "priority": { "type": "string", "enum": ["LOW", "NORMAL", "HIGH", "URGENT"] },
+        "status": { "type": "string", "const": "NEW" },
+        "created_at": { "type": "string", "format": "date-time" }
+      }
+    }
+  }
+}
+

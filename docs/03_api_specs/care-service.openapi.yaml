@@ -1,0 +1,385 @@
+openapi: 3.0.3
+info:
+  title: O Ma Mai Care Service API
+  version: 0.1.0
+  license:
+    name: Proprietary
+    url: urn:license:proprietary
+  description: >-
+    Backend contract for the implemented Care Service foundation, internal Media Module,
+    and registered-customer Ticket MVP. Public clients authenticate at API Gateway; the
+    gateway forwards trusted identity headers to Care Service.
+servers:
+  - url: /api/v1
+tags:
+  - name: Media
+    description: Direct-to-object-storage sessions and authorized media access.
+  - name: Tickets
+    description: Registered-customer support ticket and public-message operations.
+security:
+  - bearerAuth: []
+paths:
+  /media/upload-sessions:
+    post:
+      tags: [Media]
+      operationId: createCareMediaUploadSession
+      summary: Create a direct-to-storage upload session
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUploadSessionRequest'
+      responses:
+        '201':
+          description: New upload session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadSessionResponse'
+        '200':
+          description: Replayed idempotent upload session with a newly signed upload URL
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadSessionResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /media/upload-sessions/{fileId}/complete:
+    post:
+      tags: [Media]
+      operationId: completeCareMediaUpload
+      summary: Verify a direct upload and mark the file ready
+      parameters:
+        - $ref: '#/components/parameters/FileId'
+      responses:
+        '200':
+          description: Verified media record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaResponse'
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /media/{fileId}/access:
+    get:
+      tags: [Media]
+      operationId: createCareMediaAccessUrl
+      summary: Create a short-lived authorized access URL
+      parameters:
+        - $ref: '#/components/parameters/FileId'
+      responses:
+        '200':
+          description: Short-lived access capability
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [file_id, access_url, access_url_expires_at]
+                    properties:
+                      file_id: { type: string, format: uuid }
+                      access_url: { type: string, format: uri, writeOnly: true }
+                      access_url_expires_at: { type: string, format: date-time }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /media/{fileId}:
+    delete:
+      tags: [Media]
+      operationId: deleteUnattachedCareMedia
+      summary: Tombstone and delete an unattached upload
+      parameters:
+        - $ref: '#/components/parameters/FileId'
+      responses:
+        '204': { description: Deleted }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /tickets:
+    post:
+      tags: [Tickets]
+      operationId: createSupportTicket
+      summary: Create a registered-customer support ticket
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTicketRequest'
+      responses:
+        '201':
+          description: Ticket created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TicketDetailResponse'
+        '200':
+          description: Existing result returned for an idempotent replay
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TicketDetailResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409': { $ref: '#/components/responses/Conflict' }
+    get:
+      tags: [Tickets]
+      operationId: listOwnedSupportTickets
+      summary: List tickets owned by the authenticated customer
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: cursor
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: Ticket page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TicketListResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+  /tickets/{ticketId}:
+    get:
+      tags: [Tickets]
+      operationId: getOwnedSupportTicket
+      summary: Read a ticket and its public messages
+      parameters:
+        - $ref: '#/components/parameters/TicketId'
+      responses:
+        '200':
+          description: Ticket detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TicketDetailResponse'
+        '404': { $ref: '#/components/responses/NotFound' }
+  /tickets/{ticketId}/messages:
+    post:
+      tags: [Tickets]
+      operationId: addCustomerTicketMessage
+      summary: Add a public customer message to an owned ticket
+      parameters:
+        - $ref: '#/components/parameters/TicketId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddMessageRequest'
+      responses:
+        '201':
+          description: Message created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '200':
+          description: Existing result returned for an idempotent replay
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: { type: string, minLength: 1, maxLength: 200 }
+    FileId:
+      name: fileId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    TicketId:
+      name: ticketId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    NotFound:
+      description: Resource not found or not owned by the caller
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    Conflict:
+      description: State or idempotency conflict
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+  schemas:
+    MediaPurpose:
+      type: string
+      enum: [RETURN_EVIDENCE, TICKET_ATTACHMENT, REVIEW_MEDIA]
+    CreateUploadSessionRequest:
+      type: object
+      additionalProperties: false
+      required: [purpose, filename, mime_type, size_bytes]
+      properties:
+        purpose: { $ref: '#/components/schemas/MediaPurpose' }
+        filename: { type: string, minLength: 1, maxLength: 255 }
+        mime_type:
+          type: string
+          enum: [image/jpeg, image/png, image/webp, video/mp4, application/pdf]
+        size_bytes: { type: integer, format: int64, minimum: 1, maximum: 104857600 }
+        checksum_sha256: { type: string, pattern: '^[0-9a-fA-F]{64}$' }
+    UploadSessionResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [file_id, purpose, status, upload_url, method, required_headers, upload_url_expires_at]
+          properties:
+            file_id: { type: string, format: uuid }
+            purpose: { $ref: '#/components/schemas/MediaPurpose' }
+            status: { type: string, enum: [PENDING_UPLOAD] }
+            upload_url: { type: string, format: uri, writeOnly: true }
+            method: { type: string, enum: [PUT] }
+            required_headers:
+              type: object
+              additionalProperties: { type: string }
+            upload_url_expires_at: { type: string, format: date-time }
+    Media:
+      type: object
+      required: [file_id, purpose, filename, status, scan_status, created_at]
+      properties:
+        file_id: { type: string, format: uuid }
+        purpose: { $ref: '#/components/schemas/MediaPurpose' }
+        filename: { type: string }
+        mime_type: { type: string }
+        size_bytes: { type: integer, format: int64 }
+        status: { type: string, enum: [PENDING_UPLOAD, UPLOADED, SCANNING, READY, ATTACHED, REJECTED, EXPIRED, DELETED] }
+        scan_status: { type: string, enum: [PENDING, CLEAN, INFECTED, FAILED] }
+        created_at: { type: string, format: date-time }
+        uploaded_at: { type: string, format: date-time, nullable: true }
+    MediaResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/Media' }
+    TicketCategory:
+      type: string
+      enum: [ORDER, PAYMENT, SHIPPING, PRODUCT_QUALITY, RETURN_REFUND, ACCOUNT, OTHER]
+    CreateTicketRequest:
+      type: object
+      additionalProperties: false
+      required: [subject, category, message]
+      properties:
+        subject: { type: string, minLength: 3, maxLength: 200 }
+        category: { $ref: '#/components/schemas/TicketCategory' }
+        message: { type: string, minLength: 1, maxLength: 10000 }
+        order_id:
+          type: string
+          description: Rejected until the Order ownership-verification contract is connected.
+        file_ids:
+          type: array
+          maxItems: 5
+          uniqueItems: true
+          items: { type: string, format: uuid }
+    AddMessageRequest:
+      type: object
+      additionalProperties: false
+      required: [content]
+      properties:
+        content: { type: string, minLength: 1, maxLength: 10000 }
+        file_ids:
+          type: array
+          maxItems: 5
+          uniqueItems: true
+          items: { type: string, format: uuid }
+    Ticket:
+      type: object
+      required: [id, code, subject, category, priority, status, version, first_response_due_at, resolution_due_at, created_at, updated_at]
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string }
+        subject: { type: string }
+        category: { $ref: '#/components/schemas/TicketCategory' }
+        priority: { type: string, enum: [LOW, NORMAL, HIGH, URGENT] }
+        status: { type: string, enum: [NEW, TRIAGED, ASSIGNED, IN_PROGRESS, WAITING_CUSTOMER, WAITING_INTERNAL, RESOLVED, CLOSED] }
+        order_id: { type: string }
+        version: { type: integer, minimum: 1 }
+        first_response_due_at: { type: string, format: date-time }
+        resolution_due_at: { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    TicketMessage:
+      type: object
+      required: [id, sender_type, direction, content, file_ids, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        sender_type: { type: string, enum: [CUSTOMER, STAFF, SYSTEM] }
+        direction: { type: string, enum: [INBOUND, OUTBOUND] }
+        content: { type: string }
+        file_ids:
+          type: array
+          items: { type: string, format: uuid }
+        created_at: { type: string, format: date-time }
+    TicketDetail:
+      allOf:
+        - $ref: '#/components/schemas/Ticket'
+        - type: object
+          required: [messages]
+          properties:
+            messages:
+              type: array
+              items: { $ref: '#/components/schemas/TicketMessage' }
+    TicketDetailResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/TicketDetail' }
+    TicketListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Ticket' }
+        meta:
+          type: object
+          required: [next_cursor]
+          properties:
+            next_cursor: { type: string }
+    MessageResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/TicketMessage' }
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string }
+            message: { type: string }
+            request_id: { type: string }
+            details:
+              type: object
+              additionalProperties: true
+

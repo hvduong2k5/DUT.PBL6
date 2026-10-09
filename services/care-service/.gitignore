@@ -1,0 +1,5 @@
+*.exe
+coverage.out
+bin/
+tmp/
+

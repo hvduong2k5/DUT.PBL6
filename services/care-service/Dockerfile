@@ -1,0 +1,29 @@
+FROM golang:1.22-alpine AS builder
+
+WORKDIR /src
+
+RUN apk add --no-cache ca-certificates git
+
+COPY go.mod go.sum* ./
+RUN go mod download
+
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o /out/care-service ./cmd/server
+
+FROM alpine:3.20
+
+RUN apk add --no-cache ca-certificates tzdata wget && \
+    addgroup -g 10001 -S appgroup && \
+    adduser -u 10001 -S appuser -G appgroup
+
+WORKDIR /app
+COPY --from=builder /out/care-service /app/care-service
+
+USER appuser:appgroup
+EXPOSE 8006
+
+HEALTHCHECK --interval=10s --timeout=3s --retries=3 \
+    CMD wget -q --spider http://localhost:8006/health/live || exit 1
+
+ENTRYPOINT ["/app/care-service"]
+
