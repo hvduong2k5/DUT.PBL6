@@ -1,0 +1,14 @@
+{
+  "environment": "local Docker sandbox; PostgreSQL/Redis/Kafka real; dependencies simulator",
+  "requests": 20,
+  "concurrency": 5,
+  "scope": "fresh-key acceptance; one-line cart; completion client-observed including polling delay",
+  "acceptance_p50_ms": 5.58,
+  "acceptance_p95_ms": 30.26,
+  "acceptance_p99_ms": 30.64,
+  "completion_observed_p95_ms": 1493.34,
+  "acceptance_target_500ms_met": true,
+  "operation_schema_responses_valid": true,
+  "fixture_orders_cancelled": 20,
+  "production_slo_proven": false
+}

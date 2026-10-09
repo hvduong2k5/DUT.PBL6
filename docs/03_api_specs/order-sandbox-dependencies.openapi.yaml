@@ -1,0 +1,1013 @@
+openapi: 3.0.3
+info:
+  title: MS-04 stateful sandbox dependencies
+  version: 1.0.0
+  description: Sandbox only. Provider ledger is an independent PostgreSQL database.
+    Signed callback protocol does not assert a real VietQR provider contract. Inventory
+    terminal RPCs additionally exist in inventory.proto.
+servers:
+- url: http://127.0.0.1:18104
+paths:
+  /catalog/validate:
+    post:
+      operationId: postCatalogValidate
+      security:
+      - internalToken: []
+      responses:
+        '200':
+          description: Verified snapshot/terminal result; timeouts remain UNKNOWN
+            to caller
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - items
+                - snapshot_id
+                - expires_at
+                properties:
+                  items: &id001
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Item'
+                  snapshot_id: &id002
+                    type: string
+                    format: uuid
+                  expires_at:
+                    type: string
+                    format: date-time
+        '409':
+          description: Terminal conflict or insufficient stock/budget
+        '503':
+          description: Unknown transport/query outcome
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - items
+              properties:
+                items: *id001
+      description: Repeatable-read canonical line snapshot persisted as a server-issued
+        quote with snapshot_id and expires_at.
+  /address/validate:
+    post:
+      operationId: postAddressValidate
+      security:
+      - internalToken: []
+      responses:
+        '200':
+          description: Verified snapshot/terminal result; timeouts remain UNKNOWN
+            to caller
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - valid
+                properties:
+                  valid:
+                    type: boolean
+        '409':
+          description: Terminal conflict or insufficient stock/budget
+        '503':
+          description: Unknown transport/query outcome
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Address'
+  /shipping/quote:
+    post:
+      operationId: postShippingQuote
+      security:
+      - internalToken: []
+      responses:
+        '200':
+          description: Verified snapshot/terminal result; timeouts remain UNKNOWN
+            to caller
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - quote_reference
+                - fee
+                - expires_at
+                - cod_eligible
+                properties:
+                  quote_reference: *id002
+                  fee: &id003
+                    type: integer
+                    format: int64
+                  expires_at:
+                    type: string
+                    format: date-time
+                  cod_eligible:
+                    type: boolean
+        '409':
+          description: Terminal conflict or insufficient stock/budget
+        '503':
+          description: Unknown transport/query outcome
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - items
+              - address
+              properties:
+                items: *id001
+                address:
+                  $ref: '#/components/schemas/Address'
+  /profile/{user_id}:
+    get:
+      operationId: getProfileUser_id
+      security:
+      - internalToken: []
+      responses:
+        '200':
+          description: Verified snapshot/terminal result; timeouts remain UNKNOWN
+            to caller
+        '409':
+          description: Terminal conflict or insufficient stock/budget
+        '503':
+          description: Unknown transport/query outcome
+      parameters:
+      - in: path
+        name: user_id
+        required: true
+        schema:
+          type: string
+  /profile/address/{id}:
+    get:
+      operationId: getProfileAddressId
+      security:
+      - internalToken: []
+      responses:
+        '200':
+          description: Verified snapshot/terminal result; timeouts remain UNKNOWN
+            to caller
+        '409':
+          description: Terminal conflict or insufficient stock/budget
+        '503':
+          description: Unknown transport/query outcome
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+  /inventory/reserve:
+    post:
+      operationId: postInventoryReserve
+      security:
+      - internalToken: []
+      responses:
+        '200':
+          description: Verified snapshot/terminal result; timeouts remain UNKNOWN
+            to caller
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reservation'
+        '409':
+          description: Terminal conflict or insufficient stock/budget
+        '503':
+          description: Unknown transport/query outcome
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - order_id
+              - operation_key
+              - items
+              - ttl_seconds
+              properties:
+                order_id: *id002
+                operation_key: &id004
+                  type: string
+                items: *id001
+                ttl_seconds: *id003
+                approval_id: *id004
+                cod_unpaid:
+                  type: boolean
+  /inventory/finalize:
+    post:
+      operationId: postInventoryFinalize
+      security:
+      - internalToken: []
+      responses:
+        '200':
+          description: Verified snapshot/terminal result; timeouts remain UNKNOWN
+            to caller
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reservation'
+        '409':
+          description: Terminal conflict or insufficient stock/budget
+        '503':
+          description: Unknown transport/query outcome
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - order_id
+              - operation_key
+              properties:
+                order_id: *id002
+                operation_key: *id004
+                items: *id001
+                ttl_seconds: *id003
+                approval_id: *id004
+                cod_unpaid:
+                  type: boolean
+  /inventory/release:
+    post:
+      operationId: postInventoryRelease
+      security:
+      - internalToken: []
+      responses:
+        '200':
+          description: Verified snapshot/terminal result; timeouts remain UNKNOWN
+            to caller
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reservation'
+        '409':
+          description: Terminal conflict or insufficient stock/budget
+        '503':
+          description: Unknown transport/query outcome
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - order_id
+              - operation_key
+              properties:
+                order_id: *id002
+                operation_key: *id004
+                items: *id001
+                ttl_seconds: *id003
+                approval_id: *id004
+                cod_unpaid:
+                  type: boolean
+  /inventory/reverse:
+    post:
+      operationId: postInventoryReverse
+      security:
+      - internalToken: []
+      responses:
+        '200':
+          description: Verified snapshot/terminal result; timeouts remain UNKNOWN
+            to caller
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reservation'
+        '409':
+          description: Terminal conflict or insufficient stock/budget
+        '503':
+          description: Unknown transport/query outcome
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - order_id
+              - operation_key
+              properties:
+                order_id: *id002
+                operation_key: *id004
+                items: *id001
+                ttl_seconds: *id003
+                approval_id: *id004
+                cod_unpaid:
+                  type: boolean
+  /inventory/reservations/{order_id}:
+    get:
+      operationId: getInventoryReservationsOrder_id
+      security:
+      - internalToken: []
+      responses:
+        '200':
+          description: Verified snapshot/terminal result; timeouts remain UNKNOWN
+            to caller
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reservation'
+        '409':
+          description: Terminal conflict or insufficient stock/budget
+        '503':
+          description: Unknown transport/query outcome
+      parameters:
+      - in: path
+        name: order_id
+        required: true
+        schema:
+          type: string
+  /fulfillment/authorize:
+    post:
+      operationId: postFulfillmentAuthorize
+      security:
+      - internalToken: []
+      responses:
+        '200':
+          description: Verified snapshot/terminal result; timeouts remain UNKNOWN
+            to caller
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - authorized
+                properties:
+                  authorized:
+                    type: boolean
+        '409':
+          description: Terminal conflict or insufficient stock/budget
+        '503':
+          description: Unknown transport/query outcome
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - order_id
+              - generation
+              properties:
+                order_id: *id002
+                generation: *id003
+                operation_key: *id004
+  /fulfillment/cancel:
+    post:
+      operationId: postFulfillmentCancel
+      security:
+      - internalToken: []
+      responses:
+        '200':
+          description: Verified snapshot/terminal result; timeouts remain UNKNOWN
+            to caller
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - cancelled
+                properties:
+                  cancelled:
+                    type: boolean
+        '409':
+          description: Terminal conflict or insufficient stock/budget
+        '503':
+          description: Unknown transport/query outcome
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - order_id
+              properties:
+                order_id: *id002
+                generation: *id003
+                operation_key: *id004
+  /fulfillment/accept:
+    post:
+      operationId: postFulfillmentAccept
+      security:
+      - internalToken: []
+      responses:
+        '200':
+          description: Verified snapshot/terminal result; timeouts remain UNKNOWN
+            to caller
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - task_id
+                - generation
+                properties:
+                  task_id: *id002
+                  generation: *id003
+        '409':
+          description: Terminal conflict or insufficient stock/budget
+        '503':
+          description: Unknown transport/query outcome
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - order_id
+              - generation
+              properties:
+                order_id: *id002
+                generation: *id003
+                operation_key: *id004
+      description: Atomic accept/cancel barrier plus current Order ready eligibility/generation
+        check; holds cannot be bypassed by cached authorization.
+  /resources/{id}:
+    get:
+      operationId: getResourcesId
+      security:
+      - internalToken: []
+      responses:
+        '200':
+          description: Verified snapshot/terminal result; timeouts remain UNKNOWN
+            to caller
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - order_id
+                - source
+                - version
+                - generation
+                properties:
+                  order_id: *id002
+                  source: *id004
+                  version: *id003
+                  generation: *id003
+        '409':
+          description: Terminal conflict or insufficient stock/budget
+        '503':
+          description: Unknown transport/query outcome
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+  /care/approvals/{id}:
+    get:
+      operationId: getCareApprovalsId
+      security:
+      - internalToken: []
+      responses:
+        '200':
+          description: Verified snapshot/terminal result; timeouts remain UNKNOWN
+            to caller
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Approval'
+        '409':
+          description: Terminal conflict or insufficient stock/budget
+        '503':
+          description: Unknown transport/query outcome
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+  /care/completion-barrier:
+    post:
+      operationId: postCareCompletion-barrier
+      security:
+      - internalToken: []
+      responses:
+        '200':
+          description: Verified snapshot/terminal result; timeouts remain UNKNOWN
+            to caller
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - eligible
+                properties:
+                  eligible:
+                    type: boolean
+        '409':
+          description: Terminal conflict or insufficient stock/budget
+        '503':
+          description: Unknown transport/query outcome
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - order_id
+              properties:
+                order_id: *id002
+  /provider/payments:
+    get:
+      operationId: getProviderPayments
+      security:
+      - internalToken: []
+      responses:
+        '200':
+          description: Verified snapshot/terminal result; timeouts remain UNKNOWN
+            to caller
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Receipt'
+        '409':
+          description: Terminal conflict or insufficient stock/budget
+        '503':
+          description: Unknown transport/query outcome
+  /provider/statement:
+    get:
+      operationId: getProviderStatement
+      security:
+      - internalToken: []
+      responses:
+        '200':
+          description: Verified snapshot/terminal result; timeouts remain UNKNOWN
+            to caller
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - receipts
+                - cursor
+                properties:
+                  receipts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Receipt'
+                  cursor: *id003
+        '409':
+          description: Terminal conflict or insufficient stock/budget
+        '503':
+          description: Unknown transport/query outcome
+      description: Commit-ordered ledger cursor; Order advances its durable cursor
+        only after local receipt commits. Finds late/unmatched payments even when
+        callbacks are lost.
+  /provider/refunds:
+    post:
+      operationId: postProviderRefunds
+      security:
+      - internalToken: []
+      responses:
+        '200':
+          description: Verified snapshot/terminal result; timeouts remain UNKNOWN
+            to caller
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - status
+                properties:
+                  status:
+                    type: string
+                    enum:
+                    - UNKNOWN
+                    - NOT_FOUND
+                    - SUCCEEDED
+                    - FAILED
+                  reference: *id004
+        '409':
+          description: Terminal conflict or insufficient stock/budget
+        '503':
+          description: Unknown transport/query outcome
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - operation_key
+              - transaction_id
+              - amount
+              properties:
+                operation_key: *id004
+                transaction_id: *id004
+                amount:
+                  type: integer
+                  format: int64
+                  minimum: 1
+  /provider/refunds/{key}:
+    get:
+      operationId: getProviderRefundsKey
+      security:
+      - internalToken: []
+      responses:
+        '200':
+          description: Verified snapshot/terminal result; timeouts remain UNKNOWN
+            to caller
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - status
+                properties:
+                  status:
+                    type: string
+                    enum:
+                    - UNKNOWN
+                    - NOT_FOUND
+                    - SUCCEEDED
+                    - FAILED
+                  reference: *id004
+        '409':
+          description: Terminal conflict or insufficient stock/budget
+        '503':
+          description: Unknown transport/query outcome
+      parameters:
+      - in: path
+        name: key
+        required: true
+        schema:
+          type: string
+components:
+  securitySchemes:
+    internalToken:
+      type: apiKey
+      in: header
+      name: X-Internal-Token
+  schemas:
+    Item:
+      type: object
+      additionalProperties: false
+      required:
+      - sku_code
+      - quantity
+      properties:
+        item_id:
+          type: string
+        sku_code:
+          type: string
+        quantity:
+          type: integer
+          format: int64
+        unit_price:
+          type: integer
+          format: int64
+        product_name:
+          type: string
+        weight_grams:
+          type: integer
+          format: int64
+        catalog_version:
+          type: integer
+          format: int64
+    Address:
+      type: object
+      additionalProperties: false
+      required:
+      - recipient_name
+      - phone
+      - street
+      - ward_code
+      - province_code
+      properties:
+        recipient_name:
+          type: string
+        phone:
+          type: string
+        street:
+          type: string
+        ward_code:
+          type: string
+        province_code:
+          type: string
+    Cart:
+      type: object
+      additionalProperties: false
+      required:
+      - revision
+      - items
+      properties:
+        revision:
+          type: integer
+          format: int64
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Item'
+    Quote:
+      type: object
+      additionalProperties: false
+      required:
+      - catalog_snapshot_id
+      - catalog_expires_at
+      - shipping_quote_reference
+      - quote_id
+      - cart_revision
+      - payment_method
+      - items
+      - address
+      - subtotal
+      - shipping_fee
+      - final_amount
+      - expires_at
+      - shipping_expires_at
+      properties:
+        catalog_snapshot_id:
+          type: string
+        catalog_expires_at:
+          type: string
+          format: date-time
+        shipping_quote_reference:
+          type: string
+        source_address_id:
+          type: string
+        source_address_version:
+          type: integer
+          format: int64
+        quote_id:
+          type: string
+        cart_revision:
+          type: integer
+          format: int64
+        payment_method:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Item'
+        address:
+          $ref: '#/components/schemas/Address'
+        subtotal:
+          type: integer
+          format: int64
+        shipping_fee:
+          type: integer
+          format: int64
+        final_amount:
+          type: integer
+          format: int64
+        customer_id:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+        shipping_expires_at:
+          type: string
+          format: date-time
+    Order:
+      type: object
+      additionalProperties: false
+      required:
+      - order_id
+      - operation_id
+      - order_code
+      - customer_id
+      - warehouse_id
+      - payment_method
+      - status
+      - payment_status
+      - stock_status
+      - subtotal
+      - shipping_fee
+      - final_amount
+      - version
+      - ready_generation
+      - ready_authorized
+      - operational_hold
+      - has_active_case
+      - payment_reference
+      - task_id
+      - shipment_id
+      - seal_code
+      - payment_expires_at
+      - updated_at
+      - created_at
+      - sla_due_at
+      - completion_due_at
+      properties:
+        order_id:
+          type: string
+        operation_id:
+          type: string
+        order_code:
+          type: string
+        customer_id:
+          type: string
+          nullable: true
+        warehouse_id:
+          type: string
+        payment_method:
+          type: string
+        status:
+          type: string
+        payment_status:
+          type: string
+        stock_status:
+          type: string
+        subtotal:
+          type: integer
+          format: int64
+        shipping_fee:
+          type: integer
+          format: int64
+        final_amount:
+          type: integer
+          format: int64
+        version:
+          type: integer
+          format: int64
+        ready_generation:
+          type: integer
+          format: int64
+        ready_authorized:
+          type: boolean
+        operational_hold:
+          type: boolean
+        has_active_case:
+          type: boolean
+        payment_reference:
+          type: string
+        task_id:
+          type: string
+          nullable: true
+        shipment_id:
+          type: string
+          nullable: true
+        seal_code:
+          type: string
+          nullable: true
+        payment_expires_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        sla_due_at:
+          type: string
+          format: date-time
+          nullable: true
+        completion_due_at:
+          type: string
+          format: date-time
+          nullable: true
+        snapshot:
+          type: object
+          nullable: true
+          allOf:
+          - $ref: '#/components/schemas/Quote'
+    Receipt:
+      type: object
+      additionalProperties: false
+      required:
+      - provider
+      - transaction_id
+      - reference
+      - receiver
+      - amount
+      - currency
+      - status
+      - paid_at
+      properties:
+        provider:
+          type: string
+        transaction_id:
+          type: string
+        reference:
+          type: string
+        receiver:
+          type: string
+        amount:
+          type: integer
+          format: int64
+        currency:
+          type: string
+        status:
+          type: string
+        paid_at:
+          type: string
+          format: date-time
+    SourceEvent:
+      type: object
+      additionalProperties: false
+      required:
+      - signature
+      - id
+      - source
+      - order_id
+      - resource_id
+      - version
+      - type
+      properties:
+        signature:
+          type: string
+        id:
+          type: string
+        source:
+          type: string
+        order_id:
+          type: string
+        resource_id:
+          type: string
+        version:
+          type: integer
+          format: int64
+        type:
+          type: string
+        generation:
+          type: integer
+          format: int64
+        seal_code:
+          type: string
+      description: 'Sandbox HMAC: normalize typed Event JSON with signature empty,
+        SHA256 HMAC using sandbox internal secret, lowercase hex. Authority resource
+        query still required; real-source adapter authentication must be negotiated
+        separately.'
+    Reservation:
+      type: object
+      additionalProperties: false
+      required:
+      - reservation_id
+      - order_id
+      - state
+      - expires_at
+      properties:
+        reservation_id:
+          type: string
+        order_id:
+          type: string
+        state:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+    Approval:
+      type: object
+      additionalProperties: false
+      required:
+      - approval_id
+      - order_id
+      - receipt_id
+      - amount
+      - type
+      - state
+      - actor
+      properties:
+        approval_id:
+          type: string
+        order_id:
+          type: string
+        receipt_id:
+          type: string
+        amount:
+          type: integer
+          format: int64
+        type:
+          type: string
+        state:
+          type: string
+        actor:
+          type: string

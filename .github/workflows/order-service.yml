@@ -1,0 +1,71 @@
+name: Order service release gates
+on:
+  pull_request:
+    paths:
+      - 'services/order-service/**'
+      - 'packages/proto/order/**'
+      - 'packages/proto/inventory/**'
+      - 'packages/proto/common/**'
+      - 'packages/events/schemas/order/v2/**'
+      - 'docs/03_api_specs/order*.yaml'
+      - '.github/workflows/order-service.yml'
+  push:
+    branches: [main, develop]
+    paths:
+      - 'services/order-service/**'
+      - 'packages/proto/**'
+      - 'packages/events/schemas/order/v2/**'
+jobs:
+  order-gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build pinned test/codegen toolchain
+        run: docker build -f services/order-service/Dockerfile.tools -t omamx/order-go-tools:local services/order-service
+      - name: Check protobuf regeneration and formatting
+        run: |
+          docker run --rm -v "$PWD:/workspace" omamx/order-go-tools:local sh -c 'sh scripts/generate-proto.sh && test -z "$(gofmt -l cmd internal migrations tests)"'
+          git diff --exit-code -- services/order-service/internal/gen
+      - name: Start isolated real infrastructure and sandbox APIs
+        run: docker compose -f services/order-service/docker-compose.test.yml up -d --build
+      - name: Unit, integration, contract and fault gates with race detector
+        run: |
+          set -o pipefail
+          docker compose -f services/order-service/docker-compose.test.yml run --rm tests sh -c 'go vet ./... && go test -race -count=1 -v ./...' 2>&1 | tee order-go-result.txt
+      - uses: actions/setup-node@v4
+        if: hashFiles('postman/collections/MS-04 Order Regression/**') != ''
+        with:
+          node-version: '20'
+      - name: Install pinned Postman CLI
+        if: hashFiles('postman/collections/MS-04 Order Regression/**') != ''
+        run: npm install -g postman-cli@1.70.0
+      - name: HTTP contract regression without cloud upload
+        if: hashFiles('postman/collections/MS-04 Order Regression/**') != ''
+        shell: pwsh
+        run: ./services/order-service/scripts/test-postman.ps1
+      - name: Record local-only Postman collection availability
+        if: hashFiles('postman/collections/MS-04 Order Regression/**') == ''
+        run: echo 'Postman NOT_RUN — collections remain local; Go HTTP tests and Python runtime contracts still run.'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate OpenAPI, actual payloads, schemas and documentation
+        run: |
+          python -m pip install -r services/order-service/scripts/requirements-verification.txt
+          python services/order-service/scripts/verify-contracts.py
+      - name: Build deployable sandbox image
+        run: docker build -t omamx/order-service:ci services/order-service
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: order-gate-evidence
+          path: |
+            order-go-result.txt
+            docs/04_testing/order-service/postman-cli-output.txt
+            docs/04_testing/order-service/postman-run-result.json
+            docs/04_testing/order-service/contracts-verification.json
+            docs/04_testing/order-service/environment-evidence.json
+      - name: Stop isolated stack
+        if: always()
+        run: docker compose -f services/order-service/docker-compose.test.yml down

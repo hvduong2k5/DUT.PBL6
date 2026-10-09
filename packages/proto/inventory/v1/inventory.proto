@@ -29,6 +29,11 @@ service InventoryService {
 
   // Truy vấn thông tin lô hàng kẹo mè xửng theo chiến lược FEFO (First Expired, First Out)
   rpc GetBatchFEFODetails(GetBatchFEFODetailsRequest) returns (GetBatchFEFODetailsResponse);
+  // Terminal operations are atomic with expiry; command keys never change on retry.
+  rpc GetReservationByOrder(ReservationCommand) returns (ReservationOutcome);
+  rpc FinalizeReservation(ReservationCommand) returns (ReservationOutcome);
+  rpc ReleaseReservationByOrder(ReservationCommand) returns (ReservationOutcome);
+  rpc ReverseCommittedStock(ReservationCommand) returns (ReservationOutcome);
 }
 
 // Trạng thái của thao tác giữ chỗ tồn kho
@@ -201,4 +206,17 @@ message BatchItemDetail {
 message GetBatchFEFODetailsResponse {
   string sku_code = 1;
   repeated BatchItemDetail batches = 2;
+}
+
+message ReservationCommand {
+ string order_id = 1;
+ string idempotency_key = 2;
+ string approval_reference = 3;
+ bool cod_unpaid = 4;
+}
+message ReservationOutcome {
+ string order_id = 1;
+ string reservation_id = 2;
+ string state = 3; // RESERVED, COMMITTED, RELEASED, EXPIRED. Network timeout is UNKNOWN to caller.
+ google.protobuf.Timestamp expires_at = 4;
 }

@@ -66,9 +66,3 @@ yarn-error.log*
 # Postman local artifacts & collections
 .postman/
 postman/
-
-# Keep Postman bindings and collections local by default.
-!postman/
-postman/*
-!postman/collections/
-postman/collections/*

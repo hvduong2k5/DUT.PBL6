@@ -1,0 +1,119 @@
+No authorization data found. Please use the `postman login` command.
+Refer:https://learning.postman.com/docs/postman-cli/postman-cli-options/#postman-login
+
+Running your collection...
+
+Root bb398b77133be6f90b09371d
+
+  POST http://127.0.0.1:18104/test/token [200 OK, 563 B, 9 ms]
+  Pass  Trusted sandbox issuer
+  Pass  User differs from customer ID
+
+Root c9ef76215d09138a4e0316c1
+
+  POST http://127.0.0.1:18004/api/v1/cart/items [200 OK, 197 B, 4 ms]
+  Pass  Cart is owned and revisioned
+
+Root 4a53c61fe59c411f3082eb50
+
+  POST http://127.0.0.1:18004/api/v1/checkout/quote [200 OK, 902 B, 16 ms]
+  Pass  Canonical quote
+  Pass  Integer VND
+
+Root df60377c06b9baf6e2c595e5
+
+  POST http://127.0.0.1:18004/api/v1/checkout [202 Accepted, 341 B, 10 ms]
+  Pass  Durable acceptance
+  Pass  Order not falsely exposed
+  Pass  Existing operation Location
+
+Root bfb1691cbcd8e9bfd02e209d
+
+  GET http://127.0.0.1:18004/api/v1/checkout-operations/0f0a8522-d32c-4752-94b2-929f750ecb1c [200 OK, 245 B, 4 ms]
+  Pass  Status resource exists
+
+Root bfb1691cbcd8e9bfd02e209d
+
+  GET http://127.0.0.1:18004/api/v1/checkout-operations/0f0a8522-d32c-4752-94b2-929f750ecb1c [200 OK, 245 B, 3 ms]
+  Pass  Status resource exists
+
+Root bfb1691cbcd8e9bfd02e209d
+
+  GET http://127.0.0.1:18004/api/v1/checkout-operations/0f0a8522-d32c-4752-94b2-929f750ecb1c [200 OK, 384 B, 2 ms]
+  Pass  Status resource exists
+  Pass  Placement reached stable success
+  Pass  Real Order reference
+
+Root 07b1189ebe9d72de7d261bc2
+
+  POST http://127.0.0.1:18004/api/v1/checkout [201 Created, 465 B, 4 ms]
+  Pass  Successful replay is 201
+  Pass  Same operation
+
+Root 72627b0fdb2e0350a1483be3
+
+  POST http://127.0.0.1:18004/api/v1/checkout [409 Conflict, 172 B, 3 ms]
+  Pass  Changed payload rejected
+  Pass  Conflict code
+
+Root 3c3175019ca158e8207dc2e8
+
+  GET http://127.0.0.1:18004/api/v1/orders/6bba01a8-4218-49b1-95ed-963f41f8a2c7 [200 OK, 1.71 KB, 4 ms]
+  Pass  Owned order detail
+  Pass  Canonical amount persisted
+  Pass  Prepaid still awaits money
+
+Root f966a9e9076340f384af779e
+
+  POST http://127.0.0.1:18104/test/pay [200 OK, 374 B, 4 ms]
+  Pass  Provider independently succeeded
+  Pass  Financial fact
+
+Root 54dc916bea826fda8d48bf50
+
+  GET http://127.0.0.1:18004/api/v1/orders/6bba01a8-4218-49b1-95ed-963f41f8a2c7 [200 OK, 1.72 KB, 2 ms]
+  Pass  Order still exists
+
+Root 54dc916bea826fda8d48bf50
+
+  GET http://127.0.0.1:18004/api/v1/orders/6bba01a8-4218-49b1-95ed-963f41f8a2c7 [200 OK, 1.71 KB, 3 ms]
+  Pass  Order still exists
+
+Root 54dc916bea826fda8d48bf50
+
+  GET http://127.0.0.1:18004/api/v1/orders/6bba01a8-4218-49b1-95ed-963f41f8a2c7 [200 OK, 1.71 KB, 4 ms]
+  Pass  Order still exists
+  Pass  Missing callback reconciled
+  Pass  Paid stock invariant
+  Pass  Confirmed financial summary
+  Pass  Separate ready authorization
+
+Root 76cbb1bd99b02c2c70cab59c
+
+  POST http://127.0.0.1:18004/api/v1/payments/vietqr/callback [401 Unauthorized, 172 B, 1 ms]
+  Pass  Unsigned callback denied
+
+Root 04276724430125ed7282b4bb
+
+  GET http://127.0.0.1:18004/api/v1/orders/6bba01a8-4218-49b1-95ed-963f41f8a2c7 [401 Unauthorized, 171 B, 1 ms]
+  Pass  Ownership lookup uses trusted principal
+
+-------------------------------------------------------------------
+|                         |          executed |            failed |
+--------------------------+-------------------+--------------------
+|              iterations |                 1 |                 0 |
+--------------------------+-------------------+--------------------
+|                requests |                16 |                 0 |
+--------------------------+-------------------+--------------------
+|            test-scripts |                16 |                 0 |
+--------------------------+-------------------+--------------------
+|      prerequest-scripts |                 1 |                 0 |
+--------------------------+-------------------+--------------------
+|              assertions |                31 |                 0 |
+-------------------------------------------------------------------
+| total run duration: 2.2 s                                       |
+-------------------------------------------------------------------
+| total data received: 8.92 KB (approx)                           |
+-------------------------------------------------------------------
+| average response time: 5 ms [min: 1 ms, max: 16 ms, s.d.: 3 ms] |
+-------------------------------------------------------------------

@@ -1,146 +1,112 @@
-# TÀI LIỆU THIẾT KẾ CHI TIẾT (LLD): MS-04 ORDER SERVICE
-## PHÂN HỆ 2: MÁY TRẠNG THÁI & VÒNG ĐỜI THỰC THỂ (STATE MACHINE & LIFECYCLE)
+> **Implementation 3.1 — 09/10/2026:** [08_implementation_and_acceptance.md](08_implementation_and_acceptance.md) là nguồn hành vi hiện tại. Acceptance tạo checkout operation, chưa tạo Order; PAID và outbox chờ terminal stock/voucher outcome. Các đoạn v3.0 khác mô tả candidate cần đọc cùng cập nhật này.
 
----
+# 02 — State machine, lifecycle và cạnh tranh
 
-> **ĐIỀU HƯỚNG TÀI LIỆU:**
-> - 📍 **Vị trí:** Phân hệ 2 / 6 của bộ thiết kế LLD `MS-04 order-service`.
-> - ⬅️ [01_order_domain_and_boundary.md — Ranh giới nghiệp vụ & Mô hình miền](01_order_domain_and_boundary.md)
-> - 🔼 [README.md — Bản đồ điều hướng & Kiến trúc tổng thể](README.md)
-> - ➡️ [03_database_and_persistence.md — Mô hình dữ liệu & Tầng lưu trữ](03_database_and_persistence.md)
+[Chỉ mục](README.md) · [Trước: Domain](01_order_domain_and_boundary.md) · [Tiếp: Persistence](03_database_and_persistence.md)
 
----
+## 1. Bốn trục trạng thái
 
-## 3. BƯỚC 3: MÁY TRẠNG THÁI & VÒNG ĐỜI THỰC THỂ (STATE MACHINE & LIFECYCLE TRANSITIONS)
+| Trục | Giá trị thiết kế | Nguồn chuẩn |
+| --- | --- | --- |
+| Order | DRAFT, PENDING_PAYMENT, PAYMENT_FINALIZING, PAID, CONFIRMED_COD, PROCESSING, PACKED, SHIPPED, DELIVERED, DELIVERY_FAILED, COMPLETED, CANCELLED_TIMEOUT, CANCELLED_BY_USER, CANCELLED_BY_ADMIN, CANCELLED_OUT_OF_STOCK, CHECKOUT_FAILED | Order aggregate |
+| Payment summary | UNPAID, PENDING, CONFIRMED, RECONCILIATION_REQUIRED, PARTIALLY_REFUNDED, REFUNDED | Receipt/allocation/refund ledger |
+| Stock projection | NONE, RESERVED, COMMITTING, COMMITTED, RELEASING, RELEASED, EXPIRED, UNKNOWN | Inventory acknowledgement |
+| Return / Refund | Case trạng thái theo Care; refund REQUESTED, APPROVED, SUBMITTED, SUCCEEDED, FAILED, UNKNOWN | Care decision; Payment execution |
 
-Sau khi đã định nghĩa Aggregate Root và các Invariant ở Phân hệ 1, bước tiếp theo trong LLD là mô hình hóa máy trạng thái hữu hạn (FSM) quản lý toàn bộ vòng đời của đơn hàng và tiến trình phân tán Saga.
+`PAYMENT_FINALIZING`, `CONFIRMED_COD`, `DELIVERY_FAILED`, `CANCELLED_BY_ADMIN`, `CHECKOUT_FAILED` chưa nằm trong order.proto: **candidate additions**, không trả chúng qua enum v1 trước khi cập nhật hợp đồng. `RETURN_REQUESTED/REFUNDED` có trong proto cũ nhưng v3.0 dùng projection tương thích nếu cần, không dùng để thay thế Case và financial status. `REFUND_PENDING` trong LLD cũ chưa có trong proto, không tiếp tục trình bày là trạng thái wire hiện có.
 
----
-
-### 3.1. Sơ Đồ Chuyển Trạng Thái Đơn Hàng Hoàn Chỉnh (Order State Machine FSM)
+## 2. Luồng trả trước và COD
 
 ```mermaid
 stateDiagram-v2
-    [*] --> DRAFT: Khởi tạo phiên Checkout
-    
-    DRAFT --> PENDING_PAYMENT: Khóa tồn kho thành công (ReserveStock 15m)
-    DRAFT --> CANCELLED_OUT_OF_STOCK: Kho không đủ hàng khả dụng
-
-    PENDING_PAYMENT --> PAID: Webhook VietQR khớp tiền (amount == final)
-    PENDING_PAYMENT --> CANCELLED_TIMEOUT: Hết hạn 15 phút chưa thanh toán
-    PENDING_PAYMENT --> CANCELLED_BY_USER: Khách bấm Hủy đơn chủ động
-
-    PAID --> PROCESSING: Xưởng Huế nhận đơn (Picking Task)
-    PAID --> REFUND_PENDING: Khách hủy đơn sau khi đã thanh toán (trước đóng gói)
-
-    PROCESSING --> PACKED: Đã dán tem Seal O Mạ + Upload Video S3
-    PROCESSING --> REFUND_PENDING: Hết hàng đột xuất tại xưởng
-
-    PACKED --> SHIPPED: Bàn giao bưu tá 3PL (GHN/ViettelPost)
-    SHIPPED --> DELIVERED: Khách ký nhận kẹo thành công
-
-    DELIVERED --> COMPLETED: Sau 7 ngày không khiếu nại (Tích điểm 1% Loyalty)
-    DELIVERED --> RETURN_REQUESTED: Khách khiếu nại kẹo vỡ nát / lỗi đóng gói
-    
-    RETURN_REQUESTED --> REFUND_PENDING: CSKH đối chiếu video seal + Duyệt hoàn tiền
-    RETURN_REQUESTED --> COMPLETED: Khiếu nại bị bác bỏ (Tem seal bị can thiệp)
-
-    REFUND_PENDING --> REFUNDED: Kế toán chuyển khoản hoàn tiền thành công (Finance Event)
-    REFUND_PENDING --> PROCESSING: Hoàn tiền thất bại / Khách đồng ý nhận mẻ kẹo mới
-
-    CANCELLED_TIMEOUT --> [*]
-    CANCELLED_BY_USER --> [*]
-    CANCELLED_OUT_OF_STOCK --> [*]
-    COMPLETED --> [*]
-    REFUNDED --> [*]
+    [*] --> DRAFT
+    DRAFT --> PENDING_PAYMENT: reserve + hold thành công / trả trước
+    DRAFT --> CONFIRMED_COD: COD eligible + stock committed
+    DRAFT --> CANCELLED_OUT_OF_STOCK: reserve từ chối
+    DRAFT --> CHECKOUT_FAILED: validation / saga thất bại
+    PENDING_PAYMENT --> PAYMENT_FINALIZING: receipt exact + còn hạn
+    PENDING_PAYMENT --> CANCELLED_TIMEOUT: DB clock đến hạn
+    PENDING_PAYMENT --> CANCELLED_BY_USER: chủ đơn hủy
+    PAYMENT_FINALIZING --> PAID: Inventory finalize thành công
+    PAYMENT_FINALIZING --> CANCELLED_TIMEOUT: reservation expired / money reconciliation
+    PAID --> PROCESSING: stock + voucher finalized và packing accepted
+    CONFIRMED_COD --> PROCESSING: packing accepted
+    PAID --> CANCELLED_BY_ADMIN: cancel barrier + approval flow
+    CONFIRMED_COD --> CANCELLED_BY_USER: chưa packing accepted
+    PROCESSING --> PACKED: package sealed hợp lệ
+    PACKED --> SHIPPED: dispatched thực tế
+    SHIPPED --> DELIVERED: delivery confirmed
+    SHIPPED --> DELIVERY_FAILED: failure checkpoint
+    DELIVERY_FAILED --> SHIPPED: retry dispatch hợp lệ
+    DELIVERED --> COMPLETED: hết cửa sổ tranh chấp + không active case
 ```
 
----
+Order timeline và payment summary hiển thị riêng. Với COD: `PROCESSING` + `UNPAID` hợp lệ, `DELIVERED` không tự bằng `CONFIRMED`. Tiền COD chỉ xác nhận từ bằng chứng thu/đối soát được Payment chấp nhận. Một COD receipt đến lúc order SHIPPED/DELIVERED cập nhật payment summary, không kéo Order về PAID.
 
-### 3.2. Sơ Đồ Máy Trạng Thái Saga (Saga Lifecycle State Machine)
+## 3. Transition matrix
 
-Toàn bộ các tiến trình phân tán (Checkout Saga, Timeout Compensation Saga, Return Saga) đều được quản lý bởi máy trạng thái Saga độc lập:
+| From → To | Command/source | Guard bắt buộc | Ghi cùng transaction |
+| --- | --- | --- | --- |
+| DRAFT → PENDING_PAYMENT | Checkout saga | tất cả SKU/address/quote valid; reserve và hold còn hạn | snapshot, expiry, references, history, OrderPlaced outbox, idempotency result |
+| DRAFT → CONFIRMED_COD | Checkout COD | eligibility đúng policy; inventory COMMITTED; voucher finalized | phương thức COD, UNPAID summary, history, fulfillment-ready outbox |
+| DRAFT → CHECKOUT_FAILED / CANCELLED_OUT_OF_STOCK | saga reject | lý do xác định, hoặc compensation đang được theo dõi | failure reason, release intent cho mọi bước có khả năng thành công |
+| PENDING_PAYMENT → PAYMENT_FINALIZING | verified receipt | exact VND, đúng receiver/reference, DB now < expiry; chưa cancel | receipt + allocation, payment summary CONFIRMED, finalize saga intent |
+| PAYMENT_FINALIZING → PAID | Inventory ack | reservation COMMITTED đúng order/items, tiền đủ | stock projection, history, OrderPaid outbox; fulfillment-ready khi voucher finalized |
+| PENDING_PAYMENT → CANCELLED_TIMEOUT | sweeper | DB now ≥ expiry, payment chưa confirmed | history, cancel outbox, release saga intent |
+| PENDING_PAYMENT → CANCELLED_BY_USER | owner command | ownership, expected version, chưa receipt allocated | history, cancel outbox, release saga intent |
+| CONFIRMED_COD → CANCELLED_BY_USER | owner command | chưa packing accepted; cancel barrier xác nhận | cancel history, decommit intent, không refund nếu chưa nhận tiền |
+| PAID → CANCELLED_BY_ADMIN | manager command | packing cancel barrier thành công; nghĩa vụ refund được mở | cancelled history, reversal/refund request references; không gán REFUNDED |
+| PAID / CONFIRMED_COD → PROCESSING | Fulfillment accepted | đúng task/order; stock committed; ready authorization còn hiệu lực | task reference, state/history, SLA deadline, outbox |
+| PROCESSING → PACKED | Fulfillment sealed | đúng task, seal/video reference và actor đã được nguồn xác thực | package projection, history, outbox |
+| PACKED → SHIPPED | Shipping dispatched | đúng shipment/order; đã thực tế bàn giao | shipment reference, checkpoint version, history |
+| SHIPPED → DELIVERED / DELIVERY_FAILED | Shipping result | đúng shipment, sequence mới; event hợp lệ | delivery projection, history; tranh chấp deadline nếu delivered |
+| DELIVERY_FAILED → SHIPPED | retry shipping | source xác nhận attempt mới; order không cancelled | attempt/checkpoint/history |
+| DELIVERED → COMPLETED | completion job | now ≥ deadline; không active case; COD đã đối soát hoặc policy công nợ cho phép | history, OrderCompleted outbox một lần |
 
-```mermaid
-stateDiagram-v2
-    [*] --> STARTED: Nhận Trigger Command / Event
-    STARTED --> IN_PROGRESS: Thực thi bước gRPC đầu tiên
+Generic `PATCH status` không thuộc contract. Nhân viên có thể đặt hold, ghi reason hoặc khởi tạo cancellation review; không tự giả lập provider receipt, packing hay delivery.
 
-    IN_PROGRESS --> COMPLETED: Toàn bộ các bước phân tán thành công
-    
-    IN_PROGRESS --> COMPENSATING: Phát hiện lỗi / Timeout / Hủy đơn
-    
-    COMPENSATING --> COMPENSATED: Đền bù thành công (Kho & Voucher đã nhả)
-    COMPENSATING --> RETRYING: Lỗi mạng khi gọi đền bù (gRPC timeout)
-    
-    RETRYING --> COMPENSATING: Thử lại sau Exponential Backoff (Tối đa 5 lần)
-    RETRYING --> DEAD_LETTER: Vượt quá 5 lần thất bại (Chuyển bảng DLQ & Báo động Ops)
+## 4. Payment vs timeout: local và remote đều phải an toàn
 
-    COMPLETED --> [*]
-    COMPENSATED --> [*]
-    DEAD_LETTER --> [*]
-```
+CAS trên Order giải quyết local race nhưng không giải quyết Inventory TTL worker. Hai lớp bắt buộc:
 
----
-
-### 3.3. Ma Trận Chuyển Trạng Thái Hợp Lệ, Điều Kiện Bảo Vệ & Side Effects
-
-| Trạng Thái Hiện Tại | Lệnh / Sự Kiện Kích Hoạt | Trạng Thái Kế Tiếp | Điều Kiện Bảo Vệ (Guards) | Tác Vụ Kèm Theo (Side Effects / Events) |
-| :--- | :--- | :--- | :--- | :--- |
-| `DRAFT` | `ConfirmCheckoutCommand` | `PENDING_PAYMENT` | `ReserveStock` gRPC trả về `SUCCESS` | Sinh VietQR URL, đặt `expires_at = NOW() + 15m`, phát `OrderPlacedEvent`. |
-| `DRAFT` | `ConfirmCheckoutCommand` | `CANCELLED_OUT_OF_STOCK` | `ReserveStock` trả về `INSUFFICIENT_STOCK` | Trả về thông báo lỗi SKU hết hàng cho Client, không tạo nợ. |
-| `PENDING_PAYMENT` | `VietQRWebhookReceived` | `PAID` | HMAC hợp lệ VÀ **`amount_paid == final_amount`** | Ghi Outbox `OrderPaidEvent`, kích hoạt xưởng đóng kẹo và trừ tồn kho committed. |
-| `PENDING_PAYMENT` | `Timeout15mExpired` | `CANCELLED_TIMEOUT` | Thời gian hiện tại $> \text{expires\_at}$ VÀ chưa có thanh toán | **Trực tiếp gọi gRPC `ReleaseReservation` sang Kho**, phát `OrderCancelledEvent`. |
-| `PENDING_PAYMENT` | `UserCancelCommand` | `CANCELLED_BY_USER` | Người gọi là chủ đơn VÀ đơn chưa thanh toán | **Trực tiếp gọi gRPC `ReleaseReservation` sang Kho**, phát `OrderCancelledEvent`. |
-| `PAID` | `FulfillmentJobAccepted` | `PROCESSING` | Nhận sự kiện từ MS-02 Fulfillment | Cập nhật timeline, thông báo khách qua Zalo ZNS. |
-| `PAID` | `CancelPaidOrderCommand` | `REFUND_PENDING` | Quản trị viên hủy đơn trước khi xưởng gói hàng | Khởi tạo Refund Saga, thông báo MS-09 Finance chuẩn bị hoàn tiền. |
-| `PROCESSING` | `PackageSealedEvent` | `PACKED` | Kiện hàng có mã seal O Mạ và video trên S3 | Lưu `seal_code`, sẵn sàng bàn giao vận chuyển. |
-| `PACKED` | `ShipmentCreatedEvent` | `SHIPPED` | Nhận mã vận đơn từ MS-12 Shipping | Lưu `tracking_code`, `shipping_carrier`, gửi link tracking cho khách. |
-| `SHIPPED` | `ShipmentDeliveredEvent`| `DELIVERED` | Bưu tá 3PL xác nhận giao thành công | Bắt đầu đếm ngược thời gian khiếu nại 7 ngày. |
-| `DELIVERED` | `AutoCompleteCron` | `COMPLETED` | Quá 7 ngày kể từ khi giao và không có khiếu nại | Bắn `OrderCompletedEvent` để MS-07 tích điểm 1% loyalty, mở quyền Review. |
-| `DELIVERED` | `ReturnTicketApproved` | `RETURN_REQUESTED` | CSKH tiếp nhận khiếu nại hợp lệ qua MS-06 | Đóng băng tiến trình tích điểm loyalty, chờ kiểm định hàng hoàn. |
-| `RETURN_REQUESTED` | `ApproveRefundCommand` | `REFUND_PENDING` | CSKH xác nhận lỗi từ nhà sản xuất qua video seal | Kích hoạt lệnh hoàn tiền sang MS-09 Finance. |
-| `REFUND_PENDING` | `RefundProcessedEvent` | `REFUNDED` | MS-09 Finance báo đã chuyển khoản hoàn tiền | Cập nhật `payment_status = REFUNDED`, kết thúc đơn. |
-
----
-
-### 3.4. Cơ Chế Giải Quyết Tranh Chấp Trạng Thái Cạnh Tranh (Payment vs Timeout Race Condition)
-
-Một trong những tình huống hóc búa nhất của hệ thống thương mại điện tử phân tán là **Sự cố Cạnh tranh tại giây thứ 900 (Second-899 Race Condition)**:
-- Tại thời điểm `14:59.900`, Khách hàng hoàn tất quét mã VietQR tại App ngân hàng $\rightarrow$ Webhook ngân hàng bắn tới máy chủ.
-- Tại đúng thời điểm `15:00.000`, Cron Job `TimeoutSweeper` của hệ thống quét thấy đơn hàng đã quá hạn 15 phút.
+1. Receipt handler và sweeper khóa cùng hàng Order. Chỉ khi state=PENDING_PAYMENT và `clock_timestamp() < payment_expires_at` mới tạo allocation/đổi PAYMENT_FINALIZING. Sweeper chỉ hủy PENDING_PAYMENT với `clock_timestamp() >= payment_expires_at`. Xác định thời điểm quyết định **sau khi lấy row lock**, không dùng timestamp cố định từ đầu transaction lâu trước đó.
+2. Inventory xử lý FinalizeReservation và TTL expiration bằng cùng atomic guard ACTIVE/còn hạn. Chỉ một terminal outcome thắng. `PAID`/ready chỉ sau COMMITTED acknowledgement, không khi mới publish Kafka.
 
 ```text
-              LUỒNG A: WEBHOOK THANH TOÁN (14:59.900)
-                                │
-                                ▼
-        ┌──────────────────────────────────────────────┐
-        │  UPDATE orders SET status = 'PAID', ...      │
-        │  WHERE id = $1 AND status = 'PENDING_PAYMENT'│
-        │    AND version = $2                          │
-        └──────────────────────┬───────────────────────┘
-                                │
-                    CẠNH TRANH KHÓA ROW ATOMIC
-                                │
-        ┌──────────────────────┴───────────────────────┐
-        │  UPDATE orders SET status = 'CANCELLED_...'  │
-        │  WHERE id = $1 AND status = 'PENDING_PAYMENT'│
-        │    AND expires_at < NOW() AND version = $2   │
-        └──────────────────────────────────────────────┘
-                                ▲
-                                │
-              LUỒNG B: TIMEOUT SWEEPER (15:00.000)
+BEGIN
+  SELECT order FOR UPDATE
+  decision_at = DB clock sau lock
+  INSERT verified receipt ON CONFLICT(provider, transaction_id) DO NOTHING
+  nếu exact + state/expiry cho phép:
+    INSERT allocation; UPDATE order -> PAYMENT_FINALIZING, version+1
+    INSERT FINALIZE saga intent; INSERT history/outbox cần thiết
+  nếu late/mismatch/cancelled:
+    lưu RECONCILIATION_REQUIRED, không allocate, tạo case intent
+COMMIT
+RPC finalize chạy sau commit; retry cùng key khi mất phản hồi
 ```
 
-#### Định Nghĩa Rõ Winner Condition (Điều Kiện Thắng Cuộc Tuyệt Đối):
-Hệ thống sử dụng **Atomic Compare-And-Swap (CAS)** trên PostgreSQL để phân định thắng thua:
-1. **Trường hợp Luồng A (Payment) commit trước:**
-   - Lệnh SQL của Luồng A thực thi: Trạng thái chuyển thành `PAID`, `version` tăng từ $1 \rightarrow 2$. Số dòng cập nhật (`RowsAffected`) $= 1$. Luồng A thắng!
-   - Khi Luồng B (Timeout Sweeper) chạy tới, điều kiện `WHERE status = 'PENDING_PAYMENT' AND version = 1` không còn thỏa mãn $\rightarrow$ `RowsAffected` $= 0$. 
-   - **Xử lý phía Luồng B:** Nhận biết đơn đã được thanh toán hợp lệ, Sweeper hủy bỏ lệnh đền bù, không gọi `ReleaseReservation` sang Kho.
-2. **Trường hợp Luồng B (Timeout) commit trước:**
-   - Lệnh SQL của Luồng B thực thi: Trạng thái chuyển thành `CANCELLED_TIMEOUT`, `version` tăng từ $1 \rightarrow 2$, gọi gRPC `ReleaseReservation` sang Kho nhả kẹo. Luồng B thắng!
-   - Khi Luồng A (Webhook) chạy tới, điều kiện `WHERE status = 'PENDING_PAYMENT'` bị sai $\rightarrow$ `RowsAffected` $= 0$.
-   - **Xử lý phía Luồng A (Payment Đến Sau Timeout):** 
-     - Webhook nhận biết đơn hàng đã bị hủy do quá hạn và tồn kho có thể đã bị người khác mua mất.
-     - **Hành động:** Hệ thống **CẤM** tự ý chuyển đơn thành `PAID`. Ghi nhận giao dịch thanh toán vào bảng `payments` ở trạng thái `RECONCILIATION_REQUIRED`, đồng thời phát sự kiện `OrderPaymentAfterTimeoutEvent` để bộ phận Chăm sóc khách hàng & Kế toán chủ động liên hệ hoàn tiền 100% cho khách hàng trong vòng 30 phút.
+| Trường hợp | Kết quả |
+| --- | --- |
+| Payment vào local finalizing trước expiry; kho còn active | Finalize kho thắng → PAID; timeout không release |
+| Local timeout thắng | Order cancelled; tiền đến vẫn lưu receipt/reconciliation; không phục hồi đơn |
+| Order finalizing nhưng kho đã expire trước finalize | Không ready; Order CANCELLED_TIMEOUT, receipt cần đối soát/refund approval |
+| Finalize kho thành công, ack bị mất | Query/retry cùng key; không release dựa vào lỗi timeout |
+| Callback provider timestamp trước expiry nhưng nhận sau expiry | MVP dùng DB decision time; lưu provider time làm bằng chứng; không hồi sinh đơn |
+| Client hủy gặp PAYMENT_FINALIZING | 409 PAYMENT_FINALIZING; manager xử lý sau terminal inventory outcome |
+
+Chính sách nhận trễ là lựa chọn thận trọng để không bán lại stock đã được giải phóng. Nếu muốn grace period cần hold protocol được Inventory chấp nhận, không chỉ sửa một điều kiện SQL.
+
+## 5. Saga state, lease và compensation
+
+Saga `STARTED → IN_PROGRESS → COMPLETED`; lỗi xác định chuyển `COMPENSATING → COMPENSATED`. RPC không rõ kết quả chuyển `WAITING_RETRY`, giữ intent và key; hết ngân sách tự động chuyển `MANUAL_REVIEW`, vẫn là nghĩa vụ chưa hoàn tất.
+
+Worker nhận lease có `lease_epoch` tăng. Bước có `PENDING/SENT/UNKNOWN/SUCCEEDED/REJECTED/COMPENSATED`, command key và response reference. Worker cũ chỉ cập nhật khi epoch còn khớp; hết lease không có quyền rollback kết quả worker mới. Remote key vẫn bắt buộc vì epoch local không chặn remote RPC cũ.
+
+Compensation ngược thứ tự acquisition, theo tài nguyên **có thể đã được giữ**. Release lặp không cộng tồn/voucher lần hai. Reservation COMMITTED cần reversal/decommit được phê duyệt, không gọi ReleaseReservation vốn dành ACTIVE. TTL là lưới an toàn trong service chủ quản, Order điều phối nghiệp vụ và reconciliation; không có hai worker cùng tự suy đoán ledger.
+
+## 6. Return, refund và completion
+
+Care giữ active case theo order/line/quantity. Completion job và consumer mở Case phải phối hợp bằng Order row lock cùng cờ `has_active_case`. Vì Care và Order khác DB, completion chỉ chứng minh cờ projection đã biết: cần barrier/query Care xác nhận case eligibility/version và grace watermark trước completion. Nếu thiếu contract này, tắt auto-completion; không giả định Kafka không lag.
+
+Một case sau COMPLETED không tự bị cấm: policy return có thể cho phép; mở hold và adjustment nghiệp vụ theo quyết định Care. Loyalty thuộc Promotion, không cộng cứng 1% trong Order. Partial refund giữ Order lifecycle và payment PARTIALLY_REFUNDED; full refund không đồng nghĩa hàng đã về kho hay order bị hủy. Refund failed/unknown giữ nghĩa vụ và retry/query, không quay PROCESSING. Cửa sổ 7 ngày là default đề xuất, chưa phải SLA pháp lý.

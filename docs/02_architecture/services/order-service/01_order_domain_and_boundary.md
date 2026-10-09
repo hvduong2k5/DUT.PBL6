@@ -1,280 +1,139 @@
-# TÀI LIỆU THIẾT KẾ CHI TIẾT (LLD): MS-04 ORDER SERVICE
-## PHÂN HỆ 1: RANH GIỚI NGHIỆP VỤ & MÔ HÌNH MIỀN (DOMAIN MODEL & BOUNDED CONTEXT)
+> **Implementation 3.1 — 09/10/2026:** [08_implementation_and_acceptance.md](08_implementation_and_acceptance.md) là nguồn hành vi hiện tại. Acceptance tạo checkout operation, chưa tạo Order; PAID và outbox chờ terminal stock/voucher outcome. Các đoạn v3.0 khác mô tả candidate cần đọc cùng cập nhật này.
 
----
+# 01 — Domain model và ranh giới Order Service
 
-> **ĐIỀU HƯỚNG TÀI LIỆU:**
-> - 📍 **Vị trí:** Phân hệ 1 / 6 của bộ thiết kế LLD `MS-04 order-service`.
-> - ⬅️ [README.md — Bản đồ điều hướng & Kiến trúc tổng thể](README.md)
-> - ➡️ [02_state_machine_and_lifecycle.md — Máy trạng thái & Vòng đời đơn hàng](02_state_machine_and_lifecycle.md)
+[Chỉ mục](README.md) · [Tiếp: State machine](02_state_machine_and_lifecycle.md)
 
----
+## 1. Ranh giới chức năng và quyền sở hữu
 
-## 1. BƯỚC 1: XÁC LẬP BIÊN GIỚI & RANH GIỚI SỞ HỮU DỮ LIỆU (BOUNDED CONTEXT & SCOPE ISOLATION)
+MS-04 thuộc BC-04 Commerce & Order Orchestration. EPIC là ranh giới nghiệp vụ, không nhất thiết mỗi Epic là một process. Cart, Checkout, Order và Payment component có use case riêng dù dùng chung database trong lựa chọn v3.0.
 
-Trước khi bắt tay vào thiết kế bất kỳ thực thể hay bảng cơ sở dữ liệu nào, nguyên tắc tối thượng của kiến trúc phân tán là **phải thiết lập ranh giới cô lập (Boundary Isolation)**: xác định rõ trách nhiệm cốt lõi, quyền sở hữu dữ liệu độc quyền, và đặc biệt là **những gì dịch vụ TUYỆT ĐỐI CẤM LÀM**.
+| Thành phần | Sở hữu | Không thực hiện |
+| --- | --- | --- |
+| Cart | Danh sách SKU/quantity, revision, phiên Guest/Customer | Giữ kho khi thêm vào giỏ; coi giá cache là giá thanh toán |
+| Checkout | Quote, kiểm tra địa chỉ/giá/phí, chốt snapshot, saga giữ tài nguyên | Tin tổng tiền của browser; tự tuyên bố thanh toán thành công |
+| Order | Order status, owner, snapshot, timeline, SLA, quyền thao tác | Ghi trực tiếp DB của service khác |
+| Payment component | Intent, provider receipt, allocation, reconciliation, refund execution | Tự phê duyệt refund; coi trang redirect/ảnh QR là bằng chứng tiền đã thu |
+| Saga orchestrator | Intent, command key, kết quả bước, retry, compensation | Dùng memory/Redis làm nhật ký duy nhất; gọi mạng khi giữ SQL transaction |
+| MS-01 Inventory | Availability, reservation, FEFO, stock commit/release | Cho Order sửa số lượng hoặc tự chọn Batch |
+| MS-07 Promotion | Voucher budget/hold/consume/release, loyalty ledger | Cho Order tự cộng điểm hoặc tự làm tròn voucher khác kết quả chuẩn |
+| MS-15 Profile / Identity | Profile/address book; subject và xác thực | Sửa hồi tố order snapshot khi khách đổi địa chỉ |
+| MS-02 / MS-12 | Packing task/package/video; shipment/checkpoint | Cho generic admin PATCH tự đánh dấu PACKED/DELIVERED |
+| MS-06 Care / MS-09 Finance | Case/decision; accounting và settlement | Đồng nhất Case APPROVED, hàng RETURNED và tiền REFUNDED |
 
-```text
-                                       KONG API GATEWAY
-                                              │
-                      ┌───────────────────────┴───────────────────────┐
-                      │ HTTP REST (North-South)                       │ GraphQL (BFF)
-                      ▼                                               ▼
-         ┌─────────────────────────────────────────────────────────────────────────┐
-         │                    MS-04: ORDER SERVICE (CORE DOMAIN)                   │
-         │  ┌───────────────────────────────┐     ┌─────────────────────────────┐  │
-         │  │     ORDER DOMAIN ENGINE       │     │      SAGA ORCHESTRATOR      │  │
-         │  │  • Quản lý Aggregate Order    │     │  • Điều phối Checkout Saga  │  │
-         │  │  • Snapshots bất biến         │     │  • Quản lý saga_instances   │  │
-         │  │  • Tính toán số học Money     │     │  • Kích hoạt đền bù tập trung│  │
-         │  │  • FSM Order Transitions      │     │    (Centralized Model A)    │  │
-         │  └───────────────────────────────┘     └─────────────────────────────┘  │
-         └────────┬─────────────────────┬───────────────────────┬──────────────────┘
-                  │ gRPC (Critical)     │ gRPC (Critical)       │ Kafka Events (Async)
-                  ▼                     ▼                       ▼
-         MS-01: INVENTORY       MS-05: CATALOG          APACHE KAFKA BROKER CLUSTER
-         (Port: 8001)           (Port: 8005)            (order.events.v1)
-```
+D2C HTTP dự kiến dùng port 8004. gRPC dùng listener riêng dự kiến 9004; số này là đề xuất cấu hình, không suy ra service đã mở cổng. Hai listener không bind cùng địa chỉ/port trừ khi có cơ chế multiplex được kiểm chứng.
 
-### 1.1. Bounded Context & Định Vị Hệ Thống
-- **Mã định danh:** `MS-04` | **Tên dịch vụ:** `order-service`
-- **Bounded Context:** `BC-04: Omnichannel Commerce & Order Orchestration Context`
-- **Phân loại Domain:** 🔴 **Core Domain** — Trái tim vận hành của toàn bộ hệ sinh thái Mè Xửng O Mạ.
-- **Cổng giao tiếp mạng:**
-  - **Port gRPC nội bộ (East-West Server):** `8004` (Tiếp nhận `CreatePOSOrder` từ POS quầy xưởng MS-13, `GetOrderDetail`, `CancelOrder`).
-  - **Port HTTP REST (North-South via Kong Gateway):** `8004` (Ánh xạ các endpoint `/api/v1/checkout`, `/api/v1/orders/**`, `/api/v1/cart/**`, `/api/v1/payments/vietqr/callback`).
-- **Cơ sở dữ liệu độc lập (Shared-Nothing Architecture):**
-  - **Primary Relational DB:** PostgreSQL 16 (`order_db`) — Lưu trữ đơn hàng, mặt hàng, giao dịch thanh toán, outbox events, saga states.
-  - **Distributed Cache & Session Store:** Redis Cluster 7 (`order_cache`) — Quản lý giỏ hàng, checkout token, idempotency keys, distributed lock.
-
----
-
-### 1.2. Ranh Giới Bất Biến & Quyền Sở Hữu Dữ Liệu (Data Ownership Boundaries)
-Tuân thủ cam kết tại [`service_boundary.md`](../../service_boundary.md) và [`bounded_context.md`](../../bounded_context.md), `order-service` thiết lập 5 nguyên tắc sở hữu thép:
-
-| Dữ Liệu / Trách Nhiệm | Thuộc Về MS-04 `order-service`? | Đơn Vị Sở Hữu Chính Thức | Lý Do Kiến Trúc & Ranh Giới Bất Khả Xâm Phạm |
-| :--- | :---: | :--- | :--- |
-| **Vòng đời trạng thái đơn hàng (`OrderStatus`)** | ✅ **SỞ HỮU DUY NHẤT** | MS-04 `order-service` | Là Single Source of Truth cho trạng thái đơn. Không service nào khác được ghi/sửa trực tiếp trạng thái đơn. |
-| **Bản chụp thương mại (Snapshots)** | ✅ **SỞ HỮU DUY NHẤT** | MS-04 `order-service` | Chụp lại giá, tên kẹo, chiết khấu và địa chỉ giao hàng tại thời điểm bấm đặt hàng để bảo toàn giá trị pháp lý. |
-| **Điều phối giao dịch phân tán (Saga Orchestration)** | ✅ **SỞ HỮU DUY NHẤT** | MS-04 `order-service` | Thực thi nguyên tắc **Centralized Compensation (Model A)**: Độc quyền phát hiện lỗi/timeout và trực tiếp gọi lệnh hoàn tác kho/voucher. |
-| **Số lượng hàng tồn kho vật lý & Lô hạn dùng (FEFO)** | ❌ **CẤM SỞ HỮU** | MS-01 `inventory-service` | MS-04 chỉ gửi yêu cầu `ReserveStock` và `ReleaseReservation` qua gRPC; tuyệt đối cấm truy cập trực tiếp bảng tồn kho. |
-| **Giá niêm yết gốc & Quy cách sản phẩm** | ❌ **CẤM SỞ HỮU** | MS-05 `catalog-service` | MS-04 chỉ thẩm định giá gửi lên qua gRPC `ValidatePriceAndSKU` đối chiếu với Catalog gốc. |
-| **Ngân sách voucher & Điểm tích lũy Loyalty** | ❌ **CẤM SỞ HỮU** | MS-07 `promotion-service` | MS-04 gọi gRPC khóa voucher và gửi sự kiện `OrderPaidEvent` để Promotion tự tích điểm 1% loyalty. |
-| **Đóng gói tại xưởng & Video kiểm định** | ❌ **CẤM SỞ HỮU** | MS-02 `fulfillment-service` | Xưởng Huế tự tiêu thụ `OrderPaidEvent` từ Kafka để đóng kẹo; không làm nghẽn luồng checkout của khách. |
-| **Vận đơn 3PL & Lộ trình giao hàng** | ❌ **CẤM SỞ HỮU** | MS-12 `shipping-service` | MS-12 làm việc trực tiếp với GHN/ViettelPost và phát Kafka event báo bưu tá đã giao hàng. |
-
----
-
-### 1.3. Chính Sách Bảo Mật PII & Trade-off Tính Sẵn Sàng (PII Policy & Availability Trade-off)
-
-#### 1.3.1. Phân Định Danh Mục Dữ Liệu Rõ Ràng (PII Classification)
-Nhằm tránh mâu thuẫn khái niệm, tài liệu chuẩn hóa 3 cấp độ định danh:
-- **Direct PII (Thông tin định danh trực tiếp cá nhân):** Họ và tên khách hàng, số điện thoại, số nhà/tên đường cụ thể, tọa độ GPS chính xác. $\rightarrow$ **TUYỆT ĐỐI KHÔNG ĐƯỢC XUẤT HIỆN TRÊN KAFKA EVENT STREAM.**
-- **Internal / Business Identifiers (Mã định danh nội bộ hệ thống):** `order_id`, `customer_id` (UUID v7 ẩn danh), `shipping_address_id` (Khóa ngoại tham chiếu snapshot). $\rightarrow$ **ĐƯỢC PHÉP NẰM TRONG KAFKA PAYLOAD** để các consumer định tuyến xử lý nghiệp vụ.
-- **Aggregated / Business Metrics:** Doanh thu, số lượng hộp kẹo, kênh bán, mã voucher. $\rightarrow$ **CÔNG KHAI NỘI BỘ TRÊN EVENT STREAM.**
-
-#### 1.3.2. Quyết Định Kiến Trúc: Option A (Privacy-First) & Đánh Đổi Tính Sẵn Sàng (Availability Trade-off)
-Hệ sinh thái Mè Xửng O Mạ lựa chọn **Option A — Privacy-First**:
-- Payload của sự kiện `OrderPaidEvent` chỉ chứa `shipping_address_id`.
-- Khi `fulfillment-service` cần in tem dán gói kẹo hoặc `shipping-service` cần tạo vận đơn bưu cục, chúng sẽ gọi gRPC `GetOrderDetail` sang `order-service` để lấy địa chỉ nhận hàng.
-- **Phân tích Đánh đổi (Trade-off):**
-  - *Ưu điểm:* Loại bỏ 100% rủi ro rò rỉ dữ liệu cá nhân (Data Leakage) sang các consumer không cần thiết như `inventory-service`, `finance-service`, `analytics-service`.
-  - *Rủi ro (Runtime Coupling):* Nếu `order-service` gặp sự cố mạng tạm thời, `fulfillment-service` không lấy được địa chỉ để in tem.
-  - *Biện pháp Giảm thiểu Kỹ thuật (Mitigation):* 
-    1. `order-service` thiết lập bộ đệm L2 Cache trên Redis cho `AddressSnapshot` với TTL 48 giờ.
-    2. Consumer `fulfillment-service` cài đặt cơ chế Retry with Exponential Backoff + Jitter cho cuộc gọi gRPC lấy địa chỉ, đảm bảo khi `order-service` hồi phục thì việc in tem tiếp tục trơn tru mà không làm rơi rớt dữ liệu.
-
----
-
-### 1.4. Lựa Chọn Công Nghệ & Ràng Buộc Kỹ Thuật (Tech Stack Selection)
-- **Ngôn ngữ nền tảng:** **Go (Golang 1.22+)** hoặc **Node.js (TypeScript 5+)** tuân thủ Clean Architecture.
-- **PostgreSQL Driver:** `pgx/v5` (Go) hoặc `pg` pool (Node.js) hỗ trợ kết nối Binary Protocol hiệu năng cao.
-- **Serialization:** Google Protocol Buffers v3 cho giao tiếp nội bộ gRPC; JSON Schema chuẩn CNCF CloudEvents 1.0 cho Apache Kafka.
-- **Bộ đệm & Khóa phân tán:** `go-redis/v9` (hoặc `ioredis`) tương thích Redis Cluster.
-
----
-
-## 2. BƯỚC 2: MÔ HÌNH HÓA MIỀN NGHIỆP VỤ CỐT LÕI (DOMAIN MODEL, ENTITIES & VALUE OBJECTS)
-
-*Theo chuẩn mực Domain-Driven Design, trước khi thiết kế bảng cơ sở dữ liệu (Database Schema), ta bắt buộc phải mô hình hóa miền nghiệp vụ độc lập hoàn toàn với công nghệ hạ tầng (Infrastructure-Agnostic).*
+## 2. Aggregate, entity và value object
 
 ```mermaid
 classDiagram
     class Order {
-        +UUID id
-        +OrderCode orderCode
-        +UUID customerId
-        +Channel channel
-        +OrderStatus status
-        +Money subtotalAmount
-        +Money discountAmount
-        +Money shippingFee
-        +Money finalAmount
-        +AddressSnapshot shippingAddress
-        +VoucherSnapshot appliedVoucher
-        +List~OrderLineItem~ items
-        +List~PaymentTransaction~ payments
-        +int version
-        +DateTime createdAt
-        +DateTime updatedAt
-        +addOrderItem(item)
-        +applyVoucher(voucher)
-        +markPendingPayment()
-        +markPaid(transactionId, amount, provider)
-        +cancel(reason)
-        +calculateTotals()
+        UUID id
+        UUID customerId
+        OrderStatus status
+        int version
+        Money finalAmount
+        Timestamp paymentExpiresAt
+        assertTransition(command)
     }
-
-    class OrderLineItem {
-        +UUID id
-        +string skuCode
-        +string productName
-        +int quantity
-        +Money unitPrice
-        +Money totalPrice
-        +string packagingSpecs
-        +string itemNotes
+    class OrderItem {
+        UUID id
+        string skuCode
+        int quantity
+        Money unitPrice
+        Money lineTotal
     }
-
-    class PaymentTransaction {
-        +UUID id
-        +PaymentProvider provider
-        +string providerTransactionId
-        +PaymentMethod method
-        +PaymentTransactionType type
-        +PaymentStatus status
-        +Money amount
-        +string rawSignature
-        +DateTime executedAt
-    }
-
-    class Money {
-        <<Value Object>>
-        +int64 amount
-        +string currency
-        +add(Money) Money
-        +subtract(Money) Money
-        +multiply(int) Money
-        +equals(Money) bool
-    }
-
     class AddressSnapshot {
-        <<Value Object>>
-        +string recipientName
-        +string phoneNumber
-        +string streetAddress
-        +string wardCode
-        +string wardName
-        +string provinceCode
-        +string provinceName
-        +decimal latitude
-        +decimal longitude
+        UUID id
+        UUID sourceAddressId
+        int sourceVersion
+        string wardCode
+        string provinceCode
+        encrypted recipientAndStreet
     }
-
-    class VoucherSnapshot {
-        <<Value Object>>
-        +string voucherCode
-        +string discountType
-        +Money discountValue
-        +Money appliedAmount
+    class PaymentReceipt {
+        UUID id
+        string providerTransactionId
+        Money receivedAmount
+        ReceiptStatus status
     }
-
-    Order "1" *-- "1..*" OrderLineItem : contains
-    Order "1" *-- "0..*" PaymentTransaction : records history
-    Order o-- AddressSnapshot : snapshots
-    Order o-- VoucherSnapshot : snapshots
-    Order o-- Money : measured in
-    OrderLineItem o-- Money : priced in
-    PaymentTransaction o-- Money : transacted in
+    class Refund {
+        UUID id
+        UUID paymentReceiptId
+        UUID approvalId
+        Money amount
+        RefundStatus status
+    }
+    class SagaInstance {
+        UUID id
+        string type
+        string status
+        int leaseEpoch
+    }
+    Order "1" *-- "1..*" OrderItem
+    Order "1" *-- "0..1" AddressSnapshot
+    Order "1" --> "0..*" PaymentReceipt
+    PaymentReceipt "1" --> "0..*" Refund
+    Order "1" --> "0..*" SagaInstance
 ```
 
-### 2.1. Thuật Ngữ Nghiệp Vụ Chuẩn Hóa (Ubiquitous Language)
-- **Order (Đơn hàng):** Aggregate Root trung tâm, biểu thị giao dịch thương mại hoàn chỉnh.
-- **OrderLineItem (Mặt hàng chi tiết):** Bản chụp cố định của sản phẩm kẹo mè xửng (mã SKU, tên kẹo, đơn giá, quy cách) tại thời điểm khách bấm đặt hàng.
-- **PaymentTransaction (Giao dịch dòng tiền):** Thực thể ghi nhận lịch sử từng lần tương tác thanh toán (lần quét VietQR thử nghiệm, thanh toán thành công, hoặc giao dịch hoàn tiền refund).
-- **Snapshot (Bản chụp bất biến):** Dữ liệu sao chép nguyên trạng tại thời điểm xác nhận checkout, không bị ảnh hưởng nếu dữ liệu gốc ở Catalog hoặc Profile bị thay đổi.
-- **Centralized Compensation (Model A):** Cơ chế điều phối đền bù tập trung: Duy nhất Saga Orchestrator trong `order-service` phát lệnh hoàn tác tài nguyên sang các service vệ tinh.
+Order giữ snapshot và invariant thương mại. PaymentReceipt/Refund là aggregate tài chính liên kết Order, có locking riêng nhưng transaction áp dụng receipt vào Order phải khóa cùng Order. Không load tất cả lịch sử payment vào mỗi lần xem queue. Saga là process manager bền vững, không phải Order status.
 
----
+| Thuật ngữ | Nghĩa chính xác |
+| --- | --- |
+| `order_id` | UUID sinh tại ứng dụng trước khi tạo intent hoặc gọi giữ tài nguyên |
+| `order_code` | Mã cho khách đọc; unique, không dùng làm proof sở hữu |
+| `customer_id` | ID hồ sơ của Profile; `NULL` cho Guest, khác JWT `sub` |
+| `shipping_address_id` trên event | ID snapshot trong Order DB; không phải ID địa chỉ đang sống trong Profile |
+| `reservation_id`, `voucher_lock_id` | Reference tài nguyên do service chủ quản trả về |
+| `payment receipt` | Một khoản tiền thực nhận/đã xác minh; không phải một lần quét QR |
+| `allocation` | Phần receipt được phân bổ vào nghĩa vụ thanh toán Order |
+| `operational_hold` | Chặn tiến trình nghiệp vụ khi cần đối soát; không xóa sự thật tài chính |
 
-### 2.2. Aggregate Root: `Order`
-Thực thể gốc kiểm soát toàn bộ tính toàn vẹn của đơn hàng:
-- **Định danh duy nhất:** `id` (UUID v7 time-ordered) và `order_code` (Mã định dạng thân thiện `ORD-YYYYMMDD-XXXX`).
-- **Chủ sở hữu:** `customer_id` (UUID tham chiếu sang MS-15 Profile Service; `NULL` đối với khách vãng lai `GUEST_CUSTOMER`).
-- **Kênh bán lẻ (`Channel`):** `D2C_WEB`, `D2C_MOBILE`, `POS_OFFLINE`, `MARKETPLACE_SHOPEE`, `MARKETPLACE_TIKTOK`, `B2B_CORPORATE`.
-- **Trạng thái thực thể:** `OrderStatus` (Quản lý chặt chẽ theo máy trạng thái FSM).
-- **Khóa lạc quan CAS (Optimistic Concurrency Control):** Thuộc tính `version` nguyên số tăng dần, giải quyết triệt để tranh chấp cập nhật đồng thời.
+## 3. Snapshot và tiền
 
----
+OrderItem lưu `sku_code`, tên, quy cách, khối lượng, quantity, đơn giá và thành tiền đã kiểm tra; shipping quote lưu carrier/service, phí gốc, quote reference/expiry. VoucherSnapshot lưu loại, số tiền áp dụng, policy version và hold ID. Chỉ một voucher MVP; stacking/loyalty dùng để trả tiền cần chính sách và contract riêng.
 
-### 2.3. Entities Thuộc Aggregate
-1. **`OrderLineItem`:**
-   - Thuộc sở hữu hoàn toàn của `Order`.
-   - `sku_code`, `product_name`, `quantity` ($> 0$), `unit_price` (Money), `total_price` ($= \text{unit\_price} \times \text{quantity}$).
-   - `packaging_specs`: Quy cách đóng gói (Ví dụ: "Hộp 500g hút chân không chống ẩm", "Túi 300g truyền thống").
-2. **`PaymentTransaction` (Thống nhất mô hình 1 Order $\rightarrow$ $N$ Payments):**
-   - Thay vì chỉ có 1 `PaymentRecord` duy nhất, hệ thống mô hình hóa quan hệ $1:N$ để phản ánh chính xác thực tế:
-     - Khách hàng quét QR lần 1 thất bại $\rightarrow$ Ghi nhận 1 `PaymentTransaction` trạng thái `FAILED`.
-     - Khách quét QR lần 2 thành công $\rightarrow$ Ghi nhận 1 `PaymentTransaction` trạng thái `PAID`.
-     - Sau này khách khiếu nại vỡ kẹo $\rightarrow$ Ghi nhận thêm 1 `PaymentTransaction` loại `REFUND` trạng thái `PAID`.
-   - Thuộc tính: `provider` (`VIETQR_NAPAS`, `COD_INTERNAL`, `B2B_BANK_DIRECT`, `POS_TERMINAL`), `provider_transaction_id` (Mã giao dịch phía ngân hàng), `type` (`PAYMENT`, `REFUND`), `amount` (Money), `status` (`PENDING`, `PAID`, `FAILED`), `raw_signature`, `executed_at`.
+AddressSnapshot lưu recipient/phone/street, tỉnh/phường code/name, optional cặp tọa độ, nguồn và version. Saved address lấy bằng `GetDeliveryAddress(address_id, customer_id)`; address ID rỗng lấy default. Response phải đúng customer. Dữ liệu hai cấp theo Profile contract; `common.Address.district` rỗng. Không dùng dữ liệu default thay đổi về sau để sửa snapshot.
 
----
+Guest nhập địa chỉ trực tiếp, dùng cùng validation địa giới và recipient. MVP một địa chỉ/đơn. Sau khi đặt không sửa snapshot bằng update chung; thay địa chỉ cần command chuyên biệt, kiểm tra phí và fulfillment chưa bắt đầu, ghi revision/audit. Command này chưa thuộc MVP v3.0.
 
-### 2.4. Value Objects Bất Biến (Immutable Value Objects)
-1. **`Money` (Chuẩn hóa cho tiền tệ VND):**
-   - Vì Việt Nam Đồng (VND) không có đơn vị phân số thập phân (không dùng hào, xu), cấu trúc `Money` trong Domain được tinh gọn tối đa:
-     ```go
-     type Money struct {
-         Amount   int64  // Số tiền nguyên bản (VND)
-         Currency string // Bắt buộc "VND"
-     }
-     ```
-   - *Tính tương thích Protobuf:* Khi giao tiếp gRPC qua message `omamx.common.v1.Money`, `Amount` được gán vào trường `units`, còn trường `nanos` được gán cứng `= 0`.
-   - *Tính tương thích JSON REST API:* Giá trị tiền được biểu diễn dưới dạng số nguyên an toàn (JSON integer). Với mức doanh thu đơn hàng thông thường ($< 9 \times 10^{15}$ VND), hoàn toàn nằm trong giới hạn an toàn của IEEE 754 float64 / JavaScript `Number.MAX_SAFE_INTEGER`.
-2. **`AddressSnapshot`:**
-   - Lưu trữ: `recipient_name`, `phone_number`, `street_address`, `ward_code`, `ward_name`, `province_code`, `province_name`, `latitude`, `longitude`.
-   - Tuân thủ chuẩn hành chính 2 cấp (Tỉnh/Thành phố TW - Xã/Phường) có hiệu lực tại Việt Nam từ 01/07/2025.
-3. **`VoucherSnapshot`:**
-   - `voucher_code`, `discount_type` (`PERCENTAGE`, `FIXED_AMOUNT`), `discount_value` (Money), `applied_amount` (Money).
-
----
-
-### 2.5. Mô Hình 3 Trạng Thái Tồn Kho Phân Tán (The 3-State Inventory Model)
-
-> [!IMPORTANT]
-> **Làm Rõ Ngữ Nghĩa Tồn Kho Giữa Order Service & Inventory Service:**
-> Để ngăn ngừa hoàn toàn nguy cơ **Double Deduction (Trừ kho hai lần)**, hệ thống định nghĩa rạch ròi 3 biến số tồn kho bên trong `inventory-service`:
-> 1. **`available_quantity` (Tồn khả dụng):** Số lượng kẹo sẵn sàng mở bán.
-> 2. **`reserved_quantity` (Tồn tạm khóa):** Số lượng kẹo đang được giữ riêng cho các đơn hàng `PENDING_PAYMENT` (TTL 15 phút).
-> 3. **`committed_quantity` (Tồn xuất kho chính thức):** Số lượng kẹo đã được thanh toán tiền, chờ xưởng đóng gói bàn giao bưu cục.
-> 
-> *Công thức bảo toàn:*
-> $$\text{physical\_quantity} = \text{available\_quantity} + \text{reserved\_quantity}$$
+Money dùng số nguyên VND, `int64/BIGINT`; protobuf `currency_code=VND`, `units=amount`, `nanos=0`. JSON phải giới hạn giá trị trong miền số nguyên an toàn của client; đề xuất `0..1_000_000_000_000` VND cho từng amount. Kiểm tra overflow khi nhân/cộng trước khi ghi SQL.
 
 ```text
-Trạng Thái Ban Đầu (Initial):
-   available: 100 | reserved: 0 | committed: 0
-
-Bước 1: Khách đặt 2 hộp mè xửng (Order Service gọi ReserveStock):
-   available: 98  | reserved: 2 | committed: 0  (Tồn khả dụng đã giảm ngay để chống bán lố!)
-
-Bước 2A: Thanh toán thành công (Sự kiện OrderPaidEvent bắn sang Kho):
-   available: 98  | reserved: 0 | committed: 2  (Chuyển từ reserved sang committed, CẤM trừ available lần 2!)
-
-Bước 2B: Hết hạn 15m hoặc khách hủy đơn (Order Service gọi ReleaseReservation):
-   available: 100 | reserved: 0 | committed: 0  (Hoàn trả tồn khả dụng về nguyên trạng)
+subtotal = Σ(quantity × canonical_unit_price)
+0 ≤ merchandise_discount ≤ subtotal
+0 ≤ shipping_discount ≤ shipping_fee
+final = subtotal - merchandise_discount + shipping_fee - shipping_discount
+0 ≤ allocated_paid ≤ final
+refundable(receipt) = received - Σ(refund SUCCEEDED) - Σ(refund đang giữ nghĩa vụ)
 ```
 
----
+Free shipping trừ vào shipping component, không ép vào merchandise discount. Vì vậy luật cũ `final >= shipping_fee` được bỏ. Ví dụ hàng 220.000, giảm hàng 20.000, ship 25.000, miễn ship 25.000 → final 200.000. Với `FREE_SHIPPING`, proto Promotion chưa nhận phí ship/cap để tính đúng: phải bổ sung contract, không tự đoán từ `discount_amount`.
 
-### 2.6. Các Bất Biến Nghiệp Vụ Miền (Domain Invariants)
-Bất kỳ thay đổi nào trên Aggregate `Order` đều phải vượt qua 5 điều kiện kiểm tra bất biến:
-$$\mathbf{Invariant\ 1:}\quad \text{discount\_amount} \le \text{subtotal\_amount} \quad (\text{Chiết khấu cấm vượt quá tổng tiền hàng})$$
-$$\mathbf{Invariant\ 2:}\quad \text{final\_amount} = \text{subtotal\_amount} - \text{discount\_amount} + \text{shipping\_fee}$$
-$$\mathbf{Invariant\ 3:}\quad \text{final\_amount} \ge \text{shipping\_fee} \ge 0$$
-$$\mathbf{Invariant\ 4:}\quad \text{len(order\_line\_items)} \ge 1 \quad \text{và} \quad \forall\ \text{item} \in \text{order\_line\_items},\ \text{quantity} > 0$$
-$$\mathbf{Invariant\ 5:}\quad \text{Chỉ cho phép chuyển } \texttt{PENDING\_PAYMENT} \rightarrow \texttt{PAID} \text{ khi số tiền giao dịch khớp tuyệt đối: } \text{amount\_paid} = \text{final\_amount}.$$
+Đơn final=0 dùng quy trình zero-payment riêng, không tạo receipt ngân hàng giả. Chưa hỗ trợ MVP; trả `422 ZERO_AMOUNT_ORDER_UNSUPPORTED`. Giá sản phẩm được coi đã bao gồm thuế trong MVP; không tự thêm VAT. B2B cần snapshot tax/credit terms riêng.
 
----
-👉 [Chuyển sang Phân hệ 2: Máy Trạng Thái & Vòng Đời Đơn Hàng](02_state_machine_and_lifecycle.md)
+## 4. Bất biến có thể kiểm chứng
+
+1. Ít nhất một line; quantity > 0; gộp SKU trùng trước quote; thiếu bất kỳ SKU thì thất bại toàn bộ checkout, không tự tách đơn.
+2. Chỉ tạo `PENDING_PAYMENT` sau Inventory reserve và voucher hold hợp lệ; expiry theo hạn tài nguyên thực tế.
+3. Tài nguyên có key ổn định và intent bền vững trước RPC; mất phản hồi là kết quả UNKNOWN, không phải FAILED.
+4. Receipt đã xác minh tồn tại độc lập với Order status; tiền vào đơn đã hủy vẫn phải lưu và đối soát.
+5. Trả trước chỉ cho fulfillment khi tiền đã allocated đủ final và stock đã COMMITTED; COD được phép chưa trả tiền nhưng phải có COD eligibility và stock commit.
+6. Một provider receipt chỉ ghi nhận một lần. Refund phải có approval hợp lệ, không vượt refundable; retry không tạo nghĩa vụ mới.
+7. Owner chỉ đổi từ Guest sang Customer bằng verified claim; không ghi đè owner khác và không đổi snapshot.
+8. Mọi mutation quan trọng có history/audit intent và outbox cùng commit. Consumer business effect + inbox commit cùng nhau.
+9. Order cancelled không tự trở lại PAID/PROCESSING; refund lỗi không tự đưa order quay lại sản xuất.
+10. Admin thao tác qua command có guard và quyền; không chỉnh trạng thái tùy ý.
+
+## 5. Mô hình kho nhìn từ Order
+
+Order lưu reference và projection `NONE/RESERVED/COMMITTING/COMMITTED/RELEASING/RELEASED/EXPIRED/UNKNOWN`; không sở hữu stock ledger. Inventory contract hiện nói `available = physical - reserved`. Không đưa thêm `committed` vào công thức này nếu chưa đổi định nghĩa `physical`.
+
+Thiết kế finalize yêu cầu Inventory chuyển reservation atomically từ ACTIVE → COMMITTED hoặc RELEASED/EXPIRED. Commit tiêu thụ reservation đúng một lần; quantity available không bị trừ lần hai. Ví dụ physical=100/reserved=0/available=100; reserve 2 → 100/2/98; nếu commit được định nghĩa là trừ physical → 98/0/98. Nếu Inventory chọn giữ committed trên kệ đến dispatch thì phải dùng ledger khác và công bố công thức mới. Order chỉ dựa vào kết quả terminal của reservation.
+
+## 6. Quyền riêng tư và scope
+
+Không đưa recipient, phone, street, tọa độ, gift_message hoặc ghi chú tự do vào event fan-out. Identifier vẫn cần ACL/retention; không coi UUID là dữ liệu công khai. Shipping/Packing đọc snapshot qua API nội bộ có service identity và purpose hợp lệ. Customer xem đủ dữ liệu của mình; queue chỉ hiển thị dữ liệu tối thiểu, CSKH có masking theo quyền.
+
+PII snapshot mã hóa tại tầng lưu trữ với key ID/version, TLS khi truyền; không log raw webhook, token/proof hay thông tin nhận hàng. Retention và xóa/ẩn danh cần policy được chủ dữ liệu phê duyệt, không tự đặt thời gian pháp lý. Ledger/audit chỉ dùng reference khi đủ; không cascade delete order vì xóa profile.

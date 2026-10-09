@@ -1,239 +1,201 @@
-# TÀI LIỆU THIẾT KẾ CHI TIẾT (LLD): MS-04 ORDER SERVICE
-## PHÂN HỆ 5: GIAO THỨC MẠNG & ĐẶC TẢ HỢP ĐỒNG (DELIVERY & CONTRACTS)
+> **Implementation 3.1 — 09/10/2026:** [08_implementation_and_acceptance.md](08_implementation_and_acceptance.md) là nguồn hành vi hiện tại. Acceptance tạo checkout operation, chưa tạo Order; PAID và outbox chờ terminal stock/voucher outcome. Các đoạn v3.0 khác mô tả candidate cần đọc cùng cập nhật này.
 
----
+# 05 — API contracts, transports và bảo mật
 
-> **ĐIỀU HƯỚNG TÀI LIỆU:**
-> - 📍 **Vị trí:** Phân hệ 5 / 6 của bộ thiết kế LLD `MS-04 order-service`.
-> - ⬅️ [04_usecases_and_saga_orchestration.md — Ca sử dụng & Điều phối Saga](04_usecases_and_saga_orchestration.md)
-> - 🔼 [README.md — Bản đồ điều hướng & Kiến trúc tổng thể](README.md)
-> - ➡️ [06_testing_and_failure_recovery.md — Kiểm thử, Khôi phục sự cố & Truy vết](06_testing_and_failure_recovery.md)
+[Chỉ mục](README.md) · [Trước: Use cases](04_usecases_and_saga_orchestration.md) · [Tiếp: Testing](06_testing_and_failure_recovery.md)
 
----
+## 1. Mức độ hiệu lực
 
-## 7. BƯỚC 7: TẦNG VẬN CHUYỂN & ĐẶC TẢ HỢP ĐỒNG GIAO TIẾP (DELIVERY LAYER & CONTRACTS)
+Chương này là **contract candidate v3.0**, không tự thay đổi OpenAPI/protobuf/event schemas dùng chung. `openapi_d2c.yaml` hiện có checkout, lịch sử/chi tiết/cancel/tracking và callback nhưng thiếu COD/finalize/202/idempotency durable của v3.0. Bảng chênh lệch chương 07 là checklist trước integration. Không dùng ví dụ candidate để khẳng định contract hiện tại validate được.
 
-Bước 7 xác định các cổng giao tiếp mạng (North-South qua API Gateway và East-West giữa các microservices nội bộ), cùng đặc tả các hợp đồng giao tiếp (REST OpenAPI, gRPC Protobuf, Kafka CloudEvents).
+REST giữ `X-Idempotency-Key` theo OpenAPI hiện tại. Header bắt buộc cho checkout/cancel/import/refund có side effect; giới hạn đề xuất UUID hoặc chuỗi ASCII 16..128 ký tự. Các client hiện có format UUID vẫn được hỗ trợ. Bổ sung `If-Match` cho mutation cần version; Guest auth dùng proof riêng, không dùng idempotency key.
 
----
+## 2. Identity và authorization
 
-### 7.1. Cổng Biên HTTP RESTful APIs (North - South via Kong Gateway)
+Public client dùng bearer JWT hoặc Guest session/proof qua Gateway. Gateway bỏ header internal do client gửi và gắn identity đã xác thực; Order xác minh service caller và scoped context. Metadata `requesting_user_id/cancelled_by_user_id/cashier_staff_id` trong protobuf không tự là bằng chứng quyền. JWT sub là user ID, phải resolve Profile customer ID; không có resolver hợp lệ trả 503 IDENTITY_RESOLUTION_UNAVAILABLE.
 
-Toàn bộ các REST API đều tuân thủ chuẩn OpenAPI 3.0 tại [`docs/03_api_specs/openapi_d2c.yaml`](../../docs/03_api_specs/openapi_d2c.yaml):
+| Caller | Quyền |
+| --- | --- |
+| Customer | List/detail/cancel chỉ order có đúng customer ID |
+| Guest | Detail/cancel chỉ order bind proof còn hạn; proof giới hạn read/cancel theo scope |
+| Warehouse/Packing | Queue của công đoạn và phạm vi kho được phân quyền |
+| Sales Manager | List/detail toàn scope, hold/cancel review; không giả receipt |
+| Customer Service | Case-related detail với masking; không tự approve refund |
+| Fulfillment/Shipping | Internal detail snapshot cho task/shipment đang được cấp quyền |
+| Channel | POS/import scope của terminal/store; không đọc mọi order |
+| Profile verifier | Query guest eligibility qua contract tối thiểu, không tải PII toàn bộ |
 
-#### 1. Khởi Tạo Phiên Đặt Hàng (`POST /api/v1/checkout`)
-- **Headers yêu cầu:** `Authorization: Bearer <jwt>`, `Idempotency-Key: <uuid>`, `Content-Type: application/json`.
-- **Payload Request:**
-```json
-{
-  "customer_id": "018f3a5b-9c12-7def-a890-123456789abc",
-  "channel": "D2C_WEB",
-  "shipping_address": {
-    "recipient_name": "Nguyễn Hoàng Nam",
-    "phone_number": "0905123456",
-    "street_address": "15 Lê Lợi",
-    "ward_code": "VN-HUE-PHUHOI",
-    "ward_name": "Phường Phú Hội",
-    "province_code": "VN-HUE",
-    "province_name": "Thành phố Huế",
-    "latitude": 16.4673,
-    "longitude": 107.5905
-  },
-  "items": [
-    { "sku_code": "MX-GION-500G", "quantity": 2 },
-    { "sku_code": "MX-DEO-HOMEMADE-300G", "quantity": 1 }
-  ],
-  "voucher_code": "OMAMA_TET2026",
-  "payment_method": "VIETQR",
-  "customer_note": "Gói kỹ chống vỡ giúp em, mang vào Sài Gòn làm quà!"
-}
+Không có ownership trả 404 giống không tồn tại để tránh enumeration; thiếu auth 401, có auth nhưng thiếu quyền chức năng 403. Guest proof dùng verifier đáng tin/OTP liên kết order/phone/action, chống replay và brute force, không chỉ so phone trong request. Verification endpoint/issuer là gap G06, chưa hoàn thiện trong repo. Staff quyền + warehouse/assignment được kiểm tra cho mỗi command.
+
+## 3. REST endpoint candidate
+
+| Method / Path | Input chính | Thành công | Ghi chú |
+| --- | --- | --- | --- |
+| GET `/api/v1/cart` | session/customer | 200 cart + revision | giá dự kiến |
+| POST `/api/v1/cart/items` | SKU, qty, expected revision | 200 cart mới | atomic revision |
+| PUT `/api/v1/cart/items/{item_id}` | qty, If-Match | 200 | dùng item ID theo OpenAPI hiện tại |
+| DELETE `/api/v1/cart/items/{item_id}` | If-Match | 204 | không reserve/release kho |
+| POST `/api/v1/checkout/quote` | cart revision, address, carrier/method, voucher | 200 quote | mới; không tạo order |
+| POST `/api/v1/checkout` | quote ID, cart revision, method | 201 hoặc 202 | X-Idempotency-Key; duy nhất command tạo D2C |
+| GET `/api/v1/orders` | cursor, limit 1..100, status/date | 200 summaries | customer scope, không nhận customer ID tùy ý |
+| GET `/api/v1/orders/{id}` | auth/proof | 200 detail + ETag | canonical snapshot |
+| GET `/api/v1/orders/{id}/tracking` | auth/proof | 200 shipment projection | chỉ authorized checkpoints |
+| POST `/api/v1/orders/{id}/cancel` | reason code, If-Match | 200 hoặc 202 | idempotent, compensation có thể pending |
+| POST `/api/v1/orders/{id}/cancellation-requests` | reason, expected version | 202 review reference | paid customer request, không immediate refund |
+| GET `/api/v1/admin/orders` | filters, cursor | 200 scoped list | permission `orders:read` |
+| GET `/api/v1/admin/orders/queue` | stage, warehouse, SLA filter | 200 actionable queue | stage eligibility + assignment |
+| POST `/api/v1/admin/orders/{id}/hold` | reason, expected version | 200 | permission + audit |
+| POST `/api/v1/payments/vietqr/callback` | provider raw signed body | provider ACK sau durable receipt | adapter riêng, không bearer khách |
+
+Không mở arbitrary state PATCH. B2B quotation/multi-address/promotion stacking chỉ thêm sau policy review. `GET /orders/{id}` cũng là status resource cho checkout 202; response phân biệt DRAFT/checkout pending và đơn đặt thành công.
+
+## 4. Ví dụ checkout và response
+
+Ví dụ dưới đây là candidate bổ sung quote, giữ header naming hiện có:
+
+```http
+POST /api/v1/checkout
+Authorization: Bearer <customer-token>
+X-Idempotency-Key: 93381d37-e3e4-4cf4-9018-8cd5a76c9011
+Content-Type: application/json
+
+{"quote_id":"quote-opaque-reference","cart_revision":12,"payment_method":"VIETQR"}
 ```
 
-- **Payload Response (HTTP 201 Created):**
 ```json
 {
-  "order_id": "018f3a5b-9c12-7def-a890-123456789abc",
-  "order_code": "ORD-20261015-0042",
+  "order_id": "019a0000-0000-7000-8000-000000000001",
+  "order_code": "ORD-20261008-000001",
   "status": "PENDING_PAYMENT",
-  "pricing": {
-    "subtotal_amount": 350000,
-    "discount_amount": 30000,
-    "shipping_fee": 25000,
-    "final_amount": 345000,
-    "currency": "VND"
+  "version": 2,
+  "channel": "D2C_WEB",
+  "amounts": {
+    "currency": "VND", "subtotal_units": 220000,
+    "merchandise_discount_units": 20000,
+    "shipping_units": 25000, "shipping_discount_units": 0,
+    "final_units": 225000
   },
-  "payment": {
-    "method": "VIETQR",
-    "status": "PENDING",
-    "vietqr_url": "https://img.vietqr.io/image/970422-0905123456-compact2.png?amount=345000&addInfo=OMAMA%20ORD202610150042",
-    "expires_at": "2026-10-15T08:45:00.000Z",
-    "countdown_seconds": 900
-  },
-  "created_at": "2026-10-15T08:30:00.000Z"
+  "payment": {"method":"VIETQR","status":"PENDING","reference":"OMAMA-000001"},
+  "payment_expires_at":"2026-10-08T08:15:00Z",
+  "compensation_status":"NONE"
 }
 ```
 
----
+201 trả Location `/api/v1/orders/{id}`; 202 trả cùng Location và `Retry-After: 2`, status còn DRAFT/PAYMENT_FINALIZING theo tài nguyên đang xử lý. COD trả CONFIRMED_COD và payment UNPAID; không gán paid_at hoặc bank transaction giả. Response list gồm code/time/final/channel/order status/payment summary/SLA flags, không chứa PII chi tiết.
 
-### 7.2. Cổng Nội Bộ gRPC Services (East - West Server)
+Detail thêm items/address snapshot, authorized timeline, payment summary, stock projection, shipment/packages, `allowed_actions` và operational hold. `allowed_actions` giúp UI nhưng server vẫn kiểm tra guard lúc command tới. ETag từ order version. Cursor ký scope/filter; timestamp ISO-8601 UTC, UI hiển thị Asia/Saigon.
 
-Khớp 100% tệp Protobuf [`packages/proto/order/v1/order.proto`](../../packages/proto/order/v1/order.proto):
+## 5. Lỗi và retry semantics
 
-```protobuf
-syntax = "proto3";
-package omamx.order.v1;
-
-service OrderService {
-  // Tạo đơn hàng trực tiếp tại quầy POS offline (MS-13 gọi)
-  rpc CreatePOSOrder(CreatePOSOrderRequest) returns (CreatePOSOrderResponse);
-
-  // Truy vấn chi tiết đơn hàng kèm snapshot giao vận
-  rpc GetOrderDetail(GetOrderDetailRequest) returns (GetOrderDetailResponse);
-
-  // Hủy đơn hàng và kích hoạt đền bù tập trung
-  rpc CancelOrder(CancelOrderRequest) returns (CancelOrderResponse);
-}
-```
-
----
-
-### 7.3. Hợp Đồng Gọi gRPC Ngoại Vi (East - West Client on Critical Path)
-
-1. **Khóa tồn kho:** Gọi `MS-01: InventoryService.ReserveStock` (Port 8001). Strict Timeout: `2000ms`.
-2. **Giải phóng tồn kho (Đền bù):** Gọi `MS-01: InventoryService.ReleaseReservation` (Port 8001).
-3. **Thẩm định giá:** Gọi `MS-05: CatalogService.ValidatePriceAndSKU` (Port 8005).
-4. **Thẩm định voucher:** Gọi `MS-07: PromotionService.ValidateVoucher` (Port 8007).
-5. **Giải phóng voucher (Đền bù):** Gọi `MS-07: PromotionService.ReleaseVoucher` (Port 8007).
-6. **Tính phí ship:** Gọi `MS-12: ShippingService.CalculateShippingFee` (Port 8012).
-7. **Lấy địa chỉ giao hàng (Saved Address Hydration):** Gọi `MS-15: ProfileService.GetDeliveryAddress` (Port 50051 / 8015). Strict Timeout: `500ms`, SLA $P99 \le 5\text{ms}$.
-   - Contract Protobuf:
-     ```protobuf
-     message GetDeliveryAddressRequest {
-       string address_id = 1;
-       string customer_id = 2;
-     }
-     message DeliveryAddressResponse {
-       string id = 1;
-       string customer_id = 2;
-       string recipient_name = 3;
-       string phone_number = 4;
-       string street_address = 5;
-       string ward_code = 6;
-       string ward_name = 7;
-       string province_code = 8;
-       string province_name = 9;
-       double latitude = 10;
-       double longitude = 11;
-       bool is_default = 12;
-     }
-     ```
-
----
-
-### 7.4. Danh Mục Sự Kiện Kafka Xuất Bản (Transactional Outbox Producer)
-
-Tuân thủ chuẩn **CNCF CloudEvents 1.0 JSON Schema** tại [`packages/events/schemas/order/v1/`](../../packages/events/schemas/order/v1/):
-
-| Tên Sự Kiện | Event Type | Kafka Topic | Partition Key | Ý Nghĩa Nghiệp Vụ (Semantic) |
-| :--- | :--- | :--- | :---: | :--- |
-| `OrderPlacedEvent` | `vn.omama.order.placed.v1` | `order.events.v1` | `order_id` | Khách tạo đơn thành công, đang chờ quét mã VietQR trong 15 phút. |
-| `OrderPaidEvent` | `vn.omama.order.paid.v1` | `order.events.v1` | `order_id` | Tiền đã về tài khoản, kích hoạt xưởng đóng kẹo, trừ kho committed và xuất VAT. |
-| `OrderCancelledEvent` | `vn.omama.order.cancelled.v1` | `order.events.v1` | `order_id` | **Thông báo đơn đã bị hủy (Business Fact)**. Không chứa command đền bù kho. |
-| `OrderCompletedEvent` | `vn.omama.order.completed.v1`| `order.events.v1` | `order_id` | Đơn hoàn tất sau 7 ngày, kích hoạt tích điểm 1% loyalty cho khách. |
-| `MarketplaceOrderStockFailedEvent` | `vn.omama.order.marketplace.failed.v1` | `order.events.v1` | `order_id` | Báo cho MS-13 xử lý hủy đơn sàn khi kho xưởng Huế hết hàng. |
-
-- **Payload Chuẩn Của `OrderPaidEvent` (Bảo Toàn Quyền Riêng Tư PII):**
 ```json
 {
-  "specversion": "1.0",
-  "id": "018f3a5b-9c12-7def-a890-123456789abc",
-  "source": "https://omama.vn/services/order-service",
-  "type": "vn.omama.order.paid.v1",
-  "subject": "order_id:018f3a5b-9c12-7def-a890-123456789abc",
-  "time": "2026-10-15T08:32:11.000Z",
-  "datacontenttype": "application/json",
-  "traceparent": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
-  "data": {
-    "order_id": "018f3a5b-9c12-7def-a890-123456789abc",
-    "order_code": "ORD-20261015-0042",
-    "customer_id": "018f3a5b-9c12-7def-a890-999999999abc",
-    "shipping_address_id": "addr-snap-018f3a5b",
-    "channel": "D2C_WEB",
-    "currency": "VND",
-    "subtotal_amount": 350000,
-    "discount_amount": 30000,
-    "shipping_fee": 25000,
-    "final_amount": 345000,
-    "payment": {
-      "provider": "VIETQR_NAPAS",
-      "provider_transaction_id": "FT2628891048201",
-      "paid_at": "2026-10-15T08:32:10.000Z"
-    },
-    "items": [
-      { "sku_code": "MX-GION-500G", "quantity": 2, "unit_price": 110000 },
-      { "sku_code": "MX-DEO-HOMEMADE-300G", "quantity": 1, "unit_price": 130000 }
-    ]
+  "error": {
+    "code":"IDEMPOTENCY_CONFLICT",
+    "message":"Khóa yêu cầu đã được dùng với nội dung khác.",
+    "retryable":false,
+    "correlation_id":"request-reference",
+    "details":[]
   }
 }
 ```
 
----
+| HTTP | Codes candidate | Hành vi |
+| --- | --- | --- |
+| 400 / 413 | INVALID_REQUEST / BODY_TOO_LARGE | sửa cấu trúc; reject unknown fields |
+| 401 / 403 | AUTH_REQUIRED / PERMISSION_DENIED | không retry bằng đổi customer ID |
+| 404 | ORDER_NOT_FOUND / ADDRESS_NOT_FOUND | không tiết lộ ownership |
+| 409 | IDEMPOTENCY_CONFLICT, VERSION_CONFLICT, PRICE_CHANGED, INSUFFICIENT_STOCK, CANCELLATION_NOT_ALLOWED, PAYMENT_FINALIZING | reload hoặc thao tác mới khi người dùng chấp nhận; không đổi key để né IN_PROGRESS |
+| 422 | INVALID_ADDRESS, VOUCHER_NOT_APPLICABLE, COD_NOT_AVAILABLE, ZERO_AMOUNT_ORDER_UNSUPPORTED | lỗi nghiệp vụ xác định |
+| 428 | VERSION_REQUIRED | bổ sung If-Match |
+| 429 | RATE_LIMITED | Retry-After |
+| 503 | DEPENDENCY_UNAVAILABLE, IDENTITY_RESOLUTION_UNAVAILABLE, CLAIM_VERIFICATION_UNAVAILABLE | retry cùng key sau backoff |
 
-### 7.5. Danh Mục Sự Kiện Kafka Tiêu Thụ (Inbound Consumer)
+Timeout RPC sau durable acceptance trả checkout 202; 504 chỉ dùng khi gateway deadline thực sự bị vượt và response mất, không diễn giải là remote rollback. Webhook ACK contract theo provider; thiết kế không áp arbitrary JSON error cho provider không hỗ trợ. Correlation ID không chứa token/phone.
 
-| Nguồn Phát | Kafka Topic | Event Type | Xử Lý Phía `order-service` |
-| :--- | :--- | :--- | :--- |
-| `channel-service` (MS-13) | `channel.events.v1` | `vn.omama.channel.marketplace.order.imported.v1` | Khởi chạy `MarketplaceInboundSagaUseCase`, gọi `ReserveStock` kho. |
-| `fulfillment-service` (MS-02) | `fulfillment.events.v1` | `vn.omama.fulfillment.package.sealed.v1` | Cập nhật đơn $\rightarrow$ `PACKED`, lưu `seal_code` và link bằng chứng S3. |
-| `shipping-service` (MS-12) | `shipping.events.v1` | `vn.omama.shipping.shipment.delivered.v1` | Cập nhật đơn $\rightarrow$ `DELIVERED`, bắt đầu đếm 7 ngày khiếu nại. |
+## 6. gRPC hiện có và phần bổ sung
 
----
+| Service và method hiện có trong packages/proto | Cách dùng v3.0 / giới hạn |
+| --- | --- |
+| Order.CreatePOSOrder | Channel terminal đã xác thực; no marketplace import qua RPC này |
+| Order.GetOrderDetail | cần principal service/user trusted metadata; hiện response thiếu lifecycle projections/version/COD fields |
+| Order.CancelOrder | chưa có expected version/compensation status; cần additive extension |
+| Inventory.ReserveStock / ReleaseReservation | dùng stable key; Release cần reservation_id nên chưa giải quyết unknown ID |
+| Catalog.ValidatePriceAndSKU / GetProductVariant | chưa có canonical line snapshot và price version đồng bộ |
+| Promotion.ValidateAndLockVoucher / ReleaseVoucher / CalculateDiscount | tên RPC đúng; không dùng ValidateVoucher tưởng tượng |
+| Shipping.CalculateShippingFee / CreateShipment / TrackShipment | chưa có quote reference/valid_until dùng cho checkout |
+| Profile.GetDeliveryAddress | response thật GetDeliveryAddressResponse, customer required, two-tier additive fields |
+| Fulfillment.GetPackingVideoUrl / SubmitPackingEvidence | chưa có ready authorization/cancellation barrier |
+| Identity.CheckSpecializedPermission / GetJwksPublicKey | không phải resolver user→customer |
 
-## 8. BƯỚC 8: CƠ CHẾ KỸ THUẬT XUYÊN SUỐT & PHÒNG VỆ (CROSS-CUTTING CONCERNS)
+**Proposed Inventory capability**, cần bổ sung proto hoặc protocol tương đương đã chứng minh:
 
----
+```text
+GetReservationByOrder(order_id, command_key)
+  -> terminal_state, reservation_id, items_digest, expires_at, version
+FinalizeReservation(order_id, reservation_id, command_key, expected_version)
+  -> COMMITTED | EXPIRED | RELEASED | UNKNOWN + operation reference
+ReleaseReservationByOrder(order_id, reserve_command_key, release_command_key)
+  -> RELEASED | COMMITTED | EXPIRED
+ReverseCommittedStock(order_id, approval_reference, reversal_key, items_scope)
+  -> terminal outcome / query reference
+```
 
-### 8.1. Đảm Bảo At-least-once Delivery & Idempotent Consumer (Effectively-once Business Outcome)
+Finalize/expire/release được serialize tại Inventory. ReleaseByOrder ghi cancellation tombstone kể cả reserve chưa tồn tại để chặn reserve cũ đến trễ; cùng order/key sau cancelled không reserve lại. Proto hiện có không cam kết tombstone: gap blocker.
 
-> [!IMPORTANT]
-> **Định Nghĩa Chuẩn Về Tính Nhất Quán Trong Hệ Phân Tán:**
-> Trong kiến trúc hướng sự kiện (Event-Driven Architecture) với Transactional Outbox:
-> $$\mathbf{Transactional\ Outbox\ =\ At\text{-}least\text{-}once\ Delivery}$$
-> Do máy chủ Outbox Publisher có thể gặp sự cố mạng hoặc crash ngay sau khi bắn thành công lên Kafka nhưng chưa kịp cập nhật trạng thái `PUBLISHED` trong CSDL, thông điệp có thể bị bắn lại nhiều lần khi tiến trình khởi động lại.
-> 
-> Vì vậy, đẳng thức toàn vẹn nghiệp vụ của hệ thống Mè Xửng O Mạ được xác lập:
-> $$\mathbf{At\text{-}least\text{-}once\ Delivery\ +\ Idempotent\ Consumer\ =\ Effectively\text{-}once\ Business\ Outcome}$$
+Promotion cần query hold by order/key, consume/finalize hold và release-by-order chống hold đến trễ; free-ship input gồm canonical shipping fee + cap. Fulfillment cần authorize-ready generation và cancel/query task terminal outcome. Care cần case eligibility/version barrier. Profile cần verifier query tối thiểu/claim ack; không cho verifier dựa trên arbitrary requesting_user_id.
 
-Mọi Consumer trong toàn bộ 18 Microservices (bao gồm cả các consumer bên trong `order-service`) đều bắt buộc phải triển khai cơ chế kiểm tra trùng lặp (Idempotent Message Handling):
-- Sử dụng bảng kiểm tra sự kiện đã xử lý `processed_events (event_id UUID PRIMARY KEY, processed_at TIMESTAMPTZ)` ngay bên trong transaction của consumer.
-- Nếu `event_id` đã tồn tại $\rightarrow$ Bỏ qua việc thực thi nghiệp vụ, xác nhận Commit Offset Kafka ngay lập tức.
+gRPC errors dùng status codes: InvalidArgument, Unauthenticated, PermissionDenied, NotFound, AlreadyExists cho identity conflict, FailedPrecondition cho transition, Aborted cho version, Unavailable/DeadlineExceeded cho unknown network outcome. DTO ErrorDetail hiện tồn tại chỉ dùng nếu contract cụ thể yêu cầu; không đồng thời trả transport OK và che lỗi hệ thống trong field mà client dễ bỏ qua.
 
----
+## 7. Kafka: fact, command và phiên bản
 
-### 8.2. Hệ Thống Idempotency Đa Tầng (Multi-Tier Idempotency Shield)
+Fact mô tả sự kiện đã commit; command là intent chưa biết kết quả. Topics candidate `order.events.v2`, `inventory.commands.v1`, `promotion.commands.v1` và reply events phải có ACL/group/schema riêng. Không dùng OrderCancelled fact làm command release khi Order worker đã release trực tiếp. Chọn duy nhất một adapter gửi command: RPC có stable key hoặc outbox command; không đồng thời dùng cả hai cho cùng effect.
 
-1. **Tầng 1 (Memory / Redis Filter):** Sử dụng `idempotency:checkout:{key}` với TTL 24h.
-2. **Tầng 2 (PostgreSQL Unique Constraint):** Bảng `payments` áp dụng ràng buộc duy nhất `UNIQUE (payment_provider, provider_transaction_id)`. Bất kỳ nỗ lực ghi đúp nào cũng bị cơ sở dữ liệu chặn đứng với mã lỗi vi phạm khóa duy nhất (`23505 UniqueViolation`).
+| Event | Thời điểm phát | Hiện trạng |
+| --- | --- | --- |
+| `vn.omama.order.placed.v2` | PENDING_PAYMENT/CONFIRMED_COD đã durable | candidate, chưa schema |
+| `vn.omama.order.paid.v2` | receipt allocated đủ và stock committed | v1 schema có nhưng chưa đủ v3.0 |
+| `vn.omama.order.fulfillment_ready.v2` | inventory/voucher finalized, không hold, COD/trả trước đúng policy | candidate; consumer mới bắt buộc |
+| `vn.omama.order.cancelled.v2` | cancellation outcome durable | v1 có nhưng resource “đã nhả” chưa đúng khi compensation pending |
+| `vn.omama.order.completed.v2` | lifecycle completion barrier thành công | candidate, loyalty policy do Promotion |
+| `vn.omama.order.reconciliation_required.v2` | receipt mismatch/late/unmatched | candidate; unmatched dùng aggregate PAYMENT trong outbox |
+| `vn.omama.order.marketplace_import_failed.v2` | import rejection durable | candidate |
 
----
+Payment unmatched không có order ID: outbox dùng `aggregate_type=PAYMENT`, `aggregate_id=payment_id`, `order_id=NULL` và partition key là payment ID. Không tạo order giả để phát event; reconciliation/audit event cùng commit receipt. Khi match sau đó, association/payment mutation có version mới và audit riêng (G12 yêu cầu implementation).
 
-### 8.3. Chiến Lược Cầu Dao Ngắt Mạch & Quá Giờ Nghiêm Ngặt (Circuit Breaker & Strict Timeout)
+CloudEvents candidate cho **registered customer đã paid**, không chứa Direct PII:
 
-- **Strict Timeout (2000ms):** Bọc toàn bộ các cuộc gọi gRPC ngoại vi trong Context có deadline 2 giây.
-- **Circuit Breaker:** Ngưỡng mở cầu dao: $\ge 50\%$ request lỗi trong 10 giây. Khi cầu dao OPEN: Trả về ngay mã lỗi nhanh `ERR_CIRCUIT_BREAKER_OPEN` (HTTP 503) trong vòng 1ms, không làm nghẽn thread pool. Thời gian ngủ thăm dò (Sleep window): 5 giây.
+```json
+{
+  "specversion":"1.0",
+  "id":"bdb7155a-3716-4a69-87f2-0a03d4601001",
+  "source":"https://omama.vn/services/order-service",
+  "type":"vn.omama.order.paid.v2",
+  "subject":"order:019a0000-0000-7000-8000-000000000001",
+  "time":"2026-10-08T08:02:00Z",
+  "datacontenttype":"application/json",
+  "traceparent":"00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+  "data":{
+    "order_id":"019a0000-0000-7000-8000-000000000001",
+    "order_version":4,
+    "channel":"D2C_WEB",
+    "customer_id":"019a0000-0000-7000-8000-000000000002",
+    "shipping_address_id":"019a0000-0000-7000-8000-000000000003",
+    "final_paid_amount":{"currency_code":"VND","units":225000,"nanos":0},
+    "payment_id":"019a0000-0000-7000-8000-000000000004",
+    "stock_status":"COMMITTED",
+    "items":[{"sku_code":"MX-GION-500G","quantity":2}]
+  }
+}
+```
 
----
+`customer_id` nullable cho Guest; shipping snapshot nullable cho POS nhận tại quầy; channel vocabulary `D2C_WEB/MOBILE_APP/SHOPEE/TIKTOK/POS_QUAY/B2B_WHOLESALE` thống nhất trong v3.0, B2B extension cần schema mới. Envelope stable id/source/type; traceparent là extension dự án, không phải mandatory core CloudEvents. Subject reference không phải proof quyền. [CloudEvents 1.0.2 specification](https://github.com/cloudevents/spec/blob/v1.0.2/cloudevents/spec.md).
 
-### 8.4. Bảo Mật Zero-Trust & Xác Thực Webhook HMAC-SHA256
+Không sửa required/type của schema v1 đang phát mà coi backward-compatible. V2 topics/event types cần consumer migration, dual-read có business dedup theo operation/order/version, tránh phát hai bản tạo hai packing tasks. Consumer ready tách khỏi paid trước khi bật COD; legacy paid consumer không được tự commit stock lần hai. Schema v2 phải được bổ sung/validate trước publish; ví dụ trên không validate bằng v1.
 
-- **Local JWT Validation:** API Gateway tiêm các Header định danh sạch: `X-User-Id`, `X-User-Roles`. `order-service` kiểm tra quyền sở hữu đơn hàng trực tiếp từ Header.
-- **Xác Thực Chữ Ký Webhook Ngân Hàng:**
-  - Ngân hàng gửi kèm Header `X-VietQR-Signature`.
-  - `order-service` tính toán HMAC-SHA256 từ binary payload gốc và Secret Key, đối chiếu bằng thuật toán an toàn thời gian cố định `crypto/subtle.ConstantTimeCompare` để loại trừ tấn công vét cạn theo thời gian (Timing Attack).
+Inbound: Fulfillment/Shipping/Inventory/Channel/Profile/Care/Payment adapters kiểm tra source ACL, resource association, event schema và source sequence. Khác topic/key (shipping tracking_code, profile customer_id) không có global order; Inbox + deferred protocol xử lý việc đến lệch thứ tự.
 
----
+## 8. Security và observability trên transport
 
-### 8.5. Tích Hợp Mặt Phẳng Kiểm Toán & Giám Sát Viễn Trắc (Audit & Observability)
+TLS/mTLS hoặc authenticated internal token theo deployment đã kiểm chứng; không gửi internal token tới browser. Profile hiện yêu cầu `x-internal-token` gRPC, customer ID đúng, deadline server 2 giây; không tự giả định Profile đã có mTLS. Rate-limit riêng Guest proof/webhook/list; body/raw signature bytes giới hạn. JWKS cache có rotation và fail-closed policy cho key lạ.
 
-- **Mặt Phẳng Kiểm Toán (Audit Plane):** Mọi thao tác hủy đơn, duyệt hoàn tiền, điều chỉnh giá đều xuất bản sự kiện sang `audit.events.v1` kèm chuỗi băm Tamper-Evident Hash Chain SHA-256.
-- **Mặt Phẳng Viễn Trắc (Observability Plane):** Tự động lan truyền W3C `traceparent` qua gRPC Metadata và Kafka Headers; đẩy tín hiệu OTLP sang OpenTelemetry Collector.
+Logs chỉ dùng request/order/payment/saga references, state, error code, duration; không dùng order/customer ID làm metric label. Traces W3C qua HTTP/gRPC/Kafka, redact PII. Metrics gồm query/checkout latency theo method/channel, pending/finalizing ages, outbox lag, saga UNKNOWN, reconciliation count, refund UNKNOWN, inbox deferred/DLQ, SLA overdue. Health live chỉ process; readiness kiểm DB và khả năng durable accept. Broker down làm backlog, không tự phủ định DB đã commit.

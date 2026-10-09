@@ -117,3 +117,11 @@ npx @graphql-tools/mock-cli docs/03_api_specs/schema.graphql --port 4000
 3. [openapi_d2c.yaml](./openapi_d2c.yaml): Đặc tả chuẩn OpenAPI 3.0 cho Tầng Biên REST API & Webhooks (37 endpoints, 9 nhóm thẻ nghiệp vụ, 46 schemas).
 4. [schema.graphql](./schema.graphql): Đặc tả GraphQL Schema cho Mobile BFF (Backend-For-Frontend) tối ưu mạng 4G cho Native Mobile App (NFR-02).
 
+
+## MS-04 Order implementation 3.1
+
+- [Order REST](order-service.openapi.yaml): async checkout operations và guarded commands.
+- [Stateful sandbox dependencies](order-sandbox-dependencies.openapi.yaml): terminal stock/payment/refund/source protocols.
+- [Runtime/evidence](../02_architecture/services/order-service/08_implementation_and_acceptance.md).
+
+Order v2 facts dùng schema riêng; D2C spec tổng hợp cũ chưa được tự thay thế cho các service khác.

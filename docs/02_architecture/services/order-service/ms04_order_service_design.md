@@ -1,1476 +1,1009 @@
-# TÀI LIỆU THIẾT KẾ KIẾN TRÚC CHI TIẾT (LOW-LEVEL DESIGN - LLD): MS-04 ORDER SERVICE
-## TRÁI TIM HỆ SINH THÁI THƯƠNG MẠI ĐIỆN TỬ & ĐIỀU PHỐI SAGA — MÈ XỬNG O MẠ
-### PHIÊN BẢN: 2.0 (PRODUCTION & IMPLEMENTATION-READY SPECIFICATION)
+# MS-04 Order Service — thiết kế và implementation 3.1
+
+[Chỉ mục](README.md) · [Code và cách chạy](../../../../services/order-service/README.md)
 
 ---
 
-> **QUY CHUẨN TIẾN TRÌNH THIẾT KẾ (DESIGN METHODOLOGY STANDARD):**
-> Tài liệu này tuân thủ nghiêm ngặt **Tiến trình Thiết kế Kỹ thuật 11 Bước Tuần Tự (Strict 11-Step Software Engineering Design Flow)** theo nguyên lý Domain-Driven Design (DDD), Clean / Hexagonal Architecture và Distributed Systems Engineering Patterns.
-> Tuyệt đối **không nhảy cóc giai đoạn**:
-> 1. *Xác lập Biên giới & Ranh giới Sở hữu Dữ liệu (Bounded Context & Scope Isolation)* $\rightarrow$
-> 2. *Mô hình hóa Miền Nghiệp vụ Cốt lõi (Domain Model, Entities & Value Objects)* $\rightarrow$
-> 3. *Máy Trạng Thái & Vòng Đời Thực Thể (State Machine & Lifecycle Transitions)* $\rightarrow$
-> 4. *Mô hình Hóa Dữ liệu Quan hệ & Bộ đệm (Database Schema DDL & Cache Storage)* $\rightarrow$
-> 5. *Trừu tượng hóa Tầng Lưu trữ (Repository & Data Access Interfaces)* $\rightarrow$
-> 6. *Tầng Ứng dụng & Động cơ Điều phối Saga (Application Use Cases & Saga Orchestration Engine)* $\rightarrow$
-> 7. *Tầng Vận chuyển & Đặc tả Hợp đồng Giao tiếp (Delivery Layer, API, gRPC & Kafka Contracts)* $\rightarrow$
-> 8. *Cơ chế Kỹ thuật Xuyên suốt & Phòng vệ (Cross-Cutting Concerns & Defensive Engineering)* $\rightarrow$
-> 9. *Quy hoạch Cấu trúc Thư mục Dự án (Project Directory & Code Blueprint)* $\rightarrow$
-> 10. *Chiến lược Kiểm thử & Ma trận Truy vết Yêu cầu (Testing Specification & Traceability Matrix)* $\rightarrow$
-> 11. *Ma Trận Sự Cố & Phục Hồi Phân Tán (Distributed Failure & Recovery Matrix)*.
+# MS-04 — implementation 3.1 và release gates
 
----
+**09/10/2026.** Đây là nguồn mô tả code hiện tại, thay thế các đoạn candidate v3.0 còn ghi Order DRAFT tại acceptance, PAID trước voucher finalize hoặc checkout p95 là toàn bộ Saga. Backend chạy ở **sandbox**; dependencies có trạng thái và provider ledger độc lập. Production startup bị từ chối vì chưa có bộ adapter thật được kiểm chứng.
 
-## MỤC LỤC CHI TIẾT
+## 1. Tài nguyên và transaction
 
-- [1. BƯỚC 1: XÁC LẬP BIÊN GIỚI & RANH GIỚI SỞ HỮU DỮ LIỆU (BOUNDED CONTEXT & SCOPE ISOLATION)](#1-bước-1-xác-lập-biên-giới--ranh-giới-sở-hữu-dữ-liệu-bounded-context--scope-isolation)
-  - [1.1. Bounded Context & Định Vị Hệ Thống](#11-bounded-context--định-vị-hệ-thống)
-  - [1.2. Ranh Giới Bất Biến & Quyền Sở Hữu Dữ Liệu (Data Ownership Boundaries)](#12-ranh-giới-bất-biến--quyền-sở-hữu-dữ-liệu-data-ownership-boundaries)
-  - [1.3. Chính Sách Bảo Mật PII & Trade-off Tính Sẵn Sàng (PII Policy & Availability Trade-off)](#13-chính-sách-bảo-mật-pii--trade-off-tính-sẵn-sàng-pii-policy--availability-trade-off)
-  - [1.4. Lựa Chọn Công Nghệ & Ràng Buộc Kỹ Thuật (Tech Stack Selection)](#14-lựa-chọn-công-nghệ--ràng-buộc-kỹ-thuật-tech-stack-selection)
-- [2. BƯỚC 2: MÔ HÌNH HÓA MIỀN NGHIỆP VỤ CỐT LÕI (DOMAIN MODEL, ENTITIES & VALUE OBJECTS)](#2-bước-2-mô-hình-hóa-miền-nghiệp-vụ-cốt-lõi-domain-model-entities--value-objects)
-  - [2.1. Thuật Ngữ Nghiệp Vụ Chuẩn Hóa (Ubiquitous Language)](#21-thuật-ngữ-nghiệp-vụ-chuẩn-hóa-ubiquitous-language)
-  - [2.2. Aggregate Root: `Order`](#22-aggregate-root-order)
-  - [2.3. Entities Thuộc Aggregate](#23-entities-thuộc-aggregate)
-  - [2.4. Value Objects Bất Biến (Immutable Value Objects)](#24-value-objects-bất-biến-immutable-value-objects)
-  - [2.5. Mô Hình 3 Trạng Thái Tồn Kho Phân Tán (The 3-State Inventory Model)](#25-mô-hình-3-trạng-thái-tồn-kho-phân-tán-the-3-state-inventory-model)
-  - [2.6. Các Bất Biến Nghiệp Vụ Miền (Domain Invariants)](#26-các-bất-biến-nghiệp-vụ-miền-domain-invariants)
-- [3. BƯỚC 3: MÁY TRẠNG THÁI & VÒNG ĐỜI THỰC THỂ (STATE MACHINE & LIFECYCLE TRANSITIONS)](#3-bước-3-máy-trạng-thái--vòng-đời-thực-thể-state-machine--lifecycle-transitions)
-  - [3.1. Sơ Đồ Chuyển Trạng Thái Đơn Hàng Hoàn Chỉnh (Order State Machine FSM)](#31-sơ-đồ-chuyển-trạng-thái-đơn-hàng-hoàn-chỉnh-order-state-machine-fsm)
-  - [3.2. Sơ Đồ Máy Trạng Thái Saga (Saga Lifecycle State Machine)](#32-sơ-đồ-máy-trạng-thái-saga-saga-lifecycle-state-machine)
-  - [3.3. Ma Trận Chuyển Trạng Thái Hợp Lệ, Điều Kiện Bảo Vệ & Side Effects](#33-ma-trận-chuyển-trạng-thái-hợp-lệ-điều-kiện-bảo-vệ--side-effects)
-  - [3.4. Cơ Chế Giải Quyết Tranh Chấp Trạng Thái Cạnh Tranh (Payment vs Timeout Race Condition)](#34-cơ-chế-giải-quyết-tranh-chấp-trạng-thái-cạnh-tranh-payment-vs-timeout-race-condition)
-- [4. BƯỚC 4: MÔ HÌNH HÓA DỮ LIỆU QUAN HỆ & BỘ ĐỆM (DATABASE SCHEMA DDL & CACHE STORAGE)](#4-bước-4-mô-hình-hóa-dữ-liệu-quan-hệ--bộ-đệm-database-schema-ddl--cache-storage)
-  - [4.1. Sơ Đồ Thực Thể - Liên Kết (ERD)](#41-sơ-đồ-thực-thể---liên-kết-erd)
-  - [4.2. Chiến Lược Sinh Khóa Chính UUID v7](#42-chiến-lược-sinh-khóa-chính-uuid-v7)
-  - [4.3. Kịch Bản DDL Chi Tiết (PostgreSQL 16 Production Script)](#43-kịch-bản-ddl-chi-tiết-postgresql-16-production-script)
-  - [4.4. Mô Hình Dữ Liệu Bộ Đệm & Phiên (Redis Data Schema)](#44-mô-hình-dữ-liệu-bộ-đệm--phiên-redis-data-schema)
-- [5. BƯỚC 5: TRỪU TƯỢNG HÓA TẦNG LƯU TRỮ (REPOSITORY & DATA ACCESS INTERFACES)](#5-bước-5-trừu-tượng-hóa-tầng-lưu-trữ-repository--data-access-interfaces)
-  - [5.1. Định Nghĩa Trừu Tượng Database Transaction (`DBTX`)](#51-định-nghĩa-trừu-tượng-database-transaction-dbtx)
-  - [5.2. `OrderRepository` Interface](#52-orderrepository-interface)
-  - [5.3. `SagaRepository` Interface](#53-sagarepository-interface)
-  - [5.4. `OutboxRepository` Interface](#54-outboxrepository-interface)
-  - [5.5. `CartRepository` Interface](#55-cartrepository-interface)
-- [6. BƯỚC 6: TẦNG ỨNG DỤNG & ĐỘNG CƠ ĐIỀU PHỐI SAGA (APPLICATION USE CASES & SAGA ENGINE)](#6-bước-6-tầng-ứng-dụng--động-cơ-điều-phối-saga-application-use-cases--saga-engine)
-  - [6.1. Kiến Trúc Phân Lớp Bên Trong: Order Domain vs Saga Orchestrator](#61-kiến-trúc-phân-lớp-bên-trong-order-domain-vs-saga-orchestrator)
-  - [6.2. Dự Toán Độ Trễ Thực Thi (Checkout Latency Budget cho P95 < 200ms)](#62-dự-toán-độ-trễ-thực-thi-checkout-latency-budget-cho-p95--200ms)
-  - [6.3. Use Case 1: `CheckoutD2CUseCase` (Critical Path Synchronous)](#63-use-case-1-checkoutd2cusecase-critical-path-synchronous)
-  - [6.4. Use Case 2: `VietQRWebhookCallbackUseCase` (Chốt Luật Khớp Số Tiền Tuyệt Đối)](#64-use-case-2-vietqrwebhookcallbackusecase-chốt-luật-khớp-số-tiền-tuyệt-đối)
-  - [6.5. Use Case 3: `OrderTimeoutCancelCompensationUseCase` (Đền Bù Tập Trung Model A)](#65-use-case-3-ordertimeoutcancelcompensationusecase-đền-bù-tập-trung-model-a)
-  - [6.6. Use Case 4: `MarketplaceInboundSagaUseCase` (Tiếp Nhận Đơn Sàn & Khóa Tồn Tập Trung)](#66-use-case-4-marketplaceinboundsagausecase-tiếp-nhận-đơn-sàn--khóa-tồn-tập-trung)
-  - [6.7. Use Case 5: `CreatePOSOrderUseCase` (Bán Trực Tiếp Tại Quầy Xưởng Hương Thủy)](#67-use-case-5-createposorderusecase-bán-trực-tiếp-tại-quầy-xưởng-hương-thủy)
-- [7. BƯỚC 7: TẦNG VẬN CHUYỂN & ĐẶC TẢ HỢP ĐỒNG GIAO TIẾP (DELIVERY LAYER & CONTRACTS)](#7-bước-7-tầng-vận-chuyển--đặc-tả-hợp-đồng-giao-tiếp-delivery-layer--contracts)
-  - [7.1. Cổng Biên HTTP RESTful APIs (North - South via Kong Gateway)](#71-cổng-biên-http-restful-apis-north---south-via-kong-gateway)
-  - [7.2. Cổng Nội Bộ gRPC Services (East - West Server)](#72-cổng-nội-bộ-grpc-services-east---west-server)
-  - [7.3. Hợp Đồng Gọi gRPC Ngoại Vi (East - West Client on Critical Path)](#73-hợp-đồng-gọi-grpc-ngoại-vi-east---west-client-on-critical-path)
-  - [7.4. Danh Mục Sự Kiện Kafka Xuất Bản (Transactional Outbox Producer)](#74-danh-mục-sự-kiện-kafka-xuất-bản-transactional-outbox-producer)
-  - [7.5. Danh Mục Sự Kiện Kafka Tiêu Thụ (Inbound Consumer)](#75-danh-mục-sự-kiện-kafka-tiêu-thụ-inbound-consumer)
-- [8. BƯỚC 8: CƠ CHẾ KỸ THUẬT XUYÊN SUỐT & PHÒNG VỆ (CROSS-CUTTING CONCERNS)](#8-bước-8-cơ-chế-kỹ-thuật-xuyên-suốt--phòng-vệ-cross-cutting-concerns)
-  - [8.1. Đảm Bảo At-least-once Delivery & Idempotent Consumer (Effectively-once Business Outcome)](#81-đảm-bảo-at-least-once-delivery--idempotent-consumer-effectively-once-business-outcome)
-  - [8.2. Hệ Thống Idempotency Đa Tầng (Multi-Tier Idempotency Shield)](#82-hệ-thống-idempotency-đa-tầng-multi-tier-idempotency-shield)
-  - [8.3. Chiến Lược Cầu Dao Ngắt Mạch & Quá Giờ Nghiêm Ngặt (Circuit Breaker & Strict Timeout)](#83-chiến-lược-cầu-dao-ngắt-mạch--quá-giờ-nghiêm-ngặt-circuit-breaker--strict-timeout)
-  - [8.4. Bảo Mật Zero-Trust & Xác Thực Webhook HMAC-SHA256](#84-bảo-mật-zero-trust--xác-thực-webhook-hmac-sha256)
-  - [8.5. Tích Hợp Mặt Phẳng Kiểm Toán & Giám Sát Viễn Trắc (Audit & Observability)](#85-tích-hợp-mặt-phẳng-kiểm-toán--giám-sát-viễn-trắc-audit--observability)
-- [9. BƯỚC 9: QUY HOẠCH CẤU TRÚC THƯ MỤC DỰ ÁN (PROJECT DIRECTORY & CODE BLUEPRINT)](#9-bước-9-quy-hoạch-cấu-trúc-thư-mục-dự-án-project-directory--code-blueprint)
-- [10. BƯỚC 10: CHIẾN LƯỢC KIỂM THỬ & MA TRẬN TRUY VẾT YÊU CẦU (TESTING & TRACEABILITY)](#10-bước-10-chiến-lược-kiểm-thử--ma-trận-truy-vết-yêu-cầu-testing--traceability)
-  - [10.1. Danh Mục 4 Kịch Bản Kiểm Thử Phân Tán Sống Còn (Distributed Concurrency Tests)](#101-danh-mục-4-kịch-bản-kiểm-thử-phân-tán-sống-còn-distributed-concurrency-tests)
-  - [10.2. Ma Trận Ánh Xạ Truy Vết Yêu Cầu Chức Năng (FR Traceability Matrix)](#102-ma-trận-ánh-xạ-truy-vết-yêu-cầu-chức-năng-fr-traceability-matrix)
-  - [10.3. Ma Trận Ánh Xạ Yêu Cầu Phi Chức Năng (NFR Traceability Matrix)](#103-ma-trận-ánh-xạ-yêu-cầu-phi-chức-năng-nfr-traceability-matrix)
-- [11. BƯỚC 11: MA TRẬN SỰ CỐ & PHỤC HỒI PHÂN TÁN (DISTRIBUTED FAILURE & RECOVERY MATRIX)](#11-bước-11-ma-trận-sự-cố--phục-hồi-phân-tán-distributed-failure--recovery-matrix)
-
----
-
-## 1. BƯỚC 1: XÁC LẬP BIÊN GIỚI & RANH GIỚI SỞ HỮU DỮ LIỆU (BOUNDED CONTEXT & SCOPE ISOLATION)
-
-Trước khi bắt tay vào thiết kế bất kỳ thực thể hay bảng cơ sở dữ liệu nào, nguyên tắc tối thượng của kiến trúc phân tán là **phải thiết lập ranh giới cô lập (Boundary Isolation)**: xác định rõ trách nhiệm cốt lõi, quyền sở hữu dữ liệu độc quyền, và đặc biệt là **những gì dịch vụ TUYỆT ĐỐI CẤM LÀM**.
-
-```text
-                                       KONG API GATEWAY
-                                              │
-                      ┌───────────────────────┴───────────────────────┐
-                      │ HTTP REST (North-South)                       │ GraphQL (BFF)
-                      ▼                                               ▼
-         ┌─────────────────────────────────────────────────────────────────────────┐
-         │                    MS-04: ORDER SERVICE (CORE DOMAIN)                   │
-         │  ┌───────────────────────────────┐     ┌─────────────────────────────┐  │
-         │  │     ORDER DOMAIN ENGINE       │     │      SAGA ORCHESTRATOR      │  │
-         │  │  • Quản lý Aggregate Order    │     │  • Điều phối Checkout Saga  │  │
-         │  │  • Snapshots bất biến         │     │  • Quản lý saga_instances   │  │
-         │  │  • Tính toán số học Money     │     │  • Kích hoạt đền bù tập trung│  │
-         │  │  • FSM Order Transitions      │     │    (Centralized Model A)    │  │
-         │  └───────────────────────────────┘     └─────────────────────────────┘  │
-         └────────┬─────────────────────┬───────────────────────┬──────────────────┘
-                  │ gRPC (Critical)     │ gRPC (Critical)       │ Kafka Events (Async)
-                  ▼                     ▼                       ▼
-         MS-01: INVENTORY       MS-05: CATALOG          APACHE KAFKA BROKER CLUSTER
-         (Port: 8001)           (Port: 8005)            (order.events.v1)
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant A as Order HTTP
+    participant DB as Order PostgreSQL
+    participant W as Worker
+    participant D as Stateful dependencies
+    C->>A: POST checkout + X-Idempotency-Key + quote reference
+    A->>A: verify principal / owned server-issued quote
+    A->>DB: operation + encrypted accepted input + registry + audit
+    DB-->>A: commit
+    A-->>C: 202 + Location checkout-operations/id
+    C->>A: GET checkout-operations/id
+    A-->>C: status, order_id=null while not placed
+    W->>DB: claim lease + epoch
+    W->>D: coherent Catalog snapshot / Shipping quote
+    W->>DB: persist canonical data and reserve intent
+    W->>D: reserve(planned_order_id, stable key)
+    W->>DB: Order + immutable items + history + outbox + operation SUCCEEDED
+    C->>A: GET checkout-operations/id
+    A-->>C: SUCCEEDED + real order_id + order_status
 ```
 
-### 1.1. Bounded Context & Định Vị Hệ Thống
-- **Mã định danh:** `MS-04` | **Tên dịch vụ:** `order-service`
-- **Bounded Context:** `BC-04: Omnichannel Commerce & Order Orchestration Context`
-- **Phân loại Domain:** 🔴 **Core Domain** — Trái tim vận hành của toàn bộ hệ sinh thái Mè Xửng O Mạ.
-- **Cổng giao tiếp mạng:**
-  - **Port gRPC nội bộ (East-West Server):** `8004` (Tiếp nhận `CreatePOSOrder` từ POS quầy xưởng MS-13, `GetOrderDetail`, `CancelOrder`).
-  - **Port HTTP REST (North-South via Kong Gateway):** `8004` (Ánh xạ các endpoint `/api/v1/checkout`, `/api/v1/orders/**`, `/api/v1/cart/**`, `/api/v1/payments/vietqr/callback`).
-- **Cơ sở dữ liệu độc lập (Shared-Nothing Architecture):**
-  - **Primary Relational DB:** PostgreSQL 16 (`order_db`) — Lưu trữ đơn hàng, mặt hàng, giao dịch thanh toán, outbox events, saga states.
-  - **Distributed Cache & Session Store:** Redis Cluster 7 (`order_cache`) — Quản lý giỏ hàng, checkout token, idempotency keys, distributed lock.
+Operation UUID và planned Order UUID được sinh/lưu trước acquisition. Planned UUID chỉ là correlation nội bộ; `order_id` public NULL cho đến transaction tạo Order commit. Validation failure không để lại Order. Compensation UNKNOWN giữ obligation trong WAITING_RETRY/COMPENSATING/MANUAL_REVIEW.
+
+Operation states: ACCEPTED, PROCESSING, WAITING_RETRY, COMPENSATING, SUCCEEDED, FAILED, MANUAL_REVIEW. Worker dùng lease 10 giây, epoch tăng; stale worker không thể ghi kết quả. External keys không thay đổi khi retry hoặc operator resume. HTTP request không chờ canonical calls/Saga.
+
+## 2. Idempotency, quote và Cart
+
+| Điều kiện | POST replay |
+| --- | --- |
+| Key mới, acceptance hợp lệ | 202 + operation mới |
+| Cùng scope/key/hash, chưa terminal | 202 + operation cũ |
+| Cùng scope/key/hash, SUCCEEDED | 201 + kết quả/Order cũ |
+| Cùng key, hash khác | 409 IDEMPOTENCY_CONFLICT |
+| Cùng key/hash, FAILED | HTTP error đã lưu + operation FAILED |
+| Terminal response hết 7 ngày | 410 IDEMPOTENCY_RESPONSE_EXPIRED + operation reference |
+| Chưa terminal dù response hết hạn | 202, không tạo effect mới |
+
+Registry có minimum tombstone 30 ngày nhưng **không tự xóa/reuse key**. Code chưa tự compact dữ liệu PII vì policy retention riêng chưa chốt; operation status tối thiểu và nghĩa vụ đang chạy phải giữ bền vững.
+
+Cart là Redis session có revision và TTL 30 ngày; item ID là SKU ổn định do server trả. Quote preview trong Redis được mã hóa AEAD, có scope/principal và TTL 5 phút. Handler xác minh quote server, ownership, method/revision và expiry theo DB acceptance time. Browser không quyết định giá/tổng tiền.
+
+Accepted input/quote lưu encrypted trong PostgreSQL. Sau commit, mất Redis không mất dữ liệu resume. Worker bỏ qua preview expiry đã qua nhưng revalidate thương mại; giá/phí đổi trả PRICE_CHANGED thay vì tự thu tổng mới. Catalog simulator dùng repeatable-read batch và lưu canonical snapshot có ID/validity; Shipping trả quote reference/expiry. Payment expiry lấy min Inventory, Catalog, Shipping và commercial confirmation 15 phút.
+
+Saved address adapter có hai chế độ: simulator, hoặc HTTP Profile hiện có với `PROFILE_URL` và credential `PROFILE_INTERNAL_TOKEN` riêng. Profile lookup kiểm user/customer/address/version. Default stack dùng simulator; không công bố đã chạy integration với Profile thật. Phone đầu vào Guest được chuẩn hóa về E.164; administrative fixture `75/HUE-01` là dữ liệu synthetic.
+
+## 3. Financial truth và fulfillment
+
+Provider ledger nằm trong database `order_simulator`, độc lập với Order DB `order_runtime`. Payment/refund SUCCEEDED là sự thật ledger, không phụ thuộc callback/HTTP ACK. Statement có commit-ordered cursor; cursor Order chỉ advance sau khi từng receipt có durable local outcome. Vì vậy callback mất ở đơn đã hủy hoặc reference unmatched vẫn được ghi nhận.
+
+Receipt unique(provider, transaction ID); duplicate khác normalized hash gây conflict/audit. Chỉ exact VND/receiver/reference/policy mới allocate. Thiếu/thừa/nhiều khoản/late/unmatched vào reconciliation. Refund giữ budget trước RPC; UNKNOWN vẫn chiếm nghĩa vụ, query trước submit, stable provider key chống hoàn tiền lặp.
+
+```text
+PAID ⇒ provider receipt SUCCEEDED đã xác minh
+     ∧ allocation đủ final
+     ∧ stock COMMITTED
+     ∧ voucher finalized nếu tính năng đó được bật
+```
+
+Voucher hiện bị từ chối bằng VOUCHER_FEATURE_DISABLED. Paid mutation, history và paid outbox cùng transaction. Fulfillment-ready là event/authorization riêng; COD CONFIRMED_COD vẫn UNPAID. Source simulator kiểm current Order eligibility/generation khi nhận task, nên cached ready không bỏ qua hold.
+
+Cancel worker lấy terminal accept/cancel barrier trước release/reversal; COMMITTED không dùng active reservation release. COD đã settled yêu cầu cancellation review. Paid cancellation không tự refund; Care approval cho refund là nghĩa vụ độc lập. Refund approval đặt hold, không tự restock hoặc quay PROCESSING.
+
+Shipping CREATED chỉ cập nhật reference; DISPATCHED mới SHIPPED. Source messages dùng HMAC trên normalized event (signature field rỗng khi tính MAC), secret sandbox và source/resource query độc lập; message thiếu/sai signature bị từ chối hoặc quarantine trước commit offset. Đây là contract simulator, chưa thay thế authentication của adapter thật. Inbox + source version + association guards chống duplicate/stale và giữ DEFERRED khi thiếu prerequisite. Completion cần Care barrier, hết cửa sổ 7 ngày, payment phù hợp và không có refund obligation chưa terminal. Care simulator serialize case-open/completion decision; post-completion return policy cần feature riêng.
+
+## 4. Contract và code
+
+- [REST contract](../../../03_api_specs/order-service.openapi.yaml).
+- [Dependency simulator contract](../../../03_api_specs/order-sandbox-dependencies.openapi.yaml).
+- [Service README](../../../../services/order-service/README.md).
+- Order gRPC đăng ký thật: GetOrderDetail, CancelOrder, GetCheckoutOperation; requesting_user_id không thay thế bearer identity. CreatePOSOrder trả FEATURE_DISABLED.
+- Inventory simulator đăng ký RPC reserve/release/query/finalize/reversal cùng ledger HTTP; FEFO/batch RPC trả Unimplemented rõ ràng.
+- Event v2 schemas ở `packages/events/schemas/order/v2`, không sửa breaking v1. Payload fact chỉ references/version/state, không Direct PII.
+- Code: domain thuần; app chứa orchestration/transactional persistence và external clients; transport HTTP/gRPC; simulator độc lập; migrations forward có version lock. Go-generated files được kiểm drift trong CI.
+
+HTTP sandbox: 18004; Order gRPC: 19004; simulator HTTP: 18104; Inventory gRPC: 19104; PostgreSQL: 15434; Redis: 16384; Kafka: 19094. Host ports chỉ bind 127.0.0.1.
+
+## 5. Evidence và priority
+
+[Gate matrix và kết quả](../../../04_testing/order-service/03_implementation_verification.md) ghi tests theo v1.0/v1.1/v1.2 và evidence thực tế. Race suite dùng schema riêng cho mỗi harness, Redis DB1 và Kafka thật; không sửa Profile DB hoặc dữ liệu sandbox API DB0.
+
+P0: ownership, money/stock invariants, durable recovery và chống trùng. P1: contracts, API/release behavior, regression/evidence. P2: dataset lớn, scale/HA, PITR/full restore, tracing exporter và tối ưu. Các tests chưa chạy ghi NOT_RUN; adapters thật ghi BLOCKED_BY_CONTRACT. Không diễn giải simulator PASS thành production-ready.
+
+Acceptance histogram đo từ đầu HTTP middleware đến khi response đã được ghi, gồm auth và durable commit. Completion đo acceptance → operation terminal an toàn; payment finalization đo receipt → PAID. HTTP deadline 3s, outbound RPC/HTTP attempt 2s là fault limits. Backlog gauges dùng timestamp gốc, không reset tuổi nghĩa vụ mỗi retry. Availability 99.9% và SLO dưới tải production chưa được chứng minh.
+
+Audit local append-only + HMAC chain kiểm sự thay đổi nội dung/mất mắt xích. External anchoring/MS-18 cần thêm để chứng minh xóa phần đuôi bởi privileged actor; không coi local hash chain là bằng chứng đầy đủ cho mọi kiểu tampering.
+
 
 ---
 
-### 1.2. Ranh Giới Bất Biến & Quyền Sở Hữu Dữ Liệu (Data Ownership Boundaries)
-Tuân thủ cam kết tại [`service_boundary.md`](../service_boundary.md) và [`bounded_context.md`](../bounded_context.md), `order-service` thiết lập 5 nguyên tắc sở hữu thép:
+> **Implementation 3.1 — 09/10/2026:** [08_implementation_and_acceptance.md](08_implementation_and_acceptance.md) là nguồn hành vi hiện tại. Acceptance tạo checkout operation, chưa tạo Order; PAID và outbox chờ terminal stock/voucher outcome. Các đoạn v3.0 khác mô tả candidate cần đọc cùng cập nhật này.
 
-| Dữ Liệu / Trách Nhiệm | Thuộc Về MS-04 `order-service`? | Đơn Vị Sở Hữu Chính Thức | Lý Do Kiến Trúc & Ranh Giới Bất Khả Xâm Phạm |
-| :--- | :---: | :--- | :--- |
-| **Vòng đời trạng thái đơn hàng (`OrderStatus`)** | ✅ **SỞ HỮU DUY NHẤT** | MS-04 `order-service` | Là Single Source of Truth cho trạng thái đơn. Không service nào khác được ghi/sửa trực tiếp trạng thái đơn. |
-| **Bản chụp thương mại (Snapshots)** | ✅ **SỞ HỮU DUY NHẤT** | MS-04 `order-service` | Chụp lại giá, tên kẹo, chiết khấu và địa chỉ giao hàng tại thời điểm bấm đặt hàng để bảo toàn giá trị pháp lý. |
-| **Điều phối giao dịch phân tán (Saga Orchestration)** | ✅ **SỞ HỮU DUY NHẤT** | MS-04 `order-service` | Thực thi nguyên tắc **Centralized Compensation (Model A)**: Độc quyền phát hiện lỗi/timeout và trực tiếp gọi lệnh hoàn tác kho/voucher. |
-| **Số lượng hàng tồn kho vật lý & Lô hạn dùng (FEFO)** | ❌ **CẤM SỞ HỮU** | MS-01 `inventory-service` | MS-04 chỉ gửi yêu cầu `ReserveStock` và `ReleaseReservation` qua gRPC; tuyệt đối cấm truy cập trực tiếp bảng tồn kho. |
-| **Giá niêm yết gốc & Quy cách sản phẩm** | ❌ **CẤM SỞ HỮU** | MS-05 `catalog-service` | MS-04 chỉ thẩm định giá gửi lên qua gRPC `ValidatePriceAndSKU` đối chiếu với Catalog gốc. |
-| **Ngân sách voucher & Điểm tích lũy Loyalty** | ❌ **CẤM SỞ HỮU** | MS-07 `promotion-service` | MS-04 gọi gRPC khóa voucher và gửi sự kiện `OrderPaidEvent` để Promotion tự tích điểm 1% loyalty. |
-| **Đóng gói tại xưởng & Video kiểm định** | ❌ **CẤM SỞ HỮU** | MS-02 `fulfillment-service` | Xưởng Huế tự tiêu thụ `OrderPaidEvent` từ Kafka để đóng kẹo; không làm nghẽn luồng checkout của khách. |
-| **Vận đơn 3PL & Lộ trình giao hàng** | ❌ **CẤM SỞ HỮU** | MS-12 `shipping-service` | MS-12 làm việc trực tiếp với GHN/ViettelPost và phát Kafka event báo bưu tá đã giao hàng. |
+# 01 — Domain model và ranh giới Order Service
 
----
+[Chỉ mục](README.md) · [Tiếp: State machine](02_state_machine_and_lifecycle.md)
 
-### 1.3. Chính Sách Bảo Mật PII & Trade-off Tính Sẵn Sàng (PII Policy & Availability Trade-off)
+## 1. Ranh giới chức năng và quyền sở hữu
 
-#### 1.3.1. Phân Định Danh Mục Dữ Liệu Rõ Ràng (PII Classification)
-Nhằm tránh mâu thuẫn khái niệm, tài liệu chuẩn hóa 3 cấp độ định danh:
-- **Direct PII (Thông tin định danh trực tiếp cá nhân):** Họ và tên khách hàng, số điện thoại, số nhà/tên đường cụ thể, tọa độ GPS chính xác. $\rightarrow$ **TUYỆT ĐỐI KHÔNG ĐƯỢC XUẤT HIỆN TRÊN KAFKA EVENT STREAM.**
-- **Internal / Business Identifiers (Mã định danh nội bộ hệ thống):** `order_id`, `customer_id` (UUID v7 ẩn danh), `shipping_address_id` (Khóa ngoại tham chiếu snapshot). $\rightarrow$ **ĐƯỢC PHÉP NẰM TRONG KAFKA PAYLOAD** để các consumer định tuyến xử lý nghiệp vụ.
-- **Aggregated / Business Metrics:** Doanh thu, số lượng hộp kẹo, kênh bán, mã voucher. $\rightarrow$ **CÔNG KHAI NỘI BỘ TRÊN EVENT STREAM.**
+MS-04 thuộc BC-04 Commerce & Order Orchestration. EPIC là ranh giới nghiệp vụ, không nhất thiết mỗi Epic là một process. Cart, Checkout, Order và Payment component có use case riêng dù dùng chung database trong lựa chọn v3.0.
 
-#### 1.3.2. Quyết Định Kiến Trúc: Option A (Privacy-First) & Đánh Đổi Tính Sẵn Sàng (Availability Trade-off)
-Hệ sinh thái Mè Xửng O Mạ lựa chọn **Option A — Privacy-First**:
-- Payload của sự kiện `OrderPaidEvent` chỉ chứa `shipping_address_id`.
-- Khi `fulfillment-service` cần in tem dán gói kẹo hoặc `shipping-service` cần tạo vận đơn bưu cục, chúng sẽ gọi gRPC `GetOrderDetail` sang `order-service` để lấy địa chỉ nhận hàng.
-- **Phân tích Đánh đổi (Trade-off):**
-  - *Ưu điểm:* Loại bỏ 100% rủi ro rò rỉ dữ liệu cá nhân (Data Leakage) sang các consumer không cần thiết như `inventory-service`, `finance-service`, `analytics-service`.
-  - *Rủi ro (Runtime Coupling):* Nếu `order-service` gặp sự cố mạng tạm thời, `fulfillment-service` không lấy được địa chỉ để in tem.
-  - *Biện pháp Giảm thiểu Kỹ thuật (Mitigation):* 
-    1. `order-service` thiết lập bộ đệm L2 Cache trên Redis cho `AddressSnapshot` với TTL 48 giờ.
-    2. Consumer `fulfillment-service` cài đặt cơ chế Retry with Exponential Backoff + Jitter cho cuộc gọi gRPC lấy địa chỉ, đảm bảo khi `order-service` hồi phục thì việc in tem tiếp tục trơn tru mà không làm rơi rớt dữ liệu.
+| Thành phần | Sở hữu | Không thực hiện |
+| --- | --- | --- |
+| Cart | Danh sách SKU/quantity, revision, phiên Guest/Customer | Giữ kho khi thêm vào giỏ; coi giá cache là giá thanh toán |
+| Checkout | Quote, kiểm tra địa chỉ/giá/phí, chốt snapshot, saga giữ tài nguyên | Tin tổng tiền của browser; tự tuyên bố thanh toán thành công |
+| Order | Order status, owner, snapshot, timeline, SLA, quyền thao tác | Ghi trực tiếp DB của service khác |
+| Payment component | Intent, provider receipt, allocation, reconciliation, refund execution | Tự phê duyệt refund; coi trang redirect/ảnh QR là bằng chứng tiền đã thu |
+| Saga orchestrator | Intent, command key, kết quả bước, retry, compensation | Dùng memory/Redis làm nhật ký duy nhất; gọi mạng khi giữ SQL transaction |
+| MS-01 Inventory | Availability, reservation, FEFO, stock commit/release | Cho Order sửa số lượng hoặc tự chọn Batch |
+| MS-07 Promotion | Voucher budget/hold/consume/release, loyalty ledger | Cho Order tự cộng điểm hoặc tự làm tròn voucher khác kết quả chuẩn |
+| MS-15 Profile / Identity | Profile/address book; subject và xác thực | Sửa hồi tố order snapshot khi khách đổi địa chỉ |
+| MS-02 / MS-12 | Packing task/package/video; shipment/checkpoint | Cho generic admin PATCH tự đánh dấu PACKED/DELIVERED |
+| MS-06 Care / MS-09 Finance | Case/decision; accounting và settlement | Đồng nhất Case APPROVED, hàng RETURNED và tiền REFUNDED |
 
----
+D2C HTTP dự kiến dùng port 8004. gRPC dùng listener riêng dự kiến 9004; số này là đề xuất cấu hình, không suy ra service đã mở cổng. Hai listener không bind cùng địa chỉ/port trừ khi có cơ chế multiplex được kiểm chứng.
 
-### 1.4. Lựa Chọn Công Nghệ & Ràng Buộc Kỹ Thuật (Tech Stack Selection)
-- **Ngôn ngữ nền tảng:** **Go (Golang 1.22+)** hoặc **Node.js (TypeScript 5+)** tuân thủ Clean Architecture.
-- **PostgreSQL Driver:** `pgx/v5` (Go) hoặc `pg` pool (Node.js) hỗ trợ kết nối Binary Protocol hiệu năng cao.
-- **Serialization:** Google Protocol Buffers v3 cho giao tiếp nội bộ gRPC; JSON Schema chuẩn CNCF CloudEvents 1.0 cho Apache Kafka.
-- **Bộ đệm & Khóa phân tán:** `go-redis/v9` (hoặc `ioredis`) tương thích Redis Cluster.
-
----
-
-## 2. BƯỚC 2: MÔ HÌNH HÓA MIỀN NGHIỆP VỤ CỐT LÕI (DOMAIN MODEL, ENTITIES & VALUE OBJECTS)
-
-*Theo chuẩn mực Domain-Driven Design, trước khi thiết kế bảng cơ sở dữ liệu (Database Schema), ta bắt buộc phải mô hình hóa miền nghiệp vụ độc lập hoàn toàn với công nghệ hạ tầng (Infrastructure-Agnostic).*
+## 2. Aggregate, entity và value object
 
 ```mermaid
 classDiagram
     class Order {
-        +UUID id
-        +OrderCode orderCode
-        +UUID customerId
-        +Channel channel
-        +OrderStatus status
-        +Money subtotalAmount
-        +Money discountAmount
-        +Money shippingFee
-        +Money finalAmount
-        +AddressSnapshot shippingAddress
-        +VoucherSnapshot appliedVoucher
-        +List~OrderLineItem~ items
-        +List~PaymentTransaction~ payments
-        +int version
-        +DateTime createdAt
-        +DateTime updatedAt
-        +addOrderItem(item)
-        +applyVoucher(voucher)
-        +markPendingPayment()
-        +markPaid(transactionId, amount, provider)
-        +cancel(reason)
-        +calculateTotals()
+        UUID id
+        UUID customerId
+        OrderStatus status
+        int version
+        Money finalAmount
+        Timestamp paymentExpiresAt
+        assertTransition(command)
     }
-
-    class OrderLineItem {
-        +UUID id
-        +string skuCode
-        +string productName
-        +int quantity
-        +Money unitPrice
-        +Money totalPrice
-        +string packagingSpecs
-        +string itemNotes
+    class OrderItem {
+        UUID id
+        string skuCode
+        int quantity
+        Money unitPrice
+        Money lineTotal
     }
-
-    class PaymentTransaction {
-        +UUID id
-        +PaymentProvider provider
-        +string providerTransactionId
-        +PaymentMethod method
-        +PaymentTransactionType type
-        +PaymentStatus status
-        +Money amount
-        +string rawSignature
-        +DateTime executedAt
-    }
-
-    class Money {
-        <<Value Object>>
-        +int64 amount
-        +string currency
-        +add(Money) Money
-        +subtract(Money) Money
-        +multiply(int) Money
-        +equals(Money) bool
-    }
-
     class AddressSnapshot {
-        <<Value Object>>
-        +string recipientName
-        +string phoneNumber
-        +string streetAddress
-        +string wardCode
-        +string wardName
-        +string provinceCode
-        +string provinceName
-        +decimal latitude
-        +decimal longitude
+        UUID id
+        UUID sourceAddressId
+        int sourceVersion
+        string wardCode
+        string provinceCode
+        encrypted recipientAndStreet
     }
-
-    class VoucherSnapshot {
-        <<Value Object>>
-        +string voucherCode
-        +string discountType
-        +Money discountValue
-        +Money appliedAmount
+    class PaymentReceipt {
+        UUID id
+        string providerTransactionId
+        Money receivedAmount
+        ReceiptStatus status
     }
-
-    Order "1" *-- "1..*" OrderLineItem : contains
-    Order "1" *-- "0..*" PaymentTransaction : records history
-    Order o-- AddressSnapshot : snapshots
-    Order o-- VoucherSnapshot : snapshots
-    Order o-- Money : measured in
-    OrderLineItem o-- Money : priced in
-    PaymentTransaction o-- Money : transacted in
+    class Refund {
+        UUID id
+        UUID paymentReceiptId
+        UUID approvalId
+        Money amount
+        RefundStatus status
+    }
+    class SagaInstance {
+        UUID id
+        string type
+        string status
+        int leaseEpoch
+    }
+    Order "1" *-- "1..*" OrderItem
+    Order "1" *-- "0..1" AddressSnapshot
+    Order "1" --> "0..*" PaymentReceipt
+    PaymentReceipt "1" --> "0..*" Refund
+    Order "1" --> "0..*" SagaInstance
 ```
 
-### 2.1. Thuật Ngữ Nghiệp Vụ Chuẩn Hóa (Ubiquitous Language)
-- **Order (Đơn hàng):** Aggregate Root trung tâm, biểu thị giao dịch thương mại hoàn chỉnh.
-- **OrderLineItem (Mặt hàng chi tiết):** Bản chụp cố định của sản phẩm kẹo mè xửng (mã SKU, tên kẹo, đơn giá, quy cách) tại thời điểm khách bấm đặt hàng.
-- **PaymentTransaction (Giao dịch dòng tiền):** Thực thể ghi nhận lịch sử từng lần tương tác thanh toán (lần quét VietQR thử nghiệm, thanh toán thành công, hoặc giao dịch hoàn tiền refund).
-- **Snapshot (Bản chụp bất biến):** Dữ liệu sao chép nguyên trạng tại thời điểm xác nhận checkout, không bị ảnh hưởng nếu dữ liệu gốc ở Catalog hoặc Profile bị thay đổi.
-- **Centralized Compensation (Model A):** Cơ chế điều phối đền bù tập trung: Duy nhất Saga Orchestrator trong `order-service` phát lệnh hoàn tác tài nguyên sang các service vệ tinh.
+Order giữ snapshot và invariant thương mại. PaymentReceipt/Refund là aggregate tài chính liên kết Order, có locking riêng nhưng transaction áp dụng receipt vào Order phải khóa cùng Order. Không load tất cả lịch sử payment vào mỗi lần xem queue. Saga là process manager bền vững, không phải Order status.
 
----
+| Thuật ngữ | Nghĩa chính xác |
+| --- | --- |
+| `order_id` | UUID sinh tại ứng dụng trước khi tạo intent hoặc gọi giữ tài nguyên |
+| `order_code` | Mã cho khách đọc; unique, không dùng làm proof sở hữu |
+| `customer_id` | ID hồ sơ của Profile; `NULL` cho Guest, khác JWT `sub` |
+| `shipping_address_id` trên event | ID snapshot trong Order DB; không phải ID địa chỉ đang sống trong Profile |
+| `reservation_id`, `voucher_lock_id` | Reference tài nguyên do service chủ quản trả về |
+| `payment receipt` | Một khoản tiền thực nhận/đã xác minh; không phải một lần quét QR |
+| `allocation` | Phần receipt được phân bổ vào nghĩa vụ thanh toán Order |
+| `operational_hold` | Chặn tiến trình nghiệp vụ khi cần đối soát; không xóa sự thật tài chính |
 
-### 2.2. Aggregate Root: `Order`
-Thực thể gốc kiểm soát toàn bộ tính toàn vẹn của đơn hàng:
-- **Định danh duy nhất:** `id` (UUID v7 time-ordered) và `order_code` (Mã định dạng thân thiện `ORD-YYYYMMDD-XXXX`).
-- **Chủ sở hữu:** `customer_id` (UUID tham chiếu sang MS-15 Profile Service; `NULL` đối với khách vãng lai `GUEST_CUSTOMER`).
-- **Kênh bán lẻ (`Channel`):** `D2C_WEB`, `D2C_MOBILE`, `POS_OFFLINE`, `MARKETPLACE_SHOPEE`, `MARKETPLACE_TIKTOK`, `B2B_CORPORATE`.
-- **Trạng thái thực thể:** `OrderStatus` (Quản lý chặt chẽ theo máy trạng thái FSM).
-- **Khóa lạc quan CAS (Optimistic Concurrency Control):** Thuộc tính `version` nguyên số tăng dần, giải quyết triệt để tranh chấp cập nhật đồng thời.
+## 3. Snapshot và tiền
 
----
+OrderItem lưu `sku_code`, tên, quy cách, khối lượng, quantity, đơn giá và thành tiền đã kiểm tra; shipping quote lưu carrier/service, phí gốc, quote reference/expiry. VoucherSnapshot lưu loại, số tiền áp dụng, policy version và hold ID. Chỉ một voucher MVP; stacking/loyalty dùng để trả tiền cần chính sách và contract riêng.
 
-### 2.3. Entities Thuộc Aggregate
-1. **`OrderLineItem`:**
-   - Thuộc sở hữu hoàn toàn của `Order`.
-   - `sku_code`, `product_name`, `quantity` ($> 0$), `unit_price` (Money), `total_price` ($= \text{unit\_price} \times \text{quantity}$).
-   - `packaging_specs`: Quy cách đóng gói (Ví dụ: "Hộp 500g hút chân không chống ẩm", "Túi 300g truyền thống").
-2. **`PaymentTransaction` (Thống nhất mô hình 1 Order $\rightarrow$ $N$ Payments):**
-   - Thay vì chỉ có 1 `PaymentRecord` duy nhất, hệ thống mô hình hóa quan hệ $1:N$ để phản ánh chính xác thực tế:
-     - Khách hàng quét QR lần 1 thất bại $\rightarrow$ Ghi nhận 1 `PaymentTransaction` trạng thái `FAILED`.
-     - Khách quét QR lần 2 thành công $\rightarrow$ Ghi nhận 1 `PaymentTransaction` trạng thái `PAID`.
-     - Sau này khách khiếu nại vỡ kẹo $\rightarrow$ Ghi nhận thêm 1 `PaymentTransaction` loại `REFUND` trạng thái `PAID`.
-   - Thuộc tính: `provider` (`VIETQR_NAPAS`, `COD_INTERNAL`, `B2B_BANK_DIRECT`, `POS_TERMINAL`), `provider_transaction_id` (Mã giao dịch phía ngân hàng), `type` (`PAYMENT`, `REFUND`), `amount` (Money), `status` (`PENDING`, `PAID`, `FAILED`), `raw_signature`, `executed_at`.
+AddressSnapshot lưu recipient/phone/street, tỉnh/phường code/name, optional cặp tọa độ, nguồn và version. Saved address lấy bằng `GetDeliveryAddress(address_id, customer_id)`; address ID rỗng lấy default. Response phải đúng customer. Dữ liệu hai cấp theo Profile contract; `common.Address.district` rỗng. Không dùng dữ liệu default thay đổi về sau để sửa snapshot.
 
----
+Guest nhập địa chỉ trực tiếp, dùng cùng validation địa giới và recipient. MVP một địa chỉ/đơn. Sau khi đặt không sửa snapshot bằng update chung; thay địa chỉ cần command chuyên biệt, kiểm tra phí và fulfillment chưa bắt đầu, ghi revision/audit. Command này chưa thuộc MVP v3.0.
 
-### 2.4. Value Objects Bất Biến (Immutable Value Objects)
-1. **`Money` (Chuẩn hóa cho tiền tệ VND):**
-   - Vì Việt Nam Đồng (VND) không có đơn vị phân số thập phân (không dùng hào, xu), cấu trúc `Money` trong Domain được tinh gọn tối đa:
-     ```go
-     type Money struct {
-         Amount   int64  // Số tiền nguyên bản (VND)
-         Currency string // Bắt buộc "VND"
-     }
-     ```
-   - *Tính tương thích Protobuf:* Khi giao tiếp gRPC qua message `omamx.common.v1.Money`, `Amount` được gán vào trường `units`, còn trường `nanos` được gán cứng `= 0`.
-   - *Tính tương thích JSON REST API:* Giá trị tiền được biểu diễn dưới dạng số nguyên an toàn (JSON integer). Với mức doanh thu đơn hàng thông thường ($< 9 \times 10^{15}$ VND), hoàn toàn nằm trong giới hạn an toàn của IEEE 754 float64 / JavaScript `Number.MAX_SAFE_INTEGER`.
-2. **`AddressSnapshot`:**
-   - Lưu trữ: `recipient_name`, `phone_number`, `street_address`, `ward_code`, `ward_name`, `province_code`, `province_name`, `latitude`, `longitude`.
-   - Tuân thủ chuẩn hành chính 2 cấp (Tỉnh/Thành phố TW - Xã/Phường) có hiệu lực tại Việt Nam từ 01/07/2025.
-3. **`VoucherSnapshot`:**
-   - `voucher_code`, `discount_type` (`PERCENTAGE`, `FIXED_AMOUNT`), `discount_value` (Money), `applied_amount` (Money).
-
----
-
-### 2.5. Mô Hình 3 Trạng Thái Tồn Kho Phân Tán (The 3-State Inventory Model)
-
-> [!IMPORTANT]
-> **Làm Rõ Ngữ Nghĩa Tồn Kho Giữa Order Service & Inventory Service:**
-> Để ngăn ngừa hoàn toàn nguy cơ **Double Deduction (Trừ kho hai lần)**, hệ thống định nghĩa rạch ròi 3 biến số tồn kho bên trong `inventory-service`:
-> 1. **`available_quantity` (Tồn khả dụng):** Số lượng kẹo sẵn sàng mở bán.
-> 2. **`reserved_quantity` (Tồn tạm khóa):** Số lượng kẹo đang được giữ riêng cho các đơn hàng `PENDING_PAYMENT` (TTL 15 phút).
-> 3. **`committed_quantity` (Tồn xuất kho chính thức):** Số lượng kẹo đã được thanh toán tiền, chờ xưởng đóng gói bàn giao bưu cục.
-> 
-> *Công thức bảo toàn:*
-> $$\text{physical\_quantity} = \text{available\_quantity} + \text{reserved\_quantity}$$
+Money dùng số nguyên VND, `int64/BIGINT`; protobuf `currency_code=VND`, `units=amount`, `nanos=0`. JSON phải giới hạn giá trị trong miền số nguyên an toàn của client; đề xuất `0..1_000_000_000_000` VND cho từng amount. Kiểm tra overflow khi nhân/cộng trước khi ghi SQL.
 
 ```text
-Trạng Thái Ban Đầu (Initial):
-   available: 100 | reserved: 0 | committed: 0
-
-Bước 1: Khách đặt 2 hộp mè xửng (Order Service gọi ReserveStock):
-   available: 98  | reserved: 2 | committed: 0  (Tồn khả dụng đã giảm ngay để chống bán lố!)
-
-Bước 2A: Thanh toán thành công (Sự kiện OrderPaidEvent bắn sang Kho):
-   available: 98  | reserved: 0 | committed: 2  (Chuyển từ reserved sang committed, CẤM trừ available lần 2!)
-
-Bước 2B: Hết hạn 15m hoặc khách hủy đơn (Order Service gọi ReleaseReservation):
-   available: 100 | reserved: 0 | committed: 0  (Hoàn trả tồn khả dụng về nguyên trạng)
+subtotal = Σ(quantity × canonical_unit_price)
+0 ≤ merchandise_discount ≤ subtotal
+0 ≤ shipping_discount ≤ shipping_fee
+final = subtotal - merchandise_discount + shipping_fee - shipping_discount
+0 ≤ allocated_paid ≤ final
+refundable(receipt) = received - Σ(refund SUCCEEDED) - Σ(refund đang giữ nghĩa vụ)
 ```
 
+Free shipping trừ vào shipping component, không ép vào merchandise discount. Vì vậy luật cũ `final >= shipping_fee` được bỏ. Ví dụ hàng 220.000, giảm hàng 20.000, ship 25.000, miễn ship 25.000 → final 200.000. Với `FREE_SHIPPING`, proto Promotion chưa nhận phí ship/cap để tính đúng: phải bổ sung contract, không tự đoán từ `discount_amount`.
+
+Đơn final=0 dùng quy trình zero-payment riêng, không tạo receipt ngân hàng giả. Chưa hỗ trợ MVP; trả `422 ZERO_AMOUNT_ORDER_UNSUPPORTED`. Giá sản phẩm được coi đã bao gồm thuế trong MVP; không tự thêm VAT. B2B cần snapshot tax/credit terms riêng.
+
+## 4. Bất biến có thể kiểm chứng
+
+1. Ít nhất một line; quantity > 0; gộp SKU trùng trước quote; thiếu bất kỳ SKU thì thất bại toàn bộ checkout, không tự tách đơn.
+2. Chỉ tạo `PENDING_PAYMENT` sau Inventory reserve và voucher hold hợp lệ; expiry theo hạn tài nguyên thực tế.
+3. Tài nguyên có key ổn định và intent bền vững trước RPC; mất phản hồi là kết quả UNKNOWN, không phải FAILED.
+4. Receipt đã xác minh tồn tại độc lập với Order status; tiền vào đơn đã hủy vẫn phải lưu và đối soát.
+5. Trả trước chỉ cho fulfillment khi tiền đã allocated đủ final và stock đã COMMITTED; COD được phép chưa trả tiền nhưng phải có COD eligibility và stock commit.
+6. Một provider receipt chỉ ghi nhận một lần. Refund phải có approval hợp lệ, không vượt refundable; retry không tạo nghĩa vụ mới.
+7. Owner chỉ đổi từ Guest sang Customer bằng verified claim; không ghi đè owner khác và không đổi snapshot.
+8. Mọi mutation quan trọng có history/audit intent và outbox cùng commit. Consumer business effect + inbox commit cùng nhau.
+9. Order cancelled không tự trở lại PAID/PROCESSING; refund lỗi không tự đưa order quay lại sản xuất.
+10. Admin thao tác qua command có guard và quyền; không chỉnh trạng thái tùy ý.
+
+## 5. Mô hình kho nhìn từ Order
+
+Order lưu reference và projection `NONE/RESERVED/COMMITTING/COMMITTED/RELEASING/RELEASED/EXPIRED/UNKNOWN`; không sở hữu stock ledger. Inventory contract hiện nói `available = physical - reserved`. Không đưa thêm `committed` vào công thức này nếu chưa đổi định nghĩa `physical`.
+
+Thiết kế finalize yêu cầu Inventory chuyển reservation atomically từ ACTIVE → COMMITTED hoặc RELEASED/EXPIRED. Commit tiêu thụ reservation đúng một lần; quantity available không bị trừ lần hai. Ví dụ physical=100/reserved=0/available=100; reserve 2 → 100/2/98; nếu commit được định nghĩa là trừ physical → 98/0/98. Nếu Inventory chọn giữ committed trên kệ đến dispatch thì phải dùng ledger khác và công bố công thức mới. Order chỉ dựa vào kết quả terminal của reservation.
+
+## 6. Quyền riêng tư và scope
+
+Không đưa recipient, phone, street, tọa độ, gift_message hoặc ghi chú tự do vào event fan-out. Identifier vẫn cần ACL/retention; không coi UUID là dữ liệu công khai. Shipping/Packing đọc snapshot qua API nội bộ có service identity và purpose hợp lệ. Customer xem đủ dữ liệu của mình; queue chỉ hiển thị dữ liệu tối thiểu, CSKH có masking theo quyền.
+
+PII snapshot mã hóa tại tầng lưu trữ với key ID/version, TLS khi truyền; không log raw webhook, token/proof hay thông tin nhận hàng. Retention và xóa/ẩn danh cần policy được chủ dữ liệu phê duyệt, không tự đặt thời gian pháp lý. Ledger/audit chỉ dùng reference khi đủ; không cascade delete order vì xóa profile.
+
+
 ---
 
-### 2.6. Các Bất Biến Nghiệp Vụ Miền (Domain Invariants)
-Bất kỳ thay đổi nào trên Aggregate `Order` đều phải vượt qua 5 điều kiện kiểm tra bất biến:
-$$\mathbf{Invariant\ 1:}\quad \text{discount\_amount} \le \text{subtotal\_amount} \quad (\text{Chiết khấu cấm vượt quá tổng tiền hàng})$$
-$$\mathbf{Invariant\ 2:}\quad \text{final\_amount} = \text{subtotal\_amount} - \text{discount\_amount} + \text{shipping\_fee}$$
-$$\mathbf{Invariant\ 3:}\quad \text{final\_amount} \ge \text{shipping\_fee} \ge 0$$
-$$\mathbf{Invariant\ 4:}\quad \text{len(order\_line\_items)} \ge 1 \quad \text{và} \quad \forall\ \text{item} \in \text{order\_line\_items},\ \text{quantity} > 0$$
-$$\mathbf{Invariant\ 5:}\quad \text{Chỉ cho phép chuyển } \texttt{PENDING\_PAYMENT} \rightarrow \texttt{PAID} \text{ khi số tiền giao dịch khớp tuyệt đối: } \text{amount\_paid} = \text{final\_amount}.$$
+> **Implementation 3.1 — 09/10/2026:** [08_implementation_and_acceptance.md](08_implementation_and_acceptance.md) là nguồn hành vi hiện tại. Acceptance tạo checkout operation, chưa tạo Order; PAID và outbox chờ terminal stock/voucher outcome. Các đoạn v3.0 khác mô tả candidate cần đọc cùng cập nhật này.
 
----
+# 02 — State machine, lifecycle và cạnh tranh
 
-## 3. BƯỚC 3: MÁY TRẠNG THÁI & VÒNG ĐỜI THỰC THỂ (STATE MACHINE & LIFECYCLE TRANSITIONS)
+[Chỉ mục](README.md) · [Trước: Domain](01_order_domain_and_boundary.md) · [Tiếp: Persistence](03_database_and_persistence.md)
 
-### 3.1. Sơ Đồ Chuyển Trạng Thái Đơn Hàng Hoàn Chỉnh (Order State Machine FSM)
+## 1. Bốn trục trạng thái
+
+| Trục | Giá trị thiết kế | Nguồn chuẩn |
+| --- | --- | --- |
+| Order | DRAFT, PENDING_PAYMENT, PAYMENT_FINALIZING, PAID, CONFIRMED_COD, PROCESSING, PACKED, SHIPPED, DELIVERED, DELIVERY_FAILED, COMPLETED, CANCELLED_TIMEOUT, CANCELLED_BY_USER, CANCELLED_BY_ADMIN, CANCELLED_OUT_OF_STOCK, CHECKOUT_FAILED | Order aggregate |
+| Payment summary | UNPAID, PENDING, CONFIRMED, RECONCILIATION_REQUIRED, PARTIALLY_REFUNDED, REFUNDED | Receipt/allocation/refund ledger |
+| Stock projection | NONE, RESERVED, COMMITTING, COMMITTED, RELEASING, RELEASED, EXPIRED, UNKNOWN | Inventory acknowledgement |
+| Return / Refund | Case trạng thái theo Care; refund REQUESTED, APPROVED, SUBMITTED, SUCCEEDED, FAILED, UNKNOWN | Care decision; Payment execution |
+
+`PAYMENT_FINALIZING`, `CONFIRMED_COD`, `DELIVERY_FAILED`, `CANCELLED_BY_ADMIN`, `CHECKOUT_FAILED` chưa nằm trong order.proto: **candidate additions**, không trả chúng qua enum v1 trước khi cập nhật hợp đồng. `RETURN_REQUESTED/REFUNDED` có trong proto cũ nhưng v3.0 dùng projection tương thích nếu cần, không dùng để thay thế Case và financial status. `REFUND_PENDING` trong LLD cũ chưa có trong proto, không tiếp tục trình bày là trạng thái wire hiện có.
+
+## 2. Luồng trả trước và COD
 
 ```mermaid
 stateDiagram-v2
-    [*] --> DRAFT: Khởi tạo phiên Checkout
-    
-    DRAFT --> PENDING_PAYMENT: Khóa tồn kho thành công (ReserveStock 15m)
-    DRAFT --> CANCELLED_OUT_OF_STOCK: Kho không đủ hàng khả dụng
-
-    PENDING_PAYMENT --> PAID: Webhook VietQR khớp tiền (amount == final)
-    PENDING_PAYMENT --> CANCELLED_TIMEOUT: Hết hạn 15 phút chưa thanh toán
-    PENDING_PAYMENT --> CANCELLED_BY_USER: Khách bấm Hủy đơn chủ động
-
-    PAID --> PROCESSING: Xưởng Huế nhận đơn (Picking Task)
-    PAID --> REFUND_PENDING: Khách hủy đơn sau khi đã thanh toán (trước đóng gói)
-
-    PROCESSING --> PACKED: Đã dán tem Seal O Mạ + Upload Video S3
-    PROCESSING --> REFUND_PENDING: Hết hàng đột xuất tại xưởng
-
-    PACKED --> SHIPPED: Bàn giao bưu tá 3PL (GHN/ViettelPost)
-    SHIPPED --> DELIVERED: Khách ký nhận kẹo thành công
-
-    DELIVERED --> COMPLETED: Sau 7 ngày không khiếu nại (Tích điểm 1% Loyalty)
-    DELIVERED --> RETURN_REQUESTED: Khách khiếu nại kẹo vỡ nát / lỗi đóng gói
-    
-    RETURN_REQUESTED --> REFUND_PENDING: CSKH đối chiếu video seal + Duyệt hoàn tiền
-    RETURN_REQUESTED --> COMPLETED: Khiếu nại bị bác bỏ (Tem seal bị can thiệp)
-
-    REFUND_PENDING --> REFUNDED: Kế toán chuyển khoản hoàn tiền thành công (Finance Event)
-    REFUND_PENDING --> PROCESSING: Hoàn tiền thất bại / Khách đồng ý nhận mẻ kẹo mới
-
-    CANCELLED_TIMEOUT --> [*]
-    CANCELLED_BY_USER --> [*]
-    CANCELLED_OUT_OF_STOCK --> [*]
-    COMPLETED --> [*]
-    REFUNDED --> [*]
+    [*] --> DRAFT
+    DRAFT --> PENDING_PAYMENT: reserve + hold thành công / trả trước
+    DRAFT --> CONFIRMED_COD: COD eligible + stock committed
+    DRAFT --> CANCELLED_OUT_OF_STOCK: reserve từ chối
+    DRAFT --> CHECKOUT_FAILED: validation / saga thất bại
+    PENDING_PAYMENT --> PAYMENT_FINALIZING: receipt exact + còn hạn
+    PENDING_PAYMENT --> CANCELLED_TIMEOUT: DB clock đến hạn
+    PENDING_PAYMENT --> CANCELLED_BY_USER: chủ đơn hủy
+    PAYMENT_FINALIZING --> PAID: Inventory finalize thành công
+    PAYMENT_FINALIZING --> CANCELLED_TIMEOUT: reservation expired / money reconciliation
+    PAID --> PROCESSING: stock + voucher finalized và packing accepted
+    CONFIRMED_COD --> PROCESSING: packing accepted
+    PAID --> CANCELLED_BY_ADMIN: cancel barrier + approval flow
+    CONFIRMED_COD --> CANCELLED_BY_USER: chưa packing accepted
+    PROCESSING --> PACKED: package sealed hợp lệ
+    PACKED --> SHIPPED: dispatched thực tế
+    SHIPPED --> DELIVERED: delivery confirmed
+    SHIPPED --> DELIVERY_FAILED: failure checkpoint
+    DELIVERY_FAILED --> SHIPPED: retry dispatch hợp lệ
+    DELIVERED --> COMPLETED: hết cửa sổ tranh chấp + không active case
 ```
 
----
+Order timeline và payment summary hiển thị riêng. Với COD: `PROCESSING` + `UNPAID` hợp lệ, `DELIVERED` không tự bằng `CONFIRMED`. Tiền COD chỉ xác nhận từ bằng chứng thu/đối soát được Payment chấp nhận. Một COD receipt đến lúc order SHIPPED/DELIVERED cập nhật payment summary, không kéo Order về PAID.
 
-### 3.2. Sơ Đồ Máy Trạng Thái Saga (Saga Lifecycle State Machine)
+## 3. Transition matrix
 
-Toàn bộ các tiến trình phân tán (Checkout Saga, Timeout Compensation Saga, Return Saga) đều được quản lý bởi máy trạng thái Saga độc lập:
+| From → To | Command/source | Guard bắt buộc | Ghi cùng transaction |
+| --- | --- | --- | --- |
+| DRAFT → PENDING_PAYMENT | Checkout saga | tất cả SKU/address/quote valid; reserve và hold còn hạn | snapshot, expiry, references, history, OrderPlaced outbox, idempotency result |
+| DRAFT → CONFIRMED_COD | Checkout COD | eligibility đúng policy; inventory COMMITTED; voucher finalized | phương thức COD, UNPAID summary, history, fulfillment-ready outbox |
+| DRAFT → CHECKOUT_FAILED / CANCELLED_OUT_OF_STOCK | saga reject | lý do xác định, hoặc compensation đang được theo dõi | failure reason, release intent cho mọi bước có khả năng thành công |
+| PENDING_PAYMENT → PAYMENT_FINALIZING | verified receipt | exact VND, đúng receiver/reference, DB now < expiry; chưa cancel | receipt + allocation, payment summary CONFIRMED, finalize saga intent |
+| PAYMENT_FINALIZING → PAID | Inventory ack | reservation COMMITTED đúng order/items, tiền đủ | stock projection, history, OrderPaid outbox; fulfillment-ready khi voucher finalized |
+| PENDING_PAYMENT → CANCELLED_TIMEOUT | sweeper | DB now ≥ expiry, payment chưa confirmed | history, cancel outbox, release saga intent |
+| PENDING_PAYMENT → CANCELLED_BY_USER | owner command | ownership, expected version, chưa receipt allocated | history, cancel outbox, release saga intent |
+| CONFIRMED_COD → CANCELLED_BY_USER | owner command | chưa packing accepted; cancel barrier xác nhận | cancel history, decommit intent, không refund nếu chưa nhận tiền |
+| PAID → CANCELLED_BY_ADMIN | manager command | packing cancel barrier thành công; nghĩa vụ refund được mở | cancelled history, reversal/refund request references; không gán REFUNDED |
+| PAID / CONFIRMED_COD → PROCESSING | Fulfillment accepted | đúng task/order; stock committed; ready authorization còn hiệu lực | task reference, state/history, SLA deadline, outbox |
+| PROCESSING → PACKED | Fulfillment sealed | đúng task, seal/video reference và actor đã được nguồn xác thực | package projection, history, outbox |
+| PACKED → SHIPPED | Shipping dispatched | đúng shipment/order; đã thực tế bàn giao | shipment reference, checkpoint version, history |
+| SHIPPED → DELIVERED / DELIVERY_FAILED | Shipping result | đúng shipment, sequence mới; event hợp lệ | delivery projection, history; tranh chấp deadline nếu delivered |
+| DELIVERY_FAILED → SHIPPED | retry shipping | source xác nhận attempt mới; order không cancelled | attempt/checkpoint/history |
+| DELIVERED → COMPLETED | completion job | now ≥ deadline; không active case; COD đã đối soát hoặc policy công nợ cho phép | history, OrderCompleted outbox một lần |
 
-```mermaid
-stateDiagram-v2
-    [*] --> STARTED: Nhận Trigger Command / Event
-    STARTED --> IN_PROGRESS: Thực thi bước gRPC đầu tiên
+Generic `PATCH status` không thuộc contract. Nhân viên có thể đặt hold, ghi reason hoặc khởi tạo cancellation review; không tự giả lập provider receipt, packing hay delivery.
 
-    IN_PROGRESS --> COMPLETED: Toàn bộ các bước phân tán thành công
-    
-    IN_PROGRESS --> COMPENSATING: Phát hiện lỗi / Timeout / Hủy đơn
-    
-    COMPENSATING --> COMPENSATED: Đền bù thành công (Kho & Voucher đã nhả)
-    COMPENSATING --> RETRYING: Lỗi mạng khi gọi đền bù (gRPC timeout)
-    
-    RETRYING --> COMPENSATING: Thử lại sau Exponential Backoff (Tối đa 5 lần)
-    RETRYING --> DEAD_LETTER: Vượt quá 5 lần thất bại (Chuyển bảng DLQ & Báo động Ops)
+## 4. Payment vs timeout: local và remote đều phải an toàn
 
-    COMPLETED --> [*]
-    COMPENSATED --> [*]
-    DEAD_LETTER --> [*]
-```
+CAS trên Order giải quyết local race nhưng không giải quyết Inventory TTL worker. Hai lớp bắt buộc:
 
----
-
-### 3.3. Ma Trận Chuyển Trạng Thái Hợp Lệ, Điều Kiện Bảo Vệ & Side Effects
-
-| Trạng Thái Hiện Tại | Lệnh / Sự Kiện Kích Hoạt | Trạng Thái Kế Tiếp | Điều Kiện Bảo Vệ (Guards) | Tác Vụ Kèm Theo (Side Effects / Events) |
-| :--- | :--- | :--- | :--- | :--- |
-| `DRAFT` | `ConfirmCheckoutCommand` | `PENDING_PAYMENT` | `ReserveStock` gRPC trả về `SUCCESS` | Sinh VietQR URL, đặt `expires_at = NOW() + 15m`, phát `OrderPlacedEvent`. |
-| `DRAFT` | `ConfirmCheckoutCommand` | `CANCELLED_OUT_OF_STOCK` | `ReserveStock` trả về `INSUFFICIENT_STOCK` | Trả về thông báo lỗi SKU hết hàng cho Client, không tạo nợ. |
-| `PENDING_PAYMENT` | `VietQRWebhookReceived` | `PAID` | HMAC hợp lệ VÀ **`amount_paid == final_amount`** | Ghi Outbox `OrderPaidEvent`, kích hoạt xưởng đóng kẹo và trừ tồn kho committed. |
-| `PENDING_PAYMENT` | `Timeout15mExpired` | `CANCELLED_TIMEOUT` | Thời gian hiện tại $> \text{expires\_at}$ VÀ chưa có thanh toán | **Trực tiếp gọi gRPC `ReleaseReservation` sang Kho**, phát `OrderCancelledEvent`. |
-| `PENDING_PAYMENT` | `UserCancelCommand` | `CANCELLED_BY_USER` | Người gọi là chủ đơn VÀ đơn chưa thanh toán | **Trực tiếp gọi gRPC `ReleaseReservation` sang Kho**, phát `OrderCancelledEvent`. |
-| `PAID` | `FulfillmentJobAccepted` | `PROCESSING` | Nhận sự kiện từ MS-02 Fulfillment | Cập nhật timeline, thông báo khách qua Zalo ZNS. |
-| `PAID` | `CancelPaidOrderCommand` | `REFUND_PENDING` | Quản trị viên hủy đơn trước khi xưởng gói hàng | Khởi tạo Refund Saga, thông báo MS-09 Finance chuẩn bị hoàn tiền. |
-| `PROCESSING` | `PackageSealedEvent` | `PACKED` | Kiện hàng có mã seal O Mạ và video trên S3 | Lưu `seal_code`, sẵn sàng bàn giao vận chuyển. |
-| `PACKED` | `ShipmentCreatedEvent` | `SHIPPED` | Nhận mã vận đơn từ MS-12 Shipping | Lưu `tracking_code`, `shipping_carrier`, gửi link tracking cho khách. |
-| `SHIPPED` | `ShipmentDeliveredEvent`| `DELIVERED` | Bưu tá 3PL xác nhận giao thành công | Bắt đầu đếm ngược thời gian khiếu nại 7 ngày. |
-| `DELIVERED` | `AutoCompleteCron` | `COMPLETED` | Quá 7 ngày kể từ khi giao và không có khiếu nại | Bắn `OrderCompletedEvent` để MS-07 tích điểm 1% loyalty, mở quyền Review. |
-| `DELIVERED` | `ReturnTicketApproved` | `RETURN_REQUESTED` | CSKH tiếp nhận khiếu nại hợp lệ qua MS-06 | Đóng băng tiến trình tích điểm loyalty, chờ kiểm định hàng hoàn. |
-| `RETURN_REQUESTED` | `ApproveRefundCommand` | `REFUND_PENDING` | CSKH xác nhận lỗi từ nhà sản xuất qua video seal | Kích hoạt lệnh hoàn tiền sang MS-09 Finance. |
-| `REFUND_PENDING` | `RefundProcessedEvent` | `REFUNDED` | MS-09 Finance báo đã chuyển khoản hoàn tiền | Cập nhật `payment_status = REFUNDED`, kết thúc đơn. |
-
----
-
-### 3.4. Cơ Chế Giải Quyết Tranh Chấp Trạng Thái Cạnh Tranh (Payment vs Timeout Race Condition)
-
-Một trong những tình huống hóc búa nhất của hệ thống thương mại điện tử phân tán là **Sự cố Cạnh tranh tại giây thứ 900 (Second-899 Race Condition)**:
-- Tại thời điểm `14:59.900`, Khách hàng hoàn tất quét mã VietQR tại App ngân hàng $\rightarrow$ Webhook ngân hàng bắn tới máy chủ.
-- Tại đúng thời điểm `15:00.000`, Cron Job `TimeoutSweeper` của hệ thống quét thấy đơn hàng đã quá hạn 15 phút.
+1. Receipt handler và sweeper khóa cùng hàng Order. Chỉ khi state=PENDING_PAYMENT và `clock_timestamp() < payment_expires_at` mới tạo allocation/đổi PAYMENT_FINALIZING. Sweeper chỉ hủy PENDING_PAYMENT với `clock_timestamp() >= payment_expires_at`. Xác định thời điểm quyết định **sau khi lấy row lock**, không dùng timestamp cố định từ đầu transaction lâu trước đó.
+2. Inventory xử lý FinalizeReservation và TTL expiration bằng cùng atomic guard ACTIVE/còn hạn. Chỉ một terminal outcome thắng. `PAID`/ready chỉ sau COMMITTED acknowledgement, không khi mới publish Kafka.
 
 ```text
-              LUỒNG A: WEBHOOK THANH TOÁN (14:59.900)
-                               │
-                               ▼
-        ┌──────────────────────────────────────────────┐
-        │  UPDATE orders SET status = 'PAID', ...      │
-        │  WHERE id = $1 AND status = 'PENDING_PAYMENT'│
-        │    AND version = $2                          │
-        └──────────────────────┬───────────────────────┘
-                               │
-                   CẠNH TRANH KHÓA ROW ATOMIC
-                               │
-        ┌──────────────────────┴───────────────────────┐
-        │  UPDATE orders SET status = 'CANCELLED_...'  │
-        │  WHERE id = $1 AND status = 'PENDING_PAYMENT'│
-        │    AND expires_at < NOW() AND version = $2   │
-        └──────────────────────────────────────────────┘
-                               ▲
-                               │
-             LUỒNG B: TIMEOUT SWEEPER (15:00.000)
+BEGIN
+  SELECT order FOR UPDATE
+  decision_at = DB clock sau lock
+  INSERT verified receipt ON CONFLICT(provider, transaction_id) DO NOTHING
+  nếu exact + state/expiry cho phép:
+    INSERT allocation; UPDATE order -> PAYMENT_FINALIZING, version+1
+    INSERT FINALIZE saga intent; INSERT history/outbox cần thiết
+  nếu late/mismatch/cancelled:
+    lưu RECONCILIATION_REQUIRED, không allocate, tạo case intent
+COMMIT
+RPC finalize chạy sau commit; retry cùng key khi mất phản hồi
 ```
 
-#### Định Nghĩa Rõ Winner Condition (Điều Kiện Thắng Cuộc Tuyệt Đối):
-Hệ thống sử dụng **Atomic Compare-And-Swap (CAS)** trên PostgreSQL để phân định thắng thua:
-1. **Trường hợp Luồng A (Payment) commit trước:**
-   - Lệnh SQL của Luồng A thực thi: Trạng thái chuyển thành `PAID`, `version` tăng từ $1 \rightarrow 2$. Số dòng cập nhật (`RowsAffected`) $= 1$. Luồng A thắng!
-   - Khi Luồng B (Timeout Sweeper) chạy tới, điều kiện `WHERE status = 'PENDING_PAYMENT' AND version = 1` không còn thỏa mãn $\rightarrow$ `RowsAffected` $= 0$. 
-   - **Xử lý phía Luồng B:** Nhận biết đơn đã được thanh toán hợp lệ, Sweeper hủy bỏ lệnh đền bù, không gọi `ReleaseReservation` sang Kho.
-2. **Trường hợp Luồng B (Timeout) commit trước:**
-   - Lệnh SQL của Luồng B thực thi: Trạng thái chuyển thành `CANCELLED_TIMEOUT`, `version` tăng từ $1 \rightarrow 2$, gọi gRPC `ReleaseReservation` sang Kho nhả kẹo. Luồng B thắng!
-   - Khi Luồng A (Webhook) chạy tới, điều kiện `WHERE status = 'PENDING_PAYMENT'` bị sai $\rightarrow$ `RowsAffected` $= 0$.
-   - **Xử lý phía Luồng A (Payment Đến Sau Timeout):** 
-     - Webhook nhận biết đơn hàng đã bị hủy do quá hạn và tồn kho có thể đã bị người khác mua mất.
-     - **Hành động:** Hệ thống **CẤM** tự ý chuyển đơn thành `PAID`. Ghi nhận giao dịch thanh toán vào bảng `payments` ở trạng thái `RECONCILIATION_REQUIRED`, đồng thời phát sự kiện `OrderPaymentAfterTimeoutEvent` để bộ phận Chăm sóc khách hàng & Kế toán chủ động liên hệ hoàn tiền 100% cho khách hàng trong vòng 30 phút.
+| Trường hợp | Kết quả |
+| --- | --- |
+| Payment vào local finalizing trước expiry; kho còn active | Finalize kho thắng → PAID; timeout không release |
+| Local timeout thắng | Order cancelled; tiền đến vẫn lưu receipt/reconciliation; không phục hồi đơn |
+| Order finalizing nhưng kho đã expire trước finalize | Không ready; Order CANCELLED_TIMEOUT, receipt cần đối soát/refund approval |
+| Finalize kho thành công, ack bị mất | Query/retry cùng key; không release dựa vào lỗi timeout |
+| Callback provider timestamp trước expiry nhưng nhận sau expiry | MVP dùng DB decision time; lưu provider time làm bằng chứng; không hồi sinh đơn |
+| Client hủy gặp PAYMENT_FINALIZING | 409 PAYMENT_FINALIZING; manager xử lý sau terminal inventory outcome |
+
+Chính sách nhận trễ là lựa chọn thận trọng để không bán lại stock đã được giải phóng. Nếu muốn grace period cần hold protocol được Inventory chấp nhận, không chỉ sửa một điều kiện SQL.
+
+## 5. Saga state, lease và compensation
+
+Saga `STARTED → IN_PROGRESS → COMPLETED`; lỗi xác định chuyển `COMPENSATING → COMPENSATED`. RPC không rõ kết quả chuyển `WAITING_RETRY`, giữ intent và key; hết ngân sách tự động chuyển `MANUAL_REVIEW`, vẫn là nghĩa vụ chưa hoàn tất.
+
+Worker nhận lease có `lease_epoch` tăng. Bước có `PENDING/SENT/UNKNOWN/SUCCEEDED/REJECTED/COMPENSATED`, command key và response reference. Worker cũ chỉ cập nhật khi epoch còn khớp; hết lease không có quyền rollback kết quả worker mới. Remote key vẫn bắt buộc vì epoch local không chặn remote RPC cũ.
+
+Compensation ngược thứ tự acquisition, theo tài nguyên **có thể đã được giữ**. Release lặp không cộng tồn/voucher lần hai. Reservation COMMITTED cần reversal/decommit được phê duyệt, không gọi ReleaseReservation vốn dành ACTIVE. TTL là lưới an toàn trong service chủ quản, Order điều phối nghiệp vụ và reconciliation; không có hai worker cùng tự suy đoán ledger.
+
+## 6. Return, refund và completion
+
+Care giữ active case theo order/line/quantity. Completion job và consumer mở Case phải phối hợp bằng Order row lock cùng cờ `has_active_case`. Vì Care và Order khác DB, completion chỉ chứng minh cờ projection đã biết: cần barrier/query Care xác nhận case eligibility/version và grace watermark trước completion. Nếu thiếu contract này, tắt auto-completion; không giả định Kafka không lag.
+
+Một case sau COMPLETED không tự bị cấm: policy return có thể cho phép; mở hold và adjustment nghiệp vụ theo quyết định Care. Loyalty thuộc Promotion, không cộng cứng 1% trong Order. Partial refund giữ Order lifecycle và payment PARTIALLY_REFUNDED; full refund không đồng nghĩa hàng đã về kho hay order bị hủy. Refund failed/unknown giữ nghĩa vụ và retry/query, không quay PROCESSING. Cửa sổ 7 ngày là default đề xuất, chưa phải SLA pháp lý.
+
 
 ---
 
-## 4. BƯỚC 4: MÔ HÌNH HÓA DỮ LIỆU QUAN HỆ & BỘ ĐỆM (DATABASE SCHEMA DDL & CACHE STORAGE)
+> **Implementation 3.1 — 09/10/2026:** [08_implementation_and_acceptance.md](08_implementation_and_acceptance.md) là nguồn hành vi hiện tại. Acceptance tạo checkout operation, chưa tạo Order; PAID và outbox chờ terminal stock/voucher outcome. Các đoạn v3.0 khác mô tả candidate cần đọc cùng cập nhật này.
 
-### 4.1. Sơ Đồ Thực Thể - Liên Kết (ERD)
+# 03 — Database, transaction và persistence
+
+[Chỉ mục](README.md) · [Trước: State machine](02_state_machine_and_lifecycle.md) · [Tiếp: Use cases](04_usecases_and_saga_orchestration.md)
+
+## 1. Nguồn dữ liệu và ERD
+
+PostgreSQL `order_db` giữ order/snapshot, financial ledger, idempotency, saga, inbox/outbox. Redis giữ cart và read cache có thể khôi phục hoặc mất theo chính sách phiên; không lưu nguồn duy nhất của nghĩa vụ. DDL tại [order_schema_candidate.sql](order_schema_candidate.sql) là schema **candidate cho database rỗng**, cần migration/versioning/review khi triển khai. Không được chạy đè database thật hoặc coi là migration đã áp dụng.
 
 ```mermaid
 erDiagram
-    orders ||--o{ order_line_items : "has (1..n)"
-    orders ||--|| order_address_snapshots : "delivers_to (1..1)"
-    orders ||--o| order_voucher_snapshots : "discounts_by (0..1)"
-    orders ||--o{ payments : "settled_via (0..n)"
-    orders ||--o{ saga_instances : "orchestrated_by (1..n)"
-    saga_instances ||--o{ saga_step_logs : "records (1..n)"
-
-    orders {
-        uuid id PK "UUID v7 Generated by App"
-        varchar order_code UK "ORD-YYYYMMDD-XXXX"
-        uuid customer_id "Nullable for Guest"
-        varchar channel "D2C_WEB, POS_OFFLINE, MARKETPLACE..."
-        varchar status "DRAFT, PENDING_PAYMENT, PAID, CANCELLED..."
-        bigint subtotal_units "VND units"
-        bigint discount_units "VND units"
-        bigint shipping_units "VND units"
-        bigint final_units "VND units"
-        varchar currency "VND"
-        int version "CAS Optimistic Locking"
-        timestamptz expires_at "Timeout countdown"
-        timestamptz created_at
-        timestamptz updated_at
-    }
-
-    order_line_items {
-        uuid id PK
-        uuid order_id FK
-        varchar sku_code
-        varchar product_name
-        int quantity
-        bigint unit_price_units
-        bigint total_price_units
-        varchar packaging_specs
-    }
-
-    order_address_snapshots {
-        uuid id PK
-        uuid order_id FK "1:1 with Order"
-        varchar recipient_name
-        varchar phone_number
-        varchar street_address
-        varchar ward_code
-        varchar ward_name
-        varchar province_code
-        varchar province_name
-    }
-
-    order_voucher_snapshots {
-        uuid id PK
-        uuid order_id FK
-        varchar voucher_code
-        bigint applied_units
-    }
-
-    payments {
-        uuid id PK
-        uuid order_id FK
-        varchar payment_provider "VIETQR, CASH, BANK_TRANSFER"
-        varchar provider_transaction_id "Bank reference ID"
-        varchar payment_type "PAYMENT | REFUND"
-        varchar payment_status "PENDING, PAID, FAILED"
-        bigint amount_units
-        varchar idempotency_key UK
-        timestamptz executed_at
-    }
-
-    saga_instances {
-        uuid id PK
-        uuid order_id FK
-        varchar saga_type
-        varchar current_step
-        varchar status "STARTED, IN_PROGRESS, COMPLETED, COMPENSATING, COMPENSATED, RETRYING, DEAD_LETTER"
-        jsonb payload
-        int retry_count
-        timestamptz expires_at
-    }
-
-    saga_step_logs {
-        uuid id PK
-        uuid saga_id FK
-        varchar step_name
-        varchar action_type "COMMAND | COMPENSATION"
-        varchar status "SUCCESS | FAILED"
-        jsonb details
-    }
-
-    outbox_events {
-        uuid id PK "UUID v7"
-        varchar aggregate_type
-        varchar aggregate_id
-        varchar event_type
-        varchar topic
-        jsonb payload
-        varchar status "PENDING | PUBLISHED | FAILED"
-        timestamptz created_at
-    }
+    orders ||--|{ order_line_items : contains
+    orders ||--o| order_address_snapshots : ships_to
+    orders ||--o| order_voucher_snapshots : applies
+    orders ||--o{ order_status_history : transitions
+    orders ||--o{ payment_intents : expects
+    orders ||--o{ payments : receives
+    payments ||--o{ payment_allocations : allocates
+    orders ||--o{ payment_allocations : settled_by
+    payments ||--o{ refunds : refunds
+    orders ||--o{ saga_instances : coordinates
+    saga_instances ||--o{ saga_steps : journals
+    orders ||--o{ idempotency_records : deduplicates
+    orders ||--o{ outbox_events : publishes
+    inbox_events ||--o| inbound_pending_events : defers
+    orders ||--o{ order_source_projections : tracks
+    orders ||--o| order_external_references : imported_as
+    orders ||--o| order_claim_links : owned_by
 ```
 
----
+Order có 1..N items sau khi checkout chốt; DRAFT chưa validate có thể chưa có item. Cross-table invariant về số line và tổng tiền không được bảo đảm chỉ bằng `CHECK` của bảng orders: application transaction phải kiểm tra từ snapshot canonical; có thể bổ sung deferred constraint trigger khi triển khai.
 
-### 4.2. Chiến Lược Sinh Khóa Chính UUID v7
+## 2. Bảng và ràng buộc
 
-> [!IMPORTANT]
-> **Khẳng Định Kỹ Thuật Về UUID v7 Trên PostgreSQL 16:**
-> Extension `uuid-ossp` của PostgreSQL **KHÔNG hỗ trợ sinh UUID v7** (chỉ hỗ trợ UUID v1, v3, v4, v5).
-> 
-> Nhằm tối ưu hóa triệt để cấu trúc B-Tree Index trên đĩa cứng và đạt hiệu năng ghi tuần tự tối đa:
-> 1. **Khóa chính UUID v7 ĐƯỢC SINH BỞI APPLICATION LAYER (Go / Node.js)** trước khi thực thi lệnh `INSERT` xuống cơ sở dữ liệu.
-> 2. Sử dụng các thư viện chuẩn hóa: `github.com/google/uuid` (Go v1.6+) hoặc `uuidv7` (Node.js/TypeScript).
-> 3. Cột trong PostgreSQL sử dụng kiểu dữ liệu bản địa `UUID` (16 bytes nhị phân), hoàn toàn tương thích và lưu trữ chuẩn xác giá trị UUID v7 từ ứng dụng đưa xuống.
+| Bảng | Trường/constraint chính | Lý do |
+| --- | --- | --- |
+| orders | UUID, code unique, nullable customer, channel/method/status, totals, expiry, resource IDs, version, SLA, hold/case projection | Domain và truy vấn queue không phụ thuộc join mạng |
+| order_line_items | unique(order,sku), quantity > 0, unit/line total BIGINT, canonical metadata | Không trùng line; bảo toàn thương mại |
+| order_address_snapshots | unique(order), source address/version, encrypted PII, ward/province | Reference Profile và snapshot độc lập |
+| order_voucher_snapshots | unique(order), code/type/policy, hold ID, merchandise/shipping split | Không gộp free ship vào giảm hàng |
+| order_status_history | unique(order,version), from/to, actor/source/reason, time | Một transition có một timeline entry |
+| payment_intents | unique operation/transfer reference, receiver, expected amount/expiry | QR/payment instruction không được lấy từ browser |
+| payments | unique(provider,provider_transaction_id), optional order, verified amount, immutable receipt hash | Unmatched receipt vẫn phải ghi nhận |
+| payment_allocations | unique(payment), amount > 0 | Không auto cộng tiền chưa được xác nhận/phê duyệt vào Order |
+| refunds | payment ID, approval ID, unique operation key, amount > 0, status, provider ref | Chống retry hoàn tiền và vượt ngân sách receipt |
+| saga_instances / saga_steps | unique(order,type,operation key), step key unique, lease epoch, run_after, attempts, reference, error code | Khôi phục qua restart; chống stale worker |
+| idempotency_records | primary(scope,operation,key), request hash, order ID, IN_PROGRESS/SUCCEEDED/FAILED, result status | Durable dedup theo người gọi/hành động |
+| outbox_events | stable event ID, aggregate type/ID/sequence, optional order ID, ordinal, topic/key/payload, retry/lease | At-least-once và ordering theo aggregate |
+| inbox_events | primary(consumer,source,event ID), payload hash, APPLIED/DEFERRED/REJECTED | Dedup cả cùng ID bị giả mạo nội dung |
+| inbound_pending_events | FK inbox, source version, order, retry deadline | Event đến sớm không bị bỏ mất |
+| order_source_projections | primary(order,source,resource), source_version, non-PII projection | Dedup checkpoint/case/task theo business version dù event ID mới |
+| order_external_references | primary(channel,store,external ID), order unique | Chống nhập lại đơn marketplace/POS |
+| order_claim_links | order unique, customer, claim/version | Ownership immutable ngoại trừ verified claim |
 
----
+UUID sinh ở application; không phụ thuộc extension UUID v7 của PostgreSQL 16. Không tạo cross-database FK tới Customer, SKU, address book, reservation. IDs đó được validation qua contract, lưu như reference. Không `ON DELETE CASCADE` financial/history; xóa/ẩn danh phải theo retention workflow.
 
-### 4.3. Kịch Bản DDL Chi Tiết (PostgreSQL 16 Production Script)
+## 3. Transaction boundary
+
+| Local transaction | Nội dung atomic | Ngoài transaction |
+| --- | --- | --- |
+| T0: nhận checkout | dedup insert + DRAFT + saga STARTED, input hash/reference | validation query Catalog/Profile/Shipping |
+| T1: trước acquisition | snapshot canonical + totals + saga step intent/key | voucher hold, stock reserve |
+| T2: nhận acquisition | resource reference + từng step outcome | query/retry remote nếu UNKNOWN |
+| T3: checkout thành công | PENDING_PAYMENT/CONFIRMED_COD + history/outbox + dedup result | publish Kafka; trả response có thể bị mất |
+| T4: receipt | unique receipt + lock Order + allocation hoặc reconciliation + FINALIZE intent/history | finalize Inventory/Promotion |
+| T5: finalize ack | stock projection + PAID + OrderPaid; ready event khi đủ điều kiện | Packing nhận ready authorization |
+| T6: hủy/timeout | guarded status + history + cancel event + release saga intent | release/decommit remote |
+| T7: consumer | inbox + mutation/history/outbox, hoặc DEFERRED + pending payload | commit Kafka offset sau DB commit |
+| T8: refund budget | lock receipt, tính refundable, insert approved refund obligation | provider refund với operation key ổn định |
+| T9: refund result | financial status + settlement ref + audit outbox | notify/accounting consumers |
+
+T0 cho phép lưu DRAFT trước validation; DRAFT không phải đơn có quyền thanh toán hoặc fulfillment. Nếu validation fail, ghi CHECKOUT_FAILED và dedup result. Input chứa PII lưu encrypted/restricted snapshot; saga payload chỉ chứa reference, không sao chép raw body.
+
+## 4. Khóa và CAS
+
+Các handler thay đổi cùng Order dùng row lock hoặc CAS với version. Thứ tự khóa thống nhất: Order → PaymentReceipt (ID tăng dần khi nhiều receipt) → Refund/Saga. Unmatched receipt chỉ khóa receipt. Không lấy lock receipt rồi quay lại Order để tránh deadlock.
 
 ```sql
--- Extension hỗ trợ tìm kiếm văn bản tiếng Việt cho mã đơn
-CREATE EXTENSION IF NOT EXISTS "pg_trgm";
-
--- =============================================================================
--- 1. BẢNG ĐƠN HÀNG TRUNG TÂM (ORDERS AGGREGATE ROOT)
--- =============================================================================
-CREATE TABLE orders (
-    id UUID PRIMARY KEY, -- Sinh UUID v7 từ Application Layer
-    order_code VARCHAR(32) NOT NULL UNIQUE,
-    customer_id UUID, -- Khóa ngoại mềm sang MS-15 Profile (NULL nếu là Guest)
-    channel VARCHAR(30) NOT NULL CHECK (channel IN (
-        'D2C_WEB', 'D2C_MOBILE', 'POS_OFFLINE', 
-        'MARKETPLACE_SHOPEE', 'MARKETPLACE_TIKTOK', 'B2B_CORPORATE'
-    )),
-    status VARCHAR(35) NOT NULL CHECK (status IN (
-        'DRAFT', 'PENDING_PAYMENT', 'PAID', 'PROCESSING', 
-        'PACKED', 'SHIPPED', 'DELIVERED', 'COMPLETED',
-        'CANCELLED_TIMEOUT', 'CANCELLED_BY_USER', 'CANCELLED_OUT_OF_STOCK',
-        'RETURN_REQUESTED', 'REFUND_PENDING', 'REFUNDED'
-    )),
-    
-    -- Tiền tệ: Đơn vị nguyên VND (BIGINT), tuyệt đối cấm dùng float
-    subtotal_units BIGINT NOT NULL CHECK (subtotal_units >= 0),
-    discount_units BIGINT NOT NULL DEFAULT 0 CHECK (discount_units >= 0),
-    shipping_units BIGINT NOT NULL DEFAULT 0 CHECK (shipping_units >= 0),
-    final_units BIGINT NOT NULL CHECK (final_units >= 0),
-    currency VARCHAR(3) NOT NULL DEFAULT 'VND',
-    
-    customer_note TEXT,
-    staff_note TEXT,
-    
-    -- CAS Optimistic Concurrency Control
-    version INT NOT NULL DEFAULT 1,
-    
-    -- Hạn chót đếm ngược 15 phút (Dùng trực tiếp cho Timeout Sweeper)
-    expires_at TIMESTAMPTZ,
-    
-    -- Thông tin giao vận & niêm phong
-    tracking_code VARCHAR(100),
-    shipping_carrier VARCHAR(50),
-    seal_code VARCHAR(50),
-    
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    
-    -- =========================================================================
-    -- CÁC RÀNG BUỘC KIỂM TRA BẤT BIẾN (DOMAIN CHECK CONSTRAINTS)
-    -- =========================================================================
-    -- Luật 1: Chiết khấu không bao giờ được vượt quá tổng tiền hàng
-    CONSTRAINT chk_order_discount_limit CHECK (discount_units <= subtotal_units),
-    -- Luật 2: Khớp số học tiền tệ tuyệt đối
-    CONSTRAINT chk_order_math_integrity CHECK (final_units = subtotal_units - discount_units + shipping_units),
-    -- Luật 3: Tiền thanh toán cuối cùng không được nhỏ hơn phí giao hàng
-    CONSTRAINT chk_order_final_floor CHECK (final_units >= shipping_units)
-);
-
-CREATE INDEX idx_orders_customer_created ON orders (customer_id, created_at DESC) WHERE customer_id IS NOT NULL;
-CREATE INDEX idx_orders_status ON orders (status);
-CREATE INDEX idx_orders_expires_sweep ON orders (expires_at) WHERE status = 'PENDING_PAYMENT';
-CREATE INDEX idx_orders_created_at ON orders (created_at DESC);
-CREATE INDEX idx_orders_code_trgm ON orders USING GIN (order_code gin_trgm_ops);
-
--- =============================================================================
--- 2. BẢNG MẶT HÀNG CHI TIẾT (ORDER LINE ITEMS)
--- =============================================================================
-CREATE TABLE order_line_items (
-    id UUID PRIMARY KEY,
-    order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
-    sku_code VARCHAR(64) NOT NULL,
-    product_name VARCHAR(255) NOT NULL,
-    quantity INT NOT NULL CHECK (quantity > 0),
-    unit_price_units BIGINT NOT NULL CHECK (unit_price_units >= 0),
-    total_price_units BIGINT NOT NULL CHECK (total_price_units >= 0),
-    packaging_specs VARCHAR(100),
-    item_notes VARCHAR(255),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    
-    CONSTRAINT chk_item_math CHECK (total_price_units = unit_price_units * quantity)
-);
-
-CREATE INDEX idx_line_items_order ON order_line_items (order_id);
-CREATE INDEX idx_line_items_sku ON order_line_items (sku_code);
-
--- =============================================================================
--- 3. BẢNG BẢN CHỤP ĐỊA CHỈ NHẬN HÀNG (ORDER ADDRESS SNAPSHOTS)
--- =============================================================================
-CREATE TABLE order_address_snapshots (
-    id UUID PRIMARY KEY,
-    order_id UUID NOT NULL UNIQUE REFERENCES orders(id) ON DELETE CASCADE,
-    recipient_name VARCHAR(150) NOT NULL,
-    phone_number VARCHAR(20) NOT NULL,
-    street_address VARCHAR(255) NOT NULL,
-    ward_code VARCHAR(20) NOT NULL,
-    ward_name VARCHAR(100) NOT NULL,
-    province_code VARCHAR(20) NOT NULL,
-    province_name VARCHAR(100) NOT NULL,
-    latitude NUMERIC(10, 7),
-    longitude NUMERIC(10, 7),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
--- =============================================================================
--- 4. BẢNG BẢN CHỤP KHUYẾN MÃI (ORDER VOUCHER SNAPSHOTS)
--- =============================================================================
-CREATE TABLE order_voucher_snapshots (
-    id UUID PRIMARY KEY,
-    order_id UUID NOT NULL UNIQUE REFERENCES orders(id) ON DELETE CASCADE,
-    voucher_code VARCHAR(50) NOT NULL,
-    discount_type VARCHAR(20) NOT NULL CHECK (discount_type IN ('PERCENTAGE', 'FIXED_AMOUNT')),
-    discount_value_units BIGINT NOT NULL,
-    applied_units BIGINT NOT NULL CHECK (applied_units >= 0),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
--- =============================================================================
--- 5. BẢNG GIAO DỊCH THANH TOÁN (PAYMENTS - QUAN HỆ 1:N)
--- Bảo đảm chống trùng lặp theo định danh nhà cung cấp thanh toán
--- =============================================================================
-CREATE TABLE payments (
-    id UUID PRIMARY KEY,
-    order_id UUID NOT NULL REFERENCES orders(id) ON DELETE RESTRICT,
-    payment_provider VARCHAR(30) NOT NULL CHECK (payment_provider IN (
-        'VIETQR_NAPAS', 'COD_INTERNAL', 'B2B_BANK_DIRECT', 'POS_TERMINAL'
-    )),
-    provider_transaction_id VARCHAR(100) NOT NULL,
-    payment_type VARCHAR(20) NOT NULL DEFAULT 'PAYMENT' CHECK (payment_type IN ('PAYMENT', 'REFUND')),
-    payment_status VARCHAR(20) NOT NULL CHECK (payment_status IN (
-        'PENDING', 'PAID', 'FAILED', 'RECONCILIATION_REQUIRED'
-    )),
-    amount_units BIGINT NOT NULL CHECK (amount_units >= 0),
-    currency VARCHAR(3) NOT NULL DEFAULT 'VND',
-    idempotency_key VARCHAR(128) NOT NULL UNIQUE,
-    raw_signature TEXT,
-    executed_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    
-    -- Chống trùng lặp tuyệt đối theo giao dịch phía nhà cung cấp
-    CONSTRAINT uq_payment_provider_tx UNIQUE (payment_provider, provider_transaction_id)
-);
-
-CREATE INDEX idx_payments_order ON payments (order_id);
-
--- =============================================================================
--- 6. BẢNG QUẢN LÝ TIẾN TRÌNH SAGA (SAGA INSTANCES & LOGS)
--- =============================================================================
-CREATE TABLE saga_instances (
-    id UUID PRIMARY KEY,
-    order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
-    saga_type VARCHAR(50) NOT NULL CHECK (saga_type IN (
-        'CHECKOUT_D2C_SAGA', 'MARKETPLACE_INBOUND_SAGA', 
-        'ORDER_TIMEOUT_COMPENSATION_SAGA', 'RETURN_REFUND_SAGA'
-    )),
-    current_step VARCHAR(60) NOT NULL,
-    status VARCHAR(30) NOT NULL CHECK (status IN (
-        'STARTED', 'IN_PROGRESS', 'COMPLETED', 
-        'COMPENSATING', 'COMPENSATED', 'RETRYING', 'DEAD_LETTER'
-    )),
-    payload JSONB NOT NULL DEFAULT '{}'::jsonb,
-    error_message TEXT,
-    retry_count INT NOT NULL DEFAULT 0,
-    expires_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX idx_saga_order ON saga_instances (order_id);
-CREATE INDEX idx_saga_status_retry ON saga_instances (status, retry_count) 
-    WHERE status IN ('COMPENSATING', 'RETRYING');
-
-CREATE TABLE saga_step_logs (
-    id UUID PRIMARY KEY,
-    saga_id UUID NOT NULL REFERENCES saga_instances(id) ON DELETE CASCADE,
-    step_name VARCHAR(60) NOT NULL,
-    action_type VARCHAR(20) NOT NULL CHECK (action_type IN ('COMMAND', 'COMPENSATION')),
-    status VARCHAR(20) NOT NULL CHECK (status IN ('SUCCESS', 'FAILED')),
-    details JSONB NOT NULL DEFAULT '{}'::jsonb,
-    executed_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX idx_saga_step_logs_saga ON saga_step_logs (saga_id);
-
--- =============================================================================
--- 7. BẢNG TRANSACTIONAL OUTBOX PATTERN (OUTBOX EVENTS)
--- =============================================================================
-CREATE TABLE outbox_events (
-    id UUID PRIMARY KEY,
-    aggregate_type VARCHAR(50) NOT NULL DEFAULT 'Order',
-    aggregate_id VARCHAR(64) NOT NULL,
-    event_type VARCHAR(100) NOT NULL,
-    topic VARCHAR(100) NOT NULL,
-    payload JSONB NOT NULL,
-    status VARCHAR(20) NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'PUBLISHED', 'FAILED')),
-    traceparent VARCHAR(128),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    published_at TIMESTAMPTZ
-);
-
-CREATE INDEX idx_outbox_pending ON outbox_events (created_at ASC) WHERE status = 'PENDING';
+BEGIN;
+SELECT id, status, version, payment_expires_at
+FROM orders WHERE id = $1 FOR UPDATE;
+-- application xác định decision_at bằng SELECT clock_timestamp() sau lock
+UPDATE orders
+SET status = $3, version = version + 1, updated_at = clock_timestamp()
+WHERE id = $1 AND status = $4 AND version = $2
+RETURNING version;
+-- nếu 0 rows: re-read, kiểm tra quyền và trả conflict/no-op theo intent
+-- nếu thành công: INSERT history + outbox + saga intent trước COMMIT
+COMMIT;
 ```
 
+Isolation `READ COMMITTED` với khóa hàng thích hợp đủ cho các invariant cục bộ trên một Order; tổng refundable phải khóa receipt rồi cộng succeeded + approved/submitted/unknown obligations. Các bước có nhiều aggregate cần kiểm tra kỹ và retry deadlock/serialization theo bounded policy. PostgreSQL đánh giá lại điều kiện UPDATE sau khi chờ cập nhật cạnh tranh; thiết kế vẫn phải kiểm tra rows affected. [PostgreSQL 16 transaction isolation](https://www.postgresql.org/docs/16/transaction-iso.html).
+
+`version` bắt đầu 1; mọi mutation có ý nghĩa tăng đúng một lần và history ghi phiên bản mới. Replay cùng command thành công không tăng version. Snapshot immutable sau chốt: application role không có UPDATE trực tiếp; dùng repository có guard/trigger và migration role riêng. DDL candidate chưa chứa trigger immutable nên đây là yêu cầu implementation cần kiểm chứng.
+
+## 5. Idempotency durable
+
+Scope = verified customer ID hoặc Guest session ID hoặc trusted service/store ID; operation = CHECKOUT/CANCEL/POS_IMPORT/REFUND. Key không phải bearer token và không dùng chung giữa khách. Hash SHA-256 của request canonical gồm cart revision, line quantities/prices mong đợi, address source/version, carrier/method/voucher; loại transport timestamp/trace ID. Key trùng + hash khác → 409 IDEMPOTENCY_CONFLICT.
+
+`INSERT ... ON CONFLICT DO NOTHING` quyết định winner. Cùng hash và IN_PROGRESS trả `202` + status resource/Retry-After; cùng hash đã kết thúc replay HTTP status và order reference. Response dựng lại từ snapshot, không gọi lại query giá. Sau khi response retention hết hạn vẫn giữ key/hash/order tombstone đủ cho cửa sổ business retry; không xóa key khi saga đang chạy hoặc tiền/compensation chưa terminal. Đề xuất response retention 7 ngày, tombstone 30 ngày; imports và receipt/refund uniqueness giữ theo ledger retention. Công bố giới hạn retry cho client trước release.
+
+## 6. Outbox và inbox
+
+Outbox event ID giữ nguyên qua mọi lần gửi. `aggregate_version` và `event_ordinal` tạo thứ tự các event phát trong cùng một mutation. Publisher chỉ claim event nếu không còn event chưa publish có sequence nhỏ hơn của cùng aggregate, dùng lease + `FOR UPDATE SKIP LOCKED`; gửi cùng order partition key. Không gửi Kafka khi giữ SQL row lock lâu. Receipt unmatched dùng aggregate PAYMENT với order ID NULL; vì vậy vẫn có reconciliation/audit outbox cùng receipt commit. Broker ack rồi mới mark PUBLISHED; crash ở giữa gây duplicate, không đổi ID. Producer idempotence không làm Kafka và SQL thành một transaction.
+
+Lease takeover có thể tạo duplicate/stale send ngay cả khi SQL selection đúng: consumer cần xử lý source version và state guards, không coi broker arrival order là business causality tuyệt đối. Kafka chỉ cung cấp ordering trong partition; external DB effect cần phối hợp và dedup riêng. [Apache Kafka design](https://kafka.apache.org/41/design/design/).
+
+Inbox APPLIED được commit cùng effect; DEFERRED được commit cùng pending payload nếu thiếu prerequisite. Khi prerequisite có mặt, pending worker khóa inbox/order, apply và đổi APPLIED trong một transaction. Không insert APPLIED trước effect; không commit offset khi chưa có durable result. Poison event ghi REJECTED + durable DLQ outbox; DLQ ack/persistence thành công rồi mới advance offset. Replay dùng cùng event ID/source; cùng ID/hash khác báo integrity incident.
+
+## 7. Index, queue và Redis
+
+Index customer history `(customer_id, created_at DESC, id DESC)`; queue `(status, sla_due_at, id)` với active states; timeout partial `(payment_expires_at,id)` WHERE PENDING_PAYMENT; completion partial `(completion_due_at,id)` WHERE DELIVERED; outbox pending/run_after; saga run_after/lease expiry; payments provider uniqueness; marketplace uniqueness theo channel/store/id.
+
+Keyset pagination dùng `(created_at,id)`; cursor chứa filter hash và scope đã ký. SLA queue sort overdue trước, `sla_due_at ASC`, `created_at ASC`, `id ASC`. Deadline lưu theo policy version và state entry time, không tính lại từ created_at cho tất cả công đoạn. Queue không chứa order thiếu ready authorization cho công đoạn.
+
+Redis keys `cart:{scope}`, `quote:{scope}:{id}`, `order-read:{order_id}:{version}`. Cart mutate atomically với revision (Lua/WATCH), TTL 30 ngày; quote 5 phút, không reserve. Nếu Redis mất cart, báo phiên hết hạn, không tác động orders. Nếu cache fail, đọc DB; auth/state/refund/ownership không dựa vào cache. Không cache raw PII mặc định; profile authoritative read không có cam kết P99 5 ms.
+
+## 8. Repository ports và vận hành dữ liệu
+
+`UnitOfWork` truyền DBTX thật cho mọi repository trong transaction: Order, Payment, Saga, History, Outbox, Inbox, Dedup. Không mở transaction mới bên trong repository. External client interface trả `Succeeded/Rejected/Unknown`, không gom timeout vào rejection.
+
+Migrations expand/backfill/validate trước constrain; rollback không xóa receipt hoặc nghĩa vụ chưa hoàn thành. DB role ứng dụng không được truncate history/ledger. Backup phải có PITR và restore drill; restore outbox/inbox cùng DB, sau restore reconcile provider/Inventory vì remote effect có thể mới hơn backup. Schema retention/partitioning chọn sau đo tải; không partition vội làm mất global receipt uniqueness.
+
+
 ---
 
-### 4.4. Mô Hình Dữ Liệu Bộ Đệm & Phiên (Redis Data Schema)
+> **Implementation 3.1 — 09/10/2026:** [08_implementation_and_acceptance.md](08_implementation_and_acceptance.md) là nguồn hành vi hiện tại. Acceptance tạo checkout operation, chưa tạo Order; PAID và outbox chờ terminal stock/voucher outcome. Các đoạn v3.0 khác mô tả candidate cần đọc cùng cập nhật này.
 
-| Cấu Trúc Khóa (Key Pattern) | Kiểu Dữ Liệu | TTL | Mục Đích Kỹ Thuật |
-| :--- | :---: | :---: | :--- |
-| `cart:{customer_id_or_session}` | `Hash` | 30 ngày (Login) / 7 ngày (Guest) | Quản lý giỏ hàng tạm thời trước khi checkout (`sku_code` $\rightarrow$ `quantity`). |
-| `checkout_session:{checkout_token}` | `String (JSON)` | 30 phút | Lưu trữ giỏ hàng, snapshot địa chỉ đã chọn để chuẩn bị xác nhận. |
-| `idempotency:checkout:{key}` | `String` | 24 giờ | Ngăn chặn việc bấm nút "Đặt Hàng" nhiều lần gây tạo đơn trùng. |
-| `idempotency:payment:vietqr:{trans_id}`| `String` | 7 ngày | Ngăn ngân hàng gọi Webhook trùng lặp xử lý thanh toán đúp. |
-| `saga:lock:order:{order_id}` | `String` (Redlock) | 10 giây | Concurrency Shield ngăn hai tiến trình cùng cập nhật trạng thái đơn hàng. |
+# 04 — Use cases và điều phối saga bền vững
 
----
+[Chỉ mục](README.md) · [Trước: Persistence](03_database_and_persistence.md) · [Tiếp: Contracts](05_api_contracts_and_transports.md)
 
-## 5. BƯỚC 5: TRỪU TƯỢNG HÓA TẦNG LƯU TRỮ (REPOSITORY & DATA ACCESS INTERFACES)
+## 1. Cart và quote trước checkout
 
-*Tuân thủ nguyên tắc Dependency Inversion: Toàn bộ Tầng Miền và Ứng Dụng chỉ làm việc qua các interface được type-safe nghiêm ngặt, loại bỏ hoàn toàn việc dùng `tx interface{}` mơ hồ.*
+Cart dùng owner scope đáng tin: Customer resolved từ Identity/Profile, Guest dùng session opaque có TTL. Khi mutate, kiểm tra revision và tổng line/quantity; giới hạn đề xuất 100 SKU, quantity mỗi SKU 1..999, body 64 KiB. SKU/price cache phục vụ hiển thị, không reserve stock. Merge guest cart vào customer là phép gộp có key/revision, không chuyển quyền Orders Guest.
 
-### 5.1. Định Nghĩa Trừu Tượng Database Transaction (`DBTX`)
+Quote đọc cart revision, validate canonical SKU metadata/price, địa chỉ owned/Guest và shipping. Price thay đổi trả `409 PRICE_CHANGED`, không âm thầm thu số tiền mới. Quote chứa line snapshot, address reference/version, carrier/service, totals, expiry, policy version và input hash; chỉ một địa chỉ, không reserve. Voucher preview dùng CalculateDiscount, chưa giữ budget. Checkout phải kiểm tra lại voucher bằng hold, nên quote là dự kiến, không cam kết tài nguyên.
 
-```go
-package repository
+Chọn `POST /api/v1/checkout` là command duy nhất vừa confirm quote vừa tạo order; không thêm `POST /orders` tạo đơn thứ hai. Có thể giữ alias gateway cho client cũ sau contract review, cùng use case và key scope; không mặc nhiên có hai luồng tạo độc lập.
 
-import (
-    "context"
-    "github.com/jackc/pgx/v5"
-    "github.com/jackc/pgx/v5/pgconn"
-)
+## 2. Checkout trả trước
 
-// DBTX đại diện cho giao diện chung của pgx.Pool và pgx.Tx
-// Bảo đảm tính an toàn kiểu dữ liệu tại thời điểm biên dịch (Compile-time Type Safety)
-type DBTX interface {
-    Exec(ctx context.Context, sql string, arguments ...any) (commandTag pgconn.CommandTag, err error)
-    Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
-    QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
-}
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant O as Order
+    participant D as PostgreSQL
+    participant V as Profile/Catalog/Shipping
+    participant P as Promotion
+    participant I as Inventory
+    C->>O: checkout(key, quote, cart_revision)
+    O->>D: T0 DRAFT + dedup + saga STARTED
+    O->>V: resolve owned address / validate price / quote fee
+    V-->>O: canonical snapshot
+    O->>D: T1 snapshot + totals + acquisition intent
+    O->>P: ValidateAndLockVoucher(stable key)
+    P-->>O: hold reference / expiry
+    O->>D: persist hold result
+    O->>I: ReserveStock(stable key, order_id)
+    I-->>O: reservation / expiry
+    O->>D: T3 PENDING_PAYMENT + history + outbox + result
+    O-->>C: 201 order + payment expiry + QR reference
+    Note over O,D: crash/retry đọc saga và dedup trong DB
 ```
 
+Trình tự chi tiết:
+
+1. Validate auth/body/key; canonical request hash. T0 insert DRAFT và dedup trong một transaction. Nếu dedup conflict, rollback DRAFT mới rồi đọc record winner; không để lại draft rác từ request thua.
+2. Saved address gọi Profile với đúng customer; không có resolver user→customer thì không fallback JWT sub. Guest address validate master data, giữ snapshot encrypted.
+3. Catalog ValidatePriceAndSKU cung cấp subtotal; GetProductVariant cung cấp canonical name/weight/packaging. Contract hiện chưa trả full validated line snapshot/version: cần gap G03 để tránh metadata/price bị đổi giữa hai query. Shipping phụ thuộc address và weight; voucher phụ thuộc canonical subtotal. Chỉ parallel các query độc lập, không chạy voucher trước khi có subtotal.
+4. Lưu snapshot, quote và acquisition intent trước RPC có side effect. Sinh `order_id` ngay T0; key mỗi bước `order:{id}:checkout:{operation}:voucher-hold` / `stock-reserve`, không sinh lại khi retry.
+5. Có voucher thì hold trước, ghi ack rồi reserve tất cả SKU atomic. Reserve thất bại rõ ràng → release voucher. Không có voucher bỏ qua bước hold. Reserve timeout → UNKNOWN; query/retry cùng key để xác định, không tạo đơn khác.
+6. `payment_expires_at=min(inventory_expiry, voucher_expiry nếu có, commercial_confirmation_expiry)`. Quote dùng để validation trước acquisition; lưu commercial confirmation expiry = thời điểm canonical snapshot T1 + 15 phút cho snapshot đã chốt. Đề xuất cần còn ít nhất 30 giây khi trả QR; nếu không, compensation và yêu cầu quote mới. Không gia hạn bằng reset local clock.
+7. T3 ghi PENDING_PAYMENT, resource IDs, history, OrderPlaced candidate event, dedup SUCCEEDED/result 201. QR được tạo từ final/receiver/reference trong payment_intents đã lưu cùng transaction, không từ browser. Không có provider integration thì không tuyên bố tạo VietQR đã được xác minh.
+8. Client mất response: retry key cũ đọc lại order. Deadline HTTP đến khi saga chưa terminal: trả 202 với order reference, không 504 làm khách hiểu thất bại chắc chắn. Nếu DB chưa durable nhận request thì trả 503; caller vẫn retry cùng key.
+
+Nếu external call đã thành công nhưng T3 commit thất bại/không rõ, worker tìm T0/T1 và remote key để resume hoặc compensation. Không có nhánh “DB chưa ghi gì nhưng saga worker sẽ biết để nhả”: intent phải tồn tại trước đó.
+
+## 3. COD checkout
+
+COD eligibility kiểm tra channel, địa chỉ, carrier/service, giá trị, SKU, risk policy; không được thì 422 COD_NOT_AVAILABLE. Không cấp QR, không chờ webhook 15 phút. DRAFT giữ stock/hold rồi finalize stock và voucher bằng stable commands; thành công mới T3 CONFIRMED_COD, UNPAID, fulfillment-ready. Lease cho các bước COD là deadline điều phối ngắn, không phải khoảng 15 phút đợi khách trả tiền.
+
+Mất finalize ack tiếp tục query/retry; nếu stock expired trước finalize thì checkout fail và compensate voucher. Kho COMMITTED nhưng DB response chưa thành công: worker tiếp tục T3 hoặc decommit bằng reversal có contract, không ReleaseReservation ACTIVE. COD không được bật trước khi gap finalize/reversal và fulfillment-ready đã đóng.
+
+## 4. Webhook và quyết định payment
+
+Webhook phải dùng adapter theo provider thực sự cung cấp thông báo giao dịch. VietQR là cách tạo mã chuyển khoản, không tự quy định webhook HMAC hay tính finality của ngân hàng. Adapter cần verify signature/raw bytes, receiver account, transaction ID, reference, timestamp/replay policy và receipt status. Không hard-code HMAC-SHA256 cho mọi ngân hàng nếu hợp đồng provider chưa nói vậy.
+
+1. Verify trước khi ghi receipt; IP allowlist chỉ bổ sung, không thay chữ ký. Provider invalid trả 401/403 theo contract; DB unavailable trả 503 để provider retry.
+2. Unique(provider,transaction ID) khóa chống trùng. Duplicate phải so normalized receipt hash/amount/account/reference; khác nội dung → security/reconciliation incident, không no-op im lặng.
+3. Receipt không match order vẫn lưu `payments.order_id=NULL`, RECONCILIATION_REQUIRED. Không mất tiền nhận thực tế vì parse mã đơn lỗi.
+4. Match Order: khóa row, xác định decision time; exact/đúng currency/receiver/reference và còn hạn → allocation + PAYMENT_FINALIZING + finalize intent. Accepted webhook chỉ có nghĩa đã lưu receipt, không có nghĩa Order đã PAID.
+5. Worker finalize stock atomic với Inventory expiry; outcome COMMITTED → PAID/OrderPaid. Voucher finalize thành công thì phát fulfillment-ready; voucher failure/unknown giữ operational hold, không đóng gói. Failure definitive cần cancellation review/reversal và refund approval, không gọi release committed stock.
+
+| Receipt | Allocation tự động MVP | Order/Payment kết quả |
+| --- | --- | --- |
+| Exact và còn hạn, stock finalize thành công | final toàn bộ | PAID + CONFIRMED |
+| Thiếu tiền | không | Order giữ PENDING_PAYMENT; receipt RECONCILIATION_REQUIRED |
+| Thừa tiền | không | Order giữ PENDING_PAYMENT; receipt RECONCILIATION_REQUIRED |
+| Tiền vào sau cancel/expiry | không | Order giữ cancelled; mở đối soát và refund review |
+| Nhiều receipt nhỏ cộng đủ | không tự cộng | đối soát có phê duyệt; chưa hỗ trợ auto split payment |
+| Duplicate cùng normalized payload | không tạo allocation thứ hai | replay ACK |
+| Exact nhưng reservation expired | giữ sự thật receipt, không fulfillment | cancelled/hold + reconciliation |
+
+Receipt dư/mismatch đến khi Order đã PAID hoặc đang fulfillment tạo reconciliation case riêng; không hạ payment summary CONFIRMED của allocation hợp lệ, không phát OrderPaid lần hai. Trạng thái RECONCILIATION_REQUIRED của receipt riêng không xóa sự thật payment của Order.
+
+Luật exact-match được áp dụng nhất quán: chuyển thừa **không** tự PAID. Nếu muốn phân bổ final và hoàn phần thừa phải có policy mới, refund approval và allocation ledger; không gửi khách “chuyển nốt” khi chưa hỗ trợ tổng hợp receipt.
+
+## 5. Timeout, tự hủy và paid cancellation
+
+Timeout worker lấy candidate PENDING_PAYMENT theo index; lock từng Order rồi kiểm tra DB clock và guard như chương 02. Transaction hủy tạo release saga intent và cancellation fact. Worker sau commit release stock/hold; cancellation response có `compensation_status=PENDING`, không tuyên bố kho đã nhả ngay.
+
+Self-cancel trả trước chỉ PENDING_PAYMENT. Paid customer yêu cầu hủy → tạo cancellation review do Manager/Care xử lý; không tự refund. COD trước packing accepted có thể hủy nhưng cần barrier với Fulfillment. Race giữa cancellation và ready consumer phải qua authorization/cancel protocol: Fulfillment kiểm tra ready generation, atomically chấp nhận task hoặc cancel, trả terminal acceptance. Order chỉ commit cancelled sau xác nhận barrier; pending yêu cầu trả 202 và hold. Không chỉ kiểm tra local PROCESSING vì event acceptance có thể đang lag.
+
+Nếu PROCESSING/PACKED thì self-cancel 409 CANCELLATION_NOT_ALLOWED và hướng dẫn quy trình hỗ trợ; không release stock đã commit. Nếu shipment đã dispatch, xử lý return/delivery-failure bằng Care/Shipping. Reversal kho chỉ sau nguồn xác nhận dừng fulfillment/thu hồi hàng hoặc kiểm định; money refund không tự restock.
+
+## 6. Fulfillment, shipping và SLA
+
+OrderPaid là fact tiền + stock finalize của trả trước; dùng event fulfillment-ready riêng cho cả COD và trả trước, sau voucher và inventory commit. Fulfillment task unique(order,ready generation). Ready và cancel handshake phải chống event cũ: cancelled order không được tạo task từ ready đã xếp hàng trước đó.
+
+Inbound events mang order ID, resource ID, source sequence/version và occurrence time. Packing accepted chuyển PROCESSING, sealed chuyển PACKED, shipment created chỉ gắn tracking; dispatched mới SHIPPED. Delivery failed không coi hoàn tất; reattempt có attempt ID mới. Duplicate business checkpoint với event ID mới vẫn dedup theo resource/version. Event đến sớm durable DEFERRED; source snapshot query giúp khôi phục prerequisite, không quay trạng thái ngược.
+
+SLA deadline bắt đầu khi đủ điều kiện bước tương ứng; ví dụ packing deadline = ready_at + configured packing SLA. Queue chỉ hiển thị task đủ điều kiện theo quyền công đoạn. Mặc định cảnh báo khi còn dưới 20% budget, overdue khi DB now > due_at; threshold là đề xuất. Đổi policy không tính lại hạn đơn cũ nếu chưa có approved recalculation command.
+
+## 7. Verified Guest claim
+
+Profile verifier phải đối chiếu đơn thực sự Guest, proof bind order/customer/phone, TTL và chống replay. Phone/order_code tự gửi không đủ. Chưa có verifier adapter thì Profile hiện trả 503 và không có event thật để consumer xử lý.
+
+Order consumer chỉ tin publisher Profile đã xác thực và claim đã verified. Tại transaction: inbox dedup → lock Order → nếu owner NULL thì update customer/link/version/history/audit; nếu cùng customer thì no-op; nếu owner khác thì reject/security case. Không thay address snapshot. Muốn claim acknowledged end-to-end phải có Order-side apply ack hoặc status query; việc Profile phát event chưa đồng nghĩa lịch sử đơn của Customer đã cập nhật. Claim revoked/transfer là gap cần policy, không tự đổi lại owner NULL.
+
+## 8. Return/refund và nguồn kênh khác
+
+Refund decision từ Care chứa approval ID/version, order/receipt/line scope, amount, method, approving actor và policy. Payment lock receipt kiểm tra refundable, giữ obligation trước RPC; provider operation key không đổi. Timeout refund → UNKNOWN, query provider trước retry; chỉ receipt/refund settlement confirmed mới SUCCEEDED. FAILED terminal có thể giải phóng obligation theo policy; UNKNOWN vẫn giữ budget. Partial refund không xóa line thương mại hoặc làm tiền đã trả thành chưa trả.
+
+Marketplace do Channel normalize rồi event import; uniqueness(channel,store,external ID), external payment state/reference giữ riêng; không gán PAID chỉ vì kênh sàn. Out-of-stock phát kết quả import fail cho Channel xử lý với sàn, Order không gọi API Shopee/TikTok trực tiếp. POS chỉ qua CreatePOSOrder với trusted terminal/cashier và external sale key; CASH cần bằng chứng thu đúng quyền, CARD cần terminal confirmation, VIETQR chưa receipt thì pending. Retry offline cùng sale ID không trừ kho hai lần; không coi offline disconnected là được phép bỏ validate stock.
+
+B2B credit terms/deposit và gifting multi-address có policy riêng ở giai đoạn sau. Gift text/ẩn giá lưu private snapshot; event chỉ is_gift/reference. Không suy diễn B2B payment completed từ một khoản đặt cọc.
+
+## 9. Retry, timeout và ngân sách
+
+RPC chỉ retry khi idempotent key/query contract bảo đảm; không retry validation rejection. Backoff đề xuất full jitter trong `min(30s, 0.5s × 2^attempt)`, tự động tối đa 10 attempts/15 phút cho acquisition/compensation rồi MANUAL_REVIEW; không xóa nghĩa vụ. Finalize ưu tiên trong reservation window, hết hạn phải query terminal outcome. Circuit breaker theo rolling error/timeout window, không tính business rejection là service lỗi.
+
+HTTP deadline 3 giây, từng RPC ≤ min(2 giây, remaining budget). Profile/address và Catalog metadata trước Shipping/voucher; reserve sau validation. Performance phải đo network + DB + provider, ghi số line/nguồn address/voucher/COD/tải/concurrency. Acceptance p95 500 ms là mục tiêu tiếp nhận/commit, không phải toàn bộ Saga; không tự kết luận từ ngân sách từng bước hoặc mock.
+
+
 ---
 
-### 5.2. `OrderRepository` Interface
+> **Implementation 3.1 — 09/10/2026:** [08_implementation_and_acceptance.md](08_implementation_and_acceptance.md) là nguồn hành vi hiện tại. Acceptance tạo checkout operation, chưa tạo Order; PAID và outbox chờ terminal stock/voucher outcome. Các đoạn v3.0 khác mô tả candidate cần đọc cùng cập nhật này.
 
-```go
-package repository
+# 05 — API contracts, transports và bảo mật
 
-import (
-    "context"
-    "errors"
-    "time"
-    "github.com/omamx/order-service/internal/domain"
-)
+[Chỉ mục](README.md) · [Trước: Use cases](04_usecases_and_saga_orchestration.md) · [Tiếp: Testing](06_testing_and_failure_recovery.md)
 
-var (
-    ErrOrderNotFound          = errors.New("order: not found")
-    ErrOptimisticLockConflict = errors.New("order: concurrent modification detected (CAS version conflict)")
-)
+## 1. Mức độ hiệu lực
 
-type OrderRepository interface {
-    // Tạo mới Order cùng OrderLineItems, AddressSnapshot, VoucherSnapshot trong 1 Transaction
-    Create(ctx context.Context, db DBTX, order *domain.Order) error
-    
-    // Truy vấn Aggregate đầy đủ
-    GetByID(ctx context.Context, db DBTX, orderID domain.UUID) (*domain.Order, error)
-    GetByCode(ctx context.Context, db DBTX, orderCode string) (*domain.Order, error)
-    
-    // Cập nhật trạng thái sử dụng CAS Optimistic Locking:
-    // UPDATE orders SET status = $1, version = version + 1 WHERE id = $2 AND version = $3
-    UpdateStatusCAS(ctx context.Context, db DBTX, orderID domain.UUID, oldStatus, newStatus domain.OrderStatus, oldVersion int) (bool, error)
-    
-    // Quét các đơn hàng PENDING_PAYMENT bị quá hạn cho Timeout Sweeper
-    FindExpiredOrders(ctx context.Context, db DBTX, before time.Time, limit int) ([]*domain.Order, error)
-    
-    // Ghi nhận giao dịch thanh toán vào bảng payments
-    RecordPaymentTransaction(ctx context.Context, db DBTX, txRecord *domain.PaymentTransaction) error
-}
+Chương này là **contract candidate v3.0**, không tự thay đổi OpenAPI/protobuf/event schemas dùng chung. `openapi_d2c.yaml` hiện có checkout, lịch sử/chi tiết/cancel/tracking và callback nhưng thiếu COD/finalize/202/idempotency durable của v3.0. Bảng chênh lệch chương 07 là checklist trước integration. Không dùng ví dụ candidate để khẳng định contract hiện tại validate được.
+
+REST giữ `X-Idempotency-Key` theo OpenAPI hiện tại. Header bắt buộc cho checkout/cancel/import/refund có side effect; giới hạn đề xuất UUID hoặc chuỗi ASCII 16..128 ký tự. Các client hiện có format UUID vẫn được hỗ trợ. Bổ sung `If-Match` cho mutation cần version; Guest auth dùng proof riêng, không dùng idempotency key.
+
+## 2. Identity và authorization
+
+Public client dùng bearer JWT hoặc Guest session/proof qua Gateway. Gateway bỏ header internal do client gửi và gắn identity đã xác thực; Order xác minh service caller và scoped context. Metadata `requesting_user_id/cancelled_by_user_id/cashier_staff_id` trong protobuf không tự là bằng chứng quyền. JWT sub là user ID, phải resolve Profile customer ID; không có resolver hợp lệ trả 503 IDENTITY_RESOLUTION_UNAVAILABLE.
+
+| Caller | Quyền |
+| --- | --- |
+| Customer | List/detail/cancel chỉ order có đúng customer ID |
+| Guest | Detail/cancel chỉ order bind proof còn hạn; proof giới hạn read/cancel theo scope |
+| Warehouse/Packing | Queue của công đoạn và phạm vi kho được phân quyền |
+| Sales Manager | List/detail toàn scope, hold/cancel review; không giả receipt |
+| Customer Service | Case-related detail với masking; không tự approve refund |
+| Fulfillment/Shipping | Internal detail snapshot cho task/shipment đang được cấp quyền |
+| Channel | POS/import scope của terminal/store; không đọc mọi order |
+| Profile verifier | Query guest eligibility qua contract tối thiểu, không tải PII toàn bộ |
+
+Không có ownership trả 404 giống không tồn tại để tránh enumeration; thiếu auth 401, có auth nhưng thiếu quyền chức năng 403. Guest proof dùng verifier đáng tin/OTP liên kết order/phone/action, chống replay và brute force, không chỉ so phone trong request. Verification endpoint/issuer là gap G06, chưa hoàn thiện trong repo. Staff quyền + warehouse/assignment được kiểm tra cho mỗi command.
+
+## 3. REST endpoint candidate
+
+| Method / Path | Input chính | Thành công | Ghi chú |
+| --- | --- | --- | --- |
+| GET `/api/v1/cart` | session/customer | 200 cart + revision | giá dự kiến |
+| POST `/api/v1/cart/items` | SKU, qty, expected revision | 200 cart mới | atomic revision |
+| PUT `/api/v1/cart/items/{item_id}` | qty, If-Match | 200 | dùng item ID theo OpenAPI hiện tại |
+| DELETE `/api/v1/cart/items/{item_id}` | If-Match | 204 | không reserve/release kho |
+| POST `/api/v1/checkout/quote` | cart revision, address, carrier/method, voucher | 200 quote | mới; không tạo order |
+| POST `/api/v1/checkout` | quote ID, cart revision, method | 201 hoặc 202 | X-Idempotency-Key; duy nhất command tạo D2C |
+| GET `/api/v1/orders` | cursor, limit 1..100, status/date | 200 summaries | customer scope, không nhận customer ID tùy ý |
+| GET `/api/v1/orders/{id}` | auth/proof | 200 detail + ETag | canonical snapshot |
+| GET `/api/v1/orders/{id}/tracking` | auth/proof | 200 shipment projection | chỉ authorized checkpoints |
+| POST `/api/v1/orders/{id}/cancel` | reason code, If-Match | 200 hoặc 202 | idempotent, compensation có thể pending |
+| POST `/api/v1/orders/{id}/cancellation-requests` | reason, expected version | 202 review reference | paid customer request, không immediate refund |
+| GET `/api/v1/admin/orders` | filters, cursor | 200 scoped list | permission `orders:read` |
+| GET `/api/v1/admin/orders/queue` | stage, warehouse, SLA filter | 200 actionable queue | stage eligibility + assignment |
+| POST `/api/v1/admin/orders/{id}/hold` | reason, expected version | 200 | permission + audit |
+| POST `/api/v1/payments/vietqr/callback` | provider raw signed body | provider ACK sau durable receipt | adapter riêng, không bearer khách |
+
+Không mở arbitrary state PATCH. B2B quotation/multi-address/promotion stacking chỉ thêm sau policy review. `GET /orders/{id}` cũng là status resource cho checkout 202; response phân biệt DRAFT/checkout pending và đơn đặt thành công.
+
+## 4. Ví dụ checkout và response
+
+Ví dụ dưới đây là candidate bổ sung quote, giữ header naming hiện có:
+
+```http
+POST /api/v1/checkout
+Authorization: Bearer <customer-token>
+X-Idempotency-Key: 93381d37-e3e4-4cf4-9018-8cd5a76c9011
+Content-Type: application/json
+
+{"quote_id":"quote-opaque-reference","cart_revision":12,"payment_method":"VIETQR"}
 ```
 
----
-
-### 5.3. `SagaRepository` Interface
-
-```go
-package repository
-
-import (
-    "context"
-    "github.com/omamx/order-service/internal/domain"
-)
-
-type SagaRepository interface {
-    CreateSaga(ctx context.Context, db DBTX, saga *domain.SagaInstance) error
-    GetByOrderID(ctx context.Context, db DBTX, orderID domain.UUID) (*domain.SagaInstance, error)
-    UpdateSagaStatus(ctx context.Context, db DBTX, sagaID domain.UUID, currentStep string, status domain.SagaStatus, retryCount int, errMsg *string) error
-    LogStep(ctx context.Context, db DBTX, logEntry *domain.SagaStepLog) error
-    
-    // Lấy danh sách Saga đang COMPENSATING hoặc RETRYING để chạy Worker thử lại
-    FindRetryingSagas(ctx context.Context, db DBTX, maxRetries int, limit int) ([]*domain.SagaInstance, error)
-}
-```
-
----
-
-### 5.4. `OutboxRepository` Interface
-
-```go
-package repository
-
-import (
-    "context"
-    "github.com/omamx/order-service/internal/domain"
-)
-
-type OutboxRepository interface {
-    SaveEvent(ctx context.Context, db DBTX, event *domain.OutboxEvent) error
-    FetchPendingEvents(ctx context.Context, db DBTX, batchSize int) ([]*domain.OutboxEvent, error)
-    MarkPublished(ctx context.Context, db DBTX, eventIDs []domain.UUID) error
-    MarkFailed(ctx context.Context, db DBTX, eventID domain.UUID, reason string) error
-}
-```
-
----
-
-### 5.5. `CartRepository` Interface
-
-```go
-package repository
-
-import (
-    "context"
-    "time"
-)
-
-type CartItem struct {
-    SKUCode  string `json:"sku_code"`
-    Quantity int    `json:"quantity"`
-}
-
-type CartRepository interface {
-    GetCart(ctx context.Context, cartKey string) ([]CartItem, error)
-    SetItem(ctx context.Context, cartKey string, skuCode string, quantity int, ttl time.Duration) error
-    RemoveItem(ctx context.Context, cartKey string, skuCode string) error
-    ClearCart(ctx context.Context, cartKey string) error
-}
-```
-
----
-
-## 6. BƯỚC 6: TẦNG ỨNG DỤNG & ĐỘNG CƠ ĐIỀU PHỐI SAGA (APPLICATION USE CASES & SAGA ENGINE)
-
-### 6.1. Kiến Trúc Phân Lớp Bên Trong: Order Domain vs Saga Orchestrator
-- **Order Domain Component:** Phụ trách tính toán số học, kiểm tra điều kiện chuyển trạng thái FSM nội bộ, chụp snapshot địa chỉ và tạo bản ghi lưu trữ.
-- **Saga Orchestrator Component:** Quản lý vòng đời phân tán, phát sinh Command sang Inventory, lưu trạng thái bước vào `saga_instances` và chịu trách nhiệm 100% kích hoạt lệnh đền bù (Centralized Compensation Model A).
-
----
-
-### 6.2. Dự Toán Độ Trễ Thực Thi (Checkout Latency Budget cho P95 < 200ms)
-
-Để bảo đảm cam kết **NFR-01 (Độ trễ P95 < 200ms)**, chuỗi thực thi của `CheckoutD2CUseCase` được thiết kế song song hóa và phân bổ ngân sách thời gian (Latency Budget) nghiêm ngặt:
-
-| Công Đoạn Xử Lý | Cơ Chế Kỹ Thuật | Ngân Sách Dự Toán (Budget) | Ghi Chú Tối Ưu Hóa |
-| :--- | :--- | :---: | :--- |
-| **API Gateway Transit** | Kong JWT Local Validation & TLS Term | **10 ms** | Xác thực qua Cached JWKS, không gọi mạng nội bộ. |
-| **Idempotency Check** | Redis `GET idempotency:checkout:{key}` | **5 ms** | In-memory lookup. |
-| **Parallel Verification** | `errgroup` chạy song song 3 gRPC: | **35 ms** | Chạy đồng thời 3 luồng gRPC: |
-| ├── *Catalog Service* | gRPC `ValidatePriceAndSKU` | *(30 ms)* | Đọc từ Redis Cache của Catalog. |
-| ├── *Promotion Service* | gRPC `ValidateVoucher` | *(25 ms)* | Kiểm tra ngân sách mã giảm giá. |
-| └── *Shipping Service* | gRPC `CalculateShippingFee` | *(20 ms)* | Tra cứu ma trận cước địa lý. |
-| **Stock Reservation** | gRPC `ReserveStock` sang MS-01 | **45 ms** | Kho chạy `SELECT FOR UPDATE` trên index SKU. |
-| **Database Transaction** | PostgreSQL Local ACID Commit | **30 ms** | Ghi 1 lệnh gom: Order, Items, Address, Saga, Outbox. |
-| **Network & Serialization** | Protobuf / JSON Marshalling | **15 ms** | Zero-copy buffer serialization. |
-| **TỔNG THỜI GIAN P95 DỰ TOÁN** | **Toàn trình từ Client $\rightarrow$ Response** | **$\mathbf{\sim 140\ ms}$** | **Thỏa mãn vượt trội NFR-01 (< 200ms)**. |
-
-> [!NOTE]
-> Timeout cấu hình cho gRPC là **2.0 giây** — Đây là ngưỡng chịu lỗi cực hạn (Circuit Breaker Deadline) để cô lập sự cố khi service đối tác sập hoàn toàn, **không phải thời gian chạy bình thường (P95 thông thường luôn $\le 45$ms)**.
-
----
-
-### 6.3. Use Case 1: `CheckoutD2CUseCase` (Critical Path Synchronous)
-
-```text
-[BƯỚC 1]: Kiểm tra Idempotency Key trên Redis bằng lệnh SET key "PROCESSING" EX 86400 NX.
-          └──> Nếu đã tồn tại -> Trả về ngay kết quả phản hồi đã lưu từ trước.
-[BƯỚC 2A]: Chuẩn bị dữ liệu Địa chỉ Giao nhận (Address Resolution):
-          ├──> Nếu Client truyền `shipping_address_id` (Khách hàng đăng nhập chọn sổ địa chỉ):
-          │    └──> Gọi gRPC: MS-15: ProfileService.GetDeliveryAddress(shipping_address_id, customer_id)
-          │         (Độ trễ P99 <= 5ms từ Dual-Layer Cache của MS-15).
-          └──> Nếu Client là Guest: Lấy trực tiếp thông tin địa chỉ từ request payload.
-[BƯỚC 2B]: Kích hoạt golang.org/x/sync/errgroup phát 3 cuộc gọi gRPC đồng thời:
-          ├──> MS-05: CatalogService.ValidatePriceAndSKU(items)
-          ├──> MS-07: PromotionService.ValidateVoucher(voucher_code, customer_id)
-          └──> MS-12: ShippingService.CalculateShippingFee(resolved_address.ward_code, total_weight)
-[BƯỚC 3]: Đánh giá kết quả xác thực:
-          └──> Nếu có bất kỳ lỗi nào (Giá sai, Voucher hết hạn, Địa chỉ không tồn tại) -> Hủy luồng, trả về HTTP 400.
-[BƯỚC 4]: Gọi gRPC Synchronous: MS-01: InventoryService.ReserveStock(order_id, items, ttl=15m).
-          └──> Nếu trả về INSUFFICIENT_STOCK -> Dừng luồng, trả về danh sách SKU thiếu hàng.
-[BƯỚC 5]: Application sinh UUID v7 cho order_id, outbox_id, saga_id.
-[BƯỚC 6]: Mở Local Database Transaction (PostgreSQL ACID):
-          BEGIN;
-            INSERT INTO orders (id, order_code, ..., status='PENDING_PAYMENT', expires_at=NOW()+15m);
-            INSERT INTO order_line_items (...);
-            INSERT INTO order_address_snapshots (...); -- Lưu Snapshot địa chỉ 2 cấp từ MS-15/Guest
-            INSERT INTO order_voucher_snapshots (...);
-            INSERT INTO saga_instances (id, order_id, saga_type='CHECKOUT_D2C_SAGA', status='IN_PROGRESS', ...);
-            INSERT INTO outbox_events (id, aggregate_id, event_type='vn.omama.order.placed.v1', topic='order.events.v1', ...);
-          COMMIT;
-[BƯỚC 7]: Tạo link VietQR động: https://img.vietqr.io/image/970422-0905123456-compact2.png?amount=...&addInfo=OMAMA%20ORD...
-[BƯỚC 8]: Lưu kết quả CheckoutResponse vào Redis Idempotency Key -> Trả về HTTP 201 cho Client.
-```
-
----
-
-### 6.4. Use Case 2: `VietQRWebhookCallbackUseCase` (Chốt Luật Khớp Số Tiền Tuyệt Đối)
-
-> [!IMPORTANT]
-> **Quy Chuẩn Đối Soát Số Tiền Thanh Toán D2C VietQR:**
-> Tuyệt đối cấm quy tắc lỏng lẻo `amount_paid >= final_amount`. Với giao dịch chuyển khoản VietQR tự động, **BẮT BUỘC KHỚP TUYỆT ĐỐI (`amount_paid == final_amount`)**.
-
-#### Bảng Xử Lý Toàn Diện 5 Kịch Bản Thanh Toán:
-| Kịch Bản Thanh Toán | Điều Kiện So Khớp | Trạng Thái Đơn Hàng | Hành Động Hệ Thống & Kế Toán |
-| :--- | :--- | :--- | :--- |
-| **1. Khớp Chuẩn (Exact Match)** | `amount == final_amount` | Chuyển $\rightarrow$ `PAID` | Ghi Outbox `OrderPaidEvent`, kích hoạt đóng gói và trừ tồn kho committed. |
-| **2. Chuyển Thiếu (Underpaid)** | `amount < final_amount` | Giữ nguyên `PENDING_PAYMENT` | Ghi log thanh toán một phần, gửi SMS/ZNS: *"Quý khách chuyển thiếu X đồng, vui lòng chuyển nốt!"*. |
-| **3. Chuyển Thừa (Overpaid)** | `amount > final_amount` | Chuyển $\rightarrow$ `PAID` | Đơn hàng vẫn được đóng gói giao kẹo; hệ thống tự động tạo Ticket kế toán tại MS-09 để hoàn lại số tiền thừa cho khách. |
-| **4. Giao Dịch Trùng (Duplicate Webhook)** | Trùng `(payment_provider, provider_tx_id)` | Không đổi | Bị chặn bởi Unique Constraint CSDL; trả về ngay HTTP 200 OK, không xử lý lại. |
-| **5. Chuyển Tiền Sau Khi Hủy (Paid After Timeout)**| Đơn đã `CANCELLED_TIMEOUT` | Giữ nguyên `CANCELLED_TIMEOUT` | **CẤM chuyển PAID**. Ghi nhận `RECONCILIATION_REQUIRED`, kích hoạt hoàn tiền 100% cho khách vì tồn kho có thể đã bị giải phóng. |
-
----
-
-### 6.5. Use Case 3: `OrderTimeoutCancelCompensationUseCase` (Đền Bù Tập Trung Model A)
-
-```text
-                               Saga Orchestrator (Order Service)
-                                              │
-                      ┌───────────────────────┴───────────────────────┐
-                      │ gRPC ReleaseReservation                       │ gRPC ReleaseVoucher
-                      ▼                                               ▼
-             MS-01: INVENTORY SERVICE                        MS-07: PROMOTION SERVICE
-         (Hoàn trả tồn kho khả dụng)                     (Mở khóa voucher cho khách)
-```
-
-```text
-[BƯỚC 1]: Cron Job Sweeper chạy mỗi 15 giây, thực hiện truy vấn quét:
-          SELECT id, order_code, version FROM orders 
-          WHERE status = 'PENDING_PAYMENT' AND expires_at < CURRENT_TIMESTAMP LIMIT 50;
-[BƯỚC 2]: Với mỗi đơn hàng quá hạn, thực thi Atomic CAS Transition trên PostgreSQL:
-          UPDATE orders 
-          SET status = 'CANCELLED_TIMEOUT', version = version + 1, updated_at = NOW()
-          WHERE id = $1 AND status = 'PENDING_PAYMENT' AND version = $2;
-[BƯỚC 3]: Kiểm tra kết quả RowsAffected:
-          ├──> Nếu RowsAffected == 0: Luồng khác đã thanh toán hoặc cập nhật trước -> Bỏ qua.
-          └──> Nếu RowsAffected == 1: Lệnh hủy đơn thành công. Bắt đầu đền bù tập trung (Model A):
-               ├──> Cập nhật saga_instances status = 'COMPENSATING'.
-               ├──> Ghi Outbox: OrderCancelledEvent (Mục đích thông báo thuần túy, KHÔNG PHẢI LỆNH ĐỀN BÙ).
-               ├──> Trực tiếp gọi gRPC: MS-01: InventoryService.ReleaseReservation(order_id).
-               ├──> Trực tiếp gọi gRPC: MS-07: PromotionService.ReleaseVoucher(voucher_code, customer_id).
-               └──> Nếu gRPC thành công:
-                    └──> Cập nhật saga_instances status = 'COMPENSATED'.
-               └──> Nếu gRPC thất bại (lỗi mạng):
-                    └──> Cập nhật saga_instances status = 'RETRYING', retry_count = retry_count + 1.
-                    └──> RetryWorker sẽ tự động thử lại sau (Exponential Backoff: 1s, 2s, 4s, 8s, 16s).
-                    └──> Nếu quá 5 lần vẫn lỗi -> Chuyển status = 'DEAD_LETTER', kích hoạt cảnh báo Slack/PagerDuty cho đội Ops.
-```
-
----
-
-### 6.6. Use Case 4: `MarketplaceInboundSagaUseCase` (Tiếp Nhận Đơn Sàn & Khóa Tồn Tập Trung)
-1. Consumer trong `order-service` tiêu thụ sự kiện `MarketplaceOrderImportedEvent` từ topic `channel.events.v1`.
-2. Khởi tạo `SagaInstance` với `saga_type = 'MARKETPLACE_INBOUND_SAGA'`.
-3. Gọi gRPC Synchronous `ReserveStock` sang `inventory-service`:
-   - **Thành công:** Tạo đơn hàng nội bộ với `channel = MARKETPLACE_SHOPEE`, trạng thái `PAID`. Ghi Outbox `OrderPaidEvent` để xưởng đóng kẹo. Cập nhật Saga $\rightarrow$ `COMPLETED`.
-   - **Thất bại (Hết hàng tại xưởng Huế):** Cập nhật Saga $\rightarrow$ `FAILED`. Ghi Outbox `MarketplaceOrderStockFailedEvent`. `channel-service` tiêu thụ sự kiện này để tự động gửi API báo hủy đơn lên sàn Shopee/TikTok.
-
----
-
-### 6.7. Use Case 5: `CreatePOSOrderUseCase` (Bán Trực Tiếp Tại Quầy Xưởng Hương Thủy)
-- Phục vụ khách du lịch mua kẹo mè xửng trực tiếp tại xưởng hoặc showroom Huế qua thiết bị POS offline.
-- Thu ngân bấm thanh toán $\rightarrow$ MS-13 gọi gRPC `CreatePOSOrder` sang MS-04.
-- Đơn hàng được tạo thẳng ở trạng thái `PAID`, ghi nhận thanh toán tiền mặt/quẹt thẻ, xuất bản `OrderPaidEvent` để trừ tồn kho vật lý và in hóa đơn VAT ngay tại quầy trong vòng **dưới 50 mili-giây**.
-
----
-
-## 7. BƯỚC 7: TẦNG VẬN CHUYỂN & ĐẶC TẢ HỢP ĐỒNG GIAO TIẾP (DELIVERY LAYER & CONTRACTS)
-
-### 7.1. Cổng Biên HTTP RESTful APIs (North - South via Kong Gateway)
-
-Toàn bộ các REST API đều tuân thủ chuẩn OpenAPI 3.0 tại [`docs/03_api_specs/openapi_d2c.yaml`](../../docs/03_api_specs/openapi_d2c.yaml):
-
-#### 1. Khởi Tạo Phiên Đặt Hàng (`POST /api/v1/checkout`)
-- **Headers yêu cầu:** `Authorization: Bearer <jwt>`, `Idempotency-Key: <uuid>`, `Content-Type: application/json`.
-- **Payload Request:**
 ```json
 {
-  "customer_id": "018f3a5b-9c12-7def-a890-123456789abc",
-  "channel": "D2C_WEB",
-  "shipping_address": {
-    "recipient_name": "Nguyễn Hoàng Nam",
-    "phone_number": "0905123456",
-    "street_address": "15 Lê Lợi",
-    "ward_code": "VN-HUE-PHUHOI",
-    "ward_name": "Phường Phú Hội",
-    "province_code": "VN-HUE",
-    "province_name": "Thành phố Huế",
-    "latitude": 16.4673,
-    "longitude": 107.5905
-  },
-  "items": [
-    { "sku_code": "MX-GION-500G", "quantity": 2 },
-    { "sku_code": "MX-DEO-HOMEMADE-300G", "quantity": 1 }
-  ],
-  "voucher_code": "OMAMA_TET2026",
-  "payment_method": "VIETQR",
-  "customer_note": "Gói kỹ chống vỡ giúp em, mang vào Sài Gòn làm quà!"
-}
-```
-
-- **Payload Response (HTTP 201 Created):**
-```json
-{
-  "order_id": "018f3a5b-9c12-7def-a890-123456789abc",
-  "order_code": "ORD-20261015-0042",
+  "order_id": "019a0000-0000-7000-8000-000000000001",
+  "order_code": "ORD-20261008-000001",
   "status": "PENDING_PAYMENT",
-  "pricing": {
-    "subtotal_amount": 350000,
-    "discount_amount": 30000,
-    "shipping_fee": 25000,
-    "final_amount": 345000,
-    "currency": "VND"
+  "version": 2,
+  "channel": "D2C_WEB",
+  "amounts": {
+    "currency": "VND", "subtotal_units": 220000,
+    "merchandise_discount_units": 20000,
+    "shipping_units": 25000, "shipping_discount_units": 0,
+    "final_units": 225000
   },
-  "payment": {
-    "method": "VIETQR",
-    "status": "PENDING",
-    "vietqr_url": "https://img.vietqr.io/image/970422-0905123456-compact2.png?amount=345000&addInfo=OMAMA%20ORD202610150042",
-    "expires_at": "2026-10-15T08:45:00.000Z",
-    "countdown_seconds": 900
-  },
-  "created_at": "2026-10-15T08:30:00.000Z"
+  "payment": {"method":"VIETQR","status":"PENDING","reference":"OMAMA-000001"},
+  "payment_expires_at":"2026-10-08T08:15:00Z",
+  "compensation_status":"NONE"
 }
 ```
 
----
+201 trả Location `/api/v1/orders/{id}`; 202 trả cùng Location và `Retry-After: 2`, status còn DRAFT/PAYMENT_FINALIZING theo tài nguyên đang xử lý. COD trả CONFIRMED_COD và payment UNPAID; không gán paid_at hoặc bank transaction giả. Response list gồm code/time/final/channel/order status/payment summary/SLA flags, không chứa PII chi tiết.
 
-### 7.2. Cổng Nội Bộ gRPC Services (East - West Server)
+Detail thêm items/address snapshot, authorized timeline, payment summary, stock projection, shipment/packages, `allowed_actions` và operational hold. `allowed_actions` giúp UI nhưng server vẫn kiểm tra guard lúc command tới. ETag từ order version. Cursor ký scope/filter; timestamp ISO-8601 UTC, UI hiển thị Asia/Saigon.
 
-Khớp 100% tệp Protobuf [`packages/proto/order/v1/order.proto`](../../packages/proto/order/v1/order.proto):
+## 5. Lỗi và retry semantics
 
-```protobuf
-syntax = "proto3";
-package omamx.order.v1;
-
-service OrderService {
-  // Tạo đơn hàng trực tiếp tại quầy POS offline (MS-13 gọi)
-  rpc CreatePOSOrder(CreatePOSOrderRequest) returns (CreatePOSOrderResponse);
-
-  // Truy vấn chi tiết đơn hàng kèm snapshot giao vận
-  rpc GetOrderDetail(GetOrderDetailRequest) returns (GetOrderDetailResponse);
-
-  // Hủy đơn hàng và kích hoạt đền bù tập trung
-  rpc CancelOrder(CancelOrderRequest) returns (CancelOrderResponse);
-}
-```
-
----
-
-### 7.3. Hợp Đồng Gọi gRPC Ngoại Vi (East - West Client on Critical Path)
-
-1. **Khóa tồn kho:** Gọi `MS-01: InventoryService.ReserveStock` (Port 8001). Strict Timeout: `2000ms`.
-2. **Giải phóng tồn kho (Đền bù):** Gọi `MS-01: InventoryService.ReleaseReservation` (Port 8001).
-3. **Thẩm định giá:** Gọi `MS-05: CatalogService.ValidatePriceAndSKU` (Port 8005).
-4. **Thẩm định voucher:** Gọi `MS-07: PromotionService.ValidateVoucher` (Port 8007).
-5. **Giải phóng voucher (Đền bù):** Gọi `MS-07: PromotionService.ReleaseVoucher` (Port 8007).
-6. **Tính phí ship:** Gọi `MS-12: ShippingService.CalculateShippingFee` (Port 8012).
-7. **Lấy địa chỉ giao hàng (Saved Address Hydration):** Gọi `MS-15: ProfileService.GetDeliveryAddress` (Port 50051 / 8015). Strict Timeout: `500ms`, SLA $P99 \le 5\text{ms}$.
-   - Contract Protobuf:
-     ```protobuf
-     message GetDeliveryAddressRequest {
-       string address_id = 1;
-       string customer_id = 2;
-     }
-     message DeliveryAddressResponse {
-       string id = 1;
-       string customer_id = 2;
-       string recipient_name = 3;
-       string phone_number = 4;
-       string street_address = 5;
-       string ward_code = 6;
-       string ward_name = 7;
-       string province_code = 8;
-       string province_name = 9;
-       double latitude = 10;
-       double longitude = 11;
-       bool is_default = 12;
-     }
-     ```
-
----
-
-### 7.4. Danh Mục Sự Kiện Kafka Xuất Bản (Transactional Outbox Producer)
-
-Tuân thủ chuẩn **CNCF CloudEvents 1.0 JSON Schema** tại [`packages/events/schemas/order/v1/`](../../packages/events/schemas/order/v1/):
-
-| Tên Sự Kiện | Event Type | Kafka Topic | Partition Key | Ý Nghĩa Nghiệp Vụ (Semantic) |
-| :--- | :--- | :--- | :---: | :--- |
-| `OrderPlacedEvent` | `vn.omama.order.placed.v1` | `order.events.v1` | `order_id` | Khách tạo đơn thành công, đang chờ quét mã VietQR trong 15 phút. |
-| `OrderPaidEvent` | `vn.omama.order.paid.v1` | `order.events.v1` | `order_id` | Tiền đã về tài khoản, kích hoạt xưởng đóng kẹo, trừ kho committed và xuất VAT. |
-| `OrderCancelledEvent` | `vn.omama.order.cancelled.v1` | `order.events.v1` | `order_id` | **Thông báo đơn đã bị hủy (Business Fact)**. Không chứa command đền bù kho. |
-| `OrderCompletedEvent` | `vn.omama.order.completed.v1`| `order.events.v1` | `order_id` | Đơn hoàn tất sau 7 ngày, kích hoạt tích điểm 1% loyalty cho khách. |
-| `MarketplaceOrderStockFailedEvent` | `vn.omama.order.marketplace.failed.v1` | `order.events.v1` | `order_id` | Báo cho MS-13 xử lý hủy đơn sàn khi kho xưởng Huế hết hàng. |
-
-- **Payload Chuẩn Của `OrderPaidEvent` (Bảo Toàn Quyền Riêng Tư PII):**
 ```json
 {
-  "specversion": "1.0",
-  "id": "018f3a5b-9c12-7def-a890-123456789abc",
-  "source": "https://omama.vn/services/order-service",
-  "type": "vn.omama.order.paid.v1",
-  "subject": "order_id:018f3a5b-9c12-7def-a890-123456789abc",
-  "time": "2026-10-15T08:32:11.000Z",
-  "datacontenttype": "application/json",
-  "traceparent": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
-  "data": {
-    "order_id": "018f3a5b-9c12-7def-a890-123456789abc",
-    "order_code": "ORD-20261015-0042",
-    "customer_id": "018f3a5b-9c12-7def-a890-999999999abc",
-    "shipping_address_id": "addr-snap-018f3a5b",
-    "channel": "D2C_WEB",
-    "currency": "VND",
-    "subtotal_amount": 350000,
-    "discount_amount": 30000,
-    "shipping_fee": 25000,
-    "final_amount": 345000,
-    "payment": {
-      "provider": "VIETQR_NAPAS",
-      "provider_transaction_id": "FT2628891048201",
-      "paid_at": "2026-10-15T08:32:10.000Z"
-    },
-    "items": [
-      { "sku_code": "MX-GION-500G", "quantity": 2, "unit_price": 110000 },
-      { "sku_code": "MX-DEO-HOMEMADE-300G", "quantity": 1, "unit_price": 130000 }
-    ]
+  "error": {
+    "code":"IDEMPOTENCY_CONFLICT",
+    "message":"Khóa yêu cầu đã được dùng với nội dung khác.",
+    "retryable":false,
+    "correlation_id":"request-reference",
+    "details":[]
   }
 }
 ```
 
+| HTTP | Codes candidate | Hành vi |
+| --- | --- | --- |
+| 400 / 413 | INVALID_REQUEST / BODY_TOO_LARGE | sửa cấu trúc; reject unknown fields |
+| 401 / 403 | AUTH_REQUIRED / PERMISSION_DENIED | không retry bằng đổi customer ID |
+| 404 | ORDER_NOT_FOUND / ADDRESS_NOT_FOUND | không tiết lộ ownership |
+| 409 | IDEMPOTENCY_CONFLICT, VERSION_CONFLICT, PRICE_CHANGED, INSUFFICIENT_STOCK, CANCELLATION_NOT_ALLOWED, PAYMENT_FINALIZING | reload hoặc thao tác mới khi người dùng chấp nhận; không đổi key để né IN_PROGRESS |
+| 422 | INVALID_ADDRESS, VOUCHER_NOT_APPLICABLE, COD_NOT_AVAILABLE, ZERO_AMOUNT_ORDER_UNSUPPORTED | lỗi nghiệp vụ xác định |
+| 428 | VERSION_REQUIRED | bổ sung If-Match |
+| 429 | RATE_LIMITED | Retry-After |
+| 503 | DEPENDENCY_UNAVAILABLE, IDENTITY_RESOLUTION_UNAVAILABLE, CLAIM_VERIFICATION_UNAVAILABLE | retry cùng key sau backoff |
+
+Timeout RPC sau durable acceptance trả checkout 202; 504 chỉ dùng khi gateway deadline thực sự bị vượt và response mất, không diễn giải là remote rollback. Webhook ACK contract theo provider; thiết kế không áp arbitrary JSON error cho provider không hỗ trợ. Correlation ID không chứa token/phone.
+
+## 6. gRPC hiện có và phần bổ sung
+
+| Service và method hiện có trong packages/proto | Cách dùng v3.0 / giới hạn |
+| --- | --- |
+| Order.CreatePOSOrder | Channel terminal đã xác thực; no marketplace import qua RPC này |
+| Order.GetOrderDetail | cần principal service/user trusted metadata; hiện response thiếu lifecycle projections/version/COD fields |
+| Order.CancelOrder | chưa có expected version/compensation status; cần additive extension |
+| Inventory.ReserveStock / ReleaseReservation | dùng stable key; Release cần reservation_id nên chưa giải quyết unknown ID |
+| Catalog.ValidatePriceAndSKU / GetProductVariant | chưa có canonical line snapshot và price version đồng bộ |
+| Promotion.ValidateAndLockVoucher / ReleaseVoucher / CalculateDiscount | tên RPC đúng; không dùng ValidateVoucher tưởng tượng |
+| Shipping.CalculateShippingFee / CreateShipment / TrackShipment | chưa có quote reference/valid_until dùng cho checkout |
+| Profile.GetDeliveryAddress | response thật GetDeliveryAddressResponse, customer required, two-tier additive fields |
+| Fulfillment.GetPackingVideoUrl / SubmitPackingEvidence | chưa có ready authorization/cancellation barrier |
+| Identity.CheckSpecializedPermission / GetJwksPublicKey | không phải resolver user→customer |
+
+**Proposed Inventory capability**, cần bổ sung proto hoặc protocol tương đương đã chứng minh:
+
+```text
+GetReservationByOrder(order_id, command_key)
+  -> terminal_state, reservation_id, items_digest, expires_at, version
+FinalizeReservation(order_id, reservation_id, command_key, expected_version)
+  -> COMMITTED | EXPIRED | RELEASED | UNKNOWN + operation reference
+ReleaseReservationByOrder(order_id, reserve_command_key, release_command_key)
+  -> RELEASED | COMMITTED | EXPIRED
+ReverseCommittedStock(order_id, approval_reference, reversal_key, items_scope)
+  -> terminal outcome / query reference
+```
+
+Finalize/expire/release được serialize tại Inventory. ReleaseByOrder ghi cancellation tombstone kể cả reserve chưa tồn tại để chặn reserve cũ đến trễ; cùng order/key sau cancelled không reserve lại. Proto hiện có không cam kết tombstone: gap blocker.
+
+Promotion cần query hold by order/key, consume/finalize hold và release-by-order chống hold đến trễ; free-ship input gồm canonical shipping fee + cap. Fulfillment cần authorize-ready generation và cancel/query task terminal outcome. Care cần case eligibility/version barrier. Profile cần verifier query tối thiểu/claim ack; không cho verifier dựa trên arbitrary requesting_user_id.
+
+gRPC errors dùng status codes: InvalidArgument, Unauthenticated, PermissionDenied, NotFound, AlreadyExists cho identity conflict, FailedPrecondition cho transition, Aborted cho version, Unavailable/DeadlineExceeded cho unknown network outcome. DTO ErrorDetail hiện tồn tại chỉ dùng nếu contract cụ thể yêu cầu; không đồng thời trả transport OK và che lỗi hệ thống trong field mà client dễ bỏ qua.
+
+## 7. Kafka: fact, command và phiên bản
+
+Fact mô tả sự kiện đã commit; command là intent chưa biết kết quả. Topics candidate `order.events.v2`, `inventory.commands.v1`, `promotion.commands.v1` và reply events phải có ACL/group/schema riêng. Không dùng OrderCancelled fact làm command release khi Order worker đã release trực tiếp. Chọn duy nhất một adapter gửi command: RPC có stable key hoặc outbox command; không đồng thời dùng cả hai cho cùng effect.
+
+| Event | Thời điểm phát | Hiện trạng |
+| --- | --- | --- |
+| `vn.omama.order.placed.v2` | PENDING_PAYMENT/CONFIRMED_COD đã durable | candidate, chưa schema |
+| `vn.omama.order.paid.v2` | receipt allocated đủ và stock committed | v1 schema có nhưng chưa đủ v3.0 |
+| `vn.omama.order.fulfillment_ready.v2` | inventory/voucher finalized, không hold, COD/trả trước đúng policy | candidate; consumer mới bắt buộc |
+| `vn.omama.order.cancelled.v2` | cancellation outcome durable | v1 có nhưng resource “đã nhả” chưa đúng khi compensation pending |
+| `vn.omama.order.completed.v2` | lifecycle completion barrier thành công | candidate, loyalty policy do Promotion |
+| `vn.omama.order.reconciliation_required.v2` | receipt mismatch/late/unmatched | candidate; unmatched dùng aggregate PAYMENT trong outbox |
+| `vn.omama.order.marketplace_import_failed.v2` | import rejection durable | candidate |
+
+Payment unmatched không có order ID: outbox dùng `aggregate_type=PAYMENT`, `aggregate_id=payment_id`, `order_id=NULL` và partition key là payment ID. Không tạo order giả để phát event; reconciliation/audit event cùng commit receipt. Khi match sau đó, association/payment mutation có version mới và audit riêng (G12 yêu cầu implementation).
+
+CloudEvents candidate cho **registered customer đã paid**, không chứa Direct PII:
+
+```json
+{
+  "specversion":"1.0",
+  "id":"bdb7155a-3716-4a69-87f2-0a03d4601001",
+  "source":"https://omama.vn/services/order-service",
+  "type":"vn.omama.order.paid.v2",
+  "subject":"order:019a0000-0000-7000-8000-000000000001",
+  "time":"2026-10-08T08:02:00Z",
+  "datacontenttype":"application/json",
+  "traceparent":"00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+  "data":{
+    "order_id":"019a0000-0000-7000-8000-000000000001",
+    "order_version":4,
+    "channel":"D2C_WEB",
+    "customer_id":"019a0000-0000-7000-8000-000000000002",
+    "shipping_address_id":"019a0000-0000-7000-8000-000000000003",
+    "final_paid_amount":{"currency_code":"VND","units":225000,"nanos":0},
+    "payment_id":"019a0000-0000-7000-8000-000000000004",
+    "stock_status":"COMMITTED",
+    "items":[{"sku_code":"MX-GION-500G","quantity":2}]
+  }
+}
+```
+
+`customer_id` nullable cho Guest; shipping snapshot nullable cho POS nhận tại quầy; channel vocabulary `D2C_WEB/MOBILE_APP/SHOPEE/TIKTOK/POS_QUAY/B2B_WHOLESALE` thống nhất trong v3.0, B2B extension cần schema mới. Envelope stable id/source/type; traceparent là extension dự án, không phải mandatory core CloudEvents. Subject reference không phải proof quyền. [CloudEvents 1.0.2 specification](https://github.com/cloudevents/spec/blob/v1.0.2/cloudevents/spec.md).
+
+Không sửa required/type của schema v1 đang phát mà coi backward-compatible. V2 topics/event types cần consumer migration, dual-read có business dedup theo operation/order/version, tránh phát hai bản tạo hai packing tasks. Consumer ready tách khỏi paid trước khi bật COD; legacy paid consumer không được tự commit stock lần hai. Schema v2 phải được bổ sung/validate trước publish; ví dụ trên không validate bằng v1.
+
+Inbound: Fulfillment/Shipping/Inventory/Channel/Profile/Care/Payment adapters kiểm tra source ACL, resource association, event schema và source sequence. Khác topic/key (shipping tracking_code, profile customer_id) không có global order; Inbox + deferred protocol xử lý việc đến lệch thứ tự.
+
+## 8. Security và observability trên transport
+
+TLS/mTLS hoặc authenticated internal token theo deployment đã kiểm chứng; không gửi internal token tới browser. Profile hiện yêu cầu `x-internal-token` gRPC, customer ID đúng, deadline server 2 giây; không tự giả định Profile đã có mTLS. Rate-limit riêng Guest proof/webhook/list; body/raw signature bytes giới hạn. JWKS cache có rotation và fail-closed policy cho key lạ.
+
+Logs chỉ dùng request/order/payment/saga references, state, error code, duration; không dùng order/customer ID làm metric label. Traces W3C qua HTTP/gRPC/Kafka, redact PII. Metrics gồm query/checkout latency theo method/channel, pending/finalizing ages, outbox lag, saga UNKNOWN, reconciliation count, refund UNKNOWN, inbox deferred/DLQ, SLA overdue. Health live chỉ process; readiness kiểm DB và khả năng durable accept. Broker down làm backlog, không tự phủ định DB đã commit.
+
+
 ---
 
-### 7.5. Danh Mục Sự Kiện Kafka Tiêu Thụ (Inbound Consumer)
+> **Implementation 3.1 — 09/10/2026:** [08_implementation_and_acceptance.md](08_implementation_and_acceptance.md) là nguồn hành vi hiện tại. Acceptance tạo checkout operation, chưa tạo Order; PAID và outbox chờ terminal stock/voucher outcome. Các đoạn v3.0 khác mô tả candidate cần đọc cùng cập nhật này.
 
-| Nguồn Phát | Kafka Topic | Event Type | Xử Lý Phía `order-service` |
-| :--- | :--- | :--- | :--- |
-| `channel-service` (MS-13) | `channel.events.v1` | `vn.omama.channel.marketplace.order.imported.v1` | Khởi chạy `MarketplaceInboundSagaUseCase`, gọi `ReserveStock` kho. |
-| `fulfillment-service` (MS-02) | `fulfillment.events.v1` | `vn.omama.fulfillment.package.sealed.v1` | Cập nhật đơn $\rightarrow$ `PACKED`, lưu `seal_code` và link bằng chứng S3. |
-| `shipping-service` (MS-12) | `shipping.events.v1` | `vn.omama.shipping.shipment.delivered.v1` | Cập nhật đơn $\rightarrow$ `DELIVERED`, bắt đầu đếm 7 ngày khiếu nại. |
+# 06 — Kiểm thử, recovery và truy vết
 
----
+[Chỉ mục](README.md) · [Trước: Contracts](05_api_contracts_and_transports.md) · [Tiếp: Quyết định/gaps](07_decisions_and_contract_gaps.md)
 
-## 8. BƯỚC 8: CƠ CHẾ KỸ THUẬT XUYÊN SUỐT & PHÒNG VỆ (CROSS-CUTTING CONCERNS)
+**Trạng thái:** danh mục yêu cầu gốc v3.0; kết quả runtime 3.1 và phạm vi từng release được ghi tại [báo cáo nghiệm thu](../../../04_testing/order-service/03_implementation_verification.md). Các feature mở rộng chưa triển khai không được đánh dấu PASS.
 
-### 8.1. Đảm Bảo At-least-once Delivery & Idempotent Consumer (Effectively-once Business Outcome)
-
-> [!IMPORTANT]
-> **Định Nghĩa Chuẩn Về Tính Nhất Quán Trong Hệ Phân Tán:**
-> Trong kiến trúc hướng sự kiện (Event-Driven Architecture) với Transactional Outbox:
-> $$\mathbf{Transactional\ Outbox\ =\ At\text{-}least\text{-}once\ Delivery}$$
-> Do máy chủ Outbox Publisher có thể gặp sự cố mạng hoặc crash ngay sau khi bắn thành công lên Kafka nhưng chưa kịp cập nhật trạng thái `PUBLISHED` trong CSDL, thông điệp có thể bị bắn lại nhiều lần khi tiến trình khởi động lại.
-> 
-> Vì vậy, đẳng thức toàn vẹn nghiệp vụ của hệ thống Mè Xửng O Mạ được xác lập:
-> $$\mathbf{At\text{-}least\text{-}once\ Delivery\ +\ Idempotent\ Consumer\ =\ Effectively\text{-}once\ Business\ Outcome}$$
-
-Mọi Consumer trong toàn bộ 18 Microservices (bao gồm cả các consumer bên trong `order-service`) đều bắt buộc phải triển khai cơ chế kiểm tra trùng lặp (Idempotent Message Handling):
-- Sử dụng bảng kiểm tra sự kiện đã xử lý `processed_events (event_id UUID PRIMARY KEY, processed_at TIMESTAMPTZ)` ngay bên trong transaction của consumer.
-- Nếu `event_id` đã tồn tại $\rightarrow$ Bỏ qua việc thực thi nghiệp vụ, xác nhận Commit Offset Kafka ngay lập tức.
-
----
-
-### 8.2. Hệ Thống Idempotency Đa Tầng (Multi-Tier Idempotency Shield)
-1. **Tầng 1 (Memory / Redis Filter):** Sử dụng `idempotency:checkout:{key}` với TTL 24h.
-2. **Tầng 2 (PostgreSQL Unique Constraint):** Bảng `payments` áp dụng ràng buộc duy nhất `UNIQUE (payment_provider, provider_transaction_id)`. Bất kỳ nỗ lực ghi đúp nào cũng bị cơ sở dữ liệu chặn đứng với mã lỗi vi phạm khóa duy nhất (`23505 UniqueViolation`).
-
----
-
-### 8.3. Chiến Lược Cầu Dao Ngắt Mạch & Quá Giờ Nghiêm Ngặt (Circuit Breaker & Strict Timeout)
-- **Strict Timeout (2000ms):** Bọc toàn bộ các cuộc gọi gRPC ngoại vi trong Context có deadline 2 giây.
-- **Circuit Breaker:** Ngưỡng mở cầu dao: $\ge 50\%$ request lỗi trong 10 giây. Khi cầu dao OPEN: Trả về ngay mã lỗi nhanh `ERR_CIRCUIT_BREAKER_OPEN` (HTTP 503) trong vòng 1ms, không làm nghẽn thread pool. Thời gian ngủ thăm dò (Sleep window): 5 giây.
-
----
-
-### 8.4. Bảo Mật Zero-Trust & Xác Thực Webhook HMAC-SHA256
-- **Local JWT Validation:** API Gateway tiêm các Header định danh sạch: `X-User-Id`, `X-User-Roles`. `order-service` kiểm tra quyền sở hữu đơn hàng trực tiếp từ Header.
-- **Xác Thực Chữ Ký Webhook Ngân Hàng:**
-  - Ngân hàng gửi kèm Header `X-VietQR-Signature`.
-  - `order-service` tính toán HMAC-SHA256 từ binary payload gốc và Secret Key, đối chiếu bằng thuật toán an toàn thời gian cố định `crypto/subtle.ConstantTimeCompare` để loại trừ tấn công vét cạn theo thời gian (Timing Attack).
-
----
-
-### 8.5. Tích Hợp Mặt Phẳng Kiểm Toán & Giám Sát Viễn Trắc (Audit & Observability)
-- **Mặt Phẳng Kiểm Toán (Audit Plane):** Mọi thao tác hủy đơn, duyệt hoàn tiền, điều chỉnh giá đều xuất bản sự kiện sang `audit.events.v1` kèm chuỗi băm Tamper-Evident Hash Chain SHA-256.
-- **Mặt Phẳng Viễn Trắc (Observability Plane):** Tự động lan truyền W3C `traceparent` qua gRPC Metadata và Kafka Headers; đẩy tín hiệu OTLP sang OpenTelemetry Collector.
-
----
-
-## 9. BƯỚC 9: QUY HOẠCH CẤU TRÚC THƯ MỤC DỰ ÁN (PROJECT DIRECTORY & CODE BLUEPRINT)
-
-Cấu trúc mã nguồn của `services/order-service` tuân thủ chuẩn **Clean / Hexagonal Architecture**:
+## 1. Phân lớp code đề xuất
 
 ```text
 services/order-service/
-├── cmd/
-│   └── server/
-│       └── main.go                      # Khởi tạo DI Container, HTTP Router, gRPC Server
-├── internal/
-│   ├── config/                          # Nạp biến môi trường từ ConfigMap/Secret
-│   │   └── config.go
-│   ├── domain/                          # Lõi nghiệp vụ độc lập (Core Domain Layer)
-│   │   ├── order.go                     # Aggregate Root Order, OrderLineItem
-│   │   ├── payment_transaction.go       # Entity PaymentTransaction (1:N with Order)
-│   │   ├── money.go                     # Value Object Money (int64 amount VND)
-│   │   ├── value_objects.go             # AddressSnapshot, VoucherSnapshot
-│   │   ├── state_machine.go             # Order FSM & Saga FSM
-│   │   └── errors.go                    # Domain error definitions
-│   ├── usecase/                         # Tầng Điều Phối Ứng Dụng (Application Layer)
-│   │   ├── checkout_usecase.go          # Luồng Checkout D2C Critical Path
-│   │   ├── vietqr_webhook_usecase.go    # Xử lý Webhook ngân hàng & Đối soát tiền
-│   │   ├── cancel_order_usecase.go      # Khách hủy đơn chủ động
-│   │   ├── pos_order_usecase.go         # Tạo đơn quầy POS trực tiếp
-│   │   └── interfaces.go                # Use Case & Client Interfaces
-│   ├── saga/                            # Động Cơ Điều Phối Giao Dịch Phân Tán
-│   │   ├── orchestrator.go              # Saga State Machine coordinator
-│   │   ├── checkout_saga.go             # Kịch bản Saga D2C
-│   │   ├── timeout_sweeper.go           # Cron job quét hủy đơn 15m & Đền bù kho
-│   │   └── marketplace_saga.go          # Kịch bản import đơn sàn Shopee/TikTok
-│   ├── repository/                      # Tầng Trừu Tượng Lưu Trữ (Persistence Adapters)
-│   │   ├── dbtx.go                      # Interface DBTX type-safe
-│   │   ├── order_repository.go          # PostgreSQL 16 adapter (pgx)
-│   │   ├── saga_repository.go           # Quản lý bảng saga_instances & logs
-│   │   ├── outbox_repository.go         # Transactional Outbox pattern adapter
-│   │   └── cart_repository.go           # Redis Cluster cache adapter
-│   ├── transport/                       # Tầng Vận Chuyển Giao Tiếp (Driving Adapters)
-│   │   ├── http/                        # REST Controllers
-│   │   │   ├── router.go
-│   │   │   ├── checkout_handler.go      # POST /api/v1/checkout
-│   │   │   ├── order_handler.go         # GET /api/v1/orders/*
-│   │   │   ├── webhook_handler.go       # POST /api/v1/payments/vietqr/callback
-│   │   │   └── middleware/              # Auth, RateLimit, Idempotency, Tracing
-│   │   ├── grpc/                        # gRPC Server (Port 8004)
-│   │   │   ├── server.go
-│   │   │   └── order_grpc_handler.go    # CreatePOSOrder, GetOrderDetail, CancelOrder
-│   │   └── kafka/                       # Kafka Consumers & Outbox Publisher
-│   │       ├── consumer.go              # Lắng nghe channel.events.v1, fulfillment.events.v1
-│   │       └── outbox_publisher.go      # Poller quét bảng outbox_events bắn lên Kafka
-│   └── client/                          # Giao Tiếp Ngoại Vi gRPC (Driven Adapters)
-│       ├── inventory_client.go          # gRPC Client gọi MS-01 (ReserveStock, ReleaseReservation)
-│       ├── catalog_client.go            # gRPC Client gọi MS-05 (ValidatePriceAndSKU)
-│       ├── promotion_client.go          # gRPC Client gọi MS-07 (ValidateVoucher, ReleaseVoucher)
-│       └── shipping_client.go           # gRPC Client gọi MS-12 (CalculateShippingFee)
-├── migrations/                          # Quản lý phiên bản CSDL (golang-migrate)
-│   ├── 000001_init_order_schema.up.sql
-│   └── 000001_init_order_schema.down.sql
-├── deploy/                              # Hạ tầng Docker & Kubernetes
-│   ├── Dockerfile
-│   └── k8s/
-│       ├── deployment.yaml
-│       ├── service.yaml
-│       └── hpa.yaml
-└── tests/                               # Kiểm thử tự động
-    ├── unit/                            # Domain Unit Tests (Money, FSM, CAS)
-    ├── integration/                     # PostgreSQL testcontainers, Redis lock
-    └── concurrency/                     # 4 Kịch bản kiểm thử phân tán bắt buộc
+  cmd/server/                 bootstrap HTTP/gRPC và shutdown
+  internal/domain/            Order/Money/guard; không import DB/client
+  internal/usecase/           Cart, Quote, Checkout, Receipt, Cancel, Claim, Refund
+  internal/saga/              durable process manager, retry/finalize/compensation
+  internal/ports/             UnitOfWork, repositories, external capabilities
+  internal/repository/        PostgreSQL/Redis adapters; DBTX shared
+  internal/transport/         HTTP, gRPC, Kafka; auth/schema/input validation
+  internal/provider/          webhook adapter và bank/refund query
+  internal/worker/            outbox, pending inbox, timeout, completion, saga
+  migrations/                DDL versioned; immutable constraints/backfill
+  tests/unit/                 money/FSM/authorization rules
+  tests/integration/          DB atomicity, unique, locking, publisher/inbox
+  tests/contract/             actual REST/proto/schema compatibility
+  tests/fault/                lost ack, crash, lease, TTL race
+  tests/load/                 real dependencies, explicit dataset/concurrency
 ```
 
----
+Đây là blueprint Go tham khảo theo implementation Profile; lựa chọn ngôn ngữ Order chưa tồn tại trong code. Không biến đường dẫn blueprint thành link file đang có. Unit test pure domain; integration test DB thật; contract test gọi server registered thật; fault test kiểm ledger/references sau restart, không chỉ HTTP status.
 
-## 10. BƯỚC 10: CHIẾN LƯỢC KIỂM THỬ & MA TRẬN TRUY VẾT YÊU CẦU (TESTING & TRACEABILITY)
+## 2. Ma trận test có oracle
 
-### 10.1. Danh Mục 4 Kịch Bản Kiểm Thử Phân Tán Sống Còn (Distributed Concurrency Tests)
+| ID | Arrange / Act | Assertion bắt buộc |
+| --- | --- | --- |
+| ORD-T01 | Customer A query/cancel/address của B; fake internal headers | 404/403 phù hợp, không PII/effect; sub không bị dùng làm customer ID |
+| ORD-T02 | Guest biết code + phone nhưng không valid proof; replay proof | không cấp quyền; OTP/proof đúng bind được; expired/replay bị chặn |
+| ORD-T03 | 100 concurrent checkout cùng scope/key/body; Redis flush | một checkout operation, một Order sau placement và một reserve business effect; cùng operation response |
+| ORD-T04 | cùng key khác body; hai customers cùng key | conflict đầu tiên; scope khác độc lập, không rò response |
+| ORD-T05 | SKU duplicate, inactive, changed price, address version changed, ship fee unavailable | không silently reprice; no resource acquisition khi validation fail |
+| ORD-T06 | cart free shipping và merchandise discount; overflow/currency/nanos | arithmetic đúng; invalid rejected, tổng line bằng subtotal |
+| ORD-T07 | voucher hold thành công rồi reserve rejected | release hold một lần; checkout terminal fail; mọi references truy được |
+| ORD-T08 | reserve commit ở Inventory rồi mất reply; Order process crash | durable intent trước RPC; retry/query tìm cùng reservation, không reserve lần hai |
+| ORD-T09 | release đến Inventory trước reserve request trễ | tombstone chặn reserve trễ; available cuối đúng, không treo hold |
+| ORD-T10 | DB ack mất sau T3 commit; client retry | dedup result/order giữ nguyên, không compensate order thành công |
+| ORD-T11 | exact/under/over/multi-small/unknown-reference/late receipt | mọi valid receipt được giữ; chỉ exact policy được allocate; không late PAID |
+| ORD-T12 | duplicate provider transaction cùng payload và khác payload | same no-op; altered conflict/security case, không receipt/allocation mới |
+| ORD-T13 | receipt vs Order timeout vs Inventory TTL finalize, tại before/equal/after expiry | chỉ terminal stock outcome hợp lệ; không PAID/ready nếu stock expired |
+| ORD-T14 | finalize thành công mất reply; stale worker epoch | query stable key ra COMMITTED; không release committed, stale không update |
+| ORD-T15 | OrderPaid trước voucher finalize, COD không paid, ready duplicate | packing chỉ sau ready authorization; một task; COD payment UNPAID |
+| ORD-T16 | cancel và Fulfillment acceptance đồng thời; delayed ready | một terminal barrier decision; cancelled không bắt đầu packing |
+| ORD-T17 | outbox send ack xong crash trước SQL published; nhiều publisher/rebalance | duplicate stable event ID; consumer chỉ một effect; source version guards |
+| ORD-T18 | Packing sealed/Shipping delivered đến trước prerequisite | durable DEFERRED; apply sau prerequisite một lần; không bỏ mất checkpoint |
+| ORD-T19 | apply inbox effect rồi SQL rollback; Kafka replay | chưa APPLIED nếu rollback; replay thực hiện đúng một lần |
+| ORD-T20 | claim same owner/new owner/revoked event/không verifier | no owner overwrite; snapshot giữ nguyên; thiếu verifier không claimed |
+| ORD-T21 | hai refunds đồng thời vượt receipt balance; provider ack mất | budget không âm; UNKNOWN giữ nghĩa vụ; query trước submit lại |
+| ORD-T22 | partial/full refund, hàng chưa kiểm định, refund fail | financial status đúng; không restock; không tự PROCESSING |
+| ORD-T23 | completion job vs active Case tại Care, event lag | barrier hoặc disable completion; không loyalty event sớm/trùng |
+| ORD-T24 | query list/queue theo filters, cursor tampering, scopes | pagination ổn định; overdue đúng policy; không hiện task chưa eligible |
+| ORD-T25 | marketplace/POS replay khác event ID cùng external sale ID | một order; terminal/store permission; không trừ kho hai lần |
+| ORD-T26 | DB/Kafka/Redis/remote unavailable, shutdown midflight, PITR restore | durable nghĩa vụ không mất; backlog/recovery và readiness đúng |
 
-Nhằm đảm bảo hệ thống đạt mức **Implementation-Ready**, 4 bài test phân tán dưới đây bắt buộc phải vượt qua trong pipeline CI/CD trước khi xuất xưởng:
+## 3. Failure recovery matrix
 
-```text
-TEST 1: Payment Webhook vs Timeout Sweeper Race Condition
-   │
-   ├──> Khởi tạo 1 đơn hàng PENDING_PAYMENT (expires_at = NOW()).
-   ├──> Kích hoạt đồng thời 2 Goroutines chạy song song:
-   │    ├── Luồng 1: Webhook VietQR (thanh toán hợp lệ amount == final_amount).
-   │    └── Luồng 2: Timeout Sweeper (quét hủy đơn quá hạn).
-   └──> Khẳng định (Assertion):
-        - Đúng 1 luồng thắng cuộc (RowsAffected = 1).
-        - Trạng thái cuối cùng của đơn là PAID HOẶC CANCELLED_TIMEOUT (Tuyệt đối không bị corrupt trạng thái).
-        - Nếu Timeout thắng: Luồng Webhook ghi nhận RECONCILIATION_REQUIRED, không làm lệch tiền.
+| Failure point | Durable state | Recovery | Không được làm |
+| --- | --- | --- | --- |
+| Validation query timeout | DRAFT/saga STARTED, chưa giữ tài nguyên | retry read hoặc terminal fail có reason | tự đoán giá/phí |
+| Voucher/stock RPC timeout | step intent + UNKNOWN | query/retry same key, resolve remote terminal state | coi timeout là chưa giữ gì |
+| Stock reserve sau local hủy | cancellation tombstone remote | late reserve rejection; reconcile | reserve lại cùng order cancelled |
+| T3 DB commit result unknown | T0/T1 hoặc T3 thật sự committed | đọc dedup/order authoritative rồi quyết định | release chỉ vì SQL client mất ack |
+| Receipt callback mất HTTP ack | receipt unique có thể đã committed | provider replay so payload hash | ghi nhận tiền lần hai |
+| Inventory expiry thắng finalize | receipt confirmed, stock EXPIRED | cancel/hold, reconciliation/refund approval | phát ready hoặc hồi sinh order |
+| Voucher consume unknown | PAID + operational hold | query promotion, retry same key | cho Packing chỉ bằng paid |
+| Kafka down | outbox pending, order DB committed | retry publisher, alert oldest age | rollback order đã xác nhận |
+| Publisher crash sau broker ack | outbox chưa published | republish same ID | tạo event ID mới |
+| Poison/incoming event sớm | inbox REJECTED/DEFERRED + durable record | DLQ/pending replay có audit | mark APPLIED rồi bỏ dữ liệu |
+| Release thất bại hết auto retry | cancelled + saga MANUAL_REVIEW | Ops query và resume same intent/key | xóa obligation hoặc tăng tồn thủ công |
+| Refund unknown provider result | refund UNKNOWN, amount giữ ngân sách | query statement/provider, human escalation | gửi refund mới với key mới |
+| Profile unavailable / guest verifier thiếu | checkout/claim chưa được xác minh | fail closed/503; dữ liệu cũ không thay owner | dùng customer query parameter hoặc fake OTP |
+| Restore DB cũ hơn remote | local records thiếu remote outcome mới | full remote reconcile/outbox dedup trước resume | tự retry tất cả RPC không query |
 
-TEST 2: Outbox Publisher Crash & Restart Resilience
-   │
-   ├──> Mở DB Transaction: Tạo Order PAID + Ghi 1 bản ghi vào outbox_events.
-   ├──> Khởi chạy Outbox Publisher bắn sự kiện lên Kafka thành công.
-   ├──> Giả lập kill -9 tiến trình Outbox Publisher NGAY TRƯỚC KHI câu lệnh UPDATE status='PUBLISHED' được commit.
-   ├──> Khởi động lại Outbox Publisher.
-   └──> Khẳng định (Assertion):
-        - Sự kiện OrderPaidEvent được gửi lên Kafka lần thứ 2 (At-least-once).
-        - Consumer phía Downstream phát hiện duplicate event_id, bỏ qua xử lý lần 2 an toàn.
+## 4. Traceability đúng mã FR/NFR hiện tại
 
-TEST 3: Inventory gRPC Ambiguity (Response Lost After Success)
-   │
-   ├──> Client gửi request CheckoutD2C.
-   ├──> Inventory Service đã trừ tồn kho thành công trong DB của kho, nhưng gói tin mạng phản hồi về bị rớt (Network Drop / 2s Timeout).
-   ├──> Order Service ném lỗi DEADLINE_EXCEEDED và kích hoạt Saga Compensation.
-   └──> Khẳng định (Assertion):
-        - Order Service gọi gRPC ReleaseReservation(order_id) với cùng Idempotency Key.
-        - Inventory Service nhả hàng an toàn, không làm thất thoát tồn kho của xưởng.
+| Yêu cầu | Thiết kế chịu trách nhiệm | Tests |
+| --- | --- | --- |
+| FR-05; US-CHK-01..05; EPIC 05/06 | cart revision, quote, canonical snapshot, durable acquisition | T03..10 |
+| FR-06; US-PAY-01..03; EPIC 07 | receipts, COD, exact-match, reconciliation/refund ledger | T11..15, T21..22 |
+| FR-07; US-ORD-01/02/04/05/06; EPIC 08 | history/detail/cancel/queue/SLA/state guards | T01..02, T13, T16, T24 |
+| FR-08/09; EPIC 09 | Inventory ownership, FEFO contract, finalize vs TTL | T07..09, T13..14 |
+| FR-10/11/12; EPIC 10/11 | ready barrier, package/shipment projections | T15..18 |
+| FR-13/14; EPIC 12/13 | channel/store/external ID uniqueness, POS auth | T25 |
+| FR-15; EPIC 14/16 | Case/refund approval, partial financial outcome | T21..23 |
+| FR-17/18; EPIC 17 | voucher hold/consume, completion fact, loyalty ngoài Order | T06..07, T15, T23 |
+| FR-19/28; EPIC 18/26 | B2B/gifting extension, private snapshot | contract/policy test trước release riêng |
+| NFR-01 Performance | measured SLO theo endpoint/tải, keyset/index | load plan, không kết luận từ mock |
+| NFR-02 Mobile First | bounded list, allowed actions, pending response | web/mobile E2E khi client có |
+| NFR-03 Availability | durable saga, retry và restore/reconcile | T08..10, T17, T26 |
+| NFR-04/05 Security/Authorization | trusted principal, scope, service ACL | T01..02, T12, T20, T24..25 |
+| NFR-06 Data Integrity | atomic reservation, dedup, local transactions | T03..23 |
+| NFR-07 Audit Integrity | history + audit intent, downstream tamper-evident ledger | audit integration riêng + T19 |
+| NFR-08 Privacy | encrypted snapshot, no PII fan-out/logs | payload/log scan và auth tests |
+| NFR-09 Media Security | private packing evidence qua Fulfillment authorization | URL scope/expiry tests |
+| NFR-10 Scalability | index, bounded queues, publisher/worker leases | realistic load/scale/rebalance |
+| NFR-11 Observability | trace, counters, backlog, health external dependencies | fault + alert drill |
 
-TEST 4: Downstream Idempotent Consumer Verification
-   │
-   ├──> Xuất bản 3 sự kiện OrderPaidEvent giống hệt nhau lên topic order.events.v1.
-   └──> Khẳng định (Assertion):
-        - fulfillment-service chỉ tạo ĐÚNG 1 Picking Task tại xưởng.
-        - inventory-service chỉ chuyển tồn committed ĐÚNG 1 lần.
-        - finance-service chỉ phát hành ĐÚNG 1 hóa đơn VAT điện tử.
-```
+FR-07 mới là Order Management; NFR-02 là Mobile First, NFR-07 là Audit Integrity, NFR-08 là Privacy. Không giữ mapping sai của v2.0. Local history không tự chứng minh tamper-evident audit chain; phải kiểm MS-18 end-to-end.
 
----
+## 5. Môi trường và bằng chứng
 
-### 10.2. Ma Trận Ánh Xạ Truy Vết Yêu Cầu Chức Năng (FR Traceability Matrix)
+Dùng PostgreSQL 16/Redis/Kafka thật trong môi trường isolated; provider sandbox và Inventory/Promotion adapter có fault injection/query terminal ledger. Contract consumer tests gọi server thực được registered từ protobuf; stub chỉ kiểm branch logic. Để race test có ý nghĩa, dùng barrier, DB clock và remote terminal assertions thay vì sleep cố định.
 
-| Mã Yêu Cầu | Tên Nghiệp Vụ Trong BRD/Epic | Phương Thức Hiện Thực Trong LLD | Thành Phần Đảm Nhiệm |
-| :--- | :--- | :--- | :--- |
-| **FR-06 / EPIC-06** | Mua sắm giỏ hàng & Đặt hàng D2C | `CheckoutD2CUseCase` & `POST /api/v1/checkout` | `internal/usecase/checkout_usecase.go` |
-| **FR-07 / EPIC-07** | Tự động hóa thanh toán VietQR | `VietQRWebhookCallbackUseCase` & Strict Match | `internal/usecase/vietqr_webhook_usecase.go` |
-| **FR-08 / EPIC-08** | Quản lý vòng đời & Hủy đơn tự động | State Machine FSM & Atomic CAS Transitions | `internal/domain/state_machine.go` |
-| **FR-12 / EPIC-13** | Quầy bán lẻ trực tiếp Offline POS | gRPC Service `CreatePOSOrder` | `internal/transport/grpc/order_grpc_handler.go` |
-| **FR-13 / EPIC-12** | Đồng bộ đơn sàn Shopee / TikTok | `MarketplaceInboundSagaUseCase` | `internal/saga/marketplace_saga.go` |
-| **FR-15 / EPIC-14** | Khiếu nại, hoàn tiền kẹo vỡ nát | `ReturnRefundSagaUseCase` & `REFUND_PENDING` | `internal/saga/return_refund_saga.go` |
-| **FR-18 / EPIC-17** | Tích điểm thân thiết OCOP Loyalty | Xuất bản `OrderCompletedEvent` sau 7 ngày | `internal/transport/kafka/outbox_publisher.go` |
-| **FR-19 / EPIC-18** | Đơn sỉ B2B & Hộp quà doanh nghiệp | Phân loại `channel = 'B2B_CORPORATE'` | `internal/domain/order.go` |
-| **FR-28 / EPIC-26** | Gửi quà tặng hộ & Thiệp mừng Huế | Lưu trữ `packaging_specs` & `customer_note` | `internal/domain/value_objects.go` |
+Mỗi run ghi commit/schema version, config deadline/TTL, seed, line count/data size, concurrency, faults, latency distribution, SQL ledger counts và remote outcome; scrub PII/secrets. Những test chưa chạy phải đánh `NOT_RUN`, không chuyển PASS vì tài liệu đã mô tả. Xem [kế hoạch nghiệm thu](../../../04_testing/order-service/01_acceptance_and_verification_plan.md).
 
----
+Go-live gates: G01..G09 và các gaps theo feature trong chương 07 đã đóng; tests MVP pass; no unresolved money/stock integrity issue; restore và reconciliation drill có bằng chứng; provider contract/Guest auth/COD/return policy được phê duyệt. Test tài liệu của đợt này chỉ kiểm link/fence/XML, consistency asset và DDL candidate trong database tạm.
 
-### 10.3. Ma Trận Ánh Xạ Yêu Cầu Phi Chức Năng (NFR Traceability Matrix)
-
-| Mã Yêu Cầu | Tiêu Chí Kỹ Thuật Đề Ra | Giải Pháp Kỹ Thuật Hiện Thực Trong Thiết Kế LLD |
-| :--- | :--- | :--- |
-| **NFR-01** | Độ trễ API Critical Path P95 < 200ms | Chạy song song các cuộc gọi gRPC thẩm định; Latency Budget P95 $\sim 140$ms; bất đồng bộ chuỗi hậu kỳ qua Kafka. |
-| **NFR-02** | Khả năng chịu tải cao mùa vụ Lễ Tết | Thiết kế Stateless Container, lưu session trên Redis, sẵn sàng Horizontal Pod Autoscaling (HPA) theo CPU/RPS. |
-| **NFR-03** | Khả dụng liên tục 99.9% (High Availability) | Cầu dao ngắt mạch Circuit Breaker cô lập sự cố; Retry with Exponential Backoff; PostgreSQL Master-Replica. |
-| **NFR-06** | Triệt tiêu bán vượt tồn kho (Anti-Overselling) | Khóa cứng tồn khả dụng 15 phút bằng gRPC `ReserveStock` trên Critical Path trước khi cấp mã thanh toán. |
-| **NFR-07** | Nhất quán dữ liệu phân tán (Eventual Consistency) | Áp dụng mô hình Hybrid Saga kết hợp Transactional Outbox Pattern; cam kết At-least-once delivery qua Kafka. |
-| **NFR-08** | Bảo mật Zero-Trust & Chống giả mạo | Lọc sạch Header tại Gateway; xác thực chữ ký số HMAC-SHA256 cho Webhook; mã hóa đường truyền gRPC mTLS. |
-| **NFR-09** | Quyền riêng tư & Tối thiểu hóa PII | Tuyệt đối không đưa Direct PII vào payload sự kiện Kafka `OrderPaidEvent` (chỉ gửi `shipping_address_id`). |
-| **NFR-10** | Tính toàn vẹn kiểm toán bất biến (Audit Trail) | Mọi thay đổi trạng thái và dòng tiền đều phát sự kiện kiểm toán bọc trong chuỗi băm Tamper-Evident Hash Chain. |
-| **NFR-11** | Khả năng quan sát toàn diện (Observability) | Truyền W3C `traceparent` qua toàn bộ chuỗi gRPC/Kafka; đẩy Metrics và Traces trực tiếp sang OTel Collector. |
-
----
-
-## 11. BƯỚC 11: MA TRẬN SỰ CỐ & PHỤC HỒI PHÂN TÁN (DISTRIBUTED FAILURE & RECOVERY MATRIX)
-
-*Đây là phần biến tài liệu thiết kế từ "mô hình lý thuyết đẹp" thành "hệ thống phân tán thực chiến", đặc tả chi tiết trạng thái của từng thành phần khi xảy ra sự cố mạng, timeout hoặc crash.*
-
-| Kịch Bản Sự Cố Phân Tán | Trạng Thái Order | Trạng Thái Saga | Trạng Thái Inventory | Hành Động Xử Lý & Kịch Bản Phục Hồi Kỹ Thuật (Recovery Action) |
-| :--- | :---: | :---: | :---: | :--- |
-| **1. Catalog Timeout (gRPC)** | `DRAFT` | `NONE` | `NONE` | Client nhận HTTP 400/504 ngay. Không phát sinh ghi dữ liệu hay khóa tồn kho. Thử lại an toàn. |
-| **2. Promotion Timeout (gRPC)** | `DRAFT` | `NONE` | `NONE` | Đơn hàng chưa khởi tạo. Client nhận thông báo lỗi kiểm tra voucher. |
-| **3. Inventory Timeout Trước Khóa** | `DRAFT` | `NONE` | `NONE` | Cuộc gọi `ReserveStock` bị ngắt sau 2s. Không tạo đơn hàng, báo lỗi quá tải cho khách thử lại. |
-| **4. Kho Khóa Xong Nhưng Rớt Mạng (Ambiguous Timeout)** | `DRAFT` | `COMPENSATING` | `RESERVED` | Order Service không nhận được response. Kích hoạt Saga Compensation gọi gRPC `ReleaseReservation(order_id)` nhả kẹo. |
-| **5. Lỗi DB Commit Sau Khi Khóa Kho** | `NONE` | `COMPENSATING` | `RESERVED` | Đóng kết nối DB bị lỗi sau khi kho đã khóa. Saga Worker kích hoạt gọi `ReleaseReservation` để tránh treo tồn mồ côi. |
-| **6. Webhook VietQR Bị Bắn Lặp (Duplicate Webhook)** | `PAID` | `COMPLETED` | `COMMITTED` | Bị chặn bởi `UNIQUE (payment_provider, provider_tx_id)`. Trả về ngay HTTP 200 OK, không xử lý lại. |
-| **7. Webhook Đến Sau Khi Quá Hạn 15m** | `CANCELLED_TIMEOUT`| `COMPENSATED` | `AVAILABLE` | **CẤM chuyển PAID**. Ghi nhận `RECONCILIATION_REQUIRED`. Thông báo kế toán hoàn lại 100% tiền cho khách hàng. |
-| **8. Outbox Worker Bị Crash Sau Khi Publish Kafka** | `PAID` | `COMPLETED` | `COMMITTED` | CSDL vẫn ghi `PENDING`. Khi worker sống lại sẽ bắn lại event (At-least-once). Downstream tiêu thụ xử lý Idempotent. |
-| **9. Downstream Nhận Sự Kiện Trùng (Duplicate Event)** | `PAID` | `COMPLETED` | `COMMITTED` | Consumer kiểm tra bảng `processed_events`. Nếu đã có `event_id` $\rightarrow$ Bỏ qua, commit offset an toàn. |
-| **10. Kế Toán Hoàn Tiền Thất Bại (Refund Failed)** | `REFUND_PENDING` | `RETRYING` | `UNCHANGED` | RetryWorker thử lại theo Exponential Backoff. Quá 5 lần chuyển `DEAD_LETTER` để quản trị viên can thiệp thủ công. |
 
 ---
 
-> **KẾT LUẬN THIẾT KẾ:**
-> Bản thiết kế **MS-04: Order Service (Phiên bản 2.0)** đã hoàn thiện ở cấp độ **Implementation-Ready 10/10**: loại bỏ 100% các điểm mâu thuẫn kiến trúc, đồng bộ hóa tuyệt đối giữa Domain Model - Database DDL - State Machine - Saga Orchestration - API/gRPC Contracts, đồng thời trang bị đầy đủ các cơ chế phòng vệ phân tán thực chiến cho hệ sinh thái Mè Xửng O Mạ.
+> **Implementation 3.1 — 09/10/2026:** [08_implementation_and_acceptance.md](08_implementation_and_acceptance.md) là nguồn hành vi hiện tại. Acceptance tạo checkout operation, chưa tạo Order; PAID và outbox chờ terminal stock/voucher outcome. Các đoạn v3.0 khác mô tả candidate cần đọc cùng cập nhật này.
+
+# 07 — Quyết định thiết kế, xung đột nguồn và integration gaps
+
+[Chỉ mục](README.md) · [Trước: Testing](06_testing_and_failure_recovery.md)
+
+## 1. Nhật ký quyết định v3.0
+
+Các quyết định dưới đây là **đề xuất thiết kế được tài liệu hóa**, không phải ADR đã được các service khác phê duyệt. Mã OD dùng để tham chiếu review/implementation.
+
+| ID | Vấn đề nguồn v2.0 / repo | Quyết định và lý do | Trade-off / điều kiện |
+| --- | --- | --- | --- |
+| OD-01 | README hệ thống có payment-service; boundary MS-04 chứa payment | Payment component trong MS-04, use case và financial ledger tách nghiệp vụ | chưa tách process; tách sau phải ADR/contracts mới |
+| OD-02 | reserve dùng order ID rồi mới sinh ID; DB commit sau giữ kho chưa có nhật ký | sinh ID/T0 durable trước RPC; journal từng acquisition | thêm ghi SQL; có DRAFT chưa thành công phải expire/clean có retention |
+| OD-03 | Redis key PROCESSING/replay là chống trùng chính | durable dedup key/hash/result, Redis chỉ cache | thêm DB load; giữ tombstone lâu đủ retry |
+| OD-04 | trả thừa tiền vẫn PAID dù ghi exact-match | auto allocation chỉ exact; thiếu/thừa/multi-receipt vào review | giảm tự động hóa để không âm thầm đổi chính sách tài chính |
+| OD-05 | OrderPaid trực tiếp kích cả commit stock và packing; TTL có thể nhả trước consume | atomic Inventory finalize acknowledgement rồi paid; ready riêng sau voucher | thêm protocol/latency; blocker ở proto/consumer hiện tại |
+| OD-06 | COD bị gộp chờ thanh toán/PAID trước packing | CONFIRMED_COD + UNPAID, eligibility + committed stock | cần enum/ready event mới; không activate bằng legacy consumers |
+| OD-07 | refund là Order status; thất bại quay PROCESSING | return/case/refund độc lập; financial allocation/budget | API nhiều projection, cần UI rõ trạng thái |
+| OD-08 | claim dựa phone và customer ID; Profile cache SLA 5 ms | trusted verifier, owner update conditional, authoritative Profile read | Guest claim chặn khi chưa verifier; không hứa SLA mock |
+| OD-09 | free ship bị ép discount <= subtotal và final>=shipping | merchandise/shipping discount tách, arithmetic explicit | Promotion phải nhận fee/cap để finalize đúng |
+| OD-10 | SHIPPED từ ShipmentCreated; loyalty PAID/completed không nhất quán | dispatched mới SHIPPED, completed policy+case barrier; Promotion sở hữu điểm | completion auto off nếu chưa barrier; 7 ngày cần policy chốt |
+| OD-11 | hai listener cùng port; tên RPC giả; payload khác schema | ports/config rõ; actual packages là contract hiện tại; candidate/gap ghi riêng | shared contracts chưa được sửa theo docs |
+| OD-12 | tự nhận production-ready 10/10, p95 140 ms chưa chạy | thiết kế candidate, SLO mục tiêu, explicit evidence plan | chỉ hoàn thành docs, chưa chứng minh runtime |
+
+## 2. Hợp đồng hiện có khác thiết kế ở đâu?
+
+| ID / Mức | Gap cụ thể | Đơn vị cần bổ sung | Tiêu chí đóng / feature bị chặn |
+| --- | --- | --- | --- |
+| G01 / blocker | Inventory không có finalize/query reservation/release-by-order/tombstone/reversal | Inventory + Order | atomic terminal outcome và T08/09/13/14 pass; checkout finalize/COD/cancel committed chưa integration-ready |
+| G02 / blocker khi voucher | Promotion không có query/consume/release-by-order; free ship input thiếu fee/cap | Promotion + Order | hold terminal idempotent, expiry conflict và reversal rõ; T07/15 pass |
+| G03 / blocker checkout | Catalog validation chưa trả canonical full line snapshot + version nhất quán; Shipping fee thiếu quote ID/expiry | Catalog + Shipping | dùng response snapshot coherent và quote valid policy; T05 pass |
+| G04 / blocker | order.proto thiếu finalizing/COD/delivery-failed/admin-cancel/checkout-failed, version và projection fields | Order + Gateway/clients | additive enum/fields không đổi numbers cũ; v1 projection có test; REST candidate chính thức hóa |
+| G05 / blocker | schema paid/cancelled v1 required string customer/address; thiếu COD/ready/version/compensation semantics | Order + downstream consumers | schema v2 + migration; guest/POS/free text redaction và duplicate business effect tests |
+| G06 / blocker Guest | Guest proof issuer/verifier và lookup tối thiểu chưa có; Profile verifier chưa cấu hình | Identity/Profile/Order | end-to-end verified ownership; false/replay/expired denied; claim ack và revoke policy |
+| G07 / blocker packing/cancel | Fulfillment thiếu ready-generation authorization/cancel barrier/query task | Fulfillment + Order | acceptance/cancel race terminal outcome, stale ready không tạo task; T15/16 pass |
+| G08 / blocker payment | Provider callback authenticity/finality/refund query contract chưa chọn/kiểm chứng | Payment component + integration owner | sandbox raw-signature/replay/receiver receipt + settlement query; T11/12/21 pass |
+| G09 / blocker completion | Care active-case eligibility/version/barrier và allowed completion policy chưa có | Care + Order + Promotion | completion không vượt active case khi Kafka lag; loyalty once; auto-completion giữ off trước đó |
+| G10 / feature-specific | marketplace payload/store reference, POS offline sale key và cash/card evidence chưa đủ | Channel + Order | T25; schema external payment info và store ACL |
+| G11 / blocker auth | mapping trusted Identity user→Profile customer, staff scope chưa có trong Order implementation | Identity/Profile/Gateway + Order | auth integration T01; không lấy sub trực tiếp hoặc trust arbitrary headers |
+| G12 / implementation | financial outbox/inbox, immutability enforcement và cross-table total/allocation invariant phải được hiện thực | Order + DB | candidate DDL triển khai thành migration; receipt/unmatched và money invariant tests |
+| G13 / feature-specific | B2B tax/credit/deposit, gift text/privacy, multiple address policies | Commerce owner + related services | scope/policy review và versioned snapshot/contract trước release |
+
+“Đóng gap” cần contract file/migration/adapter và bằng chứng test, không chỉ thêm method name vào tài liệu. Feature không phụ thuộc gap mở có thể phát triển độc lập; không bật checkout/fulfillment tiền thật trước blocker tương ứng.
+
+## 3. Những giá trị phải được chủ nghiệp vụ chốt
+
+| Policy | Default đề xuất | Vì sao cần chốt |
+| --- | --- | --- |
+| Hold trả trước | 15 phút; local expiry không vượt Inventory/Promotion | ảnh hưởng late receipts và khả năng giữ hàng |
+| Quote trước xác nhận | 5 phút, revalidate lúc confirm | thay đổi phí/giá không âm thầm charge |
+| Commercial confirmation | 15 phút từ canonical snapshot T1, lấy min remote expiries | không kéo dài hold do RPC chậm; quote preview hết hạn khác payment window |
+| Paid cancellation | Customer tạo review; Manager approve + fulfillment barrier | tiền đã thu và sản xuất có thể đã bắt đầu |
+| Receipt thiếu/thừa/nhiều khoản | không tự allocate MVP | cần quy tắc settlement/refund rõ |
+| COD eligibility/completion | policy carrier/risk, chưa đối soát thì không auto-complete mặc định | delivery chưa chứng minh tiền về |
+| Return/dispute window | 7 ngày default, Care quyết định scope | không dùng duration như quy định pháp lý đã chốt |
+| Loyalty | Promotion quyết định earn/reverse, không hard-code 1% | refunds/Guest claim/late completion phải cùng ledger |
+| Retention | response dedup 7 ngày, tombstone 30 ngày; ledger/PII theo policy riêng | phải cân bằng replay/privacy/audit, không tự xóa nghĩa vụ |
+| SLA | từng stage/policy version; chưa đặt số giờ fulfillment cụ thể | cần năng lực thực tế và lịch vận hành kho |
+
+## 4. Lộ trình triển khai có dependency
+
+1. Chốt policies/payment provider/trusted identity; bổ sung Inventory terminal protocol và Catalog/Shipping canonical quote.
+2. Domain + migration + repositories/UnitOfWork + durable dedup/saga/outbox/inbox; chạy money/unique/atomic tests.
+3. Cart/quote/checkout trả trước + webhook/reconciliation + timeout/compensation; fault tests trước UI success integration.
+4. Promotion finalization và ready/cancel barrier; sau đó COD + queue/SLA + shipping projection.
+5. Guest verifier/claim ack; Care/refund budget/provider query; completion/loyalty theo barrier.
+6. Marketplace/POS/B2B/gifting theo releases; load/restore/observability và go-live evidence.
+
+## 5. Tham chiếu kỹ thuật đã kiểm tra
+
+- [PostgreSQL 16 — transaction isolation](https://www.postgresql.org/docs/16/transaction-iso.html): đọc/khóa và re-evaluate UPDATE là nền cho guard cục bộ, không tạo distributed atomicity.
+- [Apache Kafka — design](https://kafka.apache.org/41/design/design/): partition ordering và delivery semantics không tự bảo đảm transaction với PostgreSQL.
+- [CloudEvents 1.0.2](https://github.com/cloudevents/spec/blob/v1.0.2/cloudevents/spec.md): envelope và extensions; traceparent là yêu cầu dự án, không tự là core required attribute.
+
+Các SQL/RPC/protocol trong v3.0 là suy luận thiết kế từ yêu cầu và giới hạn repo, không phải mô tả implementation đã được nguồn bên ngoài xác nhận.

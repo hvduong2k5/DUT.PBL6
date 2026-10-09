@@ -26,6 +26,7 @@ service OrderService {
 
   // Khách hàng hoặc Quản trị viên yêu cầu hủy đơn hàng (Kích hoạt Saga Compensation)
   rpc CancelOrder(CancelOrderRequest) returns (CancelOrderResponse);
+  rpc GetCheckoutOperation(GetCheckoutOperationRequest) returns (GetCheckoutOperationResponse);
 }
 
 // Vòng đời trạng thái thực thể Đơn hàng (Tuân thủ triệt để stateDiagram-v2)
@@ -46,6 +47,11 @@ enum OrderStatus {
   ORDER_STATUS_CANCELLED_BY_USER = 10;       // Khách chủ động hủy khi chưa thanh toán
   ORDER_STATUS_CANCELLED_OUT_OF_STOCK = 11;  // Hủy do không đủ tồn kho khả dụng
   ORDER_STATUS_RETURN_REQUESTED = 12;        // Khách gửi khiếu nại kẹo vỡ/hỏng
+  ORDER_STATUS_PAYMENT_FINALIZING = 14;
+  ORDER_STATUS_CONFIRMED_COD = 15;
+  ORDER_STATUS_DELIVERY_FAILED = 16;
+  ORDER_STATUS_CANCELLED_BY_ADMIN = 17;
+  ORDER_STATUS_CHECKOUT_FAILED = 18;
   ORDER_STATUS_REFUNDED = 13;                // Đã kiểm định video seal và hoàn tiền
 }
 
@@ -162,6 +168,9 @@ message GetOrderDetailResponse {
 
   google.protobuf.Timestamp created_at = 15;
   google.protobuf.Timestamp updated_at = 16;
+  int64 version = 17;
+  string stock_status = 18;
+  bool operational_hold = 19;
 }
 
 // Yêu cầu hủy đơn hàng
@@ -170,6 +179,7 @@ message CancelOrderRequest {
   string order_id = 2;
   string cancel_reason = 3;
   string cancelled_by_user_id = 4;
+  int64 expected_version = 5;
 }
 
 // Phản hồi hủy đơn hàng
@@ -177,4 +187,14 @@ message CancelOrderResponse {
   bool is_cancelled = 1;
   OrderStatus final_status = 2;
   string message = 3;
+}
+
+// Operation exists before an Order; order_id is absent until atomic placement.
+message GetCheckoutOperationRequest { string operation_id = 1; }
+message GetCheckoutOperationResponse {
+ string operation_id = 1;
+ string status = 2;
+ optional string order_id = 3;
+ optional OrderStatus order_status = 4;
+ optional string error_code = 5;
 }

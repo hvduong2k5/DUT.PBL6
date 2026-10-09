@@ -1,0 +1,124 @@
+name: order-sandbox
+x-app-env: &app-env
+  APP_MODE: sandbox
+  ORDER_INTERNAL_TOKEN: ${ORDER_INTERNAL_TOKEN:-order-sandbox-internal-token-2026}
+  ORDER_JWT_SECRET: ${ORDER_JWT_SECRET:-order-sandbox-jwt-signing-secret-2026}
+  CALLBACK_SECRET: ${CALLBACK_SECRET:-order-sandbox-callback-secret-2026}
+  ORDER_ENCRYPTION_KEY: ${ORDER_ENCRYPTION_KEY:-AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=}
+  PAYMENT_RECEIVER: SYNTHETIC-RECEIVER
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: order_test
+      POSTGRES_PASSWORD: order_test_local
+    ports: ["127.0.0.1:15434:5432"]
+    volumes:
+      - ./tests/fixtures/init-databases.sql:/docker-entrypoint-initdb.d/01-databases.sql:ro
+      - order_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U order_test -d order_runtime"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  redis:
+    image: redis:7-alpine
+    ports: ["127.0.0.1:16384:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+  kafka-volume-init:
+    image: alpine:3.20
+    user: "0:0"
+    volumes: ["kafka_data:/data"]
+    command: ["sh", "-c", "chown 1000:1000 /data"]
+  kafka:
+    image: apache/kafka@sha256:77e3df9054047a88b520d0cc46e16696d3b22022e1d580aeccd2632df6532837
+    depends_on:
+      kafka-volume-init: {condition: service_completed_successfully}
+    ports: ["127.0.0.1:19094:19094"]
+    environment:
+      KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:29092,CONTROLLER://:9093,EXTERNAL://:19094
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,EXTERNAL://localhost:19094
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:29092 --list >/dev/null 2>&1"]
+      interval: 3s
+      timeout: 5s
+      retries: 30
+    volumes: ["kafka_data:/tmp/kraft-combined-logs"]
+  kafka-init:
+    image: apache/kafka@sha256:77e3df9054047a88b520d0cc46e16696d3b22022e1d580aeccd2632df6532837
+    depends_on:
+      kafka: {condition: service_healthy}
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["/opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists --topic order.events.v2 --partitions 3 --replication-factor 1 && /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists --topic order.sources.v1 --partitions 3 --replication-factor 1"]
+  simulator:
+    build: .
+    image: omamx/order-service:sandbox
+    command: ["order-simulator"]
+    environment:
+      <<: *app-env
+      SIMULATOR_DATABASE_URL: postgres://order_test:order_test_local@db:5432/order_simulator?sslmode=disable
+      ORDER_URL: http://api:8004
+    ports: ["127.0.0.1:18104:8100", "127.0.0.1:19104:9100"]
+    depends_on:
+      db: {condition: service_healthy}
+  api:
+    build: .
+    image: omamx/order-service:sandbox
+    environment:
+      <<: *app-env
+      DATABASE_URL: postgres://order_test:order_test_local@db:5432/order_runtime?sslmode=disable
+      REDIS_ADDR: redis:6379
+      DEPENDENCY_URL: http://simulator:8100
+      KAFKA_BROKERS: kafka:29092
+      ENABLE_AUTO_COMPLETE: "true"
+    networks:
+      default:
+        aliases: ["order-service"]
+    ports: ["127.0.0.1:18004:8004", "127.0.0.1:19004:9004"]
+    depends_on:
+      db: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      kafka-init: {condition: service_completed_successfully}
+      simulator: {condition: service_started}
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8004/readyz"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  tests:
+    image: omamx/order-go-tools:local
+    profiles: ["test"]
+    working_dir: /workspace/services/order-service
+    volumes:
+      - ../..:/workspace
+      - order_go_mod:/go/pkg/mod
+      - order_go_build:/root/.cache/go-build
+    environment:
+      ORDER_TEST_DATABASE: postgres://order_test:order_test_local@db:5432/order_runtime?sslmode=disable
+      ORDER_TEST_SIM_DATABASE: postgres://order_test:order_test_local@db:5432/order_simulator?sslmode=disable
+      ORDER_TEST_REDIS: redis:6379
+      ORDER_TEST_KAFKA: kafka:29092
+    command: ["sh", "-c", "go vet ./... && go test -race -count=1 ./..."]
+    depends_on:
+      db: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      kafka-init: {condition: service_completed_successfully}
+volumes:
+  kafka_data:
+  order_db:
+  order_go_mod:
+  order_go_build:

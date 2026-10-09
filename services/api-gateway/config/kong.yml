@@ -113,8 +113,8 @@ services:
   - name: order-service
     url: http://order-service:8004
     connect_timeout: 2000
-    read_timeout: 8000
-    write_timeout: 8000
+    read_timeout: 5000
+    write_timeout: 5000
     retries: 0 # Prohibit retries on mutations/checkout to prevent duplicate orders
     routes:
       - name: cart-routes
@@ -130,16 +130,17 @@ services:
       - name: order-checkout-routes
         paths:
           - /api/v1/orders
+          - /api/v1/checkout
+          - /api/v1/checkout-operations
+          - /api/v1/admin/orders
+          - /api/v1/guest-sessions
         strip_path: false
         methods:
           - GET
           - POST
           - OPTIONS
         plugins:
-          - name: jwt
-            config:
-              claims_to_verify:
-                - exp
+          # Order verifies bearer issuer/audience/signature and Guest scope itself.
           - name: rate-limiting
             config:
               minute: 30
@@ -200,7 +201,7 @@ services:
     routes:
       - name: vietqr-callback-route
         paths:
-          - /payments/vietqr/callback
+          - /api/v1/payments/vietqr/callback
         strip_path: false
         methods:
           - POST
