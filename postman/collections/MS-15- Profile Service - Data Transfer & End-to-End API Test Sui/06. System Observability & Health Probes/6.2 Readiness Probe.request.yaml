@@ -1,9 +1,0 @@
-$kind: http-request
-method: GET
-url: '{{baseUrl}}/readyz'
-order: 2000
-scripts:
-  - type: afterResponse
-    language: text/javascript
-    code: |-
-      pm.test('Expected HTTP 200', () => pm.response.to.have.status(200));

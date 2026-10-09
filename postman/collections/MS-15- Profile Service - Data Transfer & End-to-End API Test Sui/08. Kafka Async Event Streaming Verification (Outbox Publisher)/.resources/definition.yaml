@@ -1,3 +1,0 @@
-$kind: collection
-name: '08. Kafka Async Event Streaming Verification (Outbox Publisher)'
-order: 8000
