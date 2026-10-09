@@ -1,0 +1,156 @@
+openapi: 3.0.3
+info:
+  title: Inventory Service API
+  version: 1.0.0
+  description: API contract cho inventory-service (reserve/release/confirm/check stock)
+servers:
+  - url: /inventory-service
+paths:
+  /v1/inventory/stock/{sku}:
+    get:
+      summary: Lấy tồn kho theo SKU
+      operationId: getStockBySku
+      parameters:
+        - name: sku
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockResponse'
+        '404':
+          description: Không tìm thấy SKU
+
+  /v1/inventory/reservations:
+    post:
+      summary: Giữ kho cho đơn hàng
+      operationId: createReservation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateReservationRequest'
+      responses:
+        '201':
+          description: Tạo giữ kho thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservationResponse'
+        '409':
+          description: Không đủ tồn kho
+
+  /v1/inventory/reservations/{reservationId}/confirm:
+    post:
+      summary: Xác nhận trừ kho
+      operationId: confirmReservation
+      parameters:
+        - name: reservationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Xác nhận thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservationResponse'
+        '404':
+          description: Không tìm thấy reservation
+
+  /v1/inventory/reservations/{reservationId}/release:
+    post:
+      summary: Giải phóng kho
+      operationId: releaseReservation
+      parameters:
+        - name: reservationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Giải phóng thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservationResponse'
+        '404':
+          description: Không tìm thấy reservation
+
+components:
+  schemas:
+    StockResponse:
+      type: object
+      required: [sku, warehouseCode, onHandQuantity, reservedQuantity, availableQuantity]
+      properties:
+        sku:
+          type: string
+        warehouseCode:
+          type: string
+        onHandQuantity:
+          type: integer
+          minimum: 0
+        reservedQuantity:
+          type: integer
+          minimum: 0
+        availableQuantity:
+          type: integer
+          minimum: 0
+
+    ReservationItem:
+      type: object
+      required: [sku, quantity]
+      properties:
+        sku:
+          type: string
+        quantity:
+          type: integer
+          minimum: 1
+
+    CreateReservationRequest:
+      type: object
+      required: [orderId, items]
+      properties:
+        orderId:
+          type: string
+          format: uuid
+        items:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/ReservationItem'
+
+    ReservationResponse:
+      type: object
+      required: [reservationId, orderId, status, items, createdAt]
+      properties:
+        reservationId:
+          type: string
+          format: uuid
+        orderId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [RESERVED, CONFIRMED, RELEASED]
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReservationItem'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
