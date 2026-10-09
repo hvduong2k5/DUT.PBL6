@@ -15,12 +15,14 @@ import (
 )
 
 type RouterConfig struct {
-	ProfileHandler  *ProfileHandler
-	AddressHandler  *AddressHandler
-	EmployeeHandler *EmployeeHandler
-	ClaimHandler    *ClaimHandler
-	Pool            *pgxpool.Pool
-	RedisClient     *redis.Client
+	ProfileHandler   *ProfileHandler
+	AddressHandler   *AddressHandler
+	EmployeeHandler  *EmployeeHandler
+	ClaimHandler     *ClaimHandler
+	IdentityToken    string
+	CustomerResolver middleware.CustomerResolver
+	Pool             *pgxpool.Pool
+	RedisClient      *redis.Client
 }
 
 func NewRouter(cfg RouterConfig) http.Handler {
@@ -28,16 +30,17 @@ func NewRouter(cfg RouterConfig) http.Handler {
 
 	// Global Middlewares
 	r.Use(chiMiddleware.RealIP)
+	r.Use(chiMiddleware.Timeout(10 * time.Second))
 	r.Use(middleware.RequestLogger)
 	r.Use(chiMiddleware.Recoverer)
 	r.Use(middleware.PrometheusMiddleware)
 
 	// CORS Config
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"*"},
+		AllowedOrigins:   []string{},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "X-Request-ID", "X-User-ID", "X-User-Role"},
-		ExposedHeaders:   []string{"Link", "X-Request-ID"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "X-Request-ID", "X-User-ID", "X-User-Role", "X-Internal-Token", "If-Match"},
+		ExposedHeaders:   []string{"Link", "X-Request-ID", "ETag"},
 		AllowCredentials: true,
 		MaxAge:           300,
 	}))
@@ -53,10 +56,11 @@ func NewRouter(cfg RouterConfig) http.Handler {
 
 	// API Routes
 	r.Route("/api/v1", func(api chi.Router) {
-		api.Use(middleware.AuthContext)
+		api.Use(middleware.AuthContextWithToken(cfg.IdentityToken))
 
 		// Profile Routes
 		api.Route("/profile", func(p chi.Router) {
+			p.Use(middleware.ResolveCustomer(cfg.CustomerResolver))
 			p.Get("/", cfg.ProfileHandler.GetProfile)
 			p.Put("/", cfg.ProfileHandler.UpdateProfile)
 
@@ -67,7 +71,7 @@ func NewRouter(cfg RouterConfig) http.Handler {
 				a.Post("/validate", cfg.AddressHandler.ValidateAddress)
 				a.Post("/validate-consistency", cfg.AddressHandler.ValidateConsistency)
 				a.Get("/{id}", cfg.AddressHandler.GetAddress)
-				a.Post("/{id}", cfg.AddressHandler.GetAddress)
+
 				a.Put("/{id}", cfg.AddressHandler.UpdateAddress)
 				a.Put("/{id}/default", cfg.AddressHandler.SwitchDefaultAddress)
 				a.Patch("/{id}/default", cfg.AddressHandler.SwitchDefaultAddress)
@@ -82,10 +86,6 @@ func NewRouter(cfg RouterConfig) http.Handler {
 				})
 			}
 
-			// Employee VSATTP Compliance
-			if cfg.EmployeeHandler != nil {
-				p.Get("/employees/compliance", cfg.EmployeeHandler.GetCompliance)
-			}
 		})
 
 		// Admin & HR Routes

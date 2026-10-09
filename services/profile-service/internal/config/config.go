@@ -8,9 +8,10 @@ import (
 
 type Config struct {
 	// Server
-	HTTPPort string
-	GRPCPort string
-	LogLevel string
+	IdentityToken string
+	HTTPPort      string
+	GRPCPort      string
+	LogLevel      string
 
 	// Database
 	DatabaseURL  string
@@ -43,9 +44,10 @@ type Config struct {
 
 func LoadConfig() *Config {
 	return &Config{
-		HTTPPort: getEnv("HTTP_PORT", "8080"),
-		GRPCPort: getEnv("GRPC_PORT", "50051"),
-		LogLevel: getEnv("LOG_LEVEL", "info"),
+		IdentityToken: getEnv("PROFILE_INTERNAL_TOKEN", ""),
+		HTTPPort:      getEnv("HTTP_PORT", "8080"),
+		GRPCPort:      getEnv("GRPC_PORT", "50051"),
+		LogLevel:      getEnv("LOG_LEVEL", "info"),
 
 		DatabaseURL:  getEnv("DATABASE_URL", "postgres://omamx_user:omamx_password@localhost:5432/profile_db?sslmode=disable"),
 		DBMaxConns:   getEnvAsInt("DB_MAX_CONNS", 50),

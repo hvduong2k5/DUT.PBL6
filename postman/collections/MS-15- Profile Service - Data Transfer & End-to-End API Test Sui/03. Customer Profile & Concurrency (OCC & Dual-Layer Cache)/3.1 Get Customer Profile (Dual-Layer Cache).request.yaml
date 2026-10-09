@@ -1,0 +1,18 @@
+$kind: http-request
+name: 'Read authoritative profile and resolve identity subject'
+method: GET
+url: '{{baseUrl}}/api/v1/profile'
+order: 1000
+headers:
+  - key: 'X-Internal-Token'
+    value: '{{internalToken}}'
+  - key: 'X-User-ID'
+    value: '{{userId}}'
+  - key: 'X-User-Role'
+    value: 'CUSTOMER'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Expected HTTP 200', () => pm.response.to.have.status(200));
+      const b=pm.response.json(); pm.collectionVariables.set('profileETag',pm.response.headers.get('ETag')); pm.test('User ID maps to distinct customer ID',()=>{pm.expect(b.id).to.eql(pm.collectionVariables.get('customerId'));pm.expect(b.user_id).to.eql(pm.collectionVariables.get('userId'));pm.expect(b.id).not.to.eql(b.user_id);});

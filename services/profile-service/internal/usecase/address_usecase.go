@@ -12,6 +12,7 @@ import (
 	"github.com/omamx/profile-service/internal/domain"
 	"github.com/omamx/profile-service/internal/infrastructure/cache"
 	"github.com/omamx/profile-service/internal/repository"
+	"github.com/rs/zerolog/log"
 )
 
 type AddressUsecase struct {
@@ -43,24 +44,21 @@ func (u *AddressUsecase) ListAddresses(ctx context.Context, customerID uuid.UUID
 // CreateAddress saves a new shipping address.
 func (u *AddressUsecase) CreateAddress(ctx context.Context, addr *domain.ShippingAddress) error {
 	now := time.Now().UTC()
+	if err := domain.ValidateAddress(addr); err != nil {
+		return err
+	}
 	if addr.ID == uuid.Nil {
-		addr.ID = uuid.New()
+		addr.ID = uuid.Must(uuid.NewV7())
 	}
 	addr.CreatedAt = now
 	addr.UpdatedAt = now
-
-	// If this is the customer's first address, make it default automatically
-	count, err := u.addrRepo.CountDefaultAddresses(ctx, addr.CustomerID)
-	if err == nil && count == 0 {
-		addr.IsDefault = true
-	}
 
 	if err := u.addrRepo.CreateAddress(ctx, addr); err != nil {
 		return err
 	}
 
 	// Invalidate customer cache
-	_ = u.cache.Invalidate(ctx, addr.CustomerID.String())
+	u.invalidate(ctx, addr.CustomerID)
 	return nil
 }
 
@@ -71,7 +69,7 @@ func (u *AddressUsecase) SwitchDefaultAddress(ctx context.Context, customerID, a
 	}
 
 	// Purge local L1 + remote Redis and broadcast invalidation to prevent stale address read
-	_ = u.cache.Invalidate(ctx, customerID.String())
+	u.invalidate(ctx, customerID)
 	return nil
 }
 
@@ -80,7 +78,7 @@ func (u *AddressUsecase) DeleteAddress(ctx context.Context, customerID, addressI
 	if err := u.addrRepo.DeleteAddress(ctx, customerID, addressID); err != nil {
 		return err
 	}
-	_ = u.cache.Invalidate(ctx, customerID.String())
+	u.invalidate(ctx, customerID)
 	return nil
 }
 
@@ -89,7 +87,7 @@ func (u *AddressUsecase) UpdateAddress(ctx context.Context, addr *domain.Shippin
 	if err := u.addrRepo.UpdateAddress(ctx, addr); err != nil {
 		return err
 	}
-	_ = u.cache.Invalidate(ctx, addr.CustomerID.String())
+	u.invalidate(ctx, addr.CustomerID)
 	return nil
 }
 
@@ -101,6 +99,9 @@ func (u *AddressUsecase) GetAddressByID(ctx context.Context, id uuid.UUID) (*dom
 // ValidateAddress runs the 2-Stage Fuzzy Matching pipeline against administrative units.
 // Note: This is an Async/UI path and is STRICTLY excluded from the Checkout Critical Path.
 func (u *AddressUsecase) ValidateAddress(ctx context.Context, userInput string) (*MatchResult, error) {
+	if err := domain.ValidateText("raw_address", userInput, 255); err != nil {
+		return nil, err
+	}
 	// Stage 1: Pre-filter top candidates from DB using pg_trgm similarity
 	query := `
 		SELECT code, name, level
@@ -119,22 +120,33 @@ func (u *AddressUsecase) ValidateAddress(ctx context.Context, userInput string) 
 	var candidates []AdministrativeCandidate
 	for rows.Next() {
 		var c AdministrativeCandidate
-		if err := rows.Scan(&c.Code, &c.Name, &c.Level); err == nil {
-			candidates = append(candidates, c)
+		if err := rows.Scan(&c.Code, &c.Name, &c.Level); err != nil {
+			return nil, err
 		}
+		candidates = append(candidates, c)
 	}
 
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	if len(candidates) == 0 {
-		// Fallback: If no direct trigram match, select active wards of Thừa Thiên Huế for in-memory Levenshtein
-		fallbackQuery := `SELECT code, name, level FROM administrative_units WHERE level = 'WARD' LIMIT 50`
+		// Deterministic bounded fallback for in-memory refinement.
+		fallbackQuery := `SELECT code, name, level FROM administrative_units WHERE level = 'WARD' ORDER BY code LIMIT 50`
 		fbRows, fbErr := u.pool.Query(ctx, fallbackQuery)
-		if fbErr == nil {
+		if fbErr != nil {
+			return nil, fbErr
+		}
+		{
 			defer fbRows.Close()
 			for fbRows.Next() {
 				var c AdministrativeCandidate
-				if err := fbRows.Scan(&c.Code, &c.Name, &c.Level); err == nil {
-					candidates = append(candidates, c)
+				if err := fbRows.Scan(&c.Code, &c.Name, &c.Level); err != nil {
+					return nil, err
 				}
+				candidates = append(candidates, c)
+			}
+			if err := fbRows.Err(); err != nil {
+				return nil, err
 			}
 		}
 	}
@@ -142,17 +154,20 @@ func (u *AddressUsecase) ValidateAddress(ctx context.Context, userInput string) 
 	// Stage 2: Refine similarity with Vietnamese diacritics stripping & Levenshtein
 	result := u.fuzzyMatcher.RefineCandidates(userInput, candidates)
 	if result == nil {
-		return nil, fmt.Errorf("no matching administrative ward found for input: %s", userInput)
+		return nil, domain.ErrAddressMatchNotFound
 	}
 
 	return result, nil
 }
 
-// GetDeliveryAddressCheckout fetches delivery address on Checkout Critical Path ($P99 <= 5ms).
+// GetDeliveryAddressCheckout performs an authoritative owned-address lookup for checkout.
 // Bypasses fuzzy matching; uses direct primary key / default B-Tree lookup.
 func (u *AddressUsecase) GetDeliveryAddressCheckout(ctx context.Context, addressID, customerID uuid.UUID) (*domain.ShippingAddress, error) {
 	if addressID != uuid.Nil {
-		return u.addrRepo.GetAddressByID(ctx, addressID)
+		return u.addrRepo.GetOwnedAddress(ctx, customerID, addressID)
+	}
+	if customerID == uuid.Nil {
+		return nil, domain.ErrAddressNotFound
 	}
 	return u.addrRepo.GetDefaultAddress(ctx, customerID)
 }
@@ -189,6 +204,11 @@ type AddressConsistencyResponse struct {
 // ExtractStreetName extracts the street component by stripping house numbers, alley prefixes, etc.
 func ExtractStreetName(raw string) string {
 	cleaned := strings.TrimSpace(raw)
+	// Preserve numeric street names such as "2 Tháng 9", including after a house number.
+	dateStreet := regexp.MustCompile(`(?i)\b[0-9]+\s+tháng\s+[0-9]+.*$`)
+	if street := dateStreet.FindString(cleaned); street != "" {
+		return street
+	}
 	// Regex removing house numbers, kiệt, ngõ, hẻm, số at the beginning
 	re := regexp.MustCompile(`^(?i)(?:nhà\s*số\s*|số\s*|kiệt\s*\d+[a-zA-Z\/\d\-\.]*\s*|ngõ\s*\d+[a-zA-Z\/\d\-\.]*\s*|hẻm\s*\d+[a-zA-Z\/\d\-\.]*\s*|\d+[a-zA-Z\/\d\-\.]*[\s,]+)*`)
 	cleaned = re.ReplaceAllString(cleaned, "")
@@ -201,17 +221,20 @@ func ExtractStreetName(raw string) string {
 
 // ValidateAddressConsistency verifies whether the typed street address matches the selected ward dropdown.
 func (u *AddressUsecase) ValidateAddressConsistency(ctx context.Context, req ConsistencyVerificationRequest) (*AddressConsistencyResponse, error) {
-	if strings.TrimSpace(req.StreetAddress) == "" {
-		return nil, fmt.Errorf("street_address cannot be empty")
+	if err := domain.ValidateText("street_address", req.StreetAddress, 255); err != nil {
+		return nil, err
 	}
 
+	if err := u.addrRepo.ValidateArea(ctx, req.WardCode, req.ProvinceCode); err != nil {
+		return nil, err
+	}
 	detectedStreet := ExtractStreetName(req.StreetAddress)
 	unaccentedStreet := strings.ToLower(StripVietnameseTones(detectedStreet))
 
 	// Fetch official ward name for the user's selected dropdown
 	selectedWardName, err := u.addrRepo.GetWardName(ctx, req.WardCode)
-	if err != nil || selectedWardName == "" {
-		selectedWardName = req.WardCode
+	if err != nil {
+		return nil, err
 	}
 
 	selectedWardRef := WardReference{
@@ -221,12 +244,15 @@ func (u *AddressUsecase) ValidateAddressConsistency(ctx context.Context, req Con
 
 	// Tra cứu CSDL tuyến đường (hỗ trợ toàn quốc)
 	mappings, err := u.addrRepo.FindStreetMappings(ctx, req.ProvinceCode, unaccentedStreet)
-	if err != nil || len(mappings) == 0 {
+	if err != nil {
+		return nil, err
+	}
+	if len(mappings) == 0 {
 		// Fallback: Tuyến đường chưa có trong từ điển định tuyến nhanh (ngõ hẻm sâu hoặc tỉnh thành khác)
 		// -> KHÔNG block người dùng, trả về UNVERIFIED_NEW_STREET với is_consistent = true
 		return &AddressConsistencyResponse{
-			IsConsistent:    true,
-			ConfidenceScore: 0.70,
+			IsConsistent:    false,
+			ConfidenceScore: 0,
 			WarningLevel:    "UNVERIFIED_NEW_STREET",
 			DetectedStreet:  detectedStreet,
 			SelectedWard:    selectedWardRef,
@@ -305,4 +331,31 @@ func (u *AddressUsecase) ValidateAddressConsistency(ctx context.Context, req Con
 		Coordinates:     coords,
 		Message:         fmt.Sprintf("Phát hiện mâu thuẫn: Tuyến đường '%s' thuộc %s. Bạn có muốn đổi sang %s không?", detectedStreet, primaryMapping.WardName, primaryMapping.WardName),
 	}, nil
+}
+
+func (u *AddressUsecase) GetOwnedAddress(ctx context.Context, customerID, addressID uuid.UUID) (*domain.ShippingAddress, error) {
+	return u.addrRepo.GetOwnedAddress(ctx, customerID, addressID)
+}
+func (u *AddressUsecase) DeleteAddressWithVersion(ctx context.Context, customerID, addressID uuid.UUID, version int) error {
+	if err := u.addrRepo.DeleteAddressWithVersion(ctx, customerID, addressID, version); err != nil {
+		return err
+	}
+	u.invalidate(ctx, customerID)
+	return nil
+}
+func (u *AddressUsecase) SwitchDefaultAddressWithVersion(ctx context.Context, customerID, addressID uuid.UUID, version int) error {
+	if err := u.addrRepo.SwitchDefaultAddressWithVersion(ctx, customerID, addressID, version); err != nil {
+		return err
+	}
+	u.invalidate(ctx, customerID)
+	return nil
+}
+
+func (u *AddressUsecase) invalidate(ctx context.Context, id uuid.UUID) {
+	if u.cache == nil {
+		return
+	}
+	if err := u.cache.Invalidate(ctx, id.String()); err != nil {
+		log.Warn().Err(err).Msg("address cache invalidation failed; checkout reads remain authoritative")
+	}
 }

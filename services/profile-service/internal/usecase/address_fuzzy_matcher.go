@@ -12,9 +12,9 @@ type AdministrativeCandidate struct {
 }
 
 type MatchResult struct {
-	Code  string
-	Name  string
-	Score float64
+	Code  string  `json:"code"`
+	Name  string  `json:"name"`
+	Score float64 `json:"score"`
 }
 
 // StripVietnameseTones converts accented Vietnamese characters to their ASCII base.

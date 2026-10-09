@@ -23,22 +23,30 @@ func NewClaimRepository(pool *pgxpool.Pool) *ClaimRepository {
 // CreateClaim registers a new guest order claim with status 'VERIFIED'.
 // If the order is already VERIFIED, returns domain.ErrOrderAlreadyClaimed.
 func (r *ClaimRepository) CreateClaim(ctx context.Context, customerID uuid.UUID, orderID, phoneNumber string) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
 	query := `
 		INSERT INTO guest_order_claims (id, customer_id, order_id, phone_number, claim_status, claimed_at)
 		VALUES ($1, $2, $3, $4, 'VERIFIED', $5)
 	`
-	_, err := r.pool.Exec(ctx, query, uuid.New(), customerID, orderID, phoneNumber, time.Now().UTC())
+	_, err = tx.Exec(ctx, query, uuid.New(), customerID, orderID, phoneNumber, time.Now().UTC())
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) {
 			// Check for unique violation (Postgres error code 23505) on uq_order_claim_active
-			if pgErr.Code == "23505" {
+			if pgErr.Code == "23505" && pgErr.ConstraintName == "uq_order_claim_active" {
 				return domain.ErrOrderAlreadyClaimed
 			}
 		}
 		return err
 	}
-	return nil
+	if err = insertEvent(ctx, tx, "GuestOrderClaim", customerID.String(), "vn.omama.profile.guest_order_claimed.v1", map[string]any{"customer_id": customerID, "order_id": orderID}); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 // RevokeClaim updates an active claim's status to 'REVOKED', freeing the order_id for reclamation.

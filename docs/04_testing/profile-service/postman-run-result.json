@@ -1,0 +1,6 @@
+{
+  "target": "http://localhost:18080",
+  "exitCode": 0,
+  "report": "docs/04_testing/profile-service/postman-cli-output.txt",
+  "cloudUpload": false
+}

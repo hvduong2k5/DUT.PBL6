@@ -1,0 +1,19 @@
+$kind: http-request
+method: DELETE
+url: '{{baseUrl}}/api/v1/profile/addresses/{{secondAddressId}}'
+order: 5000
+headers:
+  - key: 'X-Internal-Token'
+    value: '{{internalToken}}'
+  - key: 'X-User-ID'
+    value: '{{userId}}'
+  - key: 'X-User-Role'
+    value: 'CUSTOMER'
+  - key: 'If-Match'
+    value: '{{secondETag}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Expected HTTP 200', () => pm.response.to.have.status(200));
+      const list=pm.response.json(); pm.test('Replacement default',()=>{pm.expect(list.length).to.eql(1);pm.expect(list[0].is_default).to.eql(true);pm.expect(list[0].id).to.eql(pm.collectionVariables.get('addressId'));}); pm.collectionVariables.set('addressETag','"'+list[0].version+'"');

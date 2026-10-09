@@ -1,3 +1,5 @@
+> **MS-15 cập nhật 08/10/2026:** Protobuf ProfileService đã được sinh và đăng ký thật. RPC yêu cầu metadata `x-internal-token`; GetDeliveryAddress luôn yêu cầu customer ID để enforce ownership, address ID rỗng lấy default. Response thêm ward/province codes, optional coordinates và version. Loyalty fields deprecated. HTTP simulation không còn được xem là kiểm thử gRPC.
+
 # ĐẶC TẢ CHI TIẾT CÁC HỢP ĐỒNG ĐỒNG BỘ gRPC (EAST - WEST SYNC CONTRACTS)
 ## HỆ SINH THÁI THƯƠNG MẠI ĐIỆN TỬ & CHUỖI CUNG ỨNG ĐẶC SẢN OCOP HUẾ (MÈ XỬNG O MẠ)
 

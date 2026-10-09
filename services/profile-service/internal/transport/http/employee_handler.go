@@ -1,7 +1,6 @@
 package http
 
 import (
-	"encoding/json"
 	"net/http"
 	"strconv"
 
@@ -24,7 +23,7 @@ func NewEmployeeHandler(employeeUsecase *usecase.EmployeeUsecase) *EmployeeHandl
 // CreateEmployee handles POST /api/v1/admin/employees
 func (h *EmployeeHandler) CreateEmployee(w http.ResponseWriter, r *http.Request) {
 	var req usecase.CreateEmployeeRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeBody(w, r, &req); err != nil {
 		writeJSONError(w, http.StatusBadRequest, "invalid request payload")
 		return
 	}
@@ -36,7 +35,7 @@ func (h *EmployeeHandler) CreateEmployee(w http.ResponseWriter, r *http.Request)
 
 	emp, err := h.employeeUsecase.CreateEmployee(r.Context(), req)
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		writeDomainError(w, err)
 		return
 	}
 
@@ -54,7 +53,7 @@ func (h *EmployeeHandler) GetEmployeeDetail(w http.ResponseWriter, r *http.Reque
 
 	detail, err := h.employeeUsecase.GetEmployeeDetail(r.Context(), empID)
 	if err != nil {
-		writeJSONError(w, http.StatusNotFound, err.Error())
+		writeDomainError(w, err)
 		return
 	}
 
@@ -68,13 +67,20 @@ func (h *EmployeeHandler) ListEmployees(w http.ResponseWriter, r *http.Request) 
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
 	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
 
+	if offset < 0 {
+		writeJSONError(w, 400, "offset must be non-negative")
+		return
+	}
+	if limit > 100 {
+		limit = 100
+	}
 	if limit <= 0 {
 		limit = 20
 	}
 
 	employees, err := h.employeeUsecase.ListEmployees(r.Context(), deptID, status, limit, offset)
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		writeDomainError(w, err)
 		return
 	}
 
@@ -85,14 +91,17 @@ func (h *EmployeeHandler) ListEmployees(w http.ResponseWriter, r *http.Request) 
 func (h *EmployeeHandler) GetCompliance(w http.ResponseWriter, r *http.Request) {
 	thresholdDays := 30
 	if daysStr := r.URL.Query().Get("days"); daysStr != "" {
-		if d, err := strconv.Atoi(daysStr); err == nil && d > 0 {
-			thresholdDays = d
+		d, err := strconv.Atoi(daysStr)
+		if err != nil || d < 1 || d > 365 {
+			writeDomainError(w, &domain.ValidationError{Field: "days", Message: "must be between 1 and 365"})
+			return
 		}
+		thresholdDays = d
 	}
 
 	expiring, err := h.employeeUsecase.FindExpiringCertificates(r.Context(), thresholdDays)
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		writeDomainError(w, err)
 		return
 	}
 
@@ -101,4 +110,3 @@ func (h *EmployeeHandler) GetCompliance(w http.ResponseWriter, r *http.Request) 
 	}
 	writeJSON(w, http.StatusOK, expiring)
 }
-

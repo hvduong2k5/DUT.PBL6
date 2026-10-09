@@ -1,3 +1,5 @@
+> **MS-15 hiện tại (08/10/2026):** [profile-service.openapi.yaml](profile-service.openapi.yaml) mô tả backend trực tiếp; xem [../02_architecture/services/profile-service/06_hardening_and_contract.md](../02_architecture/services/profile-service/06_hardening_and_contract.md). `customer-profile-mvp.openapi.yaml` vẫn là candidate riêng, chưa được phê duyệt.
+
 # CẨM NANG ĐẶC TẢ GIAO DIỆN & HỢP ĐỒNG HỆ THỐNG (API & CONTRACTS SPECIFICATIONS)
 ## HỆ SINH THÁI THƯƠNG MẠI ĐIỆN TỬ & CHUỖI CUNG ỨNG ĐẶC SẢN OCOP HUẾ (MÈ XỬNG O MẠ)
 

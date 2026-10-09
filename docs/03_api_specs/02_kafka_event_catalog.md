@@ -1,3 +1,5 @@
+> **MS-15 cập nhật 08/10/2026:** ProfileUpdated/GuestOrderClaimed cùng transaction với outbox. Event types chuẩn hóa thành `vn.omama.profile.updated.v1`, `vn.omama.profile.guest_order_claimed.v1`, `vn.omama.profile.address_created.v1`, `vn.omama.profile.address_updated.v1`, `vn.omama.profile.address_deleted.v1`, `vn.omama.profile.default_address_switched.v1`. Payload cập nhật profile/claim chỉ gồm reference/version, không phát PII. Downstream cần dedup event ID. Guest claim không phát event khi verifier chưa cấu hình.
+
 # DANH MỤC SỰ KIỆN PHÂN TÁN KAFKA (EAST - WEST ASYNC EVENT CATALOG)
 ## HỆ SINH THÁI THƯƠNG MẠI ĐIỆN TỬ & CHUỖI CUNG ỨNG ĐẶC SẢN OCOP HUẾ (MÈ XỬNG O MẠ)
 

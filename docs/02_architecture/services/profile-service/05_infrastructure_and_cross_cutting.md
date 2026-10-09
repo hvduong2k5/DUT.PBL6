@@ -1,3 +1,5 @@
+> **Cập nhật 08/10/2026:** Hành vi implementation hiện tại được mô tả tại [06_hardening_and_contract.md](06_hardening_and_contract.md). Các mô tả cache authoritative, OTP claim đã hoàn thiện và SLA từ mock benchmark trong bản v2.0 dưới đây đã được thay thế. Xem ADR-004/005/006 cho quyết định mới.
+
 # HẠ TẦNG KỸ THUẬT & CƠ CHẾ PHÒNG VỆ XUYÊN SUỐT (CROSS-CUTTING CONCERNS)
 ## KIẾN TRÚC PHÂN TÁN, BỘ ĐỆM 2 TẦNG, TRANSACTIONAL OUTBOX & KHẢ NĂNG PHỤC HỒI
 ### MS-15: PROFILE SERVICE — MÈ XỬNG O MẠ OCOP

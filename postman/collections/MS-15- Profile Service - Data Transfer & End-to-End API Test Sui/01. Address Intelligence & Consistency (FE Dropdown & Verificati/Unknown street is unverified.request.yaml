@@ -1,0 +1,27 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/api/v1/profile/addresses/validate-consistency'
+order: 4000
+headers:
+  - key: 'Content-Type'
+    value: 'application/json'
+  - key: 'X-Internal-Token'
+    value: '{{internalToken}}'
+  - key: 'X-User-ID'
+    value: '{{userId}}'
+  - key: 'X-User-Role'
+    value: 'CUSTOMER'
+body:
+  type: json
+  content: |-
+    {
+      "street_address": "123 Unknown Synthetic Street",
+      "ward_code": "WARD-TH-001",
+      "province_code": "75"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Expected HTTP 200', () => pm.response.to.have.status(200));
+      pm.test('Unknown is not verified', () => {const b=pm.response.json(); pm.expect(b.is_consistent).to.eql(false); pm.expect(b.confidence_score).to.eql(0);});

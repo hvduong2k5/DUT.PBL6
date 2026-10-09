@@ -34,6 +34,7 @@ type ShippingAddress struct {
 	Longitude     *float64  `json:"longitude,omitempty"`
 	Label         string    `json:"label"` // HOME, OFFICE, GIFT_RECIPIENT, OTHER
 	IsDefault     bool      `json:"is_default"`
+	Version       int       `json:"version"`
 	IsDeleted     bool      `json:"is_deleted"`
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`

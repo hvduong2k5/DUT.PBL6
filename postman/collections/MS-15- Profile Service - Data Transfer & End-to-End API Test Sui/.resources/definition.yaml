@@ -1,0 +1,14 @@
+$kind: collection
+name: 'MS-15 Profile Service actual HTTP regression suite'
+description: 'Direct backend tests with synthetic fixtures. gRPC and Kafka are verified by Go integration tests, not HTTP simulations.'
+variables:
+  - key: baseUrl
+    value: 'http://localhost:18080'
+  - key: internalToken
+    value: ''
+  - key: userId
+    value: 'd0000000-0000-0000-0000-000000000001'
+  - key: otherUserId
+    value: 'd0000000-0000-0000-0000-000000000002'
+  - key: customerId
+    value: 'c0000000-0000-0000-0000-000000000001'

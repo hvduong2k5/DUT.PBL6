@@ -1,0 +1,710 @@
+openapi: 3.1.0
+info:
+  title: Ô Mạ Customer Profile & Address Book MVP API
+  version: 0.1.0-candidate
+  summary: Candidate contract derived from the implemented Web D2C customer profile slice.
+  license:
+    name: Proprietary - internal project use
+    identifier: LicenseRef-Proprietary
+  description: |
+    Proposed contract for an authenticated customer to manage their own profile and
+    delivery addresses. It is awaiting Backend, Architecture, and Security review
+    and is not an approved production contract.
+
+    Browser components call the same-origin Next.js BFF at `/api/customer/*`.
+    The BFF forwards to the API Gateway paths described here. Customer ownership
+    is derived from the session; browser requests never submit another customer ID.
+    `X-Mock-Scenario` is local-only and intentionally absent from this contract.
+servers:
+  - url: /api/v1
+    description: API Gateway relative base URL
+  - url: http://127.0.0.1:4011/api/v1
+    description: Local Mockoon environment only
+tags:
+  - name: Customer Profile
+    description: Current authenticated customer's personal profile.
+  - name: Customer Addresses
+    description: Current authenticated customer's reusable delivery addresses.
+
+paths:
+  /customers/me/profile:
+    get:
+      tags: [Customer Profile]
+      operationId: getCurrentCustomerProfile
+      summary: Get the current customer's profile
+      description: Returns only the profile associated with the authenticated session.
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Current customer profile.
+          headers:
+            ETag:
+              $ref: "#/components/headers/EntityTag"
+            Cache-Control:
+              $ref: "#/components/headers/NoStore"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerProfile"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    patch:
+      tags: [Customer Profile]
+      operationId: updateCurrentCustomerProfile
+      summary: Update editable fields in the current customer's profile
+      description: |
+        Updates only the profile derived from the session. Email is intentionally
+        excluded because email change and re-verification are outside this slice.
+        `If-Match` prevents a stale browser tab from overwriting a newer profile.
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ProfileIfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCustomerProfileRequest"
+            examples:
+              profile:
+                value:
+                  fullName: Tôn Thất Hoàng Minh
+                  phone: "+84912345892"
+                  dateOfBirth: "1985-11-18"
+                  gender: MALE
+      responses:
+        "200":
+          description: Profile updated.
+          headers:
+            ETag:
+              $ref: "#/components/headers/EntityTag"
+            Cache-Control:
+              $ref: "#/components/headers/NoStore"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerProfile"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/VersionConflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /customers/me/addresses:
+    get:
+      tags: [Customer Addresses]
+      operationId: listCurrentCustomerAddresses
+      summary: List the current customer's saved delivery addresses
+      description: Returns no addresses owned by another customer.
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Address book, including an empty list for a new customer.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/NoStore"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AddressList"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    post:
+      tags: [Customer Addresses]
+      operationId: createCurrentCustomerAddress
+      summary: Add a delivery address to the current customer's address book
+      description: The first saved address becomes the default even when `isDefault` is false.
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddressWriteRequest"
+            examples:
+              home:
+                value:
+                  label: Nhà riêng
+                  type: HOME
+                  recipientName: Tôn Thất Hoàng
+                  recipientPhone: "+84912345892"
+                  province:
+                    code: VN-HUE
+                    name: Thành phố Huế
+                  district:
+                    code: HUE-CENTER
+                    name: Khu vực trung tâm Huế
+                  ward:
+                    code: PHU-HOI
+                    name: Phường Phú Hội
+                  addressLine: 54 Lê Lợi
+                  deliveryNote: Gọi trước khi giao.
+                  isDefault: true
+      responses:
+        "201":
+          description: Address created.
+          headers:
+            Location:
+              description: Relative URL of the created address.
+              schema:
+                type: string
+              example: /api/v1/customers/me/addresses/ADDR-004
+            ETag:
+              $ref: "#/components/headers/EntityTag"
+            Cache-Control:
+              $ref: "#/components/headers/NoStore"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerAddress"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: Address-book limit reached.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+              examples:
+                limitReached:
+                  value:
+                    code: ADDRESS_LIMIT_REACHED
+                    message: Bạn đã đạt giới hạn địa chỉ có thể lưu.
+                    requestId: REQ-ADDRESS-LIMIT
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /customers/me/addresses/{addressId}:
+    parameters:
+      - $ref: "#/components/parameters/AddressId"
+    patch:
+      tags: [Customer Addresses]
+      operationId: updateCurrentCustomerAddress
+      summary: Update an address owned by the current customer
+      description: |
+        An unknown address ID and an address owned by another customer return the
+        same not-found response. Existing orders are unaffected because they retain
+        a delivery-address snapshot.
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AddressIfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddressWriteRequest"
+      responses:
+        "200":
+          description: Address updated.
+          headers:
+            ETag:
+              $ref: "#/components/headers/EntityTag"
+            Cache-Control:
+              $ref: "#/components/headers/NoStore"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerAddress"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/AddressNotFound"
+        "409":
+          $ref: "#/components/responses/VersionConflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    delete:
+      tags: [Customer Addresses]
+      operationId: deleteCurrentCustomerAddress
+      summary: Remove an address owned by the current customer
+      description: |
+        Returns the synchronized remaining list. When the deleted address was the
+        default and other addresses remain, the server atomically selects one
+        remaining address as the new default. Existing order snapshots do not change.
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AddressIfMatch"
+      responses:
+        "200":
+          description: Address removed and default invariant restored.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/NoStore"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AddressList"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/AddressNotFound"
+        "409":
+          $ref: "#/components/responses/VersionConflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /customers/me/addresses/{addressId}/default:
+    parameters:
+      - $ref: "#/components/parameters/AddressId"
+    put:
+      tags: [Customer Addresses]
+      operationId: setCurrentCustomerDefaultAddress
+      summary: Atomically make one owned address the default
+      description: Idempotently leaves exactly one default address when the address book is non-empty.
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AddressIfMatch"
+      responses:
+        "200":
+          description: Default selection synchronized.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/NoStore"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AddressList"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/AddressNotFound"
+        "409":
+          $ref: "#/components/responses/VersionConflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: __Host-oma_session
+      description: Opaque secure browser session cookie established by the Authentication API.
+
+  parameters:
+    AddressId:
+      name: addressId
+      in: path
+      required: true
+      description: Opaque address identifier; ownership is always verified against the session.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 100
+      example: ADDR-001
+    ProfileIfMatch:
+      name: If-Match
+      in: header
+      required: true
+      description: Entity tag returned with the last profile representation.
+      schema:
+        type: string
+      example: '"profile-v3"'
+    AddressIfMatch:
+      name: If-Match
+      in: header
+      required: true
+      description: Entity tag returned with the last address representation.
+      schema:
+        type: string
+      example: '"address-v2"'
+
+  headers:
+    NoStore:
+      description: Profile and address responses must not be stored in shared or browser caches.
+      schema:
+        type: string
+      example: no-store
+    EntityTag:
+      description: Strong or weak entity tag used for optimistic concurrency.
+      schema:
+        type: string
+      example: '"profile-v3"'
+
+  schemas:
+    Gender:
+      type: [string, "null"]
+      description: Optional self-described gender; null means not provided.
+      enum: [MALE, FEMALE, OTHER, PREFER_NOT_TO_SAY, null]
+    AddressType:
+      type: string
+      description: UI label only; it does not alter shipping eligibility or price.
+      enum: [HOME, OFFICE, GIFT, OTHER]
+    AdministrativeArea:
+      type: object
+      additionalProperties: false
+      required: [code, name]
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 50
+          description: Stable code agreed with Checkout and Shipping integrations.
+          example: VN-HUE
+        name:
+          type: string
+          minLength: 1
+          maxLength: 150
+          description: Display-name snapshot associated with the code.
+          example: Thành phố Huế
+    CustomerProfile:
+      type: object
+      additionalProperties: false
+      required: [id, fullName, email, emailVerified, phone, dateOfBirth, gender, version, updatedAt]
+      properties:
+        id:
+          type: string
+          readOnly: true
+          example: CUS-001
+        fullName:
+          type: string
+          minLength: 2
+          maxLength: 100
+          example: Tôn Thất Hoàng
+        email:
+          type: string
+          format: email
+          readOnly: true
+          example: hoang.tonthat@example.com
+        emailVerified:
+          type: boolean
+          readOnly: true
+          example: true
+        phone:
+          $ref: "#/components/schemas/NullablePhone"
+        dateOfBirth:
+          type: [string, "null"]
+          format: date
+          description: Optional date that must not be in the future.
+          example: "1985-11-18"
+        gender:
+          $ref: "#/components/schemas/Gender"
+        version:
+          type: integer
+          minimum: 1
+          readOnly: true
+          example: 3
+        updatedAt:
+          type: string
+          format: date-time
+          readOnly: true
+          example: "2026-09-25T08:30:00Z"
+    UpdateCustomerProfileRequest:
+      type: object
+      additionalProperties: false
+      required: [fullName, phone, dateOfBirth, gender]
+      properties:
+        fullName:
+          type: string
+          minLength: 2
+          maxLength: 100
+        phone:
+          $ref: "#/components/schemas/NullablePhone"
+        dateOfBirth:
+          type: [string, "null"]
+          format: date
+          description: Optional date that must not be in the future.
+        gender:
+          $ref: "#/components/schemas/Gender"
+    Phone:
+      type: string
+      pattern: "^(?:\\+[1-9][0-9]{7,14}|0[0-9]{8,10})$"
+      description: Normalized international E.164-like or Vietnamese local phone input.
+      example: "+84912345892"
+    NullablePhone:
+      oneOf:
+        - $ref: "#/components/schemas/Phone"
+        - type: "null"
+    CustomerAddress:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - label
+        - type
+        - recipientName
+        - recipientPhone
+        - province
+        - district
+        - ward
+        - addressLine
+        - deliveryNote
+        - isDefault
+        - version
+        - updatedAt
+      properties:
+        id:
+          type: string
+          readOnly: true
+          example: ADDR-001
+        label:
+          type: string
+          minLength: 1
+          maxLength: 50
+          example: Nhà riêng
+        type:
+          $ref: "#/components/schemas/AddressType"
+        recipientName:
+          type: string
+          minLength: 2
+          maxLength: 100
+          example: Tôn Thất Hoàng
+        recipientPhone:
+          $ref: "#/components/schemas/Phone"
+        province:
+          $ref: "#/components/schemas/AdministrativeArea"
+        district:
+          oneOf:
+            - $ref: "#/components/schemas/AdministrativeArea"
+            - type: "null"
+        ward:
+          $ref: "#/components/schemas/AdministrativeArea"
+        addressLine:
+          type: string
+          minLength: 5
+          maxLength: 200
+          example: 54 Lê Lợi
+        deliveryNote:
+          type: [string, "null"]
+          maxLength: 500
+          example: Gọi trước khi giao.
+        isDefault:
+          type: boolean
+          example: true
+        version:
+          type: integer
+          minimum: 1
+          readOnly: true
+          example: 2
+        updatedAt:
+          type: string
+          format: date-time
+          readOnly: true
+          example: "2026-09-25T08:30:00Z"
+    AddressWriteRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - label
+        - type
+        - recipientName
+        - recipientPhone
+        - province
+        - district
+        - ward
+        - addressLine
+        - deliveryNote
+        - isDefault
+      properties:
+        label:
+          type: string
+          minLength: 1
+          maxLength: 50
+        type:
+          $ref: "#/components/schemas/AddressType"
+        recipientName:
+          type: string
+          minLength: 2
+          maxLength: 100
+        recipientPhone:
+          $ref: "#/components/schemas/Phone"
+        province:
+          $ref: "#/components/schemas/AdministrativeArea"
+        district:
+          oneOf:
+            - $ref: "#/components/schemas/AdministrativeArea"
+            - type: "null"
+        ward:
+          $ref: "#/components/schemas/AdministrativeArea"
+        addressLine:
+          type: string
+          minLength: 5
+          maxLength: 200
+        deliveryNote:
+          type: [string, "null"]
+          maxLength: 500
+        isDefault:
+          type: boolean
+          default: false
+    AddressList:
+      type: object
+      additionalProperties: false
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/CustomerAddress"
+        total:
+          type: integer
+          minimum: 0
+          example: 3
+    ApiFieldError:
+      type: object
+      additionalProperties: false
+      required: [field, code, message]
+      properties:
+        field:
+          type: string
+          example: recipientPhone
+        code:
+          type: string
+          example: INVALID_FORMAT
+        message:
+          type: string
+          example: Số điện thoại chưa đúng định dạng
+    ApiError:
+      type: object
+      additionalProperties: false
+      required: [code, message, requestId]
+      properties:
+        code:
+          type: string
+          example: VALIDATION_ERROR
+        message:
+          type: string
+          example: Request is invalid
+        errors:
+          type: array
+          items:
+            $ref: "#/components/schemas/ApiFieldError"
+        requestId:
+          type: string
+          example: REQ-PROFILE-422
+
+  responses:
+    Unauthenticated:
+      description: Browser session is missing, expired, invalid, or revoked.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+          examples:
+            unauthenticated:
+              value:
+                code: UNAUTHENTICATED
+                message: Phiên đăng nhập không hợp lệ.
+                requestId: REQ-CUSTOMER-401
+    Forbidden:
+      description: Authenticated subject cannot perform this customer operation.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+          examples:
+            forbidden:
+              value:
+                code: FORBIDDEN
+                message: Bạn không có quyền thực hiện thao tác này.
+                requestId: REQ-CUSTOMER-403
+    AddressNotFound:
+      description: Address does not exist or is not owned by the current customer.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+          examples:
+            notFound:
+              value:
+                code: ADDRESS_NOT_FOUND
+                message: Không tìm thấy địa chỉ.
+                requestId: REQ-ADDRESS-404
+    VersionConflict:
+      description: Submitted entity tag is stale.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+          examples:
+            conflict:
+              value:
+                code: VERSION_CONFLICT
+                message: Dữ liệu vừa được cập nhật ở nơi khác.
+                requestId: REQ-CUSTOMER-409
+    ValidationError:
+      description: One or more request fields are invalid.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+          examples:
+            invalidPhone:
+              value:
+                code: VALIDATION_ERROR
+                message: Request is invalid
+                errors:
+                  - field: recipientPhone
+                    code: INVALID_FORMAT
+                    message: Số điện thoại chưa đúng định dạng
+                requestId: REQ-CUSTOMER-422
+    InternalError:
+      description: Unexpected internal failure.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+          examples:
+            internal:
+              value:
+                code: INTERNAL_ERROR
+                message: Không thể xử lý yêu cầu lúc này.
+                requestId: REQ-CUSTOMER-500
+    ServiceUnavailable:
+      description: Customer profile capability is temporarily unavailable.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+          examples:
+            unavailable:
+              value:
+                code: SERVICE_UNAVAILABLE
+                message: Dịch vụ hồ sơ tạm thời không khả dụng.
+                requestId: REQ-CUSTOMER-503

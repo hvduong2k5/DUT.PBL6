@@ -1,7 +1,6 @@
 package http
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 
@@ -33,7 +32,7 @@ type CreateAddressRequest struct {
 	Latitude      *float64 `json:"latitude,omitempty"`
 	Longitude     *float64 `json:"longitude,omitempty"`
 	Label         string   `json:"label"`
-	IsDefault     bool     `json:"is_default"`
+	IsDefault     *bool    `json:"is_default,omitempty"`
 }
 
 type ValidateAddressRequest struct {
@@ -42,15 +41,7 @@ type ValidateAddressRequest struct {
 
 // ListAddresses handles GET /api/v1/profile/addresses
 func (h *AddressHandler) ListAddresses(w http.ResponseWriter, r *http.Request) {
-	customerID, ok := middleware.GetUserIDFromContext(r.Context())
-	if !ok {
-		if paramID := r.URL.Query().Get("customer_id"); paramID != "" {
-			if parsed, err := uuid.Parse(paramID); err == nil {
-				customerID = parsed
-				ok = true
-			}
-		}
-	}
+	customerID, ok := middleware.GetCustomerIDFromContext(r.Context())
 	if !ok {
 		writeJSONError(w, http.StatusUnauthorized, "unauthorized: missing customer identity")
 		return
@@ -58,7 +49,7 @@ func (h *AddressHandler) ListAddresses(w http.ResponseWriter, r *http.Request) {
 
 	addresses, err := h.addressUsecase.ListAddresses(r.Context(), customerID)
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		writeDomainError(w, err)
 		return
 	}
 
@@ -67,22 +58,14 @@ func (h *AddressHandler) ListAddresses(w http.ResponseWriter, r *http.Request) {
 
 // CreateAddress handles POST /api/v1/profile/addresses
 func (h *AddressHandler) CreateAddress(w http.ResponseWriter, r *http.Request) {
-	customerID, ok := middleware.GetUserIDFromContext(r.Context())
-	if !ok {
-		if paramID := r.URL.Query().Get("customer_id"); paramID != "" {
-			if parsed, err := uuid.Parse(paramID); err == nil {
-				customerID = parsed
-				ok = true
-			}
-		}
-	}
+	customerID, ok := middleware.GetCustomerIDFromContext(r.Context())
 	if !ok {
 		writeJSONError(w, http.StatusUnauthorized, "unauthorized: missing customer identity")
 		return
 	}
 
 	var req CreateAddressRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeBody(w, r, &req); err != nil {
 		writeJSONError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
@@ -105,28 +88,22 @@ func (h *AddressHandler) CreateAddress(w http.ResponseWriter, r *http.Request) {
 		Latitude:      req.Latitude,
 		Longitude:     req.Longitude,
 		Label:         normLabel,
-		IsDefault:     req.IsDefault,
+		IsDefault:     req.IsDefault != nil && *req.IsDefault,
 	}
 
 	if err := h.addressUsecase.CreateAddress(r.Context(), addr); err != nil {
-		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		writeDomainError(w, err)
 		return
 	}
 
+	w.Header().Set("ETag", etag(addr.Version))
+	w.Header().Set("Location", "/api/v1/profile/addresses/"+addr.ID.String())
 	writeJSON(w, http.StatusCreated, addr)
 }
 
 // UpdateAddress handles PUT /api/v1/profile/addresses/{id}
 func (h *AddressHandler) UpdateAddress(w http.ResponseWriter, r *http.Request) {
-	customerID, ok := middleware.GetUserIDFromContext(r.Context())
-	if !ok {
-		if paramID := r.URL.Query().Get("customer_id"); paramID != "" {
-			if parsed, err := uuid.Parse(paramID); err == nil {
-				customerID = parsed
-				ok = true
-			}
-		}
-	}
+	customerID, ok := middleware.GetCustomerIDFromContext(r.Context())
 	if !ok {
 		writeJSONError(w, http.StatusUnauthorized, "unauthorized: missing customer identity")
 		return
@@ -140,7 +117,7 @@ func (h *AddressHandler) UpdateAddress(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req CreateAddressRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeBody(w, r, &req); err != nil {
 		writeJSONError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
@@ -151,7 +128,17 @@ func (h *AddressHandler) UpdateAddress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	version, err := expectedVersion(r)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	if req.IsDefault != nil {
+		writeDomainError(w, &domain.ValidationError{Field: "is_default", Message: "use the dedicated default endpoint"})
+		return
+	}
 	addr := &domain.ShippingAddress{
+		Version:       version,
 		ID:            addressID,
 		CustomerID:    customerID,
 		RecipientName: req.RecipientName,
@@ -171,21 +158,21 @@ func (h *AddressHandler) UpdateAddress(w http.ResponseWriter, r *http.Request) {
 			writeJSONError(w, http.StatusNotFound, "address not found")
 			return
 		}
-		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		writeDomainError(w, err)
 		return
 	}
 
-	updatedAddr, err := h.addressUsecase.GetAddressByID(r.Context(), addressID)
-	if err == nil && updatedAddr != nil {
-		writeJSON(w, http.StatusOK, updatedAddr)
-		return
-	}
-
+	w.Header().Set("ETag", etag(addr.Version))
 	writeJSON(w, http.StatusOK, addr)
 }
 
 // GetAddress handles GET /api/v1/profile/addresses/{id} and POST simulation requests
 func (h *AddressHandler) GetAddress(w http.ResponseWriter, r *http.Request) {
+	customerID, ok := middleware.GetCustomerIDFromContext(r.Context())
+	if !ok {
+		writeJSONError(w, 401, "unauthorized")
+		return
+	}
 	addressIDStr := chi.URLParam(r, "id")
 	addressID, err := uuid.Parse(addressIDStr)
 	if err != nil {
@@ -193,31 +180,23 @@ func (h *AddressHandler) GetAddress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	addr, err := h.addressUsecase.GetAddressByID(r.Context(), addressID)
+	addr, err := h.addressUsecase.GetOwnedAddress(r.Context(), customerID, addressID)
 	if err != nil {
 		if errors.Is(err, domain.ErrAddressNotFound) {
 			writeJSONError(w, http.StatusNotFound, "address not found")
 			return
 		}
-		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		writeDomainError(w, err)
 		return
 	}
 
+	w.Header().Set("ETag", etag(addr.Version))
 	writeJSON(w, http.StatusOK, addr)
 }
 
-
 // SwitchDefaultAddress handles PUT /api/v1/profile/addresses/{id}/default
 func (h *AddressHandler) SwitchDefaultAddress(w http.ResponseWriter, r *http.Request) {
-	customerID, ok := middleware.GetUserIDFromContext(r.Context())
-	if !ok {
-		if paramID := r.URL.Query().Get("customer_id"); paramID != "" {
-			if parsed, err := uuid.Parse(paramID); err == nil {
-				customerID = parsed
-				ok = true
-			}
-		}
-	}
+	customerID, ok := middleware.GetCustomerIDFromContext(r.Context())
 	if !ok {
 		writeJSONError(w, http.StatusUnauthorized, "unauthorized: missing customer identity")
 		return
@@ -230,33 +209,31 @@ func (h *AddressHandler) SwitchDefaultAddress(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	if err := h.addressUsecase.SwitchDefaultAddress(r.Context(), customerID, addressID); err != nil {
+	version, err := expectedVersion(r)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	if err := h.addressUsecase.SwitchDefaultAddressWithVersion(r.Context(), customerID, addressID, version); err != nil {
 		if errors.Is(err, domain.ErrAddressNotFound) {
 			writeJSONError(w, http.StatusNotFound, "address not found")
 			return
 		}
-		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		writeDomainError(w, err)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]any{
-		"message":            "default address switched successfully",
-		"default_address_id": addressID.String(),
-		"is_default":         true,
-	})
+	addresses, err := h.addressUsecase.ListAddresses(r.Context(), customerID)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	writeJSON(w, 200, addresses)
 }
 
 // DeleteAddress handles DELETE /api/v1/profile/addresses/{id}
 func (h *AddressHandler) DeleteAddress(w http.ResponseWriter, r *http.Request) {
-	customerID, ok := middleware.GetUserIDFromContext(r.Context())
-	if !ok {
-		if paramID := r.URL.Query().Get("customer_id"); paramID != "" {
-			if parsed, err := uuid.Parse(paramID); err == nil {
-				customerID = parsed
-				ok = true
-			}
-		}
-	}
+	customerID, ok := middleware.GetCustomerIDFromContext(r.Context())
 	if !ok {
 		writeJSONError(w, http.StatusUnauthorized, "unauthorized: missing customer identity")
 		return
@@ -269,29 +246,39 @@ func (h *AddressHandler) DeleteAddress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.addressUsecase.DeleteAddress(r.Context(), customerID, addressID); err != nil {
+	version, err := expectedVersion(r)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	if err := h.addressUsecase.DeleteAddressWithVersion(r.Context(), customerID, addressID, version); err != nil {
 		if errors.Is(err, domain.ErrAddressNotFound) {
 			writeJSONError(w, http.StatusNotFound, "address not found")
 			return
 		}
-		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		writeDomainError(w, err)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]string{"message": "address deleted successfully"})
+	addresses, err := h.addressUsecase.ListAddresses(r.Context(), customerID)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	writeJSON(w, 200, addresses)
 }
 
 // ValidateAddress handles POST /api/v1/profile/addresses/validate
 func (h *AddressHandler) ValidateAddress(w http.ResponseWriter, r *http.Request) {
 	var req ValidateAddressRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.RawAddress == "" {
+	if err := decodeBody(w, r, &req); err != nil || req.RawAddress == "" {
 		writeJSONError(w, http.StatusBadRequest, "raw_address is required")
 		return
 	}
 
 	result, err := h.addressUsecase.ValidateAddress(r.Context(), req.RawAddress)
 	if err != nil {
-		writeJSONError(w, http.StatusNotFound, err.Error())
+		writeDomainError(w, err)
 		return
 	}
 
@@ -301,7 +288,7 @@ func (h *AddressHandler) ValidateAddress(w http.ResponseWriter, r *http.Request)
 // ValidateConsistency handles POST /api/v1/profile/addresses/validate-consistency
 func (h *AddressHandler) ValidateConsistency(w http.ResponseWriter, r *http.Request) {
 	var req usecase.ConsistencyVerificationRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeBody(w, r, &req); err != nil {
 		writeJSONError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
@@ -313,7 +300,7 @@ func (h *AddressHandler) ValidateConsistency(w http.ResponseWriter, r *http.Requ
 
 	result, err := h.addressUsecase.ValidateAddressConsistency(r.Context(), req)
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		writeDomainError(w, err)
 		return
 	}
 

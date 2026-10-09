@@ -1,0 +1,9 @@
+$kind: http-request
+method: GET
+url: '{{baseUrl}}/api/v1/profile?customer_id={{customerId}}'
+order: 1000
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Expected HTTP 401', () => pm.response.to.have.status(401));

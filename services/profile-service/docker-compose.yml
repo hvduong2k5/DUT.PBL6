@@ -11,6 +11,7 @@ services:
     volumes:
       - ./migrations/000001_init_schema.up.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
       - ./migrations/000002_street_mappings_and_national_seed.up.sql:/docker-entrypoint-initdb.d/02_street_mappings.sql:ro
+      - ./migrations/000003_profile_integrity.up.sql:/docker-entrypoint-initdb.d/03_integrity.sql:ro
       - pgdata:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U omamx_user -d profile_db"]
@@ -53,6 +54,7 @@ services:
     image: omamx/profile-service:latest
     container_name: omamx-profile-service
     environment:
+      PROFILE_INTERNAL_TOKEN: "${PROFILE_INTERNAL_TOKEN:?set a server-side internal token}"
       HTTP_PORT: "8080"
       GRPC_PORT: "50051"
       DATABASE_URL: "postgres://omamx_user:omamx_password@profile-db:5432/profile_db?sslmode=disable"

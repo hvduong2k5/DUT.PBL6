@@ -1,0 +1,28 @@
+$kind: http-request
+method: PUT
+url: '{{baseUrl}}/api/v1/profile'
+order: 2000
+headers:
+  - key: 'Content-Type'
+    value: 'application/json'
+  - key: 'X-Internal-Token'
+    value: '{{internalToken}}'
+  - key: 'X-User-ID'
+    value: '{{userId}}'
+  - key: 'X-User-Role'
+    value: 'CUSTOMER'
+  - key: 'If-Match'
+    value: '{{profileETag}}'
+body:
+  type: json
+  content: |-
+    {
+      "full_name": "Updated Test Customer",
+      "phone_number": "0905123456"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Expected HTTP 200', () => pm.response.to.have.status(200));
+      pm.test('Canonical saved profile',()=>{const b=pm.response.json();pm.expect(b.full_name).to.eql('Updated Test Customer');pm.expect(b.version).to.eql(2);});

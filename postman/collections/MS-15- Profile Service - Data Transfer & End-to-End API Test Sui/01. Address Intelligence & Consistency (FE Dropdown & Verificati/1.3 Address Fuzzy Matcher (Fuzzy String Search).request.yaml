@@ -1,0 +1,25 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/api/v1/profile/addresses/validate'
+order: 3000
+headers:
+  - key: 'Content-Type'
+    value: 'application/json'
+  - key: 'X-Internal-Token'
+    value: '{{internalToken}}'
+  - key: 'X-User-ID'
+    value: '{{userId}}'
+  - key: 'X-User-Role'
+    value: 'CUSTOMER'
+body:
+  type: json
+  content: |-
+    {
+      "raw_address": "Thuận Hòa"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Expected HTTP 200', () => pm.response.to.have.status(200));
+      pm.test('Correct ward', () => pm.expect(pm.response.json().code).to.eql('WARD-TH-001'));

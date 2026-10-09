@@ -3,6 +3,7 @@ package cache
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -14,10 +15,14 @@ import (
 
 const DefaultInvalidationChannel = "cache:invalidate:profile"
 
+type profileEntry struct {
+	value   *domain.CustomerProfile
+	expires time.Time
+}
 type DualLayerCache struct {
 	podID       string
 	channelName string
-	l1Cache     *lru.Cache[string, *domain.CustomerProfile]
+	l1Cache     *lru.Cache[string, profileEntry]
 	redisClient *redis.Client
 	stopChan    chan struct{}
 	wg          sync.WaitGroup
@@ -25,7 +30,7 @@ type DualLayerCache struct {
 
 // NewDualLayerCache creates an instance of DualLayerCache with L1 LRU and L2 Redis.
 func NewDualLayerCache(podID string, l1Capacity int, redisClient *redis.Client) (*DualLayerCache, error) {
-	l1, err := lru.New[string, *domain.CustomerProfile](l1Capacity)
+	l1, err := lru.New[string, profileEntry](l1Capacity)
 	if err != nil {
 		return nil, fmt.Errorf("failed creating L1 LRU cache: %w", err)
 	}
@@ -47,7 +52,10 @@ func (c *DualLayerCache) redisKey(customerID string) string {
 func (c *DualLayerCache) Get(ctx context.Context, customerID string) (*domain.CustomerProfile, bool, error) {
 	// 1. Check L1 Cache
 	if val, ok := c.l1Cache.Get(customerID); ok {
-		return val, true, nil
+		if time.Now().Before(val.expires) {
+			return cloneProfile(val.value), true, nil
+		}
+		c.l1Cache.Remove(customerID)
 	}
 
 	// 2. Check L2 Redis
@@ -66,15 +74,22 @@ func (c *DualLayerCache) Get(ctx context.Context, customerID string) (*domain.Cu
 	}
 
 	// Backfill L1
-	c.l1Cache.Add(customerID, &profile)
+	ttl, err := c.redisClient.PTTL(ctx, key).Result()
+	if err != nil {
+		return nil, false, err
+	}
+	if ttl <= 0 {
+		return nil, false, nil
+	}
+	if ttl > 5*time.Second {
+		ttl = 5 * time.Second
+	}
+	c.l1Cache.Add(customerID, profileEntry{cloneProfile(&profile), time.Now().Add(ttl)})
 	return &profile, true, nil
 }
 
 // Set stores profile in both L1 RAM and L2 Redis.
 func (c *DualLayerCache) Set(ctx context.Context, customerID string, profile *domain.CustomerProfile, l2TTL time.Duration) error {
-	// Store in L1
-	c.l1Cache.Add(customerID, profile)
-
 	// Store in L2 Redis
 	data, err := json.Marshal(profile)
 	if err != nil {
@@ -82,7 +97,18 @@ func (c *DualLayerCache) Set(ctx context.Context, customerID string, profile *do
 	}
 
 	key := c.redisKey(customerID)
-	return c.redisClient.Set(ctx, key, data, l2TTL).Err()
+	if l2TTL <= 0 {
+		return fmt.Errorf("cache TTL must be positive")
+	}
+	if err := c.redisClient.Set(ctx, key, data, l2TTL).Err(); err != nil {
+		return err
+	}
+	ttl := l2TTL
+	if ttl > 5*time.Second {
+		ttl = 5 * time.Second
+	}
+	c.l1Cache.Add(customerID, profileEntry{cloneProfile(profile), time.Now().Add(ttl)})
+	return nil
 }
 
 // Invalidate removes profile from local L1, deletes from L2 Redis, and broadcasts Pub/Sub invalidation.
@@ -92,22 +118,22 @@ func (c *DualLayerCache) Invalidate(ctx context.Context, customerID string) erro
 
 	// 2. Remove L2 Redis
 	key := c.redisKey(customerID)
-	if err := c.redisClient.Del(ctx, key).Err(); err != nil && err != redis.Nil {
-		return fmt.Errorf("failed deleting redis key %s: %w", key, err)
-	}
+	delErr := c.redisClient.Del(ctx, key).Err()
 
 	// 3. Broadcast invalidation to all other pods
 	msg := customerID
-	if err := c.redisClient.Publish(ctx, c.channelName, msg).Err(); err != nil {
-		return fmt.Errorf("failed publishing invalidation signal: %w", err)
-	}
-
-	return nil
+	publishErr := c.redisClient.Publish(ctx, c.channelName, msg).Err()
+	return errors.Join(delErr, publishErr)
 }
 
 // GetL1Direct is a test inspection helper to check if an item exists specifically in L1 RAM.
 func (c *DualLayerCache) GetL1Direct(customerID string) (*domain.CustomerProfile, bool) {
-	return c.l1Cache.Get(customerID)
+	val, ok := c.l1Cache.Get(customerID)
+	if !ok || !time.Now().Before(val.expires) {
+		c.l1Cache.Remove(customerID)
+		return nil, false
+	}
+	return cloneProfile(val.value), true
 }
 
 // StartSubscriber starts listening to the Redis Pub/Sub channel to purge local L1 on broadcast messages.
@@ -117,8 +143,11 @@ func (c *DualLayerCache) StartSubscriber(ctx context.Context) error {
 	// Verify connection
 	_, err := pubsub.Receive(ctx)
 	if err != nil {
+		_ = pubsub.Close()
 		return fmt.Errorf("failed subscribing to invalidation channel: %w", err)
 	}
+	// Rejoining the channel cannot reconstruct missed Pub/Sub messages.
+	c.l1Cache.Purge()
 
 	c.wg.Add(1)
 	go func() {
@@ -128,6 +157,8 @@ func (c *DualLayerCache) StartSubscriber(ctx context.Context) error {
 		ch := pubsub.Channel()
 		for {
 			select {
+			case <-ctx.Done():
+				return
 			case <-c.stopChan:
 				return
 			case msg, ok := <-ch:
@@ -152,4 +183,17 @@ func (c *DualLayerCache) Close() {
 		close(c.stopChan)
 	}
 	c.wg.Wait()
+}
+
+// Cache callers cannot mutate the shared object (including JSON preferences).
+func cloneProfile(p *domain.CustomerProfile) *domain.CustomerProfile {
+	data, err := json.Marshal(p)
+	if err != nil {
+		return nil
+	}
+	var copy domain.CustomerProfile
+	if err = json.Unmarshal(data, &copy); err != nil {
+		return nil
+	}
+	return &copy
 }

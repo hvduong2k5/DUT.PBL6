@@ -1,3 +1,5 @@
+> **Cập nhật 08/10/2026:** Hành vi implementation hiện tại được mô tả tại [06_hardening_and_contract.md](06_hardening_and_contract.md). Các mô tả cache authoritative, OTP claim đã hoàn thiện và SLA từ mock benchmark trong bản v2.0 dưới đây đã được thay thế. Xem ADR-004/005/006 cho quyết định mới.
+
 # BỘ TÀI LIỆU THIẾT KẾ KIẾN TRÚC CHI TIẾT (LLD): MS-15 PROFILE SERVICE
 ## TRUNG TÂM DỮ LIỆU THỰC THỂ, ĐỊA CHỈ 2 CẤP & GIÁM SÁT TUÂN THỦ OCOP — MÈ XỬNG O MẠ
 ### PHIÊN BẢN: 2.0 (MODULAR DOMAIN-DRIVEN DESIGN SPECIFICATION)

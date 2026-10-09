@@ -1,3 +1,5 @@
+> **Cập nhật 08/10/2026:** Xem [03_profile_hardening_verification.md](03_profile_hardening_verification.md) cho suite hiện tại. Contract test dùng gRPC server thật; benchmark dùng PostgreSQL thật; không suy ra P99 mạng từ mock RAM.
+
 # CHIẾN LƯỢC KIỂM THỬ THEO TDD: MS-15 PROFILE SERVICE
 ## HỆ SINH THÁI THƯƠNG MẠI ĐIỆN TỬ & CHUỖI CUNG ỨNG ĐẶC SẢN OCOP HUẾ (MÈ XỬNG O MẠ)
 

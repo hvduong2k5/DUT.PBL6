@@ -3,7 +3,6 @@ package repository
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -62,7 +61,7 @@ func (r *EmployeeRepository) GetEmployeeByID(ctx context.Context, id uuid.UUID) 
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, fmt.Errorf("employee not found: %s", id)
+			return nil, domain.ErrEmployeeNotFound
 		}
 		return nil, err
 	}

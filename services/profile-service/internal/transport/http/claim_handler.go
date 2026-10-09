@@ -1,12 +1,10 @@
 package http
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 	"github.com/omamx/profile-service/internal/domain"
 	"github.com/omamx/profile-service/internal/transport/http/middleware"
 	"github.com/omamx/profile-service/internal/usecase"
@@ -24,22 +22,14 @@ func NewClaimHandler(claimUsecase *usecase.ClaimUsecase) *ClaimHandler {
 
 // CreateClaim handles POST /api/v1/profile/guest-claims
 func (h *ClaimHandler) CreateClaim(w http.ResponseWriter, r *http.Request) {
-	customerID, ok := middleware.GetUserIDFromContext(r.Context())
-	if !ok {
-		if paramID := r.URL.Query().Get("customer_id"); paramID != "" {
-			if parsed, err := uuid.Parse(paramID); err == nil {
-				customerID = parsed
-				ok = true
-			}
-		}
-	}
+	customerID, ok := middleware.GetCustomerIDFromContext(r.Context())
 	if !ok {
 		writeJSONError(w, http.StatusUnauthorized, "unauthorized: missing customer identity")
 		return
 	}
 
 	var req usecase.ClaimOrderRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeBody(w, r, &req); err != nil {
 		writeJSONError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
@@ -50,7 +40,7 @@ func (h *ClaimHandler) CreateClaim(w http.ResponseWriter, r *http.Request) {
 			writeJSONError(w, http.StatusConflict, "conflict: this guest order has already been claimed by another customer")
 			return
 		}
-		writeJSONError(w, http.StatusBadRequest, err.Error())
+		writeDomainError(w, err)
 		return
 	}
 
@@ -59,19 +49,24 @@ func (h *ClaimHandler) CreateClaim(w http.ResponseWriter, r *http.Request) {
 
 // GetClaimStatus handles GET /api/v1/profile/guest-claims/{order_id}
 func (h *ClaimHandler) GetClaimStatus(w http.ResponseWriter, r *http.Request) {
+	customerID, ok := middleware.GetCustomerIDFromContext(r.Context())
+	if !ok {
+		writeJSONError(w, 401, "unauthorized")
+		return
+	}
 	orderID := chi.URLParam(r, "order_id")
 	if orderID == "" {
 		writeJSONError(w, http.StatusBadRequest, "order_id is required")
 		return
 	}
 
-	claim, err := h.claimUsecase.GetActiveClaim(r.Context(), orderID)
+	claim, err := h.claimUsecase.GetOwnedClaim(r.Context(), customerID, orderID)
 	if err != nil {
 		if errors.Is(err, domain.ErrClaimNotFound) {
 			writeJSONError(w, http.StatusNotFound, "no active claim found for this order")
 			return
 		}
-		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		writeDomainError(w, err)
 		return
 	}
 

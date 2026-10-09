@@ -10,6 +10,7 @@ import (
 type CustomerRepository interface {
 	Create(ctx context.Context, c *CustomerProfile) error
 	GetByID(ctx context.Context, id uuid.UUID) (*CustomerProfile, error)
+	GetByUserID(ctx context.Context, id uuid.UUID) (*CustomerProfile, error)
 	UpdateProfileWithOptimisticLock(
 		ctx context.Context,
 		id uuid.UUID,
@@ -24,6 +25,10 @@ type CustomerRepository interface {
 type AddressRepository interface {
 	CreateAddress(ctx context.Context, addr *ShippingAddress) error
 	GetAddressByID(ctx context.Context, id uuid.UUID) (*ShippingAddress, error)
+	GetOwnedAddress(ctx context.Context, customerID, addressID uuid.UUID) (*ShippingAddress, error)
+	UpdateAddress(ctx context.Context, address *ShippingAddress) error
+	DeleteAddressWithVersion(ctx context.Context, customerID, addressID uuid.UUID, version int) error
+	SwitchDefaultAddressWithVersion(ctx context.Context, customerID, addressID uuid.UUID, version int) error
 	GetDefaultAddress(ctx context.Context, customerID uuid.UUID) (*ShippingAddress, error)
 	ListAddressesByCustomerID(ctx context.Context, customerID uuid.UUID) ([]*ShippingAddress, error)
 	SwitchDefaultAddress(ctx context.Context, customerID, newDefaultAddressID uuid.UUID) error

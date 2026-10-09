@@ -1,0 +1,17 @@
+$kind: http-request
+method: GET
+url: '{{baseUrl}}/api/v1/profile/addresses'
+order: 1000
+headers:
+  - key: 'X-Internal-Token'
+    value: '{{internalToken}}'
+  - key: 'X-User-ID'
+    value: '{{userId}}'
+  - key: 'X-User-Role'
+    value: 'CUSTOMER'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Expected HTTP 200', () => pm.response.to.have.status(200));
+      pm.test('Empty list is an array', () => pm.expect(pm.response.json()).to.eql([]));

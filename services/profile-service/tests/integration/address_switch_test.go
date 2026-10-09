@@ -88,6 +88,7 @@ func TestAtomicDefaultAddressSwitcher_100ConcurrentGoroutines_AlwaysExactlyOneDe
 	wg.Add(concurrency)
 
 	startBarrier := make(chan struct{})
+	results := make(chan error, concurrency)
 
 	for i := 0; i < concurrency; i++ {
 		go func(workerID int) {
@@ -101,13 +102,17 @@ func TestAtomicDefaultAddressSwitcher_100ConcurrentGoroutines_AlwaysExactlyOneDe
 			targetAddrID := addressIDs[targetIndex]
 
 			// Call switch default address
-			_ = addrRepo.SwitchDefaultAddress(ctx, customerID, targetAddrID)
+			results <- addrRepo.SwitchDefaultAddress(ctx, customerID, targetAddrID)
 		}(i)
 	}
 
 	// Release all 100 workers simultaneously
 	close(startBarrier)
 	wg.Wait()
+	close(results)
+	for err := range results {
+		require.NoError(t, err, "every concurrent switch must succeed")
+	}
 
 	// Step 4: Critical Invariant Assertion:
 	// Exact count of default addresses for customer must ALWAYS BE 1 (never 0, never > 1)

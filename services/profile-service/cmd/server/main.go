@@ -33,10 +33,12 @@ func main() {
 
 	// 2. Load Configuration
 	cfg := config.LoadConfig()
+	if cfg.IdentityToken == "" {
+		log.Fatal().Msg("PROFILE_INTERNAL_TOKEN is required for authenticated internal callers")
+	}
 	log.Info().
 		Str("http_port", cfg.HTTPPort).
 		Str("grpc_port", cfg.GRPCPort).
-		Str("db_url", cfg.DatabaseURL).
 		Str("redis_addr", cfg.RedisAddr).
 		Msg("Configuration loaded successfully")
 
@@ -101,7 +103,7 @@ func main() {
 	defer dualLayerCache.Close()
 
 	if err := dualLayerCache.StartSubscriber(rootCtx); err != nil {
-		log.Warn().Err(err).Msg("DualLayerCache Pub/Sub subscriber warning (will retry on redis live)")
+		log.Warn().Err(err).Msg("Cache subscription unavailable; profile and address reads remain authoritative on PostgreSQL")
 	} else {
 		log.Info().Str("channel", cache.DefaultInvalidationChannel).Msg("Redis Pub/Sub cache invalidation subscriber started")
 	}
@@ -133,12 +135,14 @@ func main() {
 
 	// 10. Start HTTP REST Server (Chi Router) on Port 8080
 	httpRouter := transportHTTP.NewRouter(transportHTTP.RouterConfig{
-		ProfileHandler:  transportHTTP.NewProfileHandler(custUsecase),
-		AddressHandler:  transportHTTP.NewAddressHandler(addrUsecase),
-		EmployeeHandler: transportHTTP.NewEmployeeHandler(empUsecase),
-		ClaimHandler:    transportHTTP.NewClaimHandler(claimUsecase),
-		Pool:            dbPool,
-		RedisClient:     redisClient,
+		ProfileHandler:   transportHTTP.NewProfileHandler(custUsecase),
+		AddressHandler:   transportHTTP.NewAddressHandler(addrUsecase),
+		EmployeeHandler:  transportHTTP.NewEmployeeHandler(empUsecase),
+		ClaimHandler:     transportHTTP.NewClaimHandler(claimUsecase),
+		IdentityToken:    cfg.IdentityToken,
+		CustomerResolver: custRepo,
+		Pool:             dbPool,
+		RedisClient:      redisClient,
 	})
 
 	httpServer := &http.Server{
@@ -158,7 +162,7 @@ func main() {
 
 	// 11. Start gRPC Server on Port 50051
 	grpcProfileServer := transportGRPC.NewProfileGRPCServer(custUsecase, addrUsecase)
-	grpcServer, err := transportGRPC.NewServer(cfg.GRPCPort, grpcProfileServer)
+	grpcServer, err := transportGRPC.NewServer(cfg.GRPCPort, grpcProfileServer, cfg.IdentityToken)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed creating gRPC Server")
 	}
@@ -180,6 +184,7 @@ func main() {
 	shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancelShutdown()
 
+	rootCancel()
 	// Stop background workers
 	outboxPublisher.Stop()
 	complianceChecker.Stop()

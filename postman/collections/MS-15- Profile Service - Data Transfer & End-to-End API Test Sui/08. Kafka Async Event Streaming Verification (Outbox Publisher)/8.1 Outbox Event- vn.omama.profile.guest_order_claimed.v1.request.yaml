@@ -1,0 +1,27 @@
+$kind: http-request
+name: 'Unverified guest claim cannot produce a success response'
+method: POST
+url: '{{baseUrl}}/api/v1/profile/guest-claims'
+order: 1000
+headers:
+  - key: 'Content-Type'
+    value: 'application/json'
+  - key: 'X-Internal-Token'
+    value: '{{internalToken}}'
+  - key: 'X-User-ID'
+    value: '{{userId}}'
+  - key: 'X-User-Role'
+    value: 'CUSTOMER'
+body:
+  type: json
+  content: |-
+    {
+      "order_id": "TEST-NO-PROOF",
+      "phone_number": "0905123456"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Expected HTTP 503', () => pm.response.to.have.status(503));
+      pm.test('Unverified claim never acknowledged as successful',()=>pm.expect(pm.response.json().code).to.eql('CLAIM_VERIFICATION_UNAVAILABLE'));

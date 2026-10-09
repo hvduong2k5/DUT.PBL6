@@ -46,6 +46,11 @@ spec:
             - configMapRef:
                 name: profile-service-config
           env:
+            - name: PROFILE_INTERNAL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: profile-internal-auth-secret
+                  key: token
             - name: DATABASE_PASSWORD
               valueFrom:
                 secretKeyRef:

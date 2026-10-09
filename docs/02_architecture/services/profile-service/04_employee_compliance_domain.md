@@ -1,3 +1,5 @@
+> **Cập nhật 08/10/2026:** Hành vi implementation hiện tại được mô tả tại [06_hardening_and_contract.md](06_hardening_and_contract.md). Các mô tả cache authoritative, OTP claim đã hoàn thiện và SLA từ mock benchmark trong bản v2.0 dưới đây đã được thay thế. Xem ADR-004/005/006 cho quyết định mới.
+
 # SUB-DOMAIN THIẾT KẾ: EMPLOYEE PROFILE & FOOD SAFETY COMPLIANCE
 ## PHÂN HỆ QUẢN LÝ NHÂN SỰ XƯỞNG KẸO, MÃ HÓA ENVELOPE ENCRYPTION & GIÁM SÁT TUÂN THỦ VSATTP OCOP
 ### Bounded Context: `BC-15: User & Customer Profile Context`

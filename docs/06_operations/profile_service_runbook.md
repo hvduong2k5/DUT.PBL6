@@ -1,3 +1,25 @@
+# Bổ sung vận hành MS-15 — 08/10/2026
+
+- `PROFILE_INTERNAL_TOKEN` bắt buộc, chỉ dùng server-to-server. Production K8s cần Secret `profile-internal-auth-secret`, key `token`. Không đưa token vào ConfigMap/browser/log.
+- Migration mới: `000003_profile_integrity.up.sql`. Chạy một lần trên volume cũ bằng migration runner hoặc psql trước khi deploy binary; init Docker không chạy lại trên volume đã có dữ liệu. Backup và kiểm tra dữ liệu trước migration production.
+- Profile/checkout address đọc PostgreSQL; Redis không quyết định tính đúng đắn của response. Readiness hiện vẫn yêu cầu PostgreSQL và Redis theo policy vận hành hiện hữu.
+- API address mutations yêu cầu If-Match. HR endpoint dùng `/api/v1/admin/employees/compliance`; bỏ alias customer. Forwarded subject phải là UserID, không phải CustomerID.
+- Claim trả 503 là hành vi dự kiến khi chưa có verifier. Không bật thành công giả để làm demo.
+- Topics cần được provision trước: `profile.events.v1` cho business events. Outbox chưa publish sẽ được giữ để retry; monitor lag và lỗi worker, downstream dedup event ID.
+- Bộ kiểm thử riêng dùng `docker-compose.test.yml`, bind HTTP `127.0.0.1:18080`, gRPC `127.0.0.1:15051`, DB `127.0.0.1:15432`. Không thao tác development volume hoặc Kong.
+
+```powershell
+$env:PROFILE_INTERNAL_TOKEN = '<temporary-local-test-token>'
+./services/profile-service/scripts/test-postman.ps1 -StartStack
+```
+
+Script seed chỉ hai customer synthetic trên database `profile-hardening-db-1`. Dừng stack bằng `docker compose -f services/profile-service/docker-compose.test.yml down` sau khi kiểm thử. Không dùng fixture script trên production.
+
+Xem `docs/04_testing/profile-service/03_profile_hardening_verification.md` cho kết quả và giới hạn xác minh.
+
+---
+
+
 # SRE OPERATIONS RUNBOOK: MS-15 PROFILE SERVICE
 ## HỆ THỐNG THƯƠNG MẠI ĐIỆN TỬ ĐẶC SẢN OCOP HUẾ (MÈ XỬNG O MẠ)
 

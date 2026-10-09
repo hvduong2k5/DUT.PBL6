@@ -1,0 +1,32 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/api/v1/profile/addresses'
+order: 2000
+headers:
+  - key: 'Content-Type'
+    value: 'application/json'
+  - key: 'X-Internal-Token'
+    value: '{{internalToken}}'
+  - key: 'X-User-ID'
+    value: '{{userId}}'
+  - key: 'X-User-Role'
+    value: 'CUSTOMER'
+body:
+  type: json
+  content: |-
+    {
+      "recipient_name": "Test Recipient",
+      "phone_number": "0905123456",
+      "street_address": "29 Mai Lão Bạng",
+      "ward_code": "WARD-TH-001",
+      "ward_name": "Forged name",
+      "province_code": "75",
+      "province_name": "Forged province",
+      "label": "HOME"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Expected HTTP 201', () => pm.response.to.have.status(201));
+      const b=pm.response.json(); pm.collectionVariables.set('addressId',b.id); pm.collectionVariables.set('addressETag',pm.response.headers.get('ETag')); pm.test('First default and canonical area',()=>{pm.expect(b.is_default).to.eql(true); pm.expect(b.ward_name).not.to.eql('Forged name'); pm.expect(b.phone_number).to.eql('+84905123456'); pm.expect(b.version).to.eql(1);});

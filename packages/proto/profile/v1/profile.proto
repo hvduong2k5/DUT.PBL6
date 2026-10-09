@@ -40,10 +40,10 @@ message CustomerProfileDetail {
   optional string email = 4;
 
   // Hạng thành viên thân thiết (Ví dụ: "BRONZE", "SILVER", "GOLD", "VIP_OCOP")
-  string loyalty_tier = 5;
+  string loyalty_tier = 5 [deprecated = true]; // Owned by Promotion Service; Profile leaves unset.
 
   // Số điểm tích lũy hiện có
-  int32 loyalty_points = 6;
+  int32 loyalty_points = 6 [deprecated = true];
 
   google.protobuf.Timestamp created_at = 7;
   google.protobuf.Timestamp updated_at = 8;
@@ -71,6 +71,13 @@ message GetDeliveryAddressResponse {
   bool is_default = 3;
   string label = 4; // Ví dụ: "Nhà riêng", "Cơ quan", "Gửi tặng người thân"
   optional omamx.common.v1.ErrorDetail error = 5;
+  // Additive two-tier address fields; common.Address.district remains empty.
+  string ward_code = 6;
+  string province_code = 7;
+  optional double latitude = 8;
+  optional double longitude = 9;
+  int32 version = 10;
+  string customer_id = 11;
 }
 
 // Yêu cầu danh sách sổ địa chỉ
@@ -84,6 +91,9 @@ message DeliveryAddressEntry {
   omamx.common.v1.Address address = 2;
   bool is_default = 3;
   string label = 4;
+  string ward_code = 5;
+  string province_code = 6;
+  int32 version = 7;
 }
 
 // Phản hồi danh sách sổ địa chỉ

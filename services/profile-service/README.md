@@ -1,3 +1,7 @@
+> **Implementation update 08/10/2026:** Xem [thiết kế hardening](../../docs/02_architecture/services/profile-service/06_hardening_and_contract.md), [OpenAPI backend](../../docs/03_api_specs/profile-service.openapi.yaml) và [báo cáo kiểm thử](../../docs/04_testing/profile-service/03_profile_hardening_verification.md). Startup cần `PROFILE_INTERNAL_TOKEN`; migration 000003 cần áp dụng cho DB cũ. Guest claim fail closed khi chưa có verifier. Profile/checkout đọc PostgreSQL authoritative; benchmark RAM lịch sử không chứng minh SLA gRPC.
+
+Kiểm thử local: đặt token tạm trong environment rồi chạy `./scripts/test-postman.ps1 -StartStack` từ thư mục gốc repo qua đường dẫn đầy đủ `services/profile-service/scripts/test-postman.ps1`. Go test: `go vet ./...` và `go test -race ./...` trong service với Docker đang chạy. Sinh protobuf: cài `protoc`, `protoc-gen-go@v1.34.1`, `protoc-gen-go-grpc@v1.3.0`, rồi chạy `sh scripts/generate-proto.sh` trong service.
+
 # MS-15: PROFILE SERVICE
 ## HỆ THỐNG THƯƠNG MẠI ĐIỆN TỬ & CHUỖI CUNG ỨNG ĐẶC SẢN OCOP HUẾ (MÈ XỬNG O MẠ)
 

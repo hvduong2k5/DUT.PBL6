@@ -1,0 +1,17 @@
+$kind: http-request
+method: GET
+url: '{{baseUrl}}/api/v1/profile/guest-claims/TEST-CLAIM-B'
+order: 3000
+headers:
+  - key: 'X-Internal-Token'
+    value: '{{internalToken}}'
+  - key: 'X-User-ID'
+    value: '{{otherUserId}}'
+  - key: 'X-User-Role'
+    value: 'CUSTOMER'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Expected HTTP 200', () => pm.response.to.have.status(200));
+      pm.test('Own claim only',()=>pm.expect(pm.response.json().customer_id).to.eql('c0000000-0000-0000-0000-000000000002'));

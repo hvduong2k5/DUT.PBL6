@@ -66,3 +66,10 @@ yarn-error.log*
 # Postman local artifacts & collections
 .postman/
 postman/
+
+# Version the reusable MS-15 regression suite; keep local bindings/secrets ignored.
+!postman/
+postman/*
+!postman/collections/
+postman/collections/*
+!postman/collections/MS-15- Profile Service - Data Transfer & End-to-End API Test Sui/

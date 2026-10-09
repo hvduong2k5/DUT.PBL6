@@ -1,0 +1,233 @@
+No authorization data found. Please use the `postman login` command.
+Refer:https://learning.postman.com/docs/postman-cli/postman-cli-options/#postman-login
+
+Running your collection...
+
+Root f6bcf7d7f5975f1bebbdbd9b
+
+  GET http://localhost:18080/api/v1/profile?customer_id=c0000000-0000-0000-0000-000000000001 [401 Unauthorized, 232 B, 20 ms]
+  Pass  Expected HTTP 401
+
+Root eb573739e5a2fc276d707512
+
+  GET http://localhost:18080/api/v1/profile [401 Unauthorized, 232 B, 3 ms]
+  Pass  Expected HTTP 401
+
+Root e2f5fbd0fbcc16a8522eea02
+
+  GET http://localhost:18080/api/v1/admin/employees [403 Forbidden, 223 B, 2 ms]
+  Pass  Expected HTTP 403
+
+Root e325ac4c9f8fdb804a598465
+
+  GET http://localhost:18080/api/v1/profile [404 Not Found, 232 B, 3 ms]
+  Pass  Expected HTTP 404
+
+Root a1255141d445722b99e8eb9c
+
+  POST http://localhost:18080/api/v1/profile/addresses/validate-consistency [200 OK, 498 B, 6 ms]
+  Pass  Expected HTTP 200
+  Pass  Verified mapping
+
+Root f61dd9d4d29d3dfec45ceae1
+
+  POST http://localhost:18080/api/v1/profile/addresses/validate-consistency [200 OK, 717 B, 3 ms]
+  Pass  Expected HTTP 200
+  Pass  Mismatch is explicit
+
+Root 67d9f7244e289a56dd74f1ab
+
+  POST http://localhost:18080/api/v1/profile/addresses/validate [200 OK, 227 B, 3 ms]
+  Pass  Expected HTTP 200
+  Pass  Correct ward
+
+Root 2e3e8bc6221f4d8283ed7ffd
+
+  POST http://localhost:18080/api/v1/profile/addresses/validate-consistency [200 OK, 561 B, 3 ms]
+  Pass  Expected HTTP 200
+  Pass  Unknown is not verified
+
+Root 7e7a1117ec42dc8e497c26ba
+
+  GET http://localhost:18080/api/v1/profile/addresses [200 OK, 174 B, 3 ms]
+  Pass  Expected HTTP 200
+  Pass  Empty list is an array
+
+Root 4c29923aff5a8f110d654345
+
+  POST http://localhost:18080/api/v1/profile/addresses [201 Created, 761 B, 9 ms]
+  Pass  Expected HTTP 201
+  Pass  First default and canonical area
+
+Root fd742d050c7cf21ee1940ee0
+
+  GET http://localhost:18080/api/v1/profile/addresses/01a11970-63e0-74d6-a4e2-30b350abc6b3 [404 Not Found, 209 B, 3 ms]
+  Pass  Expected HTTP 404
+
+Root 25442d22a9c2c77ffa966fbf
+
+  PUT http://localhost:18080/api/v1/profile/addresses/01a11970-63e0-74d6-a4e2-30b350abc6b3 [404 Not Found, 209 B, 4 ms]
+  Pass  Expected HTTP 404
+
+Root 0361bc8f50eccfd2f77cdad0
+
+  PUT http://localhost:18080/api/v1/profile/addresses/01a11970-63e0-74d6-a4e2-30b350abc6b3 [428 Precondition Required, 255 B, 2 ms]
+  Pass  Expected HTTP 428
+
+Root 86437093e566bfad8a95a518
+
+  PUT http://localhost:18080/api/v1/profile/addresses/01a11970-63e0-74d6-a4e2-30b350abc6b3 [200 OK, 669 B, 6 ms]
+  Pass  Expected HTTP 200
+  Pass  Version increment
+
+Root f78e5cf0307978808c49c90f
+
+  PUT http://localhost:18080/api/v1/profile/addresses/01a11970-63e0-74d6-a4e2-30b350abc6b3 [409 Conflict, 247 B, 4 ms]
+  Pass  Expected HTTP 409
+
+Root 1665d484e357e863e43d8234
+
+  POST http://localhost:18080/api/v1/profile/addresses [400 Bad Request, 349 B, 6 ms]
+  Pass  Expected HTTP 400
+
+Root 067b7068b9125892c2018c81
+
+  POST http://localhost:18080/api/v1/profile/addresses [400 Bad Request, 366 B, 2 ms]
+  Pass  Expected HTTP 400
+
+Root f1848a1792226fe4f29b9912
+
+  POST http://localhost:18080/api/v1/profile/addresses [201 Created, 764 B, 6 ms]
+  Pass  Expected HTTP 201
+  Pass  Second is not default
+
+Root cc56bf0e5054c1bbb532a801
+
+  PATCH http://localhost:18080/api/v1/profile/addresses/01a11970-64e4-7968-8039-fca97649d7f4/default [200 OK, 1.13 KB, 7 ms]
+  Pass  Expected HTTP 200
+  Pass  Exactly one default
+
+Root ce84bf5d112684e5a57b326c
+
+  PUT http://localhost:18080/api/v1/profile/addresses/01a11970-64e4-7968-8039-fca97649d7f4/default [200 OK, 1.13 KB, 6 ms]
+  Pass  Expected HTTP 200
+  Pass  No version increment on retry
+
+Root 824a13d57eb9e46446205724
+
+  DELETE http://localhost:18080/api/v1/profile/addresses/01a11970-64e4-7968-8039-fca97649d7f4 [200 OK, 660 B, 7 ms]
+  Pass  Expected HTTP 200
+  Pass  Replacement default
+
+Root c52a7cb6098db1a17db30fa6
+
+  DELETE http://localhost:18080/api/v1/profile/addresses/01a11970-63e0-74d6-a4e2-30b350abc6b3 [200 OK, 174 B, 5 ms]
+  Pass  Expected HTTP 200
+  Pass  No addresses remain
+
+Root 92710b7a5e2c4652e216eb8e
+
+  GET http://localhost:18080/api/v1/profile/addresses/01a11970-63e0-74d6-a4e2-30b350abc6b3 [404 Not Found, 209 B, 3 ms]
+  Pass  Expected HTTP 404
+
+Root 432b5baf93f569e5a9be6ff9
+
+  GET http://localhost:18080/api/v1/profile [200 OK, 607 B, 4 ms]
+  Pass  Expected HTTP 200
+  Pass  User ID maps to distinct customer ID
+
+Root e50437632d2a3ab1b2c4dac2
+
+  PUT http://localhost:18080/api/v1/profile [200 OK, 613 B, 9 ms]
+  Pass  Expected HTTP 200
+  Pass  Canonical saved profile
+
+Root 8bb606084bb62f855e5cd308
+
+  PUT http://localhost:18080/api/v1/profile [409 Conflict, 247 B, 3 ms]
+  Pass  Expected HTTP 409
+
+Root 4e5e27bf2e7b171828b74df7
+
+  PUT http://localhost:18080/api/v1/profile [400 Bad Request, 367 B, 2 ms]
+  Pass  Expected HTTP 400
+
+Root c3515f013c2ef3f62b10c062
+
+  PUT http://localhost:18080/api/v1/profile [400 Bad Request, 372 B, 2 ms]
+  Pass  Expected HTTP 400
+
+Root add4f865233f483ca840fb31
+
+  PUT http://localhost:18080/api/v1/profile [400 Bad Request, 222 B, 3 ms]
+  Pass  Expected HTTP 400
+
+Root 1de61183b5377ffe7a1a1fc0
+
+  POST http://localhost:18080/api/v1/profile/guest-claims [503 Service Unavailable, 301 B, 3 ms]
+  Pass  Expected HTTP 503
+  Pass  Claim is safely unavailable
+
+Root e33e5a805b6f2bc60c8558fb
+
+  GET http://localhost:18080/api/v1/profile/guest-claims/TEST-CLAIM-B [404 Not Found, 228 B, 3 ms]
+  Pass  Expected HTTP 404
+
+Root ec0c7aaa27465fce3ead2768
+
+  GET http://localhost:18080/api/v1/profile/guest-claims/TEST-CLAIM-B [200 OK, 433 B, 2 ms]
+  Pass  Expected HTTP 200
+  Pass  Own claim only
+
+Root 8cb34b288f8978345dcaec43
+
+  GET http://localhost:18080/api/v1/admin/employees/compliance [200 OK, 174 B, 2 ms]
+  Pass  Expected HTTP 200
+  Pass  Compliance list
+
+Root e7b4994cd06cf0aef720cdef
+
+  GET http://localhost:18080/livez [200 OK, 200 B, 1 ms]
+  Pass  Expected HTTP 200
+
+Root 3a1b253530eb6c82df42e1c7
+
+  GET http://localhost:18080/readyz [200 OK, 191 B, 2 ms]
+  Pass  Expected HTTP 200
+
+Root 14d2645368458dcc95f06247
+
+  GET http://localhost:18080/metrics [200 OK, 3.24 KB, 5 ms]
+  Pass  Expected HTTP 200
+
+Root baf952bd65e49bf0a3cd97e3
+
+  POST http://localhost:18080/api/v1/profile/addresses/01a11970-63e0-74d6-a4e2-30b350abc6b3 [405 Method Not Allowed, 180 B, 2 ms]
+  Pass  Expected HTTP 405
+  Pass  HTTP simulation route removed
+
+Root defe8c55a418604fd39cfc59
+
+  POST http://localhost:18080/api/v1/profile/guest-claims [503 Service Unavailable, 301 B, 3 ms]
+  Pass  Expected HTTP 503
+  Pass  Unverified claim never acknowledged as successful
+
+-------------------------------------------------------------------
+|                         |          executed |            failed |
+--------------------------+-------------------+--------------------
+|              iterations |                 1 |                 0 |
+--------------------------+-------------------+--------------------
+|                requests |                38 |                 0 |
+--------------------------+-------------------+--------------------
+|            test-scripts |                38 |                 0 |
+--------------------------+-------------------+--------------------
+|      prerequest-scripts |                 0 |                 0 |
+--------------------------+-------------------+--------------------
+|              assertions |                57 |                 0 |
+-------------------------------------------------------------------
+| total run duration: 1392 ms                                     |
+-------------------------------------------------------------------
+| total data received: 10.75 KB (approx)                          |
+-------------------------------------------------------------------
+| average response time: 4 ms [min: 1 ms, max: 20 ms, s.d.: 3 ms] |
+-------------------------------------------------------------------

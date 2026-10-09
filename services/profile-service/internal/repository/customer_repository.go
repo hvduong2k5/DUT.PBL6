@@ -21,6 +21,9 @@ func NewCustomerRepository(pool *pgxpool.Pool) *CustomerRepository {
 
 // Create inserts a new customer profile.
 func (r *CustomerRepository) Create(ctx context.Context, c *domain.CustomerProfile) error {
+	if c.Gender == "" {
+		c.Gender = "UNSPECIFIED"
+	}
 	prefBytes, err := json.Marshal(c.Preferences)
 	if err != nil {
 		return err
@@ -83,8 +86,13 @@ func (r *CustomerRepository) UpdateProfileWithOptimisticLock(
 	email string,
 	expectedVersion int,
 ) (*domain.CustomerProfile, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
 	query := `
-		UPDATE customer_profiles
+        UPDATE customer_profiles
 		SET full_name = $2,
 		    phone_number = $3,
 		    email = $4,
@@ -98,7 +106,7 @@ func (r *CustomerRepository) UpdateProfileWithOptimisticLock(
 	var updated domain.CustomerProfile
 	var prefBytes []byte
 
-	err := r.pool.QueryRow(ctx, query, id, fullName, phone, email, expectedVersion).Scan(
+	err = tx.QueryRow(ctx, query, id, fullName, phone, email, expectedVersion).Scan(
 		&updated.ID, &updated.UserID, &updated.FullName, &updated.PhoneNumber, &updated.Email,
 		&updated.DateOfBirth, &updated.Gender, &updated.AvatarURL, &prefBytes,
 		&updated.Status, &updated.Version, &updated.CreatedAt, &updated.UpdatedAt,
@@ -109,7 +117,7 @@ func (r *CustomerRepository) UpdateProfileWithOptimisticLock(
 			// Zero rows affected -> Secondary check to disambiguate 404 vs 409
 			var exists bool
 			checkQuery := `SELECT EXISTS(SELECT 1 FROM customer_profiles WHERE id = $1)`
-			checkErr := r.pool.QueryRow(ctx, checkQuery, id).Scan(&exists)
+			checkErr := tx.QueryRow(ctx, checkQuery, id).Scan(&exists)
 			if checkErr != nil {
 				return nil, checkErr
 			}
@@ -129,5 +137,24 @@ func (r *CustomerRepository) UpdateProfileWithOptimisticLock(
 		}
 	}
 
+	if err := insertEvent(ctx, tx, "CustomerProfile", id.String(), "vn.omama.profile.updated.v1", map[string]any{"customer_id": id, "new_version": updated.Version}); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
 	return &updated, nil
+}
+
+// GetByUserID resolves the authentication subject to the separate profile ID.
+func (r *CustomerRepository) GetByUserID(ctx context.Context, userID uuid.UUID) (*domain.CustomerProfile, error) {
+	var id uuid.UUID
+	err := r.pool.QueryRow(ctx, `SELECT id FROM customer_profiles WHERE user_id=$1`, userID).Scan(&id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, domain.ErrCustomerNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return r.GetByID(ctx, id)
 }

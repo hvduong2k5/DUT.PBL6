@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/google/uuid"
 	"github.com/omamx/profile-service/internal/domain"
 	"github.com/omamx/profile-service/internal/transport/http/middleware"
 	"github.com/omamx/profile-service/internal/usecase"
@@ -30,16 +29,7 @@ type UpdateProfilePayload struct {
 
 // GetProfile handles GET /api/v1/profile
 func (h *ProfileHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
-	userID, ok := middleware.GetUserIDFromContext(r.Context())
-	if !ok {
-		// Fallback for development if no gateway header present
-		if paramID := r.URL.Query().Get("customer_id"); paramID != "" {
-			if parsed, err := uuid.Parse(paramID); err == nil {
-				userID = parsed
-				ok = true
-			}
-		}
-	}
+	userID, ok := middleware.GetCustomerIDFromContext(r.Context())
 
 	if !ok {
 		writeJSONError(w, http.StatusUnauthorized, "unauthorized: missing customer identity")
@@ -52,24 +42,17 @@ func (h *ProfileHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 			writeJSONError(w, http.StatusNotFound, "customer profile not found")
 			return
 		}
-		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		writeDomainError(w, err)
 		return
 	}
 
+	w.Header().Set("ETag", etag(profile.Version))
 	writeJSON(w, http.StatusOK, profile)
 }
 
 // UpdateProfile handles PUT /api/v1/profile
 func (h *ProfileHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
-	userID, ok := middleware.GetUserIDFromContext(r.Context())
-	if !ok {
-		if paramID := r.URL.Query().Get("customer_id"); paramID != "" {
-			if parsed, err := uuid.Parse(paramID); err == nil {
-				userID = parsed
-				ok = true
-			}
-		}
-	}
+	userID, ok := middleware.GetCustomerIDFromContext(r.Context())
 
 	if !ok {
 		writeJSONError(w, http.StatusUnauthorized, "unauthorized: missing customer identity")
@@ -77,11 +60,19 @@ func (h *ProfileHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req UpdateProfilePayload
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeBody(w, r, &req); err != nil {
 		writeJSONError(w, http.StatusBadRequest, "invalid request body payload")
 		return
 	}
 
+	if r.Header.Get("If-Match") != "" {
+		version, err := expectedVersion(r)
+		if err != nil {
+			writeDomainError(w, err)
+			return
+		}
+		req.ExpectedVersion = version
+	}
 	updated, err := h.customerUsecase.UpdateProfileWithOCC(
 		r.Context(),
 		userID,
@@ -92,18 +83,11 @@ func (h *ProfileHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	)
 
 	if err != nil {
-		if errors.Is(err, domain.ErrOptimisticLockConflict) {
-			writeJSONError(w, http.StatusConflict, "conflict: profile has been updated by another session. Please refresh and try again.")
-			return
-		}
-		if errors.Is(err, domain.ErrCustomerNotFound) {
-			writeJSONError(w, http.StatusNotFound, "customer profile not found")
-			return
-		}
-		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		writeDomainError(w, err)
 		return
 	}
 
+	w.Header().Set("ETag", etag(updated.Version))
 	writeJSON(w, http.StatusOK, updated)
 }
 

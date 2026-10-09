@@ -10,7 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/omamx/profile-service/internal/infrastructure/kafka"
-	kafkaGo "github.com/segmentio/kafka-go"
+	"github.com/rs/zerolog/log"
 )
 
 type OutboxRecord struct {
@@ -65,7 +65,11 @@ func (p *OutboxPublisher) Start(ctx context.Context) {
 			case <-p.stopChan:
 				return
 			case <-ticker.C:
-				_ = p.publishBatch(ctx)
+				batchCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
+				if err := p.publishBatch(batchCtx); err != nil && ctx.Err() == nil {
+					log.Error().Err(err).Msg("outbox publish failed; unpublished events retained for retry")
+				}
+				cancel()
 			}
 		}
 	}()
@@ -105,9 +109,13 @@ func (p *OutboxPublisher) publishBatch(ctx context.Context) error {
 	var records []OutboxRecord
 	for rows.Next() {
 		var rec OutboxRecord
-		if err := rows.Scan(&rec.ID, &rec.AggregateType, &rec.AggregateID, &rec.EventType, &rec.Payload, &rec.Topic); err == nil {
-			records = append(records, rec)
+		if err := rows.Scan(&rec.ID, &rec.AggregateType, &rec.AggregateID, &rec.EventType, &rec.Payload, &rec.Topic); err != nil {
+			return err
 		}
+		records = append(records, rec)
+	}
+	if err := rows.Err(); err != nil {
+		return err
 	}
 	rows.Close()
 
@@ -120,6 +128,7 @@ func (p *OutboxPublisher) publishBatch(ctx context.Context) error {
 
 	// Publish to Kafka
 	var publishedIDs []uuid.UUID
+	var publishErr error
 	for _, rec := range records {
 		cloudEvent := map[string]any{
 			"specversion":     "1.0",
@@ -137,18 +146,11 @@ func (p *OutboxPublisher) publishBatch(ctx context.Context) error {
 			continue
 		}
 
-		msg := kafkaGo.Message{
-			Topic: rec.Topic,
-			Key:   []byte(rec.AggregateID),
-			Value: eventBytes,
-			Time:  time.Now().UTC(),
-		}
-
 		if err := p.producer.Publish(ctx, rec.Topic, rec.AggregateID, eventBytes); err != nil {
 			// Stop batch on first publishing failure to preserve order
+			publishErr = err
 			break
 		}
-		_ = msg
 		publishedIDs = append(publishedIDs, rec.ID)
 	}
 
@@ -170,7 +172,7 @@ func (p *OutboxPublisher) publishBatch(ctx context.Context) error {
 		p.lagCountGauge(float64(remainingLag))
 	}
 
-	return nil
+	return publishErr
 }
 
 // GetUnpublishedCount checks remaining outbox events for SRE monitoring.

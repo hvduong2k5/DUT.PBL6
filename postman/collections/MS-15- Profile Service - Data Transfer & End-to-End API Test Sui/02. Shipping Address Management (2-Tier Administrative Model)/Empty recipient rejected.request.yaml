@@ -1,0 +1,31 @@
+$kind: http-request
+method: POST
+url: '{{baseUrl}}/api/v1/profile/addresses'
+order: 3300
+headers:
+  - key: 'Content-Type'
+    value: 'application/json'
+  - key: 'X-Internal-Token'
+    value: '{{internalToken}}'
+  - key: 'X-User-ID'
+    value: '{{userId}}'
+  - key: 'X-User-Role'
+    value: 'CUSTOMER'
+body:
+  type: json
+  content: |-
+    {
+      "recipient_name": " ",
+      "phone_number": "0905123456",
+      "street_address": "29 Mai Lão Bạng",
+      "ward_code": "WARD-TH-001",
+      "ward_name": "Forged name",
+      "province_code": "75",
+      "province_name": "Forged province",
+      "label": "HOME"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Expected HTTP 400', () => pm.response.to.have.status(400));

@@ -1,0 +1,16 @@
+$kind: http-request
+method: GET
+url: '{{baseUrl}}/api/v1/admin/employees'
+order: 3000
+headers:
+  - key: 'X-Internal-Token'
+    value: '{{internalToken}}'
+  - key: 'X-User-ID'
+    value: '{{userId}}'
+  - key: 'X-User-Role'
+    value: 'CUSTOMER'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Expected HTTP 403', () => pm.response.to.have.status(403));

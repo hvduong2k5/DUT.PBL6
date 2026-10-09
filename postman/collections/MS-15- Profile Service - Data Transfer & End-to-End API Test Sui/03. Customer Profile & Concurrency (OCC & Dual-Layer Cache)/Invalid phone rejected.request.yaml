@@ -1,0 +1,26 @@
+$kind: http-request
+method: PUT
+url: '{{baseUrl}}/api/v1/profile'
+order: 5000
+headers:
+  - key: 'Content-Type'
+    value: 'application/json'
+  - key: 'X-Internal-Token'
+    value: '{{internalToken}}'
+  - key: 'X-User-ID'
+    value: '{{userId}}'
+  - key: 'X-User-Role'
+    value: 'CUSTOMER'
+body:
+  type: json
+  content: |-
+    {
+      "full_name": "Customer",
+      "phone_number": "invalid",
+      "version": 2
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('Expected HTTP 400', () => pm.response.to.have.status(400));

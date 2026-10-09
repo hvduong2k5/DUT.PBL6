@@ -2,95 +2,93 @@ package grpc
 
 import (
 	"context"
-
+	"errors"
 	"github.com/google/uuid"
+	"github.com/omamx/profile-service/internal/domain"
+	commonv1 "github.com/omamx/profile-service/internal/gen/common/v1"
+	profilev1 "github.com/omamx/profile-service/internal/gen/profile/v1"
 	"github.com/omamx/profile-service/internal/usecase"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-// DTOs matching the contracted Protobuf schema with MS-04 order-service
-type GetDeliveryAddressRequest struct {
-	AddressID  string `json:"address_id"`
-	CustomerID string `json:"customer_id"`
-}
-
-type DeliveryAddressResponse struct {
-	ID            string  `json:"id"`
-	CustomerID    string  `json:"customer_id"`
-	RecipientName string  `json:"recipient_name"`
-	PhoneNumber   string  `json:"phone_number"`
-	StreetAddress string  `json:"street_address"`
-	WardCode      string  `json:"ward_code"`
-	WardName      string  `json:"ward_name"`
-	ProvinceCode  string  `json:"province_code"`
-	ProvinceName  string  `json:"province_name"`
-	Latitude      float64 `json:"latitude"`
-	Longitude     float64 `json:"longitude"`
-	IsDefault     bool    `json:"is_default"`
-}
-
 type ProfileGRPCServer struct {
+	profilev1.UnimplementedProfileServiceServer
 	customerUsecase *usecase.CustomerUsecase
 	addressUsecase  *usecase.AddressUsecase
 }
 
-func NewProfileGRPCServer(customerUsecase *usecase.CustomerUsecase, addressUsecase *usecase.AddressUsecase) *ProfileGRPCServer {
-	return &ProfileGRPCServer{
-		customerUsecase: customerUsecase,
-		addressUsecase:  addressUsecase,
+func NewProfileGRPCServer(c *usecase.CustomerUsecase, a *usecase.AddressUsecase) *ProfileGRPCServer {
+	return &ProfileGRPCServer{customerUsecase: c, addressUsecase: a}
+}
+func customerUUID(value string) (uuid.UUID, error) {
+	id, err := uuid.Parse(value)
+	if err != nil || id == uuid.Nil {
+		return uuid.Nil, status.Error(codes.InvalidArgument, "customer_id must be a non-zero UUID")
+	}
+	return id, nil
+}
+func rpcError(err error) error {
+	var validation *domain.ValidationError
+	switch {
+	case errors.Is(err, domain.ErrAddressNotFound), errors.Is(err, domain.ErrCustomerNotFound):
+		return status.Error(codes.NotFound, "resource not found")
+	case errors.As(err, &validation):
+		return status.Error(codes.InvalidArgument, validation.Error())
+	case errors.Is(err, context.DeadlineExceeded):
+		return status.Error(codes.DeadlineExceeded, "deadline exceeded")
+	case errors.Is(err, context.Canceled):
+		return status.Error(codes.Canceled, "request canceled")
+	default:
+		return status.Error(codes.Internal, "profile storage unavailable")
 	}
 }
-
-// GetDeliveryAddress serves the Checkout Critical Path (SLA P99 <= 5ms).
-// Queries directly via Primary Key / Default index, bypassing all fuzzy matching logic.
-func (s *ProfileGRPCServer) GetDeliveryAddress(ctx context.Context, req *GetDeliveryAddressRequest) (*DeliveryAddressResponse, error) {
-	var addrUUID, custUUID uuid.UUID
-	var err error
-
-	if req.AddressID != "" {
-		addrUUID, err = uuid.Parse(req.AddressID)
-		if err != nil {
-			return nil, status.Errorf(codes.InvalidArgument, "invalid address_id: %v", err)
-		}
-	}
-
-	if req.CustomerID != "" {
-		custUUID, err = uuid.Parse(req.CustomerID)
-		if err != nil {
-			return nil, status.Errorf(codes.InvalidArgument, "invalid customer_id: %v", err)
-		}
-	}
-
-	if addrUUID == uuid.Nil && custUUID == uuid.Nil {
-		return nil, status.Error(codes.InvalidArgument, "either address_id or customer_id must be provided")
-	}
-
-	addr, err := s.addressUsecase.GetDeliveryAddressCheckout(ctx, addrUUID, custUUID)
+func wireAddress(a *domain.ShippingAddress) *commonv1.Address {
+	return &commonv1.Address{RecipientName: a.RecipientName, PhoneNumber: a.PhoneNumber, StreetAddress: a.StreetAddress, Ward: a.WardName, Province: a.ProvinceName, CountryCode: "VN"}
+}
+func (s *ProfileGRPCServer) GetDeliveryAddress(ctx context.Context, req *profilev1.GetDeliveryAddressRequest) (*profilev1.GetDeliveryAddressResponse, error) {
+	customerID, err := customerUUID(req.GetCustomerId())
 	if err != nil {
-		return nil, status.Errorf(codes.NotFound, "shipping address not found: %v", err)
+		return nil, err
 	}
-
-	var lat, lon float64
-	if addr.Latitude != nil {
-		lat = *addr.Latitude
+	var addressID uuid.UUID
+	if req.GetAddressId() != "" {
+		addressID, err = uuid.Parse(req.GetAddressId())
+		if err != nil || addressID == uuid.Nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid address_id")
+		}
 	}
-	if addr.Longitude != nil {
-		lon = *addr.Longitude
+	address, err := s.addressUsecase.GetDeliveryAddressCheckout(ctx, addressID, customerID)
+	if err != nil {
+		return nil, rpcError(err)
 	}
-
-	return &DeliveryAddressResponse{
-		ID:            addr.ID.String(),
-		CustomerID:    addr.CustomerID.String(),
-		RecipientName: addr.RecipientName,
-		PhoneNumber:   addr.PhoneNumber,
-		StreetAddress: addr.StreetAddress,
-		WardCode:      addr.WardCode,
-		WardName:      addr.WardName,
-		ProvinceCode:  addr.ProvinceCode,
-		ProvinceName:  addr.ProvinceName,
-		Latitude:      lat,
-		Longitude:     lon,
-		IsDefault:     addr.IsDefault,
-	}, nil
+	return &profilev1.GetDeliveryAddressResponse{AddressId: address.ID.String(), Address: wireAddress(address), IsDefault: address.IsDefault, Label: address.Label, WardCode: address.WardCode, ProvinceCode: address.ProvinceCode, Latitude: address.Latitude, Longitude: address.Longitude, Version: int32(address.Version), CustomerId: address.CustomerID.String()}, nil
+}
+func (s *ProfileGRPCServer) GetCustomerProfile(ctx context.Context, req *profilev1.GetCustomerProfileRequest) (*profilev1.GetCustomerProfileResponse, error) {
+	id, err := customerUUID(req.GetCustomerId())
+	if err != nil {
+		return nil, err
+	}
+	p, err := s.customerUsecase.GetProfile(ctx, id)
+	if err != nil {
+		return nil, rpcError(err)
+	}
+	// Loyalty belongs to Promotion; the legacy loyalty fields remain unset.
+	return &profilev1.GetCustomerProfileResponse{Profile: &profilev1.CustomerProfileDetail{CustomerId: p.ID.String(), FullName: p.FullName, PhoneNumber: p.PhoneNumber, Email: &p.Email, CreatedAt: timestamppb.New(p.CreatedAt), UpdatedAt: timestamppb.New(p.UpdatedAt)}}, nil
+}
+func (s *ProfileGRPCServer) ListDeliveryAddresses(ctx context.Context, req *profilev1.ListDeliveryAddressesRequest) (*profilev1.ListDeliveryAddressesResponse, error) {
+	id, err := customerUUID(req.GetCustomerId())
+	if err != nil {
+		return nil, err
+	}
+	addresses, err := s.addressUsecase.ListAddresses(ctx, id)
+	if err != nil {
+		return nil, rpcError(err)
+	}
+	response := &profilev1.ListDeliveryAddressesResponse{}
+	for _, a := range addresses {
+		response.Addresses = append(response.Addresses, &profilev1.DeliveryAddressEntry{AddressId: a.ID.String(), Address: wireAddress(a), IsDefault: a.IsDefault, Label: a.Label, WardCode: a.WardCode, ProvinceCode: a.ProvinceCode, Version: int32(a.Version)})
+	}
+	return response, nil
 }

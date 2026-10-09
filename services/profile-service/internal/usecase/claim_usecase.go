@@ -2,8 +2,6 @@ package usecase
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -13,8 +11,9 @@ import (
 )
 
 type ClaimOrderRequest struct {
-	OrderID     string `json:"order_id"`
-	PhoneNumber string `json:"phone_number"`
+	OrderID           string `json:"order_id"`
+	PhoneNumber       string `json:"phone_number"`
+	VerificationToken string `json:"verification_token"`
 }
 
 type ClaimOrderResponse struct {
@@ -27,6 +26,7 @@ type ClaimOrderResponse struct {
 type ClaimUsecase struct {
 	claimRepo *repository.ClaimRepository
 	pool      *pgxpool.Pool
+	verifier  GuestClaimVerifier
 }
 
 func NewClaimUsecase(claimRepo *repository.ClaimRepository, pool *pgxpool.Pool) *ClaimUsecase {
@@ -39,29 +39,29 @@ func NewClaimUsecase(claimRepo *repository.ClaimRepository, pool *pgxpool.Pool) 
 // ClaimGuestOrder executes Use Case 5: Link Guest Order & Emit Kafka Outbox Event.
 func (u *ClaimUsecase) ClaimGuestOrder(ctx context.Context, customerID uuid.UUID, req ClaimOrderRequest) (*ClaimOrderResponse, error) {
 	if req.OrderID == "" || req.PhoneNumber == "" {
-		return nil, fmt.Errorf("order_id and phone_number are required")
+		return nil, &domain.ValidationError{Field: "order_id", Message: "order_id and phone_number are required"}
 	}
-
-	// 1. Lưu bản ghi claim vào database (bảo vệ bởi Partial Unique Index uq_order_claim_active)
-	if err := u.claimRepo.CreateClaim(ctx, customerID, req.OrderID, req.PhoneNumber); err != nil {
+	if err := domain.ValidateText("order_id", req.OrderID, 50); err != nil {
 		return nil, err
 	}
 
+	if u.verifier == nil {
+		return nil, domain.ErrClaimVerificationUnavailable
+	}
+	phone, err := domain.NormalizePhone(req.PhoneNumber)
+	if err != nil {
+		return nil, err
+	}
+	if req.VerificationToken == "" {
+		return nil, &domain.ValidationError{Field: "verification_token", Message: "required"}
+	}
+	if err = u.verifier.VerifyGuestOrderOwnership(ctx, customerID, req.OrderID, phone, req.VerificationToken); err != nil {
+		return nil, err
+	}
+	if err = u.claimRepo.CreateClaim(ctx, customerID, req.OrderID, phone); err != nil {
+		return nil, err
+	}
 	now := time.Now().UTC()
-
-	// 2. Ghi Outbox event vn.omama.profile.guest_order_claimed.v1 để đồng bộ sang MS-04 và MS-07
-	payload, _ := json.Marshal(map[string]any{
-		"order_id":     req.OrderID,
-		"customer_id":  customerID.String(),
-		"phone_number": req.PhoneNumber,
-		"claimed_at":   now.Format(time.RFC3339),
-	})
-
-	outboxQuery := `
-		INSERT INTO outbox_events (id, aggregate_type, aggregate_id, event_type, payload, topic)
-		VALUES ($1, 'GuestOrderClaim', $2, 'vn.omama.profile.guest_order_claimed.v1', $3, 'profile.events.v1')
-	`
-	_, _ = u.pool.Exec(ctx, outboxQuery, uuid.New(), req.OrderID, payload)
 
 	return &ClaimOrderResponse{
 		Message:    "Guest order claimed successfully",
@@ -79,4 +79,22 @@ func (u *ClaimUsecase) GetActiveClaim(ctx context.Context, orderID string) (*dom
 // RevokeClaim hủy quyền claim (dành cho Admin giải quyết tranh chấp)
 func (u *ClaimUsecase) RevokeClaim(ctx context.Context, orderID string) error {
 	return u.claimRepo.RevokeClaim(ctx, orderID)
+}
+
+// Implementations must validate OTP expiry/replay, bind proof to customer/order/phone,
+// and confirm the order is still a guest order with the same phone through Order API.
+type GuestClaimVerifier interface {
+	VerifyGuestOrderOwnership(context.Context, uuid.UUID, string, string, string) error
+}
+
+func (u *ClaimUsecase) SetVerifier(v GuestClaimVerifier) { u.verifier = v }
+func (u *ClaimUsecase) GetOwnedClaim(ctx context.Context, customerID uuid.UUID, orderID string) (*domain.GuestOrderClaim, error) {
+	claim, err := u.claimRepo.GetActiveClaim(ctx, orderID)
+	if err != nil {
+		return nil, err
+	}
+	if claim.CustomerID != customerID {
+		return nil, domain.ErrClaimNotFound
+	}
+	return claim, nil
 }

@@ -1,3 +1,5 @@
+> **Báo cáo lịch sử 24/09/2026.** Các kết luận “100% contract” và SLA từ 421.9 ns/op không còn được dùng làm bằng chứng production. Xem [03_profile_hardening_verification.md](03_profile_hardening_verification.md) cho kiểm chứng implementation sau hardening.
+
 # NHẬT KÝ SỬA LỖI & BÁO CÁO PHÁT HIỆN BUG (BUILD & TEST BUG LOG)
 **Service**: MS-15 Profile Service (`omamx/profile-service`)  
 **Hệ thống**: Nền tảng Đặc sản Mè Xửng O Mạ OCOP Huế  
