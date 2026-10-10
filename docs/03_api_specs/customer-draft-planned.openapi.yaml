@@ -1,0 +1,1488 @@
+openapi: "3.1.0"
+info:
+  title: "Customer Web API - Draft and Planned"
+  version: "0.1.0"
+  license:
+    name: "Proprietary"
+    identifier: "LicenseRef-Proprietary"
+  description: "Non-stable proposal for backend review. Every operation requires an explicit product/security decision before implementation compatibility is promised. Draft means a concrete proposal exists; planned means the capability is identified but policy or workflow remains incomplete."
+servers:
+  -
+    url: "https://api.omama.vn"
+tags:
+  -
+    name: "Media"
+    description: "Media proposed operations for the customer web application."
+  -
+    name: "Orders"
+    description: "Orders proposed operations for the customer web application."
+  -
+    name: "After-sales"
+    description: "After-sales proposed operations for the customer web application."
+  -
+    name: "Customer support"
+    description: "Customer support proposed operations for the customer web application."
+  -
+    name: "Authentication"
+    description: "Authentication proposed operations for the customer web application."
+  -
+    name: "B2B"
+    description: "B2B proposed operations for the customer web application."
+  -
+    name: "Loyalty"
+    description: "Loyalty proposed operations for the customer web application."
+  -
+    name: "Notifications"
+    description: "Notifications proposed operations for the customer web application."
+  -
+    name: "Notification-preferences"
+    description: "Notification-preferences proposed operations for the customer web application."
+paths:
+  "/api/v1/media/upload-sessions":
+    post:
+      tags:
+        - "Media"
+      operationId: "postMediaUploadSessions"
+      summary: "Create a direct-upload session with type, size and ownership policy."
+      x-lifecycle: "draft"
+      x-decision-required: true
+      x-backlog:
+        - "EPIC_14"
+        - "EPIC_16"
+        - "EPIC_18"
+      x-ui-states:
+        - "loading"
+        - "success"
+        - "error"
+        - "unauthorized"
+        - "forbidden"
+      security:
+        -
+          bearerAuth: []
+        -
+          customerSession: []
+      parameters:
+        -
+          $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "201":
+          description: "Proposed successful response."
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required:
+                  - "uploadSessionId"
+                  - "uploadUrl"
+                  - "expiresAt"
+                  - "requiredHeaders"
+                properties:
+                  uploadSessionId:
+                    type: "string"
+                  uploadUrl:
+                    type: "string"
+                    format: "uri"
+                  expiresAt:
+                    type: "string"
+                    format: "date-time"
+                  requiredHeaders:
+                    type: "object"
+                    required: []
+                    properties: {}
+                    additionalProperties: false
+                additionalProperties: false
+              examples:
+                success:
+                  value:
+                    uploadSessionId: "UPL-01"
+                    uploadUrl: "https://storage.example.com/signed"
+                    expiresAt: "2026-10-05T09:15:00Z"
+                    requiredHeaders: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: "object"
+              required:
+                - "purpose"
+                - "fileName"
+                - "mediaType"
+                - "sizeBytes"
+              properties:
+                purpose:
+                  type: "string"
+                fileName:
+                  type: "string"
+                mediaType:
+                  type: "string"
+                sizeBytes:
+                  type: "integer"
+              additionalProperties: false
+            example:
+              purpose: "RETURN_EVIDENCE"
+              fileName: "package.jpg"
+              mediaType: "image/jpeg"
+              sizeBytes: 420000
+  "/api/v1/media/upload-sessions/{uploadSessionId}/complete":
+    post:
+      tags:
+        - "Media"
+      operationId: "postMediaUploadSessionsUploadSessionIdComplete"
+      summary: "Confirm upload and start malware/content validation."
+      x-lifecycle: "draft"
+      x-decision-required: true
+      x-backlog:
+        - "EPIC_14"
+        - "EPIC_16"
+        - "EPIC_18"
+      x-ui-states:
+        - "loading"
+        - "success"
+        - "error"
+        - "unauthorized"
+        - "forbidden"
+      security:
+        -
+          bearerAuth: []
+        -
+          customerSession: []
+      parameters:
+        -
+          name: "uploadSessionId"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            minLength: 1
+        -
+          $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "202":
+          description: "Proposed successful response."
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required:
+                  - "fileId"
+                  - "state"
+                properties:
+                  fileId:
+                    type: "string"
+                  state:
+                    type: "string"
+                additionalProperties: false
+              examples:
+                success:
+                  value:
+                    fileId: "FILE-01"
+                    state: "PROCESSING"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: "object"
+              required:
+                - "checksumSha256"
+              properties:
+                checksumSha256:
+                  type: "string"
+              additionalProperties: false
+            example:
+              checksumSha256: "8f14e45fceea167a5a36dedd4bea2543"
+  "/api/v1/orders/{orderId}/returns/eligibility":
+    get:
+      tags:
+        - "Orders"
+      operationId: "getOrdersOrderIdReturnsEligibility"
+      summary: "Evaluate after-sales eligibility from the authoritative order snapshot."
+      x-lifecycle: "draft"
+      x-decision-required: true
+      x-backlog:
+        - "EPIC_08"
+      x-ui-states:
+        - "loading"
+        - "success"
+        - "empty"
+        - "error"
+        - "unauthorized"
+        - "forbidden"
+      security:
+        -
+          bearerAuth: []
+        -
+          customerSession: []
+      parameters:
+        -
+          name: "orderId"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            minLength: 1
+        -
+          name: "q"
+          in: "query"
+          required: false
+          description: "Case-insensitive search text for supported identifiers and labels."
+          schema:
+            type: "string"
+            maxLength: 200
+        -
+          name: "status"
+          in: "query"
+          required: false
+          description: "Domain status filter. Allowed values are defined by the endpoint response status vocabulary."
+          schema:
+            type: "string"
+        -
+          name: "page"
+          in: "query"
+          required: false
+          schema:
+            type: "integer"
+            minimum: 1
+            default: 1
+        -
+          name: "pageSize"
+          in: "query"
+          required: false
+          schema:
+            type: "integer"
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: "Proposed successful response."
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required:
+                  - "orderId"
+                  - "eligible"
+                  - "policyWindowEndsAt"
+                  - "lines"
+                properties:
+                  orderId:
+                    type: "string"
+                  eligible:
+                    type: "boolean"
+                  policyWindowEndsAt:
+                    type: "string"
+                    format: "date-time"
+                  lines:
+                    type: "array"
+                    items: {}
+                additionalProperties: false
+              examples:
+                success:
+                  value:
+                    orderId: "ORD-20261015-0042"
+                    eligible: true
+                    policyWindowEndsAt: "2026-10-22T00:00:00Z"
+                    lines: []
+                empty:
+                  value:
+                    orderId: "ORD-20261015-0042"
+                    eligible: true
+                    policyWindowEndsAt: "2026-10-22T00:00:00Z"
+                    lines: []
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  "/api/v1/returns":
+    get:
+      tags:
+        - "After-sales"
+      operationId: "getReturns"
+      summary: "List after-sales cases owned by the current customer."
+      x-lifecycle: "draft"
+      x-decision-required: true
+      x-backlog:
+        - "EPIC_14"
+      x-ui-states:
+        - "loading"
+        - "success"
+        - "empty"
+        - "error"
+        - "unauthorized"
+        - "forbidden"
+      security:
+        -
+          bearerAuth: []
+        -
+          customerSession: []
+      parameters:
+        -
+          name: "q"
+          in: "query"
+          required: false
+          description: "Case-insensitive search text for supported identifiers and labels."
+          schema:
+            type: "string"
+            maxLength: 200
+        -
+          name: "status"
+          in: "query"
+          required: false
+          description: "Domain status filter. Allowed values are defined by the endpoint response status vocabulary."
+          schema:
+            type: "string"
+        -
+          name: "page"
+          in: "query"
+          required: false
+          schema:
+            type: "integer"
+            minimum: 1
+            default: 1
+        -
+          name: "pageSize"
+          in: "query"
+          required: false
+          schema:
+            type: "integer"
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: "Proposed successful response."
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required:
+                  - "items"
+                  - "total"
+                  - "page"
+                  - "pageSize"
+                properties:
+                  items:
+                    type: "array"
+                    items: {}
+                  total:
+                    type: "integer"
+                  page:
+                    type: "integer"
+                  pageSize:
+                    type: "integer"
+                additionalProperties: false
+              examples:
+                success:
+                  value:
+                    items: []
+                    total: 0
+                    page: 1
+                    pageSize: 20
+                empty:
+                  value:
+                    items: []
+                    total: 0
+                    page: 1
+                    pageSize: 20
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  "/api/v1/returns/{returnId}/supplements":
+    post:
+      tags:
+        - "After-sales"
+      operationId: "postReturnsReturnIdSupplements"
+      summary: "Add requested information or approved evidence to an after-sales case."
+      x-lifecycle: "draft"
+      x-decision-required: true
+      x-backlog:
+        - "EPIC_14"
+      x-ui-states:
+        - "loading"
+        - "success"
+        - "error"
+        - "unauthorized"
+        - "forbidden"
+      security:
+        -
+          bearerAuth: []
+        -
+          customerSession: []
+      parameters:
+        -
+          name: "returnId"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            minLength: 1
+        -
+          $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "201":
+          description: "Proposed successful response."
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required:
+                  - "messageId"
+                  - "occurredAt"
+                properties:
+                  messageId:
+                    type: "string"
+                  occurredAt:
+                    type: "string"
+                    format: "date-time"
+                additionalProperties: false
+              examples:
+                success:
+                  value:
+                    messageId: "MSG-01"
+                    occurredAt: "2026-10-05T09:00:00Z"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: "object"
+              required:
+                - "message"
+                - "fileIds"
+                - "idempotencyKey"
+              properties:
+                message:
+                  type: "string"
+                fileIds:
+                  type: "array"
+                  items:
+                    type: "string"
+                idempotencyKey:
+                  type: "string"
+              additionalProperties: false
+            example:
+              message: "Bo sung anh kien hang"
+              fileIds:
+                - "FILE-01"
+              idempotencyKey: "64b31cce-a68c-41ef-aa43-99a1b0150ed9"
+  "/api/v1/support/tickets":
+    get:
+      tags:
+        - "Customer support"
+      operationId: "getSupportTickets"
+      summary: "List support tickets visible to the current customer or guest grant."
+      x-lifecycle: "draft"
+      x-decision-required: true
+      x-backlog:
+        - "EPIC_16"
+      x-ui-states:
+        - "loading"
+        - "success"
+        - "empty"
+        - "error"
+        - "unauthorized"
+        - "forbidden"
+      security:
+        - {}
+        -
+          bearerAuth: []
+        -
+          customerSession: []
+        -
+          guestSession: []
+      parameters:
+        -
+          name: "q"
+          in: "query"
+          required: false
+          description: "Case-insensitive search text for supported identifiers and labels."
+          schema:
+            type: "string"
+            maxLength: 200
+        -
+          name: "status"
+          in: "query"
+          required: false
+          description: "Domain status filter. Allowed values are defined by the endpoint response status vocabulary."
+          schema:
+            type: "string"
+        -
+          name: "page"
+          in: "query"
+          required: false
+          schema:
+            type: "integer"
+            minimum: 1
+            default: 1
+        -
+          name: "pageSize"
+          in: "query"
+          required: false
+          schema:
+            type: "integer"
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: "Proposed successful response."
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required:
+                  - "items"
+                  - "total"
+                  - "page"
+                  - "pageSize"
+                properties:
+                  items:
+                    type: "array"
+                    items: {}
+                  total:
+                    type: "integer"
+                  page:
+                    type: "integer"
+                  pageSize:
+                    type: "integer"
+                additionalProperties: false
+              examples:
+                success:
+                  value:
+                    items: []
+                    total: 0
+                    page: 1
+                    pageSize: 20
+                empty:
+                  value:
+                    items: []
+                    total: 0
+                    page: 1
+                    pageSize: 20
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  "/api/v1/auth/verification-requests":
+    post:
+      tags:
+        - "Authentication"
+      operationId: "postAuthVerificationRequests"
+      summary: "Request or resend account contact verification without revealing account existence."
+      x-lifecycle: "draft"
+      x-decision-required: true
+      x-backlog:
+        - "EPIC_01"
+      x-ui-states:
+        - "loading"
+        - "success"
+        - "error"
+        - "unauthorized"
+        - "forbidden"
+      security: []
+      parameters:
+        -
+          $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "202":
+          description: "Proposed successful response."
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required:
+                  - "accepted"
+                  - "resendAvailableAt"
+                properties:
+                  accepted:
+                    type: "boolean"
+                  resendAvailableAt:
+                    type: "string"
+                    format: "date-time"
+                additionalProperties: false
+              examples:
+                success:
+                  value:
+                    accepted: true
+                    resendAvailableAt: "2026-10-05T09:01:00Z"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "410":
+          $ref: "#/components/responses/Gone"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: "object"
+              required:
+                - "destination"
+                - "channel"
+              properties:
+                destination:
+                  type: "string"
+                  format: "email"
+                channel:
+                  type: "string"
+              additionalProperties: false
+            example:
+              destination: "an@example.com"
+              channel: "EMAIL"
+  "/api/v1/auth/verification-requests/confirm":
+    post:
+      tags:
+        - "Authentication"
+      operationId: "postAuthVerificationRequestsConfirm"
+      summary: "Confirm account contact verification."
+      x-lifecycle: "draft"
+      x-decision-required: true
+      x-backlog:
+        - "EPIC_01"
+      x-ui-states:
+        - "loading"
+        - "success"
+        - "error"
+        - "unauthorized"
+        - "forbidden"
+      security: []
+      parameters:
+        -
+          $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: "Proposed successful response."
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required:
+                  - "verified"
+                properties:
+                  verified:
+                    type: "boolean"
+                additionalProperties: false
+              examples:
+                success:
+                  value:
+                    verified: true
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "410":
+          $ref: "#/components/responses/Gone"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: "object"
+              required:
+                - "verificationToken"
+              properties:
+                verificationToken:
+                  type: "string"
+              additionalProperties: false
+            example:
+              verificationToken: "verification-token"
+  "/api/v1/b2b/quote-requests/{requestId}/messages":
+    post:
+      tags:
+        - "B2B"
+      operationId: "postB2bQuoteRequestsRequestIdMessages"
+      summary: "Continue a NEEDS_INFO exchange while preserving the quote-request history."
+      x-lifecycle: "planned"
+      x-decision-required: true
+      x-backlog:
+        - "EPIC_18"
+      x-ui-states:
+        - "loading"
+        - "success"
+        - "error"
+        - "unauthorized"
+        - "forbidden"
+      security:
+        -
+          bearerAuth: []
+        -
+          customerSession: []
+      parameters:
+        -
+          name: "requestId"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            minLength: 1
+        -
+          $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "201":
+          description: "Proposed successful response."
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required:
+                  - "messageId"
+                  - "status"
+                  - "occurredAt"
+                properties:
+                  messageId:
+                    type: "string"
+                  status:
+                    type: "string"
+                  occurredAt:
+                    type: "string"
+                    format: "date-time"
+                additionalProperties: false
+              examples:
+                success:
+                  value:
+                    messageId: "B2B-MSG-01"
+                    status: "REQUESTED"
+                    occurredAt: "2026-10-05T09:00:00Z"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: "object"
+              required:
+                - "message"
+                - "fileIds"
+                - "idempotencyKey"
+              properties:
+                message:
+                  type: "string"
+                fileIds:
+                  type: "array"
+                  items: {}
+                idempotencyKey:
+                  type: "string"
+              additionalProperties: false
+            example:
+              message: "Da bo sung thong tin giao hang"
+              fileIds: []
+              idempotencyKey: "e501a9cf-ee82-4f8f-87c2-634317f83027"
+  "/api/v1/loyalty/transactions":
+    get:
+      tags:
+        - "Loyalty"
+      operationId: "getLoyaltyTransactions"
+      summary: "List immutable loyalty earning and redemption entries."
+      x-lifecycle: "planned"
+      x-decision-required: true
+      x-backlog:
+        - "EPIC_17"
+      x-ui-states:
+        - "loading"
+        - "success"
+        - "empty"
+        - "error"
+        - "unauthorized"
+        - "forbidden"
+      security:
+        -
+          bearerAuth: []
+        -
+          customerSession: []
+      parameters:
+        -
+          name: "q"
+          in: "query"
+          required: false
+          description: "Case-insensitive search text for supported identifiers and labels."
+          schema:
+            type: "string"
+            maxLength: 200
+        -
+          name: "status"
+          in: "query"
+          required: false
+          description: "Domain status filter. Allowed values are defined by the endpoint response status vocabulary."
+          schema:
+            type: "string"
+        -
+          name: "page"
+          in: "query"
+          required: false
+          schema:
+            type: "integer"
+            minimum: 1
+            default: 1
+        -
+          name: "pageSize"
+          in: "query"
+          required: false
+          schema:
+            type: "integer"
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: "Proposed successful response."
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required:
+                  - "items"
+                  - "total"
+                  - "page"
+                  - "pageSize"
+                properties:
+                  items:
+                    type: "array"
+                    items: {}
+                  total:
+                    type: "integer"
+                  page:
+                    type: "integer"
+                  pageSize:
+                    type: "integer"
+                additionalProperties: false
+              examples:
+                success:
+                  value:
+                    items: []
+                    total: 0
+                    page: 1
+                    pageSize: 20
+                empty:
+                  value:
+                    items: []
+                    total: 0
+                    page: 1
+                    pageSize: 20
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  "/api/v1/notifications":
+    get:
+      tags:
+        - "Notifications"
+      operationId: "getNotifications"
+      summary: "List customer notifications."
+      x-lifecycle: "planned"
+      x-decision-required: true
+      x-backlog:
+        - "EPIC_28"
+      x-ui-states:
+        - "loading"
+        - "success"
+        - "empty"
+        - "error"
+        - "unauthorized"
+        - "forbidden"
+      security:
+        -
+          bearerAuth: []
+        -
+          customerSession: []
+      parameters:
+        -
+          name: "q"
+          in: "query"
+          required: false
+          description: "Case-insensitive search text for supported identifiers and labels."
+          schema:
+            type: "string"
+            maxLength: 200
+        -
+          name: "status"
+          in: "query"
+          required: false
+          description: "Domain status filter. Allowed values are defined by the endpoint response status vocabulary."
+          schema:
+            type: "string"
+        -
+          name: "page"
+          in: "query"
+          required: false
+          schema:
+            type: "integer"
+            minimum: 1
+            default: 1
+        -
+          name: "pageSize"
+          in: "query"
+          required: false
+          schema:
+            type: "integer"
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: "Proposed successful response."
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required:
+                  - "items"
+                  - "unreadCount"
+                  - "total"
+                properties:
+                  items:
+                    type: "array"
+                    items: {}
+                  unreadCount:
+                    type: "integer"
+                  total:
+                    type: "integer"
+                additionalProperties: false
+              examples:
+                success:
+                  value:
+                    items: []
+                    unreadCount: 0
+                    total: 0
+                empty:
+                  value:
+                    items: []
+                    unreadCount: 0
+                    total: 0
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  "/api/v1/notifications/{notificationId}/read":
+    patch:
+      tags:
+        - "Notifications"
+      operationId: "patchNotificationsNotificationIdRead"
+      summary: "Mark a notification as read idempotently."
+      x-lifecycle: "planned"
+      x-decision-required: true
+      x-backlog:
+        - "EPIC_28"
+      x-ui-states:
+        - "loading"
+        - "success"
+        - "error"
+        - "unauthorized"
+        - "forbidden"
+      security:
+        -
+          bearerAuth: []
+        -
+          customerSession: []
+      parameters:
+        -
+          name: "notificationId"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            minLength: 1
+        -
+          $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: "Proposed successful response."
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required:
+                  - "notificationId"
+                  - "readAt"
+                properties:
+                  notificationId:
+                    type: "string"
+                  readAt:
+                    type: "string"
+                    format: "date-time"
+                additionalProperties: false
+              examples:
+                success:
+                  value:
+                    notificationId: "NTF-01"
+                    readAt: "2026-10-05T09:00:00Z"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: "object"
+              required:
+                - "read"
+              properties:
+                read:
+                  type: "boolean"
+              additionalProperties: false
+            example:
+              read: true
+  "/api/v1/notification-preferences":
+    get:
+      tags:
+        - "Notification-preferences"
+      operationId: "getNotificationPreferences"
+      summary: "Read customer notification preferences."
+      x-lifecycle: "planned"
+      x-decision-required: true
+      x-backlog:
+        - "EPIC_28"
+      x-ui-states:
+        - "loading"
+        - "success"
+        - "error"
+        - "unauthorized"
+        - "forbidden"
+      security:
+        -
+          bearerAuth: []
+        -
+          customerSession: []
+      responses:
+        "200":
+          description: "Proposed successful response."
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required:
+                  - "email"
+                  - "sms"
+                  - "push"
+                  - "marketing"
+                properties:
+                  email:
+                    type: "boolean"
+                  sms:
+                    type: "boolean"
+                  push:
+                    type: "boolean"
+                  marketing:
+                    type: "boolean"
+                additionalProperties: false
+              examples:
+                success:
+                  value:
+                    email: true
+                    sms: false
+                    push: true
+                    marketing: false
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    put:
+      tags:
+        - "Notification-preferences"
+      operationId: "putNotificationPreferences"
+      summary: "Replace customer notification preferences."
+      x-lifecycle: "planned"
+      x-decision-required: true
+      x-backlog:
+        - "EPIC_28"
+      x-ui-states:
+        - "loading"
+        - "success"
+        - "error"
+        - "unauthorized"
+        - "forbidden"
+      security:
+        -
+          bearerAuth: []
+        -
+          customerSession: []
+      parameters:
+        -
+          $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: "Proposed successful response."
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required:
+                  - "email"
+                  - "sms"
+                  - "push"
+                  - "marketing"
+                properties:
+                  email:
+                    type: "boolean"
+                  sms:
+                    type: "boolean"
+                  push:
+                    type: "boolean"
+                  marketing:
+                    type: "boolean"
+                additionalProperties: false
+              examples:
+                success:
+                  value:
+                    email: true
+                    sms: false
+                    push: true
+                    marketing: false
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: "object"
+              required:
+                - "email"
+                - "sms"
+                - "push"
+                - "marketing"
+              properties:
+                email:
+                  type: "boolean"
+                sms:
+                  type: "boolean"
+                push:
+                  type: "boolean"
+                marketing:
+                  type: "boolean"
+              additionalProperties: false
+            example:
+              email: true
+              sms: false
+              push: true
+              marketing: false
+components:
+  securitySchemes:
+    bearerAuth:
+      type: "http"
+      scheme: "bearer"
+      bearerFormat: "JWT"
+    customerSession:
+      type: "apiKey"
+      in: "cookie"
+      name: "customer_session"
+    guestSession:
+      type: "apiKey"
+      in: "cookie"
+      name: "guest_session"
+  parameters:
+    IdempotencyKey:
+      name: "Idempotency-Key"
+      in: "header"
+      required: false
+      description: "Required for retryable create/action operations. Same key and same payload must return the same outcome."
+      schema:
+        type: "string"
+        format: "uuid"
+  schemas:
+    Error:
+      type: "object"
+      required:
+        - "code"
+        - "message"
+        - "requestId"
+      properties:
+        code:
+          type: "string"
+          description: "Stable machine-readable error code."
+        message:
+          type: "string"
+          description: "Safe user-facing message in Vietnamese or the negotiated locale."
+        requestId:
+          type: "string"
+          description: "Correlation identifier for support and logs."
+        errors:
+          type: "array"
+          items:
+            type: "object"
+            required:
+              - "field"
+              - "code"
+              - "message"
+            properties:
+              field:
+                type: "string"
+              code:
+                type: "string"
+              message:
+                type: "string"
+            additionalProperties: false
+        retryAfterSeconds:
+          type: "integer"
+          minimum: 1
+        details:
+          type: "object"
+          additionalProperties: true
+      additionalProperties: false
+  responses:
+    BadRequest:
+      description: "Malformed request or invalid query parameters."
+      content:
+        "application/json":
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: "BAD_REQUEST"
+            message: "Malformed request or invalid query parameters."
+            requestId: "req-01J9YAJ6CX8G5E0K7M8N9PQRST"
+            errors: []
+    Unauthorized:
+      description: "Authentication is missing, invalid, or expired."
+      content:
+        "application/json":
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: "AUTHENTICATION_REQUIRED"
+            message: "Authentication is missing, invalid, or expired."
+            requestId: "req-01J9YAJ6CX8G5E0K7M8N9PQRST"
+            errors: []
+    Forbidden:
+      description: "Authenticated actor lacks the required permission, capability, ownership, or data scope."
+      content:
+        "application/json":
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: "FORBIDDEN"
+            message: "Authenticated actor lacks the required permission, capability, ownership, or data scope."
+            requestId: "req-01J9YAJ6CX8G5E0K7M8N9PQRST"
+            errors: []
+    NotFound:
+      description: "Resource does not exist or is intentionally hidden outside the actor scope."
+      content:
+        "application/json":
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: "RESOURCE_NOT_FOUND"
+            message: "Resource does not exist or is intentionally hidden outside the actor scope."
+            requestId: "req-01J9YAJ6CX8G5E0K7M8N9PQRST"
+            errors: []
+    Conflict:
+      description: "State transition, revision, idempotency key, or unique value conflicts with current state."
+      content:
+        "application/json":
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: "STATE_CONFLICT"
+            message: "State transition, revision, idempotency key, or unique value conflicts with current state."
+            requestId: "req-01J9YAJ6CX8G5E0K7M8N9PQRST"
+            errors: []
+    Gone:
+      description: "Token, challenge, grant, or temporary resource has expired."
+      content:
+        "application/json":
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: "RESOURCE_EXPIRED"
+            message: "Token, challenge, grant, or temporary resource has expired."
+            requestId: "req-01J9YAJ6CX8G5E0K7M8N9PQRST"
+            errors: []
+    UnprocessableEntity:
+      description: "Payload is syntactically valid but violates field or business validation rules."
+      content:
+        "application/json":
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: "VALIDATION_FAILED"
+            message: "Payload is syntactically valid but violates field or business validation rules."
+            requestId: "req-01J9YAJ6CX8G5E0K7M8N9PQRST"
+            errors: []
+    TooManyRequests:
+      description: "Rate limit exceeded."
+      content:
+        "application/json":
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: "RATE_LIMITED"
+            message: "Rate limit exceeded."
+            requestId: "req-01J9YAJ6CX8G5E0K7M8N9PQRST"
+            errors: []
+    InternalError:
+      description: "Unexpected server error."
+      content:
+        "application/json":
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: "INTERNAL_SERVER_ERROR"
+            message: "Unexpected server error."
+            requestId: "req-01J9YAJ6CX8G5E0K7M8N9PQRST"
+            errors: []
+    ServiceUnavailable:
+      description: "A required service is temporarily unavailable."
+      content:
+        "application/json":
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: "SERVICE_UNAVAILABLE"
+            message: "A required service is temporarily unavailable."
+            requestId: "req-01J9YAJ6CX8G5E0K7M8N9PQRST"
+            errors: []

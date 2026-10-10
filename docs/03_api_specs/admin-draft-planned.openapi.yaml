@@ -1,0 +1,1845 @@
+openapi: "3.1.0"
+info:
+  title: "Internal Employee Web API - Draft and Planned"
+  version: "0.1.0"
+  license:
+    name: "Proprietary"
+    identifier: "LicenseRef-Proprietary"
+  description: "Non-stable proposal for backend review. Every operation requires an explicit product/security decision before implementation compatibility is promised. Draft means a concrete proposal exists; planned means the capability is identified but policy or workflow remains incomplete."
+servers:
+  -
+    url: "https://api.omama.vn"
+tags:
+  -
+    name: "Access management"
+    description: "Access management proposed operations for the admin web application."
+  -
+    name: "Product management"
+    description: "Product management proposed operations for the admin web application."
+  -
+    name: "Orders"
+    description: "Orders proposed operations for the admin web application."
+  -
+    name: "Packing"
+    description: "Packing proposed operations for the admin web application."
+  -
+    name: "Shipping"
+    description: "Shipping proposed operations for the admin web application."
+  -
+    name: "Payments"
+    description: "Payments proposed operations for the admin web application."
+  -
+    name: "After-sales"
+    description: "After-sales proposed operations for the admin web application."
+  -
+    name: "Customer support"
+    description: "Customer support proposed operations for the admin web application."
+  -
+    name: "Inventory"
+    description: "Inventory proposed operations for the admin web application."
+paths:
+  "/api/v1/admin/access/employees/invitations":
+    post:
+      tags:
+        - "Access management"
+      operationId: "postAdminAccessEmployeesInvitations"
+      summary: "Invite an employee account linked to an existing employee profile."
+      x-lifecycle: "draft"
+      x-decision-required: true
+      x-backlog:
+        - "EPIC_22"
+      x-ui-states:
+        - "loading"
+        - "success"
+        - "error"
+        - "unauthorized"
+        - "forbidden"
+      security:
+        -
+          bearerAuth: []
+        -
+          adminSession: []
+      parameters:
+        -
+          $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "202":
+          description: "Proposed successful response."
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required:
+                  - "accountId"
+                  - "status"
+                  - "revision"
+                properties:
+                  accountId:
+                    type: "string"
+                  status:
+                    type: "string"
+                  revision:
+                    type: "integer"
+                additionalProperties: false
+              examples:
+                success:
+                  value:
+                    accountId: "ACC-0012"
+                    status: "INVITED"
+                    revision: 1
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: "object"
+              required:
+                - "employeeId"
+                - "email"
+                - "roleAssignments"
+              properties:
+                employeeId:
+                  type: "string"
+                email:
+                  type: "string"
+                  format: "email"
+                roleAssignments:
+                  type: "array"
+                  items: {}
+              additionalProperties: false
+            example:
+              employeeId: "EMP-0012"
+              email: "employee@example.com"
+              roleAssignments: []
+  "/api/v1/admin/access/employees/{employeeId}/status":
+    patch:
+      tags:
+        - "Access management"
+      operationId: "patchAdminAccessEmployeesEmployeeIdStatus"
+      summary: "Lock, unlock, disable, or reactivate employee access."
+      x-lifecycle: "draft"
+      x-decision-required: true
+      x-backlog:
+        - "EPIC_22"
+      x-ui-states:
+        - "loading"
+        - "success"
+        - "error"
+        - "unauthorized"
+        - "forbidden"
+      security:
+        -
+          bearerAuth: []
+        -
+          adminSession: []
+      parameters:
+        -
+          name: "employeeId"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            minLength: 1
+        -
+          $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: "Proposed successful response."
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required:
+                  - "employeeId"
+                  - "status"
+                  - "revision"
+                properties:
+                  employeeId:
+                    type: "string"
+                  status:
+                    type: "string"
+                  revision:
+                    type: "integer"
+                additionalProperties: false
+              examples:
+                success:
+                  value:
+                    employeeId: "EMP-0012"
+                    status: "LOCKED"
+                    revision: 4
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: "object"
+              required:
+                - "action"
+                - "reason"
+                - "expectedRevision"
+              properties:
+                action:
+                  type: "string"
+                reason:
+                  type: "string"
+                expectedRevision:
+                  type: "integer"
+              additionalProperties: false
+            example:
+              action: "LOCK"
+              reason: "Security review"
+              expectedRevision: 3
+  "/api/v1/admin/access/employees/{employeeId}/role-assignments":
+    put:
+      tags:
+        - "Access management"
+      operationId: "putAdminAccessEmployeesEmployeeIdRoleAssignments"
+      summary: "Replace effective role assignments using the approved scope taxonomy."
+      x-lifecycle: "draft"
+      x-decision-required: true
+      x-backlog:
+        - "EPIC_22"
+      x-ui-states:
+        - "loading"
+        - "success"
+        - "error"
+        - "unauthorized"
+        - "forbidden"
+      security:
+        -
+          bearerAuth: []
+        -
+          adminSession: []
+      parameters:
+        -
+          name: "employeeId"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            minLength: 1
+        -
+          $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: "Proposed successful response."
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required:
+                  - "employeeId"
+                  - "revision"
+                properties:
+                  employeeId:
+                    type: "string"
+                  revision:
+                    type: "integer"
+                additionalProperties: false
+              examples:
+                success:
+                  value:
+                    employeeId: "EMP-0012"
+                    revision: 5
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: "object"
+              required:
+                - "assignments"
+                - "expectedRevision"
+              properties:
+                assignments:
+                  type: "array"
+                  items:
+                    type: "object"
+                    required:
+                      - "roleCode"
+                      - "scope"
+                      - "effectiveFrom"
+                      - "effectiveUntil"
+                    properties:
+                      roleCode:
+                        type: "string"
+                      scope:
+                        type: "object"
+                        required:
+                          - "type"
+                        properties:
+                          type:
+                            type: "string"
+                        additionalProperties: false
+                      effectiveFrom:
+                        type: "string"
+                        format: "date-time"
+                      effectiveUntil:
+                        type:
+                          - "string"
+                          - "null"
+                        description: "effectiveUntil may be null."
+                    additionalProperties: false
+                expectedRevision:
+                  type: "integer"
+              additionalProperties: false
+            example:
+              assignments:
+                -
+                  roleCode: "PACKING"
+                  scope:
+                    type: "ASSIGNED_ONLY"
+                  effectiveFrom: "2026-10-05T00:00:00Z"
+                  effectiveUntil: null
+              expectedRevision: 4
+  "/api/v1/admin/access/roles":
+    post:
+      tags:
+        - "Access management"
+      operationId: "postAdminAccessRoles"
+      summary: "Create a custom role after access policy is approved."
+      x-lifecycle: "draft"
+      x-decision-required: true
+      x-backlog:
+        - "EPIC_22"
+      x-ui-states:
+        - "loading"
+        - "success"
+        - "error"
+        - "unauthorized"
+        - "forbidden"
+      security:
+        -
+          bearerAuth: []
+        -
+          adminSession: []
+      parameters:
+        -
+          $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "201":
+          description: "Proposed successful response."
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required:
+                  - "roleCode"
+                  - "status"
+                  - "revision"
+                properties:
+                  roleCode:
+                    type: "string"
+                  status:
+                    type: "string"
+                  revision:
+                    type: "integer"
+                additionalProperties: false
+              examples:
+                success:
+                  value:
+                    roleCode: "PACKING"
+                    status: "ACTIVE"
+                    revision: 1
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: "object"
+              required:
+                - "roleCode"
+                - "roleName"
+                - "permissionCodes"
+              properties:
+                roleCode:
+                  type: "string"
+                roleName:
+                  type: "string"
+                permissionCodes:
+                  type: "array"
+                  items:
+                    type: "string"
+              additionalProperties: false
+            example:
+              roleCode: "PACKING"
+              roleName: "Packing"
+              permissionCodes:
+                - "PACKING_WORKBENCH_VIEW"
+  "/api/v1/admin/access/roles/{roleCode}":
+    patch:
+      tags:
+        - "Access management"
+      operationId: "patchAdminAccessRolesRoleCode"
+      summary: "Update mutable role metadata with optimistic concurrency."
+      x-lifecycle: "draft"
+      x-decision-required: true
+      x-backlog:
+        - "EPIC_22"
+      x-ui-states:
+        - "loading"
+        - "success"
+        - "error"
+        - "unauthorized"
+        - "forbidden"
+      security:
+        -
+          bearerAuth: []
+        -
+          adminSession: []
+      parameters:
+        -
+          name: "roleCode"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            minLength: 1
+        -
+          $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: "Proposed successful response."
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required:
+                  - "roleCode"
+                  - "revision"
+                properties:
+                  roleCode:
+                    type: "string"
+                  revision:
+                    type: "integer"
+                additionalProperties: false
+              examples:
+                success:
+                  value:
+                    roleCode: "PACKING"
+                    revision: 2
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: "object"
+              required:
+                - "roleName"
+                - "description"
+                - "expectedRevision"
+              properties:
+                roleName:
+                  type: "string"
+                description:
+                  type: "string"
+                expectedRevision:
+                  type: "integer"
+              additionalProperties: false
+            example:
+              roleName: "Packing"
+              description: "Packing team"
+              expectedRevision: 1
+  "/api/v1/admin/access/roles/{roleCode}/permissions":
+    put:
+      tags:
+        - "Access management"
+      operationId: "putAdminAccessRolesRoleCodePermissions"
+      summary: "Replace role permissions while protecting privileged roles and the last system administrator."
+      x-lifecycle: "draft"
+      x-decision-required: true
+      x-backlog:
+        - "EPIC_22"
+      x-ui-states:
+        - "loading"
+        - "success"
+        - "error"
+        - "unauthorized"
+        - "forbidden"
+      security:
+        -
+          bearerAuth: []
+        -
+          adminSession: []
+      parameters:
+        -
+          name: "roleCode"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            minLength: 1
+        -
+          $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: "Proposed successful response."
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required:
+                  - "roleCode"
+                  - "revision"
+                properties:
+                  roleCode:
+                    type: "string"
+                  revision:
+                    type: "integer"
+                additionalProperties: false
+              examples:
+                success:
+                  value:
+                    roleCode: "PACKING"
+                    revision: 3
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: "object"
+              required:
+                - "permissionCodes"
+                - "expectedRevision"
+              properties:
+                permissionCodes:
+                  type: "array"
+                  items:
+                    type: "string"
+                expectedRevision:
+                  type: "integer"
+              additionalProperties: false
+            example:
+              permissionCodes:
+                - "PACKING_WORKBENCH_VIEW"
+                - "PACKING_TASK_UPDATE"
+              expectedRevision: 2
+  "/api/v1/admin/catalog/products":
+    post:
+      tags:
+        - "Product management"
+      operationId: "postAdminCatalogProducts"
+      summary: "Create a product with food-information requirements."
+      x-lifecycle: "draft"
+      x-decision-required: true
+      x-backlog:
+        - "EPIC_04"
+      x-ui-states:
+        - "loading"
+        - "success"
+        - "error"
+        - "unauthorized"
+        - "forbidden"
+      security:
+        -
+          bearerAuth: []
+        -
+          adminSession: []
+      parameters:
+        -
+          $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "201":
+          description: "Proposed successful response."
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required:
+                  - "productId"
+                  - "saleStatus"
+                  - "revision"
+                properties:
+                  productId:
+                    type: "string"
+                  saleStatus:
+                    type: "string"
+                  revision:
+                    type: "integer"
+                additionalProperties: false
+              examples:
+                success:
+                  value:
+                    productId: "PROD-01"
+                    saleStatus: "DRAFT"
+                    revision: 1
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: "object"
+              required:
+                - "name"
+                - "categoryId"
+                - "shortDescription"
+              properties:
+                name:
+                  type: "string"
+                categoryId:
+                  type: "string"
+                shortDescription:
+                  type: "string"
+              additionalProperties: false
+            example:
+              name: "Keo me xung"
+              categoryId: "CAT-01"
+              shortDescription: "Dac san Hue"
+  "/api/v1/admin/catalog/products/{productId}":
+    patch:
+      tags:
+        - "Product management"
+      operationId: "patchAdminCatalogProductsProductId"
+      summary: "Update product content with optimistic concurrency."
+      x-lifecycle: "draft"
+      x-decision-required: true
+      x-backlog:
+        - "EPIC_04"
+      x-ui-states:
+        - "loading"
+        - "success"
+        - "error"
+        - "unauthorized"
+        - "forbidden"
+      security:
+        -
+          bearerAuth: []
+        -
+          adminSession: []
+      parameters:
+        -
+          name: "productId"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            minLength: 1
+        -
+          $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: "Proposed successful response."
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required:
+                  - "productId"
+                  - "revision"
+                properties:
+                  productId:
+                    type: "string"
+                  revision:
+                    type: "integer"
+                additionalProperties: false
+              examples:
+                success:
+                  value:
+                    productId: "PROD-01"
+                    revision: 2
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: "object"
+              required:
+                - "shortDescription"
+                - "expectedRevision"
+              properties:
+                shortDescription:
+                  type: "string"
+                expectedRevision:
+                  type: "integer"
+              additionalProperties: false
+            example:
+              shortDescription: "Dac san Hue cao cap"
+              expectedRevision: 1
+  "/api/v1/admin/catalog/products/{productId}/skus":
+    post:
+      tags:
+        - "Product management"
+      operationId: "postAdminCatalogProductsProductIdSkus"
+      summary: "Create a SKU under a product."
+      x-lifecycle: "draft"
+      x-decision-required: true
+      x-backlog:
+        - "EPIC_04"
+      x-ui-states:
+        - "loading"
+        - "success"
+        - "error"
+        - "unauthorized"
+        - "forbidden"
+      security:
+        -
+          bearerAuth: []
+        -
+          adminSession: []
+      parameters:
+        -
+          name: "productId"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            minLength: 1
+        -
+          $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "201":
+          description: "Proposed successful response."
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required:
+                  - "skuId"
+                  - "revision"
+                properties:
+                  skuId:
+                    type: "string"
+                  revision:
+                    type: "integer"
+                additionalProperties: false
+              examples:
+                success:
+                  value:
+                    skuId: "SKU-01"
+                    revision: 1
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: "object"
+              required:
+                - "skuCode"
+                - "label"
+                - "priceVnd"
+              properties:
+                skuCode:
+                  type: "string"
+                label:
+                  type: "string"
+                priceVnd:
+                  type: "integer"
+              additionalProperties: false
+            example:
+              skuCode: "MX-500"
+              label: "Hop 500g"
+              priceVnd: 345000
+  "/api/v1/admin/orders/{orderId}/actions":
+    post:
+      tags:
+        - "Orders"
+      operationId: "postAdminOrdersOrderIdActions"
+      summary: "Apply an authorized order transition with business precondition checks."
+      x-lifecycle: "draft"
+      x-decision-required: true
+      x-backlog:
+        - "EPIC_08"
+      x-ui-states:
+        - "loading"
+        - "success"
+        - "error"
+        - "unauthorized"
+        - "forbidden"
+      security:
+        -
+          bearerAuth: []
+        -
+          adminSession: []
+      parameters:
+        -
+          name: "orderId"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            minLength: 1
+        -
+          $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: "Proposed successful response."
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required:
+                  - "orderId"
+                  - "status"
+                  - "revision"
+                properties:
+                  orderId:
+                    type: "string"
+                  status:
+                    type: "string"
+                  revision:
+                    type: "integer"
+                additionalProperties: false
+              examples:
+                success:
+                  value:
+                    orderId: "ORD-01"
+                    status: "CONFIRMED"
+                    revision: 5
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: "object"
+              required:
+                - "action"
+                - "expectedRevision"
+                - "idempotencyKey"
+              properties:
+                action:
+                  type: "string"
+                expectedRevision:
+                  type: "integer"
+                idempotencyKey:
+                  type: "string"
+              additionalProperties: false
+            example:
+              action: "CONFIRM"
+              expectedRevision: 4
+              idempotencyKey: "17142f65-dad7-44a8-8867-5afabfe2486b"
+  "/api/v1/admin/packing/tasks/{taskId}/assignments":
+    post:
+      tags:
+        - "Packing"
+      operationId: "postAdminPackingTasksTaskIdAssignments"
+      summary: "Assign or reassign a packing task within permitted scope."
+      x-lifecycle: "draft"
+      x-decision-required: true
+      x-backlog:
+        - "EPIC_10"
+      x-ui-states:
+        - "loading"
+        - "success"
+        - "error"
+        - "unauthorized"
+        - "forbidden"
+      security:
+        -
+          bearerAuth: []
+        -
+          adminSession: []
+      parameters:
+        -
+          name: "taskId"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            minLength: 1
+        -
+          $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: "Proposed successful response."
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required:
+                  - "taskId"
+                  - "revision"
+                properties:
+                  taskId:
+                    type: "string"
+                  revision:
+                    type: "integer"
+                additionalProperties: false
+              examples:
+                success:
+                  value:
+                    taskId: "PACK-01"
+                    revision: 3
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: "object"
+              required:
+                - "employeeId"
+                - "expectedRevision"
+              properties:
+                employeeId:
+                  type: "string"
+                expectedRevision:
+                  type: "integer"
+              additionalProperties: false
+            example:
+              employeeId: "EMP-0008"
+              expectedRevision: 2
+  "/api/v1/admin/shipping/shipments/{shipmentId}/actions":
+    post:
+      tags:
+        - "Shipping"
+      operationId: "postAdminShippingShipmentsShipmentIdActions"
+      summary: "Create label, confirm handover, retry, or record an exception."
+      x-lifecycle: "draft"
+      x-decision-required: true
+      x-backlog:
+        - "EPIC_11"
+      x-ui-states:
+        - "loading"
+        - "success"
+        - "error"
+        - "unauthorized"
+        - "forbidden"
+      security:
+        -
+          bearerAuth: []
+        -
+          adminSession: []
+      parameters:
+        -
+          name: "shipmentId"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            minLength: 1
+        -
+          $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: "Proposed successful response."
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required:
+                  - "shipmentId"
+                  - "status"
+                  - "revision"
+                properties:
+                  shipmentId:
+                    type: "string"
+                  status:
+                    type: "string"
+                  revision:
+                    type: "integer"
+                additionalProperties: false
+              examples:
+                success:
+                  value:
+                    shipmentId: "SHP-01"
+                    status: "HANDED_OVER"
+                    revision: 6
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: "object"
+              required:
+                - "action"
+                - "expectedRevision"
+                - "idempotencyKey"
+              properties:
+                action:
+                  type: "string"
+                expectedRevision:
+                  type: "integer"
+                idempotencyKey:
+                  type: "string"
+              additionalProperties: false
+            example:
+              action: "CONFIRM_HANDOVER"
+              expectedRevision: 5
+              idempotencyKey: "0f2b46b1-6ed4-4c18-8f98-73b63d3d7f06"
+  "/api/v1/admin/payments/cases/{caseId}/actions":
+    post:
+      tags:
+        - "Payments"
+      operationId: "postAdminPaymentsCasesCaseIdActions"
+      summary: "Resolve a reconciliation case under segregation-of-duties policy."
+      x-lifecycle: "draft"
+      x-decision-required: true
+      x-backlog:
+        - "EPIC_07"
+        - "EPIC_24"
+      x-ui-states:
+        - "loading"
+        - "success"
+        - "error"
+        - "unauthorized"
+        - "forbidden"
+      security:
+        -
+          bearerAuth: []
+        -
+          adminSession: []
+      parameters:
+        -
+          name: "caseId"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            minLength: 1
+        -
+          $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "202":
+          description: "Proposed successful response."
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required:
+                  - "caseId"
+                  - "result"
+                  - "revision"
+                properties:
+                  caseId:
+                    type: "string"
+                  result:
+                    type: "string"
+                  revision:
+                    type: "integer"
+                additionalProperties: false
+              examples:
+                success:
+                  value:
+                    caseId: "PAYCASE-01"
+                    result: "MATCHED"
+                    revision: 3
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: "object"
+              required:
+                - "action"
+                - "transactionId"
+                - "expectedRevision"
+                - "idempotencyKey"
+              properties:
+                action:
+                  type: "string"
+                transactionId:
+                  type: "string"
+                expectedRevision:
+                  type: "integer"
+                idempotencyKey:
+                  type: "string"
+              additionalProperties: false
+            example:
+              action: "LINK_TRANSACTION"
+              transactionId: "TXN-01"
+              expectedRevision: 2
+              idempotencyKey: "ed05640a-c2eb-4ae3-b11d-b3145262f5e5"
+  "/api/v1/admin/returns/cases/{caseId}/actions":
+    post:
+      tags:
+        - "After-sales"
+      operationId: "postAdminReturnsCasesCaseIdActions"
+      summary: "Request information, decide, receive goods, classify, or trigger refund according to the approved state machine."
+      x-lifecycle: "draft"
+      x-decision-required: true
+      x-backlog:
+        - "EPIC_14"
+      x-ui-states:
+        - "loading"
+        - "success"
+        - "error"
+        - "unauthorized"
+        - "forbidden"
+      security:
+        -
+          bearerAuth: []
+        -
+          adminSession: []
+      parameters:
+        -
+          name: "caseId"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            minLength: 1
+        -
+          $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "202":
+          description: "Proposed successful response."
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required:
+                  - "caseId"
+                  - "status"
+                  - "revision"
+                properties:
+                  caseId:
+                    type: "string"
+                  status:
+                    type: "string"
+                  revision:
+                    type: "integer"
+                additionalProperties: false
+              examples:
+                success:
+                  value:
+                    caseId: "RET-01"
+                    status: "REVIEWING"
+                    revision: 3
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: "object"
+              required:
+                - "action"
+                - "note"
+                - "expectedRevision"
+                - "idempotencyKey"
+              properties:
+                action:
+                  type: "string"
+                note:
+                  type: "string"
+                expectedRevision:
+                  type: "integer"
+                idempotencyKey:
+                  type: "string"
+              additionalProperties: false
+            example:
+              action: "REQUEST_INFORMATION"
+              note: "Can them anh"
+              expectedRevision: 2
+              idempotencyKey: "092564c7-54f2-4fa7-a32c-7ef687775468"
+  "/api/v1/admin/support/tickets/{ticketId}/actions":
+    post:
+      tags:
+        - "Customer support"
+      operationId: "postAdminSupportTicketsTicketIdActions"
+      summary: "Assign, change status, or reopen a support ticket."
+      x-lifecycle: "draft"
+      x-decision-required: true
+      x-backlog:
+        - "EPIC_16"
+      x-ui-states:
+        - "loading"
+        - "success"
+        - "error"
+        - "unauthorized"
+        - "forbidden"
+      security:
+        -
+          bearerAuth: []
+        -
+          adminSession: []
+      parameters:
+        -
+          name: "ticketId"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            minLength: 1
+        -
+          $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: "Proposed successful response."
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required:
+                  - "ticketId"
+                  - "status"
+                  - "revision"
+                properties:
+                  ticketId:
+                    type: "string"
+                  status:
+                    type: "string"
+                  revision:
+                    type: "integer"
+                additionalProperties: false
+              examples:
+                success:
+                  value:
+                    ticketId: "TKT-01"
+                    status: "ASSIGNED"
+                    revision: 4
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: "object"
+              required:
+                - "action"
+                - "assigneeId"
+                - "expectedRevision"
+              properties:
+                action:
+                  type: "string"
+                assigneeId:
+                  type: "string"
+                expectedRevision:
+                  type: "integer"
+              additionalProperties: false
+            example:
+              action: "ASSIGN"
+              assigneeId: "EMP-0009"
+              expectedRevision: 3
+  "/api/v1/admin/support/tickets/{ticketId}/messages":
+    post:
+      tags:
+        - "Customer support"
+      operationId: "postAdminSupportTicketsTicketIdMessages"
+      summary: "Send a customer-visible reply through the selected channel."
+      x-lifecycle: "draft"
+      x-decision-required: true
+      x-backlog:
+        - "EPIC_16"
+      x-ui-states:
+        - "loading"
+        - "success"
+        - "error"
+        - "unauthorized"
+        - "forbidden"
+      security:
+        -
+          bearerAuth: []
+        -
+          adminSession: []
+      parameters:
+        -
+          name: "ticketId"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            minLength: 1
+        -
+          $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "201":
+          description: "Proposed successful response."
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required:
+                  - "messageId"
+                  - "deliveryState"
+                properties:
+                  messageId:
+                    type: "string"
+                  deliveryState:
+                    type: "string"
+                additionalProperties: false
+              examples:
+                success:
+                  value:
+                    messageId: "MSG-01"
+                    deliveryState: "QUEUED"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: "object"
+              required:
+                - "content"
+                - "idempotencyKey"
+              properties:
+                content:
+                  type: "string"
+                idempotencyKey:
+                  type: "string"
+              additionalProperties: false
+            example:
+              content: "Chung toi dang kiem tra"
+              idempotencyKey: "a20beddd-414a-4f08-92df-88ec02fb815b"
+  "/api/v1/admin/support/tickets/{ticketId}/internal-notes":
+    post:
+      tags:
+        - "Customer support"
+      operationId: "postAdminSupportTicketsTicketIdInternalNotes"
+      summary: "Create an internal note that must never be exposed to customers."
+      x-lifecycle: "draft"
+      x-decision-required: true
+      x-backlog:
+        - "EPIC_16"
+      x-ui-states:
+        - "loading"
+        - "success"
+        - "error"
+        - "unauthorized"
+        - "forbidden"
+      security:
+        -
+          bearerAuth: []
+        -
+          adminSession: []
+      parameters:
+        -
+          name: "ticketId"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            minLength: 1
+        -
+          $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "201":
+          description: "Proposed successful response."
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required:
+                  - "noteId"
+                  - "createdAt"
+                properties:
+                  noteId:
+                    type: "string"
+                  createdAt:
+                    type: "string"
+                    format: "date-time"
+                additionalProperties: false
+              examples:
+                success:
+                  value:
+                    noteId: "NOTE-01"
+                    createdAt: "2026-10-05T09:00:00Z"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: "object"
+              required:
+                - "content"
+              properties:
+                content:
+                  type: "string"
+              additionalProperties: false
+            example:
+              content: "Can doi soat kho"
+  "/api/v1/admin/inventory/approval-requests/{approvalRequestId}/decision":
+    post:
+      tags:
+        - "Inventory"
+      operationId: "postAdminInventoryApprovalRequestsApprovalRequestIdDecision"
+      summary: "Approve or reject a high-risk inventory adjustment with separation of duties."
+      x-lifecycle: "planned"
+      x-decision-required: true
+      x-backlog:
+        - "EPIC_09"
+      x-ui-states:
+        - "loading"
+        - "success"
+        - "error"
+        - "unauthorized"
+        - "forbidden"
+      security:
+        -
+          bearerAuth: []
+        -
+          adminSession: []
+      parameters:
+        -
+          name: "approvalRequestId"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            minLength: 1
+        -
+          $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: "Proposed successful response."
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required:
+                  - "approvalRequestId"
+                  - "status"
+                  - "revision"
+                properties:
+                  approvalRequestId:
+                    type: "string"
+                  status:
+                    type: "string"
+                  revision:
+                    type: "integer"
+                additionalProperties: false
+              examples:
+                success:
+                  value:
+                    approvalRequestId: "APR-01"
+                    status: "APPROVED"
+                    revision: 2
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: "object"
+              required:
+                - "decision"
+                - "note"
+                - "expectedRevision"
+              properties:
+                decision:
+                  type: "string"
+                note:
+                  type: "string"
+                expectedRevision:
+                  type: "integer"
+              additionalProperties: false
+            example:
+              decision: "APPROVE"
+              note: "Da doi chieu"
+              expectedRevision: 1
+components:
+  securitySchemes:
+    bearerAuth:
+      type: "http"
+      scheme: "bearer"
+      bearerFormat: "JWT"
+    adminSession:
+      type: "apiKey"
+      in: "cookie"
+      name: "admin_session"
+  parameters:
+    IdempotencyKey:
+      name: "Idempotency-Key"
+      in: "header"
+      required: false
+      description: "Required for retryable create/action operations. Same key and same payload must return the same outcome."
+      schema:
+        type: "string"
+        format: "uuid"
+  schemas:
+    Error:
+      type: "object"
+      required:
+        - "code"
+        - "message"
+        - "requestId"
+      properties:
+        code:
+          type: "string"
+          description: "Stable machine-readable error code."
+        message:
+          type: "string"
+          description: "Safe user-facing message in Vietnamese or the negotiated locale."
+        requestId:
+          type: "string"
+          description: "Correlation identifier for support and logs."
+        errors:
+          type: "array"
+          items:
+            type: "object"
+            required:
+              - "field"
+              - "code"
+              - "message"
+            properties:
+              field:
+                type: "string"
+              code:
+                type: "string"
+              message:
+                type: "string"
+            additionalProperties: false
+        retryAfterSeconds:
+          type: "integer"
+          minimum: 1
+        details:
+          type: "object"
+          additionalProperties: true
+      additionalProperties: false
+  responses:
+    BadRequest:
+      description: "Malformed request or invalid query parameters."
+      content:
+        "application/json":
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: "BAD_REQUEST"
+            message: "Malformed request or invalid query parameters."
+            requestId: "req-01J9YAJ6CX8G5E0K7M8N9PQRST"
+            errors: []
+    Unauthorized:
+      description: "Authentication is missing, invalid, or expired."
+      content:
+        "application/json":
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: "AUTHENTICATION_REQUIRED"
+            message: "Authentication is missing, invalid, or expired."
+            requestId: "req-01J9YAJ6CX8G5E0K7M8N9PQRST"
+            errors: []
+    Forbidden:
+      description: "Authenticated actor lacks the required permission, capability, ownership, or data scope."
+      content:
+        "application/json":
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: "FORBIDDEN"
+            message: "Authenticated actor lacks the required permission, capability, ownership, or data scope."
+            requestId: "req-01J9YAJ6CX8G5E0K7M8N9PQRST"
+            errors: []
+    NotFound:
+      description: "Resource does not exist or is intentionally hidden outside the actor scope."
+      content:
+        "application/json":
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: "RESOURCE_NOT_FOUND"
+            message: "Resource does not exist or is intentionally hidden outside the actor scope."
+            requestId: "req-01J9YAJ6CX8G5E0K7M8N9PQRST"
+            errors: []
+    Conflict:
+      description: "State transition, revision, idempotency key, or unique value conflicts with current state."
+      content:
+        "application/json":
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: "STATE_CONFLICT"
+            message: "State transition, revision, idempotency key, or unique value conflicts with current state."
+            requestId: "req-01J9YAJ6CX8G5E0K7M8N9PQRST"
+            errors: []
+    UnprocessableEntity:
+      description: "Payload is syntactically valid but violates field or business validation rules."
+      content:
+        "application/json":
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: "VALIDATION_FAILED"
+            message: "Payload is syntactically valid but violates field or business validation rules."
+            requestId: "req-01J9YAJ6CX8G5E0K7M8N9PQRST"
+            errors: []
+    InternalError:
+      description: "Unexpected server error."
+      content:
+        "application/json":
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: "INTERNAL_SERVER_ERROR"
+            message: "Unexpected server error."
+            requestId: "req-01J9YAJ6CX8G5E0K7M8N9PQRST"
+            errors: []
+    ServiceUnavailable:
+      description: "A required service is temporarily unavailable."
+      content:
+        "application/json":
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: "SERVICE_UNAVAILABLE"
+            message: "A required service is temporarily unavailable."
+            requestId: "req-01J9YAJ6CX8G5E0K7M8N9PQRST"
+            errors: []
