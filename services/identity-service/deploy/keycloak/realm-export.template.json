@@ -1,0 +1,114 @@
+{
+  "id": "omama",
+  "realm": "omama",
+  "displayName": "Omama E-commerce",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "resetPasswordAllowed": true,
+  "rememberMe": true,
+  "verifyEmail": true,
+  "accessTokenLifespan": 900,
+  "ssoSessionIdleTimeout": 86400,
+  "ssoSessionMaxLifespan": 2592000,
+  "clients": [
+    {
+      "clientId": "frontend-web",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "redirectUris": [
+        "https://omama.vn/*"
+      ],
+      "webOrigins": [
+        "https://omama.vn"
+      ],
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      },
+      "defaultClientScopes": [
+        "web-origins",
+        "acr",
+        "profile",
+        "roles",
+        "email",
+        "audience-scope"
+      ]
+    },
+    {
+      "clientId": "identity-service-admin",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "serviceAccountsEnabled": true,
+      "publicClient": false,
+      "protocol": "openid-connect",
+      "defaultClientScopes": [
+        "web-origins",
+        "acr",
+        "profile",
+        "roles",
+        "email"
+      ]
+    }
+  ],
+  "clientScopes": [
+    {
+      "name": "audience-scope",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "audience-mapper",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "omama-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "admin@omama.vn",
+      "enabled": true,
+      "email": "admin@omama.vn",
+      "firstName": "System",
+      "lastName": "Admin",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "admin",
+          "temporary": true
+        }
+      ],
+      "realmRoles": [
+        "IDENTITY_ADMIN",
+        "EMPLOYEE"
+      ]
+    }
+  ],
+  "roles": {
+    "realm": [
+      {
+        "name": "CUSTOMER",
+        "description": "Customer role"
+      },
+      {
+        "name": "EMPLOYEE",
+        "description": "Employee role"
+      },
+      {
+        "name": "IDENTITY_ADMIN",
+        "description": "Administrator of Identity Service"
+      }
+    ]
+  }
+}

@@ -20,3 +20,11 @@ mybatis:
 grpc:
   server:
     port: 9016
+
+spring.security.oauth2.resourceserver.jwt.issuer-uri: https://keycloak.omama.vn/realms/omama
+
+keycloak:
+  server-url: https://keycloak.omama.vn
+  realm: omama
+  client-id: identity-service-admin
+  client-secret: "${KEYCLOAK_CLIENT_SECRET:changeme}"
