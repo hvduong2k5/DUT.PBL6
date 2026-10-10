@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.hvduong.identity.infrastructure.persistence.mybatis.mapper.OutboxEventMapper">
+
+    <insert id="insert">
+        INSERT INTO outbox_events (
+            event_id, aggregate_type, aggregate_id, event_type, schema_version, 
+            partition_key, payload, delivery_status, attempt_count, next_attempt_at, occurred_at
+        ) VALUES (
+            #{eventId}, #{aggregateType}, #{aggregateId}, #{eventType}, #{schemaVersion},
+            #{partitionKey}, #{payload}::jsonb, #{deliveryStatus}, #{attemptCount}, #{nextAttemptAt}, #{occurredAt}
+        )
+    </insert>
+
+</mapper>
