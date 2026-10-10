@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IamRolePermissionMapper">
+
+    <insert id="insert">
+        INSERT INTO iam_role_permissions (role_id, permission_code)
+        VALUES (#{roleId}, #{permissionCode})
+    </insert>
+
+    <select id="findByRoleId" resultType="com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IamRolePermissionRow">
+        SELECT *
+        FROM iam_role_permissions
+        WHERE role_id = #{roleId}
+    </select>
+
+    <delete id="deleteByRoleIdAndPermission">
+        DELETE FROM iam_role_permissions
+        WHERE role_id = #{roleId} AND permission_code = #{permissionCode}
+    </delete>
+
+</mapper>

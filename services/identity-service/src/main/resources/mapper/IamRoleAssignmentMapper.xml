@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IamRoleAssignmentMapper">
+
+    <insert id="insert">
+        INSERT INTO iam_role_assignments (
+            assignment_id, principal_id, role_id, scope_type, scope_id, assignment_status, 
+            valid_from, valid_until, assigned_by_principal_id, reason, version
+        ) VALUES (
+            #{assignmentId}, #{principalId}, #{roleId}, #{scopeType}, #{scopeId}, #{assignmentStatus},
+            #{validFrom}, #{validUntil}, #{assignedByPrincipalId}, #{reason}, #{version}
+        )
+    </insert>
+
+    <select id="findActiveByPrincipal" resultType="com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IamRoleAssignmentRow">
+        SELECT *
+        FROM iam_role_assignments
+        WHERE principal_id = #{principalId}
+          AND assignment_status = 'ACTIVE'
+          AND valid_from &lt;= #{now}
+          AND (valid_until IS NULL OR valid_until &gt; #{now})
+    </select>
+
+    <update id="revokeAssignment">
+        UPDATE iam_role_assignments
+        SET assignment_status = 'REVOKED',
+            revoked_by_principal_id = #{revokedBy},
+            reason = COALESCE(#{reason}, reason),
+            version = version + 1
+        WHERE assignment_id = #{assignmentId}
+          AND version = #{expectedVersion}
+    </update>
+
+</mapper>
