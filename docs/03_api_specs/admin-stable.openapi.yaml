@@ -3103,7 +3103,7 @@ paths:
       tags:
         - "Product management"
       operationId: "getAdminCatalogProducts"
-      summary: "Read-only Product catalog projection for US-PROD-01, US-PROD-05 and US-PROD-06. Inventory, Batch/Lot and channel pricing are intentionally excluded."
+      summary: "Read-only Product catalog projection for US-PROD-01, US-PROD-05 and US-PROD-06. Inventory, Batch/Lot and channel pricing are intentionally excluded; use Admin Inventory endpoints for stock and availability."
       x-lifecycle: "stable"
       x-backlog:
         - "EPIC_04"
@@ -3176,6 +3176,9 @@ paths:
                           format: "date-time"
                         revision:
                           type: "integer"
+                          format: "int64"
+                          minimum: 0
+                          description: "Catalog optimistic-lock version for this product; incremented after a successful catalog mutation."
                       additionalProperties: false
                   statusCounts:
                     type: "array"
@@ -3405,6 +3408,9 @@ paths:
                     format: "date-time"
                   revision:
                     type: "integer"
+                    format: "int64"
+                    minimum: 0
+                    description: "Catalog optimistic-lock version for this product; incremented after a successful catalog mutation."
                   shortDescription:
                     type: "string"
                   longDescription:
@@ -3477,6 +3483,9 @@ paths:
                           format: "date-time"
                         revision:
                           type: "integer"
+                          format: "int64"
+                          minimum: 0
+                          description: "Catalog optimistic-lock version for this SKU; incremented after a successful catalog mutation."
                       additionalProperties: false
                 additionalProperties: false
               examples:

@@ -24,6 +24,7 @@ public class ProductImage {
     private String role;              // COVER | GALLERY | DETAIL
     private int position;
     private String mediaStatus;       // PENDING | APPROVED | REJECTED
+    private long version;
     private Instant createdAt;
     private Instant updatedAt;
 }

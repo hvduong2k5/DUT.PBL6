@@ -91,6 +91,8 @@ message ProductVariant {
   int32 shelf_life_days = 8;
   omamx.common.v1.Money price = 9;
   string listing_status = 10;
+  reserved 11; // Previously used by minimum_quantity; never reuse a published field number.
+  optional int64 stock_available = 12;
 }
 
 message ProductListItem {
@@ -102,7 +104,8 @@ message ProductListItem {
   omamx.common.v1.Money base_price = 6;
   int32 ocop_star = 7;
   string category_name = 8;
-  bool in_stock = 9;
+  optional bool in_stock = 9;
+  optional int64 stock_available = 10;
 }
 
 message ProductDetail {

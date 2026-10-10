@@ -7,6 +7,7 @@ import com.hvduong.catalog.application.dto.request.UpdateProductRequest;
 import com.hvduong.catalog.application.dto.response.ProductDetailResponse;
 import com.hvduong.catalog.application.dto.response.ProductVariantResponse;
 import com.hvduong.catalog.application.mapper.CatalogDtoMapper;
+import com.hvduong.catalog.infrastructure.outbox.CatalogOutboxWriter;
 import com.hvduong.catalog.application.service.CatalogAdminService;
 import com.hvduong.catalog.common.enums.ApprovalStatus;
 import com.hvduong.catalog.common.enums.ListingStatus;
@@ -27,7 +28,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -42,6 +45,7 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
 //     private final ProductImageMapper imageMapper;
     private final CategoryMapper categoryMapper;
     private final CatalogDtoMapper dtoMapper;
+    private final CatalogOutboxWriter outboxWriter;
 
     @Override
     @Transactional
@@ -74,6 +78,15 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
                 .build();
 
         productMapper.insert(product);
+        outboxWriter.enqueue("Product", product.getId().toString(),
+                "vn.omama.catalog.product.created.v1", Map.of(
+                        "product_id", product.getId().toString(),
+                        "category_id", product.getCategoryId().toString(),
+                        "name", product.getName(),
+                        "slug", product.getSlug(),
+                        "approval_status", product.getApprovalStatus().name(),
+                        "listing_status", product.getListingStatus().name(),
+                        "version", product.getVersion()));
         return buildDetailResponse(product);
     }
 
@@ -250,7 +263,7 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
                     "Variant " + variantId + " không thuộc Product " + productId);
         }
 
-        for (UpdatePriceRequest.PriceEntry entry : request.getPrices()) {
+        List<Map<String, Object>> changedPrices = request.getPrices().stream().map(entry -> {
             channelPriceMapper.supersedePreviousPrice(variantId, entry.getChannel().getValue());
             channelPriceMapper.insert(ChannelPrice.builder()
                     .id(UUID.randomUUID()).variantId(variantId)
@@ -258,7 +271,21 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
                     .amountUnits(entry.getAmountUnits()).amountNanos(0)
                     .status("ACTIVE").effectiveFrom(Instant.now()).createdBy(actorId)
                     .build());
-        }
+            Map<String, Object> price = new LinkedHashMap<>();
+            price.put("channel", entry.getChannel().name());
+            price.put("currency_code", entry.getCurrencyCode());
+            price.put("amount_units", entry.getAmountUnits());
+            price.put("amount_nanos", 0);
+            return price;
+        }).toList();
+        Map<String, Object> eventData = new LinkedHashMap<>();
+        eventData.put("product_id", productId.toString());
+        eventData.put("variant_id", variantId.toString());
+        eventData.put("sku_code", variant.getSkuCode());
+        eventData.put("prices", changedPrices);
+        eventData.put("changed_by", actorId);
+        outboxWriter.enqueue("Product", productId.toString(),
+                "vn.omama.catalog.product.price.changed.v1", eventData);
 
         return buildDetailResponse(productMapper.findById(productId).orElseThrow());
     }

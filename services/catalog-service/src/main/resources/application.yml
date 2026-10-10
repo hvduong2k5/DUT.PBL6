@@ -2,6 +2,24 @@ spring:
   application:
     name: catalog-service
 
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: ${KAFKA_CONSUMER_GROUP:catalog-stock-projection}
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.value.default.type: com.hvduong.catalog.infrastructure.inventory.StockChangedEvent
+        spring.json.trusted.packages: com.hvduong.catalog.infrastructure.inventory
+        spring.json.use.type.headers: false
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+    listener:
+      ack-mode: record
+
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:om_catalog_db}
     username: ${DB_USERNAME:postgres}
@@ -56,10 +74,21 @@ grpc:
     security:
       enabled: false
 
+app:
+  kafka:
+    inventory-stock-topic: ${INVENTORY_STOCK_TOPIC:inventory.stock-changed.v1}
+
 catalog:
   cache:
     product-ttl-seconds: ${REDIS_TTL_SECONDS:3600}
     category-ttl-seconds: 86400
+  events:
+    topic: ${CATALOG_EVENTS_TOPIC:catalog.events.v1}
+  outbox:
+    enabled: ${CATALOG_OUTBOX_ENABLED:true}
+    poll-interval-ms: ${CATALOG_OUTBOX_POLL_INTERVAL_MS:1000}
+    batch-size: ${CATALOG_OUTBOX_BATCH_SIZE:50}
+    lease-seconds: ${CATALOG_OUTBOX_LEASE_SECONDS:30}
 
 logging:
   level:

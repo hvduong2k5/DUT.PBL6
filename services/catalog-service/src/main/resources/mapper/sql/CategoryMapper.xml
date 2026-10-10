@@ -13,6 +13,7 @@
         <result property="imageUrl"    column="image_url"/>
         <result property="position"    column="position"/>
         <result property="isActive"    column="is_active"/>
+        <result property="version"     column="version"/>
         <result property="createdAt"   column="created_at"/>
         <result property="updatedAt"   column="updated_at"/>
     </resultMap>
@@ -67,8 +68,10 @@
             image_url   = #{imageUrl},
             position    = #{position},
             is_active   = #{isActive},
+            version     = version + 1,
             updated_at  = NOW()
         WHERE id = #{id}
+          AND version = #{version}
     </update>
 
 </mapper>

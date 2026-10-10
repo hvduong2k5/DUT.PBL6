@@ -21,5 +21,6 @@ public class ProductListItemResponse {
     private MoneyResponse basePrice;
     private Integer ocopStar;
     private String categoryName;
-    private boolean inStock;
+    private Boolean inStock;
+    private Long stockAvailable;
 }

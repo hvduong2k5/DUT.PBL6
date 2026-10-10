@@ -5,14 +5,12 @@ import com.hvduong.catalog.application.dto.response.MoneyResponse;
 import com.hvduong.catalog.application.dto.response.ProductDetailResponse;
 import com.hvduong.catalog.application.dto.response.ProductListItemResponse;
 import com.hvduong.catalog.application.dto.response.ProductVariantResponse;
-import com.hvduong.catalog.common.enums.ListingStatus;
 import com.hvduong.catalog.domain.entity.Category;
 import com.hvduong.catalog.domain.entity.ChannelPrice;
 import com.hvduong.catalog.domain.entity.Product;
 import com.hvduong.catalog.domain.entity.ProductVariant;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
-import org.mapstruct.Named;
 
 import java.util.List;
 
@@ -32,9 +30,10 @@ public interface CatalogDtoMapper {
 
     // ── Product List Item ─────────────────────────────────────────────────────
     @Mapping(source = "id",            target = "productId")
-    @Mapping(source = "listingStatus", target = "inStock", qualifiedByName = "listingToInStock")
     @Mapping(target = "thumbnailUrl",  ignore = true)
     @Mapping(target = "basePrice",     ignore = true)
+    @Mapping(target = "inStock",       ignore = true)
+    @Mapping(target = "stockAvailable", ignore = true)
     @Mapping(target = "summary",       source = "description")
     ProductListItemResponse toListItemResponse(Product product);
 
@@ -50,6 +49,7 @@ public interface CatalogDtoMapper {
     @Mapping(source = "id",          target = "variantId")
     @Mapping(source = "variantName", target = "name")
     @Mapping(target = "price",       ignore = true)
+    @Mapping(target = "stockAvailable", ignore = true)
     ProductVariantResponse toVariantResponse(ProductVariant variant);
 
     List<ProductVariantResponse> toVariantResponseList(List<ProductVariant> variants);
@@ -106,9 +106,4 @@ public interface CatalogDtoMapper {
 
     List<com.hvduong.catalog.application.dto.response.AdminProductDetailResponse.AdminProductSkuResponse> toAdminSkuResponseList(List<ProductVariant> variants);
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
-    @Named("listingToInStock")
-    default boolean listingStatusToInStock(ListingStatus status) {
-        return status == ListingStatus.ACTIVE;
-    }
 }

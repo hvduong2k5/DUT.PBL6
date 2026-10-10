@@ -7,13 +7,14 @@ import com.hvduong.catalog.application.mapper.CatalogDtoMapper;
 import com.hvduong.catalog.common.exception.CatalogException;
 import com.hvduong.catalog.domain.entity.Category;
 import com.hvduong.catalog.domain.entity.Product;
+import com.hvduong.catalog.infrastructure.outbox.CatalogOutboxWriter;
 import com.hvduong.catalog.repository.mybatis.CategoryMapper;
+import com.hvduong.catalog.repository.mybatis.ChannelPriceMapper;
 import com.hvduong.catalog.repository.mybatis.ProductMapper;
 import com.hvduong.catalog.repository.mybatis.ProductVariantMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -30,16 +31,19 @@ class CatalogAdminServiceImplTest {
     @Mock private ProductMapper productMapper;
     @Mock private CategoryMapper categoryMapper;
     @Mock private ProductVariantMapper variantMapper;
+    @Mock private ChannelPriceMapper channelPriceMapper;
     @Mock private CatalogDtoMapper dtoMapper;
     @Mock private CatalogServiceImpl catalogService;
+    @Mock private CatalogOutboxWriter outboxWriter;
 
-    @InjectMocks
     private CatalogAdminServiceImpl adminService;
 
     private UUID productId;
     
     @BeforeEach
     void setUp() {
+        adminService = new CatalogAdminServiceImpl(productMapper, variantMapper, channelPriceMapper,
+                categoryMapper, dtoMapper, outboxWriter);
         productId = UUID.randomUUID();
     }
 

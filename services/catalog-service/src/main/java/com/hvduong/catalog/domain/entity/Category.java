@@ -27,6 +27,7 @@ public class Category {
     private String imageUrl;
     private int position;
     private boolean isActive;
+    private long version;
     private Instant createdAt;
     private Instant updatedAt;
 

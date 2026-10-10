@@ -3890,6 +3890,7 @@ paths:
                         - "ocop_star"
                         - "category_name"
                         - "in_stock"
+                        - "stock_available"
                       properties:
                         product_id:
                           type: "string"
@@ -3921,7 +3922,17 @@ paths:
                         category_name:
                           type: "string"
                         in_stock:
-                          type: "boolean"
+                          type:
+                            - "boolean"
+                            - "null"
+                          description: "Backward-compatible flag; null means Inventory stock has not been synchronized yet; otherwise must equal stock_available > 0."
+                        stock_available:
+                          type:
+                            - "integer"
+                            - "null"
+                          format: "int64"
+                          minimum: 0
+                          description: "Total sellable quantity across active SKUs, excluding reserved, expired, quarantined, and otherwise unavailable stock. Null means not synchronized yet. Read from Catalog's durable stock projection, updated asynchronously by Inventory events; Inventory remains the source of truth."
                       additionalProperties: false
                   total:
                     type: "integer"
@@ -3950,6 +3961,7 @@ paths:
                         ocop_star: 4
                         category_name: "Mè Xửng Giòn"
                         in_stock: true
+                        stock_available: 150
                     total: 45
                     page: 1
                     page_size: 20
@@ -4106,7 +4118,12 @@ paths:
                               type: "integer"
                           additionalProperties: false
                         stock_available:
-                          type: "integer"
+                          type:
+                            - "integer"
+                            - "null"
+                          format: "int64"
+                          minimum: 0
+                          description: "Current sellable quantity for this SKU from Catalog's durable stock projection, updated asynchronously by Inventory events. Null means not synchronized yet; Inventory remains the source of truth."
                       additionalProperties: false
                 additionalProperties: false
               examples:
@@ -4199,6 +4216,7 @@ paths:
                         - "ocop_star"
                         - "category_name"
                         - "in_stock"
+                        - "stock_available"
                       properties:
                         product_id:
                           type: "string"
@@ -4230,7 +4248,17 @@ paths:
                         category_name:
                           type: "string"
                         in_stock:
-                          type: "boolean"
+                          type:
+                            - "boolean"
+                            - "null"
+                          description: "Backward-compatible flag; null means Inventory stock has not been synchronized yet; otherwise must equal stock_available > 0."
+                        stock_available:
+                          type:
+                            - "integer"
+                            - "null"
+                          format: "int64"
+                          minimum: 0
+                          description: "Total sellable quantity across active SKUs, excluding reserved, expired, quarantined, and otherwise unavailable stock. Null means not synchronized yet. Read from Catalog's durable stock projection, updated asynchronously by Inventory events; Inventory remains the source of truth."
                       additionalProperties: false
                   total:
                     type: "integer"
@@ -4254,6 +4282,7 @@ paths:
                         ocop_star: 4
                         category_name: "Mè Xửng Giòn"
                         in_stock: true
+                        stock_available: 150
                     total: 8
                 empty:
                   summary: "Valid empty result"

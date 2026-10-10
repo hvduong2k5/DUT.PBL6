@@ -14,6 +14,7 @@ Tất cả các sự kiện bất đồng bộ được quản lý trong thư m�
 | :--- | :---: | :--- | :--- | :--- |
 | **`order.events.v1`** | `order_id` | `order-service` (MS-04) | • `fulfillment-service` (MS-02 - tạo Picking Task)<br/>• `inventory-service` (MS-01 - trừ kho vật lý FEFO)<br/>• `promotion-service` (MS-07 - ghi nhận voucher đã dùng, tích điểm 1% loyalty)<br/>• `finance-service` (MS-09 - ghi nhận doanh thu, xuất hóa đơn VAT điện tử)<br/>• `care-service` (MS-06 - mở quyền viết review sau khi OrderCompleted)<br/>• `notification-service` (MS-17 - bắn Zalo ZNS / Push App)<br/>• `analytics-service` (MS-11 - cập nhật GMV real-time) | Vòng đời đơn hàng D2C & POS (`OrderPlaced`, `OrderPaid`, `OrderCancelled`, `OrderCompleted`, `MarketplaceOrderStockFailed`). |
 | **`inventory.events.v1`** | `sku_code` | `inventory-service` (MS-01) | • `catalog-service` (MS-05 - làm mới cache tồn Redis)<br/>• `channel-service` (MS-13 - đồng bộ tồn khả dụng lên Shopee/TikTok)<br/>• `procurement-service` (MS-08 - tự động dự thảo PO khi nguyên liệu dưới ngưỡng)<br/>• `marketing-service` (MS-14 - phát động chiến dịch xả hàng cận date)<br/>• `promotion-service` (MS-07 - tạo Flash Sale xả hàng cận date)<br/>• `notification-service` (MS-17 - cảnh báo thủ kho)<br/>• `analytics-service` (MS-11) | Biến động số lượng tồn kho (`StockLevelChanged`, `StockReserved`, `StockReleased`), cảnh báo kẹo cận date 45 ngày (`ExpiryWarningEvent`). |
+| **`inventory.stock-changed.v1`** | `sku_code` | `inventory-service` (MS-01) | • `catalog-service` (MS-05 - cập nhật durable stock projection) | Snapshot số lượng có thể bán theo SKU (`StockChangedEvent`). |
 | **`fulfillment.events.v1`** | `order_id` | `fulfillment-service` (MS-02) | • `shipping-service` (MS-12 - tạo vận đơn 3PL lấy hàng)<br/>• `order-service` (MS-04 - chuyển trạng thái PACKED)<br/>• `traceability-service` (MS-03 - kích hoạt mã tem QR OCOP)<br/>• `notification-service` (MS-17) | Thợ xưởng Huế hoàn tất đóng gói, dán tem Seal O Mạ và nạp video kiểm định lên S3 (`PackingCompleted`). |
 | **`shipping.events.v1`** | `tracking_code` | `shipping-service` (MS-12) | • `order-service` (MS-04 - chuyển trạng thái SHIPPED/DELIVERED)<br/>• `finance-service` (MS-09 - đối soát công nợ COD và cước 3PL)<br/>• `notification-service` (MS-17) | Cập nhật tiến độ giao vận từ bưu tá 3PL (`ShipmentCreated`, `ShipmentDelivered`, `ShipmentFailed`). |
 | **`channel.events.v1`** | `marketplace_order_id` | `channel-service` (MS-13) | • `order-service` (MS-04 - Saga Orchestrator độc quyền tiêu thụ để khóa tồn và tạo đơn nội bộ)<br/>• `analytics-service` (MS-11) | Tiếp nhận đơn sàn Shopee/TikTok Shop từ Webhook đối tác, bảo đảm nguyên tắc Centralized Compensation. |
@@ -83,4 +84,18 @@ Tất cả các sự kiện bất đồng bộ được quản lý trong thư m�
 - **Tác vụ của các Consumer:**
   - `notification-service`: Gửi email và thông báo Zalo ZNS cảnh báo đỏ cho Quản đốc xưởng Hương Thủy và Trưởng phòng HR lên danh sách gia hạn tập huấn kịp thời, đảm bảo 100% điều kiện pháp lý của chuẩn OCOP 4 sao.
   - `fulfillment-service`: Cảnh báo điều phối không xếp ca phụ trách dán tem kiểm định cho nhân sự có chứng chỉ hết hạn.
+
+### 2.8. Sự Kiện `StockChangedEvent`
+- **Tệp Schema:** [`packages/events/schemas/inventory/v1/stock_level_changed.event.json`](../../packages/events/schemas/inventory/v1/stock_level_changed.event.json)
+- **Topic:** `inventory.stock-changed.v1` | **Partition Key:** `sku_code`
+- **Payload JSON:** `sku_code`, `sellable_quantity`, `inventory_version`, `source_updated_at`. Đây là JSON trực tiếp được Catalog deserialize thành `StockChangedEvent`, không bọc CloudEvent.
+- **Tác dụng:** `catalog-service` cập nhật bảng `sku_stock_projection` khi `inventory_version` mới hơn giá trị đang lưu; customer product list/detail đọc projection thay vì gọi Inventory đồng bộ.
+- Inventory phải phát snapshot sau mọi thay đổi ảnh hưởng tồn có thể bán, gồm reserve/release, xuất/nhập kho, hết hạn và cách ly lô. Khi khởi tạo hoặc rebuild projection, Inventory cần phát snapshot hiện tại cho mọi SKU; `NULL` trong projection nghĩa là chưa đồng bộ.
+- Consumer group của Catalog là `catalog-stock-projection`, độc lập với Search hoặc Analytics. Kafka chỉ commit offset sau khi transaction cập nhật projection thành công; lỗi database được retry.
+
+### 2.9. Các sự kiện Catalog qua transactional outbox
+- `ProductCreated`: [`product_created.event.json`](../../packages/events/schemas/catalog/v1/product_created.event.json)
+- `ProductPriceChanged`: [`product_price_changed.event.json`](../../packages/events/schemas/catalog/v1/product_price_changed.event.json)
+- **Topic:** `catalog.events.v1` | **Partition Key:** `product_id`
+- Outbox publisher giữ nguyên event ID khi retry; consumer cần idempotent vì giao nhận là at-least-once.
 

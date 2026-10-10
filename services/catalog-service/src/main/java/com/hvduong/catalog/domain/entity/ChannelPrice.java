@@ -22,6 +22,8 @@ public class ChannelPrice {
     private Instant effectiveFrom;
     private Instant effectiveTo;
     private String status;
+    private long version;
     private String createdBy;
     private Instant createdAt;
+    private Instant updatedAt;
 }

@@ -19,6 +19,7 @@ import com.hvduong.catalog.domain.entity.ChannelPrice;
 import com.hvduong.catalog.domain.entity.Product;
 import com.hvduong.catalog.domain.entity.ProductImage;
 import com.hvduong.catalog.domain.entity.ProductVariant;
+import com.hvduong.catalog.infrastructure.inventory.StockProjectionService;
 import com.hvduong.catalog.repository.mybatis.CategoryMapper;
 import com.hvduong.catalog.repository.mybatis.ChannelPriceMapper;
 import com.hvduong.catalog.repository.mybatis.ProductImageMapper;
@@ -27,7 +28,6 @@ import com.hvduong.catalog.repository.mybatis.ProductVariantMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -57,8 +57,9 @@ class CatalogServiceImplTest {
     private ProductImageMapper imageMapper;
     @Mock
     private CatalogDtoMapper dtoMapper;
+    @Mock
+    private StockProjectionService stockProjectionService;
 
-    @InjectMocks
     private CatalogServiceImpl catalogService;
 
     private Product mockProduct;
@@ -71,6 +72,8 @@ class CatalogServiceImplTest {
 
     @BeforeEach
     void setUp() {
+        catalogService = new CatalogServiceImpl(productMapper, variantMapper, categoryMapper,
+                channelPriceMapper, imageMapper, dtoMapper, stockProjectionService);
         productId = UUID.randomUUID();
         variantId = UUID.randomUUID();
         categoryId = UUID.randomUUID();

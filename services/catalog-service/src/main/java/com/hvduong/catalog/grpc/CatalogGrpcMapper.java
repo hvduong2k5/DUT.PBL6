@@ -158,8 +158,9 @@ public class CatalogGrpcMapper {
                 .setSlug(str(resp.getSlug()))
                 .setSummary(str(resp.getSummary()))
                 .setThumbnailUrl(str(resp.getThumbnailUrl()))
-                .setCategoryName(str(resp.getCategoryName()))
-                .setInStock(resp.isInStock());
+                .setCategoryName(str(resp.getCategoryName()));
+        if (resp.getInStock() != null) builder.setInStock(resp.getInStock());
+        if (resp.getStockAvailable() != null) builder.setStockAvailable(resp.getStockAvailable());
         if (resp.getOcopStar() != null) builder.setOcopStar(resp.getOcopStar());
         if (resp.getBasePrice() != null) builder.setBasePrice(toMoneyProto(resp.getBasePrice()));
         return builder.build();
@@ -202,9 +203,9 @@ public class CatalogGrpcMapper {
                 .setFlavor(str(resp.getFlavor()))
                 .setPackagingType(str(resp.getPackagingType()))
                 .setListingStatus(str(resp.getListingStatus()));
+        if (resp.getStockAvailable() != null) builder.setStockAvailable(resp.getStockAvailable());
         if (resp.getShelfLifeDays() != null) builder.setShelfLifeDays(resp.getShelfLifeDays());
         if (resp.getPrice() != null) builder.setPrice(toMoneyProto(resp.getPrice()));
-        if (resp.getMinimumQuantity() != null) builder.setMinimumQuantity(resp.getMinimumQuantity());
         return builder.build();
     }
 

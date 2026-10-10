@@ -2,7 +2,7 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
-<mapper namespace="com.hvduong.catalog.domain.mapper.ProductImageMapper">
+<mapper namespace="com.hvduong.catalog.repository.mybatis.ProductImageMapper">
 
     <resultMap id="ImageResultMap" type="com.hvduong.catalog.domain.entity.ProductImage">
         <id     property="id"          column="id"/>
@@ -12,6 +12,7 @@
         <result property="role"        column="role"/>
         <result property="position"    column="position"/>
         <result property="mediaStatus" column="media_status"/>
+        <result property="version"     column="version"/>
         <result property="createdAt"   column="created_at"/>
         <result property="updatedAt"   column="updated_at"/>
     </resultMap>
@@ -40,8 +41,10 @@
             role        = #{role}::image_role,
             position    = #{position},
             media_status = #{mediaStatus}::media_status,
+            version      = version + 1,
             updated_at  = NOW()
         WHERE id = #{id}
+          AND version = #{version}
     </update>
 
     <delete id="deleteById">
