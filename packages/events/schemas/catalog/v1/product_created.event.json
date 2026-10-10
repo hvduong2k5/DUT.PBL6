@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ProductCreatedEvent",
+  "description": "Catalog product creation event emitted through the transactional outbox. Topic: catalog.events.v1. Partition Key: product_id.",
+  "type": "object",
+  "required": ["specversion", "id", "source", "type", "subject", "time", "datacontenttype", "traceparent", "data"],
+  "properties": {
+    "specversion": { "type": "string", "enum": ["1.0"] },
+    "id": { "type": "string", "format": "uuid" },
+    "source": { "type": "string", "format": "uri" },
+    "type": { "type": "string", "enum": ["vn.omama.catalog.product.created.v1"] },
+    "subject": { "type": "string" },
+    "time": { "type": "string", "format": "date-time" },
+    "datacontenttype": { "type": "string", "enum": ["application/json"] },
+    "traceparent": { "type": "string" },
+    "dataschema": { "type": "string", "format": "uri" },
+    "data": {
+      "type": "object",
+      "required": ["product_id", "category_id", "name", "slug", "approval_status", "listing_status", "version"],
+      "properties": {
+        "product_id": { "type": "string", "format": "uuid" },
+        "category_id": { "type": "string", "format": "uuid" },
+        "name": { "type": "string" },
+        "slug": { "type": "string" },
+        "approval_status": { "type": "string" },
+        "listing_status": { "type": "string" },
+        "version": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

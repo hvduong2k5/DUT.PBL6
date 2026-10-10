@@ -1,0 +1,45 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ProductPriceChangedEvent",
+  "description": "Catalog channel-price update emitted through the transactional outbox. Topic: catalog.events.v1. Partition Key: product_id.",
+  "type": "object",
+  "required": ["specversion", "id", "source", "type", "subject", "time", "datacontenttype", "traceparent", "data"],
+  "properties": {
+    "specversion": { "type": "string", "enum": ["1.0"] },
+    "id": { "type": "string", "format": "uuid" },
+    "source": { "type": "string", "format": "uri" },
+    "type": { "type": "string", "enum": ["vn.omama.catalog.product.price.changed.v1"] },
+    "subject": { "type": "string" },
+    "time": { "type": "string", "format": "date-time" },
+    "datacontenttype": { "type": "string", "enum": ["application/json"] },
+    "traceparent": { "type": "string" },
+    "dataschema": { "type": "string", "format": "uri" },
+    "data": {
+      "type": "object",
+      "required": ["product_id", "variant_id", "sku_code", "prices", "changed_by"],
+      "properties": {
+        "product_id": { "type": "string", "format": "uuid" },
+        "variant_id": { "type": "string", "format": "uuid" },
+        "sku_code": { "type": "string" },
+        "prices": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["channel", "currency_code", "amount_units", "amount_nanos"],
+            "properties": {
+              "channel": { "type": "string" },
+              "currency_code": { "type": "string", "minLength": 3, "maxLength": 3 },
+              "amount_units": { "type": "integer", "minimum": 0 },
+              "amount_nanos": { "type": "integer", "minimum": 0, "maximum": 999999999 }
+            },
+            "additionalProperties": false
+          }
+        },
+        "changed_by": { "type": "string" }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}
