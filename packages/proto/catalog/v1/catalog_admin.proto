@@ -54,6 +54,7 @@ service CatalogAdminService {
   rpc GetAdminProduct(GetAdminProductRequest) returns (GetAdminProductResponse) {
     option (google.api.http) = {
       get: "/api/v1/admin/catalog/products/{product_id}"
+      response_body: "product"
     };
   }
 }
@@ -167,13 +168,29 @@ message AdminProductListItem {
 }
 
 message ListAdminProductsRequest {
-  int32 page = 1;
-  int32 page_size = 2;
+  optional string q = 1;
+  optional string status = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+message StatusCount {
+  string status = 1;
+  string label = 2;
+  int32 count = 3;
+}
+
+message CategorySummary {
+  string category_id = 1;
+  string category_name = 2;
 }
 
 message ListAdminProductsResponse {
   repeated AdminProductListItem items = 1;
-  int32 total = 2;
+  repeated StatusCount status_counts = 2;
+  repeated CategorySummary categories = 3;
+  string calculated_at = 4;
+  int32 total = 5;
 }
 
 message GetAdminProductRequest {
