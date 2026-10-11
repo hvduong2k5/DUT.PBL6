@@ -1,8 +1,12 @@
 # Content Service handoff
 
 Task/scope: implement standalone MS-10 editorial CMS inside this directory only.
-Branch: feat/content-service. Base/current HEAD before commit:
+Branch: feat/content-service. Base:
 2291ef5a44dd3a6f7985297903bfec01b325b087 (origin/dev).
+Implementation checkpoint / HEAD when this handoff was written:
+3337d3064c47677a5c494e6600932b972ed93d90, committed locally.
+The follow-up commit records this handoff only; use git log -2 to resolve final HEAD.
+Before resuming, verify this checkpoint exists and git status is clean.
 No push or PR is authorized; no other existing branch/service was edited.
 
 Completed: configuration/pool/lifecycle; SQL up/down; append-only content and
