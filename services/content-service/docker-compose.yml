@@ -1,0 +1,31 @@
+name: pbl6-content
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: content_dev
+      POSTGRES_PASSWORD: local_content_only
+      POSTGRES_DB: content_db
+    ports: ["127.0.0.1:15410:5432"]
+    volumes:
+      - content_data:/var/lib/postgresql/data
+      - ./migrations/000001_content.up.sql:/docker-entrypoint-initdb.d/001.sql:ro
+    mem_limit: 256m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U content_dev -d content_db"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  api:
+    build: .
+    environment:
+      HTTP_PORT: "8010"
+      DATABASE_URL: postgres://content_dev:local_content_only@db:5432/content_db?sslmode=disable
+      DB_MAX_CONNS: "5"
+      LOG_LEVEL: info
+    ports: ["127.0.0.1:8010:8010"]
+    mem_limit: 128m
+    depends_on:
+      db: {condition: service_healthy}
+volumes:
+  content_data:
