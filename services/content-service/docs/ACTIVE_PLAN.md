@@ -23,7 +23,7 @@ Steps / acceptance:
 - [x] Unit + HTTP + opt-in real PostgreSQL integration, migration up/down/up.
 - [x] fmt/test/vet/build/race and executable smoke; Compose configuration validation.
 - [x] Final scope review: only services/content-service, no push/PR/other branch edits.
-- [ ] Docker image build and Compose runtime smoke: daemon unavailable, NOT RUN.
+- [x] Docker image build and Compose runtime smoke: passed after daemon recovery.
 
 Expected areas: cmd/server, internal/{config,domain,usecase,repository,
 infrastructure/postgres,transport/http}, migrations, tests, Docker/readme/env.
@@ -36,6 +36,24 @@ No external infrastructure or data migration is in scope.
 Completed: all core APIs and required editorial behavior implemented and tested.
 Additional decision: list queries return summaries without bodies in one joined
 data query plus a count query, keeping memory and DB roundtrips bounded.
-Next: validate Docker image/Compose when a daemon is available; separately obtain
-the real Auth/Gateway verification contract before enabling deployed admin access.
+Next: obtain the real Auth/Gateway verification contract before enabling deployed
+admin access. Docker image/Compose verification is complete.
 Current detailed handoff and evidence: CURRENT_STATE.md.
+
+## Docker verification follow-up
+
+User authorized daemon repair and container verification. Scope: recover local
+Docker Desktop without resetting existing images/volumes, build this service's
+image, run its Compose project and verify health, public/admin HTTP and PostgreSQL.
+Observed blocker: stale Windows AF_UNIX socket reparse points in Docker/run and
+docker-secrets-engine cause backend startup to fail with Windows error 1920.
+Runtime directories are renamed to backups; persistent Docker data is untouched.
+- [x] Recover the desktop-linux daemon and confirm its server API (29.0.1).
+- [x] Build image and start dedicated pbl6-content Compose project.
+- [x] Verify HTTP, migration, non-root runtime and container health/resource limits.
+- [x] Run database integration checks against container PostgreSQL; record results.
+
+Results: API and DB healthy; all Go tests passed inside Go 1.22.12 Alpine against
+PostgreSQL 16.15. Database outage yields readiness/health 503, liveness 200 and
+sanitized public error 500; restarting DB restores readiness 200. API restart
+logs graceful shutdown. Containers remain running on localhost:8010/15410.

@@ -14,7 +14,8 @@ inside services/content-service on feat/content-service, based on origin/dev
 Dependencies: 2 depends on 1; 3 on 2; 4 verifies all. Detailed current work is in
 ACTIVE_PLAN.md. External auth verification is a separate integration after this
 implementation; production admin must deny access until it exists. Container build/run
-remains NOT RUN because the local Docker daemon was unavailable.
+PASSED on 2026-10-11 after recovering Docker Desktop runtime sockets; health,
+database outage/recovery, graceful restart and container integration tests passed.
 
 Decisions: match Profile's Go/Chi/pgx/Zerolog layers and compatible versions;
 adapt Inventory's transactional callback/rollback and locking; adapt Catalog's
