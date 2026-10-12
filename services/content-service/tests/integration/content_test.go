@@ -124,6 +124,15 @@ func TestPostgresEditorialTransactionsAndPublication(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "Need evidence", a.Decisions[0].Reason)
 	for _, action := range []string{"submit", "approve", "publish"} {
+		if action == "publish" {
+			before, getErr := s.Get(ctx, a.ID, actor)
+			require.NoError(t, getErr)
+			_, err = s.Transition(ctx, a.ID, a.Version, "publish", "", testhelper.Actor("CONTENT_EDITOR"))
+			require.ErrorIs(t, err, domain.ErrForbidden)
+			after, getErr := s.Get(ctx, a.ID, actor)
+			require.NoError(t, getErr)
+			require.Equal(t, before, after, "denied publication must not write to PostgreSQL")
+		}
 		a, err = s.Transition(ctx, a.ID, a.Version, action, "", actor)
 		require.NoError(t, err)
 	}

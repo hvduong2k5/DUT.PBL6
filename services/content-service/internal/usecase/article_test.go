@@ -21,7 +21,7 @@ func TestEditorialLifecyclePreservesPublishedSnapshot(t *testing.T) {
 	_, err = s.GetPublished(ctx, "hue-story")
 	require.ErrorIs(t, err, domain.ErrNotFound)
 	_, err = s.Transition(ctx, a.ID, a.Version, "publish", "", editor)
-	require.ErrorIs(t, err, domain.ErrState)
+	require.ErrorIs(t, err, domain.ErrForbidden)
 	a, err = s.Transition(ctx, a.ID, a.Version, "submit", "", editor)
 	require.NoError(t, err)
 	_, err = s.Transition(ctx, a.ID, a.Version, "approve", "", editor)
@@ -73,6 +73,25 @@ func TestEditorialLifecyclePreservesPublishedSnapshot(t *testing.T) {
 	require.Len(t, a.Slugs, 2)
 	require.Equal(t, "Reviewed story", a.Revision(publishedID).Content.Body)
 }
+func TestPublishDeniedBeforeRepositoryAccess(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		actor domain.Identity
+		want  error
+	}{
+		{"editor", testhelper.Actor("CONTENT_EDITOR"), domain.ErrForbidden},
+		{"other role", testhelper.Actor("CUSTOMER"), domain.ErrForbidden},
+		{"missing identity", domain.Identity{}, domain.ErrUnauthenticated},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := usecase.New(nil)
+			a, err := s.Transition(context.Background(), uuid.New(), 1, "publish", "", tc.actor)
+			require.ErrorIs(t, err, tc.want)
+			require.Nil(t, a)
+		})
+	}
+}
+
 func TestCreateUpdateConflictsAndValidation(t *testing.T) {
 	ctx := context.Background()
 	s := usecase.New(testhelper.NewMemory())

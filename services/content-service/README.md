@@ -66,8 +66,8 @@ enforce permissions:
 
 | Operation | Roles |
 | --- | --- |
-| Read/create/edit/submit/publish/hide | ADMIN, CONTENT_EDITOR, CONTENT_APPROVER |
-| Approve/reject | ADMIN, CONTENT_APPROVER |
+| Read/create/edit/submit/hide | ADMIN, CONTENT_EDITOR, CONTENT_APPROVER |
+| Approve/reject/publish | ADMIN, CONTENT_APPROVER |
 
 Body is text/Markdown. Clients must sanitize any generated HTML. Media URLs are
 HTTP(S) references only; this service never fetches them or uploads objects.
@@ -131,7 +131,9 @@ the old URL returns 404; redirect delivery is outside V1 scope.
 
 Errors use `{"error":{"code":"...","message":"..."}}`: 400 malformed input,
 401 missing/invalid verified identity, 403 insufficient role, 404 missing content,
-409 slug/version conflict, 422 invalid fields/state, 500 unexpected server errors.
+409 slug/version conflict or invalid publication state, 422 invalid fields or other
+invalid state transitions, 500 unexpected server errors. An authenticated editor
+attempting publication receives 403, including when the revision is approved.
 Unknown JSON fields, trailing JSON and oversized bodies are rejected. Database
 errors are logged server-side and never sent to clients.
 

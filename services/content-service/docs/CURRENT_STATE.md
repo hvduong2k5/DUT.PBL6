@@ -1,15 +1,34 @@
 # Content Service handoff
 
-Task/scope: standalone MS-10 editorial CMS; follow-up Docker daemon recovery and
-container verification completed on 2026-10-11. Repository edits remain docs-only
-inside this service for the follow-up; no application source change was necessary.
+Current task (2026-10-12): fix publish authorization only. Completed domain/usecase
+checks requiring CONTENT_APPROVER or ADMIN; the existing APPROVED-only state guard
+is preserved. Publish returns 403 for editors, 401 for missing/invalid verified
+identity, and 409 for invalid publication state. Other transition errors retain
+their existing contract. Auth middleware, repository, migrations and transactions
+are unchanged. No other review findings are included.
+
+Intentionally changed: domain/usecase authorization, HTTP publish error mapping,
+their tests, PostgreSQL denial regression, README and current plan/handoff.
+Verification: go fmt ./..., go test ./..., go test -race ./..., go vet ./...,
+go build ./... all PASS in WSL Go 1.22.12. Tests include 35 HTTP role/state cases,
+direct domain and usecase denial, unchanged PostgreSQL data on denied publication,
+and existing migration/history/optimistic-locking/transaction tests. Real integration
+used isolated disposable schemas in the local Docker DB on port 15410; none skipped.
+No failing tests. Docker API image was not rebuilt for this fix.
+Starting HEAD: 4ceffc2 (Docker recovery documentation). Local fix commit follows
+this handoff; use git log -1 for its hash. Next: inspect final diff and commit
+locally only. No push/merge/PR. The untracked user archive
+services/content-service.rar is intentionally untouched and excluded from staging.
+
+Earlier scope: standalone MS-10 editorial CMS; Docker daemon recovery and
+container verification completed on 2026-10-11, with docs-only changes at that time.
 Branch: feat/content-service. Base:
 2291ef5a44dd3a6f7985297903bfec01b325b087 (origin/dev).
 Implementation checkpoint:
 3337d3064c47677a5c494e6600932b972ed93d90, committed locally.
 HEAD before the Docker verification documentation commit:
 a981726bbba69576da2345962183f82a498d01e8. Use git log -1 for final HEAD.
-Before resuming, verify the implementation checkpoint exists and git status is clean.
+Before resuming, verify HEAD and git status; preserve the untracked user archive.
 No push or PR is authorized; no other existing branch/service was edited.
 
 Completed: configuration/pool/lifecycle; SQL up/down; append-only content and

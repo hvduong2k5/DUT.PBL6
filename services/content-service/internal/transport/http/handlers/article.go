@@ -143,7 +143,11 @@ func (h *Handler) Action(action string) http.HandlerFunc {
 		}
 		a, err := h.service.Transition(r.Context(), v, req.Version, action, req.Reason, middleware.Identity(r.Context()))
 		if err != nil {
-			h.DomainError(w, err)
+			if action == "publish" && errors.Is(err, domain.ErrState) {
+				Error(w, http.StatusConflict, "INVALID_STATE", "invalid status transition")
+			} else {
+				h.DomainError(w, err)
+			}
 			return
 		}
 		respondAdmin(w, 200, a)

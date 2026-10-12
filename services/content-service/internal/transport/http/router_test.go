@@ -77,7 +77,7 @@ func TestHTTPWorkflowAndErrors(t *testing.T) {
 	require.Equal(t, 400, request(r, "POST", "/api/v1/admin/articles", `{"unknown":true}`).Code)
 	require.Equal(t, 400, request(r, "POST", "/api/v1/admin/articles", string(raw)+` {}`).Code)
 	require.Equal(t, 422, request(r, "POST", "/api/v1/admin/articles", `{}`).Code)
-	require.Equal(t, 422, request(r, "POST", path+"/publish", `{"version":1}`).Code)
+	require.Equal(t, 409, request(r, "POST", path+"/publish", `{"version":1}`).Code)
 	for _, action := range []string{"submit", "approve", "publish"} {
 		body, _ := json.Marshal(map[string]any{"version": a.Version})
 		out = request(r, "POST", path+"/"+action, string(body))
@@ -128,6 +128,77 @@ func TestApprovalRequiresApproverAndRejectReason(t *testing.T) {
 	out = request(admin, "POST", path+"/reject", `{"version":2,"reason":"sources required"}`)
 	require.Equal(t, 200, out.Code)
 	require.Contains(t, out.Body.String(), "sources required")
+}
+
+func TestPublishRolesAndStates(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		verifier middleware.Verifier
+		want     int
+	}{
+		{"admin", verifier{identity: testhelper.Actor("ADMIN")}, 200},
+		{"approver", verifier{identity: testhelper.Actor("CONTENT_APPROVER")}, 200},
+		{"editor", verifier{identity: testhelper.Actor("CONTENT_EDITOR")}, 403},
+		{"other role", verifier{identity: testhelper.Actor("CUSTOMER")}, 403},
+		{"missing verifier", nil, 401},
+		{"invalid token", verifier{err: errors.New("invalid token")}, 401},
+		{"invalid identity", verifier{identity: domain.Identity{Role: "ADMIN"}}, 401},
+	} {
+		for _, state := range []domain.Status{domain.Draft, domain.Pending, domain.Approved, domain.Rejected, domain.Published} {
+			t.Run(tc.name+"/"+string(state), func(t *testing.T) {
+				ctx := context.Background()
+				repo := testhelper.NewMemory()
+				s := usecase.New(repo)
+				admin := testhelper.Actor("ADMIN")
+				a, err := s.Create(ctx, testhelper.Content("publish-rbac"), admin)
+				require.NoError(t, err)
+				steps := map[domain.Status][]string{
+					domain.Pending:   {"submit"},
+					domain.Approved:  {"submit", "approve"},
+					domain.Rejected:  {"submit", "reject"},
+					domain.Published: {"submit", "approve", "publish"},
+				}
+				for _, action := range steps[state] {
+					a, err = s.Transition(ctx, a.ID, a.Version, action, "review reason", admin)
+					require.NoError(t, err)
+				}
+				before, err := repo.Get(ctx, a.ID)
+				require.NoError(t, err)
+				body, err := json.Marshal(map[string]any{"version": a.Version})
+				require.NoError(t, err)
+				path := "/api/v1/admin/articles/" + a.ID.String() + "/publish"
+				req := httptest.NewRequest("POST", path, bytes.NewReader(body))
+				req.Header.Set("Content-Type", "application/json")
+				req.Header.Set("X-User-ID", admin.ID.String())
+				req.Header.Set("X-User-Role", "ADMIN")
+				req.Header.Set("Authorization", "Bearer forged")
+				r := router(repo, tc.verifier, nil)
+				out := httptest.NewRecorder()
+				r.ServeHTTP(out, req)
+				want := tc.want
+				if want == 200 && state != domain.Approved {
+					want = 409
+				}
+				require.Equal(t, want, out.Code, out.Body.String())
+				after, err := repo.Get(ctx, a.ID)
+				require.NoError(t, err)
+				if want != 200 {
+					require.Equal(t, before, after, "denied publication must preserve the entire article")
+					if want == 409 {
+						require.Contains(t, out.Body.String(), "INVALID_STATE")
+					}
+					return
+				}
+				require.Equal(t, before.Version+1, after.Version)
+				require.Equal(t, domain.Published, after.Current().Status)
+				require.Equal(t, &after.CurrentRevisionID, after.PublishedRevisionID)
+				require.Len(t, after.Revisions, len(before.Revisions))
+				out = request(r, "POST", path, string(body))
+				require.Equal(t, 409, out.Code)
+				require.Contains(t, out.Body.String(), "VERSION_CONFLICT")
+			})
+		}
+	}
 }
 
 type brokenRepo struct{ domain.Repository }

@@ -66,7 +66,7 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, version int64, p Pat
 	})
 }
 func (s *Service) Transition(ctx context.Context, id uuid.UUID, version int64, action, reason string, actor domain.Identity) (*domain.Article, error) {
-	if err := actor.Authorize(action == "approve" || action == "reject"); err != nil {
+	if err := actor.Authorize(action == "approve" || action == "reject" || action == "publish"); err != nil {
 		return nil, err
 	}
 	if version < 1 {

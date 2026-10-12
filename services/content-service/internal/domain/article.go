@@ -170,7 +170,7 @@ func (a *Article) Edit(c Content, actor Identity, now time.Time) error {
 	return nil
 }
 func (a *Article) Transition(action, reason string, actor Identity, now time.Time) error {
-	if err := actor.Authorize(action == "approve" || action == "reject"); err != nil {
+	if err := actor.Authorize(action == "approve" || action == "reject" || action == "publish"); err != nil {
 		return err
 	}
 	r := a.Current()

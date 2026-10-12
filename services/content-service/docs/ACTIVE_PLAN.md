@@ -1,6 +1,18 @@
 # Current implementation
 
 Goal: a runnable PostgreSQL-backed service with the requested public/admin APIs.
+
+Current follow-up (2026-10-12): restrict publication to CONTENT_APPROVER/ADMIN in
+domain and usecase; preserve APPROVED-only publication and return HTTP 409 for
+invalid publication state, 403 for editors, 401 for missing/invalid identity.
+Scope excludes other review findings, repository/transaction changes and auth adapters.
+Acceptance: role/state matrix, direct business-layer denial, unchanged persisted
+article on denied publication; go test, test -race, vet and build all pass.
+Status: implemented and verified. All four commands passed in WSL Go 1.22.12,
+including real Docker PostgreSQL tests; 35 HTTP role/state cases passed. Only the
+publish authorization gates and publish-specific HTTP state mapping changed.
+Next: local commit only; no push, PR, auth adapter or other review findings.
+
 Prior evidence: Profile uses cmd/server, domain, usecase, repository, Chi transport,
 pgxpool, UUIDs, env configuration, Testify and multi-stage Docker. Inventory wraps
 mutations in transactions and locks rows. Catalog checks DRAFT/REJECTED -> PENDING
@@ -9,7 +21,7 @@ auth, silent transaction fallback, and returning stale objects after transitions
 
 Contracts: create starts version 1; all mutations require positive expected version.
 PATCH uses optional fields and creates a new DRAFT revision; pending review is
-immutable. Approval/rejection requires ADMIN or CONTENT_APPROVER; editorial actions
+immutable. Approval/rejection/publication requires ADMIN or CONTENT_APPROVER; editorial actions
 require ADMIN, CONTENT_EDITOR or CONTENT_APPROVER. Rejection requires a reason.
 Public reads use only the visible published pointer. Hiding preserves snapshots.
 Every content snapshot and decision records actor/time. All writes are atomic.
