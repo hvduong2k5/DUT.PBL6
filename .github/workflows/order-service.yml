@@ -3,10 +3,10 @@ on:
   pull_request:
     paths:
       - 'services/order-service/**'
-      - 'packages/proto/order/**'
-      - 'packages/proto/inventory/**'
-      - 'packages/proto/common/**'
-      - 'packages/events/schemas/order/v2/**'
+      - 'packages/proto/**'
+      - 'packages/contracts/**'
+      - 'packages/events/schemas/order/**'
+      - 'packages/events/examples/order/**'
       - 'docs/03_api_specs/order*.yaml'
       - '.github/workflows/order-service.yml'
   push:
@@ -14,7 +14,10 @@ on:
     paths:
       - 'services/order-service/**'
       - 'packages/proto/**'
-      - 'packages/events/schemas/order/v2/**'
+      - 'packages/contracts/**'
+      - 'packages/events/schemas/order/**'
+      - 'packages/events/examples/order/**'
+      - 'docs/03_api_specs/order*.yaml'
 jobs:
   order-gates:
     runs-on: ubuntu-latest
@@ -53,6 +56,7 @@ jobs:
       - name: Validate OpenAPI, actual payloads, schemas and documentation
         run: |
           python -m pip install -r services/order-service/scripts/requirements-verification.txt
+          python packages/contracts/verify_order_design.py --compile-proto --output docs/04_testing/order-service/design-contracts-verification.json
           python services/order-service/scripts/verify-contracts.py
       - name: Build deployable sandbox image
         run: docker build -t omamx/order-service:ci services/order-service
@@ -65,6 +69,7 @@ jobs:
             docs/04_testing/order-service/postman-cli-output.txt
             docs/04_testing/order-service/postman-run-result.json
             docs/04_testing/order-service/contracts-verification.json
+            docs/04_testing/order-service/design-contracts-verification.json
             docs/04_testing/order-service/environment-evidence.json
       - name: Stop isolated stack
         if: always()

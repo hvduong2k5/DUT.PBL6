@@ -42,7 +42,7 @@ options = options.parse_args()
 
 
 result = {"time": datetime.now(timezone.utc).isoformat(), "mode": "local_sandbox", "openapi": []}
-for name in ["order-service.openapi.yaml", "order-sandbox-dependencies.openapi.yaml"]:
+for name in ["order-service.sandbox-3.1.openapi.yaml", "order-sandbox-dependencies.openapi.yaml"]:
     path = ROOT / "docs/03_api_specs" / name
     document = yaml.safe_load(path.read_text(encoding="utf-8"))
     validate_spec(document)

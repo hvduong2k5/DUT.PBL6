@@ -19,10 +19,12 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	OrderService_CreatePOSOrder_FullMethodName       = "/omamx.order.v1.OrderService/CreatePOSOrder"
-	OrderService_GetOrderDetail_FullMethodName       = "/omamx.order.v1.OrderService/GetOrderDetail"
-	OrderService_CancelOrder_FullMethodName          = "/omamx.order.v1.OrderService/CancelOrder"
-	OrderService_GetCheckoutOperation_FullMethodName = "/omamx.order.v1.OrderService/GetCheckoutOperation"
+	OrderService_CreatePOSOrder_FullMethodName            = "/omamx.order.v1.OrderService/CreatePOSOrder"
+	OrderService_GetOrderDetail_FullMethodName            = "/omamx.order.v1.OrderService/GetOrderDetail"
+	OrderService_CancelOrder_FullMethodName               = "/omamx.order.v1.OrderService/CancelOrder"
+	OrderService_GetCheckoutOperation_FullMethodName      = "/omamx.order.v1.OrderService/GetCheckoutOperation"
+	OrderService_GetFulfillmentPermit_FullMethodName      = "/omamx.order.v1.OrderService/GetFulfillmentPermit"
+	OrderService_ValidateFulfillmentPermit_FullMethodName = "/omamx.order.v1.OrderService/ValidateFulfillmentPermit"
 )
 
 // OrderServiceClient is the client API for OrderService service.
@@ -38,6 +40,10 @@ type OrderServiceClient interface {
 	// Khách hàng hoặc Quản trị viên yêu cầu hủy đơn hàng (Kích hoạt Saga Compensation)
 	CancelOrder(ctx context.Context, in *CancelOrderRequest, opts ...grpc.CallOption) (*CancelOrderResponse, error)
 	GetCheckoutOperation(ctx context.Context, in *GetCheckoutOperationRequest, opts ...grpc.CallOption) (*GetCheckoutOperationResponse, error)
+	// Fulfillment service identity only. Local hold/eligibility checked under lock.
+	GetFulfillmentPermit(ctx context.Context, in *GetFulfillmentPermitRequest, opts ...grpc.CallOption) (*GetFulfillmentPermitResponse, error)
+	// Online validation binds opaque permit to the authenticated Fulfillment caller.
+	ValidateFulfillmentPermit(ctx context.Context, in *ValidateFulfillmentPermitRequest, opts ...grpc.CallOption) (*GetFulfillmentPermitResponse, error)
 }
 
 type orderServiceClient struct {
@@ -84,6 +90,24 @@ func (c *orderServiceClient) GetCheckoutOperation(ctx context.Context, in *GetCh
 	return out, nil
 }
 
+func (c *orderServiceClient) GetFulfillmentPermit(ctx context.Context, in *GetFulfillmentPermitRequest, opts ...grpc.CallOption) (*GetFulfillmentPermitResponse, error) {
+	out := new(GetFulfillmentPermitResponse)
+	err := c.cc.Invoke(ctx, OrderService_GetFulfillmentPermit_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *orderServiceClient) ValidateFulfillmentPermit(ctx context.Context, in *ValidateFulfillmentPermitRequest, opts ...grpc.CallOption) (*GetFulfillmentPermitResponse, error) {
+	out := new(GetFulfillmentPermitResponse)
+	err := c.cc.Invoke(ctx, OrderService_ValidateFulfillmentPermit_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // OrderServiceServer is the server API for OrderService service.
 // All implementations must embed UnimplementedOrderServiceServer
 // for forward compatibility
@@ -97,6 +121,10 @@ type OrderServiceServer interface {
 	// Khách hàng hoặc Quản trị viên yêu cầu hủy đơn hàng (Kích hoạt Saga Compensation)
 	CancelOrder(context.Context, *CancelOrderRequest) (*CancelOrderResponse, error)
 	GetCheckoutOperation(context.Context, *GetCheckoutOperationRequest) (*GetCheckoutOperationResponse, error)
+	// Fulfillment service identity only. Local hold/eligibility checked under lock.
+	GetFulfillmentPermit(context.Context, *GetFulfillmentPermitRequest) (*GetFulfillmentPermitResponse, error)
+	// Online validation binds opaque permit to the authenticated Fulfillment caller.
+	ValidateFulfillmentPermit(context.Context, *ValidateFulfillmentPermitRequest) (*GetFulfillmentPermitResponse, error)
 	mustEmbedUnimplementedOrderServiceServer()
 }
 
@@ -115,6 +143,12 @@ func (UnimplementedOrderServiceServer) CancelOrder(context.Context, *CancelOrder
 }
 func (UnimplementedOrderServiceServer) GetCheckoutOperation(context.Context, *GetCheckoutOperationRequest) (*GetCheckoutOperationResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetCheckoutOperation not implemented")
+}
+func (UnimplementedOrderServiceServer) GetFulfillmentPermit(context.Context, *GetFulfillmentPermitRequest) (*GetFulfillmentPermitResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetFulfillmentPermit not implemented")
+}
+func (UnimplementedOrderServiceServer) ValidateFulfillmentPermit(context.Context, *ValidateFulfillmentPermitRequest) (*GetFulfillmentPermitResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ValidateFulfillmentPermit not implemented")
 }
 func (UnimplementedOrderServiceServer) mustEmbedUnimplementedOrderServiceServer() {}
 
@@ -201,6 +235,42 @@ func _OrderService_GetCheckoutOperation_Handler(srv interface{}, ctx context.Con
 	return interceptor(ctx, in, info, handler)
 }
 
+func _OrderService_GetFulfillmentPermit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetFulfillmentPermitRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OrderServiceServer).GetFulfillmentPermit(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: OrderService_GetFulfillmentPermit_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OrderServiceServer).GetFulfillmentPermit(ctx, req.(*GetFulfillmentPermitRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _OrderService_ValidateFulfillmentPermit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ValidateFulfillmentPermitRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OrderServiceServer).ValidateFulfillmentPermit(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: OrderService_ValidateFulfillmentPermit_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OrderServiceServer).ValidateFulfillmentPermit(ctx, req.(*ValidateFulfillmentPermitRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // OrderService_ServiceDesc is the grpc.ServiceDesc for OrderService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -223,6 +293,14 @@ var OrderService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetCheckoutOperation",
 			Handler:    _OrderService_GetCheckoutOperation_Handler,
+		},
+		{
+			MethodName: "GetFulfillmentPermit",
+			Handler:    _OrderService_GetFulfillmentPermit_Handler,
+		},
+		{
+			MethodName: "ValidateFulfillmentPermit",
+			Handler:    _OrderService_ValidateFulfillmentPermit_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

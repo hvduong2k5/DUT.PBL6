@@ -1,114 +1,78 @@
-> **Implementation 3.1 — 09/10/2026:** [08_implementation_and_acceptance.md](08_implementation_and_acceptance.md) là nguồn hành vi hiện tại. Acceptance tạo checkout operation, chưa tạo Order; PAID và outbox chờ terminal stock/voucher outcome. Các đoạn v3.0 khác mô tả candidate cần đọc cùng cập nhật này.
+# 06 — Verification và recovery, baseline 3.2
 
-# 06 — Kiểm thử, recovery và truy vết
+[Trước](05_api_contracts_and_transports.md) · [Tiếp](07_decisions_and_contract_gaps.md)
 
-[Chỉ mục](README.md) · [Trước: Contracts](05_api_contracts_and_transports.md) · [Tiếp: Quyết định/gaps](07_decisions_and_contract_gaps.md)
+## 1. Mức bằng chứng
 
-**Trạng thái:** danh mục yêu cầu gốc v3.0; kết quả runtime 3.1 và phạm vi từng release được ghi tại [báo cáo nghiệm thu](../../../04_testing/order-service/03_implementation_verification.md). Các feature mở rộng chưa triển khai không được đánh dấu PASS.
+[Report3.1](../../../04_testing/order-service/03_implementation_verification.md) ghi local sandbox results ngày09/10; không đổi thành evidence3.2. Lượt thiết kế này kiểm consistency/link/diagram syntax structure, không claim runtime tests mới. Unit/mock kiểm local logic; sandbox kiểm orchestration với simulator; integration gate bắt buộc provider thật cùng wire/version/config.
 
-## 1. Phân lớp code đề xuất
+## 2. Acceptance matrix
 
-```text
-services/order-service/
-  cmd/server/                 bootstrap HTTP/gRPC và shutdown
-  internal/domain/            Order/Money/guard; không import DB/client
-  internal/usecase/           Cart, Quote, Checkout, Receipt, Cancel, Claim, Refund
-  internal/saga/              durable process manager, retry/finalize/compensation
-  internal/ports/             UnitOfWork, repositories, external capabilities
-  internal/repository/        PostgreSQL/Redis adapters; DBTX shared
-  internal/transport/         HTTP, gRPC, Kafka; auth/schema/input validation
-  internal/provider/          webhook adapter và bank/refund query
-  internal/worker/            outbox, pending inbox, timeout, completion, saga
-  migrations/                DDL versioned; immutable constraints/backfill
-  tests/unit/                 money/FSM/authorization rules
-  tests/integration/          DB atomicity, unique, locking, publisher/inbox
-  tests/contract/             actual REST/proto/schema compatibility
-  tests/fault/                lost ack, crash, lease, TTL race
-  tests/load/                 real dependencies, explicit dataset/concurrency
-```
-
-Đây là blueprint Go tham khảo theo implementation Profile; lựa chọn ngôn ngữ Order chưa tồn tại trong code. Không biến đường dẫn blueprint thành link file đang có. Unit test pure domain; integration test DB thật; contract test gọi server registered thật; fault test kiểm ledger/references sau restart, không chỉ HTTP status.
-
-## 2. Ma trận test có oracle
-
-| ID | Arrange / Act | Assertion bắt buộc |
-| --- | --- | --- |
-| ORD-T01 | Customer A query/cancel/address của B; fake internal headers | 404/403 phù hợp, không PII/effect; sub không bị dùng làm customer ID |
-| ORD-T02 | Guest biết code + phone nhưng không valid proof; replay proof | không cấp quyền; OTP/proof đúng bind được; expired/replay bị chặn |
-| ORD-T03 | 100 concurrent checkout cùng scope/key/body; Redis flush | một checkout operation, một Order sau placement và một reserve business effect; cùng operation response |
-| ORD-T04 | cùng key khác body; hai customers cùng key | conflict đầu tiên; scope khác độc lập, không rò response |
-| ORD-T05 | SKU duplicate, inactive, changed price, address version changed, ship fee unavailable | không silently reprice; no resource acquisition khi validation fail |
-| ORD-T06 | cart free shipping và merchandise discount; overflow/currency/nanos | arithmetic đúng; invalid rejected, tổng line bằng subtotal |
-| ORD-T07 | voucher hold thành công rồi reserve rejected | release hold một lần; checkout terminal fail; mọi references truy được |
-| ORD-T08 | reserve commit ở Inventory rồi mất reply; Order process crash | durable intent trước RPC; retry/query tìm cùng reservation, không reserve lần hai |
-| ORD-T09 | release đến Inventory trước reserve request trễ | tombstone chặn reserve trễ; available cuối đúng, không treo hold |
-| ORD-T10 | DB ack mất sau T3 commit; client retry | dedup result/order giữ nguyên, không compensate order thành công |
-| ORD-T11 | exact/under/over/multi-small/unknown-reference/late receipt | mọi valid receipt được giữ; chỉ exact policy được allocate; không late PAID |
-| ORD-T12 | duplicate provider transaction cùng payload và khác payload | same no-op; altered conflict/security case, không receipt/allocation mới |
-| ORD-T13 | receipt vs Order timeout vs Inventory TTL finalize, tại before/equal/after expiry | chỉ terminal stock outcome hợp lệ; không PAID/ready nếu stock expired |
-| ORD-T14 | finalize thành công mất reply; stale worker epoch | query stable key ra COMMITTED; không release committed, stale không update |
-| ORD-T15 | OrderPaid trước voucher finalize, COD không paid, ready duplicate | packing chỉ sau ready authorization; một task; COD payment UNPAID |
-| ORD-T16 | cancel và Fulfillment acceptance đồng thời; delayed ready | một terminal barrier decision; cancelled không bắt đầu packing |
-| ORD-T17 | outbox send ack xong crash trước SQL published; nhiều publisher/rebalance | duplicate stable event ID; consumer chỉ một effect; source version guards |
-| ORD-T18 | Packing sealed/Shipping delivered đến trước prerequisite | durable DEFERRED; apply sau prerequisite một lần; không bỏ mất checkpoint |
-| ORD-T19 | apply inbox effect rồi SQL rollback; Kafka replay | chưa APPLIED nếu rollback; replay thực hiện đúng một lần |
-| ORD-T20 | claim same owner/new owner/revoked event/không verifier | no owner overwrite; snapshot giữ nguyên; thiếu verifier không claimed |
-| ORD-T21 | hai refunds đồng thời vượt receipt balance; provider ack mất | budget không âm; UNKNOWN giữ nghĩa vụ; query trước submit lại |
-| ORD-T22 | partial/full refund, hàng chưa kiểm định, refund fail | financial status đúng; không restock; không tự PROCESSING |
-| ORD-T23 | completion job vs active Case tại Care, event lag | barrier hoặc disable completion; không loyalty event sớm/trùng |
-| ORD-T24 | query list/queue theo filters, cursor tampering, scopes | pagination ổn định; overdue đúng policy; không hiện task chưa eligible |
-| ORD-T25 | marketplace/POS replay khác event ID cùng external sale ID | một order; terminal/store permission; không trừ kho hai lần |
-| ORD-T26 | DB/Kafka/Redis/remote unavailable, shutdown midflight, PITR restore | durable nghĩa vụ không mất; backlog/recovery và readiness đúng |
-
-## 3. Failure recovery matrix
-
-| Failure point | Durable state | Recovery | Không được làm |
+| ID | Scenario | Oracle bắt buộc | Scope |
 | --- | --- | --- | --- |
-| Validation query timeout | DRAFT/saga STARTED, chưa giữ tài nguyên | retry read hoặc terminal fail có reason | tự đoán giá/phí |
-| Voucher/stock RPC timeout | step intent + UNKNOWN | query/retry same key, resolve remote terminal state | coi timeout là chưa giữ gì |
-| Stock reserve sau local hủy | cancellation tombstone remote | late reserve rejection; reconcile | reserve lại cùng order cancelled |
-| T3 DB commit result unknown | T0/T1 hoặc T3 thật sự committed | đọc dedup/order authoritative rồi quyết định | release chỉ vì SQL client mất ack |
-| Receipt callback mất HTTP ack | receipt unique có thể đã committed | provider replay so payload hash | ghi nhận tiền lần hai |
-| Inventory expiry thắng finalize | receipt confirmed, stock EXPIRED | cancel/hold, reconciliation/refund approval | phát ready hoặc hồi sinh order |
-| Voucher consume unknown | PAID + operational hold | query promotion, retry same key | cho Packing chỉ bằng paid |
-| Kafka down | outbox pending, order DB committed | retry publisher, alert oldest age | rollback order đã xác nhận |
-| Publisher crash sau broker ack | outbox chưa published | republish same ID | tạo event ID mới |
-| Poison/incoming event sớm | inbox REJECTED/DEFERRED + durable record | DLQ/pending replay có audit | mark APPLIED rồi bỏ dữ liệu |
-| Release thất bại hết auto retry | cancelled + saga MANUAL_REVIEW | Ops query và resume same intent/key | xóa obligation hoặc tăng tồn thủ công |
-| Refund unknown provider result | refund UNKNOWN, amount giữ ngân sách | query statement/provider, human escalation | gửi refund mới với key mới |
-| Profile unavailable / guest verifier thiếu | checkout/claim chưa được xác minh | fail closed/503; dữ liệu cũ không thay owner | dùng customer query parameter hoặc fake OTP |
-| Restore DB cũ hơn remote | local records thiếu remote outcome mới | full remote reconcile/outbox dedup trước resume | tự retry tất cả RPC không query |
+| T01 | fake identity/owner/address/internal headers | denied, không PII/effect | core |
+| T02 | Guest session và claim proof/replay | session scoped; claim fail nếu thiếu verifier | claim gated |
+| T03 | concurrent same key/body; Redis loss | một operation/Order/stock effect | core |
+| T04 | same key changed body hoặc khác principal | conflict hoặc scope độc lập | core |
+| T05 | giá/metadata/address/fee đổi | coherent snapshot, không silently reprice | core |
+| T06 | money overflow/free shipping/zero amount | invariant và policy reject đúng | promotion gated |
+| T07 | voucher hold rồi reserve fail | release terminal đúng một effect | voucher gated |
+| T08 | reserve commit lost ACK/crash | same resource, không duplicate hold | core real Inventory |
+| T09 | cancel trước reserve chưa có row | tombstone serialize chặn late reserve | core real Inventory |
+| T10 | SQL placement commit lost ACK | query result, không compensate Order đã thành công | core |
+| T11 | exact/under/over/late/unmatched/multiple | mọi verified receipt giữ, only exact auto allocate | payment |
+| T12 | duplicated/altered transaction | same no-op, altered conflict | payment |
+| T13 | payment/timeout/finalize/expiry trước-bằng-sau hạn | một legal stock outcome, no premature ready | core real Inventory |
+| T14 | finalize ACK lost/stale worker | query COMMITTED, epoch guard, no release | core |
+| T15 | voucher unknown; COD unpaid; duplicate ready | no ready trước prerequisites, COD không paid giả | per feature |
+| T16 | accept vs cancel, permit/event trễ, hard hold | remote barrier một winner, cancelled không task mới | real Fulfillment |
+| T17 | outbox crash/rebalance; message N lỗi rồi N+1 | stable duplicate, không mất N | real Kafka |
+| T18 | checkpoint out-of-order/stale | durable DEFERRED, source query, không state lùi | Shipping/Fulfillment |
+| T19 | inbox transaction rollback/replay | effect và APPLIED atomic | core |
+| T20 | claim owner conflict/revoke | no overwrite, explicit policy | claim gated |
+| T21 | concurrent refund/unknown ACK | budget không âm, key stable/query | real provider |
+| T22 | partial/full refund và stock return | financial truth, không auto restock/restart | payment/returns |
+| T23 | case-open vs completion/callback lag | Care serialized decision, post-complete policy | real Care |
+| T24 | queue/cursor/hold scope + generation resume | đúng scope/SLA, old permit không reopen | core |
+| T25 | POS/marketplace business ID replay | unique channel/store/sale và payment evidence | extension gated |
+| T26 | DB/Kafka/remote outage, shutdown, PITR | obligations tồn tại, reconcile before resume | deployment |
+| T27 | success payload state rỗng/UNKNOWN/RESERVED/sai ID/digest | compensation/finalize/cancel không close sai | all adapters |
+| T28 | COMMITTED release; repeated reverse/batch expired | no fake release, one reversal, no sale of invalid batch | real Inventory |
+| T29 | production missing broker/auth/capability | fail startup/readiness, không log-and-publish giả | deployment |
+| T30 | cohort v1/v2 legacy và v3 target rollout/rollback | một authority/order, no double deduction/task | migration |
+| T31 | COD canonical quote hết hạn trước placement | revalidate approved policy hoặc compensate/review, không stale terms | COD |
+| T32 | response retention hết, obligation còn UNKNOWN | không key reuse hoặc xóa obligation/tombstone | retention |
 
-## 4. Traceability đúng mã FR/NFR hiện tại
+## 3. Failure recovery
 
-| Yêu cầu | Thiết kế chịu trách nhiệm | Tests |
+| Điểm lỗi | Durable state | Recovery |
 | --- | --- | --- |
-| FR-05; US-CHK-01..05; EPIC 05/06 | cart revision, quote, canonical snapshot, durable acquisition | T03..10 |
-| FR-06; US-PAY-01..03; EPIC 07 | receipts, COD, exact-match, reconciliation/refund ledger | T11..15, T21..22 |
-| FR-07; US-ORD-01/02/04/05/06; EPIC 08 | history/detail/cancel/queue/SLA/state guards | T01..02, T13, T16, T24 |
-| FR-08/09; EPIC 09 | Inventory ownership, FEFO contract, finalize vs TTL | T07..09, T13..14 |
-| FR-10/11/12; EPIC 10/11 | ready barrier, package/shipment projections | T15..18 |
-| FR-13/14; EPIC 12/13 | channel/store/external ID uniqueness, POS auth | T25 |
-| FR-15; EPIC 14/16 | Case/refund approval, partial financial outcome | T21..23 |
-| FR-17/18; EPIC 17 | voucher hold/consume, completion fact, loyalty ngoài Order | T06..07, T15, T23 |
-| FR-19/28; EPIC 18/26 | B2B/gifting extension, private snapshot | contract/policy test trước release riêng |
-| NFR-01 Performance | measured SLO theo endpoint/tải, keyset/index | load plan, không kết luận từ mock |
-| NFR-02 Mobile First | bounded list, allowed actions, pending response | web/mobile E2E khi client có |
-| NFR-03 Availability | durable saga, retry và restore/reconcile | T08..10, T17, T26 |
-| NFR-04/05 Security/Authorization | trusted principal, scope, service ACL | T01..02, T12, T20, T24..25 |
-| NFR-06 Data Integrity | atomic reservation, dedup, local transactions | T03..23 |
-| NFR-07 Audit Integrity | history + audit intent, downstream tamper-evident ledger | audit integration riêng + T19 |
-| NFR-08 Privacy | encrypted snapshot, no PII fan-out/logs | payload/log scan và auth tests |
-| NFR-09 Media Security | private packing evidence qua Fulfillment authorization | URL scope/expiry tests |
-| NFR-10 Scalability | index, bounded queues, publisher/worker leases | realistic load/scale/rebalance |
-| NFR-11 Observability | trace, counters, backlog, health external dependencies | fault + alert drill |
+| Validation unavailable | operation accepted, chưa acquire | bounded retry; policy reject rõ |
+| Reserve/hold lost ACK | step intent/key | authoritative query/replay, không key mới |
+| DB commit unclear | registry + operation/Order có thể đã commit | read authoritative trước compensation |
+| Remote expired sau receipt | receipt/allocation trace | hold/reconciliation/refund review, no ready |
+| Voucher failure sau stock committed | stock proof + job | no PAID, barrier/reversal/refund review |
+| Cancellation release unknown | cancelled + compensation obligation | query/tombstone proof; UI pending |
+| Barrier ACK lost | cancel intent/key/generation | query Fulfillment, không chỉ nhìn Order state |
+| Reverse success ACK lost | reversal obligation/key | query same reversal, không cộng lần hai |
+| Refund unknown | budget reserved | provider query/statement, không new refund key |
+| Kafka unavailable | outbox chưa published | retry/alert oldest age |
+| Malformed event | durable quarantine/DLQ | audited replay; no unsafe offset advance |
+| Auto retries exhausted | MANUAL_REVIEW + hold/reference | Ops query/resume same key, không xóa nghĩa vụ |
+| DB restore cũ hơn provider | checkpoint/history | reconcile ledger trước enable workers |
 
-FR-07 mới là Order Management; NFR-02 là Mobile First, NFR-07 là Audit Integrity, NFR-08 là Privacy. Không giữ mapping sai của v2.0. Local history không tự chứng minh tamper-evident audit chain; phải kiểm MS-18 end-to-end.
+Ops cần dashboard theo operation/order/key/remote decision. Manual resolution phải có permission/reason/evidence/audit; không generic status patch hoặc SQL sửa available để “khớp số”.
 
-## 5. Môi trường và bằng chứng
+## 4. Performance và release gates
 
-Dùng PostgreSQL 16/Redis/Kafka thật trong môi trường isolated; provider sandbox và Inventory/Promotion adapter có fault injection/query terminal ledger. Contract consumer tests gọi server thực được registered từ protobuf; stub chỉ kiểm branch logic. Để race test có ý nghĩa, dùng barrier, DB clock và remote terminal assertions thay vì sleep cố định.
+Acceptance latency: đầu request→durable202. Placement completion: acceptance→operation terminal. Payment finalization: verified receipt→PAID hoặc definitive reconciliation. Target đề xuất: acceptance p95<=200ms, placement p95<=3s, receipt→finalization p95<=5s khi dependencies healthy. Workload kiểm chứng ban đầu: 20 checkout/s trong10 phút sau warm-up2 phút, 5 SKU/order, dataset100.000 Orders và10.000 SKU; tài nguyên máy/network/cấu hình phải ghi vào report. Đây là workload mục tiêu cho lần nghiệm thu, chưa chạy/chưa chứng minh đạt. Chạy riêng hot-SKU/contention/100-SKU và fault tests; không loại business failures khỏi báo cáo error rate. NFR cũ <200ms toàn critical path cần được chủ yêu cầu xác nhận lại phạm vi đo: baseline tách acceptance khỏi completion, không dùng202 nhanh để tuyên bố toàn checkout đạt200ms. Không cộng các P95 riêng thành P95 toàn luồng hoặc dùng simulator latency làm production promise.
 
-Mỗi run ghi commit/schema version, config deadline/TTL, seed, line count/data size, concurrency, faults, latency distribution, SQL ledger counts và remote outcome; scrub PII/secrets. Những test chưa chạy phải đánh `NOT_RUN`, không chuyển PASS vì tài liệu đã mô tả. Xem [kế hoạch nghiệm thu](../../../04_testing/order-service/01_acceptance_and_verification_plan.md).
+Evidence mỗi run: SHAs cả hai service, schema/proto version, dataset/concurrency/line count, TTL/deadline, fault point, stock/receipt/refund ledger trước-sau và raw result đã scrub. Race dùng deterministic barrier/clock boundary, không dựa sleep ngẫu nhiên.
 
-Go-live gates: G01..G09 và các gaps theo feature trong chương 07 đã đóng; tests MVP pass; no unresolved money/stock integrity issue; restore và reconciliation drill có bằng chứng; provider contract/Guest auth/COD/return policy được phê duyệt. Test tài liệu của đợt này chỉ kiểm link/fence/XML, consistency asset và DDL candidate trong database tạm.
+Integration release: T01/03/04/05/08/09/10/11/12/13/14/17/19/27/28 pass với Inventory/provider thật; packing cần T16/18, COD T15/31, refund T21/22, completion T23; migration T30; deployment readiness/restore T26/29. Feature không đủ dependency giữ disabled. Không yêu cầu hoàn tất mọi feature mở rộng để nghiệm thu slice core.
+
+## 5. Traceability
+
+FR05 checkout → T03–10; FR06 payment → T11–15/21–22; FR07 Order lifecycle → T01/13/16/24; FR08–09 Inventory/FEFO → T08–09/13–14/28; FR10–12 fulfillment/shipping → T15–18; FR13–14 channels → T25; FR15 returns → T21–23; FR17–18 promotion → T06–07/15/23; FR19/28 B2B/gifting → extension tests riêng.
+
+NFR performance/availability cần workload/restore evidence; integrity cần ledger assertions; auth/privacy cần negative access và payload/log inspection; audit cần independent anchor policy khi yêu cầu chống privileged deletion; observability cần alert drill. Requirement labels tham chiếu bộ yêu cầu hiện tại, không suy từ số lượng tests thành coverage hoàn chỉnh.

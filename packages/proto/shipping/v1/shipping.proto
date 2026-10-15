@@ -42,6 +42,8 @@ message CalculateShippingFeeRequest {
 
   // Đơn hàng có quà tặng dễ vỡ cần đóng bọc xốp bóng khí cao cấp (Mè xửng giòn O Mạ)
   bool is_fragile = 5;
+  string contract_version = 6;
+  string request_hash = 7;
 }
 
 // Phản hồi tính phí vận chuyển
@@ -60,6 +62,12 @@ message CalculateShippingFeeResponse {
 
   // Lỗi nếu địa chỉ không được hỗ trợ giao vận
   optional omamx.common.v1.ErrorDetail error = 5;
+  // Required on successful order-3.2 quote; fee and validity bind request_hash.
+  string quote_id = 6;
+  google.protobuf.Timestamp valid_until = 7;
+  int64 quote_version = 8;
+  string request_hash = 9;
+  string contract_version = 10;
 }
 
 // Yêu cầu bàn giao bưu kiện sang 3PL

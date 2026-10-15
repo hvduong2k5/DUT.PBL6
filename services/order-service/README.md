@@ -14,6 +14,15 @@ API: `http://127.0.0.1:18004`; readiness `/readyz`; metrics `/metrics`. Simulato
 
 Only sandbox adapters are implemented. `APP_MODE=production` is refused. Existing Profile HTTP can be selected with `PROFILE_URL` and its own `PROFILE_INTERNAL_TOKEN`; the default stack uses the Profile simulator. No production provider/Identity/FEFO/OTP/loyalty integration is claimed.
 
+Order 3.2 now has a [proposed wire contract](../../packages/contracts/order-3.2.md), [target OpenAPI](../../docs/03_api_specs/order-service.openapi.yaml) and event schemas v3. Regenerated Go includes the added fields/stubs; application mappings and real provider capabilities remain pending. Sandbox regression uses the frozen [3.1 OpenAPI](../../docs/03_api_specs/order-service.sandbox-3.1.openapi.yaml) and unchanged v2 events. Missing 3.2 proof must never be synthesized or silently downgraded by an adapter.
+
+Static design-contract checks (no sandbox stack or external API calls):
+
+```powershell
+python -m pip install -r services/order-service/scripts/requirements-verification.txt
+python packages/contracts/verify_order_design.py --compile-proto
+```
+
 ## Run release gates
 
 ```powershell
@@ -61,4 +70,4 @@ Synthetic provider callbacks use timestamp-bound HMAC, a receiver reference and 
 
 Forward migrations run under a database lock and version table. Destructive down migration is refused. Commercial snapshots and audit records have immutable triggers; application workflows never truncate ledgers or delete idempotency registry keys. PII input/snapshots use AES-GCM with an explicit 32-byte key. Backup/key rotation and production credentials require a separate rollout.
 
-[Implementation details](../../docs/02_architecture/services/order-service/08_implementation_and_acceptance.md) · [REST](../../docs/03_api_specs/order-service.openapi.yaml) · [Dependency contracts](../../docs/03_api_specs/order-sandbox-dependencies.openapi.yaml) · [Verification](../../docs/04_testing/order-service/03_implementation_verification.md).
+[Implementation details](../../docs/02_architecture/services/order-service/08_implementation_and_acceptance.md) · [Sandbox REST](../../docs/03_api_specs/order-service.sandbox-3.1.openapi.yaml) · [Dependency contracts](../../docs/03_api_specs/order-sandbox-dependencies.openapi.yaml) · [Verification](../../docs/04_testing/order-service/03_implementation_verification.md).

@@ -1,5 +1,7 @@
 # MS-04 — implementation 3.1 và release gates
 
+> **Snapshot runtime 3.1, giữ làm bằng chứng lịch sử.** Thiết kế mục tiêu từ 13/10/2026 là [baseline3.2](00_order_service_hld.md), với [runtime gaps](07_decisions_and_contract_gaps.md). Chương này chỉ mô tả code/simulator tại lần triển khai 3.1; không ghi đè HLD/LLD01–07 mới và không chứng minh provider thật đã hỗ trợ giao thức3.2.
+
 **09/10/2026.** Đây là nguồn mô tả code hiện tại, thay thế các đoạn candidate v3.0 còn ghi Order DRAFT tại acceptance, PAID trước voucher finalize hoặc checkout p95 là toàn bộ Saga. Backend chạy ở **sandbox**; dependencies có trạng thái và provider ledger độc lập. Production startup bị từ chối vì chưa có bộ adapter thật được kiểm chứng.
 
 ## 1. Tài nguyên và transaction

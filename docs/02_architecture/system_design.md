@@ -1,5 +1,7 @@
 # KIẾN TRÚC HỆ THỐNG TỔNG THỂ (SYSTEM DESIGN DOCUMENT)
 
+> **Cập nhật Order 3.2 — 13/10/2026:** Luồng MS-04 và ownership Payment liên quan theo [HLD Order](services/order-service/00_order_service_hld.md). Các sơ đồ phân rã process cũ trong tài liệu này là bối cảnh lịch sử khi còn vẽ Cart/Payment riêng; không quyết định topology Order3.2. [ADR/gaps](services/order-service/07_decisions_and_contract_gaps.md) ghi phần provider chưa triển khai.
+
 ## HỆ SINH THÁI THƯƠNG MẠI ĐIỆN TỬ ĐA KÊNH & CHUỖI CUNG ỨNG ĐẶC SẢN OCOP HUẾ (MÈ XỬNG O MẠ)
 
 ---
@@ -12,7 +14,7 @@
 4. [Chi Tiết Miền Nghiệp Vụ (Domain Design)](#4-chi-tiết-miền-nghiệp-vụ-domain-design)
 5. [(Đã lược bỏ) Phân Loại Miền Nghiệp Vụ](#5-đã-lược-bỏ-phân-loại-miền-nghiệp-vụ)
 6. [Bounded Context Discovery, Domain Model &amp; Context Mapping](#6-bounded-context-discovery-domain-model--context-mapping)
-7. [Kiến Trúc Tương Tác &amp; Trục Truyền Thông Kafka (Service Communication Architecture)](#7-kiến-trúc-tương-tác--trục-truyền-thông-kafka-service-communication-architecture)
+7. [Kiến Trúc Tương Tác Hybrid & Trục Truyền Thông Kafka](#7-kiến-trúc-tương-tác-hybrid--trục-truyền-thông-kafka-hybrid-communication-architecture)
 8. [Giao Dịch Phân Tán &amp; 6 Luồng Saga Trọng Yếu (Distributed Transactions &amp; Saga)](#8-giao-dịch-phân-tán--6-luồng-saga-trọng-yếu-distributed-transactions--saga)
 9. [Sơ Đồ Kiến Trúc Hệ Thống Tổng Thể (System Architecture Diagram)](#9-sơ-đồ-kiến-trúc-hệ-thống-tổng-thể-system-architecture-diagram)
 10. [Kiến Trúc Bảo Mật Zero-Trust &amp; Định Danh mTLS (Security Architecture)](#10-kiến-trúc-bảo-mật-zero-trust--định-danh-mtls-security-architecture)
@@ -210,8 +212,8 @@ Hệ sinh thái Mè Xửng O Mạ áp dụng mô hình **Kiến Trúc Tương T�
                   │                                                   │
     • Cart -> Catalog (Validate Price)                  • OrderPaid -> Notification (Email/SMS)
     • Order -> Inventory (Reserve Stock)                • OrderPaid -> Analytics (ClickHouse)
-    • Order -> Payment (Authorize VietQR)               • OrderPaid -> Audit Log (Hash Chain)
-    • Order Inbound -> Inventory (Reserve Pool)         • OrderPaid -> Fulfillment (Pack Job ACK)
+    • Order Payment module -> Provider (receipt/query)               • OrderPaid -> Audit Log (Hash Chain)
+    • Order Inbound -> Inventory (Reserve Pool)         • FulfillmentReady -> Fulfillment (accept/cancel barrier)
 ```
 
 ---
@@ -237,7 +239,7 @@ Hệ sinh thái Mè Xửng O Mạ áp dụng mô hình **Kiến Trúc Tương T�
 - **Cơ Chế Phòng Vệ Tránh Sụp Đổ Dây Chuyền (Cascading Failure Prevention):**
   > [!CAUTION]
   > **Circuit Breaker tại tầng Order Orchestration Service (Không chỉ ở Gateway):**
-  > Khi `Order Service` gọi gRPC sang `Inventory Service` hoặc `Payment Service`, nếu phụ thuộc đồng bộ mà không có cơ chế tự ngắt, sự cố tại Inventory DB sẽ kéo sập toàn bộ thread/connection pool của Order Service chỉ trong vài giây. Do đó, hệ thống bắt buộc áp dụng:
+  > Khi `Order Service` gọi gRPC sang `Inventory Service` hoặc payment provider, nếu phụ thuộc đồng bộ mà không có cơ chế tự ngắt, sự cố tại Inventory DB sẽ kéo sập toàn bộ thread/connection pool của Order Service chỉ trong vài giây. Do đó, hệ thống bắt buộc áp dụng:
   >
   > 1. **Strict Timeout ngắn:** Mọi lời gọi gRPC trên critical path có timeout tối đa **2.0 giây**.
   > 2. **Giới hạn Retry:** Tối đa **1 lần retry** (với Exponential Backoff), tuyệt đối không retry vô hạn vì sẽ gây giữ khóa phân tán quá hạn TTL.
@@ -251,7 +253,7 @@ Hệ sinh thái Mè Xửng O Mạ áp dụng mô hình **Kiến Trúc Tương T�
 #### A. Phân Biệt Rành Mạch Event vs Command
 
 - **Domain Event (Sự kiện miền):** Mang ý nghĩa *"Một việc đã xảy ra trong quá khứ"* (ví dụ: `OrderPaidEvent`, `StockReservedEvent`). Sự kiện mang tính thông báo, dịch vụ phát hành không quan tâm ai sẽ tiêu thụ nó.
-- **Asynchronous Command (Lệnh bất đồng bộ):** Mang ý nghĩa *"Yêu cầu một dịch vụ khác thực thi hành động cụ thể"* (ví dụ: `ReleaseStockReservationCommand`, `DispatchNotificationCommand`). Lệnh này hướng đích rõ ràng tới một consumer cụ thể thông qua Kafka Topic riêng.
+- **Asynchronous Command (Lệnh bất đồng bộ):** Mang ý nghĩa *"Yêu cầu một dịch vụ khác thực thi hành động cụ thể"* (ví dụ: `DispatchNotificationCommand`; Order3.2 dùng gRPC release). Lệnh này hướng đích rõ ràng tới một consumer cụ thể thông qua Kafka Topic riêng.
 
 #### B. Chiến Lược Hàng Đợi Chết (Dead Letter Queue - DLQ & Re-drive Policy)
 
@@ -272,11 +274,11 @@ Bảng phân định chuẩn hóa mọi luồng tương tác giữa các service
 | **Client $\rightarrow$ API Gateway (Mobile)**      |       Đồng bộ       |    GraphQL BFF    | Gom nhiều query màn hình home/catalog trong 1 round-trip di động.                                                              |
 | **Client $\rightarrow$ API Gateway (Web/POS)**     |       Đồng bộ       |   RESTful HTTPS   | Chuẩn hóa tài nguyên CRUD, dễ cache CDN và tương thích POS quầy.                                                          |
 | **Cart $\rightarrow$ Catalog**                     |       Đồng bộ       |        gRPC        | Xác thực giá và tình trạng kinh doanh tức thời khi user mở giỏ hàng.                                                     |
-| **Order $\rightarrow$ Inventory (D2C Checkout)**   |       Đồng bộ       |    gRPC Command    | **Critical Path**: Cần câu trả lời ngay để quyết định tạo đơn PENDING (Timeout 2s, Max 1 Retry, Circuit Breaker). |
-| **Order $\rightarrow$ Payment (Init VietQR)**      |       Đồng bộ       |    gRPC Command    | Khởi tạo mã thanh toán VietQR động và đăng ký Idempotency Key tức thì.                                                  |
-| **Payment Webhook $\rightarrow$ Order**            |     Bất đồng bộ     |    Kafka Event    | Webhook ngân hàng bắn vào, Payment xử lý HMAC rồi phát`PaymentConfirmedEvent` lên Kafka.                                 |
-| **Order $\rightarrow$ Inventory (Commit Deduct)**  |     Bất đồng bộ     |   Kafka Command   | Sau khi Paid, lệnh trừ kho chính thức chuyển qua Kafka, Inventory xử lý tin cậy qua Idempotent Consumer.                    |
-| **Order $\rightarrow$ Fulfillment (Packing Job)**  | Bất đồng bộ có ACK |     Kafka Saga     | **FEFO Nuance**: Phát lệnh đóng gói, Order chờ `PackingJobAcceptedEvent` trước khi sang `PROCESSING`.             |
+| Order → Inventory reserve | Worker gRPC attempt | Stable key/query | HTTP acceptance202 độc lập, Order chỉ place sau reserve proof hợp lệ |
+| Order Payment component → Provider | Provider adapter | Callback/query contract | QR instruction không phải receipt; module thuộc MS-04 |
+| Provider → Order Payment component | Callback và statement/query | Provider contract | Verify receipt, persist independent money ledger |
+| Order → Inventory finalize | Durable worker gRPC | Terminal command/query | Finalize trước PAID; expire/commit atomic tại Inventory |
+| Order ↔ Fulfillment | Ready Kafka + permit/accept/cancel/query | Barrier | Task acceptance serialize với cancel, generation chống stale event |
 | **Order $\rightarrow$ Notification**               |     Bất đồng bộ     |    Kafka Event    | Side-effect không quan trọng: SendGrid/ZNS lỗi không được phép làm nghẽn đơn hàng; có DLQ retry.                      |
 | **Order $\rightarrow$ Analytics & AI**             |     Bất đồng bộ     |    Kafka Event    | Stream sự kiện sang ClickHouse; phân tích dữ liệu lớn hoàn toàn tách biệt khỏi giao dịch OLTP.                         |
 | **Order $\rightarrow$ Audit Log**                  |     Bất đồng bộ     |    Kafka Event    | Lưu vết bất biến kiểm toán theo chuỗi băm; Audit Service chạy Consumer-Only để cách ly an ninh.                         |
@@ -288,13 +290,9 @@ Bảng phân định chuẩn hóa mọi luồng tương tác giữa các service
 
 ### 12.5. Hai Đặc Thù Nghiệp Vụ Sống Còn Của Mè Xửng O Mạ (Domain Nuances)
 
-#### Nuance 1: Đơn Hàng Sang Đóng Gói (Order $\rightarrow$ Fulfillment) Cần State Machine ACK
+#### Nuance 1: FulfillmentReady và task barrier
 
-- **Vấn đề:** Mè Xửng là mặt hàng thực phẩm có HSD (Date ngắn dưới 45 ngày). Việc xuất kho tuân thủ nghiêm ngặt nguyên tắc **FEFO (First Expired, First Out)**. Nếu coi `Order` $\rightarrow$ `Fulfillment` là async dạng "bắn rồi quên" (Fire-and-forget), `Order Service` chuyển ngay trạng thái đơn sang `PROCESSING`, trong khi nhân viên xưởng chưa nhận việc hoặc hệ thống in tem lỗi. Hậu quả là các đơn hàng tiếp theo có thể bị phân bổ nhầm Lô (Batch) hoặc trừ kho ảo.
-- **Giải pháp Kiến trúc:**
-  - `Order Service` phát sự kiện `CreatePackingJobCommand` lên Kafka topic `fulfillment-jobs`.
-  - `Fulfillment Service` nhận lệnh, phân bổ công việc cho nhân viên đóng gói cụ thể, gán mã Lô FEFO chính thức và phát lại sự kiện `PackingJobAcceptedEvent`.
-  - `Order Orchestration Service` (đóng vai trò Saga State Machine) tiêu thụ sự kiện này rồi mới chính thức chuyển trạng thái đơn hàng từ `PAID` sang `PROCESSING`. Đây là mô hình **Asynchronous Saga with Two-Way State Handshake**.
+Inventory quyết định FEFO allocation. Order phát ready khi resources đủ điều kiện; Fulfillment verify permit và serialize AcceptTask với CancelTask. Chỉ accepted fact hợp lệ mới chuyển PROCESSING; local state chưa PROCESSING không chứng minh remote chưa nhận việc. [Barrier protocol](services/order-service/05_api_contracts_and_transports.md).
 
 #### Nuance 2: Đồng Bộ Đơn Sàn (Marketplace Inbound) Kết Hợp Sync Reservation
 
@@ -310,63 +308,23 @@ Bảng phân định chuẩn hóa mọi luồng tương tác giữa các service
 
 Hệ thống áp dụng mô hình **Saga Orchestration** do `Order Orchestration Service` làm Process Manager, phối hợp nhịp nhàng giữa **Synchronous gRPC Commands (trên Critical Path có Circuit Breaker)** và **Asynchronous Kafka Events (cho Downstream Handshakes & Compensations)**.
 
-### 13.1. Luồng Đặt Hàng & Thanh Toán Chuẩn (Checkout Saga - FR-05, FR-06, FR-07)
+### 13.1. Checkout và finalization — baseline3.2
 
-> [!IMPORTANT]
-> **Ràng Buộc Kỹ Thuật Về Nguồn Chân Lý Tồn Kho (Single Source of Truth):**
-> Cơ chế phân tán Redis Redlock chỉ đóng vai trò hỗ trợ kiểm soát tranh chấp luồng (Concurrency Rate-limiting & Fast Rejection). **Toàn bộ tính đúng đắn bất biến của số lượng tồn kho khả dụng bắt buộc phải được bảo vệ tại ranh giới Database Transaction của Inventory Service** (sử dụng câu lệnh `SELECT ... FOR UPDATE` trên bảng `inventory_items` và tạo bản ghi trong bảng `stock_reservations` với thời hạn TTL 15 phút).
+PostgreSQL Inventory transaction bảo vệ stock invariants; Redis lock chỉ hỗ trợ contention. Order durable operation trước calls, new acceptance202, worker reserve rồi mới place Order. Verified receipt → PAYMENT_FINALIZING → gRPC finalize stock và voucher nếu bật → PAID → ready event/barrier → task accepted. Cancel pending lưu release intent; committed cancel cần Fulfillment barrier và reversal.
 
-```mermaid
-sequenceDiagram
-    autonumber
-    actor Customer as Khách Hàng
-    participant Gateway as API Gateway
-    participant Order as Order Orchestration Service
-    participant Inventory as Inventory & Batch Service
-    participant Payment as Payment & Settlement Service
-    participant Kafka as Apache Kafka (Unified Broker)
-    participant Notif as Notification Service
+Inventory được tự expire lease dưới cùng row lock/DB deadline với finalize. Query/stable key/tombstone xử lý lost ACK/late reserve. Payment component thuộc MS-04; Finance accounting, Care approval.
 
-    Customer->>Gateway: POST /api/v1/orders (Đặt hàng)
-    Gateway->>Order: Forward Request (Authenticated Identity Context)
-    Order->>Order: DB Transaction: Tạo Đơn Status = PENDING_PAYMENT
-    Order->>Inventory: gRPC: ReserveStockCommand(order_id, items)
-    Inventory->>Inventory: DB Transaction (SELECT FOR UPDATE): Validate & Khóa tồn 15p
-    Inventory-->>Order: Reservation Confirmed
-    Order-->>Customer: Trả về Đơn Hàng & VietQR Code
+[Sơ đồ chuẩn](services/order-service/00_order_service_hld.md) · [Contract chi tiết](services/order-service/05_api_contracts_and_transports.md) · [Fault gates](services/order-service/06_testing_and_failure_recovery.md).
 
-    alt Khách thanh toán thành công trong 15 phút
-        Customer->>Payment: Chuyển khoản VietQR
-        Payment->>Payment: Webhook verified (HMAC & Idempotency Key)
-        Payment->>Kafka: Publish: PaymentConfirmedEvent
-        Kafka->>Order: Consume: PaymentConfirmedEvent
-        Order->>Order: DB Transaction: Update Status = PAID
-        Order->>Kafka: Publish: CommitStockDeductionCommand
-        Kafka->>Inventory: Consume: CommitStockDeductionCommand
-        Inventory->>Inventory: DB Transaction: Chuyển Reserved -> Deducted chính thức
-        Order->>Kafka: Publish: OrderConfirmedEvent
-        Kafka->>Notif: Consume: OrderConfirmedEvent
-        Notif->>Customer: Gửi Email/ZNS xác nhận & Mã tra cứu hóa đơn VAT
-    else Quá hạn 15 phút không thanh toán (Compensating Transaction)
-        Order->>Order: Scheduled Worker: OrderExpiredEvent
-        Order->>Kafka: Publish: ReleaseStockReservationCommand
-        Kafka->>Inventory: Consume: ReleaseStockReservationCommand
-        Inventory->>Inventory: DB Transaction: Giải phóng reserved_quantity về available_quantity
-        Order->>Order: Update Status = CANCELLED_TIMEOUT
-    end
-```
+---
 
-### 13.2. Luồng Khiếu Nại, Kiểm Định & Hoàn Tiền (Refund Saga - FR-06, FR-15)
+### 13.2. Return và Refund Saga
 
-1. **Bước 1 (Thẩm định):** Khách gửi ticket khiếu nại kèm ảnh sản phẩm vỡ. CSKH tra cứu Packing Video để xác minh. Sau khi Sales Manager duyệt $\rightarrow$ `Customer Service Service` phát sự kiện `ReturnApprovedEvent` lên Kafka.
-2. **Bước 2 (Tiếp nhận):** Khách gửi hàng hoàn về xưởng. Thủ kho quét mã vận đơn hoàn $\rightarrow$ Phát sự kiện `ReturnShipmentReceivedEvent`.
-3. **Bước 3 (Kiểm định Chất lượng - Quality Inspection):** Chuyên viên kiểm định đánh giá:
-   - Nếu hàng còn nguyên seal, chưa bóc $\rightarrow$ Nhập kho cách ly kiểm định rồi nhập lại tồn kho khả dụng (`Restock`).
-   - Nếu hàng vỡ nát, hỏng hóc $\rightarrow$ Nhập biên bản phế phẩm tiêu hủy (`Quarantine / Destroy`).
-   - Phát sự kiện `GoodsInspectionCompletedEvent(is_refund_eligible = true)`.
-4. **Bước 4 (Kích hoạt Hoàn tiền):** `Payment & Settlement Service` bắt sự kiện từ Kafka, gọi Refund API ngân hàng/cổng thanh toán để hoàn tiền về tài khoản gốc của khách $\rightarrow$ Phát sự kiện `RefundCompletedEvent`.
-5. **Bước 5 (Hạch toán):** `Finance & Accounting Service` bắt sự kiện để ghi giảm trừ doanh thu và đối soát thuế VAT.
-6. **Compensating (Bù trừ sự cố):** Nếu Refund API ngân hàng báo lỗi $\rightarrow$ Phát `RefundFailedEvent` $\rightarrow$ `Customer Service Service` tự động chuyển ticket sang trạng thái `Cần tra soát thủ công` và gửi cảnh báo khẩn tới Kế toán trưởng.
+Care xác nhận case/approval scope; Inventory kiểm định return và quyết định restock/quarantine. Payment component MS-04 giữ refund budget, query/execute provider theo stable key; Finance hạch toán settlement. Refund và restock là hai quyết định riêng, không tự thực hiện thay nhau.
+
+[Use cases Order](services/order-service/04_usecases_and_saga_orchestration.md) quy định approval, UNKNOWN, partial refund và completion barrier.
+
+---
 
 ### 13.3. Luồng Đồng Bộ Hai Chiều Sàn TMĐT (Marketplace Saga - FR-13)
 

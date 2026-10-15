@@ -33,11 +33,11 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type InventoryServiceClient interface {
-	// Khóa giữ chỗ tồn kho tức thời trong 15 phút (Command Critical Path < 20ms)
+	// Atomic all-items reservation. Requested TTL <=15m; actual expiry is authoritative.
 	// Chỉ duy nhất MS-04 Order Saga Orchestrator được quyền gọi RPC này
 	ReserveStock(ctx context.Context, in *ReserveStockRequest, opts ...grpc.CallOption) (*ReserveStockResponse, error)
 	// Giải phóng tồn kho khóa tạm khi đơn hàng bị hủy hoặc quá hạn 15 phút
-	// Kích hoạt bởi cơ chế Centralized Compensation của MS-04
+	// Legacy API; Order 3.2 uses ReleaseReservationByOrder and verifies terminal proof.
 	ReleaseReservation(ctx context.Context, in *ReleaseReservationRequest, opts ...grpc.CallOption) (*ReleaseReservationResponse, error)
 	// Truy vấn số lượng tồn kho vật lý và khả dụng theo danh sách mã SKU
 	GetStockLevel(ctx context.Context, in *GetStockLevelRequest, opts ...grpc.CallOption) (*GetStockLevelResponse, error)
@@ -134,11 +134,11 @@ func (c *inventoryServiceClient) ReverseCommittedStock(ctx context.Context, in *
 // All implementations must embed UnimplementedInventoryServiceServer
 // for forward compatibility
 type InventoryServiceServer interface {
-	// Khóa giữ chỗ tồn kho tức thời trong 15 phút (Command Critical Path < 20ms)
+	// Atomic all-items reservation. Requested TTL <=15m; actual expiry is authoritative.
 	// Chỉ duy nhất MS-04 Order Saga Orchestrator được quyền gọi RPC này
 	ReserveStock(context.Context, *ReserveStockRequest) (*ReserveStockResponse, error)
 	// Giải phóng tồn kho khóa tạm khi đơn hàng bị hủy hoặc quá hạn 15 phút
-	// Kích hoạt bởi cơ chế Centralized Compensation của MS-04
+	// Legacy API; Order 3.2 uses ReleaseReservationByOrder and verifies terminal proof.
 	ReleaseReservation(context.Context, *ReleaseReservationRequest) (*ReleaseReservationResponse, error)
 	// Truy vấn số lượng tồn kho vật lý và khả dụng theo danh sách mã SKU
 	GetStockLevel(context.Context, *GetStockLevelRequest) (*GetStockLevelResponse, error)

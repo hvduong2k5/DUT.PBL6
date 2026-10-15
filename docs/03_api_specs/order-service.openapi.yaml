@@ -1,12 +1,12 @@
 openapi: 3.0.3
 info:
   title: MS-04 Order — asynchronous operations
-  version: 3.1.0
-  description: Go implementation contract. Dependencies use stateful sandbox protocols;
-    money is integer VND. New checkout returns 202 and a durable checkout operation
-    resource.
+  version: 3.2.0
+  description: Proposed Order 3.2 target contract, pending provider agreement and implementation. Integer
+    VND. This is not evidence of deployed capability; runtime 3.1 is frozen in order-service.sandbox-3.1.openapi.yaml.
 servers:
-- url: http://127.0.0.1:18004
+- url: https://api.omama.example
+  description: Illustrative target; not a deployed server
 paths:
   /api/v1/cart:
     get:
@@ -24,81 +24,31 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '401':
           description: Authentication required
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '404':
           description: Missing or unowned resource
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '409':
           description: State/version/idempotency conflict
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '503':
           description: Unavailable before durable acceptance
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
       security:
       - bearerAuth: []
   /api/v1/cart/items:
@@ -117,81 +67,31 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '401':
           description: Authentication required
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '404':
           description: Missing or unowned resource
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '409':
           description: State/version/idempotency conflict
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '503':
           description: Unavailable before durable acceptance
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
       security:
       - bearerAuth: []
       requestBody:
@@ -233,81 +133,31 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '401':
           description: Authentication required
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '404':
           description: Missing or unowned resource
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '409':
           description: State/version/idempotency conflict
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '503':
           description: Unavailable before durable acceptance
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
       security:
       - bearerAuth: []
       requestBody:
@@ -383,130 +233,102 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CheckoutOperation'
+              example: &id002
+                operation_id: 11111111-1111-4111-8111-111111111111
+                status: ACCEPTED
+                stage: VALIDATING
+                order_id: null
+                accepted_at: '2026-10-15T03:00:00Z'
+                updated_at: '2026-10-15T03:00:00Z'
         '400':
           description: Invalid input
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '401':
           description: Authentication required
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '404':
           description: Missing or unowned resource
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '409':
           description: State/version/idempotency conflict
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '503':
           description: Unavailable before durable acceptance
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '201':
           description: Replay of successful checkout, same operation and Order
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/CheckoutOperation'
+              example:
+                operation_id: 11111111-1111-4111-8111-111111111111
+                status: SUCCEEDED
+                stage: DONE
+                order_id: 11111111-1111-4111-8111-111111111111
+                accepted_at: '2026-10-15T03:00:00Z'
+                updated_at: '2026-10-15T03:00:00Z'
           headers:
             Link:
               schema:
                 type: string
-              description: 'Present when Order has committed: </api/v1/orders/{order_id}>;
-                rel="item".'
+              description: 'Present when Order has committed: </api/v1/orders/{order_id}>; rel="item".'
         '410':
           description: Response expired; key remains non-reusable
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '422':
           description: Replay durable validation failure
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Function denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '413':
+          description: Input too large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '429':
+          description: Overloaded; retry same key after Retry-After
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          headers:
+            Retry-After:
+              schema:
+                type: string
+              description: Delay in seconds
+        '504':
+          description: Outcome unknown; replay same key/query
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
       security:
       - bearerAuth: []
       parameters:
@@ -517,6 +339,7 @@ paths:
           type: string
           minLength: 16
           maxLength: 128
+          pattern: ^[!-~]{16,128}$
       requestBody:
         required: true
         content:
@@ -540,10 +363,12 @@ paths:
                   enum:
                   - VIETQR
                   - COD
-      description: Acceptance verifies owned server quote at DB time and persists
-        operation/input/key. Worker validates commercial conditions and reserves resources
-        asynchronously. Expired terminal replay is 410; keys never become reusable
-        automatically.
+      description: Acceptance verifies owned server quote at DB time and persists operation/input/key.
+        Worker validates commercial conditions and reserves resources asynchronously. Expired terminal
+        replay is 410; keys never become reusable automatically. Key scope is authenticated principal/action;
+        canonical body hash is persisted. Same key with different input returns 409. Transport timeout
+        after sending requires same-key replay/query. New acceptance always returns 202 with null order_id;
+        replay SUCCEEDED returns 201 with the original non-null Order reference.
   /api/v1/checkout-operations/{id}:
     get:
       operationId: getCheckoutOperation
@@ -559,88 +384,37 @@ paths:
             Link:
               schema:
                 type: string
-              description: 'Present when Order has committed: </api/v1/orders/{order_id}>;
-                rel="item".'
+              description: 'Present when Order has committed: </api/v1/orders/{order_id}>; rel="item".'
         '400':
           description: Invalid input
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '401':
           description: Authentication required
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '404':
           description: Missing or unowned resource
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '409':
           description: State/version/idempotency conflict
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '503':
           description: Unavailable before durable acceptance
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
       security:
       - bearerAuth: []
       parameters:
@@ -677,81 +451,31 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '401':
           description: Authentication required
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '404':
           description: Missing or unowned resource
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '409':
           description: State/version/idempotency conflict
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '503':
           description: Unavailable before durable acceptance
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
       security:
       - bearerAuth: []
   /api/v1/orders/{id}:
@@ -770,81 +494,31 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '401':
           description: Authentication required
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '404':
           description: Missing or unowned resource
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '409':
           description: State/version/idempotency conflict
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '503':
           description: Unavailable before durable acceptance
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
       security:
       - bearerAuth: []
       parameters:
@@ -870,81 +544,31 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '401':
           description: Authentication required
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '404':
           description: Missing or unowned resource
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '409':
           description: State/version/idempotency conflict
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '503':
           description: Unavailable before durable acceptance
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
       security:
       - bearerAuth: []
       parameters:
@@ -960,91 +584,57 @@ paths:
       summary: cancelOrder
       responses:
         '202':
-          description: Durable response
+          description: Durable cancellation pending remote decision/recovery
           content:
             application/json:
               schema:
-                type: object
+                $ref: '#/components/schemas/Cancellation'
+          headers:
+            Location:
+              schema:
+                type: string
+              description: /api/v1/orders/{id}; poll cancellation_status and compensation_status
         '400':
           description: Invalid input
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '401':
           description: Authentication required
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '404':
           description: Missing or unowned resource
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '409':
           description: State/version/idempotency conflict
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '503':
           description: Unavailable before durable acceptance
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
+        '200':
+          description: Terminal cancellation decision
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cancellation'
+          headers:
+            Location:
+              schema:
+                type: string
+              description: /api/v1/orders/{id}; poll cancellation_status and compensation_status
       security:
       - bearerAuth: []
       parameters:
@@ -1061,11 +651,15 @@ paths:
           type: string
           minLength: 16
           maxLength: 128
+          pattern: ^[!-~]{16,128}$
       - in: header
         name: If-Match
         required: true
         schema:
           type: string
+          pattern: ^[1-9][0-9]*$
+        description: Decimal expected Order version (same value as gRPC expected_version); conflicts return
+          409.
       requestBody:
         required: true
         content:
@@ -1077,9 +671,17 @@ paths:
                 reason:
                   type: string
                   maxLength: 255
+                  minLength: 1
                 active:
                   type: boolean
                   default: true
+              required:
+              - active
+              - reason
+      description: Persist cancellation intent first. Unpaid cancellation may commit while compensation
+        remains PENDING. Committed/COD cancellation is not SUCCEEDED until Fulfillment cancellation barrier
+        and stock reversal are verified. ACCEPTED task rejects self-cancel; paid cancellation requires
+        Care review. Timeout is not proof of cancellation.
   /api/v1/orders/{id}/cancellation-requests:
     post:
       operationId: requestPaidCancellation
@@ -1090,87 +692,37 @@ paths:
           content:
             application/json:
               schema:
-                type: object
+                $ref: '#/components/schemas/CancellationReview'
         '400':
           description: Invalid input
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '401':
           description: Authentication required
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '404':
           description: Missing or unowned resource
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '409':
           description: State/version/idempotency conflict
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '503':
           description: Unavailable before durable acceptance
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
       security:
       - bearerAuth: []
       parameters:
@@ -1187,16 +739,32 @@ paths:
           type: string
           minLength: 16
           maxLength: 128
+          pattern: ^[!-~]{16,128}$
       - in: header
         name: If-Match
         required: true
         schema:
           type: string
+          pattern: ^[1-9][0-9]*$
+        description: Decimal expected Order version (same value as gRPC expected_version); conflicts return
+          409.
       requestBody:
         required: true
         content:
           application/json:
-            schema: *id001
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                reason:
+                  type: string
+                  minLength: 1
+                  maxLength: 255
+              required:
+              - reason
+      x-feature-gate: verified-care-approval
+      description: Accept a Care review request; does not yet cancel, refund or restock. Owner/function/version
+        checks apply.
   /api/v1/admin/orders/{id}/hold:
     post:
       operationId: holdOrder
@@ -1207,89 +775,43 @@ paths:
           content:
             application/json:
               schema:
-                type: object
+                $ref: '#/components/schemas/HoldDecision'
         '400':
           description: Invalid input
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '401':
           description: Authentication required
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '404':
           description: Missing or unowned resource
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '409':
           description: State/version/idempotency conflict
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '503':
           description: Unavailable before durable acceptance
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '200':
           description: Hold mutation/replay committed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HoldDecision'
       security:
       - bearerAuth: []
       parameters:
@@ -1306,16 +828,24 @@ paths:
           type: string
           minLength: 16
           maxLength: 128
+          pattern: ^[!-~]{16,128}$
       - in: header
         name: If-Match
         required: true
         schema:
           type: string
+          pattern: ^[1-9][0-9]*$
+        description: Decimal expected Order version (same value as gRPC expected_version); conflicts return
+          409.
       requestBody:
         required: true
         content:
           application/json:
             schema: *id001
+      description: active=true sets local hold first and is PENDING until authoritative Fulfillment CANCELLED
+        proof. ACCEPTED task rejects hard hold; UNKNOWN preserves pending obligation. active=false resumes
+        only after old generation is closed and eligibility is revalidated, issuing a new generation.
+        Function/warehouse scope and audited reason are required.
   /api/v1/admin/orders:
     get:
       operationId: listStaffOrders
@@ -1343,81 +873,31 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '401':
           description: Authentication required
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '404':
           description: Missing or unowned resource
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '409':
           description: State/version/idempotency conflict
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '503':
           description: Unavailable before durable acceptance
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
       security:
       - bearerAuth: []
   /api/v1/admin/orders/queue:
@@ -1436,81 +916,31 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '401':
           description: Authentication required
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '404':
           description: Missing or unowned resource
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '409':
           description: State/version/idempotency conflict
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '503':
           description: Unavailable before durable acceptance
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
       security:
       - bearerAuth: []
   /api/v1/payments/vietqr/callback:
@@ -1529,188 +959,46 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '401':
           description: Authentication required
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '404':
           description: Missing or unowned resource
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '409':
           description: State/version/idempotency conflict
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '503':
           description: Unavailable before durable acceptance
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
-      description: 'Simulator adapter only: timestamp-bound HMAC signature. Real provider
-        requires a separately verified adapter.'
+                $ref: '#/components/schemas/ApiError'
+        '501':
+          description: Provider adapter not configured
+      description: Provider-specific raw callback adapter, feature-gated until provider signature/finality
+        contract is selected. Verify raw bytes, receiver, currency and transaction uniqueness before durable
+        receipt ACK. Receipt acceptance does not mean PAID or ready. Unmatched money is retained for reconciliation.
       requestBody:
         required: true
         content:
-          application/json:
+          application/octet-stream:
             schema:
-              $ref: '#/components/schemas/Receipt'
-  /internal/events:
-    post:
-      operationId: consumeSourceEvent
-      summary: consumeSourceEvent
-      responses:
-        '202':
-          description: Durable response
-          content:
-            application/json:
-              schema:
-                type: object
-        '400':
-          description: Invalid input
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
-        '401':
-          description: Authentication required
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
-        '404':
-          description: Missing or unowned resource
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
-        '409':
-          description: State/version/idempotency conflict
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
-        '503':
-          description: Unavailable before durable acceptance
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+              type: string
+              format: binary
       security:
-      - internalToken: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SourceEvent'
+      - providerSignature: []
+      x-feature-gate: verified-payment-provider
   /internal/refunds:
     post:
       operationId: acceptApprovedRefund
@@ -1721,89 +1009,59 @@ paths:
           content:
             application/json:
               schema:
-                type: object
+                $ref: '#/components/schemas/RefundOperation'
         '400':
           description: Invalid input
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '401':
           description: Authentication required
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '404':
           description: Missing or unowned resource
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '409':
           description: State/version/idempotency conflict
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '503':
           description: Unavailable before durable acceptance
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
       security:
-      - internalToken: []
+      - serviceIdentity: []
+      x-feature-gate: verified-provider-adapter
+      description: ' Target requires trusted service ACL and authoritative decision query; arbitrary approval
+        IDs/header values are not proof. Not enabled until its provider protocol is agreed. Query Care
+        approval and bind order/receipt/amount/currency/budget before durable refund intent. Reuse provider
+        key after unknown; this command never restocks goods.'
+      parameters:
+      - in: header
+        name: X-Idempotency-Key
+        required: true
+        schema:
+          type: string
+          minLength: 16
+          maxLength: 128
+          pattern: ^[!-~]{16,128}$
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApprovalReferenceRequest'
   /internal/recovery/{id}:
     post:
       operationId: resumeRecovery
@@ -1820,81 +1078,31 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '401':
           description: Authentication required
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '404':
           description: Missing or unowned resource
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '409':
           description: State/version/idempotency conflict
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '503':
           description: Unavailable before durable acceptance
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
       parameters:
       - in: path
         name: id
@@ -1903,8 +1111,10 @@ paths:
           type: string
           format: uuid
       security:
-      - internalToken: []
-        bearerAuth: []
+      - serviceIdentity: []
+      x-feature-gate: verified-provider-adapter
+      description: ' Target requires trusted service ACL and authoritative decision query; arbitrary approval
+        IDs/header values are not proof. Not enabled until its provider protocol is agreed.'
   /livez:
     get:
       operationId: liveness
@@ -1921,81 +1131,31 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '401':
           description: Authentication required
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '404':
           description: Missing or unowned resource
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '409':
           description: State/version/idempotency conflict
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '503':
           description: Unavailable before durable acceptance
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
   /readyz:
     get:
       operationId: readiness
@@ -2012,81 +1172,31 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '401':
           description: Authentication required
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '404':
           description: Missing or unowned resource
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '409':
           description: State/version/idempotency conflict
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '503':
           description: Unavailable before durable acceptance
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
   /api/v1/cart/items/{item_id}:
     put:
       operationId: updateCartItem
@@ -2103,81 +1213,31 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '401':
           description: Authentication required
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '404':
           description: Missing or unowned resource
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '409':
           description: State/version/idempotency conflict
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '503':
           description: Unavailable before durable acceptance
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
       security:
       - bearerAuth: []
       parameters:
@@ -2219,81 +1279,31 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '401':
           description: Authentication required
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '404':
           description: Missing or unowned resource
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '409':
           description: State/version/idempotency conflict
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
         '503':
           description: Unavailable before durable acceptance
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
       security:
       - bearerAuth: []
       parameters:
@@ -2309,42 +1319,11 @@ paths:
       responses:
         '201':
           description: Signed Guest session token
-  /internal/ready-authorizations/{id}:
-    get:
-      operationId: checkCurrentReadyAuthorization
-      security:
-      - internalToken: []
-      parameters:
-      - in: path
-        name: id
-        required: true
-        schema:
-          type: string
-          format: uuid
-      responses:
-        '200':
-          description: Minimal eligibility and generation; no PII
-        '401':
-          description: Trusted internal caller required
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
   /internal/cancellations/approve:
     post:
       operationId: applyCareCancellationApproval
       security:
-      - internalToken: []
+      - serviceIdentity: []
       requestBody:
         required: true
         content:
@@ -2365,27 +1344,29 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      retryable:
-                        type: boolean
-                  operation_id:
-                    type: string
+                $ref: '#/components/schemas/ApiError'
+      x-feature-gate: verified-provider-adapter
+      description: ' Target requires trusted service ACL and authoritative decision query; arbitrary approval
+        IDs/header values are not proof. Not enabled until its provider protocol is agreed.'
+      parameters: []
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
-    internalToken:
+    serviceIdentity:
+      type: http
+      scheme: bearer
+      bearerFormat: Service JWT
+      description: Verified issuer/audience/service ACL over TLS; deployment may additionally require
+        mTLS.
+    providerSignature:
       type: apiKey
       in: header
-      name: X-Internal-Token
+      name: X-Provider-Signature
+      description: Illustrative header; exact raw signature contract must be pinned with selected provider
+        before activation.
   schemas:
     CheckoutOperation:
       type: object
@@ -2395,6 +1376,8 @@ components:
       - status
       - order_id
       - accepted_at
+      - stage
+      - updated_at
       properties:
         operation_id:
           type: string
@@ -2420,6 +1403,58 @@ components:
         accepted_at:
           type: string
           format: date-time
+        stage:
+          type: string
+          enum:
+          - VALIDATING
+          - ACQUIRING
+          - PLACING
+          - COMPENSATING
+          - DONE
+        updated_at:
+          type: string
+          format: date-time
+        retry_at:
+          type: string
+          format: date-time
+          nullable: true
+      description: order_id is null until atomic placement. SUCCEEDED requires non-null order_id; FAILED
+        requires error_code. MANUAL_REVIEW preserves unresolved obligations. Before placement poll this
+        operation, not the planned Order UUID.
+      oneOf:
+      - properties:
+          status:
+            enum:
+            - SUCCEEDED
+          order_id:
+            type: string
+            format: uuid
+            nullable: false
+      - required:
+        - error_code
+        properties:
+          status:
+            enum:
+            - FAILED
+          order_id:
+            type: string
+            nullable: true
+            enum:
+            - null
+      - properties:
+          status:
+            enum:
+            - ACCEPTED
+            - PROCESSING
+            - WAITING_RETRY
+            - COMPENSATING
+            - MANUAL_REVIEW
+          order_id:
+            type: string
+            nullable: true
+            enum:
+            - null
+      example: *id002
     Item:
       type: object
       additionalProperties: false
@@ -2434,6 +1469,7 @@ components:
         quantity:
           type: integer
           format: int64
+          minimum: 1
         unit_price:
           type: integer
           format: int64
@@ -2516,6 +1552,9 @@ components:
           format: int64
         payment_method:
           type: string
+          enum:
+          - VIETQR
+          - COD
         items:
           type: array
           items:
@@ -2539,6 +1578,8 @@ components:
         shipping_expires_at:
           type: string
           format: date-time
+      description: Owned immutable server quote. Confirmation revalidates coherent Catalog/Shipping terms
+        for both transfer and COD. Expiry/retry never extends the commercial deadline.
     Order:
       type: object
       additionalProperties: false
@@ -2569,6 +1610,10 @@ components:
       - created_at
       - sla_due_at
       - completion_due_at
+      - items_digest
+      - compensation_status
+      - cancellation_status
+      - allowed_actions
       properties:
         order_id:
           type: string
@@ -2585,10 +1630,40 @@ components:
           type: string
         status:
           type: string
+          enum:
+          - PENDING_PAYMENT
+          - PAYMENT_FINALIZING
+          - PAID
+          - CONFIRMED_COD
+          - PROCESSING
+          - PACKED
+          - SHIPPED
+          - DELIVERED
+          - DELIVERY_FAILED
+          - COMPLETED
+          - CANCELLED_TIMEOUT
+          - CANCELLED_BY_USER
+          - CANCELLED_BY_ADMIN
         payment_status:
           type: string
+          enum:
+          - UNPAID
+          - PENDING
+          - CONFIRMED
+          - RECONCILIATION_REQUIRED
+          - PARTIALLY_REFUNDED
+          - REFUNDED
         stock_status:
           type: string
+          enum:
+          - RESERVED
+          - COMMITTING
+          - COMMITTED
+          - RELEASING
+          - RELEASED
+          - EXPIRED
+          - REVERSED
+          - UNKNOWN
         subtotal:
           type: integer
           format: int64
@@ -2643,115 +1718,188 @@ components:
           nullable: true
           allOf:
           - $ref: '#/components/schemas/Quote'
-    Receipt:
+        items_digest:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+        compensation_status:
+          type: string
+          enum:
+          - NOT_REQUIRED
+          - PENDING
+          - SUCCEEDED
+          - MANUAL_REVIEW
+        cancellation_status:
+          type: string
+          enum:
+          - NONE
+          - PENDING
+          - SUCCEEDED
+          - REJECTED
+          - MANUAL_REVIEW
+        allowed_actions:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            enum:
+            - PAY
+            - CANCEL
+            - REQUEST_CANCELLATION
+            - VIEW_TRACKING
+            - CONTACT_SUPPORT
+      description: Lifecycle, payment, stock and compensation are independent. PAID first transition requires
+        verified allocation and finalized resources. ready_authorized is a projection, never permission
+        to start packing. Consult allowed_actions; UNKNOWN requires recovery.
+    Cancellation:
       type: object
       additionalProperties: false
       required:
-      - provider
-      - transaction_id
-      - reference
-      - receiver
-      - amount
-      - currency
-      - status
-      - paid_at
-      properties:
-        provider:
-          type: string
-        transaction_id:
-          type: string
-        reference:
-          type: string
-        receiver:
-          type: string
-        amount:
-          type: integer
-          format: int64
-        currency:
-          type: string
-        status:
-          type: string
-        paid_at:
-          type: string
-          format: date-time
-    SourceEvent:
-      type: object
-      additionalProperties: false
-      required:
-      - signature
-      - id
-      - source
+      - cancellation_id
       - order_id
-      - resource_id
+      - status
+      - compensation_status
       - version
-      - type
       properties:
-        signature:
+        cancellation_id:
           type: string
-        id:
-          type: string
-        source:
-          type: string
+          format: uuid
         order_id:
           type: string
-        resource_id:
+          format: uuid
+        status:
           type: string
+          enum:
+          - PENDING
+          - SUCCEEDED
+          - REJECTED
+          - MANUAL_REVIEW
+        compensation_status:
+          type: string
+          enum:
+          - NOT_REQUIRED
+          - PENDING
+          - SUCCEEDED
+          - MANUAL_REVIEW
         version:
           type: integer
           format: int64
-        type:
+          minimum: 1
+        review_reference:
           type: string
-        generation:
-          type: integer
-          format: int64
-        seal_code:
-          type: string
-      description: 'Sandbox HMAC: normalize typed Event JSON with signature empty,
-        SHA256 HMAC using sandbox internal secret, lowercase hex. Authority resource
-        query still required; real-source adapter authentication must be negotiated
-        separately.'
-    Reservation:
+          nullable: true
+      example:
+        cancellation_id: 11111111-1111-4111-8111-111111111111
+        order_id: 11111111-1111-4111-8111-111111111111
+        status: PENDING
+        compensation_status: PENDING
+        version: 2
+    ApiError:
       type: object
       additionalProperties: false
       required:
-      - reservation_id
-      - order_id
-      - state
-      - expires_at
+      - error
       properties:
-        reservation_id:
+        error:
+          type: object
+          additionalProperties: false
+          required:
+          - code
+          - retryable
+          properties:
+            code:
+              type: string
+              minLength: 1
+            retryable:
+              type: boolean
+        operation_id:
           type: string
-        order_id:
-          type: string
-        state:
-          type: string
-        expires_at:
-          type: string
-          format: date-time
-    Approval:
+          format: uuid
+      example:
+        error:
+          code: IDEMPOTENCY_CONFLICT
+          retryable: false
+        operation_id: 11111111-1111-4111-8111-111111111111
+    ApprovalReferenceRequest:
       type: object
       additionalProperties: false
-      required:
-      - approval_id
-      - order_id
-      - receipt_id
-      - amount
-      - type
-      - state
-      - actor
       properties:
         approval_id:
           type: string
+          minLength: 1
+      required:
+      - approval_id
+    RefundOperation:
+      type: object
+      additionalProperties: false
+      properties:
+        refund_id:
+          type: string
+          format: uuid
         order_id:
           type: string
+          format: uuid
         receipt_id:
           type: string
-        amount:
+          format: uuid
+        status:
+          type: string
+          enum:
+          - APPROVED
+          - SUBMITTED
+          - UNKNOWN
+          - SUCCEEDED
+          - FAILED
+          - MANUAL_REVIEW
+      required:
+      - refund_id
+      - order_id
+      - receipt_id
+      - status
+    CancellationReview:
+      type: object
+      additionalProperties: false
+      properties:
+        review_reference:
+          type: string
+          minLength: 1
+        order_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+          - REVIEW_PENDING
+      required:
+      - review_reference
+      - order_id
+      - status
+    HoldDecision:
+      type: object
+      additionalProperties: false
+      properties:
+        order_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+          - PENDING
+          - HELD
+          - RESUMED
+          - REJECTED
+          - MANUAL_REVIEW
+        version:
           type: integer
           format: int64
-        type:
-          type: string
-        state:
-          type: string
-        actor:
-          type: string
+          minimum: 1
+        ready_generation:
+          type: integer
+          format: int64
+          minimum: 0
+      required:
+      - order_id
+      - status
+      - version
+      - ready_generation
+x-contract-status: proposed
+x-required-capability: order-3.2

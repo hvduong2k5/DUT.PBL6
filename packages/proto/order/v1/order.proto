@@ -5,6 +5,7 @@ package omamx.order.v1;
 import "google/protobuf/timestamp.proto";
 import "common/v1/types.proto";
 import "common/v1/errors.proto";
+import "common/v1/workflow.proto";
 
 option go_package = "github.com/omamx/proto/order/v1;orderv1";
 option java_multiple_files = true;
@@ -27,6 +28,10 @@ service OrderService {
   // Khách hàng hoặc Quản trị viên yêu cầu hủy đơn hàng (Kích hoạt Saga Compensation)
   rpc CancelOrder(CancelOrderRequest) returns (CancelOrderResponse);
   rpc GetCheckoutOperation(GetCheckoutOperationRequest) returns (GetCheckoutOperationResponse);
+  // Fulfillment service identity only. Local hold/eligibility checked under lock.
+  rpc GetFulfillmentPermit(GetFulfillmentPermitRequest) returns (GetFulfillmentPermitResponse);
+  // Online validation binds opaque permit to the authenticated Fulfillment caller.
+  rpc ValidateFulfillmentPermit(ValidateFulfillmentPermitRequest) returns (GetFulfillmentPermitResponse);
 }
 
 // Vòng đời trạng thái thực thể Đơn hàng (Tuân thủ triệt để stateDiagram-v2)
@@ -35,7 +40,7 @@ enum OrderStatus {
 
   ORDER_STATUS_DRAFT = 1;                    // Đang khởi tạo, khóa tồn kho
   ORDER_STATUS_PENDING_PAYMENT = 2;         // Đã giữ tồn 15m, đang chờ quét VietQR
-  ORDER_STATUS_PAID = 3;                     // Đã thanh toán thành công (HMAC verified)
+  ORDER_STATUS_PAID = 3; // First transition requires verified allocation + committed stock/voucher.
   ORDER_STATUS_PROCESSING = 4;               // Xưởng Huế tiếp nhận đóng gói
   ORDER_STATUS_PACKED = 5;                   // Đã niêm phong tem Seal O Mạ, có video S3
   ORDER_STATUS_SHIPPED = 6;                  // Đã bàn giao bưu tá 3PL (GHN/ViettelPost)
@@ -52,7 +57,7 @@ enum OrderStatus {
   ORDER_STATUS_DELIVERY_FAILED = 16;
   ORDER_STATUS_CANCELLED_BY_ADMIN = 17;
   ORDER_STATUS_CHECKOUT_FAILED = 18;
-  ORDER_STATUS_REFUNDED = 13;                // Đã kiểm định video seal và hoàn tiền
+  ORDER_STATUS_REFUNDED = 13; // Legacy lifecycle; 3.2 uses independent payment/refund summary.
 }
 
 // Mặt hàng chi tiết trong đơn hàng
@@ -74,7 +79,7 @@ message OrderItem {
 // Thông tin thanh toán đính kèm đơn hàng
 message PaymentInfo {
   string payment_method = 1; // VIETQR, COD, B2B_BANK_TRANSFER
-  string payment_status = 2; // PENDING, PAID, REFUNDED
+  string payment_status = 2; // UNPAID, PENDING, CONFIRMED, RECONCILIATION_REQUIRED, PARTIALLY_REFUNDED, REFUNDED
 
   // Đường link ảnh QR VietQR động (chứa cú pháp chuyển khoản và số tiền chính xác)
   optional string vietqr_url = 3;
@@ -171,6 +176,13 @@ message GetOrderDetailResponse {
   int64 version = 17;
   string stock_status = 18;
   bool operational_hold = 19;
+  int64 ready_generation = 20;
+  string compensation_status = 21;
+  repeated string allowed_actions = 22;
+  string items_digest = 23;
+  string warehouse_id = 24;
+  string cancellation_status = 25;
+  optional string cancellation_id = 26;
 }
 
 // Yêu cầu hủy đơn hàng
@@ -187,6 +199,11 @@ message CancelOrderResponse {
   bool is_cancelled = 1;
   OrderStatus final_status = 2;
   string message = 3;
+  string cancellation_status = 4; // PENDING, SUCCEEDED, REJECTED, MANUAL_REVIEW
+  string compensation_status = 5; // NOT_REQUIRED, PENDING, SUCCEEDED, MANUAL_REVIEW
+  string cancellation_id = 6;
+  optional string review_reference = 7;
+  int64 version = 8;
 }
 
 // Operation exists before an Order; order_id is absent until atomic placement.
@@ -197,4 +214,26 @@ message GetCheckoutOperationResponse {
  optional string order_id = 3;
  optional OrderStatus order_status = 4;
  optional string error_code = 5;
+ string stage = 6;
+ google.protobuf.Timestamp accepted_at = 7;
+ google.protobuf.Timestamp updated_at = 8;
+ optional google.protobuf.Timestamp retry_at = 9;
+}
+
+message GetFulfillmentPermitRequest {
+ string order_id = 1;
+ int64 generation = 2;
+ string task_request_key = 3;
+ string items_digest = 4;
+ string contract_version = 5;
+}
+message ValidateFulfillmentPermitRequest {
+ omamx.common.v1.FulfillmentPermit permit = 1;
+ string contract_version = 2;
+}
+message GetFulfillmentPermitResponse {
+ bool allowed = 1;
+ optional omamx.common.v1.FulfillmentPermit permit = 2;
+ string reason_code = 3;
+ string contract_version = 4;
 }

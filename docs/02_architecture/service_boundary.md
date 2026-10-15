@@ -1,5 +1,7 @@
 # THIẾT KẾ RANH GIỚI DỊCH VỤ & QUYỀN SỞ HỮU DỮ LIỆU (SERVICE BOUNDARY & DATA OWNERSHIP)
 
+> **Order integration baseline3.2 — 13/10/2026:** [HLD/LLD Order](services/order-service/README.md) là nguồn chuẩn cho interaction của MS-04, Inventory terminal protocol, Fulfillment barrier và Payment ownership. Các capability mới là target cần provider sign-off/test; bảng nghiệp vụ của các service khác không chứng minh capability đã implement.
+
 ## HỆ SINH THÁI THƯƠNG MẠI ĐIỆN TỬ ĐA KÊNH & HỖ TRỢ QUYẾT ĐỊNH — MÈ XỬNG O MẠ
 
 **Phiên bản:** 1.0
@@ -129,7 +131,8 @@ Quản lý toàn bộ vòng đời tồn kho vật lý theo SKU và Batch/Lot. �
 
 ```protobuf
 service InventoryService {
-  // Critical Path — Synchronous (2s timeout, Circuit Breaker)
+  // Illustrative legacy interface; Order3.2 terminal capabilities: see LLD05.
+  // Runtime/provider support must be verified against packages/proto and PR#11.
   rpc ReserveStock(ReserveStockRequest) returns (ReserveStockResponse);
   rpc GetStockLevel(GetStockLevelRequest) returns (StockLevelResponse);
 
@@ -157,8 +160,8 @@ service InventoryService {
 
 | Topic | Event/Command | Source | Action |
 | :--- | :--- | :--- | :--- |
-| `order.stock.commit` | `CommitStockDeductionCommand` | MS-04 Order | Trừ kho chính thức theo FEFO, giải phóng reservation |
-| `order.stock.release` | `ReleaseStockReservationCommand` | MS-04 Order | Hoàn tất reservation, cộng lại available_qty |
+| Legacy order.stock.commit | Legacy command | Legacy cohort only | New-flow3.2 dùng gRPC FinalizeReservation; không consume paid để trừ kho |
+| Legacy order.stock.release | Legacy command | Legacy cohort only | New-flow3.2 dùng release-by-order/tombstone; Inventory tự expire lease atomic |
 | `procurement.goods.received` | `GoodsReceivedEvent` | MS-08 Procurement | Tạo Batch mới, cộng physical_qty |
 | `care.return.approved` | `ReturnApprovedEvent` | MS-06 Care | Chuẩn bị nhận hàng hoàn, quarantine slot |
 
@@ -236,20 +239,21 @@ service FulfillmentService {
 
 | Topic | Event | Trigger | Consumers |
 | :--- | :--- | :--- | :--- |
-| `fulfillment.job.accepted` | `PackingJobAcceptedEvent` | Nhận lệnh & gán Batch FEFO thành công | MS-04 Order (→ PROCESSING) |
+| `fulfillment.job.accepted` | `PackingJobAcceptedEvent` | Task accepted qua ready/cancel barrier; batch allocation lấy từ Inventory | MS-04 Order (→ PROCESSING) |
 | `fulfillment.package.sealed` | `PackageSealedAndRecordedEvent` | Đóng gói xong + video upload S3 | MS-04 (→ PACKED), MS-12 Shipping |
 
 #### Events/Commands Consumed (Kafka)
 
 | Topic | Event/Command | Source | Action |
 | :--- | :--- | :--- | :--- |
-| `order.packing.create` | `CreatePackingJobCommand` | MS-04 Order | Tạo packing job mới, đưa vào queue |
+| `order.events.v3` | `vn.omama.order.fulfillment_ready.v3` | MS-04 Order | Xin permit và AcceptTask qua barrier; không tạo task từ paid |
 
 #### Service Dependencies
 
 | Dependency | Loại | Mục đích |
 | :--- | :--- | :--- |
 | MS-01 `inventory-service` | Kafka Async | Nhận thông tin Batch FEFO để in checklist |
+| MS-04 `order-service` | Authenticated query target3.2 | Ready permit; cung cấp AcceptTask/CancelTask/GetTaskDecision barrier theo LLD05 |
 | MS-16 `identity-service` | gRPC Sync | Xác thực nhân viên đóng gói |
 | MS-18 `audit-service` | Kafka Async | Ghi log thao tác đóng gói |
 
@@ -334,115 +338,23 @@ GET  /api/v1/admin/trace/certifications     # Quản lý chứng nhận OCOP
 
 ### MS-04: `order-service`
 
-#### Thông tin cơ bản
+BC-04 Commerce & Order Orchestration, Core domain. Payment là module MS-04; Care approval và Finance accounting tách trách nhiệm. PostgreSQL giữ operation/order/snapshot/receipt/allocation/refund/jobs/registry/inbox/outbox; Redis giữ cart/quote/cache. Không cross-DB writes.
 
-| Thuộc tính | Chi tiết |
-| :--- | :--- |
-| **Service Name** | `order-service` |
-| **Bounded Context** | BC-04: Omnichannel Commerce & Order Orchestration |
-| **Domain Type** | 🔴 Core Domain |
-| **Phase** | MVP (Phase 2: B2B, Gifting) |
-| **Team Owner** | Commerce Core Team |
+| Capability | Boundary / contract |
+| --- | --- |
+| Checkout | quote → durable operation202 → canonical validate/reserve → Order placement |
+| Payment | verified receipt → FINALIZING → resources terminal → PAID; unmatched/late giữ reconciliation |
+| COD | eligible + committed stock → CONFIRMED_COD/UNPAID |
+| Inventory client | gRPC reserve/query/finalize/release-by-order/reverse từ worker, stable keys |
+| Fulfillment | ready v3 + Order permit + remote accept/cancel/query barrier |
+| Shipping | quote validity; created khác dispatched; source association/version |
+| Cancel/refund | pending compensation; committed cần barrier/reversal; refund không tự restock |
+| Ownership | Customer/Guest scope; Profile mapping/address; verified claim extension |
+| Extensions | voucher/loyalty/POS/marketplace/B2B/gifting feature gated |
+| Events | order.events.v3 facts, no direct PII; paid không gây stock deduction |
+| Ports | target HTTP8004/gRPC9004 riêng; sandbox18004/19004 theo config |
 
-#### Business Responsibility
-
-**Trái tim của hệ sinh thái**. Điều phối toàn bộ vòng đời đơn hàng từ tạo giỏ hàng đến hoàn tất. Đóng vai trò **Saga Orchestrator** — điều phối giao dịch phân tán giữa Inventory, Payment, Fulfillment, Shipping. Xử lý thanh toán VietQR/COD và webhook ngân hàng. Hỗ trợ B2B Quotation và Gifting Experience.
-
-#### Data sở hữu
-
-| Bảng/Collection | Mô tả | Ghi chú |
-| :--- | :--- | :--- |
-| `carts` | Giỏ hàng phiên mua sắm | Redis (TTL session) |
-| `checkout_sessions` | Phiên checkout: địa chỉ, voucher, phí ship | Redis (TTL 30 min) |
-| `orders` | Đơn hàng: lifecycle, saga_state, channel | Aggregate Root |
-| `order_line_items` | Dòng sản phẩm: sku snapshot, qty, price snapshot | Immutable after creation |
-| `payments` | Giao dịch thanh toán: VietQR/COD, status, HMAC | Idempotency keyed |
-| `quotations` | Báo giá B2B: items, discount, credit_terms | B2B only |
-| `gift_options` | Tùy chọn quà tặng: ẩn giá, thiệp | Gifting only |
-| `saga_states` | Trạng thái saga orchestration | Internal state machine |
-
-#### Database / Schema
-
-| Loại | Công nghệ | Schema | Mục đích |
-| :--- | :--- | :--- | :--- |
-| Primary | PostgreSQL | `order_db` | ACID cho order lifecycle, payment |
-| Session Store | Redis | `cart:*`, `checkout:*` | Giỏ hàng, checkout session, saga state cache |
-
-#### API cung cấp (REST — Public via Gateway + gRPC Internal)
-
-```yaml
-# REST Public API (via API Gateway)
-POST /api/v1/cart/items                   # Thêm sản phẩm vào giỏ
-PUT  /api/v1/cart/items/{sku}             # Cập nhật số lượng
-DELETE /api/v1/cart/items/{sku}           # Xóa sản phẩm
-GET  /api/v1/cart                         # Xem giỏ hàng
-POST /api/v1/checkout                     # Bắt đầu checkout (tạm giữ tồn)
-POST /api/v1/orders                       # Đặt hàng (PENDING_PAYMENT)
-GET  /api/v1/orders/{order_id}            # Xem chi tiết đơn hàng
-GET  /api/v1/orders                       # Lịch sử đơn hàng
-POST /api/v1/orders/{order_id}/cancel     # Hủy đơn (PENDING_PAYMENT only)
-POST /api/v1/payment/webhook/vietqr       # Webhook thanh toán ngân hàng
-POST /api/v1/b2b/quotations               # Tạo báo giá B2B
-PUT  /api/v1/b2b/quotations/{id}/approve  # Duyệt báo giá (Sales Manager)
-
-# gRPC Internal
-rpc CreatePOSOrder(POSOrderRequest) returns (OrderResponse);      # From MS-13
-rpc ImportMarketplaceOrder(MarketplaceOrderRequest) returns (OrderResponse);  # From MS-13
-rpc TriggerRefund(RefundRequest) returns (RefundResponse);        # From MS-06
-```
-
-#### Events Published (Kafka)
-
-| Topic | Event | Trigger | Consumers |
-| :--- | :--- | :--- | :--- |
-| `order.placed` | `OrderPlacedEvent` | Đơn tạo PENDING_PAYMENT | MS-01 (reserve), MS-17 Notification |
-| `order.stock.commit` | `CommitStockDeductionCommand` | Sau PAID | MS-01 Inventory |
-| `order.stock.release` | `ReleaseStockReservationCommand` | Timeout / cancel | MS-01 Inventory |
-| `order.packing.create` | `CreatePackingJobCommand` | Sau PAID + stock committed | MS-02 Fulfillment |
-| `order.completed` | `OrderCompletedEvent` | Giao hàng thành công | MS-07 Promotion, MS-09 Finance, MS-11 Analytics |
-| `order.cancelled` | `OrderCancelledEvent` | Hủy đơn | MS-01, MS-09, MS-17 |
-| `order.quotation.approved` | `QuotationApprovedEvent` | Sales Manager duyệt B2B | MS-09 Finance, MS-17 Notification |
-| `payment.confirmed` | `PaymentConfirmedEvent` | Webhook ngân hàng verified | MS-01, MS-02, MS-17 |
-| `payment.refund.completed` | `RefundCompletedEvent` | Refund API thành công | MS-09 Finance, MS-17 Notification |
-| `order.*` (audit) | Tất cả state changes | Mọi chuyển trạng thái | MS-18 Audit Trail |
-
-#### Events/Commands Consumed (Kafka)
-
-| Topic | Event/Command | Source | Action |
-| :--- | :--- | :--- | :--- |
-| `inventory.stock.reserved` | `StockReservedEvent` | MS-01 | Xác nhận tạm giữ, tiếp tục saga |
-| `inventory.reservation.expired` | `StockReservationExpiredEvent` | MS-01 | Chuyển order → CANCELLED_TIMEOUT |
-| `inventory.stock.deducted` | `StockDeductedEvent` | MS-01 | Update order saga state |
-| `fulfillment.job.accepted` | `PackingJobAcceptedEvent` | MS-02 | Chuyển order → PROCESSING |
-| `fulfillment.package.sealed` | `PackageSealedAndRecordedEvent` | MS-02 | Chuyển order → PACKED |
-| `shipping.dispatched` | `ShipmentDispatchedEvent` | MS-12 | Chuyển order → SHIPPED |
-| `shipping.delivered` | `ShipmentDeliveredEvent` | MS-12 | Chuyển order → DELIVERED → COMPLETED |
-| `shipping.failed` | `ShipmentFailedEvent` | MS-12 | Xử lý giao hàng thất bại |
-| `care.return.approved` | `ReturnApprovedEvent` | MS-06 | Kích hoạt refund flow |
-| `marketplace.order.imported` | `MarketplaceOrderImportedEvent` | MS-13 | Tạo đơn nội bộ + gRPC reserve stock |
-
-#### Service Dependencies
-
-| Dependency | Loại | Mục đích |
-| :--- | :--- | :--- |
-| MS-01 `inventory-service` | gRPC Sync (Critical) | `ReserveStock` — tạm giữ tồn kho |
-| MS-05 `catalog-service` | gRPC Sync | `GetProductPrice` — validate giá checkout |
-| MS-07 `promotion-service` | gRPC Sync | `ValidateVoucher` — xác thực mã giảm giá |
-| MS-12 `shipping-service` | gRPC Sync | `CalculateShippingFee` — tính phí vận chuyển |
-| MS-16 `identity-service` | gRPC Sync | Xác thực JWT, kiểm tra quyền |
-| MS-18 `audit-service` | Kafka Async | Ghi log mọi thay đổi trạng thái đơn hàng |
-
-#### Dữ liệu KHÔNG được phép sở hữu / chỉnh sửa
-
-| Dữ liệu | Thuộc về | Lý do |
-| :--- | :--- | :--- |
-| Tồn kho, Batch số lượng | MS-01 | Inventory là SSOT |
-| Thông tin sản phẩm master | MS-05 | Catalog sở hữu product data |
-| Video đóng gói | MS-02 | Fulfillment sở hữu packing evidence |
-| Coupon rules | MS-07 | Promotion sở hữu discount logic |
-| Tracking vận đơn | MS-12 | Shipping sở hữu waybill |
-| Hồ sơ khách hàng | MS-15 | Profile sở hữu customer data |
-| Điểm tích lũy | MS-07 | Promotion sở hữu loyalty ledger |
+[HLD](services/order-service/00_order_service_hld.md) · [Contracts](services/order-service/05_api_contracts_and_transports.md) · [Runtime gaps](services/order-service/07_decisions_and_contract_gaps.md). Source method signatures dùng packages/proto; không copy interface mock thành contract production.
 
 ---
 
@@ -766,7 +678,7 @@ Ghi nhận và quản lý toàn bộ giao dịch tài chính doanh nghiệp: doa
 | Topic | Event | Source | Action |
 | :--- | :--- | :--- | :--- |
 | `order.completed` | `OrderCompletedEvent` | MS-04 | Ghi nhận doanh thu (Revenue Recognition) |
-| `payment.refund.completed` | `RefundCompletedEvent` | MS-04 | Ghi bút toán giảm trừ doanh thu + hoàn VAT |
+| `order.events.v3` | `vn.omama.order.refund_succeeded.v3` | MS-04 Payment component | Accounting adjustment theo policy; không thực hiện refund thứ hai |
 | `procurement.goods.received` | `GoodsReceivedEvent` | MS-08 | Ghi nhận Accounts Payable |
 | `shipping.delivered` | `ShipmentDeliveredEvent` | MS-12 | Đối soát cước phí 3PL |
 | `inventory.stock.adjusted` | `StockAdjustedEvent` | MS-01 | Ghi COGS adjustment |
@@ -1433,8 +1345,8 @@ graph TD
     NTF["MS-17 notification"]
     AUD["MS-18 audit"]
 
-    ORD -->|OrderPlaced, OrderPaid<br/>OrderCompleted| INV
-    ORD -->|OrderPaid| FUL
+    ORD -->|gRPC reserve / finalize / query / release| INV
+    ORD -->|FulfillmentReady + accept/cancel barrier| FUL
     ORD -->|OrderCompleted| PRO
     ORD -->|OrderCompleted| FIN
     ORD -->|OrderCompleted| ANA

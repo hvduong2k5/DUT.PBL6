@@ -5,6 +5,7 @@ package omamx.inventory.v1;
 import "google/protobuf/timestamp.proto";
 import "common/v1/types.proto";
 import "common/v1/errors.proto";
+import "common/v1/workflow.proto";
 
 option go_package = "github.com/omamx/proto/inventory/v1;inventoryv1";
 option java_multiple_files = true;
@@ -16,12 +17,12 @@ option java_package = "com.omamx.proto.inventory.v1";
 // =============================================================================
 
 service InventoryService {
-  // Khóa giữ chỗ tồn kho tức thời trong 15 phút (Command Critical Path < 20ms)
+  // Atomic all-items reservation. Requested TTL <=15m; actual expiry is authoritative.
   // Chỉ duy nhất MS-04 Order Saga Orchestrator được quyền gọi RPC này
   rpc ReserveStock(ReserveStockRequest) returns (ReserveStockResponse);
 
   // Giải phóng tồn kho khóa tạm khi đơn hàng bị hủy hoặc quá hạn 15 phút
-  // Kích hoạt bởi cơ chế Centralized Compensation của MS-04
+  // Legacy API; Order 3.2 uses ReleaseReservationByOrder and verifies terminal proof.
   rpc ReleaseReservation(ReleaseReservationRequest) returns (ReleaseReservationResponse);
 
   // Truy vấn số lượng tồn kho vật lý và khả dụng theo danh sách mã SKU
@@ -73,6 +74,11 @@ message ReserveStockRequest {
 
   // Mã kho xuất phát (Optional - nếu để trống, hệ thống tự động chọn kho mặc định)
   optional string preferred_warehouse_id = 6;
+  // Required for the opt-in order-3.2 profile; old callers retain legacy semantics.
+  string contract_version = 7;
+  string request_hash = 8;
+  string items_digest = 9;
+  string correlation_id = 10;
 }
 
 // Chi tiết mặt hàng bị thiếu hàng khi không thể khóa tồn
@@ -99,6 +105,8 @@ message ReserveStockResponse {
 
   // Chi tiết mã lỗi và thông điệp chuẩn hóa nếu thất bại
   optional omamx.common.v1.ErrorDetail error = 5;
+  // Required on profile order-3.2 success/replay. SUCCESS alone is not proof.
+  ReservationOutcome outcome = 6;
 }
 
 // Yêu cầu giải phóng tồn kho đã khóa
@@ -211,12 +219,43 @@ message GetBatchFEFODetailsResponse {
 message ReservationCommand {
  string order_id = 1;
  string idempotency_key = 2;
+ // Legacy reference; 3.2 requires verifiable approval + stopped-fulfillment proof.
  string approval_reference = 3;
  bool cod_unpaid = 4;
+ string contract_version = 5;
+ string request_hash = 6;
+ optional string expected_reservation_id = 7;
+ string items_digest = 8;
+ string warehouse_id = 9;
+ optional int64 expected_version = 10;
+ string correlation_id = 11;
+ omamx.common.v1.DecisionReference approval = 12;
+ omamx.common.v1.DecisionReference fulfillment_stopped = 13;
+ // Query only: original command to recover. Empty queries resource without proof.
+ string query_action = 14;
 }
 message ReservationOutcome {
  string order_id = 1;
+ // Empty only for verified cancellation tombstone before any reservation exists.
  string reservation_id = 2;
- string state = 3; // RESERVED, COMMITTED, RELEASED, EXPIRED. Network timeout is UNKNOWN to caller.
+ string state = 3; // RESERVED, COMMITTED, RELEASED, EXPIRED, REVERSED; never UNKNOWN.
  google.protobuf.Timestamp expires_at = 4;
+ string contract_version = 5;
+ string items_digest = 6;
+ string warehouse_id = 7;
+ int64 resource_version = 8;
+ google.protobuf.Timestamp observed_at = 9;
+ omamx.common.v1.CommandEvidence command = 10;
+ bool cancellation_tombstone = 11;
+ string reversal_id = 12;
+ repeated ReversedBatch reversed_batches = 13;
+}
+
+// Full-reservation reversal only in MVP. Original batch trace must be preserved;
+// expired/quarantined goods must not become sellable stock through reversal.
+message ReversedBatch {
+ string sku_code = 1;
+ string batch_code = 2;
+ int32 quantity = 3;
+ string disposition = 4; // SELLABLE or QUARANTINED
 }

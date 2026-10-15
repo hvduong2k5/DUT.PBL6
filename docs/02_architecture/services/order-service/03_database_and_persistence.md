@@ -1,123 +1,86 @@
-> **Implementation 3.1 — 09/10/2026:** [08_implementation_and_acceptance.md](08_implementation_and_acceptance.md) là nguồn hành vi hiện tại. Acceptance tạo checkout operation, chưa tạo Order; PAID và outbox chờ terminal stock/voucher outcome. Các đoạn v3.0 khác mô tả candidate cần đọc cùng cập nhật này.
+# 03 — Persistence và transaction, baseline 3.2
 
-# 03 — Database, transaction và persistence
+[Trước](02_state_machine_and_lifecycle.md) · [Tiếp](04_usecases_and_saga_orchestration.md)
 
-[Chỉ mục](README.md) · [Trước: State machine](02_state_machine_and_lifecycle.md) · [Tiếp: Use cases](04_usecases_and_saga_orchestration.md)
+## 1. Runtime schema và target
 
-## 1. Nguồn dữ liệu và ERD
+PostgreSQL là source of truth. [Migrations 3.1](../../../../services/order-service/migrations/000001_order.up.sql) và [schema snapshot](order_schema_candidate.sql) mô tả runtime sandbox. Bảng dưới dùng tên runtime thật; field target chưa có được ghi rõ, không coi tài liệu là migration đã áp dụng.
 
-PostgreSQL `order_db` giữ order/snapshot, financial ledger, idempotency, saga, inbox/outbox. Redis giữ cart và read cache có thể khôi phục hoặc mất theo chính sách phiên; không lưu nguồn duy nhất của nghĩa vụ. DDL tại [order_schema_candidate.sql](order_schema_candidate.sql) là schema **candidate cho database rỗng**, cần migration/versioning/review khi triển khai. Không được chạy đè database thật hoặc coi là migration đã áp dụng.
+| Bảng | Trách nhiệm và constraint |
+| --- | --- |
+| checkout_operations | input/canonical encrypted, planned_order_id unique, status/stage, lease/epoch, reservation reference/expiry |
+| idempotency_records | PK(scope,kind,key), hash, operation FK, response retention |
+| orders / order_items | unique operation/order code, snapshot immutable, quantity/money CHECK, PK(order,sku), version |
+| receipts / allocations | unique(provider,transaction_id); nullable matched Order; allocation unique receipt và Order cho MVP exact |
+| reconciliation_cases | receipt reference/reason, trạng thái xử lý riêng |
+| jobs | unique command key, stage/status/attempts/lease/epoch |
+| command_registry | scope/kind/key/hash + stored outcome cho commands |
+| cancellation_requests | request/reviewer/outcome; target bổ sung barrier proof reference |
+| refunds | unique approval/operation key, amount/state/provider ref |
+| order_history | unique(order,version), actor/source/reason/time |
+| outbox / inbox | stable event ID/version/ordinal; inbox source/event/hash + durable outcome |
+| source_projections | unique(order,source,resource), last applied version |
+| audit_records / quarantine | append-only audit; durable rejected-message reference/hash |
+| target resource operations | per-action key/hash/digest, last outcome/version/decision time, barrier evidence, next query time |
+
+Không có cross-database FK; remote IDs là references phải validate qua port. Target resource operations có thể nằm trong job payload đã kiểm schema hoặc bảng riêng, nhưng phải truy vấn được theo obligation và không chỉ nằm memory.
 
 ```mermaid
 erDiagram
-    orders ||--|{ order_line_items : contains
-    orders ||--o| order_address_snapshots : ships_to
-    orders ||--o| order_voucher_snapshots : applies
-    orders ||--o{ order_status_history : transitions
-    orders ||--o{ payment_intents : expects
-    orders ||--o{ payments : receives
-    payments ||--o{ payment_allocations : allocates
-    orders ||--o{ payment_allocations : settled_by
-    payments ||--o{ refunds : refunds
-    orders ||--o{ saga_instances : coordinates
-    saga_instances ||--o{ saga_steps : journals
-    orders ||--o{ idempotency_records : deduplicates
-    orders ||--o{ outbox_events : publishes
-    inbox_events ||--o| inbound_pending_events : defers
-    orders ||--o{ order_source_projections : tracks
-    orders ||--o| order_external_references : imported_as
-    orders ||--o| order_claim_links : owned_by
+    checkout_operations ||--o| orders : places
+    checkout_operations ||--o{ idempotency_records : replays
+    orders ||--|{ order_items : snapshots
+    orders ||--o{ jobs : coordinates
+    orders ||--o{ order_history : records
+    orders ||--o{ allocations : receives
+    receipts ||--o| allocations : allocates
+    receipts ||--o{ refunds : funds
+    receipts ||--o| reconciliation_cases : reconciles
+    orders ||--o{ source_projections : observes
 ```
 
-Order có 1..N items sau khi checkout chốt; DRAFT chưa validate có thể chưa có item. Cross-table invariant về số line và tổng tiền không được bảo đảm chỉ bằng `CHECK` của bảng orders: application transaction phải kiểm tra từ snapshot canonical; có thể bổ sung deferred constraint trigger khi triển khai.
+## 2. Local transaction boundaries
 
-## 2. Bảng và ràng buộc
-
-| Bảng | Trường/constraint chính | Lý do |
+| Tx | Atomic writes | Sau commit |
 | --- | --- | --- |
-| orders | UUID, code unique, nullable customer, channel/method/status, totals, expiry, resource IDs, version, SLA, hold/case projection | Domain và truy vấn queue không phụ thuộc join mạng |
-| order_line_items | unique(order,sku), quantity > 0, unit/line total BIGINT, canonical metadata | Không trùng line; bảo toàn thương mại |
-| order_address_snapshots | unique(order), source address/version, encrypted PII, ward/province | Reference Profile và snapshot độc lập |
-| order_voucher_snapshots | unique(order), code/type/policy, hold ID, merchandise/shipping split | Không gộp free ship vào giảm hàng |
-| order_status_history | unique(order,version), from/to, actor/source/reason, time | Một transition có một timeline entry |
-| payment_intents | unique operation/transfer reference, receiver, expected amount/expiry | QR/payment instruction không được lấy từ browser |
-| payments | unique(provider,provider_transaction_id), optional order, verified amount, immutable receipt hash | Unmatched receipt vẫn phải ghi nhận |
-| payment_allocations | unique(payment), amount > 0 | Không auto cộng tiền chưa được xác nhận/phê duyệt vào Order |
-| refunds | payment ID, approval ID, unique operation key, amount > 0, status, provider ref | Chống retry hoàn tiền và vượt ngân sách receipt |
-| saga_instances / saga_steps | unique(order,type,operation key), step key unique, lease epoch, run_after, attempts, reference, error code | Khôi phục qua restart; chống stale worker |
-| idempotency_records | primary(scope,operation,key), request hash, order ID, IN_PROGRESS/SUCCEEDED/FAILED, result status | Durable dedup theo người gọi/hành động |
-| outbox_events | stable event ID, aggregate type/ID/sequence, optional order ID, ordinal, topic/key/payload, retry/lease | At-least-once và ordering theo aggregate |
-| inbox_events | primary(consumer,source,event ID), payload hash, APPLIED/DEFERRED/REJECTED | Dedup cả cùng ID bị giả mạo nội dung |
-| inbound_pending_events | FK inbox, source version, order, retry deadline | Event đến sớm không bị bỏ mất |
-| order_source_projections | primary(order,source,resource), source_version, non-PII projection | Dedup checkpoint/case/task theo business version dù event ID mới |
-| order_external_references | primary(channel,store,external ID), order unique | Chống nhập lại đơn marketplace/POS |
-| order_claim_links | order unique, customer, claim/version | Ownership immutable ngoại trừ verified claim |
+| T0 acceptance | operation + dedup + encrypted input + planned ID + audit | trả 202; worker claim |
+| T1 canonical | validated snapshot + deadline + acquisition intent/key | voucher/stock call |
+| T2 remote result | identity/digest/version/outcome + next stage | step tiếp/query nếu UNKNOWN |
+| T3 placement | Order/items/history/placed outbox + operation SUCCEEDED | client query thấy Order |
+| T4 receipt | verified receipt + allocation hoặc reconciliation + finalize job | gọi Inventory/Promotion |
+| T5 finalize | resource proof + PAID/history/paid outbox + ready job | publish ready khi đủ guard |
+| T6 cancel pending | cancelled/history/outbox + release intent | release-by-order |
+| T6b cancel committed | hold + cancel intent; sau terminal barrier/reverse ghi cancelled | refund approval/execution độc lập |
+| T7 event consume | inbox + effect/history/outbox hoặc DEFERRED/REJECTED durable | commit Kafka offset |
+| T8 refund budget | lock receipt, reserve obligation, approval/key | provider refund/query |
+| T9 refund result | verified settlement + summary/history/outbox | accounting/notify |
 
-UUID sinh ở application; không phụ thuộc extension UUID v7 của PostgreSQL 16. Không tạo cross-database FK tới Customer, SKU, address book, reservation. IDs đó được validation qua contract, lưu như reference. Không `ON DELETE CASCADE` financial/history; xóa/ẩn danh phải theo retention workflow.
+Không giữ SQL transaction trong network call. Kết quả commit SQL bị mất ACK: đọc registry/operation/Order trước khi quyết định compensate.
 
-## 3. Transaction boundary
+## 3. Locks, fencing và time
 
-| Local transaction | Nội dung atomic | Ngoài transaction |
-| --- | --- | --- |
-| T0: nhận checkout | dedup insert + DRAFT + saga STARTED, input hash/reference | validation query Catalog/Profile/Shipping |
-| T1: trước acquisition | snapshot canonical + totals + saga step intent/key | voucher hold, stock reserve |
-| T2: nhận acquisition | resource reference + từng step outcome | query/retry remote nếu UNKNOWN |
-| T3: checkout thành công | PENDING_PAYMENT/CONFIRMED_COD + history/outbox + dedup result | publish Kafka; trả response có thể bị mất |
-| T4: receipt | unique receipt + lock Order + allocation hoặc reconciliation + FINALIZE intent/history | finalize Inventory/Promotion |
-| T5: finalize ack | stock projection + PAID + OrderPaid; ready event khi đủ điều kiện | Packing nhận ready authorization |
-| T6: hủy/timeout | guarded status + history + cancel event + release saga intent | release/decommit remote |
-| T7: consumer | inbox + mutation/history/outbox, hoặc DEFERRED + pending payload | commit Kafka offset sau DB commit |
-| T8: refund budget | lock receipt, tính refundable, insert approved refund obligation | provider refund với operation key ổn định |
-| T9: refund result | financial status + settlement ref + audit outbox | notify/accounting consumers |
+Lock hierarchy trong Order: Order → receipts theo ID → jobs/refunds. Unmatched receipt không quay lại lock Order cùng transaction; match ở workflow riêng theo đúng thứ tự. Cross-row refundable tính dưới receipt lock. Mọi mutation guard/version/history phải atomic; rows affected=0 phải xử lý conflict.
 
-T0 cho phép lưu DRAFT trước validation; DRAFT không phải đơn có quyền thanh toán hoặc fulfillment. Nếu validation fail, ghi CHECKOUT_FAILED và dedup result. Input chứa PII lưu encrypted/restricted snapshot; saga payload chỉ chứa reference, không sao chép raw body.
+Worker claim SKIP LOCKED, lease default 10s/epoch tăng; chỉ owner+epoch còn hạn được ghi outcome. Remote stable key không đổi theo epoch. Lease local không chặn RPC cũ còn bay: provider tombstone/idempotency giải quyết.
 
-## 4. Khóa và CAS
+Decision clock lấy sau row lock; Inventory dùng DB clock của Inventory. Không giả định đồng hồ hai DB tuyệt đối giống nhau; final authority là remote outcome. Deadline local lấy min và safety margin để giảm payment sát hạn, không bảo đảm finalize nếu network delay.
 
-Các handler thay đổi cùng Order dùng row lock hoặc CAS với version. Thứ tự khóa thống nhất: Order → PaymentReceipt (ID tăng dần khi nhiều receipt) → Refund/Saga. Unmatched receipt chỉ khóa receipt. Không lấy lock receipt rồi quay lại Order để tránh deadlock.
+## 4. Idempotency và retention
 
-```sql
-BEGIN;
-SELECT id, status, version, payment_expires_at
-FROM orders WHERE id = $1 FOR UPDATE;
--- application xác định decision_at bằng SELECT clock_timestamp() sau lock
-UPDATE orders
-SET status = $3, version = version + 1, updated_at = clock_timestamp()
-WHERE id = $1 AND status = $4 AND version = $2
-RETURNING version;
--- nếu 0 rows: re-read, kiểm tra quyền và trả conflict/no-op theo intent
--- nếu thành công: INSERT history + outbox + saga intent trước COMMIT
-COMMIT;
-```
+Canonical hash gồm scope/action, immutable planned order/resource, sorted consolidated items, warehouse/method và policy có ảnh hưởng effect. Cùng key/hash → cùng effect; khác hash → conflict. Query trả current resource state riêng với original command result để tránh trả stale RESERVED như hold còn sống.
 
-Isolation `READ COMMITTED` với khóa hàng thích hợp đủ cho các invariant cục bộ trên một Order; tổng refundable phải khóa receipt rồi cộng succeeded + approved/submitted/unknown obligations. Các bước có nhiều aggregate cần kiểm tra kỹ và retry deadlock/serialization theo bounded policy. PostgreSQL đánh giá lại điều kiện UPDATE sau khi chờ cập nhật cạnh tranh; thiết kế vẫn phải kiểm tra rows affected. [PostgreSQL 16 transaction isolation](https://www.postgresql.org/docs/16/transaction-iso.html).
+Checkout response retention 7 ngày; terminal replay sau đó 410 + operation reference. Registry giữ tối thiểu 30 ngày và không auto reuse key trong MVP. Nghĩa vụ chưa terminal, receipt/refund uniqueness và remote cancellation tombstone phải giữ vượt mọi retry/replay window. Khi chưa giới hạn được lifetime request cũ, không xóa tombstone. Compaction/PII deletion cần policy riêng; không xóa ledger để “dọn cache”.
 
-`version` bắt đầu 1; mọi mutation có ý nghĩa tăng đúng một lần và history ghi phiên bản mới. Replay cùng command thành công không tăng version. Snapshot immutable sau chốt: application role không có UPDATE trực tiếp; dùng repository có guard/trigger và migration role riêng. DDL candidate chưa chứa trigger immutable nên đây là yêu cầu implementation cần kiểm chứng.
+## 5. Outbox / inbox
 
-## 5. Idempotency durable
+Outbox effect + event cùng transaction, stable ID, aggregate version + ordinal, partition key order_id. Publisher chỉ advance sau broker ACK; crash trước mark published → duplicate cùng ID. Không có broker thật thì production fail readiness, không log-only rồi mark published.
 
-Scope = verified customer ID hoặc Guest session ID hoặc trusted service/store ID; operation = CHECKOUT/CANCEL/POS_IMPORT/REFUND. Key không phải bearer token và không dùng chung giữa khách. Hash SHA-256 của request canonical gồm cart revision, line quantities/prices mong đợi, address source/version, carrier/method/voucher; loại transport timestamp/trace ID. Key trùng + hash khác → 409 IDEMPOTENCY_CONFLICT.
+Inbox dedup theo source/event ID + payload hash, kết hợp business resource/version. Event thiếu prerequisite → DEFERRED + payload bền vững; worker query source và apply sau. Poison event → durable quarantine/DLQ intent trước ACK. Message N lỗi transient không được commit N+1 cùng partition vượt N, trừ khi N đã vào durable retry queue. Không claim exactly-once xuyên PostgreSQL/Kafka.
 
-`INSERT ... ON CONFLICT DO NOTHING` quyết định winner. Cùng hash và IN_PROGRESS trả `202` + status resource/Retry-After; cùng hash đã kết thúc replay HTTP status và order reference. Response dựng lại từ snapshot, không gọi lại query giá. Sau khi response retention hết hạn vẫn giữ key/hash/order tombstone đủ cho cửa sổ business retry; không xóa key khi saga đang chạy hoặc tiền/compensation chưa terminal. Đề xuất response retention 7 ngày, tombstone 30 ngày; imports và receipt/refund uniqueness giữ theo ledger retention. Công bố giới hạn retry cho client trước release.
+## 6. Data operations
 
-## 6. Outbox và inbox
+Redis: cart revision/TTL30d, encrypted preview TTL5m, read cache; mất Redis không mất accepted input/obligation. Không cache ownership/money quyết định như nguồn chuẩn.
 
-Outbox event ID giữ nguyên qua mọi lần gửi. `aggregate_version` và `event_ordinal` tạo thứ tự các event phát trong cùng một mutation. Publisher chỉ claim event nếu không còn event chưa publish có sequence nhỏ hơn của cùng aggregate, dùng lease + `FOR UPDATE SKIP LOCKED`; gửi cùng order partition key. Không gửi Kafka khi giữ SQL row lock lâu. Receipt unmatched dùng aggregate PAYMENT với order ID NULL; vì vậy vẫn có reconciliation/audit outbox cùng receipt commit. Broker ack rồi mới mark PUBLISHED; crash ở giữa gây duplicate, không đổi ID. Producer idempotence không làm Kafka và SQL thành một transaction.
+Index: operation/job run_after+lease; pending payment expiry; customer keyset(created_at,id); queue(stage,sla_due_at,id); receipt uniqueness; outbox aggregate sequence. SLA theo state entry/policy, không hard-code created_at cho mọi stage.
 
-Lease takeover có thể tạo duplicate/stale send ngay cả khi SQL selection đúng: consumer cần xử lý source version và state guards, không coi broker arrival order là business causality tuyệt đối. Kafka chỉ cung cấp ordering trong partition; external DB effect cần phối hợp và dedup riêng. [Apache Kafka design](https://kafka.apache.org/41/design/design/).
-
-Inbox APPLIED được commit cùng effect; DEFERRED được commit cùng pending payload nếu thiếu prerequisite. Khi prerequisite có mặt, pending worker khóa inbox/order, apply và đổi APPLIED trong một transaction. Không insert APPLIED trước effect; không commit offset khi chưa có durable result. Poison event ghi REJECTED + durable DLQ outbox; DLQ ack/persistence thành công rồi mới advance offset. Replay dùng cùng event ID/source; cùng ID/hash khác báo integrity incident.
-
-## 7. Index, queue và Redis
-
-Index customer history `(customer_id, created_at DESC, id DESC)`; queue `(status, sla_due_at, id)` với active states; timeout partial `(payment_expires_at,id)` WHERE PENDING_PAYMENT; completion partial `(completion_due_at,id)` WHERE DELIVERED; outbox pending/run_after; saga run_after/lease expiry; payments provider uniqueness; marketplace uniqueness theo channel/store/id.
-
-Keyset pagination dùng `(created_at,id)`; cursor chứa filter hash và scope đã ký. SLA queue sort overdue trước, `sla_due_at ASC`, `created_at ASC`, `id ASC`. Deadline lưu theo policy version và state entry time, không tính lại từ created_at cho tất cả công đoạn. Queue không chứa order thiếu ready authorization cho công đoạn.
-
-Redis keys `cart:{scope}`, `quote:{scope}:{id}`, `order-read:{order_id}:{version}`. Cart mutate atomically với revision (Lua/WATCH), TTL 30 ngày; quote 5 phút, không reserve. Nếu Redis mất cart, báo phiên hết hạn, không tác động orders. Nếu cache fail, đọc DB; auth/state/refund/ownership không dựa vào cache. Không cache raw PII mặc định; profile authoritative read không có cam kết P99 5 ms.
-
-## 8. Repository ports và vận hành dữ liệu
-
-`UnitOfWork` truyền DBTX thật cho mọi repository trong transaction: Order, Payment, Saga, History, Outbox, Inbox, Dedup. Không mở transaction mới bên trong repository. External client interface trả `Succeeded/Rejected/Unknown`, không gom timeout vào rejection.
-
-Migrations expand/backfill/validate trước constrain; rollback không xóa receipt hoặc nghĩa vụ chưa hoàn thành. DB role ứng dụng không được truncate history/ledger. Backup phải có PITR và restore drill; restore outbox/inbox cùng DB, sau restore reconcile provider/Inventory vì remote effect có thể mới hơn backup. Schema retention/partitioning chọn sau đo tải; không partition vội làm mất global receipt uniqueness.
+Migrations expand/backfill/validate; không xóa ledger ở rollback. Restore drill phải reconcile Inventory/provider mới hơn backup trước resume. Key rotation giữ khả năng decrypt snapshots đang cần; local audit hash chain chưa chứng minh chống tail deletion bởi privileged actor. PITR/HA/retention là gate vận hành, chưa được chứng minh bởi tài liệu này.
