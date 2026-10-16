@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.hvduong.identity.infrastructure.persistence.mybatis.mapper.AuthorizationDecisionMapper">
+
+    <resultMap id="DecisionRowMap" type="com.hvduong.identity.infrastructure.persistence.mybatis.mapper.AuthorizationDecisionRow">
+        <id property="decisionId" column="decision_id"/>
+        <result property="actorKind" column="actor_kind"/>
+        <result property="actorPrincipalId" column="actor_principal_id"/>
+        <result property="actorClientId" column="actor_client_id"/>
+        <result property="actionCode" column="action_code"/>
+        <result property="decision" column="decision"/>
+        <result property="reasonCode" column="reason_code"/>
+        <result property="policyId" column="policy_id"/>
+        <result property="policyVersion" column="policy_version"/>
+        <result property="correlationId" column="correlation_id"/>
+        <result property="contextSummary" column="context_summary"/>
+        <result property="evaluatedAt" column="evaluated_at"/>
+    </resultMap>
+
+    <insert id="insert">
+        INSERT INTO authorization_decisions (
+            decision_id, actor_kind, actor_principal_id, actor_client_id,
+            action_code, decision, reason_code, policy_id, policy_version,
+            correlation_id, context_summary, evaluated_at
+        ) VALUES (
+            #{decisionId}, #{actorKind}, #{actorPrincipalId}, #{actorClientId},
+            #{actionCode}, #{decision}, #{reasonCode}, #{policyId}, #{policyVersion},
+            #{correlationId}, #{contextSummary}::jsonb, COALESCE(#{evaluatedAt}, CURRENT_TIMESTAMP)
+        )
+    </insert>
+
+    <select id="findById" resultMap="DecisionRowMap">
+        SELECT *
+        FROM authorization_decisions
+        WHERE decision_id = #{decisionId}
+    </select>
+
+    <select id="findByActorPrincipalId" resultMap="DecisionRowMap">
+        SELECT *
+        FROM authorization_decisions
+        WHERE actor_principal_id = #{actorPrincipalId}
+        ORDER BY evaluated_at DESC
+    </select>
+
+</mapper>
+

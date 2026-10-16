@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.hvduong.identity.infrastructure.persistence.mybatis.mapper.SpecializedPermissionPolicyMapper">
+
+    <resultMap id="PolicyRowMap" type="com.hvduong.identity.infrastructure.persistence.mybatis.mapper.SpecializedPermissionPolicyRow">
+        <id property="policyId" column="policy_id"/>
+        <result property="policyCode" column="policy_code"/>
+        <result property="policyVersion" column="policy_version"/>
+        <result property="actionCode" column="action_code"/>
+        <result property="policyName" column="policy_name"/>
+        <result property="policyType" column="policy_type"/>
+        <result property="scopeType" column="scope_type"/>
+        <result property="scopeId" column="scope_id"/>
+        <result property="ruleConfig" column="rule_config"/>
+        <result property="requiredApprovalLevel" column="required_approval_level"/>
+        <result property="failClosed" column="fail_closed"/>
+        <result property="lifecycleStatus" column="lifecycle_status"/>
+        <result property="validFrom" column="valid_from"/>
+        <result property="validUntil" column="valid_until"/>
+        <result property="createdByPrincipalId" column="created_by_principal_id"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
+    <insert id="insert">
+        INSERT INTO specialized_permission_policies (
+            policy_id, policy_code, policy_version, action_code, policy_name,
+            policy_type, scope_type, scope_id, rule_config, required_approval_level,
+            fail_closed, lifecycle_status, valid_from, valid_until, created_by_principal_id
+        ) VALUES (
+            #{policyId}, #{policyCode}, #{policyVersion}, #{actionCode}, #{policyName},
+            #{policyType}, #{scopeType}, #{scopeId}, #{ruleConfig}::jsonb, #{requiredApprovalLevel},
+            #{failClosed}, #{lifecycleStatus}, COALESCE(#{validFrom}, CURRENT_TIMESTAMP), #{validUntil}, #{createdByPrincipalId}
+        )
+    </insert>
+
+    <select id="findById" resultMap="PolicyRowMap">
+        SELECT *
+        FROM specialized_permission_policies
+        WHERE policy_id = #{policyId}
+    </select>
+
+    <select id="findActiveByActionCode" resultMap="PolicyRowMap">
+        SELECT *
+        FROM specialized_permission_policies
+        WHERE action_code = #{actionCode}
+          AND lifecycle_status = 'ACTIVE'
+          AND valid_from &lt;= CURRENT_TIMESTAMP
+          AND (valid_until IS NULL OR valid_until &gt; CURRENT_TIMESTAMP)
+        ORDER BY policy_version DESC
+    </select>
+
+    <select id="findActiveByActionCodeAndScope" resultMap="PolicyRowMap">
+        SELECT *
+        FROM specialized_permission_policies
+        WHERE action_code = #{actionCode}
+          AND lifecycle_status = 'ACTIVE'
+          AND scope_type = #{scopeType}
+          AND (
+            (#{scopeId} IS NULL AND scope_id IS NULL)
+            OR scope_id = #{scopeId}
+          )
+          AND valid_from &lt;= CURRENT_TIMESTAMP
+          AND (valid_until IS NULL OR valid_until &gt; CURRENT_TIMESTAMP)
+        ORDER BY policy_version DESC
+        LIMIT 1
+    </select>
+
+</mapper>
+
