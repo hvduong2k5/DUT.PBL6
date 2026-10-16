@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IdentityAuditLogMapper">
+
+    <resultMap id="AuditLogRowMap" type="com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IdentityAuditLogRow">
+        <id property="auditId" column="audit_id"/>
+        <result property="occurredAt" column="occurred_at"/>
+        <result property="actorKind" column="actor_kind"/>
+        <result property="actorPrincipalId" column="actor_principal_id"/>
+        <result property="actorClientId" column="actor_client_id"/>
+        <result property="actionCode" column="action_code"/>
+        <result property="targetType" column="target_type"/>
+        <result property="targetId" column="target_id"/>
+        <result property="outcome" column="outcome"/>
+        <result property="reasonCode" column="reason_code"/>
+        <result property="requestId" column="request_id"/>
+        <result property="correlationId" column="correlation_id"/>
+        <result property="sourceIp" column="source_ip"/>
+        <result property="details" column="details"/>
+    </resultMap>
+
+    <insert id="insert">
+        INSERT INTO identity_audit_log (
+            audit_id, occurred_at, actor_kind, actor_principal_id, actor_client_id,
+            action_code, target_type, target_id, outcome, reason_code,
+            request_id, correlation_id, source_ip, details
+        ) VALUES (
+            #{auditId}, COALESCE(#{occurredAt}, CURRENT_TIMESTAMP), #{actorKind}, #{actorPrincipalId}, #{actorClientId},
+            #{actionCode}, #{targetType}, #{targetId}, #{outcome}, #{reasonCode},
+            #{requestId}, #{correlationId}, NULLIF(#{sourceIp}, '')::inet, COALESCE(#{details}::jsonb, '{}'::jsonb)
+        )
+    </insert>
+
+    <select id="findById" resultMap="AuditLogRowMap">
+        SELECT *
+        FROM identity_audit_log
+        WHERE audit_id = #{auditId}
+    </select>
+
+    <select id="findByActorPrincipalId" resultMap="AuditLogRowMap">
+        SELECT *
+        FROM identity_audit_log
+        WHERE actor_principal_id = #{actorPrincipalId}
+        ORDER BY occurred_at DESC
+    </select>
+
+    <select id="findByTarget" resultMap="AuditLogRowMap">
+        SELECT *
+        FROM identity_audit_log
+        WHERE target_type = #{targetType} AND target_id = #{targetId}
+        ORDER BY occurred_at DESC
+    </select>
+
+</mapper>
+

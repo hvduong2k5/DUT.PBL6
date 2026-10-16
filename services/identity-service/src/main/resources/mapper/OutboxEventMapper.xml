@@ -2,6 +2,25 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.hvduong.identity.infrastructure.persistence.mybatis.mapper.OutboxEventMapper">
 
+    <resultMap id="OutboxRowMap" type="com.hvduong.identity.infrastructure.persistence.mybatis.mapper.OutboxEventRow">
+        <id property="eventId" column="event_id"/>
+        <result property="aggregateType" column="aggregate_type"/>
+        <result property="aggregateId" column="aggregate_id"/>
+        <result property="eventType" column="event_type"/>
+        <result property="schemaVersion" column="schema_version"/>
+        <result property="partitionKey" column="partition_key"/>
+        <result property="payload" column="payload"/>
+        <result property="deliveryStatus" column="delivery_status"/>
+        <result property="attemptCount" column="attempt_count"/>
+        <result property="nextAttemptAt" column="next_attempt_at"/>
+        <result property="lockedBy" column="locked_by"/>
+        <result property="lockedUntil" column="locked_until"/>
+        <result property="lastError" column="last_error"/>
+        <result property="occurredAt" column="occurred_at"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="publishedAt" column="published_at"/>
+    </resultMap>
+
     <insert id="insert">
         INSERT INTO outbox_events (
             event_id, aggregate_type, aggregate_id, event_type, schema_version, 
@@ -11,5 +30,30 @@
             #{partitionKey}, #{payload}::jsonb, #{deliveryStatus}, #{attemptCount}, #{nextAttemptAt}, #{occurredAt}
         )
     </insert>
+
+    <select id="findPendingEvents" resultMap="OutboxRowMap">
+        SELECT *
+        FROM outbox_events
+        WHERE delivery_status IN ('PENDING', 'PROCESSING')
+          AND next_attempt_at &lt;= #{now}
+        ORDER BY created_at ASC
+        LIMIT #{limit}
+    </select>
+
+    <update id="markPublished">
+        UPDATE outbox_events
+        SET delivery_status = 'PUBLISHED',
+            published_at = #{publishedAt}
+        WHERE event_id = #{eventId}
+    </update>
+
+    <update id="recordFailure">
+        UPDATE outbox_events
+        SET attempt_count = attempt_count + 1,
+            last_error = #{lastError},
+            next_attempt_at = #{nextAttemptAt},
+            delivery_status = CASE WHEN attempt_count >= 5 THEN 'DEAD' ELSE 'PENDING' END
+        WHERE event_id = #{eventId}
+    </update>
 
 </mapper>
