@@ -51,4 +51,11 @@ public class KeycloakAdminClient {
     public Optional<UserRepresentation> findUserByEmail(String email) {
         return keycloak.realm(realm).users().search(email, true).stream().findFirst();
     }
+
+    public void setUserEnabled(String keycloakUserId, boolean enabled) {
+        org.keycloak.admin.client.resource.UserResource userResource = keycloak.realm(realm).users().get(keycloakUserId);
+        UserRepresentation user = userResource.toRepresentation();
+        user.setEnabled(enabled);
+        userResource.update(user);
+    }
 }

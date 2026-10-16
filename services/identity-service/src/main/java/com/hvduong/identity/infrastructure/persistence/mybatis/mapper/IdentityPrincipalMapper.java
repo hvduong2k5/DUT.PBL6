@@ -13,6 +13,8 @@ public interface IdentityPrincipalMapper {
         @Param("idpSubject") String idpSubject
     );
 
+    IdentityPrincipalRow findBySubject(@Param("idpSubject") String idpSubject);
+
     int updateProvisioningStatus(
         @Param("principalId") UUID principalId,
         @Param("newStatus") String newStatus,
