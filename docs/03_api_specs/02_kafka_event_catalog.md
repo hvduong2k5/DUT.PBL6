@@ -1,5 +1,7 @@
 > **MS-15 cập nhật 08/10/2026:** ProfileUpdated/GuestOrderClaimed cùng transaction với outbox. Event types chuẩn hóa thành `vn.omama.profile.updated.v1`, `vn.omama.profile.guest_order_claimed.v1`, `vn.omama.profile.address_created.v1`, `vn.omama.profile.address_updated.v1`, `vn.omama.profile.address_deleted.v1`, `vn.omama.profile.default_address_switched.v1`. Payload cập nhật profile/claim chỉ gồm reference/version, không phát PII. Downstream cần dedup event ID. Guest claim không phát event khi verifier chưa cấu hình.
 
+**Order đợt đầu:** fact `vn.omama.order.manual_refund_verified.v1` trên `order.manual_refunds.v1`, key `refund_id`, [schema](../../packages/events/schemas/order/manual/v1/manual_refund_verified.event.json). Payload không có tài khoản ngân hàng/PII; consumer xử lý idempotent, không chuyển tiền lần nữa hoặc tự restock. Consumer rollout chưa được chứng minh ở đợt backend này.
+
 # DANH MỤC SỰ KIỆN PHÂN TÁN KAFKA (EAST - WEST ASYNC EVENT CATALOG)
 ## HỆ SINH THÁI THƯƠNG MẠI ĐIỆN TỬ & CHUỖI CUNG ỨNG ĐẶC SẢN OCOP HUẾ (MÈ XỬNG O MẠ)
 

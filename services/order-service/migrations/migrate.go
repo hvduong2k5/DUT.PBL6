@@ -15,6 +15,9 @@ var Observability string
 //go:embed 000003_provider_cursor.up.sql
 var ProviderCursor string
 
+//go:embed 000004_mvp_payment.up.sql
+var MVPPayment string
+
 func Apply(ctx context.Context, db *pgxpool.Pool) error {
 	tx, e := db.Begin(ctx)
 	if e != nil {
@@ -27,7 +30,7 @@ func Apply(ctx context.Context, db *pgxpool.Pool) error {
 	if _, e = tx.Exec(ctx, "CREATE TABLE IF NOT EXISTS order_migrations(version integer PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT clock_timestamp())"); e != nil {
 		return e
 	}
-	for index, ddl := range []string{Schema, Observability, ProviderCursor} {
+	for index, ddl := range []string{Schema, Observability, ProviderCursor, MVPPayment} {
 		version := index + 1
 		var done bool
 		if e = tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM order_migrations WHERE version=$1)", version).Scan(&done); e != nil {

@@ -1,0 +1,12 @@
+{
+  "refund_id": "54dcfd84-819b-4488-976b-ff1fe9efa4d5",
+  "receipt_id": "45beb9a0-ef69-4ba9-a95d-d99a4677e023",
+  "order_id": "8a24df79-886a-45e2-9ba9-842479325144",
+  "amount": 245000,
+  "status": "SUCCEEDED",
+  "approved_by": "a863f9b3-c580-4f84-845d-17dc3b93a59a",
+  "claimed_by": "a863f9b3-c580-4f84-845d-17dc3b93a59a",
+  "verified_by": "3309c020-3bbc-4a90-9e95-3e2b4071144a",
+  "evidence_hash": "acaccc4915fef28268fd9f0f641458e85510c34535c3a70043c03f348952952e",
+  "created_at": "2026-10-16T07:36:59.632128Z"
+}

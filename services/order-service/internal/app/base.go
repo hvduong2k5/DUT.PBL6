@@ -17,6 +17,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/omamx/order-service/internal/domain"
+	"github.com/omamx/order-service/internal/sepay"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/redis/go-redis/v9"
 	"github.com/segmentio/kafka-go"
@@ -29,6 +30,8 @@ import (
 )
 
 type Config struct {
+	ReleaseProfile                                                                                                               string
+	SePay                                                                                                                        sepay.Config
 	SourceTopic                                                                                                                  string
 	ProfileToken                                                                                                                 string
 	ConsumerGroup                                                                                                                string
@@ -40,6 +43,11 @@ type Config struct {
 
 func LoadConfig() (Config, error) {
 	c := Config{ProfileToken: os.Getenv("PROFILE_INTERNAL_TOKEN"), DB: os.Getenv("DATABASE_URL"), Redis: os.Getenv("REDIS_ADDR"), Dependencies: os.Getenv("DEPENDENCY_URL"), Profile: os.Getenv("PROFILE_URL"), InternalToken: os.Getenv("ORDER_INTERNAL_TOKEN"), JWTSecret: os.Getenv("ORDER_JWT_SECRET"), EncryptionKey: os.Getenv("ORDER_ENCRYPTION_KEY"), CallbackSecret: os.Getenv("CALLBACK_SECRET"), Receiver: os.Getenv("PAYMENT_RECEIVER"), Kafka: os.Getenv("KAFKA_BROKERS"), HTTP: os.Getenv("HTTP_ADDR"), GRPC: os.Getenv("GRPC_ADDR"), Mode: os.Getenv("APP_MODE"), Poll: 100 * time.Millisecond, AutoComplete: os.Getenv("ENABLE_AUTO_COMPLETE") == "true"}
+	c.ReleaseProfile = os.Getenv("ORDER_RELEASE_PROFILE")
+	c.SePay = sepay.Config{Environment: os.Getenv("SEPAY_ENVIRONMENT"), MerchantID: os.Getenv("SEPAY_MERCHANT_ID"), SecretKey: os.Getenv("SEPAY_SECRET_KEY"), IPNSecret: os.Getenv("SEPAY_IPN_SECRET"), ReturnURL: os.Getenv("SEPAY_RETURN_URL")}
+	if err := validateRelease(c); err != nil {
+		return c, err
+	}
 	if c.HTTP == "" {
 		c.HTTP = ":8004"
 	}
@@ -59,6 +67,7 @@ func LoadConfig() (Config, error) {
 }
 
 type Service struct {
+	SePay    *sepay.Client
 	DB       *pgxpool.Pool
 	Redis    *redis.Client
 	C        Config
@@ -72,6 +81,9 @@ type Service struct {
 }
 
 func New(ctx context.Context, c Config) (*Service, error) {
+	if err := validateRelease(c); err != nil {
+		return nil, err
+	}
 	if c.Mode != "sandbox" {
 		return nil, errors.New("production adapter set is not implemented")
 	}
@@ -100,6 +112,9 @@ func New(ctx context.Context, c Config) (*Service, error) {
 	s.register.MustRegister(s.Metrics, &backlogCollector{S: s, Age: prometheus.NewDesc("order_backlog_oldest_seconds", "Oldest pending obligation age", []string{"phase"}, nil), Count: prometheus.NewDesc("order_backlog_count", "Pending obligations", []string{"phase"}, nil)})
 	if c.Kafka != "" {
 		s.Writer = &kafka.Writer{Addr: kafka.TCP(strings.Split(c.Kafka, ",")...), Balancer: &kafka.Hash{}, RequiredAcks: kafka.RequireAll, WriteTimeout: 2 * time.Second, ReadTimeout: 2 * time.Second, AllowAutoTopicCreation: true}
+	}
+	if c.ReleaseProfile == "mvp1" {
+		s.SePay = sepay.New(c.SePay)
 	}
 	return s, nil
 }

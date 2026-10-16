@@ -1,0 +1,19 @@
+{
+  "id": "60ad3071-f19b-4c16-b6d3-51783a410428",
+  "data": {
+    "amount": 245000,
+    "status": "SUCCEEDED",
+    "currency": "VND",
+    "order_id": "8a24df79-886a-45e2-9ba9-842479325144",
+    "refund_id": "54dcfd84-819b-4488-976b-ff1fe9efa4d5",
+    "receipt_id": "45beb9a0-ef69-4ba9-a95d-d99a4677e023",
+    "evidence_hash": "acaccc4915fef28268fd9f0f641458e85510c34535c3a70043c03f348952952e",
+    "execution_mode": "MANUAL_BANK_TRANSFER"
+  },
+  "time": "2026-10-16T07:36:59.685291735Z",
+  "type": "vn.omama.order.manual_refund_verified.v1",
+  "source": "https://omama.vn/services/order-service",
+  "subject": "refund:54dcfd84-819b-4488-976b-ff1fe9efa4d5",
+  "specversion": "1.0",
+  "datacontenttype": "application/json"
+}

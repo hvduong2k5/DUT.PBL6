@@ -1,5 +1,7 @@
 # 01 — Domain và bất biến, baseline 3.2
 
+> **Phạm vi áp dụng MVP 1 — 15/10/2026:** đọc [quyết định giao bản đầu](13_mvp_delivery_decisions.md). Chỉ khách đăng nhập, VietQR chuyển khoản qua SePay Payment Gateway; không COD/Guest/voucher, không phương thức phụ, hoàn tiền thủ công có kiểm soát và dừng tự động tại DELIVERED. Các nhánh mở rộng dưới đây không bật trong MVP. Implementation sandbox của đợt đầu được ghi ở [báo cáo](14_mvp_implementation_and_adr_report.md); baseline 3.2 chưa được nghiệm thu tích hợp production.
+
 [Chỉ mục](README.md) · [HLD](00_order_service_hld.md) · [Tiếp](02_state_machine_and_lifecycle.md)
 
 ## 1. Aggregate và boundary
@@ -38,7 +40,7 @@ Quote bind principal/cart revision/method/address; không reserve. Canonical pri
 2. Durable intent + stable key trước side effect; timeout là caller UNKNOWN.
 3. Operation SUCCEEDED iff Order/items/history/outbox/result đã commit.
 4. PAID lần đầu cần allocated exact + verified receipt + stock COMMITTED + voucher finalized nếu bật.
-5. Ready cần PAID hoặc COD eligible/CONFIRMED_COD, resources hợp lệ, không hold/cancel và barrier generation còn cho phép.
+5. Ready trong MVP cần PAID, resources hợp lệ, không hold/cancel và barrier generation còn cho phép.
 6. Release dành hold chưa commit; reverse là command riêng. Return đã dispatch cần inspection riêng.
 7. Replay không tạo effect tài chính thứ hai; altered payload/key → conflict.
 8. Cancel không tự hồi sinh bởi receipt/event trễ; refund không tự PROCESSING.
@@ -63,3 +65,7 @@ Không thêm committed_quantity vào công thức nếu chưa có ledger đó. M
 Recipient/phone/street/tọa độ/free text mã hóa, phân quyền; không fan-out Kafka. shipping_address_id là Order snapshot reference, không phải địa chỉ sống Profile. Identifier cũng cần ACL/retention.
 
 Customer/Guest chỉ đọc/command đúng scope. Service đọc snapshot có identity/purpose/task; staff có chức năng và warehouse/assignment scope. Không arbitrary PATCH status. Claim/OTP, deletion retention, B2B tax/credit, stacking và multi-address cần policy/contract riêng.
+
+## Quyền sở hữu MVP 1
+
+Payment module sở hữu payment_attempt, khoản thu và nghĩa vụ hoàn tiền. SePay được chọn cho QR trả trước; mã hóa đơn ổn định được lưu trước khi gửi form. Người quản trị được phân quyền duyệt/xử lý hoàn tiền trong Order, có audit; chưa phụ thuộc Care service tự động. Chỉ một đầu mối thực hiện, Finance không gửi tiền lần hai. Xem [quy trình manual](13_mvp_delivery_decisions.md#7-hoàn-tiền-thủ-công-nhưng-không-tùy-tiện).

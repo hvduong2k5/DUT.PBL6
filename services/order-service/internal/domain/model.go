@@ -153,18 +153,19 @@ type Order struct {
 	Snapshot      *Quote     `json:"snapshot,omitempty"`
 }
 type Receipt struct {
-	Provider      string    `json:"provider"`
-	TransactionID string    `json:"transaction_id"`
-	Reference     string    `json:"reference"`
-	Receiver      string    `json:"receiver"`
-	Amount        int64     `json:"amount"`
-	Currency      string    `json:"currency"`
-	Status        string    `json:"status"`
-	PaidAt        time.Time `json:"paid_at"`
+	ProviderOrderID string    `json:"provider_order_id,omitempty"`
+	Provider        string    `json:"provider"`
+	TransactionID   string    `json:"transaction_id"`
+	Reference       string    `json:"reference"`
+	Receiver        string    `json:"receiver"`
+	Amount          int64     `json:"amount"`
+	Currency        string    `json:"currency"`
+	Status          string    `json:"status"`
+	PaidAt          time.Time `json:"paid_at"`
 }
 
 func (r Receipt) Validate(receiver string) error {
-	if r.Provider != "SIMULATOR" || r.Status != "SUCCEEDED" || r.Receiver != receiver || r.Currency != "VND" || r.Amount <= 0 || r.Amount > MaxMoney || len(r.TransactionID) == 0 || len(r.TransactionID) > 128 || len(r.Reference) > 128 || r.PaidAt.IsZero() {
+	if (r.Provider != "SIMULATOR" && r.Provider != "SEPAY_SANDBOX") || r.Status != "SUCCEEDED" || r.Receiver != receiver || r.Currency != "VND" || r.Amount <= 0 || r.Amount > MaxMoney || len(r.TransactionID) == 0 || len(r.TransactionID) > 128 || len(r.Reference) > 128 || r.PaidAt.IsZero() {
 		return E("INVALID_RECEIPT", 422)
 	}
 	return nil

@@ -1,0 +1,53 @@
+{
+  "attempt_id": "2b92c85a-cc93-4aa3-9348-5fd4028fc939",
+  "invoice": "OMAMA-70230657-1791-4c55-91e5-a5ac99879be2",
+  "expires_at": "2026-10-16T07:41:56.561288Z",
+  "action": "https://pay-sandbox.sepay.vn/v1/checkout/init",
+  "method": "POST",
+  "fields": [
+    {
+      "name": "merchant",
+      "value": "TEST-MERCHANT"
+    },
+    {
+      "name": "operation",
+      "value": "PURCHASE"
+    },
+    {
+      "name": "payment_method",
+      "value": "BANK_TRANSFER"
+    },
+    {
+      "name": "order_invoice_number",
+      "value": "OMAMA-70230657-1791-4c55-91e5-a5ac99879be2"
+    },
+    {
+      "name": "order_amount",
+      "value": "245000"
+    },
+    {
+      "name": "currency",
+      "value": "VND"
+    },
+    {
+      "name": "order_description",
+      "value": "Thanh toan don hang OMAMA-70230657-1791-4c55-91e5-a5ac99879be2"
+    },
+    {
+      "name": "success_url",
+      "value": "https://shop.example/payment?attempt_id=2b92c85a-cc93-4aa3-9348-5fd4028fc939\u0026result=success"
+    },
+    {
+      "name": "error_url",
+      "value": "https://shop.example/payment?attempt_id=2b92c85a-cc93-4aa3-9348-5fd4028fc939\u0026result=error"
+    },
+    {
+      "name": "cancel_url",
+      "value": "https://shop.example/payment?attempt_id=2b92c85a-cc93-4aa3-9348-5fd4028fc939\u0026result=cancel"
+    },
+    {
+      "name": "signature",
+      "value": "ufD3qtsjac5+Vi7CQhr69d8Ft6l8oZq6kgdhQX46J0Q="
+    }
+  ]
+}

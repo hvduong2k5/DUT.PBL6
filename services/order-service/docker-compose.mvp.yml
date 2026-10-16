@@ -1,0 +1,12 @@
+# Use after providing your own SePay SANDBOX merchant credentials in the shell.
+# No production mode or real-bank adapter is enabled by this override.
+services:
+  api:
+    environment:
+      ORDER_RELEASE_PROFILE: mvp1
+      ENABLE_AUTO_COMPLETE: "false"
+      SEPAY_ENVIRONMENT: sandbox
+      SEPAY_MERCHANT_ID: ${SEPAY_MERCHANT_ID:?Set your SePay sandbox merchant ID}
+      SEPAY_SECRET_KEY: ${SEPAY_SECRET_KEY:?Set your SePay sandbox secret key}
+      SEPAY_IPN_SECRET: ${SEPAY_IPN_SECRET:?Set the key configured for Gateway IPN SECRET_KEY authentication}
+      SEPAY_RETURN_URL: ${SEPAY_RETURN_URL:?Set your frontend payment result URL (HTTPS or HTTP loopback for dev)}

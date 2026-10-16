@@ -48,7 +48,7 @@ for name in ["order-service.sandbox-3.1.openapi.yaml", "order-sandbox-dependenci
     validate_spec(document)
     result["openapi"].append({"path": str(path.relative_to(ROOT)), "status": "PASS", "paths": len(document["paths"])})
 
-public = yaml.safe_load((ROOT / "docs/03_api_specs/order-service.openapi.yaml").read_text(encoding="utf-8"))
+public = yaml.safe_load((ROOT / "docs/03_api_specs/order-service.sandbox-3.1.openapi.yaml").read_text(encoding="utf-8"))
 
 
 def expand(schema):

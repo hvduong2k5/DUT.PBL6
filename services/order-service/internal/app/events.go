@@ -215,7 +215,7 @@ func (s *Service) ReplayDeferred(ctx context.Context) error {
 	return nil
 }
 func (s *Service) CompleteOrders(ctx context.Context) error {
-	if !s.C.AutoComplete {
+	if s.MVP() || !s.C.AutoComplete {
 		return nil
 	}
 	rows, e := s.DB.Query(ctx, "SELECT id FROM orders WHERE status='DELIVERED' AND completion_due_at<=clock_timestamp() AND payment_status IN ('CONFIRMED','PARTIALLY_REFUNDED') AND operational_hold=false AND NOT EXISTS(SELECT 1 FROM refunds f WHERE f.order_id=orders.id AND f.status IN ('APPROVED','SUBMITTED','UNKNOWN','MANUAL_REVIEW')) LIMIT 100")

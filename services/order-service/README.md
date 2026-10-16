@@ -1,5 +1,7 @@
 # MS-04 Order Service (Go, sandbox 3.1)
 
+**15/10/2026 — First Order delivery:** opt-in `ORDER_RELEASE_PROFILE=mvp1` adds SePay Gateway sandbox checkout/IPN/reconciliation and controlled manual refunds. Read the [MVP runbook and implementation report](../../docs/02_architecture/services/order-service/14_mvp_implementation_and_adr_report.md), [ADRs](../../docs/02_architecture/services/order-service/adr/README.md) and [MVP OpenAPI](../../docs/03_api_specs/order-service.mvp1.openapi.yaml). This profile rejects Guest/COD and auto-completion; it is not the complete product MVP 1.0. The default compose below remains the historical simulator profile. Production startup remains disabled.
+
 Async checkout operations, durable PostgreSQL sagas/idempotency/financial ledger, Redis Cart/quote, Kafka inbox/outbox; stateful dependencies and provider ledger in a separate PostgreSQL database. Public HTTP and registered Order/Inventory gRPC contracts are exercised by release gates.
 
 ## Start
@@ -67,6 +69,8 @@ docker run --rm --mount 'type=bind,source=E:\DUT.K1N4\PBL,target=/workspace' oma
 Synthetic provider callbacks use timestamp-bound HMAC, a receiver reference and immutable receipt IDs. These are simulator contracts. Payment/refund HTTP timeout leaves UNKNOWN; provider query and stable operation keys resolve it.
 
 ## Data and operations
+
+[MVP payment exception test report](../../docs/04_testing/order-service/SEPAY_MVP_TEST_REPORT.md): 65 top-level tests and 29 subtests pass, plus live SePay sandbox checks. Missing-IPN recovery remains limited when the provider returns CAPTURED without transactions; production stays disabled. See [ADR-007](../../docs/02_architecture/services/order-service/adr/ADR-007-payment-recovery-exception-tests.md).
 
 Forward migrations run under a database lock and version table. Destructive down migration is refused. Commercial snapshots and audit records have immutable triggers; application workflows never truncate ledgers or delete idempotency registry keys. PII input/snapshots use AES-GCM with an explicit 32-byte key. Backup/key rotation and production credentials require a separate rollout.
 

@@ -1,0 +1,71 @@
+{
+  "verified_at_utc": "2026-10-16T07:39:23.472167+00:00",
+  "environment": "SePay Payment Gateway sandbox",
+  "real_money_used": false,
+  "checks": [
+    {
+      "scenario": "browser_cancel_then_natural_local_timeout",
+      "mode": "LIVE_PROVIDER_UI_AND_REAL_LOCAL_EXPIRY",
+      "status": "PASS",
+      "observed": "cancel link redirects only; local order stayed pending, then timeout released stock; same fixture was later used for late payment"
+    },
+    {
+      "scenario": "payment_from_stale_form_after_local_timeout",
+      "mode": "LIVE_PROVIDER_IPN",
+      "status": "CANCELLED_TIMEOUT",
+      "order_id": "4446bd32-1978-4e03-9895-9762da3fde10",
+      "payment_status": "PENDING",
+      "stock_status": "RELEASED",
+      "receipt_count": 1,
+      "allocation_count": 0,
+      "reconciliation_count": 1
+    },
+    {
+      "scenario": "provider_ipn_while_backend_stopped",
+      "mode": "LIVE_PROVIDER_WITH_LOCAL_OUTAGE",
+      "status": "PASS",
+      "public_ipn_http": 503,
+      "backend_restarted": true
+    },
+    {
+      "scenario": "lost_ipn_query_without_transaction_proof",
+      "mode": "LIVE_PROVIDER_QUERY",
+      "status": "CANCELLED_TIMEOUT",
+      "provider_status": "CAPTURED",
+      "provider_transaction_count": 0,
+      "notification_review_reason": "PROVIDER_TRANSACTION_PROOF_MISSING",
+      "automatic_confirmation": "BLOCKED_MISSING_PROVIDER_TRANSACTION_PROOF",
+      "order_id": "6d64bd28-7919-4763-b407-0599dfef6d93",
+      "payment_status": "PENDING",
+      "stock_status": "RELEASED",
+      "receipt_count": 0,
+      "allocation_count": 0,
+      "reconciliation_count": 0
+    },
+    {
+      "scenario": "alter_form_amount_without_resigning",
+      "mode": "LIVE_PROVIDER_CHECKOUT",
+      "status": "PASS",
+      "signed_amount_vnd": 135000,
+      "altered_amount_vnd": 1,
+      "observed": "provider displays invalid request; unmodified form subsequently accepted"
+    },
+    {
+      "scenario": "happy_path_after_final_runtime_fixes",
+      "mode": "LIVE_PROVIDER_IPN",
+      "status": "PAID",
+      "order_id": "e0e16c3a-b71d-4694-a724-9ac3845d2a11",
+      "payment_status": "CONFIRMED",
+      "stock_status": "COMMITTED",
+      "receipt_count": 1,
+      "allocation_count": 1,
+      "reconciliation_count": 0
+    }
+  ],
+  "manual_refund_details": "See live-sepay-additional-workflow.json; evidence synthetic, no actual bank transfer",
+  "notes": [
+    "No fabricated provider transaction was used to repair the outage fixture",
+    "Under/over/split/void inputs were exercised with synthetic provider payloads in Go integration tests, not real bank transfers",
+    "Provider retry timing and production behavior not certified"
+  ]
+}

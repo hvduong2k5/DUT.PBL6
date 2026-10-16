@@ -112,6 +112,7 @@ services:
       ORDER_TEST_SIM_DATABASE: postgres://order_test:order_test_local@db:5432/order_simulator?sslmode=disable
       ORDER_TEST_REDIS: redis:6379
       ORDER_TEST_KAFKA: kafka:29092
+      ORDER_MVP_EVIDENCE_DIR: /workspace/docs/04_testing/order-service/mvp1-payloads
     command: ["sh", "-c", "go vet ./... && go test -race -count=1 ./..."]
     depends_on:
       db: {condition: service_healthy}

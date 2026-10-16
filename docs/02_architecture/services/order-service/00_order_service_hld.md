@@ -1,5 +1,7 @@
 # MS-04 Order Service — HLD mục tiêu 3.2
 
+> **Phạm vi áp dụng MVP 1 — 15/10/2026:** đọc [quyết định giao bản đầu](13_mvp_delivery_decisions.md). Chỉ khách đăng nhập, VietQR chuyển khoản qua SePay Payment Gateway; không COD/Guest/voucher, không phương thức phụ, hoàn tiền thủ công có kiểm soát và dừng tự động tại DELIVERED. Các nhánh mở rộng dưới đây không bật trong MVP. Implementation sandbox của đợt đầu được ghi ở [báo cáo](14_mvp_implementation_and_adr_report.md); baseline 3.2 chưa được nghiệm thu tích hợp production.
+
 Ngày hoàn thiện: 14/10/2026. Trạng thái: **baseline thiết kế để phối hợp tích hợp**. Provider phải xác nhận và triển khai capability trước khi bật integration; không tuyên bố đã deploy 3.2.
 
 [Chỉ mục](README.md) · [ADR và gaps](07_decisions_and_contract_gaps.md) · [Báo cáo thay đổi](10_order_design_change_report.md)
@@ -8,7 +10,7 @@ Ngày hoàn thiện: 14/10/2026. Trạng thái: **baseline thiết kế để ph
 
 HLD này là nguồn chuẩn cho luồng Order và các tương tác liên quan trong HLD hệ thống. LLD 01–07 cụ thể hóa cùng baseline. Chương 08 giữ hành vi/bằng chứng sandbox 3.1; wire proposal 15/10 ghi contract mục tiêu; chỉ code/runtime evidence chứng minh phần đã implement. Chương 09 là review lịch sử tại SHA đã ghi; chương 10 giải thích thay đổi.
 
-MVP tích hợp: D2C Customer/Guest session, một địa chỉ, một kho mặc định, VND, chuyển khoản; COD khi carrier/policy hỗ trợ; checkout, cancel, fulfillment/shipping, đối soát và refund có approval. Voucher/loyalty, verified Guest claim, marketplace/POS, B2B/gifting chỉ bật sau contract/test riêng.
+MVP 1: khách đã đăng nhập, một địa chỉ, một kho mặc định, VND, VietQR chuyển khoản qua SePay Payment Gateway. Không COD, Guest, voucher/loyalty hoặc phương thức phụ. Hoàn tiền thủ công có duyệt và bằng chứng; dừng tự động ở DELIVERED. Chi tiết và trade-offs tại [quyết định MVP](13_mvp_delivery_decisions.md).
 
 ## 2. Quyền sở hữu
 
@@ -20,7 +22,7 @@ MVP tích hợp: D2C Customer/Guest session, một địa chỉ, một kho mặc
 | Catalog / Shipping quote | coherent SKU/price/weight snapshot; phí, quote reference/validity |
 | Promotion | voucher budget/hold/finalize/release, loyalty ledger |
 | Fulfillment | task acceptance/cancel barrier, package/evidence |
-| Shipping | shipment, dispatch/delivery checkpoints, COD evidence |
+| Shipping | shipment, dispatch/delivery checkpoints |
 | Profile / Identity | profile/address, principal và user→customer mapping |
 | Care / Finance | quyết định hỗ trợ/refund; accounting/settlement |
 
@@ -37,7 +39,7 @@ flowchart LR
     DB --> W[Durable workers]
     W -->|gRPC reserve / finalize / query / release| I[Inventory]
     W --> V[Catalog / Profile / Shipping / Promotion]
-    P[Provider] -->|Verified receipt / statement| A
+    P[SePay Payment Gateway] -->|Verified receipt / statement| A
     DB --> O[Outbox]
     O --> K[Kafka facts v3]
     K --> F[Fulfillment ready barrier]
@@ -88,7 +90,7 @@ sequenceDiagram
 
 PAID lần đầu = verified receipt + allocation đủ final + stock COMMITTED + voucher finalized nếu bật. Receipt được giữ ngay cả khi chưa PAID; payment summary có thể CONFIRMED trong PAYMENT_FINALIZING. UI: “đã nhận tiền, đang xác nhận đơn”.
 
-OrderPaid là fact. FulfillmentReady báo đủ điều kiện thương mại; task acceptance còn cần barrier hiện hành. COD CONFIRMED_COD giữ UNPAID nhưng stock COMMITTED; không paid giả. COD settlement cập nhật payment summary, không kéo lifecycle về PAID.
+OrderPaid là fact. FulfillmentReady chỉ cho đơn trả trước đủ điều kiện; task acceptance còn cần barrier hiện hành. COD bị từ chối. Một Order có một payment attempt; nhiều giao dịch ngân hàng vẫn phải được phát hiện và đối soát.
 
 ## 6. Expiry, cancel và recovery
 
@@ -96,7 +98,7 @@ Inventory tự expire lease bằng cùng transaction/row lock với finalize/rel
 
 Hủy pending: Order guard với receipt, lưu cancel + compensation intent atomic; compensation PENDING cho đến remote terminal. Release trước reserve phải tạo tombstone theo planned_order_id để chặn request trễ.
 
-Hủy committed/COD/paid: local hold, Fulfillment CancelTask barrier, approval/policy rồi reverse stock. ACCEPTED task → self-cancel bị từ chối, Care xử lý. Timeout barrier → query; không đoán từ local state. Reversal không tự refund; refund không tự restock.
+Hủy committed/paid do quản trị xét duyệt: local hold, Fulfillment CancelTask barrier, approval/policy rồi reverse stock. ACCEPTED task → self-cancel bị từ chối, Care xử lý. Timeout barrier → query; không đoán từ local state. Reversal không tự refund; refund không tự restock.
 
 ## 7. Vận hành và trade-off
 

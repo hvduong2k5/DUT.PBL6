@@ -1,0 +1,48 @@
+{
+  "verified_at": "2026-10-15T15:29:47.676107+00:00",
+  "scope": "First Order backend delivery (mvp1), not all product MVP 1.0",
+  "gofmt": "PASS",
+  "go_vet": "PASS",
+  "go_test_race": {
+    "status": "PASS",
+    "passed": 61,
+    "failed": 0,
+    "skipped": 0,
+    "mvp_integration_tests": [
+      "TestMVPScopeRejectsBeforeEffects",
+      "TestMVPBackgroundWorkersFinalizeDurableIPN",
+      "TestMVPInvalidAuthenticatedPayloadIsReviewable",
+      "TestMVPCheckoutIPNAndLostFinalizeACK",
+      "TestMVPConcurrentClaimAndEvidenceReuse",
+      "TestMVPLateAndUnsupportedNotifications",
+      "TestMVPReconciliationUsesRemoteIDAndReplaysAfterRestart",
+      "TestMVPManualRefundBudgetClaimAndIndependentVerification",
+      "TestMVPPaidCancellationReviewAndManualRefund"
+    ]
+  },
+  "infrastructure": "PostgreSQL 16, Redis 7 and Kafka in Docker",
+  "dependency_adapters": "SIMULATOR",
+  "docker_build": {
+    "status": "PASS",
+    "image": "omamx/order-service:mvp1-local"
+  },
+  "mvp_openapi_and_payloads": "PASS",
+  "legacy_http_contracts": "PASS (Order, CheckoutOperation, Cart; 102 stored v2 payloads)",
+  "shared_proto": "PASS (298 baseline fields preserved)",
+  "merchant_sandbox": "NOT_RUN_NO_CREDENTIALS",
+  "production": "DISABLED",
+  "full_product_MVP_1_0": "NOT_COMPLETE",
+  "adr_files": [
+    "ADR-001-mvp-delivery-profile.md",
+    "ADR-002-sepay-payment-attempt.md",
+    "ADR-003-manual-refund.md",
+    "ADR-004-local-review-and-manual-settlement-event.md"
+  ],
+  "documentation": {
+    "status": "PASS",
+    "files": 20,
+    "links_checked": 250,
+    "mermaid_blocks": 34
+  },
+  "compose_mvp_config": "PASS (synthetic credentials; no external provider call)"
+}

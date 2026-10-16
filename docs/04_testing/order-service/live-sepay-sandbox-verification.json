@@ -1,0 +1,45 @@
+{
+  "verified_at_utc": "2026-10-16T07:18:48.226787+00:00",
+  "environment": "SePay Payment Gateway sandbox; local Order mvp1; simulated inventory/profile/shipping",
+  "real_money_used": false,
+  "git_base_commit": "c40d06a461c99548312dbfb87545621b67a28901",
+  "worktree": "uncommitted implementation",
+  "order_id": "f9ca1905-c24d-40da-bb71-c0161fdd0e6e",
+  "invoice": "OMAMA-f9ca1905-c24d-40da-bb71-c0161fdd0e6e",
+  "amount_vnd": 135000,
+  "provider_order_id": "PAY110926AD1CF86A83DC",
+  "checks": {
+    "merchant_api_auth": "PASS_HTTP_200",
+    "checkout_browser": "PASS_BANK_TRANSFER_135000_VND",
+    "provider_simulate_payment": "PASS",
+    "actual_public_ipn": "PASS_HTTP_200",
+    "notification_worker": "APPLIED",
+    "order_status": "PAID",
+    "payment_status": "CONFIRMED",
+    "stock_status": "COMMITTED",
+    "receipt_count_for_invoice": 1,
+    "provider_receipt": "SEPAY_SANDBOX",
+    "reconciliation_scan": "PASS_last_success_2026-10-16T07:17:09.218625Z_no_error"
+  },
+  "initial_failures": {
+    "missing_description": "checkout init returned an error page with HTTP 200; signed description fixed this",
+    "loopback_return_url": "provider Cloudflare blocked checkout URL; HTTPS return URL worked",
+    "ipn_missing_auth": "merchant Auth Type was None; actual callback returned 401; selecting Secret Key fixed this",
+    "detail_identifier": "detail accepts merchant invoice, not PAY order_id or UUID; client corrected"
+  },
+  "local_regression_checks": {
+    "sepay_unit_race": "PASS",
+    "go_vet_sepay_app": "PASS",
+    "mvp_integration_race": "PASS",
+    "docker_build": "PASS"
+  },
+  "not_verified_live": [
+    "duplicate IPN",
+    "wrong/late payment amounts",
+    "manual refund",
+    "full recovery of missed IPN: observed CAPTURED detail with empty transactions",
+    "production integration"
+  ],
+  "production_enabled": false,
+  "secrets_included": false
+}

@@ -1,5 +1,7 @@
 # 07 — ADR, implementation gaps và rollout, baseline 3.2
 
+> **Phạm vi áp dụng MVP 1 — 15/10/2026:** đọc [quyết định giao bản đầu](13_mvp_delivery_decisions.md). Chỉ khách đăng nhập, VietQR chuyển khoản qua SePay Payment Gateway; không COD/Guest/voucher, không phương thức phụ, hoàn tiền thủ công có kiểm soát và dừng tự động tại DELIVERED. Các nhánh mở rộng dưới đây không bật trong MVP. Implementation sandbox của đợt đầu được ghi ở [báo cáo](14_mvp_implementation_and_adr_report.md); baseline 3.2 chưa được nghiệm thu tích hợp production.
+
 [Chỉ mục](README.md) · [HLD](00_order_service_hld.md) · [Báo cáo](10_order_design_change_report.md)
 
 Ngày13/10/2026. Các lựa chọn dưới đây là **quyết định cho bản thiết kế Order mục tiêu**, chưa phải xác nhận các nhóm provider đã triển khai/đồng ý contract. Baseline này thay candidate3.0 trong LLD01–07; runtime3.1 và report09 vẫn là lịch sử có SHA.
@@ -42,7 +44,7 @@ Ngày13/10/2026. Các lựa chọn dưới đây là **quyết định cho bản
 | G05 IMPLEMENTATION | simulator barrier; real proto permit/accept/cancel/query đã có proposal | Fulfillment+Order implement và kiểm race/generation/online permit | T16/24 |
 | G06 IMPLEMENTATION | Catalog snapshot RPC/Shipping quote fields đã có proposal; provider chưa chứng minh | provider coherent snapshot ID/version/validity, acceptance terms | T05/31 |
 | G07 FEATURE | Voucher/loyalty disabled | Promotion terminal hold/finalize/release/earn/reverse, fee cap | T06/07/15/23 |
-| G08 INTEGRATION | provider ledger sandbox | Payment owner chọn provider thật/auth/finality/statement/refund | T11/12/21 |
+| G08 INTEGRATION | provider ledger sandbox | Payment owner tích hợp SePay Gateway/auth/query/statement; refund manual theo profile MVP | T11/12/21 |
 | G09 FEATURE | Guest session có; claim/verifier chưa | Profile/Identity proof/query/apply ACK, mapping trusted | T01/02/20 |
 | G10 IMPLEMENTATION | Care barrier simulator | Care+Order serialized completion/refund approvals | T21/23 |
 | G11 FEATURE | POS/marketplace/B2B/gifting chưa bật | Channel+Order và business owner policy/IDs/evidence | T25 |
@@ -66,7 +68,7 @@ Không biến việc viết docs3.2 thành đã sửa code hoặc đóng gaps.
 
 ## 5. Policy defaults và rollout
 
-Defaults thiết kế: preview5m, hold<=15m theo remote, minimum remaining30s, exact-only, một kho/địa chỉ/VND, completion window đề xuất7d, response retention7d/registry tối thiểu30d không reuse tự động. Business owner cần chốt provider/COD eligibility/return window/refund authority/retention trước bật feature; không diễn giải duration thành quy định pháp lý.
+Defaults thiết kế: preview5m, hold<=15m theo remote, minimum remaining30s, exact-only, một kho/địa chỉ/VND, completion window đề xuất7d, response retention7d/registry tối thiểu30d không reuse tự động. MVP đã chọn SePay và bỏ COD; return window tự động hoãn, quyền refund/retention phải được cấu hình trước vận hành; không diễn giải duration thành quy định pháp lý.
 
 Thứ tự:
 1. Review OD05/06/07 và message semantics với Inventory/Fulfillment/Payment owners.
@@ -79,3 +81,11 @@ Thứ tự:
 Rollback giữ ledger/tombstone/key; không reset operation hoặc gửi paidv1 của new-flow Order để “tương thích”. Báo cáo trình bày liên service ở chương10.
 
 Ngày 15/10/2026 đã cụ thể hóa wire proposal và kiểm static/build; xem [báo cáo đồng bộ contract](11_contract_alignment_report.md). Những G/R liên quan provider implementation, database và adapter vẫn mở; không coi compile/schema PASS là đóng integration gate.
+
+## 7. Quyết định thu hẹp MVP ngày 15/10/2026
+
+[Profile MVP 1](13_mvp_delivery_decisions.md) chốt SePay/VietQR, login-only, không phương thức phụ, refund manual, DELIVERED là điểm cuối tự động. G07/09/10 completion/11 và R02/06 COD không chặn core vì không bật. G01–06, G08, G12–13 vẫn cần triển khai/kiểm chứng phần áp dụng. Bổ sung gaps: payment_attempt + checkout action/IPN/query mapping, admin refund workflow/evidence và vận hành đối soát. Chọn provider không có nghĩa các gap này đã đóng.
+
+## 8. Implementation và ADR được ghi song song
+
+Profile `mvp1` đã có implementation sandbox cho payment attempt/form/IPN/query, duyệt hủy nội bộ và manual refund. [Báo cáo](14_mvp_implementation_and_adr_report.md) và [ADR-001..004](adr/README.md) ghi bằng chứng, giới hạn và các epic chưa đáp ứng. G08 chỉ tiến triển ở protocol/local tests, chưa đóng merchant integration gate. G01–06 và rollout v3 không được đóng chỉ vì code MVP compile/test PASS.

@@ -96,6 +96,10 @@ func (s *Service) WorkPlacement(ctx context.Context) (bool, error) {
 		return true, e
 	}
 	q := stored.Quote
+	if err := s.checkoutPolicy(stored.Principal, q.Method); err != nil && w.Stage != "COMPENSATE" {
+		// A newly selected release profile must not execute an old COD attempt.
+		return true, s.failOperation(ctx, w, err, w.Stage != "VALIDATE")
+	}
 	switch w.Stage {
 	case "VALIDATE":
 		if q.AddressID != "" {
@@ -218,6 +222,12 @@ func (s *Service) WorkPlacement(ctx context.Context) (bool, error) {
 					return err
 				}
 			}
+			if s.MVP() {
+				_, err = tx.Exec(ctx, `INSERT INTO payment_attempts(id,order_id,provider,environment,merchant_invoice,merchant_id,amount,currency,expires_at) VALUES($1,$2,'SEPAY',$3,$4,$5,$6,'VND',$7)`, uuid.NewString(), w.Planned, s.C.SePay.Environment, "OMAMA-"+w.Planned, s.C.SePay.MerchantID, q.Final, expires)
+				if err != nil {
+					return err
+				}
+			}
 			_, err = tx.Exec(ctx, "INSERT INTO order_history(id,order_id,version,to_status,source) VALUES($1,$2,1,$3,'CHECKOUT')", uuid.NewString(), w.Planned, status)
 			if err != nil {
 				return err
@@ -253,7 +263,7 @@ func (s *Service) WorkPlacement(ctx context.Context) (bool, error) {
 			s.retryOperation(ctx, w, e)
 			return true, nil
 		}
-		if r.State == "COMMITTED" {
+		if r.OrderID != w.Planned || r.ID == "" || (r.State != "RELEASED" && r.State != "EXPIRED") {
 			s.retryOperation(ctx, w, domain.E("COMMITTED_STOCK_REQUIRES_REVIEW", 409))
 			return true, nil
 		}

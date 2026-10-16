@@ -1,0 +1,40 @@
+{
+  "verified_at_utc": "2026-10-16T08:33:33.334718+00:00",
+  "environment": "SePay User API v2 Sandbox",
+  "operations": "read-only; no production API calls",
+  "checks": [
+    {
+      "method": "invoice",
+      "at_utc": "2026-10-16T08:32:39.567536+00:00",
+      "url": "https://userapi-sandbox.sepay.vn/v2/transactions?q=OMAMA-6d64bd28-7919-4763-b407-0599dfef6d93&per_page=20",
+      "http": 401,
+      "elapsed_seconds": 0.63,
+      "root_keys": [
+        "status",
+        "message",
+        "error_code"
+      ],
+      "response_sha256": "6253a5d6e94c192a37af9191581cdff3541b7c66d1abb1f54e81a334943eefd6",
+      "data_type": "NoneType",
+      "count": null,
+      "pagination": null,
+      "error_message": "Unauthorized Access"
+    }
+  ],
+  "independent_client": {
+    "client": "curl",
+    "url": "https://userapi-sandbox.sepay.vn/v2/transactions?per_page=1",
+    "http": 401,
+    "message": "Unauthorized Access",
+    "error_code": "unauthorized"
+  },
+  "result": "BLOCKED_AUTHENTICATION",
+  "conclusion": "Token supplied was not accepted by sandbox endpoint (401 unauthorized). No transaction data was returned; this is not evidence of an empty transaction list. Token environment/active state requires checking.",
+  "possible_causes_unconfirmed": [
+    "Token created in Live API Access rather than Test mode API Access",
+    "Token inactive or revoked",
+    "Token value not accepted by this environment"
+  ],
+  "documentation": "https://developer.sepay.vn/vi/tien-ich-khac/test-mode/api-access",
+  "secrets_included": false
+}

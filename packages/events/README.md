@@ -1,4 +1,7 @@
 # DANH MỤC SỰ KIỆN PHÂN TÁN & QUY CHUẨN KAFKA CLOUDEVENTS (EVENT CATALOG)
+
+**Đợt đầu Order (`mvp1`):** thêm fact [manual_refund_verified.v1](schemas/order/manual/v1/manual_refund_verified.event.json) trên `order.manual_refunds.v1`, partition key `refund_id`. Đây là xác nhận hoàn tiền thủ công có người kiểm tra, không phải provider refund proof. Consumer Finance/Notification còn cần rollout riêng; Order runtime khác vẫn giữ v2.
+
 ## HỆ SINH THÁI THƯƠNG MẠI ĐIỆN TỬ & CHUỖI CUNG ỨNG ĐẶC SẢN OCOP HUẾ (MÈ XỬNG O MẠ)
 
 Thư mục này chứa toàn bộ các bản hợp đồng sự kiện bất đồng bộ (Asynchronous Event Schemas) của hệ thống, được chuẩn hóa theo định dạng **CNCF CloudEvents 1.0** và lưu trữ dưới dạng **JSON Schema (Draft-07)**.

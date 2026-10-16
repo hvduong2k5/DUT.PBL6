@@ -1,5 +1,7 @@
 # Hiểu Order-service từ đầu: từ việc bán hai hộp kẹo đến thiết kế hệ thống
 
+> **Phạm vi áp dụng MVP 1 — 15/10/2026:** đọc [quyết định giao bản đầu](13_mvp_delivery_decisions.md). Chỉ khách đăng nhập, VietQR chuyển khoản qua SePay Payment Gateway; không COD/Guest/voucher, không phương thức phụ, hoàn tiền thủ công có kiểm soát và dừng tự động tại DELIVERED. Các nhánh mở rộng dưới đây không bật trong MVP. Implementation sandbox của đợt đầu được ghi ở [báo cáo](14_mvp_implementation_and_adr_report.md); baseline 3.2 chưa được nghiệm thu tích hợp production.
+
 Ngày viết: **15/10/2026**. Dành cho người lần đầu xây dựng phần đặt hàng và thanh toán trong hệ thống nhiều service.
 
 Tài liệu giải thích bằng tiếng Việt trước, sau đó mới giới thiệu tên tiếng Anh để bạn đối chiếu với mã nguồn. Ví dụ xuyên suốt: **hai hộp kẹo, mỗi hộp 90.000 đồng, phí giao 20.000 đồng, tổng thanh toán 200.000 đồng**.
@@ -223,6 +225,9 @@ Thời hạn giữ do Inventory xác nhận mới là căn cứ. Order không t�
 
 ### 6.1. Có QR chưa có nghĩa đã có tiền
 
+**MVP hiện chọn SePay Payment Gateway:** Order lưu một lần thanh toán cho đơn rồi mở trang SePay. QR có số tiền và nội dung theo đơn. SePay báo về backend; Order lưu khoản thu rồi xác nhận kho. Tải lại trang không tạo lần thu mới. Xem [luồng MVP dễ đọc](13_mvp_delivery_decisions.md).
+
+
 QR/hướng dẫn chuyển khoản giúp khách thực hiện giao dịch. Hệ thống còn phải nhận và xác minh thông tin từ ngân hàng/nhà cung cấp đã chọn.
 
 **Provider** nghĩa là nhà cung cấp hoặc hệ thống đối tác. **Callback/webhook** là việc bên đó chủ động gọi API của mình để thông báo có giao dịch hoặc có thay đổi.
@@ -296,7 +301,7 @@ Phân biệt rõ:
 
 **COD** là trả tiền khi nhận hàng. Đơn COD đủ điều kiện có thể được chốt hàng và đưa đi đóng gói khi trạng thái tiền vẫn “chưa thu”. Target dùng `CONFIRMED_COD`, không giả lập một lần thanh toán trước. Thu/đối soát tiền COD sau đó cập nhật trục thanh toán, không kéo vòng đời giao hàng quay lại PAID.
 
-COD chỉ bật khi có chính sách và bằng chứng từ carrier/provider tương ứng; không phải cứ thêm enum là đã hỗ trợ xong.
+**Phần COD trên chỉ giải thích thiết kế cũ. MVP đã bỏ COD, không bật luồng này.**
 
 <a id="phan-8"></a>
 ## 8. Vì sao không dùng một trạng thái duy nhất?
@@ -554,6 +559,9 @@ Hai thao tác phải được phân xử cả khi chưa có bản ghi phiếu gi
 
 <a id="phan-14"></a>
 ## 14. Hoàn tiền khác nhập lại kho
+
+**MVP dùng hoàn tiền thủ công có kiểm soát:** người có quyền duyệt, một người nhận việc, giữ ngân sách hoàn và chỉ ghi thành công sau đối chiếu giao dịch ngân hàng. Chưa gọi API hoàn tiền tự động. Xem [các bước cụ thể](13_mvp_delivery_decisions.md#7-hoàn-tiền-thủ-công-nhưng-không-tùy-tiện).
+
 
 Khách được hoàn tiền không chứng minh hàng đã quay về. Đơn bị hủy không chứng minh task chưa nhận. Hàng quay về cũng chưa chắc còn bán được, ví dụ hết hạn hoặc cần cách ly.
 

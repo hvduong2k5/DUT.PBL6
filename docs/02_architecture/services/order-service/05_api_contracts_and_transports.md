@@ -1,5 +1,7 @@
 # 05 — Contract và transport, baseline 3.2
 
+> **Phạm vi áp dụng MVP 1 — 15/10/2026:** đọc [quyết định giao bản đầu](13_mvp_delivery_decisions.md). Chỉ khách đăng nhập, VietQR chuyển khoản qua SePay Payment Gateway; không COD/Guest/voucher, không phương thức phụ, hoàn tiền thủ công có kiểm soát và dừng tự động tại DELIVERED. Các nhánh mở rộng dưới đây không bật trong MVP. Implementation sandbox của đợt đầu được ghi ở [báo cáo](14_mvp_implementation_and_adr_report.md); baseline 3.2 chưa được nghiệm thu tích hợp production.
+
 [Trước](04_usecases_and_saga_orchestration.md) · [Tiếp](06_testing_and_failure_recovery.md)
 
 ## 1. Hiệu lực và wire status
@@ -116,3 +118,9 @@ Rollout: pin contract versions → provider implement/test → adapter consumer 
 ## 7. Authentication
 
 TLS/service identity + per-method ACL, Kafka publisher/group ACL; production không tin public X-Internal-Token/header tự khai. Gateway strip spoofable headers; Order verify principal, customer mapping và object scope. Sandbox token/HMAC chỉ dành simulator. Logs không chứa raw callback/PII/token. Reversal/refund permissions tách khỏi public checkout/cancel.
+
+## 8. Profile API MVP 1
+
+Chỉ người mua đăng nhập và chuyển khoản VietQR qua SePay được bật; các phương thức khác bị validation reject trước side effect. Enum/schema rộng hơn phạm vi triển khai không có nghĩa tính năng đang hỗ trợ. Không sửa tag hoặc xóa enum COD cũ.
+
+Đã bổ sung [OpenAPI profile mvp1](../../../03_api_specs/order-service.mvp1.openapi.yaml): mở form SePay từ attempt bền vững, raw IPN có SECRET_KEY auth, query bằng provider order_id, duyệt hủy và các lệnh quản trị manual refund/evidence. Form được dựng local nên không thêm trạng thái chuẩn bị giả. Endpoint refund tự động bị tắt ở profile này. Kết quả kiểm protocol cục bộ không đóng merchant integration gate. Không thêm service SePay vào shared proto: adapter HTTP là chi tiết module Payment; shared contract chỉ đổi nếu dữ liệu trao đổi liên service thực sự đổi.

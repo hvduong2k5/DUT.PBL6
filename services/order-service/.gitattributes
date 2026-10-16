@@ -1,0 +1,2 @@
+# Docker/CI gofmt must see the same bytes as Windows checkouts.
+*.go text eol=lf

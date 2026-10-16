@@ -74,6 +74,9 @@ func scopedDB(t *testing.T, dsn string) (string, func()) {
 	}
 }
 func newHarness(t *testing.T) *harness {
+	return configuredHarness(t, nil)
+}
+func configuredHarness(t *testing.T, configure func(*app.Config)) *harness {
 	t.Helper()
 	dsn := os.Getenv("ORDER_TEST_DATABASE")
 	simDSN := os.Getenv("ORDER_TEST_SIM_DATABASE")
@@ -90,6 +93,9 @@ func newHarness(t *testing.T) *harness {
 	}
 	h.Mock = httptest.NewServer(h.Sim.Handler())
 	h.Config = app.Config{DB: mainDSN, Redis: os.Getenv("ORDER_TEST_REDIS"), RedisDB: 1, Dependencies: h.Mock.URL, InternalToken: internalToken, JWTSecret: jwtSecret, CallbackSecret: callbackSecret, EncryptionKey: encryptionKey, Receiver: "SYNTHETIC-RECEIVER", Kafka: os.Getenv("ORDER_TEST_KAFKA"), ConsumerGroup: "order-integration-" + uuid.NewString(), Mode: "sandbox", Poll: 10 * time.Millisecond, AutoComplete: true}
+	if configure != nil {
+		configure(&h.Config)
+	}
 	h.S, e = app.New(h.ctx, h.Config)
 	if e != nil {
 		t.Fatal(e)

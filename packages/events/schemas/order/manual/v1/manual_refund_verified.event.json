@@ -1,0 +1,91 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "specversion": {
+      "const": "1.0"
+    },
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "source": {
+      "const": "https://omama.vn/services/order-service"
+    },
+    "type": {
+      "const": "vn.omama.order.manual_refund_verified.v1"
+    },
+    "subject": {
+      "type": "string",
+      "pattern": "^refund:[0-9a-f-]{36}$"
+    },
+    "time": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "datacontenttype": {
+      "const": "application/json"
+    },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "refund_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "receipt_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "order_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "amount": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 1,
+          "maximum": 1000000000000
+        },
+        "currency": {
+          "const": "VND"
+        },
+        "execution_mode": {
+          "const": "MANUAL_BANK_TRANSFER"
+        },
+        "evidence_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "status": {
+          "const": "SUCCEEDED"
+        }
+      },
+      "required": [
+        "refund_id",
+        "receipt_id",
+        "order_id",
+        "amount",
+        "currency",
+        "execution_mode",
+        "evidence_hash",
+        "status"
+      ]
+    }
+  },
+  "required": [
+    "specversion",
+    "id",
+    "source",
+    "type",
+    "subject",
+    "time",
+    "datacontenttype",
+    "data"
+  ],
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}

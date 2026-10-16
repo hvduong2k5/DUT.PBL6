@@ -1,0 +1,9 @@
+# Dedicated databases: do not switch an in-flight legacy sandbox cohort to mvp1.
+# Use with docker-compose.test.yml, docker-compose.mvp.yml and --env-file .env.local.
+services:
+  api:
+    environment:
+      DATABASE_URL: postgres://order_test:order_test_local@db:5432/order_mvp_sandbox?sslmode=disable
+  simulator:
+    environment:
+      SIMULATOR_DATABASE_URL: postgres://order_test:order_test_local@db:5432/order_sepay_simulator?sslmode=disable

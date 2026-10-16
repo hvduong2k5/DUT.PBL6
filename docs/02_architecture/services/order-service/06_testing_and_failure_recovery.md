@@ -1,5 +1,7 @@
 # 06 — Verification và recovery, baseline 3.2
 
+> **Phạm vi áp dụng MVP 1 — 15/10/2026:** đọc [quyết định giao bản đầu](13_mvp_delivery_decisions.md). Chỉ khách đăng nhập, VietQR chuyển khoản qua SePay Payment Gateway; không COD/Guest/voucher, không phương thức phụ, hoàn tiền thủ công có kiểm soát và dừng tự động tại DELIVERED. Các nhánh mở rộng dưới đây không bật trong MVP. Implementation sandbox của đợt đầu được ghi ở [báo cáo](14_mvp_implementation_and_adr_report.md); baseline 3.2 chưa được nghiệm thu tích hợp production.
+
 [Trước](05_api_contracts_and_transports.md) · [Tiếp](07_decisions_and_contract_gaps.md)
 
 ## 1. Mức bằng chứng
@@ -76,3 +78,9 @@ Integration release: T01/03/04/05/08/09/10/11/12/13/14/17/19/27/28 pass với In
 FR05 checkout → T03–10; FR06 payment → T11–15/21–22; FR07 Order lifecycle → T01/13/16/24; FR08–09 Inventory/FEFO → T08–09/13–14/28; FR10–12 fulfillment/shipping → T15–18; FR13–14 channels → T25; FR15 returns → T21–23; FR17–18 promotion → T06–07/15/23; FR19/28 B2B/gifting → extension tests riêng.
 
 NFR performance/availability cần workload/restore evidence; integrity cần ledger assertions; auth/privacy cần negative access và payload/log inspection; audit cần independent anchor policy khi yêu cầu chống privileged deletion; observability cần alert drill. Requirement labels tham chiếu bộ yêu cầu hiện tại, không suy từ số lượng tests thành coverage hoàn chỉnh.
+
+## 6. Gate riêng MVP 1
+
+COD T15/31, voucher, Guest claim và completion T23 không phải tính năng phát hành; phải kiểm yêu cầu không hỗ trợ bị từ chối. Refund vẫn bắt buộc kiểm chống vượt budget/trùng chuyển tiền nhưng dùng quy trình manual, không lấy simulator refund API làm bằng chứng. Thêm ca callback sai môi trường, tải lại giữ nguyên payment attempt, hai người cùng nhận việc refund, tiền chuyển xong nhưng chưa ghi kết quả.
+
+Demo dùng SePay sandbox; production cần kiểm Inventory/Fulfillment thật, truy vấn giao dịch và đối chiếu khoản đến muộn, màn hình nghĩa vụ tồn, quy trình manual được diễn tập. Chi tiết [gate MVP](13_mvp_delivery_decisions.md#10-điều-kiện-giao-mvp).

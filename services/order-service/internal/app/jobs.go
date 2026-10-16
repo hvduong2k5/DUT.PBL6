@@ -95,7 +95,7 @@ func (s *Service) WorkJob(ctx context.Context) (bool, error) {
 			if current.Status != "PAYMENT_FINALIZING" {
 				return finishJob(ctx, tx, j, "DONE", "")
 			}
-			if r.OrderID != current.ID {
+			if r.OrderID != current.ID || r.ID != current.Reservation {
 				return domain.E("RESOURCE_MISMATCH", 409)
 			}
 			if r.State != "COMMITTED" {
@@ -201,6 +201,10 @@ func (s *Service) WorkJob(ctx context.Context) (bool, error) {
 			e = s.jobTransaction(ctx, j, func(tx pgx.Tx, current *domain.Order) error {
 				current.Hold = false
 				current.Ready = true
+				if s.MVP() {
+					current.Hold = true
+					current.Ready = false
+				} // A rejected cancel requires operator review; do not clear another financial hold.
 				if err := s.touch(ctx, tx, current, "CANCEL_REJECTED_TASK_ACCEPTED"); err != nil {
 					return err
 				}
@@ -222,7 +226,7 @@ func (s *Service) WorkJob(ctx context.Context) (bool, error) {
 			s.retryJob(ctx, j, e)
 			return true, nil
 		}
-		if r.State != "RELEASED" && r.State != "EXPIRED" {
+		if r.OrderID != o.ID || r.ID != o.Reservation || (r.State != "RELEASED" && r.State != "EXPIRED") {
 			s.retryJob(ctx, j, domain.E("DEPENDENCY_UNKNOWN", 503))
 			return true, nil
 		}
@@ -239,6 +243,11 @@ func (s *Service) WorkJob(ctx context.Context) (bool, error) {
 			return finishJob(ctx, tx, j, "DONE", "")
 		})
 	case "REFUND":
+		if s.MVP() {
+			return true, s.jobTransaction(ctx, j, func(tx pgx.Tx, _ *domain.Order) error {
+				return finishJob(ctx, tx, j, "MANUAL_REVIEW", "AUTOMATIC_REFUND_DISABLED")
+			})
+		}
 		var payload struct {
 			ID string `json:"refund_id"`
 		}

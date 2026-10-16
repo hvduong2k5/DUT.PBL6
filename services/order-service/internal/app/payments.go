@@ -11,7 +11,14 @@ import (
 )
 
 func (s *Service) RecordReceipt(ctx context.Context, r domain.Receipt) error {
-	if e := r.Validate(s.C.Receiver); e != nil {
+	receiver, provider := s.C.Receiver, "SIMULATOR"
+	if s.MVP() {
+		receiver, provider = s.C.SePay.MerchantID, s.C.SePay.Provider()
+	}
+	if r.Provider != provider {
+		return domain.E("PAYMENT_PROVIDER_MISMATCH", 422)
+	}
+	if e := r.Validate(receiver); e != nil {
 		return e
 	}
 	tx, e := s.DB.Begin(ctx)
@@ -39,7 +46,7 @@ func (s *Service) RecordReceipt(ctx context.Context, r domain.Receipt) error {
 			return e
 		}
 		if previous != hash {
-			if e = s.Audit(ctx, tx, "", "SIMULATOR", "RECEIPT_CONFLICT", map[string]any{"transaction_id": r.TransactionID, "hash": hash}); e != nil {
+			if e = s.Audit(ctx, tx, "", r.Provider, "RECEIPT_CONFLICT", map[string]any{"transaction_id": r.TransactionID, "hash": hash}); e != nil {
 				return e
 			}
 			if e = tx.Commit(ctx); e != nil {
@@ -68,6 +75,15 @@ func (s *Service) RecordReceipt(ctx context.Context, r domain.Receipt) error {
 		reason = "LATE_OR_UNAVAILABLE"
 	} else if r.Amount != o.Final {
 		reason = "AMOUNT_MISMATCH"
+	}
+	if reason == "" && s.MVP() {
+		var matched bool
+		if e = tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM payment_attempts WHERE order_id=$1 AND provider='SEPAY' AND environment=$2 AND merchant_id=$3 AND merchant_invoice=$4 AND provider_order_id=$5)", o.ID, s.C.SePay.Environment, s.C.SePay.MerchantID, r.Reference, r.ProviderOrderID).Scan(&matched); e != nil {
+			return e
+		}
+		if !matched {
+			reason = "UNMATCHED_ATTEMPT"
+		}
 	}
 	if reason == "" {
 		var allocated bool
@@ -110,7 +126,7 @@ func (s *Service) RecordReceipt(ctx context.Context, r domain.Receipt) error {
 			}
 		}
 	}
-	if e = s.Audit(ctx, tx, o.ID, "SIMULATOR", "RECEIPT_RECORDED", map[string]any{"receipt_id": rid, "reason": reason}); e != nil {
+	if e = s.Audit(ctx, tx, o.ID, r.Provider, "RECEIPT_RECORDED", map[string]any{"receipt_id": rid, "reason": reason}); e != nil {
 		return e
 	}
 	return tx.Commit(ctx)
@@ -118,6 +134,9 @@ func (s *Service) RecordReceipt(ctx context.Context, r domain.Receipt) error {
 
 // Statement cursor is advanced only after every receipt has a durable local outcome.
 func (s *Service) ReconcilePayments(ctx context.Context) error {
+	if s.MVP() {
+		return nil
+	} // SePay has an independent worker; never read the simulator ledger.
 	var position int64
 	e := s.DB.QueryRow(ctx, "SELECT position FROM provider_cursors WHERE provider='SIMULATOR'").Scan(&position)
 	if e != nil && !errors.Is(e, pgx.ErrNoRows) {
@@ -142,6 +161,9 @@ func (s *Service) ReconcilePayments(ctx context.Context) error {
 	return e
 }
 func (s *Service) AcceptRefund(ctx context.Context, approvalID string) (string, error) {
+	if s.MVP() {
+		return "", domain.E("AUTOMATIC_REFUND_DISABLED", 409)
+	}
 	var a domain.Approval
 	if e := s.Call(ctx, "GET", "/care/approvals/"+approvalID, nil, &a); e != nil {
 		return "", e
@@ -175,7 +197,7 @@ func (s *Service) AcceptRefund(ctx context.Context, approvalID string) (string, 
 		return "", domain.E("RECEIPT_NOT_CONFIRMED", 409)
 	}
 	var held int64
-	if e = tx.QueryRow(ctx, "SELECT COALESCE(sum(amount),0) FROM refunds WHERE receipt_id=$1 AND status IN ('APPROVED','SUBMITTED','SUCCEEDED','UNKNOWN','MANUAL_REVIEW')", a.ReceiptID).Scan(&held); e != nil {
+	if e = tx.QueryRow(ctx, "SELECT (SELECT COALESCE(sum(amount),0) FROM refunds WHERE receipt_id=$1 AND status IN ('APPROVED','SUBMITTED','SUCCEEDED','UNKNOWN','MANUAL_REVIEW'))+(SELECT COALESCE(sum(amount),0) FROM manual_refunds WHERE receipt_id=$1)", a.ReceiptID).Scan(&held); e != nil {
 		return "", e
 	}
 	if a.Amount > received-held {

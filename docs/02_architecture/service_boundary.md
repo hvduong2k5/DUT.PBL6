@@ -1,5 +1,7 @@
 # THIẾT KẾ RANH GIỚI DỊCH VỤ & QUYỀN SỞ HỮU DỮ LIỆU (SERVICE BOUNDARY & DATA OWNERSHIP)
 
+> **Order MVP 1 (15/10/2026):** [phạm vi được chọn](services/order-service/13_mvp_delivery_decisions.md) là login-only, VietQR qua SePay Payment Gateway, không COD/phương thức phụ/voucher, refund manual có bằng chứng, chưa COMPLETED tự động. Những mô tả Order rộng hơn dưới đây là roadmap; không bật trong MVP.
+
 > **Order integration baseline3.2 — 13/10/2026:** [HLD/LLD Order](services/order-service/README.md) là nguồn chuẩn cho interaction của MS-04, Inventory terminal protocol, Fulfillment barrier và Payment ownership. Các capability mới là target cần provider sign-off/test; bảng nghiệp vụ của các service khác không chứng minh capability đã implement.
 
 ## HỆ SINH THÁI THƯƠNG MẠI ĐIỆN TỬ ĐA KÊNH & HỖ TRỢ QUYẾT ĐỊNH — MÈ XỬNG O MẠ
@@ -344,7 +346,7 @@ BC-04 Commerce & Order Orchestration, Core domain. Payment là module MS-04; Car
 | --- | --- |
 | Checkout | quote → durable operation202 → canonical validate/reserve → Order placement |
 | Payment | verified receipt → FINALIZING → resources terminal → PAID; unmatched/late giữ reconciliation |
-| COD | eligible + committed stock → CONFIRMED_COD/UNPAID |
+| COD | Không hỗ trợ trong MVP; từ chối trước giữ hàng |
 | Inventory client | gRPC reserve/query/finalize/release-by-order/reverse từ worker, stable keys |
 | Fulfillment | ready v3 + Order permit + remote accept/cancel/query barrier |
 | Shipping | quote validity; created khác dispatched; source association/version |
@@ -1467,7 +1469,7 @@ flowchart LR
 | MS-16 | Auth, Social Login, RBAC |
 | MS-15 | Customer Profile, Address Book |
 | MS-05 | Product CRUD, Category, Pricing, Search |
-| MS-04 | Cart, Checkout, Payment (VietQR + COD), Order Lifecycle, Saga |
+| MS-04 | Cart, Checkout, Payment (SePay VietQR; không COD trong MVP), Order Lifecycle, Saga |
 | MS-01 | Inventory CRUD, Batch/FEFO, Anti-overselling, Expiry Warning |
 | MS-02 | Packing Queue, Verification, Video Evidence, Seal Tag |
 | MS-12 | Waybill, GHN/ViettelPost Integration, Tracking |

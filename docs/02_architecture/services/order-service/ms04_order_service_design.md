@@ -1,5 +1,7 @@
 # MS-04 — Master design map 3.2
 
+> **Phạm vi áp dụng MVP 1 — 15/10/2026:** đọc [quyết định giao bản đầu](13_mvp_delivery_decisions.md). Chỉ khách đăng nhập, VietQR chuyển khoản qua SePay Payment Gateway; không COD/Guest/voucher, không phương thức phụ, hoàn tiền thủ công có kiểm soát và dừng tự động tại DELIVERED. Các nhánh mở rộng dưới đây không bật trong MVP. Implementation sandbox của đợt đầu được ghi ở [báo cáo](14_mvp_implementation_and_adr_report.md); baseline 3.2 chưa được nghiệm thu tích hợp production.
+
 Ngày13/10/2026. Nguồn chi tiết là các chương được liên kết dưới đây; master không sao chép nguyên bộ LLD để tránh hai bản mô tả khác nhau.
 
 ## Đọc để hiểu và trình bày

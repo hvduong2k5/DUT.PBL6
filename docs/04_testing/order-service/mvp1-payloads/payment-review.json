@@ -1,0 +1,26 @@
+{
+  "limit": 100,
+  "notification_manual_review": 0,
+  "notification_pending": 0,
+  "notification_review_ids": [],
+  "pending_cancellation_ids": [],
+  "pending_manual_refund_ids": [],
+  "receipts": [
+    {
+      "amount": 245000,
+      "created_at": "2026-10-16T07:36:59.618218Z",
+      "order_id": "8a24df79-886a-45e2-9ba9-842479325144",
+      "reason": "LATE_OR_UNAVAILABLE",
+      "receipt_id": "45beb9a0-ef69-4ba9-a95d-d99a4677e023",
+      "reconciliation_status": "RESOLVED"
+    },
+    {
+      "amount": 245000,
+      "created_at": "2026-10-16T07:36:59.558753Z",
+      "order_id": "8a24df79-886a-45e2-9ba9-842479325144",
+      "reason": "",
+      "receipt_id": "8b313abd-1d84-4906-bc50-a7bf8b4c05bf",
+      "reconciliation_status": ""
+    }
+  ]
+}

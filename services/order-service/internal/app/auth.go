@@ -66,6 +66,9 @@ func (s *Service) Authenticate(token string) (domain.Principal, error) {
 		return domain.Principal{}, domain.E("UNAUTHENTICATED", 401)
 	}
 	p := domain.Principal{ID: c.Subject, Role: c.Role, Warehouse: c.Warehouse}
+	if s.MVP() && p.Role == "GUEST" {
+		return p, domain.E("CUSTOMER_LOGIN_REQUIRED", 403)
+	}
 	if p.Role != "CUSTOMER" && p.Role != "GUEST" && !p.Staff() {
 		return p, domain.E("UNAUTHENTICATED", 401)
 	}

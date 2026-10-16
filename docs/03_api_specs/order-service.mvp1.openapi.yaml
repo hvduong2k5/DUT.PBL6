@@ -1,0 +1,3240 @@
+openapi: 3.0.3
+info:
+  title: MS-04 Order delivery profile mvp1 (sandbox)
+  version: 0.1.0
+  description: First Order delivery; not full product MVP 1.0. CUSTOMER login, VIETQR
+    through SePay Gateway sandbox. No COD/Guest/automatic refund/COMPLETED. Existing
+    transport remains sandbox 3.1 HTTP adapters and events v2; this is not an implementation
+    of all target 3.2 proofs. See ADR-001..004 and the MVP runbook.
+servers:
+- url: http://localhost:18004
+  description: Local sandbox, not a production endpoint
+paths:
+  /api/v1/cart:
+    get:
+      operationId: getCart
+      summary: getCart
+      responses:
+        '200':
+          description: Durable response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '404':
+          description: Missing or unowned resource
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '409':
+          description: State/version/idempotency conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '503':
+          description: Unavailable before durable acceptance
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+      security:
+      - bearerAuth: []
+  /api/v1/cart/items:
+    post:
+      operationId: addCartItem
+      summary: addCartItem
+      responses:
+        '200':
+          description: Durable response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '404':
+          description: Missing or unowned resource
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '409':
+          description: State/version/idempotency conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '503':
+          description: Unavailable before durable acceptance
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - sku_code
+              - quantity
+              - revision
+              properties:
+                sku_code:
+                  type: string
+                  minLength: 1
+                  maxLength: 64
+                quantity:
+                  type: integer
+                  minimum: 1
+                  maximum: 999
+                revision:
+                  type: integer
+                  minimum: 0
+  /api/v1/checkout/quote:
+    post:
+      operationId: createCheckoutQuote
+      summary: createCheckoutQuote
+      responses:
+        '200':
+          description: Durable response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Quote'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '404':
+          description: Missing or unowned resource
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '409':
+          description: State/version/idempotency conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '503':
+          description: Unavailable before durable acceptance
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - cart_revision
+              - payment_method
+              properties:
+                cart_revision:
+                  type: integer
+                  minimum: 0
+                payment_method:
+                  type: string
+                  enum:
+                  - VIETQR
+                shipping_address_id:
+                  type: string
+                  format: uuid
+                address:
+                  type: object
+                  additionalProperties: false
+                  required:
+                  - recipient_name
+                  - phone
+                  - street
+                  - ward_code
+                  - province_code
+                  properties:
+                    recipient_name:
+                      type: string
+                      minLength: 1
+                      maxLength: 255
+                    phone:
+                      type: string
+                      minLength: 1
+                      maxLength: 255
+                    street:
+                      type: string
+                      minLength: 1
+                      maxLength: 255
+                    ward_code:
+                      type: string
+                      minLength: 1
+                      maxLength: 255
+                    province_code:
+                      type: string
+                      minLength: 1
+                      maxLength: 255
+                voucher_code:
+                  type: string
+  /api/v1/checkout:
+    post:
+      operationId: acceptCheckout
+      summary: acceptCheckout
+      responses:
+        '202':
+          description: Durable operation created; no Order is implied
+          headers:
+            Location:
+              schema:
+                type: string
+              description: Existing /api/v1/checkout-operations/{id}
+            Retry-After:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckoutOperation'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '404':
+          description: Missing or unowned resource
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '409':
+          description: State/version/idempotency conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '503':
+          description: Unavailable before durable acceptance
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '201':
+          description: Replay of successful checkout, same operation and Order
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckoutOperation'
+          headers:
+            Link:
+              schema:
+                type: string
+              description: 'Present when Order has committed: </api/v1/orders/{order_id}>;
+                rel="item".'
+        '410':
+          description: Response expired; key remains non-reusable
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '422':
+          description: Replay durable validation failure
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+      security:
+      - bearerAuth: []
+      parameters:
+      - in: header
+        name: X-Idempotency-Key
+        required: true
+        schema:
+          type: string
+          minLength: 16
+          maxLength: 128
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - quote_id
+              - cart_revision
+              - payment_method
+              properties:
+                quote_id:
+                  type: string
+                  format: uuid
+                cart_revision:
+                  type: integer
+                  minimum: 0
+                payment_method:
+                  type: string
+                  enum:
+                  - VIETQR
+      description: Acceptance verifies owned server quote at DB time and persists
+        operation/input/key. Worker validates commercial conditions and reserves resources
+        asynchronously. Expired terminal replay is 410; keys never become reusable
+        automatically.
+  /api/v1/checkout-operations/{id}:
+    get:
+      operationId: getCheckoutOperation
+      summary: getCheckoutOperation
+      responses:
+        '200':
+          description: Durable response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckoutOperation'
+          headers:
+            Link:
+              schema:
+                type: string
+              description: 'Present when Order has committed: </api/v1/orders/{order_id}>;
+                rel="item".'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '404':
+          description: Missing or unowned resource
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '409':
+          description: State/version/idempotency conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '503':
+          description: Unavailable before durable acceptance
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+      security:
+      - bearerAuth: []
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+  /api/v1/orders:
+    get:
+      operationId: listOwnedOrders
+      summary: listOwnedOrders
+      responses:
+        '200':
+          description: Durable response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - items
+                - next_cursor
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Order'
+                  next_cursor:
+                    type: string
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '404':
+          description: Missing or unowned resource
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '409':
+          description: State/version/idempotency conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '503':
+          description: Unavailable before durable acceptance
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+      security:
+      - bearerAuth: []
+  /api/v1/orders/{id}:
+    get:
+      operationId: getOwnedOrder
+      summary: getOwnedOrder
+      responses:
+        '200':
+          description: Durable response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '404':
+          description: Missing or unowned resource
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '409':
+          description: State/version/idempotency conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '503':
+          description: Unavailable before durable acceptance
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+      security:
+      - bearerAuth: []
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+  /api/v1/orders/{id}/tracking:
+    get:
+      operationId: getOrderTracking
+      summary: getOrderTracking
+      responses:
+        '200':
+          description: Durable response
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '404':
+          description: Missing or unowned resource
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '409':
+          description: State/version/idempotency conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '503':
+          description: Unavailable before durable acceptance
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+      security:
+      - bearerAuth: []
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+  /api/v1/orders/{id}/cancel:
+    post:
+      operationId: cancelOrder
+      summary: cancelOrder
+      responses:
+        '202':
+          description: Durable response
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '404':
+          description: Missing or unowned resource
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '409':
+          description: State/version/idempotency conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '503':
+          description: Unavailable before durable acceptance
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+      security:
+      - bearerAuth: []
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: header
+        name: X-Idempotency-Key
+        required: true
+        schema:
+          type: string
+          minLength: 16
+          maxLength: 128
+      - in: header
+        name: If-Match
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: &id001
+              type: object
+              additionalProperties: false
+              properties:
+                reason:
+                  type: string
+                  maxLength: 255
+                active:
+                  type: boolean
+                  default: true
+  /api/v1/orders/{id}/cancellation-requests:
+    post:
+      operationId: requestPaidCancellation
+      summary: requestPaidCancellation
+      responses:
+        '202':
+          description: Durable response
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '404':
+          description: Missing or unowned resource
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '409':
+          description: State/version/idempotency conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '503':
+          description: Unavailable before durable acceptance
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+      security:
+      - bearerAuth: []
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: header
+        name: X-Idempotency-Key
+        required: true
+        schema:
+          type: string
+          minLength: 16
+          maxLength: 128
+      - in: header
+        name: If-Match
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: *id001
+  /api/v1/admin/orders/{id}/hold:
+    post:
+      operationId: holdOrder
+      summary: holdOrder
+      responses:
+        '202':
+          description: Durable response
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '404':
+          description: Missing or unowned resource
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '409':
+          description: State/version/idempotency conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '503':
+          description: Unavailable before durable acceptance
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '200':
+          description: Hold mutation/replay committed
+      security:
+      - bearerAuth: []
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: header
+        name: X-Idempotency-Key
+        required: true
+        schema:
+          type: string
+          minLength: 16
+          maxLength: 128
+      - in: header
+        name: If-Match
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: *id001
+  /api/v1/admin/orders:
+    get:
+      operationId: listStaffOrders
+      summary: listStaffOrders
+      responses:
+        '200':
+          description: Durable response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - items
+                - next_cursor
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Order'
+                  next_cursor:
+                    type: string
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '404':
+          description: Missing or unowned resource
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '409':
+          description: State/version/idempotency conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '503':
+          description: Unavailable before durable acceptance
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+      security:
+      - bearerAuth: []
+  /api/v1/admin/orders/queue:
+    get:
+      operationId: getStageQueue
+      summary: getStageQueue
+      responses:
+        '200':
+          description: Durable response
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '404':
+          description: Missing or unowned resource
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '409':
+          description: State/version/idempotency conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '503':
+          description: Unavailable before durable acceptance
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+      security:
+      - bearerAuth: []
+  /internal/events:
+    post:
+      operationId: consumeSourceEvent
+      summary: consumeSourceEvent
+      responses:
+        '202':
+          description: Durable response
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '404':
+          description: Missing or unowned resource
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '409':
+          description: State/version/idempotency conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '503':
+          description: Unavailable before durable acceptance
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+      security:
+      - internalToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SourceEvent'
+  /internal/recovery/{id}:
+    post:
+      operationId: resumeRecovery
+      summary: resumeRecovery
+      responses:
+        '202':
+          description: Durable response
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '404':
+          description: Missing or unowned resource
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '409':
+          description: State/version/idempotency conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '503':
+          description: Unavailable before durable acceptance
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      security:
+      - internalToken: []
+        bearerAuth: []
+  /livez:
+    get:
+      operationId: liveness
+      summary: liveness
+      responses:
+        '200':
+          description: Durable response
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '404':
+          description: Missing or unowned resource
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '409':
+          description: State/version/idempotency conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '503':
+          description: Unavailable before durable acceptance
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+  /readyz:
+    get:
+      operationId: readiness
+      summary: readiness
+      responses:
+        '200':
+          description: Durable response
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '404':
+          description: Missing or unowned resource
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '409':
+          description: State/version/idempotency conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '503':
+          description: Unavailable before durable acceptance
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+  /api/v1/cart/items/{item_id}:
+    put:
+      operationId: updateCartItem
+      summary: updateCartItem
+      responses:
+        '200':
+          description: Durable response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '404':
+          description: Missing or unowned resource
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '409':
+          description: State/version/idempotency conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '503':
+          description: Unavailable before durable acceptance
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+      security:
+      - bearerAuth: []
+      parameters:
+      - in: path
+        name: item_id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - quantity
+              - revision
+              properties:
+                quantity:
+                  type: integer
+                  minimum: 1
+                  maximum: 999
+                revision:
+                  type: integer
+                  minimum: 0
+    delete:
+      operationId: deleteCartItem
+      summary: deleteCartItem
+      responses:
+        '200':
+          description: Durable response
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '404':
+          description: Missing or unowned resource
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '409':
+          description: State/version/idempotency conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+        '503':
+          description: Unavailable before durable acceptance
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+      security:
+      - bearerAuth: []
+      parameters:
+      - in: path
+        name: item_id
+        required: true
+        schema:
+          type: string
+  /internal/ready-authorizations/{id}:
+    get:
+      operationId: checkCurrentReadyAuthorization
+      security:
+      - internalToken: []
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Minimal eligibility and generation; no PII
+        '401':
+          description: Trusted internal caller required
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      retryable:
+                        type: boolean
+                  operation_id:
+                    type: string
+  /api/v1/orders/{id}/payment-checkout:
+    post:
+      operationId: getSePayCheckout
+      description: Owner CUSTOMER only. Returns the same persisted attempt/invoice.
+        Refuses paid/held/expired orders or <=30 seconds remaining. No transfer occurs
+        here.
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: Durable accepted result or replay
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SePayCheckout'
+        '400':
+          description: Malformed request
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Role or warehouse scope denied
+        '404':
+          description: Resource not found or not owned
+        '409':
+          description: State, ownership of work, budget or evidence conflict
+        '422':
+          description: Unsupported method, invalid business input or full-receipt-only
+            rule
+        '500':
+          description: Persistence unavailable; retry the same operation
+      parameters:
+      - &id002
+        name: id
+        in: path
+        required: true
+        schema: &id003
+          type: string
+          format: uuid
+  /api/v1/payments/sepay/ipn:
+    post:
+      operationId: receiveSePayIPN
+      description: Authenticate before persistence. HTTP 200 means encrypted notification
+        is saved, not that Order is PAID. Unknown types remain in manual review.
+      security:
+      - sepayIPNSecret: []
+      responses:
+        '200':
+          description: Durable accepted result or replay
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  success:
+                    type: boolean
+                required:
+                - success
+        '400':
+          description: Malformed request
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Role or warehouse scope denied
+        '404':
+          description: Resource not found or not owned
+        '409':
+          description: State, ownership of work, budget or evidence conflict
+        '422':
+          description: Unsupported method, invalid business input or full-receipt-only
+            rule
+        '500':
+          description: Persistence unavailable; retry the same operation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SePayNotification'
+  /api/v1/admin/payments/review:
+    get:
+      operationId: paymentReview
+      description: ADMIN or SALES_MANAGER in warehouse scope. Bounded operational
+        snapshot (100), not a complete financial export.
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: Durable accepted result or replay
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentReview'
+        '400':
+          description: Malformed request
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Role or warehouse scope denied
+        '404':
+          description: Resource not found or not owned
+        '409':
+          description: State, ownership of work, budget or evidence conflict
+        '422':
+          description: Unsupported method, invalid business input or full-receipt-only
+            rule
+        '500':
+          description: Persistence unavailable; retry the same operation
+  /api/v1/admin/manual-refunds:
+    post:
+      operationId: approveManualRefund
+      description: Manager approves the entire verified receipt, reserves budget and
+        verifies payee. Allocated receipts require cancelled Order and terminal stock.
+        Does not send money.
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: Durable accepted result or replay
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ManualRefund'
+        '400':
+          description: Malformed request
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Role or warehouse scope denied
+        '404':
+          description: Resource not found or not owned
+        '409':
+          description: State, ownership of work, budget or evidence conflict
+        '422':
+          description: Unsupported method, invalid business input or full-receipt-only
+            rule
+        '500':
+          description: Persistence unavailable; retry the same operation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ManualRefundInput'
+      parameters:
+      - name: X-Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 16
+          maxLength: 128
+          pattern: ^[!-~]{16,128}$
+  /api/v1/admin/manual-refunds/{id}:
+    get:
+      operationId: getManualRefund
+      description: Manager scope. Includes protected payee/evidence, Cache-Control
+        no-store.
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: Durable accepted result or replay
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ManualRefund'
+        '400':
+          description: Malformed request
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Role or warehouse scope denied
+        '404':
+          description: Resource not found or not owned
+        '409':
+          description: State, ownership of work, budget or evidence conflict
+        '422':
+          description: Unsupported method, invalid business input or full-receipt-only
+            rule
+        '500':
+          description: Persistence unavailable; retry the same operation
+      parameters:
+      - *id002
+  /api/v1/admin/manual-refunds/{id}/claim:
+    post:
+      operationId: claimManualRefund
+      description: Exactly one manager claims the transfer obligation; retry by the
+        same claimant is safe.
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: Durable accepted result or replay
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ManualRefund'
+        '400':
+          description: Malformed request
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Role or warehouse scope denied
+        '404':
+          description: Resource not found or not owned
+        '409':
+          description: State, ownership of work, budget or evidence conflict
+        '422':
+          description: Unsupported method, invalid business input or full-receipt-only
+            rule
+        '500':
+          description: Persistence unavailable; retry the same operation
+      parameters:
+      - *id002
+  /api/v1/admin/manual-refunds/{id}/unknown:
+    post:
+      operationId: unknownManualRefund
+      description: Only claimant may mark unresolved transfer outcome; retains budget
+        and claimant.
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: Durable accepted result or replay
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ManualRefund'
+        '400':
+          description: Malformed request
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Role or warehouse scope denied
+        '404':
+          description: Resource not found or not owned
+        '409':
+          description: State, ownership of work, budget or evidence conflict
+        '422':
+          description: Unsupported method, invalid business input or full-receipt-only
+            rule
+        '500':
+          description: Persistence unavailable; retry the same operation
+      parameters:
+      - *id002
+  /api/v1/admin/manual-refunds/{id}/evidence:
+    post:
+      operationId: submitManualRefundEvidence
+      description: Claimant only. Evidence is immutable. Same transfer reference cannot
+        settle two refunds. Does not mark money returned.
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: Durable accepted result or replay
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ManualRefund'
+        '400':
+          description: Malformed request
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Role or warehouse scope denied
+        '404':
+          description: Resource not found or not owned
+        '409':
+          description: State, ownership of work, budget or evidence conflict
+        '422':
+          description: Unsupported method, invalid business input or full-receipt-only
+            rule
+        '500':
+          description: Persistence unavailable; retry the same operation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefundEvidence'
+      parameters:
+      - *id002
+  /api/v1/admin/manual-refunds/{id}/confirm:
+    post:
+      operationId: confirmManualRefund
+      description: A manager different from claimant verifies bank statement evidence.
+        Expected hash binds the viewed evidence. Repeat is a no-op; writes one manual_refund_verified
+        event.
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: Durable accepted result or replay
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ManualRefund'
+        '400':
+          description: Malformed request
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Role or warehouse scope denied
+        '404':
+          description: Resource not found or not owned
+        '409':
+          description: State, ownership of work, budget or evidence conflict
+        '422':
+          description: Unsupported method, invalid business input or full-receipt-only
+            rule
+        '500':
+          description: Persistence unavailable; retry the same operation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                evidence_hash:
+                  type: string
+                  pattern: ^[0-9a-f]{64}$
+              required:
+              - evidence_hash
+      parameters:
+      - *id002
+  /api/v1/admin/cancellation-requests/{id}/decision:
+    post:
+      operationId: reviewCancellation
+      description: Manager approves or rejects an existing cancellation request. Approved
+        intent still waits for remote accept/cancel barrier and stock result.
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: Durable accepted result or replay
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CancellationDecisionResult'
+        '400':
+          description: Malformed request
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Role or warehouse scope denied
+        '404':
+          description: Resource not found or not owned
+        '409':
+          description: State, ownership of work, budget or evidence conflict
+        '422':
+          description: Unsupported method, invalid business input or full-receipt-only
+            rule
+        '500':
+          description: Persistence unavailable; retry the same operation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancellationDecision'
+      parameters:
+      - *id002
+  /internal/cancellation-approvals/{id}:
+    get:
+      operationId: getMVPCancellationApproval
+      description: Authenticated sandbox Inventory approval query. Real Inventory
+        3.2 proof rollout remains gated.
+      security:
+      - internalToken: []
+      responses:
+        '200':
+          description: Durable accepted result or replay
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Approval'
+        '400':
+          description: Malformed request
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Role or warehouse scope denied
+        '404':
+          description: Resource not found or not owned
+        '409':
+          description: State, ownership of work, budget or evidence conflict
+        '422':
+          description: Unsupported method, invalid business input or full-receipt-only
+            rule
+        '500':
+          description: Persistence unavailable; retry the same operation
+      parameters:
+      - *id002
+  /api/v1/admin/payments/notifications/{id}:
+    get:
+      operationId: getSePayNotificationReview
+      description: ADMIN only. Decrypts the original authenticated notification for
+        investigation; Cache-Control no-store. Unknown financial events place a local
+        hold, which does not prove an accepted remote task stopped.
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: Durable accepted result or replay
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - notification_id
+                - status
+                - reason
+                - payload
+                properties:
+                  notification_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    enum:
+                    - PENDING
+                    - APPLIED
+                    - MANUAL_REVIEW
+                  reason:
+                    type: string
+                    nullable: true
+                  payload:
+                    type: object
+                    additionalProperties: true
+        '400':
+          description: Malformed request
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Role or warehouse scope denied
+        '404':
+          description: Resource not found or not owned
+        '409':
+          description: State, ownership of work, budget or evidence conflict
+        '422':
+          description: Unsupported method, invalid business input or full-receipt-only
+            rule
+        '500':
+          description: Persistence unavailable; retry the same operation
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    internalToken:
+      type: apiKey
+      in: header
+      name: X-Internal-Token
+    sepayIPNSecret:
+      type: apiKey
+      in: header
+      name: X-Secret-Key
+      description: Configure SePay Gateway IPN auth type SECRET_KEY. Separate from
+        simulator callback HMAC.
+  schemas:
+    CheckoutOperation:
+      type: object
+      additionalProperties: false
+      required:
+      - operation_id
+      - status
+      - order_id
+      - accepted_at
+      properties:
+        operation_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+          - ACCEPTED
+          - PROCESSING
+          - WAITING_RETRY
+          - COMPENSATING
+          - SUCCEEDED
+          - FAILED
+          - MANUAL_REVIEW
+        order_id:
+          type: string
+          format: uuid
+          nullable: true
+        order_status:
+          type: string
+        error_code:
+          type: string
+        accepted_at:
+          type: string
+          format: date-time
+    Item:
+      type: object
+      additionalProperties: false
+      required:
+      - sku_code
+      - quantity
+      properties:
+        item_id:
+          type: string
+        sku_code:
+          type: string
+        quantity:
+          type: integer
+          format: int64
+        unit_price:
+          type: integer
+          format: int64
+        product_name:
+          type: string
+        weight_grams:
+          type: integer
+          format: int64
+        catalog_version:
+          type: integer
+          format: int64
+    Address:
+      type: object
+      additionalProperties: false
+      required:
+      - recipient_name
+      - phone
+      - street
+      - ward_code
+      - province_code
+      properties:
+        recipient_name:
+          type: string
+        phone:
+          type: string
+        street:
+          type: string
+        ward_code:
+          type: string
+        province_code:
+          type: string
+    Cart:
+      type: object
+      additionalProperties: false
+      required:
+      - revision
+      - items
+      properties:
+        revision:
+          type: integer
+          format: int64
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Item'
+    Quote:
+      type: object
+      additionalProperties: false
+      required:
+      - catalog_snapshot_id
+      - catalog_expires_at
+      - shipping_quote_reference
+      - quote_id
+      - cart_revision
+      - payment_method
+      - items
+      - address
+      - subtotal
+      - shipping_fee
+      - final_amount
+      - expires_at
+      - shipping_expires_at
+      properties:
+        catalog_snapshot_id:
+          type: string
+        catalog_expires_at:
+          type: string
+          format: date-time
+        shipping_quote_reference:
+          type: string
+        source_address_id:
+          type: string
+        source_address_version:
+          type: integer
+          format: int64
+        quote_id:
+          type: string
+        cart_revision:
+          type: integer
+          format: int64
+        payment_method:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Item'
+        address:
+          $ref: '#/components/schemas/Address'
+        subtotal:
+          type: integer
+          format: int64
+        shipping_fee:
+          type: integer
+          format: int64
+        final_amount:
+          type: integer
+          format: int64
+        customer_id:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+        shipping_expires_at:
+          type: string
+          format: date-time
+    Order:
+      type: object
+      additionalProperties: false
+      required:
+      - order_id
+      - operation_id
+      - order_code
+      - customer_id
+      - warehouse_id
+      - payment_method
+      - status
+      - payment_status
+      - stock_status
+      - subtotal
+      - shipping_fee
+      - final_amount
+      - version
+      - ready_generation
+      - ready_authorized
+      - operational_hold
+      - has_active_case
+      - payment_reference
+      - task_id
+      - shipment_id
+      - seal_code
+      - payment_expires_at
+      - updated_at
+      - created_at
+      - sla_due_at
+      - completion_due_at
+      properties:
+        order_id:
+          type: string
+        operation_id:
+          type: string
+        order_code:
+          type: string
+        customer_id:
+          type: string
+          nullable: true
+        warehouse_id:
+          type: string
+        payment_method:
+          type: string
+        status:
+          type: string
+        payment_status:
+          type: string
+        stock_status:
+          type: string
+        subtotal:
+          type: integer
+          format: int64
+        shipping_fee:
+          type: integer
+          format: int64
+        final_amount:
+          type: integer
+          format: int64
+        version:
+          type: integer
+          format: int64
+        ready_generation:
+          type: integer
+          format: int64
+        ready_authorized:
+          type: boolean
+        operational_hold:
+          type: boolean
+        has_active_case:
+          type: boolean
+        payment_reference:
+          type: string
+        task_id:
+          type: string
+          nullable: true
+        shipment_id:
+          type: string
+          nullable: true
+        seal_code:
+          type: string
+          nullable: true
+        payment_expires_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        sla_due_at:
+          type: string
+          format: date-time
+          nullable: true
+        completion_due_at:
+          type: string
+          format: date-time
+          nullable: true
+        snapshot:
+          type: object
+          nullable: true
+          allOf:
+          - $ref: '#/components/schemas/Quote'
+    Receipt:
+      type: object
+      additionalProperties: false
+      required:
+      - provider
+      - transaction_id
+      - reference
+      - receiver
+      - amount
+      - currency
+      - status
+      - paid_at
+      properties:
+        provider:
+          type: string
+        transaction_id:
+          type: string
+        reference:
+          type: string
+        receiver:
+          type: string
+        amount:
+          type: integer
+          format: int64
+        currency:
+          type: string
+        status:
+          type: string
+        paid_at:
+          type: string
+          format: date-time
+    SourceEvent:
+      type: object
+      additionalProperties: false
+      required:
+      - signature
+      - id
+      - source
+      - order_id
+      - resource_id
+      - version
+      - type
+      properties:
+        signature:
+          type: string
+        id:
+          type: string
+        source:
+          type: string
+        order_id:
+          type: string
+        resource_id:
+          type: string
+        version:
+          type: integer
+          format: int64
+        type:
+          type: string
+        generation:
+          type: integer
+          format: int64
+        seal_code:
+          type: string
+      description: 'Sandbox HMAC: normalize typed Event JSON with signature empty,
+        SHA256 HMAC using sandbox internal secret, lowercase hex. Authority resource
+        query still required; real-source adapter authentication must be negotiated
+        separately.'
+    Reservation:
+      type: object
+      additionalProperties: false
+      required:
+      - reservation_id
+      - order_id
+      - state
+      - expires_at
+      properties:
+        reservation_id:
+          type: string
+        order_id:
+          type: string
+        state:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+    Approval:
+      type: object
+      additionalProperties: false
+      required:
+      - approval_id
+      - order_id
+      - receipt_id
+      - amount
+      - type
+      - state
+      - actor
+      properties:
+        approval_id:
+          type: string
+        order_id:
+          type: string
+        receipt_id:
+          type: string
+        amount:
+          type: integer
+          format: int64
+        type:
+          type: string
+        state:
+          type: string
+        actor:
+          type: string
+    SePayCheckout:
+      type: object
+      additionalProperties: false
+      properties:
+        attempt_id: *id003
+        invoice:
+          type: string
+        expires_at: &id005
+          type: string
+          format: date-time
+        action:
+          type: string
+          enum:
+          - https://pay-sandbox.sepay.vn/v1/checkout/init
+        method:
+          type: string
+          enum:
+          - POST
+        fields:
+          type: array
+          description: Preserve array order when building hidden inputs in the HTML
+            form. No merchant secret is returned.
+          minItems: 1
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              name:
+                type: string
+              value:
+                type: string
+            required:
+            - name
+            - value
+      required:
+      - attempt_id
+      - invoice
+      - expires_at
+      - action
+      - method
+      - fields
+    RefundPayee:
+      type: object
+      additionalProperties: false
+      properties:
+        bank_code:
+          type: string
+          minLength: 1
+          maxLength: 32
+        account_number:
+          type: string
+          minLength: 1
+          maxLength: 64
+        account_name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        verification_reference:
+          type: string
+          minLength: 1
+          maxLength: 255
+      required:
+      - bank_code
+      - account_number
+      - account_name
+      - verification_reference
+    ManualRefundInput:
+      type: object
+      additionalProperties: false
+      properties:
+        receipt_id: *id003
+        amount: &id004
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 1000000000000
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+        payee:
+          $ref: '#/components/schemas/RefundPayee'
+      required:
+      - receipt_id
+      - amount
+      - reason
+      - payee
+    RefundEvidence:
+      type: object
+      additionalProperties: false
+      properties:
+        source_bank_code:
+          type: string
+          minLength: 1
+          maxLength: 32
+        source_account_number:
+          type: string
+          minLength: 1
+          maxLength: 64
+        bank_transaction_id:
+          type: string
+          minLength: 1
+          maxLength: 128
+        amount: *id004
+        paid_at: *id005
+        statement_reference:
+          type: string
+          minLength: 1
+          maxLength: 255
+      required:
+      - source_bank_code
+      - source_account_number
+      - bank_transaction_id
+      - amount
+      - paid_at
+      - statement_reference
+    ManualRefund:
+      type: object
+      additionalProperties: false
+      properties:
+        refund_id: *id003
+        receipt_id: *id003
+        order_id:
+          type: string
+          format: uuid
+          nullable: true
+        amount: *id004
+        status:
+          type: string
+          enum:
+          - APPROVED
+          - SUBMITTED
+          - UNKNOWN
+          - SUCCEEDED
+        approved_by: *id003
+        claimed_by:
+          type: string
+          format: uuid
+          nullable: true
+        verified_by:
+          type: string
+          format: uuid
+          nullable: true
+        evidence_hash:
+          type: string
+          nullable: true
+        created_at: *id005
+        payee:
+          $ref: '#/components/schemas/RefundPayee'
+        evidence:
+          $ref: '#/components/schemas/RefundEvidence'
+      required:
+      - refund_id
+      - receipt_id
+      - order_id
+      - amount
+      - status
+      - approved_by
+      - claimed_by
+      - verified_by
+      - evidence_hash
+      - created_at
+    PaymentReview:
+      type: object
+      additionalProperties: false
+      properties:
+        receipts:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              receipt_id: *id003
+              order_id:
+                type: string
+                format: uuid
+                nullable: true
+              amount: *id004
+              reason:
+                type: string
+              reconciliation_status:
+                type: string
+              created_at: *id005
+            required:
+            - receipt_id
+            - order_id
+            - amount
+            - reason
+            - reconciliation_status
+            - created_at
+        pending_manual_refund_ids:
+          type: array
+          items: *id003
+        pending_cancellation_ids:
+          type: array
+          items: *id003
+        limit:
+          type: integer
+          enum:
+          - 100
+        notification_pending:
+          type: integer
+        notification_manual_review:
+          type: integer
+        notification_review_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+      required:
+      - receipts
+      - pending_manual_refund_ids
+      - pending_cancellation_ids
+      - limit
+    SePayNotification:
+      type: object
+      required:
+      - timestamp
+      - notification_type
+      properties:
+        timestamp:
+          type: integer
+          minimum: 1
+        notification_type:
+          type: string
+          minLength: 1
+        order:
+          type: object
+        transaction:
+          type: object
+      additionalProperties: true
+    CancellationDecision:
+      type: object
+      additionalProperties: false
+      properties:
+        approve:
+          type: boolean
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+      required:
+      - approve
+      - reason
+    CancellationDecisionResult:
+      type: object
+      additionalProperties: false
+      properties:
+        request_id: *id003
+        status:
+          type: string
+          enum:
+          - APPROVED
+          - REJECTED
+      required:
+      - request_id
+      - status

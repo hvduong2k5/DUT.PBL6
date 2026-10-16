@@ -96,6 +96,10 @@ func Handler(s *app.Service) http.Handler {
 	})
 	r.Handle("/metrics", promhttp.HandlerFor(s.Registry(), promhttp.HandlerOpts{}))
 	r.Post("/api/v1/guest-sessions", func(w http.ResponseWriter, r *http.Request) {
+		if s.MVP() {
+			failure(s, w, domain.E("GUEST_CHECKOUT_DISABLED", 409))
+			return
+		}
 		id := uuid.NewString()
 		now := time.Now()
 		token := app.SignToken(s.C.JWTSecret, app.Claims{Subject: id, Role: "GUEST", Issuer: "order-sandbox", Audience: "order-api", Issued: now.Unix(), Expires: now.Add(30 * 24 * time.Hour).Unix()})
@@ -112,6 +116,9 @@ func Handler(s *app.Service) http.Handler {
 				next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), principalKey{}, p)))
 			})
 		})
+		if s.MVP() {
+			mountMVP(api, s)
+		}
 		api.Get("/api/v1/cart", func(w http.ResponseWriter, r *http.Request) {
 			c, e := s.Cart(r.Context(), principal(r))
 			if e != nil {
@@ -307,7 +314,12 @@ func Handler(s *app.Service) http.Handler {
 			write(w, 200, map[string]string{"status": "HELD"})
 		})
 	})
+	r.Post("/api/v1/payments/sepay/ipn", sepayIPN(s))
 	r.Post("/api/v1/payments/vietqr/callback", func(w http.ResponseWriter, r *http.Request) {
+		if s.MVP() {
+			http.NotFound(w, r)
+			return
+		}
 		r.Body = http.MaxBytesReader(w, r.Body, 64<<10)
 		raw, e := io.ReadAll(r.Body)
 		if e != nil {
@@ -366,6 +378,14 @@ func Handler(s *app.Service) http.Handler {
 			eligible := o.Ready && !o.Hold && !o.ActiveCase && o.Stock == "COMMITTED" && (o.Status == "PAID" || o.Status == "CONFIRMED_COD") && (o.Method == "COD" || o.Payment == "CONFIRMED" || o.Payment == "PARTIALLY_REFUNDED")
 			write(w, 200, map[string]any{"authorized": eligible, "generation": o.Generation})
 		})
+		in.Get("/cancellation-approvals/{id}", func(w http.ResponseWriter, r *http.Request) {
+			a, e := s.CancellationApproval(r.Context(), chi.URLParam(r, "id"))
+			if e != nil {
+				failure(s, w, e)
+				return
+			}
+			write(w, 200, a)
+		})
 		in.Post("/events", func(w http.ResponseWriter, r *http.Request) {
 			var event domain.Event
 			if e := decode(w, r, &event); e != nil {
@@ -395,6 +415,10 @@ func Handler(s *app.Service) http.Handler {
 			write(w, 202, map[string]string{"refund_id": id})
 		})
 		in.Post("/cancellations/approve", func(w http.ResponseWriter, r *http.Request) {
+			if s.MVP() {
+				failure(s, w, domain.E("USE_LOCAL_CANCELLATION_REVIEW", 409))
+				return
+			}
 			var v struct {
 				Approval string `json:"approval_id"`
 			}

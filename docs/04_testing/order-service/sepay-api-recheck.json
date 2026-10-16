@@ -1,0 +1,140 @@
+{
+  "verified_at_utc": "2026-10-16T08:21:01.824385+00:00",
+  "verified_at_vietnam": "2026-10-16T15:21:01.824399+07:00",
+  "environment": "SePay Payment Gateway SANDBOX only",
+  "operation": "read-only GET; no payment or refund created",
+  "target_ipn_log": 38279,
+  "requests": [
+    {
+      "at_utc": "2026-10-16T08:18:55.031200+00:00",
+      "identifier_type": "invoice",
+      "request_url": "https://pgapi-sandbox.sepay.vn/v1/order/detail/OMAMA-6d64bd28-7919-4763-b407-0599dfef6d93",
+      "http_status": 200,
+      "elapsed_seconds": 0.63,
+      "response_headers": {
+        "Content-Type": "application/json; charset=UTF-8",
+        "Date": "Fri, 16 Oct 2026 08:18:54 GMT",
+        "CF-Cache-Status": "DYNAMIC",
+        "Age": null
+      },
+      "response_sha256": "570bf903f70199cf0484db64c1118c5105b33b784a8b401510fa7d85cd1c8de7",
+      "root_keys": [
+        "data"
+      ],
+      "data_keys": [
+        "id",
+        "customer_id",
+        "order_id",
+        "order_invoice_number",
+        "order_status",
+        "order_amount",
+        "order_currency",
+        "order_description",
+        "authentication_status",
+        "created_at",
+        "updated_at",
+        "transactions"
+      ],
+      "order_status": "CAPTURED",
+      "transactions": []
+    },
+    {
+      "at_utc": "2026-10-16T08:18:55.523606+00:00",
+      "identifier_type": "provider_order_id",
+      "request_url": "https://pgapi-sandbox.sepay.vn/v1/order/detail/PAY110926AD1D15653540",
+      "http_status": 404,
+      "elapsed_seconds": 0.49,
+      "response_headers": {
+        "Content-Type": "application/json; charset=UTF-8",
+        "Date": "Fri, 16 Oct 2026 08:18:55 GMT",
+        "CF-Cache-Status": "DYNAMIC",
+        "Age": null
+      },
+      "response_sha256": "7a3645c62779dbea529217005683f147ecd7452534c1162da0ec49859f45e878",
+      "root_keys": [
+        "status",
+        "error",
+        "messages"
+      ],
+      "data_keys": [],
+      "order_status": null,
+      "transactions": null
+    },
+    {
+      "at_utc": "2026-10-16T08:18:55.981821+00:00",
+      "identifier_type": "resource_uuid",
+      "request_url": "https://pgapi-sandbox.sepay.vn/v1/order/detail/b8398210-c932-11f1-b21a-a6006ab65aca",
+      "http_status": 404,
+      "elapsed_seconds": 0.46,
+      "response_headers": {
+        "Content-Type": "application/json; charset=UTF-8",
+        "Date": "Fri, 16 Oct 2026 08:18:55 GMT",
+        "CF-Cache-Status": "DYNAMIC",
+        "Age": null
+      },
+      "response_sha256": "7a3645c62779dbea529217005683f147ecd7452534c1162da0ec49859f45e878",
+      "root_keys": [
+        "status",
+        "error",
+        "messages"
+      ],
+      "data_keys": [],
+      "order_status": null,
+      "transactions": null
+    }
+  ],
+  "independent_curl_verification": {
+    "http_status": 200,
+    "response_identical_to_python": true,
+    "sha256": "570bf903f70199cf0484db64c1118c5105b33b784a8b401510fa7d85cd1c8de7"
+  },
+  "exact_parsed_response_for_target_order": {
+    "data": {
+      "id": "b8398210-c932-11f1-b21a-a6006ab65aca",
+      "customer_id": null,
+      "order_id": "PAY110926AD1D15653540",
+      "order_invoice_number": "OMAMA-6d64bd28-7919-4763-b407-0599dfef6d93",
+      "order_status": "CAPTURED",
+      "order_amount": "135000.00",
+      "order_currency": "VND",
+      "order_description": "Thanh toan don hang OMAMA-6d64bd28-7919-4763-b407-0599dfef6d93",
+      "authentication_status": null,
+      "created_at": "2026-10-16 14:25:10",
+      "updated_at": "2026-10-16 14:25:33",
+      "transactions": []
+    }
+  },
+  "other_paid_orders": [
+    {
+      "invoice": "OMAMA-f9ca1905-c24d-40da-bb71-c0161fdd0e6e",
+      "order_id": "PAY110926AD1CF86A83DC",
+      "http_status": 200,
+      "order_status": "CAPTURED",
+      "transactions": [],
+      "sha256": "d3be065d3fd9308242266e2032673fe383f56a388df511d3bc5052c609abff5a"
+    },
+    {
+      "invoice": "OMAMA-e0e16c3a-b71d-4694-a724-9ac3845d2a11",
+      "order_id": "PAY110926AD1D44B77EE3",
+      "http_status": 200,
+      "order_status": "CAPTURED",
+      "transactions": [],
+      "sha256": "e3dc2c1b4368c1b1da940c9bbb71ff866b6d52758c870fb5c2becf09d362de15"
+    }
+  ],
+  "comparison_with_user_provided_ipn": {
+    "same_order_resource_uuid": "b8398210-c932-11f1-b21a-a6006ab65aca",
+    "same_provider_order_id": "PAY110926AD1D15653540",
+    "ipn_transaction_resource_id": "c66ad791-c932-11f1-b21a-a6006ab65aca",
+    "ipn_transaction_amount_vnd": "135000",
+    "ipn_transaction_status": "APPROVED",
+    "api_transactions": []
+  },
+  "conclusion": "Confirmed empty data.transactions in raw authenticated sandbox detail responses for three tested orders, including two with successful IPNs. Not a Go deserialization loss; no production conclusion. Provider internal cause unconfirmed.",
+  "documentation_discrepancy": "API reference uses order_id; official Node SDK uses merchant invoice. Live invoice returns 200; PAY order_id and resource UUID return 404.",
+  "sources": [
+    "https://developer.sepay.vn/vi/cong-thanh-toan/API/don-hang/chi-tiet-don-hang",
+    "https://raw.githubusercontent.com/sepayvn/sepay-pg-node/main/src/order.ts"
+  ],
+  "credentials_included": false
+}

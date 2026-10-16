@@ -1,9 +1,9 @@
 {
-  "time": "2026-10-09T07:57:37.079653+00:00",
+  "time": "2026-10-15T15:28:02.826267+00:00",
   "mode": "local_sandbox",
   "openapi": [
     {
-      "path": "docs\\03_api_specs\\order-service.openapi.yaml",
+      "path": "docs\\03_api_specs\\order-service.sandbox-3.1.openapi.yaml",
       "status": "PASS",
       "paths": 23
     },
@@ -27,9 +27,13 @@
       "status": "PASS"
     }
   ],
+  "http_fixture": {
+    "created": false,
+    "cancel_requested": false
+  },
   "events": {
     "schema_count": 8,
-    "runtime_payloads": 98,
+    "runtime_payloads": 102,
     "runtime_types": [
       "vn.omama.order.audit.v2",
       "vn.omama.order.cancelled.v2",
@@ -41,12 +45,12 @@
     "note": "Schema definitions checked for all types; runtime validation covers listed types only."
   },
   "documentation": {
-    "files": 14,
-    "local_links": 102,
+    "files": 21,
+    "local_links": 181,
     "status": "PASS"
   },
   "protobuf_format": {
-    "generated_files": 6,
+    "generated_files": 7,
     "status": "PASS"
   },
   "kong": {

@@ -211,7 +211,25 @@ func (s *Simulator) inventory(ctx context.Context, action, order, key string, it
 		if !cod {
 			var data []byte
 			if e = tx.QueryRow(ctx, "SELECT payload FROM approvals WHERE id=$1", approval).Scan(&data); e != nil {
-				return r, domain.E("INVALID_APPROVAL", 422)
+				// mvp1 approvals live in Order; query over the authenticated sandbox
+				// boundary instead of trusting an arbitrary nonempty approval ID.
+				if !errors.Is(e, pgx.ErrNoRows) || s.OrderURL == "" {
+					return r, domain.E("INVALID_APPROVAL", 422)
+				}
+				req, err := http.NewRequestWithContext(ctx, "GET", s.OrderURL+"/internal/cancellation-approvals/"+approval, nil)
+				if err != nil {
+					return r, err
+				}
+				req.Header.Set("X-Internal-Token", s.Token)
+				resp, err := s.Client.Do(req)
+				if err != nil {
+					return r, domain.E("APPROVAL_QUERY_UNKNOWN", 503)
+				}
+				data, err = io.ReadAll(io.LimitReader(resp.Body, 4096))
+				resp.Body.Close()
+				if err != nil || resp.StatusCode != 200 {
+					return r, domain.E("INVALID_APPROVAL", 422)
+				}
 			}
 			var a domain.Approval
 			if json.Unmarshal(data, &a) != nil || a.OrderID != order || a.Type != "CANCEL" || a.State != "APPROVED" {

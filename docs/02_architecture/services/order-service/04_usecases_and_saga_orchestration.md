@@ -1,5 +1,7 @@
 # 04 — Use cases và saga, baseline 3.2
 
+> **Phạm vi áp dụng MVP 1 — 15/10/2026:** đọc [quyết định giao bản đầu](13_mvp_delivery_decisions.md). Chỉ khách đăng nhập, VietQR chuyển khoản qua SePay Payment Gateway; không COD/Guest/voucher, không phương thức phụ, hoàn tiền thủ công có kiểm soát và dừng tự động tại DELIVERED. Các nhánh mở rộng dưới đây không bật trong MVP. Implementation sandbox của đợt đầu được ghi ở [báo cáo](14_mvp_implementation_and_adr_report.md); baseline 3.2 chưa được nghiệm thu tích hợp production.
+
 [Trước](03_database_and_persistence.md) · [Tiếp](05_api_contracts_and_transports.md)
 
 ## 1. Cart → quote → accepted operation
@@ -38,19 +40,15 @@ Worker query/finalize Inventory bằng stable key; remote COMMITTED đúng ident
 
 Statement reconciliation độc lập callback; cursor chỉ advance sau durable outcome từng record, có overlap/dedup theo provider semantics. Không chỉ scan active Orders vì tiền có thể tới đơn đã cancelled.
 
-## 4. COD
+## 4. COD — không hỗ trợ
 
-Eligibility kiểm channel/address/carrier/value/risk. Không QR/không chờ customer payment 15 phút. Reserve → finalize stock (voucher nếu bật) → PLACE CONFIRMED_COD/UNPAID → ready. Lease acquisition ngắn; expiry remote vẫn phải tôn trọng.
-
-Finalize success mất ACK: query và tiếp tục place. Nếu đã COMMITTED nhưng local place không thể hoàn tất vì business terms invalid, giữ MANUAL_REVIEW/reversal intent; không release như hold. COD cũng phải có canonical terms hợp lệ tại confirmation; không tự bỏ qua Catalog/Shipping validity vì không chờ thanh toán.
-
-COD settlement chỉ từ evidence trusted của carrier/provider; delivery không tự bằng collected/settled. Nếu receipt đến khi cancel pending, giữ reconciliation/financial hold theo guard, không tự đảo cancellation.
+MVP từ chối COD trước acceptance/giữ hàng. Không thực thi finalize hoặc tạo CONFIRMED_COD. Các giá trị wire cũ không xóa hoặc tái sử dụng.
 
 ## 5. Cancel, ready và hold
 
 Pending self-cancel/timeout: lock Order cạnh tranh receipt; transaction cancelled + release job; response compensation PENDING, UI không nói kho đã hoàn ngay. ReleaseByOrder tạo tombstone nếu chưa thấy reserve.
 
-Paid/COD cancel: lưu hold/cancel intent; Fulfillment CancelTask(order,generation,key) serialize với AcceptTask. CANCELLED → reverse committed inventory sau kiểm approval/policy; target REVERSED; mới commit terminal Order cancel. ACCEPTED → reject self-cancel và chuyển Care theo policy; không restart task từ event khác. UNKNOWN → query barrier.
+Paid cancel do quản trị xét duyệt: lưu hold/cancel intent; Fulfillment CancelTask(order,generation,key) serialize với AcceptTask. CANCELLED → reverse committed inventory sau kiểm approval/policy; target REVERSED; mới commit terminal Order cancel. ACCEPTED → reject self-cancel và chuyển Care theo policy; không restart task từ event khác. UNKNOWN → query barrier.
 
 Ready flow: Order đủ guards phát ready fact với generation. Fulfillment nhận và query ready permit Order; permit chỉ là quyền thử accept, không thắng được cancellation tombstone. AcceptTask commit tại Fulfillment là điểm tuyến tính hóa với CancelTask. Mất ACK query task. Hard hold cũng cần remote barrier; soft local hold không được quảng cáo là đã dừng task remote. Resume generation mới và xác nhận trạng thái task cũ trước phát ready.
 
@@ -62,9 +60,9 @@ Source event có publisher identity, resource association, sequence/version; dup
 
 Packing accepted → PROCESSING; sealed → PACKED; shipment created chỉ reference; dispatched → SHIPPED; delivered/failure từ checkpoint; retry attempt mới có ID mới.
 
-Care completion decision serialize case-open với completion; có decision ID/version/query. Order chỉ completed sau settlement policy, elapsed window, không refund obligation còn UNKNOWN và Care cho phép. Loyalty consumer dùng completion/reversal facts idempotent; không hard-code earn 1% trong Order.
+Ngoài MVP: Care completion decision serialize case-open với completion; có decision ID/version/query. Order chỉ completed sau settlement policy, elapsed window, không refund obligation còn UNKNOWN và Care cho phép. Loyalty consumer dùng completion/reversal facts idempotent; không hard-code earn 1% trong Order.
 
-## 7. Refund và mở rộng
+## 7. Refund và mở rộng — quy trình tự động hoãn sau MVP
 
 Care approval bind receipt/order/scope/amount/currency/policy/actor/version, không tin chuỗi approval_id trống nghĩa. Payment component reserve refundable budget dưới lock trước provider call. UNKNOWN giữ budget; query trước retry, key không đổi. FAILED terminal verified mới giải phóng obligation theo policy. Partial/full refund không tự đổi lifecycle hoặc stock.
 
@@ -75,3 +73,7 @@ Guest claim cần verified proof bind order/customer và anti-replay; Order appl
 Target retry full jitter trong [0,min(30s,0.5s*2^attempt)], tối đa 10 automatic attempts hoặc 15 phút mỗi stage rồi MANUAL_REVIEW; không xóa nghĩa vụ. Finalize ưu tiên trong remote expiry; sau deadline query outcome, không blind mutate. 429/Unavailable/DeadlineExceeded retry cùng key; validation/conflict definitive không retry để “vượt lỗi”. Breaker không tính business rejection.
 
 HTTP acceptance deadline3s, external attempt2s, worker lease10s là default versioned, cần đo. Runtime3.1 dùng backoff khác, ghi gap R05. Receipt accepted ACK nghĩa đã persist receipt, không PAID. UI phân biệt đang xử lý, đã nhận tiền/đang chốt đơn, cần đối soát và compensation pending.
+
+## 9. Luồng Payment MVP được chọn
+
+SePay Payment Gateway với trang thanh toán do SePay lưu trữ. Một Order/một payment_attempt; mã hóa đơn cố định khi tải lại; lưu ý định trước khi gửi form có chữ ký. Không giả định idempotency hoặc hủy QR phía ngân hàng. Receipt luôn độc lập attempt; các khoản thứ hai/đến muộn lưu vào reconciliation. Hoàn tiền theo [quy trình thủ công có kiểm soát](13_mvp_delivery_decisions.md), thay cho provider refund và Care tự động ở mục 7. MVP dừng tại DELIVERED, không chạy completion/loyalty ở mục 6.

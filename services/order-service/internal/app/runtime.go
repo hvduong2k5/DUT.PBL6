@@ -16,6 +16,44 @@ import (
 
 func (s *Service) Registry() *prometheus.Registry { return s.register }
 func (s *Service) Start(ctx context.Context) {
+	if s.MVP() {
+		s.stop.Add(2)
+		go func() {
+			defer s.stop.Done()
+			ticker := time.NewTicker(time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-ticker.C:
+					for i := 0; i < 20; i++ {
+						worked, e := s.WorkSePayNotification(ctx)
+						if e != nil || !worked {
+							break
+						}
+					}
+				}
+			}
+		}()
+		// Provider requests may take seconds. Keep durable IPNs independent so a
+		// slow reconciliation request cannot delay stock finalization.
+		go func() {
+			defer s.stop.Done()
+			ticker := time.NewTicker(time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-ticker.C:
+					if e := s.ReconcileSePay(ctx); e != nil && ctx.Err() == nil {
+						slog.Error("SePay reconciliation", "code", "SEPAY_QUERY_FAILED")
+					}
+				}
+			}
+		}()
+	}
 	for i := 0; i < 4; i++ {
 		s.stop.Add(1)
 		go func() {

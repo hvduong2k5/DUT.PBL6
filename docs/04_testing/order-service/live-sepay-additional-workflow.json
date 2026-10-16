@@ -1,0 +1,61 @@
+{
+  "verified_at_utc": "2026-10-16T07:31:18.875698+00:00",
+  "order_id": "f9ca1905-c24d-40da-bb71-c0161fdd0e6e",
+  "checks": [
+    {
+      "scenario": "public_ipn_missing_key",
+      "mode": "PUBLIC_HTTP_NEGATIVE",
+      "status": "PASS"
+    },
+    {
+      "scenario": "public_ipn_wrong_key",
+      "mode": "PUBLIC_HTTP_NEGATIVE",
+      "status": "PASS"
+    },
+    {
+      "scenario": "replay_real_ipn_same_and_changed_timestamp",
+      "mode": "REPLAY_CAPTURED_PROVIDER_PAYLOAD",
+      "status": "PASS",
+      "receipt_count": 1,
+      "allocation_count": 1
+    },
+    {
+      "scenario": "paid_order_cannot_checkout_again",
+      "mode": "LOCAL_HTTP_ON_REAL_SANDBOX_RECEIPT",
+      "status": "PASS"
+    },
+    {
+      "scenario": "other_customer_cannot_read_order",
+      "mode": "LOCAL_HTTP_ON_REAL_SANDBOX_RECEIPT",
+      "status": "PASS"
+    },
+    {
+      "scenario": "refund_blocked_before_stock_reversal",
+      "mode": "LOCAL_MANUAL_WORKFLOW_SYNTHETIC_EVIDENCE",
+      "status": "PASS"
+    },
+    {
+      "scenario": "paid_cancel_review_replay_and_reverse_stock",
+      "mode": "LOCAL_HTTP_WITH_SIMULATED_INVENTORY",
+      "status": "PASS"
+    },
+    {
+      "scenario": "refund_approval_replay",
+      "mode": "LOCAL_MANUAL_WORKFLOW_SYNTHETIC_EVIDENCE",
+      "status": "PASS"
+    },
+    {
+      "scenario": "exclusive_refund_claim_unknown_keeps_budget",
+      "mode": "LOCAL_MANUAL_WORKFLOW_SYNTHETIC_EVIDENCE",
+      "status": "PASS"
+    },
+    {
+      "scenario": "independent_refund_verification_replay_single_event",
+      "mode": "LOCAL_MANUAL_WORKFLOW_SYNTHETIC_EVIDENCE",
+      "status": "PASS",
+      "actual_bank_transfer": false
+    }
+  ],
+  "actual_bank_refund": false,
+  "status": "PASS"
+}

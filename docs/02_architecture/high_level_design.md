@@ -1,5 +1,7 @@
 # KIẾN TRÚC CẤP CAO & QUY CHUẨN GIAO TIẾP TOÀN HỆ THỐNG
 
+> **Order MVP 1 (15/10/2026):** [phạm vi được chọn](services/order-service/13_mvp_delivery_decisions.md) là login-only, VietQR qua SePay Payment Gateway, không COD/phương thức phụ/voucher, refund manual có bằng chứng, chưa COMPLETED tự động. Những mô tả Order rộng hơn dưới đây là roadmap; không bật trong MVP.
+
 > **Order baseline 3.2 — 13/10/2026:** Các phần MS-04 và giao thức liên quan đã được cập nhật theo [HLD Order](services/order-service/00_order_service_hld.md). Đây là thiết kế mục tiêu; [ADR/gaps](services/order-service/07_decisions_and_contract_gaps.md) phân biệt sandbox3.1 và provider thật. [Báo cáo thay đổi](services/order-service/10_order_design_change_report.md) dùng để review liên service. Các module khác giữ phạm vi riêng.
 ## (HIGH-LEVEL DESIGN & DETAILED INTERFACE CONTRACTS SPECIFICATION)
 

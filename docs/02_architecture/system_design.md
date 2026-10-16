@@ -1,5 +1,7 @@
 # KIẾN TRÚC HỆ THỐNG TỔNG THỂ (SYSTEM DESIGN DOCUMENT)
 
+> **Order MVP 1 (15/10/2026):** [phạm vi được chọn](services/order-service/13_mvp_delivery_decisions.md) là login-only, VietQR qua SePay Payment Gateway, không COD/phương thức phụ/voucher, refund manual có bằng chứng, chưa COMPLETED tự động. Những mô tả Order rộng hơn dưới đây là roadmap; không bật trong MVP.
+
 > **Cập nhật Order 3.2 — 13/10/2026:** Luồng MS-04 và ownership Payment liên quan theo [HLD Order](services/order-service/00_order_service_hld.md). Các sơ đồ phân rã process cũ trong tài liệu này là bối cảnh lịch sử khi còn vẽ Cart/Payment riêng; không quyết định topology Order3.2. [ADR/gaps](services/order-service/07_decisions_and_contract_gaps.md) ghi phần provider chưa triển khai.
 
 ## HỆ SINH THÁI THƯƠNG MẠI ĐIỆN TỬ ĐA KÊNH & CHUỖI CUNG ỨNG ĐẶC SẢN OCOP HUẾ (MÈ XỬNG O MẠ)

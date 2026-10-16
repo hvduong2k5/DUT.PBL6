@@ -1,5 +1,7 @@
 # 03 — Persistence và transaction, baseline 3.2
 
+> **Phạm vi áp dụng MVP 1 — 15/10/2026:** đọc [quyết định giao bản đầu](13_mvp_delivery_decisions.md). Chỉ khách đăng nhập, VietQR chuyển khoản qua SePay Payment Gateway; không COD/Guest/voucher, không phương thức phụ, hoàn tiền thủ công có kiểm soát và dừng tự động tại DELIVERED. Các nhánh mở rộng dưới đây không bật trong MVP. Implementation sandbox của đợt đầu được ghi ở [báo cáo](14_mvp_implementation_and_adr_report.md); baseline 3.2 chưa được nghiệm thu tích hợp production.
+
 [Trước](02_state_machine_and_lifecycle.md) · [Tiếp](04_usecases_and_saga_orchestration.md)
 
 ## 1. Runtime schema và target
@@ -84,3 +86,11 @@ Redis: cart revision/TTL30d, encrypted preview TTL5m, read cache; mất Redis kh
 Index: operation/job run_after+lease; pending payment expiry; customer keyset(created_at,id); queue(stage,sla_due_at,id); receipt uniqueness; outbox aggregate sequence. SLA theo state entry/policy, không hard-code created_at cho mọi stage.
 
 Migrations expand/backfill/validate; không xóa ledger ở rollback. Restore drill phải reconcile Inventory/provider mới hơn backup trước resume. Key rotation giữ khả năng decrypt snapshots đang cần; local audit hash chain chưa chứng minh chống tail deletion bởi privileged actor. PITR/HA/retention là gate vận hành, chưa được chứng minh bởi tài liệu này.
+
+## 7. Delta persistence MVP 1
+
+[Migration 000004](../../../../services/order-service/migrations/000004_mvp_payment.up.sql) đã bổ sung payment_attempts với order_id unique, merchant_invoice unique theo provider/environment, amount/VND, expiry nội bộ, provider_order_id nullable, provider_order_id nullable; tiến độ đối soát nằm trong sepay_scan. T3 lưu Order và attempt/ý định chuẩn bị thanh toán cùng transaction. Chống trùng receipt theo provider + environment + transaction ID.
+
+Refund thêm execution_mode=MANUAL_BANK_TRANSFER, người nhận việc, mã giao dịch ngân hàng/bằng chứng, người kiểm tra và thời điểm xác nhận. T8 giữ budget trước khi người thực hiện chuyển khoản; T9 chỉ thành công sau đối chiếu bằng chứng. UNKNOWN giữ budget và quyền xử lý, không tự gửi lại tiền. Không giả lập manual proof thành kết quả SePay refund. Xem [quyết định MVP](13_mvp_delivery_decisions.md).
+
+Implementation dùng bảng manual_refunds riêng với payee/evidence mã hóa, để không đưa nghĩa vụ manual vào worker refund tự động. Budget tính cả refunds lịch sử và manual_refunds; hai ledger không cho phép hoàn vượt khoản thu. Xem [ADR-003](adr/ADR-003-manual-refund.md).

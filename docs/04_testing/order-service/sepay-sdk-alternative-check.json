@@ -1,0 +1,57 @@
+{
+  "at_utc": "2026-10-16T08:25:48.305Z",
+  "sdk_version": "1.0.0",
+  "environment": "sandbox",
+  "checks": [
+    {
+      "method": "sdk_retrieve",
+      "http_status": 200,
+      "root_keys": [
+        "data"
+      ],
+      "invoice": "OMAMA-6d64bd28-7919-4763-b407-0599dfef6d93",
+      "order_status": "CAPTURED",
+      "transactions": []
+    },
+    {
+      "method": "sdk_list_search",
+      "http_status": 200,
+      "root_keys": [
+        "data",
+        "meta"
+      ],
+      "order_count": 1,
+      "matching_order_keys": [
+        "id",
+        "customer_id",
+        "order_id",
+        "order_invoice_number",
+        "order_status",
+        "order_amount",
+        "order_currency",
+        "order_description",
+        "authentication_status",
+        "created_at",
+        "updated_at"
+      ]
+    }
+  ],
+  "sdk_package": "sepay-pg-node",
+  "installation": "isolated under ignored .system_generated/order-sepay/sdk-probe; service dependencies unchanged",
+  "operations": "read-only SDK order.retrieve(invoice) and order.all({q:invoice,per_page:10})",
+  "invoice": "OMAMA-6d64bd28-7919-4763-b407-0599dfef6d93",
+  "alternative_bank_api": {
+    "documented_sandbox_endpoint": "https://userapi-sandbox.sepay.vn/v2/transactions",
+    "authentication": "Separate Test-mode API token, Authorization Bearer; not Gateway merchant secret",
+    "token_configured_locally": false,
+    "status": "NOT_RUN_NO_SEPARATE_TOKEN",
+    "gateway_transaction_visibility": "UNCONFIRMED; do not assume Gateway simulated transaction UUID belongs to this API"
+  },
+  "conclusion": "Official SDK reproduces empty transaction list; no evidence SDK solves missing transaction details. Other product API is not verified as a recovery source.",
+  "sources": [
+    "https://developer.sepay.vn/vi/cong-thanh-toan/sdk/nodejs",
+    "https://developer.sepay.vn/vi/sepay-api/v2/bat-dau-nhanh",
+    "https://developer.sepay.vn/vi/tien-ich-khac/test-mode"
+  ],
+  "credentials_included": false
+}

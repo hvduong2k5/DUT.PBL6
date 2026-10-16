@@ -74,3 +74,7 @@ python packages/contracts/verify_order_design.py --compile-proto
 6. QA chạy provider fault suite: expiry/finalize, lost ACK, late reserve, replay/hash conflict, cancel/accept, reversal twice và rollback cohort.
 
 G01–G13/R01–R08 trong [ADR/gaps](07_decisions_and_contract_gaps.md) tiếp tục ghi implementation/evidence còn mở. Đầu ra đợt này là bộ wire proposal có thể review và generate/build, làm đầu vào cho triển khai từng service.
+
+## Bổ sung phạm vi MVP 1 ngày 15/10/2026
+
+Xem [quyết định mới và trade-offs](13_mvp_delivery_decisions.md). Báo cáo này ghi baseline trước khi thu hẹp MVP; các kết quả kiểm chứng cũ không chứng minh SePay hay refund manual đã triển khai. Shared wire giữ tương thích; cần bổ sung API/payment attempt và manual proof trước implementation.

@@ -172,3 +172,7 @@ Sau đó đi lần lượt ba tình huống: checkout thành công; đã nhận 
 | Barrier | Điểm phối hợp có quyết định được lưu bền vững, phân xử nhận task với hủy task |
 | Compensation | Thao tác nghiệp vụ bù lại effect đã xảy ra; không phải rollback transaction xuyên service |
 | Contract gap | Capability/semantics còn cần thống nhất hoặc triển khai; không mặc nhiên là lỗi của provider |
+
+## Bổ sung phạm vi MVP 1 ngày 15/10/2026
+
+Xem [quyết định mới và trade-offs](13_mvp_delivery_decisions.md). Báo cáo này ghi baseline trước khi thu hẹp MVP; các kết quả kiểm chứng cũ không chứng minh SePay hay refund manual đã triển khai. Shared wire giữ tương thích; cần bổ sung API/payment attempt và manual proof trước implementation.

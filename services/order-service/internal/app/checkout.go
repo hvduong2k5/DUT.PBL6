@@ -193,6 +193,9 @@ func (s *Service) Canonical(ctx context.Context, q domain.Quote) (domain.Quote, 
 	return q, nil
 }
 func (s *Service) CreateQuote(ctx context.Context, p domain.Principal, in domain.QuoteInput) (domain.Quote, error) {
+	if err := s.checkoutPolicy(p, in.Method); err != nil {
+		return domain.Quote{}, err
+	}
 	if p.Role != "CUSTOMER" && p.Role != "GUEST" {
 		return domain.Quote{}, domain.E("PERMISSION_DENIED", 403)
 	}
@@ -300,10 +303,14 @@ func (s *Service) replay(ctx context.Context, p domain.Principal, key, hash stri
 	return o, 202, nil
 }
 func (s *Service) Accept(ctx context.Context, p domain.Principal, key string, in domain.CheckoutInput) (domain.Operation, int, error) {
+	if err := s.checkoutPolicy(p, in.Method); err != nil {
+		code, status := s.ErrorCode(err)
+		return domain.Operation{}, status, domain.E(code, status)
+	}
 	if p.Role != "CUSTOMER" && p.Role != "GUEST" {
 		return domain.Operation{}, 403, domain.E("PERMISSION_DENIED", 403)
 	}
-	if len(key) < 16 || len(key) > 128 {
+	if !validCommandKey(key) {
 		return domain.Operation{}, 400, domain.E("INVALID_IDEMPOTENCY_KEY", 400)
 	}
 	hash := domain.Hash(in)

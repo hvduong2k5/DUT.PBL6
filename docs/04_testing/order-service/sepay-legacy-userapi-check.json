@@ -1,0 +1,30 @@
+{
+  "verified_at_utc": "2026-10-16T08:36:13.859969+00:00",
+  "endpoint": "https://my.sepay.vn/userapi/transactions/list?reference_number=6ad1d16e2601a&limit=1",
+  "final_url": "https://my.sepay.vn/userapi/transactions/list?reference_number=6ad1d16e2601a&limit=1",
+  "http_status": 200,
+  "root_keys": [
+    "status",
+    "error",
+    "messages",
+    "transactions"
+  ],
+  "body_status": 200,
+  "error": null,
+  "messages": {
+    "success": true
+  },
+  "transaction_count": 0,
+  "response_sha256": "939595235c0bbd2485960b26b20ae60f631e485124b1c1c4ef62c798db588094",
+  "lookup": "Exact supplied Gateway transaction reference only; limit 1; no unfiltered account history read",
+  "secret_included": false,
+  "sources": [
+    "https://docs.sepay.vn/api-giao-dich.html",
+    "https://docs.sepay.vn/gioi-thieu-api.html",
+    "https://docs.sepay.vn/tao-api-token.html"
+  ],
+  "authentication_conclusion": "Provided token accepted by documented my.sepay.vn legacy User API; prior 401 on userapi-sandbox does not make token universally invalid.",
+  "lookup_limitation": "Gateway transaction.transaction_id was used only as a candidate reference_number. Mapping to bank-ledger reference_number is not established by these docs; empty filtered result does not prove transaction absent from all User API records.",
+  "product_distinction": "Bank transaction User API with Bearer token is distinct from Payment Gateway order API with Basic Auth. Gateway simulated payment cannot be assumed to appear in bank transaction API.",
+  "service_logic_changed": false
+}

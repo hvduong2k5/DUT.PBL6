@@ -124,7 +124,7 @@ def main():
     check(not options.baseline_descriptor or options.compile_proto or options.descriptor, "Baseline requires current descriptor")
     result = {"mode": "static_design_contracts", "provider_integration": "NOT_RUN", "openapi": [], "events": {}}
     target = None
-    for name in ["order-service.openapi.yaml", "order-service.sandbox-3.1.openapi.yaml", "order-sandbox-dependencies.openapi.yaml"]:
+    for name in ["order-service.openapi.yaml", "order-service.sandbox-3.1.openapi.yaml", "order-service.mvp1.openapi.yaml", "order-sandbox-dependencies.openapi.yaml"]:
         document = yaml.safe_load((ROOT / "docs/03_api_specs" / name).read_text(encoding="utf-8"))
         validate_spec(document)
         result["openapi"].append({"file": name, "status": "PASS", "paths": len(document["paths"])})

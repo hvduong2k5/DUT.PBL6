@@ -13,6 +13,11 @@
       "paths": 23
     },
     {
+      "file": "order-service.mvp1.openapi.yaml",
+      "status": "PASS",
+      "paths": 31
+    },
+    {
       "file": "order-sandbox-dependencies.openapi.yaml",
       "status": "PASS",
       "paths": 20

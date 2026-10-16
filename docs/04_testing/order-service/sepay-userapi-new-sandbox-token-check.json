@@ -1,0 +1,88 @@
+{
+  "verified_at_utc": "2026-10-16T08:45:03.672448+00:00",
+  "environment": "SePay User API v2 Sandbox",
+  "operations": "read-only; no production requests or new payments",
+  "authentication": "PASS_HTTP_200_WITH_NEW_TOKEN",
+  "target_invoice": "OMAMA-6d64bd28-7919-4763-b407-0599dfef6d93",
+  "checks": [
+    {
+      "lookup": "invoice",
+      "at_utc": "2026-10-16T08:44:15.252954+00:00",
+      "url": "https://userapi-sandbox.sepay.vn/v2/transactions?q=OMAMA-6d64bd28-7919-4763-b407-0599dfef6d93&per_page=20",
+      "http": 200,
+      "root_keys": [
+        "status",
+        "data",
+        "meta"
+      ],
+      "body_status": "success",
+      "data_type": "list",
+      "row_count": 0,
+      "pagination": {
+        "total": 0,
+        "per_page": 20,
+        "current_page": 1,
+        "last_page": 0,
+        "has_more": false
+      },
+      "response_sha256": "4fe49c9df27a3f00d69426f3cb821762b4252c2b2fb9133aa94d2496690176be"
+    },
+    {
+      "lookup": "payment_reference",
+      "at_utc": "2026-10-16T08:44:16.424433+00:00",
+      "url": "https://userapi-sandbox.sepay.vn/v2/transactions?q=PAY110926AD1D15653540&per_page=20",
+      "http": 200,
+      "root_keys": [
+        "status",
+        "data",
+        "meta"
+      ],
+      "body_status": "success",
+      "data_type": "list",
+      "row_count": 0,
+      "pagination": {
+        "total": 0,
+        "per_page": 20,
+        "current_page": 1,
+        "last_page": 0,
+        "has_more": false
+      },
+      "response_sha256": "4fe49c9df27a3f00d69426f3cb821762b4252c2b2fb9133aa94d2496690176be"
+    },
+    {
+      "lookup": "transaction_uuid",
+      "at_utc": "2026-10-16T08:44:17.530147+00:00",
+      "url": "https://userapi-sandbox.sepay.vn/v2/transactions/c66ad791-c932-11f1-b21a-a6006ab65aca",
+      "http": 404,
+      "root_keys": [
+        "status",
+        "message",
+        "error_code"
+      ],
+      "body_status": "error",
+      "data_type": "NoneType",
+      "row_count": null,
+      "pagination": null,
+      "response_sha256": "6140017b05a087859a07598b6b7d3714b6ee4e1f9b9bcbdb15b60e43a506f374",
+      "message": "This transaction was not found"
+    },
+    {
+      "lookup": "same_day_and_exact_amount_without_reference_assumptions",
+      "http": 200,
+      "at_utc": "2026-10-16T08:45:03.672192+00:00",
+      "url": "https://userapi-sandbox.sepay.vn/v2/transactions?transaction_date_from=2026-10-16+00%3A00%3A00&transaction_date_to=2026-10-16+23%3A59%3A59&amount_in_min=135000&amount_in_max=135000&per_page=20&fields=id%2Ctransaction_date%2Camount_in%2Creference_number%2Ccode%2Ctransfer_type",
+      "row_count": 0,
+      "pagination": {
+        "total": 0,
+        "per_page": 20,
+        "current_page": 1,
+        "last_page": 0,
+        "has_more": false
+      },
+      "response_sha256": "4fe49c9df27a3f00d69426f3cb821762b4252c2b2fb9133aa94d2496690176be"
+    }
+  ],
+  "conclusion": "New token works on User API Sandbox. Target not found by invoice, PAY reference, exact Gateway transaction UUID, or same-day incoming amount 135000 VND. No established mapping between Gateway simulation and User API bank transactions; automatic recovery source remains unverified.",
+  "order_service_logic_changed": false,
+  "credentials_included": false
+}
