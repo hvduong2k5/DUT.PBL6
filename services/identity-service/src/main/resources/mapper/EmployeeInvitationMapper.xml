@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.hvduong.identity.infrastructure.persistence.mybatis.mapper.EmployeeInvitationMapper">
+
+    <resultMap id="InvitationRowMap" type="com.hvduong.identity.infrastructure.persistence.mybatis.mapper.EmployeeInvitationRow">
+        <id property="invitationId" column="invitation_id"/>
+        <result property="principalId" column="principal_id"/>
+        <result property="invitedByPrincipalId" column="invited_by_principal_id"/>
+        <result property="invitationStatus" column="invitation_status"/>
+        <result property="expiresAt" column="expires_at"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+        <result property="acceptedAt" column="accepted_at"/>
+        <result property="revokedAt" column="revoked_at"/>
+    </resultMap>
+
+    <insert id="insert">
+        INSERT INTO employee_invitations (
+            invitation_id, principal_id, invited_by_principal_id, invitation_status,
+            expires_at, created_at, updated_at
+        ) VALUES (
+            #{invitationId}, #{principalId}, #{invitedByPrincipalId}, #{invitationStatus},
+            #{expiresAt}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+        )
+    </insert>
+
+    <select id="findById" resultMap="InvitationRowMap">
+        SELECT *
+        FROM employee_invitations
+        WHERE invitation_id = #{invitationId}
+    </select>
+
+    <select id="findPendingByPrincipalId" resultMap="InvitationRowMap">
+        SELECT *
+        FROM employee_invitations
+        WHERE principal_id = #{principalId}
+          AND invitation_status = 'PENDING'
+          AND expires_at &gt; CURRENT_TIMESTAMP
+    </select>
+
+    <update id="updateStatus">
+        UPDATE employee_invitations
+        SET invitation_status = #{newStatus},
+            accepted_at = CASE WHEN #{newStatus} = 'ACCEPTED' THEN CURRENT_TIMESTAMP ELSE accepted_at END,
+            revoked_at = CASE WHEN #{newStatus} = 'REVOKED' THEN CURRENT_TIMESTAMP ELSE revoked_at END
+        WHERE invitation_id = #{invitationId}
+    </update>
+
+</mapper>
+

@@ -1,6 +1,7 @@
 package com.hvduong.identity.application.iam;
 
 import com.hvduong.identity.api.admin.dto.AssignRoleRequest;
+import com.hvduong.identity.application.audit.AuditService;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IamRoleAssignmentMapper;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IamRoleAssignmentRow;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IdentityPrincipalMapper;
@@ -10,6 +11,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -18,6 +21,7 @@ public class RoleAssignmentService {
 
     private final IamRoleAssignmentMapper roleAssignmentMapper;
     private final IdentityPrincipalMapper principalMapper;
+    private final AuditService auditService;
 
     @Transactional
     public UUID assignRole(AssignRoleRequest request, UUID assignedBy) {
@@ -33,8 +37,9 @@ public class RoleAssignmentService {
         }
 
         // 3. Create assignment row
+        UUID assignmentId = UUID.randomUUID();
         IamRoleAssignmentRow assignment = new IamRoleAssignmentRow();
-        assignment.setAssignmentId(UUID.randomUUID());
+        assignment.setAssignmentId(assignmentId);
         assignment.setPrincipalId(request.getPrincipalId());
         assignment.setRoleId(request.getRoleId());
         assignment.setScopeType(request.getScopeType());
@@ -47,7 +52,53 @@ public class RoleAssignmentService {
         assignment.setVersion(0L);
 
         roleAssignmentMapper.insert(assignment);
-        
-        return assignment.getAssignmentId();
+
+        // 4. Audit log
+        auditService.recordAudit(
+                "EMPLOYEE",
+                assignedBy,
+                null,
+                "IAM_ROLE_ASSIGN",
+                "IAM_ASSIGNMENT",
+                assignmentId.toString(),
+                "SUCCESS",
+                null,
+                null,
+                null,
+                Map.of(
+                        "targetPrincipalId", request.getPrincipalId().toString(),
+                        "roleId", request.getRoleId().toString(),
+                        "scopeType", request.getScopeType()
+                )
+        );
+
+        return assignmentId;
+    }
+
+    @Transactional
+    public boolean revokeRole(UUID assignmentId, UUID revokedBy, String reason, long expectedVersion) {
+        int updated = roleAssignmentMapper.revokeAssignment(assignmentId, revokedBy, reason, expectedVersion);
+        if (updated > 0) {
+            auditService.recordAudit(
+                    "EMPLOYEE",
+                    revokedBy,
+                    null,
+                    "IAM_ROLE_REVOKE",
+                    "IAM_ASSIGNMENT",
+                    assignmentId.toString(),
+                    "SUCCESS",
+                    null,
+                    null,
+                    null,
+                    Map.of("reason", reason != null ? reason : "")
+            );
+            return true;
+        }
+        return false;
+    }
+
+    @Transactional(readOnly = true)
+    public List<IamRoleAssignmentRow> getActiveAssignments(UUID principalId) {
+        return roleAssignmentMapper.findActiveByPrincipal(principalId, OffsetDateTime.now());
     }
 }
