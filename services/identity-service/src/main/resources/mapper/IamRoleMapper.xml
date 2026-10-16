@@ -2,6 +2,20 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IamRoleMapper">
 
+    <resultMap id="IamRoleRowMap" type="com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IamRoleRow">
+        <id property="roleId" column="role_id"/>
+        <result property="roleCode" column="role_code"/>
+        <result property="roleName" column="role_name"/>
+        <result property="description" column="description"/>
+        <result property="isProtected" column="is_protected"/>
+        <result property="isEnabled" column="is_enabled"/>
+        <result property="version" column="version"/>
+        <result property="createdByPrincipalId" column="created_by_principal_id"/>
+        <result property="updatedByPrincipalId" column="updated_by_principal_id"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
     <insert id="insert">
         INSERT INTO iam_roles (
             role_id, role_code, role_name, description, is_protected, is_enabled, version, created_by_principal_id
@@ -10,13 +24,13 @@
         )
     </insert>
 
-    <select id="findById" resultType="com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IamRoleRow">
+    <select id="findById" resultMap="IamRoleRowMap">
         SELECT *
         FROM iam_roles
         WHERE role_id = #{roleId}
     </select>
 
-    <select id="findByCode" resultType="com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IamRoleRow">
+    <select id="findByCode" resultMap="IamRoleRowMap">
         SELECT *
         FROM iam_roles
         WHERE role_code = #{roleCode}
