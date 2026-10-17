@@ -1,6 +1,6 @@
 # Customer API State Matrix
 
-Updated: 2026-10-05
+Updated: 2026-10-17
 
 This matrix and the OpenAPI files are the backend handoff. It is intentionally independent from test-fixture implementation.
 
@@ -22,11 +22,13 @@ Customer APIs distinguish Guest, Registered Customer and verified B2B Customer c
 | `POST /api/v1/auth/login` | EPIC_01 | stable | 200 | N/A | 400/422 | 401 | 403 | — | 409 | — | 500/503 |
 | `POST /api/v1/auth/logout` | EPIC_01 | stable | 200 | N/A | 400/422 | 401 | 403 | — | 409 | — | 500/503 |
 | `GET /api/v1/auth/me` | EPIC_01 | stable | 200 | N/A | 400/— | 401 | 403 | — | — | — | 500/503 |
+| `GET /api/v1/users/me` | EPIC_01 | stable | 200 | N/A | —/— | 401 | — | 404 | — | — | 500/503 |
 | `POST /api/v1/auth/recovery-requests` | EPIC_01 | stable | 202 | N/A | 400/422 | — | — | — | 409 | 429 | 500/503 |
 | `POST /api/v1/auth/recovery-requests/reset` | EPIC_01 | stable | 204 | N/A | 400/422 | — | — | — | 409 | 429 | 500/503 |
 | `POST /api/v1/auth/recovery-requests/verify` | EPIC_01 | stable | 200 | N/A | 400/422 | — | — | — | 409 | 429 | 500/503 |
 | `POST /api/v1/auth/refresh` | EPIC_01 | stable | 200 | N/A | 400/422 | 401 | 403 | — | 409 | — | 500/503 |
 | `POST /api/v1/auth/register` | EPIC_01 | stable | 201 | N/A | 400/422 | — | — | — | 409 | — | 500/503 |
+| `POST /api/v1/public/registration/customer` | EPIC_01 | stable | 200 | N/A | 400/— | — | — | — | 409 | — | 500/503 |
 | `GET /api/v1/b2b/context` | EPIC_18 | stable | 200 | N/A | 400/— | 401 | 403 | — | — | — | 500/503 |
 | `POST /api/v1/b2b/quote-requests` | EPIC_18 | stable | 201 | N/A | 400/422 | 401 | 403 | — | 409 | — | 500/503 |
 | `GET /api/v1/b2b/quotes/{quoteId}` | EPIC_18 | stable | 200 | N/A | —/— | 401 | 403 | 404 | — | — | 500/503 |
@@ -85,8 +87,8 @@ These rows are proposals. Backend may refine them, but must record the decision 
 | `GET /api/v1/returns` | EPIC_14 | draft | 200 | 200 (collection empty) | 400/422 | 401 | 403 | — | — | — | 500/503 |
 | `POST /api/v1/returns/{returnId}/supplements` | EPIC_14 | draft | 201 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
 | `GET /api/v1/support/tickets` | EPIC_16 | draft | 200 | 200 (collection empty) | 400/422 | 401 | 403 | — | — | — | 500/503 |
-| `POST /api/v1/auth/verification-requests` | EPIC_01 | draft | 202 | N/A | 400/422 | — | — | — | 409 | 429 | 500/503 |
-| `POST /api/v1/auth/verification-requests/confirm` | EPIC_01 | draft | 200 | N/A | 400/422 | — | — | — | 409 | 429 | 500/503 |
+| `POST /api/v1/auth/verification-requests` | EPIC_01 | deprecated | 202 | N/A | 400/422 | — | — | — | 409 | 429 | 500/503 |
+| `POST /api/v1/auth/verification-requests/confirm` | EPIC_01 | deprecated | 200 | N/A | 400/422 | — | — | — | 409 | 429 | 500/503 |
 | `POST /api/v1/b2b/quote-requests/{requestId}/messages` | EPIC_18 | planned | 201 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
 | `GET /api/v1/loyalty/transactions` | EPIC_17 | planned | 200 | 200 (collection empty) | 400/422 | 401 | 403 | — | — | — | 500/503 |
 | `GET /api/v1/notifications` | EPIC_28 | planned | 200 | 200 (collection empty) | 400/422 | 401 | 403 | — | — | — | 500/503 |

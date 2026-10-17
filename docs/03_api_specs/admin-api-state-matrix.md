@@ -1,6 +1,6 @@
 # Internal Employee API State Matrix
 
-Updated: 2026-10-05
+Updated: 2026-10-17
 
 This matrix and the OpenAPI files are the backend handoff. It is intentionally independent from test-fixture implementation.
 
@@ -24,7 +24,10 @@ Employee APIs require authentication, effective permission and server-side data-
 | `GET /api/v1/admin/access/permissions` | EPIC_22 | stable | 200 | 200 (collection empty) | 400/— | 401 | 403 | — | — | — | 500/503 |
 | `GET /api/v1/admin/access/permissions/{permissionCode}` | EPIC_22 | stable | 200 | N/A | —/— | 401 | 403 | 404 | — | — | 500/503 |
 | `GET /api/v1/admin/access/roles` | EPIC_22 | stable | 200 | 200 (collection empty) | 400/— | 401 | 403 | — | — | — | 500/503 |
+| `POST /api/v1/admin/access/roles` | EPIC_22 | stable | 201 | N/A | 400/422 | 401 | 403 | — | 409 | — | 500/503 |
 | `GET /api/v1/admin/access/roles/{roleCode}` | EPIC_22 | stable | 200 | N/A | —/— | 401 | 403 | 404 | — | — | 500/503 |
+| `PATCH /api/v1/admin/access/roles/{roleCode}` | EPIC_22 | stable | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
+| `PUT /api/v1/admin/access/roles/{roleCode}/permissions` | EPIC_22 | stable | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
 | `GET /api/v1/admin/b2b/quote-requests` | EPIC_18 | stable | 200 | 200 (collection empty) | 400/— | 401 | 403 | — | — | — | 500/503 |
 | `GET /api/v1/admin/b2b/quote-requests/{requestId}` | EPIC_18 | stable | 200 | N/A | —/— | 401 | 403 | 404 | — | — | 500/503 |
 | `POST /api/v1/admin/b2b/quote-requests/{requestId}/actions` | EPIC_18 | stable | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
@@ -67,9 +70,6 @@ These rows are proposals. Backend may refine them, but must record the decision 
 | `POST /api/v1/admin/access/employees/invitations` | EPIC_22 | draft | 202 | N/A | 400/422 | 401 | 403 | — | 409 | — | 500/503 |
 | `PATCH /api/v1/admin/access/employees/{employeeId}/status` | EPIC_22 | draft | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
 | `PUT /api/v1/admin/access/employees/{employeeId}/role-assignments` | EPIC_22 | draft | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
-| `POST /api/v1/admin/access/roles` | EPIC_22 | draft | 201 | N/A | 400/422 | 401 | 403 | — | 409 | — | 500/503 |
-| `PATCH /api/v1/admin/access/roles/{roleCode}` | EPIC_22 | draft | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
-| `PUT /api/v1/admin/access/roles/{roleCode}/permissions` | EPIC_22 | draft | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
 | `POST /api/v1/admin/catalog/products` | EPIC_04 | draft | 201 | N/A | 400/422 | 401 | 403 | — | 409 | — | 500/503 |
 | `PATCH /api/v1/admin/catalog/products/{productId}` | EPIC_04 | draft | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
 | `POST /api/v1/admin/catalog/products/{productId}/skus` | EPIC_04 | draft | 201 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
