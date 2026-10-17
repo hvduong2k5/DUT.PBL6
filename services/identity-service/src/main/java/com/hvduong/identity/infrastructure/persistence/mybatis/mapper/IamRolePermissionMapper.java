@@ -10,4 +10,6 @@ public interface IamRolePermissionMapper {
     List<IamRolePermissionRow> findByRoleId(@Param("roleId") UUID roleId);
     
     void deleteByRoleIdAndPermission(@Param("roleId") UUID roleId, @Param("permissionCode") String permissionCode);
+
+    void deleteByRoleId(@Param("roleId") UUID roleId);
 }

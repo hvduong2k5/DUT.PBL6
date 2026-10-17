@@ -16,4 +16,6 @@ public interface IamRoleAssignmentMapper {
         @Param("reason") String reason,
         @Param("expectedVersion") Long expectedVersion
     );
+
+    int countActiveByRoleId(@Param("roleId") UUID roleId, @Param("now") OffsetDateTime now);
 }

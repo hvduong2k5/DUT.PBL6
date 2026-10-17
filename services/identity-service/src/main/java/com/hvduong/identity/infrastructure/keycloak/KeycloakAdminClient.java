@@ -58,4 +58,27 @@ public class KeycloakAdminClient {
         user.setEnabled(enabled);
         userResource.update(user);
     }
+
+    public void createOrUpdateRealmRole(String roleName, String description) {
+        try {
+            org.keycloak.admin.client.resource.RolesResource rolesResource = keycloak.realm(realm).roles();
+            try {
+                org.keycloak.admin.client.resource.RoleResource roleResource = rolesResource.get(roleName);
+                org.keycloak.representations.idm.RoleRepresentation rep = roleResource.toRepresentation();
+                rep.setDescription(description);
+                roleResource.update(rep);
+            } catch (jakarta.ws.rs.NotFoundException e) {
+                org.keycloak.representations.idm.RoleRepresentation newRole = new org.keycloak.representations.idm.RoleRepresentation();
+                newRole.setName(roleName);
+                newRole.setDescription(description);
+                rolesResource.create(newRole);
+            }
+        } catch (Exception ignored) {}
+    }
+
+    public void deleteRealmRole(String roleName) {
+        try {
+            keycloak.realm(realm).roles().deleteRole(roleName);
+        } catch (Exception ignored) {}
+    }
 }

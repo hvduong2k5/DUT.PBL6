@@ -1,6 +1,7 @@
 package com.hvduong.identity.infrastructure.persistence.mybatis.mapper;
 
 import org.apache.ibatis.annotations.Param;
+import java.util.List;
 import java.util.UUID;
 
 public interface IamRoleMapper {
@@ -10,10 +11,16 @@ public interface IamRoleMapper {
     
     IamRoleRow findByCode(@Param("roleCode") String roleCode);
 
-    int updateStatus(
+    List<IamRoleRow> findAll();
+
+    int updateDetails(
         @Param("roleId") UUID roleId,
+        @Param("roleName") String roleName,
+        @Param("description") String description,
         @Param("isEnabled") Boolean isEnabled,
         @Param("updatedBy") UUID updatedBy,
         @Param("expectedVersion") Long expectedVersion
     );
+
+    int deleteById(@Param("roleId") UUID roleId);
 }

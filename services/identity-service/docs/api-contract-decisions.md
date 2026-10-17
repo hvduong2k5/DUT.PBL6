@@ -61,10 +61,9 @@
 
 ---
 
-## 3. REST API (Admin-facing)
+## 3. REST API (Admin-facing IAM & Role Management)
 
-### POST /api/v1/admin/iam/assignments — DRAFT (Cần chốt contract ổn định trước khi mở Frontend)
-
+### CHỐT — POST /api/v1/admin/iam/assignments
 **Mô tả**: Gán role nhân viên có scope và thời hạn.
 
 **Request:**
@@ -86,6 +85,31 @@
 - Không cho phép tự gán quyền cho chính mình.
 - Không cho phép thu hồi `System Administrator` cuối cùng.
 - Mọi thay đổi phải được ghi vào `identity_audit_log`.
+
+---
+
+### CHỐT — Bộ API Quản Lý Role (Role Lifecycle)
+
+| Method | Endpoint | Chức năng | Mô tả & Ràng buộc |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/v1/admin/roles` | Danh sách Role | Lấy toàn bộ danh sách Role hệ thống. |
+| `GET` | `/api/v1/admin/roles/{roleId}` | Chi tiết Role | Xem thông tin chi tiết một Role kèm danh sách Permissions. |
+| `POST` | `/api/v1/admin/roles` | Tạo Role mới | Tạo Role với `roleCode`, `roleName`, `description`. Đồng bộ tạo Realm Role trên Keycloak. |
+| `PATCH`| `/api/v1/admin/roles/{roleId}` | Cập nhật Role | Cập nhật `roleName`, `description`, `isEnabled`. Áp dụng Optimistic Concurrency Control (`version`). |
+| `DELETE`| `/api/v1/admin/roles/{roleId}`| Xóa Role | **Cơ chế an toàn**:<br>1. Từ chối xóa nếu `is_protected = true` (ví dụ `SUPER_ADMIN`).<br>2. Từ chối xóa nếu đang có nhân viên được gán active trong `iam_role_assignments`.<br>3. Tự động xóa liên kết permission con và đồng bộ xóa trên Keycloak. |
+
+---
+
+### CHỐT — Bộ API Quản Lý Permission Của Role
+
+| Method | Endpoint | Chức năng | Mô tả & Ràng buộc |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/v1/admin/roles/{roleId}/permissions` | Danh sách Permission | Lấy danh sách mã quyền (`permission_code`) thuộc Role. |
+| `PUT` | `/api/v1/admin/roles/{roleId}/permissions` | Thay thế Permissions | Thay thế toàn bộ quyền của Role bằng danh sách mới (Transactional replace). |
+| `POST`| `/api/v1/admin/roles/{roleId}/permissions` | Gán thêm Permission | Thêm 1 quyền vào Role (Idempotent insert). |
+| `DELETE`| `/api/v1/admin/roles/{roleId}/permissions/{permissionCode}` | Gỡ Permission | Gỡ một quyền cụ thể khỏi Role. |
+
+*Lưu ý bảo mật: Mọi thao tác Create, Update, Delete Role và Permission đều được ghi nhật ký kiểm toán không thể sửa xóa vào `identity_audit_log`.*
 
 ---
 

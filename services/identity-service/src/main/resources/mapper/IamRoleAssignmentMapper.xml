@@ -48,4 +48,13 @@
           AND version = #{expectedVersion}
     </update>
 
+    <select id="countActiveByRoleId" resultType="int">
+        SELECT COUNT(*)
+        FROM iam_role_assignments
+        WHERE role_id = #{roleId}
+          AND assignment_status = 'ACTIVE'
+          AND valid_from &lt;= #{now}
+          AND (valid_until IS NULL OR valid_until &gt; #{now})
+    </select>
+
 </mapper>

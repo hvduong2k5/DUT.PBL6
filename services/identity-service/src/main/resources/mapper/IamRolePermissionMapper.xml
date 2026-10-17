@@ -18,4 +18,9 @@
         WHERE role_id = #{roleId} AND permission_code = #{permissionCode}
     </delete>
 
+    <delete id="deleteByRoleId">
+        DELETE FROM iam_role_permissions
+        WHERE role_id = #{roleId}
+    </delete>
+
 </mapper>

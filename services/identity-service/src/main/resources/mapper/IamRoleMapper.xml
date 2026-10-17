@@ -36,13 +36,26 @@
         WHERE role_code = #{roleCode}
     </select>
 
-    <update id="updateStatus">
+    <select id="findAll" resultMap="IamRoleRowMap">
+        SELECT *
+        FROM iam_roles
+        ORDER BY created_at ASC
+    </select>
+
+    <update id="updateDetails">
         UPDATE iam_roles
-        SET is_enabled = #{isEnabled},
+        SET role_name = COALESCE(#{roleName}, role_name),
+            description = COALESCE(#{description}, description),
+            is_enabled = COALESCE(#{isEnabled}, is_enabled),
             updated_by_principal_id = #{updatedBy},
             version = version + 1
         WHERE role_id = #{roleId}
           AND version = #{expectedVersion}
     </update>
+
+    <delete id="deleteById">
+        DELETE FROM iam_roles
+        WHERE role_id = #{roleId}
+    </delete>
 
 </mapper>
