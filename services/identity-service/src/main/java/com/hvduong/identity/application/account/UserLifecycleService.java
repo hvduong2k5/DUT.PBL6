@@ -21,6 +21,8 @@ public class UserLifecycleService {
 
     private final IdentityPrincipalMapper principalMapper;
     private final IamRoleAssignmentMapper roleAssignmentMapper;
+    private final IamRoleMapper roleMapper;
+    private final IamRolePermissionMapper rolePermissionMapper;
     private final OutboxEventMapper outboxEventMapper;
     private final KeycloakAdminClient keycloakAdminClient;
     private final AuditService auditService;
@@ -30,6 +32,7 @@ public class UserLifecycleService {
     @Builder
     public static class UserRoleScopeDto {
         private String roleCode;
+        private String roleName;
         private String scopeType;
         private String scopeId;
     }
@@ -43,6 +46,7 @@ public class UserLifecycleService {
         private String principalType;
         private String provisioningStatus;
         private List<UserRoleScopeDto> roles;
+        private List<String> permissions;
     }
 
     @Transactional(readOnly = true)
@@ -57,13 +61,46 @@ public class UserLifecycleService {
                 OffsetDateTime.now()
         );
 
-        List<UserRoleScopeDto> roleDtos = assignments.stream()
-                .map(a -> UserRoleScopeDto.builder()
-                        .roleCode(a.getRoleId().toString()) // Can also be resolved to role name if needed
+        Set<String> effectivePermissions = new LinkedHashSet<>();
+        List<UserRoleScopeDto> roleDtos = new ArrayList<>();
+
+        if (assignments != null) {
+            for (IamRoleAssignmentRow a : assignments) {
+                String roleCode = a.getRoleId() != null ? a.getRoleId().toString() : "UNKNOWN";
+                String roleName = null;
+                if (roleMapper != null && a.getRoleId() != null) {
+                    IamRoleRow role = roleMapper.findById(a.getRoleId());
+                    if (role != null) {
+                        roleCode = role.getRoleCode();
+                        roleName = role.getRoleName();
+                    }
+                }
+                if (rolePermissionMapper != null && a.getRoleId() != null) {
+                    List<IamRolePermissionRow> permRows = rolePermissionMapper.findByRoleId(a.getRoleId());
+                    if (permRows != null) {
+                        for (IamRolePermissionRow p : permRows) {
+                            if (p.getPermissionCode() != null && !p.getPermissionCode().isBlank()) {
+                                effectivePermissions.add(p.getPermissionCode());
+                            }
+                        }
+                    }
+                }
+                roleDtos.add(UserRoleScopeDto.builder()
+                        .roleCode(roleCode)
+                        .roleName(roleName)
                         .scopeType(a.getScopeType())
                         .scopeId(a.getScopeId())
-                        .build())
-                .toList();
+                        .build());
+            }
+        }
+
+        if (roleDtos.isEmpty() && "CUSTOMER".equalsIgnoreCase(principal.getPrincipalType())) {
+            roleDtos.add(UserRoleScopeDto.builder()
+                    .roleCode("CUSTOMER")
+                    .roleName("Khách hàng")
+                    .scopeType("GLOBAL")
+                    .build());
+        }
 
         return Optional.of(UserProfileDto.builder()
                 .principalId(principal.getPrincipalId())
@@ -72,6 +109,7 @@ public class UserLifecycleService {
                 .principalType(principal.getPrincipalType())
                 .provisioningStatus(principal.getProvisioningStatus())
                 .roles(roleDtos)
+                .permissions(new ArrayList<>(effectivePermissions))
                 .build());
     }
 

@@ -846,10 +846,16 @@ paths:
                       properties:
                         roleCode:
                           type: "string"
+                        roleName:
+                          type: "string"
                         scopeType:
                           type: "string"
                         scopeId:
                           type: "string"
+                  permissions:
+                    type: "array"
+                    items:
+                      type: "string"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":

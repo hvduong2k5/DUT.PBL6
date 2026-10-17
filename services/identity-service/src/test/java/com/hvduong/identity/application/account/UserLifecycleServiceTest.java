@@ -30,6 +30,12 @@ class UserLifecycleServiceTest {
     private IamRoleAssignmentMapper roleAssignmentMapper;
 
     @Mock
+    private IamRoleMapper roleMapper;
+
+    @Mock
+    private IamRolePermissionMapper rolePermissionMapper;
+
+    @Mock
     private OutboxEventMapper outboxEventMapper;
 
     @Mock
@@ -47,6 +53,8 @@ class UserLifecycleServiceTest {
         service = new UserLifecycleService(
                 principalMapper,
                 roleAssignmentMapper,
+                roleMapper,
+                rolePermissionMapper,
                 outboxEventMapper,
                 keycloakAdminClient,
                 auditService,
@@ -67,13 +75,25 @@ class UserLifecycleServiceTest {
 
         when(principalMapper.findBySubject(subject)).thenReturn(row);
 
+        UUID roleId = UUID.randomUUID();
         IamRoleAssignmentRow assignment = new IamRoleAssignmentRow();
-        assignment.setRoleId(UUID.randomUUID());
+        assignment.setRoleId(roleId);
         assignment.setScopeType("STORE");
         assignment.setScopeId("STORE_01");
 
         when(roleAssignmentMapper.findActiveByPrincipal(eq(principalId), any(OffsetDateTime.class)))
                 .thenReturn(List.of(assignment));
+
+        IamRoleRow roleRow = new IamRoleRow();
+        roleRow.setRoleId(roleId);
+        roleRow.setRoleCode("STORE_MANAGER");
+        roleRow.setRoleName("Quản lý cửa hàng");
+        when(roleMapper.findById(roleId)).thenReturn(roleRow);
+
+        IamRolePermissionRow permRow = new IamRolePermissionRow();
+        permRow.setRoleId(roleId);
+        permRow.setPermissionCode("STORE_INVENTORY_VIEW");
+        when(rolePermissionMapper.findByRoleId(roleId)).thenReturn(List.of(permRow));
 
         Optional<UserLifecycleService.UserProfileDto> profile = service.getProfileBySubject(subject, "test@omama.vn");
 
@@ -81,8 +101,36 @@ class UserLifecycleServiceTest {
         assertEquals(principalId, profile.get().getPrincipalId());
         assertEquals("EMPLOYEE", profile.get().getPrincipalType());
         assertEquals(1, profile.get().getRoles().size());
+        assertEquals("STORE_MANAGER", profile.get().getRoles().get(0).getRoleCode());
+        assertEquals("Quản lý cửa hàng", profile.get().getRoles().get(0).getRoleName());
         assertEquals("STORE", profile.get().getRoles().get(0).getScopeType());
         assertEquals("STORE_01", profile.get().getRoles().get(0).getScopeId());
+        assertEquals(1, profile.get().getPermissions().size());
+        assertEquals("STORE_INVENTORY_VIEW", profile.get().getPermissions().get(0));
+    }
+
+    @Test
+    void getProfileBySubject_Customer_ReturnsDefaultCustomerRole() {
+        String subject = "kc-cust-999";
+        UUID principalId = UUID.randomUUID();
+
+        IdentityPrincipalRow row = new IdentityPrincipalRow();
+        row.setPrincipalId(principalId);
+        row.setIdpSubject(subject);
+        row.setPrincipalType("CUSTOMER");
+        row.setProvisioningStatus("ACTIVE");
+
+        when(principalMapper.findBySubject(subject)).thenReturn(row);
+        when(roleAssignmentMapper.findActiveByPrincipal(eq(principalId), any(OffsetDateTime.class)))
+                .thenReturn(Collections.emptyList());
+
+        Optional<UserLifecycleService.UserProfileDto> profile = service.getProfileBySubject(subject, "cust@gmail.com");
+
+        assertTrue(profile.isPresent());
+        assertEquals("CUSTOMER", profile.get().getPrincipalType());
+        assertEquals(1, profile.get().getRoles().size());
+        assertEquals("CUSTOMER", profile.get().getRoles().get(0).getRoleCode());
+        assertTrue(profile.get().getPermissions().isEmpty());
     }
 
     @Test
