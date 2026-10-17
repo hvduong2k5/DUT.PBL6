@@ -163,10 +163,14 @@ paths:
                       avatar_url: "https://cdn.omama.vn/avatars/u8820.jpg"
                       principal_type: "EMPLOYEE"
                       roles:
+                        - "CUSTOMER"
                         - "WAREHOUSE_STAFF"
+                        - "PACKING_STAFF"
                       permissions:
                         - "INVENTORY_VIEW"
+                        - "INVENTORY_RECEIPT_CREATE"
                         - "PACKING_WORKBENCH_VIEW"
+                        - "PACKING_TASK_VIEW"
                       membership_tier: "GOLD"
                       loyalty_points: 450
                     tokens:
@@ -306,6 +310,9 @@ paths:
                   - "membership_tier"
                   - "loyalty_points"
                 properties:
+                  principal_id:
+                    type: "string"
+                    format: "uuid"
                   customer_id:
                     type: "string"
                   phone_number:
@@ -318,6 +325,16 @@ paths:
                   avatar_url:
                     type: "string"
                     format: "uri"
+                  principal_type:
+                    type: "string"
+                  roles:
+                    type: "array"
+                    items:
+                      type: "string"
+                  permissions:
+                    type: "array"
+                    items:
+                      type: "string"
                   membership_tier:
                     type: "string"
                   loyalty_points:
@@ -327,12 +344,23 @@ paths:
                 success:
                   summary: "Successful response"
                   value:
+                    principal_id: "e9f8d7c6-1111-2222-3333-444455556666"
                     customer_id: "CUST-8820"
                     phone_number: "0905123456"
                     full_name: "Nguyễn Văn An"
                     email: "an.nguyen@example.com"
                     avatar_url: "https://cdn.omama.vn/avatars/u8820.jpg"
-                    membership_tier: "{{oneOf 'BRONZE' 'SILVER' 'GOLD' 'DIAMOND'}}"
+                    principal_type: "EMPLOYEE"
+                    roles:
+                      - "CUSTOMER"
+                      - "WAREHOUSE_STAFF"
+                      - "PACKING_STAFF"
+                    permissions:
+                      - "INVENTORY_VIEW"
+                      - "INVENTORY_RECEIPT_CREATE"
+                      - "PACKING_WORKBENCH_VIEW"
+                      - "PACKING_TASK_VIEW"
+                    membership_tier: "GOLD"
                     loyalty_points: 450
         "400":
           $ref: "#/components/responses/BadRequest"
@@ -663,6 +691,9 @@ paths:
                       - "membership_tier"
                       - "loyalty_points"
                     properties:
+                      principal_id:
+                        type: "string"
+                        format: "uuid"
                       customer_id:
                         type: "string"
                       phone_number:
@@ -675,6 +706,16 @@ paths:
                       avatar_url:
                         type: "string"
                         format: "uri"
+                      principal_type:
+                        type: "string"
+                      roles:
+                        type: "array"
+                        items:
+                          type: "string"
+                      permissions:
+                        type: "array"
+                        items:
+                          type: "string"
                       membership_tier:
                         type: "string"
                       loyalty_points:
@@ -703,13 +744,18 @@ paths:
                   summary: "Successful response"
                   value:
                     user:
+                      principal_id: "e9f8d7c6-1111-2222-3333-444455556666"
                       customer_id: "CUST-8820"
                       phone_number: "0905123456"
                       full_name: "Nguyễn Văn An"
                       email: "an.nguyen@example.com"
                       avatar_url: "https://cdn.omama.vn/avatars/u8820.jpg"
-                      membership_tier: "{{oneOf 'BRONZE' 'SILVER' 'GOLD' 'DIAMOND'}}"
-                      loyalty_points: 450
+                      principal_type: "CUSTOMER"
+                      roles:
+                        - "CUSTOMER"
+                      permissions: []
+                      membership_tier: "BRONZE"
+                      loyalty_points: 0
                     tokens:
                       access_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
                       refresh_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
@@ -876,6 +922,37 @@ paths:
                     type: "array"
                     items:
                       type: "string"
+              examples:
+                success:
+                  summary: "User profile with multiple roles and scopes"
+                  value:
+                    principalId: "e9f8d7c6-1111-2222-3333-444455556666"
+                    idpSubject: "kc-user-uuid-1234"
+                    email: "mai.tran@omama.vn"
+                    principalType: "EMPLOYEE"
+                    provisioningStatus: "ACTIVE"
+                    roles:
+                      - roleCode: "CUSTOMER"
+                        roleName: "Khách hàng thân thiết"
+                        scopeType: "GLOBAL"
+                        scopeId: null
+                      - roleCode: "WAREHOUSE_STAFF"
+                        roleName: "Nhân viên kho vận"
+                        scopeType: "WAREHOUSE"
+                        scopeId: "WH_DANANG_01"
+                      - roleCode: "PACKING_STAFF"
+                        roleName: "Nhân viên đóng gói"
+                        scopeType: "STORE"
+                        scopeId: "STORE_HUE_MAIN"
+                    permissions:
+                      - "INVENTORY_VIEW"
+                      - "INVENTORY_RECEIPT_CREATE"
+                      - "INVENTORY_ISSUE_CREATE"
+                      - "INVENTORY_ADJUSTMENT_CREATE"
+                      - "PACKING_WORKBENCH_VIEW"
+                      - "PACKING_TASK_VIEW"
+                      - "PACKING_TASK_UPDATE"
+                      - "PACKING_CHECKLIST_CHECK"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":

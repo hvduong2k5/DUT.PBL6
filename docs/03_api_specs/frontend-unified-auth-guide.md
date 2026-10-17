@@ -23,7 +23,7 @@ Hệ thống triển khai theo mô hình **1 Web duy nhất** cho toàn bộ ng�
                                (Lưu Token vào HttpOnly Cookie)
                                                │
                                                ▼
-                                   Gọi GET /api/v1/users/me
+                 (Nhận Token + Roles & Permissions ngay lập tức)
                        ┌───────────────────────┴───────────────────────┐
                        ▼                                               ▼
           Nếu principalType = "CUSTOMER"                  Nếu principalType = "EMPLOYEE"
@@ -73,12 +73,15 @@ Idempotency-Key: <UUID>
     "avatar_url": "https://cdn.omama.vn/avatars/u8820.jpg",
     "principal_type": "EMPLOYEE", // Hoặc "CUSTOMER" nếu là khách hàng thường
     "roles": [
-      "WAREHOUSE_STAFF"
+      "CUSTOMER",
+      "WAREHOUSE_STAFF",
+      "PACKING_STAFF"
     ],
     "permissions": [
       "INVENTORY_VIEW",
       "INVENTORY_RECEIPT_CREATE",
-      "PACKING_WORKBENCH_VIEW"
+      "PACKING_WORKBENCH_VIEW",
+      "PACKING_TASK_VIEW"
     ],
     "membership_tier": "GOLD",
     "loyalty_points": 450
@@ -124,17 +127,33 @@ Ngay sau khi đăng nhập hoặc mỗi khi F5/tải trang, FE gọi endpoint n�
   "provisioningStatus": "ACTIVE",
   "roles": [
     {
+      "roleCode": "CUSTOMER",
+      "roleName": "Khách hàng thân thiết",
+      "scopeType": "GLOBAL",
+      "scopeId": null
+    },
+    {
       "roleCode": "WAREHOUSE_STAFF",
       "roleName": "Nhân viên kho vận",
       "scopeType": "WAREHOUSE",
-      "scopeId": "WH_DANANG"
+      "scopeId": "WH_DANANG_01"
+    },
+    {
+      "roleCode": "PACKING_STAFF",
+      "roleName": "Nhân viên đóng gói",
+      "scopeType": "STORE",
+      "scopeId": "STORE_HUE_MAIN"
     }
   ],
   "permissions": [
     "INVENTORY_VIEW",
     "INVENTORY_RECEIPT_CREATE",
     "INVENTORY_ISSUE_CREATE",
-    "PACKING_WORKBENCH_VIEW"
+    "INVENTORY_ADJUSTMENT_CREATE",
+    "PACKING_WORKBENCH_VIEW",
+    "PACKING_TASK_VIEW",
+    "PACKING_TASK_UPDATE",
+    "PACKING_CHECKLIST_CHECK"
   ]
 }
 ```
