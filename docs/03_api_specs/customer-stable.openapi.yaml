@@ -102,6 +102,9 @@ paths:
                       - "membership_tier"
                       - "loyalty_points"
                     properties:
+                      principal_id:
+                        type: "string"
+                        format: "uuid"
                       customer_id:
                         type: "string"
                       phone_number:
@@ -114,6 +117,16 @@ paths:
                       avatar_url:
                         type: "string"
                         format: "uri"
+                      principal_type:
+                        type: "string"
+                      roles:
+                        type: "array"
+                        items:
+                          type: "string"
+                      permissions:
+                        type: "array"
+                        items:
+                          type: "string"
                       membership_tier:
                         type: "string"
                       loyalty_points:
@@ -142,12 +155,19 @@ paths:
                   summary: "Successful response"
                   value:
                     user:
+                      principal_id: "e9f8d7c6-1111-2222-3333-444455556666"
                       customer_id: "CUST-8820"
                       phone_number: "0905123456"
                       full_name: "Nguyễn Văn An"
                       email: "an.nguyen@example.com"
                       avatar_url: "https://cdn.omama.vn/avatars/u8820.jpg"
-                      membership_tier: "{{oneOf 'BRONZE' 'SILVER' 'GOLD' 'DIAMOND'}}"
+                      principal_type: "EMPLOYEE"
+                      roles:
+                        - "WAREHOUSE_STAFF"
+                      permissions:
+                        - "INVENTORY_VIEW"
+                        - "PACKING_WORKBENCH_VIEW"
+                      membership_tier: "GOLD"
                       loyalty_points: 450
                     tokens:
                       access_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."

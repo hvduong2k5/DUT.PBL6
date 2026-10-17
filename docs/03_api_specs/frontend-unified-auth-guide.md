@@ -65,16 +65,27 @@ Idempotency-Key: <UUID>
     "expires_in": 900
   },
   "user": {
+    "principal_id": "e9f8d7c6-1111-2222-3333-444455556666",
     "customer_id": "CUST-8820",
     "phone_number": "0905123456",
     "full_name": "Nguyễn Văn An",
     "email": "an.nguyen@example.com",
+    "avatar_url": "https://cdn.omama.vn/avatars/u8820.jpg",
+    "principal_type": "EMPLOYEE", // Hoặc "CUSTOMER" nếu là khách hàng thường
+    "roles": [
+      "WAREHOUSE_STAFF"
+    ],
+    "permissions": [
+      "INVENTORY_VIEW",
+      "INVENTORY_RECEIPT_CREATE",
+      "PACKING_WORKBENCH_VIEW"
+    ],
     "membership_tier": "GOLD",
     "loyalty_points": 450
   }
 }
 ```
-*Gợi ý FE:* Lưu `access_token` và `refresh_token` vào Cookie (HttpOnly) hoặc secure storage.
+> **Điểm mấu chốt cho FE:** Ngay sau khi bấm Đăng nhập, API trả về **luôn mảng `roles` và `permissions`**. FE **không cần gọi thêm API thứ hai** mà có thể lưu session và điều hướng trang ngay lập tức (`isStaff ? router.push('/admin') : router.push('/')`). API `GET /api/v1/users/me` chỉ cần dùng khi user nhấn F5 tải lại trang.
 
 ---
 
@@ -403,3 +414,4 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 4. **Điều hướng:**
    - Khách hàng: Mua sắm, giỏ hàng, hồ sơ cá nhân.
    - Nhân viên: Có thêm nút **"Kênh Quản Trị"** dẫn vào `/admin` và các menu con ẩn hiện theo `permissions`.
+
