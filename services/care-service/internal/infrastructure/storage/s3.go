@@ -15,6 +15,7 @@ import (
 
 type S3Config struct {
 	Endpoint         string
+	PublicEndpoint   string
 	AccessKey        string
 	SecretKey        string
 	Bucket           string
@@ -25,21 +26,37 @@ type S3Config struct {
 
 type S3 struct {
 	client           *minio.Client
+	presignClient    *minio.Client
 	bucket           string
 	region           string
 	autoCreateBucket bool
 }
 
 func NewS3(cfg S3Config) (*S3, error) {
-	client, err := minio.New(cfg.Endpoint, &minio.Options{
+	options := &minio.Options{
 		Creds:  credentials.NewStaticV4(cfg.AccessKey, cfg.SecretKey, ""),
 		Secure: cfg.UseSSL,
 		Region: cfg.Region,
-	})
+	}
+	client, err := minio.New(cfg.Endpoint, options)
 	if err != nil {
 		return nil, err
 	}
-	return &S3{client: client, bucket: cfg.Bucket, region: cfg.Region, autoCreateBucket: cfg.AutoCreateBucket}, nil
+	presignEndpoint := cfg.PublicEndpoint
+	if presignEndpoint == "" {
+		presignEndpoint = cfg.Endpoint
+	}
+	presignClient, err := minio.New(presignEndpoint, options)
+	if err != nil {
+		return nil, err
+	}
+	return &S3{
+		client:           client,
+		presignClient:    presignClient,
+		bucket:           cfg.Bucket,
+		region:           cfg.Region,
+		autoCreateBucket: cfg.AutoCreateBucket,
+	}, nil
 }
 
 func (s *S3) EnsureBucket(ctx context.Context) error {
@@ -73,7 +90,7 @@ func (s *S3) PresignUpload(ctx context.Context, objectKey, contentType, checksum
 	if checksum != "" {
 		headers.Set("X-Amz-Meta-Sha256", strings.ToLower(checksum))
 	}
-	presigned, err := s.client.PresignHeader(ctx, http.MethodPut, s.bucket, objectKey, ttl, make(url.Values), headers)
+	presigned, err := s.presignClient.PresignHeader(ctx, http.MethodPut, s.bucket, objectKey, ttl, make(url.Values), headers)
 	if err != nil {
 		return "", nil, err
 	}
@@ -98,7 +115,7 @@ func (s *S3) Stat(ctx context.Context, objectKey string) (domain.StoredObject, e
 }
 
 func (s *S3) PresignDownload(ctx context.Context, objectKey string, ttl time.Duration) (string, error) {
-	presigned, err := s.client.PresignedGetObject(ctx, s.bucket, objectKey, ttl, nil)
+	presigned, err := s.presignClient.PresignedGetObject(ctx, s.bucket, objectKey, ttl, nil)
 	if err != nil {
 		return "", err
 	}

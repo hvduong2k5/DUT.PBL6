@@ -14,15 +14,19 @@ import (
 )
 
 type RouterConfig struct {
-	InternalToken string
-	Pool          *pgxpool.Pool
-	Storage       domain.ObjectStorage
-	MediaHandler  *MediaHandler
-	TicketHandler *TicketHandler
+	InternalToken      string
+	RateLimitPerSecond int
+	RateLimitBurst     int
+	Pool               *pgxpool.Pool
+	Storage            domain.ObjectStorage
+	MediaHandler       *MediaHandler
+	TicketHandler      *TicketHandler
+	StaffTicketHandler *StaffTicketHandler
 }
 
 func NewRouter(cfg RouterConfig) http.Handler {
 	router := chi.NewRouter()
+	rateLimiter := NewActorRateLimiter(cfg.RateLimitPerSecond, cfg.RateLimitBurst)
 	router.Use(chimiddleware.RealIP)
 	router.Use(chimiddleware.Timeout(15 * time.Second))
 	router.Use(chimiddleware.Recoverer)
@@ -40,6 +44,7 @@ func NewRouter(cfg RouterConfig) http.Handler {
 
 	router.Route("/api/v1", func(api chi.Router) {
 		api.Use(TrustedGatewayAuth(cfg.InternalToken))
+		api.Use(rateLimiter.Middleware)
 		api.Route("/media", func(media chi.Router) {
 			media.Post("/upload-sessions", cfg.MediaHandler.CreateUploadSession)
 			media.Post("/upload-sessions/{fileID}/complete", cfg.MediaHandler.Complete)
@@ -50,6 +55,12 @@ func NewRouter(cfg RouterConfig) http.Handler {
 		api.Get("/tickets", cfg.TicketHandler.List)
 		api.Get("/tickets/{ticketID}", cfg.TicketHandler.Get)
 		api.Post("/tickets/{ticketID}/messages", cfg.TicketHandler.AddMessage)
+		api.With(RequirePermission("care.tickets.read")).Get("/admin/support/tickets", cfg.StaffTicketHandler.List)
+		api.With(RequirePermission("care.tickets.read")).Get("/admin/support/tickets/{ticketID}", cfg.StaffTicketHandler.Get)
+		api.With(RequirePermission("care.tickets.claim")).Post("/admin/support/tickets/{ticketID}/claim", cfg.StaffTicketHandler.Claim)
+		api.With(RequirePermission("care.tickets.notes.write")).Post("/admin/support/tickets/{ticketID}/internal-notes", cfg.StaffTicketHandler.AddInternalNote)
+		api.With(RequirePermission("care.tickets.reply")).Post("/admin/support/tickets/{ticketID}/messages", cfg.StaffTicketHandler.AddReply)
+		api.With(RequirePermission("care.tickets.transition")).Post("/admin/support/tickets/{ticketID}/transitions", cfg.StaffTicketHandler.Transition)
 	})
 
 	router.NotFound(func(w http.ResponseWriter, r *http.Request) {

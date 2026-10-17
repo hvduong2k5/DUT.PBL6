@@ -1,7 +1,7 @@
 # MS-06 Care Service - Delivery Plan and Traceability
 
 > Status: **Execution checklist**  
-> Updated: 2026-10-10  
+> Updated: 2026-10-11
 > Design: [Technical baseline](./ms06_care_service_design.md)  
 > Decisions: [Decision log](./ms06_care_service_decision_log.md)
 
@@ -17,18 +17,23 @@ Every implementation pull request should:
 
 Checked items have implementation evidence in the branch. Unchecked items remain planned or require an external contract/verification gate.
 
-### Current implementation checkpoint - 2026-10-10
+### Current implementation checkpoint - 2026-10-11
 
 Implemented in the first vertical slice:
 
 - Care-specific OpenAPI for Media and registered-customer Ticket MVP;
-- runnable Go service skeleton with PostgreSQL, Kafka outbox, MinIO/S3, Prometheus, and OpenTelemetry wiring;
+- runnable Go service skeleton with PostgreSQL, Kafka outbox, S3-compatible object storage, Prometheus, and OpenTelemetry wiring;
 - initial platform/media/ticket migration and rollback file;
 - internal Media Module with direct upload, verification, scanner port, access URL, and ownership/purpose checks;
 - customer ticket create/list/detail/message APIs with transactional attachment and outbox writes;
-- unit tests, `go vet`, build, JSON schema parse, and OpenAPI lint.
+- staff queue/detail, self-claim, internal-note, in-app public-reply, and state-transition APIs with permission enforcement, queue filters, cursor pagination, optimistic concurrency, idempotency, separated data, SLA updates, histories, metadata-only outbox where appropriate, and audit;
+- duplicate-safe near-breach and breached SLA workers with configurable polling/window and metadata-only outbox events;
+- immutable upload-session expiry and retry-safe orphan-media cleanup;
+- Return schema/domain foundation with separate case, immutable line-level decision,
+  returned-goods, and refund-obligation lifecycles; no external Return API is exposed;
+- unit tests, isolated-schema PostgreSQL migration/repository integration tests, `go vet`, build, JSON schema parse, and OpenAPI lint.
 
-Verification limitation: Docker Desktop was not running in the implementation environment, so PostgreSQL/MinIO/Kafka integration tests and migration execution remain open. The host race test was also unavailable because its installed C compiler lacks 64-bit race support; normal unit tests, vet, and build passed.
+Local Compose verification now covers PostgreSQL, Kafka topic initialization, SeaweedFS S3 compatibility, migration startup, service readiness, direct upload and orphan cleanup, staff queue/detail authorization and audit, concurrent self-claim, internal-note isolation, staff in-app public reply, the ticket state machine, and SLA alert polling. Media cleanup verification proves an expired READY orphan becomes `DELETED`, its object returns `404`, API access returns `409`, attached media remains accessible, and replay/complete cannot extend the original upload deadline. Self-claim proves one `200`/one `409` for competing agents, replay safety across different request IDs, and exactly one assignment, claim audit, assigned event, and idempotency result. Internal-note verification proves `403` without permission, `201` then `200` on replay, `409` for a changed payload, no customer DTO leakage, metadata-only audit, and no note event in outbox. Staff reply verification covers permission and assigned-owner scope, idempotent replay, customer visibility, first-response completion, and content-free audit/outbox metadata. Transition verification covers permission and assigned-staff scope, invalid edges, replay and changed-payload conflicts, `WAITING_CUSTOMER` pause/resume, resolve/reopen/close, seven atomic audit/outbox/idempotency records, and successful publication of all seven Kafka events. SLA verification proves one near-breach and one breached event, publication through Kafka, metadata-only payloads, no duplicates across repeated polls, and exclusion of paused, completed, resolved, and closed milestones. The host race test remains unavailable because its installed C compiler lacks 64-bit race support; normal unit tests, vet, and build pass.
 
 ## 2. Contract and documentation gate
 
@@ -91,14 +96,16 @@ Exit criteria:
 - [x] Add versioned service-owned migrations and rollback file; the production migration job remains deployment work.
 - [x] Add platform tables: idempotency, inbox, outbox, audit.
 - [x] Keep pgx inside the PostgreSQL adapter and out of domain/use-case ports.
-- [ ] Test clean migration, rollback policy, and migration from the previous version.
+- [x] Add an advisory-locked, checksum-validating up-migration runner for deployment jobs.
+- [x] Test clean migration and rollback on an isolated PostgreSQL schema.
+- [ ] Test migration from a populated previous production version when such a version exists.
 
 ### `CARE-120` - Request security and API conventions
 
 - [x] Parse trusted gateway identity context after validating the server-side internal token.
 - [x] Implement permission middleware plus customer resource ownership checks for implemented routes.
 - [x] Add request ID middleware.
-- [ ] Propagate a distinct correlation ID across HTTP, outbox, and downstream calls.
+- [x] Propagate a distinct correlation ID across HTTP, audit, outbox, and CloudEvents.
 - [x] Add standard error envelope and stable error codes.
 - [x] Add body-size limits, timeouts, panic recovery, and safe logging.
 - [x] Implement transactional idempotency request hashing and resource-response replay.
@@ -109,12 +116,13 @@ Exit criteria:
 - [x] Implement outbox publisher with exponential retry and lag observability.
 - [ ] Implement inbox deduplication and consumer transaction boundary.
 - [ ] Define DLQ naming, retry bounds, and replay safeguards.
-- [ ] Propagate trace and correlation context.
+- [x] Propagate HTTP trace context and correlation ID through transactional outbox CloudEvents.
 
 ### `CARE-140` - Observability
 
 - [x] Structured Zerolog fields without request/response bodies, tokens, signed URLs, or evidence data.
-- [ ] Prometheus HTTP, database, Kafka, worker, and business metrics.
+- [x] Prometheus HTTP, PostgreSQL pool, outbox, SLA worker, and media lifecycle/cleanup metrics.
+- [ ] Add Kafka consumer-lag and Return/Review business metrics when those capabilities exist.
 - [ ] OpenTelemetry traces for HTTP, pgx, gRPC, Kafka, and storage calls.
 - [x] Readiness checks for PostgreSQL and object storage without turning liveness into a dependency check.
 
@@ -136,10 +144,10 @@ Foundation definition of done:
 ### `CARE-210` - S3-compatible storage adapter
 
 - [x] Define application-owned storage interface.
-- [x] Implement MinIO/S3 presigned upload and download.
+- [x] Implement S3-compatible presigned upload and download with separate internal and public endpoints.
 - [x] Use non-guessable object keys independent of original file name.
 - [x] Enforce required private bucket configuration and startup validation.
-- [ ] Add Testcontainers MinIO integration tests.
+- [ ] Add Testcontainers S3-compatible storage integration tests.
 
 ### `CARE-220` - Upload and access API
 
@@ -153,10 +161,10 @@ Foundation definition of done:
 ### `CARE-230` - Media workers
 
 - [ ] Scan uploaded files asynchronously where required.
-- [ ] Expire upload sessions.
-- [ ] Delete never-attached orphan objects after policy TTL.
+- [x] Expire upload sessions without allowing idempotent replay to extend the original deadline.
+- [x] Delete never-attached orphan objects after policy TTL with retry-safe tombstones.
 - [ ] Preserve attached evidence until retention/legal-hold policy allows deletion.
-- [ ] Emit metrics for pending, rejected, scan failure, and cleanup failure.
+- [x] Emit metrics for media lifecycle/scan status and cleanup success/failure.
 
 Media definition of done:
 
@@ -185,20 +193,25 @@ MVP acceptance scenarios:
 
 ### `CARE-310` - Agent queue and assignment
 
-- [ ] Add assignments, internal notes, priority/category, and optimistic version.
-- [ ] Implement queue filters and cursor pagination.
-- [ ] Implement claim/assign/reassign with conflict handling.
-- [ ] Implement allowed state transitions and reason requirements.
-- [ ] Implement staff public reply separately from internal note.
-- [ ] Audit assignment, priority, transition, and sensitive-context access.
+- [x] Add assignments, internal notes, priority/category, and optimistic version to the data model.
+- [x] Implement permission-protected queue filters and cursor pagination.
+- [x] Implement staff detail with public messages and internal notes returned in separate collections.
+- [x] Audit staff access to complete ticket context.
+- [x] Implement idempotent self-claim with `expected_version`, assignment/status history, audit, and outbox writes.
+- [x] Implement idempotent internal-note writes with a distinct permission and metadata-only audit.
+- [x] Implement assigned-agent in-app public replies with first-response SLA completion and metadata-only audit/outbox.
+- [ ] Integrate external email/push delivery and retry after the Notification Service contract is ratified.
+- [ ] Implement assignment/reassignment to another staff member or queue after target contracts are ratified.
+- [x] Implement allowed state transitions, assigned-staff scope, optimistic concurrency, and reason requirements.
+- [ ] Audit assignment, priority, and transition mutations.
 
 ### `CARE-320` - SLA
 
-- [ ] Store first-response and resolution milestones independently.
-- [ ] Implement pause/resume rules from `CARE-TICKET-005`.
-- [ ] Add near-breach and breached workers without duplicate alerts.
+- [x] Store and complete first-response and resolution milestones independently.
+- [x] Implement resolution-SLA pause/resume rules from `CARE-TICKET-005` as part of state transitions.
+- [x] Add near-breach and breached workers without duplicate alerts.
 - [ ] Delegate customer/staff alert delivery to Notification.
-- [ ] Preserve milestone and breach history after resolution/closure.
+- [x] Preserve milestone and breach history after resolution/closure.
 
 Ticket phase exit criteria:
 
@@ -212,7 +225,7 @@ Contract gate: do not start externally integrated refund execution before `CARE-
 
 ### `CARE-400` - Return case intake
 
-- [ ] Add case, lines, evidence references, status history, and decision schemas.
+- [x] Add case, lines, evidence references, immutable decision scope, status history, returned-goods projection, and refund-obligation schemas.
 - [ ] Query Order for ownership, immutable lines, eligibility, quantity, timestamps, and refundable ceiling.
 - [ ] Enforce one non-conflicting active return quantity per order line.
 - [ ] Create return with `evidence_file_ids` and idempotency.
@@ -289,26 +302,31 @@ Review definition of done:
 
 ### `CARE-600` - Security and resilience
 
-- [ ] Threat model IDOR, SSRF, malicious upload, presigned URL leakage, event forgery, replay, privilege escalation, and internal-note leakage.
-- [ ] Add rate limits at Gateway and service safeguards where required.
+- [x] Threat model IDOR, SSRF, malicious upload, presigned URL leakage, event forgery, replay, privilege escalation, internal-note leakage, schema rollout, and dependency failure.
+- [x] Add a bounded per-actor token-bucket safeguard inside Care, excluding health/metrics and emitting `429`, `Retry-After`, and a rejection metric.
+- [ ] Configure the distributed/public-edge rate limit at Gateway; the in-process limit is per replica and cannot replace it.
 - [ ] Add timeouts, bounded retries, and circuit-breaking policy for gRPC/storage calls.
 - [ ] Add database backup/restore verification and migration rollback procedure.
 - [ ] Verify production scanner and private-bucket policies.
 
 ### `CARE-610` - Deployment
 
-- [x] Add local Compose dependencies for PostgreSQL, Kafka, and MinIO. Observability backends remain deployment work.
-- [ ] Add Kubernetes Deployment, Service, ConfigMap/Secret references, probes, resources, HPA, and disruption policy.
-- [ ] Add dashboards and alerts for API errors, latency, SLA, outbox, consumer lag, media scan, refund pending/failure.
+- [x] Add local Compose dependencies for PostgreSQL, Kafka, and SeaweedFS S3-compatible storage. Observability backends remain deployment work.
+- [x] Add a staging Kubernetes baseline with Deployment, Service, ConfigMap/Secret references, probes, resources, HPA, and disruption policy.
+- [x] Add a pre-rollout Kubernetes migration Job using the same application image.
+- [ ] Add environment overlays, digest-pinned registry image, network policy, and Gateway/Ingress after deployment values are provided.
+- [x] Add baseline dashboard and alerts for API errors/latency, PostgreSQL saturation, ticket backlog, SLA, outbox, and media cleanup.
+- [ ] Add consumer-lag, production scanner, and refund pending/failure panels after those capabilities exist.
 
 ### `CARE-620` - Runbook
 
-- [ ] Document outbox backlog recovery.
+- [x] Document outbox backlog recovery.
 - [ ] Document inbox/DLQ inspection and safe replay.
-- [ ] Document stuck upload/scan cleanup.
+- [x] Document stuck upload/scan cleanup for implemented states; production scanner recovery remains open.
 - [ ] Document refund reconciliation without re-execution.
 - [ ] Document data export/redaction/deletion versus retention/legal hold.
-- [ ] Document dependency degradation behavior.
+- [x] Document dependency degradation behavior.
+- [x] Document migration rollout/rollback safety and backup/restore verification criteria.
 
 ## 9. Requirement traceability
 

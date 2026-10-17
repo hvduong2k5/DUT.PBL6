@@ -68,9 +68,13 @@ func main() {
 	if err := pool.Ping(rootCtx); err != nil {
 		log.Fatal().Err(err).Msg("PostgreSQL is required at startup")
 	}
+	if err := telemetry.RegisterPostgresPoolMetrics(pool); err != nil {
+		log.Fatal().Err(err).Msg("register PostgreSQL pool metrics")
+	}
 
 	objectStorage, err := storage.NewS3(storage.S3Config{
-		Endpoint: cfg.S3Endpoint, AccessKey: cfg.S3AccessKey, SecretKey: cfg.S3SecretKey,
+		Endpoint: cfg.S3Endpoint, PublicEndpoint: cfg.S3PublicEndpoint,
+		AccessKey: cfg.S3AccessKey, SecretKey: cfg.S3SecretKey,
 		Bucket: cfg.S3Bucket, Region: cfg.S3Region, UseSSL: cfg.S3UseSSL,
 		AutoCreateBucket: cfg.S3AutoCreateBucket,
 	})
@@ -88,17 +92,32 @@ func main() {
 		AccessTTL: cfg.MediaAccessURLTTL, OrphanTTL: cfg.MediaOrphanTTL,
 	})
 	ticketService := tickets.NewService(ticketRepository, nil)
+	staffTicketService := tickets.NewStaffService(ticketRepository, cfg.TicketReopenWindow)
 
 	producer := carekafka.NewProducer(cfg.KafkaBrokers)
 	defer producer.Close()
 	outbox := worker.NewOutbox(pool, producer, cfg.OutboxPollInterval, cfg.OutboxBatchSize)
 	outbox.SetLagCallback(httpapi.OutboxLag.Set)
 	outbox.Start(rootCtx)
+	slaAlerts := worker.NewSLAAlerts(
+		pool, cfg.KafkaCareTopic, cfg.SLAAlertPollInterval,
+		cfg.SLANearBreachWindow, cfg.SLAAlertBatchSize,
+	)
+	slaAlerts.Start(rootCtx)
+	mediaCleanup := worker.NewMediaCleanup(
+		pool, objectStorage, cfg.MediaCleanupPollInterval, cfg.MediaCleanupBatchSize,
+	)
+	mediaCleanup.Start(rootCtx)
+	businessMetrics := worker.NewBusinessMetrics(pool, cfg.BusinessMetricsInterval)
+	businessMetrics.Start(rootCtx)
 
 	handler := httpapi.NewRouter(httpapi.RouterConfig{
-		InternalToken: cfg.InternalToken, Pool: pool, Storage: objectStorage,
-		MediaHandler:  httpapi.NewMediaHandler(mediaService),
-		TicketHandler: httpapi.NewTicketHandler(ticketService),
+		InternalToken:      cfg.InternalToken,
+		RateLimitPerSecond: cfg.RateLimitPerSecond, RateLimitBurst: cfg.RateLimitBurst,
+		Pool: pool, Storage: objectStorage,
+		MediaHandler:       httpapi.NewMediaHandler(mediaService),
+		TicketHandler:      httpapi.NewTicketHandler(ticketService),
+		StaffTicketHandler: httpapi.NewStaffTicketHandler(staffTicketService),
 	})
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%s", cfg.HTTPPort),
@@ -127,6 +146,9 @@ func main() {
 	}
 
 	cancelRoot()
+	businessMetrics.Stop()
+	mediaCleanup.Stop()
+	slaAlerts.Stop()
 	outbox.Stop()
 	shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancelShutdown()

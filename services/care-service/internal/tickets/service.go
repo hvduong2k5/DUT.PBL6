@@ -77,7 +77,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (domain.TicketD
 		},
 		FirstMessage: domain.TicketMessage{
 			ID: messageID, TicketID: ticketID, SenderID: input.CustomerID,
-			SenderType: "CUSTOMER", Direction: "INBOUND", Content: input.Message,
+			SenderType: "CUSTOMER", Direction: "INBOUND", DeliveryStatus: "STORED", Content: input.Message,
 			FileIDs: input.FileIDs, CreatedAt: now,
 		},
 		FileIDs: input.FileIDs, IdempotencyKey: input.IdempotencyKey,
@@ -125,7 +125,7 @@ func (s *Service) AddMessage(ctx context.Context, input AddMessageInput) (domain
 	now := s.now().UTC()
 	message := domain.TicketMessage{
 		ID: idgen.New(), TicketID: input.TicketID, SenderID: input.CustomerID,
-		SenderType: "CUSTOMER", Direction: "INBOUND", Content: input.Content,
+		SenderType: "CUSTOMER", Direction: "INBOUND", DeliveryStatus: "STORED", Content: input.Content,
 		FileIDs: input.FileIDs, CreatedAt: now,
 	}
 	return s.repository.AddCustomerMessage(ctx, domain.AddTicketMessageRecord{

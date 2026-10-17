@@ -109,11 +109,11 @@ The first release includes:
 | Migration | Repository-standard migration tool | Migrations are owned by Care Service. |
 | Messaging | `segmentio/kafka-go` | CloudEvents envelope, synchronous acknowledgements, bounded retries. |
 | RPC | `grpc-go` and Protobuf | Care starts as a gRPC client; add a server only for a confirmed consumer. |
-| Object storage | MinIO local, S3-compatible production | Private bucket by default. |
+| Object storage | SeaweedFS S3-compatible local, S3-compatible production | Private bucket by default; configure internal and public signing endpoints separately. |
 | Logging | Zerolog | Structured logs, PII-safe fields. |
 | Metrics | Prometheus | Business and infrastructure metrics. |
 | Tracing | OpenTelemetry | OTLP export; traces and metrics are required. |
-| Tests | Testify and Testcontainers | PostgreSQL, Kafka, and MinIO integration tests. |
+| Tests | Testify and Testcontainers | PostgreSQL, Kafka, and S3-compatible storage integration tests. |
 
 PostgreSQL replaces the MongoDB suggestion in older architecture documents. The reason is the service's need for transactional state transitions, unique and partial indexes, monetary constraints, optimistic concurrency, audit history, idempotency, and transactional outbox processing.
 
@@ -157,11 +157,11 @@ Use cases depend on interfaces owned by the domain/application layer, not concre
 
 ### 6.1 Ownership model
 
-Media is an internal Care module, not a standalone microservice. Care owns metadata and business authorization; MinIO/S3 owns binary objects.
+Media is an internal Care module, not a standalone microservice. Care owns metadata and business authorization; S3-compatible object storage owns binary objects.
 
 ```text
 Care PostgreSQL: file ID, owner, purpose, object key, checksum, status, retention
-MinIO/S3: image, video, PDF binary
+S3-compatible object storage: image, video, PDF binary
 ```
 
 Packing video is excluded. Care obtains a short-lived packing-video URL from Fulfillment using `GetPackingVideoUrl` after checking the actor's Care permission.
@@ -172,7 +172,7 @@ Packing video is excluded. Care obtains a short-lived packing-video URL from Ful
 1. Client -> Care: request upload session with purpose, name, MIME, size, checksum
 2. Care: authorize, validate policy, create PENDING_UPLOAD media record
 3. Care -> client: file_id and short-lived presigned upload URL
-4. Client -> MinIO/S3: upload binary directly
+4. Client -> S3-compatible storage: upload binary directly
 5. Client -> Care: complete upload session
 6. Care -> storage: HEAD/stat object and verify size/checksum/type
 7. Scanner: mark CLEAN or INFECTED/FAILED
@@ -188,10 +188,13 @@ PENDING_UPLOAD -> UPLOADED -> SCANNING -> READY -> ATTACHED
        |             |           |
        +-------------+-----------+-> REJECTED
 
-PENDING_UPLOAD/READY/ATTACHED -> EXPIRED -> DELETED
+unattached PENDING_UPLOAD/UPLOADED/SCANNING/READY/REJECTED -> EXPIRED -> DELETED
 ```
 
 `ATTACHED` means the file has an immutable business reference. A file can have multiple authorized references only when its purpose policy explicitly permits it.
+The original upload deadline cannot be renewed through idempotent replay. A cleanup worker
+first commits the `EXPIRED` tombstone, then removes the object and marks the record `DELETED`;
+failed object deletion remains retryable without ever selecting `ATTACHED` evidence.
 
 ### 6.4 Planned endpoints
 
@@ -331,7 +334,7 @@ Planned table groups:
 | Platform | `idempotency_records`, `inbox_events`, `outbox_events`, `audit_logs` |
 | Media | `media_files`, `media_references`, `media_scan_results` |
 | Ticket | `support_tickets`, `ticket_messages`, `ticket_internal_notes`, `ticket_assignments`, `ticket_status_history`, `ticket_sla_milestones` |
-| Return | `return_cases`, `return_case_lines`, `return_evidence`, `return_decisions`, `return_status_history`, `returned_goods_tracking`, `refund_obligations`, `refund_status_history` |
+| Return | `return_cases`, `return_case_lines`, `return_evidence`, `return_decisions`, `return_decision_lines`, `return_status_history`, `returned_goods_tracking`, `refund_obligations`, `refund_status_history` |
 | Review | `reviews`, `review_versions`, `review_media`, `review_replies`, `review_moderation`, `product_rating_aggregates`, `review_eligibility_projection` |
 
 Persistence rules:
@@ -418,7 +421,7 @@ Profile may be queried only for the minimum customer display data permitted for 
 
 Care publishes planned CloudEvents to `care.events.v1`, including:
 
-- ticket created/status changed/assigned;
+- ticket created/status changed/assigned and metadata-only SLA near-breach/breached alerts;
 - return requested/approved/rejected;
 - returned-goods inspection requested when the integration contract assigns that command to Care;
 - refund obligation requested;
@@ -473,6 +476,11 @@ Required business metrics include:
 - media upload/scan failures;
 - outbox backlog and Kafka consumer lag;
 - review moderation backlog when Phase 2 is enabled.
+
+The SLA alert worker polls only incomplete, unpaused milestones on non-terminal tickets.
+It atomically records `near_breach_alerted_at` or `breach_alerted_at` with a metadata-only
+outbox event while holding a row lock. This makes repeated polls and concurrent service
+instances duplicate-safe; Notification remains responsible for delivering staff alerts.
 
 ## 15. Conformance rule
 

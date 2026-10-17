@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/omamx/care-service/internal/domain"
+	"github.com/rs/zerolog/log"
 )
 
 type errorEnvelope struct {
@@ -49,6 +50,10 @@ func writeDomainError(w http.ResponseWriter, r *http.Request, err error) {
 	case errors.Is(err, domain.ErrDependencyUnavailable):
 		writeError(w, r, http.StatusServiceUnavailable, "DEPENDENCY_UNAVAILABLE", "A required dependency is unavailable", nil)
 	default:
+		log.Error().Err(err).
+			Str("request_id", RequestID(r.Context())).
+			Str("correlation_id", CorrelationID(r.Context())).
+			Msg("unexpected domain operation failure")
 		writeError(w, r, http.StatusInternalServerError, "INTERNAL_ERROR", "An unexpected error occurred", nil)
 	}
 }

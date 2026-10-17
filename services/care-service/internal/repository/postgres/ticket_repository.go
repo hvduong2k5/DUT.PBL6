@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/omamx/care-service/internal/domain"
 	"github.com/omamx/care-service/internal/idgen"
+	"github.com/omamx/care-service/internal/requestcontext"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -271,9 +272,11 @@ func insertOutbox(ctx context.Context, tx pgx.Tx, aggregateID uuid.UUID, aggrega
 	}
 	_, err := tx.Exec(ctx, `
 		INSERT INTO outbox_events (
-			id, aggregate_type, aggregate_id, event_type, topic, partition_key, payload, traceparent
-		) VALUES ($1,$2,$3,$4,$5,$6,$7,NULLIF($8,''))
-	`, idgen.New(), aggregateType, aggregateID.String(), eventType, topic, partitionKey, payload, traceparent)
+			id, aggregate_type, aggregate_id, event_type, topic, partition_key,
+			payload, traceparent, correlation_id
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,NULLIF($8,''),NULLIF($9,''))
+	`, idgen.New(), aggregateType, aggregateID.String(), eventType, topic, partitionKey,
+		payload, traceparent, requestcontext.CorrelationID(ctx))
 	if err != nil {
 		return fmt.Errorf("insert outbox event: %w", err)
 	}
@@ -281,16 +284,19 @@ func insertOutbox(ctx context.Context, tx pgx.Tx, aggregateID uuid.UUID, aggrega
 }
 
 const ticketColumns = `
-	id, code, customer_id, subject, category, priority, status, COALESCE(order_id, ''), version,
-	first_response_due_at, resolution_due_at, created_at, updated_at
+	id, code, customer_id, subject, category, priority, status, COALESCE(order_id, ''),
+	COALESCE(assigned_staff_id, '00000000-0000-0000-0000-000000000000'::uuid),
+	COALESCE(assigned_queue, ''), version, first_response_due_at, first_responded_at,
+	resolution_due_at, resolved_at, closed_at, created_at, updated_at
 `
 
 func scanTicket(row rowScanner) (domain.SupportTicket, error) {
 	var ticket domain.SupportTicket
 	err := row.Scan(
 		&ticket.ID, &ticket.Code, &ticket.CustomerID, &ticket.Subject, &ticket.Category,
-		&ticket.Priority, &ticket.Status, &ticket.OrderID, &ticket.Version,
-		&ticket.FirstResponseDueAt, &ticket.ResolutionDueAt, &ticket.CreatedAt, &ticket.UpdatedAt,
+		&ticket.Priority, &ticket.Status, &ticket.OrderID, &ticket.AssignedStaffID,
+		&ticket.AssignedQueue, &ticket.Version, &ticket.FirstResponseDueAt, &ticket.FirstRespondedAt,
+		&ticket.ResolutionDueAt, &ticket.ResolvedAt, &ticket.ClosedAt, &ticket.CreatedAt, &ticket.UpdatedAt,
 	)
 	return ticket, err
 }
@@ -309,45 +315,53 @@ func getTicketDetail(ctx context.Context, db ticketQuerier, id, customerID uuid.
 		return domain.TicketDetail{}, fmt.Errorf("get ticket: %w", err)
 	}
 
+	messages, err := listTicketMessages(ctx, db, id)
+	if err != nil {
+		return domain.TicketDetail{}, err
+	}
+	return domain.TicketDetail{Ticket: ticket, Messages: messages}, nil
+}
+
+func listTicketMessages(ctx context.Context, db ticketQuerier, ticketID uuid.UUID) ([]domain.TicketMessage, error) {
 	rows, err := db.Query(ctx, `
-		SELECT m.id, m.ticket_id, m.sender_id, m.sender_type, m.direction, m.content, m.created_at,
+		SELECT m.id, m.ticket_id, m.sender_id, m.sender_type, m.direction, m.delivery_status, m.content, m.created_at,
 		       COALESCE(array_agg(r.media_id) FILTER (WHERE r.media_id IS NOT NULL), '{}')
 		FROM ticket_messages m
 		LEFT JOIN media_references r ON r.aggregate_type = 'TICKET_MESSAGE' AND r.aggregate_id = m.id
 		WHERE m.ticket_id = $1
 		GROUP BY m.id
 		ORDER BY m.created_at, m.id
-	`, id)
+	`, ticketID)
 	if err != nil {
-		return domain.TicketDetail{}, fmt.Errorf("list ticket messages: %w", err)
+		return nil, fmt.Errorf("list ticket messages: %w", err)
 	}
 	defer rows.Close()
 
 	messages := make([]domain.TicketMessage, 0)
 	for rows.Next() {
 		var message domain.TicketMessage
-		if err := rows.Scan(&message.ID, &message.TicketID, &message.SenderID, &message.SenderType, &message.Direction, &message.Content, &message.CreatedAt, &message.FileIDs); err != nil {
-			return domain.TicketDetail{}, err
+		if err := rows.Scan(&message.ID, &message.TicketID, &message.SenderID, &message.SenderType, &message.Direction, &message.DeliveryStatus, &message.Content, &message.CreatedAt, &message.FileIDs); err != nil {
+			return nil, err
 		}
 		messages = append(messages, message)
 	}
 	if err := rows.Err(); err != nil {
-		return domain.TicketDetail{}, err
+		return nil, err
 	}
-	return domain.TicketDetail{Ticket: ticket, Messages: messages}, nil
+	return messages, nil
 }
 
 func getMessageOwned(ctx context.Context, db ticketQuerier, id, customerID uuid.UUID) (domain.TicketMessage, error) {
 	var message domain.TicketMessage
 	err := db.QueryRow(ctx, `
-		SELECT m.id, m.ticket_id, m.sender_id, m.sender_type, m.direction, m.content, m.created_at,
+		SELECT m.id, m.ticket_id, m.sender_id, m.sender_type, m.direction, m.delivery_status, m.content, m.created_at,
 		       COALESCE(array_agg(r.media_id) FILTER (WHERE r.media_id IS NOT NULL), '{}')
 		FROM ticket_messages m
 		JOIN support_tickets t ON t.id = m.ticket_id
 		LEFT JOIN media_references r ON r.aggregate_type = 'TICKET_MESSAGE' AND r.aggregate_id = m.id
 		WHERE m.id = $1 AND t.customer_id = $2
 		GROUP BY m.id
-	`, id, customerID).Scan(&message.ID, &message.TicketID, &message.SenderID, &message.SenderType, &message.Direction, &message.Content, &message.CreatedAt, &message.FileIDs)
+	`, id, customerID).Scan(&message.ID, &message.TicketID, &message.SenderID, &message.SenderType, &message.Direction, &message.DeliveryStatus, &message.Content, &message.CreatedAt, &message.FileIDs)
 	if err == pgx.ErrNoRows {
 		return domain.TicketMessage{}, domain.ErrNotFound
 	}

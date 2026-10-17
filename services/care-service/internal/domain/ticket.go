@@ -51,22 +51,28 @@ type SupportTicket struct {
 	Priority           TicketPriority
 	Status             TicketStatus
 	OrderID            string
+	AssignedStaffID    uuid.UUID
+	AssignedQueue      string
 	Version            int
 	FirstResponseDueAt time.Time
+	FirstRespondedAt   *time.Time
 	ResolutionDueAt    time.Time
+	ResolvedAt         *time.Time
+	ClosedAt           *time.Time
 	CreatedAt          time.Time
 	UpdatedAt          time.Time
 }
 
 type TicketMessage struct {
-	ID         uuid.UUID
-	TicketID   uuid.UUID
-	SenderID   uuid.UUID
-	SenderType string
-	Direction  string
-	Content    string
-	FileIDs    []uuid.UUID
-	CreatedAt  time.Time
+	ID             uuid.UUID
+	TicketID       uuid.UUID
+	SenderID       uuid.UUID
+	SenderType     string
+	Direction      string
+	DeliveryStatus string
+	Content        string
+	FileIDs        []uuid.UUID
+	CreatedAt      time.Time
 }
 
 type TicketDetail struct {
@@ -93,6 +99,42 @@ func (c TicketCategory) Valid() bool {
 	switch c {
 	case TicketCategoryOrder, TicketCategoryPayment, TicketCategoryShipping,
 		TicketCategoryProductQuality, TicketCategoryReturnRefund, TicketCategoryAccount, TicketCategoryOther:
+		return true
+	default:
+		return false
+	}
+}
+
+func (s TicketStatus) Valid() bool {
+	switch s {
+	case TicketStatusNew, TicketStatusTriaged, TicketStatusAssigned, TicketStatusInProgress,
+		TicketStatusWaitingCustomer, TicketStatusWaitingInternal, TicketStatusResolved, TicketStatusClosed:
+		return true
+	default:
+		return false
+	}
+}
+
+func (s TicketStatus) CanTransitionTo(target TicketStatus) bool {
+	switch s {
+	case TicketStatusNew:
+		return target == TicketStatusTriaged
+	case TicketStatusAssigned:
+		return target == TicketStatusInProgress
+	case TicketStatusInProgress:
+		return target == TicketStatusWaitingCustomer || target == TicketStatusWaitingInternal || target == TicketStatusResolved
+	case TicketStatusWaitingCustomer, TicketStatusWaitingInternal:
+		return target == TicketStatusInProgress || target == TicketStatusResolved
+	case TicketStatusResolved:
+		return target == TicketStatusInProgress || target == TicketStatusClosed
+	default:
+		return false
+	}
+}
+
+func (p TicketPriority) Valid() bool {
+	switch p {
+	case TicketPriorityLow, TicketPriorityNormal, TicketPriorityHigh, TicketPriorityUrgent:
 		return true
 	default:
 		return false

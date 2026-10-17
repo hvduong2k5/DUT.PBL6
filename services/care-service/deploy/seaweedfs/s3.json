@@ -1,0 +1,20 @@
+{
+  "identities": [
+    {
+      "name": "care-local-development",
+      "credentials": [
+        {
+          "accessKey": "carelocaladmin",
+          "secretKey": "carelocaladminsecret"
+        }
+      ],
+      "actions": [
+        "Admin",
+        "Read",
+        "List",
+        "Tagging",
+        "Write"
+      ]
+    }
+  ]
+}

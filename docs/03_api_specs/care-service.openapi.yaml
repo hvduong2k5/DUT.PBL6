@@ -7,8 +7,13 @@ info:
     url: urn:license:proprietary
   description: >-
     Backend contract for the implemented Care Service foundation, internal Media Module,
-    and registered-customer Ticket MVP. Public clients authenticate at API Gateway; the
-    gateway forwards trusted identity headers to Care Service.
+    registered-customer Ticket MVP, and staff queue, self-claim, internal-note, public-reply,
+    and state-transition operations. Public clients authenticate at API Gateway; the gateway
+    forwards trusted identity headers to Care Service. X-Request-ID identifies one HTTP
+    request while X-Correlation-ID links calls, audit records, outbox rows, and CloudEvents
+    in the same business flow; missing or unsafe values are replaced by the service.
+    Authenticated operations may return 429 with Retry-After when the per-actor
+    service safeguard is exhausted; the Gateway also owns distributed edge limits.
 servers:
   - url: /api/v1
 tags:
@@ -16,6 +21,8 @@ tags:
     description: Direct-to-object-storage sessions and authorized media access.
   - name: Tickets
     description: Registered-customer support ticket and public-message operations.
+  - name: Agent Tickets
+    description: Permission-scoped staff queue and ticket context operations.
 security:
   - bearerAuth: []
 paths:
@@ -40,13 +47,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/UploadSessionResponse'
         '200':
-          description: Replayed idempotent upload session with a newly signed upload URL
+          description: Replayed idempotent upload session with a newly signed URL bounded by the original session deadline
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/UploadSessionResponse'
         '400': { $ref: '#/components/responses/BadRequest' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/RateLimited' }
   /media/upload-sessions/{fileId}/complete:
     post:
       tags: [Media]
@@ -63,6 +71,7 @@ paths:
                 $ref: '#/components/schemas/MediaResponse'
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/RateLimited' }
   /media/{fileId}/access:
     get:
       tags: [Media]
@@ -88,6 +97,7 @@ paths:
                       access_url_expires_at: { type: string, format: date-time }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/RateLimited' }
   /media/{fileId}:
     delete:
       tags: [Media]
@@ -99,6 +109,7 @@ paths:
         '204': { description: Deleted }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/RateLimited' }
   /tickets:
     post:
       tags: [Tickets]
@@ -127,6 +138,7 @@ paths:
                 $ref: '#/components/schemas/TicketDetailResponse'
         '400': { $ref: '#/components/responses/BadRequest' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/RateLimited' }
     get:
       tags: [Tickets]
       operationId: listOwnedSupportTickets
@@ -146,6 +158,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/TicketListResponse'
         '400': { $ref: '#/components/responses/BadRequest' }
+        '429': { $ref: '#/components/responses/RateLimited' }
   /tickets/{ticketId}:
     get:
       tags: [Tickets]
@@ -161,6 +174,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/TicketDetailResponse'
         '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
   /tickets/{ticketId}/messages:
     post:
       tags: [Tickets]
@@ -190,6 +204,194 @@ paths:
                 $ref: '#/components/schemas/MessageResponse'
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /admin/support/tickets:
+    get:
+      tags: [Agent Tickets]
+      operationId: listStaffSupportTickets
+      summary: List the staff ticket queue
+      description: Requires the trusted `care.tickets.read` permission.
+      parameters:
+        - name: q
+          in: query
+          schema: { type: string, maxLength: 200 }
+          description: Case-insensitive search over ticket code, subject, and linked order ID.
+        - name: status
+          in: query
+          schema: { $ref: '#/components/schemas/TicketStatus' }
+        - name: priority
+          in: query
+          schema: { $ref: '#/components/schemas/TicketPriority' }
+        - name: category
+          in: query
+          schema: { $ref: '#/components/schemas/TicketCategory' }
+        - name: assigned_staff_id
+          in: query
+          schema: { type: string, format: uuid }
+        - name: assigned_queue
+          in: query
+          schema: { type: string, maxLength: 100 }
+        - name: unassigned
+          in: query
+          schema: { type: boolean, default: false }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: cursor
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: Staff ticket queue page
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StaffTicketListResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /admin/support/tickets/{ticketId}:
+    get:
+      tags: [Agent Tickets]
+      operationId: getStaffSupportTicket
+      summary: Read staff ticket context
+      description: >-
+        Requires the trusted `care.tickets.read` permission. Returns public messages and
+        internal notes as separate collections and records an access audit entry.
+      parameters:
+        - $ref: '#/components/parameters/TicketId'
+      responses:
+        '200':
+          description: Staff ticket detail
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StaffTicketDetailResponse' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /admin/support/tickets/{ticketId}/claim:
+    post:
+      tags: [Agent Tickets]
+      operationId: claimStaffSupportTicket
+      summary: Claim an unassigned ticket for the authenticated staff member
+      description: >-
+        Requires the trusted `care.tickets.claim` permission. Only NEW or TRIAGED tickets
+        without an assigned staff member may be claimed. `expected_version` provides
+        optimistic concurrency, and a successful claim preserves any existing queue.
+      parameters:
+        - $ref: '#/components/parameters/TicketId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ClaimTicketRequest' }
+      responses:
+        '200':
+          description: Ticket claimed, or the existing result returned for an idempotent replay
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StaffTicketResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /admin/support/tickets/{ticketId}/internal-notes:
+    post:
+      tags: [Agent Tickets]
+      operationId: addStaffTicketInternalNote
+      summary: Add a staff-only note to a ticket
+      description: >-
+        Requires the trusted `care.tickets.notes.write` permission. Internal-note content
+        is stored separately from public messages and is never returned by customer APIs
+        or placed in a notification/outbox payload.
+      parameters:
+        - $ref: '#/components/parameters/TicketId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AddInternalNoteRequest' }
+      responses:
+        '201':
+          description: Internal note created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/InternalNoteResponse' }
+        '200':
+          description: Existing note returned for an idempotent replay
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/InternalNoteResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /admin/support/tickets/{ticketId}/messages:
+    post:
+      tags: [Agent Tickets]
+      operationId: addStaffTicketPublicReply
+      summary: Add an in-app public reply to an assigned ticket
+      description: >-
+        Requires the trusted `care.tickets.reply` permission and assignment to the
+        authenticated staff member. The durable `STORED` reply is immediately visible in
+        customer ticket detail and completes the first-response SLA. Audit and outbox records
+        contain metadata only; email and push delivery await the Notification Service contract.
+      parameters:
+        - $ref: '#/components/parameters/TicketId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AddStaffReplyRequest' }
+      responses:
+        '201':
+          description: Public reply created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MessageResponse' }
+        '200':
+          description: Existing reply returned for an idempotent replay
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MessageResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /admin/support/tickets/{ticketId}/transitions:
+    post:
+      tags: [Agent Tickets]
+      operationId: transitionStaffSupportTicket
+      summary: Apply an allowed ticket state transition
+      description: >-
+        Requires `care.tickets.transition`, a matching `expected_version`, and a reason.
+        Except for NEW to TRIAGED, the authenticated staff member must own the ticket.
+        WAITING_CUSTOMER pauses the resolution SLA, WAITING_INTERNAL does not, and a
+        RESOLVED ticket may reopen only within `TICKET_REOPEN_WINDOW`.
+      parameters:
+        - $ref: '#/components/parameters/TicketId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TransitionTicketRequest' }
+      responses:
+        '200':
+          description: Ticket transitioned, or the current ticket returned for an idempotent replay
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StaffTicketResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/RateLimited' }
 components:
   securitySchemes:
     bearerAuth:
@@ -223,8 +425,22 @@ components:
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    Forbidden:
+      description: The authenticated actor lacks the required permission or scope
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
     Conflict:
       description: State or idempotency conflict
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    RateLimited:
+      description: Per-actor service safeguard is exhausted; retry after the indicated delay
+      headers:
+        Retry-After:
+          description: Minimum delay in seconds before retrying
+          schema: { type: integer, minimum: 1 }
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorEnvelope' }
@@ -282,6 +498,12 @@ components:
     TicketCategory:
       type: string
       enum: [ORDER, PAYMENT, SHIPPING, PRODUCT_QUALITY, RETURN_REFUND, ACCOUNT, OTHER]
+    TicketPriority:
+      type: string
+      enum: [LOW, NORMAL, HIGH, URGENT]
+    TicketStatus:
+      type: string
+      enum: [NEW, TRIAGED, ASSIGNED, IN_PROGRESS, WAITING_CUSTOMER, WAITING_INTERNAL, RESOLVED, CLOSED]
     CreateTicketRequest:
       type: object
       additionalProperties: false
@@ -317,8 +539,8 @@ components:
         code: { type: string }
         subject: { type: string }
         category: { $ref: '#/components/schemas/TicketCategory' }
-        priority: { type: string, enum: [LOW, NORMAL, HIGH, URGENT] }
-        status: { type: string, enum: [NEW, TRIAGED, ASSIGNED, IN_PROGRESS, WAITING_CUSTOMER, WAITING_INTERNAL, RESOLVED, CLOSED] }
+        priority: { $ref: '#/components/schemas/TicketPriority' }
+        status: { $ref: '#/components/schemas/TicketStatus' }
         order_id: { type: string }
         version: { type: integer, minimum: 1 }
         first_response_due_at: { type: string, format: date-time }
@@ -327,11 +549,12 @@ components:
         updated_at: { type: string, format: date-time }
     TicketMessage:
       type: object
-      required: [id, sender_type, direction, content, file_ids, created_at]
+      required: [id, sender_type, direction, delivery_status, content, file_ids, created_at]
       properties:
         id: { type: string, format: uuid }
         sender_type: { type: string, enum: [CUSTOMER, STAFF, SYSTEM] }
         direction: { type: string, enum: [INBOUND, OUTBOUND] }
+        delivery_status: { type: string, enum: [STORED, PENDING, SENT, FAILED] }
         content: { type: string }
         file_ids:
           type: array
@@ -363,6 +586,125 @@ components:
           required: [next_cursor]
           properties:
             next_cursor: { type: string }
+    StaffTicket:
+      allOf:
+        - $ref: '#/components/schemas/Ticket'
+        - type: object
+          required: [customer_id, assigned_staff_id, assigned_queue]
+          properties:
+            customer_id: { type: string, format: uuid }
+            assigned_staff_id: { type: string, format: uuid, nullable: true }
+            assigned_queue: { type: string, nullable: true }
+            first_responded_at: { type: string, format: date-time, nullable: true }
+            resolved_at: { type: string, format: date-time, nullable: true }
+            closed_at: { type: string, format: date-time, nullable: true }
+    ClaimTicketRequest:
+      type: object
+      additionalProperties: false
+      required: [expected_version, reason]
+      properties:
+        expected_version: { type: integer, minimum: 1 }
+        reason: { type: string, minLength: 1, maxLength: 500 }
+    AddInternalNoteRequest:
+      type: object
+      additionalProperties: false
+      required: [content]
+      properties:
+        content: { type: string, minLength: 1, maxLength: 10000 }
+    AddStaffReplyRequest:
+      type: object
+      additionalProperties: false
+      required: [content]
+      properties:
+        content: { type: string, minLength: 1, maxLength: 10000 }
+    TransitionTicketRequest:
+      type: object
+      additionalProperties: false
+      required: [expected_version, to_status, reason]
+      properties:
+        expected_version: { type: integer, minimum: 1 }
+        to_status:
+          type: string
+          enum: [TRIAGED, IN_PROGRESS, WAITING_CUSTOMER, WAITING_INTERNAL, RESOLVED, CLOSED]
+        reason: { type: string, minLength: 1, maxLength: 500 }
+    TicketInternalNote:
+      type: object
+      required: [id, author_id, content, created_at, updated_at]
+      properties:
+        id: { type: string, format: uuid }
+        author_id: { type: string, format: uuid }
+        content: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    TicketAssignment:
+      type: object
+      required: [id, staff_id, queue, assigned_by, reason, assigned_at, ended_at]
+      properties:
+        id: { type: string, format: uuid }
+        staff_id: { type: string, format: uuid, nullable: true }
+        queue: { type: string, nullable: true }
+        assigned_by: { type: string, format: uuid }
+        reason: { type: string, nullable: true }
+        assigned_at: { type: string, format: date-time }
+        ended_at: { type: string, format: date-time, nullable: true }
+    TicketStatusChange:
+      type: object
+      required: [id, from_status, to_status, actor_id, reason, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        from_status:
+          type: string
+          enum: [NEW, TRIAGED, ASSIGNED, IN_PROGRESS, WAITING_CUSTOMER, WAITING_INTERNAL, RESOLVED, CLOSED]
+          nullable: true
+        to_status: { $ref: '#/components/schemas/TicketStatus' }
+        actor_id: { type: string, format: uuid }
+        reason: { type: string, nullable: true }
+        created_at: { type: string, format: date-time }
+    StaffTicketDetail:
+      allOf:
+        - $ref: '#/components/schemas/StaffTicket'
+        - type: object
+          required: [messages, internal_notes, assignments, status_history]
+          properties:
+            messages:
+              type: array
+              items: { $ref: '#/components/schemas/TicketMessage' }
+            internal_notes:
+              type: array
+              items: { $ref: '#/components/schemas/TicketInternalNote' }
+            assignments:
+              type: array
+              items: { $ref: '#/components/schemas/TicketAssignment' }
+            status_history:
+              type: array
+              items: { $ref: '#/components/schemas/TicketStatusChange' }
+    StaffTicketListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/StaffTicket' }
+        meta:
+          type: object
+          required: [next_cursor]
+          properties:
+            next_cursor: { type: string }
+    StaffTicketDetailResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/StaffTicketDetail' }
+    StaffTicketResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/StaffTicket' }
+    InternalNoteResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/TicketInternalNote' }
     MessageResponse:
       type: object
       required: [data]

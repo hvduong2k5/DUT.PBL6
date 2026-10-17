@@ -115,16 +115,21 @@ func (s *Service) CreateUploadSession(ctx context.Context, input CreateUploadInp
 	if err != nil {
 		return UploadSession{}, err
 	}
-	if file.Status != domain.MediaStatusPendingUpload || s.now().UTC().After(file.ExpiresAt) {
+	sessionExpiresAt := file.CreatedAt.Add(s.uploadTTL)
+	currentTime := s.now().UTC()
+	if file.Status != domain.MediaStatusPendingUpload || !currentTime.Before(sessionExpiresAt) {
 		return UploadSession{}, fmt.Errorf("%w: upload session is no longer active", domain.ErrConflict)
 	}
-	url, headers, err := s.storage.PresignUpload(ctx, file.ObjectKey, file.DeclaredMIMEType, file.ChecksumSHA256, s.uploadTTL)
+	url, headers, err := s.storage.PresignUpload(
+		ctx, file.ObjectKey, file.DeclaredMIMEType, file.ChecksumSHA256,
+		sessionExpiresAt.Sub(currentTime),
+	)
 	if err != nil {
 		return UploadSession{}, fmt.Errorf("create upload URL: %w", err)
 	}
 	return UploadSession{
 		File: file, UploadURL: url, Method: "PUT", Headers: headers,
-		URLExpiresAt: now.Add(s.uploadTTL), Created: created,
+		URLExpiresAt: sessionExpiresAt, Created: created,
 	}, nil
 }
 
@@ -139,7 +144,8 @@ func (s *Service) Complete(ctx context.Context, ownerID, fileID uuid.UUID) (doma
 	if file.Status != domain.MediaStatusPendingUpload && file.Status != domain.MediaStatusUploaded && file.Status != domain.MediaStatusScanning {
 		return domain.MediaFile{}, domain.ErrMediaNotReady
 	}
-	if s.now().UTC().After(file.ExpiresAt) {
+	currentTime := s.now().UTC()
+	if !currentTime.Before(file.CreatedAt.Add(s.uploadTTL)) || !currentTime.Before(file.ExpiresAt) {
 		return domain.MediaFile{}, domain.ErrMediaNotReady
 	}
 	object, err := s.storage.Stat(ctx, file.ObjectKey)
@@ -166,7 +172,11 @@ func (s *Service) Access(ctx context.Context, ownerID, fileID uuid.UUID) (string
 	if file.Status != domain.MediaStatusReady && file.Status != domain.MediaStatusAttached {
 		return "", time.Time{}, domain.ErrMediaNotReady
 	}
-	expiresAt := s.now().UTC().Add(s.accessTTL)
+	now := s.now().UTC()
+	if file.Status == domain.MediaStatusReady && !now.Before(file.ExpiresAt) {
+		return "", time.Time{}, domain.ErrMediaNotReady
+	}
+	expiresAt := now.Add(s.accessTTL)
 	url, err := s.storage.PresignDownload(ctx, file.ObjectKey, s.accessTTL)
 	if err != nil {
 		return "", time.Time{}, fmt.Errorf("create media access URL: %w", err)

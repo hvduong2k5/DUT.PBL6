@@ -8,12 +8,11 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/omamx/care-service/internal/requestcontext"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/rs/zerolog/log"
 )
-
-type requestIDContextKey struct{}
 
 var (
 	httpRequests = promauto.NewCounterVec(prometheus.CounterOpts{
@@ -28,19 +27,42 @@ var (
 )
 
 func RequestID(ctx context.Context) string {
-	value, _ := ctx.Value(requestIDContextKey{}).(string)
-	return value
+	return requestcontext.RequestID(ctx)
+}
+
+func CorrelationID(ctx context.Context) string {
+	return requestcontext.CorrelationID(ctx)
 }
 
 func RequestContext(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requestID := r.Header.Get("X-Request-ID")
-		if requestID == "" || len(requestID) > 100 {
+		if !validTrackingID(requestID) {
 			requestID = uuid.NewString()
 		}
+		correlationID := r.Header.Get("X-Correlation-ID")
+		if !validTrackingID(correlationID) {
+			correlationID = uuid.NewString()
+		}
 		w.Header().Set("X-Request-ID", requestID)
-		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), requestIDContextKey{}, requestID)))
+		w.Header().Set("X-Correlation-ID", correlationID)
+		next.ServeHTTP(w, r.WithContext(requestcontext.WithIDs(r.Context(), requestID, correlationID)))
 	})
+}
+
+func validTrackingID(value string) bool {
+	if len(value) < 1 || len(value) > 100 {
+		return false
+	}
+	for _, character := range value {
+		if (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') ||
+			(character >= '0' && character <= '9') || character == '-' || character == '_' ||
+			character == '.' || character == ':' {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 type responseRecorder struct {
@@ -84,6 +106,7 @@ func ObserveRequests(next http.Handler) http.Handler {
 		httpDuration.WithLabelValues(r.Method, route).Observe(duration.Seconds())
 		log.Info().
 			Str("request_id", RequestID(r.Context())).
+			Str("correlation_id", CorrelationID(r.Context())).
 			Str("method", r.Method).
 			Str("route", route).
 			Int("status", status).

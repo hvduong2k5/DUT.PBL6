@@ -131,9 +131,14 @@ func ticketDTO(ticket domain.SupportTicket) map[string]any {
 }
 
 func messageDTO(message domain.TicketMessage) map[string]any {
+	fileIDs := message.FileIDs
+	if fileIDs == nil {
+		fileIDs = []uuid.UUID{}
+	}
 	return map[string]any{
 		"id": message.ID, "sender_type": message.SenderType, "direction": message.Direction,
-		"content": message.Content, "file_ids": message.FileIDs, "created_at": message.CreatedAt,
+		"delivery_status": message.DeliveryStatus, "content": message.Content,
+		"file_ids": fileIDs, "created_at": message.CreatedAt,
 	}
 }
 

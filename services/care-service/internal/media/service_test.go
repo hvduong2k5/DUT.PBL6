@@ -15,6 +15,9 @@ type fakeMediaRepository struct {
 }
 
 func (f *fakeMediaRepository) CreatePending(_ context.Context, record domain.CreateMediaRecord) (domain.MediaFile, bool, error) {
+	if f.file.ID != uuid.Nil {
+		return f.file, false, nil
+	}
 	f.file = record.File
 	return f.file, true, nil
 }
@@ -92,12 +95,70 @@ func TestCompleteRejectsMismatchedObject(t *testing.T) {
 	repository := &fakeMediaRepository{file: domain.MediaFile{
 		ID: fileID, OwnerID: ownerID, Purpose: domain.MediaPurposeTicketAttachment,
 		DeclaredMIMEType: "image/jpeg", DeclaredSize: 1024,
-		Status: domain.MediaStatusPendingUpload, ExpiresAt: now.Add(time.Hour),
+		Status: domain.MediaStatusPendingUpload, CreatedAt: now, ExpiresAt: now.Add(time.Hour),
 	}}
 	storage := &fakeStorage{object: domain.StoredObject{Size: 2048, ContentType: "image/jpeg"}}
-	service := NewService(repository, storage, fakeScanner{}, Config{AccessTTL: time.Minute})
+	service := NewService(repository, storage, fakeScanner{}, Config{UploadTTL: time.Hour, AccessTTL: time.Minute})
 	service.now = func() time.Time { return now }
 
 	_, err := service.Complete(context.Background(), ownerID, fileID)
 	require.ErrorIs(t, err, domain.ErrMediaPolicy)
+}
+
+func TestUploadSessionCannotBeRenewedPastOriginalTTL(t *testing.T) {
+	now := time.Date(2026, 10, 11, 10, 0, 0, 0, time.UTC)
+	repository := &fakeMediaRepository{}
+	service := NewService(repository, &fakeStorage{}, fakeScanner{}, Config{
+		Bucket: "care-private", UploadTTL: 15 * time.Minute,
+		AccessTTL: 10 * time.Minute, OrphanTTL: 24 * time.Hour,
+	})
+	service.now = func() time.Time { return now }
+	input := CreateUploadInput{
+		OwnerID: uuid.New(), Purpose: domain.MediaPurposeTicketAttachment,
+		Filename: "proof.jpg", MIMEType: "image/jpeg", SizeBytes: 1024,
+		IdempotencyKey: "media-expiry-1",
+	}
+	first, err := service.CreateUploadSession(context.Background(), input)
+	require.NoError(t, err)
+	require.Equal(t, now.Add(15*time.Minute), first.URLExpiresAt)
+
+	service.now = func() time.Time { return now.Add(15 * time.Minute) }
+	_, err = service.CreateUploadSession(context.Background(), input)
+	require.ErrorIs(t, err, domain.ErrConflict)
+}
+
+func TestCompleteRejectsExpiredUploadSession(t *testing.T) {
+	now := time.Date(2026, 10, 11, 10, 0, 0, 0, time.UTC)
+	ownerID := uuid.New()
+	fileID := uuid.New()
+	repository := &fakeMediaRepository{file: domain.MediaFile{
+		ID: fileID, OwnerID: ownerID, Purpose: domain.MediaPurposeTicketAttachment,
+		DeclaredMIMEType: "image/jpeg", DeclaredSize: 1024,
+		Status: domain.MediaStatusPendingUpload, CreatedAt: now.Add(-15 * time.Minute),
+		ExpiresAt: now.Add(23 * time.Hour),
+	}}
+	service := NewService(repository, &fakeStorage{}, fakeScanner{}, Config{UploadTTL: 15 * time.Minute})
+	service.now = func() time.Time { return now }
+
+	_, err := service.Complete(context.Background(), ownerID, fileID)
+	require.ErrorIs(t, err, domain.ErrMediaNotReady)
+}
+
+func TestAccessRejectsExpiredUnattachedMediaButAllowsAttachedMedia(t *testing.T) {
+	now := time.Date(2026, 10, 11, 10, 0, 0, 0, time.UTC)
+	ownerID := uuid.New()
+	fileID := uuid.New()
+	repository := &fakeMediaRepository{file: domain.MediaFile{
+		ID: fileID, OwnerID: ownerID, Status: domain.MediaStatusReady,
+		ExpiresAt: now.Add(-time.Second),
+	}}
+	service := NewService(repository, &fakeStorage{}, fakeScanner{}, Config{AccessTTL: 10 * time.Minute})
+	service.now = func() time.Time { return now }
+
+	_, _, err := service.Access(context.Background(), ownerID, fileID)
+	require.ErrorIs(t, err, domain.ErrMediaNotReady)
+
+	repository.file.Status = domain.MediaStatusAttached
+	_, _, err = service.Access(context.Background(), ownerID, fileID)
+	require.NoError(t, err)
 }
