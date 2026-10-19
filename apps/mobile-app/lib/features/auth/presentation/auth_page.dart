@@ -53,7 +53,10 @@ class _AuthPageState extends State<AuthPage> {
   }
 
   Future<void> _submit() async {
-    if (context.read<AuthCubit>().state.status == AuthStatus.submitting) return;
+    if (context.read<AuthCubit>().state.pending ||
+        context.read<AuthCubit>().state.status == AuthStatus.restoring) {
+      return;
+    }
     setState(() => _submitted = true);
     if (_phoneError != null ||
         _passwordError != null ||
@@ -142,7 +145,7 @@ class _AuthPageState extends State<AuthPage> {
                 controller: _name,
                 label: 'Họ và tên',
                 errorText: _required(_name.text),
-                enabled: state.status != AuthStatus.submitting,
+                enabled: !state.pending,
                 autofillHints: const [AutofillHints.name],
                 textInputAction: TextInputAction.next,
               ),
@@ -151,7 +154,7 @@ class _AuthPageState extends State<AuthPage> {
                 controller: _email,
                 label: 'Email khôi phục',
                 keyboardType: TextInputType.emailAddress,
-                enabled: state.status != AuthStatus.submitting,
+                enabled: !state.pending,
                 autofillHints: const [AutofillHints.email],
                 errorText: _submitted && !AuthValidation.email(_email.text)
                     ? 'Vui lòng nhập email hợp lệ.'
@@ -165,7 +168,7 @@ class _AuthPageState extends State<AuthPage> {
               label: 'Số điện thoại',
               keyboardType: TextInputType.phone,
               errorText: _phoneError,
-              enabled: state.status != AuthStatus.submitting,
+              enabled: !state.pending,
               autofillHints: const [AutofillHints.telephoneNumber],
               textInputAction: TextInputAction.next,
             ),
@@ -176,7 +179,7 @@ class _AuthPageState extends State<AuthPage> {
               obscureText: !_showPassword,
               prefixIcon: Icons.lock_outline,
               errorText: _passwordError,
-              enabled: state.status != AuthStatus.submitting,
+              enabled: !state.pending,
               onChanged: (_) => setState(() {}),
               autofillHints: [
                 widget.register
@@ -204,7 +207,7 @@ class _AuthPageState extends State<AuthPage> {
                 controller: _confirmation,
                 label: 'Xác nhận mật khẩu',
                 obscureText: !_showPassword,
-                enabled: state.status != AuthStatus.submitting,
+                enabled: !state.pending,
                 textInputAction: TextInputAction.done,
                 onSubmitted: (_) => _submit(),
                 errorText: _submitted && _confirmation.text != _password.text
@@ -219,7 +222,7 @@ class _AuthPageState extends State<AuthPage> {
                   'Tôi đồng ý với Quy chế Thẻ Tri Kỷ và Chính sách Bảo mật.',
                   style: TextStyle(fontSize: 13),
                 ),
-                onChanged: state.status == AuthStatus.submitting
+                onChanged: state.pending
                     ? null
                     : (value) => setState(() => _terms = value ?? false),
               ),
@@ -233,7 +236,7 @@ class _AuthPageState extends State<AuthPage> {
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
-                  onPressed: state.status == AuthStatus.submitting
+                  onPressed: state.pending
                       ? null
                       : () => context.push(
                           authLocation(
@@ -247,12 +250,12 @@ class _AuthPageState extends State<AuthPage> {
             const SizedBox(height: AppSpacing.lg),
             AppPrimaryButton(
               label: widget.register ? 'Đăng ký' : 'Đăng nhập',
-              loading: state.status == AuthStatus.submitting,
+              loading: state.pending,
               onPressed: _submit,
             ),
             const SizedBox(height: AppSpacing.sm),
             TextButton(
-              onPressed: state.status == AuthStatus.submitting
+              onPressed: state.pending
                   ? null
                   : () => context.go(
                       authLocation(
@@ -268,7 +271,7 @@ class _AuthPageState extends State<AuthPage> {
             ),
             if (!widget.register)
               TextButton(
-                onPressed: state.status == AuthStatus.submitting
+                onPressed: state.pending
                     ? null
                     : () => context.go(
                         Uri.parse(widget.returnLocation).path ==

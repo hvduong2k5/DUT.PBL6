@@ -21,7 +21,7 @@ Keep the supplied ZIP unchanged, including stable/draft/planned distinctions. Us
 - [x] Extend existing transport with native memory-only server-cookie handling (no hand-written cookie parser); retain bearer tokens and a Flutter-web-safe conditional adapter. Existing dependencies have no cookie jar. Use standard small Dio cookie packages after checking primary docs; do not persist guest proofs to files or fabricate cookies. Clear native cookies on logout/reset.
 - [x] Profile/loyalty domain, REST/mock, Cubits and pages; safe login return and server errors. Update account navigation and current-user display after saved profile.
 - [x] Two-level account address form/payload/default/delete behavior and saved-address checkout continuity.
-- [ ] Capability projection and verified B2B entry guards; server remains authoritative. Read complete Web B2B flow/contracts before implementation.
+- [x] Current-session restore/refresh and capability projection/account guards. Network failure keeps tokens; invalid session clears; stale identity/capability responses cannot regrant access. B2B route-specific entry guard remains pending with B2B implementation.
 - [x] Guest lookup challenge/expiry/resend/OTP/grant and exact-order navigation; preserve only server-issued authority, never direct-ID authorization. Mock ownership denies history/other orders/expired grants. Native and real-cookie integration QA still pending.
 - [ ] Order read/cancel/tracking states and reorder; no fabricated item names/prices from SKU or order ID.
 - [x] Support context/create/detail/public messages. No fake upload/contact extension/hotline/CSAT. Automated create→ticket→reply, idempotency and ownership checks PASS; native form/keyboard inspected, native submission pending.
@@ -39,4 +39,4 @@ Payload contract tests and state/navigation tests for each new flow, plus analyz
 
 ## Handoff / next
 
-Status: ACTIVE. Account/address, Guest OTP and support slices implemented. Latest analyze PASS; focused support 4/4 PASS; full regression 97/97 PASS. Native support layout and focused keyboard observed; native submission/account/Guest QA pending. Next: current-session restore/capability projection, then after-sales/trace/B2B and remaining order flows.
+Status: ACTIVE. Account/address, Guest OTP, support and session/capability slices implemented. Analyze PASS; new session/capability tests 4/4 PASS; prior full regression 97/97 PASS. Native support layout and focused keyboard observed; native submission/account/Guest QA pending. Next: trace and after-sales/B2B/remaining order flows.

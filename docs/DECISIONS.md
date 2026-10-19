@@ -19,7 +19,10 @@ Stable ZIP exposes voucher list and validation but Checkout forbids extra proper
 ZIP guest_session/guest_order_grant schemes are server-issued cookies. Native Dio had no cookie capability; X-Session-Id is not a substitute for a signed ownership grant. Add `dio_cookie_manager` + `cookie_jar` at the existing ApiClient boundary, memory-only with normal expiry/domain/path restrictions and a web-safe conditional stub. No new provider or disk persistence. Clear cookies on logout/reset. Do not fabricate grants or assume the backend issues them until integration is verified. Bearer authentication remains supported. Native JSON API redirects are not followed automatically.
 
 Primary package docs checked: https://pub.dev/packages/dio_cookie_manager and https://pub.dev/packages/cookie_jar. No equivalent dependency was present.
-# Support parity and stable contract boundary (2026-10-19)
+## Support parity and stable contract boundary (2026-10-19)
 
 Web support request collects guest contact and attachment metadata. Stable ZIP POST /support/tickets forbids a contact property; no stable upload/download contract exists. Mobile submits only documented fields (including empty linkedOrderId/attachments when unused), retains server session authority, displays public attachment metadata without inventing download URLs, and does not collect unsendable guest contact. Upload/contact extension remains a contract gap. Ticket list is draft; expose create/detail/public reply without claiming an authenticated ticket inbox. Do not copy Web placeholder hotline or static response-time claims; show server context/servicePromise.
 
+## Session and capability boundary (2026-10-19)
+
+Restore identity using GET auth/me before showing protected account data. On 401 only, retry through documented refresh and then verify identity again. Keep tokens on network failure; clear expired credentials and clear local session even if server logout is unreachable. Serialize explicit REST auth actions after pending restore. Reload server capabilities on auth transitions; discard stale responses and show loading/error/forbidden states. Never derive production B2B authority from phone, display name or a client toggle. Mock users remain REGISTERED until an explicit verified fixture is introduced.

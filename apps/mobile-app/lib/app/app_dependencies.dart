@@ -35,6 +35,8 @@ import 'package:mobile_app/features/orders/data/rest_guest_orders_repository.dar
 import 'package:mobile_app/features/support/domain/support_repository.dart';
 import 'package:mobile_app/features/support/data/rest_support_repository.dart';
 import 'package:mobile_app/features/support/data/mock_support_repository.dart';
+import 'package:mobile_app/features/auth/domain/customer_capabilities.dart';
+import 'package:mobile_app/features/auth/data/customer_capabilities_repositories.dart';
 
 class AppDependencies {
   const AppDependencies({
@@ -49,6 +51,7 @@ class AppDependencies {
     required this.customerAccountRepository,
     required this.guestOrdersRepository,
     required this.supportRepository,
+    required this.capabilitiesRepository,
   });
 
   final CatalogRepository catalogRepository;
@@ -62,6 +65,7 @@ class AppDependencies {
   final CustomerAccountRepository customerAccountRepository;
   final GuestOrdersRepository guestOrdersRepository;
   final SupportRepository supportRepository;
+  final CustomerCapabilitiesRepository capabilitiesRepository;
 }
 
 abstract final class RepositoryFactory {
@@ -94,6 +98,7 @@ abstract final class RepositoryFactory {
       customerAccountRepository: RestCustomerAccountRepository(client),
       guestOrdersRepository: RestGuestOrdersRepository(client),
       supportRepository: RestSupportRepository(client),
+      capabilitiesRepository: RestCustomerCapabilitiesRepository(client),
     );
   }
 
@@ -116,6 +121,9 @@ abstract final class RepositoryFactory {
         onUpdate: auth.updateUser,
       ),
       guestOrdersRepository: MockGuestOrdersRepository(orders),
+      capabilitiesRepository: MockCustomerCapabilitiesRepository(
+        () => auth.currentUser,
+      ),
       supportRepository: MockSupportRepository(
         currentUser: () => auth.currentUser,
         orders: orders,

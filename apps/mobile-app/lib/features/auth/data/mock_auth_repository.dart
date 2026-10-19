@@ -7,6 +7,8 @@ import 'package:uuid/uuid.dart';
 
 class MockAuthRepository implements AuthRepository {
   AuthUser? currentUser;
+  @override
+  Future<AuthUser?> restoreSession() async => currentUser;
   void updateUser(AuthUser user) {
     if (currentUser?.id == user.id) currentUser = user;
   }

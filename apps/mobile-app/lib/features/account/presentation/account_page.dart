@@ -27,6 +27,17 @@ class AccountPage extends StatelessWidget {
           body: ListView(
             padding: const EdgeInsets.all(16),
             children: [
+              if (authState.sessionRestoreFailed)
+                Card(
+                  child: ListTile(
+                    title: Text(authState.message!),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.refresh),
+                      tooltip: 'Khôi phục phiên',
+                      onPressed: context.read<AuthCubit>().restore,
+                    ),
+                  ),
+                ),
               if (isGuest)
                 _GuestCard(
                   onLogin: () => context.push(AppRoutes.login),

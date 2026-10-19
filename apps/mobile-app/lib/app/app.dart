@@ -18,6 +18,7 @@ import 'package:mobile_app/features/promotions/domain/promotions_repository.dart
 import 'package:mobile_app/features/account/domain/customer_account_repository.dart';
 import 'package:mobile_app/features/orders/domain/guest_orders_repository.dart';
 import 'package:mobile_app/features/support/domain/support_repository.dart';
+import 'package:mobile_app/features/auth/presentation/capabilities_cubit.dart';
 
 class OmaApp extends StatefulWidget {
   const OmaApp({
@@ -102,7 +103,16 @@ class _OmaAppState extends State<OmaApp> {
         BlocProvider(
           create: (_) => CartCubit(_dependencies.cartRepository)..load(),
         ),
-        BlocProvider(create: (_) => AuthCubit(_dependencies.authRepository)),
+        BlocProvider(
+          create: (_) => AuthCubit(_dependencies.authRepository)..restore(),
+        ),
+        BlocProvider(
+          lazy: false,
+          create: (context) => CapabilitiesCubit(
+            _dependencies.capabilitiesRepository,
+            context.read<AuthCubit>(),
+          ),
+        ),
       ],
       child: MaterialApp.router(
         title: 'Ô Mạ',

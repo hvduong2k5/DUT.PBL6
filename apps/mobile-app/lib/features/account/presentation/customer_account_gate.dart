@@ -7,6 +7,9 @@ import 'package:mobile_app/core/widgets/app_mobile_header.dart';
 import 'package:mobile_app/core/widgets/app_primary_button.dart';
 import 'package:mobile_app/features/auth/presentation/auth_cubit.dart';
 import 'package:mobile_app/features/auth/presentation/auth_return_location.dart';
+import 'package:mobile_app/core/widgets/app_error_view.dart';
+import 'package:mobile_app/core/widgets/app_loading_view.dart';
+import 'package:mobile_app/features/auth/presentation/customer_capability_gate.dart';
 
 class CustomerAccountGate extends StatelessWidget {
   const CustomerAccountGate({
@@ -18,8 +21,34 @@ class CustomerAccountGate extends StatelessWidget {
   final Widget child;
   @override
   Widget build(BuildContext context) => BlocBuilder<AuthCubit, AuthState>(
-    builder: (context, state) => state.status == AuthStatus.authenticated
-        ? child
+    builder: (context, state) => state.status == AuthStatus.restoring
+        ? const Scaffold(body: AppLoadingView())
+        : state.sessionRestoreFailed
+        ? Scaffold(
+            appBar: const AppMobileHeader(
+              title: 'Phiên tài khoản',
+              showBack: true,
+            ),
+            body: AppErrorView(
+              message: state.message!,
+              onRetry: context.read<AuthCubit>().restore,
+              action: TextButton(
+                onPressed: () =>
+                    context.go(authLocation(AppRoutes.login, returnLocation)),
+                child: const Text('Đăng nhập lại'),
+              ),
+            ),
+          )
+        : state.status == AuthStatus.authenticated
+        ? CustomerCapabilityGate(
+            capability: switch (Uri.parse(returnLocation).path) {
+              AppRoutes.loyalty => 'LOYALTY_VIEW',
+              AppRoutes.orders => 'ORDER_HISTORY_VIEW',
+              AppRoutes.addresses || AppRoutes.addressForm => 'ADDRESS_MANAGE',
+              _ => 'PROFILE_MANAGE',
+            },
+            child: child,
+          )
         : Scaffold(
             appBar: const AppMobileHeader(
               title: 'Tài khoản Tri Kỷ',
