@@ -72,11 +72,16 @@ void main() {
       final cart = await dependencies.cartRepository.getCart();
       expect(cart.items.single.product.id, 'PROD-MX-DEO-300');
       expect(cart.items.single.quantity, 3);
-      final ordersFuture = dependencies.ordersRepository.orders();
-      await tester.pump(const Duration(milliseconds: 200));
-      final orders = await ordersFuture;
-      expect(orders.first.total, Money.vnd(170000));
-      expect(orders.first.items.single.quantity, 2);
+      final createdId = tester
+          .widgetList<Text>(find.byType(Text))
+          .map((text) => text.data)
+          .whereType<String>()
+          .firstWhere((text) => RegExp(r'^OM-\d+$').hasMatch(text));
+      final orderFuture = dependencies.ordersRepository.order(createdId);
+      await tester.pump(const Duration(milliseconds: 150));
+      final order = await orderFuture;
+      expect(order.total, Money.vnd(170000));
+      expect(order.items.single.quantity, 2);
       expect(tester.takeException(), isNull);
     },
   );
@@ -89,7 +94,10 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('Đặt hàng thành công!'), findsNothing);
-    expect(find.textContaining('Không tìm thấy đơn hàng'), findsOneWidget);
+    expect(
+      find.textContaining('Vui lòng đăng nhập hoặc xác minh'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('expired payment hides QR and cannot mark itself paid', (

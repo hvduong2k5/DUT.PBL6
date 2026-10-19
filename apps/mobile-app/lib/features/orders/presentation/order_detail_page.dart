@@ -8,6 +8,9 @@ import 'package:mobile_app/core/widgets/app_loading_view.dart';
 import 'package:mobile_app/core/widgets/app_mobile_header.dart';
 import 'package:mobile_app/features/orders/domain/order_models.dart';
 import 'package:mobile_app/features/orders/domain/orders_repository.dart';
+import 'package:go_router/go_router.dart';
+import 'package:mobile_app/app/router/routes.dart';
+import 'package:mobile_app/core/network/api_exception.dart';
 
 class OrderDetailPage extends StatefulWidget {
   const OrderDetailPage({super.key, required this.orderId});
@@ -40,8 +43,14 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
         }
         if (snapshot.hasError || snapshot.data == null) {
           return AppErrorView(
-            message: 'Không thể tải chi tiết đơn hàng.',
+            message: snapshot.error is ApiException
+                ? (snapshot.error as ApiException).failure.message
+                : 'Không thể tải chi tiết đơn hàng.',
             onRetry: () => setState(_load),
+            action: TextButton(
+              onPressed: () => context.go(AppRoutes.guestOrderLookup),
+              child: const Text('Xác minh đơn khách'),
+            ),
           );
         }
         final order = snapshot.data!;

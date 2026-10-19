@@ -21,7 +21,9 @@ class RestOrdersRepository implements OrdersRepository {
 
   @override
   Future<CustomerOrder> order(String id) async {
-    final json = await _client.getJson('/api/v1/orders/$id');
+    final json = await _client.getJson(
+      '/api/v1/orders/${Uri.encodeComponent(id)}',
+    );
     final itemValues = json['items'] as List? ?? const [];
     final totalItems = itemValues.fold<int>(0, (total, raw) {
       final item = Map<String, dynamic>.from(raw as Map);

@@ -38,6 +38,9 @@ import 'package:mobile_app/features/account/presentation/customer_account_gate.d
 import 'package:mobile_app/features/account/presentation/profile_cubit.dart';
 import 'package:mobile_app/features/account/presentation/profile_page.dart';
 import 'package:mobile_app/features/account/presentation/loyalty_page.dart';
+import 'package:mobile_app/features/orders/domain/guest_orders_repository.dart';
+import 'package:mobile_app/features/orders/presentation/guest_lookup_cubit.dart';
+import 'package:mobile_app/features/orders/presentation/guest_lookup_page.dart';
 import 'package:mobile_app/features/orders/domain/orders_repository.dart';
 import 'package:mobile_app/features/orders/presentation/order_detail_page.dart';
 import 'package:mobile_app/features/orders/presentation/orders_cubit.dart';
@@ -56,6 +59,16 @@ GoRouter createAppRouter({
       initialLocation ??
       (onboardingCompleted ? AppRoutes.home : AppRoutes.onboarding),
   routes: [
+    GoRoute(
+      path: AppRoutes.guestOrderLookup,
+      builder: (context, state) => SafeBackScope(
+        child: BlocProvider(
+          create: (_) =>
+              GuestLookupCubit(context.read<GuestOrdersRepository>()),
+          child: const GuestLookupPage(),
+        ),
+      ),
+    ),
     GoRoute(
       path: AppRoutes.profile,
       builder: (context, state) => SafeBackScope(
@@ -183,9 +196,13 @@ GoRouter createAppRouter({
     GoRoute(
       path: AppRoutes.orders,
       builder: (context, state) => SafeBackScope(
-        child: BlocProvider(
-          create: (_) => OrdersCubit(context.read<OrdersRepository>())..load(),
-          child: const OrdersPage(),
+        child: CustomerAccountGate(
+          returnLocation: AppRoutes.orders,
+          child: BlocProvider(
+            create: (_) =>
+                OrdersCubit(context.read<OrdersRepository>())..load(),
+            child: const OrdersPage(),
+          ),
         ),
       ),
     ),

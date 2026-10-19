@@ -19,4 +19,5 @@ abstract final class AppRoutes {
   static const payment = '/payment/:id';
   static const profile = '/account/profile';
   static const loyalty = '/account/loyalty';
+  static const guestOrderLookup = '/track-order';
 }

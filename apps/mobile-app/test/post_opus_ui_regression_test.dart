@@ -28,6 +28,7 @@ void main() {
     'Profile guest guard': '/account/profile',
     'Loyalty guest guard': '/account/loyalty',
     'Payment missing context': '/payment/UNKNOWN',
+    'Guest lookup': '/track-order',
   };
 
   for (final entry in routes.entries) {

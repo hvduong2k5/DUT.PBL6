@@ -29,6 +29,9 @@ import 'package:mobile_app/features/promotions/data/rest_promotions_repository.d
 import 'package:mobile_app/features/account/domain/customer_account_repository.dart';
 import 'package:mobile_app/features/account/data/mock_customer_account_repository.dart';
 import 'package:mobile_app/features/account/data/rest_customer_account_repository.dart';
+import 'package:mobile_app/features/orders/domain/guest_orders_repository.dart';
+import 'package:mobile_app/features/orders/data/mock_guest_orders_repository.dart';
+import 'package:mobile_app/features/orders/data/rest_guest_orders_repository.dart';
 
 class AppDependencies {
   const AppDependencies({
@@ -41,6 +44,7 @@ class AppDependencies {
     required this.notificationsRepository,
     required this.promotionsRepository,
     required this.customerAccountRepository,
+    required this.guestOrdersRepository,
   });
 
   final CatalogRepository catalogRepository;
@@ -52,6 +56,7 @@ class AppDependencies {
   final NotificationsRepository notificationsRepository;
   final PromotionsRepository promotionsRepository;
   final CustomerAccountRepository customerAccountRepository;
+  final GuestOrdersRepository guestOrdersRepository;
 }
 
 abstract final class RepositoryFactory {
@@ -82,12 +87,15 @@ abstract final class RepositoryFactory {
       notificationsRepository: LocalNotificationsRepository(),
       promotionsRepository: RestPromotionsRepository(client),
       customerAccountRepository: RestCustomerAccountRepository(client),
+      guestOrdersRepository: RestGuestOrdersRepository(client),
     );
   }
 
   static AppDependencies _local() {
-    final orders = MockOrdersRepository();
     final auth = MockAuthRepository();
+    final orders = MockOrdersRepository(
+      authenticated: () => auth.currentUser != null,
+    );
     return AppDependencies(
       catalogRepository: MockCatalogRepository(),
       cartRepository: InMemoryCartRepository(),
@@ -101,6 +109,7 @@ abstract final class RepositoryFactory {
         currentUser: () => auth.currentUser,
         onUpdate: auth.updateUser,
       ),
+      guestOrdersRepository: MockGuestOrdersRepository(orders),
     );
   }
 }

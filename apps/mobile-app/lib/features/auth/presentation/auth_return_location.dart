@@ -25,6 +25,7 @@ String safeAuthReturnLocation(String? value) {
     '/promotions',
     '/account/profile',
     '/account/loyalty',
+    '/track-order',
   };
   final path = uri.path;
   if (!routes.contains(path) &&

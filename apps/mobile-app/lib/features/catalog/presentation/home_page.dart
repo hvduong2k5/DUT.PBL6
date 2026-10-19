@@ -15,6 +15,7 @@ import 'package:mobile_app/features/cart/presentation/cart_cubit.dart';
 import 'package:mobile_app/features/catalog/presentation/catalog_cubit.dart';
 import 'package:mobile_app/features/catalog/presentation/widgets/product_card.dart';
 import 'package:mobile_app/features/catalog/data/web_reference_imagery.dart';
+import 'package:mobile_app/features/auth/presentation/auth_cubit.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -262,7 +263,12 @@ class _HomeResults extends StatelessWidget {
                 title: const Text('Theo dõi đơn hàng của bạn'),
                 subtitle: const Text('Xem trạng thái và hành trình giao hàng'),
                 trailing: const Icon(Icons.chevron_right),
-                onTap: () => context.push(AppRoutes.orders),
+                onTap: () => context.push(
+                  context.read<AuthCubit>().state.status ==
+                          AuthStatus.authenticated
+                      ? AppRoutes.orders
+                      : AppRoutes.guestOrderLookup,
+                ),
               ),
             ),
           ),

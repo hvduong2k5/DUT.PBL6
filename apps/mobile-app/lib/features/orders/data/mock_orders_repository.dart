@@ -4,10 +4,34 @@ import 'package:mobile_app/features/orders/domain/orders_repository.dart';
 import 'package:mobile_app/features/checkout/domain/checkout_models.dart';
 import 'package:mobile_app/core/network/api_exception.dart';
 import 'package:mobile_app/core/error/failures.dart';
+import 'package:mobile_app/features/auth/domain/auth_validation.dart';
 
 class MockOrdersRepository implements OrdersRepository {
+  MockOrdersRepository({bool Function()? authenticated})
+    : _authenticated = authenticated ?? (() => true);
+  final bool Function() _authenticated;
+  final Map<String, DateTime> _guestGrants = {};
+  final Map<String, String> _contacts = {};
+  void grantGuestAccess(String id, DateTime expiry) {
+    _guestGrants[id] = expiry;
+  }
+
+  bool matchesGuestContact(String id, String contact) {
+    final expected =
+        _contacts[id] ??
+        (_orders.any((order) => order.id == id) ? '0905123456' : null);
+    return expected != null &&
+        AuthValidation.normalizePhone(contact).replaceFirst('+84', '0') ==
+            AuthValidation.normalizePhone(expected).replaceFirst('+84', '0');
+  }
+
   final List<CustomerOrder> _created = [];
   void record(OrderConfirmation confirmation, CheckoutDraft draft) {
+    _contacts[confirmation.orderId] = draft.phone;
+    grantGuestAccess(
+      confirmation.orderId,
+      DateTime.now().add(const Duration(minutes: 15)),
+    );
     _created.removeWhere((order) => order.id == confirmation.orderId);
     _created.add(
       CustomerOrder(
@@ -101,12 +125,29 @@ class MockOrdersRepository implements OrdersRepository {
   @override
   Future<List<CustomerOrder>> orders() async {
     await Future<void>.delayed(const Duration(milliseconds: 180));
+    if (!_authenticated()) {
+      throw const ApiException(
+        Failure(
+          kind: FailureKind.unauthenticated,
+          message: 'Vui lòng đăng nhập để xem lịch sử đơn hàng.',
+        ),
+      );
+    }
     return [..._created, ..._orders];
   }
 
   @override
   Future<CustomerOrder> order(String id) async {
     await Future<void>.delayed(const Duration(milliseconds: 120));
+    if (!_authenticated() &&
+        !(_guestGrants[id]?.isAfter(DateTime.now()) ?? false)) {
+      throw const ApiException(
+        Failure(
+          kind: FailureKind.unauthenticated,
+          message: 'Vui lòng đăng nhập hoặc xác minh quyền sở hữu đơn hàng.',
+        ),
+      );
+    }
     final order = [
       ..._created,
       ..._orders,
