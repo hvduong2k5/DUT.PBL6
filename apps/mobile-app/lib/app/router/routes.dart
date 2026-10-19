@@ -15,4 +15,5 @@ abstract final class AppRoutes {
   static const login = '/login';
   static const register = '/register';
   static const recovery = '/account-recovery';
+  static const promotions = '/promotions';
 }

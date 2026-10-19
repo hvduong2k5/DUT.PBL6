@@ -11,7 +11,9 @@ Future<CheckoutCubit> createCubit(MockCheckoutRepository checkout) async {
   final product = await MockCatalogRepository().product('PROD-MX-GION-500');
   final cartRepository = InMemoryCartRepository();
   final cart = await cartRepository.add(product, product.variants.first, 1);
-  return CheckoutCubit(checkout, cart, idempotencyKey: 'stable-key');
+  final cubit = CheckoutCubit(checkout, cart, idempotencyKey: 'stable-key');
+  await cubit.loadLocations();
+  return cubit;
 }
 
 void main() {
@@ -21,14 +23,7 @@ void main() {
     await cubit.submit();
     expect(
       cubit.state.fieldErrors.keys,
-      containsAll([
-        'fullName',
-        'phone',
-        'streetAddress',
-        'ward',
-        'district',
-        'province',
-      ]),
+      containsAll(['fullName', 'phone', 'streetAddress', 'ward', 'province']),
     );
     expect(repository.submitCount, 0);
     await cubit.close();
@@ -39,9 +34,8 @@ void main() {
     cubit.setName('Nguyễn Văn An');
     cubit.setPhone('0905123456');
     cubit.setStreetAddress('123 Lê Duẩn');
+    cubit.setProvince('Thành phố Huế');
     cubit.setWard('Phường Thuận Hòa');
-    cubit.setDistrict('Thành phố Huế');
-    cubit.setProvince('Thừa Thiên Huế');
     final first = cubit.submit();
     final duplicate = cubit.submit();
     await Future.wait([first, duplicate]);

@@ -22,6 +22,7 @@ String safeAuthReturnLocation(String? value) {
     '/addresses',
     '/addresses/form',
     '/notifications',
+    '/promotions',
   };
   final path = uri.path;
   if (!routes.contains(path) &&

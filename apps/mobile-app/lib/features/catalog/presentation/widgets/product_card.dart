@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:mobile_app/core/theme/app_colors.dart';
 import 'package:mobile_app/core/theme/app_radius.dart';
 import 'package:mobile_app/features/catalog/domain/catalog_models.dart';
+import 'package:mobile_app/core/widgets/app_product_image.dart';
 
 class ProductCard extends StatelessWidget {
   const ProductCard({
@@ -34,10 +35,10 @@ class ProductCard extends StatelessWidget {
                   color: AppColors.muted,
                   borderRadius: BorderRadius.circular(AppRadius.large),
                 ),
-                child: const Icon(
-                  Icons.redeem_outlined,
-                  size: 52,
-                  color: AppColors.brandBrown,
+                clipBehavior: Clip.antiAlias,
+                child: AppProductImage(
+                  url: product.imageUrl,
+                  label: product.name,
                 ),
               ),
             ),
@@ -78,9 +79,13 @@ class ProductCard extends StatelessWidget {
                 style: FilledButton.styleFrom(
                   backgroundColor: AppColors.brandBrown,
                   foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
                 ),
                 icon: const Icon(Icons.add_shopping_cart, size: 16),
-                label: const Text('Thêm Giỏ', style: TextStyle(fontSize: 13)),
+                label: const Text(
+                  'Chọn quy cách',
+                  style: TextStyle(fontSize: 12),
+                ),
               ),
             ),
           ],

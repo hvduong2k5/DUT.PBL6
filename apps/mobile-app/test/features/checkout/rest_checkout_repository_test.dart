@@ -55,7 +55,7 @@ void main() {
 
     expect(request!.path, '/api/v1/checkout');
     expect(
-      request!.headers['X-Idempotency-Key'],
+      request!.headers['Idempotency-Key'],
       '9a8b7c6d-5e4f-4a2b-8c0d-e9f8a7b6c5d4',
     );
     final body = Map<String, dynamic>.from(request!.data as Map);
@@ -66,10 +66,19 @@ void main() {
       'phone_number': '0905123456',
       'street_address': '123 Lê Duẩn',
       'ward': 'Phường Thuận Hòa',
-      'district': 'Thành phố Huế',
       'province': 'Thừa Thiên Huế',
     });
     expect((body['items'] as List).single['quantity'], 2);
+    expect(body.keys.toSet(), {
+      'channel',
+      'shipping_address',
+      'payment_method',
+      'items',
+    });
+    expect((body['items'] as List).single.keys.toSet(), {
+      'sku_code',
+      'quantity',
+    });
     expect(result.orderId, 'ORD-1');
   });
 }

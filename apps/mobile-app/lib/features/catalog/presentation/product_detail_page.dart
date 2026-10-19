@@ -14,6 +14,7 @@ import 'package:mobile_app/core/widgets/app_snackbar.dart';
 import 'package:mobile_app/features/cart/presentation/cart_cubit.dart';
 import 'package:mobile_app/features/catalog/domain/catalog_models.dart';
 import 'package:mobile_app/features/catalog/domain/catalog_repository.dart';
+import 'package:mobile_app/core/widgets/app_product_image.dart';
 
 class ProductDetailPage extends StatefulWidget {
   const ProductDetailPage({super.key, required this.productId});
@@ -25,14 +26,34 @@ class ProductDetailPage extends StatefulWidget {
 class _ProductDetailPageState extends State<ProductDetailPage> {
   late Future<Product> _future;
   int _quantity = 1;
+  ProductVariant? _selectedVariant;
   @override
   void initState() {
     super.initState();
     _load();
   }
 
-  void _load() =>
-      _future = context.read<CatalogRepository>().product(widget.productId);
+  @override
+  void didUpdateWidget(covariant ProductDetailPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.productId != widget.productId) {
+      _quantity = 1;
+      _load();
+    }
+  }
+
+  void _load() {
+    _selectedVariant = null;
+    _future = context.read<CatalogRepository>().product(widget.productId).then((
+      product,
+    ) {
+      if (product.variants.length == 1 && product.variants.single.stock > 0) {
+        _selectedVariant = product.variants.single;
+      }
+      return product;
+    });
+  }
+
   @override
   Widget build(BuildContext context) => BlocBuilder<CartCubit, CartState>(
     builder: (context, cartState) => Scaffold(
@@ -69,10 +90,10 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                   color: AppColors.muted,
                   borderRadius: BorderRadius.circular(AppRadius.card),
                 ),
-                child: const Icon(
-                  Icons.redeem_outlined,
-                  size: 100,
-                  color: AppColors.brandBrown,
+                clipBehavior: Clip.antiAlias,
+                child: AppProductImage(
+                  url: product.imageUrl,
+                  label: product.name,
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
@@ -105,7 +126,9 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
               ),
               const SizedBox(height: AppSpacing.xs),
               Text(
-                product.price.format(),
+                product.variants.isEmpty
+                    ? 'Chưa công bố giá'
+                    : (_selectedVariant?.price ?? product.price).format(),
                 style: TextStyle(
                   fontFamily: GoogleFonts.notoSerif().fontFamily,
                   fontSize: 24,
@@ -113,6 +136,34 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
+              const SizedBox(height: AppSpacing.md),
+              Text(
+                'Chọn quy cách',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: product.variants
+                    .map(
+                      (variant) => ChoiceChip(
+                        label: Text(
+                          '${variant.name} · ${variant.stockKnown ? (variant.stock > 0 ? variant.price.format() : 'Hết hàng') : 'Đang cập nhật tồn kho'}',
+                        ),
+                        selected: _selectedVariant?.id == variant.id,
+                        onSelected: variant.stock < 1 || cartState.pending
+                            ? null
+                            : (_) => setState(() {
+                                _selectedVariant = variant;
+                                _quantity = 1;
+                              }),
+                      ),
+                    )
+                    .toList(),
+              ),
+              if (product.variants.isEmpty)
+                const Text('Chưa có quy cách khả dụng.'),
               const SizedBox(height: AppSpacing.md),
               Row(
                 children: [
@@ -137,7 +188,12 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                     child: Text('$_quantity', textAlign: TextAlign.center),
                   ),
                   IconButton(
-                    onPressed: () => setState(() => _quantity++),
+                    onPressed:
+                        _quantity >= 99 ||
+                            _selectedVariant == null ||
+                            _quantity >= _selectedVariant!.stock
+                        ? null
+                        : () => setState(() => _quantity++),
                     icon: const Icon(Icons.add),
                     constraints: const BoxConstraints.tightFor(
                       width: 44,
@@ -178,28 +234,35 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
               ),
               child: Row(
                 children: [
-                  IconButton(
-                    onPressed: () {},
-                    icon: const Icon(Icons.bookmark_border),
-                    color: AppColors.brandBrown,
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: AppPrimaryButton(
                       label: 'Thêm vào giỏ',
+                      loading: cartState.pending,
                       icon: Icons.shopping_bag_outlined,
-                      onPressed: product == null
+                      onPressed:
+                          product == null ||
+                              _selectedVariant == null ||
+                              !product.inStock
                           ? null
-                          : () {
-                              context.read<CartCubit>().add(
+                          : () async {
+                              final added = await context.read<CartCubit>().add(
                                 product,
-                                product.variants.first,
+                                _selectedVariant!,
                                 quantity: _quantity,
                               );
-                              AppSnackBar.success(
-                                context,
-                                'Đã thêm vào giỏ hàng',
-                              );
+                              if (!context.mounted) return;
+                              if (added) {
+                                AppSnackBar.success(
+                                  context,
+                                  'Đã thêm vào giỏ hàng',
+                                );
+                              } else {
+                                AppSnackBar.error(
+                                  context,
+                                  context.read<CartCubit>().state.message ??
+                                      'Chưa thể thêm sản phẩm.',
+                                );
+                              }
                             },
                     ),
                   ),

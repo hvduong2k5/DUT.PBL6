@@ -16,8 +16,12 @@ import 'package:mobile_app/features/auth/domain/auth_repository.dart';
 import 'package:mobile_app/features/auth/presentation/auth_return_location.dart';
 import 'package:mobile_app/features/auth/presentation/recovery_cubit.dart';
 import 'package:mobile_app/features/auth/presentation/recovery_page.dart';
+import 'package:mobile_app/features/promotions/domain/promotions_repository.dart';
+import 'package:mobile_app/features/promotions/presentation/promotions_cubit.dart';
+import 'package:mobile_app/features/promotions/presentation/promotions_page.dart';
 import 'package:mobile_app/features/cart/presentation/cart_page.dart';
 import 'package:mobile_app/features/cart/presentation/cart_cubit.dart';
+import 'package:mobile_app/features/cart/domain/cart_models.dart';
 import 'package:mobile_app/features/catalog/domain/catalog_repository.dart';
 import 'package:mobile_app/features/catalog/presentation/catalog_cubit.dart';
 import 'package:mobile_app/features/catalog/presentation/catalog_page.dart';
@@ -46,6 +50,23 @@ GoRouter createAppRouter({
       initialLocation ??
       (onboardingCompleted ? AppRoutes.home : AppRoutes.onboarding),
   routes: [
+    GoRoute(
+      path: AppRoutes.promotions,
+      builder: (context, state) => SafeBackScope(
+        child: BlocProvider(
+          create: (_) => PromotionsCubit(
+            context.read<PromotionsRepository>(),
+            subtotal:
+                int.tryParse(state.uri.queryParameters['subtotal'] ?? '') ?? 0,
+          )..load(),
+          child: PromotionsPage(
+            checkoutSubtotal: int.tryParse(
+              state.uri.queryParameters['subtotal'] ?? '',
+            ),
+          ),
+        ),
+      ),
+    ),
     GoRoute(
       path: AppRoutes.onboarding,
       builder: (context, state) => OnboardingPage(store: onboardingStore),
@@ -84,8 +105,25 @@ GoRouter createAppRouter({
           create: (_) {
             final cubit = CheckoutCubit(
               context.read<CheckoutRepository>(),
-              context.read<CartCubit>().state.cart,
+              Cart(
+                id: context.read<CartCubit>().state.cart.id,
+                items: context
+                    .read<CartCubit>()
+                    .state
+                    .cart
+                    .items
+                    .where(
+                      (line) =>
+                          (state.uri.queryParameters['items'] ?? '')
+                              .split(',')
+                              .contains(line.itemId) &&
+                          line.product.inStock &&
+                          line.variant.stock > 0,
+                    )
+                    .toList(),
+              ),
             );
+            cubit.loadLocations();
             if (context.read<AuthCubit>().state.status ==
                 AuthStatus.authenticated) {
               cubit.loadSavedAddress(context.read<AddressRepository>());

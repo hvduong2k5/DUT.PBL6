@@ -87,6 +87,12 @@ class AppNavigationDrawer extends StatelessWidget {
               selected: activeRoute == AppRoutes.account,
               onTap: () => _open(context, AppRoutes.account),
             ),
+            _DrawerDestination(
+              icon: Icons.local_offer_outlined,
+              label: 'Ưu đãi Tri Kỷ',
+              selected: activeRoute == AppRoutes.promotions,
+              onTap: () => _open(context, AppRoutes.promotions),
+            ),
             if (authState.status == AuthStatus.authenticated) ...[
               const Divider(),
               _DrawerDestination(

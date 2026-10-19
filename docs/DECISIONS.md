@@ -12,4 +12,4 @@ Add only a scoped Android custom URI `oma://customer/account-recovery?recoveryTo
 
 ## Open contract issue — Voucher at Checkout
 
-Stable ZIP exposes voucher list and validation but Checkout forbids extra properties and has no voucher code. Customer Web validates a voucher in its BFF flow. Do not claim an applied discount in real submitted totals without an approved contract. User clarification requested; independent implementation continues.
+Stable ZIP exposes voucher list and validation but Checkout forbids extra properties and has no voucher code. Customer Web validates a voucher in its BFF flow. Do not claim an applied discount in real submitted totals without an approved contract. User confirmed: keep ZIP unchanged; mark voucher application at Checkout as waiting for a contract extension. Implement discovery/validation only, with no submitted reduction.

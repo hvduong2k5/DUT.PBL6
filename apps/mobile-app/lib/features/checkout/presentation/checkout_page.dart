@@ -11,6 +11,9 @@ import 'package:mobile_app/features/auth/presentation/auth_cubit.dart';
 import 'package:mobile_app/features/cart/presentation/cart_cubit.dart';
 import 'package:mobile_app/features/checkout/domain/checkout_models.dart';
 import 'package:mobile_app/features/checkout/presentation/checkout_cubit.dart';
+import 'package:mobile_app/app/router/routes.dart';
+import 'package:mobile_app/features/auth/presentation/auth_return_location.dart';
+import 'package:mobile_app/core/widgets/app_empty_view.dart';
 
 class CheckoutPage extends StatefulWidget {
   const CheckoutPage({super.key});
@@ -58,7 +61,14 @@ class _CheckoutPageState extends State<CheckoutPage> {
     listener: (context, state) {
       if (state.useAccountAddress) _syncAddressFields(state);
       if (state.status == CheckoutStatus.success) {
-        context.read<CartCubit>().clear();
+        context.read<CartCubit>().consume(
+          context
+              .read<CheckoutCubit>()
+              .cart
+              .items
+              .map((line) => line.itemId)
+              .toSet(),
+        );
         context.go(
           '/order-confirmation/${state.confirmation!.orderId}',
           extra: state.confirmation,
@@ -66,10 +76,30 @@ class _CheckoutPageState extends State<CheckoutPage> {
       }
     },
     builder: (context, state) {
-      final cart = context.watch<CartCubit>().state.cart;
+      final cart = context.read<CheckoutCubit>().cart;
       final authenticated =
           context.watch<AuthCubit>().state.status == AuthStatus.authenticated;
       final submitting = state.status == CheckoutStatus.submitting;
+      final province = state.locations
+          .where((item) => item.name == state.province)
+          .firstOrNull;
+      if (cart.items.isEmpty) {
+        return Scaffold(
+          appBar: const AppMobileHeader(
+            title: 'Thông tin đặt hàng',
+            showBack: true,
+          ),
+          body: AppEmptyView(
+            title: 'Chưa chọn sản phẩm',
+            message:
+                'Hãy chọn các dòng khả dụng trong giỏ trước khi thanh toán.',
+            action: AppPrimaryButton(
+              label: 'Về giỏ hàng',
+              onPressed: () => context.go(AppRoutes.cart),
+            ),
+          ),
+        );
+      }
       return Scaffold(
         appBar: const AppMobileHeader(title: 'Thanh Toán', showBack: true),
         body: ListView(
@@ -103,6 +133,18 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 fontWeight: FontWeight.w600,
               ),
             ),
+            if (!authenticated)
+              TextButton(
+                onPressed: submitting
+                    ? null
+                    : () => context.push(
+                        authLocation(
+                          AppRoutes.login,
+                          GoRouterState.of(context).uri.toString(),
+                        ),
+                      ),
+                child: const Text('Đăng nhập để dùng địa chỉ đã lưu'),
+              ),
             const SizedBox(height: AppSpacing.md),
             Text(
               'Thông tin giao hàng',
@@ -137,7 +179,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
               controller: _name,
               label: 'Họ và tên *',
               hint: 'Nguyễn Văn An',
-              enabled: !state.useAccountAddress,
+              enabled: !state.useAccountAddress && !submitting,
               errorText: state.fieldErrors['fullName'],
               onChanged: context.read<CheckoutCubit>().setName,
             ),
@@ -146,7 +188,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
               controller: _phone,
               label: 'Số điện thoại *',
               hint: '09xx xxx xxx',
-              enabled: !state.useAccountAddress,
+              enabled: !state.useAccountAddress && !submitting,
               keyboardType: TextInputType.phone,
               errorText: state.fieldErrors['phone'],
               onChanged: context.read<CheckoutCubit>().setPhone,
@@ -156,47 +198,88 @@ class _CheckoutPageState extends State<CheckoutPage> {
               controller: _street,
               label: 'Số nhà, tên đường *',
               hint: '123 Lê Duẩn',
-              enabled: !state.useAccountAddress,
+              enabled: !state.useAccountAddress && !submitting,
               errorText: state.fieldErrors['streetAddress'],
               onChanged: context.read<CheckoutCubit>().setStreetAddress,
             ),
             const SizedBox(height: AppSpacing.sm),
-            AppTextField(
-              controller: _ward,
-              label: 'Phường/Xã *',
-              enabled: !state.useAccountAddress,
-              errorText: state.fieldErrors['ward'],
-              onChanged: context.read<CheckoutCubit>().setWard,
+            if (state.loadingLocations) const LinearProgressIndicator(),
+            if (state.locationsError != null) ...[
+              Text(
+                state.locationsError!,
+                style: const TextStyle(color: AppColors.darkRed),
+              ),
+              TextButton(
+                onPressed: context.read<CheckoutCubit>().loadLocations,
+                child: const Text('Tải lại khu vực giao hàng'),
+              ),
+            ],
+            DropdownButtonFormField<String>(
+              key: ValueKey(
+                'province-${state.province}-${state.loadingLocations}',
+              ),
+              initialValue: province?.name,
+              isExpanded: true,
+              decoration: InputDecoration(
+                labelText: 'Tỉnh/Thành phố *',
+                errorText: state.fieldErrors['province'],
+              ),
+              items: state.locations
+                  .map(
+                    (item) => DropdownMenuItem(
+                      value: item.name,
+                      child: Text(item.name),
+                    ),
+                  )
+                  .toList(),
+              onChanged: submitting
+                  ? null
+                  : (value) =>
+                        context.read<CheckoutCubit>().setProvince(value ?? ''),
             ),
             const SizedBox(height: AppSpacing.sm),
-            AppTextField(
-              controller: _district,
-              label: 'Quận/Huyện *',
-              enabled: !state.useAccountAddress,
-              errorText: state.fieldErrors['district'],
-              onChanged: context.read<CheckoutCubit>().setDistrict,
+            DropdownButtonFormField<String>(
+              key: ValueKey('ward-${state.province}-${state.ward}'),
+              initialValue:
+                  province?.wards.any((item) => item.name == state.ward) == true
+                  ? state.ward
+                  : null,
+              isExpanded: true,
+              decoration: InputDecoration(
+                labelText: 'Phường/Xã *',
+                errorText: state.fieldErrors['ward'],
+              ),
+              items: (province?.wards ?? [])
+                  .map(
+                    (item) => DropdownMenuItem(
+                      value: item.name,
+                      child: Text(item.name),
+                    ),
+                  )
+                  .toList(),
+              onChanged: submitting || province == null
+                  ? null
+                  : (value) =>
+                        context.read<CheckoutCubit>().setWard(value ?? ''),
             ),
-            const SizedBox(height: AppSpacing.sm),
-            AppTextField(
-              controller: _province,
-              label: 'Tỉnh/Thành phố *',
-              enabled: !state.useAccountAddress,
-              errorText: state.fieldErrors['province'],
-              onChanged: context.read<CheckoutCubit>().setProvince,
-            ),
+            if (state.fieldErrors['locations'] != null)
+              Text(
+                state.fieldErrors['locations']!,
+                style: const TextStyle(color: AppColors.darkRed),
+              ),
             const SizedBox(height: AppSpacing.lg),
             Text(
               'Phương thức giao hàng',
               style: Theme.of(context).textTheme.titleMedium,
             ),
             Text(
-              'Lựa chọn và phí giao hàng được lấy từ API.',
+              'Phí giao hàng sẽ được xác nhận khi đơn hàng được tiếp nhận.',
               style: Theme.of(context).textTheme.bodySmall,
             ),
             const SizedBox(height: AppSpacing.xs),
             const _ApiDrivenCard(
-              title: 'Theo phương thức API đề xuất',
-              subtitle: 'Thời gian và phí được xác nhận khi backend phản hồi',
+              title: 'Giao hàng theo địa chỉ nhận',
+              subtitle: 'Phí và thời gian giao được xác nhận khi đặt hàng.',
             ),
             const SizedBox(height: AppSpacing.lg),
             Text(
@@ -240,6 +323,24 @@ class _CheckoutPageState extends State<CheckoutPage> {
               'Sản phẩm trong đơn',
               style: Theme.of(context).textTheme.titleMedium,
             ),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.local_offer_outlined),
+                title: const Text('Kiểm tra mã ưu đãi'),
+                subtitle: const Text('Việc áp mã vào đơn hiện chưa khả dụng.'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: submitting
+                    ? null
+                    : () => context.push(
+                        Uri(
+                          path: AppRoutes.promotions,
+                          queryParameters: {
+                            'subtotal': cart.subtotal.units.toString(),
+                          },
+                        ).toString(),
+                      ),
+              ),
+            ),
             const SizedBox(height: AppSpacing.xs),
             Card(
               child: Padding(
@@ -270,11 +371,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text(
-                      'Tổng thanh toán',
+                      'Tạm tính hàng',
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
                     Text(
-                      '${cart.subtotal.format()} + phí',
+                      cart.subtotal.format(),
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                   ],
@@ -304,7 +405,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
               children: [
                 Expanded(
                   child: Text(
-                    '${cart.subtotal.format()} + phí',
+                    cart.subtotal.format(),
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                 ),
@@ -341,7 +442,6 @@ class _ApiDrivenCard extends StatelessWidget {
       ),
       title: Text(title),
       subtitle: Text(subtitle),
-      trailing: const Text('Theo API', style: TextStyle(fontSize: 11)),
     ),
   );
 }

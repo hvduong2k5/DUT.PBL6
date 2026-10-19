@@ -12,7 +12,6 @@ import 'package:mobile_app/core/widgets/app_error_view.dart';
 import 'package:mobile_app/core/widgets/app_loading_view.dart';
 import 'package:mobile_app/core/widgets/app_mobile_header.dart';
 import 'package:mobile_app/core/widgets/app_navigation_drawer.dart';
-import 'package:mobile_app/core/widgets/app_snackbar.dart';
 import 'package:mobile_app/features/cart/presentation/cart_cubit.dart';
 import 'package:mobile_app/features/catalog/presentation/catalog_cubit.dart';
 import 'package:mobile_app/features/catalog/presentation/widgets/product_card.dart';
@@ -160,13 +159,7 @@ class _CatalogPageState extends State<CatalogPage> {
                     return ProductCard(
                       product: product,
                       onOpen: () => context.push('/product/${product.id}'),
-                      onAdd: () {
-                        context.read<CartCubit>().add(
-                          product,
-                          product.variants.first,
-                        );
-                        AppSnackBar.success(context, 'Đã thêm vào giỏ hàng');
-                      },
+                      onAdd: () => context.push('/product/${product.id}'),
                     );
                   },
                 ),

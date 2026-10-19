@@ -271,12 +271,13 @@ class _AuthPageState extends State<AuthPage> {
                 onPressed: state.status == AuthStatus.submitting
                     ? null
                     : () => context.go(
-                        widget.returnLocation == AppRoutes.checkout
-                            ? AppRoutes.checkout
+                        Uri.parse(widget.returnLocation).path ==
+                                AppRoutes.checkout
+                            ? widget.returnLocation
                             : AppRoutes.home,
                       ),
                 child: Text(
-                  widget.returnLocation == AppRoutes.checkout
+                  Uri.parse(widget.returnLocation).path == AppRoutes.checkout
                       ? 'Tiếp tục thanh toán với tư cách khách'
                       : 'Tiếp tục khám phá với tư cách khách',
                 ),

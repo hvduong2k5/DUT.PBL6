@@ -14,6 +14,7 @@ import 'package:mobile_app/features/catalog/domain/catalog_repository.dart';
 import 'package:mobile_app/features/checkout/domain/checkout_repository.dart';
 import 'package:mobile_app/features/orders/domain/orders_repository.dart';
 import 'package:mobile_app/features/notifications/domain/app_notification.dart';
+import 'package:mobile_app/features/promotions/domain/promotions_repository.dart';
 
 class OmaApp extends StatefulWidget {
   const OmaApp({
@@ -21,11 +22,13 @@ class OmaApp extends StatefulWidget {
     this.onboardingStore,
     this.onboardingCompleted = true,
     this.initialLocation,
+    this.dependencies,
   });
 
   final OnboardingStore? onboardingStore;
   final bool onboardingCompleted;
   final String? initialLocation;
+  final AppDependencies? dependencies;
 
   @override
   State<OmaApp> createState() => _OmaAppState();
@@ -39,7 +42,7 @@ class _OmaAppState extends State<OmaApp> {
   @override
   void initState() {
     super.initState();
-    _dependencies = RepositoryFactory.create();
+    _dependencies = widget.dependencies ?? RepositoryFactory.create();
     _onboardingStore = widget.onboardingStore ?? OnboardingStore();
     _router = createAppRouter(
       onboardingStore: _onboardingStore,
@@ -57,6 +60,9 @@ class _OmaAppState extends State<OmaApp> {
   @override
   Widget build(BuildContext context) => MultiRepositoryProvider(
     providers: [
+      RepositoryProvider<PromotionsRepository>.value(
+        value: _dependencies.promotionsRepository,
+      ),
       RepositoryProvider<CatalogRepository>.value(
         value: _dependencies.catalogRepository,
       ),

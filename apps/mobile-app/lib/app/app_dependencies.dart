@@ -23,6 +23,9 @@ import 'package:mobile_app/features/notifications/domain/app_notification.dart';
 import 'package:mobile_app/features/orders/data/mock_orders_repository.dart';
 import 'package:mobile_app/features/orders/data/rest_orders_repository.dart';
 import 'package:mobile_app/features/orders/domain/orders_repository.dart';
+import 'package:mobile_app/features/promotions/domain/promotions_repository.dart';
+import 'package:mobile_app/features/promotions/data/mock_promotions_repository.dart';
+import 'package:mobile_app/features/promotions/data/rest_promotions_repository.dart';
 
 class AppDependencies {
   const AppDependencies({
@@ -33,6 +36,7 @@ class AppDependencies {
     required this.addressRepository,
     required this.authRepository,
     required this.notificationsRepository,
+    required this.promotionsRepository,
   });
 
   final CatalogRepository catalogRepository;
@@ -42,6 +46,7 @@ class AppDependencies {
   final AddressRepository addressRepository;
   final AuthRepository authRepository;
   final NotificationsRepository notificationsRepository;
+  final PromotionsRepository promotionsRepository;
 }
 
 abstract final class RepositoryFactory {
@@ -70,6 +75,7 @@ abstract final class RepositoryFactory {
       authRepository: RestAuthRepository(client, tokens),
       // No notification endpoint exists in the supplied contracts.
       notificationsRepository: LocalNotificationsRepository(),
+      promotionsRepository: RestPromotionsRepository(client),
     );
   }
 
@@ -81,5 +87,6 @@ abstract final class RepositoryFactory {
     addressRepository: InMemoryAddressRepository(),
     authRepository: MockAuthRepository(),
     notificationsRepository: LocalNotificationsRepository(),
+    promotionsRepository: MockPromotionsRepository(),
   );
 }

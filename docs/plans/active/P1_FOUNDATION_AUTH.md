@@ -41,6 +41,6 @@ Focused auth/error/widget tests plus complete existing regression suite; `flutte
 
 ## Current / next / handoff
 
-Status: READY. Baseline checks running. No implementation yet. Next: implement shared error/validation and auth recovery interfaces, then pages. Pending external decision: voucher parameter absent from Checkout contract (does not block P1).
+Status: IMPLEMENTED, native QA pending. Baseline analyze and 60 tests passed. Commit `82fd358` pushed and verified on `feature/mobile-ui`. Next: complete debug APK and run native recovery/keyboard/login QA. Pending external decision: voucher parameter absent from Checkout contract (does not block P1).
 
 Checkpoint evidence: analyze PASS; focused auth/error/viewport 30/30 PASS; navigation/keyboard 3/3 PASS. Debug build running; native validation pending.

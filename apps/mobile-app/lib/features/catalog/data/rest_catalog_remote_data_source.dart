@@ -52,6 +52,7 @@ class RestCatalogRemoteDataSource {
         name: value['name'].toString(),
         price: Money.fromJson(Map<String, dynamic>.from(value['price'] as Map)),
         stock: (value['stock_available'] as num?)?.toInt() ?? 0,
+        stockKnown: value['stock_available'] != null,
       );
     }).toList();
     return Product(
@@ -60,7 +61,11 @@ class RestCatalogRemoteDataSource {
       slug: json['slug'].toString(),
       summary: json['description']?.toString() ?? '',
       imageUrl: (json['images'] as List?)?.firstOrNull?.toString() ?? '',
-      price: variants.first.price,
+      price: variants.isEmpty
+          ? Money.vnd(0)
+          : variants
+                .map((item) => item.price)
+                .reduce((a, b) => a.compareTo(b) < 0 ? a : b),
       ocopStars: (json['ocop_star'] as num?)?.toInt() ?? 0,
       category: '',
       inStock: variants.any((v) => v.stock > 0),

@@ -55,7 +55,37 @@ class CartPage extends StatelessWidget {
               120,
             ),
             children: [
-              for (final line in cart.items) _CartLineTile(line: line),
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Chọn tất cả sản phẩm khả dụng'),
+                subtitle: Text(
+                  'Đã chọn ${state.selectedIds.length}/${state.availableIds.length} dòng',
+                ),
+                value:
+                    state.availableIds.isNotEmpty &&
+                    state.selectedIds.length == state.availableIds.length,
+                onChanged: state.pending
+                    ? null
+                    : (_) => context.read<CartCubit>().toggleAll(),
+              ),
+              if (state.message != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Semantics(
+                    liveRegion: true,
+                    child: Text(
+                      state.message!,
+                      style: const TextStyle(color: AppColors.darkRed),
+                    ),
+                  ),
+                ),
+              for (final line in cart.items)
+                _CartLineTile(
+                  line: line,
+                  selected: state.selectedIds.contains(line.itemId),
+                  available: state.availableIds.contains(line.itemId),
+                  pending: state.pending,
+                ),
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(AppSpacing.md),
@@ -84,14 +114,22 @@ class CartPage extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           const Text(
-                            'Tổng cộng',
+                            'Hàng đã chọn',
                             style: TextStyle(fontWeight: FontWeight.bold),
                           ),
                           Text(
-                            cart.subtotal.format(),
+                            state.selectedCart.subtotal.format(),
                             style: Theme.of(context).textTheme.titleLarge,
                           ),
                         ],
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Tạm tính chưa gồm phí vận chuyển và ưu đãi. Giá và khả dụng được kiểm tra lại khi đặt hàng.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textMuted,
+                        ),
                       ),
                     ],
                   ),
@@ -121,11 +159,11 @@ class CartPage extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Tổng tạm tính (${cart.totalItems} món):',
+                              'Đã chọn ${state.selectedCart.totalItems} món:',
                               style: Theme.of(context).textTheme.bodySmall,
                             ),
                             Text(
-                              cart.subtotal.format(),
+                              state.selectedCart.subtotal.format(),
                               style: const TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
@@ -140,7 +178,16 @@ class CartPage extends StatelessWidget {
                         child: AppPrimaryButton(
                           label: 'Thanh Toán',
                           icon: Icons.arrow_forward,
-                          onPressed: () => context.push(AppRoutes.checkout),
+                          onPressed: state.pending || state.selectedIds.isEmpty
+                              ? null
+                              : () => context.push(
+                                  Uri(
+                                    path: AppRoutes.checkout,
+                                    queryParameters: {
+                                      'items': state.selectedIds.join(','),
+                                    },
+                                  ).toString(),
+                                ),
                         ),
                       ),
                     ],
@@ -162,8 +209,16 @@ class CartPage extends StatelessWidget {
 }
 
 class _CartLineTile extends StatelessWidget {
-  const _CartLineTile({required this.line});
+  const _CartLineTile({
+    required this.line,
+    required this.selected,
+    required this.available,
+    required this.pending,
+  });
   final CartLine line;
+  final bool selected;
+  final bool available;
+  final bool pending;
   @override
   Widget build(BuildContext context) => Card(
     margin: const EdgeInsets.only(bottom: AppSpacing.sm),
@@ -172,17 +227,36 @@ class _CartLineTile extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              color: AppColors.muted,
-              borderRadius: BorderRadius.circular(AppRadius.large),
-            ),
-            child: const Icon(
-              Icons.redeem_outlined,
-              color: AppColors.brandBrown,
-            ),
+          Column(
+            children: [
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: AppColors.muted,
+                  borderRadius: BorderRadius.circular(AppRadius.large),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: line.product.imageUrl.isEmpty
+                    ? const Icon(
+                        Icons.redeem_outlined,
+                        color: AppColors.brandBrown,
+                      )
+                    : Image.network(
+                        line.product.imageUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) =>
+                            const Icon(Icons.image_not_supported_outlined),
+                      ),
+              ),
+              Checkbox(
+                value: selected,
+                semanticLabel: 'Chọn ${line.product.name} để thanh toán',
+                onChanged: pending || !available
+                    ? null
+                    : (_) => context.read<CartCubit>().toggle(line.itemId),
+              ),
+            ],
           ),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
@@ -198,6 +272,11 @@ class _CartLineTile extends StatelessWidget {
                   line.variant.name,
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
+                if (!available)
+                  const Text(
+                    'Quy cách hiện không khả dụng.',
+                    style: TextStyle(color: AppColors.darkRed, fontSize: 12),
+                  ),
                 Text(
                   line.subtotal.format(),
                   style: const TextStyle(
@@ -208,10 +287,12 @@ class _CartLineTile extends StatelessWidget {
                 Row(
                   children: [
                     IconButton(
-                      onPressed: () => context.read<CartCubit>().update(
-                        line.itemId,
-                        line.quantity - 1,
-                      ),
+                      onPressed: pending || !available || line.quantity <= 1
+                          ? null
+                          : () => context.read<CartCubit>().update(
+                              line.itemId,
+                              line.quantity - 1,
+                            ),
                       icon: const Icon(Icons.remove),
                       constraints: const BoxConstraints.tightFor(
                         width: 44,
@@ -220,10 +301,12 @@ class _CartLineTile extends StatelessWidget {
                     ),
                     Text('${line.quantity}'),
                     IconButton(
-                      onPressed: () => context.read<CartCubit>().update(
-                        line.itemId,
-                        line.quantity + 1,
-                      ),
+                      onPressed: pending || !available || line.quantity >= 99
+                          ? null
+                          : () => context.read<CartCubit>().update(
+                              line.itemId,
+                              line.quantity + 1,
+                            ),
                       icon: const Icon(Icons.add),
                       constraints: const BoxConstraints.tightFor(
                         width: 44,
@@ -232,8 +315,9 @@ class _CartLineTile extends StatelessWidget {
                     ),
                     const Spacer(),
                     IconButton(
-                      onPressed: () =>
-                          context.read<CartCubit>().remove(line.itemId),
+                      onPressed: pending
+                          ? null
+                          : () => context.read<CartCubit>().remove(line.itemId),
                       icon: const Icon(Icons.delete_outline),
                       tooltip: 'Xóa sản phẩm',
                       constraints: const BoxConstraints.tightFor(

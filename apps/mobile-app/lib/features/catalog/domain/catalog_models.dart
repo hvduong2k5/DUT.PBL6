@@ -40,17 +40,7 @@ class Product extends Equatable {
     ocopStars: (json['ocop_star'] as num?)?.toInt() ?? 0,
     category: json['category_name']?.toString() ?? '',
     inStock: json['in_stock'] as bool? ?? false,
-    variants: [
-      ProductVariant(
-        id: json['product_id'].toString(),
-        sku: json['product_id'].toString(),
-        name: 'Tiêu chuẩn',
-        price: Money.fromJson(
-          Map<String, dynamic>.from(json['base_price'] as Map),
-        ),
-        stock: json['in_stock'] == true ? 99 : 0,
-      ),
-    ],
+    variants: const [],
   );
   final String id;
   final String name;
@@ -88,12 +78,14 @@ class ProductVariant extends Equatable {
     required this.name,
     required this.price,
     required this.stock,
+    this.stockKnown = true,
   });
   final String id;
   final String sku;
   final String name;
   final Money price;
   final int stock;
+  final bool stockKnown;
   @override
-  List<Object?> get props => [id, sku, name, price, stock];
+  List<Object?> get props => [id, sku, name, price, stock, stockKnown];
 }

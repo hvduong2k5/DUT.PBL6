@@ -24,6 +24,7 @@ void main() {
     'Register': '/register',
     'Recovery request': '/account-recovery',
     'Recovery reset': '/account-recovery?recoveryToken=mock-token',
+    'Promotions': '/promotions',
   };
 
   for (final entry in routes.entries) {

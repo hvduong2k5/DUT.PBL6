@@ -6,6 +6,8 @@ import 'package:mobile_app/features/cart/domain/cart_models.dart';
 import 'package:mobile_app/features/checkout/domain/checkout_models.dart';
 import 'package:mobile_app/features/checkout/domain/checkout_repository.dart';
 import 'package:uuid/uuid.dart';
+import 'package:mobile_app/core/network/api_exception.dart';
+import 'package:mobile_app/features/checkout/domain/checkout_location.dart';
 
 enum CheckoutStatus { editing, submitting, success, failure }
 
@@ -26,6 +28,9 @@ class CheckoutState extends Equatable {
     this.fieldErrors = const {},
     this.message,
     this.confirmation,
+    this.locations = const [],
+    this.loadingLocations = false,
+    this.locationsError,
   });
   final CheckoutStatus status;
   final String fullName;
@@ -42,6 +47,9 @@ class CheckoutState extends Equatable {
   final Map<String, String> fieldErrors;
   final String? message;
   final OrderConfirmation? confirmation;
+  final List<CheckoutProvince> locations;
+  final bool loadingLocations;
+  final String? locationsError;
   CheckoutState copyWith({
     CheckoutStatus? status,
     String? fullName,
@@ -58,6 +66,10 @@ class CheckoutState extends Equatable {
     Map<String, String>? fieldErrors,
     String? message,
     OrderConfirmation? confirmation,
+    List<CheckoutProvince>? locations,
+    bool? loadingLocations,
+    String? locationsError,
+    bool clearLocationsError = false,
   }) => CheckoutState(
     status: status ?? this.status,
     fullName: fullName ?? this.fullName,
@@ -74,6 +86,11 @@ class CheckoutState extends Equatable {
     fieldErrors: fieldErrors ?? this.fieldErrors,
     message: message,
     confirmation: confirmation ?? this.confirmation,
+    locations: locations ?? this.locations,
+    loadingLocations: loadingLocations ?? this.loadingLocations,
+    locationsError: clearLocationsError
+        ? null
+        : locationsError ?? this.locationsError,
   );
   @override
   List<Object?> get props => [
@@ -92,6 +109,9 @@ class CheckoutState extends Equatable {
     fieldErrors,
     message,
     confirmation,
+    locations,
+    loadingLocations,
+    locationsError,
   ];
 }
 
@@ -101,40 +121,87 @@ class CheckoutCubit extends Cubit<CheckoutState> {
       super(const CheckoutState());
   final CheckoutRepository _repository;
   final Cart _cart;
-  final String _idempotencyKey;
-  void setName(String value) => emit(
+  String _idempotencyKey;
+  bool _attempted = false;
+  Cart get cart => _cart;
+  Future<void> loadLocations() async {
+    if (state.loadingLocations) return;
+    emit(state.copyWith(loadingLocations: true, clearLocationsError: true));
+    try {
+      final locations = await _repository.locations();
+      if (!isClosed) {
+        emit(
+          state.copyWith(
+            loadingLocations: false,
+            locations: locations,
+            locationsError: locations.isEmpty
+                ? 'Chưa có khu vực giao hàng khả dụng.'
+                : null,
+          ),
+        );
+      }
+    } catch (error) {
+      if (!isClosed) {
+        emit(
+          state.copyWith(
+            loadingLocations: false,
+            locationsError: error is ApiException
+                ? error.failure.message
+                : 'Chưa tải được khu vực giao hàng. Vui lòng thử lại.',
+          ),
+        );
+      }
+    }
+  }
+
+  void _edit(CheckoutState next) {
+    if (state.status == CheckoutStatus.submitting ||
+        state.status == CheckoutStatus.success) {
+      return;
+    }
+    if (_attempted) {
+      _idempotencyKey = const Uuid().v4();
+      _attempted = false;
+    }
+    emit(next.copyWith(status: CheckoutStatus.editing));
+  }
+
+  void setName(String value) => _edit(
     state.copyWith(
       fullName: value,
       fieldErrors: {...state.fieldErrors}..remove('fullName'),
     ),
   );
-  void setPhone(String value) => emit(
+  void setPhone(String value) => _edit(
     state.copyWith(
       phone: value,
       fieldErrors: {...state.fieldErrors}..remove('phone'),
     ),
   );
-  void setStreetAddress(String value) => emit(
+  void setStreetAddress(String value) => _edit(
     state.copyWith(
       streetAddress: value,
       fieldErrors: {...state.fieldErrors}..remove('streetAddress'),
     ),
   );
-  void setWard(String value) => emit(
+  void setWard(String value) => _edit(
     state.copyWith(
       ward: value,
+      useAccountAddress: false,
       fieldErrors: {...state.fieldErrors}..remove('ward'),
     ),
   );
-  void setDistrict(String value) => emit(
+  void setDistrict(String value) => _edit(
     state.copyWith(
       district: value,
       fieldErrors: {...state.fieldErrors}..remove('district'),
     ),
   );
-  void setProvince(String value) => emit(
+  void setProvince(String value) => _edit(
     state.copyWith(
       province: value,
+      ward: '',
+      useAccountAddress: false,
       fieldErrors: {...state.fieldErrors}..remove('province'),
     ),
   );
@@ -163,10 +230,10 @@ class CheckoutCubit extends Cubit<CheckoutState> {
   void useSavedAddress(bool enabled) {
     final address = state.savedAddress;
     if (!enabled || address == null) {
-      emit(state.copyWith(useAccountAddress: false));
+      _edit(state.copyWith(useAccountAddress: false));
       return;
     }
-    emit(
+    _edit(
       state.copyWith(
         useAccountAddress: true,
         fullName: address.recipientName,
@@ -181,7 +248,7 @@ class CheckoutCubit extends Cubit<CheckoutState> {
   }
 
   void setPayment(PaymentMethod value) =>
-      emit(state.copyWith(paymentMethod: value));
+      _edit(state.copyWith(paymentMethod: value));
   Map<String, String> validate() {
     final errors = <String, String>{};
     if (state.fullName.trim().length < 2) {
@@ -196,11 +263,16 @@ class CheckoutCubit extends Cubit<CheckoutState> {
     if (state.ward.trim().isEmpty) {
       errors['ward'] = 'Vui lòng nhập phường/xã.';
     }
-    if (state.district.trim().isEmpty) {
-      errors['district'] = 'Vui lòng nhập quận/huyện.';
-    }
     if (state.province.trim().isEmpty) {
       errors['province'] = 'Vui lòng nhập tỉnh/thành phố.';
+    }
+    final province = state.locations
+        .where((item) => item.name == state.province)
+        .firstOrNull;
+    if (province == null ||
+        !province.wards.any((item) => item.name == state.ward)) {
+      errors['locations'] =
+          'Vui lòng chọn tỉnh/thành và phường/xã trong khu vực giao hàng.';
     }
     return errors;
   }
@@ -211,6 +283,12 @@ class CheckoutCubit extends Cubit<CheckoutState> {
       return;
     }
     final errors = validate();
+    if (_cart.items.isEmpty ||
+        _cart.items.any(
+          (line) => !line.product.inStock || line.variant.stock < 1,
+        )) {
+      errors['items'] = 'Hãy chọn sản phẩm khả dụng từ giỏ hàng.';
+    }
     if (errors.isNotEmpty) {
       emit(
         state.copyWith(
@@ -225,6 +303,7 @@ class CheckoutCubit extends Cubit<CheckoutState> {
       state.copyWith(status: CheckoutStatus.submitting, fieldErrors: const {}),
     );
     try {
+      _attempted = true;
       final confirmation = await _repository.submit(
         CheckoutDraft(
           fullName: state.fullName.trim(),
@@ -244,11 +323,16 @@ class CheckoutCubit extends Cubit<CheckoutState> {
           confirmation: confirmation,
         ),
       );
-    } catch (_) {
+    } catch (error) {
       emit(
         state.copyWith(
           status: CheckoutStatus.failure,
-          message: 'Không thể đặt hàng. Vui lòng thử lại.',
+          fieldErrors: error is ApiException
+              ? error.failure.fieldErrors
+              : const {},
+          message: error is ApiException
+              ? error.failure.message
+              : 'Không thể đặt hàng. Vui lòng thử lại.',
         ),
       );
     }
