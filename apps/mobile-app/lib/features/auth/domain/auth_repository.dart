@@ -1,4 +1,5 @@
 import 'package:mobile_app/features/auth/domain/auth_models.dart';
+import 'package:mobile_app/features/auth/domain/recovery_verification.dart';
 
 abstract interface class AuthRepository {
   Future<AuthSession> login({
@@ -12,4 +13,14 @@ abstract interface class AuthRepository {
     String? email,
   });
   Future<void> logout();
+  Future<void> requestRecovery(String email, {required String idempotencyKey});
+  Future<RecoveryVerification> verifyRecovery(
+    String token, {
+    required String idempotencyKey,
+  });
+  Future<void> resetPassword(
+    String proof,
+    String password, {
+    required String idempotencyKey,
+  });
 }

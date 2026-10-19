@@ -14,4 +14,5 @@ abstract final class AppRoutes {
   static const notifications = '/notifications';
   static const login = '/login';
   static const register = '/register';
+  static const recovery = '/account-recovery';
 }

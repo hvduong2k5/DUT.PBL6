@@ -2,6 +2,8 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mobile_app/features/auth/domain/auth_models.dart';
 import 'package:mobile_app/features/auth/domain/auth_repository.dart';
+import 'package:mobile_app/features/auth/domain/auth_validation.dart';
+import 'package:mobile_app/core/network/api_exception.dart';
 
 enum AuthStatus { guest, submitting, authenticated, failure }
 
@@ -19,7 +21,8 @@ class AuthCubit extends Cubit<AuthState> {
   final AuthRepository _repository;
 
   Future<bool> login(String phone, String password) async {
-    if (phone.trim().isEmpty || password.isEmpty) {
+    if (state.status == AuthStatus.submitting) return false;
+    if (!AuthValidation.phone(phone) || password.isEmpty) {
       emit(
         const AuthState(
           status: AuthStatus.failure,
@@ -31,16 +34,18 @@ class AuthCubit extends Cubit<AuthState> {
     emit(const AuthState(status: AuthStatus.submitting));
     try {
       final session = await _repository.login(
-        phoneNumber: phone.trim(),
+        phoneNumber: AuthValidation.normalizePhone(phone),
         password: password,
       );
       emit(AuthState(status: AuthStatus.authenticated, user: session.user));
       return true;
-    } catch (_) {
+    } catch (error) {
       emit(
-        const AuthState(
+        AuthState(
           status: AuthStatus.failure,
-          message: 'Thông tin đăng nhập chưa đúng. Vui lòng thử lại.',
+          message: error is ApiException
+              ? error.failure.message
+              : 'Thông tin đăng nhập chưa đúng. Vui lòng thử lại.',
         ),
       );
       return false;
@@ -53,9 +58,11 @@ class AuthCubit extends Cubit<AuthState> {
     required String password,
     String? email,
   }) async {
+    if (state.status == AuthStatus.submitting) return false;
     if (name.trim().isEmpty ||
-        !RegExp(r'^0\d{9}$').hasMatch(phone.trim()) ||
-        password.length < 8) {
+        !AuthValidation.phone(phone) ||
+        !AuthValidation.password(password) ||
+        !AuthValidation.email(email ?? '')) {
       emit(
         const AuthState(
           status: AuthStatus.failure,
@@ -67,7 +74,7 @@ class AuthCubit extends Cubit<AuthState> {
     emit(const AuthState(status: AuthStatus.submitting));
     try {
       final session = await _repository.register(
-        phoneNumber: phone.trim(),
+        phoneNumber: AuthValidation.normalizePhone(phone),
         password: password,
         fullName: name.trim(),
         email: email?.trim(),
@@ -89,4 +96,6 @@ class AuthCubit extends Cubit<AuthState> {
     await _repository.logout();
     emit(const AuthState());
   }
+
+  void resetToGuest() => emit(const AuthState());
 }

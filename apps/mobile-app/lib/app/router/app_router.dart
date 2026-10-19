@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_app/app/router/routes.dart';
@@ -11,6 +12,10 @@ import 'package:mobile_app/features/account/presentation/addresses_cubit.dart';
 import 'package:mobile_app/features/account/presentation/addresses_page.dart';
 import 'package:mobile_app/features/auth/presentation/auth_page.dart';
 import 'package:mobile_app/features/auth/presentation/auth_cubit.dart';
+import 'package:mobile_app/features/auth/domain/auth_repository.dart';
+import 'package:mobile_app/features/auth/presentation/auth_return_location.dart';
+import 'package:mobile_app/features/auth/presentation/recovery_cubit.dart';
+import 'package:mobile_app/features/auth/presentation/recovery_page.dart';
 import 'package:mobile_app/features/cart/presentation/cart_page.dart';
 import 'package:mobile_app/features/cart/presentation/cart_cubit.dart';
 import 'package:mobile_app/features/catalog/domain/catalog_repository.dart';
@@ -148,13 +153,40 @@ GoRouter createAppRouter({
     ),
     GoRoute(
       path: AppRoutes.login,
-      builder: (context, state) =>
-          const SafeBackScope(child: AuthPage(register: false)),
+      builder: (context, state) => SafeBackScope(
+        child: AuthPage(
+          register: false,
+          returnLocation: safeAuthReturnLocation(
+            state.uri.queryParameters['returnUrl'],
+          ),
+        ),
+      ),
     ),
     GoRoute(
       path: AppRoutes.register,
-      builder: (context, state) =>
-          const SafeBackScope(child: AuthPage(register: true)),
+      builder: (context, state) => SafeBackScope(
+        child: AuthPage(
+          register: true,
+          returnLocation: safeAuthReturnLocation(
+            state.uri.queryParameters['returnUrl'],
+          ),
+        ),
+      ),
+    ),
+    GoRoute(
+      path: AppRoutes.recovery,
+      builder: (context, state) => SafeBackScope(
+        child: BlocProvider(
+          key: ValueKey(state.uri.toString()),
+          create: (_) => RecoveryCubit(context.read<AuthRepository>()),
+          child: RecoveryPage(
+            returnLocation: safeAuthReturnLocation(
+              state.uri.queryParameters['returnUrl'],
+            ),
+            recoveryToken: state.uri.queryParameters['recoveryToken'],
+          ),
+        ),
+      ),
     ),
   ],
 );

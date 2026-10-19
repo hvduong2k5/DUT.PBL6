@@ -8,7 +8,7 @@ abstract final class AppTheme {
     final scheme = ColorScheme.fromSeed(
       seedColor: AppColors.brandBrown,
       brightness: Brightness.light,
-      primary: AppColors.brandBrown,
+      primary: AppColors.headingBrown,
       secondary: AppColors.honeyGold,
       surface: AppColors.ivory,
       error: AppColors.brickRed,
@@ -60,8 +60,8 @@ abstract final class AppTheme {
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          backgroundColor: AppColors.honeyGold,
-          foregroundColor: AppColors.ctaText,
+          backgroundColor: AppColors.headingBrown,
+          foregroundColor: AppColors.surface,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadius.large),
           ),

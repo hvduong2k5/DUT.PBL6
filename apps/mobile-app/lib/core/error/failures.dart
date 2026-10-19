@@ -6,6 +6,8 @@ enum FailureKind {
   forbidden,
   notFound,
   conflict,
+  expired,
+  rateLimited,
   server,
   network,
   timeout,
@@ -19,13 +21,25 @@ class Failure extends Equatable {
     this.code,
     this.domain,
     this.fieldErrors = const {},
+    this.requestId,
+    this.retryAfterSeconds,
   });
   final FailureKind kind;
   final String message;
   final String? code;
   final String? domain;
   final Map<String, String> fieldErrors;
+  final String? requestId;
+  final int? retryAfterSeconds;
 
   @override
-  List<Object?> get props => [kind, message, code, domain, fieldErrors];
+  List<Object?> get props => [
+    kind,
+    message,
+    code,
+    domain,
+    fieldErrors,
+    requestId,
+    retryAfterSeconds,
+  ];
 }

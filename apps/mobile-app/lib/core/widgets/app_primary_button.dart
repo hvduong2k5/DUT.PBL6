@@ -17,12 +17,12 @@ class AppPrimaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SizedBox(
-    height: 48,
+    height: 52,
     child: FilledButton.icon(
       onPressed: loading ? null : onPressed,
       style: FilledButton.styleFrom(
-        backgroundColor: AppColors.honeyGold,
-        foregroundColor: AppColors.ctaText,
+        backgroundColor: AppColors.headingBrown,
+        foregroundColor: AppColors.surface,
         disabledBackgroundColor: AppColors.border,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.large),
@@ -31,7 +31,10 @@ class AppPrimaryButton extends StatelessWidget {
       icon: loading
           ? const SizedBox.square(
               dimension: 18,
-              child: CircularProgressIndicator(strokeWidth: 2),
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: AppColors.headingBrown,
+              ),
             )
           : icon == null
           ? const SizedBox.shrink()

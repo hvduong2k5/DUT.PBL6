@@ -28,12 +28,24 @@ abstract final class ApiErrorMapper {
         fields[entry.key.toString()] = entry.value.toString();
       }
     }
+    if (data['errors'] case final List errors) {
+      for (final error in errors.whereType<Map>()) {
+        if (error['field'] is String && error['message'] is String) {
+          fields[error['field'] as String] = error['message'] as String;
+        }
+      }
+    }
     return Failure(
       kind: _kindForStatus(status),
-      message: data['user_message'] as String? ?? _defaultMessage(status),
-      code: data['error_code'] as String?,
+      message:
+          data['message'] as String? ??
+          data['user_message'] as String? ??
+          _defaultMessage(status),
+      code: (data['code'] ?? data['error_code'])?.toString(),
       domain: data['domain'] as String?,
       fieldErrors: fields,
+      requestId: data['requestId'] as String?,
+      retryAfterSeconds: data['retryAfterSeconds'] as int?,
     );
   }
 
@@ -43,6 +55,8 @@ abstract final class ApiErrorMapper {
     403 => FailureKind.forbidden,
     404 => FailureKind.notFound,
     409 => FailureKind.conflict,
+    410 => FailureKind.expired,
+    429 => FailureKind.rateLimited,
     int value when value >= 500 => FailureKind.server,
     _ => FailureKind.unknown,
   };
@@ -53,6 +67,8 @@ abstract final class ApiErrorMapper {
     403 => 'Bạn không có quyền thực hiện thao tác này.',
     404 => 'Không tìm thấy dữ liệu yêu cầu.',
     409 => 'Dữ liệu đã thay đổi. Vui lòng tải lại.',
+    410 => 'Liên kết đã hết hạn. Vui lòng gửi yêu cầu mới.',
+    429 => 'Bạn thao tác quá nhanh. Vui lòng chờ rồi thử lại.',
     int value when value >= 500 => 'Hệ thống đang bận. Vui lòng thử lại sau.',
     _ => 'Đã xảy ra lỗi. Vui lòng thử lại.',
   };
