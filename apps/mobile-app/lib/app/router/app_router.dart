@@ -49,6 +49,9 @@ import 'package:mobile_app/features/notifications/domain/app_notification.dart';
 import 'package:mobile_app/features/notifications/presentation/notifications_cubit.dart';
 import 'package:mobile_app/features/notifications/presentation/notifications_page.dart';
 import 'package:mobile_app/features/onboarding/presentation/onboarding_page.dart';
+import 'package:mobile_app/features/support/domain/support_repository.dart';
+import 'package:mobile_app/features/support/presentation/support_cubit.dart';
+import 'package:mobile_app/features/support/presentation/support_pages.dart';
 
 GoRouter createAppRouter({
   required OnboardingStore onboardingStore,
@@ -59,6 +62,27 @@ GoRouter createAppRouter({
       initialLocation ??
       (onboardingCompleted ? AppRoutes.home : AppRoutes.onboarding),
   routes: [
+    GoRoute(
+      path: AppRoutes.supportRequest,
+      builder: (context, state) => SafeBackScope(
+        child: BlocProvider(
+          create: (_) =>
+              SupportCubit(context.read<SupportRepository>())..loadContext(),
+          child: const SupportRequestPage(),
+        ),
+      ),
+    ),
+    GoRoute(
+      path: AppRoutes.supportTicket,
+      builder: (context, state) => SafeBackScope(
+        child: BlocProvider(
+          create: (_) =>
+              SupportCubit(context.read<SupportRepository>())
+                ..loadTicket(state.pathParameters['id']!),
+          child: SupportTicketPage(ticketId: state.pathParameters['id']!),
+        ),
+      ),
+    ),
     GoRoute(
       path: AppRoutes.guestOrderLookup,
       builder: (context, state) => SafeBackScope(

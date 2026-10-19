@@ -20,4 +20,6 @@ abstract final class AppRoutes {
   static const profile = '/account/profile';
   static const loyalty = '/account/loyalty';
   static const guestOrderLookup = '/track-order';
+  static const supportRequest = '/support/request';
+  static const supportTicket = '/support/tickets/:id';
 }

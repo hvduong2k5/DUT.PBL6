@@ -24,7 +24,8 @@ Keep the supplied ZIP unchanged, including stable/draft/planned distinctions. Us
 - [ ] Capability projection and verified B2B entry guards; server remains authoritative. Read complete Web B2B flow/contracts before implementation.
 - [x] Guest lookup challenge/expiry/resend/OTP/grant and exact-order navigation; preserve only server-issued authority, never direct-ID authorization. Mock ownership denies history/other orders/expired grants. Native and real-cookie integration QA still pending.
 - [ ] Order read/cancel/tracking states and reorder; no fabricated item names/prices from SKU or order ID.
-- [ ] Support context/create/detail/public messages; after-sales create/detail with drafts separated; trace manual/QR entry. Read each source+contract before editing.
+- [x] Support context/create/detail/public messages. No fake upload/contact extension/hotline/CSAT. Automated create→ticket→reply, idempotency and ownership checks PASS; native form/keyboard inspected, native submission pending.
+- [ ] After-sales create/detail with drafts separated; trace manual/QR entry. Read each source+contract before editing.
 - [ ] B2B context/quote request/released detail/version acceptance with idempotency and correct capability/ownership.
 - [ ] Focused tests, complete regression, native scrcpy QA; matrix/handoff/checkpoint.
 
@@ -38,4 +39,4 @@ Payload contract tests and state/navigation tests for each new flow, plus analyz
 
 ## Handoff / next
 
-Status: ACTIVE. Transport/account/address and Guest OTP slices implemented. Latest analyze PASS; focused Guest/purchase suite 10/10 PASS. Native account/Guest QA pending. Next: support context/create/detail/reply, then capabilities/after-sales/trace/B2B and remaining order flows.
+Status: ACTIVE. Account/address, Guest OTP and support slices implemented. Latest analyze PASS; focused support 4/4 PASS; full regression 97/97 PASS. Native support layout and focused keyboard observed; native submission/account/Guest QA pending. Next: current-session restore/capability projection, then after-sales/trace/B2B and remaining order flows.

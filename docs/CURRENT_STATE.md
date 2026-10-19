@@ -4,7 +4,7 @@ Updated 2026-10-19. Goal ACTIVE. Whole Customer parity NOT COMPLETE.
 
 ## Git / scope / authority
 
-Branch `feature/mobile-ui`. HEAD before Guest milestone `ec8545a01a193e6f67d78591050c291ed2cc8277`, pushed/verified. Prior milestones `1d91c15`, `82fd358`. Resolve current milestone SHA using git log. Only Mobile commits/pushes allowed; no merge/PR. Web `origin/feature/ui-web` at `b1ff2918c7297fc93d0cb9a15cc1d0a0ee46b72e` stays read-only, inspected with git show. No Web edits/checkout performed.
+Branch `feature/mobile-ui`. HEAD before support milestone `eb57d76dd6df39d08fe8670c54435caf22497247`, pushed/verified. Prior milestones `ec8545a`, `1d91c15`, `82fd358`. Resolve current milestone SHA using git log. Only Mobile commits/pushes allowed; no merge/PR. Web `origin/feature/ui-web` at `b1ff2918c7297fc93d0cb9a15cc1d0a0ee46b72e` stays read-only, inspected with git show. No Web edits/checkout performed.
 
 ## Completed implementation
 
@@ -15,11 +15,13 @@ Branch `feature/mobile-ui`. HEAD before Guest milestone `ec8545a01a193e6f67d7859
 
 ## Accepted constraints / remaining work
 
+- Support slice implemented: server form context/options/owned-order selection, create→actual ticket detail→public reply; retry keys in body/header, preserved errors/drafts, closed reply disabled. Mock tickets and replies are scoped/idempotent. ZIP does not allow Web guest contact object and has no stable upload/download; do not collect unsendable contact, send attachment metadata as real uploads, or invent download URLs. Ticket list is draft. Full 97/97 tests and analyze PASS. Native form and keyboard observed; native submission NOT RUN.
+
 - Guest OTP slice implemented: neutral challenge, contact/OTP validation, resend cooldown, expiry/429, safe native exact-order route; REST uses only ZIP challenge/verify payloads and server cookie jar. Mock denies direct order lookup, history, other orders and expired/consumed grants. Newly created local checkout grants only its exact order. Anonymous order history now goes through login. Focused Guest/purchase suite 10/10 PASS, analyze PASS. Native Guest flow and real server-issued grants NOT RUN.
 
 - User explicitly chose unchanged ZIP. Voucher check works; actual voucher application at POST /checkout is waiting for contract extension. Never send voucher_code or subtract preview savings.
 - ZIP has no shipping quote endpoint, no durable QR recovery endpoint and no advanced catalog filter contract matching Web's legacy query fields. UI must state tentative merchandise total and avoid inventing final fees/QR. Discovery advanced filtering/pagination remains to reconcile; product reviews not implemented yet.
-- P3 still OPEN: customer capabilities/verified B2B guards; current-session restore; order cancellation/tracking/reorder; support create/detail/public reply; after-sales create/detail with draft operations separated; trace entry/detail; B2B request/released quote/version acceptance. Read each Web source and corresponding ZIP schema before editing. No placeholder hotline or uncontracted upload endpoints.
+- P3 still OPEN: customer capabilities/verified B2B guards; current-session restore; order cancellation/tracking/reorder; after-sales create/detail with draft operations separated; trace entry/detail; B2B request/released quote/version acceptance. Read each Web source and corresponding ZIP schema before editing. No placeholder hotline or uncontracted upload endpoints.
 - P4 full cross-flow/native QA still OPEN. P1 successful reset/relogin and P2 complete order creation have automated coverage but not full native coverage. Do not mark goal or roadmap DONE at checkpoint.
 
 ## Validation and native state
@@ -32,4 +34,4 @@ Branch `feature/mobile-ui`. HEAD before Guest milestone `ec8545a01a193e6f67d7859
 
 ## Exact next action
 
-Finish Guest commit/push and verify remote SHA, then implement support context/create/detail/reply. Web request/ticket sources and stable schemas have been read. ZIP support POST forbids Web's contact object and offers no stable upload service: do not send contact or pretend files were uploaded. Document this discrepancy before implementation. Native account/Guest QA: restart attached app to load new DI, then test login/profile/address/OTP/keyboard/back. Run focused checks per slice and full suite/build at meaningful milestones. Preserve all original scope and accepted ZIP limitations.
+Finish support commit/push and verify remote SHA, then current-session restore/capability projection. Stable auth/me, refresh and customer/capabilities schemas and Web capabilities.ts have been read. Trace Web/schema also read; no source changes yet. Active attach has new support DI after restart; current phone shows support title field focused, dummy local text just entered (refresh before action). Native account/Guest QA remains. Run focused checks per slice and full suite/build at milestones. Preserve all original scope and accepted ZIP limitations.

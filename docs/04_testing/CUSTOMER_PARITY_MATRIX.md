@@ -41,5 +41,5 @@ Baseline analyze PASS, tests 60/60 PASS. P1 analyze PASS, focused tests 30/30 PA
 - Foundation/auth/recovery implemented; automated and selected native evidence in CURRENT_STATE.
 - Product SKU selection, current-page cart selection, strict Checkout/two-level locations, promotions validation and payment/confirmation implemented. Full native transaction QA pending. Voucher application waits for unchanged ZIP extension, per user.
 - Profile/loyalty/address counterparts implemented with login-return and contract tests; native account QA pending.
-- Guest ownership challenge/OTP/exact-order routing implemented; focused Guest/purchase 10/10 PASS and analyze PASS. Native/server integration pending. Capability/B2B, support, after-sales, trace, reviews, advanced discovery and remaining order flows remain OPEN.
+- Guest ownership and support create/detail/public reply implemented. Latest full regression 97/97 PASS and analyze PASS; native support form/keyboard observed, submission pending. Capability/B2B, after-sales, trace, reviews, advanced discovery and remaining order flows remain OPEN.
 - Latest full suite 90/90 PASS; latest address mutation changes additionally pass analyze and focused 14 tests.

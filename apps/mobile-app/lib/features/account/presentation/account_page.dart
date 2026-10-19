@@ -70,7 +70,11 @@ class AccountPage extends StatelessWidget {
                 label: 'Ưu đãi Tri Kỷ',
                 onTap: () => context.push(AppRoutes.promotions),
               ),
-              const _MenuRow(icon: Icons.help_outline, label: 'Hỗ trợ'),
+              _MenuRow(
+                icon: Icons.help_outline,
+                label: 'Hỗ trợ',
+                onTap: () => context.push(AppRoutes.supportRequest),
+              ),
               const _MenuRow(icon: Icons.info_outline, label: 'Về Ô Mạ'),
               if (!isGuest) ...[
                 const SizedBox(height: AppSpacing.md),

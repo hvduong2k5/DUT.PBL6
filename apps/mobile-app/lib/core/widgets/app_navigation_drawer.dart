@@ -93,6 +93,11 @@ class AppNavigationDrawer extends StatelessWidget {
               onTap: () => _open(context, AppRoutes.guestOrderLookup),
             ),
             _DrawerDestination(
+              icon: Icons.support_agent_outlined,
+              label: 'Hỗ trợ Tri Kỷ',
+              onTap: () => _open(context, AppRoutes.supportRequest),
+            ),
+            _DrawerDestination(
               icon: Icons.local_offer_outlined,
               label: 'Ưu đãi Tri Kỷ',
               selected: activeRoute == AppRoutes.promotions,

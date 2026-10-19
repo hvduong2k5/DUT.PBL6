@@ -171,13 +171,10 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                 ),
               ),
             ),
-            const Padding(
-              padding: EdgeInsets.all(12),
-              child: Text(
-                'Hành động hủy đơn hoặc hỗ trợ chỉ xuất hiện khi API cho phép.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 11, color: AppColors.textMuted),
-              ),
+            TextButton.icon(
+              onPressed: () => context.push(AppRoutes.supportRequest),
+              icon: const Icon(Icons.support_agent_outlined),
+              label: const Text('Yêu cầu hỗ trợ'),
             ),
           ],
         );
