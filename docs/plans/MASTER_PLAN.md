@@ -19,7 +19,7 @@ Retain Flutter/GoRouter/Cubit and repository interfaces. Extend existing feature
 | P0 | Read Web Customer, inventory screens/states, map contracts and gaps, capture baseline checks | Approved scope | COMPLETE: route and contract inventory |
 | P1 | Shared tokens/components and auth recovery/login/register continuity | P0 mapping | IMPLEMENTED; native QA pending |
 | P2 | Discovery/product/cart/promotions/checkout/payment/confirmation parity | P1 foundation, stable contract mapping | ACTIVE: cart/promotions/strict Checkout implemented; payment/discovery/QA pending |
-| P3 | Account/profile/address/loyalty/orders/guest tracking/after-sales/support/trace/B2B parity | P2 transaction identity, per-flow mapping | OPEN |
+| P3 | Account/profile/address/loyalty/orders/guest tracking/after-sales/support/trace/B2B parity | P2 transaction identity, per-flow mapping | ACTIVE: account/address/native cookie slice implemented; ownership/service flows pending |
 | P4 | Cross-flow regression, Android/scrcpy QA, contract checks, reviewable delivery | All parity rows resolved or explicit external blocker | OPEN |
 
 Detailed plans are written for current implementation only; later phases are refined against the actual code and contract before starting.

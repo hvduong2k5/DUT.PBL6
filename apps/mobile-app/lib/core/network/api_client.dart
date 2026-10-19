@@ -3,6 +3,7 @@ import 'package:mobile_app/core/config/api_config.dart';
 import 'package:mobile_app/core/network/api_error_mapper.dart';
 import 'package:mobile_app/core/network/api_exception.dart';
 import 'package:mobile_app/core/storage/token_store.dart';
+import 'package:mobile_app/core/network/session_cookies.dart';
 
 class ApiClient {
   ApiClient({Dio? dio, TokenStore? tokenStore, String? baseUrl})
@@ -17,6 +18,7 @@ class ApiClient {
               headers: const {'Accept': 'application/json'},
             ),
           ) {
+    _cookies = SessionCookies(this.dio);
     this.dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
@@ -31,6 +33,8 @@ class ApiClient {
   }
   final Dio dio;
   final TokenStore _tokenStore;
+  late final SessionCookies _cookies;
+  Future<void> clearSessionCookies() => _cookies.clear();
 
   Future<Map<String, dynamic>> getJson(
     String path, {

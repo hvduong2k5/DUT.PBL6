@@ -2,6 +2,9 @@ import 'package:equatable/equatable.dart';
 import 'package:mobile_app/core/models/money.dart';
 import 'package:mobile_app/features/catalog/domain/catalog_models.dart';
 
+// Customer Web lib/cart/validation.ts at b1ff2918.
+const maxCartItemQuantity = 20;
+
 class CartLine extends Equatable {
   const CartLine({
     required this.itemId,

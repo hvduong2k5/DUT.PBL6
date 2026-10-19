@@ -27,7 +27,7 @@ In: cart selection/availability/quantity/error states; selected-line checkout; s
 - [x] Checkout uses selected Cart snapshot, preserves unselected lines after success, two-level locations and explicit missing-selection state.
 - [x] Correct REST checkout payload/header; maintain idempotent retry per identical payload and new key after edits; map field/business errors.
 - [x] Add promotions domain/REST/mock/Cubit/list/validation UI, reachable from drawer/account and Checkout; stale validation discarded when code/subtotal changes.
-- [ ] Add confirmation/payment presentation using backend fields; expiry and retry/read status; no automatic paid claim.
+- [x] Add confirmation/payment presentation using backend fields; expiry and retry/read status; no automatic paid claim.
 - [ ] Compare Home/Catalog/Product/reviews, implement remaining gaps in a focused follow-on slice.
 - [ ] Tests, analysis, full regression, Android build/scrcpy QA and milestone checkpoint.
 
@@ -46,3 +46,5 @@ Unit tests: selection/reconciliation/availability, retry/idempotency, payload ex
 Status: planned, source implementation not started. Next: finish P1 native build/QA, then implement cart selection and strict checkout payload first. User confirmed no contract extension in this task; mark actual Checkout voucher application pending.
 
 First slice evidence: full Flutter suite 80/80 PASS; analyze PASS before final product padding/lifecycle edits. P2 native QA pending. User confirmed actual Checkout voucher application waits for contract extension; ZIP unchanged. P1 native build/install and recovery validation/sent/reset keyboard/expired states observed via scrcpy.
+
+Payment/order slice: invalid IDs no longer create fake confirmations, native QR/expiry/status view added. Populated purchase widget test passes and unselected lines remain. Native product/SKU/add/cart/checkout visuals observed. Full native order/payment workflow remains P4 work. Quantity limit verified as 20 from Web source.

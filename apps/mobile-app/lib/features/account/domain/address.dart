@@ -7,7 +7,7 @@ class Address extends Equatable {
     required this.phoneNumber,
     required this.streetAddress,
     required this.ward,
-    required this.district,
+    this.district = '',
     required this.province,
     this.isDefault = false,
   });
@@ -32,7 +32,11 @@ class Address extends Equatable {
     isDefault: json['is_default'] as bool? ?? false,
   );
 
-  String get formatted => '$streetAddress, $ward, $district, $province';
+  String get formatted => [
+    streetAddress,
+    ward,
+    province,
+  ].where((value) => value.trim().isNotEmpty).join(', ');
 
   Address copyWith({bool? isDefault}) => Address(
     id: id,
@@ -50,7 +54,6 @@ class Address extends Equatable {
     'phone_number': phoneNumber,
     'street_address': streetAddress,
     'ward': ward,
-    'district': district,
     'province': province,
     'is_default': isDefault,
   };

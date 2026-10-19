@@ -56,6 +56,7 @@ class RestAuthRepository implements AuthRepository {
   @override
   Future<void> logout() async {
     await _client.postJson('/api/v1/auth/logout');
+    await _client.clearSessionCookies();
     await _tokens.clear();
   }
 
@@ -100,6 +101,7 @@ class RestAuthRepository implements AuthRepository {
       data: {'resetProof': proof, 'newPassword': password},
       headers: {'Idempotency-Key': idempotencyKey},
     );
+    await _client.clearSessionCookies();
     await _tokens.clear();
   }
 }

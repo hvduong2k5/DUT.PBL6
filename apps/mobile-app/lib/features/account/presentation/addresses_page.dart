@@ -10,6 +10,7 @@ import 'package:mobile_app/core/widgets/app_loading_view.dart';
 import 'package:mobile_app/core/widgets/app_mobile_header.dart';
 import 'package:mobile_app/features/account/domain/address.dart';
 import 'package:mobile_app/features/account/presentation/addresses_cubit.dart';
+import 'package:mobile_app/core/widgets/app_error_view.dart';
 
 class AddressesPage extends StatelessWidget {
   const AddressesPage({super.key});
@@ -24,6 +25,12 @@ class AddressesPage extends StatelessWidget {
           return const AppLoadingView();
         }
         if (state.addresses.isEmpty) {
+          if (state.status == AddressesStatus.failure) {
+            return AppErrorView(
+              message: state.message ?? 'Chưa tải được sổ địa chỉ.',
+              onRetry: context.read<AddressesCubit>().load,
+            );
+          }
           return AppEmptyView(
             title: 'Chưa có địa chỉ',
             message: 'Thêm địa chỉ để việc thanh toán và giao hàng nhanh hơn.',
@@ -42,8 +49,19 @@ class AddressesPage extends StatelessWidget {
         return ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            if (state.message != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Semantics(
+                  liveRegion: true,
+                  child: Text(
+                    state.message!,
+                    style: const TextStyle(color: AppColors.darkRed),
+                  ),
+                ),
+              ),
             for (final address in state.addresses)
-              _AddressCard(address: address),
+              _AddressCard(address: address, pending: state.pending),
             const SizedBox(height: 8),
             AppPrimaryButton(
               onPressed: () async {
@@ -63,8 +81,9 @@ class AddressesPage extends StatelessWidget {
 }
 
 class _AddressCard extends StatelessWidget {
-  const _AddressCard({required this.address});
+  const _AddressCard({required this.address, required this.pending});
   final Address address;
+  final bool pending;
   @override
   Widget build(BuildContext context) => Card(
     child: Padding(
@@ -96,28 +115,62 @@ class _AddressCard extends StatelessWidget {
           ),
           Text(address.formatted),
           const Divider(),
-          Row(
+          Wrap(
             children: [
               TextButton.icon(
-                onPressed: () async {
-                  await context.push(AppRoutes.addressForm, extra: address);
-                  if (context.mounted) {
-                    await context.read<AddressesCubit>().load();
-                  }
-                },
+                onPressed: pending
+                    ? null
+                    : () async {
+                        await context.push(
+                          AppRoutes.addressForm,
+                          extra: address,
+                        );
+                        if (context.mounted) {
+                          await context.read<AddressesCubit>().load();
+                        }
+                      },
                 icon: const Icon(Icons.edit_outlined),
                 label: const Text('Chỉnh sửa'),
               ),
               TextButton.icon(
-                onPressed: () =>
-                    context.read<AddressesCubit>().delete(address.id),
+                onPressed: pending
+                    ? null
+                    : () async {
+                        final confirmed = await showDialog<bool>(
+                          context: context,
+                          builder: (dialogContext) => AlertDialog(
+                            title: const Text('Xóa địa chỉ này?'),
+                            content: Text(address.formatted),
+                            actions: [
+                              TextButton(
+                                onPressed: () =>
+                                    Navigator.pop(dialogContext, false),
+                                child: const Text('Giữ lại'),
+                              ),
+                              FilledButton(
+                                onPressed: () =>
+                                    Navigator.pop(dialogContext, true),
+                                child: const Text('Xóa địa chỉ'),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (confirmed == true && context.mounted) {
+                          await context.read<AddressesCubit>().delete(
+                            address.id,
+                          );
+                        }
+                      },
                 icon: const Icon(Icons.delete_outline),
                 label: const Text('Xóa'),
               ),
               if (!address.isDefault)
                 TextButton(
-                  onPressed: () =>
-                      context.read<AddressesCubit>().setDefault(address.id),
+                  onPressed: pending
+                      ? null
+                      : () => context.read<AddressesCubit>().setDefault(
+                          address.id,
+                        ),
                   child: const Text('Đặt mặc định'),
                 ),
             ],

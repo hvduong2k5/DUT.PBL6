@@ -38,6 +38,16 @@ class AccountPage extends StatelessWidget {
                 const SizedBox(height: AppSpacing.lg),
                 const _SectionLabel('TÀI KHOẢN'),
                 _MenuRow(
+                  icon: Icons.person_outline,
+                  label: 'Hồ sơ cá nhân',
+                  onTap: () => context.push(AppRoutes.profile),
+                ),
+                _MenuRow(
+                  icon: Icons.loyalty_outlined,
+                  label: 'Ví điểm & đặc quyền',
+                  onTap: () => context.push(AppRoutes.loyalty),
+                ),
+                _MenuRow(
                   icon: Icons.receipt_long_outlined,
                   label: 'Đơn hàng của tôi',
                   onTap: () => context.push(AppRoutes.orders),
@@ -99,8 +109,8 @@ class _ProfileCard extends StatelessWidget {
   String get _initials {
     final parts = user.fullName.split(' ').where((s) => s.isNotEmpty).toList();
     if (parts.isEmpty) return 'NA';
-    if (parts.length == 1) return parts[0].substring(0, 1).toUpperCase();
-    return '${parts.first.substring(0, 1)}${parts.last.substring(0, 1)}'
+    if (parts.length == 1) return parts[0].characters.first.toUpperCase();
+    return '${parts.first.characters.first}${parts.last.characters.first}'
         .toUpperCase();
   }
 
@@ -112,19 +122,23 @@ class _ProfileCard extends StatelessWidget {
         children: [
           CircleAvatar(radius: 34, child: Text(_initials)),
           const SizedBox(width: AppSpacing.md),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                user.fullName,
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              Text(user.phoneNumber),
-              const Text(
-                'Thông tin hồ sơ người dùng',
-                style: TextStyle(fontSize: 11),
-              ),
-            ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  user.fullName,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                Text(user.phoneNumber),
+                const Text(
+                  'Thông tin hồ sơ người dùng',
+                  style: TextStyle(fontSize: 11),
+                ),
+              ],
+            ),
           ),
         ],
       ),

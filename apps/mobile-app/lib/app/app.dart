@@ -15,6 +15,7 @@ import 'package:mobile_app/features/checkout/domain/checkout_repository.dart';
 import 'package:mobile_app/features/orders/domain/orders_repository.dart';
 import 'package:mobile_app/features/notifications/domain/app_notification.dart';
 import 'package:mobile_app/features/promotions/domain/promotions_repository.dart';
+import 'package:mobile_app/features/account/domain/customer_account_repository.dart';
 
 class OmaApp extends StatefulWidget {
   const OmaApp({
@@ -60,6 +61,9 @@ class _OmaAppState extends State<OmaApp> {
   @override
   Widget build(BuildContext context) => MultiRepositoryProvider(
     providers: [
+      RepositoryProvider<CustomerAccountRepository>.value(
+        value: _dependencies.customerAccountRepository,
+      ),
       RepositoryProvider<PromotionsRepository>.value(
         value: _dependencies.promotionsRepository,
       ),

@@ -1,8 +1,37 @@
 import 'package:mobile_app/core/models/money.dart';
 import 'package:mobile_app/features/orders/domain/order_models.dart';
 import 'package:mobile_app/features/orders/domain/orders_repository.dart';
+import 'package:mobile_app/features/checkout/domain/checkout_models.dart';
+import 'package:mobile_app/core/network/api_exception.dart';
+import 'package:mobile_app/core/error/failures.dart';
 
 class MockOrdersRepository implements OrdersRepository {
+  final List<CustomerOrder> _created = [];
+  void record(OrderConfirmation confirmation, CheckoutDraft draft) {
+    _created.removeWhere((order) => order.id == confirmation.orderId);
+    _created.add(
+      CustomerOrder(
+        id: confirmation.orderId,
+        status: OrderStatusUi.fromApi(confirmation.status),
+        rawStatus: confirmation.status,
+        totalItems: draft.cart.totalItems,
+        total: confirmation.total,
+        createdAt: DateTime.now(),
+        address: '${draft.streetAddress}, ${draft.ward}, ${draft.province}',
+        items: draft.cart.items
+            .map(
+              (line) => OrderItem(
+                name: line.product.name,
+                variantName: line.variant.name,
+                quantity: line.quantity,
+                price: line.variant.price,
+              ),
+            )
+            .toList(),
+      ),
+    );
+  }
+
   static final _now = DateTime(2026, 9, 24, 10, 15);
   static final _orders = [
     CustomerOrder(
@@ -72,20 +101,24 @@ class MockOrdersRepository implements OrdersRepository {
   @override
   Future<List<CustomerOrder>> orders() async {
     await Future<void>.delayed(const Duration(milliseconds: 180));
-    return _orders;
+    return [..._created, ..._orders];
   }
 
   @override
   Future<CustomerOrder> order(String id) async {
     await Future<void>.delayed(const Duration(milliseconds: 120));
-    return _orders.where((item) => item.id == id).firstOrNull ??
-        CustomerOrder(
-          id: id,
-          status: OrderStatus.pending,
-          totalItems: 1,
-          total: Money.vnd(0),
-          createdAt: DateTime.now(),
-          checkpoints: [OrderCheckpoint(label: 'Đã đặt', time: DateTime.now())],
-        );
+    final order = [
+      ..._created,
+      ..._orders,
+    ].where((item) => item.id == id).firstOrNull;
+    if (order == null) {
+      throw const ApiException(
+        Failure(
+          kind: FailureKind.notFound,
+          message: 'Không tìm thấy đơn hàng trong phiên truy cập này.',
+        ),
+      );
+    }
+    return order;
   }
 }

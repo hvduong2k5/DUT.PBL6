@@ -32,6 +32,12 @@ import 'package:mobile_app/features/checkout/domain/checkout_repository.dart';
 import 'package:mobile_app/features/checkout/presentation/checkout_cubit.dart';
 import 'package:mobile_app/features/checkout/presentation/checkout_page.dart';
 import 'package:mobile_app/features/checkout/presentation/order_confirmation_page.dart';
+import 'package:mobile_app/features/checkout/presentation/payment_page.dart';
+import 'package:mobile_app/features/account/domain/customer_account_repository.dart';
+import 'package:mobile_app/features/account/presentation/customer_account_gate.dart';
+import 'package:mobile_app/features/account/presentation/profile_cubit.dart';
+import 'package:mobile_app/features/account/presentation/profile_page.dart';
+import 'package:mobile_app/features/account/presentation/loyalty_page.dart';
 import 'package:mobile_app/features/orders/domain/orders_repository.dart';
 import 'package:mobile_app/features/orders/presentation/order_detail_page.dart';
 import 'package:mobile_app/features/orders/presentation/orders_cubit.dart';
@@ -50,6 +56,37 @@ GoRouter createAppRouter({
       initialLocation ??
       (onboardingCompleted ? AppRoutes.home : AppRoutes.onboarding),
   routes: [
+    GoRoute(
+      path: AppRoutes.profile,
+      builder: (context, state) => SafeBackScope(
+        child: CustomerAccountGate(
+          returnLocation: AppRoutes.profile,
+          child: BlocProvider(
+            create: (_) =>
+                ProfileCubit(context.read<CustomerAccountRepository>())..load(),
+            child: const ProfilePage(),
+          ),
+        ),
+      ),
+    ),
+    GoRoute(
+      path: AppRoutes.loyalty,
+      builder: (context, state) => const SafeBackScope(
+        child: CustomerAccountGate(
+          returnLocation: AppRoutes.loyalty,
+          child: LoyaltyPage(),
+        ),
+      ),
+    ),
+    GoRoute(
+      path: AppRoutes.payment,
+      builder: (context, state) => SafeBackScope(
+        child: PaymentPage(
+          orderId: state.pathParameters['id']!,
+          confirmation: state.extra as OrderConfirmation?,
+        ),
+      ),
+    ),
     GoRoute(
       path: AppRoutes.promotions,
       builder: (context, state) => SafeBackScope(
@@ -165,17 +202,23 @@ GoRouter createAppRouter({
     GoRoute(
       path: AppRoutes.addresses,
       builder: (context, state) => SafeBackScope(
-        child: BlocProvider(
-          create: (_) =>
-              AddressesCubit(context.read<AddressRepository>())..load(),
-          child: const AddressesPage(),
+        child: CustomerAccountGate(
+          returnLocation: AppRoutes.addresses,
+          child: BlocProvider(
+            create: (_) =>
+                AddressesCubit(context.read<AddressRepository>())..load(),
+            child: const AddressesPage(),
+          ),
         ),
       ),
     ),
     GoRoute(
       path: AppRoutes.addressForm,
       builder: (context, state) => SafeBackScope(
-        child: AddressFormPage(address: state.extra as Address?),
+        child: CustomerAccountGate(
+          returnLocation: AppRoutes.addressForm,
+          child: AddressFormPage(address: state.extra as Address?),
+        ),
       ),
     ),
     GoRoute(

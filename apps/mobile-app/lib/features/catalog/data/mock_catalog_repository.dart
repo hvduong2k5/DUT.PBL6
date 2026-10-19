@@ -1,3 +1,4 @@
+import 'package:mobile_app/features/catalog/data/web_reference_imagery.dart';
 import 'package:mobile_app/core/models/money.dart';
 import 'package:mobile_app/features/catalog/domain/catalog_models.dart';
 import 'package:mobile_app/features/catalog/domain/catalog_repository.dart';
@@ -16,7 +17,7 @@ class MockCatalogRepository implements CatalogRepository {
       name: 'Mè Xửng Giòn Ngự Tiến',
       slug: 'me-xung-gion-ngu-tien',
       summary: 'Mè rang vàng, mạch nha thủ công',
-      imageUrl: '',
+      imageUrl: WebReferenceImagery.meXung,
       price: Money.vnd(85000),
       ocopStars: 4,
       category: 'gion',
@@ -40,7 +41,7 @@ class MockCatalogRepository implements CatalogRepository {
       name: 'Mè Xửng Dẻo Cung Đình',
       slug: 'me-xung-deo-cung-dinh',
       summary: 'Dẻo thơm, thanh ngọt, gói giấy truyền thống',
-      imageUrl: '',
+      imageUrl: WebReferenceImagery.meXungDeo,
       price: Money.vnd(72000),
       ocopStars: 4,
       category: 'deo',
@@ -84,7 +85,7 @@ class MockCatalogRepository implements CatalogRepository {
       name: 'Hộp Quà Di Sản Cố Đô',
       slug: 'hop-qua-di-san',
       summary: 'Tuyển tập đặc sản cho dịp sum vầy',
-      imageUrl: '',
+      imageUrl: WebReferenceImagery.gift,
       price: Money.vnd(295000),
       ocopStars: 4,
       category: 'qua',

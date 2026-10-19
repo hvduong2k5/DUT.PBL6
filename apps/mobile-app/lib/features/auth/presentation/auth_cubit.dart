@@ -98,4 +98,9 @@ class AuthCubit extends Cubit<AuthState> {
   }
 
   void resetToGuest() => emit(const AuthState());
+  void updateUser(AuthUser user) {
+    if (state.status == AuthStatus.authenticated && state.user?.id == user.id) {
+      emit(AuthState(status: AuthStatus.authenticated, user: user));
+    }
+  }
 }

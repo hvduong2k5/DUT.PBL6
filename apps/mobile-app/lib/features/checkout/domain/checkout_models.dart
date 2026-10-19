@@ -49,7 +49,7 @@ class OrderConfirmation extends Equatable {
     required this.total,
     this.vietQrUrl,
     this.paymentExpiresAt,
-    this.paymentMethod = PaymentMethod.cod,
+    this.paymentMethod,
     this.subtotal,
     this.discount,
     this.shippingFee,
@@ -59,7 +59,7 @@ class OrderConfirmation extends Equatable {
   final Money total;
   final String? vietQrUrl;
   final DateTime? paymentExpiresAt;
-  final PaymentMethod paymentMethod;
+  final PaymentMethod? paymentMethod;
   final Money? subtotal;
   final Money? discount;
   final Money? shippingFee;

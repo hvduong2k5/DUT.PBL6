@@ -58,7 +58,7 @@ void main() {
       expect(cubit.state.useAccountAddress, isTrue);
       expect(cubit.state.fullName, 'Nguyễn Văn An');
       expect(cubit.state.streetAddress, '12 Đường Mẫu');
-      expect(cubit.state.ward, 'Phường Mẫu');
+      expect(cubit.state.ward, 'Phường Thuận Hòa');
 
       cubit.useSavedAddress(false);
       cubit.setStreetAddress('45 Đường Mới');

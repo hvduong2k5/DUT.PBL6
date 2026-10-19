@@ -3,15 +3,13 @@ import 'package:mobile_app/core/network/api_client.dart';
 import 'package:mobile_app/features/cart/domain/cart_models.dart';
 import 'package:mobile_app/features/cart/domain/cart_repository.dart';
 import 'package:mobile_app/features/catalog/domain/catalog_models.dart';
-import 'package:uuid/uuid.dart';
 
 class RestCartRepository implements CartRepository {
-  RestCartRepository(this._client, {String? sessionId})
-    : _sessionId = sessionId ?? const Uuid().v4();
+  RestCartRepository(this._client);
 
   final ApiClient _client;
-  final String _sessionId;
-  Map<String, dynamic> get _headers => {'X-Session-Id': _sessionId};
+  // Native guest identity comes only from server cookies in ApiClient.
+  Map<String, dynamic> get _headers => const {};
 
   @override
   Future<Cart> getCart() async =>

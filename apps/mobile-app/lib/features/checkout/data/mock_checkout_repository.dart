@@ -3,6 +3,8 @@ import 'package:mobile_app/features/checkout/domain/checkout_repository.dart';
 import 'package:mobile_app/features/checkout/domain/checkout_location.dart';
 
 class MockCheckoutRepository implements CheckoutRepository {
+  MockCheckoutRepository({this.onCreated});
+  final void Function(OrderConfirmation, CheckoutDraft)? onCreated;
   int submitCount = 0;
   @override
   Future<List<CheckoutProvince>> locations() async => const [
@@ -32,15 +34,19 @@ class MockCheckoutRepository implements CheckoutRepository {
   }) async {
     submitCount++;
     await Future<void>.delayed(const Duration(milliseconds: 350));
-    return OrderConfirmation(
+    final confirmation = OrderConfirmation(
       orderId:
           'OM-${DateTime.now().millisecondsSinceEpoch.toString().substring(5)}',
-      status: 'PENDING_PAYMENT',
+      status: draft.paymentMethod == PaymentMethod.cod
+          ? 'CONFIRMED'
+          : 'PENDING_PAYMENT',
       total: draft.cart.subtotal,
       paymentMethod: draft.paymentMethod,
       paymentExpiresAt: draft.paymentMethod == PaymentMethod.vietqr
           ? DateTime.now().add(const Duration(minutes: 15))
           : null,
     );
+    onCreated?.call(confirmation, draft);
+    return confirmation;
   }
 }

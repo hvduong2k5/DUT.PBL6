@@ -34,6 +34,7 @@ class RestOrdersRepository implements OrdersRepository {
     return CustomerOrder(
       id: json['order_id'].toString(),
       status: OrderStatusUi.fromApi(json['status'].toString()),
+      rawStatus: json['status'] as String?,
       totalItems: totalItems,
       total: Money.fromJson(
         Map<String, dynamic>.from(json['final_amount'] as Map),
@@ -46,6 +47,7 @@ class RestOrdersRepository implements OrdersRepository {
   CustomerOrder _orderFromList(Map<String, dynamic> json) => CustomerOrder(
     id: json['order_id'].toString(),
     status: OrderStatusUi.fromApi(json['status'].toString()),
+    rawStatus: json['status'] as String?,
     totalItems: (json['total_items'] as num).toInt(),
     total: Money.fromJson(
       Map<String, dynamic>.from(json['final_amount'] as Map),

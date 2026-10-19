@@ -1,10 +1,13 @@
 import 'package:mobile_app/core/network/api_client.dart';
 import 'package:mobile_app/features/account/domain/address.dart';
 import 'package:mobile_app/features/account/domain/address_repository.dart';
+import 'dart:convert';
+import 'package:uuid/uuid.dart';
 
 class RestAddressRepository implements AddressRepository {
-  const RestAddressRepository(this._client);
+  RestAddressRepository(this._client);
   final ApiClient _client;
+  final Map<String, String> _createKeys = {};
 
   @override
   Future<List<Address>> addresses() async {
@@ -21,10 +24,19 @@ class RestAddressRepository implements AddressRepository {
     final current = await addresses();
     final exists = current.any((item) => item.id == address.id);
     if (!exists) {
+      final payload = address.toApiJson();
+      final fingerprint = jsonEncode(payload);
       await _client.postJson(
         '/api/v1/profile/addresses',
-        data: address.toApiJson(),
+        data: payload,
+        headers: {
+          'Idempotency-Key': _createKeys.putIfAbsent(
+            fingerprint,
+            () => const Uuid().v4(),
+          ),
+        },
       );
+      _createKeys.remove(fingerprint);
     } else {
       await _client.putJson(
         '/api/v1/profile/addresses/${address.id}',

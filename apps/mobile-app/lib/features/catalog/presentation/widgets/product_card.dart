@@ -77,7 +77,7 @@ class ProductCard extends StatelessWidget {
               child: FilledButton.icon(
                 onPressed: product.inStock ? onAdd : null,
                 style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.brandBrown,
+                  backgroundColor: AppColors.headingBrown,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                 ),

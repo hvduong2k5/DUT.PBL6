@@ -94,9 +94,11 @@ class CartPage extends StatelessWidget {
                       const Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            'Tóm tắt đơn hàng',
-                            style: TextStyle(fontWeight: FontWeight.bold),
+                          Expanded(
+                            child: Text(
+                              'Tóm tắt đơn hàng',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
                           ),
                           Text('Tạm tính'),
                         ],
@@ -105,21 +107,31 @@ class CartPage extends StatelessWidget {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text('${cart.totalItems} sản phẩm'),
-                          Text(cart.subtotal.format()),
+                          Expanded(child: Text('${cart.totalItems} sản phẩm')),
+                          Flexible(
+                            child: Text(
+                              cart.subtotal.format(),
+                              textAlign: TextAlign.end,
+                            ),
+                          ),
                         ],
                       ),
                       const SizedBox(height: AppSpacing.xs),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text(
-                            'Hàng đã chọn',
-                            style: TextStyle(fontWeight: FontWeight.bold),
+                          const Expanded(
+                            child: Text(
+                              'Hàng đã chọn',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
                           ),
-                          Text(
-                            state.selectedCart.subtotal.format(),
-                            style: Theme.of(context).textTheme.titleLarge,
+                          Flexible(
+                            child: Text(
+                              state.selectedCart.subtotal.format(),
+                              style: Theme.of(context).textTheme.titleLarge,
+                              textAlign: TextAlign.end,
+                            ),
                           ),
                         ],
                       ),
@@ -301,7 +313,10 @@ class _CartLineTile extends StatelessWidget {
                     ),
                     Text('${line.quantity}'),
                     IconButton(
-                      onPressed: pending || !available || line.quantity >= 99
+                      onPressed:
+                          pending ||
+                              !available ||
+                              line.quantity >= maxCartItemQuantity
                           ? null
                           : () => context.read<CartCubit>().update(
                               line.itemId,

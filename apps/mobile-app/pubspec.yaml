@@ -36,6 +36,8 @@ dependencies:
   cupertino_icons: ^1.0.8
   connectivity_plus: ^7.0.0
   dio: ^5.9.0
+  dio_cookie_manager: ^3.5.0
+  cookie_jar: ^4.0.9
   equatable: ^2.0.7
   flutter_bloc: ^9.1.1
   flutter_secure_storage: ^10.0.0

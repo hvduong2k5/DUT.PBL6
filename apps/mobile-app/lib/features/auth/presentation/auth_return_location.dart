@@ -23,10 +23,14 @@ String safeAuthReturnLocation(String? value) {
     '/addresses/form',
     '/notifications',
     '/promotions',
+    '/account/profile',
+    '/account/loyalty',
   };
   final path = uri.path;
   if (!routes.contains(path) &&
-      !RegExp(r'^/(product|orders|order-confirmation)/[^/]+$').hasMatch(path)) {
+      !RegExp(
+        r'^/(product|orders|order-confirmation|payment)/[^/]+$',
+      ).hasMatch(path)) {
     return AppRoutes.account;
   }
   return uri.toString();

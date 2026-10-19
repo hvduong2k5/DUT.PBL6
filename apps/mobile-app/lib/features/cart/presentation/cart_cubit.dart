@@ -14,12 +14,14 @@ class CartState extends Equatable {
     this.message,
     this.selectedItemIds,
     this.pending = false,
+    this.cleanupFailed = false,
   });
   final CartStatus status;
   final Cart cart;
   final String? message;
   final Set<String>? selectedItemIds;
   final bool pending;
+  final bool cleanupFailed;
   Set<String> get availableIds => cart.items
       .where((line) => line.product.inStock && line.variant.stock > 0)
       .map((line) => line.itemId)
@@ -38,15 +40,24 @@ class CartState extends Equatable {
     String? message,
     Set<String>? selectedItemIds,
     bool pending = false,
+    bool cleanupFailed = false,
   }) => CartState(
     status: status ?? this.status,
     cart: cart ?? this.cart,
     message: message,
     selectedItemIds: selectedItemIds ?? this.selectedItemIds,
     pending: pending,
+    cleanupFailed: cleanupFailed,
   );
   @override
-  List<Object?> get props => [status, cart, message, selectedItemIds, pending];
+  List<Object?> get props => [
+    status,
+    cart,
+    message,
+    selectedItemIds,
+    pending,
+    cleanupFailed,
+  ];
 }
 
 class CartCubit extends Cubit<CartState> {
@@ -95,10 +106,23 @@ class CartCubit extends Cubit<CartState> {
     ProductVariant variant, {
     int quantity = 1,
   }) async {
+    if (state.pending) return false;
+    final existing =
+        state.cart.items
+            .where((line) => line.variant.sku == variant.sku)
+            .firstOrNull
+            ?.quantity ??
+        0;
     if (quantity < 1 ||
-        quantity > 99 ||
+        quantity + existing > maxCartItemQuantity ||
         !product.inStock ||
         variant.stock < 1) {
+      emit(
+        state.copyWith(
+          message:
+              'Chỉ có thể chọn từ 1 đến $maxCartItemQuantity sản phẩm cho mỗi quy cách khả dụng.',
+        ),
+      );
       return false;
     }
     return _mutate(
@@ -108,7 +132,7 @@ class CartCubit extends Cubit<CartState> {
   }
 
   Future<bool> update(String itemId, int quantity) async {
-    if (quantity < 1 || quantity > 99) return false;
+    if (quantity < 1 || quantity > maxCartItemQuantity) return false;
     return _mutate(() => _repository.update(itemId, quantity));
   }
 
@@ -129,6 +153,7 @@ class CartCubit extends Cubit<CartState> {
       emit(
         state.copyWith(
           selectedItemIds: state.selectedIds.difference(purchasedIds),
+          cleanupFailed: true,
           message:
               'Đơn đã được tạo nhưng giỏ chưa đồng bộ. Hãy kiểm tra đơn trước khi đặt lại.',
         ),

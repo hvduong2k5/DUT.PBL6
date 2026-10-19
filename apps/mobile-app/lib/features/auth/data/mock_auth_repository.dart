@@ -6,6 +6,11 @@ import 'package:mobile_app/core/error/failures.dart';
 import 'package:uuid/uuid.dart';
 
 class MockAuthRepository implements AuthRepository {
+  AuthUser? currentUser;
+  void updateUser(AuthUser user) {
+    if (currentUser?.id == user.id) currentUser = user;
+  }
+
   final Map<String, DateTime> _proofs = {};
   @override
   Future<AuthSession> login({
@@ -14,12 +19,14 @@ class MockAuthRepository implements AuthRepository {
   }) async {
     await Future<void>.delayed(const Duration(milliseconds: 250));
     if (password == 'sai') throw StateError('Thông tin đăng nhập chưa đúng.');
+    currentUser = AuthUser(
+      id: 'CUST-MOCK',
+      phoneNumber: phoneNumber,
+      fullName: 'Nguyễn Văn An',
+      email: 'an.nguyen@example.com',
+    );
     return AuthSession(
-      user: AuthUser(
-        id: 'CUST-MOCK',
-        phoneNumber: phoneNumber,
-        fullName: 'Nguyễn Văn An',
-      ),
+      user: currentUser!,
       accessToken: 'mock-access',
       refreshToken: 'mock-refresh',
     );
@@ -33,20 +40,23 @@ class MockAuthRepository implements AuthRepository {
     String? email,
   }) async {
     await Future<void>.delayed(const Duration(milliseconds: 250));
+    currentUser = AuthUser(
+      id: 'CUST-MOCK',
+      phoneNumber: phoneNumber,
+      fullName: fullName,
+      email: email,
+    );
     return AuthSession(
-      user: AuthUser(
-        id: 'CUST-MOCK',
-        phoneNumber: phoneNumber,
-        fullName: fullName,
-        email: email,
-      ),
+      user: currentUser!,
       accessToken: 'mock-access',
       refreshToken: 'mock-refresh',
     );
   }
 
   @override
-  Future<void> logout() async {}
+  Future<void> logout() async {
+    currentUser = null;
+  }
 
   @override
   Future<void> requestRecovery(
@@ -94,5 +104,6 @@ class MockAuthRepository implements AuthRepository {
         ),
       );
     }
+    currentUser = null;
   }
 }

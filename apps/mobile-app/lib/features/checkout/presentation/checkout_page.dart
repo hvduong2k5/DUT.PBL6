@@ -297,8 +297,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       ? null
                       : () => context.read<CheckoutCubit>().setPayment(method),
                   borderRadius: BorderRadius.circular(AppRadius.large),
-                  child: SizedBox(
-                    height: 56,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(minHeight: 56),
                     child: Row(
                       children: [
                         const SizedBox(width: AppSpacing.sm),
@@ -311,7 +311,13 @@ class _CheckoutPageState extends State<CheckoutPage> {
                               : AppColors.textMuted,
                         ),
                         const SizedBox(width: AppSpacing.sm),
-                        Text(method.label),
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            child: Text(method.label),
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
                       ],
                     ),
                   ),
@@ -404,9 +410,19 @@ class _CheckoutPageState extends State<CheckoutPage> {
             child: Row(
               children: [
                 Expanded(
-                  child: Text(
-                    cart.subtotal.format(),
-                    style: Theme.of(context).textTheme.titleLarge,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Tạm tính hàng',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      Text(
+                        cart.subtotal.format(),
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                    ],
                   ),
                 ),
                 SizedBox(

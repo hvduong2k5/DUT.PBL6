@@ -37,6 +37,7 @@ class CustomerOrder extends Equatable {
     this.address = 'Địa chỉ theo dữ liệu đơn hàng',
     this.checkpoints = const [],
     this.items = const [],
+    this.rawStatus,
   });
   final String id;
   final OrderStatus status;
@@ -46,6 +47,7 @@ class CustomerOrder extends Equatable {
   final String address;
   final List<OrderCheckpoint> checkpoints;
   final List<OrderItem> items;
+  final String? rawStatus;
   @override
   List<Object?> get props => [
     id,
@@ -56,6 +58,7 @@ class CustomerOrder extends Equatable {
     address,
     checkpoints,
     items,
+    rawStatus,
   ];
 }
 

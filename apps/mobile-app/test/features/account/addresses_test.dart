@@ -22,11 +22,11 @@ void main() {
         'phone_number',
         'street_address',
         'ward',
-        'district',
         'province',
         'is_default',
       ]),
     );
+    expect(address.toApiJson(), isNot(contains('district')));
   });
 
   test('saving a new default address clears the old default', () async {

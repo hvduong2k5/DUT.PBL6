@@ -13,3 +13,9 @@ Add only a scoped Android custom URI `oma://customer/account-recovery?recoveryTo
 ## Open contract issue — Voucher at Checkout
 
 Stable ZIP exposes voucher list and validation but Checkout forbids extra properties and has no voucher code. Customer Web validates a voucher in its BFF flow. Do not claim an applied discount in real submitted totals without an approved contract. User confirmed: keep ZIP unchanged; mark voucher application at Checkout as waiting for a contract extension. Implement discovery/validation only, with no submitted reduction.
+
+## 2026-10-19 — Native guest cookie transport
+
+ZIP guest_session/guest_order_grant schemes are server-issued cookies. Native Dio had no cookie capability; X-Session-Id is not a substitute for a signed ownership grant. Add `dio_cookie_manager` + `cookie_jar` at the existing ApiClient boundary, memory-only with normal expiry/domain/path restrictions and a web-safe conditional stub. No new provider or disk persistence. Clear cookies on logout/reset. Do not fabricate grants or assume the backend issues them until integration is verified. Bearer authentication remains supported. Native JSON API redirects are not followed automatically.
+
+Primary package docs checked: https://pub.dev/packages/dio_cookie_manager and https://pub.dev/packages/cookie_jar. No equivalent dependency was present.

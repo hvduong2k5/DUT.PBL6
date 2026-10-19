@@ -14,6 +14,7 @@ import 'package:mobile_app/core/widgets/app_navigation_drawer.dart';
 import 'package:mobile_app/features/cart/presentation/cart_cubit.dart';
 import 'package:mobile_app/features/catalog/presentation/catalog_cubit.dart';
 import 'package:mobile_app/features/catalog/presentation/widgets/product_card.dart';
+import 'package:mobile_app/features/catalog/data/web_reference_imagery.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -163,6 +164,15 @@ class _HomeResults extends StatelessWidget {
                 constraints: const BoxConstraints(minHeight: 114),
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
+                  image: DecorationImage(
+                    image: NetworkImage(WebReferenceImagery.hero),
+                    fit: BoxFit.cover,
+                    colorFilter: ColorFilter.mode(
+                      AppColors.headingBrown.withValues(alpha: .7),
+                      BlendMode.srcOver,
+                    ),
+                    onError: (_, _) {},
+                  ),
                   gradient: const LinearGradient(
                     colors: [AppColors.brandBrown, AppColors.gradientBrownEnd],
                   ),
@@ -173,7 +183,7 @@ class _HomeResults extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     const Text(
-                      'MÙA VỤ BÁNH CUNG ĐÌNH 2026',
+                      'TINH HOA THỨC QUÀ HUẾ',
                       style: TextStyle(
                         color: AppColors.honeyGold,
                         fontSize: 10,
@@ -182,7 +192,7 @@ class _HomeResults extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Vị Ngọt Thanh Tao Cố Đô — Đậm Tình Xứ Huế',
+                      'Vị Ngọt Thanh Tao Cố Đô, Đậm Tình Xứ Huế',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         color: Colors.white,
                         fontSize: 17,

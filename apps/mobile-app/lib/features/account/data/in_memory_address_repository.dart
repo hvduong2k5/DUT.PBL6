@@ -8,9 +8,8 @@ class InMemoryAddressRepository implements AddressRepository {
       recipientName: 'Nguyễn Văn An',
       phoneNumber: '0901234567',
       streetAddress: '12 Đường Mẫu',
-      ward: 'Phường Mẫu',
-      district: 'Quận Mẫu',
-      province: 'Huế',
+      ward: 'Phường Thuận Hòa',
+      province: 'Thành phố Huế',
       isDefault: true,
     ),
   ];

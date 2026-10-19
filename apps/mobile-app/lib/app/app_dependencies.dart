@@ -26,6 +26,9 @@ import 'package:mobile_app/features/orders/domain/orders_repository.dart';
 import 'package:mobile_app/features/promotions/domain/promotions_repository.dart';
 import 'package:mobile_app/features/promotions/data/mock_promotions_repository.dart';
 import 'package:mobile_app/features/promotions/data/rest_promotions_repository.dart';
+import 'package:mobile_app/features/account/domain/customer_account_repository.dart';
+import 'package:mobile_app/features/account/data/mock_customer_account_repository.dart';
+import 'package:mobile_app/features/account/data/rest_customer_account_repository.dart';
 
 class AppDependencies {
   const AppDependencies({
@@ -37,6 +40,7 @@ class AppDependencies {
     required this.authRepository,
     required this.notificationsRepository,
     required this.promotionsRepository,
+    required this.customerAccountRepository,
   });
 
   final CatalogRepository catalogRepository;
@@ -47,6 +51,7 @@ class AppDependencies {
   final AuthRepository authRepository;
   final NotificationsRepository notificationsRepository;
   final PromotionsRepository promotionsRepository;
+  final CustomerAccountRepository customerAccountRepository;
 }
 
 abstract final class RepositoryFactory {
@@ -76,17 +81,26 @@ abstract final class RepositoryFactory {
       // No notification endpoint exists in the supplied contracts.
       notificationsRepository: LocalNotificationsRepository(),
       promotionsRepository: RestPromotionsRepository(client),
+      customerAccountRepository: RestCustomerAccountRepository(client),
     );
   }
 
-  static AppDependencies _local() => AppDependencies(
-    catalogRepository: MockCatalogRepository(),
-    cartRepository: InMemoryCartRepository(),
-    checkoutRepository: MockCheckoutRepository(),
-    ordersRepository: MockOrdersRepository(),
-    addressRepository: InMemoryAddressRepository(),
-    authRepository: MockAuthRepository(),
-    notificationsRepository: LocalNotificationsRepository(),
-    promotionsRepository: MockPromotionsRepository(),
-  );
+  static AppDependencies _local() {
+    final orders = MockOrdersRepository();
+    final auth = MockAuthRepository();
+    return AppDependencies(
+      catalogRepository: MockCatalogRepository(),
+      cartRepository: InMemoryCartRepository(),
+      checkoutRepository: MockCheckoutRepository(onCreated: orders.record),
+      ordersRepository: orders,
+      addressRepository: InMemoryAddressRepository(),
+      authRepository: auth,
+      notificationsRepository: LocalNotificationsRepository(),
+      promotionsRepository: MockPromotionsRepository(),
+      customerAccountRepository: MockCustomerAccountRepository(
+        currentUser: () => auth.currentUser,
+        onUpdate: auth.updateUser,
+      ),
+    );
+  }
 }

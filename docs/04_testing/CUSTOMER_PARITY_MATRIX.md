@@ -35,3 +35,11 @@ Reference commit: `origin/feature/ui-web` `b1ff2918`. Mobile starting commit: `8
 ## Validation evidence
 
 Baseline analyze PASS, tests 60/60 PASS. P1 analyze PASS, focused tests 30/30 PASS, recovery navigation/keyboard 3/3 PASS. Native baseline: NOT RUN. Each phase records focused/automated/native results before its rows become DONE.
+
+## Implemented checkpoint status (2026-10-19)
+
+- Foundation/auth/recovery implemented; automated and selected native evidence in CURRENT_STATE.
+- Product SKU selection, current-page cart selection, strict Checkout/two-level locations, promotions validation and payment/confirmation implemented. Full native transaction QA pending. Voucher application waits for unchanged ZIP extension, per user.
+- Profile/loyalty/address counterparts implemented with login-return and contract tests; native account QA pending.
+- Guest ownership, capability/B2B, support, after-sales, trace, reviews, advanced discovery and remaining order flows remain OPEN. No missing baseline row should be interpreted as completed solely by this note.
+- Latest full suite 90/90 PASS; latest address mutation changes additionally pass analyze and focused 14 tests.

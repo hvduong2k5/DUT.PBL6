@@ -25,6 +25,9 @@ void main() {
     'Recovery request': '/account-recovery',
     'Recovery reset': '/account-recovery?recoveryToken=mock-token',
     'Promotions': '/promotions',
+    'Profile guest guard': '/account/profile',
+    'Loyalty guest guard': '/account/loyalty',
+    'Payment missing context': '/payment/UNKNOWN',
   };
 
   for (final entry in routes.entries) {
