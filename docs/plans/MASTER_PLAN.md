@@ -17,20 +17,22 @@ Retain Flutter/GoRouter/Cubit and repository interfaces. Extend existing feature
 | Phase | Scope | Dependency | Status |
 |---|---|---|---|
 | P0 | Read Web Customer, inventory screens/states, map contracts and gaps, capture baseline checks | Approved scope | COMPLETE: route and contract inventory |
-| P1 | Shared tokens/components and auth recovery/login/register continuity | P0 mapping | IMPLEMENTED; native QA pending |
-| P2 | Discovery/product/cart/promotions/checkout/payment/confirmation parity | P1 foundation, stable contract mapping | ACTIVE: purchase/payment implemented; discovery/reviews/QA pending |
-| P3 | Account/profile/address/loyalty/orders/guest tracking/after-sales/support/trace/B2B parity | P2 transaction identity, per-flow mapping | ACTIVE: core destinations/actions implemented; history discovery and native QA pending; after-sales production context gap explicit |
-| P4 | Cross-flow regression, Android/scrcpy QA, contract checks, reviewable delivery | All parity rows resolved or explicit external blocker | ACTIVE: session-expiry audit, then final regression/native QA |
+| P1 | Shared tokens/components and auth recovery/login/register continuity | P0 mapping | IMPLEMENTED; local native recovery/login/keyboard verified |
+| P2 | Discovery/product/cart/promotions/checkout/payment/confirmation parity | P1 foundation, stable contract mapping | IMPLEMENTED; local discovery/review/purchase QA recorded; actual QR/provider proof remains external |
+| P3 | Account/profile/address/loyalty/orders/guest tracking/after-sales/support/trace/B2B parity | P2 transaction identity, per-flow mapping | IMPLEMENTED; local account/history/returns/Support/trace/B2B QA recorded; native cancellation open; production context gaps explicit |
+| P4 | Cross-flow regression, Android/scrcpy QA, contract checks, reviewable delivery | All parity rows resolved or explicit external blocker | ACTIVE:142/142 tests, analyze and APK PASS; native cancellation and final acceptance reconciliation next |
 
 Detailed plans are written for current implementation only; later phases are refined against the actual code and contract before starting.
 
 ## Definition of Done
 
 - Customer Web routes/actions have traceable Mobile counterparts or an explicitly justified platform/contract limitation.
-- Recovery and coupon application work through their full states; no dead links or fabricated success.
+- Recovery and voucher validation work through their full supported states; checkout application remains explicitly blocked by unchanged ZIP, as agreed by user. No dead links or fabricated success.
 - Shared palette/CTA/type hierarchy align with Web; mobile layouts support keyboard, scrolling, safe areas and back navigation.
 - Stable APIs match supplied contracts; draft/planned capabilities remain explicitly separated from live integration.
 - Focused tests, analysis, regression suite and Android build/device QA are recorded honestly.
 - Only Mobile branch changes are committed/pushed, with verified remote checkpoint and current handoff.
 
-Current implementation: [P3 customer services](active/P3_CUSTOMER_SERVICES.md), with [P2 purchase](active/P2_PURCHASE.md) discovery/reviews still open. [P1 foundation/auth](active/P1_FOUNDATION_AUTH.md) native QA remains partial. Audit: [P0](active/P0_CUSTOMER_PARITY.md).
+Current phase: [P4 validation/delivery](active/P4_CUSTOMER_QA.md). Resume from [CURRENT_STATE](../CURRENT_STATE.md), updated at user-requested checkpoint2026-10-20. Earlier P1/P2/P3 plans retain implementation history; current status/evidence is authoritative in P4 and the parity matrix. Do not restart completed implementation slices from an older pending note.
+
+Remaining sequence: native pending-payment status/cancellation→final P1–P3 acceptance and matrix reconciliation→assess whole Definition of Done→Mobile-only final delivery. No new feature phase or architectural change is authorized by this checkpoint.

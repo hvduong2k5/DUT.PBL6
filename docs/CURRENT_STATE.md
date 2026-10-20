@@ -1,41 +1,55 @@
 # Customer Mobile parity handoff
 
-Updated 2026-10-20. Goal ACTIVE; P4 Android QA ongoing, whole task not complete.
+Updated 2026-10-20 at user-requested checkpoint. Goal ACTIVE; implementation and local QA progressed, whole task not complete.
 
-## Authority and Git
+## Scope, branch and checkpoint
 
-Only feature/mobile-ui may be modified/committed/pushed. No merge/PR. HEAD before review keyboard checkpoint84caced32dbb5829390ec74af2d82caefa4b5ce9, verified on origin. Implementation baseline718159e; resulting new checkpoint identified by git log. Web read-only b1ff2918c7297fc93d0cb9a15cc1d0a0ee46b72e via git show origin/feature/ui-web:<path>. ZIP snapshots/hashes: docs/03_api_specs/frontend-contracts/SOURCE.md. User chose unchanged ZIP, including no checkout voucher field.
+- Work and push only `feature/mobile-ui`; no merge, PR or changes to other branches.
+- Source HEAD: `f4e0a085b55b0ed2ac97d59bb3531bfd0b898512`, already verified on origin. The following documentation checkpoint is identifiable with `git log -1`; this file deliberately records its parent rather than a self-referencing commit hash.
+- Customer Web reference: read-only `origin/feature/ui-web` at `b1ff2918c7297fc93d0cb9a15cc1d0a0ee46b72e`, read through Git objects.
+- API ZIP authority/hashes: `docs/03_api_specs/frontend-contracts/SOURCE.md`. User chose unchanged ZIP: voucher validation is implemented; applying a voucher at checkout waits for contract extension.
+- Current phase: `docs/plans/active/P4_CUSTOMER_QA.md`. Roadmap: `docs/plans/MASTER_PLAN.md`; coverage: `docs/04_testing/CUSTOMER_PARITY_MATRIX.md`.
 
-## Resume
+## Completed implementation
 
-Read AGENTS, MASTER_PLAN, P4_CUSTOMER_QA plus relevant P2/P3 plan. Inspect branch/HEAD/status. f5b9acf: shared input unfocus/flexible checkout subtotal/focus regression/matrix. Current milestone: Vietnamese Material/Cupertino/Widgets SDK localization, required intl0.20.3→0.20.2 SDK pin, calendar action focus prevents date keyboard restoration. No other branch edits.
+Shared Web colors/type/CTA and phone layouts; login/register/recovery/link/reset/relogin; session restore/refresh/capabilities and protected-401 identity recovery without automatic mutation replay; catalog search/pagination/loaded-scope filters; explicit SKU/gallery/product data; selectable cart/clear confirmation; strict selected-only checkout/saved address/promotions; actual order confirmation/payment status; account/profile/addresses/loyalty; history/cancel/tracking/Guest OTP; Support creation/public replies; manual trace/deep links; local returns/create/case with stable REST adapter; verified B2B request/released quote/consent/acceptance; public reviews and owned delivered-order/SKU submission.
 
-## Implemented
+Native QA found and fixed keyboard refocus, checkout subtotal overflow, Vietnamese calendar labels/date-action focus and review comment viewport/caret visibility. Latest source edits are review presentation + regression test. No source changes after f4e0a08; this checkpoint updates task documentation only and removes generated header line-ending noise.
 
-- Shared Web palette/type/CTA; login/register/return destination and required ZIP email; recovery neutral email request/link/proof/reset/relogin/expiry/429, never auto-login.
-- Explicit SKU/quantity, product availability/images/fallback; catalog supported server paging/search with loaded-scope category/price/OCOP/stock/sort/filter sheet; cart available selection/subtotal, selected-only strict two-level checkout and safe cleanup; promotions list/validate; actual confirmation/payment/QR/expiry/status.
-- Profile/name/email, immutable phone, loyalty overview, address CRUD/default/confirmation; current-session restore/refresh/capabilities and native scoped memory-only server cookies.
-- Guest challenge/OTP/exact-order grant; actual orders/history server search/status/paging/cancel/tracking/seal/media, precise status and no fabricated future timeline.
-- Support context/create/detail/public reply/owned order, manual trace/deep link/detail and safe HTTPS media links.
-- Returns full local form/create/case and stable REST adapter/detail; production context explicitly stops at missing stable line IDs and offers Support.
-- Verified B2B request/context/quote/public terms/version/consent/acceptance with expiry/changed quote/idempotent uncertain replay; actual unpaid paired local order.
-- Reviews public aggregates/list/paging, owned delivered-order and exact SKU selection, strict ZIP POST, server verified badge, retry/idempotency/capability; explicit local OM-8860 canonical delivered purchase fixture.
-- New session slice revalidates identity after protected 401; no automatic mutation replay; invalid session removes stale actor, offline retains tokens. Auth endpoints excluded, concurrent failures share recovery.
+## Latest verification
 
-## Constraints / limits
+Source f4e0a08: `flutter analyze --no-pub` PASS; full `flutter test --no-pub` **142/142 PASS**; debug APK build **PASS (37.4s)**. Focused review tests 4/4 PASS include a 400px keyboard/caret visibility regression. No need to rerun unchanged source checks for this documentation checkpoint.
 
-Never invent APIs, line IDs or proof of live provider behavior. Checkout voucher application waits for extension; validation never reduces final total. No stable return eligibility/line-ID projection, uploads, ticket inbox, loyalty history/redemption, notifications, payment reissue or B2B documents. Global advanced product filters absent from ZIP; local facets labelled loaded scope. No food fields in stable product; show unavailable and manual trace, no fake batch association. Server must enforce atomic quote version acceptance (ZIP has no version field). No actual backend/email/SMS/payment/cookie/provider lifecycle verified. Mock fixtures are local only.
+Phone has localization APK718159e installed as an update without data wipe, then review fix hot-reloaded successfully. f4e0a08 APK was built but not installed after hot reload. Distinguish this physical source evidence from a fresh-install acceptance test.
 
-## Evidence
+All following native evidence uses local mock fixtures; it does not prove real backend/email/SMS/payment/provider behavior:
 
-Baseline60. Current localization milestone analyze PASS, full142/142 PASS and APK build69.6s PASS with stable source. B2B focused3/3 PASS includes localized calendar and focus return; first test attempts exposed real focus restoration and were fixed with persistent calendar action FocusNode, no skipped assertions. f5b9acf analyze/full141/build172.1s PASS; prior b8ff216 build35.3s installed. Native refocus fix exposed hidden27px subtotal overflow; fixed without disabling checks. No diagnostic hooks remain.
+- Recovery neutral request/validation/expiry, valid mock link/reset/checklist/keyboard/success requiring login, then relogin/account. Mock accepts nonempty passwords, so real credential validation/revocation is unverified.
+- Guest challenge/OTP→OM-8921 detail→tracking; explicit SKU→cart, clear-dialog cancel preserves line, guest Huế/Thuận Hòa checkout→COD85,000→unpaid payment→same order detail.
+- Profile save acknowledgement, loyalty→promotions, address list/default/edit/save. Vietnamese calendar selection returns without reopening keyboard.
+- B2B MOQ20/date2026-10-27→YC-LOCAL-2 receipt; released BG-LOCAL-001 consent→accept→LOCAL-B2B-001 PENDING_PAYMENT4,180,000, matching quote.
+- Review owned OM-8860/exact Hộp500g→comment→submit→public5/5 aggregate/count1/verified badge; hot-reloaded keyboard fix automatically reveals caret without manual scroll.
+- Trace empty validation→labelled local specimen→batch/artisan/origin/disclaimer→find-product preserves query→empty→clear restores4; price filter under200k returns3.
+- History pending-payment filter empty→clear restores4; delivered OM-8874→return exact line/max2/reference110k→quality details/example HTTPS evidence/fake bank fixtures→LOCAL-RET REQUESTED, refund0 and no confirmed transfer.
+- Support ORDER_HELP + owned OM-8874→local ticket→public reply visible and composer cleared; no real CSKH transmission/upload.
+- Logged-in checkout saved-address fills Huế/Thuận Hòa, VietQR order **OM-82047142 /85,000 /PENDING_PAYMENT**. Payment shows countdown and explicit missing QR because mock supplies no QR URL. Last action clicked Check status; refreshed result still needs observation. No actual QR/payment verified.
 
-Native observed: recovery validation/sent/reset keyboard/expired; Guest full challenge/OTP→OM-8921 detail→tracking; support form/keyboard. At b8ff216 explicit SKU→add/cart; clear confirmation cancel preserves line; guest checkout Huế/Thuận Hòa→actual COD order85,000→payment explicitly unpaid→same detail. Local B2B login→account, profile save acknowledgement, loyalty→promotions, address list/default/edit/save→list observed. B2B verified org/request/date picker observed. Remaining native QR, support submit/reply, trace, returns, discovery/filter/reviews/history actions. Successful local recovery/reset/relogin and B2B acceptance now observed below. Matrix records partial honestly.
+## Constraints and unresolved work
 
-Native B2B now observed end-to-end: date/MOQ20/request→YC-LOCAL-2 receipt; existing released BG-LOCAL-001 public terms/totals, disabled accept before consent→consent→accept→receipt→LOCAL-B2B-001 detail PENDING_PAYMENT, total4,180,000 equals quote. No real transaction. New APK718159e installed update Success, no wipe. Native recovery custom URI/mock-token→valid reset→all checklist/confirmation→local success requiring login→relogin→account observed. Mock accepts nonempty passwords, so this proves UI flow only, not backend credential verification. Vietnamese calendar labels/month/day/Huỷ observed, OK returns selected date with no keyboard. Phone currently B2B form, selected2026-10-27. Attach26739 waiting/connecting; verify before reuse.
+No fabricated endpoints, line IDs, food/certificate association, QR or payment success. Stable contract lacks checkout voucher field, production return eligibility/line-ID projection, uploads, Support inbox, loyalty history/redemption, notifications, payment reissue and B2B documents. Global advanced catalog filters remain loaded-scope only. Server must enforce atomic quote-version acceptance; ZIP has no request version field. These external limits remain explicit, not silently completed.
 
-## Runtime and next action
+Native order cancellation and final phase/matrix acceptance reconciliation remain OPEN. Existing automated cancellation tests passed; native cancellation is NOT RUN. The goal must not be marked complete merely because this checkpoint is pushed.
 
-SDK Flutter3.44.9/Dart3.12.2. Build process-local GRADLE_OPTS kotlin.incremental=false/compiler.execution.strategy=in-process for E/C cache split. ADB D:/AS_Sdk/platform-tools/adb.exe; device reconnected after user confirmed USB. scrcpy E:/scrcpy-win64-v4.1/scrcpy.exe; active window68230, sky/scrcpyWindow/scrcpyState in node_repl (reset after user turn, reinitialize if missing). Prior window9373924/attach97559 may be invalid. Do not print screenshot data URLs. No uninstall/wipe. Generated Linux/Windows registrant headers are line-ending-only noise, never stage.
+## Exact next action
 
-Exact next: checkpoint review keyboard fix and verify push, then continue native P4: trace via product trace button, support submit/reply, returns, discovery/filter/history actions and QR. New APK installed, recovery/relogin/calendar/B2B native completed above; do not repeat. Current scrcpy68230 product detail at reviews success, trace button at y340. Signed-in local verified fixture0905999888. Attach26739 active. Review form full native submission/public aggregate/verified badge observed. Keyboard fix moves inset outside ScrollView; focused400px caret regression PASS, physical hot reload form caret auto-revealed above keyboard without manual scroll. Source2 files reviews presentation/test; analyze PASS, full142/142 PASS, APK37.4s PASS. New APK built; phone hot-reloaded equivalent source. Do not repeat successful recovery/calendar/B2B/reviews. Reconcile final plans/matrix/handoff. Goal remains ACTIVE, do not mark complete at checkpoint.
+1. Read AGENTS, this handoff, MASTER_PLAN and P4. Verify branch, HEAD, clean status and remote checkpoint.
+2. Rediscover ADB/scrcpy/attach state. Observe current payment screen after Check status, open OM-82047142 detail, perform local cancel reason/confirmation and verify server-returned state; preserve honest missing-QR state.
+3. If app process/fixture was lost, record it and create one replacement local unpaid order; do not repeat completed flows by default.
+4. Reconcile P1–P3 acceptance records and final parity matrix against P4 evidence/contract limits. Fix only verified issues; rerun focused/full/build if source changes. Consider installing current built APK for final physical verification and record exact version.
+5. Update final handoff, commit/push only Mobile; assess full Definition of Done before completing goal.
+
+## Runtime hints
+
+Flutter3.44.9/Dart3.12.2 executable: `E:/.vscode/Mobile/flutter/bin/flutter.bat`. Process-local GRADLE_OPTS: `-Dorg.gradle.project.kotlin.incremental=false -Dorg.gradle.project.kotlin.compiler.execution.strategy=in-process` for E-project/C-cache split; no persistent build setting change.
+
+ADB `D:/AS_Sdk/platform-tools/adb.exe`; scrcpy `E:/scrcpy-win64-v4.1/scrcpy.exe`; last authorized LG API29 device LMV409N70de1ce3. Last window68230 and Flutter attach26739 may be stale; rediscover before use. No uninstall/wipe. APK: `apps/mobile-app/build/app/outputs/flutter-apk/app-debug.apk`. Do not commit caches, temporary screenshots/logs or build output.
