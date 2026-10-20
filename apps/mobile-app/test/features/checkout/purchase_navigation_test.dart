@@ -57,6 +57,14 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Thành phố Huế').last);
       await tester.pumpAndSettle();
+      final addressInput = find.descendant(
+        of: find.widgetWithText(TextField, 'Số nhà, tên đường *'),
+        matching: find.byType(EditableText),
+      );
+      expect(
+        tester.widget<EditableText>(addressInput).focusNode.hasFocus,
+        isFalse,
+      );
       await tester.scrollUntilVisible(
         find.text('Phường/Xã *'),
         80,

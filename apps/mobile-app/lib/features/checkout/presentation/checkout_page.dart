@@ -376,13 +376,19 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      'Tạm tính hàng',
-                      style: TextStyle(fontWeight: FontWeight.bold),
+                    const Expanded(
+                      child: Text(
+                        'Tạm tính hàng',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
                     ),
-                    Text(
-                      cart.subtotal.format(),
-                      style: Theme.of(context).textTheme.titleLarge,
+                    const SizedBox(width: 12),
+                    Flexible(
+                      child: Text(
+                        cart.subtotal.format(),
+                        textAlign: TextAlign.end,
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
                     ),
                   ],
                 ),

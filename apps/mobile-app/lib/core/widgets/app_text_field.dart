@@ -47,6 +47,7 @@ class AppTextField extends StatelessWidget {
     textInputAction: textInputAction,
     autofillHints: autofillHints,
     onSubmitted: onSubmitted,
+    onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
     inputFormatters: inputFormatters,
     maxLines: maxLines,
     maxLength: maxLength,

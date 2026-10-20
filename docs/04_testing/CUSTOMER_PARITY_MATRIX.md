@@ -1,47 +1,35 @@
-# Customer Web / Mobile parity matrix
+# Customer Web / Flutter parity matrix
 
-Reference commit: `origin/feature/ui-web` `b1ff2918`. Mobile starting commit: `8e1994a7`. Statuses describe verified implementation, not intended completion. All Web paths below are under `apps/web-user/src`; source is read using `git show`, never edited. Common acceptance: loading/empty/error/retry, pending/disabled, keyboard/back/scroll and readable phone layout.
+Updated 2026-10-20. Reference origin/feature/ui-web at b1ff2918 (read-only Git objects). Mobile feature/mobile-ui, starting 8e1994a7. Source paths below are relative to apps/web-user/src. Implementation and native validation are separate. Goal remains ACTIVE while P4 native QA is open.
 
-| Group / Web source | Mobile baseline | Gap / next verification | Phase |
-|---|---|---|---|
-| `app/globals.css`, shared layout/auth controls | Shared theme/widgets | Primary CTA gold instead of brown; ink/muted/border/error values differ. Match shared tokens first. | P1 |
-| `app/login/login-form.tsx`, `app/register/registration-flow.tsx` | AuthPage + AuthCubit | Missing recovery link/return destination/terms/password checklist; weak registration validation. Login REST sends phone_number, ZIP requires identifier. ZIP requires registration email although Web labels optional; obey ZIP and document difference. | P1 |
-| `app/account-recovery/recovery-flow.tsx` | Missing | Email neutral request, link verification, restricted proof, reset/success/relogin; expired/429/error states. | P1 |
-| `app/home-experience.tsx`, `app/products/catalog-flow.tsx` | Home/Catalog/CatalogCubit | Compare category/search/filter/sort entrypoints, context preservation and recovery states; content sections still to inspect in detail. | P2 |
-| `app/products/[slug]/product-detail-flow.tsx`, `components/product/product-reviews.tsx` | ProductDetail/variant sheet | Compare explicit SKU selection, unavailable combinations, review eligibility and related product links. Detailed audit pending. | P2 |
-| `app/cart/cart-flow.tsx` | CartPage/CartCubit | Web selects available lines; Mobile initially checks out whole cart. Reconcile selection, unavailable/price-change state, quantity limits, confirmation and selected-line checkout. | P2 |
-| `app/promotions/promotions-flow.tsx` | Missing | Voucher list/details/validation; ZIP supports list+validate. Checkout voucher submission is absent from ZIP; user clarification pending. | P2 |
-| `app/checkout/checkout-flow.tsx`, `services/checkout-service.ts` | CheckoutPage/Cubit/REST | Mobile still requires district; ZIP shipping is province→ward only. Compare shipping/method/context/selection and error handling. | P2 |
-| `app/payment/[orderId]/payment-flow.tsx`, confirmation flow | Confirmation only | Missing payment screen; preserve actual pending/payment states and expiry, no fake paid success. Detailed audit pending. | P2 |
-| `app/account/profile/profile-flow.tsx`, account shell | AccountPage | No editable profile; inspect permission/capability and profile API projection. | P3 |
-| `app/account/addresses/address-book-flow.tsx` | Address list/form | Compare two-level location and default/delete/validation semantics. | P3 |
-| `app/account/loyalty/loyalty-flow.tsx` | Static account points | Missing loyalty detail; transactions are planned, overview stable. | P3 |
-| `app/account/orders/orders-flow.tsx`, order-detail flow | Orders/OrderDetail | Compare filters, cancellation, payment/packing/shipping separation and reorder. | P3 |
-| `app/track-order/page.tsx` and order services | Missing guest ownership lookup | Challenge/OTP/grant exact-order scope; no direct unrestricted order ID access. | P3 |
-| after-sales request/case flows | Missing | Create/detail stable; eligibility/list/supplement drafts. Inspect approved Web interaction and keep lifecycle explicit. | P3 |
-| support request/ticket flows | Missing | Context/create/detail/reply stable; ticket list draft. Preserve public/internal separation. | P3 |
-| `app/trace/[qrCode]/page.tsx` | Missing | QR/manual code entry and public trace detail, invalid/not found/error recovery. | P3 |
-| `app/b2b/b2b-request-flow.tsx`, quote flow | Missing | Verified B2B capabilities/context/request/released quote/accept; no customer draft/internal notes. | P3 |
-| notifications (no matching Web customer route in inventory) | Local notifications | Preserve native feature; ZIP notifications planned, do not claim live integration. | P4 |
+| Web reference / group | Flutter counterpart and current implementation | Validation / remaining limit |
+|---|---|---|
+| app/globals.css; shared layout/auth controls | Web cream/brown/gold/ink, serif headings/sans body, shared CTA and states | Analyze/viewport tests; native core screens observed |
+| app/login/login-form.tsx; app/register/registration-flow.tsx | Identifier login, required ZIP email, terms/password checklist, return destination | Automated auth/navigation PASS; native local login→account observed |
+| app/account-recovery/recovery-flow.tsx | Neutral request, verified link/restricted proof/reset/success/relogin; expiry/429 | Automated full reset/no auto-login/large-text keyboard PASS; native validation/sent/reset keyboard/expired observed; native successful reset/relogin pending |
+| app/home-experience.tsx; app/products/catalog-flow.tsx | Home search/category continuity; server q/page/pageSize, load more; loaded-scope facets/price sort and filter sheet | Focused pagination/filter/empty/stale/no-progress PASS; native Home observed, final filter QA pending. No unsupported global weight/type/filter queries |
+| app/products/[slug]/product-detail-flow.tsx | Explicit SKU including one-option products, quantity bound20, exact price/stock, gallery/certificate/weight/original price, story, unavailable food data + manual trace | REST projection/explicit SKU and viewport PASS; native disabled→selected→add/cart PASS. No inferred ingredients/allergens/batch dates |
+| components/product/product-reviews.tsx | Public aggregate/list/paging/replies/media; owned delivered-order and exact snapshot SKU selection; strict ZIP create, verified badge only from response | Focused 4/4 PASS including phone submission/list. Native review pending; no invented eligibility/upload API or product_id POST |
+| app/cart/cart-flow.tsx | Available-line selection/all/partial/selected subtotal, pending/error, clear confirmation, quantity bounds | Unit/widgets PASS; native selection/add/cart and clear-dialog cancel preserve lines observed |
+| app/promotions/promotions-flow.tsx | Voucher list/condition check, stale validation protection, honest checkout limitation | Contract/state tests PASS; native wallet/conditions view observed. Applying voucher to Checkout waits for contract extension per user |
+| app/checkout/checkout-flow.tsx; services/checkout-service.ts | Selected-only checkout, province→ward, saved address, exact ZIP body/header/retry key, safe selected-only cleanup | Payload/state/phone transaction PASS; native guest two-level address→actual COD order85,000 PASS. Keyboard refocus and long subtotal fixed after native audit; final patch validation tracked in P4 |
+| app/payment/[orderId]/payment-flow.tsx; confirmation | Actual order/result, pending QR/expiry/read status, COD explicitly unpaid; no fake paid toggle | Automated expired/invalid context PASS; native created COD→payment→same order detail observed. Native QR workflow pending; no payment reissue endpoint |
+| app/account/profile/profile-flow.tsx | Editable name/email, immutable phone, conflict/reload and return login | Contract/state/widget PASS; native profile/save acknowledgement observed |
+| app/account/addresses/address-book-flow.tsx | Two-level CRUD/default/delete confirmation, checkout continuity | Automated payload/mutation PASS; native list/default/edit/save→list observed |
+| app/account/loyalty/loyalty-flow.tsx | Actual overview/tier/points/conversion, no fake history/redemption | Automated PASS; native overview→promotions observed. Transactions/redemption remain draft/planned |
+| app/account/orders/orders-flow.tsx; detail | Server q/status/page/pageSize, load more/empty recovery, exact raw status/price/totals/SKU, actual timeline, server cancellation | Focused orders15/15 PASS; native newly created order detail + Guest tracking observed. Native history/cancel pending. No unsupported year/reorder query/API |
+| app/track-order/page.tsx | Neutral challenge/contact→OTP/resend/expiry→exact scoped order; no unrestricted ID grant | Automated ownership/replay/expiry PASS; native full OM-8921 challenge/OTP→detail→tracking observed. Real SMS/server cookies not verified |
+| after-sales request/case flows | Full local form/create/case; stable REST create/detail and manual existing-case lookup | Focused returns/auth12/12 PASS incl phone. Production create context cannot obtain stable line_id: explicit unavailable + Support. Native pending |
+| support request/ticket flows | Typed context/create/detail/public reply, owned-order choice, idempotent retry | Automated create→reply/ownership PASS; native form/keyboard observed; native submit/reply pending. No guest contact object/upload/inbox invented |
+| app/trace/[qrCode]/page.tsx | Manual entry/deep link/detail, actual fields and safe public HTTPS media, find-product search | Focused trace/media tests PASS; native pending. Local specimens labelled, no fake certificate association |
+| app/b2b/b2b-request-flow.tsx; released quote | Verified actor/org/capability guards, request MOQ/date/province/brand/invoice/sample/estimate, quote terms/version/expiry/consent/acceptance→unpaid order | Focused9/9 PASS incl phone. Native pending. No unsupported notes/upload/docs; server atomic version acceptance still required by unchanged ZIP |
+| No matching Web notification route | Existing local notifications preserved | Native feature only; ZIP notifications planned, not live integration |
+| Session/capabilities/cookies across groups | Startup identity/401 refresh/offline retention; protected401 recovery invalidates stale actor; explicit retry without write replay; native server-cookie jar scoped and memory-only | Auth focused21/21 PASS, cookie/session contract tests PASS. Real backend lifecycle not verified |
 
-## Contract discrepancies to preserve explicitly
+## API authority and differences
 
-1. ZIP `POST /auth/login` requires `identifier`; existing Mobile used `phone_number`.
-2. ZIP `POST /auth/register` requires email; Web treats email optional. Mobile will require it, per user's API authority.
-3. ZIP Checkout shipping forbids `district`; native form/REST must adapt to two-level locations.
-4. ZIP Checkout has no voucher property. Validate/list can be implemented, but applying a financial reduction to a submitted order needs an approved contract. No fabricated final total.
-5. Password policy is present in Web (15–128 Unicode code points, uppercase/lowercase/digit/punctuation or symbol); ZIP is a string without tighter constraints. Reuse Web UX rules for registration/reset; login must accept existing shorter passwords.
+Exact supplied ZIP snapshots/hashes: ../03_api_specs/frontend-contracts/SOURCE.md. Stable/draft/planned distinctions preserved. ZIP requires login identifier, registration email and two-level shipping without district. Review POST uses order_id/sku_code/rating/comment/media_urls. Checkout forbids voucher_code, item prices and unrelated fields. No invented shipping quote, payment reissue, uploads, after-sales line IDs, ticket inbox, loyalty transactions/redemption, notifications, advanced product filters or B2B document fields.
 
-## Validation evidence
+## Evidence and next step
 
-Baseline analyze PASS, tests 60/60 PASS. P1 analyze PASS, focused tests 30/30 PASS, recovery navigation/keyboard 3/3 PASS. Native baseline: NOT RUN. Each phase records focused/automated/native results before its rows become DONE.
-
-## Implemented checkpoint status (2026-10-19)
-
-- Foundation/auth/recovery implemented; automated and selected native evidence in CURRENT_STATE.
-- Product SKU selection, current-page cart selection, strict Checkout/two-level locations, promotions validation and payment/confirmation implemented. Full native transaction QA pending. Voucher application waits for unchanged ZIP extension, per user.
-- Profile/loyalty/address counterparts implemented with login-return and contract tests; native account QA pending.
-- Guest ownership, support create/detail/public reply, session restore/server capabilities and trace implemented. Last recorded full regression 97/97 PASS; later trace/catalog/session focused 11/11 PASS and analyze PASS. Native support form/keyboard observed, submission pending. B2B, after-sales, reviews, advanced discovery and remaining order flows remain OPEN.
-- Latest full suite 90/90 PASS; latest address mutation changes additionally pass analyze and focused 14 tests.
-
-2026-10-20: latest full suite 110/110 PASS and Android build 37.6s PASS at order-action checkpoint. After-sales added afterward: local form/create/case and stable REST adapter/detail implemented; focused returns/auth 12/12 PASS + analyze PASS. Production request line-ID context remains unavailable under supplied stable ZIP; UI offers Support. Native after-sales/B2B and final full suite remain pending.
+Latest committed source b8ff216: analyze PASS, full141/141 PASS, APK build35.3s PASS, installed without wiping data. Subsequent native keyboard patch exposed a previously hidden27px subtotal overflow; fixed with flexible layout, focused checkout3/3 PASS including focus assertion. Final full/analyze/build rerun in progress. P4_CUSTOMER_QA and CURRENT_STATE carry live checkpoint/native gaps. Native evidence is local mock only, not proof of real email/SMS/payment/backend processing.
