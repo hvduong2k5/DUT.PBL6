@@ -55,6 +55,7 @@ import 'package:mobile_app/features/support/presentation/support_pages.dart';
 import 'package:mobile_app/features/trace/domain/trace_repository.dart';
 import 'package:mobile_app/features/trace/presentation/trace_cubit.dart';
 import 'package:mobile_app/features/trace/presentation/trace_page.dart';
+import 'package:mobile_app/features/orders/presentation/order_actions_pages.dart';
 
 GoRouter createAppRouter({
   required OnboardingStore onboardingStore,
@@ -65,6 +66,12 @@ GoRouter createAppRouter({
       initialLocation ??
       (onboardingCompleted ? AppRoutes.home : AppRoutes.onboarding),
   routes: [
+    GoRoute(
+      path: AppRoutes.orderTracking,
+      builder: (context, state) => SafeBackScope(
+        child: OrderTrackingPage(orderId: state.pathParameters['id']!),
+      ),
+    ),
     GoRoute(
       path: AppRoutes.trace,
       builder: (context, state) => SafeBackScope(

@@ -23,7 +23,8 @@ Keep the supplied ZIP unchanged, including stable/draft/planned distinctions. Us
 - [x] Two-level account address form/payload/default/delete behavior and saved-address checkout continuity.
 - [x] Current-session restore/refresh and capability projection/account guards. Network failure keeps tokens; invalid session clears; stale identity/capability responses cannot regrant access. B2B route-specific entry guard remains pending with B2B implementation.
 - [x] Guest lookup challenge/expiry/resend/OTP/grant and exact-order navigation; preserve only server-issued authority, never direct-ID authorization. Mock ownership denies history/other orders/expired grants. Native and real-cookie integration QA still pending.
-- [ ] Order read/cancel/tracking states and reorder; no fabricated item names/prices from SKU or order ID.
+- [x] Order read/cancel/tracking: exact SKU/raw price and server totals, recipient snapshot, unknown status, carrier/seal/video/checkpoints, retry/confirmation/server-authoritative cancel. Guest remains read-only. Web reference has no reorder action/ZIP endpoint; no invented reorder API.
+- [ ] Order history search/filter/pagination reconciliation and native order-action QA.
 - [x] Support context/create/detail/public messages. No fake upload/contact extension/hotline/CSAT. Automated create→ticket→reply, idempotency and ownership checks PASS; native form/keyboard inspected, native submission pending.
 - [x] Trace manual-code entry/detail/error/retry, deep link, find-product search, HTTPS-only external media action. Local certificate fixture explicitly labelled; video launch/native build QA pending.
 - [ ] After-sales create/detail with drafts separated. Stable Order lacks line_id required by creation; draft eligibility lines have no defined item shape. Do not invent IDs or promote draft calls.
@@ -40,4 +41,4 @@ Payload contract tests and state/navigation tests for each new flow, plus analyz
 
 ## Handoff / next
 
-Status: ACTIVE. Account/address, Guest OTP, support, session/capability and trace slices implemented. Trace/catalog/session focused 11/11 PASS and analyze PASS; last recorded full regression 97/97 PASS (later full-run output was lost; rerun at next build milestone). Native support layout and focused keyboard observed; native submission/account/Guest/trace QA pending. Next: checkpoint trace, full tests/Android build, then after-sales/B2B/remaining orders.
+Status: ACTIVE. Account/address, Guest/support/session/trace and order actions implemented. Trace APK build PASS 170.1s. New full suite found offscreen Drawer test; fixed by scroll+settle, focused menu PASS. Orders/checkout 14/14 PASS before final recipient/cancel-widget refinements; subsequent cancellation widget caught setState returning Future, corrected and focused case PASS (remaining 13 mixed order/menu cases had passed). Analyze PASS before that closure correction. Full final suite/native QA still required. Next: checkpoint orders, native APK refresh and after-sales/B2B/history/discovery/reviews.

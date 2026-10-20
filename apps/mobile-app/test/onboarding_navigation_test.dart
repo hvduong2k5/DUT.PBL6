@@ -87,6 +87,8 @@ void main() {
     expect(find.text('Đăng nhập'), findsOneWidget);
     expect(find.text('Địa chỉ giao hàng'), findsNothing);
 
+    await tester.ensureVisible(find.text('Đăng nhập'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Đăng nhập'));
     await tester.pumpAndSettle();
     expect(find.text('Đăng Nhập'), findsOneWidget);

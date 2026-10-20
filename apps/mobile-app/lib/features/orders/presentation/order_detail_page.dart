@@ -11,6 +11,8 @@ import 'package:mobile_app/features/orders/domain/orders_repository.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_app/app/router/routes.dart';
 import 'package:mobile_app/core/network/api_exception.dart';
+import 'package:mobile_app/features/auth/presentation/capabilities_cubit.dart';
+import 'package:mobile_app/features/orders/presentation/order_actions_pages.dart';
 
 class OrderDetailPage extends StatefulWidget {
   const OrderDetailPage({super.key, required this.orderId});
@@ -59,8 +61,38 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
           children: [
             Align(
               alignment: Alignment.centerLeft,
-              child: Chip(label: Text(order.status.label)),
+              child: Chip(
+                label: Text(
+                  order.status == OrderStatus.unknown
+                      ? (order.rawStatus ?? order.status.label)
+                      : order.status.label,
+                ),
+              ),
             ),
+            if (const {
+              'PENDING',
+              'PENDING_PAYMENT',
+              'AWAITING_CONFIRMATION',
+            }.contains(order.rawStatus))
+              BlocBuilder<CapabilitiesCubit, CapabilitiesState>(
+                builder: (context, capabilities) =>
+                    capabilities.allows('ORDER_HISTORY_VIEW')
+                    ? TextButton(
+                        onPressed: () async {
+                          final status = await showOrderCancellation(
+                            context,
+                            order.id,
+                          );
+                          if (status != null && mounted) {
+                          setState(() {
+                            _future = Future.value(order.withStatus(status));
+                          });
+                          }
+                        },
+                        child: const Text('Yêu cầu hủy đơn'),
+                      )
+                    : const SizedBox.shrink(),
+              ),
             const SizedBox(height: 10),
             Card(
               child: Padding(
@@ -69,7 +101,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Tiến trình đơn hàng',
+                      'Giai đoạn theo trạng thái đơn',
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                     const SizedBox(height: 14),
@@ -99,6 +131,9 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                     const SizedBox(height: 8),
+                    if (order.recipientName != null) Text(order.recipientName!),
+                    if (order.recipientPhone != null)
+                      Text(order.recipientPhone!),
                     Text(order.address),
                   ],
                 ),
@@ -106,10 +141,14 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
             ),
             Card(
               color: AppColors.softYellow,
-              child: const ListTile(
-                title: Text('Thông tin vận chuyển'),
-                subtitle: Text(
-                  'Đơn vị và mã theo dõi chỉ hiển thị khi API cung cấp.',
+              child: ListTile(
+                title: const Text('Thông tin vận chuyển'),
+                subtitle: const Text(
+                  'Xem hành trình, mã vận đơn và niêm phong.',
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push(
+                  '/orders/${Uri.encodeComponent(order.id)}/tracking',
                 ),
               ),
             ),
@@ -141,12 +180,22 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                           subtitle: Text(
                             '${item.variantName} • SL ${item.quantity}',
                           ),
-                          trailing: Text(item.lineTotal.format()),
+                          trailing: Text(
+                            item.unitPriceKnown
+                                ? item.lineTotal.format()
+                                : item.price.format(),
+                          ),
                         ),
                     ],
                   ),
                 ),
               ),
+            if (order.subtotal != null)
+              _AmountRow('Tạm tính', order.subtotal!.format()),
+            if (order.discount != null)
+              _AmountRow('Ưu đãi', order.discount!.format()),
+            if (order.shippingFee != null)
+              _AmountRow('Phí vận chuyển', order.shippingFee!.format()),
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(AppSpacing.md),
@@ -191,7 +240,24 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     OrderStatus.shipping => 2,
     OrderStatus.delivered => 3,
     OrderStatus.cancelled => 1,
+    OrderStatus.unknown => -1,
   };
+}
+
+class _AmountRow extends StatelessWidget {
+  const _AmountRow(this.label, this.value);
+  final String label, value;
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.all(12),
+    child: Row(
+      children: [
+        Expanded(child: Text(label)),
+        const SizedBox(width: 12),
+        Flexible(child: Text(value, textAlign: TextAlign.end)),
+      ],
+    ),
+  );
 }
 
 class _TimelineRow extends StatelessWidget {

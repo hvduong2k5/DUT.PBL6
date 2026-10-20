@@ -24,4 +24,5 @@ abstract final class AppRoutes {
   static const supportTicket = '/support/tickets/:id';
   static const trace = '/trace';
   static const traceDetail = '/trace/:code';
+  static const orderTracking = '/orders/:id/tracking';
 }

@@ -46,7 +46,9 @@ class _OrderFilters extends StatelessWidget {
           onSelected: (_) => context.read<OrdersCubit>().filter(null),
         ),
         const SizedBox(width: 8),
-        for (final status in OrderStatus.values) ...[
+        for (final status in OrderStatus.values.where(
+          (s) => s != OrderStatus.unknown,
+        )) ...[
           FilterChip(
             label: Text(status.label),
             selected: selected == status,

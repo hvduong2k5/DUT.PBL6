@@ -12,6 +12,8 @@ class MockOrdersRepository implements OrdersRepository {
   final bool Function() _authenticated;
   final Map<String, DateTime> _guestGrants = {};
   final Map<String, String> _contacts = {};
+  final Map<String, CustomerOrder> _overrides = {};
+  final Map<String, String> _cancellations = {};
   void grantGuestAccess(String id, DateTime expiry) {
     _guestGrants[id] = expiry;
   }
@@ -42,6 +44,8 @@ class MockOrdersRepository implements OrdersRepository {
         total: confirmation.total,
         createdAt: DateTime.now(),
         address: '${draft.streetAddress}, ${draft.ward}, ${draft.province}',
+        recipientName: draft.fullName,
+        recipientPhone: draft.phone,
         items: draft.cart.items
             .map(
               (line) => OrderItem(
@@ -133,7 +137,7 @@ class MockOrdersRepository implements OrdersRepository {
         ),
       );
     }
-    return [..._created, ..._orders];
+    return [..._created, ..._orders].map((o) => _overrides[o.id] ?? o).toList();
   }
 
   @override
@@ -160,6 +164,69 @@ class MockOrdersRepository implements OrdersRepository {
         ),
       );
     }
-    return order;
+    return _overrides[id] ?? order;
+  }
+
+  @override
+  Future<OrderTracking> tracking(String id) async {
+    final value = await order(id);
+    return OrderTracking(
+      orderId: id,
+      code: value.status == OrderStatus.shipping ? 'LOCAL-$id' : '',
+      carrier: value.status == OrderStatus.shipping
+          ? 'Đơn vị giao nhận local'
+          : '',
+      status: value.rawStatus ?? value.status.label,
+      seal: '',
+      video: '',
+      shipper: '',
+      phone: '',
+      checkpoints: value.checkpoints
+          .map(
+            (p) => ShippingCheckpoint(
+              status: p.label,
+              time: p.time,
+              location: 'Dữ liệu local',
+              description: p.label,
+            ),
+          )
+          .toList(),
+    );
+  }
+
+  @override
+  Future<String> cancel(
+    String id,
+    String reason, {
+    required String idempotencyKey,
+  }) async {
+    final value = await order(id);
+    if (!_authenticated()) {
+      throw const ApiException(
+        Failure(
+          kind: FailureKind.forbidden,
+          message: 'Đơn khách hiện chỉ được xem. Vui lòng liên hệ hỗ trợ.',
+        ),
+      );
+    }
+    final key = '$id:$idempotencyKey';
+    if (_cancellations.containsKey(key)) return _cancellations[key]!;
+    if (!const {
+          'PENDING',
+          'PENDING_PAYMENT',
+          'AWAITING_CONFIRMATION',
+        }.contains(value.rawStatus) ||
+        reason.trim().isEmpty) {
+      throw const ApiException(
+        Failure(
+          kind: FailureKind.conflict,
+          message:
+              'Đơn không còn đủ điều kiện hủy. Vui lòng kiểm tra trạng thái mới nhất.',
+        ),
+      );
+    }
+    _overrides[id] = value.withStatus('CANCELLED_BY_USER');
+    _cancellations[key] = 'CANCELLED_BY_USER';
+    return 'CANCELLED_BY_USER';
   }
 }

@@ -15,7 +15,7 @@ void main() {
     });
 
     test('falls back safely for a future unknown API status', () {
-      expect(OrderStatusUi.fromApi('NEW_BACKEND_STATUS'), OrderStatus.pending);
+      expect(OrderStatusUi.fromApi('NEW_BACKEND_STATUS'), OrderStatus.unknown);
     });
   });
 

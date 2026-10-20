@@ -30,3 +30,7 @@ Restore identity using GET auth/me before showing protected account data. On 401
 ## Opening public media links (2026-10-19)
 
 Trace Web exposes a server-provided crafting video and released B2B quotes may link public documents. No external-link capability exists in Mobile. Add Flutter-published url_launcher 6.3.3, verified against https://pub.dev/packages/url_launcher, behind one shared HTTPS-only button with launch failure recovery. Do not pass arbitrary schemes, credentials, auth tokens or private URLs to another app. Use direct launch and handle failure; no browser-state access or automatic media navigation.
+
+## Orders and cancellation authority (2026-10-20)
+
+Stable ZIP supplies raw SKU/quantity/price without product names or unit-versus-line price semantics. Display exact SKU/raw price and authoritative subtotal/discount/shipping/final totals; do not multiply ambiguous REST price. Preserve unknown statuses instead of calling them pending. Actual carrier/checkpoints/seal/video come from the stable tracking endpoint; derived phase progress is labelled separately. Cancel POST permits only reason plus the idempotency header: use a reason input, preserve retry keys, and leave eligibility to the server. UI offers the request for known pending/unpaid statuses and registered order capability; Guest Web remains view-only. Do not copy Web's unsupported cancellation policy/refund fields or claim refunded after cancellation. Current referenced Web orders list/detail expose no reorder action; do not add an uncontracted reorder endpoint.
