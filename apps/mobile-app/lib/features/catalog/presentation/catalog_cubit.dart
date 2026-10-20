@@ -48,7 +48,8 @@ class CatalogState extends Equatable {
 }
 
 class CatalogCubit extends Cubit<CatalogState> {
-  CatalogCubit(this._repository) : super(const CatalogState());
+  CatalogCubit(this._repository, {String initialQuery = ''})
+    : super(CatalogState(query: initialQuery));
   final CatalogRepository _repository;
   Future<void> load() async {
     emit(state.copyWith(status: CatalogStatus.loading));

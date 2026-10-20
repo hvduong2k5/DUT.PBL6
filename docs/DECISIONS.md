@@ -26,3 +26,7 @@ Web support request collects guest contact and attachment metadata. Stable ZIP P
 ## Session and capability boundary (2026-10-19)
 
 Restore identity using GET auth/me before showing protected account data. On 401 only, retry through documented refresh and then verify identity again. Keep tokens on network failure; clear expired credentials and clear local session even if server logout is unreachable. Serialize explicit REST auth actions after pending restore. Reload server capabilities on auth transitions; discard stale responses and show loading/error/forbidden states. Never derive production B2B authority from phone, display name or a client toggle. Mock users remain REGISTERED until an explicit verified fixture is introduced.
+
+## Opening public media links (2026-10-19)
+
+Trace Web exposes a server-provided crafting video and released B2B quotes may link public documents. No external-link capability exists in Mobile. Add Flutter-published url_launcher 6.3.3, verified against https://pub.dev/packages/url_launcher, behind one shared HTTPS-only button with launch failure recovery. Do not pass arbitrary schemes, credentials, auth tokens or private URLs to another app. Use direct launch and handle failure; no browser-state access or automatic media navigation.

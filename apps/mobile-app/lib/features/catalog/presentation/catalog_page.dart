@@ -17,16 +17,19 @@ import 'package:mobile_app/features/catalog/presentation/catalog_cubit.dart';
 import 'package:mobile_app/features/catalog/presentation/widgets/product_card.dart';
 
 class CatalogPage extends StatefulWidget {
-  const CatalogPage({super.key});
+  const CatalogPage({super.key, this.initialQuery = ''});
+  final String initialQuery;
   @override
   State<CatalogPage> createState() => _CatalogPageState();
 }
 
 class _CatalogPageState extends State<CatalogPage> {
   Timer? _debounce;
+  late final _search = TextEditingController(text: widget.initialQuery);
   @override
   void dispose() {
     _debounce?.cancel();
+    _search.dispose();
     super.dispose();
   }
 
@@ -65,6 +68,7 @@ class _CatalogPageState extends State<CatalogPage> {
                   ],
                 ),
                 child: TextField(
+                  controller: _search,
                   onChanged: (value) {
                     _debounce?.cancel();
                     _debounce = Timer(

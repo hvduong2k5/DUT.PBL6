@@ -86,7 +86,11 @@ class AccountPage extends StatelessWidget {
                 label: 'Hỗ trợ',
                 onTap: () => context.push(AppRoutes.supportRequest),
               ),
-              const _MenuRow(icon: Icons.info_outline, label: 'Về Ô Mạ'),
+              _MenuRow(
+                icon: Icons.qr_code_2_outlined,
+                label: 'Truy xuất nguồn gốc',
+                onTap: () => context.push(AppRoutes.trace),
+              ),
               if (!isGuest) ...[
                 const SizedBox(height: AppSpacing.md),
                 OutlinedButton.icon(

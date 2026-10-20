@@ -25,7 +25,8 @@ Keep the supplied ZIP unchanged, including stable/draft/planned distinctions. Us
 - [x] Guest lookup challenge/expiry/resend/OTP/grant and exact-order navigation; preserve only server-issued authority, never direct-ID authorization. Mock ownership denies history/other orders/expired grants. Native and real-cookie integration QA still pending.
 - [ ] Order read/cancel/tracking states and reorder; no fabricated item names/prices from SKU or order ID.
 - [x] Support context/create/detail/public messages. No fake upload/contact extension/hotline/CSAT. Automated create→ticket→reply, idempotency and ownership checks PASS; native form/keyboard inspected, native submission pending.
-- [ ] After-sales create/detail with drafts separated; trace manual/QR entry. Read each source+contract before editing.
+- [x] Trace manual-code entry/detail/error/retry, deep link, find-product search, HTTPS-only external media action. Local certificate fixture explicitly labelled; video launch/native build QA pending.
+- [ ] After-sales create/detail with drafts separated. Stable Order lacks line_id required by creation; draft eligibility lines have no defined item shape. Do not invent IDs or promote draft calls.
 - [ ] B2B context/quote request/released detail/version acceptance with idempotency and correct capability/ownership.
 - [ ] Focused tests, complete regression, native scrcpy QA; matrix/handoff/checkpoint.
 
@@ -39,4 +40,4 @@ Payload contract tests and state/navigation tests for each new flow, plus analyz
 
 ## Handoff / next
 
-Status: ACTIVE. Account/address, Guest OTP, support and session/capability slices implemented. Analyze PASS; new session/capability tests 4/4 PASS; prior full regression 97/97 PASS. Native support layout and focused keyboard observed; native submission/account/Guest QA pending. Next: trace and after-sales/B2B/remaining order flows.
+Status: ACTIVE. Account/address, Guest OTP, support, session/capability and trace slices implemented. Trace/catalog/session focused 11/11 PASS and analyze PASS; last recorded full regression 97/97 PASS (later full-run output was lost; rerun at next build milestone). Native support layout and focused keyboard observed; native submission/account/Guest/trace QA pending. Next: checkpoint trace, full tests/Android build, then after-sales/B2B/remaining orders.

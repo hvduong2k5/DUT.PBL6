@@ -22,4 +22,6 @@ abstract final class AppRoutes {
   static const guestOrderLookup = '/track-order';
   static const supportRequest = '/support/request';
   static const supportTicket = '/support/tickets/:id';
+  static const trace = '/trace';
+  static const traceDetail = '/trace/:code';
 }

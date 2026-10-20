@@ -52,6 +52,9 @@ import 'package:mobile_app/features/onboarding/presentation/onboarding_page.dart
 import 'package:mobile_app/features/support/domain/support_repository.dart';
 import 'package:mobile_app/features/support/presentation/support_cubit.dart';
 import 'package:mobile_app/features/support/presentation/support_pages.dart';
+import 'package:mobile_app/features/trace/domain/trace_repository.dart';
+import 'package:mobile_app/features/trace/presentation/trace_cubit.dart';
+import 'package:mobile_app/features/trace/presentation/trace_page.dart';
 
 GoRouter createAppRouter({
   required OnboardingStore onboardingStore,
@@ -62,6 +65,27 @@ GoRouter createAppRouter({
       initialLocation ??
       (onboardingCompleted ? AppRoutes.home : AppRoutes.onboarding),
   routes: [
+    GoRoute(
+      path: AppRoutes.trace,
+      builder: (context, state) => SafeBackScope(
+        child: BlocProvider(
+          create: (_) => TraceCubit(context.read<TraceRepository>()),
+          child: const TracePage(),
+        ),
+      ),
+    ),
+    GoRoute(
+      path: AppRoutes.traceDetail,
+      builder: (context, state) => SafeBackScope(
+        child: BlocProvider(
+          key: ValueKey(state.pathParameters['code']),
+          create: (_) =>
+              TraceCubit(context.read<TraceRepository>())
+                ..lookup(state.pathParameters['code']!),
+          child: TracePage(initialCode: state.pathParameters['code']!),
+        ),
+      ),
+    ),
     GoRoute(
       path: AppRoutes.supportRequest,
       builder: (context, state) => SafeBackScope(
@@ -156,9 +180,14 @@ GoRouter createAppRouter({
       path: AppRoutes.catalog,
       builder: (context, state) => SafeBackScope(
         child: BlocProvider(
-          create: (_) =>
-              CatalogCubit(context.read<CatalogRepository>())..load(),
-          child: const CatalogPage(),
+          key: ValueKey(state.uri.queryParameters['q'] ?? ''),
+          create: (_) => CatalogCubit(
+            context.read<CatalogRepository>(),
+            initialQuery: state.uri.queryParameters['q'] ?? '',
+          )..load(),
+          child: CatalogPage(
+            initialQuery: state.uri.queryParameters['q'] ?? '',
+          ),
         ),
       ),
     ),
