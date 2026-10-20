@@ -29,7 +29,7 @@ Restore identity using GET auth/me before showing protected account data. On 401
 
 ## Opening public media links (2026-10-19)
 
-Trace Web exposes a server-provided crafting video and released B2B quotes may link public documents. No external-link capability exists in Mobile. Add Flutter-published url_launcher 6.3.3, verified against https://pub.dev/packages/url_launcher, behind one shared HTTPS-only button with launch failure recovery. Do not pass arbitrary schemes, credentials, auth tokens or private URLs to another app. Use direct launch and handle failure; no browser-state access or automatic media navigation.
+Trace Web exposes a server-provided crafting video; shipment tracking also has packing video. No external-link capability exists in Mobile. Add Flutter-published url_launcher 6.3.3, verified against https://pub.dev/packages/url_launcher, behind one shared HTTPS-only button with launch failure recovery. Do not pass arbitrary schemes, credentials, auth tokens or private URLs to another app. Use direct launch and handle failure; no browser-state access or automatic media navigation. Quote document downloads are not in the stable schema and are not invented.
 
 ## Orders and cancellation authority (2026-10-20)
 
@@ -38,3 +38,9 @@ Stable ZIP supplies raw SKU/quantity/price without product names or unit-versus-
 ## After-sales context gap (2026-10-20)
 
 Stable POST /returns requires authoritative line_id; stable GET Order exposes only sku_code/quantity/price, and draft eligibility defines lines as unspecified objects. Production cannot safely construct a return form's selectable lines. Keep a clear unavailable/Support recovery state and never call that draft endpoint implicitly. Implement stable detail and exact create adapter independently; default local fixture repository may issue its own LOCAL-LINE identifiers and exercise the approved form with one line, quantity bound, reason/details, HTTPS evidence URLs and bank details. Mock retains only case projection, not bank/evidence inputs. Approval/requested refund value never means money transferred. List/supplements/pickup remain draft or absent. This is an open production contract limitation, not a claim that backend creation was tested.
+
+## B2B contract and uncertain acceptance (2026-10-20)
+
+Require server actor B2B, feature-specific capabilities and VERIFIED organization context. Mock-only login fixture 0905999888 returns a dedicated verified identity; default registered/guest users have no B2B authority. Production never derives roles from phone/name. No unsupported request notes, fake upload, hard-coded specialist contact, quote document or internal draft data.
+
+Stable acceptance body allows only confirmation/idempotencyKey. Re-fetch quote before POST, compare version and complete terms/items/totals/payment/expiry fingerprint, clear consent if changed and recheck capability. This precheck is not atomic version enforcement; server must uphold the stable summary. Do not invent quoteVersion/If-Match. After an uncertain POST, retain its key and replay to recover the existing result even if the same quote is now accepted; status alone is not changed commercial content. Rejected/expired/changed quotes are not newly accepted. Acceptance creates one actual mock order reference in PENDING_PAYMENT and never marks it paid.

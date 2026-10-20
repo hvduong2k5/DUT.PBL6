@@ -1,6 +1,7 @@
 import 'package:mobile_app/core/network/api_client.dart';
 import 'package:mobile_app/features/auth/domain/auth_models.dart';
 import 'package:mobile_app/features/auth/domain/customer_capabilities.dart';
+import 'package:mobile_app/features/auth/data/mock_auth_repository.dart';
 
 class RestCustomerCapabilitiesRepository
     implements CustomerCapabilitiesRepository {
@@ -19,8 +20,13 @@ class MockCustomerCapabilitiesRepository
   @override
   Future<CustomerCapabilities> load() async {
     final user = currentUser();
+    final verifiedB2b = user?.id == MockAuthRepository.b2bFixtureId;
     return CustomerCapabilities(
-      actor: user == null ? 'GUEST' : 'REGISTERED',
+      actor: user == null
+          ? 'GUEST'
+          : verifiedB2b
+          ? 'B2B'
+          : 'REGISTERED',
       version: 1,
       values: {
         'CATALOG_VIEW',
@@ -34,6 +40,12 @@ class MockCustomerCapabilitiesRepository
           'ORDER_HISTORY_VIEW',
           'LOYALTY_VIEW',
           'REVIEW_CREATE',
+        },
+        if (verifiedB2b) ...{
+          'B2B_COMPANY_VIEW',
+          'B2B_QUOTE_CREATE',
+          'B2B_QUOTE_VIEW',
+          'B2B_QUOTE_ACCEPT',
         },
       },
     );

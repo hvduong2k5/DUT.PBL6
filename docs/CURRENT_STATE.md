@@ -4,7 +4,7 @@ Updated 2026-10-20. Goal ACTIVE. Whole Customer parity NOT COMPLETE.
 
 ## Git and boundaries
 
-Branch feature/mobile-ui; HEAD before after-sales milestone 14d081bb636f1417eda29ea640ba09355cc01efb, pushed/verified. Resolve resulting checkpoint using git log. Prior checkpoints: b6f4c28 trace, 86dcef2 session, 457eea6 support, eb57d76 Guest, ec8545a payment/account, 1d91c15 purchase, 82fd358 auth. Commit/push Mobile only; no merges/PRs. Read-only Web reference b1ff2918c7297fc93d0cb9a15cc1d0a0ee46b72e using git show origin/feature/ui-web:<path>; no Web checkout/edits performed.
+Branch feature/mobile-ui; HEAD before B2B milestone 0c2e7df24568418a842fe97d96c1fc1d5ac43c34, pushed/verified. Resolve resulting checkpoint using git log. Prior checkpoints: 14d081b orders, b6f4c28 trace, 86dcef2 session, 457eea6 support, eb57d76 Guest, ec8545a payment/account, 1d91c15 purchase, 82fd358 auth. Commit/push Mobile only; no merges/PRs. Read-only Web reference b1ff2918c7297fc93d0cb9a15cc1d0a0ee46b72e using git show origin/feature/ui-web:<path>; no Web checkout/edits performed.
 
 ## Implemented
 
@@ -17,17 +17,21 @@ Branch feature/mobile-ui; HEAD before after-sales milestone 14d081bb636f1417eda2
 
 ## Open work and contract limits
 
+- B2B implemented: verified org/capability gates; request MOQ/date/province/brand/invoice/sample/estimate/recent files; released quote version/items/terms/totals/payment/contact/expiry; consent reset on changed quote and exact ZIP acceptance with uncertain retry-key replay; actual paired mock order is PENDING_PAYMENT. No unsupported notes/upload/draft/internal/document fields. Mock-only verified login 0905999888 (any nonempty legacy password except sai); production uses server projection. Focused B2B 9/9 PASS + analyze PASS; native pending. Server must enforce atomic quote version acceptance because ZIP has no version field; client precheck is not an atomic guarantee.
+
 - After-sales implemented: signed-in return entry from delivered order/account; complete local single-line/quantity/reason/details/evidence URL/bank form→actual mock case; stable REST create adapter/detail and manual case lookup; no fake refund/pickup or draft API. Production context verifies Order, then explicitly unavailable/Support because stable line IDs are absent. Mock fixture issues LOCAL-LINE IDs, enforces quantities/ownership/idempotency and does not retain bank/evidence. Focused returns/auth 12/12 PASS + analyze PASS. Native after-sales pending.
 
 - Order-action slice implemented: server-authoritative cancellation with reason-only payload/retry key/confirmation, guest readonly; real tracking carrier/checkpoints/seal/video; raw SKU/price (no ambiguous multiplication), recipient and financial snapshot, unknown status preservation. Cancellation widget caught Future-returning setState; fixed, focused case PASS. Orders/checkout 14 PASS before final refinements; mixed order/menu other 13 cases PASS. Native action QA pending.
 
 - User confirmed unchanged ZIP: voucher application at POST checkout waits for contract extension; never submit voucher_code or reduce final total. No shipping quote/durable payment QR recovery endpoint.
 - P2 OPEN: discovery pagination/filter/sort reconciliation, legacy REST category_id/page_size fields versus ZIP q/status/page/pageSize; product reviews/eligibility; cart clear confirmation. Never present current-page filters as complete server results.
-- P3 OPEN: history search/filter/pagination; verified B2B context/request/released quote/version acceptance; production after-sales context gap. Current Web has no reorder action and ZIP no endpoint. Do not fabricate line IDs or silently use drafts. B2B Web request and quote source first sections have been read; context/request/accept schemas read. Request forbids Web notes; accept allows confirmation/idempotencyKey only, no quoteVersion. Quote detail schema and remaining markup still need inspection before implementation.
+- P3 OPEN: history search/filter/pagination/native QA and production after-sales context gap. Current Web has no reorder action and ZIP no endpoint. Do not fabricate line IDs or silently use drafts. B2B Web source and stable schemas fully read/implemented; notes/upload/document download remain absent from stable contract.
 - Support ZIP forbids Web guest contact object and has no stable upload/download API; do not collect unsendable contact, pretend metadata uploaded, or invent file download URLs. Ticket list, loyalty history/redemption and notifications planned/draft. Missing native destinations must not be interpreted as complete.
 - P4 full native/cross-flow QA remains OPEN; real backend/email/SMS/payment/credential lifecycle NOT VERIFIED.
 
 ## Validation and native state
+
+- Native Guest lookup/tracking now observed end to end: Home→order/contact→neutral challenge→local OTP→actual OM-8921 detail→carrier/tracking code/public checkpoints. No guest cancel action or visible overflow. Phone currently on tracking. Mock-only evidence, no real SMS/cookie backend claim.
 
 - Latest at 14d081b: full 110/110 PASS; APK build PASS 37.6s with source held stable. Installed by adb update (Success), launched Home, no data wipe. New active attach PTY 3540, scrcpy window 12519142 after reopening existing executable. Old session/window invalid. Phone currently Guest lookup, code field focused and dummy OM-8921 just typed; refresh UI before any action. Native update includes URL plugin/current order actions.
 
@@ -39,4 +43,4 @@ Branch feature/mobile-ui; HEAD before after-sales milestone 14d081bb636f1417eda2
 
 ## Exact next action
 
-Checkpoint after-sales and verify Mobile push, then B2B. Complete history/discovery pagination/search/reviews and cart clear confirmation. Native attach 3540 runs order-action checkpoint; hot restart required for Returns DI. Scrcpy window12519142; phone is at Guest OTP, code and contact entered, request accepted, OTP field just focused (refresh before action). Local OTP 789214; only local fixture, no real SMS. Finish Guest→detail→tracking, account/support/trace/after-sales and full purchase native QA. Full suite/build at stable milestones; do not modify app during compilation. Goal remains ACTIVE.
+Checkpoint B2B and verify Mobile push. Continue history/discovery pagination/search/filter, product reviews and cart clear confirmation; inspect narrow Web/catalog/review schemas first. Full tests at milestone. Native attach 3540 runs order-action checkpoint; hot restart for Returns/B2B DI, clears local mock state. Scrcpy window12519142 currently Guest tracking, refresh before actions. Remaining native: account/profile/addresses, support create/reply, trace, after-sales/B2B, complete purchase/payment and reset/relogin. Full suite/build at stable milestones; no edits during compilation. Goal remains ACTIVE.

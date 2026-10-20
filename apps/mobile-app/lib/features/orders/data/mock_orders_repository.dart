@@ -28,6 +28,11 @@ class MockOrdersRepository implements OrdersRepository {
   }
 
   final List<CustomerOrder> _created = [];
+  void recordBusinessOrder(CustomerOrder order) {
+    _created.removeWhere((o) => o.id == order.id);
+    _created.add(order);
+  }
+
   void record(OrderConfirmation confirmation, CheckoutDraft draft) {
     _contacts[confirmation.orderId] = draft.phone;
     grantGuestAccess(

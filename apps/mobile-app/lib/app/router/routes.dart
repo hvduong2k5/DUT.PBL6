@@ -28,4 +28,6 @@ abstract final class AppRoutes {
   static const returnRequest = '/orders/:id/after-sales/request';
   static const returnLookup = '/after-sales';
   static const returnCase = '/after-sales/:id';
+  static const b2b = '/b2b';
+  static const b2bQuote = '/b2b/quotes/:id';
 }

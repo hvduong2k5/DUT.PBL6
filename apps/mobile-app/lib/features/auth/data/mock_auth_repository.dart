@@ -6,6 +6,8 @@ import 'package:mobile_app/core/error/failures.dart';
 import 'package:uuid/uuid.dart';
 
 class MockAuthRepository implements AuthRepository {
+  static const b2bFixturePhone = '0905999888';
+  static const b2bFixtureId = 'CUST-MOCK-B2B-VERIFIED';
   AuthUser? currentUser;
   @override
   Future<AuthUser?> restoreSession() async => currentUser;
@@ -22,7 +24,7 @@ class MockAuthRepository implements AuthRepository {
     await Future<void>.delayed(const Duration(milliseconds: 250));
     if (password == 'sai') throw StateError('Thông tin đăng nhập chưa đúng.');
     currentUser = AuthUser(
-      id: 'CUST-MOCK',
+      id: phoneNumber == b2bFixturePhone ? b2bFixtureId : 'CUST-MOCK',
       phoneNumber: phoneNumber,
       fullName: 'Nguyễn Văn An',
       email: 'an.nguyen@example.com',

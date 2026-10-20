@@ -29,6 +29,7 @@ String safeAuthReturnLocation(String? value) {
     '/after-sales',
     '/support/request',
     '/trace',
+    '/b2b',
   };
   final path = uri.path;
   if (!routes.contains(path) &&
@@ -38,7 +39,9 @@ String safeAuthReturnLocation(String? value) {
       !RegExp(
         r'^/orders/[^/]+/(tracking|after-sales/request)$',
       ).hasMatch(path) &&
-      !RegExp(r'^/(after-sales|support/tickets|trace)/[^/]+$').hasMatch(path)) {
+      !RegExp(
+        r'^/(after-sales|support/tickets|trace|b2b/quotes)/[^/]+$',
+      ).hasMatch(path)) {
     return AppRoutes.account;
   }
   return uri.toString();

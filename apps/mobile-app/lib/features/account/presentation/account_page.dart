@@ -82,6 +82,11 @@ class AccountPage extends StatelessWidget {
               const SizedBox(height: AppSpacing.md),
               const _SectionLabel('KHÁC'),
               _MenuRow(
+                icon: Icons.business_outlined,
+                label: 'Quà biếu doanh nghiệp',
+                onTap: () => context.push(AppRoutes.b2b),
+              ),
+              _MenuRow(
                 icon: Icons.local_offer_outlined,
                 label: 'Ưu đãi Tri Kỷ',
                 onTap: () => context.push(AppRoutes.promotions),

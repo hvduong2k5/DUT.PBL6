@@ -59,6 +59,10 @@ import 'package:mobile_app/features/orders/presentation/order_actions_pages.dart
 import 'package:mobile_app/features/returns/domain/returns_repository.dart';
 import 'package:mobile_app/features/returns/presentation/returns_cubit.dart';
 import 'package:mobile_app/features/returns/presentation/returns_pages.dart';
+import 'package:mobile_app/features/b2b/domain/b2b_repository.dart';
+import 'package:mobile_app/features/b2b/presentation/b2b_cubits.dart';
+import 'package:mobile_app/features/b2b/presentation/b2b_pages.dart';
+import 'package:mobile_app/features/auth/presentation/capabilities_cubit.dart';
 
 GoRouter createAppRouter({
   required OnboardingStore onboardingStore,
@@ -69,6 +73,42 @@ GoRouter createAppRouter({
       initialLocation ??
       (onboardingCompleted ? AppRoutes.home : AppRoutes.onboarding),
   routes: [
+    GoRoute(
+      path: AppRoutes.b2b,
+      builder: (context, state) => SafeBackScope(
+        child: CustomerAccountGate(
+          capability: 'B2B_QUOTE_CREATE',
+          requireB2b: true,
+          returnLocation: AppRoutes.b2b,
+          child: BlocProvider(
+            create: (_) =>
+                B2bRequestCubit(context.read<B2bRepository>())..load(),
+            child: const B2bRequestPage(),
+          ),
+        ),
+      ),
+    ),
+    GoRoute(
+      path: AppRoutes.b2bQuote,
+      builder: (context, state) => SafeBackScope(
+        child: CustomerAccountGate(
+          capability: 'B2B_QUOTE_VIEW',
+          requireB2b: true,
+          returnLocation: state.uri.toString(),
+          child: BlocProvider(
+            create: (_) => B2bQuoteCubit(
+              context.read<B2bRepository>(),
+              mayAccept: () {
+                final caps = context.read<CapabilitiesCubit>().state;
+                return caps.projection?.actor == 'B2B' &&
+                    caps.allows('B2B_QUOTE_ACCEPT');
+              },
+            )..load(state.pathParameters['id']!),
+            child: B2bQuotePage(quoteId: state.pathParameters['id']!),
+          ),
+        ),
+      ),
+    ),
     GoRoute(
       path: AppRoutes.returnRequest,
       builder: (context, state) => SafeBackScope(
