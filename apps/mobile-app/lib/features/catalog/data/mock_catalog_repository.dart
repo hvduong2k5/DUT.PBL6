@@ -2,6 +2,7 @@ import 'package:mobile_app/features/catalog/data/web_reference_imagery.dart';
 import 'package:mobile_app/core/models/money.dart';
 import 'package:mobile_app/features/catalog/domain/catalog_models.dart';
 import 'package:mobile_app/features/catalog/domain/catalog_repository.dart';
+import 'package:mobile_app/core/models/page_result.dart';
 
 class MockCatalogRepository implements CatalogRepository {
   static const _delay = Duration(milliseconds: 180);
@@ -20,7 +21,7 @@ class MockCatalogRepository implements CatalogRepository {
       imageUrl: WebReferenceImagery.meXung,
       price: Money.vnd(85000),
       ocopStars: 4,
-      category: 'gion',
+      category: 'Mè Xửng Giòn',
       inStock: true,
       variants: [
         ProductVariant(
@@ -44,7 +45,7 @@ class MockCatalogRepository implements CatalogRepository {
       imageUrl: WebReferenceImagery.meXungDeo,
       price: Money.vnd(72000),
       ocopStars: 4,
-      category: 'deo',
+      category: 'Mè Xửng Dẻo',
       inStock: true,
       variants: [
         ProductVariant(
@@ -66,7 +67,7 @@ class MockCatalogRepository implements CatalogRepository {
       imageUrl: '',
       price: Money.vnd(170000),
       ocopStars: 4,
-      category: 'qua',
+      category: 'Quà Huế',
       inStock: true,
       variants: [
         ProductVariant(
@@ -88,7 +89,7 @@ class MockCatalogRepository implements CatalogRepository {
       imageUrl: WebReferenceImagery.gift,
       price: Money.vnd(295000),
       ocopStars: 4,
-      category: 'qua',
+      category: 'Quà Huế',
       inStock: true,
       variants: [
         ProductVariant(
@@ -121,7 +122,12 @@ class MockCatalogRepository implements CatalogRepository {
           (p) =>
               (categoryId == null ||
                   categoryId == 'all' ||
-                  p.category == categoryId) &&
+                  p.category == categoryId ||
+                  p.category ==
+                      _categories
+                          .where((c) => c.id == categoryId)
+                          .firstOrNull
+                          ?.name) &&
               (normalized.isEmpty ||
                   p.name.toLowerCase().contains(normalized) ||
                   p.summary.toLowerCase().contains(normalized)),
@@ -133,5 +139,20 @@ class MockCatalogRepository implements CatalogRepository {
   Future<Product> product(String id) async {
     await Future<void>.delayed(_delay);
     return _products.firstWhere((item) => item.id == id || item.slug == id);
+  }
+
+  @override
+  Future<PageResult<Product>> productPage({
+    String query = '',
+    int page = 1,
+    int pageSize = 20,
+  }) async {
+    final values = await products(query: query);
+    return PageResult(
+      items: values.skip((page - 1) * pageSize).take(pageSize).toList(),
+      total: values.length,
+      page: page,
+      pageSize: pageSize,
+    );
   }
 }

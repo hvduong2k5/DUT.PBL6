@@ -265,10 +265,11 @@ GoRouter createAppRouter({
       path: AppRoutes.catalog,
       builder: (context, state) => SafeBackScope(
         child: BlocProvider(
-          key: ValueKey(state.uri.queryParameters['q'] ?? ''),
+          key: ValueKey(state.uri.toString()),
           create: (_) => CatalogCubit(
             context.read<CatalogRepository>(),
             initialQuery: state.uri.queryParameters['q'] ?? '',
+            initialCategoryId: state.uri.queryParameters['category'] ?? 'all',
           )..load(),
           child: CatalogPage(
             initialQuery: state.uri.queryParameters['q'] ?? '',

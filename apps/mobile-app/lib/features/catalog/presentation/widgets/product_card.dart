@@ -71,20 +71,29 @@ class ProductCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 6),
+            Text(
+              product.availabilityLabel,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
+            ),
+            const SizedBox(height: 6),
             SizedBox(
               width: double.infinity,
               height: 44,
               child: FilledButton.icon(
-                onPressed: product.inStock ? onAdd : null,
+                onPressed: onAdd,
                 style: FilledButton.styleFrom(
                   backgroundColor: AppColors.headingBrown,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                 ),
                 icon: const Icon(Icons.add_shopping_cart, size: 16),
-                label: const Text(
-                  'Chọn quy cách',
-                  style: TextStyle(fontSize: 12),
+                label: Text(
+                  product.stockKnown && !product.inStock
+                      ? 'Xem sản phẩm'
+                      : 'Chọn quy cách',
+                  style: const TextStyle(fontSize: 12),
                 ),
               ),
             ),

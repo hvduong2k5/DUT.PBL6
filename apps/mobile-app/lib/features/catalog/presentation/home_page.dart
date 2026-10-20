@@ -57,7 +57,14 @@ class HomePage extends StatelessWidget {
                 child: TextField(
                   key: const Key('home-search-field'),
                   textInputAction: TextInputAction.search,
-                  onSubmitted: context.read<CatalogCubit>().search,
+                  onSubmitted: (query) => context.go(
+                    Uri(
+                      path: AppRoutes.catalog,
+                      queryParameters: query.trim().isEmpty
+                          ? null
+                          : {'q': query.trim()},
+                    ).toString(),
+                  ),
                   decoration: const InputDecoration(
                     isDense: true,
                     border: InputBorder.none,
@@ -219,7 +226,20 @@ class _HomeResults extends StatelessWidget {
                     ),
                   ),
                   TextButton(
-                    onPressed: () => context.go(AppRoutes.catalog),
+                    onPressed: () {
+                      final selected = context
+                          .read<CatalogCubit>()
+                          .state
+                          .categoryId;
+                      context.go(
+                        Uri(
+                          path: AppRoutes.catalog,
+                          queryParameters: selected == 'all'
+                              ? null
+                              : {'category': selected},
+                        ).toString(),
+                      );
+                    },
                     child: const Text('Xem thêm →'),
                   ),
                 ],

@@ -29,6 +29,8 @@ In: cart selection/availability/quantity/error states; selected-line checkout; s
 - [x] Add promotions domain/REST/mock/Cubit/list/validation UI, reachable from drawer/account and Checkout; stale validation discarded when code/subtotal changes.
 - [x] Add confirmation/payment presentation using backend fields; expiry and retry/read status; no automatic paid claim.
 - [ ] Compare Home/Catalog/Product/reviews, implement remaining gaps in a focused follow-on slice.
+- [x] Catalog supported search/pageSize/pagination with loaded-scope category/price/OCOP/stock facets, sorting and filter sheet; stale/no-progress/next-page errors; unknown Inventory and Home search/category continuity. Unsupported global advanced parameters remain a contract limit.
+- [ ] Reviews and cart clear confirmation; product-detail final parity audit/native discovery QA.
 - [ ] Tests, analysis, full regression, Android build/scrcpy QA and milestone checkpoint.
 
 ## UI / security / risks
@@ -44,6 +46,20 @@ Unit tests: selection/reconciliation/availability, retry/idempotency, payload ex
 ## Handoff
 
 Status: planned, source implementation not started. Next: finish P1 native build/QA, then implement cart selection and strict checkout payload first. User confirmed no contract extension in this task; mark actual Checkout voucher application pending.
+
+2026-10-20 current status: purchase core implemented, latest overall full suite 124/124 PASS at B2B checkpoint. Current task is discovery/reviews/history pagination, not the original cart baseline. Preserve completed transaction contracts.
+
+## Current discovery task and API boundary
+
+Web Catalog/reviews and supplied product/list/search/order/review stable schemas read. Add a small shared typed page result and paged repository methods while retaining existing convenience methods/callers. Product/order query uses q/status/page/pageSize only; response metadata uses page_size. Never send legacy category_id/page_size/minPrice/weights/sort fields absent from ZIP.
+
+Catalog server search/pagination is authoritative. Category-name/price/OCOP/confirmed-stock facets and price sorting may use only loaded results, with visible loaded/total scope until every page is loaded; never call them complete global matches prematurely or silently fetch an unbounded catalog. Weight/product-type fields are absent from stable list projection, so do not infer them from names. Preserve loading/empty/error/retry and next-page errors without discarding loaded cards, ignore stale results, deduplicate IDs and detect no-progress pages. Add a mobile filter sheet reusing tokens and keyboard-safe scrolling. Unknown Inventory is updating, not sold out, and detail entry remains available.
+
+Order history adds server q/status/page/pageSize, read-only snapshot cards and explicit load more. No unsupported year query; narrow order-code local search does not imply product-name index absent from contract. Preserve precise raw status labels.
+
+Review ZIP POST requires order_id/sku_code/rating/comment/media_urls, not Web's product_id input. Use an owned delivered order and exact SKU from its snapshot/current product variants; server determines verified purchase. No guessed order ID/eligibility endpoint or fake verified badge. Review list uses server average/count, pending/empty/error and public media/seller replies; strict retry idempotency, capability and validation. Read relevant source before editing; cart clear confirmation is still open.
+
+Catalog checkpoint: analyze PASS, catalog focused 8/8 PASS; earlier catalog/purchase/viewport regression 26/26 PASS before final paging-sheet tests. No fake global filters. New PageResult shared primitive ready for history/review paging. Exact next: paged history/search/status then owned-order SKU review flow and clear-cart confirmation.
 
 First slice evidence: full Flutter suite 80/80 PASS; analyze PASS before final product padding/lifecycle edits. P2 native QA pending. User confirmed actual Checkout voucher application waits for contract extension; ZIP unchanged. P1 native build/install and recovery validation/sent/reset keyboard/expired states observed via scrcpy.
 
