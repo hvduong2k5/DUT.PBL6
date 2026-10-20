@@ -1,10 +1,10 @@
 # Customer Mobile parity handoff
 
-Updated 2026-10-20. Goal ACTIVE; implementation ready for final Android QA, whole task not complete.
+Updated 2026-10-20. Goal ACTIVE; P4 Android QA ongoing, whole task not complete.
 
 ## Authority and Git
 
-Only feature/mobile-ui may be modified/committed/pushed. No merge/PR. Current implementation HEAD718159eddb1d0132018b62e4e3e8fea9524783fd, verified on origin. Later docs checkpoint identified by git log. Web read-only b1ff2918c7297fc93d0cb9a15cc1d0a0ee46b72e via git show origin/feature/ui-web:<path>. ZIP snapshots/hashes: docs/03_api_specs/frontend-contracts/SOURCE.md. User chose unchanged ZIP, including no checkout voucher field.
+Only feature/mobile-ui may be modified/committed/pushed. No merge/PR. HEAD before review keyboard checkpoint84caced32dbb5829390ec74af2d82caefa4b5ce9, verified on origin. Implementation baseline718159e; resulting new checkpoint identified by git log. Web read-only b1ff2918c7297fc93d0cb9a15cc1d0a0ee46b72e via git show origin/feature/ui-web:<path>. ZIP snapshots/hashes: docs/03_api_specs/frontend-contracts/SOURCE.md. User chose unchanged ZIP, including no checkout voucher field.
 
 ## Resume
 
@@ -38,5 +38,4 @@ Native B2B now observed end-to-end: date/MOQ20/request→YC-LOCAL-2 receipt; exi
 
 SDK Flutter3.44.9/Dart3.12.2. Build process-local GRADLE_OPTS kotlin.incremental=false/compiler.execution.strategy=in-process for E/C cache split. ADB D:/AS_Sdk/platform-tools/adb.exe; device reconnected after user confirmed USB. scrcpy E:/scrcpy-win64-v4.1/scrcpy.exe; active window68230, sky/scrcpyWindow/scrcpyState in node_repl (reset after user turn, reinitialize if missing). Prior window9373924/attach97559 may be invalid. Do not print screenshot data URLs. No uninstall/wipe. Generated Linux/Windows registrant headers are line-ending-only noise, never stage.
 
-Exact next: continue native P4: reviews, support submit/reply, trace, returns, discovery/filter/history actions and QR. New APK installed, recovery/relogin/calendar/B2B native completed above; do not repeat. Current scrcpy68230 B2B form; back→account, Home/product for reviews with logged-in local verified fixture0905999888. No new source edits since718159e. Reconcile final plans/matrix/handoff. Goal remains ACTIVE, do not mark complete at checkpoint.
-
+Exact next: checkpoint review keyboard fix and verify push, then continue native P4: trace via product trace button, support submit/reply, returns, discovery/filter/history actions and QR. New APK installed, recovery/relogin/calendar/B2B native completed above; do not repeat. Current scrcpy68230 product detail at reviews success, trace button at y340. Signed-in local verified fixture0905999888. Attach26739 active. Review form full native submission/public aggregate/verified badge observed. Keyboard fix moves inset outside ScrollView; focused400px caret regression PASS, physical hot reload form caret auto-revealed above keyboard without manual scroll. Source2 files reviews presentation/test; analyze PASS, full142/142 PASS, APK37.4s PASS. New APK built; phone hot-reloaded equivalent source. Do not repeat successful recovery/calendar/B2B/reviews. Reconcile final plans/matrix/handoff. Goal remains ACTIVE, do not mark complete at checkpoint.

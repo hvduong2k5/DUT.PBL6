@@ -229,212 +229,214 @@ class _ReviewFormState extends State<_ReviewForm> {
       constraints: BoxConstraints(
         maxHeight: MediaQuery.sizeOf(context).height * .92,
       ),
-      child: BlocConsumer<ReviewFormCubit, ReviewFormState>(
-        listener: (context, state) {
-          if (state.created != null) Navigator.of(context).pop(state.created);
-        },
-        builder: (context, state) {
-          final cubit = context.read<ReviewFormCubit>();
-          return PopScope(
-            canPop: !state.pending,
-            child: SingleChildScrollView(
-              padding: EdgeInsets.fromLTRB(
-                24,
-                8,
-                24,
-                24 + MediaQuery.viewInsetsOf(context).bottom,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    'Chia sẻ trải nghiệm',
-                    style: Theme.of(context).textTheme.headlineSmall,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(widget.product.name),
-                  if (!allowed)
-                    const Padding(
-                      padding: EdgeInsets.all(16),
-                      child: Text(
-                        'Phiên hoặc quyền gửi đánh giá đã thay đổi. Vui lòng đóng biểu mẫu và đăng nhập lại.',
-                      ),
-                    )
-                  else ...[
-                    const SizedBox(height: 20),
-                    const Text(
-                      'Chọn đơn đã giao và đúng quy cách đã mua. Hệ thống sẽ xác minh lại khi gửi.',
+      child: Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: BlocConsumer<ReviewFormCubit, ReviewFormState>(
+          listener: (context, state) {
+            if (state.created != null) Navigator.of(context).pop(state.created);
+          },
+          builder: (context, state) {
+            final cubit = context.read<ReviewFormCubit>();
+            return PopScope(
+              canPop: !state.pending,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Chia sẻ trải nghiệm',
+                      style: Theme.of(context).textTheme.headlineSmall,
                     ),
-                    if (state.loading)
+                    const SizedBox(height: 12),
+                    Text(widget.product.name),
+                    if (!allowed)
                       const Padding(
                         padding: EdgeInsets.all(16),
-                        child: Center(child: CircularProgressIndicator()),
+                        child: Text(
+                          'Phiên hoặc quyền gửi đánh giá đã thay đổi. Vui lòng đóng biểu mẫu và đăng nhập lại.',
+                        ),
                       )
                     else ...[
-                      const SizedBox(height: 16),
-                      DropdownButtonFormField<String>(
-                        key: ValueKey(
-                          'order:${state.orderId}:${state.orders.length}',
-                        ),
-                        initialValue:
-                            state.orders.any((o) => o.id == state.orderId)
-                            ? state.orderId
-                            : null,
-                        isExpanded: true,
-                        decoration: const InputDecoration(
-                          labelText: 'Đơn đã giao',
-                        ),
-                        items: [
-                          for (final order in state.orders)
-                            DropdownMenuItem(
-                              value: order.id,
-                              child: Text(
-                                '#${order.id} · ${DateFormat('dd/MM/yyyy').format(order.createdAt)}',
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                        ],
-                        onChanged: state.pending || state.checkingOrder
-                            ? null
-                            : (value) {
-                                if (value != null) cubit.selectOrder(value);
-                              },
+                      const SizedBox(height: 20),
+                      const Text(
+                        'Chọn đơn đã giao và đúng quy cách đã mua. Hệ thống sẽ xác minh lại khi gửi.',
                       ),
-                      if (state.orders.isEmpty)
+                      if (state.loading)
                         const Padding(
-                          padding: EdgeInsets.only(top: 8),
-                          child: Text('Chưa có đơn đã giao trong danh sách.'),
-                        ),
-                      if (state.hasMore)
-                        TextButton(
-                          onPressed: state.loadingMore || state.pending
-                              ? null
-                              : () => cubit.loadOrders(more: true),
-                          child: Text(
-                            state.loadingMore
-                                ? 'Đang tải…'
-                                : 'Tải thêm đơn đã giao',
+                          padding: EdgeInsets.all(16),
+                          child: Center(child: CircularProgressIndicator()),
+                        )
+                      else ...[
+                        const SizedBox(height: 16),
+                        DropdownButtonFormField<String>(
+                          key: ValueKey(
+                            'order:${state.orderId}:${state.orders.length}',
                           ),
-                        ),
-                      TextButton(
-                        onPressed: state.pending
-                            ? null
-                            : () => cubit.loadOrders(),
-                        child: const Text('Tải lại danh sách đơn'),
-                      ),
-                    ],
-                    ExpansionTile(
-                      title: const Text('Dùng mã đơn khác'),
-                      tilePadding: EdgeInsets.zero,
-                      children: [
-                        AppTextField(
-                          controller: _order,
-                          label: 'Mã đơn cần kiểm tra',
-                          enabled: !state.pending,
-                          textInputAction: TextInputAction.done,
-                          onSubmitted: (_) => cubit.selectOrder(_order.text),
-                        ),
-                        TextButton(
-                          onPressed: state.pending || state.checkingOrder
+                          initialValue:
+                              state.orders.any((o) => o.id == state.orderId)
+                              ? state.orderId
+                              : null,
+                          isExpanded: true,
+                          decoration: const InputDecoration(
+                            labelText: 'Đơn đã giao',
+                          ),
+                          items: [
+                            for (final order in state.orders)
+                              DropdownMenuItem(
+                                value: order.id,
+                                child: Text(
+                                  '#${order.id} · ${DateFormat('dd/MM/yyyy').format(order.createdAt)}',
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                          ],
+                          onChanged: state.pending || state.checkingOrder
                               ? null
-                              : () => cubit.selectOrder(_order.text),
-                          child: const Text('Kiểm tra đơn'),
+                              : (value) {
+                                  if (value != null) cubit.selectOrder(value);
+                                },
+                        ),
+                        if (state.orders.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.only(top: 8),
+                            child: Text('Chưa có đơn đã giao trong danh sách.'),
+                          ),
+                        if (state.hasMore)
+                          TextButton(
+                            onPressed: state.loadingMore || state.pending
+                                ? null
+                                : () => cubit.loadOrders(more: true),
+                            child: Text(
+                              state.loadingMore
+                                  ? 'Đang tải…'
+                                  : 'Tải thêm đơn đã giao',
+                            ),
+                          ),
+                        TextButton(
+                          onPressed: state.pending
+                              ? null
+                              : () => cubit.loadOrders(),
+                          child: const Text('Tải lại danh sách đơn'),
                         ),
                       ],
-                    ),
-                    if (state.checkingOrder) const LinearProgressIndicator(),
-                    if (state.skus.isNotEmpty) ...[
-                      const SizedBox(height: 16),
-                      DropdownButtonFormField<String>(
-                        key: ValueKey(
-                          'sku:${state.orderId}:${state.skus.join(',')}',
+                      ExpansionTile(
+                        title: const Text('Dùng mã đơn khác'),
+                        tilePadding: EdgeInsets.zero,
+                        children: [
+                          AppTextField(
+                            controller: _order,
+                            label: 'Mã đơn cần kiểm tra',
+                            enabled: !state.pending,
+                            textInputAction: TextInputAction.done,
+                            onSubmitted: (_) => cubit.selectOrder(_order.text),
+                          ),
+                          TextButton(
+                            onPressed: state.pending || state.checkingOrder
+                                ? null
+                                : () => cubit.selectOrder(_order.text),
+                            child: const Text('Kiểm tra đơn'),
+                          ),
+                        ],
+                      ),
+                      if (state.checkingOrder) const LinearProgressIndicator(),
+                      if (state.skus.isNotEmpty) ...[
+                        const SizedBox(height: 16),
+                        DropdownButtonFormField<String>(
+                          key: ValueKey(
+                            'sku:${state.orderId}:${state.skus.join(',')}',
+                          ),
+                          initialValue: state.sku,
+                          isExpanded: true,
+                          decoration: const InputDecoration(
+                            labelText: 'Quy cách đã mua',
+                          ),
+                          items: [
+                            for (final sku in state.skus)
+                              DropdownMenuItem(
+                                value: sku,
+                                child: Text(
+                                  widget.product.variants
+                                      .firstWhere((v) => v.sku == sku)
+                                      .name,
+                                ),
+                              ),
+                          ],
+                          onChanged: state.pending
+                              ? null
+                              : (value) {
+                                  if (value != null) cubit.selectSku(value);
+                                },
                         ),
-                        initialValue: state.sku,
-                        isExpanded: true,
-                        decoration: const InputDecoration(
-                          labelText: 'Quy cách đã mua',
-                        ),
-                        items: [
-                          for (final sku in state.skus)
-                            DropdownMenuItem(
-                              value: sku,
-                              child: Text(
-                                widget.product.variants
-                                    .firstWhere((v) => v.sku == sku)
-                                    .name,
+                      ],
+                      const SizedBox(height: 20),
+                      const Text('Mức độ hài lòng'),
+                      Wrap(
+                        children: [
+                          for (var value = 1; value <= 5; value++)
+                            IconButton(
+                              tooltip: '$value sao',
+                              onPressed: state.pending
+                                  ? null
+                                  : () => setState(() => _rating = value),
+                              icon: Icon(
+                                value <= _rating
+                                    ? Icons.star
+                                    : Icons.star_border,
+                                color: AppColors.honeyGold,
                               ),
                             ),
                         ],
-                        onChanged: state.pending
-                            ? null
-                            : (value) {
-                                if (value != null) cubit.selectSku(value);
-                              },
                       ),
-                    ],
-                    const SizedBox(height: 20),
-                    const Text('Mức độ hài lòng'),
-                    Wrap(
-                      children: [
-                        for (var value = 1; value <= 5; value++)
-                          IconButton(
-                            tooltip: '$value sao',
-                            onPressed: state.pending
-                                ? null
-                                : () => setState(() => _rating = value),
-                            icon: Icon(
-                              value <= _rating ? Icons.star : Icons.star_border,
-                              color: AppColors.honeyGold,
-                            ),
-                          ),
-                      ],
-                    ),
-                    AppTextField(
-                      controller: _comment,
-                      label: 'Cảm nhận của bạn',
-                      maxLines: 5,
-                      maxLength: 1000,
-                      enabled: !state.pending,
-                    ),
-                    const Text(
-                      'Đánh giá văn bản; hiện chưa hỗ trợ tải ảnh đính kèm.',
-                    ),
-                    if (state.error != null)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        child: Semantics(
-                          liveRegion: true,
-                          child: Text(
-                            state.error!,
-                            style: TextStyle(
-                              color: Theme.of(context).colorScheme.error,
+                      AppTextField(
+                        controller: _comment,
+                        label: 'Cảm nhận của bạn',
+                        maxLines: 5,
+                        maxLength: 1000,
+                        enabled: !state.pending,
+                      ),
+                      const Text(
+                        'Đánh giá văn bản; hiện chưa hỗ trợ tải ảnh đính kèm.',
+                      ),
+                      if (state.error != null)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          child: Semantics(
+                            liveRegion: true,
+                            child: Text(
+                              state.error!,
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.error,
+                              ),
                             ),
                           ),
                         ),
+                      const SizedBox(height: 20),
+                      AppPrimaryButton(
+                        label: 'Gửi đánh giá',
+                        loading: state.pending,
+                        onPressed: state.checkingOrder
+                            ? null
+                            : () {
+                                FocusScope.of(context).unfocus();
+                                cubit.submit(_rating, _comment.text);
+                              },
                       ),
-                    const SizedBox(height: 20),
-                    AppPrimaryButton(
-                      label: 'Gửi đánh giá',
-                      loading: state.pending,
-                      onPressed: state.checkingOrder
+                    ],
+                    TextButton(
+                      onPressed: state.pending
                           ? null
-                          : () {
-                              FocusScope.of(context).unfocus();
-                              cubit.submit(_rating, _comment.text);
-                            },
+                          : () => Navigator.of(context).pop(),
+                      child: const Text('Đóng biểu mẫu'),
                     ),
                   ],
-                  TextButton(
-                    onPressed: state.pending
-                        ? null
-                        : () => Navigator.of(context).pop(),
-                    child: const Text('Đóng biểu mẫu'),
-                  ),
-                ],
+                ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }

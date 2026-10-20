@@ -50,9 +50,30 @@ void main() {
           .descendant(of: modalScroll, matching: find.byType(Scrollable))
           .first;
       await reveal(comment, scroll);
+      await tester.showKeyboard(comment);
+      tester.view.viewInsets = const FakeViewPadding(bottom: 400);
+      addTearDown(tester.view.resetViewInsets);
+      await tester.pumpAndSettle();
+      final editable = tester.state<EditableTextState>(
+        find.descendant(of: comment, matching: find.byType(EditableText)),
+      );
+      final caret = editable.renderEditable.getLocalRectForCaret(
+        const TextPosition(offset: 0),
+      );
+      final caretBottom = editable.renderEditable
+          .localToGlobal(caret.bottomLeft)
+          .dy;
+      expect(
+        caretBottom,
+        lessThan(444),
+        reason:
+            'Focused review caret must remain above the 400px keyboard without a manual scroll',
+      );
       await tester.enterText(comment, 'Mè giòn thơm, đóng gói rất cẩn thận.');
       await reveal(find.text('Gửi đánh giá'), scroll);
       await tester.tap(find.text('Gửi đánh giá'));
+      await tester.pumpAndSettle();
+      tester.view.resetViewInsets();
       await tester.pumpAndSettle();
       await reveal(find.text('Đã mua sản phẩm'), find.byType(Scrollable).first);
       expect(find.text('Mè giòn thơm, đóng gói rất cẩn thận.'), findsOneWidget);
