@@ -4,7 +4,7 @@ Updated 2026-10-20. Goal ACTIVE. Whole Customer parity NOT COMPLETE.
 
 ## Git and boundaries
 
-Branch feature/mobile-ui; HEAD before history milestone 5fe90d6552a430dca333ef7c3986aed631391101, pushed/verified. Resolve resulting checkpoint using git log. Prior checkpoints: 28c47be B2B, 0c2e7df returns, 14d081b orders, b6f4c28 trace, 86dcef2 session, 457eea6 support, eb57d76 Guest, ec8545a payment/account, 1d91c15 purchase, 82fd358 auth. Commit/push Mobile only; no merges/PRs. Read-only Web reference b1ff2918c7297fc93d0cb9a15cc1d0a0ee46b72e using git show origin/feature/ui-web:<path>; no Web checkout/edits performed.
+Branch feature/mobile-ui; HEAD before reviews milestone fbc21a121c3c9f109dcdb8f450ab11bf0f76002b, pushed/verified. Resolve resulting checkpoint using git log. Prior checkpoints: 5fe90d6 discovery, 28c47be B2B, 0c2e7df returns, 14d081b orders, b6f4c28 trace, 86dcef2 session, 457eea6 support, eb57d76 Guest, ec8545a payment/account, 1d91c15 purchase, 82fd358 auth. Commit/push Mobile only; no merges/PRs. Read-only Web reference b1ff2918c7297fc93d0cb9a15cc1d0a0ee46b72e using git show origin/feature/ui-web:<path>; no Web checkout/edits performed.
 
 ## Implemented
 
@@ -17,6 +17,8 @@ Branch feature/mobile-ui; HEAD before history milestone 5fe90d6552a430dca333ef7c
 
 ## Open work and contract limits
 
+- Reviews implemented: public server aggregates/list/paging/retry, owned delivered-order picker/manual code with exact snapshot SKU intersecting product variants, strict text submission and idempotent retry, server-only verified badge/media/reply, capability guards. Explicit local OM-8860 canonical purchase fixture; no upload/eligibility API invented. Analyze PASS and focused 4/4 PASS. Native pending.
+
 - History implemented: typed paged repository, supported q/status/page/pageSize and response total/page_size, precise raw status labels, load more/error/stale/no-progress, empty-search clear. Actual timeline now uses recorded checkpoints or creation time only, correcting earlier PAID→confirmed synthetic phase. Focused orders 15/15 PASS + analyze PASS. No unsupported year query; native history pending.
 
 - Catalog discovery implemented: shared typed PageResult, supported q/page/pageSize, incremental page/dedup/stale/no-progress recovery, loaded-scope category/price/OCOP/confirmed-stock facets and price sorting/filter sheet, explicit loaded/total label, Home→Catalog q/category continuity. Unknown stock labelled updating, detail CTA remains available. Price presets copied from Web; no inferred weight/product-type API fields. Catalog focused 8/8 PASS + analyze PASS; prior purchase/viewport focused 26/26 PASS.
@@ -28,7 +30,7 @@ Branch feature/mobile-ui; HEAD before history milestone 5fe90d6552a430dca333ef7c
 - Order-action slice implemented: server-authoritative cancellation with reason-only payload/retry key/confirmation, guest readonly; real tracking carrier/checkpoints/seal/video; raw SKU/price (no ambiguous multiplication), recipient and financial snapshot, unknown status preservation. Cancellation widget caught Future-returning setState; fixed, focused case PASS. Orders/checkout 14 PASS before final refinements; mixed order/menu other 13 cases PASS. Native action QA pending.
 
 - User confirmed unchanged ZIP: voucher application at POST checkout waits for contract extension; never submit voucher_code or reduce final total. No shipping quote/durable payment QR recovery endpoint.
-- P2 OPEN: product reviews/owned-order SKU selection, cart clear confirmation, native discovery/final product detail audit. Catalog advanced global filters remain a documented ZIP limitation, not a fake server feature.
+- P2 OPEN: cart clear confirmation, native discovery/reviews/final product detail audit. Catalog advanced global filters remain a documented ZIP limitation, not a fake server feature.
 - P3 OPEN: native services/history QA and production after-sales context gap. Current Web has no reorder action and ZIP no endpoint. Do not fabricate line IDs or silently use drafts. B2B notes/upload/document and history year query remain absent from stable contract.
 - Support ZIP forbids Web guest contact object and has no stable upload/download API; do not collect unsendable contact, pretend metadata uploaded, or invent file download URLs. Ticket list, loyalty history/redemption and notifications planned/draft. Missing native destinations must not be interpreted as complete.
 - P4 full native/cross-flow QA remains OPEN; real backend/email/SMS/payment/credential lifecycle NOT VERIFIED.
@@ -49,4 +51,4 @@ Branch feature/mobile-ui; HEAD before history milestone 5fe90d6552a430dca333ef7c
 
 ## Exact next action
 
-Checkpoint history and verify Mobile push. Next reviews (POST owned order_id + exact sku_code/rating/comment/media_urls; no product_id) and cart clear confirmation. Web review source/stable schemas already read. Use delivered-order picker and exact snapshot SKU intersecting current product variants; no uncontracted eligibility API or guessed order. Mock history lacks a delivered canonical GION SKU; add an explicit owned-purchase fixture for review QA, without changing existing returns fixtures. Native attach3540 runs B2B checkpoint; reload after discovery/history. Scrcpy12519142 at Login: phone0905999888 and dummy password legacy entered, page just scrolled to find CTA above keyboard; observe next. P4 also audit 401 mid-session recovery and logistics status translations/keyboard/text scale. Remaining native services/purchase/reset, final full tests/build. Goal ACTIVE.
+Checkpoint reviews and verify Mobile push. Next cart clear confirmation matching Web confirm before full deletion. Native attach3540 runs B2B checkpoint; restart for new Reviews DI. Scrcpy12519142 at Login with dummy fixture; observe fresh state. P4 also audit 401 mid-session recovery and logistics status translations/keyboard/text scale. Remaining native services/purchase/reset/reviews, final full tests/build. Goal ACTIVE.

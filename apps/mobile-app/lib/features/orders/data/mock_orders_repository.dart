@@ -131,6 +131,23 @@ class MockOrdersRepository implements OrdersRepository {
         ),
       ],
     ),
+    CustomerOrder(
+      id: 'OM-8860',
+      status: OrderStatus.delivered,
+      rawStatus: 'DELIVERED',
+      totalItems: 1,
+      total: Money.vnd(85000),
+      createdAt: DateTime(2026, 9, 17),
+      items: [
+        OrderItem(
+          name: 'Mè Xửng Giòn Ngự Tiến',
+          variantName: 'Hộp 500g',
+          sku: 'MX-GION-500G',
+          quantity: 1,
+          price: Money.vnd(85000),
+        ),
+      ],
+    ),
   ];
   @override
   Future<List<CustomerOrder>> orders() async {

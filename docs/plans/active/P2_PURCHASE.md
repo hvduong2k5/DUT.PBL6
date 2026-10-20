@@ -30,7 +30,8 @@ In: cart selection/availability/quantity/error states; selected-line checkout; s
 - [x] Add confirmation/payment presentation using backend fields; expiry and retry/read status; no automatic paid claim.
 - [ ] Compare Home/Catalog/Product/reviews, implement remaining gaps in a focused follow-on slice.
 - [x] Catalog supported search/pageSize/pagination with loaded-scope category/price/OCOP/stock facets, sorting and filter sheet; stale/no-progress/next-page errors; unknown Inventory and Home search/category continuity. Unsupported global advanced parameters remain a contract limit.
-- [ ] Reviews and cart clear confirmation; product-detail final parity audit/native discovery QA.
+- [x] Reviews: public aggregates/list/paging, owned delivered order and exact SKU selection, text submission, server-only verified badge, capability/pending/error/idempotent retry.
+- [ ] Cart clear confirmation; product-detail final parity audit/native discovery QA.
 - [ ] Tests, analysis, full regression, Android build/scrcpy QA and milestone checkpoint.
 
 ## UI / security / risks
@@ -50,6 +51,8 @@ Status: planned, source implementation not started. Next: finish P1 native build
 2026-10-20 current status: purchase core implemented, latest overall full suite 124/124 PASS at B2B checkpoint. Current task is discovery/reviews/history pagination, not the original cart baseline. Preserve completed transaction contracts.
 
 ## Current discovery task and API boundary
+
+Reviews milestone: analyze PASS and focused 4/4 PASS (strict REST body/server aggregates, purchase/duplicate/replay checks, stale order selection, revoked capability and retry keys, narrow-phone form→verified public list). Added explicit local OM-8860 delivered canonical SKU fixture; existing returns fixtures preserved. No product_id in POST, invented eligibility API or fake media upload. Native reviews pending. Exact next: cart clear confirmation, then P4 full/native validation.
 
 Web Catalog/reviews and supplied product/list/search/order/review stable schemas read. Add a small shared typed page result and paged repository methods while retaining existing convenience methods/callers. Product/order query uses q/status/page/pageSize only; response metadata uses page_size. Never send legacy category_id/page_size/minPrice/weights/sort fields absent from ZIP.
 

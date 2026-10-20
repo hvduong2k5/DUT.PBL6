@@ -45,6 +45,9 @@ import 'package:mobile_app/features/returns/data/mock_returns_repository.dart';
 import 'package:mobile_app/features/b2b/domain/b2b_repository.dart';
 import 'package:mobile_app/features/b2b/data/rest_b2b_repository.dart';
 import 'package:mobile_app/features/b2b/data/mock_b2b_repository.dart';
+import 'package:mobile_app/features/reviews/domain/reviews_repository.dart';
+import 'package:mobile_app/features/reviews/data/rest_reviews_repository.dart';
+import 'package:mobile_app/features/reviews/data/mock_reviews_repository.dart';
 
 class AppDependencies {
   const AppDependencies({
@@ -63,6 +66,7 @@ class AppDependencies {
     required this.traceRepository,
     required this.returnsRepository,
     required this.b2bRepository,
+    required this.reviewsRepository,
   });
 
   final CatalogRepository catalogRepository;
@@ -80,6 +84,7 @@ class AppDependencies {
   final TraceRepository traceRepository;
   final ReturnsRepository returnsRepository;
   final B2bRepository b2bRepository;
+  final ReviewsRepository reviewsRepository;
 }
 
 abstract final class RepositoryFactory {
@@ -115,6 +120,7 @@ abstract final class RepositoryFactory {
       capabilitiesRepository: RestCustomerCapabilitiesRepository(client),
       traceRepository: RestTraceRepository(client),
       b2bRepository: RestB2bRepository(client),
+      reviewsRepository: RestReviewsRepository(client),
       returnsRepository: RestReturnsRepository(
         client,
         RestOrdersRepository(client),
@@ -124,11 +130,17 @@ abstract final class RepositoryFactory {
 
   static AppDependencies _local() {
     final auth = MockAuthRepository();
+    final catalog = MockCatalogRepository();
     final orders = MockOrdersRepository(
       authenticated: () => auth.currentUser != null,
     );
     return AppDependencies(
-      catalogRepository: MockCatalogRepository(),
+      catalogRepository: catalog,
+      reviewsRepository: MockReviewsRepository(
+        catalog: catalog,
+        orders: orders,
+        currentUser: () => auth.currentUser,
+      ),
       cartRepository: InMemoryCartRepository(),
       checkoutRepository: MockCheckoutRepository(onCreated: orders.record),
       ordersRepository: orders,

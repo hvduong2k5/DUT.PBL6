@@ -15,6 +15,9 @@ import 'package:mobile_app/features/cart/presentation/cart_cubit.dart';
 import 'package:mobile_app/features/catalog/domain/catalog_models.dart';
 import 'package:mobile_app/features/catalog/domain/catalog_repository.dart';
 import 'package:mobile_app/core/widgets/app_product_image.dart';
+import 'package:mobile_app/features/reviews/domain/reviews_repository.dart';
+import 'package:mobile_app/features/reviews/presentation/reviews_cubits.dart';
+import 'package:mobile_app/features/reviews/presentation/product_reviews_section.dart';
 import 'package:mobile_app/features/cart/domain/cart_models.dart';
 
 class ProductDetailPage extends StatefulWidget {
@@ -214,6 +217,13 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                 const SizedBox(height: AppSpacing.sm),
                 Text(product.story),
               ],
+              BlocProvider(
+                key: ValueKey('reviews:${product.id}'),
+                create: (_) =>
+                    ReviewsCubit(context.read<ReviewsRepository>(), product.id)
+                      ..load(),
+                child: ProductReviewsSection(product: product),
+              ),
             ],
           );
         },
