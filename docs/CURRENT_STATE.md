@@ -4,11 +4,11 @@ Updated 2026-10-20. Goal ACTIVE; implementation ready for final Android QA, whol
 
 ## Authority and Git
 
-Only feature/mobile-ui may be modified/committed/pushed. No merge/PR. HEAD before native keyboard checkpoint b8ff216472375c23c13f4ab6a690b02c31a6273c, verified on origin. Resolve resulting checkpoint with git log. Web read-only b1ff2918c7297fc93d0cb9a15cc1d0a0ee46b72e via git show origin/feature/ui-web:<path>. ZIP snapshots/hashes: docs/03_api_specs/frontend-contracts/SOURCE.md. User chose unchanged ZIP, including no checkout voucher field.
+Only feature/mobile-ui may be modified/committed/pushed. No merge/PR. HEAD before localization checkpoint f5b9acf219d9b4bc13b2397edd5030bb171e4c77, verified on origin. Resolve resulting checkpoint with git log. Web read-only b1ff2918c7297fc93d0cb9a15cc1d0a0ee46b72e via git show origin/feature/ui-web:<path>. ZIP snapshots/hashes: docs/03_api_specs/frontend-contracts/SOURCE.md. User chose unchanged ZIP, including no checkout voucher field.
 
 ## Resume
 
-Read AGENTS, MASTER_PLAN, P4_CUSTOMER_QA plus relevant P2/P3 plan. Inspect branch/HEAD/status. Native keyboard checkpoint: shared AppTextField onTapOutside unfocus; flexible checkout subtotal row; focus regression assertion; reconciled parity matrix. Prior product/session/cart slice committed b8ff216. Source remains stable during APK build9810. No other branch edits.
+Read AGENTS, MASTER_PLAN, P4_CUSTOMER_QA plus relevant P2/P3 plan. Inspect branch/HEAD/status. f5b9acf: shared input unfocus/flexible checkout subtotal/focus regression/matrix. Current milestone: Vietnamese Material/Cupertino/Widgets SDK localization, required intl0.20.3→0.20.2 SDK pin, calendar action focus prevents date keyboard restoration. No other branch edits.
 
 ## Implemented
 
@@ -28,14 +28,14 @@ Never invent APIs, line IDs or proof of live provider behavior. Checkout voucher
 
 ## Evidence
 
-Baseline60. Current keyboard patch analyze PASS and full141/141 PASS; focused checkout3/3 PASS incl focus assertion. Build9810 still running; source held stable. Prior b8ff216 analyze/full141/build35.3s PASS, installed. Native refocus fix exposed hidden27px subtotal overflow after layout moved into view; fixed without disabling checks. No temporary diagnostic test hook remains.
+Baseline60. Current localization milestone analyze PASS, full142/142 PASS and APK build69.6s PASS with stable source. B2B focused3/3 PASS includes localized calendar and focus return; first test attempts exposed real focus restoration and were fixed with persistent calendar action FocusNode, no skipped assertions. f5b9acf analyze/full141/build172.1s PASS; prior b8ff216 build35.3s installed. Native refocus fix exposed hidden27px subtotal overflow; fixed without disabling checks. No diagnostic hooks remain.
 
 Native observed: recovery validation/sent/reset keyboard/expired; Guest full challenge/OTP→OM-8921 detail→tracking; support form/keyboard. At b8ff216 explicit SKU→add/cart; clear confirmation cancel preserves line; guest checkout Huế/Thuận Hòa→actual COD order85,000→payment explicitly unpaid→same detail. Local B2B login→account, profile save acknowledgement, loyalty→promotions, address list/default/edit/save→list observed. B2B verified org/request/date picker observed. Remaining native full successful reset/relogin, QR, support submit/reply, trace, returns, B2B accept, discovery/filter/reviews/history actions. Matrix records partial honestly.
 
-Latest native issue: date picker Material labels English. Installed SDK flutter_localizations pins intl0.20.2; lock currently0.20.3. After build9810 completes, add SDK localization dependency + Vietnamese delegates/locale (required intl patch downgrade, no other upgrade), add localized picker test, validate/build again. Phone currently B2B calendar OK just clicked; observe fresh.
+Native B2B now observed end-to-end: date/MOQ20/request→YC-LOCAL-2 receipt; existing released BG-LOCAL-001 public terms/totals, disabled accept before consent→consent→accept→receipt→LOCAL-B2B-001 detail PENDING_PAYMENT, total4,180,000 equals quote. No real transaction. Phone currently this order detail. Localization/focus patch automated PASS; physical Vietnamese calendar confirmation still pending (new APK built, not installed yet). New attach26739 waiting/connecting; verify before reuse.
 
 ## Runtime and next action
 
 SDK Flutter3.44.9/Dart3.12.2. Build process-local GRADLE_OPTS kotlin.incremental=false/compiler.execution.strategy=in-process for E/C cache split. ADB D:/AS_Sdk/platform-tools/adb.exe; device reconnected after user confirmed USB. scrcpy E:/scrcpy-win64-v4.1/scrcpy.exe; active window68230, sky/scrcpyWindow/scrcpyState in node_repl (reset after user turn, reinitialize if missing). Prior window9373924/attach97559 may be invalid. Do not print screenshot data URLs. No uninstall/wipe. Generated Linux/Windows registrant headers are line-ending-only noise, never stage.
 
-Exact next: finish build9810 without source edits, then Vietnamese Material localization with focused test as above; native B2B date/request/quote/accept and remaining P4. Checkpoint Mobile only and verify push. Fix verified defects and reconcile final matrix/plans/handoff. Goal remains ACTIVE, do not mark complete at checkpoint.
+Exact next: checkpoint localization and verify Mobile push, load new APK/source and confirm Vietnamese calendar physically, continue native P4: recovery successful reset/relogin, QR, support submit/reply, trace, returns, discovery/filter/reviews/history actions. B2B completed native above; do not repeat. Reconcile final plans/matrix/handoff. Goal remains ACTIVE, do not mark complete at checkpoint.

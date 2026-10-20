@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_app/app/app_dependencies.dart';
@@ -132,6 +133,9 @@ class _OmaAppState extends State<OmaApp> {
       ],
       child: MaterialApp.router(
         title: 'Ô Mạ',
+        locale: const Locale('vi'),
+        supportedLocales: const [Locale('vi')],
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light,
         routerConfig: _router,

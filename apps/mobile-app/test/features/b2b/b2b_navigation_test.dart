@@ -9,6 +9,51 @@ import 'package:mobile_app/features/auth/data/mock_auth_repository.dart';
 
 void main() {
   setUp(() => FlutterSecureStorage.setMockInitialValues({}));
+  testWidgets(
+    'Vietnamese calendar closes without restoring date keyboard focus',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final dependencies = RepositoryFactory.create(mode: DataSourceMode.mock);
+      await tester.runAsync(() async {
+        await dependencies.authRepository.login(
+          phoneNumber: MockAuthRepository.b2bFixturePhone,
+          password: 'legacy',
+        );
+      });
+      await tester.pumpWidget(
+        OmaApp(initialLocation: '/b2b', dependencies: dependencies),
+      );
+      await tester.pumpAndSettle();
+      final date = find.byWidgetPredicate(
+        (w) => w is TextField && w.decoration?.labelText == 'Ngày nhận dự kiến',
+      );
+      await tester.ensureVisible(date);
+      await tester.showKeyboard(date);
+      await tester.pumpAndSettle();
+      await Scrollable.ensureVisible(
+        tester.element(find.byTooltip('Chọn ngày')),
+        alignment: .5,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Chọn ngày'));
+      await tester.pumpAndSettle();
+      final pickerContext = tester.element(find.byType(DatePickerDialog));
+      expect(Localizations.localeOf(pickerContext).languageCode, 'vi');
+      final labels = MaterialLocalizations.of(pickerContext);
+      expect(find.text(labels.cancelButtonLabel), findsOneWidget);
+      expect(labels.cancelButtonLabel, 'Huỷ');
+      await tester.tap(find.text(labels.okButtonLabel));
+      await tester.pumpAndSettle();
+      final editable = find.descendant(
+        of: date,
+        matching: find.byType(EditableText),
+      );
+      expect(tester.widget<EditableText>(editable).focusNode.hasFocus, isFalse);
+      expect(tester.takeException(), isNull);
+    },
+  );
   testWidgets('registered actor cannot open verified B2B workspace', (
     tester,
   ) async {

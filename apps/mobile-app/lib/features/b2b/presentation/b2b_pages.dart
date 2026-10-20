@@ -22,6 +22,7 @@ class B2bRequestPage extends StatefulWidget {
 
 class _B2bRequestPageState extends State<B2bRequestPage> {
   final _date = TextEditingController();
+  final _calendarFocus = FocusNode();
   final Map<String, TextEditingController> _quantities = {};
   final Map<String, bool> _branding = {
     'engraveLogo': true,
@@ -35,6 +36,7 @@ class _B2bRequestPageState extends State<B2bRequestPage> {
   @override
   void dispose() {
     _date.dispose();
+    _calendarFocus.dispose();
     for (final controller in _quantities.values) {
       controller.dispose();
     }
@@ -42,6 +44,7 @@ class _B2bRequestPageState extends State<B2bRequestPage> {
   }
 
   Future<void> _pickDate() async {
+    FocusScope.of(context).requestFocus(_calendarFocus);
     final now = DateTime.now(),
         minimum = DateTime(
           DateTime.now().year,
@@ -54,8 +57,11 @@ class _B2bRequestPageState extends State<B2bRequestPage> {
       firstDate: minimum,
       lastDate: DateTime(now.year + 10),
     );
-    if (mounted && selected != null) {
-      setState(() => _date.text = DateFormat('yyyy-MM-dd').format(selected));
+    if (mounted) {
+      FocusScope.of(context).requestFocus(_calendarFocus);
+      if (selected != null) {
+        setState(() => _date.text = DateFormat('yyyy-MM-dd').format(selected));
+      }
     }
   }
 
@@ -192,6 +198,7 @@ class _B2bRequestPageState extends State<B2bRequestPage> {
                       enabled: !state.pending,
                       suffixIcon: IconButton(
                         tooltip: 'Chọn ngày',
+                        focusNode: _calendarFocus,
                         onPressed: state.pending ? null : _pickDate,
                         icon: const Icon(Icons.calendar_month_outlined),
                       ),
