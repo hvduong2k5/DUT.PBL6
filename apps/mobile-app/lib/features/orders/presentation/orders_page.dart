@@ -11,6 +11,7 @@ import 'package:mobile_app/core/widgets/app_loading_view.dart';
 import 'package:mobile_app/core/widgets/app_mobile_header.dart';
 import 'package:mobile_app/features/orders/domain/order_models.dart';
 import 'package:mobile_app/features/orders/presentation/orders_cubit.dart';
+import 'package:mobile_app/core/widgets/app_text_field.dart';
 
 class OrdersPage extends StatelessWidget {
   const OrdersPage({super.key});
@@ -21,7 +22,20 @@ class OrdersPage extends StatelessWidget {
     body: BlocBuilder<OrdersCubit, OrdersState>(
       builder: (context, state) => Column(
         children: [
-          _OrderFilters(selected: state.filter),
+          _OrderSearch(query: state.query),
+          if (MediaQuery.viewInsetsOf(context).bottom == 0)
+            _OrderFilters(selected: state.filter),
+          if (state.status == OrdersStatus.success)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Đã tải ${state.orders.length}/${state.total} đơn hàng',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+            ),
           Expanded(child: _OrderResults(state: state)),
         ],
       ),
@@ -50,7 +64,9 @@ class _OrderFilters extends StatelessWidget {
           (s) => s != OrderStatus.unknown,
         )) ...[
           FilterChip(
-            label: Text(status.label),
+            label: Text(
+              status == OrderStatus.pending ? 'Chờ thanh toán' : status.label,
+            ),
             selected: selected == status,
             onSelected: (_) => context.read<OrdersCubit>().filter(status),
           ),
@@ -79,19 +95,48 @@ class _OrderResults extends StatelessWidget {
     }
     if (state.visible.isEmpty) {
       return AppEmptyView(
-        title: 'Chưa có đơn hàng',
-        message: 'Khi bạn đặt hàng, lịch sử đơn sẽ xuất hiện tại đây.',
+        title: state.query.isNotEmpty || state.filter != null
+            ? 'Chưa có đơn phù hợp'
+            : 'Chưa có đơn hàng',
+        message: state.query.isNotEmpty || state.filter != null
+            ? 'Thử từ khóa hoặc trạng thái khác.'
+            : 'Khi bạn đặt hàng, lịch sử đơn sẽ xuất hiện tại đây.',
         icon: Icons.receipt_long_outlined,
         action: FilledButton(
-          onPressed: () => context.go('/catalog'),
-          child: const Text('Khám phá sản phẩm'),
+          onPressed: state.query.isNotEmpty || state.filter != null
+              ? context.read<OrdersCubit>().clearAll
+              : () => context.go('/catalog'),
+          child: Text(
+            state.query.isNotEmpty || state.filter != null
+                ? 'Xóa tìm kiếm & bộ lọc'
+                : 'Khám phá sản phẩm',
+          ),
         ),
       );
     }
     return ListView.builder(
       padding: const EdgeInsets.all(16),
-      itemCount: state.visible.length,
-      itemBuilder: (context, index) => _OrderCard(order: state.visible[index]),
+      itemCount: state.visible.length + 1,
+      itemBuilder: (context, index) => index < state.visible.length
+          ? _OrderCard(order: state.visible[index])
+          : Column(
+              children: [
+                if (state.pageMessage != null) Text(state.pageMessage!),
+                if (state.hasMore)
+                  OutlinedButton(
+                    onPressed: state.loadingMore
+                        ? null
+                        : context.read<OrdersCubit>().loadMore,
+                    child: Text(
+                      state.loadingMore
+                          ? 'Đang tải…'
+                          : state.pageMessage == null
+                          ? 'Tải thêm đơn hàng'
+                          : 'Thử tải thêm lần nữa',
+                    ),
+                  ),
+              ],
+            ),
     );
   }
 }
@@ -104,7 +149,7 @@ class _OrderCard extends StatelessWidget {
   Widget build(BuildContext context) => Card(
     margin: const EdgeInsets.only(bottom: 12),
     child: InkWell(
-      onTap: () => context.push('/orders/${order.id}'),
+      onTap: () => context.push('/orders/${Uri.encodeComponent(order.id)}'),
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Column(
@@ -117,7 +162,7 @@ class _OrderCard extends StatelessWidget {
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                 ),
-                _StatusBadge(status: order.status),
+                _StatusBadge(status: order.status, label: order.statusLabel),
               ],
             ),
             const SizedBox(height: 4),
@@ -140,9 +185,12 @@ class _OrderCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 12),
                 Expanded(child: Text('${order.totalItems} sản phẩm')),
-                Text(
-                  order.total.format(),
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+                Flexible(
+                  child: Text(
+                    order.total.format(),
+                    textAlign: TextAlign.end,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
                 ),
                 const Icon(Icons.chevron_right),
               ],
@@ -155,8 +203,9 @@ class _OrderCard extends StatelessWidget {
 }
 
 class _StatusBadge extends StatelessWidget {
-  const _StatusBadge({required this.status});
+  const _StatusBadge({required this.status, required this.label});
   final OrderStatus status;
+  final String label;
 
   @override
   Widget build(BuildContext context) {
@@ -174,7 +223,7 @@ class _StatusBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppRadius.large),
       ),
       child: Text(
-        status.label,
+        label,
         style: TextStyle(
           fontSize: 10,
           color: cancelled ? AppColors.darkRed : AppColors.brandBrown,
@@ -183,4 +232,50 @@ class _StatusBadge extends StatelessWidget {
       ),
     );
   }
+}
+
+class _OrderSearch extends StatefulWidget {
+  const _OrderSearch({required this.query});
+  final String query;
+  @override
+  State<_OrderSearch> createState() => _OrderSearchState();
+}
+
+class _OrderSearchState extends State<_OrderSearch> {
+  late final _query = TextEditingController(text: widget.query);
+  @override
+  void didUpdateWidget(covariant _OrderSearch oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.query != widget.query && _query.text.trim() != widget.query) {
+      _query.text = widget.query;
+    }
+  }
+
+  @override
+  void dispose() {
+    _query.dispose();
+    super.dispose();
+  }
+
+  void _search() {
+    FocusScope.of(context).unfocus();
+    context.read<OrdersCubit>().search(_query.text);
+  }
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+    child: AppTextField(
+      controller: _query,
+      label: 'Tìm đơn hàng',
+      hint: 'Nhập mã đơn…',
+      textInputAction: TextInputAction.search,
+      onSubmitted: (_) => _search(),
+      suffixIcon: IconButton(
+        tooltip: 'Tìm đơn hàng',
+        icon: const Icon(Icons.search),
+        onPressed: _search,
+      ),
+    ),
+  );
 }

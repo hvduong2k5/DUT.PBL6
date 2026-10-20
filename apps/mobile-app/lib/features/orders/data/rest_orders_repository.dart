@@ -5,6 +5,7 @@ import 'package:mobile_app/features/orders/domain/order_models.dart';
 import 'package:mobile_app/features/orders/domain/orders_repository.dart';
 import 'package:mobile_app/core/error/failures.dart';
 import 'package:mobile_app/core/network/api_exception.dart';
+import 'package:mobile_app/core/models/page_result.dart';
 
 class RestOrdersRepository implements OrdersRepository {
   const RestOrdersRepository(this._client);
@@ -12,13 +13,34 @@ class RestOrdersRepository implements OrdersRepository {
 
   @override
   Future<List<CustomerOrder>> orders() async {
+    return (await orderPage(pageSize: 50)).items;
+  }
+
+  @override
+  Future<PageResult<CustomerOrder>> orderPage({
+    String query = '',
+    String? status,
+    int page = 1,
+    int pageSize = 10,
+  }) async {
     final json = await _client.getJson(
       '/api/v1/orders',
-      query: const {'page': 1, 'pageSize': 50},
+      query: {
+        if (query.trim().isNotEmpty) 'q': query.trim(),
+        'status': ?status,
+        'page': page,
+        'pageSize': pageSize,
+      },
     );
-    return (json['orders'] as List? ?? const [])
+    final items = (json['orders'] as List? ?? const [])
         .map((item) => _orderFromList(Map<String, dynamic>.from(item as Map)))
         .toList();
+    return PageResult(
+      items: items,
+      total: json['total'] as int,
+      page: json['page'] as int,
+      pageSize: json['page_size'] as int,
+    );
   }
 
   @override

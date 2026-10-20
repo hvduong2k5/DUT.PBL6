@@ -48,3 +48,7 @@ Stable acceptance body allows only confirmation/idempotencyKey. Re-fetch quote b
 ## Catalog discovery scope (2026-10-20)
 
 Stable list/search queries expose q/status/page/pageSize, without Web's advanced filter parameters. Use supported server search and pagination, retaining legacy convenience methods. Apply category-name/price/OCOP/confirmed-stock facets and price order to loaded results, show loaded/total scope until complete, and let users load more explicitly. No unbounded fetch, inferred weights/product types, unsupported query fields or premature global-match claims. Price presets follow Web customer-core mapping. Unknown Inventory is updating, never falsely sold out; detail entry stays available and actual SKU/cart guards remain intact. Home search opens Catalog; category selection passes through View more.
+
+## Order snapshot labels and timeline correction (2026-10-20)
+
+History now uses stable server q/status/page/pageSize and total/page_size metadata. Do not send Web-only year. Preserve exact payment/packing labels from raw status. Earlier generic progress mapped PAID to confirmed and synthesized future phases; stable Order does not supply those business events. Replace that presentation with actual recorded checkpoints or creation time only, leaving current logistics events to Tracking. This corrects an evidence gap without changing the server order contract.

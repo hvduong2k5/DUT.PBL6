@@ -5,6 +5,7 @@ import 'package:mobile_app/features/checkout/domain/checkout_models.dart';
 import 'package:mobile_app/core/network/api_exception.dart';
 import 'package:mobile_app/core/error/failures.dart';
 import 'package:mobile_app/features/auth/domain/auth_validation.dart';
+import 'package:mobile_app/core/models/page_result.dart';
 
 class MockOrdersRepository implements OrdersRepository {
   MockOrdersRepository({bool Function()? authenticated})
@@ -170,6 +171,36 @@ class MockOrdersRepository implements OrdersRepository {
       );
     }
     return _overrides[id] ?? order;
+  }
+
+  @override
+  Future<PageResult<CustomerOrder>> orderPage({
+    String query = '',
+    String? status,
+    int page = 1,
+    int pageSize = 10,
+  }) async {
+    final values =
+        (await orders())
+            .where(
+              (o) =>
+                  (status == null ||
+                      o.status == OrderStatusUi.fromApi(status)) &&
+                  (query.isEmpty ||
+                      o.id.toLowerCase().contains(query.toLowerCase()) ||
+                      o.items.any(
+                        (i) =>
+                            i.name.toLowerCase().contains(query.toLowerCase()),
+                      )),
+            )
+            .toList()
+          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return PageResult(
+      items: values.skip((page - 1) * pageSize).take(pageSize).toList(),
+      total: values.length,
+      page: page,
+      pageSize: pageSize,
+    );
   }
 
   @override

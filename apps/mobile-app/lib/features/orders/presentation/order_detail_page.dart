@@ -61,13 +61,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
           children: [
             Align(
               alignment: Alignment.centerLeft,
-              child: Chip(
-                label: Text(
-                  order.status == OrderStatus.unknown
-                      ? (order.rawStatus ?? order.status.label)
-                      : order.status.label,
-                ),
-              ),
+              child: Chip(label: Text(order.statusLabel)),
             ),
             if (const {
               'PENDING',
@@ -101,20 +95,23 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Giai đoạn theo trạng thái đơn',
+                      'Các mốc ghi nhận trong đơn',
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                     const SizedBox(height: 14),
                     for (var index = 0; index < _steps(order).length; index++)
                       _TimelineRow(
                         label: _steps(order)[index],
-                        completed: index <= _currentStep(order.status),
-                        time: order.checkpoints
-                            .where(
-                              (point) => point.label == _steps(order)[index],
-                            )
-                            .firstOrNull
-                            ?.time,
+                        completed: true,
+                        time:
+                            order.checkpoints
+                                .where(
+                                  (point) =>
+                                      point.label == _steps(order)[index],
+                                )
+                                .firstOrNull
+                                ?.time ??
+                            (index == 0 ? order.createdAt : null),
                       ),
                   ],
                 ),
@@ -243,18 +240,9 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
       },
     ),
   );
-  List<String> _steps(CustomerOrder order) =>
-      order.status == OrderStatus.cancelled
-      ? ['Đã đặt', 'Đã hủy']
-      : ['Đã đặt', 'Đã xác nhận', 'Đang giao', 'Đã giao'];
-  int _currentStep(OrderStatus status) => switch (status) {
-    OrderStatus.pending => 0,
-    OrderStatus.confirmed => 1,
-    OrderStatus.shipping => 2,
-    OrderStatus.delivered => 3,
-    OrderStatus.cancelled => 1,
-    OrderStatus.unknown => -1,
-  };
+  List<String> _steps(CustomerOrder order) => order.checkpoints.isEmpty
+      ? ['Đã đặt']
+      : order.checkpoints.map((p) => p.label).toList();
 }
 
 class _AmountRow extends StatelessWidget {

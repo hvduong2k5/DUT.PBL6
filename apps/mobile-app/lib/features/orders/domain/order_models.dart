@@ -55,6 +55,15 @@ class CustomerOrder extends Equatable {
   final List<OrderCheckpoint> checkpoints;
   final List<OrderItem> items;
   final String? rawStatus;
+  String get statusLabel => switch (rawStatus) {
+    'PENDING_PAYMENT' => 'Chờ thanh toán',
+    'PAID' || 'PAYMENT_CONFIRMED' => 'Đã thanh toán',
+    'PROCESSING' => 'Đang chuẩn bị',
+    'PACKING' => 'Đang đóng gói',
+    'PACKED' => 'Đã đóng gói',
+    _ =>
+      status == OrderStatus.unknown ? rawStatus ?? status.label : status.label,
+  };
   final Money? subtotal, discount, shippingFee;
   final String? recipientName, recipientPhone;
   CustomerOrder withStatus(String value) => CustomerOrder(

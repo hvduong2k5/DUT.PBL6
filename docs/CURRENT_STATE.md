@@ -4,7 +4,7 @@ Updated 2026-10-20. Goal ACTIVE. Whole Customer parity NOT COMPLETE.
 
 ## Git and boundaries
 
-Branch feature/mobile-ui; HEAD before catalog milestone 28c47be2373231a85e8aa4d5fa9c6e34b8364f26, pushed/verified. Resolve resulting checkpoint using git log. Prior checkpoints: 0c2e7df returns, 14d081b orders, b6f4c28 trace, 86dcef2 session, 457eea6 support, eb57d76 Guest, ec8545a payment/account, 1d91c15 purchase, 82fd358 auth. Commit/push Mobile only; no merges/PRs. Read-only Web reference b1ff2918c7297fc93d0cb9a15cc1d0a0ee46b72e using git show origin/feature/ui-web:<path>; no Web checkout/edits performed.
+Branch feature/mobile-ui; HEAD before history milestone 5fe90d6552a430dca333ef7c3986aed631391101, pushed/verified. Resolve resulting checkpoint using git log. Prior checkpoints: 28c47be B2B, 0c2e7df returns, 14d081b orders, b6f4c28 trace, 86dcef2 session, 457eea6 support, eb57d76 Guest, ec8545a payment/account, 1d91c15 purchase, 82fd358 auth. Commit/push Mobile only; no merges/PRs. Read-only Web reference b1ff2918c7297fc93d0cb9a15cc1d0a0ee46b72e using git show origin/feature/ui-web:<path>; no Web checkout/edits performed.
 
 ## Implemented
 
@@ -17,6 +17,8 @@ Branch feature/mobile-ui; HEAD before catalog milestone 28c47be2373231a85e8aa4d5
 
 ## Open work and contract limits
 
+- History implemented: typed paged repository, supported q/status/page/pageSize and response total/page_size, precise raw status labels, load more/error/stale/no-progress, empty-search clear. Actual timeline now uses recorded checkpoints or creation time only, correcting earlier PAID→confirmed synthetic phase. Focused orders 15/15 PASS + analyze PASS. No unsupported year query; native history pending.
+
 - Catalog discovery implemented: shared typed PageResult, supported q/page/pageSize, incremental page/dedup/stale/no-progress recovery, loaded-scope category/price/OCOP/confirmed-stock facets and price sorting/filter sheet, explicit loaded/total label, Home→Catalog q/category continuity. Unknown stock labelled updating, detail CTA remains available. Price presets copied from Web; no inferred weight/product-type API fields. Catalog focused 8/8 PASS + analyze PASS; prior purchase/viewport focused 26/26 PASS.
 
 - B2B implemented: verified org/capability gates; request MOQ/date/province/brand/invoice/sample/estimate/recent files; released quote version/items/terms/totals/payment/contact/expiry; consent reset on changed quote and exact ZIP acceptance with uncertain retry-key replay; actual paired mock order is PENDING_PAYMENT. No unsupported notes/upload/draft/internal/document fields. Mock-only verified login 0905999888 (any nonempty legacy password except sai); production uses server projection. Focused B2B 9/9 PASS + analyze PASS; native pending. Server must enforce atomic quote version acceptance because ZIP has no version field; client precheck is not an atomic guarantee.
@@ -27,7 +29,7 @@ Branch feature/mobile-ui; HEAD before catalog milestone 28c47be2373231a85e8aa4d5
 
 - User confirmed unchanged ZIP: voucher application at POST checkout waits for contract extension; never submit voucher_code or reduce final total. No shipping quote/durable payment QR recovery endpoint.
 - P2 OPEN: product reviews/owned-order SKU selection, cart clear confirmation, native discovery/final product detail audit. Catalog advanced global filters remain a documented ZIP limitation, not a fake server feature.
-- P3 OPEN: history search/filter/pagination/native QA and production after-sales context gap. Current Web has no reorder action and ZIP no endpoint. Do not fabricate line IDs or silently use drafts. B2B Web source and stable schemas fully read/implemented; notes/upload/document download remain absent from stable contract.
+- P3 OPEN: native services/history QA and production after-sales context gap. Current Web has no reorder action and ZIP no endpoint. Do not fabricate line IDs or silently use drafts. B2B notes/upload/document and history year query remain absent from stable contract.
 - Support ZIP forbids Web guest contact object and has no stable upload/download API; do not collect unsendable contact, pretend metadata uploaded, or invent file download URLs. Ticket list, loyalty history/redemption and notifications planned/draft. Missing native destinations must not be interpreted as complete.
 - P4 full native/cross-flow QA remains OPEN; real backend/email/SMS/payment/credential lifecycle NOT VERIFIED.
 
@@ -47,4 +49,4 @@ Branch feature/mobile-ui; HEAD before catalog milestone 28c47be2373231a85e8aa4d5
 
 ## Exact next action
 
-Checkpoint Catalog and verify Mobile push. Continue history server q/status/page/pageSize using PageResult, then reviews (POST requires owned order_id + exact sku_code, no product_id) and cart clear confirmation. Web Catalog/Review sources and stable list/search/order/review schemas read. Native attach3540 runs B2B checkpoint; reload after Catalog slice. Scrcpy12519142 at Login, local B2B phone0905999888 entered, password field just clicked; refresh focus before typing dummy legacy password. Remaining native: profile/address/support/trace/returns/B2B/purchase/payment/reset. Full suite/build at stable source milestones. Goal ACTIVE.
+Checkpoint history and verify Mobile push. Next reviews (POST owned order_id + exact sku_code/rating/comment/media_urls; no product_id) and cart clear confirmation. Web review source/stable schemas already read. Use delivered-order picker and exact snapshot SKU intersecting current product variants; no uncontracted eligibility API or guessed order. Mock history lacks a delivered canonical GION SKU; add an explicit owned-purchase fixture for review QA, without changing existing returns fixtures. Native attach3540 runs B2B checkpoint; reload after discovery/history. Scrcpy12519142 at Login: phone0905999888 and dummy password legacy entered, page just scrolled to find CTA above keyboard; observe next. P4 also audit 401 mid-session recovery and logistics status translations/keyboard/text scale. Remaining native services/purchase/reset, final full tests/build. Goal ACTIVE.
