@@ -4,7 +4,7 @@ Updated 2026-10-20. Goal ACTIVE. Whole Customer parity NOT COMPLETE.
 
 ## Git and boundaries
 
-Branch feature/mobile-ui; HEAD before order-action milestone b6f4c286668d7c9ac016c9b0df54a7fdd05aff56, pushed/verified. Resolve resulting checkpoint using git log. Prior checkpoints: 86dcef2 session, 457eea6 support, eb57d76 Guest, ec8545a payment/account, 1d91c15 purchase, 82fd358 auth. Commit/push Mobile only; no merges/PRs. Read-only Web reference b1ff2918c7297fc93d0cb9a15cc1d0a0ee46b72e using git show origin/feature/ui-web:<path>; no Web checkout/edits performed.
+Branch feature/mobile-ui; HEAD before after-sales milestone 14d081bb636f1417eda29ea640ba09355cc01efb, pushed/verified. Resolve resulting checkpoint using git log. Prior checkpoints: b6f4c28 trace, 86dcef2 session, 457eea6 support, eb57d76 Guest, ec8545a payment/account, 1d91c15 purchase, 82fd358 auth. Commit/push Mobile only; no merges/PRs. Read-only Web reference b1ff2918c7297fc93d0cb9a15cc1d0a0ee46b72e using git show origin/feature/ui-web:<path>; no Web checkout/edits performed.
 
 ## Implemented
 
@@ -17,15 +17,19 @@ Branch feature/mobile-ui; HEAD before order-action milestone b6f4c286668d7c9ac01
 
 ## Open work and contract limits
 
+- After-sales implemented: signed-in return entry from delivered order/account; complete local single-line/quantity/reason/details/evidence URL/bank form→actual mock case; stable REST create adapter/detail and manual case lookup; no fake refund/pickup or draft API. Production context verifies Order, then explicitly unavailable/Support because stable line IDs are absent. Mock fixture issues LOCAL-LINE IDs, enforces quantities/ownership/idempotency and does not retain bank/evidence. Focused returns/auth 12/12 PASS + analyze PASS. Native after-sales pending.
+
 - Order-action slice implemented: server-authoritative cancellation with reason-only payload/retry key/confirmation, guest readonly; real tracking carrier/checkpoints/seal/video; raw SKU/price (no ambiguous multiplication), recipient and financial snapshot, unknown status preservation. Cancellation widget caught Future-returning setState; fixed, focused case PASS. Orders/checkout 14 PASS before final refinements; mixed order/menu other 13 cases PASS. Native action QA pending.
 
 - User confirmed unchanged ZIP: voucher application at POST checkout waits for contract extension; never submit voucher_code or reduce final total. No shipping quote/durable payment QR recovery endpoint.
 - P2 OPEN: discovery pagination/filter/sort reconciliation, legacy REST category_id/page_size fields versus ZIP q/status/page/pageSize; product reviews/eligibility; cart clear confirmation. Never present current-page filters as complete server results.
-- P3 OPEN: history search/filter/pagination; after-sales request/detail; verified B2B context/request/released quote/version acceptance. Current Web has no reorder action and ZIP no endpoint. After-sales stable POST requires line_id, absent from stable Order response; draft eligibility lines are unspecified objects. Do not fabricate line IDs or silently use draft endpoints. Web return/request/detail/types and stable/draft schemas read. Stable detail can be implemented independently; full local request fixture UI may coexist with an explicit production context gap.
+- P3 OPEN: history search/filter/pagination; verified B2B context/request/released quote/version acceptance; production after-sales context gap. Current Web has no reorder action and ZIP no endpoint. Do not fabricate line IDs or silently use drafts. B2B Web request and quote source first sections have been read; context/request/accept schemas read. Request forbids Web notes; accept allows confirmation/idempotencyKey only, no quoteVersion. Quote detail schema and remaining markup still need inspection before implementation.
 - Support ZIP forbids Web guest contact object and has no stable upload/download API; do not collect unsendable contact, pretend metadata uploaded, or invent file download URLs. Ticket list, loyalty history/redemption and notifications planned/draft. Missing native destinations must not be interpreted as complete.
 - P4 full native/cross-flow QA remains OPEN; real backend/email/SMS/payment/credential lifecycle NOT VERIFIED.
 
 ## Validation and native state
+
+- Latest at 14d081b: full 110/110 PASS; APK build PASS 37.6s with source held stable. Installed by adb update (Success), launched Home, no data wipe. New active attach PTY 3540, scrcpy window 12519142 after reopening existing executable. Old session/window invalid. Phone currently Guest lookup, code field focused and dummy OM-8921 just typed; refresh UI before any action. Native update includes URL plugin/current order actions.
 
 - Baseline analyze / 60 tests PASS. Last clean full suite 97/97 PASS (support). Trace/catalog/session focused 11/11 PASS and analyze PASS. New full run 104 PASS / 1 FAIL: added drawer destinations moved login offscreen in old test; ensureVisible + pumpAndSettle corrected it, focused menu PASS and all menu cases passed in later mixed run. Order cancellation widget later found a setState Future bug; fixed, focused case PASS. Full final suite still required. Trace Android build PASS 170.1s with process-local cross-drive Kotlin flags; build began before order-action edits, so rebuild incrementally for final source.
 - Prior P1 APK build PASS (321.5s), P2 incremental build PASS (57.6s), installed without wipe. Native observed recovery validation/sent/local link/reset checklist/keyboard/expired proof, Home images, list→SKU→add→cart selection→checkout two-level form. Native support form/options and title/content keyboard scrolling observed; no overflow seen. Support submission/reply, account/Guest/trace full native QA still pending.
@@ -35,4 +39,4 @@ Branch feature/mobile-ui; HEAD before order-action milestone b6f4c286668d7c9ac01
 
 ## Exact next action
 
-Checkpoint order actions and verify Mobile push, then native APK refresh or after-sales module (request/local fixture + explicit remote line-ID gap, stable detail). Complete B2B, history/discovery pagination/search/reviews, cart clear confirmation. Build/test only after source is stable; avoid editing app while APK is compiling. Existing trace APK ready but predates current order edits; update/install and reattach without wipe at next coherent checkpoint. Goal remains ACTIVE until all original criteria and native QA are resolved.
+Checkpoint after-sales and verify Mobile push, then B2B. Complete history/discovery pagination/search/reviews and cart clear confirmation. Native attach 3540 runs order-action checkpoint; hot restart required for Returns DI. Scrcpy window12519142; phone is at Guest OTP, code and contact entered, request accepted, OTP field just focused (refresh before action). Local OTP 789214; only local fixture, no real SMS. Finish Guest→detail→tracking, account/support/trace/after-sales and full purchase native QA. Full suite/build at stable milestones; do not modify app during compilation. Goal remains ACTIVE.

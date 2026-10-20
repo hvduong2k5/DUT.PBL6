@@ -25,4 +25,7 @@ abstract final class AppRoutes {
   static const trace = '/trace';
   static const traceDetail = '/trace/:code';
   static const orderTracking = '/orders/:id/tracking';
+  static const returnRequest = '/orders/:id/after-sales/request';
+  static const returnLookup = '/after-sales';
+  static const returnCase = '/after-sales/:id';
 }

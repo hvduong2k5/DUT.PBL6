@@ -26,12 +26,19 @@ String safeAuthReturnLocation(String? value) {
     '/account/profile',
     '/account/loyalty',
     '/track-order',
+    '/after-sales',
+    '/support/request',
+    '/trace',
   };
   final path = uri.path;
   if (!routes.contains(path) &&
       !RegExp(
         r'^/(product|orders|order-confirmation|payment)/[^/]+$',
-      ).hasMatch(path)) {
+      ).hasMatch(path) &&
+      !RegExp(
+        r'^/orders/[^/]+/(tracking|after-sales/request)$',
+      ).hasMatch(path) &&
+      !RegExp(r'^/(after-sales|support/tickets|trace)/[^/]+$').hasMatch(path)) {
     return AppRoutes.account;
   }
   return uri.toString();

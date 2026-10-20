@@ -27,7 +27,7 @@ Keep the supplied ZIP unchanged, including stable/draft/planned distinctions. Us
 - [ ] Order history search/filter/pagination reconciliation and native order-action QA.
 - [x] Support context/create/detail/public messages. No fake upload/contact extension/hotline/CSAT. Automated create→ticket→reply, idempotency and ownership checks PASS; native form/keyboard inspected, native submission pending.
 - [x] Trace manual-code entry/detail/error/retry, deep link, find-product search, HTTPS-only external media action. Local certificate fixture explicitly labelled; video launch/native build QA pending.
-- [ ] After-sales create/detail with drafts separated. Stable Order lacks line_id required by creation; draft eligibility lines have no defined item shape. Do not invent IDs or promote draft calls.
+- [x] After-sales local form/create→case and stable REST detail/create adapter. Production form stops at documented missing line-ID context and offers Support. No implicit draft calls, fake upload, refund completion or retained bank details. Backend creation remains an open contract gap.
 - [ ] B2B context/quote request/released detail/version acceptance with idempotency and correct capability/ownership.
 - [ ] Focused tests, complete regression, native scrcpy QA; matrix/handoff/checkpoint.
 
@@ -42,3 +42,14 @@ Payload contract tests and state/navigation tests for each new flow, plus analyz
 ## Handoff / next
 
 Status: ACTIVE. Account/address, Guest/support/session/trace and order actions implemented. Trace APK build PASS 170.1s. New full suite found offscreen Drawer test; fixed by scroll+settle, focused menu PASS. Orders/checkout 14/14 PASS before final recipient/cancel-widget refinements; subsequent cancellation widget caught setState returning Future, corrected and focused case PASS (remaining 13 mixed order/menu cases had passed). Analyze PASS before that closure correction. Full final suite/native QA still required. Next: checkpoint orders, native APK refresh and after-sales/B2B/history/discovery/reviews.
+
+2026-10-20 verification at 14d081b: full 110/110 PASS; APK build PASS 37.6s. Source was held stable during this build. Native update/QA next; previous scrcpy window closed, rediscover device/window instead of reusing handles.
+
+## Current task — after-sales counterpart
+
+- Keep stable create/detail payloads in a dedicated ReturnsRepository, separate from UI/bank/evidence inputs. Request follows Web single-line/quantity/reason/details/evidence URLs/refund-bank form; no upload service or resolution types absent from ZIP.
+- Production context must explicitly explain missing stable line_id/options and offer Support; do not send a draft eligibility request or synthesize line IDs from SKU/index. Local mock may issue its own clearly labelled fixture line IDs and exercise full form→created case, including ownership/idempotency/quantity.
+- Stable detail shows only returned case/order/status/reason/amount/date. No fabricated pickup/messages/refund completion. Approved is not refunded. Manual case-ID entry/deep link allows existing cases without a draft list API.
+- Validate bank number/holder and HTTPS evidence URLs without persisting/logging them. UI keyboard/scroll/pending/errors/back and unknown status are required. Add REST payload, ownership/retry and navigation checks; current source files under features/returns, app wiring and order/account entrypoints only.
+
+After-sales implementation checkpoint: analyze PASS; focused returns/auth 12/12 PASS (including narrow-phone form→created case, no implied refund, exact REST payload, no draft call, ownership, quantity/idempotency and retry-key changes). Native after-sales NOT RUN. Next: B2B context/quote flow; both Web source files and request/accept schemas have been read, but quote detail schema and remaining markup still need inspection. ZIP accept body has confirmation/idempotencyKey only, no quoteVersion; do not invent version fields/headers or claim a client-checked atomic acceptance guarantee.

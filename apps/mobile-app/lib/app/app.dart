@@ -20,6 +20,7 @@ import 'package:mobile_app/features/orders/domain/guest_orders_repository.dart';
 import 'package:mobile_app/features/support/domain/support_repository.dart';
 import 'package:mobile_app/features/auth/presentation/capabilities_cubit.dart';
 import 'package:mobile_app/features/trace/domain/trace_repository.dart';
+import 'package:mobile_app/features/returns/domain/returns_repository.dart';
 
 class OmaApp extends StatefulWidget {
   const OmaApp({
@@ -65,6 +66,9 @@ class _OmaAppState extends State<OmaApp> {
   @override
   Widget build(BuildContext context) => MultiRepositoryProvider(
     providers: [
+      RepositoryProvider<ReturnsRepository>.value(
+        value: _dependencies.returnsRepository,
+      ),
       RepositoryProvider<TraceRepository>.value(
         value: _dependencies.traceRepository,
       ),

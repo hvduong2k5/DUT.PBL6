@@ -64,6 +64,11 @@ class AccountPage extends StatelessWidget {
                   onTap: () => context.push(AppRoutes.orders),
                 ),
                 _MenuRow(
+                  icon: Icons.assignment_return_outlined,
+                  label: 'Hồ sơ hậu mãi',
+                  onTap: () => context.push(AppRoutes.returnLookup),
+                ),
+                _MenuRow(
                   icon: Icons.location_on_outlined,
                   label: 'Địa chỉ giao hàng',
                   onTap: () => context.push(AppRoutes.addresses),

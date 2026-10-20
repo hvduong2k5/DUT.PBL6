@@ -84,9 +84,9 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                             order.id,
                           );
                           if (status != null && mounted) {
-                          setState(() {
-                            _future = Future.value(order.withStatus(status));
-                          });
+                            setState(() {
+                              _future = Future.value(order.withStatus(status));
+                            });
                           }
                         },
                         child: const Text('Yêu cầu hủy đơn'),
@@ -225,6 +225,19 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
               icon: const Icon(Icons.support_agent_outlined),
               label: const Text('Yêu cầu hỗ trợ'),
             ),
+            if (order.status == OrderStatus.delivered)
+              BlocBuilder<CapabilitiesCubit, CapabilitiesState>(
+                builder: (context, capabilities) =>
+                    capabilities.allows('ORDER_HISTORY_VIEW')
+                    ? TextButton.icon(
+                        icon: const Icon(Icons.assignment_return_outlined),
+                        label: const Text('Tạo yêu cầu hậu mãi / đổi trả'),
+                        onPressed: () => context.push(
+                          '/orders/${Uri.encodeComponent(order.id)}/after-sales/request',
+                        ),
+                      )
+                    : const SizedBox.shrink(),
+              ),
           ],
         );
       },

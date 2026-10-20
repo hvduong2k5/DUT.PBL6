@@ -56,6 +56,9 @@ import 'package:mobile_app/features/trace/domain/trace_repository.dart';
 import 'package:mobile_app/features/trace/presentation/trace_cubit.dart';
 import 'package:mobile_app/features/trace/presentation/trace_page.dart';
 import 'package:mobile_app/features/orders/presentation/order_actions_pages.dart';
+import 'package:mobile_app/features/returns/domain/returns_repository.dart';
+import 'package:mobile_app/features/returns/presentation/returns_cubit.dart';
+import 'package:mobile_app/features/returns/presentation/returns_pages.dart';
 
 GoRouter createAppRouter({
   required OnboardingStore onboardingStore,
@@ -66,6 +69,41 @@ GoRouter createAppRouter({
       initialLocation ??
       (onboardingCompleted ? AppRoutes.home : AppRoutes.onboarding),
   routes: [
+    GoRoute(
+      path: AppRoutes.returnRequest,
+      builder: (context, state) => SafeBackScope(
+        child: CustomerAccountGate(
+          capability: 'ORDER_HISTORY_VIEW',
+          returnLocation: state.uri.toString(),
+          child: BlocProvider(
+            create: (_) =>
+                ReturnsCubit(context.read<ReturnsRepository>())
+                  ..load(state.pathParameters['id']!),
+            child: ReturnRequestPage(orderId: state.pathParameters['id']!),
+          ),
+        ),
+      ),
+    ),
+    GoRoute(
+      path: AppRoutes.returnLookup,
+      builder: (context, state) => const SafeBackScope(
+        child: CustomerAccountGate(
+          capability: 'ORDER_HISTORY_VIEW',
+          returnLocation: AppRoutes.returnLookup,
+          child: ReturnLookupPage(),
+        ),
+      ),
+    ),
+    GoRoute(
+      path: AppRoutes.returnCase,
+      builder: (context, state) => SafeBackScope(
+        child: CustomerAccountGate(
+          capability: 'ORDER_HISTORY_VIEW',
+          returnLocation: state.uri.toString(),
+          child: ReturnCasePage(caseId: state.pathParameters['id']!),
+        ),
+      ),
+    ),
     GoRoute(
       path: AppRoutes.orderTracking,
       builder: (context, state) => SafeBackScope(

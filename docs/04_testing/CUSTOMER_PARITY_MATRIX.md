@@ -43,3 +43,5 @@ Baseline analyze PASS, tests 60/60 PASS. P1 analyze PASS, focused tests 30/30 PA
 - Profile/loyalty/address counterparts implemented with login-return and contract tests; native account QA pending.
 - Guest ownership, support create/detail/public reply, session restore/server capabilities and trace implemented. Last recorded full regression 97/97 PASS; later trace/catalog/session focused 11/11 PASS and analyze PASS. Native support form/keyboard observed, submission pending. B2B, after-sales, reviews, advanced discovery and remaining order flows remain OPEN.
 - Latest full suite 90/90 PASS; latest address mutation changes additionally pass analyze and focused 14 tests.
+
+2026-10-20: latest full suite 110/110 PASS and Android build 37.6s PASS at order-action checkpoint. After-sales added afterward: local form/create/case and stable REST adapter/detail implemented; focused returns/auth 12/12 PASS + analyze PASS. Production request line-ID context remains unavailable under supplied stable ZIP; UI offers Support. Native after-sales/B2B and final full suite remain pending.

@@ -39,6 +39,9 @@ import 'package:mobile_app/features/auth/domain/customer_capabilities.dart';
 import 'package:mobile_app/features/auth/data/customer_capabilities_repositories.dart';
 import 'package:mobile_app/features/trace/domain/trace_repository.dart';
 import 'package:mobile_app/features/trace/data/trace_repositories.dart';
+import 'package:mobile_app/features/returns/domain/returns_repository.dart';
+import 'package:mobile_app/features/returns/data/rest_returns_repository.dart';
+import 'package:mobile_app/features/returns/data/mock_returns_repository.dart';
 
 class AppDependencies {
   const AppDependencies({
@@ -55,6 +58,7 @@ class AppDependencies {
     required this.supportRepository,
     required this.capabilitiesRepository,
     required this.traceRepository,
+    required this.returnsRepository,
   });
 
   final CatalogRepository catalogRepository;
@@ -70,6 +74,7 @@ class AppDependencies {
   final SupportRepository supportRepository;
   final CustomerCapabilitiesRepository capabilitiesRepository;
   final TraceRepository traceRepository;
+  final ReturnsRepository returnsRepository;
 }
 
 abstract final class RepositoryFactory {
@@ -104,6 +109,10 @@ abstract final class RepositoryFactory {
       supportRepository: RestSupportRepository(client),
       capabilitiesRepository: RestCustomerCapabilitiesRepository(client),
       traceRepository: RestTraceRepository(client),
+      returnsRepository: RestReturnsRepository(
+        client,
+        RestOrdersRepository(client),
+      ),
     );
   }
 
@@ -127,6 +136,10 @@ abstract final class RepositoryFactory {
       ),
       guestOrdersRepository: MockGuestOrdersRepository(orders),
       traceRepository: MockTraceRepository(),
+      returnsRepository: MockReturnsRepository(
+        orders,
+        () => auth.currentUser?.id,
+      ),
       capabilitiesRepository: MockCustomerCapabilitiesRepository(
         () => auth.currentUser,
       ),

@@ -16,9 +16,13 @@ class CustomerAccountGate extends StatelessWidget {
     super.key,
     required this.returnLocation,
     required this.child,
+    this.capability,
+    this.requireB2b = false,
   });
   final String returnLocation;
   final Widget child;
+  final String? capability;
+  final bool requireB2b;
   @override
   Widget build(BuildContext context) => BlocBuilder<AuthCubit, AuthState>(
     builder: (context, state) => state.status == AuthStatus.restoring
@@ -41,12 +45,16 @@ class CustomerAccountGate extends StatelessWidget {
           )
         : state.status == AuthStatus.authenticated
         ? CustomerCapabilityGate(
-            capability: switch (Uri.parse(returnLocation).path) {
-              AppRoutes.loyalty => 'LOYALTY_VIEW',
-              AppRoutes.orders => 'ORDER_HISTORY_VIEW',
-              AppRoutes.addresses || AppRoutes.addressForm => 'ADDRESS_MANAGE',
-              _ => 'PROFILE_MANAGE',
-            },
+            requireB2b: requireB2b,
+            capability:
+                capability ??
+                switch (Uri.parse(returnLocation).path) {
+                  AppRoutes.loyalty => 'LOYALTY_VIEW',
+                  AppRoutes.orders => 'ORDER_HISTORY_VIEW',
+                  AppRoutes.addresses ||
+                  AppRoutes.addressForm => 'ADDRESS_MANAGE',
+                  _ => 'PROFILE_MANAGE',
+                },
             child: child,
           )
         : Scaffold(
