@@ -31,7 +31,9 @@ In: cart selection/availability/quantity/error states; selected-line checkout; s
 - [ ] Compare Home/Catalog/Product/reviews, implement remaining gaps in a focused follow-on slice.
 - [x] Catalog supported search/pageSize/pagination with loaded-scope category/price/OCOP/stock facets, sorting and filter sheet; stale/no-progress/next-page errors; unknown Inventory and Home search/category continuity. Unsupported global advanced parameters remain a contract limit.
 - [x] Reviews: public aggregates/list/paging, owned delivered order and exact SKU selection, text submission, server-only verified badge, capability/pending/error/idempotent retry.
-- [ ] Cart clear confirmation; product-detail final parity audit/native discovery QA.
+- [x] Cart clear confirmation matching Web; cancel retains lines, confirm clears through existing repository.
+- [x] Product detail final source audit: explicit SKU choice, gallery/certificate/weight/original price, honest unavailable food information and trace entry. No synthetic food fields.
+- [ ] Native discovery/product/reviews QA and final validation.
 - [ ] Tests, analysis, full regression, Android build/scrcpy QA and milestone checkpoint.
 
 ## UI / security / risks

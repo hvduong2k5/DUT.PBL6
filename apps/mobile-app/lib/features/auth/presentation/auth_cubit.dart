@@ -25,7 +25,23 @@ class AuthState extends Equatable {
 }
 
 class AuthCubit extends Cubit<AuthState> {
-  AuthCubit(this._repository) : super(const AuthState());
+  AuthCubit(this._repository) : super(const AuthState()) {
+    final Object source = _repository;
+    if (source is SessionRecoverySource) {
+      source.observeSessionRecovery((user) {
+        if (isClosed || state.pending || state.user == null) return;
+        ++_sessionRevision;
+        emit(
+          user == null
+              ? const AuthState(
+                  message:
+                      'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
+                )
+              : AuthState(status: AuthStatus.authenticated, user: user),
+        );
+      });
+    }
+  }
   final AuthRepository _repository;
   int _sessionRevision = 0;
 
@@ -167,5 +183,14 @@ class AuthCubit extends Cubit<AuthState> {
     if (state.status == AuthStatus.authenticated && state.user?.id == user.id) {
       emit(AuthState(status: AuthStatus.authenticated, user: user));
     }
+  }
+
+  @override
+  Future<void> close() {
+    final Object source = _repository;
+    if (source is SessionRecoverySource) {
+      source.observeSessionRecovery(null);
+    }
+    return super.close();
   }
 }

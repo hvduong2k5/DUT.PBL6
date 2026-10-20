@@ -16,6 +16,35 @@ import 'package:mobile_app/features/cart/presentation/cart_cubit.dart';
 
 class CartPage extends StatelessWidget {
   const CartPage({super.key});
+  Future<void> _clear(BuildContext context) async {
+    final cubit = context.read<CartCubit>();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Dọn giỏ hàng?'),
+        content: const Text(
+          'Bạn có chắc muốn xóa toàn bộ sản phẩm khỏi giỏ hàng?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Giữ lại'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Xóa toàn bộ'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true &&
+        context.mounted &&
+        !cubit.isClosed &&
+        !cubit.state.pending) {
+      await cubit.clear();
+    }
+  }
+
   @override
   Widget build(BuildContext context) => BlocBuilder<CartCubit, CartState>(
     builder: (context, state) {
@@ -67,6 +96,14 @@ class CartPage extends StatelessWidget {
                 onChanged: state.pending
                     ? null
                     : (_) => context.read<CartCubit>().toggleAll(),
+              ),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: state.pending ? null : () => _clear(context),
+                  icon: const Icon(Icons.delete_outline),
+                  label: const Text('Dọn giỏ hàng'),
+                ),
               ),
               if (state.message != null)
                 Padding(

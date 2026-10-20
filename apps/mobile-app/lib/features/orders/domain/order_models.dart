@@ -154,7 +154,21 @@ class ShippingCheckpoint {
   });
   final String status, location, description;
   final DateTime time;
+  String get statusLabel => shippingStatusLabel(status);
 }
+
+String shippingStatusLabel(String raw) => switch (raw.toUpperCase()) {
+  'IN_TRANSIT' => 'Đang vận chuyển',
+  'OUT_FOR_DELIVERY' => 'Đang giao đến bạn',
+  'DELIVERED' => 'Đã giao hàng',
+  'PICKED_UP' => 'Đã lấy hàng',
+  'READY_TO_SHIP' => 'Sẵn sàng giao nhận',
+  'DELIVERY_FAILED' => 'Giao hàng chưa thành công',
+  'RETURNED' => 'Đã hoàn về',
+  'CANCELLED' => 'Đã hủy vận chuyển',
+  'PENDING' => 'Chờ cập nhật vận chuyển',
+  _ => raw.isEmpty ? 'Chưa có cập nhật' : raw,
+};
 
 class OrderTracking {
   const OrderTracking({
@@ -170,6 +184,7 @@ class OrderTracking {
   });
   final String orderId, code, carrier, status, seal, video, shipper, phone;
   final List<ShippingCheckpoint> checkpoints;
+  String get statusLabel => shippingStatusLabel(status);
   factory OrderTracking.fromJson(Map<String, dynamic> json) => OrderTracking(
     orderId: json['order_id'] as String,
     code: json['tracking_code'] as String,

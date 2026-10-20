@@ -31,6 +31,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
   late Future<Product> _future;
   int _quantity = 1;
   ProductVariant? _selectedVariant;
+  int _imageIndex = 0;
   @override
   void initState() {
     super.initState();
@@ -48,14 +49,8 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
 
   void _load() {
     _selectedVariant = null;
-    _future = context.read<CatalogRepository>().product(widget.productId).then((
-      product,
-    ) {
-      if (product.variants.length == 1 && product.variants.single.stock > 0) {
-        _selectedVariant = product.variants.single;
-      }
-      return product;
-    });
+    _imageIndex = 0;
+    _future = context.read<CatalogRepository>().product(widget.productId);
   }
 
   @override
@@ -80,6 +75,9 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
             );
           }
           final product = snapshot.data!;
+          final images = product.images.isEmpty
+              ? [product.imageUrl]
+              : product.images;
           return ListView(
             padding: const EdgeInsets.fromLTRB(
               AppSpacing.md,
@@ -96,38 +94,95 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                 ),
                 clipBehavior: Clip.antiAlias,
                 child: AppProductImage(
-                  url: product.imageUrl,
+                  url: images[_imageIndex],
                   label: product.name,
                 ),
               ),
-              const SizedBox(height: AppSpacing.md),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    '${product.ocopStars} SAO OCOP',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.brandBrown,
-                    ),
-                  ),
-                  if (product.inStock)
-                    const Text(
-                      'CÒN HÀNG',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: AppColors.success,
-                        fontWeight: FontWeight.bold,
+              if (images.length > 1) ...[
+                const SizedBox(height: 12),
+                SizedBox(
+                  height: 76,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: images.length,
+                    separatorBuilder: (_, _) => const SizedBox(width: 8),
+                    itemBuilder: (context, index) => Semantics(
+                      selected: index == _imageIndex,
+                      button: true,
+                      label: 'Ảnh sản phẩm ${index + 1} trên ${images.length}',
+                      child: InkWell(
+                        onTap: () => setState(() => _imageIndex = index),
+                        child: Container(
+                          width: 76,
+                          padding: const EdgeInsets.all(3),
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                              color: index == _imageIndex
+                                  ? AppColors.brandBrown
+                                  : AppColors.border,
+                            ),
+                            borderRadius: BorderRadius.circular(
+                              AppRadius.medium,
+                            ),
+                          ),
+                          child: AppProductImage(
+                            url: images[index],
+                            label: product.name,
+                          ),
+                        ),
                       ),
                     ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: AppSpacing.md),
+              Wrap(
+                spacing: 20,
+                runSpacing: 8,
+                children: [
+                  if (product.ocopStars > 0)
+                    Text(
+                      '${product.ocopStars} SAO OCOP',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.brandBrown,
+                      ),
+                    ),
+                  Text(
+                    product.availabilityLabel,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: AppColors.success,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ],
               ),
+              if (product.certificateNumber.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: SelectableText(
+                    'Mã chứng nhận OCOP: ${product.certificateNumber}',
+                  ),
+                ),
               const SizedBox(height: AppSpacing.xs),
               Text(
                 product.name,
                 style: Theme.of(context).textTheme.headlineMedium,
               ),
+              if (_selectedVariant?.originalPrice != null &&
+                  _selectedVariant!.originalPrice!.compareTo(
+                        _selectedVariant!.price,
+                      ) >
+                      0)
+                Text(
+                  _selectedVariant!.originalPrice!.format(),
+                  style: const TextStyle(
+                    decoration: TextDecoration.lineThrough,
+                    color: AppColors.textMuted,
+                  ),
+                ),
               const SizedBox(height: AppSpacing.xs),
               Text(
                 product.variants.isEmpty
@@ -168,6 +223,16 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
               ),
               if (product.variants.isEmpty)
                 const Text('Chưa có quy cách khả dụng.'),
+              const SizedBox(height: 12),
+              if (_selectedVariant == null)
+                const Text(
+                  'Chọn quy cách đã công bố để tiếp tục. Giỏ hàng không giữ tồn hoặc cố định giá.',
+                )
+              else ...[
+                SelectableText('SKU: ${_selectedVariant!.sku}'),
+                if (_selectedVariant!.weightGrams != null)
+                  Text('Khối lượng: ${_selectedVariant!.weightGrams}g'),
+              ],
               const SizedBox(height: AppSpacing.md),
               Row(
                 children: [
@@ -178,7 +243,10 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                     ),
                   ),
                   IconButton(
-                    onPressed: _quantity > 1
+                    onPressed:
+                        _quantity > 1 &&
+                            !cartState.pending &&
+                            _selectedVariant != null
                         ? () => setState(() => _quantity--)
                         : null,
                     icon: const Icon(Icons.remove),
@@ -193,7 +261,8 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                   ),
                   IconButton(
                     onPressed:
-                        _quantity >= maxCartItemQuantity ||
+                        cartState.pending ||
+                            _quantity >= maxCartItemQuantity ||
                             _selectedVariant == null ||
                             _quantity >= _selectedVariant!.stock
                         ? null
@@ -217,6 +286,19 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                 const SizedBox(height: AppSpacing.sm),
                 Text(product.story),
               ],
+              const Divider(height: 36),
+              Text(
+                'Thông tin thực phẩm',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Thông tin đang được cập nhật. Chưa có dữ liệu thành phần, cảnh báo dị ứng và hướng dẫn bảo quản. Vui lòng kiểm tra nhãn trên bao bì hoặc tra cứu lô hàng trước khi sử dụng.',
+              ),
+              TextButton(
+                onPressed: () => context.push(AppRoutes.trace),
+                child: const Text('Tra cứu lô hàng'),
+              ),
               BlocProvider(
                 key: ValueKey('reviews:${product.id}'),
                 create: (_) =>

@@ -4,6 +4,7 @@ import 'package:mobile_app/core/network/api_error_mapper.dart';
 import 'package:mobile_app/core/network/api_exception.dart';
 import 'package:mobile_app/core/storage/token_store.dart';
 import 'package:mobile_app/core/network/session_cookies.dart';
+import 'package:mobile_app/core/error/failures.dart';
 
 class ApiClient {
   ApiClient({Dio? dio, TokenStore? tokenStore, String? baseUrl})
@@ -34,7 +35,35 @@ class ApiClient {
   final Dio dio;
   final TokenStore _tokenStore;
   late final SessionCookies _cookies;
+  Future<bool> Function()? recoverSession;
+  Future<bool>? _recovery;
   Future<void> clearSessionCookies() => _cookies.clear();
+
+  Future<ApiException> _failure(DioException error) async {
+    final failure = ApiErrorMapper.fromDio(error);
+    if (failure.kind == FailureKind.unauthenticated &&
+        !error.requestOptions.path.startsWith('/api/v1/auth/') &&
+        recoverSession != null) {
+      try {
+        final recovered = await (_recovery ??= recoverSession!().whenComplete(
+          () => _recovery = null,
+        ));
+        if (recovered) {
+          return ApiException(
+            Failure(
+              kind: failure.kind,
+              message: 'Phiên vừa được làm mới. Vui lòng thử lại thao tác.',
+              code: failure.code,
+              requestId: failure.requestId,
+            ),
+          );
+        }
+      } catch (_) {
+        // The original failure remains actionable; no write is replayed.
+      }
+    }
+    return ApiException(failure);
+  }
 
   Future<Map<String, dynamic>> getJson(
     String path, {
@@ -49,7 +78,7 @@ class ApiClient {
       );
       return _asMap(response.data);
     } on DioException catch (error) {
-      throw ApiException(ApiErrorMapper.fromDio(error));
+      throw await _failure(error);
     }
   }
 
@@ -66,7 +95,7 @@ class ApiClient {
       );
       return _asMap(response.data);
     } on DioException catch (error) {
-      throw ApiException(ApiErrorMapper.fromDio(error));
+      throw await _failure(error);
     }
   }
 
@@ -83,7 +112,7 @@ class ApiClient {
       );
       return _asMap(response.data);
     } on DioException catch (error) {
-      throw ApiException(ApiErrorMapper.fromDio(error));
+      throw await _failure(error);
     }
   }
 
@@ -100,7 +129,7 @@ class ApiClient {
       );
       return _asMap(response.data);
     } on DioException catch (error) {
-      throw ApiException(ApiErrorMapper.fromDio(error));
+      throw await _failure(error);
     }
   }
 

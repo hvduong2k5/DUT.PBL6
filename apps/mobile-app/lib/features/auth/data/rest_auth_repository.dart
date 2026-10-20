@@ -7,8 +7,18 @@ import 'package:mobile_app/core/network/api_exception.dart';
 import 'package:mobile_app/core/error/failures.dart';
 import 'package:uuid/uuid.dart';
 
-class RestAuthRepository implements AuthRepository {
-  RestAuthRepository(this._client, this._tokens);
+class RestAuthRepository implements AuthRepository, SessionRecoverySource {
+  RestAuthRepository(this._client, this._tokens) {
+    _client.recoverSession = () async {
+      final user = await restoreSession();
+      _sessionObserver?.call(user);
+      return user != null;
+    };
+  }
+  void Function(AuthUser?)? _sessionObserver;
+  @override
+  void observeSessionRecovery(void Function(AuthUser?)? observer) =>
+      _sessionObserver = observer;
   final ApiClient _client;
   final TokenStore _tokens;
   String? _refreshKeyToken, _refreshKey;

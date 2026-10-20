@@ -1,6 +1,11 @@
 import 'package:mobile_app/features/auth/domain/auth_models.dart';
 import 'package:mobile_app/features/auth/domain/recovery_verification.dart';
 
+/// Optional lifecycle signal for repositories that recover an expired session.
+abstract interface class SessionRecoverySource {
+  void observeSessionRecovery(void Function(AuthUser?)? observer);
+}
+
 abstract interface class AuthRepository {
   Future<AuthUser?> restoreSession();
   Future<AuthSession> login({

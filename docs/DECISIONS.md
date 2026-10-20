@@ -52,3 +52,9 @@ Stable list/search queries expose q/status/page/pageSize, without Web's advanced
 ## Order snapshot labels and timeline correction (2026-10-20)
 
 History now uses stable server q/status/page/pageSize and total/page_size metadata. Do not send Web-only year. Preserve exact payment/packing labels from raw status. Earlier generic progress mapped PAID to confirmed and synthesized future phases; stable Order does not supply those business events. Replace that presentation with actual recorded checkpoints or creation time only, leaving current logistics events to Tracking. This corrects an evidence gap without changing the server order contract.
+
+## 2026-10-20 — Protected request expiry and product disclosure
+
+A protected 401 triggers serialized existing auth/me + refresh verification through an optional transport callback; auth endpoints are excluded. RestAuthRepository signals recovered/lost identity through optional domain lifecycle observer. AuthCubit removes stale authenticated actor after loss. Do not automatically replay writes; screen retry retains operation idempotency and avoids duplicate financial actions. Network failures retain stored tokens and preserve original actionable failure.
+
+Product detail requires explicit SKU choice even for one option, matching Web. Preserve all stable images, certificate number, variant weight/original price. Never infer food/allergen/storage/batch dates absent from ZIP; expose honest unavailable information and manual trace entry. Do not attach a sample batch to a purchased product as if verified.

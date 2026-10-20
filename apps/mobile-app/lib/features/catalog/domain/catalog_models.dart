@@ -30,6 +30,8 @@ class Product extends Equatable {
     this.description = '',
     this.story = '',
     this.stockKnown = true,
+    this.images = const [],
+    this.certificateNumber = '',
   });
   factory Product.fromListJson(Map<String, dynamic> json) => Product(
     id: json['product_id'].toString(),
@@ -56,6 +58,8 @@ class Product extends Equatable {
   final String category;
   final bool inStock;
   final bool stockKnown;
+  final List<String> images;
+  final String certificateNumber;
   String get availabilityLabel => !stockKnown
       ? 'Đang cập nhật tồn kho'
       : inStock
@@ -79,6 +83,8 @@ class Product extends Equatable {
     description,
     story,
     stockKnown,
+    images,
+    certificateNumber,
   ];
 }
 
@@ -90,6 +96,8 @@ class ProductVariant extends Equatable {
     required this.price,
     required this.stock,
     this.stockKnown = true,
+    this.weightGrams,
+    this.originalPrice,
   });
   final String id;
   final String sku;
@@ -97,6 +105,17 @@ class ProductVariant extends Equatable {
   final Money price;
   final int stock;
   final bool stockKnown;
+  final int? weightGrams;
+  final Money? originalPrice;
   @override
-  List<Object?> get props => [id, sku, name, price, stock, stockKnown];
+  List<Object?> get props => [
+    id,
+    sku,
+    name,
+    price,
+    stock,
+    stockKnown,
+    weightGrams,
+    originalPrice,
+  ];
 }

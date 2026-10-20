@@ -57,6 +57,7 @@ class MockOrdersRepository implements OrdersRepository {
               (line) => OrderItem(
                 name: line.product.name,
                 variantName: line.variant.name,
+                sku: line.variant.sku,
                 quantity: line.quantity,
                 price: line.variant.price,
               ),

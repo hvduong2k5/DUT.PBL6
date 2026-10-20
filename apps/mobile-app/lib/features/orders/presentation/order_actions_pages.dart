@@ -152,7 +152,7 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
                   ),
                   if (data.code.isNotEmpty)
                     SelectableText('Mã vận đơn: ${data.code}'),
-                  Text('Trạng thái vận chuyển: ${data.status}'),
+                  Text('Trạng thái vận chuyển: ${data.statusLabel}'),
                   if (data.shipper.isNotEmpty)
                     Text('Người giao: ${data.shipper}'),
                   if (data.phone.isNotEmpty)
@@ -190,7 +190,7 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
                             style: Theme.of(context).textTheme.bodySmall,
                           ),
                           Text(
-                            point.status,
+                            point.statusLabel,
                             style: const TextStyle(fontWeight: FontWeight.w600),
                           ),
                           Text(point.location),
