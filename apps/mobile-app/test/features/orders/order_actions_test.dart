@@ -221,6 +221,83 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+  for (final pendingOnly in [false, true]) {
+    testWidgets(
+      'history refreshes after cancellation with pending filter $pendingOnly',
+      (tester) async {
+        final dependencies = RepositoryFactory.create(
+          mode: DataSourceMode.mock,
+        );
+        await tester.runAsync(() async {
+          await dependencies.authRepository.login(
+            phoneNumber: '0905123456',
+            password: 'legacy',
+          );
+        });
+        (dependencies.ordersRepository as MockOrdersRepository).record(
+          OrderConfirmation(
+            orderId: 'LOCAL-PENDING',
+            status: 'PENDING_PAYMENT',
+            total: Money.vnd(85000),
+          ),
+          const CheckoutDraft(
+            fullName: 'Khách local',
+            phone: '0905123456',
+            streetAddress: 'Đường mẫu',
+            ward: 'Phường mẫu',
+            province: 'Huế',
+            cart: Cart(id: 'c', items: []),
+          ),
+        );
+        await tester.pumpWidget(
+          OmaApp(initialLocation: '/orders', dependencies: dependencies),
+        );
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byType(TextField), 'LOCAL-PENDING');
+        await tester.testTextInput.receiveAction(TextInputAction.search);
+        await tester.pumpAndSettle();
+        if (pendingOnly) {
+          await tester.tap(find.widgetWithText(FilterChip, 'Chờ thanh toán'));
+          await tester.pumpAndSettle();
+        }
+        await tester.tap(find.text('#LOCAL-PENDING'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Yêu cầu hủy đơn'));
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byType(TextField), 'CUSTOMER_CHANGED_MIND');
+        await tester.tap(find.text('Xác nhận hủy'));
+        await tester.pumpAndSettle();
+        expect(find.text('Yêu cầu hủy đơn'), findsNothing);
+        await tester.tap(find.byTooltip('Quay lại'));
+        await tester.pumpAndSettle();
+        expect(
+          tester.widget<TextField>(find.byType(TextField)).controller!.text,
+          'LOCAL-PENDING',
+        );
+        if (pendingOnly) {
+          expect(find.text('#LOCAL-PENDING'), findsNothing);
+          expect(find.text('Chưa có đơn phù hợp'), findsOneWidget);
+          expect(
+            tester
+                .widget<FilterChip>(
+                  find.widgetWithText(FilterChip, 'Chờ thanh toán'),
+                )
+                .selected,
+            isTrue,
+          );
+          await tester.tap(find.text('Xóa tìm kiếm & bộ lọc'));
+          await tester.pumpAndSettle();
+        }
+        expect(find.text('#LOCAL-PENDING'), findsOneWidget);
+        expect(find.text('Đã hủy'), findsWidgets);
+        await tester.tap(find.text('#LOCAL-PENDING'));
+        await tester.pumpAndSettle();
+        expect(find.text('Đã hủy'), findsOneWidget);
+        expect(find.text('Yêu cầu hủy đơn'), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
   testWidgets(
     'guest tracking requires actual grant and then displays public checkpoints',
     (tester) async {

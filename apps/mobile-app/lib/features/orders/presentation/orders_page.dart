@@ -149,7 +149,10 @@ class _OrderCard extends StatelessWidget {
   Widget build(BuildContext context) => Card(
     margin: const EdgeInsets.only(bottom: 12),
     child: InkWell(
-      onTap: () => context.push('/orders/${Uri.encodeComponent(order.id)}'),
+      onTap: () async {
+        await context.push('/orders/${Uri.encodeComponent(order.id)}');
+        if (context.mounted) await context.read<OrdersCubit>().load();
+      },
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Column(

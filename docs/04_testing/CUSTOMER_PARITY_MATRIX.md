@@ -1,6 +1,6 @@
 # Customer Web / Flutter parity matrix
 
-Updated 2026-10-20. Reference origin/feature/ui-web at b1ff2918 (read-only Git objects). Mobile feature/mobile-ui, starting 8e1994a7. Source paths below are relative to apps/web-user/src. Implementation and native validation are separate. Goal remains ACTIVE while P4 native QA is open.
+Updated 2026-10-21. Reference origin/feature/ui-web at b1ff2918 (read-only Git objects). Mobile feature/mobile-ui, starting 8e1994a7. Source paths below are relative to apps/web-user/src. Implementation and native validation are separate. Goal remains ACTIVE while P4 native QA is open.
 
 | Web reference / group | Flutter counterpart and current implementation | Validation / remaining limit |
 |---|---|---|
@@ -17,7 +17,7 @@ Updated 2026-10-20. Reference origin/feature/ui-web at b1ff2918 (read-only Git o
 | app/account/profile/profile-flow.tsx | Editable name/email, immutable phone, conflict/reload and return login | Contract/state/widget PASS; native profile/save acknowledgement observed |
 | app/account/addresses/address-book-flow.tsx | Two-level CRUD/default/delete confirmation, checkout continuity | Automated payload/mutation PASS; native list/default/edit/save→list observed |
 | app/account/loyalty/loyalty-flow.tsx | Actual overview/tier/points/conversion, no fake history/redemption | Automated PASS; native overview→promotions observed. Transactions/redemption remain draft/planned |
-| app/account/orders/orders-flow.tsx; detail | Server q/status/page/pageSize, load more/empty recovery, exact raw status/price/totals/SKU, actual timeline, server cancellation | Focused orders15/15 PASS; native newly created order detail + Guest tracking observed. Native history status-empty→clear and delivered detail observed; native cancel pending. No unsupported year/reorder query/API |
+| app/account/orders/orders-flow.tsx; detail | Server q/status/page/pageSize, load more/empty recovery, exact raw status/price/totals/SKU, actual timeline, server cancellation | Focused orders15/15 PASS; native newly created order detail + Guest tracking observed. Native history status-empty→clear and delivered detail observed; native empty reason/keyboard/confirm→cancelled/action hidden observed. Stale history on return fixed; installed APK pending filter→empty→clear→cancelled badge verified. No unsupported year/reorder query/API |
 | app/track-order/page.tsx | Neutral challenge/contact→OTP/resend/expiry→exact scoped order; no unrestricted ID grant | Automated ownership/replay/expiry PASS; native full OM-8921 challenge/OTP→detail→tracking observed. Real SMS/server cookies not verified |
 | after-sales request/case flows | Full local form/create/case; stable REST create/detail and manual existing-case lookup | Focused returns/auth12/12 PASS incl phone. Production create context cannot obtain stable line_id: explicit unavailable + Support. Native exact-line form/keyboard/create→LOCAL-RET REQUESTED/refund0 observed with fake bank fixtures |
 | support request/ticket flows | Typed context/create/detail/public reply, owned-order choice, idempotent retry | Automated create→reply/ownership PASS; native owned-order creation→actual local ticket→public reply/composer cleared observed. No guest contact object/upload/inbox invented |
@@ -32,6 +32,6 @@ Exact supplied ZIP snapshots/hashes: ../03_api_specs/frontend-contracts/SOURCE.m
 
 ## Evidence and next step
 
-Latest source f4e0a085b55b0ed2ac97d59bb3531bfd0b898512: analyze PASS, full142/142 PASS, debug APK build37.4s PASS. Native-discovered keyboard/subtotal/calendar/review-caret issues fixed and validated. Localization APK718159e installed without wiping data; review fix hot-reloaded and observed physically. Current APK built but not installed after hot reload. Native evidence is local mock only, not proof of real email/SMS/payment/backend processing.
+Cancellation slice2026-10-21: analyze PASS110.5s, full144/144 PASS, focused order actions/history10/10 PASS, debug APK build166.0s PASS. New regressions reproduce stale history before fix and pass after navigation-return reload; query/filter preserved. APK installed update Success, no uninstall/wipe. Physical original OM-82047142 cancel observed; after mock process reset, replacement LOCAL-B2B-001 pending-filter→cancel→back0/0empty→clear→cancelled badge verified. No real backend/payment/provider proof.
 
-Checkpoint2026-10-20: implementation slices and native evidence above recorded. Native cancellation and final phase acceptance reconciliation remain OPEN. Next: fresh observation of Check status for OM-82047142, then local cancel reason/confirmation/returned state; reconcile phase plans and Definition of Done. See P4_CUSTOMER_QA and CURRENT_STATE for precise resume state. Goal remains ACTIVE.
+This bounded step is complete. Final P1–P3 acceptance/matrix reconciliation remains OPEN for next session; no attempt to finish entire goal now. Historical payment Check status result remains unverified and mock QR URL absent. P4 and CURRENT_STATE carry exact handoff. Goal ACTIVE.

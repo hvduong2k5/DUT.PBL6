@@ -1,11 +1,11 @@
 # Customer Mobile parity handoff
 
-Updated 2026-10-20 at user-requested checkpoint. Goal ACTIVE; implementation and local QA progressed, whole task not complete.
+Updated 2026-10-21 after one bounded cancellation step. Goal ACTIVE; implementation and local QA progressed, whole task not complete.
 
 ## Scope, branch and checkpoint
 
 - Work and push only `feature/mobile-ui`; no merge, PR or changes to other branches.
-- Source HEAD: `f4e0a085b55b0ed2ac97d59bb3531bfd0b898512`, already verified on origin. The following documentation checkpoint is identifiable with `git log -1`; this file deliberately records its parent rather than a self-referencing commit hash.
+- Resume HEAD: `d6acb9addcefece29271b4c69de523c567f8a7e7`, verified on origin before this step. New cancellation source/test/document checkpoint is identifiable with `git log -1`; this file records its parent rather than a self-referencing commit hash.
 - Customer Web reference: read-only `origin/feature/ui-web` at `b1ff2918c7297fc93d0cb9a15cc1d0a0ee46b72e`, read through Git objects.
 - API ZIP authority/hashes: `docs/03_api_specs/frontend-contracts/SOURCE.md`. User chose unchanged ZIP: voucher validation is implemented; applying a voucher at checkout waits for contract extension.
 - Current phase: `docs/plans/active/P4_CUSTOMER_QA.md`. Roadmap: `docs/plans/MASTER_PLAN.md`; coverage: `docs/04_testing/CUSTOMER_PARITY_MATRIX.md`.
@@ -14,13 +14,13 @@ Updated 2026-10-20 at user-requested checkpoint. Goal ACTIVE; implementation and
 
 Shared Web colors/type/CTA and phone layouts; login/register/recovery/link/reset/relogin; session restore/refresh/capabilities and protected-401 identity recovery without automatic mutation replay; catalog search/pagination/loaded-scope filters; explicit SKU/gallery/product data; selectable cart/clear confirmation; strict selected-only checkout/saved address/promotions; actual order confirmation/payment status; account/profile/addresses/loyalty; history/cancel/tracking/Guest OTP; Support creation/public replies; manual trace/deep links; local returns/create/case with stable REST adapter; verified B2B request/released quote/consent/acceptance; public reviews and owned delivered-order/SKU submission.
 
-Native QA found and fixed keyboard refocus, checkout subtotal overflow, Vietnamese calendar labels/date-action focus and review comment viewport/caret visibility. Latest source edits are review presentation + regression test. No source changes after f4e0a08; this checkpoint updates task documentation only and removes generated header line-ending noise.
+Native QA found and fixed keyboard refocus, checkout subtotal overflow, Vietnamese calendar labels/date-action focus and review comment viewport/caret visibility. 2026-10-21 source slice: orders_page.dart awaits detail navigation and reloads history from repository while mounted, preserving current query/filter. order_actions_test.dart adds two cancellation-return regressions. No API, design tokens or dependencies changed.
 
 ## Latest verification
 
-Source f4e0a08: `flutter analyze --no-pub` PASS; full `flutter test --no-pub` **142/142 PASS**; debug APK build **PASS (37.4s)**. Focused review tests 4/4 PASS include a 400px keyboard/caret visibility regression. No need to rerun unchanged source checks for this documentation checkpoint.
+Current cancellation source: `flutter analyze --no-pub` PASS (110.5s); full `flutter test --no-pub` **144/144 PASS**; debug APK build **PASS (166.0s)**. Focused order actions/history **10/10 PASS**. New regressions fail against old navigation (stale badge and stale pending-filter result), pass after fix, preserve query/filter and reopen cancelled detail. Initial test harness used generic pageBack incompatible with custom header; corrected to actual Quay lại button before proving regression. Earlier review keyboard regression remains in full suite.
 
-Phone has localization APK718159e installed as an update without data wipe, then review fix hot-reloaded successfully. f4e0a08 APK was built but not installed after hot reload. Distinguish this physical source evidence from a fresh-install acceptance test.
+Current cancellation APK installed with update Success, no uninstall/data wipe. Process-local fixtures reset on relaunch. Used released mock quote only to prepare replacement unpaid LOCAL-B2B-001 for cancellation QA; no real transaction. Native: pending filter1order→detail/reason/confirm→Đã hủy/action hidden→back keeps pending filter and shows0/0 empty→clear restores5cards with replacement marked Đã hủy. This verifies current installed APK, not a clean-install test. Phone ends on history, all filter selected.
 
 All following native evidence uses local mock fixtures; it does not prove real backend/email/SMS/payment/provider behavior:
 
@@ -32,24 +32,22 @@ All following native evidence uses local mock fixtures; it does not prove real b
 - Trace empty validation→labelled local specimen→batch/artisan/origin/disclaimer→find-product preserves query→empty→clear restores4; price filter under200k returns3.
 - History pending-payment filter empty→clear restores4; delivered OM-8874→return exact line/max2/reference110k→quality details/example HTTPS evidence/fake bank fixtures→LOCAL-RET REQUESTED, refund0 and no confirmed transfer.
 - Support ORDER_HELP + owned OM-8874→local ticket→public reply visible and composer cleared; no real CSKH transmission/upload.
-- Logged-in checkout saved-address fills Huế/Thuận Hòa, VietQR order **OM-82047142 /85,000 /PENDING_PAYMENT**. Payment shows countdown and explicit missing QR because mock supplies no QR URL. Last action clicked Check status; refreshed result still needs observation. No actual QR/payment verified.
+- Logged-in checkout saved-address fills Huế/Thuận Hòa, VietQR order **OM-82047142 /85,000 /PENDING_PAYMENT**. Payment shows countdown and explicit missing QR because mock supplies no QR URL. Historical Check status click has no newly verified result. OM-82047142 was cancelled during this step before APK replacement reset the mock process. No actual QR/payment verified.
 
 ## Constraints and unresolved work
 
 No fabricated endpoints, line IDs, food/certificate association, QR or payment success. Stable contract lacks checkout voucher field, production return eligibility/line-ID projection, uploads, Support inbox, loyalty history/redemption, notifications, payment reissue and B2B documents. Global advanced catalog filters remain loaded-scope only. Server must enforce atomic quote-version acceptance; ZIP has no request version field. These external limits remain explicit, not silently completed.
 
-Native order cancellation and final phase/matrix acceptance reconciliation remain OPEN. Existing automated cancellation tests passed; native cancellation is NOT RUN. The goal must not be marked complete merely because this checkpoint is pushed.
+Native local order cancellation now observed: OM-82047142 empty reason blocked, reason/keyboard/confirmation→Đã hủy, action hidden. History retained stale pending status on return; fixed by awaiting detail navigation and reloading current query/filter from repository. Two regressions reproduce the defect before fix and pass after fix, including pending-filter empty recovery. Current APK physical replacement-order flow also verifies refresh/empty/clear/cancelled badge. Final phase/matrix acceptance reconciliation remains OPEN. The goal must not be marked complete merely because this checkpoint is pushed.
 
 ## Exact next action
 
-1. Read AGENTS, this handoff, MASTER_PLAN and P4. Verify branch, HEAD, clean status and remote checkpoint.
-2. Rediscover ADB/scrcpy/attach state. Observe current payment screen after Check status, open OM-82047142 detail, perform local cancel reason/confirmation and verify server-returned state; preserve honest missing-QR state.
-3. If app process/fixture was lost, record it and create one replacement local unpaid order; do not repeat completed flows by default.
-4. Reconcile P1–P3 acceptance records and final parity matrix against P4 evidence/contract limits. Fix only verified issues; rerun focused/full/build if source changes. Consider installing current built APK for final physical verification and record exact version.
-5. Update final handoff, commit/push only Mobile; assess full Definition of Done before completing goal.
+This session is limited to cancellation plus its directly observed stale-history defect. Do not start final acceptance reconciliation in this session. After validation/checkpoint, stop as requested.
+
+Next session: read AGENTS/handoff/P4, verify branch/HEAD/status/remote, then reconcile P1–P3 acceptance records and final parity matrix against recorded native evidence and contract limits. Preserve QR/status-read limitations: previous Check status click has no newly verified result, no mock QR URL and no provider payment proof. Only fix verified issues; assess full Definition of Done before completing goal.
 
 ## Runtime hints
 
 Flutter3.44.9/Dart3.12.2 executable: `E:/.vscode/Mobile/flutter/bin/flutter.bat`. Process-local GRADLE_OPTS: `-Dorg.gradle.project.kotlin.incremental=false -Dorg.gradle.project.kotlin.compiler.execution.strategy=in-process` for E-project/C-cache split; no persistent build setting change.
 
-ADB `D:/AS_Sdk/platform-tools/adb.exe`; scrcpy `E:/scrcpy-win64-v4.1/scrcpy.exe`; last authorized LG API29 device LMV409N70de1ce3. Last window68230 and Flutter attach26739 may be stale; rediscover before use. No uninstall/wipe. APK: `apps/mobile-app/build/app/outputs/flutter-apk/app-debug.apk`. Do not commit caches, temporary screenshots/logs or build output.
+ADB `D:/AS_Sdk/platform-tools/adb.exe`; scrcpy `E:/scrcpy-win64-v4.1/scrcpy.exe`; last authorized LG API29 device LMV409N70de1ce3. Current scrcpy window328264; rediscover before reuse. Old attach did not connect and was stopped. No active attach is assumed. No uninstall/wipe. APK: `apps/mobile-app/build/app/outputs/flutter-apk/app-debug.apk`. Do not commit caches, temporary screenshots/logs or build output.

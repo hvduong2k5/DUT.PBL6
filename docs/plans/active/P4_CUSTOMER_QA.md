@@ -1,10 +1,10 @@
 # P4 — Customer parity validation and delivery
 
-Updated 2026-10-20. ACTIVE; checkpoint requested by user for later continuation.
+Updated 2026-10-21. ACTIVE; one bounded native cancellation step completed, then stopped as requested.
 
 ## Goal, dependencies and scope
 
-Verify P1/P2/P3 implementations against read-only Customer Web and unchanged API ZIP on Android. Implementation slices exist; native cancellation and final acceptance reconciliation remain open. Production voucher application and returns line-ID context depend on external contract extensions. Only Mobile source/tests/task documents may change; push feature/mobile-ui only, no merge/PR.
+Verify P1/P2/P3 implementations against read-only Customer Web and unchanged API ZIP on Android. Implementation slices exist; native cancellation completed; final acceptance reconciliation remains open. Production voucher application and returns line-ID context depend on external contract extensions. Only Mobile source/tests/task documents may change; push feature/mobile-ui only, no merge/PR.
 
 ## Steps and acceptance criteria
 
@@ -24,7 +24,7 @@ Verify P1/P2/P3 implementations against read-only Customer Web and unchanged API
 
 ## Current automated evidence
 
-Source f4e0a085b55b0ed2ac97d59bb3531bfd0b898512: analyze PASS, full142/142 PASS, debug APK PASS37.4s. Review focused4/4 PASS; earlier session focused21/21 and cart/purchase8/8 PASS. No source change after this validation; documentation checkpoint requires no repeated expensive build.
+Cancellation slice: analyze PASS110.5s, full144/144 PASS, debug APK PASS166.0s, focused order actions/history10/10 PASS. Two regressions prove stale badge and stale pending-filter result before fix, pass after awaiting detail return/reloading. Search/filter stay selected. Initial generic pageBack harness corrected to actual custom-header tooltip; no assertion disabled.
 
 ## Physical Android evidence (local mocks only)
 
@@ -39,12 +39,16 @@ Source f4e0a085b55b0ed2ac97d59bb3531bfd0b898512: analyze PASS, full142/142 PASS,
 | Trace/discovery | Empty validation→labelled sample detail/disclaimer→exact search→empty→clear; under200k filter returns3 | Specimen differs from catalog name; no invented association |
 | History/returns | Status empty→clear4orders; OM-8874 exact line/max2→quality/details/example URL/fake bank→LOCAL-RET REQUESTED/refund0 | Production stable line-ID context unavailable; no money transferred |
 | Support | Owned order/type→local ticket→public reply visible/composer cleared | No real CSKH transmission/upload |
-| Saved address/VietQR | Address autofill; OM-82047142 pending85,000→countdown/explicit missing QR→Check status clicked | Result needs fresh observation; mock has no QR URL; native cancel NOT RUN |
+| Saved address/VietQR | Address autofill; OM-82047142 pending85,000→countdown/explicit missing QR→Check status clicked | Historical Check status result unverified; mock has no QR URL. OM-82047142 cancellation now observed before fixture reset |
 
-Localization APK718159e installed update without wipe; review fix hot-reloaded on physical device. Current f4e0a08 APK built but not installed after hot reload. No claim of fresh-install verification or real provider processing.
+Current cancellation APK installed update Success without uninstall/wipe. Relaunch reset memory-only fixtures. Prepared one replacement LOCAL-B2B-001 through existing released mock quote. Physical pending filter→detail/reason/confirm→cancelled/action hidden→back preserves pending filter0/0empty→clear shows5cards with cancelled replacement. No real financial/provider operation; no clean-install claim.
 
 ## Checkpoint / exact next step
 
+### Bounded step 2026-10-21: native cancellation
+
+Resume d6acb9a verified locally/remotely; worktree clean and ADB connected. Scope is only native cancellation and a directly observed defect, not final acceptance reconciliation. Physical OM-82047142 still exists: empty reason blocked, keyboard/input/confirmation usable, cancellation returns Đã hủy and hides action. Returning to history leaves stale Chờ thanh toán. Verified cause: history card pushes detail but never reloads OrdersCubit when detail returns. Minimal fix implemented: await navigation, then reload while mounted using current query/status; no API/contract change. Regressions cover all-orders and pending-filter return, including empty recovery after cancellation. Automated and installed-APK physical checks PASS as recorded above. Other P4 work stays OPEN.
+
 Source f4e0a08 already pushed. Documentation checkpoint records new trace/discovery/history/returns/Support/VietQR evidence, updates matrix and roadmap, and preserves unfinished state. See CURRENT_STATE for runtime hints. Do not repeat completed flows without a reason.
 
-Next: rediscover device/runtime; freshly observe Check status on OM-82047142, open detail, test local cancellation reason/confirmation and returned status. Then reconcile P1–P3 acceptance/matrix and full Definition of Done. Keep contract blockers explicit. If source changes, rerun focused checks plus appropriate final analyze/tests/build. Update handoff and verify Mobile-only remote push before final delivery.
+Next session: reconcile P1–P3 acceptance/matrix and full Definition of Done against recorded evidence and explicit contract gaps. Native cancellation is complete; do not repeat it by default. No final acceptance work in this bounded session. Update handoff and verify Mobile-only remote push before later delivery.
