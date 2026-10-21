@@ -17,10 +17,10 @@ Retain Flutter/GoRouter/Cubit and repository interfaces. Extend existing feature
 | Phase | Scope | Dependency | Status |
 |---|---|---|---|
 | P0 | Read Web Customer, inventory screens/states, map contracts and gaps, capture baseline checks | Approved scope | COMPLETE: route and contract inventory |
-| P1 | Shared tokens/components and auth recovery/login/register continuity | P0 mapping | IMPLEMENTED; local native recovery/login/keyboard verified |
-| P2 | Discovery/product/cart/promotions/checkout/payment/confirmation parity | P1 foundation, stable contract mapping | IMPLEMENTED; local discovery/review/purchase QA recorded; actual QR/provider proof remains external |
-| P3 | Account/profile/address/loyalty/orders/guest tracking/after-sales/support/trace/B2B parity | P2 transaction identity, per-flow mapping | IMPLEMENTED; local account/history/returns/Support/trace/B2B QA recorded; native cancellation verified; production context gaps explicit |
-| P4 | Cross-flow regression, Android/scrcpy QA, contract checks, reviewable delivery | All parity rows resolved or explicit external blocker | ACTIVE:144/144 tests, analyze and APK PASS; native cancellation/refresh verified; final acceptance reconciliation next |
+| P1 | Shared tokens/components and auth recovery/login/register continuity | P0 mapping | VERIFIED LOCAL; P1 acceptance reconciled; provider integration unverified |
+| P2 | Discovery/product/cart/promotions/checkout/payment/confirmation parity | P1 foundation, stable contract mapping | IMPLEMENTED; acceptance reconciled; QA-01 payment status interaction open; voucher/actual QR limits explicit |
+| P3 | Account/profile/address/loyalty/orders/guest tracking/after-sales/support/trace/B2B parity | P2 transaction identity, per-flow mapping | IMPLEMENTED; acceptance reconciled; native cancellation verified; QA-02 media handoff unverified; production context gaps explicit |
+| P4 | Cross-flow regression, Android/scrcpy QA, contract checks, reviewable delivery | All parity rows resolved or explicit external blocker | ACTIVE: source144/144/analyze/APK PASS; P1–P3 review complete; QA-01 next, QA-02 unverified |
 
 Detailed plans are written for current implementation only; later phases are refined against the actual code and contract before starting.
 
@@ -33,6 +33,6 @@ Detailed plans are written for current implementation only; later phases are ref
 - Focused tests, analysis, regression suite and Android build/device QA are recorded honestly.
 - Only Mobile branch changes are committed/pushed, with verified remote checkpoint and current handoff.
 
-Current phase: [P4 validation/delivery](active/P4_CUSTOMER_QA.md). Resume from [CURRENT_STATE](../CURRENT_STATE.md), updated at bounded cancellation checkpoint2026-10-21. Earlier P1/P2/P3 plans retain implementation history; current status/evidence is authoritative in P4 and the parity matrix. Do not restart completed implementation slices from an older pending note.
+Current phase: [P4 validation/delivery](active/P4_CUSTOMER_QA.md). Resume from [CURRENT_STATE](../CURRENT_STATE.md), updated at evidence reconciliation2026-10-21. P1/P2/P3 plans now carry reconciled acceptance records; P4 and the parity matrix distinguish remaining evidence gaps from external contract limits. Do not restart completed slices.
 
-Remaining sequence: final P1–P3 acceptance and matrix reconciliation→assess whole Definition of Done→Mobile-only final delivery. No new feature phase or architectural change is authorized by this checkpoint.
+Remaining sequence: QA-01 deterministic payment-status interaction checks→targeted QA-02 disposition→assess whole Definition of Done→Mobile-only final delivery. No broad device rerun, new feature phase or architecture change is implied.

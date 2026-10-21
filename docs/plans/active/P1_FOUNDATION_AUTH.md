@@ -29,7 +29,7 @@ In: theme/colors/buttons/inputs, login/register validation/terms/return target, 
 - [x] Recovery Cubit finite states with expiry/retry/rate limit handling; recovery page and route.
 - [x] Update AuthPage with recovery, checklist, confirmation, terms and safe return continuity.
 - [x] Tests for payload/status/error, neutral recovery/proof lifecycle/expired/throttled retry, navigation and guest cart preservation.
-- [ ] Analyze/tests/build; Android/scrcpy flow and keyboard QA.
+- [x] Analyze/tests/build; recorded Android local recovery/login and keyboard QA. See 2026-10-21 reconciliation below for evidence limits.
 
 ## UI / failure states
 
@@ -39,8 +39,13 @@ Request→sent, verifying→reset→success→login; expired/invalid link→new 
 
 Focused auth/error/widget tests plus complete existing regression suite; `flutter analyze`; Android debug build then device interaction. DoD: no dead recovery link, no account enumeration, no automatic reset login, proof not reused, login/register return to original valid route, shared token alignment, recorded evidence. Baseline failures stay separate.
 
-## Current / next / handoff
+## Acceptance reconciliation — 2026-10-21
 
-Status: IMPLEMENTED, native QA pending. Baseline analyze and 60 tests passed. Commit `82fd358` pushed and verified on `feature/mobile-ui`. Next: complete debug APK and run native recovery/keyboard/login QA. Pending external decision: voucher parameter absent from Checkout contract (does not block P1).
+Status: VERIFIED LOCAL for foundation/auth implementation. This is an engineering evidence review, not a claim of live provider processing or user visual sign-off.
 
-Checkpoint evidence: analyze PASS; focused auth/error/viewport 30/30 PASS; navigation/keyboard 3/3 PASS. Debug build running; native validation pending.
+- Web globals.css primary/surface/ink/muted/gold/error/border checked against AppColors, AppTheme and AppPrimaryButton; serif headings, Be Vietnam Pro body and brown/white52px CTA retained.
+- Recovery contract/retry/proof/expiry/cooldown and safe-return assertions exist in recovery_test.dart and rest_auth_repository_test.dart. recovery_navigation_test.dart covers checkout intent, successful reset requiring login and narrow large-text keyboard. guest_cart_auth_test.dart covers cart continuity.
+- Recorded Android local recovery request/reset/relogin/keyboard and current local login evidence are in P4. Session/capability and protected401 concurrency/no-write-replay tests are in the full144/144 suite at e86f82b. Analyze/debug APK passed on that source.
+- Not verified: real email delivery, backend password/session revocation, live cookie lifecycle. These are integration evidence limits, not missing UI routes. Registration native branches are not individually claimed as observed; automated auth/navigation evidence applies.
+
+No P1 source change needed during this audit. Next action belongs to P4 open checks in CUSTOMER_PARITY_MATRIX; do not restart foundation/recovery work from historical pending notes.

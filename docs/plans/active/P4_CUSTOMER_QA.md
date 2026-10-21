@@ -1,10 +1,10 @@
 # P4 — Customer parity validation and delivery
 
-Updated 2026-10-21. ACTIVE; one bounded native cancellation step completed, then stopped as requested.
+Updated 2026-10-21. ACTIVE; native cancellation and P1–P3 evidence reconciliation complete; QA-01/QA-02 remain explicit.
 
 ## Goal, dependencies and scope
 
-Verify P1/P2/P3 implementations against read-only Customer Web and unchanged API ZIP on Android. Implementation slices exist; native cancellation completed; final acceptance reconciliation remains open. Production voucher application and returns line-ID context depend on external contract extensions. Only Mobile source/tests/task documents may change; push feature/mobile-ui only, no merge/PR.
+Verify P1/P2/P3 implementations against read-only Customer Web and unchanged API ZIP on Android. Implementation slices and native cancellation are recorded; P1–P3 acceptance reconciliation is complete with targeted evidence gaps QA-01/QA-02 still open. Production voucher application and returns line-ID context depend on external contract extensions. Only Mobile source/tests/task documents may change; push feature/mobile-ui only, no merge/PR.
 
 ## Steps and acceptance criteria
 
@@ -49,6 +49,17 @@ Current cancellation APK installed update Success without uninstall/wipe. Relaun
 
 Resume d6acb9a verified locally/remotely; worktree clean and ADB connected. Scope is only native cancellation and a directly observed defect, not final acceptance reconciliation. Physical OM-82047142 still exists: empty reason blocked, keyboard/input/confirmation usable, cancellation returns Đã hủy and hides action. Returning to history leaves stale Chờ thanh toán. Verified cause: history card pushes detail but never reloads OrdersCubit when detail returns. Minimal fix implemented: await navigation, then reload while mounted using current query/status; no API/contract change. Regressions cover all-orders and pending-filter return, including empty recovery after cancellation. Automated and installed-APK physical checks PASS as recorded above. Other P4 work stays OPEN.
 
-Source f4e0a08 already pushed. Documentation checkpoint records new trace/discovery/history/returns/Support/VietQR evidence, updates matrix and roadmap, and preserves unfinished state. See CURRENT_STATE for runtime hints. Do not repeat completed flows without a reason.
+### Evidence reconciliation 2026-10-21
 
-Next session: reconcile P1–P3 acceptance/matrix and full Definition of Done against recorded evidence and explicit contract gaps. Native cancellation is complete; do not repeat it by default. No final acceptance work in this bounded session. Update handoff and verify Mobile-only remote push before later delivery.
+Read branch/HEAD/status/remote, P1–P3/MASTER/CURRENT/matrix, Web24page inventory/read-only globals.css, Mobile routes/theme/CTA and relevant source/tests. ZIP+3snapshot hashes match SOURCE. Historical P1–P3 pending/source-not-started notes replaced with current evidence/limitations; no source changes or computer-use calls. Source e86f82b retains prior144/144/analyze/APK PASS; no redundant test/build rerun for docs only.
+
+Result: all24Web destinations have routed counterparts; P1 verified locally; P2/P3 main flows implemented and locally exercised. Full acceptance remains conditional because QA-01 payment status interaction is not covered by the expired-QR-only widget, and QA-02 external-media OS launch remains unverified. See matrix for precise evidence and external-contract limits. Do not classify a missing test as a proven source defect.
+
+## Exact next task — QA-01 payment status, no broad device loop
+
+- Goal: prove PaymentPage Check status derives pending/paid/cancelled from repository, shows loading, blocks duplicate reads while pending and recovers from a read failure.
+- Files: test/features/checkout/purchase_navigation_test.dart (or a focused neighboring payment test); PaymentPage source only if a failure demonstrates a defect. Reuse existing mocktail/repository/provider test setup; no new dependency/API/provider/QR service.
+- Cases: pending response never claims paid; PAID response shows recorded payment and hides QR; cancelled response shows cancelled and hides QR; error visible then retry succeeds; two taps while unresolved issue one read; dispose safely before response.
+- Validate focused test first; appropriate analyze/full/build only if implementation changes justify it. Unit/widget evidence cannot establish real provider verification. Avoid network QR/image loads with controlled fixture or expired context.
+- QA-02 stays separate: one targeted native handoff only if approved/testable media exists; no repeated completed trace/purchase flows.
+- After this bounded test slice, update matrix/handoff and Mobile-only checkpoint. No merge/PR. Whole goal stays ACTIVE until remaining acceptance/disposition is recorded.

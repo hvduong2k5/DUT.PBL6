@@ -1,11 +1,11 @@
 # Customer Mobile parity handoff
 
-Updated 2026-10-21 after one bounded cancellation step. Goal ACTIVE; implementation and local QA progressed, whole task not complete.
+Updated 2026-10-21 after P1–P3 acceptance/evidence reconciliation. Goal ACTIVE; audit complete, targeted QA remains.
 
 ## Scope, branch and checkpoint
 
 - Work and push only `feature/mobile-ui`; no merge, PR or changes to other branches.
-- Resume HEAD: `d6acb9addcefece29271b4c69de523c567f8a7e7`, verified on origin before this step. New cancellation source/test/document checkpoint is identifiable with `git log -1`; this file records its parent rather than a self-referencing commit hash.
+- Reviewed source/checkpoint HEAD: `e86f82ba834e3f148f3be7523b1f41ddda483685`, clean and matching origin before this documentation audit. Following review checkpoint identifiable with `git log -1`; source is unchanged.
 - Customer Web reference: read-only `origin/feature/ui-web` at `b1ff2918c7297fc93d0cb9a15cc1d0a0ee46b72e`, read through Git objects.
 - API ZIP authority/hashes: `docs/03_api_specs/frontend-contracts/SOURCE.md`. User chose unchanged ZIP: voucher validation is implemented; applying a voucher at checkout waits for contract extension.
 - Current phase: `docs/plans/active/P4_CUSTOMER_QA.md`. Roadmap: `docs/plans/MASTER_PLAN.md`; coverage: `docs/04_testing/CUSTOMER_PARITY_MATRIX.md`.
@@ -38,13 +38,17 @@ All following native evidence uses local mock fixtures; it does not prove real b
 
 No fabricated endpoints, line IDs, food/certificate association, QR or payment success. Stable contract lacks checkout voucher field, production return eligibility/line-ID projection, uploads, Support inbox, loyalty history/redemption, notifications, payment reissue and B2B documents. Global advanced catalog filters remain loaded-scope only. Server must enforce atomic quote-version acceptance; ZIP has no request version field. These external limits remain explicit, not silently completed.
 
-Native local order cancellation now observed: OM-82047142 empty reason blocked, reason/keyboard/confirmation→Đã hủy, action hidden. History retained stale pending status on return; fixed by awaiting detail navigation and reloading current query/filter from repository. Two regressions reproduce the defect before fix and pass after fix, including pending-filter empty recovery. Current APK physical replacement-order flow also verifies refresh/empty/clear/cancelled badge. Final phase/matrix acceptance reconciliation remains OPEN. The goal must not be marked complete merely because this checkpoint is pushed.
+Native local order cancellation now observed: OM-82047142 empty reason blocked, reason/keyboard/confirmation→Đã hủy, action hidden. History retained stale pending status on return; fixed by awaiting detail navigation and reloading current query/filter from repository. Two regressions reproduce the defect before fix and pass after fix, including pending-filter empty recovery. Current APK physical replacement-order flow also verifies refresh/empty/clear/cancelled badge. P1–P3 acceptance/matrix reconciliation is now COMPLETE for this audit. All24Web page destinations are mapped to Mobile routes; exact ZIP+3snapshot hashes match. P1 locally verified; P2/P3 implementation/main flows verified with targeted evidence gaps below. Old contradictory pending notes corrected. No computer use, browser, source edit or test/build rerun in this documentation-only audit. The goal must not be marked complete merely because this checkpoint is pushed.
 
 ## Exact next action
 
-This session is limited to cancellation plus its directly observed stale-history defect. Do not start final acceptance reconciliation in this session. After validation/checkpoint, stop as requested.
+This audit is complete; stop after documenting and checkpointing it. No app source changes. Current144/144/analyze/APK results are retained from reviewed e86f82b and not represented as newly executed here.
 
-Next session: read AGENTS/handoff/P4, verify branch/HEAD/status/remote, then reconcile P1–P3 acceptance records and final parity matrix against recorded native evidence and contract limits. Preserve QR/status-read limitations: previous Check status click has no newly verified result, no mock QR URL and no provider payment proof. Only fix verified issues; assess full Definition of Done before completing goal.
+Next bounded task is **QA-01 payment status interaction tests**, using deterministic widget/repository responses instead of computer-use loops. Current purchase_navigation_test.dart only instantiates PaymentPage for expired QR and does not press Check status. Add pending/paid/cancelled/error→retry/duplicate-pending-tap/dispose cases; modify source only if a case reproduces a defect. This is an evidence gap, not a proven broken handler. P4 contains exact scope/criteria.
+
+**QA-02 external-media Android handoff** is separately unverified: URL safety and launcher/error handling source exist; actual OS handoff/playback not observed. One targeted check only if approved/testable media exists; otherwise retain NOT VERIFIED, no broad device rerun or invented playback claim.
+
+Keep contract limits separate: user-approved wait for checkout voucher field, missing production returns line-ID context, server atomic quote enforcement and unverified real email/SMS/cookies/payment/provider/QR. Historical native Check status click result remains unverified; prior order was cancelled and mock fixtures reset, so do not attempt to reuse it as payment evidence. Assess whole Definition of Done after targeted gaps are resolved/dispositioned, then final Mobile delivery; do not mark goal complete now.
 
 ## Runtime hints
 

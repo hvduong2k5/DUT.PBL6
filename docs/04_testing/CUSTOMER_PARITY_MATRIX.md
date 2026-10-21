@@ -1,6 +1,6 @@
 # Customer Web / Flutter parity matrix
 
-Updated 2026-10-21. Reference origin/feature/ui-web at b1ff2918 (read-only Git objects). Mobile feature/mobile-ui, starting 8e1994a7. Source paths below are relative to apps/web-user/src. Implementation and native validation are separate. Goal remains ACTIVE while P4 native QA is open.
+Updated 2026-10-21. Reference origin/feature/ui-web at b1ff2918 (read-only Git objects). Mobile feature/mobile-ui, starting 8e1994a7. Source paths below are relative to apps/web-user/src. Implementation and native validation are separate. Goal remains ACTIVE while targeted QA and final delivery remain open. Route coverage is distinct from state/visual/provider verification.
 
 | Web reference / group | Flutter counterpart and current implementation | Validation / remaining limit |
 |---|---|---|
@@ -34,4 +34,29 @@ Exact supplied ZIP snapshots/hashes: ../03_api_specs/frontend-contracts/SOURCE.m
 
 Cancellation slice2026-10-21: analyze PASS110.5s, full144/144 PASS, focused order actions/history10/10 PASS, debug APK build166.0s PASS. New regressions reproduce stale history before fix and pass after navigation-return reload; query/filter preserved. APK installed update Success, no uninstall/wipe. Physical original OM-82047142 cancel observed; after mock process reset, replacement LOCAL-B2B-001 pending-filter→cancel→back0/0empty→clear→cancelled badge verified. No real backend/payment/provider proof.
 
-This bounded step is complete. Final P1–P3 acceptance/matrix reconciliation remains OPEN for next session; no attempt to finish entire goal now. Historical payment Check status result remains unverified and mock QR URL absent. P4 and CURRENT_STATE carry exact handoff. Goal ACTIVE.
+## P1–P3 acceptance review — 2026-10-21
+
+Reviewed source/checkpoint e86f82ba834e3f148f3be7523b1f41ddda483685, clean worktree and matching origin before documentation changes. No browser/computer-use calls, app source edits, dependency changes or new test/build run in this audit. The144/144/analyze/APK results above belong to that unchanged source and recorded checkpoint, not a fresh execution here. Existing full-suite log still ends144 passed.
+
+Read-only Web page inventory has24Customer pages. Every group has Mobile routes wired in app_router.dart/AppRoutes:
+
+| Phase | Web page coverage | Evidence reviewed | Engineering disposition |
+|---|---|---|---|
+| P1 | 3: login/register/recovery | Shared theme/CTA vs Web globals.css; auth REST; recovery/session/cart-continuity tests; recorded recovery/login native | VERIFIED LOCAL; real email/password/session integration unverified |
+| P2 | 8: Home/products list/detail/cart/checkout/confirmation/payment/promotions | Strict checkout adapter, selected cart/paging/product/review/voucher tests, recorded purchase/review/filter native | IMPLEMENTED, main flows locally verified; QA-01 OPEN; voucher checkout waits for contract |
+| P3 | 13: profile/addresses/loyalty/orders list/detail/Guest track/returns request/case/B2B request/quote/Support request/ticket/trace | Router, returns blocking context, media launcher, service/session/ownership tests and P4 native records | IMPLEMENTED, main flows locally verified; QA-02 UNVERIFIED; production return context and provider limits explicit |
+
+This page count proves coverage of destinations, not pixel equality or every action/state. Mobile-only Account, notifications, manual trace/case lookup and separate tracking adapt navigation; reviews live inside Product. No missing destination found in the24page mapping.
+
+Contract integrity: original ZIP SHA-256 and all3imported reference hashes recomputed and match SOURCE.md. Snapshot contents unchanged. Stable checkout source excludes voucher_code/district/item prices. Returns stable context lacks line_id and blocks instead of calling draft eligibility. Shared primary#563a26/surface#fcf9f4/gold#d4a24c/ink/muted/border/error match Web tokens; typography uses the existing serif/sans adaptation. No new full-screen visual equality claim.
+
+### Remaining targeted evidence and next step
+
+| ID | Precise gap | Available evidence | Smallest useful next action |
+|---|---|---|---|
+| QA-01 | Payment Check status result, loading, failure/retry and returned paid/cancelled transitions have no direct widget/native interaction proof | PaymentPage._check reads OrdersRepository; only PaymentPage widget test checks expired QR/no fake paid; previous native click outcome unconfirmed | Add deterministic widget cases for pending/paid/cancelled/error→retry and duplicate pending taps; change source only for a reproduced bug. This should precede any further device loop |
+| QA-02 | Trace external-media OS handoff/playback unverified | URL policy tests plus launcher/error handling source; native trace detail/search completed | If a valid approved media fixture exists, one targeted Android handoff observation; otherwise retain NOT VERIFIED. Do not infer playback or acquire external media to manufacture evidence |
+
+External/integration limits stay separate: actual voucher checkout field needs contract extension (user accepted waiting); stable return line-ID/eligibility context missing; atomic B2B acceptance remains server responsibility; live email/SMS/cookies/payment/provider and actual QR not verified. Draft/planned uploads/inbox/loyalty-redemption/notifications/B2B documents are not silently promoted. No source defect was confirmed by this review; QA-01 is missing evidence, not a claim that status checking is broken.
+
+P1–P3 plan reconciliation is COMPLETE for this audit. P4/whole goal remains ACTIVE, with QA-01 as exact next task. No general native rerun or complete feature rewrite is required.
