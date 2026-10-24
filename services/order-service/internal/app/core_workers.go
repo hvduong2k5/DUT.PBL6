@@ -58,6 +58,12 @@ func (s *Service) PublishCoreOne(ctx context.Context) (bool, error) {
 	}
 	return s.CoreCheckout.Store.PublishOne(ctx, corePublisher{s})
 }
+func (s *Service) WorkCoreReconcile(ctx context.Context) (bool, error) {
+	if s.CoreCheckout == nil {
+		return false, nil
+	}
+	return s.CoreCheckout.WorkReconcile(ctx)
+}
 func (s *Service) WorkCoreFollowup(ctx context.Context) (bool, error) {
 	if s.CoreCheckout == nil {
 		return false, nil

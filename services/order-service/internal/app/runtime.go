@@ -21,6 +21,7 @@ func (s *Service) Start(ctx context.Context) {
 	}
 	if s.CoreCheckout != nil {
 		s.startPaymentLoop(ctx, s.C.Poll, "target followup retry", func(ctx context.Context) error { _, e := s.WorkCoreFollowup(ctx); return e })
+		s.startPaymentLoop(ctx, s.C.Poll, "target reconcile retry", func(ctx context.Context) error { _, e := s.WorkCoreReconcile(ctx); return e })
 		s.startPaymentLoop(ctx, time.Second, "target timeout retry", s.CoreCheckout.Store.SweepCoreTimeouts)
 		s.startPaymentLoop(ctx, time.Second, "target completion retry", s.CompleteCoreOrders)
 		if s.Writer != nil {
