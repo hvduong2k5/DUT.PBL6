@@ -4,6 +4,14 @@
 
 ## 1. Mức bằng chứng
 
+[Roadmap18 mục5–7](18_order_implementation_roadmap.md) phân bổ tests theo PR/slice và milestone A/B/C. PostgreSQL integration bắt đầu ở PR2, operation/Inventory recovery harness ở PR3, Kafka integration ở giai đoạn4; Payment6 phải kiểm race cancel/timeout và chưa cấp quyền nhận tiền production.
+
+[Persistence17 mục12](17_order_persistence_messaging_design.md) bổ sung PM-T01–20: SQL commit ACK mất, quote concurrency, stale publisher, durable inbox/rebalance, unmatched financial stream và PITR recovery. DDL/schema parse hoặc fixture PASS không thay fault/integration tests.
+
+Acceptance Saga/worker bổ sung ở [Runtime13 mục13](13_order_saga_worker_runtime.md): SW-T01–24 bao phủ stale proof, mất ACK/lease, execution exhaustion nhưng reconcile tiếp, fairness, shutdown và restore. Đây là test oracles cần thực thi, không phải kết quả runtime đã đạt.
+
+Acceptance thiết kế Order Core được bổ sung ở [chương12 mục15](12_order_core_design.md), gồm snapshot shape/semantic consistency, receipt–cancel–timeout race, multi-hold/resume, generation barrier và completion. OC-T01–24 là oracle cần nghiệm thu; static contract validation không thay kết quả concurrent/fault tests.
+
 [Report3.1](../../../04_testing/order-service/03_implementation_verification.md) ghi local sandbox results ngày09/10; không đổi thành evidence3.2. Lượt thiết kế này kiểm consistency/link/diagram syntax structure, không claim runtime tests mới. Unit/mock kiểm local logic; sandbox kiểm orchestration với simulator; integration gate bắt buộc provider thật cùng wire/version/config.
 
 ## 2. Acceptance matrix

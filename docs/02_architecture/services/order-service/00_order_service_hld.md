@@ -2,15 +2,19 @@
 
 Ngày hoàn thiện: 14/10/2026. Trạng thái: **baseline thiết kế để phối hợp tích hợp**. Provider phải xác nhận và triển khai capability trước khi bật integration; không tuyên bố đã deploy 3.2.
 
-[Chỉ mục](README.md) · [ADR và gaps](07_decisions_and_contract_gaps.md) · [Báo cáo thay đổi](10_order_design_change_report.md)
+[Chỉ mục](README.md) · [ADR và gaps](07_decisions_and_contract_gaps.md) · [Cart/Checkout chi tiết](11_cart_checkout_design.md)
 
 ## 1. Phạm vi và nguồn chuẩn
 
-HLD này là nguồn chuẩn cho luồng Order và các tương tác liên quan trong HLD hệ thống. LLD 01–07 cụ thể hóa cùng baseline. Chương 08 giữ hành vi/bằng chứng sandbox 3.1; wire proposal 15/10 ghi contract mục tiêu; chỉ code/runtime evidence chứng minh phần đã implement. Chương 09 là review lịch sử tại SHA đã ghi; chương 10 giải thích thay đổi.
+[Order Core12](12_order_core_design.md) cụ thể hóa aggregate/commands; [Saga/Worker13](13_order_saga_worker_runtime.md) là runtime specification chung để review cho job registry, lease/proof/retry/reconciliation. Các addendum này chưa phải xác nhận runtime đã triển khai.
+
+HLD này là nguồn chuẩn cho luồng Order và các tương tác liên quan trong HLD hệ thống. LLD 01–07 cụ thể hóa cùng baseline. Chương 08 giữ hành vi/bằng chứng sandbox 3.1; wire proposal 15/10 ghi contract mục tiêu; chỉ code/runtime evidence chứng minh phần đã implement. Sau khi sắp xếp tài liệu, chương09/10 là Payment và review; chương11 là Cart/Checkout addendum để review.
 
 MVP tích hợp: D2C Customer/Guest session, một địa chỉ, một kho mặc định, VND, chuyển khoản; COD khi carrier/policy hỗ trợ; checkout, cancel, fulfillment/shipping, đối soát và refund có approval. Voucher/loyalty, verified Guest claim, marketplace/POS, B2B/gifting chỉ bật sau contract/test riêng.
 
 ## 2. Quyền sở hữu
+
+Thiết kế nội bộ Order Core được cụ thể hóa trong [chương12](12_order_core_design.md): một authority thương mại, snapshot v1 và guard chung cho API/worker/event; Hold nhiều nguồn và remote stop semantics không thay đổi ownership trong bảng sau.
 
 | Chủ quản | Quyết định / dữ liệu |
 | --- | --- |
@@ -25,6 +29,8 @@ MVP tích hợp: D2C Customer/Guest session, một địa chỉ, một kho mặc
 | Care / Finance | quyết định hỗ trợ/refund; accounting/settlement |
 
 Payment là module MS-04 với port provider riêng; tách process sau cần ADR. Finance không thực hiện refund thứ hai hoặc sửa Inventory. Order gửi SKU/quantity; Inventory chọn batch FEFO theo hạn sử dụng.
+
+**Provider addendum để review, 16/10/2026:** [Payment SePay + VietQR](09_payment_sepay_vietqr_design.md) chọn bank webhook + API v2, tách durable observation khỏi canonical receipt và cụ thể hóa refund theo capability ngân hàng. Addendum chưa được triển khai; các flow “verified receipt” bên dưới bắt đầu sau bước canonical API verification của cohort SePay.
 
 ## 3. Transport được chọn
 
@@ -47,6 +53,8 @@ flowchart LR
 Async finalize command + reply event cũng hợp lệ nhưng chưa chọn: thêm command topic, correlation, deadline/reply recovery. Không dùng hai command path cho cùng effect.
 
 ## 4. Operation-first checkout
+
+Chi tiết mở rộng tại [Cart/Checkout chương11](11_cart_checkout_design.md): chọn SKU, projection, quote consumption unique, submission guard và admission boundary Redis/SQL. Với cohort VIETQR mới, bước tạo Order dưới đây đồng thời tạo PaymentIntent và cleanup job trong T3; COD không tạo SePay intent. Addendum chưa được implement.
 
 1. Quote preview không giữ stock. Client confirm bằng stable idempotency key.
 2. Order kiểm ownership/input, ghi operation + encrypted input + planned_order_id + registry atomic.

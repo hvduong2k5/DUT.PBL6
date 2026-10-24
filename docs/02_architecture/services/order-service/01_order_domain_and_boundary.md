@@ -4,6 +4,8 @@
 
 ## 1. Aggregate và boundary
 
+**Order Core addendum 17/10/2026:** [chương12](12_order_core_design.md) chốt root/control/workflow boundaries và OC01–OC15. [OrderSnapshot v1 schema](../../../03_api_specs/order-snapshot.v1.schema.json) định nghĩa snapshot chính thức, khác Quote DTO; shape validation và arithmetic/proof validation là hai lớp riêng.
+
 | Đối tượng | Vai trò |
 | --- | --- |
 | CheckoutOperation | Acceptance, canonicalization/acquisition/compensation; chưa phải Order |
@@ -14,11 +16,15 @@
 | Job / saga step | Điều phối/recovery, độc lập Order status |
 | ResourceOutcome | Projection Inventory/Promotion; không phải ledger do Order sở hữu |
 
+Addendum [Cart/Checkout](11_cart_checkout_design.md) bổ sung cart incarnation, immutable selection, quote consumption và submission guard. Cohort VIETQR mục tiêu mở rộng invariant SUCCEEDED: Order/items/snapshot + PaymentIntent + history/outbox + cleanup intent cùng transaction PLACE; cleanup effect ở Redis diễn ra sau và không quyết định Order có hợp lệ hay không.
+
 planned_order_id sinh trước side effect; public order_id chỉ có sau placement. order_code không phải ownership proof. customer_id là Profile ID, khác JWT sub; Guest customer_id null và scope session đã xác thực. Payment trong MS-04; Care quyết định refund theo quyền, Finance hạch toán; một refund chỉ một executor. FEFO thuộc Inventory.
 
 ## 2. Snapshot và money
 
 Snapshot giữ SKU/name/quantity/unit price/line total/weight/packaging/version, địa chỉ đã xác minh, shipping quote và policy. Không sửa theo Catalog/Profile sau placement. Address-change command cần reprice/fulfillment guard, ngoài MVP.
+
+Bất biến là nội dung nghiệp vụ: re-encryption có audit được phép khi logical_hash giữ nguyên; owner-at-placement bất biến, current owner chỉ thay qua verified claim. Amendment tương lai là record riêng, không ghi đè snapshot gốc. Xem chương12 mục3 để chốt version/nullability/source precedence và các field payment terms VIETQR/COD.
 
 ```text
 subtotal = Σ(quantity × canonical_unit_price)

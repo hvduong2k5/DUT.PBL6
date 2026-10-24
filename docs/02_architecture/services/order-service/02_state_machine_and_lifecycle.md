@@ -4,6 +4,10 @@
 
 ## 1. Các trục độc lập
 
+[Runtime13 mục3](13_order_saga_worker_runtime.md) bổ sung workflow state và job state độc lập với các business projections bên dưới. UNKNOWN là external outcome; MANUAL_REVIEW của workflow không làm dừng reconciliation. Operation status hiện hữu được project từ workflow, không dùng enum job để trả thẳng qua API.
+
+Addendum review [Order Core12](12_order_core_design.md) chuẩn hóa transition guards và race matrix. Với cohort mới, verified Care approval có thể hủy PENDING_PAYMENT thành CANCELLED_BY_ADMIN khi chưa allocation và còn đủ guard; Hold là nhiều control records, không thêm lifecycle HELD. Khi khác cách diễn đạt ngắn gọn của bảng/sơ đồ baseline, xem preconditions/proofs ở chương12 trước khi chốt contract.
+
 | Trục | Giá trị |
 | --- | --- |
 | Operation | ACCEPTED, PROCESSING, WAITING_RETRY, COMPENSATING, SUCCEEDED, FAILED, MANUAL_REVIEW |
@@ -41,6 +45,8 @@ stateDiagram-v2
 COD receipt sau shipping cập nhật payment, không kéo Order về PAID. Refund/return không ghi đè lifecycle. Local chưa PROCESSING không chứng minh task chưa được remote accept.
 
 ## 3. Guards và atomic effects
+
+Addendum đang review [Cart/Checkout11](11_cart_checkout_design.md) mở rộng Accept với quote consumption/submission guard cùng T0; Place VIETQR thêm PaymentIntent, mọi Place thêm durable cleanup intent cùng transaction. Cart admission point tại Redis khác durable SQL acceptance; xem mục6.2 của addendum, không suy bảng này thành cross-store transaction.
 
 | Decision | Guard | Local transaction |
 | --- | --- | --- |

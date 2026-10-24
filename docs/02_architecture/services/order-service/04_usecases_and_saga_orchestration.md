@@ -2,7 +2,11 @@
 
 [Trước](03_database_and_persistence.md) · [Tiếp](05_api_contracts_and_transports.md)
 
+**Runtime specification để review:** [chương13](13_order_saga_worker_runtime.md) chuẩn hóa state layers, job registry, stale-proof ingestion, lease/heartbeat, scheduling và recovery. Chương04 giữ workflow nghiệp vụ; runtime chung không được bỏ qua các business guards.
+
 ## 1. Cart → quote → accepted operation
+
+Chi tiết target bổ sung tại [Cart/Checkout11](11_cart_checkout_design.md): Cart Projection, selected SKU, quote consumption SQL, submission fingerprint, explicit Redis admission point và cleanup có điều kiện. Đây là thiết kế để review, không phải mô tả runtime3.1 đã có mọi capability.
 
 Cart không reserve. Mutate revision atomic; canonicalize duplicate SKU, limits trước external calls. Quote server-issued bind owner/cart/address/method; giá hiển thị chỉ preview. Saved address lookup đúng customer/version, Guest validation cùng master data; không trust arbitrary customer_id.
 
@@ -11,6 +15,8 @@ POST checkout kiểm auth/quote/key, T0 durable rồi trả 202 operation. New a
 ## 2. Placement trả trước
 
 Stage: VALIDATE → VOUCHER_HOLD nếu bật → RESERVE → PLACE → SUCCEEDED.
+
+PLACE của cohort mới ghi Order + items/snapshot + history/outbox + cleanup job + operation SUCCEEDED atomic; VIETQR thêm PaymentIntent cùng transaction theo Payment1.1. Worker cleanup sau commit chỉ xóa selected lines khi cart incarnation và accepted revision vẫn khớp, không chờ PAID.
 - VALIDATE: Catalog coherent snapshot và Profile address độc lập có thể parallel; Shipping sau weight/address; voucher sau totals. Lưu snapshot/deadline/intent trước acquisition.
 - Voucher hold/query dùng stable key, expiry remote; feature tắt trả VOUCHER_FEATURE_DISABLED.
 - Reserve: stable key checkout:{operation}:reserve, planned_order_id, items digest, warehouse policy. Transport timeout → WAITING_RETRY và query/retry cùng key.
@@ -21,6 +27,8 @@ Stage: VALIDATE → VOUCHER_HOLD nếu bật → RESERVE → PLACE → SUCCEEDED
 Không đóng operation FAILED khi compensation còn UNKNOWN. Planned UUID của operation cancelled không dùng reserve lần nữa; checkout mới dùng operation mới.
 
 ## 3. Receipt và finalization
+
+Provider-specific review 16/10/2026: [chương 09](09_payment_sepay_vietqr_design.md) chọn SePay + VietQR. Webhook được xác thực/lưu thành observation và ACK trước; worker đọc API v2 để tạo canonical receipt. Các quy tắc receipt/finalization ở đây áp dụng sau bước đó; simulator cũ chưa thay đổi.
 
 Verify raw callback theo provider contract; receiver/currency/reference/status/signature/replay policy. VietQR image chỉ là hướng dẫn chuyển khoản; contract callback phải đến từ provider thực đã chọn, không suy diễn mọi provider dùng HMAC-SHA256.
 
@@ -48,6 +56,8 @@ COD settlement chỉ từ evidence trusted của carrier/provider; delivery khô
 
 ## 5. Cancel, ready và hold
 
+Chi tiết command/preconditions/transaction/recovery trong [Order Core12 mục5–10](12_order_core_design.md). Hold vẫn nhận/đối soát tiền và không kéo dài lease; hard stop cần remote proof, Resume chỉ gỡ hold được phép, không clear mọi financial/cancellation obligation. Pending verified Care cancellation và post-refund readiness dùng guards của addendum.
+
 Pending self-cancel/timeout: lock Order cạnh tranh receipt; transaction cancelled + release job; response compensation PENDING, UI không nói kho đã hoàn ngay. ReleaseByOrder tạo tombstone nếu chưa thấy reserve.
 
 Paid/COD cancel: lưu hold/cancel intent; Fulfillment CancelTask(order,generation,key) serialize với AcceptTask. CANCELLED → reverse committed inventory sau kiểm approval/policy; target REVERSED; mới commit terminal Order cancel. ACCEPTED → reject self-cancel và chuyển Care theo policy; không restart task từ event khác. UNKNOWN → query barrier.
@@ -72,6 +82,6 @@ Guest claim cần verified proof bind order/customer và anti-replay; Order appl
 
 ## 8. Retry và ngân sách
 
-Target retry full jitter trong [0,min(30s,0.5s*2^attempt)], tối đa 10 automatic attempts hoặc 15 phút mỗi stage rồi MANUAL_REVIEW; không xóa nghĩa vụ. Finalize ưu tiên trong remote expiry; sau deadline query outcome, không blind mutate. 429/Unavailable/DeadlineExceeded retry cùng key; validation/conflict definitive không retry để “vượt lỗi”. Breaker không tính business rejection.
+Theo [Runtime13 mục7–8](13_order_saga_worker_runtime.md), default execution retry full jitter trong [0,min(30s,0.5s*2^retry_index)], tối đa10 dispatched attempts hoặc15 phút mỗi stage, cắt theo business deadline. Đây không phải policy chung cho mọi kind: cleanup, outbox delivery, sync và reconciliation có profiles riêng. Hết execution budget chuyển manual review/handoff durable; background reconciliation tiền/stock/remote UNKNOWN tiếp tục với quota và escalation riêng, không xóa nghĩa vụ. Finalize ưu tiên trong remote expiry; sau deadline query outcome, không blind mutate. 429/Unavailable/DeadlineExceeded query/replay cùng key theo outcome; validation/conflict definitive không retry để vượt lỗi. Breaker không tính business rejection.
 
 HTTP acceptance deadline3s, external attempt2s, worker lease10s là default versioned, cần đo. Runtime3.1 dùng backoff khác, ghi gap R05. Receipt accepted ACK nghĩa đã persist receipt, không PAID. UI phân biệt đang xử lý, đã nhận tiền/đang chốt đơn, cần đối soát và compensation pending.

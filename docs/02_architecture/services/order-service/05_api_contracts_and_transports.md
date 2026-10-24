@@ -12,6 +12,12 @@ Không đổi field number/type cũ. Thêm fields/RPC additive hoặc version m�
 
 ## 2. Public API
 
+**Order Core addendum 17/10/2026:** [chương12](12_order_core_design.md) và [Core OpenAPI candidate](../../../03_api_specs/order-core.candidate.openapi.yaml) mô tả command resources, hold_id/resume, scoped queries và purpose-bound snapshot views. [Snapshot v1](../../../03_api_specs/order-snapshot.v1.schema.json) là internal payload; public views có redaction riêng. Candidate cần pin version/cohort, không thay route/DTO baseline ngầm.
+
+**Cart/Checkout addendum đang review:** [chương11](11_cart_checkout_design.md) và [OpenAPI candidate](../../../03_api_specs/order-cart-checkout.candidate.openapi.yaml) định nghĩa CartProjection, mutation CAS/replay, selected quote và quote consumption. Các Cart/Quote DTO mới có breaking changes, cần explicit route/version/cohort rollout; chưa thay OpenAPI baseline/sandbox.
+
+**SePay addendum đang review:** [chương 09](09_payment_sepay_vietqr_design.md) và [OpenAPI Payment candidate](../../../03_api_specs/order-payment-sepay.candidate.openapi.yaml) đề xuất route `/api/v1/payments/sepay/webhook`, auth HMAC đúng giao thức SePay, ACK sau observation + work durable, canonical receipt từ API v2 và hai API đọc cho khách. Candidate chưa thay contract/runtime baseline; dòng “Provider callback” bên dưới là baseline tổng quát, amendment SePay được liệt kê rõ ở chương 09 mục 2.
+
 REST target giữ X-Idempotency-Key; key 16..128 ASCII, scope trusted principal/action; body hash canonical. Version mutations dùng expected version theo OpenAPI hiện tại; khi thêm If-Match phải công bố mapping, không dùng hai version khác nhau.
 
 | Endpoint | Kết quả/semantics |
@@ -96,6 +102,8 @@ Wire còn có Order.ValidateFulfillmentPermit để Fulfillment kiểm online pe
 Order đặt local hold trước cancel RPC. Permit đang bay vẫn có thể được AcceptTask xử lý trước CancelTask; bên thắng tại Fulfillment quyết định kết quả. Không hứa local hold là distributed stop tức thì. Cancel success làm mọi permit cũ mất hiệu lực dù chưa hết expiry. Chuỗi barrier proof dùng cho reversal phải được Inventory xác minh qua trusted service/decision reference; user không được tự điền “cancelled=true”.
 
 ## 6. Events và rollout
+
+[Persistence17](17_order_persistence_messaging_design.md) chốt physical outbox/inbox, stream-head publish/failover, offset/rebalance/replay và restore. Generic financial streams có [schema candidate](../../../03_api_specs/order-payment-events.candidate.schema.json) riêng; không sửa closed Order v3 payload để thêm nullable Order hoặc stream sequence.
 
 Topic target order.events.v3, partition key order_id, CloudEvents type vn.omama.order.{name}.v3. Envelope stable id/source/type/time/subject, trace context theo project; data references, aggregate version/ordinal/state/generation, không direct PII. V2 runtime đóng schema bằng additionalProperties=false và thiếu required proof; vì vậy tạo version mới thay vì sửa breaking v2. Version transport v3 vẫn phục vụ baseline thiết kế 3.2.
 

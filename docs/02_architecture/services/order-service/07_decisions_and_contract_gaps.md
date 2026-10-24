@@ -1,10 +1,12 @@
 # 07 — ADR, implementation gaps và rollout, baseline 3.2
 
-[Chỉ mục](README.md) · [HLD](00_order_service_hld.md) · [Báo cáo](10_order_design_change_report.md)
+[Chỉ mục](README.md) · [HLD](00_order_service_hld.md) · [Cart/Checkout](11_cart_checkout_design.md)
 
 Ngày13/10/2026. Các lựa chọn dưới đây là **quyết định cho bản thiết kế Order mục tiêu**, chưa phải xác nhận các nhóm provider đã triển khai/đồng ý contract. Baseline này thay candidate3.0 trong LLD01–07; runtime3.1 và report09 vẫn là lịch sử có SHA.
 
 ## 1. ADR
+
+Các quyết định phát sinh khi implement được ghi riêng tại [Order implementation ADRs](../../adr/order-service/README.md). PR1 gặp gap digest Core12 khác Inventory profile; ADR002 đã sửa design/fixtures theo wire profile, không tự đóng real-provider gate. [Evidence Core foundations](../../../04_testing/order-service/04_order_core_foundations.md) chỉ chứng minh phạm vi local tests được nêu.
 
 | ID | Quyết định | Lý do | Trade-off / phương án khác |
 | --- | --- | --- | --- |
@@ -22,8 +24,16 @@ Ngày13/10/2026. Các lựa chọn dưới đây là **quyết định cho bản
 | OD12 | evidence phân tầng; gates theo feature | tránh simulator PASS thành production-ready | rollout chậm hơn nhưng kết luận có căn cứ |
 | OD13 | completion decision serialize tại Care | local event projection không thấy case đang bay | thêm barrier; auto-completion tắt khi thiếu |
 | OD14 | privacy/auth ở provider và consumer | header/reference không phải bằng chứng quyền | service identity/ACL/cost vận hành |
+| OD15 | Runtime13 tách business/workflow/job states, execution budget và reconciliation budget | UNKNOWN không mất nghĩa vụ khi hết retry hoặc manual review | thêm obligation scanner, policy registry và operational ownership |
+| OD16 | Stale worker chỉ append observation; current owner validate/apply, intent query fallback | Mất lease không đồng nghĩa external effect chưa xảy ra | provider cần authoritative query/proof, tăng evidence storage |
+| OD17 | Persistence17 dùng shared generic outbox, stream head progression và consumer guards | Unmatched financial facts không cần Order; lease không fence Kafka inflight | Late duplicate vẫn có thể tới, consumer/recovery contract bắt buộc |
+| OD18 | READ COMMITTED + locks/constraints, commit UNKNOWN lookup và restore-before-mutation | Bảo vệ identity qua SQL ACK loss/PITR | Thêm recovery mode, migration/grant và restore gates |
 
 ## 2. Phân loại gap
+
+Thứ tự triển khai/gates dùng [Roadmap18](18_order_implementation_roadmap.md). Shipping Quote là dependency trước checkout; manual reconciliation/refund và operational recovery là gate trước tiền thật. Roadmap không đóng các implementation/evidence gaps trong bảng dưới.
+
+**Cập nhật lựa chọn provider 16/10/2026:** người dùng đã chọn SePay + VietQR. [Chương 09](09_payment_sepay_vietqr_design.md) là thiết kế chi tiết để review. Phần “chọn provider” của G08 bên dưới đã có quyết định; receiver/bank capability, adapter, identity mapping, migration và live tests vẫn còn mở. Automatic refund mặc định tắt đến khi xác nhận tài khoản đủ điều kiện; không coi sandbox refund PASS là live capability.
 
 - DEFECT: code trái semantics đã cam kết, như release COMMITTED báo released.
 - SPEC_GAP: thiếu quy tắc cho timeout/expiry/race, cần hợp đồng rõ.
@@ -48,8 +58,18 @@ Ngày13/10/2026. Các lựa chọn dưới đây là **quyết định cho bản
 | G11 FEATURE | POS/marketplace/B2B/gifting chưa bật | Channel+Order và business owner policy/IDs/evidence | T25 |
 | G12 EVIDENCE | local sandbox reports có; provider integration chưa | QA+service owners real dependency fault suite | chương06 |
 | G13 DEPLOYMENT | chưa full restore/HA evidence | Ops readiness/Kafka/auth/PITR/remote reconcile | T26/29 |
+| G14 DESIGN/IMPLEMENTATION | Cart/Checkout11 đã đề xuất projection/selection/quote claim/cleanup, runtime còn tối giản | Order+FE implement candidate DTO, SQL constraints, Redis guard/CAS, PLACE+Intent và real-provider tests | CC01–29 trong chương11 |
+| G15 DESIGN/CONTRACT | Order Core12 chốt OC invariants, snapshot v1, command matrix, multi-hold và query/event semantics ở mức đề xuất | Review provider proofs/digests, Product/Care hold/cancel/completion policy, route/cohort và schema evolution | OC-T01–24 trong chương12 |
+| G16 DESIGN/OPERATIONS | [Runtime13](13_order_saga_worker_runtime.md) đề xuất registry21 job kinds, state mapping, stale-proof path và execution/reconciliation policies | Order+Ops review concurrency/weights, provider query capabilities, recovery roles/thresholds; triển khai và fault tests riêng | SW-T01–24; chưa đóng integration/evidence gaps |
+| G17 DESIGN/PERSISTENCE/MESSAGING | [Persistence17](17_order_persistence_messaging_design.md), DDL42 bảng và Payment event candidate cụ thể hóa target | Order+Ops+Finance review physical mapping/roles, consumer contracts, apply migrations riêng và chạy real DB/Kafka/provider fault tests | PM-T01–20; static parse/schema PASS không đóng deployment/evidence gaps |
 
 ## 4. Runtime3.1 còn khác target3.2
+
+**PR2 checkpoint:** [evidence persistence](../../../04_testing/order-service/05_persistence_foundation.md) ghi migration004/target repositories và real SQL transaction gates đã đạt trong scope; [ADR004–006](../../adr/order-service/README.md) giữ các gap multi-entry history, full financial schema, grants/rewrap và target runtime wiring. Real sandbox regression PASS không tự đóng real provider G01/G02/G05/G08 hoặc target publisher/inbox G17.
+
+Tracking PR1→PR2: pure Core chưa có target repository/reconstitution/current-owner claim mapping hoặc atomic milestone writer. Gap này được ghi tại [ADR001](../../adr/order-service/adr_001_pure_core_and_legacy_cohort.md) và ADR003; không mở route target trước khi persistence/application slice có evidence tương ứng.
+
+**Cập nhật coding17/10/2026:** pure Core package đã có trong PR1 scope; target application/repository/worker wiring vẫn chưa chuyển cohort. Không đánh dấu G15/G16/G17 hoặc R01–R06 đã đóng từ domain unit/race tests. Target Core và legacy DTO chia sẻ commercial amount bound; legacy routes/state semantics được giữ.
 
 | ID | Chênh lệch code cần sửa sau đợt thiết kế | Priority |
 | --- | --- | --- |
@@ -78,4 +98,4 @@ Thứ tự:
 
 Rollback giữ ledger/tombstone/key; không reset operation hoặc gửi paidv1 của new-flow Order để “tương thích”. Báo cáo trình bày liên service ở chương10.
 
-Ngày 15/10/2026 đã cụ thể hóa wire proposal và kiểm static/build; xem [báo cáo đồng bộ contract](11_contract_alignment_report.md). Những G/R liên quan provider implementation, database và adapter vẫn mở; không coi compile/schema PASS là đóng integration gate.
+Ngày 15/10/2026 đã cụ thể hóa wire proposal và kiểm static/build; báo cáo alignment lịch sử đã được bỏ khỏi thư mục khi sắp xếp tài liệu. Những G/R liên quan provider implementation, database và adapter vẫn mở; không coi compile/schema PASS là đóng integration gate.
