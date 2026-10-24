@@ -1,0 +1,12 @@
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.git
+coverage*
+*.test
+.sandbox
+**/*.jwt
+**/runtime-url.txt
+**/compose.env
