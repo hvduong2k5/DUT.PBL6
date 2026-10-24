@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0.5
+    container_name: omafood-keycloak-standalone
+    restart: unless-stopped
+    command: start --import-realm
+    environment:
+      # Tài khoản quản trị Keycloak Master
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+
+      # Kết nối đến PostgreSQL server có sẵn
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT:-5432}/${KEYCLOAK_DB_NAME:-keycloak_db}
+      KC_DB_USERNAME: ${POSTGRES_USER}
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD}
+
+      # Giám sát & Metrics
+      KC_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "true"
+      KC_HTTP_ENABLED: "true"
+
+      # Hỗ trợ Proxy / Hostname (bật khi chạy sau Nginx/Traefik)
+      KC_PROXY_HEADERS: ${KC_PROXY_HEADERS:-xforwarded}
+      KC_HOSTNAME: ${KC_HOSTNAME:-}
+    ports:
+      - "${KEYCLOAK_PORT:-8080}:8080"
+    volumes:
+      # Tự động nạp cấu hình Realm 'omama' khi khởi chạy
+      - ./realm-export.template.json:/opt/keycloak/data/import/realm.json:ro
+    networks:
+      - coolify
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080; echo -e 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3; grep -q 'HTTP/1.1 200 OK' <&3"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+networks:
+  coolify:
+    external: true
+

@@ -77,7 +77,7 @@
   ],
   "users": [
     {
-      "username": "admin@omama.vn",
+      "username": "admin",
       "enabled": true,
       "email": "admin@omama.vn",
       "firstName": "System",
