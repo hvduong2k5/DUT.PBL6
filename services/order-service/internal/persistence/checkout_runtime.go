@@ -226,6 +226,13 @@ func (r *CheckoutRuntime) Work(ctx context.Context) (bool, error) {
 	if e != nil {
 		return false, e
 	}
+	// Execution budget (ADR010: 20 attempts per stage) is enforced BEFORE
+	// dispatch, not only after a failure: a job that was resumed or whose
+	// lease expired with an exhausted budget parks again without touching
+	// any remote system or local mutation.
+	if w.Attempts > 20 {
+		return true, r.park(context.WithoutCancel(ctx), w, "CHECKOUT_DEPENDENCY_RETRY")
+	}
 	// E_DEADLINE gate, fail-closed: an unreadable DB clock stops the attempt
 	// (retry), and a passed stage deadline parks the operation with a
 	// reconcile obligation instead of executing against stale terms.
@@ -346,6 +353,14 @@ func (r *CheckoutRuntime) Work(ctx context.Context) (bool, error) {
 			e = err
 			break
 		}
+		// The Lookup is a verification query; the deadline may have passed
+		// while it ran. Re-check before any mutation (Release/Commit/Place).
+		if stop, e := r.deadlineGate(ctx, w); e != nil {
+			_ = r.retry(context.WithoutCancel(ctx), w, e)
+			return true, e
+		} else if stop {
+			return true, r.park(context.WithoutCancel(ctx), w, "STAGE_DEADLINE_EXCEEDED")
+		}
 		if w.Stage == "COMPENSATE" {
 			proof, e = r.Inventory.Release(ctx, terms, proof, "inventory:release:"+w.Planned)
 			if e != nil {
@@ -372,6 +387,13 @@ func (r *CheckoutRuntime) Work(ctx context.Context) (bool, error) {
 			if e != nil {
 				break
 			}
+		}
+		// Final cutoff immediately before the placement transaction.
+		if stop, e := r.deadlineGate(ctx, w); e != nil {
+			_ = r.retry(context.WithoutCancel(ctx), w, e)
+			return true, e
+		} else if stop {
+			return true, r.park(context.WithoutCancel(ctx), w, "STAGE_DEADLINE_EXCEEDED")
 		}
 		_, e = r.Store.Place(ctx, Placement{w.Operation, w.LeaseFence, proof})
 		if errors.Is(e, core.ErrDeadline) || errors.Is(e, core.ErrSnapshot) || errors.Is(e, core.ErrProof) {
