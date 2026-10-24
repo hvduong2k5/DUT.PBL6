@@ -109,6 +109,7 @@ services:
       - order_go_build:/root/.cache/go-build
     environment:
       ORDER_TEST_DATABASE: postgres://order_test:order_test_local@db:5432/order_runtime?sslmode=disable
+      ORDER_CORE_TEST_DATABASE: postgres://order_test:order_test_local@db:5432/order_runtime?sslmode=disable
       ORDER_TEST_SIM_DATABASE: postgres://order_test:order_test_local@db:5432/order_simulator?sslmode=disable
       ORDER_TEST_REDIS: redis:6379
       ORDER_TEST_KAFKA: kafka:29092

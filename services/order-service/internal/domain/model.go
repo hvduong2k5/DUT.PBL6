@@ -10,9 +10,11 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/omamx/order-service/internal/domain/core"
 )
 
-const MaxMoney int64 = 1_000_000_000_000
+const MaxMoney int64 = core.MaxOrderAmount
 
 var ErrConflict = errors.New("conflict")
 
@@ -108,9 +110,10 @@ type Quote struct {
 
 // StoredQuote retains server ownership; Quote's public JSON intentionally omits scope/principal.
 type StoredQuote struct {
-	Quote     Quote     `json:"quote"`
-	Scope     string    `json:"scope"`
-	Principal Principal `json:"principal"`
+	Core      *core.SnapshotInput `json:"core,omitempty"`
+	Quote     Quote               `json:"quote"`
+	Scope     string              `json:"scope"`
+	Principal Principal           `json:"principal"`
 }
 type Operation struct {
 	ID          string    `json:"operation_id"`
