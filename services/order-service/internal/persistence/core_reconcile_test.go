@@ -7,21 +7,24 @@ import (
 
 func TestReconcileDisposition(t *testing.T) {
 	cases := []struct {
-		name, opStatus, proofState string
-		proofExpired               bool
-		want                       string
+		name, opStatus, opError, proofState string
+		proofExpired, stageExpired          bool
+		want                                string
 	}{
-		{"terminal succeeded is stale", "SUCCEEDED", "RESERVED", false, reconcileStale},
-		{"terminal failed is stale", "FAILED", "COMMITTED", false, reconcileStale},
-		{"reserved and valid resumes", "MANUAL_REVIEW", "RESERVED", false, reconcileResume},
-		{"reserved but lapsed compensates", "MANUAL_REVIEW", "RESERVED", true, reconcileCompensate},
-		{"released compensates", "MANUAL_REVIEW", "RELEASED", false, reconcileCompensate},
-		{"expired compensates", "MANUAL_REVIEW", "EXPIRED", false, reconcileCompensate},
-		{"committed stays with a human", "MANUAL_REVIEW", "COMMITTED", false, reconcileReview},
-		{"unknown state stays with a human", "MANUAL_REVIEW", "SOMETHING_ELSE", false, reconcileReview},
+		{"succeeded is stale", "SUCCEEDED", "", "RESERVED", false, false, reconcileStale},
+		{"failed is stale", "FAILED", "", "COMMITTED", false, false, reconcileStale},
+		{"recovered by admin is stale", "WAITING_RETRY", "", "RELEASED", false, false, reconcileStale},
+		{"reserved and valid resumes", "MANUAL_REVIEW", "CHECKOUT_DEPENDENCY_RETRY", "RESERVED", false, false, reconcileResume},
+		{"reserved lapsed must release first", "MANUAL_REVIEW", "CHECKOUT_DEPENDENCY_RETRY", "RESERVED", true, false, reconcileRelease},
+		{"reserved but stage window closed stays for admin", "MANUAL_REVIEW", "CHECKOUT_DEPENDENCY_RETRY", "RESERVED", false, true, reconcileReview},
+		{"deadline park never auto resumes", "MANUAL_REVIEW", "STAGE_DEADLINE_EXCEEDED", "RESERVED", false, false, reconcileReview},
+		{"released compensates", "MANUAL_REVIEW", "CHECKOUT_DEPENDENCY_RETRY", "RELEASED", false, false, reconcileCompensate},
+		{"expired compensates", "MANUAL_REVIEW", "CHECKOUT_DEPENDENCY_RETRY", "EXPIRED", false, false, reconcileCompensate},
+		{"committed stays with a human", "MANUAL_REVIEW", "CHECKOUT_DEPENDENCY_RETRY", "COMMITTED", false, false, reconcileReview},
+		{"unknown state stays with a human", "MANUAL_REVIEW", "CHECKOUT_DEPENDENCY_RETRY", "SOMETHING_ELSE", false, false, reconcileReview},
 	}
 	for _, c := range cases {
-		if got := reconcileDisposition(c.opStatus, c.proofState, c.proofExpired); got != c.want {
+		if got := reconcileDisposition(c.opStatus, c.opError, c.proofState, c.proofExpired, c.stageExpired); got != c.want {
 			t.Errorf("%s: got %s, want %s", c.name, got, c.want)
 		}
 	}
