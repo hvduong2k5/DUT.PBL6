@@ -1,6 +1,6 @@
-# MS-04 Order Service (Go, sandbox 3.1)
+# MS-04 Order Service (Go, connected TEST runtime)
 
-Target Core foundations đã được thêm tại [internal/domain/core](internal/domain/core/) theo [Roadmap PR1](../../docs/02_architecture/services/order-service/18_order_implementation_roadmap.md). Package thuần nghiệp vụ chưa thay sandbox routes/persistence. [Implementation ADRs](../../docs/02_architecture/adr/order-service/README.md) ghi các gap/quyết định khi coding; [verification](../../docs/04_testing/order-service/04_order_core_foundations.md) tách domain tests khỏi real-stack integration chưa chạy.
+Target `order-core-1` đã nối public Cart/Checkout, SQL snapshot/Intent, SePay allocation/finalization, lifecycle/recovery và Kafka. Bật riêng `ORDER_CORE_ENABLED=true` + `SEPAY_ENABLED=true` trong sandbox. Xem [cách chạy và nghiệm thu](CONNECTED_TEST.md), [ADR010](../../docs/02_architecture/adr/order-service/adr_010_connected_checkout_lifecycle_and_test_bridge.md) và [báo cáo09](../../docs/04_testing/order-service/09_connected_order_service.md). Owning-service facades vẫn là TEST; chưa mở live. Compose mặc định bên dưới vẫn chạy legacy sandbox khi không bật cờ.
 
 Async checkout operations, durable PostgreSQL sagas/idempotency/financial ledger, Redis Cart/quote, Kafka inbox/outbox; stateful dependencies and provider ledger in a separate PostgreSQL database. Public HTTP and registered Order/Inventory gRPC contracts are exercised by release gates.
 
@@ -27,7 +27,7 @@ python packages/contracts/verify_order_design.py --compile-proto
 
 ## Run release gates
 
-Target persistence foundation tests chỉ cần real PostgreSQL16 qua `ORDER_CORE_TEST_DATABASE`: `go test -race ./internal/persistence ./tests/persistence`. Test tự tạo/drop schema UUID, không dùng dữ liệu schema runtime. [Migration004](migrations/000004_core_foundation.up.sql) là expand có cohort fences; [PR2 evidence](../../docs/04_testing/order-service/05_persistence_foundation.md) phân biệt target SQL boundary với legacy full-stack regression. Target public routes/worker/publisher chưa được switch.
+Target persistence foundation tests chỉ cần real PostgreSQL16 qua `ORDER_CORE_TEST_DATABASE`: `go test -race ./internal/persistence ./tests/persistence`. Test tự tạo/drop schema UUID, không dùng dữ liệu schema runtime. [Migration004](migrations/000004_core_foundation.up.sql) là expand có cohort fences; [PR2 evidence](../../docs/04_testing/order-service/05_persistence_foundation.md) phân biệt target SQL boundary với legacy full-stack regression. Target public routes/worker/publisher được bật có điều kiện theo [CONNECTED_TEST.md](CONNECTED_TEST.md); compose mặc định giữ cohort legacy.
 
 ```powershell
 ./services/order-service/scripts/test.ps1 -StartStack
