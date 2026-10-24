@@ -134,6 +134,7 @@ services:
           - /api/v1/checkout-operations
           - /api/v1/admin/orders
             - /api/v1/admin/payments
+            - /api/v1/admin/checkout-operations
           - /api/v1/guest-sessions
         strip_path: false
         methods:
