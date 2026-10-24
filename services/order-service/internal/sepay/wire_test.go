@@ -70,6 +70,10 @@ func TestHTTPReaderAndFailureContract(t *testing.T) {
 		wantError  bool
 	}{
 		{"empty page", `{"status":"success","data":[],"meta":{"pagination":{"current_page":1,"per_page":100,"last_page":1,"total":0,"has_more":false}}}`, 200, false},
+		{"canonical empty zero pages", `{"status":"success","data":[],"meta":{"pagination":{"current_page":1,"per_page":100,"last_page":0,"total":0,"has_more":false}}}`, 200, false},
+		{"zero pages with rows", `{"status":"success","data":[{}],"meta":{"pagination":{"current_page":1,"per_page":100,"last_page":0,"total":0,"has_more":false}}}`, 200, true},
+		{"zero pages with positive total", `{"status":"success","data":[],"meta":{"pagination":{"current_page":1,"per_page":100,"last_page":0,"total":1,"has_more":false}}}`, 200, true},
+		{"zero pages claims more", `{"status":"success","data":[],"meta":{"pagination":{"current_page":1,"per_page":100,"last_page":0,"total":0,"has_more":true}}}`, 200, true},
 		{"pagination absent", `{"status":"success","data":[]}`, 200, true},
 		{"duplicate envelope", `{"status":"success","status":"success","data":[]}`, 200, true},
 		{"upstream HTML", "<html>failure</html>", 500, true}, {"throttle", "{}", 429, true}, {"auth", "{}", 401, true},

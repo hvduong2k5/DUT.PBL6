@@ -1,5 +1,6 @@
-// Sandbox delivery capture only. Never writes to the Order/payment ledger.
+// Sandbox capture; optional exact-byte forwarding to the TEST Order runtime.
 const route = '/api/v1/payments/sepay/webhook';
+const origin = 'https://sepay-origin-test.npanhbao.dev' + route;
 const encoder = new TextEncoder();
 const limit = 64 * 1024;
 
@@ -55,7 +56,8 @@ async function handle(request, env) {
     if (request.method !== 'GET') return reply(405, { success: false }, { Allow: 'GET' });
     if (!env.WEBHOOK_SECRET || !env.CAPTURE_KEY || !env.DB) return reply(503, { success: false });
     await env.DB.prepare('SELECT 1 AS ready').first();
-    return reply(200, { ready: true, mode: 'sandbox-capture', payment_processing: false });
+    return reply(200, { ready: true, mode: env.FORWARD_ENABLED === 'true' ? 'sandbox-bridge' : 'sandbox-capture',
+      forwarding: env.FORWARD_ENABLED === 'true', payment_processing: false });
   }
   if (request.method !== 'POST') return reply(405, { success: false }, { Allow: 'POST' });
   if (!env.WEBHOOK_SECRET || !env.CAPTURE_KEY || !env.DB) return reply(503, { success: false });
@@ -91,6 +93,26 @@ async function handle(request, env) {
     ON CONFLICT(receipt_id) DO UPDATE SET last_seen=excluded.last_seen,deliveries=receipts.deliveries+1`)
     .bind(receiptID, String(payload.id), hash, envelope, now).run();
   if (!result.success) throw new Error('Capture write failed');
+  if (env.FORWARD_ENABLED === 'true' && payload.id !== 0) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    try {
+      // Preserve signed raw bytes. Request data cannot select a destination or
+      // forward arbitrary caller headers. Redirects must never leak the HMAC.
+      const response = await fetch(origin, { method: 'POST', redirect: 'manual', signal: controller.signal,
+        headers: { 'Content-Type': 'application/json', 'X-SePay-Timestamp': request.headers.get('X-SePay-Timestamp'),
+          'X-SePay-Signature': request.headers.get('X-SePay-Signature') }, body: raw });
+      if (response.status !== 200) {
+        await response.body?.cancel();
+        return reply(503, { success: false, error: 'RUNTIME_UNAVAILABLE' });
+      }
+      const accepted = JSON.parse(new TextDecoder().decode(await rawBody(response)));
+      if (accepted?.success !== true) return reply(503, { success: false, error: 'RUNTIME_NOT_ACKNOWLEDGED' });
+      return reply(200, { success: true }, { 'X-Capture-Receipt': receiptID, 'X-Payment-Processing': 'runtime-observation' });
+    } catch {
+      return reply(503, { success: false, error: 'RUNTIME_UNAVAILABLE' });
+    } finally { clearTimeout(timeout); }
+  }
   // ACK only after D1 persisted the authenticated observation; not a payment decision.
   return reply(200, { success: true }, { 'X-Capture-Receipt': receiptID, 'X-Payment-Processing': 'disabled' });
 }

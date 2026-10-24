@@ -81,3 +81,39 @@ test('storage or secret failure is never acknowledged as captured', async () => 
   assert.equal((await worker.fetch(new Request('https://x/healthz'), env())).status, 200);
   assert.equal((await worker.fetch(new Request('https://x/healthz'), env(database(true)))).status, 503);
 });
+
+test('bridge preserves signed bytes and ACKs only after the runtime observation', async (t) => {
+  const e = { ...env(), FORWARD_ENABLED: 'true' };
+  const raw = fixture.replace('"id":0', '"id":123');
+  const request = await signed(raw);
+  let calls = 0;
+  t.mock.method(globalThis, 'fetch', async (url, options) => {
+    calls++;
+    assert.equal(e.DB.rows.size, 1, 'capture must precede forwarding');
+    assert.equal(url, 'https://sepay-origin-test.npanhbao.dev/api/v1/payments/sepay/webhook');
+    assert.equal(new TextDecoder().decode(options.body), raw);
+    assert.equal(options.redirect, 'manual');
+    assert.equal(options.headers['X-SePay-Signature'], request.headers.get('X-SePay-Signature'));
+    return Response.json({ success: true });
+  });
+  const response = await worker.fetch(request, e);
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('X-Payment-Processing'), 'runtime-observation');
+  assert.equal((await worker.fetch(await signed(), e)).status, 200, 'ID0 dashboard probe stays capture-only');
+  assert.equal(calls, 1);
+});
+
+test('bridge failure retains capture but requests provider retry', async (t) => {
+  const raw = fixture.replace('"id":0', '"id":123');
+  for (const response of [new Response(null, { status: 302, headers: { Location: 'https://wrong.example' } }),
+    new Response(null, { status: 503 }), Response.json({ success: false }), new Response('invalid')]) {
+    const e = { ...env(), FORWARD_ENABLED: 'true' };
+    const mock = t.mock.method(globalThis, 'fetch', async () => response);
+    assert.equal((await worker.fetch(await signed(raw), e)).status, 503);
+    assert.equal(e.DB.rows.size, 1);
+    mock.mock.restore();
+  }
+  const mock = t.mock.method(globalThis, 'fetch', async () => { throw Error('offline'); });
+  assert.equal((await worker.fetch(await signed(raw), { ...env(), FORWARD_ENABLED: 'true' })).status, 503);
+  mock.mock.restore();
+});

@@ -48,6 +48,20 @@ func NewSandboxClient(token string) (*Client, error) {
 	}
 	return &Client{"https://userapi-sandbox.sepay.vn/v2", token, &http.Client{Timeout: 5 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}, nil
 }
+
+// Injecting a transport preserves the pinned Sandbox URL and client safeguards;
+// integration harnesses can route this real HTTP client to a private simulator.
+func NewSandboxClientWithTransport(token string, transport http.RoundTripper) (*Client, error) {
+	c, e := NewSandboxClient(token)
+	if e != nil {
+		return nil, e
+	}
+	if transport == nil {
+		return nil, ErrInvalid
+	}
+	c.http.Transport = transport
+	return c, nil
+}
 func (c *Client) List(ctx context.Context, w Window) (Page, error) {
 	q := url.Values{"bank_account_id": {w.Bank}, "page": {strconv.Itoa(w.Page)}, "per_page": {"100"}, "timestamp_format": {"iso8601"}, "transaction_date_sort": {"asc"}, "transaction_date_from": {w.From.Format(time.RFC3339)}, "transaction_date_to": {w.To.Format(time.RFC3339)}}
 	r, e := http.NewRequestWithContext(ctx, "GET", c.base+"/transactions?"+q.Encode(), nil)
@@ -86,7 +100,10 @@ func (c *Client) List(ctx context.Context, w Window) (Page, error) {
 		return Page{}, ErrInvalid
 	}
 	p := result.Meta.Pagination
-	if p.Page != w.Page || p.Size != 100 || p.Last < 1 || p.Total < 0 || len(result.Data) > 100 || p.More != (p.Page < p.Last) || p.Page > p.Last {
+	// Canonical Sandbox returns last_page=0 for an empty first page. Accept
+	// only that exact shape; a missing/truncated/nonempty page is still invalid.
+	empty := w.Page == 1 && p.Page == 1 && p.Size == 100 && p.Last == 0 && p.Total == 0 && !p.More && len(result.Data) == 0
+	if !empty && (p.Page != w.Page || p.Size != 100 || p.Last < 1 || p.Total < 0 || len(result.Data) > 100 || p.More != (p.Page < p.Last) || p.Page > p.Last) {
 		return Page{}, ErrInvalid
 	}
 	return Page{result.Data, p}, nil

@@ -4,7 +4,7 @@ Code theo [Payment09](../../docs/02_architecture/services/order-service/09_payme
 
 ## Cấu hình
 
-Các tên biến ở [.env.sepay.example](.env.sepay.example) là tài liệu; phải truyền vào process/container. Migration001–005 tự chạy trước khi EnableSePayFromEnv. Không chạy chung nhiều binary writer khác phiên bản migration trên cùng DB.
+Các tên biến ở [.env.sepay.example](.env.sepay.example) là tài liệu; phải truyền vào process/container. Migration001–006 tự chạy trước khi EnableSePayFromEnv. Không chạy chung nhiều binary writer khác phiên bản migration trên cùng DB.
 
 - `SEPAY_API_TOKEN_FILE`: token API v2 Sandbox64 ký tự; đọc file, không in token trong log/command line.
 - `SEPAY_WEBHOOK_SECRET_FILE`: HMAC secret của Bank Webhooks Test mode, tối thiểu32 bytes; không phải API token. Nội dung file phải đúng secret, không thêm newline.
@@ -56,8 +56,10 @@ python scripts/verify-payment-evidence.py --test-log <absolute-path-to-go-test.j
 
 Nếu virtual clock lùi, domain trả deadline guard và không booking/paid. Kiểm tra đồng hồ DB/VM; không gỡ guard hoặc backdate quyết định để test pass. Ghi lại cả lần fail lẫn rerun. Chỉ dừng project test do mình tạo; không dọn dự án Docker khác.
 
-## Chưa mở public checkout hoặc chuyển webhook URL
+## Connected runtime và URL TEST hiện tại
 
-Khi bật SePay, new legacy VIETQR quote/checkout trả `TARGET_CHECKOUT_NOT_READY`. Target checkout/Inventory3.2/timeout/control executor và target publisher còn là dependency gates. Không seed một Order giả hoặc dùng legacy stock result để bypass. TEST runtime hiện kiểm được bằng isolated integration harness; chưa nghiệm thu user-facing toàn luồng.
+Ngày24/10/2026, ADR010 nối public target checkout/Inventory3.2 TEST/timeout/admission hold/publisher/lifecycle. Bật thêm `ORDER_CORE_ENABLED=true` và merchant UUID để dùng luồng này; không bật cờ thì legacy VIETQR vẫn bị `TARGET_CHECKOUT_NOT_READY` khi SePay enabled.
 
-URL Cloudflare `https://sepay-test.npanhbao.dev/api/v1/payments/sepay/webhook` hiện vẫn là sandbox capture được cấu hình trước đó. Lượt coding này không thay route/deploy/secret của endpoint đó. Muốn nghiệm thu delivery vào runtime mới phải deploy hoặc bridge an toàn tới chính runtime có DB/worker/capabilities, rồi thử giao dịch chứa đúng mã OMP của Intent đã được target checkout tạo. Không nhập một mã mẫu bất kỳ và xem ACK là thanh toán thành công.
+URL `https://sepay-test.npanhbao.dev/api/v1/payments/sepay/webhook` đã chuyển từ capture-only sang capture + forward signed bytes tới runtime TEST qua tunnel riêng. ID0 Dashboard probe vẫn capture-only. Backend ACK chỉ là observation durable, chưa là receipt/PAID. API Sandbox scanner thật đã có HEALTHY cho bốn stream, bao gồm response rỗng `last_page=0`.
+
+Đọc [CONNECTED_TEST.md](CONNECTED_TEST.md) để khởi động lại stack, tạo Intent bằng public checkout và nghiệm thu giao dịch Dashboard chứa đúng OMP/amount trong hạn. Full-stack với stand-ins đã kiểm tới COMPLETED; canonical OMP transaction từ SePay Dashboard chưa được nghiệm thu. Owning authority, full cancellation/reversal và live gates vẫn cần hoàn thiện.
