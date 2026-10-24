@@ -169,7 +169,7 @@ func TestReconcileReviewThenRecoverAndSecondParkRearms(t *testing.T) {
 	if got := jobStatus(t, h, "RESOURCE_RECONCILE", a.OperationID); got != "DONE" {
 		t.Fatalf("reconcile job after review disposition: %s", got)
 	}
-	if err := rt.Recover(h.ctx, a.OperationID, "manager:test", "", d.MerchantID, "recover-key-1", "manual review approved"); err != nil {
+	if err := rt.Recover(h.ctx, a.OperationID, "manager:test", "", d.MerchantID, "recover-key-0001", "manual review approved"); err != nil {
 		t.Fatal(err)
 	}
 	// Park a second time: the finished reconcile generation must be rearmed.
@@ -222,7 +222,7 @@ func TestReconcileProofStaleAfterAdminRecover(t *testing.T) {
 	rt := &CheckoutRuntime{Store: h.store, Source: &fakeCheckoutSource{}, Inventory: inv}
 	driveToPark(t, h, rt, a.OperationID)
 	// Admin wins the race: Recover resumes the checkout before reconcile runs.
-	if err := rt.Recover(h.ctx, a.OperationID, "manager:test", "", d.MerchantID, "recover-key-1", "manual review approved"); err != nil {
+	if err := rt.Recover(h.ctx, a.OperationID, "manager:test", "", d.MerchantID, "recover-key-0001", "manual review approved"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := rt.WorkReconcile(h.ctx); err != nil {
