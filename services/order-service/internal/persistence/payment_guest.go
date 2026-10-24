@@ -44,7 +44,17 @@ func (p *Payment) RevokeGuestSession(ctx context.Context, sid, credential string
 	}
 	return nil
 }
-func(p *Payment)CheckGuestSession(ctx context.Context,sid string)error{var valid bool;e:=p.Store.db.QueryRow(ctx,"SELECT EXISTS(SELECT 1 FROM guest_checkout_sessions WHERE sid=$1 AND revoked_at IS NULL AND expires_at>clock_timestamp())",sid).Scan(&valid);if e!=nil{return e};if !valid{return ErrScope};return nil}
+func (p *Payment) CheckGuestSession(ctx context.Context, sid string) error {
+	var valid bool
+	e := p.Store.db.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM guest_checkout_sessions WHERE sid=$1 AND revoked_at IS NULL AND expires_at>clock_timestamp())", sid).Scan(&valid)
+	if e != nil {
+		return e
+	}
+	if !valid {
+		return ErrScope
+	}
+	return nil
+}
 
 type guestClaims struct {
 	Issuer         string `json:"iss"`

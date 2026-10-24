@@ -76,7 +76,7 @@ func (p *Payment) statusLocked(ctx context.Context, tx pgx.Tx, id, scope string)
 			out.Display = "REFUNDED"
 		case out.Refunded > 0:
 			out.Display = "PARTIALLY_REFUNDED"
-		case a.State() == core.Paid:
+		case a.HasMilestone(core.FirstPaid):
 			out.Display = "PAID"
 			out.Poll = 0
 		case a.State() == core.PaymentFinalizing:

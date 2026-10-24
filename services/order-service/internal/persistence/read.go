@@ -21,6 +21,12 @@ func (s *Store) LoadOrder(ctx context.Context, id, scope string) (core.Aggregate
 	return s.loadOrder(ctx, s.db, id, scope)
 }
 
+// LoadOrderTx lets an application read SQL projections and the authenticated root
+// under the same transaction/root lock, without borrowing a second connection.
+func (s *Store) LoadOrderTx(ctx context.Context, tx pgx.Tx, id, scope string) (core.Aggregate, error) {
+	return s.loadOrder(ctx, tx, id, scope)
+}
+
 func (s *Store) loadOrder(ctx context.Context, q reader, id, scope string) (core.Aggregate, error) {
 	var snapshotCipher, stateCipher []byte
 	var snapshotHash, snapshotID, schemaVersion, status, warehouse, reservation, method, ownerKind, principal, payment, stock string
@@ -29,11 +35,13 @@ func (s *Store) loadOrder(ctx context.Context, q reader, id, scope string) (core
 	var created, updated time.Time
 	var expires *time.Time
 	var operationalHold bool
+	var task, shipment, seal *string
+	var generation int64
 	err := q.QueryRow(ctx, `SELECT snapshot_cipher,core_state_cipher,snapshot_hash,snapshot_id,snapshot_schema_version,status,version,
  subtotal,shipping_fee,final_amount,warehouse_id,reservation_id,method,owner_kind,principal_id,customer_id,guest_session_id,
- created_at,updated_at,payment_expires_at,payment_status,stock_status,operational_hold FROM orders WHERE id=$1 AND scope=$2 AND cohort=$3`, id, scope, Cohort).Scan(
+ created_at,updated_at,payment_expires_at,payment_status,stock_status,operational_hold,task_id,shipment_id,seal_code,ready_generation FROM orders WHERE id=$1 AND scope=$2 AND cohort=$3`, id, scope, Cohort).Scan(
 		&snapshotCipher, &stateCipher, &snapshotHash, &snapshotID, &schemaVersion, &status, &version, &subtotal, &shipping, &final, &warehouse,
-		&reservation, &method, &ownerKind, &principal, &customer, &guest, &created, &updated, &expires, &payment, &stock, &operationalHold)
+		&reservation, &method, &ownerKind, &principal, &customer, &guest, &created, &updated, &expires, &payment, &stock, &operationalHold, &task, &shipment, &seal, &generation)
 	if err != nil {
 		return core.Aggregate{}, err
 	}
@@ -58,6 +66,16 @@ func (s *Store) loadOrder(ctx context.Context, q reader, id, scope string) (core
 		return core.Aggregate{}, ErrIntegrity
 	}
 	d := snapshot.Data()
+	f := record.Fulfillment
+	if !sameText(f.TaskID, task) || !sameText(f.ShipmentID, shipment) || !sameText(f.Seal, seal) || (f.Generation > 0 && f.Generation != generation) {
+		return core.Aggregate{}, ErrIntegrity
+	}
+	if !f.DeliveredAt.IsZero() {
+		var delivered time.Time
+		if e := q.QueryRow(ctx, "SELECT delivered_at FROM core_lifecycle_facts WHERE order_id=$1", id).Scan(&delivered); e != nil || !delivered.Equal(f.DeliveredAt) {
+			return core.Aggregate{}, ErrIntegrity
+		}
+	}
 	expectedPayment := "PENDING"
 	if method == "COD" {
 		expectedPayment = "UNPAID"
@@ -129,6 +147,9 @@ func (s *Store) loadOrder(ctx context.Context, q reader, id, scope string) (core
 		return core.Aggregate{}, ErrIntegrity
 	}
 	return a, nil
+}
+func sameText(value string, stored *string) bool {
+	return stored == nil && value == "" || stored != nil && *stored == value
 }
 
 func sameTime(a, b *time.Time) bool {

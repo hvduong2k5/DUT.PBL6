@@ -132,6 +132,7 @@ type Aggregate struct {
 	allocation   AllocationEvidence
 	allocatedAt  time.Time
 	firstPaid    bool
+	fulfillment  FulfillmentRecord
 }
 
 func Place(snapshot Snapshot, plannedOrderID string, proof ResourceProof, at time.Time) (Aggregate, error) {
@@ -183,7 +184,9 @@ func (a Aggregate) Owner() Owner {
 	}
 	return o
 }
-func (a Aggregate) HasMilestone(m Milestone) bool { return m == FirstPaid && a.firstPaid }
+func (a Aggregate) HasMilestone(m Milestone) bool {
+	return m == FirstPaid && a.firstPaid || m == OrderCompleted && a.state == Completed && a.fulfillment.CompletionDecision != ""
+}
 
 func (a Aggregate) guard(c DecisionContext) error {
 	if a.version < 1 || a.snapshot.canonical == "" || c.At.IsZero() {
@@ -362,6 +365,50 @@ func (a Aggregate) CancelUncommittedFinalization(c DecisionContext, proof Resour
 
 func (a Aggregate) ReadyEligible() bool {
 	return (a.state == Paid || a.state == ConfirmedCOD) && a.reservation.State == "COMMITTED" && a.blocks == 0
+}
+func (a Aggregate) AuthorizeReady(c DecisionContext) (Aggregate, error) {
+	if e := a.guard(c); e != nil {
+		return a, e
+	}
+	if !a.ReadyEligible() {
+		return a, ErrBlocked
+	}
+	a.version++
+	a.decidedAt = c.At
+	return a, nil
+}
+func (a Aggregate) ResumeAdmissionHold(c DecisionContext, order, decision string, noTask bool) (Aggregate, error) {
+	if e := a.guard(c); e != nil {
+		return a, e
+	}
+	if order != a.ID() || decision == "" || !noTask {
+		return a, ErrProof
+	}
+	if a.state != PendingPayment && a.state != Paid && a.state != ConfirmedCOD {
+		return a, ErrState
+	}
+	if a.blocks & ^HoldBlock != 0 {
+		return a, ErrBlocked
+	}
+	if a.blocks&HoldBlock == 0 {
+		return a, nil
+	}
+	a.blocks &^= HoldBlock
+	a.version++
+	a.decidedAt = c.At
+	return a, nil
+}
+func (a Aggregate) ConfirmReleased(c DecisionContext, p ResourceProof) (Aggregate, error) {
+	if e := a.guard(c); e != nil {
+		return a, e
+	}
+	if !a.state.Terminal() || a.state == Completed || a.allocation.AllocationID != "" || a.checkResource(p) != nil || (p.State != "RELEASED" && p.State != "EXPIRED") {
+		return a, ErrProof
+	}
+	a.reservation = p
+	a.version++
+	a.decidedAt = c.At
+	return a, nil
 }
 
 // CompletionEligibility is a pure guard over trusted, freshly queried decisions.

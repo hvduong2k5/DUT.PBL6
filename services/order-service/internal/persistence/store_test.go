@@ -200,16 +200,51 @@ func prepared(t *testing.T, h *harness, index int) (Acceptance, Placement) {
 	if index == 1 {
 		proof.State = "COMMITTED"
 	}
+	if _, err = h.db.Exec(h.ctx, "UPDATE checkout_operations SET reservation_id=$2,reservation_expires_at=$3 WHERE id=$1", a.OperationID, proof.ReservationID, proof.ExpiresAt); err != nil {
+		t.Fatal(err)
+	}
 	return a, Placement{a.OperationID, LeaseFence{job, owner, 1}, proof}
 }
 
 func TestMigrationUpgradePreservesLegacy(t *testing.T) {
 	h := database(t, true)
-	if h.count(t, "SELECT count(*) FROM orders WHERE cohort='sandbox-3.1'") != 1 || h.count(t, "SELECT count(*) FROM order_migrations") != 5 {
+	if h.count(t, "SELECT count(*) FROM orders WHERE cohort='sandbox-3.1'") != 1 || h.count(t, "SELECT count(*) FROM order_migrations") != 6 {
 		t.Fatal("legacy migration compatibility")
 	}
 	if _, err := h.db.Exec(h.ctx, "UPDATE orders SET version=version+1 WHERE cohort='sandbox-3.1'"); err != nil {
 		t.Fatal("legacy historical association was constrained", err)
+	}
+}
+
+func TestPlacementClockRegressionPreservesOperation(t *testing.T) {
+	h := database(t, false)
+	a, in := prepared(t, h, 0)
+	var encrypted []byte
+	if e := h.db.QueryRow(h.ctx, "SELECT canonical_cipher FROM checkout_operations WHERE id=$1", a.OperationID).Scan(&encrypted); e != nil {
+		t.Fatal(e)
+	}
+	raw, e := h.store.cipher.Open("canonical:"+a.OperationID, encrypted)
+	if e != nil {
+		t.Fatal(e)
+	}
+	var terms core.SnapshotInput
+	if e = json.Unmarshal(raw, &terms); e != nil {
+		t.Fatal(e)
+	}
+	terms.Provenance.CanonicalizedAt = terms.Provenance.CanonicalizedAt.Add(time.Hour)
+	raw, _ = json.Marshal(terms)
+	encrypted, e = h.store.cipher.Seal("canonical:"+a.OperationID, raw)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if _, e = h.db.Exec(h.ctx, "UPDATE checkout_operations SET canonical_cipher=$2,canonical_hash=$3 WHERE id=$1", a.OperationID, encrypted, hash(raw)); e != nil {
+		t.Fatal(e)
+	}
+	if _, e = h.store.Place(h.ctx, in); !errors.Is(e, ErrClock) {
+		t.Fatal("clock regression must be retryable", e)
+	}
+	if h.count(t, "SELECT count(*) FROM orders") != 0 || h.count(t, "SELECT count(*) FROM jobs WHERE status='LEASED'") != 1 {
+		t.Fatal("clock regression changed financial or workflow identity")
 	}
 }
 

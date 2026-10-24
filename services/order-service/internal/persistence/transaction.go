@@ -1,5 +1,5 @@
 // Package persistence implements the opt-in order-core-1 PostgreSQL boundary.
-// Its Payment slice is explicitly enabled for TEST; target checkout remains gated.
+// Checkout, Payment and lifecycle are explicitly enabled for connected TEST only.
 package persistence
 
 import (

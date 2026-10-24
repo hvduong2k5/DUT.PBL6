@@ -17,10 +17,11 @@ type StateRecord struct {
 	Allocation    AllocationEvidence `json:"allocation"`
 	AllocatedAt   time.Time          `json:"allocated_at"`
 	FirstPaid     bool               `json:"first_paid"`
+	Fulfillment   FulfillmentRecord  `json:"fulfillment"`
 }
 
 func (a Aggregate) Record() StateRecord {
-	return StateRecord{1, a.ID(), a.Owner(), a.state, a.version, a.decidedAt, a.blocks, a.reservation, a.allocation, a.allocatedAt, a.firstPaid}
+	return StateRecord{1, a.ID(), a.Owner(), a.state, a.version, a.decidedAt, a.blocks, a.reservation, a.allocation, a.allocatedAt, a.firstPaid, a.fulfillment}
 }
 
 func Restore(snapshot Snapshot, r StateRecord) (Aggregate, error) {
@@ -57,6 +58,10 @@ func Restore(snapshot Snapshot, r StateRecord) (Aggregate, error) {
 		if s.Payment.Method != "COD" || allocated || r.FirstPaid || r.Reservation.State != "COMMITTED" {
 			return Aggregate{}, ErrState
 		}
+	case Processing, Packed, Shipped, Delivered, DeliveryFailed, Completed:
+		if r.Reservation.State != "COMMITTED" || (s.Payment.Method == "VIETQR" && (!allocated || !r.FirstPaid)) || (s.Payment.Method == "COD" && (allocated || r.FirstPaid)) {
+			return Aggregate{}, ErrState
+		}
 	case CancelledByUser, CancelledByAdmin:
 		if s.Payment.Method != "VIETQR" || allocated || r.FirstPaid {
 			return Aggregate{}, ErrState
@@ -68,6 +73,9 @@ func Restore(snapshot Snapshot, r StateRecord) (Aggregate, error) {
 	default:
 		return Aggregate{}, ErrState
 	}
+	if r.Fulfillment.validate(r.State, s.PlacedAt, r.DecidedAt) != nil {
+		return Aggregate{}, ErrState
+	}
 	owner := r.Owner
 	if owner.CustomerID != nil {
 		id := *owner.CustomerID
@@ -77,5 +85,5 @@ func Restore(snapshot Snapshot, r StateRecord) (Aggregate, error) {
 		id := *owner.GuestSessionID
 		owner.GuestSessionID = &id
 	}
-	return Aggregate{snapshot, owner, r.State, r.Version, r.DecidedAt, r.Blocks, r.Reservation, r.Allocation, r.AllocatedAt, r.FirstPaid}, nil
+	return Aggregate{snapshot, owner, r.State, r.Version, r.DecidedAt, r.Blocks, r.Reservation, r.Allocation, r.AllocatedAt, r.FirstPaid, r.Fulfillment}, nil
 }

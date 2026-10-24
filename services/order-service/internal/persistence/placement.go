@@ -17,6 +17,8 @@ import (
 const PlacedSchemaHash = "324cdc7d83d4a0b3bc1c14602b5277e633f9077aac1aa2ee8f0e1c3f3a764952"
 const PlacedSchemaRef = "https://contracts.omama.example/order/v3/placed.event.json"
 
+var ErrClock = errors.New("ORDER_CLOCK_MOVED_BACKWARDS")
+
 type LeaseFence struct {
 	JobID, Owner string
 	Epoch        int64
@@ -47,9 +49,10 @@ func (s *Store) Place(ctx context.Context, in Placement) (core.Aggregate, error)
 		var acceptedAt time.Time
 		var customer, guest *string
 		var ownerKind string
+		var expectedReservation *string
 		err := tx.QueryRow(ctx, `SELECT planned_order_id,scope,principal_id,status,quote_id,cart_id,cart_revision,selection_digest,quote_hash,
- canonical_cipher,COALESCE(canonical_hash,''),accepted_at,owner_kind,customer_id,guest_session_id,payment_method
- FROM checkout_operations WHERE id=$1 AND cohort=$2 FOR UPDATE`, in.OperationID, Cohort).Scan(&planned, &scope, &principal, &status, &quote, &cart, &revision, &selection, &quoteHash, &canonical, &canonicalHash, &acceptedAt, &ownerKind, &customer, &guest, &method)
+ canonical_cipher,COALESCE(canonical_hash,''),accepted_at,owner_kind,customer_id,guest_session_id,payment_method,reservation_id
+ FROM checkout_operations WHERE id=$1 AND cohort=$2 FOR UPDATE`, in.OperationID, Cohort).Scan(&planned, &scope, &principal, &status, &quote, &cart, &revision, &selection, &quoteHash, &canonical, &canonicalHash, &acceptedAt, &ownerKind, &customer, &guest, &method, &expectedReservation)
 		if err != nil {
 			return err
 		}
@@ -63,6 +66,9 @@ func (s *Store) Place(ctx context.Context, in Placement) (core.Aggregate, error)
 		}
 		if status != "PROCESSING" || canonical == nil {
 			return ErrLease
+		}
+		if expectedReservation == nil || *expectedReservation != in.Proof.ReservationID {
+			return core.ErrProof
 		}
 		data, err := s.cipher.Open("canonical:"+in.OperationID, canonical)
 		if err != nil {
@@ -123,6 +129,9 @@ func (s *Store) Place(ctx context.Context, in Placement) (core.Aggregate, error)
 		if err = tx.QueryRow(ctx, "SELECT clock_timestamp()").Scan(&at); err != nil {
 			return err
 		}
+		if at.Before(input.Provenance.AcceptedAt) || at.Before(input.Provenance.CanonicalizedAt) {
+			return ErrClock
+		}
 		input.PlacedAt = at // The final snapshot uses the locked transaction's decision time.
 		snapshot, err := core.NewSnapshot(input)
 		if err != nil {
@@ -161,8 +170,8 @@ func (s *Store) Place(ctx context.Context, in Placement) (core.Aggregate, error)
 			}
 		}
 		if method == "VIETQR" {
-			// Payment code is stable per Order. SePay capability/matching is gated
-			// until Payment integration; no network QR creation occurs in T3.
+			// Payment code is stable per Order. The enabled Payment runtime matches
+			// canonical API receipts; no network QR creation occurs in T3.
 			if err = s.insertIntent(ctx, tx, intentID, planned, connection, input); err != nil {
 				return err
 			}
@@ -183,7 +192,7 @@ func (s *Store) Place(ctx context.Context, in Placement) (core.Aggregate, error)
 		if guardTag.RowsAffected() != 1 {
 			return ErrIntegrity
 		}
-		if _, err = tx.Exec(ctx, `UPDATE checkout_operations SET status='SUCCEEDED',stage='SUCCEEDED',order_id=$2,completed_at=$3,lease_owner=NULL,lease_until=NULL WHERE id=$1`, in.OperationID, planned, at); err != nil {
+		if _, err = tx.Exec(ctx, `UPDATE checkout_operations SET status='SUCCEEDED',stage='SUCCEEDED',order_id=$2,completed_at=$3,error_code=NULL,error_http=NULL,lease_owner=NULL,lease_until=NULL WHERE id=$1`, in.OperationID, planned, at); err != nil {
 			return err
 		}
 		if _, err = tx.Exec(ctx, `UPDATE workflows SET state='COMPLETED',completion_outcome='SUCCEEDED',stage='SUCCEEDED',order_id=$2,version=version+1 WHERE id=$1`, workflowID, planned); err != nil {
