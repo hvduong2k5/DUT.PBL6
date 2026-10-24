@@ -65,19 +65,38 @@ func acceptWorkable(t *testing.T, h *harness) Acceptance {
 	return a
 }
 
+// errInventoryDown is the only error driveToPark tolerates from Work: it is
+// the fake Reserve failure that accumulates attempts toward the park.
+var errInventoryDown = errors.New("inventory unavailable")
+
 func driveToPark(t *testing.T, h *harness, rt *CheckoutRuntime, operation string) {
 	t.Helper()
-	for i := 0; i < 40; i++ {
-		_, _ = rt.Work(h.ctx)
+	deadline := time.Now().Add(60 * time.Second)
+	for {
+		if _, err := rt.Work(h.ctx); err != nil && !errors.Is(err, errInventoryDown) {
+			t.Fatalf("unexpected Work error while parking: %v", err)
+		}
 		var status string
 		if err := h.db.QueryRow(h.ctx, "SELECT status FROM checkout_operations WHERE id=$1", operation).Scan(&status); err != nil {
 			t.Fatal(err)
 		}
-		if status == "MANUAL_REVIEW" {
+		switch status {
+		case "MANUAL_REVIEW":
 			return
+		case "FAILED":
+			t.Fatal("operation FAILED instead of parking")
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("operation did not park")
+		}
+		// A failed attempt reschedules the job 1s out (run_after), so calling
+		// Work in a tight loop does not execute real attempts. Pull the job
+		// due inside the fixture instead of sleeping: each loop iteration
+		// then runs one genuine attempt.
+		if _, err := h.db.Exec(h.ctx, "UPDATE jobs SET run_after=clock_timestamp() WHERE workflow_id IN (SELECT id FROM workflows WHERE kind='CHECKOUT' AND aggregate_id=$1) AND status IN ('READY','RETRY_WAIT')", operation); err != nil {
+			t.Fatal(err)
 		}
 	}
-	t.Fatal("operation did not park")
 }
 
 func jobStatus(t *testing.T, h *harness, kind, operation string) string {
@@ -93,7 +112,7 @@ func TestReconcileResumePreservesRemainingBudget(t *testing.T) {
 	h := database(t, true)
 	a := acceptWorkable(t, h)
 	inv := &fakeCheckoutInventory{
-		reserveErr:  errors.New("inventory unavailable"),
+		reserveErr:  errInventoryDown,
 		lookupProof: core.ResourceProof{State: "RESERVED", ReservationID: uuid.NewString(), ExpiresAt: time.Now().Add(10 * time.Minute)},
 	}
 	rt := &CheckoutRuntime{Store: h.store, Source: &fakeCheckoutSource{}, Inventory: inv}
@@ -127,7 +146,7 @@ func TestReconcileReviewThenRecoverAndSecondParkRearms(t *testing.T) {
 	a := acceptWorkable(t, h)
 	d := snapshotInput(t, 0)
 	inv := &fakeCheckoutInventory{
-		reserveErr:  errors.New("inventory unavailable"),
+		reserveErr:  errInventoryDown,
 		lookupProof: core.ResourceProof{State: "RESERVED", ReservationID: uuid.NewString(), ExpiresAt: time.Now().Add(10 * time.Minute)},
 	}
 	rt := &CheckoutRuntime{Store: h.store, Source: &fakeCheckoutSource{}, Inventory: inv}
@@ -167,7 +186,7 @@ func TestWorkBudgetGateBlocksDispatchBeyondBudget(t *testing.T) {
 	h := database(t, true)
 	a := acceptWorkable(t, h)
 	src := &fakeCheckoutSource{}
-	inv := &fakeCheckoutInventory{reserveErr: errors.New("inventory unavailable")}
+	inv := &fakeCheckoutInventory{reserveErr: errInventoryDown}
 	rt := &CheckoutRuntime{Store: h.store, Source: src, Inventory: inv}
 	// The next claim is attempt 21: Work must park without dispatching
 	// anything (no revalidation, no remote call, no stage mutation).
@@ -197,7 +216,7 @@ func TestReconcileProofStaleAfterAdminRecover(t *testing.T) {
 	a := acceptWorkable(t, h)
 	d := snapshotInput(t, 0)
 	inv := &fakeCheckoutInventory{
-		reserveErr:  errors.New("inventory unavailable"),
+		reserveErr:  errInventoryDown,
 		lookupProof: core.ResourceProof{State: "RELEASED", ReservationID: uuid.NewString(), ExpiresAt: time.Now().Add(10 * time.Minute)},
 	}
 	rt := &CheckoutRuntime{Store: h.store, Source: &fakeCheckoutSource{}, Inventory: inv}
@@ -225,7 +244,7 @@ func TestReconcileLapsedReservedNeedsAuthoritativeRelease(t *testing.T) {
 	h := database(t, true)
 	a := acceptWorkable(t, h)
 	inv := &fakeCheckoutInventory{
-		reserveErr:   errors.New("inventory unavailable"),
+		reserveErr:   errInventoryDown,
 		lookupProof:  core.ResourceProof{State: "RESERVED", ReservationID: uuid.NewString(), ExpiresAt: time.Now().Add(-time.Minute)},
 		releaseErr:   errors.New("release unavailable"),
 		releaseProof: core.ResourceProof{State: "EXPIRED", ReservationID: uuid.NewString()},
