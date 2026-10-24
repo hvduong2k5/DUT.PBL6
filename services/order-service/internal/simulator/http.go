@@ -33,6 +33,7 @@ func (s *Simulator) Handler() http.Handler {
 				next.ServeHTTP(w, r)
 			})
 		})
+		s.coreRoutes(api)
 		api.Post("/catalog/validate", func(w http.ResponseWriter, r *http.Request) {
 			var input struct {
 				Items []domain.Item `json:"items"`

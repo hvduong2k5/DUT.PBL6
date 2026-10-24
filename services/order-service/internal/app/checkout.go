@@ -196,6 +196,9 @@ func (s *Service) CreateQuote(ctx context.Context, p domain.Principal, in domain
 	if p.Role != "CUSTOMER" && p.Role != "GUEST" {
 		return domain.Quote{}, domain.E("PERMISSION_DENIED", 403)
 	}
+	if s.CoreCheckout==nil && s.Payment != nil && in.Method == "VIETQR" {
+		return domain.Quote{}, domain.E("TARGET_CHECKOUT_NOT_READY", 503)
+	}
 	if in.Voucher != "" {
 		return domain.Quote{}, domain.E("VOUCHER_FEATURE_DISABLED", 422)
 	}
@@ -239,6 +242,7 @@ func (s *Service) CreateQuote(ctx context.Context, p domain.Principal, in domain
 			return q, e
 		}
 	}
+	if s.CoreCheckout!=nil{return s.coreQuote(ctx,p,q)}
 	q, e = s.Canonical(ctx, q)
 	if e != nil {
 		return q, e
@@ -257,10 +261,11 @@ func (s *Service) Operation(ctx context.Context, id string, p domain.Principal) 
 	if _, e := uuid.Parse(id); e != nil {
 		return domain.Operation{}, domain.E("NOT_FOUND", 404)
 	}
+	if s.CoreCheckout!=nil{var cohort string;if e:=s.DB.QueryRow(ctx,"SELECT cohort FROM checkout_operations WHERE id=$1 AND scope=$2",id,p.Scope()).Scan(&cohort);e==nil&&cohort=="order-core-1"{o,_,e:=s.coreOperation(ctx,id,p);return o,e}}
 	var o domain.Operation
 	var errCode *string
 	var status *string
-	e := s.DB.QueryRow(ctx, `SELECT c.id,c.status,c.order_id,c.error_code,c.accepted_at,o.status FROM checkout_operations c LEFT JOIN orders o ON o.id=c.order_id WHERE c.id=$1 AND c.scope=$2`, id, p.Scope()).Scan(&o.ID, &o.Status, &o.OrderID, &errCode, &o.AcceptedAt, &status)
+	e := s.DB.QueryRow(ctx, `SELECT c.id,c.status,c.order_id,c.error_code,c.accepted_at,o.status FROM checkout_operations c LEFT JOIN orders o ON o.id=c.order_id WHERE c.cohort='sandbox-3.1' AND c.id=$1 AND c.scope=$2`, id, p.Scope()).Scan(&o.ID, &o.Status, &o.OrderID, &errCode, &o.AcceptedAt, &status)
 	if errCode != nil {
 		o.ErrorCode = *errCode
 	}
@@ -270,12 +275,15 @@ func (s *Service) Operation(ctx context.Context, id string, p domain.Principal) 
 	return o, e
 }
 func (s *Service) replay(ctx context.Context, p domain.Principal, key, hash string) (domain.Operation, int, error) {
-	var id, old string
+	var id, old, cohort string
 	var expired bool
 	var failedHTTP *int
-	e := s.DB.QueryRow(ctx, `SELECT i.operation_id,i.request_hash,clock_timestamp()>=i.response_expires_at,c.error_http FROM idempotency_records i JOIN checkout_operations c ON c.id=i.operation_id WHERE i.scope=$1 AND i.kind='CHECKOUT' AND i.key=$2`, p.Scope(), key).Scan(&id, &old, &expired, &failedHTTP)
+	e := s.DB.QueryRow(ctx, `SELECT i.operation_id,i.request_hash,clock_timestamp()>=i.response_expires_at,c.error_http,c.cohort FROM idempotency_records i JOIN checkout_operations c ON c.id=i.operation_id WHERE i.scope=$1 AND i.kind='CHECKOUT' AND i.key=$2`, p.Scope(), key).Scan(&id, &old, &expired, &failedHTTP, &cohort)
 	if e != nil {
 		return domain.Operation{}, 0, e
+	}
+	if cohort != "sandbox-3.1" {
+		return domain.Operation{}, 409, domain.E("COHORT_ROUTING_REQUIRED", 409)
 	}
 	if old != hash {
 		return domain.Operation{}, 409, domain.E("IDEMPOTENCY_CONFLICT", 409)
@@ -300,6 +308,7 @@ func (s *Service) replay(ctx context.Context, p domain.Principal, key, hash stri
 	return o, 202, nil
 }
 func (s *Service) Accept(ctx context.Context, p domain.Principal, key string, in domain.CheckoutInput) (domain.Operation, int, error) {
+	if s.CoreCheckout!=nil{return s.acceptCore(ctx,p,key,in)}
 	if p.Role != "CUSTOMER" && p.Role != "GUEST" {
 		return domain.Operation{}, 403, domain.E("PERMISSION_DENIED", 403)
 	}
@@ -309,6 +318,9 @@ func (s *Service) Accept(ctx context.Context, p domain.Principal, key string, in
 	hash := domain.Hash(in)
 	if o, code, e := s.replay(ctx, p, key, hash); !errors.Is(e, pgx.ErrNoRows) {
 		return o, code, e
+	}
+	if s.Payment != nil && in.Method == "VIETQR" {
+		return domain.Operation{}, 503, domain.E("TARGET_CHECKOUT_NOT_READY", 503)
 	}
 	if _, e := uuid.Parse(in.QuoteID); e != nil {
 		return domain.Operation{}, 400, domain.E("INVALID_QUOTE", 400)
@@ -362,6 +374,16 @@ func (s *Service) Accept(ctx context.Context, p domain.Principal, key string, in
 	if tag.RowsAffected() == 0 {
 		_ = tx.Rollback(ctx)
 		return s.replay(ctx, p, key, hash)
+	}
+	// New legacy acceptances participate in the same SQL quote identity guard.
+	// Redis remains admission input, never the consumed-quote authority.
+	quoteTag, e := tx.Exec(ctx, `INSERT INTO checkout_quote_consumptions(quote_id,operation_id,owner_scope,request_hash)
+ VALUES($1,$2,$3,$4) ON CONFLICT(quote_id) DO NOTHING`, in.QuoteID, id, p.Scope(), hash)
+	if e != nil {
+		return domain.Operation{}, 503, e
+	}
+	if quoteTag.RowsAffected() != 1 {
+		return domain.Operation{}, 409, domain.E("QUOTE_ALREADY_USED", 409)
 	}
 	if e = s.Audit(ctx, tx, "", p.ID, "CHECKOUT_ACCEPTED", map[string]any{"operation_id": id}); e != nil {
 		return domain.Operation{}, 503, e

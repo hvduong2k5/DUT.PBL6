@@ -18,7 +18,7 @@ type jobWork struct {
 
 func (s *Service) claimJob(ctx context.Context) (*jobWork, error) {
 	var j jobWork
-	e := s.DB.QueryRow(ctx, `WITH picked AS (SELECT id FROM jobs WHERE status IN ('PENDING','RETRY') AND run_after<=clock_timestamp() AND (lease_until IS NULL OR lease_until<clock_timestamp()) ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 1) UPDATE jobs j SET lease_owner=$1,lease_until=clock_timestamp()+interval '10 seconds',lease_epoch=lease_epoch+1,attempts=attempts+1 FROM picked WHERE j.id=picked.id RETURNING j.id,j.order_id,j.kind,j.key,j.payload,j.lease_epoch,j.attempts`, s.workerID).Scan(&j.ID, &j.OrderID, &j.Kind, &j.Key, &j.Payload, &j.Epoch, &j.Attempts)
+	e := s.DB.QueryRow(ctx, `WITH picked AS (SELECT id FROM jobs WHERE cohort='sandbox-3.1' AND status IN ('PENDING','RETRY') AND run_after<=clock_timestamp() AND (lease_until IS NULL OR lease_until<clock_timestamp()) ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 1) UPDATE jobs j SET lease_owner=$1,lease_until=clock_timestamp()+interval '10 seconds',lease_epoch=lease_epoch+1,attempts=attempts+1 FROM picked WHERE j.id=picked.id RETURNING j.id,j.order_id,j.kind,j.key,j.payload,j.lease_epoch,j.attempts`, s.workerID).Scan(&j.ID, &j.OrderID, &j.Kind, &j.Key, &j.Payload, &j.Epoch, &j.Attempts)
 	if errors.Is(e, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -35,7 +35,7 @@ func (s *Service) jobTransaction(ctx context.Context, j *jobWork, fn func(pgx.Tx
 		return e
 	}
 	var ok bool
-	e = tx.QueryRow(ctx, "SELECT lease_owner=$2 AND lease_epoch=$3 AND lease_until>clock_timestamp() FROM jobs WHERE id=$1 FOR UPDATE", j.ID, s.workerID, j.Epoch).Scan(&ok)
+	e = tx.QueryRow(ctx, "SELECT lease_owner=$2 AND lease_epoch=$3 AND lease_until>clock_timestamp() FROM jobs WHERE cohort='sandbox-3.1' AND id=$1 FOR UPDATE", j.ID, s.workerID, j.Epoch).Scan(&ok)
 	if e != nil {
 		return e
 	}
@@ -74,7 +74,7 @@ func (s *Service) WorkJob(ctx context.Context) (bool, error) {
 	if e != nil || j == nil {
 		return false, e
 	}
-	o, e := scanOrder(s.DB.QueryRow(ctx, "SELECT "+orderColumns+" FROM orders WHERE id=$1", j.OrderID))
+	o, e := scanOrder(s.DB.QueryRow(ctx, "SELECT "+orderColumns+" FROM orders WHERE cohort='sandbox-3.1' AND id=$1", j.OrderID))
 	if e != nil {
 		s.retryJob(ctx, j, e)
 		return true, e
@@ -108,7 +108,7 @@ func (s *Service) WorkJob(ctx context.Context) (bool, error) {
 				if err := s.transition(ctx, tx, current, "CANCELLED_TIMEOUT", "INVENTORY", "EXPIRED_BEFORE_FINALIZE"); err != nil {
 					return err
 				}
-				_, err := tx.Exec(ctx, `INSERT INTO reconciliation_cases(id,receipt_id,reason) SELECT gen_random_uuid(),receipt_id,'EXPIRED_BEFORE_FINALIZE' FROM allocations WHERE order_id=$1 ON CONFLICT(receipt_id) DO NOTHING`, current.ID)
+				_, err := tx.Exec(ctx, `INSERT INTO reconciliation_cases(id,receipt_id,reason) SELECT gen_random_uuid(),receipt_id,'EXPIRED_BEFORE_FINALIZE' FROM allocations WHERE order_id=$1 ON CONFLICT DO NOTHING`, current.ID)
 				if err != nil {
 					return err
 				}
@@ -349,7 +349,7 @@ func (s *Service) ApproveCancellation(ctx context.Context, id string) error {
 		return domain.E("CANCELLATION_NOT_ALLOWED", 409)
 	}
 	var already bool
-	if e = tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM jobs WHERE key=$1)", "cancel-approved:"+a.ID).Scan(&already); e != nil {
+	if e = tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM jobs WHERE cohort='sandbox-3.1' AND key=$1)", "cancel-approved:"+a.ID).Scan(&already); e != nil {
 		return e
 	}
 	if already {
@@ -366,7 +366,7 @@ func (s *Service) ApproveCancellation(ctx context.Context, id string) error {
 	return tx.Commit(ctx)
 }
 func (s *Service) SweepTimeouts(ctx context.Context) error {
-	rows, e := s.DB.Query(ctx, "SELECT id FROM orders WHERE status='PENDING_PAYMENT' AND operational_hold=false AND payment_expires_at<=clock_timestamp() LIMIT 100")
+	rows, e := s.DB.Query(ctx, "SELECT id FROM orders WHERE cohort='sandbox-3.1' AND status='PENDING_PAYMENT' AND operational_hold=false AND payment_expires_at<=clock_timestamp() LIMIT 100")
 	if e != nil {
 		return e
 	}

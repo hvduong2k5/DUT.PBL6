@@ -38,7 +38,12 @@ def http_json(url, method="GET", body=None, headers=None):
 
 options = argparse.ArgumentParser()
 options.add_argument("--fresh-fixture", action="store_true", help="Create and cancel an isolated synthetic checkout even when sandbox Orders already exist")
+options.add_argument("--compose-project", help="Explicit isolated Docker Compose project to inspect")
+options.add_argument("--evidence-dir", type=Path, default=EVIDENCE, help="Output directory; source documentation stays in docs/04_testing")
 options = options.parse_args()
+if options.compose_project:
+    COMPOSE[2:2] = ["--project-name", options.compose_project]
+output_dir = options.evidence_dir.resolve()
 
 
 result = {"time": datetime.now(timezone.utc).isoformat(), "mode": "local_sandbox", "openapi": []}
@@ -48,7 +53,11 @@ for name in ["order-service.sandbox-3.1.openapi.yaml", "order-sandbox-dependenci
     validate_spec(document)
     result["openapi"].append({"path": str(path.relative_to(ROOT)), "status": "PASS", "paths": len(document["paths"])})
 
-public = yaml.safe_load((ROOT / "docs/03_api_specs/order-service.openapi.yaml").read_text(encoding="utf-8"))
+# Runtime sandbox-3.1 responses must be checked against the deployed cohort.
+# The target contract is validated separately by verify_order_design.py.
+public = yaml.safe_load((ROOT / "docs/03_api_specs/order-service.sandbox-3.1.openapi.yaml").read_text(encoding="utf-8"))
+result["runtime_cohort"] = "sandbox-3.1"
+result["runtime_contract"] = "docs/03_api_specs/order-service.sandbox-3.1.openapi.yaml"
 
 
 def expand(schema):
@@ -129,13 +138,13 @@ result["protobuf_format"] = {"generated_files": len(after), "status": "PASS"}
 yaml.safe_load((ROOT / "services/api-gateway/config/kong.yml").read_text(encoding="utf-8"))
 result["kong"] = {"yaml_parse": "PASS", "runtime_proxy": "NOT_RUN"}
 
-EVIDENCE.mkdir(parents=True, exist_ok=True)
-output = EVIDENCE / "contracts-verification.json"
+output_dir.mkdir(parents=True, exist_ok=True)
+output = output_dir / "contracts-verification.json"
 # Create before link scanning on the first run via a checked-in initial artifact.
 schema_versions = sql("SELECT version::text FROM order_migrations ORDER BY version")
 images = json.loads(command(COMPOSE + ["images", "--format", "json"]))
 tracked = sorted((ROOT / "services/order-service").rglob("*.go")) + sorted((ROOT / "services/order-service/migrations").glob("*.sql"))
 manifest = {"time": result["time"], "git_head_base": command(["git", "rev-parse", "HEAD"]), "worktree": "uncommitted implementation; base commit is not a release commit", "schema_versions": schema_versions.splitlines(), "images": images, "app_mode": "sandbox", "seed": "synthetic catalog/profile fixtures in internal/simulator/schema.sql and test helpers", "config": "docker-compose.test.yml defaults; separate runtime/simulator DBs; loopback ports; real PostgreSQL/Redis/Kafka", "source_sha256": {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest() for p in tracked}}
-(EVIDENCE / "environment-evidence.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+(output_dir / "environment-evidence.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 output.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 print(json.dumps(result, ensure_ascii=False, indent=2))

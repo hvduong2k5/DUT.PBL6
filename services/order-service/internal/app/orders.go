@@ -19,7 +19,7 @@ func scanOrder(row pgx.Row) (domain.Order, error) {
 	return o, e
 }
 func (s *Service) lockOrder(ctx context.Context, tx pgx.Tx, id string) (domain.Order, error) {
-	return scanOrder(tx.QueryRow(ctx, "SELECT "+orderColumns+" FROM orders WHERE id=$1 FOR UPDATE", id))
+	return scanOrder(tx.QueryRow(ctx, "SELECT "+orderColumns+" FROM orders WHERE cohort='sandbox-3.1' AND id=$1 FOR UPDATE", id))
 }
 func CanRead(p domain.Principal, o domain.Order) bool {
 	if p.Scope() == o.Scope {
@@ -31,7 +31,7 @@ func (s *Service) GetOrder(ctx context.Context, id string, p domain.Principal, d
 	if _, e := uuid.Parse(id); e != nil {
 		return domain.Order{}, domain.E("ORDER_NOT_FOUND", 404)
 	}
-	o, e := scanOrder(s.DB.QueryRow(ctx, "SELECT "+orderColumns+" FROM orders WHERE id=$1", id))
+	o, e := scanOrder(s.DB.QueryRow(ctx, "SELECT "+orderColumns+" FROM orders WHERE cohort='sandbox-3.1' AND id=$1", id))
 	if e != nil {
 		return o, e
 	}
@@ -40,7 +40,7 @@ func (s *Service) GetOrder(ctx context.Context, id string, p domain.Principal, d
 	}
 	if detail {
 		var data []byte
-		if e = s.DB.QueryRow(ctx, "SELECT snapshot_cipher FROM orders WHERE id=$1", id).Scan(&data); e != nil {
+		if e = s.DB.QueryRow(ctx, "SELECT snapshot_cipher FROM orders WHERE cohort='sandbox-3.1' AND id=$1", id).Scan(&data); e != nil {
 			return o, e
 		}
 		var q domain.Quote
@@ -69,7 +69,7 @@ func (s *Service) ListOrders(ctx context.Context, p domain.Principal, staff, que
 		return nil, domain.E("PERMISSION_DENIED", 403)
 	}
 	args := []any{}
-	query := "SELECT " + orderColumns + " FROM orders WHERE TRUE"
+	query := "SELECT " + orderColumns + " FROM orders WHERE cohort='sandbox-3.1' AND TRUE"
 	add := func(v any) string { args = append(args, v); return "$" + strconv.Itoa(len(args)) }
 	if !staff {
 		query += " AND scope=" + add(p.Scope())
@@ -281,7 +281,7 @@ func (s *Service) SetHold(ctx context.Context, p domain.Principal, id string, ve
 	}
 	if !active {
 		var unresolved bool
-		if e = tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM jobs WHERE order_id=$1 AND status IN ('PENDING','RETRY','MANUAL_REVIEW') AND kind IN ('FINALIZE','CANCEL'))", o.ID).Scan(&unresolved); e != nil {
+		if e = tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM jobs WHERE cohort='sandbox-3.1' AND order_id=$1 AND status IN ('PENDING','RETRY','MANUAL_REVIEW') AND kind IN ('FINALIZE','CANCEL'))", o.ID).Scan(&unresolved); e != nil {
 			return e
 		}
 		if unresolved || o.ActiveCase || o.Status == "PAYMENT_FINALIZING" {

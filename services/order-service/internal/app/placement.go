@@ -23,7 +23,7 @@ type operationWork struct {
 
 func (s *Service) claimOperation(ctx context.Context) (*operationWork, error) {
 	var w operationWork
-	e := s.DB.QueryRow(ctx, `WITH picked AS (SELECT id FROM checkout_operations WHERE status IN ('ACCEPTED','PROCESSING','WAITING_RETRY','COMPENSATING') AND run_after<=clock_timestamp() AND (lease_until IS NULL OR lease_until<clock_timestamp()) ORDER BY accepted_at FOR UPDATE SKIP LOCKED LIMIT 1) UPDATE checkout_operations c SET lease_owner=$1,lease_until=clock_timestamp()+interval '10 seconds',lease_epoch=lease_epoch+1,attempts=attempts+1,status=CASE WHEN c.stage='COMPENSATE' THEN 'COMPENSATING' ELSE 'PROCESSING' END FROM picked WHERE c.id=picked.id RETURNING c.id,c.scope,c.principal_id,c.planned_order_id,c.status,c.stage,c.input_cipher,c.canonical_cipher,c.lease_epoch,c.attempts,c.reservation_id,c.reservation_expires_at,c.commercial_expires_at,c.accepted_at,c.error_code,c.error_http`, s.workerID).Scan(&w.ID, &w.Scope, &w.Principal, &w.Planned, &w.Status, &w.Stage, &w.Input, &w.Canonical, &w.Epoch, &w.Attempts, &w.Reservation, &w.Expires, &w.Commercial, &w.Accepted, &w.Error, &w.ErrorHTTP)
+	e := s.DB.QueryRow(ctx, `WITH picked AS (SELECT id FROM checkout_operations WHERE cohort='sandbox-3.1' AND status IN ('ACCEPTED','PROCESSING','WAITING_RETRY','COMPENSATING') AND run_after<=clock_timestamp() AND (lease_until IS NULL OR lease_until<clock_timestamp()) ORDER BY accepted_at FOR UPDATE SKIP LOCKED LIMIT 1) UPDATE checkout_operations c SET lease_owner=$1,lease_until=clock_timestamp()+interval '10 seconds',lease_epoch=lease_epoch+1,attempts=attempts+1,status=CASE WHEN c.stage='COMPENSATE' THEN 'COMPENSATING' ELSE 'PROCESSING' END FROM picked WHERE c.id=picked.id RETURNING c.id,c.scope,c.principal_id,c.planned_order_id,c.status,c.stage,c.input_cipher,c.canonical_cipher,c.lease_epoch,c.attempts,c.reservation_id,c.reservation_expires_at,c.commercial_expires_at,c.accepted_at,c.error_code,c.error_http`, s.workerID).Scan(&w.ID, &w.Scope, &w.Principal, &w.Planned, &w.Status, &w.Stage, &w.Input, &w.Canonical, &w.Epoch, &w.Attempts, &w.Reservation, &w.Expires, &w.Commercial, &w.Accepted, &w.Error, &w.ErrorHTTP)
 	if errors.Is(e, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -36,7 +36,7 @@ func (s *Service) opTransaction(ctx context.Context, w *operationWork, fn func(p
 	}
 	defer tx.Rollback(ctx)
 	var ok bool
-	e = tx.QueryRow(ctx, `SELECT lease_owner=$2 AND lease_epoch=$3 AND lease_until>clock_timestamp() FROM checkout_operations WHERE id=$1 FOR UPDATE`, w.ID, s.workerID, w.Epoch).Scan(&ok)
+	e = tx.QueryRow(ctx, `SELECT lease_owner=$2 AND lease_epoch=$3 AND lease_until>clock_timestamp() FROM checkout_operations WHERE cohort='sandbox-3.1' AND id=$1 FOR UPDATE`, w.ID, s.workerID, w.Epoch).Scan(&ok)
 	if e != nil {
 		return e
 	}

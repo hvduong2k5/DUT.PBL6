@@ -16,13 +16,13 @@ func (c *backlogCollector) Collect(out chan<- prometheus.Metric) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	queries := map[string]string{
-		"checkout":       "SELECT count(*),COALESCE(EXTRACT(EPOCH FROM clock_timestamp()-min(accepted_at)),0) FROM checkout_operations WHERE completed_at IS NULL",
+		"checkout":       "SELECT count(*),COALESCE(EXTRACT(EPOCH FROM clock_timestamp()-min(accepted_at)),0) FROM checkout_operations WHERE cohort='sandbox-3.1' AND completed_at IS NULL",
 		"outbox":         "SELECT count(*),COALESCE(EXTRACT(EPOCH FROM clock_timestamp()-min(created_at)),0) FROM outbox WHERE published_at IS NULL",
-		"manual_review":  "SELECT count(*),COALESCE(EXTRACT(EPOCH FROM clock_timestamp()-min(created_at)),0) FROM jobs WHERE status='MANUAL_REVIEW'",
+		"manual_review":  "SELECT count(*),COALESCE(EXTRACT(EPOCH FROM clock_timestamp()-min(created_at)),0) FROM jobs WHERE cohort='sandbox-3.1' AND status='MANUAL_REVIEW'",
 		"deferred_inbox": "SELECT count(*),COALESCE(EXTRACT(EPOCH FROM clock_timestamp()-min(received_at)),0) FROM inbox WHERE status='DEFERRED'",
 		"refund_unknown": "SELECT count(*),COALESCE(EXTRACT(EPOCH FROM clock_timestamp()-min(created_at)),0) FROM refunds WHERE status IN ('UNKNOWN','MANUAL_REVIEW')",
 		"reconciliation": "SELECT count(*),COALESCE(EXTRACT(EPOCH FROM clock_timestamp()-min(created_at)),0) FROM reconciliation_cases WHERE status='OPEN'",
-		"sla_overdue":    "SELECT count(*),COALESCE(EXTRACT(EPOCH FROM clock_timestamp()-min(sla_due_at)),0) FROM orders WHERE sla_due_at<clock_timestamp() AND status IN ('PAID','CONFIRMED_COD','PROCESSING','PACKED','SHIPPED','DELIVERY_FAILED')",
+		"sla_overdue":    "SELECT count(*),COALESCE(EXTRACT(EPOCH FROM clock_timestamp()-min(sla_due_at)),0) FROM orders WHERE cohort='sandbox-3.1' AND sla_due_at<clock_timestamp() AND status IN ('PAID','CONFIRMED_COD','PROCESSING','PACKED','SHIPPED','DELIVERY_FAILED')",
 	}
 	for phase, query := range queries {
 		var count, age float64

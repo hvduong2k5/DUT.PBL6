@@ -218,7 +218,7 @@ func (s *Service) CompleteOrders(ctx context.Context) error {
 	if !s.C.AutoComplete {
 		return nil
 	}
-	rows, e := s.DB.Query(ctx, "SELECT id FROM orders WHERE status='DELIVERED' AND completion_due_at<=clock_timestamp() AND payment_status IN ('CONFIRMED','PARTIALLY_REFUNDED') AND operational_hold=false AND NOT EXISTS(SELECT 1 FROM refunds f WHERE f.order_id=orders.id AND f.status IN ('APPROVED','SUBMITTED','UNKNOWN','MANUAL_REVIEW')) LIMIT 100")
+	rows, e := s.DB.Query(ctx, "SELECT id FROM orders WHERE cohort='sandbox-3.1' AND status='DELIVERED' AND completion_due_at<=clock_timestamp() AND payment_status IN ('CONFIRMED','PARTIALLY_REFUNDED') AND operational_hold=false AND NOT EXISTS(SELECT 1 FROM refunds f WHERE f.order_id=orders.id AND f.status IN ('APPROVED','SUBMITTED','UNKNOWN','MANUAL_REVIEW')) LIMIT 100")
 	if e != nil {
 		return e
 	}
@@ -279,7 +279,7 @@ func (s *Service) Recover(ctx context.Context, p domain.Principal, id string) er
 	defer tx.Rollback(ctx)
 	var order *string
 	var scope, status, stage string
-	e = tx.QueryRow(ctx, "SELECT order_id,scope,status,stage FROM checkout_operations WHERE id=$1 FOR UPDATE", id).Scan(&order, &scope, &status, &stage)
+	e = tx.QueryRow(ctx, "SELECT order_id,scope,status,stage FROM checkout_operations WHERE cohort='sandbox-3.1' AND id=$1 FOR UPDATE", id).Scan(&order, &scope, &status, &stage)
 	if e == nil {
 		if p.Role != "ADMIN" {
 			return domain.E("PERMISSION_DENIED", 403)
@@ -296,7 +296,7 @@ func (s *Service) Recover(ctx context.Context, p domain.Principal, id string) er
 		}
 	} else if errors.Is(e, pgx.ErrNoRows) {
 		var oid string
-		e = tx.QueryRow(ctx, "SELECT order_id FROM jobs WHERE id=$1 AND status='MANUAL_REVIEW'", id).Scan(&oid)
+		e = tx.QueryRow(ctx, "SELECT order_id FROM jobs WHERE cohort='sandbox-3.1' AND id=$1 AND status='MANUAL_REVIEW'", id).Scan(&oid)
 		if e != nil {
 			return e
 		}

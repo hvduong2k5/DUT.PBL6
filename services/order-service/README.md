@@ -1,5 +1,7 @@
 # MS-04 Order Service (Go, sandbox 3.1)
 
+Target Core foundations đã được thêm tại [internal/domain/core](internal/domain/core/) theo [Roadmap PR1](../../docs/02_architecture/services/order-service/18_order_implementation_roadmap.md). Package thuần nghiệp vụ chưa thay sandbox routes/persistence. [Implementation ADRs](../../docs/02_architecture/adr/order-service/README.md) ghi các gap/quyết định khi coding; [verification](../../docs/04_testing/order-service/04_order_core_foundations.md) tách domain tests khỏi real-stack integration chưa chạy.
+
 Async checkout operations, durable PostgreSQL sagas/idempotency/financial ledger, Redis Cart/quote, Kafka inbox/outbox; stateful dependencies and provider ledger in a separate PostgreSQL database. Public HTTP and registered Order/Inventory gRPC contracts are exercised by release gates.
 
 ## Start
@@ -24,6 +26,8 @@ python packages/contracts/verify_order_design.py --compile-proto
 ```
 
 ## Run release gates
+
+Target persistence foundation tests chỉ cần real PostgreSQL16 qua `ORDER_CORE_TEST_DATABASE`: `go test -race ./internal/persistence ./tests/persistence`. Test tự tạo/drop schema UUID, không dùng dữ liệu schema runtime. [Migration004](migrations/000004_core_foundation.up.sql) là expand có cohort fences; [PR2 evidence](../../docs/04_testing/order-service/05_persistence_foundation.md) phân biệt target SQL boundary với legacy full-stack regression. Target public routes/worker/publisher chưa được switch.
 
 ```powershell
 ./services/order-service/scripts/test.ps1 -StartStack
@@ -56,6 +60,8 @@ docker run --rm --mount 'type=bind,source=E:\DUT.K1N4\PBL,target=/workspace' oma
 ```
 
 ## API flow
+
+**SePay implementation24/10/2026:** opt-in TEST adapter, canonical API ledger, finalization, Guest grants và manual controls được mô tả trong [SEPAY_TEST.md](SEPAY_TEST.md). Khi bật SePay, new legacy VIETQR checkout được chặn tới khi target executor/Inventory3.2 đạt gate. Các bước bên dưới vẫn mô tả default legacy sandbox; chúng không chứng minh SePay end-to-end đã nghiệm thu. [ADR009](../../docs/02_architecture/adr/order-service/adr_009_sepay_payment_runtime_and_capability_gates.md) ghi các quyết định và dependency còn thiếu.
 
 1. Obtain a sandbox token through authenticated simulator `/test/token`, or a Guest session through Order `/api/v1/guest-sessions`.
 2. Mutate owned Cart with revision; server issues encrypted quote via `/api/v1/checkout/quote`.

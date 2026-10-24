@@ -17,6 +17,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/omamx/order-service/internal/domain"
+	"github.com/omamx/order-service/internal/persistence"
+	"github.com/omamx/order-service/internal/sepay"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/redis/go-redis/v9"
 	"github.com/segmentio/kafka-go"
@@ -59,16 +61,26 @@ func LoadConfig() (Config, error) {
 }
 
 type Service struct {
-	DB       *pgxpool.Pool
-	Redis    *redis.Client
-	C        Config
-	Client   *http.Client
-	AEAD     cipher.AEAD
-	Writer   *kafka.Writer
-	workerID string
-	register *prometheus.Registry
-	Metrics  *prometheus.HistogramVec
-	stop     sync.WaitGroup
+	CoreCheckout         *persistence.CheckoutRuntime
+	PaymentVault         persistence.EvidenceVault
+	PaymentEvidenceHosts []string
+	PaymentCases         persistence.CaseAuthority
+	PaymentApproval      persistence.ApprovalReader
+	PaymentEvidence      persistence.EvidenceAuthority
+	PaymentClose         func() error
+	Payment              *persistence.Payment
+	PaymentReader        sepay.Reader
+	PaymentInventory     persistence.PaymentInventory
+	DB                   *pgxpool.Pool
+	Redis                *redis.Client
+	C                    Config
+	Client               *http.Client
+	AEAD                 cipher.AEAD
+	Writer               *kafka.Writer
+	workerID             string
+	register             *prometheus.Registry
+	Metrics              *prometheus.HistogramVec
+	stop                 sync.WaitGroup
 }
 
 func New(ctx context.Context, c Config) (*Service, error) {
@@ -105,6 +117,9 @@ func New(ctx context.Context, c Config) (*Service, error) {
 }
 func (s *Service) Close() {
 	s.stop.Wait()
+	if s.PaymentClose != nil {
+		_ = s.PaymentClose()
+	}
 	if s.Writer != nil {
 		_ = s.Writer.Close()
 	}

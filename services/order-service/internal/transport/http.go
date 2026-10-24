@@ -86,6 +86,7 @@ func Handler(s *app.Service) http.Handler {
 		})
 	})
 	r.Use(middleware.Timeout(3 * time.Second))
+	sepayRoutes(s, r)
 	r.Get("/livez", func(w http.ResponseWriter, _ *http.Request) { write(w, 200, map[string]bool{"live": true}) })
 	r.Get("/readyz", func(w http.ResponseWriter, r *http.Request) {
 		if e := s.DB.Ping(r.Context()); e != nil {
@@ -98,7 +99,17 @@ func Handler(s *app.Service) http.Handler {
 	r.Post("/api/v1/guest-sessions", func(w http.ResponseWriter, r *http.Request) {
 		id := uuid.NewString()
 		now := time.Now()
-		token := app.SignToken(s.C.JWTSecret, app.Claims{Subject: id, Role: "GUEST", Issuer: "order-sandbox", Audience: "order-api", Issued: now.Unix(), Expires: now.Add(30 * 24 * time.Hour).Unix()})
+		expires := now.Add(30 * 24 * time.Hour)
+		if s.Payment != nil {
+			expires = now.Add(24 * time.Hour)
+		}
+		token := app.SignToken(s.C.JWTSecret, app.Claims{Subject: id, Role: "GUEST", Issuer: "order-sandbox", Audience: "order-api", Issued: now.Unix(), Expires: expires.Unix()})
+		if s.Payment != nil {
+			if e := s.Payment.CreateGuestSession(r.Context(), id, token, now, expires); e != nil {
+				failure(s, w, domain.E("GUEST_SESSION_UNAVAILABLE", 503))
+				return
+			}
+		}
 		write(w, 201, map[string]string{"session_id": id, "access_token": token})
 	})
 	r.Group(func(api chi.Router) {

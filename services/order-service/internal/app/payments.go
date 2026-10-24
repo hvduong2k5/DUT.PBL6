@@ -19,7 +19,7 @@ func (s *Service) RecordReceipt(ctx context.Context, r domain.Receipt) error {
 		return e
 	}
 	defer tx.Rollback(ctx)
-	o, orderErr := scanOrder(tx.QueryRow(ctx, "SELECT "+orderColumns+" FROM orders WHERE provider_reference=$1 FOR UPDATE", r.Reference))
+	o, orderErr := scanOrder(tx.QueryRow(ctx, "SELECT "+orderColumns+" FROM orders WHERE cohort='sandbox-3.1' AND provider_reference=$1 FOR UPDATE", r.Reference))
 	if orderErr != nil && !errors.Is(orderErr, pgx.ErrNoRows) {
 		return orderErr
 	}
@@ -29,13 +29,13 @@ func (s *Service) RecordReceipt(ctx context.Context, r domain.Receipt) error {
 	}
 	rid := uuid.NewString()
 	hash := domain.Hash(r)
-	tag, e := tx.Exec(ctx, `INSERT INTO receipts(id,provider,transaction_id,order_id,reference,receiver,amount,currency,payload_hash,status,provider_status,provider_paid_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,'VERIFIED','SUCCEEDED',$10) ON CONFLICT(provider,transaction_id) DO NOTHING`, rid, r.Provider, r.TransactionID, orderID, r.Reference, r.Receiver, r.Amount, r.Currency, hash, r.PaidAt)
+	tag, e := tx.Exec(ctx, `INSERT INTO receipts(id,provider,transaction_id,order_id,reference,receiver,amount,currency,payload_hash,status,provider_status,provider_paid_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,'VERIFIED','SUCCEEDED',$10) ON CONFLICT(provider,transaction_id) WHERE connection_id IS NULL DO NOTHING`, rid, r.Provider, r.TransactionID, orderID, r.Reference, r.Receiver, r.Amount, r.Currency, hash, r.PaidAt)
 	if e != nil {
 		return e
 	}
 	if tag.RowsAffected() == 0 {
 		var previous string
-		if e = tx.QueryRow(ctx, "SELECT payload_hash FROM receipts WHERE provider=$1 AND transaction_id=$2", r.Provider, r.TransactionID).Scan(&previous); e != nil {
+		if e = tx.QueryRow(ctx, "SELECT payload_hash FROM receipts WHERE connection_id IS NULL AND provider=$1 AND transaction_id=$2", r.Provider, r.TransactionID).Scan(&previous); e != nil {
 			return e
 		}
 		if previous != hash {

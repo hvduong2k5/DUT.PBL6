@@ -16,6 +16,16 @@ import (
 
 func (s *Service) Registry() *prometheus.Registry { return s.register }
 func (s *Service) Start(ctx context.Context) {
+	if s.CoreCheckout!=nil{s.startPaymentLoop(ctx,s.C.Poll,"target checkout retry",func(ctx context.Context)error{_,e:=s.CoreCheckout.Work(ctx);return e})}
+	if s.Payment != nil {
+		if s.PaymentReader != nil {
+			s.startPaymentLoop(ctx, 500*time.Millisecond, "SePay sync retry", func(ctx context.Context) error { _, e := s.Payment.WorkSync(ctx, s.PaymentReader); return e })
+		}
+		if s.PaymentInventory != nil {
+			s.startPaymentLoop(ctx, 500*time.Millisecond, "SePay finalize retry", func(ctx context.Context) error { _, e := s.Payment.WorkFinalize(ctx, s.PaymentInventory); return e })
+		}
+		s.startPaymentLoop(ctx, 30*time.Second, "SePay manual refund sweep retry", s.Payment.SweepManualRefunds)
+	}
 	for i := 0; i < 4; i++ {
 		s.stop.Add(1)
 		go func() {
@@ -167,4 +177,25 @@ func consumerGroup(c Config) string {
 		return c.ConsumerGroup
 	}
 	return "order-service-source-v3"
+}
+
+// Independent lanes keep a slow/backfill statement scan from starving an
+// already allocated Order's Inventory finalization or manual refund watchdog.
+func (s *Service) startPaymentLoop(ctx context.Context, interval time.Duration, label string, work func(context.Context) error) {
+	s.stop.Add(1)
+	go func() {
+		defer s.stop.Done()
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if e := work(ctx); e != nil && ctx.Err() == nil {
+					slog.Error(label)
+				}
+			}
+		}
+	}()
 }

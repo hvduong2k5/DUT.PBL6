@@ -13,13 +13,18 @@ import (
 )
 
 type Claims struct {
-	Subject   string `json:"sub"`
-	Role      string `json:"role"`
-	Warehouse string `json:"warehouse,omitempty"`
-	Issuer    string `json:"iss"`
-	Audience  string `json:"aud"`
-	Expires   int64  `json:"exp"`
-	Issued    int64  `json:"iat"`
+	Permissions       []string `json:"permissions,omitempty"`
+	PaymentConnection string   `json:"payment_connection_id,omitempty"`
+	PaymentReceivers  []string `json:"payment_receiver_ids,omitempty"`
+	MFAAt             int64    `json:"auth_time,omitempty"`
+	AMR               []string `json:"amr,omitempty"`
+	Subject           string   `json:"sub"`
+	Role              string   `json:"role"`
+	Warehouse         string   `json:"warehouse,omitempty"`
+	Issuer            string   `json:"iss"`
+	Audience          string   `json:"aud"`
+	Expires           int64    `json:"exp"`
+	Issued            int64    `json:"iat"`
 }
 
 func SignToken(secret string, c Claims) string {

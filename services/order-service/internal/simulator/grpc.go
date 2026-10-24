@@ -50,6 +50,7 @@ func (r *InventoryRPC) ReserveStock(ctx context.Context, in *inventory.ReserveSt
 		return nil, e
 	}
 	items := []domain.Item{}
+	if in.ContractVersion=="order-3.2"{return r.coreReserve(ctx,in)}
 	for _, i := range in.Items {
 		items = append(items, domain.Item{SKU: i.SkuCode, Quantity: int(i.Quantity)})
 	}
@@ -87,6 +88,7 @@ func (r *InventoryRPC) command(ctx context.Context, action string, in *inventory
 	if e := r.auth(ctx); e != nil {
 		return nil, e
 	}
+	if in.ContractVersion=="order-3.2"{return r.coreCommand(ctx,action,in)}
 	res, e := r.S.inventory(ctx, action, in.OrderId, in.IdempotencyKey, nil, 0, in.ApprovalReference, in.CodUnpaid)
 	if e != nil {
 		return nil, inventoryError(e)
