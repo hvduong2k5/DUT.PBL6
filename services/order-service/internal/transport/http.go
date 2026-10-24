@@ -120,6 +120,12 @@ func Handler(s *app.Service) http.Handler {
 					failure(s, w, e)
 					return
 				}
+				if s.Payment != nil && p.Role == "GUEST" {
+					if e := s.Payment.CheckGuestSession(r.Context(), p.ID); e != nil {
+						failure(s, w, domain.E("UNAUTHENTICATED", 401))
+						return
+					}
+				}
 				next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), principalKey{}, p)))
 			})
 		})
@@ -197,7 +203,12 @@ func Handler(s *app.Service) http.Handler {
 				failure(s, w, e)
 				return
 			}
-			write(w, 200, q)
+			view, e := s.QuoteResponse(r.Context(), q, principal(r))
+			if e != nil {
+				failure(s, w, e)
+				return
+			}
+			write(w, 200, view)
 		})
 		api.Post("/api/v1/checkout", func(w http.ResponseWriter, r *http.Request) {
 			var in domain.CheckoutInput
@@ -218,7 +229,12 @@ func Handler(s *app.Service) http.Handler {
 			if status == 202 {
 				w.Header().Set("Retry-After", "2")
 			}
-			write(w, status, o)
+			view, e := s.OperationResponse(r.Context(), o, principal(r))
+			if e != nil {
+				failure(s, w, e)
+				return
+			}
+			write(w, status, view)
 		})
 		api.Get("/api/v1/checkout-operations/{id}", func(w http.ResponseWriter, r *http.Request) {
 			o, e := s.Operation(r.Context(), chi.URLParam(r, "id"), principal(r))
@@ -229,7 +245,12 @@ func Handler(s *app.Service) http.Handler {
 			if o.OrderID != nil {
 				w.Header().Set("Link", "</api/v1/orders/"+*o.OrderID+">; rel=\"item\"")
 			}
-			write(w, 200, o)
+			view, e := s.OperationResponse(r.Context(), o, principal(r))
+			if e != nil {
+				failure(s, w, e)
+				return
+			}
+			write(w, 200, view)
 		})
 		list := func(staff, queue bool) http.HandlerFunc {
 			return func(w http.ResponseWriter, r *http.Request) {
@@ -244,7 +265,11 @@ func Handler(s *app.Service) http.Handler {
 				if len(items) > 0 && !queue {
 					next = s.Cursor(items[len(items)-1], p.Scope(), r.URL.Query().Get("status"))
 				}
-				write(w, 200, map[string]any{"items": items, "next_cursor": next})
+				views := make([]any, 0, len(items))
+				for _, item := range items {
+					views = append(views, s.OrderResponse(item, p, false))
+				}
+				write(w, 200, map[string]any{"items": views, "next_cursor": next})
 			}
 		}
 		api.Get("/api/v1/orders", list(false, false))
@@ -257,7 +282,7 @@ func Handler(s *app.Service) http.Handler {
 				return
 			}
 			w.Header().Set("ETag", strconv.Quote(strconv.FormatInt(o.Version, 10)))
-			write(w, 200, o)
+			write(w, 200, s.OrderResponse(o, principal(r), true))
 		})
 		api.Get("/api/v1/orders/{id}/tracking", func(w http.ResponseWriter, r *http.Request) {
 			o, e := s.GetOrder(r.Context(), chi.URLParam(r, "id"), principal(r), false)

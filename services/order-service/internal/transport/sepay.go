@@ -37,6 +37,7 @@ func sepayError(s *app.Service, w http.ResponseWriter, err error) {
 	}
 }
 func sepayRoutes(s *app.Service, r chi.Router) {
+	coreRecoveryRoutes(s, r)
 	sepayStaffRoutes(s, r)
 	r.Delete("/api/v1/guest-sessions/current", func(w http.ResponseWriter, r *http.Request) {
 		if s.Payment == nil {

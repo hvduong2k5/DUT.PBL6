@@ -16,7 +16,17 @@ import (
 
 func (s *Service) Registry() *prometheus.Registry { return s.register }
 func (s *Service) Start(ctx context.Context) {
-	if s.CoreCheckout!=nil{s.startPaymentLoop(ctx,s.C.Poll,"target checkout retry",func(ctx context.Context)error{_,e:=s.CoreCheckout.Work(ctx);return e})}
+	if s.CoreCheckout != nil {
+		s.startPaymentLoop(ctx, s.C.Poll, "target checkout retry", func(ctx context.Context) error { _, e := s.CoreCheckout.Work(ctx); return e })
+	}
+	if s.CoreCheckout != nil {
+		s.startPaymentLoop(ctx, s.C.Poll, "target followup retry", func(ctx context.Context) error { _, e := s.WorkCoreFollowup(ctx); return e })
+		s.startPaymentLoop(ctx, time.Second, "target timeout retry", s.CoreCheckout.Store.SweepCoreTimeouts)
+		s.startPaymentLoop(ctx, time.Second, "target completion retry", s.CompleteCoreOrders)
+		if s.Writer != nil {
+			s.startPaymentLoop(ctx, 100*time.Millisecond, "target outbox retry", func(ctx context.Context) error { _, e := s.PublishCoreOne(ctx); return e })
+		}
+	}
 	if s.Payment != nil {
 		if s.PaymentReader != nil {
 			s.startPaymentLoop(ctx, 500*time.Millisecond, "SePay sync retry", func(ctx context.Context) error { _, e := s.Payment.WorkSync(ctx, s.PaymentReader); return e })

@@ -17,6 +17,19 @@ import (
 type coreSource struct{ s *Service }
 
 func (c coreSource) Revalidate(ctx context.Context, terms core.SnapshotInput) error {
+	if terms.Address.Source.Kind == "PROFILE_ADDRESS" {
+		if terms.Address.Source.ProfileAddressID == nil || terms.Address.Source.AddressVersion == nil {
+			return persistence.ErrIntegrity
+		}
+		p := domain.Principal{ID: terms.Owner.PrincipalID, Role: terms.Owner.Kind, CustomerID: *terms.Owner.CustomerID}
+		a, version, e := c.s.Address(ctx, p, *terms.Address.Source.ProfileAddressID)
+		if e != nil {
+			return e
+		}
+		if version != *terms.Address.Source.AddressVersion || a.Name != terms.Address.RecipientName || a.Phone != terms.Address.PhoneE164 || a.Street != terms.Address.Street || a.Ward != terms.Address.WardCode || a.Province != terms.Address.ProvinceCode {
+			return persistence.ErrTermsChanged
+		}
+	}
 	var out struct {
 		Valid bool `json:"valid"`
 	}
@@ -25,7 +38,7 @@ func (c coreSource) Revalidate(ctx context.Context, terms core.SnapshotInput) er
 		return e
 	}
 	if !out.Valid {
-		return domain.E("TERMS_CHANGED", 409)
+		return persistence.ErrTermsChanged
 	}
 	return nil
 }
@@ -40,13 +53,16 @@ func (s *Service) EnableCoreCheckout() error {
 	if !ok {
 		return errors.New("target checkout requires Inventory3.2 reserve/commit/release capability")
 	}
-	if _, e := uuid.Parse(os.Getenv("ORDER_MERCHANT_ID")); e != nil {
+	if id, e := uuid.Parse(os.Getenv("ORDER_MERCHANT_ID")); e != nil || id == uuid.Nil {
 		return errors.New("ORDER_MERCHANT_ID must be a stable UUID")
 	}
 	s.CoreCheckout = &persistence.CheckoutRuntime{Store: s.Payment.Store, Source: coreSource{s}, Inventory: inventory}
 	return nil
 }
 func (s *Service) coreQuote(ctx context.Context, p domain.Principal, q domain.Quote) (domain.Quote, error) {
+	if p.Role == "GUEST" && q.Method == "VIETQR" && s.Payment.GrantKey == nil {
+		return q, domain.E("GUEST_PAYMENT_ACCESS_UNAVAILABLE", 503)
+	}
 	var terms core.SnapshotInput
 	if e := s.Call(ctx, "POST", "/order-core/terms", q, &terms); e != nil {
 		return q, e
@@ -95,7 +111,10 @@ func (s *Service) coreQuote(ctx context.Context, p domain.Principal, q domain.Qu
 	if q.Method == "VIETQR" {
 		provider := "SEPAY"
 		receiver := s.Payment.Receiver
-		version := int64(1)
+		var version int64
+		if e = s.DB.QueryRow(ctx, "SELECT config_version FROM payment_receiver_profiles WHERE id=$1 AND accepting_new_payments", receiver).Scan(&version); e != nil {
+			return q, e
+		}
 		expires := now.Add(15 * time.Minute)
 		terms.Payment = core.PaymentTerms{Method: q.Method, Provider: &provider, ReceiverProfileID: &receiver, ReceiverProfileVersion: &version, ExpiresAt: &expires}
 	}
@@ -142,10 +161,19 @@ func (s *Service) acceptCore(ctx context.Context, p domain.Principal, key string
 		return domain.Operation{}, 403, domain.E("PERMISSION_DENIED", 403)
 	}
 	hash := domain.Hash(in)
+	if len(key) < 16 || len(key) > 128 {
+		return domain.Operation{}, 400, domain.E("INVALID_IDEMPOTENCY_KEY", 400)
+	}
 	if prior, e := s.Payment.Store.LookupAcceptance(ctx, p.Scope(), key, hash); e == nil {
 		return s.coreOperation(ctx, prior.OperationID, p)
 	} else if !errors.Is(e, pgx.ErrNoRows) && !errors.Is(e, persistence.ErrLegacy) {
 		return domain.Operation{}, 409, coreFailure(e)
+	}
+	if _, e := s.Payment.Store.LookupAcceptance(ctx, p.Scope(), key, hash); errors.Is(e, persistence.ErrLegacy) {
+		return s.replay(ctx, p, key, hash)
+	}
+	if p.Role == "GUEST" && in.Method == "VIETQR" && s.Payment.GrantKey == nil {
+		return domain.Operation{}, 503, domain.E("GUEST_PAYMENT_ACCESS_UNAVAILABLE", 503)
 	}
 	data, e := s.Redis.Get(ctx, "quote:"+in.QuoteID).Bytes()
 	if errors.Is(e, redis.Nil) {
@@ -163,6 +191,16 @@ func (s *Service) acceptCore(ctx context.Context, p domain.Principal, key string
 	}
 	if stored.Core == nil || stored.Quote.Method != in.Method || stored.Quote.Revision != in.Revision {
 		return domain.Operation{}, 409, domain.E("QUOTE_INPUT_MISMATCH", 409)
+	}
+	if current, e := s.Redis.Get(ctx, "core-cart-id:"+p.Scope()).Result(); e != nil || current != stored.Core.Provenance.CartID {
+		return domain.Operation{}, 409, domain.E("CART_REPLACED", 409)
+	}
+	resolved, e := s.Resolve(ctx, p)
+	if e != nil {
+		return domain.Operation{}, 503, e
+	}
+	if p.Role == "CUSTOMER" && (stored.Core.Owner.CustomerID == nil || *stored.Core.Owner.CustomerID != resolved.CustomerID) {
+		return domain.Operation{}, 409, domain.E("OWNER_CHANGED", 409)
 	}
 	cart, e := s.Cart(ctx, p)
 	if e != nil {
@@ -202,6 +240,12 @@ func coreFailure(e error) error {
 		return domain.E("IDEMPOTENCY_RESPONSE_EXPIRED", 410)
 	case errors.Is(e, persistence.ErrExpired):
 		return domain.E("QUOTE_EXPIRED", 409)
+	case errors.Is(e, persistence.ErrForbidden):
+		return domain.E("PERMISSION_DENIED", 403)
+	case errors.Is(e, core.ErrProof), errors.Is(e, core.ErrSnapshot):
+		return domain.E("INVALID_RESOURCE_EVIDENCE", 422)
+	case errors.Is(e, core.ErrState), errors.Is(e, core.ErrBlocked), errors.Is(e, core.ErrVersion), errors.Is(e, core.ErrDeadline):
+		return domain.E("ORDER_STATE_CONFLICT", 409)
 	}
 	return e
 }

@@ -64,7 +64,7 @@ func (s *Service) RecordReceipt(ctx context.Context, r domain.Receipt) error {
 		} else if o.Status == "CANCELLED_BY_USER" || o.Status == "CANCELLED_BY_ADMIN" || o.Status == "CANCELLED_TIMEOUT" {
 			reason = "LATE_PAYMENT"
 		}
-	} else if o.Status != "PENDING_PAYMENT" || !now.Before(o.ExpiresAt) || o.Hold {
+	} else if o.Status != "PENDING_PAYMENT" || o.ExpiresAt == nil || !now.Before(*o.ExpiresAt) || o.Hold {
 		reason = "LATE_OR_UNAVAILABLE"
 	} else if r.Amount != o.Final {
 		reason = "AMOUNT_MISMATCH"

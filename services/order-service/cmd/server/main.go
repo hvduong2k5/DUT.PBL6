@@ -38,11 +38,11 @@ func main() {
 		slog.Error("SePay startup configuration invalid")
 		os.Exit(1)
 	}
-	listener, e := net.Listen("tcp", cfg.GRPC)
 	if eCore := s.EnableCoreCheckout(); eCore != nil {
 		slog.Error("target checkout configuration invalid")
 		os.Exit(1)
 	}
+	listener, e := net.Listen("tcp", cfg.GRPC)
 	if e != nil {
 		slog.Error("gRPC listen failed")
 		os.Exit(1)

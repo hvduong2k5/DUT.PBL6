@@ -11,11 +11,11 @@ import (
 	"time"
 )
 
-const orderColumns = `id,operation_id,order_code,scope,principal_id,customer_id,warehouse_id,method,status,payment_status,stock_status,subtotal,shipping_fee,final_amount,version,ready_generation,ready_authorized,operational_hold,has_active_case,reservation_id,provider_reference,task_id,shipment_id,seal_code,payment_expires_at,created_at,sla_due_at,completion_due_at,updated_at`
+const orderColumns = `id,operation_id,order_code,scope,principal_id,customer_id,warehouse_id,method,status,payment_status,stock_status,subtotal,shipping_fee,final_amount,version,ready_generation,ready_authorized,operational_hold,has_active_case,reservation_id,COALESCE(provider_reference,''),task_id,shipment_id,seal_code,payment_expires_at,created_at,sla_due_at,completion_due_at,updated_at,cohort`
 
 func scanOrder(row pgx.Row) (domain.Order, error) {
 	var o domain.Order
-	e := row.Scan(&o.ID, &o.OperationID, &o.Code, &o.Scope, &o.PrincipalID, &o.CustomerID, &o.Warehouse, &o.Method, &o.Status, &o.Payment, &o.Stock, &o.Subtotal, &o.Shipping, &o.Final, &o.Version, &o.Generation, &o.Ready, &o.Hold, &o.ActiveCase, &o.Reservation, &o.Reference, &o.Task, &o.Shipment, &o.Seal, &o.ExpiresAt, &o.CreatedAt, &o.SLA, &o.CompletionDue, &o.UpdatedAt)
+	e := row.Scan(&o.ID, &o.OperationID, &o.Code, &o.Scope, &o.PrincipalID, &o.CustomerID, &o.Warehouse, &o.Method, &o.Status, &o.Payment, &o.Stock, &o.Subtotal, &o.Shipping, &o.Final, &o.Version, &o.Generation, &o.Ready, &o.Hold, &o.ActiveCase, &o.Reservation, &o.Reference, &o.Task, &o.Shipment, &o.Seal, &o.ExpiresAt, &o.CreatedAt, &o.SLA, &o.CompletionDue, &o.UpdatedAt, &o.Cohort)
 	return o, e
 }
 func (s *Service) lockOrder(ctx context.Context, tx pgx.Tx, id string) (domain.Order, error) {
@@ -28,6 +28,9 @@ func CanRead(p domain.Principal, o domain.Order) bool {
 	return p.Staff() && (p.Role == "ADMIN" || p.Warehouse == o.Warehouse)
 }
 func (s *Service) GetOrder(ctx context.Context, id string, p domain.Principal, detail bool) (domain.Order, error) {
+	if s.isCoreOrder(ctx, id) {
+		return s.getCoreOrder(ctx, id, p, detail)
+	}
 	if _, e := uuid.Parse(id); e != nil {
 		return domain.Order{}, domain.E("ORDER_NOT_FOUND", 404)
 	}
@@ -70,6 +73,9 @@ func (s *Service) ListOrders(ctx context.Context, p domain.Principal, staff, que
 	}
 	args := []any{}
 	query := "SELECT " + orderColumns + " FROM orders WHERE cohort='sandbox-3.1' AND TRUE"
+	if s.CoreCheckout != nil {
+		query = "SELECT " + orderColumns + " FROM orders WHERE cohort IN ('sandbox-3.1','order-core-1')"
+	}
 	add := func(v any) string { args = append(args, v); return "$" + strconv.Itoa(len(args)) }
 	if !staff {
 		query += " AND scope=" + add(p.Scope())
@@ -161,6 +167,16 @@ func (s *Service) touch(ctx context.Context, tx pgx.Tx, o *domain.Order, source 
 	return s.Emit(ctx, tx, o.ID, "ORDER", o.Version, 9, "audit", o.Status, o.Payment, o.Stock, o.Generation)
 }
 func (s *Service) Cancel(ctx context.Context, p domain.Principal, id, key string, version int64, reason string, review bool) (map[string]any, error) {
+	if s.isCoreOrder(ctx, id) {
+		if review || p.Staff() {
+			return nil, domain.E("CARE_APPROVAL_REQUIRED", 409)
+		}
+		a, e := s.Payment.Store.CancelPending(ctx, id, p.Scope(), key, version, reason)
+		if e != nil {
+			return nil, coreFailure(e)
+		}
+		return map[string]any{"order_id": a.ID(), "status": a.State(), "version": a.Version()}, nil
+	}
 	if len(key) < 16 || len(key) > 128 {
 		return nil, domain.E("INVALID_IDEMPOTENCY_KEY", 400)
 	}
@@ -246,6 +262,9 @@ func (s *Service) Hold(ctx context.Context, p domain.Principal, id string, versi
 	return s.SetHold(ctx, p, id, version, true, uuid.NewString())
 }
 func (s *Service) SetHold(ctx context.Context, p domain.Principal, id string, version int64, active bool, key string) error {
+	if s.isCoreOrder(ctx, id) {
+		return s.setCoreHold(ctx, p, id, version, active, key)
+	}
 	if !p.Manager() {
 		return domain.E("PERMISSION_DENIED", 403)
 	}

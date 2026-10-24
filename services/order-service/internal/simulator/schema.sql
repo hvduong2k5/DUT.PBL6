@@ -17,3 +17,6 @@ CREATE TABLE IF NOT EXISTS catalog_quotes(id uuid PRIMARY KEY,snapshot jsonb NOT
 ALTER TABLE provider_payments ADD COLUMN IF NOT EXISTS sequence bigserial UNIQUE;
 CREATE TABLE IF NOT EXISTS core_inventory(order_id uuid PRIMARY KEY,id uuid NOT NULL UNIQUE,digest text NOT NULL,warehouse text NOT NULL,items jsonb NOT NULL,state text NOT NULL,version bigint NOT NULL,expires_at timestamptz NOT NULL);
 CREATE TABLE IF NOT EXISTS core_inventory_commands(order_id uuid NOT NULL REFERENCES core_inventory(order_id),operation_key text NOT NULL,request_hash text NOT NULL,action text NOT NULL,decision_id uuid NOT NULL,result text NOT NULL,resulting_state text NOT NULL,decided_at timestamptz NOT NULL,PRIMARY KEY(order_id,operation_key));
+CREATE TABLE IF NOT EXISTS core_source_history(source text NOT NULL,resource_id uuid NOT NULL,version bigint NOT NULL,order_id uuid NOT NULL,proof jsonb NOT NULL,PRIMARY KEY(source,resource_id,version));
+CREATE TABLE IF NOT EXISTS core_completion_decisions(order_id uuid NOT NULL,order_version bigint NOT NULL,decision_id uuid NOT NULL,expires_at timestamptz NOT NULL,PRIMARY KEY(order_id,order_version));
+CREATE TABLE IF NOT EXISTS core_admission_barriers(order_id uuid PRIMARY KEY,fenced_generation bigint NOT NULL);

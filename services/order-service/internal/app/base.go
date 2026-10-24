@@ -41,7 +41,7 @@ type Config struct {
 }
 
 func LoadConfig() (Config, error) {
-	c := Config{ProfileToken: os.Getenv("PROFILE_INTERNAL_TOKEN"), DB: os.Getenv("DATABASE_URL"), Redis: os.Getenv("REDIS_ADDR"), Dependencies: os.Getenv("DEPENDENCY_URL"), Profile: os.Getenv("PROFILE_URL"), InternalToken: os.Getenv("ORDER_INTERNAL_TOKEN"), JWTSecret: os.Getenv("ORDER_JWT_SECRET"), EncryptionKey: os.Getenv("ORDER_ENCRYPTION_KEY"), CallbackSecret: os.Getenv("CALLBACK_SECRET"), Receiver: os.Getenv("PAYMENT_RECEIVER"), Kafka: os.Getenv("KAFKA_BROKERS"), HTTP: os.Getenv("HTTP_ADDR"), GRPC: os.Getenv("GRPC_ADDR"), Mode: os.Getenv("APP_MODE"), Poll: 100 * time.Millisecond, AutoComplete: os.Getenv("ENABLE_AUTO_COMPLETE") == "true"}
+	c := Config{SourceTopic: os.Getenv("ORDER_SOURCE_TOPIC"), ConsumerGroup: os.Getenv("ORDER_CONSUMER_GROUP"), ProfileToken: os.Getenv("PROFILE_INTERNAL_TOKEN"), DB: os.Getenv("DATABASE_URL"), Redis: os.Getenv("REDIS_ADDR"), Dependencies: os.Getenv("DEPENDENCY_URL"), Profile: os.Getenv("PROFILE_URL"), InternalToken: os.Getenv("ORDER_INTERNAL_TOKEN"), JWTSecret: os.Getenv("ORDER_JWT_SECRET"), EncryptionKey: os.Getenv("ORDER_ENCRYPTION_KEY"), CallbackSecret: os.Getenv("CALLBACK_SECRET"), Receiver: os.Getenv("PAYMENT_RECEIVER"), Kafka: os.Getenv("KAFKA_BROKERS"), HTTP: os.Getenv("HTTP_ADDR"), GRPC: os.Getenv("GRPC_ADDR"), Mode: os.Getenv("APP_MODE"), Poll: 100 * time.Millisecond, AutoComplete: os.Getenv("ENABLE_AUTO_COMPLETE") == "true"}
 	if c.HTTP == "" {
 		c.HTTP = ":8004"
 	}
@@ -107,7 +107,7 @@ func New(ctx context.Context, c Config) (*Service, error) {
 		db.Close()
 		return nil, e
 	}
-	s := &Service{DB: db, Redis: redis.NewClient(&redis.Options{Addr: c.Redis, DB: c.RedisDB}), C: c, Client: &http.Client{Timeout: 2 * time.Second}, AEAD: a, workerID: uuid.NewString(), register: prometheus.NewRegistry()}
+	s := &Service{DB: db, Redis: redis.NewClient(&redis.Options{Addr: c.Redis, DB: c.RedisDB}), C: c, Client: &http.Client{Timeout: 2 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}, AEAD: a, workerID: uuid.NewString(), register: prometheus.NewRegistry()}
 	s.Metrics = prometheus.NewHistogramVec(prometheus.HistogramOpts{Name: "order_latency_seconds", Help: "Measured latency by phase/outcome", Buckets: []float64{.005, .01, .05, .1, .2, .3, .5, 1, 2, 5, 15, 60, 300, 900}}, []string{"phase", "outcome"})
 	s.register.MustRegister(s.Metrics, &backlogCollector{S: s, Age: prometheus.NewDesc("order_backlog_oldest_seconds", "Oldest pending obligation age", []string{"phase"}, nil), Count: prometheus.NewDesc("order_backlog_count", "Pending obligations", []string{"phase"}, nil)})
 	if c.Kafka != "" {
@@ -171,7 +171,7 @@ func (s *Service) callURL(ctx context.Context, base, method, path string, in, ou
 		return domain.E("DEPENDENCY_UNKNOWN", 503)
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode >= 400 {
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		var d struct {
 			Code string `json:"code"`
 		}
@@ -182,7 +182,11 @@ func (s *Service) callURL(ctx context.Context, base, method, path string, in, ou
 		return domain.E(d.Code, resp.StatusCode)
 	}
 	if out != nil {
-		return json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(out)
+		raw, e := io.ReadAll(io.LimitReader(resp.Body, (1<<20)+1))
+		if e != nil || len(raw) > 1<<20 || sepay.Decode(raw, out) != nil {
+			return domain.E("DEPENDENCY_INVALID_RESPONSE", 503)
+		}
+		return nil
 	}
 	return nil
 }

@@ -27,6 +27,11 @@ func (r *RPC) principal(ctx context.Context) (domain.Principal, error) {
 	if e != nil {
 		return p, status.Error(codes.Unauthenticated, "invalid credentials")
 	}
+	if r.S.Payment != nil && p.Role == "GUEST" {
+		if e := r.S.Payment.CheckGuestSession(ctx, p.ID); e != nil {
+			return p, status.Error(codes.Unauthenticated, "guest session revoked")
+		}
+	}
 	return p, nil
 }
 func rpcError(s *app.Service, e error) error {
@@ -76,6 +81,23 @@ func (r *RPC) GetOrderDetail(ctx context.Context, in *order.GetOrderDetailReques
 		out.ShippingAddress = &common.Address{RecipientName: a.Name, PhoneNumber: a.Phone, StreetAddress: a.Street, Ward: a.Ward, Province: a.Province, CountryCode: "VN"}
 		for _, i := range o.Snapshot.Items {
 			out.Items = append(out.Items, &order.OrderItem{SkuCode: i.SKU, ProductName: i.Name, Quantity: int32(i.Quantity), UnitPrice: money(i.UnitPrice), TotalPrice: money(i.UnitPrice * int64(i.Quantity))})
+		}
+	}
+	if o.CoreSnapshot != nil {
+		t := o.CoreSnapshot
+		out.ItemsDigest = string(o.ItemsDigest)
+		out.WarehouseId = o.Warehouse
+		out.ReadyGeneration = o.Generation
+		out.CompensationStatus = "NOT_REQUIRED"
+		if o.Status == "PENDING_PAYMENT" && p.Scope() == o.Scope {
+			out.AllowedActions = []string{"CANCEL_PENDING"}
+		}
+		a := t.Address
+		if p.Scope() == o.Scope {
+			out.ShippingAddress = &common.Address{RecipientName: a.RecipientName, PhoneNumber: a.PhoneE164, StreetAddress: a.Street, Ward: a.WardName, Province: a.ProvinceName, CountryCode: "VN"}
+		}
+		for _, i := range t.Items {
+			out.Items = append(out.Items, &order.OrderItem{SkuCode: i.SKU, ProductName: i.Name, Quantity: int32(i.Quantity), UnitPrice: money(i.UnitPrice), TotalPrice: money(i.LineSubtotal)})
 		}
 	}
 	return out, nil

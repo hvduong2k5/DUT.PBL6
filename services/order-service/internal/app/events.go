@@ -24,6 +24,9 @@ func (s *Service) ProcessEvent(ctx context.Context, event domain.Event) (string,
 	if _, e := uuid.Parse(event.OrderID); e != nil {
 		return "", domain.E("INVALID_EVENT", 422)
 	}
+	if s.isCoreIdentity(ctx, event.OrderID) {
+		return s.processCoreEvent(ctx, event)
+	}
 	var resource struct {
 		OrderID    string `json:"order_id"`
 		Source     string `json:"source"`

@@ -27,6 +27,12 @@ func CommandHash(action, order, reservation, digest, warehouse string) string {
 	return hex.EncodeToString(h[:])
 }
 func (a Adapter) Reserve(ctx context.Context, s core.SnapshotInput, key string) (core.ResourceProof, error) {
+	return a.reserve(ctx, s, key, true)
+}
+func (a Adapter) Lookup(ctx context.Context, s core.SnapshotInput, key string) (core.ResourceProof, error) {
+	return a.reserve(ctx, s, key, false)
+}
+func (a Adapter) reserve(ctx context.Context, s core.SnapshotInput, key string, create bool) (core.ResourceProof, error) {
 	if a.Client == nil || len(a.Token) < 16 {
 		return core.ResourceProof{}, ErrProof
 	}
@@ -37,7 +43,7 @@ func (a Adapter) Reserve(ctx context.Context, s core.SnapshotInput, key string) 
 	requestHash := ReserveHash(s.OrderID, digest, s.WarehouseID)
 	query := &inventory.ReservationCommand{OrderId: s.OrderID, IdempotencyKey: key, ContractVersion: "order-3.2", RequestHash: requestHash, ItemsDigest: digest, WarehouseId: s.WarehouseID, CorrelationId: s.OrderID, QueryAction: "RESERVE"}
 	out, e := a.Client.GetReservationByOrder(ctx, query)
-	if status.Code(e) == codes.NotFound {
+	if status.Code(e) == codes.NotFound && create {
 		items := []*inventory.ReserveItem{}
 		for _, i := range s.Items {
 			items = append(items, &inventory.ReserveItem{SkuCode: i.SKU, Quantity: int32(i.Quantity)})
@@ -63,6 +69,9 @@ func checked(out *inventory.ReservationOutcome, s core.SnapshotInput, prior core
 		return core.ResourceProof{}, ErrProof
 	}
 	if c.Result != "APPLIED" && c.Result != "ALREADY_APPLIED" && c.Result != "REJECTED" {
+		return core.ResourceProof{}, ErrProof
+	}
+	if action == "RESERVE" && (c.Result == "REJECTED" || c.ResultingState != "RESERVED") {
 		return core.ResourceProof{}, ErrProof
 	}
 	if out.State != "RESERVED" && out.State != "COMMITTED" && out.State != "RELEASED" && out.State != "EXPIRED" {

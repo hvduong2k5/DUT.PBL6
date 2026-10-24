@@ -36,6 +36,7 @@ func (s *Service) MutateCart(ctx context.Context, p domain.Principal, sku string
 		e := s.Redis.Watch(ctx, func(tx *redis.Tx) error {
 			var c domain.Cart
 			b, e := tx.Get(ctx, key).Bytes()
+			newCart := errors.Is(e, redis.Nil)
 			if e != nil && !errors.Is(e, redis.Nil) {
 				return domain.E("CART_UNAVAILABLE", 503)
 			}
@@ -75,7 +76,15 @@ func (s *Service) MutateCart(ctx context.Context, p domain.Principal, sku string
 			if e != nil {
 				return e
 			}
-			_, e = tx.TxPipelined(ctx, func(pipe redis.Pipeliner) error { pipe.Set(ctx, key, data, 30*24*time.Hour); return nil })
+			_, e = tx.TxPipelined(ctx, func(pipe redis.Pipeliner) error {
+				if newCart {
+					pipe.Del(ctx, "core-cart-id:"+p.Scope())
+				} else {
+					pipe.Expire(ctx, "core-cart-id:"+p.Scope(), 30*24*time.Hour)
+				}
+				pipe.Set(ctx, key, data, 30*24*time.Hour)
+				return nil
+			})
 			result = c
 			return e
 		}, key)
@@ -196,7 +205,7 @@ func (s *Service) CreateQuote(ctx context.Context, p domain.Principal, in domain
 	if p.Role != "CUSTOMER" && p.Role != "GUEST" {
 		return domain.Quote{}, domain.E("PERMISSION_DENIED", 403)
 	}
-	if s.CoreCheckout==nil && s.Payment != nil && in.Method == "VIETQR" {
+	if s.CoreCheckout == nil && s.Payment != nil && in.Method == "VIETQR" {
 		return domain.Quote{}, domain.E("TARGET_CHECKOUT_NOT_READY", 503)
 	}
 	if in.Voucher != "" {
@@ -242,7 +251,9 @@ func (s *Service) CreateQuote(ctx context.Context, p domain.Principal, in domain
 			return q, e
 		}
 	}
-	if s.CoreCheckout!=nil{return s.coreQuote(ctx,p,q)}
+	if s.CoreCheckout != nil {
+		return s.coreQuote(ctx, p, q)
+	}
 	q, e = s.Canonical(ctx, q)
 	if e != nil {
 		return q, e
@@ -261,7 +272,13 @@ func (s *Service) Operation(ctx context.Context, id string, p domain.Principal) 
 	if _, e := uuid.Parse(id); e != nil {
 		return domain.Operation{}, domain.E("NOT_FOUND", 404)
 	}
-	if s.CoreCheckout!=nil{var cohort string;if e:=s.DB.QueryRow(ctx,"SELECT cohort FROM checkout_operations WHERE id=$1 AND scope=$2",id,p.Scope()).Scan(&cohort);e==nil&&cohort=="order-core-1"{o,_,e:=s.coreOperation(ctx,id,p);return o,e}}
+	if s.CoreCheckout != nil {
+		var cohort string
+		if e := s.DB.QueryRow(ctx, "SELECT cohort FROM checkout_operations WHERE id=$1 AND scope=$2", id, p.Scope()).Scan(&cohort); e == nil && cohort == "order-core-1" {
+			o, _, e := s.coreOperation(ctx, id, p)
+			return o, e
+		}
+	}
 	var o domain.Operation
 	var errCode *string
 	var status *string
@@ -308,7 +325,9 @@ func (s *Service) replay(ctx context.Context, p domain.Principal, key, hash stri
 	return o, 202, nil
 }
 func (s *Service) Accept(ctx context.Context, p domain.Principal, key string, in domain.CheckoutInput) (domain.Operation, int, error) {
-	if s.CoreCheckout!=nil{return s.acceptCore(ctx,p,key,in)}
+	if s.CoreCheckout != nil {
+		return s.acceptCore(ctx, p, key, in)
+	}
 	if p.Role != "CUSTOMER" && p.Role != "GUEST" {
 		return domain.Operation{}, 403, domain.E("PERMISSION_DENIED", 403)
 	}
