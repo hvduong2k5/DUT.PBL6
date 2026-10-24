@@ -15,9 +15,12 @@ import (
 // via the shared harness (ORDER_CORE_TEST_DATABASE) and are skipped when no
 // database is configured.
 
-type fakeCheckoutSource struct{}
+type fakeCheckoutSource struct{ calls int }
 
-func (fakeCheckoutSource) Revalidate(context.Context, core.SnapshotInput) error { return nil }
+func (f *fakeCheckoutSource) Revalidate(context.Context, core.SnapshotInput) error {
+	f.calls++
+	return nil
+}
 
 type fakeCheckoutInventory struct {
 	reserveErr   error
@@ -86,17 +89,19 @@ func jobStatus(t *testing.T, h *harness, kind, operation string) string {
 	return status
 }
 
-func TestReconcileResumeKeepsBudgetAndSecondParkRearms(t *testing.T) {
+func TestReconcileResumePreservesRemainingBudget(t *testing.T) {
 	h := database(t, true)
 	a := acceptWorkable(t, h)
 	inv := &fakeCheckoutInventory{
 		reserveErr:  errors.New("inventory unavailable"),
 		lookupProof: core.ResourceProof{State: "RESERVED", ReservationID: uuid.NewString(), ExpiresAt: time.Now().Add(10 * time.Minute)},
 	}
-	rt := &CheckoutRuntime{Store: h.store, Source: fakeCheckoutSource{}, Inventory: inv}
+	rt := &CheckoutRuntime{Store: h.store, Source: &fakeCheckoutSource{}, Inventory: inv}
 	driveToPark(t, h, rt, a.OperationID)
-	if got := jobStatus(t, h, "RESOURCE_RECONCILE", a.OperationID); got != "READY" {
-		t.Fatalf("reconcile job after first park: %s", got)
+	// Simulate a park that still has budget left (the reconciler may only
+	// resume those); a budget-spent park is covered by the review test.
+	if _, err := h.db.Exec(h.ctx, "UPDATE jobs SET attempts=5 WHERE status='PARKED' AND workflow_id IN (SELECT id FROM workflows WHERE kind='CHECKOUT' AND aggregate_id=$1)", a.OperationID); err != nil {
+		t.Fatal(err)
 	}
 	if _, err := rt.WorkReconcile(h.ctx); err != nil {
 		t.Fatal(err)
@@ -112,11 +117,41 @@ func TestReconcileResumeKeepsBudgetAndSecondParkRearms(t *testing.T) {
 	if err := h.db.QueryRow(h.ctx, "SELECT attempts FROM jobs WHERE workflow_id IN (SELECT id FROM workflows WHERE kind='CHECKOUT' AND aggregate_id=$1)", a.OperationID).Scan(&attempts); err != nil {
 		t.Fatal(err)
 	}
-	if attempts != 20 {
-		t.Fatalf("reconcile resume must not reset the attempt budget, got attempts=%d", attempts)
+	if attempts != 5 {
+		t.Fatalf("reconcile resume must preserve the remaining budget, got attempts=%d", attempts)
+	}
+}
+
+func TestReconcileReviewThenRecoverAndSecondParkRearms(t *testing.T) {
+	h := database(t, true)
+	a := acceptWorkable(t, h)
+	d := snapshotInput(t, 0)
+	inv := &fakeCheckoutInventory{
+		reserveErr:  errors.New("inventory unavailable"),
+		lookupProof: core.ResourceProof{State: "RESERVED", ReservationID: uuid.NewString(), ExpiresAt: time.Now().Add(10 * time.Minute)},
+	}
+	rt := &CheckoutRuntime{Store: h.store, Source: &fakeCheckoutSource{}, Inventory: inv}
+	driveToPark(t, h, rt, a.OperationID)
+	if got := jobStatus(t, h, "RESOURCE_RECONCILE", a.OperationID); got != "READY" {
+		t.Fatalf("reconcile job after first park: %s", got)
+	}
+	// Budget is spent (20 attempts): a valid RESERVED proof alone must not
+	// resume the checkout; the operation stays for audited admin Recover.
+	if _, err := rt.WorkReconcile(h.ctx); err != nil {
+		t.Fatal(err)
+	}
+	var status string
+	if err := h.db.QueryRow(h.ctx, "SELECT status FROM checkout_operations WHERE id=$1", a.OperationID).Scan(&status); err != nil {
+		t.Fatal(err)
+	}
+	if status != "MANUAL_REVIEW" {
+		t.Fatalf("budget-spent park must stay MANUAL_REVIEW after reconcile, got %s", status)
 	}
 	if got := jobStatus(t, h, "RESOURCE_RECONCILE", a.OperationID); got != "DONE" {
-		t.Fatalf("reconcile job after resume: %s", got)
+		t.Fatalf("reconcile job after review disposition: %s", got)
+	}
+	if err := rt.Recover(h.ctx, a.OperationID, "manager:test", "", d.MerchantID, "recover-key-1", "manual review approved"); err != nil {
+		t.Fatal(err)
 	}
 	// Park a second time: the finished reconcile generation must be rearmed.
 	driveToPark(t, h, rt, a.OperationID)
@@ -128,6 +163,35 @@ func TestReconcileResumeKeepsBudgetAndSecondParkRearms(t *testing.T) {
 	}
 }
 
+func TestWorkBudgetGateBlocksDispatchBeyondBudget(t *testing.T) {
+	h := database(t, true)
+	a := acceptWorkable(t, h)
+	src := &fakeCheckoutSource{}
+	inv := &fakeCheckoutInventory{reserveErr: errors.New("inventory unavailable")}
+	rt := &CheckoutRuntime{Store: h.store, Source: src, Inventory: inv}
+	// The next claim is attempt 21: Work must park without dispatching
+	// anything (no revalidation, no remote call, no stage mutation).
+	if _, err := h.db.Exec(h.ctx, "UPDATE jobs SET attempts=20 WHERE workflow_id IN (SELECT id FROM workflows WHERE kind='CHECKOUT' AND aggregate_id=$1)", a.OperationID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := rt.Work(h.ctx); err != nil {
+		t.Fatal(err)
+	}
+	if src.calls != 0 {
+		t.Fatalf("budget gate dispatched revalidation %d times", src.calls)
+	}
+	var status string
+	if err := h.db.QueryRow(h.ctx, "SELECT status FROM checkout_operations WHERE id=$1", a.OperationID).Scan(&status); err != nil {
+		t.Fatal(err)
+	}
+	if status != "MANUAL_REVIEW" {
+		t.Fatalf("operation after budget gate: %s", status)
+	}
+	if got := jobStatus(t, h, "RESOURCE_RECONCILE", a.OperationID); got != "READY" {
+		t.Fatalf("reconcile job after budget park: %s", got)
+	}
+}
+
 func TestReconcileProofStaleAfterAdminRecover(t *testing.T) {
 	h := database(t, true)
 	a := acceptWorkable(t, h)
@@ -136,7 +200,7 @@ func TestReconcileProofStaleAfterAdminRecover(t *testing.T) {
 		reserveErr:  errors.New("inventory unavailable"),
 		lookupProof: core.ResourceProof{State: "RELEASED", ReservationID: uuid.NewString(), ExpiresAt: time.Now().Add(10 * time.Minute)},
 	}
-	rt := &CheckoutRuntime{Store: h.store, Source: fakeCheckoutSource{}, Inventory: inv}
+	rt := &CheckoutRuntime{Store: h.store, Source: &fakeCheckoutSource{}, Inventory: inv}
 	driveToPark(t, h, rt, a.OperationID)
 	// Admin wins the race: Recover resumes the checkout before reconcile runs.
 	if err := rt.Recover(h.ctx, a.OperationID, "manager:test", "", d.MerchantID, "recover-key-1", "manual review approved"); err != nil {
@@ -166,7 +230,7 @@ func TestReconcileLapsedReservedNeedsAuthoritativeRelease(t *testing.T) {
 		releaseErr:   errors.New("release unavailable"),
 		releaseProof: core.ResourceProof{State: "EXPIRED", ReservationID: uuid.NewString()},
 	}
-	rt := &CheckoutRuntime{Store: h.store, Source: fakeCheckoutSource{}, Inventory: inv}
+	rt := &CheckoutRuntime{Store: h.store, Source: &fakeCheckoutSource{}, Inventory: inv}
 	driveToPark(t, h, rt, a.OperationID)
 	// Release fails: the obligation must stay open.
 	if _, err := rt.WorkReconcile(h.ctx); err == nil {

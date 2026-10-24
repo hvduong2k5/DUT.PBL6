@@ -9,22 +9,24 @@ func TestReconcileDisposition(t *testing.T) {
 	cases := []struct {
 		name, opStatus, opError, proofState string
 		proofExpired, stageExpired          bool
+		jobAttempts                         int
 		want                                string
 	}{
-		{"succeeded is stale", "SUCCEEDED", "", "RESERVED", false, false, reconcileStale},
-		{"failed is stale", "FAILED", "", "COMMITTED", false, false, reconcileStale},
-		{"recovered by admin is stale", "WAITING_RETRY", "", "RELEASED", false, false, reconcileStale},
-		{"reserved and valid resumes", "MANUAL_REVIEW", "CHECKOUT_DEPENDENCY_RETRY", "RESERVED", false, false, reconcileResume},
-		{"reserved lapsed must release first", "MANUAL_REVIEW", "CHECKOUT_DEPENDENCY_RETRY", "RESERVED", true, false, reconcileRelease},
-		{"reserved but stage window closed stays for admin", "MANUAL_REVIEW", "CHECKOUT_DEPENDENCY_RETRY", "RESERVED", false, true, reconcileReview},
-		{"deadline park never auto resumes", "MANUAL_REVIEW", "STAGE_DEADLINE_EXCEEDED", "RESERVED", false, false, reconcileReview},
-		{"released compensates", "MANUAL_REVIEW", "CHECKOUT_DEPENDENCY_RETRY", "RELEASED", false, false, reconcileCompensate},
-		{"expired compensates", "MANUAL_REVIEW", "CHECKOUT_DEPENDENCY_RETRY", "EXPIRED", false, false, reconcileCompensate},
-		{"committed stays with a human", "MANUAL_REVIEW", "CHECKOUT_DEPENDENCY_RETRY", "COMMITTED", false, false, reconcileReview},
-		{"unknown state stays with a human", "MANUAL_REVIEW", "CHECKOUT_DEPENDENCY_RETRY", "SOMETHING_ELSE", false, false, reconcileReview},
+		{"succeeded is stale", "SUCCEEDED", "", "RESERVED", false, false, 3, reconcileStale},
+		{"failed is stale", "FAILED", "", "COMMITTED", false, false, 3, reconcileStale},
+		{"recovered by admin is stale", "WAITING_RETRY", "", "RELEASED", false, false, 3, reconcileStale},
+		{"reserved valid with budget resumes", "MANUAL_REVIEW", "CHECKOUT_DEPENDENCY_RETRY", "RESERVED", false, false, 3, reconcileResume},
+		{"reserved valid but budget spent stays for admin", "MANUAL_REVIEW", "CHECKOUT_DEPENDENCY_RETRY", "RESERVED", false, false, 20, reconcileReview},
+		{"reserved lapsed must release first", "MANUAL_REVIEW", "CHECKOUT_DEPENDENCY_RETRY", "RESERVED", true, false, 3, reconcileRelease},
+		{"reserved but stage window closed stays for admin", "MANUAL_REVIEW", "CHECKOUT_DEPENDENCY_RETRY", "RESERVED", false, true, 3, reconcileReview},
+		{"deadline park never auto resumes", "MANUAL_REVIEW", "STAGE_DEADLINE_EXCEEDED", "RESERVED", false, false, 3, reconcileReview},
+		{"released compensates", "MANUAL_REVIEW", "CHECKOUT_DEPENDENCY_RETRY", "RELEASED", false, false, 20, reconcileCompensate},
+		{"expired compensates", "MANUAL_REVIEW", "CHECKOUT_DEPENDENCY_RETRY", "EXPIRED", false, false, 20, reconcileCompensate},
+		{"committed stays with a human", "MANUAL_REVIEW", "CHECKOUT_DEPENDENCY_RETRY", "COMMITTED", false, false, 3, reconcileReview},
+		{"unknown state stays with a human", "MANUAL_REVIEW", "CHECKOUT_DEPENDENCY_RETRY", "SOMETHING_ELSE", false, false, 3, reconcileReview},
 	}
 	for _, c := range cases {
-		if got := reconcileDisposition(c.opStatus, c.opError, c.proofState, c.proofExpired, c.stageExpired); got != c.want {
+		if got := reconcileDisposition(c.opStatus, c.opError, c.proofState, c.proofExpired, c.stageExpired, c.jobAttempts); got != c.want {
 			t.Errorf("%s: got %s, want %s", c.name, got, c.want)
 		}
 	}
