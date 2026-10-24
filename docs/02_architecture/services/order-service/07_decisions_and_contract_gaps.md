@@ -31,7 +31,7 @@ Các quyết định phát sinh khi implement được ghi riêng tại [Order i
 
 ## 2. Phân loại gap
 
-Thứ tự triển khai/gates dùng [Roadmap18](18_order_implementation_roadmap.md). Shipping Quote là dependency trước checkout; manual reconciliation/refund và operational recovery là gate trước tiền thật. Roadmap không đóng các implementation/evidence gaps trong bảng dưới.
+Thứ tự triển khai/gates dùng [Roadmap18](15_order_implementation_roadmap.md). Shipping Quote là dependency trước checkout; manual reconciliation/refund và operational recovery là gate trước tiền thật. Roadmap không đóng các implementation/evidence gaps trong bảng dưới.
 
 **Cập nhật lựa chọn provider 16/10/2026:** người dùng đã chọn SePay + VietQR. [Chương 09](09_payment_sepay_vietqr_design.md) là thiết kế chi tiết để review. Phần “chọn provider” của G08 bên dưới đã có quyết định; receiver/bank capability, adapter, identity mapping, migration và live tests vẫn còn mở. Automatic refund mặc định tắt đến khi xác nhận tài khoản đủ điều kiện; không coi sandbox refund PASS là live capability.
 
@@ -61,7 +61,7 @@ Thứ tự triển khai/gates dùng [Roadmap18](18_order_implementation_roadmap.
 | G14 DESIGN/IMPLEMENTATION | Cart/Checkout11 đã đề xuất projection/selection/quote claim/cleanup, runtime còn tối giản | Order+FE implement candidate DTO, SQL constraints, Redis guard/CAS, PLACE+Intent và real-provider tests | CC01–29 trong chương11 |
 | G15 DESIGN/CONTRACT | Order Core12 chốt OC invariants, snapshot v1, command matrix, multi-hold và query/event semantics ở mức đề xuất | Review provider proofs/digests, Product/Care hold/cancel/completion policy, route/cohort và schema evolution | OC-T01–24 trong chương12 |
 | G16 DESIGN/OPERATIONS | [Runtime13](13_order_saga_worker_runtime.md) đề xuất registry21 job kinds, state mapping, stale-proof path và execution/reconciliation policies | Order+Ops review concurrency/weights, provider query capabilities, recovery roles/thresholds; triển khai và fault tests riêng | SW-T01–24; chưa đóng integration/evidence gaps |
-| G17 DESIGN/PERSISTENCE/MESSAGING | [Persistence17](17_order_persistence_messaging_design.md), DDL42 bảng và Payment event candidate cụ thể hóa target | Order+Ops+Finance review physical mapping/roles, consumer contracts, apply migrations riêng và chạy real DB/Kafka/provider fault tests | PM-T01–20; static parse/schema PASS không đóng deployment/evidence gaps |
+| G17 DESIGN/PERSISTENCE/MESSAGING | [Persistence17](14_order_persistence_messaging_design.md), DDL42 bảng và Payment event candidate cụ thể hóa target | Order+Ops+Finance review physical mapping/roles, consumer contracts, apply migrations riêng và chạy real DB/Kafka/provider fault tests | PM-T01–20; static parse/schema PASS không đóng deployment/evidence gaps |
 
 ## 4. Runtime3.1 còn khác target3.2
 

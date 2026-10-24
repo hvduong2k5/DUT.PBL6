@@ -103,7 +103,7 @@ Order đặt local hold trước cancel RPC. Permit đang bay vẫn có thể đ
 
 ## 6. Events và rollout
 
-[Persistence17](17_order_persistence_messaging_design.md) chốt physical outbox/inbox, stream-head publish/failover, offset/rebalance/replay và restore. Generic financial streams có [schema candidate](../../../03_api_specs/order-payment-events.candidate.schema.json) riêng; không sửa closed Order v3 payload để thêm nullable Order hoặc stream sequence.
+[Persistence17](14_order_persistence_messaging_design.md) chốt physical outbox/inbox, stream-head publish/failover, offset/rebalance/replay và restore. Generic financial streams có [schema candidate](../../../03_api_specs/order-payment-events.candidate.schema.json) riêng; không sửa closed Order v3 payload để thêm nullable Order hoặc stream sequence.
 
 Topic target order.events.v3, partition key order_id, CloudEvents type vn.omama.order.{name}.v3. Envelope stable id/source/type/time/subject, trace context theo project; data references, aggregate version/ordinal/state/generation, không direct PII. V2 runtime đóng schema bằng additionalProperties=false và thiếu required proof; vì vậy tạo version mới thay vì sửa breaking v2. Version transport v3 vẫn phục vụ baseline thiết kế 3.2.
 

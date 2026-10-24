@@ -2,6 +2,8 @@
 
 **Phiên bản:** `order-implementation-roadmap-1.0-review` · **Ngày:** 17/10/2026 · **Trạng thái:** Kế hoạch triển khai sau review; các giai đoạn/PR/milestone bên dưới chưa được nghiệm thu bởi tài liệu này.
 
+**Cập nhật runtime24/10/2026:** [ADR010](../../adr/order-service/adr_010_connected_checkout_lifecycle_and_test_bridge.md) và [báo cáo09](../../../04_testing/order-service/09_connected_order_service.md) bổ sung evidence connected TEST từ Cart đến COMPLETED, Kafka và webhook bridge. Đây không phải acceptance toàn bộ roadmap/production; owning services, full cancellation/reversal và canonical Dashboard OMP vẫn giữ gate.
+
 ## 1. Mục tiêu, phạm vi và nguồn chuẩn
 
 Triển khai MS-04 bằng các phần nghiệp vụ nhỏ có thể kiểm thử xuyên tầng, từ Core guards đến placement, payment confirmation và lifecycle. Mỗi phần triển khai phải có đủ constraints, identities và recovery tương ứng. Không lấy việc đã viết schema/contract làm bằng chứng runtime hoàn thành.
@@ -16,7 +18,7 @@ Triển khai MS-04 bằng các phần nghiệp vụ nhỏ có thể kiểm thử
 | [Checkout11](11_cart_checkout_design.md) | Redis admission, SQL acceptance, quote consumption, PLACE+Intent và cleanup |
 | [Core12](12_order_core_design.md) | Invariants, snapshot, transitions, owner/control và milestones |
 | [Worker13](13_order_saga_worker_runtime.md) | Durable effects, registry, stale proof, execution/reconciliation và recovery |
-| [Persistence/Messaging17](17_order_persistence_messaging_design.md) | Physical mapping, isolation, commit UNKNOWN, stream publisher, inbox/replay và restore |
+| [Persistence/Messaging17](14_order_persistence_messaging_design.md) | Physical mapping, isolation, commit UNKNOWN, stream publisher, inbox/replay và restore |
 
 Phạm vi ưu tiên là D2C VIETQR/SePay, một địa chỉ/kho, VND, Customer/Guest theo capability. COD là capability riêng; voucher/loyalty, marketplace, B2B, gifts và automatic refund chưa mở theo roadmap này. Dùng candidate API/schema theo explicit version/cohort, không thay shape baseline ngầm. Candidate DDL42 bảng là schema review cho empty namespace, không phải upgrade migration chạy nguyên file trên sandbox.
 

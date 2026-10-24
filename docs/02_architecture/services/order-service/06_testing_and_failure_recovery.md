@@ -4,9 +4,9 @@
 
 ## 1. Mức bằng chứng
 
-[Roadmap18 mục5–7](18_order_implementation_roadmap.md) phân bổ tests theo PR/slice và milestone A/B/C. PostgreSQL integration bắt đầu ở PR2, operation/Inventory recovery harness ở PR3, Kafka integration ở giai đoạn4; Payment6 phải kiểm race cancel/timeout và chưa cấp quyền nhận tiền production.
+[Roadmap18 mục5–7](15_order_implementation_roadmap.md) phân bổ tests theo PR/slice và milestone A/B/C. PostgreSQL integration bắt đầu ở PR2, operation/Inventory recovery harness ở PR3, Kafka integration ở giai đoạn4; Payment6 phải kiểm race cancel/timeout và chưa cấp quyền nhận tiền production.
 
-[Persistence17 mục12](17_order_persistence_messaging_design.md) bổ sung PM-T01–20: SQL commit ACK mất, quote concurrency, stale publisher, durable inbox/rebalance, unmatched financial stream và PITR recovery. DDL/schema parse hoặc fixture PASS không thay fault/integration tests.
+[Persistence17 mục12](14_order_persistence_messaging_design.md) bổ sung PM-T01–20: SQL commit ACK mất, quote concurrency, stale publisher, durable inbox/rebalance, unmatched financial stream và PITR recovery. DDL/schema parse hoặc fixture PASS không thay fault/integration tests.
 
 Acceptance Saga/worker bổ sung ở [Runtime13 mục13](13_order_saga_worker_runtime.md): SW-T01–24 bao phủ stale proof, mất ACK/lease, execution exhaustion nhưng reconcile tiếp, fairness, shutdown và restore. Đây là test oracles cần thực thi, không phải kết quả runtime đã đạt.
 

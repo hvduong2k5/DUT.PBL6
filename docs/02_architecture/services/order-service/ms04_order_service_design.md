@@ -4,9 +4,9 @@ Ngày13/10/2026. Nguồn chi tiết là các chương được liên kết dư�
 
 ## Đọc để hiểu và trình bày
 
-Để bắt đầu triển khai, dùng [Roadmap18](18_order_implementation_roadmap.md): scope/contracts → Core → persistence → worker/Inventory → messaging → placement → payment → controls/lifecycle. Roadmap tách Shipping Quote sớm khỏi shipment lifecycle và phân biệt integration milestone với quyền nhận tiền production.
+Để bắt đầu triển khai, dùng [Roadmap18](15_order_implementation_roadmap.md): scope/contracts → Core → persistence → worker/Inventory → messaging → placement → payment → controls/lifecycle. Roadmap tách Shipping Quote sớm khỏi shipment lifecycle và phân biệt integration milestone với quyền nhận tiền production.
 
-Để review persistence/messaging, đọc [chương17](17_order_persistence_messaging_design.md) cùng [DDL candidate](order_persistence_messaging.candidate.sql): physical schema, transactions/isolation, commit UNKNOWN, publisher head protocol, inbox/replay và recovery sau restore. Các bảng chung ở chương03 là baseline, không thay candidate schema mới.
+Để review persistence/messaging, đọc [chương17](14_order_persistence_messaging_design.md) cùng [DDL candidate](order_persistence_messaging.candidate.sql): physical schema, transactions/isolation, commit UNKNOWN, publisher head protocol, inbox/replay và recovery sau restore. Các bảng chung ở chương03 là baseline, không thay candidate schema mới.
 
 Để review Saga/worker, bắt đầu tại [chương13](13_order_saga_worker_runtime.md): job registry, state layers, claim/heartbeat/fencing, stale proof, retry/reconciliation và operations. Đây là runtime specification chung; các workflow giữ business guards ở chương09/11/12.
 

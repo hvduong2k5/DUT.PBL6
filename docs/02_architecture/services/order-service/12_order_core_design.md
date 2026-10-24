@@ -288,7 +288,7 @@ Recovery command chỉ lập lại query/resume plan theo evidence; không cho s
 
 ## 11. Persistence, locking và transaction boundaries
 
-[Persistence17](17_order_persistence_messaging_design.md) và [DDL candidate](order_persistence_messaging.candidate.sql) là physical mapping chung; các tên logical order_workflows/resource_outcomes/order_command_registry ở đây map sang workflows/external_effects/command_registry. Không nhân đôi queues hoặc sources of truth.
+[Persistence17](14_order_persistence_messaging_design.md) và [DDL candidate](order_persistence_messaging.candidate.sql) là physical mapping chung; các tên logical order_workflows/resource_outcomes/order_command_registry ở đây map sang workflows/external_effects/command_registry. Không nhân đôi queues hoặc sources of truth.
 
 | Record | Trách nhiệm / constraints |
 | --- | --- |

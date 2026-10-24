@@ -335,7 +335,7 @@ Giới hạn giá trị Order vẫn ≤10^12 VND; giới hạn receipt phải ch
 
 ### 8.2 Transaction boundaries
 
-Physical mapping được hợp nhất ở [Persistence17](17_order_persistence_messaging_design.md) và [DDL candidate](order_persistence_messaging.candidate.sql): payment_work_items và observation/sync lease fields là logical worker roles, map sang jobs/workflows với nullable Order association; không có hai physical queue/lease cùng execute một effect. Financial event streams dùng receipt/refund UUID, không ép unmatched money vào Order stream. [Payment event schema candidate](../../../03_api_specs/order-payment-events.candidate.schema.json) vẫn cần Finance/consumer approval trước activation.
+Physical mapping được hợp nhất ở [Persistence17](14_order_persistence_messaging_design.md) và [DDL candidate](order_persistence_messaging.candidate.sql): payment_work_items và observation/sync lease fields là logical worker roles, map sang jobs/workflows với nullable Order association; không có hai physical queue/lease cùng execute một effect. Financial event streams dùng receipt/refund UUID, không ép unmatched money vào Order stream. [Payment event schema candidate](../../../03_api_specs/order-payment-events.candidate.schema.json) vẫn cần Finance/consumer approval trước activation.
 
 | Tx | Ghi atomic | Sau commit |
 | --- | --- | --- |

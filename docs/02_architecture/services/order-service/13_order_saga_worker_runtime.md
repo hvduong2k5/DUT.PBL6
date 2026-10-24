@@ -64,7 +64,7 @@ MANUAL_REVIEW và compensation precedence được xác định trước RUNNING
 
 ## 4. Durable model và constraints
 
-[Persistence17](17_order_persistence_messaging_design.md) cụ thể hóa physical mapping, global lock order và commit recovery. jobs dùng chung cho workflow aggregates; OUTBOX_PUBLISH map trực tiếp scheduler/lease của event_streams, không có job lease thứ hai cùng quyết định progress. payment_work_items là logical compatibility role khi migrate, không là queue mới chạy song song cùng effect.
+[Persistence17](14_order_persistence_messaging_design.md) cụ thể hóa physical mapping, global lock order và commit recovery. jobs dùng chung cho workflow aggregates; OUTBOX_PUBLISH map trực tiếp scheduler/lease của event_streams, không có job lease thứ hai cùng quyết định progress. payment_work_items là logical compatibility role khi migrate, không là queue mới chạy song song cùng effect.
 
 Đây là target logical model, không phải SQL migration. Có thể map checkout_operations, jobs và payment_work_items hiện hữu vào cùng runtime protocol; không duy trì hai bản job có lease độc lập cho cùng work unit.
 

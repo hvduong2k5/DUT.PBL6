@@ -4,7 +4,7 @@
 
 ## 1. Runtime schema và target
 
-**Physical mapping amendment:** [chương17](17_order_persistence_messaging_design.md) và [DDL candidate](order_persistence_messaging.candidate.sql) hợp nhất schema mới, READ COMMITTED/lock order, SQL commit recovery và messaging protocol. Bảng/ERD dưới là baseline khái quát; jobs mới đi qua workflow, không đòi Order FK; receipts/refunds có thể unmatched. Không dùng schema sandbox bên dưới làm migration mục tiêu.
+**Physical mapping amendment:** [chương17](14_order_persistence_messaging_design.md) và [DDL candidate](order_persistence_messaging.candidate.sql) hợp nhất schema mới, READ COMMITTED/lock order, SQL commit recovery và messaging protocol. Bảng/ERD dưới là baseline khái quát; jobs mới đi qua workflow, không đòi Order FK; receipts/refunds có thể unmatched. Không dùng schema sandbox bên dưới làm migration mục tiêu.
 
 Target runtime model chung ở [chương13 mục3–6](13_order_saga_worker_runtime.md): workflow/job/effect/attempt/observation tách nhau, order_id nullable cho pre-placement và unmatched payment. Đây là logical model để review, không phải migration đã áp dụng.
 
@@ -67,7 +67,7 @@ Không giữ SQL transaction trong network call. Kết quả commit SQL bị m�
 
 ## 3. Locks, fencing và time
 
-Lock hierarchy chi tiết dùng [Persistence17 mục5](17_order_persistence_messaging_design.md): Order → checkout/control → receipts → refunds → workflows → effects → jobs → event streams, cùng nhóm sort ID. Pre-placement và unmatched paths có parent/lock exceptions rõ, không đảo thứ tự về Order trong cùng transaction. Cross-row refundable tính dưới receipt lock. Mọi mutation guard/version/history phải atomic; rows affected=0 phải xử lý conflict. READ COMMITTED là default, SQL40P01/40001 retry whole transaction bounded; mất COMMIT ACK lookup business identity trên primary, không tạo key mới.
+Lock hierarchy chi tiết dùng [Persistence17 mục5](14_order_persistence_messaging_design.md): Order → checkout/control → receipts → refunds → workflows → effects → jobs → event streams, cùng nhóm sort ID. Pre-placement và unmatched paths có parent/lock exceptions rõ, không đảo thứ tự về Order trong cùng transaction. Cross-row refundable tính dưới receipt lock. Mọi mutation guard/version/history phải atomic; rows affected=0 phải xử lý conflict. READ COMMITTED là default, SQL40P01/40001 retry whole transaction bounded; mất COMMIT ACK lookup business identity trên primary, không tạo key mới.
 
 Worker claim SKIP LOCKED, lease default10s/epoch tăng; chỉ owner+epoch còn hạn được apply outcome lên job/workflow/Order. Worker cũ vẫn có internal append-only observation path có xác thực/association; validator/current owner mới quyết định apply. Crash trước append được phục hồi bằng query từ durable effect intent. Remote stable key không đổi theo epoch. Lease local không chặn RPC cũ còn bay: provider tombstone/idempotency và reconciliation giải quyết. Heartbeat/stage deadline/business deadline độc lập theo [Runtime13](13_order_saga_worker_runtime.md).
 
@@ -81,7 +81,7 @@ Checkout response retention 7 ngày; terminal replay sau đó 410 + operation re
 
 ## 5. Outbox / inbox
 
-Outbox effect + event cùng transaction, stable ID và generic aggregate_type/id/version/ordinal NOT NULL; order_id optional cho financial streams. Order key vẫn order_id. Publisher claim stream, replay head chưa confirmed rồi mới next, chỉ advance sau broker ACK và fenced SQL commit. Crash trước mark published → duplicate cùng ID. DB lease không fence Kafka request đang bay: late duplicates vẫn cần consumer guards theo [Persistence17 mục6–8](17_order_persistence_messaging_design.md). Không có broker thật thì production fail readiness, không log-only rồi mark published.
+Outbox effect + event cùng transaction, stable ID và generic aggregate_type/id/version/ordinal NOT NULL; order_id optional cho financial streams. Order key vẫn order_id. Publisher claim stream, replay head chưa confirmed rồi mới next, chỉ advance sau broker ACK và fenced SQL commit. Crash trước mark published → duplicate cùng ID. DB lease không fence Kafka request đang bay: late duplicates vẫn cần consumer guards theo [Persistence17 mục6–8](14_order_persistence_messaging_design.md). Không có broker thật thì production fail readiness, không log-only rồi mark published.
 
 Inbox dedup theo source/event ID + payload hash, kết hợp business resource/version. Event thiếu prerequisite → DEFERRED + payload bền vững; worker query source và apply sau. Poison event → durable quarantine/DLQ intent trước ACK. Message N lỗi transient không được commit N+1 cùng partition vượt N, trừ khi N đã vào durable retry queue. Không claim exactly-once xuyên PostgreSQL/Kafka.
 

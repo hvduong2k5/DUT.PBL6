@@ -296,7 +296,7 @@ FE nhận SUCCEEDED refresh Cart; SKIPPED_CHANGED thông báo “Đơn đã tạ
 
 ## 9. Persistence và transaction map
 
-[Persistence17](17_order_persistence_messaging_design.md) hợp nhất DDL/isolation/lock order và commit UNKNOWN lookup. SQL quote-consumption PK là authority chống dùng quote hai lần; Redis marker không thuộc T0 và không thay unique SQL guard. Runtime lease map sang jobs/workflows, không duy trì hai executor cho operation.
+[Persistence17](14_order_persistence_messaging_design.md) hợp nhất DDL/isolation/lock order và commit UNKNOWN lookup. SQL quote-consumption PK là authority chống dùng quote hai lần; Redis marker không thuộc T0 và không thay unique SQL guard. Runtime lease map sang jobs/workflows, không duy trì hai executor cho operation.
 
 | Dữ liệu | Storage/constraint mục tiêu |
 | --- | --- |
