@@ -150,8 +150,8 @@ func (s *Store) Accept(ctx context.Context, in AcceptanceInput) (Acceptance, err
 		if held != op {
 			return ErrSubmitted
 		}
-		if _, e = tx.Exec(ctx, `INSERT INTO workflows(id,kind,workflow_version,aggregate_type,aggregate_id,stage,state,policy_version,stage_started_at)
- VALUES($1,'CHECKOUT',1,'CHECKOUT_OPERATION',$2,'VALIDATE','RUNNING','cart-checkout-1.0',$3)`, workflow, op, at); e != nil {
+		if _, e = tx.Exec(ctx, `INSERT INTO workflows(id,kind,workflow_version,aggregate_type,aggregate_id,stage,state,policy_version,stage_started_at,stage_deadline)
+ VALUES($1,'CHECKOUT',1,'CHECKOUT_OPERATION',$2,'VALIDATE','RUNNING','cart-checkout-1.0',$3,$3 + interval '15 minutes')`, workflow, op, at); e != nil {
 			return e
 		}
 		if _, e = tx.Exec(ctx, `INSERT INTO jobs(id,kind,key,stage,status,cohort,workflow_id,input_version,input_cipher,input_hash,lane)

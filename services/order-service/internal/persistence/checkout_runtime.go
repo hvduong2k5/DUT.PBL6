@@ -37,12 +37,13 @@ type checkoutWork struct {
 	Operation, Planned, Scope, Stage, Workflow, Method string
 	Input, Canonical                                   []byte
 	Accepted                                           time.Time
+	Deadline                                           *time.Time
 	Attempts                                           int
 }
 
 func (r *CheckoutRuntime) claim(ctx context.Context) (w checkoutWork, e error) {
 	w.Owner = uuid.NewString()
-	e = r.Store.db.QueryRow(ctx, `WITH pick AS(SELECT j.id FROM jobs j JOIN workflows f ON f.id=j.workflow_id WHERE j.cohort=$1 AND f.kind='CHECKOUT' AND f.state<>'COMPLETED' AND ((j.status IN ('READY','RETRY_WAIT') AND j.run_after<=clock_timestamp()) OR(j.status='LEASED' AND j.lease_until<clock_timestamp())) ORDER BY j.run_after,j.id FOR UPDATE OF j SKIP LOCKED LIMIT 1) UPDATE jobs j SET status='LEASED',lease_owner=$2,lease_epoch=j.lease_epoch+1,lease_until=clock_timestamp()+interval '30 seconds',attempts=j.attempts+1 FROM pick,workflows f,checkout_operations c WHERE j.id=pick.id AND f.id=j.workflow_id AND c.id=f.aggregate_id RETURNING j.id,j.lease_epoch,f.id,c.id,c.planned_order_id,c.scope,c.stage,c.input_cipher,c.canonical_cipher,c.accepted_at,c.payment_method,j.attempts`, Cohort, w.Owner).Scan(&w.JobID, &w.Epoch, &w.Workflow, &w.Operation, &w.Planned, &w.Scope, &w.Stage, &w.Input, &w.Canonical, &w.Accepted, &w.Method, &w.Attempts)
+	e = r.Store.db.QueryRow(ctx, `WITH pick AS(SELECT j.id FROM jobs j JOIN workflows f ON f.id=j.workflow_id WHERE j.cohort=$1 AND f.kind='CHECKOUT' AND f.state<>'COMPLETED' AND ((j.status IN ('READY','RETRY_WAIT') AND j.run_after<=clock_timestamp()) OR(j.status='LEASED' AND j.lease_until<clock_timestamp())) ORDER BY j.run_after,j.id FOR UPDATE OF j SKIP LOCKED LIMIT 1) UPDATE jobs j SET status='LEASED',lease_owner=$2,lease_epoch=j.lease_epoch+1,lease_until=clock_timestamp()+interval '30 seconds',attempts=j.attempts+1 FROM pick,workflows f,checkout_operations c WHERE j.id=pick.id AND f.id=j.workflow_id AND c.id=f.aggregate_id RETURNING j.id,j.lease_epoch,f.id,c.id,c.planned_order_id,c.scope,c.stage,c.input_cipher,c.canonical_cipher,c.accepted_at,c.payment_method,j.attempts,f.stage_deadline`, Cohort, w.Owner).Scan(&w.JobID, &w.Epoch, &w.Workflow, &w.Operation, &w.Planned, &w.Scope, &w.Stage, &w.Input, &w.Canonical, &w.Accepted, &w.Method, &w.Attempts, &w.Deadline)
 	return
 }
 func (r *CheckoutRuntime) fenced(ctx context.Context, w checkoutWork, fn func(pgx.Tx) error) error {
@@ -61,27 +62,77 @@ func (r *CheckoutRuntime) fenced(ctx context.Context, w checkoutWork, fn func(pg
 		return fn(tx)
 	})
 }
+// stageDeadlineExceeded reports whether the per-stage execution budget
+// (E_DEADLINE: 15 minutes per stage, design 13) has run out. A nil deadline
+// (workflows created before deadlines were recorded) never expires here.
+func stageDeadlineExceeded(deadline *time.Time, now time.Time) bool {
+	return deadline != nil && !now.Before(*deadline)
+}
+
+// ensureReconcileTx creates the RESOURCE_RECONCILE successor obligation for a
+// parked checkout operation (Registry13: a parked mutation must hand its
+// obligation to a reconciliation job that re-queries the remote resource with
+// the original key). Idempotent on the job key; runs inside the caller's tx.
+func (r *CheckoutRuntime) ensureReconcileTx(ctx context.Context, tx pgx.Tx, operation, planned string) error {
+	var exists bool
+	if e := tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM jobs WHERE key=$1)", "RESOURCE_RECONCILE:"+operation).Scan(&exists); e != nil {
+		return e
+	}
+	if exists {
+		return nil
+	}
+	workflow, job := uuid.NewString(), uuid.NewString()
+	input, _ := json.Marshal(map[string]string{"order_id": planned, "operation_id": operation})
+	encrypted, e := r.Store.cipher.Seal("job:"+job, input)
+	if e != nil {
+		return e
+	}
+	if _, e = tx.Exec(ctx, `INSERT INTO workflows(id,kind,workflow_version,aggregate_type,aggregate_id,stage,state,policy_version,stage_started_at)
+ VALUES($1,'RESOURCE_RECONCILE',1,'CHECKOUT_OPERATION',$2,'RECONCILE','RUNNING','order-core-1.0',clock_timestamp())`, workflow, operation); e != nil {
+		return e
+	}
+	_, e = tx.Exec(ctx, `INSERT INTO jobs(id,kind,key,stage,status,cohort,workflow_id,input_version,input_cipher,input_hash,lane)
+ VALUES($1,'RESOURCE_RECONCILE',$2,'RECONCILE','READY',$3,$4,1,$5,$6,'RECONCILE')`, job, "RESOURCE_RECONCILE:"+operation, Cohort, workflow, encrypted, hash(input))
+	return e
+}
+
+// parkTx moves a claimed checkout job to PARKED + MANUAL_REVIEW and hands the
+// obligation to a RESOURCE_RECONCILE job, all inside the caller's fenced tx.
+func (r *CheckoutRuntime) parkTx(ctx context.Context, tx pgx.Tx, w checkoutWork, reason string) error {
+	if _, e := tx.Exec(ctx, "UPDATE checkout_operations SET status='MANUAL_REVIEW',error_code=$2,error_http=503 WHERE id=$1", w.Operation, reason); e != nil {
+		return e
+	}
+	if _, e := tx.Exec(ctx, "UPDATE workflows SET state='MANUAL_REVIEW',version=version+1 WHERE id=$1", w.Workflow); e != nil {
+		return e
+	}
+	if _, e := tx.Exec(ctx, "UPDATE jobs SET status='PARKED',error_code=$2,lease_owner=NULL,lease_until=NULL WHERE id=$1", w.JobID, reason); e != nil {
+		return e
+	}
+	if e := r.ensureReconcileTx(ctx, tx, w.Operation, w.Planned); e != nil {
+		return e
+	}
+	return r.Store.audit(ctx, tx, "", "", "CHECKOUT_PARKED", map[string]any{"operation_id": w.Operation, "stage": w.Stage, "reason": reason})
+}
+
+// park is the fenced entry point for parking outside the retry path
+// (for example when the stage deadline has passed before execution).
+func (r *CheckoutRuntime) park(ctx context.Context, w checkoutWork, reason string) error {
+	return r.fenced(ctx, w, func(tx pgx.Tx) error { return r.parkTx(ctx, tx, w, reason) })
+}
+
 func (r *CheckoutRuntime) retry(ctx context.Context, w checkoutWork, cause error) error {
 	return r.fenced(ctx, w, func(tx pgx.Tx) error {
+		if w.Attempts >= 20 {
+			return r.parkTx(ctx, tx, w, "CHECKOUT_DEPENDENCY_RETRY")
+		}
 		status := "WAITING_RETRY"
 		if w.Stage == "COMPENSATE" {
 			status = "COMPENSATING"
 		}
-		if w.Attempts >= 20 {
-			status = "MANUAL_REVIEW"
-		}
 		if _, e := tx.Exec(ctx, "UPDATE checkout_operations SET status=$2,error_code='CHECKOUT_DEPENDENCY_RETRY',error_http=503 WHERE id=$1", w.Operation, status); e != nil {
 			return e
 		}
-		if w.Attempts >= 20 {
-			if _, e := tx.Exec(ctx, "UPDATE checkout_operations SET status='MANUAL_REVIEW',error_code='CHECKOUT_DEPENDENCY_RETRY',error_http=503 WHERE id=$1", w.Operation); e != nil {
-				return e
-			}
-			if _, e := tx.Exec(ctx, "UPDATE workflows SET state='MANUAL_REVIEW',version=version+1 WHERE id=$1", w.Workflow); e != nil {
-				return e
-			}
-		}
-		_, e := tx.Exec(ctx, `UPDATE jobs SET status=CASE WHEN attempts>=20 THEN 'PARKED' ELSE 'RETRY_WAIT' END,run_after=clock_timestamp()+interval '1 second',error_code='CHECKOUT_DEPENDENCY_RETRY',lease_owner=NULL,lease_until=NULL WHERE id=$1`, w.JobID)
+		_, e := tx.Exec(ctx, `UPDATE jobs SET status='RETRY_WAIT',run_after=clock_timestamp()+interval '1 second',error_code='CHECKOUT_DEPENDENCY_RETRY',lease_owner=NULL,lease_until=NULL WHERE id=$1`, w.JobID)
 		return e
 	})
 }
@@ -101,7 +152,7 @@ func (r *CheckoutRuntime) advance(ctx context.Context, w checkoutWork, stage str
 		if _, e := tx.Exec(ctx, `UPDATE checkout_operations SET status='PROCESSING',stage=$2,error_code=NULL,error_http=NULL,canonical_cipher=$3,canonical_hash=$4,reservation_id=COALESCE($5,reservation_id),reservation_expires_at=COALESCE($6,reservation_expires_at) WHERE id=$1`, w.Operation, stage, encrypted, hash(raw), reservation, expires); e != nil {
 			return e
 		}
-		if _, e := tx.Exec(ctx, "UPDATE workflows SET stage=$2,version=version+1 WHERE id=$1", w.Workflow, stage); e != nil {
+		if _, e := tx.Exec(ctx, "UPDATE workflows SET stage=$2,stage_started_at=clock_timestamp(),stage_deadline=clock_timestamp()+interval '15 minutes',version=version+1 WHERE id=$1", w.Workflow, stage); e != nil {
 			return e
 		}
 		kind := "CHECKOUT_VALIDATE"
@@ -144,6 +195,15 @@ func (r *CheckoutRuntime) Work(ctx context.Context) (bool, error) {
 	}
 	if e != nil {
 		return false, e
+	}
+	{
+		var now time.Time
+		if e := r.Store.db.QueryRow(ctx, "SELECT clock_timestamp()").Scan(&now); e == nil && stageDeadlineExceeded(w.Deadline, now) {
+			// E_DEADLINE: the stage budget is exhausted before this attempt
+			// runs. Park with a reconcile obligation instead of executing
+			// against stale terms or silently dropping the operation.
+			return true, r.park(context.WithoutCancel(ctx), w, "STAGE_DEADLINE_EXCEEDED")
+		}
 	}
 	raw, e := r.Store.cipher.Open("accepted:"+w.Operation+":"+w.Scope, w.Input)
 	if e != nil {
@@ -322,7 +382,7 @@ func (r *CheckoutRuntime) Recover(ctx context.Context, id, actor, warehouse, mer
 		if tag.RowsAffected() != 1 {
 			return ErrConflict
 		}
-		if _, e = tx.Exec(ctx, "UPDATE workflows SET state='RUNNING',version=version+1 WHERE kind='CHECKOUT' AND aggregate_id=$1", id); e != nil {
+		if _, e = tx.Exec(ctx, "UPDATE workflows SET state='RUNNING',stage_started_at=clock_timestamp(),stage_deadline=clock_timestamp()+interval '15 minutes',version=version+1 WHERE kind='CHECKOUT' AND aggregate_id=$1", id); e != nil {
 			return e
 		}
 		if _, e = tx.Exec(ctx, "UPDATE checkout_operations SET status='WAITING_RETRY' WHERE id=$1", id); e != nil {
