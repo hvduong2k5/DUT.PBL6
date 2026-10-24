@@ -72,14 +72,32 @@ func stageDeadlineExceeded(deadline *time.Time, now time.Time) bool {
 // ensureReconcileTx creates the RESOURCE_RECONCILE successor obligation for a
 // parked checkout operation (Registry13: a parked mutation must hand its
 // obligation to a reconciliation job that re-queries the remote resource with
-// the original key). Idempotent on the job key; runs inside the caller's tx.
+// the original key). The job key is stable across generations because it names
+// the remote effect identity. If a previous generation already finished
+// (DONE/PARKED) — park, reconcile, resume, park again — the obligation is
+// rearmed under a fresh workflow generation instead of being dropped; the
+// sealed input is unchanged because it is bound to the job id, not the
+// generation. Runs inside the caller's tx.
 func (r *CheckoutRuntime) ensureReconcileTx(ctx context.Context, tx pgx.Tx, operation, planned string) error {
-	var exists bool
-	if e := tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM jobs WHERE key=$1)", "RESOURCE_RECONCILE:"+operation).Scan(&exists); e != nil {
+	key := "RESOURCE_RECONCILE:" + operation
+	var status string
+	e := tx.QueryRow(ctx, "SELECT status FROM jobs WHERE key=$1 FOR UPDATE", key).Scan(&status)
+	if e != nil && !errors.Is(e, pgx.ErrNoRows) {
 		return e
 	}
-	if exists {
-		return nil
+	if e == nil {
+		if status == "READY" || status == "RETRY_WAIT" || status == "LEASED" {
+			return nil // a live generation already owns the obligation
+		}
+		workflow := uuid.NewString()
+		if _, e = tx.Exec(ctx, `INSERT INTO workflows(id,kind,workflow_version,aggregate_type,aggregate_id,stage,state,policy_version,stage_started_at)
+ VALUES($1,'RESOURCE_RECONCILE',1,'CHECKOUT_OPERATION',$2,'RECONCILE','RUNNING','order-core-1.0',clock_timestamp())`, workflow, operation); e != nil {
+			return e
+		}
+		if _, e = tx.Exec(ctx, "UPDATE jobs SET workflow_id=$2,status='READY',attempts=0,run_after=clock_timestamp(),lease_owner=NULL,lease_until=NULL,lease_epoch=lease_epoch+1,error_code=NULL WHERE key=$1", key, workflow); e != nil {
+			return e
+		}
+		return r.Store.audit(ctx, tx, "", "", "CHECKOUT_RECONCILE_REARMED", map[string]any{"operation_id": operation})
 	}
 	workflow, job := uuid.NewString(), uuid.NewString()
 	input, _ := json.Marshal(map[string]string{"order_id": planned, "operation_id": operation})
@@ -92,7 +110,7 @@ func (r *CheckoutRuntime) ensureReconcileTx(ctx context.Context, tx pgx.Tx, oper
 		return e
 	}
 	_, e = tx.Exec(ctx, `INSERT INTO jobs(id,kind,key,stage,status,cohort,workflow_id,input_version,input_cipher,input_hash,lane)
- VALUES($1,'RESOURCE_RECONCILE',$2,'RECONCILE','READY',$3,$4,1,$5,$6,'RECONCILE')`, job, "RESOURCE_RECONCILE:"+operation, Cohort, workflow, encrypted, hash(input))
+ VALUES($1,'RESOURCE_RECONCILE',$2,'RECONCILE','READY',$3,$4,1,$5,$6,'RECONCILE')`, job, key, Cohort, workflow, encrypted, hash(input))
 	return e
 }
 
@@ -112,6 +130,18 @@ func (r *CheckoutRuntime) parkTx(ctx context.Context, tx pgx.Tx, w checkoutWork,
 		return e
 	}
 	return r.Store.audit(ctx, tx, "", "", "CHECKOUT_PARKED", map[string]any{"operation_id": w.Operation, "stage": w.Stage, "reason": reason})
+}
+
+// deadlineGate reports whether this attempt must stop before dispatching a
+// mutation because the stage deadline has passed. A clock read error is
+// returned to the caller, which must stop the attempt: executing without a
+// verified clock could dispatch mutations past the stage cutoff.
+func (r *CheckoutRuntime) deadlineGate(ctx context.Context, w checkoutWork) (bool, error) {
+	var now time.Time
+	if e := r.Store.db.QueryRow(ctx, "SELECT clock_timestamp()").Scan(&now); e != nil {
+		return false, e
+	}
+	return stageDeadlineExceeded(w.Deadline, now), nil
 }
 
 // park is the fenced entry point for parking outside the retry path
@@ -196,14 +226,14 @@ func (r *CheckoutRuntime) Work(ctx context.Context) (bool, error) {
 	if e != nil {
 		return false, e
 	}
-	{
-		var now time.Time
-		if e := r.Store.db.QueryRow(ctx, "SELECT clock_timestamp()").Scan(&now); e == nil && stageDeadlineExceeded(w.Deadline, now) {
-			// E_DEADLINE: the stage budget is exhausted before this attempt
-			// runs. Park with a reconcile obligation instead of executing
-			// against stale terms or silently dropping the operation.
-			return true, r.park(context.WithoutCancel(ctx), w, "STAGE_DEADLINE_EXCEEDED")
-		}
+	// E_DEADLINE gate, fail-closed: an unreadable DB clock stops the attempt
+	// (retry), and a passed stage deadline parks the operation with a
+	// reconcile obligation instead of executing against stale terms.
+	if stop, e := r.deadlineGate(ctx, w); e != nil {
+		_ = r.retry(context.WithoutCancel(ctx), w, e)
+		return true, e
+	} else if stop {
+		return true, r.park(context.WithoutCancel(ctx), w, "STAGE_DEADLINE_EXCEEDED")
 	}
 	raw, e := r.Store.cipher.Open("accepted:"+w.Operation+":"+w.Scope, w.Input)
 	if e != nil {
@@ -265,6 +295,12 @@ func (r *CheckoutRuntime) Work(ctx context.Context) (bool, error) {
 		if _, e = core.NewSnapshot(terms); e != nil {
 			return true, r.fail(ctx, w, "INVALID_CANONICAL_TERMS")
 		}
+		if stop, e := r.deadlineGate(ctx, w); e != nil {
+			_ = r.retry(context.WithoutCancel(ctx), w, e)
+			return true, e
+		} else if stop {
+			return true, r.park(context.WithoutCancel(ctx), w, "STAGE_DEADLINE_EXCEEDED")
+		}
 		return true, r.advance(ctx, w, "RESERVE", terms, nil)
 	case "RESERVE":
 		var now time.Time
@@ -273,6 +309,12 @@ func (r *CheckoutRuntime) Work(ctx context.Context) (bool, error) {
 		}
 		if !now.Add(30*time.Second).Before(terms.Catalog.ValidUntil) || !now.Add(30*time.Second).Before(terms.Shipping.ValidUntil) || (terms.Payment.ExpiresAt != nil && !now.Add(30*time.Second).Before(*terms.Payment.ExpiresAt)) {
 			return true, r.advance(ctx, w, "COMPENSATE", terms, nil)
+		}
+		if stop, e := r.deadlineGate(ctx, w); e != nil {
+			_ = r.retry(context.WithoutCancel(ctx), w, e)
+			return true, e
+		} else if stop {
+			return true, r.park(context.WithoutCancel(ctx), w, "STAGE_DEADLINE_EXCEEDED")
 		}
 		var proof core.ResourceProof
 		proof, e = r.Inventory.Reserve(ctx, terms, "inventory:reserve:"+w.Planned)
@@ -291,6 +333,12 @@ func (r *CheckoutRuntime) Work(ctx context.Context) (bool, error) {
 		}
 		return true, r.advance(ctx, w, stage, terms, &proof)
 	case "PLACE", "COD_FINALIZE", "COMPENSATE":
+		if stop, e := r.deadlineGate(ctx, w); e != nil {
+			_ = r.retry(context.WithoutCancel(ctx), w, e)
+			return true, e
+		} else if stop {
+			return true, r.park(context.WithoutCancel(ctx), w, "STAGE_DEADLINE_EXCEEDED")
+		}
 		// Re-query the original reserve key after every retry: the remote proof,
 		// never a reconstructed local reservation, is the placement authority.
 		proof, err := r.Inventory.Lookup(ctx, terms, "inventory:reserve:"+w.Planned)

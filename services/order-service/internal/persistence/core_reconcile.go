@@ -14,23 +14,36 @@ import (
 const (
 	reconcileStale      = "STALE"
 	reconcileResume     = "RESUME"
+	reconcileRelease    = "RELEASE"
 	reconcileCompensate = "COMPENSATE"
 	reconcileReview     = "REVIEW"
 )
 
 // reconcileDisposition maps the remote proof state to the local obligation.
-// A reservation that is still RESERVED and unexpired can resume the parked
-// checkout; a released/expired (or lapsed) reservation means compensation is
-// already complete remotely; anything else (notably an unexpected COMMITTED)
-// stays in MANUAL_REVIEW for a human.
-func reconcileDisposition(opStatus, proofState string, proofExpired bool) string {
-	if opStatus == "SUCCEEDED" || opStatus == "FAILED" {
+//
+//   - An operation that is no longer in MANUAL_REVIEW is owned by someone
+//     else (admin Recover, a terminal transition): the proof is stale.
+//   - RESERVED and still inside its stage window resumes the parked job,
+//     without granting it a fresh attempt budget or stage window.
+//   - RESERVED whose stage window has already closed stays in MANUAL_REVIEW:
+//     extending the window is a policy grant that belongs to the audited
+//     admin Recover path, not to the reconciler.
+//   - RESERVED with a lapsed reservation expiry is NOT proof of compensation:
+//     the reconciler must first run Release with the original key and only
+//     close the obligation on an authoritative RELEASED/EXPIRED proof.
+//   - RELEASED/EXPIRED proofs close the obligation as compensated.
+//   - Anything else (notably an unexpected COMMITTED) stays with a human.
+func reconcileDisposition(opStatus, opError, proofState string, proofExpired, stageExpired bool) string {
+	if opStatus != "MANUAL_REVIEW" {
 		return reconcileStale
 	}
 	switch proofState {
 	case "RESERVED":
 		if proofExpired {
-			return reconcileCompensate
+			return reconcileRelease
+		}
+		if stageExpired || opError == "STAGE_DEADLINE_EXCEEDED" {
+			return reconcileReview
 		}
 		return reconcileResume
 	case "RELEASED", "EXPIRED":
@@ -68,9 +81,9 @@ func (r *CheckoutRuntime) fenceReconcile(ctx context.Context, w reconcileWork, f
 }
 
 // retryReconcile reschedules a reconcile job after a transient failure
-// (for example Inventory Lookup being unavailable). After 20 attempts the
-// job parks; the operation stays in MANUAL_REVIEW so the obligation is
-// never silently dropped.
+// (for example Inventory Lookup/Release being unavailable). After 20
+// attempts the job parks; the operation stays in MANUAL_REVIEW so the
+// obligation is never silently dropped.
 func (r *CheckoutRuntime) retryReconcile(ctx context.Context, w reconcileWork) error {
 	if w.Attempts >= 20 {
 		return r.fenceReconcile(ctx, w, func(tx pgx.Tx) error {
@@ -84,10 +97,11 @@ func (r *CheckoutRuntime) retryReconcile(ctx context.Context, w reconcileWork) e
 
 // WorkReconcile executes one RESOURCE_RECONCILE job: it re-queries Inventory
 // with the original reserve key of a parked checkout operation and settles
-// the local obligation from the returned proof (resume, compensated, or
-// keep for manual review). Lookup errors are retryable: persistence stays
-// decoupled from provider error shapes, and the admin Recover path remains
-// available while reconcile retries.
+// the local obligation from the returned proof. The proof is applied only
+// after re-verifying, under lock, that the operation is still in
+// MANUAL_REVIEW with its checkout job still PARKED (see finishReconcile),
+// because an admin Recover may have resumed the checkout in the meantime.
+// Provider calls happen outside any SQL transaction.
 func (r *CheckoutRuntime) WorkReconcile(ctx context.Context) (bool, error) {
 	if r.Inventory == nil {
 		return false, ErrCapability
@@ -109,17 +123,15 @@ func (r *CheckoutRuntime) WorkReconcile(ctx context.Context) (bool, error) {
 	}
 	operation, planned := input["operation_id"], input["order_id"]
 
-	var opStatus, opStage, scope string
+	var opStatus, opStage, opError, scope string
 	var acceptedRaw, canonicalRaw []byte
 	var checkoutWorkflow string
-	e = r.Store.db.QueryRow(ctx, "SELECT status,stage,scope,input_cipher,canonical_cipher FROM checkout_operations WHERE id=$1 AND cohort=$2", operation, Cohort).Scan(&opStatus, &opStage, &scope, &acceptedRaw, &canonicalRaw)
+	var stageDeadline *time.Time
+	e = r.Store.db.QueryRow(ctx, "SELECT c.status,c.stage,c.error_code,c.scope,c.input_cipher,c.canonical_cipher,f.id,f.stage_deadline FROM checkout_operations c JOIN workflows f ON f.kind='CHECKOUT' AND f.aggregate_id=c.id WHERE c.id=$1 AND c.cohort=$2", operation, Cohort).Scan(&opStatus, &opStage, &opError, &scope, &acceptedRaw, &canonicalRaw, &checkoutWorkflow, &stageDeadline)
 	if e != nil {
 		return true, e
 	}
-	if e = r.Store.db.QueryRow(ctx, "SELECT id FROM workflows WHERE kind='CHECKOUT' AND aggregate_id=$1", operation).Scan(&checkoutWorkflow); e != nil {
-		return true, e
-	}
-	if opStatus == "SUCCEEDED" || opStatus == "FAILED" {
+	if opStatus != "MANUAL_REVIEW" {
 		return true, r.finishReconcile(ctx, w, reconcileStale, operation, checkoutWorkflow, opStage)
 	}
 	raw, e = r.Store.cipher.Open("accepted:"+operation+":"+scope, acceptedRaw)
@@ -151,29 +163,62 @@ func (r *CheckoutRuntime) WorkReconcile(ctx context.Context) (bool, error) {
 		_ = r.retryReconcile(context.WithoutCancel(ctx), w)
 		return true, e
 	}
-	disposition := reconcileDisposition(opStatus, proof.State, !proof.ExpiresAt.After(now))
+	disposition := reconcileDisposition(opStatus, opError, proof.State, !proof.ExpiresAt.After(now), stageDeadlineExceeded(stageDeadline, now))
+	if disposition == reconcileRelease {
+		// A lapsed RESERVED proof is not compensation evidence. Run the
+		// release with the original key and only close the obligation on
+		// the authoritative outcome.
+		proof, e = r.Inventory.Release(ctx, terms, proof, "inventory:release:"+planned)
+		if e != nil {
+			_ = r.retryReconcile(context.WithoutCancel(ctx), w)
+			return true, e
+		}
+		if proof.State != "RELEASED" && proof.State != "EXPIRED" {
+			_ = r.retryReconcile(context.WithoutCancel(ctx), w)
+			return true, ErrIntegrity
+		}
+		disposition = reconcileCompensate
+	}
 	return true, r.finishReconcile(ctx, w, disposition, operation, checkoutWorkflow, opStage)
 }
 
 func (r *CheckoutRuntime) finishReconcile(ctx context.Context, w reconcileWork, disposition, operation, checkoutWorkflow, opStage string) error {
 	return r.fenceReconcile(ctx, w, func(tx pgx.Tx) error {
+		// Re-verify ownership under lock before applying the proof: the
+		// operation must still be in MANUAL_REVIEW, its workflow must
+		// still be in MANUAL_REVIEW, and the checkout job must still be
+		// PARKED. An admin Recover (or any other transition) in the
+		// meantime makes the proof stale.
 		var status string
 		if e := tx.QueryRow(ctx, "SELECT status FROM checkout_operations WHERE id=$1 FOR UPDATE", operation).Scan(&status); e != nil {
 			return e
 		}
-		if status == "SUCCEEDED" || status == "FAILED" {
+		var wfState string
+		if e := tx.QueryRow(ctx, "SELECT state FROM workflows WHERE id=$1 FOR UPDATE", checkoutWorkflow).Scan(&wfState); e != nil {
+			return e
+		}
+		parked := 0
+		if status == "MANUAL_REVIEW" && wfState == "MANUAL_REVIEW" {
+			if e := tx.QueryRow(ctx, "SELECT count(*) FROM jobs WHERE workflow_id=$1 AND status='PARKED'", checkoutWorkflow).Scan(&parked); e != nil {
+				return e
+			}
+		}
+		if status != "MANUAL_REVIEW" || wfState != "MANUAL_REVIEW" || (disposition != reconcileReview && parked != 1) {
 			disposition = reconcileStale
 		}
 		switch disposition {
 		case reconcileResume:
-			tag, e := tx.Exec(ctx, "UPDATE jobs SET status='READY',attempts=0,run_after=clock_timestamp(),lease_owner=NULL,lease_until=NULL,lease_epoch=lease_epoch+1 WHERE cohort=$1 AND status='PARKED' AND workflow_id=$2", Cohort, checkoutWorkflow)
+			// Resume grants no new budget: the job keeps its attempt count
+			// and its stage window. Only the audited admin Recover path
+			// resets attempts and extends the window.
+			tag, e := tx.Exec(ctx, "UPDATE jobs SET status='READY',run_after=clock_timestamp(),lease_owner=NULL,lease_until=NULL,lease_epoch=lease_epoch+1 WHERE cohort=$1 AND status='PARKED' AND workflow_id=$2", Cohort, checkoutWorkflow)
 			if e != nil {
 				return e
 			}
 			if tag.RowsAffected() != 1 {
 				return ErrConflict
 			}
-			if _, e = tx.Exec(ctx, "UPDATE workflows SET state='RUNNING',stage_started_at=clock_timestamp(),stage_deadline=clock_timestamp()+interval '15 minutes',version=version+1 WHERE id=$1", checkoutWorkflow); e != nil {
+			if _, e = tx.Exec(ctx, "UPDATE workflows SET state='RUNNING',version=version+1 WHERE id=$1", checkoutWorkflow); e != nil {
 				return e
 			}
 			if _, e = tx.Exec(ctx, "UPDATE checkout_operations SET status='WAITING_RETRY' WHERE id=$1", operation); e != nil {
