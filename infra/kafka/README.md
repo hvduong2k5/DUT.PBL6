@@ -9,7 +9,7 @@ Cấu hình Kafka dùng chung cho toàn bộ các Microservices trong hệ thố
 2. **Dual-Listeners (Hỗ trợ 2 cổng kết nối song song):**
    - **`kafka:9092` (INTERNAL):** Dành cho các Microservice container chạy chung mạng Docker.
    - **`localhost:9094` (EXTERNAL):** Dành cho ứng dụng chạy từ máy Host (IDE IntelliJ/VS Code, CLI, Postman...).
-3. **Tích hợp sẵn Kafka UI:** Quản lý Topics, Events, Consumers qua giao diện trực quan tại: `http://localhost:8085`.
+3. **Bảo mật Kafka UI (Form Login):** Hỗ trợ đặt User/Password cho giao diện Web khi gán Domain công khai trên Coolify.
 4. **Auto-create Topics:** Tự động tạo topic khi có service produce message đầu tiên (VD: `identity.events.v1`).
 5. **Dữ liệu bền vững:** Lưu tại volume `om_kafka_shared_data`.
 
@@ -23,18 +23,27 @@ cd infra/kafka
 cp .env.example .env
 docker compose up -d
 ```
-Truy cập **Kafka UI**: [http://localhost:8085](http://localhost:8085)
+* Truy cập **Kafka UI**: [http://localhost:8085](http://localhost:8085)
+* Tài khoản mặc định: `admin` / `OmamaSecretPass@2026` (hoặc đặt `KAFKA_UI_AUTH_TYPE=DISABLED` trong `.env` nếu muốn tắt đăng nhập).
 
-### Cách 2: Triển khai trên Coolify
+### Cách 2: Triển khai trên Coolify (Có gán Domain)
 1. Trên Coolify, chọn **+ Add Resource** -> **Docker Compose**.
 2. Dán nội dung file `docker-compose.yml`.
 3. Trong tab **Environment Variables**, cấu hình:
    ```env
    DOCKER_NETWORK_NAME=coolify
    DOCKER_NETWORK_EXTERNAL=true
-   KAFKA_EXTERNAL_HOST=your-server-ip-or-domain
+   
+   # Khóa cổng broker chỉ cho localhost/nội bộ truy cập
+   KAFKA_EXTERNAL_BIND_IP=127.0.0.1
+   
+   # Mật khẩu quản trị Kafka UI qua Domain
+   KAFKA_UI_AUTH_TYPE=LOGIN_FORM
+   KAFKA_UI_USERNAME=admin
+   KAFKA_UI_PASSWORD=MatKhauBaoMatCuaBan@123
    ```
-4. Bấm **Deploy**.
+4. Gán Domain cho service `kafka-ui` (VD: `https://kafka-ui.omama.vn`).
+5. Bấm **Deploy**.
 
 ---
 

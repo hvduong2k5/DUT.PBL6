@@ -10,7 +10,8 @@ services:
     restart: unless-stopped
     ports:
       # Port dành cho các ứng dụng chạy ngoài máy host (IDE, Postman, test local)
-      - "${KAFKA_EXTERNAL_PORT:-9094}:9094"
+      # Mặc định bind 0.0.0.0; trên VPS có thể đặt KAFKA_EXTERNAL_BIND_IP=127.0.0.1 để tránh phơi ra ngoài
+      - "${KAFKA_EXTERNAL_BIND_IP:-0.0.0.0}:${KAFKA_EXTERNAL_PORT:-9094}:9094"
     environment:
       # KRaft Settings (Tự quản lý metadata, không cần Zookeeper)
       KAFKA_NODE_ID: 1
@@ -62,6 +63,11 @@ services:
       DYNAMIC_CONFIG_ENABLED: "true"
       KAFKA_CLUSTERS_0_NAME: omama-kafka-cluster
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+
+      # Bảo mật đăng nhập (Bắt buộc khi gán Domain công khai)
+      AUTH_TYPE: "${KAFKA_UI_AUTH_TYPE:-LOGIN_FORM}"
+      SPRING_SECURITY_USER_NAME: "${KAFKA_UI_USERNAME:-admin}"
+      SPRING_SECURITY_USER_PASSWORD: "${KAFKA_UI_PASSWORD:-admin123}"
     depends_on:
       kafka:
         condition: service_healthy
