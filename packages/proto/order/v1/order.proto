@@ -26,6 +26,10 @@ service OrderService {
 
   // Khách hàng hoặc Quản trị viên yêu cầu hủy đơn hàng (Kích hoạt Saga Compensation)
   rpc CancelOrder(CancelOrderRequest) returns (CancelOrderResponse);
+
+  // Cấp snapshot giao nhận bất biến cho Shipping sau khi kiện đã đóng gói.
+  // Chỉ cho phép service identity của MS-12; không dùng làm API công khai.
+  rpc GetShippingSnapshot(GetShippingSnapshotRequest) returns (GetShippingSnapshotResponse);
 }
 
 // Vòng đời trạng thái thực thể Đơn hàng (Tuân thủ triệt để stateDiagram-v2)
@@ -177,4 +181,30 @@ message CancelOrderResponse {
   bool is_cancelled = 1;
   OrderStatus final_status = 2;
   string message = 3;
+}
+
+message GetShippingSnapshotRequest {
+  string order_id = 1;
+  string package_id = 2;
+  string requesting_service = 3;
+}
+
+message GetShippingSnapshotResponse {
+  string order_id = 1;
+  string package_id = 2;
+  OrderStatus order_status = 3;
+  omamx.common.v1.Address recipient = 4;
+
+  // Giá trị đã chốt tại checkout, không được đọc lại từ address book hiện tại.
+  optional omamx.common.v1.Money checkout_shipping_fee = 5;
+  optional omamx.common.v1.Money cod_amount = 6;
+  string payment_method = 7;
+
+  // Carrier/service/quote khách đã chọn hoặc Order đã chốt tại checkout.
+  optional string carrier_code = 8;
+  optional string service_code = 9;
+  optional string quote_id = 10;
+
+  bool eligible_for_shipping = 11;
+  optional omamx.common.v1.ErrorDetail error = 12;
 }
