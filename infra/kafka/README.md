@@ -2,64 +2,67 @@
 
 Cấu hình Kafka dùng chung cho toàn bộ các Microservices trong hệ thống O Mạ (`identity-service`, `order-service`, `inventory-service`, `catalog-service`,...).
 
----
-
-## 🌟 Điểm nổi bật
-1. **KRaft Mode (Native Apache Kafka 3.8):** Hoạt động không cần ZooKeeper, khởi động cực nhanh (< 3 giây), tối ưu tài nguyên RAM/CPU.
-2. **Dual-Listeners (Hỗ trợ 2 cổng kết nối song song):**
-   - **`kafka:9092` (INTERNAL):** Dành cho các Microservice container chạy chung mạng Docker.
-   - **`localhost:9094` (EXTERNAL):** Dành cho ứng dụng chạy từ máy Host (IDE IntelliJ/VS Code, CLI, Postman...).
-3. **Bảo mật Kafka UI (Form Login):** Hỗ trợ đặt User/Password cho giao diện Web khi gán Domain công khai trên Coolify.
-4. **Auto-create Topics:** Tự động tạo topic khi có service produce message đầu tiên (VD: `identity.events.v1`).
-5. **Dữ liệu bền vững:** Lưu tại volume `om_kafka_shared_data`.
+Hệ thống cung cấp **2 file compose chuyên biệt** cho từng môi trường:
+1. **`docker-compose.prod.yml`**: Dành cho **Production trên Coolify** (Tối ưu bảo mật, không mở port VPS, Traefik domain routing, bảo vệ form login cho UI).
+2. **`docker-compose.dev.yml`** (hoặc `docker-compose.yml`): Dành cho **Local Development** (Mở port 9094 cho IDE và 8085 cho Web UI, không cần đăng nhập).
 
 ---
 
-## 🚀 Hướng dẫn khởi chạy
+## 📁 So sánh 2 phiên bản Compose
 
-### Cách 1: Chạy Local (Docker Compose)
+| Đặc điểm | `docker-compose.dev.yml` (Local Dev) | `docker-compose.prod.yml` (Coolify Prod) |
+| :--- | :--- | :--- |
+| **Mục đích** | Code & test trên máy cá nhân | Triển khai trên máy chủ VPS Coolify |
+| **Mạng Docker** | `om-network` (bridge độc lập) | `coolify` (`external: true`) |
+| **Port Broker Host** | `9094:9094` (để IDE/bootRun kết nối) | **Không map** (Tránh trùng port & lộ Internet) |
+| **Port UI Host** | `8085:8080` (trực tiếp trình duyệt) | **Không map** (Traefik route từ Domain vào 8080) |
+| **Xác thực Kafka UI** | `DISABLED` (Vào thẳng UI nhanh) | `LOGIN_FORM` (Bắt buộc nhập User/Password) |
+| **Dữ liệu Volume** | `om_kafka_dev_data` | `om_kafka_prod_data` |
+
+---
+
+## 🚀 1. Hướng dẫn chạy Local Dev (Docker Desktop / Docker)
+
+Tại thư mục gốc `infra/kafka`:
 ```bash
 cd infra/kafka
-cp .env.example .env
-docker compose up -d
-```
-* Truy cập **Kafka UI**: [http://localhost:8085](http://localhost:8085)
-* Tài khoản mặc định: `admin` / `OmamaSecretPass@2026` (hoặc đặt `KAFKA_UI_AUTH_TYPE=DISABLED` trong `.env` nếu muốn tắt đăng nhập).
 
-### Cách 2: Triển khai trên Coolify (Có gán Domain)
-1. Trên Coolify, chọn **+ Add Resource** -> **Docker Compose**.
-2. Dán nội dung file `docker-compose.yml`.
-3. Trong tab **Environment Variables**, cấu hình:
+# Khởi động cụm Kafka local (dùng docker-compose.dev.yml)
+docker compose -f docker-compose.dev.yml up -d
+# hoặc gõ ngắn gọn: docker compose up -d
+```
+* **Kafka UI:** Mở trình duyệt [http://localhost:8085](http://localhost:8085) (vào thẳng không cần mật khẩu).
+* **Ứng dụng Local (Spring Boot trên IDE):** Kết nối qua `localhost:9094`.
+
+---
+
+## 🌐 2. Hướng dẫn triển khai Production trên Coolify
+
+1. Đăng nhập vào Coolify Dashboard.
+2. Chọn **Project / Environment** ➔ Chọn **+ Add Resource** ➔ Chọn **Docker Compose**.
+3. **Copy toàn bộ nội dung file [`docker-compose.prod.yml`](./docker-compose.prod.yml)** dán vào ô Compose Content.
+4. Chuyển sang tab **Environment Variables**, khai báo thông tin đăng nhập UI:
    ```env
-   DOCKER_NETWORK_NAME=coolify
-   DOCKER_NETWORK_EXTERNAL=true
-   
-   # Khóa cổng broker chỉ cho localhost/nội bộ truy cập
-   KAFKA_EXTERNAL_BIND_IP=127.0.0.1
-   
-   # Mật khẩu quản trị Kafka UI qua Domain
-   KAFKA_UI_AUTH_TYPE=LOGIN_FORM
    KAFKA_UI_USERNAME=admin
-   KAFKA_UI_PASSWORD=MatKhauBaoMatCuaBan@123
+   KAFKA_UI_PASSWORD=MatKhauBaoMatCuaBan@2026
    ```
-4. Gán Domain cho service `kafka-ui` (VD: `https://kafka-ui.omama.vn`).
-5. Bấm **Deploy**.
+5. Tại mục cài đặt service **`kafka-ui`**, điền Domain của bạn (ví dụ: `https://kafka-ui.omama.vn`).
+6. Bấm **Deploy**.
 
 ---
 
 ## 🔌 Cấu hình kết nối từ các Microservices
 
-### 1. Nếu Microservice chạy bằng Docker Container (trong cùng mạng `om-network` hoặc `coolify`)
+### A. Microservice chạy trong Docker container (Coolify hoặc Docker compose)
 Khai báo biến môi trường:
 ```yaml
 SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
 ```
 
-### 2. Nếu Microservice chạy trực tiếp từ máy tính/IDE (chạy local bằng `./gradlew bootRun`)
-Khai báo trong `application.yml` hoặc file `.env`:
+### B. Microservice chạy từ máy cá nhân (chạy qua IDE / `./gradlew bootRun`)
+Khai báo trong file `.env` hoặc `application.yml`:
 ```yaml
 spring:
   kafka:
     bootstrap-servers: localhost:9094
 ```
-

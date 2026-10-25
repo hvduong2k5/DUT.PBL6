@@ -1,48 +1,36 @@
 version: '3.8'
 
+# Default to Local Development Stack
+# For Production / Coolify Deployment, please use: docker-compose.prod.yml
+
 services:
-  # =========================================================================
-  # 1. Apache Kafka Broker (KRaft Mode - No ZooKeeper needed)
-  # =========================================================================
   kafka:
     image: apache/kafka:3.8.0
-    container_name: om-kafka
+    container_name: om-kafka-dev
     restart: unless-stopped
     ports:
-      # Port dành cho các ứng dụng chạy ngoài máy host (IDE, Postman, test local)
-      # Mặc định bind 0.0.0.0; trên VPS có thể đặt KAFKA_EXTERNAL_BIND_IP=127.0.0.1 để tránh phơi ra ngoài
-      - "${KAFKA_EXTERNAL_BIND_IP:-0.0.0.0}:${KAFKA_EXTERNAL_PORT:-9094}:9094"
+      - "${KAFKA_EXTERNAL_PORT:-9094}:9094"
     environment:
-      # KRaft Settings (Tự quản lý metadata, không cần Zookeeper)
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
-
-      # Cấu hình Dual-Listeners (Nội bộ Docker & Bên ngoài Host)
-      # INTERNAL (9092): Dành cho các Microservices chạy chung mạng Docker
-      # EXTERNAL (9094): Dành cho ứng dụng chạy từ máy Host (IntelliJ, VS Code,...)
-      # CONTROLLER (9093): Dành riêng cho giao thức nội bộ KRaft Controller
       KAFKA_LISTENERS: INTERNAL://0.0.0.0:9092,EXTERNAL://0.0.0.0:9094,CONTROLLER://0.0.0.0:9093
       KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://${KAFKA_EXTERNAL_HOST:-localhost}:${KAFKA_EXTERNAL_PORT:-9094}
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
-
-      # Cấu hình Topics & Partition mặc định
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
-
-      # Thời gian lưu giữ dữ liệu (Log retention: 7 ngày, max 10GB)
-      KAFKA_LOG_RETENTION_HOURS: 168
-      KAFKA_LOG_RETENTION_BYTES: 10737418240
-      KAFKA_LOG_SEGMENT_BYTES: 1073741824
+      KAFKA_LOG_RETENTION_HOURS: 72
+      KAFKA_LOG_RETENTION_BYTES: 5368709120
+      KAFKA_LOG_SEGMENT_BYTES: 536870912
     volumes:
-      - kafka_data:/var/lib/kafka/data
+      - kafka_dev_data:/var/lib/kafka/data
     networks:
-      - om-shared-network
+      - om-dev-network
     healthcheck:
       test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 | grep -q 'id: 1'"]
       interval: 10s
@@ -50,36 +38,30 @@ services:
       retries: 5
       start_period: 20s
 
-  # =========================================================================
-  # 2. Kafka UI (Giao diện Web trực quan quản lý Topics, Messages, Consumer Groups)
-  # =========================================================================
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
-    container_name: om-kafka-ui
+    container_name: om-kafka-ui-dev
     restart: unless-stopped
     ports:
       - "${KAFKA_UI_PORT:-8085}:8080"
     environment:
       DYNAMIC_CONFIG_ENABLED: "true"
-      KAFKA_CLUSTERS_0_NAME: omama-kafka-cluster
+      KAFKA_CLUSTERS_0_NAME: omama-dev-cluster
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
-
-      # Bảo mật đăng nhập (Bắt buộc khi gán Domain công khai)
-      AUTH_TYPE: "${KAFKA_UI_AUTH_TYPE:-LOGIN_FORM}"
+      AUTH_TYPE: "${KAFKA_UI_AUTH_TYPE:-DISABLED}"
       SPRING_SECURITY_USER_NAME: "${KAFKA_UI_USERNAME:-admin}"
       SPRING_SECURITY_USER_PASSWORD: "${KAFKA_UI_PASSWORD:-admin123}"
     depends_on:
       kafka:
         condition: service_healthy
     networks:
-      - om-shared-network
+      - om-dev-network
 
 networks:
-  om-shared-network:
+  om-dev-network:
     name: ${DOCKER_NETWORK_NAME:-om-network}
-    external: ${DOCKER_NETWORK_EXTERNAL:-false}
+    driver: bridge
 
 volumes:
-  kafka_data:
-    name: om_kafka_shared_data
-
+  kafka_dev_data:
+    name: om_kafka_dev_data
