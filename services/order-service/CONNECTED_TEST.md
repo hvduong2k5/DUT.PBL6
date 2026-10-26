@@ -54,6 +54,15 @@ node services/order-service/scripts/smoke-connected-runtime.mjs "$env:LOCALAPPDA
 4. Gọi `GET /api/v1/orders/{order_id}/payment` bằng token trong private file. Chỉ nghiệm thu khi allocated_amount bằng expected_amount, Order qua PAID và stock COMMITTED; READY còn phụ thuộc blockers.
 5. Giao thiếu/thừa, trùng khoản, đến sau timeout hoặc sai mã đi reconciliation. Không sửa amount/expiry/snapshot hay mark-paid SQL để đạt kết quả.
 
+Sau khi tạo giao dịch Test mode, dùng verifier chỉ đọc để chờ PAID/READY và đối chiếu canonical UUID, allocation, milestone, linked webhook và published outbox:
+
+```powershell
+node services/order-service/scripts/verify-sepay-sandbox-payment.mjs "$env:LOCALAPPDATA\PBL\sepay-test" --report-file "$env:TEMP\sepay-paid-acceptance.json" --wait-seconds 180
+```
+
+Verifier không tự tạo giao dịch hoặc sửa financial rows. SePay API date-filter query dùng local Vietnam datetime theo ADR011; checkpoint nội bộ vẫn UTC. Evidence cũ trước fix date filters không tự chứng minh bank coverage.
+
+
 `--probe` gửi thêm một webhook ký HMAC giả lập qua URL public, rồi khẳng định Order vẫn PENDING_PAYMENT/allocated0. Nó dùng cho kiểm tra đường truyền và chống false-PAID; **không thay bước tạo giao dịch canonical trên Dashboard**. Script không in token/account hoặc raw webhook.
 
 ## Kiểm thử hồi quy và contract
@@ -70,4 +79,4 @@ Test tạo/drop schema UUID riêng, RedisDB1 và source Kafka topic riêng; runt
 
 ## Còn giữ gate
 
-Chưa nghiệm thu canonical OMP payment từ Dashboard; chưa live. Chưa đủ real owning services/Identity/Finance consumer, full paid-cancel remote-stop/committed-stock reversal, advanced candidate control/query APIs, production TLS/key rotation/backup-restore drill. Sau task acceptance, admission-only hold bị từ chối409 thay vì giả vờ đã dừng fulfillment. Các gate này không làm mất bằng chứng luồng chính TEST đã nối nhưng cần hoàn thiện trước production.
+Ngày25/10/2026 đã nghiệm thu canonical OMP payment từ Dashboard SePay Test mode → PAID/READY, xem [báo cáo10](../../docs/04_testing/order-service/10_sepay_sandbox_paid_acceptance.md) và [ADR011](../../docs/02_architecture/adr/order-service/adr_011_sepay_local_date_filters_and_sandbox_paid_acceptance.md). Chưa live. Chưa đủ real owning services/Identity/Finance consumer, full paid-cancel remote-stop/committed-stock reversal, advanced candidate control/query APIs, production TLS/key rotation/backup-restore drill. Sau task acceptance, admission-only hold bị từ chối409 thay vì giả vờ đã dừng fulfillment. Các gate này không làm mất bằng chứng luồng chính TEST đã nối nhưng cần hoàn thiện trước production.

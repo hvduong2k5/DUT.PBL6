@@ -63,7 +63,12 @@ func NewSandboxClientWithTransport(token string, transport http.RoundTripper) (*
 	return c, nil
 }
 func (c *Client) List(ctx context.Context, w Window) (Page, error) {
-	q := url.Values{"bank_account_id": {w.Bank}, "page": {strconv.Itoa(w.Page)}, "per_page": {"100"}, "timestamp_format": {"iso8601"}, "transaction_date_sort": {"asc"}, "transaction_date_from": {w.From.Format(time.RFC3339)}, "transaction_date_to": {w.To.Format(time.RFC3339)}}
+	// Provider date filters use Vietnamese wall time. Keep coverage instants in
+	// UTC internally, but send the documented local datetime wire format. Sandbox
+	// ignores the Z offset in these filters and otherwise misses seven hours.
+	vietnam := time.FixedZone("Asia/Ho_Chi_Minh", 7*60*60)
+	wireDate := func(at time.Time) string { return at.In(vietnam).Format("2006-01-02 15:04:05") }
+	q := url.Values{"bank_account_id": {w.Bank}, "page": {strconv.Itoa(w.Page)}, "per_page": {"100"}, "timestamp_format": {"iso8601"}, "transaction_date_sort": {"asc"}, "transaction_date_from": {wireDate(w.From)}, "transaction_date_to": {wireDate(w.To)}}
 	r, e := http.NewRequestWithContext(ctx, "GET", c.base+"/transactions?"+q.Encode(), nil)
 	if e != nil {
 		return Page{}, e

@@ -1,0 +1,135 @@
+{
+  "date": "2026-10-25",
+  "baseline_commit": "6e03b58e7f853f6093b33d93ee351fe4a2dfeab8",
+  "source_state": "baseline plus local timezone-filter fix, regression test, verifier and documentation; not committed/pushed",
+  "acceptance": {
+    "status": "PASS",
+    "mode": "real-sepay-sandbox",
+    "order_id": "9b5f62f2-ebf1-4326-874a-3b9b316e7a23",
+    "payment_code": "OMP7WQ426GMN7Z4",
+    "expected_amount": 250000,
+    "expires_at": "2026-10-25T08:40:39.938143Z",
+    "provider_base": "https://userapi-sandbox.sepay.vn/v2",
+    "transitions": [
+      {
+        "observed_at": "2026-10-25T08:33:02.881Z",
+        "order_status": "PAID",
+        "display_state": "PAID",
+        "allocated_amount": 250000,
+        "stock_status": "COMMITTED",
+        "ready_authorized": true
+      }
+    ],
+    "provider_mutations_by_verifier": false,
+    "upstreams": "Inventory/Catalog/Profile/Shipping/Care TEST facades; actual SePay Sandbox API/webhook",
+    "canonical_transaction_id": "27c6ddaa-d04e-11f1-8f53-a6006ab65aca",
+    "durable_trace": {
+      "order_status": "PAID",
+      "stock_status": "COMMITTED",
+      "ready_authorized": true,
+      "allocation_count": 1,
+      "canonical_transaction_id": "27c6ddaa-d04e-11f1-8f53-a6006ab65aca",
+      "linked_observations": 1,
+      "first_paid_count": 1,
+      "paid_event_count": 1,
+      "ready_event_count": 1,
+      "pending_outbox": 0
+    },
+    "paid_acceptance": true,
+    "finished_at": "2026-10-25T08:33:03.783Z"
+  },
+  "before_fix_verifier": {
+    "status": "FAIL",
+    "transitions": [
+      {
+        "observed_at": "2026-10-25T08:28:57.093Z",
+        "order_status": "PENDING_PAYMENT",
+        "display_state": "WAITING_PAYMENT",
+        "allocated_amount": 0,
+        "stock_status": "RESERVED",
+        "ready_authorized": false
+      },
+      {
+        "observed_at": "2026-10-25T08:29:13.800Z",
+        "order_status": "PENDING_PAYMENT",
+        "display_state": "VERIFYING",
+        "allocated_amount": 0,
+        "stock_status": "RESERVED",
+        "ready_authorized": false
+      },
+      {
+        "observed_at": "2026-10-25T08:30:13.892Z",
+        "order_status": "PENDING_PAYMENT",
+        "display_state": "VERIFICATION_DELAYED",
+        "allocated_amount": 0,
+        "stock_status": "RESERVED",
+        "ready_authorized": false
+      }
+    ],
+    "failure": "Timed out before PAID; webhook ACK alone is insufficient\n+ actual - expected\n\n+ 'PENDING_PAYMENT'\n- 'PAID'\n"
+  },
+  "provider_filter_probe": [
+    {
+      "name": "utc-rfc3339",
+      "http": 200,
+      "count": 0
+    },
+    {
+      "name": "vn-local-datetime",
+      "http": 200,
+      "count": 1
+    },
+    {
+      "name": "vn-rfc3339",
+      "http": 200,
+      "count": 1
+    }
+  ],
+  "go_vet": "PASS",
+  "go_race": {
+    "passed": 213,
+    "failed": 0,
+    "skipped_tests": 0,
+    "data_race_reported": false,
+    "per_package": {
+      "github.com/omamx/order-service/internal/domain": 7,
+      "github.com/omamx/order-service/internal/domain/core": 61,
+      "github.com/omamx/order-service/internal/paymentauthority": 7,
+      "github.com/omamx/order-service/internal/paymentinventory": 6,
+      "github.com/omamx/order-service/internal/persistence": 52,
+      "github.com/omamx/order-service/internal/sepay": 19,
+      "github.com/omamx/order-service/internal/transport": 10,
+      "github.com/omamx/order-service/tests/integration": 50,
+      "github.com/omamx/order-service/tests/persistence": 1
+    }
+  },
+  "runtime_contracts": {
+    "connected_responses": 13,
+    "connected_events": 5,
+    "payment_responses": 5,
+    "payment_events": 2,
+    "status": "PASS"
+  },
+  "postman_owner_payment": {
+    "exit_code": 0,
+    "assertions": 2,
+    "cloud_event_upload": false
+  },
+  "not_exercised": [
+    "real Inventory/Catalog/Profile/Shipping/Care/Identity/Finance authorities",
+    "same-order fulfillment lifecycle to COMPLETED",
+    "Live payments or automatic refunds",
+    "production restore/ops/security acceptance"
+  ],
+  "log_sha256": {
+    "full-race.jsonl": "dcc4842afae9f113863ddaa0104395cbae487894ea4ad2af2c7e4d56d0a26b86",
+    "date-filter-probe.json": "c529c5e489d0a5dff07f7d1e71cc10922bf3926df4709abdc496f848207f4ded",
+    "paid-verification-fixed.json": "aaea9d187a0b326aa3b0acb011b7c400bdb7bbfa05af6791a1f584c1396a7e29"
+  },
+  "source_sha256_lf": {
+    "services/order-service/internal/sepay/client.go": "e42eaf7598e1305cfc1f8e53559a446f557ade5e0dd016e54777c56828d66dc8",
+    "services/order-service/internal/sepay/wire_test.go": "d05a9ef63bb1774783553fc0f38307d87ee3e1019f3611a5e99ab1206fc07dfd",
+    "services/order-service/scripts/verify-sepay-sandbox-payment.mjs": "b599b55c0187c434a4328513266f9a2b209be0e9d4c0575da5db1e21e51eea3f"
+  },
+  "raw_logs_directory": "C:\\Users\\ACER\\AppData\\Local\\Temp\\order-sepay-acceptance-20261025"
+}

@@ -14,6 +14,7 @@ Quyết định và gap gặp khi coding được ghi tại đây, bên cạnh c
 | [008 — Verification contract theo cohort](adr_008_verification_contract_bound_to_cohort.md) | Accepted, sửa runtime checker dùng đúng sandbox schema; isolated project/output |
 | [009 — SePay Payment runtime và capability gates](adr_009_sepay_payment_runtime_and_capability_gates.md) | Implemented TEST slice: webhook/API/ledger/finalize/read/manual controls; target checkout, provider proof, publisher và owning authority acceptance còn mở |
 | [010 — Connected runtime và webhook TEST bridge](adr_010_connected_checkout_lifecycle_and_test_bridge.md) | Nối public checkout, Payment, lifecycle, recovery và Kafka; bridge vào backend TEST đã chạy. Owning-service/production và canonical Dashboard OMP acceptance còn mở |
+| [011 — SePay local date filters và Sandbox PAID](adr_011_sepay_local_date_filters_and_sandbox_paid_acceptance.md) | Fix filter wire time từ evidence API thật; canonical Dashboard OMP → PAID/READY PASS. Live và real owning-service acceptance vẫn giữ gate |
 
 Evidence cho lượt này: [Core foundations verification](../../../04_testing/order-service/04_order_core_foundations.md). Các PR sau phải bổ sung ADR cho quyết định mới hoặc entry superseding nếu thay quyết định đã pin; không sửa lịch sử để gọi gap đã được giải quyết mà chưa có evidence.
 

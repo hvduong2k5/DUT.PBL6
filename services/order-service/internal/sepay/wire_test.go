@@ -99,6 +99,26 @@ func TestHTTPReaderAndFailureContract(t *testing.T) {
 		})
 	}
 }
+
+func TestHTTPReaderUsesVietnameseDateFilterAcrossMidnight(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		if q.Get("transaction_date_from") != "2026-10-25 00:59:59" || q.Get("transaction_date_to") != "2026-10-25 01:00:01" {
+			t.Error("UTC instants must be converted to provider local wall time", q.Get("transaction_date_from"), q.Get("transaction_date_to"))
+		}
+		if q.Get("timestamp_format") != "iso8601" {
+			t.Error("canonical response timestamps must remain explicit offsets")
+		}
+		fmt.Fprint(w, `{"status":"success","data":[],"meta":{"pagination":{"current_page":1,"per_page":100,"last_page":0,"total":0,"has_more":false}}}`)
+	}))
+	defer server.Close()
+	client := Client{base: server.URL, token: "synthetic", http: server.Client()}
+	from := time.Date(2026, 10, 24, 17, 59, 59, 900000000, time.UTC)
+	to := from.Add(2 * time.Second).In(time.FixedZone("foreign-input", -5*60*60))
+	if _, e := client.List(context.Background(), Window{Bank: "bank", From: from, To: to, Page: 1}); e != nil {
+		t.Fatal(e)
+	}
+}
 func TestQRAndFinancialIdentity(t *testing.T) {
 	receiver := Receiver{BankID: "0756c5ee-c9d0-11f1-b21a-a6006ab65aca", BankCode: "VCB", BankName: "Vietcombank", Account: "00000001", Holder: "SYNTHETIC", Mode: "BANK_ACCOUNT", Currency: "VND"}
 	url, e := receiver.QR("OMP7K9M2N4P6R8T", 10000)
