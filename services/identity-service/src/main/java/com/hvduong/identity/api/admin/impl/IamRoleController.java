@@ -1,52 +1,42 @@
-package com.hvduong.identity.api.admin;
+package com.hvduong.identity.api.admin.impl;
 
+import com.hvduong.identity.api.admin.IamRoleApi;
 import com.hvduong.identity.api.common.ApiResponse;
 import com.hvduong.identity.application.iam.RoleManagementService;
-import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IamRoleRow;
+import com.hvduong.identity.infrastructure.persistence.entity.IamRoleRow;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping({"/api/v1/admin/roles", "/api/v1/admin/iam/roles"})
 @RequiredArgsConstructor
-public class IamRoleController {
+public class IamRoleController implements IamRoleApi {
 
     private final RoleManagementService roleManagementService;
 
-    @Data
-    public static class AddPermissionRequest {
-        private String permissionCode;
-    }
-
-    @Data
-    public static class ReplacePermissionsRequest {
-        private List<String> permissions;
-    }
-
-    // 1. GET /api/v1/admin/roles — Danh sách Role
-    @GetMapping
+    @Override
     public ResponseEntity<ApiResponse<List<IamRoleRow>>> getAllRoles() {
         List<IamRoleRow> roles = roleManagementService.getAllRoles();
         return ResponseEntity.ok(ApiResponse.success(roles));
     }
 
-    // 2. GET /api/v1/admin/roles/{roleId} — Chi tiết Role
-    @GetMapping("/{roleId}")
+    @Override
     public ResponseEntity<ApiResponse<RoleManagementService.RoleDetailDto>> getRoleById(@PathVariable UUID roleId) {
         RoleManagementService.RoleDetailDto role = roleManagementService.getRoleById(roleId);
         return ResponseEntity.ok(ApiResponse.success(role));
     }
 
-    // 3. POST /api/v1/admin/roles — Tạo Role
-    @PostMapping
+    @Override
     public ResponseEntity<ApiResponse<UUID>> createRole(
             @RequestBody RoleManagementService.CreateRoleDto request,
             @AuthenticationPrincipal Jwt jwt,
@@ -58,8 +48,7 @@ public class IamRoleController {
                 .body(ApiResponse.success("Tạo vai trò thành công", roleId));
     }
 
-    // 4. PATCH /api/v1/admin/roles/{roleId} — Cập nhật tên, mô tả hoặc isEnabled
-    @PatchMapping("/{roleId}")
+    @Override
     public ResponseEntity<ApiResponse<Void>> updateRole(
             @PathVariable UUID roleId,
             @RequestBody RoleManagementService.UpdateRoleDto request,
@@ -71,8 +60,7 @@ public class IamRoleController {
         return ResponseEntity.ok(ApiResponse.success("Cập nhật thông tin vai trò thành công", null));
     }
 
-    // 5. DELETE /api/v1/admin/roles/{roleId} — Xóa Role
-    @DeleteMapping("/{roleId}")
+    @Override
     public ResponseEntity<ApiResponse<Void>> deleteRole(
             @PathVariable UUID roleId,
             @AuthenticationPrincipal Jwt jwt,
@@ -83,15 +71,13 @@ public class IamRoleController {
         return ResponseEntity.ok(ApiResponse.success("Xóa vai trò thành công", null));
     }
 
-    // 6. GET /api/v1/admin/roles/{roleId}/permissions — Xem Permission của Role
-    @GetMapping("/{roleId}/permissions")
+    @Override
     public ResponseEntity<ApiResponse<List<String>>> getRolePermissions(@PathVariable UUID roleId) {
         List<String> permissions = roleManagementService.getPermissionsForRole(roleId);
         return ResponseEntity.ok(ApiResponse.success(permissions));
     }
 
-    // 7. PUT /api/v1/admin/roles/{roleId}/permissions — Thay thế toàn bộ danh sách Permission
-    @PutMapping("/{roleId}/permissions")
+    @Override
     public ResponseEntity<ApiResponse<Void>> replacePermissions(
             @PathVariable UUID roleId,
             @RequestBody ReplacePermissionsRequest request,
@@ -104,8 +90,7 @@ public class IamRoleController {
         return ResponseEntity.ok(ApiResponse.success("Cập nhật danh sách quyền cho vai trò thành công", null));
     }
 
-    // 8. POST /api/v1/admin/roles/{roleId}/permissions — Thêm một Permission vào Role
-    @PostMapping("/{roleId}/permissions")
+    @Override
     public ResponseEntity<ApiResponse<Void>> addPermission(
             @PathVariable UUID roleId,
             @RequestBody AddPermissionRequest request,
@@ -121,8 +106,7 @@ public class IamRoleController {
                 .body(ApiResponse.success("Gán quyền vào vai trò thành công", null));
     }
 
-    // 9. DELETE /api/v1/admin/roles/{roleId}/permissions/{permissionCode} — Gỡ một Permission khỏi Role
-    @DeleteMapping("/{roleId}/permissions/{permissionCode}")
+    @Override
     public ResponseEntity<ApiResponse<Void>> removePermission(
             @PathVariable UUID roleId,
             @PathVariable String permissionCode,

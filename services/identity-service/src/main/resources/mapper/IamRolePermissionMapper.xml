@@ -7,7 +7,7 @@
         VALUES (#{roleId}, #{permissionCode})
     </insert>
 
-    <select id="findByRoleId" resultType="com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IamRolePermissionRow">
+    <select id="findByRoleId" resultType="com.hvduong.identity.infrastructure.persistence.entity.IamRolePermissionRow">
         SELECT *
         FROM iam_role_permissions
         WHERE role_id = #{roleId}

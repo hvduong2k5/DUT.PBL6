@@ -1,4 +1,4 @@
-package com.hvduong.identity.infrastructure.persistence.mybatis.mapper;
+package com.hvduong.identity.infrastructure.persistence.entity;
 
 import lombok.Data;
 import java.util.UUID;

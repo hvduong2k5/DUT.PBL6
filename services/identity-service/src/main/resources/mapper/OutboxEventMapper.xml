@@ -2,7 +2,7 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.hvduong.identity.infrastructure.persistence.mybatis.mapper.OutboxEventMapper">
 
-    <resultMap id="OutboxRowMap" type="com.hvduong.identity.infrastructure.persistence.mybatis.mapper.OutboxEventRow">
+    <resultMap id="OutboxRowMap" type="com.hvduong.identity.infrastructure.persistence.entity.OutboxEventRow">
         <id property="eventId" column="event_id"/>
         <result property="aggregateType" column="aggregate_type"/>
         <result property="aggregateId" column="aggregate_id"/>

@@ -1,7 +1,7 @@
 package com.hvduong.identity.infrastructure.persistence.mybatis;
 
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IdentityPrincipalMapper;
-import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IdentityPrincipalRow;
+import com.hvduong.identity.infrastructure.persistence.entity.IdentityPrincipalRow;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;

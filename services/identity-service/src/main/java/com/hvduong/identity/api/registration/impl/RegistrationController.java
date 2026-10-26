@@ -1,22 +1,23 @@
-package com.hvduong.identity.api.registration;
+package com.hvduong.identity.api.registration.impl;
 
 import com.hvduong.identity.api.common.ApiResponse;
+import com.hvduong.identity.api.registration.RegistrationApi;
 import com.hvduong.identity.api.registration.dto.RegistrationRequest;
 import com.hvduong.identity.api.registration.dto.RegistrationResponse;
 import com.hvduong.identity.application.registration.RegisterPrincipalUseCase;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/v1/public/registration")
 @RequiredArgsConstructor
-public class RegistrationController {
+public class RegistrationController implements RegistrationApi {
 
     private final RegisterPrincipalUseCase registerPrincipalUseCase;
 
-    @PostMapping("/customer")
+    @Override
     public ResponseEntity<ApiResponse<RegistrationResponse>> registerCustomer(@RequestBody RegistrationRequest request) {
         RegistrationResponse response = registerPrincipalUseCase.registerCustomer(request);
         

@@ -1,28 +1,26 @@
-package com.hvduong.identity.api.admin;
+package com.hvduong.identity.api.admin.impl;
 
+import com.hvduong.identity.api.admin.EmployeeInvitationApi;
 import com.hvduong.identity.api.common.ApiResponse;
 import com.hvduong.identity.application.account.EmployeeInvitationService;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/v1/admin/employees/invitations")
 @RequiredArgsConstructor
-public class EmployeeInvitationController {
+public class EmployeeInvitationController implements EmployeeInvitationApi {
 
     private final EmployeeInvitationService invitationService;
 
-    @Data
-    public static class InviteEmployeeRequest {
-        private int validDays = 7;
-    }
-
-    @PostMapping
+    @Override
     public ResponseEntity<ApiResponse<EmployeeInvitationService.InviteResult>> inviteEmployee(
             @RequestBody(required = false) InviteEmployeeRequest request,
             @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorId
@@ -39,7 +37,7 @@ public class EmployeeInvitationController {
         return ResponseEntity.ok(ApiResponse.success("Tạo thư mời nhân viên thành công", result));
     }
 
-    @PostMapping("/{invitationId}/revoke")
+    @Override
     public ResponseEntity<ApiResponse<Void>> revokeInvitation(
             @PathVariable UUID invitationId,
             @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorId

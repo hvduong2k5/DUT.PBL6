@@ -1,10 +1,12 @@
 package com.hvduong.identity.application.iam;
 
+import com.hvduong.identity.application.iam.impl.RoleAssignmentServiceImpl;
+
 import com.hvduong.identity.api.admin.dto.AssignRoleRequest;
 import com.hvduong.identity.application.audit.AuditService;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IamRoleAssignmentMapper;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IdentityPrincipalMapper;
-import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IdentityPrincipalRow;
+import com.hvduong.identity.infrastructure.persistence.entity.IdentityPrincipalRow;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -34,7 +36,7 @@ class RoleAssignmentServiceTest {
 
     @BeforeEach
     void setUp() {
-        assignmentService = new RoleAssignmentService(roleAssignmentMapper, principalMapper, auditService);
+        assignmentService = new RoleAssignmentServiceImpl(roleAssignmentMapper, principalMapper, auditService);
     }
 
     @Test

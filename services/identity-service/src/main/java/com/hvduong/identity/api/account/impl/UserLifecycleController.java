@@ -1,5 +1,6 @@
-package com.hvduong.identity.api.account;
+package com.hvduong.identity.api.account.impl;
 
+import com.hvduong.identity.api.account.UserLifecycleApi;
 import com.hvduong.identity.api.common.ApiResponse;
 import com.hvduong.identity.application.account.UserLifecycleService;
 import lombok.Data;
@@ -8,23 +9,19 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/v1")
 @RequiredArgsConstructor
-public class UserLifecycleController {
+public class UserLifecycleController implements UserLifecycleApi {
 
     private final UserLifecycleService userLifecycleService;
 
-    @Data
-    public static class SuspendRequest {
-        private String reason;
-    }
-
-    @GetMapping("/users/me")
+    @Override
     public ResponseEntity<ApiResponse<UserLifecycleService.UserProfileDto>> getCurrentUser(@AuthenticationPrincipal Jwt jwt) {
         if (jwt == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -40,7 +37,7 @@ public class UserLifecycleController {
                         .body(ApiResponse.error("USER_NOT_FOUND", "Không tìm thấy thông tin tài khoản")));
     }
 
-    @PostMapping("/admin/users/{principalId}/suspend")
+    @Override
     public ResponseEntity<ApiResponse<Void>> suspendUser(
             @PathVariable UUID principalId,
             @RequestBody(required = false) SuspendRequest request,
@@ -58,7 +55,7 @@ public class UserLifecycleController {
         return ResponseEntity.ok(ApiResponse.success("Khóa tài khoản người dùng thành công", null));
     }
 
-    @PostMapping("/admin/users/{principalId}/reactivate")
+    @Override
     public ResponseEntity<ApiResponse<Void>> reactivateUser(
             @PathVariable UUID principalId,
             @AuthenticationPrincipal Jwt jwt

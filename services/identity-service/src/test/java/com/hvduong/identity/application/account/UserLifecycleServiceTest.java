@@ -1,9 +1,12 @@
 package com.hvduong.identity.application.account;
 
+import com.hvduong.identity.application.account.impl.UserLifecycleServiceImpl;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hvduong.identity.application.audit.AuditService;
 import com.hvduong.identity.infrastructure.keycloak.KeycloakAdminClient;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.*;
+import com.hvduong.identity.infrastructure.persistence.entity.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -50,7 +53,7 @@ class UserLifecycleServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new UserLifecycleService(
+        service = new UserLifecycleServiceImpl(
                 principalMapper,
                 roleAssignmentMapper,
                 roleMapper,

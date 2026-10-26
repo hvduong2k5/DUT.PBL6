@@ -1,4 +1,6 @@
-package com.hvduong.identity.application.registration;
+package com.hvduong.identity.application.registration.impl;
+
+import com.hvduong.identity.application.registration.RegisterPrincipalUseCase;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -6,6 +8,7 @@ import com.hvduong.identity.api.registration.dto.RegistrationRequest;
 import com.hvduong.identity.api.registration.dto.RegistrationResponse;
 import com.hvduong.identity.infrastructure.keycloak.KeycloakAdminClient;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.*;
+import com.hvduong.identity.infrastructure.persistence.entity.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

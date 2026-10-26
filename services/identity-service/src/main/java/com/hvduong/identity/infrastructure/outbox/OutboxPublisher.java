@@ -1,7 +1,7 @@
 package com.hvduong.identity.infrastructure.outbox;
 
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.OutboxEventMapper;
-import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.OutboxEventRow;
+import com.hvduong.identity.infrastructure.persistence.entity.OutboxEventRow;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;

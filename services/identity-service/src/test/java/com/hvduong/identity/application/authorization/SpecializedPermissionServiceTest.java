@@ -1,10 +1,12 @@
 package com.hvduong.identity.application.authorization;
 
+import com.hvduong.identity.application.authorization.impl.SpecializedPermissionServiceImpl;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.AuthorizationDecisionMapper;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IdentityAuditLogMapper;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.SpecializedPermissionPolicyMapper;
-import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.SpecializedPermissionPolicyRow;
+import com.hvduong.identity.infrastructure.persistence.entity.SpecializedPermissionPolicyRow;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -39,7 +41,7 @@ class SpecializedPermissionServiceTest {
 
     @BeforeEach
     void setUp() {
-        permissionService = new SpecializedPermissionService(
+        permissionService = new SpecializedPermissionServiceImpl(
                 policyMapper,
                 decisionMapper,
                 auditLogMapper,

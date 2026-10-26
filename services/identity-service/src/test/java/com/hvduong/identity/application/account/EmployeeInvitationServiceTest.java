@@ -1,8 +1,10 @@
 package com.hvduong.identity.application.account;
 
+import com.hvduong.identity.application.account.impl.EmployeeInvitationServiceImpl;
+
 import com.hvduong.identity.application.audit.AuditService;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.EmployeeInvitationMapper;
-import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.EmployeeInvitationRow;
+import com.hvduong.identity.infrastructure.persistence.entity.EmployeeInvitationRow;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IdentityPrincipalMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -34,7 +36,7 @@ class EmployeeInvitationServiceTest {
 
     @BeforeEach
     void setUp() {
-        invitationService = new EmployeeInvitationService(invitationMapper, principalMapper, auditService);
+        invitationService = new EmployeeInvitationServiceImpl(invitationMapper, principalMapper, auditService);
     }
 
     @Test
