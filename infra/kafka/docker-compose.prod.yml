@@ -61,8 +61,9 @@ services:
     image: provectuslabs/kafka-ui:latest
     container_name: om-kafka-ui
     restart: unless-stopped
-    # TRÊN COOLIFY: Không cần map port Host! 
-    # Traefik sẽ định tuyến trực tiếp từ Domain (vd: https://kafka-ui.omama.vn) vào port 8080 của container.
+    # Khai báo expose để Traefik nhận diện port 8080 của Netty Web Server
+    expose:
+      - 8080
     environment:
       DYNAMIC_CONFIG_ENABLED: "true"
       KAFKA_CLUSTERS_0_NAME: omama-production-cluster
