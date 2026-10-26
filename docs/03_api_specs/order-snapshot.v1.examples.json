@@ -1,0 +1,238 @@
+{
+  "description": "Synthetic fixtures only. No actual recipient, bank transfer or provider capability is represented. quote_hash is illustrative; accepted quote and reservation identity checks require external fixtures.",
+  "canonicalization_profile": "order-json-v1",
+  "cases": [
+    {
+      "name": "customer_vietqr",
+      "snapshot": {
+        "snapshot_schema_version": "1.0",
+        "snapshot_id": "bec651a6-ce89-4464-b427-8280a074af19",
+        "order_id": "689ecf03-33d5-456e-ae10-c7c544b79abc",
+        "operation_id": "ba3b1a6a-5592-4cf3-a184-adb9572404df",
+        "merchant_id": "16ee432b-9657-4bc5-a9fb-d260580baf86",
+        "warehouse_id": "HUE",
+        "channel": "D2C_WEB",
+        "placed_at": "2026-10-17T10:01:05+07:00",
+        "owner_at_placement": {
+          "kind": "CUSTOMER",
+          "principal_id": "69acb591-47af-4891-9911-a7e06b2e8b64",
+          "customer_id": "921570cd-7964-4aa0-a5d0-7582e2add99c",
+          "guest_session_id": null
+        },
+        "provenance": {
+          "quote_id": "17f45c47-c5bc-4904-8f50-d7cff595e951",
+          "cart_id": "d502e082-f217-47d8-b291-d825e5dc7824",
+          "cart_revision": 5,
+          "selection_digest": "cd75720d6e7f01a57bbb28bb5cb7cfa8f87daefcdeda15214f8cbf2fa1d3ed5b",
+          "items_digest": "cd75720d6e7f01a57bbb28bb5cb7cfa8f87daefcdeda15214f8cbf2fa1d3ed5b",
+          "quote_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "accepted_at": "2026-10-17T10:01:00+07:00",
+          "canonicalized_at": "2026-10-17T10:01:03+07:00"
+        },
+        "catalog": {
+          "snapshot_id": "catalog-snapshot-example-42",
+          "version": "catalog-42",
+          "valid_until": "2026-10-17T10:20:00+07:00"
+        },
+        "items": [
+          {
+            "line_id": "7c5cb630-2463-4413-b861-d62fda4d6001",
+            "sku_code": "MX-GION-500G",
+            "product_name": "Me xung gion 500 g - minh hoa",
+            "quantity": 2,
+            "unit_price": 75000,
+            "line_subtotal": 150000,
+            "weight_grams": 500,
+            "packaging": {
+              "description": "Hop 500 g",
+              "unit_code": "BOX",
+              "packaging_version": "pack-1"
+            },
+            "catalog_version": "catalog-42"
+          },
+          {
+            "line_id": "7c5cb630-2463-4413-b861-d62fda4d6002",
+            "sku_code": "OCOP-TRA-200G",
+            "product_name": "Tra 200 g - minh hoa",
+            "quantity": 1,
+            "unit_price": 50000,
+            "line_subtotal": 50000,
+            "weight_grams": 200,
+            "packaging": {
+              "description": "Goi 200 g",
+              "unit_code": "BAG",
+              "packaging_version": "pack-2"
+            },
+            "catalog_version": "catalog-42"
+          }
+        ],
+        "shipping_address": {
+          "recipient_name": "KHACH HANG MINH HOA",
+          "phone_e164": "+84905123456",
+          "street": "DIA CHI MINH HOA, KHONG DUNG GIAO HANG",
+          "province_code": "PROVINCE-DEMO",
+          "province_name": "Tinh minh hoa",
+          "ward_code": "WARD-DEMO",
+          "ward_name": "Phuong minh hoa",
+          "postal_code": null,
+          "source": {
+            "kind": "PROFILE_ADDRESS",
+            "profile_address_id": "497842ed-c532-4ab0-9de2-8a5ffb4744c0",
+            "address_version": 3,
+            "validation_reference": "address-validation-example-1"
+          }
+        },
+        "shipping": {
+          "carrier_code": "CARRIER-DEMO",
+          "service_code": "STANDARD",
+          "quote_reference": "shipping-quote-example-1",
+          "quote_version": "shipping-3",
+          "valid_until": "2026-10-17T10:18:00+07:00",
+          "package_weight_grams": 1250,
+          "quoted_fee": 30000
+        },
+        "money": {
+          "currency": "VND",
+          "subtotal": 200000,
+          "merchandise_discount": 0,
+          "shipping_fee": 30000,
+          "shipping_discount": 0,
+          "final_amount": 230000
+        },
+        "payment_terms": {
+          "method": "VIETQR",
+          "provider": "SEPAY",
+          "payment_expires_at": "2026-10-17T10:16:00+07:00",
+          "receiver_profile_id": "2f755a46-93b5-493e-9294-1552fc489877",
+          "receiver_profile_version": 1,
+          "cod_policy_reference": null,
+          "collect_amount": null
+        },
+        "policies": {
+          "order_policy_version": "order-core-1.0",
+          "checkout_policy_version": "cart-checkout-1.0",
+          "payment_policy_version": "payment-sepay-1.1",
+          "shipping_policy_version": "shipping-mvp-1",
+          "promotion_policy_version": null
+        }
+      },
+      "expected_logical_hash": "93c1d30cd1d965e8c756be5c708a8c0c36bc778f0fdf0ade128976f267788df9"
+    },
+    {
+      "name": "guest_cod",
+      "snapshot": {
+        "snapshot_schema_version": "1.0",
+        "snapshot_id": "fec7acdd-8075-4ef1-98b7-d9857c979166",
+        "order_id": "a266b7c6-cfca-4e64-9dde-e77682450db1",
+        "operation_id": "85a8ed50-5a13-44d8-83f4-67cd4d975932",
+        "merchant_id": "16ee432b-9657-4bc5-a9fb-d260580baf86",
+        "warehouse_id": "HUE",
+        "channel": "D2C_WEB",
+        "placed_at": "2026-10-17T10:01:05+07:00",
+        "owner_at_placement": {
+          "kind": "GUEST",
+          "principal_id": "076fd84c-f1fc-494c-9cf1-2bd74182a80e",
+          "customer_id": null,
+          "guest_session_id": "815147dc-b912-41e7-9bad-6de7684bb688"
+        },
+        "provenance": {
+          "quote_id": "17f45c47-c5bc-4904-8f50-d7cff595e951",
+          "cart_id": "d502e082-f217-47d8-b291-d825e5dc7824",
+          "cart_revision": 5,
+          "selection_digest": "cd75720d6e7f01a57bbb28bb5cb7cfa8f87daefcdeda15214f8cbf2fa1d3ed5b",
+          "items_digest": "cd75720d6e7f01a57bbb28bb5cb7cfa8f87daefcdeda15214f8cbf2fa1d3ed5b",
+          "quote_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "accepted_at": "2026-10-17T10:01:00+07:00",
+          "canonicalized_at": "2026-10-17T10:01:03+07:00"
+        },
+        "catalog": {
+          "snapshot_id": "catalog-snapshot-example-42",
+          "version": "catalog-42",
+          "valid_until": "2026-10-17T10:20:00+07:00"
+        },
+        "items": [
+          {
+            "line_id": "7c5cb630-2463-4413-b861-d62fda4d6001",
+            "sku_code": "MX-GION-500G",
+            "product_name": "Me xung gion 500 g - minh hoa",
+            "quantity": 2,
+            "unit_price": 75000,
+            "line_subtotal": 150000,
+            "weight_grams": 500,
+            "packaging": {
+              "description": "Hop 500 g",
+              "unit_code": "BOX",
+              "packaging_version": "pack-1"
+            },
+            "catalog_version": "catalog-42"
+          },
+          {
+            "line_id": "7c5cb630-2463-4413-b861-d62fda4d6002",
+            "sku_code": "OCOP-TRA-200G",
+            "product_name": "Tra 200 g - minh hoa",
+            "quantity": 1,
+            "unit_price": 50000,
+            "line_subtotal": 50000,
+            "weight_grams": 200,
+            "packaging": {
+              "description": "Goi 200 g",
+              "unit_code": "BAG",
+              "packaging_version": "pack-2"
+            },
+            "catalog_version": "catalog-42"
+          }
+        ],
+        "shipping_address": {
+          "recipient_name": "KHACH HANG MINH HOA",
+          "phone_e164": "+84905123456",
+          "street": "DIA CHI MINH HOA, KHONG DUNG GIAO HANG",
+          "province_code": "PROVINCE-DEMO",
+          "province_name": "Tinh minh hoa",
+          "ward_code": "WARD-DEMO",
+          "ward_name": "Phuong minh hoa",
+          "postal_code": null,
+          "source": {
+            "kind": "VALIDATED_INLINE",
+            "profile_address_id": null,
+            "address_version": null,
+            "validation_reference": "inline-address-validation-example-1"
+          }
+        },
+        "shipping": {
+          "carrier_code": "CARRIER-DEMO",
+          "service_code": "STANDARD",
+          "quote_reference": "shipping-quote-example-1",
+          "quote_version": "shipping-3",
+          "valid_until": "2026-10-17T10:18:00+07:00",
+          "package_weight_grams": 1250,
+          "quoted_fee": 30000
+        },
+        "money": {
+          "currency": "VND",
+          "subtotal": 200000,
+          "merchandise_discount": 0,
+          "shipping_fee": 30000,
+          "shipping_discount": 0,
+          "final_amount": 230000
+        },
+        "payment_terms": {
+          "method": "COD",
+          "provider": null,
+          "payment_expires_at": null,
+          "receiver_profile_id": null,
+          "receiver_profile_version": null,
+          "cod_policy_reference": "cod-policy-example-1",
+          "collect_amount": 230000
+        },
+        "policies": {
+          "order_policy_version": "order-core-1.0",
+          "checkout_policy_version": "cart-checkout-1.0",
+          "payment_policy_version": "cod-mvp-1",
+          "shipping_policy_version": "shipping-mvp-1",
+          "promotion_policy_version": null
+        }
+      },
+      "expected_logical_hash": "e0a6bab7a431197d28e117ac4c7c7c83ff95caa33e7e58c723e2cc867cfa43bf"
+    }
+  ]
+}

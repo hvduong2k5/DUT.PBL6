@@ -1,0 +1,58 @@
+{
+  "release": "mvp-2026-10-26",
+  "scope": "static contract/codegen compatibility only; no live service or E2E acceptance",
+  "openapi": {
+    "validated_specs": 23,
+    "generated_public_contract": "current"
+  },
+  "events": {
+    "schemas_checked": 48,
+    "valid_examples": 10,
+    "invalid_examples_rejected": 10
+  },
+  "protobuf": {
+    "compiled_files": 14,
+    "python_codegen_and_import": "PASS",
+    "baselines": {
+      "catalog": {
+        "source_sha": "db95c369bce3ed91f62b4d562c9825b1140ecf58",
+        "preserved_fields": 426,
+        "exception": null
+      },
+      "dev": {
+        "source_sha": "2291ef5a44dd3a6f7985297903bfec01b325b087",
+        "preserved_fields": 269,
+        "exception": null
+      },
+      "order": {
+        "source_sha": "c753a5201caa88fffa7caf29af5681030138a4ff",
+        "preserved_fields": 411,
+        "exception": "Unimplemented Order 3.2 Shipping v1 quote proposal migrated explicitly to v2; provider v1 retained."
+      },
+      "shipping": {
+        "source_sha": "1242209c476c137f81900897c266657ebecb81b1",
+        "preserved_fields": 315,
+        "exception": null
+      }
+    },
+    "go_codegen": {
+      "status": "PASS",
+      "generated_files": 14,
+      "go_grpc": "NOT_RUN"
+    }
+  },
+  "registry": {
+    "contracts_checked": 12,
+    "runtime_acceptance": "PENDING"
+  },
+  "negative_guards": 13,
+  "tool_versions": {
+    "grpcio-tools": "1.76.0",
+    "protobuf": "6.33.6",
+    "googleapis-common-protos": "1.70.0",
+    "openapi-spec-validator": "0.7.2",
+    "PyYAML": "6.0.3",
+    "jsonschema": "4.26.0"
+  },
+  "status": "PASS"
+}

@@ -1,0 +1,136 @@
+release: mvp-2026-10-26
+contract_status: integration-target
+implementation_acceptance: pending
+public_contract: docs/03_api_specs/mvp-customer.openapi.yaml
+source_manifest: packages/contracts/mvp/sources.json
+validation_command: python packages/contracts/mvp/verify.py
+rules:
+  public_idempotency_header: Idempotency-Key
+  order_provider_idempotency_header: X-Idempotency-Key
+  idempotency_key: 16-128 visible ASCII characters; preserve key and canonical payload on retry
+  order_money: integer VND; no float; common Money requires VND and nanos=0
+  public_errors: code, message, requestId; preserve retryable and operation_id when available
+  runtime_claim: contract validation does not establish provider or end-to-end acceptance
+  unknown_dependency: fail closed; never downgrade to simulator or legacy financial side effects
+contracts:
+  - id: customer-public
+    owner: gateway-bff-and-order
+    consumers: [web-user, mobile-app]
+    artifact: docs/03_api_specs/mvp-customer.openapi.yaml
+    state: adapter-required
+    tasks:
+      - Migrate direct checkout to quote, acceptance and CheckoutOperation polling.
+      - Map errors and Idempotency-Key to provider headers without retrying mutations automatically.
+      - Keep customer-stable frontend snapshot as historical input; the MVP target wins for overlapping routes.
+  - id: catalog-checkout
+    owner: catalog-service
+    consumers: [order-service]
+    artifact: packages/proto/catalog/v1/catalog.proto
+    rpc: omamx.catalog.v1.CatalogService.GetCheckoutSnapshot
+    state: provider-required
+    tasks:
+      - Implement a coherent price, weight and packaging snapshot with version and validity.
+      - Preserve CatalogPublicService for frontend; do not rename or replace the internal Order service.
+      - Implement Order dependency adapters for catalog validation and core terms/revalidation.
+  - id: catalog-public
+    owner: catalog-service
+    consumers: [gateway-bff, web-user, mobile-app]
+    artifact: packages/proto/catalog/v1/catalog_public.proto
+    rpc: hvduong.catalog.v1.CatalogPublicService.ListProducts
+    state: adapter-required
+    tasks:
+      - Map products/page_info to frontend items/pagination with exact Money handling.
+      - Preserve category, price and sort query filters and default channel D2C_WEB explicitly.
+      - HTTP annotations need a real REST/transcoding adapter; annotations alone expose no HTTP server.
+  - id: inventory-terminal
+    owner: inventory-service
+    consumers: [order-service]
+    artifact: packages/proto/inventory/v1/inventory.proto
+    rpc: omamx.inventory.v1.InventoryService.FinalizeReservation
+    state: provider-required
+    tasks:
+      - Implement GetReservationByOrder, FinalizeReservation and ReleaseReservationByOrder.
+      - Return authoritative resource/command evidence, original outcome and monotonic version.
+      - Serialize finalize, release and expiry; terminal release before reserve creates a tombstone.
+      - Keep reverse-committed-stock and paid cancellation gated until approval and remote-stop proof work.
+  - id: profile-address
+    owner: profile-service
+    consumers: [order-service, gateway-bff]
+    artifact: docs/03_api_specs/profile-service.openapi.yaml
+    rpc: omamx.profile.v1.ProfileService.GetDeliveryAddress
+    state: integration-verification-required
+    tasks:
+      - Preserve canonical ward_code/province_code, ownership and address version.
+      - Map phone_number/street_address to Order phone/street and saved address references explicitly.
+      - Retain ETag/If-Match, array response and read-only email policy in the MVP public DTO.
+  - id: order-shipping-snapshot
+    owner: order-service
+    consumers: [shipping-service]
+    artifact: packages/proto/order/v1/order.proto
+    rpc: omamx.order.v1.OrderService.GetShippingSnapshot
+    state: provider-required
+    tasks:
+      - Implement the Shipping-only RPC using the immutable checkout snapshot and authoritative packed package.
+      - Bind order/package, fee/COD, carrier/service, snapshot version, generation, digest and warehouse.
+      - Caller requesting_service is context only; transport service identity supplies permission.
+  - id: shipping-bound-quote
+    owner: shipping-service
+    consumers: [order-service, gateway-bff]
+    artifact: packages/proto/shipping/v2/shipping.proto
+    rpc: omamx.shipping.v2.ShippingService.CalculateShippingFee
+    state: provider-required
+    tasks:
+      - Dual-serve v2 separately; keep implemented Shipping v1 wire field numbers.
+      - Persist quote_id, quote_expires_at, quote_version and canonical request_hash; echo order-3.2.
+      - v2 TrackShipment supports authoritative shipment revision and original fulfillment generation.
+      - Implement GetShipmentRevision with original kind/time/seal and generation; latest tracking cannot substitute.
+  - id: fulfillment-permit
+    owner: fulfillment-service
+    consumers: [order-service, inventory-service]
+    artifact: packages/proto/fulfillment/v1/fulfillment.proto
+    rpc: omamx.fulfillment.v1.FulfillmentService.AcceptTask
+    state: provider-required
+    tasks:
+      - Implement serialized accept/cancel barriers, generation and online Order permit validation.
+      - No task admission solely from an order-paid event or local READY boolean.
+      - Publish parcel/package evidence on fulfillment.events.v2 after dual-consumer rollout.
+      - Implement GetTaskRevision and include task_id/resource_version/ready_generation in packing v2.
+  - id: order-core-facade
+    owner: order-integration-adapters
+    consumers: [order-service]
+    artifact: docs/03_api_specs/order-core-dependencies.mvp.openapi.yaml
+    state: adapter-required
+    tasks:
+      - Implement terms, revalidate, original source revision lookup, admission barrier and completion authority.
+      - Replace DEPENDENCY_URL simulator with peer-backed adapters; do not point it at a random service root.
+      - Preserve original event evidence and reject missing authority; latest state is insufficient for replay.
+  - id: shipping-events
+    owner: shipping-service
+    consumers: [order-source-adapter, finance-service, notification-service]
+    artifact: packages/events/schemas/shipping/v2/shipment_delivered.event.json
+    state: producer-and-consumer-required
+    tasks:
+      - Publish v2 only for opted-in cohorts; partition by shipment_id and deduplicate by event ID.
+      - Map handed-over to SHIPMENT_DISPATCHED, delivered to SHIPMENT_DELIVERED and delivery-failed to SHIPMENT_FAILED.
+      - Retain authoritative resource_version/generation and original source evidence; do not synthesize versions.
+  - id: packing-events
+    owner: fulfillment-service
+    consumers: [shipping-service, order-source-adapter]
+    artifact: packages/events/schemas/fulfillment/v2/packing_completed.event.json
+    state: producer-and-consumer-required
+    tasks:
+      - Require package_id and parcel only in v2; preserve the v1 schema byte-for-byte.
+      - Shipping must opt into the new event type/topic; the current v1-only consumer is insufficient.
+  - id: identity
+    owner: identity-service-and-gateway
+    consumers: [order-service, profile-service, gateway-bff]
+    artifact: packages/proto/identity/v1/identity.proto
+    state: provider-required
+    tasks:
+      - Agree and implement trusted issuer/audience/key and subject-to-customer mapping.
+      - Adapt guest sessions/payment grants separately; no arbitrary role/user headers from browsers.
+      - Do not claim current sandbox JWTs are compatible with Keycloak without verification.
+out_of_scope:
+  - Real refunds and paid cancellation without approval/remote-stop/reversal acceptance.
+  - Vouchers and loyalty until Promotion provider contracts are accepted.
+  - CMS, analytics, full returns workflow and production carrier acceptance.

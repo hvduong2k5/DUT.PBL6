@@ -1,0 +1,3405 @@
+openapi: 3.0.3
+info:
+  title: MVP Customer API - integration target
+  version: 1.0.0-integration
+  description: Git integration target mvp-2026-10-26. Provider and consumer implementation remains gated by packages/contracts/mvp/registry.yaml.
+    Async checkout uses quote/revision and CheckoutOperation. Monetary values in the Order flow are integer VND.
+    Original provider specs and frontend references are preserved.
+servers:
+- url: https://api.omama.example
+  description: Contract placeholder; no live deployment claimed
+security:
+- bearerAuth: []
+paths:
+  /api/v1/cart:
+    get:
+      operationId: order_getCart
+      summary: getCart
+      responses:
+        '200':
+          description: Durable response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderCart'
+        '400':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '401':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '404':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '409':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '503':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+      security:
+      - OrderbearerAuth: []
+      x-provider-contract: order-service
+      x-implementation-status: provider-or-adapter-verification-required
+      x-contract-status: integration-target
+  /api/v1/cart/items:
+    post:
+      operationId: order_addCartItem
+      summary: addCartItem
+      responses:
+        '200':
+          description: Durable response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderCart'
+        '400':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '401':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '404':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '409':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '503':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+      security:
+      - OrderbearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - sku_code
+              - quantity
+              - revision
+              properties:
+                sku_code:
+                  type: string
+                  minLength: 1
+                  maxLength: 64
+                quantity:
+                  type: integer
+                  minimum: 1
+                  maximum: 999
+                revision:
+                  type: integer
+                  minimum: 0
+      x-provider-contract: order-service
+      x-implementation-status: provider-or-adapter-verification-required
+      x-contract-status: integration-target
+  /api/v1/checkout/quote:
+    post:
+      operationId: order_createCheckoutQuote
+      summary: createCheckoutQuote
+      responses:
+        '200':
+          description: Durable response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderQuote'
+        '400':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '401':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '404':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '409':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '503':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+      security:
+      - OrderbearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - cart_revision
+              - payment_method
+              properties:
+                cart_revision:
+                  type: integer
+                  minimum: 0
+                payment_method:
+                  type: string
+                  enum:
+                  - VIETQR
+                  - COD
+                shipping_address_id:
+                  type: string
+                  format: uuid
+                address:
+                  type: object
+                  additionalProperties: false
+                  required:
+                  - recipient_name
+                  - phone
+                  - street
+                  - ward_code
+                  - province_code
+                  properties:
+                    recipient_name:
+                      type: string
+                      minLength: 1
+                      maxLength: 255
+                    phone:
+                      type: string
+                      minLength: 1
+                      maxLength: 255
+                    street:
+                      type: string
+                      minLength: 1
+                      maxLength: 255
+                    ward_code:
+                      type: string
+                      minLength: 1
+                      maxLength: 255
+                    province_code:
+                      type: string
+                      minLength: 1
+                      maxLength: 255
+                voucher_code:
+                  type: string
+      x-provider-contract: order-service
+      x-implementation-status: provider-or-adapter-verification-required
+      x-contract-status: integration-target
+  /api/v1/checkout:
+    post:
+      operationId: order_acceptCheckout
+      summary: acceptCheckout
+      responses:
+        '202':
+          description: Durable operation created; no Order is implied
+          headers:
+            Location:
+              schema:
+                type: string
+              description: Existing /api/v1/checkout-operations/{id}
+            Retry-After:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderCheckoutOperation'
+              example:
+                operation_id: 11111111-1111-4111-8111-111111111111
+                status: ACCEPTED
+                stage: VALIDATING
+                order_id: null
+                accepted_at: '2026-10-15T03:00:00Z'
+                updated_at: '2026-10-15T03:00:00Z'
+        '400':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '401':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '404':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '409':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '503':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '201':
+          description: Replay of successful checkout, same operation and Order
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderCheckoutOperation'
+              example:
+                operation_id: 11111111-1111-4111-8111-111111111111
+                status: SUCCEEDED
+                stage: DONE
+                order_id: 11111111-1111-4111-8111-111111111111
+                accepted_at: '2026-10-15T03:00:00Z'
+                updated_at: '2026-10-15T03:00:00Z'
+          headers:
+            Link:
+              schema:
+                type: string
+              description: 'Present when Order has committed: </api/v1/orders/{order_id}>; rel="item".'
+        '410':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '422':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '403':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '413':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '429':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '504':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+      security:
+      - OrderbearerAuth: []
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          type: string
+          minLength: 16
+          maxLength: 128
+          pattern: ^[!-~]{16,128}$
+        x-provider-name: X-Idempotency-Key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - quote_id
+              - cart_revision
+              - payment_method
+              properties:
+                quote_id:
+                  type: string
+                  format: uuid
+                cart_revision:
+                  type: integer
+                  minimum: 0
+                payment_method:
+                  type: string
+                  enum:
+                  - VIETQR
+                  - COD
+      description: Acceptance verifies owned server quote at DB time and persists operation/input/key. Worker validates
+        commercial conditions and reserves resources asynchronously. Expired terminal replay is 410; keys never
+        become reusable automatically. Key scope is authenticated principal/action; canonical body hash is persisted.
+        Same key with different input returns 409. Transport timeout after sending requires same-key replay/query.
+        New acceptance always returns 202 with null order_id; replay SUCCEEDED returns 201 with the original non-null
+        Order reference.
+      x-provider-contract: order-service
+      x-implementation-status: provider-or-adapter-verification-required
+      x-contract-status: integration-target
+  /api/v1/checkout-operations/{id}:
+    get:
+      operationId: order_getCheckoutOperation
+      summary: getCheckoutOperation
+      responses:
+        '200':
+          description: Durable response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderCheckoutOperation'
+          headers:
+            Link:
+              schema:
+                type: string
+              description: 'Present when Order has committed: </api/v1/orders/{order_id}>; rel="item".'
+        '400':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '401':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '404':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '409':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '503':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+      security:
+      - OrderbearerAuth: []
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      x-provider-contract: order-service
+      x-implementation-status: provider-or-adapter-verification-required
+      x-contract-status: integration-target
+  /api/v1/orders:
+    get:
+      operationId: order_listOwnedOrders
+      summary: listOwnedOrders
+      responses:
+        '200':
+          description: Durable response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - items
+                - next_cursor
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/OrderOrder'
+                  next_cursor:
+                    type: string
+        '400':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '401':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '404':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '409':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '503':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+      security:
+      - OrderbearerAuth: []
+      x-provider-contract: order-service
+      x-implementation-status: provider-or-adapter-verification-required
+      x-contract-status: integration-target
+  /api/v1/orders/{id}:
+    get:
+      operationId: order_getOwnedOrder
+      summary: getOwnedOrder
+      responses:
+        '200':
+          description: Durable response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderOrder'
+        '400':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '401':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '404':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '409':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '503':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+      security:
+      - OrderbearerAuth: []
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      x-provider-contract: order-service
+      x-implementation-status: provider-or-adapter-verification-required
+      x-contract-status: integration-target
+  /api/v1/orders/{id}/tracking:
+    get:
+      operationId: order_getOrderTracking
+      summary: getOrderTracking
+      responses:
+        '200':
+          description: Durable response
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '401':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '404':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '409':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '503':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+      security:
+      - OrderbearerAuth: []
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      x-provider-contract: order-service
+      x-implementation-status: provider-or-adapter-verification-required
+      x-contract-status: integration-target
+  /api/v1/orders/{id}/cancel:
+    post:
+      operationId: order_cancelOrder
+      summary: cancelOrder
+      responses:
+        '202':
+          description: Durable cancellation pending remote decision/recovery
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderCancellation'
+          headers:
+            Location:
+              schema:
+                type: string
+              description: /api/v1/orders/{id}; poll cancellation_status and compensation_status
+        '400':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '401':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '404':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '409':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '503':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '200':
+          description: Terminal cancellation decision
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderCancellation'
+          headers:
+            Location:
+              schema:
+                type: string
+              description: /api/v1/orders/{id}; poll cancellation_status and compensation_status
+      security:
+      - OrderbearerAuth: []
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          type: string
+          minLength: 16
+          maxLength: 128
+          pattern: ^[!-~]{16,128}$
+        x-provider-name: X-Idempotency-Key
+      - in: header
+        name: If-Match
+        required: true
+        schema:
+          type: string
+          pattern: ^[1-9][0-9]*$
+        description: Decimal expected Order version (same value as gRPC expected_version); conflicts return 409.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                reason:
+                  type: string
+                  maxLength: 255
+                  minLength: 1
+                active:
+                  type: boolean
+                  default: true
+              required:
+              - active
+              - reason
+      description: Persist cancellation intent first. Unpaid cancellation may commit while compensation remains
+        PENDING. Committed/COD cancellation is not SUCCEEDED until Fulfillment cancellation barrier and stock reversal
+        are verified. ACCEPTED task rejects self-cancel; paid cancellation requires Care review. Timeout is not
+        proof of cancellation.
+      x-provider-contract: order-service
+      x-implementation-status: provider-or-adapter-verification-required
+      x-contract-status: integration-target
+  /api/v1/orders/{id}/cancellation-requests:
+    post:
+      operationId: order_requestPaidCancellation
+      summary: requestPaidCancellation
+      responses:
+        '202':
+          description: Durable response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderCancellationReview'
+        '400':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '401':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '404':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '409':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '503':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+      security:
+      - OrderbearerAuth: []
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          type: string
+          minLength: 16
+          maxLength: 128
+          pattern: ^[!-~]{16,128}$
+        x-provider-name: X-Idempotency-Key
+      - in: header
+        name: If-Match
+        required: true
+        schema:
+          type: string
+          pattern: ^[1-9][0-9]*$
+        description: Decimal expected Order version (same value as gRPC expected_version); conflicts return 409.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                reason:
+                  type: string
+                  minLength: 1
+                  maxLength: 255
+              required:
+              - reason
+      x-feature-gate: verified-care-approval
+      description: Accept a Care review request; does not yet cancel, refund or restock. Owner/function/version
+        checks apply.
+      x-provider-contract: order-service
+      x-implementation-status: provider-or-adapter-verification-required
+      x-contract-status: integration-target
+  /api/v1/cart/items/{item_id}:
+    put:
+      operationId: order_updateCartItem
+      summary: updateCartItem
+      responses:
+        '200':
+          description: Durable response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderCart'
+        '400':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '401':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '404':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '409':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '503':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+      security:
+      - OrderbearerAuth: []
+      parameters:
+      - in: path
+        name: item_id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - quantity
+              - revision
+              properties:
+                quantity:
+                  type: integer
+                  minimum: 1
+                  maximum: 999
+                revision:
+                  type: integer
+                  minimum: 0
+      x-provider-contract: order-service
+      x-implementation-status: provider-or-adapter-verification-required
+      x-contract-status: integration-target
+    delete:
+      operationId: order_deleteCartItem
+      summary: deleteCartItem
+      responses:
+        '200':
+          description: Durable response
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '401':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '404':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '409':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '503':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+      security:
+      - OrderbearerAuth: []
+      parameters:
+      - in: path
+        name: item_id
+        required: true
+        schema:
+          type: string
+      x-provider-contract: order-service
+      x-implementation-status: provider-or-adapter-verification-required
+      x-contract-status: integration-target
+  /api/v1/guest-sessions:
+    post:
+      operationId: order_createGuestSession
+      description: Sandbox opaque Guest principal without account registration
+      responses:
+        '201':
+          description: Signed Guest session token
+      security:
+      - OrderbearerAuth: []
+      x-provider-contract: order-service
+      x-implementation-status: provider-or-adapter-verification-required
+      x-contract-status: integration-target
+  /api/v1/orders/{order_id}/guest-payment-access:
+    post:
+      tags:
+      - GuestPaymentAccess
+      operationId: payment_issueGuestPaymentAccess
+      summary: Mint an Order-bound Guest payment read grant
+      description: Require a live authoritative Guest checkout session owning the persisted checkout operation and
+        Order. Never mint by order ID or payment code alone. ES256 access JWT TTL 10 minutes, capped by the session
+        absolute expiry (proposed 24 hours). Claims bind issuer, audience, sid, order_id, subject, jti, grant_version
+        and payment:read scope. Increase sid/order grant version and invalidate previous grants atomically. Idempotent
+        same-key replay may reissue only the same still-active grant with its original expiry; superseded/revoked/expired
+        replay returns 409. Do not extend lifetime during replay or store plaintext access tokens in logs.
+      security:
+      - PaymentguestCheckoutBearer: []
+      parameters:
+      - $ref: '#/components/parameters/PaymentOrderId'
+      - $ref: '#/components/parameters/PaymentIdempotencyKey'
+      responses:
+        '201':
+          description: New or replayed active grant; credentials must never be cached
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                - no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentGuestPaymentGrant'
+        '400':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '401':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '404':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '409':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '429':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '503':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+      x-provider-contract: order-payment-sepay
+      x-implementation-status: provider-or-adapter-verification-required
+      x-contract-status: integration-target
+    delete:
+      tags:
+      - GuestPaymentAccess
+      operationId: payment_revokeGuestPaymentAccess
+      summary: Revoke the current session's payment grants for one Order
+      description: Require the authoritative owning Guest checkout session. Increment local sid/order grant version
+        and revoke existing grants in one transaction. Idempotent replay returns 204 without revoking grants minted
+        after the original command. Does not cancel the Order, payment or refund workflow. New authorization decisions
+        after commit must reject revoked grants; already-authorized in-flight responses cannot be recalled.
+      security:
+      - PaymentguestCheckoutBearer: []
+      parameters:
+      - $ref: '#/components/parameters/PaymentOrderId'
+      - $ref: '#/components/parameters/PaymentIdempotencyKey'
+      responses:
+        '204':
+          description: Grants revoked or same command already applied
+        '400':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '401':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '404':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '409':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '429':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '503':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+      x-provider-contract: order-payment-sepay
+      x-implementation-status: provider-or-adapter-verification-required
+      x-contract-status: integration-target
+  /api/v1/orders/{order_id}/payment-instructions:
+    get:
+      tags:
+      - CustomerPayment
+      operationId: payment_getSePayPaymentInstructions
+      summary: Read existing immutable VietQR instructions
+      description: Read-only; no new intent, charge or expiry extension. Resolve trusted Customer/Guest ownership.
+        Return 404 for absent or unowned orders. Requires a SEPAY/VIETQR intent, PENDING_PAYMENT Order, no hold
+        or cancel, and strictly more than 30 seconds before expires_at. VERIFYING or VERIFICATION_DELAYED display
+        state suppresses fresh instructions until resolved or reviewed. Amount, receiver, code and expiry come exclusively
+        from persisted intent.
+      parameters:
+      - $ref: '#/components/parameters/PaymentOrderId'
+      responses:
+        '200':
+          description: Existing payable intent instructions
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                - no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentPaymentInstructions'
+              example:
+                order_id: 689ecf03-33d5-456e-ae10-c7c544b79abc
+                intent_id: 4cd1ea10-f680-4018-95b3-4c8bd4d2c332
+                provider: SEPAY
+                method: VIETQR
+                amount: 250000
+                currency: VND
+                payment_code: OMP7K9M2N4P6R8T
+                receiver:
+                  bank_code: VCB
+                  bank_name: Vietcombank
+                  account_number: '0000000000'
+                  account_holder: EXAMPLE ONLY
+                  mode: BANK_ACCOUNT
+                transfer_content: OMP7K9M2N4P6R8T
+                qr_url: https://vietqr.app/img?acc=0000000000&bank=Vietcombank&amount=250000&des=OMP7K9M2N4P6R8T&template=compact
+                expires_at: '2026-10-16T10:15:00+07:00'
+                server_time: '2026-10-16T10:02:00+07:00'
+                can_pay: true
+                version: 1
+        '401':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '404':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '409':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '422':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '429':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '503':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+      security:
+      - PaymentownerBearer: []
+      - PaymentguestPaymentBearer: []
+      x-provider-contract: order-payment-sepay
+      x-implementation-status: provider-or-adapter-verification-required
+      x-contract-status: integration-target
+  /api/v1/orders/{order_id}/payment:
+    get:
+      tags:
+      - CustomerPayment
+      operationId: payment_getSePayPaymentStatus
+      summary: Read local SePay payment status
+      description: Read local financial data only, never call SePay for each browser poll. Same ownership rules
+        as Order detail. Available after expiry or cancellation and during SePay outages. A non-SePay payment method
+        returns 422 in this candidate slice; other methods use existing Order projections. Amounts summarize the
+        allocated receipt, not extra/unmatched money. has_open_reconciliation may be true while display_state remains
+        PAID. can_pay is true only when the instructions endpoint would admit this intent at the same decision instant;
+        the two requests can race. Guest authorization checks authoritative session state plus the local grant registry
+        on every request and fails closed if unavailable. Pending observations older than min(first_seen+60s,payment
+        expiry) show VERIFICATION_DELAYED without asserting CONFIRMED or extending expiry.
+      parameters:
+      - $ref: '#/components/parameters/PaymentOrderId'
+      responses:
+        '200':
+          description: Local financial and lifecycle projection
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                - no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentPaymentStatus'
+              example:
+                order_id: 689ecf03-33d5-456e-ae10-c7c544b79abc
+                intent_id: 4cd1ea10-f680-4018-95b3-4c8bd4d2c332
+                provider: SEPAY
+                method: VIETQR
+                order_status: PAYMENT_FINALIZING
+                payment_status: CONFIRMED
+                display_state: FINALIZING
+                intent_status: SETTLED
+                expected_amount: 250000
+                allocated_amount: 250000
+                refunded_amount: 0
+                currency: VND
+                expires_at: '2026-10-16T10:15:00+07:00'
+                server_time: '2026-10-16T10:03:00+07:00'
+                has_open_reconciliation: false
+                can_pay: false
+                version: 2
+                verification_started_at: '2026-10-16T10:02:55+07:00'
+                verification_due_at: '2026-10-16T10:03:55+07:00'
+                support_reference: null
+                support_reason: null
+                next_poll_after_seconds: 3
+        '401':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '404':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '422':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '429':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '503':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+      security:
+      - PaymentownerBearer: []
+      - PaymentguestPaymentBearer: []
+      x-provider-contract: order-payment-sepay
+      x-implementation-status: provider-or-adapter-verification-required
+      x-contract-status: integration-target
+  /api/v1/profile:
+    get:
+      operationId: profile_getProfile
+      summary: Resolve UserID to CustomerID and read authoritative profile
+      parameters: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileProfile'
+          headers:
+            ETag:
+              description: Strong version ETag
+              schema:
+                type: string
+        '400':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '401':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '404':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '500':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+      security:
+      - bearerAuth: []
+      x-provider-contract: profile-service
+      x-gateway-identity: Map verified subject to X-User-ID; add X-Internal-Token server-side. Strip client-supplied
+        identity/trust headers.
+      x-contract-status: integration-target
+    put:
+      operationId: profile_updateProfile
+      summary: CAS update with read-only email
+      parameters:
+      - name: If-Match
+        in: header
+        required: false
+        schema:
+          type: string
+          pattern: ^"[1-9][0-9]*"$
+        example: '"1"'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileProfile'
+          headers:
+            ETag:
+              description: Strong version ETag
+              schema:
+                type: string
+        '400':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '401':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '404':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '409':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '500':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileProfileUpdate'
+      security:
+      - bearerAuth: []
+      x-provider-contract: profile-service
+      x-gateway-identity: Map verified subject to X-User-ID; add X-Internal-Token server-side. Strip client-supplied
+        identity/trust headers.
+      x-contract-status: integration-target
+  /api/v1/profile/addresses:
+    get:
+      operationId: profile_listAddresses
+      summary: List own active addresses
+      parameters: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProfileShippingAddress'
+        '400':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '401':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '404':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '500':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+      security:
+      - bearerAuth: []
+      x-provider-contract: profile-service
+      x-gateway-identity: Map verified subject to X-User-ID; add X-Internal-Token server-side. Strip client-supplied
+        identity/trust headers.
+      x-contract-status: integration-target
+    post:
+      operationId: profile_createAddress
+      summary: Create; first address automatically default
+      parameters: []
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileShippingAddress'
+          headers:
+            ETag:
+              description: Strong version ETag
+              schema:
+                type: string
+            Location:
+              description: Created address URL
+              schema:
+                type: string
+        '400':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '401':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '404':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '500':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileAddressWrite'
+      security:
+      - bearerAuth: []
+      x-provider-contract: profile-service
+      x-gateway-identity: Map verified subject to X-User-ID; add X-Internal-Token server-side. Strip client-supplied
+        identity/trust headers.
+      x-contract-status: integration-target
+  /api/v1/profile/addresses/{id}:
+    get:
+      operationId: profile_getAddress
+      summary: Read owned address
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileShippingAddress'
+          headers:
+            ETag:
+              description: Strong version ETag
+              schema:
+                type: string
+        '400':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '401':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '404':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '500':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+      security:
+      - bearerAuth: []
+      x-provider-contract: profile-service
+      x-gateway-identity: Map verified subject to X-User-ID; add X-Internal-Token server-side. Strip client-supplied
+        identity/trust headers.
+      x-contract-status: integration-target
+    put:
+      operationId: profile_updateAddress
+      summary: Update owned address with version check
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        schema:
+          type: string
+          pattern: ^"[1-9][0-9]*"$
+        example: '"1"'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileShippingAddress'
+          headers:
+            ETag:
+              description: Strong version ETag
+              schema:
+                type: string
+        '400':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '401':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '404':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '409':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '428':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '500':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileAddressUpdate'
+      security:
+      - bearerAuth: []
+      x-provider-contract: profile-service
+      x-gateway-identity: Map verified subject to X-User-ID; add X-Internal-Token server-side. Strip client-supplied
+        identity/trust headers.
+      x-contract-status: integration-target
+    delete:
+      operationId: profile_deleteAddress
+      summary: Delete and replace default atomically; return current list
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        schema:
+          type: string
+          pattern: ^"[1-9][0-9]*"$
+        example: '"1"'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProfileShippingAddress'
+        '400':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '401':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '404':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '409':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '428':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '500':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+      security:
+      - bearerAuth: []
+      x-provider-contract: profile-service
+      x-gateway-identity: Map verified subject to X-User-ID; add X-Internal-Token server-side. Strip client-supplied
+        identity/trust headers.
+      x-contract-status: integration-target
+  /api/v1/profile/addresses/{id}/default:
+    put:
+      operationId: profile_putDefaultAddress
+      summary: Set default; already-default intent is idempotent
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        schema:
+          type: string
+          pattern: ^"[1-9][0-9]*"$
+        example: '"1"'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProfileShippingAddress'
+        '400':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '401':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '404':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '409':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '428':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '500':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+      security:
+      - bearerAuth: []
+      x-provider-contract: profile-service
+      x-gateway-identity: Map verified subject to X-User-ID; add X-Internal-Token server-side. Strip client-supplied
+        identity/trust headers.
+      x-contract-status: integration-target
+    patch:
+      operationId: profile_patchDefaultAddress
+      summary: Set default; already-default intent is idempotent
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        schema:
+          type: string
+          pattern: ^"[1-9][0-9]*"$
+        example: '"1"'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProfileShippingAddress'
+        '400':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '401':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '404':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '409':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '428':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '500':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+      security:
+      - bearerAuth: []
+      x-provider-contract: profile-service
+      x-gateway-identity: Map verified subject to X-User-ID; add X-Internal-Token server-side. Strip client-supplied
+        identity/trust headers.
+      x-contract-status: integration-target
+  /api/v1/categories:
+    get:
+      tags:
+      - Catalog
+      operationId: catalog_getCategories
+      summary: Lấy danh sách cây danh mục sản phẩm OCOP
+      x-lifecycle: stable
+      x-backlog:
+      - EPIC_03
+      x-ui-states:
+      - loading
+      - success
+      - empty
+      - error
+      - unauthorized
+      - forbidden
+      x-test-latency-ms: 1200
+      security: []
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - categories
+                properties:
+                  categories:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                      - category_id
+                      - name
+                      - slug
+                      - description
+                      - image_url
+                      - parent_id
+                      properties:
+                        category_id:
+                          type: string
+                        name:
+                          type: string
+                        slug:
+                          type: string
+                        description:
+                          type: string
+                        image_url:
+                          type: string
+                          format: uri
+                        parent_id:
+                          type: string
+                          description: parent_id may be null.
+                          nullable: true
+                      additionalProperties: false
+                additionalProperties: false
+              examples:
+                success:
+                  summary: Successful response
+                  value:
+                    categories:
+                    - category_id: CAT-ME-XUNG-GION
+                      name: Mè Xửng Giòn Truyền Thống
+                      slug: me-xung-gion
+                      description: Kẹo mè xửng giòn hạt mè vàng ươm, thơm mùi đậu phụng và đường non.
+                      image_url: https://cdn.omama.vn/categories/cat_gion.jpg
+                      parent_id: null
+                empty:
+                  summary: Valid empty result
+                  value:
+                    categories: []
+        '400':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '500':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '503':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+      parameters: []
+      x-provider-contract: hvduong.catalog.v1.CatalogPublicService
+      x-bff-mapping: products -> items, page_info -> pagination; Money converted without precision loss. See packages/contracts/mvp/MIGRATION.md.
+      x-contract-status: integration-target
+  /api/v1/products:
+    get:
+      tags:
+      - Catalog
+      operationId: catalog_getProducts
+      summary: Danh sách sản phẩm kèm bộ lọc & phân trang
+      x-lifecycle: stable
+      x-backlog:
+      - EPIC_03
+      - EPIC_04
+      x-ui-states:
+      - loading
+      - success
+      - empty
+      - error
+      - unauthorized
+      - forbidden
+      x-test-latency-ms: 1200
+      security: []
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - items
+                - total
+                - page
+                - page_size
+                - total_pages
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                      - product_id
+                      - name
+                      - slug
+                      - summary
+                      - thumbnail_url
+                      - base_price
+                      - ocop_star
+                      - category_name
+                      - in_stock
+                      - stock_available
+                      properties:
+                        product_id:
+                          type: string
+                        name:
+                          type: string
+                        slug:
+                          type: string
+                        summary:
+                          type: string
+                        thumbnail_url:
+                          type: string
+                          format: uri
+                        base_price:
+                          type: object
+                          required:
+                          - currency_code
+                          - units
+                          - nanos
+                          properties:
+                            currency_code:
+                              type: string
+                            units:
+                              type: integer
+                            nanos:
+                              type: integer
+                          additionalProperties: false
+                        ocop_star:
+                          type: integer
+                        category_name:
+                          type: string
+                        in_stock:
+                          type: boolean
+                          description: Backward-compatible flag; null means Inventory stock has not been synchronized
+                            yet; otherwise must equal stock_available > 0.
+                          nullable: true
+                        stock_available:
+                          type: integer
+                          format: int64
+                          minimum: 0
+                          description: Total sellable quantity across active SKUs, excluding reserved, expired,
+                            quarantined, and otherwise unavailable stock. Null means not synchronized yet. Read
+                            from Catalog's durable stock projection, updated asynchronously by Inventory events;
+                            Inventory remains the source of truth.
+                          nullable: true
+                      additionalProperties: false
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  page_size:
+                    type: integer
+                  total_pages:
+                    type: integer
+                additionalProperties: false
+              examples:
+                success:
+                  summary: Successful response
+                  value:
+                    items:
+                    - product_id: PROD-MX-GION-500
+                      name: Kẹo Mè Xửng Giòn O Mạ Hộp 500g
+                      slug: keo-me-xung-gion-o-ma-hop-500g
+                      summary: Đặc sản mè xửng giòn Huế truyền thống, chuẩn OCOP 4 sao.
+                      thumbnail_url: https://cdn.omama.vn/products/mx_gion_500g_thumb.jpg
+                      base_price:
+                        currency_code: VND
+                        units: 345000
+                        nanos: 0
+                      ocop_star: 4
+                      category_name: Mè Xửng Giòn
+                      in_stock: true
+                      stock_available: 150
+                    total: 45
+                    page: 1
+                    page_size: 20
+                    total_pages: 3
+                empty:
+                  summary: Valid empty result
+                  value:
+                    items: []
+                    total: 0
+                    page: 1
+                    page_size: 20
+                    total_pages: 0
+        '400':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '500':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '503':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+      parameters:
+      - name: category_id
+        in: query
+        required: false
+        schema:
+          type: string
+        example: CAT-ME-XUNG-GION
+      - name: ocop_star
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 3
+          maximum: 5
+        example: 4
+      - name: min_price
+        in: query
+        required: false
+        schema:
+          type: integer
+        example: 50000
+      - name: max_price
+        in: query
+        required: false
+        schema:
+          type: integer
+        example: 300000
+      - name: sort_by
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - PRICE_ASC
+          - PRICE_DESC
+          - BEST_SELLING
+          - NEWEST
+          default: BEST_SELLING
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 1
+      - name: page_size
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 20
+      x-provider-contract: hvduong.catalog.v1.CatalogPublicService
+      x-bff-mapping: products -> items, page_info -> pagination; Money converted without precision loss. See packages/contracts/mvp/MIGRATION.md.
+      x-contract-status: integration-target
+  /api/v1/products/search:
+    get:
+      tags:
+      - Catalog
+      operationId: catalog_getProductsSearch
+      summary: Tìm kiếm sản phẩm toàn văn bằng ElasticSearch
+      x-lifecycle: stable
+      x-backlog:
+      - EPIC_03
+      - EPIC_04
+      x-ui-states:
+      - loading
+      - success
+      - empty
+      - error
+      - unauthorized
+      - forbidden
+      x-test-latency-ms: 1200
+      security: []
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - query
+                - items
+                - total
+                properties:
+                  query:
+                    type: string
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                      - product_id
+                      - name
+                      - slug
+                      - summary
+                      - thumbnail_url
+                      - base_price
+                      - ocop_star
+                      - category_name
+                      - in_stock
+                      - stock_available
+                      properties:
+                        product_id:
+                          type: string
+                        name:
+                          type: string
+                        slug:
+                          type: string
+                        summary:
+                          type: string
+                        thumbnail_url:
+                          type: string
+                          format: uri
+                        base_price:
+                          type: object
+                          required:
+                          - currency_code
+                          - units
+                          - nanos
+                          properties:
+                            currency_code:
+                              type: string
+                            units:
+                              type: integer
+                            nanos:
+                              type: integer
+                          additionalProperties: false
+                        ocop_star:
+                          type: integer
+                        category_name:
+                          type: string
+                        in_stock:
+                          type: boolean
+                          description: Backward-compatible flag; null means Inventory stock has not been synchronized
+                            yet; otherwise must equal stock_available > 0.
+                          nullable: true
+                        stock_available:
+                          type: integer
+                          format: int64
+                          minimum: 0
+                          description: Total sellable quantity across active SKUs, excluding reserved, expired,
+                            quarantined, and otherwise unavailable stock. Null means not synchronized yet. Read
+                            from Catalog's durable stock projection, updated asynchronously by Inventory events;
+                            Inventory remains the source of truth.
+                          nullable: true
+                      additionalProperties: false
+                  total:
+                    type: integer
+                additionalProperties: false
+              examples:
+                success:
+                  summary: Successful response
+                  value:
+                    query: mè xửng mè đen
+                    items:
+                    - product_id: PROD-MX-GION-500
+                      name: Kẹo Mè Xửng Giòn O Mạ Hộp 500g
+                      slug: keo-me-xung-gion-o-ma-hop-500g
+                      summary: Đặc sản mè xửng giòn Huế truyền thống, chuẩn OCOP 4 sao.
+                      thumbnail_url: https://cdn.omama.vn/products/mx_gion_500g_thumb.jpg
+                      base_price:
+                        currency_code: VND
+                        units: 345000
+                        nanos: 0
+                      ocop_star: 4
+                      category_name: Mè Xửng Giòn
+                      in_stock: true
+                      stock_available: 150
+                    total: 8
+                empty:
+                  summary: Valid empty result
+                  value:
+                    query: mè xửng mè đen
+                    items: []
+                    total: 0
+        '400':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '500':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '503':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+      parameters:
+      - name: q
+        in: query
+        required: true
+        schema:
+          type: string
+        example: mè xửng mè đen ít đường
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 1
+      - name: page_size
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 10
+      x-provider-contract: hvduong.catalog.v1.CatalogPublicService
+      x-bff-mapping: products -> items, page_info -> pagination; Money converted without precision loss. See packages/contracts/mvp/MIGRATION.md.
+      x-contract-status: integration-target
+  /api/v1/products/{id_or_slug}:
+    get:
+      tags:
+      - Catalog
+      operationId: catalog_getProductsIdOrSlug
+      summary: Lấy thông tin chi tiết sản phẩm & các biến thể SKU
+      x-lifecycle: stable
+      x-backlog:
+      - EPIC_03
+      - EPIC_04
+      x-ui-states:
+      - loading
+      - success
+      - error
+      - unauthorized
+      - forbidden
+      x-test-latency-ms: 1200
+      security: []
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - product_id
+                - name
+                - slug
+                - description
+                - images
+                - ocop_star
+                - ocop_certificate_no
+                - story
+                - variants
+                properties:
+                  product_id:
+                    type: string
+                  name:
+                    type: string
+                  slug:
+                    type: string
+                  description:
+                    type: string
+                  images:
+                    type: array
+                    items:
+                      type: string
+                      format: uri
+                  ocop_star:
+                    type: integer
+                  ocop_certificate_no:
+                    type: string
+                  story:
+                    type: string
+                  variants:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                      - variant_id
+                      - sku_code
+                      - name
+                      - weight_gram
+                      - price
+                      - original_price
+                      - stock_available
+                      properties:
+                        variant_id:
+                          type: string
+                        sku_code:
+                          type: string
+                        name:
+                          type: string
+                        weight_gram:
+                          type: integer
+                        price:
+                          type: object
+                          required:
+                          - currency_code
+                          - units
+                          - nanos
+                          properties:
+                            currency_code:
+                              type: string
+                            units:
+                              type: integer
+                            nanos:
+                              type: integer
+                          additionalProperties: false
+                        original_price:
+                          type: object
+                          required:
+                          - currency_code
+                          - units
+                          - nanos
+                          properties:
+                            currency_code:
+                              type: string
+                            units:
+                              type: integer
+                            nanos:
+                              type: integer
+                          additionalProperties: false
+                        stock_available:
+                          type: integer
+                          format: int64
+                          minimum: 0
+                          description: Current sellable quantity for this SKU from Catalog's durable stock projection,
+                            updated asynchronously by Inventory events. Null means not synchronized yet; Inventory
+                            remains the source of truth.
+                          nullable: true
+                      additionalProperties: false
+                additionalProperties: false
+              examples:
+                success:
+                  summary: Successful response
+                  value:
+                    product_id: PROD-MX-GION-500
+                    name: Kẹo Mè Xửng Giòn O Mạ Hộp 500g
+                    slug: keo-me-xung-gion-o-ma-hop-500g
+                    description: Mè xửng giòn là tuyệt tác ẩm thực Cố Đô Huế. Nấu thủ công từ đường mạch nha, mè
+                      vừng trắng bùi ngậy và đậu phụng tuyển chọn.
+                    images:
+                    - https://cdn.omama.vn/products/mx_gion_1.jpg
+                    - https://cdn.omama.vn/products/mx_gion_2.jpg
+                    ocop_star: 4
+                    ocop_certificate_no: OCOP-TTH-2024-089
+                    story: Sinh ra từ làng nghề Hương Thủy ven sông Hương, nghệ nhân O Mạ gìn giữ ngọn lửa nấu kẹo
+                      3 đời...
+                    variants:
+                    - variant_id: VAR-001
+                      sku_code: MX-GION-500G
+                      name: Hộp 500g (20 phong kẹo rời)
+                      weight_gram: 500
+                      price:
+                        currency_code: VND
+                        units: 345000
+                        nanos: 0
+                      original_price:
+                        currency_code: VND
+                        units: 345000
+                        nanos: 0
+                      stock_available: 150
+        '404':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '500':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+        '503':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
+      parameters:
+      - name: id_or_slug
+        in: path
+        required: true
+        schema:
+          type: string
+        example: keo-me-xung-gion-thu-cong-hop-500g
+      x-provider-contract: hvduong.catalog.v1.CatalogPublicService
+      x-bff-mapping: products -> items, page_info -> pagination; Money converted without precision loss. See packages/contracts/mvp/MIGRATION.md.
+      x-contract-status: integration-target
+components:
+  schemas:
+    OrderCheckoutOperation:
+      type: object
+      additionalProperties: false
+      required:
+      - operation_id
+      - status
+      - order_id
+      - accepted_at
+      - stage
+      - updated_at
+      properties:
+        operation_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+          - ACCEPTED
+          - PROCESSING
+          - WAITING_RETRY
+          - COMPENSATING
+          - SUCCEEDED
+          - FAILED
+          - MANUAL_REVIEW
+        order_id:
+          type: string
+          format: uuid
+          nullable: true
+        order_status:
+          type: string
+        error_code:
+          type: string
+        accepted_at:
+          type: string
+          format: date-time
+        stage:
+          type: string
+          enum:
+          - VALIDATING
+          - ACQUIRING
+          - PLACING
+          - COMPENSATING
+          - DONE
+        updated_at:
+          type: string
+          format: date-time
+        retry_at:
+          type: string
+          format: date-time
+          nullable: true
+      description: order_id is null until atomic placement. SUCCEEDED requires non-null order_id; FAILED requires
+        error_code. MANUAL_REVIEW preserves unresolved obligations. Before placement poll this operation, not the
+        planned Order UUID.
+      oneOf:
+      - properties:
+          status:
+            enum:
+            - SUCCEEDED
+          order_id:
+            type: string
+            format: uuid
+            nullable: false
+      - required:
+        - error_code
+        properties:
+          status:
+            enum:
+            - FAILED
+          order_id:
+            type: string
+            nullable: true
+            enum:
+            - null
+      - properties:
+          status:
+            enum:
+            - ACCEPTED
+            - PROCESSING
+            - WAITING_RETRY
+            - COMPENSATING
+            - MANUAL_REVIEW
+          order_id:
+            type: string
+            nullable: true
+            enum:
+            - null
+      example:
+        operation_id: 11111111-1111-4111-8111-111111111111
+        status: ACCEPTED
+        stage: VALIDATING
+        order_id: null
+        accepted_at: '2026-10-15T03:00:00Z'
+        updated_at: '2026-10-15T03:00:00Z'
+    OrderItem:
+      type: object
+      additionalProperties: false
+      required:
+      - sku_code
+      - quantity
+      properties:
+        item_id:
+          type: string
+        sku_code:
+          type: string
+        quantity:
+          type: integer
+          format: int64
+          minimum: 1
+        unit_price:
+          type: integer
+          format: int64
+        product_name:
+          type: string
+        weight_grams:
+          type: integer
+          format: int64
+        catalog_version:
+          type: integer
+          format: int64
+    OrderAddress:
+      type: object
+      additionalProperties: false
+      required:
+      - recipient_name
+      - phone
+      - street
+      - ward_code
+      - province_code
+      properties:
+        recipient_name:
+          type: string
+        phone:
+          type: string
+        street:
+          type: string
+        ward_code:
+          type: string
+        province_code:
+          type: string
+    OrderCart:
+      type: object
+      additionalProperties: false
+      required:
+      - revision
+      - items
+      properties:
+        revision:
+          type: integer
+          format: int64
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItem'
+    OrderQuote:
+      type: object
+      additionalProperties: false
+      required:
+      - catalog_snapshot_id
+      - catalog_expires_at
+      - shipping_quote_reference
+      - quote_id
+      - cart_revision
+      - payment_method
+      - items
+      - address
+      - subtotal
+      - shipping_fee
+      - final_amount
+      - expires_at
+      - shipping_expires_at
+      properties:
+        catalog_snapshot_id:
+          type: string
+        catalog_expires_at:
+          type: string
+          format: date-time
+        shipping_quote_reference:
+          type: string
+        source_address_id:
+          type: string
+        source_address_version:
+          type: integer
+          format: int64
+        quote_id:
+          type: string
+        cart_revision:
+          type: integer
+          format: int64
+        payment_method:
+          type: string
+          enum:
+          - VIETQR
+          - COD
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItem'
+        address:
+          $ref: '#/components/schemas/OrderAddress'
+        subtotal:
+          type: integer
+          format: int64
+        shipping_fee:
+          type: integer
+          format: int64
+        final_amount:
+          type: integer
+          format: int64
+        customer_id:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+        shipping_expires_at:
+          type: string
+          format: date-time
+      description: Owned immutable server quote. Confirmation revalidates coherent Catalog/Shipping terms for both
+        transfer and COD. Expiry/retry never extends the commercial deadline.
+    OrderOrder:
+      type: object
+      additionalProperties: false
+      required:
+      - order_id
+      - operation_id
+      - order_code
+      - customer_id
+      - warehouse_id
+      - payment_method
+      - status
+      - payment_status
+      - stock_status
+      - subtotal
+      - shipping_fee
+      - final_amount
+      - version
+      - ready_generation
+      - ready_authorized
+      - operational_hold
+      - has_active_case
+      - payment_reference
+      - task_id
+      - shipment_id
+      - seal_code
+      - payment_expires_at
+      - updated_at
+      - created_at
+      - sla_due_at
+      - completion_due_at
+      - items_digest
+      - compensation_status
+      - cancellation_status
+      - allowed_actions
+      properties:
+        order_id:
+          type: string
+        operation_id:
+          type: string
+        order_code:
+          type: string
+        customer_id:
+          type: string
+          nullable: true
+        warehouse_id:
+          type: string
+        payment_method:
+          type: string
+        status:
+          type: string
+          enum:
+          - PENDING_PAYMENT
+          - PAYMENT_FINALIZING
+          - PAID
+          - CONFIRMED_COD
+          - PROCESSING
+          - PACKED
+          - SHIPPED
+          - DELIVERED
+          - DELIVERY_FAILED
+          - COMPLETED
+          - CANCELLED_TIMEOUT
+          - CANCELLED_BY_USER
+          - CANCELLED_BY_ADMIN
+        payment_status:
+          type: string
+          enum:
+          - UNPAID
+          - PENDING
+          - CONFIRMED
+          - RECONCILIATION_REQUIRED
+          - PARTIALLY_REFUNDED
+          - REFUNDED
+        stock_status:
+          type: string
+          enum:
+          - RESERVED
+          - COMMITTING
+          - COMMITTED
+          - RELEASING
+          - RELEASED
+          - EXPIRED
+          - REVERSED
+          - UNKNOWN
+        subtotal:
+          type: integer
+          format: int64
+        shipping_fee:
+          type: integer
+          format: int64
+        final_amount:
+          type: integer
+          format: int64
+        version:
+          type: integer
+          format: int64
+        ready_generation:
+          type: integer
+          format: int64
+        ready_authorized:
+          type: boolean
+        operational_hold:
+          type: boolean
+        has_active_case:
+          type: boolean
+        payment_reference:
+          type: string
+        task_id:
+          type: string
+          nullable: true
+        shipment_id:
+          type: string
+          nullable: true
+        seal_code:
+          type: string
+          nullable: true
+        payment_expires_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        sla_due_at:
+          type: string
+          format: date-time
+          nullable: true
+        completion_due_at:
+          type: string
+          format: date-time
+          nullable: true
+        snapshot:
+          type: object
+          nullable: true
+          allOf:
+          - $ref: '#/components/schemas/OrderQuote'
+        items_digest:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+        compensation_status:
+          type: string
+          enum:
+          - NOT_REQUIRED
+          - PENDING
+          - SUCCEEDED
+          - MANUAL_REVIEW
+        cancellation_status:
+          type: string
+          enum:
+          - NONE
+          - PENDING
+          - SUCCEEDED
+          - REJECTED
+          - MANUAL_REVIEW
+        allowed_actions:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            enum:
+            - PAY
+            - CANCEL
+            - REQUEST_CANCELLATION
+            - VIEW_TRACKING
+            - CONTACT_SUPPORT
+      description: Lifecycle, payment, stock and compensation are independent. PAID first transition requires verified
+        allocation and finalized resources. ready_authorized is a projection, never permission to start packing.
+        Consult allowed_actions; UNKNOWN requires recovery.
+    OrderCancellation:
+      type: object
+      additionalProperties: false
+      required:
+      - cancellation_id
+      - order_id
+      - status
+      - compensation_status
+      - version
+      properties:
+        cancellation_id:
+          type: string
+          format: uuid
+        order_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+          - PENDING
+          - SUCCEEDED
+          - REJECTED
+          - MANUAL_REVIEW
+        compensation_status:
+          type: string
+          enum:
+          - NOT_REQUIRED
+          - PENDING
+          - SUCCEEDED
+          - MANUAL_REVIEW
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+        review_reference:
+          type: string
+          nullable: true
+      example:
+        cancellation_id: 11111111-1111-4111-8111-111111111111
+        order_id: 11111111-1111-4111-8111-111111111111
+        status: PENDING
+        compensation_status: PENDING
+        version: 2
+    OrderCancellationReview:
+      type: object
+      additionalProperties: false
+      properties:
+        review_reference:
+          type: string
+          minLength: 1
+        order_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+          - REVIEW_PENDING
+      required:
+      - review_reference
+      - order_id
+      - status
+    PaymentGuestPaymentGrant:
+      type: object
+      additionalProperties: false
+      required:
+      - access_token
+      - token_type
+      - order_id
+      - expires_at
+      - session_expires_at
+      - grant_version
+      properties:
+        access_token:
+          type: string
+          writeOnly: false
+          description: Signed short-lived credential; sensitive
+        token_type:
+          type: string
+          enum:
+          - Bearer
+        order_id:
+          type: string
+          format: uuid
+        expires_at:
+          type: string
+          format: date-time
+        session_expires_at:
+          type: string
+          format: date-time
+        grant_version:
+          type: integer
+          format: int64
+          minimum: 1
+    PaymentMoney:
+      type: integer
+      format: int64
+      minimum: 0
+      maximum: 1000000000000
+      description: VND integer for owner-facing Order amounts; not the receipt ledger limit
+    PaymentReceiver:
+      type: object
+      additionalProperties: false
+      required:
+      - bank_code
+      - bank_name
+      - account_number
+      - account_holder
+      - mode
+      properties:
+        bank_code:
+          type: string
+        bank_name:
+          type: string
+        account_number:
+          type: string
+          description: Actual QR beneficiary bank account or official VA; preserve leading zeros
+        account_holder:
+          type: string
+        mode:
+          type: string
+          enum:
+          - BANK_ACCOUNT
+          - OFFICIAL_VA
+          - CONTENT_VA
+    PaymentPaymentInstructions:
+      type: object
+      additionalProperties: false
+      required:
+      - order_id
+      - intent_id
+      - provider
+      - method
+      - amount
+      - currency
+      - payment_code
+      - receiver
+      - transfer_content
+      - qr_url
+      - expires_at
+      - server_time
+      - can_pay
+      - version
+      properties:
+        order_id:
+          type: string
+          format: uuid
+        intent_id:
+          type: string
+          format: uuid
+        provider:
+          type: string
+          enum:
+          - SEPAY
+        method:
+          type: string
+          enum:
+          - VIETQR
+        amount:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 1000000000000
+        currency:
+          type: string
+          enum:
+          - VND
+        payment_code:
+          type: string
+          pattern: ^OMP[A-Z0-9]{12}$
+        receiver:
+          $ref: '#/components/schemas/PaymentReceiver'
+        transfer_content:
+          type: string
+        qr_url:
+          type: string
+          format: uri
+          description: URL built on server from receiver profile; host allowlisted; example data is fictional
+        expires_at:
+          type: string
+          format: date-time
+        server_time:
+          type: string
+          format: date-time
+        can_pay:
+          type: boolean
+          enum:
+          - true
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+    PaymentPaymentStatus:
+      type: object
+      additionalProperties: false
+      required:
+      - order_id
+      - intent_id
+      - provider
+      - method
+      - order_status
+      - payment_status
+      - display_state
+      - intent_status
+      - expected_amount
+      - allocated_amount
+      - refunded_amount
+      - currency
+      - expires_at
+      - server_time
+      - has_open_reconciliation
+      - can_pay
+      - version
+      - verification_started_at
+      - verification_due_at
+      - support_reference
+      - support_reason
+      - next_poll_after_seconds
+      properties:
+        order_id:
+          type: string
+          format: uuid
+        intent_id:
+          type: string
+          format: uuid
+        provider:
+          type: string
+          enum:
+          - SEPAY
+        method:
+          type: string
+          enum:
+          - VIETQR
+        order_status:
+          type: string
+          enum:
+          - PENDING_PAYMENT
+          - PAYMENT_FINALIZING
+          - PAID
+          - PROCESSING
+          - PACKED
+          - SHIPPED
+          - DELIVERED
+          - DELIVERY_FAILED
+          - COMPLETED
+          - CANCELLED_TIMEOUT
+          - CANCELLED_BY_USER
+          - CANCELLED_BY_ADMIN
+        payment_status:
+          type: string
+          enum:
+          - UNPAID
+          - PENDING
+          - CONFIRMED
+          - RECONCILIATION_REQUIRED
+          - PARTIALLY_REFUNDED
+          - REFUNDED
+        display_state:
+          type: string
+          enum:
+          - WAITING_PAYMENT
+          - VERIFYING
+          - VERIFICATION_DELAYED
+          - FINALIZING
+          - PAID
+          - RECONCILIATION_REQUIRED
+          - EXPIRED
+          - CANCELLED
+          - PARTIALLY_REFUNDED
+          - REFUNDED
+        intent_status:
+          type: string
+          enum:
+          - ACTIVE
+          - SETTLED
+          - EXPIRED
+          - CANCELLED
+        expected_amount:
+          $ref: '#/components/schemas/PaymentMoney'
+        allocated_amount:
+          $ref: '#/components/schemas/PaymentMoney'
+        refunded_amount:
+          allOf:
+          - $ref: '#/components/schemas/PaymentMoney'
+          description: Confirmed refunds of allocated receipt only; never greater than allocated_amount
+        currency:
+          type: string
+          enum:
+          - VND
+        expires_at:
+          type: string
+          format: date-time
+        server_time:
+          type: string
+          format: date-time
+        has_open_reconciliation:
+          type: boolean
+        can_pay:
+          type: boolean
+        verification_started_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: First related authenticated observation; retries never reset this instant
+        verification_due_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Earlier of first observation plus 60s and payment expiry; UI escalation only
+        support_reference:
+          type: string
+          nullable: true
+          description: Opaque support lookup reference, never an authorization credential
+        support_reason:
+          type: string
+          nullable: true
+          enum:
+          - VERIFICATION_TIMEOUT
+          - UNDERPAYMENT
+          - OVERPAYMENT
+          - MULTIPLE_PARTIAL_PAYMENTS
+          - EXTRA_RECEIPT
+          - LATE_PAYMENT
+          - OTHER_REVIEW
+          - null
+        next_poll_after_seconds:
+          type: integer
+          minimum: 0
+          description: 3 while verifying/finalizing, 10 when delayed, 0 to stop automatic polling
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+          description: Local payment projection version incremented by relevant durable changes
+    ProfileProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        full_name:
+          type: string
+        phone_number:
+          type: string
+        email:
+          type: string
+          readOnly: true
+        date_of_birth:
+          type: string
+          format: date-time
+          nullable: true
+        gender:
+          type: string
+        avatar_url:
+          type: string
+        preferences:
+          type: object
+        status:
+          type: string
+        version:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    ProfileProfileUpdate:
+      type: object
+      additionalProperties: false
+      required:
+      - full_name
+      - phone_number
+      description: Supply If-Match header or positive body version. Email may only echo its current value. Date
+        of birth/gender updates are outside this implemented write contract.
+      properties:
+        full_name:
+          type: string
+          minLength: 1
+          maxLength: 150
+        phone_number:
+          type: string
+        version:
+          type: integer
+          minimum: 1
+    ProfileAddressWrite:
+      type: object
+      additionalProperties: false
+      required:
+      - recipient_name
+      - phone_number
+      - street_address
+      - ward_code
+      - province_code
+      properties:
+        recipient_name:
+          type: string
+          minLength: 1
+          maxLength: 150
+        phone_number:
+          type: string
+        street_address:
+          type: string
+          minLength: 1
+          maxLength: 255
+        ward_code:
+          type: string
+        province_code:
+          type: string
+        ward_name:
+          type: string
+          description: Ignored input; canonical server master data wins
+        province_name:
+          type: string
+          description: Ignored input; canonical server master data wins
+        latitude:
+          type: number
+          nullable: true
+        longitude:
+          type: number
+          nullable: true
+        label:
+          type: string
+          enum:
+          - HOME
+          - OFFICE
+          - GIFT_RECIPIENT
+          - OTHER
+          - GIFT
+        is_default:
+          type: boolean
+    ProfileAddressUpdate:
+      type: object
+      additionalProperties: false
+      required:
+      - recipient_name
+      - phone_number
+      - street_address
+      - ward_code
+      - province_code
+      properties:
+        recipient_name:
+          type: string
+          minLength: 1
+          maxLength: 150
+        phone_number:
+          type: string
+        street_address:
+          type: string
+          minLength: 1
+          maxLength: 255
+        ward_code:
+          type: string
+        province_code:
+          type: string
+        ward_name:
+          type: string
+          description: Ignored input; canonical server master data wins
+        province_name:
+          type: string
+          description: Ignored input; canonical server master data wins
+        latitude:
+          type: number
+          nullable: true
+        longitude:
+          type: number
+          nullable: true
+        label:
+          type: string
+          enum:
+          - HOME
+          - OFFICE
+          - GIFT_RECIPIENT
+          - OTHER
+          - GIFT
+    ProfileShippingAddress:
+      type: object
+      properties:
+        recipient_name:
+          type: string
+          minLength: 1
+          maxLength: 150
+        phone_number:
+          type: string
+        street_address:
+          type: string
+          minLength: 1
+          maxLength: 255
+        ward_code:
+          type: string
+        province_code:
+          type: string
+        ward_name:
+          type: string
+          description: Ignored input; canonical server master data wins
+        province_name:
+          type: string
+          description: Ignored input; canonical server master data wins
+        latitude:
+          type: number
+          nullable: true
+        longitude:
+          type: number
+          nullable: true
+        label:
+          type: string
+          enum:
+          - HOME
+          - OFFICE
+          - GIFT_RECIPIENT
+          - OTHER
+          - GIFT
+        id:
+          type: string
+          format: uuid
+        customer_id:
+          type: string
+          format: uuid
+        version:
+          type: integer
+          minimum: 1
+        is_default:
+          type: boolean
+        is_deleted:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    PublicError:
+      type: object
+      additionalProperties: false
+      required:
+      - code
+      - message
+      - requestId
+      properties:
+        code:
+          type: string
+          minLength: 1
+        message:
+          type: string
+          minLength: 1
+        requestId:
+          type: string
+          minLength: 1
+        retryable:
+          type: boolean
+        operation_id:
+          type: string
+          format: uuid
+        details:
+          type: object
+          additionalProperties: true
+  parameters:
+    PaymentIdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 16
+        maxLength: 128
+        pattern: ^[!-~]+$
+    PaymentOrderId:
+      name: order_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Verified issuer/audience/signature/expiry and ownership. Identity contract must be implemented;
+        no client identity headers are trusted.
+    OrderbearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    PaymentownerBearer:
+      type: http
+      scheme: bearer
+      description: Trusted Customer principal using existing Order ownership mapping. JWT subject is not an arbitrary
+        customer_id. Guest access uses the separate order-bound grant profile, not the sandbox role-only token.
+    PaymentguestPaymentBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: ES256 JWT
+      description: iss=order-service-guest, aud=order-payment, sid/order_id/jti/grant_version, scope=payment:read.
+        TTL at most 10 minutes and not beyond session expiry. Check signature, allowlisted algorithm/key, timestamps
+        with at most 30s skew, live session, unrevoked local grant/version and current ownership on every request.
+        Payment code alone never authorizes access.
+    PaymentguestCheckoutBearer:
+      type: http
+      scheme: bearer
+      description: Identity-issued Guest checkout session credential under a pinned issuer, audience and key profile;
+        requires authoritative session introspection. Maximum absolute lifetime proposed as 24 hours. Session must
+        own the operation that placed this Order. Payment read grants cannot mint grants.
+x-contract-status: integration-target
+x-release: mvp-2026-10-26

@@ -1,0 +1,65 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Order source event MVP adapter output",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "signature",
+    "id",
+    "source",
+    "order_id",
+    "resource_id",
+    "version",
+    "type"
+  ],
+  "properties": {
+    "signature": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "source": {
+      "enum": [
+        "fulfillment",
+        "shipping",
+        "care"
+      ]
+    },
+    "order_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "resource_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "type": {
+      "enum": [
+        "FULFILLMENT_ACCEPTED",
+        "PACKING_SEALED",
+        "SHIPMENT_CREATED",
+        "SHIPMENT_DISPATCHED",
+        "SHIPMENT_DELIVERED",
+        "SHIPMENT_FAILED",
+        "CASE_OPENED",
+        "CASE_CLOSED"
+      ]
+    },
+    "generation": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "seal_code": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
