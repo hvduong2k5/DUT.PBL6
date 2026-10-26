@@ -1,8 +1,10 @@
 package com.hvduong.identity.api.admin;
 
+import com.hvduong.identity.api.common.ApiResponse;
 import com.hvduong.identity.application.account.EmployeeInvitationService;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -21,7 +23,7 @@ public class EmployeeInvitationController {
     }
 
     @PostMapping
-    public ResponseEntity<EmployeeInvitationService.InviteResult> inviteEmployee(
+    public ResponseEntity<ApiResponse<EmployeeInvitationService.InviteResult>> inviteEmployee(
             @RequestBody(required = false) InviteEmployeeRequest request,
             @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorId
     ) {
@@ -34,11 +36,11 @@ public class EmployeeInvitationController {
 
         int validDays = request != null ? request.getValidDays() : 7;
         EmployeeInvitationService.InviteResult result = invitationService.inviteEmployee(invitedBy, validDays);
-        return ResponseEntity.ok(result);
+        return ResponseEntity.ok(ApiResponse.success("Tạo thư mời nhân viên thành công", result));
     }
 
     @PostMapping("/{invitationId}/revoke")
-    public ResponseEntity<Void> revokeInvitation(
+    public ResponseEntity<ApiResponse<Void>> revokeInvitation(
             @PathVariable UUID invitationId,
             @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorId
     ) {
@@ -50,7 +52,10 @@ public class EmployeeInvitationController {
         } catch (Exception ignored) {}
 
         boolean revoked = invitationService.revokeInvitation(invitationId, revokedBy);
-        return revoked ? ResponseEntity.noContent().build() : ResponseEntity.notFound().build();
+        if (revoked) {
+            return ResponseEntity.ok(ApiResponse.success("Thu hồi lời mời nhân viên thành công", null));
+        }
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ApiResponse.error("INVITATION_NOT_FOUND", "Không tìm thấy thư mời hoặc thư mời đã hết hạn"));
     }
 }
-

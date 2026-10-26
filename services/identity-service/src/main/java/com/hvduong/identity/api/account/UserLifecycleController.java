@@ -1,8 +1,10 @@
 package com.hvduong.identity.api.account;
 
+import com.hvduong.identity.api.common.ApiResponse;
 import com.hvduong.identity.application.account.UserLifecycleService;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -23,21 +25,23 @@ public class UserLifecycleController {
     }
 
     @GetMapping("/users/me")
-    public ResponseEntity<UserLifecycleService.UserProfileDto> getCurrentUser(@AuthenticationPrincipal Jwt jwt) {
+    public ResponseEntity<ApiResponse<UserLifecycleService.UserProfileDto>> getCurrentUser(@AuthenticationPrincipal Jwt jwt) {
         if (jwt == null) {
-            return ResponseEntity.status(401).build();
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(ApiResponse.error("UNAUTHORIZED", "Yêu cầu đăng nhập để truy cập"));
         }
 
         String subject = jwt.getSubject();
         String email = jwt.getClaimAsString("email");
 
         return userLifecycleService.getProfileBySubject(subject, email)
-                .map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.notFound().build());
+                .map(profile -> ResponseEntity.ok(ApiResponse.success(profile)))
+                .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(ApiResponse.error("USER_NOT_FOUND", "Không tìm thấy thông tin tài khoản")));
     }
 
     @PostMapping("/admin/users/{principalId}/suspend")
-    public ResponseEntity<Void> suspendUser(
+    public ResponseEntity<ApiResponse<Void>> suspendUser(
             @PathVariable UUID principalId,
             @RequestBody(required = false) SuspendRequest request,
             @AuthenticationPrincipal Jwt jwt
@@ -51,11 +55,11 @@ public class UserLifecycleController {
 
         String reason = request != null ? request.getReason() : "Suspended by admin";
         userLifecycleService.suspendAccount(principalId, reason, actorId);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(ApiResponse.success("Khóa tài khoản người dùng thành công", null));
     }
 
     @PostMapping("/admin/users/{principalId}/reactivate")
-    public ResponseEntity<Void> reactivateUser(
+    public ResponseEntity<ApiResponse<Void>> reactivateUser(
             @PathVariable UUID principalId,
             @AuthenticationPrincipal Jwt jwt
     ) {
@@ -67,7 +71,6 @@ public class UserLifecycleController {
         }
 
         userLifecycleService.reactivateAccount(principalId, actorId);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(ApiResponse.success("Kích hoạt lại tài khoản thành công", null));
     }
 }
-
