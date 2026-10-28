@@ -144,7 +144,7 @@ message TaskRevision {
   string task_id = 2;
   int64 resource_version = 3;
   int64 ready_generation = 4;
-  string kind = 5; // FULFILLMENT_ACCEPTED or PACKING_SEALED.
+  string kind = 5; // PACKING_ACCEPTED or PACKING_SEALED; matches Order core ingress.
   string seal_code = 6;
   google.protobuf.Timestamp occurred_at = 7;
   string items_digest = 8;

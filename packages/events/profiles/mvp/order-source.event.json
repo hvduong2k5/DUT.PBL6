@@ -43,7 +43,7 @@
     },
     "type": {
       "enum": [
-        "FULFILLMENT_ACCEPTED",
+        "PACKING_ACCEPTED",
         "PACKING_SEALED",
         "SHIPMENT_CREATED",
         "SHIPMENT_DISPATCHED",

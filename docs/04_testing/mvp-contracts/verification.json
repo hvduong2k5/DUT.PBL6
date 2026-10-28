@@ -7,8 +7,8 @@
   },
   "events": {
     "schemas_checked": 48,
-    "valid_examples": 10,
-    "invalid_examples_rejected": 10
+    "valid_examples": 11,
+    "invalid_examples_rejected": 11
   },
   "protobuf": {
     "compiled_files": 14,
@@ -45,7 +45,7 @@
     "contracts_checked": 12,
     "runtime_acceptance": "PENDING"
   },
-  "negative_guards": 13,
+  "negative_guards": 14,
   "tool_versions": {
     "grpcio-tools": "1.76.0",
     "protobuf": "6.33.6",

@@ -202,6 +202,16 @@ def main():
             validator_for(schema).check_schema(schema)
             schema_count += 1
     examples = negatives = 0
+    ingress = Draft7Validator(json.loads((ROOT / 'packages/events/profiles/mvp/order-source.event.json').read_bytes()), format_checker=FormatChecker())
+    accepted = {'signature': '0' * 64, 'id': 'packing-accepted-example', 'source': 'fulfillment',
+                'order_id': '11111111-1111-4111-8111-111111111111',
+                'resource_id': '22222222-2222-4222-8222-222222222222',
+                'version': 1, 'generation': 1, 'type': 'PACKING_ACCEPTED'}
+    ingress.validate(accepted)
+    check(not ingress.is_valid({**accepted, 'type': 'FULFILLMENT_ACCEPTED'}),
+          'Ingress accepts a name Order core cannot process')
+    examples += 1
+    negatives += 1
     pairs = [(p, ROOT / 'packages/events/examples/order/v3' / p.name.replace('.event', ''))
              for p in (ROOT / 'packages/events/schemas/order/v3').glob('*.json')]
     pairs += [(ROOT / 'packages/events/schemas/fulfillment/v2/packing_completed.event.json', ROOT / 'packages/events/examples/fulfillment/v2/packing_completed.json'),
