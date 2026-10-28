@@ -1,5 +1,7 @@
 # Migration cho release mvp-2026-10-26
 
+Xem [đề xuất chốt 6 điểm](TEAM-DECISIONS.md) cho lý do, phân công và thứ tự mở chức năng. Phương án đề xuất cho MVP là Shipping dual-serve v1/v2, consumer v2 sẵn sàng trước producer, mỗi đơn giữ một luồng xử lý. Các lựa chọn này còn cần provider/consumer triển khai và nghiệm thu.
+
 ## Public API và client
 
 `mvp-customer.openapi.yaml` là target cho client/BFF triển khai. Frontend Customer v1 snapshots vẫn giữ nguyên làm reference; không tiếp tục coi chúng là public target ở các route trùng MVP.

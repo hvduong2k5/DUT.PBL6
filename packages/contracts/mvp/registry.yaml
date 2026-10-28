@@ -96,7 +96,9 @@ contracts:
       - Publish parcel/package evidence on fulfillment.events.v2 after dual-consumer rollout.
       - Implement GetTaskRevision and include task_id/resource_version/ready_generation in packing v2.
   - id: order-core-facade
-    owner: order-integration-adapters
+    # Proposed team ownership; named assignee and implementation acceptance remain pending.
+    # See TEAM-DECISIONS.md section 4 and the handoff table.
+    owner: order-service
     consumers: [order-service]
     artifact: docs/03_api_specs/order-core-dependencies.mvp.openapi.yaml
     state: adapter-required

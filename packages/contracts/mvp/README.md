@@ -6,6 +6,8 @@
 
 ## Bắt đầu theo vai trò
 
+**Đọc trước:** [Đề xuất chốt 6 điểm cho MVP](TEAM-DECISIONS.md) giải thích luồng mua bằng sơ đồ, phương án lựa chọn, trách nhiệm và điều kiện nghiệm thu. Đây là đề xuất triển khai; chưa phải sign-off của các nhóm. Vòng đầu đề xuất khách đăng nhập + SePay + giao hàng; Guest/COD/automatic completion có điều kiện mở riêng.
+
 | Thành viên | Contract cần đọc | Việc tiếp theo |
 | --- | --- | --- |
 | Web / Mobile / BFF | [MVP Customer OpenAPI](../../../docs/03_api_specs/mvp-customer.openapi.yaml), [migration](MIGRATION.md) | Dùng quote/revision, xử lý `202`, poll operation, map error/idempotency và Profile DTO |
