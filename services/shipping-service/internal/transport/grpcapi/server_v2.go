@@ -6,7 +6,6 @@ import (
 	"math"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/omamx/shipping-service/internal/application"
@@ -39,27 +38,30 @@ func (s *V2Server) CalculateShippingFee(ctx context.Context, request *shippingv2
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	carrierCode := request.GetPreferredCarrier()
-	if carrierCode == "" {
-		carrierCode = carrier.FakeCode
+	canonicalHash, err := canonicalMessageHash(request.ProtoReflect())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	quote, err := s.service.Quote(ctx, carrierCode, carrier.QuoteRequest{
+	quote, err := s.service.BoundQuote(ctx, domain.BoundQuoteCommand{
+		IdempotencyKey: request.GetIdempotencyKey(), ContractVersion: request.GetContractVersion(),
+		RequestHash: request.GetRequestHash(), CanonicalHash: canonicalHash,
 		Destination: recipientFromProto(request.GetDestinationAddress()), Parcel: parcel,
-		ServiceCode: request.GetServiceCode(),
+		PreferredCarrier: request.GetPreferredCarrier(), ServiceCode: request.GetServiceCode(),
+		OriginWarehouseID: request.GetOriginWarehouseId(),
 	})
 	if err != nil {
 		return nil, toStatus(err)
 	}
 	return &shippingv2.CalculateShippingFeeResponse{
 		ContractVersion:       shippingV2ContractVersion,
-		RequestHash:           request.GetRequestHash(),
-		QuoteVersion:          1,
+		RequestHash:           quote.RequestHash,
+		QuoteVersion:          quote.Version,
 		ShippingFee:           &commonv1.Money{CurrencyCode: "VND", Units: quote.FeeVND},
 		Carrier:               quote.CarrierCode,
 		ServiceName:           quote.ServiceName,
-		EstimatedDeliveryDays: int32(max(1, int(math.Ceil(time.Until(quote.EstimatedDeliveryAt).Hours()/24)))),
+		EstimatedDeliveryDays: int32(max(1, int(math.Ceil(quote.EstimatedDeliveryAt.Sub(quote.CreatedAt).Hours()/24)))),
 		ServiceCode:           quote.ServiceCode,
-		QuoteId:               quote.CarrierCode + ":" + request.GetIdempotencyKey(),
+		QuoteId:               quote.ID.String(),
 		QuoteExpiresAt:        timestamppb.New(quote.ExpiresAt),
 		EstimatedDeliveryTime: timestamppb.New(quote.EstimatedDeliveryAt),
 	}, nil

@@ -221,6 +221,8 @@ func toStatus(err error) error {
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, domain.ErrInvalidTransition), errors.Is(err, domain.ErrConcurrentUpdate):
 		return status.Error(codes.Aborted, err.Error())
+	case errors.Is(err, domain.ErrIdempotencyConflict):
+		return status.Error(codes.AlreadyExists, err.Error())
 	case errors.As(err, new(*application.ProviderError)):
 		return status.Error(codes.Unavailable, "carrier operation failed")
 	default:

@@ -58,7 +58,7 @@ func main() {
 
 	repository := postgresrepo.New(pool)
 	registry := carrier.NewRegistry(carrier.NewFake())
-	service := application.NewService(repository, registry)
+	service := application.NewService(repository, registry, repository)
 	producer := shippingkafka.NewProducer(cfg.KafkaBrokers)
 	defer func() {
 		if err := producer.Close(); err != nil {

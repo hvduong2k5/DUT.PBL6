@@ -24,6 +24,43 @@ func New(pool *pgxpool.Pool) *Repository { return &Repository{pool: pool} }
 
 func (r *Repository) Ping(ctx context.Context) error { return r.pool.Ping(ctx) }
 
+func (r *Repository) GetQuoteByIdempotencyKey(ctx context.Context, key string) (*domain.ShippingQuote, error) {
+	return scanQuote(r.pool.QueryRow(ctx, selectQuote+` WHERE idempotency_key=$1`, key))
+}
+
+func (r *Repository) SaveQuote(ctx context.Context, quote *domain.ShippingQuote) (*domain.ShippingQuote, bool, error) {
+	destination, err := json.Marshal(quote.Destination)
+	if err != nil {
+		return nil, false, err
+	}
+	parcel, err := json.Marshal(quote.Parcel)
+	if err != nil {
+		return nil, false, err
+	}
+	persisted, err := scanQuote(r.pool.QueryRow(ctx, `
+		INSERT INTO shipping_quotes (
+			quote_id, idempotency_key, contract_version, request_hash, destination, parcel,
+			preferred_carrier, requested_service, origin_warehouse_id, carrier_code,
+			service_code, service_name, fee_vnd, estimated_delivery_at, expires_at, created_at
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+		ON CONFLICT (idempotency_key) DO NOTHING
+		RETURNING quote_id, idempotency_key, contract_version, request_hash, destination, parcel,
+			preferred_carrier, requested_service, origin_warehouse_id, carrier_code,
+			service_code, service_name, fee_vnd, estimated_delivery_at, expires_at, created_at, quote_version`,
+		quote.ID, quote.IdempotencyKey, quote.ContractVersion, quote.RequestHash, destination, parcel,
+		quote.PreferredCarrier, quote.RequestedService, quote.OriginWarehouseID, quote.CarrierCode,
+		quote.ServiceCode, quote.ServiceName, quote.FeeVND, quote.EstimatedDeliveryAt,
+		quote.ExpiresAt, quote.CreatedAt))
+	if err == nil {
+		return persisted, true, nil
+	}
+	if !errors.Is(err, domain.ErrQuoteNotFound) {
+		return nil, false, err
+	}
+	persisted, err = r.GetQuoteByIdempotencyKey(ctx, quote.IdempotencyKey)
+	return persisted, false, err
+}
+
 func (r *Repository) BeginCreation(ctx context.Context, idempotencyKey string, shipment *domain.Shipment) (*domain.Shipment, bool, error) {
 	recipient, err := json.Marshal(shipment.Recipient)
 	if err != nil {
@@ -192,7 +229,36 @@ const selectShipment = `SELECT
 	handed_over_at, delivered_at, last_event_at, created_at, updated_at, revision
 FROM shipments`
 
+const selectQuote = `SELECT
+	quote_id, idempotency_key, contract_version, request_hash, destination, parcel,
+	preferred_carrier, requested_service, origin_warehouse_id, carrier_code,
+	service_code, service_name, fee_vnd, estimated_delivery_at, expires_at,
+	created_at, quote_version
+FROM shipping_quotes`
+
 type rowScanner interface{ Scan(...any) error }
+
+func scanQuote(row rowScanner) (*domain.ShippingQuote, error) {
+	var quote domain.ShippingQuote
+	var destination, parcel []byte
+	err := row.Scan(&quote.ID, &quote.IdempotencyKey, &quote.ContractVersion, &quote.RequestHash,
+		&destination, &parcel, &quote.PreferredCarrier, &quote.RequestedService,
+		&quote.OriginWarehouseID, &quote.CarrierCode, &quote.ServiceCode, &quote.ServiceName,
+		&quote.FeeVND, &quote.EstimatedDeliveryAt, &quote.ExpiresAt, &quote.CreatedAt, &quote.Version)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, domain.ErrQuoteNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	if err := json.Unmarshal(destination, &quote.Destination); err != nil {
+		return nil, err
+	}
+	if err := json.Unmarshal(parcel, &quote.Parcel); err != nil {
+		return nil, err
+	}
+	return &quote, nil
+}
 
 func scanShipment(row rowScanner) (*domain.Shipment, error) {
 	var shipment domain.Shipment

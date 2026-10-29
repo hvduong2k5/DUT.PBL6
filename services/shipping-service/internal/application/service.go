@@ -31,6 +31,11 @@ type Repository interface {
 	TrackingTimeline(context.Context, uuid.UUID) ([]domain.TrackingEvent, error)
 }
 
+type QuoteRepository interface {
+	GetQuoteByIdempotencyKey(context.Context, string) (*domain.ShippingQuote, error)
+	SaveQuote(context.Context, *domain.ShippingQuote) (*domain.ShippingQuote, bool, error)
+}
+
 type ProviderError struct {
 	Shipment *domain.Shipment
 	Cause    error
@@ -64,12 +69,17 @@ func (e *ProviderError) Unwrap() error { return e.Cause }
 
 type Service struct {
 	repository Repository
+	quotes     QuoteRepository
 	carriers   *carrier.Registry
 	now        func() time.Time
 }
 
-func NewService(repository Repository, carriers *carrier.Registry) *Service {
-	return &Service{repository: repository, carriers: carriers, now: time.Now}
+func NewService(repository Repository, carriers *carrier.Registry, quoteRepositories ...QuoteRepository) *Service {
+	service := &Service{repository: repository, carriers: carriers, now: time.Now}
+	if len(quoteRepositories) > 0 {
+		service.quotes = quoteRepositories[0]
+	}
+	return service
 }
 
 func (s *Service) Ping(ctx context.Context) error { return s.repository.Ping(ctx) }
@@ -80,6 +90,55 @@ func (s *Service) Quote(ctx context.Context, carrierCode string, request carrier
 		return carrier.Quote{}, fmt.Errorf("%w: %s", domain.ErrUnsupportedCarrier, carrierCode)
 	}
 	return provider.Quote(ctx, request)
+}
+
+func (s *Service) BoundQuote(ctx context.Context, command domain.BoundQuoteCommand) (*domain.ShippingQuote, error) {
+	if err := command.Validate(); err != nil {
+		return nil, err
+	}
+	if s.quotes == nil {
+		return nil, errors.New("durable quote repository is not configured")
+	}
+	existing, err := s.quotes.GetQuoteByIdempotencyKey(ctx, command.IdempotencyKey)
+	if err == nil {
+		if existing.RequestHash != command.RequestHash {
+			return nil, domain.ErrIdempotencyConflict
+		}
+		return existing, nil
+	}
+	if !errors.Is(err, domain.ErrQuoteNotFound) {
+		return nil, err
+	}
+
+	carrierCode := strings.TrimSpace(command.PreferredCarrier)
+	if carrierCode == "" {
+		carrierCode = carrier.FakeCode
+	}
+	provider, ok := s.carriers.Get(carrierCode)
+	if !ok {
+		return nil, fmt.Errorf("%w: %s", domain.ErrUnsupportedCarrier, carrierCode)
+	}
+	result, err := provider.Quote(ctx, carrier.QuoteRequest{
+		Destination: command.Destination,
+		Parcel:      command.Parcel,
+		ServiceCode: command.ServiceCode,
+	})
+	if err != nil {
+		return nil, &ProviderError{Cause: err}
+	}
+	quote, err := domain.NewShippingQuote(command, result.CarrierCode, result.ServiceCode, result.ServiceName,
+		result.FeeVND, result.EstimatedDeliveryAt, result.ExpiresAt, s.now())
+	if err != nil {
+		return nil, err
+	}
+	persisted, inserted, err := s.quotes.SaveQuote(ctx, quote)
+	if err != nil {
+		return nil, err
+	}
+	if !inserted && persisted.RequestHash != command.RequestHash {
+		return nil, domain.ErrIdempotencyConflict
+	}
+	return persisted, nil
 }
 
 func (s *Service) CreateShipment(ctx context.Context, cmd domain.CreateShipmentCommand) (*domain.Shipment, error) {
