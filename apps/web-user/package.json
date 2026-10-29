@@ -13,8 +13,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "typecheck": "next typegen && tsc --noEmit",
-    "test": "vitest run"
+    "typecheck": "node scripts/typecheck.mjs",
+    "test": "vitest run",
+    "verify:mvp": "npm run typecheck && npm run lint && npm run test"
   },
   "dependencies": {
     "next": "16.3.6",

@@ -17,9 +17,9 @@ describe("customer profile validation", () => {
       .toHaveProperty("dateOfBirth");
   });
 
-  it("requires a valid contact email", () => {
-    expect(validateProfile({ fullName: "Tôn Thất Hoàng", email: "email-sai", phone: null, dateOfBirth: null, gender: null }))
-      .toHaveProperty("email");
+  it("does not send read-only email back through Profile validation", () => {
+    expect(validateProfile({ fullName: "Tôn Thất Hoàng", email: "email-sai", phone: "0912 345 892", dateOfBirth: null, gender: null }))
+      .not.toHaveProperty("email");
   });
 
   it("requires delivery identity and a detailed address", () => {

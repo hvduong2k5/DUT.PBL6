@@ -22,7 +22,7 @@ describe("customer core product detail mapping", () => {
         stock_available: 10
       }]
     });
-    expect(detail.skus[0]).toMatchObject({ skuId: "MX-500", weightGrams: 500, isAvailable: true });
+    expect(detail.skus[0]).toMatchObject({ skuId: "MX-500", weightGrams: 500, availability: "AVAILABLE" });
     expect(detail.foodInformation).toBeUndefined();
     expect(detail.ocopCertification?.label).toContain("OCOP-001");
   });

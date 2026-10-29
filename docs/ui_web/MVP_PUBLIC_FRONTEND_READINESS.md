@@ -104,3 +104,13 @@ Backend có thể cung cấp gateway thật hoặc một mock mới sinh từ pu
 - Kiểm tra loading, empty, error, success, unauthorized, forbidden, conflict, async và rate-limit bằng response contract, không bằng tên scenario mock.
 
 Chỉ sau checklist này và registry runtime acceptance, target mới được coi là sẵn sàng phát hành end-to-end.
+
+## 9. Frontend verification
+
+Chạy tại `apps/web-user`:
+
+```text
+npm run verify:mvp
+```
+
+Kết quả local ngày 2026-10-30: typecheck PASS, ESLint PASS, 26 test files/87 tests PASS. Chi tiết và giới hạn bằng chứng tại [`MVP_PUBLIC_RELEASE_VERIFICATION.md`](./MVP_PUBLIC_RELEASE_VERIFICATION.md).

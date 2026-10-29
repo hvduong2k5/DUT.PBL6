@@ -235,3 +235,13 @@ Các quy tắc đã áp dụng:
 - Các script `dev:cart`, `dev:checkout`, `dev:orders`, `dev:payment` vẫn là fixture lịch sử cho từng lát cắt. Chúng không đại diện cho public target 30-operation và không được dùng làm bằng chứng E2E/acceptance.
 - Frontend readiness, ma trận trạng thái, dependency runtime, contract gap và checklist nghiệm thu được chốt tại [`MVP_PUBLIC_FRONTEND_READINESS.md`](./MVP_PUBLIC_FRONTEND_READINESS.md).
 - Contract CI xanh chỉ xác nhận schema/wire. Luồng thật chỉ được coi là sẵn sàng sau khi public gateway, Identity và các provider owning service có runtime acceptance và E2E evidence.
+
+## 16. Kết quả Giai đoạn 10 — Contract regression và release verification
+
+- Thêm một cổng kiểm tra thống nhất `npm run verify:mvp` cho Web User: typecheck → lint → test.
+- Vitest đã được cấu hình alias `@` giống TypeScript và chạy một worker không isolate để ổn định trên Windows sandbox.
+- Bổ sung regression test chứng minh BFF chỉ nhận access token từ cookie tin cậy, bỏ qua browser `Authorization`.
+- Bổ sung regression test cho `401`, Employee thiếu/có Customer mapping và capability `403` sau khi principal được xác minh.
+- Đồng bộ assertion Profile email read-only và availability ba trạng thái của Catalog/Product Detail với contract hiện tại.
+- Kết quả local ngày 2026-10-30: typecheck PASS, ESLint PASS, **26 test files / 87 tests PASS**.
+- Đây là frontend regression evidence, chưa thay thế live-service E2E hoặc owning-service runtime acceptance. Báo cáo đầy đủ nằm tại [`MVP_PUBLIC_RELEASE_VERIFICATION.md`](./MVP_PUBLIC_RELEASE_VERIFICATION.md).

@@ -21,7 +21,7 @@ describe("customer core catalog mapping", () => {
       in_stock: true
     });
     expect(product).toMatchObject({ id: "PROD-1", categorySlug: "me-xung-gion", ocopStars: 4 });
-    expect(product.matchedOffer).toMatchObject({ priceVnd: 345000, isAvailable: true });
+    expect(product.matchedOffer).toMatchObject({ priceVnd: 345000, availability: "AVAILABLE" });
     expect(product.matchedOffer).not.toHaveProperty("availableQuantity");
   });
 });
