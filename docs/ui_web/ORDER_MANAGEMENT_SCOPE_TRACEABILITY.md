@@ -1,5 +1,7 @@
 # Order Management MVP — Scope & Traceability
 
+> **Baseline scope lịch sử.** Quyết định wire/runtime hiện hành của Order nằm trong Giai đoạn 7 của `MVP_PUBLIC_CONTRACT_MIGRATION_MATRIX.md`; Guest và paid cancellation đang feature-gated theo public MVP target.
+
 ## Mục tiêu vòng triển khai
 
 Feature cung cấp trải nghiệm Order dành cho Guest/Customer sau Checkout: xem lịch sử, xem snapshot và timeline của đúng Order, tra cứu Guest bằng bằng chứng sở hữu, đồng thời gửi yêu cầu tự hủy khi Order còn đủ điều kiện. Order status, Payment status và Shipping status luôn được trình bày riêng.

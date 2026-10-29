@@ -1,6 +1,18 @@
-export type OrderStatus = "PENDING_PAYMENT" | "PAID" | "CONFIRMED" | "PROCESSING" | "PACKED" | "SHIPPED" | "DELIVERED" | "COMPLETED" | "DELIVERY_FAILED" | "EXPIRED" | "CANCELLED";
-export type OrderPaymentStatus = "PENDING" | "PAID" | "UNPAID" | "REFUND_PENDING" | "COD_PENDING_COLLECTION";
-export type OrderShippingStatus = "NOT_SHIPPED" | "READY" | "IN_TRANSIT" | "DELIVERED" | "FAILED";
+import type {
+  OrderAllowedAction as ContractOrderAllowedAction,
+  OrderCancellationStatus as ContractOrderCancellationStatus,
+  OrderCompensationStatus as ContractOrderCompensationStatus,
+  OrderPaymentStatus as ContractOrderPaymentStatus,
+  OrderStatus as ContractOrderStatus,
+  OrderStockStatus as ContractOrderStockStatus
+} from "@/lib/api-contract";
+
+export type OrderStatus = ContractOrderStatus;
+export type OrderPaymentStatus = ContractOrderPaymentStatus;
+export type OrderStockStatus = ContractOrderStockStatus;
+export type OrderCompensationStatus = ContractOrderCompensationStatus;
+export type OrderCancellationStatus = ContractOrderCancellationStatus;
+export type OrderAllowedAction = ContractOrderAllowedAction;
 
 export interface OrderPreviewItem {
   name: string;
@@ -11,25 +23,29 @@ export interface OrderListItem {
   orderId: string;
   orderNumber: string;
   placedAt: string;
+  updatedAt: string;
+  version: number;
   status: OrderStatus;
   statusLabel: string;
+  paymentMethod: string;
   paymentStatus: OrderPaymentStatus;
-  shippingStatus: OrderShippingStatus;
+  paymentStatusLabel: string;
+  stockStatus: OrderStockStatus;
   totalVnd: number;
-  currency: "VND";
-  itemCount: number;
+  itemCount: number | null;
   previewItems: OrderPreviewItem[];
+  allowedActions: OrderAllowedAction[];
+  cancellationStatus: OrderCancellationStatus;
+  compensationStatus: OrderCompensationStatus;
   canCancel: boolean;
+  canViewTracking: boolean;
   cancelPolicyMessage: string;
 }
 
 export interface OrderListResponse {
   items: OrderListItem[];
-  page: number;
-  pageSize: number;
-  totalItems: number;
-  totalPages: number;
-  customer: { displayName: string; email: string };
+  nextCursor: string;
+  resultCount: number;
 }
 
 export interface OrderLine {
@@ -37,8 +53,8 @@ export interface OrderLine {
   productName: string;
   skuLabel: string;
   quantity: number;
-  unitPriceVnd: number;
-  lineSubtotalVnd: number;
+  unitPriceVnd?: number;
+  lineSubtotalVnd?: number;
 }
 
 export interface OrderTimelineEvent {
@@ -46,24 +62,45 @@ export interface OrderTimelineEvent {
   label: string;
   description: string;
   occurredAt: string;
-  state: "COMPLETED" | "CURRENT" | "UPCOMING";
+  state: "COMPLETED" | "CURRENT";
 }
 
 export interface OrderDetail {
   orderId: string;
+  operationId: string;
   orderNumber: string;
-  source: "WEB_D2C";
   placedAt: string;
+  updatedAt: string;
+  version: number;
   status: OrderStatus;
   statusLabel: string;
   statusDescription: string;
-  payment: { method: "BANK_TRANSFER" | "COD"; status: OrderPaymentStatus; label: string };
-  shipping: { methodName: string; status: OrderShippingStatus; label: string; trackingCode: string | null; estimatedDelivery: string | null };
+  payment: {
+    method: string;
+    status: OrderPaymentStatus;
+    label: string;
+    reference: string;
+    expiresAt: string;
+  };
+  stock: { status: OrderStockStatus; label: string };
+  shipmentId: string | null;
   lines: OrderLine[];
-  pricing: { subtotalVnd: number; shippingFeeVnd: number; discountVnd: number; totalVnd: number; currency: "VND" };
-  recipient: { fullName: string; phoneDisplay: string; emailDisplay: string; addressDisplay: string; deliveryNote: string | null };
+  snapshotAvailable: boolean;
+  pricing: { subtotalVnd: number; shippingFeeVnd: number; totalVnd: number; currency: "VND" };
+  recipient?: { fullName: string; phoneDisplay: string; addressDisplay: string };
   timeline: OrderTimelineEvent[];
-  cancellation: { canCancel: boolean; cancelBy: string | null; message: string; allowedReasons: Array<{ code: CancelReasonCode; label: string }> };
+  allowedActions: OrderAllowedAction[];
+  operationalHold: boolean;
+  hasActiveCase: boolean;
+  cancellation: {
+    status: OrderCancellationStatus;
+    compensationStatus: OrderCompensationStatus;
+    canCancel: boolean;
+    canRequestPaidCancellation: boolean;
+    canViewTracking: boolean;
+    message: string;
+    allowedReasons: Array<{ code: CancelReasonCode; label: string }>;
+  };
 }
 
 export type CancelReasonCode = "CHANGED_MIND" | "WRONG_INFORMATION" | "OTHER";
@@ -71,16 +108,17 @@ export type CancelReasonCode = "CHANGED_MIND" | "WRONG_INFORMATION" | "OTHER";
 export interface CancelOrderInput {
   reasonCode: CancelReasonCode;
   note?: string;
+  version: number;
   idempotencyKey: string;
 }
 
 export interface CancelOrderResult {
+  cancellationId: string;
   orderId: string;
-  status: "CANCELLED";
-  cancelledAt: string;
-  reservationReleaseRequested: boolean;
-  refundRequired: boolean;
-  refundStatus: "PENDING_HANDOFF" | null;
+  status: Exclude<OrderCancellationStatus, "NONE">;
+  compensationStatus: OrderCompensationStatus;
+  version: number;
+  reviewReference?: string | null;
   message: string;
 }
 
@@ -97,32 +135,4 @@ export interface GuestVerification {
   orderNumber: string;
   orderPath: string;
   accessExpiresAt: string;
-}
-
-interface OrderErrorBody {
-  code?: string;
-  message?: string;
-  error_code?: string;
-  user_message?: string;
-  requestId?: string;
-  retryAfterSeconds?: number;
-  errors?: Array<{ field: string; message: string }>;
-}
-
-export class OrderApiError extends Error {
-  readonly status: number;
-  readonly code: string;
-  readonly requestId?: string;
-  readonly retryAfterSeconds?: number;
-  readonly errors: Array<{ field: string; message: string }>;
-
-  constructor(status: number, body: OrderErrorBody) {
-    super(body.user_message || body.message || "Không thể xử lý Order lúc này.");
-    this.name = "OrderApiError";
-    this.status = status;
-    this.code = body.error_code || body.code || "UNKNOWN_ERROR";
-    this.requestId = body.requestId;
-    this.retryAfterSeconds = body.retryAfterSeconds;
-    this.errors = body.errors ?? [];
-  }
 }

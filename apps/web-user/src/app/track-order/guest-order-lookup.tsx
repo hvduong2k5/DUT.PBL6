@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { PublicApiError } from "@/lib/api-contract";
 import type { GuestChallenge } from "@/lib/orders/types";
-import { OrderApiError } from "@/lib/orders/types";
 import { orderService } from "@/services/order-service";
 
 export function GuestOrderLookup() {
@@ -21,14 +21,14 @@ export function GuestOrderLookup() {
   async function requestCode(event: FormEvent) {
     event.preventDefault(); setError(""); setLoading(true);
     try { setChallenge(await orderService.createGuestChallenge({ orderNumber, contact }, scenario)); }
-    catch (cause) { setError(cause instanceof OrderApiError ? cause.message : "Không thể gửi mã xác minh."); }
+    catch (cause) { setError(cause instanceof PublicApiError ? cause.message : "Không thể gửi mã xác minh."); }
     finally { setLoading(false); }
   }
 
   async function verify(event: FormEvent) {
     event.preventDefault(); if (!challenge) return; setError(""); setLoading(true);
     try { const result = await orderService.verifyGuestChallenge(challenge.challengeId, otp, scenario); router.push(result.orderPath); }
-    catch (cause) { setError(cause instanceof OrderApiError ? cause.message : "Không thể xác minh Guest Order."); }
+    catch (cause) { setError(cause instanceof PublicApiError ? cause.message : "Không thể xác minh Guest Order."); }
     finally { setLoading(false); }
   }
 

@@ -1,6 +1,6 @@
 # MVP Public Contract — Frontend migration matrix
 
-> Giai đoạn 1–6 hoàn tất: đã chốt baseline, tạo lớp contract dùng chung, chuyển Catalog/Product, Profile/Address, Cart và Checkout sang public MVP contract.
+> Giai đoạn 1–7 hoàn tất: đã chốt baseline, tạo lớp contract dùng chung, chuyển Catalog/Product, Profile/Address, Cart, Checkout và Order sang public MVP contract.
 
 ## 1. Baseline được pin
 
@@ -57,10 +57,10 @@ Các file `customer-stable`, `customer-draft-planned`, `web-reference/*` và `*.
 
 | Public operation | BFF/UI hiện tại | Trạng thái | Việc phải làm ở giai đoạn triển khai |
 | --- | --- | --- | --- |
-| `GET /api/v1/orders` — `order_listOwnedOrders` | `GET /api/orders` với `page/pageSize` | `ADAPT` | Map sang `limit/cursor/status`; không giả lập total khi upstream không cung cấp. |
-| `GET /api/v1/orders/{id}` — `order_getOwnedOrder` | `GET /api/orders/{id}` | `ADAPT` | Chuẩn hóa DTO, Money/status và ownership error. |
-| `GET /api/v1/orders/{id}/tracking` — `order_getOrderTracking` | BFF gọi ngầm khi đọc detail | `ADAPT` | Giữ endpoint/mapping riêng để refresh tracking độc lập. |
-| `POST /api/v1/orders/{id}/cancel` — `order_cancelOrder` | `POST /api/orders/{id}/cancellations` rồi BFF gọi `/cancel` | `ADAPT` | Thêm version/ETag theo contract và public `Idempotency-Key`. |
+| `GET /api/v1/orders` — `order_listOwnedOrders` | `GET /api/orders` | `ALIGNED` | BFF trả `items/next_cursor` canonical; search/status/year chỉ lọc response hiện tại ở browser, không gửi query ngoài contract. |
+| `GET /api/v1/orders/{id}` — `order_getOwnedOrder` | `GET /api/orders/{id}` | `ALIGNED` | Đã map `OrderOrder`, giữ lifecycle/payment/stock/cancellation độc lập và dùng `allowed_actions` làm authority UI. |
+| `GET /api/v1/orders/{id}/tracking` — `order_getOrderTracking` | `GET /api/orders/{id}/tracking` | `ALIGNED` | Refresh tracking độc lập; UI không suy diễn checkpoint/carrier vì baseline hiện chỉ khai báo response là object. |
+| `POST /api/v1/orders/{id}/cancel` — `order_cancelOrder` | `POST /api/orders/{id}/cancel` | `ALIGNED` | Đã gửi decimal Order version qua `If-Match`, public `Idempotency-Key`, body `{active,reason}` và giữ kết quả `200/202`. |
 | `POST /api/v1/orders/{id}/cancellation-requests` — `order_requestPaidCancellation` | Chưa có | `GATED` | Thêm sau khi paid cancellation policy/provider được chấp nhận. |
 | `POST /api/v1/guest-sessions` — `order_createGuestSession` | Cookie cart context tự tạo ở BFF | `GATED` | Không coi cookie local là guest credential backend; triển khai khi guest flow được bật. |
 | `POST /api/v1/orders/{order_id}/guest-payment-access` — `payment_issueGuestPaymentAccess` | Custom extension `orders/guest-access/grants` | `GATED` | Thay custom grant bằng public operation khi backend chấp nhận guest payment flow. |
@@ -100,7 +100,7 @@ Các file `customer-stable`, `customer-draft-planned`, `web-reference/*` và `*.
 | `/api/checkout/confirm` | Đã loại khỏi runtime; thay bằng accept + operation polling. |
 | `DELETE /api/cart` | Đã bỏ route ngoài contract; nút dọn giỏ là UI composition gọi tuần tự operation xóa từng dòng. |
 | `/api/payments/orders/{id}/attempts` | Không có trong target; giữ disabled cho đến khi có contract retry payment. |
-| Guest challenge/OTP extension | Ngoài public target hiện tại; giữ feature gate và không xem là guest-session contract. |
+| Guest challenge/OTP extension | Ngoài public target hiện tại; mặc định tắt bằng `ORDER_GUEST_EXTENSION_ENABLED=false` và không xem là guest-session contract. |
 | `/api/customer/locations` | View-support API riêng; nguồn địa giới cần contract/provider riêng, không gộp vào Profile contract. |
 | Auth, Returns, Support, B2B và Admin | Không nằm trong 30 operations của release này; không xóa hoặc tự sửa theo Order MVP. |
 
@@ -137,7 +137,7 @@ Lớp contract dùng chung nằm tại `apps/web-user/src/lib/api-contract/`:
 | `client.ts` | JSON request client không tự retry mutation; giữ response headers, ETag và Retry-After. |
 | `index.ts` | Public exports cho các feature adapter. |
 
-Sau Giai đoạn 6, Catalog/Product, Profile/Address, Cart và Checkout đã dùng lớp này. Order/Payment sẽ được chuyển ở các giai đoạn nghiệp vụ tiếp theo.
+Sau Giai đoạn 7, Catalog/Product, Profile/Address, Cart, Checkout và Order đã dùng lớp này. Payment sẽ được chuyển ở giai đoạn nghiệp vụ tiếp theo.
 
 ## 9. Kết quả Giai đoạn 3 — Catalog và Product
 
@@ -188,3 +188,16 @@ Các quy tắc đã áp dụng:
 - Các cookie/grant tự khai của Checkout cũ, `X-Session-Id`, QR/payment claim cục bộ và guest credential giả đã bị loại khỏi luồng production.
 - Bước chuẩn bị màn hình chỉ composition dữ liệu Cart, Profile, Address và locations ở browser; mọi quyết định thương mại vẫn thuộc quote backend.
 - Mockoon mobile hiện tại chưa có ba operation quote/accept/poll theo target. Frontend vì vậy fail closed cho đến khi backend hoặc mock contract mới được cung cấp, thay vì quay về luồng cũ không tương thích.
+
+## 13. Kết quả Giai đoạn 7 — Order
+
+- List/detail dùng trực tiếp `OwnedOrdersResponse` và `OwnedOrder`; BFF không còn map DTO Mockoon cũ hoặc dựng customer/total/payment/shipping state giả.
+- Order, Payment, Inventory, cancellation và compensation được trình bày độc lập. UI lấy quyền hành động từ `allowed_actions`, không suy `canCancel` từ status.
+- Snapshot sản phẩm/địa chỉ là optional đúng contract; khi vắng mặt UI hiển thị trạng thái thiếu dữ liệu thay vì nối lại Catalog/Profile hiện tại.
+- Tracking được tách thành operation riêng. Vì baseline chỉ đặc tả response `object`, frontend chỉ xác nhận endpoint khả dụng và không tự đặt tên field carrier/checkpoint.
+- Cancel gửi `{active:true, reason}`, decimal Order `version` qua `If-Match` và public `Idempotency-Key`; cùng payload/version giữ cùng key khi outcome chưa rõ.
+- Response cancel `PENDING` chỉ là intent bền vững, không bị UI đổi thành “đã hủy”. Sau response xác định, detail được đọc lại để lấy `cancellation_status` và `compensation_status` canonical.
+- Paid cancellation (`REQUEST_CANCELLATION`) vẫn gated; UI không gọi operation Care review khi capability chưa được nghiệm thu.
+- Guest challenge/OTP cũ được giữ như extension có feature gate server-side và tắt mặc định. Public Order target vòng đầu yêu cầu bearer đã xác minh.
+- List contract trả `next_cursor` nhưng chưa khai báo cursor request parameter. UI ghi rõ còn trang nhưng không tự phát minh query; đây là contract gap cần backend/contract owner bổ sung trước khi làm phân trang tiếp.
+- Mockoon mobile hiện tại chưa trả đầy đủ `OrderOrder`; runtime mới fail closed cho đến khi backend hoặc mock contract target sẵn sàng.

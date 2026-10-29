@@ -1,5 +1,7 @@
 # Order Management MVP — Data & Mock API Matrix
 
+> **Tài liệu lịch sử trước public MVP contract.** Runtime Order hiện tại đã chuyển theo Giai đoạn 7 trong `MVP_PUBLIC_CONTRACT_MIGRATION_MATRIX.md`; các route/DTO Mockoon bên dưới không còn là contract triển khai hiện hành.
+
 ## Browser/BFF API
 
 Browser chỉ gọi Next.js BFF cùng origin. BFF allowlist method/path/query/body, kiểm tra trusted Origin cho mutation và gọi Mockoon port `4017`.
