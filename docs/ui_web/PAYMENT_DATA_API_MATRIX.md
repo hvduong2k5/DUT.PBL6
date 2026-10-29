@@ -1,5 +1,7 @@
 # Payment MVP — Data & Mock API Matrix
 
+> **Tài liệu lịch sử trước public MVP contract.** Payment runtime hiện tại đã chuyển theo Giai đoạn 8 trong `MVP_PUBLIC_CONTRACT_MIGRATION_MATRIX.md`; signed cookie, retry attempt và DTO Mockoon bên dưới không còn là contract triển khai hiện hành.
+
 ## Browser/BFF API
 
 Browser chỉ gọi Next.js BFF cùng origin. BFF xác minh signed access cookie và gọi Mockoon port `4016`; khi Backend sẵn sàng chỉ thay upstream.

@@ -1,68 +1,58 @@
-export type PaymentMethod = "BANK_TRANSFER" | "COD";
-export type PaymentStatus = "PENDING" | "SUCCEEDED" | "FAILED" | "EXPIRED" | "REQUIRES_RECONCILIATION" | "COD_PENDING_COLLECTION";
-export type OrderPaymentState = "PENDING_PAYMENT" | "PAID" | "PAYMENT_EXPIRED" | "PAYMENT_REVIEW" | "PAYMENT_ON_DELIVERY";
+import type {
+  OrderPaymentStatus,
+  OrderStatus,
+  PaymentDisplayState,
+  PaymentSupportReason
+} from "@/lib/api-contract";
 
-export interface PaymentInstructions {
-  providerLabel: string;
-  beneficiary: string;
-  accountNumberMasked: string;
-  transferReference: string;
-  qrPayloadType: "DEMO_ONLY";
-}
-
-export interface PaymentSummary {
+export interface PaymentInstructionsView {
   orderId: string;
-  orderNumber: string;
-  method: PaymentMethod;
+  intentId: string;
+  provider: "SEPAY";
+  method: "VIETQR";
   amountVnd: number;
   currency: "VND";
-  paymentId: string;
-  status: PaymentStatus;
-  orderPaymentState: OrderPaymentState;
+  paymentCode: string;
+  receiver: {
+    bankCode: string;
+    bankName: string;
+    accountNumber: string;
+    accountHolder: string;
+    mode: "BANK_ACCOUNT" | "OFFICIAL_VA" | "CONTENT_VA";
+  };
+  transferContent: string;
+  qrUrl: string;
   expiresAt: string;
-  instructions: PaymentInstructions | null;
-  checkedAt: string;
-  vietQrUrl?: string;
+  serverTime: string;
+  canPay: true;
+  version: number;
 }
 
-export interface PaymentStatusResult {
-  paymentId: string;
-  status: PaymentStatus;
-  orderPaymentState: OrderPaymentState;
-  verifiedAt: string | null;
-  message: string;
-  canRetry: boolean;
-}
-
-export interface PaymentRetryResult {
-  paymentId: string;
-  status: "PENDING";
-  orderPaymentState: "PENDING_PAYMENT";
+export interface PaymentStatusView {
+  orderId: string;
+  intentId: string;
+  provider: "SEPAY";
+  method: "VIETQR";
+  orderStatus: Exclude<OrderStatus, "CONFIRMED_COD">;
+  paymentStatus: OrderPaymentStatus;
+  displayState: PaymentDisplayState;
+  displayLabel: string;
+  displayMessage: string;
+  tone: "pending" | "success" | "error" | "review";
+  intentStatus: "ACTIVE" | "SETTLED" | "EXPIRED" | "CANCELLED";
+  expectedAmountVnd: number;
+  allocatedAmountVnd: number;
+  refundedAmountVnd: number;
+  currency: "VND";
   expiresAt: string;
-  message: string;
-}
-
-interface PaymentErrorBody {
-  code?: string;
-  message?: string;
-  error_code?: string;
-  user_message?: string;
-  requestId?: string;
-  errors?: Array<{ field: string; message: string }>;
-}
-
-export class PaymentApiError extends Error {
-  readonly status: number;
-  readonly code: string;
-  readonly requestId?: string;
-  readonly errors: Array<{ field: string; message: string }>;
-
-  constructor(status: number, body: PaymentErrorBody) {
-    super(body.user_message || body.message || "Không thể xử lý thanh toán lúc này.");
-    this.name = "PaymentApiError";
-    this.status = status;
-    this.code = body.error_code || body.code || "UNKNOWN_ERROR";
-    this.requestId = body.requestId;
-    this.errors = body.errors ?? [];
-  }
+  serverTime: string;
+  hasOpenReconciliation: boolean;
+  canPay: boolean;
+  version: number;
+  verificationStartedAt: string | null;
+  verificationDueAt: string | null;
+  supportReference: string | null;
+  supportReason: PaymentSupportReason | null;
+  nextPollAfterSeconds: number;
+  terminal: boolean;
 }

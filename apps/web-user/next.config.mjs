@@ -10,7 +10,8 @@ const nextConfig = {
       { protocol: "https", hostname: "lh3.googleusercontent.com" },
       { protocol: "https", hostname: "cdn.omama.vn" },
       { protocol: "https", hostname: "res.cloudinary.com" },
-      { protocol: "https", hostname: "img.vietqr.io" }
+      { protocol: "https", hostname: "img.vietqr.io" },
+      { protocol: "https", hostname: "vietqr.app" }
     ]
   }
 };

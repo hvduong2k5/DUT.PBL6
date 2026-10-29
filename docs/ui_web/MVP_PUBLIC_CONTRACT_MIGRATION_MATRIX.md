@@ -1,6 +1,6 @@
 # MVP Public Contract — Frontend migration matrix
 
-> Giai đoạn 1–7 hoàn tất: đã chốt baseline, tạo lớp contract dùng chung, chuyển Catalog/Product, Profile/Address, Cart, Checkout và Order sang public MVP contract.
+> Giai đoạn 1–8 hoàn tất: đã chốt baseline, tạo lớp contract dùng chung, chuyển Catalog/Product, Profile/Address, Cart, Checkout, Order và Payment sang public MVP contract.
 
 ## 1. Baseline được pin
 
@@ -65,8 +65,8 @@ Các file `customer-stable`, `customer-draft-planned`, `web-reference/*` và `*.
 | `POST /api/v1/guest-sessions` — `order_createGuestSession` | Cookie cart context tự tạo ở BFF | `GATED` | Không coi cookie local là guest credential backend; triển khai khi guest flow được bật. |
 | `POST /api/v1/orders/{order_id}/guest-payment-access` — `payment_issueGuestPaymentAccess` | Custom extension `orders/guest-access/grants` | `GATED` | Thay custom grant bằng public operation khi backend chấp nhận guest payment flow. |
 | `DELETE /api/v1/orders/{order_id}/guest-payment-access` — `payment_revokeGuestPaymentAccess` | Chưa có | `GATED` | Thu hồi grant khi thoát/kết thúc flow; chưa bật trong vòng đầu. |
-| `GET /api/v1/orders/{order_id}/payment-instructions` — `payment_getSePayPaymentInstructions` | `/api/payments/orders/{id}` dựng từ cookie | `REPLACE` | Lấy hướng dẫn/QR canonical từ backend, không dựng payment ID hoặc amount từ cookie. |
-| `GET /api/v1/orders/{order_id}/payment` — `payment_getSePayPaymentStatus` | `/api/payments/orders/{id}/status` suy trạng thái từ expiry cookie | `REPLACE` | Đọc trạng thái đã xác minh từ backend; QR không đồng nghĩa đã thanh toán. |
+| `GET /api/v1/orders/{order_id}/payment-instructions` — `payment_getSePayPaymentInstructions` | `GET /api/payments/orders/{id}/instructions` | `ALIGNED` | Đã lấy persisted VietQR intent, receiver, amount, content, QR và expiry canonical; không dựng dữ liệu từ cookie. |
+| `GET /api/v1/orders/{order_id}/payment` — `payment_getSePayPaymentStatus` | `GET /api/payments/orders/{id}/status` | `ALIGNED` | Đã đọc financial projection canonical và poll theo `next_poll_after_seconds`; frontend không suy trạng thái từ countdown. |
 
 ### 4.3 Profile và Address
 
@@ -99,7 +99,7 @@ Các file `customer-stable`, `customer-draft-planned`, `web-reference/*` và `*.
 | `/api/checkout/shipping-quotes` | Đã loại khỏi runtime; thay bằng `POST /api/checkout/quote`, không giữ fee `0` fallback. |
 | `/api/checkout/confirm` | Đã loại khỏi runtime; thay bằng accept + operation polling. |
 | `DELETE /api/cart` | Đã bỏ route ngoài contract; nút dọn giỏ là UI composition gọi tuần tự operation xóa từng dòng. |
-| `/api/payments/orders/{id}/attempts` | Không có trong target; giữ disabled cho đến khi có contract retry payment. |
+| `/api/payments/orders/{id}/attempts` | Đã loại khỏi runtime vì public target không có operation tạo/retry Payment intent. |
 | Guest challenge/OTP extension | Ngoài public target hiện tại; mặc định tắt bằng `ORDER_GUEST_EXTENSION_ENABLED=false` và không xem là guest-session contract. |
 | `/api/customer/locations` | View-support API riêng; nguồn địa giới cần contract/provider riêng, không gộp vào Profile contract. |
 | Auth, Returns, Support, B2B và Admin | Không nằm trong 30 operations của release này; không xóa hoặc tự sửa theo Order MVP. |
@@ -137,7 +137,7 @@ Lớp contract dùng chung nằm tại `apps/web-user/src/lib/api-contract/`:
 | `client.ts` | JSON request client không tự retry mutation; giữ response headers, ETag và Retry-After. |
 | `index.ts` | Public exports cho các feature adapter. |
 
-Sau Giai đoạn 7, Catalog/Product, Profile/Address, Cart, Checkout và Order đã dùng lớp này. Payment sẽ được chuyển ở giai đoạn nghiệp vụ tiếp theo.
+Sau Giai đoạn 8, toàn bộ operation Customer đang mở trong 30-operation target đã dùng lớp contract chung. Các operation Guest, paid cancellation và capability chưa được nghiệm thu vẫn giữ trạng thái `GATED`.
 
 ## 9. Kết quả Giai đoạn 3 — Catalog và Product
 
@@ -201,3 +201,16 @@ Các quy tắc đã áp dụng:
 - Guest challenge/OTP cũ được giữ như extension có feature gate server-side và tắt mặc định. Public Order target vòng đầu yêu cầu bearer đã xác minh.
 - List contract trả `next_cursor` nhưng chưa khai báo cursor request parameter. UI ghi rõ còn trang nhưng không tự phát minh query; đây là contract gap cần backend/contract owner bổ sung trước khi làm phân trang tiếp.
 - Mockoon mobile hiện tại chưa trả đầy đủ `OrderOrder`; runtime mới fail closed cho đến khi backend hoặc mock contract target sẵn sàng.
+
+## 14. Kết quả Giai đoạn 8 — Payment
+
+- Payment page đọc `PaymentPaymentStatus` trước; chỉ gọi `PaymentPaymentInstructions` khi backend trả `can_pay=true`.
+- VietQR amount, receiver, account, transfer content, payment code, QR URL và expiry đều đến từ persisted intent. Cookie `oma_payment_access`, secret ký local và payment ID dựng từ Order ID đã bị loại bỏ.
+- UI dùng `display_state`, `payment_status`, `order_status` và `intent_status` độc lập; countdown chỉ hiển thị expiry, không tự đổi trạng thái.
+- Automatic polling tuân theo `next_poll_after_seconds` và dừng khi backend trả `0`; thao tác kiểm tra thủ công chỉ đọc projection, không tạo Payment attempt.
+- Allocated/refunded amount, reconciliation flag, support reason/reference và verification deadline được hiển thị từ dữ liệu tài chính canonical.
+- BFF chỉ chấp nhận UUID Order và hai GET route tương ứng, yêu cầu principal đã xác minh, forward credential tới public gateway và trả `Cache-Control: no-store`.
+- Endpoint retry `/attempts` và POST route đã bị xóa vì không tồn tại trong target; frontend không phát minh mutation để gia hạn expiry hoặc tạo intent mới.
+- Guest payment grant issue/revoke và COD vẫn gated. Local signed cookie cũ không còn được xem là credential Guest hợp lệ.
+- QR URL phải là HTTPS và toàn bộ response được kiểm tra enum, UUID, amount, date-time, version và invariants trước khi đi vào UI.
+- Mockoon Payment cũ không có hai response canonical này; runtime fail closed cho đến khi backend hoặc mock contract target sẵn sàng.

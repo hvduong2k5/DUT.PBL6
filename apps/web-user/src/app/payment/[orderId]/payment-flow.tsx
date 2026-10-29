@@ -3,65 +3,87 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
-import type { PaymentStatus, PaymentStatusResult, PaymentSummary } from "@/lib/payment/types";
-import { PaymentApiError } from "@/lib/payment/types";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { PublicApiError } from "@/lib/api-contract";
+import type { PaymentInstructionsView, PaymentStatusView } from "@/lib/payment/types";
 import { paymentService } from "@/services/payment-service";
 
 const VND = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 });
 
-const STATUS_COPY: Record<PaymentStatus, { title: string; tone: string }> = {
-  PENDING: { title: "Đang chờ xác minh thanh toán", tone: "pending" },
-  SUCCEEDED: { title: "Thanh toán đã được xác minh", tone: "success" },
-  FAILED: { title: "Lần thử thanh toán không thành công", tone: "error" },
-  EXPIRED: { title: "Thời hạn thanh toán đã kết thúc", tone: "error" },
-  REQUIRES_RECONCILIATION: { title: "Giao dịch đang chờ đối soát", tone: "review" },
-  COD_PENDING_COLLECTION: { title: "Đơn COD đã được tiếp nhận", tone: "cod" }
-};
-
 function formatCountdown(expiresAt: string, now: number) {
   const seconds = Math.max(0, Math.floor((Date.parse(expiresAt) - now) / 1000));
-  return { expired: seconds === 0, text: `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}` };
+  return {
+    expired: seconds === 0,
+    text: `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`
+  };
 }
 
 function PaymentSteps() {
-  return <ol className="payment-steps" aria-label="Tiến trình mua hàng"><li className="done"><span>✓</span><div><strong>Giỏ hàng Tri Kỷ</strong><small>Đã kiểm tra</small></div></li><li className="done"><span>✓</span><div><strong>Thông tin &amp; Checkout</strong><small>Đã tạo Order</small></div></li><li className="active" aria-current="step"><span>3</span><div><strong>Xác nhận &amp; thanh toán</strong><small>Đang chờ đối soát</small></div></li></ol>;
+  return <ol className="payment-steps" aria-label="Tiến trình mua hàng"><li className="done"><span>✓</span><div><strong>Giỏ hàng</strong><small>Đã kiểm tra</small></div></li><li className="done"><span>✓</span><div><strong>Checkout</strong><small>Order đã tạo</small></div></li><li className="active" aria-current="step"><span>3</span><div><strong>Thanh toán</strong><small>Trạng thái từ backend</small></div></li></ol>;
 }
 
 export function PaymentFlow({ orderId }: { orderId: string }) {
   const searchParams = useSearchParams();
   const scenario = searchParams.get("mockScenario") ?? undefined;
-  const [summary, setSummary] = useState<PaymentSummary | null>(null);
-  const [statusResult, setStatusResult] = useState<PaymentStatusResult | null>(null);
+  const [status, setStatus] = useState<PaymentStatusView | null>(null);
+  const [instructions, setInstructions] = useState<PaymentInstructionsView | null>(null);
   const [loading, setLoading] = useState(true);
   const [checking, setChecking] = useState(false);
-  const [error, setError] = useState("");
+  const [pageError, setPageError] = useState("");
+  const [instructionsError, setInstructionsError] = useState("");
   const [copyMessage, setCopyMessage] = useState("");
+  const [clockOffset, setClockOffset] = useState(0);
   const [now, setNow] = useState(() => Date.now());
   const [reloadKey, setReloadKey] = useState(0);
 
-  useEffect(() => {
-    let active = true;
-    Promise.resolve().then(() => {
-      if (!active) return Promise.reject(new Error("cancelled"));
-      setLoading(true);
-      setError("");
-      return paymentService.getSummary(orderId, scenario);
-    }).then((payload) => { if (active) setSummary(payload); }).catch((cause: unknown) => {
-      if (!active) return;
-      setError(cause instanceof PaymentApiError ? cause.message : "Không thể tải thông tin thanh toán.");
-    }).finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
-  }, [orderId, scenario, reloadKey]);
+  const load = useCallback(async (initial = false) => {
+    if (initial) setLoading(true);
+    setPageError("");
+    try {
+      const nextStatus = await paymentService.getStatus(orderId, scenario);
+      setStatus(nextStatus);
+      setClockOffset(Date.parse(nextStatus.serverTime) - Date.now());
+      if (nextStatus.canPay) {
+        setInstructionsError("");
+        try {
+          const nextInstructions = await paymentService.getInstructions(orderId, scenario);
+          if (nextInstructions.intentId !== nextStatus.intentId || nextInstructions.orderId !== nextStatus.orderId) {
+            throw new Error("Payment instructions do not belong to the current intent.");
+          }
+          setInstructions(nextInstructions);
+        } catch (cause) {
+          setInstructions(null);
+          setInstructionsError(cause instanceof PublicApiError ? cause.message : "Chưa thể đọc VietQR instructions hiện tại.");
+        }
+      } else {
+        setInstructions(null);
+        setInstructionsError("");
+      }
+    } catch (cause) {
+      setPageError(cause instanceof PublicApiError ? cause.message : "Không thể tải trạng thái Payment.");
+      if (initial) setStatus(null);
+    } finally {
+      if (initial) setLoading(false);
+    }
+  }, [orderId, scenario]);
+
+  useEffect(() => { void Promise.resolve().then(() => load(true)); }, [load, reloadKey]);
 
   useEffect(() => {
-    const timer = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(timer);
+    if (!status || status.nextPollAfterSeconds <= 0) return;
+    const delay = Math.min(60, Math.max(1, status.nextPollAfterSeconds)) * 1000;
+    const timer = globalThis.setTimeout(() => void load(false), delay);
+    return () => globalThis.clearTimeout(timer);
+  }, [load, status]);
+
+  useEffect(() => {
+    const timer = globalThis.setInterval(() => setNow(Date.now()), 1000);
+    return () => globalThis.clearInterval(timer);
   }, []);
 
-  const activeStatus = statusResult?.status ?? summary?.status ?? "PENDING";
-  const statusCopy = STATUS_COPY[activeStatus];
-  const countdown = useMemo(() => summary ? formatCountdown(summary.expiresAt, now) : { expired: false, text: "--:--" }, [summary, now]);
+  const countdown = useMemo(() => status
+    ? formatCountdown(status.expiresAt, now + clockOffset)
+    : { expired: false, text: "--:--" }, [clockOffset, now, status]);
 
   async function copyValue(value: string, label: string) {
     try {
@@ -70,46 +92,67 @@ export function PaymentFlow({ orderId }: { orderId: string }) {
     } catch {
       setCopyMessage(`Không thể tự động sao chép ${label}.`);
     }
-    window.setTimeout(() => setCopyMessage(""), 2500);
+    globalThis.setTimeout(() => setCopyMessage(""), 2500);
   }
 
   async function checkStatus() {
     setChecking(true);
-    setError("");
-    try {
-      const result = await paymentService.getStatus(orderId, scenario);
-      setStatusResult(result);
-      setSummary((current) => current ? { ...current, status: result.status, orderPaymentState: result.orderPaymentState, checkedAt: new Date().toISOString() } : current);
-    } catch (cause) {
-      setError(cause instanceof PaymentApiError ? cause.message : "Chưa thể kiểm tra trạng thái Payment.");
-    } finally { setChecking(false); }
+    await load(false);
+    setChecking(false);
   }
 
-  if (loading) return <main className="payment-page"><PaymentSteps /><div className="payment-loading" aria-busy="true"><span className="large-spinner" /><p>Đang mở thông tin thanh toán an toàn…</p></div></main>;
+  if (loading) {
+    return <main className="payment-page"><PaymentSteps /><div className="payment-loading" aria-busy="true"><span className="large-spinner" /><p>Đang đọc Payment projection an toàn…</p></div></main>;
+  }
 
-  if (!summary || error && !summary) return <main className="payment-page"><PaymentSteps /><section className="payment-state error" role="alert"><span>!</span><p className="eyebrow">Không thể mở Payment</p><h1>Phiên truy cập không còn khả dụng</h1><p>{error || "Thông tin thanh toán không tồn tại."}</p><div><button className="primary-button" type="button" onClick={() => setReloadKey((value) => value + 1)}>Thử lại</button><Link className="secondary-link" href="/cart">Quay lại giỏ hàng</Link></div></section></main>;
+  if (!status) {
+    return <main className="payment-page"><PaymentSteps /><section className="payment-state error" role="alert"><span>!</span><p className="eyebrow">Không thể mở Payment</p><h1>Chưa có trạng thái thanh toán khả dụng</h1><p>{pageError || "Payment không tồn tại, không thuộc tài khoản hoặc phương thức chưa được hỗ trợ."}</p><div><button className="primary-button" type="button" onClick={() => setReloadKey((value) => value + 1)}>Thử lại</button><Link className="secondary-link" href={`/orders/${encodeURIComponent(orderId)}`}>Xem Order</Link></div></section></main>;
+  }
 
-  return (
-    <main className="payment-page">
-      <PaymentSteps />
-      <section className={`payment-status-banner ${statusCopy.tone}`}>
-        <div className="payment-status-symbol" aria-hidden="true">{activeStatus === "SUCCEEDED" ? "✓" : activeStatus === "COD_PENDING_COLLECTION" ? "▣" : activeStatus === "REQUIRES_RECONCILIATION" ? "!" : "◔"}</div>
-        <div><span className="eyebrow">Order {summary.orderNumber}</span><h1>{statusCopy.title}</h1><p>{statusResult?.message ?? (summary.method === "COD" ? "Thanh toán sẽ được thu khi giao hàng thành công." : "Chỉ xác nhận thành công khi backend nhận bằng chứng hợp lệ từ nguồn tin cậy.")}</p></div>
-        <div className="payment-countdown"><small>{countdown.expired ? "Thời hạn đã kết thúc" : "Thời gian còn lại của lần thử"}</small><strong>{countdown.text}</strong><span>phút : giây</span></div>
-      </section>
+  const statusSymbol = status.displayState === "PAID" || status.displayState === "REFUNDED"
+    ? "✓"
+    : status.tone === "review"
+      ? "!"
+      : status.tone === "error"
+        ? "×"
+        : "◔";
 
-      {summary.method === "BANK_TRANSFER" && summary.vietQrUrl ? <div className="payment-grid">
-        <section className="payment-qr-card" aria-labelledby="qr-title"><div className="payment-card-title"><div><span aria-hidden="true">⌗</span><h2 id="qr-title">Mã VietQR của đơn hàng</h2></div><b>VIETQR</b></div><div className="payment-qr-stage"><Image src={summary.vietQrUrl} alt={`Mã VietQR cho đơn ${summary.orderNumber}`} width={300} height={300} unoptimized /><p>Quét đúng mã do Checkout trả về và kiểm tra số tiền trước khi xác nhận.</p></div></section>
-        <section className="payment-instruction-card" aria-labelledby="instruction-title"><div className="payment-card-title"><div><span aria-hidden="true">▤</span><h2 id="instruction-title">Thông tin thanh toán</h2></div><b>ĐANG CHỜ</b></div><dl className="payment-instructions"><div className="important"><dt>Số tiền theo Order</dt><dd><strong>{VND.format(summary.amountVnd)}</strong><button type="button" onClick={() => copyValue(String(summary.amountVnd), "số tiền")}>Chép số tiền</button></dd></div><div className="reference"><dt>Mã đơn tham chiếu</dt><dd><strong>{summary.orderNumber}</strong><button type="button" onClick={() => copyValue(summary.orderNumber, "mã đơn")}>Chép mã</button></dd></div><div><dt>Thời hạn QR</dt><dd>{new Date(summary.expiresAt).toLocaleString("vi-VN")}</dd></div></dl><p className="payment-verification-note">Nút kiểm tra không tự đánh dấu đã thanh toán. Trạng thái chỉ đổi sau callback VietQR hợp lệ và được phản ánh qua Order.</p></section>
-      </div> : null}
+  return <main className="payment-page">
+    <PaymentSteps />
+    <section className={`payment-status-banner ${status.tone}`}>
+      <div className="payment-status-symbol" aria-hidden="true">{statusSymbol}</div>
+      <div><span className="eyebrow">Order {status.orderId}</span><h1>{status.displayLabel}</h1><p>{status.displayMessage}</p></div>
+      <div className="payment-countdown"><small>{countdown.expired ? "Thời hạn Payment đã kết thúc" : "Thời gian đến expiry canonical"}</small><strong>{countdown.text}</strong><span>phút : giây</span></div>
+    </section>
 
-      {summary.method === "COD" ? <section className="payment-cod-card"><span aria-hidden="true">▣</span><div><p className="eyebrow">Thanh toán khi nhận hàng</p><h2>Đơn đã ghi nhận nghĩa vụ thu COD</h2><p>Bạn chưa thanh toán ở thời điểm này. Đơn không được đánh dấu <code>PAID</code>; khoản thu chỉ được ghi nhận sau xác nhận giao hàng/thu tiền hợp lệ.</p><dl><div><dt>Số tiền cần thu</dt><dd>{VND.format(summary.amountVnd)}</dd></div><div><dt>Trạng thái Payment</dt><dd>Chờ thu khi giao hàng</dd></div></dl></div></section> : null}
+    {instructions ? <div className="payment-grid">
+      <section className="payment-qr-card" aria-labelledby="qr-title"><div className="payment-card-title"><div><span aria-hidden="true">⌗</span><h2 id="qr-title">VietQR hiện hành</h2></div><b>{instructions.provider}</b></div><div className="payment-qr-stage"><Image src={instructions.qrUrl} alt={`Mã VietQR cho Order ${instructions.orderId}`} width={300} height={300} unoptimized /><p>Chỉ quét QR khi trạng thái vẫn cho phép thanh toán và chưa qua thời hạn.</p></div></section>
+      <section className="payment-instruction-card" aria-labelledby="instruction-title"><div className="payment-card-title"><div><span aria-hidden="true">▤</span><h2 id="instruction-title">Thông tin chuyển khoản</h2></div><b>VERSION {instructions.version}</b></div><dl className="payment-instructions">
+        <div className="important"><dt>Số tiền chính xác</dt><dd><strong>{VND.format(instructions.amountVnd)}</strong><button type="button" onClick={() => copyValue(String(instructions.amountVnd), "số tiền")}>Chép số tiền</button></dd></div>
+        <div><dt>Ngân hàng</dt><dd>{instructions.receiver.bankName} ({instructions.receiver.bankCode})</dd></div>
+        <div><dt>Chủ tài khoản</dt><dd>{instructions.receiver.accountHolder}</dd></div>
+        <div><dt>Số tài khoản</dt><dd><strong>{instructions.receiver.accountNumber}</strong><button type="button" onClick={() => copyValue(instructions.receiver.accountNumber, "số tài khoản")}>Sao chép</button></dd></div>
+        <div className="reference"><dt>Nội dung chuyển khoản</dt><dd><strong>{instructions.transferContent}</strong><button type="button" onClick={() => copyValue(instructions.transferContent, "nội dung chuyển khoản")}>Sao chép</button></dd></div>
+        <div><dt>Payment code</dt><dd>{instructions.paymentCode}</dd></div>
+        <div><dt>Hết hạn</dt><dd>{new Date(instructions.expiresAt).toLocaleString("vi-VN")}</dd></div>
+      </dl><p className="payment-verification-note">QR và thông tin nhận tiền được đọc từ persisted Payment intent. Frontend không tạo intent mới và không tự xác nhận đã thanh toán.</p></section>
+    </div> : null}
 
-      <section className="payment-summary-card"><div><p className="eyebrow">Tóm tắt Payment</p><h2>{summary.orderNumber}</h2></div><dl><div><dt>Phương thức</dt><dd>{summary.method === "COD" ? "COD" : "Chuyển khoản/QR"}</dd></div><div><dt>Số tiền phải thu</dt><dd>{VND.format(summary.amountVnd)}</dd></div><div><dt>Payment ID</dt><dd>{summary.paymentId}</dd></div><div><dt>Trạng thái Order/Payment</dt><dd>{summary.orderPaymentState}</dd></div></dl></section>
+    {status.canPay && !instructions ? <div className="payment-action-error" role="alert">{instructionsError || "Backend cho phép thanh toán nhưng instructions chưa khả dụng. Không tự dựng QR hoặc thông tin tài khoản."}</div> : null}
 
-      {error ? <div className="payment-action-error" role="alert">{error}</div> : null}
-      {copyMessage ? <div className="payment-toast" role="status">{copyMessage}</div> : null}
-      <section className="payment-actions"><div><button className="primary-button" type="button" disabled={checking} onClick={checkStatus}>{checking ? <><span className="spinner" />Đang kiểm tra…</> : "Kiểm tra trạng thái thanh toán"}</button><Link className="secondary-link" href={`/orders/${encodeURIComponent(orderId)}/confirmation`}>Xem xác nhận Order</Link></div><p><strong>Không thấy trạng thái mới?</strong> Việc xác minh có thể cần thêm thời gian. Đừng thanh toán lặp khi giao dịch cũ chưa rõ kết quả.</p><Link href="/products">Tiếp tục khám phá sản phẩm</Link></section>
-    </main>
-  );
+    <section className="payment-summary-card"><div><p className="eyebrow">Payment projection version {status.version}</p><h2>{status.intentId}</h2></div><dl>
+      <div><dt>Order status</dt><dd>{status.orderStatus}</dd></div>
+      <div><dt>Payment status</dt><dd>{status.paymentStatus}</dd></div>
+      <div><dt>Intent status</dt><dd>{status.intentStatus}</dd></div>
+      <div><dt>Số tiền kỳ vọng</dt><dd>{VND.format(status.expectedAmountVnd)}</dd></div>
+      <div><dt>Đã phân bổ</dt><dd>{VND.format(status.allocatedAmountVnd)}</dd></div>
+      <div><dt>Đã hoàn</dt><dd>{VND.format(status.refundedAmountVnd)}</dd></div>
+    </dl></section>
+
+    {status.hasOpenReconciliation || status.supportReason ? <section className="payment-cod-card"><span aria-hidden="true">!</span><div><p className="eyebrow">Cần hỗ trợ/đối soát</p><h2>{status.supportReason ?? "Có reconciliation đang mở"}</h2><p>Không thanh toán lại hoặc tự suy diễn trạng thái. Hãy cung cấp support reference cho nhân viên hỗ trợ.</p><dl><div><dt>Support reference</dt><dd>{status.supportReference ?? "Chưa được cấp"}</dd></div><div><dt>Verification due</dt><dd>{status.verificationDueAt ? new Date(status.verificationDueAt).toLocaleString("vi-VN") : "Không có"}</dd></div></dl></div></section> : null}
+
+    {pageError ? <div className="payment-action-error" role="alert">{pageError}</div> : null}
+    {copyMessage ? <div className="payment-toast" role="status">{copyMessage}</div> : null}
+    <section className="payment-actions"><div><button className="primary-button" type="button" disabled={checking} onClick={() => void checkStatus()}>{checking ? <><span className="spinner" />Đang kiểm tra…</> : "Kiểm tra trạng thái thanh toán"}</button><Link className="secondary-link" href={`/orders/${encodeURIComponent(orderId)}`}>Xem chi tiết Order</Link></div><p><strong>Polling:</strong> {status.nextPollAfterSeconds > 0 ? `Backend đề nghị kiểm tra lại sau ${status.nextPollAfterSeconds} giây.` : "Backend yêu cầu dừng tự động polling."}</p><Link href="/products">Tiếp tục khám phá sản phẩm</Link></section>
+  </main>;
 }

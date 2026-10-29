@@ -1,5 +1,7 @@
 # Payment MVP — Scope & Traceability
 
+> **Baseline scope lịch sử.** Wire/runtime hiện hành nằm trong Giai đoạn 8 của `MVP_PUBLIC_CONTRACT_MIGRATION_MATRIX.md`; Guest payment grant, COD và retry intent vẫn gated theo public MVP target.
+
 ## Mục tiêu vòng triển khai
 
 Feature nối Order vừa được Checkout tạo với trải nghiệm thanh toán dành cho Guest/Customer. UI cho khách xem hướng dẫn chuyển khoản/QR mô phỏng hoặc nghĩa vụ COD, theo dõi trạng thái đã được backend xác minh và xử lý hết hạn/thất bại mà không tự đánh dấu Order là `PAID`.
