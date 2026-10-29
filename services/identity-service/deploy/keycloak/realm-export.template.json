@@ -33,7 +33,8 @@
         "profile",
         "roles",
         "email",
-        "audience-scope"
+        "audience-scope",
+        "order-customer"
       ]
     },
     {
@@ -70,6 +71,42 @@
             "included.custom.audience": "omama-api",
             "id.token.claim": "false",
             "access.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "name": "order-customer",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "order-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "order-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        },
+        {
+          "name": "internal-principal-id",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "app_user_id",
+            "claim.name": "user_id",
+            "jsonType.label": "String",
+            "multivalued": "false",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "false"
           }
         }
       ]
