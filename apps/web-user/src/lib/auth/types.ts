@@ -10,9 +10,30 @@ export interface CustomerSummary {
   loyaltyPoints?: number;
 }
 
+export type PrincipalType = "CUSTOMER" | "EMPLOYEE";
+
+export interface PrincipalRole {
+  roleCode: string;
+  roleName?: string;
+  scopeType?: "GLOBAL" | "STORE" | "WAREHOUSE" | "REGION" | "DEPARTMENT" | "BRANCH" | "BUSINESS_UNIT";
+  scopeId?: string | null;
+}
+
+export interface PrincipalSummary {
+  principalId: string;
+  principalType: PrincipalType;
+  displayName: string;
+  email?: string;
+  roles: PrincipalRole[];
+  permissions: string[];
+  customerId?: string;
+}
+
 export interface AuthenticatedSession {
   authenticated: true;
-  customer: CustomerSummary;
+  principal: PrincipalSummary;
+  customer: CustomerSummary | null;
+  customerAccess: boolean;
 }
 
 export interface RegistrationResult {

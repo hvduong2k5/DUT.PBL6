@@ -9,7 +9,8 @@ import {
   type ShippingAddress
 } from "@/lib/api-contract";
 import type { CustomerCapability } from "@/lib/auth/capabilities";
-import { fetchCustomerCapabilities } from "@/lib/auth/capability-server";
+import { authorizeCustomerCapability, customerAccessFailure } from "@/lib/auth/customer-access-server";
+import { applyTrustedAuthorization, getTrustedAccessToken } from "@/lib/auth/server-credential";
 import { parseCheckoutLocations } from "@/lib/checkout/locations";
 import { NextRequest } from "next/server";
 
@@ -60,14 +61,9 @@ async function readBody<T>(request: NextRequest): Promise<T | undefined> {
 
 function headersFor(request: NextRequest, hasBody = false): Headers {
   const headers = new Headers({ Accept: "application/json" });
-  const cookie = request.headers.get("cookie");
-  const authorization = request.headers.get("authorization");
-  const accessToken = request.cookies.get("oma_access_token")?.value;
   const scenario = request.headers.get("x-mock-scenario");
   const ifMatch = request.headers.get("if-match");
-  if (cookie) headers.set("Cookie", cookie);
-  if (authorization) headers.set("Authorization", authorization);
-  else if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
+  applyTrustedAuthorization(headers, request);
   if (ifMatch) headers.set("If-Match", ifMatch);
   if (hasBody) headers.set("Content-Type", "application/json");
   if (process.env.NODE_ENV !== "production" && scenario && SCENARIO_PATTERN.test(scenario)) {
@@ -250,16 +246,13 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
     return publicErrorResponse(403, "ORIGIN_NOT_ALLOWED", "Request origin is not allowed.", "BFF-CUSTOMER-ORIGIN");
   }
 
-  const accessToken = request.cookies.get("oma_access_token")?.value;
+  const accessToken = getTrustedAccessToken(request);
   const requiredCapability: CustomerCapability = path === "profile" ? "PROFILE_MANAGE" : "ADDRESS_MANAGE";
-  if (!accessToken) return publicErrorResponse(401, "AUTH_REQUIRED", "Vui lòng đăng nhập để quản lý tài khoản.", "BFF-CUSTOMER-AUTH");
   try {
-    const projection = await fetchCustomerCapabilities(accessToken);
-    if (!projection.capabilities.includes(requiredCapability)) {
-      return publicErrorResponse(403, "CAPABILITY_FORBIDDEN", "Tài khoản không có quyền sử dụng chức năng này.", "BFF-CUSTOMER-CAPABILITY");
-    }
-  } catch {
-    return publicErrorResponse(503, "CAPABILITY_UNAVAILABLE", "Chưa thể kiểm tra quyền Customer lúc này.", "BFF-CUSTOMER-CAPABILITY");
+    await authorizeCustomerCapability(accessToken, requiredCapability);
+  } catch (cause) {
+    const failure = customerAccessFailure(cause);
+    return publicErrorResponse(failure.status, failure.code, failure.message, "BFF-CUSTOMER-ACCESS");
   }
 
   try {

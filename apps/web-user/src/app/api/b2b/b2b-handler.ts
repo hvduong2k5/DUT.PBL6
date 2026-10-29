@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchCustomerCapabilities } from "@/lib/auth/capability-server";
+import { authorizeCustomerCapability, customerAccessFailure } from "@/lib/auth/customer-access-server";
+import { applyTrustedAuthorization, getTrustedAccessToken } from "@/lib/auth/server-credential";
 import type { CustomerCapability } from "@/lib/auth/capabilities";
 import type { AcceptB2BQuoteResult, B2BAttachmentMetadata, B2BContext, B2BOrganization, B2BQuoteDetail, B2BQuoteStatus, B2BRequestStatus, CreateB2BQuoteRequestResult } from "@/lib/b2b/types";
 import { parseB2BRoute, validateCreateB2BQuoteRequest } from "@/lib/b2b/validation";
@@ -30,8 +31,7 @@ async function readJson(request: NextRequest): Promise<unknown> { try { return a
 async function upstream(request: NextRequest, path: string, method: string, body?: object, idempotencyKey?: string) {
   const base = (process.env.CUSTOMER_EXTENSIONS_UPSTREAM_URL ?? "http://127.0.0.1:4020/api/v1").replace(/\/$/u, "");
   const headers = new Headers({ Accept: "application/json" });
-  const accessToken = request.cookies.get("oma_access_token")?.value;
-  if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
+  applyTrustedAuthorization(headers, request);
   if (body) headers.set("Content-Type", "application/json");
   if (idempotencyKey) headers.set("Idempotency-Key", idempotencyKey);
   const scenario = request.nextUrl.searchParams.get("mockScenario");
@@ -82,13 +82,15 @@ function mapQuote(payload: Record<string, unknown>): B2BQuoteDetail {
 }
 
 async function requireCapability(request: NextRequest, capability: CustomerCapability) {
-  const accessToken = request.cookies.get("oma_access_token")?.value;
-  if (!accessToken) return errorResponse("AUTH_REQUIRED", "Vui lòng đăng nhập bằng tài khoản doanh nghiệp.", 401);
+  const accessToken = getTrustedAccessToken(request);
   try {
-    const projection = await fetchCustomerCapabilities(accessToken);
-    if (projection.actor !== "B2B" || !projection.capabilities.includes(capability)) return errorResponse("B2B_CAPABILITY_FORBIDDEN", "Tài khoản không có quyền thực hiện chức năng B2B này.", 403);
+    const { projection } = await authorizeCustomerCapability(accessToken, capability);
+    if (projection.actor !== "B2B") return errorResponse("B2B_CAPABILITY_FORBIDDEN", "Tài khoản không có quyền thực hiện chức năng B2B này.", 403);
     return null;
-  } catch { return errorResponse("CAPABILITY_UNAVAILABLE", "Chưa thể kiểm tra quyền B2B lúc này.", 503); }
+  } catch (cause) {
+    const failure = customerAccessFailure(cause);
+    return errorResponse(failure.code, failure.message, failure.status);
+  }
 }
 
 export async function handleB2BRequest(request: NextRequest, path: string[]) {

@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
-import { fetchCustomerCapabilities } from "@/lib/auth/capability-server";
+import { authorizeCustomerCapability, customerAccessFailure } from "@/lib/auth/customer-access-server";
+import { applyTrustedAuthorization, getTrustedAccessToken } from "@/lib/auth/server-credential";
 import type { CustomerCapability } from "@/lib/auth/capabilities";
 
 export const dynamic = "force-dynamic";
@@ -28,10 +29,8 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
   const upstreamBase = (process.env.CUSTOMER_CORE_UPSTREAM_URL ?? "http://127.0.0.1:4010/api/v1").replace(/\/$/u, "");
   const scenario = request.nextUrl.searchParams.get("mockScenario");
   const headers = new Headers({ Accept: "application/json" });
-  const cookie = request.headers.get("cookie");
-  const accessToken = request.cookies.get("oma_access_token")?.value;
-  if (cookie) headers.set("Cookie", cookie);
-  if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
+  const accessToken = getTrustedAccessToken(request);
+  applyTrustedAuthorization(headers, request);
   if (request.method === "POST") headers.set("Content-Type", "application/json");
   if (process.env.NODE_ENV !== "production" && scenario && SCENARIO_PATTERN.test(scenario)) {
     headers.set("X-Mock-Scenario", scenario);
@@ -39,12 +38,11 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
 
   const requiredCapability: CustomerCapability | undefined = path === "reviews" ? "REVIEW_CREATE" : path === "loyalty/points" ? "LOYALTY_VIEW" : undefined;
   if (requiredCapability) {
-    if (!accessToken) return Response.json({ error_code: "ERR_AUTH_UNAUTHORIZED", user_message: "Vui lòng đăng nhập để sử dụng chức năng này." }, { status: 401 });
     try {
-      const projection = await fetchCustomerCapabilities(accessToken);
-      if (!projection.capabilities.includes(requiredCapability)) return Response.json({ error_code: "ERR_CAPABILITY_FORBIDDEN", user_message: "Tài khoản không có quyền sử dụng chức năng này." }, { status: 403 });
-    } catch {
-      return Response.json({ error_code: "ERR_CAPABILITY_UNAVAILABLE", user_message: "Chưa thể kiểm tra quyền Customer lúc này." }, { status: 503 });
+      await authorizeCustomerCapability(accessToken, requiredCapability);
+    } catch (cause) {
+      const failure = customerAccessFailure(cause);
+      return Response.json({ error_code: failure.code, user_message: failure.message }, { status: failure.status });
     }
   }
 

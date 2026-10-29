@@ -41,6 +41,8 @@ Các nguyên tắc runtime:
 
 Gate chỉ kiểm soát việc phát hành capability. Authorization thực tế vẫn phải do backend kiểm tra. Với COD/Voucher, BFF Checkout fail closed ngay cả khi client gọi trực tiếp.
 
+Gate không thay thế Identity. Một capability được bật vẫn yêu cầu principal hợp lệ, mapping Customer và capability/permission tương ứng. Chi tiết tại [`MVP_PUBLIC_IDENTITY_AUTHORIZATION.md`](./MVP_PUBLIC_IDENTITY_AUTHORIZATION.md).
+
 Bốn public operation còn `GATED` là paid cancellation request, create guest session, issue guest payment access và revoke guest payment access.
 
 ## 4. Dependency runtime
@@ -48,7 +50,7 @@ Bốn public operation còn `GATED` là paid cancellation request, create guest 
 | Dependency | Frontend cần | Trạng thái bàn giao |
 | --- | --- | --- |
 | Public API gateway | `CUSTOMER_CORE_UPSTREAM_URL`; cung cấp đúng public contract được pin. | Chờ backend runtime acceptance. |
-| Identity/session | Bearer/session hợp lệ và principal đã xác minh; trả đúng `401`/`403`. | Chờ E2E với runtime thật. |
+| Identity/session | BFF giữ token trong cookie HttpOnly, xác minh principal qua backend/gateway và không tin identity header từ browser. | Frontend boundary đã hoàn tất; chờ E2E với runtime thật. |
 | Customer capability projection | `CUSTOMER_EXTENSIONS_UPSTREAM_URL`; BFF hiện dùng để xác nhận capability Customer. | Cần duy trì cho đến khi capability được hợp nhất vào Identity/gateway. |
 | Catalog/Profile/Order/Payment providers | DTO, ETag/version, idempotency và error mapping đúng contract. | Registry owning-service acceptance còn `PENDING`. |
 | Locations | Danh sách tỉnh/thành và phường/xã phục vụ form địa chỉ. | Support API ngoài 30-operation target; backend phải công bố contract/runtime riêng. |
@@ -91,6 +93,7 @@ Backend có thể cung cấp gateway thật hoặc một mock mới sinh từ pu
 ## 8. Checklist E2E khi backend sẵn sàng
 
 - Đăng nhập, hết hạn session và principal thiếu quyền trả đúng `401`/`403`.
+- Employee chỉ dùng Customer flow khi backend trả mapping `customer_id`; Employee không có mapping phải nhận `403` ở BFF và access-denied ở UI.
 - Duyệt Catalog/Product, chọn SKU, thêm/sửa/xóa Cart và xử lý revision conflict.
 - Tạo quote, nhận thay đổi giá/tồn, accept bằng cùng idempotency key và xử lý cả `201` lẫn `202`.
 - Poll operation tới `SUCCEEDED`, `FAILED` và `MANUAL_REVIEW`; không tạo Order trùng.

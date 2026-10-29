@@ -1,6 +1,6 @@
 # MVP Public Contract — Frontend migration matrix
 
-> Giai đoạn 1–9 hoàn tất: đã chốt baseline, tạo lớp contract dùng chung, chuyển Catalog/Product, Profile/Address, Cart, Checkout, Order và Payment sang public MVP contract, sau đó hardening capability/runtime và lập readiness handoff.
+> Giai đoạn 1–9 hoàn tất: đã chốt baseline, tạo lớp contract dùng chung, chuyển Catalog/Product, Profile/Address, Cart, Checkout, Order và Payment sang public MVP contract; hoàn thiện Identity/quyền; sau đó hardening capability/runtime và lập readiness handoff.
 
 ## 1. Baseline được pin
 
@@ -202,7 +202,7 @@ Các quy tắc đã áp dụng:
 - List contract trả `next_cursor` nhưng chưa khai báo cursor request parameter. UI ghi rõ còn trang nhưng không tự phát minh query; đây là contract gap cần backend/contract owner bổ sung trước khi làm phân trang tiếp.
 - Mockoon mobile hiện tại chưa trả đầy đủ `OrderOrder`; runtime mới fail closed cho đến khi backend hoặc mock contract target sẵn sàng.
 
-## 14. Kết quả Giai đoạn 8 — Payment
+## 14. Kết quả Giai đoạn 7B — Payment
 
 - Payment page đọc `PaymentPaymentStatus` trước; chỉ gọi `PaymentPaymentInstructions` khi backend trả `can_pay=true`.
 - VietQR amount, receiver, account, transfer content, payment code, QR URL và expiry đều đến từ persisted intent. Cookie `oma_payment_access`, secret ký local và payment ID dựng từ Order ID đã bị loại bỏ.
@@ -215,10 +215,21 @@ Các quy tắc đã áp dụng:
 - QR URL phải là HTTPS và toàn bộ response được kiểm tra enum, UUID, amount, date-time, version và invariants trước khi đi vào UI.
 - Mockoon Payment cũ không có hai response canonical này; runtime fail closed cho đến khi backend hoặc mock contract target sẵn sàng.
 
+## 14A. Kết quả Giai đoạn 8 — Identity và quyền
+
+- `FE-AUTH-01`: BFF chỉ lấy access token từ cookie HttpOnly `oma_access_token`; không còn nhận `Authorization`, `X-User-ID`, role, permission hoặc toàn bộ cookie do browser tự cung cấp để chuyển tiếp upstream.
+- Trước khi cấp capability Customer, BFF gọi `/auth/me` bằng token server-side để backend/gateway xác minh principal. Response sai contract hoặc Identity không khả dụng đều fail closed.
+- `FE-AUTH-02`: `401` được giữ cho phiên thiếu/hết hạn và đưa UI về đăng nhập; `403` được giữ cho principal đã xác thực nhưng thiếu mapping/quyền và hiển thị access-denied riêng.
+- `FE-AUTH-03`: `CUSTOMER` dùng Customer features khi có `customer_id`. `EMPLOYEE` chỉ kế thừa Customer features khi Identity/backend trả `customer_id` đã liên kết; role `CUSTOMER` do browser khai báo không đủ để mở quyền.
+- `FE-AUTH-04`: UI lấy role/permission/capability từ projection đã xác minh để ẩn/hiện. Mọi BFF mutation/read bảo vệ vẫn gọi lại Identity/capability projection; UI không phải authority.
+- Principal session giữ riêng `principalType`, role, permission và `customerAccess`; staff permission không bị trộn với Customer capability.
+- Chi tiết boundary, contract gap và acceptance criteria nằm tại [`MVP_PUBLIC_IDENTITY_AUTHORIZATION.md`](./MVP_PUBLIC_IDENTITY_AUTHORIZATION.md).
+
 ## 15. Kết quả Giai đoạn 9 — Integration hardening và readiness
 
 - Tổng số operation trong target: **30**; frontend đã căn chỉnh **26** operation đang mở và giữ **4** operation Guest/paid cancellation ở trạng thái `GATED`.
 - COD, Voucher và Guest Order được khóa mặc định bằng capability gate dùng chung. UI không hiển thị capability bị khóa; BFF Checkout vẫn kiểm tra lại và trả `403 FEATURE_NOT_ENABLED` nếu client gọi trực tiếp.
+- Feature gate chỉ khóa/mở việc phát hành capability; không cấp quyền. Khi gate được bật, Identity/mapping/capability check của Giai đoạn 8 vẫn chạy trước nghiệp vụ được bảo vệ.
 - Header đưa người dùng đã đăng nhập tới lịch sử Order. Người chưa đăng nhập chỉ thấy Guest Order khi capability này được bật; mặc định được hướng tới đăng nhập.
 - `.env.example` chỉ còn các upstream/config thực sự được source hiện tại sử dụng; các URL chia nhỏ theo mock feature cũ đã bị loại khỏi cấu hình chuẩn.
 - Các script `dev:cart`, `dev:checkout`, `dev:orders`, `dev:payment` vẫn là fixture lịch sử cho từng lát cắt. Chúng không đại diện cho public target 30-operation và không được dùng làm bằng chứng E2E/acceptance.

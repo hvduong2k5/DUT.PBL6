@@ -1,5 +1,6 @@
 import { normalizePublicError, type PublicErrorBody } from "@/lib/api-contract";
-import { fetchCustomerCapabilities } from "@/lib/auth/capability-server";
+import { authorizeCustomerCapability, customerAccessFailure } from "@/lib/auth/customer-access-server";
+import { applyTrustedAuthorization, getTrustedAccessToken } from "@/lib/auth/server-credential";
 import { isPaymentInstructions, isPaymentStatus } from "@/lib/payment/mvp";
 import { parsePaymentRoute } from "@/lib/payment/validation";
 import { NextRequest, NextResponse } from "next/server";
@@ -9,22 +10,9 @@ function publicErrorResponse(status: number, code: string, message: string, requ
   return NextResponse.json(body, { status });
 }
 
-function bearerToken(request: NextRequest): string | undefined {
-  const cookieToken = request.cookies.get("oma_access_token")?.value;
-  if (cookieToken) return cookieToken;
-  const authorization = request.headers.get("authorization");
-  const match = authorization?.match(/^Bearer\s+(.+)$/iu);
-  return match?.[1];
-}
-
 function upstreamHeaders(request: NextRequest, scenario?: string) {
   const headers = new Headers({ Accept: "application/json" });
-  const authorization = request.headers.get("authorization");
-  const accessToken = request.cookies.get("oma_access_token")?.value;
-  const cookie = request.headers.get("cookie");
-  if (authorization) headers.set("Authorization", authorization);
-  else if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
-  if (cookie) headers.set("Cookie", cookie);
+  applyTrustedAuthorization(headers, request);
   if (process.env.NODE_ENV !== "production" && scenario) headers.set("X-Mock-Scenario", scenario);
   return headers;
 }
@@ -75,17 +63,12 @@ export async function handlePaymentRequest(request: NextRequest, path: string[])
     return publicErrorResponse(400, "INVALID_REQUEST", "Mock scenario không khả dụng trong production.", "BFF-PAYMENT-SCENARIO");
   }
 
-  const accessToken = bearerToken(request);
-  if (!accessToken) {
-    return publicErrorResponse(401, "AUTH_REQUIRED", "Vui lòng đăng nhập để xem Payment của Order.", "BFF-PAYMENT-AUTH");
-  }
+  const accessToken = getTrustedAccessToken(request);
   try {
-    const projection = await fetchCustomerCapabilities(accessToken);
-    if (!projection.capabilities.includes("ORDER_HISTORY_VIEW")) {
-      return publicErrorResponse(403, "CAPABILITY_FORBIDDEN", "Tài khoản không có quyền xem Payment của Order.", "BFF-PAYMENT-CAPABILITY");
-    }
-  } catch {
-    return publicErrorResponse(503, "CAPABILITY_UNAVAILABLE", "Chưa thể kiểm tra quyền Customer lúc này.", "BFF-PAYMENT-CAPABILITY");
+    await authorizeCustomerCapability(accessToken, "ORDER_HISTORY_VIEW");
+  } catch (cause) {
+    const failure = customerAccessFailure(cause);
+    return publicErrorResponse(failure.status, failure.code, failure.message, "BFF-PAYMENT-ACCESS");
   }
 
   try {

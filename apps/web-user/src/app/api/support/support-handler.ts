@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchCustomerCapabilities } from "@/lib/auth/capability-server";
+import { authorizeCustomerCapability, customerAccessFailure } from "@/lib/auth/customer-access-server";
+import { applyTrustedAuthorization, getTrustedAccessToken } from "@/lib/auth/server-credential";
 import type { CreateSupportTicketResult, SupportContext, SupportMessage, SupportPriority, SupportPublicAttachment, SupportSubjectCode, SupportTicketDetail, SupportTicketStatus } from "@/lib/support/types";
 import { parseSupportRoute, validateCreateSupportTicket, validateSupportMessage } from "@/lib/support/validation";
 
@@ -33,12 +35,7 @@ async function readJson(request: NextRequest): Promise<unknown> { try { return a
 async function upstream(path: string, method: string, request: NextRequest, scenario?: string, body?: object, idempotencyKey?: string) {
   const base = (process.env.CUSTOMER_EXTENSIONS_UPSTREAM_URL ?? "http://127.0.0.1:4020/api/v1").replace(/\/$/u, "");
   const headers = new Headers({ Accept: "application/json" });
-  const cookie = request.headers.get("cookie");
-  const authorization = request.headers.get("authorization");
-  const accessToken = request.cookies.get("oma_access_token")?.value;
-  if (cookie) headers.set("Cookie", cookie);
-  if (authorization) headers.set("Authorization", authorization);
-  else if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
+  applyTrustedAuthorization(headers, request);
   if (body) headers.set("Content-Type", "application/json");
   if (idempotencyKey) headers.set("Idempotency-Key", idempotencyKey);
   if (process.env.NODE_ENV !== "production" && scenario) headers.set("X-Mock-Scenario", scenario);
@@ -99,11 +96,15 @@ export async function handleSupportRequest(request: NextRequest, path: string[])
   const scenario = request.nextUrl.searchParams.get("mockScenario") ?? undefined;
   if (route.kind === "invalid") return errorResponse("NOT_FOUND", "Support route không tồn tại.", 404);
   if (request.method === "POST" && (route.kind === "tickets" || route.kind === "messages")) {
+    const accessToken = getTrustedAccessToken(request);
     try {
-      const projection = await fetchCustomerCapabilities(request.cookies.get("oma_access_token")?.value);
+      const projection = accessToken
+        ? (await authorizeCustomerCapability(accessToken, "SUPPORT_CREATE")).projection
+        : await fetchCustomerCapabilities();
       if (!projection.capabilities.includes("SUPPORT_CREATE")) return errorResponse("CAPABILITY_FORBIDDEN", "Actor hiện tại không có quyền gửi yêu cầu hỗ trợ.", 403);
-    } catch {
-      return errorResponse("CAPABILITY_UNAVAILABLE", "Chưa thể kiểm tra quyền Customer lúc này.", 503);
+    } catch (cause) {
+      const failure = customerAccessFailure(cause);
+      return errorResponse(failure.code, failure.message, failure.status);
     }
   }
   if (request.method === "GET" && route.kind === "context") {

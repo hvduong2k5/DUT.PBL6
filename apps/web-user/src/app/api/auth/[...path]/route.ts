@@ -63,6 +63,13 @@ function relayError(payload: unknown, status: number) {
   return NextResponse.json(payload && typeof payload === "object" ? payload : { error_code: "ERR_AUTH", user_message: "Không thể xử lý yêu cầu xác thực lúc này." }, { status });
 }
 
+function sessionResponse(user: CustomerCoreUser, status = 200): NextResponse {
+  const session = mapCustomerCoreSession(user);
+  return session
+    ? NextResponse.json(session, { status })
+    : NextResponse.json({ code: "IDENTITY_PROJECTION_INVALID", message: "Identity projection không đúng contract." }, { status: 502 });
+}
+
 function setTokenCookies(response: NextResponse, tokens: CustomerCoreTokens, remember = false) {
   const shared = { httpOnly: true, sameSite: "lax" as const, secure: process.env.NODE_ENV === "production", path: "/" };
   response.cookies.set(ACCESS_COOKIE, tokens.access_token, { ...shared, maxAge: Math.max(60, tokens.expires_in) });
@@ -115,7 +122,8 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
       const result = await upstream(request, "login", "POST", toCustomerCoreLogin({ phoneNumber, password }));
       if (!result.response.ok) return relayError(result.payload, result.response.status);
       const payload = result.payload as CustomerCoreAuthResponse;
-      const response = NextResponse.json(mapCustomerCoreSession(payload.user));
+      const response = sessionResponse(payload.user);
+      if (response.status !== 200) return response;
       setTokenCookies(response, payload.tokens, body?.rememberMe === true);
       return response;
     }
@@ -130,7 +138,8 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
       const result = await upstream(request, "register", "POST", toCustomerCoreRegistration({ fullName, phoneNumber, email: email || undefined, password }));
       if (!result.response.ok) return relayError(result.payload, result.response.status);
       const payload = result.payload as CustomerCoreAuthResponse;
-      const response = NextResponse.json(mapCustomerCoreSession(payload.user), { status: 201 });
+      const response = sessionResponse(payload.user, 201);
+      if (response.status !== 201) return response;
       setTokenCookies(response, payload.tokens);
       return response;
     }
@@ -139,7 +148,7 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
       const accessToken = request.cookies.get(ACCESS_COOKIE)?.value;
       if (accessToken) {
         const result = await upstream(request, "me", "GET", undefined, accessToken);
-        if (result.response.ok) return NextResponse.json(mapCustomerCoreSession(result.payload as CustomerCoreUser));
+        if (result.response.ok) return sessionResponse(result.payload as CustomerCoreUser);
         if (result.response.status !== 401) return relayError(result.payload, result.response.status);
       }
 
@@ -154,7 +163,8 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
       const tokens = refreshResult.payload as CustomerCoreTokens;
       const meResult = await upstream(request, "me", "GET", undefined, tokens.access_token);
       if (!meResult.response.ok) return relayError(meResult.payload, meResult.response.status);
-      const response = NextResponse.json(mapCustomerCoreSession(meResult.payload as CustomerCoreUser));
+      const response = sessionResponse(meResult.payload as CustomerCoreUser);
+      if (response.status !== 200) return response;
       setTokenCookies(response, tokens);
       return response;
     }

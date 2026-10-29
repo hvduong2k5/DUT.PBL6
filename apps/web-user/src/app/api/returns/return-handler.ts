@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { customerAccessFailure, requireCustomerSession } from "@/lib/auth/customer-access-server";
+import { applyTrustedAuthorization, getTrustedAccessToken } from "@/lib/auth/server-credential";
 import type { CustomerCoreOrderDetail } from "@/lib/orders/customer-core";
 import {
   mapCustomerCoreReturnCreated,
@@ -29,12 +31,7 @@ async function readJson(request: NextRequest): Promise<unknown> {
 async function upstream(request: NextRequest, path: string, method: string, scenario?: string, body?: unknown, idempotencyKey?: string) {
   const base = (process.env.CUSTOMER_CORE_UPSTREAM_URL ?? "http://127.0.0.1:4010/api/v1").replace(/\/$/u, "");
   const headers = new Headers({ Accept: "application/json" });
-  const cookie = request.headers.get("cookie");
-  const authorization = request.headers.get("authorization");
-  const accessToken = request.cookies.get("oma_access_token")?.value;
-  if (cookie) headers.set("Cookie", cookie);
-  if (authorization) headers.set("Authorization", authorization);
-  else if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
+  applyTrustedAuthorization(headers, request);
   if (body !== undefined) headers.set("Content-Type", "application/json");
   if (idempotencyKey) headers.set("X-Idempotency-Key", idempotencyKey);
   if (process.env.NODE_ENV !== "production" && scenario) headers.set("X-Mock-Scenario", scenario);
@@ -62,6 +59,13 @@ export async function handleReturnRequest(request: NextRequest, path: string[]):
   if (route.error || !route.operation) return errorResponse(route.error?.field === "path" ? "NOT_FOUND" : "INVALID_REQUEST", route.error?.message ?? "Yêu cầu hậu mãi không hợp lệ.", route.error?.field === "path" ? 404 : 400, route.error ? [route.error] : []);
   if (process.env.NODE_ENV === "production" && route.mockScenario) return errorResponse("INVALID_REQUEST", "Mock scenario không khả dụng trong production.", 400);
   if (request.method !== "GET" && !hasTrustedOrigin(request)) return errorResponse("ORIGIN_NOT_ALLOWED", "Request origin không được phép.", 403);
+
+  try {
+    await requireCustomerSession(getTrustedAccessToken(request));
+  } catch (cause) {
+    const failure = customerAccessFailure(cause);
+    return errorResponse(failure.code, failure.message, failure.status);
+  }
 
   try {
     if (route.operation === "eligibility" && route.orderId) {

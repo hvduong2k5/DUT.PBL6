@@ -4,7 +4,8 @@ import {
   parseDecimalVersion,
   type PublicErrorBody
 } from "@/lib/api-contract";
-import { fetchCustomerCapabilities } from "@/lib/auth/capability-server";
+import { authorizeCustomerCapability, customerAccessFailure } from "@/lib/auth/customer-access-server";
+import { applyTrustedAuthorization, getTrustedAccessToken } from "@/lib/auth/server-credential";
 import { MVP_FEATURE_GATES } from "@/lib/mvp-feature-gates";
 import { GUEST_ORDER_ACCESS_COOKIE, decodeGuestOrderAccess, encodeGuestOrderAccess } from "@/lib/orders/guest-access";
 import { isOrderCancellation, isOwnedOrder, isOwnedOrdersResponse } from "@/lib/orders/mvp";
@@ -54,12 +55,7 @@ function upstreamHeaders(
   ifMatch?: string
 ) {
   const headers = new Headers({ Accept: "application/json" });
-  const cookie = request.headers.get("cookie");
-  const authorization = request.headers.get("authorization");
-  const accessToken = request.cookies.get("oma_access_token")?.value;
-  if (cookie) headers.set("Cookie", cookie);
-  if (authorization) headers.set("Authorization", authorization);
-  else if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
+  applyTrustedAuthorization(headers, request);
   if (hasBody) headers.set("Content-Type", "application/json");
   if (idempotencyKey) headers.set("Idempotency-Key", idempotencyKey);
   if (ifMatch) headers.set("If-Match", ifMatch);
@@ -161,7 +157,7 @@ export async function handleOrderRequest(request: NextRequest, path: string[]): 
     return publicErrorResponse(403, "FEATURE_NOT_ENABLED", "Guest Order chưa được bật trong MVP contract hiện tại.", "BFF-ORDER-GUEST-GATE");
   }
 
-  const accessToken = request.cookies.get("oma_access_token")?.value;
+  const accessToken = getTrustedAccessToken(request);
   const guestAccess = guestExtensionEnabled()
     ? decodeGuestOrderAccess(request.cookies.get(GUEST_ORDER_ACCESS_COOKIE)?.value)
     : undefined;
@@ -170,16 +166,11 @@ export async function handleOrderRequest(request: NextRequest, path: string[]): 
     && guestAccess?.orderId === route.orderId;
 
   if (!isGuestExtension && !isGatedGuestDetail) {
-    if (!accessToken && !request.headers.get("authorization")) {
-      return publicErrorResponse(401, "AUTH_REQUIRED", "Vui lòng đăng nhập để truy cập Order.", "BFF-ORDER-AUTH");
-    }
     try {
-      const projection = await fetchCustomerCapabilities(accessToken);
-      if (!projection.capabilities.includes("ORDER_HISTORY_VIEW")) {
-        return publicErrorResponse(403, "CAPABILITY_FORBIDDEN", "Tài khoản không có quyền xem hoặc quản lý Order.", "BFF-ORDER-CAPABILITY");
-      }
-    } catch {
-      return publicErrorResponse(503, "CAPABILITY_UNAVAILABLE", "Chưa thể kiểm tra quyền Customer lúc này.", "BFF-ORDER-CAPABILITY");
+      await authorizeCustomerCapability(accessToken, "ORDER_HISTORY_VIEW");
+    } catch (cause) {
+      const failure = customerAccessFailure(cause);
+      return publicErrorResponse(failure.status, failure.code, failure.message, "BFF-ORDER-ACCESS");
     }
   }
 

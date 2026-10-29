@@ -7,10 +7,11 @@ import { MVP_FEATURE_GATES } from "@/lib/mvp-feature-gates";
 import { BrandMark } from "./brand-mark";
 
 export function SiteHeader() {
-  const { status, customer, hasCapability } = useCustomerSession();
+  const { status, customer, principal, customerAccess, hasCapability } = useCustomerSession();
   const { itemCount } = useCartSummary();
-  const authenticated = status === "authenticated" && customer;
-  const initial = customer?.displayName.trim().charAt(0).toLocaleUpperCase("vi") || "♙";
+  const authenticated = status === "authenticated" && principal !== null;
+  const displayName = customer?.displayName ?? principal?.displayName ?? "Tài khoản";
+  const initial = authenticated ? displayName.trim().charAt(0).toLocaleUpperCase("vi") || "T" : "♙";
   return (
     <header className="site-header">
       <div className="utility-bar">
@@ -36,9 +37,9 @@ export function SiteHeader() {
           <Link href="/#ocop-traceability">Truy Xuất OCOP</Link>
           <Link href="/promotions">Ưu Đãi Tri Kỷ</Link>
         </nav>
-        <Link className="track-order-link" href={authenticated ? "/account/orders" : MVP_FEATURE_GATES.guestOrder ? "/track-order" : "/login?returnUrl=%2Faccount%2Forders"}>{authenticated ? "Đơn hàng" : MVP_FEATURE_GATES.guestOrder ? "Tra cứu đơn" : "Đăng nhập xem đơn"}</Link>
+        <Link className="track-order-link" href={authenticated && customerAccess ? "/account/orders" : MVP_FEATURE_GATES.guestOrder ? "/track-order" : "/login?returnUrl=%2Faccount%2Forders"}>{authenticated && customerAccess ? "Đơn hàng" : MVP_FEATURE_GATES.guestOrder ? "Tra cứu đơn" : "Đăng nhập xem đơn"}</Link>
         <Link className="cart-header-button" href="/cart" aria-label={itemCount === null ? "Mở giỏ hàng" : `Mở giỏ hàng, ${itemCount} sản phẩm`}>♧<span>Giỏ hàng</span>{itemCount !== null ? <b>{itemCount > 99 ? "99+" : itemCount}</b> : null}</Link>
-        <Link className={`account-button ${authenticated ? "authenticated" : ""}`} href={authenticated ? "/account/profile" : "/login?returnUrl=%2Faccount%2Fprofile"} aria-label={authenticated ? `Tài khoản của ${customer.displayName}` : "Đăng nhập tài khoản Tri Kỷ"} title={authenticated ? customer.displayName : "Đăng nhập"}>{status === "loading" ? "…" : initial}</Link>
+        <Link className={`account-button ${authenticated ? "authenticated" : ""}`} href={authenticated && customerAccess ? "/account/profile" : authenticated ? "/" : "/login?returnUrl=%2Faccount%2Fprofile"} aria-label={authenticated ? `Tài khoản của ${displayName}` : "Đăng nhập tài khoản Tri Kỷ"} title={authenticated ? displayName : "Đăng nhập"}>{status === "loading" ? "…" : initial}</Link>
       </div>
     </header>
   );

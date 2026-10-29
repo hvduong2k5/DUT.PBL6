@@ -1,22 +1,27 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import type { CustomerSummary } from "@/lib/auth/types";
+import type { CustomerSummary, PrincipalSummary } from "@/lib/auth/types";
 import type { CustomerActor, CustomerCapability } from "@/lib/auth/capabilities";
 import { AuthApiError } from "@/lib/auth/types";
 import { authService } from "@/services/auth-service";
-import { getCustomerCapabilities } from "@/services/capability-service";
+import { CapabilityApiError, getCustomerCapabilities } from "@/services/capability-service";
 
-type SessionStatus = "loading" | "authenticated" | "guest" | "error";
-type CapabilityStatus = "loading" | "ready" | "error";
+type SessionStatus = "loading" | "authenticated" | "guest" | "forbidden" | "error";
+type CapabilityStatus = "loading" | "ready" | "forbidden" | "error";
 
 interface CustomerSessionValue {
   status: SessionStatus;
   customer: CustomerSummary | null;
+  principal: PrincipalSummary | null;
+  customerAccess: boolean;
+  isEmployee: boolean;
   actor: CustomerActor | null;
   capabilityStatus: CapabilityStatus;
   capabilities: readonly CustomerCapability[];
   hasCapability: (capability: CustomerCapability) => boolean;
+  hasRole: (roleCode: string) => boolean;
+  hasPermission: (permissionCode: string) => boolean;
   reload: () => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -26,21 +31,30 @@ const CustomerSessionContext = createContext<CustomerSessionValue | null>(null);
 export function CustomerSessionProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<SessionStatus>("loading");
   const [customer, setCustomer] = useState<CustomerSummary | null>(null);
+  const [principal, setPrincipal] = useState<PrincipalSummary | null>(null);
+  const [customerAccess, setCustomerAccess] = useState(false);
   const [actor, setActor] = useState<CustomerActor | null>(null);
   const [capabilityStatus, setCapabilityStatus] = useState<CapabilityStatus>("loading");
   const [capabilities, setCapabilities] = useState<CustomerCapability[]>([]);
 
-  const loadCapabilities = useCallback(async () => {
+  const loadCapabilities = useCallback(async (allowed: boolean) => {
+    if (!allowed) {
+      setActor(null);
+      setCapabilities([]);
+      setCapabilityStatus("ready");
+      return;
+    }
     setCapabilityStatus("loading");
     try {
       const projection = await getCustomerCapabilities();
       setActor(projection.actor);
       setCapabilities(projection.capabilities);
       setCapabilityStatus("ready");
-    } catch {
+    } catch (cause) {
       setActor(null);
       setCapabilities([]);
-      setCapabilityStatus("error");
+      if (cause instanceof CapabilityApiError && cause.status === 401) throw cause;
+      setCapabilityStatus(cause instanceof CapabilityApiError && cause.status === 403 ? "forbidden" : "error");
     }
   }, []);
 
@@ -48,12 +62,21 @@ export function CustomerSessionProvider({ children }: { children: ReactNode }) {
     try {
       const session = await authService.me();
       setCustomer(session.customer);
+      setPrincipal(session.principal);
+      setCustomerAccess(session.customerAccess);
       setStatus("authenticated");
+      await loadCapabilities(session.customerAccess);
     } catch (cause) {
       setCustomer(null);
-      setStatus(cause instanceof AuthApiError && cause.status === 401 ? "guest" : "error");
+      setPrincipal(null);
+      setCustomerAccess(false);
+      setActor(null);
+      setCapabilities([]);
+      setCapabilityStatus("ready");
+      const unauthorized = cause instanceof AuthApiError && cause.status === 401 || cause instanceof CapabilityApiError && cause.status === 401;
+      const forbidden = cause instanceof AuthApiError && cause.status === 403 || cause instanceof CapabilityApiError && cause.status === 403;
+      setStatus(unauthorized ? "guest" : forbidden ? "forbidden" : "error");
     }
-    await loadCapabilities();
   }, [loadCapabilities]);
 
   useEffect(() => { void Promise.resolve().then(reload); }, [reload]);
@@ -62,13 +85,18 @@ export function CustomerSessionProvider({ children }: { children: ReactNode }) {
     try { await authService.logout(); }
     finally {
       setCustomer(null);
+      setPrincipal(null);
+      setCustomerAccess(false);
       setStatus("guest");
-      await loadCapabilities();
+      await loadCapabilities(false);
     }
   }, [loadCapabilities]);
 
   const hasCapability = useCallback((capability: CustomerCapability) => capabilityStatus === "ready" && capabilities.includes(capability), [capabilities, capabilityStatus]);
-  const value = useMemo(() => ({ status, customer, actor, capabilityStatus, capabilities, hasCapability, reload, logout }), [actor, capabilities, capabilityStatus, customer, hasCapability, logout, reload, status]);
+  const hasRole = useCallback((roleCode: string) => Boolean(principal?.roles.some((role) => role.roleCode === roleCode)), [principal]);
+  const hasPermission = useCallback((permissionCode: string) => Boolean(principal?.permissions.includes(permissionCode)), [principal]);
+  const isEmployee = principal?.principalType === "EMPLOYEE";
+  const value = useMemo(() => ({ status, customer, principal, customerAccess, isEmployee, actor, capabilityStatus, capabilities, hasCapability, hasRole, hasPermission, reload, logout }), [actor, capabilities, capabilityStatus, customer, customerAccess, hasCapability, hasPermission, hasRole, isEmployee, logout, principal, reload, status]);
   return <CustomerSessionContext.Provider value={value}>{children}</CustomerSessionContext.Provider>;
 }
 

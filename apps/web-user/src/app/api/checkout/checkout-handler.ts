@@ -5,7 +5,8 @@ import {
   type OrderQuote,
   type PublicErrorBody
 } from "@/lib/api-contract";
-import { fetchCustomerCapabilities } from "@/lib/auth/capability-server";
+import { authorizeCustomerCapability, customerAccessFailure } from "@/lib/auth/customer-access-server";
+import { applyTrustedAuthorization, getTrustedAccessToken } from "@/lib/auth/server-credential";
 import { MVP_FEATURE_GATES } from "@/lib/mvp-feature-gates";
 import {
   parseMvpCheckoutRoute,
@@ -52,12 +53,7 @@ function publicErrorResponse(
 
 function upstreamHeaders(request: NextRequest, scenario?: string, hasBody = false, idempotencyKey?: string): Headers {
   const headers = new Headers({ Accept: "application/json" });
-  const authorization = request.headers.get("authorization");
-  const accessToken = request.cookies.get("oma_access_token")?.value;
-  const cookie = request.headers.get("cookie");
-  if (authorization) headers.set("Authorization", authorization);
-  else if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
-  if (cookie) headers.set("Cookie", cookie);
+  applyTrustedAuthorization(headers, request);
   if (hasBody) headers.set("Content-Type", "application/json");
   if (idempotencyKey) headers.set("Idempotency-Key", idempotencyKey);
   if (process.env.NODE_ENV !== "production" && scenario) headers.set("X-Mock-Scenario", scenario);
@@ -175,17 +171,12 @@ export async function handleCheckoutRequest(request: NextRequest, path: string[]
     return publicErrorResponse(400, "INVALID_REQUEST", "Mock scenario không khả dụng trong production.", "BFF-CHECKOUT-SCENARIO");
   }
 
-  const accessToken = request.cookies.get("oma_access_token")?.value;
-  if (process.env.NODE_ENV === "production" && !accessToken && !request.headers.get("authorization")) {
-    return publicErrorResponse(401, "AUTH_REQUIRED", "Vui lòng đăng nhập để tạo Checkout.", "BFF-CHECKOUT-AUTH");
-  }
+  const accessToken = getTrustedAccessToken(request);
   try {
-    const projection = await fetchCustomerCapabilities(accessToken);
-    if (!projection.capabilities.includes("CHECKOUT_CREATE")) {
-      return publicErrorResponse(403, "CAPABILITY_FORBIDDEN", "Actor hiện tại không có quyền tạo Checkout.", "BFF-CHECKOUT-CAPABILITY");
-    }
-  } catch {
-    return publicErrorResponse(503, "CAPABILITY_UNAVAILABLE", "Chưa thể kiểm tra quyền Customer lúc này.", "BFF-CHECKOUT-CAPABILITY");
+    await authorizeCustomerCapability(accessToken, "CHECKOUT_CREATE");
+  } catch (cause) {
+    const failure = customerAccessFailure(cause);
+    return publicErrorResponse(failure.status, failure.code, failure.message, "BFF-CHECKOUT-ACCESS");
   }
 
   try {

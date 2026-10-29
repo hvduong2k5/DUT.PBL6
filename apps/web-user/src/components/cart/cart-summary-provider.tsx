@@ -27,8 +27,9 @@ export function CartSummaryProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (session.status !== "loading") void Promise.resolve().then(reload);
-  }, [reload, session.status]);
+    if (session.status === "authenticated" && session.customerAccess) void Promise.resolve().then(reload);
+    else if (session.status !== "loading") void Promise.resolve().then(() => setItemCount(null));
+  }, [reload, session.customerAccess, session.status]);
 
   const updateFromCart = useCallback((cart: Cart) => setItemCount(cart.itemCount), []);
   const value = useMemo(() => ({ itemCount, reload, updateFromCart }), [itemCount, reload, updateFromCart]);
