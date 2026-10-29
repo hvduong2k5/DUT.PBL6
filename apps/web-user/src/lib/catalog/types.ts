@@ -1,5 +1,6 @@
 export type ProductType = "CAKE" | "CANDY" | "TEA" | "GIFT_SET";
 export type CatalogSort = "CURATED" | "RELEVANCE" | "PRICE_ASC" | "PRICE_DESC" | "NAME_ASC";
+export type ProductAvailability = "AVAILABLE" | "UNAVAILABLE" | "UNKNOWN";
 
 export interface ProductOffer {
   skuId: string;
@@ -7,7 +8,7 @@ export interface ProductOffer {
   priceVnd: number;
   weightGrams: number;
   packageType: string;
-  isAvailable: boolean;
+  availability: ProductAvailability;
 }
 
 export interface ProductSummary {
@@ -53,29 +54,5 @@ export interface CatalogResult {
   totalCount: number;
   page: number;
   pageSize: number;
-}
-
-interface CatalogErrorBody {
-  code?: string;
-  message?: string;
-  error_code?: string;
-  user_message?: string;
-  requestId?: string;
-  errors?: Array<{ field: string; message: string }>;
-}
-
-export class CatalogApiError extends Error {
-  readonly status: number;
-  readonly code: string;
-  readonly requestId?: string;
-  readonly errors: Array<{ field: string; message: string }>;
-
-  constructor(status: number, body: CatalogErrorBody) {
-    super(body.user_message || body.message || "Không thể tải sản phẩm lúc này.");
-    this.name = "CatalogApiError";
-    this.status = status;
-    this.code = body.error_code || body.code || "UNKNOWN_ERROR";
-    this.requestId = body.requestId;
-    this.errors = body.errors ?? [];
-  }
+  totalPages: number;
 }

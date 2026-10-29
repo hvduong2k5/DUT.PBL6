@@ -1,3 +1,5 @@
+import type { CatalogProductDetail } from "@/lib/api-contract";
+import { mapCatalogProductDetail } from "./mvp";
 import type { ProductDetail } from "./types";
 
 export interface CustomerCoreProductDetail {
@@ -16,32 +18,15 @@ export interface CustomerCoreProductDetail {
     weight_gram: number;
     price: { currency_code: string; units: number; nanos: number };
     original_price: { currency_code: string; units: number; nanos: number };
-    stock_available: number;
+    stock_available: number | null;
   }>;
 }
 
 export function mapCustomerCoreProductDetail(product: CustomerCoreProductDetail): ProductDetail {
-  return {
-    id: product.product_id,
-    slug: product.slug,
-    name: product.name,
-    shortDescription: product.description,
-    longDescription: product.story || product.description,
-    images: product.images.map((url, index) => ({ id: `${product.product_id}-${index + 1}`, url, alt: `${product.name} — ảnh ${index + 1}` })),
-    ocopCertification: product.ocop_star ? {
-      stars: product.ocop_star,
-      label: `OCOP ${product.ocop_star} sao${product.ocop_certificate_no ? ` · ${product.ocop_certificate_no}` : ""}`
-    } : null,
-    skus: product.variants.map((variant) => ({
-      skuId: variant.sku_code,
-      label: variant.name,
-      weightGrams: variant.weight_gram,
-      flavor: null,
-      packageType: variant.name,
-      priceVnd: variant.price.units,
-      isAvailable: variant.stock_available > 0,
-      unavailableReason: variant.stock_available > 0 ? null : "Tạm hết hàng",
-      imageUrl: product.images[0] ?? null
-    }))
-  };
+  return mapCatalogProductDetail({
+    ...product,
+    ocop_star: product.ocop_star ?? 0,
+    ocop_certificate_no: product.ocop_certificate_no ?? "",
+    story: product.story ?? ""
+  } satisfies CatalogProductDetail);
 }

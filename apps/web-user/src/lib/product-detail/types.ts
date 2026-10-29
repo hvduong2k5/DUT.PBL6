@@ -1,3 +1,5 @@
+import type { ProductAvailability } from "@/lib/catalog/types";
+
 export interface ProductImage {
   id: string;
   url: string;
@@ -29,7 +31,7 @@ export interface ProductSku {
   flavor?: string | null;
   packageType: string;
   priceVnd: number;
-  isAvailable: boolean;
+  availability: ProductAvailability;
   unavailableReason?: string | null;
   imageUrl?: string | null;
 }
@@ -46,29 +48,4 @@ export interface ProductDetail {
   ocopCertification?: OcopCertification | null;
   foodInformation?: FoodInformation;
   skus: ProductSku[];
-}
-
-interface ProductDetailErrorBody {
-  code?: string;
-  message?: string;
-  error_code?: string;
-  user_message?: string;
-  requestId?: string;
-  errors?: Array<{ field: string; message: string }>;
-}
-
-export class ProductDetailApiError extends Error {
-  readonly status: number;
-  readonly code: string;
-  readonly requestId?: string;
-  readonly errors: Array<{ field: string; message: string }>;
-
-  constructor(status: number, body: ProductDetailErrorBody) {
-    super(body.user_message || body.message || "Không thể tải chi tiết sản phẩm lúc này.");
-    this.name = "ProductDetailApiError";
-    this.status = status;
-    this.code = body.error_code || body.code || "UNKNOWN_ERROR";
-    this.requestId = body.requestId;
-    this.errors = body.errors ?? [];
-  }
 }

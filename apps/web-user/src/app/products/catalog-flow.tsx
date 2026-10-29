@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { PublicApiError } from "@/lib/api-contract";
 import type { CatalogResult, DiscoveryConfig, PricePreset, ProductSummary, ProductType } from "@/lib/catalog/types";
-import { CatalogApiError } from "@/lib/catalog/types";
 import { catalogService } from "@/services/catalog-service";
 import { ProductImage } from "@/components/product/product-image";
 
@@ -23,6 +23,8 @@ function samePricePreset(params: URLSearchParams, preset: PricePreset): boolean 
 
 function ProductCard({ product }: { product: ProductSummary }) {
   const offer = product.matchedOffer;
+  const unavailable = offer.availability === "UNAVAILABLE";
+  const unknown = offer.availability === "UNKNOWN";
   return (
     <article className="product-card">
       <Link className="product-image" href={`/products/${product.slug}`} aria-label={`Xem chi tiết ${product.name}`}>
@@ -31,7 +33,8 @@ function ProductCard({ product }: { product: ProductSummary }) {
           {product.ocopStars ? <span>OCOP {product.ocopStars} sao</span> : null}
           {product.badges.slice(0, 1).map((badge) => <span className="soft" key={badge}>{badge}</span>)}
         </div>
-        {!offer.isAvailable ? <span className="sold-out-badge">Tạm hết hàng</span> : null}
+        {unavailable ? <span className="sold-out-badge">Tạm hết hàng</span> : null}
+        {unknown ? <span className="sold-out-badge">Đang cập nhật tồn kho</span> : null}
       </Link>
       <div className="product-card-content">
         <p className="product-category">{product.categoryName}</p>
@@ -39,7 +42,7 @@ function ProductCard({ product }: { product: ProductSummary }) {
         <p className="product-description">{product.shortDescription}</p>
         <div className="product-offer-row">
           <div><strong>{VND.format(offer.priceVnd)}</strong><span>{offer.label}</span></div>
-          <span className={offer.isAvailable ? "stock-status" : "stock-status unavailable"}>{offer.isAvailable ? "Còn hàng" : "Hết hàng"}</span>
+          <span className={offer.availability === "AVAILABLE" ? "stock-status" : "stock-status unavailable"}>{offer.availability === "AVAILABLE" ? "Còn hàng" : unknown ? "Chưa đồng bộ tồn kho" : "Hết hàng"}</span>
         </div>
         <Link className="product-detail-link" href={`/products/${product.slug}`}>Xem chi tiết &amp; chọn quy cách <span aria-hidden="true">→</span></Link>
       </div>
@@ -95,7 +98,7 @@ export function CatalogFlow() {
       .then((payload) => { if (active) setResult(payload); })
       .catch((error: unknown) => {
         if (!active) return;
-        setCatalogError(error instanceof CatalogApiError ? error.message : "Không thể tải danh mục sản phẩm.");
+        setCatalogError(error instanceof PublicApiError ? error.message : "Không thể tải danh mục sản phẩm.");
       })
       .finally(() => { if (active) setLoadingCatalog(false); });
     return () => { active = false; };
@@ -175,7 +178,7 @@ export function CatalogFlow() {
 
   const currentPage = Number(params.get("page") ?? 1);
   const pageSize = Number(params.get("pageSize") ?? 9);
-  const totalPages = Math.max(1, Math.ceil((result?.filteredCount ?? 0) / pageSize));
+  const totalPages = Math.max(1, result?.totalPages ?? 0);
 
   return (
     <main className="catalog-page">

@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { PublicApiError } from "@/lib/api-contract";
 import { useEffect, useMemo, useState } from "react";
 import { CartApiError } from "@/lib/cart/types";
 import { MAX_CART_ITEM_QUANTITY } from "@/lib/cart/validation";
 import type { ProductDetail, ProductSku } from "@/lib/product-detail/types";
-import { ProductDetailApiError } from "@/lib/product-detail/types";
 import { ProductReviewsSection } from "@/components/product/product-reviews";
 import { ProductImage } from "@/components/product/product-image";
 import { useCartSummary } from "@/components/cart/cart-summary-provider";
@@ -64,12 +64,12 @@ export function ProductDetailFlow({ slug }: { slug: string }) {
       if (!active) return;
       setProduct(payload);
       setActiveImageUrl(payload.images[0]?.url);
-      if (payload.skus.length === 1 && payload.skus[0].isAvailable) {
+      if (payload.skus.length === 1 && payload.skus[0].availability === "AVAILABLE") {
         setSelectedSkuId(payload.skus[0].skuId);
       }
     }).catch((cause: unknown) => {
       if (!active) return;
-      if (cause instanceof ProductDetailApiError) setError({ status: cause.status, message: cause.message });
+      if (cause instanceof PublicApiError) setError({ status: cause.status, message: cause.message });
       else setError({ message: "Không thể tải chi tiết sản phẩm lúc này." });
     }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
@@ -79,10 +79,11 @@ export function ProductDetailFlow({ slug }: { slug: string }) {
     () => product?.skus.find((sku) => sku.skuId === selectedSkuId),
     [product, selectedSkuId]
   );
-  const hasAvailableSku = product?.skus.some((sku) => sku.isAvailable) ?? false;
+  const hasAvailableSku = product?.skus.some((sku) => sku.availability === "AVAILABLE") ?? false;
+  const hasUnknownSku = product?.skus.some((sku) => sku.availability === "UNKNOWN") ?? false;
 
   function selectSku(sku: ProductSku) {
-    if (!sku.isAvailable) return;
+    if (sku.availability !== "AVAILABLE") return;
     setSelectedSkuId(sku.skuId);
     setSelectionMessage("");
     setAddedToCart(false);
@@ -166,10 +167,10 @@ export function ProductDetailFlow({ slug }: { slug: string }) {
             <legend>Chọn quy cách sản phẩm</legend>
             <p id="sku-guidance">{product.skus.length > 1 ? "Chọn rõ một SKU trước khi chuyển sang luồng mua." : "Sản phẩm này có một quy cách công khai."}</p>
             <div>{product.skus.map((sku) => (
-              <label className={`${selectedSkuId === sku.skuId ? "selected" : ""} ${!sku.isAvailable ? "unavailable" : ""}`} key={sku.skuId}>
-                <input type="radio" name="product-sku" value={sku.skuId} checked={selectedSkuId === sku.skuId} disabled={!sku.isAvailable} onChange={() => selectSku(sku)} />
+              <label className={`${selectedSkuId === sku.skuId ? "selected" : ""} ${sku.availability !== "AVAILABLE" ? "unavailable" : ""}`} key={sku.skuId}>
+                <input type="radio" name="product-sku" value={sku.skuId} checked={selectedSkuId === sku.skuId} disabled={sku.availability !== "AVAILABLE"} onChange={() => selectSku(sku)} />
                 <span className="sku-radio" aria-hidden="true" />
-                <span className="sku-copy"><strong>{sku.label}</strong><small>{sku.weightGrams}g · {sku.flavor || "Hương vị nguyên bản"} · {sku.packageType}</small><b>{VND.format(sku.priceVnd)}</b>{!sku.isAvailable ? <em>{sku.unavailableReason || "Tạm thời không khả dụng"}</em> : null}</span>
+                <span className="sku-copy"><strong>{sku.label}</strong><small>{sku.weightGrams}g · {sku.flavor || "Hương vị nguyên bản"} · {sku.packageType}</small><b>{VND.format(sku.priceVnd)}</b>{sku.availability !== "AVAILABLE" ? <em>{sku.unavailableReason || "Tạm thời không khả dụng"}</em> : null}</span>
               </label>
             ))}</div>
           </fieldset>
@@ -192,7 +193,7 @@ export function ProductDetailFlow({ slug }: { slug: string }) {
         </div>
       </section>
 
-      {!hasAvailableSku ? <section className="availability-banner" role="status"><span aria-hidden="true">◇</span><div><h2>Sản phẩm đang tạm hết khả dụng</h2><p>Bạn vẫn có thể xem thông tin sản phẩm. Các SKU sẽ không thể chọn cho đến khi trạng thái bán được cập nhật.</p></div></section> : null}
+      {!hasAvailableSku ? <section className="availability-banner" role="status"><span aria-hidden="true">◇</span><div><h2>{hasUnknownSku ? "Tồn kho sản phẩm đang được đồng bộ" : "Sản phẩm đang tạm hết khả dụng"}</h2><p>{hasUnknownSku ? "Hệ thống chưa có dữ liệu tồn kho đủ tin cậy nên chưa cho phép chọn SKU này." : "Bạn vẫn có thể xem thông tin sản phẩm. Các SKU sẽ không thể chọn cho đến khi trạng thái bán được cập nhật."}</p></div></section> : null}
 
       <section className="product-story" aria-labelledby="product-story-title">
         <div><p className="eyebrow">Thông tin đã công bố</p><h2 id="product-story-title">Câu chuyện của thức quà</h2><p>{product.longDescription}</p></div>

@@ -84,7 +84,7 @@ export function parseCatalogQuery(params: URLSearchParams): QueryValidation {
   return { errors, query: { q, category, productType, minPrice, maxPrice, ocopStars, weights, inStock, sort, page, pageSize } };
 }
 
-export function toCustomerCoreQuery(query: CatalogQuery): URLSearchParams {
+export function toPublicCatalogQuery(query: CatalogQuery): URLSearchParams {
   const result = new URLSearchParams({ page: String(query.page), page_size: String(query.pageSize) });
   if (query.q) result.set("q", query.q);
   if (query.category) result.set("category_id", query.category);
@@ -101,3 +101,5 @@ export function toCustomerCoreQuery(query: CatalogQuery): URLSearchParams {
   if (sort && !query.q) result.set("sort_by", sort);
   return result;
 }
+
+export const toCustomerCoreQuery = toPublicCatalogQuery;

@@ -1,6 +1,6 @@
 # MVP Public Contract — Frontend migration matrix
 
-> Giai đoạn 1 hoàn tất: chốt nguồn chuẩn và kiểm kê API. Tài liệu này chưa thay đổi hành vi runtime.
+> Giai đoạn 1–3 hoàn tất: đã chốt baseline, tạo lớp contract dùng chung và chuyển Catalog/Product sang public MVP contract.
 
 ## 1. Baseline được pin
 
@@ -35,6 +35,7 @@ Các file `customer-stable`, `customer-draft-planned`, `web-reference/*` và `*.
 | `REPLACE` | Luồng hiện tại mâu thuẫn contract mới và phải thay thế. |
 | `ADD` | Chưa có operation tại BFF/client. |
 | `GATED` | Contract có operation nhưng capability chưa được bật cho vòng Web MVP đầu tiên. |
+| `ALIGNED` | BFF/client và mapper đã được chuyển sang contract target trong baseline được pin. |
 
 Đường `/api/*` của Next.js là BFF nội bộ cùng origin và có thể giữ tên thân thiện với UI. Mỗi route đó phải có ánh xạ một-một được kiểm thử tới public contract. DTO wire từ upstream không được trộn trực tiếp với view model camelCase; mapper phải tách rõ hai lớp.
 
@@ -85,10 +86,10 @@ Các file `customer-stable`, `customer-draft-planned`, `web-reference/*` và `*.
 
 | Public operation | BFF/UI hiện tại | Trạng thái | Việc phải làm ở giai đoạn triển khai |
 | --- | --- | --- | --- |
-| `GET /api/v1/categories` — `catalog_getCategories` | BFF chỉ dùng để dựng `/api/catalog/discovery-config` | `ADAPT` | Có mapper categories canonical; config UI là view model riêng. |
-| `GET /api/v1/products` — `catalog_getProducts` | `/api/catalog/products` trả array + count headers | `ADAPT` | Nhận object `items/total/page/page_size/total_pages`; bỏ count headers tự dựng. |
-| `GET /api/v1/products/search` — `catalog_getProductsSearch` | Gộp vào `/api/catalog/products?q=...` | `ADAPT` | Map riêng operation search; bỏ local search fallback khỏi production contract. |
-| `GET /api/v1/products/{id_or_slug}` — `catalog_getProductsIdOrSlug` | `/api/catalog/products/{slug}` | `ADAPT` | Chuẩn hóa Product/SKU/images/Money và giữ mapper view model riêng. |
+| `GET /api/v1/categories` — `catalog_getCategories` | BFF dùng để dựng `/api/catalog/discovery-config` | `ALIGNED` | Đã có mapper categories canonical; config UI là view model riêng. |
+| `GET /api/v1/products` — `catalog_getProducts` | `/api/catalog/products` giữ object pagination | `ALIGNED` | Đã nhận `items/total/page/page_size/total_pages` và bỏ count headers tự dựng. |
+| `GET /api/v1/products/search` — `catalog_getProductsSearch` | UI vẫn gọi `/api/catalog/products?q=...`; BFF chọn operation search | `ALIGNED` | Đã map riêng response search; fallback local chỉ chạy ở development. |
+| `GET /api/v1/products/{id_or_slug}` — `catalog_getProductsIdOrSlug` | `/api/catalog/products/{slug}` | `ALIGNED` | Đã chuẩn hóa Product/SKU/images/Money và tách wire DTO khỏi view model. |
 
 ## 5. Route hiện có nhưng không thuộc 30-operation target
 
@@ -136,4 +137,21 @@ Lớp contract dùng chung nằm tại `apps/web-user/src/lib/api-contract/`:
 | `client.ts` | JSON request client không tự retry mutation; giữ response headers, ETag và Retry-After. |
 | `index.ts` | Public exports cho các feature adapter. |
 
-Giai đoạn này chưa chuyển các màn hình sang lớp mới. Cart/Checkout/Order/Profile/Catalog sẽ dùng nó ở các giai đoạn nghiệp vụ tiếp theo.
+Sau Giai đoạn 3, Catalog/Product đã dùng lớp này. Cart/Checkout/Order/Profile sẽ được chuyển ở các giai đoạn nghiệp vụ tiếp theo.
+
+## 9. Kết quả Giai đoạn 3 — Catalog và Product
+
+| Public operation | Kết quả frontend |
+| --- | --- |
+| `GET /api/v1/categories` | BFF kiểm tra response canonical và chỉ map sang `DiscoveryConfig` sau contract boundary. |
+| `GET /api/v1/products` | Giữ object pagination `items/total/page/page_size/total_pages`; đã bỏ array và các count header tự dựng. |
+| `GET /api/v1/products/search` | Có nhánh DTO/mapper riêng; fallback tìm kiếm chỉ tồn tại ở môi trường development để tương thích thứ tự route Mockoon. |
+| `GET /api/v1/products/{id_or_slug}` | BFF trả wire DTO canonical; browser map Product/SKU/images/Money sang view model. |
+
+Các quy tắc đã áp dụng:
+
+- Browser chỉ dùng view model camelCase; wire DTO snake_case nằm trong `lib/api-contract` và mapper feature.
+- Giá VND đi qua parser dùng chung, yêu cầu `currency_code=VND`, `nanos=0` và `units` là số nguyên an toàn.
+- Tồn kho có ba trạng thái `AVAILABLE`, `UNAVAILABLE`, `UNKNOWN`; `null` không còn bị hiểu sai thành hết hàng.
+- Lỗi từ upstream được sanitize về `PublicError`; lỗi BFF tự sinh cũng có đủ `code`, `message`, `requestId` và `details` khi cần.
+- Same-origin route `/api/catalog/*` được giữ làm BFF cho UI, còn upstream vẫn ánh xạ tới bốn operation public nêu trên.

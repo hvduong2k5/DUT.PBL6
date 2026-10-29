@@ -1,11 +1,13 @@
-import {
-  mapCustomerCoreConfig,
-  mapCustomerCoreProductSummary,
-  type CustomerCoreCategory,
-  type CustomerCoreProductList
-} from "@/lib/catalog/customer-core";
-import { parseCatalogQuery, toCustomerCoreQuery } from "@/lib/catalog/query";
-import { mapCustomerCoreProductDetail, type CustomerCoreProductDetail } from "@/lib/product-detail/customer-core";
+import type {
+  CatalogCategoriesResponse,
+  CatalogProductDetail,
+  CatalogProductsResponse,
+  CatalogSearchResponse,
+  PublicErrorBody
+} from "@/lib/api-contract";
+import { normalizePublicError } from "@/lib/api-contract";
+import { mapCatalogCategoriesResponse } from "@/lib/catalog/mvp";
+import { parseCatalogQuery, toPublicCatalogQuery } from "@/lib/catalog/query";
 import { parseProductDetailRequest, toProductDetailUpstreamPath } from "@/lib/product-detail/validation";
 import { NextRequest } from "next/server";
 
@@ -15,10 +17,37 @@ const ALLOWED_PATHS = new Set(["products", "discovery-config"]);
 const SCENARIO_PATTERN = /^[a-z0-9-]+$/u;
 const FORWARDED_RESPONSE_HEADERS = ["cache-control", "retry-after", "x-request-id"];
 
-function isProductList(payload: unknown): payload is CustomerCoreProductList {
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isCategoriesResponse(payload: unknown): payload is CatalogCategoriesResponse {
+  return isRecord(payload) && Array.isArray(payload.categories);
+}
+
+function isProductList(payload: unknown): payload is CatalogProductsResponse {
   if (!payload || typeof payload !== "object") return false;
-  const candidate = payload as Partial<CustomerCoreProductList>;
-  return Array.isArray(candidate.items) && typeof candidate.total === "number";
+  const candidate = payload as Partial<CatalogProductsResponse>;
+  return Array.isArray(candidate.items)
+    && typeof candidate.total === "number"
+    && typeof candidate.page === "number"
+    && typeof candidate.page_size === "number"
+    && typeof candidate.total_pages === "number";
+}
+
+function isSearchResponse(payload: unknown): payload is CatalogSearchResponse {
+  return isRecord(payload)
+    && typeof payload.query === "string"
+    && Array.isArray(payload.items)
+    && typeof payload.total === "number";
+}
+
+function isProductDetail(payload: unknown): payload is CatalogProductDetail {
+  return isRecord(payload)
+    && typeof payload.product_id === "string"
+    && typeof payload.slug === "string"
+    && Array.isArray(payload.images)
+    && Array.isArray(payload.variants);
 }
 
 function normalizedSearchText(value: string) {
@@ -44,6 +73,31 @@ function responseHeaders(upstream: Response) {
   return headers;
 }
 
+function publicErrorResponse(
+  status: number,
+  code: string,
+  message: string,
+  requestId: string,
+  details?: Record<string, unknown>
+): Response {
+  const body: PublicErrorBody = { code, message, requestId, ...(details ? { details } : {}) };
+  return Response.json(body, { status });
+}
+
+async function relayUpstreamError(upstream: Response): Promise<Response> {
+  const contentType = upstream.headers.get("content-type") ?? "";
+  let payload: unknown;
+  if (contentType.includes("application/json")) {
+    try { payload = await upstream.json() as unknown; } catch { payload = undefined; }
+  }
+  const error: PublicErrorBody = normalizePublicError(payload, {
+    code: "CATALOG_UPSTREAM_ERROR",
+    message: "Không thể tải dữ liệu sản phẩm lúc này.",
+    requestId: upstream.headers.get("x-request-id") ?? "BFF-CATALOG-UPSTREAM"
+  });
+  return Response.json(error, { status: upstream.status, headers: responseHeaders(upstream) });
+}
+
 async function resolveCategoryId(upstreamBase: string, category: string, headers: Headers): Promise<string> {
   const categoryResponse = await fetch(`${upstreamBase}/categories`, {
     headers,
@@ -51,8 +105,9 @@ async function resolveCategoryId(upstreamBase: string, category: string, headers
     redirect: "manual"
   });
   if (!categoryResponse.ok) return category;
-  const payload = await categoryResponse.json() as { categories?: CustomerCoreCategory[] };
-  return payload.categories?.find((item) => item.slug === category || item.category_id === category)?.category_id ?? category;
+  const payload = await categoryResponse.json() as unknown;
+  if (!isCategoriesResponse(payload)) return category;
+  return payload.categories.find((item) => item.slug === category || item.category_id === category)?.category_id ?? category;
 }
 
 async function proxy(request: NextRequest, context: { params: Promise<{ path: string[] }> }): Promise<Response> {
@@ -64,13 +119,15 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
 
   if (request.method !== "GET" || (!isDiscoveryPath && !isDetailPath)) {
     if (request.method === "GET" && detailValidation?.error?.field !== "path") {
-      return Response.json({
-        code: "INVALID_PRODUCT_SLUG",
-        message: detailValidation?.error?.message ?? "Slug sản phẩm không hợp lệ.",
-        errors: detailValidation?.error ? [detailValidation.error] : []
-      }, { status: 400 });
+      return publicErrorResponse(
+        400,
+        "INVALID_PRODUCT_SLUG",
+        detailValidation?.error?.message ?? "Slug sản phẩm không hợp lệ.",
+        "BFF-CATALOG-SLUG",
+        { errors: detailValidation?.error ? [detailValidation.error] : [] }
+      );
     }
-    return Response.json({ code: "NOT_FOUND", message: "Catalog route is not available." }, { status: 404 });
+    return publicErrorResponse(404, "NOT_FOUND", "Catalog route is not available.", "BFF-CATALOG-ROUTE");
   }
 
   const scenario = isDetailPath ? detailValidation?.mockScenario : request.nextUrl.searchParams.get("mockScenario") ?? undefined;
@@ -80,18 +137,21 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
   try {
     if (path === "discovery-config") {
       const upstream = await fetch(`${upstreamBase}/categories`, { headers, cache: "no-store", redirect: "manual" });
-      if (!upstream.ok) return new Response(await upstream.arrayBuffer(), { status: upstream.status, headers: responseHeaders(upstream) });
-      const payload = await upstream.json() as { categories: CustomerCoreCategory[] };
-      return Response.json(mapCustomerCoreConfig(payload.categories));
+      if (!upstream.ok) return relayUpstreamError(upstream);
+      const payload = await upstream.json() as unknown;
+      if (!isCategoriesResponse(payload)) {
+        return publicErrorResponse(502, "INVALID_CATALOG_RESPONSE", "Dữ liệu danh mục không đúng contract.", "BFF-CATALOG-CATEGORIES");
+      }
+      return Response.json(mapCatalogCategoriesResponse(payload));
     }
 
     if (path === "products") {
       const validation = parseCatalogQuery(request.nextUrl.searchParams);
       if (!validation.query) {
-        return Response.json({ code: "INVALID_QUERY", message: "Bộ lọc sản phẩm không hợp lệ.", errors: validation.errors }, { status: 400 });
+        return publicErrorResponse(400, "INVALID_QUERY", "Bộ lọc sản phẩm không hợp lệ.", "BFF-CATALOG-QUERY", { errors: validation.errors });
       }
 
-      const upstreamParams = toCustomerCoreQuery(validation.query);
+      const upstreamParams = toPublicCatalogQuery(validation.query);
       if (validation.query.category) {
         upstreamParams.set("category_id", await resolveCategoryId(upstreamBase, validation.query.category, headers));
       }
@@ -101,33 +161,31 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
         cache: "no-store",
         redirect: "manual"
       });
-      if (!upstream.ok) return new Response(await upstream.arrayBuffer(), { status: upstream.status, headers: responseHeaders(upstream) });
+      if (!upstream.ok) return relayUpstreamError(upstream);
 
       const upstreamPayload = await upstream.json() as unknown;
-      let payload: CustomerCoreProductList;
-      if (isProductList(upstreamPayload)) {
+      let payload: CatalogProductsResponse | CatalogSearchResponse;
+      if (validation.query.q && isSearchResponse(upstreamPayload)) {
+        payload = upstreamPayload;
+      } else if (!validation.query.q && isProductList(upstreamPayload)) {
         payload = upstreamPayload;
       } else if (validation.query.q && process.env.NODE_ENV !== "production") {
         // mobile_pbl.json currently places /products/:id_or_slug before /products/search,
         // so Mockoon can capture "search" as a slug. Keep this compatibility local only.
-        const fallbackParams = toCustomerCoreQuery({ ...validation.query, q: undefined });
+        const fallbackParams = toPublicCatalogQuery({ ...validation.query, q: undefined });
         const fallback = await fetch(`${upstreamBase}/products?${fallbackParams}`, { headers, cache: "no-store", redirect: "manual" });
-        if (!fallback.ok) return new Response(await fallback.arrayBuffer(), { status: fallback.status, headers: responseHeaders(fallback) });
+        if (!fallback.ok) return relayUpstreamError(fallback);
         const fallbackPayload = await fallback.json() as unknown;
         if (!isProductList(fallbackPayload)) {
-          return Response.json({ code: "INVALID_CATALOG_RESPONSE", message: "Dữ liệu danh mục không đúng cấu trúc mong đợi." }, { status: 502 });
+          return publicErrorResponse(502, "INVALID_CATALOG_RESPONSE", "Dữ liệu danh mục không đúng cấu trúc mong đợi.", "BFF-CATALOG-LIST");
         }
         const keyword = normalizedSearchText(validation.query.q);
         const items = fallbackPayload.items.filter((item) => normalizedSearchText(`${item.name} ${item.summary}`).includes(keyword));
-        payload = { ...fallbackPayload, query: validation.query.q, items, total: items.length };
+        payload = { query: validation.query.q, items, total: items.length };
       } else {
-        return Response.json({ code: "INVALID_CATALOG_RESPONSE", message: "Dữ liệu danh mục không đúng cấu trúc mong đợi." }, { status: 502 });
+        return publicErrorResponse(502, "INVALID_CATALOG_RESPONSE", "Dữ liệu danh mục không đúng cấu trúc mong đợi.", "BFF-CATALOG-LIST");
       }
-      const publicHeaders = responseHeaders(upstream);
-      publicHeaders.set("Content-Type", "application/json");
-      publicHeaders.set("x-filtered-count", String(payload.total));
-      publicHeaders.set("x-total-count", String(payload.total));
-      return new Response(JSON.stringify(payload.items.map(mapCustomerCoreProductSummary)), { status: upstream.status, headers: publicHeaders });
+      return Response.json(payload, { status: upstream.status, headers: responseHeaders(upstream) });
     }
 
     const upstream = await fetch(`${upstreamBase}/${toProductDetailUpstreamPath(detailValidation!.slug!)}`, {
@@ -135,15 +193,19 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
       cache: "no-store",
       redirect: "manual"
     });
-    if (!upstream.ok) return new Response(await upstream.arrayBuffer(), { status: upstream.status, headers: responseHeaders(upstream) });
-    const payload = await upstream.json() as CustomerCoreProductDetail;
-    return Response.json(mapCustomerCoreProductDetail(payload));
+    if (!upstream.ok) return relayUpstreamError(upstream);
+    const payload = await upstream.json() as unknown;
+    if (!isProductDetail(payload)) {
+      return publicErrorResponse(502, "INVALID_CATALOG_RESPONSE", "Chi tiết sản phẩm không đúng contract.", "BFF-CATALOG-DETAIL");
+    }
+    return Response.json(payload);
   } catch {
-    return Response.json({
-      code: "CATALOG_UPSTREAM_UNAVAILABLE",
-      message: "Không thể kết nối dịch vụ danh mục. Hãy kiểm tra Mockoon hoặc API Gateway.",
-      requestId: "BFF-CATALOG-UPSTREAM"
-    }, { status: 503 });
+    return publicErrorResponse(
+      503,
+      "CATALOG_UPSTREAM_UNAVAILABLE",
+      "Không thể kết nối dịch vụ danh mục. Hãy kiểm tra Mockoon hoặc API Gateway.",
+      "BFF-CATALOG-UPSTREAM"
+    );
   }
 }
 
