@@ -1,0 +1,597 @@
+openapi: 3.1.0
+info:
+  title: Ô Mạ Shopping Cart MVP API
+  version: 0.1.0-candidate
+  summary: Candidate cart contract derived from the approved Web D2C implementation.
+  license:
+    name: Proprietary - internal project use
+    identifier: LicenseRef-Proprietary
+  description: |
+    PROPOSED / NOT APPROVED contract for Guest and Registered Customer cart
+    preparation. It awaits Backend, Architecture, Product, Inventory, Pricing and
+    Security review.
+
+    Browser components call the same-origin Next.js BFF paths under `/api/cart`.
+    The BFF calls the API Gateway paths documented here. Cart is not an Order,
+    does not reserve inventory and does not calculate shipping, promotions or the
+    final payable total.
+
+    Local Mockoon health/scenario behavior, internal CRUD buckets, exact inventory,
+    warehouse and Batch/Lot data are intentionally absent.
+servers:
+  - url: /api/v1
+    description: API Gateway relative base URL
+tags:
+  - name: Shopping Cart
+    description: Customer-owned SKU intentions before Checkout.
+security:
+  - CartSession: []
+
+paths:
+  /cart:
+    get:
+      tags: [Shopping Cart]
+      operationId: getCurrentCart
+      summary: Get and revalidate the current cart
+      description: |
+        Returns the cart belonging to the current Guest or Registered Customer
+        context. Current public SKU price and purchase eligibility are revalidated
+        before the projection is returned.
+      responses:
+        "200":
+          description: Current cart, including an empty cart and lines requiring customer action.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cart"
+              examples:
+                populated:
+                  $ref: "#/components/examples/PopulatedCart"
+                empty:
+                  summary: Empty cart
+                  value:
+                    items: []
+                    itemCount: 0
+                    subtotalVnd: 0
+                    hasBlockingIssues: false
+                    notices: []
+                    updatedAt: "2026-09-25T08:00:00Z"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /cart/items:
+    post:
+      tags: [Shopping Cart]
+      operationId: addCurrentCartItem
+      summary: Add an exact SKU to the current cart
+      description: |
+        Adds the selected SKU and quantity after revalidating its current selling
+        state and purchase eligibility. If the same SKU already exists in the cart,
+        the quantity is merged into that line and no duplicate line is created.
+        This operation does not reserve inventory or lock a price.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddCartItemRequest"
+            examples:
+              addSku:
+                value:
+                  skuId: SKU-001-250-BOX
+                  quantity: 2
+      responses:
+        "201":
+          description: A new cart line was created; the full revalidated cart is returned.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cart"
+              examples:
+                created:
+                  $ref: "#/components/examples/PopulatedCart"
+        "200":
+          description: An existing line for the same SKU was merged; the full revalidated cart is returned.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cart"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "404":
+          $ref: "#/components/responses/SkuNotFound"
+        "409":
+          $ref: "#/components/responses/PurchaseConflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /cart/items/{itemId}:
+    parameters:
+      - $ref: "#/components/parameters/CartItemId"
+    patch:
+      tags: [Shopping Cart]
+      operationId: updateCurrentCartItemQuantity
+      summary: Update one cart-line quantity
+      description: |
+        Replaces the quantity of the owned cart line and returns the full revalidated
+        cart. Quantity zero is not a delete alias. Use DELETE explicitly.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCartItemRequest"
+            examples:
+              updateQuantity:
+                value:
+                  quantity: 3
+      responses:
+        "200":
+          description: Quantity updated; full revalidated cart returned.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cart"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "404":
+          $ref: "#/components/responses/CartItemNotFound"
+        "409":
+          $ref: "#/components/responses/PurchaseConflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    delete:
+      tags: [Shopping Cart]
+      operationId: removeCurrentCartItem
+      summary: Remove one owned cart line
+      description: |
+        Removes the line only when it belongs to the current cart context. A missing
+        line and a line owned by another context use identical not-found semantics.
+      responses:
+        "200":
+          description: Line removed; the full current cart, possibly empty, is returned.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cart"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "404":
+          $ref: "#/components/responses/CartItemNotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+components:
+  securitySchemes:
+    CartSession:
+      type: apiKey
+      in: cookie
+      name: oma_cart_context
+      description: |
+        Opaque HttpOnly cart-session context managed by the trusted edge/BFF for
+        Guest and Registered Customer flows. Browser JavaScript must not read or
+        manufacture this value. The definitive Gateway identity propagation,
+        signing and account-binding mechanism remains subject to Security review.
+
+  parameters:
+    CartItemId:
+      name: itemId
+      in: path
+      required: true
+      description: Opaque identifier for a line in the current cart.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 80
+        pattern: "^[A-Za-z0-9-]+$"
+      example: 3bb6f4d1-23d2-4cc9-b28e-6da8af9ffab0
+
+  schemas:
+    AddCartItemRequest:
+      type: object
+      additionalProperties: false
+      required: [skuId, quantity]
+      properties:
+        skuId:
+          type: string
+          minLength: 2
+          maxLength: 64
+          pattern: "^[A-Z0-9][A-Z0-9-]{1,63}$"
+          description: Stable public SKU identifier from Product Detail.
+        quantity:
+          $ref: "#/components/schemas/CartItemQuantity"
+
+    UpdateCartItemRequest:
+      type: object
+      additionalProperties: false
+      required: [quantity]
+      properties:
+        quantity:
+          $ref: "#/components/schemas/CartItemQuantity"
+
+    CartItemQuantity:
+      type: integer
+      minimum: 1
+      maximum: 20
+      description: |
+        Candidate UI/API guardrail. This is not an inventory disclosure and the
+        definitive business maximum remains subject to Product review.
+
+    CartNoticeCode:
+      type: string
+      enum: [PRICE_CHANGED, SKU_UNAVAILABLE]
+
+    CartNotice:
+      type: object
+      additionalProperties: false
+      required: [code, itemId, message]
+      properties:
+        code:
+          $ref: "#/components/schemas/CartNoticeCode"
+        itemId:
+          type: string
+          minLength: 1
+          maxLength: 80
+        message:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: Customer-safe actionable message without internal inventory details.
+
+    CartItem:
+      type: object
+      additionalProperties: false
+      required:
+        - itemId
+        - productId
+        - productSlug
+        - productName
+        - imageUrl
+        - imageAlt
+        - skuId
+        - skuLabel
+        - weightGrams
+        - packageType
+        - unitPriceVnd
+        - previousUnitPriceVnd
+        - priceChanged
+        - quantity
+        - lineSubtotalVnd
+        - isAvailable
+        - unavailableReason
+      properties:
+        itemId:
+          type: string
+          minLength: 1
+          maxLength: 80
+          description: Opaque line identifier scoped to the current cart.
+        productId:
+          type: string
+          minLength: 1
+          maxLength: 100
+        productSlug:
+          type: string
+          minLength: 1
+          maxLength: 120
+          pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        productName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        imageUrl:
+          type: string
+          format: uri
+          maxLength: 2048
+          description: Approved browser-usable public image URL.
+        imageAlt:
+          type: string
+          minLength: 1
+          maxLength: 300
+        skuId:
+          type: string
+          minLength: 2
+          maxLength: 64
+          pattern: "^[A-Z0-9][A-Z0-9-]{1,63}$"
+        skuLabel:
+          type: string
+          minLength: 1
+          maxLength: 150
+        weightGrams:
+          type: integer
+          minimum: 1
+          maximum: 50000
+          description: Net weight in integer grams.
+        flavor:
+          type: [string, "null"]
+          minLength: 1
+          maxLength: 150
+        packageType:
+          type: string
+          minLength: 1
+          maxLength: 150
+        unitPriceVnd:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 100000000
+          description: Current active Website selling price in integer VND.
+        previousUnitPriceVnd:
+          type: [integer, "null"]
+          format: int64
+          minimum: 0
+          maximum: 100000000
+          description: Price snapshot before revalidation when priceChanged is true; otherwise null.
+        priceChanged:
+          type: boolean
+        quantity:
+          $ref: "#/components/schemas/CartItemQuantity"
+        lineSubtotalVnd:
+          type: [integer, "null"]
+          format: int64
+          minimum: 0
+          maximum: 2000000000
+          description: Current unit price multiplied by quantity when available; null otherwise.
+        isAvailable:
+          type: boolean
+          description: Public purchase-eligibility projection; not an exact stock claim.
+        unavailableReason:
+          type: [string, "null"]
+          minLength: 1
+          maxLength: 200
+          description: Customer-safe reason when unavailable; null when available.
+
+    Cart:
+      type: object
+      additionalProperties: false
+      required: [items, itemCount, subtotalVnd, hasBlockingIssues, notices, updatedAt]
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/CartItem"
+        itemCount:
+          type: integer
+          minimum: 0
+          maximum: 2000
+          description: Sum of quantity across every retained line, including unavailable lines.
+        subtotalVnd:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 200000000000
+          description: Sum of available line subtotals; excludes shipping, promotion and final Checkout total.
+        hasBlockingIssues:
+          type: boolean
+          description: True when at least one retained line requires customer action before it can be purchased.
+        notices:
+          type: array
+          maxItems: 200
+          items:
+            $ref: "#/components/schemas/CartNotice"
+        updatedAt:
+          type: string
+          format: date-time
+
+    ApiFieldError:
+      type: object
+      additionalProperties: false
+      required: [field, message]
+      properties:
+        field:
+          type: string
+          minLength: 1
+          maxLength: 100
+        code:
+          type: string
+          minLength: 1
+          maxLength: 100
+        message:
+          type: string
+          minLength: 1
+          maxLength: 500
+
+    ApiError:
+      type: object
+      additionalProperties: false
+      required: [code, message, requestId]
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: QUANTITY_UNAVAILABLE
+        message:
+          type: string
+          minLength: 1
+          maxLength: 1000
+        errors:
+          type: array
+          maxItems: 50
+          items:
+            $ref: "#/components/schemas/ApiFieldError"
+        requestId:
+          type: string
+          minLength: 1
+          maxLength: 200
+          example: REQ-CART-409
+
+  responses:
+    InvalidRequest:
+      description: Request syntax, content type or identifier format is invalid.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+          examples:
+            invalidRequest:
+              value:
+                code: INVALID_REQUEST
+                message: Yêu cầu giỏ hàng không hợp lệ.
+                requestId: REQ-CART-400
+    CartItemNotFound:
+      description: Line is absent or does not belong to the current cart; ownership is intentionally indistinguishable.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+          examples:
+            itemNotFound:
+              value:
+                code: CART_ITEM_NOT_FOUND
+                message: Dòng giỏ hàng không còn tồn tại. Vui lòng tải lại giỏ.
+                requestId: REQ-CART-ITEM-404
+    SkuNotFound:
+      description: SKU is absent or not public; causes are intentionally indistinguishable.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+          examples:
+            skuNotFound:
+              value:
+                code: SKU_NOT_FOUND
+                message: Không tìm thấy quy cách sản phẩm có thể mua.
+                requestId: REQ-CART-SKU-404
+    PurchaseConflict:
+      description: Current SKU state or purchasable quantity prevents the requested mutation.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+          examples:
+            skuUnavailable:
+              value:
+                code: SKU_UNAVAILABLE
+                message: Quy cách này hiện không khả dụng.
+                requestId: REQ-CART-SKU-409
+            quantityUnavailable:
+              value:
+                code: QUANTITY_UNAVAILABLE
+                message: Số lượng yêu cầu hiện không thể đáp ứng. Vui lòng giảm số lượng và thử lại.
+                requestId: REQ-CART-QUANTITY-409
+    ValidationFailed:
+      description: Request fields do not satisfy the candidate Cart validation rules.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+          examples:
+            invalidQuantity:
+              value:
+                code: VALIDATION_FAILED
+                message: Dữ liệu giỏ hàng chưa hợp lệ.
+                errors:
+                  - field: quantity
+                    code: OUT_OF_RANGE
+                    message: Số lượng phải là số nguyên từ 1 đến 20.
+                requestId: REQ-CART-422
+    RateLimited:
+      description: Cart request rate exceeded.
+      headers:
+        Retry-After:
+          description: Seconds until the client may retry.
+          schema:
+            type: integer
+            minimum: 1
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+          examples:
+            rateLimited:
+              value:
+                code: RATE_LIMITED
+                message: Có quá nhiều yêu cầu. Vui lòng thử lại sau.
+                requestId: REQ-CART-429
+    InternalError:
+      description: Unexpected Cart or required dependency failure.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+          examples:
+            internalError:
+              value:
+                code: CART_ERROR
+                message: Không thể cập nhật giỏ hàng lúc này. Vui lòng thử lại.
+                requestId: REQ-CART-500
+    ServiceUnavailable:
+      description: Cart or a required Product, Pricing or Inventory dependency is temporarily unavailable.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+          examples:
+            unavailable:
+              value:
+                code: CART_UNAVAILABLE
+                message: Dịch vụ giỏ hàng đang tạm gián đoạn. Vui lòng thử lại sau.
+                requestId: REQ-CART-503
+
+  examples:
+    PopulatedCart:
+      summary: Two available SKU lines at current Website prices
+      value:
+        items:
+          - itemId: 3bb6f4d1-23d2-4cc9-b28e-6da8af9ffab0
+            productId: PRD-001
+            productSlug: banh-ngu-sac-cung-dinh
+            productName: Bánh Ngũ Sắc Cung Đình
+            imageUrl: https://cdn.example.com/products/banh-ngu-sac/main.jpg
+            imageAlt: Hộp bánh ngũ sắc
+            skuId: SKU-001-250-BOX
+            skuLabel: Hộp Thượng Hạng 250g
+            weightGrams: 250
+            flavor: Ngũ sắc truyền thống
+            packageType: Hộp giấy 16 viên
+            unitPriceVnd: 185000
+            previousUnitPriceVnd: null
+            priceChanged: false
+            quantity: 2
+            lineSubtotalVnd: 370000
+            isAvailable: true
+            unavailableReason: null
+          - itemId: 2ed11d36-4c1f-410b-99cf-112f45edb28f
+            productId: PRD-004
+            productSlug: tra-sen-tinh-tam
+            productName: Trà Sen Tịnh Tâm
+            imageUrl: https://cdn.example.com/products/tra-sen/main.jpg
+            imageAlt: Hộp trà sen
+            skuId: SKU-004-150-TIN
+            skuLabel: Hộp thiếc 150g
+            weightGrams: 150
+            flavor: Sen Tịnh Tâm
+            packageType: Hộp thiếc
+            unitPriceVnd: 295000
+            previousUnitPriceVnd: null
+            priceChanged: false
+            quantity: 1
+            lineSubtotalVnd: 295000
+            isAvailable: true
+            unavailableReason: null
+        itemCount: 3
+        subtotalVnd: 665000
+        hasBlockingIssues: false
+        notices: []
+        updatedAt: "2026-09-25T08:00:00Z"
