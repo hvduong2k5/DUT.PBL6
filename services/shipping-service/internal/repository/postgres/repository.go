@@ -146,6 +146,19 @@ func (r *Repository) Save(ctx context.Context, shipment *domain.Shipment, expect
 	}
 
 	if event != nil {
+		if revision, ok := domain.NewShipmentRevision(shipment, *event); ok {
+			_, insertRevisionErr := tx.Exec(ctx, `
+				INSERT INTO shipment_revisions (
+					shipment_id, resource_version, order_id, package_id, ready_generation,
+					kind, seal_code, occurred_at, settlement_verified
+				) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+				revision.ShipmentID, revision.ResourceVersion, revision.OrderID, revision.PackageID,
+				revision.ReadyGeneration, revision.Kind, revision.SealCode, revision.OccurredAt,
+				revision.SettlementVerified)
+			if insertRevisionErr != nil {
+				return insertRevisionErr
+			}
+		}
 		payload, marshalErr := json.Marshal(event)
 		if marshalErr != nil {
 			return marshalErr
@@ -163,6 +176,25 @@ func (r *Repository) Save(ctx context.Context, shipment *domain.Shipment, expect
 
 func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Shipment, error) {
 	return scanShipment(r.pool.QueryRow(ctx, selectShipment+` WHERE id=$1`, id))
+}
+
+func (r *Repository) GetRevision(ctx context.Context, shipmentID uuid.UUID, resourceVersion int64) (*domain.ShipmentRevision, error) {
+	var revision domain.ShipmentRevision
+	err := r.pool.QueryRow(ctx, `
+		SELECT shipment_id, order_id, package_id, resource_version, ready_generation,
+		       kind, seal_code, occurred_at, settlement_verified
+		FROM shipment_revisions
+		WHERE shipment_id=$1 AND resource_version=$2`, shipmentID, resourceVersion).Scan(
+		&revision.ShipmentID, &revision.OrderID, &revision.PackageID, &revision.ResourceVersion,
+		&revision.ReadyGeneration, &revision.Kind, &revision.SealCode, &revision.OccurredAt,
+		&revision.SettlementVerified)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, domain.ErrShipmentRevisionNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &revision, nil
 }
 
 func (r *Repository) GetByTracking(ctx context.Context, carrierCode, trackingCode string) (*domain.Shipment, error) {

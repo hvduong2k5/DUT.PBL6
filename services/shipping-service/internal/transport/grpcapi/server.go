@@ -215,7 +215,8 @@ func statusToProto(value domain.ShipmentStatus) shippingv1.ShipmentStatus {
 
 func toStatus(err error) error {
 	switch {
-	case errors.Is(err, domain.ErrShipmentNotFound), errors.Is(err, domain.ErrTrackingNotFound):
+	case errors.Is(err, domain.ErrShipmentNotFound), errors.Is(err, domain.ErrTrackingNotFound),
+		errors.Is(err, domain.ErrShipmentRevisionNotFound):
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, domain.ErrInvalidShipment), errors.Is(err, domain.ErrUnsupportedCarrier):
 		return status.Error(codes.InvalidArgument, err.Error())

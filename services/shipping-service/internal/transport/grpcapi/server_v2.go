@@ -68,8 +68,9 @@ func (s *V2Server) CalculateShippingFee(ctx context.Context, request *shippingv2
 }
 
 func (s *V2Server) CreateShipment(ctx context.Context, request *shippingv2.CreateShipmentRequest) (*shippingv2.CreateShipmentResponse, error) {
-	if request.GetReadyGeneration() < 1 || request.GetOrderSnapshotVersion() < 1 || strings.TrimSpace(request.GetItemsDigest()) == "" {
-		return nil, status.Error(codes.InvalidArgument, "ready_generation, items_digest and order_snapshot_version are required")
+	if request.GetReadyGeneration() < 1 || request.GetOrderSnapshotVersion() < 1 ||
+		strings.TrimSpace(request.GetItemsDigest()) == "" || strings.TrimSpace(request.GetSealCode()) == "" {
+		return nil, status.Error(codes.InvalidArgument, "ready_generation, items_digest, order_snapshot_version and seal_code are required")
 	}
 	if request.GetDestinationAddress() == nil || request.GetParcelWeight() == nil {
 		return nil, status.Error(codes.InvalidArgument, "destination_address and parcel_weight are required")
@@ -141,8 +142,22 @@ func (s *V2Server) TrackShipment(ctx context.Context, request *shippingv2.TrackS
 	return response, nil
 }
 
-func (s *V2Server) GetShipmentRevision(context.Context, *shippingv2.GetShipmentRevisionRequest) (*shippingv2.ShipmentRevision, error) {
-	return nil, status.Error(codes.Unimplemented, "historical shipment revisions are not implemented")
+func (s *V2Server) GetShipmentRevision(ctx context.Context, request *shippingv2.GetShipmentRevisionRequest) (*shippingv2.ShipmentRevision, error) {
+	shipmentID, err := uuid.Parse(strings.TrimSpace(request.GetShipmentId()))
+	if err != nil || request.GetResourceVersion() < 1 {
+		return nil, status.Error(codes.InvalidArgument, "shipment_id must be a UUID and resource_version must be positive")
+	}
+	revision, err := s.service.GetShipmentRevision(ctx, shipmentID, request.GetResourceVersion())
+	if err != nil {
+		return nil, toStatus(err)
+	}
+	return &shippingv2.ShipmentRevision{
+		OrderId: revision.OrderID, ShipmentId: revision.ShipmentID.String(),
+		PackageId: revision.PackageID, ResourceVersion: revision.ResourceVersion,
+		ReadyGeneration: revision.ReadyGeneration, Kind: revision.Kind,
+		SealCode: revision.SealCode, OccurredAt: timestamppb.New(revision.OccurredAt),
+		SettlementVerified: revision.SettlementVerified,
+	}, nil
 }
 
 func parcelFromV2Proto(weight *commonv1.Weight, dimensions *shippingv2.ParcelDimensions, fragile bool) (domain.Parcel, error) {

@@ -31,6 +31,10 @@ type Repository interface {
 	TrackingTimeline(context.Context, uuid.UUID) ([]domain.TrackingEvent, error)
 }
 
+type RevisionRepository interface {
+	GetRevision(context.Context, uuid.UUID, int64) (*domain.ShipmentRevision, error)
+}
+
 type QuoteRepository interface {
 	GetQuoteByIdempotencyKey(context.Context, string) (*domain.ShippingQuote, error)
 	SaveQuote(context.Context, *domain.ShippingQuote) (*domain.ShippingQuote, bool, error)
@@ -357,6 +361,17 @@ func (s *Service) GetShipment(ctx context.Context, id uuid.UUID) (*domain.Shipme
 
 func (s *Service) GetShipmentTimeline(ctx context.Context, id uuid.UUID) ([]domain.TrackingEvent, error) {
 	return s.repository.TrackingTimeline(ctx, id)
+}
+
+func (s *Service) GetShipmentRevision(ctx context.Context, shipmentID uuid.UUID, resourceVersion int64) (*domain.ShipmentRevision, error) {
+	if resourceVersion < 1 {
+		return nil, fmt.Errorf("%w: resource_version must be positive", domain.ErrInvalidShipment)
+	}
+	revisions, ok := s.repository.(RevisionRepository)
+	if !ok {
+		return nil, errors.New("shipment revision repository is not configured")
+	}
+	return revisions.GetRevision(ctx, shipmentID, resourceVersion)
 }
 
 func (s *Service) TrackOrder(ctx context.Context, orderID string) ([]domain.Shipment, error) {
