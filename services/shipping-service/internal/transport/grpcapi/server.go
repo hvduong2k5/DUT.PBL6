@@ -78,6 +78,7 @@ func (s *Server) CreateShipment(ctx context.Context, request *shippingv1.CreateS
 		SealCode: request.GetSealCode(), CarrierCode: carrierCode, ServiceCode: serviceCode,
 		Recipient: recipientFromProto(request.GetDestinationAddress()), Parcel: parcel,
 		CODAmountVND: moneyUnits(request.GetCodAmount()), CheckoutFeeVND: moneyUnits(request.GetCheckoutShippingFee()),
+		QuoteID:       request.GetQuoteId(),
 		ShippingNotes: request.GetShippingNotes(),
 	})
 	if err != nil {

@@ -24,6 +24,7 @@ type Config struct {
 	OutboxPollInterval time.Duration
 	ShutdownTimeout    time.Duration
 	DatabaseTimeout    time.Duration
+	V2Enabled          bool
 }
 
 func Load() (Config, error) {
@@ -43,6 +44,7 @@ func Load() (Config, error) {
 		OutboxPollInterval: durationEnv("SHIPPING_OUTBOX_POLL_INTERVAL", time.Second),
 		ShutdownTimeout:    durationEnv("SHIPPING_SHUTDOWN_TIMEOUT", 10*time.Second),
 		DatabaseTimeout:    durationEnv("SHIPPING_DATABASE_TIMEOUT", 5*time.Second),
+		V2Enabled:          boolEnv("SHIPPING_V2_ENABLED", false),
 	}
 	if cfg.InternalToken == "" {
 		return Config{}, fmt.Errorf("SHIPPING_INTERNAL_TOKEN is required")
@@ -54,6 +56,18 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("SHIPPING_ORDER_INTERNAL_TOKEN is required when SHIPPING_ORDER_GRPC_ENDPOINT is set")
 	}
 	return cfg, nil
+}
+
+func boolEnv(name string, fallback bool) bool {
+	raw := strings.TrimSpace(os.Getenv(name))
+	if raw == "" {
+		return fallback
+	}
+	value, err := strconv.ParseBool(raw)
+	if err != nil {
+		return fallback
+	}
+	return value
 }
 
 func csvEnv(name, fallback string) []string {

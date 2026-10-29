@@ -15,6 +15,7 @@ import (
 	"github.com/omamx/shipping-service/internal/carrier"
 	"github.com/omamx/shipping-service/internal/config"
 	shippingv1 "github.com/omamx/shipping-service/internal/gen/shipping/v1"
+	shippingv2 "github.com/omamx/shipping-service/internal/gen/shipping/v2"
 	shippingkafka "github.com/omamx/shipping-service/internal/infrastructure/kafka"
 	"github.com/omamx/shipping-service/internal/infrastructure/ordergrpc"
 	postgresrepo "github.com/omamx/shipping-service/internal/repository/postgres"
@@ -73,6 +74,12 @@ func main() {
 	}
 	grpcServer := grpc.NewServer(grpc.UnaryInterceptor(grpcapi.AuthUnaryInterceptor(cfg.InternalToken)))
 	shippingv1.RegisterShippingServiceServer(grpcServer, grpcapi.NewServer(service))
+	if cfg.V2Enabled {
+		shippingv2.RegisterShippingServiceServer(grpcServer, grpcapi.NewV2Server(service))
+		logger.Info().Msg("Shipping gRPC v2 enabled alongside v1")
+	} else {
+		logger.Info().Msg("Shipping gRPC v2 disabled by SHIPPING_V2_ENABLED")
+	}
 
 	var packingConsumer *worker.PackingConsumer
 	if cfg.OrderGRPCEndpoint != "" {

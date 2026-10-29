@@ -78,17 +78,21 @@ func (p Parcel) Validate() error {
 }
 
 type CreateShipmentCommand struct {
-	IdempotencyKey string    `json:"idempotency_key"`
-	OrderID        string    `json:"order_id"`
-	PackageID      string    `json:"package_id"`
-	SealCode       string    `json:"seal_code"`
-	CarrierCode    string    `json:"carrier_code"`
-	ServiceCode    string    `json:"service_code"`
-	Recipient      Recipient `json:"recipient"`
-	Parcel         Parcel    `json:"parcel"`
-	CODAmountVND   int64     `json:"cod_amount_vnd"`
-	CheckoutFeeVND int64     `json:"checkout_fee_vnd"`
-	ShippingNotes  string    `json:"shipping_notes,omitempty"`
+	IdempotencyKey       string    `json:"idempotency_key"`
+	OrderID              string    `json:"order_id"`
+	PackageID            string    `json:"package_id"`
+	SealCode             string    `json:"seal_code"`
+	CarrierCode          string    `json:"carrier_code"`
+	ServiceCode          string    `json:"service_code"`
+	Recipient            Recipient `json:"recipient"`
+	Parcel               Parcel    `json:"parcel"`
+	CODAmountVND         int64     `json:"cod_amount_vnd"`
+	CheckoutFeeVND       int64     `json:"checkout_fee_vnd"`
+	QuoteID              string    `json:"quote_id,omitempty"`
+	ReadyGeneration      int64     `json:"ready_generation,omitempty"`
+	ItemsDigest          string    `json:"items_digest,omitempty"`
+	OrderSnapshotVersion int64     `json:"order_snapshot_version,omitempty"`
+	ShippingNotes        string    `json:"shipping_notes,omitempty"`
 }
 
 func (c CreateShipmentCommand) Validate() error {
@@ -99,6 +103,9 @@ func (c CreateShipmentCommand) Validate() error {
 	}
 	if c.CODAmountVND < 0 || c.CheckoutFeeVND < 0 {
 		return fmt.Errorf("%w: monetary values cannot be negative", ErrInvalidShipment)
+	}
+	if c.ReadyGeneration < 0 || c.OrderSnapshotVersion < 0 {
+		return fmt.Errorf("%w: proof versions cannot be negative", ErrInvalidShipment)
 	}
 	if err := c.Recipient.Validate(); err != nil {
 		return err
@@ -122,6 +129,10 @@ type Shipment struct {
 	Parcel                  Parcel         `json:"parcel"`
 	CODAmountVND            int64          `json:"cod_amount_vnd"`
 	CheckoutFeeVND          int64          `json:"checkout_fee_vnd"`
+	QuoteID                 string         `json:"quote_id,omitempty"`
+	ReadyGeneration         int64          `json:"ready_generation,omitempty"`
+	ItemsDigest             string         `json:"items_digest,omitempty"`
+	OrderSnapshotVersion    int64          `json:"order_snapshot_version,omitempty"`
 	ProviderEstimatedFeeVND int64          `json:"provider_estimated_fee_vnd"`
 	ActualFeeVND            *int64         `json:"actual_fee_vnd,omitempty"`
 	FailureCode             string         `json:"failure_code,omitempty"`
@@ -143,21 +154,25 @@ func NewCreatingShipment(cmd CreateShipmentCommand, now time.Time) (*Shipment, e
 	id := uuid.New()
 	now = now.UTC()
 	return &Shipment{
-		ID:             id,
-		ShipmentNumber: "SHP-" + strings.ToUpper(strings.ReplaceAll(id.String()[:13], "-", "")),
-		OrderID:        cmd.OrderID,
-		PackageID:      cmd.PackageID,
-		SealCode:       cmd.SealCode,
-		CarrierCode:    strings.ToUpper(cmd.CarrierCode),
-		ServiceCode:    cmd.ServiceCode,
-		Status:         StatusCreating,
-		Recipient:      cmd.Recipient,
-		Parcel:         cmd.Parcel,
-		CODAmountVND:   cmd.CODAmountVND,
-		CheckoutFeeVND: cmd.CheckoutFeeVND,
-		CreatedAt:      now,
-		UpdatedAt:      now,
-		Revision:       1,
+		ID:                   id,
+		ShipmentNumber:       "SHP-" + strings.ToUpper(strings.ReplaceAll(id.String()[:13], "-", "")),
+		OrderID:              cmd.OrderID,
+		PackageID:            cmd.PackageID,
+		SealCode:             cmd.SealCode,
+		CarrierCode:          strings.ToUpper(cmd.CarrierCode),
+		ServiceCode:          cmd.ServiceCode,
+		Status:               StatusCreating,
+		Recipient:            cmd.Recipient,
+		Parcel:               cmd.Parcel,
+		CODAmountVND:         cmd.CODAmountVND,
+		CheckoutFeeVND:       cmd.CheckoutFeeVND,
+		QuoteID:              cmd.QuoteID,
+		ReadyGeneration:      cmd.ReadyGeneration,
+		ItemsDigest:          cmd.ItemsDigest,
+		OrderSnapshotVersion: cmd.OrderSnapshotVersion,
+		CreatedAt:            now,
+		UpdatedAt:            now,
+		Revision:             1,
 	}, nil
 }
 

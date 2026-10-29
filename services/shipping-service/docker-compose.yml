@@ -79,6 +79,7 @@ services:
     environment:
       SHIPPING_HTTP_ADDRESS: :8012
       SHIPPING_GRPC_ADDRESS: :9012
+      SHIPPING_V2_ENABLED: ${SHIPPING_V2_ENABLED:-false}
       SHIPPING_DATABASE_URL: postgres://shipping:shipping@shipping-postgres:5432/shipping_db?sslmode=disable
       SHIPPING_INTERNAL_TOKEN: ${SHIPPING_INTERNAL_TOKEN:-shipping-local-development-secret}
       SHIPPING_FAKE_WEBHOOK_SECRET: ${SHIPPING_FAKE_WEBHOOK_SECRET:-fake-carrier-webhook-secret}

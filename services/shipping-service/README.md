@@ -18,6 +18,11 @@ Health endpoints:
 
 The gRPC API listens on `localhost:9012` and requires `authorization: Bearer <SHIPPING_INTERNAL_TOKEN>` metadata.
 
+Shipping v1 remains the default provider contract. Set `SHIPPING_V2_ENABLED=true` to register
+the `omamx.shipping.v2.ShippingService` API on the same gRPC listener while retaining v1.
+The v2 capability remains rollout-gated until durable quotes, packing v2, historical shipment
+revisions, and v2 events are implemented.
+
 Authenticated endpoints accept either `Authorization: Bearer <token>` or `X-Internal-Token`.
 
 ## Implemented endpoints
