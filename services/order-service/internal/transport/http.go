@@ -97,6 +97,10 @@ func Handler(s *app.Service) http.Handler {
 	})
 	r.Handle("/metrics", promhttp.HandlerFor(s.Registry(), promhttp.HandlerOpts{}))
 	r.Post("/api/v1/guest-sessions", func(w http.ResponseWriter, r *http.Request) {
+		if s.C.AuthMode == "keycloak" {
+			failure(s, w, domain.E("GUEST_SESSIONS_DISABLED", 403))
+			return
+		}
 		id := uuid.NewString()
 		now := time.Now()
 		expires := now.Add(30 * 24 * time.Hour)
@@ -115,7 +119,7 @@ func Handler(s *app.Service) http.Handler {
 	r.Group(func(api chi.Router) {
 		api.Use(func(next http.Handler) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				p, e := s.Authenticate(r.Header.Get("Authorization"))
+				p, e := s.AuthenticateContext(r.Context(), r.Header.Get("Authorization"))
 				if e != nil {
 					failure(s, w, e)
 					return
@@ -445,7 +449,7 @@ func Handler(s *app.Service) http.Handler {
 			write(w, 202, map[string]bool{"accepted": true})
 		})
 		in.Post("/recovery/{id}", func(w http.ResponseWriter, r *http.Request) {
-			p, e := s.Authenticate(r.Header.Get("Authorization"))
+			p, e := s.AuthenticateContext(r.Context(), r.Header.Get("Authorization"))
 			if e == nil {
 				e = s.Recover(r.Context(), p, chi.URLParam(r, "id"))
 			}
