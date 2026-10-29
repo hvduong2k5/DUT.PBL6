@@ -14,8 +14,6 @@ import (
 	"github.com/omamx/shipping-service/internal/domain"
 )
 
-const shippingTopic = "shipping.events.v1"
-
 type Repository struct {
 	pool *pgxpool.Pool
 }
@@ -76,14 +74,15 @@ func (r *Repository) BeginCreation(ctx context.Context, idempotencyKey string, s
 			carrier_code, service_code, status, recipient, parcel, cod_amount_vnd,
 			checkout_fee_vnd, quote_id, ready_generation, items_digest,
 			order_snapshot_version, packing_task_id, packing_task_version, packed_at,
-			created_at, updated_at, revision
-		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
+			event_version, created_at, updated_at, revision
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
 		ON CONFLICT (idempotency_key) DO NOTHING`,
 		shipment.ID, shipment.ShipmentNumber, idempotencyKey, shipment.OrderID, shipment.PackageID,
 		shipment.SealCode, shipment.CarrierCode, shipment.ServiceCode, shipment.Status, recipient, parcel,
 		shipment.CODAmountVND, shipment.CheckoutFeeVND, shipment.QuoteID, shipment.ReadyGeneration,
 		shipment.ItemsDigest, shipment.OrderSnapshotVersion, shipment.PackingTaskID,
-		shipment.PackingTaskVersion, shipment.PackedAt, shipment.CreatedAt, shipment.UpdatedAt, shipment.Revision)
+		shipment.PackingTaskVersion, shipment.PackedAt, shipment.EventVersion,
+		shipment.CreatedAt, shipment.UpdatedAt, shipment.Revision)
 	if err != nil {
 		if isUniqueViolation(err) {
 			return nil, false, fmt.Errorf("%w: order/package already has a shipment", domain.ErrInvalidShipment)
@@ -166,7 +165,7 @@ func (r *Repository) Save(ctx context.Context, shipment *domain.Shipment, expect
 		_, insertErr := tx.Exec(ctx, `
 			INSERT INTO outbox_events (id, aggregate_id, aggregate_type, event_type, topic, partition_key, payload, occurred_at)
 			VALUES ($1,$2,'shipment',$3,$4,$5,$6,$7)`,
-			event.ID, event.AggregateID, event.Type, shippingTopic, event.AggregateID.String(), payload, event.OccurredAt)
+			event.ID, event.AggregateID, event.Type, event.Topic, event.AggregateID.String(), payload, event.OccurredAt)
 		if insertErr != nil {
 			return insertErr
 		}
@@ -259,7 +258,7 @@ const selectShipment = `SELECT
 	carrier_order_id, tracking_code, label_reference, status, recipient, parcel,
 	cod_amount_vnd, checkout_fee_vnd, quote_id, ready_generation, items_digest,
 	order_snapshot_version, packing_task_id, packing_task_version, packed_at,
-	provider_estimated_fee_vnd, actual_fee_vnd,
+	event_version, provider_estimated_fee_vnd, actual_fee_vnd,
 	failure_code, failure_reason, estimated_pickup_at, estimated_delivery_at,
 	handed_over_at, delivered_at, last_event_at, created_at, updated_at, revision
 FROM shipments`
@@ -304,6 +303,7 @@ func scanShipment(row rowScanner) (*domain.Shipment, error) {
 		&shipment.CODAmountVND, &shipment.CheckoutFeeVND, &shipment.QuoteID,
 		&shipment.ReadyGeneration, &shipment.ItemsDigest, &shipment.OrderSnapshotVersion,
 		&shipment.PackingTaskID, &shipment.PackingTaskVersion, &shipment.PackedAt,
+		&shipment.EventVersion,
 		&shipment.ProviderEstimatedFeeVND,
 		&shipment.ActualFeeVND, &shipment.FailureCode, &shipment.FailureReason,
 		&shipment.EstimatedPickupAt, &shipment.EstimatedDeliveryAt, &shipment.HandedOverAt,

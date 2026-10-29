@@ -23,7 +23,9 @@ the `omamx.shipping.v2.ShippingService` API on the same gRPC listener while reta
 The v2 API persists bound quotes with their canonical request hash, immutable expiry and
 monotonic quote version. It also serves exact, proof-bearing shipment revisions created after
 the revision migration; older rows are deliberately not backfilled from current state. The
-capability remains rollout-gated until v2 shipping events are implemented and accepted.
+event cohort is pinned on each Shipment: legacy callers publish only `shipping.events.v1`, while
+gRPC v2 and Packing v2 shipments publish proof-bearing events to `shipping.events.v2`. Runtime
+rollout remains gated until owning-service and consumer acceptance is complete.
 
 Authenticated endpoints accept either `Authorization: Bearer <token>` or `X-Internal-Token`.
 

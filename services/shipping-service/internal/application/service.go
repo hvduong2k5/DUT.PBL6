@@ -160,11 +160,15 @@ func (s *Service) CreateShipment(ctx context.Context, cmd domain.CreateShipmentC
 	if err != nil {
 		return nil, err
 	}
+	requestedEventVersion := shipment.EventVersion
 	shipment, inserted, err := s.repository.BeginCreation(ctx, cmd.IdempotencyKey, shipment)
 	if err != nil {
 		return nil, err
 	}
 	if !inserted {
+		if shipment.EventVersion != requestedEventVersion {
+			return nil, domain.ErrIdempotencyConflict
+		}
 		return shipment, nil
 	}
 
@@ -186,7 +190,7 @@ func (s *Service) CreateShipment(ctx context.Context, cmd domain.CreateShipmentC
 	if err := shipment.MarkCreated(result.CarrierOrderID, result.TrackingCode, result.LabelReference, result.EstimatedFeeVND, result.EstimatedPickupAt, result.EstimatedDeliveryAt, now); err != nil {
 		return nil, err
 	}
-	event := domain.NewDomainEvent("vn.omama.shipping.shipment.created.v1", shipment, now)
+	event := domain.NewDomainEvent("created", shipment, now)
 	if err := s.repository.Save(ctx, shipment, expectedRevision, nil, &event); err != nil {
 		return nil, err
 	}
@@ -243,7 +247,7 @@ func (s *Service) CreateFromPacking(ctx context.Context, event PackingCompleted,
 		ReadyGeneration: snapshot.ReadyGeneration, ItemsDigest: snapshot.ItemsDigest,
 		OrderSnapshotVersion: snapshot.SnapshotVersion,
 		PackingTaskID:        event.TaskID, PackingTaskVersion: event.TaskResourceVersion,
-		PackedAt: event.PackedAt,
+		PackedAt: event.PackedAt, EventVersion: event.EventVersion,
 	})
 }
 
@@ -253,7 +257,7 @@ func (s *Service) failCreation(ctx context.Context, shipment *domain.Shipment, c
 	if transitionErr := shipment.MarkCreationFailed(code, cause.Error(), now); transitionErr != nil {
 		return nil, errors.Join(cause, transitionErr)
 	}
-	event := domain.NewDomainEvent("vn.omama.shipping.shipment.creation-failed.v1", shipment, now)
+	event := domain.NewDomainEvent("creation-failed", shipment, now)
 	if saveErr := s.repository.Save(ctx, shipment, expectedRevision, nil, &event); saveErr != nil {
 		return nil, errors.Join(cause, saveErr)
 	}
@@ -270,7 +274,7 @@ func (s *Service) ConfirmHandover(ctx context.Context, id uuid.UUID) (*domain.Sh
 	if err := shipment.Transition(domain.StatusHandedOver, now); err != nil {
 		return nil, err
 	}
-	event := domain.NewDomainEvent("vn.omama.shipping.shipment.handed-over.v1", shipment, now)
+	event := domain.NewDomainEvent("handed-over", shipment, now)
 	if err := s.repository.Save(ctx, shipment, expectedRevision, nil, &event); err != nil {
 		return nil, err
 	}
@@ -318,10 +322,10 @@ func (s *Service) ApplyWebhook(ctx context.Context, carrierCode string, body []b
 	}
 	eventAt := update.EventAt.UTC()
 	shipment.LastEventAt = &eventAt
-	eventType := eventTypeForStatus(shipment.Status)
+	eventName := eventNameForStatus(shipment.Status)
 	var event *domain.DomainEvent
-	if eventType != "" {
-		value := domain.NewDomainEvent(eventType, shipment, now)
+	if eventName != "" {
+		value := domain.NewDomainEvent(eventName, shipment, now)
 		event = &value
 	}
 	if err := s.repository.Save(ctx, shipment, expectedRevision, tracking, event); err != nil {
@@ -333,20 +337,26 @@ func (s *Service) ApplyWebhook(ctx context.Context, carrierCode string, body []b
 	return shipment, tracking.MappingResult, nil
 }
 
-func eventTypeForStatus(status domain.ShipmentStatus) string {
+func eventNameForStatus(status domain.ShipmentStatus) string {
 	switch status {
+	case domain.StatusCreated:
+		return "created"
+	case domain.StatusCreationFailed:
+		return "creation-failed"
+	case domain.StatusReadyForHandover, domain.StatusInTransit, domain.StatusOutForDelivery:
+		return "status-changed"
 	case domain.StatusHandedOver:
-		return "vn.omama.shipping.shipment.handed-over.v1"
+		return "handed-over"
 	case domain.StatusDelivered:
-		return "vn.omama.shipping.shipment.delivered.v1"
+		return "delivered"
 	case domain.StatusDeliveryFailed:
-		return "vn.omama.shipping.shipment.delivery-failed.v1"
+		return "delivery-failed"
 	case domain.StatusReturning:
-		return "vn.omama.shipping.shipment.returning.v1"
+		return "returning"
 	case domain.StatusReturned:
-		return "vn.omama.shipping.shipment.returned.v1"
+		return "returned"
 	default:
-		return "vn.omama.shipping.shipment.status-changed.v1"
+		return ""
 	}
 }
 

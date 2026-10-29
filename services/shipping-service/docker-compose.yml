@@ -56,6 +56,24 @@ services:
       - --replication-factor
       - "1"
 
+  shipping-v2-kafka-init:
+    image: apache/kafka:3.8.1
+    depends_on:
+      shipping-kafka:
+        condition: service_healthy
+    entrypoint: ["/opt/kafka/bin/kafka-topics.sh"]
+    command:
+      - --bootstrap-server
+      - shipping-kafka:29092
+      - --create
+      - --if-not-exists
+      - --topic
+      - shipping.events.v2
+      - --partitions
+      - "3"
+      - --replication-factor
+      - "1"
+
   shipping-fulfillment-kafka-init:
     image: apache/kafka:3.8.1
     depends_on:
@@ -116,6 +134,8 @@ services:
       shipping-postgres:
         condition: service_healthy
       shipping-kafka-init:
+        condition: service_completed_successfully
+      shipping-v2-kafka-init:
         condition: service_completed_successfully
       shipping-fulfillment-kafka-init:
         condition: service_completed_successfully

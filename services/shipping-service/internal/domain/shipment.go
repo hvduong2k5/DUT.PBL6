@@ -95,6 +95,7 @@ type CreateShipmentCommand struct {
 	PackingTaskID        string    `json:"packing_task_id,omitempty"`
 	PackingTaskVersion   int64     `json:"packing_task_version,omitempty"`
 	PackedAt             time.Time `json:"packed_at,omitempty"`
+	EventVersion         int       `json:"event_version,omitempty"`
 	ShippingNotes        string    `json:"shipping_notes,omitempty"`
 }
 
@@ -109,6 +110,9 @@ func (c CreateShipmentCommand) Validate() error {
 	}
 	if c.ReadyGeneration < 0 || c.OrderSnapshotVersion < 0 {
 		return fmt.Errorf("%w: proof versions cannot be negative", ErrInvalidShipment)
+	}
+	if c.EventVersion < 0 || c.EventVersion > 2 {
+		return fmt.Errorf("%w: event_version must be 1 or 2", ErrInvalidShipment)
 	}
 	hasPackingProof := strings.TrimSpace(c.PackingTaskID) != "" || c.PackingTaskVersion != 0 || !c.PackedAt.IsZero()
 	if hasPackingProof {
@@ -145,6 +149,7 @@ type Shipment struct {
 	PackingTaskID           string         `json:"packing_task_id,omitempty"`
 	PackingTaskVersion      int64          `json:"packing_task_version,omitempty"`
 	PackedAt                *time.Time     `json:"packed_at,omitempty"`
+	EventVersion            int            `json:"event_version"`
 	ProviderEstimatedFeeVND int64          `json:"provider_estimated_fee_vnd"`
 	ActualFeeVND            *int64         `json:"actual_fee_vnd,omitempty"`
 	FailureCode             string         `json:"failure_code,omitempty"`
@@ -184,6 +189,7 @@ func NewCreatingShipment(cmd CreateShipmentCommand, now time.Time) (*Shipment, e
 		OrderSnapshotVersion: cmd.OrderSnapshotVersion,
 		PackingTaskID:        cmd.PackingTaskID,
 		PackingTaskVersion:   cmd.PackingTaskVersion,
+		EventVersion:         normalizeEventVersion(cmd.EventVersion),
 		CreatedAt:            now,
 		UpdatedAt:            now,
 		Revision:             1,
@@ -303,28 +309,46 @@ type DomainEvent struct {
 	Data            ShipmentEventData `json:"data"`
 	AggregateID     uuid.UUID         `json:"-"`
 	OccurredAt      time.Time         `json:"-"`
+	Topic           string            `json:"-"`
 }
 
 type ShipmentEventData struct {
-	ShipmentID   uuid.UUID `json:"shipment_id"`
-	OrderID      string    `json:"order_id"`
-	PackageID    string    `json:"package_id"`
-	CarrierCode  string    `json:"carrier_code"`
-	TrackingCode string    `json:"tracking_code,omitempty"`
-	Status       string    `json:"status"`
+	ShipmentID      uuid.UUID `json:"shipment_id"`
+	OrderID         string    `json:"order_id"`
+	PackageID       string    `json:"package_id"`
+	CarrierCode     string    `json:"carrier_code"`
+	TrackingCode    string    `json:"tracking_code,omitempty"`
+	Status          string    `json:"status"`
+	ResourceVersion int64     `json:"resource_version,omitempty"`
+	ReadyGeneration int64     `json:"ready_generation,omitempty"`
 }
 
-func NewDomainEvent(eventType string, shipment *Shipment, now time.Time) DomainEvent {
+func NewDomainEvent(eventName string, shipment *Shipment, now time.Time) DomainEvent {
 	now = now.UTC()
+	eventVersion := normalizeEventVersion(shipment.EventVersion)
+	eventType := fmt.Sprintf("vn.omama.shipping.shipment.%s.v%d", eventName, eventVersion)
+	topic := fmt.Sprintf("shipping.events.v%d", eventVersion)
 	traceID := strings.ReplaceAll(uuid.NewString(), "-", "")
 	spanID := strings.ReplaceAll(uuid.NewString(), "-", "")[:16]
-	return DomainEvent{
+	event := DomainEvent{
 		SpecVersion: "1.0", ID: uuid.New(), Source: "https://omama.vn/services/shipping-service",
 		Type: eventType, Subject: "shipment_id:" + shipment.ID.String(), Time: now,
 		DataContentType: "application/json", TraceParent: "00-" + traceID + "-" + spanID + "-01",
-		AggregateID: shipment.ID, OccurredAt: now,
+		AggregateID: shipment.ID, OccurredAt: now, Topic: topic,
 		Data: ShipmentEventData{ShipmentID: shipment.ID, OrderID: shipment.OrderID,
 			PackageID: shipment.PackageID, CarrierCode: shipment.CarrierCode,
 			TrackingCode: shipment.TrackingCode, Status: string(shipment.Status)},
 	}
+	if eventVersion == 2 {
+		event.Data.ResourceVersion = shipment.Revision
+		event.Data.ReadyGeneration = shipment.ReadyGeneration
+	}
+	return event
+}
+
+func normalizeEventVersion(version int) int {
+	if version == 2 {
+		return 2
+	}
+	return 1
 }

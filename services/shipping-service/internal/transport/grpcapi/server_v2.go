@@ -94,7 +94,7 @@ func (s *V2Server) CreateShipment(ctx context.Context, request *shippingv2.Creat
 		CODAmountVND: moneyUnits(request.GetCodAmount()), CheckoutFeeVND: moneyUnits(request.GetCheckoutShippingFee()),
 		QuoteID: request.GetQuoteId(), ReadyGeneration: request.GetReadyGeneration(),
 		ItemsDigest: request.GetItemsDigest(), OrderSnapshotVersion: request.GetOrderSnapshotVersion(),
-		ShippingNotes: request.GetShippingNotes(),
+		ShippingNotes: request.GetShippingNotes(), EventVersion: 2,
 	})
 	if err != nil {
 		return nil, toStatus(err)
