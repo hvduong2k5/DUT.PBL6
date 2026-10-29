@@ -74,16 +74,41 @@ services:
       - --replication-factor
       - "1"
 
+  shipping-fulfillment-v2-kafka-init:
+    image: apache/kafka:3.8.1
+    depends_on:
+      shipping-kafka:
+        condition: service_healthy
+    entrypoint: ["/opt/kafka/bin/kafka-topics.sh"]
+    command:
+      - --bootstrap-server
+      - shipping-kafka:29092
+      - --create
+      - --if-not-exists
+      - --topic
+      - fulfillment.events.v2
+      - --partitions
+      - "3"
+      - --replication-factor
+      - "1"
+
   shipping-service:
     build: .
     environment:
       SHIPPING_HTTP_ADDRESS: :8012
       SHIPPING_GRPC_ADDRESS: :9012
       SHIPPING_V2_ENABLED: ${SHIPPING_V2_ENABLED:-false}
+      SHIPPING_PACKING_V2_ENABLED: ${SHIPPING_PACKING_V2_ENABLED:-false}
       SHIPPING_DATABASE_URL: postgres://shipping:shipping@shipping-postgres:5432/shipping_db?sslmode=disable
       SHIPPING_INTERNAL_TOKEN: ${SHIPPING_INTERNAL_TOKEN:-shipping-local-development-secret}
       SHIPPING_FAKE_WEBHOOK_SECRET: ${SHIPPING_FAKE_WEBHOOK_SECRET:-fake-carrier-webhook-secret}
       SHIPPING_KAFKA_BROKERS: shipping-kafka:29092
+      SHIPPING_FULFILLMENT_TOPIC: ${SHIPPING_FULFILLMENT_TOPIC:-fulfillment.events.v1}
+      SHIPPING_FULFILLMENT_GROUP: ${SHIPPING_FULFILLMENT_GROUP:-shipping-service-v1}
+      SHIPPING_FULFILLMENT_V2_TOPIC: ${SHIPPING_FULFILLMENT_V2_TOPIC:-fulfillment.events.v2}
+      SHIPPING_FULFILLMENT_V2_GROUP: ${SHIPPING_FULFILLMENT_V2_GROUP:-shipping-service-v2}
+      SHIPPING_ORDER_GRPC_ENDPOINT: ${SHIPPING_ORDER_GRPC_ENDPOINT:-}
+      SHIPPING_ORDER_INTERNAL_TOKEN: ${SHIPPING_ORDER_INTERNAL_TOKEN:-}
     ports:
       - "8012:8012"
       - "9012:9012"
@@ -93,6 +118,8 @@ services:
       shipping-kafka-init:
         condition: service_completed_successfully
       shipping-fulfillment-kafka-init:
+        condition: service_completed_successfully
+      shipping-fulfillment-v2-kafka-init:
         condition: service_completed_successfully
 
 volumes:

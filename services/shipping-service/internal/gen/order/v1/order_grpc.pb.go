@@ -19,16 +19,21 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	OrderService_CreatePOSOrder_FullMethodName      = "/omamx.order.v1.OrderService/CreatePOSOrder"
-	OrderService_GetOrderDetail_FullMethodName      = "/omamx.order.v1.OrderService/GetOrderDetail"
-	OrderService_CancelOrder_FullMethodName         = "/omamx.order.v1.OrderService/CancelOrder"
-	OrderService_GetShippingSnapshot_FullMethodName = "/omamx.order.v1.OrderService/GetShippingSnapshot"
+	OrderService_GetShippingSnapshot_FullMethodName       = "/omamx.order.v1.OrderService/GetShippingSnapshot"
+	OrderService_CreatePOSOrder_FullMethodName            = "/omamx.order.v1.OrderService/CreatePOSOrder"
+	OrderService_GetOrderDetail_FullMethodName            = "/omamx.order.v1.OrderService/GetOrderDetail"
+	OrderService_CancelOrder_FullMethodName               = "/omamx.order.v1.OrderService/CancelOrder"
+	OrderService_GetCheckoutOperation_FullMethodName      = "/omamx.order.v1.OrderService/GetCheckoutOperation"
+	OrderService_GetFulfillmentPermit_FullMethodName      = "/omamx.order.v1.OrderService/GetFulfillmentPermit"
+	OrderService_ValidateFulfillmentPermit_FullMethodName = "/omamx.order.v1.OrderService/ValidateFulfillmentPermit"
 )
 
 // OrderServiceClient is the client API for OrderService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type OrderServiceClient interface {
+	// Integration target: Shipping caller identity only; fail closed until provider is implemented.
+	GetShippingSnapshot(ctx context.Context, in *GetShippingSnapshotRequest, opts ...grpc.CallOption) (*GetShippingSnapshotResponse, error)
 	// Tạo đơn hàng trực tiếp tại quầy bán lẻ offline (POS Quầy Xưởng Hương Thủy & Cửa hàng Huế)
 	// Bên Tiêu Thụ Duy Nhất: MS-13 channel-service (Phân hệ POS)
 	// TUYỆT ĐỐI CẤM dùng RPC này cho đơn sàn Shopee/TikTok (Đơn sàn đi qua Kafka MarketplaceOrderImportedEvent)
@@ -37,9 +42,11 @@ type OrderServiceClient interface {
 	GetOrderDetail(ctx context.Context, in *GetOrderDetailRequest, opts ...grpc.CallOption) (*GetOrderDetailResponse, error)
 	// Khách hàng hoặc Quản trị viên yêu cầu hủy đơn hàng (Kích hoạt Saga Compensation)
 	CancelOrder(ctx context.Context, in *CancelOrderRequest, opts ...grpc.CallOption) (*CancelOrderResponse, error)
-	// Cấp snapshot giao nhận bất biến cho Shipping sau khi kiện đã đóng gói.
-	// Chỉ cho phép service identity của MS-12; không dùng làm API công khai.
-	GetShippingSnapshot(ctx context.Context, in *GetShippingSnapshotRequest, opts ...grpc.CallOption) (*GetShippingSnapshotResponse, error)
+	GetCheckoutOperation(ctx context.Context, in *GetCheckoutOperationRequest, opts ...grpc.CallOption) (*GetCheckoutOperationResponse, error)
+	// Fulfillment service identity only. Local hold/eligibility checked under lock.
+	GetFulfillmentPermit(ctx context.Context, in *GetFulfillmentPermitRequest, opts ...grpc.CallOption) (*GetFulfillmentPermitResponse, error)
+	// Online validation binds opaque permit to the authenticated Fulfillment caller.
+	ValidateFulfillmentPermit(ctx context.Context, in *ValidateFulfillmentPermitRequest, opts ...grpc.CallOption) (*GetFulfillmentPermitResponse, error)
 }
 
 type orderServiceClient struct {
@@ -48,6 +55,15 @@ type orderServiceClient struct {
 
 func NewOrderServiceClient(cc grpc.ClientConnInterface) OrderServiceClient {
 	return &orderServiceClient{cc}
+}
+
+func (c *orderServiceClient) GetShippingSnapshot(ctx context.Context, in *GetShippingSnapshotRequest, opts ...grpc.CallOption) (*GetShippingSnapshotResponse, error) {
+	out := new(GetShippingSnapshotResponse)
+	err := c.cc.Invoke(ctx, OrderService_GetShippingSnapshot_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *orderServiceClient) CreatePOSOrder(ctx context.Context, in *CreatePOSOrderRequest, opts ...grpc.CallOption) (*CreatePOSOrderResponse, error) {
@@ -77,9 +93,27 @@ func (c *orderServiceClient) CancelOrder(ctx context.Context, in *CancelOrderReq
 	return out, nil
 }
 
-func (c *orderServiceClient) GetShippingSnapshot(ctx context.Context, in *GetShippingSnapshotRequest, opts ...grpc.CallOption) (*GetShippingSnapshotResponse, error) {
-	out := new(GetShippingSnapshotResponse)
-	err := c.cc.Invoke(ctx, OrderService_GetShippingSnapshot_FullMethodName, in, out, opts...)
+func (c *orderServiceClient) GetCheckoutOperation(ctx context.Context, in *GetCheckoutOperationRequest, opts ...grpc.CallOption) (*GetCheckoutOperationResponse, error) {
+	out := new(GetCheckoutOperationResponse)
+	err := c.cc.Invoke(ctx, OrderService_GetCheckoutOperation_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *orderServiceClient) GetFulfillmentPermit(ctx context.Context, in *GetFulfillmentPermitRequest, opts ...grpc.CallOption) (*GetFulfillmentPermitResponse, error) {
+	out := new(GetFulfillmentPermitResponse)
+	err := c.cc.Invoke(ctx, OrderService_GetFulfillmentPermit_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *orderServiceClient) ValidateFulfillmentPermit(ctx context.Context, in *ValidateFulfillmentPermitRequest, opts ...grpc.CallOption) (*GetFulfillmentPermitResponse, error) {
+	out := new(GetFulfillmentPermitResponse)
+	err := c.cc.Invoke(ctx, OrderService_ValidateFulfillmentPermit_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -90,6 +124,8 @@ func (c *orderServiceClient) GetShippingSnapshot(ctx context.Context, in *GetShi
 // All implementations must embed UnimplementedOrderServiceServer
 // for forward compatibility
 type OrderServiceServer interface {
+	// Integration target: Shipping caller identity only; fail closed until provider is implemented.
+	GetShippingSnapshot(context.Context, *GetShippingSnapshotRequest) (*GetShippingSnapshotResponse, error)
 	// Tạo đơn hàng trực tiếp tại quầy bán lẻ offline (POS Quầy Xưởng Hương Thủy & Cửa hàng Huế)
 	// Bên Tiêu Thụ Duy Nhất: MS-13 channel-service (Phân hệ POS)
 	// TUYỆT ĐỐI CẤM dùng RPC này cho đơn sàn Shopee/TikTok (Đơn sàn đi qua Kafka MarketplaceOrderImportedEvent)
@@ -98,9 +134,11 @@ type OrderServiceServer interface {
 	GetOrderDetail(context.Context, *GetOrderDetailRequest) (*GetOrderDetailResponse, error)
 	// Khách hàng hoặc Quản trị viên yêu cầu hủy đơn hàng (Kích hoạt Saga Compensation)
 	CancelOrder(context.Context, *CancelOrderRequest) (*CancelOrderResponse, error)
-	// Cấp snapshot giao nhận bất biến cho Shipping sau khi kiện đã đóng gói.
-	// Chỉ cho phép service identity của MS-12; không dùng làm API công khai.
-	GetShippingSnapshot(context.Context, *GetShippingSnapshotRequest) (*GetShippingSnapshotResponse, error)
+	GetCheckoutOperation(context.Context, *GetCheckoutOperationRequest) (*GetCheckoutOperationResponse, error)
+	// Fulfillment service identity only. Local hold/eligibility checked under lock.
+	GetFulfillmentPermit(context.Context, *GetFulfillmentPermitRequest) (*GetFulfillmentPermitResponse, error)
+	// Online validation binds opaque permit to the authenticated Fulfillment caller.
+	ValidateFulfillmentPermit(context.Context, *ValidateFulfillmentPermitRequest) (*GetFulfillmentPermitResponse, error)
 	mustEmbedUnimplementedOrderServiceServer()
 }
 
@@ -108,6 +146,9 @@ type OrderServiceServer interface {
 type UnimplementedOrderServiceServer struct {
 }
 
+func (UnimplementedOrderServiceServer) GetShippingSnapshot(context.Context, *GetShippingSnapshotRequest) (*GetShippingSnapshotResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetShippingSnapshot not implemented")
+}
 func (UnimplementedOrderServiceServer) CreatePOSOrder(context.Context, *CreatePOSOrderRequest) (*CreatePOSOrderResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreatePOSOrder not implemented")
 }
@@ -117,8 +158,14 @@ func (UnimplementedOrderServiceServer) GetOrderDetail(context.Context, *GetOrder
 func (UnimplementedOrderServiceServer) CancelOrder(context.Context, *CancelOrderRequest) (*CancelOrderResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CancelOrder not implemented")
 }
-func (UnimplementedOrderServiceServer) GetShippingSnapshot(context.Context, *GetShippingSnapshotRequest) (*GetShippingSnapshotResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetShippingSnapshot not implemented")
+func (UnimplementedOrderServiceServer) GetCheckoutOperation(context.Context, *GetCheckoutOperationRequest) (*GetCheckoutOperationResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetCheckoutOperation not implemented")
+}
+func (UnimplementedOrderServiceServer) GetFulfillmentPermit(context.Context, *GetFulfillmentPermitRequest) (*GetFulfillmentPermitResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetFulfillmentPermit not implemented")
+}
+func (UnimplementedOrderServiceServer) ValidateFulfillmentPermit(context.Context, *ValidateFulfillmentPermitRequest) (*GetFulfillmentPermitResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ValidateFulfillmentPermit not implemented")
 }
 func (UnimplementedOrderServiceServer) mustEmbedUnimplementedOrderServiceServer() {}
 
@@ -131,6 +178,24 @@ type UnsafeOrderServiceServer interface {
 
 func RegisterOrderServiceServer(s grpc.ServiceRegistrar, srv OrderServiceServer) {
 	s.RegisterService(&OrderService_ServiceDesc, srv)
+}
+
+func _OrderService_GetShippingSnapshot_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetShippingSnapshotRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OrderServiceServer).GetShippingSnapshot(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: OrderService_GetShippingSnapshot_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OrderServiceServer).GetShippingSnapshot(ctx, req.(*GetShippingSnapshotRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _OrderService_CreatePOSOrder_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -187,20 +252,56 @@ func _OrderService_CancelOrder_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
-func _OrderService_GetShippingSnapshot_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetShippingSnapshotRequest)
+func _OrderService_GetCheckoutOperation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetCheckoutOperationRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(OrderServiceServer).GetShippingSnapshot(ctx, in)
+		return srv.(OrderServiceServer).GetCheckoutOperation(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: OrderService_GetShippingSnapshot_FullMethodName,
+		FullMethod: OrderService_GetCheckoutOperation_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(OrderServiceServer).GetShippingSnapshot(ctx, req.(*GetShippingSnapshotRequest))
+		return srv.(OrderServiceServer).GetCheckoutOperation(ctx, req.(*GetCheckoutOperationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _OrderService_GetFulfillmentPermit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetFulfillmentPermitRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OrderServiceServer).GetFulfillmentPermit(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: OrderService_GetFulfillmentPermit_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OrderServiceServer).GetFulfillmentPermit(ctx, req.(*GetFulfillmentPermitRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _OrderService_ValidateFulfillmentPermit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ValidateFulfillmentPermitRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OrderServiceServer).ValidateFulfillmentPermit(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: OrderService_ValidateFulfillmentPermit_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OrderServiceServer).ValidateFulfillmentPermit(ctx, req.(*ValidateFulfillmentPermitRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -212,6 +313,10 @@ var OrderService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "omamx.order.v1.OrderService",
 	HandlerType: (*OrderServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "GetShippingSnapshot",
+			Handler:    _OrderService_GetShippingSnapshot_Handler,
+		},
 		{
 			MethodName: "CreatePOSOrder",
 			Handler:    _OrderService_CreatePOSOrder_Handler,
@@ -225,8 +330,16 @@ var OrderService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _OrderService_CancelOrder_Handler,
 		},
 		{
-			MethodName: "GetShippingSnapshot",
-			Handler:    _OrderService_GetShippingSnapshot_Handler,
+			MethodName: "GetCheckoutOperation",
+			Handler:    _OrderService_GetCheckoutOperation_Handler,
+		},
+		{
+			MethodName: "GetFulfillmentPermit",
+			Handler:    _OrderService_GetFulfillmentPermit_Handler,
+		},
+		{
+			MethodName: "ValidateFulfillmentPermit",
+			Handler:    _OrderService_ValidateFulfillmentPermit_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

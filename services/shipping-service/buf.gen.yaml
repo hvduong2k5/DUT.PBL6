@@ -6,9 +6,11 @@ plugins:
       - paths=source_relative
       - Mcommon/v1/types.proto=github.com/omamx/shipping-service/internal/gen/common/v1
       - Mcommon/v1/errors.proto=github.com/omamx/shipping-service/internal/gen/common/v1
+      - Mcommon/v1/workflow.proto=github.com/omamx/shipping-service/internal/gen/common/v1
   - plugin: buf.build/grpc/go:v1.3.0
     out: ../../services/shipping-service/internal/gen
     opt:
       - paths=source_relative
       - Mcommon/v1/types.proto=github.com/omamx/shipping-service/internal/gen/common/v1
       - Mcommon/v1/errors.proto=github.com/omamx/shipping-service/internal/gen/common/v1
+      - Mcommon/v1/workflow.proto=github.com/omamx/shipping-service/internal/gen/common/v1

@@ -42,21 +42,31 @@ type ProviderError struct {
 }
 
 type PackingCompleted struct {
-	EventID   string
-	OrderID   string
-	PackageID string
-	SealCode  string
-	Parcel    domain.Parcel
+	EventID             string
+	EventVersion        int
+	OrderID             string
+	PackageID           string
+	SealCode            string
+	Parcel              domain.Parcel
+	TaskID              string
+	TaskResourceVersion int64
+	ReadyGeneration     int64
+	PackedAt            time.Time
 }
 
 type OrderShippingSnapshot struct {
 	OrderID             string
 	PackageID           string
+	SnapshotVersion     int64
+	ReadyGeneration     int64
+	ItemsDigest         string
+	WarehouseID         string
 	Recipient           domain.Recipient
 	CheckoutFeeVND      int64
 	CODAmountVND        int64
 	CarrierCode         string
 	ServiceCode         string
+	QuoteID             string
 	EligibleForShipping bool
 }
 
@@ -187,6 +197,12 @@ func (s *Service) CreateFromPacking(ctx context.Context, event PackingCompleted,
 	if err := event.Parcel.Validate(); err != nil {
 		return nil, err
 	}
+	if event.EventVersion == 2 {
+		if _, err := uuid.Parse(event.TaskID); err != nil || event.TaskResourceVersion < 1 ||
+			event.ReadyGeneration < 1 || event.PackedAt.IsZero() {
+			return nil, fmt.Errorf("%w: packing v2 task proof is incomplete", domain.ErrInvalidShipment)
+		}
+	}
 	snapshot, err := snapshots.GetShippingSnapshot(ctx, event.OrderID, event.PackageID)
 	if err != nil {
 		return nil, fmt.Errorf("get immutable order shipping snapshot: %w", err)
@@ -196,6 +212,15 @@ func (s *Service) CreateFromPacking(ctx context.Context, event PackingCompleted,
 	}
 	if snapshot.OrderID != event.OrderID || snapshot.PackageID != event.PackageID {
 		return nil, fmt.Errorf("%w: order shipping snapshot identity mismatch", domain.ErrInvalidShipment)
+	}
+	if event.EventVersion == 2 {
+		if snapshot.SnapshotVersion < 1 || snapshot.ReadyGeneration < 1 ||
+			strings.TrimSpace(snapshot.ItemsDigest) == "" || strings.TrimSpace(snapshot.WarehouseID) == "" {
+			return nil, fmt.Errorf("%w: order shipping snapshot proof is incomplete", domain.ErrInvalidShipment)
+		}
+		if snapshot.ReadyGeneration != event.ReadyGeneration {
+			return nil, fmt.Errorf("%w: fulfillment generation does not match order snapshot", domain.ErrInvalidShipment)
+		}
 	}
 	carrierCode := strings.TrimSpace(snapshot.CarrierCode)
 	if carrierCode == "" {
@@ -210,7 +235,11 @@ func (s *Service) CreateFromPacking(ctx context.Context, event PackingCompleted,
 		OrderID:        event.OrderID, PackageID: event.PackageID, SealCode: event.SealCode,
 		CarrierCode: carrierCode, ServiceCode: serviceCode, Recipient: snapshot.Recipient,
 		Parcel: event.Parcel, CODAmountVND: snapshot.CODAmountVND,
-		CheckoutFeeVND: snapshot.CheckoutFeeVND,
+		CheckoutFeeVND: snapshot.CheckoutFeeVND, QuoteID: snapshot.QuoteID,
+		ReadyGeneration: snapshot.ReadyGeneration, ItemsDigest: snapshot.ItemsDigest,
+		OrderSnapshotVersion: snapshot.SnapshotVersion,
+		PackingTaskID:        event.TaskID, PackingTaskVersion: event.TaskResourceVersion,
+		PackedAt: event.PackedAt,
 	})
 }
 

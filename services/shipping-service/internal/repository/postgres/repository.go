@@ -75,13 +75,15 @@ func (r *Repository) BeginCreation(ctx context.Context, idempotencyKey string, s
 			id, shipment_number, idempotency_key, order_id, package_id, seal_code,
 			carrier_code, service_code, status, recipient, parcel, cod_amount_vnd,
 			checkout_fee_vnd, quote_id, ready_generation, items_digest,
-			order_snapshot_version, created_at, updated_at, revision
-		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+			order_snapshot_version, packing_task_id, packing_task_version, packed_at,
+			created_at, updated_at, revision
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
 		ON CONFLICT (idempotency_key) DO NOTHING`,
 		shipment.ID, shipment.ShipmentNumber, idempotencyKey, shipment.OrderID, shipment.PackageID,
 		shipment.SealCode, shipment.CarrierCode, shipment.ServiceCode, shipment.Status, recipient, parcel,
 		shipment.CODAmountVND, shipment.CheckoutFeeVND, shipment.QuoteID, shipment.ReadyGeneration,
-		shipment.ItemsDigest, shipment.OrderSnapshotVersion, shipment.CreatedAt, shipment.UpdatedAt, shipment.Revision)
+		shipment.ItemsDigest, shipment.OrderSnapshotVersion, shipment.PackingTaskID,
+		shipment.PackingTaskVersion, shipment.PackedAt, shipment.CreatedAt, shipment.UpdatedAt, shipment.Revision)
 	if err != nil {
 		if isUniqueViolation(err) {
 			return nil, false, fmt.Errorf("%w: order/package already has a shipment", domain.ErrInvalidShipment)
@@ -224,7 +226,8 @@ const selectShipment = `SELECT
 	id, shipment_number, order_id, package_id, seal_code, carrier_code, service_code,
 	carrier_order_id, tracking_code, label_reference, status, recipient, parcel,
 	cod_amount_vnd, checkout_fee_vnd, quote_id, ready_generation, items_digest,
-	order_snapshot_version, provider_estimated_fee_vnd, actual_fee_vnd,
+	order_snapshot_version, packing_task_id, packing_task_version, packed_at,
+	provider_estimated_fee_vnd, actual_fee_vnd,
 	failure_code, failure_reason, estimated_pickup_at, estimated_delivery_at,
 	handed_over_at, delivered_at, last_event_at, created_at, updated_at, revision
 FROM shipments`
@@ -268,6 +271,7 @@ func scanShipment(row rowScanner) (*domain.Shipment, error) {
 		&shipment.TrackingCode, &shipment.LabelReference, &shipment.Status, &recipient, &parcel,
 		&shipment.CODAmountVND, &shipment.CheckoutFeeVND, &shipment.QuoteID,
 		&shipment.ReadyGeneration, &shipment.ItemsDigest, &shipment.OrderSnapshotVersion,
+		&shipment.PackingTaskID, &shipment.PackingTaskVersion, &shipment.PackedAt,
 		&shipment.ProviderEstimatedFeeVND,
 		&shipment.ActualFeeVND, &shipment.FailureCode, &shipment.FailureReason,
 		&shipment.EstimatedPickupAt, &shipment.EstimatedDeliveryAt, &shipment.HandedOverAt,

@@ -81,7 +81,7 @@ func main() {
 		logger.Info().Msg("Shipping gRPC v2 disabled by SHIPPING_V2_ENABLED")
 	}
 
-	var packingConsumer *worker.PackingConsumer
+	var packingConsumers []*worker.PackingConsumer
 	if cfg.OrderGRPCEndpoint != "" {
 		orderClient, clientErr := ordergrpc.New(cfg.OrderGRPCEndpoint, cfg.OrderInternalToken)
 		if clientErr != nil {
@@ -92,14 +92,28 @@ func main() {
 				logger.Error().Err(closeErr).Msg("close Order service client")
 			}
 		}()
-		packingConsumer = worker.NewPackingConsumer(
+		packingV1Consumer := worker.NewPackingConsumer(
 			cfg.KafkaBrokers, cfg.FulfillmentTopic, cfg.FulfillmentGroup,
 			service, orderClient, cfg.DefaultCarrier, cfg.DefaultService, logger,
 		)
-		go packingConsumer.Run(rootCtx)
+		packingConsumers = append(packingConsumers, packingV1Consumer)
+		go packingV1Consumer.Run(rootCtx)
+		if cfg.PackingV2Enabled {
+			packingV2Consumer := worker.NewPackingV2Consumer(
+				cfg.KafkaBrokers, cfg.FulfillmentV2Topic, cfg.FulfillmentV2Group,
+				service, orderClient, cfg.DefaultCarrier, cfg.DefaultService, logger,
+			)
+			packingConsumers = append(packingConsumers, packingV2Consumer)
+			go packingV2Consumer.Run(rootCtx)
+			logger.Info().Str("topic", cfg.FulfillmentV2Topic).Msg("PackingCompleted v2 consumer enabled alongside v1")
+		} else {
+			logger.Info().Msg("PackingCompleted v2 consumer disabled by SHIPPING_PACKING_V2_ENABLED")
+		}
 		defer func() {
-			if closeErr := packingConsumer.Close(); closeErr != nil {
-				logger.Error().Err(closeErr).Msg("close PackingCompleted consumer")
+			for _, consumer := range packingConsumers {
+				if closeErr := consumer.Close(); closeErr != nil {
+					logger.Error().Err(closeErr).Msg("close PackingCompleted consumer")
+				}
 			}
 		}()
 	} else {

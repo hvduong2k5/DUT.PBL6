@@ -49,6 +49,12 @@ $env:SHIPPING_ORDER_GRPC_ENDPOINT = "localhost:9004"
 $env:SHIPPING_ORDER_INTERNAL_TOKEN = "order-local-development-secret"
 ```
 
+The legacy `fulfillment.events.v1` consumer remains active. To opt a rollout cohort into the
+proof-bearing packing contract, set `SHIPPING_PACKING_V2_ENABLED=true`. Shipping then also
+consumes `vn.omama.fulfillment.packing.completed.v2` from `fulfillment.events.v2`, verifies the
+Fulfillment task proof and requires its `ready_generation` to match Order's immutable shipping
+snapshot. Do not publish the same package to both topics.
+
 ## Local verification
 
 ```powershell

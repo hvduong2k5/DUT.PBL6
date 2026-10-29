@@ -92,6 +92,9 @@ type CreateShipmentCommand struct {
 	ReadyGeneration      int64     `json:"ready_generation,omitempty"`
 	ItemsDigest          string    `json:"items_digest,omitempty"`
 	OrderSnapshotVersion int64     `json:"order_snapshot_version,omitempty"`
+	PackingTaskID        string    `json:"packing_task_id,omitempty"`
+	PackingTaskVersion   int64     `json:"packing_task_version,omitempty"`
+	PackedAt             time.Time `json:"packed_at,omitempty"`
 	ShippingNotes        string    `json:"shipping_notes,omitempty"`
 }
 
@@ -106,6 +109,12 @@ func (c CreateShipmentCommand) Validate() error {
 	}
 	if c.ReadyGeneration < 0 || c.OrderSnapshotVersion < 0 {
 		return fmt.Errorf("%w: proof versions cannot be negative", ErrInvalidShipment)
+	}
+	hasPackingProof := strings.TrimSpace(c.PackingTaskID) != "" || c.PackingTaskVersion != 0 || !c.PackedAt.IsZero()
+	if hasPackingProof {
+		if _, err := uuid.Parse(c.PackingTaskID); err != nil || c.PackingTaskVersion < 1 || c.PackedAt.IsZero() {
+			return fmt.Errorf("%w: packing task proof must include task id, version and packed_at", ErrInvalidShipment)
+		}
 	}
 	if err := c.Recipient.Validate(); err != nil {
 		return err
@@ -133,6 +142,9 @@ type Shipment struct {
 	ReadyGeneration         int64          `json:"ready_generation,omitempty"`
 	ItemsDigest             string         `json:"items_digest,omitempty"`
 	OrderSnapshotVersion    int64          `json:"order_snapshot_version,omitempty"`
+	PackingTaskID           string         `json:"packing_task_id,omitempty"`
+	PackingTaskVersion      int64          `json:"packing_task_version,omitempty"`
+	PackedAt                *time.Time     `json:"packed_at,omitempty"`
 	ProviderEstimatedFeeVND int64          `json:"provider_estimated_fee_vnd"`
 	ActualFeeVND            *int64         `json:"actual_fee_vnd,omitempty"`
 	FailureCode             string         `json:"failure_code,omitempty"`
@@ -153,7 +165,7 @@ func NewCreatingShipment(cmd CreateShipmentCommand, now time.Time) (*Shipment, e
 	}
 	id := uuid.New()
 	now = now.UTC()
-	return &Shipment{
+	shipment := &Shipment{
 		ID:                   id,
 		ShipmentNumber:       "SHP-" + strings.ToUpper(strings.ReplaceAll(id.String()[:13], "-", "")),
 		OrderID:              cmd.OrderID,
@@ -170,10 +182,17 @@ func NewCreatingShipment(cmd CreateShipmentCommand, now time.Time) (*Shipment, e
 		ReadyGeneration:      cmd.ReadyGeneration,
 		ItemsDigest:          cmd.ItemsDigest,
 		OrderSnapshotVersion: cmd.OrderSnapshotVersion,
+		PackingTaskID:        cmd.PackingTaskID,
+		PackingTaskVersion:   cmd.PackingTaskVersion,
 		CreatedAt:            now,
 		UpdatedAt:            now,
 		Revision:             1,
-	}, nil
+	}
+	if !cmd.PackedAt.IsZero() {
+		packedAt := cmd.PackedAt.UTC()
+		shipment.PackedAt = &packedAt
+	}
+	return shipment, nil
 }
 
 var allowedTransitions = map[ShipmentStatus]map[ShipmentStatus]struct{}{

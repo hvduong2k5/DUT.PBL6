@@ -17,6 +17,8 @@ type Config struct {
 	KafkaBrokers       []string
 	FulfillmentTopic   string
 	FulfillmentGroup   string
+	FulfillmentV2Topic string
+	FulfillmentV2Group string
 	OrderGRPCEndpoint  string
 	OrderInternalToken string
 	DefaultCarrier     string
@@ -25,6 +27,7 @@ type Config struct {
 	ShutdownTimeout    time.Duration
 	DatabaseTimeout    time.Duration
 	V2Enabled          bool
+	PackingV2Enabled   bool
 }
 
 func Load() (Config, error) {
@@ -37,6 +40,8 @@ func Load() (Config, error) {
 		KafkaBrokers:       csvEnv("SHIPPING_KAFKA_BROKERS", "localhost:9092"),
 		FulfillmentTopic:   env("SHIPPING_FULFILLMENT_TOPIC", "fulfillment.events.v1"),
 		FulfillmentGroup:   env("SHIPPING_FULFILLMENT_GROUP", "shipping-service-v1"),
+		FulfillmentV2Topic: env("SHIPPING_FULFILLMENT_V2_TOPIC", "fulfillment.events.v2"),
+		FulfillmentV2Group: env("SHIPPING_FULFILLMENT_V2_GROUP", "shipping-service-v2"),
 		OrderGRPCEndpoint:  strings.TrimSpace(os.Getenv("SHIPPING_ORDER_GRPC_ENDPOINT")),
 		OrderInternalToken: strings.TrimSpace(os.Getenv("SHIPPING_ORDER_INTERNAL_TOKEN")),
 		DefaultCarrier:     env("SHIPPING_DEFAULT_CARRIER", "FAKE"),
@@ -45,6 +50,7 @@ func Load() (Config, error) {
 		ShutdownTimeout:    durationEnv("SHIPPING_SHUTDOWN_TIMEOUT", 10*time.Second),
 		DatabaseTimeout:    durationEnv("SHIPPING_DATABASE_TIMEOUT", 5*time.Second),
 		V2Enabled:          boolEnv("SHIPPING_V2_ENABLED", false),
+		PackingV2Enabled:   boolEnv("SHIPPING_PACKING_V2_ENABLED", false),
 	}
 	if cfg.InternalToken == "" {
 		return Config{}, fmt.Errorf("SHIPPING_INTERNAL_TOKEN is required")

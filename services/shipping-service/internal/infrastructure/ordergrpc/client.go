@@ -43,11 +43,14 @@ func (c *Client) GetShippingSnapshot(ctx context.Context, orderID, packageID str
 	}
 	return application.OrderShippingSnapshot{
 		OrderID: response.GetOrderId(), PackageID: response.GetPackageId(),
+		SnapshotVersion: response.GetSnapshotVersion(), ReadyGeneration: response.GetReadyGeneration(),
+		ItemsDigest: response.GetItemsDigest(), WarehouseID: response.GetWarehouseId(),
 		Recipient:           recipientFromProto(response.GetRecipient()),
 		CheckoutFeeVND:      moneyUnits(response.GetCheckoutShippingFee()),
 		CODAmountVND:        moneyUnits(response.GetCodAmount()),
 		CarrierCode:         strings.TrimSpace(response.GetCarrierCode()),
 		ServiceCode:         strings.TrimSpace(response.GetServiceCode()),
+		QuoteID:             strings.TrimSpace(response.GetQuoteId()),
 		EligibleForShipping: response.GetEligibleForShipping(),
 	}, nil
 }
