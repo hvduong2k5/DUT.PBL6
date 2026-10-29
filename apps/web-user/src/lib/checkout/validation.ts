@@ -1,4 +1,10 @@
 import type {
+  AcceptCheckoutRequest,
+  CreateCheckoutQuoteRequest,
+  OrderAddress,
+  OrderPaymentMethod
+} from "@/lib/api-contract";
+import type {
   ConfirmCheckoutInput,
   CheckoutPaymentMethod,
   CheckoutRecipient,
@@ -16,6 +22,7 @@ const PHONE_PATTERN = /^(?:\+84|0)(?:\d[ .-]?){8,10}\d$/u;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/u;
 const PAYMENT_METHODS = new Set<CheckoutPaymentMethod>(["BANK_TRANSFER", "COD"]);
 const VOUCHER_PATTERN = /^[A-Z0-9_-]{3,50}$/u;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 
 export type CheckoutOperation = "prepare" | "quote-shipping" | "confirm";
 
@@ -23,6 +30,15 @@ export interface CheckoutRouteValidation {
   operation?: CheckoutOperation;
   mockScenario?: string;
   cartScenario?: string;
+  error?: { field: string; message: string };
+}
+
+export type MvpCheckoutOperation = "create-quote" | "accept" | "get-operation";
+
+export interface MvpCheckoutRouteValidation {
+  operation?: MvpCheckoutOperation;
+  operationId?: string;
+  mockScenario?: string;
   error?: { field: string; message: string };
 }
 
@@ -61,6 +77,66 @@ export function parseCheckoutRoute(method: string, path: string[], params: URLSe
   if (path[0] === "shipping-quotes") return { operation: "quote-shipping", mockScenario, cartScenario };
   if (path[0] === "confirm") return { operation: "confirm", mockScenario, cartScenario };
   return { error: { field: "path", message: "Checkout route is not available." } };
+}
+
+export function parseMvpCheckoutRoute(method: string, path: string[], params: URLSearchParams): MvpCheckoutRouteValidation {
+  const unexpectedQuery = [...params.keys()].find((key) => key !== "mockScenario");
+  if (unexpectedQuery) return { error: { field: unexpectedQuery, message: "Query không được hỗ trợ cho Checkout." } };
+  const mockScenario = params.get("mockScenario") || undefined;
+  if (mockScenario && !SCENARIO_PATTERN.test(mockScenario)) return { error: { field: "mockScenario", message: "Mock scenario không hợp lệ." } };
+  if (method === "POST" && path.length === 0) return { operation: "accept", mockScenario };
+  if (method === "POST" && path.length === 1 && path[0] === "quote") return { operation: "create-quote", mockScenario };
+  if (method === "GET" && path.length === 2 && path[0] === "operations") {
+    if (!UUID_PATTERN.test(path[1])) return { error: { field: "operationId", message: "Mã Checkout operation không hợp lệ." } };
+    return { operation: "get-operation", operationId: path[1], mockScenario };
+  }
+  return { error: { field: "path", message: "Checkout route is not available." } };
+}
+
+function validRevision(value: unknown): value is number {
+  return Number.isSafeInteger(value) && Number(value) >= 0;
+}
+
+function validPaymentMethod(value: unknown): value is OrderPaymentMethod {
+  return value === "VIETQR" || value === "COD";
+}
+
+function validateOrderAddress(value: unknown): value is OrderAddress {
+  return isRecord(value)
+    && hasOnlyKeys(value, ["recipient_name", "phone", "street", "ward_code", "province_code"])
+    && [value.recipient_name, value.phone, value.street, value.ward_code, value.province_code]
+      .every((field) => typeof field === "string" && field.trim().length >= 1 && field.length <= 255);
+}
+
+export function validateMvpQuoteRequest(value: unknown): { data?: CreateCheckoutQuoteRequest; errors: FieldError[] } {
+  if (!isRecord(value) || !hasOnlyKeys(value, ["cart_revision", "payment_method", "shipping_address_id", "address", "voucher_code"])) {
+    return { errors: [{ field: "body", message: "Yêu cầu tạo quote không đúng contract." }] };
+  }
+  const errors: FieldError[] = [];
+  if (!validRevision(value.cart_revision)) errors.push({ field: "cart_revision", message: "Cart revision không hợp lệ." });
+  if (!validPaymentMethod(value.payment_method)) errors.push({ field: "payment_method", message: "Phương thức thanh toán không hợp lệ." });
+  const hasAddressId = value.shipping_address_id !== undefined;
+  const hasAddress = value.address !== undefined;
+  if (hasAddressId === hasAddress) errors.push({ field: "address", message: "Chỉ cung cấp shipping_address_id hoặc address." });
+  if (hasAddressId && (typeof value.shipping_address_id !== "string" || !UUID_PATTERN.test(value.shipping_address_id))) {
+    errors.push({ field: "shipping_address_id", message: "ID địa chỉ giao hàng không hợp lệ." });
+  }
+  if (hasAddress && !validateOrderAddress(value.address)) errors.push({ field: "address", message: "Địa chỉ giao hàng không hợp lệ." });
+  if (value.voucher_code !== undefined && (typeof value.voucher_code !== "string" || !VOUCHER_PATTERN.test(value.voucher_code))) {
+    errors.push({ field: "voucher_code", message: "Mã ưu đãi không hợp lệ." });
+  }
+  return errors.length ? { errors } : { data: value as unknown as CreateCheckoutQuoteRequest, errors };
+}
+
+export function validateMvpAcceptRequest(value: unknown): { data?: AcceptCheckoutRequest; errors: FieldError[] } {
+  if (!isRecord(value) || !hasOnlyKeys(value, ["quote_id", "cart_revision", "payment_method"])) {
+    return { errors: [{ field: "body", message: "Yêu cầu accept Checkout không đúng contract." }] };
+  }
+  const errors: FieldError[] = [];
+  if (typeof value.quote_id !== "string" || !UUID_PATTERN.test(value.quote_id)) errors.push({ field: "quote_id", message: "Quote ID không hợp lệ." });
+  if (!validRevision(value.cart_revision)) errors.push({ field: "cart_revision", message: "Cart revision không hợp lệ." });
+  if (!validPaymentMethod(value.payment_method)) errors.push({ field: "payment_method", message: "Phương thức thanh toán không hợp lệ." });
+  return errors.length ? { errors } : { data: value as unknown as AcceptCheckoutRequest, errors };
 }
 
 export function validateRecipient(value: unknown): FieldError[] {

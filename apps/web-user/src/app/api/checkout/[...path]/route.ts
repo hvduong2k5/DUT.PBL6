@@ -8,3 +8,4 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
 }
 
 export const POST = proxy;
+export const GET = proxy;

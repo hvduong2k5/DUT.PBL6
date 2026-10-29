@@ -123,30 +123,41 @@ export interface CheckoutConfirmation {
   paymentExpiresAt?: string;
 }
 
-interface CheckoutErrorBody {
-  code?: string;
-  message?: string;
-  error_code?: string;
-  user_message?: string;
-  requestId?: string;
-  errors?: Array<{ field: string; message: string }>;
-  itemIssues?: Array<{ itemId: string; code: string; message: string }>;
+export type MvpCheckoutPaymentMethod = "VIETQR" | "COD";
+
+export interface MvpCheckoutPreparation {
+  cartRevision: number;
+  items: CheckoutLine[];
+  itemCount: number;
+  subtotalVnd: number;
+  pricingComplete: boolean;
+  customerMode: "GUEST" | "REGISTERED";
+  defaultRecipient?: CheckoutRecipient;
+  savedAddresses: SavedCheckoutAddress[];
+  locations: CheckoutProvince[];
+  accountDataWarning?: string;
 }
 
-export class CheckoutApiError extends Error {
-  readonly status: number;
-  readonly code: string;
-  readonly requestId?: string;
-  readonly errors: Array<{ field: string; message: string }>;
-  readonly itemIssues: Array<{ itemId: string; code: string; message: string }>;
+export interface MvpCheckoutQuote {
+  quoteId: string;
+  cartRevision: number;
+  paymentMethod: MvpCheckoutPaymentMethod;
+  subtotalVnd: number;
+  shippingFeeVnd: number;
+  totalVnd: number;
+  expiresAt: string;
+  shippingExpiresAt: string;
+  items: Array<{ skuCode: string; productName: string; quantity: number; unitPriceVnd?: number }>;
+}
 
-  constructor(status: number, body: CheckoutErrorBody) {
-    super(body.user_message || body.message || "Không thể tiếp tục thanh toán lúc này.");
-    this.name = "CheckoutApiError";
-    this.status = status;
-    this.code = body.error_code || body.code || "UNKNOWN_ERROR";
-    this.requestId = body.requestId;
-    this.errors = body.errors ?? [];
-    this.itemIssues = body.itemIssues ?? [];
-  }
+export interface MvpCheckoutOperationView {
+  operationId: string;
+  status: "ACCEPTED" | "PROCESSING" | "WAITING_RETRY" | "COMPENSATING" | "SUCCEEDED" | "FAILED" | "MANUAL_REVIEW";
+  stage: "VALIDATING" | "ACQUIRING" | "PLACING" | "COMPENSATING" | "DONE";
+  orderId: string | null;
+  orderStatus?: string;
+  errorCode?: string;
+  updatedAt: string;
+  terminal: boolean;
+  succeeded: boolean;
 }

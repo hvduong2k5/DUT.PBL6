@@ -1,6 +1,6 @@
 # MVP Public Contract — Frontend migration matrix
 
-> Giai đoạn 1–5 hoàn tất: đã chốt baseline, tạo lớp contract dùng chung, chuyển Catalog/Product, Profile/Address và Cart sang public MVP contract.
+> Giai đoạn 1–6 hoàn tất: đã chốt baseline, tạo lớp contract dùng chung, chuyển Catalog/Product, Profile/Address, Cart và Checkout sang public MVP contract.
 
 ## 1. Baseline được pin
 
@@ -49,9 +49,9 @@ Các file `customer-stable`, `customer-draft-planned`, `web-reference/*` và `*.
 | `POST /api/v1/cart/items` — `order_addCartItem` | `POST /api/cart/items` | `ALIGNED` | Đã gửi `sku_code`, `quantity`, `revision`; response và lỗi dùng contract chung. |
 | `PUT /api/v1/cart/items/{item_id}` — `order_updateCartItem` | `PUT /api/cart/items/{itemId}` | `ALIGNED` | Đã dùng PUT, gửi revision và hiển thị riêng lỗi conflict `409`. |
 | `DELETE /api/v1/cart/items/{item_id}` — `order_deleteCartItem` | `DELETE /api/cart/items/{itemId}` | `ALIGNED` | BFF xóa theo ownership rồi đọc lại snapshot canonical cho UI. |
-| `POST /api/v1/checkout/quote` — `order_createCheckoutQuote` | `POST /api/checkout/shipping-quotes` | `REPLACE` | Bỏ quote phí `0`; gửi `cart_revision`, `payment_method`, address/address ID và nhận `OrderQuote`. |
-| `POST /api/v1/checkout` — `order_acceptCheckout` | `POST /api/checkout/confirm` | `REPLACE` | Chỉ gửi `quote_id`, `cart_revision`, `payment_method`; chuyển idempotency sang header. |
-| `GET /api/v1/checkout-operations/{id}` — `order_getCheckoutOperation` | Chưa có | `ADD` | Poll operation, đọc `Retry-After`, dừng ở terminal state và chỉ dùng `order_id` khi thành công. |
+| `POST /api/v1/checkout/quote` — `order_createCheckoutQuote` | `POST /api/checkout/quote` | `ALIGNED` | Đã bỏ quote phí `0`; gửi `cart_revision`, `payment_method`, address/address ID và nhận `OrderQuote` canonical. |
+| `POST /api/v1/checkout` — `order_acceptCheckout` | `POST /api/checkout` | `ALIGNED` | Chỉ gửi `quote_id`, `cart_revision`, `payment_method`; `Idempotency-Key` nằm ở header và được giữ ổn định cho cùng lệnh. |
+| `GET /api/v1/checkout-operations/{id}` — `order_getCheckoutOperation` | `GET /api/checkout/operations/{id}` | `ALIGNED` | Đã poll operation theo `Retry-After`, dừng ở terminal state và chỉ dùng `order_id` khi `SUCCEEDED`. |
 
 ### 4.2 Order và Payment
 
@@ -95,9 +95,9 @@ Các file `customer-stable`, `customer-draft-planned`, `web-reference/*` và `*.
 
 | Route/feature hiện tại | Quyết định |
 | --- | --- |
-| `/api/checkout/prepare` | UI composition nội bộ; không được tạo checkout identity hoặc giá canonical. Dữ liệu mua hàng phải đến từ Cart/Profile. |
-| `/api/checkout/shipping-quotes` | Retire khi `order_createCheckoutQuote` hoạt động. Không giữ fee `0` fallback. |
-| `/api/checkout/confirm` | Retire sau khi UI chuyển sang accept + operation polling. |
+| `/api/checkout/prepare` | Đã loại khỏi BFF. Browser composition dữ liệu từ Cart/Profile/Address/locations và không tạo checkout identity hoặc giá canonical. |
+| `/api/checkout/shipping-quotes` | Đã loại khỏi runtime; thay bằng `POST /api/checkout/quote`, không giữ fee `0` fallback. |
+| `/api/checkout/confirm` | Đã loại khỏi runtime; thay bằng accept + operation polling. |
 | `DELETE /api/cart` | Đã bỏ route ngoài contract; nút dọn giỏ là UI composition gọi tuần tự operation xóa từng dòng. |
 | `/api/payments/orders/{id}/attempts` | Không có trong target; giữ disabled cho đến khi có contract retry payment. |
 | Guest challenge/OTP extension | Ngoài public target hiện tại; giữ feature gate và không xem là guest-session contract. |
@@ -137,7 +137,7 @@ Lớp contract dùng chung nằm tại `apps/web-user/src/lib/api-contract/`:
 | `client.ts` | JSON request client không tự retry mutation; giữ response headers, ETag và Retry-After. |
 | `index.ts` | Public exports cho các feature adapter. |
 
-Sau Giai đoạn 5, Catalog/Product, Profile/Address và Cart đã dùng lớp này. Checkout/Order/Payment sẽ được chuyển ở các giai đoạn nghiệp vụ tiếp theo.
+Sau Giai đoạn 6, Catalog/Product, Profile/Address, Cart và Checkout đã dùng lớp này. Order/Payment sẽ được chuyển ở các giai đoạn nghiệp vụ tiếp theo.
 
 ## 9. Kết quả Giai đoạn 3 — Catalog và Product
 
@@ -177,3 +177,14 @@ Các quy tắc đã áp dụng:
 - Các field enrichment không có trong `OrderItem` như ảnh, trạng thái tồn và giá có thể vắng mặt không bị bịa thành dữ liệu authoritative; UI ghi rõ sẽ kiểm tra lại khi Checkout.
 - Cookie context và `X-Session-Id` tự khai đã bị loại khỏi Cart production. Production yêu cầu credential xác thực; tương thích response Mockoon cũ chỉ chạy ngoài production.
 - BFF và client dùng `PublicError`; mutation không tự retry.
+
+## 12. Kết quả Giai đoạn 6 — Checkout
+
+- Luồng runtime đã chuyển hoàn toàn sang `quote → accept → operation polling`; ba BFF route ánh xạ một-một tới public contract được pin.
+- Quote từ server là nguồn canonical cho tạm tính, phí vận chuyển, giảm giá, tổng thanh toán và thời hạn; frontend không còn tự dựng phí `0` hoặc chốt số tiền từ dữ liệu hiển thị.
+- Accept chỉ gửi `quote_id`, `cart_revision`, `payment_method`; cùng một quote giữ cùng `Idempotency-Key`, mutation không tự retry bằng khóa mới khi kết quả chưa rõ.
+- BFF giữ nguyên semantics `201`/`202`, `Location` và `Retry-After`; client chỉ dùng `order_id` sau khi operation ở trạng thái `SUCCEEDED`.
+- `FAILED` và `MANUAL_REVIEW` được hiển thị riêng. Operation chưa terminal có thể tiếp tục poll bằng chính `operation_id`, không tạo lại lệnh Checkout.
+- Các cookie/grant tự khai của Checkout cũ, `X-Session-Id`, QR/payment claim cục bộ và guest credential giả đã bị loại khỏi luồng production.
+- Bước chuẩn bị màn hình chỉ composition dữ liệu Cart, Profile, Address và locations ở browser; mọi quyết định thương mại vẫn thuộc quote backend.
+- Mockoon mobile hiện tại chưa có ba operation quote/accept/poll theo target. Frontend vì vậy fail closed cho đến khi backend hoặc mock contract mới được cung cấp, thay vì quay về luồng cũ không tương thích.
