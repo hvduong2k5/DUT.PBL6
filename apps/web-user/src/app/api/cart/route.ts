@@ -6,7 +6,3 @@ export const dynamic = "force-dynamic";
 export function GET(request: NextRequest) {
   return handleCartRequest(request, []);
 }
-
-export function DELETE(request: NextRequest) {
-  return handleCartRequest(request, []);
-}

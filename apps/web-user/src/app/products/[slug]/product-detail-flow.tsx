@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { PublicApiError } from "@/lib/api-contract";
 import { useEffect, useMemo, useState } from "react";
-import { CartApiError } from "@/lib/cart/types";
 import { MAX_CART_ITEM_QUANTITY } from "@/lib/cart/validation";
 import type { ProductDetail, ProductSku } from "@/lib/product-detail/types";
 import { ProductReviewsSection } from "@/components/product/product-reviews";
@@ -108,7 +107,7 @@ export function ProductDetailFlow({ slug }: { slug: string }) {
       setAddedToCart(true);
       setSelectionMessage(`Đã thêm ${quantity} × ${selectedSku.label} vào giỏ. Giỏ hiện có ${cart.itemCount} sản phẩm.`);
     } catch (cause) {
-      setSelectionMessage(cause instanceof CartApiError ? cause.message : "Không thể thêm vào giỏ hàng lúc này.");
+      setSelectionMessage(cause instanceof PublicApiError ? cause.message : "Không thể thêm vào giỏ hàng lúc này.");
     } finally {
       setAddingToCart(false);
     }

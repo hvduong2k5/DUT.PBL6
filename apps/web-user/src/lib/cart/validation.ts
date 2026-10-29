@@ -7,12 +7,17 @@ const ITEM_ID_PATTERN = /^[A-Za-z0-9-]{1,80}$/u;
 const SCENARIO_PATTERN = /^[a-z0-9-]+$/u;
 
 export type CartOperation = "get-cart" | "clear-cart" | "add-item" | "update-item" | "remove-item";
+export type MvpCartOperation = Exclude<CartOperation, "clear-cart">;
 
 export interface CartRouteValidation {
   operation?: CartOperation;
   itemId?: string;
   mockScenario?: string;
   error?: { field: string; message: string };
+}
+
+export interface MvpCartRouteValidation extends Omit<CartRouteValidation, "operation"> {
+  operation?: MvpCartOperation;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -50,6 +55,53 @@ export function parseCartRoute(method: string, path: string[], params: URLSearch
   }
 
   return { error: { field: "path", message: "Cart route is not available." } };
+}
+
+export function parseMvpCartRoute(method: string, path: string[], params: URLSearchParams): MvpCartRouteValidation {
+  const unexpectedQuery = [...params.keys()].find((key) => key !== "mockScenario");
+  if (unexpectedQuery) return { error: { field: unexpectedQuery, message: "Query không được hỗ trợ cho giỏ hàng." } };
+  const mockScenario = params.get("mockScenario") || undefined;
+  if (mockScenario && !SCENARIO_PATTERN.test(mockScenario)) {
+    return { error: { field: "mockScenario", message: "Mock scenario không hợp lệ." } };
+  }
+  if (method === "GET" && path.length === 0) return { operation: "get-cart", mockScenario };
+  if (method === "POST" && path.length === 1 && path[0] === "items") return { operation: "add-item", mockScenario };
+  if ((method === "PUT" || method === "DELETE") && path.length === 2 && path[0] === "items") {
+    if (!ITEM_ID_PATTERN.test(path[1])) return { error: { field: "itemId", message: "Mã dòng giỏ hàng không hợp lệ." } };
+    return { operation: method === "PUT" ? "update-item" : "remove-item", itemId: path[1], mockScenario };
+  }
+  return { error: { field: "path", message: "Cart route is not available." } };
+}
+
+function validRevision(value: unknown): value is number {
+  return Number.isSafeInteger(value) && Number(value) >= 0;
+}
+
+export function validateMvpAddCartItemInput(value: unknown) {
+  if (!isRecord(value) || !hasOnlyKeys(value, ["sku_code", "quantity", "revision"])) {
+    return { errors: [{ field: "body", message: "Dữ liệu thêm giỏ không đúng contract." }] };
+  }
+  const errors: Array<{ field: string; message: string }> = [];
+  if (typeof value.sku_code !== "string" || !SKU_ID_PATTERN.test(value.sku_code)) errors.push({ field: "sku_code", message: "SKU không hợp lệ." });
+  if (!Number.isInteger(value.quantity) || Number(value.quantity) < 1 || Number(value.quantity) > 999) errors.push({ field: "quantity", message: "Số lượng phải là số nguyên từ 1 đến 999." });
+  if (!validRevision(value.revision)) errors.push({ field: "revision", message: "Revision giỏ hàng không hợp lệ." });
+  return errors.length ? { errors } : {
+    data: { sku_code: value.sku_code as string, quantity: value.quantity as number, revision: value.revision as number },
+    errors
+  };
+}
+
+export function validateMvpUpdateCartItemInput(value: unknown) {
+  if (!isRecord(value) || !hasOnlyKeys(value, ["quantity", "revision"])) {
+    return { errors: [{ field: "body", message: "Dữ liệu cập nhật giỏ không đúng contract." }] };
+  }
+  const errors: Array<{ field: string; message: string }> = [];
+  if (!Number.isInteger(value.quantity) || Number(value.quantity) < 1 || Number(value.quantity) > 999) errors.push({ field: "quantity", message: "Số lượng phải là số nguyên từ 1 đến 999." });
+  if (!validRevision(value.revision)) errors.push({ field: "revision", message: "Revision giỏ hàng không hợp lệ." });
+  return errors.length ? { errors } : {
+    data: { quantity: value.quantity as number, revision: value.revision as number },
+    errors
+  };
 }
 
 export function validateAddCartItemInput(value: unknown): { data?: AddCartItemInput; errors: Array<{ field: string; message: string }> } {

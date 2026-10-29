@@ -54,11 +54,13 @@ function mapItem(item: CustomerCoreCartItem): CartItem {
     weightGrams: weightFromVariant(item.variant_name),
     packageType: item.variant_name,
     unitPriceVnd: item.unit_price.units,
+    priceKnown: true,
     previousUnitPriceVnd: null,
     priceChanged: false,
     quantity: item.quantity,
     lineSubtotalVnd: item.in_stock ? lineSubtotalVnd : null,
     isAvailable: item.in_stock,
+    availabilityUnverified: false,
     unavailableReason: item.in_stock ? null : "Sản phẩm hiện không còn hàng."
   };
 }
@@ -66,9 +68,11 @@ function mapItem(item: CustomerCoreCartItem): CartItem {
 export function mapCustomerCoreCart(cart: CustomerCoreCart): Cart {
   const items = cart.items.map(mapItem);
   return {
+    revision: 0,
     items,
     itemCount: items.reduce((total, item) => total + item.quantity, 0),
     subtotalVnd: items.reduce((total, item) => total + (item.lineSubtotalVnd ?? 0), 0),
+    pricingComplete: true,
     hasBlockingIssues: items.some((item) => !item.isAvailable),
     notices: items.filter((item) => !item.isAvailable).map((item) => ({
       code: "SKU_UNAVAILABLE" as const,
@@ -96,5 +100,5 @@ export function withCartItemQuantity(cart: Cart, itemId: string, quantity: numbe
 }
 
 export function emptyCart(): Cart {
-  return { items: [], itemCount: 0, subtotalVnd: 0, hasBlockingIssues: false, notices: [], updatedAt: new Date().toISOString() };
+  return { revision: 0, items: [], itemCount: 0, subtotalVnd: 0, pricingComplete: true, hasBlockingIssues: false, notices: [], updatedAt: new Date().toISOString() };
 }

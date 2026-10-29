@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { PublicApiError } from "@/lib/api-contract";
 import { getInitiallySelectedItemIds, getSelectedCartSummary, reconcileSelectedItemIds } from "@/lib/cart/selection";
 import type { Cart, CartItem } from "@/lib/cart/types";
-import { CartApiError } from "@/lib/cart/types";
 import { MAX_CART_ITEM_QUANTITY } from "@/lib/cart/validation";
 import { cartService } from "@/services/cart-service";
 import { useCartSummary } from "@/components/cart/cart-summary-provider";
@@ -46,7 +46,7 @@ export function CartFlow() {
       }
     }).catch((cause: unknown) => {
       if (!active) return;
-      setPageError(cause instanceof CartApiError ? cause.message : "Không thể tải giỏ hàng lúc này.");
+      setPageError(cause instanceof PublicApiError ? cause.message : "Không thể tải giỏ hàng lúc này.");
     }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [retryKey, scenario, updateFromCart]);
@@ -60,14 +60,19 @@ export function CartFlow() {
     setLineErrors((current) => ({ ...current, [item.itemId]: "" }));
     setStatusMessage("");
     try {
-      const nextCart = await cartService.updateItem(item.itemId, { quantity }, scenario);
+      const nextCart = await cartService.updateItem(item.itemId, { quantity }, cart?.revision ?? 0, scenario);
       setCart(nextCart);
       updateFromCart(nextCart);
       setDraftQuantities(Object.fromEntries(nextCart.items.map((cartItem) => [cartItem.itemId, String(cartItem.quantity)])));
       setSelectedItemIds((current) => reconcileSelectedItemIds(nextCart.items, current));
       setStatusMessage(`Đã cập nhật ${item.productName} thành ${quantity} sản phẩm.`);
     } catch (cause) {
-      setLineErrors((current) => ({ ...current, [item.itemId]: cause instanceof CartApiError ? cause.message : "Không thể cập nhật số lượng." }));
+      setLineErrors((current) => ({
+        ...current,
+        [item.itemId]: cause instanceof PublicApiError
+          ? cause.status === 409 ? "Giỏ hàng đã thay đổi ở nơi khác. Hãy tải lại trước khi cập nhật." : cause.message
+          : "Không thể cập nhật số lượng."
+      }));
     } finally {
       setPendingItemId(undefined);
     }
@@ -85,7 +90,7 @@ export function CartFlow() {
       setSelectedItemIds((current) => reconcileSelectedItemIds(nextCart.items, current));
       setStatusMessage(`Đã xóa ${item.productName} khỏi giỏ hàng.`);
     } catch (cause) {
-      setLineErrors((current) => ({ ...current, [item.itemId]: cause instanceof CartApiError ? cause.message : "Không thể xóa sản phẩm." }));
+      setLineErrors((current) => ({ ...current, [item.itemId]: cause instanceof PublicApiError ? cause.message : "Không thể xóa sản phẩm." }));
     } finally {
       setPendingItemId(undefined);
     }
@@ -103,7 +108,7 @@ export function CartFlow() {
       setSelectedItemIds([]);
       setStatusMessage("Đã dọn toàn bộ giỏ hàng.");
     } catch (cause) {
-      setPageError(cause instanceof CartApiError ? cause.message : "Không thể dọn giỏ hàng lúc này.");
+      setPageError(cause instanceof PublicApiError ? cause.message : "Không thể dọn giỏ hàng lúc này.");
     } finally {
       setPendingItemId(undefined);
     }
@@ -130,6 +135,9 @@ export function CartFlow() {
   const availableItemIds = cart.items.filter((item) => item.isAvailable).map((item) => item.itemId);
   const allAvailableSelected = availableItemIds.length > 0 && availableItemIds.every((itemId) => selectedItemIds.includes(itemId));
   const selectedSummary = getSelectedCartSummary(cart.items, selectedItemIds);
+  const selectedPricingComplete = cart.items
+    .filter((item) => item.isAvailable && selectedItemIds.includes(item.itemId))
+    .every((item) => item.priceKnown !== false);
 
   function toggleItemSelection(item: CartItem) {
     if (!item.isAvailable) return;
@@ -198,7 +206,7 @@ export function CartFlow() {
                     <ProductImage src={item.imageUrl} alt={item.imageAlt} fill sizes="(max-width: 640px) 108px, 150px" />
                   </Link>
                   <div className="cart-line-info">
-                    <span>{item.isAvailable ? "Có thể mua" : "Cần xử lý"}</span>
+                    <span>{item.availabilityUnverified ? "Sẽ kiểm tra khi thanh toán" : item.isAvailable ? "Có thể mua" : "Cần xử lý"}</span>
                     <Link href={`/products/${item.productSlug}`}><h2>{item.productName}</h2></Link>
                     <p>{item.skuLabel}</p>
                     <small>{item.weightGrams ? `${item.weightGrams}g · ` : ""}Mã SKU: {item.skuId}</small>
@@ -206,7 +214,7 @@ export function CartFlow() {
                     {!item.isAvailable ? <div className="cart-line-warning" role="alert">{item.unavailableReason || "Quy cách này không còn khả dụng."} <Link href={`/products/${item.productSlug}`}>Mở trang sản phẩm</Link></div> : null}
                     {lineErrors[item.itemId] ? <div className="cart-line-warning" role="alert">{lineErrors[item.itemId]}</div> : null}
                   </div>
-                  <div className="cart-line-price"><span>Đơn giá</span><strong>{VND.format(item.unitPriceVnd)}</strong></div>
+                  <div className="cart-line-price"><span>Đơn giá</span><strong>{item.priceKnown === false ? "Chờ báo giá" : VND.format(item.unitPriceVnd)}</strong></div>
                   <div className="cart-line-quantity">
                     <span>Số lượng</span>
                     <div>
@@ -217,7 +225,7 @@ export function CartFlow() {
                     </div>
                     {pending ? <small role="status">Đang cập nhật…</small> : null}
                   </div>
-                  <div className="cart-line-total"><span>Thành tiền</span><strong>{item.lineSubtotalVnd === null ? "Không tính" : VND.format(item.lineSubtotalVnd ?? 0)}</strong></div>
+                  <div className="cart-line-total"><span>Thành tiền</span><strong>{item.lineSubtotalVnd === null ? "Chờ báo giá" : VND.format(item.lineSubtotalVnd ?? 0)}</strong></div>
                   <button className="cart-remove" type="button" disabled={pending} onClick={() => removeItem(item)} aria-label={`Xóa ${item.productName} khỏi giỏ`}>Xóa</button>
                 </article>
               );
@@ -228,8 +236,8 @@ export function CartFlow() {
           <aside className="cart-summary" aria-labelledby="cart-summary-title">
             <p className="eyebrow">Tóm tắt</p>
             <h2 id="cart-summary-title">Tạm tính giỏ hàng</h2>
-            <dl className="cart-overview-summary"><div><dt>Toàn bộ giỏ hàng</dt><dd>{cart.itemCount} sản phẩm</dd></div><div><dt>Giá trị hàng có thể mua</dt><dd>{VND.format(cart.subtotalVnd)}</dd></div></dl>
-            <dl className="cart-selection-summary"><div><dt>Đã chọn thanh toán</dt><dd>{selectedSummary.lineCount} dòng · {selectedSummary.itemCount} sản phẩm</dd></div><div className="total"><dt>Tạm tính hàng đã chọn</dt><dd>{VND.format(selectedSummary.subtotalVnd)}</dd></div></dl>
+            <dl className="cart-overview-summary"><div><dt>Toàn bộ giỏ hàng</dt><dd>{cart.itemCount} sản phẩm</dd></div><div><dt>Giá trị hàng có thể mua</dt><dd>{cart.pricingComplete === false ? "Chờ báo giá" : VND.format(cart.subtotalVnd)}</dd></div></dl>
+            <dl className="cart-selection-summary"><div><dt>Đã chọn thanh toán</dt><dd>{selectedSummary.lineCount} dòng · {selectedSummary.itemCount} sản phẩm</dd></div><div className="total"><dt>Tạm tính hàng đã chọn</dt><dd>{selectedPricingComplete ? VND.format(selectedSummary.subtotalVnd) : "Chờ báo giá"}</dd></div></dl>
             {cart.hasBlockingIssues ? <div className="cart-blocking-note" role="status"><strong>Có sản phẩm không khả dụng</strong><p>Các dòng này không thể chọn và không được tính vào phần chuẩn bị Checkout.</p></div> : null}
             <p className="cart-summary-disclaimer">Chưa gồm phí vận chuyển, ưu đãi và tổng thanh toán. Chỉ dòng đã chọn được chuẩn bị cho Checkout; giỏ hàng không giữ tồn hoặc cố định giá.</p>
             <button type="button" className="cart-checkout" disabled={selectedSummary.lineCount === 0} onClick={continueToCheckout}>{selectedSummary.lineCount === 0 ? "Chọn sản phẩm để tiếp tục" : `Thanh toán ${selectedSummary.lineCount} dòng →`}</button>

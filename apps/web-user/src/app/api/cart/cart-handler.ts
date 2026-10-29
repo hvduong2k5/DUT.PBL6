@@ -1,54 +1,69 @@
-import { randomUUID } from "node:crypto";
-import { emptyCart, mapCustomerCoreCart, withCartItemQuantity, type CustomerCoreCart } from "@/lib/cart/customer-core";
-import { parseCartRoute, validateAddCartItemInput, validateUpdateCartItemInput } from "@/lib/cart/validation";
+import {
+  normalizePublicError,
+  type OrderCart,
+  type OrderItem,
+  type PublicErrorBody
+} from "@/lib/api-contract";
 import { fetchCustomerCapabilities } from "@/lib/auth/capability-server";
-import { NextRequest, NextResponse } from "next/server";
+import {
+  parseMvpCartRoute,
+  validateMvpAddCartItemInput,
+  validateMvpUpdateCartItemInput
+} from "@/lib/cart/validation";
+import { NextRequest } from "next/server";
 
-const CART_COOKIE = "oma_cart_context";
-const CART_CONTEXT_PATTERN = /^[0-9a-f-]{36}$/u;
-
-function cookieHeader(contextId: string): string {
-  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
-  return `${CART_COOKIE}=${contextId}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000${secure}`;
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function withContextCookie(response: NextResponse, contextId: string, shouldSet: boolean): NextResponse {
-  if (shouldSet) response.headers.append("Set-Cookie", cookieHeader(contextId));
-  return response;
-}
-
-function errorResponse(code: string, message: string, status: number, contextId: string, shouldSet: boolean, errors: Array<{ field: string; message: string }> = []) {
-  return withContextCookie(NextResponse.json({ code, message, errors, requestId: `BFF-CART-${code}` }, { status }), contextId, shouldSet);
-}
-
-function getContext(request: NextRequest) {
-  const existing = request.cookies.get(CART_COOKIE)?.value;
-  const validExisting = existing && CART_CONTEXT_PATTERN.test(existing) ? existing : undefined;
-  return { contextId: validExisting ?? randomUUID(), shouldSet: !validExisting };
+function hasTrustedOrigin(request: NextRequest): boolean {
+  const origin = request.headers.get("origin");
+  if (!origin) return true;
+  try {
+    const source = new URL(origin);
+    return source.protocol === request.nextUrl.protocol && source.host === request.nextUrl.host;
+  } catch {
+    return false;
+  }
 }
 
 async function readJsonBody(request: NextRequest): Promise<unknown> {
   try {
-    return await request.json();
+    return await request.json() as unknown;
   } catch {
     return undefined;
   }
 }
 
-async function callUpstream(request: NextRequest, path: string, method: string, contextId: string, scenario?: string, body?: unknown) {
-  const base = (process.env.CUSTOMER_CORE_UPSTREAM_URL ?? "http://127.0.0.1:4010/api/v1").replace(/\/$/u, "");
-  const headers = new Headers({ Accept: "application/json", "X-Session-Id": contextId });
+function publicErrorResponse(
+  status: number,
+  code: string,
+  message: string,
+  requestId: string,
+  details?: Record<string, unknown>
+): Response {
+  const body: PublicErrorBody = { code, message, requestId, ...(details ? { details } : {}) };
+  return Response.json(body, { status });
+}
+
+function upstreamHeaders(request: NextRequest, hasBody: boolean, scenario?: string): Headers {
+  const headers = new Headers({ Accept: "application/json" });
   const authorization = request.headers.get("authorization");
   const accessToken = request.cookies.get("oma_access_token")?.value;
   const cookie = request.headers.get("cookie");
   if (authorization) headers.set("Authorization", authorization);
   else if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
   if (cookie) headers.set("Cookie", cookie);
-  if (body !== undefined) headers.set("Content-Type", "application/json");
+  if (hasBody) headers.set("Content-Type", "application/json");
   if (process.env.NODE_ENV !== "production" && scenario) headers.set("X-Mock-Scenario", scenario);
+  return headers;
+}
+
+async function callUpstream(request: NextRequest, path: string, method: string, scenario?: string, body?: unknown) {
+  const base = (process.env.CUSTOMER_CORE_UPSTREAM_URL ?? "http://127.0.0.1:4010/api/v1").replace(/\/$/u, "");
   const response = await fetch(`${base}/${path}`, {
     method,
-    headers,
+    headers: upstreamHeaders(request, body !== undefined, scenario),
     body: body === undefined ? undefined : JSON.stringify(body),
     cache: "no-store",
     redirect: "manual"
@@ -58,74 +73,153 @@ async function callUpstream(request: NextRequest, path: string, method: string, 
   return { response, payload };
 }
 
-function upstreamError(payload: unknown, status: number, contextId: string, shouldSet: boolean) {
-  const body = payload && typeof payload === "object"
-    ? payload
-    : { error_code: "ERR_CART", user_message: "Không thể cập nhật giỏ hàng lúc này." };
-  return withContextCookie(NextResponse.json(body, { status }), contextId, shouldSet);
+function responseHeaders(upstream: Response): Headers {
+  const headers = new Headers();
+  for (const name of ["cache-control", "retry-after", "x-request-id"]) {
+    const value = upstream.headers.get(name);
+    if (value) headers.set(name, value);
+  }
+  return headers;
 }
 
-export async function handleCartRequest(request: NextRequest, path: string[]): Promise<NextResponse> {
-  const validation = parseCartRoute(request.method, path, request.nextUrl.searchParams);
-  const { contextId, shouldSet } = getContext(request);
+function relayUpstreamError(payload: unknown, upstream: Response): Response {
+  const error = normalizePublicError(payload, {
+    code: "CART_UPSTREAM_ERROR",
+    message: "Không thể cập nhật giỏ hàng lúc này.",
+    requestId: upstream.headers.get("x-request-id") ?? "BFF-CART-UPSTREAM"
+  });
+  return Response.json(error, { status: upstream.status, headers: responseHeaders(upstream) });
+}
+
+function isOrderItem(value: unknown): value is OrderItem {
+  return isRecord(value)
+    && typeof value.sku_code === "string"
+    && Number.isSafeInteger(value.quantity)
+    && Number(value.quantity) >= 1;
+}
+
+function isOrderCart(value: unknown): value is OrderCart {
+  return isRecord(value)
+    && Number.isSafeInteger(value.revision)
+    && Number(value.revision) >= 0
+    && Array.isArray(value.items)
+    && value.items.every(isOrderItem);
+}
+
+function legacyMoneyUnits(value: unknown): number | undefined {
+  if (!isRecord(value) || value.currency_code !== "VND" || value.nanos !== 0) return undefined;
+  return Number.isSafeInteger(value.units) && Number(value.units) >= 0 ? Number(value.units) : undefined;
+}
+
+function legacyWeight(value: unknown): number | undefined {
+  if (typeof value !== "string") return undefined;
+  const match = value.match(/(\d+)\s*g\b/iu);
+  return match ? Number(match[1]) : undefined;
+}
+
+function normalizeCart(payload: unknown, fallbackRevision: number, updatedItem?: { itemId: string; quantity: number }): OrderCart | undefined {
+  if (isOrderCart(payload)) return payload;
+  if (process.env.NODE_ENV === "production" || !isRecord(payload) || !Array.isArray(payload.items)) return undefined;
+  const items: OrderItem[] = [];
+  for (const value of payload.items) {
+    if (!isRecord(value) || typeof value.item_id !== "string" || typeof value.sku_code !== "string" || !Number.isSafeInteger(value.quantity)) return undefined;
+    const unitPrice = legacyMoneyUnits(value.unit_price);
+    items.push({
+      item_id: value.item_id,
+      sku_code: value.sku_code,
+      quantity: updatedItem?.itemId === value.item_id ? updatedItem.quantity : Number(value.quantity),
+      ...(unitPrice !== undefined ? { unit_price: unitPrice } : {}),
+      ...(typeof value.product_name === "string" ? { product_name: value.product_name } : {}),
+      ...(legacyWeight(value.variant_name) !== undefined ? { weight_grams: legacyWeight(value.variant_name) } : {})
+    });
+  }
+  return { revision: fallbackRevision, items };
+}
+
+export async function handleCartRequest(request: NextRequest, path: string[]): Promise<Response> {
+  const validation = parseMvpCartRoute(request.method, path, request.nextUrl.searchParams);
   if (validation.error || !validation.operation) {
     const notFound = validation.error?.field === "path";
-    return errorResponse(notFound ? "NOT_FOUND" : "INVALID_REQUEST", validation.error?.message ?? "Yêu cầu không hợp lệ.", notFound ? 404 : 400, contextId, shouldSet, validation.error ? [validation.error] : []);
+    return publicErrorResponse(
+      notFound ? 404 : 400,
+      notFound ? "NOT_FOUND" : "INVALID_REQUEST",
+      validation.error?.message ?? "Yêu cầu không hợp lệ.",
+      "BFF-CART-ROUTE",
+      validation.error ? { errors: [validation.error] } : undefined
+    );
+  }
+  if (request.method !== "GET" && !hasTrustedOrigin(request)) {
+    return publicErrorResponse(403, "ORIGIN_NOT_ALLOWED", "Request origin is not allowed.", "BFF-CART-ORIGIN");
   }
   if (process.env.NODE_ENV === "production" && validation.mockScenario) {
-    return errorResponse("INVALID_REQUEST", "Mock scenario không khả dụng trong production.", 400, contextId, shouldSet);
-  }
-  try {
-    const projection = await fetchCustomerCapabilities(request.cookies.get("oma_access_token")?.value);
-    if (!projection.capabilities.includes("CART_MANAGE")) return errorResponse("CAPABILITY_FORBIDDEN", "Actor hiện tại không có quyền sử dụng giỏ hàng.", 403, contextId, shouldSet);
-  } catch {
-    return errorResponse("CAPABILITY_UNAVAILABLE", "Chưa thể kiểm tra quyền Customer lúc này.", 503, contextId, shouldSet);
+    return publicErrorResponse(400, "INVALID_REQUEST", "Mock scenario không khả dụng trong production.", "BFF-CART-SCENARIO");
   }
 
+  const accessToken = request.cookies.get("oma_access_token")?.value;
+  if (process.env.NODE_ENV === "production" && !accessToken && !request.headers.get("authorization")) {
+    return publicErrorResponse(401, "AUTH_REQUIRED", "Vui lòng đăng nhập để sử dụng giỏ hàng.", "BFF-CART-AUTH");
+  }
   try {
-    if (validation.operation === "clear-cart") {
-      const { response, payload } = await callUpstream(request, "cart", "DELETE", contextId, validation.mockScenario);
-      if (!response.ok) return upstreamError(payload, response.status, contextId, shouldSet);
-      return withContextCookie(NextResponse.json(emptyCart()), contextId, shouldSet);
+    const projection = await fetchCustomerCapabilities(accessToken);
+    if (!projection.capabilities.includes("CART_MANAGE")) {
+      return publicErrorResponse(403, "CAPABILITY_FORBIDDEN", "Actor hiện tại không có quyền sử dụng giỏ hàng.", "BFF-CART-CAPABILITY");
     }
+  } catch {
+    return publicErrorResponse(503, "CAPABILITY_UNAVAILABLE", "Chưa thể kiểm tra quyền Customer lúc này.", "BFF-CART-CAPABILITY");
+  }
 
-    let upstreamPath = "cart";
-    let upstreamMethod = "GET";
-    let upstreamBody: unknown;
-    let requestedQuantity: number | undefined;
+  try {
+    if (validation.operation === "get-cart") {
+      const result = await callUpstream(request, "cart", "GET", validation.mockScenario);
+      if (!result.response.ok) return relayUpstreamError(result.payload, result.response);
+      const cart = normalizeCart(result.payload, 0);
+      return cart
+        ? Response.json(cart, { headers: responseHeaders(result.response) })
+        : publicErrorResponse(502, "INVALID_CART_RESPONSE", "Dữ liệu giỏ hàng không đúng contract.", "BFF-CART-RESPONSE");
+    }
 
     if (validation.operation === "add-item") {
-      const parsed = validateAddCartItemInput(await readJsonBody(request));
-      if (!parsed.data) return errorResponse("INVALID_QUANTITY", "Dữ liệu thêm giỏ chưa hợp lệ.", 422, contextId, shouldSet, parsed.errors);
-      upstreamPath = "cart/items";
-      upstreamMethod = "POST";
-      upstreamBody = { sku_code: parsed.data.skuId, quantity: parsed.data.quantity };
-    } else if (validation.operation === "update-item") {
-      const parsed = validateUpdateCartItemInput(await readJsonBody(request));
-      if (!parsed.data) return errorResponse("INVALID_QUANTITY", "Số lượng chưa hợp lệ.", 422, contextId, shouldSet, parsed.errors);
-      upstreamPath = `cart/items/${encodeURIComponent(validation.itemId!)}`;
-      upstreamMethod = "PUT";
-      upstreamBody = parsed.data;
-      requestedQuantity = parsed.data.quantity;
-    } else if (validation.operation === "remove-item") {
-      upstreamPath = `cart/items/${encodeURIComponent(validation.itemId!)}`;
-      upstreamMethod = "DELETE";
+      const parsed = validateMvpAddCartItemInput(await readJsonBody(request));
+      if (!parsed.data) return publicErrorResponse(400, "INVALID_REQUEST", "Dữ liệu thêm giỏ chưa hợp lệ.", "BFF-CART-ADD", { errors: parsed.errors });
+      const result = await callUpstream(request, "cart/items", "POST", validation.mockScenario, parsed.data);
+      if (!result.response.ok) return relayUpstreamError(result.payload, result.response);
+      const cart = normalizeCart(result.payload, parsed.data.revision + 1);
+      return cart
+        ? Response.json(cart, { headers: responseHeaders(result.response) })
+        : publicErrorResponse(502, "INVALID_CART_RESPONSE", "Dữ liệu giỏ hàng không đúng contract.", "BFF-CART-ADD");
     }
 
-    const { response, payload } = await callUpstream(request, upstreamPath, upstreamMethod, contextId, validation.mockScenario, upstreamBody);
-    if (!response.ok) return upstreamError(payload, response.status, contextId, shouldSet);
-    let cart = mapCustomerCoreCart(payload as CustomerCoreCart);
-    if (process.env.NODE_ENV !== "production" && validation.operation === "update-item" && requestedQuantity !== undefined) {
-      cart = withCartItemQuantity(cart, validation.itemId!, requestedQuantity);
+    if (validation.operation === "update-item") {
+      const parsed = validateMvpUpdateCartItemInput(await readJsonBody(request));
+      if (!parsed.data) return publicErrorResponse(400, "INVALID_REQUEST", "Dữ liệu cập nhật giỏ chưa hợp lệ.", "BFF-CART-UPDATE", { errors: parsed.errors });
+      const result = await callUpstream(
+        request,
+        `cart/items/${encodeURIComponent(validation.itemId!)}`,
+        "PUT",
+        validation.mockScenario,
+        parsed.data
+      );
+      if (!result.response.ok) return relayUpstreamError(result.payload, result.response);
+      const cart = normalizeCart(result.payload, parsed.data.revision + 1, { itemId: validation.itemId!, quantity: parsed.data.quantity });
+      return cart
+        ? Response.json(cart, { headers: responseHeaders(result.response) })
+        : publicErrorResponse(502, "INVALID_CART_RESPONSE", "Dữ liệu giỏ hàng không đúng contract.", "BFF-CART-UPDATE");
     }
-    return withContextCookie(NextResponse.json(cart, { status: response.status }), contextId, shouldSet);
-  } catch {
-    return errorResponse(
-      "CART_UPSTREAM_UNAVAILABLE",
-      "Dịch vụ giỏ hàng đang tạm gián đoạn. Hãy kiểm tra Mockoon customer API.",
-      503,
-      contextId,
-      shouldSet
+
+    const deletion = await callUpstream(
+      request,
+      `cart/items/${encodeURIComponent(validation.itemId!)}`,
+      "DELETE",
+      validation.mockScenario
     );
+    if (!deletion.response.ok) return relayUpstreamError(deletion.payload, deletion.response);
+    const current = await callUpstream(request, "cart", "GET", validation.mockScenario);
+    if (!current.response.ok) return relayUpstreamError(current.payload, current.response);
+    const cart = normalizeCart(current.payload, 1);
+    if (!cart) return publicErrorResponse(502, "INVALID_CART_RESPONSE", "Dữ liệu giỏ hàng không đúng contract.", "BFF-CART-DELETE");
+    if (process.env.NODE_ENV !== "production") cart.items = cart.items.filter((item) => item.item_id !== validation.itemId);
+    return Response.json(cart, { headers: responseHeaders(current.response) });
+  } catch {
+    return publicErrorResponse(503, "CART_UPSTREAM_UNAVAILABLE", "Dịch vụ giỏ hàng đang tạm gián đoạn. Hãy kiểm tra API Gateway hoặc Mockoon.", "BFF-CART-UPSTREAM");
   }
 }

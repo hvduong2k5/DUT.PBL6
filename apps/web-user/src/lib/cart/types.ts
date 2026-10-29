@@ -17,21 +17,25 @@ export interface CartItem {
   flavor?: string | null;
   packageType: string;
   unitPriceVnd: number;
+  priceKnown?: boolean;
   previousUnitPriceVnd?: number | null;
   priceChanged: boolean;
   quantity: number;
   lineSubtotalVnd?: number | null;
   isAvailable: boolean;
+  availabilityUnverified?: boolean;
   unavailableReason?: string | null;
 }
 
 export interface Cart {
+  revision?: number;
   items: CartItem[];
   itemCount: number;
   subtotalVnd: number;
+  pricingComplete?: boolean;
   hasBlockingIssues: boolean;
   notices: CartNotice[];
-  updatedAt: string;
+  updatedAt?: string;
 }
 
 export interface AddCartItemInput {
@@ -41,29 +45,4 @@ export interface AddCartItemInput {
 
 export interface UpdateCartItemInput {
   quantity: number;
-}
-
-interface CartErrorBody {
-  code?: string;
-  message?: string;
-  error_code?: string;
-  user_message?: string;
-  requestId?: string;
-  errors?: Array<{ field: string; message: string }>;
-}
-
-export class CartApiError extends Error {
-  readonly status: number;
-  readonly code: string;
-  readonly requestId?: string;
-  readonly errors: Array<{ field: string; message: string }>;
-
-  constructor(status: number, body: CartErrorBody) {
-    super(body.user_message || body.message || "Không thể cập nhật giỏ hàng lúc này.");
-    this.name = "CartApiError";
-    this.status = status;
-    this.code = body.error_code || body.code || "UNKNOWN_ERROR";
-    this.requestId = body.requestId;
-    this.errors = body.errors ?? [];
-  }
 }
