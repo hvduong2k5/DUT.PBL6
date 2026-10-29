@@ -5,7 +5,9 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import { AccountShell } from "@/components/account/account-shell";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
-import { CustomerApiError, CustomerProfile, ProfileInput } from "@/lib/customer/types";
+import { PublicApiError } from "@/lib/api-contract";
+import { fieldErrorsFromDetails } from "@/lib/customer/mvp";
+import type { CustomerProfile, ProfileInput } from "@/lib/customer/types";
 import { FieldErrors, normalizePhone, validateProfile } from "@/lib/customer/validation";
 import { customerService } from "@/services/customer-service";
 
@@ -75,14 +77,13 @@ export function ProfileFlow() {
     };
     try {
       const result = await customerService.updateProfile(payload, profile.version);
-      const merged = { ...result, ...payload };
-      setProfile(merged);
-      setForm(toForm(merged));
+      setProfile(result);
+      setForm(toForm(result));
       setNotice({ kind: "success", text: "Hồ sơ Tri Kỷ đã được cập nhật." });
     } catch (error) {
-      if (error instanceof CustomerApiError) {
-        setErrors(Object.fromEntries(error.errors.map((item) => [item.field, item.message])));
-        setNotice({ kind: "error", text: error.code === "VERSION_CONFLICT" ? "Hồ sơ vừa thay đổi ở nơi khác. Hãy tải lại dữ liệu mới nhất." : error.message });
+      if (error instanceof PublicApiError) {
+        setErrors(fieldErrorsFromDetails(error.details, "profile"));
+        setNotice({ kind: "error", text: error.status === 409 ? "Hồ sơ vừa thay đổi ở nơi khác. Hãy tải lại dữ liệu mới nhất." : error.message });
       } else setNotice({ kind: "error", text: "Không thể lưu hồ sơ lúc này." });
     } finally {
       setSaving(false);
@@ -102,8 +103,8 @@ export function ProfileFlow() {
         {notice && <div className={`status-notice ${notice.kind}`} role="status">{notice.text}</div>}
         <div className="profile-grid">
           <label className="account-field wide"><span>Họ và tên <b>*</b></span><input value={form.fullName} onChange={(event) => update("fullName", event.target.value)} aria-invalid={Boolean(errors.fullName)} />{errors.fullName && <small>{errors.fullName}</small>}</label>
-          <label className="account-field"><span>Số điện thoại tài khoản</span><div className="readonly-input"><span>{profile.phone ?? "Chưa có"}</span></div><em>API hiện chưa hỗ trợ đổi số điện thoại từ hồ sơ.</em></label>
-          <label className="account-field"><span>Email liên hệ <b>*</b></span><input type="email" autoComplete="email" value={form.email} onChange={(event) => update("email", event.target.value)} aria-invalid={Boolean(errors.email)} />{errors.email ? <small>{errors.email}</small> : <em>API cho phép cập nhật email nhưng chưa cung cấp trạng thái xác minh.</em>}</label>
+          <label className="account-field"><span>Số điện thoại tài khoản <b>*</b></span><input inputMode="tel" autoComplete="tel" value={form.phone ?? ""} onChange={(event) => update("phone", event.target.value)} aria-invalid={Boolean(errors.phone)} />{errors.phone ? <small>{errors.phone}</small> : <em>Số điện thoại được cập nhật cùng phiên bản hồ sơ hiện tại.</em>}</label>
+          <label className="account-field"><span>Email tài khoản</span><div className="readonly-input"><span>{profile.email || "Chưa có"}</span></div><em>Email là dữ liệu chỉ đọc theo contract hiện tại.</em></label>
         </div>
         <footer className="form-footer"><span>Dữ liệu được tải lúc: {formatUpdatedAt(profile.updatedAt)}</span><div><button type="button" className="secondary-button" onClick={() => { setForm(toForm(profile)); setErrors({}); setNotice(null); }}>Hủy thay đổi</button><button className="primary-button" disabled={saving}>{saving && <span className="spinner" />}{saving ? "Đang lưu…" : "Lưu thay đổi"}</button></div></footer>
       </form>}

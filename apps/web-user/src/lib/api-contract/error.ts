@@ -14,12 +14,16 @@ export function normalizePublicError(
 ): PublicErrorBody {
   const body = isRecord(value) ? value : {};
   return {
-    code: text(body.code) ?? fallback.code ?? "PUBLIC_API_ERROR",
-    message: text(body.message) ?? fallback.message ?? "Không thể xử lý yêu cầu lúc này.",
-    requestId: text(body.requestId) ?? fallback.requestId ?? "unknown",
+    code: text(body.code) ?? text(body.error_code) ?? fallback.code ?? "PUBLIC_API_ERROR",
+    message: text(body.message) ?? text(body.user_message) ?? fallback.message ?? "Không thể xử lý yêu cầu lúc này.",
+    requestId: text(body.requestId) ?? text(body.request_id) ?? fallback.requestId ?? "unknown",
     ...(typeof body.retryable === "boolean" ? { retryable: body.retryable } : {}),
     ...(text(body.operation_id) ? { operation_id: text(body.operation_id) } : {}),
-    ...(isRecord(body.details) ? { details: body.details } : {})
+    ...(isRecord(body.details)
+      ? { details: body.details }
+      : Array.isArray(body.errors)
+        ? { details: { errors: body.errors } }
+        : {})
   };
 }
 

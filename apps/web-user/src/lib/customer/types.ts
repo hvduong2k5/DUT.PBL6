@@ -57,34 +57,3 @@ export interface AddressInput {
   deliveryNote: string | null;
   isDefault?: boolean;
 }
-
-export interface ApiFieldError {
-  field: string;
-  code: string;
-  message: string;
-}
-
-interface ApiErrorBody {
-  code?: string;
-  message?: string;
-  error_code?: string;
-  user_message?: string;
-  errors?: ApiFieldError[];
-  requestId?: string;
-}
-
-export class CustomerApiError extends Error {
-  readonly status: number;
-  readonly code: string;
-  readonly errors: ApiFieldError[];
-  readonly requestId?: string;
-
-  constructor(status: number, body: ApiErrorBody) {
-    super(body.user_message || body.message || "Không thể xử lý yêu cầu lúc này.");
-    this.name = "CustomerApiError";
-    this.status = status;
-    this.code = body.error_code || body.code || "UNKNOWN_ERROR";
-    this.errors = body.errors ?? [];
-    this.requestId = body.requestId;
-  }
-}

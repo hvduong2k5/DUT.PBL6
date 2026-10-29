@@ -1,77 +1,116 @@
-import {
-  AddressInput,
-  AddressList,
-  CustomerAddress,
-  CustomerApiError,
-  CustomerProfile,
-  ProfileInput
-} from "@/lib/customer/types";
+import { formatStrongVersionEtag, requestPublicJson } from "@/lib/api-contract";
+import type { Profile, ShippingAddress } from "@/lib/api-contract";
 import type { CheckoutProvince } from "@/lib/checkout/types";
+import {
+  mapMvpAddress,
+  mapMvpAddressList,
+  mapMvpProfile,
+  toMvpAddressUpdate,
+  toMvpAddressWrite,
+  toMvpProfileUpdate
+} from "@/lib/customer/mvp";
+import type { AddressInput, ProfileInput } from "@/lib/customer/types";
 
-type RequestOptions = Omit<RequestInit, "body"> & { body?: object };
-
-function getDevelopmentScenario(): string | undefined {
-  if (process.env.NODE_ENV !== "development" || typeof window === "undefined") return undefined;
+function developmentHeaders(): Headers {
+  const headers = new Headers();
+  if (process.env.NODE_ENV !== "development" || typeof window === "undefined") return headers;
   const scenario = new URLSearchParams(window.location.search).get("mockScenario") ?? undefined;
-  return scenario && /^[a-z0-9-]+$/u.test(scenario) ? scenario : undefined;
-}
-
-async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const headers = new Headers(options.headers);
-  const scenario = getDevelopmentScenario();
-  if (options.body) headers.set("Content-Type", "application/json");
-  if (scenario) headers.set("X-Mock-Scenario", scenario);
-
-  const response = await fetch(`/api/customer${path}`, {
-    ...options,
-    headers,
-    body: options.body ? JSON.stringify(options.body) : undefined,
-    credentials: "include",
-    cache: "no-store"
-  });
-  const contentType = response.headers.get("content-type") ?? "";
-  const payload = contentType.includes("application/json") ? await response.json() : {};
-  if (!response.ok) throw new CustomerApiError(response.status, payload);
-  return payload as T;
+  if (scenario && /^[a-z0-9-]+$/u.test(scenario)) headers.set("X-Mock-Scenario", scenario);
+  return headers;
 }
 
 export const customerService = {
-  getProfile() {
-    return request<CustomerProfile>("/profile");
-  },
-  updateProfile(input: ProfileInput, version: number) {
-    return request<CustomerProfile>("/profile", {
-      method: "PATCH",
-      headers: { "If-Match": `\"profile-v${version}\"` },
-      body: input
+  async getProfile() {
+    const response = await requestPublicJson<Profile>("/api/customer/profile", {
+      credentials: "include",
+      headers: developmentHeaders()
     });
+    return mapMvpProfile(response.data, response.etag);
   },
-  getAddresses() {
-    return request<AddressList>("/addresses");
-  },
-  getLocations() {
-    return request<{ provinces: CheckoutProvince[] }>("/locations");
-  },
-  createAddress(input: AddressInput) {
-    return request<CustomerAddress>("/addresses", { method: "POST", body: input });
-  },
-  updateAddress(id: string, input: AddressInput, version: number) {
-    return request<CustomerAddress>(`/addresses/${encodeURIComponent(id)}`, {
-      method: "PATCH",
-      headers: { "If-Match": `\"address-v${version}\"` },
-      body: input
-    });
-  },
-  deleteAddress(id: string, version: number) {
-    return request<AddressList>(`/addresses/${encodeURIComponent(id)}`, {
-      method: "DELETE",
-      headers: { "If-Match": `\"address-v${version}\"` }
-    });
-  },
-  setDefaultAddress(id: string, version: number) {
-    return request<AddressList>(`/addresses/${encodeURIComponent(id)}/default`, {
+
+  async updateProfile(input: ProfileInput, version: number) {
+    const response = await requestPublicJson<Profile>("/api/customer/profile", {
       method: "PUT",
-      headers: { "If-Match": `\"address-v${version}\"` }
+      credentials: "include",
+      headers: developmentHeaders(),
+      ifMatch: formatStrongVersionEtag(version),
+      body: toMvpProfileUpdate(input)
     });
+    return mapMvpProfile(response.data, response.etag);
+  },
+
+  async getAddresses() {
+    const response = await requestPublicJson<ShippingAddress[]>("/api/customer/addresses", {
+      credentials: "include",
+      headers: developmentHeaders()
+    });
+    return mapMvpAddressList(response.data);
+  },
+
+  async getAddress(id: string) {
+    const response = await requestPublicJson<ShippingAddress>(`/api/customer/addresses/${encodeURIComponent(id)}`, {
+      credentials: "include",
+      headers: developmentHeaders()
+    });
+    return mapMvpAddress(response.data, response.etag);
+  },
+
+  async getLocations() {
+    const response = await requestPublicJson<{ provinces: CheckoutProvince[] }>("/api/customer/locations", {
+      credentials: "include",
+      headers: developmentHeaders()
+    });
+    return response.data;
+  },
+
+  async createAddress(input: AddressInput) {
+    const response = await requestPublicJson<ShippingAddress>("/api/customer/addresses", {
+      method: "POST",
+      credentials: "include",
+      headers: developmentHeaders(),
+      body: toMvpAddressWrite(input)
+    });
+    return mapMvpAddress(response.data, response.etag);
+  },
+
+  async updateAddress(id: string, input: AddressInput, version: number) {
+    const response = await requestPublicJson<ShippingAddress>(`/api/customer/addresses/${encodeURIComponent(id)}`, {
+      method: "PUT",
+      credentials: "include",
+      headers: developmentHeaders(),
+      ifMatch: formatStrongVersionEtag(version),
+      body: toMvpAddressUpdate(input)
+    });
+    return mapMvpAddress(response.data, response.etag);
+  },
+
+  async deleteAddress(id: string, version: number) {
+    const response = await requestPublicJson<ShippingAddress[]>(`/api/customer/addresses/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+      credentials: "include",
+      headers: developmentHeaders(),
+      ifMatch: formatStrongVersionEtag(version)
+    });
+    return mapMvpAddressList(response.data);
+  },
+
+  async setDefaultAddress(id: string, version: number) {
+    const response = await requestPublicJson<ShippingAddress[]>(`/api/customer/addresses/${encodeURIComponent(id)}/default`, {
+      method: "PUT",
+      credentials: "include",
+      headers: developmentHeaders(),
+      ifMatch: formatStrongVersionEtag(version)
+    });
+    return mapMvpAddressList(response.data);
+  },
+
+  async patchDefaultAddress(id: string, version: number) {
+    const response = await requestPublicJson<ShippingAddress[]>(`/api/customer/addresses/${encodeURIComponent(id)}/default`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: developmentHeaders(),
+      ifMatch: formatStrongVersionEtag(version)
+    });
+    return mapMvpAddressList(response.data);
   }
 };

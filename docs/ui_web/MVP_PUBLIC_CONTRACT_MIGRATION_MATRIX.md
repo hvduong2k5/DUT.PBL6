@@ -1,6 +1,6 @@
 # MVP Public Contract — Frontend migration matrix
 
-> Giai đoạn 1–3 hoàn tất: đã chốt baseline, tạo lớp contract dùng chung và chuyển Catalog/Product sang public MVP contract.
+> Giai đoạn 1–4 hoàn tất: đã chốt baseline, tạo lớp contract dùng chung, chuyển Catalog/Product và Profile/Address sang public MVP contract.
 
 ## 1. Baseline được pin
 
@@ -72,15 +72,15 @@ Các file `customer-stable`, `customer-draft-planned`, `web-reference/*` và `*.
 
 | Public operation | BFF/UI hiện tại | Trạng thái | Việc phải làm ở giai đoạn triển khai |
 | --- | --- | --- | --- |
-| `GET /api/v1/profile` — `profile_getProfile` | `GET /api/customer/profile` | `ADAPT` | Giữ ETag thật và map Profile DTO; email chỉ đọc. |
-| `PUT /api/v1/profile` — `profile_updateProfile` | Browser `PATCH`, BFF đổi thành upstream `PUT` | `ADAPT` | Dùng PUT ở contract boundary; bỏ email khỏi update; forward `If-Match: "<version>"`. |
-| `GET /api/v1/profile/addresses` — `profile_listAddresses` | `/api/customer/addresses` trả `{items,total}` | `ADAPT` | Contract boundary trả array; view model wrapper chỉ tạo sau mapper nếu UI cần. |
-| `POST /api/v1/profile/addresses` — `profile_createAddress` | `POST /api/customer/addresses` | `ADAPT` | Chuẩn hóa field code/name, Location và ETag. |
-| `GET /api/v1/profile/addresses/{id}` — `profile_getAddress` | Chưa có route GET từng địa chỉ | `ADD` | Thêm read-owned-address và map 404 an toàn. |
-| `PUT /api/v1/profile/addresses/{id}` — `profile_updateAddress` | Browser `PATCH`, BFF gọi upstream `PUT` | `ADAPT` | Dùng PUT tại contract boundary và forward numeric `If-Match`. |
-| `DELETE /api/v1/profile/addresses/{id}` — `profile_deleteAddress` | Có DELETE nhưng BFF không forward `If-Match` | `ADAPT` | Forward ETag, xử lý conflict và trả array đúng contract. |
-| `PUT /api/v1/profile/addresses/{id}/default` — `profile_putDefaultAddress` | BFF GET list rồi tự dựng update | `ADAPT` | Gọi operation canonical trực tiếp; không tổng hợp kết quả giả trong BFF. |
-| `PATCH /api/v1/profile/addresses/{id}/default` — `profile_patchDefaultAddress` | Chưa có | `ADD` | Hỗ trợ khi UI cần explicit default mutation; không thay PUT intent hiện tại nếu không cần. |
+| `GET /api/v1/profile` — `profile_getProfile` | `GET /api/customer/profile` | `ALIGNED` | Đã giữ ETag thật, map Profile DTO và hiển thị email chỉ đọc. |
+| `PUT /api/v1/profile` — `profile_updateProfile` | `PUT /api/customer/profile` | `ALIGNED` | Đã bỏ email khỏi update và forward `If-Match: "<version>"`. |
+| `GET /api/v1/profile/addresses` — `profile_listAddresses` | `/api/customer/addresses` trả array canonical | `ALIGNED` | View model `{items,total}` chỉ được tạo sau mapper phía browser. |
+| `POST /api/v1/profile/addresses` — `profile_createAddress` | `POST /api/customer/addresses` | `ALIGNED` | Đã chuẩn hóa code/name, ETag, Location và trạng thái default trả từ server. |
+| `GET /api/v1/profile/addresses/{id}` — `profile_getAddress` | `GET /api/customer/addresses/{id}` | `ALIGNED` | Đã có read-owned-address và map 404 qua `PublicError`. |
+| `PUT /api/v1/profile/addresses/{id}` — `profile_updateAddress` | `PUT /api/customer/addresses/{id}` | `ALIGNED` | Đã forward strong `If-Match`; đổi mặc định dùng operation riêng. |
+| `DELETE /api/v1/profile/addresses/{id}` — `profile_deleteAddress` | `DELETE /api/customer/addresses/{id}` | `ALIGNED` | Đã forward ETag và dùng danh sách canonical backend trả về. |
+| `PUT /api/v1/profile/addresses/{id}/default` — `profile_putDefaultAddress` | `PUT /api/customer/addresses/{id}/default` | `ALIGNED` | BFF gọi operation canonical trực tiếp trong production. |
+| `PATCH /api/v1/profile/addresses/{id}/default` — `profile_patchDefaultAddress` | `PATCH /api/customer/addresses/{id}/default` | `ALIGNED` | Client/BFF đã hỗ trợ operation; UI hiện dùng PUT intent. |
 
 ### 4.4 Catalog
 
@@ -137,7 +137,7 @@ Lớp contract dùng chung nằm tại `apps/web-user/src/lib/api-contract/`:
 | `client.ts` | JSON request client không tự retry mutation; giữ response headers, ETag và Retry-After. |
 | `index.ts` | Public exports cho các feature adapter. |
 
-Sau Giai đoạn 3, Catalog/Product đã dùng lớp này. Cart/Checkout/Order/Profile sẽ được chuyển ở các giai đoạn nghiệp vụ tiếp theo.
+Sau Giai đoạn 4, Catalog/Product và Profile/Address đã dùng lớp này. Cart/Checkout/Order/Payment sẽ được chuyển ở các giai đoạn nghiệp vụ tiếp theo.
 
 ## 9. Kết quả Giai đoạn 3 — Catalog và Product
 
@@ -155,3 +155,14 @@ Các quy tắc đã áp dụng:
 - Tồn kho có ba trạng thái `AVAILABLE`, `UNAVAILABLE`, `UNKNOWN`; `null` không còn bị hiểu sai thành hết hàng.
 - Lỗi từ upstream được sanitize về `PublicError`; lỗi BFF tự sinh cũng có đủ `code`, `message`, `requestId` và `details` khi cần.
 - Same-origin route `/api/catalog/*` được giữ làm BFF cho UI, còn upstream vẫn ánh xạ tới bốn operation public nêu trên.
+
+## 10. Kết quả Giai đoạn 4 — Profile và Address
+
+- Browser dùng mapper `lib/customer/mvp.ts`; DTO snake_case không đi vào component.
+- Profile update chỉ gửi `full_name` và `phone_number`; email hiển thị read-only, date of birth/gender chưa bị ghi ngược ngoài contract.
+- Profile và Address mutation dùng strong numeric ETag (`"<version>"`) qua `If-Match`; BFF forward nguyên header và response ETag.
+- Address list/delete/default giữ array canonical tại contract boundary; `{items,total}` chỉ là view model phía browser.
+- Sửa địa chỉ không còn ghi `is_default`; nếu người dùng chọn mặc định, UI gọi operation default riêng sau update thành công.
+- `GET` từng địa chỉ và cả hai method `PUT`/`PATCH` default đã có mapping BFF một-một trong production.
+- Tương thích response cũ của Mockoon chỉ chạy ngoài production; production fail closed nếu Profile/Address DTO sai contract.
+- Lỗi provider và lỗi BFF được chuẩn hóa về `PublicError`; field errors trong `details.errors` được map về tên trường của form.

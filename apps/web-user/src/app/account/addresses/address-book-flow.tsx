@@ -5,11 +5,12 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { AccountShell } from "@/components/account/account-shell";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
+import { PublicApiError } from "@/lib/api-contract";
+import { fieldErrorsFromDetails } from "@/lib/customer/mvp";
 import {
-  AddressInput,
-  CustomerAddress,
-  CustomerApiError,
-  CustomerProfile
+  type AddressInput,
+  type CustomerAddress,
+  type CustomerProfile
 } from "@/lib/customer/types";
 import type { CheckoutProvince } from "@/lib/checkout/types";
 import { FieldErrors, normalizePhone, validateAddress } from "@/lib/customer/validation";
@@ -118,20 +119,23 @@ export function AddressBookFlow() {
         const current = addresses.find((item) => item.id === editingId);
         if (!current) return;
         const result = await customerService.updateAddress(editingId, payload, current.version);
-        const merged = { ...result, ...payload, id: editingId, version: result.version || current.version + 1 } as CustomerAddress;
-        setAddresses((items) => items.map((item) => item.id === editingId ? merged : payload.isDefault ? { ...item, isDefault: false } : item));
+        if (payload.isDefault && !current.isDefault) {
+          const defaultResult = await customerService.setDefaultAddress(editingId, result.version);
+          setAddresses(defaultResult.items);
+        } else {
+          setAddresses((items) => items.map((item) => item.id === editingId ? result : item));
+        }
         setNotice({ kind: "success", text: "Địa chỉ đã được cập nhật." });
       } else {
         const result = await customerService.createAddress(payload);
-        const created = { ...result, ...payload, id: result.id } as CustomerAddress;
-        setAddresses((items) => [...(payload.isDefault ? items.map((item) => ({ ...item, isDefault: false })) : items), created]);
+        setAddresses((items) => [...(result.isDefault ? items.map((item) => ({ ...item, isDefault: false })) : items), result]);
         setNotice({ kind: "success", text: "Địa chỉ mới đã được thêm vào sổ." });
       }
       closeForm();
     } catch (error) {
-      if (error instanceof CustomerApiError) {
-        setErrors(Object.fromEntries(error.errors.map((item) => [item.field, item.message])));
-        setNotice({ kind: "error", text: error.code === "VERSION_CONFLICT" ? "Địa chỉ vừa thay đổi ở nơi khác. Hãy tải lại trước khi lưu." : error.message });
+      if (error instanceof PublicApiError) {
+        setErrors(fieldErrorsFromDetails(error.details, "address"));
+        setNotice({ kind: "error", text: error.status === 409 ? "Địa chỉ vừa thay đổi ở nơi khác. Hãy tải lại trước khi lưu." : error.message });
       } else setNotice({ kind: "error", text: "Không thể lưu địa chỉ lúc này." });
     } finally {
       setBusyAction(null);
@@ -143,12 +147,8 @@ export function AddressBookFlow() {
     setBusyAction(`delete-${address.id}`);
     setNotice(null);
     try {
-      await customerService.deleteAddress(address.id, address.version);
-      setAddresses((items) => {
-        const remaining = items.filter((item) => item.id !== address.id);
-        if (address.isDefault && remaining.length) remaining[0] = { ...remaining[0], isDefault: true };
-        return remaining;
-      });
+      const result = await customerService.deleteAddress(address.id, address.version);
+      setAddresses(result.items);
       if (editingId === address.id) closeForm();
       setNotice({ kind: "success", text: "Địa chỉ đã được xóa khỏi sổ. Đơn hàng cũ không bị ảnh hưởng." });
     } catch (error) {
@@ -160,8 +160,8 @@ export function AddressBookFlow() {
     setBusyAction(`default-${address.id}`);
     setNotice(null);
     try {
-      await customerService.setDefaultAddress(address.id, address.version);
-      setAddresses((items) => items.map((item) => ({ ...item, isDefault: item.id === address.id })));
+      const result = await customerService.setDefaultAddress(address.id, address.version);
+      setAddresses(result.items);
       setNotice({ kind: "success", text: `“${address.label}” hiện là địa chỉ mặc định.` });
     } catch (error) {
       setNotice({ kind: "error", text: error instanceof Error ? error.message : "Không thể đổi địa chỉ mặc định." });
@@ -197,7 +197,7 @@ export function AddressBookFlow() {
         <label className="account-field"><span>Phường / Xã <b>*</b></span><select value={form.ward.code} disabled={!selectedProvince} onChange={(event) => { const next = selectedProvince?.wards.find((item) => item.wardCode === event.target.value); update("ward", next ? { code: next.wardCode, name: next.wardName } : EMPTY_AREA); }}><option value="">Chọn phường / xã</option>{selectedProvince?.wards.map((item) => <option key={item.wardCode} value={item.wardCode}>{item.wardName}</option>)}</select>{errors.ward && <small>{errors.ward}</small>}</label>
         <label className="account-field wide"><span>Số nhà, ngõ, tên đường <b>*</b></span><input value={form.addressLine} placeholder="Ví dụ: 54 Lê Lợi" onChange={(event) => update("addressLine", event.target.value)} aria-invalid={Boolean(errors.addressLine)} />{errors.addressLine && <small>{errors.addressLine}</small>}</label>
       </div>
-      <label className="checkbox address-default"><input type="checkbox" checked={Boolean(form.isDefault)} onChange={(event) => update("isDefault", event.target.checked)} /> Đặt địa chỉ này làm mặc định cho các đơn hàng tương lai</label>
+      <label className="checkbox address-default"><input type="checkbox" checked={Boolean(form.isDefault)} disabled={Boolean(editingId && addresses.find((item) => item.id === editingId)?.isDefault)} onChange={(event) => update("isDefault", event.target.checked)} /> Đặt địa chỉ này làm mặc định cho các đơn hàng tương lai</label>
       <footer className="form-footer"><span>Đơn hàng đã tạo luôn giữ snapshot địa chỉ riêng.</span><div><button type="button" className="secondary-button" onClick={closeForm}>Hủy bỏ</button><button className="primary-button" disabled={busyAction === "save"}>{busyAction === "save" && <span className="spinner" />}{busyAction === "save" ? "Đang lưu…" : "Lưu địa chỉ"}</button></div></footer>
     </form>}
   </AccountShell><SiteFooter /></>;
