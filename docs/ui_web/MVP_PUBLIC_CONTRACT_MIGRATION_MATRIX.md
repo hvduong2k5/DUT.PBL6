@@ -1,6 +1,6 @@
 # MVP Public Contract — Frontend migration matrix
 
-> Giai đoạn 1–8 hoàn tất: đã chốt baseline, tạo lớp contract dùng chung, chuyển Catalog/Product, Profile/Address, Cart, Checkout, Order và Payment sang public MVP contract.
+> Giai đoạn 1–9 hoàn tất: đã chốt baseline, tạo lớp contract dùng chung, chuyển Catalog/Product, Profile/Address, Cart, Checkout, Order và Payment sang public MVP contract, sau đó hardening capability/runtime và lập readiness handoff.
 
 ## 1. Baseline được pin
 
@@ -214,3 +214,13 @@ Các quy tắc đã áp dụng:
 - Guest payment grant issue/revoke và COD vẫn gated. Local signed cookie cũ không còn được xem là credential Guest hợp lệ.
 - QR URL phải là HTTPS và toàn bộ response được kiểm tra enum, UUID, amount, date-time, version và invariants trước khi đi vào UI.
 - Mockoon Payment cũ không có hai response canonical này; runtime fail closed cho đến khi backend hoặc mock contract target sẵn sàng.
+
+## 15. Kết quả Giai đoạn 9 — Integration hardening và readiness
+
+- Tổng số operation trong target: **30**; frontend đã căn chỉnh **26** operation đang mở và giữ **4** operation Guest/paid cancellation ở trạng thái `GATED`.
+- COD, Voucher và Guest Order được khóa mặc định bằng capability gate dùng chung. UI không hiển thị capability bị khóa; BFF Checkout vẫn kiểm tra lại và trả `403 FEATURE_NOT_ENABLED` nếu client gọi trực tiếp.
+- Header đưa người dùng đã đăng nhập tới lịch sử Order. Người chưa đăng nhập chỉ thấy Guest Order khi capability này được bật; mặc định được hướng tới đăng nhập.
+- `.env.example` chỉ còn các upstream/config thực sự được source hiện tại sử dụng; các URL chia nhỏ theo mock feature cũ đã bị loại khỏi cấu hình chuẩn.
+- Các script `dev:cart`, `dev:checkout`, `dev:orders`, `dev:payment` vẫn là fixture lịch sử cho từng lát cắt. Chúng không đại diện cho public target 30-operation và không được dùng làm bằng chứng E2E/acceptance.
+- Frontend readiness, ma trận trạng thái, dependency runtime, contract gap và checklist nghiệm thu được chốt tại [`MVP_PUBLIC_FRONTEND_READINESS.md`](./MVP_PUBLIC_FRONTEND_READINESS.md).
+- Contract CI xanh chỉ xác nhận schema/wire. Luồng thật chỉ được coi là sẵn sàng sau khi public gateway, Identity và các provider owning service có runtime acceptance và E2E evidence.

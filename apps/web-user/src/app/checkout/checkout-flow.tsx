@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ProductImage } from "@/components/product/product-image";
 import { useCartSummary } from "@/components/cart/cart-summary-provider";
 import { createIdempotencyKey, PublicApiError } from "@/lib/api-contract";
+import { MVP_FEATURE_GATES } from "@/lib/mvp-feature-gates";
 import type {
   CheckoutRecipient,
   MvpCheckoutOperationView,
@@ -113,7 +114,7 @@ export function CheckoutFlow() {
 
   useEffect(() => {
     if (!preparation || validateShippingAddress(address).length > 0 || !recipient.fullName.trim() || !recipient.phone.trim()) return;
-    const normalizedVoucher = voucherCode.trim().toUpperCase();
+    const normalizedVoucher = MVP_FEATURE_GATES.voucher ? voucherCode.trim().toUpperCase() : "";
     if (normalizedVoucher && !VOUCHER_PATTERN.test(normalizedVoucher)) {
       setQuote(null);
       setQuoteError("Mã ưu đãi cần từ 3 đến 50 ký tự hợp lệ.");
@@ -205,7 +206,7 @@ export function CheckoutFlow() {
   async function confirmCheckout() {
     if (!preparation || !quote) return;
     const errors = getCheckoutFormErrors(recipient, address);
-    if (voucherCode.trim() && !VOUCHER_PATTERN.test(voucherCode.trim().toUpperCase())) errors.voucherCode = "Mã ưu đãi không hợp lệ.";
+    if (MVP_FEATURE_GATES.voucher && voucherCode.trim() && !VOUCHER_PATTERN.test(voucherCode.trim().toUpperCase())) errors.voucherCode = "Mã ưu đãi không hợp lệ.";
     setFieldErrors(errors);
     setSubmitError("");
     if (Object.keys(errors).length) return;
@@ -281,7 +282,7 @@ export function CheckoutFlow() {
             <header><span>2</span><h2 id="payment-title">Phương thức thanh toán</h2><small>Quote phụ thuộc phương thức</small></header>
             <div className="checkout-options">
               <label className={`checkout-option payment ${paymentMethod === "VIETQR" ? "selected" : ""}`}><input type="radio" name="payment" checked={paymentMethod === "VIETQR"} onChange={() => { setPaymentMethod("VIETQR"); setQuote(null); }} /><span><strong>Chuyển khoản VietQR</strong><small>Payment instructions được đọc sau khi Order tạo thành công.</small></span></label>
-              <label className={`checkout-option payment ${paymentMethod === "COD" ? "selected" : ""}`}><input type="radio" name="payment" checked={paymentMethod === "COD"} onChange={() => { setPaymentMethod("COD"); setQuote(null); }} /><span><strong>Thanh toán khi nhận hàng (COD)</strong><small>Khả dụng thực tế vẫn do backend quyết định.</small></span></label>
+              {MVP_FEATURE_GATES.cod ? <label className={`checkout-option payment ${paymentMethod === "COD" ? "selected" : ""}`}><input type="radio" name="payment" checked={paymentMethod === "COD"} onChange={() => { setPaymentMethod("COD"); setQuote(null); }} /><span><strong>Thanh toán khi nhận hàng (COD)</strong><small>Chỉ hiển thị khi capability COD đã được nghiệm thu.</small></span></label> : null}
             </div>
           </section>
         </div>
@@ -289,7 +290,7 @@ export function CheckoutFlow() {
         <aside className="checkout-summary" aria-labelledby="checkout-summary-title">
           <div className="checkout-summary-heading"><div><p className="eyebrow">Quote server</p><h2 id="checkout-summary-title">Xác nhận thương mại</h2></div><span>{preparation.itemCount} sản phẩm</span></div>
           <div className="checkout-summary-lines">{preparation.items.map((item, index) => <article key={item.itemId}><div className="checkout-summary-image"><ProductImage src={item.imageUrl} alt={item.imageAlt} fill sizes="64px" loading={index < 2 ? "eager" : "lazy"} /></div><div><strong>{item.productName}</strong><small>{item.skuLabel} · ×{item.quantity}</small></div><b>{preparation.pricingComplete ? VND.format(item.lineSubtotalVnd) : "Chờ quote"}</b></article>)}</div>
-          <section className="checkout-voucher"><div><strong>Mã ưu đãi</strong><small>Được backend xét khi tạo quote</small></div><div className="checkout-voucher-entry"><input value={voucherCode} onChange={(event) => { setVoucherCode(event.currentTarget.value.toUpperCase()); setQuote(null); setFieldErrors((current) => ({ ...current, voucherCode: "" })); }} placeholder="Nhập mã voucher" /></div>{fieldErrors.voucherCode ? <p className="checkout-field-error" role="alert">{fieldErrors.voucherCode}</p> : null}</section>
+          {MVP_FEATURE_GATES.voucher ? <section className="checkout-voucher"><div><strong>Mã ưu đãi</strong><small>Được backend xét khi tạo quote</small></div><div className="checkout-voucher-entry"><input value={voucherCode} onChange={(event) => { setVoucherCode(event.currentTarget.value.toUpperCase()); setQuote(null); setFieldErrors((current) => ({ ...current, voucherCode: "" })); }} placeholder="Nhập mã voucher" /></div>{fieldErrors.voucherCode ? <p className="checkout-field-error" role="alert">{fieldErrors.voucherCode}</p> : null}</section> : null}
           <dl className="checkout-totals"><div><dt>Tạm tính</dt><dd>{quote ? VND.format(quote.subtotalVnd) : preparation.pricingComplete ? VND.format(preparation.subtotalVnd) : "Chờ quote"}</dd></div><div><dt>Phí vận chuyển</dt><dd>{quote ? VND.format(quote.shippingFeeVnd) : "Chưa có quote"}</dd></div><div className="grand-total"><dt><strong>Tổng thanh toán</strong><small>{quote ? `Quote hết hạn ${new Date(quote.expiresAt).toLocaleString("vi-VN")}` : "Được server chốt"}</small></dt><dd>{quote ? VND.format(quote.totalVnd) : "—"}</dd></div></dl>
           {quoting ? <p className="cart-checkout-note" role="status">Đang tạo quote từ Cart revision {preparation.cartRevision}…</p> : null}
           {quoteError ? <div className="checkout-submit-error" role="alert">{quoteError}</div> : null}

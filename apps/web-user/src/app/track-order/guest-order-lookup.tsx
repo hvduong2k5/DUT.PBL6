@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PublicApiError } from "@/lib/api-contract";
+import { MVP_FEATURE_GATES } from "@/lib/mvp-feature-gates";
 import type { GuestChallenge } from "@/lib/orders/types";
 import { orderService } from "@/services/order-service";
 
@@ -17,6 +18,10 @@ export function GuestOrderLookup() {
   const [challenge, setChallenge] = useState<GuestChallenge | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  if (!MVP_FEATURE_GATES.guestOrder) {
+    return <main className="guest-order-page"><nav className="detail-breadcrumbs"><Link href="/">Trang chủ</Link><span>›</span><strong>Tra cứu Order</strong></nav><section className="orders-state"><span>▤</span><h1>Guest Order chưa được bật</h1><p>Public MVP hiện yêu cầu tài khoản đã đăng nhập. Guest session và payment grant chỉ được mở sau khi backend có runtime acceptance tương ứng.</p><div><Link className="primary-link" href="/login?returnUrl=%2Faccount%2Forders">Đăng nhập xem đơn hàng</Link><Link className="secondary-link" href="/support/request">Liên hệ hỗ trợ</Link></div></section></main>;
+  }
 
   async function requestCode(event: FormEvent) {
     event.preventDefault(); setError(""); setLoading(true);

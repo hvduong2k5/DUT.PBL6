@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCustomerSession } from "@/components/auth/customer-session-provider";
 import { useCartSummary } from "@/components/cart/cart-summary-provider";
+import { MVP_FEATURE_GATES } from "@/lib/mvp-feature-gates";
 import { BrandMark } from "./brand-mark";
 
 export function SiteHeader() {
@@ -35,7 +36,7 @@ export function SiteHeader() {
           <Link href="/#ocop-traceability">Truy Xuất OCOP</Link>
           <Link href="/promotions">Ưu Đãi Tri Kỷ</Link>
         </nav>
-        <Link className="track-order-link" href="/track-order">Tra cứu đơn</Link>
+        <Link className="track-order-link" href={authenticated ? "/account/orders" : MVP_FEATURE_GATES.guestOrder ? "/track-order" : "/login?returnUrl=%2Faccount%2Forders"}>{authenticated ? "Đơn hàng" : MVP_FEATURE_GATES.guestOrder ? "Tra cứu đơn" : "Đăng nhập xem đơn"}</Link>
         <Link className="cart-header-button" href="/cart" aria-label={itemCount === null ? "Mở giỏ hàng" : `Mở giỏ hàng, ${itemCount} sản phẩm`}>♧<span>Giỏ hàng</span>{itemCount !== null ? <b>{itemCount > 99 ? "99+" : itemCount}</b> : null}</Link>
         <Link className={`account-button ${authenticated ? "authenticated" : ""}`} href={authenticated ? "/account/profile" : "/login?returnUrl=%2Faccount%2Fprofile"} aria-label={authenticated ? `Tài khoản của ${customer.displayName}` : "Đăng nhập tài khoản Tri Kỷ"} title={authenticated ? customer.displayName : "Đăng nhập"}>{status === "loading" ? "…" : initial}</Link>
       </div>

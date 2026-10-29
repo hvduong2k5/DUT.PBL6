@@ -5,6 +5,7 @@ import {
   type PublicErrorBody
 } from "@/lib/api-contract";
 import { fetchCustomerCapabilities } from "@/lib/auth/capability-server";
+import { MVP_FEATURE_GATES } from "@/lib/mvp-feature-gates";
 import { GUEST_ORDER_ACCESS_COOKIE, decodeGuestOrderAccess, encodeGuestOrderAccess } from "@/lib/orders/guest-access";
 import { isOrderCancellation, isOwnedOrder, isOwnedOrdersResponse } from "@/lib/orders/mvp";
 import type { GuestChallenge, GuestVerification } from "@/lib/orders/types";
@@ -121,7 +122,7 @@ function relayError(payload: unknown, upstreamResponse: Response) {
 }
 
 function guestExtensionEnabled(): boolean {
-  return process.env.ORDER_GUEST_EXTENSION_ENABLED === "true";
+  return MVP_FEATURE_GATES.guestOrder;
 }
 
 function text(value: unknown): string | undefined {

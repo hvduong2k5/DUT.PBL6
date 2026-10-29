@@ -6,6 +6,7 @@ import {
   type PublicErrorBody
 } from "@/lib/api-contract";
 import { fetchCustomerCapabilities } from "@/lib/auth/capability-server";
+import { MVP_FEATURE_GATES } from "@/lib/mvp-feature-gates";
 import {
   parseMvpCheckoutRoute,
   validateMvpAcceptRequest,
@@ -201,6 +202,12 @@ export async function handleCheckoutRequest(request: NextRequest, path: string[]
     if (route.operation === "create-quote") {
       const parsed = validateMvpQuoteRequest(body);
       if (!parsed.data) return publicErrorResponse(400, "INVALID_REQUEST", "Yêu cầu tạo quote chưa hợp lệ.", "BFF-CHECKOUT-QUOTE", { errors: parsed.errors });
+      if (parsed.data.payment_method === "COD" && !MVP_FEATURE_GATES.cod) {
+        return publicErrorResponse(403, "FEATURE_NOT_ENABLED", "COD chưa được bật cho Web MVP hiện tại.", "BFF-CHECKOUT-COD-GATE");
+      }
+      if (parsed.data.voucher_code && !MVP_FEATURE_GATES.voucher) {
+        return publicErrorResponse(403, "FEATURE_NOT_ENABLED", "Voucher chưa được bật cho Web MVP hiện tại.", "BFF-CHECKOUT-VOUCHER-GATE");
+      }
       const result = await callUpstream(request, "checkout/quote", "POST", route.mockScenario, parsed.data);
       if (!result.response.ok) return relayUpstreamError(result.payload, result.response);
       if (result.response.status !== 200) return publicErrorResponse(502, "INVALID_CHECKOUT_STATUS", "Checkout quote trả status ngoài contract.", "BFF-CHECKOUT-QUOTE");
@@ -215,6 +222,9 @@ export async function handleCheckoutRequest(request: NextRequest, path: string[]
     }
     const parsed = validateMvpAcceptRequest(body);
     if (!parsed.data) return publicErrorResponse(400, "INVALID_REQUEST", "Yêu cầu accept Checkout chưa hợp lệ.", "BFF-CHECKOUT-ACCEPT", { errors: parsed.errors });
+    if (parsed.data.payment_method === "COD" && !MVP_FEATURE_GATES.cod) {
+      return publicErrorResponse(403, "FEATURE_NOT_ENABLED", "COD chưa được bật cho Web MVP hiện tại.", "BFF-CHECKOUT-COD-GATE");
+    }
     const result = await callUpstream(request, "checkout", "POST", route.mockScenario, parsed.data, idempotencyKey);
     if (!result.response.ok) return relayUpstreamError(result.payload, result.response);
     if (result.response.status !== 201 && result.response.status !== 202) {
