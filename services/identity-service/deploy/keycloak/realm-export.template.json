@@ -108,6 +108,20 @@
             "access.token.claim": "true",
             "userinfo.token.claim": "false"
           }
+        },
+        {
+          "name": "order-customer-realm-roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "claim.name": "realm_access.roles",
+            "jsonType.label": "String",
+            "multivalued": "true",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "false"
+          }
         }
       ]
     }
@@ -147,5 +161,13 @@
         "description": "Administrator of Identity Service"
       }
     ]
-  }
+  },
+  "scopeMappings": [
+    {
+      "clientScope": "order-customer",
+      "roles": [
+        "CUSTOMER"
+      ]
+    }
+  ]
 }
