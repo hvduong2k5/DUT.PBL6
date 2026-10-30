@@ -133,6 +133,10 @@ func main() {
 	complianceChecker.Start(rootCtx)
 	log.Info().Msg("VSATTP Food Safety Compliance Checker cron worker started")
 
+	identityConsumer := worker.NewIdentityConsumer(cfg.KafkaBrokers, cfg.IdentityEventsTopic, cfg.IdentityConsumerGroup, custUsecase)
+	identityConsumer.Start(rootCtx)
+	log.Info().Str("topic", cfg.IdentityEventsTopic).Str("group", cfg.IdentityConsumerGroup).Msg("Identity event consumer started (customer provisioning sync)")
+
 	// 10. Start HTTP REST Server (Chi Router) on Port 8080
 	httpRouter := transportHTTP.NewRouter(transportHTTP.RouterConfig{
 		ProfileHandler:   transportHTTP.NewProfileHandler(custUsecase),
@@ -188,6 +192,7 @@ func main() {
 	// Stop background workers
 	outboxPublisher.Stop()
 	complianceChecker.Stop()
+	identityConsumer.Stop()
 
 	// Graceful stop HTTP & gRPC
 	if err := httpServer.Shutdown(shutdownCtx); err != nil {

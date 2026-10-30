@@ -44,6 +44,60 @@ func (r *CustomerRepository) Create(ctx context.Context, c *domain.CustomerProfi
 	return err
 }
 
+// CreateIfAbsent inserts a new customer profile unless one already exists for
+// the same user_id. It backs identity provisioning: registration events may be
+// delivered more than once, and the UNIQUE constraint on user_id makes the
+// insert itself the idempotency guard. Returns true when a row was created.
+func (r *CustomerRepository) CreateIfAbsent(ctx context.Context, c *domain.CustomerProfile) (bool, error) {
+	if c.Gender == "" {
+		c.Gender = "UNSPECIFIED"
+	}
+	prefBytes, err := json.Marshal(c.Preferences)
+	if err != nil {
+		return false, err
+	}
+
+	query := `
+		INSERT INTO customer_profiles (
+			id, user_id, full_name, phone_number, email, date_of_birth, gender,
+			avatar_url, preferences, status, version, created_at, updated_at
+		) VALUES (
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
+		)
+		ON CONFLICT (user_id) DO NOTHING
+	`
+	tag, err := r.pool.Exec(ctx, query,
+		c.ID, c.UserID, c.FullName, c.PhoneNumber, c.Email, c.DateOfBirth, c.Gender,
+		c.AvatarURL, prefBytes, c.Status, c.Version, c.CreatedAt, c.UpdatedAt,
+	)
+	if err != nil {
+		return false, err
+	}
+	return tag.RowsAffected() == 1, nil
+}
+
+// SetStatusByUserID transitions the profile owned by userID to the given
+// status. When onlyFrom is non-empty the transition applies only when the
+// current status equals it, so a late lifecycle event cannot resurrect or
+// demote a profile that has already moved on. Returns true when a row changed.
+func (r *CustomerRepository) SetStatusByUserID(ctx context.Context, userID uuid.UUID, status domain.CustomerStatus, onlyFrom domain.CustomerStatus) (bool, error) {
+	query := `
+		UPDATE customer_profiles
+		SET status = $2, updated_at = NOW()
+		WHERE user_id = $1 AND status <> $2
+	`
+	args := []any{userID, string(status)}
+	if onlyFrom != "" {
+		query += ` AND status = $3`
+		args = append(args, string(onlyFrom))
+	}
+	tag, err := r.pool.Exec(ctx, query, args...)
+	if err != nil {
+		return false, err
+	}
+	return tag.RowsAffected() == 1, nil
+}
+
 // GetByID retrieves a customer profile by its primary UUID.
 func (r *CustomerRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.CustomerProfile, error) {
 	query := `
