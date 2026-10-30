@@ -55,7 +55,7 @@ jobs:
           python-version: '3.12'
       - name: Validate OpenAPI, actual payloads, schemas and documentation
         run: |
-          python -m pip install -r services/order-service/scripts/requirements-verification.txt -r packages/contracts/mvp/requirements.txt
+          python -m pip install -r packages/contracts/mvp/requirements.txt
           python packages/contracts/mvp/verify.py
           python packages/contracts/verify_order_design.py --descriptor .system_generated/mvp-contracts/descriptor.pb --output docs/04_testing/order-service/design-contracts-verification.json
           python services/order-service/scripts/verify-contracts.py
