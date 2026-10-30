@@ -31,6 +31,8 @@ import (
 )
 
 type Config struct {
+	AuthMode, OIDCIssuer, OIDCAudience, OIDCJWKSURL                                                                              string
+	OIDCAllowLocalHTTP                                                                                                           bool
 	SourceTopic                                                                                                                  string
 	ProfileToken                                                                                                                 string
 	ConsumerGroup                                                                                                                string
@@ -42,6 +44,14 @@ type Config struct {
 
 func LoadConfig() (Config, error) {
 	c := Config{SourceTopic: os.Getenv("ORDER_SOURCE_TOPIC"), ConsumerGroup: os.Getenv("ORDER_CONSUMER_GROUP"), ProfileToken: os.Getenv("PROFILE_INTERNAL_TOKEN"), DB: os.Getenv("DATABASE_URL"), Redis: os.Getenv("REDIS_ADDR"), Dependencies: os.Getenv("DEPENDENCY_URL"), Profile: os.Getenv("PROFILE_URL"), InternalToken: os.Getenv("ORDER_INTERNAL_TOKEN"), JWTSecret: os.Getenv("ORDER_JWT_SECRET"), EncryptionKey: os.Getenv("ORDER_ENCRYPTION_KEY"), CallbackSecret: os.Getenv("CALLBACK_SECRET"), Receiver: os.Getenv("PAYMENT_RECEIVER"), Kafka: os.Getenv("KAFKA_BROKERS"), HTTP: os.Getenv("HTTP_ADDR"), GRPC: os.Getenv("GRPC_ADDR"), Mode: os.Getenv("APP_MODE"), Poll: 100 * time.Millisecond, AutoComplete: os.Getenv("ENABLE_AUTO_COMPLETE") == "true"}
+	c.AuthMode = os.Getenv("ORDER_AUTH_MODE")
+	c.OIDCIssuer = os.Getenv("ORDER_OIDC_ISSUER")
+	c.OIDCAudience = os.Getenv("ORDER_OIDC_AUDIENCE")
+	c.OIDCJWKSURL = os.Getenv("ORDER_OIDC_JWKS_URL")
+	c.OIDCAllowLocalHTTP = os.Getenv("ORDER_OIDC_ALLOW_LOCAL_HTTP") == "true"
+	if _, err := NewCustomerIdentity(c); err != nil {
+		return c, err
+	}
 	if c.HTTP == "" {
 		c.HTTP = ":8004"
 	}
@@ -61,6 +71,7 @@ func LoadConfig() (Config, error) {
 }
 
 type Service struct {
+	Identity             *CustomerIdentity
 	CoreCheckout         *persistence.CheckoutRuntime
 	PaymentVault         persistence.EvidenceVault
 	PaymentEvidenceHosts []string
@@ -87,6 +98,10 @@ func New(ctx context.Context, c Config) (*Service, error) {
 	if c.Mode != "sandbox" {
 		return nil, errors.New("production adapter set is not implemented")
 	}
+	identity, e := NewCustomerIdentity(c)
+	if e != nil {
+		return nil, e
+	}
 	key, e := base64.StdEncoding.DecodeString(c.EncryptionKey)
 	if e != nil || len(key) != 32 {
 		return nil, errors.New("ORDER_ENCRYPTION_KEY must be base64 32 bytes")
@@ -110,6 +125,7 @@ func New(ctx context.Context, c Config) (*Service, error) {
 	s := &Service{DB: db, Redis: redis.NewClient(&redis.Options{Addr: c.Redis, DB: c.RedisDB}), C: c, Client: &http.Client{Timeout: 2 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}, AEAD: a, workerID: uuid.NewString(), register: prometheus.NewRegistry()}
 	s.Metrics = prometheus.NewHistogramVec(prometheus.HistogramOpts{Name: "order_latency_seconds", Help: "Measured latency by phase/outcome", Buckets: []float64{.005, .01, .05, .1, .2, .3, .5, 1, 2, 5, 15, 60, 300, 900}}, []string{"phase", "outcome"})
 	s.register.MustRegister(s.Metrics, &backlogCollector{S: s, Age: prometheus.NewDesc("order_backlog_oldest_seconds", "Oldest pending obligation age", []string{"phase"}, nil), Count: prometheus.NewDesc("order_backlog_count", "Pending obligations", []string{"phase"}, nil)})
+	s.Identity = identity
 	if c.Kafka != "" {
 		s.Writer = &kafka.Writer{Addr: kafka.TCP(strings.Split(c.Kafka, ",")...), Balancer: &kafka.Hash{}, RequiredAcks: kafka.RequireAll, WriteTimeout: 2 * time.Second, ReadTimeout: 2 * time.Second, AllowAutoTopicCreation: true}
 	}
@@ -201,6 +217,9 @@ func (s *Service) ErrorCode(err error) (string, int) {
 	return "INTERNAL_ERROR", 500
 }
 func (s *Service) Resolve(ctx context.Context, p domain.Principal) (domain.Principal, error) {
+	if s.C.AuthMode == "keycloak" && s.C.Profile == "" {
+		return p, domain.E("IDENTITY_RESOLUTION_UNAVAILABLE", 503)
+	}
 	if p.Role == "GUEST" || p.Staff() {
 		return p, nil
 	}

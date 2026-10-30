@@ -62,6 +62,7 @@ func (r *CheckoutRuntime) fenced(ctx context.Context, w checkoutWork, fn func(pg
 		return fn(tx)
 	})
 }
+
 // stageDeadlineExceeded reports whether the per-stage execution budget
 // (E_DEADLINE: 15 minutes per stage, design 13) has run out. A nil deadline
 // (workflows created before deadlines were recorded) never expires here.

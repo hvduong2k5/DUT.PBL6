@@ -1,0 +1,11 @@
+# Overlay on docker-compose.test.yml; these URLs must be reachable from the API container.
+services:
+  api:
+    environment:
+      ORDER_AUTH_MODE: keycloak
+      ORDER_OIDC_ISSUER: ${ORDER_OIDC_ISSUER:?Set the exact Keycloak issuer}
+      ORDER_OIDC_AUDIENCE: order-api
+      ORDER_OIDC_JWKS_URL: ${ORDER_OIDC_JWKS_URL:-}
+      PROFILE_URL: ${PROFILE_URL:?Set the real Profile service URL}
+      PROFILE_INTERNAL_TOKEN: ${PROFILE_INTERNAL_TOKEN:?Set Order-to-Profile credential}
+      ENABLE_AUTO_COMPLETE: "false"

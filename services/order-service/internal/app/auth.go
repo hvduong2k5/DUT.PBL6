@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
@@ -36,6 +37,19 @@ func SignToken(secret string, c Claims) string {
 	return body + "." + base64.RawURLEncoding.EncodeToString(h.Sum(nil))
 }
 func (s *Service) Authenticate(token string) (domain.Principal, error) {
+	return s.AuthenticateContext(context.Background(), token)
+}
+
+func (s *Service) AuthenticateContext(ctx context.Context, token string) (domain.Principal, error) {
+	if s.C.AuthMode == "keycloak" {
+		if s.Identity == nil {
+			return domain.Principal{}, domain.E("UNAUTHENTICATED", 401)
+		}
+		return s.Identity.Authenticate(ctx, token)
+	}
+	if s.C.AuthMode != "" && s.C.AuthMode != "sandbox" {
+		return domain.Principal{}, domain.E("UNAUTHENTICATED", 401)
+	}
 	if len(token) > 8192 {
 		return domain.Principal{}, domain.E("UNAUTHENTICATED", 401)
 	}
