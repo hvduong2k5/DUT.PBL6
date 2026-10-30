@@ -36,6 +36,10 @@ type Config struct {
 	KafkaBrokers       string
 	TopicProfileEvents string
 
+	// Identity event consumption (customer provisioning sync)
+	IdentityEventsTopic   string
+	IdentityConsumerGroup string
+
 	// Workers
 	OutboxPollInterval  time.Duration
 	OutboxBatchSize     int
@@ -67,6 +71,9 @@ func LoadConfig() *Config {
 
 		KafkaBrokers:       getEnv("KAFKA_BROKERS", "localhost:9092"),
 		TopicProfileEvents: getEnv("TOPIC_PROFILE_EVENTS", "profile.events.v1"),
+
+		IdentityEventsTopic:   getEnv("IDENTITY_EVENTS_TOPIC", "identity.events.v1"),
+		IdentityConsumerGroup: getEnv("IDENTITY_CONSUMER_GROUP", "profile-identity-sync"),
 
 		OutboxPollInterval:  getEnvAsDuration("OUTBOX_POLL_INTERVAL_MS", 500) * time.Millisecond,
 		OutboxBatchSize:     getEnvAsInt("OUTBOX_BATCH_SIZE", 50),
