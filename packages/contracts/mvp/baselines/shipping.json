@@ -1,0 +1,979 @@
+{
+  "source_sha": "1242209c476c137f81900897c266657ebecb81b1",
+  "source_file_sha256": {
+    "packages/proto/catalog/v1/catalog.proto": "3fcf1d1bca12018e5745069d9b0ab6a6d9e62c5ea433f20640e649ad1a13f449",
+    "packages/proto/common/v1/errors.proto": "a5adc8975818630ac7b666f6be5a34e6406fa0d071a5f6084500a61f0d22de9a",
+    "packages/proto/common/v1/types.proto": "c73eb8ab710ce5db25e2c54e26bcd3306b1c5c3e375b600e0c85b4e97b707878",
+    "packages/proto/fulfillment/v1/fulfillment.proto": "bfc8b6adc98f97d8b4a86a2c9c44cf8fae59451deb098f625320ca50a09113c5",
+    "packages/proto/identity/v1/identity.proto": "f9aa9535740942db161af80a6f73170e843969a3a0ea2b849d2d8cb697f3db67",
+    "packages/proto/inventory/v1/inventory.proto": "ec3711c1517999fe836e7394a1bb713c3bf0e53bbc157c5bd297ab75eb6bf918",
+    "packages/proto/order/v1/order.proto": "7aadd1a35b4536b9081c03468ade3048aae17fc679f629ee0dc50fc17bdb2a25",
+    "packages/proto/profile/v1/profile.proto": "39d13fefaa1f6026aadba07baac190ee8f2eb87b8531df15369535828f04812c",
+    "packages/proto/promotion/v1/promotion.proto": "44ca1e09cde5ae184edf0ddf790dd872d5db19d0f2b546c66193db43a2d6d6d9",
+    "packages/proto/shipping/v1/shipping.proto": "47bb7c7fcfd8b7c7d42ac143b9ec6f63275500f5583da231b6534ccd54c95ed9"
+  },
+  "wire": {
+    "files": {
+      "common/v1/types.proto": {
+        "package": "omamx.common.v1",
+        "options": {
+          "go_package": "github.com/omamx/proto/common/v1;commonv1",
+          "java_package": "com.omamx.proto.common.v1",
+          "java_multiple_files": true
+        }
+      },
+      "common/v1/errors.proto": {
+        "package": "omamx.common.v1",
+        "options": {
+          "go_package": "github.com/omamx/proto/common/v1;commonv1",
+          "java_package": "com.omamx.proto.common.v1",
+          "java_multiple_files": true
+        }
+      },
+      "catalog/v1/catalog.proto": {
+        "package": "omamx.catalog.v1",
+        "options": {
+          "go_package": "github.com/omamx/proto/catalog/v1;catalogv1",
+          "java_package": "com.omamx.proto.catalog.v1",
+          "java_multiple_files": true
+        }
+      },
+      "fulfillment/v1/fulfillment.proto": {
+        "package": "omamx.fulfillment.v1",
+        "options": {
+          "go_package": "github.com/omamx/proto/fulfillment/v1;fulfillmentv1",
+          "java_package": "com.omamx.proto.fulfillment.v1",
+          "java_multiple_files": true
+        }
+      },
+      "identity/v1/identity.proto": {
+        "package": "omamx.identity.v1",
+        "options": {
+          "go_package": "github.com/omamx/proto/identity/v1;identityv1",
+          "java_package": "com.omamx.proto.identity.v1",
+          "java_multiple_files": true
+        }
+      },
+      "inventory/v1/inventory.proto": {
+        "package": "omamx.inventory.v1",
+        "options": {
+          "go_package": "github.com/omamx/proto/inventory/v1;inventoryv1",
+          "java_package": "com.omamx.proto.inventory.v1",
+          "java_multiple_files": true
+        }
+      },
+      "order/v1/order.proto": {
+        "package": "omamx.order.v1",
+        "options": {
+          "go_package": "github.com/omamx/proto/order/v1;orderv1",
+          "java_package": "com.omamx.proto.order.v1",
+          "java_multiple_files": true
+        }
+      },
+      "profile/v1/profile.proto": {
+        "package": "omamx.profile.v1",
+        "options": {
+          "go_package": "github.com/omamx/proto/profile/v1;profilev1",
+          "java_package": "com.omamx.proto.profile.v1",
+          "java_multiple_files": true
+        }
+      },
+      "promotion/v1/promotion.proto": {
+        "package": "omamx.promotion.v1",
+        "options": {
+          "go_package": "github.com/omamx/proto/promotion/v1;promotionv1",
+          "java_package": "com.omamx.proto.promotion.v1",
+          "java_multiple_files": true
+        }
+      },
+      "shipping/v1/shipping.proto": {
+        "package": "omamx.shipping.v1",
+        "options": {
+          "go_package": "github.com/omamx/proto/shipping/v1;shippingv1",
+          "java_package": "com.omamx.proto.shipping.v1",
+          "java_multiple_files": true
+        }
+      }
+    },
+    "messages": {
+      "omamx.common.v1.Money": {
+        "fields": {
+          "1": ["currency_code", "currencyCode", 9, "", 1, false, null],
+          "2": ["units", "units", 3, "", 1, false, null],
+          "3": ["nanos", "nanos", 5, "", 1, false, null]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.common.v1.Address": {
+        "fields": {
+          "1": ["recipient_name", "recipientName", 9, "", 1, false, null],
+          "2": ["phone_number", "phoneNumber", 9, "", 1, false, null],
+          "3": ["street_address", "streetAddress", 9, "", 1, false, null],
+          "4": ["ward", "ward", 9, "", 1, false, null],
+          "5": ["district", "district", 9, "", 1, false, null],
+          "6": ["province", "province", 9, "", 1, false, null],
+          "7": ["country_code", "countryCode", 9, "", 1, false, null],
+          "8": ["postal_code", "postalCode", 9, "", 1, true, "_postal_code"]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.common.v1.Weight": {
+        "fields": {
+          "1": ["decimal_value", "decimalValue", 9, "", 1, false, null],
+          "2": ["unit", "unit", 14, ".omamx.common.v1.WeightUnit", 1, false, null]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.common.v1.PaginationRequest": {
+        "fields": {
+          "1": ["page", "page", 5, "", 1, false, null],
+          "2": ["page_size", "pageSize", 5, "", 1, false, null]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.common.v1.PaginationResponse": {
+        "fields": {
+          "1": ["current_page", "currentPage", 5, "", 1, false, null],
+          "2": ["page_size", "pageSize", 5, "", 1, false, null],
+          "3": ["total_items", "totalItems", 3, "", 1, false, null],
+          "4": ["total_pages", "totalPages", 5, "", 1, false, null]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.common.v1.AuditContext": {
+        "fields": {
+          "1": ["actor_id", "actorId", 9, "", 1, false, null],
+          "2": ["actor_role", "actorRole", 9, "", 1, false, null],
+          "3": ["client_ip", "clientIp", 9, "", 1, false, null],
+          "4": ["traceparent", "traceparent", 9, "", 1, false, null],
+          "5": ["user_agent", "userAgent", 9, "", 1, true, "_user_agent"]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.common.v1.ErrorDetail": {
+        "fields": {
+          "1": ["error_code", "errorCode", 14, ".omamx.common.v1.ErrorCode", 1, false, null],
+          "2": ["user_message", "userMessage", 9, "", 1, false, null],
+          "3": ["dev_message", "devMessage", 9, "", 1, false, null],
+          "4": ["domain", "domain", 9, "", 1, false, null],
+          "5": ["metadata", "metadata", 11, ".omamx.common.v1.ErrorDetail.MetadataEntry", 3, false, null],
+          "6": ["help_link", "helpLink", 9, "", 1, true, "_help_link"]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.common.v1.ErrorDetail.MetadataEntry": {
+        "fields": {
+          "1": ["key", "key", 9, "", 1, false, null],
+          "2": ["value", "value", 9, "", 1, false, null]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.catalog.v1.PriceCheckItem": {
+        "fields": {
+          "1": ["sku_code", "skuCode", 9, "", 1, false, null],
+          "2": ["client_unit_price", "clientUnitPrice", 11, ".omamx.common.v1.Money", 1, false, null],
+          "3": ["quantity", "quantity", 5, "", 1, false, null]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.catalog.v1.ValidatePriceAndSKURequest": {
+        "fields": {
+          "1": ["idempotency_key", "idempotencyKey", 9, "", 1, false, null],
+          "2": ["channel", "channel", 9, "", 1, false, null],
+          "3": ["items", "items", 11, ".omamx.catalog.v1.PriceCheckItem", 3, false, null]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.catalog.v1.PriceDiscrepancy": {
+        "fields": {
+          "1": ["sku_code", "skuCode", 9, "", 1, false, null],
+          "2": ["client_unit_price", "clientUnitPrice", 11, ".omamx.common.v1.Money", 1, false, null],
+          "3": ["authoritative_unit_price", "authoritativeUnitPrice", 11, ".omamx.common.v1.Money", 1, false, null],
+          "4": ["discrepancy_reason", "discrepancyReason", 9, "", 1, false, null]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.catalog.v1.ValidatePriceAndSKUResponse": {
+        "fields": {
+          "1": ["is_valid", "isValid", 8, "", 1, false, null],
+          "2": ["canonical_subtotal", "canonicalSubtotal", 11, ".omamx.common.v1.Money", 1, false, null],
+          "3": ["discrepancies", "discrepancies", 11, ".omamx.catalog.v1.PriceDiscrepancy", 3, false, null],
+          "4": ["error", "error", 11, ".omamx.common.v1.ErrorDetail", 1, true, "_error"]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.catalog.v1.GetProductVariantRequest": {
+        "fields": {
+          "1": ["sku_code", "skuCode", 9, "", 1, false, null]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.catalog.v1.ProductVariantDetail": {
+        "fields": {
+          "1": ["sku_code", "skuCode", 9, "", 1, false, null],
+          "2": ["product_id", "productId", 9, "", 1, false, null],
+          "3": ["variant_name", "variantName", 9, "", 1, false, null],
+          "4": ["unit_price", "unitPrice", 11, ".omamx.common.v1.Money", 1, false, null],
+          "5": ["net_weight", "netWeight", 11, ".omamx.common.v1.Weight", 1, false, null],
+          "6": ["ocop_rating", "ocopRating", 9, "", 1, false, null],
+          "7": ["packaging_type", "packagingType", 9, "", 1, false, null],
+          "8": ["shelf_life_days", "shelfLifeDays", 5, "", 1, false, null],
+          "9": ["is_active", "isActive", 8, "", 1, false, null]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.catalog.v1.GetProductVariantResponse": {
+        "fields": {
+          "1": ["variant", "variant", 11, ".omamx.catalog.v1.ProductVariantDetail", 1, false, null]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.catalog.v1.ListProductVariantsRequest": {
+        "fields": {
+          "1": ["pagination", "pagination", 11, ".omamx.common.v1.PaginationRequest", 1, false, null],
+          "2": ["category_id", "categoryId", 9, "", 1, true, "_category_id"],
+          "3": ["ocop_rating", "ocopRating", 9, "", 1, true, "_ocop_rating"],
+          "4": ["active_only", "activeOnly", 8, "", 1, true, "_active_only"]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.catalog.v1.ListProductVariantsResponse": {
+        "fields": {
+          "1": ["variants", "variants", 11, ".omamx.catalog.v1.ProductVariantDetail", 3, false, null],
+          "2": ["pagination", "pagination", 11, ".omamx.common.v1.PaginationResponse", 1, false, null]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.fulfillment.v1.GetPackingVideoUrlRequest": {
+        "fields": {
+          "1": ["order_id", "orderId", 9, "", 1, false, null],
+          "2": ["requesting_user_id", "requestingUserId", 9, "", 1, false, null],
+          "3": ["user_role", "userRole", 9, "", 1, false, null]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.fulfillment.v1.GetPackingVideoUrlResponse": {
+        "fields": {
+          "1": ["has_video", "hasVideo", 8, "", 1, false, null],
+          "2": ["presigned_video_url", "presignedVideoUrl", 9, "", 1, true, "_presigned_video_url"],
+          "3": ["expires_at", "expiresAt", 11, ".google.protobuf.Timestamp", 1, true, "_expires_at"],
+          "4": ["seal_code", "sealCode", 9, "", 1, true, "_seal_code"],
+          "5": ["video_checksum_sha256", "videoChecksumSha256", 9, "", 1, true, "_video_checksum_sha256"],
+          "6": ["error", "error", 11, ".omamx.common.v1.ErrorDetail", 1, true, "_error"]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.fulfillment.v1.SubmitPackingEvidenceRequest": {
+        "fields": {
+          "1": ["idempotency_key", "idempotencyKey", 9, "", 1, false, null],
+          "2": ["order_id", "orderId", 9, "", 1, false, null],
+          "3": ["packer_staff_id", "packerStaffId", 9, "", 1, false, null],
+          "4": ["seal_code", "sealCode", 9, "", 1, false, null],
+          "5": ["s3_video_object_key", "s3VideoObjectKey", 9, "", 1, false, null],
+          "6": ["video_checksum_sha256", "videoChecksumSha256", 9, "", 1, false, null],
+          "7": ["scanned_batch_codes", "scannedBatchCodes", 9, "", 3, false, null]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.fulfillment.v1.SubmitPackingEvidenceResponse": {
+        "fields": {
+          "1": ["is_confirmed", "isConfirmed", 8, "", 1, false, null],
+          "2": ["fulfillment_task_id", "fulfillmentTaskId", 9, "", 1, false, null],
+          "3": ["packed_at", "packedAt", 11, ".google.protobuf.Timestamp", 1, false, null]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.identity.v1.SpecializedPermissionRequest": {
+        "fields": {
+          "1": ["user_id", "userId", 9, "", 1, false, null],
+          "2": ["action", "action", 9, "", 1, false, null],
+          "3": ["context_attributes", "contextAttributes", 11, ".omamx.identity.v1.SpecializedPermissionRequest.ContextAttributesEntry", 3, false, null],
+          "4": ["audit_context", "auditContext", 11, ".omamx.common.v1.AuditContext", 1, true, "_audit_context"]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.identity.v1.SpecializedPermissionRequest.ContextAttributesEntry": {
+        "fields": {
+          "1": ["key", "key", 9, "", 1, false, null],
+          "2": ["value", "value", 9, "", 1, false, null]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.identity.v1.SpecializedPermissionResponse": {
+        "fields": {
+          "1": ["is_allowed", "isAllowed", 8, "", 1, false, null],
+          "2": ["decision_reason", "decisionReason", 9, "", 1, false, null],
+          "3": ["required_approval_level", "requiredApprovalLevel", 9, "", 1, true, "_required_approval_level"],
+          "4": ["error", "error", 11, ".omamx.common.v1.ErrorDetail", 1, true, "_error"]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.identity.v1.GetJwksPublicKeyRequest": {
+        "fields": {
+          "1": ["key_id", "keyId", 9, "", 1, true, "_key_id"]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.identity.v1.GetJwksPublicKeyResponse": {
+        "fields": {
+          "1": ["key_id", "keyId", 9, "", 1, false, null],
+          "2": ["algorithm", "algorithm", 9, "", 1, false, null],
+          "3": ["public_key_pem", "publicKeyPem", 9, "", 1, false, null]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.inventory.v1.ReserveItem": {
+        "fields": {
+          "1": ["sku_code", "skuCode", 9, "", 1, false, null],
+          "2": ["quantity", "quantity", 5, "", 1, false, null]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.inventory.v1.ReserveStockRequest": {
+        "fields": {
+          "1": ["idempotency_key", "idempotencyKey", 9, "", 1, false, null],
+          "2": ["order_id", "orderId", 9, "", 1, false, null],
+          "3": ["items", "items", 11, ".omamx.inventory.v1.ReserveItem", 3, false, null],
+          "4": ["ttl_minutes", "ttlMinutes", 5, "", 1, false, null],
+          "5": ["channel", "channel", 9, "", 1, false, null],
+          "6": ["preferred_warehouse_id", "preferredWarehouseId", 9, "", 1, true, "_preferred_warehouse_id"]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.inventory.v1.UnavailableItemDetail": {
+        "fields": {
+          "1": ["sku_code", "skuCode", 9, "", 1, false, null],
+          "2": ["requested_quantity", "requestedQuantity", 5, "", 1, false, null],
+          "3": ["available_quantity", "availableQuantity", 5, "", 1, false, null]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.inventory.v1.ReserveStockResponse": {
+        "fields": {
+          "1": ["status", "status", 14, ".omamx.inventory.v1.ReservationStatus", 1, false, null],
+          "2": ["reservation_id", "reservationId", 9, "", 1, true, "_reservation_id"],
+          "3": ["expires_at", "expiresAt", 11, ".google.protobuf.Timestamp", 1, true, "_expires_at"],
+          "4": ["unavailable_items", "unavailableItems", 11, ".omamx.inventory.v1.UnavailableItemDetail", 3, false, null],
+          "5": ["error", "error", 11, ".omamx.common.v1.ErrorDetail", 1, true, "_error"]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.inventory.v1.ReleaseReservationRequest": {
+        "fields": {
+          "1": ["idempotency_key", "idempotencyKey", 9, "", 1, false, null],
+          "2": ["order_id", "orderId", 9, "", 1, false, null],
+          "3": ["reservation_id", "reservationId", 9, "", 1, false, null],
+          "4": ["release_reason", "releaseReason", 9, "", 1, false, null],
+          "5": ["audit_context", "auditContext", 11, ".omamx.common.v1.AuditContext", 1, true, "_audit_context"]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.inventory.v1.ReleaseReservationResponse": {
+        "fields": {
+          "1": ["is_released", "isReleased", 8, "", 1, false, null],
+          "2": ["total_items_restored", "totalItemsRestored", 5, "", 1, false, null],
+          "3": ["message", "message", 9, "", 1, false, null]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.inventory.v1.GetStockLevelRequest": {
+        "fields": {
+          "1": ["sku_codes", "skuCodes", 9, "", 3, false, null],
+          "2": ["warehouse_id", "warehouseId", 9, "", 1, true, "_warehouse_id"]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.inventory.v1.StockLevelItem": {
+        "fields": {
+          "1": ["sku_code", "skuCode", 9, "", 1, false, null],
+          "2": ["physical_quantity", "physicalQuantity", 5, "", 1, false, null],
+          "3": ["reserved_quantity", "reservedQuantity", 5, "", 1, false, null],
+          "4": ["available_quantity", "availableQuantity", 5, "", 1, false, null],
+          "5": ["stock_status", "stockStatus", 9, "", 1, false, null]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.inventory.v1.GetStockLevelResponse": {
+        "fields": {
+          "1": ["items", "items", 11, ".omamx.inventory.v1.StockLevelItem", 3, false, null]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.inventory.v1.GetBatchFEFODetailsRequest": {
+        "fields": {
+          "1": ["sku_code", "skuCode", 9, "", 1, false, null],
+          "2": ["warehouse_id", "warehouseId", 9, "", 1, true, "_warehouse_id"]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.inventory.v1.BatchItemDetail": {
+        "fields": {
+          "1": ["batch_code", "batchCode", 9, "", 1, false, null],
+          "2": ["manufactured_at", "manufacturedAt", 11, ".google.protobuf.Timestamp", 1, false, null],
+          "3": ["best_before", "bestBefore", 11, ".google.protobuf.Timestamp", 1, false, null],
+          "4": ["days_until_expiry", "daysUntilExpiry", 5, "", 1, false, null],
+          "5": ["remaining_quantity", "remainingQuantity", 5, "", 1, false, null],
+          "6": ["quality_status", "qualityStatus", 14, ".omamx.inventory.v1.BatchQualityStatus", 1, false, null],
+          "7": ["ocop_trace_qr_code", "ocopTraceQrCode", 9, "", 1, false, null]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.inventory.v1.GetBatchFEFODetailsResponse": {
+        "fields": {
+          "1": ["sku_code", "skuCode", 9, "", 1, false, null],
+          "2": ["batches", "batches", 11, ".omamx.inventory.v1.BatchItemDetail", 3, false, null]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.order.v1.OrderItem": {
+        "fields": {
+          "1": ["sku_code", "skuCode", 9, "", 1, false, null],
+          "2": ["product_name", "productName", 9, "", 1, false, null],
+          "3": ["quantity", "quantity", 5, "", 1, false, null],
+          "4": ["unit_price", "unitPrice", 11, ".omamx.common.v1.Money", 1, false, null],
+          "5": ["total_price", "totalPrice", 11, ".omamx.common.v1.Money", 1, false, null],
+          "6": ["item_notes", "itemNotes", 9, "", 1, true, "_item_notes"]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.order.v1.PaymentInfo": {
+        "fields": {
+          "1": ["payment_method", "paymentMethod", 9, "", 1, false, null],
+          "2": ["payment_status", "paymentStatus", 9, "", 1, false, null],
+          "3": ["vietqr_url", "vietqrUrl", 9, "", 1, true, "_vietqr_url"],
+          "4": ["paid_at", "paidAt", 11, ".google.protobuf.Timestamp", 1, true, "_paid_at"],
+          "5": ["bank_transaction_id", "bankTransactionId", 9, "", 1, true, "_bank_transaction_id"]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.order.v1.CreatePOSOrderRequest": {
+        "fields": {
+          "1": ["idempotency_key", "idempotencyKey", 9, "", 1, false, null],
+          "2": ["customer_id", "customerId", 9, "", 1, false, null],
+          "3": ["pos_terminal_id", "posTerminalId", 9, "", 1, false, null],
+          "4": ["cashier_staff_id", "cashierStaffId", 9, "", 1, false, null],
+          "5": ["items", "items", 11, ".omamx.order.v1.OrderItem", 3, false, null],
+          "6": ["payment_method", "paymentMethod", 9, "", 1, false, null],
+          "7": ["voucher_code", "voucherCode", 9, "", 1, true, "_voucher_code"],
+          "8": ["audit_context", "auditContext", 11, ".omamx.common.v1.AuditContext", 1, true, "_audit_context"]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.order.v1.CreatePOSOrderResponse": {
+        "fields": {
+          "1": ["order_id", "orderId", 9, "", 1, false, null],
+          "2": ["status", "status", 14, ".omamx.order.v1.OrderStatus", 1, false, null],
+          "3": ["subtotal_amount", "subtotalAmount", 11, ".omamx.common.v1.Money", 1, false, null],
+          "4": ["discount_amount", "discountAmount", 11, ".omamx.common.v1.Money", 1, true, "_discount_amount"],
+          "5": ["final_amount", "finalAmount", 11, ".omamx.common.v1.Money", 1, false, null],
+          "6": ["payment", "payment", 11, ".omamx.order.v1.PaymentInfo", 1, false, null],
+          "7": ["error", "error", 11, ".omamx.common.v1.ErrorDetail", 1, true, "_error"]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.order.v1.GetOrderDetailRequest": {
+        "fields": {
+          "1": ["order_id", "orderId", 9, "", 1, false, null],
+          "2": ["requesting_user_id", "requestingUserId", 9, "", 1, false, null]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.order.v1.GetOrderDetailResponse": {
+        "fields": {
+          "1": ["order_id", "orderId", 9, "", 1, false, null],
+          "2": ["customer_id", "customerId", 9, "", 1, false, null],
+          "3": ["channel", "channel", 9, "", 1, false, null],
+          "4": ["status", "status", 14, ".omamx.order.v1.OrderStatus", 1, false, null],
+          "5": ["items", "items", 11, ".omamx.order.v1.OrderItem", 3, false, null],
+          "6": ["shipping_address", "shippingAddress", 11, ".omamx.common.v1.Address", 1, false, null],
+          "7": ["subtotal_amount", "subtotalAmount", 11, ".omamx.common.v1.Money", 1, false, null],
+          "8": ["discount_amount", "discountAmount", 11, ".omamx.common.v1.Money", 1, true, "_discount_amount"],
+          "9": ["shipping_fee", "shippingFee", 11, ".omamx.common.v1.Money", 1, true, "_shipping_fee"],
+          "10": ["final_amount", "finalAmount", 11, ".omamx.common.v1.Money", 1, false, null],
+          "11": ["payment", "payment", 11, ".omamx.order.v1.PaymentInfo", 1, false, null],
+          "12": ["tracking_code", "trackingCode", 9, "", 1, true, "_tracking_code"],
+          "13": ["shipping_carrier", "shippingCarrier", 9, "", 1, true, "_shipping_carrier"],
+          "14": ["seal_code", "sealCode", 9, "", 1, true, "_seal_code"],
+          "15": ["created_at", "createdAt", 11, ".google.protobuf.Timestamp", 1, false, null],
+          "16": ["updated_at", "updatedAt", 11, ".google.protobuf.Timestamp", 1, false, null]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.order.v1.CancelOrderRequest": {
+        "fields": {
+          "1": ["idempotency_key", "idempotencyKey", 9, "", 1, false, null],
+          "2": ["order_id", "orderId", 9, "", 1, false, null],
+          "3": ["cancel_reason", "cancelReason", 9, "", 1, false, null],
+          "4": ["cancelled_by_user_id", "cancelledByUserId", 9, "", 1, false, null]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.order.v1.CancelOrderResponse": {
+        "fields": {
+          "1": ["is_cancelled", "isCancelled", 8, "", 1, false, null],
+          "2": ["final_status", "finalStatus", 14, ".omamx.order.v1.OrderStatus", 1, false, null],
+          "3": ["message", "message", 9, "", 1, false, null]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.order.v1.GetShippingSnapshotRequest": {
+        "fields": {
+          "1": ["order_id", "orderId", 9, "", 1, false, null],
+          "2": ["package_id", "packageId", 9, "", 1, false, null],
+          "3": ["requesting_service", "requestingService", 9, "", 1, false, null]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.order.v1.GetShippingSnapshotResponse": {
+        "fields": {
+          "1": ["order_id", "orderId", 9, "", 1, false, null],
+          "2": ["package_id", "packageId", 9, "", 1, false, null],
+          "3": ["order_status", "orderStatus", 14, ".omamx.order.v1.OrderStatus", 1, false, null],
+          "4": ["recipient", "recipient", 11, ".omamx.common.v1.Address", 1, false, null],
+          "5": ["checkout_shipping_fee", "checkoutShippingFee", 11, ".omamx.common.v1.Money", 1, true, "_checkout_shipping_fee"],
+          "6": ["cod_amount", "codAmount", 11, ".omamx.common.v1.Money", 1, true, "_cod_amount"],
+          "7": ["payment_method", "paymentMethod", 9, "", 1, false, null],
+          "8": ["carrier_code", "carrierCode", 9, "", 1, true, "_carrier_code"],
+          "9": ["service_code", "serviceCode", 9, "", 1, true, "_service_code"],
+          "10": ["quote_id", "quoteId", 9, "", 1, true, "_quote_id"],
+          "11": ["eligible_for_shipping", "eligibleForShipping", 8, "", 1, false, null],
+          "12": ["error", "error", 11, ".omamx.common.v1.ErrorDetail", 1, true, "_error"]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.profile.v1.GetCustomerProfileRequest": {
+        "fields": {
+          "1": ["customer_id", "customerId", 9, "", 1, false, null]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.profile.v1.CustomerProfileDetail": {
+        "fields": {
+          "1": ["customer_id", "customerId", 9, "", 1, false, null],
+          "2": ["full_name", "fullName", 9, "", 1, false, null],
+          "3": ["phone_number", "phoneNumber", 9, "", 1, false, null],
+          "4": ["email", "email", 9, "", 1, true, "_email"],
+          "5": ["loyalty_tier", "loyaltyTier", 9, "", 1, false, null],
+          "6": ["loyalty_points", "loyaltyPoints", 5, "", 1, false, null],
+          "7": ["created_at", "createdAt", 11, ".google.protobuf.Timestamp", 1, false, null],
+          "8": ["updated_at", "updatedAt", 11, ".google.protobuf.Timestamp", 1, false, null]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.profile.v1.GetCustomerProfileResponse": {
+        "fields": {
+          "1": ["profile", "profile", 11, ".omamx.profile.v1.CustomerProfileDetail", 1, false, null],
+          "2": ["error", "error", 11, ".omamx.common.v1.ErrorDetail", 1, true, "_error"]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.profile.v1.GetDeliveryAddressRequest": {
+        "fields": {
+          "1": ["address_id", "addressId", 9, "", 1, false, null],
+          "2": ["customer_id", "customerId", 9, "", 1, false, null]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.profile.v1.GetDeliveryAddressResponse": {
+        "fields": {
+          "1": ["address_id", "addressId", 9, "", 1, false, null],
+          "2": ["address", "address", 11, ".omamx.common.v1.Address", 1, false, null],
+          "3": ["is_default", "isDefault", 8, "", 1, false, null],
+          "4": ["label", "label", 9, "", 1, false, null],
+          "5": ["error", "error", 11, ".omamx.common.v1.ErrorDetail", 1, true, "_error"]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.profile.v1.ListDeliveryAddressesRequest": {
+        "fields": {
+          "1": ["customer_id", "customerId", 9, "", 1, false, null]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.profile.v1.DeliveryAddressEntry": {
+        "fields": {
+          "1": ["address_id", "addressId", 9, "", 1, false, null],
+          "2": ["address", "address", 11, ".omamx.common.v1.Address", 1, false, null],
+          "3": ["is_default", "isDefault", 8, "", 1, false, null],
+          "4": ["label", "label", 9, "", 1, false, null]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.profile.v1.ListDeliveryAddressesResponse": {
+        "fields": {
+          "1": ["addresses", "addresses", 11, ".omamx.profile.v1.DeliveryAddressEntry", 3, false, null]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.promotion.v1.ValidateAndLockVoucherRequest": {
+        "fields": {
+          "1": ["idempotency_key", "idempotencyKey", 9, "", 1, false, null],
+          "2": ["voucher_code", "voucherCode", 9, "", 1, false, null],
+          "3": ["order_id", "orderId", 9, "", 1, false, null],
+          "4": ["customer_id", "customerId", 9, "", 1, false, null],
+          "5": ["order_subtotal", "orderSubtotal", 11, ".omamx.common.v1.Money", 1, false, null],
+          "6": ["ttl_minutes", "ttlMinutes", 5, "", 1, false, null]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.promotion.v1.ValidateAndLockVoucherResponse": {
+        "fields": {
+          "1": ["is_valid", "isValid", 8, "", 1, false, null],
+          "2": ["discount_amount", "discountAmount", 11, ".omamx.common.v1.Money", 1, true, "_discount_amount"],
+          "3": ["discount_type", "discountType", 14, ".omamx.promotion.v1.DiscountType", 1, false, null],
+          "4": ["voucher_lock_id", "voucherLockId", 9, "", 1, true, "_voucher_lock_id"],
+          "5": ["expires_at", "expiresAt", 11, ".google.protobuf.Timestamp", 1, true, "_expires_at"],
+          "6": ["error", "error", 11, ".omamx.common.v1.ErrorDetail", 1, true, "_error"]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.promotion.v1.ReleaseVoucherRequest": {
+        "fields": {
+          "1": ["idempotency_key", "idempotencyKey", 9, "", 1, false, null],
+          "2": ["voucher_code", "voucherCode", 9, "", 1, false, null],
+          "3": ["voucher_lock_id", "voucherLockId", 9, "", 1, false, null],
+          "4": ["order_id", "orderId", 9, "", 1, false, null],
+          "5": ["release_reason", "releaseReason", 9, "", 1, false, null]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.promotion.v1.ReleaseVoucherResponse": {
+        "fields": {
+          "1": ["is_released", "isReleased", 8, "", 1, false, null],
+          "2": ["message", "message", 9, "", 1, false, null]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.promotion.v1.CalculateDiscountRequest": {
+        "fields": {
+          "1": ["voucher_code", "voucherCode", 9, "", 1, false, null],
+          "2": ["customer_id", "customerId", 9, "", 1, false, null],
+          "3": ["order_subtotal", "orderSubtotal", 11, ".omamx.common.v1.Money", 1, false, null]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.promotion.v1.CalculateDiscountResponse": {
+        "fields": {
+          "1": ["is_applicable", "isApplicable", 8, "", 1, false, null],
+          "2": ["estimated_discount", "estimatedDiscount", 11, ".omamx.common.v1.Money", 1, true, "_estimated_discount"],
+          "3": ["description", "description", 9, "", 1, false, null]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.shipping.v1.CalculateShippingFeeRequest": {
+        "fields": {
+          "1": ["idempotency_key", "idempotencyKey", 9, "", 1, false, null],
+          "2": ["destination_address", "destinationAddress", 11, ".omamx.common.v1.Address", 1, false, null],
+          "3": ["total_weight", "totalWeight", 11, ".omamx.common.v1.Weight", 1, false, null],
+          "4": ["preferred_carrier", "preferredCarrier", 9, "", 1, true, "_preferred_carrier"],
+          "5": ["is_fragile", "isFragile", 8, "", 1, false, null],
+          "6": ["parcel_dimensions", "parcelDimensions", 11, ".omamx.shipping.v1.ParcelDimensions", 1, true, "_parcel_dimensions"],
+          "7": ["service_code", "serviceCode", 9, "", 1, true, "_service_code"],
+          "8": ["origin_warehouse_id", "originWarehouseId", 9, "", 1, true, "_origin_warehouse_id"]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.shipping.v1.CalculateShippingFeeResponse": {
+        "fields": {
+          "1": ["shipping_fee", "shippingFee", 11, ".omamx.common.v1.Money", 1, false, null],
+          "2": ["carrier", "carrier", 9, "", 1, false, null],
+          "3": ["service_name", "serviceName", 9, "", 1, false, null],
+          "4": ["estimated_delivery_days", "estimatedDeliveryDays", 5, "", 1, false, null],
+          "5": ["error", "error", 11, ".omamx.common.v1.ErrorDetail", 1, true, "_error"],
+          "6": ["service_code", "serviceCode", 9, "", 1, false, null],
+          "7": ["quote_id", "quoteId", 9, "", 1, false, null],
+          "8": ["quote_expires_at", "quoteExpiresAt", 11, ".google.protobuf.Timestamp", 1, false, null],
+          "9": ["estimated_delivery_time", "estimatedDeliveryTime", 11, ".google.protobuf.Timestamp", 1, false, null]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.shipping.v1.ParcelDimensions": {
+        "fields": {
+          "1": ["length_cm", "lengthCm", 5, "", 1, false, null],
+          "2": ["width_cm", "widthCm", 5, "", 1, false, null],
+          "3": ["height_cm", "heightCm", 5, "", 1, false, null]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.shipping.v1.CreateShipmentRequest": {
+        "fields": {
+          "1": ["idempotency_key", "idempotencyKey", 9, "", 1, false, null],
+          "2": ["order_id", "orderId", 9, "", 1, false, null],
+          "3": ["destination_address", "destinationAddress", 11, ".omamx.common.v1.Address", 1, false, null],
+          "4": ["parcel_weight", "parcelWeight", 11, ".omamx.common.v1.Weight", 1, false, null],
+          "5": ["carrier", "carrier", 9, "", 1, false, null],
+          "6": ["seal_code", "sealCode", 9, "", 1, false, null],
+          "7": ["shipping_notes", "shippingNotes", 9, "", 1, true, "_shipping_notes"],
+          "8": ["package_id", "packageId", 9, "", 1, false, null],
+          "9": ["parcel_dimensions", "parcelDimensions", 11, ".omamx.shipping.v1.ParcelDimensions", 1, false, null],
+          "10": ["service_code", "serviceCode", 9, "", 1, false, null],
+          "11": ["cod_amount", "codAmount", 11, ".omamx.common.v1.Money", 1, false, null],
+          "12": ["checkout_shipping_fee", "checkoutShippingFee", 11, ".omamx.common.v1.Money", 1, false, null],
+          "13": ["declared_value", "declaredValue", 11, ".omamx.common.v1.Money", 1, true, "_declared_value"],
+          "14": ["quote_id", "quoteId", 9, "", 1, true, "_quote_id"],
+          "15": ["is_fragile", "isFragile", 8, "", 1, false, null]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.shipping.v1.CreateShipmentResponse": {
+        "fields": {
+          "1": ["tracking_code", "trackingCode", 9, "", 1, false, null],
+          "2": ["carrier_order_id", "carrierOrderId", 9, "", 1, false, null],
+          "3": ["shipping_label_url", "shippingLabelUrl", 9, "", 1, true, "_shipping_label_url"],
+          "4": ["estimated_pickup_time", "estimatedPickupTime", 11, ".google.protobuf.Timestamp", 1, false, null],
+          "5": ["estimated_delivery_time", "estimatedDeliveryTime", 11, ".google.protobuf.Timestamp", 1, false, null],
+          "6": ["shipment_id", "shipmentId", 9, "", 1, false, null],
+          "7": ["status", "status", 14, ".omamx.shipping.v1.ShipmentStatus", 1, false, null],
+          "8": ["shipping_label_reference", "shippingLabelReference", 9, "", 1, true, "_shipping_label_reference"],
+          "9": ["provider_estimated_fee", "providerEstimatedFee", 11, ".omamx.common.v1.Money", 1, false, null]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.shipping.v1.TrackShipmentRequest": {
+        "fields": {
+          "1": ["tracking_code", "trackingCode", 9, "", 1, false, null],
+          "2": ["shipment_id", "shipmentId", 9, "", 1, true, "_shipment_id"],
+          "3": ["order_id", "orderId", 9, "", 1, true, "_order_id"]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.shipping.v1.TrackingCheckpoint": {
+        "fields": {
+          "1": ["timestamp", "timestamp", 11, ".google.protobuf.Timestamp", 1, false, null],
+          "2": ["location", "location", 9, "", 1, false, null],
+          "3": ["description", "description", 9, "", 1, false, null],
+          "4": ["event_id", "eventId", 9, "", 1, false, null],
+          "5": ["provider_status_code", "providerStatusCode", 9, "", 1, false, null],
+          "6": ["received_at", "receivedAt", 11, ".google.protobuf.Timestamp", 1, false, null]
+        },
+        "reserved": [],
+        "reserved_names": []
+      },
+      "omamx.shipping.v1.TrackShipmentResponse": {
+        "fields": {
+          "1": ["tracking_code", "trackingCode", 9, "", 1, false, null],
+          "2": ["carrier", "carrier", 9, "", 1, false, null],
+          "3": ["current_status", "currentStatus", 14, ".omamx.shipping.v1.ShipmentStatus", 1, false, null],
+          "4": ["checkpoints", "checkpoints", 11, ".omamx.shipping.v1.TrackingCheckpoint", 3, false, null],
+          "5": ["shipment_id", "shipmentId", 9, "", 1, false, null],
+          "6": ["order_id", "orderId", 9, "", 1, false, null],
+          "7": ["package_id", "packageId", 9, "", 1, false, null],
+          "8": ["estimated_delivery_time", "estimatedDeliveryTime", 11, ".google.protobuf.Timestamp", 1, true, "_estimated_delivery_time"]
+        },
+        "reserved": [],
+        "reserved_names": []
+      }
+    },
+    "enums": {
+      "omamx.common.v1.WeightUnit": {
+        "WEIGHT_UNIT_UNSPECIFIED": 0,
+        "WEIGHT_UNIT_GRAM": 1,
+        "WEIGHT_UNIT_KILOGRAM": 2
+      },
+      "omamx.common.v1.ErrorCode": {
+        "ERROR_CODE_UNSPECIFIED": 0,
+        "ERR_INTERNAL_SERVER_ERROR": 1,
+        "ERR_INVALID_ARGUMENT": 2,
+        "ERR_UNAUTHENTICATED": 3,
+        "ERR_PERMISSION_DENIED": 4,
+        "ERR_RESOURCE_NOT_FOUND": 5,
+        "ERR_IDEMPOTENCY_CONFLICT": 6,
+        "ERR_CIRCUIT_BREAKER_OPEN": 7,
+        "ERR_DEADLINE_EXCEEDED": 8,
+        "ERR_INVENTORY_INSUFFICIENT_STOCK": 100,
+        "ERR_INVENTORY_SKU_NOT_FOUND": 101,
+        "ERR_INVENTORY_SKU_INACTIVE": 102,
+        "ERR_INVENTORY_RESERVATION_NOT_FOUND": 103,
+        "ERR_INVENTORY_RESERVATION_EXPIRED": 104,
+        "ERR_INVENTORY_BATCH_QUARANTINED": 105,
+        "ERR_CATALOG_PRICE_TAMPERED": 200,
+        "ERR_CATALOG_PRODUCT_OUT_OF_SEASON": 201,
+        "ERR_CATALOG_VARIANT_MISMATCH": 202,
+        "ERR_PROMOTION_VOUCHER_NOT_FOUND": 300,
+        "ERR_PROMOTION_VOUCHER_EXPIRED": 301,
+        "ERR_PROMOTION_USAGE_LIMIT_EXCEEDED": 302,
+        "ERR_PROMOTION_MIN_ORDER_AMOUNT_NOT_MET": 303,
+        "ERR_PROMOTION_VOUCHER_ALREADY_LOCKED": 304,
+        "ERR_ORDER_NOT_FOUND": 400,
+        "ERR_ORDER_INVALID_STATE_TRANSITION": 401,
+        "ERR_ORDER_ALREADY_PAID": 402,
+        "ERR_ORDER_PAYMENT_TIMEOUT": 403,
+        "ERR_ORDER_CANCELLED_BY_USER": 404,
+        "ERR_ORDER_SAGA_COMPENSATION_FAILED": 405,
+        "ERR_PAYMENT_GATEWAY_UNAVAILABLE": 500,
+        "ERR_PAYMENT_HMAC_VERIFICATION_FAILED": 501,
+        "ERR_PAYMENT_AMOUNT_MISMATCH": 502,
+        "ERR_PAYMENT_TRANSACTION_EXPIRED": 503,
+        "ERR_SHIPPING_SERVICE_UNAVAILABLE": 600,
+        "ERR_SHIPPING_ADDRESS_UNSUPPORTED": 601,
+        "ERR_SHIPPING_WEIGHT_EXCEEDED": 602,
+        "ERR_FULFILLMENT_VIDEO_NOT_FOUND": 700,
+        "ERR_FULFILLMENT_SEAL_CODE_INVALID": 701
+      },
+      "omamx.inventory.v1.ReservationStatus": {
+        "RESERVATION_STATUS_UNSPECIFIED": 0,
+        "RESERVATION_STATUS_SUCCESS": 1,
+        "RESERVATION_STATUS_INSUFFICIENT": 2,
+        "RESERVATION_STATUS_SKU_NOT_FOUND": 3,
+        "RESERVATION_STATUS_SKU_INACTIVE": 4
+      },
+      "omamx.inventory.v1.BatchQualityStatus": {
+        "BATCH_QUALITY_STATUS_UNSPECIFIED": 0,
+        "BATCH_QUALITY_STATUS_QA_TESTING": 1,
+        "BATCH_QUALITY_STATUS_ACTIVE_FEFO": 2,
+        "BATCH_QUALITY_STATUS_EXPIRING_SOON": 3,
+        "BATCH_QUALITY_STATUS_QUARANTINED": 4,
+        "BATCH_QUALITY_STATUS_DEPLETED": 5
+      },
+      "omamx.order.v1.OrderStatus": {
+        "ORDER_STATUS_UNSPECIFIED": 0,
+        "ORDER_STATUS_DRAFT": 1,
+        "ORDER_STATUS_PENDING_PAYMENT": 2,
+        "ORDER_STATUS_PAID": 3,
+        "ORDER_STATUS_PROCESSING": 4,
+        "ORDER_STATUS_PACKED": 5,
+        "ORDER_STATUS_SHIPPED": 6,
+        "ORDER_STATUS_DELIVERED": 7,
+        "ORDER_STATUS_COMPLETED": 8,
+        "ORDER_STATUS_CANCELLED_TIMEOUT": 9,
+        "ORDER_STATUS_CANCELLED_BY_USER": 10,
+        "ORDER_STATUS_CANCELLED_OUT_OF_STOCK": 11,
+        "ORDER_STATUS_RETURN_REQUESTED": 12,
+        "ORDER_STATUS_REFUNDED": 13
+      },
+      "omamx.promotion.v1.DiscountType": {
+        "DISCOUNT_TYPE_UNSPECIFIED": 0,
+        "DISCOUNT_TYPE_FIXED_AMOUNT": 1,
+        "DISCOUNT_TYPE_PERCENTAGE": 2,
+        "DISCOUNT_TYPE_FREE_SHIPPING": 3
+      },
+      "omamx.shipping.v1.ShipmentStatus": {
+        "SHIPMENT_STATUS_UNSPECIFIED": 0,
+        "SHIPMENT_STATUS_READY_FOR_PICKUP": 1,
+        "SHIPMENT_STATUS_PICKED_UP": 2,
+        "SHIPMENT_STATUS_IN_TRANSIT": 3,
+        "SHIPMENT_STATUS_OUT_FOR_DELIVERY": 4,
+        "SHIPMENT_STATUS_DELIVERED": 5,
+        "SHIPMENT_STATUS_DELIVERY_FAILED": 6,
+        "SHIPMENT_STATUS_RETURNING": 7,
+        "SHIPMENT_STATUS_RETURNED": 8,
+        "SHIPMENT_STATUS_CREATING": 9,
+        "SHIPMENT_STATUS_CREATION_FAILED": 10,
+        "SHIPMENT_STATUS_CREATED": 11,
+        "SHIPMENT_STATUS_READY_FOR_HANDOVER": 12,
+        "SHIPMENT_STATUS_HANDED_OVER": 13,
+        "SHIPMENT_STATUS_CANCELLED": 14
+      }
+    },
+    "services": {
+      "omamx.catalog.v1.CatalogService": {
+        "ValidatePriceAndSKU": [".omamx.catalog.v1.ValidatePriceAndSKURequest", ".omamx.catalog.v1.ValidatePriceAndSKUResponse", false, false],
+        "GetProductVariant": [".omamx.catalog.v1.GetProductVariantRequest", ".omamx.catalog.v1.GetProductVariantResponse", false, false],
+        "ListProductVariants": [".omamx.catalog.v1.ListProductVariantsRequest", ".omamx.catalog.v1.ListProductVariantsResponse", false, false]
+      },
+      "omamx.fulfillment.v1.FulfillmentService": {
+        "GetPackingVideoUrl": [".omamx.fulfillment.v1.GetPackingVideoUrlRequest", ".omamx.fulfillment.v1.GetPackingVideoUrlResponse", false, false],
+        "SubmitPackingEvidence": [".omamx.fulfillment.v1.SubmitPackingEvidenceRequest", ".omamx.fulfillment.v1.SubmitPackingEvidenceResponse", false, false]
+      },
+      "omamx.identity.v1.IdentityService": {
+        "CheckSpecializedPermission": [".omamx.identity.v1.SpecializedPermissionRequest", ".omamx.identity.v1.SpecializedPermissionResponse", false, false],
+        "GetJwksPublicKey": [".omamx.identity.v1.GetJwksPublicKeyRequest", ".omamx.identity.v1.GetJwksPublicKeyResponse", false, false]
+      },
+      "omamx.inventory.v1.InventoryService": {
+        "ReserveStock": [".omamx.inventory.v1.ReserveStockRequest", ".omamx.inventory.v1.ReserveStockResponse", false, false],
+        "ReleaseReservation": [".omamx.inventory.v1.ReleaseReservationRequest", ".omamx.inventory.v1.ReleaseReservationResponse", false, false],
+        "GetStockLevel": [".omamx.inventory.v1.GetStockLevelRequest", ".omamx.inventory.v1.GetStockLevelResponse", false, false],
+        "GetBatchFEFODetails": [".omamx.inventory.v1.GetBatchFEFODetailsRequest", ".omamx.inventory.v1.GetBatchFEFODetailsResponse", false, false]
+      },
+      "omamx.order.v1.OrderService": {
+        "CreatePOSOrder": [".omamx.order.v1.CreatePOSOrderRequest", ".omamx.order.v1.CreatePOSOrderResponse", false, false],
+        "GetOrderDetail": [".omamx.order.v1.GetOrderDetailRequest", ".omamx.order.v1.GetOrderDetailResponse", false, false],
+        "CancelOrder": [".omamx.order.v1.CancelOrderRequest", ".omamx.order.v1.CancelOrderResponse", false, false],
+        "GetShippingSnapshot": [".omamx.order.v1.GetShippingSnapshotRequest", ".omamx.order.v1.GetShippingSnapshotResponse", false, false]
+      },
+      "omamx.profile.v1.ProfileService": {
+        "GetCustomerProfile": [".omamx.profile.v1.GetCustomerProfileRequest", ".omamx.profile.v1.GetCustomerProfileResponse", false, false],
+        "GetDeliveryAddress": [".omamx.profile.v1.GetDeliveryAddressRequest", ".omamx.profile.v1.GetDeliveryAddressResponse", false, false],
+        "ListDeliveryAddresses": [".omamx.profile.v1.ListDeliveryAddressesRequest", ".omamx.profile.v1.ListDeliveryAddressesResponse", false, false]
+      },
+      "omamx.promotion.v1.PromotionService": {
+        "ValidateAndLockVoucher": [".omamx.promotion.v1.ValidateAndLockVoucherRequest", ".omamx.promotion.v1.ValidateAndLockVoucherResponse", false, false],
+        "ReleaseVoucher": [".omamx.promotion.v1.ReleaseVoucherRequest", ".omamx.promotion.v1.ReleaseVoucherResponse", false, false],
+        "CalculateDiscount": [".omamx.promotion.v1.CalculateDiscountRequest", ".omamx.promotion.v1.CalculateDiscountResponse", false, false]
+      },
+      "omamx.shipping.v1.ShippingService": {
+        "CalculateShippingFee": [".omamx.shipping.v1.CalculateShippingFeeRequest", ".omamx.shipping.v1.CalculateShippingFeeResponse", false, false],
+        "CreateShipment": [".omamx.shipping.v1.CreateShipmentRequest", ".omamx.shipping.v1.CreateShipmentResponse", false, false],
+        "TrackShipment": [".omamx.shipping.v1.TrackShipmentRequest", ".omamx.shipping.v1.TrackShipmentResponse", false, false]
+      }
+    }
+  }
+}

@@ -1,6 +1,8 @@
+> Integration entrypoint: [MVP contract guide](mvp/README.md). Shipping bound quotes now use `omamx.shipping.v2`; v1 retains the Shipping provider field numbers. Provider support is tracked in the MVP matrix.
+
 # Order 3.2 — proposed integration contract
 
-Ngày 15/10/2026. **Trạng thái: đề xuất để các service review/triển khai**, chưa xác nhận provider hỗ trợ. [HLD](../../docs/02_architecture/services/order-service/00_order_service_hld.md) và [LLD contracts](../../docs/02_architecture/services/order-service/05_api_contracts_and_transports.md) giải thích quyết định nghiệp vụ. Tài liệu này quy định semantics cho các wire files.
+Ngày 15/10/2026. **Trạng thái: đề xuất để các service review/triển khai**, chưa xác nhận provider hỗ trợ. [HLD](https://github.com/hvduong2k5/DUT.PBL6/blob/c753a5201caa88fffa7caf29af5681030138a4ff/docs/02_architecture/services/order-service/00_order_service_hld.md) và [LLD contracts](https://github.com/hvduong2k5/DUT.PBL6/blob/c753a5201caa88fffa7caf29af5681030138a4ff/docs/02_architecture/services/order-service/05_api_contracts_and_transports.md) giải thích quyết định nghiệp vụ. Tài liệu này quy định semantics cho các wire files.
 
 ## 1. Phiên bản và capability gate
 
@@ -68,7 +70,7 @@ GetTaskDecision NOT_FOUND là “chưa thấy”, không phải bằng chứng t
 
 `Catalog.GetCheckoutSnapshot` trả cùng snapshot_id/catalog_version/valid_until cho price/name/weight/packaging/subtotal. SKU unavailable hoặc giá đổi phải có structured error; không ghép ValidatePriceAndSKU với GetProductVariant khác revision thành snapshot. VND units integer, nanos=0. Quantity và subtotal phải khớp request.
 
-Shipping CalculateShippingFee profile 3.2 trả quote_id/version/valid_until/request_hash, bind địa chỉ/weight/carrier/fragile. Cả transfer và COD confirm phải kiểm lại expiry/terms. Order không coi TTL local là validity provider.
+Shipping v2 CalculateShippingFee profile 3.2 trả quote_id/quote_version/quote_expires_at/request_hash, bind địa chỉ/weight/carrier/fragile. Cả transfer và COD confirm phải kiểm lại expiry/terms. Order không coi TTL local là validity provider.
 
 Voucher profile 3.2: hold/finalize/query/release dùng cùng registry/hash/expiry/tombstone như stock; HELD→FINALIZED trước PAID, paid fact không consume lần hai. shipping_fee bắt buộc khi tính freeship; discount <= shipping_fee với freeship, tổng discount không quá phần được giảm. Finalized replay giữ nguyên effect; release FINALIZED phải reject. Voucher sau finalize thất bại stock hoặc ngược lại cần reconciliation/compensation policy, không giả atomic transaction. Loyalty/reversal policy chưa có wire đầy đủ nên feature giữ disabled.
 

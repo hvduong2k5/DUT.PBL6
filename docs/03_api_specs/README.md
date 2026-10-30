@@ -1,16 +1,8 @@
-> **MS-15 hiện tại (08/10/2026):** [profile-service.openapi.yaml](profile-service.openapi.yaml) mô tả backend trực tiếp; xem [../02_architecture/services/profile-service/06_hardening_and_contract.md](../02_architecture/services/profile-service/06_hardening_and_contract.md). `customer-profile-mvp.openapi.yaml` vẫn là candidate riêng, chưa được phê duyệt.
+> **MVP integration release 26/10/2026:** bắt đầu tại [contract guide](../../packages/contracts/mvp/README.md), [owner/consumer registry](../../packages/contracts/mvp/registry.yaml) và [migration](../../packages/contracts/mvp/MIGRATION.md).
+>
+> Public target: [mvp-customer.openapi.yaml](mvp-customer.openapi.yaml). Core adapter target: [order-core-dependencies.mvp.openapi.yaml](order-core-dependencies.mvp.openapi.yaml). Các spec D2C tổng và frontend/candidate bên dưới giữ vai trò reference/provider proposal; không ghi đè target MVP ở các route trùng. Implementation acceptance vẫn pending, không được suy từ CI contract xanh.
 
 # CẨM NANG ĐẶC TẢ GIAO DIỆN & HỢP ĐỒNG HỆ THỐNG (API & CONTRACTS SPECIFICATIONS)
-
-> **MS-04 Persistence/Messaging review 17/10/2026:** [thiết kế chương17](../02_architecture/services/order-service/17_order_persistence_messaging_design.md), [DDL candidate](../02_architecture/services/order-service/order_persistence_messaging.candidate.sql), [Payment event schema candidate](order-payment-events.candidate.schema.json) và [fixtures](order-payment-events.candidate.examples.json) bổ sung generic receipt/refund streams không cần Order. Chưa thay Order v3 schemas hoặc activate topic/provider integration.
-
-> **Order Core review 17/10/2026:** [Core API candidate](order-core.candidate.openapi.yaml), [OrderSnapshot v1 schema](order-snapshot.v1.schema.json) và [examples](order-snapshot.v1.examples.json) đi cùng [thiết kế chương12](../02_architecture/services/order-service/12_order_core_design.md). Snapshot internal được tách khỏi public/staff redacted views; arithmetic/proof guards không được suy từ schema PASS.
-
-> **MS-04 Cart/Checkout review (16/10/2026):** [candidate OpenAPI](order-cart-checkout.candidate.openapi.yaml) và [thiết kế chương11](../02_architecture/services/order-service/11_cart_checkout_design.md) bổ sung projection, selected items, quote claim, atomic Order+Intent placement và conditional cleanup; chưa implement hoặc thay runtime contract.
-
-> **MS-04 Payment review (16/10/2026):** [SePay + VietQR OpenAPI candidate](order-payment-sepay.candidate.openapi.yaml) mô tả slice API mới, chưa implement; [thiết kế chương 09](../02_architecture/services/order-service/09_payment_sepay_vietqr_design.md) quy định provider mapping, ledger, đối soát và refund. Không thay sandbox OpenAPI 3.1 hoặc tự đóng integration gaps của Order 3.2.
-
-> **Payment review 1.1:** bổ sung [Staff/Manual Refund candidate](order-payment-staff.candidate.openapi.yaml), Guest mint/revoke và verification timeout trong API khách; xem [phản hồi sáu điểm review](../02_architecture/services/order-service/10_payment_sepay_review_resolution.md). Các API này vẫn là đề xuất, chưa phải runtime evidence.
 ## HỆ SINH THÁI THƯƠNG MẠI ĐIỆN TỬ & CHUỖI CUNG ỨNG ĐẶC SẢN OCOP HUẾ (MÈ XỬNG O MẠ)
 
 Thư mục này là **Single Source of Truth** về mặt tài liệu giao tiếp kỹ thuật của toàn bộ 18 Microservices, phục vụ trực tiếp cho quá trình lập trình song song, kiểm thử tự động (CI/CD Contract Test) và tài liệu bảo vệ đồ án.
@@ -109,7 +101,7 @@ npx swagger-ui-watcher docs/03_api_specs/openapi_d2c.yaml -p 8080
 # Cách 2: Sử dụng Docker container chính thức
 docker run -p 8080:8080 -e SWAGGER_JSON=/spec/openapi_d2c.yaml -v ${PWD}/docs/03_api_specs:/spec swaggerapi/swagger-ui
 ```
-Truy cập `http://localhost:8080` để xem đầy đủ 37 endpoint được phân nhóm theo 9 Swagger Tag trực quan.
+Truy cập `http://localhost:8080` để xem đầy đủ 32 endpoint được phân nhóm theo 9 Swagger Tag trực quan.
 
 ### 3.4. Chạy Mock Server & GraphQL Playground Cho Mobile BFF
 Ứng dụng di động sử dụng tầng đệm **Mobile BFF** ([`schema.graphql`](./schema.graphql)) theo chuẩn **NFR-02 (Mobile First)** để gom toàn bộ dữ liệu màn hình (Home, Chi tiết sản phẩm, Giỏ hàng, Vận đơn) trong 1 Single Round-trip mạng 4G:
@@ -124,14 +116,6 @@ npx @graphql-tools/mock-cli docs/03_api_specs/schema.graphql --port 4000
 ## 4. Danh Sách Tệp Đặc Tả Chi Tiết Trong Thư Mục
 1. [01_grpc_contracts.md](./01_grpc_contracts.md): Đặc tả chi tiết 8 gRPC Services, SLA timeout 2.0s, và cơ chế Retry Idempotent.
 2. [02_kafka_event_catalog.md](./02_kafka_event_catalog.md): Danh bạ Kafka Topics phủ 100% 18 microservices, Partition Keys, định dạng CloudEvents 1.0 và cơ chế Dead-Letter-Queue.
-3. [openapi_d2c.yaml](./openapi_d2c.yaml): Đặc tả chuẩn OpenAPI 3.0 cho Tầng Biên REST API & Webhooks (37 endpoints, 9 nhóm thẻ nghiệp vụ, 46 schemas).
+3. [openapi_d2c.yaml](./openapi_d2c.yaml): Đặc tả chuẩn OpenAPI 3.0 cho Tầng Biên REST API & Webhooks (32 endpoints, 9 nhóm thẻ nghiệp vụ, 40 schemas).
 4. [schema.graphql](./schema.graphql): Đặc tả GraphQL Schema cho Mobile BFF (Backend-For-Frontend) tối ưu mạng 4G cho Native Mobile App (NFR-02).
 
-
-## MS-04 Order implementation 3.1
-
-- [Order REST](order-service.openapi.yaml): async checkout operations và guarded commands.
-- [Stateful sandbox dependencies](order-sandbox-dependencies.openapi.yaml): terminal stock/payment/refund/source protocols.
-- [Runtime/evidence](../02_architecture/services/order-service/08_implementation_and_acceptance.md).
-
-Order v2 facts dùng schema riêng; D2C spec tổng hợp cũ chưa được tự thay thế cho các service khác.

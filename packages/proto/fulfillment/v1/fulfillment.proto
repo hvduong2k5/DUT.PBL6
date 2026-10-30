@@ -16,6 +16,8 @@ option java_package = "com.omamx.proto.fulfillment.v1";
 // =============================================================================
 
 service FulfillmentService {
+  // Additive exact-revision lookup for source proof and out-of-order replay.
+  rpc GetTaskRevision(GetTaskRevisionRequest) returns (TaskRevision);
   // Proposed Order 3.2 methods. Serialized accept/cancel, including absent task.
   rpc AcceptTask(AcceptTaskRequest) returns (TaskDecision);
   rpc CancelTask(CancelTaskRequest) returns (TaskDecision);
@@ -131,4 +133,20 @@ message SubmitPackingEvidenceResponse {
   bool is_confirmed = 1;
   string fulfillment_task_id = 2;
   google.protobuf.Timestamp packed_at = 3;
+}
+
+message GetTaskRevisionRequest {
+  string task_id = 1;
+  int64 resource_version = 2;
+}
+message TaskRevision {
+  string order_id = 1;
+  string task_id = 2;
+  int64 resource_version = 3;
+  int64 ready_generation = 4;
+  string kind = 5; // PACKING_ACCEPTED or PACKING_SEALED; matches Order core ingress.
+  string seal_code = 6;
+  google.protobuf.Timestamp occurred_at = 7;
+  string items_digest = 8;
+  string warehouse_id = 9;
 }

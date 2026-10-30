@@ -42,8 +42,15 @@ message CalculateShippingFeeRequest {
 
   // Đơn hàng có quà tặng dễ vỡ cần đóng bọc xốp bóng khí cao cấp (Mè xửng giòn O Mạ)
   bool is_fragile = 5;
-  string contract_version = 6;
-  string request_hash = 7;
+
+  // Kích thước kiện dự kiến; bắt buộc với provider tính khối lượng quy đổi.
+  optional ParcelDimensions parcel_dimensions = 6;
+
+  // Gói dịch vụ mong muốn; để trống cho phép Shipping chọn gói phù hợp.
+  optional string service_code = 7;
+
+  // Kho xuất phát, mặc định do Shipping cấu hình cho xưởng Hương Thủy.
+  optional string origin_warehouse_id = 8;
 }
 
 // Phản hồi tính phí vận chuyển
@@ -62,12 +69,17 @@ message CalculateShippingFeeResponse {
 
   // Lỗi nếu địa chỉ không được hỗ trợ giao vận
   optional omamx.common.v1.ErrorDetail error = 5;
-  // Required on successful order-3.2 quote; fee and validity bind request_hash.
-  string quote_id = 6;
-  google.protobuf.Timestamp valid_until = 7;
-  int64 quote_version = 8;
-  string request_hash = 9;
-  string contract_version = 10;
+
+  string service_code = 6;
+  string quote_id = 7;
+  google.protobuf.Timestamp quote_expires_at = 8;
+  google.protobuf.Timestamp estimated_delivery_time = 9;
+}
+
+message ParcelDimensions {
+  int32 length_cm = 1;
+  int32 width_cm = 2;
+  int32 height_cm = 3;
 }
 
 // Yêu cầu bàn giao bưu kiện sang 3PL
@@ -83,6 +95,16 @@ message CreateShipmentRequest {
 
   // Ghi chú cho bưu tá (Ví dụ: "Đặc sản mè xửng giòn Huế, xin nhẹ tay, cho xem hàng")
   optional string shipping_notes = 7;
+
+  // Định danh kiện hàng bất biến từ Fulfillment; một Order có thể có nhiều kiện.
+  string package_id = 8;
+  ParcelDimensions parcel_dimensions = 9;
+  string service_code = 10;
+  omamx.common.v1.Money cod_amount = 11;
+  omamx.common.v1.Money checkout_shipping_fee = 12;
+  optional omamx.common.v1.Money declared_value = 13;
+  optional string quote_id = 14;
+  bool is_fragile = 15;
 }
 
 // Phản hồi tạo bưu kiện 3PL
@@ -101,6 +123,13 @@ message CreateShipmentResponse {
 
   // Thời gian dự kiến giao đến tay người nhận
   google.protobuf.Timestamp estimated_delivery_time = 5;
+
+  string shipment_id = 6;
+  ShipmentStatus status = 7;
+
+  // Tham chiếu ổn định tới nhãn; URL tải xuống ngắn hạn được sinh khi cần.
+  optional string shipping_label_reference = 8;
+  omamx.common.v1.Money provider_estimated_fee = 9;
 }
 
 // Trạng thái vận chuyển
@@ -114,11 +143,21 @@ enum ShipmentStatus {
   SHIPMENT_STATUS_DELIVERY_FAILED = 6;  // Giao không thành công (Khách bận/Sai địa chỉ)
   SHIPMENT_STATUS_RETURNING = 7;        // Đang chuyển hoàn về Huế
   SHIPMENT_STATUS_RETURNED = 8;         // Đã hoàn nhập kho
+
+  // Các trạng thái bổ sung để phân biệt tạo vận đơn và bàn giao thực tế.
+  SHIPMENT_STATUS_CREATING = 9;
+  SHIPMENT_STATUS_CREATION_FAILED = 10;
+  SHIPMENT_STATUS_CREATED = 11;
+  SHIPMENT_STATUS_READY_FOR_HANDOVER = 12;
+  SHIPMENT_STATUS_HANDED_OVER = 13;
+  SHIPMENT_STATUS_CANCELLED = 14;
 }
 
 // Yêu cầu tra cứu hành trình
 message TrackShipmentRequest {
   string tracking_code = 1;
+  optional string shipment_id = 2;
+  optional string order_id = 3;
 }
 
 // Điểm mốc lịch sử hành trình giao hàng
@@ -126,6 +165,9 @@ message TrackingCheckpoint {
   google.protobuf.Timestamp timestamp = 1;
   string location = 2;     // Ví dụ: "Bưu cục Trung Chuyển Huế", "Kho Mega Long Biên"
   string description = 3;  // Ví dụ: "Kiện hàng đã xuất bưu cục"
+  string event_id = 4;
+  string provider_status_code = 5;
+  google.protobuf.Timestamp received_at = 6;
 }
 
 // Phản hồi tra cứu hành trình
@@ -134,4 +176,8 @@ message TrackShipmentResponse {
   string carrier = 2;
   ShipmentStatus current_status = 3;
   repeated TrackingCheckpoint checkpoints = 4;
+  string shipment_id = 5;
+  string order_id = 6;
+  string package_id = 7;
+  optional google.protobuf.Timestamp estimated_delivery_time = 8;
 }

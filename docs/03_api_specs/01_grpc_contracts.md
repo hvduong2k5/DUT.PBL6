@@ -1,7 +1,3 @@
-> **MS-15 cập nhật 08/10/2026:** Protobuf ProfileService đã được sinh và đăng ký thật. RPC yêu cầu metadata `x-internal-token`; GetDeliveryAddress luôn yêu cầu customer ID để enforce ownership, address ID rỗng lấy default. Response thêm ward/province codes, optional coordinates và version. Loyalty fields deprecated. HTTP simulation không còn được xem là kiểm thử gRPC.
-
-> **Order 3.2 — wire proposal 15/10/2026:** [Profile và semantics](../../packages/contracts/order-3.2.md) là nguồn chuẩn cho Order cùng các capability Inventory/Fulfillment/Catalog/Shipping/Promotion liên quan. Proto đã có fields/RPC proposal; provider implementation chưa được xác nhận. Các mô tả Order/centralized expiry/POS tức thì và Redis-only idempotency bên dưới là bối cảnh thiết kế cũ, không override profile 3.2. Order hiện dùng Go sandbox; POS giữ feature gated. Query/terminal proof, registry bền vững và generation barrier phải được kiểm trước rollout.
-
 # ĐẶC TẢ CHI TIẾT CÁC HỢP ĐỒNG ĐỒNG BỘ gRPC (EAST - WEST SYNC CONTRACTS)
 ## HỆ SINH THÁI THƯƠNG MẠI ĐIỆN TỬ & CHUỖI CUNG ỨNG ĐẶC SẢN OCOP HUẾ (MÈ XỬNG O MẠ)
 

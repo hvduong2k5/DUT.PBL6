@@ -19,6 +19,7 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
+	OrderService_GetShippingSnapshot_FullMethodName       = "/omamx.order.v1.OrderService/GetShippingSnapshot"
 	OrderService_CreatePOSOrder_FullMethodName            = "/omamx.order.v1.OrderService/CreatePOSOrder"
 	OrderService_GetOrderDetail_FullMethodName            = "/omamx.order.v1.OrderService/GetOrderDetail"
 	OrderService_CancelOrder_FullMethodName               = "/omamx.order.v1.OrderService/CancelOrder"
@@ -31,6 +32,8 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type OrderServiceClient interface {
+	// Integration target: Shipping caller identity only; fail closed until provider is implemented.
+	GetShippingSnapshot(ctx context.Context, in *GetShippingSnapshotRequest, opts ...grpc.CallOption) (*GetShippingSnapshotResponse, error)
 	// Tạo đơn hàng trực tiếp tại quầy bán lẻ offline (POS Quầy Xưởng Hương Thủy & Cửa hàng Huế)
 	// Bên Tiêu Thụ Duy Nhất: MS-13 channel-service (Phân hệ POS)
 	// TUYỆT ĐỐI CẤM dùng RPC này cho đơn sàn Shopee/TikTok (Đơn sàn đi qua Kafka MarketplaceOrderImportedEvent)
@@ -52,6 +55,15 @@ type orderServiceClient struct {
 
 func NewOrderServiceClient(cc grpc.ClientConnInterface) OrderServiceClient {
 	return &orderServiceClient{cc}
+}
+
+func (c *orderServiceClient) GetShippingSnapshot(ctx context.Context, in *GetShippingSnapshotRequest, opts ...grpc.CallOption) (*GetShippingSnapshotResponse, error) {
+	out := new(GetShippingSnapshotResponse)
+	err := c.cc.Invoke(ctx, OrderService_GetShippingSnapshot_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *orderServiceClient) CreatePOSOrder(ctx context.Context, in *CreatePOSOrderRequest, opts ...grpc.CallOption) (*CreatePOSOrderResponse, error) {
@@ -112,6 +124,8 @@ func (c *orderServiceClient) ValidateFulfillmentPermit(ctx context.Context, in *
 // All implementations must embed UnimplementedOrderServiceServer
 // for forward compatibility
 type OrderServiceServer interface {
+	// Integration target: Shipping caller identity only; fail closed until provider is implemented.
+	GetShippingSnapshot(context.Context, *GetShippingSnapshotRequest) (*GetShippingSnapshotResponse, error)
 	// Tạo đơn hàng trực tiếp tại quầy bán lẻ offline (POS Quầy Xưởng Hương Thủy & Cửa hàng Huế)
 	// Bên Tiêu Thụ Duy Nhất: MS-13 channel-service (Phân hệ POS)
 	// TUYỆT ĐỐI CẤM dùng RPC này cho đơn sàn Shopee/TikTok (Đơn sàn đi qua Kafka MarketplaceOrderImportedEvent)
@@ -132,6 +146,9 @@ type OrderServiceServer interface {
 type UnimplementedOrderServiceServer struct {
 }
 
+func (UnimplementedOrderServiceServer) GetShippingSnapshot(context.Context, *GetShippingSnapshotRequest) (*GetShippingSnapshotResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetShippingSnapshot not implemented")
+}
 func (UnimplementedOrderServiceServer) CreatePOSOrder(context.Context, *CreatePOSOrderRequest) (*CreatePOSOrderResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreatePOSOrder not implemented")
 }
@@ -161,6 +178,24 @@ type UnsafeOrderServiceServer interface {
 
 func RegisterOrderServiceServer(s grpc.ServiceRegistrar, srv OrderServiceServer) {
 	s.RegisterService(&OrderService_ServiceDesc, srv)
+}
+
+func _OrderService_GetShippingSnapshot_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetShippingSnapshotRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OrderServiceServer).GetShippingSnapshot(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: OrderService_GetShippingSnapshot_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OrderServiceServer).GetShippingSnapshot(ctx, req.(*GetShippingSnapshotRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _OrderService_CreatePOSOrder_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -278,6 +313,10 @@ var OrderService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "omamx.order.v1.OrderService",
 	HandlerType: (*OrderServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "GetShippingSnapshot",
+			Handler:    _OrderService_GetShippingSnapshot_Handler,
+		},
 		{
 			MethodName: "CreatePOSOrder",
 			Handler:    _OrderService_CreatePOSOrder_Handler,
