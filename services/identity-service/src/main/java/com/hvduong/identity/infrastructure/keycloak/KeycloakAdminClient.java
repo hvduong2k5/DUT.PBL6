@@ -9,6 +9,8 @@ import org.springframework.stereotype.Service;
 
 import java.util.Collections;
 import java.util.Optional;
+import java.util.Map;
+import java.util.UUID;
 
 @Service
 public class KeycloakAdminClient {
@@ -21,7 +23,12 @@ public class KeycloakAdminClient {
         this.realm = realm;
     }
 
-    public String createUser(String email, String firstName, String lastName, String temporaryPassword) {
+    public String createUser(UUID principalId, String email, String firstName, String lastName, String temporaryPassword) {
+        if (principalId == null || principalId.equals(new UUID(0, 0))) {
+            throw new IllegalArgumentException("A non-zero internal principal ID is required");
+        }
+        // Resolve before creating the account: a missing role must fail provisioning.
+        var customerRole = keycloak.realm(realm).roles().get("CUSTOMER").toRepresentation();
         UsersResource usersResource = keycloak.realm(realm).users();
         
         UserRepresentation user = new UserRepresentation();
@@ -31,6 +38,9 @@ public class KeycloakAdminClient {
         user.setLastName(lastName);
         user.setEnabled(true);
         user.setEmailVerified(false);
+        // This server-owned attribute is mapped into the signed access token.
+        // Never source it from registration input or the Keycloak subject ID.
+        user.setAttributes(Map.of("app_user_id", Collections.singletonList(principalId.toString())));
 
         CredentialRepresentation credential = new CredentialRepresentation();
         credential.setType(CredentialRepresentation.PASSWORD);
@@ -42,7 +52,9 @@ public class KeycloakAdminClient {
         try (var response = usersResource.create(user)) {
             if (response.getStatus() == 201) {
                 String path = response.getLocation().getPath();
-                return path.substring(path.lastIndexOf('/') + 1);
+                String subject = path.substring(path.lastIndexOf('/') + 1);
+                usersResource.get(subject).roles().realmLevel().add(Collections.singletonList(customerRole));
+                return subject;
             }
             throw new RuntimeException("Failed to create user in Keycloak, status: " + response.getStatusInfo().getReasonPhrase());
         }

@@ -111,4 +111,6 @@ protobuf {
 
 tasks.named('test') {
     useJUnitPlatform()
+    // Live fixture credentials/realm change per run and must never reuse cached test results.
+    outputs.upToDateWhen { System.getenv('KEYCLOAK_TEST_URL') == null }
 }

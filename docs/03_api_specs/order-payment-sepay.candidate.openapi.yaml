@@ -1,0 +1,552 @@
+openapi: 3.0.3
+info:
+  title: Order Payment - SePay VietQR review candidate
+  version: 1.1.0-review
+  description: >-
+    Proposed additive payment slice for Order 3.2, not implemented runtime behavior.
+    SePay bank webhooks plus API v2 and VietQR instructions. Webhook acceptance
+    persists an authenticated observation and durable work; only validated API v2
+    transactions create canonical receipts. Neither webhook ACK nor receipt alone
+    means an Order is PAID. See architecture chapter 09 for matching, deadlines,
+    reconciliation, refund capabilities, migration and release gates.
+    Staff/manual refund execution APIs are defined in the companion
+    order-payment-staff.candidate.openapi.yaml. Guest access grants are proposed
+    capabilities, not implemented sandbox authentication.
+  license:
+    name: Internal project review
+servers:
+  - url: https://order.example.invalid
+    description: Placeholder only; no deployment is represented
+tags:
+  - name: CustomerPayment
+    description: Owner-scoped Customer or verified Guest payment projections
+  - name: SePayWebhook
+    description: Provider-authenticated durable notification ingress
+  - name: GuestPaymentAccess
+    description: Issue and revoke short-lived order-bound Guest payment read grants
+security:
+  - ownerBearer: []
+  - guestPaymentBearer: []
+paths:
+  /api/v1/orders/{order_id}/guest-payment-access:
+    post:
+      tags: [GuestPaymentAccess]
+      operationId: issueGuestPaymentAccess
+      summary: Mint an Order-bound Guest payment read grant
+      description: >-
+        Require a live authoritative Guest checkout session owning the persisted
+        checkout operation and Order. Never mint by order ID or payment code
+        alone. ES256 access JWT TTL 10 minutes, capped by the session absolute
+        expiry (proposed 24 hours). Claims bind issuer, audience, sid, order_id,
+        subject, jti, grant_version and payment:read scope. Increase sid/order
+        grant version and invalidate previous grants atomically. Idempotent
+        same-key replay may reissue only the same still-active grant with its
+        original expiry; superseded/revoked/expired replay returns 409. Do not
+        extend lifetime during replay or store plaintext access tokens in logs.
+      security:
+        - guestCheckoutBearer: []
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '201':
+          description: New or replayed active grant; credentials must never be cached
+          headers:
+            Cache-Control:
+              schema: {type: string, enum: [no-store]}
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/GuestPaymentGrant'}
+        '400':
+          $ref: '#/components/responses/OwnerError'
+        '401':
+          $ref: '#/components/responses/OwnerError'
+        '404':
+          $ref: '#/components/responses/OwnerError'
+        '409':
+          $ref: '#/components/responses/GrantConflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/GuestAuthorityUnavailable'
+    delete:
+      tags: [GuestPaymentAccess]
+      operationId: revokeGuestPaymentAccess
+      summary: Revoke the current session's payment grants for one Order
+      description: >-
+        Require the authoritative owning Guest checkout session. Increment local
+        sid/order grant version and revoke existing grants in one transaction.
+        Idempotent replay returns 204 without revoking grants minted after the
+        original command. Does not cancel the Order, payment or refund workflow.
+        New authorization decisions after commit must reject revoked grants;
+        already-authorized in-flight responses cannot be recalled.
+      security:
+        - guestCheckoutBearer: []
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '204':
+          description: Grants revoked or same command already applied
+        '400':
+          $ref: '#/components/responses/OwnerError'
+        '401':
+          $ref: '#/components/responses/OwnerError'
+        '404':
+          $ref: '#/components/responses/OwnerError'
+        '409':
+          $ref: '#/components/responses/GrantConflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/GuestAuthorityUnavailable'
+  /api/v1/orders/{order_id}/payment-instructions:
+    get:
+      tags: [CustomerPayment]
+      operationId: getSePayPaymentInstructions
+      summary: Read existing immutable VietQR instructions
+      description: >-
+        Read-only; no new intent, charge or expiry extension. Resolve trusted
+        Customer/Guest ownership. Return 404 for absent or unowned orders.
+        Requires a SEPAY/VIETQR intent, PENDING_PAYMENT Order, no hold or cancel,
+        and strictly more than 30 seconds before expires_at. VERIFYING or VERIFICATION_DELAYED display
+        state suppresses fresh instructions until resolved or reviewed.
+        Amount, receiver, code and expiry come exclusively from persisted intent.
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      responses:
+        '200':
+          description: Existing payable intent instructions
+          headers:
+            Cache-Control:
+              schema: {type: string, enum: [no-store]}
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentInstructions'
+              example:
+                order_id: 689ecf03-33d5-456e-ae10-c7c544b79abc
+                intent_id: 4cd1ea10-f680-4018-95b3-4c8bd4d2c332
+                provider: SEPAY
+                method: VIETQR
+                amount: 250000
+                currency: VND
+                payment_code: OMP7K9M2N4P6R8T
+                receiver:
+                  bank_code: VCB
+                  bank_name: Vietcombank
+                  account_number: '0000000000'
+                  account_holder: EXAMPLE ONLY
+                  mode: BANK_ACCOUNT
+                transfer_content: OMP7K9M2N4P6R8T
+                qr_url: https://vietqr.app/img?acc=0000000000&bank=Vietcombank&amount=250000&des=OMP7K9M2N4P6R8T&template=compact
+                expires_at: '2026-10-16T10:15:00+07:00'
+                server_time: '2026-10-16T10:02:00+07:00'
+                can_pay: true
+                version: 1
+        '401':
+          $ref: '#/components/responses/OwnerError'
+        '404':
+          $ref: '#/components/responses/OwnerError'
+        '409':
+          description: Intent expired, held, verifying, settled or no longer payable
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ApiError'}
+        '422':
+          description: Order payment method is not SEPAY/VIETQR
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ApiError'}
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          description: Receiver capability unavailable or new-payment circuit closed
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ApiError'}
+  /api/v1/orders/{order_id}/payment:
+    get:
+      tags: [CustomerPayment]
+      operationId: getSePayPaymentStatus
+      summary: Read local SePay payment status
+      description: >-
+        Read local financial data only, never call SePay for each browser poll. Same
+        ownership rules as Order detail. Available after expiry or cancellation
+        and during SePay outages. A non-SePay payment method returns 422 in this
+        candidate slice; other methods use existing Order projections.
+        Amounts summarize the allocated receipt, not extra/unmatched money.
+        has_open_reconciliation may be true while display_state remains PAID.
+        can_pay is true only when the instructions endpoint would admit this
+        intent at the same decision instant; the two requests can race.
+        Guest authorization checks authoritative session state plus the local
+        grant registry on every request and fails closed if unavailable.
+        Pending observations older than min(first_seen+60s,payment expiry) show
+        VERIFICATION_DELAYED without asserting CONFIRMED or extending expiry.
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      responses:
+        '200':
+          description: Local financial and lifecycle projection
+          headers:
+            Cache-Control:
+              schema: {type: string, enum: [no-store]}
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PaymentStatus'}
+              example:
+                order_id: 689ecf03-33d5-456e-ae10-c7c544b79abc
+                intent_id: 4cd1ea10-f680-4018-95b3-4c8bd4d2c332
+                provider: SEPAY
+                method: VIETQR
+                order_status: PAYMENT_FINALIZING
+                payment_status: CONFIRMED
+                display_state: FINALIZING
+                intent_status: SETTLED
+                expected_amount: 250000
+                allocated_amount: 250000
+                refunded_amount: 0
+                currency: VND
+                expires_at: '2026-10-16T10:15:00+07:00'
+                server_time: '2026-10-16T10:03:00+07:00'
+                has_open_reconciliation: false
+                can_pay: false
+                version: 2
+                verification_started_at: '2026-10-16T10:02:55+07:00'
+                verification_due_at: '2026-10-16T10:03:55+07:00'
+                support_reference: null
+                support_reason: null
+                next_poll_after_seconds: 3
+        '401':
+          $ref: '#/components/responses/OwnerError'
+        '404':
+          $ref: '#/components/responses/OwnerError'
+        '422':
+          description: Order does not use a SEPAY/VIETQR intent
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ApiError'}
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          description: Authoritative local projection unavailable
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ApiError'}
+  /api/v1/payments/sepay/webhook:
+    post:
+      tags: [SePayWebhook]
+      operationId: acceptSePayBankObservation
+      summary: Persist an authenticated SePay bank webhook
+      description: >-
+        HMAC-SHA256 over ASCII timestamp, a dot, and exact raw body bytes.
+        Require X-SePay-Timestamp within plus/minus 300 seconds and compare MAC
+        in constant time. Reject duplicate JSON keys, trailing JSON, bodies over
+        65536 bytes and imprecise numeric parsing. Additive provider fields are
+        tolerated. Validate before persistence. Commit authenticated observation
+        or durable quarantine plus recoverable work before ACK. No SePay API or
+        Inventory network call on this request path. Duplicate same facts ACK;
+        changed facts with same webhook ID persist conflict evidence and ACK.
+        Late, unmatched, outgoing or receiver-mismatched notifications do not
+        confirm an Order. Neither ACK nor authenticated notification is PAID.
+        The webhook connection/environment comes from deployment configuration.
+      security:
+        - sepayHmac: []
+      parameters:
+        - name: X-SePay-Timestamp
+          in: header
+          required: true
+          description: Unix seconds used in the HMAC input, distinct from transactionDate
+          schema:
+            type: string
+            pattern: '^[0-9]+$'
+            maxLength: 20
+      x-max-body-bytes: 65536
+      x-feature-gate: sepay-bank-webhook
+      requestBody:
+        required: true
+        description: Signature verification MUST precede parsing this logical JSON schema
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/SePayBankWebhook'}
+      responses:
+        '200':
+          description: Durable acceptance, replay or quarantine; no payment success assertion
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SePayAck'}
+              example: {success: true}
+        '400':
+          description: Invalid JSON or required field shape; no successful ACK
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SePayNack'}
+        '401':
+          description: Invalid or missing HMAC or timestamp
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SePayNack'}
+        '413':
+          description: Request body exceeds 65536 bytes
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SePayNack'}
+        '415':
+          description: Unsupported media type; configure application/json in SePay
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SePayNack'}
+        '429':
+          description: Ingress overloaded; provider must retry or account sync recovers
+          headers:
+            Retry-After:
+              schema: {type: integer, minimum: 1}
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SePayNack'}
+        '503':
+          description: Durable acceptance could not be confirmed; safe to redeliver
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SePayNack'}
+components:
+  securitySchemes:
+    ownerBearer:
+      type: http
+      scheme: bearer
+      description: >-
+        Trusted Customer principal using existing Order ownership mapping.
+        JWT subject is not an arbitrary customer_id. Guest access uses the
+        separate order-bound grant profile, not the sandbox role-only token.
+    guestPaymentBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: ES256 JWT
+      description: >-
+        iss=order-service-guest, aud=order-payment, sid/order_id/jti/grant_version,
+        scope=payment:read. TTL at most 10 minutes and not beyond session expiry.
+        Check signature, allowlisted algorithm/key, timestamps with at most 30s
+        skew, live session, unrevoked local grant/version and current ownership
+        on every request. Payment code alone never authorizes access.
+    guestCheckoutBearer:
+      type: http
+      scheme: bearer
+      description: >-
+        Identity-issued Guest checkout session credential under a pinned issuer,
+        audience and key profile; requires authoritative session introspection.
+        Maximum absolute lifetime proposed as 24 hours. Session must own the
+        operation that placed this Order. Payment read grants cannot mint grants.
+    sepayHmac:
+      type: apiKey
+      in: header
+      name: X-SePay-Signature
+      description: >-
+        sha256= followed by the hexadecimal HMAC-SHA256 digest of
+        timestamp + dot + raw body. X-SePay-Timestamp is required separately.
+        This is a computed per-request MAC, not a static API key.
+  parameters:
+    IdempotencyKey:
+      name: X-Idempotency-Key
+      in: header
+      required: true
+      schema: {type: string, minLength: 16, maxLength: 128, pattern: '^[!-~]+$'}
+    OrderId:
+      name: order_id
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+  responses:
+    GuestAuthorityUnavailable:
+      description: Session authority or local registry unavailable; fail closed
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ApiError'}
+    GrantConflict:
+      description: Changed body for idempotency key, or replay of inactive/superseded grant
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ApiError'}
+    OwnerError:
+      description: Invalid command (400), authentication invalid (401), or Order absent/unowned (404)
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ApiError'}
+    RateLimited:
+      description: Caller read rate exceeded; polling must back off
+      headers:
+        Retry-After:
+          schema: {type: integer, minimum: 1}
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ApiError'}
+  schemas:
+    GuestPaymentGrant:
+      type: object
+      additionalProperties: false
+      required: [access_token, token_type, order_id, expires_at, session_expires_at, grant_version]
+      properties:
+        access_token: {type: string, writeOnly: false, description: Signed short-lived credential; sensitive}
+        token_type: {type: string, enum: [Bearer]}
+        order_id: {type: string, format: uuid}
+        expires_at: {type: string, format: date-time}
+        session_expires_at: {type: string, format: date-time}
+        grant_version: {type: integer, format: int64, minimum: 1}
+    ApiError:
+      type: object
+      additionalProperties: false
+      description: Same error envelope as the Order 3.2 contract
+      required: [error]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code, retryable]
+          properties:
+            code: {type: string, minLength: 1}
+            retryable: {type: boolean}
+        operation_id: {type: string, format: uuid}
+    SePayAck:
+      type: object
+      additionalProperties: false
+      required: [success]
+      properties:
+        success: {type: boolean, enum: [true]}
+    SePayNack:
+      type: object
+      additionalProperties: false
+      required: [success]
+      properties:
+        success: {type: boolean, enum: [false]}
+        message: {type: string}
+    Money:
+      type: integer
+      format: int64
+      minimum: 0
+      maximum: 1000000000000
+      description: VND integer for owner-facing Order amounts; not the receipt ledger limit
+    Receiver:
+      type: object
+      additionalProperties: false
+      required: [bank_code, bank_name, account_number, account_holder, mode]
+      properties:
+        bank_code: {type: string}
+        bank_name: {type: string}
+        account_number:
+          type: string
+          description: Actual QR beneficiary bank account or official VA; preserve leading zeros
+        account_holder: {type: string}
+        mode: {type: string, enum: [BANK_ACCOUNT, OFFICIAL_VA, CONTENT_VA]}
+    PaymentInstructions:
+      type: object
+      additionalProperties: false
+      required: [order_id, intent_id, provider, method, amount, currency, payment_code, receiver, transfer_content, qr_url, expires_at, server_time, can_pay, version]
+      properties:
+        order_id: {type: string, format: uuid}
+        intent_id: {type: string, format: uuid}
+        provider: {type: string, enum: [SEPAY]}
+        method: {type: string, enum: [VIETQR]}
+        amount:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 1000000000000
+        currency: {type: string, enum: [VND]}
+        payment_code: {type: string, pattern: '^OMP[A-Z0-9]{12}$'}
+        receiver: {$ref: '#/components/schemas/Receiver'}
+        transfer_content: {type: string}
+        qr_url:
+          type: string
+          format: uri
+          description: URL built on server from receiver profile; host allowlisted; example data is fictional
+        expires_at: {type: string, format: date-time}
+        server_time: {type: string, format: date-time}
+        can_pay: {type: boolean, enum: [true]}
+        version: {type: integer, format: int64, minimum: 1}
+    PaymentStatus:
+      type: object
+      additionalProperties: false
+      required: [order_id, intent_id, provider, method, order_status, payment_status, display_state, intent_status, expected_amount, allocated_amount, refunded_amount, currency, expires_at, server_time, has_open_reconciliation, can_pay, version, verification_started_at, verification_due_at, support_reference, support_reason, next_poll_after_seconds]
+      properties:
+        order_id: {type: string, format: uuid}
+        intent_id: {type: string, format: uuid}
+        provider: {type: string, enum: [SEPAY]}
+        method: {type: string, enum: [VIETQR]}
+        order_status:
+          type: string
+          enum: [PENDING_PAYMENT, PAYMENT_FINALIZING, PAID, PROCESSING, PACKED, SHIPPED, DELIVERED, DELIVERY_FAILED, COMPLETED, CANCELLED_TIMEOUT, CANCELLED_BY_USER, CANCELLED_BY_ADMIN]
+        payment_status:
+          type: string
+          enum: [UNPAID, PENDING, CONFIRMED, RECONCILIATION_REQUIRED, PARTIALLY_REFUNDED, REFUNDED]
+        display_state:
+          type: string
+          enum: [WAITING_PAYMENT, VERIFYING, VERIFICATION_DELAYED, FINALIZING, PAID, RECONCILIATION_REQUIRED, EXPIRED, CANCELLED, PARTIALLY_REFUNDED, REFUNDED]
+        intent_status: {type: string, enum: [ACTIVE, SETTLED, EXPIRED, CANCELLED]}
+        expected_amount: {$ref: '#/components/schemas/Money'}
+        allocated_amount: {$ref: '#/components/schemas/Money'}
+        refunded_amount:
+          allOf:
+            - $ref: '#/components/schemas/Money'
+          description: Confirmed refunds of allocated receipt only; never greater than allocated_amount
+        currency: {type: string, enum: [VND]}
+        expires_at: {type: string, format: date-time}
+        server_time: {type: string, format: date-time}
+        has_open_reconciliation: {type: boolean}
+        can_pay: {type: boolean}
+        verification_started_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: First related authenticated observation; retries never reset this instant
+        verification_due_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Earlier of first observation plus 60s and payment expiry; UI escalation only
+        support_reference:
+          type: string
+          nullable: true
+          description: Opaque support lookup reference, never an authorization credential
+        support_reason:
+          type: string
+          nullable: true
+          enum: [VERIFICATION_TIMEOUT, UNDERPAYMENT, OVERPAYMENT, MULTIPLE_PARTIAL_PAYMENTS, EXTRA_RECEIPT, LATE_PAYMENT, OTHER_REVIEW, null]
+        next_poll_after_seconds:
+          type: integer
+          minimum: 0
+          description: 3 while verifying/finalizing, 10 when delayed, 0 to stop automatic polling
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+          description: Local payment projection version incremented by relevant durable changes
+    SePayBankWebhook:
+      type: object
+      additionalProperties: true
+      required: [id, gateway, transactionDate, accountNumber, content, transferType, transferAmount]
+      description: >-
+        Provider payload fields; optional nullable fields may be absent. Preserve
+        exact raw bytes for authentication/evidence. Numeric webhook ID is not an
+        API v2 UUID. Backend uses exact integer decoding, not floating point.
+      properties:
+        id: {type: integer, format: int64, minimum: 1}
+        gateway: {type: string, minLength: 1}
+        transactionDate:
+          type: string
+          pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}$'
+          description: Bank transaction time in Asia/Ho_Chi_Minh; not a request signing time
+        accountNumber: {type: string, minLength: 1}
+        subAccount: {type: string, nullable: true}
+        code: {type: string, nullable: true}
+        content: {type: string}
+        transferType: {type: string, enum: [in, out]}
+        transferAmount:
+          type: integer
+          format: int64
+          minimum: 1
+          description: VND; values above the Order value cap remain durable evidence
+        referenceCode: {type: string, nullable: true}
+        description: {type: string, nullable: true}
+        accumulated:
+          type: integer
+          format: int64
+          description: Optional account balance; never use it as payment amount or success proof

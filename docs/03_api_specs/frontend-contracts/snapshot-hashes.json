@@ -1,0 +1,17 @@
+{
+  "normalization": "CRCRLF/CRLF/CR to LF; contract content unchanged",
+  "files": {
+    "customer-api-state-matrix.md": {
+      "upstream_sha256": "56cb7a8669dbe6ad22fa21b4dfa0166c0c521c0fcc58d1a760e2bf7bd6ee6550",
+      "git_normalized_sha256": "56cb7a8669dbe6ad22fa21b4dfa0166c0c521c0fcc58d1a760e2bf7bd6ee6550"
+    },
+    "customer-draft-planned.openapi.yaml": {
+      "upstream_sha256": "ab867a6eb4b150e407011a2d25c2cd05c48a4cf1d54bd3e94ff8558cf9522540",
+      "git_normalized_sha256": "ab867a6eb4b150e407011a2d25c2cd05c48a4cf1d54bd3e94ff8558cf9522540"
+    },
+    "customer-stable.openapi.yaml": {
+      "upstream_sha256": "8e6b3e395392f28177efe5c65a92c7ec7a84a66f0eab4d6a268c0d9a2424667e",
+      "git_normalized_sha256": "1e6db01912ca28ed2be390ade9593c77bc33f3990c33e2f51798774b7cc9c566"
+    }
+  }
+}

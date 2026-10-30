@@ -1,5 +1,7 @@
 # HỆ SINH THÁI THƯƠNG MẠI ĐIỆN TỬ ĐA KÊNH & HỖ TRỢ QUYẾT ĐỊNH CHIẾN LƯỢC CHO NÔNG ĐẶC SẢN OCOP HUẾ (MÈ XỬNG O MẠ)
 
+> **MVP contracts:** [hướng dẫn chung](packages/contracts/mvp/README.md) · [owner/consumer/tasks](packages/contracts/mvp/registry.yaml) · [migration](packages/contracts/mvp/MIGRATION.md). Integration target; chưa phải nghiệm thu luồng service thật.
+
 > **Dự án PBL / Đồ án Chuyên ngành Công nghệ Thông tin**  
 > **Kiến trúc Hệ thống**: Phân tán Microservices + Event-Driven Architecture (EDA) + Polyglot Persistence (SQL + NoSQL) + Full Observability Stack.
 

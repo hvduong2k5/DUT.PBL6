@@ -63,6 +63,10 @@ yarn-debug.log*
 yarn-error.log*
 .system_generated/
 
+# Postman local artifacts & collections
+.postman/
+postman/
+
 # Java, Spring Boot & Gradle
 .gradle/
 **/build/

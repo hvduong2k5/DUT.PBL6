@@ -1,0 +1,55 @@
+name: MVP contract gates
+
+on:
+  pull_request:
+    branches: [dev, develop, main]
+    paths:
+      - 'packages/proto/**'
+      - 'packages/events/**'
+      - 'packages/contracts/**'
+      - 'docs/03_api_specs/**'
+      - '.github/workflows/contracts.yml'
+  push:
+    branches: [dev, develop, main, integration/mvp-contracts]
+    paths:
+      - 'packages/proto/**'
+      - 'packages/events/**'
+      - 'packages/contracts/**'
+      - 'docs/03_api_specs/**'
+      - '.github/workflows/contracts.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: packages/contracts/mvp/requirements.txt
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.0'
+          cache: false
+      - name: Install pinned contract and codegen tools
+        run: |
+          python -m pip install -r packages/contracts/mvp/requirements.txt
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.10
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1
+      - name: OpenAPI, event examples, registry and four wire baselines
+        run: |
+          python packages/contracts/mvp/verify.py --go-plugin "$(go env GOPATH)/bin/protoc-gen-go" --go-grpc-plugin "$(go env GOPATH)/bin/protoc-gen-go-grpc" --output .system_generated/mvp-contracts/verification.json
+      - name: Order proof and negative contract regressions
+        run: |
+          python packages/contracts/verify_order_design.py --descriptor .system_generated/mvp-contracts/descriptor.pb --output .system_generated/mvp-contracts/order-design-verification.json
+      - name: Upload static contract evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mvp-contract-evidence
+          path: .system_generated/mvp-contracts/
