@@ -24,11 +24,13 @@ auth thật không biến cả hệ thống thành production-ready.
 - Truyền principal UUID do server tạo vào Keycloak attribute `app_user_id` khi đăng ký.
 - Gán realm role `CUSTOMER`, chỉ báo provisioning thành công khi bước này thành công.
 - Thêm client scope `order-customer`: audience `order-api`, claim `user_id` lấy từ
-  `app_user_id`; giữ nguyên audience `omama-api` hiện tại.
+  `app_user_id`, mapper `realm_access.roles` và role scope mapping CUSTOMER; giữ
+  nguyên audience `omama-api` hiện tại. Không phụ thuộc scope `roles` có sẵn.
 
 Realm đã tồn tại **không tự thay đổi** khi sửa file template. Nhóm Identity phải áp
 dụng các mapper vào realm hiện tại và gắn scope vào client Web/Mobile dùng để test.
-Giữ scope `roles` chuẩn để token có `realm_access.roles`.
+Áp đủ cả ba mapper và role scope mapping; thiếu mapper role thì token vẫn đăng nhập
+được nhưng Order từ chối vì không có `realm_access.roles`.
 
 **Bắt buộc bảo vệ `app_user_id`:** cấu hình User Profile để chỉ admin/service account
 được sửa attribute này, người dùng không được sửa qua Account Console hoặc API.
@@ -121,8 +123,52 @@ Các test PostgreSQL/Kafka có điều kiện sẽ skip khi chưa đặt biến 
 
 Kết quả local ngày 29/10/2026: `go test -count=1 ./...` và `go vet ./...` PASS
 với Go 1.27.3 trên Windows. HTTP cart A/B và các test Keycloak mới thực sự chạy.
-Không đặt biến DB/Kafka cho integration suite; Docker daemon không chạy nên chưa
-có kết quả stack thật hoặc smoke test bằng token của realm triển khai.
+Lần chạy unit ban đầu không đặt biến DB/Kafka. Sau khi Docker hoạt động đã bổ sung
+bài test thật dưới đây; kết quả đó không thay thế nghiệm thu DB Identity/Profile/checkout.
+
+## 3b. Tự dựng và chạy lát cắt Keycloak thật bằng Docker
+
+Cần Docker, Go, Java 21 (`JAVA_HOME`) và Gradle 9.2.0. Có checkout của cả PR #35
+(Order) và PR #36 (Identity); ví dụ Identity ở thư mục `../PBL-mvp-contracts`.
+Chạy từ root checkout Order:
+
+```powershell
+python services/order-service/scripts/test-keycloak-live.py --identity-repo ../PBL-mvp-contracts
+```
+
+Có thể truyền `--go <đường-dẫn-go>` và `--gradle <đường-dẫn-gradle>` nếu chưa có trên
+PATH. Script dùng cổng loopback 18085/16389, tạo container/realm/account riêng với
+credential ngẫu nhiên, không sửa realm chung hoặc dữ liệu container cũ. Container
+do script tạo được xóa khi kết thúc. Không lưu hoặc in access token/password.
+
+Script gọi **client Java provisioning của Identity thật**, đăng nhập qua **Keycloak
+24.0.5 Authorization Code + PKCE** (frontend password grant tắt), gọi **HTTP handler
+Order thật** và **Redis thật**. Account A/B có principal khác Keycloak subject.
+Order HTTP chạy trong Go test process, không phải deployment đầy đủ của `cmd/server`.
+
+Test kiểm giỏ A/B và header mạo danh, token thiếu/sai/không có scope Order, guest
+disabled, và khách không đổi được `app_user_id` qua Account API. Java live test
+chỉ chạy khi có biến fixture; Gradle không được cache kết quả bài live này.
+
+Lần chạy thật phát hiện template thiếu mapper role (token có audience/user_id nhưng
+không có `realm_access.roles`); đã sửa phía Identity và chạy lại. Không nới verifier
+Order hoặc mặc định mọi token là CUSTOMER để che lỗi cấu hình.
+
+Giới hạn: tài khoản được gọi qua provisioning adapter trực tiếp; chưa chạy REST
+registration/saga/DB Identity, đồng bộ outbox sang Profile, hoặc mua hàng/thanh toán.
+Không thay đổi realm triển khai của team.
+
+**Kết quả ngày 30/10/2026: PASS với dependency thật.** Identity Java adapter tạo
+hai account trên Keycloak 24.0.5; PKCE cấp token thật; Order HTTP trả đúng hai giỏ
+trên Redis thật, bỏ qua header mạo danh và từ chối token thiếu/sai chữ ký/không có
+scope Order. Guest session bị chặn. Account API cho sửa hồ sơ thông thường nhưng
+không cho đổi `app_user_id`; admin đọc lại xác nhận principal không đổi.
+Script hoàn tất exit 0 và tự dọn container test. Các giới hạn về DB/Profile/checkout
+ở đoạn trên vẫn giữ nguyên.
+
+Fixture Account API dùng thêm audience/mapper role `account` chỉ trong realm test,
+không sửa token Order ban đầu. Có bước cập nhật hồ sơ bình thường thành công làm
+đối chứng; không dùng một lỗi 401 chung để kết luận attribute đã được bảo vệ.
 
 ## 4. Smoke test với token thật
 
