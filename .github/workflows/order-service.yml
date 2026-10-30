@@ -28,7 +28,7 @@ jobs:
         run: docker build -f services/order-service/Dockerfile.tools -t omamx/order-go-tools:local services/order-service
       - name: Check protobuf regeneration and formatting
         run: |
-          docker run --rm -v "$PWD:/workspace" omamx/order-go-tools:local sh -c 'sh scripts/generate-proto.sh && test -z "$(gofmt -l cmd internal migrations tests)"'
+          docker run --rm -v "$PWD:/workspace" omamx/order-go-tools:local sh -c 'sh scripts/generate-proto.sh && gofmt -l cmd internal migrations tests > /tmp/order-gofmt.txt && cat /tmp/order-gofmt.txt && test ! -s /tmp/order-gofmt.txt'
           git diff --exit-code -- services/order-service/internal/gen
       - name: Start isolated real infrastructure and sandbox APIs
         run: docker compose -f services/order-service/docker-compose.test.yml up -d --build
