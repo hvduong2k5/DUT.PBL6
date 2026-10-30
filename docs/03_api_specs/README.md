@@ -1,4 +1,6 @@
-> **MS-15 hiện tại (08/10/2026):** [profile-service.openapi.yaml](profile-service.openapi.yaml) mô tả backend trực tiếp; xem [../02_architecture/services/profile-service/06_hardening_and_contract.md](../02_architecture/services/profile-service/06_hardening_and_contract.md). `customer-profile-mvp.openapi.yaml` vẫn là candidate riêng, chưa được phê duyệt.
+> **MVP integration release 26/10/2026:** bắt đầu tại [contract guide](../../packages/contracts/mvp/README.md), [owner/consumer registry](../../packages/contracts/mvp/registry.yaml) và [migration](../../packages/contracts/mvp/MIGRATION.md).
+>
+> Public target: [mvp-customer.openapi.yaml](mvp-customer.openapi.yaml). Core adapter target: [order-core-dependencies.mvp.openapi.yaml](order-core-dependencies.mvp.openapi.yaml). Các spec D2C tổng và frontend/candidate bên dưới giữ vai trò reference/provider proposal; không ghi đè target MVP ở các route trùng. Implementation acceptance vẫn pending, không được suy từ CI contract xanh.
 
 # CẨM NANG ĐẶC TẢ GIAO DIỆN & HỢP ĐỒNG HỆ THỐNG (API & CONTRACTS SPECIFICATIONS)
 ## HỆ SINH THÁI THƯƠNG MẠI ĐIỆN TỬ & CHUỖI CUNG ỨNG ĐẶC SẢN OCOP HUẾ (MÈ XỬNG O MẠ)
@@ -99,7 +101,7 @@ npx swagger-ui-watcher docs/03_api_specs/openapi_d2c.yaml -p 8080
 # Cách 2: Sử dụng Docker container chính thức
 docker run -p 8080:8080 -e SWAGGER_JSON=/spec/openapi_d2c.yaml -v ${PWD}/docs/03_api_specs:/spec swaggerapi/swagger-ui
 ```
-Truy cập `http://localhost:8080` để xem đầy đủ 37 endpoint được phân nhóm theo 9 Swagger Tag trực quan.
+Truy cập `http://localhost:8080` để xem đầy đủ 32 endpoint được phân nhóm theo 9 Swagger Tag trực quan.
 
 ### 3.4. Chạy Mock Server & GraphQL Playground Cho Mobile BFF
 Ứng dụng di động sử dụng tầng đệm **Mobile BFF** ([`schema.graphql`](./schema.graphql)) theo chuẩn **NFR-02 (Mobile First)** để gom toàn bộ dữ liệu màn hình (Home, Chi tiết sản phẩm, Giỏ hàng, Vận đơn) trong 1 Single Round-trip mạng 4G:
@@ -114,6 +116,6 @@ npx @graphql-tools/mock-cli docs/03_api_specs/schema.graphql --port 4000
 ## 4. Danh Sách Tệp Đặc Tả Chi Tiết Trong Thư Mục
 1. [01_grpc_contracts.md](./01_grpc_contracts.md): Đặc tả chi tiết 8 gRPC Services, SLA timeout 2.0s, và cơ chế Retry Idempotent.
 2. [02_kafka_event_catalog.md](./02_kafka_event_catalog.md): Danh bạ Kafka Topics phủ 100% 18 microservices, Partition Keys, định dạng CloudEvents 1.0 và cơ chế Dead-Letter-Queue.
-3. [openapi_d2c.yaml](./openapi_d2c.yaml): Đặc tả chuẩn OpenAPI 3.0 cho Tầng Biên REST API & Webhooks (37 endpoints, 9 nhóm thẻ nghiệp vụ, 46 schemas).
+3. [openapi_d2c.yaml](./openapi_d2c.yaml): Đặc tả chuẩn OpenAPI 3.0 cho Tầng Biên REST API & Webhooks (32 endpoints, 9 nhóm thẻ nghiệp vụ, 40 schemas).
 4. [schema.graphql](./schema.graphql): Đặc tả GraphQL Schema cho Mobile BFF (Backend-For-Frontend) tối ưu mạng 4G cho Native Mobile App (NFR-02).
 

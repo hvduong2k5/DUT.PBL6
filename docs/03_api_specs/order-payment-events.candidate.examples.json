@@ -1,0 +1,67 @@
+[
+  {
+    "specversion": "1.0",
+    "id": "10000000-0000-4000-8000-000000000001",
+    "source": "https://omama.vn/services/order-service",
+    "type": "vn.omama.payment.receipt_recorded.v1",
+    "subject": "receipt:20000000-0000-4000-8000-000000000001",
+    "time": "2026-10-17T03:00:00Z",
+    "datacontenttype": "application/json",
+    "data": {
+      "aggregate_id": "20000000-0000-4000-8000-000000000001",
+      "version": 1,
+      "ordinal": 0,
+      "receipt_id": "20000000-0000-4000-8000-000000000001",
+      "connection_id": "30000000-0000-4000-8000-000000000001",
+      "provider_transaction_id": "40000000-0000-4000-8000-000000000001",
+      "order_id": null,
+      "amount": 125000,
+      "currency": "VND",
+      "bank_occurred_at": "2026-10-17T02:59:50Z",
+      "evidence_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  },
+  {
+    "specversion": "1.0",
+    "id": "10000000-0000-4000-8000-000000000002",
+    "source": "https://omama.vn/services/order-service",
+    "type": "vn.omama.payment.receipt_recorded.v1",
+    "subject": "receipt:20000000-0000-4000-8000-000000000002",
+    "time": "2026-10-17T03:01:00Z",
+    "datacontenttype": "application/json",
+    "data": {
+      "aggregate_id": "20000000-0000-4000-8000-000000000002",
+      "version": 1,
+      "ordinal": 0,
+      "receipt_id": "20000000-0000-4000-8000-000000000002",
+      "connection_id": "30000000-0000-4000-8000-000000000001",
+      "provider_transaction_id": "40000000-0000-4000-8000-000000000002",
+      "order_id": "50000000-0000-4000-8000-000000000001",
+      "amount": 250000,
+      "currency": "VND",
+      "bank_occurred_at": "2026-10-17T03:00:50Z",
+      "evidence_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+  },
+  {
+    "specversion": "1.0",
+    "id": "10000000-0000-4000-8000-000000000003",
+    "source": "https://omama.vn/services/order-service",
+    "type": "vn.omama.payment.refund_settled.v1",
+    "subject": "refund:60000000-0000-4000-8000-000000000001",
+    "time": "2026-10-17T04:00:00Z",
+    "datacontenttype": "application/json",
+    "data": {
+      "aggregate_id": "60000000-0000-4000-8000-000000000001",
+      "version": 3,
+      "ordinal": 0,
+      "refund_id": "60000000-0000-4000-8000-000000000001",
+      "receipt_id": "20000000-0000-4000-8000-000000000001",
+      "order_id": null,
+      "amount": 125000,
+      "currency": "VND",
+      "settled_at": "2026-10-17T03:58:00Z",
+      "evidence_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    }
+  }
+]

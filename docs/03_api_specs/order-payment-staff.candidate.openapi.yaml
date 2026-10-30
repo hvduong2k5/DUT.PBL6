@@ -1,0 +1,1466 @@
+openapi: 3.0.3
+info:
+  title: Order Payment - Staff Reconciliation and Manual Refund Candidate
+  version: 1.1.0-review
+  description: Review-only contract; no runtime implementation. All commands use principal/action/target-scoped
+    idempotency and canonical request hashes. Replay same key/hash returns original outcome before checking
+    stale expected_version, but always rechecks current authorization; changed payload returns 409. No
+    generic mark-paid endpoint. Manual workflow does not promise exactly-once actions in an external bank
+    portal. See architecture chapter 09 sections 9-11.
+  license:
+    name: Internal project review
+servers:
+- url: https://order.example.invalid
+  description: Placeholder; not deployed
+tags:
+- name: PaymentStaff
+  description: Scoped staff reconciliation, manual execution and evidence
+- name: RefundApproval
+  description: Authoritative Care service approval ingestion
+paths:
+  /api/v1/admin/payments/reconciliation-cases:
+    get:
+      tags:
+      - PaymentStaff
+      operationId: listPaymentCases
+      summary: List scoped reconciliation-cases
+      description: Keyset pagination; cursor bound to current actor scope and filters. Recheck authorization
+        on each page. Never expose bank account details in list results.
+      security:
+      - staffBearer: []
+      x-required-permission: payment.reconciliation.read
+      parameters:
+      - $ref: '#/components/parameters/cursor'
+      - $ref: '#/components/parameters/limit'
+      - $ref: '#/components/parameters/status'
+      responses:
+        '200':
+          description: Durable command result or current authorized projection.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                - no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CasePage'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '503':
+          $ref: '#/components/responses/Error503'
+  /api/v1/admin/payments/reconciliation-cases/{case_id}:
+    get:
+      tags:
+      - PaymentStaff
+      operationId: getPaymentCase
+      summary: Read scoped Case
+      description: Read current version and masked data. Evidence IDs do not grant download access. No
+        money mutation.
+      security:
+      - staffBearer: []
+      x-required-permission: payment.reconciliation.read
+      parameters:
+      - $ref: '#/components/parameters/case_id'
+      responses:
+        '200':
+          description: Durable command result or current authorized projection.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                - no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Case'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '503':
+          $ref: '#/components/responses/Error503'
+  /api/v1/admin/payments/refunds:
+    get:
+      tags:
+      - PaymentStaff
+      operationId: listPaymentRefunds
+      summary: List scoped refunds
+      description: Keyset pagination; cursor bound to current actor scope and filters. Recheck authorization
+        on each page. Never expose bank account details in list results.
+      security:
+      - staffBearer: []
+      x-required-permission: payment.refund.read
+      parameters:
+      - $ref: '#/components/parameters/cursor'
+      - $ref: '#/components/parameters/limit'
+      - $ref: '#/components/parameters/status'
+      responses:
+        '200':
+          description: Durable command result or current authorized projection.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                - no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefundPage'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '503':
+          $ref: '#/components/responses/Error503'
+  /api/v1/admin/payments/refunds/{refund_id}:
+    get:
+      tags:
+      - PaymentStaff
+      operationId: getPaymentRefund
+      summary: Read scoped Refund
+      description: Read current version and masked data. Evidence IDs do not grant download access. No
+        money mutation.
+      security:
+      - staffBearer: []
+      x-required-permission: payment.refund.read
+      parameters:
+      - $ref: '#/components/parameters/refund_id'
+      responses:
+        '200':
+          description: Durable command result or current authorized projection.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                - no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Refund'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '503':
+          $ref: '#/components/responses/Error503'
+  /api/v1/admin/payments/reconciliation-cases/{case_id}/assign:
+    post:
+      tags:
+      - PaymentStaff
+      operationId: assignPaymentCase
+      summary: Assign reconciliation case
+      description: Supervisor must validate assignee membership and scope. Actor from token; assignment
+        mutation plus audit atomic.
+      security:
+      - staffBearer: []
+      x-required-permission: payment.reconciliation.manage
+      parameters:
+      - $ref: '#/components/parameters/case_id'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Durable command result or current authorized projection.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                - no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Case'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '503':
+          $ref: '#/components/responses/Error503'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '422':
+          $ref: '#/components/responses/Error422'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignCaseRequest'
+  /api/v1/admin/payments/reconciliation-cases/{case_id}/resolve:
+    post:
+      tags:
+      - PaymentStaff
+      operationId: resolvePaymentCase
+      summary: Resolve an evidenced case
+      description: REFUNDED requires completed refunds covering the case obligation. NO_PAYMENT_CONFIRMED
+        only for an observation false positive with authoritative evidence, never because an API timed
+        out. EXTERNAL_FUNDS_RESOLVED requires a verified Care/Finance decision and all associated obligations
+        terminal. Does not rewrite receipts, allocate money or mark PAID.
+      security:
+      - staffBearer: []
+      x-required-permission: payment.reconciliation.manage
+      parameters:
+      - $ref: '#/components/parameters/case_id'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Durable command result or current authorized projection.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                - no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Case'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '503':
+          $ref: '#/components/responses/Error503'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '422':
+          $ref: '#/components/responses/Error422'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResolveCaseRequest'
+  /internal/payments/refunds:
+    post:
+      tags:
+      - RefundApproval
+      operationId: acceptApprovedPaymentRefund
+      summary: Accept a Care-approved refund obligation
+      description: Query authoritative Care approval; bind receipt, nullable order, amount, VND, immutable
+        verified beneficiary and actor/policy/version. Reserve receipt budget and work atomically. Approval
+        replay returns the same obligation; client cannot supply replacement amount/account. Unmatched
+        receipt supported. Permission belongs to Care service, not a staff role. Automatic refunds disabled
+        by default.
+      security:
+      - careService: []
+      x-required-permission: payment.refund.accept
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '201':
+          description: Durable command result or current authorized projection.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                - no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Refund'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '503':
+          $ref: '#/components/responses/Error503'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '422':
+          $ref: '#/components/responses/Error422'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AcceptRefundRequest'
+  /api/v1/admin/payments/refunds/{refund_id}/claim:
+    post:
+      tags:
+      - PaymentStaff
+      operationId: claimManualPaymentRefund
+      summary: Claim an unstarted manual refund
+      description: Only MANUAL_BANK, AWAITING_EXECUTOR or expired pre-start CLAIMED. Caller cannot be
+        Care approver. Five-minute claim lease; assigned scope and version checked under lock. Lease expiry
+        never reassigns STARTED or UNKNOWN execution.
+      security:
+      - staffBearer: []
+      x-required-permission: payment.refund.execute
+      parameters:
+      - $ref: '#/components/parameters/refund_id'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Durable command result or current authorized projection.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                - no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Refund'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '503':
+          $ref: '#/components/responses/Error503'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '422':
+          $ref: '#/components/responses/Error422'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VersionedCommand'
+  /api/v1/admin/payments/refunds/{refund_id}/start:
+    post:
+      tags:
+      - PaymentStaff
+      operationId: startManualPaymentRefund
+      summary: Record execution start before bank action
+      description: Claim owner, unexpired lease, current Care approval and expected version required.
+        Commit SUBMITTED/STARTED and immutable attempt before exposing transfer instruction. Only current
+        assigned executor receives full beneficiary details, including on idempotent replay. No bank transfer
+        is made by this endpoint. Never create a second attempt to recover lost ACK.
+      security:
+      - staffBearer: []
+      x-required-permission: payment.refund.execute
+      parameters:
+      - $ref: '#/components/parameters/refund_id'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Durable command result or current authorized projection.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                - no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StartInstruction'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '503':
+          $ref: '#/components/responses/Error503'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '422':
+          $ref: '#/components/responses/Error422'
+      x-mfa-max-age-seconds: 900
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VersionedCommand'
+  /api/v1/admin/payments/refunds/{refund_id}/report-uncertain:
+    post:
+      tags:
+      - PaymentStaff
+      operationId: reportUncertainManualRefund
+      summary: Preserve uncertain bank transfer outcome
+      description: Assigned executor reports uncertainty for current started attempt. Set UNKNOWN, keep
+        budget, prevent any retry/reassignment or switch to automatic executor until authoritative resolution.
+      security:
+      - staffBearer: []
+      x-required-permission: payment.refund.execute
+      parameters:
+      - $ref: '#/components/parameters/refund_id'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Durable command result or current authorized projection.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                - no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Refund'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '503':
+          $ref: '#/components/responses/Error503'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '422':
+          $ref: '#/components/responses/Error422'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VersionedCommand'
+  /api/v1/admin/payments/refunds/{refund_id}/evidence:
+    post:
+      tags:
+      - PaymentStaff
+      operationId: attachManualRefundEvidence
+      summary: Attach clean evidence to an execution attempt
+      description: Assigned executor or independent verifier with evidence-write permission may attach;
+        authorization evaluates execute OR verify permission plus evidence.write and current resource
+        scope. Require uploaded/scanned CLEAN evidence bound to this refund and exact attempt. Declaration
+        does not confirm money sent.
+      security:
+      - staffBearer: []
+      x-required-permission: payment.evidence.write
+      parameters:
+      - $ref: '#/components/parameters/refund_id'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Durable command result or current authorized projection.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                - no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Refund'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '503':
+          $ref: '#/components/responses/Error503'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '422':
+          $ref: '#/components/responses/Error422'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EvidenceAttachment'
+      x-required-any-resource-permission:
+      - payment.refund.execute
+      - payment.refund.verify
+  /api/v1/admin/payments/refunds/{refund_id}/verify:
+    post:
+      tags:
+      - PaymentStaff
+      operationId: verifyManualRefundOutcome
+      summary: Independently verify manual bank outcome
+      description: Verifier differs from both executor and Care approver. Validate independent authoritative
+        bank evidence, original instruction beneficiary hash, source account, amount/currency and outgoing
+        reference. SENT creates one unique outgoing-bank-reference settlement and atomic refund budget/history/outbox.
+        NOT_SENT needs terminal bank reject/cancel or equivalent authoritative attestation; absence in
+        a short statement is insufficient. INCONCLUSIVE keeps UNKNOWN and budget. Evidence must be CLEAN
+        and scoped.
+      security:
+      - staffBearer: []
+      x-required-permission: payment.refund.verify
+      parameters:
+      - $ref: '#/components/parameters/refund_id'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Durable command result or current authorized projection.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                - no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Refund'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '503':
+          $ref: '#/components/responses/Error503'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '422':
+          $ref: '#/components/responses/Error422'
+      x-mfa-max-age-seconds: 900
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerificationRequest'
+  /api/v1/admin/payments/refunds/{refund_id}/retry-attempt:
+    post:
+      tags:
+      - PaymentStaff
+      operationId: prepareRetryManualRefund
+      summary: Prepare a new attempt after proven non-payment
+      description: Only FAILED/VERIFIED_NOT_SENT with no unresolved external effect; require current authoritative
+        Care approval. Keep the same obligation and reserved budget; advance attempt number, clear previous
+        claim, set MANUAL_REVIEW/AWAITING_EXECUTOR. Preserve old attempt evidence. UNKNOWN never retries,
+        including switches between manual and auto.
+      security:
+      - staffBearer: []
+      x-required-permission: payment.refund.execute
+      parameters:
+      - $ref: '#/components/parameters/refund_id'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Durable command result or current authorized projection.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                - no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Refund'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '503':
+          $ref: '#/components/responses/Error503'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '422':
+          $ref: '#/components/responses/Error422'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VersionedCommand'
+  /api/v1/admin/payments/evidence-uploads:
+    post:
+      tags:
+      - PaymentStaff
+      operationId: createPaymentEvidenceUpload
+      summary: Issue a scoped evidence upload ticket
+      description: Require evidence.write plus refund execute/verify or reconciliation.manage within target
+        resource scope. PDF/PNG/JPEG at most 10 MiB. Bind hash/size/type and resource. Five-minute presigned
+        upload; service verifies actual object and malware scan before CLEAN. Same-key replay may refresh
+        the upload URL for the same evidence ID only after current authorization; never accept an arbitrary
+        client URL.
+      security:
+      - staffBearer: []
+      x-required-permission: payment.evidence.write
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '201':
+          description: Durable command result or current authorized projection.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                - no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadTicket'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '503':
+          $ref: '#/components/responses/Error503'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '422':
+          $ref: '#/components/responses/Error422'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UploadRequest'
+      x-required-any-resource-permission:
+      - payment.refund.execute
+      - payment.refund.verify
+      - payment.reconciliation.manage
+  /api/v1/admin/payments/evidence/{evidence_id}:
+    get:
+      tags:
+      - PaymentStaff
+      operationId: getPaymentEvidence
+      summary: Read authorized evidence access
+      description: Require evidence.read and current target resource scope. Return a download URL only
+        for CLEAN evidence, valid at most 60 seconds. Other statuses have null URL/expiry. Audit access.
+        Knowledge of evidence ID is not authorization.
+      security:
+      - staffBearer: []
+      x-required-permission: payment.evidence.read
+      parameters:
+      - $ref: '#/components/parameters/evidence_id'
+      responses:
+        '200':
+          description: Durable command result or current authorized projection.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                - no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Evidence'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '503':
+          $ref: '#/components/responses/Error503'
+  /api/v1/admin/payments/refunds/{refund_id}/cancel-obligation:
+    post:
+      tags:
+      - PaymentStaff
+      operationId: cancelManualRefundObligation
+      summary: Cancel a refund obligation only with proven absence of external effect
+      description: Supervisor queries an authoritative Care withdrawal/cancellation decision bound to
+        this obligation. Allowed only before STARTED or after VERIFIED_NOT_SENT, with no pending/unknown
+        manual or automatic execution. Under receipt/refund lock set obligation CANCELLED, refund FAILED
+        with OBLIGATION_CANCELLED reason, release reserved budget and audit atomically. Claim expiry or
+        missing bank evidence is not cancellation proof.
+      security:
+      - staffBearer: []
+      x-required-permission: payment.reconciliation.manage
+      parameters:
+      - $ref: '#/components/parameters/refund_id'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Durable command result or current authorized projection.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                - no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Refund'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '503':
+          $ref: '#/components/responses/Error503'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '422':
+          $ref: '#/components/responses/Error422'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelObligationRequest'
+components:
+  securitySchemes:
+    staffBearer:
+      type: http
+      scheme: bearer
+      description: Trusted staff JWT; pinned issuer/audience/keys. Permissions plus merchant/receiver/assignment
+        scope. Actor IDs from claims, not body. Start and verify require MFA auth_time within 900 seconds;
+        Admin cannot bypass actor separation.
+    careService:
+      type: http
+      scheme: bearer
+      description: Trusted Care service identity with audience Order Payment and payment.refund.accept;
+        deployed over TLS with service ACL. Query actual approval, never trust arbitrary approval strings.
+  parameters:
+    IdempotencyKey:
+      name: X-Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 16
+        maxLength: 128
+        pattern: ^[!-~]+$
+    case_id:
+      name: case_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    refund_id:
+      name: refund_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    evidence_id:
+      name: evidence_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    cursor:
+      name: cursor
+      in: query
+      required: false
+      schema:
+        type: string
+      description: Opaque server cursor bound to actor scope/filter.
+    status:
+      name: status
+      in: query
+      required: false
+      schema:
+        type: string
+      description: Case/refund status from the corresponding resource enum; reject unknown values.
+    limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+  responses:
+    Error400:
+      description: Missing idempotency key or invalid request shape.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Error401:
+      description: Invalid or missing credential.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Error403:
+      description: Missing permission, MFA or separation-of-duties violation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Error404:
+      description: Resource absent or outside caller merchant/receiver/assignment scope.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Error409:
+      description: Stale version, changed idempotency payload, budget or state conflict.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Error422:
+      description: Approval, evidence or business policy invalid; no financial effect.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Error429:
+      description: Rate limited; back off.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+            minimum: 1
+    Error503:
+      description: Authority, registry, storage or durable commit unavailable.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+  schemas:
+    ApiError:
+      type: object
+      additionalProperties: false
+      description: Same error envelope as the Order 3.2 contract
+      required:
+      - error
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required:
+          - code
+          - retryable
+          properties:
+            code:
+              type: string
+              minLength: 1
+            retryable:
+              type: boolean
+        operation_id:
+          type: string
+          format: uuid
+    VersionedCommand:
+      type: object
+      additionalProperties: false
+      required:
+      - expected_version
+      - reason
+      properties:
+        expected_version: &id001
+          type: integer
+          format: int64
+          minimum: 1
+        reason: &id002
+          type: string
+          minLength: 1
+          maxLength: 1000
+      example:
+        expected_version: 3
+        reason: Xu ly task da duoc phan cong
+    AcceptRefundRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - approval_id
+      properties:
+        approval_id:
+          type: string
+          minLength: 1
+          maxLength: 128
+      example:
+        approval_id: care-refund-approval-example-001
+    ReceiptAmount:
+      type: integer
+      format: int64
+      minimum: 1
+      maximum: 9223372036854775807
+      description: Receipt/refund VND amount; exact integer decoding; do not apply Order cap to unmatched
+        funds.
+    Case:
+      type: object
+      additionalProperties: false
+      required:
+      - case_id
+      - order_id
+      - receipt_id
+      - observation_id
+      - support_reference
+      - reason
+      - status
+      - assigned_to
+      - version
+      - evidence_ids
+      - refund_ids
+      properties:
+        case_id:
+          type: string
+          format: uuid
+        order_id:
+          type: string
+          format: uuid
+          nullable: true
+        receipt_id:
+          type: string
+          format: uuid
+          nullable: true
+        observation_id:
+          type: string
+          format: uuid
+          nullable: true
+        support_reference:
+          type: string
+        reason:
+          type: string
+        status:
+          type: string
+          enum:
+          - OPEN
+          - ASSIGNED
+          - WAITING_EVIDENCE
+          - WAITING_REFUND
+          - RESOLVED
+        assigned_to:
+          type: string
+          format: uuid
+          nullable: true
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+        evidence_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        refund_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+    AssignCaseRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - expected_version
+      - reason
+      - assignee_id
+      properties:
+        expected_version: *id001
+        reason: *id002
+        assignee_id:
+          type: string
+          format: uuid
+    ResolveCaseRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - expected_version
+      - reason
+      - resolution
+      - decision_reference
+      - evidence_ids
+      properties:
+        expected_version: *id001
+        reason: *id002
+        resolution:
+          type: string
+          enum:
+          - REFUNDED
+          - NO_PAYMENT_CONFIRMED
+          - EXTERNAL_FUNDS_RESOLVED
+        decision_reference:
+          type: string
+          minLength: 1
+          maxLength: 128
+        evidence_ids:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: string
+            format: uuid
+    Refund:
+      type: object
+      additionalProperties: false
+      required:
+      - refund_id
+      - receipt_id
+      - order_id
+      - approval_id
+      - amount
+      - currency
+      - status
+      - execution_mode
+      - execution_state
+      - attempt_id
+      - attempt_number
+      - claim_owner
+      - claim_expires_at
+      - beneficiary_masked
+      - version
+      - evidence_ids
+      - obligation_state
+      properties:
+        refund_id:
+          type: string
+          format: uuid
+        receipt_id:
+          type: string
+          format: uuid
+        order_id:
+          type: string
+          format: uuid
+          nullable: true
+        approval_id:
+          type: string
+        amount:
+          $ref: '#/components/schemas/ReceiptAmount'
+        currency:
+          type: string
+          enum:
+          - VND
+        status:
+          type: string
+          enum:
+          - APPROVED
+          - MANUAL_REVIEW
+          - SUBMITTED
+          - UNKNOWN
+          - SUCCEEDED
+          - FAILED
+        execution_mode:
+          type: string
+          enum:
+          - MANUAL_BANK
+          - SEPAY_API
+        execution_state:
+          type: string
+          enum:
+          - AWAITING_EXECUTOR
+          - CLAIMED
+          - STARTED
+          - EVIDENCE_PENDING
+          - VERIFYING
+          - UNKNOWN
+          - VERIFIED_SENT
+          - VERIFIED_NOT_SENT
+        attempt_id:
+          type: string
+          format: uuid
+          nullable: true
+        attempt_number:
+          type: integer
+          format: int64
+          minimum: 0
+        claim_owner:
+          type: string
+          format: uuid
+          nullable: true
+        claim_expires_at:
+          type: string
+          format: date-time
+          nullable: true
+        beneficiary_masked:
+          type: string
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+        evidence_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        obligation_state:
+          type: string
+          enum:
+          - OPEN
+          - FULFILLED
+          - CANCELLED
+    StartInstruction:
+      type: object
+      additionalProperties: false
+      required:
+      - refund
+      - attempt_id
+      - amount
+      - currency
+      - bank_code
+      - beneficiary_account
+      - beneficiary_holder
+      - transfer_content
+      - started_at
+      properties:
+        refund:
+          $ref: '#/components/schemas/Refund'
+        attempt_id:
+          type: string
+          format: uuid
+        amount:
+          $ref: '#/components/schemas/ReceiptAmount'
+        currency:
+          type: string
+          enum:
+          - VND
+        bank_code:
+          type: string
+        beneficiary_account:
+          type: string
+        beneficiary_holder:
+          type: string
+        transfer_content:
+          type: string
+        started_at:
+          type: string
+          format: date-time
+      description: Sensitive instruction from immutable verified approval snapshot; only the current assigned
+        executor with fresh MFA may receive it. Replays require current authorization.
+    EvidenceAttachment:
+      type: object
+      additionalProperties: false
+      required:
+      - expected_version
+      - reason
+      - attempt_id
+      - evidence_ids
+      properties:
+        expected_version: *id001
+        reason: *id002
+        attempt_id:
+          type: string
+          format: uuid
+        evidence_ids:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: string
+            format: uuid
+    VerificationRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - expected_version
+      - reason
+      - attempt_id
+      - outcome
+      - evidence_ids
+      properties:
+        expected_version: *id001
+        reason: *id002
+        attempt_id:
+          type: string
+          format: uuid
+        outcome:
+          type: string
+          enum:
+          - SENT
+          - NOT_SENT
+          - INCONCLUSIVE
+        evidence_ids:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: string
+            format: uuid
+        bank_evidence:
+          type: object
+          additionalProperties: false
+          required:
+          - source_bank_account_id
+          - outgoing_reference
+          - amount
+          - currency
+          - beneficiary_snapshot_hash
+          - confirmed_at
+          properties:
+            source_bank_account_id:
+              type: string
+              format: uuid
+            outgoing_reference:
+              type: string
+              minLength: 1
+              maxLength: 200
+            amount:
+              $ref: '#/components/schemas/ReceiptAmount'
+            currency:
+              type: string
+              enum:
+              - VND
+            beneficiary_snapshot_hash:
+              type: string
+              pattern: ^[a-f0-9]{64}$
+            confirmed_at:
+              type: string
+              format: date-time
+      description: bank_evidence required for SENT, forbidden for other outcomes. NOT_SENT requires terminal
+        authoritative bank non-payment proof. INCONCLUSIVE preserves reserved budget. Verifier must differ
+        from executor and Care approver; fresh MFA required.
+      oneOf:
+      - properties:
+          outcome:
+            enum:
+            - SENT
+        required:
+        - bank_evidence
+      - properties:
+          outcome:
+            enum:
+            - NOT_SENT
+            - INCONCLUSIVE
+        not:
+          required:
+          - bank_evidence
+      example:
+        expected_version: 7
+        reason: Da doi chieu nguon ngan hang doc lap
+        attempt_id: 9ead5869-535f-4387-bab4-c560da95e22c
+        outcome: SENT
+        evidence_ids:
+        - d1797981-efbe-4bd9-b6a9-cd654fb49c13
+        bank_evidence:
+          source_bank_account_id: 44732c11-94b0-49a5-baf3-381b5f89c09a
+          outgoing_reference: EXAMPLE-OUT-001
+          amount: 250000
+          currency: VND
+          beneficiary_snapshot_hash: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+          confirmed_at: '2026-10-16T14:00:00+07:00'
+    UploadRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - resource_type
+      - resource_id
+      - media_type
+      - byte_size
+      - sha256
+      - reason
+      properties:
+        resource_type:
+          type: string
+          enum:
+          - REFUND
+          - RECONCILIATION_CASE
+        resource_id:
+          type: string
+          format: uuid
+        media_type:
+          type: string
+          enum:
+          - application/pdf
+          - image/png
+          - image/jpeg
+        byte_size:
+          type: integer
+          minimum: 1
+          maximum: 10485760
+        sha256:
+          type: string
+          pattern: ^[a-f0-9]{64}$
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 1000
+      example:
+        resource_type: REFUND
+        resource_id: 867ef08c-f319-41f4-9af8-ff437cfa8677
+        media_type: application/pdf
+        byte_size: 1024
+        sha256: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+        reason: Chung tu doi chieu
+    UploadTicket:
+      type: object
+      additionalProperties: false
+      required:
+      - evidence_id
+      - upload_url
+      - expires_at
+      - required_headers
+      properties:
+        evidence_id:
+          type: string
+          format: uuid
+        upload_url:
+          type: string
+          format: uri
+        expires_at:
+          type: string
+          format: date-time
+        required_headers:
+          type: object
+          additionalProperties:
+            type: string
+    Evidence:
+      type: object
+      additionalProperties: false
+      required:
+      - evidence_id
+      - resource_type
+      - resource_id
+      - status
+      - sha256
+      - download_url
+      - expires_at
+      properties:
+        evidence_id:
+          type: string
+          format: uuid
+        resource_type:
+          type: string
+          enum:
+          - REFUND
+          - RECONCILIATION_CASE
+        resource_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+          - AWAITING_UPLOAD
+          - SCANNING
+          - CLEAN
+          - REJECTED
+        sha256:
+          type: string
+        download_url:
+          type: string
+          format: uri
+          nullable: true
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+    CasePage:
+      type: object
+      additionalProperties: false
+      required:
+      - items
+      - next_cursor
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Case'
+        next_cursor:
+          type: string
+          nullable: true
+    RefundPage:
+      type: object
+      additionalProperties: false
+      required:
+      - items
+      - next_cursor
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Refund'
+        next_cursor:
+          type: string
+          nullable: true
+    CancelObligationRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - expected_version
+      - reason
+      - care_decision_reference
+      properties:
+        expected_version:
+          type: integer
+          format: int64
+          minimum: 1
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 1000
+        care_decision_reference:
+          type: string
+          minLength: 1
+          maxLength: 128

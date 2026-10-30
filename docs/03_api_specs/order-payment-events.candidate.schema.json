@@ -1,0 +1,77 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://contracts.omama.example/payment/candidate/events.v1.schema.json",
+  "title": "Payment financial facts v1 — persistence/messaging review candidate",
+  "description": "Proposed payment.events.v1 contract. No activation before Finance/consumer sign-off. Internal receipt/refund UUID is aggregate identity; order_id is nullable. Runtime validates identity/subject/key equality, canonical evidence and financial guards. No raw account, transfer content, actor or customer PII.",
+  "definitions": {
+    "uuid": { "type": "string", "format": "uuid" },
+    "nullableUuid": { "oneOf": [{ "$ref": "#/definitions/uuid" }, { "type": "null" }] },
+    "hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "receiptData": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["aggregate_id", "version", "ordinal", "receipt_id", "connection_id", "provider_transaction_id", "order_id", "amount", "currency", "bank_occurred_at", "evidence_hash"],
+      "properties": {
+        "aggregate_id": { "$ref": "#/definitions/uuid" },
+        "version": { "type": "integer", "minimum": 1, "maximum": 9223372036854775807 },
+        "ordinal": { "type": "integer", "minimum": 0, "maximum": 2147483647 },
+        "receipt_id": { "$ref": "#/definitions/uuid" },
+        "connection_id": { "$ref": "#/definitions/uuid" },
+        "provider_transaction_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "order_id": { "$ref": "#/definitions/nullableUuid" },
+        "amount": { "type": "integer", "minimum": 1, "maximum": 9223372036854775807 },
+        "currency": { "const": "VND" },
+        "bank_occurred_at": { "type": "string", "format": "date-time" },
+        "evidence_hash": { "$ref": "#/definitions/hash" }
+      }
+    },
+    "refundData": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["aggregate_id", "version", "ordinal", "refund_id", "receipt_id", "order_id", "amount", "currency", "settled_at", "evidence_hash"],
+      "properties": {
+        "aggregate_id": { "$ref": "#/definitions/uuid" },
+        "version": { "type": "integer", "minimum": 1, "maximum": 9223372036854775807 },
+        "ordinal": { "type": "integer", "minimum": 0, "maximum": 2147483647 },
+        "refund_id": { "$ref": "#/definitions/uuid" },
+        "receipt_id": { "$ref": "#/definitions/uuid" },
+        "order_id": { "$ref": "#/definitions/nullableUuid" },
+        "amount": { "type": "integer", "minimum": 1, "maximum": 9223372036854775807 },
+        "currency": { "const": "VND" },
+        "settled_at": { "type": "string", "format": "date-time" },
+        "evidence_hash": { "$ref": "#/definitions/hash" }
+      }
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["specversion", "id", "source", "type", "subject", "time", "datacontenttype", "data"],
+  "properties": {
+    "specversion": { "const": "1.0" },
+    "id": { "$ref": "#/definitions/uuid" },
+    "source": { "const": "https://omama.vn/services/order-service" },
+    "type": { "enum": ["vn.omama.payment.receipt_recorded.v1", "vn.omama.payment.refund_settled.v1"] },
+    "subject": { "type": "string" },
+    "time": { "type": "string", "format": "date-time" },
+    "datacontenttype": { "const": "application/json" },
+    "traceparent": { "type": "string", "pattern": "^00-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}$" },
+    "correlationid": { "type": "string", "maxLength": 128 },
+    "data": { "type": "object" }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "type": { "const": "vn.omama.payment.receipt_recorded.v1" },
+        "subject": { "pattern": "^receipt:[0-9a-f-]{36}$" },
+        "data": { "$ref": "#/definitions/receiptData" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "vn.omama.payment.refund_settled.v1" },
+        "subject": { "pattern": "^refund:[0-9a-f-]{36}$" },
+        "data": { "$ref": "#/definitions/refundData" }
+      }
+    }
+  ]
+}
