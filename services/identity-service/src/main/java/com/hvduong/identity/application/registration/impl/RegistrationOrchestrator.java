@@ -51,6 +51,7 @@ public class RegistrationOrchestrator implements RegisterPrincipalUseCase {
         String idpSubject;
         try {
             idpSubject = keycloakAdminClient.createUser(
+                principalId,
                 request.getEmail(), 
                 request.getFirstName(), 
                 request.getLastName(), 
