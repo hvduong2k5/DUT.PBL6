@@ -68,6 +68,28 @@ func (s *Service) ListOrders(ctx context.Context, p domain.Principal, staff, que
 	if limit > 100 {
 		limit = 100
 	}
+	return s.listOrders(ctx, p, staff, queue, status, cursor, limit)
+}
+
+// OwnedOrderPage uses one-row lookahead so the final non-empty page has no cursor.
+// The cursor authenticates customer scope and the exact status filter.
+func (s *Service) OwnedOrderPage(ctx context.Context, p domain.Principal, status, cursor string, limit int) ([]domain.Order, string, error) {
+	if limit < 1 || limit > 100 {
+		return nil, "", domain.E("INVALID_LIMIT", 400)
+	}
+	items, err := s.listOrders(ctx, p, false, false, status, cursor, limit+1)
+	if err != nil {
+		return nil, "", err
+	}
+	next := ""
+	if len(items) > limit {
+		items = items[:limit]
+		next = s.Cursor(items[len(items)-1], p.Scope(), status)
+	}
+	return items, next, nil
+}
+
+func (s *Service) listOrders(ctx context.Context, p domain.Principal, staff, queue bool, status, cursor string, limit int) ([]domain.Order, error) {
 	if staff && !p.Staff() {
 		return nil, domain.E("PERMISSION_DENIED", 403)
 	}
