@@ -6,6 +6,8 @@
 
 ## Bắt đầu theo vai trò
 
+Web/Mobile đọc [UI handoff: full-cart, cursor và tracking](UI-HANDOFF.md) để cập nhật request/DTO và biết giới hạn dữ liệu địa giới hiện tại.
+
 **Đọc trước:** [Đề xuất chốt 6 điểm cho MVP](TEAM-DECISIONS.md) giải thích luồng mua bằng sơ đồ, phương án lựa chọn, trách nhiệm và điều kiện nghiệm thu. Đây là đề xuất triển khai; chưa phải sign-off của các nhóm. Vòng đầu đề xuất khách đăng nhập + SePay + giao hàng; Guest/COD/automatic completion có điều kiện mở riêng.
 
 | Thành viên | Contract cần đọc | Việc tiếp theo |

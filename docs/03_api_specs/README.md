@@ -7,6 +7,9 @@
 
 Thư mục này là **Single Source of Truth** về mặt tài liệu giao tiếp kỹ thuật của toàn bộ 18 Microservices, phục vụ trực tiếp cho quá trình lập trình song song, kiểm thử tự động (CI/CD Contract Test) và tài liệu bảo vệ đồ án.
 
+> [!IMPORTANT]
+> Với migration Web Customer MVP, dùng baseline đã pin trong [`../ui_web/MVP_PUBLIC_CONTRACT_MIGRATION_MATRIX.md`](../ui_web/MVP_PUBLIC_CONTRACT_MIGRATION_MATRIX.md). Ở các route trùng nhau, `mvp-customer.openapi.yaml` tại commit contract đã pin được ưu tiên hơn `openapi_d2c.yaml`, các file feature candidate và snapshot Web/Mobile cũ. Contract hiện là `integration-target`; CI contract không thay thế runtime acceptance của service.
+
 ---
 
 ## 1. Bản Đồ Hợp Đồng Đa Giao Thức (Multi-Protocol Contracts Map)

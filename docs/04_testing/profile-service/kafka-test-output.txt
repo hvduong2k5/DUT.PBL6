@@ -1,0 +1,5 @@
+=== RUN   TestRealKafkaOutboxDelivery
+    kafka_delivery_test.go:64: Verified real Kafka CloudEvent type=vn.omama.profile.updated.v1, version=2 and persisted publication acknowledgement
+--- PASS: TestRealKafkaOutboxDelivery (1.90s)
+PASS
+ok  	github.com/omamx/profile-service/tests/integration	2.939s

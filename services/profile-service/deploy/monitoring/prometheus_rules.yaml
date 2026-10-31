@@ -1,0 +1,35 @@
+groups:
+  - name: profile_service_alerts
+    rules:
+      - alert: ProfileServiceCheckoutSLAViolated
+        expr: histogram_quantile(0.99, sum(rate(profile_http_request_duration_seconds_bucket{path=~".*addresses.*"}[3m])) by (le)) > 0.005
+        for: 2m
+        labels:
+          severity: critical
+          service: profile-service
+          team: core-backend
+        annotations:
+          summary: "Checkout delivery address latency SLA exceeded P99 > 5ms"
+          description: "Profile service delivery address retrieval is taking more than 5ms (current value: {{ $value }}s). Critical checkout path may degrade."
+
+      - alert: ProfileServiceOutboxLagHigh
+        expr: profile_outbox_lag_count > 100
+        for: 3m
+        labels:
+          severity: warning
+          service: profile-service
+          team: data-platform
+        annotations:
+          summary: "Transactional outbox lag accumulated > 100 events"
+          description: "Outbox publisher has {{ $value }} unpublished events remaining for more than 3 minutes. Check Kafka cluster connectivity."
+
+      - alert: ProfileServiceVaultUnwrapErrors
+        expr: rate(profile_http_requests_total{path=~".*admin/employees.*", status=~"5.."}[2m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+          service: profile-service
+          team: security
+        annotations:
+          summary: "HR PII decryption errors detected (possible Vault outage)"
+          description: "Employee PII decryption is failing with 5xx status codes. Verify HashiCorp Vault Transit Engine availability."

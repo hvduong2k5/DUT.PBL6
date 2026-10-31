@@ -320,6 +320,23 @@ def main():
           'Public target still accepts legacy direct checkout without quote/revision')
     negatives += 1
     profile_update = public['paths']['/api/v1/profile']['put']['requestBody']['content']['application/json']['schema']
+    quote_schema = public['paths']['/api/v1/checkout/quote']['post']['requestBody']['content']['application/json']['schema']
+    quote_validator = OAS30Validator(expand(quote_schema))
+    quote_base = {'cart_revision': 1, 'payment_method': 'VIETQR'}
+    saved = {**quote_base, 'shipping_address_id': '11111111-1111-4111-8111-111111111111'}
+    inline = {**quote_base, 'address': {'recipient_name': 'Test', 'phone': '+84905123456', 'street': 'Test only', 'ward_code': 'FIXTURE', 'province_code': 'FIXTURE'}}
+    quote_validator.validate(saved)
+    quote_validator.validate(inline)
+    for invalid in [quote_base, {**saved, 'address': inline['address']}, {**saved, 'selected_item_ids': ['not-supported']}]:
+        check(not quote_validator.is_valid(invalid), 'Quote address/full-cart boundary accepted invalid input')
+        negatives += 1
+    tracking_schema = public['paths']['/api/v1/orders/{id}/tracking']['get']['responses']['200']['content']['application/json']['schema']
+    tracking_validator = OAS30Validator(expand(tracking_schema))
+    tracking_validator.validate({'shipment_id': None, 'order_status': 'PAID'})
+    tracking_validator.validate({'shipment_id': '11111111-1111-4111-8111-111111111111', 'order_status': 'SHIPPED'})
+    for invalid in [{}, {'shipment_id': 12, 'order_status': 'PAID'}, {'shipment_id': None, 'order_status': 'PAID', 'checkpoints': []}]:
+        check(not tracking_validator.is_valid(invalid), 'Minimal tracking DTO accepted unsupported fields or types')
+        negatives += 1
     check('email' not in expand(profile_update).get('properties', {}), 'Email writes leaked into Profile public target')
     result['registry'] = {'contracts_checked': len(registry['contracts']), 'runtime_acceptance': 'PENDING'}
     result['negative_guards'] = negatives

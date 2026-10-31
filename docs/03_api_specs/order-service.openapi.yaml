@@ -2,8 +2,8 @@ openapi: 3.0.3
 info:
   title: MS-04 Order — asynchronous operations
   version: 3.2.0
-  description: Proposed Order 3.2 target contract, pending provider agreement and implementation. Integer
-    VND. This is not evidence of deployed capability; runtime 3.1 is frozen in order-service.sandbox-3.1.openapi.yaml.
+  description: Proposed Order 3.2 target contract, pending provider agreement and implementation. Integer VND. This
+    is not evidence of deployed capability; runtime 3.1 is frozen in order-service.sandbox-3.1.openapi.yaml.
 servers:
 - url: https://api.omama.example
   description: Illustrative target; not a deployed server
@@ -214,6 +214,21 @@ paths:
                       maxLength: 255
                 voucher_code:
                   type: string
+              oneOf:
+              - required:
+                - shipping_address_id
+                not:
+                  required:
+                  - address
+              - required:
+                - address
+                not:
+                  required:
+                  - shipping_address_id
+      description: 'Full-cart MVP: quotes every server cart line at cart_revision; no selected-item or partial-cart
+        input. A quote does not reserve stock. After successful placement the asynchronous cleanup only removes
+        the same cart ID/revision; a changed/replaced cart is preserved. Client must refetch cart after operation
+        success and never clear it locally. Exactly one saved shipping_address_id or inline address is required.'
   /api/v1/checkout:
     post:
       operationId: acceptCheckout
@@ -363,12 +378,12 @@ paths:
                   enum:
                   - VIETQR
                   - COD
-      description: Acceptance verifies owned server quote at DB time and persists operation/input/key.
-        Worker validates commercial conditions and reserves resources asynchronously. Expired terminal
-        replay is 410; keys never become reusable automatically. Key scope is authenticated principal/action;
-        canonical body hash is persisted. Same key with different input returns 409. Transport timeout
-        after sending requires same-key replay/query. New acceptance always returns 202 with null order_id;
-        replay SUCCEEDED returns 201 with the original non-null Order reference.
+      description: Acceptance verifies owned server quote at DB time and persists operation/input/key. Worker validates
+        commercial conditions and reserves resources asynchronously. Expired terminal replay is 410; keys never
+        become reusable automatically. Key scope is authenticated principal/action; canonical body hash is persisted.
+        Same key with different input returns 409. Transport timeout after sending requires same-key replay/query.
+        New acceptance always returns 202 with null order_id; replay SUCCEEDED returns 201 with the original non-null
+        Order reference.
   /api/v1/checkout-operations/{id}:
     get:
       operationId: getCheckoutOperation
@@ -446,6 +461,13 @@ paths:
                       $ref: '#/components/schemas/Order'
                   next_cursor:
                     type: string
+                    description: Opaque next-page token, or empty string on the final page (including a non-empty
+                      final page).
+              examples:
+                empty:
+                  value:
+                    items: []
+                    next_cursor: ''
         '400':
           description: Invalid input
           content:
@@ -478,6 +500,33 @@ paths:
                 $ref: '#/components/schemas/ApiError'
       security:
       - bearerAuth: []
+      description: 'Owned orders only. Newest first by created_at DESC, id DESC. Cursor is opaque and bound to the
+        authenticated principal and exact status filter; reset it when status changes. Empty next_cursor means no
+        further page in this read. Not a snapshot across requests: new orders appear after refresh. No total, page,
+        pageSize or search q; unsupported/duplicate query parameters return 400.'
+      parameters:
+      - in: query
+        name: cursor
+        schema:
+          type: string
+          maxLength: 4096
+        description: Send next_cursor unchanged; omit for the first page. Tampering or changing principal/status
+          returns INVALID_CURSOR.
+      - in: query
+        name: limit
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+        description: Maximum page size. Changing it between requests is allowed.
+      - in: query
+        name: status
+        schema:
+          type: string
+          maxLength: 64
+        description: Exact order status, not payment_status. Omit or empty for all owned orders. Unknown values
+          return an empty list.
   /api/v1/orders/{id}:
     get:
       operationId: getOwnedOrder
@@ -538,7 +587,16 @@ paths:
           content:
             application/json:
               schema:
-                type: object
+                $ref: '#/components/schemas/OrderTracking'
+              examples:
+                notShipped:
+                  value:
+                    shipment_id: null
+                    order_status: PAID
+                shipped:
+                  value:
+                    shipment_id: 11111111-1111-4111-8111-111111111111
+                    order_status: SHIPPED
         '400':
           description: Invalid input
           content:
@@ -658,8 +716,7 @@ paths:
         schema:
           type: string
           pattern: ^[1-9][0-9]*$
-        description: Decimal expected Order version (same value as gRPC expected_version); conflicts return
-          409.
+        description: Decimal expected Order version (same value as gRPC expected_version); conflicts return 409.
       requestBody:
         required: true
         content:
@@ -678,10 +735,10 @@ paths:
               required:
               - active
               - reason
-      description: Persist cancellation intent first. Unpaid cancellation may commit while compensation
-        remains PENDING. Committed/COD cancellation is not SUCCEEDED until Fulfillment cancellation barrier
-        and stock reversal are verified. ACCEPTED task rejects self-cancel; paid cancellation requires
-        Care review. Timeout is not proof of cancellation.
+      description: Persist cancellation intent first. Unpaid cancellation may commit while compensation remains
+        PENDING. Committed/COD cancellation is not SUCCEEDED until Fulfillment cancellation barrier and stock reversal
+        are verified. ACCEPTED task rejects self-cancel; paid cancellation requires Care review. Timeout is not
+        proof of cancellation.
   /api/v1/orders/{id}/cancellation-requests:
     post:
       operationId: requestPaidCancellation
@@ -746,8 +803,7 @@ paths:
         schema:
           type: string
           pattern: ^[1-9][0-9]*$
-        description: Decimal expected Order version (same value as gRPC expected_version); conflicts return
-          409.
+        description: Decimal expected Order version (same value as gRPC expected_version); conflicts return 409.
       requestBody:
         required: true
         content:
@@ -835,17 +891,16 @@ paths:
         schema:
           type: string
           pattern: ^[1-9][0-9]*$
-        description: Decimal expected Order version (same value as gRPC expected_version); conflicts return
-          409.
+        description: Decimal expected Order version (same value as gRPC expected_version); conflicts return 409.
       requestBody:
         required: true
         content:
           application/json:
             schema: *id001
-      description: active=true sets local hold first and is PENDING until authoritative Fulfillment CANCELLED
-        proof. ACCEPTED task rejects hard hold; UNKNOWN preserves pending obligation. active=false resumes
-        only after old generation is closed and eligibility is revalidated, issuing a new generation.
-        Function/warehouse scope and audited reason are required.
+      description: active=true sets local hold first and is PENDING until authoritative Fulfillment CANCELLED proof.
+        ACCEPTED task rejects hard hold; UNKNOWN preserves pending obligation. active=false resumes only after old
+        generation is closed and eligibility is revalidated, issuing a new generation. Function/warehouse scope
+        and audited reason are required.
   /api/v1/admin/orders:
     get:
       operationId: listStaffOrders
@@ -986,9 +1041,9 @@ paths:
                 $ref: '#/components/schemas/ApiError'
         '501':
           description: Provider adapter not configured
-      description: Provider-specific raw callback adapter, feature-gated until provider signature/finality
-        contract is selected. Verify raw bytes, receiver, currency and transaction uniqueness before durable
-        receipt ACK. Receipt acceptance does not mean PAID or ready. Unmatched money is retained for reconciliation.
+      description: Provider-specific raw callback adapter, feature-gated until provider signature/finality contract
+        is selected. Verify raw bytes, receiver, currency and transaction uniqueness before durable receipt ACK.
+        Receipt acceptance does not mean PAID or ready. Unmatched money is retained for reconciliation.
       requestBody:
         required: true
         content:
@@ -1043,10 +1098,9 @@ paths:
       security:
       - serviceIdentity: []
       x-feature-gate: verified-provider-adapter
-      description: ' Target requires trusted service ACL and authoritative decision query; arbitrary approval
-        IDs/header values are not proof. Not enabled until its provider protocol is agreed. Query Care
-        approval and bind order/receipt/amount/currency/budget before durable refund intent. Reuse provider
-        key after unknown; this command never restocks goods.'
+      description: ' Target requires trusted service ACL and authoritative decision query; arbitrary approval IDs/header
+        values are not proof. Not enabled until its provider protocol is agreed. Query Care approval and bind order/receipt/amount/currency/budget
+        before durable refund intent. Reuse provider key after unknown; this command never restocks goods.'
       parameters:
       - in: header
         name: X-Idempotency-Key
@@ -1113,8 +1167,8 @@ paths:
       security:
       - serviceIdentity: []
       x-feature-gate: verified-provider-adapter
-      description: ' Target requires trusted service ACL and authoritative decision query; arbitrary approval
-        IDs/header values are not proof. Not enabled until its provider protocol is agreed.'
+      description: ' Target requires trusted service ACL and authoritative decision query; arbitrary approval IDs/header
+        values are not proof. Not enabled until its provider protocol is agreed.'
   /livez:
     get:
       operationId: liveness
@@ -1346,8 +1400,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiError'
       x-feature-gate: verified-provider-adapter
-      description: ' Target requires trusted service ACL and authoritative decision query; arbitrary approval
-        IDs/header values are not proof. Not enabled until its provider protocol is agreed.'
+      description: ' Target requires trusted service ACL and authoritative decision query; arbitrary approval IDs/header
+        values are not proof. Not enabled until its provider protocol is agreed.'
       parameters: []
 components:
   securitySchemes:
@@ -1359,14 +1413,13 @@ components:
       type: http
       scheme: bearer
       bearerFormat: Service JWT
-      description: Verified issuer/audience/service ACL over TLS; deployment may additionally require
-        mTLS.
+      description: Verified issuer/audience/service ACL over TLS; deployment may additionally require mTLS.
     providerSignature:
       type: apiKey
       in: header
       name: X-Provider-Signature
-      description: Illustrative header; exact raw signature contract must be pinned with selected provider
-        before activation.
+      description: Illustrative header; exact raw signature contract must be pinned with selected provider before
+        activation.
   schemas:
     CheckoutOperation:
       type: object
@@ -1418,9 +1471,9 @@ components:
           type: string
           format: date-time
           nullable: true
-      description: order_id is null until atomic placement. SUCCEEDED requires non-null order_id; FAILED
-        requires error_code. MANUAL_REVIEW preserves unresolved obligations. Before placement poll this
-        operation, not the planned Order UUID.
+      description: order_id is null until atomic placement. SUCCEEDED requires non-null order_id; FAILED requires
+        error_code. MANUAL_REVIEW preserves unresolved obligations. Before placement poll this operation, not the
+        planned Order UUID.
       oneOf:
       - properties:
           status:
@@ -1578,8 +1631,8 @@ components:
         shipping_expires_at:
           type: string
           format: date-time
-      description: Owned immutable server quote. Confirmation revalidates coherent Catalog/Shipping terms
-        for both transfer and COD. Expiry/retry never extends the commercial deadline.
+      description: Owned immutable server quote. Confirmation revalidates coherent Catalog/Shipping terms for both
+        transfer and COD. Expiry/retry never extends the commercial deadline.
     Order:
       type: object
       additionalProperties: false
@@ -1747,9 +1800,9 @@ components:
             - REQUEST_CANCELLATION
             - VIEW_TRACKING
             - CONTACT_SUPPORT
-      description: Lifecycle, payment, stock and compensation are independent. PAID first transition requires
-        verified allocation and finalized resources. ready_authorized is a projection, never permission
-        to start packing. Consult allowed_actions; UNKNOWN requires recovery.
+      description: Lifecycle, payment, stock and compensation are independent. PAID first transition requires verified
+        allocation and finalized resources. ready_authorized is a projection, never permission to start packing.
+        Consult allowed_actions; UNKNOWN requires recovery.
     Cancellation:
       type: object
       additionalProperties: false
@@ -1901,5 +1954,22 @@ components:
       - status
       - version
       - ready_generation
+    OrderTracking:
+      type: object
+      additionalProperties: false
+      required:
+      - shipment_id
+      - order_status
+      description: Minimal Order-owned projection. Not a carrier timeline. Null shipment_id means no shipment reference
+        has been recorded; it does not prove cancellation or delivery. Carrier code, tracking number, checkpoints,
+        seal and media are not exposed by this endpoint yet. Enforce Order ownership before returning this data.
+      properties:
+        shipment_id:
+          type: string
+          format: uuid
+          nullable: true
+        order_status:
+          type: string
+          description: Authoritative order status; Delivered and Completed are distinct.
 x-contract-status: proposed
 x-required-capability: order-3.2

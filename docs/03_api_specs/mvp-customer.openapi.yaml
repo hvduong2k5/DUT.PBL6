@@ -223,6 +223,21 @@ paths:
                       maxLength: 255
                 voucher_code:
                   type: string
+              oneOf:
+              - required:
+                - shipping_address_id
+                not:
+                  required:
+                  - address
+              - required:
+                - address
+                not:
+                  required:
+                  - shipping_address_id
+      description: 'Full-cart MVP: quotes every server cart line at cart_revision; no selected-item or partial-cart
+        input. A quote does not reserve stock. After successful placement the asynchronous cleanup only removes
+        the same cart ID/revision; a changed/replaced cart is preserved. Client must refetch cart after operation
+        success and never clear it locally. Exactly one saved shipping_address_id or inline address is required.'
       x-provider-contract: order-service
       x-implementation-status: provider-or-adapter-verification-required
       x-contract-status: integration-target
@@ -460,6 +475,13 @@ paths:
                       $ref: '#/components/schemas/OrderOrder'
                   next_cursor:
                     type: string
+                    description: Opaque next-page token, or empty string on the final page (including a non-empty
+                      final page).
+              examples:
+                empty:
+                  value:
+                    items: []
+                    next_cursor: ''
         '400':
           description: Mapped public error; provider data is sanitized.
           content:
@@ -492,6 +514,33 @@ paths:
                 $ref: '#/components/schemas/PublicError'
       security:
       - OrderbearerAuth: []
+      description: 'Owned orders only. Newest first by created_at DESC, id DESC. Cursor is opaque and bound to the
+        authenticated principal and exact status filter; reset it when status changes. Empty next_cursor means no
+        further page in this read. Not a snapshot across requests: new orders appear after refresh. No total, page,
+        pageSize or search q; unsupported/duplicate query parameters return 400.'
+      parameters:
+      - in: query
+        name: cursor
+        schema:
+          type: string
+          maxLength: 4096
+        description: Send next_cursor unchanged; omit for the first page. Tampering or changing principal/status
+          returns INVALID_CURSOR.
+      - in: query
+        name: limit
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+        description: Maximum page size. Changing it between requests is allowed.
+      - in: query
+        name: status
+        schema:
+          type: string
+          maxLength: 64
+        description: Exact order status, not payment_status. Omit or empty for all owned orders. Unknown values
+          return an empty list.
       x-provider-contract: order-service
       x-implementation-status: provider-or-adapter-verification-required
       x-contract-status: integration-target
@@ -558,7 +607,16 @@ paths:
           content:
             application/json:
               schema:
-                type: object
+                $ref: '#/components/schemas/OrderOrderTracking'
+              examples:
+                notShipped:
+                  value:
+                    shipment_id: null
+                    order_status: PAID
+                shipped:
+                  value:
+                    shipment_id: 11111111-1111-4111-8111-111111111111
+                    order_status: SHIPPED
         '400':
           description: Mapped public error; provider data is sanitized.
           content:
@@ -2857,6 +2915,23 @@ components:
       - review_reference
       - order_id
       - status
+    OrderOrderTracking:
+      type: object
+      additionalProperties: false
+      required:
+      - shipment_id
+      - order_status
+      description: Minimal Order-owned projection. Not a carrier timeline. Null shipment_id means no shipment reference
+        has been recorded; it does not prove cancellation or delivery. Carrier code, tracking number, checkpoints,
+        seal and media are not exposed by this endpoint yet. Enforce Order ownership before returning this data.
+      properties:
+        shipment_id:
+          type: string
+          format: uuid
+          nullable: true
+        order_status:
+          type: string
+          description: Authoritative order status; Delivered and Completed are distinct.
     PaymentGuestPaymentGrant:
       type: object
       additionalProperties: false

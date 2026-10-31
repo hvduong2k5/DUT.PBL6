@@ -1,0 +1,37 @@
+{
+  "mode": "static_design_contracts",
+  "provider_integration": "NOT_RUN",
+  "openapi": [
+    {
+      "file": "order-service.openapi.yaml",
+      "status": "PASS",
+      "paths": 21
+    },
+    {
+      "file": "order-service.sandbox-3.1.openapi.yaml",
+      "status": "PASS",
+      "paths": 23
+    },
+    {
+      "file": "order-sandbox-dependencies.openapi.yaml",
+      "status": "PASS",
+      "paths": 20
+    }
+  ],
+  "events": {
+    "status": "PASS",
+    "schemas": 8,
+    "valid_examples": 9,
+    "invalid_rejected": 32
+  },
+  "openapi_examples": {
+    "valid": 4,
+    "invalid_rejected": 2
+  },
+  "protobuf": {
+    "status": "PASS",
+    "files_including_imports": 12,
+    "baseline_fields_checked": 298,
+    "compatibility_scope": "existing file/package/options/message fields/enums/RPC signatures; semantic compatibility requires cohort gates"
+  }
+}

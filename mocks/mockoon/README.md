@@ -1,0 +1,510 @@
+# O Ma Web MVP — Mockoon
+
+## Customer API thống nhất
+
+- API Customer gốc: `mobile_pbl.json`, cổng `4010`.
+- API Customer mở rộng: `customer_extensions.json`, cổng `4020`.
+- File mở rộng hiện gom toàn bộ route chưa có trong API gốc cho Password Recovery, Guest Order (gồm cấp quyền sau Checkout), Customer Support, Customer capability projection, B2B Customer và danh mục địa chỉ Checkout hai cấp.
+- Không thêm route Customer mới vào các file MVP riêng; `mobile_pbl.json` cũng không bị sửa.
+
+```powershell
+npx @mockoon/cli start --disable-log-to-file --data .\mocks\mockoon\mobile_pbl.json
+npx @mockoon/cli start --disable-log-to-file --data .\mocks\mockoon\customer_extensions.json
+```
+
+Các BFF dùng `CUSTOMER_CORE_UPSTREAM_URL` cho API gốc và `CUSTOMER_EXTENSIONS_UPSTREAM_URL` cho API mở rộng.
+
+## Web Admin API thống nhất
+
+- Toàn bộ API dành cho `apps/web-admin` được đặt trong `admin_extensions.json`, cổng `4030`.
+- Không thêm route `/admin/*` vào `mobile_pbl.json` hoặc `customer_extensions.json`.
+- Khi triển khai module Admin mới, bổ sung route vào duy nhất file Admin này cho đến khi có upstream backend thật.
+
+```powershell
+npx @mockoon/cli start --disable-log-to-file --data .\mocks\mockoon\admin_extensions.json
+```
+
+Các route đầu tiên phục vụ Web Admin `ADM-034`:
+
+| Method | Route | UI |
+| --- | --- | --- |
+| `GET` | `/admin/session` | Phiên nhân viên, role, effective permission và scope |
+| `GET` | `/admin/b2b/quote-requests` | Hàng đợi Sales B2B |
+| `GET` | `/admin/b2b/quote-requests/:requestId` | Chi tiết trong popup |
+| `GET` | `/admin/b2b/quote-requests/:requestId/files` | Metadata và lịch sử phiên bản tài liệu, yêu cầu `B2B_FILE_VIEW` |
+| `GET` | `/admin/b2b/quote-requests/:requestId/versions` | Lịch sử và preview snapshot từng Quote Version |
+| `POST` | `/admin/b2b/quote-requests/:requestId/actions` | Phân công, yêu cầu bổ sung, lập/phát hành/thu hồi/từ chối quote và chuyển Order |
+| `GET` | `/admin/access/employees` | Danh sách Employee System Access theo `US-ADM-01~03` |
+| `GET` | `/admin/access/employees/:employeeId` | Access Review: Role Assignment và Permission hiệu lực theo `US-ADM-07` |
+| `GET` | `/admin/access/roles` | Danh mục Role theo `US-ADM-04` |
+| `GET` | `/admin/access/roles/:roleCode` | Chi tiết Role, Permission và mức ảnh hưởng trước thay đổi |
+| `GET` | `/admin/access/permissions` | Danh mục Permission theo `US-ADM-05` |
+| `GET` | `/admin/access/permissions/:permissionCode` | Chi tiết Permission và nơi đang sử dụng |
+| `GET` | `/admin/catalog/products` | Danh sách Product, trạng thái bán và tổng hợp SKU theo Epic 04 |
+| `GET` | `/admin/catalog/products/:productId` | Chi tiết Product, SKU, giá cơ bản và thông tin thực phẩm catalog |
+| `GET` | `/admin/inventory/skus` | Số dư tồn kho theo SKU và rủi ro HSD theo Epic 09 |
+| `GET` | `/admin/inventory/skus/:skuId` | Phân rã Batch/Lot và lịch sử biến động được phép xem |
+| `GET` | `/admin/orders` | Hàng đợi Order, nguồn, Payment và SLA theo `US-ORD-05~06` |
+| `GET` | `/admin/orders/:orderId` | Snapshot Order và trạng thái Payment/Reservation/Packing/Shipping tách biệt |
+| `GET` | `/admin/packing/tasks` | Hàng đợi Packing Task, phân công, ưu tiên và SLA theo Epic 10 |
+| `GET` | `/admin/packing/tasks/:taskId` | Snapshot SKU/Batch, điều kiện đầu vào và checklist Packing chỉ đọc |
+| `GET` | `/admin/shipping/shipments` | Danh sách Shipment, provider, bàn giao và ngoại lệ theo Epic 11 |
+| `GET` | `/admin/shipping/shipments/:shipmentId` | Package, phí, COD và sự kiện tracking/ánh xạ chỉ đọc |
+| `GET` | `/admin/payments/cases` | Hàng đợi Payment và kết quả đối soát với Order theo Epic 07 |
+| `GET` | `/admin/payments/cases/:caseId` | Attempt, Transaction, so sánh và lịch sử bằng chứng chỉ đọc |
+| `GET` | `/admin/returns/cases` | Hàng đợi Return/Refund Case theo Epic 14 |
+| `GET` | `/admin/returns/cases/:caseId` | Order line, Payment, Shipment, media, hàng trả và Refund chỉ đọc |
+| `GET` | `/admin/support/tickets` | Hàng đợi Ticket nội bộ theo Epic 16 — Giai đoạn 2 |
+| `GET` | `/admin/support/tickets/:ticketId` | Hội thoại, ghi chú nội bộ, SLA và ngữ cảnh nguồn chỉ đọc |
+
+`apps/web-admin` chạy cổng `3001` và dùng `ADMIN_API_UPSTREAM_URL=http://127.0.0.1:4030/api/v1`. Trong local, đặt `ADMIN_MOCK_PROFILE` để chọn một projection Permission/Scope như `SALES_MANAGER`, `CUSTOMER_SERVICE`, `VIEW_ONLY`, `WAREHOUSE_MANAGEMENT`, `WAREHOUSE_WORKBENCH`, `PACKING_MANAGEMENT`, `PACKING_WORKBENCH`, `DELIVERY_WORKBENCH`, `ACCOUNTANT` hoặc `SYSTEM_ADMIN`. Profile mock không phải role: hai profile Warehouse cùng trả role `WAREHOUSE`, còn hai profile Packing cùng trả role `PACKING`, nhưng mỗi profile có Permission khác nhau. `WAREHOUSE_STAFF` chỉ là profile local cũ. Header profile chỉ do BFF local tạo; production không được tin giá trị profile do browser tự khai báo. `ADMIN_MOCK_ROLE` chỉ được giữ làm biến tương thích tạm thời cho cấu hình local cũ.
+
+Để kiểm tra optimistic concurrency của `US-B2B-03`, mở UI với `?mockScenario=admin-b2b-concurrency-conflict`. Mọi mutation phải gửi `expectedRevision`; mock trả `409 B2B_CONCURRENCY_CONFLICT` và UI yêu cầu tải lại dữ liệu trước khi tiếp tục.
+
+### Customer B2B extension
+
+Đặt `CUSTOMER_MOCK_ACTOR=B2B` trong `apps/web-user/.env.local` để phiên Customer đã đăng nhập nhận projection B2B ở môi trường local. Biến này chỉ phục vụ Mockoon; production phải suy ra actor/capability từ danh tính và quan hệ đại diện doanh nghiệp đã xác minh.
+
+| Method | Route | UI |
+| --- | --- | --- |
+| `GET` | `/b2b/context` | Hồ sơ doanh nghiệp, catalog mua sỉ và yêu cầu gần đây tại `/b2b` |
+| `POST` | `/b2b/quote-requests` | Gửi yêu cầu báo giá có chống trùng |
+| `GET` | `/b2b/quotes/:quoteId` | Chi tiết Quote Version đã phát hành |
+| `POST` | `/b2b/quotes/:quoteId/accept` | Chấp thuận đúng phiên bản và nhận tham chiếu Order B2B |
+
+Mock chỉ lưu metadata logo/tài liệu; upload binary, quét an toàn và signed URL thuộc Media/Object Storage. Giao diện nội bộ Sales Manager chưa nằm trong `web-user`.
+
+## Return & Refund MVP
+
+Khởi động Return & Refund Mockoon và Next.js bằng một lệnh:
+
+```powershell
+cd apps\web-user
+npm run dev:returns
+```
+
+- Environment: `oma-return-refund-mvp.json`
+- Port: `4018`
+- Base URL: `http://127.0.0.1:4018/api/v1`
+- UI: D2C-017 `/orders/{orderId}/after-sales/request`, D2C-018 `/after-sales/{caseId}`
+- Data/API source: `../../docs/ui_web/RETURN_REFUND_DATA_API_MATRIX.md`
+
+```powershell
+npx @mockoon/cli validate --data .\mocks\mockoon\oma-return-refund-mvp.json
+npx @mockoon/cli start --data .\mocks\mockoon\oma-return-refund-mvp.json
+```
+
+| Capability | Browser/BFF route | Mock executable route |
+| --- | --- | --- |
+| `RET-C01` | `GET /api/returns/orders/{orderId}/eligibility` | `GET /orders/:orderId/return-eligibility` |
+| `RET-C02` | `POST /api/returns` | `POST /return-cases` |
+| `RET-C03` | `GET /api/returns/{caseId}` | `GET /return-cases/:caseId` |
+| `RET-C04` | `POST /api/returns/{caseId}/supplements` | `POST /return-cases/:caseId/supplements` |
+
+Case fixture: `return-case-mock-001` / `RMA-2410-0082`. Scenario và boundary đầy đủ nằm trong data matrix; browser không gọi Mockoon trực tiếp và local không lưu binary upload.
+
+## Order Management MVP
+
+> Legacy reference: UI Customer hiện dùng `mobile_pbl.json` cho Order đã đăng nhập và `customer_extensions.json` cho Guest Order. File MVP này không còn là upstream mặc định.
+
+Khởi động Order Management Mockoon và Next.js. Script chỉ bật mock cần cho feature này để tránh chiếm tài nguyên không cần thiết:
+
+```powershell
+cd apps\web-user
+npm run dev:orders
+```
+
+- Environment: `oma-order-management-mvp.json`
+- Port: `4017`
+- Base URL: `http://127.0.0.1:4017/api/v1`
+- UI: D2C-008 `/orders/{orderId}/confirmation`, D2C-014 `/account/orders`, D2C-015 `/orders/{orderId}`, D2C-016 `/track-order`
+- Data/API source: `../../docs/ui_web/ORDER_MANAGEMENT_DATA_API_MATRIX.md`
+
+```powershell
+npx @mockoon/cli validate --data .\mocks\mockoon\oma-order-management-mvp.json
+npx @mockoon/cli start --data .\mocks\mockoon\oma-order-management-mvp.json
+```
+
+| Capability | Browser/BFF route | Mock executable route |
+| --- | --- | --- |
+| `ORD-C01` | `GET /api/orders` | `GET /customers/me/orders` |
+| `ORD-C02` | `GET /api/orders/{orderId}` | `GET /orders/:orderId` |
+| `ORD-C03` | `POST /api/orders/{orderId}/cancellations` | `POST /orders/:orderId/cancellations` |
+| `ORD-C04` | `POST /api/orders/guest-access/challenges` | cùng path |
+| `ORD-C05` | `POST /api/orders/guest-access/challenges/{challengeId}/verify` | cùng path |
+| Guest Checkout grant | nội bộ BFF sau `POST /api/checkout/confirm` | `POST /orders/guest-access/grants` trong `customer_extensions.json` |
+
+Guest fixture của Customer flow: `ORD-20261015-0042`, `0914288668`, OTP `789214`. Validator vẫn chấp nhận mã `OMA-*` từ fixture legacy; browser không gọi Mockoon trực tiếp.
+
+## Payment MVP
+
+Khởi động Product Discovery → Product Detail → Cart → Checkout → Payment → Next.js bằng một lệnh:
+
+```powershell
+cd apps\web-user
+npm run dev:payment
+```
+
+- Environment: `oma-payment-mvp.json`
+- Port: `4016`
+- Base URL: `http://127.0.0.1:4016/api/v1`
+- UI: D2C-007 `/payment/{orderId}` sau khi xác nhận `/checkout`
+- Data/API source: `../../docs/ui_web/PAYMENT_DATA_API_MATRIX.md`
+
+```powershell
+npx @mockoon/cli validate --data .\mocks\mockoon\oma-payment-mvp.json
+npx @mockoon/cli start --data .\mocks\mockoon\oma-payment-mvp.json
+```
+
+| Capability | Browser/BFF route | Mock executable route |
+| --- | --- | --- |
+| `PAY-C01` | `GET /api/payments/orders/{orderId}` | `GET /payments/orders/:orderId` |
+| `PAY-C02` | `GET /api/payments/orders/{orderId}/status` | `GET /payments/orders/:orderId/status` |
+| `PAY-C03` | `POST /api/payments/orders/{orderId}/attempts` | `POST /payments/orders/:orderId/attempts` |
+
+Scenario: `payment-confirmed`, `payment-failed`, `payment-expired`, `payment-mismatch`, `payment-error`, `payment-slow`, `payment-not-found`, `retry-not-eligible`. Mock chỉ dùng QR/tài khoản demo; browser return hoặc thao tác UI không tự đánh dấu Order `PAID`.
+
+## Checkout MVP
+
+Khởi động Product Discovery → Product Detail → Cart → Checkout → Next.js bằng một lệnh:
+
+```powershell
+cd apps\web-user
+npm run dev:checkout
+```
+
+- Environment: `oma-checkout-mvp.json`
+- Port: `4015`
+- Base URL: `http://127.0.0.1:4015/api/v1`
+- UI: D2C-006 `/checkout` (đi từ `/cart?mockScenario=cart-prefilled`)
+- Data/API source: `../../docs/ui_web/CHECKOUT_DATA_API_MATRIX.md`
+
+```powershell
+npx @mockoon/cli validate --data .\mocks\mockoon\oma-checkout-mvp.json
+npx @mockoon/cli start --data .\mocks\mockoon\oma-checkout-mvp.json
+```
+
+| Capability | Browser/BFF route | Mock executable route |
+| --- | --- | --- |
+| `CHK-C01` | `POST /api/checkout/prepare` | `GET /checkout/bootstrap` + Cart projection |
+| `CHK-C02` | `POST /api/checkout/shipping-quotes` | `POST /checkout/shipping-quotes` |
+| `CHK-C03` | `POST /api/checkout/confirm` | `POST /checkout/confirm` |
+
+Scenario: `registered-customer`, `shipping-unavailable`, `shipping-error`, `shipping-slow`, `confirm-stock-conflict`, `confirm-price-changed`, `confirm-error`, `confirm-slow`. `X-Mock-Scenario` chỉ dùng local/test. Mock Checkout không đánh dấu Order `PAID` và không public exact inventory/warehouse/Batch.
+
+## Shopping Cart MVP
+
+Khởi động trọn luồng Product Discovery → Product Detail → Cart → Next.js bằng một lệnh:
+
+```powershell
+cd apps\web-user
+npm run dev:cart
+```
+
+Hoặc chạy riêng environment Cart từ repository root như bên dưới.
+
+- Environment: `oma-shopping-cart-mvp.json`
+- Port: `4014`
+- Base URL: `http://127.0.0.1:4014/api/v1`
+- UI: D2C-005 `/cart` và Add to Cart tại `/products/[slug]`
+- Data/API source: `../../docs/ui_web/SHOPPING_CART_DATA_API_MATRIX.md`
+
+```powershell
+npx @mockoon/cli validate --data .\mocks\mockoon\oma-shopping-cart-mvp.json
+npx @mockoon/cli start --data .\mocks\mockoon\oma-shopping-cart-mvp.json
+```
+
+| Capability | Browser/BFF route | Mock-only executable route |
+| --- | --- | --- |
+| `CART-C01` | `GET /api/cart` | CRUD `/internal/cart-lines`, `/internal/cart-sku-projections` |
+| `CART-C02` | `POST /api/cart/items` | BFF lookup + CRUD mutation |
+| `CART-C03` | `PATCH /api/cart/items/{itemId}` | BFF ownership check + CRUD mutation |
+| `CART-C04` | `DELETE /api/cart/items/{itemId}` | BFF ownership check + CRUD mutation |
+
+Data bucket giữ state Add/Update/Delete trong thời gian Mockoon chạy. Browser không gọi `/internal/*`; BFF strip `contextId`, `maxPurchasableQuantity` và cú pháp CRUD. Scenario: `cart-prefilled`, `cart-empty`, `price-changed`, `cart-unavailable`, `sku-unavailable`, `quantity-unavailable`, `cart-error`, `cart-slow`. Header `X-Mock-Scenario` chỉ dùng local/test.
+
+## Product Discovery MVP
+
+- Environment: `oma-product-discovery-mvp.json`
+- Port: `4012`
+- Base URL: `http://127.0.0.1:4012/api/v1`
+- UI: D2C-002 `/products`
+- Data/API source: `../../docs/ui_web/PRODUCT_DISCOVERY_DATA_API_MATRIX.md`
+
+```powershell
+npx @mockoon/cli validate --data .\mocks\mockoon\oma-product-discovery-mvp.json
+npx @mockoon/cli start --data .\mocks\mockoon\oma-product-discovery-mvp.json
+```
+
+| Capability | Method | Route |
+| --- | --- | --- |
+| `DISC-C01` | GET | `/catalog/products` |
+| `DISC-C02` | GET | `/catalog/discovery-config` |
+
+`DISC-C01` là Mockoon CRUD route nối với data bucket để tìm kiếm, lọc, sắp xếp và phân trang có hành vi thật. UI chỉ gọi qua BFF `/api/catalog/*`; các field chỉ mục nội bộ của mock không bị lộ ra response public.
+
+Scenario local: `catalog-error`, `catalog-slow`, `config-error`, `config-slow`. Trên UI dùng `?mockScenario=<name>`.
+
+## Customer Profile & Address Book
+
+- Environment: `oma-customer-profile-mvp.json`
+- Port: `4011`
+- Base URL: `http://127.0.0.1:4011/api/v1`
+- UI: D2C-012 `/account/profile`, D2C-013 `/account/addresses`
+- Data/API source: `../../docs/ui_web/CUSTOMER_PROFILE_DATA_API_MATRIX.md`
+
+```powershell
+npx @mockoon/cli validate --data .\mocks\mockoon\oma-customer-profile-mvp.json
+npx @mockoon/cli start --data .\mocks\mockoon\oma-customer-profile-mvp.json
+```
+
+| Capability | Method | Route |
+| --- | --- | --- |
+| `PROFILE-C01` | GET | `/customers/me/profile` |
+| `PROFILE-C02` | PATCH | `/customers/me/profile` |
+| `ADDRESS-C01` | GET | `/customers/me/addresses` |
+| `ADDRESS-C02` | POST | `/customers/me/addresses` |
+| `ADDRESS-C03` | PATCH | `/customers/me/addresses/:addressId` |
+| `ADDRESS-C04` | DELETE | `/customers/me/addresses/:addressId` |
+| `ADDRESS-C05` | PUT | `/customers/me/addresses/:addressId/default` |
+
+Chọn state bằng `X-Mock-Scenario`; danh sách scenario nằm trong `CUSTOMER_PROFILE_DATA_API_MATRIX.md`. Environment là mock stateless: UI giữ state sau mutation để mô phỏng tương tác trong một phiên phát triển.
+
+## Authentication MVP
+
+> Legacy reference: đăng ký/đăng nhập/session hiện dùng `mobile_pbl.json`; Password Recovery dùng `customer_extensions.json`. File MVP này không còn là upstream mặc định.
+
+Mockoon environment phục vụ phát triển UI cho D2C-009 Login, D2C-010 Registration và D2C-011 Recovery.
+
+## Files
+
+- `oma-auth-mvp.json`: Mockoon environment, port mặc định `4010`, API prefix `/api/v1`.
+- `../../docs/ui_web/DATA_API_MATRIX.md`: nguồn mô tả data, capability và error semantics.
+- `../../docs/ui_web/SCOPE_TRACEABILITY.md`: phạm vi và quyết định Product đã duyệt.
+
+## Start
+
+### Mockoon Desktop
+
+1. Mở Mockoon.
+2. Chọn **Open environment**.
+3. Chọn `mocks/mockoon/oma-auth-mvp.json`.
+4. Start environment **O Ma - Authentication MVP**.
+5. Kiểm tra `GET http://127.0.0.1:4010/api/v1/health`.
+
+### Mockoon CLI
+
+```powershell
+npx @mockoon/cli validate --data .\mocks\mockoon\oma-auth-mvp.json
+npx @mockoon/cli start --data .\mocks\mockoon\oma-auth-mvp.json
+```
+
+Base URL:
+
+```text
+http://127.0.0.1:4010/api/v1
+```
+
+## Route inventory
+
+| Capability | Method | Route | Default response |
+| --- | --- | --- | --- |
+| Health | GET | `/health` | `200` |
+| `AUTH-C01` | POST | `/auth/login` | Login success + mock session cookie |
+| `AUTH-C02` | GET | `/auth/me` | Authenticated customer summary |
+| `AUTH-C03` | POST | `/auth/logout` | `204`, clear session |
+| `AUTH-C04` | POST | `/auth/register` | `201 PENDING_VERIFICATION` |
+| `AUTH-C05` | POST | `/auth/registration-verifications/confirm` | `200 ACTIVE` + mock session cookie |
+| `AUTH-C06` | POST | `/auth/registration-verifications/:verificationId/resend` | `202` accepted |
+| `AUTH-C07/C10` | POST | `/auth/recovery-requests` | `202` neutral accepted |
+| `AUTH-C08` | POST | `/auth/recovery-requests/verify` | `200` reset proof |
+| `AUTH-C09` | POST | `/auth/recovery-requests/reset` | `204`, revoke/clear session |
+
+## Scenario selection
+
+Không truyền `X-Mock-Scenario` thì route trả happy path mặc định. Để ép một state, truyền header:
+
+```text
+X-Mock-Scenario: <scenario-name>
+```
+
+### Login
+
+| Scenario | HTTP | Mục đích UI |
+| --- | --- | --- |
+| `login-invalid` | 401 | Sai email/password, generic error |
+| `login-unavailable` | 403 | Account không khả dụng |
+| `login-validation` | 422 | Field validation |
+| `login-rate-limited` | 429 | Retry/rate-limit state |
+| `login-server-error` | 500 | Generic server error |
+| `login-slow` | 200 sau 3 giây | Loading và duplicate-submit protection |
+| `login-remembered` | 200 | Cookie mock 30 ngày |
+
+### Current session / Logout
+
+| Route | Scenario | HTTP |
+| --- | --- | --- |
+| `/auth/me` | `session-expired` | 401 |
+| `/auth/me` | `me-slow` | 200 sau 3 giây |
+| `/auth/logout` | `logout-server-error` | 500 |
+| `/auth/logout` | `logout-slow` | 204 sau 3 giây |
+
+### Registration
+
+| Scenario | HTTP | Mục đích UI |
+| --- | --- | --- |
+| `register-unavailable` | 409 | Guidance login/recovery |
+| `register-password-validation` | 422 | Toàn bộ password checklist |
+| `register-validation` | 422 | displayName/email/terms errors |
+| `register-rate-limited` | 429 | Submit throttling |
+| `register-delivery-failed` | 503 | Email provider failure |
+| `register-server-error` | 500 | Generic server error |
+| `register-slow` | 201 sau 3 giây | Loading/duplicate submit |
+
+### Registration magic link
+
+| Route | Scenario | HTTP |
+| --- | --- | --- |
+| Confirm | `registration-link-invalid` | 422 |
+| Confirm | `registration-link-expired` | 410 |
+| Confirm | `registration-link-used` | 409 |
+| Confirm | `registration-link-server-error` | 500 |
+| Confirm | `registration-link-slow` | 200 sau 3 giây |
+| Resend | `registration-resend-rate-limited` | 429 |
+| Resend | `registration-resend-delivery-failed` | 503 |
+| Resend | `registration-resend-invalid` | 404 |
+| Resend | `registration-resend-slow` | 202 sau 3 giây |
+
+### Recovery
+
+| Route | Scenario | HTTP |
+| --- | --- | --- |
+| Request | `recovery-request-unknown` | 202, giống response email tồn tại |
+| Request | `recovery-rate-limited` | 429 |
+| Request | `recovery-delivery-failed` | 503 |
+| Request | `recovery-server-error` | 500 |
+| Request | `recovery-slow` | 202 sau 3 giây |
+| Verify link | `recovery-link-invalid` | 422 |
+| Verify link | `recovery-link-expired` | 410 |
+| Verify link | `recovery-link-used` | 409 |
+| Verify link | `recovery-verify-server-error` | 500 |
+| Verify link | `recovery-verify-slow` | 200 sau 3 giây |
+| Reset | `recovery-reset-validation` | 422 password checklist |
+| Reset | `recovery-reset-proof-invalid` | 422 |
+| Reset | `recovery-reset-proof-expired` | 410 |
+| Reset | `recovery-reset-proof-used` | 409 |
+| Reset | `recovery-reset-server-error` | 500 |
+| Reset | `recovery-reset-slow` | 204 sau 3 giây |
+
+## Quick checks
+
+Health:
+
+```powershell
+curl.exe http://127.0.0.1:4010/api/v1/health
+```
+
+Default login success:
+
+```powershell
+curl.exe -i -X POST http://127.0.0.1:4010/api/v1/auth/login `
+  -H "Content-Type: application/json" `
+  -d '{"email":"customer.active@example.com","password":"OmaHeritage#2026","rememberMe":false}'
+```
+
+Force invalid login:
+
+```powershell
+curl.exe -i -X POST http://127.0.0.1:4010/api/v1/auth/login `
+  -H "Content-Type: application/json" `
+  -H "X-Mock-Scenario: login-invalid" `
+  -d '{"email":"customer.active@example.com","password":"wrong"}'
+```
+
+Force password validation errors:
+
+```powershell
+curl.exe -i -X POST http://127.0.0.1:4010/api/v1/auth/register `
+  -H "Content-Type: application/json" `
+  -H "X-Mock-Scenario: register-password-validation" `
+  -d '{"displayName":"Khach Test","email":"new.customer@example.com","password":"weak","termsVersion":"2026-09"}'
+```
+
+## Frontend integration
+
+Frontend chỉ cấu hình base URL tại shared API client, ví dụ:
+
+```text
+AUTH_API_BASE_URL=http://127.0.0.1:4010/api/v1
+```
+
+Khuyến nghị dùng Next.js rewrite/BFF cùng origin trong quá trình phát triển. Mockoon đang bật automatic CORS để test các request không phụ thuộc cookie, nhưng cơ chế credentialed cookie cross-origin không nên được coi là mô phỏng production hoàn chỉnh.
+
+`X-Mock-Scenario` chỉ được sử dụng trong local/test configuration. Không gửi header này tới API Gateway production.
+
+## Quan hệ với Backend
+
+Backend có thể dùng route, payload, status và error code trong environment này để triển khai song song, nhưng Mockoon **không phải contract cuối cùng** và không mô tả database, hashing, token generation, Redis, CSRF hoặc authorization internals.
+
+Quy trình đồng bộ đúng:
+
+1. Frontend chứng minh UI flow bằng Mockoon.
+2. Backend và Architecture review `DATA_API_MATRIX.md` cùng behavior của mock.
+3. Các bên chốt OpenAPI contract.
+4. Backend implement theo OpenAPI và bổ sung contract tests.
+5. Mockoon được cập nhật theo OpenAPI/contract đã duyệt.
+6. Frontend đổi base URL sang API Gateway và chạy lại contract/E2E tests.
+
+Nếu Mockoon và OpenAPI khác nhau, OpenAPI đã được review là nguồn sự thật ưu tiên.
+
+## Customer Service MVP
+
+> Legacy reference: các route Support đã được hợp nhất vào `customer_extensions.json`. File MVP này chỉ được giữ để đối chiếu scope cũ.
+
+Environment `oma-customer-service-mvp.json` chạy ở port `4019`, API prefix `/api/v1`. Environment phục vụ UI `/support/request` và `/support/tickets/:ticketId` qua Next.js BFF.
+
+```powershell
+npx @mockoon/cli validate --data .\mocks\mockoon\oma-customer-service-mvp.json
+npx @mockoon/cli start --disable-log-to-file --data .\mocks\mockoon\oma-customer-service-mvp.json
+```
+
+| Capability | Method | Route |
+| --- | --- | --- |
+| Context | GET | `/support/context` |
+| Create Ticket | POST | `/support/tickets` |
+| Ticket detail | GET | `/support/tickets/:ticketId` |
+| Public reply | POST | `/support/tickets/:ticketId/messages` |
+
+Fixture chính: `support-ticket-mock-001` / `TCK-2410-0195`. Danh sách scenario đầy đủ và ranh giới dữ liệu nằm trong `docs/ui_web/CUSTOMER_SERVICE_DATA_API_MATRIX.md`. `X-Mock-Scenario` chỉ dành cho local/test và không được chuyển tới API Gateway production.
+
+## Product Detail & SKU Selection MVP
+
+Environment `oma-product-detail-mvp.json` chạy ở port `4013`, API prefix `/api/v1`. Environment phục vụ UI `/products/[slug]` và được Next.js BFF gọi qua server-only `PRODUCT_DETAIL_UPSTREAM_URL`.
+
+```powershell
+npx @mockoon/cli validate --data .\mocks\mockoon\oma-product-detail-mvp.json
+npx @mockoon/cli start --data .\mocks\mockoon\oma-product-detail-mvp.json
+```
+
+| Capability | Method | Route | Default behavior |
+| --- | --- | --- | --- |
+| Health | GET | `/health` | `200` local health |
+| `DETAIL-C01` | GET | `/catalog/products/:slug` | Public product detail hoặc `404` |
+
+Các fixture theo slug:
+
+- `banh-ngu-sac-cung-dinh`: nhiều SKU, không có confirmed selection ban đầu.
+- `tra-sen-tinh-tam`: một SKU khả dụng để kiểm tra auto-select.
+- Slug khác: `404 PRODUCT_NOT_FOUND`.
+
+Scenario local/test qua `X-Mock-Scenario`:
+
+| Scenario | HTTP/state |
+| --- | --- |
+| `all-unavailable` | `200`, toàn bộ SKU disabled |
+| `missing-optional-food-info` | `200`, thiếu allergen/certification optional |
+| `product-not-found` | `404` |
+| `product-error` | `500` |
+| `product-slow` | `200` sau 3 giây |
+
+`X-Mock-Scenario` không phải API production. UI chỉ dùng query `mockScenario` trong development, BFF chuyển thành header và không forward ở production. Exact stock, warehouse, cost price, internal status và internal unavailable reason trong fixture chỉ dùng để kiểm tra BFF projection; browser không được nhận các field này.

@@ -1,0 +1,11 @@
+BEGIN
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+DO
+ROLLBACK
+                                                    result
+---------------------------------------------------------------------------------------------------------------
+ PASS: operation-first, registry uniqueness, PAID/COD guards, immutable commercial/items; fixtures rolled back
+(1 row)

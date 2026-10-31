@@ -1,0 +1,4951 @@
+{
+  "uuid": "a0f89e5e-39fa-41c1-9f36-1f4b60c7fba3",
+  "lastMigration": 33,
+  "name": "API Tầng Biên D2C, B2B & Webhooks Đối Tác (Mè Xửng O Mạ)",
+  "endpointPrefix": "",
+  "latency": 0,
+  "port": 4010,
+  "hostname": "",
+  "folders": [],
+  "routes": [
+    {
+      "uuid": "0190ac4d-9b0a-4cdd-a928-33b698df9510",
+      "type": "http",
+      "documentation": "Đăng ký tài khoản khách hàng cá nhân (D2C)",
+      "method": "post",
+      "endpoint": "api/v1/auth/register",
+      "responses": [
+        {
+          "uuid": "2898af08-fabd-4d14-b50e-0697335d0786",
+          "body": "{\n  \"error_code\": \"ERR_VALIDATION\",\n  \"user_message\": \"Dữ liệu không hợp lệ. Vui lòng kiểm tra lại.\",\n  \"dev_message\": \"Mock scenario: validation-error\",\n  \"domain\": \"validation\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 400,
+          "label": "validation-error",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "validation-error",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "313d0b94-933a-4ccf-aafe-f800c2f0fbd0",
+          "body": "{\n  \"error_code\": \"ERR_CONFLICT\",\n  \"user_message\": \"Dữ liệu đã thay đổi hoặc xung đột với trạng thái hiện tại.\",\n  \"dev_message\": \"Mock scenario: conflict\",\n  \"domain\": \"business\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 409,
+          "label": "conflict",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "conflict",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "49431448-1aca-4aa8-a874-91eaf049edef",
+          "body": "{\n  \"error_code\": \"ERR_INTERNAL_SERVER_ERROR\",\n  \"user_message\": \"Hệ thống tạm thời gặp sự cố. Vui lòng thử lại sau.\",\n  \"dev_message\": \"Mock scenario: server-error\",\n  \"domain\": \"system\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 500,
+          "label": "server-error",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "server-error",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "0f4e59d5-f4ef-4dc7-83bc-08c5214bcbb5",
+          "body": "{\n  \"user\": {\n    \"customer_id\": \"CUST-8820\",\n    \"phone_number\": \"0905123456\",\n    \"full_name\": \"Nguyễn Văn An\",\n    \"email\": \"an.nguyen@example.com\",\n    \"avatar_url\": \"https://cdn.omama.vn/avatars/u8820.jpg\",\n    \"membership_tier\": \"{{oneOf 'BRONZE' 'SILVER' 'GOLD' 'DIAMOND'}}\",\n    \"loyalty_points\": 450\n  },\n  \"tokens\": {\n    \"access_token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n    \"refresh_token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n    \"token_type\": \"Bearer\",\n    \"expires_in\": 900\n  }\n}",
+          "latency": 3000,
+          "statusCode": 201,
+          "label": "slow",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "slow",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "65542f35-0c9f-48d7-8635-3b51c5e6691b",
+          "body": "{\n  \"user\": {\n    \"customer_id\": \"CUST-8820\",\n    \"phone_number\": \"0905123456\",\n    \"full_name\": \"Nguyễn Văn An\",\n    \"email\": \"an.nguyen@example.com\",\n    \"avatar_url\": \"https://cdn.omama.vn/avatars/u8820.jpg\",\n    \"membership_tier\": \"{{oneOf 'BRONZE' 'SILVER' 'GOLD' 'DIAMOND'}}\",\n    \"loyalty_points\": 450\n  },\n  \"tokens\": {\n    \"access_token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n    \"refresh_token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n    \"token_type\": \"Bearer\",\n    \"expires_in\": 900\n  }\n}",
+          "latency": 0,
+          "statusCode": 201,
+          "label": "success — Đăng ký thành công và trả về thông tin người dùng kèm token",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "3aedc389-c3c8-48ea-a357-5b7c5e213729",
+      "type": "http",
+      "documentation": "Đăng nhập hệ thống bằng Số điện thoại & Mật khẩu",
+      "method": "post",
+      "endpoint": "api/v1/auth/login",
+      "responses": [
+        {
+          "uuid": "eda8f637-b610-4984-b1f4-5aafa11a225f",
+          "body": "{\n  \"error_code\": \"ERR_VALIDATION\",\n  \"user_message\": \"Dữ liệu không hợp lệ. Vui lòng kiểm tra lại.\",\n  \"dev_message\": \"Mock scenario: validation-error\",\n  \"domain\": \"validation\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 400,
+          "label": "validation-error",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "validation-error",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "7889e7b6-dbb0-42eb-9c4e-0f4e620a7ee6",
+          "body": "{\n  \"error_code\": \"ERR_AUTH_UNAUTHORIZED\",\n  \"user_message\": \"Phiên đăng nhập không hợp lệ hoặc đã hết hạn.\",\n  \"dev_message\": \"Mock scenario: unauthorized\",\n  \"domain\": \"auth\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 401,
+          "label": "unauthorized",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "unauthorized",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "2f09a3b8-f5c9-4816-814e-19d608f56003",
+          "body": "{\n  \"error_code\": \"ERR_AUTH_FORBIDDEN\",\n  \"user_message\": \"Bạn không có quyền thực hiện thao tác này.\",\n  \"dev_message\": \"Mock scenario: forbidden\",\n  \"domain\": \"auth\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 403,
+          "label": "forbidden",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "forbidden",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "39851523-0822-44b2-b67b-a3fcb370edd6",
+          "body": "{\n  \"error_code\": \"ERR_INTERNAL_SERVER_ERROR\",\n  \"user_message\": \"Hệ thống tạm thời gặp sự cố. Vui lòng thử lại sau.\",\n  \"dev_message\": \"Mock scenario: server-error\",\n  \"domain\": \"system\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 500,
+          "label": "server-error",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "server-error",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "0ce1f72a-60e6-47fb-92ed-5d655c99ae9e",
+          "body": "{\n  \"user\": {\n    \"customer_id\": \"CUST-8820\",\n    \"phone_number\": \"0905123456\",\n    \"full_name\": \"Nguyễn Văn An\",\n    \"email\": \"an.nguyen@example.com\",\n    \"avatar_url\": \"https://cdn.omama.vn/avatars/u8820.jpg\",\n    \"membership_tier\": \"{{oneOf 'BRONZE' 'SILVER' 'GOLD' 'DIAMOND'}}\",\n    \"loyalty_points\": 450\n  },\n  \"tokens\": {\n    \"access_token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n    \"refresh_token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n    \"token_type\": \"Bearer\",\n    \"expires_in\": 900\n  }\n}",
+          "latency": 3000,
+          "statusCode": 200,
+          "label": "slow",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "slow",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "7ad92526-216d-45e6-9415-f8b3a9398764",
+          "body": "{\n  \"user\": {\n    \"customer_id\": \"CUST-8820\",\n    \"phone_number\": \"0905123456\",\n    \"full_name\": \"Nguyễn Văn An\",\n    \"email\": \"an.nguyen@example.com\",\n    \"avatar_url\": \"https://cdn.omama.vn/avatars/u8820.jpg\",\n    \"membership_tier\": \"{{oneOf 'BRONZE' 'SILVER' 'GOLD' 'DIAMOND'}}\",\n    \"loyalty_points\": 450\n  },\n  \"tokens\": {\n    \"access_token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n    \"refresh_token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n    \"token_type\": \"Bearer\",\n    \"expires_in\": 900\n  }\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "success — Đăng nhập thành công",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "e26aacaa-37b1-440b-bd53-c1aca82b0c25",
+      "type": "http",
+      "documentation": "Cấp mới Access Token bằng Refresh Token",
+      "method": "post",
+      "endpoint": "api/v1/auth/refresh",
+      "responses": [
+        {
+          "uuid": "348f630f-d832-490b-8c54-353d2242c7b9",
+          "body": "{\n  \"access_token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n  \"refresh_token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n  \"token_type\": \"Bearer\",\n  \"expires_in\": 900\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "Cấp token mới thành công",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "94dee0a4-043c-467d-ada0-50238cdc3277",
+          "body": "{\n  \"error_code\": \"ERR_INVENTORY_INSUFFICIENT_STOCK\",\n  \"user_message\": \"Sản phẩm đã hết hàng hoặc số lượng khả dụng không đủ.\",\n  \"dev_message\": \"SKU MX-GION-500G available qty is 1, requested 2\",\n  \"domain\": \"inventory\",\n  \"timestamp\": \"2026-10-15T08:30:00.120Z\"\n}",
+          "latency": 0,
+          "statusCode": 401,
+          "label": "Refresh Token không hợp lệ hoặc đã hết hạn",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "9c2640ef-a6eb-497f-bbd0-4de413dc4c12",
+      "type": "http",
+      "documentation": "Đăng xuất và thu hồi phiên làm việc",
+      "method": "post",
+      "endpoint": "api/v1/auth/logout",
+      "responses": [
+        {
+          "uuid": "594b4b9b-6775-4ff0-80b8-d6a80372931b",
+          "body": "{\n  \"success\": true,\n  \"message\": \"Đăng xuất thành công.\"\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "Đăng xuất thành công",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "b9c5d9ec-cefe-4ea9-9224-a206eb134130",
+          "body": "{\n  \"error_code\": \"ERR_INVENTORY_INSUFFICIENT_STOCK\",\n  \"user_message\": \"Sản phẩm đã hết hàng hoặc số lượng khả dụng không đủ.\",\n  \"dev_message\": \"SKU MX-GION-500G available qty is 1, requested 2\",\n  \"domain\": \"inventory\",\n  \"timestamp\": \"2026-10-15T08:30:00.120Z\"\n}",
+          "latency": 0,
+          "statusCode": 401,
+          "label": "Chưa đăng nhập hoặc token không hợp lệ",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "b8973470-912b-467c-a931-207cf0d13bdd",
+      "type": "http",
+      "documentation": "Lấy thông tin danh tính tài khoản đang đăng nhập",
+      "method": "get",
+      "endpoint": "api/v1/auth/me",
+      "responses": [
+        {
+          "uuid": "e1908630-193a-4fb1-8423-ebf51f1da775",
+          "body": "{\n  \"customer_id\": \"CUST-8820\",\n  \"phone_number\": \"0905123456\",\n  \"full_name\": \"Nguyễn Văn An\",\n  \"email\": \"an.nguyen@example.com\",\n  \"avatar_url\": \"https://cdn.omama.vn/avatars/u8820.jpg\",\n  \"membership_tier\": \"{{oneOf 'BRONZE' 'SILVER' 'GOLD' 'DIAMOND'}}\",\n  \"loyalty_points\": 450\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "Thông tin danh tính người dùng",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "012305a9-005a-4a79-8b9f-038b298e8a94",
+          "body": "{\n  \"error_code\": \"ERR_INVENTORY_INSUFFICIENT_STOCK\",\n  \"user_message\": \"Sản phẩm đã hết hàng hoặc số lượng khả dụng không đủ.\",\n  \"dev_message\": \"SKU MX-GION-500G available qty is 1, requested 2\",\n  \"domain\": \"inventory\",\n  \"timestamp\": \"2026-10-15T08:30:00.120Z\"\n}",
+          "latency": 0,
+          "statusCode": 401,
+          "label": "Chưa xác thực",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "1f2ccd6b-7955-4eae-b003-0f33019def43",
+      "type": "http",
+      "documentation": "Lấy danh sách cây danh mục sản phẩm OCOP",
+      "method": "get",
+      "endpoint": "api/v1/categories",
+      "responses": [
+        {
+          "uuid": "28f55978-b97f-4fac-a695-ce4dd0b17d12",
+          "body": "{\n  \"categories\": []\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "empty",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "empty",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "9684fdf8-b431-4e36-8e58-16d1e3ed5477",
+          "body": "{\n  \"error_code\": \"ERR_INTERNAL_SERVER_ERROR\",\n  \"user_message\": \"Hệ thống tạm thời gặp sự cố. Vui lòng thử lại sau.\",\n  \"dev_message\": \"Mock scenario: server-error\",\n  \"domain\": \"system\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 500,
+          "label": "server-error",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "server-error",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "e2651a39-f793-4897-be46-2d0e581b0b57",
+          "body": "{\n  \"categories\": [\n    {\n      \"category_id\": \"CAT-ME-XUNG-GION\",\n      \"name\": \"Mè Xửng Giòn Truyền Thống\",\n      \"slug\": \"me-xung-gion\",\n      \"description\": \"Kẹo mè xửng giòn hạt mè vàng ươm, thơm mùi đậu phụng và đường non.\",\n      \"image_url\": \"https://cdn.omama.vn/categories/cat_gion.jpg\",\n      \"parent_id\": null\n    }\n  ]\n}",
+          "latency": 3000,
+          "statusCode": 200,
+          "label": "slow",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "slow",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "fd61d3bf-6a90-444a-a3c2-6dc66f245550",
+          "body": "{\n  \"categories\": [\n    {\n      \"category_id\": \"CAT-ME-XUNG-GION\",\n      \"name\": \"Mè Xửng Giòn Truyền Thống\",\n      \"slug\": \"me-xung-gion\",\n      \"description\": \"Kẹo mè xửng giòn hạt mè vàng ươm, thơm mùi đậu phụng và đường non.\",\n      \"image_url\": \"https://cdn.omama.vn/categories/cat_gion.jpg\",\n      \"parent_id\": null\n    }\n  ]\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "success — Danh sách danh mục sản phẩm",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "78237483-23eb-437b-be2e-fbb05b3a52e1",
+      "type": "http",
+      "documentation": "Danh sách sản phẩm kèm bộ lọc & phân trang",
+      "method": "get",
+      "endpoint": "api/v1/products",
+      "responses": [
+        {
+          "uuid": "44220320-b54f-4efa-8ceb-10ee4121f517",
+          "body": "{\n  \"items\": [],\n  \"total\": 0,\n  \"page\": 1,\n  \"page_size\": 20,\n  \"total_pages\": 0\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "empty",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "empty",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "b4b19719-f8ba-45bd-a0b3-63238df5e6ff",
+          "body": "{\n  \"error_code\": \"ERR_VALIDATION\",\n  \"user_message\": \"Dữ liệu không hợp lệ. Vui lòng kiểm tra lại.\",\n  \"dev_message\": \"Mock scenario: validation-error\",\n  \"domain\": \"validation\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 400,
+          "label": "validation-error",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "validation-error",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "6c128c0e-5ff5-47a9-85bb-05bc8dcf7ae1",
+          "body": "{\n  \"error_code\": \"ERR_INTERNAL_SERVER_ERROR\",\n  \"user_message\": \"Hệ thống tạm thời gặp sự cố. Vui lòng thử lại sau.\",\n  \"dev_message\": \"Mock scenario: server-error\",\n  \"domain\": \"system\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 500,
+          "label": "server-error",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "server-error",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "6fd985c4-964b-4cec-9098-e364979d78fe",
+          "body": "{\n  \"items\": [\n    {\n      \"product_id\": \"PROD-MX-GION-500\",\n      \"name\": \"Kẹo Mè Xửng Giòn O Mạ Hộp 500g\",\n      \"slug\": \"keo-me-xung-gion-o-ma-hop-500g\",\n      \"summary\": \"Đặc sản mè xửng giòn Huế truyền thống, chuẩn OCOP 4 sao.\",\n      \"thumbnail_url\": \"https://cdn.omama.vn/products/mx_gion_500g_thumb.jpg\",\n      \"base_price\": {\n        \"currency_code\": \"VND\",\n        \"units\": 345000,\n        \"nanos\": 0\n      },\n      \"ocop_star\": 4,\n      \"category_name\": \"Mè Xửng Giòn\",\n      \"in_stock\": true\n    }\n  ],\n  \"total\": 45,\n  \"page\": 1,\n  \"page_size\": 20,\n  \"total_pages\": 3\n}",
+          "latency": 3000,
+          "statusCode": 200,
+          "label": "slow",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "slow",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "1aa1534a-01a6-4164-9c0c-3d0d0e042d9a",
+          "body": "{\n  \"items\": [\n    {\n      \"product_id\": \"PROD-MX-GION-500\",\n      \"name\": \"Kẹo Mè Xửng Giòn O Mạ Hộp 500g\",\n      \"slug\": \"keo-me-xung-gion-o-ma-hop-500g\",\n      \"summary\": \"Đặc sản mè xửng giòn Huế truyền thống, chuẩn OCOP 4 sao.\",\n      \"thumbnail_url\": \"https://cdn.omama.vn/products/mx_gion_500g_thumb.jpg\",\n      \"base_price\": {\n        \"currency_code\": \"VND\",\n        \"units\": 345000,\n        \"nanos\": 0\n      },\n      \"ocop_star\": 4,\n      \"category_name\": \"Mè Xửng Giòn\",\n      \"in_stock\": true\n    }\n  ],\n  \"total\": 45,\n  \"page\": 1,\n  \"page_size\": 20,\n  \"total_pages\": 3\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "success — Danh sách sản phẩm thỏa mãn điều kiện lọc",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "6e9cfd99-7c08-411a-9082-89b430d20325",
+      "type": "http",
+      "documentation": "Lấy thông tin chi tiết sản phẩm & các biến thể SKU",
+      "method": "get",
+      "endpoint": "api/v1/products/:id_or_slug",
+      "responses": [
+        {
+          "uuid": "e054f517-eb94-40d2-9406-89cbc69853ff",
+          "body": "{\n  \"error_code\": \"ERR_RESOURCE_NOT_FOUND\",\n  \"user_message\": \"Không tìm thấy tài nguyên yêu cầu.\",\n  \"dev_message\": \"Mock scenario: not-found\",\n  \"domain\": \"resource\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 404,
+          "label": "not-found",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "not-found",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "e4f336a3-d117-464a-8a96-4201ce7bb2d1",
+          "body": "{\n  \"error_code\": \"ERR_INTERNAL_SERVER_ERROR\",\n  \"user_message\": \"Hệ thống tạm thời gặp sự cố. Vui lòng thử lại sau.\",\n  \"dev_message\": \"Mock scenario: server-error\",\n  \"domain\": \"system\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 500,
+          "label": "server-error",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "server-error",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "5510612b-6604-4a7e-be6c-a2ccda89f520",
+          "body": "{\n  \"product_id\": \"PROD-MX-GION-500\",\n  \"name\": \"Kẹo Mè Xửng Giòn O Mạ Hộp 500g\",\n  \"slug\": \"keo-me-xung-gion-o-ma-hop-500g\",\n  \"description\": \"Mè xửng giòn là tuyệt tác ẩm thực Cố Đô Huế. Nấu thủ công từ đường mạch nha, mè vừng trắng bùi ngậy và đậu phụng tuyển chọn.\",\n  \"images\": [\n    \"https://cdn.omama.vn/products/mx_gion_1.jpg\",\n    \"https://cdn.omama.vn/products/mx_gion_2.jpg\"\n  ],\n  \"ocop_star\": 4,\n  \"ocop_certificate_no\": \"OCOP-TTH-2024-089\",\n  \"story\": \"Sinh ra từ làng nghề Hương Thủy ven sông Hương, nghệ nhân O Mạ gìn giữ ngọn lửa nấu kẹo 3 đời...\",\n  \"variants\": [\n    {\n      \"variant_id\": \"VAR-001\",\n      \"sku_code\": \"MX-GION-500G\",\n      \"name\": \"Hộp 500g (20 phong kẹo rời)\",\n      \"weight_gram\": 500,\n      \"price\": {\n        \"currency_code\": \"VND\",\n        \"units\": 345000,\n        \"nanos\": 0\n      },\n      \"original_price\": {\n        \"currency_code\": \"VND\",\n        \"units\": 345000,\n        \"nanos\": 0\n      },\n      \"stock_available\": 150\n    }\n  ]\n}",
+          "latency": 3000,
+          "statusCode": 200,
+          "label": "slow",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "slow",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "c14e85a2-018b-4999-a96e-79433fd2b72c",
+          "body": "{\n  \"product_id\": \"PROD-MX-GION-500\",\n  \"name\": \"Kẹo Mè Xửng Giòn O Mạ Hộp 500g\",\n  \"slug\": \"keo-me-xung-gion-o-ma-hop-500g\",\n  \"description\": \"Mè xửng giòn là tuyệt tác ẩm thực Cố Đô Huế. Nấu thủ công từ đường mạch nha, mè vừng trắng bùi ngậy và đậu phụng tuyển chọn.\",\n  \"images\": [\n    \"https://cdn.omama.vn/products/mx_gion_1.jpg\",\n    \"https://cdn.omama.vn/products/mx_gion_2.jpg\"\n  ],\n  \"ocop_star\": 4,\n  \"ocop_certificate_no\": \"OCOP-TTH-2024-089\",\n  \"story\": \"Sinh ra từ làng nghề Hương Thủy ven sông Hương, nghệ nhân O Mạ gìn giữ ngọn lửa nấu kẹo 3 đời...\",\n  \"variants\": [\n    {\n      \"variant_id\": \"VAR-001\",\n      \"sku_code\": \"MX-GION-500G\",\n      \"name\": \"Hộp 500g (20 phong kẹo rời)\",\n      \"weight_gram\": 500,\n      \"price\": {\n        \"currency_code\": \"VND\",\n        \"units\": 345000,\n        \"nanos\": 0\n      },\n      \"original_price\": {\n        \"currency_code\": \"VND\",\n        \"units\": 345000,\n        \"nanos\": 0\n      },\n      \"stock_available\": 150\n    }\n  ]\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "success — Chi tiết sản phẩm",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "c1baed7e-3744-44e4-86b6-347e7ea4d38b",
+      "type": "http",
+      "documentation": "Tìm kiếm sản phẩm toàn văn bằng ElasticSearch",
+      "method": "get",
+      "endpoint": "api/v1/products/search",
+      "responses": [
+        {
+          "uuid": "a97c95b0-bea1-4e6c-9572-d107ffb92b28",
+          "body": "{\n  \"query\": \"\",\n  \"items\": [],\n  \"total\": 0\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "empty",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "empty",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "21208c31-b6f0-4873-82f4-40273e7a798a",
+          "body": "{\n  \"error_code\": \"ERR_VALIDATION\",\n  \"user_message\": \"Dữ liệu không hợp lệ. Vui lòng kiểm tra lại.\",\n  \"dev_message\": \"Mock scenario: validation-error\",\n  \"domain\": \"validation\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 400,
+          "label": "validation-error",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "validation-error",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "a319a280-7100-4415-85ef-fd034cd147a1",
+          "body": "{\n  \"error_code\": \"ERR_INTERNAL_SERVER_ERROR\",\n  \"user_message\": \"Hệ thống tạm thời gặp sự cố. Vui lòng thử lại sau.\",\n  \"dev_message\": \"Mock scenario: server-error\",\n  \"domain\": \"system\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 500,
+          "label": "server-error",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "server-error",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "cb5d6203-427d-4283-b7bf-e2f3f2de42fb",
+          "body": "{\n  \"query\": \"mè xửng mè đen\",\n  \"items\": [\n    {\n      \"product_id\": \"PROD-MX-GION-500\",\n      \"name\": \"Kẹo Mè Xửng Giòn O Mạ Hộp 500g\",\n      \"slug\": \"keo-me-xung-gion-o-ma-hop-500g\",\n      \"summary\": \"Đặc sản mè xửng giòn Huế truyền thống, chuẩn OCOP 4 sao.\",\n      \"thumbnail_url\": \"https://cdn.omama.vn/products/mx_gion_500g_thumb.jpg\",\n      \"base_price\": {\n        \"currency_code\": \"VND\",\n        \"units\": 345000,\n        \"nanos\": 0\n      },\n      \"ocop_star\": 4,\n      \"category_name\": \"Mè Xửng Giòn\",\n      \"in_stock\": true\n    }\n  ],\n  \"total\": 8\n}",
+          "latency": 3000,
+          "statusCode": 200,
+          "label": "slow",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "slow",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "d758a00b-23f7-4804-883f-2a07eee8fff0",
+          "body": "{\n  \"query\": \"mè xửng mè đen\",\n  \"items\": [\n    {\n      \"product_id\": \"PROD-MX-GION-500\",\n      \"name\": \"Kẹo Mè Xửng Giòn O Mạ Hộp 500g\",\n      \"slug\": \"keo-me-xung-gion-o-ma-hop-500g\",\n      \"summary\": \"Đặc sản mè xửng giòn Huế truyền thống, chuẩn OCOP 4 sao.\",\n      \"thumbnail_url\": \"https://cdn.omama.vn/products/mx_gion_500g_thumb.jpg\",\n      \"base_price\": {\n        \"currency_code\": \"VND\",\n        \"units\": 345000,\n        \"nanos\": 0\n      },\n      \"ocop_star\": 4,\n      \"category_name\": \"Mè Xửng Giòn\",\n      \"in_stock\": true\n    }\n  ],\n  \"total\": 8\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "success — Kết quả tìm kiếm",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "01dd232c-efd7-43d0-b183-45e6c258f945",
+      "type": "http",
+      "documentation": "Lấy thông tin giỏ hàng hiện tại",
+      "method": "get",
+      "endpoint": "api/v1/cart",
+      "responses": [
+        {
+          "uuid": "6d9c78b3-abc7-4568-a141-86933210df35",
+          "body": "{\n  \"cart_id\": \"CART-EMPTY\",\n  \"items\": [],\n  \"total_items\": 0,\n  \"subtotal_amount\": {\n    \"currency_code\": \"VND\",\n    \"units\": 0,\n    \"nanos\": 0\n  }\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "empty",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "empty",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "aca47751-680b-41e1-95ba-4c53dfb6549a",
+          "body": "{\n  \"error_code\": \"ERR_AUTH_UNAUTHORIZED\",\n  \"user_message\": \"Phiên đăng nhập không hợp lệ hoặc đã hết hạn.\",\n  \"dev_message\": \"Mock scenario: unauthorized\",\n  \"domain\": \"auth\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 401,
+          "label": "unauthorized",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "unauthorized",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "a4def3c6-b8db-42ec-a76c-8b9e9d5860e5",
+          "body": "{\n  \"error_code\": \"ERR_AUTH_FORBIDDEN\",\n  \"user_message\": \"Bạn không có quyền thực hiện thao tác này.\",\n  \"dev_message\": \"Mock scenario: forbidden\",\n  \"domain\": \"auth\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 403,
+          "label": "forbidden",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "forbidden",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "4f8b80ef-6049-4b9f-8db2-239870bd83fb",
+          "body": "{\n  \"error_code\": \"ERR_INTERNAL_SERVER_ERROR\",\n  \"user_message\": \"Hệ thống tạm thời gặp sự cố. Vui lòng thử lại sau.\",\n  \"dev_message\": \"Mock scenario: server-error\",\n  \"domain\": \"system\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 500,
+          "label": "server-error",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "server-error",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "363d724a-7f59-43d5-9d16-f0376ac3d0f1",
+          "body": "{\n  \"cart_id\": \"CART-SESSION-88402\",\n  \"items\": [\n    {\n      \"item_id\": \"ITEM-9901\",\n      \"sku_code\": \"MX-GION-500G\",\n      \"product_name\": \"Kẹo Mè Xửng Giòn O Mạ Hộp 500g\",\n      \"variant_name\": \"Hộp 500g\",\n      \"thumbnail_url\": \"https://cdn.omama.vn/products/mx_gion_thumb.jpg\",\n      \"unit_price\": {\n        \"currency_code\": \"VND\",\n        \"units\": 345000,\n        \"nanos\": 0\n      },\n      \"quantity\": 2,\n      \"subtotal\": {\n        \"currency_code\": \"VND\",\n        \"units\": 345000,\n        \"nanos\": 0\n      },\n      \"in_stock\": true\n    }\n  ],\n  \"total_items\": 3,\n  \"subtotal_amount\": {\n    \"currency_code\": \"VND\",\n    \"units\": 345000,\n    \"nanos\": 0\n  }\n}",
+          "latency": 3000,
+          "statusCode": 200,
+          "label": "slow",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "slow",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "0e1d6f85-6561-4734-9d00-f751dbce4bfe",
+          "body": "{\n  \"cart_id\": \"CART-SESSION-88402\",\n  \"items\": [\n    {\n      \"item_id\": \"ITEM-9901\",\n      \"sku_code\": \"MX-GION-500G\",\n      \"product_name\": \"Kẹo Mè Xửng Giòn O Mạ Hộp 500g\",\n      \"variant_name\": \"Hộp 500g\",\n      \"thumbnail_url\": \"https://cdn.omama.vn/products/mx_gion_thumb.jpg\",\n      \"unit_price\": {\n        \"currency_code\": \"VND\",\n        \"units\": 345000,\n        \"nanos\": 0\n      },\n      \"quantity\": 2,\n      \"subtotal\": {\n        \"currency_code\": \"VND\",\n        \"units\": 345000,\n        \"nanos\": 0\n      },\n      \"in_stock\": true\n    }\n  ],\n  \"total_items\": 3,\n  \"subtotal_amount\": {\n    \"currency_code\": \"VND\",\n    \"units\": 345000,\n    \"nanos\": 0\n  }\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "success — Chi tiết giỏ hàng và danh sách món hàng đã chọn",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "5848f965-a85b-4171-9c00-eeb6381adcad",
+      "type": "http",
+      "documentation": "Xóa sạch toàn bộ giỏ hàng",
+      "method": "delete",
+      "endpoint": "api/v1/cart",
+      "responses": [
+        {
+          "uuid": "78a7e645-dc78-4265-b785-24e7dfb75c77",
+          "body": "{\n  \"error_code\": \"ERR_AUTH_UNAUTHORIZED\",\n  \"user_message\": \"Phiên đăng nhập không hợp lệ hoặc đã hết hạn.\",\n  \"dev_message\": \"Mock scenario: unauthorized\",\n  \"domain\": \"auth\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 401,
+          "label": "unauthorized",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "unauthorized",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "2bd70e4e-97a5-46f6-8f37-a44675a42f06",
+          "body": "{\n  \"error_code\": \"ERR_AUTH_FORBIDDEN\",\n  \"user_message\": \"Bạn không có quyền thực hiện thao tác này.\",\n  \"dev_message\": \"Mock scenario: forbidden\",\n  \"domain\": \"auth\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 403,
+          "label": "forbidden",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "forbidden",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "bb0d5a97-4e5d-40a6-8baf-527a681c7f83",
+          "body": "{\n  \"error_code\": \"ERR_INTERNAL_SERVER_ERROR\",\n  \"user_message\": \"Hệ thống tạm thời gặp sự cố. Vui lòng thử lại sau.\",\n  \"dev_message\": \"Mock scenario: server-error\",\n  \"domain\": \"system\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 500,
+          "label": "server-error",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "server-error",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "9697988f-784d-43c5-a640-cd5bd7fd3cb6",
+          "body": "{\n  \"success\": true,\n  \"message\": \"Giỏ hàng đã được dọn trống.\"\n}",
+          "latency": 3000,
+          "statusCode": 200,
+          "label": "slow",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "slow",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "40f84eb6-6021-4a3d-86ce-7251b947c221",
+          "body": "{\n  \"success\": true,\n  \"message\": \"Giỏ hàng đã được dọn trống.\"\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "success — Đã xóa sạch giỏ hàng",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "d432ed11-94d0-4ad9-8bec-16bb0c5cb0e8",
+      "type": "http",
+      "documentation": "Thêm sản phẩm vào giỏ hàng",
+      "method": "post",
+      "endpoint": "api/v1/cart/items",
+      "responses": [
+        {
+          "uuid": "a68233e0-b49a-434e-aa0f-0b57a5e2358c",
+          "body": "{\n  \"error_code\": \"ERR_VALIDATION\",\n  \"user_message\": \"Dữ liệu không hợp lệ. Vui lòng kiểm tra lại.\",\n  \"dev_message\": \"Mock scenario: validation-error\",\n  \"domain\": \"validation\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 400,
+          "label": "validation-error",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "validation-error",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "227c34ff-3eee-41a4-a2cc-31e2b0a4d334",
+          "body": "{\n  \"error_code\": \"ERR_AUTH_UNAUTHORIZED\",\n  \"user_message\": \"Phiên đăng nhập không hợp lệ hoặc đã hết hạn.\",\n  \"dev_message\": \"Mock scenario: unauthorized\",\n  \"domain\": \"auth\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 401,
+          "label": "unauthorized",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "unauthorized",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "b368619e-61be-417b-8467-48883e3cbccd",
+          "body": "{\n  \"error_code\": \"ERR_AUTH_FORBIDDEN\",\n  \"user_message\": \"Bạn không có quyền thực hiện thao tác này.\",\n  \"dev_message\": \"Mock scenario: forbidden\",\n  \"domain\": \"auth\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 403,
+          "label": "forbidden",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "forbidden",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "6deb10ea-75b4-48fe-8e6f-0b5a257ba70e",
+          "body": "{\n  \"error_code\": \"ERR_CONFLICT\",\n  \"user_message\": \"Dữ liệu đã thay đổi hoặc xung đột với trạng thái hiện tại.\",\n  \"dev_message\": \"Mock scenario: conflict\",\n  \"domain\": \"business\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 409,
+          "label": "conflict",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "conflict",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "3de2fae7-3011-41a6-988a-3dad324e623a",
+          "body": "{\n  \"error_code\": \"ERR_INTERNAL_SERVER_ERROR\",\n  \"user_message\": \"Hệ thống tạm thời gặp sự cố. Vui lòng thử lại sau.\",\n  \"dev_message\": \"Mock scenario: server-error\",\n  \"domain\": \"system\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 500,
+          "label": "server-error",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "server-error",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "cab1379c-d802-4d00-ab48-f99e27ac37e4",
+          "body": "{\n  \"cart_id\": \"CART-SESSION-88402\",\n  \"items\": [\n    {\n      \"item_id\": \"ITEM-9901\",\n      \"sku_code\": \"MX-GION-500G\",\n      \"product_name\": \"Kẹo Mè Xửng Giòn O Mạ Hộp 500g\",\n      \"variant_name\": \"Hộp 500g\",\n      \"thumbnail_url\": \"https://cdn.omama.vn/products/mx_gion_thumb.jpg\",\n      \"unit_price\": {\n        \"currency_code\": \"VND\",\n        \"units\": 345000,\n        \"nanos\": 0\n      },\n      \"quantity\": 2,\n      \"subtotal\": {\n        \"currency_code\": \"VND\",\n        \"units\": 345000,\n        \"nanos\": 0\n      },\n      \"in_stock\": true\n    }\n  ],\n  \"total_items\": 3,\n  \"subtotal_amount\": {\n    \"currency_code\": \"VND\",\n    \"units\": 345000,\n    \"nanos\": 0\n  }\n}",
+          "latency": 3000,
+          "statusCode": 200,
+          "label": "slow",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "slow",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "b0c25aed-a6ee-4f81-85b4-71465d2fb2c5",
+          "body": "{\n  \"cart_id\": \"CART-SESSION-88402\",\n  \"items\": [\n    {\n      \"item_id\": \"ITEM-9901\",\n      \"sku_code\": \"MX-GION-500G\",\n      \"product_name\": \"Kẹo Mè Xửng Giòn O Mạ Hộp 500g\",\n      \"variant_name\": \"Hộp 500g\",\n      \"thumbnail_url\": \"https://cdn.omama.vn/products/mx_gion_thumb.jpg\",\n      \"unit_price\": {\n        \"currency_code\": \"VND\",\n        \"units\": 345000,\n        \"nanos\": 0\n      },\n      \"quantity\": 2,\n      \"subtotal\": {\n        \"currency_code\": \"VND\",\n        \"units\": 345000,\n        \"nanos\": 0\n      },\n      \"in_stock\": true\n    }\n  ],\n  \"total_items\": 3,\n  \"subtotal_amount\": {\n    \"currency_code\": \"VND\",\n    \"units\": 345000,\n    \"nanos\": 0\n  }\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "success — Thêm vào giỏ hàng thành công",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "d4e46813-5c14-410d-897f-e8c4a4e6d1af",
+      "type": "http",
+      "documentation": "Cập nhật số lượng của một món trong giỏ",
+      "method": "put",
+      "endpoint": "api/v1/cart/items/:item_id",
+      "responses": [
+        {
+          "uuid": "756880b9-e5c5-4ff8-81f3-22bb5ca877b6",
+          "body": "{\n  \"error_code\": \"ERR_VALIDATION\",\n  \"user_message\": \"Dữ liệu không hợp lệ. Vui lòng kiểm tra lại.\",\n  \"dev_message\": \"Mock scenario: validation-error\",\n  \"domain\": \"validation\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 400,
+          "label": "validation-error",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "validation-error",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "9f7b8cc9-ee97-464c-8bc1-c79293f5c517",
+          "body": "{\n  \"error_code\": \"ERR_AUTH_UNAUTHORIZED\",\n  \"user_message\": \"Phiên đăng nhập không hợp lệ hoặc đã hết hạn.\",\n  \"dev_message\": \"Mock scenario: unauthorized\",\n  \"domain\": \"auth\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 401,
+          "label": "unauthorized",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "unauthorized",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "733357f9-4e33-4600-b0e3-82d27ded7825",
+          "body": "{\n  \"error_code\": \"ERR_AUTH_FORBIDDEN\",\n  \"user_message\": \"Bạn không có quyền thực hiện thao tác này.\",\n  \"dev_message\": \"Mock scenario: forbidden\",\n  \"domain\": \"auth\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 403,
+          "label": "forbidden",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "forbidden",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "52199708-90c5-48ad-a200-a1d8de1073ab",
+          "body": "{\n  \"error_code\": \"ERR_RESOURCE_NOT_FOUND\",\n  \"user_message\": \"Không tìm thấy tài nguyên yêu cầu.\",\n  \"dev_message\": \"Mock scenario: not-found\",\n  \"domain\": \"resource\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 404,
+          "label": "not-found",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "not-found",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "50aaad9d-fdd0-43a7-9215-555afb5ecb24",
+          "body": "{\n  \"error_code\": \"ERR_CONFLICT\",\n  \"user_message\": \"Dữ liệu đã thay đổi hoặc xung đột với trạng thái hiện tại.\",\n  \"dev_message\": \"Mock scenario: conflict\",\n  \"domain\": \"business\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 409,
+          "label": "conflict",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "conflict",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "d8fa9679-87cb-4cc9-a745-509d991b2fb8",
+          "body": "{\n  \"error_code\": \"ERR_INTERNAL_SERVER_ERROR\",\n  \"user_message\": \"Hệ thống tạm thời gặp sự cố. Vui lòng thử lại sau.\",\n  \"dev_message\": \"Mock scenario: server-error\",\n  \"domain\": \"system\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 500,
+          "label": "server-error",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "server-error",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "9843ddb1-090f-4f01-b700-6fbbfcfd8cae",
+          "body": "{\n  \"cart_id\": \"CART-SESSION-88402\",\n  \"items\": [\n    {\n      \"item_id\": \"ITEM-9901\",\n      \"sku_code\": \"MX-GION-500G\",\n      \"product_name\": \"Kẹo Mè Xửng Giòn O Mạ Hộp 500g\",\n      \"variant_name\": \"Hộp 500g\",\n      \"thumbnail_url\": \"https://cdn.omama.vn/products/mx_gion_thumb.jpg\",\n      \"unit_price\": {\n        \"currency_code\": \"VND\",\n        \"units\": 345000,\n        \"nanos\": 0\n      },\n      \"quantity\": 2,\n      \"subtotal\": {\n        \"currency_code\": \"VND\",\n        \"units\": 345000,\n        \"nanos\": 0\n      },\n      \"in_stock\": true\n    }\n  ],\n  \"total_items\": 3,\n  \"subtotal_amount\": {\n    \"currency_code\": \"VND\",\n    \"units\": 345000,\n    \"nanos\": 0\n  }\n}",
+          "latency": 3000,
+          "statusCode": 200,
+          "label": "slow",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "slow",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "60cd94ff-92fd-4c64-808f-95bbac99cdf1",
+          "body": "{\n  \"cart_id\": \"CART-SESSION-88402\",\n  \"items\": [\n    {\n      \"item_id\": \"ITEM-9901\",\n      \"sku_code\": \"MX-GION-500G\",\n      \"product_name\": \"Kẹo Mè Xửng Giòn O Mạ Hộp 500g\",\n      \"variant_name\": \"Hộp 500g\",\n      \"thumbnail_url\": \"https://cdn.omama.vn/products/mx_gion_thumb.jpg\",\n      \"unit_price\": {\n        \"currency_code\": \"VND\",\n        \"units\": 345000,\n        \"nanos\": 0\n      },\n      \"quantity\": 2,\n      \"subtotal\": {\n        \"currency_code\": \"VND\",\n        \"units\": 345000,\n        \"nanos\": 0\n      },\n      \"in_stock\": true\n    }\n  ],\n  \"total_items\": 3,\n  \"subtotal_amount\": {\n    \"currency_code\": \"VND\",\n    \"units\": 345000,\n    \"nanos\": 0\n  }\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "success — Cập nhật số lượng thành công",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "dbdae21e-0f7f-4542-b7d6-bc27e73d0f3b",
+      "type": "http",
+      "documentation": "Xóa một món hàng khỏi giỏ",
+      "method": "delete",
+      "endpoint": "api/v1/cart/items/:item_id",
+      "responses": [
+        {
+          "uuid": "58670280-fa26-40ca-adb8-57cba94c3ee8",
+          "body": "{\n  \"error_code\": \"ERR_AUTH_UNAUTHORIZED\",\n  \"user_message\": \"Phiên đăng nhập không hợp lệ hoặc đã hết hạn.\",\n  \"dev_message\": \"Mock scenario: unauthorized\",\n  \"domain\": \"auth\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 401,
+          "label": "unauthorized",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "unauthorized",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "0d5c4494-b8b3-481a-b257-47f3ad04374f",
+          "body": "{\n  \"error_code\": \"ERR_AUTH_FORBIDDEN\",\n  \"user_message\": \"Bạn không có quyền thực hiện thao tác này.\",\n  \"dev_message\": \"Mock scenario: forbidden\",\n  \"domain\": \"auth\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 403,
+          "label": "forbidden",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "forbidden",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "34bbc114-6ed2-4507-86db-81857a8fe475",
+          "body": "{\n  \"error_code\": \"ERR_RESOURCE_NOT_FOUND\",\n  \"user_message\": \"Không tìm thấy tài nguyên yêu cầu.\",\n  \"dev_message\": \"Mock scenario: not-found\",\n  \"domain\": \"resource\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 404,
+          "label": "not-found",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "not-found",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "74b355be-a633-468c-9eaa-8ef110d75e30",
+          "body": "{\n  \"error_code\": \"ERR_INTERNAL_SERVER_ERROR\",\n  \"user_message\": \"Hệ thống tạm thời gặp sự cố. Vui lòng thử lại sau.\",\n  \"dev_message\": \"Mock scenario: server-error\",\n  \"domain\": \"system\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 500,
+          "label": "server-error",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "server-error",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "6dc32e9e-1fee-4fa2-a615-9f26311d0fa8",
+          "body": "{\n  \"cart_id\": \"CART-SESSION-88402\",\n  \"items\": [\n    {\n      \"item_id\": \"ITEM-9901\",\n      \"sku_code\": \"MX-GION-500G\",\n      \"product_name\": \"Kẹo Mè Xửng Giòn O Mạ Hộp 500g\",\n      \"variant_name\": \"Hộp 500g\",\n      \"thumbnail_url\": \"https://cdn.omama.vn/products/mx_gion_thumb.jpg\",\n      \"unit_price\": {\n        \"currency_code\": \"VND\",\n        \"units\": 345000,\n        \"nanos\": 0\n      },\n      \"quantity\": 2,\n      \"subtotal\": {\n        \"currency_code\": \"VND\",\n        \"units\": 345000,\n        \"nanos\": 0\n      },\n      \"in_stock\": true\n    }\n  ],\n  \"total_items\": 3,\n  \"subtotal_amount\": {\n    \"currency_code\": \"VND\",\n    \"units\": 345000,\n    \"nanos\": 0\n  }\n}",
+          "latency": 3000,
+          "statusCode": 200,
+          "label": "slow",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "slow",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "d7f94270-9a1a-447e-a51a-1d0010c201c7",
+          "body": "{\n  \"cart_id\": \"CART-SESSION-88402\",\n  \"items\": [\n    {\n      \"item_id\": \"ITEM-9901\",\n      \"sku_code\": \"MX-GION-500G\",\n      \"product_name\": \"Kẹo Mè Xửng Giòn O Mạ Hộp 500g\",\n      \"variant_name\": \"Hộp 500g\",\n      \"thumbnail_url\": \"https://cdn.omama.vn/products/mx_gion_thumb.jpg\",\n      \"unit_price\": {\n        \"currency_code\": \"VND\",\n        \"units\": 345000,\n        \"nanos\": 0\n      },\n      \"quantity\": 2,\n      \"subtotal\": {\n        \"currency_code\": \"VND\",\n        \"units\": 345000,\n        \"nanos\": 0\n      },\n      \"in_stock\": true\n    }\n  ],\n  \"total_items\": 3,\n  \"subtotal_amount\": {\n    \"currency_code\": \"VND\",\n    \"units\": 345000,\n    \"nanos\": 0\n  }\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "success — Xóa món hàng thành công",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "7ef601a9-d1e6-4078-a9b4-b7626c2d9ac9",
+      "type": "http",
+      "documentation": "Khởi tạo đơn hàng D2C và nhận mã thanh toán VietQR động",
+      "method": "post",
+      "endpoint": "api/v1/checkout",
+      "responses": [
+        {
+          "uuid": "ac6aea44-54ad-4af0-92a7-75cb0551d2e2",
+          "body": "{\n  \"error_code\": \"ERR_VALIDATION\",\n  \"user_message\": \"Dữ liệu không hợp lệ. Vui lòng kiểm tra lại.\",\n  \"dev_message\": \"Mock scenario: validation-error\",\n  \"domain\": \"validation\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 400,
+          "label": "validation-error",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "validation-error",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "4cca4dee-c356-4fb0-bc06-4325f24531f2",
+          "body": "{\n  \"error_code\": \"ERR_AUTH_UNAUTHORIZED\",\n  \"user_message\": \"Phiên đăng nhập không hợp lệ hoặc đã hết hạn.\",\n  \"dev_message\": \"Mock scenario: unauthorized\",\n  \"domain\": \"auth\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 401,
+          "label": "unauthorized",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "unauthorized",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "d6e5b07d-3fe3-44ae-a4b4-860262aaa063",
+          "body": "{\n  \"error_code\": \"ERR_AUTH_FORBIDDEN\",\n  \"user_message\": \"Bạn không có quyền thực hiện thao tác này.\",\n  \"dev_message\": \"Mock scenario: forbidden\",\n  \"domain\": \"auth\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 403,
+          "label": "forbidden",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "forbidden",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "3c6766ba-bea4-4324-9fd4-79168d041b09",
+          "body": "{\n  \"error_code\": \"ERR_CONFLICT\",\n  \"user_message\": \"Dữ liệu đã thay đổi hoặc xung đột với trạng thái hiện tại.\",\n  \"dev_message\": \"Mock scenario: conflict\",\n  \"domain\": \"business\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 409,
+          "label": "conflict",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "conflict",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "1554ca34-546a-4a03-9bac-e6152e4ca0e1",
+          "body": "{\n  \"error_code\": \"ERR_INTERNAL_SERVER_ERROR\",\n  \"user_message\": \"Hệ thống tạm thời gặp sự cố. Vui lòng thử lại sau.\",\n  \"dev_message\": \"Mock scenario: server-error\",\n  \"domain\": \"system\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 500,
+          "label": "server-error",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "server-error",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "22907e51-91d9-4a6f-83c4-9521f6211b4f",
+          "body": "{\n  \"order_id\": \"ORD-20261015-0042\",\n  \"status\": \"PENDING_PAYMENT\",\n  \"subtotal_amount\": {\n    \"currency_code\": \"VND\",\n    \"units\": 345000,\n    \"nanos\": 0\n  },\n  \"discount_amount\": {\n    \"currency_code\": \"VND\",\n    \"units\": 345000,\n    \"nanos\": 0\n  },\n  \"shipping_fee\": {\n    \"currency_code\": \"VND\",\n    \"units\": 345000,\n    \"nanos\": 0\n  },\n  \"final_amount\": {\n    \"currency_code\": \"VND\",\n    \"units\": 345000,\n    \"nanos\": 0\n  },\n  \"vietqr_url\": \"https://img.vietqr.io/image/970422-0123456789-compact.png?amount=345000&addInfo=ORD202610150042\",\n  \"payment_expires_at\": \"2026-10-15T08:45:00.000Z\"\n}",
+          "latency": 3000,
+          "statusCode": 201,
+          "label": "slow",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "slow",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "384e2f69-04ce-4c26-aa0b-881c4ba324cc",
+          "body": "{\n  \"order_id\": \"ORD-20261015-0042\",\n  \"status\": \"PENDING_PAYMENT\",\n  \"subtotal_amount\": {\n    \"currency_code\": \"VND\",\n    \"units\": 345000,\n    \"nanos\": 0\n  },\n  \"discount_amount\": {\n    \"currency_code\": \"VND\",\n    \"units\": 345000,\n    \"nanos\": 0\n  },\n  \"shipping_fee\": {\n    \"currency_code\": \"VND\",\n    \"units\": 345000,\n    \"nanos\": 0\n  },\n  \"final_amount\": {\n    \"currency_code\": \"VND\",\n    \"units\": 345000,\n    \"nanos\": 0\n  },\n  \"vietqr_url\": \"https://img.vietqr.io/image/970422-0123456789-compact.png?amount=345000&addInfo=ORD202610150042\",\n  \"payment_expires_at\": \"2026-10-15T08:45:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 201,
+          "label": "success — Khởi tạo đơn hàng và khóa tồn thành công, cấp mã VietQR",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "d4ad69ad-536f-44c1-abe9-419b068a5fb1",
+      "type": "http",
+      "documentation": "Lấy danh sách lịch sử đơn hàng của khách hàng",
+      "method": "get",
+      "endpoint": "api/v1/orders",
+      "responses": [
+        {
+          "uuid": "2937f2c1-6669-4236-aa8b-449f3f707955",
+          "body": "{\n  \"orders\": [],\n  \"total\": 0,\n  \"page\": 1,\n  \"page_size\": 10\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "empty",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "empty",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "f1558a61-5cc3-4156-b2ab-6204a1e2794d",
+          "body": "{\n  \"error_code\": \"ERR_AUTH_UNAUTHORIZED\",\n  \"user_message\": \"Phiên đăng nhập không hợp lệ hoặc đã hết hạn.\",\n  \"dev_message\": \"Mock scenario: unauthorized\",\n  \"domain\": \"auth\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 401,
+          "label": "unauthorized",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "unauthorized",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "cd9eb463-33c5-4bdc-97de-52d57e8fa8ca",
+          "body": "{\n  \"error_code\": \"ERR_AUTH_FORBIDDEN\",\n  \"user_message\": \"Bạn không có quyền thực hiện thao tác này.\",\n  \"dev_message\": \"Mock scenario: forbidden\",\n  \"domain\": \"auth\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 403,
+          "label": "forbidden",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "forbidden",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "0c47c9fd-b3ab-44a4-b8fc-dfb6b5e6fd2e",
+          "body": "{\n  \"error_code\": \"ERR_INTERNAL_SERVER_ERROR\",\n  \"user_message\": \"Hệ thống tạm thời gặp sự cố. Vui lòng thử lại sau.\",\n  \"dev_message\": \"Mock scenario: server-error\",\n  \"domain\": \"system\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 500,
+          "label": "server-error",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "server-error",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "99145b1a-6687-4c94-bca2-080443118ac5",
+          "body": "{\n  \"orders\": [\n    {\n      \"order_id\": \"ORD-20261015-0042\",\n      \"status\": \"SHIPPING\",\n      \"total_items\": 2,\n      \"final_amount\": {\n        \"currency_code\": \"VND\",\n        \"units\": 345000,\n        \"nanos\": 0\n      },\n      \"created_at\": \"2026-10-15T08:30:00.000Z\"\n    }\n  ],\n  \"total\": 12,\n  \"page\": 1,\n  \"page_size\": 10\n}",
+          "latency": 3000,
+          "statusCode": 200,
+          "label": "slow",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "slow",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "d3f28fa2-711a-420c-8c55-7a938b927b9e",
+          "body": "{\n  \"orders\": [\n    {\n      \"order_id\": \"ORD-20261015-0042\",\n      \"status\": \"SHIPPING\",\n      \"total_items\": 2,\n      \"final_amount\": {\n        \"currency_code\": \"VND\",\n        \"units\": 345000,\n        \"nanos\": 0\n      },\n      \"created_at\": \"2026-10-15T08:30:00.000Z\"\n    }\n  ],\n  \"total\": 12,\n  \"page\": 1,\n  \"page_size\": 10\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "success — Danh sách đơn hàng",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "8c487971-431d-4001-946d-1a1de8d6f16f",
+      "type": "http",
+      "documentation": "Lấy thông tin chi tiết đơn hàng",
+      "method": "get",
+      "endpoint": "api/v1/orders/:order_id",
+      "responses": [
+        {
+          "uuid": "a0052c24-4fb7-4796-8c4b-e7cb154ebdb5",
+          "body": "{\n  \"error_code\": \"ERR_AUTH_UNAUTHORIZED\",\n  \"user_message\": \"Phiên đăng nhập không hợp lệ hoặc đã hết hạn.\",\n  \"dev_message\": \"Mock scenario: unauthorized\",\n  \"domain\": \"auth\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 401,
+          "label": "unauthorized",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "unauthorized",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "63ca67f8-1cef-4c8e-b01b-f60fa82d8d35",
+          "body": "{\n  \"error_code\": \"ERR_AUTH_FORBIDDEN\",\n  \"user_message\": \"Bạn không có quyền thực hiện thao tác này.\",\n  \"dev_message\": \"Mock scenario: forbidden\",\n  \"domain\": \"auth\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 403,
+          "label": "forbidden",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "forbidden",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "539d5936-4ea4-4aba-a1c5-8f1ba7651327",
+          "body": "{\n  \"error_code\": \"ERR_RESOURCE_NOT_FOUND\",\n  \"user_message\": \"Không tìm thấy tài nguyên yêu cầu.\",\n  \"dev_message\": \"Mock scenario: not-found\",\n  \"domain\": \"resource\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 404,
+          "label": "not-found",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "not-found",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "76f037e9-9aee-43d1-b731-74130935091e",
+          "body": "{\n  \"error_code\": \"ERR_INTERNAL_SERVER_ERROR\",\n  \"user_message\": \"Hệ thống tạm thời gặp sự cố. Vui lòng thử lại sau.\",\n  \"dev_message\": \"Mock scenario: server-error\",\n  \"domain\": \"system\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 500,
+          "label": "server-error",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "server-error",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "dcecbef9-1cc2-48b7-b943-4eb45ed3486a",
+          "body": "{\n  \"order_id\": \"ORD-20261015-0042\",\n  \"status\": \"PAID\",\n  \"shipping_address\": {\n    \"id\": \"ADDR-1029\",\n    \"recipient_name\": \"Nguyễn Văn An\",\n    \"phone_number\": \"0905123456\",\n    \"street_address\": \"123 Lê Duẩn\",\n    \"ward\": \"Phường Thuận Hòa\",\n    \"district\": \"Thành phố Huế\",\n    \"province\": \"Tỉnh Thừa Thiên Huế\",\n    \"is_default\": true\n  },\n  \"items\": [\n    {\n      \"sku_code\": \"MX-GION-500G\",\n      \"quantity\": 2,\n      \"price\": {\n        \"currency_code\": \"VND\",\n        \"units\": 345000,\n        \"nanos\": 0\n      }\n    }\n  ],\n  \"subtotal_amount\": {\n    \"currency_code\": \"VND\",\n    \"units\": 345000,\n    \"nanos\": 0\n  },\n  \"discount_amount\": {\n    \"currency_code\": \"VND\",\n    \"units\": 345000,\n    \"nanos\": 0\n  },\n  \"shipping_fee\": {\n    \"currency_code\": \"VND\",\n    \"units\": 345000,\n    \"nanos\": 0\n  },\n  \"final_amount\": {\n    \"currency_code\": \"VND\",\n    \"units\": 345000,\n    \"nanos\": 0\n  },\n  \"tracking_code\": \"GHN202610150998\",\n  \"seal_code\": \"SEAL-OMA-20261015-8899\",\n  \"packing_video_url\": \"https://video.omama.vn/packing/ORD202610150042.mp4\",\n  \"created_at\": \"2026-10-15T08:30:00.000Z\"\n}",
+          "latency": 3000,
+          "statusCode": 200,
+          "label": "slow",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "slow",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "628631a6-c9c7-49c7-9eb0-89a579fa2a0d",
+          "body": "{\n  \"order_id\": \"ORD-20261015-0042\",\n  \"status\": \"PAID\",\n  \"shipping_address\": {\n    \"id\": \"ADDR-1029\",\n    \"recipient_name\": \"Nguyễn Văn An\",\n    \"phone_number\": \"0905123456\",\n    \"street_address\": \"123 Lê Duẩn\",\n    \"ward\": \"Phường Thuận Hòa\",\n    \"district\": \"Thành phố Huế\",\n    \"province\": \"Tỉnh Thừa Thiên Huế\",\n    \"is_default\": true\n  },\n  \"items\": [\n    {\n      \"sku_code\": \"MX-GION-500G\",\n      \"quantity\": 2,\n      \"price\": {\n        \"currency_code\": \"VND\",\n        \"units\": 345000,\n        \"nanos\": 0\n      }\n    }\n  ],\n  \"subtotal_amount\": {\n    \"currency_code\": \"VND\",\n    \"units\": 345000,\n    \"nanos\": 0\n  },\n  \"discount_amount\": {\n    \"currency_code\": \"VND\",\n    \"units\": 345000,\n    \"nanos\": 0\n  },\n  \"shipping_fee\": {\n    \"currency_code\": \"VND\",\n    \"units\": 345000,\n    \"nanos\": 0\n  },\n  \"final_amount\": {\n    \"currency_code\": \"VND\",\n    \"units\": 345000,\n    \"nanos\": 0\n  },\n  \"tracking_code\": \"GHN202610150998\",\n  \"seal_code\": \"SEAL-OMA-20261015-8899\",\n  \"packing_video_url\": \"https://video.omama.vn/packing/ORD202610150042.mp4\",\n  \"created_at\": \"2026-10-15T08:30:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "success — Thông tin chi tiết đơn hàng",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "d00f0dbf-b076-44e6-8929-b355e35e1aa8",
+      "type": "http",
+      "documentation": "Khách hàng chủ động hủy đơn hàng (Khi chưa thanh toán)",
+      "method": "post",
+      "endpoint": "api/v1/orders/:order_id/cancel",
+      "responses": [
+        {
+          "uuid": "9e091510-7ef7-4ea8-b208-227bfa208d15",
+          "body": "{\n  \"error_code\": \"ERR_AUTH_UNAUTHORIZED\",\n  \"user_message\": \"Phiên đăng nhập không hợp lệ hoặc đã hết hạn.\",\n  \"dev_message\": \"Mock scenario: unauthorized\",\n  \"domain\": \"auth\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 401,
+          "label": "unauthorized",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "unauthorized",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "391a04b0-f9f8-4d66-9199-6ad51d340583",
+          "body": "{\n  \"error_code\": \"ERR_AUTH_FORBIDDEN\",\n  \"user_message\": \"Bạn không có quyền thực hiện thao tác này.\",\n  \"dev_message\": \"Mock scenario: forbidden\",\n  \"domain\": \"auth\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 403,
+          "label": "forbidden",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "forbidden",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "7abc383c-a980-46c7-8334-26e07d308836",
+          "body": "{\n  \"error_code\": \"ERR_RESOURCE_NOT_FOUND\",\n  \"user_message\": \"Không tìm thấy tài nguyên yêu cầu.\",\n  \"dev_message\": \"Mock scenario: not-found\",\n  \"domain\": \"resource\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 404,
+          "label": "not-found",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "not-found",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "a779947f-cda5-48d4-877a-f2bcae77489c",
+          "body": "{\n  \"error_code\": \"ERR_CONFLICT\",\n  \"user_message\": \"Dữ liệu đã thay đổi hoặc xung đột với trạng thái hiện tại.\",\n  \"dev_message\": \"Mock scenario: conflict\",\n  \"domain\": \"business\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 409,
+          "label": "conflict",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "conflict",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "81bd4ad4-2eef-49bb-87e7-0a93752da8f0",
+          "body": "{\n  \"error_code\": \"ERR_INTERNAL_SERVER_ERROR\",\n  \"user_message\": \"Hệ thống tạm thời gặp sự cố. Vui lòng thử lại sau.\",\n  \"dev_message\": \"Mock scenario: server-error\",\n  \"domain\": \"system\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 500,
+          "label": "server-error",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "server-error",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "355b150f-bddb-4d7a-8ecc-b72b2ec0f216",
+          "body": "{\n  \"is_cancelled\": true,\n  \"status\": \"CANCELLED_BY_USER\"\n}",
+          "latency": 3000,
+          "statusCode": 200,
+          "label": "slow",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "slow",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "8efbe066-6cef-444d-97ea-1fbb60ccbacc",
+          "body": "{\n  \"is_cancelled\": true,\n  \"status\": \"CANCELLED_BY_USER\"\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "success — Hủy đơn thành công, giải phóng tồn kho tức thời",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "d78a90b1-c2f0-45f7-a741-123cca8e5823",
+      "type": "http",
+      "documentation": "Theo dõi tiến độ đóng gói & hành trình vận chuyển thực tế",
+      "method": "get",
+      "endpoint": "api/v1/orders/:order_id/tracking",
+      "responses": [
+        {
+          "uuid": "f870c85b-5a9c-4f54-9d4b-28c8d31b84d0",
+          "body": "{\n  \"error_code\": \"ERR_AUTH_UNAUTHORIZED\",\n  \"user_message\": \"Phiên đăng nhập không hợp lệ hoặc đã hết hạn.\",\n  \"dev_message\": \"Mock scenario: unauthorized\",\n  \"domain\": \"auth\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 401,
+          "label": "unauthorized",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "unauthorized",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "884e62de-44e8-4ac9-9627-5c14bf7b609e",
+          "body": "{\n  \"error_code\": \"ERR_AUTH_FORBIDDEN\",\n  \"user_message\": \"Bạn không có quyền thực hiện thao tác này.\",\n  \"dev_message\": \"Mock scenario: forbidden\",\n  \"domain\": \"auth\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 403,
+          "label": "forbidden",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "forbidden",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "2d665da2-d9db-4ace-92fc-0219da35cde4",
+          "body": "{\n  \"error_code\": \"ERR_RESOURCE_NOT_FOUND\",\n  \"user_message\": \"Không tìm thấy tài nguyên yêu cầu.\",\n  \"dev_message\": \"Mock scenario: not-found\",\n  \"domain\": \"resource\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 404,
+          "label": "not-found",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "not-found",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "bf051613-c589-4ab6-8858-df7d20db782e",
+          "body": "{\n  \"error_code\": \"ERR_INTERNAL_SERVER_ERROR\",\n  \"user_message\": \"Hệ thống tạm thời gặp sự cố. Vui lòng thử lại sau.\",\n  \"dev_message\": \"Mock scenario: server-error\",\n  \"domain\": \"system\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 500,
+          "label": "server-error",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "server-error",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "b923e0cc-3c7b-489d-b2a7-d8d3858dd523",
+          "body": "{\n  \"order_id\": \"ORD-20261015-0042\",\n  \"tracking_code\": \"GHN202610150998\",\n  \"carrier_name\": \"Giao Hàng Nhanh (GHN Express)\",\n  \"current_status\": \"IN_TRANSIT\",\n  \"seal_code\": \"SEAL-OMA-20261015-8899\",\n  \"packing_video_url\": \"https://video.omama.vn/packing/ORD202610150042.mp4\",\n  \"shipper_name\": \"Trần Văn Bình\",\n  \"shipper_phone\": \"0912345678\",\n  \"checkpoints\": [\n    {\n      \"status\": \"IN_TRANSIT\",\n      \"timestamp\": \"2026-10-15T14:20:00.000Z\",\n      \"location\": \"Kho trung chuyển GHN Huế\",\n      \"description\": \"Kiện hàng kẹo mè xửng đã nhập kho phân loại và chuẩn bị chuyển đi Đà Nẵng.\"\n    }\n  ]\n}",
+          "latency": 3000,
+          "statusCode": 200,
+          "label": "slow",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "slow",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "fcb7f807-67e6-4041-b8c9-a1c2ed07d174",
+          "body": "{\n  \"order_id\": \"ORD-20261015-0042\",\n  \"tracking_code\": \"GHN202610150998\",\n  \"carrier_name\": \"Giao Hàng Nhanh (GHN Express)\",\n  \"current_status\": \"IN_TRANSIT\",\n  \"seal_code\": \"SEAL-OMA-20261015-8899\",\n  \"packing_video_url\": \"https://video.omama.vn/packing/ORD202610150042.mp4\",\n  \"shipper_name\": \"Trần Văn Bình\",\n  \"shipper_phone\": \"0912345678\",\n  \"checkpoints\": [\n    {\n      \"status\": \"IN_TRANSIT\",\n      \"timestamp\": \"2026-10-15T14:20:00.000Z\",\n      \"location\": \"Kho trung chuyển GHN Huế\",\n      \"description\": \"Kiện hàng kẹo mè xửng đã nhập kho phân loại và chuẩn bị chuyển đi Đà Nẵng.\"\n    }\n  ]\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "success — Dữ liệu hành trình vận chuyển và bằng chứng đóng gói",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "4d37ab00-d9ea-4108-a6a3-3525950e71d6",
+      "type": "http",
+      "documentation": "Lấy thông tin hồ sơ cá nhân",
+      "method": "get",
+      "endpoint": "api/v1/profile",
+      "responses": [
+        {
+          "uuid": "bf98f9c1-b5ff-4a09-8f26-6911ce8acf15",
+          "body": "{\n  \"customer_id\": \"CUST-8820\",\n  \"phone_number\": \"0905123456\",\n  \"full_name\": \"Nguyễn Văn An\",\n  \"email\": \"an.nguyen@example.com\",\n  \"avatar_url\": \"https://cdn.omama.vn/avatars/u8820.jpg\",\n  \"membership_tier\": \"{{oneOf 'BRONZE' 'SILVER' 'GOLD' 'DIAMOND'}}\",\n  \"loyalty_points\": 450\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "Thông tin hồ sơ khách hàng",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "103da3e1-6ca3-4b94-943a-a9b974f47a69",
+      "type": "http",
+      "documentation": "Cập nhật thông tin hồ sơ cá nhân",
+      "method": "put",
+      "endpoint": "api/v1/profile",
+      "responses": [
+        {
+          "uuid": "c2ea1b90-3b63-496e-8b44-2a05949f6ce0",
+          "body": "{\n  \"customer_id\": \"CUST-8820\",\n  \"phone_number\": \"0905123456\",\n  \"full_name\": \"Nguyễn Văn An\",\n  \"email\": \"an.nguyen@example.com\",\n  \"avatar_url\": \"https://cdn.omama.vn/avatars/u8820.jpg\",\n  \"membership_tier\": \"{{oneOf 'BRONZE' 'SILVER' 'GOLD' 'DIAMOND'}}\",\n  \"loyalty_points\": 450\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "Cập nhật hồ sơ thành công",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "6f1e2ef9-c0ea-4144-acee-f61c4c419314",
+      "type": "http",
+      "documentation": "Lấy danh sách sổ địa chỉ nhận hàng",
+      "method": "get",
+      "endpoint": "api/v1/profile/addresses",
+      "responses": [
+        {
+          "uuid": "2ccb9108-fcad-4cdf-a337-b5ef02d7f2ef",
+          "body": "{\n  \"addresses\": []\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "empty",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "empty",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "407807f5-eeee-4bc1-9ef5-1b51de48bcc8",
+          "body": "{\n  \"error_code\": \"ERR_AUTH_UNAUTHORIZED\",\n  \"user_message\": \"Phiên đăng nhập không hợp lệ hoặc đã hết hạn.\",\n  \"dev_message\": \"Mock scenario: unauthorized\",\n  \"domain\": \"auth\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 401,
+          "label": "unauthorized",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "unauthorized",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "ca922343-239f-445d-873f-db877f3cb6f6",
+          "body": "{\n  \"error_code\": \"ERR_AUTH_FORBIDDEN\",\n  \"user_message\": \"Bạn không có quyền thực hiện thao tác này.\",\n  \"dev_message\": \"Mock scenario: forbidden\",\n  \"domain\": \"auth\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 403,
+          "label": "forbidden",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "forbidden",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "6d69fa4f-0679-4562-85c2-c107450a169d",
+          "body": "{\n  \"error_code\": \"ERR_INTERNAL_SERVER_ERROR\",\n  \"user_message\": \"Hệ thống tạm thời gặp sự cố. Vui lòng thử lại sau.\",\n  \"dev_message\": \"Mock scenario: server-error\",\n  \"domain\": \"system\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 500,
+          "label": "server-error",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "server-error",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "8a3dc32f-c379-4ebd-a8c9-2140c9cb0035",
+          "body": "{\n  \"addresses\": [\n    {\n      \"id\": \"ADDR-1029\",\n      \"recipient_name\": \"Nguyễn Văn An\",\n      \"phone_number\": \"0905123456\",\n      \"street_address\": \"123 Lê Duẩn\",\n      \"ward\": \"Phường Thuận Hòa\",\n      \"district\": \"Thành phố Huế\",\n      \"province\": \"Tỉnh Thừa Thiên Huế\",\n      \"is_default\": true\n    }\n  ]\n}",
+          "latency": 3000,
+          "statusCode": 200,
+          "label": "slow",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "slow",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "83e6fcad-2d73-4d7d-995b-1e5cdddfb89d",
+          "body": "{\n  \"addresses\": [\n    {\n      \"id\": \"ADDR-1029\",\n      \"recipient_name\": \"Nguyễn Văn An\",\n      \"phone_number\": \"0905123456\",\n      \"street_address\": \"123 Lê Duẩn\",\n      \"ward\": \"Phường Thuận Hòa\",\n      \"district\": \"Thành phố Huế\",\n      \"province\": \"Tỉnh Thừa Thiên Huế\",\n      \"is_default\": true\n    }\n  ]\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "success — Danh sách địa chỉ nhận hàng đã lưu",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "d239f348-2107-4edc-93da-56ce64969988",
+      "type": "http",
+      "documentation": "Thêm địa chỉ nhận hàng mới",
+      "method": "post",
+      "endpoint": "api/v1/profile/addresses",
+      "responses": [
+        {
+          "uuid": "8aad0013-bd34-46d9-8512-522be626a74a",
+          "body": "{\n  \"error_code\": \"ERR_VALIDATION\",\n  \"user_message\": \"Dữ liệu không hợp lệ. Vui lòng kiểm tra lại.\",\n  \"dev_message\": \"Mock scenario: validation-error\",\n  \"domain\": \"validation\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 400,
+          "label": "validation-error",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "validation-error",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "896c3d81-d05d-4d05-bf06-9042e55a073f",
+          "body": "{\n  \"error_code\": \"ERR_AUTH_UNAUTHORIZED\",\n  \"user_message\": \"Phiên đăng nhập không hợp lệ hoặc đã hết hạn.\",\n  \"dev_message\": \"Mock scenario: unauthorized\",\n  \"domain\": \"auth\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 401,
+          "label": "unauthorized",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "unauthorized",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "adefe555-dfab-4a3f-b321-12da9d366a49",
+          "body": "{\n  \"error_code\": \"ERR_AUTH_FORBIDDEN\",\n  \"user_message\": \"Bạn không có quyền thực hiện thao tác này.\",\n  \"dev_message\": \"Mock scenario: forbidden\",\n  \"domain\": \"auth\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 403,
+          "label": "forbidden",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "forbidden",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "465199c8-67d7-49f0-9360-38ea8faea31a",
+          "body": "{\n  \"error_code\": \"ERR_CONFLICT\",\n  \"user_message\": \"Dữ liệu đã thay đổi hoặc xung đột với trạng thái hiện tại.\",\n  \"dev_message\": \"Mock scenario: conflict\",\n  \"domain\": \"business\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 409,
+          "label": "conflict",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "conflict",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "f77eb911-86fb-4a41-b741-008da7fe958e",
+          "body": "{\n  \"error_code\": \"ERR_INTERNAL_SERVER_ERROR\",\n  \"user_message\": \"Hệ thống tạm thời gặp sự cố. Vui lòng thử lại sau.\",\n  \"dev_message\": \"Mock scenario: server-error\",\n  \"domain\": \"system\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 500,
+          "label": "server-error",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "server-error",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "350bb628-d2e3-4c22-8573-5baf76c25f69",
+          "body": "{\n  \"id\": \"ADDR-1029\",\n  \"recipient_name\": \"Nguyễn Văn An\",\n  \"phone_number\": \"0905123456\",\n  \"street_address\": \"123 Lê Duẩn\",\n  \"ward\": \"Phường Thuận Hòa\",\n  \"district\": \"Thành phố Huế\",\n  \"province\": \"Tỉnh Thừa Thiên Huế\",\n  \"is_default\": true\n}",
+          "latency": 3000,
+          "statusCode": 201,
+          "label": "slow",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "slow",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "a36c83c9-8b57-42de-88de-e549b64760a5",
+          "body": "{\n  \"id\": \"ADDR-1029\",\n  \"recipient_name\": \"Nguyễn Văn An\",\n  \"phone_number\": \"0905123456\",\n  \"street_address\": \"123 Lê Duẩn\",\n  \"ward\": \"Phường Thuận Hòa\",\n  \"district\": \"Thành phố Huế\",\n  \"province\": \"Tỉnh Thừa Thiên Huế\",\n  \"is_default\": true\n}",
+          "latency": 0,
+          "statusCode": 201,
+          "label": "success — Thêm địa chỉ mới thành công",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "2fb0c5d4-e8eb-43c1-b9f5-771bd50a4069",
+      "type": "http",
+      "documentation": "Sửa thông tin địa chỉ nhận hàng",
+      "method": "put",
+      "endpoint": "api/v1/profile/addresses/:address_id",
+      "responses": [
+        {
+          "uuid": "91915d79-b337-43d6-a638-c4e5a8ef6e87",
+          "body": "{\n  \"error_code\": \"ERR_VALIDATION\",\n  \"user_message\": \"Dữ liệu không hợp lệ. Vui lòng kiểm tra lại.\",\n  \"dev_message\": \"Mock scenario: validation-error\",\n  \"domain\": \"validation\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 400,
+          "label": "validation-error",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "validation-error",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "cfae4f9f-491e-4a88-a4a5-18ad7ae84bff",
+          "body": "{\n  \"error_code\": \"ERR_AUTH_UNAUTHORIZED\",\n  \"user_message\": \"Phiên đăng nhập không hợp lệ hoặc đã hết hạn.\",\n  \"dev_message\": \"Mock scenario: unauthorized\",\n  \"domain\": \"auth\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 401,
+          "label": "unauthorized",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "unauthorized",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "63b8580a-981a-4b67-bf2c-adb0a48337a6",
+          "body": "{\n  \"error_code\": \"ERR_AUTH_FORBIDDEN\",\n  \"user_message\": \"Bạn không có quyền thực hiện thao tác này.\",\n  \"dev_message\": \"Mock scenario: forbidden\",\n  \"domain\": \"auth\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 403,
+          "label": "forbidden",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "forbidden",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "49d1ebec-40bc-418f-b28b-c44b487dcc08",
+          "body": "{\n  \"error_code\": \"ERR_RESOURCE_NOT_FOUND\",\n  \"user_message\": \"Không tìm thấy tài nguyên yêu cầu.\",\n  \"dev_message\": \"Mock scenario: not-found\",\n  \"domain\": \"resource\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 404,
+          "label": "not-found",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "not-found",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "9503183c-7344-4a51-8310-fe8bdc10389e",
+          "body": "{\n  \"error_code\": \"ERR_CONFLICT\",\n  \"user_message\": \"Dữ liệu đã thay đổi hoặc xung đột với trạng thái hiện tại.\",\n  \"dev_message\": \"Mock scenario: conflict\",\n  \"domain\": \"business\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 409,
+          "label": "conflict",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "conflict",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "1c55a4e9-745c-4d45-a1a0-94442da1c6e5",
+          "body": "{\n  \"error_code\": \"ERR_INTERNAL_SERVER_ERROR\",\n  \"user_message\": \"Hệ thống tạm thời gặp sự cố. Vui lòng thử lại sau.\",\n  \"dev_message\": \"Mock scenario: server-error\",\n  \"domain\": \"system\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 500,
+          "label": "server-error",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "server-error",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "1d372a68-5766-44ea-bb1c-799fd8f11cdc",
+          "body": "{\n  \"id\": \"ADDR-1029\",\n  \"recipient_name\": \"Nguyễn Văn An\",\n  \"phone_number\": \"0905123456\",\n  \"street_address\": \"123 Lê Duẩn\",\n  \"ward\": \"Phường Thuận Hòa\",\n  \"district\": \"Thành phố Huế\",\n  \"province\": \"Tỉnh Thừa Thiên Huế\",\n  \"is_default\": true\n}",
+          "latency": 3000,
+          "statusCode": 200,
+          "label": "slow",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "slow",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "b30cd017-999b-4662-be6f-0bd46db9297f",
+          "body": "{\n  \"id\": \"ADDR-1029\",\n  \"recipient_name\": \"Nguyễn Văn An\",\n  \"phone_number\": \"0905123456\",\n  \"street_address\": \"123 Lê Duẩn\",\n  \"ward\": \"Phường Thuận Hòa\",\n  \"district\": \"Thành phố Huế\",\n  \"province\": \"Tỉnh Thừa Thiên Huế\",\n  \"is_default\": true\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "success — Cập nhật địa chỉ thành công",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "c44461ec-fa14-4de6-8d40-a5ed20064f78",
+      "type": "http",
+      "documentation": "Xóa địa chỉ nhận hàng",
+      "method": "delete",
+      "endpoint": "api/v1/profile/addresses/:address_id",
+      "responses": [
+        {
+          "uuid": "ab4283a3-3a02-4652-a865-f03e2e229b75",
+          "body": "{\n  \"error_code\": \"ERR_AUTH_UNAUTHORIZED\",\n  \"user_message\": \"Phiên đăng nhập không hợp lệ hoặc đã hết hạn.\",\n  \"dev_message\": \"Mock scenario: unauthorized\",\n  \"domain\": \"auth\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 401,
+          "label": "unauthorized",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "unauthorized",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "6b468d25-16a2-41f3-9cca-6491af6e6e71",
+          "body": "{\n  \"error_code\": \"ERR_AUTH_FORBIDDEN\",\n  \"user_message\": \"Bạn không có quyền thực hiện thao tác này.\",\n  \"dev_message\": \"Mock scenario: forbidden\",\n  \"domain\": \"auth\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 403,
+          "label": "forbidden",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "forbidden",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "52b73f22-f073-46ca-a440-628c647b4686",
+          "body": "{\n  \"error_code\": \"ERR_RESOURCE_NOT_FOUND\",\n  \"user_message\": \"Không tìm thấy tài nguyên yêu cầu.\",\n  \"dev_message\": \"Mock scenario: not-found\",\n  \"domain\": \"resource\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 404,
+          "label": "not-found",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "not-found",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "4b9af125-f584-406f-b0f6-432a9d751b92",
+          "body": "{\n  \"error_code\": \"ERR_INTERNAL_SERVER_ERROR\",\n  \"user_message\": \"Hệ thống tạm thời gặp sự cố. Vui lòng thử lại sau.\",\n  \"dev_message\": \"Mock scenario: server-error\",\n  \"domain\": \"system\",\n  \"timestamp\": \"2026-09-26T00:00:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 500,
+          "label": "server-error",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "server-error",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "6d86baed-ab53-4123-bb87-2b5e489b20dc",
+          "body": "{\n  \"success\": true,\n  \"message\": \"Đã xóa địa chỉ khỏi danh bạ.\"\n}",
+          "latency": 3000,
+          "statusCode": 200,
+          "label": "slow",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "slow",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "63dc89f6-9813-4f52-85ad-a91ee63708b7",
+          "body": "{\n  \"success\": true,\n  \"message\": \"Đã xóa địa chỉ khỏi danh bạ.\"\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "success — Xóa địa chỉ thành công",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "51debc89-594e-4cc8-bf81-8cd77d686eef",
+      "type": "http",
+      "documentation": "Danh sách voucher & mã khuyến mãi đang phát hành",
+      "method": "get",
+      "endpoint": "api/v1/promotions/vouchers",
+      "responses": [
+        {
+          "uuid": "b440d0ae-f35b-4e20-85db-a31188444268",
+          "body": "{\n  \"vouchers\": [\n    {\n      \"voucher_code\": \"OMAMA_FREESHIP_30K\",\n      \"title\": \"Miễn phí vận chuyển 30k cho đơn từ 200k\",\n      \"discount_type\": \"{{oneOf 'PERCENTAGE' 'FIXED_AMOUNT' 'FREESHIP'}}\",\n      \"discount_value\": 30000,\n      \"min_order_amount\": 200000,\n      \"max_discount_amount\": 30000,\n      \"expires_at\": \"2026-11-30T23:59:59.000Z\"\n    }\n  ]\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "Danh sách voucher khả dụng",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "16c2d499-588a-431f-ae01-b3fdc8d54282",
+      "type": "http",
+      "documentation": "Thẩm định mã giảm giá trước khi đặt hàng",
+      "method": "post",
+      "endpoint": "api/v1/promotions/validate",
+      "responses": [
+        {
+          "uuid": "6ced4b36-8332-48eb-b821-0f80f97640d5",
+          "body": "{\n  \"is_valid\": true,\n  \"discount_amount\": {\n    \"currency_code\": \"VND\",\n    \"units\": 345000,\n    \"nanos\": 0\n  },\n  \"message\": \"Áp dụng mã miễn phí vận chuyển 30.000đ thành công!\"\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "Kết quả thẩm định voucher",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "8c1c3c13-7964-4bfb-8164-27cc2fc5b000",
+          "body": "{\n  \"error_code\": \"ERR_INVENTORY_INSUFFICIENT_STOCK\",\n  \"user_message\": \"Sản phẩm đã hết hàng hoặc số lượng khả dụng không đủ.\",\n  \"dev_message\": \"SKU MX-GION-500G available qty is 1, requested 2\",\n  \"domain\": \"inventory\",\n  \"timestamp\": \"2026-10-15T08:30:00.120Z\"\n}",
+          "latency": 0,
+          "statusCode": 400,
+          "label": "Voucher không hợp lệ hoặc không đủ điều kiện áp dụng",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "d88a597e-5274-410b-8e41-3ca07152bb95",
+      "type": "http",
+      "documentation": "Tra cứu điểm tích lũy & hạng thẻ thành viên",
+      "method": "get",
+      "endpoint": "api/v1/loyalty/points",
+      "responses": [
+        {
+          "uuid": "0c88767a-d2d4-47ca-9612-4d40117f1c69",
+          "body": "{\n  \"customer_id\": \"CUST-8820\",\n  \"current_points\": 450,\n  \"tier\": \"{{oneOf 'BRONZE' 'SILVER' 'GOLD' 'DIAMOND'}}\",\n  \"points_to_vnd_rate\": 100\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "Dữ liệu điểm thưởng thành viên",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "3ca30ac0-071e-49ce-b44c-1d1b580cf47d",
+          "body": "{\n  \"error_code\": \"ERR_INVENTORY_INSUFFICIENT_STOCK\",\n  \"user_message\": \"Sản phẩm đã hết hàng hoặc số lượng khả dụng không đủ.\",\n  \"dev_message\": \"SKU MX-GION-500G available qty is 1, requested 2\",\n  \"domain\": \"inventory\",\n  \"timestamp\": \"2026-10-15T08:30:00.120Z\"\n}",
+          "latency": 0,
+          "statusCode": 401,
+          "label": "Chưa đăng nhập",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "6e692ebe-e8e2-445c-a1f7-d3fe606f7033",
+      "type": "http",
+      "documentation": "Danh sách đánh giá đã xác thực (Verified Reviews) của sản phẩm",
+      "method": "get",
+      "endpoint": "api/v1/reviews/products/:product_id",
+      "responses": [
+        {
+          "uuid": "7ff04188-ca61-44a8-8369-d66a3288dcbe",
+          "body": "{\n  \"average_rating\": 4.8,\n  \"total_reviews\": 86,\n  \"reviews\": [\n    {\n      \"review_id\": \"REV-20261016-090\",\n      \"customer_name\": \"Nguyễn V. A.\",\n      \"rating\": 5,\n      \"comment\": \"Kẹo mè xửng giòn ăn rất bùi, mè rang chín thơm lừng, vị ngọt thanh không hề gắt!\",\n      \"media_urls\": [\n        \"https://cdn.omama.vn/reviews/rev1.jpg\"\n      ],\n      \"is_verified_purchase\": true,\n      \"created_at\": \"2026-10-16T09:00:00.000Z\",\n      \"seller_reply\": \"Dạ O Mạ cảm ơn quý khách đã tin dùng đặc sản Huế ạ!\"\n    }\n  ]\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "Danh sách đánh giá",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "17599f5b-b393-4d8d-9636-b1981f430eb4",
+      "type": "http",
+      "documentation": "Đăng bài đánh giá chất lượng sản phẩm",
+      "method": "post",
+      "endpoint": "api/v1/reviews",
+      "responses": [
+        {
+          "uuid": "9419c941-5c34-4100-bfdb-ef7e3bb221ba",
+          "body": "{\n  \"review_id\": \"REV-20261016-090\",\n  \"customer_name\": \"Nguyễn V. A.\",\n  \"rating\": 5,\n  \"comment\": \"Kẹo mè xửng giòn ăn rất bùi, mè rang chín thơm lừng, vị ngọt thanh không hề gắt!\",\n  \"media_urls\": [\n    \"https://cdn.omama.vn/reviews/rev1.jpg\"\n  ],\n  \"is_verified_purchase\": true,\n  \"created_at\": \"2026-10-16T09:00:00.000Z\",\n  \"seller_reply\": \"Dạ O Mạ cảm ơn quý khách đã tin dùng đặc sản Huế ạ!\"\n}",
+          "latency": 0,
+          "statusCode": 201,
+          "label": "Gửi đánh giá thành công",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "b4d0ee13-21bd-408a-8aee-1d383b29e857",
+          "body": "{\n  \"error_code\": \"ERR_INVENTORY_INSUFFICIENT_STOCK\",\n  \"user_message\": \"Sản phẩm đã hết hàng hoặc số lượng khả dụng không đủ.\",\n  \"dev_message\": \"SKU MX-GION-500G available qty is 1, requested 2\",\n  \"domain\": \"inventory\",\n  \"timestamp\": \"2026-10-15T08:30:00.120Z\"\n}",
+          "latency": 0,
+          "statusCode": 400,
+          "label": "Khách hàng chưa mua sản phẩm này hoặc đơn chưa hoàn thành",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "4f49f50d-3d1b-4877-bbb4-f71918182a3e",
+      "type": "http",
+      "documentation": "Gửi yêu cầu đổi trả / hoàn tiền (Ticket Khiếu nại)",
+      "method": "post",
+      "endpoint": "api/v1/returns",
+      "responses": [
+        {
+          "uuid": "9c8b0ba1-a22e-4477-a82c-bb375f42bea0",
+          "body": "{\n  \"return_id\": \"RET-20261016-0012\",\n  \"order_id\": \"ORD-20261015-0042\",\n  \"status\": \"{{oneOf 'REQUESTED' 'INSPECTING' 'APPROVED' 'REFUNDED' 'REJECTED'}}\",\n  \"reason\": \"Bao bì phong kẹo bị rách\",\n  \"refund_amount\": {\n    \"currency_code\": \"VND\",\n    \"units\": 345000,\n    \"nanos\": 0\n  },\n  \"created_at\": \"2026-10-16T10:15:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 201,
+          "label": "Tiếp nhận ticket đổi trả thành công",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "3b52c981-c73b-4288-abb9-35086b67082d",
+          "body": "{\n  \"error_code\": \"ERR_INVENTORY_INSUFFICIENT_STOCK\",\n  \"user_message\": \"Sản phẩm đã hết hàng hoặc số lượng khả dụng không đủ.\",\n  \"dev_message\": \"SKU MX-GION-500G available qty is 1, requested 2\",\n  \"domain\": \"inventory\",\n  \"timestamp\": \"2026-10-15T08:30:00.120Z\"\n}",
+          "latency": 0,
+          "statusCode": 400,
+          "label": "Đơn hàng quá thời hạn khiếu nại (48h kể từ lúc nhận hàng)",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "982391ac-0c29-4516-93a1-6abe570fa783",
+      "type": "http",
+      "documentation": "Tra cứu tiến độ xử lý yêu cầu đổi trả / hoàn tiền",
+      "method": "get",
+      "endpoint": "api/v1/returns/:return_id",
+      "responses": [
+        {
+          "uuid": "ddc2ec30-2df6-46e3-bfe9-62041a8c4432",
+          "body": "{\n  \"return_id\": \"RET-20261016-0012\",\n  \"order_id\": \"ORD-20261015-0042\",\n  \"status\": \"{{oneOf 'REQUESTED' 'INSPECTING' 'APPROVED' 'REFUNDED' 'REJECTED'}}\",\n  \"reason\": \"Bao bì phong kẹo bị rách\",\n  \"refund_amount\": {\n    \"currency_code\": \"VND\",\n    \"units\": 345000,\n    \"nanos\": 0\n  },\n  \"created_at\": \"2026-10-16T10:15:00.000Z\"\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "Trạng thái và kết quả đối soát của ticket",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "8c70ba57-1313-4729-b649-494d8fe7ef7b",
+      "type": "http",
+      "documentation": "Tra cứu nguồn gốc xuất xứ kẹo OCOP qua mã QR trên bao bì",
+      "method": "get",
+      "endpoint": "api/v1/trace/:qr_code",
+      "responses": [
+        {
+          "uuid": "3fbf1e6c-983c-4728-8575-29bb0db75f8b",
+          "body": "{\n  \"qr_code\": \"QR-OMA-20261015-LOT08\",\n  \"product_name\": \"Kẹo Mè Xửng Giòn O Mạ Huế\",\n  \"batch_code\": \"LOT-20261015-G08\",\n  \"ocop_star\": 4,\n  \"ocop_certificate_no\": \"OCOP-TTH-2024-089\",\n  \"production_date\": \"2026-10-15\",\n  \"expiry_date\": \"2027-04-15\",\n  \"workshop_location\": \"Xưởng Mè Xửng O Mạ, Thị xã Hương Thủy, Tỉnh Thừa Thiên Huế\",\n  \"artisan_name\": \"Nghệ nhân Lê Thị O Mạ\",\n  \"food_safety_cert\": \"Số 128/2024/ATTP-TTH do Chi cục An toàn VSTP Thừa Thiên Huế cấp\",\n  \"raw_materials_origin\": \"Mè vàng Quảng Điền, Đậu phụng A Lưới, Gừng tươi Bạch Mã\",\n  \"crafting_video_url\": \"https://video.omama.vn/ocop/crafting_process_gion.mp4\"\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "Thông tin truy xuất nguồn gốc OCOP đầy đủ",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "dbd1182c-3e3f-4abc-a50d-52baabf8500e",
+          "body": "{\n  \"error_code\": \"ERR_INVENTORY_INSUFFICIENT_STOCK\",\n  \"user_message\": \"Sản phẩm đã hết hàng hoặc số lượng khả dụng không đủ.\",\n  \"dev_message\": \"SKU MX-GION-500G available qty is 1, requested 2\",\n  \"domain\": \"inventory\",\n  \"timestamp\": \"2026-10-15T08:30:00.120Z\"\n}",
+          "latency": 0,
+          "statusCode": 404,
+          "label": "Mã QR không tồn tại trên hệ thống xuất xưởng O Mạ",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "892c41e8-acf8-4607-b1a2-70107933fcc1",
+      "type": "http",
+      "documentation": "Webhook tiếp nhận thông báo tiền về từ cổng Ngân hàng VietQR",
+      "method": "post",
+      "endpoint": "api/v1/payments/vietqr/callback",
+      "responses": [
+        {
+          "uuid": "a5f89fc6-e5d4-46f8-b276-a82379cf6927",
+          "body": "{\n  \"status\": \"SUCCESS\"\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "Xác thực chữ ký thành công và đã cập nhật trạng thái PAID",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "17d23cd6-1e5c-45a6-ba47-44656e0af427",
+          "body": "{\n  \"error_code\": \"ERR_INVENTORY_INSUFFICIENT_STOCK\",\n  \"user_message\": \"Sản phẩm đã hết hàng hoặc số lượng khả dụng không đủ.\",\n  \"dev_message\": \"SKU MX-GION-500G available qty is 1, requested 2\",\n  \"domain\": \"inventory\",\n  \"timestamp\": \"2026-10-15T08:30:00.120Z\"\n}",
+          "latency": 0,
+          "statusCode": 401,
+          "label": "Chữ ký HMAC không khớp (Cảnh báo giả mạo)",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "fafe117f-a209-453f-b1ff-9b4cd5421e12",
+      "type": "http",
+      "documentation": "Webhook tiếp nhận thông báo đơn hàng mới từ sàn Shopee Open Platform",
+      "method": "post",
+      "endpoint": "api/v1/webhooks/marketplace/shopee",
+      "responses": [
+        {
+          "uuid": "235ea0bb-2acd-4645-8c33-efc04d9821b8",
+          "body": "{\n  \"code\": 0,\n  \"message\": \"success\"\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "Tiếp nhận thành công",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "98fa4a07-e091-4713-8e95-cda4d3f0d408",
+      "type": "http",
+      "documentation": "Webhook tiếp nhận thông báo đơn hàng mới từ sàn TikTok Shop",
+      "method": "post",
+      "endpoint": "api/v1/webhooks/marketplace/tiktok",
+      "responses": [
+        {
+          "uuid": "1c13abef-c7b3-4b3a-baed-201015766d8e",
+          "body": "{\n  \"code\": 0\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "Tiếp nhận thành công",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "51e4c91a-642a-4a3c-80b2-88f42ddb4e5f",
+      "type": "http",
+      "documentation": "Webhook cập nhật trạng thái vận đơn từ hãng vận chuyển Giao Hàng Nhanh (GHN)",
+      "method": "post",
+      "endpoint": "api/v1/webhooks/logistics/ghn",
+      "responses": [
+        {
+          "uuid": "28aad1a7-1627-4435-b0bf-1130eb3ad2d2",
+          "body": "{\n  \"success\": true\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "Đã ghi nhận trạng thái vận chuyển",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    }
+  ],
+  "rootChildren": [
+    {
+      "type": "route",
+      "uuid": "0190ac4d-9b0a-4cdd-a928-33b698df9510"
+    },
+    {
+      "type": "route",
+      "uuid": "3aedc389-c3c8-48ea-a357-5b7c5e213729"
+    },
+    {
+      "type": "route",
+      "uuid": "e26aacaa-37b1-440b-bd53-c1aca82b0c25"
+    },
+    {
+      "type": "route",
+      "uuid": "9c2640ef-a6eb-497f-bbd0-4de413dc4c12"
+    },
+    {
+      "type": "route",
+      "uuid": "b8973470-912b-467c-a931-207cf0d13bdd"
+    },
+    {
+      "type": "route",
+      "uuid": "1f2ccd6b-7955-4eae-b003-0f33019def43"
+    },
+    {
+      "type": "route",
+      "uuid": "78237483-23eb-437b-be2e-fbb05b3a52e1"
+    },
+    {
+      "type": "route",
+      "uuid": "6e9cfd99-7c08-411a-9082-89b430d20325"
+    },
+    {
+      "type": "route",
+      "uuid": "c1baed7e-3744-44e4-86b6-347e7ea4d38b"
+    },
+    {
+      "type": "route",
+      "uuid": "01dd232c-efd7-43d0-b183-45e6c258f945"
+    },
+    {
+      "type": "route",
+      "uuid": "5848f965-a85b-4171-9c00-eeb6381adcad"
+    },
+    {
+      "type": "route",
+      "uuid": "d432ed11-94d0-4ad9-8bec-16bb0c5cb0e8"
+    },
+    {
+      "type": "route",
+      "uuid": "d4e46813-5c14-410d-897f-e8c4a4e6d1af"
+    },
+    {
+      "type": "route",
+      "uuid": "dbdae21e-0f7f-4542-b7d6-bc27e73d0f3b"
+    },
+    {
+      "type": "route",
+      "uuid": "7ef601a9-d1e6-4078-a9b4-b7626c2d9ac9"
+    },
+    {
+      "type": "route",
+      "uuid": "d4ad69ad-536f-44c1-abe9-419b068a5fb1"
+    },
+    {
+      "type": "route",
+      "uuid": "8c487971-431d-4001-946d-1a1de8d6f16f"
+    },
+    {
+      "type": "route",
+      "uuid": "d00f0dbf-b076-44e6-8929-b355e35e1aa8"
+    },
+    {
+      "type": "route",
+      "uuid": "d78a90b1-c2f0-45f7-a741-123cca8e5823"
+    },
+    {
+      "type": "route",
+      "uuid": "4d37ab00-d9ea-4108-a6a3-3525950e71d6"
+    },
+    {
+      "type": "route",
+      "uuid": "103da3e1-6ca3-4b94-943a-a9b974f47a69"
+    },
+    {
+      "type": "route",
+      "uuid": "6f1e2ef9-c0ea-4144-acee-f61c4c419314"
+    },
+    {
+      "type": "route",
+      "uuid": "d239f348-2107-4edc-93da-56ce64969988"
+    },
+    {
+      "type": "route",
+      "uuid": "2fb0c5d4-e8eb-43c1-b9f5-771bd50a4069"
+    },
+    {
+      "type": "route",
+      "uuid": "c44461ec-fa14-4de6-8d40-a5ed20064f78"
+    },
+    {
+      "type": "route",
+      "uuid": "51debc89-594e-4cc8-bf81-8cd77d686eef"
+    },
+    {
+      "type": "route",
+      "uuid": "16c2d499-588a-431f-ae01-b3fdc8d54282"
+    },
+    {
+      "type": "route",
+      "uuid": "d88a597e-5274-410b-8e41-3ca07152bb95"
+    },
+    {
+      "type": "route",
+      "uuid": "6e692ebe-e8e2-445c-a1f7-d3fe606f7033"
+    },
+    {
+      "type": "route",
+      "uuid": "17599f5b-b393-4d8d-9636-b1981f430eb4"
+    },
+    {
+      "type": "route",
+      "uuid": "4f49f50d-3d1b-4877-bbb4-f71918182a3e"
+    },
+    {
+      "type": "route",
+      "uuid": "982391ac-0c29-4516-93a1-6abe570fa783"
+    },
+    {
+      "type": "route",
+      "uuid": "8c70ba57-1313-4729-b649-494d8fe7ef7b"
+    },
+    {
+      "type": "route",
+      "uuid": "892c41e8-acf8-4607-b1a2-70107933fcc1"
+    },
+    {
+      "type": "route",
+      "uuid": "fafe117f-a209-453f-b1ff-9b4cd5421e12"
+    },
+    {
+      "type": "route",
+      "uuid": "98fa4a07-e091-4713-8e95-cda4d3f0d408"
+    },
+    {
+      "type": "route",
+      "uuid": "51e4c91a-642a-4a3c-80b2-88f42ddb4e5f"
+    }
+  ],
+  "proxyMode": false,
+  "proxyHost": "",
+  "proxyRemovePrefix": false,
+  "tlsOptions": {
+    "enabled": false,
+    "type": "CERT",
+    "pfxPath": "",
+    "certPath": "",
+    "keyPath": "",
+    "caPath": "",
+    "passphrase": ""
+  },
+  "cors": true,
+  "headers": [
+    {
+      "key": "Access-Control-Allow-Origin",
+      "value": "*"
+    },
+    {
+      "key": "Access-Control-Allow-Methods",
+      "value": "GET,POST,PUT,PATCH,DELETE,HEAD,OPTIONS"
+    },
+    {
+      "key": "Access-Control-Allow-Headers",
+      "value": "Content-Type, Origin, Accept, Authorization, Content-Length, X-Requested-With"
+    }
+  ],
+  "proxyReqHeaders": [
+    {
+      "key": "",
+      "value": ""
+    }
+  ],
+  "proxyResHeaders": [
+    {
+      "key": "",
+      "value": ""
+    }
+  ],
+  "data": [],
+  "callbacks": []
+}
