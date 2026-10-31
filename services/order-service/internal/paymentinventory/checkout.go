@@ -27,9 +27,15 @@ func CommandHash(action, order, reservation, digest, warehouse string) string {
 	return hex.EncodeToString(h[:])
 }
 func (a Adapter) Reserve(ctx context.Context, s core.SnapshotInput, key string) (core.ResourceProof, error) {
+	if a.Terminal {
+		return a.terminalReserve(ctx, s, key, true)
+	}
 	return a.reserve(ctx, s, key, true)
 }
 func (a Adapter) Lookup(ctx context.Context, s core.SnapshotInput, key string) (core.ResourceProof, error) {
+	if a.Terminal {
+		return a.terminalReserve(ctx, s, key, false)
+	}
 	return a.reserve(ctx, s, key, false)
 }
 func (a Adapter) reserve(ctx context.Context, s core.SnapshotInput, key string, create bool) (core.ResourceProof, error) {
@@ -87,9 +93,15 @@ func checked(out *inventory.ReservationOutcome, s core.SnapshotInput, prior core
 	return core.ResourceProof{OrderID: out.OrderId, ReservationID: out.ReservationId, ItemsDigest: core.ManifestHash(out.ItemsDigest), WarehouseID: out.WarehouseId, State: out.State, ResourceVersion: out.ResourceVersion, DecisionID: c.DecisionId, DecisionAt: at, ExpiresAt: out.ExpiresAt.AsTime()}, nil
 }
 func (a Adapter) Commit(ctx context.Context, s core.SnapshotInput, p core.ResourceProof, key string) (core.ResourceProof, error) {
+	if a.Terminal {
+		return a.terminalCommand(ctx, s, p, key, "FinalizeReservation")
+	}
 	return a.command(ctx, s, p, key, "FINALIZE")
 }
 func (a Adapter) Release(ctx context.Context, s core.SnapshotInput, p core.ResourceProof, key string) (core.ResourceProof, error) {
+	if a.Terminal {
+		return a.terminalCommand(ctx, s, p, key, "ReleaseReservationByOrder")
+	}
 	return a.command(ctx, s, p, key, "RELEASE")
 }
 func (a Adapter) command(ctx context.Context, s core.SnapshotInput, p core.ResourceProof, key, action string) (core.ResourceProof, error) {

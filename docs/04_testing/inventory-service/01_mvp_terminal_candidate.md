@@ -1,6 +1,6 @@
 # Inventory — cập nhật theo MVP (31/10/2026)
 
-Trạng thái: implementation candidate, CHƯA nghiệm thu tích hợp. Không đổi registry thành verified.
+Trạng thái: đã có bài kiểm tra tích hợp Order–Inventory local qua TLS/PostgreSQL; CHƯA nghiệm thu deployment/toàn bộ MVP. Không đổi registry thành verified. Xem [bằng chứng và cách chạy chung](../order-service/order-inventory-integration.md).
 
 ## Đã triển khai
 - Generate lại Go message/gRPC từ Inventory và Common workflow contract trên dev.
@@ -21,7 +21,7 @@ Trạng thái: implementation candidate, CHƯA nghiệm thu tích hợp. Không 
 - go test ./..., go vet ./..., go build ./...: PASS local.
 - Tests mới: canonical/hash validation, tombstone, original decision replay, same-key/hash conflict, authentication và reversal gate.
 - Có test PostgreSQL thật TestTerminalPostgresLifecycle: concurrency finalize, không double deduction, release committed reject và tombstone. Cần INVENTORY_TEST_DATABASE_URL trỏ DB test có quyền CREATE SCHEMA; không lấy DATABASE_URL tự động. Mỗi test tạo schema UUID riêng và xóa schema đó khi xong.
-- Docker daemon chưa chạy; không có INVENTORY_TEST_DATABASE_URL nên test PostgreSQL thật SKIP. Chưa có evidence live broker, TLS client Order hay E2E; không coi mock test là acceptance.
+- Bản candidate ban đầu chưa chạy PostgreSQL thật. Bài `scripts/test-order-inventory.py` nay chạy `TestTerminalPostgresLifecycle` và client Order qua TLS với PostgreSQL riêng; có kiểm worker đặt đơn, mất ACK/replay và số tồn/outbox. Chưa có nghiệm thu live broker hoặc UI E2E; không coi mock test là acceptance.
 
 ## Việc còn phải nghiệm thu
 - Run PostgreSQL concurrency/rollback/expiry/restart và real broker outbox với owning team.
