@@ -63,7 +63,9 @@ GHN `client_order_code`. The returned print label is stored as the stable refere
 `GHN:<tracking_code>`; an expiring print URL must be generated only when requested.
 If creation times out or returns a retryable provider error, Shipping performs one bounded
 lookup through GHN `detail-by-client-code`. A matching order is recovered instead of creating
-another carrier order; a definitive provider `4xx` is never retried or reconciled.
+another carrier order; a definitive provider `4xx` is never retried or reconciled. Because the
+detail response omits `total_fee`, recovery refreshes it with a non-mutating preview and falls
+back to the checkout quote if that preview is temporarily unavailable.
 
 Configure the GHN Developer Portal only after the public endpoint is reachable. Add the custom
 header `X-GHN-Webhook-Secret` with the same value as `SHIPPING_GHN_WEBHOOK_SECRET`. A missing

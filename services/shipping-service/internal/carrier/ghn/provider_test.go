@@ -106,8 +106,11 @@ func TestCreateShipmentRecoversAmbiguousResultByClientOrderCode(t *testing.T) {
 			}
 			return response(t, http.StatusOK, map[string]any{
 				"order_code": "LADRECOVERED", "client_order_code": shipmentID,
-				"status": "ready_to_pick", "total_fee": 34000,
-				"leadtime": "2026-11-03T16:59:59+07:00",
+				"status": "ready_to_pick", "leadtime": "2026-11-03T16:59:59+07:00",
+			}), nil
+		case r.Method == http.MethodPost && r.URL.Path == "/shiip/public-api/v2/shipping-order/preview":
+			return response(t, http.StatusOK, map[string]any{
+				"total_fee": 34000, "expected_delivery_time": "2026-11-03T16:59:59+07:00",
 			}), nil
 		default:
 			t.Fatalf("unexpected request %s %s", r.Method, r.URL.String())
@@ -118,13 +121,47 @@ func TestCreateShipmentRecoversAmbiguousResultByClientOrderCode(t *testing.T) {
 	result, err := client.CreateShipment(context.Background(), carrier.CreateRequest{
 		IdempotencyKey: "packing-event-1", ShipmentID: shipmentID,
 		OrderID: "order-1", PackageID: "package-1", ServiceCode: "GHN_LIGHT",
-		Recipient: testRecipient(), Parcel: testParcel(), CODAmountVND: 285000,
+		Recipient: testRecipient(), Parcel: testParcel(), CODAmountVND: 285000, CheckoutFeeVND: 53900,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if calls != 2 || result.TrackingCode != "LADRECOVERED" || result.EstimatedFeeVND != 34000 {
+	if calls != 3 || result.TrackingCode != "LADRECOVERED" || result.EstimatedFeeVND != 34000 {
 		t.Fatalf("unexpected recovered result after %d calls: %+v", calls, result)
+	}
+}
+
+func TestCreateShipmentUsesCheckoutFeeWhenRecoveryPreviewFails(t *testing.T) {
+	const shipmentID = "c51be44f-e7a3-4e1f-9093-507948136699"
+	calls := 0
+	client := testClientWithDoer(t, doerFunc(func(r *http.Request) (*http.Response, error) {
+		calls++
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/shiip/public-api/v2/shipping-order/create":
+			return nil, context.DeadlineExceeded
+		case r.Method == http.MethodGet && r.URL.Path == "/shiip/public-api/v2/shipping-order/detail-by-client-code":
+			return response(t, http.StatusOK, map[string]any{
+				"order_code": "LADFALLBACK", "client_order_code": shipmentID,
+				"status": "ready_to_pick", "leadtime": "2026-11-03T16:59:59+07:00",
+			}), nil
+		case r.Method == http.MethodPost && r.URL.Path == "/shiip/public-api/v2/shipping-order/preview":
+			return nil, context.DeadlineExceeded
+		default:
+			t.Fatalf("unexpected request %s %s", r.Method, r.URL.String())
+			return nil, nil
+		}
+	}))
+
+	result, err := client.CreateShipment(context.Background(), carrier.CreateRequest{
+		IdempotencyKey: "packing-event-1", ShipmentID: shipmentID,
+		OrderID: "order-1", PackageID: "package-1", ServiceCode: "GHN_LIGHT",
+		Recipient: testRecipient(), Parcel: testParcel(), CheckoutFeeVND: 53900,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if calls != 3 || result.TrackingCode != "LADFALLBACK" || result.EstimatedFeeVND != 53900 {
+		t.Fatalf("unexpected fallback result after %d calls: %+v", calls, result)
 	}
 }
 

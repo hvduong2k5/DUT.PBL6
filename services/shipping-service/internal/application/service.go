@@ -180,7 +180,8 @@ func (s *Service) CreateShipment(ctx context.Context, cmd domain.CreateShipmentC
 		IdempotencyKey: cmd.IdempotencyKey, ShipmentID: shipment.ID.String(), OrderID: shipment.OrderID,
 		PackageID: shipment.PackageID, SealCode: shipment.SealCode, ServiceCode: shipment.ServiceCode,
 		Recipient: shipment.Recipient, Parcel: shipment.Parcel, CODAmountVND: shipment.CODAmountVND,
-		ShippingNotes: cmd.ShippingNotes,
+		CheckoutFeeVND: shipment.CheckoutFeeVND,
+		ShippingNotes:  cmd.ShippingNotes,
 	})
 	if providerErr != nil {
 		return s.failCreation(ctx, shipment, "CARRIER_REJECTED", providerErr)

@@ -66,7 +66,6 @@ type orderDetailResponse struct {
 	OrderCode       string    `json:"order_code"`
 	ClientOrderCode string    `json:"client_order_code"`
 	Status          string    `json:"status"`
-	TotalFee        int64     `json:"total_fee"`
 	Leadtime        time.Time `json:"leadtime"`
 }
 
@@ -132,7 +131,19 @@ func (c *Client) CreateShipment(ctx context.Context, request carrier.CreateReque
 		if detail.ClientOrderCode != request.ShipmentID || strings.TrimSpace(detail.OrderCode) == "" {
 			return carrier.CreateResult{}, fmt.Errorf("GHN reconciliation returned a mismatched order")
 		}
-		return createResult(detail.OrderCode, detail.TotalFee, detail.Leadtime), nil
+		recoveredFee := request.CheckoutFeeVND
+		delivery := detail.Leadtime
+		var preview orderResponse
+		if previewErr := c.do(reconcileCtx, http.MethodPost, "/shiip/public-api/v2/shipping-order/preview", payload, &preview); previewErr == nil && preview.TotalFee > 0 {
+			recoveredFee = preview.TotalFee
+			if delivery.IsZero() {
+				delivery = preview.ExpectedDeliveryTime
+			}
+		}
+		// GHN detail-by-client-code does not expose total_fee. If preview is also
+		// unavailable, preserve the checkout quote rather than orphaning an order
+		// that GHN already created or recording an invented provider fee.
+		return createResult(detail.OrderCode, recoveredFee, delivery), nil
 	}
 	if strings.TrimSpace(result.OrderCode) == "" {
 		return carrier.CreateResult{}, fmt.Errorf("GHN create order returned an empty order code")

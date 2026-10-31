@@ -69,7 +69,7 @@ func Load() (Config, error) {
 		GHNFromWardCode:    strings.TrimSpace(os.Getenv("SHIPPING_GHN_FROM_WARD_CODE")),
 		GHNWebhookSecret:   strings.TrimSpace(os.Getenv("SHIPPING_GHN_WEBHOOK_SECRET")),
 		GHNRequestTimeout:  durationEnv("SHIPPING_GHN_REQUEST_TIMEOUT", 10*time.Second),
-		GHNRecoveryTimeout: durationEnv("SHIPPING_GHN_RECONCILE_TIMEOUT", 3*time.Second),
+		GHNRecoveryTimeout: durationEnv("SHIPPING_GHN_RECONCILE_TIMEOUT", 5*time.Second),
 		GHNQuoteTTL:        durationEnv("SHIPPING_GHN_QUOTE_TTL", 15*time.Minute),
 	}
 	if cfg.InternalToken == "" {

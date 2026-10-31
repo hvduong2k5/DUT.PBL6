@@ -35,6 +35,7 @@ type CreateRequest struct {
 	Recipient      domain.Recipient
 	Parcel         domain.Parcel
 	CODAmountVND   int64
+	CheckoutFeeVND int64
 	ShippingNotes  string
 }
 
