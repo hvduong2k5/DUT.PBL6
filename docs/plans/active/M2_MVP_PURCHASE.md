@@ -20,7 +20,7 @@ Expected files: checkout/domain/mvp_purchase_models.dart, mvp_purchase_repositor
 - [x] Adapter reads array addresses, sends quote only cart_revision/payment_method/shipping_address_id; no selected items/voucher/client prices.
 - [x] Quote state reads cart/addresses, blocks empty cart/no valid address; revision is server-owned; changing address invalidates quote; pending duplicate/stale response/dispose safe.
 - [x] Expired quote is unusable; retry rereads authority, no local expiry extension/price calculation. Conflicts remain visible.
-- [x] Focused12/12, analyze PASS, full156/156; build/native NOT RUN for unactivated foundation. Diff/handoff prepared; checkpoint Mobile only.
+- [x] Focused12/12, analyze PASS, full156/156; debug APK PASS275.1s on cf7948c; native NOT RUN for unactivated foundation. Diff/handoff prepared; checkpoint Mobile only.
 
 ## Next slices (refine at entry)
 
@@ -30,6 +30,6 @@ M2-B must analyze coherent route/repository/mock activation, canonical saved-add
 
 M2-A foundation implemented. New DTOs/repository/Cubit are **PREPARED / NOT WIRED TO RUNTIME / NATIVE NOT RUN**. No visible Mobile screen behavior changed yet. ApiClient adds a strict array read sharing existing auth/error recovery; existing object methods are unchanged.
 
-Focused12/12 PASS and full156/156 PASS. First analyze reported one private mock type exposed by a public test helper; renamed helper private; final analyze PASS (No issues,17.1s). No test/lint disabled. Build/native NOT RUN: no route/provider activation, dependencies or Android code changed; full widget suite compiles/checks shared transport regression. No live backend requests.
+Focused12/12 PASS and full156/156 PASS. First analyze reported one private mock type exposed by a public test helper; renamed helper private; final analyze PASS (No issues,17.1s). No test/lint disabled. User-requested debug APK build PASS275.1s on source cf7948c (--no-pub; process-local Kotlin workaround), artifact build/app/outputs/flutter-apk/app-debug.apk. Native install/device test NOT RUN; no route/provider activation, dependencies or Android code changed. No live backend requests.
 
 Next exact slice M2-B: inspect quote review screen/route and coherent cohort/mock wiring, enforce saved-address availability and full-cart intent, timers/requote UX and explicit preview-only boundary until M3 operations exist. Never connect quote to legacy direct submit. Before editing UI, read/apply existing design skill/primitives and plan the actual route states. Geography/history/tracking and cleanup semantics remain separately gated.

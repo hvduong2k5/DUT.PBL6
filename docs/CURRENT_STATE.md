@@ -18,7 +18,7 @@ Master: docs/plans/MASTER_PLAN.md. Current detailed plan: docs/plans/active/M2_M
 
 ## Validation
 
-Focused12/12 PASS; full156/156 PASS. Analyze initially reported one public test helper exposing private mock type; helper renamed private, final analyze PASS No issues17.1s. Focused rerun after naming-only fix recorded at checkpoint. No disabled assertions/lints. Debug APK/native NOT RUN: no UI wiring/dependencies/Android changes. Baseline old144tests do not by themselves establish new DTO/provider compatibility.
+Focused12/12 PASS; full156/156 PASS. Analyze initially reported one public test helper exposing private mock type; helper renamed private, final analyze PASS No issues17.1s. Focused rerun after naming-only fix recorded at checkpoint. No disabled assertions/lints. User-requested debug APK build PASS275.1s on cf7948c, output apps/mobile-app/build/app/outputs/flutter-apk/app-debug.apk. Native install/device test NOT RUN; no UI wiring/dependencies/Android changes. Baseline old144tests do not by themselves establish new DTO/provider compatibility.
 
 ## Boundaries / remaining work
 
