@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.hvduong.identity.infrastructure.persistence.mybatis.mapper.RegistrationOperationMapper">
+
+    <resultMap id="RegistrationOperationRowMap" type="com.hvduong.identity.infrastructure.persistence.entity.RegistrationOperationRow">
+        <id property="operationId" column="operation_id"/>
+        <result property="operationType" column="operation_type"/>
+        <result property="idempotencyKey" column="idempotency_key"/>
+        <result property="requestFingerprint" column="request_fingerprint"/>
+        <result property="principalId" column="principal_id"/>
+        <result property="operationStatus" column="operation_status"/>
+        <result property="errorCode" column="error_code"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+        <result property="completedAt" column="completed_at"/>
+    </resultMap>
+
+    <insert id="insert">
+        INSERT INTO registration_operations (
+            operation_id, operation_type, idempotency_key, request_fingerprint, principal_id, operation_status
+        ) VALUES (
+            #{operationId}, #{operationType}, #{idempotencyKey}, #{requestFingerprint}, #{principalId}, #{operationStatus}
+        )
+    </insert>
+
+    <select id="findByIdempotency" resultMap="RegistrationOperationRowMap">
+        SELECT *
+        FROM registration_operations
+        WHERE operation_type = #{operationType} AND idempotency_key = #{idempotencyKey}
+    </select>
+
+    <update id="updateStatus">
+        UPDATE registration_operations
+        SET operation_status = #{newStatus},
+            error_code = #{errorCode},
+            completed_at = COALESCE(#{completedAt}, completed_at)
+        WHERE operation_id = #{operationId}
+    </update>
+
+</mapper>

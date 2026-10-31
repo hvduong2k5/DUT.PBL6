@@ -1,0 +1,1110 @@
+openapi: 3.0.3
+info:
+  title: Order Cart and Checkout - Review Candidate
+  version: 1.0.0-review
+  description: Design-only replacement slice for selected Cart/Checkout endpoints on Order 3.2. Breaking
+    Cart/Quote DTO changes require an explicit route/version/cohort rollout with clients; this file does
+    not change sandbox 3.1 runtime. CART/CHECK invariants, Redis/PostgreSQL admission boundary, compensation,
+    PaymentIntent atomicity and cleanup are in architecture chapter 11. All credentials/examples are illustrative.
+  license:
+    name: Internal project review
+servers:
+- url: https://order.example.invalid
+  description: Placeholder; no deployment represented
+tags:
+- name: Cart
+  description: Owner-scoped intent to buy; display projection, no stock reservation
+- name: Checkout
+  description: Immutable selected quote, durable acceptance and placement saga
+security:
+- checkoutPrincipal: []
+paths:
+  /api/v1/cart:
+    get:
+      tags:
+      - Cart
+      operationId: getCartProjection
+      summary: Read Cart with current server-side display pricing
+      description: Read one Redis cart snapshot; build Catalog projection outside mutation. GET does not
+        refresh Cart TTL. Empty/missing Cart gets a new server incarnation atomically. Catalog outage
+        returns 200 UNAVAILABLE with items preserved and unknown prices null; Redis unavailable returns
+        503. No stock hold.
+      parameters: []
+      responses:
+        '200':
+          description: Successful owner-scoped result.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                - no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CartProjection'
+              examples:
+                priced:
+                  value: &id001
+                    cart_id: d502e082-f217-47d8-b291-d825e5dc7824
+                    revision: 5
+                    items:
+                    - sku_code: MX-GION-500G
+                      quantity: 2
+                      product_name: Mè xửng giòn 500 g
+                      image_url: null
+                      unit_price: 75000
+                      line_total: 150000
+                      purchasable: true
+                      unavailable_reason: null
+                      catalog_version: catalog-42
+                    currency: VND
+                    estimated_subtotal: 150000
+                    priced_subtotal: 150000
+                    pricing_status: AVAILABLE
+                    quoted: false
+                    stock_reserved: false
+                catalogUnavailable:
+                  value:
+                    cart_id: d502e082-f217-47d8-b291-d825e5dc7824
+                    revision: 5
+                    items:
+                    - sku_code: MX-GION-500G
+                      quantity: 2
+                      product_name: null
+                      image_url: null
+                      unit_price: null
+                      line_total: null
+                      purchasable: null
+                      unavailable_reason: CATALOG_UNAVAILABLE
+                      catalog_version: null
+                    currency: VND
+                    estimated_subtotal: null
+                    priced_subtotal: 0
+                    pricing_status: UNAVAILABLE
+                    quoted: false
+                    stock_reserved: false
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '422':
+          $ref: '#/components/responses/Error422'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '503':
+          $ref: '#/components/responses/Error503'
+  /api/v1/cart/items:
+    post:
+      tags:
+      - Cart
+      operationId: addCartSku
+      summary: Add SKU quantity delta
+      description: Same owner/cart/action/key/hash replays original mutation receipt before revision CAS.
+        Changed payload conflicts. Validate new/increased SKU before mutation. Redis Lua applies one delta,
+        revision bump and replay marker atomically. Projection can be newer than applied_revision.
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Successful owner-scoped result.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                - no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CartMutationResult'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '422':
+          $ref: '#/components/responses/Error422'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '503':
+          $ref: '#/components/responses/Error503'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CartAddRequest'
+  /api/v1/cart/items/{item_id}:
+    put:
+      tags:
+      - Cart
+      operationId: setCartSkuQuantity
+      summary: Set absolute SKU quantity
+      description: Requires same incarnation and expected revision. Decrease remains allowed if Catalog
+        SKU is unavailable; increases require validation. No zero quantity; use DELETE. Stable key on
+        outcome unknown.
+      parameters:
+      - $ref: '#/components/parameters/ItemId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Successful owner-scoped result.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                - no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CartMutationResult'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '422':
+          $ref: '#/components/responses/Error422'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '503':
+          $ref: '#/components/responses/Error503'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CartSetRequest'
+    delete:
+      tags:
+      - Cart
+      operationId: deleteCartSku
+      summary: Delete one Cart SKU
+      description: CAS by cart_id query and If-Match revision; hash includes path/query/header meaning.
+        Return 200 with mutation receipt plus projection, replacing legacy 204 in this candidate cohort.
+        No Catalog validation required to remove an unavailable line. Same key replay does not delete
+        a re-added SKU.
+      parameters:
+      - $ref: '#/components/parameters/ItemId'
+      - $ref: '#/components/parameters/CartId'
+      - $ref: '#/components/parameters/CartIfMatch'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Successful owner-scoped result.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                - no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CartMutationResult'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '422':
+          $ref: '#/components/responses/Error422'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '503':
+          $ref: '#/components/responses/Error503'
+  /api/v1/checkout/quote:
+    post:
+      tags:
+      - Checkout
+      operationId: createSelectedCartQuote
+      summary: Quote selected Cart lines
+      description: Validate ownership and Cart incarnation/revision. Require distinct selected SKU codes
+        present in the Cart; freeze actual quantities. Server Catalog/Profile/Shipping determine commercial
+        terms; no reserve. Reordered selection is normalized; user-supplied totals rejected. Saved address
+        Customer-only; Guest inline address. Preview TTL five minutes.
+      parameters: []
+      responses:
+        '200':
+          description: Successful owner-scoped result.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                - no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Quote'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '422':
+          $ref: '#/components/responses/Error422'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '503':
+          $ref: '#/components/responses/Error503'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuoteRequest'
+  /api/v1/checkout:
+    post:
+      tags:
+      - Checkout
+      operationId: acceptQuotedCheckout
+      summary: Durably accept checkout once per Quote
+      description: SQL registry checked before Redis. Same principal/key/hash replays. New request passes
+        atomic Redis Cart/Quote guard, then SQL T0 atomically persists accepted snapshot, operation, registry,
+        unique quote consumption and submission fingerprint guard. Redis guard is Cart admission point;
+        a Cart mutation after that guard, even before SQL commit, belongs to the next Cart state and cannot
+        change accepted input. No distributed Redis/SQL atomicity is promised. Quote used by another key
+        returns 409; different Quote with same active/consumed owner/cart/revision/selection fingerprint
+        returns 409. FAILED Quote never reopens; safe terminal failure can release cross-quote guard.
+        Commit unknown must retry same key. No Inventory call before acceptance.
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '202':
+          description: Durable acceptance or replay of an in-flight operation; public Order absent until
+            placement.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                - no-store
+            Location:
+              schema:
+                type: string
+              description: /api/v1/checkout-operations/{operation_id}
+            Retry-After:
+              schema:
+                type: integer
+                enum:
+                - 2
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckoutOperation'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '422':
+          $ref: '#/components/responses/Error422'
+          description: Direct feature/policy rejection or replay of terminal definitive failure. For a
+            replay response, operation_id identifies the safely failed operation.
+        '429':
+          $ref: '#/components/responses/Error429'
+        '503':
+          $ref: '#/components/responses/Error503'
+        '201':
+          description: Replay of SUCCEEDED operation; same Order, no additional resource effect.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckoutOperation'
+        '410':
+          $ref: '#/components/responses/Error410'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckoutRequest'
+  /api/v1/checkout-operations/{id}:
+    get:
+      tags:
+      - Checkout
+      operationId: getOwnedCheckoutOperation
+      summary: Read accepted operation and cleanup result
+      description: Owner-scoped read. Poll while processing; do not substitute GET /orders/{planned_id}.
+        Worker accepted snapshot is durable PostgreSQL data and survives Redis Quote expiry. Order/Intent
+        creation and cleanup scheduling are atomic at PLACE; cleanup never controls whether placement
+        succeeded.
+      parameters:
+      - $ref: '#/components/parameters/OperationId'
+      responses:
+        '200':
+          description: Successful owner-scoped result.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                - no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckoutOperation'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '422':
+          $ref: '#/components/responses/Error422'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '503':
+          $ref: '#/components/responses/Error503'
+components:
+  securitySchemes:
+    checkoutPrincipal:
+      type: http
+      scheme: bearer
+      description: Trusted Customer principal or live verified Guest checkout session under pinned issuer/audience/key
+        profile. Owner scope derived on server. SePay signatures and Order-bound payment:read Guest grants
+        cannot authorize these commands. Guest session revocation affects new authorization decisions,
+        not already accepted background workflow.
+  parameters:
+    IdempotencyKey:
+      name: X-Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 16
+        maxLength: 128
+        pattern: ^[!-~]+$
+    ItemId:
+      name: item_id
+      in: path
+      required: true
+      description: Canonical SKU code; not a Product ID.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 64
+    OperationId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    CartId:
+      name: cart_id
+      in: query
+      required: true
+      schema:
+        type: string
+        format: uuid
+    CartIfMatch:
+      name: If-Match
+      in: header
+      required: true
+      description: Quoted decimal expected Cart revision, e.g. "5". Cannot identify Cart incarnation without
+        cart_id.
+      schema:
+        type: string
+        pattern: ^"[0-9]+"$
+  responses:
+    Error400:
+      description: Malformed request, idempotency key, selection or address shape.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Error401:
+      description: Missing/invalid/expired checkout principal; Payment read grant is not permitted.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Error403:
+      description: Principal role/scope does not authorize Cart or Checkout.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Error404:
+      description: Owner-scoped quote/operation absent, not owned or saved address outside scope.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Error409:
+      description: Version/incarnation conflict, quote expired/used, submission already accepted, terms
+        changed or altered idempotency payload. operation_id is only returned for the authenticated owner.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Error410:
+      description: Terminal replay response retention elapsed; operation reference remains, key cannot
+        be reused.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Error422:
+      description: SKU/quantity/policy/stock/method or feature rejection; validate error.code.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Error429:
+      description: Rate limited; respect Retry-After.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+            minimum: 1
+    Error503:
+      description: Dependency/registry unavailable or acceptance/mutation outcome unknown; replay the
+        same key and payload.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+  schemas:
+    ApiError:
+      type: object
+      additionalProperties: false
+      required:
+      - error
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required:
+          - code
+          - retryable
+          properties:
+            code:
+              type: string
+              minLength: 1
+            retryable:
+              type: boolean
+        operation_id:
+          type: string
+          format: uuid
+      example:
+        error:
+          code: IDEMPOTENCY_CONFLICT
+          retryable: false
+        operation_id: 11111111-1111-4111-8111-111111111111
+    Money:
+      type: integer
+      format: int64
+      minimum: 0
+      maximum: 1000000000000
+    NullableMoney:
+      type: integer
+      format: int64
+      minimum: 0
+      maximum: 1000000000000
+      nullable: true
+    CartLine:
+      type: object
+      additionalProperties: false
+      required:
+      - sku_code
+      - quantity
+      - product_name
+      - image_url
+      - unit_price
+      - line_total
+      - purchasable
+      - unavailable_reason
+      - catalog_version
+      properties:
+        sku_code:
+          type: string
+          minLength: 1
+          maxLength: 64
+        quantity:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 999
+        product_name:
+          type: string
+          nullable: true
+        image_url:
+          type: string
+          format: uri
+          nullable: true
+        unit_price:
+          $ref: '#/components/schemas/NullableMoney'
+        line_total:
+          $ref: '#/components/schemas/NullableMoney'
+        purchasable:
+          type: boolean
+          nullable: true
+        unavailable_reason:
+          type: string
+          enum:
+          - SKU_NOT_FOUND
+          - SKU_INACTIVE
+          - ADVISORY_OUT_OF_STOCK
+          - CATALOG_UNAVAILABLE
+          - TOTAL_LIMIT_EXCEEDED
+          - null
+          nullable: true
+        catalog_version:
+          type: string
+          nullable: true
+    CartProjection:
+      type: object
+      additionalProperties: false
+      required:
+      - cart_id
+      - revision
+      - items
+      - currency
+      - estimated_subtotal
+      - priced_subtotal
+      - pricing_status
+      - quoted
+      - stock_reserved
+      properties:
+        cart_id:
+          type: string
+          format: uuid
+        revision:
+          type: integer
+          format: int64
+          minimum: 0
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CartLine'
+          maxItems: 100
+        currency:
+          type: string
+          enum:
+          - VND
+        estimated_subtotal:
+          $ref: '#/components/schemas/NullableMoney'
+        priced_subtotal:
+          $ref: '#/components/schemas/NullableMoney'
+        pricing_status:
+          type: string
+          enum:
+          - AVAILABLE
+          - PARTIAL
+          - UNAVAILABLE
+        quoted:
+          type: boolean
+          enum:
+          - false
+        stock_reserved:
+          type: boolean
+          enum:
+          - false
+      description: Server-side display projection for one Redis snapshot. No price/stock promise. Unknown
+        price is null; never zero substituted. priced_subtotal is not a payable total. Both totals null
+        on arithmetic/domain overflow.
+      example: *id001
+    CartAddRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - cart_id
+      - expected_revision
+      - sku_code
+      - quantity
+      properties:
+        cart_id:
+          type: string
+          format: uuid
+        expected_revision:
+          type: integer
+          format: int64
+          minimum: 0
+        sku_code:
+          type: string
+          minLength: 1
+          maxLength: 64
+        quantity:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 999
+      description: quantity is a positive delta. Validate Catalog sellability before Redis mutation. Client
+        does not submit a unit price.
+      example:
+        cart_id: d502e082-f217-47d8-b291-d825e5dc7824
+        expected_revision: 4
+        sku_code: MX-GION-500G
+        quantity: 2
+    CartSetRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - cart_id
+      - expected_revision
+      - quantity
+      properties:
+        cart_id:
+          type: string
+          format: uuid
+        expected_revision:
+          type: integer
+          format: int64
+          minimum: 0
+        quantity:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 999
+      description: Absolute quantity. Increases validate Catalog; decreases must remain possible for unavailable
+        SKUs. Use DELETE to remove.
+      example:
+        cart_id: d502e082-f217-47d8-b291-d825e5dc7824
+        expected_revision: 5
+        quantity: 3
+    CartMutationResult:
+      type: object
+      additionalProperties: false
+      required:
+      - mutation_key
+      - cart_id
+      - applied_revision
+      - replayed
+      - cart
+      properties:
+        mutation_key:
+          type: string
+        cart_id:
+          type: string
+          format: uuid
+        applied_revision:
+          type: integer
+          format: int64
+          minimum: 1
+        replayed:
+          type: boolean
+        cart:
+          $ref: '#/components/schemas/CartProjection'
+      description: applied_revision belongs to the original mutation. cart is a subsequent current projection
+        and may be newer. Same key/hash never applies the quantity change twice.
+      example:
+        mutation_key: cart-add-example-0001
+        cart_id: d502e082-f217-47d8-b291-d825e5dc7824
+        applied_revision: 5
+        replayed: false
+        cart: *id001
+    InlineAddress:
+      type: object
+      additionalProperties: false
+      required:
+      - recipient_name
+      - phone
+      - street
+      - ward_code
+      - province_code
+      properties:
+        recipient_name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        phone:
+          type: string
+          pattern: ^\+84[35789][0-9]{8}$
+        street:
+          type: string
+          minLength: 1
+          maxLength: 255
+        ward_code:
+          type: string
+          minLength: 1
+          maxLength: 64
+        province_code:
+          type: string
+          minLength: 1
+          maxLength: 64
+    QuoteRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - cart_id
+      - cart_revision
+      - selected_sku_codes
+      - payment_method
+      - shipping_service_code
+      properties:
+        cart_id:
+          type: string
+          format: uuid
+        cart_revision:
+          type: integer
+          format: int64
+          minimum: 0
+        selected_sku_codes:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 64
+          minItems: 1
+          maxItems: 100
+          uniqueItems: true
+        payment_method:
+          type: string
+          enum:
+          - VIETQR
+          - COD
+        shipping_service_code:
+          type: string
+          minLength: 1
+          maxLength: 64
+        shipping_address_id:
+          type: string
+          format: uuid
+        address:
+          $ref: '#/components/schemas/InlineAddress'
+        voucher_code:
+          type: string
+          maxLength: 128
+      oneOf:
+      - required:
+        - shipping_address_id
+        not:
+          required:
+          - address
+      - required:
+        - address
+        not:
+          required:
+          - shipping_address_id
+      description: Exactly one saved address or inline address. Guest uses inline address. Selection is
+        mandatory; quantities come from the Cart revision. Nonempty voucher_code is feature-gated and
+        returns 422 until enabled.
+      example:
+        cart_id: d502e082-f217-47d8-b291-d825e5dc7824
+        cart_revision: 5
+        selected_sku_codes:
+        - MX-GION-500G
+        payment_method: VIETQR
+        shipping_service_code: STANDARD
+        address:
+          recipient_name: Khach hang minh hoa
+          phone: '+84905123456'
+          street: Dia chi minh hoa
+          ward_code: WARD-DEMO
+          province_code: PROVINCE-DEMO
+    QuotedItem:
+      type: object
+      additionalProperties: false
+      required:
+      - sku_code
+      - quantity
+      - product_name
+      - unit_price
+      - line_total
+      - weight_grams
+      - catalog_version
+      properties:
+        sku_code:
+          type: string
+        quantity:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 999
+        product_name:
+          type: string
+        unit_price:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 1000000000000
+        line_total:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 1000000000000
+        weight_grams:
+          type: integer
+          format: int64
+          minimum: 1
+        catalog_version:
+          type: string
+    Quote:
+      type: object
+      additionalProperties: false
+      required:
+      - quote_id
+      - cart_id
+      - cart_revision
+      - selected_sku_codes
+      - selection_digest
+      - quote_hash
+      - items
+      - payment_method
+      - shipping_service_code
+      - subtotal
+      - shipping_fee
+      - merchandise_discount
+      - shipping_discount
+      - final_amount
+      - currency
+      - expires_at
+      - stock_reserved
+      properties:
+        quote_id:
+          type: string
+          format: uuid
+        cart_id:
+          type: string
+          format: uuid
+        cart_revision:
+          type: integer
+          format: int64
+          minimum: 0
+        selected_sku_codes:
+          type: array
+          items:
+            type: string
+          minItems: 1
+          maxItems: 100
+          uniqueItems: true
+        selection_digest:
+          type: string
+          pattern: ^[a-f0-9]{64}$
+        quote_hash:
+          type: string
+          pattern: ^[a-f0-9]{64}$
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuotedItem'
+          minItems: 1
+          maxItems: 100
+        payment_method:
+          type: string
+          enum:
+          - VIETQR
+          - COD
+        shipping_service_code:
+          type: string
+        subtotal:
+          $ref: '#/components/schemas/Money'
+        shipping_fee:
+          $ref: '#/components/schemas/Money'
+        merchandise_discount:
+          $ref: '#/components/schemas/Money'
+        shipping_discount:
+          $ref: '#/components/schemas/Money'
+        final_amount:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 1000000000000
+        currency:
+          type: string
+          enum:
+          - VND
+        expires_at:
+          type: string
+          format: date-time
+        stock_reserved:
+          type: boolean
+          enum:
+          - false
+      description: Owner-bound immutable commercial preview, encrypted in Redis. Private stored envelope
+        additionally includes accepted address/product/provider validity and identity references; no bearer
+        token. Preview expires in five minutes; no resource reservation.
+      example:
+        quote_id: 17f45c47-c5bc-4904-8f50-d7cff595e951
+        cart_id: d502e082-f217-47d8-b291-d825e5dc7824
+        cart_revision: 5
+        selected_sku_codes:
+        - MX-GION-500G
+        selection_digest: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+        quote_hash: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+        items:
+        - sku_code: MX-GION-500G
+          quantity: 2
+          product_name: Mè xửng giòn 500 g
+          unit_price: 75000
+          line_total: 150000
+          weight_grams: 500
+          catalog_version: catalog-42
+        payment_method: VIETQR
+        shipping_service_code: STANDARD
+        subtotal: 150000
+        shipping_fee: 30000
+        merchandise_discount: 0
+        shipping_discount: 0
+        final_amount: 180000
+        currency: VND
+        expires_at: '2026-10-16T15:05:00+07:00'
+        stock_reserved: false
+    CheckoutRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - quote_id
+      - cart_revision
+      - payment_method
+      properties:
+        quote_id:
+          type: string
+          format: uuid
+        cart_revision:
+          type: integer
+          format: int64
+          minimum: 0
+        payment_method:
+          type: string
+          enum:
+          - VIETQR
+          - COD
+      description: No selection, address, amount or SKU quantity overrides. Frozen selection and terms
+        are taken from the server-issued Quote.
+      example:
+        quote_id: 17f45c47-c5bc-4904-8f50-d7cff595e951
+        cart_revision: 5
+        payment_method: VIETQR
+    CheckoutOperation:
+      type: object
+      additionalProperties: false
+      required:
+      - operation_id
+      - status
+      - stage
+      - order_id
+      - accepted_at
+      - error_code
+      - cart_cleanup_status
+      properties:
+        operation_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+          - ACCEPTED
+          - PROCESSING
+          - WAITING_RETRY
+          - COMPENSATING
+          - SUCCEEDED
+          - FAILED
+          - MANUAL_REVIEW
+        stage:
+          type: string
+          enum:
+          - VALIDATE
+          - RESERVE
+          - COD_FINALIZE
+          - PLACE
+          - COMPENSATE
+        order_id:
+          type: string
+          format: uuid
+          nullable: true
+        accepted_at:
+          type: string
+          format: date-time
+        error_code:
+          type: string
+          nullable: true
+        cart_cleanup_status:
+          type: string
+          enum:
+          - NOT_SCHEDULED
+          - PENDING
+          - APPLIED
+          - SKIPPED_CHANGED
+          - SKIPPED_REPLACED
+          - CART_MISSING
+          - MANUAL_REVIEW
+      description: Public order_id null until placement transaction succeeds. VIETQR SUCCEEDED implies
+        Order and PaymentIntent committed atomically. Cleanup may still be pending/skipped and never invalidates
+        an existing Order.
+      example:
+        operation_id: ba3b1a6a-5592-4cf3-a184-adb9572404df
+        status: ACCEPTED
+        stage: VALIDATE
+        order_id: null
+        accepted_at: '2026-10-16T15:01:00+07:00'
+        error_code: null
+        cart_cleanup_status: NOT_SCHEDULED
+      oneOf:
+      - properties:
+          status:
+            enum:
+            - SUCCEEDED
+          order_id:
+            type: string
+            format: uuid
+            nullable: false
+          cart_cleanup_status:
+            enum:
+            - PENDING
+            - APPLIED
+            - SKIPPED_CHANGED
+            - SKIPPED_REPLACED
+            - CART_MISSING
+            - MANUAL_REVIEW
+      - properties:
+          status:
+            enum:
+            - ACCEPTED
+            - PROCESSING
+            - WAITING_RETRY
+            - COMPENSATING
+            - FAILED
+            - MANUAL_REVIEW
+          order_id:
+            type: string
+            nullable: true
+            enum:
+            - null
+          cart_cleanup_status:
+            enum:
+            - NOT_SCHEDULED

@@ -38,6 +38,15 @@ enum ErrorCode {
   ERR_CATALOG_PRICE_TAMPERED = 200;           // Phát hiện hành vi sửa giá từ phía client
   ERR_CATALOG_PRODUCT_OUT_OF_SEASON = 201;    // Kẹo mùa vụ (ví dụ: Mè xửng truyền thống Tết) chưa mở bán
   ERR_CATALOG_VARIANT_MISMATCH = 202;         // Biến thể SKU không khớp với sản phẩm cha
+  ERR_CATALOG_PRODUCT_NOT_FOUND = 203;        // Không tìm thấy sản phẩm
+  ERR_CATALOG_VARIANT_NOT_FOUND = 204;        // Không tìm thấy biến thể sản phẩm
+  ERR_CATALOG_CATEGORY_NOT_FOUND = 205;       // Không tìm thấy danh mục
+  ERR_CATALOG_PRODUCT_NOT_PUBLIC = 206;       // Sản phẩm chưa được duyệt hoặc ngừng bán
+  ERR_CATALOG_SKU_DUPLICATE = 207;            // Trùng mã SKU
+  ERR_CATALOG_PRODUCT_INVALID_STATE = 208;    // Sai trạng thái sản phẩm
+  ERR_CATALOG_PRICE_NOT_FOUND = 209;          // Không tìm thấy giá
+  ERR_CATALOG_SLUG_DUPLICATE = 210;           // Trùng slug
+  ERR_CATALOG_VERSION_CONFLICT = 211;         // Xung đột phiên bản (Optimistic Locking)
 
   // --- LỖI MIỀN KHUYẾN MÃI & VOUCHER (MS-07: PROMOTION - 300 - 399) ---
   ERR_PROMOTION_VOUCHER_NOT_FOUND = 300;      // Mã voucher không tồn tại

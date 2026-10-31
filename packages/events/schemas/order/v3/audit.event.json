@@ -1,0 +1,136 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://contracts.omama.example/order/v3/audit.event.json",
+  "title": "Order audit v3 — proposed 3.2 design",
+  "description": "Proposed contract; deploy consumers before enabling the new cohort. No v1/v2 effect triggers for this cohort. Partition key=aggregate_id; subject must equal order:<aggregate_id>. Version/ordinal order local facts, not distributed effects.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "specversion",
+    "id",
+    "source",
+    "type",
+    "subject",
+    "time",
+    "datacontenttype",
+    "data"
+  ],
+  "properties": {
+    "specversion": {
+      "const": "1.0"
+    },
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "source": {
+      "const": "https://omama.vn/services/order-service"
+    },
+    "type": {
+      "const": "vn.omama.order.audit.v3"
+    },
+    "subject": {
+      "type": "string",
+      "pattern": "^order:[0-9a-f-]{36}$"
+    },
+    "time": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "datacontenttype": {
+      "const": "application/json"
+    },
+    "traceparent": {
+      "type": "string",
+      "pattern": "^00-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}$"
+    },
+    "tracestate": {
+      "type": "string",
+      "maxLength": 512
+    },
+    "correlationid": {
+      "type": "string",
+      "maxLength": 128
+    },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "aggregate_id",
+        "version",
+        "ordinal",
+        "status",
+        "payment_status",
+        "stock_status",
+        "action",
+        "reason_code"
+      ],
+      "properties": {
+        "aggregate_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "version": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 1
+        },
+        "ordinal": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 0
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "PENDING_PAYMENT",
+            "PAYMENT_FINALIZING",
+            "PAID",
+            "CONFIRMED_COD",
+            "PROCESSING",
+            "PACKED",
+            "SHIPPED",
+            "DELIVERED",
+            "DELIVERY_FAILED",
+            "COMPLETED",
+            "CANCELLED_TIMEOUT",
+            "CANCELLED_BY_USER",
+            "CANCELLED_BY_ADMIN"
+          ]
+        },
+        "payment_status": {
+          "type": "string",
+          "enum": [
+            "UNPAID",
+            "PENDING",
+            "CONFIRMED",
+            "RECONCILIATION_REQUIRED",
+            "PARTIALLY_REFUNDED",
+            "REFUNDED"
+          ]
+        },
+        "stock_status": {
+          "type": "string",
+          "enum": [
+            "RESERVED",
+            "COMMITTING",
+            "COMMITTED",
+            "RELEASING",
+            "RELEASED",
+            "EXPIRED",
+            "REVERSED",
+            "UNKNOWN"
+          ]
+        },
+        "action": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reason_code": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

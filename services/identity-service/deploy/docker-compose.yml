@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  identity-service:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: omafood-identity-service
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    environment:
+      SERVER_PORT: ${SERVER_PORT:-8016}
+      GRPC_SERVER_PORT: ${GRPC_SERVER_PORT:-9016}
+
+      # Kết nối đến PostgreSQL server có sẵn của bạn
+      SPRING_DATASOURCE_URL: jdbc:postgresql://${DB_HOST}:${DB_PORT:-5432}/${DB_NAME:-identity_db}
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+
+      # Kết nối đến Keycloak độc lập
+      KEYCLOAK_SERVER_URL: ${KEYCLOAK_SERVER_URL}
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-omama}
+      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:-identity-service-admin}
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET}
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: ${KEYCLOAK_SERVER_URL}/realms/${KEYCLOAK_REALM:-omama}
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: ${KEYCLOAK_SERVER_URL}/realms/${KEYCLOAK_REALM:-omama}/protocol/openid-connect/certs
+
+      # Kết nối Kafka Broker
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:-localhost:9092}
+    ports:
+      - "${SERVER_PORT:-8016}:8016"
+      - "${GRPC_SERVER_PORT:-9016}:9016"
