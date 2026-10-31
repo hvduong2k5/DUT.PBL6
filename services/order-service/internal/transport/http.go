@@ -260,14 +260,23 @@ func Handler(s *app.Service) http.Handler {
 			return func(w http.ResponseWriter, r *http.Request) {
 				p := principal(r)
 				limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-				items, e := s.ListOrders(r.Context(), p, staff, queue, r.URL.Query().Get("status"), r.URL.Query().Get("cursor"), limit)
+				var items []domain.Order
+				var e error
+				next := ""
+				if !staff && !queue {
+					limit, e = ownedOrderLimit(r)
+					if e == nil {
+						items, next, e = s.OwnedOrderPage(r.Context(), p, r.URL.Query().Get("status"), r.URL.Query().Get("cursor"), limit)
+					}
+				} else {
+					items, e = s.ListOrders(r.Context(), p, staff, queue, r.URL.Query().Get("status"), r.URL.Query().Get("cursor"), limit)
+					if e == nil && len(items) > 0 && !queue {
+						next = s.Cursor(items[len(items)-1], p.Scope(), r.URL.Query().Get("status"))
+					}
+				}
 				if e != nil {
 					failure(s, w, e)
 					return
-				}
-				next := ""
-				if len(items) > 0 && !queue {
-					next = s.Cursor(items[len(items)-1], p.Scope(), r.URL.Query().Get("status"))
 				}
 				views := make([]any, 0, len(items))
 				for _, item := range items {
@@ -294,7 +303,7 @@ func Handler(s *app.Service) http.Handler {
 				failure(s, w, e)
 				return
 			}
-			write(w, 200, map[string]any{"shipment_id": o.Shipment, "order_status": o.Status})
+			write(w, 200, orderTracking{ShipmentID: o.Shipment, OrderStatus: o.Status})
 		})
 		cancel := func(review bool) http.HandlerFunc {
 			return func(w http.ResponseWriter, r *http.Request) {
