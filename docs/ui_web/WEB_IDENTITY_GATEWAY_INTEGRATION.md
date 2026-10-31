@@ -1,5 +1,7 @@
 # Nối Web – Identity – Gateway – Profile – Order
 
+Phần mở rộng đăng ký, địa chỉ, checkout–Inventory và Shipping được mô tả tại [MVP_CUSTOMER_ORDER_SHIPPING_ACCEPTANCE.md](./MVP_CUSTOMER_ORDER_SHIPPING_ACCEPTANCE.md). Các giới hạn seed Cart/provisioning của lát cắt ban đầu bên dưới không phải bằng chứng cho phần mở rộng; xem riêng kết quả CI tương ứng.
+
 ## Thay đổi cho luồng người dùng
 
 Khi bật `WEB_AUTH_MODE=oidc`, khách bấm **Tiếp tục đăng nhập** trên Web, nhập thông tin tại Keycloak và được đưa về cửa hàng. Web giữ token trong cookie HttpOnly, xác minh token và đối chiếu hồ sơ Customer từ backend trước khi cho đọc Profile/giỏ hàng. Làm mới phiên dùng refresh token; đăng xuất chuyển sang Keycloak để kết thúc cả phiên SSO.

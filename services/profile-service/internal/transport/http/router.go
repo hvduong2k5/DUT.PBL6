@@ -59,6 +59,7 @@ func NewRouter(cfg RouterConfig) http.Handler {
 	// API Routes
 	r.Route("/api/v1", func(api chi.Router) {
 		api.Use(middleware.AuthContextWithIdentity(cfg.IdentityToken, cfg.Identity))
+		api.Get("/locations/checkout", locationsHandler(cfg.Pool))
 		api.Get("/customer/capabilities", func(w http.ResponseWriter, r *http.Request) {
 			uid, ok := middleware.GetUserIDFromContext(r.Context())
 			if !ok || cfg.CustomerResolver == nil {
@@ -75,6 +76,9 @@ func NewRouter(cfg RouterConfig) http.Handler {
 				return
 			}
 			caps := []string{}
+			if profile.Status == "PENDING_VERIFICATION" {
+				caps = []string{"PROFILE_MANAGE"}
+			}
 			if profile.Status == "ACTIVE" {
 				caps = []string{"CATALOG_VIEW", "CART_MANAGE", "CHECKOUT_CREATE", "PROFILE_MANAGE", "ADDRESS_MANAGE", "ORDER_HISTORY_VIEW", "SUPPORT_CREATE"}
 			}

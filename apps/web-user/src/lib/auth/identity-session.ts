@@ -31,8 +31,8 @@ export async function identitySession(accessToken: string) {
     if (!profileResponse.ok) throw new IdentitySessionError(profileResponse.status === 403 ? 403 : 503, "CUSTOMER_MAPPING_UNAVAILABLE");
     const profile = await profileResponse.json();
     if (profile.user_id !== principal.principalId || typeof profile.id !== "string" || !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/u.test(profile.id) || profile.id === "00000000-0000-0000-0000-000000000000") throw new IdentitySessionError(503, "CUSTOMER_MAPPING_INVALID");
-    if (profile.status !== "ACTIVE") throw new IdentitySessionError(403, "CUSTOMER_FORBIDDEN");
-    Object.assign(user, { customer_id: profile.id, full_name: profile.full_name, phone_number: profile.phone_number, avatar_url: profile.avatar_url });
+    if (!["ACTIVE", "PENDING_VERIFICATION"].includes(profile.status)) throw new IdentitySessionError(403, "CUSTOMER_FORBIDDEN");
+    Object.assign(user, { customer_id: profile.id, customer_status: profile.status, full_name: profile.full_name, phone_number: profile.phone_number, avatar_url: profile.avatar_url });
   }
   const session = mapCustomerCoreSession(user);
   if (!session) throw new IdentitySessionError(503, "IDENTITY_INVALID");

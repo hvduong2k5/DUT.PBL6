@@ -26,6 +26,7 @@ import (
 	"github.com/omamx/shipping-service/migrations"
 	"github.com/rs/zerolog"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 func main() {
@@ -88,7 +89,16 @@ func main() {
 	if err != nil {
 		logger.Fatal().Err(err).Msg("listen for gRPC")
 	}
-	grpcServer := grpc.NewServer(grpc.UnaryInterceptor(grpcapi.AuthUnaryInterceptor(cfg.InternalToken)))
+	grpcOptions := []grpc.ServerOption{grpc.UnaryInterceptor(grpcapi.AuthUnaryInterceptor(cfg.InternalToken))}
+	certFile, keyFile := os.Getenv("SHIPPING_GRPC_TLS_CERT_FILE"), os.Getenv("SHIPPING_GRPC_TLS_KEY_FILE")
+	if certFile != "" || keyFile != "" {
+		transport, err := credentials.NewServerTLSFromFile(certFile, keyFile)
+		if err != nil {
+			logger.Fatal().Err(err).Msg("load Shipping gRPC TLS identity")
+		}
+		grpcOptions = append(grpcOptions, grpc.Creds(transport))
+	}
+	grpcServer := grpc.NewServer(grpcOptions...)
 	shippingv1.RegisterShippingServiceServer(grpcServer, grpcapi.NewServer(service))
 	if cfg.V2Enabled {
 		shippingv2.RegisterShippingServiceServer(grpcServer, grpcapi.NewV2Server(service))

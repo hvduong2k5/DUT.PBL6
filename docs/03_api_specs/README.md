@@ -4,6 +4,8 @@
 >
 > Customer access support: [customer-access.support.openapi.yaml](customer-access.support.openapi.yaml), owner Profile. Luồng Web OIDC/Identity/Gateway và cách chạy kiểm tra nằm trong [hướng dẫn tích hợp](../ui_web/WEB_IDENTITY_GATEWAY_INTEGRATION.md). Các auth password-login spec/mock cũ không được dùng để suy ra runtime PKCE đã hỗ trợ các endpoint đó.
 
+> Registration/locations support: [customer-onboarding.support.openapi.yaml](customer-onboarding.support.openapi.yaml), owner Identity/Profile. Bốn luồng hồ sơ, đăng ký, checkout–Inventory và Shipping có phạm vi/nghiệm thu tại [MVP_CUSTOMER_ORDER_SHIPPING_ACCEPTANCE.md](../ui_web/MVP_CUSTOMER_ORDER_SHIPPING_ACCEPTANCE.md).
+
 # CẨM NANG ĐẶC TẢ GIAO DIỆN & HỢP ĐỒNG HỆ THỐNG (API & CONTRACTS SPECIFICATIONS)
 ## HỆ SINH THÁI THƯƠNG MẠI ĐIỆN TỬ & CHUỖI CUNG ỨNG ĐẶC SẢN OCOP HUẾ (MÈ XỬNG O MẠ)
 

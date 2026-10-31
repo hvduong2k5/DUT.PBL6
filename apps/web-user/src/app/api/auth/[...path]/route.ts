@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { usesOidc } from "@/lib/auth/oidc-config";
 import { clearOidc, oidcLogout, oidcSessionResponse, trustedOidcOrigin } from "@/lib/auth/oidc";
 import { identitySession } from "@/lib/auth/identity-session";
+import { registerIdentity } from "@/lib/auth/registration";
 import {
   mapCustomerCoreSession,
   toCustomerCoreLogin,
@@ -114,6 +115,7 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
       if (method === "GET" && path === "me") return await oidcSessionResponse(request, identitySession);
       if (method === "POST" && path === "refresh") return await oidcSessionResponse(request, identitySession, true);
       if (method === "POST" && path === "logout") return await oidcLogout(request);
+      if (method === "POST" && path === "register") return await registerIdentity(request);
       return NextResponse.json({ code: "OIDC_LOGIN_REQUIRED", message: "Vui lòng đăng nhập qua trang xác thực tài khoản." }, { status: 405 });
     } catch (error) {
       const failure = error as { status?: number; code?: string };

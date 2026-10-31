@@ -26,12 +26,18 @@ func main() {
 	defer rdb.Close()
 	for _, suffix := range []string{"A", "B"} {
 		p := domain.Principal{ID: os.Getenv("WEB_TEST_PRINCIPAL_" + suffix), Role: "CUSTOMER"}
-		cart := domain.Cart{Revision: 1, Items: []domain.Item{{ItemID: "fixture-" + suffix, SKU: "PRIVATE-" + suffix, Quantity: 1, UnitPrice: 1000, Name: "Test cart " + suffix}}}
+		cart := domain.Cart{Revision: 1, Items: []domain.Item{{ItemID: "PRIVATE-" + suffix, SKU: "PRIVATE-" + suffix, Quantity: 1, UnitPrice: 1000, Name: "Test cart " + suffix}}}
 		raw, _ := json.Marshal(cart)
 		if err = rdb.Set(ctx, "cart:"+p.Scope(), raw, time.Hour).Err(); err != nil {
 			log.Fatal(err)
 		}
 	}
-	service := &app.Service{C: cfg, Identity: identity, Redis: rdb}
+	service := &app.Service{C: cfg, Identity: identity, Redis: rdb, Client: &http.Client{Timeout: 3 * time.Second}}
+	if os.Getenv("WEB_TEST_CHECKOUT") == "true" {
+		service, err = connected(ctx, cfg)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
 	log.Fatal(http.ListenAndServe(":"+os.Getenv("WEB_TEST_ORDER_PORT"), transport.Handler(service)))
 }

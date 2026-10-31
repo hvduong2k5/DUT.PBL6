@@ -45,6 +45,16 @@ services:
           - POST
           - GET
           - OPTIONS
+      - name: customer-registration-route
+        paths:
+          - /api/v1/public/customer-registrations
+        strip_path: false
+        methods: [POST, OPTIONS]
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 10
+              policy: local
 
   # ----------------------------------------------------------------------------
   # MS-15: PROFILE SERVICE (Profiles, Address Book, Staff)
@@ -60,6 +70,7 @@ services:
         paths:
           - /api/v1/profile
           - /api/v1/customer/capabilities
+          - /api/v1/locations/checkout
         strip_path: false
         methods:
           - GET

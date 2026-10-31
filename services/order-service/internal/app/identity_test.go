@@ -171,7 +171,7 @@ func TestKeycloakProfileResolution(t *testing.T) {
 		if mismatch.Load() {
 			user = uuid.NewString()
 		}
-		json.NewEncoder(w).Encode(map[string]string{"id": customer, "user_id": user})
+		json.NewEncoder(w).Encode(map[string]string{"id": customer, "user_id": user, "status": "ACTIVE"})
 	}))
 	defer server.Close()
 	s := identityFixture(t, server)

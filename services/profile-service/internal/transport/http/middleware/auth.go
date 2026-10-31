@@ -85,6 +85,14 @@ func ResolveCustomer(repo CustomerResolver) func(http.Handler) http.Handler {
 				}
 				return
 			}
+			if profile.Status == "SUSPENDED" || profile.Status == "DELETED" {
+				authError(w, 403, "CUSTOMER_FORBIDDEN")
+				return
+			}
+			if profile.Status != "ACTIVE" && strings.TrimSuffix(r.URL.Path, "/") != "/api/v1/profile" {
+				authError(w, 403, "CUSTOMER_VERIFICATION_REQUIRED")
+				return
+			}
 			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), CustomerIDKey, profile.ID)))
 		})
 	}

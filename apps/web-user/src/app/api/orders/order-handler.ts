@@ -46,7 +46,7 @@ function upstreamHeaders(
   idempotencyKey?: string,
   ifMatch?: string
 ) {
-  const headers = new Headers({ Accept: "application/json" });
+  const headers = new Headers({ Accept: "application/vnd.omama.customer-mvp+json, application/json" });
   applyTrustedAuthorization(headers, request);
   if (hasBody) headers.set("Content-Type", "application/json");
   if (idempotencyKey) headers.set("Idempotency-Key", idempotencyKey);

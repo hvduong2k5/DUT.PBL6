@@ -1,6 +1,7 @@
 import type { AuthenticatedSession, PrincipalRole, PrincipalType } from "./types";
 
 export interface CustomerCoreUser {
+  customer_status?: "ACTIVE" | "PENDING_VERIFICATION";
   customer_id?: string;
   customerId?: string;
   principal_id?: string;
@@ -88,7 +89,7 @@ export function mapCustomerCoreSession(user: CustomerCoreUser): AuthenticatedSes
     customer: customerId ? {
       id: customerId,
       displayName,
-      status: "ACTIVE",
+      status: user.customer_status ?? "ACTIVE",
       ...(clean(user.phone_number) ? { phoneNumber: clean(user.phone_number) } : {}),
       ...(clean(user.email) ? { email: clean(user.email) } : {}),
       ...(user.membership_tier ? { membershipTier: user.membership_tier } : {}),

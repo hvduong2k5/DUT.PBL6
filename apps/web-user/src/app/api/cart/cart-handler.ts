@@ -42,6 +42,8 @@ function publicErrorResponse(
 function upstreamHeaders(request: NextRequest, hasBody: boolean, scenario?: string): Headers {
   const headers = new Headers({ Accept: "application/json" });
   applyTrustedAuthorization(headers, request);
+  const ifMatch = request.headers.get("if-match");
+  if (ifMatch) headers.set("If-Match", ifMatch);
   if (hasBody) headers.set("Content-Type", "application/json");
   if (process.env.NODE_ENV !== "production" && scenario) headers.set("X-Mock-Scenario", scenario);
   return headers;

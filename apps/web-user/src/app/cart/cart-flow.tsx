@@ -79,7 +79,8 @@ export function CartFlow() {
     setLineErrors((current) => ({ ...current, [item.itemId]: "" }));
     setStatusMessage("");
     try {
-      const nextCart = await cartService.removeItem(item.itemId, scenario);
+      if (!cart) return;
+      const nextCart = await cartService.removeItem(item.itemId, cart.revision, scenario);
       setCart(nextCart);
       updateFromCart(nextCart);
       setDraftQuantities(Object.fromEntries(nextCart.items.map((cartItem) => [cartItem.itemId, String(cartItem.quantity)])));
