@@ -135,9 +135,18 @@ def main():
             stdout=subprocess.DEVNULL,
         )
 
+    last_gateway_request = 0.0
+
     def request(
         url, data=None, token=None, method=None, opener=None, headers=None, form=False
     ):
+        nonlocal last_gateway_request
+        # This is a functional acceptance test, not a load test. One BFF call
+        # fans out to several Gateway requests, all sharing the fixture IP and
+        # its real 300/minute budget. Leave headroom for async work and polling.
+        if url.startswith((web + "/", gateway + "/")):
+            time.sleep(max(0, 1.5 - (time.monotonic() - last_gateway_request)))
+            last_gateway_request = time.monotonic()
         actual = dict(headers or {})
         if token:
             actual["Authorization"] = "Bearer " + token
