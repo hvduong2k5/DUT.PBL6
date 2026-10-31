@@ -61,10 +61,18 @@ public class AuthenticationController implements AuthenticationApi {
     }
 
     @Override
-    public ResponseEntity<Void> handleCallback(String code, String state, String error, String errorDescription) {
+    public ResponseEntity<?> handleCallback(String code, String state, String error, String errorDescription) {
         if (error != null) {
-            log.warn("OAuth2 callback received error: {} - {}", error, errorDescription);
-            throw new IllegalArgumentException("Đăng nhập thất bại từ phía IdP: " + (errorDescription != null ? errorDescription : error));
+            log.warn("OAuth2 callback received error from IdP: {} - {}", error, errorDescription);
+            String errorRedirect = authenticationService.resolveErrorRedirectUri(state, error, errorDescription);
+            return ResponseEntity.status(HttpStatus.FOUND)
+                    .location(URI.create(errorRedirect))
+                    .build();
+        }
+
+        if (code == null || code.isBlank() || state == null || state.isBlank()) {
+            log.warn("OAuth2 callback missing code or state: code={}, state={}", code, state);
+            throw new IllegalArgumentException("Thiếu tham số 'code' hoặc 'state' trong yêu cầu xác thực.");
         }
 
         BffCallbackResult result = authenticationService.handleCallback(code, state);

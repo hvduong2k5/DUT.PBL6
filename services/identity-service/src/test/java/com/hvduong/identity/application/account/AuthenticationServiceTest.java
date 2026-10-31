@@ -265,4 +265,20 @@ class AuthenticationServiceTest {
         assertThat(bffSessionStore.getSession(session.getSessionId())).isEmpty();
         verify(auditService).recordAudit(eq("USER"), eq(session.getPrincipalId()), isNull(), eq("LOGOUT_SUCCESS"), any(), eq("sub-3"), eq("SUCCESS"), isNull(), isNull(), isNull(), any());
     }
+
+    @Test
+    void resolveErrorRedirectUri_WithSavedState_AppendsParamsToClientUri() {
+        authStateStore.save("state-err-1", "verifier-1", "http://localhost:3000/login");
+
+        String result = authenticationService.resolveErrorRedirectUri("state-err-1", "access_denied", "User cancelled");
+
+        assertThat(result).isEqualTo("http://localhost:3000/login?error=access_denied&error_description=User+cancelled");
+    }
+
+    @Test
+    void resolveErrorRedirectUri_WithMissingState_FallsBackToDefaultLogin() {
+        String result = authenticationService.resolveErrorRedirectUri(null, "unauthorized_client", "Client not allowed");
+
+        assertThat(result).isEqualTo("https://omama.vn/login?error=unauthorized_client&error_description=Client+not+allowed");
+    }
 }

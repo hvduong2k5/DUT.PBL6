@@ -187,6 +187,24 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     }
 
     @Override
+    public String resolveErrorRedirectUri(String state, String error, String errorDescription) {
+        String baseRedirectUri = "https://omama.vn/login";
+        if (state != null && !state.isBlank()) {
+            Optional<AuthStateStore.PendingAuthState> pendingOpt = authStateStore.consume(state);
+            if (pendingOpt.isPresent() && pendingOpt.get().getRedirectUri() != null && !pendingOpt.get().getRedirectUri().isBlank()) {
+                baseRedirectUri = pendingOpt.get().getRedirectUri();
+            }
+        }
+        StringBuilder sb = new StringBuilder(baseRedirectUri);
+        sb.append(baseRedirectUri.contains("?") ? "&" : "?")
+          .append("error=").append(URLEncoder.encode(error != null ? error : "auth_failed", StandardCharsets.UTF_8));
+        if (errorDescription != null && !errorDescription.isBlank()) {
+            sb.append("&error_description=").append(URLEncoder.encode(errorDescription, StandardCharsets.UTF_8));
+        }
+        return sb.toString();
+    }
+
+    @Override
     public SessionResponse getSessionInfo(UUID sessionId) {
         if (sessionId == null) {
             return SessionResponse.builder().isAuthenticated(false).build();

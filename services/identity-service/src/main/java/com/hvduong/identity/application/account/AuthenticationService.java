@@ -24,6 +24,11 @@ public interface AuthenticationService {
     BffCallbackResult handleCallback(String code, String state);
 
     /**
+     * Điều hướng khi IdP trả về lỗi trong quá trình xác thực callback.
+     */
+    String resolveErrorRedirectUri(String state, String error, String errorDescription);
+
+    /**
      * Lấy thông tin phiên làm việc hiện tại của Client từ Cookie.
      */
     SessionResponse getSessionInfo(UUID sessionId);

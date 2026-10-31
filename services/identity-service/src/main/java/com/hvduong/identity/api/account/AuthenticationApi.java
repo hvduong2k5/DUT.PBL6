@@ -25,9 +25,9 @@ public interface AuthenticationApi {
 
     @Operation(summary = "Tiếp nhận Callback Authorization Code từ Keycloak", description = "Trao đổi Authorization Code lấy Token, lưu phiên server-side, thiết lập HttpOnly Cookie OMAMA_SESSION và redirect 302 về Frontend.")
     @GetMapping("/callback")
-    ResponseEntity<Void> handleCallback(
-            @Parameter(description = "Authorization Code được Keycloak cấp", required = true) @RequestParam("code") String code,
-            @Parameter(description = "State ngẫu nhiên chống CSRF", required = true) @RequestParam("state") String state,
+    ResponseEntity<?> handleCallback(
+            @Parameter(description = "Authorization Code được Keycloak cấp") @RequestParam(value = "code", required = false) String code,
+            @Parameter(description = "State ngẫu nhiên chống CSRF") @RequestParam(value = "state", required = false) String state,
             @Parameter(description = "Mã lỗi nếu xác thực thất bại tại IdP") @RequestParam(value = "error", required = false) String error,
             @Parameter(description = "Chi tiết lỗi") @RequestParam(value = "error_description", required = false) String errorDescription
     );

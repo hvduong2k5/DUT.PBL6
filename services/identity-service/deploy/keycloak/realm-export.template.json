@@ -18,10 +18,16 @@
       "enabled": true,
       "clientAuthenticatorType": "client-secret",
       "redirectUris": [
-        "https://omama.vn/*"
+        "https://omama.vn/*",
+        "https://api.omama.vn/*",
+        "http://localhost:8016/*",
+        "http://127.0.0.1:8016/*",
+        "http://localhost:3000/*",
+        "http://localhost:3001/*",
+        "omama://*"
       ],
       "webOrigins": [
-        "https://omama.vn"
+        "+"
       ],
       "publicClient": true,
       "protocol": "openid-connect",

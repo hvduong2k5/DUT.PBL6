@@ -42,7 +42,9 @@ class AuthenticationControllerTest {
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(authenticationController).build();
+        mockMvc = MockMvcBuilders.standaloneSetup(authenticationController)
+                .setControllerAdvice(new com.hvduong.identity.api.common.GlobalExceptionHandler())
+                .build();
     }
 
     @Test
@@ -161,5 +163,24 @@ class AuthenticationControllerTest {
                 .andExpect(header().string(HttpHeaders.SET_COOKIE, containsString("Max-Age=0")));
 
         verify(authenticationService).logout(eq(sessionId));
+    }
+
+    @Test
+    void handleCallback_WhenIdpReturnsError_RedirectsToErrorLocation() throws Exception {
+        when(authenticationService.resolveErrorRedirectUri(eq("state-err"), eq("access_denied"), eq("User cancelled")))
+                .thenReturn("http://localhost:3000/login?error=access_denied&error_description=User+cancelled");
+
+        mockMvc.perform(get("/api/v1/public/auth/callback")
+                        .param("state", "state-err")
+                        .param("error", "access_denied")
+                        .param("error_description", "User cancelled"))
+                .andExpect(status().isFound())
+                .andExpect(header().string(HttpHeaders.LOCATION, "http://localhost:3000/login?error=access_denied&error_description=User+cancelled"));
+    }
+
+    @Test
+    void handleCallback_WhenCodeOrStateMissing_ReturnsBadRequest() throws Exception {
+        mockMvc.perform(get("/api/v1/public/auth/callback"))
+                .andExpect(status().isBadRequest());
     }
 }
