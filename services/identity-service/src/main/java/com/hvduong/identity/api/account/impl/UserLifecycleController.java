@@ -1,9 +1,11 @@
 package com.hvduong.identity.api.account.impl;
 
 import com.hvduong.identity.api.account.UserLifecycleApi;
-import com.hvduong.identity.api.common.ApiResponse;
 import com.hvduong.identity.application.account.UserLifecycleService;
-import lombok.Data;
+import com.hvduong.identity.dto.common.ApiResponse;
+import com.hvduong.identity.dto.request.SuspendRequest;
+import com.hvduong.identity.dto.request.UpdateUserStatusRequest;
+import com.hvduong.identity.dto.response.UserProfileResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -22,7 +24,7 @@ public class UserLifecycleController implements UserLifecycleApi {
     private final UserLifecycleService userLifecycleService;
 
     @Override
-    public ResponseEntity<ApiResponse<UserLifecycleService.UserProfileDto>> getCurrentUser(@AuthenticationPrincipal Jwt jwt) {
+    public ResponseEntity<ApiResponse<UserProfileResponse>> getCurrentUser(@AuthenticationPrincipal Jwt jwt) {
         if (jwt == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(ApiResponse.error("UNAUTHORIZED", "Yêu cầu đăng nhập để truy cập"));
@@ -38,6 +40,31 @@ public class UserLifecycleController implements UserLifecycleApi {
     }
 
     @Override
+    public ResponseEntity<ApiResponse<Void>> updateUserStatus(
+            @PathVariable UUID principalId,
+            @RequestBody UpdateUserStatusRequest request,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        UUID actorId = null;
+        if (jwt != null) {
+            try {
+                actorId = UUID.fromString(jwt.getSubject());
+            } catch (Exception ignored) {}
+        }
+
+        String status = request != null && request.getStatus() != null ? request.getStatus().trim().toUpperCase() : "SUSPENDED";
+        String reason = request != null && request.getReason() != null ? request.getReason() : "Status updated by admin";
+
+        if ("ACTIVE".equals(status)) {
+            userLifecycleService.reactivateAccount(principalId, actorId);
+            return ResponseEntity.ok(ApiResponse.success("Kích hoạt lại tài khoản thành công", null));
+        } else {
+            userLifecycleService.suspendAccount(principalId, reason, actorId);
+            return ResponseEntity.ok(ApiResponse.success("Khóa tài khoản người dùng thành công", null));
+        }
+    }
+
+    @Override
     public ResponseEntity<ApiResponse<Void>> suspendUser(
             @PathVariable UUID principalId,
             @RequestBody(required = false) SuspendRequest request,
@@ -50,7 +77,7 @@ public class UserLifecycleController implements UserLifecycleApi {
             } catch (Exception ignored) {}
         }
 
-        String reason = request != null ? request.getReason() : "Suspended by admin";
+        String reason = request != null && request.getReason() != null ? request.getReason() : "Account suspended by admin via legacy API";
         userLifecycleService.suspendAccount(principalId, reason, actorId);
         return ResponseEntity.ok(ApiResponse.success("Khóa tài khoản người dùng thành công", null));
     }

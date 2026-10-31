@@ -1,6 +1,7 @@
 package com.hvduong.identity.application.account;
 
 import com.hvduong.identity.application.account.impl.UserLifecycleServiceImpl;
+import com.hvduong.identity.dto.response.UserProfileResponse;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hvduong.identity.application.audit.AuditService;
@@ -98,7 +99,7 @@ class UserLifecycleServiceTest {
         permRow.setPermissionCode("STORE_INVENTORY_VIEW");
         when(rolePermissionMapper.findByRoleId(roleId)).thenReturn(List.of(permRow));
 
-        Optional<UserLifecycleService.UserProfileDto> profile = service.getProfileBySubject(subject, "test@omama.vn");
+        Optional<UserProfileResponse> profile = service.getProfileBySubject(subject, "test@omama.vn");
 
         assertTrue(profile.isPresent());
         assertEquals(principalId, profile.get().getPrincipalId());
@@ -127,7 +128,7 @@ class UserLifecycleServiceTest {
         when(roleAssignmentMapper.findActiveByPrincipal(eq(principalId), any(OffsetDateTime.class)))
                 .thenReturn(Collections.emptyList());
 
-        Optional<UserLifecycleService.UserProfileDto> profile = service.getProfileBySubject(subject, "cust@gmail.com");
+        Optional<UserProfileResponse> profile = service.getProfileBySubject(subject, "cust@gmail.com");
 
         assertTrue(profile.isPresent());
         assertEquals("CUSTOMER", profile.get().getPrincipalType());
@@ -140,7 +141,7 @@ class UserLifecycleServiceTest {
     void getProfileBySubject_NotFound_ReturnsEmpty() {
         when(principalMapper.findBySubject("unknown")).thenReturn(null);
 
-        Optional<UserLifecycleService.UserProfileDto> profile = service.getProfileBySubject("unknown", "unknown@omama.vn");
+        Optional<UserProfileResponse> profile = service.getProfileBySubject("unknown", "unknown@omama.vn");
 
         assertTrue(profile.isEmpty());
     }

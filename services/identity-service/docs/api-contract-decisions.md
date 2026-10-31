@@ -2,10 +2,28 @@
 
 ## Status của tài liệu này
 Đây là tài liệu chốt các quyết định thiết kế API cho identity-service. Mỗi quyết định có trạng thái: **CHỐT**, **DRAFT** hoặc **DEPRECATED**.
+Cập nhật tuân thủ **Mục 3.3 & 3.3.1: Áp dụng thiết kế RESTful API** (Bài giảng Thiết kế Hệ thống & Phân tích Nghiệp vụ).
 
 ---
 
-## 1. Luồng xác thực (Authentication Flow)
+## 1. Nguyên Tắc Thiết Kế RESTful API (Mục 3.3.1)
+
+Dịch vụ tuân thủ 4 quy tắc cốt lõi:
+1. **Quy tắc 1: Sử dụng Danh từ (Nouns), KHÔNG dùng Động từ (Verbs)**:
+   - Bản thân các HTTP Method (`GET`, `POST`, `PUT`, `PATCH`, `DELETE`) đã là động từ. URI chỉ biểu diễn tài nguyên.
+   - Ví dụ: `PATCH /api/v1/admin/users/{id}/status` thay cho `POST /suspend` hay `POST /reactivate`.
+   - Ví dụ: `DELETE /api/v1/admin/employee-invitations/{id}` thay cho `POST /revoke`.
+2. **Quy tắc 2: Luôn sử dụng Danh từ số nhiều (Plural nouns)**:
+   - Luôn dùng `users`, `roles`, `permissions`, `employee-invitations`, `role-assignments`, `customer-registrations`.
+3. **Quy tắc 3: Thể hiện mối quan hệ phân cấp (Hierarchy)**:
+   - Quyền hạn thuộc vai trò: `/api/v1/admin/roles/{roleId}/permissions/{permissionCode}`.
+   - Trạng thái thuộc người dùng: `/api/v1/admin/users/{principalId}/status`.
+4. **Quy tắc 4: Sử dụng dấu gạch ngang (kebab-case) cho các từ dài**:
+   - Dùng `employee-invitations`, `role-assignments`, `customer-registrations`.
+
+---
+
+## 2. Luồng xác thực (Authentication Flow)
 
 ### CHỐT — OIDC Authorization Code + PKCE
 - Frontend (Web/Mobile) dùng **OIDC Authorization Code + PKCE** thông qua Keycloak.
@@ -19,9 +37,10 @@
 
 ---
 
-## 2. REST API (Customer-facing)
+## 3. REST API (Customer-facing)
 
-### POST /api/v1/public/registration/customer — CHỐT
+### POST /api/v1/public/customer-registrations — CHỐT (RESTful 3.3.1)
+*(Hỗ trợ tương thích ngược alias: `POST /api/v1/public/registration/customer`)*
 
 **Mô tả**: Đăng ký tài khoản khách hàng mới. Idempotent theo `idempotencyKey`.
 
@@ -40,18 +59,25 @@
 **Response 200 (OK / idempotent replay):**
 ```json
 {
-  "principalId": "uuid",
-  "status": "ACTIVE",
-  "message": "User registered successfully"
+  "success": true,
+  "code": "SUCCESS",
+  "message": "Đăng ký tài khoản thành công",
+  "data": {
+    "principalId": "uuid",
+    "status": "ACTIVE",
+    "message": "Đăng ký tài khoản thành công"
+  },
+  "timestamp": "2026-10-31T10:30:00Z"
 }
 ```
 
 **Response 409 (Conflict — idempotency key tái sử dụng với payload khác):**
 ```json
 {
-  "principalId": null,
-  "status": "CONFLICT",
-  "message": "Idempotency key reused with different payload"
+  "success": false,
+  "code": "STATE_CONFLICT",
+  "message": "Idempotency key reused with different payload",
+  "timestamp": "2026-10-31T10:30:00Z"
 }
 ```
 
@@ -61,9 +87,42 @@
 
 ---
 
-## 3. REST API (Admin-facing IAM & Role Management)
+## 4. REST API (User Lifecycle & Administration)
 
-### CHỐT — POST /api/v1/admin/iam/assignments
+### PATCH /api/v1/admin/users/{principalId}/status — CHỐT (RESTful 3.3.1)
+*(Hỗ trợ tương thích ngược: `POST .../suspend`, `POST .../reactivate`)*
+
+**Mô tả**: Cập nhật trạng thái tài khoản người dùng (ACTIVE, SUSPENDED). Áp dụng Quy tắc 1 (dùng HTTP PATCH trên noun `status` thay cho verbs `suspend`/`reactivate`).
+
+**Request Body:**
+```json
+{
+  "status": "SUSPENDED",
+  "reason": "Tài khoản có dấu hiệu vi phạm chính sách khuyến mãi"
+}
+```
+
+---
+
+## 5. REST API (Employee Invitations)
+
+### POST /api/v1/admin/employee-invitations — CHỐT (RESTful 3.3.1)
+*(Hỗ trợ alias: `POST /api/v1/admin/employees/invitations`)*
+
+**Mô tả**: Tạo thư mời nhân viên mới kèm mã kích hoạt.
+
+### DELETE /api/v1/admin/employee-invitations/{invitationId} — CHỐT (RESTful 3.3.1)
+*(Hỗ trợ alias: `POST .../{invitationId}/revoke`)*
+
+**Mô tả**: Thu hồi thư mời nhân viên bằng phương thức HTTP DELETE trên URI danh từ số nhiều (Quy tắc 1, 2, 4).
+
+---
+
+## 6. REST API (IAM Role Assignments)
+
+### POST /api/v1/admin/role-assignments — CHỐT (RESTful 3.3.1)
+*(Hỗ trợ alias: `POST /api/v1/admin/iam/assignments`)*
+
 **Mô tả**: Gán role nhân viên có scope và thời hạn.
 
 **Request:**
@@ -79,14 +138,12 @@
 }
 ```
 
-**Ràng buộc**:
-- `principal` phải có `principal_type = EMPLOYEE`.
-- Nếu `scopeType != GLOBAL` thì `scopeId` là bắt buộc.
-- Không cho phép tự gán quyền cho chính mình.
-- Không cho phép thu hồi `System Administrator` cuối cùng.
-- Mọi thay đổi phải được ghi vào `identity_audit_log`.
+### DELETE /api/v1/admin/role-assignments/{assignmentId} — CHỐT (RESTful 3.3.1)
+**Mô tả**: Thu hồi phân công vai trò nhân viên bằng HTTP DELETE.
 
 ---
+
+## 7. REST API (Role & Permission Management)
 
 ### CHỐT — Bộ API Quản Lý Role (Role Lifecycle)
 
@@ -100,7 +157,7 @@
 
 ---
 
-### CHỐT — Bộ API Quản Lý Permission Của Role
+### CHỐT — Bộ API Quản Lý Permission Của Role (Quan hệ phân cấp - Quy tắc 3)
 
 | Method | Endpoint | Chức năng | Mô tả & Ràng buộc |
 | :--- | :--- | :--- | :--- |
@@ -113,7 +170,7 @@
 
 ---
 
-## 4. gRPC API
+## 8. gRPC API
 
 ### CheckSpecializedPermission — CHỐT (dựa trên packages/proto/identity/v1/identity.proto)
 
@@ -128,44 +185,20 @@
 ### GetJwksPublicKey — DEPRECATED (Kế hoạch xóa bỏ)
 
 > **Lưu ý**: Gateway nên đọc JWKS trực tiếp từ Keycloak OIDC Discovery endpoint thay vì gọi RPC này.
-> Nếu quyết định xóa khỏi proto, cần update shared proto, tài liệu API và service boundary trong cùng một PR.
 
 ---
 
-## 5. Kafka Events
+## 9. Kafka Events
 
 ### identity.events.v1.UserRegistered — DRAFT (Chưa publish production)
+Envelope CloudEvents 1.0 với `principalId`, `email`, `firstName`, `lastName`.
 
-**Điều kiện publish**: Chỉ phát sau khi schema versioned tại `packages/events` được phê duyệt.
-
-**Envelope (CloudEvents 1.0)**:
-```json
-{
-  "specversion": "1.0",
-  "type": "identity.events.v1.UserRegistered",
-  "source": "identity-service",
-  "id": "uuid-event-id",
-  "time": "2026-10-11T00:00:00Z",
-  "datacontenttype": "application/json",
-  "data": {
-    "principalId": "uuid",
-    "email": "user@example.com",
-    "firstName": "Nguyen",
-    "lastName": "Van A"
-  }
-}
-```
-
-**PII Policy**: `email` là PII. Chỉ đưa vào event nếu consumer đã được phê duyệt nhận PII. Cân nhắc dùng `principalId` và để consumer tự query Profile Service.
-
-### identity.events.v1.UserDeactivated — DRAFT
-### identity.events.v1.PasswordChanged — DRAFT
-
-> Không phát các event này cho đến khi consumer contract và PII policy được chốt.
+### identity.events.v1.UserSuspended — DRAFT
+Envelope CloudEvents 1.0 với `principalId`, `reason`, `suspendedAt`.
 
 ---
 
-## 6. Token Claims
+## 10. Token Claims
 
 | Claim | Giá trị | Ghi chú |
 |---|---|---|
@@ -175,17 +208,3 @@
 | `aud` | `omama-api` | Audience cụ thể, không dùng chung |
 | `exp` | `iat + 900` (15 phút) | **CHỐT**: Access Token TTL = 15 phút |
 | `roles` | `CUSTOMER` / `EMPLOYEE` | Coarse-grained roles từ Keycloak |
-
-> **Mâu thuẫn đã giải quyết**: Access Token TTL chốt là **15 phút** (không phải 1 giờ). Mọi config, test và tài liệu phải sử dụng giá trị này.
-
----
-
-## 7. Những gì KHÔNG được triển khai
-
-| Hành động | Lý do |
-|---|---|
-| API nhận `username/password` và phát JWT | Vi phạm kiến trúc OIDC; Keycloak là nguồn chân lý |
-| Bảng `refresh_tokens`, `sessions`, `password_hash` | Keycloak đã sở hữu |
-| Guest identity trong identity_db | Cart/Checkout/Order sở hữu Guest session |
-| `ValidateToken` gRPC | Không có trong shared proto chuẩn |
-| Toàn bộ admin REST trước khi draft OpenAPI được chốt | Contract phải stable trước khi mở Frontend |

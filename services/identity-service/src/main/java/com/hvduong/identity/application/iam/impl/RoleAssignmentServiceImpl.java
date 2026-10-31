@@ -2,7 +2,7 @@ package com.hvduong.identity.application.iam.impl;
 
 import com.hvduong.identity.application.iam.RoleAssignmentService;
 
-import com.hvduong.identity.api.admin.dto.AssignRoleRequest;
+import com.hvduong.identity.dto.request.AssignRoleRequest;
 import com.hvduong.identity.application.audit.AuditService;
 import com.hvduong.identity.infrastructure.persistence.entity.IamRoleAssignmentRow;
 import com.hvduong.identity.infrastructure.persistence.entity.IdentityPrincipalRow;

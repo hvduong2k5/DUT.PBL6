@@ -4,8 +4,8 @@ import com.hvduong.identity.application.registration.RegisterPrincipalUseCase;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.hvduong.identity.api.registration.dto.RegistrationRequest;
-import com.hvduong.identity.api.registration.dto.RegistrationResponse;
+import com.hvduong.identity.dto.request.RegistrationRequest;
+import com.hvduong.identity.dto.response.RegistrationResponse;
 import com.hvduong.identity.infrastructure.keycloak.KeycloakAdminClient;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.*;
 import com.hvduong.identity.infrastructure.persistence.entity.*;

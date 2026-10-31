@@ -1,6 +1,9 @@
 package com.hvduong.identity.application.iam;
 
 import com.hvduong.identity.application.iam.impl.RoleManagementServiceImpl;
+import com.hvduong.identity.dto.request.CreateRoleRequest;
+import com.hvduong.identity.dto.request.UpdateRoleRequest;
+import com.hvduong.identity.dto.response.RoleDetailResponse;
 
 import com.hvduong.identity.application.audit.AuditService;
 import com.hvduong.identity.infrastructure.keycloak.KeycloakAdminClient;
@@ -78,7 +81,7 @@ class RoleManagementServiceTest {
         p.setPermissionCode("order:read");
         when(rolePermissionMapper.findByRoleId(roleId)).thenReturn(List.of(p));
 
-        RoleManagementService.RoleDetailDto detail = service.getRoleById(roleId);
+        RoleDetailResponse detail = service.getRoleById(roleId);
         assertNotNull(detail);
         assertEquals("STORE_STAFF", detail.getRoleCode());
         assertEquals(1, detail.getPermissions().size());
@@ -95,7 +98,7 @@ class RoleManagementServiceTest {
 
     @Test
     void createRole_Success() {
-        RoleManagementService.CreateRoleDto dto = new RoleManagementService.CreateRoleDto();
+        CreateRoleRequest dto = new CreateRoleRequest();
         dto.setRoleCode("CASHIER");
         dto.setRoleName("Thu ngân");
         dto.setDescription("Nhân viên thu ngân");
@@ -113,7 +116,7 @@ class RoleManagementServiceTest {
 
     @Test
     void createRole_DuplicateCode_ThrowsException() {
-        RoleManagementService.CreateRoleDto dto = new RoleManagementService.CreateRoleDto();
+        CreateRoleRequest dto = new CreateRoleRequest();
         dto.setRoleCode("CASHIER");
 
         when(roleMapper.findByCode("CASHIER")).thenReturn(new IamRoleRow());
@@ -132,7 +135,7 @@ class RoleManagementServiceTest {
         when(roleMapper.findById(roleId)).thenReturn(row);
         when(roleMapper.updateDetails(eq(roleId), any(), any(), any(), any(), eq(1L))).thenReturn(1);
 
-        RoleManagementService.UpdateRoleDto dto = new RoleManagementService.UpdateRoleDto();
+        UpdateRoleRequest dto = new UpdateRoleRequest();
         dto.setRoleName("Thu ngân ca sáng");
         dto.setDescription("Mô tả mới");
 

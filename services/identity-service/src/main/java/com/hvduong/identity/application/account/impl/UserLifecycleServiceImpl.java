@@ -1,6 +1,8 @@
 package com.hvduong.identity.application.account.impl;
 
 import com.hvduong.identity.application.account.UserLifecycleService;
+import com.hvduong.identity.dto.response.UserProfileResponse;
+import com.hvduong.identity.dto.response.UserRoleScopeResponse;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hvduong.identity.application.audit.AuditService;
@@ -31,7 +33,7 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
 
     @Override
     @Transactional(readOnly = true)
-    public Optional<UserProfileDto> getProfileBySubject(String idpSubject, String email) {
+    public Optional<UserProfileResponse> getProfileBySubject(String idpSubject, String email) {
         IdentityPrincipalRow principal = principalMapper.findBySubject(idpSubject);
         if (principal == null) {
             return Optional.empty();
@@ -43,7 +45,7 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
         );
 
         Set<String> effectivePermissions = new LinkedHashSet<>();
-        List<UserRoleScopeDto> roleDtos = new ArrayList<>();
+        List<UserRoleScopeResponse> roleDtos = new ArrayList<>();
 
         if (assignments != null) {
             for (IamRoleAssignmentRow a : assignments) {
@@ -66,7 +68,7 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
                         }
                     }
                 }
-                roleDtos.add(UserRoleScopeDto.builder()
+                roleDtos.add(UserRoleScopeResponse.builder()
                         .roleCode(roleCode)
                         .roleName(roleName)
                         .scopeType(a.getScopeType())
@@ -76,7 +78,7 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
         }
 
         if (roleDtos.isEmpty() && "CUSTOMER".equalsIgnoreCase(principal.getPrincipalType())) {
-            roleDtos.add(UserRoleScopeDto.builder()
+            roleDtos.add(UserRoleScopeResponse.builder()
                     .roleCode("CUSTOMER")
                     .roleName("Khách hàng")
                     .scopeType("GLOBAL")
@@ -84,7 +86,7 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
                     .build());
         }
 
-        return Optional.of(UserProfileDto.builder()
+        return Optional.of(UserProfileResponse.builder()
                 .principalId(principal.getPrincipalId())
                 .idpSubject(principal.getIdpSubject())
                 .email(email)

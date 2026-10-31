@@ -1,23 +1,18 @@
 package com.hvduong.identity.application.account;
 
-import lombok.Builder;
-import lombok.Data;
+import com.hvduong.identity.dto.response.InviteEmployeeResponse;
 
-import java.time.OffsetDateTime;
 import java.util.UUID;
 
 public interface EmployeeInvitationService {
 
-    @Data
-    @Builder
-    class InviteResult {
-        private UUID invitationId;
-        private UUID principalId;
-        private String status;
-        private OffsetDateTime expiresAt;
-    }
+    /**
+     * @deprecated Sử dụng {@link InviteEmployeeResponse}
+     */
+    @Deprecated
+    class InviteResult extends InviteEmployeeResponse {}
 
-    InviteResult inviteEmployee(UUID invitedBy, int validDays);
+    InviteEmployeeResponse inviteEmployee(UUID invitedBy, int validDays);
 
     boolean acceptInvitation(UUID invitationId, String idpSubject);
 

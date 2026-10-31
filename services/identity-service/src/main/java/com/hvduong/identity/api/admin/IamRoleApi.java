@@ -1,13 +1,16 @@
 package com.hvduong.identity.api.admin;
 
-import com.hvduong.identity.api.common.ApiResponse;
-import com.hvduong.identity.application.iam.RoleManagementService;
+import com.hvduong.identity.dto.common.ApiResponse;
+import com.hvduong.identity.dto.request.AddPermissionRequest;
+import com.hvduong.identity.dto.request.CreateRoleRequest;
+import com.hvduong.identity.dto.request.ReplacePermissionsRequest;
+import com.hvduong.identity.dto.request.UpdateRoleRequest;
+import com.hvduong.identity.dto.response.RoleDetailResponse;
 import com.hvduong.identity.infrastructure.persistence.entity.IamRoleRow;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import lombok.Data;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -16,19 +19,9 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.UUID;
 
-@Tag(name = "IAM Roles & Permissions", description = "Quản lý danh mục Vai trò và Quyền hạn (RBAC)")
+@Tag(name = "IAM Roles & Permissions", description = "Quản lý danh mục Vai trò và Quyền hạn phân cấp (RBAC) theo chuẩn RESTful (Mục 3.3.1)")
 @RequestMapping({"/api/v1/admin/roles", "/api/v1/admin/iam/roles"})
 public interface IamRoleApi {
-
-    @Data
-    class AddPermissionRequest {
-        private String permissionCode;
-    }
-
-    @Data
-    class ReplacePermissionsRequest {
-        private List<String> permissions;
-    }
 
     @Operation(summary = "Lấy danh sách tất cả vai trò")
     @SecurityRequirement(name = "bearerAuth")
@@ -38,7 +31,7 @@ public interface IamRoleApi {
     @Operation(summary = "Xem chi tiết một vai trò kèm danh sách quyền")
     @SecurityRequirement(name = "bearerAuth")
     @GetMapping("/{roleId}")
-    ResponseEntity<ApiResponse<RoleManagementService.RoleDetailDto>> getRoleById(
+    ResponseEntity<ApiResponse<RoleDetailResponse>> getRoleById(
             @Parameter(description = "ID vai trò (UUID)", required = true) @PathVariable UUID roleId
     );
 
@@ -46,7 +39,7 @@ public interface IamRoleApi {
     @SecurityRequirement(name = "bearerAuth")
     @PostMapping
     ResponseEntity<ApiResponse<UUID>> createRole(
-            @RequestBody RoleManagementService.CreateRoleDto request,
+            @RequestBody CreateRoleRequest request,
             @AuthenticationPrincipal Jwt jwt,
             @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorHeader
     );
@@ -56,7 +49,7 @@ public interface IamRoleApi {
     @PatchMapping("/{roleId}")
     ResponseEntity<ApiResponse<Void>> updateRole(
             @Parameter(description = "ID vai trò (UUID)", required = true) @PathVariable UUID roleId,
-            @RequestBody RoleManagementService.UpdateRoleDto request,
+            @RequestBody UpdateRoleRequest request,
             @AuthenticationPrincipal Jwt jwt,
             @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorHeader
     );
@@ -107,4 +100,3 @@ public interface IamRoleApi {
             @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorHeader
     );
 }
-

@@ -1,36 +1,26 @@
 package com.hvduong.identity.application.account;
 
-import lombok.Builder;
-import lombok.Data;
+import com.hvduong.identity.dto.response.UserProfileResponse;
+import com.hvduong.identity.dto.response.UserRoleScopeResponse;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 public interface UserLifecycleService {
 
-    @Data
-    @Builder
-    class UserRoleScopeDto {
-        private String roleCode;
-        private String roleName;
-        private String scopeType;
-        private String scopeId;
-    }
+    /**
+     * @deprecated Sử dụng {@link UserRoleScopeResponse}
+     */
+    @Deprecated
+    class UserRoleScopeDto extends UserRoleScopeResponse {}
 
-    @Data
-    @Builder
-    class UserProfileDto {
-        private UUID principalId;
-        private String idpSubject;
-        private String email;
-        private String principalType;
-        private String provisioningStatus;
-        private List<UserRoleScopeDto> roles;
-        private List<String> permissions;
-    }
+    /**
+     * @deprecated Sử dụng {@link UserProfileResponse}
+     */
+    @Deprecated
+    class UserProfileDto extends UserProfileResponse {}
 
-    Optional<UserProfileDto> getProfileBySubject(String idpSubject, String email);
+    Optional<UserProfileResponse> getProfileBySubject(String idpSubject, String email);
 
     void suspendAccount(UUID principalId, String reason, UUID actorPrincipalId);
 

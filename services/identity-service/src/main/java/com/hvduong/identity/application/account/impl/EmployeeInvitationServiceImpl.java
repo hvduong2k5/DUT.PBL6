@@ -1,8 +1,8 @@
 package com.hvduong.identity.application.account.impl;
 
 import com.hvduong.identity.application.account.EmployeeInvitationService;
-
 import com.hvduong.identity.application.audit.AuditService;
+import com.hvduong.identity.dto.response.InviteEmployeeResponse;
 import com.hvduong.identity.infrastructure.persistence.entity.EmployeeInvitationRow;
 import com.hvduong.identity.infrastructure.persistence.entity.IdentityPrincipalRow;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.EmployeeInvitationMapper;
@@ -28,7 +28,7 @@ public class EmployeeInvitationServiceImpl implements EmployeeInvitationService 
 
     @Override
     @Transactional
-    public InviteResult inviteEmployee(UUID invitedBy, int validDays) {
+    public InviteEmployeeResponse inviteEmployee(UUID invitedBy, int validDays) {
         UUID principalId = UUID.randomUUID();
 
         // 1. Create employee principal in PENDING status
@@ -66,7 +66,7 @@ public class EmployeeInvitationServiceImpl implements EmployeeInvitationService 
                 Map.of("principalId", principalId.toString(), "expiresAt", expiresAt.toString())
         );
 
-        return InviteResult.builder()
+        return InviteEmployeeResponse.builder()
                 .invitationId(invitationId)
                 .principalId(principalId)
                 .status("PENDING")

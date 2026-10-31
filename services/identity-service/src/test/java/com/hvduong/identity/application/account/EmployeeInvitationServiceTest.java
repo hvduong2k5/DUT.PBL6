@@ -1,6 +1,7 @@
 package com.hvduong.identity.application.account;
 
 import com.hvduong.identity.application.account.impl.EmployeeInvitationServiceImpl;
+import com.hvduong.identity.dto.response.InviteEmployeeResponse;
 
 import com.hvduong.identity.application.audit.AuditService;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.EmployeeInvitationMapper;
@@ -45,7 +46,7 @@ class EmployeeInvitationServiceTest {
         UUID invitedBy = UUID.randomUUID();
 
         // Act
-        EmployeeInvitationService.InviteResult result = invitationService.inviteEmployee(invitedBy, 14);
+        InviteEmployeeResponse result = invitationService.inviteEmployee(invitedBy, 14);
 
         // Assert
         assertThat(result.getInvitationId()).isNotNull();

@@ -312,11 +312,11 @@ curl http://localhost:8016/actuator/health
 
 ---
 
-### 6.3. Đăng Ký Tài Khoản Khách Hàng Công Khai (`POST /api/v1/public/registration/customer`)
-Hỗ trợ cơ chế Idempotent chống đăng ký lặp:
+### 6.3. Đăng Ký Tài Khoản Khách Hàng Công Khai (`POST /api/v1/public/customer-registrations`)
+Hỗ trợ cơ chế Idempotent chống đăng ký lặp (tuân thủ Chuẩn RESTful 3.3.1):
 
 ```bash
-curl -X POST http://localhost:8016/api/v1/public/registration/customer \
+curl -X POST http://localhost:8016/api/v1/public/customer-registrations \
   -H "Content-Type: application/json" \
   -d '{
     "idempotencyKey": "REG-TEST-001",
@@ -327,6 +327,7 @@ curl -X POST http://localhost:8016/api/v1/public/registration/customer \
     "rawPassword": "Password@123"
   }'
 ```
+*(Hệ thống đồng thời hỗ trợ legacy alias: `POST /api/v1/public/registration/customer`).*
 
 ---
 
@@ -340,7 +341,26 @@ curl -X GET http://localhost:8016/api/v1/users/me \
 
 ---
 
-### 6.5. Quản Lý Danh Mục Vai Trò IAM (`GET /api/v1/admin/roles`)
+### 6.5. Cập Nhật Trạng Thái Người Dùng (`PATCH /api/v1/admin/users/{principalId}/status`)
+Tuân thủ Quy tắc 1 (dùng HTTP `PATCH` thay vì động từ `suspend`/`reactivate` trong URI):
+
+```bash
+# Khóa tài khoản
+curl -X PATCH http://localhost:8016/api/v1/admin/users/e9f8d7c6-1111-2222-3333-444455556666/status \
+  -H "Authorization: Bearer <ADMIN_ACCESS_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"status": "SUSPENDED", "reason": "Tài khoản có dấu hiệu gian lận"}'
+
+# Mở khóa tài khoản
+curl -X PATCH http://localhost:8016/api/v1/admin/users/e9f8d7c6-1111-2222-3333-444455556666/status \
+  -H "Authorization: Bearer <ADMIN_ACCESS_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"status": "ACTIVE"}'
+```
+
+---
+
+### 6.6. Quản Lý Danh Mục Vai Trò IAM (`GET /api/v1/admin/roles`)
 ```bash
 curl -X GET http://localhost:8016/api/v1/admin/roles \
   -H "Authorization: Bearer <ADMIN_ACCESS_TOKEN>"
@@ -348,19 +368,27 @@ curl -X GET http://localhost:8016/api/v1/admin/roles \
 
 ---
 
-### 6.6. Tạo Thư Mời Cho Nhân Viên Mới (`POST /api/v1/admin/employees/invitations`)
+### 6.7. Quản Lý Thư Mời Cho Nhân Viên Mới (`/api/v1/admin/employee-invitations`)
+Tuân thủ Quy tắc 1, 2, 4 (danh từ số nhiều, kebab-case, dùng `DELETE` thay vì động từ `revoke`):
+
 ```bash
-curl -X POST http://localhost:8016/api/v1/admin/employees/invitations \
+# Tạo thư mời:
+curl -X POST http://localhost:8016/api/v1/admin/employee-invitations \
   -H "Authorization: Bearer <ADMIN_ACCESS_TOKEN>" \
   -H "Content-Type: application/json" \
   -d '{"validDays": 7}'
+
+# Thu hồi thư mời bằng HTTP DELETE:
+curl -X DELETE http://localhost:8016/api/v1/admin/employee-invitations/<INVITATION_UUID> \
+  -H "Authorization: Bearer <ADMIN_ACCESS_TOKEN>"
 ```
 
 ---
 
-### 6.7. Gán Vai Trò Chức Danh (`POST /api/v1/admin/iam/assignments`)
+### 6.8. Gán & Thu Hồi Vai Trò Chức Danh (`/api/v1/admin/role-assignments`)
 ```bash
-curl -X POST http://localhost:8016/api/v1/admin/iam/assignments \
+# Gán vai trò cho nhân viên:
+curl -X POST http://localhost:8016/api/v1/admin/role-assignments \
   -H "Authorization: Bearer <ADMIN_ACCESS_TOKEN>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -370,11 +398,15 @@ curl -X POST http://localhost:8016/api/v1/admin/iam/assignments \
     "scopeId": "WH-HUE-01",
     "reason": "Điều chuyển thủ kho chi nhánh Huế"
   }'
+
+# Thu hồi vai trò đã gán bằng HTTP DELETE:
+curl -X DELETE http://localhost:8016/api/v1/admin/role-assignments/<ASSIGNMENT_UUID>?reason=KetThucNhiemKy \
+  -H "Authorization: Bearer <ADMIN_ACCESS_TOKEN>"
 ```
 
 ---
 
-### 6.8. Kiểm Thử gRPC Service (Port 9016)
+### 6.9. Kiểm Thử gRPC Service (Port 9016)
 Dịch vụ cung cấp gRPC Server tại cổng `9016` (được định nghĩa trong Proto `IdentityService`):
 - `CheckSpecializedPermission`: Đánh giá quyền hạn đặc thù và kiểm soát rủi ro cao.
 - `GetJwksPublicKey`: Trả về Public Key để các Microservices khác kiểm tra chữ ký token nội bộ.

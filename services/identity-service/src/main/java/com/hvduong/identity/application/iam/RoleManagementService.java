@@ -1,51 +1,40 @@
 package com.hvduong.identity.application.iam;
 
+import com.hvduong.identity.dto.request.CreateRoleRequest;
+import com.hvduong.identity.dto.request.UpdateRoleRequest;
+import com.hvduong.identity.dto.response.RoleDetailResponse;
 import com.hvduong.identity.infrastructure.persistence.entity.IamRoleRow;
-import lombok.Builder;
-import lombok.Data;
 
-import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
 public interface RoleManagementService {
 
-    @Data
-    class CreateRoleDto {
-        private String roleCode;
-        private String roleName;
-        private String description;
-    }
+    /**
+     * @deprecated Sử dụng {@link CreateRoleRequest}
+     */
+    @Deprecated
+    class CreateRoleDto extends CreateRoleRequest {}
 
-    @Data
-    class UpdateRoleDto {
-        private String roleName;
-        private String description;
-        private Boolean isEnabled;
-    }
+    /**
+     * @deprecated Sử dụng {@link UpdateRoleRequest}
+     */
+    @Deprecated
+    class UpdateRoleDto extends UpdateRoleRequest {}
 
-    @Data
-    @Builder
-    class RoleDetailDto {
-        private UUID roleId;
-        private String roleCode;
-        private String roleName;
-        private String description;
-        private Boolean isProtected;
-        private Boolean isEnabled;
-        private Long version;
-        private OffsetDateTime createdAt;
-        private OffsetDateTime updatedAt;
-        private List<String> permissions;
-    }
+    /**
+     * @deprecated Sử dụng {@link RoleDetailResponse}
+     */
+    @Deprecated
+    class RoleDetailDto extends RoleDetailResponse {}
 
     List<IamRoleRow> getAllRoles();
 
-    RoleDetailDto getRoleById(UUID roleId);
+    RoleDetailResponse getRoleById(UUID roleId);
 
-    UUID createRole(CreateRoleDto dto, UUID creatorId);
+    UUID createRole(CreateRoleRequest dto, UUID creatorId);
 
-    void updateRole(UUID roleId, UpdateRoleDto dto, UUID updaterId);
+    void updateRole(UUID roleId, UpdateRoleRequest dto, UUID updaterId);
 
     void deleteRole(UUID roleId, UUID actorId);
 

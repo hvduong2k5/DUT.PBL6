@@ -1,11 +1,8 @@
 package com.hvduong.identity.api.admin.impl;
 
-import com.hvduong.identity.api.admin.IamRoleApi;
-import com.hvduong.identity.api.common.ApiResponse;
-import com.hvduong.identity.application.iam.RoleManagementService;
-import com.hvduong.identity.infrastructure.persistence.entity.IamRoleRow;
-import lombok.Data;
-import lombok.RequiredArgsConstructor;
+import java.util.List;
+import java.util.UUID;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -15,8 +12,17 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
-import java.util.UUID;
+import com.hvduong.identity.api.admin.IamRoleApi;
+import com.hvduong.identity.application.iam.RoleManagementService;
+import com.hvduong.identity.dto.common.ApiResponse;
+import com.hvduong.identity.dto.request.AddPermissionRequest;
+import com.hvduong.identity.dto.request.CreateRoleRequest;
+import com.hvduong.identity.dto.request.ReplacePermissionsRequest;
+import com.hvduong.identity.dto.request.UpdateRoleRequest;
+import com.hvduong.identity.dto.response.RoleDetailResponse;
+import com.hvduong.identity.infrastructure.persistence.entity.IamRoleRow;
+
+import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequiredArgsConstructor
@@ -31,14 +37,14 @@ public class IamRoleController implements IamRoleApi {
     }
 
     @Override
-    public ResponseEntity<ApiResponse<RoleManagementService.RoleDetailDto>> getRoleById(@PathVariable UUID roleId) {
-        RoleManagementService.RoleDetailDto role = roleManagementService.getRoleById(roleId);
+    public ResponseEntity<ApiResponse<RoleDetailResponse>> getRoleById(@PathVariable UUID roleId) {
+        RoleDetailResponse role = roleManagementService.getRoleById(roleId);
         return ResponseEntity.ok(ApiResponse.success(role));
     }
 
     @Override
     public ResponseEntity<ApiResponse<UUID>> createRole(
-            @RequestBody RoleManagementService.CreateRoleDto request,
+            @RequestBody CreateRoleRequest request,
             @AuthenticationPrincipal Jwt jwt,
             @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorHeader
     ) {
@@ -51,7 +57,7 @@ public class IamRoleController implements IamRoleApi {
     @Override
     public ResponseEntity<ApiResponse<Void>> updateRole(
             @PathVariable UUID roleId,
-            @RequestBody RoleManagementService.UpdateRoleDto request,
+            @RequestBody UpdateRoleRequest request,
             @AuthenticationPrincipal Jwt jwt,
             @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorHeader
     ) {

@@ -1,6 +1,9 @@
 package com.hvduong.identity.application.iam.impl;
 
 import com.hvduong.identity.application.iam.RoleManagementService;
+import com.hvduong.identity.dto.request.CreateRoleRequest;
+import com.hvduong.identity.dto.request.UpdateRoleRequest;
+import com.hvduong.identity.dto.response.RoleDetailResponse;
 
 import com.hvduong.identity.application.audit.AuditService;
 import com.hvduong.identity.infrastructure.keycloak.KeycloakAdminClient;
@@ -33,7 +36,7 @@ public class RoleManagementServiceImpl implements RoleManagementService {
 
     @Override
     @Transactional(readOnly = true)
-    public RoleDetailDto getRoleById(UUID roleId) {
+    public RoleDetailResponse getRoleById(UUID roleId) {
         IamRoleRow role = roleMapper.findById(roleId);
         if (role == null) {
             throw new NoSuchElementException("Role not found with id: " + roleId);
@@ -43,7 +46,7 @@ public class RoleManagementServiceImpl implements RoleManagementService {
                 .map(IamRolePermissionRow::getPermissionCode)
                 .toList();
 
-        return RoleDetailDto.builder()
+        return RoleDetailResponse.builder()
                 .roleId(role.getRoleId())
                 .roleCode(role.getRoleCode())
                 .roleName(role.getRoleName())
@@ -59,7 +62,7 @@ public class RoleManagementServiceImpl implements RoleManagementService {
 
     @Override
     @Transactional
-    public UUID createRole(CreateRoleDto dto, UUID creatorId) {
+    public UUID createRole(CreateRoleRequest dto, UUID creatorId) {
         if (dto.getRoleCode() == null || dto.getRoleCode().trim().isEmpty()) {
             throw new IllegalArgumentException("Role code cannot be empty");
         }
@@ -106,7 +109,7 @@ public class RoleManagementServiceImpl implements RoleManagementService {
 
     @Override
     @Transactional
-    public void updateRole(UUID roleId, UpdateRoleDto dto, UUID updaterId) {
+    public void updateRole(UUID roleId, UpdateRoleRequest dto, UUID updaterId) {
         IamRoleRow existing = roleMapper.findById(roleId);
         if (existing == null) {
             throw new NoSuchElementException("Role not found with id: " + roleId);

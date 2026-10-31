@@ -1,10 +1,10 @@
 package com.hvduong.identity.api.registration.impl;
 
-import com.hvduong.identity.api.common.ApiResponse;
 import com.hvduong.identity.api.registration.RegistrationApi;
-import com.hvduong.identity.api.registration.dto.RegistrationRequest;
-import com.hvduong.identity.api.registration.dto.RegistrationResponse;
 import com.hvduong.identity.application.registration.RegisterPrincipalUseCase;
+import com.hvduong.identity.dto.common.ApiResponse;
+import com.hvduong.identity.dto.request.RegistrationRequest;
+import com.hvduong.identity.dto.response.RegistrationResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
