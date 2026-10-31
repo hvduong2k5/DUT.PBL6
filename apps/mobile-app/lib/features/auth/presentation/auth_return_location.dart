@@ -19,6 +19,7 @@ String safeAuthReturnLocation(String? value) {
     '/cart',
     '/checkout',
     '/checkout/quote',
+    '/checkout/operation',
     '/orders',
     '/addresses',
     '/addresses/form',

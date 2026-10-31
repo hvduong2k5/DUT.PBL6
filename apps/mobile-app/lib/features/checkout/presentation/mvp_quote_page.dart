@@ -9,10 +9,18 @@ import 'package:mobile_app/core/widgets/app_loading_view.dart';
 import 'package:mobile_app/core/widgets/app_error_view.dart';
 import 'package:mobile_app/core/widgets/app_empty_view.dart';
 import 'package:mobile_app/features/checkout/presentation/mvp_quote_cubit.dart';
+import 'package:mobile_app/features/checkout/presentation/mvp_checkout_cubit.dart';
+import 'package:mobile_app/app/router/routes.dart';
 
 class MvpQuotePage extends StatefulWidget {
-  const MvpQuotePage({super.key, this.localPreview = false, this.now});
+  const MvpQuotePage({
+    super.key,
+    this.localPreview = false,
+    this.now,
+    this.checkoutEnabled = false,
+  });
   final bool localPreview;
+  final bool checkoutEnabled;
   final DateTime Function()? now;
   @override
   State<MvpQuotePage> createState() => _MvpQuotePageState();
@@ -43,6 +51,9 @@ class _MvpQuotePageState extends State<MvpQuotePage> {
       child: BlocBuilder<MvpQuoteCubit, MvpQuoteState>(
         builder: (context, state) {
           final cubit = context.read<MvpQuoteCubit>();
+          final checkout = widget.checkoutEnabled
+              ? context.watch<MvpCheckoutCubit>().state
+              : null;
           if (state.status == MvpQuoteStatus.initial ||
               state.status == MvpQuoteStatus.loading) {
             return const AppLoadingView();
@@ -103,6 +114,13 @@ class _MvpQuotePageState extends State<MvpQuotePage> {
                     'Dữ liệu thử nghiệm trên thiết bị. Không tạo đơn hoặc thanh toán thật.',
                   ),
                 ),
+              if (checkout?.unresolved == true ||
+                  checkout?.storageBlocked == true)
+                OutlinedButton(
+                  onPressed: () => context.push(AppRoutes.checkoutOperation),
+                  child: const Text('Tiếp tục yêu cầu trước đó'),
+                ),
+              if (checkout?.message != null) Text(checkout!.message!),
               Text(
                 'Kiểm tra đơn trước khi mua',
                 style: Theme.of(context).textTheme.headlineMedium,
@@ -193,9 +211,34 @@ class _MvpQuotePageState extends State<MvpQuotePage> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                const Text(
-                  'Chưa thể đặt hàng trong phiên này. Báo giá chưa tạo đơn và chưa giữ hàng.',
-                ),
+                if (!widget.checkoutEnabled)
+                  const Text(
+                    'Chưa thể đặt hàng trong phiên này. Báo giá chưa tạo đơn và chưa giữ hàng.',
+                  ),
+                if (widget.checkoutEnabled) ...[
+                  const Text(
+                    'Xác nhận để gửi yêu cầu tạo đơn. Chỉ thanh toán sau khi đơn được tạo thành công.',
+                  ),
+                  const SizedBox(height: 12),
+                  AppPrimaryButton(
+                    label: checkout?.attempt?.input.quoteId == quote.id
+                        ? 'Xem kết quả yêu cầu'
+                        : 'Xác nhận đặt hàng',
+                    loading: checkout?.busy ?? false,
+                    onPressed: checkout?.attempt?.input.quoteId == quote.id
+                        ? () => context.push(AppRoutes.checkoutOperation)
+                        : usable && checkout?.canStart == true
+                        ? () async {
+                            final controller = context.read<MvpCheckoutCubit>();
+                            await controller.start(quote);
+                            if (context.mounted &&
+                                controller.state.attempt != null) {
+                              context.push(AppRoutes.checkoutOperation);
+                            }
+                          }
+                        : null,
+                  ),
+                ],
               ],
               const SizedBox(height: 20),
               AppPrimaryButton(

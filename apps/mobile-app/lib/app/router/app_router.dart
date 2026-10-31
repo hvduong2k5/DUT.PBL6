@@ -5,6 +5,8 @@ import 'package:mobile_app/features/checkout/domain/mvp_purchase_repository.dart
 import 'package:mobile_app/features/checkout/data/local_mvp_purchase_repository.dart';
 import 'package:mobile_app/features/checkout/presentation/mvp_quote_cubit.dart';
 import 'package:mobile_app/features/checkout/presentation/mvp_quote_page.dart';
+import 'package:mobile_app/features/checkout/domain/mvp_checkout_repository.dart';
+import 'package:mobile_app/features/checkout/presentation/mvp_operation_page.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_app/app/router/routes.dart';
@@ -294,6 +296,7 @@ GoRouter createAppRouter({
       builder: (context, state) => SafeBackScope(
         child: CartPage(
           quoteEnabled: context.read<MvpPurchaseRepository?>() != null,
+          checkoutEnabled: context.read<MvpCheckoutRuntime?>() != null,
         ),
       ),
     ),
@@ -325,6 +328,7 @@ GoRouter createAppRouter({
                 create: (_) => MvpQuoteCubit(repository)..load(),
                 child: MvpQuotePage(
                   localPreview: repository is LocalMvpPurchaseRepository,
+                  checkoutEnabled: context.read<MvpCheckoutRuntime?>() != null,
                 ),
               );
             },
@@ -333,7 +337,28 @@ GoRouter createAppRouter({
       ),
     ),
     GoRoute(
+      path: AppRoutes.checkoutOperation,
+      builder: (context, state) => SafeBackScope(
+        child: CustomerAccountGate(
+          returnLocation: AppRoutes.checkoutOperation,
+          child: context.read<MvpCheckoutRuntime?>() == null
+              ? const Scaffold(
+                  body: AppEmptyView(
+                    title: 'Yêu cầu chưa khả dụng',
+                    message: 'Vui lòng quay lại giỏ hàng.',
+                  ),
+                )
+              : MvpOperationPage(
+                  localPreview: context.read<MvpCheckoutRuntime?>()!.local,
+                ),
+        ),
+      ),
+    ),
+    GoRoute(
       path: AppRoutes.checkout,
+      redirect: (context, state) => context.read<MvpCheckoutRuntime?>() != null
+          ? AppRoutes.quoteReview
+          : null,
       builder: (context, state) => SafeBackScope(
         child: BlocProvider(
           create: (_) {

@@ -46,6 +46,7 @@ abstract final class ApiErrorMapper {
       fieldErrors: fields,
       requestId: data['requestId'] as String?,
       retryAfterSeconds: data['retryAfterSeconds'] as int?,
+      operationId: data['operation_id'] as String?,
     );
   }
 

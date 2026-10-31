@@ -85,7 +85,10 @@ void main() {
   testWidgets(
     'cart quote entry returns through login and reviews all lines without placing order',
     (tester) async {
-      final d = RepositoryFactory.create(mode: DataSourceMode.mock);
+      final d = RepositoryFactory.create(
+        mode: DataSourceMode.mock,
+        localMvpCheckout: false,
+      );
       await tester.runAsync(() => seedCart(d));
       await tester.pumpWidget(
         OmaApp(initialLocation: '/cart', dependencies: d),

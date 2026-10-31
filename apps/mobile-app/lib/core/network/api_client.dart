@@ -55,6 +55,7 @@ class ApiClient {
               message: 'Phiên vừa được làm mới. Vui lòng thử lại thao tác.',
               code: failure.code,
               requestId: failure.requestId,
+              operationId: failure.operationId,
             ),
           );
         }

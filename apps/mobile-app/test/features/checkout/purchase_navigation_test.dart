@@ -18,7 +18,10 @@ void main() {
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
-      final dependencies = RepositoryFactory.create(mode: DataSourceMode.mock);
+      final dependencies = RepositoryFactory.create(
+        mode: DataSourceMode.mock,
+        localMvpCheckout: false,
+      );
       await tester.runAsync(() async {
         final first = await dependencies.catalogRepository.product(
           'PROD-MX-GION-500',

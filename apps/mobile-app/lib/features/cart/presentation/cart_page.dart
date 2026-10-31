@@ -13,10 +13,15 @@ import 'package:mobile_app/core/widgets/app_mobile_header.dart';
 import 'package:mobile_app/core/widgets/app_primary_button.dart';
 import 'package:mobile_app/features/cart/domain/cart_models.dart';
 import 'package:mobile_app/features/cart/presentation/cart_cubit.dart';
+import 'package:mobile_app/features/checkout/presentation/mvp_checkout_cubit.dart';
 
 class CartPage extends StatelessWidget {
-  const CartPage({super.key, this.quoteEnabled = false});
-  final bool quoteEnabled;
+  const CartPage({
+    super.key,
+    this.quoteEnabled = false,
+    this.checkoutEnabled = false,
+  });
+  final bool quoteEnabled, checkoutEnabled;
   Future<void> _clear(BuildContext context) async {
     final cubit = context.read<CartCubit>();
     final confirmed = await showDialog<bool>(
@@ -50,6 +55,11 @@ class CartPage extends StatelessWidget {
   Widget build(BuildContext context) => BlocBuilder<CartCubit, CartState>(
     builder: (context, state) {
       final cart = state.cart;
+      final checkout = checkoutEnabled
+          ? context.watch<MvpCheckoutCubit>().state
+          : null;
+      final continuing =
+          checkout?.unresolved == true || checkout?.storageBlocked == true;
       return Scaffold(
         appBar: AppMobileHeader(
           title: cart.items.isEmpty
@@ -85,19 +95,20 @@ class CartPage extends StatelessWidget {
               120,
             ),
             children: [
-              CheckboxListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Chọn tất cả sản phẩm khả dụng'),
-                subtitle: Text(
-                  'Đã chọn ${state.selectedIds.length}/${state.availableIds.length} dòng',
+              if (!checkoutEnabled)
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Chọn tất cả sản phẩm khả dụng'),
+                  subtitle: Text(
+                    'Đã chọn ${state.selectedIds.length}/${state.availableIds.length} dòng',
+                  ),
+                  value:
+                      state.availableIds.isNotEmpty &&
+                      state.selectedIds.length == state.availableIds.length,
+                  onChanged: state.pending
+                      ? null
+                      : (_) => context.read<CartCubit>().toggleAll(),
                 ),
-                value:
-                    state.availableIds.isNotEmpty &&
-                    state.selectedIds.length == state.availableIds.length,
-                onChanged: state.pending
-                    ? null
-                    : (_) => context.read<CartCubit>().toggleAll(),
-              ),
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton.icon(
@@ -117,7 +128,7 @@ class CartPage extends StatelessWidget {
                     ),
                   ),
                 ),
-              if (quoteEnabled)
+              if (quoteEnabled && !checkoutEnabled)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 16),
                   child: OutlinedButton(
@@ -133,6 +144,7 @@ class CartPage extends StatelessWidget {
                   selected: state.selectedIds.contains(line.itemId),
                   available: state.availableIds.contains(line.itemId),
                   pending: state.pending,
+                  selectionEnabled: !checkoutEnabled,
                 ),
               Card(
                 child: Padding(
@@ -165,24 +177,25 @@ class CartPage extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: AppSpacing.xs),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Expanded(
-                            child: Text(
-                              'Hàng đã chọn',
-                              style: TextStyle(fontWeight: FontWeight.bold),
+                      if (!checkoutEnabled)
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Expanded(
+                              child: Text(
+                                'Hàng đã chọn',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
                             ),
-                          ),
-                          Flexible(
-                            child: Text(
-                              state.selectedCart.subtotal.format(),
-                              style: Theme.of(context).textTheme.titleLarge,
-                              textAlign: TextAlign.end,
+                            Flexible(
+                              child: Text(
+                                state.selectedCart.subtotal.format(),
+                                style: Theme.of(context).textTheme.titleLarge,
+                                textAlign: TextAlign.end,
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
+                          ],
+                        ),
                       const SizedBox(height: 12),
                       const Text(
                         'Tạm tính chưa gồm phí vận chuyển và ưu đãi. Giá và khả dụng được kiểm tra lại khi đặt hàng.',
@@ -198,7 +211,7 @@ class CartPage extends StatelessWidget {
             ],
           ),
         },
-        bottomSheet: cart.items.isEmpty
+        bottomSheet: cart.items.isEmpty && !continuing
             ? null
             : SafeArea(
                 top: false,
@@ -219,11 +232,15 @@ class CartPage extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Đã chọn ${state.selectedCart.totalItems} món:',
+                              checkoutEnabled
+                                  ? 'Cả giỏ ${cart.totalItems} món:'
+                                  : 'Đã chọn ${state.selectedCart.totalItems} món:',
                               style: Theme.of(context).textTheme.bodySmall,
                             ),
                             Text(
-                              state.selectedCart.subtotal.format(),
+                              (checkoutEnabled ? cart : state.selectedCart)
+                                  .subtotal
+                                  .format(),
                               style: const TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
@@ -236,10 +253,21 @@ class CartPage extends StatelessWidget {
                       SizedBox(
                         width: 150,
                         child: AppPrimaryButton(
-                          label: 'Thanh Toán',
+                          label: checkoutEnabled
+                              ? (continuing ? 'Tiếp tục đơn' : 'Xem báo giá')
+                              : 'Thanh Toán',
                           icon: Icons.arrow_forward,
-                          onPressed: state.pending || state.selectedIds.isEmpty
+                          onPressed:
+                              state.pending ||
+                                  (!checkoutEnabled &&
+                                      state.selectedIds.isEmpty)
                               ? null
+                              : checkoutEnabled
+                              ? () => context.push(
+                                  continuing
+                                      ? AppRoutes.checkoutOperation
+                                      : AppRoutes.quoteReview,
+                                )
                               : () => context.push(
                                   Uri(
                                     path: AppRoutes.checkout,
@@ -274,11 +302,13 @@ class _CartLineTile extends StatelessWidget {
     required this.selected,
     required this.available,
     required this.pending,
+    this.selectionEnabled = true,
   });
   final CartLine line;
   final bool selected;
   final bool available;
   final bool pending;
+  final bool selectionEnabled;
   @override
   Widget build(BuildContext context) => Card(
     margin: const EdgeInsets.only(bottom: AppSpacing.sm),
@@ -309,13 +339,14 @@ class _CartLineTile extends StatelessWidget {
                             const Icon(Icons.image_not_supported_outlined),
                       ),
               ),
-              Checkbox(
-                value: selected,
-                semanticLabel: 'Chọn ${line.product.name} để thanh toán',
-                onChanged: pending || !available
-                    ? null
-                    : (_) => context.read<CartCubit>().toggle(line.itemId),
-              ),
+              if (selectionEnabled)
+                Checkbox(
+                  value: selected,
+                  semanticLabel: 'Chọn ${line.product.name} để thanh toán',
+                  onChanged: pending || !available
+                      ? null
+                      : (_) => context.read<CartCubit>().toggle(line.itemId),
+                ),
             ],
           ),
           const SizedBox(width: AppSpacing.sm),

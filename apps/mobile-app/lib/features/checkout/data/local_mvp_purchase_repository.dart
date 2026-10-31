@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:uuid/uuid.dart';
 import 'package:mobile_app/core/error/failures.dart';
 import 'package:mobile_app/core/network/api_exception.dart';
 import 'package:mobile_app/features/cart/domain/cart_models.dart';
@@ -12,10 +13,26 @@ class LocalMvpPurchaseRepository implements MvpPurchaseRepository {
     this._cart,
     this._authenticated, {
     DateTime Function()? now,
-  }) : _now = now ?? DateTime.now;
+    String? Function()? principal,
+  }) : _now = now ?? DateTime.now,
+       _principal = principal ?? (() => 'local-fixture');
   final CartRepository _cart;
   final bool Function() _authenticated;
   final DateTime Function() _now;
+  final String? Function() _principal;
+  final _issued = <String, ({String? owner, MvpQuote quote})>{};
+
+  MvpQuote issuedQuote(String id) {
+    _authorize();
+    final entry = _issued[id];
+    if (entry == null || entry.owner != _principal()) {
+      throw const ApiException(
+        Failure(kind: FailureKind.notFound, message: 'Không tìm thấy báo giá.'),
+      );
+    }
+    return entry.quote;
+  }
+
   int _revision = 0;
   String? _fingerprint;
   static const addressId = '11111111-1111-4111-8111-111111111111';
@@ -100,8 +117,8 @@ class LocalMvpPurchaseRepository implements MvpPurchaseRepository {
         .toUtc()
         .add(const Duration(minutes: 2))
         .toIso8601String();
-    return MvpQuote.fromJson({
-      'quote_id': 'LOCAL-QUOTE-$cartRevision-${_now().microsecondsSinceEpoch}',
+    final quote = MvpQuote.fromJson({
+      'quote_id': const Uuid().v4(),
       'cart_revision': cartRevision,
       'payment_method': 'VIETQR',
       'source_address_id': addressId,
@@ -123,5 +140,7 @@ class LocalMvpPurchaseRepository implements MvpPurchaseRepository {
       'catalog_expires_at': expiry,
       'shipping_expires_at': expiry,
     });
+    _issued[quote.id] = (owner: _principal(), quote: quote);
+    return quote;
   }
 }

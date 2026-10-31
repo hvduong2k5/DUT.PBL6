@@ -23,6 +23,7 @@ class Failure extends Equatable {
     this.fieldErrors = const {},
     this.requestId,
     this.retryAfterSeconds,
+    this.operationId,
   });
   final FailureKind kind;
   final String message;
@@ -31,6 +32,7 @@ class Failure extends Equatable {
   final Map<String, String> fieldErrors;
   final String? requestId;
   final int? retryAfterSeconds;
+  final String? operationId;
 
   @override
   List<Object?> get props => [
@@ -41,5 +43,6 @@ class Failure extends Equatable {
     fieldErrors,
     requestId,
     retryAfterSeconds,
+    operationId,
   ];
 }

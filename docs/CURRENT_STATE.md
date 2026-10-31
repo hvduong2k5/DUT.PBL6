@@ -1,34 +1,27 @@
 # Customer Mobile — current handoff
 
-Updated 2026-10-31. Migration IN PROGRESS. Current slice: M2-B visible full-cart quote review. Branch feature/mobile-ui; source checkpoint 4389c063e542fc88bb8790479a548e4c882b4684 pushed and remote hash verified. Latest commit adds only build/handoff evidence; identify it with git log -1. No merge/PR/dev/Web edits.
+Updated 2026-10-31. Migration IN PROGRESS. Branch feature/mobile-ui; M3 checkpoint parent357252745cac8dbcd0a77cd78fa54452aa5b64d1, new source identified by git log -1. Only Mobile source/tests/task docs changed; no merge/PR/dev/Web writes.
 
-## Authority and plans
+## Authority and current phase
 
-Read-only target dev7f22226c7b2f4363d3ba376b715feb0e63f69355 public MVP Customer contract. Historical ZIP snapshots unchanged; Web visual baseline b1ff2918 unchanged. These are integration targets, not deployed provider proof. Full-cart MVP accepted; no geography supplier or partial checkout approved.
+Read-only dev7f22226c7b2f4363d3ba376b715feb0e63f69355 public MVP integration target; historical ZIP provenance and Webb1ff2918 visual foundations unchanged. Full-cart accepted; no geography supplier chosen. Master docs/plans/MASTER_PLAN.md; detailed completed-local slice docs/plans/active/M3_CHECKOUT_OPERATIONS.md. User requests autonomous continuation through remaining approved work, not a pause at checkpoints.
 
-Master: docs/plans/MASTER_PLAN.md. Current detailed plan: docs/plans/active/M2_MVP_PURCHASE.md. M2-A foundation complete; M2-B quote UI implemented and verified automatically in local mode. Main checkout migration, M3 operations and M4 payment remain unfinished. Do not describe the app as fully migrated.
+## Completed
 
-## Completed work and modified areas
+M2-A/B typed cart/address/quote and local review retained. M3 now connects explicit quote confirmation to accepted operation and committed order identity. App-scoped MvpCheckoutCubit tracks identity, persists exact input/key before POST, serializes duplicate taps, rejects stale/mismatched responses, restores prior attempts and preserves PublicError operation_id. Never generates another key for uncertain retry. Failed storage blocks POST/new attempts. Owner/scope isolation and account changes are tested. Secure store and REST operation adapter are prepared; local runtime intentionally uses memory storage with process-local backend fixtures.
 
-- M2-A retained: strict MVP models, REST cart/address-array/quote adapter, quote Cubit, ApiClient array reader and 12 contract/state tests.
-- AppDependencies/app/router/routes/auth return: optional MVP purchase repository, /checkout/quote gated by account identity with login return. Local factory shares the actual in-memory cart with LocalMvpPurchaseRepository. Remote factory deliberately does not activate the new purchase flow.
-- CartPage: extra local entry “Xem báo giá cả giỏ”. Existing selected-lines checkout remains separate until M3 can replace it coherently; checkbox removal/main CTA migration is NOT DONE.
-- MvpQuotePage: all cart lines, saved canonical address, returned snapshot/totals, earliest of three expiries, expired notice and one-tap requote that reloads cart/addresses first. Names label snapshot geography only when codes match. No place-order action, fake order, QR or payment result.
-- Local adapter: explicit sample address and quote/fee fixture; reads shared cart, checks revision/stock/auth and never clears it. No remote-error fallback or provider calls.
-- New 5 tests: shared full-cart/revision/logout guards; login return; 360px + text scale 1.6 + expiry/requote; error/address recovery/pending controls; empty cart. Native visual acceptance remains separate.
+Main local cart has full-cart totals/CTA and no checkboxes; pending requests offer continuation even with an empty cart. Old /checkout deep link redirects to quote in the new cohort. Legacy flow is still a separate, explicitly tested cohort via localMvpCheckout:false; remote runtime remains ZIP-based/unactivated. Quote review offers confirmation only while usable and no unresolved previous request exists. Operation screen supports working/unknown/retry/manual-review/terminal states and bounded foreground GET polling. Success reloads cart and never consumes/clears it on the client. No actual payment/QR/refund is implied.
+
+Modified areas: app dependencies/providers/router, CartPage, quote issuance/page, new checkout DTO/repository/store/REST/local adapters/Cubit/operation page, Failure/PublicError recovery metadata, new contract/state/navigation fixtures/tests. M3 phase plan describes exact files and boundaries. Separate untracked docs/MOBILE_MVP_DISCUSSION_REFERENCE.md belongs to Issue38; preserve and do not stage.
 
 ## Validation
 
-Focused MVP 17/17 PASS. Full regression 161/161 PASS (~30s); flutter analyze --no-pub PASS (No issues,12.0s); git diff --check PASS. No tests/lints disabled. New debug APK PASS38.2s on source4389c06, using process-local Kotlin workaround and --no-pub. Artifact apps/mobile-app/build/app/outputs/flutter-apk/app-debug.apk,198276012bytes (189.1MiB), contains the new local quote screen. Device install/native/provider acceptance NOT RUN for M2-B; build output is ignored and not committed.
+M3 adds9 state/transport/storage tests +2 integrated navigation tests. Focused17/17 with existing legacy/quote navigation PASS; operation navigation2/2 PASS. Full172/172 PASS37s; analyze No issues18.7s; diff check PASS. Existing tests retained; two legacy/preview fixtures explicitly select their prior cohort. New dependencies NONE. Current source APK/native NOT RUN yet; prior APK4389c06 contains only M2-B. Build once after M4 integration. Real backend/provider acceptance NOT VERIFIED. Local backend/cart/attempt recovery is process-local; secure-store reconstruction tests do not prove local backend survives app kill.
 
-## Decisions and remaining work
+## Important limits
 
-M2-B is a labelled local quote preview. Keep new quote/revision away from legacy direct checkout; preserve that flow until M3 has async operation identity, retry keys and recovery. Entire cart is reviewed regardless of legacy cart checkboxes. Saved addresses are read-only; create/edit/geography source unresolved. No claimed cart-cleanup semantics, production payment readiness, cursor search or invented shipment timeline. Backend/provider compatibility still needs integration verification.
-
-Untracked docs/MOBILE_MVP_DISCUSSION_REFERENCE.md is the separate reference artifact published at https://github.com/hvduong2k5/DUT.PBL6/issues/38. Preserve and do not stage automatically. No Issue/comment changes in this slice.
+Unknown HTTP outcomes remain unresolved until an authoritative operation is recovered; no error-status-only inference of cancellation or order failure. Manual review/410/irrecoverable metadata uses retry/support, never a new key. Saved-address create/edit/geography source, cursor input parameters/global order search and typed shipping timeline are open contract decisions. No fabricated endpoints, production activation or cleanup acceptance.
 
 ## Exact next action
 
-1. Resume AGENTS/master/current handoff, verify branch/HEAD/status/remote; start M3 analysis and a detailed phase plan before source edits. M2-B local review is complete; do not repeat its build/test suite unless source changes.
-2. Read pinned CheckoutOperation/create/poll/idempotency/error contracts and existing auth/storage ownership. Initial evidence: public spec lines229–449 and2411–2505; POST202 means accepted operation with null order_id, replay201 can return SUCCEEDED with committed order_id, transport uncertainty requires same-key/body replay. Existing uuid and flutter_secure_storage can be reused without dependency upgrades. Plan identity-scoped durable recovery before enabling create. Then migrate the main cart CTA to full-cart purchase and remove selection only for the new flow. Do not connect to legacy direct order/payment DTOs.
-3. Native testing: one targeted integrated check after meaningful operation wiring; avoid broad computer-use loops. M4 separately migrates payment/order authority. Geography/history/tracking gaps remain explicit. To inspect current local UI manually: add cart items → Xem báo giá cả giỏ → local login if prompted → Lấy báo giá cả giỏ; this action creates no order.
+Continue M4 now: write detailed entry plan from pinned public Order/payment-instructions/payment/cancel schemas and current pages. Add separate typed MVP order/payment projections, read-only payment instructions/status and versioned cancellation/recovery; wire committed M3 order to those pages. Honor allowed_actions, independent lifecycle/payment/compensation and server-time payment deadlines. No client SePay call, pretend-paid button or sample real bank/QR. Keep incomplete cursor/tracking capabilities gated. Then focused/full/analyze/APK validation and one bounded device check if available, update evidence and push Mobile-only checkpoint without awaiting another approval.

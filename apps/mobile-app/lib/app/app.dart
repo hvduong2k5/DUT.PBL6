@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_app/features/checkout/domain/mvp_purchase_repository.dart';
+import 'package:mobile_app/features/checkout/domain/mvp_checkout_repository.dart';
+import 'package:mobile_app/features/checkout/presentation/mvp_checkout_cubit.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -70,6 +72,9 @@ class _OmaAppState extends State<OmaApp> {
   @override
   Widget build(BuildContext context) => MultiRepositoryProvider(
     providers: [
+      RepositoryProvider<MvpCheckoutRuntime?>.value(
+        value: _dependencies.mvpCheckoutRuntime,
+      ),
       RepositoryProvider<MvpPurchaseRepository?>.value(
         value: _dependencies.mvpPurchaseRepository,
       ),
@@ -127,6 +132,18 @@ class _OmaAppState extends State<OmaApp> {
         BlocProvider(
           create: (_) => AuthCubit(_dependencies.authRepository)..restore(),
         ),
+        if (_dependencies.mvpCheckoutRuntime != null)
+          BlocProvider(
+            lazy: false,
+            create: (context) {
+              final auth = context.read<AuthCubit>();
+              return MvpCheckoutCubit(
+                _dependencies.mvpCheckoutRuntime!,
+                principal: () => auth.state.user?.id,
+                identityChanges: auth.stream.map((s) => s.user?.id),
+              )..restore();
+            },
+          ),
         BlocProvider(
           lazy: false,
           create: (context) => CapabilitiesCubit(

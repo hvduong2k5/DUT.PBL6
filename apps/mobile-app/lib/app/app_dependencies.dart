@@ -1,6 +1,9 @@
 import 'package:mobile_app/core/config/app_config.dart';
 import 'package:mobile_app/features/checkout/domain/mvp_purchase_repository.dart';
 import 'package:mobile_app/features/checkout/data/local_mvp_purchase_repository.dart';
+import 'package:mobile_app/features/checkout/domain/mvp_checkout_repository.dart';
+import 'package:mobile_app/features/checkout/data/local_mvp_checkout_repository.dart';
+import 'package:mobile_app/features/checkout/data/mvp_checkout_store.dart';
 import 'package:mobile_app/core/config/data_source_mode.dart';
 import 'package:mobile_app/core/network/api_client.dart';
 import 'package:mobile_app/core/storage/token_store.dart';
@@ -54,6 +57,7 @@ import 'package:mobile_app/features/reviews/data/mock_reviews_repository.dart';
 class AppDependencies {
   const AppDependencies({
     this.mvpPurchaseRepository,
+    this.mvpCheckoutRuntime,
     required this.catalogRepository,
     required this.cartRepository,
     required this.checkoutRepository,
@@ -74,6 +78,7 @@ class AppDependencies {
 
   final CatalogRepository catalogRepository;
   final MvpPurchaseRepository? mvpPurchaseRepository;
+  final MvpCheckoutRuntime? mvpCheckoutRuntime;
   final CartRepository cartRepository;
   final CheckoutRepository checkoutRepository;
   final OrdersRepository ordersRepository;
@@ -96,9 +101,12 @@ abstract final class RepositoryFactory {
     DataSourceMode? mode,
     String? apiBaseUrl,
     TokenStore? tokenStore,
+    bool localMvpCheckout = true,
   }) {
     final selectedMode = mode ?? AppConfig.dataSourceMode;
-    if (!selectedMode.isRemote) return _local();
+    if (!selectedMode.isRemote) {
+      return _local(localMvpCheckout: localMvpCheckout);
+    }
 
     final baseUrl = apiBaseUrl ?? AppConfig.apiBaseUrl;
     if (baseUrl.isEmpty) {
@@ -132,19 +140,32 @@ abstract final class RepositoryFactory {
     );
   }
 
-  static AppDependencies _local() {
+  static AppDependencies _local({required bool localMvpCheckout}) {
     final auth = MockAuthRepository();
     final catalog = MockCatalogRepository();
     final cart = InMemoryCartRepository();
+    final purchase = LocalMvpPurchaseRepository(
+      cart,
+      () => auth.currentUser != null,
+      principal: () => auth.currentUser?.id,
+    );
     final orders = MockOrdersRepository(
       authenticated: () => auth.currentUser != null,
     );
     return AppDependencies(
       catalogRepository: catalog,
-      mvpPurchaseRepository: LocalMvpPurchaseRepository(
-        cart,
-        () => auth.currentUser != null,
-      ),
+      mvpPurchaseRepository: purchase,
+      mvpCheckoutRuntime: localMvpCheckout
+          ? MvpCheckoutRuntime(
+              repository: LocalMvpCheckoutRepository(
+                purchase,
+                () => auth.currentUser?.id,
+              ),
+              store: MemoryMvpCheckoutStore(),
+              scope: 'local-process-mvp-v1',
+              local: true,
+            )
+          : null,
       reviewsRepository: MockReviewsRepository(
         catalog: catalog,
         orders: orders,
