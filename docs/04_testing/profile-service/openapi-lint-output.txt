@@ -1,0 +1,9 @@
+Authentication required. Run `postman login` or `postman login --with-api-key <api-key>` (add `--region <region>` if needed).
+Refer: https://learning.postman.com/docs/postman-cli/postman-cli-auth
+
+SPECIFICATION DETAILS
+Name: MS-15 Profile Service implemented direct-backend contract
+PATH: docs/03_api_specs/profile-service.openapi.yaml
+Type: OpenAPI 3.0
+
+No issues found.

@@ -1,0 +1,61 @@
+# Overlay docker-compose.test.yml; configuration comes from a private --env-file.
+# Only the webhook may be routed through a tunnel. Simulator/admin stay local.
+x-private-env: &private-env
+  ORDER_INTERNAL_TOKEN: ${ORDER_INTERNAL_TOKEN:?Private internal token required}
+  ORDER_JWT_SECRET: ${ORDER_JWT_SECRET:?Private JWT key required}
+  CALLBACK_SECRET: ${CALLBACK_SECRET:?Private audit key required}
+  ORDER_ENCRYPTION_KEY: ${ORDER_ENCRYPTION_KEY:?Private AEAD key required}
+services:
+  db:
+    cpuset: '0'
+    restart: unless-stopped
+  redis:
+    restart: unless-stopped
+  kafka:
+    restart: unless-stopped
+  simulator:
+    image: omamx/order-service:connected-20261024
+    cpuset: '0'
+    restart: unless-stopped
+    environment:
+      <<: *private-env
+  api:
+    image: omamx/order-service:connected-20261024
+    cpuset: '0'
+    restart: unless-stopped
+    environment:
+      <<: *private-env
+      ORDER_CORE_ENABLED: 'true'
+      ORDER_MERCHANT_ID: ${ORDER_MERCHANT_ID:?Stable merchant UUID required}
+      ORDER_SOURCE_TOPIC: order.sources.connected.v1
+      ORDER_CONSUMER_GROUP: order-connected-runtime-v1
+      SEPAY_ENABLED: 'true'
+      SEPAY_CONNECTION_ID: ${SEPAY_CONNECTION_ID:?Stable connection UUID required}
+      SEPAY_RECEIVER_ID: ${SEPAY_RECEIVER_ID:?Stable receiver UUID required}
+      SEPAY_MERCHANT_IDENTITY: ${SEPAY_MERCHANT_IDENTITY:?Merchant identity required}
+      SEPAY_EGRESS_SCOPE: ${SEPAY_EGRESS_SCOPE:?Stable quota scope required}
+      SEPAY_BOOTSTRAP_AT: ${SEPAY_BOOTSTRAP_AT:?Stable coverage start required}
+      SEPAY_API_TOKEN_FILE: /run/secrets/api-token.txt
+      SEPAY_WEBHOOK_SECRET_FILE: /run/secrets/webhook-secret.txt
+      SEPAY_RECEIVER_FILE: /run/secrets/runtime-receiver.json
+      SEPAY_GUEST_SIGNING_KEY_FILE: /run/secrets/runtime-guest-key.pem
+      SEPAY_GUEST_SIGNING_KEY_ID: connected-test-v1
+      SEPAY_INVENTORY_GRPC: simulator:9100
+    volumes:
+      - connected_secrets:/run/secrets:ro
+  tests:
+    cpuset: '0'
+  tunnel:
+    profiles: [tunnel]
+    image: cloudflare/cloudflared@sha256:9b49eed8f62806d5d45ddf59ecefb5710429598ea6d3fcccd2af938f621b2b07
+    user: '10001:10001'
+    restart: unless-stopped
+    command: [tunnel, --no-autoupdate, --protocol, http2, run, --token-file, /run/secrets/runtime-tunnel-token.txt]
+    volumes:
+      - connected_secrets:/run/secrets:ro
+    depends_on:
+      api: {condition: service_healthy}
+volumes:
+  connected_secrets:
+    external: true
+    name: pbl-order-connected-secrets
