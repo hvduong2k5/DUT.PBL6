@@ -132,6 +132,16 @@ contracts:
       - Agree and implement trusted issuer/audience/key and subject-to-customer mapping.
       - Adapt guest sessions/payment grants separately; no arbitrary role/user headers from browsers.
       - Do not claim current sandbox JWTs are compatible with Keycloak without verification.
+  - id: identity-rest
+    owner: identity-service
+    consumers: [web-admin, mobile-app, gateway-bff]
+    artifact: docs/03_api_specs/identity-service.openapi.yaml
+    contract_guide: packages/contracts/identity-3.3.md
+    state: provider-ready
+    tasks:
+      - Implement RESTful 3.3.1 URI conventions (nouns only, plural, hierarchical, kebab-case).
+      - Maintain backward compatibility aliases for legacy endpoints.
+      - Synchronize user lifecycle status transitions with Keycloak and Outbox.
 out_of_scope:
   - Real refunds and paid cancellation without approval/remote-stop/reversal acceptance.
   - Vouchers and loyalty until Promotion provider contracts are accepted.

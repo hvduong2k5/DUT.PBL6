@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IdentityPrincipalMapper">
+
+    <resultMap id="IdentityPrincipalRowMap" type="com.hvduong.identity.infrastructure.persistence.entity.IdentityPrincipalRow">
+        <id property="principalId" column="principal_id"/>
+        <result property="idpIssuer" column="idp_issuer"/>
+        <result property="idpSubject" column="idp_subject"/>
+        <result property="principalType" column="principal_type"/>
+        <result property="provisioningStatus" column="provisioning_status"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+        <result property="version" column="version"/>
+    </resultMap>
+
+    <insert id="insert">
+        INSERT INTO identity_principals (
+            principal_id, idp_issuer, idp_subject, principal_type, provisioning_status, version
+        ) VALUES (
+            #{principalId}, #{idpIssuer}, #{idpSubject}, #{principalType}, #{provisioningStatus}, #{version}
+        )
+    </insert>
+
+    <select id="findById" resultMap="IdentityPrincipalRowMap">
+        SELECT *
+        FROM identity_principals
+        WHERE principal_id = #{principalId}
+    </select>
+
+    <select id="findByIssuerAndSubject" resultMap="IdentityPrincipalRowMap">
+        SELECT *
+        FROM identity_principals
+        WHERE idp_issuer = #{idpIssuer} AND idp_subject = #{idpSubject}
+    </select>
+
+    <select id="findBySubject" resultMap="IdentityPrincipalRowMap">
+        SELECT *
+        FROM identity_principals
+        WHERE idp_subject = #{idpSubject}
+    </select>
+
+    <update id="updateProvisioningStatus">
+        UPDATE identity_principals
+        SET provisioning_status = #{newStatus},
+            idp_subject = COALESCE(#{idpSubject}, idp_subject),
+            version = version + 1
+        WHERE principal_id = #{principalId}
+          AND version = #{expectedVersion}
+    </update>
+
+</mapper>
