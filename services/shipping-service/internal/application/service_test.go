@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 
@@ -208,6 +209,47 @@ func TestCancelShipmentRejectsUnknownReasonCode(t *testing.T) {
 	_, err = service.CancelShipment(context.Background(), shipment.ID, "UNKNOWN", "invalid")
 	if !errors.Is(err, domain.ErrInvalidShipment) {
 		t.Fatalf("expected invalid shipment, got %v", err)
+	}
+}
+
+func TestGenerateLabelURLDoesNotMutateShipment(t *testing.T) {
+	repository := newMemoryRepository()
+	service := NewService(repository, carrier.NewRegistry(carrier.NewFake()))
+	shipment, err := service.CreateShipment(context.Background(), applicationCommand())
+	if err != nil {
+		t.Fatal(err)
+	}
+	access, err := service.GenerateLabelURL(context.Background(), shipment.ID, "80x80")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if access.ShipmentID != shipment.ID || access.LabelReference != shipment.LabelReference ||
+		access.Format != carrier.LabelFormat80X80 || !strings.Contains(access.URL, "format=80X80") {
+		t.Fatalf("unexpected label access: %+v", access)
+	}
+	stored, err := repository.GetByID(context.Background(), shipment.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored.Revision != shipment.Revision || stored.LabelReference != shipment.LabelReference {
+		t.Fatalf("label generation mutated shipment: %+v", stored)
+	}
+}
+
+func TestGenerateLabelURLRejectsCancelledShipment(t *testing.T) {
+	repository := newMemoryRepository()
+	service := NewService(repository, carrier.NewRegistry(carrier.NewFake()))
+	shipment, err := service.CreateShipment(context.Background(), applicationCommand())
+	if err != nil {
+		t.Fatal(err)
+	}
+	shipment, err = service.CancelShipment(context.Background(), shipment.ID, carrier.CancelReasonOther, "cancel")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = service.GenerateLabelURL(context.Background(), shipment.ID, carrier.LabelFormatA5)
+	if !errors.Is(err, domain.ErrInvalidTransition) {
+		t.Fatalf("expected invalid transition, got %v", err)
 	}
 }
 

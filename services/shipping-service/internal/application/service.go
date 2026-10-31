@@ -74,6 +74,14 @@ type OrderShippingSnapshot struct {
 	EligibleForShipping bool
 }
 
+type LabelAccess struct {
+	ShipmentID     uuid.UUID `json:"shipment_id"`
+	LabelReference string    `json:"label_reference"`
+	Format         string    `json:"format"`
+	URL            string    `json:"label_url"`
+	ExpiresAt      time.Time `json:"expires_at"`
+}
+
 type ShippingSnapshotProvider interface {
 	GetShippingSnapshot(context.Context, string, string) (OrderShippingSnapshot, error)
 }
@@ -341,6 +349,39 @@ func normalizeCancellationReason(reasonCode string) (string, error) {
 	default:
 		return "", fmt.Errorf("%w: unsupported cancellation reason code %q", domain.ErrInvalidShipment, reasonCode)
 	}
+}
+
+func (s *Service) GenerateLabelURL(ctx context.Context, id uuid.UUID, requestedFormat string) (LabelAccess, error) {
+	format, err := carrier.NormalizeLabelFormat(requestedFormat)
+	if err != nil {
+		return LabelAccess{}, fmt.Errorf("%w: %v", domain.ErrInvalidShipment, err)
+	}
+	shipment, err := s.repository.GetByID(ctx, id)
+	if err != nil {
+		return LabelAccess{}, err
+	}
+	switch shipment.Status {
+	case domain.StatusCreated, domain.StatusReadyForHandover, domain.StatusHandedOver:
+	default:
+		return LabelAccess{}, fmt.Errorf("%w: labels are unavailable for shipment status %s", domain.ErrInvalidTransition, shipment.Status)
+	}
+	if strings.TrimSpace(shipment.CarrierOrderID) == "" || strings.TrimSpace(shipment.LabelReference) == "" {
+		return LabelAccess{}, fmt.Errorf("%w: carrier order and label reference are required", domain.ErrInvalidShipment)
+	}
+	provider, ok := s.carriers.Get(shipment.CarrierCode)
+	if !ok {
+		return LabelAccess{}, fmt.Errorf("%w: %s", domain.ErrUnsupportedCarrier, shipment.CarrierCode)
+	}
+	result, err := provider.GenerateLabelURL(ctx, carrier.LabelRequest{
+		CarrierOrderID: shipment.CarrierOrderID, Format: format,
+	})
+	if err != nil {
+		return LabelAccess{}, &ProviderError{Shipment: shipment, Cause: err}
+	}
+	return LabelAccess{
+		ShipmentID: shipment.ID, LabelReference: shipment.LabelReference,
+		Format: format, URL: result.URL, ExpiresAt: result.ExpiresAt,
+	}, nil
 }
 
 func (s *Service) ApplyWebhook(ctx context.Context, carrierCode string, body []byte) (*domain.Shipment, string, error) {

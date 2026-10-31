@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -77,6 +78,21 @@ func (f *Fake) CancelShipment(_ context.Context, req CancelRequest) error {
 		return fmt.Errorf("carrier order id is required")
 	}
 	return nil
+}
+
+func (f *Fake) GenerateLabelURL(_ context.Context, req LabelRequest) (LabelResult, error) {
+	if strings.TrimSpace(req.CarrierOrderID) == "" {
+		return LabelResult{}, fmt.Errorf("carrier order id is required")
+	}
+	format, err := NormalizeLabelFormat(req.Format)
+	if err != nil {
+		return LabelResult{}, err
+	}
+	now := f.now().UTC()
+	return LabelResult{
+		URL:       "https://fake-carrier.local/labels/" + url.PathEscape(req.CarrierOrderID) + "?format=" + url.QueryEscape(format),
+		ExpiresAt: now.Add(15 * time.Minute),
+	}, nil
 }
 
 type fakeWebhookPayload struct {

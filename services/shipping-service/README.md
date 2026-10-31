@@ -73,6 +73,12 @@ authentication and a provider-neutral `reason_code`: `PICKUP_DELAY`, `OUT_OF_STO
 GHN timeout and retryable failures are reconciled through order detail; Shipping never sends a
 blind second cancellation request.
 
+Generate a short-lived print URL through
+`POST /api/v1/internal/shipments/{shipmentID}/label-url` with body `{"format":"A5"}`.
+Supported formats are `A5`, `80X80`, and `52X70`. Shipping stores only the stable
+`label_reference`; provider print tokens and URLs are returned to the authenticated caller and
+are never persisted. The returned `expires_at` includes a safety margin before GHN's token expiry.
+
 Configure the GHN Developer Portal only after the public endpoint is reachable. Add the custom
 header `X-GHN-Webhook-Secret` with the same value as `SHIPPING_GHN_WEBHOOK_SECRET`. A missing
 local shipment returns `503` so GHN retries a callback that raced the shipment transaction;

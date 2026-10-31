@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -274,6 +275,51 @@ func TestCancelShipmentRejectsProviderResultWhenOrderIsNotCancelled(t *testing.T
 	}
 	if calls != 2 {
 		t.Fatalf("expected cancel and status lookup, got %d calls", calls)
+	}
+}
+
+func TestGenerateLabelURLReturnsShortLivedProviderURL(t *testing.T) {
+	client := testClientWithDoer(t, doerFunc(func(r *http.Request) (*http.Response, error) {
+		if r.Method != http.MethodPost || r.URL.Path != "/shiip/public-api/v2/a5/gen-token" {
+			t.Fatalf("unexpected request %s %s", r.Method, r.URL.String())
+		}
+		var payload printTokenRequest
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			t.Fatal(err)
+		}
+		if len(payload.OrderCodes) != 1 || payload.OrderCodes[0] != "LADFYR" {
+			t.Fatalf("unexpected print payload: %+v", payload)
+		}
+		return response(t, http.StatusOK, map[string]any{"token": "print/token+value"}), nil
+	}))
+	now := time.Date(2026, 10, 31, 10, 0, 0, 0, time.UTC)
+	client.now = func() time.Time { return now }
+
+	tests := []struct {
+		format string
+		path   string
+	}{
+		{carrier.LabelFormatA5, "/a5/public-api/printA5"},
+		{carrier.LabelFormat80X80, "/a5/public-api/print80x80"},
+		{carrier.LabelFormat52X70, "/a5/public-api/print52x70"},
+	}
+	for _, test := range tests {
+		result, err := client.GenerateLabelURL(context.Background(), carrier.LabelRequest{
+			CarrierOrderID: "LADFYR", Format: test.format,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		parsed, err := url.Parse(result.URL)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if parsed.Path != test.path || parsed.Query().Get("token") != "print/token+value" {
+			t.Fatalf("unexpected %s label URL %q", test.format, result.URL)
+		}
+		if !result.ExpiresAt.Equal(now.Add(25 * time.Minute)) {
+			t.Fatalf("unexpected label expiry %s", result.ExpiresAt)
+		}
 	}
 }
 

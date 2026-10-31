@@ -81,6 +81,14 @@ type cancelOrderResult struct {
 	Message   string `json:"message"`
 }
 
+type printTokenRequest struct {
+	OrderCodes []string `json:"order_codes"`
+}
+
+type printTokenResponse struct {
+	Token string `json:"token"`
+}
+
 func (c *Client) Quote(ctx context.Context, request carrier.QuoteRequest) (carrier.Quote, error) {
 	if err := request.Destination.Validate(); err != nil {
 		return carrier.Quote{}, err
@@ -232,6 +240,40 @@ func resolveCancelReason(reasonCode string) (string, error) {
 	default:
 		return "", fmt.Errorf("unsupported cancellation reason code %q", reasonCode)
 	}
+}
+
+func (c *Client) GenerateLabelURL(ctx context.Context, request carrier.LabelRequest) (carrier.LabelResult, error) {
+	orderCode := strings.TrimSpace(request.CarrierOrderID)
+	if orderCode == "" {
+		return carrier.LabelResult{}, fmt.Errorf("GHN carrier order id is required")
+	}
+	format, err := carrier.NormalizeLabelFormat(request.Format)
+	if err != nil {
+		return carrier.LabelResult{}, err
+	}
+	var result printTokenResponse
+	if err := c.do(ctx, http.MethodPost, "/shiip/public-api/v2/a5/gen-token", printTokenRequest{
+		OrderCodes: []string{orderCode},
+	}, &result); err != nil {
+		return carrier.LabelResult{}, err
+	}
+	if strings.TrimSpace(result.Token) == "" {
+		return carrier.LabelResult{}, fmt.Errorf("GHN print token is empty")
+	}
+
+	printURL := *c.baseURL
+	switch format {
+	case carrier.LabelFormatA5:
+		printURL.Path = "/a5/public-api/printA5"
+	case carrier.LabelFormat80X80:
+		printURL.Path = "/a5/public-api/print80x80"
+	case carrier.LabelFormat52X70:
+		printURL.Path = "/a5/public-api/print52x70"
+	}
+	printURL.RawQuery = url.Values{"token": []string{result.Token}}.Encode()
+	return carrier.LabelResult{
+		URL: printURL.String(), ExpiresAt: c.now().UTC().Add(25 * time.Minute),
+	}, nil
 }
 
 func isAmbiguousMutationError(err error) bool {

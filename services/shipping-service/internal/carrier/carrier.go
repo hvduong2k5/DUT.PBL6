@@ -3,6 +3,8 @@ package carrier
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/omamx/shipping-service/internal/domain"
@@ -15,6 +17,12 @@ const (
 	CancelReasonOutOfStock           = "OUT_OF_STOCK"
 	CancelReasonRecipientChangedMind = "RECIPIENT_CHANGED_MIND"
 	CancelReasonOther                = "OTHER"
+)
+
+const (
+	LabelFormatA5    = "A5"
+	LabelFormat80X80 = "80X80"
+	LabelFormat52X70 = "52X70"
 )
 
 type QuoteRequest struct {
@@ -61,6 +69,29 @@ type CancelRequest struct {
 	Reason         string
 }
 
+type LabelRequest struct {
+	CarrierOrderID string
+	Format         string
+}
+
+type LabelResult struct {
+	URL       string
+	ExpiresAt time.Time
+}
+
+func NormalizeLabelFormat(format string) (string, error) {
+	value := strings.ToUpper(strings.TrimSpace(format))
+	if value == "" {
+		value = LabelFormatA5
+	}
+	switch value {
+	case LabelFormatA5, LabelFormat80X80, LabelFormat52X70:
+		return value, nil
+	default:
+		return "", fmt.Errorf("unsupported label format %q", format)
+	}
+}
+
 type WebhookUpdate struct {
 	ExternalEventID     string
 	TrackingCode        string
@@ -78,6 +109,7 @@ type Carrier interface {
 	Quote(context.Context, QuoteRequest) (Quote, error)
 	CreateShipment(context.Context, CreateRequest) (CreateResult, error)
 	CancelShipment(context.Context, CancelRequest) error
+	GenerateLabelURL(context.Context, LabelRequest) (LabelResult, error)
 	ParseWebhook(body []byte) (WebhookUpdate, error)
 }
 
