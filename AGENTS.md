@@ -10,6 +10,8 @@
 
 ## Resume
 
+User steering 2026-10-31: read-only dev contract analysis is authorized. MVP migration planning target is dev7f22226; follow the four-step roadmap in MASTER_PLAN and current M1 plan. Keep historical ZIP snapshots; runtime adapters are not migrated by a planning-only step. Dev remains read-only. No automatic merge or feature activation.
+
 Read `docs/CURRENT_STATE.md`, `docs/plans/MASTER_PLAN.md`, then the active phase linked there. Inspect branch, HEAD and status before editing.
 
 ## Commands
@@ -18,7 +20,7 @@ Run from `apps/mobile-app`: `flutter analyze`, `flutter test`, `flutter build ap
 
 ## Contracts and implementation
 
-- Source: the user-supplied API contract ZIP; see `docs/03_api_specs/frontend-contracts/SOURCE.md`.
+- Existing runtime baseline: the user-supplied API contract ZIP; see `docs/03_api_specs/frontend-contracts/SOURCE.md`. New migration planning uses the pinned public MVP target in MASTER_PLAN for overlapping routes; keep ZIP provenance unchanged and do not claim runtime migration from planning alone.
 - Preserve stable/draft/planned distinctions. Never invent production endpoints or promote draft policies silently.
 - Keep UI, Cubits/domain and REST/mock adapters separate. Default local mock mode must remain usable without backend.
 - Match Customer Web tokens and flow intent while adapting layout, navigation and touch targets to phones. Reuse Flutter primitives.

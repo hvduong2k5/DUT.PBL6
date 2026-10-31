@@ -61,3 +61,9 @@ Product detail requires explicit SKU choice even for one option, matching Web. P
 
 ## 2026-10-20 — Vietnamese native controls
 Native B2B calendar showed English despite Vietnamese customer UI. Add Flutter SDK flutter_localizations and Vietnamese Material/Cupertino/Widgets delegates via GlobalMaterialLocalizations.delegates. Local SDK pins intl0.20.2; required lock downgrade from0.20.3 verified, no other existing dependency changed. Calendar suffix owns persistent FocusNode so dialog focus returns to calendar action rather than reopening date keyboard. Focused localized picker/request/acceptance3/3 PASS; full validation/build running.
+
+## 2026-10-31 — Plan MVP contract migration from dev7f22226
+
+User approved a four-step master roadmap, detailed analysis at each step entry, and M1 now. Public mvp-customer.openapi.yaml at7f22226c7b2f4363d3ba376b715feb0e63f69355 is the migration planning authority on overlapping routes; original ZIP snapshots remain unchanged historical provenance. Current runtime is still ZIP-based until explicit implementation slices. Trade-off: existing144-test local parity is a baseline, not proof of new contract compatibility; old QA-01 must migrate with payment contract.
+
+Retain UI primitives/Cubit/adapters/mock separation. No merge, dev/Web writes, provider activation or dependency update. Proposed full-cart, canonical geography source/saved-only fallback, cursor inputs and typed tracking are **not approved architectural/product decisions**: G1–G3 in M1 record evidence and team decisions needed. No source behavior changed. M2–M4 get detailed plans at entry, after reviewing relevant dependency gates.
