@@ -13,7 +13,8 @@ export function LogoutButton() {
   async function logout() {
     setPending(true); setError("");
     try {
-      await endSession();
+      const logoutUrl = await endSession();
+      if (logoutUrl) { window.location.assign(logoutUrl); return; }
       router.push("/login");
       router.refresh();
     } catch {

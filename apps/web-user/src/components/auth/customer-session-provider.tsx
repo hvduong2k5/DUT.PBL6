@@ -23,7 +23,7 @@ interface CustomerSessionValue {
   hasRole: (roleCode: string) => boolean;
   hasPermission: (permissionCode: string) => boolean;
   reload: () => Promise<void>;
-  logout: () => Promise<void>;
+  logout: () => Promise<string | undefined>;
 }
 
 const CustomerSessionContext = createContext<CustomerSessionValue | null>(null);
@@ -36,6 +36,7 @@ export function CustomerSessionProvider({ children }: { children: ReactNode }) {
   const [actor, setActor] = useState<CustomerActor | null>(null);
   const [capabilityStatus, setCapabilityStatus] = useState<CapabilityStatus>("loading");
   const [capabilities, setCapabilities] = useState<CustomerCapability[]>([]);
+  const [sessionExpiresAt, setSessionExpiresAt] = useState<string | undefined>();
 
   const loadCapabilities = useCallback(async (allowed: boolean) => {
     if (!allowed) {
@@ -65,9 +66,11 @@ export function CustomerSessionProvider({ children }: { children: ReactNode }) {
       setPrincipal(session.principal);
       setCustomerAccess(session.customerAccess);
       setStatus("authenticated");
+      setSessionExpiresAt(session.sessionExpiresAt);
       await loadCapabilities(session.customerAccess);
     } catch (cause) {
       setCustomer(null);
+      setSessionExpiresAt(undefined);
       setPrincipal(null);
       setCustomerAccess(false);
       setActor(null);
@@ -80,14 +83,22 @@ export function CustomerSessionProvider({ children }: { children: ReactNode }) {
   }, [loadCapabilities]);
 
   useEffect(() => { void Promise.resolve().then(reload); }, [reload]);
+  useEffect(() => {
+    if (status !== "authenticated" || !sessionExpiresAt) return;
+    const expiry = Date.parse(sessionExpiresAt);
+    if (!Number.isFinite(expiry)) return;
+    const timer = setTimeout(() => { void reload(); }, Math.max(1000, expiry - Date.now() - 25_000));
+    return () => clearTimeout(timer);
+  }, [status, sessionExpiresAt, reload]);
 
   const logout = useCallback(async () => {
-    try { await authService.logout(); }
+    try { return (await authService.logout())?.logoutUrl; }
     finally {
       setCustomer(null);
       setPrincipal(null);
       setCustomerAccess(false);
       setStatus("guest");
+      setSessionExpiresAt(undefined);
       await loadCapabilities(false);
     }
   }, [loadCapabilities]);

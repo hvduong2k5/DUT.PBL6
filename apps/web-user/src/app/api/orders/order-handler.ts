@@ -1,3 +1,4 @@
+import { hasTrustedOrigin } from "@/lib/auth/request-origin";
 import {
   isValidIdempotencyKey,
   normalizePublicError,
@@ -28,16 +29,7 @@ function publicErrorResponse(
   return NextResponse.json(body, { status });
 }
 
-function hasTrustedOrigin(request: NextRequest): boolean {
-  const origin = request.headers.get("origin");
-  if (!origin) return true;
-  try {
-    const source = new URL(origin);
-    return source.protocol === request.nextUrl.protocol && source.host === request.nextUrl.host;
-  } catch {
-    return false;
-  }
-}
+
 
 async function readJson(request: NextRequest): Promise<unknown> {
   try {

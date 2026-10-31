@@ -9,6 +9,7 @@ import (
 	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/omamx/profile-service/internal/domain"
 	"github.com/omamx/profile-service/internal/transport/http/middleware"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
@@ -20,6 +21,7 @@ type RouterConfig struct {
 	EmployeeHandler  *EmployeeHandler
 	ClaimHandler     *ClaimHandler
 	IdentityToken    string
+	Identity         middleware.BearerIdentity
 	CustomerResolver middleware.CustomerResolver
 	Pool             *pgxpool.Pool
 	RedisClient      *redis.Client
@@ -56,7 +58,28 @@ func NewRouter(cfg RouterConfig) http.Handler {
 
 	// API Routes
 	r.Route("/api/v1", func(api chi.Router) {
-		api.Use(middleware.AuthContextWithToken(cfg.IdentityToken))
+		api.Use(middleware.AuthContextWithIdentity(cfg.IdentityToken, cfg.Identity))
+		api.Get("/customer/capabilities", func(w http.ResponseWriter, r *http.Request) {
+			uid, ok := middleware.GetUserIDFromContext(r.Context())
+			if !ok || cfg.CustomerResolver == nil {
+				writeJSON(w, 401, map[string]string{"code": "AUTH_REQUIRED"})
+				return
+			}
+			profile, err := cfg.CustomerResolver.GetByUserID(r.Context(), uid)
+			if err == domain.ErrCustomerNotFound {
+				writeJSON(w, 403, map[string]string{"code": "CUSTOMER_MAPPING_REQUIRED"})
+				return
+			}
+			if err != nil || profile == nil {
+				writeJSON(w, 503, map[string]string{"code": "CAPABILITY_UNAVAILABLE"})
+				return
+			}
+			caps := []string{}
+			if profile.Status == "ACTIVE" {
+				caps = []string{"CATALOG_VIEW", "CART_MANAGE", "CHECKOUT_CREATE", "PROFILE_MANAGE", "ADDRESS_MANAGE", "ORDER_HISTORY_VIEW", "SUPPORT_CREATE"}
+			}
+			writeJSON(w, 200, map[string]any{"actor": "REGISTERED", "version": 1, "capabilities": caps})
+		})
 
 		// Profile Routes
 		api.Route("/profile", func(p chi.Router) {

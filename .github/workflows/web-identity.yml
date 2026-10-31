@@ -1,0 +1,62 @@
+name: Web Identity Gateway integration
+on:
+  pull_request:
+    paths:
+      - 'apps/web-user/**'
+      - 'services/identity-service/**'
+      - 'services/profile-service/**'
+      - 'services/api-gateway/**'
+      - 'services/order-service/internal/app/identity*'
+      - 'services/order-service/tests/webidentityfixture/**'
+      - 'scripts/test-web-identity.py'
+      - '.github/workflows/web-identity.yml'
+  push:
+    branches: [dev]
+    paths:
+      - 'apps/web-user/**'
+      - 'services/identity-service/**'
+      - 'services/profile-service/**'
+      - 'services/api-gateway/**'
+      - 'scripts/test-web-identity.py'
+jobs:
+  web-identity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/web-user/package-lock.json
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.3'
+          cache-dependency-path: |
+            services/profile-service/go.sum
+            services/order-service/go.sum
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.2.0'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Web regression and production build
+        working-directory: apps/web-user
+        run: npm ci && npm run verify:mvp && npm run build
+      - name: Profile regression including JWT and forwarded identity rejection
+        working-directory: services/profile-service
+        run: go vet ./... && go test -race -count=1 ./...
+      - name: Real Web OIDC, Keycloak, Gateway, Identity, Profile and Order
+        run: python scripts/test-web-identity.py --gradle gradle
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: web-identity-evidence
+          path: |
+            .system_generated/web-identity/result.json
+            .system_generated/web-identity/identity-build.log

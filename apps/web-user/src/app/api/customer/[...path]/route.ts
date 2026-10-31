@@ -1,3 +1,4 @@
+import { hasTrustedOrigin } from "@/lib/auth/request-origin";
 import {
   normalizePublicError,
   parseStrongVersionEtag,
@@ -40,16 +41,7 @@ function isAllowed(method: string, path: string): boolean {
   return DEFAULT_ROUTE.test(path) && (method === "PUT" || method === "PATCH");
 }
 
-function hasTrustedOrigin(request: NextRequest): boolean {
-  const origin = request.headers.get("origin");
-  if (!origin) return true;
-  try {
-    const source = new URL(origin);
-    return source.protocol === request.nextUrl.protocol && source.host === request.nextUrl.host;
-  } catch {
-    return false;
-  }
-}
+
 
 async function readBody<T>(request: NextRequest): Promise<T | undefined> {
   try {
