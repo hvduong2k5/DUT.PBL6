@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 900" role="img" aria-labelledby="title description">
+  <title id="title">Ảnh sản phẩm Ô Mạ</title>
+  <desc id="description">Minh họa hộp quà màu nâu và vàng dùng khi ảnh sản phẩm chưa sẵn sàng.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fffaf1"/>
+      <stop offset="1" stop-color="#ead9c4"/>
+    </linearGradient>
+    <linearGradient id="box" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#795138"/>
+      <stop offset="1" stop-color="#4d2d1f"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="180%">
+      <feDropShadow dx="0" dy="24" stdDeviation="24" flood-color="#3d2519" flood-opacity=".22"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="900" fill="url(#background)"/>
+  <circle cx="600" cy="390" r="310" fill="#d7a851" opacity=".12"/>
+  <g fill="none" stroke="#9a6a33" stroke-width="3" opacity=".22">
+    <path d="M100 170c130-85 245-92 348-20M752 150c112-67 226-61 348 20"/>
+    <path d="M105 730c125 72 242 79 350 18M745 748c111 58 228 52 350-18"/>
+  </g>
+  <g filter="url(#shadow)">
+    <path d="M310 357 600 215l290 142-290 148z" fill="#a77a45"/>
+    <path d="M310 357v278l290 150V505z" fill="#68452f"/>
+    <path d="M890 357v278L600 785V505z" fill="url(#box)"/>
+    <path d="M580 225h40v566h-40z" fill="#d6a34c" opacity=".95"/>
+    <path d="m310 357 290 148 290-148" fill="none" stroke="#e2ba70" stroke-width="8"/>
+    <circle cx="600" cy="506" r="72" fill="#f6e7c8" stroke="#d6a34c" stroke-width="9"/>
+    <path d="M600 466c-18 24-30 43-30 61 0 19 13 32 30 32s30-13 30-32c0-18-12-37-30-61Z" fill="#70452e"/>
+  </g>
+  <text x="600" y="850" text-anchor="middle" fill="#563a26" font-family="'Times New Roman', serif" font-size="34" font-weight="700" letter-spacing="7">Ô MẠ · CỐ ĐÔ HUẾ</text>
+</svg>
