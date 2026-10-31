@@ -1,0 +1,9 @@
+/coverage
+/coverage.out
+/*.test
+/.sandbox/
+*.jwt
+**/runtime-url.txt
+**/compose.env
+__pycache__/
+*.pyc
