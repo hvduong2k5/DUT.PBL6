@@ -38,13 +38,13 @@ M2-B must analyze coherent route/repository/mock activation, canonical saved-add
 - [x] Local shared-cart quote adapter, explicitly labelled address/price/fee fixtures; no backend fallback, order creation or cart deletion.
 - [x] Cart entry and full-cart review without selection controls; snapshot/address/totals/earliest expiry and one-tap re-read/requote. Expired totals remain identified as expired until refreshed; no enabled purchase action.
 - [x] Empty/error/retry/no-address/pending/back states; timer disposal, 360px large text and login navigation verified. Remote factory remains unconfigured; legacy cart selection/direct checkout deliberately retained pending M3.
-- [x] Focused MVP17/17, full regression161/161 PASS; analyze No issues12.0s; diff check PASS. No native or provider calls. APK of new UI PENDING before long build.
+- [x] Focused MVP17/17, full regression161/161 PASS; analyze No issues12.0s; diff check PASS. Debug APK PASS38.2s on4389c06,198276012bytes (189.1MiB), build/app/outputs/flutter-apk/app-debug.apk. No native or provider calls; no generated build output committed.
 
 Implementation areas: app dependencies/provider/routes/auth return, CartPage entry, LocalMvpPurchaseRepository, MvpQuotePage, Cubit.refreshQuote, MvpQuote.validUntil and mvp_quote_navigation_test.dart (5 new tests). Existing 12 model/REST/state tests retained. Requote re-reads server authority and discards an older load before issuing a replacement request.
 
 M2 UI slice delivered as a local preview; whole migration remains incomplete. Main cart checkbox removal and default full-cart purchase transition are deferred until M3 async operation can accept the quote coherently. No premature production gate or legacy payment integration. Saved-address create/edit remains blocked on geography decisions rather than inferred from fixture codes.
 
-Exact next action: build M2-B APK, record result and verified Mobile-only checkpoint. Then analyze M3 create/poll/idempotency/ownership/persistence in a new detailed phase plan before implementing its operation flow. Do not mistake quote preview for successful order placement.
+Source checkpoint4389c063e542fc88bb8790479a548e4c882b4684 pushed and remote hash verified. Exact next action: analyze M3 create/poll/idempotency/ownership/persistence in a new detailed phase plan before implementing its operation flow. Do not mistake quote preview for successful order placement. Current manual local review path: cart → Xem báo giá cả giỏ → login if needed → Lấy báo giá cả giỏ. Device install/native acceptance NOT RUN; automated tests establish local behavior only.
 
 ## M2-A historical validation
 
@@ -52,4 +52,4 @@ M2-A foundation implemented. New DTOs/repository/Cubit are **PREPARED / NOT WIRE
 
 Focused12/12 PASS and full156/156 PASS. First analyze reported one private mock type exposed by a public test helper; renamed helper private; final analyze PASS (No issues,17.1s). No test/lint disabled. User-requested debug APK build PASS275.1s on source cf7948c (--no-pub; process-local Kotlin workaround), artifact build/app/outputs/flutter-apk/app-debug.apk. Native install/device test NOT RUN; no route/provider activation, dependencies or Android code changed. No live backend requests.
 
-Next exact slice M2-B: inspect quote review screen/route and coherent cohort/mock wiring, enforce saved-address availability and full-cart intent, timers/requote UX and explicit preview-only boundary until M3 operations exist. Never connect quote to legacy direct submit. Before editing UI, read/apply existing design skill/primitives and plan the actual route states. Geography/history/tracking and cleanup semantics remain separately gated.
+At the M2-A checkpoint the next slice was M2-B; that work is now completed above. Resume with M3 entry analysis rather than rebuilding M2-B. Never connect quote to legacy direct submit. Geography/history/tracking and cleanup semantics remain separately gated.

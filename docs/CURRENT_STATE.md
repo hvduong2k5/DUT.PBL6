@@ -1,6 +1,6 @@
 # Customer Mobile — current handoff
 
-Updated 2026-10-31. Migration IN PROGRESS. Current slice: M2-B visible full-cart quote review. Branch feature/mobile-ui; checkpoint parent 0574916d4864cb8cf1575cacbe4853f8d1044c99. Identify the new checkpoint with git log -1; no merge/PR/dev/Web edits.
+Updated 2026-10-31. Migration IN PROGRESS. Current slice: M2-B visible full-cart quote review. Branch feature/mobile-ui; source checkpoint 4389c063e542fc88bb8790479a548e4c882b4684 pushed and remote hash verified. Latest commit adds only build/handoff evidence; identify it with git log -1. No merge/PR/dev/Web edits.
 
 ## Authority and plans
 
@@ -19,7 +19,7 @@ Master: docs/plans/MASTER_PLAN.md. Current detailed plan: docs/plans/active/M2_M
 
 ## Validation
 
-Focused MVP 17/17 PASS. Full regression 161/161 PASS (~30s); flutter analyze --no-pub PASS (No issues,12.0s); git diff --check PASS. No tests/lints disabled. New debug APK build PENDING at this source checkpoint; exact next action below. Previous APK PASS275.1s was built on cf7948c and does not contain the new quote screen. Device install/native/provider acceptance NOT RUN for M2-B.
+Focused MVP 17/17 PASS. Full regression 161/161 PASS (~30s); flutter analyze --no-pub PASS (No issues,12.0s); git diff --check PASS. No tests/lints disabled. New debug APK PASS38.2s on source4389c06, using process-local Kotlin workaround and --no-pub. Artifact apps/mobile-app/build/app/outputs/flutter-apk/app-debug.apk,198276012bytes (189.1MiB), contains the new local quote screen. Device install/native/provider acceptance NOT RUN for M2-B; build output is ignored and not committed.
 
 ## Decisions and remaining work
 
@@ -29,6 +29,6 @@ Untracked docs/MOBILE_MVP_DISCUSSION_REFERENCE.md is the separate reference arti
 
 ## Exact next action
 
-1. Build current M2-B source from apps/mobile-app using flutter build apk --debug --no-pub with process-local GRADLE_OPTS Kotlin workaround; record outcome/artifact and push a documentation checkpoint on feature/mobile-ui only.
-2. At M3 entry, inspect pinned public CheckoutOperation/create/poll/idempotency/error contracts and existing auth/storage ownership. Write its detailed plan before edits. Implement pending/unknown outcome recovery and durable retry identity; then migrate the main cart CTA to full-cart purchase and remove selection only for the new flow. Do not connect to legacy direct order/payment DTOs.
-3. Native testing: one targeted integrated check after meaningful operation wiring; avoid broad computer-use loops. M4 separately migrates payment/order authority. Geography/history/tracking gaps remain explicit.
+1. Resume AGENTS/master/current handoff, verify branch/HEAD/status/remote; start M3 analysis and a detailed phase plan before source edits. M2-B local review is complete; do not repeat its build/test suite unless source changes.
+2. Read pinned CheckoutOperation/create/poll/idempotency/error contracts and existing auth/storage ownership. Initial evidence: public spec lines229–449 and2411–2505; POST202 means accepted operation with null order_id, replay201 can return SUCCEEDED with committed order_id, transport uncertainty requires same-key/body replay. Existing uuid and flutter_secure_storage can be reused without dependency upgrades. Plan identity-scoped durable recovery before enabling create. Then migrate the main cart CTA to full-cart purchase and remove selection only for the new flow. Do not connect to legacy direct order/payment DTOs.
+3. Native testing: one targeted integrated check after meaningful operation wiring; avoid broad computer-use loops. M4 separately migrates payment/order authority. Geography/history/tracking gaps remain explicit. To inspect current local UI manually: add cart items → Xem báo giá cả giỏ → local login if prompted → Lấy báo giá cả giỏ; this action creates no order.
