@@ -3,7 +3,7 @@ import 'package:mobile_app/app/app_dependencies.dart';
 import 'package:mobile_app/core/config/data_source_mode.dart';
 import 'package:mobile_app/features/account/data/in_memory_address_repository.dart';
 import 'package:mobile_app/features/account/data/rest_address_repository.dart';
-import 'package:mobile_app/features/auth/data/mock_auth_repository.dart';
+import 'package:mobile_app/features/auth/data/local_auth_repository.dart';
 import 'package:mobile_app/features/auth/data/rest_auth_repository.dart';
 import 'package:mobile_app/features/cart/data/in_memory_cart_repository.dart';
 import 'package:mobile_app/features/cart/data/rest_cart_repository.dart';
@@ -23,7 +23,7 @@ void main() {
     expect(dependencies.checkoutRepository, isA<MockCheckoutRepository>());
     expect(dependencies.ordersRepository, isA<MockOrdersRepository>());
     expect(dependencies.addressRepository, isA<InMemoryAddressRepository>());
-    expect(dependencies.authRepository, isA<MockAuthRepository>());
+    expect(dependencies.authRepository, isA<LocalAuthRepository>());
     expect(
       dependencies.notificationsRepository,
       isA<LocalNotificationsRepository>(),

@@ -19,7 +19,7 @@ void main() {
       await tester.runAsync(() async {
         await dependencies.authRepository.login(
           phoneNumber: MockAuthRepository.b2bFixturePhone,
-          password: 'legacy',
+          password: 'local-fixture',
         );
       });
       await tester.pumpWidget(
@@ -61,7 +61,7 @@ void main() {
     await tester.runAsync(() async {
       await dependencies.authRepository.login(
         phoneNumber: '0905123456',
-        password: 'legacy',
+        password: 'local-fixture',
       );
     });
     await tester.pumpWidget(
@@ -82,7 +82,7 @@ void main() {
       await tester.runAsync(() async {
         await dependencies.authRepository.login(
           phoneNumber: MockAuthRepository.b2bFixturePhone,
-          password: 'legacy',
+          password: 'local-fixture',
         );
       });
       await tester.pumpWidget(

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_app/app/app.dart';
+import 'package:mobile_app/app/app_dependencies.dart';
+import 'package:mobile_app/core/config/data_source_mode.dart';
 
 void main() {
   setUp(() => FlutterSecureStorage.setMockInitialValues({}));
@@ -10,7 +12,13 @@ void main() {
     'recovery is reachable from login and returns with checkout intent',
     (tester) async {
       await tester.pumpWidget(
-        const OmaApp(initialLocation: '/login?returnUrl=%2Fcheckout'),
+        OmaApp(
+          initialLocation: '/login?returnUrl=%2Fcheckout',
+          dependencies: RepositoryFactory.create(
+            mode: DataSourceMode.mock,
+            localMvpCheckout: false,
+          ),
+        ),
       );
       await tester.pumpAndSettle();
       await tester.tap(find.text('Quên mật khẩu?'));
@@ -40,8 +48,12 @@ void main() {
     'recovery link resets and returns to normal login without authentication',
     (tester) async {
       await tester.pumpWidget(
-        const OmaApp(
+        OmaApp(
           initialLocation: '/account-recovery?recoveryToken=mock-token',
+          dependencies: RepositoryFactory.create(
+            mode: DataSourceMode.mock,
+            localMvpCheckout: false,
+          ),
         ),
       );
       await tester.pumpAndSettle();
@@ -69,13 +81,20 @@ void main() {
       addTearDown(tester.view.reset);
       addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
       await tester.pumpWidget(
-        const OmaApp(
+        OmaApp(
           initialLocation: '/account-recovery?recoveryToken=mock-token',
+          dependencies: RepositoryFactory.create(
+            mode: DataSourceMode.mock,
+            localMvpCheckout: false,
+          ),
         ),
       );
       await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.text('Đặt lại mật khẩu'), 120,
-      scrollable: find.byType(Scrollable).first);
+      await tester.scrollUntilVisible(
+        find.text('Đặt lại mật khẩu'),
+        120,
+        scrollable: find.byType(Scrollable).first,
+      );
       expect(tester.takeException(), isNull);
     },
   );

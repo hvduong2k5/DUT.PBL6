@@ -14,6 +14,8 @@ import 'package:mobile_app/features/account/data/in_memory_address_repository.da
 import 'package:mobile_app/features/account/data/rest_address_repository.dart';
 import 'package:mobile_app/features/account/domain/address_repository.dart';
 import 'package:mobile_app/features/auth/data/mock_auth_repository.dart';
+import 'package:mobile_app/features/auth/data/local_auth_repository.dart';
+import 'package:mobile_app/features/auth/data/local_password_hasher.dart';
 import 'package:mobile_app/features/auth/data/rest_auth_repository.dart';
 import 'package:mobile_app/features/auth/domain/auth_repository.dart';
 import 'package:mobile_app/features/cart/data/in_memory_cart_repository.dart';
@@ -107,10 +109,14 @@ abstract final class RepositoryFactory {
     String? apiBaseUrl,
     TokenStore? tokenStore,
     bool localMvpCheckout = true,
+    LocalPasswordHasher? localPasswordHasher,
   }) {
     final selectedMode = mode ?? AppConfig.dataSourceMode;
     if (!selectedMode.isRemote) {
-      return _local(localMvpCheckout: localMvpCheckout);
+      return _local(
+        localMvpCheckout: localMvpCheckout,
+        localPasswordHasher: localPasswordHasher,
+      );
     }
 
     final baseUrl = apiBaseUrl ?? AppConfig.apiBaseUrl;
@@ -145,10 +151,17 @@ abstract final class RepositoryFactory {
     );
   }
 
-  static AppDependencies _local({required bool localMvpCheckout}) {
-    final auth = MockAuthRepository();
+  static AppDependencies _local({
+    required bool localMvpCheckout,
+    LocalPasswordHasher? localPasswordHasher,
+  }) {
+    final auth = localMvpCheckout
+        ? LocalAuthRepository(hasher: localPasswordHasher)
+        : MockAuthRepository();
     final catalog = MockCatalogRepository();
-    final cart = InMemoryCartRepository();
+    final cart = InMemoryCartRepository(
+      principal: localMvpCheckout ? () => auth.currentUser?.id : null,
+    );
     final purchase = LocalMvpPurchaseRepository(
       cart,
       () => auth.currentUser != null,
@@ -156,6 +169,7 @@ abstract final class RepositoryFactory {
     );
     final orders = MockOrdersRepository(
       authenticated: () => auth.currentUser != null,
+      principal: localMvpCheckout ? () => auth.currentUser?.id : null,
     );
     final mvpOrders = LocalMvpOrdersRepository(() => auth.currentUser?.id);
     return AppDependencies(
@@ -189,7 +203,9 @@ abstract final class RepositoryFactory {
       cartRepository: cart,
       checkoutRepository: MockCheckoutRepository(onCreated: orders.record),
       ordersRepository: orders,
-      addressRepository: InMemoryAddressRepository(),
+      addressRepository: InMemoryAddressRepository(
+        principal: localMvpCheckout ? () => auth.currentUser?.id : null,
+      ),
       authRepository: auth,
       notificationsRepository: LocalNotificationsRepository(),
       promotionsRepository: MockPromotionsRepository(),

@@ -2,8 +2,19 @@ import 'package:mobile_app/features/account/domain/address.dart';
 import 'package:mobile_app/features/account/domain/address_repository.dart';
 
 class InMemoryAddressRepository implements AddressRepository {
-  final List<Address> _items = [
-    const Address(
+  InMemoryAddressRepository({this._principal});
+  final String? Function()? _principal;
+  final _buckets = <String?, List<Address>>{};
+  List<Address> get _items => _buckets.putIfAbsent(
+    _principal?.call(),
+    () =>
+        _principal == null ||
+            const {'CUST-MOCK', 'CUST-MOCK-B2B-VERIFIED'}.contains(_principal())
+        ? [..._fixture]
+        : [],
+  );
+  static const _fixture = [
+    Address(
       id: 'address-1',
       recipientName: 'Nguyễn Văn An',
       phoneNumber: '0901234567',

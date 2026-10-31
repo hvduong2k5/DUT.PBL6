@@ -91,7 +91,7 @@ void main() {
       );
       await deps.authRepository.login(
         phoneNumber: '0905123456',
-        password: 'legacy',
+        password: 'local-fixture',
       );
       await expectLater(
         repo.create(

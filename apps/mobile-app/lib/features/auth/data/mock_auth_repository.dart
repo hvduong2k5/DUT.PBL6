@@ -11,7 +11,7 @@ class MockAuthRepository implements AuthRepository {
   AuthUser? currentUser;
   @override
   Future<AuthUser?> restoreSession() async => currentUser;
-  void updateUser(AuthUser user) {
+  Future<void> updateUser(AuthUser user) async {
     if (currentUser?.id == user.id) currentUser = user;
   }
 

@@ -19,7 +19,7 @@ Future<AppDependencies> verified() async {
   final dependencies = RepositoryFactory.create(mode: DataSourceMode.mock);
   await dependencies.authRepository.login(
     phoneNumber: MockAuthRepository.b2bFixturePhone,
-    password: 'legacy',
+    password: 'local-fixture',
   );
   return dependencies;
 }
@@ -151,7 +151,7 @@ void main() {
       await expectLater(repository.context(), throwsA(isA<ApiException>()));
       await dependencies.authRepository.login(
         phoneNumber: '0905123456',
-        password: 'legacy',
+        password: 'local-fixture',
       );
       await expectLater(
         repository.quote('LOCAL-QUOTE-001'),
@@ -159,7 +159,7 @@ void main() {
       );
       await dependencies.authRepository.login(
         phoneNumber: MockAuthRepository.b2bFixturePhone,
-        password: 'legacy',
+        password: 'local-fixture',
       );
       expect((await dependencies.capabilitiesRepository.load()).actor, 'B2B');
       final first = await repository.accept(

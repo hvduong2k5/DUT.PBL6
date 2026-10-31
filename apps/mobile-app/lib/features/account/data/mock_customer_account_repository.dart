@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:mobile_app/core/error/failures.dart';
 import 'package:mobile_app/core/network/api_exception.dart';
 import 'package:mobile_app/features/account/domain/customer_account_repository.dart';
@@ -9,7 +10,7 @@ class MockCustomerAccountRepository implements CustomerAccountRepository {
     required this.onUpdate,
   });
   final AuthUser? Function() currentUser;
-  final void Function(AuthUser) onUpdate;
+  final FutureOr<void> Function(AuthUser) onUpdate;
   AuthUser _user() {
     final user = currentUser();
     if (user == null) {
@@ -39,7 +40,7 @@ class MockCustomerAccountRepository implements CustomerAccountRepository {
       fullName: fullName,
       email: email,
     );
-    onUpdate(user);
+    await onUpdate(user);
     return CustomerProfile(user: user, tier: 'BRONZE', points: 450);
   }
 

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mobile_app/features/cart/domain/cart_models.dart';
@@ -61,8 +62,20 @@ class CartState extends Equatable {
 }
 
 class CartCubit extends Cubit<CartState> {
-  CartCubit(this._repository) : super(const CartState());
+  CartCubit(this._repository, {this._principal})
+    : super(const CartState());
   final CartRepository _repository;
+  final String? Function()? _principal;
+  int _generation = 0;
+  bool _current(int generation, String? owner) =>
+      !isClosed && generation == _generation && owner == _principal?.call();
+  void identityChanged() {
+    if (isClosed) return;
+    ++_generation;
+    emit(const CartState());
+    unawaited(load());
+  }
+
   void toggle(String itemId) {
     if (state.pending || !state.availableIds.contains(itemId)) return;
     final ids = {...state.selectedIds};
@@ -82,16 +95,15 @@ class CartCubit extends Cubit<CartState> {
   }
 
   Future<void> load() async {
-    if (state.pending) return;
+    if (isClosed || state.pending) return;
+    final generation = ++_generation, owner = _principal?.call();
     emit(state.copyWith(status: CartStatus.loading, pending: true));
     try {
-      emit(
-        state.copyWith(
-          status: CartStatus.success,
-          cart: await _repository.getCart(),
-        ),
-      );
+      final cart = await _repository.getCart();
+      if (!_current(generation, owner)) return;
+      emit(state.copyWith(status: CartStatus.success, cart: cart));
     } catch (_) {
+      if (!_current(generation, owner)) return;
       emit(
         state.copyWith(
           status: CartStatus.failure,
@@ -142,6 +154,7 @@ class CartCubit extends Cubit<CartState> {
 
   /// Remove only purchased lines. Creation success must never be retried for cleanup.
   Future<bool> consume(Set<String> purchasedIds) async {
+    final generation = _generation + 1, owner = _principal?.call();
     final success = await _mutate(() async {
       var cart = state.cart;
       for (final id in purchasedIds) {
@@ -149,7 +162,7 @@ class CartCubit extends Cubit<CartState> {
       }
       return cart;
     });
-    if (!success && !isClosed) {
+    if (!success && _current(generation, owner)) {
       emit(
         state.copyWith(
           selectedItemIds: state.selectedIds.difference(purchasedIds),
@@ -166,13 +179,14 @@ class CartCubit extends Cubit<CartState> {
     Future<Cart> Function() operation, {
     bool selectNew = false,
   }) async {
-    if (state.pending) return false;
+    if (isClosed || state.pending) return false;
+    final generation = ++_generation, owner = _principal?.call();
     final selected = state.selectedIds;
     final previousIds = state.cart.items.map((line) => line.itemId).toSet();
     emit(state.copyWith(pending: true));
     try {
       final cart = await operation();
-      if (isClosed) return false;
+      if (!_current(generation, owner)) return false;
       emit(
         state.copyWith(
           status: CartStatus.success,
@@ -188,7 +202,7 @@ class CartCubit extends Cubit<CartState> {
       );
       return true;
     } catch (error) {
-      if (!isClosed) {
+      if (_current(generation, owner)) {
         emit(
           state.copyWith(
             status: CartStatus.success,

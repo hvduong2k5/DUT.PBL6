@@ -66,7 +66,7 @@ void main() {
     await expectLater(account.profile(), throwsException);
     await dependencies.authRepository.login(
       phoneNumber: '0905123456',
-      password: 'old',
+      password: 'local-fixture',
     );
     final cubit = ProfileCubit(account);
     await cubit.load();

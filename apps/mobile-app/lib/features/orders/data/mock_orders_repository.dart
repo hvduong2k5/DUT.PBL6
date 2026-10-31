@@ -8,9 +8,21 @@ import 'package:mobile_app/features/auth/domain/auth_validation.dart';
 import 'package:mobile_app/core/models/page_result.dart';
 
 class MockOrdersRepository implements OrdersRepository {
-  MockOrdersRepository({bool Function()? authenticated})
-    : _authenticated = authenticated ?? (() => true);
+  MockOrdersRepository({
+    bool Function()? authenticated,
+    this._principal,
+  }) : _authenticated = authenticated ?? (() => true);
   final bool Function() _authenticated;
+  final String? Function()? _principal;
+  final _owners = <String, String?>{};
+  bool _owned(String id) =>
+      _principal == null ||
+      (_owners.containsKey(id)
+          ? _owners[id] == _principal()
+          : const {
+              'CUST-MOCK',
+              'CUST-MOCK-B2B-VERIFIED',
+            }.contains(_principal()));
   final Map<String, DateTime> _guestGrants = {};
   final Map<String, String> _contacts = {};
   final Map<String, CustomerOrder> _overrides = {};
@@ -30,11 +42,13 @@ class MockOrdersRepository implements OrdersRepository {
 
   final List<CustomerOrder> _created = [];
   void recordBusinessOrder(CustomerOrder order) {
+    _owners[order.id] = _principal?.call();
     _created.removeWhere((o) => o.id == order.id);
     _created.add(order);
   }
 
   void record(OrderConfirmation confirmation, CheckoutDraft draft) {
+    _owners[confirmation.orderId] = _principal?.call();
     _contacts[confirmation.orderId] = draft.phone;
     grantGuestAccess(
       confirmation.orderId,
@@ -161,14 +175,19 @@ class MockOrdersRepository implements OrdersRepository {
         ),
       );
     }
-    return [..._created, ..._orders].map((o) => _overrides[o.id] ?? o).toList();
+    return [
+      ..._created,
+      ..._orders,
+    ].where((o) => _owned(o.id)).map((o) => _overrides[o.id] ?? o).toList();
   }
 
   @override
   Future<CustomerOrder> order(String id) async {
     await Future<void>.delayed(const Duration(milliseconds: 120));
-    if (!_authenticated() &&
-        !(_guestGrants[id]?.isAfter(DateTime.now()) ?? false)) {
+    final granted =
+        (_principal == null || _principal() == null) &&
+        (_guestGrants[id]?.isAfter(DateTime.now()) ?? false);
+    if (!_authenticated() && !granted) {
       throw const ApiException(
         Failure(
           kind: FailureKind.unauthenticated,
@@ -180,7 +199,7 @@ class MockOrdersRepository implements OrdersRepository {
       ..._created,
       ..._orders,
     ].where((item) => item.id == id).firstOrNull;
-    if (order == null) {
+    if (order == null || !_owned(id) && !granted) {
       throw const ApiException(
         Failure(
           kind: FailureKind.notFound,

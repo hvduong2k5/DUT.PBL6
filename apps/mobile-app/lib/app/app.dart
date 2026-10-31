@@ -131,10 +131,13 @@ class _OmaAppState extends State<OmaApp> {
     child: MultiBlocProvider(
       providers: [
         BlocProvider(
-          create: (_) => CartCubit(_dependencies.cartRepository)..load(),
+          create: (_) => AuthCubit(_dependencies.authRepository)..restore(),
         ),
         BlocProvider(
-          create: (_) => AuthCubit(_dependencies.authRepository)..restore(),
+          create: (context) => CartCubit(
+            _dependencies.cartRepository,
+            principal: () => context.read<AuthCubit>().state.user?.id,
+          )..load(),
         ),
         if (_dependencies.mvpCheckoutRuntime != null)
           BlocProvider(
@@ -156,14 +159,18 @@ class _OmaAppState extends State<OmaApp> {
           ),
         ),
       ],
-      child: MaterialApp.router(
-        title: 'Ô Mạ',
-        locale: const Locale('vi'),
-        supportedLocales: const [Locale('vi')],
-        localizationsDelegates: GlobalMaterialLocalizations.delegates,
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.light,
-        routerConfig: _router,
+      child: BlocListener<AuthCubit, AuthState>(
+        listenWhen: (previous, next) => previous.user?.id != next.user?.id,
+        listener: (context, _) => context.read<CartCubit>().identityChanged(),
+        child: MaterialApp.router(
+          title: 'Ô Mạ',
+          locale: const Locale('vi'),
+          supportedLocales: const [Locale('vi')],
+          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.light,
+          routerConfig: _router,
+        ),
       ),
     ),
   );

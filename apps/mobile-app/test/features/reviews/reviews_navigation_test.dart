@@ -18,7 +18,7 @@ void main() {
       await tester.runAsync(() async {
         await deps.authRepository.login(
           phoneNumber: '0905123456',
-          password: 'legacy',
+          password: 'local-fixture',
         );
       });
       await tester.pumpWidget(

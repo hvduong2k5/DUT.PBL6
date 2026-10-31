@@ -161,7 +161,7 @@ void main() {
     );
     await dependencies.authRepository.login(
       phoneNumber: '0905123456',
-      password: 'legacy',
+      password: 'local-fixture',
     );
     await expectLater(repository.ticket(id), throwsA(isA<ApiException>()));
   });

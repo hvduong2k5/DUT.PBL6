@@ -74,7 +74,8 @@ class AuthCubit extends Cubit<AuthState> {
   }
 
   Future<bool> login(String phone, String password) async {
-    if (state.status == AuthStatus.submitting ||
+    if (state.user != null ||
+        state.status == AuthStatus.submitting ||
         state.status == AuthStatus.restoring) {
       return false;
     }
@@ -117,7 +118,8 @@ class AuthCubit extends Cubit<AuthState> {
     required String password,
     String? email,
   }) async {
-    if (state.status == AuthStatus.submitting ||
+    if (state.user != null ||
+        state.status == AuthStatus.submitting ||
         state.status == AuthStatus.restoring) {
       return false;
     }
@@ -145,12 +147,14 @@ class AuthCubit extends Cubit<AuthState> {
       if (isClosed) return false;
       emit(AuthState(status: AuthStatus.authenticated, user: session.user));
       return true;
-    } catch (_) {
+    } catch (error) {
       if (isClosed) return false;
       emit(
-        const AuthState(
+        AuthState(
           status: AuthStatus.failure,
-          message: 'Không thể đăng ký lúc này.',
+          message: error is ApiException
+              ? error.failure.message
+              : 'Không thể đăng ký lúc này.',
         ),
       );
       return false;
@@ -162,12 +166,13 @@ class AuthCubit extends Cubit<AuthState> {
     try {
       await _repository.logout();
       if (!isClosed) emit(const AuthState());
-    } catch (_) {
+    } catch (error) {
       if (!isClosed) {
         emit(
-          const AuthState(
-            message:
-                'Đã đăng xuất trên thiết bị. Chưa xác nhận kết thúc phiên phía máy chủ.',
+          AuthState(
+            message: error is ApiException
+                ? error.failure.message
+                : 'Đã đăng xuất trên thiết bị. Chưa xác nhận kết thúc phiên phía máy chủ.',
           ),
         );
       }

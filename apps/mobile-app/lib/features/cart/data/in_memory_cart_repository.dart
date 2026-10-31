@@ -3,7 +3,41 @@ import 'package:mobile_app/features/cart/domain/cart_repository.dart';
 import 'package:mobile_app/features/catalog/domain/catalog_models.dart';
 
 class InMemoryCartRepository implements CartRepository {
-  Cart _cart = const Cart();
+  InMemoryCartRepository({this._principal});
+  final String? Function()? _principal;
+  final _carts = <String?, Cart>{};
+  String? _lastOwner;
+  Cart get _cart {
+    final owner = _principal?.call();
+    if (_lastOwner == null && owner != null) {
+      final guest = _carts.remove(null);
+      if (guest != null && guest.items.isNotEmpty) {
+        final items = [...?_carts[owner]?.items];
+        for (final line in guest.items) {
+          final index = items.indexWhere(
+            (i) => i.variant.sku == line.variant.sku,
+          );
+          if (index < 0) {
+            items.add(line);
+          } else {
+            final quantity = (items[index].quantity + line.quantity).clamp(
+              1,
+              maxCartItemQuantity,
+            );
+            items[index] = items[index].copyWith(quantity: quantity);
+          }
+        }
+        _carts[owner] = Cart(items: items);
+      }
+    }
+    _lastOwner = owner;
+    return _carts[owner] ?? const Cart();
+  }
+
+  set _cart(Cart value) {
+    _carts[_principal?.call()] = value;
+  }
+
   @override
   Future<Cart> getCart() async => _cart;
   @override
