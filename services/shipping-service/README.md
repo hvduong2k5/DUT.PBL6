@@ -61,6 +61,9 @@ Quote requests use GHN's non-mutating order preview endpoint so the internal add
 can remain provider-neutral. Shipment creation uses the immutable internal `shipment_id` as
 GHN `client_order_code`. The returned print label is stored as the stable reference
 `GHN:<tracking_code>`; an expiring print URL must be generated only when requested.
+If creation times out or returns a retryable provider error, Shipping performs one bounded
+lookup through GHN `detail-by-client-code`. A matching order is recovered instead of creating
+another carrier order; a definitive provider `4xx` is never retried or reconciled.
 
 Configure the GHN Developer Portal only after the public endpoint is reachable. Add the custom
 header `X-GHN-Webhook-Secret` with the same value as `SHIPPING_GHN_WEBHOOK_SECRET`. A missing

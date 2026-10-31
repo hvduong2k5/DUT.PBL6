@@ -5,8 +5,10 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -60,6 +62,14 @@ type orderResponse struct {
 	ExpectedDeliveryTime time.Time `json:"expected_delivery_time"`
 }
 
+type orderDetailResponse struct {
+	OrderCode       string    `json:"order_code"`
+	ClientOrderCode string    `json:"client_order_code"`
+	Status          string    `json:"status"`
+	TotalFee        int64     `json:"total_fee"`
+	Leadtime        time.Time `json:"leadtime"`
+}
+
 func (c *Client) Quote(ctx context.Context, request carrier.QuoteRequest) (carrier.Quote, error) {
 	if err := request.Destination.Validate(); err != nil {
 		return carrier.Quote{}, err
@@ -109,22 +119,55 @@ func (c *Client) CreateShipment(ctx context.Context, request carrier.CreateReque
 		request.ShipmentID, request.CODAmountVND, request.ShippingNotes,
 	)
 	var result orderResponse
-	if err := c.do(ctx, http.MethodPost, "/shiip/public-api/v2/shipping-order/create", payload, &result); err != nil {
-		return carrier.CreateResult{}, err
+	if createErr := c.do(ctx, http.MethodPost, "/shiip/public-api/v2/shipping-order/create", payload, &result); createErr != nil {
+		if !isAmbiguousCreateError(createErr) {
+			return carrier.CreateResult{}, createErr
+		}
+		reconcileCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), c.reconcileTimeout)
+		defer cancel()
+		detail, reconcileErr := c.getOrderByClientCode(reconcileCtx, request.ShipmentID)
+		if reconcileErr != nil {
+			return carrier.CreateResult{}, fmt.Errorf("create GHN order was ambiguous and reconciliation failed: %w", errors.Join(createErr, reconcileErr))
+		}
+		if detail.ClientOrderCode != request.ShipmentID || strings.TrimSpace(detail.OrderCode) == "" {
+			return carrier.CreateResult{}, fmt.Errorf("GHN reconciliation returned a mismatched order")
+		}
+		return createResult(detail.OrderCode, detail.TotalFee, detail.Leadtime), nil
 	}
 	if strings.TrimSpace(result.OrderCode) == "" {
 		return carrier.CreateResult{}, fmt.Errorf("GHN create order returned an empty order code")
 	}
+	return createResult(result.OrderCode, result.TotalFee, result.ExpectedDeliveryTime), nil
+}
+
+func (c *Client) getOrderByClientCode(ctx context.Context, clientOrderCode string) (orderDetailResponse, error) {
+	query := url.Values{"client_order_code": []string{clientOrderCode}}
+	var detail orderDetailResponse
+	err := c.do(ctx, http.MethodGet, "/shiip/public-api/v2/shipping-order/detail-by-client-code?"+query.Encode(), nil, &detail)
+	return detail, err
+}
+
+func isAmbiguousCreateError(err error) bool {
+	var apiErr *APIError
+	if errors.As(err, &apiErr) {
+		return apiErr.Temporary()
+	}
+	// Network failures, timeouts, truncated responses and malformed 2xx responses do not
+	// prove whether GHN committed the order, so they must be reconciled before retrying.
+	return true
+}
+
+func createResult(orderCode string, fee int64, estimatedDelivery time.Time) carrier.CreateResult {
 	var delivery *time.Time
-	if !result.ExpectedDeliveryTime.IsZero() {
-		value := result.ExpectedDeliveryTime.UTC()
+	if !estimatedDelivery.IsZero() {
+		value := estimatedDelivery.UTC()
 		delivery = &value
 	}
 	return carrier.CreateResult{
-		CarrierOrderID: result.OrderCode, TrackingCode: result.OrderCode,
-		LabelReference: "GHN:" + result.OrderCode, EstimatedFeeVND: result.TotalFee,
+		CarrierOrderID: orderCode, TrackingCode: orderCode,
+		LabelReference: "GHN:" + orderCode, EstimatedFeeVND: fee,
 		EstimatedDeliveryAt: delivery,
-	}, nil
+	}
 }
 
 func newOrderRequest(recipient domain.Recipient, parcel domain.Parcel, serviceType int, clientOrderCode string, cod int64, note string) orderRequest {

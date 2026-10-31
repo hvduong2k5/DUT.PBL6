@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"testing"
@@ -88,6 +89,66 @@ func TestCreateShipmentUsesInternalShipmentIDAsClientOrderCode(t *testing.T) {
 	}
 	if result.EstimatedFeeVND != 35000 || result.EstimatedDeliveryAt == nil {
 		t.Fatalf("missing provider result data: %+v", result)
+	}
+}
+
+func TestCreateShipmentRecoversAmbiguousResultByClientOrderCode(t *testing.T) {
+	const shipmentID = "c51be44f-e7a3-4e1f-9093-507948136699"
+	calls := 0
+	client := testClientWithDoer(t, doerFunc(func(r *http.Request) (*http.Response, error) {
+		calls++
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/shiip/public-api/v2/shipping-order/create":
+			return nil, context.DeadlineExceeded
+		case r.Method == http.MethodGet && r.URL.Path == "/shiip/public-api/v2/shipping-order/detail-by-client-code":
+			if r.URL.Query().Get("client_order_code") != shipmentID {
+				t.Fatalf("unexpected reconciliation query %q", r.URL.RawQuery)
+			}
+			return response(t, http.StatusOK, map[string]any{
+				"order_code": "LADRECOVERED", "client_order_code": shipmentID,
+				"status": "ready_to_pick", "total_fee": 34000,
+				"leadtime": "2026-11-03T16:59:59+07:00",
+			}), nil
+		default:
+			t.Fatalf("unexpected request %s %s", r.Method, r.URL.String())
+			return nil, nil
+		}
+	}))
+
+	result, err := client.CreateShipment(context.Background(), carrier.CreateRequest{
+		IdempotencyKey: "packing-event-1", ShipmentID: shipmentID,
+		OrderID: "order-1", PackageID: "package-1", ServiceCode: "GHN_LIGHT",
+		Recipient: testRecipient(), Parcel: testParcel(), CODAmountVND: 285000,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if calls != 2 || result.TrackingCode != "LADRECOVERED" || result.EstimatedFeeVND != 34000 {
+		t.Fatalf("unexpected recovered result after %d calls: %+v", calls, result)
+	}
+}
+
+func TestCreateShipmentDoesNotReconcileDefinitiveProviderError(t *testing.T) {
+	calls := 0
+	client := testClientWithDoer(t, doerFunc(func(_ *http.Request) (*http.Response, error) {
+		calls++
+		return rawResponse(http.StatusBadRequest, `{"code":400,"message":"invalid address","code_message":"USER_ERR_COMMON","data":null}`), nil
+	}))
+
+	_, err := client.CreateShipment(context.Background(), carrier.CreateRequest{
+		IdempotencyKey: "packing-event-1", ShipmentID: "c51be44f-e7a3-4e1f-9093-507948136699",
+		OrderID: "order-1", PackageID: "package-1", ServiceCode: "GHN_LIGHT",
+		Recipient: testRecipient(), Parcel: testParcel(),
+	})
+	if err == nil {
+		t.Fatal("expected definitive GHN validation error")
+	}
+	var apiErr *APIError
+	if !errors.As(err, &apiErr) || apiErr.HTTPStatus != http.StatusBadRequest {
+		t.Fatalf("expected GHN API error, got %v", err)
+	}
+	if calls != 1 {
+		t.Fatalf("definitive 4xx must not trigger reconciliation, got %d calls", calls)
 	}
 }
 

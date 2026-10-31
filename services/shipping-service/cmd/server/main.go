@@ -63,7 +63,7 @@ func main() {
 		ghnProvider, providerErr := ghncarrier.New(ghncarrier.Config{
 			BaseURL: cfg.GHNBaseURL, Token: cfg.GHNToken, ShopID: cfg.GHNShopID,
 			FromDistrictID: cfg.GHNFromDistrictID, FromWardCode: cfg.GHNFromWardCode,
-			Timeout: cfg.GHNRequestTimeout, QuoteTTL: cfg.GHNQuoteTTL,
+			Timeout: cfg.GHNRequestTimeout, ReconcileTimeout: cfg.GHNRecoveryTimeout, QuoteTTL: cfg.GHNQuoteTTL,
 		})
 		if providerErr != nil {
 			logger.Fatal().Err(providerErr).Msg("create GHN carrier")

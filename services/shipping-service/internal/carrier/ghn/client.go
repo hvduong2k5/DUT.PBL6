@@ -19,13 +19,14 @@ const (
 )
 
 type Config struct {
-	BaseURL        string
-	Token          string
-	ShopID         int64
-	FromDistrictID int
-	FromWardCode   string
-	Timeout        time.Duration
-	QuoteTTL       time.Duration
+	BaseURL          string
+	Token            string
+	ShopID           int64
+	FromDistrictID   int
+	FromWardCode     string
+	Timeout          time.Duration
+	ReconcileTimeout time.Duration
+	QuoteTTL         time.Duration
 }
 
 type HTTPDoer interface {
@@ -33,14 +34,15 @@ type HTTPDoer interface {
 }
 
 type Client struct {
-	baseURL        *url.URL
-	token          string
-	shopID         int64
-	fromDistrictID int
-	fromWardCode   string
-	quoteTTL       time.Duration
-	httpClient     HTTPDoer
-	now            func() time.Time
+	baseURL          *url.URL
+	token            string
+	shopID           int64
+	fromDistrictID   int
+	fromWardCode     string
+	quoteTTL         time.Duration
+	reconcileTimeout time.Duration
+	httpClient       HTTPDoer
+	now              func() time.Time
 }
 
 type APIError struct {
@@ -60,6 +62,13 @@ func (e *APIError) Error() string {
 		return fmt.Sprintf("GHN %s: %s", e.CodeMessage, message)
 	}
 	return fmt.Sprintf("GHN HTTP %d: %s", e.HTTPStatus, message)
+}
+
+func (e *APIError) Temporary() bool {
+	if e.HTTPStatus > 0 {
+		return e.HTTPStatus == http.StatusRequestTimeout || e.HTTPStatus == http.StatusTooManyRequests || e.HTTPStatus >= http.StatusInternalServerError
+	}
+	return e.Code == http.StatusRequestTimeout || e.Code == http.StatusTooManyRequests || e.Code >= http.StatusInternalServerError
 }
 
 func New(cfg Config) (*Client, error) {
@@ -95,10 +104,14 @@ func newClient(cfg Config, httpClient HTTPDoer) (*Client, error) {
 	if quoteTTL <= 0 {
 		quoteTTL = 15 * time.Minute
 	}
+	reconcileTimeout := cfg.ReconcileTimeout
+	if reconcileTimeout <= 0 {
+		reconcileTimeout = 3 * time.Second
+	}
 	return &Client{
 		baseURL: baseURL, token: strings.TrimSpace(cfg.Token), shopID: cfg.ShopID,
 		fromDistrictID: cfg.FromDistrictID, fromWardCode: strings.TrimSpace(cfg.FromWardCode),
-		quoteTTL: quoteTTL, httpClient: httpClient, now: time.Now,
+		quoteTTL: quoteTTL, reconcileTimeout: reconcileTimeout, httpClient: httpClient, now: time.Now,
 	}, nil
 }
 
@@ -113,7 +126,12 @@ type apiEnvelope struct {
 
 func (c *Client) do(ctx context.Context, method, path string, input, output any) error {
 	endpoint := *c.baseURL
-	endpoint.Path = strings.TrimRight(endpoint.Path, "/") + "/" + strings.TrimLeft(path, "/")
+	relative, err := url.Parse(path)
+	if err != nil {
+		return fmt.Errorf("parse GHN request path: %w", err)
+	}
+	endpoint.Path = strings.TrimRight(endpoint.Path, "/") + "/" + strings.TrimLeft(relative.Path, "/")
+	endpoint.RawQuery = relative.RawQuery
 
 	var body io.Reader
 	if input != nil {
