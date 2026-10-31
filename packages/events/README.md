@@ -1,3 +1,5 @@
+> **MVP event routing:** xem [migration](../contracts/mvp/MIGRATION.md#events-và-ingress-adapter). Packing v1 giữ nguyên; package/parcel required dùng fulfillment.events.v2. Shipping proof dùng shipping.events.v2, key shipment_id; current Shipping v1 provider cũng key shipment_id. Các producer/consumer mới vẫn pending. Không coi normalized Order ingress là cùng schema với producer CloudEvents.
+
 # DANH MỤC SỰ KIỆN PHÂN TÁN & QUY CHUẨN KAFKA CLOUDEVENTS (EVENT CATALOG)
 ## HỆ SINH THÁI THƯƠNG MẠI ĐIỆN TỬ & CHUỖI CUNG ỨNG ĐẶC SẢN OCOP HUẾ (MÈ XỬNG O MẠ)
 
@@ -9,18 +11,20 @@ Thư mục này chứa toàn bộ các bản hợp đồng sự kiện bất đ�
 
 > [!CRITICAL]
 > **Quy Tắc Sống Còn Của Kafka: Thứ Tự Xử Lý Chỉ Được Bảo Đảm Trong Cùng Một Partition!**
-> Việc lựa chọn Partition Key quyết định thứ tự xử lý của chuỗi sự kiện. Bảng dưới đây ánh xạ 100% các Topic, Partition Key và danh sách Consumer cam kết theo đúng HLD Mục 3.6:
+> Việc lựa chọn Partition Key quyết định thứ tự xử lý của chuỗi sự kiện. Bảng dưới ghi routing theo phiên bản; consumer/provider capability phải được xác nhận trước rollout. Order 3.2 dùng [contract proposal](../contracts/order-3.2.md), [v3 schemas](schemas/order/v3/) và [examples](examples/order/v3/); wire files không chứng minh capability đã triển khai:
 
 | Topic Kafka | Partition Key | Publisher (Bên Bắn) | Danh Sách Consumers Cam Kết (Đầy Đủ 18 Services) | Rationale (Lý Do Kỹ Thuật) |
 | :--- | :---: | :--- | :--- | :--- |
-| **`order.events.v1`** | `order_id` | `order-service` (MS-04) | • `fulfillment-service` (MS-02 - tạo Picking Task)<br/>• `inventory-service` (MS-01 - trừ kho vật lý FEFO)<br/>• `promotion-service` (MS-07 - ghi nhận dùng voucher, tích điểm 1% loyalty)<br/>• `finance-service` (MS-09 - ghi nhận doanh thu, xuất hóa đơn điện tử VAT)<br/>• `care-service` (MS-06 - mở quyền viết review sau OrderCompleted)<br/>• `notification-service` (MS-17 - bắn Zalo ZNS/Push App)<br/>• `analytics-service` (MS-11 - cập nhật GMV real-time) | Đảm bảo toàn bộ chuỗi sự kiện của 1 đơn hàng (`Placed` ➔ `Paid` ➔ `Cancelled` ➔ `Completed`) luôn vào cùng 1 partition theo tuần tự thời gian. |
+| **`order.events.v1`** | `order_id` | Order legacy cohort | Legacy deduction/packing consumers only | Giữ riêng cho Orders cũ; không phát cho cohort Order 3.2. |
+| **`order.events.v2`** | `order_id` | Order sandbox 3.1 | Sandbox consumers | Schema đóng băng; không thêm required proof của target. |
+| **`order.events.v3`** | `order_id` | Order target 3.2 (proposed) | Fulfillment ready → permit/accept barrier; Finance accounting; Care/Notification/Analytics facts | Paid không trừ kho/consume voucher. Consumer v3 triển khai trước producer; mỗi Order một cohort/authority. |
 | **`inventory.events.v1`** | `sku_code` | `inventory-service` (MS-01) | • `catalog-service` (MS-05 - làm mới cache tồn Redis)<br/>• `channel-service` (MS-13 - đồng bộ tồn khả dụng lên Shopee/TikTok)<br/>• `procurement-service` (MS-08 - tự động dự thảo PO khi nguyên liệu dưới ngưỡng)<br/>• `marketing-service` (MS-14 - phát động chiến dịch xả hàng cận date)<br/>• `promotion-service` (MS-07 - tạo Flash Sale xả hàng cận date)<br/>• `notification-service` (MS-17 - cảnh báo thủ kho)<br/>• `analytics-service` (MS-11) | Đảm bảo các cập nhật biến động tồn kho và cảnh báo hạn dùng kẹo mè xửng luôn tuần tự, không bị race-condition. |
 | **`fulfillment.events.v1`** | `order_id` | `fulfillment-service` (MS-02) | • `shipping-service` (MS-12 - gọi API 3PL tạo vận đơn)<br/>• `order-service` (MS-04 - chuyển trạng thái PACKED)<br/>• `traceability-service` (MS-03 - kích hoạt mã tem QR OCOP)<br/>• `notification-service` (MS-17) | Đảm bảo các mốc đóng gói xưởng và dán tem Seal O Mạ được ráp nối chuẩn xác theo đơn hàng. |
-| **`shipping.events.v1`** | `tracking_code` | `shipping-service` (MS-12) | • `order-service` (MS-04 - chuyển trạng thái SHIPPED/DELIVERED)<br/>• `finance-service` (MS-09 - đối soát phí ship 3PL)<br/>• `notification-service` (MS-17) | Đảm bảo các checkpoint hành trình từ 3PL (GHN/ViettelPost) được cập nhật theo đúng diễn biến thời gian. |
+| **`shipping.events.v1`** | `shipment_id` | `shipping-service` (MS-12) | • `order-service` (MS-04 - chuyển trạng thái SHIPPED/DELIVERED)<br/>• `finance-service` (MS-09 - đối soát phí ship 3PL)<br/>• `notification-service` (MS-17) | Đảm bảo các checkpoint hành trình từ 3PL (GHN/ViettelPost) được cập nhật theo đúng diễn biến thời gian. |
 | **`channel.events.v1`** | `marketplace_order_id` | `channel-service` (MS-13) | • `order-service` (MS-04 - Inbound Saga Orchestrator độc quyền khóa tồn)<br/>• `analytics-service` (MS-11) | Tiếp nhận đơn sàn Shopee/TikTok, bảo đảm 100% nguyên tắc Centralized Compensation (Mục 3.4). |
-| **`finance.events.v1`** | `order_id` | `finance-service` (MS-09) | • `care-service` (MS-06 - xác nhận tiền hoàn về cho khách)<br/>• `notification-service` (MS-17 - gửi hóa đơn VAT PDF) | Thông báo hóa đơn điện tử (`InvoiceIssued`) hoặc hoàn tiền (`RefundProcessed`). |
+| **`finance.events.v1`** | `order_id` | Finance | Notification/Care/accounting consumers | Invoice facts; refund_processed là legacy, không tạo refund executor thứ hai cho Order 3.2. Target nhận order.refund_succeeded.v3 từ MS-04. |
 | **`promotion.events.v1`** | `customer_id` | `promotion-service` (MS-07) | • `analytics-service` (MS-11 - tính toán ROI chiến dịch)<br/>• `notification-service` (MS-17) | Ghi nhận voucher đã dùng (`VoucherUsed`) và cộng điểm thành viên (`LoyaltyPointsEarned`). |
-| **`care.events.v1`** | `order_id` | `care-service` (MS-06) | • `finance-service` (MS-09 - hoàn tiền khiếu nại)<br/>• `inventory-service` (MS-01 - nhập lại kho hàng đổi trả)<br/>• `notification-service` (MS-17) | Chấp thuận đổi trả sau đối soát video tem Seal (`ReturnTicketApproved`). |
+| **`care.events.v1`** | `order_id` | Care | Order Payment component/Notification theo adapter được thống nhất | Với Order 3.2, approval không tự refund/restock: Order là refund executor; Inventory cần reversal/return proof riêng. Legacy schema không đủ cấp quyền cho target. |
 | **`procurement.events.v1`** | `sku_code` | `procurement-service` (MS-08) | • `inventory-service` (MS-01 - tạo Lô hàng FEFO mới)<br/>• `finance-service` (MS-09 - ghi nhận công nợ AP với HTX mè Huế)<br/>• `traceability-service` (MS-03 - ghi nhận vùng nguyên liệu) | Nhập nguyên liệu mè/đậu Huế hoặc kẹo thành phẩm (`GoodsReceived`). |
 | **`audit.events.v1`** | `entity_id` | Tất cả 18 Services | • `audit-service` (MS-18 - Audit Plane) | Đảm bảo chuỗi băm Hash Chain (`prev_entity_hash` ➔ `current_entity_hash`) liên tục, chống sửa xóa dữ liệu. |
 
@@ -57,4 +61,4 @@ Mọi thông điệp bắn lên Kafka đều phải bọc trong Envelope chuẩn
    - Tuyệt đối cấm xóa trường hoặc đổi kiểu dữ liệu của trường đang có trong phiên bản `v1`.
 2. **Xử Lý Lỗi Consumer (DLQ Policy):**
    - Nếu Consumer xử lý sự kiện thất bại: Thử lại 3 lần với thuật toán **Exponential Backoff** (1s, 2s, 4s).
-   - Nếu sau 3 lần vẫn lỗi: Đẩy sự kiện sang Topic Dead-Letter-Queue tương ứng (ví dụ: `order.events.v1.dlq`) kèm Header lý do lỗi (`x-dead-letter-reason`) để đội Vận hành kiểm tra thủ công, không làm tắc nghẽn Consumer Group.
+   - Nếu sau 3 lần vẫn lỗi: Chỉ commit offset sau khi retry record/DLQ obligation đã được lưu bền vững; không commit offset N+1 khiến record N chưa xử lý bị bỏ qua. Đẩy sự kiện sang Topic Dead-Letter-Queue tương ứng (ví dụ: `order.events.v1.dlq`) kèm Header lý do lỗi (`x-dead-letter-reason`) để đội Vận hành kiểm tra thủ công, không làm tắc nghẽn Consumer Group.

@@ -1,0 +1,93 @@
+version: '3.8'
+
+# =============================================================================
+# KAFKA CLUSTER - LOCAL DEVELOPMENT DEPLOYMENT
+# =============================================================================
+# - Chạy trên máy cá nhân của Developer qua Docker Desktop / Docker Engine
+# - Mở port 9094 ra máy Host để code IDE (IntelliJ, VS Code, Gradle) kết nối qua localhost:9094
+# - Mở port 8085 ra máy Host để mở Web UI tại: http://localhost:8085
+# - Tắt đăng nhập Kafka UI (AUTH_TYPE=DISABLED) để dev thuận tiện, không cần gõ mật khẩu
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # 1. Apache Kafka Broker (KRaft Mode - Native, No ZooKeeper)
+  # ---------------------------------------------------------------------------
+  kafka:
+    image: apache/kafka:3.8.0
+    container_name: om-kafka-dev
+    restart: unless-stopped
+    ports:
+      # Port kết nối từ máy Host (IDE, Postman, test local)
+      - "${KAFKA_EXTERNAL_PORT:-9094}:9094"
+    environment:
+      # Cấu hình KRaft
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+
+      # Dual Listeners:
+      # - INTERNAL (9092): Nếu chạy microservice trong Docker container
+      # - EXTERNAL (9094): Nếu chạy microservice trực tiếp từ máy host (bootRun)
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:9092,EXTERNAL://0.0.0.0:9094,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://${KAFKA_EXTERNAL_HOST:-localhost}:${KAFKA_EXTERNAL_PORT:-9094}
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+
+      # Partition & Rebalance
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+
+      # Thời gian lưu trữ dữ liệu (Dev: 3 ngày)
+      KAFKA_LOG_RETENTION_HOURS: 72
+      KAFKA_LOG_RETENTION_BYTES: 5368709120
+      KAFKA_LOG_SEGMENT_BYTES: 536870912
+    volumes:
+      - kafka_dev_data:/var/lib/kafka/data
+    networks:
+      - om-dev-network
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 | grep -q 'id: 1'"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  # ---------------------------------------------------------------------------
+  # 2. Kafka UI (Giao diện Quản trị Topics & Events Local)
+  # ---------------------------------------------------------------------------
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: om-kafka-ui-dev
+    restart: unless-stopped
+    ports:
+      # Truy cập UI tại trình duyệt: http://localhost:8085
+      - "${KAFKA_UI_PORT:-8085}:8080"
+    environment:
+      DYNAMIC_CONFIG_ENABLED: "true"
+      KAFKA_CLUSTERS_0_NAME: omama-dev-cluster
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+
+      # Mặc định tắt form đăng nhập ở môi trường Dev local để tiện thao tác
+      AUTH_TYPE: "${KAFKA_UI_AUTH_TYPE:-DISABLED}"
+      SPRING_SECURITY_USER_NAME: "${KAFKA_UI_USERNAME:-admin}"
+      SPRING_SECURITY_USER_PASSWORD: "${KAFKA_UI_PASSWORD:-admin123}"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - om-dev-network
+
+networks:
+  om-dev-network:
+    name: ${DOCKER_NETWORK_NAME:-om-network}
+    driver: bridge
+
+volumes:
+  kafka_dev_data:
+    name: om_kafka_dev_data
+
