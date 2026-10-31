@@ -2,10 +2,13 @@ package carrier
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/omamx/shipping-service/internal/domain"
 )
+
+var ErrInvalidWebhook = errors.New("invalid carrier webhook")
 
 type QuoteRequest struct {
 	Destination domain.Recipient `json:"destination"`

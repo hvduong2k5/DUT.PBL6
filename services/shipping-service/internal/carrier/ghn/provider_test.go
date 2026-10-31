@@ -1,0 +1,192 @@
+package ghn
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"io"
+	"net/http"
+	"testing"
+	"time"
+
+	"github.com/omamx/shipping-service/internal/carrier"
+	"github.com/omamx/shipping-service/internal/domain"
+)
+
+func TestQuoteUsesPreviewWithoutCreatingOrder(t *testing.T) {
+	client := testClientWithDoer(t, doerFunc(func(r *http.Request) (*http.Response, error) {
+		if r.URL.Path != "/shiip/public-api/v2/shipping-order/preview" {
+			t.Fatalf("unexpected path %s", r.URL.Path)
+		}
+		if r.Header.Get("Token") != "staging-token" || r.Header.Get("ShopId") != "92837" {
+			t.Fatal("GHN authentication headers are missing")
+		}
+		var request orderRequest
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+			t.Fatal(err)
+		}
+		if request.ClientOrderCode != "" || request.PaymentTypeID != 1 || request.ServiceTypeID != lightServiceType {
+			t.Fatalf("unexpected preview request: %+v", request)
+		}
+		if request.ToWardName != "Phường Thuận Hòa" || request.ToDistrictName != "Quận Phú Xuân" {
+			t.Fatalf("recipient address was not mapped by name: %+v", request)
+		}
+		return response(t, http.StatusOK, map[string]any{
+			"order_code": "", "total_fee": 32000,
+			"expected_delivery_time": "2026-11-03T16:59:59+07:00",
+		}), nil
+	}))
+
+	now := time.Date(2026, 10, 31, 9, 0, 0, 0, time.UTC)
+	client.now = func() time.Time { return now }
+	quote, err := client.Quote(context.Background(), carrier.QuoteRequest{
+		Destination: testRecipient(), Parcel: testParcel(), ServiceCode: "STANDARD",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if quote.CarrierCode != Code || quote.ServiceCode != "GHN_LIGHT" || quote.FeeVND != 32000 {
+		t.Fatalf("unexpected quote: %+v", quote)
+	}
+	if !quote.ExpiresAt.Equal(now.Add(15 * time.Minute)) {
+		t.Fatalf("unexpected quote expiry %s", quote.ExpiresAt)
+	}
+}
+
+func TestCreateShipmentUsesInternalShipmentIDAsClientOrderCode(t *testing.T) {
+	client := testClientWithDoer(t, doerFunc(func(r *http.Request) (*http.Response, error) {
+		if r.URL.Path != "/shiip/public-api/v2/shipping-order/create" {
+			t.Fatalf("unexpected path %s", r.URL.Path)
+		}
+		var request orderRequest
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+			t.Fatal(err)
+		}
+		if request.ClientOrderCode != "c51be44f-e7a3-4e1f-9093-507948136699" {
+			t.Fatalf("unexpected client_order_code %q", request.ClientOrderCode)
+		}
+		if request.CODAmount != 285000 || request.RequiredNote != requiredNote || request.Note != "Gọi trước khi giao" {
+			t.Fatalf("unexpected create request: %+v", request)
+		}
+		return response(t, http.StatusOK, map[string]any{
+			"order_code": "LADFYR", "total_fee": 35000,
+			"expected_delivery_time": "2026-11-03T16:59:59+07:00",
+		}), nil
+	}))
+
+	result, err := client.CreateShipment(context.Background(), carrier.CreateRequest{
+		IdempotencyKey: "packing-event-1", ShipmentID: "c51be44f-e7a3-4e1f-9093-507948136699",
+		OrderID: "order-1", PackageID: "package-1", ServiceCode: "GHN_LIGHT",
+		Recipient: testRecipient(), Parcel: testParcel(), CODAmountVND: 285000,
+		ShippingNotes: "Gọi trước khi giao",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.TrackingCode != "LADFYR" || result.CarrierOrderID != "LADFYR" || result.LabelReference != "GHN:LADFYR" {
+		t.Fatalf("unexpected create result: %+v", result)
+	}
+	if result.EstimatedFeeVND != 35000 || result.EstimatedDeliveryAt == nil {
+		t.Fatalf("missing provider result data: %+v", result)
+	}
+}
+
+func TestParseWebhookValidatesShopAndMapsStatus(t *testing.T) {
+	client := testClient(t, "https://example.test")
+	payload := []byte(`{
+		"ShopID":92837,
+		"Time":"2026-10-31T08:30:00Z",
+		"OrderCode":"LADFYR",
+		"ClientOrderCode":"c51be44f-e7a3-4e1f-9093-507948136699",
+		"Type":"switch_status",
+		"Description":"Giao hàng thành công",
+		"Status":"delivered",
+		"Reason":"",
+		"ReasonCode":"",
+		"Warehouse":"Bưu cục Huế"
+	}`)
+	first, err := client.ParseWebhook(payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := client.ParseWebhook(payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.ExternalEventID == "" || first.ExternalEventID != second.ExternalEventID {
+		t.Fatal("webhook event identity must be deterministic")
+	}
+	if first.TrackingCode != "LADFYR" || first.MappedStatus != domain.StatusDelivered || first.Location != "Bưu cục Huế" {
+		t.Fatalf("unexpected webhook mapping: %+v", first)
+	}
+
+	wrongShop := []byte(`{"ShopID":1,"Time":"2026-10-31T08:30:00Z","OrderCode":"LADFYR","Type":"switch_status","Status":"delivered"}`)
+	if _, err := client.ParseWebhook(wrongShop); err == nil {
+		t.Fatal("expected wrong shop webhook to be rejected")
+	}
+}
+
+func TestAPIErrorDoesNotExposeToken(t *testing.T) {
+	client := testClientWithDoer(t, doerFunc(func(_ *http.Request) (*http.Response, error) {
+		return rawResponse(http.StatusBadRequest, `{"code":400,"message":"route not found","code_message":"USER_ERR_COMMON","data":null}`), nil
+	}))
+	_, err := client.Quote(context.Background(), carrier.QuoteRequest{Destination: testRecipient(), Parcel: testParcel()})
+	if err == nil {
+		t.Fatal("expected GHN API error")
+	}
+	if err.Error() != "GHN USER_ERR_COMMON: route not found" {
+		t.Fatalf("unexpected safe error: %v", err)
+	}
+}
+
+func testClient(t *testing.T, baseURL string) *Client {
+	t.Helper()
+	client, err := New(Config{
+		BaseURL: baseURL, Token: "staging-token", ShopID: 92837,
+		FromDistrictID: 1452, FromWardCode: "21007", Timeout: time.Second,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return client
+}
+
+func testClientWithDoer(t *testing.T, doer HTTPDoer) *Client {
+	t.Helper()
+	client, err := NewWithHTTPClient(Config{
+		BaseURL: "https://ghn.test", Token: "staging-token", ShopID: 92837,
+		FromDistrictID: 1452, FromWardCode: "21007", Timeout: time.Second,
+	}, doer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return client
+}
+
+func testRecipient() domain.Recipient {
+	return domain.Recipient{
+		Name: "Nguyễn Văn An", Phone: "0905000000", Street: "12 Lê Duẩn",
+		Ward: "Phường Thuận Hòa", District: "Quận Phú Xuân", Province: "Thành phố Huế", CountryCode: "VN",
+	}
+}
+
+func testParcel() domain.Parcel {
+	return domain.Parcel{WeightGrams: 800, LengthCM: 25, WidthCM: 20, HeightCM: 10, Fragile: true}
+}
+
+type doerFunc func(*http.Request) (*http.Response, error)
+
+func (f doerFunc) Do(request *http.Request) (*http.Response, error) { return f(request) }
+
+func response(t *testing.T, status int, data any) *http.Response {
+	t.Helper()
+	var body bytes.Buffer
+	if err := json.NewEncoder(&body).Encode(map[string]any{"code": status, "message": "Success", "data": data}); err != nil {
+		t.Fatal(err)
+	}
+	return rawResponse(status, body.String())
+}
+
+func rawResponse(status int, body string) *http.Response {
+	return &http.Response{StatusCode: status, Body: io.NopCloser(bytes.NewBufferString(body)), Header: make(http.Header)}
+}

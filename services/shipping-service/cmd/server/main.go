@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/omamx/shipping-service/internal/application"
 	"github.com/omamx/shipping-service/internal/carrier"
+	ghncarrier "github.com/omamx/shipping-service/internal/carrier/ghn"
 	"github.com/omamx/shipping-service/internal/config"
 	shippingv1 "github.com/omamx/shipping-service/internal/gen/shipping/v1"
 	shippingv2 "github.com/omamx/shipping-service/internal/gen/shipping/v2"
@@ -57,7 +58,22 @@ func main() {
 	}
 
 	repository := postgresrepo.New(pool)
-	registry := carrier.NewRegistry(carrier.NewFake())
+	providers := []carrier.Carrier{carrier.NewFake()}
+	if cfg.GHNEnabled {
+		ghnProvider, providerErr := ghncarrier.New(ghncarrier.Config{
+			BaseURL: cfg.GHNBaseURL, Token: cfg.GHNToken, ShopID: cfg.GHNShopID,
+			FromDistrictID: cfg.GHNFromDistrictID, FromWardCode: cfg.GHNFromWardCode,
+			Timeout: cfg.GHNRequestTimeout, QuoteTTL: cfg.GHNQuoteTTL,
+		})
+		if providerErr != nil {
+			logger.Fatal().Err(providerErr).Msg("create GHN carrier")
+		}
+		providers = append(providers, ghnProvider)
+		logger.Info().Int64("shop_id", cfg.GHNShopID).Msg("GHN carrier enabled")
+	} else {
+		logger.Info().Msg("GHN carrier disabled by SHIPPING_GHN_ENABLED")
+	}
+	registry := carrier.NewRegistry(providers...)
 	service := application.NewService(repository, registry, repository)
 	producer := shippingkafka.NewProducer(cfg.KafkaBrokers)
 	defer func() {
@@ -120,7 +136,7 @@ func main() {
 		logger.Warn().Msg("PackingCompleted consumer disabled: SHIPPING_ORDER_GRPC_ENDPOINT is not configured")
 	}
 
-	handler := httpapi.NewRouter(service, cfg.InternalToken, cfg.FakeWebhookSecret, logger)
+	handler := httpapi.NewRouter(service, cfg.InternalToken, cfg.FakeWebhookSecret, cfg.GHNWebhookSecret, logger)
 	server := &http.Server{
 		Addr: cfg.HTTPAddress, Handler: handler,
 		ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second,

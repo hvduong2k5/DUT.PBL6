@@ -28,6 +28,15 @@ type Config struct {
 	DatabaseTimeout    time.Duration
 	V2Enabled          bool
 	PackingV2Enabled   bool
+	GHNEnabled         bool
+	GHNBaseURL         string
+	GHNToken           string
+	GHNShopID          int64
+	GHNFromDistrictID  int
+	GHNFromWardCode    string
+	GHNWebhookSecret   string
+	GHNRequestTimeout  time.Duration
+	GHNQuoteTTL        time.Duration
 }
 
 func Load() (Config, error) {
@@ -51,6 +60,15 @@ func Load() (Config, error) {
 		DatabaseTimeout:    durationEnv("SHIPPING_DATABASE_TIMEOUT", 5*time.Second),
 		V2Enabled:          boolEnv("SHIPPING_V2_ENABLED", false),
 		PackingV2Enabled:   boolEnv("SHIPPING_PACKING_V2_ENABLED", false),
+		GHNEnabled:         boolEnv("SHIPPING_GHN_ENABLED", false),
+		GHNBaseURL:         env("SHIPPING_GHN_BASE_URL", "https://dev-online-gateway.ghn.vn"),
+		GHNToken:           strings.TrimSpace(os.Getenv("SHIPPING_GHN_TOKEN")),
+		GHNShopID:          int64Env("SHIPPING_GHN_SHOP_ID", 0),
+		GHNFromDistrictID:  intEnv("SHIPPING_GHN_FROM_DISTRICT_ID", 0),
+		GHNFromWardCode:    strings.TrimSpace(os.Getenv("SHIPPING_GHN_FROM_WARD_CODE")),
+		GHNWebhookSecret:   strings.TrimSpace(os.Getenv("SHIPPING_GHN_WEBHOOK_SECRET")),
+		GHNRequestTimeout:  durationEnv("SHIPPING_GHN_REQUEST_TIMEOUT", 10*time.Second),
+		GHNQuoteTTL:        durationEnv("SHIPPING_GHN_QUOTE_TTL", 15*time.Minute),
 	}
 	if cfg.InternalToken == "" {
 		return Config{}, fmt.Errorf("SHIPPING_INTERNAL_TOKEN is required")
@@ -60,6 +78,14 @@ func Load() (Config, error) {
 	}
 	if cfg.OrderGRPCEndpoint != "" && cfg.OrderInternalToken == "" {
 		return Config{}, fmt.Errorf("SHIPPING_ORDER_INTERNAL_TOKEN is required when SHIPPING_ORDER_GRPC_ENDPOINT is set")
+	}
+	if cfg.GHNEnabled {
+		if cfg.GHNToken == "" || cfg.GHNShopID <= 0 || cfg.GHNFromDistrictID <= 0 || cfg.GHNFromWardCode == "" {
+			return Config{}, fmt.Errorf("SHIPPING_GHN_TOKEN, SHIPPING_GHN_SHOP_ID, SHIPPING_GHN_FROM_DISTRICT_ID and SHIPPING_GHN_FROM_WARD_CODE are required when GHN is enabled")
+		}
+		if cfg.GHNWebhookSecret == "" {
+			return Config{}, fmt.Errorf("SHIPPING_GHN_WEBHOOK_SECRET is required when GHN is enabled")
+		}
 	}
 	return cfg, nil
 }
@@ -107,4 +133,28 @@ func durationEnv(name string, fallback time.Duration) time.Duration {
 		return value
 	}
 	return fallback
+}
+
+func intEnv(name string, fallback int) int {
+	raw := strings.TrimSpace(os.Getenv(name))
+	if raw == "" {
+		return fallback
+	}
+	value, err := strconv.Atoi(raw)
+	if err != nil {
+		return fallback
+	}
+	return value
+}
+
+func int64Env(name string, fallback int64) int64 {
+	raw := strings.TrimSpace(os.Getenv(name))
+	if raw == "" {
+		return fallback
+	}
+	value, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil {
+		return fallback
+	}
+	return value
 }

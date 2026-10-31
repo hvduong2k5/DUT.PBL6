@@ -27,11 +27,15 @@ type Router struct {
 	service           *application.Service
 	internalToken     string
 	fakeWebhookSecret string
+	ghnWebhookSecret  string
 	logger            zerolog.Logger
 }
 
-func NewRouter(service *application.Service, internalToken, fakeWebhookSecret string, logger zerolog.Logger) http.Handler {
-	h := &Router{service: service, internalToken: internalToken, fakeWebhookSecret: fakeWebhookSecret, logger: logger}
+func NewRouter(service *application.Service, internalToken, fakeWebhookSecret, ghnWebhookSecret string, logger zerolog.Logger) http.Handler {
+	h := &Router{
+		service: service, internalToken: internalToken,
+		fakeWebhookSecret: fakeWebhookSecret, ghnWebhookSecret: ghnWebhookSecret, logger: logger,
+	}
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID, middleware.RealIP, middleware.Recoverer)
 	r.Use(h.requestLog)
@@ -44,6 +48,7 @@ func NewRouter(service *application.Service, internalToken, fakeWebhookSecret st
 	r.With(h.requireInternalToken).Get("/api/v1/admin/shipping/shipments/{shipmentID}", h.getShipment)
 	r.With(h.requireInternalToken).Get("/api/v1/orders/{orderID}/tracking", h.trackOrder)
 	r.Post("/api/v1/webhooks/logistics/fake", h.fakeWebhook)
+	r.Post("/api/v1/webhooks/logistics/ghn", h.ghnWebhook)
 	return r
 }
 
@@ -223,6 +228,41 @@ func (h *Router) fakeWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"accepted": true, "result": result, "shipment_id": shipment.ID, "status": shipment.Status})
+}
+
+func (h *Router) ghnWebhook(w http.ResponseWriter, r *http.Request) {
+	if h.ghnWebhookSecret == "" {
+		writeError(w, http.StatusNotFound, "GHN_DISABLED", "GHN webhook is not enabled")
+		return
+	}
+	provided := strings.TrimSpace(r.Header.Get("X-GHN-Webhook-Secret"))
+	if len(provided) != len(h.ghnWebhookSecret) || subtle.ConstantTimeCompare([]byte(provided), []byte(h.ghnWebhookSecret)) != 1 {
+		writeError(w, http.StatusUnauthorized, "INVALID_WEBHOOK_SECRET", "webhook authentication failed")
+		return
+	}
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 1<<20))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_BODY", "request body is invalid or too large")
+		return
+	}
+	shipment, result, err := h.service.ApplyWebhook(r.Context(), "GHN", body)
+	if err != nil {
+		switch {
+		case errors.Is(err, carrier.ErrInvalidWebhook):
+			writeError(w, http.StatusBadRequest, "INVALID_GHN_WEBHOOK", err.Error())
+		case errors.Is(err, domain.ErrTrackingNotFound), errors.Is(err, domain.ErrShipmentNotFound):
+			// GHN can deliver the create callback before the local create transaction commits.
+			// A retryable response prevents that callback from being dropped permanently.
+			writeError(w, http.StatusServiceUnavailable, "SHIPMENT_NOT_READY", "shipment is not ready for webhook processing")
+		default:
+			h.logger.Error().Err(err).Msg("process GHN webhook")
+			writeError(w, http.StatusInternalServerError, "WEBHOOK_PROCESSING_FAILED", "webhook processing failed")
+		}
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"accepted": true, "result": result, "shipment_id": shipment.ID, "status": shipment.Status,
+	})
 }
 
 func verifySignature(body []byte, signature, secret string) bool {

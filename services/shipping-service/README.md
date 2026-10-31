@@ -1,6 +1,6 @@
 # MS-12 Shipping Service
 
-Shipping Service owns Shipment, waybill and tracking data. The MVP foundation includes PostgreSQL persistence, a transactional outbox, Kafka publication, HTTP and gRPC APIs, a `PackingCompletedEvent` consumer and a deterministic fake carrier. Real GHN/Viettel Post adapters remain integration steps that require provider credentials.
+Shipping Service owns Shipment, waybill and tracking data. The MVP foundation includes PostgreSQL persistence, a transactional outbox, Kafka publication, HTTP and gRPC APIs, a `PackingCompletedEvent` consumer and a deterministic fake carrier. A feature-gated GHN staging adapter supports quote preview, order creation and authenticated status callbacks without exposing GHN-specific payloads to Order Service.
 
 ## Run locally
 
@@ -38,8 +38,34 @@ Authenticated endpoints accept either `Authorization: Bearer <token>` or `X-Inte
 - `GET /api/v1/admin/shipping/shipments/{shipmentID}`
 - `GET /api/v1/orders/{orderID}/tracking`
 - `POST /api/v1/webhooks/logistics/fake`
+- `POST /api/v1/webhooks/logistics/ghn` (only active when GHN is configured)
 
 The fake webhook requires `X-Shipping-Signature: sha256=<hex hmac>` calculated from the exact request body and `SHIPPING_FAKE_WEBHOOK_SECRET`.
+
+## GHN staging adapter
+
+GHN remains disabled by default. Configure sandbox credentials locally or through deployment
+secrets, never in source control:
+
+```powershell
+$env:SHIPPING_GHN_ENABLED = "true"
+$env:SHIPPING_GHN_BASE_URL = "https://dev-online-gateway.ghn.vn"
+$env:SHIPPING_GHN_TOKEN = "<staging-token>"
+$env:SHIPPING_GHN_SHOP_ID = "<shop-id>"
+$env:SHIPPING_GHN_FROM_DISTRICT_ID = "<pickup-district-id>"
+$env:SHIPPING_GHN_FROM_WARD_CODE = "<pickup-ward-code>"
+$env:SHIPPING_GHN_WEBHOOK_SECRET = "<random-secret>"
+```
+
+Quote requests use GHN's non-mutating order preview endpoint so the internal address contract
+can remain provider-neutral. Shipment creation uses the immutable internal `shipment_id` as
+GHN `client_order_code`. The returned print label is stored as the stable reference
+`GHN:<tracking_code>`; an expiring print URL must be generated only when requested.
+
+Configure the GHN Developer Portal only after the public endpoint is reachable. Add the custom
+header `X-GHN-Webhook-Secret` with the same value as `SHIPPING_GHN_WEBHOOK_SECRET`. A missing
+local shipment returns `503` so GHN retries a callback that raced the shipment transaction;
+invalid secrets and malformed provider payloads are rejected with non-retryable `4xx` responses.
 
 ## PackingCompleted integration
 
