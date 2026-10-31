@@ -23,24 +23,29 @@ Mọi endpoint REST của `identity-service` phải tuân thủ nghiêm ngặt 4
 
 ## 2. Bảng Ánh Xạ Endpoint Toàn Diện (Canonical URI Matrix)
 
-| Phân hệ / Nghiệp vụ | HTTP Method | Endpoint URI (Chuẩn RESTful 3.3.1) | Legacy Alias (Tương thích) | Mô tả hành động & Quy tắc áp dụng |
-| :--- | :---: | :--- | :--- | :--- |
-| **User Profile** | `GET` | `/api/v1/users/me` | — | Lấy hồ sơ người dùng đang đăng nhập (Quy tắc 1, 2). |
-| **User Status** | `PATCH` | `/api/v1/admin/users/{principalId}/status` | `POST .../suspend`<br>`POST .../reactivate` | Cập nhật trạng thái tài khoản (`ACTIVE`, `SUSPENDED`). Dùng `PATCH` thay vì động từ trong URI (Quy tắc 1, 3). |
-| **Employee Invitations** | `POST` | `/api/v1/admin/employee-invitations` | `POST .../employees/invitations` | Tạo thư mời nhân viên mới với token có hạn (Quy tắc 2, 4). |
-| | `DELETE`| `/api/v1/admin/employee-invitations/{invitationId}` | `POST .../{id}/revoke` | Thu hồi thư mời nhân viên. Dùng `DELETE` method thay cho verb `revoke` (Quy tắc 1, 4). |
-| **IAM Role Assignments** | `POST` | `/api/v1/admin/role-assignments` | `POST .../iam/assignments` | Gán vai trò chức danh cho nhân viên có phạm vi nghiệp vụ (Quy tắc 2, 4). |
-| | `DELETE`| `/api/v1/admin/role-assignments/{assignmentId}` | — | Thu hồi vai trò đã gán của nhân viên (Quy tắc 1, 4). |
-| **IAM Roles** | `GET` | `/api/v1/admin/roles` | — | Lấy danh sách vai trò hệ thống (Quy tắc 1, 2). |
-| | `POST` | `/api/v1/admin/roles` | — | Tạo vai trò mới và đồng bộ Realm Role sang Keycloak (Quy tắc 1, 2). |
-| | `GET` | `/api/v1/admin/roles/{roleId}` | — | Xem chi tiết vai trò (Quy tắc 1, 2). |
-| | `PATCH`| `/api/v1/admin/roles/{roleId}` | — | Cập nhật tên, mô tả hoặc cờ kích hoạt vai trò (Quy tắc 1). |
-| | `DELETE`| `/api/v1/admin/roles/{roleId}` | — | Xóa vai trò (chặn xóa vai trò bảo vệ hoặc đang có nhân viên gán) (Quy tắc 1). |
-| **Role Permissions** | `GET` | `/api/v1/admin/roles/{roleId}/permissions` | — | Xem danh sách quyền hạn của vai trò (Quy tắc 3). |
-| | `PUT` | `/api/v1/admin/roles/{roleId}/permissions` | — | Ghi đè toàn bộ danh sách quyền của vai trò (Batch replace) (Quy tắc 3). |
-| | `POST` | `/api/v1/admin/roles/{roleId}/permissions` | — | Gán thêm một quyền vào vai trò (Quy tắc 3). |
-| | `DELETE`| `/api/v1/admin/roles/{roleId}/permissions/{permissionCode}` | — | Gỡ một quyền khỏi vai trò (Quy tắc 3). |
-| **Customer Registration**| `POST` | `/api/v1/public/customer-registrations` | `POST .../registration/customer` | Đăng ký tài khoản Khách hàng D2C với Idempotency Key (Quy tắc 1, 2, 4). |
+| Phân hệ / Nghiệp vụ | HTTP Method | Endpoint URI (Chuẩn RESTful 3.3.1) | Mô tả hành động & Quy tắc áp dụng |
+| :--- | :---: | :--- | :--- |
+| **User Profile** | `GET` | `/api/v1/users/me` | Lấy hồ sơ người dùng đang đăng nhập (Quy tắc 1, 2). |
+| **User Status** | `PATCH` | `/api/v1/admin/users/{principalId}/status` | Cập nhật trạng thái tài khoản (`ACTIVE`, `SUSPENDED`). Dùng `PATCH` thay vì động từ trong URI (Quy tắc 1, 3). |
+| **Employee Invitations** | `POST` | `/api/v1/admin/employee-invitations` | Tạo thư mời nhân viên mới với token có hạn (Quy tắc 2, 4). |
+| | `DELETE`| `/api/v1/admin/employee-invitations/{invitationId}` | Thu hồi thư mời nhân viên. Dùng `DELETE` method thay cho verb `revoke` (Quy tắc 1, 4). |
+| **Role Assignments** | `POST` | `/api/v1/admin/role-assignments` | Gán vai trò chức danh cho nhân viên có phạm vi nghiệp vụ (Quy tắc 2, 4). |
+| | `DELETE`| `/api/v1/admin/role-assignments/{assignmentId}` | Thu hồi vai trò đã gán của nhân viên (Quy tắc 1, 4). |
+| **Roles** | `GET` | `/api/v1/admin/roles` | Lấy danh sách vai trò hệ thống (Quy tắc 1, 2). |
+| | `POST` | `/api/v1/admin/roles` | Tạo vai trò mới và đồng bộ Realm Role sang Keycloak (Quy tắc 1, 2). |
+| | `GET` | `/api/v1/admin/roles/{roleId}` | Xem chi tiết vai trò (Quy tắc 1, 2). |
+| | `PATCH`| `/api/v1/admin/roles/{roleId}` | Cập nhật tên, mô tả hoặc cờ kích hoạt vai trò (Quy tắc 1). |
+| | `DELETE`| `/api/v1/admin/roles/{roleId}` | Xóa vai trò (chặn xóa vai trò bảo vệ hoặc đang có nhân viên gán) (Quy tắc 1). |
+| **Role Permissions** | `GET` | `/api/v1/admin/roles/{roleId}/permissions` | Xem danh sách quyền hạn của vai trò (Quy tắc 3). |
+| | `PUT` | `/api/v1/admin/roles/{roleId}/permissions` | Ghi đè toàn bộ danh sách quyền của vai trò (Batch replace) (Quy tắc 3). |
+| | `POST` | `/api/v1/admin/roles/{roleId}/permissions` | Gán thêm một quyền vào vai trò (Quy tắc 3). |
+| | `DELETE`| `/api/v1/admin/roles/{roleId}/permissions/{permissionCode}` | Gỡ một quyền khỏi vai trò (Quy tắc 3). |
+| **Customer Registration**| `POST` | `/api/v1/public/customer-registrations` | Đăng ký tài khoản Khách hàng D2C với Idempotency Key (Quy tắc 1, 2, 4). |
+| **Authentication & BFF Sessions**| `GET` | `/api/v1/public/auth/login` | Khởi tạo đăng nhập OIDC PKCE, sinh authorization URL trỏ tới Keycloak (RFC 9700 & RFC 7636). |
+| | `GET` | `/api/v1/public/auth/callback` | Tiếp nhận callback từ Keycloak, đổi code lấy tokens qua backchannel, cấp HttpOnly Cookie OMAMA_SESSION, redirect 302 về Frontend. |
+| | `GET` | `/api/v1/public/auth/session` | Kiểm tra phiên làm việc hiện tại từ HttpOnly Cookie OMAMA_SESSION mà không làm lộ token ra trình duyệt. |
+| | `POST` | `/api/v1/public/auth/tokens/refresh` | Gia hạn phiên làm việc BFF bằng Refresh Token lưu phía server. |
+| | `POST` | `/api/v1/public/auth/logout` | Đăng xuất, thu hồi Token trên Keycloak và xóa Cookie OMAMA_SESSION. |
 
 ---
 

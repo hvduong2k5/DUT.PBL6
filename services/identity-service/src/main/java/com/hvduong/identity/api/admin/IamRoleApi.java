@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Tag(name = "IAM Roles & Permissions", description = "Quản lý danh mục Vai trò và Quyền hạn phân cấp (RBAC) theo chuẩn RESTful (Mục 3.3.1)")
-@RequestMapping({"/api/v1/admin/roles", "/api/v1/admin/iam/roles"})
+@RequestMapping("/api/v1/admin/roles")
 public interface IamRoleApi {
 
     @Operation(summary = "Lấy danh sách tất cả vai trò")

@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.UUID;
 
 @Tag(name = "IAM Role Assignments", description = "Gán vai trò và phạm vi làm việc cho nhân viên nội bộ theo chuẩn RESTful (Mục 3.3.1)")
-@RequestMapping({"/api/v1/admin/role-assignments", "/api/v1/admin/iam/assignments"})
+@RequestMapping("/api/v1/admin/role-assignments")
 public interface IamAssignmentApi {
 
     @Operation(summary = "Gán vai trò cho nhân viên [Chuẩn RESTful 3.3.1]", description = "Gán vai trò chức danh kèm phạm vi nghiệp vụ (GLOBAL, WAREHOUSE, STORE) qua POST /api/v1/admin/role-assignments.")

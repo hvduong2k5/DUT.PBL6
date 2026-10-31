@@ -12,7 +12,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest
+@SpringBootTest(properties = {"grpc.server.port=-1"})
 @ActiveProfiles("test")
 @Transactional
 class IdentityPrincipalMapperIntegrationTest {

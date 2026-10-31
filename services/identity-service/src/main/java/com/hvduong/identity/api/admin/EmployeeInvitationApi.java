@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.UUID;
 
 @Tag(name = "Employee Invitations", description = "Quản lý lời mời tạo tài khoản cho nhân viên nội bộ theo chuẩn RESTful (Mục 3.3.1)")
-@RequestMapping({"/api/v1/admin/employee-invitations", "/api/v1/admin/employees/invitations"})
+@RequestMapping("/api/v1/admin/employee-invitations")
 public interface EmployeeInvitationApi {
 
     @Operation(summary = "Tạo thư mời nhân viên [Chuẩn RESTful 3.3.1]", description = "Sinh mã lời mời token kèm thời hạn có hiệu lực (mặc định 7 ngày) qua POST /api/v1/admin/employee-invitations.")
@@ -31,14 +31,4 @@ public interface EmployeeInvitationApi {
             @Parameter(description = "ID của thư mời", required = true) @PathVariable UUID invitationId,
             @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorId
     );
-
-    @Operation(summary = "Thu hồi thư mời nhân viên [Legacy Alias]", description = "Hỗ trợ tương thích ngược endpoint POST /{invitationId}/revoke.")
-    @SecurityRequirement(name = "bearerAuth")
-    @PostMapping("/{invitationId}/revoke")
-    default ResponseEntity<ApiResponse<Void>> revokeInvitationLegacy(
-            @Parameter(description = "ID của thư mời", required = true) @PathVariable UUID invitationId,
-            @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorId
-    ) {
-        return revokeInvitation(invitationId, actorId);
-    }
 }

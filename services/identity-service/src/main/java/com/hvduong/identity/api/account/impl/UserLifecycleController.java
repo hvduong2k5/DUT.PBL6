@@ -3,7 +3,6 @@ package com.hvduong.identity.api.account.impl;
 import com.hvduong.identity.api.account.UserLifecycleApi;
 import com.hvduong.identity.application.account.UserLifecycleService;
 import com.hvduong.identity.dto.common.ApiResponse;
-import com.hvduong.identity.dto.request.SuspendRequest;
 import com.hvduong.identity.dto.request.UpdateUserStatusRequest;
 import com.hvduong.identity.dto.response.UserProfileResponse;
 import lombok.RequiredArgsConstructor;
@@ -62,39 +61,5 @@ public class UserLifecycleController implements UserLifecycleApi {
             userLifecycleService.suspendAccount(principalId, reason, actorId);
             return ResponseEntity.ok(ApiResponse.success("Khóa tài khoản người dùng thành công", null));
         }
-    }
-
-    @Override
-    public ResponseEntity<ApiResponse<Void>> suspendUser(
-            @PathVariable UUID principalId,
-            @RequestBody(required = false) SuspendRequest request,
-            @AuthenticationPrincipal Jwt jwt
-    ) {
-        UUID actorId = null;
-        if (jwt != null) {
-            try {
-                actorId = UUID.fromString(jwt.getSubject());
-            } catch (Exception ignored) {}
-        }
-
-        String reason = request != null && request.getReason() != null ? request.getReason() : "Account suspended by admin via legacy API";
-        userLifecycleService.suspendAccount(principalId, reason, actorId);
-        return ResponseEntity.ok(ApiResponse.success("Khóa tài khoản người dùng thành công", null));
-    }
-
-    @Override
-    public ResponseEntity<ApiResponse<Void>> reactivateUser(
-            @PathVariable UUID principalId,
-            @AuthenticationPrincipal Jwt jwt
-    ) {
-        UUID actorId = null;
-        if (jwt != null) {
-            try {
-                actorId = UUID.fromString(jwt.getSubject());
-            } catch (Exception ignored) {}
-        }
-
-        userLifecycleService.reactivateAccount(principalId, actorId);
-        return ResponseEntity.ok(ApiResponse.success("Kích hoạt lại tài khoản thành công", null));
     }
 }
