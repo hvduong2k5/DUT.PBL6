@@ -29,6 +29,7 @@ import (
 	goredis "github.com/redis/go-redis/v9"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
 )
@@ -185,11 +186,31 @@ func main() {
 		getBatchFEFOUC,
 	)
 
-	grpcServer := grpc.NewServer(
+	serverOptions := []grpc.ServerOption{
 		grpc.ChainUnaryInterceptor(recoveryUnaryServerInterceptor()),
 		grpc.ChainStreamInterceptor(recoveryStreamServerInterceptor()),
-	)
-	inventoryv1.RegisterInventoryServiceServer(grpcServer, grpcHandler)
+	}
+	var serviceHandler inventoryv1.InventoryServiceServer = grpcHandler
+	if getEnv("INVENTORY_TERMINAL_ENABLED", "false") == "true" {
+		token := os.Getenv("INVENTORY_ORDER_TOKEN")
+		if len(token) < 32 {
+			log.Fatal("terminal profile requires INVENTORY_ORDER_TOKEN of at least 32 bytes")
+		}
+		tlsCredentials, err := credentials.NewServerTLSFromFile(os.Getenv("INVENTORY_TLS_CERT"), os.Getenv("INVENTORY_TLS_KEY"))
+		if err != nil {
+			log.Fatal("terminal profile requires valid TLS certificate and key")
+		}
+		var tableExists bool
+		if err := db.QueryRow("SELECT to_regclass('inventory_terminal') IS NOT NULL").Scan(&tableExists); err != nil || !tableExists {
+			log.Fatal("apply terminal migration before enabling profile")
+		}
+		serverOptions = append(serverOptions, grpc.Creds(tlsCredentials))
+		terminal := &presentationgrpc.TerminalServer{InventoryServiceServer: grpcHandler, DB: db, Token: token}
+		serviceHandler = terminal
+		go terminal.RunExpiry(workerCtx)
+	}
+	grpcServer := grpc.NewServer(serverOptions...)
+	inventoryv1.RegisterInventoryServiceServer(grpcServer, serviceHandler)
 	reflection.Register(grpcServer)
 
 	// 8. Bind TCP Listener

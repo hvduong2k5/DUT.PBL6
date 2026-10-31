@@ -61,6 +61,9 @@ func toGRPCError(code codes.Code, errCode commonv1.ErrorCode, userMsg, devMsg st
 
 // ReserveStock handles stock reservation requests.
 func (h *InventoryGRPCHandler) ReserveStock(ctx context.Context, req *inventoryv1.ReserveStockRequest) (*inventoryv1.ReserveStockResponse, error) {
+	if req != nil && req.ContractVersion != "" {
+		return nil, status.Error(codes.FailedPrecondition, "terminal profile must be explicitly enabled")
+	}
 	if req == nil {
 		return nil, toGRPCError(codes.InvalidArgument, commonv1.ErrorCode_ERR_INVALID_ARGUMENT,
 			"Yêu cầu không hợp lệ", "request payload cannot be nil", nil)
