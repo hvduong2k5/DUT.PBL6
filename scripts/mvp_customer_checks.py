@@ -161,16 +161,16 @@ def checkout_shipping(request, web, opener, control, shipping, token, webhook):
             "POST",
         )
         assert status == 200, ("cart add", status, cart)
+        status, addresses, _ = call("/api/customer/addresses")
+        assert status == 200 and addresses
+        saved = next(a for a in addresses if a["is_default"])
+        assert (
+            saved["id"].split("-")[2].startswith("7")
+        ), "Profile must exercise its UUID v7 producer contract"
         body = {
             "cart_revision": cart["revision"],
             "payment_method": "VIETQR",
-            "address": {
-                "recipient_name": "Synthetic Customer",
-                "phone": "0905123456",
-                "street": "1 Synthetic Street",
-                "province_code": "75",
-                "ward_code": "HUE-01",
-            },
+            "shipping_address_id": saved["id"],
         }
         status, quote, _ = call("/api/checkout/quote", body, "POST")
         assert status == 200, ("quote", status, quote)

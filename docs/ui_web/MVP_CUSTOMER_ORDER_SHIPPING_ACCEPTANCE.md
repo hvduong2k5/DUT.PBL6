@@ -46,6 +46,8 @@ Fixture tắt `verifyEmail` riêng trong realm TEST để kiểm tra provisionin
 
 Web dùng `Idempotency-Key`, truyền revision và `If-Match` khi xóa giỏ. Order nhận tên header chuẩn và giữ tương thích `X-Idempotency-Key`; hai header khác giá trị bị từ chối. Lặp checkout cùng key phải trả cùng operation và đúng một Order.
 
+Địa chỉ Profile sinh UUID v7. Web phải nhận dạng UUID này khi gửi `shipping_address_id`; không chỉ cho UUID v1–v5. Bài tích hợp lấy địa chỉ mặc định thật từ Profile cho checkout, kiểm cả version và ownership của nguồn địa chỉ. Đã kiểm thêm bằng trình duyệt: lưu hồ sơ, thêm địa chỉ mặc định, từ Cart qua Checkout nhận báo giá 32.000 VND cho SKU TEST và xác nhận tạo Order PENDING_PAYMENT; lịch sử/detail hiển thị riêng đơn đã hủy và đơn đã giao. Đây vẫn là hàng/giá TEST, không phải chứng nhận Catalog thật.
+
 BFF yêu cầu representation `Accept: application/vnd.omama.customer-mvp+json, application/json`. Order chuyển dữ liệu canonical sang DTO public đã pin: quote, trạng thái/stage operation, lịch sử/detail và cancellation. Representation canonical cũ được giữ cho consumer hiện có. Đây là chuyển đổi dữ liệu đọc; không thay đổi snapshot lưu trữ hay bỏ qua policy/ownership. Operation có `updated_at` do DB ghi mỗi lần thay đổi. Response có `Vary: Accept`.
 
 Inventory dùng provider terminal thật, gRPC TLS, token riêng, PostgreSQL thật. Bài kiểm tra tạo đơn chưa trả tiền rồi hủy và giải phóng tồn; tạo đơn thứ hai, nhận chứng từ TEST, chốt tồn đúng một lần. Số lượng tồn/outbox cần được kiểm riêng, không chỉ dựa vào chữ thành công trên UI.

@@ -22,7 +22,9 @@ const PHONE_PATTERN = /^(?:\+84|0)(?:\d[ .-]?){8,10}\d$/u;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/u;
 const PAYMENT_METHODS = new Set<CheckoutPaymentMethod>(["BANK_TRANSFER", "COD"]);
 const VOUCHER_PATTERN = /^[A-Z0-9_-]{3,50}$/u;
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
+// Profile creates time-ordered UUID v7 addresses. Accept RFC UUID versions,
+// including v6/v7/v8, rather than rejecting a valid provider-owned address.
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 
 export type CheckoutOperation = "prepare" | "quote-shipping" | "confirm";
 
