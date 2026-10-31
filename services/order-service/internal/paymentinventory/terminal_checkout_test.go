@@ -109,6 +109,10 @@ func testTerminalCheckoutWorker(t *testing.T, a Adapter) {
 	if err != nil {
 		t.Fatal("persisted Order projection", err)
 	}
+	expires := root.Snapshot().Data().Payment.ExpiresAt
+	if expires == nil || expires.Nanosecond()%1000 != 0 || expires.After(s.Catalog.ValidUntil) {
+		t.Fatal("payment deadline must fit PostgreSQL precision without extending provider validity")
+	}
 	key := "peer-payment-finalize-" + root.ID()
 	if _, err = adapter.Finalize(ctx, root, key); status.Code(err) != codes.Unavailable {
 		t.Fatal("finalize ACK injection", err)

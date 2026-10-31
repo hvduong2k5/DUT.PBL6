@@ -71,7 +71,9 @@ func terminalSnapshot(t *testing.T) core.SnapshotInput {
 	s.Money.FinalAmount = 2000 + s.Money.ShippingFee
 	s.Provenance.ItemsDigest, _ = core.HashManifest([]core.SelectionLine{{SKU: "PEER", Quantity: 2}})
 	s.Provenance.SelectionDigest, _ = core.HashSelection([]core.SelectionLine{{SKU: "PEER", Quantity: 2}})
-	s.PlacedAt = time.Now().UTC().Add(time.Second)
+	// Deliberately retain sub-microsecond provider validity to cover PostgreSQL
+	// timestamp precision when the checkout worker derives payment expiry.
+	s.PlacedAt = time.Now().UTC().Truncate(time.Microsecond).Add(time.Second + 123*time.Nanosecond)
 	s.Provenance.AcceptedAt = s.PlacedAt.Add(-time.Second)
 	s.Provenance.CanonicalizedAt = s.PlacedAt
 	s.Catalog.ValidUntil = s.PlacedAt.Add(10 * time.Minute)

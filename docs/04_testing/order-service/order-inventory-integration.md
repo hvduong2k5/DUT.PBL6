@@ -36,6 +36,8 @@ sequenceDiagram
 
 Mỗi hồ sơ kết nối được chọn bằng cấu hình; lỗi TLS/auth/hash không tự chuyển sang sandbox. Query `NOT_FOUND` không được dùng làm bằng chứng rằng Inventory không có reservation.
 
+Bài CI còn phát hiện thời hạn provider có nanosecond nhưng cột PostgreSQL `timestamptz` chỉ lưu microsecond: đơn tạo xong bị lỗi kiểm tra integrity khi đọc lại. Order nay làm tròn **xuống** thời hạn thanh toán tới microsecond trước khi đóng băng/hash snapshot, để snapshot và cột DB trùng nhau và không kéo dài hạn provider. Fixture cố ý giữ phần lẻ 123 nanosecond để kiểm tra hồi quy lỗi này.
+
 Finalize/release bind `expected_reservation_id`, `items_digest` và `warehouse_id`. Adapter **không gửi optional `expected_version`**: khi mất ACK, checkout đọc lại có thể thấy version mới; đưa version vừa đọc vào cùng key sẽ đổi payload/hash. Payload của mutation giữ nguyên qua retry; Inventory khóa theo Order, kiểm các binding bất biến và trạng thái terminal. Adapter kiểm version phản hồi không thấp hơn proof đã biết. Đây là cách sử dụng field optional, không thay đổi wire contract.
 
 ## Chạy bài kiểm tra chung
