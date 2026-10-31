@@ -39,6 +39,14 @@ class _Cart extends Mock implements CartRepository {}
 
 void main() {
   test(
+    'Android vault has isolated keys and never enables destructive error recovery',
+    () {
+      final options = const SecureLocalAccountStore().storage.aOptions.toMap();
+      expect(options['storageNamespace'], 'oma_local_identity_v1');
+      expect(options['resetOnError'], 'false');
+    },
+  );
+  test(
     'old cart mutation cannot publish into a new identity or leave it pending',
     () async {
       final repo = _Cart();

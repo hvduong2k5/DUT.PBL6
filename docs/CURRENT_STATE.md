@@ -1,6 +1,6 @@
 # Customer Mobile — current handoff
 
-Updated2026-10-31. Branch feature/mobile-ui, M5 entry0c10724f010e7e976493039bb1d536cb5b3967de; M5 source checkpoint follows this handoff update. User approved local account persistence, credential checks, session restoration, two-account isolation and APK. No more approval pause is needed for this scope. No dev/Web/backend edits, merge/PR or production provider activation.
+Updated2026-10-31. Branch feature/mobile-ui, M5 entry0c10724; source ff6c344 pushed/remote verified. Native storage refinement checkpoint follows this update. User approved local account persistence, credential checks, session restoration, two-account isolation and APK. No more approval pause is needed for this scope. No dev/Web/backend edits, merge/PR or production provider activation.
 
 ## Plans / authority
 
@@ -17,7 +17,7 @@ Master docs/plans/MASTER_PLAN.md; active docs/plans/active/M5_LOCAL_IDENTITY.md.
 
 ## Validation / modifications
 
-M5 full regression200/200 PASS; flutter analyze --no-pub PASS (no issues). Includes12 focused identity/domain checks, persistent registration/login form and existing profile/navigation/commerce regressions. Test harness now preserves caller Zones and injects a deterministic verifier only for fake-clock form state; real KDF is separately covered. APK/native M5 PENDING.
+M5 ff6c344 full regression200/200/analyze PASS; APK255.7s PASS. Native actual KDF/invalid password/relogin/logout/new-instance restore/two-account cart-address-order-operation isolation/cold-process restore PASS. Native logs revealed old default ESP decryption fallback and plugin resetOnError:true default; source inspected, new vault now uses independent Android crypto/storage namespace oma_local_identity_v1 with resetOnError:false. No old storage clearing/migration or unrelated onboarding/REST config change.13 focused identity checks PASS on refinement; final201/201 regression89s and analyze21.8s PASS. Final APK/native in new namespace/standard restore PENDING. Details in active M5.
 
 Modified areas: app provider/factory, auth store/hasher/repository/Cubit, cart/address repositories and CartCubit, profile callback, legacy order ownership, cryptography pubspec/lock, focused tests/fixture setup, M5/current/master/decisions. Content-identical pub-generated Linux/Windows header noise restored. Separate untracked docs/MOBILE_MVP_DISCUSSION_REFERENCE.md belongs to Issue38; never stage automatically.
 

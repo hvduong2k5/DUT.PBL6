@@ -44,7 +44,14 @@ abstract interface class LocalAccountStore {
 }
 
 class SecureLocalAccountStore implements LocalAccountStore {
-  const SecureLocalAccountStore({this.storage = const FlutterSecureStorage()});
+  const SecureLocalAccountStore({
+    this.storage = const FlutterSecureStorage(
+      aOptions: AndroidOptions(
+        storageNamespace: 'oma_local_identity_v1',
+        resetOnError: false,
+      ),
+    ),
+  });
   static const key = 'oma_local_accounts_v1';
   static final _lock = LocalAccountLock();
   final FlutterSecureStorage storage;
