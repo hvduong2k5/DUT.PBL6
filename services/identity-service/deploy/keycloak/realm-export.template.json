@@ -15,9 +15,11 @@
     {
       "clientId": "frontend-web",
       "enabled": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
       "clientAuthenticatorType": "client-secret",
       "redirectUris": [
-        "https://omama.vn/*"
+        "https://omama.vn/api/auth/oidc/callback"
       ],
       "webOrigins": [
         "https://omama.vn"
@@ -25,7 +27,8 @@
       "publicClient": true,
       "protocol": "openid-connect",
       "attributes": {
-        "pkce.code.challenge.method": "S256"
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "https://omama.vn/api/auth/oidc/logged-out"
       },
       "defaultClientScopes": [
         "web-origins",

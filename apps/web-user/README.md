@@ -2,6 +2,8 @@
 
 Next.js App Router application cho Web D2C. Hiện có Authentication, Customer Profile & Address Book, Product Discovery, Product Detail, Shopping Cart, Checkout, Payment và Order Management MVP.
 
+**Kết nối service thật:** dùng `WEB_AUTH_MODE=oidc` và `.env.oidc.example`; Web chuyển sang Keycloak PKCE, xác minh Identity/Customer qua Gateway rồi mới đọc Profile/Cart. Xem [hướng dẫn cấu hình và kiểm tra Web–Identity–Gateway](../../docs/ui_web/WEB_IDENTITY_GATEWAY_INTEGRATION.md). Các hướng dẫn Mockoon dưới đây chỉ phục vụ feature local; không chứng minh luồng mua hàng thật đã được nghiệm thu.
+
 Product Discovery dùng Mockoon `oma-product-discovery-mvp.json` tại port `4012`. Sau khi chạy mock và web app, mở `http://localhost:3000/products`. Có thể kiểm tra state lỗi/loading bằng `?mockScenario=catalog-error` hoặc `?mockScenario=catalog-slow`.
 
 ## Local development

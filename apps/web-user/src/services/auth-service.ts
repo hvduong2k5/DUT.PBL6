@@ -63,7 +63,7 @@ export const authService = {
     return request<AuthenticatedSession>("/me");
   },
   logout() {
-    return request<void>("/logout", { method: "POST" });
+    return request<{ logoutUrl?: string }>("/logout", { method: "POST" });
   },
   register(input: { fullName: string; phoneNumber: string; email?: string; password: string }) {
     return request<AuthenticatedSession>("/register", { method: "POST", body: input });

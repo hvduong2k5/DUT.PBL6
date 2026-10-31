@@ -33,8 +33,8 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
 
     @Override
     @Transactional(readOnly = true)
-    public Optional<UserProfileResponse> getProfileBySubject(String idpSubject, String email) {
-        IdentityPrincipalRow principal = principalMapper.findBySubject(idpSubject);
+    public Optional<UserProfileResponse> getProfileBySubject(String idpIssuer, String idpSubject, String email) {
+        IdentityPrincipalRow principal = principalMapper.findByIssuerAndSubject(idpIssuer, idpSubject);
         if (principal == null) {
             return Optional.empty();
         }

@@ -2,6 +2,8 @@ import type { CustomerCapability, CustomerCapabilityProjection } from "./capabil
 import { CapabilityProjectionError, fetchCustomerCapabilities } from "./capability-server";
 import { mapCustomerCoreSession, type CustomerCoreUser } from "./customer-core";
 import type { AuthenticatedSession } from "./types";
+import { usesOidc } from "./oidc-config";
+import { identitySession } from "./identity-session";
 
 export class CustomerAccessError extends Error {
   constructor(readonly status: 401 | 403 | 503, readonly code: string, message: string) {
@@ -11,6 +13,13 @@ export class CustomerAccessError extends Error {
 }
 
 async function fetchVerifiedSession(accessToken: string): Promise<AuthenticatedSession> {
+  if (usesOidc()) {
+    try { return await identitySession(accessToken); }
+    catch (error) {
+      const failure = error as { status?: number; code?: string };
+      throw new CustomerAccessError(failure.status === 401 ? 401 : failure.status === 403 ? 403 : 503, failure.code ?? "IDENTITY_UNAVAILABLE", "Chưa thể xác minh danh tính hoặc Customer của tài khoản.");
+    }
+  }
   const base = (process.env.CUSTOMER_CORE_UPSTREAM_URL ?? "http://127.0.0.1:4010/api/v1").replace(/\/$/u, "");
   let response: Response;
   try {

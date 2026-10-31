@@ -21,6 +21,26 @@ class IdentityPrincipalMapperIntegrationTest {
     private IdentityPrincipalMapper identityPrincipalMapper;
 
     @Test
+    void sameSubjectInDifferentIssuersMustResolveDifferentPrincipals() {
+        String subject = "shared-subject-" + UUID.randomUUID();
+        UUID first = UUID.randomUUID();
+        UUID second = UUID.randomUUID();
+        for (int index = 0; index < 2; index++) {
+            var row = new IdentityPrincipalRow();
+            row.setPrincipalId(index == 0 ? first : second);
+            row.setIdpIssuer("https://issuer-" + index + ".example.test");
+            row.setIdpSubject(subject);
+            row.setPrincipalType("CUSTOMER");
+            row.setProvisioningStatus("ACTIVE");
+            row.setVersion(0L);
+            identityPrincipalMapper.insert(row);
+        }
+        assertThat(identityPrincipalMapper.findByIssuerAndSubject("https://issuer-0.example.test", subject).getPrincipalId()).isEqualTo(first);
+        assertThat(identityPrincipalMapper.findByIssuerAndSubject("https://issuer-1.example.test", subject).getPrincipalId()).isEqualTo(second);
+        assertThat(identityPrincipalMapper.findByIssuerAndSubject("https://untrusted.example.test", subject)).isNull();
+    }
+
+    @Test
     void shouldInsertAndFindPrincipal() {
         // Arrange
         UUID principalId = UUID.randomUUID();

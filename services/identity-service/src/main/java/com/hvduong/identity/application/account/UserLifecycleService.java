@@ -20,7 +20,7 @@ public interface UserLifecycleService {
     @Deprecated
     class UserProfileDto extends UserProfileResponse {}
 
-    Optional<UserProfileResponse> getProfileBySubject(String idpSubject, String email);
+    Optional<UserProfileResponse> getProfileBySubject(String idpIssuer, String idpSubject, String email);
 
     void suspendAccount(UUID principalId, String reason, UUID actorPrincipalId);
 

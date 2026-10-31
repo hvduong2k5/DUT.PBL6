@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { usesOidc } from "@/lib/auth/oidc-config";
+import { clearOidc, oidcLogout, oidcSessionResponse, trustedOidcOrigin } from "@/lib/auth/oidc";
+import { identitySession } from "@/lib/auth/identity-session";
 import {
   mapCustomerCoreSession,
   toCustomerCoreLogin,
@@ -105,6 +108,21 @@ async function extensionUpstream(request: NextRequest, path: string): Promise<Ne
 async function proxy(request: NextRequest, context: { params: Promise<{ path: string[] }> }): Promise<NextResponse> {
   const method = request.method.toUpperCase();
   const path = (await context.params).path.join("/");
+  if (usesOidc()) {
+    try {
+      if (method !== "GET" && !trustedOidcOrigin(request)) return NextResponse.json({ code: "ORIGIN_NOT_ALLOWED" }, { status: 403 });
+      if (method === "GET" && path === "me") return await oidcSessionResponse(request, identitySession);
+      if (method === "POST" && path === "refresh") return await oidcSessionResponse(request, identitySession, true);
+      if (method === "POST" && path === "logout") return await oidcLogout(request);
+      return NextResponse.json({ code: "OIDC_LOGIN_REQUIRED", message: "Vui lòng đăng nhập qua trang xác thực tài khoản." }, { status: 405 });
+    } catch (error) {
+      const failure = error as { status?: number; code?: string };
+      const status = failure.status === 401 ? 401 : failure.status === 403 ? 403 : 503;
+      const response = NextResponse.json({ code: failure.code ?? "IDENTITY_UNAVAILABLE", message: "Chưa thể xác minh phiên đăng nhập. Vui lòng thử lại." }, { status, headers: { "Cache-Control": "no-store" } });
+      if (status === 401) clearOidc(response);
+      return response;
+    }
+  }
   if ((LEGACY_UNSUPPORTED.has(path) || RESEND_ROUTE.test(path)) && method === "POST") {
     return NextResponse.json({ code: "AUTH_FEATURE_NOT_SUPPORTED", message: "API customer hiện chưa hỗ trợ quy trình xác minh đăng ký riêng." }, { status: 501 });
   }

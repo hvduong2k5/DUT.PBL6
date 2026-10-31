@@ -38,6 +38,7 @@ services:
           - /api/v1/auth/register
           - /api/v1/auth/refresh
           - /api/v1/auth/forgot-password
+          - /api/v1/users/me
           - /.well-known/jwks.json
         strip_path: false
         methods:
@@ -57,19 +58,29 @@ services:
     routes:
       - name: profile-customer-routes
         paths:
-          - /api/v1/profiles
+          - /api/v1/profile
+          - /api/v1/customer/capabilities
         strip_path: false
         methods:
           - GET
+          - POST
           - PUT
           - PATCH
+          - DELETE
           - OPTIONS
         plugins:
-          - name: jwt
+          # Profile verifies Keycloak issuer/audience/signature and resolves
+          # Customer ownership. Browser forwarding headers never grant identity.
+          - name: request-transformer
             config:
-              claims_to_verify:
-                - exp
-              secret_is_base64: false
+              remove:
+                headers:
+                  - X-Internal-Token
+                  - X-User-ID
+                  - X-User-Role
+                  - X-Customer-ID
+                  - X-User-Permissions
+                  - X-Internal-Caller
       - name: profile-admin-routes
         paths:
           - /api/v1/admin/employees
@@ -133,8 +144,8 @@ services:
           - /api/v1/checkout
           - /api/v1/checkout-operations
           - /api/v1/admin/orders
-            - /api/v1/admin/payments
-            - /api/v1/admin/checkout-operations
+          - /api/v1/admin/payments
+          - /api/v1/admin/checkout-operations
           - /api/v1/guest-sessions
         strip_path: false
         methods:
@@ -256,9 +267,14 @@ plugins:
         - Authorization
         - X-Request-Id
         - X-Idempotency-Key
+        - Idempotency-Key
+        - If-Match
       exposed_headers:
         - X-Request-Id
         - Content-Range
+        - ETag
+        - Location
+        - Retry-After
       credentials: true
       max_age: 3600
 
@@ -278,6 +294,8 @@ plugins:
           - X-User-Role
           - X-User-Permissions
           - X-Internal-Caller
+          - X-Internal-Token
+          - X-Customer-ID
 
   # 4. Global Rate Limiting
   - name: rate-limiting

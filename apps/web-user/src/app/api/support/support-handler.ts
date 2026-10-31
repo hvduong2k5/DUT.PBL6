@@ -1,3 +1,4 @@
+import { hasTrustedOrigin } from "@/lib/auth/request-origin";
 import { NextRequest, NextResponse } from "next/server";
 import { fetchCustomerCapabilities } from "@/lib/auth/capability-server";
 import { authorizeCustomerCapability, customerAccessFailure } from "@/lib/auth/customer-access-server";
@@ -23,12 +24,7 @@ function errorResponse(code: string, message: string, status: number, options: {
   return NextResponse.json({ code, message, requestId: `BFF-SUPPORT-${code}`, ...options }, { status });
 }
 
-function hasTrustedOrigin(request: NextRequest) {
-  const origin = request.headers.get("origin");
-  if (!origin) return true;
-  try { const source = new URL(origin); return source.protocol === request.nextUrl.protocol && source.host === request.nextUrl.host; }
-  catch { return false; }
-}
+
 
 async function readJson(request: NextRequest): Promise<unknown> { try { return await request.json(); } catch { return undefined; } }
 

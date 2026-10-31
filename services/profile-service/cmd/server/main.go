@@ -36,6 +36,10 @@ func main() {
 	if cfg.IdentityToken == "" {
 		log.Fatal().Msg("PROFILE_INTERNAL_TOKEN is required for authenticated internal callers")
 	}
+	identity, err := security.NewOIDCIdentity(cfg)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Invalid Profile OIDC configuration")
+	}
 	log.Info().
 		Str("http_port", cfg.HTTPPort).
 		Str("grpc_port", cfg.GRPCPort).
@@ -144,6 +148,7 @@ func main() {
 		EmployeeHandler:  transportHTTP.NewEmployeeHandler(empUsecase),
 		ClaimHandler:     transportHTTP.NewClaimHandler(claimUsecase),
 		IdentityToken:    cfg.IdentityToken,
+		Identity:         identity,
 		CustomerResolver: custRepo,
 		Pool:             dbPool,
 		RedisClient:      redisClient,
