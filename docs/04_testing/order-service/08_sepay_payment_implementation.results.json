@@ -1,0 +1,100 @@
+{
+  "date": "2026-10-24",
+  "scope": "opt-in SePay TEST Payment implementation; public end-to-end acceptance remains gated",
+  "go_vet": "PASS",
+  "go_race": {
+    "passed_test_and_subtest_events": 188,
+    "failed": 0,
+    "skipped_tests": 0,
+    "per_package": {
+      "github.com/omamx/order-service/internal/domain": 7,
+      "github.com/omamx/order-service/internal/domain/core": 60,
+      "github.com/omamx/order-service/internal/paymentauthority": 7,
+      "github.com/omamx/order-service/internal/paymentinventory": 6,
+      "github.com/omamx/order-service/internal/persistence": 42,
+      "github.com/omamx/order-service/internal/sepay": 14,
+      "github.com/omamx/order-service/internal/transport": 10,
+      "github.com/omamx/order-service/tests/integration": 41,
+      "github.com/omamx/order-service/tests/persistence": 1
+    },
+    "command": "go vet ./... && go test -race -json -count=1 ./..."
+  },
+  "supplemental_refund_inventory_commit_race": {
+    "passed": 1,
+    "failed": 0,
+    "name": "TestRefundReservationDuringInventoryCommitBlocksPaid"
+  },
+  "runtime_contracts": {
+    "validated_api_examples": 5,
+    "validated_outbox_events": 2,
+    "status": "PASS"
+  },
+  "static_order_contracts": {
+    "status": "PASS",
+    "openapi_specs": 3,
+    "event_schemas": 8,
+    "valid_event_examples": 9,
+    "invalid_event_examples_rejected": 32,
+    "protobuf_compile": "NOT_RUN in this command"
+  },
+  "environment": {
+    "project": "codex-order-payment-20261024",
+    "go": "1.22.12 linux/amd64",
+    "postgres": "16",
+    "redis": "7",
+    "kafka": "apache pinned image in docker-compose.test.yml",
+    "clock_workaround": "DB and test container pinned to CPU0 after observed VM clock regression; financial guards unchanged"
+  },
+  "not_run": [
+    "deployed SePay OMP transaction to target Order PAID",
+    "live/automatic refund",
+    "owning Care Finance Identity services acceptance",
+    "target outbox publish/Finance consume acceptance",
+    "Postman rerun for new code",
+    "deployed Kong probe"
+  ],
+  "external_endpoints_changed": false,
+  "raw_logs_directory": "C:\\Users\\ACER\\AppData\\Local\\Temp\\order-payment-implementation-20261024",
+  "source_sha256_lf": {
+    "services/order-service/internal/app/checkout.go": "60b80108394c3efce96199d33f31a64353b17d951dc42b8527e31c2181a33a56",
+    "services/order-service/internal/app/jobs.go": "89a31f4cad18962d43a0fa156d8ac411975746ca775a56aba52f25faa7dd86e7",
+    "services/order-service/internal/app/payment_staff.go": "02363b9c341e0ed0821c3c00875b20943252096f1a43ff21050c0e63be631688",
+    "services/order-service/internal/app/payments.go": "0f82731da91e66b71f6f00b6be8cd762380ba06e3a9c5f7c1beed73408080457",
+    "services/order-service/internal/app/runtime.go": "38911c6c25a14cc19b2545f9fb25fbd1f81af1aa1c76093a2c342063a9df17e9",
+    "services/order-service/internal/app/sepay.go": "d3e2e89dc2ef793ee42e7e7d7a2e59f7e6a0d1ec11f0147bcfb76c6a92fd6559",
+    "services/order-service/internal/paymentauthority/http.go": "68f533713527a213e5e99da2eca363bbd2fefb2597cf559d0c16980a8e82ea77",
+    "services/order-service/internal/paymentauthority/http_test.go": "dd299426397cbd1b62675c346a55fcd274c94fee262c46f55a5fa586278ef39e",
+    "services/order-service/internal/paymentinventory/adapter.go": "72fc87fa47de9f7ec2c007de748592a39bf142bd2eeba1615d5c96ab1891f0d4",
+    "services/order-service/internal/paymentinventory/adapter_test.go": "e7e433cdd47170c0ee767344fcf62c3d4f6908f5d2e4b58a784976c1e8709b66",
+    "services/order-service/internal/persistence/cipher.go": "51ac67d104aba0b7379dc15acd2abba749045ea843311c1df85615b253d5036d",
+    "services/order-service/internal/persistence/payment.go": "4f0b07399a44ee9a1bdacd09138dfe8a812e73f6ce7322b6622e81ec37d8046c",
+    "services/order-service/internal/persistence/payment_cases.go": "428aa6de87cd785675da15961d9a6face6f040d898d0093238d17382bf02caed",
+    "services/order-service/internal/persistence/payment_controls_test.go": "2adb1458c59e44b55bc9ff86204621f59774e0edae8ab5bdb7cfc84efc76cb8f",
+    "services/order-service/internal/persistence/payment_events.go": "ad1742cfb03573a082a3e1cd25bb0478e8f36f741e7b5b6566e79a9910b93700",
+    "services/order-service/internal/persistence/payment_evidence_batch.go": "97dddbcbce6dfb01aae1b868849d8fcea7fc189ddd0966b7941cc752b68aebc1",
+    "services/order-service/internal/persistence/payment_guest.go": "875d026fd42dd532e65a2db09c5e13e8dc580107b98993187ddd9ce610582818",
+    "services/order-service/internal/persistence/payment_guest_test.go": "8148d80d0e0fa108b028ab1bdbbfa1005b330b6fc63a287574a4521b334964f6",
+    "services/order-service/internal/persistence/payment_queues.go": "f61ea486b43fba8e1453162d18002d147cf146cdd56cdd91bcdb785d1cf48067",
+    "services/order-service/internal/persistence/payment_reads.go": "de71d2b3105ec0f6dbf21a9d07e2b3501b8fb4b7d27c9f618a637c7d2260d0cd",
+    "services/order-service/internal/persistence/payment_refund.go": "2630280887c432adbf4ab37493609865363a940f5d33279bae8121e90a450edb",
+    "services/order-service/internal/persistence/payment_refund_evidence.go": "f624c81234606fd3033d8f88d1c0ba0a8ca0cd5fc7a1c4297d5c9152e5e0305d",
+    "services/order-service/internal/persistence/payment_refund_test.go": "db2a7dd13a3aa228fb336b7799448315b75ff78927f6a362b6cdbe0e705fb0ef",
+    "services/order-service/internal/persistence/payment_test.go": "8c4785357041927a2c3ffefdbb485d1fa97daa72241d9232726cb2394257f024",
+    "services/order-service/internal/persistence/payment_vault.go": "eba29f288c00f0be08f8e7dac819cfbf2735b6ae6f5fa53f05263c9d19af88a8",
+    "services/order-service/internal/persistence/payment_worker.go": "3062573738077d3fa0e38bf682eef4bf88403e66a2fc90c1d9c4271184fefa0d",
+    "services/order-service/internal/persistence/placement.go": "96c853949463ec78bf71487ec808b9a64b9709f6513d8abdbddbe5dbfd881c5f",
+    "services/order-service/internal/persistence/read.go": "bb6f2807fe4de2b16304411f8e12c8ac0508c38609894bdfe0d0b49878a51987",
+    "services/order-service/internal/persistence/store.go": "c45e476f1b59221b6311bc1ec5d3cd0dc5a364e215d56879a726e2f3e029844f",
+    "services/order-service/internal/persistence/store_test.go": "63da4f0a443ed317c4db882c2d15c4a47f00629bba5f347cd467462f42ff306b",
+    "services/order-service/internal/persistence/transaction.go": "6984c2ecc76d920cad25ee348d4f06b344f40b645b1e02c180e38505fa9566fd",
+    "services/order-service/internal/sepay/client.go": "beedadf559cfea6a6d04f7bec8368015d6a81efbfec666b3940867b7de1b8187",
+    "services/order-service/internal/sepay/instructions.go": "025e68951b5097810b23abbafbfc0660732ffbb109b0bf4edc77a9734863ab9c",
+    "services/order-service/internal/sepay/wire.go": "6110894a4e9ded92dff170a38b2db5cbe189b6c91a2d27829e1d25cb9e7078cc",
+    "services/order-service/internal/sepay/wire_test.go": "dfb7e0776cecc491d1e11b1aef64327db281317c298d2a68202aca676cddbfd5",
+    "services/order-service/internal/transport/sepay.go": "31063dc24c01a1a3f07cf59c1e2685dbaaf14582be1178abe95891802afa1bdc",
+    "services/order-service/internal/transport/sepay_staff.go": "095f3c32418eb28c1975e4b78f9fd48ae213d07b8346882a475675d94266350f",
+    "services/order-service/internal/transport/sepay_test.go": "c5d45d8c92a862ac2dcbf956e0d7edaba83a86516105c08362f3ae457a06c645",
+    "services/order-service/migrations/000005_sepay_payment.up.sql": "e27606dade4778c6ed85cc11ef03ae1dd39c02b2051984ed8bb55639570daed7",
+    "services/order-service/scripts/verify-payment-evidence.py": "2366f0573db4c18816478d7e72f6a07a55c3da03974dcfad2752896a74852781"
+  }
+}

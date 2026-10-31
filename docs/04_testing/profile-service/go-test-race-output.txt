@@ -1,0 +1,296 @@
+?   	github.com/omamx/profile-service/cmd/server	[no test files]
+?   	github.com/omamx/profile-service/internal/config	[no test files]
+?   	github.com/omamx/profile-service/internal/domain	[no test files]
+?   	github.com/omamx/profile-service/internal/gen/common/v1	[no test files]
+?   	github.com/omamx/profile-service/internal/gen/profile/v1	[no test files]
+?   	github.com/omamx/profile-service/internal/infrastructure/kafka	[no test files]
+?   	github.com/omamx/profile-service/internal/transport/grpc	[no test files]
+?   	github.com/omamx/profile-service/internal/transport/http	[no test files]
+?   	github.com/omamx/profile-service/internal/worker	[no test files]
+?   	github.com/omamx/profile-service/tests/testhelper	[no test files]
+=== RUN   TestL1ExpiresAndDoesNotShareMutablePII
+--- PASS: TestL1ExpiresAndDoesNotShareMutablePII (0.00s)
+PASS
+ok  	github.com/omamx/profile-service/internal/infrastructure/cache	1.019s
+=== RUN   TestDecryptPII_TamperedCiphertext_ReturnsErrorNotPanic
+--- PASS: TestDecryptPII_TamperedCiphertext_ReturnsErrorNotPanic (0.00s)
+=== RUN   TestEncryptPII_1000Calls_NeverReusesNonce
+--- PASS: TestEncryptPII_1000Calls_NeverReusesNonce (0.01s)
+=== RUN   TestKeyRotation_RewrapDEK_OldCiphertextStillDecryptable
+--- PASS: TestKeyRotation_RewrapDEK_OldCiphertextStillDecryptable (0.00s)
+=== RUN   TestEnvelopeEncryption_InMemoryDEKCache
+--- PASS: TestEnvelopeEncryption_InMemoryDEKCache (0.07s)
+=== RUN   TestKeyRotation_MixedVersionsCoexistDuringRewrap
+--- PASS: TestKeyRotation_MixedVersionsCoexistDuringRewrap (0.00s)
+=== RUN   TestEnvelopeEncryption_DEKZeroizeOnEviction
+--- PASS: TestEnvelopeEncryption_DEKZeroizeOnEviction (0.03s)
+PASS
+ok  	github.com/omamx/profile-service/internal/infrastructure/security	1.129s
+=== RUN   TestCustomerRepository_OptimisticConcurrencyControl
+2026/10/08 02:55:33 github.com/testcontainers/testcontainers-go - Connected to docker:
+  Server Version: 29.8.0
+  API Version: 1.46
+  Operating System: Docker Desktop
+  Total Memory: 11813 MB
+  Labels:
+    com.docker.desktop.address=npipe://\\.\pipe\docker_cli
+  Testcontainers for Go Version: v0.33.0
+  Resolved Docker Host: unix:///var/run/docker.sock
+  Resolved Docker Socket Path: /var/run/docker.sock
+  Test SessionID: 317c7267df3ee6e64adf6426dba6f918f0b3cfc234703a7ea358d3ffe4869498
+  Test ProcessID: 25ff74f2-eef9-4b34-8a2a-2484bb5ad877
+2026/10/08 02:55:33 🐳 Creating container for image testcontainers/ryuk:0.8.1
+2026/10/08 02:55:33 ✅ Container created: 410a79c48326
+2026/10/08 02:55:33 🐳 Starting container: 410a79c48326
+2026/10/08 02:55:33 ✅ Container started: 410a79c48326
+2026/10/08 02:55:33 ⏳ Waiting for container id 410a79c48326 image: testcontainers/ryuk:0.8.1. Waiting for: &{Port:8080/tcp timeout:<nil> PollInterval:100ms skipInternalCheck:false}
+2026/10/08 02:55:33 🔔 Container is ready: 410a79c48326
+2026/10/08 02:55:33 🐳 Creating container for image postgres:16-alpine
+2026/10/08 02:55:33 ✅ Container created: 524aa21656f9
+2026/10/08 02:55:33 🐳 Starting container: 524aa21656f9
+2026/10/08 02:55:33 ✅ Container started: 524aa21656f9
+2026/10/08 02:55:33 ⏳ Waiting for container id 524aa21656f9 image: postgres:16-alpine. Waiting for: &{timeout:<nil> deadline:0xc00038ae68 Strategies:[0xc00030dc50]}
+2026/10/08 02:55:35 🔔 Container is ready: 524aa21656f9
+=== RUN   TestCustomerRepository_OptimisticConcurrencyControl/Case_3:_Success_-_Matching_version_increments_to_version_2
+=== RUN   TestCustomerRepository_OptimisticConcurrencyControl/Case_1:_Conflict_(HTTP_409)_-_Stale_expected_version_produces_ErrOptimisticLockConflict
+=== RUN   TestCustomerRepository_OptimisticConcurrencyControl/Case_2:_Not_Found_(HTTP_404)_-_Non-existent_ID_produces_ErrCustomerNotFound
+2026/10/08 02:55:35 🐳 Terminating container: 524aa21656f9
+2026/10/08 02:55:35 🚫 Container terminated: 524aa21656f9
+--- PASS: TestCustomerRepository_OptimisticConcurrencyControl (2.90s)
+    --- PASS: TestCustomerRepository_OptimisticConcurrencyControl/Case_3:_Success_-_Matching_version_increments_to_version_2 (0.01s)
+    --- PASS: TestCustomerRepository_OptimisticConcurrencyControl/Case_1:_Conflict_(HTTP_409)_-_Stale_expected_version_produces_ErrOptimisticLockConflict (0.01s)
+    --- PASS: TestCustomerRepository_OptimisticConcurrencyControl/Case_2:_Not_Found_(HTTP_404)_-_Non-existent_ID_produces_ErrCustomerNotFound (0.01s)
+PASS
+ok  	github.com/omamx/profile-service/internal/repository	3.927s
+=== RUN   TestIdentityCannotBeSpoofed
+--- PASS: TestIdentityCannotBeSpoofed (0.00s)
+PASS
+ok  	github.com/omamx/profile-service/internal/transport/http/middleware	1.021s
+=== RUN   TestExtractStreetName
+--- PASS: TestExtractStreetName (0.00s)
+=== RUN   TestAddressFuzzyMatcher_GoldenDatasetValidation
+=== RUN   TestAddressFuzzyMatcher_GoldenDatasetValidation/P._Thuan_Hoa_TP_Hue_(Prefix_abbreviation)
+=== RUN   TestAddressFuzzyMatcher_GoldenDatasetValidation/thuan_hoa_(Toneless_string)
+=== RUN   TestAddressFuzzyMatcher_GoldenDatasetValidation/thuan_hooa_(Duplicate_vowel_typo)
+=== RUN   TestAddressFuzzyMatcher_GoldenDatasetValidation/phuongthuanhoa_(Concatenated_words)
+=== RUN   TestAddressFuzzyMatcher_GoldenDatasetValidation/Phường_Thuận_Hoà_(Accent_variation)
+=== RUN   TestAddressFuzzyMatcher_GoldenDatasetValidation/Thuan_Hoa_Hue_(Trailing_city_name)
+=== RUN   TestAddressFuzzyMatcher_GoldenDatasetValidation/p._thuan_hoa_(Lowercase_prefix)
+=== RUN   TestAddressFuzzyMatcher_GoldenDatasetValidation/phuong_Thuan_Hoa_(Standard_mixed)
+=== RUN   TestAddressFuzzyMatcher_GoldenDatasetValidation/thuận_hòa_(Exact_match)
+=== RUN   TestAddressFuzzyMatcher_GoldenDatasetValidation/THUAN_HOA_(Uppercase_toneless)
+=== RUN   TestAddressFuzzyMatcher_GoldenDatasetValidation/P._Phu_Bai_TP_Hue_(New_2-tier_official_format_(Phường_trực_thuộc_TP_Huế))
+=== RUN   TestAddressFuzzyMatcher_GoldenDatasetValidation/phu_bai_(Phú_Bài_toneless)
+=== RUN   TestAddressFuzzyMatcher_GoldenDatasetValidation/phuu_bai_(Phu_bai_typo)
+=== RUN   TestAddressFuzzyMatcher_GoldenDatasetValidation/phuong_phu_bai_tp_hue_(Phu_bai_2-tier_with_prefix)
+=== RUN   TestAddressFuzzyMatcher_GoldenDatasetValidation/Phú_Bài_Hương_Thủy_(Phu_bai_with_historical_habit_landmark)
+=== RUN   TestAddressFuzzyMatcher_GoldenDatasetValidation/Xa_Vinh_Loc_(Commune_prefix)
+=== RUN   TestAddressFuzzyMatcher_GoldenDatasetValidation/vinh_loc_(Vinh_loc_toneless)
+=== RUN   TestAddressFuzzyMatcher_GoldenDatasetValidation/vinnh_loc_(Vinh_loc_typo)
+=== RUN   TestAddressFuzzyMatcher_GoldenDatasetValidation/xa_vinh_loc_tp_hue_(Vinh_loc_2-tier_with_municipality)
+=== RUN   TestAddressFuzzyMatcher_GoldenDatasetValidation/VĨNH_LỘC_(Uppercase_exact)
+=== RUN   TestAddressFuzzyMatcher_GoldenDatasetValidation/P._Kim_Long_(Kim_Long_confectionery_hub)
+=== RUN   TestAddressFuzzyMatcher_GoldenDatasetValidation/kim_long_(Kim_Long_toneless)
+=== RUN   TestAddressFuzzyMatcher_GoldenDatasetValidation/kimm_long_(Kim_long_typo)
+=== RUN   TestAddressFuzzyMatcher_GoldenDatasetValidation/phuong_kim_long_tp_hue_(Kim_long_full)
+=== RUN   TestAddressFuzzyMatcher_GoldenDatasetValidation/kimlong_(Kim_long_concatenated)
+=== RUN   TestAddressFuzzyMatcher_GoldenDatasetValidation/P._Vy_Da_(Vy_Da_ward)
+=== RUN   TestAddressFuzzyMatcher_GoldenDatasetValidation/vy_da_(Vy_Da_toneless)
+=== RUN   TestAddressFuzzyMatcher_GoldenDatasetValidation/vi_da_(Vy_Da_phonetic_substitute)
+=== RUN   TestAddressFuzzyMatcher_GoldenDatasetValidation/phuong_vy_da_tp_hue_(Vy_da_with_city)
+=== RUN   TestAddressFuzzyMatcher_GoldenDatasetValidation/Vỹ_Dạ_Thừa_Thiên_Huế_(Vy_da_with_province)
+=== RUN   TestAddressFuzzyMatcher_GoldenDatasetValidation/P._An_Cuu_(An_Cuu_river_ward)
+=== RUN   TestAddressFuzzyMatcher_GoldenDatasetValidation/an_cuu_(An_Cuu_toneless)
+=== RUN   TestAddressFuzzyMatcher_GoldenDatasetValidation/ann_cuu_(An_Cuu_typo)
+=== RUN   TestAddressFuzzyMatcher_GoldenDatasetValidation/phuong_an_cuu_(An_cuu_with_prefix)
+=== RUN   TestAddressFuzzyMatcher_GoldenDatasetValidation/An_Cựu_Huế_(An_cuu_with_city)
+=== RUN   TestAddressFuzzyMatcher_GoldenDatasetValidation/P._Xuan_Phu_(Xuan_Phu_ward)
+=== RUN   TestAddressFuzzyMatcher_GoldenDatasetValidation/xuan_phu_(Xuan_Phu_toneless)
+=== RUN   TestAddressFuzzyMatcher_GoldenDatasetValidation/xuan_phuu_(Xuan_Phu_typo)
+=== RUN   TestAddressFuzzyMatcher_GoldenDatasetValidation/phuong_xuan_phu_tp_hue_(Xuan_Phu_full)
+=== RUN   TestAddressFuzzyMatcher_GoldenDatasetValidation/P._Duc_Nhuan_(Duc_Nhuan_ward)
+=== RUN   TestAddressFuzzyMatcher_GoldenDatasetValidation/duc_nhuan_(Duc_Nhuan_toneless)
+=== RUN   TestAddressFuzzyMatcher_GoldenDatasetValidation/ddusc_nhuan_(Telex_typing_leftover)
+=== RUN   TestAddressFuzzyMatcher_GoldenDatasetValidation/P._Thuy_Xuan_(Incense_making_village)
+=== RUN   TestAddressFuzzyMatcher_GoldenDatasetValidation/thuy_xuan_(Thuy_Xuan_toneless)
+=== RUN   TestAddressFuzzyMatcher_GoldenDatasetValidation/thuyy_xuan_(Thuy_Xuan_typo)
+=== RUN   TestAddressFuzzyMatcher_GoldenDatasetValidation/P._Thuy_Bieu_(Pomelo_village)
+=== RUN   TestAddressFuzzyMatcher_GoldenDatasetValidation/thuy_bieu_(Thuy_Bieu_toneless)
+=== RUN   TestAddressFuzzyMatcher_GoldenDatasetValidation/tuy_bieu_(Thuy_Bieu_central_dialect)
+=== RUN   TestAddressFuzzyMatcher_GoldenDatasetValidation/P._Tay_Loc_(Tay_Loc_citadel_ward)
+=== RUN   TestAddressFuzzyMatcher_GoldenDatasetValidation/tay_loc_(Tay_Loc_toneless)
+=== RUN   TestAddressFuzzyMatcher_GoldenDatasetValidation/taay_loc_(Tay_Loc_telex_error)
+=== RUN   TestAddressFuzzyMatcher_GoldenDatasetValidation/P._Dong_Ba_(Dong_Ba_market_ward)
+=== RUN   TestAddressFuzzyMatcher_GoldenDatasetValidation/dong_ba_(Dong_Ba_toneless)
+=== RUN   TestAddressFuzzyMatcher_GoldenDatasetValidation/doong_ba_(Dong_Ba_typo)
+=== RUN   TestAddressFuzzyMatcher_GoldenDatasetValidation/phuong_dong_ba_cho_dong_ba_(Dong_Ba_with_landmark)
+--- PASS: TestAddressFuzzyMatcher_GoldenDatasetValidation (0.03s)
+    --- PASS: TestAddressFuzzyMatcher_GoldenDatasetValidation/P._Thuan_Hoa_TP_Hue_(Prefix_abbreviation) (0.00s)
+    --- PASS: TestAddressFuzzyMatcher_GoldenDatasetValidation/thuan_hoa_(Toneless_string) (0.00s)
+    --- PASS: TestAddressFuzzyMatcher_GoldenDatasetValidation/thuan_hooa_(Duplicate_vowel_typo) (0.00s)
+    --- PASS: TestAddressFuzzyMatcher_GoldenDatasetValidation/phuongthuanhoa_(Concatenated_words) (0.00s)
+    --- PASS: TestAddressFuzzyMatcher_GoldenDatasetValidation/Phường_Thuận_Hoà_(Accent_variation) (0.00s)
+    --- PASS: TestAddressFuzzyMatcher_GoldenDatasetValidation/Thuan_Hoa_Hue_(Trailing_city_name) (0.00s)
+    --- PASS: TestAddressFuzzyMatcher_GoldenDatasetValidation/p._thuan_hoa_(Lowercase_prefix) (0.00s)
+    --- PASS: TestAddressFuzzyMatcher_GoldenDatasetValidation/phuong_Thuan_Hoa_(Standard_mixed) (0.00s)
+    --- PASS: TestAddressFuzzyMatcher_GoldenDatasetValidation/thuận_hòa_(Exact_match) (0.00s)
+    --- PASS: TestAddressFuzzyMatcher_GoldenDatasetValidation/THUAN_HOA_(Uppercase_toneless) (0.00s)
+    --- PASS: TestAddressFuzzyMatcher_GoldenDatasetValidation/P._Phu_Bai_TP_Hue_(New_2-tier_official_format_(Phường_trực_thuộc_TP_Huế)) (0.00s)
+    --- PASS: TestAddressFuzzyMatcher_GoldenDatasetValidation/phu_bai_(Phú_Bài_toneless) (0.00s)
+    --- PASS: TestAddressFuzzyMatcher_GoldenDatasetValidation/phuu_bai_(Phu_bai_typo) (0.00s)
+    --- PASS: TestAddressFuzzyMatcher_GoldenDatasetValidation/phuong_phu_bai_tp_hue_(Phu_bai_2-tier_with_prefix) (0.00s)
+    --- PASS: TestAddressFuzzyMatcher_GoldenDatasetValidation/Phú_Bài_Hương_Thủy_(Phu_bai_with_historical_habit_landmark) (0.00s)
+    --- PASS: TestAddressFuzzyMatcher_GoldenDatasetValidation/Xa_Vinh_Loc_(Commune_prefix) (0.00s)
+    --- PASS: TestAddressFuzzyMatcher_GoldenDatasetValidation/vinh_loc_(Vinh_loc_toneless) (0.00s)
+    --- PASS: TestAddressFuzzyMatcher_GoldenDatasetValidation/vinnh_loc_(Vinh_loc_typo) (0.00s)
+    --- PASS: TestAddressFuzzyMatcher_GoldenDatasetValidation/xa_vinh_loc_tp_hue_(Vinh_loc_2-tier_with_municipality) (0.00s)
+    --- PASS: TestAddressFuzzyMatcher_GoldenDatasetValidation/VĨNH_LỘC_(Uppercase_exact) (0.00s)
+    --- PASS: TestAddressFuzzyMatcher_GoldenDatasetValidation/P._Kim_Long_(Kim_Long_confectionery_hub) (0.00s)
+    --- PASS: TestAddressFuzzyMatcher_GoldenDatasetValidation/kim_long_(Kim_Long_toneless) (0.00s)
+    --- PASS: TestAddressFuzzyMatcher_GoldenDatasetValidation/kimm_long_(Kim_long_typo) (0.00s)
+    --- PASS: TestAddressFuzzyMatcher_GoldenDatasetValidation/phuong_kim_long_tp_hue_(Kim_long_full) (0.00s)
+    --- PASS: TestAddressFuzzyMatcher_GoldenDatasetValidation/kimlong_(Kim_long_concatenated) (0.00s)
+    --- PASS: TestAddressFuzzyMatcher_GoldenDatasetValidation/P._Vy_Da_(Vy_Da_ward) (0.00s)
+    --- PASS: TestAddressFuzzyMatcher_GoldenDatasetValidation/vy_da_(Vy_Da_toneless) (0.00s)
+    --- PASS: TestAddressFuzzyMatcher_GoldenDatasetValidation/vi_da_(Vy_Da_phonetic_substitute) (0.00s)
+    --- PASS: TestAddressFuzzyMatcher_GoldenDatasetValidation/phuong_vy_da_tp_hue_(Vy_da_with_city) (0.00s)
+    --- PASS: TestAddressFuzzyMatcher_GoldenDatasetValidation/Vỹ_Dạ_Thừa_Thiên_Huế_(Vy_da_with_province) (0.00s)
+    --- PASS: TestAddressFuzzyMatcher_GoldenDatasetValidation/P._An_Cuu_(An_Cuu_river_ward) (0.00s)
+    --- PASS: TestAddressFuzzyMatcher_GoldenDatasetValidation/an_cuu_(An_Cuu_toneless) (0.00s)
+    --- PASS: TestAddressFuzzyMatcher_GoldenDatasetValidation/ann_cuu_(An_Cuu_typo) (0.00s)
+    --- PASS: TestAddressFuzzyMatcher_GoldenDatasetValidation/phuong_an_cuu_(An_cuu_with_prefix) (0.00s)
+    --- PASS: TestAddressFuzzyMatcher_GoldenDatasetValidation/An_Cựu_Huế_(An_cuu_with_city) (0.00s)
+    --- PASS: TestAddressFuzzyMatcher_GoldenDatasetValidation/P._Xuan_Phu_(Xuan_Phu_ward) (0.00s)
+    --- PASS: TestAddressFuzzyMatcher_GoldenDatasetValidation/xuan_phu_(Xuan_Phu_toneless) (0.00s)
+    --- PASS: TestAddressFuzzyMatcher_GoldenDatasetValidation/xuan_phuu_(Xuan_Phu_typo) (0.00s)
+    --- PASS: TestAddressFuzzyMatcher_GoldenDatasetValidation/phuong_xuan_phu_tp_hue_(Xuan_Phu_full) (0.00s)
+    --- PASS: TestAddressFuzzyMatcher_GoldenDatasetValidation/P._Duc_Nhuan_(Duc_Nhuan_ward) (0.00s)
+    --- PASS: TestAddressFuzzyMatcher_GoldenDatasetValidation/duc_nhuan_(Duc_Nhuan_toneless) (0.00s)
+    --- PASS: TestAddressFuzzyMatcher_GoldenDatasetValidation/ddusc_nhuan_(Telex_typing_leftover) (0.00s)
+    --- PASS: TestAddressFuzzyMatcher_GoldenDatasetValidation/P._Thuy_Xuan_(Incense_making_village) (0.00s)
+    --- PASS: TestAddressFuzzyMatcher_GoldenDatasetValidation/thuy_xuan_(Thuy_Xuan_toneless) (0.00s)
+    --- PASS: TestAddressFuzzyMatcher_GoldenDatasetValidation/thuyy_xuan_(Thuy_Xuan_typo) (0.00s)
+    --- PASS: TestAddressFuzzyMatcher_GoldenDatasetValidation/P._Thuy_Bieu_(Pomelo_village) (0.00s)
+    --- PASS: TestAddressFuzzyMatcher_GoldenDatasetValidation/thuy_bieu_(Thuy_Bieu_toneless) (0.00s)
+    --- PASS: TestAddressFuzzyMatcher_GoldenDatasetValidation/tuy_bieu_(Thuy_Bieu_central_dialect) (0.00s)
+    --- PASS: TestAddressFuzzyMatcher_GoldenDatasetValidation/P._Tay_Loc_(Tay_Loc_citadel_ward) (0.00s)
+    --- PASS: TestAddressFuzzyMatcher_GoldenDatasetValidation/tay_loc_(Tay_Loc_toneless) (0.00s)
+    --- PASS: TestAddressFuzzyMatcher_GoldenDatasetValidation/taay_loc_(Tay_Loc_telex_error) (0.00s)
+    --- PASS: TestAddressFuzzyMatcher_GoldenDatasetValidation/P._Dong_Ba_(Dong_Ba_market_ward) (0.00s)
+    --- PASS: TestAddressFuzzyMatcher_GoldenDatasetValidation/dong_ba_(Dong_Ba_toneless) (0.00s)
+    --- PASS: TestAddressFuzzyMatcher_GoldenDatasetValidation/doong_ba_(Dong_Ba_typo) (0.00s)
+    --- PASS: TestAddressFuzzyMatcher_GoldenDatasetValidation/phuong_dong_ba_cho_dong_ba_(Dong_Ba_with_landmark) (0.00s)
+=== RUN   TestFuzzyMatch_CheckoutCriticalPathBoundary
+--- PASS: TestFuzzyMatch_CheckoutCriticalPathBoundary (0.00s)
+PASS
+ok  	github.com/omamx/profile-service/internal/usecase	1.042s
+testing: warning: no tests to run
+PASS
+ok  	github.com/omamx/profile-service/tests/benchmark	1.015s [no tests to run]
+=== RUN   TestRealGRPCProvider
+2026/10/08 02:55:33 github.com/testcontainers/testcontainers-go - Connected to docker:
+  Server Version: 29.8.0
+  API Version: 1.46
+  Operating System: Docker Desktop
+  Total Memory: 11813 MB
+  Labels:
+    com.docker.desktop.address=npipe://\\.\pipe\docker_cli
+  Testcontainers for Go Version: v0.33.0
+  Resolved Docker Host: unix:///var/run/docker.sock
+  Resolved Docker Socket Path: /var/run/docker.sock
+  Test SessionID: 317c7267df3ee6e64adf6426dba6f918f0b3cfc234703a7ea358d3ffe4869498
+  Test ProcessID: 1fe47f98-d973-44ff-b239-f0068514719f
+2026/10/08 02:55:33 🔥 Reaper obtained from Docker for this test session 410a79c4832685cc9812315a8b7264876645c3dd97064453bd9fd58687693901
+2026/10/08 02:55:33 ⏳ Waiting for Reaper port to be ready
+2026/10/08 02:55:33 🐳 Creating container for image postgres:16-alpine
+2026/10/08 02:55:33 ✅ Container created: 2680620589e2
+2026/10/08 02:55:33 🐳 Starting container: 2680620589e2
+2026/10/08 02:55:34 ✅ Container started: 2680620589e2
+2026/10/08 02:55:34 ⏳ Waiting for container id 2680620589e2 image: postgres:16-alpine. Waiting for: &{timeout:<nil> deadline:0xc000352168 Strategies:[0xc0002fbbf0]}
+2026/10/08 02:55:35 🔔 Container is ready: 2680620589e2
+{"level":"info","port":"0","time":"2026-10-08T02:55:35Z","message":"gRPC Server listening"}
+{"level":"info","time":"2026-10-08T02:55:35Z","message":"Gracefully stopping gRPC Server..."}
+2026/10/08 02:55:35 🐳 Terminating container: 2680620589e2
+2026/10/08 02:55:36 🚫 Container terminated: 2680620589e2
+--- PASS: TestRealGRPCProvider (2.70s)
+PASS
+ok  	github.com/omamx/profile-service/tests/contract	3.720s
+=== RUN   TestAtomicDefaultAddressSwitcher_100ConcurrentGoroutines_AlwaysExactlyOneDefault
+2026/10/08 02:55:33 github.com/testcontainers/testcontainers-go - Connected to docker:
+  Server Version: 29.8.0
+  API Version: 1.46
+  Operating System: Docker Desktop
+  Total Memory: 11813 MB
+  Labels:
+    com.docker.desktop.address=npipe://\\.\pipe\docker_cli
+  Testcontainers for Go Version: v0.33.0
+  Resolved Docker Host: unix:///var/run/docker.sock
+  Resolved Docker Socket Path: /var/run/docker.sock
+  Test SessionID: 317c7267df3ee6e64adf6426dba6f918f0b3cfc234703a7ea358d3ffe4869498
+  Test ProcessID: b52a0adb-49c7-4c56-af5b-29a837143311
+2026/10/08 02:55:33 🔥 Reaper obtained from Docker for this test session 410a79c4832685cc9812315a8b7264876645c3dd97064453bd9fd58687693901
+2026/10/08 02:55:33 ⏳ Waiting for Reaper port to be ready
+2026/10/08 02:55:33 🐳 Creating container for image postgres:16-alpine
+2026/10/08 02:55:33 ✅ Container created: a57c0e2a5197
+2026/10/08 02:55:33 🐳 Starting container: a57c0e2a5197
+2026/10/08 02:55:34 ✅ Container started: a57c0e2a5197
+2026/10/08 02:55:34 ⏳ Waiting for container id a57c0e2a5197 image: postgres:16-alpine. Waiting for: &{timeout:<nil> deadline:0xc00020bcf8 Strategies:[0xc00020e510]}
+2026/10/08 02:55:35 🔔 Container is ready: a57c0e2a5197
+2026/10/08 02:55:36 🐳 Terminating container: a57c0e2a5197
+2026/10/08 02:55:37 🚫 Container terminated: a57c0e2a5197
+--- PASS: TestAtomicDefaultAddressSwitcher_100ConcurrentGoroutines_AlwaysExactlyOneDefault (3.67s)
+=== RUN   TestDualLayerCache_MultiPodInvalidation_PurgesL1AcrossPods
+2026/10/08 02:55:37 🐳 Creating container for image redis:7-alpine
+2026/10/08 02:55:37 ✅ Container created: 529b5c129ed5
+2026/10/08 02:55:37 🐳 Starting container: 529b5c129ed5
+2026/10/08 02:55:37 ✅ Container started: 529b5c129ed5
+2026/10/08 02:55:37 ⏳ Waiting for container id 529b5c129ed5 image: redis:7-alpine. Waiting for: &{timeout:<nil> deadline:0xc0007ee258 Strategies:[0xc0003dd050]}
+2026/10/08 02:55:37 🔔 Container is ready: 529b5c129ed5
+2026/10/08 02:55:37 🐳 Terminating container: 529b5c129ed5
+2026/10/08 02:55:37 🚫 Container terminated: 529b5c129ed5
+--- PASS: TestDualLayerCache_MultiPodInvalidation_PurgesL1AcrossPods (0.68s)
+=== RUN   TestGuestOrderClaim_RevokedClaim_CanBeReclaimedByCorrectOwner
+2026/10/08 02:55:38 🐳 Creating container for image postgres:16-alpine
+2026/10/08 02:55:38 ✅ Container created: 6302b37f2395
+2026/10/08 02:55:38 🐳 Starting container: 6302b37f2395
+2026/10/08 02:55:38 ✅ Container started: 6302b37f2395
+2026/10/08 02:55:38 ⏳ Waiting for container id 6302b37f2395 image: postgres:16-alpine. Waiting for: &{timeout:<nil> deadline:0xc0007eef28 Strategies:[0xc0004133b0]}
+2026/10/08 02:55:39 🔔 Container is ready: 6302b37f2395
+2026/10/08 02:55:39 🐳 Terminating container: 6302b37f2395
+2026/10/08 02:55:40 🚫 Container terminated: 6302b37f2395
+--- PASS: TestGuestOrderClaim_RevokedClaim_CanBeReclaimedByCorrectOwner (2.10s)
+=== RUN   TestGuestOrderClaim_AlreadyVerifiedClaim_RejectsDoubleClaim
+2026/10/08 02:55:40 🐳 Creating container for image postgres:16-alpine
+2026/10/08 02:55:40 ✅ Container created: db8e0b871c6e
+2026/10/08 02:55:40 🐳 Starting container: db8e0b871c6e
+2026/10/08 02:55:40 ✅ Container started: db8e0b871c6e
+2026/10/08 02:55:40 ⏳ Waiting for container id db8e0b871c6e image: postgres:16-alpine. Waiting for: &{timeout:<nil> deadline:0xc00020b528 Strategies:[0xc000434de0]}
+2026/10/08 02:55:41 🔔 Container is ready: db8e0b871c6e
+2026/10/08 02:55:41 🐳 Terminating container: db8e0b871c6e
+2026/10/08 02:55:42 🚫 Container terminated: db8e0b871c6e
+--- PASS: TestGuestOrderClaim_AlreadyVerifiedClaim_RejectsDoubleClaim (2.27s)
+=== RUN   TestProfileIntegrity
+2026/10/08 02:55:42 🐳 Creating container for image postgres:16-alpine
+2026/10/08 02:55:42 ✅ Container created: ff4d658466b8
+2026/10/08 02:55:42 🐳 Starting container: ff4d658466b8
+2026/10/08 02:55:42 ✅ Container started: ff4d658466b8
+2026/10/08 02:55:42 ⏳ Waiting for container id ff4d658466b8 image: postgres:16-alpine. Waiting for: &{timeout:<nil> deadline:0xc000688898 Strategies:[0xc000446d20]}
+2026/10/08 02:55:45 🔔 Container is ready: ff4d658466b8
+=== RUN   TestProfileIntegrity/concurrent_first_creation_and_switches
+=== RUN   TestProfileIntegrity/ownership_version_and_replacement_default
+=== RUN   TestProfileIntegrity/invalid_area_and_canonical_names
+=== RUN   TestProfileIntegrity/outbox_failure_rolls_back_profile_address_and_claim
+=== RUN   TestProfileIntegrity/claim_fails_closed_without_verifier
+2026/10/08 02:55:47 🐳 Terminating container: ff4d658466b8
+2026/10/08 02:55:48 🚫 Container terminated: ff4d658466b8
+--- PASS: TestProfileIntegrity (6.27s)
+    --- PASS: TestProfileIntegrity/concurrent_first_creation_and_switches (1.41s)
+    --- PASS: TestProfileIntegrity/ownership_version_and_replacement_default (0.14s)
+    --- PASS: TestProfileIntegrity/invalid_area_and_canonical_names (0.06s)
+    --- PASS: TestProfileIntegrity/outbox_failure_rolls_back_profile_address_and_claim (0.09s)
+    --- PASS: TestProfileIntegrity/claim_fails_closed_without_verifier (0.00s)
+=== RUN   TestRealKafkaOutboxDelivery
+    kafka_delivery_test.go:21: requires isolated Compose database, Kafka and running API worker
+--- SKIP: TestRealKafkaOutboxDelivery (0.00s)
+PASS
+ok  	github.com/omamx/profile-service/tests/integration	16.031s
