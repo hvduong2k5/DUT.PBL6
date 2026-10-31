@@ -1,5 +1,7 @@
 # Customer Web / Flutter parity matrix
 
+2026-10-31 MVP overlay: the new local cohort now uses full-cart quote → async operation → MVP order/payment/cancellation, superseding the corresponding historical ZIP purchase rows below. Other cohorts remain separate. Current scope/status: [master roadmap](../plans/MASTER_PLAN.md), [M4 evidence](../plans/active/M4_ORDERS_PAYMENT.md), [handoff](../CURRENT_STATE.md). Automated187 tests/analyze/APK/install PASS; new native evidence covers product/SKU/cart/quote account gate only. Post-login native flow and production providers remain unverified; do not transfer historical native acceptance to the new contract.
+
 Updated 2026-10-21. Reference origin/feature/ui-web at b1ff2918 (read-only Git objects). Mobile feature/mobile-ui, starting 8e1994a7. Source paths below are relative to apps/web-user/src. Implementation and native validation are separate. Goal remains ACTIVE while targeted QA and final delivery remain open. Route coverage is distinct from state/visual/provider verification.
 
 | Web reference / group | Flutter counterpart and current implementation | Validation / remaining limit |

@@ -1,10 +1,10 @@
 # Customer Mobile — current handoff
 
-Updated2026-10-31. Branch feature/mobile-ui, M4 source checkpoint parent4e6d76d854a03bab3ce57b1cb722b694d902c373. New source commit identifiable with git log -1. User explicitly requested autonomous continuation; do not pause at implementation checkpoints. No merge/PR/dev/Web edits.
+Updated2026-10-31. Branch feature/mobile-ui. M3 source4e6d76d854a03bab3ce57b1cb722b694d902c373 and M4 source7e00825f5f819fa02d51bac900a56e76a856c420 pushed and remote hashes verified. Latest documentation checkpoint identifiable with git log -1. User explicitly requested autonomous continuation; all unblocked agreed local implementation and final validation completed. No merge/PR/dev/Web edits.
 
 ## Authority / current phase
 
-Read-only dev7f22226c7b2f4363d3ba376b715feb0e63f69355 public MVP integration target; historical ZIP provenance and Webb1ff2918 visual foundations preserved. Full-cart accepted; geography supplier not selected. Master docs/plans/MASTER_PLAN.md, current detailed docs/plans/active/M4_ORDERS_PAYMENT.md. M1 analysis, M2 quote, M3 operations and M4 local order/payment/cancel implementation complete automatically; APK/native evidence pending below. Production/provider activation remains NOT APPLIED.
+Read-only dev7f22226c7b2f4363d3ba376b715feb0e63f69355 public MVP integration target; historical ZIP provenance and Webb1ff2918 visual foundations preserved. Full-cart accepted; geography supplier not selected. Master docs/plans/MASTER_PLAN.md, current detailed docs/plans/active/M4_ORDERS_PAYMENT.md. M1 analysis, M2 quote, M3 operations and M4 local order/payment/cancel implementation complete; automated/APK/bounded native evidence below. Whole production migration remains unaccepted; provider activation NOT APPLIED.
 
 ## Completed behavior
 
@@ -22,7 +22,11 @@ App dependency/provider/router, checkout onPlaced/operation/quote guards and new
 
 ## Validation / current evidence
 
-M3 checkpoint4e6d76d pushed/verified172 tests/analyze. M4 adds12 order/payment/cancel state/transport/storage tests +2 navigation cases (360px, scale1/1.6), and one malformed-quote regression. Initial full run exposed two local legacy route regressions; fixed with a LOCAL-ONLY legacy ID boundary, both focused cases PASS. Final full187/187 PASS46s, analyze No issues14.5s; diff check PASS. No disabled assertions/lints. Current M3+M4 APK/native NOT RUN yet; previous M2-B APK4389c06 is outdated. Device LMV409N70de1ce3 connected via ADB; final build/install and one bounded scrcpy smoke remain.
+M3 checkpoint4e6d76d pushed/verified172 tests/analyze. M4 adds12 order/payment/cancel state/transport/storage tests +2 navigation cases (360px, scale1/1.6), and one malformed-quote regression. Initial full run exposed two local legacy route regressions; fixed with a LOCAL-ONLY legacy ID boundary, both focused cases PASS. Final full187/187 PASS46s, analyze No issues14.5s; diff check PASS. No disabled assertions/lints.
+
+Final debug APK PASS94.6s on7e00825 (--no-pub; process-local Kotlin workaround). Artifact apps/mobile-app/build/app/outputs/flutter-apk/app-debug.apk,198276012bytes (189.1MiB), built2026-10-31 11:57:48+07:00. SHA256 C6FE8E23E27AA5DA999EC88F2E984A644CF510C0F3744EB12E40DC7712DD81E0. ZIP kernel inspection confirms mvp_operation_page/mvp_payment_cubit/mvp_orders_page present. Build output ignored, not committed.
+
+ADB install -r Success; cold start com.example.mobile_app/.MainActivity Status:ok,6116ms. LG LMV409N70de1ce3 Android10. Bounded scrcpy smoke via computer-use: Home → product → explicit SKU → add to local cart → full-cart view (no checkboxes, correct one-item total/CTA) → quote account gate. No auth input or real financial action. Process15246 log:163 app-specific lines, zero FATAL/AndroidRuntime/E/flutter/RenderFlex/Unhandled matches. Full post-login operation/payment/cancel flow is verified by widget/state tests, NOT native/provider acceptance. No device data cleared/uninstall or system settings changed.
 
 ## Open external boundaries
 
@@ -30,6 +34,6 @@ Provider/Identity/BFF runtime readiness NOT VERIFIED; no real checkout/payment/r
 
 ## Exact next action
 
-1. Checkpoint/push current tested M4 source on feature/mobile-ui only. Build flutter build apk --debug --no-pub using process-local GRADLE_OPTS workaround; inspect artifact/version and install with adb install -r (do not uninstall/clear data).
-2. Launch com.example.mobile_app; inspect only its scrcpy surface using computer-use skill, one bounded launch/cart check and app-specific crash output. No broad computer-use loop, credentials, provider operations or real financial action. Widget tests already exercise complete new flow; native smoke is separate evidence.
-3. Record source commit, APK outcome/artifact and exact native scope in this file/active plan/master, push and verify final documentation checkpoint. Remaining work requires external contracts/readiness above; do not automatically activate remote providers or merge.
+1. Resume AGENTS/current/master/M4 and verify source7e00825 plus latest documentation checkpoint against feature/mobile-ui remote. Preserve separate untracked reference MD. Do not repeat completed tests/build without changed source or a concrete unresolved behavior.
+2. Remaining integration needs owning-team evidence for pinned BFF/Identity/Order/payment providers and explicitly approved runtime configuration. Review new supplied contract/fixtures read-only; refine the next phase before activating REST. No automatic legacy fallback, financial mutations, merge or real payment test.
+3. Native post-login operation/payment/cancel acceptance remains a separate targeted check using approved local fixtures/manual identity; current evidence is only the bounded pre-login smoke above. Geography source/address creation, history cursor input, typed tracking and Care review remain deferred external decisions. No further agreed local source slice is silently left unfinished.
