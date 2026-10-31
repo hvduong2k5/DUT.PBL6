@@ -62,6 +62,7 @@ class AuthenticationServiceTest {
     @BeforeEach
     void setUp() {
         ReflectionTestUtils.setField(authenticationService, "serverUrl", "http://keycloak:8080");
+        ReflectionTestUtils.setField(authenticationService, "publicUrl", "http://keycloak:8080");
         ReflectionTestUtils.setField(authenticationService, "realm", "omama");
         ReflectionTestUtils.setField(authenticationService, "publicClientId", "frontend-web");
         ReflectionTestUtils.setField(authenticationService, "redirectUri", "https://api.omama.vn/api/v1/public/auth/callback");

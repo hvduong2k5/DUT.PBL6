@@ -23,6 +23,15 @@ public interface UserLifecycleApi {
     @GetMapping("/users/me")
     ResponseEntity<ApiResponse<UserProfileResponse>> getCurrentUser(@AuthenticationPrincipal Jwt jwt);
 
+    @Operation(summary = "Tự đổi mật khẩu cá nhân", description = "Người dùng tự cập nhật mật khẩu của mình bằng cách xác thực mật khẩu hiện tại và cung cấp mật khẩu mới.")
+    @SecurityRequirement(name = "bearerAuth")
+    @PutMapping("/users/me/password")
+    ResponseEntity<ApiResponse<Void>> changeOwnPassword(
+            @jakarta.validation.Valid @RequestBody com.hvduong.identity.dto.request.ChangePasswordRequest request,
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorHeader
+    );
+
     @Operation(summary = "Cập nhật trạng thái người dùng (Admin) [Chuẩn RESTful 3.3.1]", description = "Cập nhật trạng thái tài khoản người dùng (ACTIVE, SUSPENDED) trên Keycloak và cơ sở dữ liệu qua HTTP PATCH.")
     @SecurityRequirement(name = "bearerAuth")
     @PatchMapping("/admin/users/{principalId}/status")

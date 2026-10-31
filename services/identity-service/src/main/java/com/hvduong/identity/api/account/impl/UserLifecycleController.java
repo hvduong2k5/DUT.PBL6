@@ -62,4 +62,34 @@ public class UserLifecycleController implements UserLifecycleApi {
             return ResponseEntity.ok(ApiResponse.success("Khóa tài khoản người dùng thành công", null));
         }
     }
+
+    @Override
+    public ResponseEntity<ApiResponse<Void>> changeOwnPassword(
+            @jakarta.validation.Valid @RequestBody com.hvduong.identity.dto.request.ChangePasswordRequest request,
+            @AuthenticationPrincipal Jwt jwt,
+            String actorHeader
+    ) {
+        UUID actorId = extractActorId(jwt, actorHeader);
+        if (actorId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(ApiResponse.error("UNAUTHORIZED", "Yêu cầu đăng nhập để đổi mật khẩu"));
+        }
+
+        userLifecycleService.changeOwnPassword(actorId, request.getCurrentPassword(), request.getNewPassword());
+        return ResponseEntity.ok(ApiResponse.success("Đổi mật khẩu thành công", null));
+    }
+
+    private UUID extractActorId(Jwt jwt, String actorHeader) {
+        if (jwt != null) {
+            try {
+                return UUID.fromString(jwt.getSubject());
+            } catch (Exception ignored) {}
+        }
+        if (actorHeader != null) {
+            try {
+                return UUID.fromString(actorHeader);
+            } catch (Exception ignored) {}
+        }
+        return null;
+    }
 }

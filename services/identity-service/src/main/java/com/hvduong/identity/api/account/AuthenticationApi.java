@@ -13,11 +13,14 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1/public/auth")
 public interface AuthenticationApi {
 
-    @Operation(summary = "Khởi tạo đăng nhập OIDC PKCE", description = "Sinh PKCE verifier/challenge và Authorization URL chuyển hướng sang Keycloak (hỗ trợ SSO Google, Zalo, Apple qua query param provider).")
+    @Operation(summary = "Khởi tạo đăng nhập OIDC PKCE (Dual-Mode: 302 Redirect cho Web & JSON cho Mobile)", description = "Mặc định chuyển hướng (HTTP 302) trình duyệt sang Keycloak. Đối với Mobile App hoặc gọi API, truyền query param format=json hoặc Header Accept: application/json để nhận payload JSON chứa authorizationUrl.")
     @GetMapping("/login")
-    ResponseEntity<ApiResponse<AuthUrlResponse>> initiateLogin(
-            @Parameter(description = "URL Frontend cần quay về sau khi hoàn tất đăng nhập") @RequestParam(value = "redirect_uri", required = false) String redirectUri,
-            @Parameter(description = "Nhà cung cấp SSO trực tiếp (google, facebook, zalo, apple)") @RequestParam(value = "provider", required = false) String provider
+    ResponseEntity<?> initiateLogin(
+            @Parameter(description = "URL Frontend/App cần quay về sau khi hoàn tất đăng nhập") @RequestParam(value = "redirect_uri", required = false) String redirectUri,
+            @Parameter(description = "Nhà cung cấp SSO trực tiếp (google, facebook, zalo, apple)") @RequestParam(value = "provider", required = false) String provider,
+            @Parameter(description = "Định dạng phản hồi: 'json' cho Mobile/API client, hoặc mặc định 302 redirect cho Web") @RequestParam(value = "format", required = false) String format,
+            @RequestHeader(value = org.springframework.http.HttpHeaders.ACCEPT, required = false) String acceptHeader,
+            @RequestHeader(value = org.springframework.http.HttpHeaders.CONTENT_TYPE, required = false) String contentType
     );
 
     @Operation(summary = "Tiếp nhận Callback Authorization Code từ Keycloak", description = "Trao đổi Authorization Code lấy Token, lưu phiên server-side, thiết lập HttpOnly Cookie OMAMA_SESSION và redirect 302 về Frontend.")

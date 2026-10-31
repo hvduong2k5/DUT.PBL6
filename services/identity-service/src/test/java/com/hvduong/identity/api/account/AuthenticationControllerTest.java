@@ -22,7 +22,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 import static org.hamcrest.Matchers.containsString;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -63,6 +63,23 @@ class AuthenticationControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.authorizationUrl").value("http://keycloak/auth?code_challenge=xyz"))
                 .andExpect(jsonPath("$.data.state").value("state-123"));
+    }
+
+    @Test
+    void initiateLogin_BrowserRequest_Returns302Redirect() throws Exception {
+        AuthUrlResponse mockResponse = AuthUrlResponse.builder()
+                .authorizationUrl("http://keycloak/auth?code_challenge=xyz")
+                .state("state-123")
+                .build();
+
+        when(authenticationService.initiateLogin(eq("https://omama.vn/checkout"), isNull()))
+                .thenReturn(mockResponse);
+
+        mockMvc.perform(get("/api/v1/public/auth/login")
+                        .param("redirect_uri", "https://omama.vn/checkout")
+                        .accept(MediaType.TEXT_HTML))
+                .andExpect(status().isFound())
+                .andExpect(header().string("Location", "http://keycloak/auth?code_challenge=xyz"));
     }
 
     @Test

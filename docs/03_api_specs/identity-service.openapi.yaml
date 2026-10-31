@@ -56,9 +56,24 @@ paths:
           schema:
             type: string
             example: google
+        - name: format
+          in: query
+          required: false
+          description: "Định dạng phản hồi: 'json' cho Mobile/API client, hoặc mặc định 302 redirect cho Web"
+          schema:
+            type: string
+            enum: [json, redirect]
+            example: json
       responses:
+        "302":
+          description: Chuyển hướng trình duyệt sang màn hình đăng nhập Keycloak (dành cho Web)
+          headers:
+            Location:
+              description: URL đăng nhập OIDC PKCE của Keycloak
+              schema:
+                type: string
         "200":
-          description: Khởi tạo thành công, trả về URL đăng nhập
+          description: Trả về JSON chứa authorizationUrl (dành cho Mobile App / API client)
           content:
             application/json:
               schema:

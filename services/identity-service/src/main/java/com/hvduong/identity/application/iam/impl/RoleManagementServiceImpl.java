@@ -115,6 +115,11 @@ public class RoleManagementServiceImpl implements RoleManagementService {
             throw new NoSuchElementException("Role not found with id: " + roleId);
         }
 
+        // Rule: Protected role cannot be disabled
+        if (Boolean.TRUE.equals(existing.getIsProtected()) && dto.getIsEnabled() != null && !dto.getIsEnabled()) {
+            throw new IllegalStateException("Không thể vô hiệu hóa vai trò bảo vệ hệ thống: " + existing.getRoleCode());
+        }
+
         int updated = roleMapper.updateDetails(
                 roleId,
                 dto.getRoleName(),
@@ -213,6 +218,10 @@ public class RoleManagementServiceImpl implements RoleManagementService {
             throw new NoSuchElementException("Role not found with id: " + roleId);
         }
 
+        if (Boolean.TRUE.equals(existing.getIsProtected())) {
+            throw new IllegalStateException("Không thể thay đổi danh sách quyền của vai trò bảo vệ hệ thống: " + existing.getRoleCode());
+        }
+
         rolePermissionMapper.deleteByRoleId(roleId);
 
         if (permissionCodes != null) {
@@ -247,6 +256,10 @@ public class RoleManagementServiceImpl implements RoleManagementService {
         IamRoleRow existing = roleMapper.findById(roleId);
         if (existing == null) {
             throw new NoSuchElementException("Role not found with id: " + roleId);
+        }
+
+        if (Boolean.TRUE.equals(existing.getIsProtected())) {
+            throw new IllegalStateException("Không thể thêm quyền vào vai trò bảo vệ hệ thống: " + existing.getRoleCode());
         }
 
         if (permissionCode == null || permissionCode.trim().isEmpty()) {
@@ -285,6 +298,10 @@ public class RoleManagementServiceImpl implements RoleManagementService {
         IamRoleRow existing = roleMapper.findById(roleId);
         if (existing == null) {
             throw new NoSuchElementException("Role not found with id: " + roleId);
+        }
+
+        if (Boolean.TRUE.equals(existing.getIsProtected())) {
+            throw new IllegalStateException("Không thể gỡ bỏ quyền của vai trò bảo vệ hệ thống: " + existing.getRoleCode());
         }
 
         rolePermissionMapper.deleteByRoleIdAndPermission(roleId, permissionCode.trim());

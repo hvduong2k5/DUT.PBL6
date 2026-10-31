@@ -70,9 +70,11 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/identity_db
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: password123
-      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://keycloak:8080/realms/omama
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://localhost:8080/realms/omama
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8080/realms/omama/protocol/openid-connect/certs
       KEYCLOAK_SERVER_URL: http://keycloak:8080
+      KEYCLOAK_PUBLIC_URL: http://localhost:8080
+      AUTH_REDIRECT_URI: http://localhost:8016/api/v1/public/auth/callback
       KEYCLOAK_REALM: omama
       KEYCLOAK_CLIENT_ID: identity-service-admin
       KEYCLOAK_CLIENT_SECRET: admin-secret-placeholder

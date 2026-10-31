@@ -22,10 +22,13 @@ grpc:
   server:
     port: 9016
 
-spring.security.oauth2.resourceserver.jwt.issuer-uri: https://keycloak.omama.vn/realms/omama
+spring.security.oauth2.resourceserver.jwt.issuer-uri: ${KEYCLOAK_PUBLIC_URL:https://keycloak.omama.vn}/realms/${KEYCLOAK_REALM:omama}
 
 keycloak:
-  server-url: https://keycloak.omama.vn
-  realm: omama
-  client-id: identity-service-admin
+  server-url: ${KEYCLOAK_SERVER_URL:https://keycloak.omama.vn}
+  public-url: ${KEYCLOAK_PUBLIC_URL:${keycloak.server-url}}
+  realm: ${KEYCLOAK_REALM:omama}
+  client-id: ${KEYCLOAK_CLIENT_ID:identity-service-admin}
   client-secret: "${KEYCLOAK_CLIENT_SECRET:changeme}"
+  public-client-id: ${KEYCLOAK_PUBLIC_CLIENT_ID:frontend-web}
+  redirect-uri: ${AUTH_REDIRECT_URI:http://localhost:8016/api/v1/public/auth/callback}

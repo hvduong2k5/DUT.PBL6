@@ -46,6 +46,9 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     @Value("${keycloak.server-url}")
     private String serverUrl;
 
+    @Value("${keycloak.public-url:${keycloak.server-url}}")
+    private String publicUrl;
+
     @Value("${keycloak.realm}")
     private String realm;
 
@@ -290,11 +293,18 @@ public class AuthenticationServiceImpl implements AuthenticationService {
         }
     }
 
+    /**
+     * URL cho TRÌNH DUYỆT mở (trang đăng nhập Keycloak) — ưu tiên dùng public-url, fallback về server-url.
+     */
     private String buildAuthEndpoint() {
-        String baseUrl = serverUrl.endsWith("/") ? serverUrl.substring(0, serverUrl.length() - 1) : serverUrl;
+        String url = (publicUrl != null && !publicUrl.isBlank()) ? publicUrl : serverUrl;
+        String baseUrl = url.endsWith("/") ? url.substring(0, url.length() - 1) : url;
         return baseUrl + "/realms/" + realm + "/protocol/openid-connect/auth";
     }
 
+    /**
+     * URL cho BACKEND gọi nội bộ (đổi code lấy token) — dùng server-url.
+     */
     private String buildTokenEndpoint() {
         String baseUrl = serverUrl.endsWith("/") ? serverUrl.substring(0, serverUrl.length() - 1) : serverUrl;
         return baseUrl + "/realms/" + realm + "/protocol/openid-connect/token";

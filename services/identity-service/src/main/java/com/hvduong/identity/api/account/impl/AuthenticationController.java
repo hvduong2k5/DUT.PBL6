@@ -37,9 +37,27 @@ public class AuthenticationController implements AuthenticationApi {
     private String sameSite = "Lax";
 
     @Override
-    public ResponseEntity<ApiResponse<AuthUrlResponse>> initiateLogin(String redirectUri, String provider) {
+    public ResponseEntity<?> initiateLogin(
+            String redirectUri, 
+            String provider, 
+            String format, 
+            String acceptHeader, 
+            String contentType
+    ) {
         AuthUrlResponse response = authenticationService.initiateLogin(redirectUri, provider);
-        return ResponseEntity.ok(ApiResponse.success("Khởi tạo đăng nhập thành công", response));
+
+        boolean wantsJson = "json".equalsIgnoreCase(format)
+                || (contentType != null && contentType.contains(org.springframework.http.MediaType.APPLICATION_JSON_VALUE))
+                || (acceptHeader != null && acceptHeader.contains(org.springframework.http.MediaType.APPLICATION_JSON_VALUE) 
+                    && !acceptHeader.contains(org.springframework.http.MediaType.TEXT_HTML_VALUE));
+
+        if (wantsJson) {
+            return ResponseEntity.ok(ApiResponse.success("Khởi tạo đăng nhập thành công", response));
+        }
+
+        return ResponseEntity.status(HttpStatus.FOUND)
+                .location(URI.create(response.getAuthorizationUrl()))
+                .build();
     }
 
     @Override
