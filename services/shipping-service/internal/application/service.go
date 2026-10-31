@@ -282,6 +282,67 @@ func (s *Service) ConfirmHandover(ctx context.Context, id uuid.UUID) (*domain.Sh
 	return shipment, nil
 }
 
+func (s *Service) CancelShipment(ctx context.Context, id uuid.UUID, reasonCode, reason string) (*domain.Shipment, error) {
+	reasonCode, err := normalizeCancellationReason(reasonCode)
+	if err != nil {
+		return nil, err
+	}
+	shipment, err := s.repository.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if shipment.Status == domain.StatusCancelled {
+		return shipment, nil
+	}
+	if shipment.Status != domain.StatusCreated && shipment.Status != domain.StatusReadyForHandover {
+		return nil, fmt.Errorf("%w: %s -> %s", domain.ErrInvalidTransition, shipment.Status, domain.StatusCancelled)
+	}
+	if strings.TrimSpace(shipment.CarrierOrderID) == "" {
+		return nil, fmt.Errorf("%w: carrier order id is required for cancellation", domain.ErrInvalidShipment)
+	}
+	provider, ok := s.carriers.Get(shipment.CarrierCode)
+	if !ok {
+		return nil, fmt.Errorf("%w: %s", domain.ErrUnsupportedCarrier, shipment.CarrierCode)
+	}
+	if err := provider.CancelShipment(ctx, carrier.CancelRequest{
+		CarrierOrderID: shipment.CarrierOrderID, ReasonCode: reasonCode, Reason: reason,
+	}); err != nil {
+		return shipment, &ProviderError{Shipment: shipment, Cause: err}
+	}
+
+	expectedRevision := shipment.Revision
+	now := s.now().UTC()
+	if err := shipment.Transition(domain.StatusCancelled, now); err != nil {
+		return nil, err
+	}
+	tracking := &domain.TrackingEvent{
+		ID: uuid.New(), ShipmentID: shipment.ID,
+		ExternalEventID: "cancel-request:" + shipment.CarrierOrderID, CarrierCode: shipment.CarrierCode,
+		ProviderStatusCode: "cancel", ProviderStatusLabel: "Cancelled by shipping request",
+		MappedStatus: domain.StatusCancelled, MappingResult: "APPLIED",
+		PublicDescription: "Vận đơn đã được hủy", InternalNote: strings.TrimSpace(reason),
+		EventAt: now, ReceivedAt: now,
+	}
+	if err := s.repository.Save(ctx, shipment, expectedRevision, tracking, nil); err != nil {
+		return nil, err
+	}
+	return shipment, nil
+}
+
+func normalizeCancellationReason(reasonCode string) (string, error) {
+	value := strings.ToUpper(strings.TrimSpace(reasonCode))
+	if value == "" {
+		value = carrier.CancelReasonOther
+	}
+	switch value {
+	case carrier.CancelReasonPickupDelay, carrier.CancelReasonOutOfStock,
+		carrier.CancelReasonRecipientChangedMind, carrier.CancelReasonOther:
+		return value, nil
+	default:
+		return "", fmt.Errorf("%w: unsupported cancellation reason code %q", domain.ErrInvalidShipment, reasonCode)
+	}
+}
+
 func (s *Service) ApplyWebhook(ctx context.Context, carrierCode string, body []byte) (*domain.Shipment, string, error) {
 	provider, ok := s.carriers.Get(carrierCode)
 	if !ok {

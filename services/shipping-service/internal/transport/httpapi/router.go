@@ -43,6 +43,7 @@ func NewRouter(service *application.Service, internalToken, fakeWebhookSecret, g
 	r.Get("/health/ready", h.ready)
 	r.With(h.requireInternalToken).Post("/api/v1/internal/shipping/quotes", h.quote)
 	r.With(h.requireInternalToken).Post("/api/v1/internal/shipments", h.createShipment)
+	r.With(h.requireInternalToken).Post("/api/v1/internal/shipments/{shipmentID}/cancel", h.cancelShipment)
 	r.With(h.requireInternalToken).Post("/api/v1/internal/shipments/{shipmentID}/handover", h.confirmHandover)
 	r.With(h.requireInternalToken).Get("/api/v1/admin/shipping/shipments", h.listShipments)
 	r.With(h.requireInternalToken).Get("/api/v1/admin/shipping/shipments/{shipmentID}", h.getShipment)
@@ -121,6 +122,37 @@ func (h *Router) confirmHandover(w http.ResponseWriter, r *http.Request) {
 	}
 	shipment, err := h.service.ConfirmHandover(r.Context(), id)
 	if err != nil {
+		h.handleError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, shipment)
+}
+
+type cancelShipmentRequest struct {
+	ReasonCode string `json:"reason_code"`
+	Reason     string `json:"reason"`
+}
+
+func (h *Router) cancelShipment(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(chi.URLParam(r, "shipmentID"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_SHIPMENT_ID", "shipmentID must be a UUID")
+		return
+	}
+	var request cancelShipmentRequest
+	if !decodeJSON(w, r, &request) {
+		return
+	}
+	shipment, err := h.service.CancelShipment(r.Context(), id, request.ReasonCode, request.Reason)
+	if err != nil {
+		var providerErr *application.ProviderError
+		if errors.As(err, &providerErr) {
+			writeJSON(w, http.StatusBadGateway, map[string]any{
+				"error":    errorBody{Code: "CARRIER_CANCEL_REJECTED", Message: providerErr.Cause.Error()},
+				"shipment": shipment,
+			})
+			return
+		}
 		h.handleError(w, err)
 		return
 	}

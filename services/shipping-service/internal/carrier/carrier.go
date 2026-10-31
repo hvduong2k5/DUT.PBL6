@@ -10,6 +10,13 @@ import (
 
 var ErrInvalidWebhook = errors.New("invalid carrier webhook")
 
+const (
+	CancelReasonPickupDelay          = "PICKUP_DELAY"
+	CancelReasonOutOfStock           = "OUT_OF_STOCK"
+	CancelReasonRecipientChangedMind = "RECIPIENT_CHANGED_MIND"
+	CancelReasonOther                = "OTHER"
+)
+
 type QuoteRequest struct {
 	Destination domain.Recipient `json:"destination"`
 	Parcel      domain.Parcel    `json:"parcel"`
@@ -48,6 +55,12 @@ type CreateResult struct {
 	EstimatedDeliveryAt *time.Time
 }
 
+type CancelRequest struct {
+	CarrierOrderID string
+	ReasonCode     string
+	Reason         string
+}
+
 type WebhookUpdate struct {
 	ExternalEventID     string
 	TrackingCode        string
@@ -64,6 +77,7 @@ type Carrier interface {
 	Code() string
 	Quote(context.Context, QuoteRequest) (Quote, error)
 	CreateShipment(context.Context, CreateRequest) (CreateResult, error)
+	CancelShipment(context.Context, CancelRequest) error
 	ParseWebhook(body []byte) (WebhookUpdate, error)
 }
 

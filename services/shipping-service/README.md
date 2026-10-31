@@ -67,6 +67,12 @@ another carrier order; a definitive provider `4xx` is never retried or reconcile
 detail response omits `total_fee`, recovery refreshes it with a non-mutating preview and falls
 back to the checkout quote if that preview is temporarily unavailable.
 
+Cancel a shipment through `POST /api/v1/internal/shipments/{shipmentID}/cancel` with internal
+authentication and a provider-neutral `reason_code`: `PICKUP_DELAY`, `OUT_OF_STOCK`,
+`RECIPIENT_CHANGED_MIND`, or `OTHER`. Cancellation is allowed only before carrier handover.
+GHN timeout and retryable failures are reconciled through order detail; Shipping never sends a
+blind second cancellation request.
+
 Configure the GHN Developer Portal only after the public endpoint is reachable. Add the custom
 header `X-GHN-Webhook-Secret` with the same value as `SHIPPING_GHN_WEBHOOK_SECRET`. A missing
 local shipment returns `503` so GHN retries a callback that raced the shipment transaction;

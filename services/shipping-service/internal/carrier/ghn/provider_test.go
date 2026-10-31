@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -186,6 +187,93 @@ func TestCreateShipmentDoesNotReconcileDefinitiveProviderError(t *testing.T) {
 	}
 	if calls != 1 {
 		t.Fatalf("definitive 4xx must not trigger reconciliation, got %d calls", calls)
+	}
+}
+
+func TestCancelShipmentMapsReasonAndAcceptsProviderResult(t *testing.T) {
+	calls := 0
+	client := testClientWithDoer(t, doerFunc(func(r *http.Request) (*http.Response, error) {
+		calls++
+		if r.Method != http.MethodPost || r.URL.Path != "/shiip/public-api/v2/switch-status/cancel" {
+			t.Fatalf("unexpected request %s %s", r.Method, r.URL.String())
+		}
+		var payload cancelOrderRequest
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			t.Fatal(err)
+		}
+		if len(payload.OrderCodes) != 1 || payload.OrderCodes[0] != "LADFYR" ||
+			payload.ReasonCode != "GHN-CO003" || payload.Reason != "Khách đổi ý" {
+			t.Fatalf("unexpected cancel payload: %+v", payload)
+		}
+		return response(t, http.StatusOK, []map[string]any{{
+			"order_code": "LADFYR", "result": true, "message": "OK",
+		}}), nil
+	}))
+
+	err := client.CancelShipment(context.Background(), carrier.CancelRequest{
+		CarrierOrderID: "LADFYR", ReasonCode: carrier.CancelReasonRecipientChangedMind, Reason: "Khách đổi ý",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if calls != 1 {
+		t.Fatalf("expected one cancel request, got %d", calls)
+	}
+}
+
+func TestCancelShipmentConfirmsAmbiguousResultWithoutRetryingMutation(t *testing.T) {
+	calls := 0
+	client := testClientWithDoer(t, doerFunc(func(r *http.Request) (*http.Response, error) {
+		calls++
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/shiip/public-api/v2/switch-status/cancel":
+			return nil, context.DeadlineExceeded
+		case r.Method == http.MethodGet && r.URL.Path == "/shiip/public-api/v2/shipping-order/detail":
+			if r.URL.Query().Get("order_code") != "LADFYR" {
+				t.Fatalf("unexpected detail query %q", r.URL.RawQuery)
+			}
+			return response(t, http.StatusOK, map[string]any{
+				"order_code": "LADFYR", "status": "cancel",
+			}), nil
+		default:
+			t.Fatalf("unexpected request %s %s", r.Method, r.URL.String())
+			return nil, nil
+		}
+	}))
+
+	if err := client.CancelShipment(context.Background(), carrier.CancelRequest{CarrierOrderID: "LADFYR"}); err != nil {
+		t.Fatal(err)
+	}
+	if calls != 2 {
+		t.Fatalf("ambiguous cancellation must use one status lookup, got %d calls", calls)
+	}
+}
+
+func TestCancelShipmentRejectsProviderResultWhenOrderIsNotCancelled(t *testing.T) {
+	calls := 0
+	client := testClientWithDoer(t, doerFunc(func(r *http.Request) (*http.Response, error) {
+		calls++
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/shiip/public-api/v2/switch-status/cancel":
+			return response(t, http.StatusOK, []map[string]any{{
+				"order_code": "LADFYR", "result": false, "message": "Trạng thái đơn hàng không hợp lệ",
+			}}), nil
+		case r.Method == http.MethodGet && r.URL.Path == "/shiip/public-api/v2/shipping-order/detail":
+			return response(t, http.StatusOK, map[string]any{
+				"order_code": "LADFYR", "status": "picked",
+			}), nil
+		default:
+			t.Fatalf("unexpected request %s %s", r.Method, r.URL.String())
+			return nil, nil
+		}
+	}))
+
+	err := client.CancelShipment(context.Background(), carrier.CancelRequest{CarrierOrderID: "LADFYR"})
+	if err == nil || !strings.Contains(err.Error(), "Trạng thái đơn hàng không hợp lệ") {
+		t.Fatalf("expected provider rejection, got %v", err)
+	}
+	if calls != 2 {
+		t.Fatalf("expected cancel and status lookup, got %d calls", calls)
 	}
 }
 

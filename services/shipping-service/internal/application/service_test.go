@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"sync"
 	"testing"
 
@@ -147,6 +148,66 @@ func TestCreateShipmentIsIdempotent(t *testing.T) {
 	}
 	if len(repository.byID) != 1 {
 		t.Fatalf("expected one shipment, got %d", len(repository.byID))
+	}
+}
+
+func TestCancelShipmentTransitionsAndIsIdempotent(t *testing.T) {
+	repository := newMemoryRepository()
+	service := NewService(repository, carrier.NewRegistry(carrier.NewFake()))
+	shipment, err := service.CreateShipment(context.Background(), applicationCommand())
+	if err != nil {
+		t.Fatal(err)
+	}
+	cancelled, err := service.CancelShipment(context.Background(), shipment.ID, carrier.CancelReasonOther, "Không còn nhu cầu giao")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cancelled.Status != domain.StatusCancelled {
+		t.Fatalf("expected cancelled shipment, got %s", cancelled.Status)
+	}
+	replayed, err := service.CancelShipment(context.Background(), shipment.ID, carrier.CancelReasonOther, "retry")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if replayed.Status != domain.StatusCancelled || replayed.Revision != cancelled.Revision {
+		t.Fatalf("idempotent cancellation changed shipment: %+v", replayed)
+	}
+	timeline, err := repository.TrackingTimeline(context.Background(), shipment.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(timeline) != 1 || timeline[0].MappedStatus != domain.StatusCancelled {
+		t.Fatalf("unexpected cancellation timeline: %+v", timeline)
+	}
+}
+
+func TestCancelShipmentRejectsAfterHandover(t *testing.T) {
+	repository := newMemoryRepository()
+	service := NewService(repository, carrier.NewRegistry(carrier.NewFake()))
+	shipment, err := service.CreateShipment(context.Background(), applicationCommand())
+	if err != nil {
+		t.Fatal(err)
+	}
+	shipment, err = service.ConfirmHandover(context.Background(), shipment.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = service.CancelShipment(context.Background(), shipment.ID, carrier.CancelReasonOther, "too late")
+	if !errors.Is(err, domain.ErrInvalidTransition) {
+		t.Fatalf("expected invalid transition, got %v", err)
+	}
+}
+
+func TestCancelShipmentRejectsUnknownReasonCode(t *testing.T) {
+	repository := newMemoryRepository()
+	service := NewService(repository, carrier.NewRegistry(carrier.NewFake()))
+	shipment, err := service.CreateShipment(context.Background(), applicationCommand())
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = service.CancelShipment(context.Background(), shipment.ID, "UNKNOWN", "invalid")
+	if !errors.Is(err, domain.ErrInvalidShipment) {
+		t.Fatalf("expected invalid shipment, got %v", err)
 	}
 }
 

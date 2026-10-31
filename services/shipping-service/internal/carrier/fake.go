@@ -72,6 +72,13 @@ func (f *Fake) CreateShipment(_ context.Context, req CreateRequest) (CreateResul
 	}, nil
 }
 
+func (f *Fake) CancelShipment(_ context.Context, req CancelRequest) error {
+	if strings.TrimSpace(req.CarrierOrderID) == "" {
+		return fmt.Errorf("carrier order id is required")
+	}
+	return nil
+}
+
 type fakeWebhookPayload struct {
 	EventID      string    `json:"event_id"`
 	TrackingCode string    `json:"tracking_code"`

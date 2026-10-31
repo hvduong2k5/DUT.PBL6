@@ -69,6 +69,18 @@ type orderDetailResponse struct {
 	Leadtime        time.Time `json:"leadtime"`
 }
 
+type cancelOrderRequest struct {
+	OrderCodes []string `json:"order_codes"`
+	ReasonCode string   `json:"reason_code,omitempty"`
+	Reason     string   `json:"reason,omitempty"`
+}
+
+type cancelOrderResult struct {
+	OrderCode string `json:"order_code"`
+	Result    bool   `json:"result"`
+	Message   string `json:"message"`
+}
+
 func (c *Client) Quote(ctx context.Context, request carrier.QuoteRequest) (carrier.Quote, error) {
 	if err := request.Destination.Validate(); err != nil {
 		return carrier.Quote{}, err
@@ -119,7 +131,7 @@ func (c *Client) CreateShipment(ctx context.Context, request carrier.CreateReque
 	)
 	var result orderResponse
 	if createErr := c.do(ctx, http.MethodPost, "/shiip/public-api/v2/shipping-order/create", payload, &result); createErr != nil {
-		if !isAmbiguousCreateError(createErr) {
+		if !isAmbiguousMutationError(createErr) {
 			return carrier.CreateResult{}, createErr
 		}
 		reconcileCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), c.reconcileTimeout)
@@ -158,7 +170,71 @@ func (c *Client) getOrderByClientCode(ctx context.Context, clientOrderCode strin
 	return detail, err
 }
 
-func isAmbiguousCreateError(err error) bool {
+func (c *Client) CancelShipment(ctx context.Context, request carrier.CancelRequest) error {
+	orderCode := strings.TrimSpace(request.CarrierOrderID)
+	if orderCode == "" {
+		return fmt.Errorf("GHN carrier order id is required")
+	}
+	reasonCode, err := resolveCancelReason(request.ReasonCode)
+	if err != nil {
+		return err
+	}
+	payload := cancelOrderRequest{
+		OrderCodes: []string{orderCode}, ReasonCode: reasonCode, Reason: strings.TrimSpace(request.Reason),
+	}
+	var results []cancelOrderResult
+	if cancelErr := c.do(ctx, http.MethodPost, "/shiip/public-api/v2/switch-status/cancel", payload, &results); cancelErr != nil {
+		if !isAmbiguousMutationError(cancelErr) {
+			return cancelErr
+		}
+		return c.confirmCancellation(ctx, orderCode, cancelErr)
+	}
+	if len(results) != 1 || !strings.EqualFold(strings.TrimSpace(results[0].OrderCode), orderCode) {
+		return fmt.Errorf("GHN cancel returned a mismatched result")
+	}
+	if results[0].Result {
+		return nil
+	}
+	rejected := fmt.Errorf("GHN cancel rejected order %s: %s", orderCode, strings.TrimSpace(results[0].Message))
+	return c.confirmCancellation(ctx, orderCode, rejected)
+}
+
+func (c *Client) confirmCancellation(ctx context.Context, orderCode string, operationErr error) error {
+	reconcileCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), c.reconcileTimeout)
+	defer cancel()
+	detail, detailErr := c.getOrderByCode(reconcileCtx, orderCode)
+	if detailErr == nil && strings.EqualFold(strings.TrimSpace(detail.Status), "cancel") {
+		return nil
+	}
+	if detailErr != nil {
+		return fmt.Errorf("GHN cancellation could not be confirmed: %w", errors.Join(operationErr, detailErr))
+	}
+	return operationErr
+}
+
+func (c *Client) getOrderByCode(ctx context.Context, orderCode string) (orderDetailResponse, error) {
+	query := url.Values{"order_code": []string{orderCode}}
+	var detail orderDetailResponse
+	err := c.do(ctx, http.MethodGet, "/shiip/public-api/v2/shipping-order/detail?"+query.Encode(), nil, &detail)
+	return detail, err
+}
+
+func resolveCancelReason(reasonCode string) (string, error) {
+	switch strings.ToUpper(strings.TrimSpace(reasonCode)) {
+	case "", carrier.CancelReasonOther:
+		return "GHN-CANCEL-OTHER", nil
+	case carrier.CancelReasonPickupDelay:
+		return "GHN-CO001", nil
+	case carrier.CancelReasonOutOfStock:
+		return "GHN-CO002", nil
+	case carrier.CancelReasonRecipientChangedMind:
+		return "GHN-CO003", nil
+	default:
+		return "", fmt.Errorf("unsupported cancellation reason code %q", reasonCode)
+	}
+}
+
+func isAmbiguousMutationError(err error) bool {
 	var apiErr *APIError
 	if errors.As(err, &apiErr) {
 		return apiErr.Temporary()
