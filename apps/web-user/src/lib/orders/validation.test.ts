@@ -13,9 +13,21 @@ describe("Order route validation", () => {
     expect(parseOrderRoute("POST", ["guest-access", "challenges", "challenge-001", "verify"], new URLSearchParams()).operation).toBe("guest-verify");
   });
 
-  it("rejects arbitrary queries and non-UUID Order IDs", () => {
+  it("parses opaque cursor pagination and exact Order status filters", () => {
+    expect(parseOrderRoute("GET", [], new URLSearchParams("limit=25&status=PAID&cursor=signed%2Bcursor")).listQuery).toEqual({
+      limit: 25,
+      status: "PAID",
+      cursor: "signed+cursor"
+    });
+    expect(parseOrderRoute("GET", [], new URLSearchParams()).listQuery).toEqual({ limit: 20 });
+  });
+
+  it("rejects arbitrary, duplicate or invalid queries and non-UUID Order IDs", () => {
     expect(parseOrderRoute("GET", [], new URLSearchParams("customerId=other")).error?.field).toBe("customerId");
     expect(parseOrderRoute("GET", [], new URLSearchParams("page=1")).error?.field).toBe("page");
+    expect(parseOrderRoute("GET", [], new URLSearchParams("limit=0")).error?.field).toBe("limit");
+    expect(parseOrderRoute("GET", [], new URLSearchParams("status=PAID&status=SHIPPED")).error?.field).toBe("status");
+    expect(parseOrderRoute("GET", [ORDER_ID], new URLSearchParams("cursor=signed")).error?.field).toBe("cursor");
     expect(parseOrderRoute("DELETE", ["order-mock-001"], new URLSearchParams()).error?.field).toBe("path");
   });
 });

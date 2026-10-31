@@ -9,6 +9,7 @@ import {
   type OrderQuote,
   type OrderStatus,
   type OrderStockStatus,
+  type OrderTrackingResponse,
   type OwnedOrder,
   type OwnedOrdersResponse
 } from "@/lib/api-contract";
@@ -171,6 +172,14 @@ export function isOwnedOrdersResponse(value: unknown): value is OwnedOrdersRespo
     && isText(value.next_cursor);
 }
 
+export function isOrderTrackingResponse(value: unknown): value is OrderTrackingResponse {
+  return isRecord(value)
+    && Object.keys(value).length === 2
+    && (value.shipment_id === null || (isText(value.shipment_id) && UUID_PATTERN.test(value.shipment_id)))
+    && isText(value.order_status)
+    && value.order_status.length > 0;
+}
+
 export function isOrderCancellation(value: unknown): value is OrderCancellation {
   if (!isRecord(value)) return false;
   return isText(value.cancellation_id)
@@ -246,20 +255,6 @@ export function mapMvpOrderDetail(value: OwnedOrder): OrderDetail {
       ...(lineSubtotalVnd !== undefined ? { lineSubtotalVnd } : {})
     };
   });
-  const timeline: OrderDetail["timeline"] = [{
-    code: "ORDER_CREATED",
-    label: "Order đã được tạo",
-    description: "Order snapshot đã được hệ thống ghi nhận.",
-    occurredAt: value.created_at,
-    state: value.updated_at === value.created_at ? "CURRENT" : "COMPLETED"
-  }];
-  if (value.updated_at !== value.created_at) timeline.push({
-    code: `ORDER_${value.status}`,
-    label: STATUS_LABELS[value.status],
-    description: "Trạng thái canonical mới nhất của Order.",
-    occurredAt: value.updated_at,
-    state: "CURRENT"
-  });
   return {
     orderId: value.order_id,
     operationId: value.operation_id,
@@ -298,7 +293,6 @@ export function mapMvpOrderDetail(value: OwnedOrder): OrderDetail {
         addressDisplay: [snapshot.address.street, snapshot.address.ward_code, snapshot.address.province_code].filter(Boolean).join(", ")
       }
     } : {}),
-    timeline,
     allowedActions: value.allowed_actions,
     operationalHold: value.operational_hold,
     hasActiveCase: value.has_active_case,

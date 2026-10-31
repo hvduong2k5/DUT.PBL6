@@ -20,12 +20,13 @@ Vitest dùng cùng alias `@` với TypeScript. Test files chạy tuần tự tro
 
 ## 2. Kết quả local
 
-| Kiểm tra | Kết quả ngày 2026-10-30 |
+| Kiểm tra | Kết quả ngày 2026-10-31 |
 | --- | --- |
 | Next route type generation | PASS |
 | TypeScript `--noEmit` | PASS |
 | ESLint toàn bộ Web User | PASS |
-| Vitest | PASS — 26 files, 87 tests |
+| Vitest | PASS — 27 files, 89 tests |
+| Next.js production build | PASS — 18 static pages generated; dynamic BFF/routes compiled |
 | `git diff --check` | PASS |
 
 ## 3. Regression quan trọng
@@ -39,6 +40,9 @@ Vitest dùng cùng alias `@` với TypeScript. Test files chạy tuần tự tro
 | Principal projection | Customer/Employee, role, permission và Customer mapping được parse tách biệt; token không lộ trong session response. |
 | Profile contract | Email read-only không bị validate/gửi lại trong Profile mutation. |
 | Catalog contract | Availability dùng `AVAILABLE`, `UNAVAILABLE`, `UNKNOWN`; test cũ không còn dựa vào boolean tự suy diễn. |
+| Full-cart Checkout | Preparation giữ toàn bộ dòng Cart tại đúng revision; quote bắt buộc đúng một dạng địa chỉ. |
+| Order pagination | BFF chỉ nhận `limit/status/cursor`, từ chối query trùng/không hỗ trợ và giữ cursor opaque. |
+| Minimal tracking | DTO chỉ nhận `shipment_id` nullable và `order_status`; từ chối timeline/checkpoint tự thêm. |
 
 ## 4. Sửa hạ tầng kiểm tra
 

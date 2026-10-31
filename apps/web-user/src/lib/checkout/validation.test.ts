@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseCheckoutRoute, validateConfirmCheckoutInput, validatePrepareCheckoutInput, validateQuoteShippingInput } from "./validation";
+import { parseCheckoutRoute, validateConfirmCheckoutInput, validateMvpQuoteRequest, validatePrepareCheckoutInput, validateQuoteShippingInput } from "./validation";
 
 const address = {
   provinceCode: "HUE", provinceName: "Thành phố Huế", wardCode: "PHU-NHUAN",
@@ -21,6 +21,14 @@ describe("Checkout route allowlist", () => {
 });
 
 describe("Checkout request validation", () => {
+  it("requires exactly one shipping address representation for an MVP quote", () => {
+    const inlineAddress = { recipient_name: "Nguyễn Văn An", phone: "0914288668", street: "84 Nguyễn Huệ", ward_code: "WARD-1", province_code: "PROVINCE-1" };
+    expect(validateMvpQuoteRequest({ cart_revision: 3, payment_method: "VIETQR", address: inlineAddress }).errors).toEqual([]);
+    expect(validateMvpQuoteRequest({ cart_revision: 3, payment_method: "VIETQR", shipping_address_id: "11111111-1111-4111-8111-111111111111" }).errors).toEqual([]);
+    expect(validateMvpQuoteRequest({ cart_revision: 3, payment_method: "VIETQR" }).errors[0].field).toBe("address");
+    expect(validateMvpQuoteRequest({ cart_revision: 3, payment_method: "VIETQR", address: inlineAddress, shipping_address_id: "11111111-1111-4111-8111-111111111111" }).errors[0].field).toBe("address");
+  });
+
   it("accepts unique selected cart lines and a complete quote request", () => {
     expect(validatePrepareCheckoutInput({ itemIds: ["line-1", "line-2"] }).data?.itemIds).toHaveLength(2);
     expect(validateQuoteShippingInput({ checkoutSessionId: "checkout-123e4567-e89b-12d3-a456-426614174000", itemIds: ["line-1"], address }).errors).toEqual([]);

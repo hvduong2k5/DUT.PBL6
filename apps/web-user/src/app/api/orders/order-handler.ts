@@ -8,7 +8,7 @@ import { authorizeCustomerCapability, customerAccessFailure } from "@/lib/auth/c
 import { applyTrustedAuthorization, getTrustedAccessToken } from "@/lib/auth/server-credential";
 import { MVP_FEATURE_GATES } from "@/lib/mvp-feature-gates";
 import { GUEST_ORDER_ACCESS_COOKIE, decodeGuestOrderAccess, encodeGuestOrderAccess } from "@/lib/orders/guest-access";
-import { isOrderCancellation, isOwnedOrder, isOwnedOrdersResponse } from "@/lib/orders/mvp";
+import { isOrderCancellation, isOrderTrackingResponse, isOwnedOrder, isOwnedOrdersResponse } from "@/lib/orders/mvp";
 import type { GuestChallenge, GuestVerification } from "@/lib/orders/types";
 import { parseOrderRoute, validateGuestChallenge, validateGuestOtp, validateMvpCancelRequest } from "@/lib/orders/validation";
 import { NextRequest, NextResponse } from "next/server";
@@ -225,7 +225,10 @@ export async function handleOrderRequest(request: NextRequest, path: string[]): 
     }
 
     if (route.operation === "list") {
-      const result = await upstream(request, "orders", "GET", route.mockScenario);
+      const query = new URLSearchParams({ limit: String(route.listQuery?.limit ?? 20) });
+      if (route.listQuery?.status) query.set("status", route.listQuery.status);
+      if (route.listQuery?.cursor) query.set("cursor", route.listQuery.cursor);
+      const result = await upstream(request, `orders?${query}`, "GET", route.mockScenario);
       if (!result.response.ok) return relayError(result.payload, result.response);
       if (result.response.status !== 200 || !isOwnedOrdersResponse(result.payload)) {
         return publicErrorResponse(502, "INVALID_ORDERS_RESPONSE", "Danh sách Order không đúng public contract.", "BFF-ORDER-LIST");
@@ -245,7 +248,7 @@ export async function handleOrderRequest(request: NextRequest, path: string[]): 
     if (route.operation === "tracking" && route.orderId) {
       const result = await upstream(request, `orders/${encodeURIComponent(route.orderId)}/tracking`, "GET", route.mockScenario);
       if (!result.response.ok) return relayError(result.payload, result.response);
-      if (result.response.status !== 200 || !isRecord(result.payload)) {
+      if (result.response.status !== 200 || !isOrderTrackingResponse(result.payload)) {
         return publicErrorResponse(502, "INVALID_TRACKING_RESPONSE", "Order tracking không đúng public contract.", "BFF-ORDER-TRACKING");
       }
       return NextResponse.json(result.payload, { headers: responseHeaders(result.response) });

@@ -9,31 +9,22 @@ import type {
   OrderStatus
 } from "@/lib/orders/types";
 
-type OrderStatusFilter = OrderStatus | "ALL" | "CANCELLED";
+type OrderStatusFilter = OrderStatus | "ALL";
 
-function endpoint(path: string, mockScenario?: string): string {
+function endpoint(path: string, mockScenario?: string, query?: URLSearchParams): string {
   const params = new URLSearchParams();
+  query?.forEach((value, key) => params.set(key, value));
   if (mockScenario) params.set("mockScenario", mockScenario);
   return `/api/orders${path}${params.size ? `?${params}` : ""}`;
 }
 
-function matchesStatus(status: OrderStatus, filter: OrderStatusFilter): boolean {
-  return filter === "ALL" || status === filter || (filter === "CANCELLED" && status.startsWith("CANCELLED_"));
-}
-
 export const orderService = {
-  async list(input: { q?: string; status?: OrderStatusFilter; year?: number; mockScenario?: string }): Promise<OrderListResponse> {
-    const response = await requestPublicJson<OwnedOrdersResponse>(endpoint("", input.mockScenario), { credentials: "include" });
-    const mapped = mapMvpOrderListResponse(response.data);
-    const query = input.q?.trim().toLocaleLowerCase("vi") ?? "";
-    const status = input.status ?? "ALL";
-    const items = mapped.items.filter((item) => (
-      matchesStatus(item.status, status)
-      && (!input.year || new Date(item.placedAt).getFullYear() === input.year)
-      && (!query || item.orderNumber.toLocaleLowerCase("vi").includes(query)
-        || item.previewItems.some((preview) => preview.name.toLocaleLowerCase("vi").includes(query)))
-    ));
-    return { ...mapped, items, resultCount: items.length };
+  async list(input: { cursor?: string; limit?: number; status?: OrderStatusFilter; mockScenario?: string } = {}): Promise<OrderListResponse> {
+    const query = new URLSearchParams({ limit: String(input.limit ?? 20) });
+    if (input.cursor) query.set("cursor", input.cursor);
+    if (input.status && input.status !== "ALL") query.set("status", input.status);
+    const response = await requestPublicJson<OwnedOrdersResponse>(endpoint("", input.mockScenario, query), { credentials: "include" });
+    return mapMvpOrderListResponse(response.data);
   },
 
   async detail(orderId: string, mockScenario?: string) {

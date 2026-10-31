@@ -14,12 +14,8 @@ export interface OrderRouteValidation {
   orderId?: string;
   challengeId?: string;
   mockScenario?: string;
+  listQuery?: { cursor?: string; limit: number; status?: string };
   error?: { field: string; message: string };
-}
-
-function scenario(params: URLSearchParams) {
-  const value = params.get("mockScenario") || undefined;
-  return value && !SCENARIO_PATTERN.test(value) ? undefined : value;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -27,12 +23,27 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 export function parseOrderRoute(method: string, path: string[], params: URLSearchParams): OrderRouteValidation {
-  const mockScenario = scenario(params);
-  if (params.has("mockScenario") && !mockScenario) return { error: { field: "mockScenario", message: "Mock scenario không hợp lệ." } };
+  const duplicate = [...new Set(params.keys())].find((key) => params.getAll(key).length !== 1);
+  if (duplicate) return { error: { field: duplicate, message: "Query không được phép lặp lại." } };
+  const mockScenario = params.get("mockScenario") || undefined;
+  if (mockScenario && !SCENARIO_PATTERN.test(mockScenario)) return { error: { field: "mockScenario", message: "Mock scenario không hợp lệ." } };
+
+  if (method === "GET" && path.length === 0) {
+    const unexpected = [...params.keys()].find((key) => !["mockScenario", "cursor", "limit", "status"].includes(key));
+    if (unexpected) return { error: { field: unexpected, message: "Query không thuộc public Order contract." } };
+    const limitText = params.get("limit");
+    const limit = limitText === null ? 20 : Number(limitText);
+    if (!Number.isInteger(limit) || limit < 1 || limit > 100 || (limitText !== null && !/^\d+$/u.test(limitText))) {
+      return { error: { field: "limit", message: "Limit phải là số nguyên từ 1 đến 100." } };
+    }
+    const cursor = params.get("cursor") || undefined;
+    if (cursor && cursor.length > 4096) return { error: { field: "cursor", message: "Cursor không hợp lệ." } };
+    const status = params.get("status") || undefined;
+    if (status && status.length > 64) return { error: { field: "status", message: "Trạng thái Order không hợp lệ." } };
+    return { operation: "list", mockScenario, listQuery: { limit, ...(cursor ? { cursor } : {}), ...(status ? { status } : {}) } };
+  }
   const unexpected = [...params.keys()].find((key) => key !== "mockScenario");
   if (unexpected) return { error: { field: unexpected, message: "Query không thuộc public Order contract." } };
-
-  if (method === "GET" && path.length === 0) return { operation: "list", mockScenario };
   if (method === "POST" && path.length === 2 && path[0] === "guest-access" && path[1] === "challenges") {
     return { operation: "guest-challenge", mockScenario };
   }

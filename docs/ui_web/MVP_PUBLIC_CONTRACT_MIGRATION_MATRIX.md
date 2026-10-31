@@ -6,13 +6,13 @@
 
 | Mục | Giá trị |
 | --- | --- |
-| Release | `mvp-2026-10-26` |
+| Release | `mvp-2026-10-31` |
 | Trạng thái contract | `integration-target` |
 | Runtime acceptance | `pending` |
 | Contract branch | `integration/mvp-contracts` |
-| Contract commit | `9416090bb476406b4928f376c594cc1748671c49` |
+| Contract commit | `2d7737b2b6112456cec3cdf9090833ceb38fcc3e` |
 | Public contract | `docs/03_api_specs/mvp-customer.openapi.yaml` |
-| Public contract Git blob | `af684a9e747d42a8b4c77412a8b9f5324a77a3f7` |
+| Public contract Git blob | `bc2da53910efb205ec4dcbaf4a57da5c55a9a746` |
 | Frontend baseline | `feature/ui-web@b1ff2918c7297fc93d0cb9a15cc1d0a0ee46b72e` |
 | Public operations | 30 |
 
@@ -49,7 +49,7 @@ Các file `customer-stable`, `customer-draft-planned`, `web-reference/*` và `*.
 | `POST /api/v1/cart/items` — `order_addCartItem` | `POST /api/cart/items` | `ALIGNED` | Đã gửi `sku_code`, `quantity`, `revision`; response và lỗi dùng contract chung. |
 | `PUT /api/v1/cart/items/{item_id}` — `order_updateCartItem` | `PUT /api/cart/items/{itemId}` | `ALIGNED` | Đã dùng PUT, gửi revision và hiển thị riêng lỗi conflict `409`. |
 | `DELETE /api/v1/cart/items/{item_id}` — `order_deleteCartItem` | `DELETE /api/cart/items/{itemId}` | `ALIGNED` | BFF xóa theo ownership rồi đọc lại snapshot canonical cho UI. |
-| `POST /api/v1/checkout/quote` — `order_createCheckoutQuote` | `POST /api/checkout/quote` | `ALIGNED` | Đã bỏ quote phí `0`; gửi `cart_revision`, `payment_method`, address/address ID và nhận `OrderQuote` canonical. |
+| `POST /api/v1/checkout/quote` — `order_createCheckoutQuote` | `POST /api/checkout/quote` | `ALIGNED` | Quote toàn bộ giỏ tại `cart_revision`; gửi đúng một trong `shipping_address_id` hoặc `address`, không gửi item selection. |
 | `POST /api/v1/checkout` — `order_acceptCheckout` | `POST /api/checkout` | `ALIGNED` | Chỉ gửi `quote_id`, `cart_revision`, `payment_method`; `Idempotency-Key` nằm ở header và được giữ ổn định cho cùng lệnh. |
 | `GET /api/v1/checkout-operations/{id}` — `order_getCheckoutOperation` | `GET /api/checkout/operations/{id}` | `ALIGNED` | Đã poll operation theo `Retry-After`, dừng ở terminal state và chỉ dùng `order_id` khi `SUCCEEDED`. |
 
@@ -57,9 +57,9 @@ Các file `customer-stable`, `customer-draft-planned`, `web-reference/*` và `*.
 
 | Public operation | BFF/UI hiện tại | Trạng thái | Việc phải làm ở giai đoạn triển khai |
 | --- | --- | --- | --- |
-| `GET /api/v1/orders` — `order_listOwnedOrders` | `GET /api/orders` | `ALIGNED` | BFF trả `items/next_cursor` canonical; search/status/year chỉ lọc response hiện tại ở browser, không gửi query ngoài contract. |
+| `GET /api/v1/orders` — `order_listOwnedOrders` | `GET /api/orders` | `ALIGNED` | BFF forward `limit/status/cursor`; UI reset cursor khi đổi status, append và dedup theo Order UUID; không gửi `q/page/pageSize`. |
 | `GET /api/v1/orders/{id}` — `order_getOwnedOrder` | `GET /api/orders/{id}` | `ALIGNED` | Đã map `OrderOrder`, giữ lifecycle/payment/stock/cancellation độc lập và dùng `allowed_actions` làm authority UI. |
-| `GET /api/v1/orders/{id}/tracking` — `order_getOrderTracking` | `GET /api/orders/{id}/tracking` | `ALIGNED` | Refresh tracking độc lập; UI không suy diễn checkpoint/carrier vì baseline hiện chỉ khai báo response là object. |
+| `GET /api/v1/orders/{id}/tracking` — `order_getOrderTracking` | `GET /api/orders/{id}/tracking` | `ALIGNED` | Kiểm DTO `{shipment_id,order_status}` strict; hiển thị trạng thái thật và không tự dựng carrier/checkpoint/timeline. |
 | `POST /api/v1/orders/{id}/cancel` — `order_cancelOrder` | `POST /api/orders/{id}/cancel` | `ALIGNED` | Đã gửi decimal Order version qua `If-Match`, public `Idempotency-Key`, body `{active,reason}` và giữ kết quả `200/202`. |
 | `POST /api/v1/orders/{id}/cancellation-requests` — `order_requestPaidCancellation` | Chưa có | `GATED` | Thêm sau khi paid cancellation policy/provider được chấp nhận. |
 | `POST /api/v1/guest-sessions` — `order_createGuestSession` | Cookie cart context tự tạo ở BFF | `GATED` | Không coi cookie local là guest credential backend; triển khai khi guest flow được bật. |
@@ -187,6 +187,8 @@ Các quy tắc đã áp dụng:
 - `FAILED` và `MANUAL_REVIEW` được hiển thị riêng. Operation chưa terminal có thể tiếp tục poll bằng chính `operation_id`, không tạo lại lệnh Checkout.
 - Các cookie/grant tự khai của Checkout cũ, `X-Session-Id`, QR/payment claim cục bộ và guest credential giả đã bị loại khỏi luồng production.
 - Bước chuẩn bị màn hình chỉ composition dữ liệu Cart, Profile, Address và locations ở browser; mọi quyết định thương mại vẫn thuộc quote backend.
+- Checkout luôn dùng toàn bộ giỏ server tại `cart_revision`; UI không còn checkbox chọn dòng hoặc query `items`, và hiển thị item/tổng/expiry canonical từ quote.
+- Khi operation thành công, frontend đọc lại Cart server nhưng không tự clear; cleanup bất đồng bộ chỉ được backend áp dụng cho đúng cart ID/revision đã mua.
 - Mockoon mobile hiện tại chưa có ba operation quote/accept/poll theo target. Frontend vì vậy fail closed cho đến khi backend hoặc mock contract mới được cung cấp, thay vì quay về luồng cũ không tương thích.
 
 ## 13. Kết quả Giai đoạn 7 — Order
@@ -194,12 +196,12 @@ Các quy tắc đã áp dụng:
 - List/detail dùng trực tiếp `OwnedOrdersResponse` và `OwnedOrder`; BFF không còn map DTO Mockoon cũ hoặc dựng customer/total/payment/shipping state giả.
 - Order, Payment, Inventory, cancellation và compensation được trình bày độc lập. UI lấy quyền hành động từ `allowed_actions`, không suy `canCancel` từ status.
 - Snapshot sản phẩm/địa chỉ là optional đúng contract; khi vắng mặt UI hiển thị trạng thái thiếu dữ liệu thay vì nối lại Catalog/Profile hiện tại.
-- Tracking được tách thành operation riêng. Vì baseline chỉ đặc tả response `object`, frontend chỉ xác nhận endpoint khả dụng và không tự đặt tên field carrier/checkpoint.
+- Tracking dùng DTO tối thiểu `{shipment_id, order_status}`. `shipment_id=null` chỉ có nghĩa chưa có tham chiếu shipment; frontend không tự dựng carrier/checkpoint/timeline.
 - Cancel gửi `{active:true, reason}`, decimal Order `version` qua `If-Match` và public `Idempotency-Key`; cùng payload/version giữ cùng key khi outcome chưa rõ.
 - Response cancel `PENDING` chỉ là intent bền vững, không bị UI đổi thành “đã hủy”. Sau response xác định, detail được đọc lại để lấy `cancellation_status` và `compensation_status` canonical.
 - Paid cancellation (`REQUEST_CANCELLATION`) vẫn gated; UI không gọi operation Care review khi capability chưa được nghiệm thu.
 - Guest challenge/OTP cũ được giữ như extension có feature gate server-side và tắt mặc định. Public Order target vòng đầu yêu cầu bearer đã xác minh.
-- List contract trả `next_cursor` nhưng chưa khai báo cursor request parameter. UI ghi rõ còn trang nhưng không tự phát minh query; đây là contract gap cần backend/contract owner bổ sung trước khi làm phân trang tiếp.
+- List dùng cursor opaque theo `created_at DESC,id DESC`; đổi status bỏ cursor, refresh đọc lại từ đầu, `next_cursor=""` kết thúc kể cả trang cuối có đủ `limit` item.
 - Mockoon mobile hiện tại chưa trả đầy đủ `OrderOrder`; runtime mới fail closed cho đến khi backend hoặc mock contract target sẵn sàng.
 
 ## 14. Kết quả Giai đoạn 7B — Payment
@@ -243,5 +245,5 @@ Các quy tắc đã áp dụng:
 - Bổ sung regression test chứng minh BFF chỉ nhận access token từ cookie tin cậy, bỏ qua browser `Authorization`.
 - Bổ sung regression test cho `401`, Employee thiếu/có Customer mapping và capability `403` sau khi principal được xác minh.
 - Đồng bộ assertion Profile email read-only và availability ba trạng thái của Catalog/Product Detail với contract hiện tại.
-- Kết quả local ngày 2026-10-30: typecheck PASS, ESLint PASS, **26 test files / 87 tests PASS**.
+- Kết quả local ngày 2026-10-31: typecheck PASS, ESLint PASS, **27 test files / 89 tests PASS**.
 - Đây là frontend regression evidence, chưa thay thế live-service E2E hoặc owning-service runtime acceptance. Báo cáo đầy đủ nằm tại [`MVP_PUBLIC_RELEASE_VERIFICATION.md`](./MVP_PUBLIC_RELEASE_VERIFICATION.md).

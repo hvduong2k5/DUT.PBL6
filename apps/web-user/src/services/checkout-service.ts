@@ -44,7 +44,7 @@ async function getCheckoutOperation(operationId: string, options: CheckoutReques
 }
 
 export const checkoutService = {
-  async prepare(itemIds: string[], options: CheckoutRequestOptions = {}): Promise<MvpCheckoutPreparation> {
+  async prepare(options: CheckoutRequestOptions = {}): Promise<MvpCheckoutPreparation> {
     const [cart, locations, profileResult, addressesResult] = await Promise.all([
       cartService.get(options.cartScenario),
       customerService.getLocations(),
@@ -56,7 +56,7 @@ export const checkoutService = {
     const warning = profileResult.ok && addressesResult.ok
       ? undefined
       : "Chưa thể tải đầy đủ hồ sơ hoặc sổ địa chỉ. Bạn vẫn có thể nhập thông tin nhận hàng cho đơn này.";
-    return mapMvpCheckoutPreparation(cart, itemIds, locations.provinces, profile, addresses, warning);
+    return mapMvpCheckoutPreparation(cart, locations.provinces, profile, addresses, warning);
   },
 
   async createQuote(input: {

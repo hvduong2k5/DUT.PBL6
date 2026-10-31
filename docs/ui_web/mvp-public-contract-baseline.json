@@ -1,11 +1,11 @@
 {
-  "release": "mvp-2026-10-26",
+  "release": "mvp-2026-10-31",
   "contractStatus": "integration-target",
   "implementationAcceptance": "pending",
   "sourceRef": "integration/mvp-contracts",
-  "sourceCommit": "9416090bb476406b4928f376c594cc1748671c49",
+  "sourceCommit": "2d7737b2b6112456cec3cdf9090833ceb38fcc3e",
   "publicContractPath": "docs/03_api_specs/mvp-customer.openapi.yaml",
-  "publicContractBlob": "af684a9e747d42a8b4c77412a8b9f5324a77a3f7",
+  "publicContractBlob": "bc2da53910efb205ec4dcbaf4a57da5c55a9a746",
   "frontendBaseline": {
     "ref": "feature/ui-web",
     "commit": "b1ff2918c7297fc93d0cb9a15cc1d0a0ee46b72e"

@@ -1,5 +1,7 @@
 # Checkout MVP — Data & Mock API Matrix
 
+> **Historical Mockoon matrix only.** Các route selection/prepare/shipping-quotes/confirm trong tài liệu này không còn là runtime target. Public contract hiện tại là full-cart theo `cart_revision`, dùng đúng một trong `shipping_address_id` hoặc `address`, rồi accept/poll operation.
+
 ## Capability inventory
 
 Browser chỉ gọi Next.js same-origin BFF. Cart/Checkout upstream URL, cart context, internal availability, parcel calculation và service topology chỉ tồn tại server-side.

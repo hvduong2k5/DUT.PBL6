@@ -245,7 +245,10 @@ export interface OwnedOrdersResponse {
   next_cursor: string;
 }
 
-export type OrderTrackingResponse = Record<string, unknown>;
+export interface OrderTrackingResponse {
+  shipment_id: string | null;
+  order_status: string;
+}
 
 export interface CancelOrderRequest {
   active: boolean;

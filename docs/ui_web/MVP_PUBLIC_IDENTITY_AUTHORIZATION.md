@@ -7,7 +7,7 @@ Tài liệu này chốt Giai đoạn 8 cho Web Customer. Nó mô tả trust boun
 | Nguồn | Mốc |
 | --- | --- |
 | Identity source/docs | `feature/identity-service@bbb78b05b6dd4a142f009bf9f2f1cae5f7a6e9e8` |
-| Public customer baseline | `integration/mvp-contracts@9416090bb476406b4928f376c594cc1748671c49` |
+| Public customer baseline | `2d7737b2b6112456cec3cdf9090833ceb38fcc3e` |
 | Frontend implementation | `feature/ui-web` |
 
 Identity quyết định OIDC/JWT được xác minh tại Gateway. Web hiện vẫn bọc auth runtime qua same-origin BFF và cookie HttpOnly; việc thay login proxy hiện tại bằng Authorization Code + PKCE cần contract/runtime riêng, không được frontend tự suy diễn trong giai đoạn này.

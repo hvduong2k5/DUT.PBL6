@@ -65,7 +65,6 @@ function detailsErrors(error: PublicApiError): Record<string, string> {
 export function CheckoutFlow() {
   const { reload: reloadCartSummary } = useCartSummary();
   const searchParams = useSearchParams();
-  const itemIds = useMemo(() => (searchParams.get("items") ?? "").split(",").filter(Boolean), [searchParams]);
   const mockScenario = searchParams.get("mockScenario") ?? undefined;
   const cartScenario = searchParams.get("cartScenario") ?? undefined;
   const requestOptions = useMemo(() => ({ mockScenario, cartScenario }), [mockScenario, cartScenario]);
@@ -83,17 +82,16 @@ export function CheckoutFlow() {
   const [pageError, setPageError] = useState("");
   const [quoteError, setQuoteError] = useState("");
   const [submitError, setSubmitError] = useState("");
-  const [loading, setLoading] = useState(itemIds.length > 0);
+  const [loading, setLoading] = useState(true);
   const [quoting, setQuoting] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
 
   useEffect(() => {
-    if (!itemIds.length) return;
     let active = true;
     setLoading(true);
     setPageError("");
-    checkoutService.prepare(itemIds, requestOptions).then((payload) => {
+    checkoutService.prepare(requestOptions).then((payload) => {
       if (!active) return;
       setPreparation(payload);
       const preferred = payload.savedAddresses.find((saved) => saved.isDefault) ?? payload.savedAddresses[0];
@@ -110,7 +108,7 @@ export function CheckoutFlow() {
       if (active) setLoading(false);
     });
     return () => { active = false; };
-  }, [itemIds, requestOptions, retryKey]);
+  }, [requestOptions, retryKey]);
 
   useEffect(() => {
     if (!preparation || validateShippingAddress(address).length > 0 || !recipient.fullName.trim() || !recipient.phone.trim()) return;
@@ -239,12 +237,12 @@ export function CheckoutFlow() {
     }
   }
 
-  if (!itemIds.length) {
-    return <main className="checkout-page"><CheckoutSteps /><section className="checkout-state-card"><span aria-hidden="true">◇</span><p className="eyebrow">Chưa có lựa chọn Checkout</p><h1>Hãy chọn sản phẩm từ giỏ hàng</h1><p>Checkout chỉ xử lý những dòng bạn chủ động chọn trong giỏ.</p><Link className="primary-link" href="/cart">Quay lại giỏ hàng</Link></section></main>;
-  }
   if (loading) return <main className="checkout-page"><CheckoutSteps /><CheckoutLoading /></main>;
   if (pageError || !preparation) {
     return <main className="checkout-page"><CheckoutSteps /><section className="checkout-state-card error" role="alert"><span aria-hidden="true">!</span><p className="eyebrow">Checkout cần được làm mới</p><h1>Chưa thể kiểm tra giỏ hàng</h1><p>{pageError || "Giỏ hàng đã thay đổi."}</p><div><button className="primary-button" type="button" onClick={() => setRetryKey((value) => value + 1)}>Thử tải lại</button><Link className="secondary-link" href="/cart">Về giỏ hàng</Link></div></section></main>;
+  }
+  if (!preparation.items.length) {
+    return <main className="checkout-page"><CheckoutSteps /><section className="checkout-state-card"><span aria-hidden="true">◇</span><p className="eyebrow">Giỏ hàng trống</p><h1>Chưa có sản phẩm để thanh toán</h1><p>MVP Checkout báo giá toàn bộ giỏ tại một revision, không nhận danh sách dòng được chọn.</p><Link className="primary-link" href="/products">Khám phá sản phẩm</Link></section></main>;
   }
 
   if (operation?.succeeded && operation.orderId) {
@@ -288,8 +286,12 @@ export function CheckoutFlow() {
         </div>
 
         <aside className="checkout-summary" aria-labelledby="checkout-summary-title">
-          <div className="checkout-summary-heading"><div><p className="eyebrow">Quote server</p><h2 id="checkout-summary-title">Xác nhận thương mại</h2></div><span>{preparation.itemCount} sản phẩm</span></div>
-          <div className="checkout-summary-lines">{preparation.items.map((item, index) => <article key={item.itemId}><div className="checkout-summary-image"><ProductImage src={item.imageUrl} alt={item.imageAlt} fill sizes="64px" loading={index < 2 ? "eager" : "lazy"} /></div><div><strong>{item.productName}</strong><small>{item.skuLabel} · ×{item.quantity}</small></div><b>{preparation.pricingComplete ? VND.format(item.lineSubtotalVnd) : "Chờ quote"}</b></article>)}</div>
+          <div className="checkout-summary-heading"><div><p className="eyebrow">Quote server · toàn bộ giỏ</p><h2 id="checkout-summary-title">Xác nhận thương mại</h2></div><span>{quote ? quote.items.reduce((total, item) => total + item.quantity, 0) : preparation.itemCount} sản phẩm</span></div>
+          <div className="checkout-summary-lines">{quote ? quote.items.map((item, index) => {
+            const cartItem = preparation.items.find((candidate) => candidate.skuId === item.skuCode);
+            const lineTotal = item.unitPriceVnd === undefined ? undefined : item.unitPriceVnd * item.quantity;
+            return <article key={`${item.skuCode}-${index}`}><div className="checkout-summary-image">{cartItem ? <ProductImage src={cartItem.imageUrl} alt={cartItem.imageAlt} fill sizes="64px" loading={index < 2 ? "eager" : "lazy"} /> : <span aria-hidden="true">◇</span>}</div><div><strong>{item.productName}</strong><small>{item.skuCode} · ×{item.quantity}</small></div><b>{lineTotal === undefined ? "Theo quote" : VND.format(lineTotal)}</b></article>;
+          }) : preparation.items.map((item, index) => <article key={item.itemId}><div className="checkout-summary-image"><ProductImage src={item.imageUrl} alt={item.imageAlt} fill sizes="64px" loading={index < 2 ? "eager" : "lazy"} /></div><div><strong>{item.productName}</strong><small>{item.skuLabel} · ×{item.quantity}</small></div><b>{preparation.pricingComplete ? VND.format(item.lineSubtotalVnd) : "Chờ quote"}</b></article>)}</div>
           {MVP_FEATURE_GATES.voucher ? <section className="checkout-voucher"><div><strong>Mã ưu đãi</strong><small>Được backend xét khi tạo quote</small></div><div className="checkout-voucher-entry"><input value={voucherCode} onChange={(event) => { setVoucherCode(event.currentTarget.value.toUpperCase()); setQuote(null); setFieldErrors((current) => ({ ...current, voucherCode: "" })); }} placeholder="Nhập mã voucher" /></div>{fieldErrors.voucherCode ? <p className="checkout-field-error" role="alert">{fieldErrors.voucherCode}</p> : null}</section> : null}
           <dl className="checkout-totals"><div><dt>Tạm tính</dt><dd>{quote ? VND.format(quote.subtotalVnd) : preparation.pricingComplete ? VND.format(preparation.subtotalVnd) : "Chờ quote"}</dd></div><div><dt>Phí vận chuyển</dt><dd>{quote ? VND.format(quote.shippingFeeVnd) : "Chưa có quote"}</dd></div><div className="grand-total"><dt><strong>Tổng thanh toán</strong><small>{quote ? `Quote hết hạn ${new Date(quote.expiresAt).toLocaleString("vi-VN")}` : "Được server chốt"}</small></dt><dd>{quote ? VND.format(quote.totalVnd) : "—"}</dd></div></dl>
           {quoting ? <p className="cart-checkout-note" role="status">Đang tạo quote từ Cart revision {preparation.cartRevision}…</p> : null}
@@ -297,7 +299,7 @@ export function CheckoutFlow() {
           {operation ? <div className="checkout-payment-boundary" role="status"><strong>Operation: {operation.status}</strong><p>{operation.operationId} · stage {operation.stage}</p>{!operation.terminal && !submitting ? <button type="button" className="secondary-button" onClick={() => void continuePolling(operation)}>Kiểm tra lại</button> : null}</div> : null}
           {submitError ? <div className="checkout-submit-error" role="alert">{submitError}</div> : null}
           <button className="checkout-confirm-button" type="button" disabled={submitting || quoting || !quote || quoteExpired} onClick={() => void confirmCheckout()}>{submitting ? <><i />Đang xử lý operation…</> : quoteExpired ? "Quote đã hết hạn" : quote ? "Accept Checkout →" : "Chờ Checkout quote"}</button>
-          <p className="checkout-legal">Accept chỉ gửi quote ID, cart revision và payment method. Mutation dùng cùng Idempotency-Key khi kết quả chưa rõ.</p>
+          <p className="checkout-legal">Quote và Accept áp dụng cho toàn bộ giỏ tại revision hiện tại. Accept chỉ gửi quote ID, cart revision và payment method; kết quả chưa rõ phải dùng lại cùng Idempotency-Key.</p>
         </aside>
       </div>
     </main>

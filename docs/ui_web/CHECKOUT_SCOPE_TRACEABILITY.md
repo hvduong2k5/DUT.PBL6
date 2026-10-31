@@ -1,5 +1,7 @@
 # Checkout MVP — Scope & Traceability
 
+> **Historical scope only.** Thiết kế selection/prepare/shipping-quotes/confirm bên dưới đã bị thay thế bởi public full-cart contract tại commit `2d7737b2b6112456cec3cdf9090833ceb38fcc3e`. Runtime hiện dùng `GET /cart` → `POST /checkout/quote` → `POST /checkout` → operation polling; không truyền `itemIds` và không checkout một phần giỏ.
+
 ## Mục tiêu MVP
 
 Triển khai Desktop Web Checkout tại `/checkout` cho Guest Customer và Registered Customer theo `EPIC_06_Checkout`, từ các dòng khả dụng đã được chọn tại `/cart` đến khi:

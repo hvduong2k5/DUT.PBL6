@@ -57,14 +57,6 @@ export interface OrderLine {
   lineSubtotalVnd?: number;
 }
 
-export interface OrderTimelineEvent {
-  code: string;
-  label: string;
-  description: string;
-  occurredAt: string;
-  state: "COMPLETED" | "CURRENT";
-}
-
 export interface OrderDetail {
   orderId: string;
   operationId: string;
@@ -88,7 +80,6 @@ export interface OrderDetail {
   snapshotAvailable: boolean;
   pricing: { subtotalVnd: number; shippingFeeVnd: number; totalVnd: number; currency: "VND" };
   recipient?: { fullName: string; phoneDisplay: string; addressDisplay: string };
-  timeline: OrderTimelineEvent[];
   allowedActions: OrderAllowedAction[];
   operationalHold: boolean;
   hasActiveCase: boolean;

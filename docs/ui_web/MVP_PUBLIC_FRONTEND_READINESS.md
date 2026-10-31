@@ -6,8 +6,8 @@ Tài liệu này là điểm bàn giao runtime cho Web Customer sau khi đồng 
 
 | Mục | Giá trị |
 | --- | --- |
-| Release | `mvp-2026-10-26` |
-| Contract commit | `9416090bb476406b4928f376c594cc1748671c49` |
+| Release | `mvp-2026-10-31` |
+| Contract commit | `2d7737b2b6112456cec3cdf9090833ceb38fcc3e` |
 | Public OpenAPI | `docs/03_api_specs/mvp-customer.openapi.yaml` tại commit trên |
 | Trạng thái contract | `integration-target` |
 | Tổng operation | 30 |
@@ -76,8 +76,8 @@ Backend cần trả `PublicError` có `code`, `message`, `requestId`, `retryable
 
 ## 6. Contract gaps không được tự suy diễn
 
-- Order list có `next_cursor` trong response nhưng public operation chưa khai báo cursor request parameter; frontend chưa tự thêm query phân trang.
-- Tracking response hiện chỉ là `object`; frontend chưa dựng carrier/checkpoint/timeline field không có schema.
+- Order list dùng `limit/status/cursor`; cursor là opaque, gắn với principal/status và không được giải mã. Search `q`, `page` và `pageSize` vẫn chưa thuộc contract.
+- Tracking chỉ có `shipment_id` nullable và `order_status`; frontend không dựng carrier/checkpoint/timeline ngoài schema.
 - Locations chưa thuộc public 30-operation target.
 - Guest public credential, paid cancellation, COD provider và voucher policy chưa có runtime acceptance.
 - Contract CI PASS không chứng minh provider/client adapter hoặc live-service E2E đã PASS.
@@ -113,4 +113,4 @@ Chạy tại `apps/web-user`:
 npm run verify:mvp
 ```
 
-Kết quả local ngày 2026-10-30: typecheck PASS, ESLint PASS, 26 test files/87 tests PASS. Chi tiết và giới hạn bằng chứng tại [`MVP_PUBLIC_RELEASE_VERIFICATION.md`](./MVP_PUBLIC_RELEASE_VERIFICATION.md).
+Kết quả local ngày 2026-10-31: typecheck PASS, ESLint PASS, 27 test files/89 tests PASS. Chi tiết và giới hạn bằng chứng tại [`MVP_PUBLIC_RELEASE_VERIFICATION.md`](./MVP_PUBLIC_RELEASE_VERIFICATION.md).

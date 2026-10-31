@@ -53,7 +53,6 @@ function savedAddress(address: CustomerAddress, email: string): MvpCheckoutPrepa
 
 export function mapMvpCheckoutPreparation(
   cart: Cart,
-  itemIds: string[],
   locations: CheckoutProvince[],
   profile?: CustomerProfile,
   addresses: CustomerAddress[] = [],
@@ -62,10 +61,7 @@ export function mapMvpCheckoutPreparation(
   if (!Number.isSafeInteger(cart.revision) || Number(cart.revision) < 0) {
     throw new ContractDataError("Cart revision is required before Checkout.");
   }
-  const requested = new Set(itemIds);
-  const selected = cart.items.filter((item) => requested.has(item.itemId));
-  if (selected.length !== requested.size) throw new ContractDataError("Selected cart items are no longer present.");
-  const items = selected.map((item) => ({
+  const items = cart.items.map((item) => ({
     itemId: item.itemId,
     productSlug: item.productSlug,
     productName: item.productName,
@@ -89,7 +85,7 @@ export function mapMvpCheckoutPreparation(
     items,
     itemCount: items.reduce((total, item) => total + item.quantity, 0),
     subtotalVnd,
-    pricingComplete: selected.every((item) => item.priceKnown !== false),
+    pricingComplete: cart.items.every((item) => item.priceKnown !== false),
     customerMode: profile ? "REGISTERED" : "GUEST",
     ...(profile?.fullName && profile.phone ? {
       defaultRecipient: { fullName: profile.fullName, phone: profile.phone, email: profile.email }

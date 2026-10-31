@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { useCustomerSession } from "@/components/auth/customer-session-provider";
-import { createIdempotencyKey, PublicApiError } from "@/lib/api-contract";
+import { createIdempotencyKey, PublicApiError, type OrderTrackingResponse } from "@/lib/api-contract";
 import type { CancelReasonCode, OrderDetail } from "@/lib/orders/types";
 import { orderService } from "@/services/order-service";
 
@@ -24,6 +24,7 @@ export function OrderDetailFlow({ orderId }: { orderId: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [trackingState, setTrackingState] = useState<"idle" | "loading" | "available" | "unavailable">("idle");
+  const [tracking, setTracking] = useState<OrderTrackingResponse | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [reasonCode, setReasonCode] = useState<CancelReasonCode | "">("");
   const [note, setNote] = useState("");
@@ -37,10 +38,11 @@ export function OrderDetailFlow({ orderId }: { orderId: string }) {
     try {
       const detail = await orderService.detail(orderId, scenario);
       setOrder(detail);
+      setTracking(null);
       if (detail.cancellation.canViewTracking) {
         setTrackingState("loading");
         try {
-          await orderService.tracking(orderId, scenario);
+          setTracking(await orderService.tracking(orderId, scenario));
           setTrackingState("available");
         } catch {
           setTrackingState("unavailable");
@@ -121,7 +123,9 @@ export function OrderDetailFlow({ orderId }: { orderId: string }) {
       <article><span>▱</span><div><small>Trạng thái Inventory</small><strong>{order.stock.label}</strong><p>{order.stock.status}</p></div></article>
     </section>
 
-    <section className="order-journey"><header><div><span className="eyebrow">Hành trình Order</span><h2>Các mốc có trong public contract</h2></div>{order.shipmentId ? <b>Shipment: {order.shipmentId}</b> : null}</header><ol>{order.timeline.map((event) => <li className={event.state.toLocaleLowerCase()} key={`${event.code}-${event.occurredAt}`}><span>✓</span><div><time>{new Date(event.occurredAt).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" })}</time><strong>{event.label}</strong><p>{event.description}</p></div></li>)}</ol>{order.cancellation.canViewTracking ? <p className="cart-checkout-note" role="status">{trackingState === "loading" ? "Đang đọc tracking…" : trackingState === "available" ? "Tracking endpoint khả dụng. Baseline hiện chỉ định response là object nên UI không tự suy diễn checkpoint/carrier fields." : "Tracking hiện chưa khả dụng; Order detail vẫn được giữ độc lập."}</p> : null}</section>
+    <section className="order-journey"><header><div><span className="eyebrow">Tracking tối thiểu</span><h2>Trạng thái thật từ Order service</h2></div>{tracking?.shipment_id ? <b>Shipment: {tracking.shipment_id}</b> : null}</header>
+      {!order.cancellation.canViewTracking ? <p className="cart-checkout-note" role="status">Order hiện không có hành động xem tracking trong <code>allowed_actions</code>.</p> : trackingState === "loading" ? <p className="cart-checkout-note" role="status">Đang đọc tracking…</p> : trackingState === "unavailable" ? <p className="cart-checkout-note" role="alert">Tracking hiện chưa khả dụng; chi tiết Order vẫn được giữ độc lập.</p> : tracking ? <div className="order-tracking-minimal"><dl><div><dt>Trạng thái Order</dt><dd>{tracking.order_status}</dd></div><div><dt>Shipment ID</dt><dd>{tracking.shipment_id ?? "Chưa có"}</dd></div></dl><p>{tracking.shipment_id ? "Order đã có tham chiếu shipment. Carrier và checkpoints chưa được công bố trong contract này." : "Chưa có dữ liệu hành trình. Giá trị rỗng không chứng minh Order đã hủy hoặc đã giao."}</p></div> : null}
+    </section>
 
     <div className="order-detail-layout"><div className="order-detail-main">
       <section className="order-detail-card"><header><span>◈</span><div><h2>Danh mục thức quà</h2><p>{order.snapshotAvailable ? "Immutable Checkout snapshot." : "Backend chưa trả snapshot trong Order này."}</p></div></header>{order.lines.length ? <div className="order-lines">{order.lines.map((line) => <article key={line.lineId}><span aria-hidden="true">◇</span><div><strong>{line.productName}</strong><small>{line.skuLabel}</small><em>{lineAmount(line.unitPriceVnd)} × {line.quantity}</em></div><b>{lineAmount(line.lineSubtotalVnd)}</b></article>)}</div> : <div className="orders-state"><p>Không có dòng sản phẩm trong snapshot public.</p></div>}</section>

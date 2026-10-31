@@ -191,6 +191,16 @@ export async function handleCheckoutRequest(request: NextRequest, path: string[]
 
     const body = await readJsonBody(request);
     if (route.operation === "create-quote") {
+      if (isRecord(body)) {
+        const hasAddressId = Object.hasOwn(body, "shipping_address_id");
+        const hasAddress = Object.hasOwn(body, "address");
+        if (!hasAddressId && !hasAddress) {
+          return publicErrorResponse(422, "ADDRESS_REQUIRED", "Checkout quote cần một địa chỉ giao hàng.", "BFF-CHECKOUT-QUOTE-ADDRESS");
+        }
+        if (hasAddressId && hasAddress) {
+          return publicErrorResponse(400, "AMBIGUOUS_ADDRESS", "Chỉ được gửi shipping_address_id hoặc address.", "BFF-CHECKOUT-QUOTE-ADDRESS");
+        }
+      }
       const parsed = validateMvpQuoteRequest(body);
       if (!parsed.data) return publicErrorResponse(400, "INVALID_REQUEST", "Yêu cầu tạo quote chưa hợp lệ.", "BFF-CHECKOUT-QUOTE", { errors: parsed.errors });
       if (parsed.data.payment_method === "COD" && !MVP_FEATURE_GATES.cod) {
