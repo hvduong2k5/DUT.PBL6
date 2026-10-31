@@ -15,7 +15,8 @@ import 'package:mobile_app/features/cart/domain/cart_models.dart';
 import 'package:mobile_app/features/cart/presentation/cart_cubit.dart';
 
 class CartPage extends StatelessWidget {
-  const CartPage({super.key});
+  const CartPage({super.key, this.quoteEnabled = false});
+  final bool quoteEnabled;
   Future<void> _clear(BuildContext context) async {
     final cubit = context.read<CartCubit>();
     final confirmed = await showDialog<bool>(
@@ -114,6 +115,16 @@ class CartPage extends StatelessWidget {
                       state.message!,
                       style: const TextStyle(color: AppColors.darkRed),
                     ),
+                  ),
+                ),
+              if (quoteEnabled)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: OutlinedButton(
+                    onPressed: state.pending
+                        ? null
+                        : () => context.push(AppRoutes.quoteReview),
+                    child: const Text('Xem báo giá cả giỏ'),
                   ),
                 ),
               for (final line in cart.items)

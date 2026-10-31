@@ -94,6 +94,17 @@ class MvpQuoteCubit extends Cubit<MvpQuoteState> {
     );
   }
 
+  Future<void> refreshQuote() async {
+    // Re-read cart and saved addresses before asking for a replacement quote.
+    final revision = _revision + 1;
+    await load();
+    if (!isClosed &&
+        revision == _revision &&
+        state.status == MvpQuoteStatus.editing) {
+      await requestQuote();
+    }
+  }
+
   Future<void> requestQuote() async {
     if (state.status == MvpQuoteStatus.quoting ||
         state.cart == null ||

@@ -5,6 +5,7 @@ abstract final class AppRoutes {
   static const product = '/product/:id';
   static const cart = '/cart';
   static const checkout = '/checkout';
+  static const quoteReview = '/checkout/quote';
   static const orderConfirmation = '/order-confirmation/:id';
   static const orders = '/orders';
   static const orderDetail = '/orders/:id';

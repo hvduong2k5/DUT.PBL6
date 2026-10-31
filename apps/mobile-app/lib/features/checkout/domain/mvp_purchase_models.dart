@@ -130,6 +130,11 @@ class MvpQuote {
   final Money subtotal, shippingFee, total;
   final DateTime expiresAt, catalogExpiresAt, shippingExpiresAt;
 
+  DateTime get validUntil => [catalogExpiresAt, shippingExpiresAt].fold(
+    expiresAt,
+    (earliest, value) => value.isBefore(earliest) ? value : earliest,
+  );
+
   bool isUsableAt(DateTime now) =>
       items.isNotEmpty &&
       [

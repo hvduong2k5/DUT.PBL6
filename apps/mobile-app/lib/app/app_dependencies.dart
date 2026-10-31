@@ -1,4 +1,6 @@
 import 'package:mobile_app/core/config/app_config.dart';
+import 'package:mobile_app/features/checkout/domain/mvp_purchase_repository.dart';
+import 'package:mobile_app/features/checkout/data/local_mvp_purchase_repository.dart';
 import 'package:mobile_app/core/config/data_source_mode.dart';
 import 'package:mobile_app/core/network/api_client.dart';
 import 'package:mobile_app/core/storage/token_store.dart';
@@ -51,6 +53,7 @@ import 'package:mobile_app/features/reviews/data/mock_reviews_repository.dart';
 
 class AppDependencies {
   const AppDependencies({
+    this.mvpPurchaseRepository,
     required this.catalogRepository,
     required this.cartRepository,
     required this.checkoutRepository,
@@ -70,6 +73,7 @@ class AppDependencies {
   });
 
   final CatalogRepository catalogRepository;
+  final MvpPurchaseRepository? mvpPurchaseRepository;
   final CartRepository cartRepository;
   final CheckoutRepository checkoutRepository;
   final OrdersRepository ordersRepository;
@@ -131,17 +135,22 @@ abstract final class RepositoryFactory {
   static AppDependencies _local() {
     final auth = MockAuthRepository();
     final catalog = MockCatalogRepository();
+    final cart = InMemoryCartRepository();
     final orders = MockOrdersRepository(
       authenticated: () => auth.currentUser != null,
     );
     return AppDependencies(
       catalogRepository: catalog,
+      mvpPurchaseRepository: LocalMvpPurchaseRepository(
+        cart,
+        () => auth.currentUser != null,
+      ),
       reviewsRepository: MockReviewsRepository(
         catalog: catalog,
         orders: orders,
         currentUser: () => auth.currentUser,
       ),
-      cartRepository: InMemoryCartRepository(),
+      cartRepository: cart,
       checkoutRepository: MockCheckoutRepository(onCreated: orders.record),
       ordersRepository: orders,
       addressRepository: InMemoryAddressRepository(),

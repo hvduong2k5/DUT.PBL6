@@ -1,4 +1,10 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
+import 'package:mobile_app/core/widgets/app_empty_view.dart';
+import 'package:mobile_app/core/widgets/app_mobile_header.dart';
+import 'package:mobile_app/features/checkout/domain/mvp_purchase_repository.dart';
+import 'package:mobile_app/features/checkout/data/local_mvp_purchase_repository.dart';
+import 'package:mobile_app/features/checkout/presentation/mvp_quote_cubit.dart';
+import 'package:mobile_app/features/checkout/presentation/mvp_quote_page.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_app/app/router/routes.dart';
@@ -285,7 +291,46 @@ GoRouter createAppRouter({
     ),
     GoRoute(
       path: AppRoutes.cart,
-      builder: (context, state) => const SafeBackScope(child: CartPage()),
+      builder: (context, state) => SafeBackScope(
+        child: CartPage(
+          quoteEnabled: context.read<MvpPurchaseRepository?>() != null,
+        ),
+      ),
+    ),
+    GoRoute(
+      path: AppRoutes.quoteReview,
+      builder: (context, state) => SafeBackScope(
+        child: CustomerAccountGate(
+          returnLocation: AppRoutes.quoteReview,
+          child: Builder(
+            builder: (context) {
+              final repository = context.read<MvpPurchaseRepository?>();
+              if (repository == null) {
+                return Scaffold(
+                  appBar: const AppMobileHeader(
+                    title: 'Báo giá cả giỏ',
+                    showBack: true,
+                  ),
+                  body: AppEmptyView(
+                    title: 'Báo giá chưa khả dụng',
+                    message: 'Vui lòng quay lại giỏ hàng và thử lại sau.',
+                    action: TextButton(
+                      onPressed: () => context.go(AppRoutes.cart),
+                      child: const Text('Về giỏ hàng'),
+                    ),
+                  ),
+                );
+              }
+              return BlocProvider(
+                create: (_) => MvpQuoteCubit(repository)..load(),
+                child: MvpQuotePage(
+                  localPreview: repository is LocalMvpPurchaseRepository,
+                ),
+              );
+            },
+          ),
+        ),
+      ),
     ),
     GoRoute(
       path: AppRoutes.checkout,

@@ -11,7 +11,7 @@ Preserve Flutter/GoRouter/Cubit, separate UI/domain/adapters, shared Web visual 
 | Step | Goal and output | Entry dependency | Status |
 |---|---|---|---|
 | M1 | Analyze contract gaps: partial-cart checkout, canonical geography, order history/tracking; record evidence, recommendations and backend decisions | Pinned dev + current Mobile baseline | ANALYSIS COMPLETE; G1–G3 backend decisions OPEN: [detailed M1](active/M1_MVP_CONTRACT_GAPS.md) |
-| M2 | Migrate cart/address/API models and add server quote review with totals/expiry/conflicts | Review M1 conclusions; resolve relevant blocking contract decisions | ACTIVE M2-A foundation implemented; runtime/UI integration pending: [detailed M2](active/M2_MVP_PURCHASE.md) |
+| M2 | Migrate cart/address/API models and add server quote review with totals/expiry/conflicts | Review M1 conclusions; resolve relevant blocking contract decisions | M2-A complete; M2-B local quote UI tested, APK pending; main purchase activation awaits M3: [detailed M2](active/M2_MVP_PURCHASE.md) |
 | M3 | Add async checkout-operation screen, pending/outcome recovery and retry-safe navigation | M2 quote/revision and ownership/error mapping | NOT STARTED; analyze state machine/persistence/tests at entry |
 | M4 | Migrate payment instructions/status, order detail/actions/cancellation and validate integrated Mobile flow | M3 committed order identity; provider/gate readiness explicit | NOT STARTED; analyze statuses/concurrency/tests at entry |
 

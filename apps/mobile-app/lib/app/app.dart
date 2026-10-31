@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mobile_app/features/checkout/domain/mvp_purchase_repository.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -69,6 +70,9 @@ class _OmaAppState extends State<OmaApp> {
   @override
   Widget build(BuildContext context) => MultiRepositoryProvider(
     providers: [
+      RepositoryProvider<MvpPurchaseRepository?>.value(
+        value: _dependencies.mvpPurchaseRepository,
+      ),
       RepositoryProvider<ReviewsRepository>.value(
         value: _dependencies.reviewsRepository,
       ),
