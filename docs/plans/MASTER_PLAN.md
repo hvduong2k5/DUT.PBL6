@@ -2,7 +2,7 @@
 
 ## Current roadmap — approved planning scope 2026-10-31
 
-Classification: LARGE / contract-driven Mobile migration. The user requested a four-step master plan, detailed analysis only at each step's entry, and execution of step1 now. Do not implement future steps from assumptions. Work/commit/push only feature/mobile-ui; no merges, PRs or writes to dev/Web.
+Classification: LARGE / contract-driven Mobile migration. The user initially requested a four-step master plan and analysis at each step's entry; later authorized agreed Mobile implementation and autonomous continuation through remaining steps. Each phase has its entry analysis. Work/commit/push only feature/mobile-ui; no merges, PRs or writes to dev/Web.
 
 Planning target: dev commit `7f22226c7b2f4363d3ba376b715feb0e63f69355`, release mvp-2026-10-26. Read `packages/contracts/mvp/README.md`, `MIGRATION.md`, `registry.yaml` and `docs/03_api_specs/mvp-customer.openapi.yaml` through Git objects. It is an integration target, not provider/runtime acceptance. Exact filenames/evidence are in the active plan.
 
@@ -11,9 +11,9 @@ Preserve Flutter/GoRouter/Cubit, separate UI/domain/adapters, shared Web visual 
 | Step | Goal and output | Entry dependency | Status |
 |---|---|---|---|
 | M1 | Analyze contract gaps: partial-cart checkout, canonical geography, order history/tracking; record evidence, recommendations and backend decisions | Pinned dev + current Mobile baseline | ANALYSIS COMPLETE; G1–G3 backend decisions OPEN: [detailed M1](active/M1_MVP_CONTRACT_GAPS.md) |
-| M2 | Migrate cart/address/API models and add server quote review with totals/expiry/conflicts | Review M1 conclusions; resolve relevant blocking contract decisions | M2-A/B local quote review complete; 161 tests/analyze/APK PASS; main purchase activation awaits M3: [detailed M2](active/M2_MVP_PURCHASE.md) |
+| M2 | Migrate cart/address/API models and add server quote review with totals/expiry/conflicts | Review M1 conclusions; resolve relevant blocking contract decisions | LOCAL COMPLETE; main cart migrated by M3, remote activation separate: [detailed M2](active/M2_MVP_PURCHASE.md) |
 | M3 | Add async checkout-operation screen, pending/outcome recovery and retry-safe navigation | M2 quote/revision and ownership/error mapping | LOCAL IMPLEMENTED; REST/secure recovery prepared,172 tests/analyze PASS: [M3](active/M3_CHECKOUT_OPERATIONS.md) |
-| M4 | Migrate payment instructions/status, order detail/actions/cancellation and validate integrated Mobile flow | M3 committed order identity; provider/gate readiness explicit | NOT STARTED; analyze statuses/concurrency/tests at entry |
+| M4 | Migrate payment instructions/status, order detail/actions/cancellation and validate integrated Mobile flow | M3 committed order identity; provider/gate readiness explicit | LOCAL IMPLEMENTED;187 tests/analyze PASS; APK/native pending: [detailed M4](active/M4_ORDERS_PAYMENT.md) |
 
 Migration Definition of Done: current public DTOs and revisions respected; no fabricated quote/order/payment; pending/unknown outcome recoverable without duplicate order; actions derive from server authority; unchanged visual foundations; proportional automated/native validation with provider acceptance separate; unresolved capabilities gated explicitly; reviewable Mobile-only checkpoints. Backend contract additions require owning-team agreement and are not made here.
 

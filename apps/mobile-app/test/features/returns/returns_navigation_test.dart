@@ -17,7 +17,10 @@ void main() {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
-      final dependencies = RepositoryFactory.create(mode: DataSourceMode.mock);
+      final dependencies = RepositoryFactory.create(
+        mode: DataSourceMode.mock,
+        localMvpCheckout: false,
+      );
       await tester.runAsync(() async {
         await dependencies.authRepository.login(
           phoneNumber: '0905123456',

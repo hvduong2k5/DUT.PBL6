@@ -8,6 +8,7 @@ import 'package:mobile_app/core/widgets/app_primary_button.dart';
 import 'package:mobile_app/core/widgets/app_loading_view.dart';
 import 'package:mobile_app/features/cart/presentation/cart_cubit.dart';
 import 'package:mobile_app/features/checkout/presentation/mvp_checkout_cubit.dart';
+import 'package:mobile_app/features/orders/domain/mvp_orders_repository.dart';
 
 class MvpOperationPage extends StatefulWidget {
   const MvpOperationPage({super.key, this.localPreview = false});
@@ -136,9 +137,12 @@ class _MvpOperationPageState extends State<MvpOperationPage>
                   loading: state.busy,
                   onPressed: () => context.read<MvpCheckoutCubit>().recover(),
                 ),
-              if (status == 'SUCCEEDED')
-                const Text(
-                  'Thông tin thanh toán đang chờ bước tích hợp tiếp theo.',
+              if (status == 'SUCCEEDED' &&
+                  context.read<MvpOrdersRuntime?>() != null)
+                AppPrimaryButton(
+                  label: 'Xem đơn hàng',
+                  onPressed: () =>
+                      context.push('/orders/${operation!.orderId}'),
                 ),
               const SizedBox(height: 12),
               OutlinedButton(

@@ -123,7 +123,10 @@ void main() {
   testWidgets(
     'history search empty recovery clears query and restores owned cards',
     (tester) async {
-      final dependencies = RepositoryFactory.create(mode: DataSourceMode.mock);
+      final dependencies = RepositoryFactory.create(
+        mode: DataSourceMode.mock,
+        localMvpCheckout: false,
+      );
       await tester.runAsync(() async {
         await dependencies.authRepository.login(
           phoneNumber: '0905123456',

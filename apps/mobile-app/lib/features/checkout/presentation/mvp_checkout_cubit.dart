@@ -85,11 +85,25 @@ class MvpCheckoutCubit extends Cubit<MvpCheckoutState> {
       );
       return;
     }
+    final MvpCheckoutInput input;
+    try {
+      input = MvpCheckoutInput.fromQuote(quote);
+    } on FormatException {
+      emit(
+        MvpCheckoutState(
+          ready: true,
+          attempt: state.attempt,
+          message:
+              'Báo giá chưa đủ thông tin hợp lệ để tạo đơn. Vui lòng lấy báo giá mới.',
+        ),
+      );
+      return;
+    }
     final attempt = MvpCheckoutAttempt(
       owner: _owner!,
       scope: runtime.scope,
       key: const Uuid().v4(),
-      input: MvpCheckoutInput.fromQuote(quote),
+      input: input,
     );
     await _run(attempt, persistBeforeSend: true);
   }

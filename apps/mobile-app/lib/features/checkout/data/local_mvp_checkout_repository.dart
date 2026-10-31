@@ -18,7 +18,13 @@ class LocalMvpCheckoutRepository implements MvpCheckoutRepository {
   final LocalMvpPurchaseRepository _purchase;
   final String? Function() _principal;
   final DateTime Function() _now;
-  final void Function(String owner, String orderId, MvpQuote quote)? onPlaced;
+  final void Function(
+    String owner,
+    String orderId,
+    String operationId,
+    MvpQuote quote,
+  )?
+  onPlaced;
   final _records =
       <
         String,
@@ -120,7 +126,9 @@ class LocalMvpCheckoutRepository implements MvpCheckoutRepository {
       operation: operation,
       polls: polls,
     );
-    if (completed) onPlaced?.call(owner, operation.orderId!, record.quote);
+    if (completed) {
+      onPlaced?.call(owner, operation.orderId!, operation.id, record.quote);
+    }
     return operation;
   }
 }

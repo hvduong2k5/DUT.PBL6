@@ -232,7 +232,8 @@ class _MvpQuotePageState extends State<MvpQuotePage> {
                             final controller = context.read<MvpCheckoutCubit>();
                             await controller.start(quote);
                             if (context.mounted &&
-                                controller.state.attempt != null) {
+                                controller.state.attempt?.input.quoteId ==
+                                    quote.id) {
                               context.push(AppRoutes.checkoutOperation);
                             }
                           }

@@ -9,6 +9,7 @@ import 'package:mobile_app/features/checkout/data/mvp_checkout_store.dart';
 import 'package:mobile_app/features/checkout/data/rest_mvp_checkout_repository.dart';
 import 'package:mobile_app/features/checkout/domain/mvp_checkout_models.dart';
 import 'package:mobile_app/features/checkout/domain/mvp_checkout_repository.dart';
+import 'package:mobile_app/features/checkout/domain/mvp_purchase_models.dart';
 import 'package:mobile_app/features/checkout/presentation/mvp_checkout_cubit.dart';
 import '../../support/mvp_checkout_fixtures.dart';
 
@@ -51,6 +52,25 @@ class _Store extends MemoryMvpCheckoutStore {
 
 void main() {
   setUp(() => FlutterSecureStorage.setMockInitialValues({}));
+  test(
+    'invalid quote identity cannot throw through UI or start an operation',
+    () async {
+      final r = _Repo();
+      final c = MvpCheckoutCubit(
+        MvpCheckoutRuntime(repository: r, store: _Store(), scope: 'b'),
+        principal: () => 'a',
+        now: () => checkoutNow,
+      );
+      await c.restore();
+      await c.start(
+        MvpQuote.fromJson({...checkoutQuoteJson(), 'quote_id': 'invalid-uuid'}),
+      );
+      expect(r.calls, isEmpty);
+      expect(c.state.attempt, isNull);
+      expect(c.state.message, isNotNull);
+      await c.close();
+    },
+  );
   test(
     'operation schema rejects invented order identity, missing failure and unknown state',
     () {

@@ -16,7 +16,7 @@ Map<String, dynamic> operationJson({String status = 'ACCEPTED'}) => {
 };
 MvpCheckoutOperation checkoutOperation({String status = 'ACCEPTED'}) =>
     MvpCheckoutOperation.fromJson(operationJson(status: status));
-MvpQuote checkoutQuote() => MvpQuote.fromJson({
+Map<String, dynamic> checkoutQuoteJson() => {
   'quote_id': quoteId,
   'cart_revision': 2,
   'payment_method': 'VIETQR',
@@ -38,4 +38,5 @@ MvpQuote checkoutQuote() => MvpQuote.fromJson({
   'expires_at': '2026-10-31T00:10:00Z',
   'catalog_expires_at': '2026-10-31T00:10:00Z',
   'shipping_expires_at': '2026-10-31T00:10:00Z',
-});
+};
+MvpQuote checkoutQuote() => MvpQuote.fromJson(checkoutQuoteJson());

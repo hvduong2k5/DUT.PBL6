@@ -182,7 +182,10 @@ void main() {
   testWidgets(
     'registered customer confirms cancellation and detail reflects server status',
     (tester) async {
-      final dependencies = RepositoryFactory.create(mode: DataSourceMode.mock);
+      final dependencies = RepositoryFactory.create(
+        mode: DataSourceMode.mock,
+        localMvpCheckout: false,
+      );
       await tester.runAsync(() async {
         await dependencies.authRepository.login(
           phoneNumber: '0905123456',
@@ -227,6 +230,7 @@ void main() {
       (tester) async {
         final dependencies = RepositoryFactory.create(
           mode: DataSourceMode.mock,
+          localMvpCheckout: false,
         );
         await tester.runAsync(() async {
           await dependencies.authRepository.login(
@@ -301,7 +305,10 @@ void main() {
   testWidgets(
     'guest tracking requires actual grant and then displays public checkpoints',
     (tester) async {
-      final dependencies = RepositoryFactory.create(mode: DataSourceMode.mock);
+      final dependencies = RepositoryFactory.create(
+        mode: DataSourceMode.mock,
+        localMvpCheckout: false,
+      );
       await tester.runAsync(() async {
         final challenge = await dependencies.guestOrdersRepository.challenge(
           'OM-8921',

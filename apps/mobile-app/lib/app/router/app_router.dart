@@ -7,6 +7,13 @@ import 'package:mobile_app/features/checkout/presentation/mvp_quote_cubit.dart';
 import 'package:mobile_app/features/checkout/presentation/mvp_quote_page.dart';
 import 'package:mobile_app/features/checkout/domain/mvp_checkout_repository.dart';
 import 'package:mobile_app/features/checkout/presentation/mvp_operation_page.dart';
+import 'package:mobile_app/features/orders/domain/mvp_orders_repository.dart';
+import 'package:mobile_app/features/orders/presentation/mvp_order_cubit.dart';
+import 'package:mobile_app/features/orders/presentation/mvp_orders_cubit.dart';
+import 'package:mobile_app/features/orders/presentation/mvp_order_page.dart';
+import 'package:mobile_app/features/orders/presentation/mvp_orders_page.dart';
+import 'package:mobile_app/features/checkout/presentation/mvp_payment_cubit.dart';
+import 'package:mobile_app/features/checkout/presentation/mvp_payment_page.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_app/app/router/routes.dart';
@@ -235,10 +242,32 @@ GoRouter createAppRouter({
     GoRoute(
       path: AppRoutes.payment,
       builder: (context, state) => SafeBackScope(
-        child: PaymentPage(
-          orderId: state.pathParameters['id']!,
-          confirmation: state.extra as OrderConfirmation?,
-        ),
+        child: _useMvpOrder(context, state.pathParameters['id'])
+            ? CustomerAccountGate(
+                returnLocation: state.uri.toString(),
+                capability: 'ORDER_HISTORY_VIEW',
+                child: Builder(
+                  builder: (context) {
+                    final runtime = context.read<MvpOrdersRuntime?>()!,
+                        auth = context.read<AuthCubit>();
+                    return BlocProvider(
+                      key: ValueKey(
+                        'payment:${auth.state.user?.id}:${state.pathParameters['id']}',
+                      ),
+                      create: (_) => MvpPaymentCubit(
+                        runtime.repository,
+                        state.pathParameters['id']!,
+                        () => auth.state.user?.id,
+                      )..load(),
+                      child: MvpPaymentPage(local: runtime.local),
+                    );
+                  },
+                ),
+              )
+            : PaymentPage(
+                orderId: state.pathParameters['id']!,
+                confirmation: state.extra as OrderConfirmation?,
+              ),
       ),
     ),
     GoRoute(
@@ -395,6 +424,10 @@ GoRouter createAppRouter({
     ),
     GoRoute(
       path: AppRoutes.orderConfirmation,
+      redirect: (context, state) =>
+          _useMvpOrder(context, state.pathParameters['id'])
+          ? '/orders/${state.pathParameters['id']}'
+          : null,
       builder: (context, state) => SafeBackScope(
         child: OrderConfirmationPage(
           orderId: state.pathParameters['id']!,
@@ -407,18 +440,55 @@ GoRouter createAppRouter({
       builder: (context, state) => SafeBackScope(
         child: CustomerAccountGate(
           returnLocation: AppRoutes.orders,
-          child: BlocProvider(
-            create: (_) =>
-                OrdersCubit(context.read<OrdersRepository>())..load(),
-            child: const OrdersPage(),
-          ),
+          child: context.read<MvpOrdersRuntime?>() != null
+              ? Builder(
+                  builder: (context) {
+                    final runtime = context.read<MvpOrdersRuntime?>()!,
+                        auth = context.read<AuthCubit>();
+                    return BlocProvider(
+                      key: ValueKey('orders:${auth.state.user?.id}'),
+                      create: (_) => MvpOrdersCubit(
+                        runtime.repository,
+                        () => auth.state.user?.id,
+                      )..load(),
+                      child: MvpOrdersPage(local: runtime.local),
+                    );
+                  },
+                )
+              : BlocProvider(
+                  create: (_) =>
+                      OrdersCubit(context.read<OrdersRepository>())..load(),
+                  child: const OrdersPage(),
+                ),
         ),
       ),
     ),
     GoRoute(
       path: AppRoutes.orderDetail,
       builder: (context, state) => SafeBackScope(
-        child: OrderDetailPage(orderId: state.pathParameters['id']!),
+        child: _useMvpOrder(context, state.pathParameters['id'])
+            ? CustomerAccountGate(
+                returnLocation: state.uri.toString(),
+                capability: 'ORDER_HISTORY_VIEW',
+                child: Builder(
+                  builder: (context) {
+                    final runtime = context.read<MvpOrdersRuntime?>()!,
+                        auth = context.read<AuthCubit>();
+                    return BlocProvider(
+                      key: ValueKey(
+                        'order:${auth.state.user?.id}:${state.pathParameters['id']}',
+                      ),
+                      create: (_) => MvpOrderCubit(
+                        runtime,
+                        state.pathParameters['id']!,
+                        () => auth.state.user?.id,
+                      )..load(),
+                      child: MvpOrderPage(local: runtime.local),
+                    );
+                  },
+                ),
+              )
+            : OrderDetailPage(orderId: state.pathParameters['id']!),
       ),
     ),
     GoRoute(
@@ -497,3 +567,11 @@ GoRouter createAppRouter({
     ),
   ],
 );
+
+bool _useMvpOrder(BuildContext context, String? id) {
+  final runtime = context.read<MvpOrdersRuntime?>();
+  // Existing guest/B2B fixtures have non-UUID IDs and retain their own auth checks.
+  // This exception is local-only; it never downgrades a real MVP request.
+  final uuid = RegExp(r'^[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$');
+  return runtime != null && !(runtime.local && !uuid.hasMatch(id ?? ''));
+}

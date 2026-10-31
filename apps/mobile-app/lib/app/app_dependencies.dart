@@ -4,6 +4,9 @@ import 'package:mobile_app/features/checkout/data/local_mvp_purchase_repository.
 import 'package:mobile_app/features/checkout/domain/mvp_checkout_repository.dart';
 import 'package:mobile_app/features/checkout/data/local_mvp_checkout_repository.dart';
 import 'package:mobile_app/features/checkout/data/mvp_checkout_store.dart';
+import 'package:mobile_app/features/orders/domain/mvp_orders_repository.dart';
+import 'package:mobile_app/features/orders/data/local_mvp_orders_repository.dart';
+import 'package:mobile_app/features/orders/data/mvp_cancellation_store.dart';
 import 'package:mobile_app/core/config/data_source_mode.dart';
 import 'package:mobile_app/core/network/api_client.dart';
 import 'package:mobile_app/core/storage/token_store.dart';
@@ -58,6 +61,7 @@ class AppDependencies {
   const AppDependencies({
     this.mvpPurchaseRepository,
     this.mvpCheckoutRuntime,
+    this.mvpOrdersRuntime,
     required this.catalogRepository,
     required this.cartRepository,
     required this.checkoutRepository,
@@ -79,6 +83,7 @@ class AppDependencies {
   final CatalogRepository catalogRepository;
   final MvpPurchaseRepository? mvpPurchaseRepository;
   final MvpCheckoutRuntime? mvpCheckoutRuntime;
+  final MvpOrdersRuntime? mvpOrdersRuntime;
   final CartRepository cartRepository;
   final CheckoutRepository checkoutRepository;
   final OrdersRepository ordersRepository;
@@ -152,14 +157,24 @@ abstract final class RepositoryFactory {
     final orders = MockOrdersRepository(
       authenticated: () => auth.currentUser != null,
     );
+    final mvpOrders = LocalMvpOrdersRepository(() => auth.currentUser?.id);
     return AppDependencies(
       catalogRepository: catalog,
       mvpPurchaseRepository: purchase,
+      mvpOrdersRuntime: localMvpCheckout
+          ? MvpOrdersRuntime(
+              repository: mvpOrders,
+              cancellations: MemoryMvpCancellationStore(),
+              scope: 'local-process-mvp-v1',
+              local: true,
+            )
+          : null,
       mvpCheckoutRuntime: localMvpCheckout
           ? MvpCheckoutRuntime(
               repository: LocalMvpCheckoutRepository(
                 purchase,
                 () => auth.currentUser?.id,
+                onPlaced: mvpOrders.record,
               ),
               store: MemoryMvpCheckoutStore(),
               scope: 'local-process-mvp-v1',

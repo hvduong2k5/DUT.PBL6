@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:mobile_app/features/checkout/domain/mvp_purchase_repository.dart';
 import 'package:mobile_app/features/checkout/domain/mvp_checkout_repository.dart';
 import 'package:mobile_app/features/checkout/presentation/mvp_checkout_cubit.dart';
+import 'package:mobile_app/features/orders/domain/mvp_orders_repository.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -72,6 +73,9 @@ class _OmaAppState extends State<OmaApp> {
   @override
   Widget build(BuildContext context) => MultiRepositoryProvider(
     providers: [
+      RepositoryProvider<MvpOrdersRuntime?>.value(
+        value: _dependencies.mvpOrdersRuntime,
+      ),
       RepositoryProvider<MvpCheckoutRuntime?>.value(
         value: _dependencies.mvpCheckoutRuntime,
       ),
