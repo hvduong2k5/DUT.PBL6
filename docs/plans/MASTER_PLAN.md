@@ -11,13 +11,13 @@ Preserve Flutter/GoRouter/Cubit, separate UI/domain/adapters, shared Web visual 
 | Step | Goal and output | Entry dependency | Status |
 |---|---|---|---|
 | M1 | Analyze contract gaps: partial-cart checkout, canonical geography, order history/tracking; record evidence, recommendations and backend decisions | Pinned dev + current Mobile baseline | ANALYSIS COMPLETE; G1–G3 backend decisions OPEN: [detailed M1](active/M1_MVP_CONTRACT_GAPS.md) |
-| M2 | Migrate cart/address/API models and add server quote review with totals/expiry/conflicts | Review M1 conclusions; resolve relevant blocking contract decisions | NOT STARTED; analyze files/contracts/tests at entry |
+| M2 | Migrate cart/address/API models and add server quote review with totals/expiry/conflicts | Review M1 conclusions; resolve relevant blocking contract decisions | ACTIVE M2-A foundation implemented; runtime/UI integration pending: [detailed M2](active/M2_MVP_PURCHASE.md) |
 | M3 | Add async checkout-operation screen, pending/outcome recovery and retry-safe navigation | M2 quote/revision and ownership/error mapping | NOT STARTED; analyze state machine/persistence/tests at entry |
 | M4 | Migrate payment instructions/status, order detail/actions/cancellation and validate integrated Mobile flow | M3 committed order identity; provider/gate readiness explicit | NOT STARTED; analyze statuses/concurrency/tests at entry |
 
 Migration Definition of Done: current public DTOs and revisions respected; no fabricated quote/order/payment; pending/unknown outcome recoverable without duplicate order; actions derive from server authority; unchanged visual foundations; proportional automated/native validation with provider acceptance separate; unresolved capabilities gated explicitly; reviewable Mobile-only checkpoints. Backend contract additions require owning-team agreement and are not made here.
 
-Each step must have a detailed active plan before implementation, with dependencies, exact files/contracts, UX/error states, validation and exit criteria. Only M1 is detailed now. Historical QA-01 is carried into M4's new payment contract verification rather than assumed completed; QA-02 remains an unverified external-media handoff, outside M1.
+Each step must have a detailed active plan before implementation, with dependencies, exact files/contracts, UX/error states, validation and exit criteria. M1 analysis is recorded; M2 now has its own detailed entry plan after user implementation authorization. Historical QA-01 is carried into M4's new payment contract verification rather than assumed completed; QA-02 remains an unverified external-media handoff, outside M1.
 
 ## Historical parity roadmap (2026-10-19–21)
 

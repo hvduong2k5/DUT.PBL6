@@ -82,6 +82,21 @@ class ApiClient {
     }
   }
 
+  Future<List<Map<String, dynamic>>> getJsonList(String path) async {
+    try {
+      final response = await dio.get<Object?>(path);
+      final data = response.data;
+      if (data is! List || data.any((item) => item is! Map)) {
+        throw const FormatException('Expected a JSON object array');
+      }
+      return data
+          .map((item) => Map<String, dynamic>.from(item as Map))
+          .toList();
+    } on DioException catch (error) {
+      throw await _failure(error);
+    }
+  }
+
   Future<Map<String, dynamic>> postJson(
     String path, {
     Object? data,

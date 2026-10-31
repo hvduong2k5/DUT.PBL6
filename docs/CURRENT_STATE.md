@@ -1,41 +1,31 @@
 # Customer Mobile — current handoff
 
-Updated 2026-10-31. Current task: four-step MVP contract migration planning; execute M1 analysis only. Whole parity/migration goal ACTIVE, not complete.
+Updated2026-10-31. Goal ACTIVE. Current implementation is M2-A MVP purchase foundation, not full MVP UI. User authorized implementing agreed portions after reference Issue38. Mobile only: feature/mobile-ui, parent c6a1c3b3c29a14a6fb2ae7d57f28ff64a3c76143; new checkpoint identifiable by git log -1. No merge/PR/dev/Web edits.
 
-## Branch / source / authority
+## Authority / current plans
 
-- Work/commit/push only feature/mobile-ui; initial HEAD3f206027dc8de3b992bfc327aeb9dcb27db9a86f and worktree clean. Current documentation checkpoint identified by git log -1.
-- Read-only dev target7f22226c7b2f4363d3ba376b715feb0e63f69355, fetched by explicit user permission. No checkout/merge/cherry-pick, no changes to dev/Web, no PR.
-- Target is docs/03_api_specs/mvp-customer.openapi.yaml at that commit, release mvp-2026-10-26; README/MIGRATION/registry/TEAM-DECISIONS explain source priority and pending implementation acceptance. Read with git show pinned-ref:path.
-- ZIP snapshots remain historical, unchanged. For overlapping routes MVP is the new migration target; this planning step does not migrate runtime adapters or activate capabilities. Features absent from target are not silently removed or declared supported.
-- Existing Web visual reference b1ff2918; retain shared colors/type/components. No redesign in M1.
+Read-only target dev7f22226c7b2f4363d3ba376b715feb0e63f69355, public mvp-customer.openapi.yaml and MVP migration/registry. Historical ZIP snapshots unchanged; Web tokens b1ff2918 unchanged. Target is integration-required, not deployed provider proof. Full-cart MVP direction accepted by user; no partial selection or new geography source is approved. Prior M1 evidence remains active/M1_MVP_CONTRACT_GAPS.md.
 
-## Plans / progress
+Master: docs/plans/MASTER_PLAN.md. Current detailed plan: docs/plans/active/M2_MVP_PURCHASE.md. M2-A complete as PREPARED / NOT WIRED TO RUNTIME / NATIVE NOT RUN; M2 overall ACTIVE, M3/M4 NOT STARTED. Legacy runtime and local mocks still usable until coherent integration. Do not claim checkbox/UI migration from this foundation slice.
 
-Master: docs/plans/MASTER_PLAN.md. Active: docs/plans/active/M1_MVP_CONTRACT_GAPS.md.
+## Completed source slice
 
-1. M1 contract gaps: **ANALYSIS COMPLETE**, G1–G3 owning-team decisions **OPEN**.
-2. M2 cart/address/API models + quote review: NOT STARTED; detailed plan at entry after relevant decisions.
-3. M3 async checkout-operation and recovery: NOT STARTED; detailed plan at entry.
-4. M4 payment/order actions/cancellation and migration QA: NOT STARTED; detailed plan at entry.
+- checkout/domain/mvp_purchase_models.dart: server revision/full items, optional line integer-VND prices (missing is not free), immutable lists, canonical saved address codes/name/version, quote snapshot/totals/source version/expiry. No price calculation or local deadline extension.
+- checkout/domain/mvp_purchase_repository.dart and data/rest_mvp_purchase_repository.dart: GET server cart, GET saved addresses array, POST quote with only cart_revision/payment_method VIETQR/shipping_address_id. Reject mismatched revision/method/source ID. No order creation/cart writes/cleanup/voucher/COD/inline address API.
+- core/network/api_client.dart: strict JSON object-array read with existing auth/error recovery, no automatic replay.
+- checkout/presentation/mvp_quote_cubit.dart: loading/empty/no usable address/editing/pending/ready/error; address change invalidates quote; stale responses ignored; expiry query; retry rereads server authority; duplicate pending tap/dispose safe.
+- test/features/checkout/mvp_purchase_test.dart:12tests for DTOs/REST/state/races/expiry/auth transport. All fixtures local; no provider calls.
 
-## M1 findings / proposed defaults (not approved policy)
+## Validation
 
-- G1: quote accepts cart_revision but no selected line IDs/items. Current Mobile selectedCart submits a subset under old ZIP. Recommend full-cart quote for MVP or explicit partial-checkout contract; never temporarily delete unselected lines. Team must confirm quote scope and post-placement cart semantics. Do not change checkbox behavior before this decision.
-- G2: public target requires canonical province_code/ward_code; no geography lookup. Direct Profile validation/suggestion endpoints are not a public lookup. Current Mobile uses /locations/checkout plus name-only DTOs, wrapper list and no If-Match. Need canonical data source/version and saved-vs-inline policy. Saved-address-only fallback requires review; no suitable address means recoverable blocked checkout, not guessed codes.
-- G3: order list returns items/next_cursor but no input cursor/limit/filter/search contract; provider spec also lacks it. Tracking response is unconstrained object. Need typed pagination/tracking spec before real load-more/timeline. Do not invent queries or infer delivery timestamps. Current Mobile pageSize/page/total parser and old tracking cannot be treated as compatible.
-- Active M1 records evidence positions, four decision requests/owners, UI fallback proposals and dependency gates. No communication sent to team, no backend approval claimed. Contract integration target is not proof provider deployed.
+Focused12/12 PASS; full156/156 PASS. Analyze initially reported one public test helper exposing private mock type; helper renamed private, final analyze PASS No issues17.1s. Focused rerun after naming-only fix recorded at checkpoint. No disabled assertions/lints. Debug APK/native NOT RUN: no UI wiring/dependencies/Android changes. Baseline old144tests do not by themselves establish new DTO/provider compatibility.
 
-## Modified areas / validation
+## Boundaries / remaining work
 
-This step changes only AGENTS, CURRENT_STATE, DECISIONS, MASTER_PLAN and new M1 detailed plan. No Flutter source/mock/test/API snapshot changes, no dependency installs, no browser/computer-use calls.
+Saved-address read only; canonical lookup/source and create/edit UI are unresolved. No backend cleanup assumptions implemented. Cursor input/typed tracking remain open contract gaps; no q/page invention. Provider readiness, authentication integration, operation recovery and payment acceptance still pending in later slices. QA-01 is re-scoped to new payment contract at M4; QA-02 external-media handoff remains unverified.
 
-PASS: parsed pinned public/provider YAML and8targeted static assertions confirming quote scope/revision/geography absence/list-cursor omission/tracking placeholder/address version requirement. This is local schema inspection, not full contract CI/provider/runtime verification. git diff --check recorded before checkpoint. No Flutter test/analyze/APK rerun for documentation-only work.
-
-Baseline source is still e86f82b (3f20602 was documentation): recorded144/144 tests, analyze PASS, APK166s PASS, installed update and native cancellation-return refresh verified. Those results are historical and do not validate MVP compatibility. Detailed baseline native evidence remains P4_CUSTOMER_QA.md and CUSTOMER_PARITY_MATRIX.md.
+Untracked docs/MOBILE_MVP_DISCUSSION_REFERENCE.md is the separate reference artifact published as https://github.com/hvduong2k5/DUT.PBL6/issues/38. Preserve it and do not stage automatically. No Issue/comments modified in this implementation turn.
 
 ## Exact next action
 
-Stop after M1 documentation checkpoint. User/team review G1–G3 in active plan. Once relevant answers exist, open detailed M2 analysis for actual files/model boundaries/UX/tests, not a broad UI rewrite. Record changed assumptions and target provenance before implementation. Until then the contract decision gate remains OPEN; M1 analysis is done but backend gaps are not solved.
-
-Old QA-01 payment tests must be re-scoped to new payment contract in M4; QA-02 external-media handoff remains unverified/outside M1. No automatic scrcpy loops. Native runtime handles from October21 may be stale; rediscover only when a later targeted test needs them.
+Resume AGENTS/master/current M2 plan; verify branch/HEAD/status/remote. Start M2-B by analyzing existing UI primitives/design skill, route and cohort/mock activation. Implement explicit quote-review UX for full-cart + canonical saved address, server totals/expiry/requote and empty/error/back. Never route a new quote into old direct checkout. Keep place-order unavailable until M3 operation integration is coherent, explaining availability in user-friendly terms. No broad scrcpy loop; deterministic widget tests first, one targeted native check only when integrated.

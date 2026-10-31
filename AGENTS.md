@@ -10,7 +10,7 @@
 
 ## Resume
 
-User steering 2026-10-31: read-only dev contract analysis is authorized. MVP migration planning target is dev7f22226; follow the four-step roadmap in MASTER_PLAN and current M1 plan. Keep historical ZIP snapshots; runtime adapters are not migrated by a planning-only step. Dev remains read-only. No automatic merge or feature activation.
+User steering 2026-10-31: read-only dev contract analysis is authorized. MVP migration planning target is dev7f22226; follow the four-step roadmap in MASTER_PLAN and current M1 plan. Keep historical ZIP snapshots; runtime adapters are not migrated by a planning-only step. Dev remains read-only. No automatic merge or feature activation. Later user steering authorizes implementation of agreed Mobile portions; active M2_MVP_PURCHASE.md defines the bounded foundation slice. Runtime activation remains separate.
 
 Read `docs/CURRENT_STATE.md`, `docs/plans/MASTER_PLAN.md`, then the active phase linked there. Inspect branch, HEAD and status before editing.
 
