@@ -4,6 +4,7 @@
   "displayName": "Omama E-commerce",
   "enabled": true,
   "sslRequired": "external",
+  "loginTheme": "omama",
   "registrationAllowed": false,
   "resetPasswordAllowed": true,
   "rememberMe": true,

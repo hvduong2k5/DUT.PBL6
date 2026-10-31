@@ -1,0 +1,286 @@
+@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Noto+Serif:wght@600;700&display=swap');
+
+:root {
+  --omama-surface: #fcf9f4;
+  --omama-surface-low: #f6f3ee;
+  --omama-surface-high: #ebe8e3;
+  --omama-white: #ffffff;
+  --omama-ink: #2f241c;
+  --omama-muted: #6b5a4a;
+  --omama-primary: #563a26;
+  --omama-primary-soft: #70513b;
+  --omama-gold: #d4a24c;
+  --omama-gold-pale: #ffdeac;
+  --omama-brick: #8f2817;
+  --omama-border: #e7ded4;
+  --omama-shadow: 0 20px 50px rgba(47, 36, 28, 0.12), 0 2px 8px rgba(47, 36, 28, 0.05);
+  --omama-font-display: 'Noto Serif', 'Times New Roman', serif;
+  --omama-font-body: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* 1. Global Reset & Body Background */
+html, body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  font-family: var(--omama-font-body) !important;
+  color: var(--omama-ink) !important;
+  background: radial-gradient(circle at 50% 20%, #fcf9f4 0%, #f6f3ee 60%, #ebe8e3 100%) !important;
+  -webkit-font-smoothing: antialiased;
+}
+
+.login-pf body {
+  background: radial-gradient(circle at 50% 20%, #fcf9f4 0%, #f6f3ee 60%, #ebe8e3 100%) !important;
+}
+
+/* 2. Card Container */
+.login-pf .card-pf {
+  max-width: 480px !important;
+  margin: 40px auto !important;
+  padding: 44px 40px 36px !important;
+  background: var(--omama-white) !important;
+  border-radius: 20px !important;
+  border: 1px solid var(--omama-border) !important;
+  box-shadow: var(--omama-shadow) !important;
+  position: relative;
+}
+
+@media (max-width: 600px) {
+  .login-pf .card-pf {
+    margin: 16px !important;
+    padding: 32px 24px !important;
+    border-radius: 16px !important;
+  }
+}
+
+/* 3. Logo & Brand Mark Header */
+#kc-header {
+  text-align: center !important;
+  margin-bottom: 8px !important;
+}
+
+#kc-header-wrapper {
+  display: block !important;
+  background-image: url('../img/logo-omama.svg') !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  background-size: contain !important;
+  height: 64px !important;
+  margin: 0 auto 16px auto !important;
+  font-size: 0 !important;
+  color: transparent !important;
+}
+
+/* 4. Page Title */
+#kc-page-title {
+  font-family: var(--omama-font-display) !important;
+  font-size: 26px !important;
+  font-weight: 700 !important;
+  color: var(--omama-primary) !important;
+  text-align: center !important;
+  margin: 0 0 24px 0 !important;
+  letter-spacing: -0.02em !important;
+}
+
+/* 5. Form Field Labels */
+.control-label {
+  font-family: var(--omama-font-body) !important;
+  font-size: 13.5px !important;
+  font-weight: 600 !important;
+  color: var(--omama-ink) !important;
+  margin-bottom: 6px !important;
+  display: block !important;
+}
+
+/* 6. Form Inputs */
+.form-control {
+  font-family: var(--omama-font-body) !important;
+  height: 48px !important;
+  padding: 0 16px !important;
+  font-size: 14.5px !important;
+  color: var(--omama-ink) !important;
+  background-color: #f2efeb !important;
+  border: 1.5px solid transparent !important;
+  border-radius: 12px !important;
+  box-shadow: inset 0 1px 2px rgba(47, 36, 28, 0.04) !important;
+  transition: all 0.2s ease-in-out !important;
+}
+
+.form-control:focus {
+  background-color: #ffffff !important;
+  border-color: var(--omama-primary-soft) !important;
+  box-shadow: 0 0 0 3px rgba(112, 81, 59, 0.15) !important;
+  outline: none !important;
+}
+
+.form-group {
+  margin-bottom: 20px !important;
+}
+
+/* 7. Checkbox & Remember Me */
+.login-pf_helper-options {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  margin: 16px 0 24px !important;
+  font-size: 13px !important;
+}
+
+.checkbox label {
+  color: var(--omama-muted) !important;
+  font-size: 13px !important;
+  cursor: pointer;
+}
+
+.checkbox input[type="checkbox"] {
+  accent-color: var(--omama-primary) !important;
+  margin-right: 6px !important;
+}
+
+/* Forgot Password Link */
+#kc-form-options a, 
+.login-pf_helper-options a, 
+a.forgot-password {
+  color: var(--omama-brick) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  text-decoration: none !important;
+}
+
+#kc-form-options a:hover, 
+.login-pf_helper-options a:hover {
+  text-decoration: underline !important;
+  color: var(--omama-primary) !important;
+}
+
+/* 8. Primary Submit Button */
+.btn-primary, 
+#kc-login {
+  width: 100% !important;
+  height: 50px !important;
+  background: linear-gradient(135deg, var(--omama-primary) 0%, var(--omama-primary-soft) 100%) !important;
+  color: #ffffff !important;
+  border: none !important;
+  border-radius: 12px !important;
+  font-family: var(--omama-font-body) !important;
+  font-size: 15.5px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.03em !important;
+  box-shadow: 0 6px 18px rgba(86, 58, 38, 0.26) !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease-in-out !important;
+}
+
+.btn-primary:hover, 
+#kc-login:hover {
+  background: linear-gradient(135deg, #442a18 0%, var(--omama-primary) 100%) !important;
+  box-shadow: 0 8px 24px rgba(86, 58, 38, 0.36) !important;
+  transform: translateY(-1px) !important;
+}
+
+.btn-primary:active, 
+#kc-login:active {
+  transform: translateY(0) !important;
+}
+
+/* 9. Social Login Providers (Google, etc.) */
+#kc-social-providers {
+  margin-top: 28px !important;
+  padding-top: 24px !important;
+  border-top: 1px solid var(--omama-border) !important;
+  text-align: center !important;
+}
+
+#kc-social-providers h4 {
+  font-family: var(--omama-font-body) !important;
+  font-size: 12.5px !important;
+  font-weight: 500 !important;
+  color: var(--omama-muted) !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  margin-bottom: 16px !important;
+}
+
+#kc-social-providers ul {
+  list-style: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+#kc-social-providers li a {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 46px !important;
+  border: 1px solid var(--omama-border) !important;
+  border-radius: 12px !important;
+  background: #ffffff !important;
+  color: var(--omama-ink) !important;
+  font-weight: 600 !important;
+  font-size: 14px !important;
+  text-decoration: none !important;
+  transition: all 0.2s ease !important;
+}
+
+#kc-social-providers li a:hover {
+  background: var(--omama-surface-low) !important;
+  border-color: var(--omama-primary-soft) !important;
+}
+
+/* 10. Registration Link */
+#kc-registration {
+  margin-top: 24px !important;
+  text-align: center !important;
+  font-size: 13.5px !important;
+  color: var(--omama-muted) !important;
+}
+
+#kc-registration a {
+  color: var(--omama-brick) !important;
+  font-weight: 700 !important;
+  text-decoration: none !important;
+  margin-left: 4px !important;
+}
+
+#kc-registration a:hover {
+  text-decoration: underline !important;
+}
+
+/* 11. Alerts & Error Notices */
+.alert-error {
+  background-color: #ffdad6 !important;
+  color: #ba1a1a !important;
+  border: 1px solid rgba(186, 26, 26, 0.2) !important;
+  border-radius: 12px !important;
+  padding: 12px 16px !important;
+  font-size: 13.5px !important;
+  margin-bottom: 20px !important;
+}
+
+.alert-warning {
+  background-color: #fff4ce !important;
+  color: #7a5800 !important;
+  border: 1px solid rgba(122, 88, 0, 0.2) !important;
+  border-radius: 12px !important;
+  padding: 12px 16px !important;
+  font-size: 13.5px !important;
+  margin-bottom: 20px !important;
+}
+
+.alert-success {
+  background-color: #d1e7dd !important;
+  color: #0f5132 !important;
+  border: 1px solid rgba(15, 81, 50, 0.2) !important;
+  border-radius: 12px !important;
+  padding: 12px 16px !important;
+  font-size: 13.5px !important;
+  margin-bottom: 20px !important;
+}
+
+/* 12. Footer Copyright Note */
+#kc-info, .login-pf-page-footer {
+  margin-top: 24px !important;
+  text-align: center !important;
+  font-size: 12px !important;
+  color: var(--omama-muted) !important;
+}
