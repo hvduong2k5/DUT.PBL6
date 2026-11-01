@@ -56,6 +56,8 @@ Chạy `npm run verify:mvp` và `npm run build` tại Web; chạy `python script
 
 Fixture có kiểm refresh trực tiếp tại Identity rồi qua Web. Trên Windows đã quan sát Docker PostgreSQL chạy nhanh hơn clock native khoảng nửa giây: TEST packing đọc timestamp revision thật và chờ clock host bắt kịp trước khi tạo shipment, tối đa 5 giây. Không viết lại bằng chứng hoặc thay policy thứ tự thời gian của Order. Các máy/provider triển khai thực phải đồng bộ clock; fixture không phải cơ chế sửa clock cho production.
 
+Profile và Order kiểm JWT với sai số clock tối đa 5 giây cho các time claim (`iat`/`nbf`/`exp`). Token mới phát hành không bị từ chối chỉ vì Keycloak chạy trước clock verifier một phần giây. Test ký JWT thật kiểm `iat` đi trước clock verifier 2 giây được chấp nhận, lệch 10 giây bị chặn; issuer, audience, chữ ký, expiry bắt buộc và ownership vẫn được kiểm. Đây không phải sai số cho chronology của chứng cứ packing/shipping.
+
 Phạm vi còn giữ như #44: Catalog/terms, statement SePay, packing dùng provider TEST; hãng vận chuyển FAKE. Không thay thế nghiệm thu Catalog, Fulfillment, SePay/GHN bên ngoài, xác minh Customer lên ACTIVE hoặc mobile runtime.
 
 PR tích hợp phải được review cùng owner Identity. Sau khi merge #45 vào dev, rebase/retarget PR tích hợp về dev, chạy lại CI rồi merge qua review. #43/#44 được thay thế bởi bản tích hợp này; không merge chúng thêm lần nữa sau khi bản mới đã vào dev.
