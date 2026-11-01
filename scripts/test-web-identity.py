@@ -229,6 +229,8 @@ def main():
                     "exec",
                     db_container,
                     "pg_isready",
+                    "-h",
+                    "127.0.0.1",
                     "-U",
                     "peer",
                     "-d",
@@ -240,6 +242,8 @@ def main():
             if check.returncode == 0:
                 break
             time.sleep(0.25)
+        else:
+            raise RuntimeError("PostgreSQL TCP listener did not become ready")
         sql(
             "CREATE SCHEMA identity; CREATE SCHEMA identity_test; CREATE SCHEMA profile; CREATE SCHEMA shipping; CREATE SCHEMA orders; CREATE SCHEMA catalog_test;"
         )
