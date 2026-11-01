@@ -43,7 +43,7 @@ public class BffSessionAuthFilter extends OncePerRequestFilter {
             String state = request.getParameter("state");
             if (binding == null || state == null || !java.security.MessageDigest.isEqual(
                     binding.getBytes(java.nio.charset.StandardCharsets.UTF_8), state.getBytes(java.nio.charset.StandardCharsets.UTF_8))) {
-                response.sendError(400, "Invalid browser authentication state");
+                reject(response, 400, "INVALID_AUTH_STATE");
                 return;
             }
         }
@@ -53,11 +53,11 @@ public class BffSessionAuthFilter extends OncePerRequestFilter {
                 java.net.URI source = java.net.URI.create(origin == null ? "" : origin);
                 java.net.URI allowed = java.net.URI.create(frontendUrl);
                 if (!Objects.equals(source.getScheme(), allowed.getScheme()) || !Objects.equals(source.getAuthority(), allowed.getAuthority())) {
-                    response.sendError(403, "Invalid browser origin");
+                    reject(response, 403, "ORIGIN_NOT_ALLOWED");
                     return;
                 }
             } catch (IllegalArgumentException ex) {
-                response.sendError(403, "Invalid browser origin");
+                reject(response, 403, "ORIGIN_NOT_ALLOWED");
                 return;
             }
         }
@@ -129,6 +129,14 @@ public class BffSessionAuthFilter extends OncePerRequestFilter {
 
     private String extractSessionCookie(HttpServletRequest request) {
         return cookie(request, "OMAMA_SESSION");
+    }
+
+    private void reject(HttpServletResponse response, int status, String code) throws IOException {
+        // sendError dispatches through /error, where anonymous security can
+        // incorrectly replace this explicit 400/403 with a 401.
+        response.setStatus(status);
+        response.setContentType("application/json");
+        response.getWriter().write("{\"success\":false,\"code\":\"" + code + "\"}");
     }
 
     private String cookie(HttpServletRequest request, String name) {

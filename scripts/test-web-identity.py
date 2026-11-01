@@ -1191,6 +1191,9 @@ def main():
             encoding="utf-8",
         )
         if args.keep_running:
+            import traceback
+
+            traceback.print_exc()
             print(
                 "FAIL: "
                 + type(error).__name__
