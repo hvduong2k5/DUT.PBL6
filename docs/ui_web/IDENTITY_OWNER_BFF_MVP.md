@@ -54,6 +54,8 @@ Session/state của owner hiện ở bộ nhớ một Identity instance. Restart
 
 Chạy `npm run verify:mvp` và `npm run build` tại Web; chạy `python scripts/test-web-identity.py --gradle gradle` từ gốc repo. Script dùng Identity #45, theme Ô Mạ, cookie phiên, PKCE callback của Identity và kiểm lại cả bốn luồng Customer/Order. Kết quả nằm trong `result.json`/CI; không commit `ready.json`, cookie hay mật khẩu.
 
+Fixture có kiểm refresh trực tiếp tại Identity rồi qua Web. Trên Windows đã quan sát Docker PostgreSQL chạy nhanh hơn clock native khoảng nửa giây: TEST packing đọc timestamp revision thật và chờ clock host bắt kịp trước khi tạo shipment, tối đa 5 giây. Không viết lại bằng chứng hoặc thay policy thứ tự thời gian của Order. Các máy/provider triển khai thực phải đồng bộ clock; fixture không phải cơ chế sửa clock cho production.
+
 Phạm vi còn giữ như #44: Catalog/terms, statement SePay, packing dùng provider TEST; hãng vận chuyển FAKE. Không thay thế nghiệm thu Catalog, Fulfillment, SePay/GHN bên ngoài, xác minh Customer lên ACTIVE hoặc mobile runtime.
 
 PR tích hợp phải được review cùng owner Identity. Sau khi merge #45 vào dev, rebase/retarget PR tích hợp về dev, chạy lại CI rồi merge qua review. #43/#44 được thay thế bởi bản tích hợp này; không merge chúng thêm lần nữa sau khi bản mới đã vào dev.

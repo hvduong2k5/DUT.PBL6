@@ -176,6 +176,7 @@ func connected(ctx context.Context, cfg app.Config) (*app.Service, error) {
 		}
 		task := uuid.NewString()
 		seal := "synthetic-seal-" + id
+		var sealedAt time.Time
 		for i, kind := range []string{"PACKING_ACCEPTED", "PACKING_SEALED"} {
 			source := persistence.SourceEvidence{Order: id, Resource: task, Source: "fulfillment", Kind: kind, Version: int64(i + 1), Generation: o.Generation}
 			if i == 1 {
@@ -190,16 +191,42 @@ func connected(ctx context.Context, cfg app.Config) (*app.Service, error) {
 				http.Error(w, "test packing proof unavailable", 503)
 				return
 			}
-			resp.Body.Close()
 			if resp.StatusCode != 200 && resp.StatusCode != 201 {
+				resp.Body.Close()
 				http.Error(w, fmt.Sprint("TEST packing provider rejected proof: ", resp.StatusCode), 503)
 				return
+			}
+			var persisted persistence.SourceEvidence
+			decodeErr := json.NewDecoder(resp.Body).Decode(&persisted)
+			resp.Body.Close()
+			if decodeErr != nil || persisted.Occurred.IsZero() {
+				http.Error(w, "TEST packing provider returned no revision timestamp", 503)
+				return
+			}
+			if i == 1 {
+				sealedAt = persisted.Occurred
 			}
 			event := domain.Event{ID: uuid.NewString(), Source: "fulfillment", OrderID: id, ResourceID: task, Type: kind, Version: int64(i + 1), Generation: o.Generation, Seal: source.Seal}
 			event.Signature = domain.EventSignature(event, cfg.InternalToken)
 			if state, err := service.ProcessEvent(r.Context(), event); err != nil || state != "APPLIED" {
 				http.Error(w, fmt.Sprint("test packing ", state, err), 409)
 				return
+			}
+		}
+		// PostgreSQL in Docker and native Go may differ slightly on Windows.
+		// Preserve the provider's immutable proof time and causal ordering; never
+		// rewrite a Shipping revision or relax Order's chronological checks.
+		if delay := time.Until(sealedAt); delay > 0 {
+			if delay > 5*time.Second {
+				http.Error(w, "TEST host/database clocks differ by more than five seconds", 503)
+				return
+			}
+			timer := time.NewTimer(delay + time.Millisecond)
+			defer timer.Stop()
+			select {
+			case <-r.Context().Done():
+				return
+			case <-timer.C:
 			}
 		}
 		t := o.CoreSnapshot

@@ -1024,10 +1024,35 @@ def main():
             assert (
                 status == 200 and cart["items"][0]["sku_code"] == "PRIVATE-" + key
             ), "Cross-owner Cart/header spoofing"
+            status, native_refresh, refresh_headers = request(
+                gateway + "/api/v1/public/auth/tokens/refresh",
+                {},
+                opener=opener,
+                headers={"Origin": web},
+            )
+            assert status == 200, (
+                "Identity refresh",
+                status,
+                native_refresh,
+                refresh_headers.get("WWW-Authenticate"),
+            )
+            status, native_session, session_headers = request(
+                gateway + "/api/v1/public/auth/session", opener=opener
+            )
+            assert status == 200 and native_session["data"]["authenticated"], (
+                "Identity session after refresh",
+                status,
+                native_session,
+                session_headers.get("WWW-Authenticate"),
+            )
             status, refresh, _ = request(
                 web + "/api/auth/refresh", {}, opener=opener, headers={"Origin": web}
             )
-            assert status == 200 and refresh["authenticated"] is True, "Refresh failed"
+            assert status == 200 and refresh["authenticated"] is True, (
+                "Web refresh",
+                status,
+                refresh,
+            )
             status, profile, headers = request(
                 web + "/api/customer/profile", opener=opener
             )
