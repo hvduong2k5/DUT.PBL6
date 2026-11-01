@@ -1,13 +1,19 @@
 package com.hvduong.identity.api.account;
 
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CookieValue;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+
 import com.hvduong.identity.dto.common.ApiResponse;
-import com.hvduong.identity.dto.response.AuthUrlResponse;
 import com.hvduong.identity.dto.response.SessionResponse;
+
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
 
 @Tag(name = "Authentication & BFF Sessions", description = "Kiến trúc Backend-for-Frontend (BFF Pattern) theo RFC 9700 & RFC 7636 PKCE")
 @RequestMapping("/api/v1/public/auth")

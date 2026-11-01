@@ -39,3 +39,4 @@ keycloak:
   client-secret: "${KEYCLOAK_CLIENT_SECRET:changeme}"
   public-client-id: ${KEYCLOAK_PUBLIC_CLIENT_ID:frontend-web}
   redirect-uri: ${AUTH_REDIRECT_URI:http://localhost:8016/api/v1/public/auth/callback}
+  scope: ${KEYCLOAK_SCOPE:openid}

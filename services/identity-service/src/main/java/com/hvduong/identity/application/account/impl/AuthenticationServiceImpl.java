@@ -58,6 +58,9 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     @Value("${keycloak.redirect-uri:https://api.omama.vn/api/v1/public/auth/callback}")
     private String redirectUri;
 
+    @Value("${keycloak.scope:openid}")
+    private String authScope = "openid";
+
     @Value("${app.frontend-url:http://localhost:3000}")
     private String defaultFrontendUrl;
 
@@ -78,7 +81,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
         urlBuilder.append("?response_type=code")
                 .append("&client_id=").append(publicClientId)
                 .append("&redirect_uri=").append(URLEncoder.encode(redirectUri, StandardCharsets.UTF_8))
-                .append("&scope=").append(URLEncoder.encode("openid profile email", StandardCharsets.UTF_8))
+                .append("&scope=").append(URLEncoder.encode(authScope != null && !authScope.isBlank() ? authScope : "openid", StandardCharsets.UTF_8))
                 .append("&state=").append(URLEncoder.encode(state, StandardCharsets.UTF_8))
                 .append("&code_challenge=").append(URLEncoder.encode(codeChallenge, StandardCharsets.UTF_8))
                 .append("&code_challenge_method=S256");

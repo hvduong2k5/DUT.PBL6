@@ -67,6 +67,7 @@ class AuthenticationServiceTest {
         ReflectionTestUtils.setField(authenticationService, "publicClientId", "frontend-web");
         ReflectionTestUtils.setField(authenticationService, "redirectUri", "https://api.omama.vn/api/v1/public/auth/callback");
         ReflectionTestUtils.setField(authenticationService, "defaultFrontendUrl", "http://localhost:3000");
+        ReflectionTestUtils.setField(authenticationService, "authScope", "openid");
     }
 
     @Test
@@ -81,6 +82,7 @@ class AuthenticationServiceTest {
                 .contains("client_id=frontend-web")
                 .contains("code_challenge=")
                 .contains("code_challenge_method=S256")
+                .contains("scope=openid")
                 .doesNotContain("kc_idp_hint");
 
         Optional<AuthStateStore.PendingAuthState> saved = authStateStore.consume(response.getState());

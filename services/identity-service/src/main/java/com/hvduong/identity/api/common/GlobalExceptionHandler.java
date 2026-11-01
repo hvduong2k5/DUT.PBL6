@@ -1,6 +1,5 @@
 package com.hvduong.identity.api.common;
 
-import com.hvduong.identity.dto.common.ApiResponse;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
