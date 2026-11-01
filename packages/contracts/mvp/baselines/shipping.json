@@ -332,22 +332,6 @@
         "reserved": [],
         "reserved_names": []
       },
-      "omamx.identity.v1.GetJwksPublicKeyRequest": {
-        "fields": {
-          "1": ["key_id", "keyId", 9, "", 1, true, "_key_id"]
-        },
-        "reserved": [],
-        "reserved_names": []
-      },
-      "omamx.identity.v1.GetJwksPublicKeyResponse": {
-        "fields": {
-          "1": ["key_id", "keyId", 9, "", 1, false, null],
-          "2": ["algorithm", "algorithm", 9, "", 1, false, null],
-          "3": ["public_key_pem", "publicKeyPem", 9, "", 1, false, null]
-        },
-        "reserved": [],
-        "reserved_names": []
-      },
       "omamx.inventory.v1.ReserveItem": {
         "fields": {
           "1": ["sku_code", "skuCode", 9, "", 1, false, null],
@@ -944,8 +928,7 @@
         "SubmitPackingEvidence": [".omamx.fulfillment.v1.SubmitPackingEvidenceRequest", ".omamx.fulfillment.v1.SubmitPackingEvidenceResponse", false, false]
       },
       "omamx.identity.v1.IdentityService": {
-        "CheckSpecializedPermission": [".omamx.identity.v1.SpecializedPermissionRequest", ".omamx.identity.v1.SpecializedPermissionResponse", false, false],
-        "GetJwksPublicKey": [".omamx.identity.v1.GetJwksPublicKeyRequest", ".omamx.identity.v1.GetJwksPublicKeyResponse", false, false]
+        "CheckSpecializedPermission": [".omamx.identity.v1.SpecializedPermissionRequest", ".omamx.identity.v1.SpecializedPermissionResponse", false, false]
       },
       "omamx.inventory.v1.InventoryService": {
         "ReserveStock": [".omamx.inventory.v1.ReserveStockRequest", ".omamx.inventory.v1.ReserveStockResponse", false, false],
