@@ -1,481 +1,317 @@
 openapi: 3.1.0
 info:
   title: Ô Mạ Authentication MVP API
-  version: 0.1.0-candidate
-  summary: Candidate contract derived from the implemented Web D2C authentication slice.
+  version: 2.0.0
+  summary: Official Authentication & BFF Session specification aligned with Identity
+    Service and RFC 9700.
   license:
     name: Proprietary - internal project use
     identifier: LicenseRef-Proprietary
-  description: |
-    Contract candidate for customer login, session, registration verification, and
-    password recovery. This document is proposed for Backend, Architecture, and
-    Security review; it is not an approved production contract yet.
+  description: 'Official Authentication & Session Specification for the Ô Mạ ecosystem.
 
-    Browser components call the same-origin Next.js BFF at `/api/auth/*`. The BFF
-    forwards requests to the API Gateway paths described here under `/api/v1/auth/*`.
-    `X-Mock-Scenario` is a local-development mechanism and is intentionally absent.
+    Complies with RFC 9700 (BFF Pattern) and RFC 7636 (PKCE) with Keycloak IdP integration.
+
+    Browser components call the BFF session endpoints at `/api/v1/public/auth/*` and
+
+    public customer registration at `/api/v1/public/customer-registrations`.
+
+    Session security is enforced via HttpOnly cookie `OMAMA_SESSION`.
+
+    '
 servers:
-  - url: /api/v1
-    description: API Gateway relative base URL
-  - url: http://127.0.0.1:4010/api/v1
-    description: Local Mockoon environment only
+- url: /api/v1
+  description: API Gateway relative base URL
+- url: http://127.0.0.1:4010/api/v1
+  description: Local Mockoon environment only
 tags:
-  - name: Authentication
-    description: Customer authentication and server-side session lifecycle.
-  - name: Registration
-    description: Customer registration and email magic-link verification.
-  - name: Recovery
-    description: Neutral recovery request and single-use password reset flow.
-
+- name: Authentication
+  description: Customer authentication and server-side session lifecycle.
+- name: Registration
+  description: Customer registration and email magic-link verification.
+- name: Recovery
+  description: Neutral recovery request and single-use password reset flow.
 paths:
-  /auth/login:
-    post:
-      tags: [Authentication]
-      operationId: loginCustomer
-      summary: Authenticate a customer and establish a browser session
-      description: |
-        Uses email as the only MVP identifier. Invalid credentials must not reveal
-        whether the email exists. The session is returned only as an opaque cookie.
-      security: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/LoginRequest"
-            examples:
-              session:
-                value:
-                  email: customer.active@example.com
-                  password: OmaHeritage#2026
-                  rememberMe: false
-      responses:
-        "200":
-          description: Authenticated and session established.
-          headers:
-            Set-Cookie:
-              $ref: "#/components/headers/SessionCookie"
-            Cache-Control:
-              $ref: "#/components/headers/NoStore"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AuthenticatedSession"
-        "401":
-          description: Credentials were not accepted.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ApiError"
-              examples:
-                authenticationFailed:
-                  value:
-                    code: AUTHENTICATION_FAILED
-                    message: Email hoặc mật khẩu không chính xác.
-                    requestId: REQ-LOGIN-401
-        "403":
-          description: The account cannot sign in; internal account state is hidden.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ApiError"
-              examples:
-                unavailable:
-                  value:
-                    code: ACCOUNT_UNAVAILABLE
-                    message: Tài khoản hiện không thể đăng nhập.
-                    requestId: REQ-LOGIN-403
-        "422":
-          $ref: "#/components/responses/ValidationError"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
-        "503":
-          $ref: "#/components/responses/ServiceUnavailable"
-
-  /auth/me:
+  /api/v1/public/auth/login:
     get:
-      tags: [Authentication]
-      operationId: getCurrentCustomerSession
-      summary: Get the current authenticated customer summary
-      security:
-        - cookieAuth: []
-      responses:
-        "200":
-          description: Current session and minimal customer summary.
-          headers:
-            Cache-Control:
-              $ref: "#/components/headers/NoStore"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AuthenticatedSession"
-        "401":
-          description: Session is missing, invalid, revoked, or expired.
-          headers:
-            Set-Cookie:
-              $ref: "#/components/headers/ClearedSessionCookie"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ApiError"
-              examples:
-                expired:
-                  value:
-                    code: SESSION_EXPIRED
-                    message: Phiên đăng nhập đã hết hạn.
-                    requestId: REQ-ME-401
-        "500":
-          $ref: "#/components/responses/InternalError"
-        "503":
-          $ref: "#/components/responses/ServiceUnavailable"
-
-  /auth/logout:
-    post:
-      tags: [Authentication]
-      operationId: logoutCustomer
-      summary: Revoke the current session and clear the browser cookie
-      description: Proposed as idempotent, including when the session is already absent.
-      security:
-        - cookieAuth: []
-        - {}
-      responses:
-        "204":
-          description: Session is no longer usable.
-          headers:
-            Set-Cookie:
-              $ref: "#/components/headers/ClearedSessionCookie"
-            Clear-Site-Data:
-              description: Candidate defense-in-depth header; scope requires Security review.
-              schema:
-                type: string
-              example: '"cache"'
-        "403":
-          $ref: "#/components/responses/RequestRejected"
-        "500":
-          $ref: "#/components/responses/InternalError"
-        "503":
-          $ref: "#/components/responses/ServiceUnavailable"
-
-  /auth/register:
-    post:
-      tags: [Registration]
-      operationId: registerCustomer
-      summary: Create a pending customer registration
-      description: |
-        Creates a PENDING_VERIFICATION registration and sends an email magic link.
-        It does not establish a session before email verification.
-      security: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/RegistrationRequest"
-            examples:
-              customer:
-                value:
-                  displayName: Khách Tri Kỷ
-                  email: new.customer@example.com
-                  password: OmaHeritage#2026
-                  termsVersion: 2026-09
-      responses:
-        "201":
-          description: Registration is pending email verification.
-          headers:
-            Cache-Control:
-              $ref: "#/components/headers/NoStore"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/RegistrationPending"
-        "409":
-          description: Registration cannot be offered for the submitted information.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ApiError"
-              examples:
-                unavailable:
-                  value:
-                    code: REGISTRATION_NOT_AVAILABLE
-                    message: Không thể tạo tài khoản bằng thông tin này.
-                    requestId: REQ-REG-409
-        "422":
-          $ref: "#/components/responses/ValidationError"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
-        "503":
-          $ref: "#/components/responses/NotificationDeliveryFailed"
-
-  /auth/registration-verifications/confirm:
-    post:
-      tags: [Registration]
-      operationId: confirmCustomerRegistration
-      summary: Exchange a registration magic-link token for an active session
-      security: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/RegistrationConfirmationRequest"
-      responses:
-        "200":
-          description: Registration activated and browser session established.
-          headers:
-            Set-Cookie:
-              $ref: "#/components/headers/SessionCookie"
-            Cache-Control:
-              $ref: "#/components/headers/NoStore"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/RegistrationConfirmation"
-        "409":
-          description: Verification token was already used.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ApiError"
-              examples:
-                used:
-                  value:
-                    code: VERIFICATION_ALREADY_USED
-                    message: Liên kết xác minh đã được sử dụng.
-                    requestId: REQ-REGV-409
-        "410":
-          description: Verification token expired.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ApiError"
-              examples:
-                expired:
-                  value:
-                    code: VERIFICATION_EXPIRED
-                    message: Liên kết xác minh đã hết hạn.
-                    requestId: REQ-REGV-410
-        "422":
-          description: Verification token is malformed or invalid.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ApiError"
-              examples:
-                invalid:
-                  value:
-                    code: VERIFICATION_INVALID
-                    message: Liên kết xác minh không hợp lệ.
-                    requestId: REQ-REGV-422
-        "500":
-          $ref: "#/components/responses/InternalError"
-        "503":
-          $ref: "#/components/responses/ServiceUnavailable"
-
-  /auth/registration-verifications/{verificationId}/resend:
-    post:
-      tags: [Registration]
-      operationId: resendRegistrationVerification
-      summary: Request another registration verification email
-      description: Resending invalidates the previous magic-link token.
-      security: []
+      tags:
+      - Authentication
+      operationId: initiateBffLogin
+      summary: Khởi tạo đăng nhập OIDC PKCE qua Keycloak
       parameters:
-        - $ref: "#/components/parameters/VerificationId"
+      - name: redirect_uri
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: provider
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: format
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - json
+          - redirect
       responses:
-        "202":
-          description: Email request accepted without exposing delivery internals.
-          headers:
-            Cache-Control:
-              $ref: "#/components/headers/NoStore"
+        '200':
+          description: Authorization URL payload for API/Mobile clients.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/VerificationEmailAccepted"
-        "404":
-          description: Verification request is not available.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ApiError"
-              examples:
-                invalid:
-                  value:
-                    code: VERIFICATION_REQUEST_INVALID
-                    message: Yêu cầu xác minh không còn hiệu lực.
-                    requestId: REQ-REGV-RESEND-404
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
-        "503":
-          $ref: "#/components/responses/NotificationDeliveryFailed"
-
-  /auth/recovery-requests:
-    post:
-      tags: [Recovery]
-      operationId: requestAccountRecovery
-      summary: Request an account recovery email
-      description: |
-        Always returns the same observable 202 response for known and unknown email
-        addresses. Response shape, message, and timing must resist account enumeration.
-      security: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/RecoveryRequest"
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      authorizationUrl:
+                        type: string
+                      state:
+                        type: string
+        '302':
+          description: Browser redirection to Keycloak login screen.
+        '400':
+          $ref: '#/components/responses/ValidationError'
+  /api/v1/public/auth/callback:
+    get:
+      tags:
+      - Authentication
+      operationId: handleBffCallback
+      summary: Tiếp nhận Callback Authorization Code từ Keycloak
+      parameters:
+      - name: code
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: state
+        in: query
+        required: false
+        schema:
+          type: string
       responses:
-        "202":
-          description: Recovery processing accepted, regardless of account existence.
-          headers:
-            Cache-Control:
-              $ref: "#/components/headers/NoStore"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/RecoveryAccepted"
-        "422":
-          $ref: "#/components/responses/ValidationError"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
-        "503":
-          $ref: "#/components/responses/NotificationDeliveryFailed"
-
-  /auth/recovery-requests/verify:
-    post:
-      tags: [Recovery]
-      operationId: verifyAccountRecoveryToken
-      summary: Exchange a recovery magic-link token for a short-lived reset proof
-      security: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/RecoveryVerificationRequest"
-      responses:
-        "200":
-          description: Token accepted and capability-limited reset proof issued.
-          headers:
-            Cache-Control:
-              $ref: "#/components/headers/NoStore"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/RecoveryVerification"
-        "409":
-          description: Recovery token was already used.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ApiError"
-              examples:
-                used:
-                  value:
-                    code: RECOVERY_REQUEST_ALREADY_USED
-                    message: Liên kết khôi phục đã được sử dụng.
-                    requestId: REQ-RECV-409
-        "410":
-          description: Recovery token expired.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ApiError"
-              examples:
-                expired:
-                  value:
-                    code: RECOVERY_REQUEST_EXPIRED
-                    message: Liên kết khôi phục đã hết hạn.
-                    requestId: REQ-RECV-410
-        "422":
-          description: Recovery token is malformed or invalid.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ApiError"
-              examples:
-                invalid:
-                  value:
-                    code: RECOVERY_REQUEST_INVALID
-                    message: Liên kết khôi phục không hợp lệ.
-                    requestId: REQ-RECV-422
-        "500":
-          $ref: "#/components/responses/InternalError"
-        "503":
-          $ref: "#/components/responses/ServiceUnavailable"
-
-  /auth/recovery-requests/reset:
-    post:
-      tags: [Recovery]
-      operationId: resetCustomerPassword
-      summary: Set a new password and revoke all existing sessions
-      description: Does not establish a new session; the customer signs in again afterward.
-      security: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/PasswordResetRequest"
-      responses:
-        "204":
-          description: Password updated and all existing sessions revoked.
+        '302':
+          description: Redirect to frontend with Set-Cookie OMAMA_SESSION.
           headers:
             Set-Cookie:
-              $ref: "#/components/headers/ClearedSessionCookie"
-            Clear-Site-Data:
-              description: Candidate defense-in-depth header; scope requires Security review.
-              schema:
-                type: string
-              example: '"cache"'
-        "409":
-          description: Reset proof was already used.
+              $ref: '#/components/headers/SessionCookie'
+  /api/v1/public/auth/session:
+    get:
+      tags:
+      - Authentication
+      operationId: getBffSession
+      summary: Kiểm tra phiên làm việc hiện tại qua Cookie OMAMA_SESSION
+      responses:
+        '200':
+          description: Current authenticated session.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ApiError"
-              examples:
-                used:
-                  value:
-                    code: RESET_PROOF_ALREADY_USED
-                    message: Yêu cầu đặt lại mật khẩu đã được sử dụng.
-                    requestId: REQ-RESET-409
-        "410":
-          description: Reset proof expired.
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      sessionId:
+                        type: string
+                        nullable: true
+                      principalId:
+                        type: string
+                        nullable: true
+                      email:
+                        type: string
+                        nullable: true
+                      authenticated:
+                        type: boolean
+  /api/v1/public/auth/tokens/refresh:
+    post:
+      tags:
+      - Authentication
+      operationId: refreshBffSession
+      summary: Làm mới phiên làm việc BFF
+      responses:
+        '200':
+          description: Session refreshed successfully.
+  /api/v1/public/auth/logout:
+    post:
+      tags:
+      - Authentication
+      operationId: logoutBffSession
+      summary: Đăng xuất, hủy phiên trên server và xóa Cookie OMAMA_SESSION
+      responses:
+        '200':
+          description: Logged out successfully, cookie cleared.
+          headers:
+            Set-Cookie:
+              $ref: '#/components/headers/ClearedSessionCookie'
+  /api/v1/public/customer-registrations:
+    post:
+      tags:
+      - Registration
+      operationId: registerCustomerBff
+      summary: Đăng ký tài khoản Khách hàng D2C (Idempotent Outbox)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - email
+              - rawPassword
+              - firstName
+              - lastName
+              - idempotencyKey
+              - requestFingerprint
+              properties:
+                email:
+                  type: string
+                  format: email
+                rawPassword:
+                  type: string
+                firstName:
+                  type: string
+                lastName:
+                  type: string
+                idempotencyKey:
+                  type: string
+                requestFingerprint:
+                  type: string
+      responses:
+        '200':
+          description: Customer registration succeeded.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ApiError"
-              examples:
-                expired:
-                  value:
-                    code: RESET_PROOF_EXPIRED
-                    message: Yêu cầu đặt lại mật khẩu đã hết hạn.
-                    requestId: REQ-RESET-410
-        "422":
-          $ref: "#/components/responses/ValidationError"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
-        "503":
-          $ref: "#/components/responses/ServiceUnavailable"
-
+                type: object
+                properties:
+                  principalId:
+                    type: string
+                  status:
+                    type: string
+                  message:
+                    type: string
+  /api/v1/users/me:
+    get:
+      tags:
+      - User Lifecycle & Profile
+      summary: Lấy hồ sơ người dùng hiện tại
+      description: Trích xuất thông tin người dùng từ JWT session cookie hoặc Bearer
+        token.
+      operationId: getCurrentUser
+      security:
+      - cookieAuth: []
+      - bearerAuth: []
+      responses:
+        '200':
+          description: Thông tin hồ sơ người dùng thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      principalId:
+                        type: string
+                        format: uuid
+                      email:
+                        type: string
+                        format: email
+                      firstName:
+                        type: string
+                      lastName:
+                        type: string
+                      principalType:
+                        type: string
+                        enum:
+                        - CUSTOMER
+                        - EMPLOYEE
+                      roles:
+                        type: array
+                        items:
+                          type: string
+                      permissions:
+                        type: array
+                        items:
+                          type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /api/v1/users/me/password:
+    put:
+      tags:
+      - User Lifecycle & Profile
+      summary: Tự đổi mật khẩu cá nhân
+      description: Người dùng tự cập nhật mật khẩu của mình bằng cách xác thực mật
+        khẩu hiện tại và cung cấp mật khẩu mới.
+      operationId: changeOwnPassword
+      security:
+      - cookieAuth: []
+      - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - currentPassword
+              - newPassword
+              properties:
+                currentPassword:
+                  type: string
+                  description: Mật khẩu hiện tại
+                newPassword:
+                  type: string
+                  minLength: 8
+                  description: Mật khẩu mới (tối thiểu 8 ký tự)
+      responses:
+        '200':
+          description: Đổi mật khẩu thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Mật khẩu đã được cập nhật thành công
+        '400':
+          description: Mật khẩu hiện tại không chính xác hoặc dữ liệu không hợp lệ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    example: INVALID_CREDENTIALS
+                  message:
+                    type: string
+                    example: Mật khẩu hiện tại không chính xác
+        '401':
+          $ref: '#/components/responses/Unauthorized'
 components:
   securitySchemes:
     cookieAuth:
       type: apiKey
       in: cookie
-      name: __Host-oma_session
+      name: OMAMA_SESSION
       description: Opaque Secure, HttpOnly, SameSite=Lax browser session cookie.
-
   parameters:
     VerificationId:
       name: verificationId
@@ -486,20 +322,23 @@ components:
         type: string
         minLength: 1
         maxLength: 200
-
   headers:
     SessionCookie:
-      description: |
-        `__Host-oma_session` with Path=/, Secure, HttpOnly, SameSite=Lax, no Domain.
-        Candidate maximum lifetime is 24 hours when rememberMe=false and 30 days when true.
+      description: '`OMAMA_SESSION` with Path=/, Secure, HttpOnly, SameSite=Lax, no
+        Domain.
+
+        Candidate maximum lifetime is 24 hours when rememberMe=false and 30 days when
+        true.
+
+        '
       schema:
         type: string
-      example: __Host-oma_session=opaque; Path=/; Max-Age=86400; HttpOnly; Secure; SameSite=Lax
+      example: OMAMA_SESSION=opaque; Path=/; Max-Age=86400; HttpOnly; Secure; SameSite=Lax
     ClearedSessionCookie:
       description: Clears the host-only browser session cookie.
       schema:
         type: string
-      example: __Host-oma_session=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax
+      example: OMAMA_SESSION=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax
     NoStore:
       description: Prevents storage of authentication responses.
       schema:
@@ -511,121 +350,142 @@ components:
         type: integer
         minimum: 1
       example: 60
-
   schemas:
     LoginRequest:
       type: object
       additionalProperties: false
-      required: [email, password, rememberMe]
+      required:
+      - email
+      - password
+      - rememberMe
       properties:
         email:
-          $ref: "#/components/schemas/Email"
+          $ref: '#/components/schemas/Email'
         password:
           type: string
           minLength: 1
           maxLength: 128
           writeOnly: true
-          description: Existing password. It must not be normalized, trimmed, persisted, or logged.
+          description: Existing password. It must not be normalized, trimmed, persisted,
+            or logged.
         rememberMe:
           type: boolean
           default: false
-
     RegistrationRequest:
       type: object
       additionalProperties: false
-      required: [displayName, email, password, termsVersion]
+      required:
+      - displayName
+      - email
+      - password
+      - termsVersion
       properties:
         displayName:
           type: string
           minLength: 1
           maxLength: 100
-          description: Candidate length limit; Unicode normalization and whitespace policy require review.
+          description: Candidate length limit; Unicode normalization and whitespace
+            policy require review.
         email:
-          $ref: "#/components/schemas/Email"
+          $ref: '#/components/schemas/Email'
         password:
-          $ref: "#/components/schemas/NewPassword"
+          $ref: '#/components/schemas/NewPassword'
         termsVersion:
           type: string
           minLength: 1
           maxLength: 50
-          description: Version accepted by the customer. The server records acceptance time.
+          description: Version accepted by the customer. The server records acceptance
+            time.
           example: 2026-09
-
     RegistrationConfirmationRequest:
       type: object
       additionalProperties: false
-      required: [verificationToken]
+      required:
+      - verificationToken
       properties:
         verificationToken:
-          $ref: "#/components/schemas/OpaqueSingleUseToken"
-
+          $ref: '#/components/schemas/OpaqueSingleUseToken'
     RecoveryRequest:
       type: object
       additionalProperties: false
-      required: [email]
+      required:
+      - email
       properties:
         email:
-          $ref: "#/components/schemas/Email"
-
+          $ref: '#/components/schemas/Email'
     RecoveryVerificationRequest:
       type: object
       additionalProperties: false
-      required: [recoveryToken]
+      required:
+      - recoveryToken
       properties:
         recoveryToken:
-          $ref: "#/components/schemas/OpaqueSingleUseToken"
-
+          $ref: '#/components/schemas/OpaqueSingleUseToken'
     PasswordResetRequest:
       type: object
       additionalProperties: false
-      required: [resetProof, newPassword]
+      required:
+      - resetProof
+      - newPassword
       properties:
         resetProof:
           type: string
           minLength: 1
           maxLength: 2048
           writeOnly: true
-          description: Short-lived, capability-limited proof produced by the verify operation.
+          description: Short-lived, capability-limited proof produced by the verify
+            operation.
         newPassword:
-          $ref: "#/components/schemas/NewPassword"
-
+          $ref: '#/components/schemas/NewPassword'
     Email:
       type: string
       format: email
       maxLength: 254
-      description: Email is the sole Authentication MVP identifier and is compared case-insensitively.
+      description: Email is the sole Authentication MVP identifier and is compared
+        case-insensitively.
       example: customer@example.com
-
     NewPassword:
       type: string
       minLength: 15
       maxLength: 128
       writeOnly: true
-      description: |
-        Length is measured in Unicode code points. Must contain at least one Unicode
+      description: 'Length is measured in Unicode code points. Must contain at least
+        one Unicode
+
         uppercase letter (Lu), lowercase letter (Ll), decimal digit (Nd), and
+
         punctuation or symbol (P or S). Whitespace is preserved and is not a special
+
         character. The server also rejects compromised passwords. Portable JSON Schema
+
         patterns are intentionally not used for Unicode category enforcement.
+
+        '
       x-oma-password-policy:
         lengthUnit: unicode-code-points
         minLength: 15
         maxLength: 128
-        requiredUnicodeCategories: [Lu, Ll, Nd, P-or-S]
+        requiredUnicodeCategories:
+        - Lu
+        - Ll
+        - Nd
+        - P-or-S
         whitespaceCountsAsSpecial: false
         compromisedPasswordBlocklist: true
-
     OpaqueSingleUseToken:
       type: string
       minLength: 1
       maxLength: 2048
       writeOnly: true
-      description: Opaque, single-use token. The backend stores only a cryptographic hash.
-
+      description: Opaque, single-use token. The backend stores only a cryptographic
+        hash.
     CustomerSummary:
       type: object
       additionalProperties: false
-      required: [id, displayName, status]
+      required:
+      - id
+      - displayName
+      - status
       properties:
         id:
           type: string
@@ -640,22 +500,24 @@ components:
         status:
           type: string
           const: ACTIVE
-
     AuthenticatedSession:
       type: object
       additionalProperties: false
-      required: [authenticated, customer]
+      required:
+      - authenticated
+      - customer
       properties:
         authenticated:
           type: boolean
           const: true
         customer:
-          $ref: "#/components/schemas/CustomerSummary"
-
+          $ref: '#/components/schemas/CustomerSummary'
     DeliverySummary:
       type: object
       additionalProperties: false
-      required: [channel, maskedDestination]
+      required:
+      - channel
+      - maskedDestination
       properties:
         channel:
           type: string
@@ -665,16 +527,15 @@ components:
           minLength: 1
           maxLength: 254
           example: c***@example.com
-
     RegistrationPending:
       type: object
       additionalProperties: false
       required:
-        - status
-        - verificationId
-        - delivery
-        - verificationExpiresAt
-        - resendAvailableAt
+      - status
+      - verificationId
+      - delivery
+      - verificationExpiresAt
+      - resendAvailableAt
       properties:
         status:
           type: string
@@ -685,18 +546,20 @@ components:
           maxLength: 200
           example: REGV-001
         delivery:
-          $ref: "#/components/schemas/DeliverySummary"
+          $ref: '#/components/schemas/DeliverySummary'
         verificationExpiresAt:
           type: string
           format: date-time
         resendAvailableAt:
           type: string
           format: date-time
-
     RegistrationConfirmation:
       type: object
       additionalProperties: false
-      required: [status, authenticated, customer]
+      required:
+      - status
+      - authenticated
+      - customer
       properties:
         status:
           type: string
@@ -705,12 +568,14 @@ components:
           type: boolean
           const: true
         customer:
-          $ref: "#/components/schemas/CustomerSummary"
-
+          $ref: '#/components/schemas/CustomerSummary'
     VerificationEmailAccepted:
       type: object
       additionalProperties: false
-      required: [accepted, messageCode, resendAvailableAt]
+      required:
+      - accepted
+      - messageCode
+      - resendAvailableAt
       properties:
         accepted:
           type: boolean
@@ -721,11 +586,12 @@ components:
         resendAvailableAt:
           type: string
           format: date-time
-
     RecoveryAccepted:
       type: object
       additionalProperties: false
-      required: [accepted, messageCode]
+      required:
+      - accepted
+      - messageCode
       properties:
         accepted:
           type: boolean
@@ -733,11 +599,13 @@ components:
         messageCode:
           type: string
           const: RECOVERY_REQUEST_ACCEPTED
-
     RecoveryVerification:
       type: object
       additionalProperties: false
-      required: [verified, resetProof, expiresAt]
+      required:
+      - verified
+      - resetProof
+      - expiresAt
       properties:
         verified:
           type: boolean
@@ -750,11 +618,13 @@ components:
         expiresAt:
           type: string
           format: date-time
-
     ApiFieldError:
       type: object
       additionalProperties: false
-      required: [field, code, message]
+      required:
+      - field
+      - code
+      - message
       properties:
         field:
           type: string
@@ -767,54 +637,55 @@ components:
           type: string
           minLength: 1
           description: Safe display message; clients must not parse this value.
-
     ApiError:
       type: object
       additionalProperties: false
-      required: [code, message, requestId]
+      required:
+      - code
+      - message
+      - requestId
       properties:
         code:
           type: string
           enum:
-            - VALIDATION_ERROR
-            - AUTHENTICATION_FAILED
-            - SESSION_EXPIRED
-            - ACCOUNT_UNAVAILABLE
-            - REGISTRATION_NOT_AVAILABLE
-            - VERIFICATION_INVALID
-            - VERIFICATION_EXPIRED
-            - VERIFICATION_ALREADY_USED
-            - VERIFICATION_REQUEST_INVALID
-            - RECOVERY_REQUEST_INVALID
-            - RECOVERY_REQUEST_EXPIRED
-            - RECOVERY_REQUEST_ALREADY_USED
-            - RESET_PROOF_INVALID
-            - RESET_PROOF_EXPIRED
-            - RESET_PROOF_ALREADY_USED
-            - RATE_LIMITED
-            - ORIGIN_NOT_ALLOWED
-            - NOTIFICATION_DELIVERY_FAILED
-            - INTERNAL_SERVER_ERROR
-            - SERVICE_UNAVAILABLE
+          - VALIDATION_ERROR
+          - AUTHENTICATION_FAILED
+          - SESSION_EXPIRED
+          - ACCOUNT_UNAVAILABLE
+          - REGISTRATION_NOT_AVAILABLE
+          - VERIFICATION_INVALID
+          - VERIFICATION_EXPIRED
+          - VERIFICATION_ALREADY_USED
+          - VERIFICATION_REQUEST_INVALID
+          - RECOVERY_REQUEST_INVALID
+          - RECOVERY_REQUEST_EXPIRED
+          - RECOVERY_REQUEST_ALREADY_USED
+          - RESET_PROOF_INVALID
+          - RESET_PROOF_EXPIRED
+          - RESET_PROOF_ALREADY_USED
+          - RATE_LIMITED
+          - ORIGIN_NOT_ALLOWED
+          - NOTIFICATION_DELIVERY_FAILED
+          - INTERNAL_SERVER_ERROR
+          - SERVICE_UNAVAILABLE
         message:
           type: string
           minLength: 1
         errors:
           type: array
           items:
-            $ref: "#/components/schemas/ApiFieldError"
+            $ref: '#/components/schemas/ApiFieldError'
         requestId:
           type: string
           minLength: 1
           description: Non-PII correlation identifier for support and diagnostics.
-
   responses:
     RequestRejected:
       description: Request failed the same-origin or CSRF protection policy.
       content:
         application/json:
           schema:
-            $ref: "#/components/schemas/ApiError"
+            $ref: '#/components/schemas/ApiError'
           examples:
             origin:
               value:
@@ -826,35 +697,35 @@ components:
       content:
         application/json:
           schema:
-            $ref: "#/components/schemas/ApiError"
+            $ref: '#/components/schemas/ApiError'
           examples:
             invalidEmail:
               value:
                 code: VALIDATION_ERROR
                 message: Request is invalid
                 errors:
-                  - field: email
-                    code: INVALID_FORMAT
-                    message: Email chưa đúng định dạng
+                - field: email
+                  code: INVALID_FORMAT
+                  message: Email chưa đúng định dạng
                 requestId: REQ-VALIDATION-422
             passwordPolicy:
               value:
                 code: VALIDATION_ERROR
                 message: Password does not satisfy the approved policy.
                 errors:
-                  - field: password
-                    code: PASSWORD_MISSING_UPPERCASE
-                    message: Mật khẩu phải có ít nhất một chữ hoa
+                - field: password
+                  code: PASSWORD_MISSING_UPPERCASE
+                  message: Mật khẩu phải có ít nhất một chữ hoa
                 requestId: REQ-PASSWORD-422
     RateLimited:
       description: Request was rate limited without exposing internal risk rules.
       headers:
         Retry-After:
-          $ref: "#/components/headers/RetryAfter"
+          $ref: '#/components/headers/RetryAfter'
       content:
         application/json:
           schema:
-            $ref: "#/components/schemas/ApiError"
+            $ref: '#/components/schemas/ApiError'
           examples:
             limited:
               value:
@@ -862,11 +733,12 @@ components:
                 message: Vui lòng chờ trước khi thử lại.
                 requestId: REQ-RATE-429
     NotificationDeliveryFailed:
-      description: Request was valid but the notification provider could not accept delivery.
+      description: Request was valid but the notification provider could not accept
+        delivery.
       content:
         application/json:
           schema:
-            $ref: "#/components/schemas/ApiError"
+            $ref: '#/components/schemas/ApiError'
           examples:
             delivery:
               value:
@@ -878,7 +750,7 @@ components:
       content:
         application/json:
           schema:
-            $ref: "#/components/schemas/ApiError"
+            $ref: '#/components/schemas/ApiError'
           examples:
             internal:
               value:
@@ -890,10 +762,36 @@ components:
       content:
         application/json:
           schema:
-            $ref: "#/components/schemas/ApiError"
+            $ref: '#/components/schemas/ApiError'
           examples:
             unavailable:
               value:
                 code: SERVICE_UNAVAILABLE
                 message: Dịch vụ tạm thời không khả dụng.
                 requestId: REQ-SERVICE-503
+    Unauthorized:
+      description: Yêu cầu chưa được xác thực hoặc phiên đăng nhập đã hết hạn
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              code:
+                type: string
+                example: UNAUTHORIZED
+              message:
+                type: string
+                example: Yêu cầu xác thực hợp lệ
+    Forbidden:
+      description: Không có quyền truy cập tài nguyên
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              code:
+                type: string
+                example: FORBIDDEN
+              message:
+                type: string
+                example: Không có quyền thực hiện thao tác

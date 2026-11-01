@@ -1,130 +1,162 @@
 openapi: 3.0.3
 info:
   title: Identity & Access Management (IAM) Service API
-  description: |
-    Dịch vụ Quản lý Định danh & Phân quyền tập trung (IAM) cho hệ sinh thái Thương mại điện tử O Mạ.
-    Thiết kế tuân thủ nghiêm ngặt bài giảng **Mục 3.3 & 3.3.1: Áp dụng thiết kế RESTful API**:
-    - **Quy tắc 1 (Nouns only)**: Sử dụng Danh từ, KHÔNG dùng Động từ trong URI (dùng HTTP Method GET, POST, PUT, PATCH, DELETE làm hành động).
-    - **Quy tắc 2 (Plural nouns)**: Luôn sử dụng Danh từ số nhiều (`users`, `roles`, `permissions`, `employee-invitations`, `role-assignments`, `customer-registrations`).
-    - **Quy tắc 3 (Hierarchy)**: Thể hiện quan hệ phụ thuộc phân cấp (`/roles/{roleId}/permissions/{permissionCode}`, `/users/{principalId}/status`).
-    - **Quy tắc 4 (kebab-case)**: Đặt tên bằng chữ thường nối dấu gạch ngang (`employee-invitations`, `role-assignments`, `customer-registrations`).
+  description: 'Dịch vụ Quản lý Định danh & Phân quyền tập trung (IAM) cho hệ sinh
+    thái Thương mại điện tử O Mạ.
+
+    Thiết kế tuân thủ nghiêm ngặt bài giảng **Mục 3.3 & 3.3.1: Áp dụng thiết kế RESTful
+    API**:
+
+    - **Quy tắc 1 (Nouns only)**: Sử dụng Danh từ, KHÔNG dùng Động từ trong URI (dùng
+    HTTP Method GET, POST, PUT, PATCH, DELETE làm hành động).
+
+    - **Quy tắc 2 (Plural nouns)**: Luôn sử dụng Danh từ số nhiều (`users`, `roles`,
+    `permissions`, `employee-invitations`, `role-assignments`, `customer-registrations`).
+
+    - **Quy tắc 3 (Hierarchy)**: Thể hiện quan hệ phụ thuộc phân cấp (`/roles/{roleId}/permissions/{permissionCode}`,
+    `/users/{principalId}/status`).
+
+    - **Quy tắc 4 (kebab-case)**: Đặt tên bằng chữ thường nối dấu gạch ngang (`employee-invitations`,
+    `role-assignments`, `customer-registrations`).
+
+    '
   version: 1.0.0
 servers:
-  - url: http://localhost:8016
-    description: Local Docker / Dev Server
-  - url: https://api.omama.vn
-    description: Production API Gateway
-
+- url: http://localhost:8016
+  description: Local Docker / Dev Server
+- url: https://api.omama.vn
+  description: Production API Gateway
 tags:
-  - name: Authentication & BFF Sessions
-    description: Xác thực người dùng theo kiến trúc Backend-for-Frontend (BFF Pattern) theo RFC 9700 & PKCE RFC 7636 qua Kong Gateway
-  - name: User Lifecycle & Profile
-    description: Quản lý hồ sơ và vòng đời trạng thái tài khoản người dùng
-  - name: Employee Invitations
-    description: Quản lý thư mời tài khoản nhân viên nội bộ
-  - name: IAM Roles & Permissions
-    description: Quản lý danh mục Vai trò và Quyền hạn phân cấp (RBAC)
-  - name: IAM Role Assignments
-    description: Gán và thu hồi vai trò có phạm vi nghiệp vụ cho nhân viên
-  - name: Public Customer Registration
-    description: Đăng ký tài khoản Khách hàng D2C công khai
-
+- name: Authentication & BFF Sessions
+  description: Xác thực người dùng theo kiến trúc Backend-for-Frontend (BFF Pattern)
+    theo RFC 9700 & PKCE RFC 7636 qua Kong Gateway
+- name: User Lifecycle & Profile
+  description: Quản lý hồ sơ và vòng đời trạng thái tài khoản người dùng
+- name: Employee Invitations
+  description: Quản lý thư mời tài khoản nhân viên nội bộ
+- name: IAM Roles & Permissions
+  description: Quản lý danh mục Vai trò và Quyền hạn phân cấp (RBAC)
+- name: IAM Role Assignments
+  description: Gán và thu hồi vai trò có phạm vi nghiệp vụ cho nhân viên
+- name: Public Customer Registration
+  description: Đăng ký tài khoản Khách hàng D2C công khai
 paths:
   /api/v1/public/auth/login:
     get:
       tags:
-        - Authentication & BFF Sessions
+      - Authentication & BFF Sessions
       summary: Khởi tạo đăng nhập OIDC PKCE
-      description: |
-        Khởi tạo quy trình đăng nhập bảo mật tuân thủ RFC 9700 và RFC 7636 PKCE:
+      description: 'Khởi tạo quy trình đăng nhập bảo mật tuân thủ RFC 9700 và RFC
+        7636 PKCE:
+
         - Sinh `code_verifier`, tính toán `code_challenge` (S256).
+
         - Lưu trữ trạng thái tạm thời trong server store (TTL 10 phút).
-        - Trả về `authorizationUrl` dẫn tới Keycloak IdP (hỗ trợ social SSO như Google, Zalo, Apple qua query param `provider`).
+
+        - Trả về `authorizationUrl` dẫn tới Keycloak IdP (hỗ trợ social SSO như Google,
+        Zalo, Apple qua query param `provider`).
+
+        '
       operationId: initiateLogin
       parameters:
-        - name: redirect_uri
-          in: query
-          required: false
-          description: URL Frontend cần quay về sau khi hoàn tất đăng nhập (mặc định https://omama.vn)
-          schema:
-            type: string
-            example: https://omama.vn/checkout
-        - name: provider
-          in: query
-          required: false
-          description: Nhà cung cấp SSO trực tiếp (google, facebook, zalo, apple)
-          schema:
-            type: string
-            example: google
-        - name: format
-          in: query
-          required: false
-          description: "Định dạng phản hồi: 'json' cho Mobile/API client, hoặc mặc định 302 redirect cho Web"
-          schema:
-            type: string
-            enum: [json, redirect]
-            example: json
+      - name: redirect_uri
+        in: query
+        required: false
+        description: URL Frontend cần quay về sau khi hoàn tất đăng nhập (mặc định
+          https://omama.vn)
+        schema:
+          type: string
+          example: https://omama.vn/checkout
+      - name: provider
+        in: query
+        required: false
+        description: Nhà cung cấp SSO trực tiếp (google, facebook, zalo, apple)
+        schema:
+          type: string
+          example: google
+      - name: format
+        in: query
+        required: false
+        description: 'Định dạng phản hồi: ''json'' cho Mobile/API client, hoặc mặc
+          định 302 redirect cho Web'
+        schema:
+          type: string
+          enum:
+          - json
+          - redirect
+          example: json
       responses:
-        "302":
-          description: Chuyển hướng trình duyệt sang màn hình đăng nhập Keycloak (dành cho Web)
+        '302':
+          description: Chuyển hướng trình duyệt sang màn hình đăng nhập Keycloak (dành
+            cho Web)
           headers:
             Location:
               description: URL đăng nhập OIDC PKCE của Keycloak
               schema:
                 type: string
-        "200":
-          description: Trả về JSON chứa authorizationUrl (dành cho Mobile App / API client)
+        '200':
+          description: Trả về JSON chứa authorizationUrl (dành cho Mobile App / API
+            client)
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AuthUrlApiResponse"
-        "400":
+                $ref: '#/components/schemas/AuthUrlApiResponse'
+        '400':
           description: Dữ liệu yêu cầu không hợp lệ
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ApiErrorResponse"
-
+                $ref: '#/components/schemas/ApiErrorResponse'
   /api/v1/public/auth/callback:
     get:
       tags:
-        - Authentication & BFF Sessions
+      - Authentication & BFF Sessions
       summary: Tiếp nhận Callback Authorization Code từ Keycloak
-      description: |
-        Endpoint được Keycloak chuyển hướng về sau khi người dùng đăng nhập thành công:
+      description: 'Endpoint được Keycloak chuyển hướng về sau khi người dùng đăng
+        nhập thành công:
+
         - Xác minh `state` chống CSRF.
-        - Trao đổi `code` và `code_verifier` lấy bộ Token qua kênh backchannel nội bộ.
+
+        - Trao đổi `code` và `code_verifier` lấy bộ Token qua kênh backchannel nội
+        bộ.
+
         - JIT Provisioning (Just-In-Time) nếu người dùng lần đầu đăng nhập.
-        - Thiết lập HttpOnly, Secure, SameSite Cookie (`OMAMA_SESSION`) lưu trữ phiên làm việc phía server.
+
+        - Thiết lập HttpOnly, Secure, SameSite Cookie (`OMAMA_SESSION`) lưu trữ phiên
+        làm việc phía server.
+
         - Chuyển hướng HTTP 302 FOUND đưa người dùng quay lại Frontend.
+
+        '
       operationId: handleCallback
       parameters:
-        - name: code
-          in: query
-          required: true
-          description: Authorization Code được cấp bởi Keycloak
-          schema:
-            type: string
-        - name: state
-          in: query
-          required: true
-          description: State ngẫu nhiên để đối chiếu
-          schema:
-            type: string
-        - name: error
-          in: query
-          required: false
-          description: Mã lỗi nếu đăng nhập bị từ chối tại IdP
-          schema:
-            type: string
-        - name: error_description
-          in: query
-          required: false
-          description: Chi tiết mô tả lỗi
-          schema:
-            type: string
+      - name: code
+        in: query
+        required: false
+        description: Authorization Code được cấp bởi Keycloak (có thể rỗng khi IdP
+          trả về lỗi)
+        schema:
+          type: string
+      - name: state
+        in: query
+        required: false
+        description: State ngẫu nhiên để đối chiếu
+        schema:
+          type: string
+      - name: error
+        in: query
+        required: false
+        description: Mã lỗi nếu đăng nhập bị từ chối tại IdP
+        schema:
+          type: string
+      - name: error_description
+        in: query
+        required: false
+        description: Chi tiết mô tả lỗi
+        schema:
+          type: string
       responses:
-        "302":
+        '302':
           description: Chuyển hướng trình duyệt về Frontend kèm Set-Cookie OMAMA_SESSION
           headers:
             Location:
@@ -135,89 +167,92 @@ paths:
               description: HttpOnly, Secure, SameSite=Lax Session Cookie
               schema:
                 type: string
-        "400":
+        '400':
           description: State không hợp lệ hoặc đã hết hạn
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ApiErrorResponse"
-        "409":
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '409':
           description: Tài khoản đang bị tạm khóa (SUSPENDED)
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ApiErrorResponse"
-
+                $ref: '#/components/schemas/ApiErrorResponse'
   /api/v1/public/auth/session:
     get:
       tags:
-        - Authentication & BFF Sessions
+      - Authentication & BFF Sessions
       summary: Kiểm tra phiên đăng nhập hiện tại
-      description: |
-        Đọc HttpOnly Cookie `OMAMA_SESSION` từ trình duyệt:
+      description: 'Đọc HttpOnly Cookie `OMAMA_SESSION` từ trình duyệt:
+
         - Tự động làm mới Access Token nếu đã hết hạn.
-        - Trả về thông tin danh tính (email, principalId, trạng thái xác thực) mà KHÔNG làm lộ JWT ra ngoài trình duyệt.
+
+        - Trả về thông tin danh tính (email, principalId, trạng thái xác thực) mà
+        KHÔNG làm lộ JWT ra ngoài trình duyệt.
+
+        '
       operationId: getSession
       parameters:
-        - name: Cookie
-          in: header
-          required: false
-          description: Cookie chứa OMAMA_SESSION
-          schema:
-            type: string
-            example: OMAMA_SESSION=d7b5b5c9-9481-4b72-9d3e-9080b06b2308
+      - name: Cookie
+        in: header
+        required: false
+        description: Cookie chứa OMAMA_SESSION
+        schema:
+          type: string
+          example: OMAMA_SESSION=d7b5b5c9-9481-4b72-9d3e-9080b06b2308
       responses:
-        "200":
+        '200':
           description: Trả về trạng thái phiên làm việc hiện tại
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SessionApiResponse"
-
+                $ref: '#/components/schemas/SessionApiResponse'
   /api/v1/public/auth/tokens/refresh:
     post:
       tags:
-        - Authentication & BFF Sessions
+      - Authentication & BFF Sessions
       summary: Làm mới phiên đăng nhập BFF
-      description: Sử dụng Refresh Token được lưu an toàn trong session server-side để cấp mới Token với Keycloak.
+      description: Sử dụng Refresh Token được lưu an toàn trong session server-side
+        để cấp mới Token với Keycloak.
       operationId: refreshSession
       parameters:
-        - name: Cookie
-          in: header
-          required: true
-          description: Cookie chứa OMAMA_SESSION
-          schema:
-            type: string
+      - name: Cookie
+        in: header
+        required: true
+        description: Cookie chứa OMAMA_SESSION
+        schema:
+          type: string
       responses:
-        "200":
+        '200':
           description: Làm mới phiên làm việc thành công
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SessionApiResponse"
-        "400":
+                $ref: '#/components/schemas/SessionApiResponse'
+        '400':
           description: Phiên làm việc không tồn tại hoặc đã hết hạn
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ApiErrorResponse"
-
+                $ref: '#/components/schemas/ApiErrorResponse'
   /api/v1/public/auth/logout:
     post:
       tags:
-        - Authentication & BFF Sessions
+      - Authentication & BFF Sessions
       summary: Đăng xuất tài khoản
-      description: Thu hồi Token trên Keycloak qua backchannel, xóa phiên làm việc trong bộ nhớ server và dọn sạch HttpOnly Cookie `OMAMA_SESSION`.
+      description: Thu hồi Token trên Keycloak qua backchannel, xóa phiên làm việc
+        trong bộ nhớ server và dọn sạch HttpOnly Cookie `OMAMA_SESSION`.
       operationId: logout
       parameters:
-        - name: Cookie
-          in: header
-          required: false
-          description: Cookie chứa OMAMA_SESSION
-          schema:
-            type: string
+      - name: Cookie
+        in: header
+        required: false
+        description: Cookie chứa OMAMA_SESSION
+        schema:
+          type: string
       responses:
-        "200":
+        '200':
           description: Đăng xuất thành công, cookie được xóa (Max-Age=0)
           headers:
             Set-Cookie:
@@ -227,499 +262,767 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ApiResponse"
-
+                $ref: '#/components/schemas/ApiResponse'
   /api/v1/users/me:
     get:
       tags:
-        - User Lifecycle & Profile
+      - User Lifecycle & Profile
       summary: Lấy hồ sơ người dùng hiện tại
-      description: Trích xuất Access Token JWT từ Header để trả về hồ sơ, danh sách vai trò và quyền hạn tổng hợp.
+      description: Trích xuất Access Token JWT từ Header để trả về hồ sơ, danh sách
+        vai trò và quyền hạn tổng hợp.
       operationId: getCurrentUser
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       responses:
-        "200":
+        '200':
           description: Lấy hồ sơ thành công
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/UserProfileApiResponse"
-        "401":
+                $ref: '#/components/schemas/UserProfileApiResponse'
+        '401':
           description: Chưa đăng nhập hoặc Token không hợp lệ
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ApiErrorResponse"
-
+                $ref: '#/components/schemas/ApiErrorResponse'
   /api/v1/admin/users/{principalId}/status:
     patch:
       tags:
-        - User Lifecycle & Profile
+      - User Lifecycle & Profile
       summary: Cập nhật trạng thái người dùng (Admin)
-      description: Cập nhật trạng thái tài khoản (ACTIVE, SUSPENDED) trên Keycloak và cơ sở dữ liệu qua HTTP PATCH (tuân thủ Quy tắc 1 không dùng động từ).
+      description: Cập nhật trạng thái tài khoản (ACTIVE, SUSPENDED) trên Keycloak
+        và cơ sở dữ liệu qua HTTP PATCH (tuân thủ Quy tắc 1 không dùng động từ).
       operationId: updateUserStatus
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: principalId
-          in: path
-          required: true
-          description: ID của người dùng (UUID)
-          schema:
-            type: string
-            format: uuid
+      - name: principalId
+        in: path
+        required: true
+        description: ID của người dùng (UUID)
+        schema:
+          type: string
+          format: uuid
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/UpdateUserStatusRequest"
+              $ref: '#/components/schemas/UpdateUserStatusRequest'
       responses:
-        "200":
+        '200':
           description: Cập nhật trạng thái thành công
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/VoidApiResponse"
-        "404":
+                $ref: '#/components/schemas/VoidApiResponse'
+        '404':
           description: Không tìm thấy người dùng
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ApiErrorResponse"
-
+                $ref: '#/components/schemas/ApiErrorResponse'
   /api/v1/admin/employee-invitations:
     post:
       tags:
-        - Employee Invitations
+      - Employee Invitations
       summary: Tạo thư mời nhân viên
       description: Sinh mã lời mời token kèm thời hạn có hiệu lực (mặc định 7 ngày).
       operationId: inviteEmployee
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: X-Actor-Principal-Id
-          in: header
-          required: false
-          description: UUID của Admin thực hiện
-          schema:
-            type: string
-            format: uuid
+      - name: X-Actor-Principal-Id
+        in: header
+        required: false
+        description: UUID của Admin thực hiện
+        schema:
+          type: string
+          format: uuid
       requestBody:
         required: false
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/InviteEmployeeRequest"
+              $ref: '#/components/schemas/InviteEmployeeRequest'
       responses:
-        "200":
+        '200':
           description: Tạo thư mời thành công
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/InviteResultApiResponse"
-
+                $ref: '#/components/schemas/InviteResultApiResponse'
   /api/v1/admin/employee-invitations/{invitationId}:
     delete:
       tags:
-        - Employee Invitations
+      - Employee Invitations
       summary: Thu hồi thư mời nhân viên
-      description: Hủy bỏ hiệu lực của thư mời đã gửi bằng phương thức HTTP DELETE (tuân thủ Quy tắc 1).
+      description: Hủy bỏ hiệu lực của thư mời đã gửi bằng phương thức HTTP DELETE
+        (tuân thủ Quy tắc 1).
       operationId: revokeInvitation
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: invitationId
-          in: path
-          required: true
-          description: ID của thư mời (UUID)
-          schema:
-            type: string
-            format: uuid
-        - name: X-Actor-Principal-Id
-          in: header
-          required: false
-          description: UUID của Admin thực hiện
-          schema:
-            type: string
-            format: uuid
+      - name: invitationId
+        in: path
+        required: true
+        description: ID của thư mời (UUID)
+        schema:
+          type: string
+          format: uuid
+      - name: X-Actor-Principal-Id
+        in: header
+        required: false
+        description: UUID của Admin thực hiện
+        schema:
+          type: string
+          format: uuid
       responses:
-        "200":
+        '200':
           description: Thu hồi thư mời thành công
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/VoidApiResponse"
-        "404":
+                $ref: '#/components/schemas/VoidApiResponse'
+        '404':
           description: Không tìm thấy thư mời hoặc đã hết hạn
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ApiErrorResponse"
-
+                $ref: '#/components/schemas/ApiErrorResponse'
   /api/v1/admin/role-assignments:
     post:
       tags:
-        - IAM Role Assignments
+      - IAM Role Assignments
       summary: Gán vai trò cho nhân viên
-      description: Gán vai trò chức danh kèm phạm vi nghiệp vụ (GLOBAL, WAREHOUSE, STORE).
+      description: Gán vai trò chức danh kèm phạm vi nghiệp vụ (GLOBAL, WAREHOUSE,
+        STORE).
       operationId: assignRole
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: X-Actor-Principal-Id
-          in: header
-          required: false
-          description: UUID của Admin thực hiện
-          schema:
-            type: string
-            format: uuid
+      - name: X-Actor-Principal-Id
+        in: header
+        required: false
+        description: UUID của Admin thực hiện
+        schema:
+          type: string
+          format: uuid
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/AssignRoleRequest"
+              $ref: '#/components/schemas/AssignRoleRequest'
       responses:
-        "200":
+        '200':
           description: Gán vai trò thành công
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/UuidApiResponse"
-        "400":
+                $ref: '#/components/schemas/UuidApiResponse'
+        '400':
           description: Tham số không hợp lệ
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ApiErrorResponse"
-
+                $ref: '#/components/schemas/ApiErrorResponse'
   /api/v1/admin/role-assignments/{assignmentId}:
     delete:
       tags:
-        - IAM Role Assignments
+      - IAM Role Assignments
       summary: Thu hồi vai trò đã gán
-      description: Thu hồi vai trò đã gán cho nhân viên bằng phương thức HTTP DELETE (tuân thủ Quy tắc 1).
+      description: Thu hồi vai trò đã gán cho nhân viên bằng phương thức HTTP DELETE
+        (tuân thủ Quy tắc 1).
       operationId: revokeRole
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: assignmentId
-          in: path
-          required: true
-          description: ID của bản ghi gán vai trò (UUID)
-          schema:
-            type: string
-            format: uuid
-        - name: reason
-          in: query
-          required: false
-          description: Lý do thu hồi
-          schema:
-            type: string
-        - name: expectedVersion
-          in: query
-          required: false
-          description: Phiên bản optimistic locking
-          schema:
-            type: integer
-            default: 0
-        - name: X-Actor-Principal-Id
-          in: header
-          required: false
-          schema:
-            type: string
-            format: uuid
+      - name: assignmentId
+        in: path
+        required: true
+        description: ID của bản ghi gán vai trò (UUID)
+        schema:
+          type: string
+          format: uuid
+      - name: reason
+        in: query
+        required: false
+        description: Lý do thu hồi
+        schema:
+          type: string
+      - name: expectedVersion
+        in: query
+        required: false
+        description: Phiên bản optimistic locking
+        schema:
+          type: integer
+          default: 0
+      - name: X-Actor-Principal-Id
+        in: header
+        required: false
+        schema:
+          type: string
+          format: uuid
       responses:
-        "200":
+        '200':
           description: Thu hồi vai trò thành công
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/VoidApiResponse"
-        "400":
-          description: Thu hồi thất bại do xung đột phiên bản hoặc bản ghi không tồn tại
+                $ref: '#/components/schemas/VoidApiResponse'
+        '400':
+          description: Thu hồi thất bại do xung đột phiên bản hoặc bản ghi không tồn
+            tại
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ApiErrorResponse"
-
+                $ref: '#/components/schemas/ApiErrorResponse'
   /api/v1/admin/roles:
     get:
       tags:
-        - IAM Roles & Permissions
+      - IAM Roles & Permissions
       summary: Lấy danh sách tất cả vai trò
       description: Lấy toàn bộ danh mục vai trò hệ thống.
       operationId: getAllRoles
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       responses:
-        "200":
+        '200':
           description: Danh sách vai trò
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/RoleListApiResponse"
+                $ref: '#/components/schemas/RoleListApiResponse'
     post:
       tags:
-        - IAM Roles & Permissions
+      - IAM Roles & Permissions
       summary: Tạo mới một vai trò
       description: Tạo Role trong cơ sở dữ liệu và đồng bộ Realm Role sang Keycloak.
       operationId: createRole
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/CreateRoleRequest"
+              $ref: '#/components/schemas/CreateRoleRequest'
       responses:
-        "200":
+        '200':
           description: Tạo vai trò thành công, trả về roleId
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/UuidApiResponse"
-        "400":
+                $ref: '#/components/schemas/UuidApiResponse'
+        '400':
           description: Mã vai trò đã tồn tại hoặc không hợp lệ
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ApiErrorResponse"
-
+                $ref: '#/components/schemas/ApiErrorResponse'
   /api/v1/admin/roles/{roleId}:
     get:
       tags:
-        - IAM Roles & Permissions
+      - IAM Roles & Permissions
       summary: Xem chi tiết một vai trò kèm danh sách quyền
       operationId: getRoleById
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: roleId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
+      - name: roleId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
       responses:
-        "200":
+        '200':
           description: Chi tiết vai trò
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/RoleDetailApiResponse"
-        "404":
+                $ref: '#/components/schemas/RoleDetailApiResponse'
+        '404':
           description: Không tìm thấy vai trò
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ApiErrorResponse"
+                $ref: '#/components/schemas/ApiErrorResponse'
     patch:
       tags:
-        - IAM Roles & Permissions
+      - IAM Roles & Permissions
       summary: Cập nhật thông tin vai trò
       description: Cập nhật tên, mô tả hoặc bật/tắt vai trò.
       operationId: updateRole
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: roleId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
+      - name: roleId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/UpdateRoleRequest"
+              $ref: '#/components/schemas/UpdateRoleRequest'
       responses:
-        "200":
+        '200':
           description: Cập nhật thành công
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/VoidApiResponse"
+                $ref: '#/components/schemas/VoidApiResponse'
     delete:
       tags:
-        - IAM Roles & Permissions
+      - IAM Roles & Permissions
       summary: Xóa vai trò
-      description: Xóa vai trò khỏi Keycloak và DB (bảo vệ vai trò hệ thống và vai trò đang có nhân viên gán).
+      description: Xóa vai trò khỏi Keycloak và DB (bảo vệ vai trò hệ thống và vai
+        trò đang có nhân viên gán).
       operationId: deleteRole
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: roleId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
+      - name: roleId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
       responses:
-        "200":
+        '200':
           description: Xóa vai trò thành công
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/VoidApiResponse"
-        "400":
+                $ref: '#/components/schemas/VoidApiResponse'
+        '400':
           description: Vai trò được bảo vệ hoặc đang được sử dụng
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ApiErrorResponse"
-
+                $ref: '#/components/schemas/ApiErrorResponse'
   /api/v1/admin/roles/{roleId}/permissions:
     get:
       tags:
-        - IAM Roles & Permissions
+      - IAM Roles & Permissions
       summary: Xem danh sách mã quyền của vai trò
       operationId: getRolePermissions
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: roleId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
+      - name: roleId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
       responses:
-        "200":
+        '200':
           description: Danh sách mã quyền
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/StringListApiResponse"
+                $ref: '#/components/schemas/StringListApiResponse'
     put:
       tags:
-        - IAM Roles & Permissions
+      - IAM Roles & Permissions
       summary: Thay thế toàn bộ quyền của vai trò (Batch Update)
       operationId: replacePermissions
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: roleId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
+      - name: roleId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/ReplacePermissionsRequest"
+              $ref: '#/components/schemas/ReplacePermissionsRequest'
       responses:
-        "200":
+        '200':
           description: Thay thế danh sách quyền thành công
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/VoidApiResponse"
+                $ref: '#/components/schemas/VoidApiResponse'
     post:
       tags:
-        - IAM Roles & Permissions
+      - IAM Roles & Permissions
       summary: Gán thêm một quyền vào vai trò
       operationId: addPermission
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: roleId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
+      - name: roleId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/AddPermissionRequest"
+              $ref: '#/components/schemas/AddPermissionRequest'
       responses:
-        "200":
+        '200':
           description: Gán quyền thành công
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/VoidApiResponse"
-
+                $ref: '#/components/schemas/VoidApiResponse'
   /api/v1/admin/roles/{roleId}/permissions/{permissionCode}:
     delete:
       tags:
-        - IAM Roles & Permissions
+      - IAM Roles & Permissions
       summary: Gỡ một quyền khỏi vai trò
       operationId: removePermission
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: roleId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - name: permissionCode
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: roleId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: permissionCode
+        in: path
+        required: true
+        schema:
+          type: string
       responses:
-        "200":
+        '200':
           description: Gỡ quyền khỏi vai trò thành công
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/VoidApiResponse"
-
+                $ref: '#/components/schemas/VoidApiResponse'
   /api/v1/public/customer-registrations:
     post:
       tags:
-        - Public Customer Registration
+      - Public Customer Registration
       summary: Đăng ký tài khoản Khách hàng
-      description: Đăng ký tài khoản D2C với Idempotency Key, đồng bộ tạo người dùng trên Keycloak và phát sự kiện Outbox.
+      description: Đăng ký tài khoản D2C với Idempotency Key, đồng bộ tạo người dùng
+        trên Keycloak và phát sự kiện Outbox.
       operationId: registerCustomer
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/RegistrationRequest"
+              $ref: '#/components/schemas/RegistrationRequest'
       responses:
-        "200":
+        '200':
           description: Đăng ký thành công hoặc Idempotent Replay
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/RegistrationApiResponse"
-        "409":
+                $ref: '#/components/schemas/RegistrationApiResponse'
+        '409':
           description: Xung đột Idempotency Key hoặc trùng lặp tài khoản
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ApiErrorResponse"
-
+                $ref: '#/components/schemas/ApiErrorResponse'
+  /api/v1/users/me/password:
+    put:
+      tags:
+      - User Lifecycle & Profile
+      summary: Tự đổi mật khẩu cá nhân
+      description: Người dùng tự cập nhật mật khẩu của mình bằng cách xác thực mật
+        khẩu hiện tại và cung cấp mật khẩu mới.
+      operationId: changeOwnPassword
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: X-Actor-Principal-Id
+        in: header
+        required: false
+        schema:
+          type: string
+          format: uuid
+        description: Principal ID của người gọi (được Gateway tự động inject)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+      responses:
+        '200':
+          description: Đổi mật khẩu thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VoidApiResponse'
+        '400':
+          description: Mật khẩu hiện tại không chính xác hoặc dữ liệu không hợp lệ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: Chưa xác thực
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+  /api/v1/admin/users:
+    get:
+      tags:
+      - Admin User Management
+      summary: Lấy danh sách người dùng phân trang
+      description: Truy vấn danh sách người dùng kèm bộ lọc loại tài khoản (CUSTOMER,
+        EMPLOYEE) và trạng thái (ACTIVE, SUSPENDED). Chỉ SUPER_ADMIN.
+      operationId: listUsers
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: type
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - CUSTOMER
+          - EMPLOYEE
+        description: 'Loại tài khoản: CUSTOMER, EMPLOYEE'
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - ACTIVE
+          - SUSPENDED
+        description: 'Trạng thái: ACTIVE, SUSPENDED'
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 0
+        description: Số trang (bắt đầu từ 0)
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 20
+        description: Kích thước trang
+      - name: X-Actor-Principal-Id
+        in: header
+        required: false
+        schema:
+          type: string
+          format: uuid
+        description: Principal ID của người gọi
+      responses:
+        '200':
+          description: Danh sách người dùng phân trang
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserPageApiResponse'
+        '401':
+          description: Chưa xác thực
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '403':
+          description: Không có quyền truy cập (Yêu cầu SUPER_ADMIN)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+  /api/v1/admin/users/{principalId}:
+    get:
+      tags:
+      - Admin User Management
+      summary: Xem chi tiết hồ sơ người dùng
+      description: Truy vấn chi tiết người dùng kèm thông tin định danh, các vai trò
+        và quyền hạn thực tế. Chỉ SUPER_ADMIN.
+      operationId: getUserDetail
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: principalId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: ID người dùng
+      - name: X-Actor-Principal-Id
+        in: header
+        required: false
+        schema:
+          type: string
+          format: uuid
+        description: Principal ID của người gọi
+      responses:
+        '200':
+          description: Chi tiết hồ sơ người dùng
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserDetailApiResponse'
+        '401':
+          description: Chưa xác thực
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '403':
+          description: Không có quyền truy cập
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Không tìm thấy người dùng
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+  /api/v1/admin/users/{principalId}/password/reset:
+    post:
+      tags:
+      - Admin User Management
+      summary: Đặt lại mật khẩu cho người dùng
+      description: SUPER_ADMIN đặt lại mật khẩu mới cho người dùng trên Keycloak IDP.
+      operationId: resetUserPassword
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: principalId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: ID người dùng
+      - name: X-Actor-Principal-Id
+        in: header
+        required: false
+        schema:
+          type: string
+          format: uuid
+        description: Principal ID của người gọi
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetPasswordRequest'
+      responses:
+        '200':
+          description: Đặt lại mật khẩu thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VoidApiResponse'
+        '400':
+          description: Dữ liệu không hợp lệ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: Chưa xác thực
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '403':
+          description: Không có quyền SUPER_ADMIN
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Không tìm thấy người dùng
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+  /api/v1/admin/users/{principalId}/sessions/revoke:
+    post:
+      tags:
+      - Admin User Management
+      summary: Thu hồi toàn bộ phiên đăng nhập của người dùng
+      description: SUPER_ADMIN buộc người dùng đăng xuất ngay lập tức khỏi hệ thống
+        (force logout).
+      operationId: revokeUserSessions
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: principalId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: ID người dùng
+      - name: X-Actor-Principal-Id
+        in: header
+        required: false
+        schema:
+          type: string
+          format: uuid
+        description: Principal ID của người gọi
+      responses:
+        '200':
+          description: Thu hồi phiên đăng nhập thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VoidApiResponse'
+        '401':
+          description: Chưa xác thực
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '403':
+          description: Không có quyền SUPER_ADMIN
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Không tìm thấy người dùng
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
-
   schemas:
     ApiResponse:
       type: object
       required:
-        - success
-        - code
-        - message
+      - success
+      - code
+      - message
       properties:
         success:
           type: boolean
@@ -735,14 +1038,13 @@ components:
         errors:
           type: array
           items:
-            $ref: "#/components/schemas/ValidationError"
+            $ref: '#/components/schemas/ValidationError'
         requestId:
           type: string
           example: req-12345
         timestamp:
           type: string
           format: date-time
-
     ValidationError:
       type: object
       properties:
@@ -755,7 +1057,6 @@ components:
         message:
           type: string
           example: Định dạng email không hợp lệ
-
     ApiErrorResponse:
       type: object
       properties:
@@ -774,47 +1075,42 @@ components:
         errors:
           type: array
           items:
-            $ref: "#/components/schemas/ValidationError"
+            $ref: '#/components/schemas/ValidationError'
         timestamp:
           type: string
           format: date-time
-
     VoidApiResponse:
       allOf:
-        - $ref: "#/components/schemas/ApiResponse"
-        - type: object
-          properties:
-            data:
-              type: object
-              nullable: true
-
+      - $ref: '#/components/schemas/ApiResponse'
+      - type: object
+        properties:
+          data:
+            type: object
+            nullable: true
     UuidApiResponse:
       allOf:
-        - $ref: "#/components/schemas/ApiResponse"
-        - type: object
-          properties:
-            data:
-              type: string
-              format: uuid
-
+      - $ref: '#/components/schemas/ApiResponse'
+      - type: object
+        properties:
+          data:
+            type: string
+            format: uuid
     StringListApiResponse:
       allOf:
-        - $ref: "#/components/schemas/ApiResponse"
-        - type: object
-          properties:
-            data:
-              type: array
-              items:
-                type: string
-
+      - $ref: '#/components/schemas/ApiResponse'
+      - type: object
+        properties:
+          data:
+            type: array
+            items:
+              type: string
     UserProfileApiResponse:
       allOf:
-        - $ref: "#/components/schemas/ApiResponse"
-        - type: object
-          properties:
-            data:
-              $ref: "#/components/schemas/UserProfileDto"
-
+      - $ref: '#/components/schemas/ApiResponse'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/UserProfileDto'
     UserProfileDto:
       type: object
       properties:
@@ -834,12 +1130,11 @@ components:
         roles:
           type: array
           items:
-            $ref: "#/components/schemas/UserRoleScopeDto"
+            $ref: '#/components/schemas/UserRoleScopeDto'
         permissions:
           type: array
           items:
             type: string
-
     UserRoleScopeDto:
       type: object
       properties:
@@ -855,20 +1150,20 @@ components:
         scopeId:
           type: string
           example: STR-HUE-01
-
     UpdateUserStatusRequest:
       type: object
       required:
-        - status
+      - status
       properties:
         status:
           type: string
-          enum: [ACTIVE, SUSPENDED]
+          enum:
+          - ACTIVE
+          - SUSPENDED
           example: SUSPENDED
         reason:
           type: string
           example: Tài khoản có dấu hiệu vi phạm chính sách
-
     InviteEmployeeRequest:
       type: object
       properties:
@@ -876,15 +1171,13 @@ components:
           type: integer
           default: 7
           example: 7
-
     InviteResultApiResponse:
       allOf:
-        - $ref: "#/components/schemas/ApiResponse"
-        - type: object
-          properties:
-            data:
-              $ref: "#/components/schemas/InviteResult"
-
+      - $ref: '#/components/schemas/ApiResponse'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/InviteResult'
     InviteResult:
       type: object
       properties:
@@ -900,13 +1193,12 @@ components:
         expiresAt:
           type: string
           format: date-time
-
     AssignRoleRequest:
       type: object
       required:
-        - principalId
-        - roleId
-        - scopeType
+      - principalId
+      - roleId
+      - scopeType
       properties:
         principalId:
           type: string
@@ -916,7 +1208,14 @@ components:
           format: uuid
         scopeType:
           type: string
-          enum: [GLOBAL, WAREHOUSE, STORE, REGION, DEPARTMENT, BRANCH, BUSINESS_UNIT]
+          enum:
+          - GLOBAL
+          - WAREHOUSE
+          - STORE
+          - REGION
+          - DEPARTMENT
+          - BRANCH
+          - BUSINESS_UNIT
           example: WAREHOUSE
         scopeId:
           type: string
@@ -930,25 +1229,22 @@ components:
         reason:
           type: string
           example: Phân công thủ kho chi nhánh Đà Nẵng
-
     RoleListApiResponse:
       allOf:
-        - $ref: "#/components/schemas/ApiResponse"
-        - type: object
-          properties:
-            data:
-              type: array
-              items:
-                $ref: "#/components/schemas/IamRole"
-
+      - $ref: '#/components/schemas/ApiResponse'
+      - type: object
+        properties:
+          data:
+            type: array
+            items:
+              $ref: '#/components/schemas/IamRole'
     RoleDetailApiResponse:
       allOf:
-        - $ref: "#/components/schemas/ApiResponse"
-        - type: object
-          properties:
-            data:
-              $ref: "#/components/schemas/RoleDetailDto"
-
+      - $ref: '#/components/schemas/ApiResponse'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RoleDetailDto'
     IamRole:
       type: object
       properties:
@@ -969,23 +1265,21 @@ components:
           type: boolean
         version:
           type: integer
-
     RoleDetailDto:
       allOf:
-        - $ref: "#/components/schemas/IamRole"
-        - type: object
-          properties:
-            permissions:
-              type: array
-              items:
-                type: string
-                example: INVENTORY_VIEW
-
+      - $ref: '#/components/schemas/IamRole'
+      - type: object
+        properties:
+          permissions:
+            type: array
+            items:
+              type: string
+              example: INVENTORY_VIEW
     CreateRoleRequest:
       type: object
       required:
-        - roleCode
-        - roleName
+      - roleCode
+      - roleName
       properties:
         roleCode:
           type: string
@@ -996,7 +1290,6 @@ components:
         description:
           type: string
           example: Quản lý chi nhánh theo khu vực miền Trung
-
     UpdateRoleRequest:
       type: object
       properties:
@@ -1008,36 +1301,36 @@ components:
           type: boolean
         expectedVersion:
           type: integer
-
     AddPermissionRequest:
       type: object
       required:
-        - permissionCode
+      - permissionCode
       properties:
         permissionCode:
           type: string
           example: ORDER_CANCEL
-
     ReplacePermissionsRequest:
       type: object
       required:
-        - permissions
+      - permissions
       properties:
         permissions:
           type: array
           items:
             type: string
-          example: [ORDER_VIEW, ORDER_PRINT, ORDER_CANCEL]
-
+          example:
+          - ORDER_VIEW
+          - ORDER_PRINT
+          - ORDER_CANCEL
     RegistrationRequest:
       type: object
       required:
-        - email
-        - rawPassword
-        - firstName
-        - lastName
-        - idempotencyKey
-        - requestFingerprint
+      - email
+      - rawPassword
+      - firstName
+      - lastName
+      - idempotencyKey
+      - requestFingerprint
       properties:
         email:
           type: string
@@ -1059,15 +1352,13 @@ components:
         requestFingerprint:
           type: string
           example: fp-abcdef1234567890
-
     RegistrationApiResponse:
       allOf:
-        - $ref: "#/components/schemas/ApiResponse"
-        - type: object
-          properties:
-            data:
-              $ref: "#/components/schemas/RegistrationResponse"
-
+      - $ref: '#/components/schemas/ApiResponse'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/RegistrationResponse'
     RegistrationResponse:
       type: object
       properties:
@@ -1080,27 +1371,25 @@ components:
         message:
           type: string
           example: Đăng ký tài khoản thành công
-
     AuthUrlResponse:
       type: object
       properties:
         authorizationUrl:
           type: string
-          description: URL xác thực OIDC trên Keycloak kèm PKCE code_challenge và state
+          description: URL xác thực OIDC trên Keycloak kèm PKCE code_challenge và
+            state
           example: https://api.omama.vn/auth/realms/omama/protocol/openid-connect/auth?response_type=code&client_id=frontend-web&state=xyz&code_challenge=abc&code_challenge_method=S256
         state:
           type: string
           description: State string để đối chiếu khi callback
           example: 4a2d8b5c-9e1f-4f2a-b673-891a2b3c4d5e
-
     AuthUrlApiResponse:
       allOf:
-        - $ref: "#/components/schemas/ApiResponse"
-        - type: object
-          properties:
-            data:
-              $ref: "#/components/schemas/AuthUrlResponse"
-
+      - $ref: '#/components/schemas/ApiResponse'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/AuthUrlResponse'
     SessionResponse:
       type: object
       properties:
@@ -1122,14 +1411,165 @@ components:
           type: string
           format: date-time
           description: Thời điểm Access Token trong phiên hết hạn
-          example: "2026-10-31T15:30:00Z"
-
+          example: '2026-10-31T15:30:00Z'
     SessionApiResponse:
       allOf:
-        - $ref: "#/components/schemas/ApiResponse"
-        - type: object
-          properties:
-            data:
-              $ref: "#/components/schemas/SessionResponse"
-
-
+      - $ref: '#/components/schemas/ApiResponse'
+      - type: object
+        properties:
+          data:
+            $ref: '#/components/schemas/SessionResponse'
+    ChangePasswordRequest:
+      type: object
+      required:
+      - currentPassword
+      - newPassword
+      properties:
+        currentPassword:
+          type: string
+          description: Mật khẩu hiện tại của người dùng
+        newPassword:
+          type: string
+          minLength: 8
+          description: Mật khẩu mới (tối thiểu 8 ký tự)
+    ResetPasswordRequest:
+      type: object
+      required:
+      - newPassword
+      properties:
+        newPassword:
+          type: string
+          minLength: 8
+          description: Mật khẩu mới do Admin đặt lại
+        temporary:
+          type: boolean
+          default: false
+          description: Yêu cầu đổi mật khẩu ở lần đăng nhập tiếp theo
+    AdminUserItemResponse:
+      type: object
+      properties:
+        principalId:
+          type: string
+          format: uuid
+        idpSubject:
+          type: string
+        email:
+          type: string
+          format: email
+        firstName:
+          type: string
+        lastName:
+          type: string
+        principalType:
+          type: string
+          enum:
+          - CUSTOMER
+          - EMPLOYEE
+        provisioningStatus:
+          type: string
+          enum:
+          - ACTIVE
+          - SUSPENDED
+          - PENDING_INVITE
+        createdAt:
+          type: string
+          format: date-time
+        roles:
+          type: array
+          items:
+            type: string
+    AdminUserDetailResponse:
+      type: object
+      properties:
+        principalId:
+          type: string
+          format: uuid
+        idpSubject:
+          type: string
+        email:
+          type: string
+          format: email
+        firstName:
+          type: string
+        lastName:
+          type: string
+        principalType:
+          type: string
+          enum:
+          - CUSTOMER
+          - EMPLOYEE
+        provisioningStatus:
+          type: string
+          enum:
+          - ACTIVE
+          - SUSPENDED
+          - PENDING_INVITE
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        roles:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserRoleScopeDto'
+        permissions:
+          type: array
+          items:
+            type: string
+    AdminUserPageResponse:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminUserItemResponse'
+        page:
+          type: integer
+          example: 0
+        size:
+          type: integer
+          example: 20
+        totalElements:
+          type: integer
+          example: 42
+        totalPages:
+          type: integer
+          example: 3
+    AdminUserPageApiResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          nullable: true
+        data:
+          $ref: '#/components/schemas/AdminUserPageResponse'
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationError'
+        timestamp:
+          type: string
+          format: date-time
+    AdminUserDetailApiResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          nullable: true
+        data:
+          $ref: '#/components/schemas/AdminUserDetailResponse'
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationError'
+        timestamp:
+          type: string
+          format: date-time

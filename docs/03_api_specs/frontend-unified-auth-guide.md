@@ -1,7 +1,9 @@
 # Hướng Dẫn Tích Hợp Xác Thực & Phân Quyền Hợp Nhất Cho Frontend (Unified Web)
 **Dự án PBL6 — Mè Xửng O Mạ**  
-**Tài liệu bàn giao cho Đội ngũ Frontend (FE)**  
-**Cập nhật:** 2026-10-17
+**Tài liệu bàn giao cho Đội ngũ Frontend (Web Next.js / Mobile)**  
+**Kiến trúc:** **Backend-for-Frontend (BFF Pattern)** theo chuẩn **RFC 9700** & **RFC 7636 PKCE**  
+**Cổng tiếp nhận duy nhất (Single Ingress):** **Kong API Gateway** (`https://api.omama.vn` hoặc `http://localhost:8000`)  
+**Phiên bản:** 2.0.0 (Cập nhật chuẩn RESTful & IAM tập trung)
 
 ---
 
@@ -9,8 +11,8 @@
 
 Hệ thống triển khai theo mô hình **1 Web duy nhất** cho toàn bộ người dùng (Khách hàng D2C, Nhân viên kho, Nhân viên đóng gói, Nhân viên giao hàng, Quản lý cửa hàng và Super Admin):
 - **Cùng 1 Domain & Port:** Chạy trên cùng một ứng dụng Next.js (ví dụ `https://omama.vn` hoặc `http://localhost:3000`).
-- **Cùng 1 Trang Đăng nhập (`/login`):** Mọi đối tượng đều đăng nhập qua một trang chung.
-- **Phân quyền Động dựa trên Token & Quyền hạn (RBAC + Scoped IAM):** Sau khi đăng nhập, hệ thống dựa vào danh sách `roles` và `permissions` từ backend để quyết định các tính năng, menu và route hiển thị.
+- **Cùng 1 Cổng Xác thực (BFF + Keycloak):** Mọi đối tượng đều xác thực qua quy trình SSO OIDC chuẩn.
+- **Phân quyền Động dựa trên Hồ sơ & Quyền hạn (RBAC + Scoped IAM):** Sau khi xác thực, hệ thống dựa vào danh sách `roles` và `permissions` từ backend (`GET /api/v1/users/me`) để quyết định các tính năng, menu và route hiển thị.
 
 ```
                                ┌────────────────────────────────┐
@@ -20,143 +22,197 @@ Hệ thống triển khai theo mô hình **1 Web duy nhất** cho toàn bộ ng�
                                                │
                                                ▼
                                       Đăng nhập thành công
-                               (Lưu Token vào HttpOnly Cookie)
+                                (Lưu Cookie bảo mật OMAMA_SESSION)
                                                │
                                                ▼
-                 (Nhận Token + Roles & Permissions ngay lập tức)
-                       ┌───────────────────────┴───────────────────────┐
-                       ▼                                               ▼
-          Nếu principalType = "CUSTOMER"                  Nếu principalType = "EMPLOYEE"
-       (Khách hàng mua kẹo thông thường)              (Admin, Warehouse, Packing, Delivery...)
-                       │                                               │
-  • Hiển thị Menu Mua hàng, Giỏ hàng, Đơn mua.     • Header xuất hiện nút "Kênh Quản Trị" (/admin).
-  • Trang cá nhân: Điểm thưởng, Địa chỉ.           • Chuyển sang khu vực /admin:
-  • Nếu cố tình gõ URL /admin/**:                     - Có INVENTORY_VIEW    --> Hiện Tab Kho
-    --> Middleware chặn & redirect về /               - Có PACKING_WORKBENCH --> Hiện Tab Đóng gói
-                                                      - Có ROLE_READ         --> Hiện Tab Phân quyền
+                  (Kiểm tra Session & Lấy Roles + Permissions qua /api/v1/users/me)
+                        ┌───────────────────────┴───────────────────────┐
+                        ▼                                               ▼
+           Nếu principalType = "CUSTOMER"                  Nếu principalType = "EMPLOYEE"
+        (Khách hàng mua kẹo thông thường)              (Admin, Warehouse, Packing, Delivery...)
+                        │                                               │
+   • Hiển thị Menu Mua hàng, Giỏ hàng, Đơn mua.     • Header xuất hiện nút "Kênh Quản Trị" (/admin).
+   • Trang cá nhân: Điểm thưởng, Địa chỉ.           • Chuyển sang khu vực /admin:
+   • Nếu cố tình gõ URL /admin/**:                     - Có INVENTORY_VIEW    --> Hiện Tab Kho
+     --> Middleware chặn & redirect về /               - Có PACKING_WORKBENCH --> Hiện Tab Đóng gói
+                                                       - Có ROLE_READ         --> Hiện Tab Phân quyền
 ```
 
 ---
 
-## 2. Các API Xác Thực & Phiên Làm Việc
+## 2. Các API Xác Thực & Phiên Làm Việc (BFF Pattern)
 
-Toàn bộ hợp đồng chi tiết nằm trong file [`docs/03_api_specs/customer-stable.openapi.yaml`](./customer-stable.openapi.yaml).
+Hợp đồng chi tiết được đặc tả tại [`frontend-auth-contract.md`](./frontend-auth-contract.md) và [`identity-service.openapi.yaml`](./identity-service.openapi.yaml).
 
-### 2.1. Đăng nhập (`POST /api/v1/auth/login`)
-Frontend gửi thông tin đăng nhập:
-```json
-POST /api/v1/auth/login
-Content-Type: application/json
-Idempotency-Key: <UUID>
-
-{
-  "identifier": "0905123456", // Hoặc email: nhanvien@omama.vn
-  "password": "Password@123"
-}
-```
-
-**Response (HTTP 200):**
-```json
-{
-  "tokens": {
-    "access_token": "eyJhbGciOiJSUzI1NiIs...",
-    "refresh_token": "eyJhbGciOiJSUzI1NiIs...",
-    "token_type": "Bearer",
-    "expires_in": 900
-  },
-  "user": {
-    "principal_id": "e9f8d7c6-1111-2222-3333-444455556666",
-    "customer_id": "CUST-8820",
-    "phone_number": "0905123456",
-    "full_name": "Nguyễn Văn An",
-    "email": "an.nguyen@example.com",
-    "avatar_url": "https://cdn.omama.vn/avatars/u8820.jpg",
-    "principal_type": "EMPLOYEE", // Hoặc "CUSTOMER" nếu là khách hàng thường
-    "roles": [
-      "CUSTOMER",
-      "WAREHOUSE_STAFF",
-      "PACKING_STAFF"
-    ],
-    "permissions": [
-      "INVENTORY_VIEW",
-      "INVENTORY_RECEIPT_CREATE",
-      "PACKING_WORKBENCH_VIEW",
-      "PACKING_TASK_VIEW"
-    ],
-    "membership_tier": "GOLD",
-    "loyalty_points": 450
-  }
-}
-```
-> **Điểm mấu chốt cho FE:** Ngay sau khi bấm Đăng nhập, API trả về **luôn mảng `roles` và `permissions`**. FE **không cần gọi thêm API thứ hai** mà có thể lưu session và điều hướng trang ngay lập tức (`isStaff ? router.push('/admin') : router.push('/')`). API `GET /api/v1/users/me` chỉ cần dùng khi user nhấn F5 tải lại trang.
+> **Bảo vệ Token theo RFC 9700:**
+> - **Tuyệt đối không lưu Access Token hoặc Refresh Token trong `localStorage` hay `sessionStorage` của trình duyệt** để triệt tiêu hoàn toàn nguy cơ rò rỉ token khi bị tấn công XSS.
+> - **Identity Service đóng vai trò BFF:** Quản lý Access Token và Refresh Token an toàn phía backend.
+> - **Trình duyệt chỉ trao đổi qua Cookie HttpOnly:** Cookie `OMAMA_SESSION` (`HttpOnly`, `Secure`, `SameSite=Lax`).
+> - Mọi request gọi API từ Frontend (Next.js/React/Axios/Fetch) bắt buộc phải cấu hình `credentials: 'include'` (hoặc `withCredentials: true`).
 
 ---
 
-### 2.2. Nhận diện Phiên & Danh sách Quyền (`GET /api/v1/users/me`)
+### 2.1. Khởi Tạo Đăng Nhập (`GET /api/v1/public/auth/login`)
 
-Ngay sau khi đăng nhập hoặc mỗi khi F5/tải trang, FE gọi endpoint này kèm header:
-`Authorization: Bearer <access_token>`
+Frontend gọi endpoint này khi người dùng bấm nút "Đăng nhập" hoặc chọn đăng nhập mạng xã hội (Google/Zalo):
 
-#### Trường hợp A: Tài khoản là Khách hàng (`CUSTOMER`)
-```json
-{
-  "principalId": "b1a2c3d4-0000-1111-2222-333344445555",
-  "idpSubject": "kc-subject-uuid-customer",
-  "email": "khachhang@gmail.com",
-  "principalType": "CUSTOMER",
-  "provisioningStatus": "ACTIVE",
-  "roles": [
-    {
-      "roleCode": "CUSTOMER",
-      "roleName": "Khách hàng",
-      "scopeType": "GLOBAL",
-      "scopeId": null
+- **Method & URL:** `GET https://api.omama.vn/api/v1/public/auth/login`
+- **Query Parameters:**
+  - `redirect_uri` *(optional)*: Đường dẫn trang Frontend cần quay lại sau khi đăng nhập (ví dụ: `https://omama.vn/checkout`). Mặc định: `https://omama.vn`.
+  - `provider` *(optional)*: Tên nhà cung cấp SSO nếu muốn đi thẳng vào trang OAuth2 của bên thứ ba (`google`, `facebook`, `zalo`, `apple`). Để trống sẽ hiển thị trang đăng nhập Keycloak mang bản sắc Ô Mạ.
+- **Response `200 OK`:**
+  ```json
+  {
+    "success": true,
+    "code": "SUCCESS",
+    "message": "Khởi tạo đăng nhập thành công",
+    "data": {
+      "authorizationUrl": "https://api.omama.vn/auth/realms/omama/protocol/openid-connect/auth?response_type=code&client_id=frontend-web&redirect_uri=https%3A%2F%2Fapi.omama.vn%2Fapi%2Fv1%2Fpublic%2Fauth%2Fcallback&scope=openid+profile+email&state=7f9b8c2d-1111-2222&code_challenge=xyz...&code_challenge_method=S256",
+      "state": "7f9b8c2d-1111-2222"
     }
-  ],
-  "permissions": []
+  }
+  ```
+- **Hành động của Frontend:**
+  ```typescript
+  window.location.href = res.data.data.authorizationUrl;
+  ```
+
+---
+
+### 2.2. Tiếp Nhận Callback & Thiết Lập Phiên (`GET /api/v1/public/auth/callback`)
+
+- Endpoint này do **trình duyệt tự động chuyển hướng** sau khi người dùng xác thực thành công trên Keycloak / Google.
+- BFF tự động đổi Authorization Code kèm PKCE Verifier lấy bộ Token JWT, ghi nhận JIT Provisioning (nếu là khách mới), lưu phiên vào `BffSessionStore` và trả về `HTTP 302 Redirect` về URL ban đầu kèm Header:
+  ```http
+  Set-Cookie: OMAMA_SESSION=d7b5b5c9-9481-4b72-9d3e-9080b06b2308; Path=/; Max-Age=2592000; HttpOnly; SameSite=Lax
+  ```
+
+---
+
+### 2.3. Kiểm Tra Trạng Thái Phiên Đăng Nhập (`GET /api/v1/public/auth/session`)
+
+Được Frontend gọi khi khởi động ứng dụng hoặc khi người dùng F5 tải lại trang:
+
+- **Method & URL:** `GET https://api.omama.vn/api/v1/public/auth/session`
+- **Request Options:** `credentials: 'include'`
+- **Response `200 OK` (Đã đăng nhập):**
+  ```json
+  {
+    "success": true,
+    "code": "SUCCESS",
+    "message": "Lấy thông tin phiên làm việc thành công",
+    "data": {
+      "sessionId": "d7b5b5c9-9481-4b72-9d3e-9080b06b2308",
+      "principalId": "e9f8d7c6-1111-2222-3333-444455556666",
+      "email": "customer@omama.vn",
+      "authenticated": true,
+      "expiresAt": "2026-11-01T15:30:00Z"
+    }
+  }
+  ```
+- **Response `200 OK` (Chưa đăng nhập hoặc phiên hết hạn):**
+  ```json
+  {
+    "success": true,
+    "code": "SUCCESS",
+    "data": {
+      "sessionId": null,
+      "principalId": null,
+      "email": null,
+      "authenticated": false,
+      "expiresAt": null
+    }
+  }
+  ```
+
+---
+
+### 2.4. Nhận Diện Danh Sách Vai Trò & Quyền Hạn (`GET /api/v1/users/me`)
+
+Khi phiên xác thực hợp lệ (`authenticated === true`), Frontend gọi endpoint này để nhận toàn bộ thông tin tài khoản, danh sách Vai trò (`roles`) và Quyền hạn (`permissions`):
+
+- **Method & URL:** `GET https://api.omama.vn/api/v1/users/me`
+- **Request Options:** `credentials: 'include'` (BFF Filter tự động chuyển Cookie sang JWT Principal).
+
+#### Trường hợp A: Tài khoản là Khách hàng D2C (`CUSTOMER`)
+```json
+{
+  "success": true,
+  "code": "SUCCESS",
+  "data": {
+    "principalId": "b1a2c3d4-0000-1111-2222-333344445555",
+    "idpSubject": "kc-subject-uuid-customer",
+    "email": "khachhang@gmail.com",
+    "principalType": "CUSTOMER",
+    "provisioningStatus": "ACTIVE",
+    "roles": [
+      {
+        "roleCode": "CUSTOMER",
+        "roleName": "Khách hàng",
+        "scopeType": "GLOBAL",
+        "scopeId": null
+      }
+    ],
+    "permissions": []
+  }
 }
 ```
 
 #### Trường hợp B: Tài khoản là Nhân viên / Quản lý (`EMPLOYEE`)
 ```json
 {
-  "principalId": "e9f8d7c6-1111-2222-3333-444455556666",
-  "idpSubject": "kc-subject-uuid-employee",
-  "email": "nhanvienkho@omama.vn",
-  "principalType": "EMPLOYEE",
-  "provisioningStatus": "ACTIVE",
-  "roles": [
-    {
-      "roleCode": "CUSTOMER",
-      "roleName": "Khách hàng thân thiết",
-      "scopeType": "GLOBAL",
-      "scopeId": null
-    },
-    {
-      "roleCode": "WAREHOUSE_STAFF",
-      "roleName": "Nhân viên kho vận",
-      "scopeType": "WAREHOUSE",
-      "scopeId": "WH_DANANG_01"
-    },
-    {
-      "roleCode": "PACKING_STAFF",
-      "roleName": "Nhân viên đóng gói",
-      "scopeType": "STORE",
-      "scopeId": "STORE_HUE_MAIN"
-    }
-  ],
-  "permissions": [
-    "INVENTORY_VIEW",
-    "INVENTORY_RECEIPT_CREATE",
-    "INVENTORY_ISSUE_CREATE",
-    "INVENTORY_ADJUSTMENT_CREATE",
-    "PACKING_WORKBENCH_VIEW",
-    "PACKING_TASK_VIEW",
-    "PACKING_TASK_UPDATE",
-    "PACKING_CHECKLIST_CHECK"
-  ]
+  "success": true,
+  "code": "SUCCESS",
+  "data": {
+    "principalId": "e9f8d7c6-1111-2222-3333-444455556666",
+    "idpSubject": "kc-subject-uuid-employee",
+    "email": "nhanvienkho@omama.vn",
+    "principalType": "EMPLOYEE",
+    "provisioningStatus": "ACTIVE",
+    "roles": [
+      {
+        "roleCode": "CUSTOMER",
+        "roleName": "Khách hàng thân thiết",
+        "scopeType": "GLOBAL",
+        "scopeId": null
+      },
+      {
+        "roleCode": "WAREHOUSE_STAFF",
+        "roleName": "Nhân viên kho vận",
+        "scopeType": "WAREHOUSE",
+        "scopeId": "WH_DANANG_01"
+      },
+      {
+        "roleCode": "PACKING_STAFF",
+        "roleName": "Nhân viên đóng gói",
+        "scopeType": "STORE",
+        "scopeId": "STORE_HUE_MAIN"
+      }
+    ],
+    "permissions": [
+      "INVENTORY_VIEW",
+      "INVENTORY_RECEIPT_CREATE",
+      "INVENTORY_ISSUE_CREATE",
+      "INVENTORY_ADJUSTMENT_CREATE",
+      "PACKING_WORKBENCH_VIEW",
+      "PACKING_TASK_VIEW",
+      "PACKING_TASK_UPDATE",
+      "PACKING_CHECKLIST_CHECK"
+    ]
+  }
 }
 ```
+
+---
+
+### 2.5. Đăng Xuất Tài Khoản (`POST /api/v1/public/auth/logout`)
+
+- **Method & URL:** `POST https://api.omama.vn/api/v1/public/auth/logout`
+- **Request Options:** `credentials: 'include'`
+- **Hành vi Backend:** Hủy phiên trong `BffSessionStore`, thu hồi token tại Keycloak IdP, xóa Cookie qua Header:
+  ```http
+  Set-Cookie: OMAMA_SESSION=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax
+  ```
 
 ---
 
@@ -180,6 +236,7 @@ export interface UserRoleScope {
 
 export interface UserProfile {
   principalId: string;
+  idpSubject: string;
   email: string;
   principalType: "CUSTOMER" | "EMPLOYEE";
   provisioningStatus: string;
@@ -193,6 +250,7 @@ interface AppSessionContextValue {
   isStaff: boolean;
   hasRole: (roleCode: string) => boolean;
   hasPermission: (permissionCode: string) => boolean;
+  login: (provider?: string) => Promise<void>;
   reload: () => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -205,23 +263,43 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
 
   const reload = useCallback(async () => {
     try {
-      const res = await fetch("/api/v1/users/me", {
+      // 1. Kiểm tra session cookie HttpOnly
+      const sessionRes = await fetch("/api/v1/public/auth/session", {
         headers: { Accept: "application/json" },
+        credentials: "include", // Bắt buộc gửi OMAMA_SESSION cookie
         cache: "no-store",
       });
 
-      if (res.ok) {
-        const data: UserProfile = await res.json();
-        setProfile(data);
-        setStatus("authenticated");
-      } else if (res.status === 401) {
+      if (!sessionRes.ok) {
         setProfile(null);
         setStatus("guest");
+        return;
+      }
+
+      const sessionJson = await sessionRes.json();
+      if (!sessionJson.data?.authenticated) {
+        setProfile(null);
+        setStatus("guest");
+        return;
+      }
+
+      // 2. Lấy hồ sơ & phân quyền chi tiết
+      const meRes = await fetch("/api/v1/users/me", {
+        headers: { Accept: "application/json" },
+        credentials: "include",
+        cache: "no-store",
+      });
+
+      if (meRes.ok) {
+        const meJson = await meRes.json();
+        setProfile(meJson.data);
+        setStatus("authenticated");
       } else {
         setProfile(null);
-        setStatus("error");
+        setStatus("guest");
       }
-    } catch {
+    } catch (err) {
+      console.error("Lỗi kiểm tra phiên làm việc:", err);
       setProfile(null);
       setStatus("error");
     }
@@ -230,6 +308,25 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  const login = useCallback(async (provider?: string) => {
+    try {
+      const currentUrl = window.location.href;
+      const searchParams = new URLSearchParams();
+      searchParams.set("redirect_uri", currentUrl);
+      if (provider) searchParams.set("provider", provider);
+
+      const res = await fetch(`/api/v1/public/auth/login?${searchParams.toString()}`, {
+        headers: { Accept: "application/json" },
+      });
+      if (res.ok) {
+        const json = await res.json();
+        window.location.href = json.data.authorizationUrl;
+      }
+    } catch (err) {
+      console.error("Lỗi khởi tạo đăng nhập:", err);
+    }
+  }, []);
 
   const isStaff = useMemo(() => {
     if (!profile) return false;
@@ -247,15 +344,21 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
   );
 
   const logout = useCallback(async () => {
-    await fetch("/api/v1/auth/logout", { method: "POST" });
-    setProfile(null);
-    setStatus("guest");
-    window.location.href = "/";
+    try {
+      await fetch("/api/v1/public/auth/logout", {
+        method: "POST",
+        credentials: "include",
+      });
+    } finally {
+      setProfile(null);
+      setStatus("guest");
+      window.location.href = "/";
+    }
   }, []);
 
   const value = useMemo(
-    () => ({ status, profile, isStaff, hasRole, hasPermission, reload, logout }),
-    [status, profile, isStaff, hasRole, hasPermission, reload, logout]
+    () => ({ status, profile, isStaff, hasRole, hasPermission, login, reload, logout }),
+    [status, profile, isStaff, hasRole, hasPermission, login, reload, logout]
   );
 
   return <AppSessionContext.Provider value={value}>{children}</AppSessionContext.Provider>;
@@ -275,22 +378,28 @@ export function useAppSession() {
 Trên thanh điều hướng chính (`src/components/layout/header.tsx`):
 
 ```tsx
+"use client";
+
 import { useAppSession } from "@/components/auth/app-session-provider";
 import Link from "next/link";
 
 export function Header() {
-  const { status, profile, isStaff, logout } = useAppSession();
+  const { status, profile, isStaff, login, logout } = useAppSession();
 
   return (
     <header className="flex justify-between p-4 bg-white shadow">
-      <Link href="/" className="font-bold text-xl">Mè Xửng O Mạ</Link>
+      <Link href="/" className="font-bold text-xl text-amber-900">Mè Xửng O Mạ</Link>
 
       <div className="flex items-center gap-4">
         {/* Khách hàng thường & Chưa đăng nhập luôn thấy Giỏ hàng */}
         <Link href="/cart">Giỏ hàng</Link>
 
+        {status === "loading" && <span>Đang tải...</span>}
+
         {status === "guest" && (
-          <Link href="/login" className="btn-primary">Đăng nhập</Link>
+          <button onClick={() => login()} className="btn-primary">
+            Đăng nhập
+          </button>
         )}
 
         {status === "authenticated" && (
@@ -319,9 +428,9 @@ export function Header() {
 
 ---
 
-### 3.3. Bảo Vệ Route Quản Trị Bằng Middleware (`middleware.ts`)
+### 3.3. Bảo Vệ Route Quản Trị Bằng Next.js Middleware (`middleware.ts`)
 
-Bảo vệ tất cả các đường dẫn `/admin/**` để khách thường không vào được:
+Bảo vệ tất cả các đường dẫn `/admin/**` để khách thường hoặc người chưa đăng nhập không vào được:
 
 ```typescript
 import { NextResponse } from "next/server";
@@ -330,19 +439,16 @@ import type { NextRequest } from "next/server";
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Kiểm tra nếu truy cập vào khu vực /admin
+  // Kiểm tra nếu truy cập vào khu vực quản trị /admin
   if (pathname.startsWith("/admin")) {
-    const accessToken = request.cookies.get("oma_access_token")?.value;
+    const sessionCookie = request.cookies.get("OMAMA_SESSION")?.value;
 
-    // Chưa đăng nhập -> đá về trang Login kèm redirect callback
-    if (!accessToken) {
+    // Chưa đăng nhập -> đá về trang chủ hoặc kích hoạt flow đăng nhập
+    if (!sessionCookie) {
       const loginUrl = new URL("/login", request.url);
-      loginUrl.searchParams.set("callbackUrl", pathname);
+      loginUrl.searchParams.set("redirect_uri", pathname);
       return NextResponse.redirect(loginUrl);
     }
-
-    // Gợi ý: Giải mã JWT payload nhanh hoặc kiểm tra header
-    // Nếu claim roles không chứa role nhân viên -> đá về trang chủ
   }
 
   return NextResponse.next();
@@ -357,7 +463,7 @@ export const config = {
 
 ### 3.4. Ẩn / Hiện Menu Con Trong Layout Quản Trị (`/admin/layout.tsx`)
 
-Trong trang quản trị, mỗi tab chức năng chỉ hiển thị khi tài khoản có quyền tương ứng:
+Trong trang quản trị, mỗi tab chức năng chỉ hiển thị khi tài khoản có quyền tương ứng trong danh sách `permissions`:
 
 ```tsx
 "use client";
@@ -423,14 +529,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
 ---
 
-## 4. Tóm Tắt Cho FE Dev
+## 4. Tóm Tắt Cho Kỹ Sư Frontend
 
-1. **Đăng nhập:** Gọi `POST /api/v1/auth/login` (chung cho mọi user).
-2. **Lấy Quyền:** Gọi `GET /api/v1/users/me` -> nhận `roles` và `permissions`.
-3. **Phân biệt:**
-   - `roles.some(r => r.roleCode !== 'CUSTOMER')` $\longrightarrow$ **Nhân viên / Admin**.
+1. **Khởi tạo Đăng nhập:** Gọi `GET /api/v1/public/auth/login` và chuyển hướng trình duyệt đến `authorizationUrl`.
+2. **Quản lý Phiên:** Dùng Cookie bảo mật `OMAMA_SESSION` (`HttpOnly`, `SameSite=Lax`). Luôn cấu hình `credentials: 'include'`.
+3. **Kiểm tra Phiên & Quyền:**
+   - `GET /api/v1/public/auth/session` -> kiểm tra `authenticated`.
+   - `GET /api/v1/users/me` -> nhận danh mục `roles` và `permissions`.
+4. **Phân biệt Khách hàng & Nhân sự:**
+   - `roles.some(r => r.roleCode !== 'CUSTOMER')` $\longrightarrow$ **Nhân viên / Quản lý / Admin**.
    - `roles.every(r => r.roleCode === 'CUSTOMER')` $\longrightarrow$ **Khách hàng D2C**.
-4. **Điều hướng:**
-   - Khách hàng: Mua sắm, giỏ hàng, hồ sơ cá nhân.
-   - Nhân viên: Có thêm nút **"Kênh Quản Trị"** dẫn vào `/admin` và các menu con ẩn hiện theo `permissions`.
-
+5. **Điều hướng & Trải nghiệm:**
+   - Khách hàng D2C: Mua kẹo Ô Mạ, giỏ hàng, hồ sơ cá nhân.
+   - Nhân viên: Hiển thị thêm nút **"Kênh Quản Trị"** dẫn vào `/admin` và các menu con ẩn hiện tự động theo `permissions`.

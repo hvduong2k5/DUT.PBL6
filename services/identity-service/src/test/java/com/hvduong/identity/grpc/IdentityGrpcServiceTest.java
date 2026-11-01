@@ -2,8 +2,6 @@ package com.hvduong.identity.grpc;
 
 import com.hvduong.identity.application.authorization.SpecializedPermissionService;
 import com.omamx.proto.common.v1.AuditContext;
-import com.omamx.proto.identity.v1.GetJwksPublicKeyRequest;
-import com.omamx.proto.identity.v1.GetJwksPublicKeyResponse;
 import com.omamx.proto.identity.v1.SpecializedPermissionRequest;
 import com.omamx.proto.identity.v1.SpecializedPermissionResponse;
 import io.grpc.stub.StreamObserver;
@@ -13,8 +11,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
@@ -28,9 +24,6 @@ class IdentityGrpcServiceTest {
 
     @Mock
     private StreamObserver<SpecializedPermissionResponse> permissionObserver;
-
-    @Mock
-    private StreamObserver<GetJwksPublicKeyResponse> jwksObserver;
 
     private IdentityGrpcService grpcService;
 
@@ -101,26 +94,4 @@ class IdentityGrpcServiceTest {
         assertThat(response.getIsAllowed()).isFalse();
         assertThat(response.getRequiredApprovalLevel()).isEqualTo("DIRECTOR_APPROVAL_REQUIRED");
     }
-
-    @Test
-    void shouldHandleGetJwksPublicKey() {
-        // Arrange
-        GetJwksPublicKeyRequest request = GetJwksPublicKeyRequest.newBuilder()
-                .setKeyId("test-key-id")
-                .build();
-
-        // Act
-        grpcService.getJwksPublicKey(request, jwksObserver);
-
-        // Assert
-        ArgumentCaptor<GetJwksPublicKeyResponse> captor = ArgumentCaptor.forClass(GetJwksPublicKeyResponse.class);
-        verify(jwksObserver, times(1)).onNext(captor.capture());
-        verify(jwksObserver, times(1)).onCompleted();
-
-        GetJwksPublicKeyResponse response = captor.getValue();
-        assertThat(response.getKeyId()).isEqualTo("test-key-id");
-        assertThat(response.getAlgorithm()).isEqualTo("RS256");
-        assertThat(response.getPublicKeyPem()).contains("BEGIN PUBLIC KEY");
-    }
 }
-
