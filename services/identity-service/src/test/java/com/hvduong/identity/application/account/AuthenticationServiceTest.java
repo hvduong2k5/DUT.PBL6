@@ -92,6 +92,7 @@ class AuthenticationServiceTest {
 
     @Test
     void initiateLogin_WithProvider_AddsIdpHint() {
+        ReflectionTestUtils.setField(authenticationService, "defaultFrontendUrl", "https://omama.vn");
         AuthUrlResponse response = authenticationService.initiateLogin("https://omama.vn/cart", "google");
 
         assertThat(response).isNotNull();
@@ -102,6 +103,12 @@ class AuthenticationServiceTest {
         Optional<AuthStateStore.PendingAuthState> saved = authStateStore.consume(response.getState());
         assertThat(saved).isPresent();
         assertThat(saved.get().getRedirectUri()).isEqualTo("https://omama.vn/cart");
+    }
+
+    @Test
+    void initiateLogin_RejectsRedirectOutsideConfiguredFrontend() {
+        assertThatThrownBy(() -> authenticationService.initiateLogin("https://attacker.invalid/callback", null))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test

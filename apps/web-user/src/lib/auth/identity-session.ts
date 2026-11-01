@@ -2,7 +2,7 @@ import { mapCustomerCoreSession, type CustomerCoreUser } from "./customer-core";
 import { verifiedAccess } from "./oidc";
 import { usesIdentityBff } from "./oidc-config";
 import { credentialHeaders } from "./server-credential";
-import { ownerSession } from "./owner-bff";
+import { identityBase, ownerSession } from "./owner-bff";
 
 export class IdentitySessionError extends Error {
   constructor(readonly status: 401 | 403 | 503, readonly code: string) { super(code); }
@@ -13,7 +13,7 @@ export async function identitySession(accessToken: string) {
   const claims = owner ? undefined : await verifiedAccess(accessToken);
   const base = process.env.CUSTOMER_CORE_UPSTREAM_URL?.replace(/\/$/u, "");
   if (!base) throw new IdentitySessionError(503, "IDENTITY_UNAVAILABLE");
-  const read = async (path: string) => fetch(`${base}${path}`, { headers: credentialHeaders(new Headers({ Accept: "application/json" }), accessToken), cache: "no-store", redirect: "error", signal: AbortSignal.timeout(10000) });
+  const read = async (path: string) => fetch(`${owner && path === "/users/me" ? identityBase() : base}${path}`, { headers: credentialHeaders(new Headers({ Accept: "application/json" }), accessToken), cache: "no-store", redirect: "error", signal: AbortSignal.timeout(10000) });
   const response = await read("/users/me");
   if (response.status === 401) throw new IdentitySessionError(401, "AUTH_REQUIRED");
   if (response.status === 403 || response.status === 404) throw new IdentitySessionError(403, "PRINCIPAL_FORBIDDEN");

@@ -1,5 +1,7 @@
 # Kiểm tra bốn luồng Customer – Order – Inventory – Shipping
 
+> Cập nhật 01/11: hướng auth hiện tại theo Identity owner PR #45, xem [IDENTITY_OWNER_BFF_MVP.md](IDENTITY_OWNER_BFF_MVP.md). Phần OIDC do Web giữ phiên ở #43/#44 được thay bằng `OMAMA_SESSION` do Identity quản lý; các tiêu chí Customer/Order bên dưới vẫn áp dụng.
+
 Nhánh này nối tiếp PR #43. Không push trực tiếp `dev`; chỉ merge sau review và CI. Tài liệu phân biệt phần code đã nối với phần đã có bằng chứng chạy thành công trong `result.json` của CI.
 
 ## Người dùng đi qua những bước nào?

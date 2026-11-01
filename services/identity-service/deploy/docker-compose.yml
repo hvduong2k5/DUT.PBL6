@@ -36,6 +36,9 @@ services:
       KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:-identity-service-admin}
       KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET}
       KEYCLOAK_PUBLIC_CLIENT_ID: ${KEYCLOAK_PUBLIC_CLIENT_ID:-frontend-web}
+      KEYCLOAK_SCOPE: ${KEYCLOAK_SCOPE:-openid profile email}
+      CUSTOMER_API_GATEWAY_URL: ${CUSTOMER_API_GATEWAY_URL:?Configure the internal Gateway URL}
+      IDENTITY_REGISTRATION_FINGERPRINT_KEY: ${IDENTITY_REGISTRATION_FINGERPRINT_KEY:?Configure the registration HMAC secret}
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: ${KEYCLOAK_PUBLIC_URL:-https://keycloak.omama.vn}/realms/${KEYCLOAK_REALM:-omama}
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: ${KEYCLOAK_SERVER_URL:-http://omafood-keycloak-standalone:8080}/realms/${KEYCLOAK_REALM:-omama}/protocol/openid-connect/certs
 

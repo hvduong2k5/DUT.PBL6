@@ -145,7 +145,7 @@ def main():
         # fans out to several Gateway requests, all sharing the fixture IP and
         # its real 300/minute budget. Leave headroom for async work and polling.
         if url.startswith((web + "/", gateway + "/")):
-            time.sleep(max(0, 1.5 - (time.monotonic() - last_gateway_request)))
+            time.sleep(max(0, 2.0 - (time.monotonic() - last_gateway_request)))
             last_gateway_request = time.monotonic()
         actual = dict(headers or {})
         if token:

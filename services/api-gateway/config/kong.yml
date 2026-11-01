@@ -268,7 +268,8 @@ plugins:
   - name: cors
     config:
       origins:
-        - "*"
+        - "https://omama.vn"
+        - "http://localhost:3000"
       methods:
         - GET
         - POST

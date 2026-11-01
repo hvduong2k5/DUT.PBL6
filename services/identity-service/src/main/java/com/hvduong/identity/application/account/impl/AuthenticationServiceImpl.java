@@ -70,6 +70,14 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                 ? clientRedirectUri 
                 : getDefaultFrontendUrl();
 
+        java.net.URI destination = java.net.URI.create(finalRedirectUri);
+        java.net.URI frontend = java.net.URI.create(getDefaultFrontendUrl());
+        if (!java.util.Objects.equals(destination.getScheme(), frontend.getScheme())
+                || !java.util.Objects.equals(destination.getRawAuthority(), frontend.getRawAuthority())
+                || destination.getUserInfo() != null) {
+            throw new IllegalArgumentException("Địa chỉ quay lại phải thuộc Frontend đã cấu hình.");
+        }
+
         String codeVerifier = PkceUtil.generateCodeVerifier();
         String codeChallenge = PkceUtil.generateCodeChallenge(codeVerifier);
         String state = PkceUtil.generateState();
