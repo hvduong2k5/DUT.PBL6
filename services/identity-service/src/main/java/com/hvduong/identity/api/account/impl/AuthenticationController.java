@@ -104,7 +104,7 @@ public class AuthenticationController implements AuthenticationApi {
 
         BffSession session = authenticationService.refreshSession(sessionId);
         SessionResponse response = SessionResponse.builder()
-                .sessionId(session.getSessionId())
+                .sessionId(session.getPublicId())
                 .principalId(session.getPrincipalId())
                 .email(session.getEmail())
                 .isAuthenticated(true)

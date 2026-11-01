@@ -2,6 +2,8 @@
 
 > Customer MVP tích hợp Web–Profile–Order theo BFF này: xem [IDENTITY_OWNER_BFF_MVP.md](../ui_web/IDENTITY_OWNER_BFF_MVP.md). Bổ sung `/api/v1/customer-api/...` tại Gateway để Identity dùng token phía server gọi các API tài nguyên chuẩn; browser vẫn chỉ dùng `OMAMA_SESSION`. Callback được ràng buộc cookie state cùng trình duyệt, mutation cookie kiểm Origin và return URL phải thuộc Frontend đã cấu hình.
 
+> `data.sessionId` trong JSON session/refresh là ID tương quan công khai, **khác giá trị cookie `OMAMA_SESSION`**. Nó không dùng được để xác thực. Giá trị cookie là credential và chỉ gửi qua `Set-Cookie`/`Cookie`.
+
 > **Dành cho:** Kỹ sư Web Frontend (React, Next.js, Vue) & Mobile App (Flutter, React Native, iOS, Android).  
 > **Kiến trúc:** **Backend-for-Frontend (BFF Pattern)** theo chuẩn **RFC 9700** & **RFC 7636 PKCE**.  
 > **Cổng tiếp nhận duy nhất (Single Ingress):** **Kong API Gateway** (`https://api.omama.vn`).  

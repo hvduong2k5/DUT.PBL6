@@ -48,7 +48,7 @@ class CustomerApiProxyTest {
         server.start();
         try {
             ReflectionTestUtils.setField(controller, "gatewayUrl", "http://127.0.0.1:" + server.getAddress().getPort());
-            var request = new MockHttpServletRequest("PUT", "/api/v1/customer-api/cart");
+            var request = new MockHttpServletRequest("PUT", "/api/v1/customer-api/cart/items/PRIVATE-A");
             request.addHeader("If-Match", "\"1\"");
             request.addHeader("Cookie", "OMAMA_SESSION=opaque");
             request.addHeader("X-User-ID", "forged-owner");

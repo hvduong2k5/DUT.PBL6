@@ -245,7 +245,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
         }
 
         return SessionResponse.builder()
-                .sessionId(session.getSessionId())
+                .sessionId(session.getPublicId())
                 .principalId(session.getPrincipalId())
                 .email(session.getEmail())
                 .isAuthenticated(true)

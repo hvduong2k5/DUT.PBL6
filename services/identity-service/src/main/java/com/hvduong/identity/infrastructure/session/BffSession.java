@@ -14,6 +14,9 @@ import java.util.UUID;
 @AllArgsConstructor
 public class BffSession {
     private UUID sessionId;
+    // Public correlation ID is never the bearer credential in OMAMA_SESSION.
+    @Builder.Default
+    private UUID publicId = UUID.randomUUID();
     private String idpSubject;
     private UUID principalId;
     private String email;

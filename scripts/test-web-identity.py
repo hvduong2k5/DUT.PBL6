@@ -943,6 +943,23 @@ def main():
                 if cookie.name in ["OMAMA_SESSION", "OMAMA_AUTH_STATE"]
             ), "Token cookie is script readable"
             assert any(c.name == "OMAMA_SESSION" for c in jar)
+            cookie_credential = next(c.value for c in jar if c.name == "OMAMA_SESSION")
+            status, public_session, _ = request(
+                gateway + "/api/v1/public/auth/session", opener=opener
+            )
+            assert status == 200 and public_session["data"]["authenticated"]
+            assert (
+                public_session["data"]["sessionId"] != cookie_credential
+            ), "Public JSON exposed the HttpOnly session credential"
+            assert (
+                request(
+                    gateway + "/api/v1/public/auth/logout",
+                    {},
+                    opener=opener,
+                    headers={"Origin": "https://attacker.invalid"},
+                )[0]
+                == 403
+            )
             assert not any(
                 c.name in ["oma_access_token", "oma_refresh_token", "oma_id_token"]
                 for c in jar

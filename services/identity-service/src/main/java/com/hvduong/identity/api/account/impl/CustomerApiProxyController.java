@@ -40,7 +40,7 @@ public class CustomerApiProxyController {
         }
         String path = request.getRequestURI().substring("/api/v1/customer-api".length());
         // Never expose admin/internal/provider routes or accept an arbitrary target.
-        if (!path.matches("/(?:users/me|profile(?:/addresses(?:/[0-9a-fA-F-]{36}(?:/default)?)?)?|customer/capabilities|locations/checkout|cart(?:/items(?:/[0-9a-fA-F-]{36})?)?|checkout(?:/quote)?|checkout-operations/[0-9a-fA-F-]{36}|orders(?:/[0-9a-fA-F-]{36}(?:/(?:cancel|tracking|payment-instructions|payment))?)?|payments(?:/[0-9a-fA-F-]{36})?)")
+        if (!path.matches("/(?:users/me|profile(?:/addresses(?:/[0-9a-fA-F-]{36}(?:/default)?)?)?|customer/capabilities|locations/checkout|cart(?:/items(?:/[A-Za-z0-9-]{1,80})?)?|checkout(?:/quote)?|checkout-operations/[0-9a-fA-F-]{36}|orders(?:/[0-9a-fA-F-]{36}(?:/(?:cancel|tracking|payment-instructions|payment))?)?|payments(?:/[0-9a-fA-F-]{36})?)")
                 || !Set.of("GET", "POST", "PUT", "PATCH", "DELETE").contains(request.getMethod())) {
             return ResponseEntity.notFound().build();
         }

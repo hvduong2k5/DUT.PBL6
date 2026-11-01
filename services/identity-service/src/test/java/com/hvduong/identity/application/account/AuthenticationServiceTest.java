@@ -223,6 +223,7 @@ class AuthenticationServiceTest {
         );
 
         SessionResponse response = authenticationService.getSessionInfo(session.getSessionId());
+        assertThat(response.getSessionId()).isEqualTo(session.getPublicId()).isNotEqualTo(session.getSessionId());
 
         assertThat(response).isNotNull();
         assertThat(response.isAuthenticated()).isTrue();
