@@ -518,7 +518,7 @@ def main():
             SERVER_PORT=str(ports["identity"]),
             KEYCLOAK_SERVER_URL=base,
             KEYCLOAK_PUBLIC_URL=base,
-            KEYCLOAK_SCOPE="openid profile email",
+            KEYCLOAK_SCOPE="openid",
             AUTH_REDIRECT_URI=gateway + "/api/v1/public/auth/callback",
             FRONTEND_BASE_URL=web,
             COOKIE_SECURE="false",

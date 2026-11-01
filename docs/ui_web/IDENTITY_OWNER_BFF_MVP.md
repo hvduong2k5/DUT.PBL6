@@ -42,7 +42,7 @@ sequenceDiagram
 
 Web dùng `apps/web-user/.env.identity.example`. Identity dùng `.env.example` của service, bổ sung `CUSTOMER_API_GATEWAY_URL` là origin Gateway nội bộ có thể gọi được. Không đặt URL này trỏ ngược vào `/customer-api`; adapter gọi các route chuẩn `/api/v1/profile`, `/cart`, `/orders`, ...
 
-`AUTH_REDIRECT_URI` phải đúng callback Identity công khai và có trong redirect URI của Keycloak. `KEYCLOAK_PUBLIC_URL` là URL trình duyệt tới Keycloak; issuer của Identity/Profile/Order phải khớp issuer thực. Dùng `KEYCLOAK_SCOPE=openid profile email` cho tên/email trong phiên. Giữ mapper `user_id`, audience `omama-api`, CUSTOMER role và quyền admin Keycloak theo cấu hình đã nghiệm thu.
+`AUTH_REDIRECT_URI` phải đúng callback Identity công khai và có trong redirect URI của Keycloak. `KEYCLOAK_PUBLIC_URL` là URL trình duyệt tới Keycloak; issuer của Identity/Profile/Order phải khớp issuer thực. Giữ `KEYCLOAK_SCOPE=openid` theo owner. Chỉ thêm `profile email` khi realm đã có và gán các client scope đó; realm import hiện tại không mặc định cung cấp chúng. Giữ mapper `user_id`, audience `omama-api`, CUSTOMER role và quyền admin Keycloak theo cấu hình đã nghiệm thu.
 
 Khi Web và Gateway ở `omama.vn` / `api.omama.vn`, dùng cookie domain `.omama.vn`, HTTPS và `COOKIE_SECURE=true`. Nếu dùng host khác nhau không cùng miền, cần bố trí ingress/cookie phù hợp; không đưa token ra JavaScript để xử lý. Fixture dùng cùng host loopback, khác port, cookie không Secure riêng cho TEST.
 
