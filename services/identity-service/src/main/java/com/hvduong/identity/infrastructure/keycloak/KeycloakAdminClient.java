@@ -27,7 +27,6 @@ public class KeycloakAdminClient {
         if (principalId == null || principalId.equals(new UUID(0, 0))) {
             throw new IllegalArgumentException("A non-zero internal principal ID is required");
         }
-        // Resolve before creating the account: a missing role must fail provisioning.
         var customerRole = keycloak.realm(realm).roles().get("CUSTOMER").toRepresentation();
         UsersResource usersResource = keycloak.realm(realm).users();
         
@@ -38,8 +37,6 @@ public class KeycloakAdminClient {
         user.setLastName(lastName);
         user.setEnabled(true);
         user.setEmailVerified(false);
-        // This server-owned attribute is mapped into the signed access token.
-        // Never source it from registration input or the Keycloak subject ID.
         user.setAttributes(Map.of("app_user_id", Collections.singletonList(principalId.toString())));
 
         CredentialRepresentation credential = new CredentialRepresentation();
@@ -94,5 +91,27 @@ public class KeycloakAdminClient {
         try {
             keycloak.realm(realm).roles().deleteRole(roleName);
         } catch (Exception ignored) {}
+    }
+
+    public void resetUserPassword(String keycloakUserId, String newPassword, boolean temporary) {
+        CredentialRepresentation credential = new CredentialRepresentation();
+        credential.setType(CredentialRepresentation.PASSWORD);
+        credential.setValue(newPassword);
+        credential.setTemporary(temporary);
+        keycloak.realm(realm).users().get(keycloakUserId).resetPassword(credential);
+    }
+
+    public void logoutUser(String keycloakUserId) {
+        try {
+            keycloak.realm(realm).users().get(keycloakUserId).logout();
+        } catch (Exception ignored) {}
+    }
+
+    public Optional<UserRepresentation> getUserById(String keycloakUserId) {
+        try {
+            return Optional.ofNullable(keycloak.realm(realm).users().get(keycloakUserId).toRepresentation());
+        } catch (Exception e) {
+            return Optional.empty();
+        }
     }
 }

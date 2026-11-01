@@ -3,7 +3,6 @@ package com.hvduong.identity.api.account.impl;
 import com.hvduong.identity.api.account.UserLifecycleApi;
 import com.hvduong.identity.application.account.UserLifecycleService;
 import com.hvduong.identity.dto.common.ApiResponse;
-import com.hvduong.identity.dto.request.SuspendRequest;
 import com.hvduong.identity.dto.request.UpdateUserStatusRequest;
 import com.hvduong.identity.dto.response.UserProfileResponse;
 import lombok.RequiredArgsConstructor;
@@ -72,36 +71,32 @@ public class UserLifecycleController implements UserLifecycleApi {
     }
 
     @Override
-    public ResponseEntity<ApiResponse<Void>> suspendUser(
-            @PathVariable UUID principalId,
-            @RequestBody(required = false) SuspendRequest request,
-            @AuthenticationPrincipal Jwt jwt
+    public ResponseEntity<ApiResponse<Void>> changeOwnPassword(
+            @jakarta.validation.Valid @RequestBody com.hvduong.identity.dto.request.ChangePasswordRequest request,
+            @AuthenticationPrincipal Jwt jwt,
+            String actorHeader
     ) {
-        UUID actorId = null;
-        if (jwt != null) {
-            try {
-                actorId = UUID.fromString(jwt.getSubject());
-            } catch (Exception ignored) {}
+        UUID actorId = extractActorId(jwt, actorHeader);
+        if (actorId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(ApiResponse.error("UNAUTHORIZED", "Yêu cầu đăng nhập để đổi mật khẩu"));
         }
 
-        String reason = request != null && request.getReason() != null ? request.getReason() : "Account suspended by admin via legacy API";
-        userLifecycleService.suspendAccount(principalId, reason, actorId);
-        return ResponseEntity.ok(ApiResponse.success("Khóa tài khoản người dùng thành công", null));
+        userLifecycleService.changeOwnPassword(actorId, request.getCurrentPassword(), request.getNewPassword());
+        return ResponseEntity.ok(ApiResponse.success("Đổi mật khẩu thành công", null));
     }
 
-    @Override
-    public ResponseEntity<ApiResponse<Void>> reactivateUser(
-            @PathVariable UUID principalId,
-            @AuthenticationPrincipal Jwt jwt
-    ) {
-        UUID actorId = null;
+    private UUID extractActorId(Jwt jwt, String actorHeader) {
         if (jwt != null) {
             try {
-                actorId = UUID.fromString(jwt.getSubject());
+                return UUID.fromString(jwt.getSubject());
             } catch (Exception ignored) {}
         }
-
-        userLifecycleService.reactivateAccount(principalId, actorId);
-        return ResponseEntity.ok(ApiResponse.success("Kích hoạt lại tài khoản thành công", null));
+        if (actorHeader != null) {
+            try {
+                return UUID.fromString(actorHeader);
+            } catch (Exception ignored) {}
+        }
+        return null;
     }
 }

@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { usesOidc } from "@/lib/auth/oidc-config";
+import { usesOidc, usesIdentityBff } from "@/lib/auth/oidc-config";
+import { hasTrustedOrigin as trustedOwnerOrigin } from "@/lib/auth/request-origin";
+import { getTrustedAccessToken } from "@/lib/auth/server-credential";
+import { ownerLogout, ownerRequest } from "@/lib/auth/owner-bff";
 import { clearOidc, oidcLogout, oidcSessionResponse, trustedOidcOrigin } from "@/lib/auth/oidc";
 import { identitySession } from "@/lib/auth/identity-session";
 import { registerIdentity } from "@/lib/auth/registration";
@@ -109,6 +112,26 @@ async function extensionUpstream(request: NextRequest, path: string): Promise<Ne
 async function proxy(request: NextRequest, context: { params: Promise<{ path: string[] }> }): Promise<NextResponse> {
   const method = request.method.toUpperCase();
   const path = (await context.params).path.join("/");
+  if (usesIdentityBff()) {
+    try {
+      if (method !== "GET" && !trustedOwnerOrigin(request)) return NextResponse.json({ code: "ORIGIN_NOT_ALLOWED" }, { status: 403 });
+      const credential = getTrustedAccessToken(request);
+      if (method === "POST" && path === "register") return await registerIdentity(request);
+      if (method === "POST" && path === "logout") return await ownerLogout(credential);
+      if ((method === "GET" && path === "me") || (method === "POST" && path === "refresh")) {
+        if (!credential) return NextResponse.json({ code: "AUTH_REQUIRED" }, { status: 401 });
+        if (path === "refresh") {
+          const result = await ownerRequest("/public/auth/tokens/refresh", credential, "POST");
+          if (!result.ok) return NextResponse.json({ code: "AUTH_REQUIRED" }, { status: result.status === 400 || result.status === 401 ? 401 : 503 });
+        }
+        return NextResponse.json(await identitySession(credential), { headers: { "Cache-Control": "no-store" } });
+      }
+      return NextResponse.json({ code: "IDENTITY_LOGIN_REQUIRED" }, { status: 405 });
+    } catch (error) {
+      const status = (error as { status?: number }).status;
+      return NextResponse.json({ code: status === 401 ? "AUTH_REQUIRED" : status === 403 ? "PRINCIPAL_FORBIDDEN" : "IDENTITY_UNAVAILABLE" }, { status: status === 401 ? 401 : status === 403 ? 403 : 503, headers: { "Cache-Control": "no-store" } });
+    }
+  }
   if (usesOidc()) {
     try {
       if (method !== "GET" && !trustedOidcOrigin(request)) return NextResponse.json({ code: "ORIGIN_NOT_ALLOWED" }, { status: 403 });

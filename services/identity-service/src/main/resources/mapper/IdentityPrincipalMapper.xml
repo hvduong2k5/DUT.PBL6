@@ -48,4 +48,44 @@
           AND version = #{expectedVersion}
     </update>
 
+    <select id="findPage" resultMap="IdentityPrincipalRowMap">
+        SELECT *
+        FROM identity_principals
+        <where>
+            <if test="principalType != null and principalType != ''">
+                AND principal_type = #{principalType}
+            </if>
+            <if test="provisioningStatus != null and provisioningStatus != ''">
+                AND provisioning_status = #{provisioningStatus}
+            </if>
+        </where>
+        ORDER BY created_at DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countTotal" resultType="long">
+        SELECT COUNT(*)
+        FROM identity_principals
+        <where>
+            <if test="principalType != null and principalType != ''">
+                AND principal_type = #{principalType}
+            </if>
+            <if test="provisioningStatus != null and provisioningStatus != ''">
+                AND provisioning_status = #{provisioningStatus}
+            </if>
+        </where>
+    </select>
+
+    <select id="hasRoleCode" resultType="boolean">
+        SELECT EXISTS (
+            SELECT 1
+            FROM iam_role_assignments a
+            JOIN iam_roles r ON a.role_id = r.role_id
+            WHERE a.principal_id = #{principalId}
+              AND a.assignment_status = 'ACTIVE'
+              AND r.role_code = #{roleCode}
+              AND (a.valid_until IS NULL OR a.valid_until > CURRENT_TIMESTAMP)
+        )
+    </select>
+
 </mapper>

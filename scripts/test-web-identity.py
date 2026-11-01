@@ -92,7 +92,7 @@ def main():
     base = f"http://127.0.0.1:{ports['keycloak']}"
     realm = "order-auth-test-" + suffix
     issuer = base + "/realms/" + realm
-    web = f"http://localhost:{ports['web']}"
+    web = f"http://127.0.0.1:{ports['web']}"
     gateway = f"http://127.0.0.1:{ports['gateway']}"
     account_password = "Synthetic-Web-Test-2026-" + suffix
     accounts = {
@@ -339,7 +339,7 @@ def main():
                 client["secret"] = service_secret
             if client["clientId"] == "frontend-web":
                 client.update(
-                    redirectUris=[web + "/api/auth/oidc/callback"],
+                    redirectUris=[gateway + "/api/v1/public/auth/callback"],
                     webOrigins=[web],
                     standardFlowEnabled=True,
                     directAccessGrantsEnabled=False,
@@ -366,6 +366,9 @@ def main():
                 "KEYCLOAK_ADMIN_PASSWORD",
                 "-v",
                 str(realm_file) + ":/opt/keycloak/data/import/realm.json:ro",
+                "-v",
+                str(ROOT / "services/identity-service/deploy/keycloak/themes/omama")
+                + ":/opt/keycloak/themes/omama:ro",
                 "quay.io/keycloak/keycloak:24.0.5",
                 "start-dev",
                 "--import-realm",
@@ -514,6 +517,13 @@ def main():
             SPRING_DATASOURCE_URL=f"jdbc:postgresql://127.0.0.1:{ports['db']}/{db_name}?currentSchema=identity",
             SERVER_PORT=str(ports["identity"]),
             KEYCLOAK_SERVER_URL=base,
+            KEYCLOAK_PUBLIC_URL=base,
+            KEYCLOAK_SCOPE="openid profile email",
+            AUTH_REDIRECT_URI=gateway + "/api/v1/public/auth/callback",
+            FRONTEND_BASE_URL=web,
+            COOKIE_SECURE="false",
+            COOKIE_DOMAIN="",
+            CUSTOMER_API_GATEWAY_URL=gateway,
             KEYCLOAK_REALM=realm,
             KEYCLOAK_CLIENT_SECRET=service_secret,
             SPRING_KAFKA_BOOTSTRAP_SERVERS=f"127.0.0.1:{ports['kafka']}",
@@ -689,15 +699,16 @@ def main():
         )
         wait(f"http://127.0.0.1:{ports['gateway_admin']}/status")
         env.update(
-            WEB_AUTH_MODE="oidc",
+            WEB_AUTH_MODE="identity-bff",
             WEB_PUBLIC_URL=web,
             WEB_OIDC_ISSUER=issuer,
             WEB_OIDC_CLIENT_ID="frontend-web",
             WEB_OIDC_API_AUDIENCE="omama-api",
             WEB_OIDC_COOKIE_SECRET=secrets.token_urlsafe(48),
             WEB_OIDC_ALLOW_LOCAL_HTTP="true",
-            CUSTOMER_CORE_UPSTREAM_URL=gateway + "/api/v1",
-            CUSTOMER_EXTENSIONS_UPSTREAM_URL=gateway + "/api/v1",
+            IDENTITY_UPSTREAM_URL=gateway + "/api/v1",
+            CUSTOMER_CORE_UPSTREAM_URL=gateway + "/api/v1/customer-api",
+            CUSTOMER_EXTENSIONS_UPSTREAM_URL=gateway + "/api/v1/customer-api",
         )
         start(
             [
@@ -886,6 +897,8 @@ def main():
                 web + "/api/auth/oidc/login?returnUrl=%2Fcart", opener=opener
             )
             assert status in [302, 307], "Web did not start OIDC"
+            status, _, headers = request(headers["Location"], opener=opener)
+            assert status == 302, "Identity BFF did not initiate PKCE"
             authorize = headers["Location"]
             query = urllib.parse.parse_qs(urllib.parse.urlparse(authorize).query)
             assert query["code_challenge_method"] == ["S256"]
@@ -927,8 +940,13 @@ def main():
             assert all(
                 cookie.has_nonstandard_attr("HttpOnly")
                 for cookie in jar
-                if cookie.name.startswith("oma_")
+                if cookie.name in ["OMAMA_SESSION", "OMAMA_AUTH_STATE"]
             ), "Token cookie is script readable"
+            assert any(c.name == "OMAMA_SESSION" for c in jar)
+            assert not any(
+                c.name in ["oma_access_token", "oma_refresh_token", "oma_id_token"]
+                for c in jar
+            ), "Token cookie leaked from Identity BFF"
             status, session, _ = request(web + "/api/auth/me", opener=opener)
             assert (
                 status == 200
@@ -967,9 +985,9 @@ def main():
                 )
                 assert request(web + "/api/cart", opener=opener)[0] == 403
                 assert request(web + "/api/customer/addresses", opener=opener)[0] == 403
-                access = next(c.value for c in jar if c.name == "oma_access_token")
                 assert (
-                    request(gateway + "/api/v1/cart", token=access)[0] == 403
+                    request(gateway + "/api/v1/customer-api/cart", opener=opener)[0]
+                    == 403
                 ), "Direct Order API bypassed Customer verification"
                 print(
                     "PASS: newly registered Customer can complete Profile; unverified purchase/address access remains blocked",
@@ -992,7 +1010,7 @@ def main():
             status, refresh, _ = request(
                 web + "/api/auth/refresh", {}, opener=opener, headers={"Origin": web}
             )
-            assert status == 200 and refresh["refreshed"] is True, "Refresh failed"
+            assert status == 200 and refresh["authenticated"] is True, "Refresh failed"
             status, profile, headers = request(
                 web + "/api/customer/profile", opener=opener
             )
@@ -1020,10 +1038,9 @@ def main():
                     assert (
                         request(web + path, opener=opener)[0] == 404
                     ), "Cross-owner order access"
-            access = next(c.value for c in jar if c.name == "oma_access_token")
             status, owner_profile, _ = request(
-                gateway + "/api/v1/profile",
-                token=access,
+                gateway + "/api/v1/customer-api/profile",
+                opener=opener,
                 headers={
                     "X-User-ID": accounts["B" if key == "A" else "A"]["principal"],
                     "X-Internal-Token": internal_token,
@@ -1080,14 +1097,7 @@ def main():
             status, logout, _ = request(
                 web + "/api/auth/logout", {}, opener=opener, headers={"Origin": web}
             )
-            assert status == 200 and logout.get(
-                "logoutUrl"
-            ), "Logout did not clear session/start provider logout"
-            for _ in range(4):
-                status, page, headers = request(logout["logoutUrl"], opener=opener)
-                if status not in [302, 303, 307]:
-                    break
-                logout["logoutUrl"] = headers["Location"]
+            assert status == 200 and logout["success"] is True, "Identity logout failed"
             assert (
                 request(web + "/api/auth/me", opener=opener)[0] == 401
             ), "Logout retained local session"
@@ -1104,7 +1114,10 @@ def main():
             )[0]
             == 401
         ), "Public Gateway forwarded internal identity credential"
-        assert request(web + "/api/auth/oidc/callback?state=wrong&code=wrong")[0] == 401
+        assert (
+            request(gateway + "/api/v1/public/auth/callback?state=wrong&code=wrong")[0]
+            == 400
+        )
         inventory_schema = (
             sql("SELECT nspname FROM pg_namespace WHERE nspname LIKE 'peer_%';")
             .splitlines()[2]

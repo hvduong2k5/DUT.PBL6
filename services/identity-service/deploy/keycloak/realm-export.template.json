@@ -4,10 +4,17 @@
   "displayName": "Omama E-commerce",
   "enabled": true,
   "sslRequired": "external",
+  "loginTheme": "omama",
   "registrationAllowed": false,
   "resetPasswordAllowed": true,
   "rememberMe": true,
-  "verifyEmail": true,
+  "verifyEmail": false,
+  "internationalizationEnabled": true,
+  "supportedLocales": [
+    "vi",
+    "en"
+  ],
+  "defaultLocale": "vi",
   "accessTokenLifespan": 900,
   "ssoSessionIdleTimeout": 86400,
   "ssoSessionMaxLifespan": 2592000,
@@ -19,10 +26,12 @@
       "directAccessGrantsEnabled": false,
       "clientAuthenticatorType": "client-secret",
       "redirectUris": [
-        "https://omama.vn/api/auth/oidc/callback"
+          "https://api.omama.vn/api/v1/public/auth/callback",
+          "http://localhost:8016/api/v1/public/auth/callback",
+          "http://127.0.0.1:8016/api/v1/public/auth/callback"
       ],
       "webOrigins": [
-        "https://omama.vn"
+        "+"
       ],
       "publicClient": true,
       "protocol": "openid-connect",

@@ -1,16 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { trustedOidcOrigin } from "./oidc";
+import { hasTrustedOrigin } from "./request-origin";
+import { usesIdentityBff } from "./oidc-config";
 
 // Registration creates Identity only. Login always goes through PKCE; Customer
 // provisioning is asynchronous and never replaced with a browser-supplied ID.
 export async function registerIdentity(request: NextRequest) {
-  if (!trustedOidcOrigin(request)) return NextResponse.json({ code: "ORIGIN_NOT_ALLOWED" }, { status: 403 });
+  if (!hasTrustedOrigin(request)) return NextResponse.json({ code: "ORIGIN_NOT_ALLOWED" }, { status: 403 });
   const body = await request.json().catch(() => null);
   const key = request.headers.get("idempotency-key") ?? "";
   if (!body || typeof body.email !== "string" || typeof body.firstName !== "string" || typeof body.lastName !== "string" || typeof body.password !== "string" || !/^[A-Za-z0-9_-]{16,128}$/u.test(key)) {
     return NextResponse.json({ code: "INVALID_REGISTRATION", message: "Vui lòng kiểm tra thông tin đăng ký." }, { status: 400 });
   }
-  const base = process.env.CUSTOMER_CORE_UPSTREAM_URL?.replace(/\/$/u, "");
+  const base = (usesIdentityBff() ? process.env.IDENTITY_UPSTREAM_URL : process.env.CUSTOMER_CORE_UPSTREAM_URL)?.replace(/\/$/u, "");
   if (!base) throw new Error("Identity unavailable");
   const response = await fetch(`${base}/public/customer-registrations`, {
     method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": key },

@@ -1,8 +1,19 @@
 export function usesOidc(): boolean {
-  const mode = process.env.WEB_AUTH_MODE ?? (process.env.NODE_ENV === "production" ? "oidc" : "legacy");
-  if (mode !== "oidc" && mode !== "legacy") throw new Error("Invalid WEB_AUTH_MODE");
+  const mode = process.env.WEB_AUTH_MODE ?? (process.env.NODE_ENV === "production" ? "identity-bff" : "legacy");
+  if (!["identity-bff", "oidc", "legacy"].includes(mode)) throw new Error("Invalid WEB_AUTH_MODE");
   if (mode === "legacy" && process.env.NODE_ENV === "production") throw new Error("Legacy auth is local development only");
   return mode === "oidc";
+}
+
+export function usesIdentityBff(): boolean {
+  return (process.env.WEB_AUTH_MODE ?? (process.env.NODE_ENV === "production" ? "identity-bff" : "legacy")) === "identity-bff";
+}
+
+export function publicWebOrigin(): string {
+  const url = new URL(process.env.WEB_PUBLIC_URL ?? "");
+  if (url.pathname !== "/" || url.search || url.hash || url.username || url.password
+      || (url.protocol !== "https:" && !(process.env.WEB_OIDC_ALLOW_LOCAL_HTTP === "true" && ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname) && url.protocol === "http:"))) throw new Error("Invalid WEB_PUBLIC_URL");
+  return url.origin;
 }
 
 export function oidcConfig() {

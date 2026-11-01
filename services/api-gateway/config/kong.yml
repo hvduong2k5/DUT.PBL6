@@ -32,6 +32,12 @@ services:
     write_timeout: 5000
     retries: 2
     routes:
+      - name: identity-bff-routes
+        paths:
+          - /api/v1/public/auth
+          - /api/v1/customer-api
+        strip_path: false
+        methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
       - name: auth-public-routes
         paths:
           - /api/v1/auth/login

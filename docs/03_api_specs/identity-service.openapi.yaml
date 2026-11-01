@@ -16,6 +16,8 @@ servers:
     description: Production API Gateway
 
 tags:
+  - name: Authentication & BFF Sessions
+    description: Xác thực người dùng theo kiến trúc Backend-for-Frontend (BFF Pattern) theo RFC 9700 & PKCE RFC 7636 qua Kong Gateway
   - name: User Lifecycle & Profile
     description: Quản lý hồ sơ và vòng đời trạng thái tài khoản người dùng
   - name: Employee Invitations
@@ -28,6 +30,205 @@ tags:
     description: Đăng ký tài khoản Khách hàng D2C công khai
 
 paths:
+  /api/v1/public/auth/login:
+    get:
+      tags:
+        - Authentication & BFF Sessions
+      summary: Khởi tạo đăng nhập OIDC PKCE
+      description: |
+        Khởi tạo quy trình đăng nhập bảo mật tuân thủ RFC 9700 và RFC 7636 PKCE:
+        - Sinh `code_verifier`, tính toán `code_challenge` (S256).
+        - Lưu trữ trạng thái tạm thời trong server store (TTL 10 phút).
+        - Trả về `authorizationUrl` dẫn tới Keycloak IdP (hỗ trợ social SSO như Google, Zalo, Apple qua query param `provider`).
+      operationId: initiateLogin
+      parameters:
+        - name: redirect_uri
+          in: query
+          required: false
+          description: URL Frontend cần quay về sau khi hoàn tất đăng nhập (mặc định https://omama.vn)
+          schema:
+            type: string
+            example: https://omama.vn/checkout
+        - name: provider
+          in: query
+          required: false
+          description: Nhà cung cấp SSO trực tiếp (google, facebook, zalo, apple)
+          schema:
+            type: string
+            example: google
+        - name: format
+          in: query
+          required: false
+          description: "Định dạng phản hồi: 'json' cho Mobile/API client, hoặc mặc định 302 redirect cho Web"
+          schema:
+            type: string
+            enum: [json, redirect]
+            example: json
+      responses:
+        "302":
+          description: Chuyển hướng trình duyệt sang màn hình đăng nhập Keycloak (dành cho Web)
+          headers:
+            Location:
+              description: URL đăng nhập OIDC PKCE của Keycloak
+              schema:
+                type: string
+        "200":
+          description: Trả về JSON chứa authorizationUrl (dành cho Mobile App / API client)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthUrlApiResponse"
+        "400":
+          description: Dữ liệu yêu cầu không hợp lệ
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+
+  /api/v1/public/auth/callback:
+    get:
+      tags:
+        - Authentication & BFF Sessions
+      summary: Tiếp nhận Callback Authorization Code từ Keycloak
+      description: |
+        Endpoint được Keycloak chuyển hướng về sau khi người dùng đăng nhập thành công:
+        - Xác minh `state` chống CSRF.
+        - Trao đổi `code` và `code_verifier` lấy bộ Token qua kênh backchannel nội bộ.
+        - JIT Provisioning (Just-In-Time) nếu người dùng lần đầu đăng nhập.
+        - Thiết lập HttpOnly, Secure, SameSite Cookie (`OMAMA_SESSION`) lưu trữ phiên làm việc phía server.
+        - Chuyển hướng HTTP 302 FOUND đưa người dùng quay lại Frontend.
+      operationId: handleCallback
+      parameters:
+        - name: code
+          in: query
+          required: true
+          description: Authorization Code được cấp bởi Keycloak
+          schema:
+            type: string
+        - name: state
+          in: query
+          required: true
+          description: State ngẫu nhiên để đối chiếu
+          schema:
+            type: string
+        - name: error
+          in: query
+          required: false
+          description: Mã lỗi nếu đăng nhập bị từ chối tại IdP
+          schema:
+            type: string
+        - name: error_description
+          in: query
+          required: false
+          description: Chi tiết mô tả lỗi
+          schema:
+            type: string
+      responses:
+        "302":
+          description: Chuyển hướng trình duyệt về Frontend kèm Set-Cookie OMAMA_SESSION
+          headers:
+            Location:
+              description: URL trang Frontend ban đầu
+              schema:
+                type: string
+            Set-Cookie:
+              description: HttpOnly, Secure, SameSite=Lax Session Cookie
+              schema:
+                type: string
+        "400":
+          description: State không hợp lệ hoặc đã hết hạn
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+        "409":
+          description: Tài khoản đang bị tạm khóa (SUSPENDED)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+
+  /api/v1/public/auth/session:
+    get:
+      tags:
+        - Authentication & BFF Sessions
+      summary: Kiểm tra phiên đăng nhập hiện tại
+      description: |
+        Đọc HttpOnly Cookie `OMAMA_SESSION` từ trình duyệt:
+        - Tự động làm mới Access Token nếu đã hết hạn.
+        - Trả về thông tin danh tính (email, principalId, trạng thái xác thực) mà KHÔNG làm lộ JWT ra ngoài trình duyệt.
+      operationId: getSession
+      parameters:
+        - name: Cookie
+          in: header
+          required: false
+          description: Cookie chứa OMAMA_SESSION
+          schema:
+            type: string
+            example: OMAMA_SESSION=d7b5b5c9-9481-4b72-9d3e-9080b06b2308
+      responses:
+        "200":
+          description: Trả về trạng thái phiên làm việc hiện tại
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionApiResponse"
+
+  /api/v1/public/auth/tokens/refresh:
+    post:
+      tags:
+        - Authentication & BFF Sessions
+      summary: Làm mới phiên đăng nhập BFF
+      description: Sử dụng Refresh Token được lưu an toàn trong session server-side để cấp mới Token với Keycloak.
+      operationId: refreshSession
+      parameters:
+        - name: Cookie
+          in: header
+          required: true
+          description: Cookie chứa OMAMA_SESSION
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Làm mới phiên làm việc thành công
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionApiResponse"
+        "400":
+          description: Phiên làm việc không tồn tại hoặc đã hết hạn
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+
+  /api/v1/public/auth/logout:
+    post:
+      tags:
+        - Authentication & BFF Sessions
+      summary: Đăng xuất tài khoản
+      description: Thu hồi Token trên Keycloak qua backchannel, xóa phiên làm việc trong bộ nhớ server và dọn sạch HttpOnly Cookie `OMAMA_SESSION`.
+      operationId: logout
+      parameters:
+        - name: Cookie
+          in: header
+          required: false
+          description: Cookie chứa OMAMA_SESSION
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Đăng xuất thành công, cookie được xóa (Max-Age=0)
+          headers:
+            Set-Cookie:
+              description: Cookie OMAMA_SESSION với Max-Age=0
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
   /api/v1/users/me:
     get:
       tags:
@@ -879,4 +1080,56 @@ components:
         message:
           type: string
           example: Đăng ký tài khoản thành công
+
+    AuthUrlResponse:
+      type: object
+      properties:
+        authorizationUrl:
+          type: string
+          description: URL xác thực OIDC trên Keycloak kèm PKCE code_challenge và state
+          example: https://api.omama.vn/auth/realms/omama/protocol/openid-connect/auth?response_type=code&client_id=frontend-web&state=xyz&code_challenge=abc&code_challenge_method=S256
+        state:
+          type: string
+          description: State string để đối chiếu khi callback
+          example: 4a2d8b5c-9e1f-4f2a-b673-891a2b3c4d5e
+
+    AuthUrlApiResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponse"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/AuthUrlResponse"
+
+    SessionResponse:
+      type: object
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+          description: ID phiên làm việc BFF
+        principalId:
+          type: string
+          format: uuid
+          description: Định danh người dùng nội bộ
+        email:
+          type: string
+          example: customer@omama.vn
+        isAuthenticated:
+          type: boolean
+          example: true
+        expiresAt:
+          type: string
+          format: date-time
+          description: Thời điểm Access Token trong phiên hết hạn
+          example: "2026-10-31T15:30:00Z"
+
+    SessionApiResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponse"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/SessionResponse"
+
 

@@ -110,42 +110,59 @@ cp .env.example .env
 | Biến môi trường | Giá trị mặc định | Mô tả |
 | :--- | :--- | :--- |
 | `SERVER_PORT` | `8016` | Cổng HTTP REST API |
-| `GRPC_SERVER_PORT` | `9016` | Cổng gRPC Server |
+| `GRPC_SERVER_PORT` | `9016` | Cổng gRPC Server nội bộ |
 | `DB_HOST` | `localhost` | Hostname PostgreSQL (`postgres` nếu chạy trong mạng Docker, `host.docker.internal` nếu container gọi ra máy host) |
 | `DB_PORT` | `5432` | Cổng kết nối PostgreSQL |
 | `DB_NAME` | `identity_db` | Tên Database nghiệp vụ |
 | `DB_USERNAME` | `postgres` | Tài khoản kết nối CSDL |
 | `DB_PASSWORD` | `12345678` | Mật khẩu CSDL |
-| `KEYCLOAK_SERVER_URL` | `https://keycloak.omama.vn` | URL của Keycloak (`http://keycloak:8080` nếu chạy All-in-One Docker) |
-| `KEYCLOAK_REALM` | `omama` | Tên Realm làm việc |
-| `KEYCLOAK_CLIENT_ID` | `identity-service-admin` | Client ID kết nối Keycloak Admin API |
-| `KEYCLOAK_CLIENT_SECRET`| `fncRzHdc...` | Secret lấy từ Keycloak Admin Console |
+| `KEYCLOAK_SERVER_URL` | `https://keycloak.omama.vn` | URL của Keycloak (`http://localhost:8080` hoặc `http://keycloak:8080` khi test Docker) |
+| `KEYCLOAK_REALM` | `omama` | Tên Realm làm việc trên Keycloak |
+| `KEYCLOAK_CLIENT_ID` | `identity-service-admin` | Client ID kết nối Keycloak Admin REST API |
+| `KEYCLOAK_CLIENT_SECRET`| `changeme` | Secret lấy từ Keycloak Admin Console |
+| `KEYCLOAK_PUBLIC_CLIENT_ID`| `frontend-web` | Public Client ID OIDC cho PKCE Flow |
+| `AUTH_REDIRECT_URI` | `https://api.omama.vn/api/v1/public/auth/callback` | Callback URL Keycloak chuyển hướng về sau khi login |
+| `COOKIE_SECURE` | `false` | Cờ bảo mật Cookie (`false` khi chạy local dev HTTP, `true` trên Production HTTPS) |
+| `COOKIE_SAME_SITE` | `Lax` | Thuộc tính SameSite của Cookie (`Lax` hoặc `None`) |
 | `SPRING_KAFKA_BOOTSTRAP_SERVERS`| `localhost:9092` | Địa chỉ Kafka Broker (`kafka:9092` nếu chạy Docker) |
 
 ---
 
-## 5. Hướng Dẫn Chạy Docker Trên Máy (Local Machine)
+## 5. Hướng Dẫn Khởi Chạy Service (How to Run)
 
-> [!IMPORTANT]
-> **BƯỚC BẮT BUỘC TRƯỚC KHI BUILD DOCKER:**
-> Dockerfile sử dụng file JAR đã biên dịch sẵn (`COPY build/libs/identity-service-*.jar app.jar`). Do đó, trước khi build Docker image hoặc chạy Docker Compose, bạn **bắt buộc phải build file JAR** bằng Gradle wrapper:
->
-> ```bash
-> # Windows (PowerShell / CMD):
-> .\gradlew.bat bootJar
->
-> # Linux / macOS:
-> ./gradlew bootJar
-> ```
-> File JAR sẽ được tạo tại thư mục `build/libs/identity-service-0.0.1-SNAPSHOT.jar`.
+Bạn có thể lựa chọn 1 trong các phương thức khởi chạy dưới đây tùy thuộc vào mục đích sử dụng:
 
 ---
 
-### Cách 1: Chạy Full Cụm All-in-One (Khuyên Dùng Để Test Nhanh)
+### Kịch Bản 1: Chạy Trực Tiếp Local Dev Bằng Gradle (Khuyên Dùng Để Lập Trình & Debug)
 
-Cách này sẽ tự động khởi tạo **PostgreSQL + Keycloak + Kafka + Identity Service** cùng nhau trên Docker trong một mạng nội bộ duy nhất, rất phù hợp khi máy bạn chưa cài sẵn DB hay Keycloak.
+Phương án này chạy PostgreSQL, Keycloak và Kafka trên Docker, nhưng chạy `identity-service` trực tiếp bằng Java máy host để dễ dàng đặt Breakpoint, xem log màu và hot-reload.
 
-#### Bước 1: Build file JAR
+#### Bước 1: Khởi động các hạ tầng phụ trợ trên Docker
+Đứng tại thư mục `services/identity-service`:
+```bash
+docker compose -f deploy/docker-compose.all-in-one.yml up -d postgres keycloak kafka
+```
+
+#### Bước 2: Khởi chạy Identity Service bằng Gradle Wrapper
+```bash
+# Trên Windows (PowerShell / CMD):
+.\gradlew.bat bootRun
+
+# Trên Linux / macOS:
+./gradlew bootRun
+```
+Ứng dụng sẽ tự động chạy Flyway migration để khởi tạo các bảng CSDL và sẵn sàng phục vụ tại cổng HTTP `8016` và gRPC `9016`.
+
+---
+
+### Kịch Bản 2: Chạy Toàn Bộ Cụm All-in-One Bằng Docker Compose (Kiểm Thử Môi Trường Đóng Gói)
+
+Khởi tạo tự động **PostgreSQL + Keycloak + Kafka + Identity Service** cùng nhau trong mạng Docker nội bộ mà không cần cài đặt thêm gì trên máy host.
+
+#### Bước 1: Build file JAR thực thi
+> [!IMPORTANT]
+> Dockerfile sử dụng file JAR đã biên dịch sẵn (`COPY build/libs/identity-service-*.jar app.jar`). Do đó bắt buộc phải build JAR trước:
 ```bash
 # Windows:
 .\gradlew.bat bootJar
@@ -154,134 +171,63 @@ Cách này sẽ tự động khởi tạo **PostgreSQL + Keycloak + Kafka + Iden
 ./gradlew bootJar
 ```
 
-#### Bước 2: Khởi chạy cụm All-in-One bằng Docker Compose
-Đứng tại thư mục `services/identity-service`:
+#### Bước 2: Khởi chạy toàn bộ cụm Container
 ```bash
 docker compose -f deploy/docker-compose.all-in-one.yml up -d --build
 ```
 
-#### Bước 3: Kiểm tra trạng thái các Container
+#### Bước 3: Kiểm tra trạng thái và log hoạt động
 ```bash
+# Kiểm tra danh sách container đang chạy:
 docker compose -f deploy/docker-compose.all-in-one.yml ps
-```
-Bạn sẽ thấy 4 container:
-- `omafood-identity-postgres`: PostgreSQL (Port `5432`)
-- `omafood-identity-keycloak`: Keycloak (Port `8080`)
-- `omafood-identity-kafka`: Apache Kafka (Port `9092`)
-- `omafood-identity-service`: Identity Service (Port `8016` HTTP, `9016` gRPC)
 
-#### Bước 4: Xem log hoạt động của Identity Service
-```bash
+# Xem log realtime của Identity Service:
 docker compose -f deploy/docker-compose.all-in-one.yml logs -f identity-service
 ```
 
 #### Dừng cụm All-in-One:
 ```bash
 docker compose -f deploy/docker-compose.all-in-one.yml down
-# Hoặc nếu muốn xóa luôn volume dữ liệu để làm mới:
+# Thêm cờ -v nếu muốn xóa trắng dữ liệu database để khởi động lại từ đầu:
 docker compose -f deploy/docker-compose.all-in-one.yml down -v
 ```
 
 ---
 
-### Cách 2: Chạy Riêng Container Identity Service (Kết Nối Hạ Tầng Có Sẵn)
+### Kịch Bản 3: Chạy Riêng Container Identity Service (Kết Nối Hạ Tầng Đang Có Sẵn)
 
-Sử dụng khi máy bạn **đã có sẵn** PostgreSQL, Keycloak hoặc Kafka chạy độc lập (hoặc chạy qua `infra/docker/docker-compose.infra.yml`).
+Dùng khi bạn đã có cụm hạ tầng PostgreSQL, Keycloak chạy sẵn ở ngoài hoặc qua Docker khác.
 
-#### Bước 1: Cấu hình file `.env`
-Mở file `services/identity-service/.env` và cập nhật địa chỉ trỏ về máy host:
-- Trên Docker Desktop (Windows / macOS): Dùng `host.docker.internal` thay vì `localhost`.
-- Trên Linux: Dùng IP mạng của máy host (hoặc `172.17.0.1`).
-
-Ví dụ `.env`:
-```properties
-SERVER_PORT=8016
-GRPC_SERVER_PORT=9016
-
-DB_HOST=host.docker.internal
-DB_PORT=5432
-DB_NAME=identity_db
-DB_USERNAME=postgres
-DB_PASSWORD=12345678
-
-KEYCLOAK_SERVER_URL=http://host.docker.internal:8080
-KEYCLOAK_REALM=omama
-KEYCLOAK_CLIENT_ID=identity-service-admin
-KEYCLOAK_CLIENT_SECRET=your_client_secret_here
-
-SPRING_KAFKA_BOOTSTRAP_SERVERS=host.docker.internal:9092
-```
-
-#### Bước 2: Build file JAR
 ```bash
-# Windows:
-.\gradlew.bat bootJar
+# 1. Build file JAR:
+.\gradlew.bat bootJar    # (hoặc ./gradlew bootJar trên Linux/Mac)
 
-# Linux / macOS:
-./gradlew bootJar
-```
-
-#### Bước 3: Khởi chạy container
-```bash
+# 2. Khởi chạy riêng container:
 cd deploy
 docker compose up -d --build
-```
 
-#### Bước 4: Theo dõi log
-```bash
+# 3. Theo dõi log:
 docker compose logs -f identity-service
-```
 
-#### Dừng container:
-```bash
+# 4. Dừng container:
 docker compose down
 ```
 
 ---
 
-### Cách 3: Build & Chạy Trực Tiếp Bằng Lệnh Docker CLI (Không Dùng Compose)
+### Kịch Bản 4: Chạy Kiểm Thử Tự Động (Unit & Integration Tests)
 
-Nếu muốn tự build và chạy container bằng Docker CLI thuần túy:
-
-```bash
-# 1. Build file JAR
-.\gradlew.bat bootJar    # (hoặc ./gradlew bootJar trên Linux/Mac)
-
-# 2. Build Docker Image
-docker build -t omafood-identity-service:latest .
-
-# 3. Chạy Docker Container (kèm file .env)
-docker run -d \
-  --name omafood-identity-service \
-  -p 8016:8016 \
-  -p 9016:9016 \
-  --env-file .env \
-  omafood-identity-service:latest
-
-# 4. Xem log container
-docker logs -f omafood-identity-service
-```
-
----
-
-### Cách 4: Chạy Hybrid Development (Dành Cho Lập Trình Viên)
-
-Phương án này chạy PostgreSQL, Keycloak, Kafka trên Docker, nhưng chạy ứng dụng Spring Boot trực tiếp bằng máy host để debug, hot-reload và xem log thuận tiện:
+Hệ thống tích hợp bộ kiểm thử toàn diện với **55/55 test case đạt tỉ lệ thành công 100%**:
 
 ```bash
-# 1. Khởi động các phụ trợ trên Docker
-docker compose -f deploy/docker-compose.all-in-one.yml up -d postgres keycloak kafka
+# Trên Windows:
+.\gradlew.bat test
 
-# 2. Cập nhật .env trỏ về localhost
-# (DB_HOST=localhost, KEYCLOAK_SERVER_URL=http://localhost:8080, ...)
-
-# 3. Chạy ứng dụng trực tiếp bằng Gradle:
-# Windows:
-.\gradlew.bat bootRun
-
-# Linux / macOS:
-./gradlew bootRun
+# Trên Linux / macOS:
+./gradlew test
 ```
+Báo cáo kiểm thử HTML chi tiết sẽ được tự động xuất tại:  
+`services/identity-service/build/reports/tests/test/index.html`
 
 ---
 
@@ -327,11 +273,35 @@ curl -X POST http://localhost:8016/api/v1/public/customer-registrations \
     "rawPassword": "Password@123"
   }'
 ```
-*(Hệ thống đồng thời hỗ trợ legacy alias: `POST /api/v1/public/registration/customer`).*
 
 ---
 
-### 6.4. Lấy Hồ Sơ & Quyền Của Bản Thân (`GET /api/v1/users/me`)
+### 6.4. Xác Thực Theo Kiến Trúc Backend-for-Frontend (BFF Pattern - RFC 9700 & RFC 7636 PKCE)
+Bảo vệ Token hoàn toàn phía server bằng HttpOnly Cookie `OMAMA_SESSION`, loại bỏ nguy cơ rò rỉ token qua XSS:
+
+```bash
+# 1. Khởi tạo đăng nhập OIDC PKCE (trả về URL xác thực Keycloak kèm state)
+curl -X GET "http://localhost:8016/api/v1/public/auth/login?redirect_uri=https://omama.vn&provider=google"
+
+# 2. Callback từ Keycloak (trình duyệt tự động chuyển hướng, cấp HttpOnly Cookie OMAMA_SESSION và redirect 302)
+# GET http://localhost:8016/api/v1/public/auth/callback?code=<AUTH_CODE>&state=<STATE>
+
+# 3. Kiểm tra thông tin phiên làm việc hiện tại
+curl -X GET http://localhost:8016/api/v1/public/auth/session \
+  -H "Cookie: OMAMA_SESSION=<YOUR_SESSION_UUID>"
+
+# 4. Gia hạn phiên làm việc (Refresh Session)
+curl -X POST http://localhost:8016/api/v1/public/auth/tokens/refresh \
+  -H "Cookie: OMAMA_SESSION=<YOUR_SESSION_UUID>"
+
+# 5. Đăng xuất tài khoản (Thu hồi token trên Keycloak và xóa Cookie)
+curl -X POST http://localhost:8016/api/v1/public/auth/logout \
+  -H "Cookie: OMAMA_SESSION=<YOUR_SESSION_UUID>"
+```
+
+---
+
+### 6.5. Lấy Hồ Sơ & Quyền Của Bản Thân (`GET /api/v1/users/me`)
 Gửi kèm JWT Access Token:
 
 ```bash
@@ -417,39 +387,6 @@ grpcurl -plaintext localhost:9016 list
 ```
 
 ---
-
-## 7. Khắc Phục Sự Cố Thường Gặp (Troubleshooting)
-
-### 1. Lỗi `COPY failed: no source files were specified` khi build Docker
-- **Nguyên nhân:** Chưa chạy lệnh build file JAR trước khi chạy `docker build` hoặc `docker compose up --build`.
-- **Khắc phục:** Chạy `.\gradlew.bat bootJar` (Windows) hoặc `./gradlew bootJar` (Linux/Mac) rồi thử lại.
-
-### 2. Container không kết nối được PostgreSQL / Keycloak trên máy Host
-- **Nguyên nhân:** Container dùng `localhost` sẽ trỏ vào chính container thay vì máy tính của bạn.
-- **Khắc phục:** 
-  - Trên Windows / macOS: Đặt `DB_HOST=host.docker.internal` và `KEYCLOAK_SERVER_URL=http://host.docker.internal:8080`.
-  - Trên Linux: Thêm cấu hình `extra_hosts: ["host.docker.internal:host-gateway"]` vào docker-compose service.
-
-### 3. Lỗi `401 Unauthorized` hoặc `Connection Refused` từ Keycloak
-- **Nguyên nhân:** Sai `KEYCLOAK_CLIENT_SECRET` hoặc Keycloak chưa sẵn sàng tiếp nhận request.
-- **Khắc phục:**
-  1. Mở Keycloak Admin Console tại `http://localhost:8080/admin`.
-  2. Đăng nhập bằng `admin` / `admin`.
-  3. Chọn Realm `omama` -> menu **Clients** -> chọn `identity-service-admin`.
-  4. Mở tab **Credentials**, copy Client Secret dán vào file `.env`.
-  5. Đảm bảo tab **Service account roles** đã được gán các quyền quản lý `realm-management` (`manage-users`, `view-users`).
-
-### 4. Xung đột cổng (Port already allocated)
-- **Nguyên nhân:** Cổng `8016`, `9016`, `5432` hoặc `8080` đang bị chiếm dụng bởi một ứng dụng khác trên máy.
-- **Khắc phục:**
-  - Kiểm tra tiến trình đang chiếm cổng:
-    ```powershell
-    # Windows:
-    Get-Process -Id (Get-NetTCPConnection -LocalPort 8016).OwningProcess
-    # Linux / macOS:
-    lsof -i :8016
-    ```
-  - Hoặc đổi sang cổng khác trong `.env` (ví dụ `SERVER_PORT=8017`).
 
 ## 7. Khắc Phục Sự Cố Thường Gặp (Troubleshooting)
 

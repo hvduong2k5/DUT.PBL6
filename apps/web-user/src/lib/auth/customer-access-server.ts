@@ -2,7 +2,7 @@ import type { CustomerCapability, CustomerCapabilityProjection } from "./capabil
 import { CapabilityProjectionError, fetchCustomerCapabilities } from "./capability-server";
 import { mapCustomerCoreSession, type CustomerCoreUser } from "./customer-core";
 import type { AuthenticatedSession } from "./types";
-import { usesOidc } from "./oidc-config";
+import { usesOidc, usesIdentityBff } from "./oidc-config";
 import { identitySession } from "./identity-session";
 
 export class CustomerAccessError extends Error {
@@ -13,7 +13,7 @@ export class CustomerAccessError extends Error {
 }
 
 async function fetchVerifiedSession(accessToken: string): Promise<AuthenticatedSession> {
-  if (usesOidc()) {
+  if (usesOidc() || usesIdentityBff()) {
     try { return await identitySession(accessToken); }
     catch (error) {
       const failure = error as { status?: number; code?: string };

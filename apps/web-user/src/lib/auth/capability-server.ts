@@ -1,5 +1,6 @@
 import { parseCustomerCapabilityProjection, type CustomerCapabilityProjection } from "./capabilities";
 import type { CustomerActor } from "./capabilities";
+import { credentialHeaders } from "./server-credential";
 
 export class CapabilityProjectionError extends Error {
   constructor(readonly status: number, message: string) {
@@ -11,7 +12,7 @@ export class CapabilityProjectionError extends Error {
 export async function fetchCustomerCapabilities(accessToken?: string): Promise<CustomerCapabilityProjection> {
   const base = (process.env.CUSTOMER_EXTENSIONS_UPSTREAM_URL ?? "http://127.0.0.1:4020/api/v1").replace(/\/$/u, "");
   const headers = new Headers({ Accept: "application/json", "X-Customer-Actor": resolveMockCustomerActor(accessToken) });
-  if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
+  credentialHeaders(headers, accessToken);
   const response = await fetch(`${base}/customer/capabilities`, { headers, cache: "no-store", redirect: "manual" });
   if (!response.ok) throw new CapabilityProjectionError(response.status, "Không thể tải quyền Customer.");
   const projection = parseCustomerCapabilityProjection(await response.json());

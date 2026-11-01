@@ -48,6 +48,9 @@ class UserLifecycleServiceTest {
     @Mock
     private AuditService auditService;
 
+    @Mock
+    private org.springframework.web.client.RestTemplate restTemplate;
+
     private ObjectMapper objectMapper = new ObjectMapper();
 
     private UserLifecycleService service;
@@ -62,7 +65,8 @@ class UserLifecycleServiceTest {
                 outboxEventMapper,
                 keycloakAdminClient,
                 auditService,
-                objectMapper
+                objectMapper,
+                restTemplate
         );
     }
 

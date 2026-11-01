@@ -1,6 +1,15 @@
 server:
   port: 8016
 
+app:
+  customer-api:
+    gateway-url: ${CUSTOMER_API_GATEWAY_URL:}
+  frontend-url: ${FRONTEND_BASE_URL:http://localhost:3000}
+  session:
+    cookie-secure: ${COOKIE_SECURE:false}
+    cookie-domain: ${COOKIE_DOMAIN:}
+    cookie-same-site: ${COOKIE_SAME_SITE:Lax}
+
 spring:
   application:
     name: identity-service
@@ -22,10 +31,14 @@ grpc:
   server:
     port: 9016
 
-spring.security.oauth2.resourceserver.jwt.issuer-uri: https://keycloak.omama.vn/realms/omama
+spring.security.oauth2.resourceserver.jwt.issuer-uri: ${KEYCLOAK_PUBLIC_URL:https://keycloak.omama.vn}/realms/${KEYCLOAK_REALM:omama}
 
 keycloak:
-  server-url: https://keycloak.omama.vn
-  realm: omama
-  client-id: identity-service-admin
+  server-url: ${KEYCLOAK_SERVER_URL:https://keycloak.omama.vn}
+  public-url: ${KEYCLOAK_PUBLIC_URL:${keycloak.server-url}}
+  realm: ${KEYCLOAK_REALM:omama}
+  client-id: ${KEYCLOAK_CLIENT_ID:identity-service-admin}
   client-secret: "${KEYCLOAK_CLIENT_SECRET:changeme}"
+  public-client-id: ${KEYCLOAK_PUBLIC_CLIENT_ID:frontend-web}
+  redirect-uri: ${AUTH_REDIRECT_URI:http://localhost:8016/api/v1/public/auth/callback}
+  scope: ${KEYCLOAK_SCOPE:openid}
