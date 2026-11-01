@@ -303,9 +303,7 @@ plugins:
 consumers:
   - username: omamx-test-customer
     custom_id: "customer_001"
-
-jwt_secrets:
-  - consumer: omamx-test-customer
-    key: "omamx-identity-issuer"
-    secret: "omamx-secret-jwt-key-for-local-development-2026-very-secure"
-    algorithm: "HS256"
+    jwt_secrets:
+      - key: "omamx-identity-issuer"
+        secret: "omamx-secret-jwt-key-for-local-development-2026-very-secure"
+        algorithm: "HS256"
