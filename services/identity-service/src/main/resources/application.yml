@@ -1,6 +1,13 @@
 server:
   port: 8016
 
+app:
+  frontend-url: ${FRONTEND_BASE_URL:http://localhost:3000}
+  session:
+    cookie-secure: ${COOKIE_SECURE:false}
+    cookie-domain: ${COOKIE_DOMAIN:}
+    cookie-same-site: ${COOKIE_SAME_SITE:Lax}
+
 spring:
   application:
     name: identity-service

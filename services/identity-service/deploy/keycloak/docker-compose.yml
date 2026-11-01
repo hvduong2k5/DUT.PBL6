@@ -1,17 +1,30 @@
 version: '3.8'
 
+# =============================================================================
+# KEYCLOAK IDP - PRODUCTION / COOLIFY DEPLOYMENT
+# =============================================================================
+# - Chạy Image chính thức từ Quay.io (không cần Dockerfile riêng)
+# - Theme Ô Mạ lấy trực tiếp từ Git repo qua volume mount
+# - Realm import 1 lần duy nhất qua Web Console vào PostgreSQL
+# - Traefik Reverse Proxy trên Coolify cấp SSL và route tới port 8080
+# =============================================================================
+
 services:
   keycloak:
     image: quay.io/keycloak/keycloak:24.0.5
     container_name: omafood-keycloak-standalone
     restart: unless-stopped
-    command: start --import-realm
+    command: start
+    expose:
+      - 8080
+    ports:
+      - "${KEYCLOAK_PORT:-8080}:8080"
     environment:
-      # Tài khoản quản trị Keycloak Master
-      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
-      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      # Tài khoản Admin tối cao
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:?Vui lòng cấu hình KEYCLOAK_ADMIN trên Coolify}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?Vui lòng cấu hình KEYCLOAK_ADMIN_PASSWORD trên Coolify}
 
-      # Kết nối đến PostgreSQL server có sẵn
+      # Kết nối CSDL PostgreSQL có sẵn trên Coolify
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT:-5432}/${KEYCLOAK_DB_NAME:-keycloak_db}
       KC_DB_USERNAME: ${POSTGRES_USER}
@@ -22,14 +35,12 @@ services:
       KC_METRICS_ENABLED: "true"
       KC_HTTP_ENABLED: "true"
 
-      # Hỗ trợ Proxy / Hostname (bật khi chạy sau Nginx/Traefik)
+      # Cấu hình Hostname & Traefik Reverse Proxy trên Coolify
       KC_PROXY_HEADERS: ${KC_PROXY_HEADERS:-xforwarded}
-      KC_HOSTNAME: ${KC_HOSTNAME:-}
-    ports:
-      - "${KEYCLOAK_PORT:-8080}:8080"
+      KC_HOSTNAME: "${KC_HOSTNAME:?Vui lòng cấu hình KC_HOSTNAME (ví dụ: https://keycloak.omama.vn)}"
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
     volumes:
-      # Tự động nạp cấu hình Realm 'omama' khi khởi chạy
-      - ./realm-export.template.json:/opt/keycloak/data/import/realm.json:ro
+      # Nạp custom theme Ô Mạ từ Git repo được Coolify kéo về
       - ./themes:/opt/keycloak/themes:ro
     networks:
       - coolify
@@ -43,4 +54,3 @@ services:
 networks:
   coolify:
     external: true
-

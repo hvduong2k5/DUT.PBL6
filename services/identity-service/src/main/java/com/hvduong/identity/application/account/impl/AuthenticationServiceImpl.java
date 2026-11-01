@@ -58,11 +58,14 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     @Value("${keycloak.redirect-uri:https://api.omama.vn/api/v1/public/auth/callback}")
     private String redirectUri;
 
+    @Value("${app.frontend-url:http://localhost:3000}")
+    private String defaultFrontendUrl;
+
     @Override
     public AuthUrlResponse initiateLogin(String clientRedirectUri, String provider) {
         String finalRedirectUri = (clientRedirectUri != null && !clientRedirectUri.isBlank()) 
                 ? clientRedirectUri 
-                : "https://omama.vn";
+                : getDefaultFrontendUrl();
 
         String codeVerifier = PkceUtil.generateCodeVerifier();
         String codeChallenge = PkceUtil.generateCodeChallenge(codeVerifier);
@@ -188,7 +191,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
 
     @Override
     public String resolveErrorRedirectUri(String state, String error, String errorDescription) {
-        String baseRedirectUri = "https://omama.vn/login";
+        String baseRedirectUri = getDefaultFrontendUrl() + "/login";
         if (state != null && !state.isBlank()) {
             Optional<AuthStateStore.PendingAuthState> pendingOpt = authStateStore.consume(state);
             if (pendingOpt.isPresent() && pendingOpt.get().getRedirectUri() != null && !pendingOpt.get().getRedirectUri().isBlank()) {
@@ -314,6 +317,15 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     /**
      * URL cho TRÌNH DUYỆT mở (trang đăng nhập Keycloak) — ưu tiên dùng public-url, fallback về server-url.
      */
+    private String getDefaultFrontendUrl() {
+        if (defaultFrontendUrl == null || defaultFrontendUrl.isBlank()) {
+            return "http://localhost:3000";
+        }
+        return defaultFrontendUrl.endsWith("/") 
+                ? defaultFrontendUrl.substring(0, defaultFrontendUrl.length() - 1) 
+                : defaultFrontendUrl;
+    }
+
     private String buildAuthEndpoint() {
         String url = (publicUrl != null && !publicUrl.isBlank()) ? publicUrl : serverUrl;
         String baseUrl = url.endsWith("/") ? url.substring(0, url.length() - 1) : url;

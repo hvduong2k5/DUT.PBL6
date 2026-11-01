@@ -66,6 +66,7 @@ class AuthenticationServiceTest {
         ReflectionTestUtils.setField(authenticationService, "realm", "omama");
         ReflectionTestUtils.setField(authenticationService, "publicClientId", "frontend-web");
         ReflectionTestUtils.setField(authenticationService, "redirectUri", "https://api.omama.vn/api/v1/public/auth/callback");
+        ReflectionTestUtils.setField(authenticationService, "defaultFrontendUrl", "http://localhost:3000");
     }
 
     @Test
@@ -84,7 +85,7 @@ class AuthenticationServiceTest {
 
         Optional<AuthStateStore.PendingAuthState> saved = authStateStore.consume(response.getState());
         assertThat(saved).isPresent();
-        assertThat(saved.get().getRedirectUri()).isEqualTo("https://omama.vn");
+        assertThat(saved.get().getRedirectUri()).isEqualTo("http://localhost:3000");
     }
 
     @Test
@@ -279,6 +280,6 @@ class AuthenticationServiceTest {
     void resolveErrorRedirectUri_WithMissingState_FallsBackToDefaultLogin() {
         String result = authenticationService.resolveErrorRedirectUri(null, "unauthorized_client", "Client not allowed");
 
-        assertThat(result).isEqualTo("https://omama.vn/login?error=unauthorized_client&error_description=Client+not+allowed");
+        assertThat(result).isEqualTo("http://localhost:3000/login?error=unauthorized_client&error_description=Client+not+allowed");
     }
 }
