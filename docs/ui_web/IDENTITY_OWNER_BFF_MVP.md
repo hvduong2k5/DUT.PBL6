@@ -38,6 +38,7 @@ sequenceDiagram
 - Web vẫn giữ các URL `/api/auth/*` để UI hiện tại gọi, nhưng chúng là adapter tới Identity. `/api/auth/oidc/login` chỉ chuyển hướng tới Identity; Web không đổi authorization code. Catalog công khai đi qua route Catalog thông thường tại Gateway.
 - Callback phải có state khớp cookie của chính trình duyệt. Cookie mutation phải có Origin đúng `FRONTEND_BASE_URL`; Web cũng kiểm Origin theo `WEB_PUBLIC_URL`. Return URL chỉ thuộc origin Frontend được cấu hình.
 - Giữ validation đăng ký, HMAC fingerprint do server tính, transaction/outbox, retry Kafka và Customer pending chỉ được sửa hồ sơ. Việc hợp nhất theo owner không tự cấp quyền mua cho Customer chưa xác minh.
+- Giữ audit đăng nhập/đăng xuất thực sự ghi được vào PostgreSQL: actor dùng CUSTOMER/EMPLOYEE/ANONYMOUS theo schema, không dùng giá trị USER nằm ngoài constraint. Xóa giỏ qua adapter phải chấp nhận response 204 rỗng dù upstream còn Content-Type JSON.
 
 ## Cấu hình
 

@@ -1120,6 +1120,17 @@ def main():
             ), "Logout retained local session"
 
         assert request(web + "/api/cart")[0] == 401
+        for action, expected in [("LOGIN_SUCCESS", 3), ("LOGOUT_SUCCESS", 2)]:
+            count = int(
+                sql(
+                    "SELECT count(*) FROM identity.identity_audit_log WHERE action_code='"
+                    + action
+                    + "' AND actor_kind='CUSTOMER';"
+                )
+                .splitlines()[2]
+                .strip()
+            )
+            assert count >= expected, ("Identity audit missing", action, count)
         assert (
             request(
                 gateway + "/api/v1/profile",

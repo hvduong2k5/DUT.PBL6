@@ -152,7 +152,7 @@ class AuthenticationServiceTest {
         assertThat(result.getSession().getEmail()).isEqualTo("user@omama.vn");
         assertThat(result.getSession().getAccessToken()).isEqualTo(dummyJwt);
 
-        verify(auditService).recordAudit(eq("USER"), eq(row.getPrincipalId()), isNull(), eq("LOGIN_SUCCESS"), any(), eq(sub), eq("SUCCESS"), isNull(), isNull(), isNull(), any());
+        verify(auditService).recordAudit(eq("CUSTOMER"), eq(row.getPrincipalId()), isNull(), eq("LOGIN_SUCCESS"), any(), eq(sub), eq("SUCCESS"), isNull(), isNull(), isNull(), any());
     }
 
     @Test
@@ -178,7 +178,7 @@ class AuthenticationServiceTest {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("tạm khóa");
 
-        verify(auditService).recordAudit(eq("USER"), eq(row.getPrincipalId()), isNull(), eq("LOGIN_BLOCKED_SUSPENDED"), any(), any(), eq("FAILURE"), isNull(), isNull(), isNull(), any());
+        verify(auditService).recordAudit(eq("CUSTOMER"), eq(row.getPrincipalId()), isNull(), eq("LOGIN_BLOCKED_SUSPENDED"), any(), any(), eq("FAILURE"), isNull(), isNull(), isNull(), any());
     }
 
     @Test
@@ -213,7 +213,7 @@ class AuthenticationServiceTest {
                 "CUSTOMER".equals(principal.getPrincipalType()) &&
                 "ACTIVE".equals(principal.getProvisioningStatus())
         ));
-        verify(auditService).recordAudit(eq("USER"), any(), isNull(), eq("JIT_PROVISION_SUCCESS"), any(), eq(sub), eq("SUCCESS"), isNull(), isNull(), isNull(), any());
+        verify(auditService).recordAudit(eq("CUSTOMER"), any(), isNull(), eq("JIT_PROVISION_SUCCESS"), any(), eq(sub), eq("SUCCESS"), isNull(), isNull(), isNull(), any());
     }
 
     @Test
@@ -274,7 +274,7 @@ class AuthenticationServiceTest {
         authenticationService.logout(session.getSessionId());
 
         assertThat(bffSessionStore.getSession(session.getSessionId())).isEmpty();
-        verify(auditService).recordAudit(eq("USER"), eq(session.getPrincipalId()), isNull(), eq("LOGOUT_SUCCESS"), any(), eq("sub-3"), eq("SUCCESS"), isNull(), isNull(), isNull(), any());
+        verify(auditService).recordAudit(eq("SYSTEM"), eq(session.getPrincipalId()), isNull(), eq("LOGOUT_SUCCESS"), any(), eq("sub-3"), eq("SUCCESS"), isNull(), isNull(), isNull(), any());
     }
 
     @Test

@@ -141,13 +141,13 @@ public class AuthenticationServiceImpl implements AuthenticationService {
             if (principal != null) {
                 if ("SUSPENDED".equalsIgnoreCase(principal.getProvisioningStatus())) {
                     log.warn("Blocked login attempt for suspended user subject={}", subject);
-                    auditService.recordAudit("USER", principal.getPrincipalId(), null, "LOGIN_BLOCKED_SUSPENDED",
+                    auditService.recordAudit(auditActor(principal), principal.getPrincipalId(), null, "LOGIN_BLOCKED_SUSPENDED",
                             "AUTH", principal.getPrincipalId().toString(), "FAILURE", null, null, null,
                             Map.of("subject", subject, "reason", "ACCOUNT_SUSPENDED"));
                     throw new IllegalStateException("Tài khoản của bạn đã bị tạm khóa. Vui lòng liên hệ quản trị viên.");
                 }
 
-                auditService.recordAudit("USER", principal.getPrincipalId(), null, "LOGIN_SUCCESS",
+                auditService.recordAudit(auditActor(principal), principal.getPrincipalId(), null, "LOGIN_SUCCESS",
                         "AUTH", subject, "SUCCESS", null, null, null,
                         Map.of("email", email != null ? email : ""));
             } else {
@@ -167,7 +167,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                 principalMapper.insert(principal);
                 log.info("JIT provisioned new user principalId={} subject={}", newPrincipalId, subject);
 
-                auditService.recordAudit("USER", newPrincipalId, null, "JIT_PROVISION_SUCCESS",
+                auditService.recordAudit("CUSTOMER", newPrincipalId, null, "JIT_PROVISION_SUCCESS",
                         "AUTH", subject, "SUCCESS", null, null, null,
                         Map.of("email", email != null ? email : ""));
             }
@@ -189,7 +189,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
 
         } catch (HttpStatusCodeException ex) {
             log.warn("Keycloak authorization code exchange failed: status={}, body={}", ex.getStatusCode(), ex.getResponseBodyAsString());
-            auditService.recordAudit("USER", null, null, "LOGIN_FAILED", "AUTH", null, "FAILURE",
+            auditService.recordAudit("ANONYMOUS", null, null, "LOGIN_FAILED", "AUTH", null, "FAILURE",
                     null, null, null, Map.of("statusCode", ex.getStatusCode().toString()));
             throw new IllegalArgumentException("Không thể xác thực mã đăng nhập từ Identity Provider.");
         } catch (IllegalStateException ex) {
@@ -320,7 +320,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
             }
 
             bffSessionStore.removeSession(sessionId);
-            auditService.recordAudit("USER", session.getPrincipalId(), null, "LOGOUT_SUCCESS",
+            auditService.recordAudit(auditActor(principalMapper.findById(session.getPrincipalId())), session.getPrincipalId(), null, "LOGOUT_SUCCESS",
                     "AUTH", session.getIdpSubject(), "SUCCESS", null, null, null, Map.of("email", session.getEmail() != null ? session.getEmail() : ""));
         }
     }
@@ -354,6 +354,11 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     private String buildLogoutEndpoint() {
         String baseUrl = serverUrl.endsWith("/") ? serverUrl.substring(0, serverUrl.length() - 1) : serverUrl;
         return baseUrl + "/realms/" + realm + "/protocol/openid-connect/logout";
+    }
+
+    private String auditActor(IdentityPrincipalRow principal) {
+        if (principal == null) return "SYSTEM";
+        return "EMPLOYEE".equals(principal.getPrincipalType()) ? "EMPLOYEE" : "CUSTOMER";
     }
 
     private String extractClaim(String jwtToken, String claimName) {

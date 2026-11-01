@@ -59,7 +59,7 @@ async function callUpstream(request: NextRequest, path: string, method: string, 
     redirect: "manual"
   });
   const contentType = response.headers.get("content-type") ?? "";
-  const payload = contentType.includes("application/json") ? await response.json() as unknown : undefined;
+  const payload = response.status !== 204 && contentType.includes("application/json") ? await response.json() as unknown : undefined;
   return { response, payload };
 }
 

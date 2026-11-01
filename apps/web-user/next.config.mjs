@@ -2,6 +2,8 @@
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  // The disposable Identity BFF fixture shares cookies on numeric loopback.
+  allowedDevOrigins: ["127.0.0.1"],
   experimental: {
     cpus: 1
   },
