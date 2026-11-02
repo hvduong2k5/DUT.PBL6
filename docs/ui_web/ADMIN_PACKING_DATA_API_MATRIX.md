@@ -1,8 +1,8 @@
 # Admin Packing & Fulfillment — Data/API Matrix
 
-**Cập nhật:** 2026-10-03  
-**Nguồn phạm vi:** `docs/01_requirements/epics/EPIC_10_Packing.md`  
-**Màn hình:** `/packing` (quản lý) và `/work/packing` (công việc cá nhân) trong `apps/web-admin`  
+**Cập nhật:** 2026-10-03
+**Nguồn phạm vi:** `docs/01_requirements/epics/EPIC_10_Packing.md`
+**Màn hình:** `/employee/packing` (quản lý) và `/employee/work/packing` (công việc cá nhân) trong `apps/web-user`
 **Mock Admin:** `mocks/mockoon/admin_extensions.json`, cổng `4030`
 
 ## Phạm vi đã triển khai
@@ -59,13 +59,16 @@ Media/video của `US-PACK-04~06` vẫn thuộc Giai đoạn 2. Workbench MVP kh
 
 ## Chạy local
 
+> `ADMIN_MOCK_PROFILE` chỉ chọn dữ liệu fixture upstream. Quyền truy cập thực tế lấy từ tài khoản `EMPLOYEE` và mảng `permissions` do Identity Service trả về; đổi profile Mockoon không cấp thêm quyền.
+
+
 ```powershell
 npx @mockoon/cli start --disable-log-to-file --data .\mocks\mockoon\admin_extensions.json
-cd apps\web-admin
+cd apps\web-user
 $env:ADMIN_MOCK_PROFILE="PACKING_WORKBENCH"
 npm run dev
 ```
 
-Mở `http://localhost:3001/work/packing` với profile `PACKING_WORKBENCH`. Session vẫn trả role `PACKING`, nhưng không thấy và không truy cập được `/packing` vì thiếu `PACKING_MANAGEMENT_VIEW`.
+Mở `http://localhost:3000/employee/work/packing` với profile `PACKING_WORKBENCH`. Identity session vẫn trả role `PACKING`, nhưng không thấy và không truy cập được `/employee/packing` nếu thiếu `PACKING_MANAGEMENT_VIEW`.
 
-Dùng profile `PACKING_MANAGEMENT` hoặc `SALES_MANAGER` để kiểm tra `/packing`. `PACKING_MANAGEMENT` vẫn mang role `PACKING` nhưng không mặc nhiên có quyền thao tác Workbench. Dùng `WAREHOUSE_STAFF` hoặc `SYSTEM_ADMIN` để kiểm tra từ chối cả hai vùng Packing.
+Dùng tài khoản Identity có `PACKING_MANAGEMENT_VIEW` hoặc `SALES_MANAGER` để kiểm tra `/employee/packing`. Role `PACKING` không mặc nhiên có quyền thao tác Workbench; quyền thực tế luôn lấy từ Identity.

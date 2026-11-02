@@ -1,8 +1,8 @@
 # Admin Shipping & Delivery — Data/API Matrix
 
-**Cập nhật:** 2026-10-03  
-**Nguồn phạm vi:** `docs/01_requirements/epics/EPIC_11_Shipping_Delivery.md`  
-**Màn hình:** `/shipping` (quản lý) và `/work/delivery` (công việc cá nhân) trong `apps/web-admin`  
+**Cập nhật:** 2026-10-03
+**Nguồn phạm vi:** `docs/01_requirements/epics/EPIC_11_Shipping_Delivery.md`
+**Màn hình:** `/employee/shipping` (quản lý) và `/employee/work/delivery` (công việc cá nhân) trong `apps/web-user`
 **Mock Admin:** `mocks/mockoon/admin_extensions.json`, cổng `4030`
 
 ## Phạm vi đã triển khai
@@ -57,13 +57,16 @@ Chưa triển khai tạo/hủy vận đơn, in nhãn, xác nhận bàn giao ho�
 
 ## Chạy local
 
+> `ADMIN_MOCK_PROFILE` chỉ chọn dữ liệu fixture upstream. Quyền truy cập thực tế lấy từ tài khoản `EMPLOYEE` và mảng `permissions` do Identity Service trả về; đổi profile Mockoon không cấp thêm quyền.
+
+
 ```powershell
 npx @mockoon/cli start --disable-log-to-file --data .\mocks\mockoon\admin_extensions.json
-cd apps\web-admin
+cd apps\web-user
 $env:ADMIN_MOCK_PROFILE="DELIVERY_WORKBENCH"
 npm run dev
 ```
 
-Mở `http://localhost:3001/work/delivery` với profile `DELIVERY_WORKBENCH`. Session trả role `DELIVERY`, nhưng không truy cập được `/shipping` vì thiếu `SHIPMENT_MANAGEMENT_VIEW`.
+Mở `http://localhost:3000/employee/work/delivery` với tài khoản Identity có `DELIVERY_WORKBENCH_VIEW`. Tài khoản không truy cập được `/employee/shipping` nếu thiếu `SHIPMENT_MANAGEMENT_VIEW`.
 
-Dùng `SALES_MANAGER` để kiểm tra `/shipping` và xác nhận bị từ chối `/work/delivery`. `SYSTEM_ADMIN` không mặc nhiên truy cập cả hai vùng nghiệp vụ.
+Dùng tài khoản có `SHIPMENT_MANAGEMENT_VIEW` để kiểm tra `/employee/shipping` và xác nhận bị từ chối `/employee/work/delivery` khi thiếu `DELIVERY_WORKBENCH_VIEW`. Role `SYSTEM_ADMIN` không mặc nhiên cấp quyền cho cả hai vùng nghiệp vụ.

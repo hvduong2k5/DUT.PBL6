@@ -1,9 +1,9 @@
 # Admin Inventory & Warehouse Workbench — Data/API Matrix
 
-**Cập nhật:** 2026-10-03  
-**Backlog:** `EPIC_09_Inventory.md`  
-**Màn hình:** `/inventory`, `/work/warehouse`  
-**Ứng dụng:** `apps/web-admin`  
+**Cập nhật:** 2026-10-03
+**Backlog:** `EPIC_09_Inventory.md`
+**Màn hình:** `/employee/inventory`, `/employee/work/warehouse`
+**Ứng dụng:** `apps/web-user`
 **Mock Admin:** `mocks/mockoon/admin_extensions.json`, cổng `4030`
 
 ## 1. Phạm vi đã triển khai
@@ -54,6 +54,8 @@ BFF kiểm tra lại Permission và Scope `INVENTORY`; việc ẩn menu/nút kh�
 
 ## 5. Chạy local
 
+> `ADMIN_MOCK_PROFILE` chỉ chọn dữ liệu fixture upstream. Quyền truy cập thực tế lấy từ tài khoản `EMPLOYEE` và mảng `permissions` do Identity Service trả về; đổi profile Mockoon không cấp thêm quyền.
+
 ```powershell
 # Quản lý tồn kho
 $env:ADMIN_MOCK_PROFILE="WAREHOUSE_MANAGEMENT"
@@ -62,8 +64,8 @@ $env:ADMIN_MOCK_PROFILE="WAREHOUSE_MANAGEMENT"
 $env:ADMIN_MOCK_PROFILE="WAREHOUSE_WORKBENCH"
 
 npx @mockoon/cli start --disable-log-to-file --data .\mocks\mockoon\admin_extensions.json
-cd apps\web-admin
+cd apps\web-user
 npm run dev
 ```
 
-Mở `http://localhost:3001/inventory` hoặc `http://localhost:3001/work/warehouse` theo profile.
+Mở `http://localhost:3000/employee/inventory` hoặc `http://localhost:3000/employee/work/warehouse` theo profile.

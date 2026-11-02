@@ -1,7 +1,7 @@
 # B2B Customer Data/API Matrix
 
-**Cập nhật:** 2026-10-01  
-**Backlog:** `EPIC_18_B2B.md`  
+**Cập nhật:** 2026-10-01
+**Backlog:** `EPIC_18_B2B.md`
 **Mock mở rộng:** `mocks/mockoon/customer_extensions.json`
 
 ## Phạm vi đã triển khai
@@ -32,7 +32,7 @@
 
 ## Việc còn lại
 
-1. Hoàn thiện phần còn lại của Web Admin `ADM-034`: withdraw, chuyển Order, history/message/SLA và tệp thật. Hàng đợi, chi tiết và các hành động chính đã có tại `apps/web-admin`; xem `B2B_ADMIN_DATA_API_MATRIX.md`.
+1. Hoàn thiện phần còn lại của vùng Employee `ADM-034`: withdraw, chuyển Order, history/message/SLA và tệp thật. Hàng đợi, chi tiết và các hành động chính đã có tại `/employee/b2b/quotes` trong `apps/web-user`; xem `B2B_ADMIN_DATA_API_MATRIX.md`.
 2. API upload/scan tài liệu thật và quản lý phiên bản logo.
 3. Luồng `NEEDS_INFO` để Customer bổ sung dữ liệu có lịch sử trao đổi.
 4. Định nghĩa đăng ký/xác minh pháp nhân, nhiều đại diện và một tài khoản đại diện nhiều doanh nghiệp.

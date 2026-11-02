@@ -28,7 +28,7 @@ Toàn bộ các thành phần hạ tầng nội bộ gồm **Keycloak** (Port 80
 - **Trình duyệt chỉ nhận và gửi một Cookie bảo mật duy nhất:** `OMAMA_SESSION` với cờ `HttpOnly`, `Secure`, `SameSite=Lax`.
 
 ### 1.2. Mô hình Phân lập Danh tính Doanh nghiệp (Enterprise Persona Separation)
-- **Tài khoản Nhân viên (`EMPLOYEE`):** Sử dụng email công vụ (`@omama.vn`) để đăng nhập và vận hành các phân hệ quản trị Backoffice (`/admin/**`). Được phân quyền chi tiết theo vai trò (`iam_roles`) và phạm vi (`Scope: GLOBAL, STORE, WAREHOUSE`).
+- **Tài khoản Nhân viên (`EMPLOYEE`):** Sử dụng email công vụ (`@omama.vn`) và chỉ vận hành các phân hệ nội bộ tại `/employee/**`. Được phân quyền chi tiết theo vai trò (`iam_roles`) và phạm vi (`Scope: GLOBAL, STORE, WAREHOUSE`); không được dùng Cart, Checkout, Customer Order hoặc Address.
 - **Tài khoản Khách hàng (`CUSTOMER`):** Người dùng hoặc nhân viên khi mua sắm cá nhân sẽ sử dụng tài khoản `CUSTOMER` độc lập (email cá nhân).
 - **An toàn phiên làm việc:** Tuyệt đối không dùng chung một tài khoản mang quyền hạn quản trị nội bộ để lướt web mua sắm trên thiết bị cá nhân/mạng công cộng nhằm ngăn ngừa triệt để rủi ro rò rỉ Token đặc quyền.
 - **Quy trình Offboarding:** Khi nhân viên nghỉ việc, Admin khóa tài khoản `EMPLOYEE` mà không làm gián đoạn tài khoản `CUSTOMER` mua sắm cá nhân của họ.
@@ -51,8 +51,7 @@ sequenceDiagram
     FE->>GW: GET /api/v1/public/auth/login?redirect_uri=...&provider=...
     GW->>BFF: Forward request
     BFF->>BFF: Sinh PKCE code_verifier, code_challenge (S256), state
-    BFF-->>FE: Trả về authorizationUrl & state
-    FE->>User: Điều hướng window.location.href = authorizationUrl
+    BFF-->>User: HTTP 302 sang Keycloak/OIDC
 
     Note over User,KC: 2. Người dùng xác thực trên Keycloak / IdP
     User->>GW: Truy cập /auth/realms/omama/protocol/openid-connect/auth
@@ -123,22 +122,10 @@ Frontend gọi endpoint này khi người dùng nhấn nút "Đăng nhập" đ�
 - **Query Parameters:**
   - `redirect_uri` *(optional)*: Trang Frontend muốn quay lại sau khi đăng nhập xong (Ví dụ: `https://omama.vn/checkout`). Mặc định là `https://omama.vn`.
   - `provider` *(optional)*: Tên nhà cung cấp SSO nếu muốn vào thẳng đăng nhập mạng xã hội (Ví dụ: `google`, `facebook`, `zalo`, `apple`). Nếu để trống, sẽ hiển thị trang đăng nhập Keycloak chuẩn.
-- **Response `200 OK`:**
-  ```json
-  {
-    "success": true,
-    "code": "SUCCESS",
-    "message": "Khởi tạo đăng nhập thành công",
-    "data": {
-      "authorizationUrl": "https://api.omama.vn/auth/realms/omama/protocol/openid-connect/auth?response_type=code&client_id=frontend-web&redirect_uri=https%3A%2F%2Fapi.omama.vn%2Fapi%2Fv1%2Fpublic%2Fauth%2Fcallback&scope=openid+profile+email&state=7f9b8c2d-1111-2222&code_challenge=xyz...&code_challenge_method=S256",
-      "state": "7f9b8c2d-1111-2222"
-    }
-  }
-  ```
-- **Hành động của Frontend:**
+- **Response Web mặc định:** `302 Found` sang Keycloak/OIDC. Chế độ JSON chỉ dành cho client yêu cầu rõ `format=json` hoặc `Accept: application/json`.
+- **Hành động của Web Frontend:**
   ```javascript
-  // Chuyển hướng người dùng sang trang đăng nhập Keycloak/Google:
-  window.location.href = res.data.data.authorizationUrl;
+  window.location.href = `${apiBase}/public/auth/login?redirect_uri=${encodeURIComponent(returnUrl)}`;
   ```
 
 ---
@@ -390,20 +377,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     checkSession();
   }, []);
 
-  const login = async (provider?: string) => {
-    try {
-      const currentUrl = window.location.href;
-      const res = await api.get('/api/v1/public/auth/login', {
-        params: {
-          redirect_uri: currentUrl,
-          provider: provider || undefined,
-        },
-      });
-      // Chuyển hướng người dùng sang trang xác thực
-      window.location.href = res.data.data.authorizationUrl;
-    } catch (err) {
-      console.error('Lỗi khởi tạo đăng nhập:', err);
-    }
+  const login = (provider?: string) => {
+    const params = new URLSearchParams({ redirect_uri: window.location.href });
+    if (provider) params.set('provider', provider);
+    window.location.href = `${API_BASE}/public/auth/login?${params.toString()}`;
   };
 
   const logout = async () => {

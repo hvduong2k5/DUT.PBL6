@@ -41,7 +41,7 @@ Các nguyên tắc runtime:
 
 Gate chỉ kiểm soát việc phát hành capability. Authorization thực tế vẫn phải do backend kiểm tra. Với COD/Voucher, BFF Checkout fail closed ngay cả khi client gọi trực tiếp.
 
-Gate không thay thế Identity. Một capability được bật vẫn yêu cầu principal hợp lệ, mapping Customer và capability/permission tương ứng. Chi tiết tại [`MVP_PUBLIC_IDENTITY_AUTHORIZATION.md`](./MVP_PUBLIC_IDENTITY_AUTHORIZATION.md).
+Gate không thay thế Identity. Một capability được bật vẫn yêu cầu principal `CUSTOMER` hợp lệ và capability tương ứng; principal `EMPLOYEE` luôn bị từ chối khỏi Customer flow. Chi tiết tại [`MVP_PUBLIC_IDENTITY_AUTHORIZATION.md`](./MVP_PUBLIC_IDENTITY_AUTHORIZATION.md).
 
 Bốn public operation còn `GATED` là paid cancellation request, create guest session, issue guest payment access và revoke guest payment access.
 
@@ -93,7 +93,7 @@ Backend có thể cung cấp gateway thật hoặc một mock mới sinh từ pu
 ## 8. Checklist E2E khi backend sẵn sàng
 
 - Đăng nhập, hết hạn session và principal thiếu quyền trả đúng `401`/`403`.
-- Employee chỉ dùng Customer flow khi backend trả mapping `customer_id`; Employee không có mapping phải nhận `403` ở BFF và access-denied ở UI.
+- Employee luôn bị từ chối khỏi Customer flow bằng `403 EMPLOYEE_CUSTOMER_ACCESS_FORBIDDEN`; tài khoản Customer độc lập mới được dùng Cart, Checkout, Order và Address.
 - Duyệt Catalog/Product, chọn SKU, thêm/sửa/xóa Cart và xử lý revision conflict.
 - Tạo quote, nhận thay đổi giá/tồn, accept bằng cùng idempotency key và xử lý cả `201` lẫn `202`.
 - Poll operation tới `SUCCEEDED`, `FAILED` và `MANUAL_REVIEW`; không tạo Order trùng.
@@ -113,4 +113,4 @@ Chạy tại `apps/web-user`:
 npm run verify:mvp
 ```
 
-Kết quả local ngày 2026-10-31: typecheck PASS, ESLint PASS, 27 test files/89 tests PASS. Chi tiết và giới hạn bằng chứng tại [`MVP_PUBLIC_RELEASE_VERIFICATION.md`](./MVP_PUBLIC_RELEASE_VERIFICATION.md).
+Kết quả local ngày 2026-11-02: typecheck PASS, ESLint PASS, 41 test files/124 tests PASS, production build PASS và Admin Mockoon validation PASS. Chi tiết và giới hạn bằng chứng tại [`MVP_PUBLIC_RELEASE_VERIFICATION.md`](./MVP_PUBLIC_RELEASE_VERIFICATION.md).

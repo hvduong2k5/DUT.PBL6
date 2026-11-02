@@ -20,24 +20,25 @@ Vitest dùng cùng alias `@` với TypeScript. Test files chạy tuần tự tro
 
 ## 2. Kết quả local
 
-| Kiểm tra | Kết quả ngày 2026-10-31 |
+| Kiểm tra | Kết quả ngày 2026-11-02 |
 | --- | --- |
 | Next route type generation | PASS |
 | TypeScript `--noEmit` | PASS |
 | ESLint toàn bộ Web User | PASS |
-| Vitest | PASS — 27 files, 89 tests |
-| Next.js production build | PASS — 18 static pages generated; dynamic BFF/routes compiled |
+| Vitest | PASS — 41 files, 124 tests |
+| Next.js production build | PASS — 34 pages generated; Customer, Employee và dynamic BFF/routes compiled |
+| Mockoon Admin fixture | PASS — `admin_extensions.json` hợp lệ với Mockoon CLI 9.10.0 |
 | `git diff --check` | PASS |
 
 ## 3. Regression quan trọng
 
 | Phạm vi | Bằng chứng |
 | --- | --- |
-| Token trust boundary | Browser `Authorization` bị bỏ qua; chỉ cookie `oma_access_token` tạo Bearer upstream. |
+| Session trust boundary | Browser `Authorization` bị bỏ qua; chỉ cookie HttpOnly `OMAMA_SESSION` được dùng để xác minh phiên qua Identity. |
 | Unauthorized | Không có trusted token trả `401 AUTH_REQUIRED`. |
-| Employee mapping | Employee không có `customer_id` trả `403 CUSTOMER_MAPPING_REQUIRED`; có mapping mới nhận Customer access. |
+| Customer/Employee isolation | Employee luôn trả `403 EMPLOYEE_CUSTOMER_ACCESS_FORBIDDEN` tại Customer BFF; Customer trả `403 EMPLOYEE_ACCOUNT_REQUIRED` tại Employee BFF. |
 | Permission/capability | Principal hợp lệ nhưng thiếu capability trả `403 CAPABILITY_FORBIDDEN`. |
-| Principal projection | Customer/Employee, role, permission và Customer mapping được parse tách biệt; token không lộ trong session response. |
+| Principal projection | Customer/Employee, Role và Permission được parse tách biệt; token không lộ trong session response. |
 | Profile contract | Email read-only không bị validate/gửi lại trong Profile mutation. |
 | Catalog contract | Availability dùng `AVAILABLE`, `UNAVAILABLE`, `UNKNOWN`; test cũ không còn dựa vào boolean tự suy diễn. |
 | Full-cart Checkout | Preparation giữ toàn bộ dòng Cart tại đúng revision; quote bắt buộc đúng một dạng địa chỉ. |
@@ -56,9 +57,11 @@ Các mục sau vẫn cần môi trường backend/gateway thật:
 
 - OIDC Authorization Code + PKCE, refresh, logout/revocation và token expiry.
 - Gateway xác minh issuer/audience/signature/JWKS.
-- Employee → Customer mapping với tài khoản runtime thật.
+- Từ chối chéo Customer/Employee bằng hai tài khoản runtime thật.
 - 30-operation public gateway, provider adapter và ownership isolation.
 - Checkout `201/202`, operation polling, Payment projection và idempotency end-to-end.
 - Capability được bật/tắt theo registry runtime acceptance.
+
+Tại lần kiểm tra ngày 2026-11-02, cổng Identity `8016` và Admin Mockoon `4030` không chạy nên không thực hiện live OIDC/cookie smoke test. Các boundary Customer/Employee, gồm cả việc Employee bị chặn khỏi Guest Order khi đang có phiên, được xác nhận bằng unit test và production build; kết quả này không thay thế E2E với hai tài khoản runtime thật.
 
 Frontend regression xanh không được dùng để đánh dấu owning-service acceptance hoặc production readiness khi các mục trên còn pending.

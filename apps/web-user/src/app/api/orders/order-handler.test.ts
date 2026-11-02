@@ -1,0 +1,48 @@
+import { NextRequest } from "next/server";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const originalGuestOrderGate = process.env.NEXT_PUBLIC_MVP_GUEST_ORDER_ENABLED;
+
+function identityResponse(data: unknown) {
+  return Response.json({ success: true, data });
+}
+
+beforeEach(() => {
+  vi.resetModules();
+  process.env.NEXT_PUBLIC_MVP_GUEST_ORDER_ENABLED = "true";
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  if (originalGuestOrderGate === undefined) delete process.env.NEXT_PUBLIC_MVP_GUEST_ORDER_ENABLED;
+  else process.env.NEXT_PUBLIC_MVP_GUEST_ORDER_ENABLED = originalGuestOrderGate;
+});
+
+describe("Order principal isolation", () => {
+  it("rejects an authenticated Employee from Guest Order endpoints", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(identityResponse({ authenticated: true }))
+      .mockResolvedValueOnce(identityResponse({
+        principalId: "EMP-01",
+        principalType: "EMPLOYEE",
+        email: "staff@omama.vn",
+        roles: [{ roleCode: "CUSTOMER" }],
+        permissions: []
+      }));
+    vi.stubGlobal("fetch", fetchMock);
+    const { handleOrderRequest } = await import("./order-handler");
+    const request = new NextRequest("http://localhost/api/orders/guest-access/challenges", {
+      method: "POST",
+      headers: {
+        Cookie: "OMAMA_SESSION=employee-session",
+        Origin: "http://localhost"
+      }
+    });
+
+    const response = await handleOrderRequest(request, ["guest-access", "challenges"]);
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({ code: "EMPLOYEE_CUSTOMER_ACCESS_FORBIDDEN" });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+});

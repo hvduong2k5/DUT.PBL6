@@ -43,7 +43,7 @@ Hợp đồng Candidate `0.1.0-candidate` đề xuất từ UI (2026-09-24) đã
 
 | ID | Candidate Cũ (`0.1.0-candidate`) | Hợp Đồng Chính Thức Đã Duyệt (`2.0.0`) | Trạng thái | Ghi chú & Quyết định kỹ thuật |
 | --- | --- | --- | --- | --- |
-| `AUTH-C01` | `POST /auth/login` | `GET /api/v1/public/auth/login`<br/>`GET /api/v1/public/auth/callback` | **Thay thế** | OIDC Authorization Code + PKCE. Trả về `authorizationUrl` sang Keycloak, callback cấp cookie `OMAMA_SESSION`. |
+| `AUTH-C01` | `POST /auth/login` | `GET /api/v1/public/auth/login`<br/>`GET /api/v1/public/auth/callback` | **Thay thế** | OIDC Authorization Code + PKCE. Web nhận `302` sang Keycloak; callback cấp cookie `OMAMA_SESSION` rồi `302` về frontend. JSON URL chỉ dành cho client yêu cầu rõ. |
 | `AUTH-C02` | `GET /auth/me` | `GET /api/v1/public/auth/session`<br/>`GET /api/v1/users/me` | **Thay thế** | `/session` trả trạng thái xác thực và email; `/users/me` trả chi tiết Profile, Roles và Permissions. |
 | `AUTH-C03` | `POST /auth/logout` | `POST /api/v1/public/auth/logout` | **Thay thế** | Idempotent revoke session trên BFF và Keycloak, dọn sạch Cookie `OMAMA_SESSION` (`Max-Age=0`). |
 | `AUTH-C04` | `POST /auth/register` | `POST /api/v1/public/customer-registrations` | **Thay thế** | Tuân thủ Quy tắc 2 & 4 (danh từ số nhiều, kebab-case). Đăng ký trực tiếp ACTIVE, bắn event `UserRegistered`. |

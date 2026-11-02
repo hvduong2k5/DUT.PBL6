@@ -4,7 +4,7 @@ import {
   parseDecimalVersion,
   type PublicErrorBody
 } from "@/lib/api-contract";
-import { authorizeCustomerCapability, customerAccessFailure } from "@/lib/auth/customer-access-server";
+import { authorizeCustomerCapability, customerAccessFailure, requireCustomerSession } from "@/lib/auth/customer-access-server";
 import { applyTrustedSessionCookie, getTrustedSessionCookie } from "@/lib/auth/server-credential";
 import { MVP_FEATURE_GATES } from "@/lib/mvp-feature-gates";
 import { GUEST_ORDER_ACCESS_COOKIE, decodeGuestOrderAccess, encodeGuestOrderAccess } from "@/lib/orders/guest-access";
@@ -165,7 +165,14 @@ export async function handleOrderRequest(request: NextRequest, path: string[]): 
     && !sessionCookie
     && guestAccess?.orderId === route.orderId;
 
-  if (!isGuestExtension && !isGatedGuestDetail) {
+  if (isGuestExtension && sessionCookie) {
+    try {
+      await requireCustomerSession(sessionCookie);
+    } catch (cause) {
+      const failure = customerAccessFailure(cause);
+      return publicErrorResponse(failure.status, failure.code, failure.message, "BFF-ORDER-GUEST-ACCESS");
+    }
+  } else if (!isGuestExtension && !isGatedGuestDetail) {
     try {
       await authorizeCustomerCapability(sessionCookie, "ORDER_HISTORY_VIEW");
     } catch (cause) {
