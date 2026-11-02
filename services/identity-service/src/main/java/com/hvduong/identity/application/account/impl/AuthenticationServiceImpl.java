@@ -242,6 +242,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                 .email(session.getEmail())
                 .isAuthenticated(true)
                 .expiresAt(session.getAccessTokenExpiresAt())
+                .accessToken(session.getAccessToken())
                 .build();
     }
 
