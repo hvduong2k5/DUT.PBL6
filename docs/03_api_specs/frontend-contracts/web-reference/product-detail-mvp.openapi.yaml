@@ -1,0 +1,436 @@
+openapi: 3.1.0
+info:
+  title: Ô Mạ Product Detail & SKU Selection MVP API
+  version: 0.1.0-candidate
+  summary: Candidate public product-detail contract derived from the approved Web D2C UI.
+  license:
+    name: Proprietary - internal project use
+    identifier: LicenseRef-Proprietary
+  description: |
+    PROPOSED / NOT APPROVED contract for reading one approved public product and
+    selecting a concrete SKU before purchase. It awaits Backend, Architecture,
+    Inventory, Pricing, Security and dependent-team review.
+
+    Browser components call the same-origin Next.js BFF path
+    `/api/catalog/products/{slug}`. The BFF calls the API Gateway path documented
+    here. Local Mockoon-only behavior and internal fixture fields are
+    intentionally absent.
+servers:
+  - url: /api/v1
+    description: API Gateway relative base URL
+tags:
+  - name: Product Detail
+    description: Public approved product and SKU information. Authentication is not required.
+security: []
+
+paths:
+  /catalog/products/{slug}:
+    get:
+      tags: [Product Detail]
+      operationId: getPublicProductDetail
+      summary: Get an approved public product and its public SKUs
+      description: |
+        Returns product content, catalog-level food information and all public SKUs
+        needed for an explicit customer selection. Product detail may remain readable
+        when every SKU is unavailable.
+
+        `isAvailable` is a customer-facing projection. It may incorporate product/SKU
+        selling status and Inventory/Batch eligibility, but exact quantity, warehouse,
+        Batch/Lot and actual manufacturing or expiry dates are never exposed.
+
+        Products that do not exist, are unpublished, or are otherwise not visible to
+        the caller share the same `404 PRODUCT_NOT_FOUND` response to avoid disclosing
+        internal catalog state.
+      parameters:
+        - $ref: "#/components/parameters/ProductSlug"
+      responses:
+        "200":
+          description: Approved public product detail, including available and unavailable public SKUs.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductDetail"
+              examples:
+                multiSkuProduct:
+                  summary: Multiple SKUs require an explicit customer selection
+                  value:
+                    id: PRD-001
+                    slug: banh-ngu-sac-cung-dinh
+                    name: Bánh Ngũ Sắc Cung Đình
+                    shortDescription: Năm sắc bánh thanh nhã từ đậu xanh, hạt sen và màu tự nhiên.
+                    longDescription: Từng viên bánh được ép khuôn thủ công, giữ kết cấu mềm mịn và vị ngọt thanh.
+                    category:
+                      slug: banh-cung-dinh
+                      name: Bánh Cung Đình
+                    productType: CAKE
+                    images:
+                      - id: IMG-001-A
+                        url: https://cdn.example.com/products/banh-ngu-sac/main.jpg
+                        alt: Bánh ngũ sắc bày trên khay gỗ
+                    ocopCertification:
+                      stars: 4
+                      label: OCOP 4 sao
+                    foodInformation:
+                      ingredients: Đậu xanh, bột năng, đường, nước cốt dừa và màu tự nhiên.
+                      allergenStatement: Có chứa dừa; được sản xuất tại cơ sở có chế biến hạt.
+                      storageInstructions: Bảo quản nơi khô ráo, thoáng mát và tránh ánh nắng trực tiếp.
+                      manufacturingDatePolicy: Ngày sản xuất được in trên bao bì sản phẩm.
+                      shelfLifeDescription: 45 ngày kể từ ngày sản xuất.
+                    skus:
+                      - skuId: SKU-001-250-BOX
+                        label: Hộp Thượng Hạng 250g
+                        weightGrams: 250
+                        flavor: Ngũ sắc truyền thống
+                        packageType: Hộp giấy 16 viên
+                        priceVnd: 185000
+                        isAvailable: true
+                        unavailableReason: null
+                        imageUrl: https://cdn.example.com/products/banh-ngu-sac/250g.jpg
+                      - skuId: SKU-001-250-PANDAN
+                        label: Hộp Lá Dứa 250g
+                        weightGrams: 250
+                        flavor: Lá dứa
+                        packageType: Hộp giấy 16 viên
+                        priceVnd: 195000
+                        isAvailable: false
+                        unavailableReason: Tạm hết hàng
+                        imageUrl: null
+        "400":
+          $ref: "#/components/responses/InvalidProductSlug"
+        "404":
+          $ref: "#/components/responses/ProductNotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+components:
+  parameters:
+    ProductSlug:
+      name: slug
+      in: path
+      required: true
+      description: Stable lowercase kebab-case slug of the public product.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 120
+        pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+      example: banh-ngu-sac-cung-dinh
+
+  schemas:
+    ProductType:
+      type: string
+      enum: [CAKE, CANDY, TEA, GIFT_SET]
+
+    ProductCategory:
+      type: object
+      additionalProperties: false
+      required: [slug, name]
+      properties:
+        slug:
+          type: string
+          minLength: 1
+          maxLength: 100
+          pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        name:
+          type: string
+          minLength: 1
+          maxLength: 150
+
+    ProductImage:
+      type: object
+      additionalProperties: false
+      required: [id, url, alt]
+      properties:
+        id:
+          type: string
+          minLength: 1
+          maxLength: 100
+        url:
+          type: string
+          format: uri
+          maxLength: 2048
+          description: Browser-usable approved public media URL.
+        alt:
+          type: string
+          minLength: 1
+          maxLength: 300
+
+    OcopCertificationSummary:
+      type: object
+      additionalProperties: false
+      required: [stars, label]
+      description: Approved public summary only; not customer rating or detailed traceability.
+      properties:
+        stars:
+          type: integer
+          minimum: 3
+          maximum: 5
+        label:
+          type: string
+          minLength: 1
+          maxLength: 100
+
+    FoodInformation:
+      type: object
+      additionalProperties: false
+      required:
+        - ingredients
+        - storageInstructions
+        - manufacturingDatePolicy
+        - shelfLifeDescription
+      properties:
+        ingredients:
+          type: string
+          minLength: 1
+          maxLength: 5000
+          description: Approved catalog ingredient statement.
+        allergenStatement:
+          type: [string, "null"]
+          minLength: 1
+          maxLength: 2000
+          description: Approved allergen warning when applicable; null when no statement is published.
+        storageInstructions:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        manufacturingDatePolicy:
+          type: string
+          minLength: 1
+          maxLength: 1000
+          description: Catalog policy such as where the actual manufacturing date is printed, never a Batch date.
+        shelfLifeDescription:
+          type: string
+          minLength: 1
+          maxLength: 1000
+          description: Catalog shelf-life policy, never the actual expiry date of an allocated Batch/Lot.
+
+    ProductSku:
+      type: object
+      additionalProperties: false
+      required:
+        - skuId
+        - label
+        - weightGrams
+        - packageType
+        - priceVnd
+        - isAvailable
+        - unavailableReason
+      properties:
+        skuId:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Stable public SKU identifier passed to the future Cart capability.
+        label:
+          type: string
+          minLength: 1
+          maxLength: 150
+        weightGrams:
+          type: integer
+          minimum: 1
+          maximum: 50000
+          description: Net weight in integer grams.
+        flavor:
+          type: [string, "null"]
+          minLength: 1
+          maxLength: 150
+          description: Public flavor/recipe option when applicable.
+        packageType:
+          type: string
+          minLength: 1
+          maxLength: 150
+          description: Customer-facing packaging description, not an internal database code.
+        priceVnd:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 100000000
+          description: Active Website selling price in integer VND; promotion details are outside this contract.
+        isAvailable:
+          type: boolean
+          description: Public purchase eligibility projection; exact inventory is not public.
+        unavailableReason:
+          type: [string, "null"]
+          minLength: 1
+          maxLength: 200
+          description: Customer-safe reason when unavailable; null when available.
+        imageUrl:
+          type: [string, "null"]
+          format: uri
+          maxLength: 2048
+          description: Optional approved SKU-specific image override.
+
+    ProductDetail:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - slug
+        - name
+        - shortDescription
+        - longDescription
+        - category
+        - productType
+        - images
+        - foodInformation
+        - skus
+      properties:
+        id:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: PRD-001
+        slug:
+          type: string
+          minLength: 1
+          maxLength: 120
+          pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        shortDescription:
+          type: string
+          minLength: 1
+          maxLength: 500
+        longDescription:
+          type: string
+          minLength: 1
+          maxLength: 10000
+          description: Approved basic product description; advanced CMS/SEO content remains outside this contract.
+        category:
+          $ref: "#/components/schemas/ProductCategory"
+        productType:
+          $ref: "#/components/schemas/ProductType"
+        images:
+          type: array
+          minItems: 1
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/ProductImage"
+        ocopCertification:
+          oneOf:
+            - $ref: "#/components/schemas/OcopCertificationSummary"
+            - type: "null"
+          description: Optional approved certification summary owned by the relevant data domain.
+        foodInformation:
+          $ref: "#/components/schemas/FoodInformation"
+        skus:
+          type: array
+          minItems: 1
+          maxItems: 100
+          description: Public SKUs may include unavailable choices but never draft/internal SKUs.
+          items:
+            $ref: "#/components/schemas/ProductSku"
+
+    ApiFieldError:
+      type: object
+      additionalProperties: false
+      required: [field, code, message]
+      properties:
+        field:
+          type: string
+          example: slug
+        code:
+          type: string
+          example: INVALID_FORMAT
+        message:
+          type: string
+          example: Slug sản phẩm không hợp lệ.
+
+    ApiError:
+      type: object
+      additionalProperties: false
+      required: [code, message, requestId]
+      properties:
+        code:
+          type: string
+          example: PRODUCT_NOT_FOUND
+        message:
+          type: string
+          example: Sản phẩm không tồn tại hoặc chưa được phép công khai.
+        errors:
+          type: array
+          items:
+            $ref: "#/components/schemas/ApiFieldError"
+        requestId:
+          type: string
+          minLength: 1
+          maxLength: 200
+          example: REQ-PRODUCT-DETAIL-404
+
+  responses:
+    InvalidProductSlug:
+      description: Product slug does not satisfy the public path format.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+          examples:
+            invalidSlug:
+              value:
+                code: INVALID_PRODUCT_SLUG
+                message: Slug sản phẩm không hợp lệ.
+                errors:
+                  - field: slug
+                    code: INVALID_FORMAT
+                    message: Chỉ chấp nhận lowercase kebab-case, tối đa 120 ký tự.
+                requestId: REQ-PRODUCT-DETAIL-400
+    ProductNotFound:
+      description: Product is absent, unpublished or not visible; causes are intentionally indistinguishable.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+          examples:
+            notFound:
+              value:
+                code: PRODUCT_NOT_FOUND
+                message: Sản phẩm không tồn tại hoặc chưa được phép công khai.
+                requestId: REQ-PRODUCT-DETAIL-404
+    RateLimited:
+      description: Public product-detail request rate exceeded.
+      headers:
+        Retry-After:
+          description: Seconds until the client may retry.
+          schema:
+            type: integer
+            minimum: 1
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+          examples:
+            rateLimited:
+              value:
+                code: RATE_LIMITED
+                message: Có quá nhiều yêu cầu. Vui lòng thử lại sau.
+                requestId: REQ-PRODUCT-DETAIL-429
+    InternalError:
+      description: Unexpected product catalog failure.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+          examples:
+            internalError:
+              value:
+                code: PRODUCT_DETAIL_ERROR
+                message: Không thể tải chi tiết sản phẩm.
+                requestId: REQ-PRODUCT-DETAIL-500
+    ServiceUnavailable:
+      description: Catalog or a required pricing/inventory dependency is temporarily unavailable.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+          examples:
+            unavailable:
+              value:
+                code: PRODUCT_DETAIL_UNAVAILABLE
+                message: Dịch vụ chi tiết sản phẩm đang tạm gián đoạn.
+                requestId: REQ-PRODUCT-DETAIL-503

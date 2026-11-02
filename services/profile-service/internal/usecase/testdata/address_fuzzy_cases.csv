@@ -1,0 +1,56 @@
+input_query,expected_code,expected_name,min_score,notes
+P. Thuan Hoa TP Hue,WARD-TH-001,Thuận Hòa,0.90,Prefix abbreviation
+thuan hoa,WARD-TH-001,Thuận Hòa,0.95,Toneless string
+thuan hooa,WARD-TH-001,Thuận Hòa,0.85,Duplicate vowel typo
+phuongthuanhoa,WARD-TH-001,Thuận Hòa,0.85,Concatenated words
+Phường Thuận Hoà,WARD-TH-001,Thuận Hòa,0.95,Accent variation
+Thuan Hoa Hue,WARD-TH-001,Thuận Hòa,0.90,Trailing city name
+p. thuan hoa,WARD-TH-001,Thuận Hòa,0.95,Lowercase prefix
+phuong Thuan Hoa,WARD-TH-001,Thuận Hòa,0.95,Standard mixed
+thuận hòa,WARD-TH-001,Thuận Hòa,1.00,Exact match
+THUAN HOA,WARD-TH-001,Thuận Hòa,0.95,Uppercase toneless
+P. Phu Bai TP Hue,WARD-PB-003,Phú Bài,0.95,New 2-tier official format (Phường trực thuộc TP Huế)
+phu bai,WARD-PB-003,Phú Bài,0.95,Phú Bài toneless
+phuu bai,WARD-PB-003,Phú Bài,0.85,Phu bai typo
+phuong phu bai tp hue,WARD-PB-003,Phú Bài,0.95,Phu bai 2-tier with prefix
+Phú Bài Hương Thủy,WARD-PB-003,Phú Bài,0.90,Phu bai with historical habit landmark
+Xa Vinh Loc,WARD-VL-002,Vĩnh Lộc,0.90,Commune prefix
+vinh loc,WARD-VL-002,Vĩnh Lộc,0.95,Vinh loc toneless
+vinnh loc,WARD-VL-002,Vĩnh Lộc,0.85,Vinh loc typo
+xa vinh loc tp hue,WARD-VL-002,Vĩnh Lộc,0.90,Vinh loc 2-tier with municipality
+VĨNH LỘC,WARD-VL-002,Vĩnh Lộc,1.00,Uppercase exact
+P. Kim Long,WARD-KL-004,Kim Long,0.90,Kim Long confectionery hub
+kim long,WARD-KL-004,Kim Long,0.95,Kim Long toneless
+kimm long,WARD-KL-004,Kim Long,0.85,Kim long typo
+phuong kim long tp hue,WARD-KL-004,Kim Long,0.90,Kim long full
+kimlong,WARD-KL-004,Kim Long,0.85,Kim long concatenated
+P. Vy Da,WARD-VD-005,Vỹ Dạ,0.90,Vy Da ward
+vy da,WARD-VD-005,Vỹ Dạ,0.95,Vy Da toneless
+vi da,WARD-VD-005,Vỹ Dạ,0.85,Vy Da phonetic substitute
+phuong vy da tp hue,WARD-VD-005,Vỹ Dạ,0.90,Vy da with city
+Vỹ Dạ Thừa Thiên Huế,WARD-VD-005,Vỹ Dạ,0.85,Vy da with province
+P. An Cuu,WARD-AC-006,An Cựu,0.90,An Cuu river ward
+an cuu,WARD-AC-006,An Cựu,0.95,An Cuu toneless
+ann cuu,WARD-AC-006,An Cựu,0.85,An Cuu typo
+phuong an cuu,WARD-AC-006,An Cựu,0.95,An cuu with prefix
+An Cựu Huế,WARD-AC-006,An Cựu,0.90,An cuu with city
+P. Xuan Phu,WARD-XP-007,Xuân Phú,0.90,Xuan Phu ward
+xuan phu,WARD-XP-007,Xuân Phú,0.95,Xuan Phu toneless
+xuan phuu,WARD-XP-007,Xuân Phú,0.85,Xuan Phu typo
+phuong xuan phu tp hue,WARD-XP-007,Xuân Phú,0.90,Xuan Phu full
+P. Duc Nhuan,WARD-DN-008,Đức Nhuận,0.85,Duc Nhuan ward
+duc nhuan,WARD-DN-008,Đức Nhuận,0.95,Duc Nhuan toneless
+ddusc nhuan,WARD-DN-008,Đức Nhuận,0.80,Telex typing leftover
+P. Thuy Xuan,WARD-TX-009,Thủy Xuân,0.90,Incense making village
+thuy xuan,WARD-TX-009,Thủy Xuân,0.95,Thuy Xuan toneless
+thuyy xuan,WARD-TX-009,Thủy Xuân,0.85,Thuy Xuan typo
+P. Thuy Bieu,WARD-TB-010,Thủy Biều,0.90,Pomelo village
+thuy bieu,WARD-TB-010,Thủy Biều,0.95,Thuy Bieu toneless
+tuy bieu,WARD-TB-010,Thủy Biều,0.85,Thuy Bieu central dialect
+P. Tay Loc,WARD-TL-011,Tây Lộc,0.90,Tay Loc citadel ward
+tay loc,WARD-TL-011,Tây Lộc,0.95,Tay Loc toneless
+taay loc,WARD-TL-011,Tây Lộc,0.85,Tay Loc telex error
+P. Dong Ba,WARD-DB-012,Đông Ba,0.90,Dong Ba market ward
+dong ba,WARD-DB-012,Đông Ba,0.95,Dong Ba toneless
+doong ba,WARD-DB-012,Đông Ba,0.85,Dong Ba typo
+phuong dong ba cho dong ba,WARD-DB-012,Đông Ba,0.80,Dong Ba with landmark

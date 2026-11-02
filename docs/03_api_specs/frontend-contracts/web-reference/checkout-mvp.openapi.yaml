@@ -1,0 +1,885 @@
+openapi: 3.1.0
+info:
+  title: Ô Mạ Checkout MVP API
+  version: 0.1.0-candidate
+  summary: Candidate Checkout contract derived from the approved Web D2C implementation.
+  license:
+    name: Proprietary - internal project use
+    identifier: LicenseRef-Proprietary
+  description: |
+    PROPOSED / NOT APPROVED contract for preparing a Checkout session, quoting
+    shipping and atomically creating an unpaid Order with an inventory reservation.
+    It awaits Backend, Architecture, Product, Inventory, Shipping, Pricing, Order,
+    Payment and Security review.
+
+    Browser components call same-origin Next.js BFF paths under `/api/checkout`.
+    The BFF calls the API Gateway resource paths documented here. All selected cart
+    lines, prices, quantities, shipping fees and totals are revalidated or calculated
+    server-side. Checkout never marks an Order paid and never exposes exact stock,
+    warehouse, Batch/Lot or internal reservation topology.
+
+    Local Mockoon health/scenario routes and internal Cart projection routes are
+    intentionally absent.
+servers:
+  - url: /api/v1
+    description: API Gateway relative base URL
+tags:
+  - name: Checkout
+    description: Selected-cart preparation, shipping quote and unpaid Order creation.
+security:
+  - CartSession: []
+
+paths:
+  /checkout/sessions:
+    post:
+      tags: [Checkout]
+      operationId: createCheckoutSession
+      summary: Prepare a Checkout session from selected cart lines
+      description: |
+        Resolves the current Guest or Registered Customer cart context, verifies that
+        every selected line is owned by that context, revalidates public selling price
+        and purchase eligibility, and returns a server-owned Checkout snapshot.
+        No inventory is reserved by this operation.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCheckoutSessionRequest"
+            examples:
+              selectedLines:
+                value:
+                  itemIds:
+                    - 3bb6f4d1-23d2-4cc9-b28e-6da8af9ffab0
+                    - 2ed11d36-4c1f-410b-99cf-112f45edb28f
+      responses:
+        "201":
+          description: Checkout session prepared from the current revalidated cart state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckoutPreparation"
+              examples:
+                guestCheckout:
+                  $ref: "#/components/examples/GuestCheckoutPreparation"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "409":
+          $ref: "#/components/responses/CheckoutConflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /checkout/sessions/{checkoutSessionId}/shipping-quotes:
+    parameters:
+      - $ref: "#/components/parameters/CheckoutSessionId"
+    post:
+      tags: [Checkout]
+      operationId: quoteCheckoutShipping
+      summary: Quote shipping for the prepared Checkout selection
+      description: |
+        Revalidates the server-owned Checkout selection and calculates parcel input
+        from trusted line weights and quantities. The client supplies only the delivery
+        address; it cannot supply weight, shipping fee, price or totals. An empty
+        options array is a supported result when no service covers the address.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ShippingQuoteRequest"
+            examples:
+              hueAddress:
+                value:
+                  address:
+                    provinceCode: HUE
+                    provinceName: Thành phố Huế
+                    districtCode: PHU-NHUAN
+                    districtName: Phường Phú Nhuận
+                    addressLine: Tầng 3, 84 Nguyễn Huệ
+      responses:
+        "200":
+          description: Current shipping options and quote validity window; options may be empty.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ShippingQuote"
+              examples:
+                available:
+                  $ref: "#/components/examples/AvailableShippingQuote"
+                unsupportedAddress:
+                  value:
+                    options: []
+                    quotedAt: "2026-09-25T10:00:00Z"
+                    expiresAt: "2026-09-25T10:15:00Z"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "404":
+          $ref: "#/components/responses/CheckoutSessionNotFound"
+        "409":
+          $ref: "#/components/responses/CheckoutConflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ShippingUnavailable"
+
+  /checkout/sessions/{checkoutSessionId}/orders:
+    parameters:
+      - $ref: "#/components/parameters/CheckoutSessionId"
+    post:
+      tags: [Checkout]
+      operationId: confirmCheckoutOrder
+      summary: Atomically reserve the selection and create an unpaid Order
+      description: |
+        Revalidates ownership, SKU eligibility, quantity, price and the selected
+        shipping option immediately before atomically reserving all selected units and
+        creating one immutable commercial Order snapshot. Any line conflict fails the
+        whole operation. Replays with the same idempotency key and equivalent request
+        must return the original result; the definitive retention window is subject to
+        Architecture and Security review.
+
+        This operation records the chosen payment method for downstream processing but
+        performs no payment transaction and can never return a paid state.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConfirmCheckoutRequest"
+            examples:
+              bankTransfer:
+                value:
+                  recipient:
+                    fullName: Nguyễn Văn An
+                    phone: "0914288668"
+                    email: an@example.test
+                  address:
+                    provinceCode: HUE
+                    provinceName: Thành phố Huế
+                    districtCode: PHU-NHUAN
+                    districtName: Phường Phú Nhuận
+                    addressLine: Tầng 3, 84 Nguyễn Huệ
+                  shippingOptionId: STANDARD
+                  paymentMethod: BANK_TRANSFER
+                  priceRevalidatedAt: "2026-09-25T10:00:00Z"
+                  priceChangesAcknowledged: false
+      responses:
+        "201":
+          description: Unpaid Order and inventory reservation created, or the original idempotent result replayed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckoutConfirmation"
+              examples:
+                pendingPayment:
+                  $ref: "#/components/examples/PendingPaymentConfirmation"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "404":
+          $ref: "#/components/responses/CheckoutSessionNotFound"
+        "409":
+          $ref: "#/components/responses/CheckoutConflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+components:
+  securitySchemes:
+    CartSession:
+      type: apiKey
+      in: cookie
+      name: oma_cart_context
+      description: |
+        Opaque HttpOnly Guest or Registered Customer cart context managed by the
+        trusted edge/BFF. Browser JavaScript must not read or manufacture this value.
+        Gateway identity propagation, signing, rotation and account binding remain
+        subject to Security and Architecture review.
+
+  parameters:
+    CheckoutSessionId:
+      name: checkoutSessionId
+      in: path
+      required: true
+      description: Opaque Checkout session identifier bound to the current cart/customer context.
+      schema:
+        type: string
+        minLength: 10
+        maxLength: 100
+        pattern: "^checkout-[A-Za-z0-9-]+$"
+      example: checkout-123e4567-e89b-12d3-a456-426614174000
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: |
+        Unique key for one logical Order-creation attempt. A retry after an uncertain
+        result must reuse the same key and equivalent payload.
+      schema:
+        type: string
+        minLength: 10
+        maxLength: 100
+        pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{9,99}$"
+      example: checkout-123e4567-e89b-12d3-a456-426614174000
+
+  schemas:
+    CreateCheckoutSessionRequest:
+      type: object
+      additionalProperties: false
+      required: [itemIds]
+      properties:
+        itemIds:
+          type: array
+          minItems: 1
+          maxItems: 20
+          uniqueItems: true
+          description: Opaque identifiers of selected lines in the current cart.
+          items:
+            $ref: "#/components/schemas/CartItemId"
+
+    ShippingQuoteRequest:
+      type: object
+      additionalProperties: false
+      required: [address]
+      properties:
+        address:
+          $ref: "#/components/schemas/ShippingAddress"
+
+    ConfirmCheckoutRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - recipient
+        - address
+        - shippingOptionId
+        - paymentMethod
+        - priceRevalidatedAt
+        - priceChangesAcknowledged
+      properties:
+        recipient:
+          $ref: "#/components/schemas/CheckoutRecipient"
+        address:
+          $ref: "#/components/schemas/ShippingAddress"
+        shippingOptionId:
+          type: string
+          minLength: 1
+          maxLength: 64
+          pattern: "^[A-Za-z0-9-]+$"
+          description: Identifier from a still-valid shipping quote for this session and address.
+        paymentMethod:
+          $ref: "#/components/schemas/CheckoutPaymentMethod"
+        priceRevalidatedAt:
+          type: string
+          format: date-time
+          description: Revalidation timestamp from the latest Checkout preparation shown to the customer.
+        priceChangesAcknowledged:
+          type: boolean
+          description: Must be true when the prepared snapshot requires explicit price-change acknowledgement.
+
+    CartItemId:
+      type: string
+      minLength: 1
+      maxLength: 80
+      pattern: "^[A-Za-z0-9-]+$"
+      description: Opaque line identifier scoped to the current cart.
+
+    CheckoutPaymentMethod:
+      type: string
+      enum: [BANK_TRANSFER, COD]
+      description: Downstream payment choice only; Checkout does not execute payment.
+
+    CheckoutRecipient:
+      type: object
+      additionalProperties: false
+      required: [fullName, phone]
+      properties:
+        fullName:
+          type: string
+          minLength: 2
+          maxLength: 100
+        phone:
+          type: string
+          minLength: 9
+          maxLength: 15
+          pattern: "^(?:\\+84|0)[0-9]{9,10}$"
+          description: Candidate Vietnam phone format pending normalization policy.
+        email:
+          type: string
+          format: email
+          maxLength: 254
+
+    ShippingAddress:
+      type: object
+      additionalProperties: false
+      required: [provinceCode, provinceName, districtCode, districtName, addressLine]
+      properties:
+        provinceCode:
+          $ref: "#/components/schemas/AdministrativeCode"
+        provinceName:
+          type: string
+          minLength: 2
+          maxLength: 100
+        districtCode:
+          $ref: "#/components/schemas/AdministrativeCode"
+        districtName:
+          type: string
+          minLength: 2
+          maxLength: 100
+        addressLine:
+          type: string
+          minLength: 8
+          maxLength: 250
+
+    AdministrativeCode:
+      type: string
+      minLength: 2
+      maxLength: 32
+      pattern: "^[A-Z0-9-]+$"
+      description: Candidate administrative identifier; canonical source remains subject to Business review.
+
+    SavedCheckoutAddress:
+      type: object
+      additionalProperties: false
+      required: [addressId, label, recipient, address, isDefault]
+      properties:
+        addressId:
+          type: string
+          minLength: 1
+          maxLength: 100
+        label:
+          type: string
+          minLength: 1
+          maxLength: 100
+        recipient:
+          $ref: "#/components/schemas/CheckoutRecipient"
+        address:
+          $ref: "#/components/schemas/ShippingAddress"
+        isDefault:
+          type: boolean
+      description: Read-only projection of an address owned by the current customer; editing it does not mutate Address Book.
+
+    CheckoutLine:
+      type: object
+      additionalProperties: false
+      required:
+        - itemId
+        - productSlug
+        - productName
+        - imageUrl
+        - imageAlt
+        - skuId
+        - skuLabel
+        - weightGrams
+        - packageType
+        - unitPriceVnd
+        - quantity
+        - lineSubtotalVnd
+        - priceChanged
+        - previousUnitPriceVnd
+      properties:
+        itemId:
+          $ref: "#/components/schemas/CartItemId"
+        productSlug:
+          type: string
+          minLength: 1
+          maxLength: 120
+          pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        productName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        imageUrl:
+          type: string
+          format: uri
+          maxLength: 2048
+        imageAlt:
+          type: string
+          minLength: 1
+          maxLength: 300
+        skuId:
+          type: string
+          minLength: 2
+          maxLength: 64
+          pattern: "^[A-Z0-9][A-Z0-9-]{1,63}$"
+        skuLabel:
+          type: string
+          minLength: 1
+          maxLength: 150
+        weightGrams:
+          type: integer
+          minimum: 1
+          maximum: 50000
+          description: Public product net weight in integer grams; parcel calculation remains server-side.
+        flavor:
+          type: [string, "null"]
+          minLength: 1
+          maxLength: 150
+        packageType:
+          type: string
+          minLength: 1
+          maxLength: 150
+        unitPriceVnd:
+          $ref: "#/components/schemas/MoneyVnd"
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 20
+        lineSubtotalVnd:
+          $ref: "#/components/schemas/MoneyVnd"
+        priceChanged:
+          type: boolean
+        previousUnitPriceVnd:
+          oneOf:
+            - $ref: "#/components/schemas/MoneyVnd"
+            - type: "null"
+
+    CheckoutNotice:
+      type: object
+      additionalProperties: false
+      required: [code, itemId, message]
+      properties:
+        code:
+          type: string
+          enum: [PRICE_CHANGED]
+        itemId:
+          $ref: "#/components/schemas/CartItemId"
+        message:
+          type: string
+          minLength: 1
+          maxLength: 500
+
+    CheckoutPreparation:
+      type: object
+      additionalProperties: false
+      required:
+        - checkoutSessionId
+        - items
+        - itemCount
+        - subtotalVnd
+        - priceRevalidatedAt
+        - requiresPriceAcknowledgement
+        - notices
+        - customerMode
+        - savedAddresses
+      properties:
+        checkoutSessionId:
+          type: string
+          minLength: 10
+          maxLength: 100
+        items:
+          type: array
+          minItems: 1
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/CheckoutLine"
+        itemCount:
+          type: integer
+          minimum: 1
+          maximum: 400
+          description: Sum of quantity across the selected available lines.
+        subtotalVnd:
+          $ref: "#/components/schemas/MoneyVnd"
+        priceRevalidatedAt:
+          type: string
+          format: date-time
+        requiresPriceAcknowledgement:
+          type: boolean
+        notices:
+          type: array
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/CheckoutNotice"
+        customerMode:
+          type: string
+          enum: [GUEST, REGISTERED]
+        savedAddresses:
+          type: array
+          maxItems: 50
+          items:
+            $ref: "#/components/schemas/SavedCheckoutAddress"
+
+    ShippingOption:
+      type: object
+      additionalProperties: false
+      required: [shippingOptionId, name, description, feeVnd, estimatedDelivery]
+      properties:
+        shippingOptionId:
+          type: string
+          minLength: 1
+          maxLength: 64
+          pattern: "^[A-Za-z0-9-]+$"
+        name:
+          type: string
+          minLength: 1
+          maxLength: 150
+        description:
+          type: string
+          minLength: 1
+          maxLength: 300
+        feeVnd:
+          $ref: "#/components/schemas/MoneyVnd"
+        estimatedDelivery:
+          type: string
+          minLength: 1
+          maxLength: 150
+          description: Customer-facing estimate; canonical structured SLA is an open question.
+
+    ShippingQuote:
+      type: object
+      additionalProperties: false
+      required: [options, quotedAt, expiresAt]
+      properties:
+        options:
+          type: array
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/ShippingOption"
+        quotedAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+
+    CheckoutConfirmation:
+      type: object
+      additionalProperties: false
+      required:
+        - orderId
+        - orderNumber
+        - status
+        - paymentStatus
+        - paymentMethod
+        - reservationExpiresAt
+        - subtotalVnd
+        - shippingFeeVnd
+        - discountVnd
+        - totalVnd
+        - nextStep
+        - message
+      properties:
+        orderId:
+          type: string
+          minLength: 1
+          maxLength: 100
+        orderNumber:
+          type: string
+          minLength: 1
+          maxLength: 50
+        status:
+          type: string
+          enum: [PENDING_PAYMENT, PLACED]
+        paymentStatus:
+          type: string
+          enum: [UNPAID]
+        paymentMethod:
+          $ref: "#/components/schemas/CheckoutPaymentMethod"
+        reservationExpiresAt:
+          type: string
+          format: date-time
+        subtotalVnd:
+          $ref: "#/components/schemas/MoneyVnd"
+        shippingFeeVnd:
+          $ref: "#/components/schemas/MoneyVnd"
+        discountVnd:
+          $ref: "#/components/schemas/MoneyVnd"
+        totalVnd:
+          $ref: "#/components/schemas/MoneyVnd"
+        nextStep:
+          type: string
+          enum: [PAYMENT_REQUIRED, ORDER_PLACED]
+        message:
+          type: string
+          minLength: 1
+          maxLength: 500
+
+    MoneyVnd:
+      type: integer
+      format: int64
+      minimum: 0
+      maximum: 200000000000
+      description: Integer Vietnamese đồng calculated from trusted server-side data.
+
+    ApiFieldError:
+      type: object
+      additionalProperties: false
+      required: [field, message]
+      properties:
+        field:
+          type: string
+          minLength: 1
+          maxLength: 100
+        code:
+          type: string
+          minLength: 1
+          maxLength: 100
+        message:
+          type: string
+          minLength: 1
+          maxLength: 500
+
+    CheckoutItemIssue:
+      type: object
+      additionalProperties: false
+      required: [itemId, code, message]
+      properties:
+        itemId:
+          $ref: "#/components/schemas/CartItemId"
+        code:
+          type: string
+          enum: [ITEM_NOT_FOUND, SKU_UNAVAILABLE, QUANTITY_UNAVAILABLE]
+        message:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: Customer-safe reason without exact inventory disclosure.
+
+    ApiError:
+      type: object
+      additionalProperties: false
+      required: [code, message, requestId]
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 100
+        message:
+          type: string
+          minLength: 1
+          maxLength: 1000
+        errors:
+          type: array
+          maxItems: 50
+          items:
+            $ref: "#/components/schemas/ApiFieldError"
+        itemIssues:
+          type: array
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/CheckoutItemIssue"
+        requestId:
+          type: string
+          minLength: 1
+          maxLength: 200
+
+  responses:
+    InvalidRequest:
+      description: Request syntax, content type, identifier or unsupported parameter is invalid.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+          examples:
+            invalidRequest:
+              value:
+                code: INVALID_REQUEST
+                message: Yêu cầu Checkout không hợp lệ.
+                requestId: REQ-CHECKOUT-400
+    CheckoutSessionNotFound:
+      description: Session is absent, expired or does not belong to the current context; causes are intentionally indistinguishable.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+          examples:
+            notFound:
+              value:
+                code: CHECKOUT_SESSION_NOT_FOUND
+                message: Phiên Checkout không còn khả dụng. Vui lòng quay lại giỏ hàng.
+                requestId: REQ-CHECKOUT-404
+    CheckoutConflict:
+      description: Current cart, price, shipping, reservation or idempotency state prevents the operation.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+          examples:
+            itemsUnavailable:
+              value:
+                code: CHECKOUT_ITEMS_UNAVAILABLE
+                message: Một số sản phẩm cần được điều chỉnh trước khi Checkout.
+                itemIssues:
+                  - itemId: 3bb6f4d1-23d2-4cc9-b28e-6da8af9ffab0
+                    code: QUANTITY_UNAVAILABLE
+                    message: Số lượng hiện không thể đáp ứng. Vui lòng điều chỉnh giỏ hàng.
+                requestId: REQ-CHECKOUT-409
+            priceChanged:
+              value:
+                code: PRICE_CHANGED
+                message: Giá sản phẩm vừa thay đổi. Vui lòng kiểm tra lại tổng mới.
+                requestId: REQ-CHECKOUT-PRICE-409
+            acknowledgementRequired:
+              value:
+                code: PRICE_ACKNOWLEDGEMENT_REQUIRED
+                message: Vui lòng xác nhận giá hiện tại trước khi đặt hàng.
+                requestId: REQ-CHECKOUT-ACK-409
+            quoteExpired:
+              value:
+                code: SHIPPING_QUOTE_EXPIRED
+                message: Báo phí vận chuyển đã hết hiệu lực. Vui lòng tính lại phí.
+                requestId: REQ-CHECKOUT-SHIPPING-409
+            idempotencyConflict:
+              value:
+                code: IDEMPOTENCY_CONFLICT
+                message: Khóa chống gửi lặp đã được dùng với một yêu cầu khác.
+                requestId: REQ-CHECKOUT-IDEMPOTENCY-409
+    ValidationFailed:
+      description: One or more request fields fail the candidate Checkout validation rules.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+          examples:
+            invalidAddress:
+              value:
+                code: VALIDATION_ERROR
+                message: Thông tin Checkout chưa hợp lệ.
+                errors:
+                  - field: address.addressLine
+                    code: INVALID_LENGTH
+                    message: Địa chỉ cụ thể cần từ 8 đến 250 ký tự.
+                requestId: REQ-CHECKOUT-422
+    ShippingUnavailable:
+      description: Shipping dependency is unavailable or cannot currently produce a quote.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+          examples:
+            unavailable:
+              value:
+                code: SHIPPING_QUOTE_UNAVAILABLE
+                message: Chưa thể xác định phí vận chuyển. Vui lòng thử lại.
+                requestId: REQ-CHECKOUT-SHIPPING-503
+    RateLimited:
+      description: Checkout request rate exceeded.
+      headers:
+        Retry-After:
+          description: Seconds until the client may retry.
+          schema:
+            type: integer
+            minimum: 1
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+          examples:
+            rateLimited:
+              value:
+                code: RATE_LIMITED
+                message: Có quá nhiều yêu cầu. Vui lòng thử lại sau.
+                requestId: REQ-CHECKOUT-429
+    InternalError:
+      description: Unexpected Checkout, Order or reservation failure; no successful Order is implied.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+          examples:
+            failed:
+              value:
+                code: CHECKOUT_ERROR
+                message: Không thể tạo đơn và giữ hàng lúc này. Vui lòng thử lại.
+                requestId: REQ-CHECKOUT-500
+    ServiceUnavailable:
+      description: Checkout or a required Cart, Pricing, Inventory, Shipping or Order dependency is unavailable.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+          examples:
+            unavailable:
+              value:
+                code: CHECKOUT_UNAVAILABLE
+                message: Dịch vụ Checkout đang tạm gián đoạn. Vui lòng thử lại sau.
+                requestId: REQ-CHECKOUT-503
+
+  examples:
+    GuestCheckoutPreparation:
+      summary: Guest Checkout with two revalidated cart lines
+      value:
+        checkoutSessionId: checkout-123e4567-e89b-12d3-a456-426614174000
+        items:
+          - itemId: 3bb6f4d1-23d2-4cc9-b28e-6da8af9ffab0
+            productSlug: banh-ngu-sac-cung-dinh
+            productName: Bánh Ngũ Sắc Cung Đình
+            imageUrl: https://cdn.example.com/products/banh-ngu-sac/main.jpg
+            imageAlt: Hộp bánh ngũ sắc
+            skuId: SKU-001-250-BOX
+            skuLabel: Hộp Thượng Hạng 250g
+            weightGrams: 250
+            flavor: Ngũ sắc truyền thống
+            packageType: Hộp giấy 16 viên
+            unitPriceVnd: 185000
+            quantity: 2
+            lineSubtotalVnd: 370000
+            priceChanged: false
+            previousUnitPriceVnd: null
+          - itemId: 2ed11d36-4c1f-410b-99cf-112f45edb28f
+            productSlug: tra-sen-tinh-tam
+            productName: Trà Sen Tịnh Tâm
+            imageUrl: https://cdn.example.com/products/tra-sen/main.jpg
+            imageAlt: Hộp trà sen
+            skuId: SKU-004-150-TIN
+            skuLabel: Hộp thiếc 150g
+            weightGrams: 150
+            flavor: Sen Tịnh Tâm
+            packageType: Hộp thiếc
+            unitPriceVnd: 295000
+            quantity: 1
+            lineSubtotalVnd: 295000
+            priceChanged: false
+            previousUnitPriceVnd: null
+        itemCount: 3
+        subtotalVnd: 665000
+        priceRevalidatedAt: "2026-09-25T10:00:00Z"
+        requiresPriceAcknowledgement: false
+        notices: []
+        customerMode: GUEST
+        savedAddresses: []
+    AvailableShippingQuote:
+      summary: Standard and express shipping options
+      value:
+        options:
+          - shippingOptionId: STANDARD
+            name: Giao hàng tiêu chuẩn toàn quốc
+            description: Bảo quản và đóng gói chống va đập
+            feeVnd: 0
+            estimatedDelivery: 2–3 ngày
+          - shippingOptionId: EXPRESS
+            name: Hỏa tốc Cố Đô Huế
+            description: Giao nhanh trong khu vực hỗ trợ
+            feeVnd: 35000
+            estimatedDelivery: Trong 2 giờ
+        quotedAt: "2026-09-25T10:00:00Z"
+        expiresAt: "2026-09-25T10:15:00Z"
+    PendingPaymentConfirmation:
+      summary: Order created with an active reservation and no completed payment
+      value:
+        orderId: order-20260925-001
+        orderNumber: OMA-260925-001
+        status: PENDING_PAYMENT
+        paymentStatus: UNPAID
+        paymentMethod: BANK_TRANSFER
+        reservationExpiresAt: "2026-09-25T10:30:00Z"
+        subtotalVnd: 665000
+        shippingFeeVnd: 0
+        discountVnd: 0
+        totalVnd: 665000
+        nextStep: PAYMENT_REQUIRED
+        message: Đơn đã được tạo và hàng đã được tạm giữ.

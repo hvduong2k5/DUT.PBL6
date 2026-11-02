@@ -1,0 +1,9 @@
+{
+  "name": "app_user_id",
+  "displayName": "Internal principal ID",
+  "multivalued": false,
+  "permissions": {
+    "view": ["admin"],
+    "edit": ["admin"]
+  }
+}

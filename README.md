@@ -1,5 +1,7 @@
 # HỆ SINH THÁI THƯƠNG MẠI ĐIỆN TỬ ĐA KÊNH & HỖ TRỢ QUYẾT ĐỊNH CHIẾN LƯỢC CHO NÔNG ĐẶC SẢN OCOP HUẾ (MÈ XỬNG O MẠ)
 
+> **MVP contracts:** [hướng dẫn chung](packages/contracts/mvp/README.md) · [owner/consumer/tasks](packages/contracts/mvp/registry.yaml) · [migration](packages/contracts/mvp/MIGRATION.md). Integration target; chưa phải nghiệm thu luồng service thật.
+
 > **Dự án PBL / Đồ án Chuyên ngành Công nghệ Thông tin**  
 > **Kiến trúc Hệ thống**: Phân tán Microservices + Event-Driven Architecture (EDA) + Polyglot Persistence (SQL + NoSQL) + Full Observability Stack.
 
@@ -17,7 +19,7 @@ Dự án được tổ chức theo cấu trúc **Monorepo** chuẩn mực công 
 │       └── deploy.yml             # Pipeline tự động: Build Docker image & Auto-deploy
 │
 ├── apps/                          # Tầng Trình diễn (Client Applications)
-│   ├── web-user/                  # Website D2C Khách hàng (Next.js 14 App Router, SSR, SEO Schema.org)
+│   ├── web-user/                  # Website D2C Khách hàng (Next.js 16 App Router, SSR, SEO Schema.org)
 │   ├── web-admin/                 # Web Portal Quản trị & BI Dashboard (React.js / Vite / ECharts / Shadcn UI)
 │   └── mobile-app/                # Ứng dụng Di động Khách hàng (Flutter / React Native)
 │
@@ -63,7 +65,7 @@ Dự án được tổ chức theo cấu trúc **Monorepo** chuẩn mực công 
 
 | Phân hệ / Tầng | Công nghệ Sử dụng | Ghi chú & Mục đích |
 | :--- | :--- | :--- |
-| **Web Khách Hàng (D2C)** | **Next.js 14 (App Router)**, Tailwind CSS, TypeScript | Server-Side Rendering (SSR), Schema.org JSON-LD, SEO Lighthouse > 95. |
+| **Web Khách Hàng (D2C)** | **Next.js 16 (App Router)**, Tailwind CSS, TypeScript | Server-Side Rendering (SSR), Schema.org JSON-LD, SEO Lighthouse > 95. |
 | **Web Quản Trị (Admin)** | **React.js (Vite)**, Shadcn UI / Ant Design, **ECharts / Recharts** | Dashboard quản lý đơn hàng realtime và trực quan hóa phân tích BI. |
 | **Ứng Dụng Di Động** | **Flutter** (Dart) / React Native | Đồng bộ giỏ hàng, quét QR thanh toán, nhận thông báo đẩy Firebase FCM. |
 | **API Gateway & BFF** | Node.js (NestJS/Express) hoặc Spring Cloud Gateway | Định tuyến động, Centralized JWT Auth, Redis Rate Limiting, Circuit Breaker. |

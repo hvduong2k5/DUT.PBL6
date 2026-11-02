@@ -1,0 +1,24 @@
+{
+  "specversion": "1.0",
+  "id": "11111111-1111-4111-8111-111111111111",
+  "source": "https://omama.vn/services/order-service",
+  "type": "vn.omama.order.paid.v3",
+  "subject": "order:11111111-1111-4111-8111-111111111111",
+  "time": "2026-10-15T03:00:00Z",
+  "datacontenttype": "application/json",
+  "data": {
+    "aggregate_id": "11111111-1111-4111-8111-111111111111",
+    "version": 2,
+    "ordinal": 0,
+    "status": "PAID",
+    "payment_status": "CONFIRMED",
+    "stock_status": "COMMITTED",
+    "items_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "warehouse_id": "warehouse-hue",
+    "reservation_id": "11111111-1111-4111-8111-111111111111",
+    "stock_resource_version": 1,
+    "allocation_id": "11111111-1111-4111-8111-111111111111",
+    "stock_decision_id": "inventory-decision-1",
+    "voucher_finalization": null
+  }
+}

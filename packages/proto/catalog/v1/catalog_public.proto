@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package hvduong.catalog.v1;
 
+option go_package = "github.com/omamx/proto/catalogpublic/v1;catalogpublicv1";
 option java_multiple_files = true;
 option java_package = "com.hvduong.catalog.grpc.v1";
 option java_outer_classname = "CatalogPublicProto";
@@ -15,31 +16,31 @@ service CatalogPublicService {
       get: "/api/v1/categories"
     };
   }
-  
+
   rpc ListProducts(ListProductsRequest) returns (ListProductsResponse) {
     option (google.api.http) = {
       get: "/api/v1/products"
     };
   }
-  
+
   rpc GetProduct(GetProductRequest) returns (GetProductResponse) {
     option (google.api.http) = {
       get: "/api/v1/products/{id_or_slug}"
     };
   }
-  
+
   rpc SearchProducts(SearchProductsRequest) returns (ListProductsResponse) {
     option (google.api.http) = {
       get: "/api/v1/products/search"
     };
   }
-  
+
   rpc GetProductVariant(GetProductVariantRequest) returns (GetProductVariantResponse) {
     option (google.api.http) = {
       get: "/api/v1/products/variants/{sku_code}"
     };
   }
-  
+
   rpc ValidatePriceAndSku(ValidatePriceAndSkuRequest) returns (ValidatePriceAndSkuResponse) {
     option (google.api.http) = {
       post: "/api/v1/internal/prices/validate"

@@ -1,0 +1,67 @@
+version: '3.8'
+
+# Default to Local Development Stack
+# For Production / Coolify Deployment, please use: docker-compose.prod.yml
+
+services:
+  kafka:
+    image: apache/kafka:3.8.0
+    container_name: om-kafka-dev
+    restart: unless-stopped
+    ports:
+      - "${KAFKA_EXTERNAL_PORT:-9094}:9094"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:9092,EXTERNAL://0.0.0.0:9094,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://${KAFKA_EXTERNAL_HOST:-localhost}:${KAFKA_EXTERNAL_PORT:-9094}
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_LOG_RETENTION_HOURS: 72
+      KAFKA_LOG_RETENTION_BYTES: 5368709120
+      KAFKA_LOG_SEGMENT_BYTES: 536870912
+    volumes:
+      - kafka_dev_data:/var/lib/kafka/data
+    networks:
+      - om-dev-network
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 | grep -q 'id: 1'"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: om-kafka-ui-dev
+    restart: unless-stopped
+    ports:
+      - "${KAFKA_UI_PORT:-8085}:8080"
+    environment:
+      DYNAMIC_CONFIG_ENABLED: "true"
+      KAFKA_CLUSTERS_0_NAME: omama-dev-cluster
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      AUTH_TYPE: "${KAFKA_UI_AUTH_TYPE:-DISABLED}"
+      SPRING_SECURITY_USER_NAME: "${KAFKA_UI_USERNAME:-admin}"
+      SPRING_SECURITY_USER_PASSWORD: "${KAFKA_UI_PASSWORD:-admin123}"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - om-dev-network
+
+networks:
+  om-dev-network:
+    name: ${DOCKER_NETWORK_NAME:-om-network}
+    driver: bridge
+
+volumes:
+  kafka_dev_data:
+    name: om_kafka_dev_data

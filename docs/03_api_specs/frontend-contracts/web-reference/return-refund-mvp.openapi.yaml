@@ -1,0 +1,1025 @@
+openapi: 3.1.0
+info:
+  title: Ô Mạ Return & Refund MVP API
+  version: 0.1.0-candidate
+  summary: Candidate Return & Refund contract derived from the approved Web D2C implementation.
+  license:
+    name: Proprietary - internal project use
+    identifier: LicenseRef-Proprietary
+  description: |
+    PROPOSED / NOT APPROVED contract for checking line-level return eligibility,
+    creating an idempotent Return Case, reading its Customer-safe projection and
+    adding a bounded Customer supplement. It awaits Backend, Architecture, Security,
+    Customer Service, Payment, Inventory, Shipping and Product review.
+
+    Browser components call same-origin Next.js BFF paths under `/api/returns`.
+    The BFF calls the API Gateway resource paths documented here. Order and Case
+    identifiers are not credentials. Customer ownership or a short-lived Guest grant
+    bound to the Order is re-checked for every operation.
+
+    A requested resolution is not an approval. `APPROVED` does not mean returned goods
+    were received or money was refunded. Refund completion is represented only after a
+    trusted Payment result is accepted. Return Case does not directly mutate Order,
+    Payment, Inventory or Shipping state.
+servers:
+  - url: /api/v1
+    description: API Gateway relative base URL
+tags:
+  - name: Return Eligibility
+    description: Customer-visible, line-level policy eligibility for an owned Order.
+  - name: Return Cases
+    description: Customer Return Case creation, projection and bounded supplements.
+
+paths:
+  /orders/{orderId}/return-eligibility:
+    parameters:
+      - $ref: "#/components/parameters/OrderId"
+    get:
+      tags: [Return Eligibility]
+      operationId: getOrderReturnEligibility
+      summary: Get current return eligibility for an owned Order
+      description: |
+        Calculates eligibility from canonical Order, delivery, line quantity, policy
+        and active/previous Case state. `maxReturnQty` is authoritative at read time,
+        but is re-evaluated when a Case is created. `eligible=false` is a normal `200`
+        projection and does not disclose data outside caller ownership.
+      security:
+        - CustomerSession: []
+        - GuestOrderAccess: []
+      responses:
+        "200":
+          description: Customer-safe eligibility and policy options.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReturnEligibility"
+              examples:
+                eligible:
+                  $ref: "#/components/examples/EligibleOrder"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/ReturnAccessRequired"
+        "404":
+          $ref: "#/components/responses/OrderNotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /return-cases:
+    post:
+      tags: [Return Cases]
+      operationId: createReturnCase
+      summary: Create an idempotent Return Case for selected Order lines
+      description: |
+        Re-checks ownership, delivery/policy window, remaining returnable quantities,
+        duplicate active Cases and accepted evidence references. Requested resolution
+        expresses Customer preference only and creates no Refund, loyalty credit,
+        replacement Shipment or Inventory movement.
+
+        `evidenceIds` must reference media already uploaded and confirmed through the
+        approved Media service for this caller and Order. Filename, MIME type and size
+        claimed by the browser are never accepted as proof that evidence is stored or safe.
+      security:
+        - CustomerSession: []
+        - GuestOrderAccess: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateReturnCaseRequest"
+            examples:
+              replacement:
+                value:
+                  orderId: order-mock-20260926-001
+                  lines:
+                    - lineId: line-order-gift
+                      quantity: 1
+                  reasonCode: DAMAGED_IN_TRANSIT
+                  preferredResolution: REPLACEMENT
+                  details: Góc hộp bị móp khi nhận hàng và có video khui kiện.
+                  pickupNote: Thu hồi sau 14:00.
+                  evidenceIds: [evidence-7fd78444-940f-4d21-93eb-99c8c85c8428]
+      responses:
+        "201":
+          description: Return Case created, or original idempotent result replayed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateReturnCaseResult"
+              examples:
+                created:
+                  value:
+                    caseId: return-case-mock-001
+                    caseNumber: RMA-2410-0082
+                    status: RETURN_REQUESTED
+                    createdAt: "2026-09-29T09:15:00Z"
+                    message: Hồ sơ hậu mãi đã được tiếp nhận và chờ thẩm định.
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/ReturnAccessRequired"
+        "403":
+          $ref: "#/components/responses/ForbiddenMutation"
+        "404":
+          $ref: "#/components/responses/OrderNotFound"
+        "409":
+          $ref: "#/components/responses/CreateCaseConflict"
+        "413":
+          $ref: "#/components/responses/EvidenceTooLarge"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /return-cases/{caseId}:
+    parameters:
+      - $ref: "#/components/parameters/CaseId"
+    get:
+      tags: [Return Cases]
+      operationId: getReturnCase
+      summary: Get a Customer-safe Return Case projection
+      description: |
+        Returns the Case snapshot, public steps, requested and approved line scope,
+        confirmed evidence projection, pickup/return Shipment projection, refund
+        projection and Customer-visible communications. Missing and out-of-scope Cases
+        use the same public response.
+
+        Internal staff notes, approval thresholds, audit payloads, fraud signals,
+        Packing Video source, storage keys, provider payloads and warehouse disposition
+        are excluded.
+      security:
+        - CustomerSession: []
+        - GuestOrderAccess: []
+      responses:
+        "200":
+          description: Current Customer-safe Return Case projection.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReturnCaseDetail"
+              examples:
+                approvedReplacement:
+                  $ref: "#/components/examples/ApprovedReplacementCase"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/ReturnAccessRequired"
+        "404":
+          $ref: "#/components/responses/ReturnCaseNotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /return-cases/{caseId}/supplements:
+    parameters:
+      - $ref: "#/components/parameters/CaseId"
+    post:
+      tags: [Return Cases]
+      operationId: addReturnCaseSupplement
+      summary: Add a bounded Customer supplement to an open Return Case
+      description: |
+        Adds Customer-provided context to a Case and its Customer Service Ticket
+        boundary. It is not a general chat API and cannot approve/reject a Case,
+        execute Refund, alter evidence, update Shipment or change Inventory.
+
+        Closed/final Cases follow the approved reopen/appeal policy rather than being
+        silently mutated. Replays with the same key return the original message result.
+      security:
+        - CustomerSession: []
+        - GuestOrderAccess: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddSupplementRequest"
+            examples:
+              deliveryContext:
+                value:
+                  message: Tôi bổ sung thời gian nhận hàng lúc 15:45.
+      responses:
+        "201":
+          description: Supplement recorded, or original idempotent result replayed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReturnCaseMessage"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/ReturnAccessRequired"
+        "403":
+          $ref: "#/components/responses/ForbiddenMutation"
+        "404":
+          $ref: "#/components/responses/ReturnCaseNotFound"
+        "409":
+          $ref: "#/components/responses/SupplementConflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+components:
+  securitySchemes:
+    CustomerSession:
+      type: apiKey
+      in: cookie
+      name: oma_customer_session
+      description: Candidate Customer session representation. Gateway identity propagation remains under Architecture review.
+    GuestOrderAccess:
+      type: apiKey
+      in: cookie
+      name: oma_order_guest_access
+      description: Short-lived server-issued grant bound to exactly one Order and its Customer-visible Cases.
+
+  parameters:
+    OrderId:
+      name: orderId
+      in: path
+      required: true
+      description: Opaque Order identifier. It grants no access by itself.
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 100
+        pattern: "^[A-Za-z0-9-]+$"
+      example: order-mock-20260926-001
+    CaseId:
+      name: caseId
+      in: path
+      required: true
+      description: Opaque Return Case identifier. It grants no access by itself.
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 100
+        pattern: "^[A-Za-z0-9-]+$"
+      example: return-case-mock-001
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Unique key for one logical mutation. An uncertain retry reuses the same key.
+      schema:
+        type: string
+        minLength: 10
+        maxLength: 100
+        pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{9,99}$"
+      example: return-case-550e8400-e29b-41d4-a716-446655440000
+
+  schemas:
+    ReturnResolution:
+      type: string
+      description: Customer preference or approved resolution depending on field context.
+      enum: [REPLACEMENT, ORIGINAL_PAYMENT_REFUND, LOYALTY_CREDIT]
+    ReturnReason:
+      type: string
+      enum: [DAMAGED_IN_TRANSIT, WRONG_ITEM, QUALITY_ISSUE, OTHER]
+    ReturnCaseStatus:
+      type: string
+      enum: [RETURN_REQUESTED, EVIDENCE_REQUIRED, REVIEWING, APPROVED, REJECTED, RETURN_IN_TRANSIT, RECEIVED, REFUND_PENDING, REFUNDED, CLOSED]
+    StepState:
+      type: string
+      enum: [COMPLETED, CURRENT, UPCOMING]
+
+    ReturnEligibilityLine:
+      type: object
+      additionalProperties: false
+      required: [lineId, productName, skuLabel, purchasedQty, alreadyClaimedQty, maxReturnQty, unitPriceVnd, eligible]
+      properties:
+        lineId:
+          type: string
+          minLength: 1
+          maxLength: 100
+        productName:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Immutable Order line snapshot.
+        skuLabel:
+          type: string
+          minLength: 1
+          maxLength: 200
+        purchasedQty:
+          type: integer
+          minimum: 1
+          maximum: 999
+        alreadyClaimedQty:
+          type: integer
+          minimum: 0
+          maximum: 999
+        maxReturnQty:
+          type: integer
+          minimum: 0
+          maximum: 999
+        unitPriceVnd:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Historical line snapshot for display; not a client-controlled Refund amount.
+        eligible:
+          type: boolean
+
+    ReasonOption:
+      type: object
+      additionalProperties: false
+      required: [code, label]
+      properties:
+        code:
+          $ref: "#/components/schemas/ReturnReason"
+        label:
+          type: string
+          minLength: 1
+          maxLength: 160
+
+    ResolutionOption:
+      type: object
+      additionalProperties: false
+      required: [code, label, description]
+      properties:
+        code:
+          $ref: "#/components/schemas/ReturnResolution"
+        label:
+          type: string
+          minLength: 1
+          maxLength: 160
+        description:
+          type: string
+          minLength: 1
+          maxLength: 500
+
+    PickupSnapshot:
+      type: object
+      additionalProperties: false
+      required: [recipientName, phoneDisplay, addressDisplay]
+      properties:
+        recipientName:
+          type: string
+          minLength: 1
+          maxLength: 160
+        phoneDisplay:
+          type: string
+          minLength: 1
+          maxLength: 40
+        addressDisplay:
+          type: string
+          minLength: 1
+          maxLength: 500
+
+    ReturnEligibility:
+      type: object
+      additionalProperties: false
+      required: [orderId, orderNumber, deliveredAt, policyWindowEndsAt, eligible, policyMessage, lines, reasonOptions, resolutionOptions, pickupSnapshot]
+      properties:
+        orderId:
+          type: string
+          minLength: 8
+          maxLength: 100
+        orderNumber:
+          type: string
+          pattern: "^OMA-[A-Z0-9-]{6,30}$"
+        deliveredAt:
+          type: string
+          format: date-time
+        policyWindowEndsAt:
+          type: string
+          format: date-time
+        eligible:
+          type: boolean
+        policyMessage:
+          type: string
+          minLength: 1
+          maxLength: 500
+        lines:
+          type: array
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/ReturnEligibilityLine"
+        reasonOptions:
+          type: array
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/ReasonOption"
+        resolutionOptions:
+          type: array
+          maxItems: 10
+          items:
+            $ref: "#/components/schemas/ResolutionOption"
+        pickupSnapshot:
+          $ref: "#/components/schemas/PickupSnapshot"
+
+    RequestedLine:
+      type: object
+      additionalProperties: false
+      required: [lineId, quantity]
+      properties:
+        lineId:
+          type: string
+          minLength: 1
+          maxLength: 100
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 99
+
+    CreateReturnCaseRequest:
+      type: object
+      additionalProperties: false
+      required: [orderId, lines, reasonCode, preferredResolution, details, evidenceIds]
+      properties:
+        orderId:
+          type: string
+          minLength: 8
+          maxLength: 100
+          pattern: "^[A-Za-z0-9-]+$"
+        lines:
+          type: array
+          minItems: 1
+          maxItems: 20
+          uniqueItems: true
+          items:
+            $ref: "#/components/schemas/RequestedLine"
+        reasonCode:
+          $ref: "#/components/schemas/ReturnReason"
+        preferredResolution:
+          $ref: "#/components/schemas/ReturnResolution"
+        details:
+          type: string
+          minLength: 10
+          maxLength: 1000
+        pickupNote:
+          type: string
+          minLength: 1
+          maxLength: 300
+        evidenceIds:
+          type: array
+          maxItems: 5
+          uniqueItems: true
+          description: Confirmed, caller-owned evidence references issued by the approved Media service.
+          items:
+            type: string
+            minLength: 8
+            maxLength: 100
+            pattern: "^[A-Za-z0-9-]+$"
+
+    CreateReturnCaseResult:
+      type: object
+      additionalProperties: false
+      required: [caseId, caseNumber, status, createdAt, message]
+      properties:
+        caseId:
+          type: string
+          minLength: 8
+          maxLength: 100
+        caseNumber:
+          type: string
+          pattern: "^RMA-[A-Z0-9-]{6,30}$"
+        status:
+          type: string
+          const: RETURN_REQUESTED
+        createdAt:
+          type: string
+          format: date-time
+        message:
+          type: string
+          minLength: 1
+          maxLength: 300
+
+    ReturnCaseStep:
+      type: object
+      additionalProperties: false
+      required: [code, label, state, occurredAt]
+      properties:
+        code:
+          type: string
+          pattern: "^[A-Z][A-Z0-9_]+$"
+        label:
+          type: string
+          minLength: 1
+          maxLength: 160
+        state:
+          $ref: "#/components/schemas/StepState"
+        occurredAt:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: "null"
+
+    CustomerDecision:
+      type: object
+      additionalProperties: false
+      required: [label, summary, decidedAt]
+      properties:
+        label:
+          type: string
+          minLength: 1
+          maxLength: 160
+        summary:
+          type: string
+          minLength: 1
+          maxLength: 1000
+          description: Customer-safe explanation, not an internal assessment note.
+        decidedAt:
+          type: string
+          format: date-time
+
+    ReturnCaseItem:
+      type: object
+      additionalProperties: false
+      required: [lineId, productName, skuLabel, quantity, unitPriceVnd, requestedResolution, approvedResolution]
+      properties:
+        lineId:
+          type: string
+          minLength: 1
+          maxLength: 100
+        productName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        skuLabel:
+          type: string
+          minLength: 1
+          maxLength: 200
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 99
+        unitPriceVnd:
+          type: integer
+          format: int64
+          minimum: 0
+        requestedResolution:
+          $ref: "#/components/schemas/ReturnResolution"
+        approvedResolution:
+          oneOf:
+            - $ref: "#/components/schemas/ReturnResolution"
+            - type: "null"
+
+    EvidenceProjection:
+      type: object
+      additionalProperties: false
+      required: [evidenceId, label, mediaType, state, previewKind]
+      properties:
+        evidenceId:
+          type: string
+          minLength: 8
+          maxLength: 100
+        label:
+          type: string
+          minLength: 1
+          maxLength: 200
+        mediaType:
+          type: string
+          enum: [image/jpeg, image/png, image/webp, video/mp4]
+        state:
+          type: string
+          enum: [READY, PROCESSING, REJECTED]
+        previewKind:
+          type: string
+          enum: [PACKAGE, VIDEO, WORKSHOP, DOCUMENT]
+
+    PickupProjection:
+      type: object
+      additionalProperties: false
+      required: [carrierLabel, windowLabel, trackingCode, statusLabel, addressDisplay]
+      properties:
+        carrierLabel:
+          type: string
+          minLength: 1
+          maxLength: 160
+        windowLabel:
+          type: string
+          minLength: 1
+          maxLength: 160
+        trackingCode:
+          type: string
+          minLength: 1
+          maxLength: 100
+        statusLabel:
+          type: string
+          minLength: 1
+          maxLength: 200
+        addressDisplay:
+          type: string
+          minLength: 1
+          maxLength: 500
+
+    RefundProjection:
+      type: object
+      additionalProperties: false
+      required: [required, methodLabel, amountVnd, status]
+      properties:
+        required:
+          type: boolean
+        methodLabel:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 160
+            - type: "null"
+        amountVnd:
+          type: integer
+          format: int64
+          minimum: 0
+        status:
+          oneOf:
+            - type: string
+              enum: [PENDING, COMPLETED, FAILED]
+            - type: "null"
+          description: "`COMPLETED` only after a trusted Payment result is accepted."
+
+    ReturnCaseMessage:
+      type: object
+      additionalProperties: false
+      required: [messageId, senderRole, senderDisplayName, message, occurredAt]
+      properties:
+        messageId:
+          type: string
+          minLength: 8
+          maxLength: 100
+        senderRole:
+          type: string
+          enum: [CUSTOMER, SUPPORT, SYSTEM]
+        senderDisplayName:
+          type: string
+          minLength: 1
+          maxLength: 160
+        message:
+          type: string
+          minLength: 1
+          maxLength: 1000
+        occurredAt:
+          type: string
+          format: date-time
+
+    ReturnCaseDetail:
+      type: object
+      additionalProperties: false
+      required: [caseId, caseNumber, orderId, orderNumber, createdAt, status, statusLabel, statusDescription, steps, decision, items, evidence, pickup, refund, communications]
+      properties:
+        caseId:
+          type: string
+          minLength: 8
+          maxLength: 100
+        caseNumber:
+          type: string
+          pattern: "^RMA-[A-Z0-9-]{6,30}$"
+        orderId:
+          type: string
+          minLength: 8
+          maxLength: 100
+        orderNumber:
+          type: string
+          pattern: "^OMA-[A-Z0-9-]{6,30}$"
+        createdAt:
+          type: string
+          format: date-time
+        status:
+          $ref: "#/components/schemas/ReturnCaseStatus"
+        statusLabel:
+          type: string
+          minLength: 1
+          maxLength: 160
+        statusDescription:
+          type: string
+          minLength: 1
+          maxLength: 500
+        steps:
+          type: array
+          minItems: 1
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/ReturnCaseStep"
+        decision:
+          oneOf:
+            - $ref: "#/components/schemas/CustomerDecision"
+            - type: "null"
+        items:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/ReturnCaseItem"
+        evidence:
+          type: array
+          maxItems: 50
+          items:
+            $ref: "#/components/schemas/EvidenceProjection"
+        pickup:
+          oneOf:
+            - $ref: "#/components/schemas/PickupProjection"
+            - type: "null"
+        refund:
+          $ref: "#/components/schemas/RefundProjection"
+        communications:
+          type: array
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/ReturnCaseMessage"
+
+    AddSupplementRequest:
+      type: object
+      additionalProperties: false
+      required: [message]
+      properties:
+        message:
+          type: string
+          minLength: 2
+          maxLength: 1000
+
+    FieldError:
+      type: object
+      additionalProperties: false
+      required: [field, message]
+      properties:
+        field:
+          type: string
+          minLength: 1
+          maxLength: 100
+        message:
+          type: string
+          minLength: 1
+          maxLength: 300
+
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      required: [code, message, requestId]
+      properties:
+        code:
+          type: string
+          pattern: "^[A-Z][A-Z0-9_]+$"
+        message:
+          type: string
+          minLength: 1
+          maxLength: 300
+        requestId:
+          type: string
+          minLength: 1
+          maxLength: 100
+        existingCaseId:
+          type: string
+          minLength: 8
+          maxLength: 100
+        errors:
+          type: array
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/FieldError"
+        retryAfterSeconds:
+          type: integer
+          minimum: 1
+          maximum: 86400
+
+  responses:
+    InvalidRequest:
+      description: Method, path, identifier or query is invalid.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: INVALID_REQUEST
+            message: Yêu cầu hậu mãi không hợp lệ.
+            requestId: req-return-invalid-001
+    ValidationFailed:
+      description: Request fields fail validation or policy-independent limits.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: VALIDATION_ERROR
+            message: Hồ sơ hậu mãi chưa hợp lệ.
+            requestId: req-return-validation-001
+            errors:
+              - field: details
+                message: Mô tả cần 10–1000 ký tự.
+    ReturnAccessRequired:
+      description: No valid Customer identity or Order-scoped Guest grant.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: RETURN_ACCESS_REQUIRED
+            message: Phiên truy cập hồ sơ hậu mãi đã hết hạn hoặc không hợp lệ.
+            requestId: req-return-access-001
+    ForbiddenMutation:
+      description: Request origin or mutation protection failed.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: ORIGIN_NOT_ALLOWED
+            message: Request origin không được phép.
+            requestId: req-return-origin-001
+    OrderNotFound:
+      description: Order does not exist or is outside caller scope; ownership is not disclosed.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: ORDER_NOT_FOUND
+            message: Không tìm thấy Order phù hợp.
+            requestId: req-return-order-404
+    ReturnCaseNotFound:
+      description: Case does not exist or is outside caller scope; ownership is not disclosed.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: RETURN_CASE_NOT_FOUND
+            message: Không tìm thấy hồ sơ hậu mãi phù hợp.
+            requestId: req-return-case-404
+    CreateCaseConflict:
+      description: Eligibility changed, an active Case overlaps, or the idempotency key conflicts.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          examples:
+            notEligible:
+              value:
+                code: RETURN_NOT_ELIGIBLE
+                message: Sản phẩm không còn đủ điều kiện tạo yêu cầu.
+                requestId: req-return-eligibility-409
+            activeCase:
+              value:
+                code: ACTIVE_CASE_EXISTS
+                message: Đã có hồ sơ hậu mãi đang xử lý cho phạm vi sản phẩm này.
+                requestId: req-return-existing-409
+                existingCaseId: return-case-mock-001
+            idempotencyConflict:
+              value:
+                code: IDEMPOTENCY_CONFLICT
+                message: Idempotency key đã được dùng cho yêu cầu khác.
+                requestId: req-return-idempotency-409
+    SupplementConflict:
+      description: Case is final/closed or the idempotency key conflicts.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: RETURN_SUPPLEMENT_NOT_ALLOWED
+            message: Hồ sơ không còn nhận bổ sung theo luồng hiện tại.
+            requestId: req-return-supplement-409
+    EvidenceTooLarge:
+      description: Evidence exceeds count or configured aggregate size limits.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: EVIDENCE_TOO_LARGE
+            message: Bằng chứng vượt giới hạn cho phép.
+            requestId: req-return-evidence-413
+    RateLimited:
+      description: Too many eligibility, create, read or supplement requests.
+      headers:
+        Retry-After:
+          description: Seconds until another request may be attempted.
+          schema:
+            type: integer
+            minimum: 1
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: RETURN_RATE_LIMITED
+            message: Có quá nhiều yêu cầu. Vui lòng thử lại sau.
+            requestId: req-return-rate-001
+            retryAfterSeconds: 60
+    InternalError:
+      description: Unexpected Return processing failure; no success may be inferred.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: RETURN_ERROR
+            message: Không thể xử lý hồ sơ hậu mãi lúc này.
+            requestId: req-return-error-001
+    ServiceUnavailable:
+      description: Return service or a required dependency is temporarily unavailable.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: RETURN_UPSTREAM_UNAVAILABLE
+            message: Dịch vụ Return đang tạm thời gián đoạn.
+            requestId: req-return-unavailable-001
+
+  examples:
+    EligibleOrder:
+      value:
+        orderId: order-mock-20260926-001
+        orderNumber: OMA-260926-001
+        deliveredAt: "2026-09-28T07:30:00Z"
+        policyWindowEndsAt: "2026-10-05T07:30:00Z"
+        eligible: true
+        policyMessage: Yêu cầu đổi/trả trong 7 ngày kể từ khi giao và cần bằng chứng tình trạng sản phẩm.
+        lines:
+          - lineId: line-order-gift
+            productName: Hộp Quà Cố Đô Ngự Thiện
+            skuLabel: Hộp quà 4 thức
+            purchasedQty: 2
+            alreadyClaimedQty: 0
+            maxReturnQty: 2
+            unitPriceVnd: 345000
+            eligible: true
+        reasonOptions:
+          - code: DAMAGED_IN_TRANSIT
+            label: Hư hại trong vận chuyển
+        resolutionOptions:
+          - code: REPLACEMENT
+            label: Đổi sản phẩm cùng loại
+            description: Ưu tiên thay thế sản phẩm đủ điều kiện.
+        pickupSnapshot:
+          recipientName: Nguyễn Văn An
+          phoneDisplay: 0914 *** 668
+          addressDisplay: Tầng 3, 84 Nguyễn Huệ, Phú Nhuận, Huế
+    ApprovedReplacementCase:
+      value:
+        caseId: return-case-mock-001
+        caseNumber: RMA-2410-0082
+        orderId: order-mock-20260926-001
+        orderNumber: OMA-260926-001
+        createdAt: "2026-09-29T09:15:00Z"
+        status: APPROVED
+        statusLabel: Đã phê duyệt đổi mới
+        statusDescription: Phương án đổi mới đã được duyệt; pickup là nghĩa vụ đang được điều phối.
+        steps:
+          - code: RECEIVED
+            label: Tiếp nhận hồ sơ
+            state: COMPLETED
+            occurredAt: "2026-09-29T09:15:00Z"
+          - code: REVIEW
+            label: Thẩm định chất lượng
+            state: COMPLETED
+            occurredAt: "2026-09-29T10:20:00Z"
+          - code: DECISION
+            label: Phê duyệt và giao mới
+            state: CURRENT
+            occurredAt: "2026-09-29T11:10:00Z"
+        decision:
+          label: Đổi mới 100% không thu phí
+          summary: Đã duyệt đổi một Hộp Quà Cố Đô Ngự Thiện và điều phối thu hồi tận nơi.
+          decidedAt: "2026-09-29T11:10:00Z"
+        items:
+          - lineId: line-order-gift
+            productName: Hộp Quà Cố Đô Ngự Thiện
+            skuLabel: Hộp quà 4 thức
+            quantity: 1
+            unitPriceVnd: 345000
+            requestedResolution: REPLACEMENT
+            approvedResolution: REPLACEMENT
+        evidence:
+          - evidenceId: evidence-001
+            label: Ảnh góc hộp bị móp
+            mediaType: image/jpeg
+            state: READY
+            previewKind: PACKAGE
+        pickup:
+          carrierLabel: Cố Đô Express
+          windowLabel: 09:00–11:00 sáng mai
+          trackingCode: RE-SHIP-882941
+          statusLabel: Đang điều phối thu hồi và giao bù
+          addressDisplay: Tầng 3, 84 Nguyễn Huệ, Phú Nhuận, Huế
+        refund:
+          required: false
+          methodLabel: null
+          amountVnd: 0
+          status: null
+        communications:
+          - messageId: message-001
+            senderRole: SUPPORT
+            senderDisplayName: Ban Hậu mãi Ô Mạ
+            message: Hồ sơ đã được đối chiếu và phê duyệt đổi mới một sản phẩm.
+            occurredAt: "2026-09-29T11:10:00Z"

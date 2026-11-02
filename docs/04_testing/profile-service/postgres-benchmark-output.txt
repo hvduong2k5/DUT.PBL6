@@ -1,0 +1,7 @@
+goos: linux
+goarch: amd64
+pkg: github.com/omamx/profile-service/tests/benchmark
+cpu: 12th Gen Intel(R) Core(TM) i7-12700H
+BenchmarkCheckoutPostgres-20    	    3454	   1201831 ns/op	    3817 B/op	      75 allocs/op
+PASS
+ok  	github.com/omamx/profile-service/tests/benchmark	4.391s

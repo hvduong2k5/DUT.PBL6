@@ -1,0 +1,587 @@
+<mxfile host="65bd71144e">
+    <diagram name="01. System topology" id="01">
+        <mxGraphModel dx="1557" dy="814" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1500" pageHeight="860" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="title" parent="1" style="text;html=1;fontSize=26;fontStyle=1;align=left;" value="01. System topology — MS-04 v3.0 candidate" vertex="1">
+                    <mxGeometry height="60" width="1420" x="35" y="25" as="geometry"/>
+                </mxCell>
+                <mxCell id="n0" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;Client / Gateway&lt;/b&gt;&lt;br&gt;&lt;br&gt;JWT / Guest proof; trusted service context; user ID khác customer ID" vertex="1">
+                    <mxGeometry height="190" width="430" x="35" y="115" as="geometry"/>
+                </mxCell>
+                <mxCell id="n1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;MS-04 Order&lt;/b&gt;&lt;br&gt;&lt;br&gt;Cart / Checkout / Order / Payment component; HTTP 8004, gRPC 9004 candidate" vertex="1">
+                    <mxGeometry height="190" width="430" x="525" y="115" as="geometry"/>
+                </mxCell>
+                <mxCell id="n2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;PostgreSQL order_db&lt;/b&gt;&lt;br&gt;&lt;br&gt;Order snapshots; receipts; saga/dedup; history; outbox/inbox" vertex="1">
+                    <mxGeometry height="190" width="430" x="1015" y="115" as="geometry"/>
+                </mxCell>
+                <mxCell id="n3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;Profile / Catalog / Shipping&lt;/b&gt;&lt;br&gt;&lt;br&gt;Owned address; canonical SKU snapshot; shipping quote" vertex="1">
+                    <mxGeometry height="190" width="430" x="35" y="360" as="geometry"/>
+                </mxCell>
+                <mxCell id="n4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;Durable Saga workers&lt;/b&gt;&lt;br&gt;&lt;br&gt;Intent trước RPC; lease epoch; stable command keys; query UNKNOWN" vertex="1">
+                    <mxGeometry height="190" width="430" x="525" y="360" as="geometry"/>
+                </mxCell>
+                <mxCell id="n5" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;Kafka&lt;/b&gt;&lt;br&gt;&lt;br&gt;Outbox at-least-once; source versions; deferred inbox; no PII fan-out" vertex="1">
+                    <mxGeometry height="190" width="430" x="1015" y="360" as="geometry"/>
+                </mxCell>
+                <mxCell id="n6" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;Inventory / Promotion&lt;/b&gt;&lt;br&gt;&lt;br&gt;Reserve / hold; atomic finalize vs expiry; consume / release / query" vertex="1">
+                    <mxGeometry height="190" width="430" x="35" y="605" as="geometry"/>
+                </mxCell>
+                <mxCell id="n7" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;Fulfillment / Shipping&lt;/b&gt;&lt;br&gt;&lt;br&gt;Ready authorization; cancel barrier; dispatched khác created" vertex="1">
+                    <mxGeometry height="190" width="430" x="525" y="605" as="geometry"/>
+                </mxCell>
+                <mxCell id="n8" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;Care / Finance / Audit&lt;/b&gt;&lt;br&gt;&lt;br&gt;Approval; settlement; case barrier; accounting; tamper-evident audit" vertex="1">
+                    <mxGeometry height="190" width="430" x="1015" y="605" as="geometry"/>
+                </mxCell>
+                <mxCell id="e0" edge="1" parent="1" source="n0" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n1" value="auth">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e1" edge="1" parent="1" source="n1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n2" value="ACID">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e2" edge="1" parent="1" source="n1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n4" value="journal">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e3" edge="1" parent="1" source="n4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n3" value="read">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e4" edge="1" parent="1" source="n3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n6" value="acquire">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e5" edge="1" parent="1" source="n4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n5" value="outbox">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e6" edge="1" parent="1" source="n5" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n8" value="facts">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e7" edge="1" parent="1" source="n4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n7" value="ready / cancel">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+    <diagram name="02. Persistence / ERD" id="02">
+        <mxGraphModel dx="1557" dy="814" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1500" pageHeight="860" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="title" parent="1" style="text;html=1;fontSize=26;fontStyle=1;align=left;" value="02. Persistence / ERD — MS-04 v3.0 candidate" vertex="1">
+                    <mxGeometry height="60" width="1420" x="35" y="25" as="geometry"/>
+                </mxCell>
+                <mxCell id="n0" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;orders&lt;/b&gt;&lt;br&gt;&lt;br&gt;Status / version / owner; stock/payment projections; amounts; expiry / SLA / hold" vertex="1">
+                    <mxGeometry height="190" width="430" x="35" y="115" as="geometry"/>
+                </mxCell>
+                <mxCell id="n1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;Snapshots&lt;/b&gt;&lt;br&gt;&lt;br&gt;Items 1..N; address 0..1; voucher 0..1; encrypted PII; canonical price/weight" vertex="1">
+                    <mxGeometry height="190" width="430" x="525" y="115" as="geometry"/>
+                </mxCell>
+                <mxCell id="n2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;History / claim / source&lt;/b&gt;&lt;br&gt;&lt;br&gt;order+version unique; claim owner conditional; channel+store+external ID unique" vertex="1">
+                    <mxGeometry height="190" width="430" x="1015" y="115" as="geometry"/>
+                </mxCell>
+                <mxCell id="n3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;Payment intents / receipts&lt;/b&gt;&lt;br&gt;&lt;br&gt;receiver / reference; provider+transaction unique; unmatched order nullable" vertex="1">
+                    <mxGeometry height="190" width="430" x="35" y="360" as="geometry"/>
+                </mxCell>
+                <mxCell id="n4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;Allocations / Refunds&lt;/b&gt;&lt;br&gt;&lt;br&gt;Exact policy; receipt row lock; approval ID; refundable budget; stable refund key" vertex="1">
+                    <mxGeometry height="190" width="430" x="525" y="360" as="geometry"/>
+                </mxCell>
+                <mxCell id="n5" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;Idempotency&lt;/b&gt;&lt;br&gt;&lt;br&gt;scope+operation+key; request hash; durable result; retention tombstone" vertex="1">
+                    <mxGeometry height="190" width="430" x="1015" y="360" as="geometry"/>
+                </mxCell>
+                <mxCell id="n6" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;Saga instances / steps&lt;/b&gt;&lt;br&gt;&lt;br&gt;Intent + resource ref; UNKNOWN; run_after; lease_epoch; remote key" vertex="1">
+                    <mxGeometry height="190" width="430" x="35" y="605" as="geometry"/>
+                </mxCell>
+                <mxCell id="n7" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;Outbox&lt;/b&gt;&lt;br&gt;&lt;br&gt;aggregate type/ID/version; optional order ID; ordinal; stable event ID; retry" vertex="1">
+                    <mxGeometry height="190" width="430" x="525" y="605" as="geometry"/>
+                </mxCell>
+                <mxCell id="n8" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;Inbox / pending events&lt;/b&gt;&lt;br&gt;&lt;br&gt;consumer+source+event ID; hash; APPLIED/DEFERRED/REJECTED; durable replay" vertex="1">
+                    <mxGeometry height="190" width="430" x="1015" y="605" as="geometry"/>
+                </mxCell>
+                <mxCell id="e0" edge="1" parent="1" source="n0" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n1" value="owns">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e1" edge="1" parent="1" source="n1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n2" value="trace">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e2" edge="1" parent="1" source="n0" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n3" value="receipt">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e3" edge="1" parent="1" source="n3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n4" value="budget">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e4" edge="1" parent="1" source="n4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n5" value="dedup">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e5" edge="1" parent="1" source="n3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n6" value="intent">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e6" edge="1" parent="1" source="n6" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n7" value="publish">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e7" edge="1" parent="1" source="n7" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n8" value="consume">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+    <diagram name="03. Domain invariants" id="03">
+        <mxGraphModel dx="1557" dy="814" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1500" pageHeight="860" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="title" parent="1" style="text;html=1;fontSize=26;fontStyle=1;align=left;" value="03. Domain invariants — MS-04 v3.0 candidate" vertex="1">
+                    <mxGeometry height="60" width="1420" x="35" y="25" as="geometry"/>
+                </mxCell>
+                <mxCell id="n0" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;Order aggregate&lt;/b&gt;&lt;br&gt;&lt;br&gt;UUID trước acquisition; Guest owner NULL; state guard; one transition/version" vertex="1">
+                    <mxGeometry height="190" width="430" x="35" y="115" as="geometry"/>
+                </mxCell>
+                <mxCell id="n1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;Commercial snapshot&lt;/b&gt;&lt;br&gt;&lt;br&gt;Σ line totals = subtotal; immutable after confirm; current catalog không sửa đơn cũ" vertex="1">
+                    <mxGeometry height="190" width="430" x="525" y="115" as="geometry"/>
+                </mxCell>
+                <mxCell id="n2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;Money&lt;/b&gt;&lt;br&gt;&lt;br&gt;VND integer; merchandise/shipping discount tách; final math; overflow checked" vertex="1">
+                    <mxGeometry height="190" width="430" x="1015" y="115" as="geometry"/>
+                </mxCell>
+                <mxCell id="n3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;Payment ledger&lt;/b&gt;&lt;br&gt;&lt;br&gt;Receipt là tiền đã xác minh; exact auto allocation; late/mismatch giữ evidence" vertex="1">
+                    <mxGeometry height="190" width="430" x="35" y="360" as="geometry"/>
+                </mxCell>
+                <mxCell id="n4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;Stock authority&lt;/b&gt;&lt;br&gt;&lt;br&gt;Inventory sở hữu ledger; ACTIVE -&amp;gt; COMMITTED hoặc RELEASED/EXPIRED atomically" vertex="1">
+                    <mxGeometry height="190" width="430" x="525" y="360" as="geometry"/>
+                </mxCell>
+                <mxCell id="n5" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;Ready authorization&lt;/b&gt;&lt;br&gt;&lt;br&gt;Stock committed; voucher finalized; prepaid đủ tiền hoặc COD eligible; no hold" vertex="1">
+                    <mxGeometry height="190" width="430" x="1015" y="360" as="geometry"/>
+                </mxCell>
+                <mxCell id="n6" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;Return / Refund&lt;/b&gt;&lt;br&gt;&lt;br&gt;Care approval; payment budget; partial/full độc lập lifecycle; không auto restock" vertex="1">
+                    <mxGeometry height="190" width="430" x="35" y="605" as="geometry"/>
+                </mxCell>
+                <mxCell id="n7" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;Ownership / Privacy&lt;/b&gt;&lt;br&gt;&lt;br&gt;Verified claim; không overwrite customer; no recipient/phone/gift text trên Kafka" vertex="1">
+                    <mxGeometry height="190" width="430" x="525" y="605" as="geometry"/>
+                </mxCell>
+                <mxCell id="n8" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;Audit / consistency&lt;/b&gt;&lt;br&gt;&lt;br&gt;Mutation+history+outbox; inbox+effect atomic; network ngoài SQL transaction" vertex="1">
+                    <mxGeometry height="190" width="430" x="1015" y="605" as="geometry"/>
+                </mxCell>
+                <mxCell id="e0" edge="1" parent="1" source="n0" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n1" value="snapshot">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e1" edge="1" parent="1" source="n1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n2" value="math">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e2" edge="1" parent="1" source="n0" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n3" value="financial">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e3" edge="1" parent="1" source="n3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n4" value="finalize">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e4" edge="1" parent="1" source="n4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n5" value="guard">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e5" edge="1" parent="1" source="n3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n6" value="approval">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e6" edge="1" parent="1" source="n6" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n7" value="scope">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e7" edge="1" parent="1" source="n7" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n8" value="trace">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+    <diagram name="04. Order lifecycle" id="04">
+        <mxGraphModel dx="1557" dy="814" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1500" pageHeight="860" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="title" parent="1" style="text;html=1;fontSize=26;fontStyle=1;align=left;" value="04. Order lifecycle — MS-04 v3.0 candidate" vertex="1">
+                    <mxGeometry height="60" width="1420" x="35" y="25" as="geometry"/>
+                </mxCell>
+                <mxCell id="n0" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;DRAFT&lt;/b&gt;&lt;br&gt;&lt;br&gt;Durable checkout intent; validation; stock/voucher acquisition; not ready" vertex="1">
+                    <mxGeometry height="190" width="430" x="35" y="115" as="geometry"/>
+                </mxCell>
+                <mxCell id="n1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;PENDING_PAYMENT&lt;/b&gt;&lt;br&gt;&lt;br&gt;Trả trước; reserve + hold valid; DB decision time &amp;lt; min expiry" vertex="1">
+                    <mxGeometry height="190" width="430" x="525" y="115" as="geometry"/>
+                </mxCell>
+                <mxCell id="n2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;PAYMENT_FINALIZING&lt;/b&gt;&lt;br&gt;&lt;br&gt;Verified exact receipt allocated; finalize stock vs remote expiry; no packing" vertex="1">
+                    <mxGeometry height="190" width="430" x="1015" y="115" as="geometry"/>
+                </mxCell>
+                <mxCell id="mBXt_u9R4_x6rYsEF5tc-1" edge="1" parent="1" source="n3" style="edgeStyle=none;html=1;" target="n4" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="n3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;CONFIRMED_COD&lt;/b&gt;&lt;br&gt;&lt;br&gt;COD eligible; stock/voucher committed; payment UNPAID; no QR wait" vertex="1">
+                    <mxGeometry height="190" width="430" x="35" y="360" as="geometry"/>
+                </mxCell>
+                <mxCell id="n4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;PAID&lt;/b&gt;&lt;br&gt;&lt;br&gt;Tiền confirmed + stock COMMITTED; voucher unknown -&amp;gt; operational hold" vertex="1">
+                    <mxGeometry height="190" width="430" x="525" y="360" as="geometry"/>
+                </mxCell>
+                <mxCell id="n5" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;PROCESSING / PACKED&lt;/b&gt;&lt;br&gt;&lt;br&gt;Ready authorization accepted; sealed/video ref verified; no arbitrary PATCH" vertex="1">
+                    <mxGeometry height="190" width="430" x="1015" y="360" as="geometry"/>
+                </mxCell>
+                <mxCell id="n6" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;Cancelled / Failed&lt;/b&gt;&lt;br&gt;&lt;br&gt;Timeout / owner / admin / out-of-stock; money reconciliation riêng; no resurrection" vertex="1">
+                    <mxGeometry height="190" width="430" x="35" y="605" as="geometry"/>
+                </mxCell>
+                <mxCell id="n7" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;SHIPPED / DELIVERED&lt;/b&gt;&lt;br&gt;&lt;br&gt;Dispatched thực tế; delivery failure/retry separate; created chỉ tracking" vertex="1">
+                    <mxGeometry height="190" width="430" x="525" y="605" as="geometry"/>
+                </mxCell>
+                <mxCell id="n8" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;COMPLETED&lt;/b&gt;&lt;br&gt;&lt;br&gt;Deadline + Care barrier; COD settlement policy; emit once; loyalty ở Promotion" vertex="1">
+                    <mxGeometry height="190" width="430" x="1015" y="605" as="geometry"/>
+                </mxCell>
+                <mxCell id="e0" edge="1" parent="1" source="n0" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n1" value="prepaid">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e1" edge="1" parent="1" source="n1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n2" value="receipt">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e2" edge="1" parent="1" source="n0" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n3" value="COD">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e3" edge="1" parent="1" source="n2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n4" value="COMMITTED">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e4" edge="1" parent="1" source="n3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n5" value="COD ready">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="340" y="330"/>
+                            <mxPoint x="1230" y="330"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e5" edge="1" parent="1" source="n4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n5" value="ready">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e6" edge="1" parent="1" source="n3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n6" value="cancel barrier">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e7" edge="1" parent="1" source="n5" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n7" value="dispatch / delivery">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1230" y="580"/>
+                            <mxPoint x="740" y="580"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e8" edge="1" parent="1" source="n7" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n8" value="case barrier">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+    <diagram name="05. Saga / concurrency" id="05">
+        <mxGraphModel dx="1557" dy="814" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1500" pageHeight="860" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="title" parent="1" style="text;html=1;fontSize=26;fontStyle=1;align=left;" value="05. Saga / concurrency — MS-04 v3.0 candidate" vertex="1">
+                    <mxGeometry height="60" width="1420" x="35" y="25" as="geometry"/>
+                </mxCell>
+                <mxCell id="n0" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;STARTED&lt;/b&gt;&lt;br&gt;&lt;br&gt;T0 order+dedup+saga trước RPC; ID sinh trước; transaction loser rollback" vertex="1">
+                    <mxGeometry height="190" width="430" x="35" y="115" as="geometry"/>
+                </mxCell>
+                <mxCell id="n1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;IN_PROGRESS&lt;/b&gt;&lt;br&gt;&lt;br&gt;Persist step intent; stable remote key; RPC outside SQL lock" vertex="1">
+                    <mxGeometry height="190" width="430" x="525" y="115" as="geometry"/>
+                </mxCell>
+                <mxCell id="n2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;WAITING_RETRY&lt;/b&gt;&lt;br&gt;&lt;br&gt;Response lost = UNKNOWN; query terminal state; bounded jitter retry" vertex="1">
+                    <mxGeometry height="190" width="430" x="1015" y="115" as="geometry"/>
+                </mxCell>
+                <mxCell id="n3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;COMPENSATING&lt;/b&gt;&lt;br&gt;&lt;br&gt;Reverse acquisition order; release only ACTIVE; committed needs approved reversal" vertex="1">
+                    <mxGeometry height="190" width="430" x="35" y="360" as="geometry"/>
+                </mxCell>
+                <mxCell id="n4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;Lease ownership&lt;/b&gt;&lt;br&gt;&lt;br&gt;lease_epoch increments; stale local worker cannot mutate; remote dedup vẫn cần" vertex="1">
+                    <mxGeometry height="190" width="430" x="525" y="360" as="geometry"/>
+                </mxCell>
+                <mxCell id="n5" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;MANUAL_REVIEW&lt;/b&gt;&lt;br&gt;&lt;br&gt;Retry budget hết; nghĩa vụ vẫn tồn tại; Ops resume audited same key" vertex="1">
+                    <mxGeometry height="190" width="430" x="1015" y="360" as="geometry"/>
+                </mxCell>
+                <mxCell id="n6" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;COMPENSATED&lt;/b&gt;&lt;br&gt;&lt;br&gt;Resources terminal released/expired; no duplicate stock/voucher restoration" vertex="1">
+                    <mxGeometry height="190" width="430" x="35" y="605" as="geometry"/>
+                </mxCell>
+                <mxCell id="n7" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;Payment vs timeout&lt;/b&gt;&lt;br&gt;&lt;br&gt;Order lock + DB time local; Inventory finalize/expiry atomic remote" vertex="1">
+                    <mxGeometry height="190" width="430" x="525" y="605" as="geometry"/>
+                </mxCell>
+                <mxCell id="n8" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;COMPLETED&lt;/b&gt;&lt;br&gt;&lt;br&gt;All intended effects terminal; fulfilled nghĩa vụ; order lifecycle vẫn riêng" vertex="1">
+                    <mxGeometry height="190" width="430" x="1015" y="605" as="geometry"/>
+                </mxCell>
+                <mxCell id="e0" edge="1" parent="1" source="n0" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n1" value="intent">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e1" edge="1" parent="1" source="n1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n2" value="unknown">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e2" edge="1" parent="1" source="n0" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n3" value="reject">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e3" edge="1" parent="1" source="n3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n4" value="fencing">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e4" edge="1" parent="1" source="n2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n5" value="budget">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e5" edge="1" parent="1" source="n3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n6" value="released">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e6" edge="1" parent="1" source="n4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n7" value="race">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e7" edge="1" parent="1" source="n7" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n8" value="terminal">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+    <diagram name="06. Checkout D2C" id="06">
+        <mxGraphModel dx="1557" dy="814" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1500" pageHeight="860" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="title" parent="1" style="text;html=1;fontSize=26;fontStyle=1;align=left;" value="06. Checkout D2C — MS-04 v3.0 candidate" vertex="1">
+                    <mxGeometry height="60" width="1420" x="35" y="25" as="geometry"/>
+                </mxCell>
+                <mxCell id="n0" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;1. Receive request&lt;/b&gt;&lt;br&gt;&lt;br&gt;key + canonical hash; cart revision; auth; T0 durable DRAFT/dedup/saga" vertex="1">
+                    <mxGeometry height="190" width="430" x="35" y="115" as="geometry"/>
+                </mxCell>
+                <mxCell id="n1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;2. Canonical validation&lt;/b&gt;&lt;br&gt;&lt;br&gt;Owned Profile address; Catalog lines/version; Shipping quote depends on weight/address" vertex="1">
+                    <mxGeometry height="190" width="430" x="525" y="115" as="geometry"/>
+                </mxCell>
+                <mxCell id="n2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;3. Persist intent&lt;/b&gt;&lt;br&gt;&lt;br&gt;T1 snapshots/totals; stable voucher/stock keys; commercial confirmation expiry" vertex="1">
+                    <mxGeometry height="190" width="430" x="1015" y="115" as="geometry"/>
+                </mxCell>
+                <mxCell id="n3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;6. Response / restart&lt;/b&gt;&lt;br&gt;&lt;br&gt;201 if success; 202 if durable in progress; lost response replay same key" vertex="1">
+                    <mxGeometry height="190" width="430" x="35" y="360" as="geometry"/>
+                </mxCell>
+                <mxCell id="n4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;5. Confirm locally&lt;/b&gt;&lt;br&gt;&lt;br&gt;T3 PENDING_PAYMENT + history/outbox/result; expiry=min remote/commercial" vertex="1">
+                    <mxGeometry height="190" width="430" x="525" y="360" as="geometry"/>
+                </mxCell>
+                <mxCell id="n5" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;4. Acquire resources&lt;/b&gt;&lt;br&gt;&lt;br&gt;Hold voucher first then reserve all SKUs; persist each ack; unknown -&amp;gt; query" vertex="1">
+                    <mxGeometry height="190" width="430" x="1015" y="360" as="geometry"/>
+                </mxCell>
+                <mxCell id="n6" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;Quote / cart&lt;/b&gt;&lt;br&gt;&lt;br&gt;Quote preview 5m; cart 30d; no stock reserve in cart; one address MVP" vertex="1">
+                    <mxGeometry height="190" width="430" x="35" y="605" as="geometry"/>
+                </mxCell>
+                <mxCell id="n7" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;Payment instruction&lt;/b&gt;&lt;br&gt;&lt;br&gt;Stored receiver/reference/expected amount; provider adapter; no browser total trust" vertex="1">
+                    <mxGeometry height="190" width="430" x="525" y="605" as="geometry"/>
+                </mxCell>
+                <mxCell id="n8" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;Failure branch&lt;/b&gt;&lt;br&gt;&lt;br&gt;Validation reject -&amp;gt; fail; acquired/unknown -&amp;gt; durable compensation; no orphan" vertex="1">
+                    <mxGeometry height="190" width="430" x="1015" y="605" as="geometry"/>
+                </mxCell>
+                <mxCell id="e0" edge="1" parent="1" source="n0" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n1" value="read">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e1" edge="1" parent="1" source="n1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n2" value="T1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e2" edge="1" parent="1" source="n2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n5" value="RPC">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e3" edge="1" parent="1" source="n5" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n4" value="T3">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e4" edge="1" parent="1" source="n4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n3" value="replay">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e5" edge="1" parent="1" source="n3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n6" value="revision">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e6" edge="1" parent="1" source="n4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n7" value="QR">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e7" edge="1" parent="1" source="n5" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n8" value="compensate">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+    <diagram name="07. Payment reconciliation" id="07">
+        <mxGraphModel dx="1557" dy="814" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1500" pageHeight="860" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="title" parent="1" style="text;html=1;fontSize=26;fontStyle=1;align=left;" value="07. Payment reconciliation — MS-04 v3.0 candidate" vertex="1">
+                    <mxGeometry height="60" width="1420" x="35" y="25" as="geometry"/>
+                </mxCell>
+                <mxCell id="n0" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;Provider callback&lt;/b&gt;&lt;br&gt;&lt;br&gt;Verify raw signed receipt/receiver/reference; no assumed universal HMAC" vertex="1">
+                    <mxGeometry height="190" width="430" x="35" y="115" as="geometry"/>
+                </mxCell>
+                <mxCell id="n1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;Durable receipt&lt;/b&gt;&lt;br&gt;&lt;br&gt;unique(provider,transaction ID); compare normalized hash; unmatched stored" vertex="1">
+                    <mxGeometry height="190" width="430" x="525" y="115" as="geometry"/>
+                </mxCell>
+                <mxCell id="n2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;Order lock / policy&lt;/b&gt;&lt;br&gt;&lt;br&gt;DB time after row lock; exact VND + active pending + before expiry only" vertex="1">
+                    <mxGeometry height="190" width="430" x="1015" y="115" as="geometry"/>
+                </mxCell>
+                <mxCell id="n3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;ACK / retry&lt;/b&gt;&lt;br&gt;&lt;br&gt;ACK after receipt commit; lost response duplicate-safe; DB unavailable -&amp;gt; retry" vertex="1">
+                    <mxGeometry height="190" width="430" x="35" y="360" as="geometry"/>
+                </mxCell>
+                <mxCell id="n4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;Reconciliation&lt;/b&gt;&lt;br&gt;&lt;br&gt;Under/over/late/multiple-small/unmatched -&amp;gt; review; no auto PAID" vertex="1">
+                    <mxGeometry height="190" width="430" x="525" y="360" as="geometry"/>
+                </mxCell>
+                <mxCell id="n5" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;PAYMENT_FINALIZING&lt;/b&gt;&lt;br&gt;&lt;br&gt;Persist allocation + intent; finalize stock; UNKNOWN query; expired -&amp;gt; reconcile" vertex="1">
+                    <mxGeometry height="190" width="430" x="1015" y="360" as="geometry"/>
+                </mxCell>
+                <mxCell id="n6" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;Refund obligation&lt;/b&gt;&lt;br&gt;&lt;br&gt;Care/Manager approval; receipt budget lock; provider stable key; query UNKNOWN" vertex="1">
+                    <mxGeometry height="190" width="430" x="35" y="605" as="geometry"/>
+                </mxCell>
+                <mxCell id="n7" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;PAID&lt;/b&gt;&lt;br&gt;&lt;br&gt;Stock COMMITTED; payment CONFIRMED; OrderPaid fact, not stock deduction command" vertex="1">
+                    <mxGeometry height="190" width="430" x="525" y="605" as="geometry"/>
+                </mxCell>
+                <mxCell id="n8" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;Fulfillment ready&lt;/b&gt;&lt;br&gt;&lt;br&gt;Voucher finalized + no hold + cancel authorization; event for prepaid/COD" vertex="1">
+                    <mxGeometry height="190" width="430" x="1015" y="605" as="geometry"/>
+                </mxCell>
+                <mxCell id="e0" edge="1" parent="1" source="n0" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n1" value="verify">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e1" edge="1" parent="1" source="n1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n2" value="match">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e2" edge="1" parent="1" source="n0" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n3" value="durable ack">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e3" edge="1" parent="1" source="n2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n5" value="exact">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e4" edge="1" parent="1" source="n5" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n4" value="late/expired">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e5" edge="1" parent="1" source="n4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n3" value="ACK">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e6" edge="1" parent="1" source="n5" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n7" value="COMMITTED">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e7" edge="1" parent="1" source="n7" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n8" value="ready guard">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e8" edge="1" parent="1" source="n3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n6" value="approval">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+    <diagram name="08. Timeout / cancel / recovery" id="08">
+        <mxGraphModel dx="1557" dy="814" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1500" pageHeight="860" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="title" parent="1" style="text;html=1;fontSize=26;fontStyle=1;align=left;" value="08. Timeout / cancel / recovery — MS-04 v3.0 candidate" vertex="1">
+                    <mxGeometry height="60" width="1420" x="35" y="25" as="geometry"/>
+                </mxCell>
+                <mxCell id="n0" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;Candidate pending&lt;/b&gt;&lt;br&gt;&lt;br&gt;Timeout index / owner command; auth; expected version; lock Order" vertex="1">
+                    <mxGeometry height="190" width="430" x="35" y="115" as="geometry"/>
+                </mxCell>
+                <mxCell id="n1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;Guarded decision&lt;/b&gt;&lt;br&gt;&lt;br&gt;DB now &amp;gt;= expiry for timeout; finalizing conflict; no receipt allocated" vertex="1">
+                    <mxGeometry height="190" width="430" x="525" y="115" as="geometry"/>
+                </mxCell>
+                <mxCell id="n2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;Cancellation commit&lt;/b&gt;&lt;br&gt;&lt;br&gt;Order cancelled + history + cancel fact + compensation intent atomic" vertex="1">
+                    <mxGeometry height="190" width="430" x="1015" y="115" as="geometry"/>
+                </mxCell>
+                <mxCell id="n3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;Paid / COD branch&lt;/b&gt;&lt;br&gt;&lt;br&gt;Fulfillment cancel barrier; paid review; committed stock needs reversal" vertex="1">
+                    <mxGeometry height="190" width="430" x="35" y="360" as="geometry"/>
+                </mxCell>
+                <mxCell id="n4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;Compensation worker&lt;/b&gt;&lt;br&gt;&lt;br&gt;Stable release keys; resolve UNKNOWN ID via by-order query; tombstone late reserve" vertex="1">
+                    <mxGeometry height="190" width="430" x="525" y="360" as="geometry"/>
+                </mxCell>
+                <mxCell id="n5" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;Remote result&lt;/b&gt;&lt;br&gt;&lt;br&gt;Released/expired terminal; COMMITTED never active-release; query lost ack" vertex="1">
+                    <mxGeometry height="190" width="430" x="1015" y="360" as="geometry"/>
+                </mxCell>
+                <mxCell id="n6" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;Late money&lt;/b&gt;&lt;br&gt;&lt;br&gt;Store receipt; no order resurrection; reconciliation/approval before refund" vertex="1">
+                    <mxGeometry height="190" width="430" x="35" y="605" as="geometry"/>
+                </mxCell>
+                <mxCell id="n7" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;Manual review&lt;/b&gt;&lt;br&gt;&lt;br&gt;Bounded retry; obligation retained; operator query/resume/audit" vertex="1">
+                    <mxGeometry height="190" width="430" x="525" y="605" as="geometry"/>
+                </mxCell>
+                <mxCell id="n8" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;Verify / close&lt;/b&gt;&lt;br&gt;&lt;br&gt;Local+remote ledger evidence; no double restore/refund; incident owner" vertex="1">
+                    <mxGeometry height="190" width="430" x="1015" y="605" as="geometry"/>
+                </mxCell>
+                <mxCell id="e0" edge="1" parent="1" source="n0" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n1" value="lock">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e1" edge="1" parent="1" source="n1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n2" value="commit">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e2" edge="1" parent="1" source="n0" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n3" value="review">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e3" edge="1" parent="1" source="n2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n4" value="intent">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1230" y="330"/>
+                            <mxPoint x="740" y="330"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e4" edge="1" parent="1" source="n4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n5" value="release / query">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e5" edge="1" parent="1" source="n3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n4" value="barrier">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e6" edge="1" parent="1" source="n3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n6" value="money">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e7" edge="1" parent="1" source="n4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n7" value="unknown">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e8" edge="1" parent="1" source="n5" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n8" value="evidence">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+    <diagram name="09. Omnichannel / policy" id="09">
+        <mxGraphModel dx="1557" dy="814" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1500" pageHeight="860" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="title" parent="1" style="text;html=1;fontSize=26;fontStyle=1;align=left;" value="09. Omnichannel / policy — MS-04 v3.0 candidate" vertex="1">
+                    <mxGeometry height="60" width="1420" x="35" y="25" as="geometry"/>
+                </mxCell>
+                <mxCell id="n0" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;D2C / Mobile&lt;/b&gt;&lt;br&gt;&lt;br&gt;Same checkout aggregate; D2C_WEB / MOBILE_APP; Guest/Customer ownership" vertex="1">
+                    <mxGeometry height="190" width="430" x="35" y="115" as="geometry"/>
+                </mxCell>
+                <mxCell id="n1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;Marketplace&lt;/b&gt;&lt;br&gt;&lt;br&gt;Channel event; channel+store+external ID unique; no fake paid; fail back to Channel" vertex="1">
+                    <mxGeometry height="190" width="430" x="525" y="115" as="geometry"/>
+                </mxCell>
+                <mxCell id="n2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;POS&lt;/b&gt;&lt;br&gt;&lt;br&gt;CreatePOSOrder trusted terminal/cashier; external sale key; cash/card evidence" vertex="1">
+                    <mxGeometry height="190" width="430" x="1015" y="115" as="geometry"/>
+                </mxCell>
+                <mxCell id="n3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;COD&lt;/b&gt;&lt;br&gt;&lt;br&gt;Eligibility + stock finalized; UNPAID fulfillment; settlement != delivered" vertex="1">
+                    <mxGeometry height="190" width="430" x="35" y="360" as="geometry"/>
+                </mxCell>
+                <mxCell id="n4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;Shared Order core&lt;/b&gt;&lt;br&gt;&lt;br&gt;Snapshot / status / saga / ledger; every channel subject to stock and money guards" vertex="1">
+                    <mxGeometry height="190" width="430" x="525" y="360" as="geometry"/>
+                </mxCell>
+                <mxCell id="n5" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;B2B / Gifting&lt;/b&gt;&lt;br&gt;&lt;br&gt;Later release; credit/deposit/tax policy; private gift text; one-address MVP" vertex="1">
+                    <mxGeometry height="190" width="430" x="1015" y="360" as="geometry"/>
+                </mxCell>
+                <mxCell id="n6" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;Guest claim&lt;/b&gt;&lt;br&gt;&lt;br&gt;Profile trusted verifier; bind proof; conditional owner; ack/revoke policy gap" vertex="1">
+                    <mxGeometry height="190" width="430" x="35" y="605" as="geometry"/>
+                </mxCell>
+                <mxCell id="n7" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;Return / loyalty&lt;/b&gt;&lt;br&gt;&lt;br&gt;Care case + refund approval; completion barrier; Promotion earn/reverse ledger" vertex="1">
+                    <mxGeometry height="190" width="430" x="525" y="605" as="geometry"/>
+                </mxCell>
+                <mxCell id="n8" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;spacing=16;align=left;verticalAlign=top;" value="&lt;b&gt;Rollout gates&lt;/b&gt;&lt;br&gt;&lt;br&gt;Close contract blockers; runtime tests NOT_RUN; schemas/consumers first, feature later" vertex="1">
+                    <mxGeometry height="190" width="430" x="1015" y="605" as="geometry"/>
+                </mxCell>
+                <mxCell id="e0" edge="1" parent="1" source="n0" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n1" value="channels">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e1" edge="1" parent="1" source="n1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n2" value="channels">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e2" edge="1" parent="1" source="n0" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n3" value="method">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e3" edge="1" parent="1" source="n1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n4" value="import">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e4" edge="1" parent="1" source="n4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n5" value="extension">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e5" edge="1" parent="1" source="n3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n6" value="owner">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e6" edge="1" parent="1" source="n4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n7" value="post-sale">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e7" edge="1" parent="1" source="n7" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;strokeColor=#64748b;fontSize=13;labelBackgroundColor=#ffffff;" target="n8" value="evidence">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>

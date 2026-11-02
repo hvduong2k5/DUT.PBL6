@@ -1,0 +1,56 @@
+{
+  "time": "2026-10-09T07:57:37.079653+00:00",
+  "mode": "local_sandbox",
+  "openapi": [
+    {
+      "path": "docs\\03_api_specs\\order-service.openapi.yaml",
+      "status": "PASS",
+      "paths": 23
+    },
+    {
+      "path": "docs\\03_api_specs\\order-sandbox-dependencies.openapi.yaml",
+      "status": "PASS",
+      "paths": 20
+    }
+  ],
+  "http_runtime_schemas": [
+    {
+      "schema": "Order",
+      "status": "PASS"
+    },
+    {
+      "schema": "CheckoutOperation",
+      "status": "PASS"
+    },
+    {
+      "schema": "Cart",
+      "status": "PASS"
+    }
+  ],
+  "events": {
+    "schema_count": 8,
+    "runtime_payloads": 98,
+    "runtime_types": [
+      "vn.omama.order.audit.v2",
+      "vn.omama.order.cancelled.v2",
+      "vn.omama.order.fulfillment_ready.v2",
+      "vn.omama.order.paid.v2",
+      "vn.omama.order.placed.v2"
+    ],
+    "status": "PASS",
+    "note": "Schema definitions checked for all types; runtime validation covers listed types only."
+  },
+  "documentation": {
+    "files": 14,
+    "local_links": 102,
+    "status": "PASS"
+  },
+  "protobuf_format": {
+    "generated_files": 6,
+    "status": "PASS"
+  },
+  "kong": {
+    "yaml_parse": "PASS",
+    "runtime_proxy": "NOT_RUN"
+  }
+}

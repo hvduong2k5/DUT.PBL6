@@ -5,6 +5,7 @@ package hvduong.catalog.v1;
 import "catalog/v1/catalog_public.proto";
 import "google/api/annotations.proto";
 
+option go_package = "github.com/omamx/proto/catalogpublic/v1;catalogpublicv1";
 option java_multiple_files = true;
 option java_package = "com.hvduong.catalog.grpc.v1";
 option java_outer_classname = "CatalogAdminProto";
@@ -16,41 +17,41 @@ service CatalogAdminService {
       body: "*"
     };
   }
-  
+
   rpc UpdateProduct(UpdateProductRpcRequest) returns (ProductCommandResponse) {
     option (google.api.http) = {
       put: "/api/v1/admin/catalog/products/{product_id}"
       body: "*"
     };
   }
-  
+
   rpc TransitionProduct(ProductTransitionRequest) returns (ProductCommandResponse) {
     option (google.api.http) = {
       post: "/api/v1/admin/catalog/products/{product_id}/transition"
       body: "*"
     };
   }
-  
+
   rpc CreateVariant(CreateVariantRpcRequest) returns (ProductCommandResponse) {
     option (google.api.http) = {
       post: "/api/v1/admin/catalog/products/{product_id}/variants"
       body: "*"
     };
   }
-  
+
   rpc UpdateVariantPrices(UpdateVariantPricesRpcRequest) returns (ProductCommandResponse) {
     option (google.api.http) = {
       put: "/api/v1/admin/catalog/products/{product_id}/variants/{variant_id}/prices"
       body: "*"
     };
   }
-  
+
   rpc ListAdminProducts(ListAdminProductsRequest) returns (ListAdminProductsResponse) {
     option (google.api.http) = {
       get: "/api/v1/admin/catalog/products"
     };
   }
-  
+
   rpc GetAdminProduct(GetAdminProductRequest) returns (GetAdminProductResponse) {
     option (google.api.http) = {
       get: "/api/v1/admin/catalog/products/{product_id}"

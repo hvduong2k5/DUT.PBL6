@@ -1,0 +1,280 @@
+{
+  "date": "2026-10-24",
+  "scope": "implemented-service regression and SePay sandbox connectivity; not full target Payment acceptance",
+  "go": {
+    "exit_code": 0,
+    "test_events": {
+      "pass": 130
+    },
+    "packages": {
+      "github.com/omamx/order-service/internal/domain": {
+        "pass": 7
+      },
+      "github.com/omamx/order-service/internal/domain/core": {
+        "pass": 60
+      },
+      "github.com/omamx/order-service/internal/persistence": {
+        "pass": 21
+      },
+      "github.com/omamx/order-service/tests/persistence": {
+        "pass": 1
+      },
+      "github.com/omamx/order-service/tests/integration": {
+        "pass": 41
+      }
+    },
+    "failed": []
+  },
+  "postman": {
+    "exit_code": 0,
+    "executed_requests": 21,
+    "assertions": 36,
+    "failed": 0,
+    "cloud_upload": false
+  },
+  "worker_unit": {
+    "pass": 4,
+    "fail": 0
+  },
+  "webhook_probe": {
+    "result": "PASS",
+    "url": "https://sepay-test.npanhbao.dev/api/v1/payments/sepay/webhook",
+    "receipt_id": "580986a1c1ceb1bf110cc682bb063f7ddfa461cac03fb8fc6d2f33ae01ddb197",
+    "checks": [
+      "health",
+      "signed capture",
+      "same-receipt replay",
+      "wrong signature",
+      "expired signature",
+      "POST only",
+      "no public receipts"
+    ],
+    "actual_sepay_delivery": false
+  },
+  "sepay_api": {
+    "result": "PASS",
+    "base_url": "https://userapi-sandbox.sepay.vn/v2",
+    "mode": "read-only",
+    "account_count": 1,
+    "transaction_count": 2,
+    "recognized_omp_count": 0,
+    "detail_checked": 2,
+    "checks": [
+      {
+        "status": "PASS",
+        "http": 200,
+        "endpoint_family": "bank-accounts"
+      },
+      {
+        "status": "PASS",
+        "http": 200,
+        "endpoint_family": "bank-accounts"
+      },
+      {
+        "status": "PASS",
+        "http": 200,
+        "endpoint_family": "transactions"
+      },
+      {
+        "status": "PASS",
+        "http": 200,
+        "endpoint_family": "transactions"
+      },
+      {
+        "status": "PASS",
+        "http": 200,
+        "endpoint_family": "transactions"
+      },
+      {
+        "status": "PASS",
+        "http": 200,
+        "endpoint_family": "transactions"
+      },
+      {
+        "status": "PASS",
+        "http": 200,
+        "endpoint_family": "transactions"
+      },
+      {
+        "status": "PASS",
+        "http": 200,
+        "endpoint_family": "transactions"
+      },
+      {
+        "check": "unknown UUID",
+        "status": "PASS",
+        "http": 404
+      },
+      {
+        "check": "missing token",
+        "status": "PASS",
+        "http": 401
+      }
+    ],
+    "live_api_called": false,
+    "order_payment_processing": "NOT_IMPLEMENTED"
+  },
+  "sepay_correlation": {
+    "result": "PASS",
+    "non_probe_receipts_checked": 2,
+    "api_transactions": 2,
+    "matched": 2,
+    "numeric_webhook_id_compared_to_uuid": false,
+    "order_payment_confirmed": false,
+    "checks": [
+      {
+        "result": "PASS",
+        "valid_stored_signature": true,
+        "unique_api_match": true,
+        "bank_time_match": true,
+        "webhook_success": true,
+        "recognized_omp": false
+      },
+      {
+        "result": "PASS",
+        "valid_stored_signature": true,
+        "unique_api_match": true,
+        "bank_time_match": true,
+        "webhook_success": true,
+        "recognized_omp": false
+      }
+    ]
+  },
+  "gateway": {
+    "result": "PASS",
+    "gateway": "Kong3.9",
+    "target": "http://127.0.0.1:18180",
+    "checks": [
+      {
+        "check": "authorized cart proxy",
+        "http": 200,
+        "result": "PASS",
+        "expected": 200
+      },
+      {
+        "check": "spoofed principal rejected",
+        "http": 401,
+        "result": "PASS",
+        "expected": 401
+      },
+      {
+        "check": "unsigned legacy payment callback rejected",
+        "http": 401,
+        "result": "PASS",
+        "expected": 401
+      },
+      {
+        "check": "new SePay route not active in local gateway",
+        "http": 404,
+        "result": "PASS",
+        "expected": 404
+      }
+    ]
+  },
+  "runtime_contracts": {
+    "time": "2026-10-24T06:06:47.109795+00:00",
+    "mode": "local_sandbox",
+    "openapi": [
+      {
+        "path": "docs\\03_api_specs\\order-service.sandbox-3.1.openapi.yaml",
+        "status": "PASS",
+        "paths": 23
+      },
+      {
+        "path": "docs\\03_api_specs\\order-sandbox-dependencies.openapi.yaml",
+        "status": "PASS",
+        "paths": 20
+      }
+    ],
+    "runtime_cohort": "sandbox-3.1",
+    "runtime_contract": "docs/03_api_specs/order-service.sandbox-3.1.openapi.yaml",
+    "http_runtime_schemas": [
+      {
+        "schema": "Order",
+        "status": "PASS"
+      },
+      {
+        "schema": "CheckoutOperation",
+        "status": "PASS"
+      },
+      {
+        "schema": "Cart",
+        "status": "PASS"
+      }
+    ],
+    "http_fixture": {
+      "created": true,
+      "cancel_requested": true
+    },
+    "events": {
+      "schema_count": 8,
+      "runtime_payloads": 15,
+      "runtime_types": [
+        "vn.omama.order.audit.v2",
+        "vn.omama.order.cancelled.v2",
+        "vn.omama.order.fulfillment_ready.v2",
+        "vn.omama.order.paid.v2",
+        "vn.omama.order.placed.v2"
+      ],
+      "status": "PASS",
+      "note": "Schema definitions checked for all types; runtime validation covers listed types only."
+    },
+    "documentation": {
+      "files": 22,
+      "local_links": 275,
+      "status": "PASS"
+    },
+    "protobuf_format": {
+      "generated_files": 7,
+      "status": "PASS"
+    },
+    "kong": {
+      "yaml_parse": "PASS",
+      "runtime_proxy": "PASS_SEPARATE_GATEWAY_SMOKE_SEE_GATEWAY_SECTION"
+    }
+  },
+  "static_contracts": {
+    "mode": "static_design_contracts",
+    "provider_integration": "NOT_RUN",
+    "openapi": [
+      {
+        "file": "order-service.openapi.yaml",
+        "status": "PASS",
+        "paths": 21
+      },
+      {
+        "file": "order-service.sandbox-3.1.openapi.yaml",
+        "status": "PASS",
+        "paths": 23
+      },
+      {
+        "file": "order-sandbox-dependencies.openapi.yaml",
+        "status": "PASS",
+        "paths": 20
+      }
+    ],
+    "events": {
+      "status": "PASS",
+      "schemas": 8,
+      "valid_examples": 9,
+      "invalid_rejected": 32
+    },
+    "openapi_examples": {
+      "valid": 4,
+      "invalid_rejected": 2
+    },
+    "protobuf": {
+      "status": "PASS",
+      "files_including_imports": 12,
+      "baseline_fields_checked": 0,
+      "compatibility_scope": "existing file/package/options/message fields/enums/RPC signatures; semantic compatibility requires cohort gates"
+    }
+  },
+  "limits": [
+    "target SePay adapter not active",
+    "no Order PAID from SePay end-to-end",
+    "2 provider transactions lack valid OMP code",
+    "no Live API or transfers/refunds",
+    "no protobuf historical baseline comparison"
+  ]
+}

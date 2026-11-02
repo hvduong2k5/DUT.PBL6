@@ -63,6 +63,10 @@ yarn-debug.log*
 yarn-error.log*
 .system_generated/
 
+# Postman local artifacts & collections
+.postman/
+postman/
+
 # Java, Maven, Gradle & Spring Boot
 target/
 pom.xml.tag
@@ -75,8 +79,8 @@ buildNumber.properties
 .mvn/timing.properties
 .mvn/wrapper/maven-wrapper.jar
 
-.gradle
-/build/
+.gradle/
+**/build/
 !gradle/wrapper/gradle-wrapper.jar
 !**/src/main/**/build/
 !**/src/test/**/build/
@@ -91,6 +95,12 @@ buildNumber.properties
 *.zip
 *.tar.gz
 *.rar
+
+.classpath
+.project
+.settings/
+.apt_generated/
+.apt_generated_tests/
 
 hs_err_pid*
 replay_pid*

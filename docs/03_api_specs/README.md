@@ -1,7 +1,14 @@
+> **MVP integration release 26/10/2026:** bắt đầu tại [contract guide](../../packages/contracts/mvp/README.md), [owner/consumer registry](../../packages/contracts/mvp/registry.yaml) và [migration](../../packages/contracts/mvp/MIGRATION.md).
+>
+> Public target: [mvp-customer.openapi.yaml](mvp-customer.openapi.yaml). Core adapter target: [order-core-dependencies.mvp.openapi.yaml](order-core-dependencies.mvp.openapi.yaml). Các spec D2C tổng và frontend/candidate bên dưới giữ vai trò reference/provider proposal; không ghi đè target MVP ở các route trùng. Implementation acceptance vẫn pending, không được suy từ CI contract xanh.
+
 # CẨM NANG ĐẶC TẢ GIAO DIỆN & HỢP ĐỒNG HỆ THỐNG (API & CONTRACTS SPECIFICATIONS)
 ## HỆ SINH THÁI THƯƠNG MẠI ĐIỆN TỬ & CHUỖI CUNG ỨNG ĐẶC SẢN OCOP HUẾ (MÈ XỬNG O MẠ)
 
 Thư mục này là **Single Source of Truth** về mặt tài liệu giao tiếp kỹ thuật của toàn bộ 18 Microservices, phục vụ trực tiếp cho quá trình lập trình song song, kiểm thử tự động (CI/CD Contract Test) và tài liệu bảo vệ đồ án.
+
+> [!IMPORTANT]
+> Với migration Web Customer MVP, dùng baseline đã pin trong [`../ui_web/MVP_PUBLIC_CONTRACT_MIGRATION_MATRIX.md`](../ui_web/MVP_PUBLIC_CONTRACT_MIGRATION_MATRIX.md). Ở các route trùng nhau, `mvp-customer.openapi.yaml` tại commit contract đã pin được ưu tiên hơn `openapi_d2c.yaml`, các file feature candidate và snapshot Web/Mobile cũ. Contract hiện là `integration-target`; CI contract không thay thế runtime acceptance của service.
 
 ---
 

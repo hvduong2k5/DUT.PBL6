@@ -1,0 +1,42 @@
+name: Order Inventory provider integration
+on:
+  pull_request:
+    paths:
+      - 'services/order-service/**'
+      - 'services/inventory-service/**'
+      - 'packages/proto/inventory/**'
+      - 'packages/proto/common/**'
+      - 'packages/contracts/order-3.2.md'
+      - 'scripts/test-order-inventory.py'
+      - '.github/workflows/order-inventory.yml'
+  push:
+    branches: [dev]
+    paths:
+      - 'services/order-service/**'
+      - 'services/inventory-service/**'
+      - 'packages/proto/inventory/**'
+      - 'packages/proto/common/**'
+      - 'packages/contracts/order-3.2.md'
+      - 'scripts/test-order-inventory.py'
+jobs:
+  real-provider:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.3'
+          cache-dependency-path: |
+            services/order-service/go.sum
+            services/inventory-service/go.sum
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Inventory unit and regression checks
+        working-directory: services/inventory-service
+        run: go vet ./... && go test -race -count=1 ./...
+      - name: Real Order adapter and Inventory with TLS and PostgreSQL
+        env:
+          GOFLAGS: '-race'
+        run: python scripts/test-order-inventory.py

@@ -1,0 +1,19 @@
+{
+  "specversion": "1.0",
+  "id": "11111111-1111-4111-8111-111111111111",
+  "source": "https://omama.vn/services/order-service",
+  "type": "vn.omama.order.audit.v3",
+  "subject": "order:11111111-1111-4111-8111-111111111111",
+  "time": "2026-10-15T03:00:00Z",
+  "datacontenttype": "application/json",
+  "data": {
+    "aggregate_id": "11111111-1111-4111-8111-111111111111",
+    "version": 2,
+    "ordinal": 0,
+    "status": "PAID",
+    "payment_status": "CONFIRMED",
+    "stock_status": "COMMITTED",
+    "action": "FINALIZE_ORDER",
+    "reason_code": "RESOURCES_COMMITTED"
+  }
+}

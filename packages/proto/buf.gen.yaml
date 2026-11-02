@@ -14,12 +14,12 @@ plugins:
       - useOptionals=messages
 
   # Plugin sinh mã nguồn Go cho Inventory Service & Core Services
-  - plugin: buf.build/protocolbuffers/go:v1.34.1
+  - plugin: buf.build/protocolbuffers/go:v1.36.10
     out: ../../packages/common/src/proto-gen-go
     opt:
-      - paths=source_relative
+      - module=github.com/omamx/proto
 
-  - plugin: buf.build/grpc/go:v1.3.0
+  - plugin: buf.build/grpc/go:v1.5.1
     out: ../../packages/common/src/proto-gen-go
     opt:
-      - paths=source_relative
+      - module=github.com/omamx/proto

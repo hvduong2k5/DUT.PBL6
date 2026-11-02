@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+
+<html lang="vi"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_standard" name="shell-type"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&amp;family=Noto+Serif:ital,wght@0,500;0,600;0,700;1,400&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { "colors": { "surface-container-high": "#ebe8e3", "inverse-primary": "#e8bea3", "inverse-on-surface": "#f3f0eb", "secondary": "#7e5700", "tertiary-fixed": "#ffdad3", "error": "#ba1a1a", "secondary-fixed-dim": "#f3be65", "outline": "#82756d", "on-primary-fixed-variant": "#5d402c", "outline-variant": "#d3c3ba", "tertiary-container": "#973925", "primary": "#563a26", "surface-variant": "#e5e2dd", "error-container": "#ffdad6", "on-tertiary": "#ffffff", "on-secondary-container": "#785300", "secondary-fixed": "#ffdeac", "surface": "#fcf9f4", "surface-container-highest": "#e5e2dd", "secondary-container": "#ffc96f", "on-secondary": "#ffffff", "primary-fixed-dim": "#e8bea3", "on-surface-variant": "#50453e", "on-secondary-fixed-variant": "#604100", "on-tertiary-fixed": "#3e0500", "on-primary-container": "#f0c6aa", "inverse-surface": "#31302d", "primary-fixed": "#ffdcc5", "on-surface": "#1c1c19", "surface-container": "#f0ede9", "on-tertiary-container": "#ffbfb1", "surface-container-lowest": "#ffffff", "primary-container": "#70513b", "tertiary-fixed-dim": "#ffb4a4", "tertiary": "#782210", "on-error": "#ffffff", "background": "#fcf9f4", "surface-tint": "#775841", "on-primary-fixed": "#2c1605", "on-error-container": "#93000a", "on-primary": "#ffffff", "surface-dim": "#dcdad5", "surface-bright": "#fcf9f4", "on-tertiary-fixed-variant": "#812816", "on-secondary-fixed": "#281900", "surface-container-low": "#f6f3ee", "on-background": "#1c1c19" }, "borderRadius": { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" }, "spacing": { "space-xl": "2rem", "margin-mobile": "1rem", "space-sm": "0.5rem", "space-xs": "0.25rem", "space-md": "1rem", "space-lg": "1.5rem", "gutter-mobile": "1rem", "margin": "3rem", "gutter": "1.5rem" }, "fontFamily": { "label-sm": ["Be Vietnam Pro"], "headline-lg": ["Noto Serif"], "headline-lg-mobile": ["Noto Serif"], "headline-md": ["Noto Serif"], "body-md": ["Be Vietnam Pro"], "display": ["Noto Serif"], "body-lg": ["Be Vietnam Pro"], "body-sm": ["Be Vietnam Pro"], "display-mobile": ["Noto Serif"], "headline-sm": ["Noto Serif"], "label-md": ["Be Vietnam Pro"], "label-lg": ["Be Vietnam Pro"], "title": ["Noto Serif"] }, "fontSize": { "label-sm": ["10px", { "lineHeight": "14px", "fontWeight": "600" }], "headline-lg": ["36px", { "lineHeight": "44px", "fontWeight": "600" }], "headline-lg-mobile": ["26px", { "lineHeight": "34px", "fontWeight": "600" }], "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }], "body-md": ["14px", { "lineHeight": "22px", "fontWeight": "400" }], "display": ["48px", { "lineHeight": "56px", "fontWeight": "700" }], "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }], "body-sm": ["12px", { "lineHeight": "18px", "fontWeight": "400" }], "display-mobile": ["32px", { "lineHeight": "40px", "fontWeight": "700" }], "headline-sm": ["20px", { "lineHeight": "28px", "fontWeight": "600" }], "label-md": ["12px", { "lineHeight": "16px", "fontWeight": "600" }], "label-lg": ["14px", { "lineHeight": "20px", "fontWeight": "600" }], "title": ["18px", { "lineHeight": "26px", "fontWeight": "500" }] } } } };</script></head><body class="bg-surface font-body-md text-body-md text-on-surface antialiased"><header class="fixed top-0 left-0 w-full z-50 bg-surface/95 backdrop-blur-xl shadow-[0_1px_8px_rgba(112,81,59,0.06)]"><div class="h-28 max-w-7xl mx-auto px-margin flex flex-col justify-between pt-space-sm pb-space-xs"><div class="flex items-center justify-between gap-space-lg"><div class="flex items-center gap-space-md"><img alt="Brand logo. - Primary color: #70513b
+- Font: notoSerif
+- Mode: light
+- Roundness: rounded-md
+" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1WHawfHTfoov0Kuri-tdP3jsUVpjvwWPTaXr7q1cJTE1BGoyoOJLTwh1VcU6su9SzadQABMh-QhzrYFZ3iuTjeWEG_lH9WljfOkHL7GjaYDLzYau-WX7CwVh45Z3040lNd_1s2MPZ7n3sxSh924FIiq70Svjku46Eq2aztx8P8e5cWx9ye2b9hNzp-TBW6vM_QIqa4ghq3ARhngpQBFCrR7VctHYNsTKxgxyWHEQEUhOrzMhySVYGgE_qY"/><div class="flex flex-col"><span class="font-title text-title font-semibold tracking-wide text-primary leading-none">Ô Mạ</span><span class="font-label-sm text-label-sm uppercase tracking-widest text-secondary mt-space-xs">Bánh Mứt Cung Đình Huế</span></div></div><div class="flex-1 max-w-lg mx-auto"><div class="relative flex items-center w-full bg-surface-container-low rounded-xl px-space-md py-space-xs shadow-[0_1px_4px_rgba(112,81,59,0.04)]"><span class="material-symbols-outlined text-outline text-[18px] mr-space-sm">search</span><input class="w-full bg-transparent text-on-surface placeholder:text-outline font-body-md text-body-md focus:outline-none" placeholder="Tìm kiếm mè xửng, trà sen, hộp quà tiến vua..." type="text"/><span class="font-label-sm text-label-sm text-on-surface-variant bg-surface-container px-space-sm py-0.5 rounded">Huế Di Sản</span></div></div><div class="flex items-center gap-space-md"><a class="flex items-center gap-space-xs text-on-surface-variant hover:text-primary transition-colors py-space-xs px-space-sm rounded-lg hover:bg-surface-container" data-path="tra-cuu-don" href="#"><span class="material-symbols-outlined text-[20px]">local_shipping</span><span class="font-label-md text-label-md hidden lg:inline">Tra cứu đơn</span></a><a class="relative flex items-center gap-space-xs text-on-surface-variant hover:text-primary transition-colors py-space-xs px-space-sm rounded-lg hover:bg-surface-container" data-path="thong-bao" href="#"><span class="material-symbols-outlined text-[22px]">notifications</span><span class="font-label-md text-label-md hidden lg:inline">Thông báo</span><span class="inline-flex items-center justify-center bg-tertiary text-on-tertiary font-label-sm text-label-sm font-bold w-4 h-4 rounded-full ring-2 ring-surface absolute -top-1 right-1 lg:static lg:w-4 lg:h-4">2</span></a><a class="relative flex items-center gap-space-xs text-on-surface-variant hover:text-primary transition-colors py-space-xs px-space-sm rounded-lg hover:bg-surface-container" data-path="gio-hang" href="#"><span class="material-symbols-outlined text-[22px]">shopping_bag</span><span class="font-label-md text-label-md hidden lg:inline">Giỏ hàng</span><span class="inline-flex items-center justify-center bg-tertiary text-on-tertiary font-label-sm text-label-sm font-bold w-5 h-5 rounded-full ring-2 ring-surface">3</span></a><div class="flex items-center gap-space-sm pl-space-sm"><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center shadow-[0_2px_6px_rgba(86,58,38,0.2)]"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div><div class="hidden xl:flex flex-col"><span class="font-label-md text-label-md text-on-surface leading-tight">Tri Kỷ</span><span class="font-label-sm text-label-sm text-secondary leading-tight">Hạng Hoàng Cúc</span></div></div></div></div><nav class="flex items-center gap-space-xs overflow-x-auto py-1" data-active-classes="bg-primary-container text-on-primary font-medium rounded-lg shadow-sm"><a class="px-space-md py-1.5 rounded-lg text-on-surface-variant font-label-md text-label-md whitespace-nowrap transition-colors hover:text-on-surface hover:bg-surface-container-high" data-path="trang-chu" href="#">Trang Chủ</a><a class="px-space-md py-1.5 rounded-lg text-on-surface-variant font-label-md text-label-md whitespace-nowrap transition-colors hover:text-on-surface hover:bg-surface-container-high" data-path="banh-keo-cung-dinh" href="#">Bánh &amp; Kẹo Cung Đình</a><a class="px-space-md py-1.5 rounded-lg text-on-surface-variant font-label-md text-label-md whitespace-nowrap transition-colors hover:text-on-surface hover:bg-surface-container-high" data-path="me-xung-tra-sen" href="#">Mè Xửng &amp; Trà Sen</a><a class="px-space-md py-1.5 rounded-lg text-on-surface-variant font-label-md text-label-md whitespace-nowrap transition-colors hover:text-on-surface hover:bg-surface-container-high" data-path="qua-bieu-tang" href="#">Quà Biếu Tặng</a><a class="px-space-md py-1.5 rounded-lg text-on-surface-variant font-label-md text-label-md whitespace-nowrap transition-colors hover:text-on-surface hover:bg-surface-container-high" data-path="bao-gia-si-b2b" href="#">Báo Giá Sỉ B2B</a><a class="px-space-md py-1.5 rounded-lg text-on-surface-variant font-label-md text-label-md whitespace-nowrap transition-colors hover:text-on-surface hover:bg-surface-container-high" data-path="hop-dong-b2b" href="#">Hợp Đồng B2B</a><a class="px-space-md py-1.5 rounded-lg text-on-surface-variant font-label-md text-label-md whitespace-nowrap transition-colors hover:text-on-surface hover:bg-surface-container-high" data-path="truy-xuat-ocop" href="#">Truy Xuất OCOP</a><a class="px-space-md py-1.5 rounded-lg text-on-surface-variant font-label-md text-label-md whitespace-nowrap transition-colors hover:text-on-surface hover:bg-surface-container-high" data-path="cau-chuyen-di-san" href="#">Câu Chuyện Di Sản</a><a class="px-space-md py-1.5 rounded-lg text-on-surface-variant font-label-md text-label-md whitespace-nowrap transition-colors hover:text-on-surface hover:bg-surface-container-high" data-path="vi-diem-tri-ky" href="#">Ví Điểm Tri Kỷ</a><a class="px-space-md py-1.5 rounded-lg text-on-surface-variant font-label-md text-label-md whitespace-nowrap transition-colors hover:text-on-surface hover:bg-surface-container-high" data-path="thong-bao-va-tuy-chon" href="#">Thông Báo</a><a class="px-space-md py-1.5 rounded-lg text-on-surface-variant font-label-md text-label-md whitespace-nowrap transition-colors hover:text-on-surface hover:bg-surface-container-high" data-path="ho-tro-tri-ky" href="#">Hỗ Trợ Tri Kỷ</a></nav></div></header><main class="w-full pt-28 bg-surface"><div class="flex flex-col w-full">
+<!-- Dynamic Breadcrumb Bar -->
+<div class="w-full bg-surface-container-low/70 py-space-sm">
+<div class="max-w-7xl mx-auto px-margin">
+<nav aria-label="Breadcrumb" class="flex items-center gap-space-xs text-on-surface-variant font-label-md text-label-md">
+<a class="hover:text-primary transition-colors flex items-center gap-1" href="#">
+<span class="material-symbols-outlined text-[16px]">cottage</span>
+<span>Trang chủ</span>
+</a>
+<span class="text-outline/40">/</span>
+<a class="hover:text-primary transition-colors" href="#">Tài khoản Tri Kỷ</a>
+<span class="text-outline/40">/</span>
+<span class="text-primary font-semibold">Trung Tâm Thông Báo &amp; Tùy Chọn Nhận Tin</span>
+</nav>
+</div>
+</div>
+<!-- Main Container: Account Split Layout -->
+<div class="max-w-7xl mx-auto px-margin py-space-xl w-full">
+<div class="flex flex-col lg:flex-row gap-gutter items-start">
+<!-- ================= LEFT COLUMN: SIDEBAR TRI KỶ (280px) ================= -->
+<aside class="w-full lg:w-[280px] shrink-0 flex flex-col gap-space-lg">
+<!-- Profile Identity Card -->
+<div class="bg-surface-container-lowest rounded-xl p-space-lg shadow-sm flex flex-col items-center text-center relative overflow-hidden">
+<!-- Subtle palace pattern watermark accent -->
+<div class="absolute -right-8 -top-8 w-28 h-28 rounded-full bg-secondary/5 pointer-events-none"></div>
+<!-- Avatar monogram BL -->
+<div class="relative mb-space-md">
+<div class="w-20 h-20 rounded-full bg-primary-container text-on-primary flex items-center justify-center font-display text-headline-sm shadow-[0_4px_12px_rgba(112,81,59,0.22)]">
+              BL
+            </div>
+<div class="absolute -bottom-1 -right-1 bg-secondary text-on-secondary rounded-full p-1 shadow-sm flex items-center justify-center" title="Đã chứng thực định danh">
+<span class="material-symbols-outlined text-[15px]" style="font-variation-settings: 'FILL' 1;">verified</span>
+</div>
+</div>
+<h2 class="font-headline-sm text-title text-primary font-semibold leading-snug">
+            Nguyễn Văn Bảo Long
+          </h2>
+<span class="font-label-sm text-label-sm text-outline font-medium tracking-wide mt-0.5">
+            #TK-HUED2C-8892
+          </span>
+<!-- Royal Tier Tag -->
+<div class="mt-space-sm inline-flex items-center gap-space-xs px-space-sm py-1 rounded-full bg-secondary-fixed text-on-secondary-fixed">
+<span class="material-symbols-outlined text-[14px]" style="font-variation-settings: 'FILL' 1;">workspace_premium</span>
+<span class="font-label-sm text-label-sm font-semibold tracking-wider uppercase">Bậc II: Hoàng Cung</span>
+</div>
+<!-- Legacy Points Widget -->
+<div class="w-full mt-space-md pt-space-md bg-surface-container-low rounded-lg p-space-sm flex items-center justify-between">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-secondary text-[20px]" style="font-variation-settings: 'FILL' 1;">stars</span>
+<span class="font-label-md text-label-md text-on-surface-variant">Ví Điểm Di Sản:</span>
+</div>
+<span class="font-title text-title text-secondary font-bold">96 <span class="font-label-sm text-label-sm font-medium text-on-surface-variant">Điểm</span></span>
+</div>
+</div>
+<!-- Sidebar Navigation Menu -->
+<div class="bg-surface-container-lowest rounded-xl p-space-sm shadow-sm flex flex-col gap-1">
+<a class="flex items-center justify-between px-space-md py-space-sm rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors" href="#">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-[20px]">person_outline</span>
+<span class="font-label-lg text-label-lg">Hồ sơ cá nhân</span>
+</div>
+</a>
+<a class="flex items-center justify-between px-space-md py-space-sm rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors" href="#">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-[20px]">location_on</span>
+<span class="font-label-lg text-label-lg">Sổ địa chỉ nhận thức quà</span>
+</div>
+</a>
+<a class="flex items-center justify-between px-space-md py-space-sm rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors" href="#">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-[20px]">receipt_long</span>
+<span class="font-label-lg text-label-lg">Đơn hàng của tôi</span>
+</div>
+<span class="px-2 py-0.5 rounded-full bg-surface-container text-on-surface-variant font-label-sm text-label-sm font-semibold">04</span>
+</a>
+<a class="flex items-center justify-between px-space-md py-space-sm rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors" href="#">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-[20px]">account_balance_wallet</span>
+<span class="font-label-lg text-label-lg">Ví Điểm Di Sản</span>
+</div>
+<span class="font-label-sm text-label-sm text-secondary font-semibold">96 Đ</span>
+</a>
+<a class="flex items-center justify-between px-space-md py-space-sm rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors" href="#">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-[20px]">assignment_return</span>
+<span class="font-label-lg text-label-lg">Yêu cầu hậu mãi &amp; Đổi trả</span>
+</div>
+</a>
+<!-- ACTIVE ITEM: Trung Tâm Thông Báo -->
+<a class="flex items-center justify-between px-space-md py-space-sm rounded-lg bg-primary-container text-on-primary shadow-sm" href="#">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">notifications_active</span>
+<span class="font-label-lg text-label-lg font-semibold">Trung tâm thông báo</span>
+</div>
+<span class="w-2.5 h-2.5 rounded-full bg-tertiary-fixed shadow-sm"></span>
+</a>
+</div>
+<!-- Imperial Tea Concierge Assist Widget -->
+<div class="bg-gradient-to-br from-surface-container to-surface-container-high rounded-xl p-space-md shadow-sm relative overflow-hidden">
+<div class="flex items-start gap-space-sm">
+<div class="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
+<span class="material-symbols-outlined text-[22px]">support_agent</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm uppercase tracking-wider text-secondary font-semibold">Trợ Lý Thượng Uyển</span>
+<h4 class="font-title text-label-lg font-bold text-primary mt-0.5">Hotline Tri Kỷ Cung Đình</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Hỗ trợ riêng cho hội viên Bậc II trong thưởng vị &amp; bảo quản thức quà.</p>
+<div class="mt-space-sm flex items-center gap-space-xs text-primary font-semibold">
+<span class="material-symbols-outlined text-[18px]">call</span>
+<span class="font-label-lg text-label-lg tracking-wide">1900 68 Hue (Phím 1)</span>
+</div>
+</div>
+</div>
+</div>
+</aside>
+<!-- ================= RIGHT COLUMN: MAIN CONTENT (~75%) ================= -->
+<section class="flex-1 w-full min-w-0 flex flex-col gap-space-xl">
+<!-- Header Section -->
+<div class="bg-surface-container-lowest rounded-xl p-space-xl shadow-sm flex flex-col md:flex-row md:items-end justify-between gap-space-lg relative overflow-hidden">
+<div class="flex flex-col gap-space-xs max-w-2xl">
+<div class="inline-flex items-center gap-space-xs self-start px-space-sm py-0.5 rounded-full bg-secondary-fixed/70 text-on-secondary-fixed text-label-sm font-label-sm font-semibold tracking-wider">
+<span class="material-symbols-outlined text-[14px]">campaign</span>
+              TRUNG TÂM LIÊN LẠC &amp; TIN TỨC TRI KỶ
+            </div>
+<h1 class="font-headline-lg text-headline-lg text-primary font-semibold tracking-tight">
+              Thông Báo &amp; Tùy Chọn Nhận Tin Cố Đô
+            </h1>
+<p class="font-body-md text-body-md text-on-surface-variant mt-1 leading-relaxed">
+              Nơi cập nhật kịp thời hành trình đơn hàng, thông điệp phản hồi từ nghệ nhân, biến động điểm di sản và tùy biến kênh nhận tin phù hợp với nhịp sống của Quý Tri Kỷ.
+            </p>
+</div>
+<!-- Top Quick Actions -->
+<div class="flex items-center flex-wrap gap-space-sm shrink-0">
+<button class="px-space-md py-2 rounded-lg bg-surface-container hover:bg-surface-container-high text-primary font-label-md text-label-md font-semibold transition-colors flex items-center gap-space-xs shadow-sm" id="btn-mark-all-read">
+<span class="material-symbols-outlined text-[18px]">done_all</span>
+<span>Đánh dấu đã đọc tất cả</span>
+</button>
+<a class="px-space-md py-2 rounded-lg bg-primary text-on-primary hover:bg-primary-container font-label-md text-label-md font-semibold transition-colors flex items-center gap-space-xs shadow-sm" href="#preferences-section">
+<span class="material-symbols-outlined text-[18px]">tune</span>
+<span>Cài đặt thông báo</span>
+</a>
+</div>
+</div>
+<!-- Filter Tabs with Badges -->
+<div class="flex items-center gap-space-xs overflow-x-auto pb-1 scrollbar-none" id="notification-tabs">
+<button class="tab-btn px-space-md py-2 rounded-lg bg-primary-container text-on-primary font-label-md text-label-md font-semibold shadow-sm flex items-center gap-space-xs whitespace-nowrap transition-all" data-filter="all">
+<span>Tất Cả</span>
+<span class="w-5 h-5 rounded-full bg-surface-container-lowest text-primary text-[11px] font-bold flex items-center justify-center">12</span>
+</button>
+<button class="tab-btn px-space-md py-2 rounded-lg bg-surface-container-lowest text-on-surface-variant hover:text-primary hover:bg-surface-container font-label-md text-label-md font-semibold transition-all flex items-center gap-space-xs whitespace-nowrap" data-filter="orders">
+<span class="material-symbols-outlined text-[18px]">local_shipping</span>
+<span>Đơn Hàng &amp; Vận Chuyển</span>
+<span class="px-1.5 py-0.5 rounded-full bg-surface-container text-on-surface-variant text-[11px]">5</span>
+</button>
+<button class="tab-btn px-space-md py-2 rounded-lg bg-surface-container-lowest text-on-surface-variant hover:text-primary hover:bg-surface-container font-label-md text-label-md font-semibold transition-all flex items-center gap-space-xs whitespace-nowrap" data-filter="artisans">
+<span class="material-symbols-outlined text-[18px]">support_agent</span>
+<span>Nghệ Nhân &amp; CSKH</span>
+<span class="px-1.5 py-0.5 rounded-full bg-surface-container text-on-surface-variant text-[11px]">3</span>
+</button>
+<button class="tab-btn px-space-md py-2 rounded-lg bg-surface-container-lowest text-on-surface-variant hover:text-primary hover:bg-surface-container font-label-md text-label-md font-semibold transition-all flex items-center gap-space-xs whitespace-nowrap" data-filter="points">
+<span class="material-symbols-outlined text-[18px]">stars</span>
+<span>Ví Điểm &amp; Đặc Quyền</span>
+<span class="px-1.5 py-0.5 rounded-full bg-surface-container text-on-surface-variant text-[11px]">2</span>
+</button>
+<button class="tab-btn px-space-md py-2 rounded-lg bg-surface-container-lowest text-on-surface-variant hover:text-primary hover:bg-surface-container font-label-md text-label-md font-semibold transition-all flex items-center gap-space-xs whitespace-nowrap" data-filter="news">
+<span class="material-symbols-outlined text-[18px]">auto_stories</span>
+<span>Tin Tức &amp; Mẻ Bánh Mới</span>
+<span class="px-1.5 py-0.5 rounded-full bg-surface-container text-on-surface-variant text-[11px]">2</span>
+</button>
+</div>
+<!-- ================= NOTIFICATION FEED LIST ================= -->
+<div class="flex flex-col gap-space-md" id="feed-container">
+<!-- 1. UNREAD: Order & Shipping -->
+<article class="notif-item relative bg-surface-container-low rounded-xl p-space-lg shadow-sm transition-all hover:shadow-md" data-category="orders" data-status="unread">
+<div class="flex items-start gap-space-md">
+<!-- Category Icon with unread indicator -->
+<div class="relative shrink-0">
+<div class="w-12 h-12 rounded-xl bg-primary-fixed flex items-center justify-center text-on-primary-fixed shadow-sm">
+<span class="material-symbols-outlined text-[24px]">local_shipping</span>
+</div>
+<span class="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-tertiary ring-2 ring-surface-container-low shadow-sm" title="Thông báo chưa đọc"></span>
+</div>
+<!-- Notification Details -->
+<div class="flex-1 min-w-0">
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-1">
+<div class="flex items-center gap-space-xs flex-wrap">
+<span class="px-2 py-0.5 rounded text-[11px] font-label-sm font-semibold bg-tertiary-fixed text-on-tertiary-fixed uppercase">Đơn Hàng Tiến Vua</span>
+<span class="text-outline font-label-sm text-label-sm">#OM-2410-9675</span>
+</div>
+<span class="font-label-sm text-label-sm text-secondary font-medium flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">schedule</span> 15 phút trước
+                  </span>
+</div>
+<h3 class="font-headline-sm text-title text-primary font-bold leading-snug">
+                  Đơn hàng #OM-2410-9675 đang được giao hỏa tốc đến Phủ Nội
+                </h3>
+<p class="font-body-md text-body-md text-on-surface-variant mt-1.5 leading-relaxed">
+                  Kiện hàng <strong>Bánh Phục Linh Ngũ Sắc</strong> và <strong>Trà Sen Hồ Tịnh Tâm</strong> đã được đóng gói bọc lụa gấm, niêm sáp ong thành công lúc 09:30 và đang trên đường giao tới bạn.
+                </p>
+<!-- Quick actions row -->
+<div class="mt-space-md pt-space-sm flex items-center justify-between flex-wrap gap-space-sm">
+<div class="flex items-center gap-space-xs text-secondary font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-[16px]">verified</span>
+<span>Đã niêm phong chuẩn OCOP 5 Sao</span>
+</div>
+<div class="flex items-center gap-space-sm">
+<button class="btn-read-toggle px-3 py-1.5 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm transition-colors">
+                      Đã đọc
+                    </button>
+<a class="px-space-md py-1.5 rounded-lg bg-primary text-on-primary hover:bg-primary-container font-label-md text-label-md font-semibold transition-colors flex items-center gap-1 shadow-sm" href="#">
+<span>Theo dõi hành trình</span>
+<span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+</a>
+</div>
+</div>
+</div>
+</div>
+</article>
+<!-- 2. UNREAD: Artisan CSKH -->
+<article class="notif-item relative bg-surface-container-low rounded-xl p-space-lg shadow-sm transition-all hover:shadow-md" data-category="artisans" data-status="unread">
+<div class="flex items-start gap-space-md">
+<div class="relative shrink-0">
+<div class="w-12 h-12 rounded-xl bg-secondary-fixed flex items-center justify-center text-on-secondary-fixed shadow-sm">
+<span class="material-symbols-outlined text-[24px]">support_agent</span>
+</div>
+<span class="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-tertiary ring-2 ring-surface-container-low shadow-sm" title="Thông báo chưa đọc"></span>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-1">
+<div class="flex items-center gap-space-xs flex-wrap">
+<span class="px-2 py-0.5 rounded text-[11px] font-label-sm font-semibold bg-secondary-container text-on-secondary-container uppercase">Hồi Đáp Nghệ Nhân</span>
+<span class="text-outline font-label-sm text-label-sm">Ticket #TCK-2410-0195</span>
+</div>
+<span class="font-label-sm text-label-sm text-secondary font-medium flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">schedule</span> 1 giờ trước
+                  </span>
+</div>
+<h3 class="font-headline-sm text-title text-primary font-bold leading-snug">
+                  Nghệ nhân Tôn Nữ Diệu Hạnh đã gửi chỉ dẫn bảo quản cho Ticket #TCK-2410-0195
+                </h3>
+<p class="font-body-md text-body-md text-on-surface-variant mt-1.5 leading-relaxed">
+                  Lời thỉnh cầu tư vấn cách bày trí khay bánh dâng lễ mừng thọ đã được giải đáp cặn kẽ kèm cẩm nang chuyên khảo về phép dùng trà sen cổ truyền.
+                </p>
+<div class="mt-space-md pt-space-sm flex items-center justify-between flex-wrap gap-space-sm">
+<div class="flex items-center gap-space-xs text-outline font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-[16px]">attachment</span>
+<span>Dinh_Kem_Cam_Nang_Le_Tuc.pdf (1.8 MB)</span>
+</div>
+<div class="flex items-center gap-space-sm">
+<button class="btn-read-toggle px-3 py-1.5 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm transition-colors">
+                      Đã đọc
+                    </button>
+<a class="px-space-md py-1.5 rounded-lg bg-primary text-on-primary hover:bg-primary-container font-label-md text-label-md font-semibold transition-colors flex items-center gap-1 shadow-sm" href="#">
+<span>Xem phản hồi nghệ nhân</span>
+<span class="material-symbols-outlined text-[16px]">chat</span>
+</a>
+</div>
+</div>
+</div>
+</div>
+</article>
+<!-- 3. UNREAD: Loyalty Points & Rewards -->
+<article class="notif-item relative bg-surface-container-low rounded-xl p-space-lg shadow-sm transition-all hover:shadow-md" data-category="points" data-status="unread">
+<div class="flex items-start gap-space-md">
+<div class="relative shrink-0">
+<div class="w-12 h-12 rounded-xl bg-secondary-fixed-dim flex items-center justify-center text-on-secondary-fixed shadow-sm">
+<span class="material-symbols-outlined text-[24px]">stars</span>
+</div>
+<span class="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-tertiary ring-2 ring-surface-container-low shadow-sm" title="Thông báo chưa đọc"></span>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-1">
+<div class="flex items-center gap-space-xs flex-wrap">
+<span class="px-2 py-0.5 rounded text-[11px] font-label-sm font-semibold bg-secondary text-on-secondary uppercase">Đặc Quyền Di Sản</span>
+<span class="text-outline font-label-sm text-label-sm">Thưởng Điểm Thẩm Định</span>
+</div>
+<span class="font-label-sm text-label-sm text-secondary font-medium flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">schedule</span> Hôm qua lúc 17:15
+                  </span>
+</div>
+<h3 class="font-headline-sm text-title text-primary font-bold leading-snug">
+                  +50 Điểm Di Sản đã được cộng vào Ví Tri Kỷ
+                </h3>
+<p class="font-body-md text-body-md text-on-surface-variant mt-1.5 leading-relaxed">
+                  Cảm tạ Quý khách đã hoàn thành bài thẩm định OCOP 4 Sao và chia sẻ thước phim mở hộp <strong>Bánh Phục Linh Ngũ Sắc</strong> chân thực cùng cộng đồng tri âm xứ Huế.
+                </p>
+<div class="mt-space-md pt-space-sm flex items-center justify-between flex-wrap gap-space-sm">
+<div class="flex items-center gap-space-xs text-secondary font-label-sm text-label-sm font-semibold">
+<span class="material-symbols-outlined text-[16px]">account_balance_wallet</span>
+<span>Số dư hiện tại: 96 Điểm Di Sản</span>
+</div>
+<div class="flex items-center gap-space-sm">
+<button class="btn-read-toggle px-3 py-1.5 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm transition-colors">
+                      Đã đọc
+                    </button>
+<a class="px-space-md py-1.5 rounded-lg bg-primary text-on-primary hover:bg-primary-container font-label-md text-label-md font-semibold transition-colors flex items-center gap-1 shadow-sm" href="#">
+<span>Kiểm tra ví điểm</span>
+<span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+</a>
+</div>
+</div>
+</div>
+</div>
+</article>
+<!-- 4. READ: News & Fresh Batch -->
+<article class="notif-item relative bg-surface-container-lowest rounded-xl p-space-lg shadow-sm transition-all hover:shadow-md" data-category="news" data-status="read">
+<div class="flex items-start gap-space-md">
+<div class="relative shrink-0">
+<div class="w-12 h-12 rounded-xl bg-surface-container-high flex items-center justify-center text-on-surface-variant shadow-sm">
+<span class="material-symbols-outlined text-[24px]">bakery_dining</span>
+</div>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-1">
+<div class="flex items-center gap-space-xs flex-wrap">
+<span class="px-2 py-0.5 rounded text-[11px] font-label-sm font-semibold bg-surface-container text-on-surface-variant uppercase">Mùa Vụ &amp; Lò Bánh</span>
+<span class="text-outline font-label-sm text-label-sm">Bản Giới Hạn</span>
+</div>
+<span class="font-label-sm text-label-sm text-outline font-medium flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">calendar_today</span> 23/10/2025
+                  </span>
+</div>
+<h3 class="font-headline-sm text-title text-on-surface font-semibold leading-snug">
+                  Khai lò mẻ Mè Xửng Dẻo Ngự Thiện mộc hoa bưởi sớm
+                </h3>
+<p class="font-body-md text-body-md text-on-surface-variant mt-1.5 leading-relaxed">
+                  Xưởng Ô Mạ tại 128 Lê Lợi vừa hoàn tất mẻ mạch nha Kim Long thơm nồng đón gió heo may Cố Đô. Thức quà giới hạn dành riêng cho hội viên Thượng Tiết đặt trước từ hôm nay.
+                </p>
+<div class="mt-space-md pt-space-sm flex items-center justify-between flex-wrap gap-space-sm">
+<div class="flex items-center gap-space-xs text-outline font-body-sm text-body-sm">
+<span class="material-symbols-outlined text-[16px]">inventory_2</span>
+<span>Số lượng xuất xưởng: 150 hộp</span>
+</div>
+<div class="flex items-center gap-space-sm">
+<a class="px-space-md py-1.5 rounded-lg bg-surface-container hover:bg-surface-container-high text-primary font-label-md text-label-md font-semibold transition-colors flex items-center gap-1" href="#">
+<span>Khám phá thức quà</span>
+<span class="material-symbols-outlined text-[16px]">north_east</span>
+</a>
+</div>
+</div>
+</div>
+</div>
+</article>
+<!-- 5. READ: B2B & Diplomatic Gifts -->
+<article class="notif-item relative bg-surface-container-lowest rounded-xl p-space-lg shadow-sm transition-all hover:shadow-md" data-category="orders" data-status="read">
+<div class="flex items-start gap-space-md">
+<div class="relative shrink-0">
+<div class="w-12 h-12 rounded-xl bg-surface-container-high flex items-center justify-center text-on-surface-variant shadow-sm">
+<span class="material-symbols-outlined text-[24px]">history_edu</span>
+</div>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-1">
+<div class="flex items-center gap-space-xs flex-wrap">
+<span class="px-2 py-0.5 rounded text-[11px] font-label-sm font-semibold bg-surface-container text-on-surface-variant uppercase">Hợp Đồng Doanh Nghiệp</span>
+<span class="text-outline font-label-sm text-label-sm">#QUOTE-2025-FPT08</span>
+</div>
+<span class="font-label-sm text-label-sm text-outline font-medium flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">calendar_today</span> 22/10/2025
+                  </span>
+</div>
+<h3 class="font-headline-sm text-title text-on-surface font-semibold leading-snug">
+                  Bản dự thảo Hợp đồng kinh tế #QUOTE-2025-FPT08 đã được cập nhật dấu mộc tròn
+                </h3>
+<p class="font-body-md text-body-md text-on-surface-variant mt-1.5 leading-relaxed">
+                  Phòng Pháp chế &amp; Quản trị Dự án Ô Mạ đã ký số số hóa hợp đồng cung ứng 200 Hộp Quà Sơn Mài Thượng Uyển Tết Nguyên Đán. Quý đối tác vui lòng kiểm tra và phê duyệt điều khoản.
+                </p>
+<div class="mt-space-md pt-space-sm flex items-center justify-between flex-wrap gap-space-sm">
+<div class="flex items-center gap-space-xs text-outline font-body-sm text-body-sm">
+<span class="material-symbols-outlined text-[16px]">verified_user</span>
+<span>Đã chứng thực chữ ký số VNPT-CA</span>
+</div>
+<div class="flex items-center gap-space-sm">
+<a class="px-space-md py-1.5 rounded-lg bg-surface-container hover:bg-surface-container-high text-primary font-label-md text-label-md font-semibold transition-colors flex items-center gap-1" href="#">
+<span>Xem hợp đồng B2B</span>
+<span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+</a>
+</div>
+</div>
+</div>
+</div>
+</article>
+</div>
+<!-- ================= PREFERENCES SECTION ================= -->
+<section class="bg-surface-container-lowest rounded-xl p-space-xl shadow-sm flex flex-col gap-space-lg" id="preferences-section">
+<!-- Preferences Header -->
+<div class="flex flex-col gap-space-xs">
+<div class="inline-flex items-center gap-space-xs self-start px-space-sm py-0.5 rounded-full bg-secondary-fixed/60 text-on-secondary-fixed text-label-sm font-label-sm font-semibold tracking-wider">
+<span class="material-symbols-outlined text-[14px]">tune</span>
+              QUẢN LÝ GIAO TIẾP &amp; QUYỀN RIÊNG TƯ
+            </div>
+<h2 class="font-headline-md text-headline-md text-primary font-semibold">
+              Thiết Lập Kênh Nhận Tin &amp; Tần Suất Giao Tiếp
+            </h2>
+<p class="font-body-md text-body-md text-on-surface-variant leading-relaxed">
+              Ô Mạ trân quý sự thanh tịnh của Quý Tri Kỷ. Chúng tôi cam kết không gửi thư rác, không quảng cáo ồn ào và luôn tôn trọng tùy chọn nhận tin phù hợp phong thái tao nhã của người Cố Đô.
+            </p>
+</div>
+<!-- Preferences Matrix Table -->
+<div class="overflow-x-auto rounded-lg bg-surface-container-low/50">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-high/60 text-primary font-headline-sm text-label-md uppercase tracking-wider">
+<th class="py-space-md px-space-lg font-semibold w-2/5">Danh Mục Thông Tin</th>
+<th class="py-space-md px-space-md font-semibold text-center w-1/5">
+<div class="flex items-center justify-center gap-1">
+<span class="material-symbols-outlined text-[18px]">mail</span>
+<span>Email</span>
+</div>
+</th>
+<th class="py-space-md px-space-md font-semibold text-center w-1/5">
+<div class="flex items-center justify-center gap-1">
+<span class="material-symbols-outlined text-[18px]">sms</span>
+<span>SMS / ZNS</span>
+</div>
+</th>
+<th class="py-space-md px-space-md font-semibold text-center w-1/5">
+<div class="flex items-center justify-center gap-1">
+<span class="material-symbols-outlined text-[18px]">laptop_mac</span>
+<span>Thông Báo Web</span>
+</div>
+</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-surface-container-high/40 text-on-surface font-body-md text-body-md">
+<!-- Row 1: Orders -->
+<tr class="hover:bg-surface-container-low transition-colors">
+<td class="py-space-md px-space-lg">
+<span class="font-semibold text-primary block">Cập nhật đơn hàng &amp; Trạng thái giao vận</span>
+<span class="text-outline text-body-sm block mt-0.5">Mã vận đơn, biên bản đóng gói lụa gấm, trạng thái shipper</span>
+</td>
+<td class="py-space-md px-space-md text-center">
+<label class="relative inline-flex items-center justify-center cursor-pointer">
+<input checked="" class="sr-only peer" disabled="" type="checkbox"/>
+<div class="w-11 h-6 bg-primary-container peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-surface-container-lowest after:rounded-full after:h-5 after:w-5 after:transition-all opacity-80 cursor-not-allowed"></div>
+</label>
+</td>
+<td class="py-space-md px-space-md text-center">
+<label class="relative inline-flex items-center justify-center cursor-pointer">
+<input checked="" class="sr-only peer" disabled="" type="checkbox"/>
+<div class="w-11 h-6 bg-primary-container peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-surface-container-lowest after:rounded-full after:h-5 after:w-5 after:transition-all opacity-80 cursor-not-allowed"></div>
+</label>
+</td>
+<td class="py-space-md px-space-md text-center">
+<label class="relative inline-flex items-center justify-center cursor-pointer">
+<input checked="" class="sr-only peer" disabled="" type="checkbox"/>
+<div class="w-11 h-6 bg-primary-container peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-surface-container-lowest after:rounded-full after:h-5 after:w-5 after:transition-all opacity-80 cursor-not-allowed"></div>
+</label>
+</td>
+</tr>
+<!-- Row 2: Artisans -->
+<tr class="hover:bg-surface-container-low transition-colors">
+<td class="py-space-md px-space-lg">
+<span class="font-semibold text-primary block">Phản hồi Ticket &amp; Tư vấn từ Nghệ nhân</span>
+<span class="text-outline text-body-sm block mt-0.5">Chỉ dẫn bảo quản, quy chuẩn dâng lễ, trả lời thắc mắc riêng</span>
+</td>
+<td class="py-space-md px-space-md text-center">
+<label class="relative inline-flex items-center justify-center cursor-pointer">
+<input checked="" class="sr-only peer toggle-input" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:bg-primary peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-surface-container-lowest after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+</label>
+</td>
+<td class="py-space-md px-space-md text-center">
+<label class="relative inline-flex items-center justify-center cursor-pointer">
+<input class="sr-only peer toggle-input" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:bg-primary peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-surface-container-lowest after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+</label>
+</td>
+<td class="py-space-md px-space-md text-center">
+<label class="relative inline-flex items-center justify-center cursor-pointer">
+<input checked="" class="sr-only peer toggle-input" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:bg-primary peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-surface-container-lowest after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+</label>
+</td>
+</tr>
+<!-- Row 3: Points & Tier -->
+<tr class="hover:bg-surface-container-low transition-colors">
+<td class="py-space-md px-space-lg">
+<span class="font-semibold text-primary block">Biến động Ví Điểm Di Sản &amp; Thăng Hạng Tri Kỷ</span>
+<span class="text-outline text-body-sm block mt-0.5">Tích điểm khi mua sắm, nhận mã ưu đãi sinh nhật hoàng cung</span>
+</td>
+<td class="py-space-md px-space-md text-center">
+<label class="relative inline-flex items-center justify-center cursor-pointer">
+<input class="sr-only peer toggle-input" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:bg-primary peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-surface-container-lowest after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+</label>
+</td>
+<td class="py-space-md px-space-md text-center">
+<label class="relative inline-flex items-center justify-center cursor-pointer">
+<input checked="" class="sr-only peer toggle-input" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:bg-primary peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-surface-container-lowest after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+</label>
+</td>
+<td class="py-space-md px-space-md text-center">
+<label class="relative inline-flex items-center justify-center cursor-pointer">
+<input checked="" class="sr-only peer toggle-input" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:bg-primary peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-surface-container-lowest after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+</label>
+</td>
+</tr>
+<!-- Row 4: Cultural newsletter -->
+<tr class="hover:bg-surface-container-low transition-colors">
+<td class="py-space-md px-space-lg">
+<span class="font-semibold text-primary block">Bản tin Văn hóa Ẩm thực Cố Đô &amp; Đặc San E-book</span>
+<span class="text-outline text-body-sm block mt-0.5">Phát hành định kỳ ngày Sóc (mùng 1) và ngày Vọng (ngày rằm)</span>
+</td>
+<td class="py-space-md px-space-md text-center">
+<label class="relative inline-flex items-center justify-center cursor-pointer">
+<input checked="" class="sr-only peer toggle-input" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:bg-primary peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-surface-container-lowest after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+</label>
+</td>
+<td class="py-space-md px-space-md text-center">
+<label class="relative inline-flex items-center justify-center cursor-pointer">
+<input class="sr-only peer toggle-input" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:bg-primary peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-surface-container-lowest after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+</label>
+</td>
+<td class="py-space-md px-space-md text-center">
+<label class="relative inline-flex items-center justify-center cursor-pointer">
+<input class="sr-only peer toggle-input" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:bg-primary peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-surface-container-lowest after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+</label>
+</td>
+</tr>
+<!-- Row 5: Tea season and limit -->
+<tr class="hover:bg-surface-container-low transition-colors">
+<td class="py-space-md px-space-lg">
+<span class="font-semibold text-primary block">Thông báo mùa trà mới &amp; Mẻ bánh giới hạn</span>
+<span class="text-outline text-body-sm block mt-0.5">Trà sen đầu vụ Tịnh Tâm, mẻ mè xửng dẻo mật mía tiến vua</span>
+</td>
+<td class="py-space-md px-space-md text-center">
+<label class="relative inline-flex items-center justify-center cursor-pointer">
+<input class="sr-only peer toggle-input" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:bg-primary peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-surface-container-lowest after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+</label>
+</td>
+<td class="py-space-md px-space-md text-center">
+<label class="relative inline-flex items-center justify-center cursor-pointer">
+<input class="sr-only peer toggle-input" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:bg-primary peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-surface-container-lowest after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+</label>
+</td>
+<td class="py-space-md px-space-md text-center">
+<label class="relative inline-flex items-center justify-center cursor-pointer">
+<input checked="" class="sr-only peer toggle-input" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:bg-primary peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-surface-container-lowest after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+</label>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Quiet Hours Protocol Feature Card -->
+<div class="bg-surface-container-low rounded-xl p-space-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-space-md">
+<div class="flex items-start gap-space-sm">
+<div class="w-10 h-10 rounded-lg bg-surface-container-high text-primary flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[22px]">bedtime</span>
+</div>
+<div class="flex flex-col">
+<span class="font-headline-sm text-title text-primary font-semibold">Chế độ Yên Tịnh Cung Đình (Quiet Hours)</span>
+<p class="font-body-md text-body-md text-on-surface-variant mt-0.5">
+                  Không gửi tin nhắn SMS/Zalo trong khung giờ từ <strong>21:30 đêm đến 07:30 sáng hôm sau</strong> nhằm gìn giữ sự an tĩnh cho Quý Tri Kỷ.
+                </p>
+</div>
+</div>
+<label class="flex items-center gap-space-xs cursor-pointer select-none shrink-0">
+<input checked="" class="w-5 h-5 rounded accent-primary text-primary focus:ring-0" type="checkbox"/>
+<span class="font-label-lg text-label-lg text-primary font-medium">Bật bảo vệ</span>
+</label>
+</div>
+<!-- Bottom Action Buttons & Feedback Alert -->
+<div class="flex flex-col sm:flex-row items-center justify-between gap-space-md pt-space-sm">
+<div class="flex items-center gap-space-xs text-on-surface-variant font-body-sm text-body-sm">
+<span class="material-symbols-outlined text-secondary text-[18px]">verified</span>
+<span>Cấu hình được mã hóa và lưu trữ độc bản trên máy chủ Ô Mạ</span>
+</div>
+<div class="flex items-center gap-space-sm w-full sm:w-auto">
+<button class="px-space-md py-2.5 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface-variant font-label-md text-label-md transition-colors w-full sm:w-auto" id="btn-reset-pref">
+                Khôi phục mặc định
+              </button>
+<button class="px-space-xl py-2.5 rounded-lg bg-primary-container hover:bg-primary text-on-primary font-label-md text-label-md font-semibold transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-space-xs w-full sm:w-auto" id="btn-save-pref">
+<span class="material-symbols-outlined text-[18px]">save</span>
+<span>Lưu Cấu Hình Nhận Tin</span>
+</button>
+</div>
+</div>
+<!-- Toast Notification Indicator (Hidden by default) -->
+<div class="hidden fixed bottom-8 right-8 z-50 bg-primary text-on-primary rounded-xl p-space-md shadow-xl flex items-center gap-space-sm animate-bounce" id="save-toast">
+<span class="material-symbols-outlined text-secondary-fixed text-[24px]">task_alt</span>
+<div class="flex flex-col">
+<span class="font-label-lg text-label-lg font-bold">Đã lưu tùy chọn giao tiếp!</span>
+<span class="font-body-sm text-body-sm text-surface-container-high">Hệ thống đã đồng bộ tùy chọn của Quý Tri Kỷ trên toàn quốc.</span>
+</div>
+</div>
+</section>
+</section>
+</div>
+</div>
+<!-- Interactive JavaScript -->
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // 1. Mark All As Read
+      const markAllBtn = document.getElementById('btn-mark-all-read');
+      const notifItems = document.querySelectorAll('.notif-item');
+      
+      markAllBtn.addEventListener('click', () => {
+        notifItems.forEach(item => {
+          item.setAttribute('data-status', 'read');
+          item.classList.remove('bg-surface-container-low');
+          item.classList.add('bg-surface-container-lowest');
+          
+          const badge = item.querySelector('.bg-tertiary.rounded-full');
+          if (badge) badge.remove();
+          
+          const readBtn = item.querySelector('.btn-read-toggle');
+          if (readBtn) readBtn.remove();
+        });
+        
+        // Update tabs unread count visual
+        const allTabCounter = document.querySelector('#notification-tabs button[data-filter="all"] span:last-child');
+        if (allTabCounter) allTabCounter.textContent = '12';
+        
+        markAllBtn.classList.add('opacity-50', 'pointer-events-none');
+        markAllBtn.innerHTML = '<span class="material-symbols-outlined text-[18px]">done</span><span>Tất cả đã đọc</span>';
+      });
+
+      // 2. Individual Read Toggle
+      const individualReadBtns = document.querySelectorAll('.btn-read-toggle');
+      individualReadBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const card = e.target.closest('.notif-item');
+          if (card) {
+            card.setAttribute('data-status', 'read');
+            card.classList.remove('bg-surface-container-low');
+            card.classList.add('bg-surface-container-lowest');
+            
+            const badge = card.querySelector('.bg-tertiary.rounded-full');
+            if (badge) badge.remove();
+            
+            btn.remove();
+          }
+        });
+      });
+
+      // 3. Tab Filter Logic
+      const tabs = document.querySelectorAll('#notification-tabs .tab-btn');
+      tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+          // Reset styles
+          tabs.forEach(t => {
+            t.classList.remove('bg-primary-container', 'text-on-primary');
+            t.classList.add('bg-surface-container-lowest', 'text-on-surface-variant');
+          });
+          // Set active style
+          tab.classList.add('bg-primary-container', 'text-on-primary');
+          tab.classList.remove('bg-surface-container-lowest', 'text-on-surface-variant');
+
+          const filter = tab.getAttribute('data-filter');
+          notifItems.forEach(item => {
+            if (filter === 'all' || item.getAttribute('data-category') === filter) {
+              item.style.display = 'block';
+            } else {
+              item.style.display = 'none';
+            }
+          });
+        });
+      });
+
+      // 4. Save Notification Preferences with feedback toast
+      const saveBtn = document.getElementById('btn-save-pref');
+      const toast = document.getElementById('save-toast');
+
+      if (saveBtn && toast) {
+        saveBtn.addEventListener('click', () => {
+          saveBtn.classList.add('scale-95');
+          setTimeout(() => {
+            saveBtn.classList.remove('scale-95');
+            toast.classList.remove('hidden');
+            setTimeout(() => {
+              toast.classList.add('hidden');
+            }, 3500);
+          }, 200);
+        });
+      }
+    });
+  </script>
+</div></main><footer class="w-full bg-surface-container-low text-on-surface pt-space-xl pb-space-lg shadow-[0_-1px_8px_rgba(112,81,59,0.03)]"><div class="max-w-7xl mx-auto px-margin"><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-gutter mb-space-xl"><div class="flex flex-col gap-space-md"><div class="flex items-center gap-space-sm"><span class="font-headline-sm text-headline-sm text-primary font-semibold">Ô Mạ</span><span class="h-4 w-px bg-outline-variant"></span><span class="font-label-sm text-label-sm tracking-wider uppercase text-secondary">Cung Đình Huế</span></div><p class="font-body-md text-body-md text-on-surface-variant leading-relaxed">Gìn giữ phong vị ngự trà và mật nhụy chốn hoàng thành xứ Huế. Từng mẻ mè xửng dẻo quánh, từng búp trà ướp sen Tịnh Tâm là lời tri ân tấm lòng người xưa gửi gắm nhân gian đương đại.</p><div class="flex items-center gap-space-sm pt-space-xs"><span class="px-space-sm py-space-xs rounded-full bg-secondary-fixed text-on-secondary-fixed font-label-sm text-label-sm font-semibold">OCOP 5 Sao</span><span class="px-space-sm py-space-xs rounded-full bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm font-semibold">ISO 22000:2018</span></div></div><div class="flex flex-col gap-space-sm"><h3 class="font-headline-sm text-headline-sm text-primary font-medium mb-space-xs">Ngự Phẩm Cung Đình</h3><ul class="flex flex-col gap-space-xs font-body-md text-body-md text-on-surface-variant"><li class="hover:text-primary transition-colors cursor-pointer">Mè Xửng Dẻo &amp; Giòn Tiến Vua</li><li class="hover:text-primary transition-colors cursor-pointer">Trà Sen Hồ Tịnh Tâm Thượng Hạng</li><li class="hover:text-primary transition-colors cursor-pointer">Bánh Hạt Sen Bọc Đậu Ngự</li><li class="hover:text-primary transition-colors cursor-pointer">Mứt Gừng Kim Long Cung Điền</li><li class="hover:text-primary transition-colors cursor-pointer">Hộp Quà Sơn Mài Thượng Uyển B2B</li></ul></div><div class="flex flex-col gap-space-sm"><h3 class="font-headline-sm text-headline-sm text-primary font-medium mb-space-xs">Chăm Sóc Tri Kỷ</h3><ul class="flex flex-col gap-space-xs font-body-md text-body-md text-on-surface-variant"><li class="hover:text-primary transition-colors cursor-pointer">Chính Sách Đổi Trả Hoàng Gia</li><li class="hover:text-primary transition-colors cursor-pointer">Quy Chuẩn Đóng Gói Lụa Gấm</li><li class="hover:text-primary transition-colors cursor-pointer">Đặt Tiệc Trà &amp; Hội Nghị Ngoại Giao</li><li class="hover:text-primary transition-colors cursor-pointer">Hướng Dẫn Thưởng Trà &amp; Dùng Mứt</li><li class="hover:text-primary transition-colors cursor-pointer">Hệ Thống Phân Phối Toàn Quốc</li></ul></div><div class="flex flex-col gap-space-md"><h3 class="font-headline-sm text-headline-sm text-primary font-medium mb-space-xs">Không Gian Trải Nghiệm</h3><div class="flex flex-col gap-space-xs text-on-surface-variant font-body-md text-body-md"><div class="flex items-start gap-space-sm"><span class="material-symbols-outlined text-secondary text-[20px] shrink-0 mt-0.5">location_on</span><span>Xưởng Tinh Hoa: 128 Lê Lợi, Phường Phú Hội, Thành phố Huế</span></div><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-secondary text-[20px] shrink-0">call</span><span>Đường dây nóng: <strong>1900 68 Hue</strong></span></div><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-secondary text-[20px] shrink-0">mail</span><span>triky@omahue.vn</span></div><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-secondary text-[20px] shrink-0">verified</span><span>Giấy phép di sản làng nghề: 28/2022/TT-VHTT</span></div></div></div></div><div class="pt-space-lg flex flex-col sm:flex-row items-center justify-between gap-space-md text-on-surface-variant font-body-sm text-body-sm"><p>© 2024 Ô Mạ — Bánh Mứt Cung Đình Huế. Bản quyền được bảo hộ toàn cầu.</p><div class="flex items-center gap-space-md"><span class="hover:text-primary transition-colors cursor-pointer">Điều khoản tri kỷ</span><span>•</span><span class="hover:text-primary transition-colors cursor-pointer">Bảo mật thông tin</span><span>•</span><span class="hover:text-primary transition-colors cursor-pointer">Tiêu chuẩn OCOP</span></div></div></div></footer></body></html>
