@@ -12,6 +12,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
@@ -39,6 +40,7 @@ public class UserLifecycleController implements UserLifecycleApi {
     }
 
     @Override
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('USER_STATUS_MANAGE')")
     public ResponseEntity<ApiResponse<Void>> updateUserStatus(
             @PathVariable UUID principalId,
             @RequestBody UpdateUserStatusRequest request,

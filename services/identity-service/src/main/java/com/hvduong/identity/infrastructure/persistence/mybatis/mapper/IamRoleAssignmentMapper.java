@@ -10,6 +10,8 @@ import java.util.List;
 public interface IamRoleAssignmentMapper {
     void insert(IamRoleAssignmentRow row);
     
+    IamRoleAssignmentRow findById(@Param("assignmentId") UUID assignmentId);
+    
     List<IamRoleAssignmentRow> findActiveByPrincipal(@Param("principalId") UUID principalId, @Param("now") OffsetDateTime now);
     
     int revokeAssignment(

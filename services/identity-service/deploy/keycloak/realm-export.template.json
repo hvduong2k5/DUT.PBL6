@@ -135,6 +135,21 @@
             "access.token.claim": "true",
             "userinfo.token.claim": "false"
           }
+        },
+        {
+          "name": "user-permissions-mapper",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "permissions",
+            "claim.name": "permissions",
+            "jsonType.label": "String",
+            "multivalued": "true",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "false"
+          }
         }
       ]
     }
@@ -154,9 +169,13 @@
         }
       ],
       "realmRoles": [
-        "ADMIN",
-        "EMPLOYEE"
-      ]
+        "ADMIN"
+      ],
+      "attributes": {
+        "app_user_id": [
+          "a0000000-0000-0000-0000-000000000001"
+        ]
+      }
     }
   ],
   "roles": {
@@ -164,10 +183,6 @@
       {
         "name": "CUSTOMER",
         "description": "Customer role"
-      },
-      {
-        "name": "EMPLOYEE",
-        "description": "Employee role"
       },
       {
         "name": "ADMIN",

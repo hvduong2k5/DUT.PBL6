@@ -11,6 +11,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -28,6 +29,7 @@ public class AdminUserController implements AdminUserApi {
     private final UserLifecycleService userLifecycleService;
 
     @Override
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('USER_VIEW')")
     public ResponseEntity<ApiResponse<PageResponse<AdminUserItemResponse>>> listUsers(
             @RequestParam(value = "type", required = false) String type,
             @RequestParam(value = "status", required = false) String status,
@@ -42,6 +44,7 @@ public class AdminUserController implements AdminUserApi {
     }
 
     @Override
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('USER_VIEW')")
     public ResponseEntity<ApiResponse<AdminUserDetailResponse>> getUserDetail(
             @PathVariable UUID principalId,
             @AuthenticationPrincipal Jwt jwt,
@@ -53,6 +56,7 @@ public class AdminUserController implements AdminUserApi {
     }
 
     @Override
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('USER_PASSWORD_RESET')")
     public ResponseEntity<ApiResponse<Void>> resetUserPassword(
             @PathVariable UUID principalId,
             @Valid @RequestBody ResetPasswordRequest request,
@@ -65,6 +69,7 @@ public class AdminUserController implements AdminUserApi {
     }
 
     @Override
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('USER_SESSION_REVOKE')")
     public ResponseEntity<ApiResponse<Void>> revokeUserSessions(
             @PathVariable UUID principalId,
             @AuthenticationPrincipal Jwt jwt,
@@ -89,4 +94,3 @@ public class AdminUserController implements AdminUserApi {
         return null;
     }
 }
-

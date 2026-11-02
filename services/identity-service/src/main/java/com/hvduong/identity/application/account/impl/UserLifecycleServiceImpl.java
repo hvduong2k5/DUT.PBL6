@@ -95,14 +95,7 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
             }
         }
 
-        if (roleDtos.isEmpty() && "CUSTOMER".equalsIgnoreCase(principal.getPrincipalType())) {
-            roleDtos.add(UserRoleScopeResponse.builder()
-                    .roleCode("CUSTOMER")
-                    .roleName("Khách hàng")
-                    .scopeType("GLOBAL")
-                    .scopeId(null)
-                    .build());
-        }
+
 
         return Optional.of(UserProfileResponse.builder()
                 .principalId(principal.getPrincipalId())
@@ -229,7 +222,6 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
     @Override
     @Transactional(readOnly = true)
     public PageResponse<AdminUserItemResponse> listUsers(String type, String status, int page, int size, UUID actorId) {
-        requireAdmin(actorId);
 
         int validPage = Math.max(0, page);
         int validSize = size <= 0 ? 20 : Math.min(size, 100);
@@ -269,9 +261,7 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
                     }
                 }
             }
-            if (roleCodes.isEmpty() && "CUSTOMER".equalsIgnoreCase(row.getPrincipalType())) {
-                roleCodes.add("CUSTOMER");
-            }
+
 
             items.add(AdminUserItemResponse.builder()
                     .principalId(row.getPrincipalId())
@@ -298,7 +288,6 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
     @Override
     @Transactional(readOnly = true)
     public AdminUserDetailResponse getUserDetail(UUID principalId, UUID actorId) {
-        requireAdmin(actorId);
 
         IdentityPrincipalRow principal = principalMapper.findById(principalId);
         if (principal == null) {
@@ -357,14 +346,7 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
             }
         }
 
-        if (roleDtos.isEmpty() && "CUSTOMER".equalsIgnoreCase(principal.getPrincipalType())) {
-            roleDtos.add(UserRoleScopeResponse.builder()
-                    .roleCode("CUSTOMER")
-                    .roleName("Khách hàng")
-                    .scopeType("GLOBAL")
-                    .scopeId(null)
-                    .build());
-        }
+
 
         return AdminUserDetailResponse.builder()
                 .principalId(principal.getPrincipalId())
@@ -384,7 +366,6 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
     @Override
     @Transactional
     public void adminResetPassword(UUID principalId, String newPassword, boolean temporary, UUID actorId) {
-        requireAdmin(actorId);
 
         IdentityPrincipalRow principal = principalMapper.findById(principalId);
         if (principal == null) {
@@ -415,7 +396,6 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
     @Override
     @Transactional
     public void revokeUserSessions(UUID principalId, UUID actorId) {
-        requireAdmin(actorId);
 
         IdentityPrincipalRow principal = principalMapper.findById(principalId);
         if (principal == null) {

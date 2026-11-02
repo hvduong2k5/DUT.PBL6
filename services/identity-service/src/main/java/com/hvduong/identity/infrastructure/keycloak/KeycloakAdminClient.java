@@ -8,8 +8,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.Collections;
-import java.util.Optional;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -111,5 +113,21 @@ public class KeycloakAdminClient {
         } catch (Exception e) {
             return Optional.empty();
         }
+    }
+
+    public void updateUserPermissions(String keycloakUserId, List<String> permissions) {
+        try {
+            org.keycloak.admin.client.resource.UserResource userResource = keycloak.realm(realm).users().get(keycloakUserId);
+            UserRepresentation user = userResource.toRepresentation();
+            Map<String, List<String>> attributes = user.getAttributes();
+            if (attributes == null) {
+                attributes = new HashMap<>();
+            } else {
+                attributes = new HashMap<>(attributes);
+            }
+            attributes.put("permissions", permissions != null ? permissions : Collections.emptyList());
+            user.setAttributes(attributes);
+            userResource.update(user);
+        } catch (Exception ignored) {}
     }
 }
