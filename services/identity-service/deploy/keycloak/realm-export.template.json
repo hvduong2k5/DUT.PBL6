@@ -154,7 +154,7 @@
         }
       ],
       "realmRoles": [
-        "IDENTITY_ADMIN",
+        "ADMIN",
         "EMPLOYEE"
       ]
     }
@@ -170,7 +170,7 @@
         "description": "Employee role"
       },
       {
-        "name": "IDENTITY_ADMIN",
+        "name": "ADMIN",
         "description": "Administrator of Identity Service"
       }
     ]

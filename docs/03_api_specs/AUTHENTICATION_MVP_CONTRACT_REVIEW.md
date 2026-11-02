@@ -54,7 +54,7 @@ Hợp đồng Candidate `0.1.0-candidate` đề xuất từ UI (2026-09-24) đã
 | `AUTH-C09` | `POST /auth/recovery-requests/reset` | Keycloak Form Submit | **Thay thế** | Keycloak cập nhật credential mật khẩu mới và thu hồi mọi session cũ. |
 | `AUTH-C10` | N/A | `POST /api/v1/public/auth/tokens/refresh` | **Bổ sung** | Cho phép chủ động làm mới phiên làm việc phía server mà không làm lộ Refresh Token ra JS. |
 | `AUTH-C11` | N/A | `PUT /api/v1/users/me/password` | **Bổ sung** | Người dùng đã đăng nhập tự đổi mật khẩu cá nhân (xác thực mật khẩu hiện tại và đặt mật khẩu mới). |
-| `AUTH-C12` | N/A | `POST /api/v1/admin/users/{principalId}/password/reset` | **Bổ sung** | SUPER_ADMIN đặt lại mật khẩu mới cho người dùng trên Keycloak IDP. |
+| `AUTH-C12` | N/A | `POST /api/v1/admin/users/{principalId}/password/reset` | **Bổ sung** | ADMIN đặt lại mật khẩu mới cho người dùng trên Keycloak IDP. |
 
 ---
 

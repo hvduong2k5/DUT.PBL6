@@ -152,7 +152,7 @@ Keycloak và `identity-service` kết nối với nhau thông qua **3 giao thứ
 * **Identity Service là Single Source of Truth**:
   - Toàn bộ Role (`iam_roles`), Permission (`iam_permissions`) và quan hệ Role - Permission (`iam_role_permissions`) được quản lý toàn vẹn trong PostgreSQL của `identity-service`.
   - Cơ chế an toàn ngăn chặn xóa nhầm:
-    1. Chặn xóa các vai trò hệ thống được bảo vệ (`is_protected = true` như `SUPER_ADMIN`).
+    1. Chặn xóa các vai trò hệ thống được bảo vệ (`is_protected = true` như `ADMIN`).
     2. Chặn xóa vai trò nếu đang có nhân viên được gán active trong `iam_role_assignments`.
 * **Đồng bộ tự động sang Keycloak**:
   - Khi Admin tạo Role mới (`POST /api/v1/admin/roles`) hoặc cập nhật thông tin (`PATCH /api/v1/admin/roles/{id}`), `identity-service` tự động gọi `KeycloakAdminClient` để tạo/sửa Realm Role tương ứng trên Keycloak.

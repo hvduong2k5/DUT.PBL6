@@ -17,11 +17,11 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
-@Tag(name = "Admin User Management", description = "Quản lý danh sách, hồ sơ, mật khẩu và phiên đăng nhập của người dùng dành riêng cho SUPER_ADMIN")
+@Tag(name = "Admin User Management", description = "Quản lý danh sách, hồ sơ, mật khẩu và phiên đăng nhập của người dùng dành riêng cho ADMIN")
 @RequestMapping("/api/v1/admin/users")
 public interface AdminUserApi {
 
-    @Operation(summary = "Lấy danh sách người dùng phân trang", description = "Truy vấn danh sách người dùng kèm bộ lọc loại tài khoản (CUSTOMER, EMPLOYEE) và trạng thái (ACTIVE, SUSPENDED). Chỉ SUPER_ADMIN.")
+    @Operation(summary = "Lấy danh sách người dùng phân trang", description = "Truy vấn danh sách người dùng kèm bộ lọc loại tài khoản (CUSTOMER, EMPLOYEE) và trạng thái (ACTIVE, SUSPENDED). Chỉ ADMIN.")
     @SecurityRequirement(name = "bearerAuth")
     @GetMapping
     ResponseEntity<ApiResponse<PageResponse<AdminUserItemResponse>>> listUsers(
@@ -33,7 +33,7 @@ public interface AdminUserApi {
             @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorHeader
     );
 
-    @Operation(summary = "Xem chi tiết hồ sơ người dùng", description = "Truy vấn chi tiết người dùng kèm thông tin định danh, các vai trò và quyền hạn thực tế. Chỉ SUPER_ADMIN.")
+    @Operation(summary = "Xem chi tiết hồ sơ người dùng", description = "Truy vấn chi tiết người dùng kèm thông tin định danh, các vai trò và quyền hạn thực tế. Chỉ ADMIN.")
     @SecurityRequirement(name = "bearerAuth")
     @GetMapping("/{principalId}")
     ResponseEntity<ApiResponse<AdminUserDetailResponse>> getUserDetail(
@@ -42,7 +42,7 @@ public interface AdminUserApi {
             @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorHeader
     );
 
-    @Operation(summary = "Đặt lại mật khẩu cho người dùng", description = "SUPER_ADMIN đặt lại mật khẩu mới cho người dùng trên Keycloak IDP.")
+    @Operation(summary = "Đặt lại mật khẩu cho người dùng", description = "ADMIN đặt lại mật khẩu mới cho người dùng trên Keycloak IDP.")
     @SecurityRequirement(name = "bearerAuth")
     @PostMapping("/{principalId}/password/reset")
     ResponseEntity<ApiResponse<Void>> resetUserPassword(
@@ -52,7 +52,7 @@ public interface AdminUserApi {
             @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorHeader
     );
 
-    @Operation(summary = "Thu hồi toàn bộ phiên đăng nhập của người dùng", description = "SUPER_ADMIN buộc người dùng đăng xuất ngay lập tức khỏi hệ thống (force logout).")
+    @Operation(summary = "Thu hồi toàn bộ phiên đăng nhập của người dùng", description = "ADMIN buộc người dùng đăng xuất ngay lập tức khỏi hệ thống (force logout).")
     @SecurityRequirement(name = "bearerAuth")
     @PostMapping("/{principalId}/sessions/revoke")
     ResponseEntity<ApiResponse<Void>> revokeUserSessions(

@@ -150,7 +150,7 @@ class RoleManagementServiceTest {
         UUID roleId = UUID.randomUUID();
         IamRoleRow row = new IamRoleRow();
         row.setRoleId(roleId);
-        row.setRoleCode("SUPER_ADMIN");
+        row.setRoleCode("ADMIN");
         row.setIsProtected(true);
 
         when(roleMapper.findById(roleId)).thenReturn(row);

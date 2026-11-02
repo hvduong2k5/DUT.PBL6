@@ -118,9 +118,9 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
     @Override
     @Transactional
     public void suspendAccount(UUID principalId, String reason, UUID actorPrincipalId) {
-        // RULE 1: SUPER_ADMIN không được phép tự khóa tài khoản của chính mình
+        // RULE 1: ADMIN không được phép tự khóa tài khoản của chính mình
         if (actorPrincipalId != null && actorPrincipalId.equals(principalId)) {
-            throw new IllegalArgumentException("SUPER_ADMIN không được phép tự khóa tài khoản của chính mình.");
+            throw new IllegalArgumentException("ADMIN không được phép tự khóa tài khoản của chính mình.");
         }
 
         IdentityPrincipalRow principal = principalMapper.findById(principalId);
@@ -130,12 +130,12 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
 
         if (principal.getIdpSubject() != null && actorPrincipalId != null 
                 && principal.getIdpSubject().equals(actorPrincipalId.toString())) {
-            throw new IllegalArgumentException("SUPER_ADMIN không được phép tự khóa tài khoản của chính mình.");
+            throw new IllegalArgumentException("ADMIN không được phép tự khóa tài khoản của chính mình.");
         }
 
-        // RULE 2: Chặn khóa tài khoản có vai trò SUPER_ADMIN
-        if (principalMapper.hasRoleCode(principalId, "SUPER_ADMIN")) {
-            throw new IllegalStateException("Không thể khóa tài khoản có vai trò SUPER_ADMIN.");
+        // RULE 2: Chặn khóa tài khoản có vai trò ADMIN
+        if (isAdmin(principalId)) {
+            throw new IllegalStateException("Không thể khóa tài khoản có vai trò ADMIN.");
         }
 
         int updated = principalMapper.updateProvisioningStatus(
@@ -229,7 +229,7 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
     @Override
     @Transactional(readOnly = true)
     public PageResponse<AdminUserItemResponse> listUsers(String type, String status, int page, int size, UUID actorId) {
-        requireSuperAdmin(actorId);
+        requireAdmin(actorId);
 
         int validPage = Math.max(0, page);
         int validSize = size <= 0 ? 20 : Math.min(size, 100);
@@ -298,7 +298,7 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
     @Override
     @Transactional(readOnly = true)
     public AdminUserDetailResponse getUserDetail(UUID principalId, UUID actorId) {
-        requireSuperAdmin(actorId);
+        requireAdmin(actorId);
 
         IdentityPrincipalRow principal = principalMapper.findById(principalId);
         if (principal == null) {
@@ -384,7 +384,7 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
     @Override
     @Transactional
     public void adminResetPassword(UUID principalId, String newPassword, boolean temporary, UUID actorId) {
-        requireSuperAdmin(actorId);
+        requireAdmin(actorId);
 
         IdentityPrincipalRow principal = principalMapper.findById(principalId);
         if (principal == null) {
@@ -415,7 +415,7 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
     @Override
     @Transactional
     public void revokeUserSessions(UUID principalId, UUID actorId) {
-        requireSuperAdmin(actorId);
+        requireAdmin(actorId);
 
         IdentityPrincipalRow principal = principalMapper.findById(principalId);
         if (principal == null) {
@@ -512,10 +512,15 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
         return actorId;
     }
 
-    private void requireSuperAdmin(UUID actorId) {
+    private boolean isAdmin(UUID principalId) {
+        if (principalId == null) return false;
+        return principalMapper.hasRoleCode(principalId, "ADMIN");
+    }
+
+    private void requireAdmin(UUID actorId) {
         UUID effectiveActorId = resolvePrincipalId(actorId);
-        if (effectiveActorId == null || !principalMapper.hasRoleCode(effectiveActorId, "SUPER_ADMIN")) {
-            throw new SecurityException("Thao tác này chỉ dành riêng cho tài khoản có vai trò SUPER_ADMIN.");
+        if (effectiveActorId == null || !isAdmin(effectiveActorId)) {
+            throw new SecurityException("Thao tác này chỉ dành riêng cho tài khoản có vai trò ADMIN.");
         }
     }
 

@@ -40,7 +40,7 @@ paths:
       operationId: getAdminUsers
       summary: Lấy danh sách người dùng phân trang (Admin)
       description: Truy vấn danh sách người dùng kèm bộ lọc loại tài khoản (CUSTOMER,
-        EMPLOYEE) và trạng thái (ACTIVE, SUSPENDED). Chỉ SUPER_ADMIN.
+        EMPLOYEE) và trạng thái (ACTIVE, SUSPENDED). Chỉ ADMIN.
       tags:
       - Access management
       x-backlog:
@@ -146,7 +146,7 @@ paths:
       operationId: getAdminUsersPrincipalId
       summary: Xem chi tiết hồ sơ người dùng (Admin)
       description: Truy vấn chi tiết người dùng kèm thông tin định danh, các vai trò
-        và quyền hạn thực tế. Chỉ SUPER_ADMIN.
+        và quyền hạn thực tế. Chỉ ADMIN.
       tags:
       - Access management
       x-backlog:
@@ -230,7 +230,7 @@ paths:
     post:
       operationId: postAdminUsersPrincipalIdPasswordReset
       summary: Đặt lại mật khẩu cho người dùng (Admin)
-      description: SUPER_ADMIN đặt lại mật khẩu mới cho người dùng trên Keycloak IDP.
+      description: ADMIN đặt lại mật khẩu mới cho người dùng trên Keycloak IDP.
       tags:
       - Access management
       x-backlog:
@@ -294,7 +294,7 @@ paths:
     post:
       operationId: postAdminUsersPrincipalIdSessionsRevoke
       summary: Thu hồi toàn bộ phiên đăng nhập của người dùng (Admin)
-      description: SUPER_ADMIN buộc người dùng đăng xuất ngay lập tức khỏi hệ thống
+      description: ADMIN buộc người dùng đăng xuất ngay lập tức khỏi hệ thống
         (force logout).
       tags:
       - Access management

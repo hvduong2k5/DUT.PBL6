@@ -27,7 +27,7 @@ Mọi endpoint REST của `identity-service` phải tuân thủ nghiêm ngặt 4
 | :--- | :---: | :--- | :--- |
 | **User Profile** | `GET` | `/api/v1/users/me` | Lấy hồ sơ người dùng đang đăng nhập (Quy tắc 1, 2). |
 | | `PUT` | `/api/v1/users/me/password` | Người dùng tự đổi mật khẩu cá nhân (xác thực mật khẩu cũ) (Quy tắc 1, 2). |
-| **Admin Users (SUPER_ADMIN)** | `GET` | `/api/v1/admin/users` | Lấy danh sách người dùng phân trang & bộ lọc (`type`, `status`) (Quy tắc 1, 2). |
+| **Admin Users (ADMIN)** | `GET` | `/api/v1/admin/users` | Lấy danh sách người dùng phân trang & bộ lọc (`type`, `status`) (Quy tắc 1, 2). |
 | | `GET` | `/api/v1/admin/users/{principalId}` | Xem chi tiết hồ sơ người dùng kèm vai trò và quyền hạn (Quy tắc 1, 2). |
 | | `PATCH` | `/api/v1/admin/users/{principalId}/status` | Cập nhật trạng thái tài khoản (`ACTIVE`, `SUSPENDED`). Dùng `PATCH` thay vì động từ trong URI (Quy tắc 1, 3). |
 | | `POST` | `/api/v1/admin/users/{principalId}/password/reset` | Super Admin đặt lại mật khẩu cho người dùng (Quy tắc 1, 3). |
@@ -162,15 +162,15 @@ Endpoint `GET /api/v1/public/auth/login` hỗ trợ cả 2 nền tảng:
 
 ## 5. Quy Tắc An Toàn & Phân Quyền Quản Trị (IAM Guardrails)
 
-Hệ thống thiết lập vai trò duy nhất có toàn quyền quản trị tài khoản và phân quyền là **`SUPER_ADMIN`**, đồng thời kích hoạt 4 quy tắc an toàn cốt lõi:
+Hệ thống thiết lập vai trò duy nhất có toàn quyền quản trị tài khoản và phân quyền là **`ADMIN`**, đồng thời kích hoạt 4 quy tắc an toàn cốt lõi:
 
-1. **Rule 1 (Self-Protection):** Chặn `SUPER_ADMIN` tự khóa tài khoản của chính mình (`actorId == principalId` hoặc so khớp Keycloak subject).
-2. **Rule 2 (Super Admin Protection):** Chặn mọi thao tác khóa tài khoản đối với người dùng đang nắm giữ vai trò `SUPER_ADMIN`.
+1. **Rule 1 (Self-Protection):** Chặn `ADMIN` tự khóa tài khoản của chính mình (`actorId == principalId` hoặc so khớp Keycloak subject).
+2. **Rule 2 (Super Admin Protection):** Chặn mọi thao tác khóa tài khoản đối với người dùng đang nắm giữ vai trò `ADMIN`.
 3. **Rule 3 (Role & Permission Protection):**
    - Chặn xóa hoặc vô hiệu hóa (`isEnabled = false`) các vai trò hệ thống được bảo vệ (`is_protected = true`).
    - Chặn thêm, sửa, hoặc gỡ quyền hạn của vai trò được bảo vệ (`is_protected = true`).
    - Chặn xóa vai trò nếu đang có người dùng được gán còn hiệu lực (`activeAssignments > 0`).
 4. **Rule 4 (RBAC Super Admin Enforcement):**
-   - Chỉ người dùng có vai trò `SUPER_ADMIN` mới có thể gọi các API quản trị người dùng (`/api/v1/admin/users/**`). Vi phạm sẽ bị từ chối với mã lỗi `403 Forbidden` / `SecurityException`.
+   - Chỉ người dùng có vai trò `ADMIN` mới có thể gọi các API quản trị người dùng (`/api/v1/admin/users/**`). Vi phạm sẽ bị từ chối với mã lỗi `403 Forbidden` / `SecurityException`.
 
 
