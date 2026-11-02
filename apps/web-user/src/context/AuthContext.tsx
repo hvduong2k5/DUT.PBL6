@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import { API_BASE_URL, apiClient, unwrapApiData } from "@/lib/api";
 
 export interface UserRole {
@@ -74,6 +75,7 @@ function safeReturnUrl(returnUrl?: string): string {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const router = useRouter();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -101,11 +103,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  useEffect(() => { void checkSession(); }, [checkSession]);
+  useEffect(() => { void Promise.resolve().then(checkSession); }, [checkSession]);
 
   const login = useCallback((returnUrl?: string) => {
     const redirectUri = encodeURIComponent(safeReturnUrl(returnUrl));
-    window.location.assign(`${API_BASE_URL}/public/auth/login?redirect_uri=${redirectUri}`);
+    // OIDC PKCE must leave the Next.js application so the browser can follow the backend 302 chain.
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+    window.location.href = `${API_BASE_URL}/public/auth/login?redirect_uri=${redirectUri}`;
   }, []);
 
   const logout = useCallback(async () => {
@@ -114,9 +118,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsAuthenticated(false);
       setUser(null);
-      window.location.assign("/");
+      router.replace("/");
+      router.refresh();
     }
-  }, []);
+  }, [router]);
 
   const value = useMemo(() => ({ isAuthenticated, isLoading, user, login, logout, checkSession }), [checkSession, isAuthenticated, isLoading, login, logout, user]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

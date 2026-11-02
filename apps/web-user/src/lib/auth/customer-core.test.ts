@@ -12,9 +12,9 @@ describe("Customer API auth adapter", () => {
     expect(result).not.toHaveProperty("tokens");
   });
 
-  it("keeps an employee out of Customer features until backend returns a customer mapping", () => {
+  it("gives an employee Customer access and preserves an explicit mapping when present", () => {
     const withoutMapping = mapCustomerCoreSession({ principal_id: "PRINCIPAL-EMP-01", principal_type: "EMPLOYEE", full_name: "Nhân viên kho", roles: ["CUSTOMER", "WAREHOUSE_STAFF"], permissions: ["INVENTORY_VIEW"] });
-    expect(withoutMapping).toMatchObject({ authenticated: true, customer: null, customerAccess: false });
+    expect(withoutMapping).toMatchObject({ authenticated: true, customerAccess: true, customer: { id: "PRINCIPAL-EMP-01" } });
 
     const withMapping = mapCustomerCoreSession({ principal_id: "PRINCIPAL-EMP-01", principal_type: "EMPLOYEE", customer_id: "CUST-EMP-01", full_name: "Nhân viên kho", roles: ["CUSTOMER", "WAREHOUSE_STAFF"], permissions: ["INVENTORY_VIEW"] });
     expect(withMapping).toMatchObject({ authenticated: true, customerAccess: true, customer: { id: "CUST-EMP-01" } });
