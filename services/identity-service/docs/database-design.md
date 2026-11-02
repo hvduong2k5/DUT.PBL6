@@ -25,6 +25,8 @@ erDiagram
 
 The internal principal mapping. `principal_id` is the cross-service UUID; `(idp_issuer, idp_subject)` identifies the corresponding Keycloak subject. `provisioning_status` describes provisioning workflow only; it is **not** a mirror of Keycloak's enabled/disabled state.
 
+`principal_type` is a single discriminator (`CUSTOMER`, `EMPLOYEE`) enforcing the **Enterprise Persona Separation Model**. It establishes a hard security trust boundary: only `EMPLOYEE` principals may be assigned administrative roles in `iam_role_assignments`. Users who are employees maintain two separate accounts: a corporate `EMPLOYEE` account for backoffice operations and an independent `CUSTOMER` account for personal shopping, ensuring seamless offboarding without personal data disruption or privilege escalation.
+
 ### `registration_operations`
 
 Tracks idempotent registration. Stores only a request fingerprint and status/error code, not request JSON, password, token or PII. Build the fingerprint with HMAC-SHA-256 and an external secret.

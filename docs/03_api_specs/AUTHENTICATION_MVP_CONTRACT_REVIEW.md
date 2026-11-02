@@ -74,6 +74,7 @@ Hợp đồng Candidate `0.1.0-candidate` đề xuất từ UI (2026-09-24) đã
 | `AUTH-CR-10` | Correlation ID? | Gắn `requestId` trong mọi response payload và header `X-Request-Id`. |
 | `AUTH-CR-11` | Khóa tài khoản (Account Suspension)? | API `PUT /api/v1/admin/users/{principalId}/status` cập nhật `SUSPENDED` và bắn event `UserSuspended`. |
 | `AUTH-CR-12` | Token TTL? | Access Token: 15 phút (900s). Refresh Token / Session Cookie: 30 ngày. |
+| `AUTH-CR-13` | Phân lập Danh tính Doanh nghiệp (Customer vs Employee)? | Chuẩn hóa **Mô hình 2 Tài khoản Tách biệt (Enterprise Persona Separation)**: Nhân viên dùng email công vụ `@omama.vn` cho tài khoản `EMPLOYEE` (Backoffice); dùng email cá nhân cho tài khoản `CUSTOMER` (mua sắm). Khi thôi việc (Offboarding), vô hiệu hóa tài khoản `EMPLOYEE` độc lập hoàn toàn với tài khoản `CUSTOMER`, bảo vệ lịch sử mua sắm cá nhân và triệt tiêu rò rỉ token đặc quyền. |
 
 ---
 

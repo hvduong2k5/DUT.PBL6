@@ -38,6 +38,12 @@ Hệ thống triển khai theo mô hình **1 Web duy nhất** cho toàn bộ ng�
                                                        - Có ROLE_READ         --> Hiện Tab Phân quyền
 ```
 
+### 1.1. Mô hình Phân lập Danh tính Doanh nghiệp (Enterprise Persona Separation)
+Để đảm bảo an toàn thông tin theo nguyên tắc Đặc quyền tối thiểu (Least Privilege), hệ thống áp dụng chuẩn phân lập tài khoản:
+* **Tài khoản Công vụ (`EMPLOYEE`):** Sử dụng email công ty (`@omama.vn`) để đăng nhập và làm việc trên giao diện Quản trị `/admin/**`. Chỉ tài khoản này mới được gán quyền trong `iam_role_assignments`.
+* **Tài khoản Tiêu dùng (`CUSTOMER`):** Sử dụng email cá nhân để mua kẹo mè xửng trên giao diện Storefront.
+* **Quy tắc bảo mật:** Nhân viên công ty khi mua sắm cá nhân được khuyến nghị sử dụng tài khoản `CUSTOMER` riêng biệt. Điều này giúp ngăn ngừa rò rỉ token quyền hạn nội bộ trên thiết bị cá nhân hoặc mạng công cộng, đồng thời khi nhân viên thôi việc (Offboarding), việc khóa tài khoản công ty `EMPLOYEE` không làm ảnh hưởng đến tài khoản mua sắm cá nhân của họ.
+
 ---
 
 ## 2. Các API Xác Thực & Phiên Làm Việc (BFF Pattern)
