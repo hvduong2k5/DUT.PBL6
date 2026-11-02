@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { applyTrustedAuthorization } from "@/lib/auth/server-credential";
+import { applyTrustedSessionCookie } from "@/lib/auth/server-credential";
 import { applyAdminMockProfile, getAdminIdentityFailure } from "@/lib/auth/admin-access-server";
 import { parseAdminSession } from "@admin/lib/auth/types";
 import { RETURN_CASE_STATUSES, type ReturnCaseDetail, type ReturnCaseList, type ReturnCaseStatus, type ReturnCaseSummary, type ReturnCaseType, type ReturnEvidenceState, type ReturnedGoodsState, type ReturnRefundState } from "@admin/lib/returns/types";
@@ -23,7 +23,7 @@ const REFUND_STATES = new Set<ReturnRefundState>(["NOT_REQUIRED", "NOT_CREATED",
 
 function responseError(code: string, message: string, status: number, errors: Array<{ field: string; message: string }> = []) { return NextResponse.json({ code, message, errors, requestId: `BFF-ADMIN-RETURN-${code}` }, { status }); }
 function baseUrl() { return (process.env.ADMIN_API_UPSTREAM_URL ?? "http://127.0.0.1:4030/api/v1").replace(/\/$/u, ""); }
-function headers(request: NextRequest) { const result = new Headers({ Accept: "application/json" }); applyTrustedAuthorization(result, request); applyAdminMockProfile(result); return result; }
+function headers(request: NextRequest) { const result = new Headers({ Accept: "application/json" }); applyTrustedSessionCookie(result, request); applyAdminMockProfile(result); return result; }
 async function upstream(request: NextRequest, path: string) { const response = await fetch(`${baseUrl()}/${path}`, { headers: headers(request), cache: "no-store", redirect: "manual" }); const payload: unknown = (response.headers.get("content-type") ?? "").includes("application/json") ? await response.json() : {}; if (!response.ok) throw new UpstreamHttpError(response.status, record(payload) ? payload : {}); return record(payload) ? payload : {}; }
 async function session(request: NextRequest) { const failure = await getAdminIdentityFailure(request); if (failure) throw new UpstreamHttpError(failure.status, { code: failure.code, message: failure.message }); const response = await fetch(`${baseUrl()}/admin/session`, { headers: headers(request), cache: "no-store", redirect: "manual" }); if (!response.ok) throw new UpstreamHttpError(response.status, { code: "ADMIN_SESSION_REQUIRED", message: "Phiên nhân viên không hợp lệ." }); const parsed = parseAdminSession(await response.json()); if (!parsed) throw new UpstreamHttpError(502, { code: "ADMIN_SESSION_INVALID", message: "Projection quyền nhân viên không hợp lệ." }); return parsed; }
 function caseStatus(value: unknown): ReturnCaseStatus { const result = string(value) as ReturnCaseStatus; return STATUSES.has(result) ? result : "RETURN_REQUESTED"; }

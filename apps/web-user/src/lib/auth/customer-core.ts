@@ -59,15 +59,17 @@ function mapRoles(value: CustomerCoreUser["roles"], principalType: PrincipalType
 }
 
 export function mapCustomerCoreSession(user: CustomerCoreUser): AuthenticatedSession | undefined {
-  const customerId = clean(user.customer_id) ?? clean(user.customerId);
+  const explicitCustomerId = clean(user.customer_id) ?? clean(user.customerId);
   const explicitType = user.principal_type ?? user.principalType;
   const principalType: PrincipalType | undefined = explicitType === "CUSTOMER" || explicitType === "EMPLOYEE"
     ? explicitType
-    : customerId
+    : explicitCustomerId
       ? "CUSTOMER"
       : undefined;
-  const principalId = clean(user.principal_id) ?? clean(user.principalId) ?? customerId;
+  const principalId = clean(user.principal_id) ?? clean(user.principalId) ?? explicitCustomerId;
   if (!principalType || !principalId) return undefined;
+  // Product rule: every authenticated Employee also has the Customer experience.
+  const customerId = explicitCustomerId ?? principalId;
 
   const displayName = clean(user.full_name) ?? clean(user.displayName) ?? clean(user.email) ?? principalId;
   const roles = mapRoles(user.roles, principalType);

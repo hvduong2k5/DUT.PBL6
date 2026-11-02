@@ -1,6 +1,6 @@
 import { normalizePublicError, type PublicErrorBody } from "@/lib/api-contract";
 import { authorizeCustomerCapability, customerAccessFailure } from "@/lib/auth/customer-access-server";
-import { applyTrustedAuthorization, getTrustedAccessToken } from "@/lib/auth/server-credential";
+import { applyTrustedSessionCookie, getTrustedSessionCookie } from "@/lib/auth/server-credential";
 import { isPaymentInstructions, isPaymentStatus } from "@/lib/payment/mvp";
 import { parsePaymentRoute } from "@/lib/payment/validation";
 import { NextRequest, NextResponse } from "next/server";
@@ -12,7 +12,7 @@ function publicErrorResponse(status: number, code: string, message: string, requ
 
 function upstreamHeaders(request: NextRequest, scenario?: string) {
   const headers = new Headers({ Accept: "application/json" });
-  applyTrustedAuthorization(headers, request);
+  applyTrustedSessionCookie(headers, request);
   if (process.env.NODE_ENV !== "production" && scenario) headers.set("X-Mock-Scenario", scenario);
   return headers;
 }
@@ -63,7 +63,7 @@ export async function handlePaymentRequest(request: NextRequest, path: string[])
     return publicErrorResponse(400, "INVALID_REQUEST", "Mock scenario không khả dụng trong production.", "BFF-PAYMENT-SCENARIO");
   }
 
-  const accessToken = getTrustedAccessToken(request);
+  const accessToken = getTrustedSessionCookie(request);
   try {
     await authorizeCustomerCapability(accessToken, "ORDER_HISTORY_VIEW");
   } catch (cause) {

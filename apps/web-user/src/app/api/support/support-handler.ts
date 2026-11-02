@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchCustomerCapabilities } from "@/lib/auth/capability-server";
 import { authorizeCustomerCapability, customerAccessFailure } from "@/lib/auth/customer-access-server";
-import { applyTrustedAuthorization, getTrustedAccessToken } from "@/lib/auth/server-credential";
+import { applyTrustedSessionCookie, getTrustedSessionCookie } from "@/lib/auth/server-credential";
 import type { CreateSupportTicketResult, SupportContext, SupportMessage, SupportPriority, SupportPublicAttachment, SupportSubjectCode, SupportTicketDetail, SupportTicketStatus } from "@/lib/support/types";
 import { parseSupportRoute, validateCreateSupportTicket, validateSupportMessage } from "@/lib/support/validation";
 
@@ -35,7 +35,7 @@ async function readJson(request: NextRequest): Promise<unknown> { try { return a
 async function upstream(path: string, method: string, request: NextRequest, scenario?: string, body?: object, idempotencyKey?: string) {
   const base = (process.env.CUSTOMER_EXTENSIONS_UPSTREAM_URL ?? "http://127.0.0.1:4020/api/v1").replace(/\/$/u, "");
   const headers = new Headers({ Accept: "application/json" });
-  applyTrustedAuthorization(headers, request);
+  applyTrustedSessionCookie(headers, request);
   if (body) headers.set("Content-Type", "application/json");
   if (idempotencyKey) headers.set("Idempotency-Key", idempotencyKey);
   if (process.env.NODE_ENV !== "production" && scenario) headers.set("X-Mock-Scenario", scenario);
@@ -96,7 +96,7 @@ export async function handleSupportRequest(request: NextRequest, path: string[])
   const scenario = request.nextUrl.searchParams.get("mockScenario") ?? undefined;
   if (route.kind === "invalid") return errorResponse("NOT_FOUND", "Support route không tồn tại.", 404);
   if (request.method === "POST" && (route.kind === "tickets" || route.kind === "messages")) {
-    const accessToken = getTrustedAccessToken(request);
+    const accessToken = getTrustedSessionCookie(request);
     try {
       const projection = accessToken
         ? (await authorizeCustomerCapability(accessToken, "SUPPORT_CREATE")).projection

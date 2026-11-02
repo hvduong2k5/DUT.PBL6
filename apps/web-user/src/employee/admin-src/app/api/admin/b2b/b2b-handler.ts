@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { applyTrustedAuthorization } from "@/lib/auth/server-credential";
+import { applyTrustedSessionCookie } from "@/lib/auth/server-credential";
 import { applyAdminMockProfile, getAdminIdentityFailure } from "@/lib/auth/admin-access-server";
 import { parseAdminSession, type AdminPermission, type AdminSession } from "@admin/lib/auth/types";
 import type { AdminB2BAction, AdminB2BActionResult, AdminB2BFileHistory, AdminB2BFileRecord, AdminB2BFileScanStatus, AdminB2BList, AdminB2BQuoteVersion, AdminB2BQuoteVersionHistory, AdminB2BQuoteVersionStatus, AdminB2BRequestDetail, AdminB2BRequestSummary, AdminB2BSlaState, AdminB2BStatus } from "@admin/lib/b2b/types";
@@ -21,7 +21,7 @@ function responseError(code: string, message: string, status: number, errors: Ar
 function baseUrl() { return (process.env.ADMIN_API_UPSTREAM_URL ?? "http://127.0.0.1:4030/api/v1").replace(/\/$/u, ""); }
 function headers(request: NextRequest, body = false, idempotencyKey?: string) {
   const result = new Headers({ Accept: "application/json" });
-  applyTrustedAuthorization(result, request); applyAdminMockProfile(result);
+  applyTrustedSessionCookie(result, request); applyAdminMockProfile(result);
   if (body) result.set("Content-Type", "application/json");
   if (idempotencyKey) result.set("Idempotency-Key", idempotencyKey);
   const scenario = request.nextUrl.searchParams.get("mockScenario");

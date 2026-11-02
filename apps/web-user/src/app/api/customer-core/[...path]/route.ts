@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { authorizeCustomerCapability, customerAccessFailure } from "@/lib/auth/customer-access-server";
-import { applyTrustedAuthorization, getTrustedAccessToken } from "@/lib/auth/server-credential";
+import { applyTrustedSessionCookie, getTrustedSessionCookie } from "@/lib/auth/server-credential";
 import type { CustomerCapability } from "@/lib/auth/capabilities";
 
 export const dynamic = "force-dynamic";
@@ -29,8 +29,8 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
   const upstreamBase = (process.env.CUSTOMER_CORE_UPSTREAM_URL ?? "http://127.0.0.1:4010/api/v1").replace(/\/$/u, "");
   const scenario = request.nextUrl.searchParams.get("mockScenario");
   const headers = new Headers({ Accept: "application/json" });
-  const accessToken = getTrustedAccessToken(request);
-  applyTrustedAuthorization(headers, request);
+  const accessToken = getTrustedSessionCookie(request);
+  applyTrustedSessionCookie(headers, request);
   if (request.method === "POST") headers.set("Content-Type", "application/json");
   if (process.env.NODE_ENV !== "production" && scenario && SCENARIO_PATTERN.test(scenario)) {
     headers.set("X-Mock-Scenario", scenario);

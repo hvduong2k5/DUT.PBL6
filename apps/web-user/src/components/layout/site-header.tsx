@@ -39,7 +39,7 @@ export function SiteHeader() {
         </nav>
         <Link className="track-order-link" href={authenticated && customerAccess ? "/account/orders" : MVP_FEATURE_GATES.guestOrder ? "/track-order" : "/login?returnUrl=%2Faccount%2Forders"}>{authenticated && customerAccess ? "Đơn hàng" : MVP_FEATURE_GATES.guestOrder ? "Tra cứu đơn" : "Đăng nhập xem đơn"}</Link>
         <Link className="cart-header-button" href="/cart" aria-label={itemCount === null ? "Mở giỏ hàng" : `Mở giỏ hàng, ${itemCount} sản phẩm`}>♧<span>Giỏ hàng</span>{itemCount !== null ? <b>{itemCount > 99 ? "99+" : itemCount}</b> : null}</Link>
-        {authenticated ? <details className="account-menu">
+        {authenticated ? <details className="account-dropdown">
           <summary className="account-button authenticated" aria-label={`Tài khoản của ${displayName}`} title={displayName}>{initial}</summary>
           <div className="account-menu-panel">
             <strong>{displayName}</strong>

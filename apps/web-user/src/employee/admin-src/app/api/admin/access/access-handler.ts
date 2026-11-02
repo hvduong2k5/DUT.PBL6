@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { applyTrustedAuthorization } from "@/lib/auth/server-credential";
+import { applyTrustedSessionCookie } from "@/lib/auth/server-credential";
 import { applyAdminMockProfile, getAdminIdentityFailure } from "@/lib/auth/admin-access-server";
 import { ADMIN_PERMISSIONS, parseAdminSession, type AdminPermission, type AdminSession } from "@admin/lib/auth/types";
 import type { AdminPermissionDetail, AdminPermissionKind, AdminPermissionList, AdminPermissionStatus, AdminPermissionSummary, AdminRoleDetail, AdminRoleKind, AdminRoleList, AdminRoleStatus, AdminRoleSummary, EffectivePermission, EmployeeAccessDetail, EmployeeAccessList, EmployeeAccessState, EmployeeAccessSummary, EmployeeAccountStatus, EmployeeRoleAssignment, EmployeeRoleSummary, RoleAssignmentStatus } from "@admin/lib/access/types";
@@ -25,7 +25,7 @@ function responseError(code: string, message: string, status: number, errors: Ar
 function baseUrl() { return (process.env.ADMIN_API_UPSTREAM_URL ?? "http://127.0.0.1:4030/api/v1").replace(/\/$/u, ""); }
 function headers(request: NextRequest) {
   const result = new Headers({ Accept: "application/json" });
-  applyTrustedAuthorization(result, request); applyAdminMockProfile(result);
+  applyTrustedSessionCookie(result, request); applyAdminMockProfile(result);
   return result;
 }
 async function upstream(request: NextRequest, path: string) {

@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getTrustedAccessToken } from "@/lib/auth/server-credential";
+import { getTrustedSessionCookie } from "@/lib/auth/server-credential";
 import { applyAdminMockProfile, getAdminIdentityFailure } from "@/lib/auth/admin-access-server";
 import { parseAdminSession } from "@admin/lib/auth/types";
 
 export const dynamic = "force-dynamic";
 
 export async function handleAdminSession(request: NextRequest) {
-  const accessToken = getTrustedAccessToken(request);
-  if (!accessToken) return NextResponse.json({ code: "AUTH_REQUIRED", message: "Vui lòng đăng nhập." }, { status: 401 });
+  const sessionCookie = getTrustedSessionCookie(request);
+  if (!sessionCookie) return NextResponse.json({ code: "AUTH_REQUIRED", message: "Vui lòng đăng nhập." }, { status: 401 });
   const identityFailure = await getAdminIdentityFailure(request);
   if (identityFailure) return NextResponse.json(identityFailure, { status: identityFailure.status });
   const adminBase = (process.env.ADMIN_API_UPSTREAM_URL ?? "http://127.0.0.1:4030/api/v1").replace(/\/$/u, "");
-  const adminHeaders = new Headers({ Accept: "application/json", Authorization: `Bearer ${accessToken}` });
+  const adminHeaders = new Headers({ Accept: "application/json", Cookie: `OMAMA_SESSION=${sessionCookie}` });
   applyAdminMockProfile(adminHeaders);
 
   try {

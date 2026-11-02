@@ -1,13 +1,13 @@
 import { CapabilityProjectionError, fetchCustomerCapabilities } from "@/lib/auth/capability-server";
 import { customerAccessFailure, requireCustomerSession } from "@/lib/auth/customer-access-server";
-import { getTrustedAccessToken } from "@/lib/auth/server-credential";
+import { getTrustedSessionCookie } from "@/lib/auth/server-credential";
 import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   try {
-    const accessToken = getTrustedAccessToken(request);
+    const accessToken = getTrustedSessionCookie(request);
     await requireCustomerSession(accessToken);
     const projection = await fetchCustomerCapabilities(accessToken);
     return NextResponse.json(projection);

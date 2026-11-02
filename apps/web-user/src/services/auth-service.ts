@@ -1,35 +1,55 @@
-import {
-  AcceptedResult,
-  AuthApiError,
-  AuthenticatedSession,
-  RegistrationConfirmation,
-  RecoveryVerification
-} from "@/lib/auth/types";
+import axios from "axios";
+import { v4 as uuidv4 } from "uuid";
+import { apiClient, unwrapApiData } from "@/lib/api";
+import { AcceptedResult, AuthApiError, RecoveryVerification } from "@/lib/auth/types";
 
-type RequestOptions = Omit<RequestInit, "body"> & {
-  body?: Record<string, unknown>;
-};
-
-function getDevelopmentScenario(): string | undefined {
-  if (process.env.NODE_ENV !== "development" || typeof window === "undefined") {
-    return undefined;
-  }
-
-  const scenario = new URLSearchParams(window.location.search).get("mockScenario") ?? undefined;
-  return scenario && /^[a-z0-9-]+$/u.test(scenario) ? scenario : undefined;
+export interface CustomerRegistrationInput {
+  firstName: string;
+  lastName: string;
+  email: string;
+  rawPassword: string;
 }
 
-async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+function toAuthApiError(error: unknown): AuthApiError {
+  if (axios.isAxiosError(error)) {
+    const body = error.response?.data && typeof error.response.data === "object" ? error.response.data : {};
+    return new AuthApiError(error.response?.status ?? 503, body);
+  }
+  return new AuthApiError(503, { code: "IDENTITY_UNAVAILABLE", message: "Không thể kết nối dịch vụ xác thực." });
+}
+
+export async function registerCustomer(formData: CustomerRegistrationInput) {
+  const idempotencyKey = uuidv4();
+  try {
+    const response = await apiClient.post(
+      "/public/customer-registrations",
+      {
+        ...formData,
+        idempotencyKey,
+        requestFingerprint: formData.email.trim().toLocaleLowerCase()
+      },
+      { headers: { "Idempotency-Key": idempotencyKey } }
+    );
+    return unwrapApiData<unknown>(response.data) ?? response.data;
+  } catch (error) {
+    throw toAuthApiError(error);
+  }
+}
+
+export async function changePassword(currentPassword: string, newPassword: string) {
+  try {
+    const response = await apiClient.put("/users/me/password", { currentPassword, newPassword });
+    return unwrapApiData<unknown>(response.data) ?? response.data;
+  } catch (error) {
+    throw toAuthApiError(error);
+  }
+}
+
+type LegacyRequestOptions = Omit<RequestInit, "body"> & { body?: Record<string, unknown> };
+
+async function legacyRequest<T>(path: string, options: LegacyRequestOptions = {}): Promise<T> {
   const headers = new Headers(options.headers);
-  const scenario = getDevelopmentScenario();
-
-  if (options.body) {
-    headers.set("Content-Type", "application/json");
-  }
-  if (scenario) {
-    headers.set("X-Mock-Scenario", scenario);
-  }
-
+  if (options.body) headers.set("Content-Type", "application/json");
   const response = await fetch(`/api/auth${path}`, {
     ...options,
     headers,
@@ -37,64 +57,21 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     credentials: "include",
     cache: "no-store"
   });
-
-  if (response.status === 204) {
-    if (!response.ok) {
-      throw new AuthApiError(response.status, { code: "UNKNOWN_ERROR", message: "Yêu cầu thất bại." });
-    }
-    return undefined as T;
-  }
-
-  const contentType = response.headers.get("content-type") ?? "";
-  const payload = contentType.includes("application/json") ? await response.json() : {};
-
-  if (!response.ok) {
-    throw new AuthApiError(response.status, payload);
-  }
-
+  if (response.status === 204) return undefined as T;
+  const payload = (response.headers.get("content-type") ?? "").includes("application/json") ? await response.json() : {};
+  if (!response.ok) throw new AuthApiError(response.status, payload);
   return payload as T;
 }
 
+// Existing recovery screens remain available until Identity publishes their replacement contract.
 export const authService = {
-  login(input: { phoneNumber: string; password: string; rememberMe: boolean }) {
-    return request<AuthenticatedSession>("/login", { method: "POST", body: input });
-  },
-  me() {
-    return request<AuthenticatedSession>("/me");
-  },
-  logout() {
-    return request<void>("/logout", { method: "POST" });
-  },
-  register(input: { fullName: string; phoneNumber: string; email?: string; password: string }) {
-    return request<AuthenticatedSession>("/register", { method: "POST", body: input });
-  },
-  refresh() {
-    return request<{ refreshed: true }>("/refresh", { method: "POST" });
-  },
-  confirmRegistration(verificationToken: string) {
-    return request<RegistrationConfirmation>("/registration-verifications/confirm", {
-      method: "POST",
-      body: { verificationToken }
-    });
-  },
-  resendRegistration(verificationId: string) {
-    return request<AcceptedResult>(`/registration-verifications/${encodeURIComponent(verificationId)}/resend`, {
-      method: "POST"
-    });
-  },
   requestRecovery(email: string) {
-    return request<AcceptedResult>("/recovery-requests", { method: "POST", body: { email } });
+    return legacyRequest<AcceptedResult>("/recovery-requests", { method: "POST", body: { email } });
   },
   verifyRecovery(recoveryToken: string) {
-    return request<RecoveryVerification>("/recovery-requests/verify", {
-      method: "POST",
-      body: { recoveryToken }
-    });
+    return legacyRequest<RecoveryVerification>("/recovery-requests/verify", { method: "POST", body: { recoveryToken } });
   },
   resetPassword(resetProof: string, newPassword: string) {
-    return request<void>("/recovery-requests/reset", {
-      method: "POST",
-      body: { resetProof, newPassword }
-    });
+    return legacyRequest<void>("/recovery-requests/reset", { method: "POST", body: { resetProof, newPassword } });
   }
 };
