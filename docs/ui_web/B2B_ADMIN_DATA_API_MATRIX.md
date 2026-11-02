@@ -3,7 +3,7 @@
 **Cập nhật:** 2026-10-02  
 **Backlog:** `EPIC_18_B2B.md`  
 **Màn hình:** `ADM-034`  
-**Ứng dụng:** `apps/web-admin`  
+**Ứng dụng:** `apps/web-user`  
 **Mock Admin:** `mocks/mockoon/admin_extensions.json`, cổng `4030`
 
 **Nguồn phạm vi:** `US-B2B-02~03`, đặc biệt các scenario quản lý phiên bản/từ chối truy cập tệp, “Hai nhân viên cập nhật đồng thời”, “Sửa Quote đã phát hành” và `FR-B2B-04~12`. Các nội dung SLA escalation/message thread, preview vector, giới hạn file và retention ở Mục 8 của Epic vẫn là điểm cần chốt nên không được tự mở rộng từ UI specification.
@@ -20,7 +20,7 @@
 | Phân công, yêu cầu bổ sung, lập nháp, phát hành, thu hồi, từ chối, chuyển Order | `POST /api/admin/b2b/quote-requests/:requestId/actions` | cùng path không có `/api` | Đã tích hợp trong modal |
 | Chống ghi đè đồng thời | Mọi mutation gửi `expectedRevision`; BFF trả `409 B2B_CONCURRENCY_CONFLICT` khi revision cũ | scenario `admin-b2b-concurrency-conflict` trên action route | Đã tích hợp, buộc tải lại/đối chiếu |
 
-Màn `/b2b/quotes` có status tabs, tìm theo mã/doanh nghiệp/mã số thuế, lọc owner/SLA, bảng tóm tắt và menu `•••`. Hành động được lọc theo permission của phiên và trạng thái yêu cầu.
+Màn `/employee/b2b/quotes` có status tabs, tìm theo mã/doanh nghiệp/mã số thuế, lọc owner/SLA, bảng tóm tắt và menu `•••`. Hành động được lọc theo permission của phiên và trạng thái yêu cầu.
 
 ## Role, permission và scope
 
@@ -58,11 +58,11 @@ Màn `/b2b/quotes` có status tabs, tìm theo mã/doanh nghiệp/mã số thuế
 
 ```powershell
 npx @mockoon/cli start --disable-log-to-file --data .\mocks\mockoon\admin_extensions.json
-cd apps\web-admin
+cd apps\web-user
 npm run dev
 ```
 
-Mặc định Web Admin chạy ở `http://localhost:3001`. Chọn fixture bằng `ADMIN_MOCK_PROFILE=SALES_MANAGER`, `CUSTOMER_SERVICE` hoặc `VIEW_ONLY` trong `.env.local`.
+Mặc định Web Admin chạy ở `http://localhost:3000/employee`. Chọn fixture bằng `ADMIN_MOCK_PROFILE=SALES_MANAGER`, `CUSTOMER_SERVICE` hoặc `VIEW_ONLY` trong `.env.local`.
 
 ## Việc còn lại của ADM-034
 

@@ -2,7 +2,7 @@
 
 **Cập nhật:** 2026-10-02  
 **Nguồn phạm vi:** `docs/01_requirements/epics/EPIC_08_Order_Management.md`  
-**Màn hình:** `/orders` trong `apps/web-admin`  
+**Màn hình:** `employee/orders` trong `apps/web-user`  
 **Mock Admin:** `mocks/mockoon/admin_extensions.json`, cổng `4030`
 
 ## Phạm vi đã triển khai
@@ -59,9 +59,9 @@ Không có nút chuyển trạng thái, xác nhận, đóng gói, giao hàng, h�
 
 ```powershell
 npx @mockoon/cli start --disable-log-to-file --data .\mocks\mockoon\admin_extensions.json
-cd apps\web-admin
+cd apps\web-user
 $env:ADMIN_MOCK_ROLE="SALES_MANAGER"
 npm run dev
 ```
 
-Mở `http://localhost:3001/orders`. Đổi `ADMIN_MOCK_ROLE` thành `WAREHOUSE_STAFF` hoặc `CUSTOMER_SERVICE` để kiểm tra dữ liệu người nhận bị che; dùng `VIEW_ONLY` hoặc `SYSTEM_ADMIN` để kiểm tra `403`/menu không hiển thị.
+Mở `http://localhost:3000/employee/orders`. Đổi `ADMIN_MOCK_ROLE` thành `WAREHOUSE_STAFF` hoặc `CUSTOMER_SERVICE` để kiểm tra dữ liệu người nhận bị che; dùng `VIEW_ONLY` hoặc `SYSTEM_ADMIN` để kiểm tra `403`/menu không hiển thị.

@@ -2,7 +2,7 @@
 
 **Cập nhật:** 2026-10-03  
 **Nguồn phạm vi:** `docs/01_requirements/epics/EPIC_11_Shipping_Delivery.md`  
-**Màn hình:** `/shipping` (quản lý) và `/work/delivery` (công việc cá nhân) trong `apps/web-admin`  
+**Màn hình:** `employee/shipping` (quản lý) và `/employee/work/delivery` (công việc cá nhân) trong `apps/web-user`  
 **Mock Admin:** `mocks/mockoon/admin_extensions.json`, cổng `4030`
 
 ## Phạm vi đã triển khai
@@ -21,9 +21,9 @@
 ## Permission và dữ liệu nhạy cảm
 
 - `SHIPMENT_VIEW`: quyền nền để đọc Shipment; không tự cấp quyền vào một loại màn hình.
-- `SHIPMENT_MANAGEMENT_VIEW`: mở `/shipping`; fixture `SALES_MANAGER` có quyền này với scope `ALL`.
+- `SHIPMENT_MANAGEMENT_VIEW`: mở `/employee/shipping`; fixture `SALES_MANAGER` có quyền này với scope `ALL`.
 - Chỉ có một role nghiệp vụ `DELIVERY`; khả năng làm việc hoặc quản lý được quyết định bằng Permission và Scope.
-- `DELIVERY_WORKBENCH_VIEW`: mở `/work/delivery`; profile mock `DELIVERY_WORKBENCH` trả role `DELIVERY` với scope `ASSIGNED_ONLY`.
+- `DELIVERY_WORKBENCH_VIEW`: mở `/employee/work/delivery`; profile mock `DELIVERY_WORKBENCH` trả role `DELIVERY` với scope `ASSIGNED_ONLY`.
 - `SHIPMENT_SENSITIVE_VIEW`: xem số điện thoại và địa chỉ người nhận.
 - Delivery Workbench bắt buộc đồng thời có `DELIVERY_WORKBENCH_VIEW`, `SHIPMENT_SENSITIVE_VIEW`, scope Shipment và quan hệ phân công đúng employee.
 - Profile `PACKING_WORKBENCH` và `WAREHOUSE_STAFF` vẫn có quyền Shipment phục vụ luồng tạo/bàn giao trong tương lai, nhưng không vì vậy mà được vào trang quản lý hoặc Delivery Workbench.
@@ -59,11 +59,11 @@ Chưa triển khai tạo/hủy vận đơn, in nhãn, xác nhận bàn giao ho�
 
 ```powershell
 npx @mockoon/cli start --disable-log-to-file --data .\mocks\mockoon\admin_extensions.json
-cd apps\web-admin
+cd apps\web-user
 $env:ADMIN_MOCK_PROFILE="DELIVERY_WORKBENCH"
 npm run dev
 ```
 
-Mở `http://localhost:3001/work/delivery` với profile `DELIVERY_WORKBENCH`. Session trả role `DELIVERY`, nhưng không truy cập được `/shipping` vì thiếu `SHIPMENT_MANAGEMENT_VIEW`.
+Mở `http://localhost:3000/employee/work/delivery` với profile `DELIVERY_WORKBENCH`. Session trả role `DELIVERY`, nhưng không truy cập được `/employee/shipping` vì thiếu `SHIPMENT_MANAGEMENT_VIEW`.
 
-Dùng `SALES_MANAGER` để kiểm tra `/shipping` và xác nhận bị từ chối `/work/delivery`. `SYSTEM_ADMIN` không mặc nhiên truy cập cả hai vùng nghiệp vụ.
+Dùng `SALES_MANAGER` để kiểm tra `/employee/shipping` và xác nhận bị từ chối `/employee/work/delivery`. `SYSTEM_ADMIN` không mặc nhiên truy cập cả hai vùng nghiệp vụ.

@@ -7,7 +7,7 @@ import { MVP_FEATURE_GATES } from "@/lib/mvp-feature-gates";
 import { BrandMark } from "./brand-mark";
 
 export function SiteHeader() {
-  const { status, customer, principal, customerAccess, hasCapability } = useCustomerSession();
+  const { status, customer, principal, customerAccess, isEmployee, hasCapability, logout } = useCustomerSession();
   const { itemCount } = useCartSummary();
   const authenticated = status === "authenticated" && principal !== null;
   const displayName = customer?.displayName ?? principal?.displayName ?? "Tài khoản";
@@ -39,7 +39,16 @@ export function SiteHeader() {
         </nav>
         <Link className="track-order-link" href={authenticated && customerAccess ? "/account/orders" : MVP_FEATURE_GATES.guestOrder ? "/track-order" : "/login?returnUrl=%2Faccount%2Forders"}>{authenticated && customerAccess ? "Đơn hàng" : MVP_FEATURE_GATES.guestOrder ? "Tra cứu đơn" : "Đăng nhập xem đơn"}</Link>
         <Link className="cart-header-button" href="/cart" aria-label={itemCount === null ? "Mở giỏ hàng" : `Mở giỏ hàng, ${itemCount} sản phẩm`}>♧<span>Giỏ hàng</span>{itemCount !== null ? <b>{itemCount > 99 ? "99+" : itemCount}</b> : null}</Link>
-        <Link className={`account-button ${authenticated ? "authenticated" : ""}`} href={authenticated && customerAccess ? "/account/profile" : authenticated ? "/" : "/login?returnUrl=%2Faccount%2Fprofile"} aria-label={authenticated ? `Tài khoản của ${displayName}` : "Đăng nhập tài khoản Tri Kỷ"} title={authenticated ? displayName : "Đăng nhập"}>{status === "loading" ? "…" : initial}</Link>
+        {authenticated ? <details className="account-menu">
+          <summary className="account-button authenticated" aria-label={`Tài khoản của ${displayName}`} title={displayName}>{initial}</summary>
+          <div className="account-menu-panel">
+            <strong>{displayName}</strong>
+            {customerAccess ? <Link href="/account/profile">Hồ sơ</Link> : null}
+            {customerAccess ? <Link href="/account/orders">Đơn hàng</Link> : null}
+            {isEmployee ? <Link href="/employee">Giao diện nhân viên</Link> : null}
+            <button type="button" onClick={() => void logout()}>Đăng xuất</button>
+          </div>
+        </details> : <Link className="account-button" href="/login?returnUrl=%2Faccount%2Fprofile" aria-label="Đăng nhập tài khoản Tri Kỷ" title="Đăng nhập">{status === "loading" ? "…" : initial}</Link>}
       </div>
     </header>
   );

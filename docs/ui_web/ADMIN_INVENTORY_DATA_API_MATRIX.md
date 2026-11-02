@@ -2,8 +2,8 @@
 
 **Cập nhật:** 2026-10-03  
 **Backlog:** `EPIC_09_Inventory.md`  
-**Màn hình:** `/inventory`, `/work/warehouse`  
-**Ứng dụng:** `apps/web-admin`  
+**Màn hình:** `employee/inventory`, `/employee/work/warehouse`  
+**Ứng dụng:** `apps/web-user`  
 **Mock Admin:** `mocks/mockoon/admin_extensions.json`, cổng `4030`
 
 ## 1. Phạm vi đã triển khai
@@ -21,8 +21,8 @@
 
 Role không điều khiển giao diện trực tiếp. Hai profile local dưới đây cùng trả role `WAREHOUSE`:
 
-- `WAREHOUSE_MANAGEMENT`: có `INVENTORY_VIEW`, `INVENTORY_MANAGEMENT_VIEW`, `BATCH_VIEW`; thấy `/inventory`, không thấy Workbench.
-- `WAREHOUSE_WORKBENCH`: có `INVENTORY_VIEW`, `BATCH_VIEW`, `WAREHOUSE_WORKBENCH_VIEW` và ba Permission mutation; thấy `/work/warehouse`, không thấy trang quản lý.
+- `WAREHOUSE_MANAGEMENT`: có `INVENTORY_VIEW`, `INVENTORY_MANAGEMENT_VIEW`, `BATCH_VIEW`; thấy `/employee/inventory`, không thấy Workbench.
+- `WAREHOUSE_WORKBENCH`: có `INVENTORY_VIEW`, `BATCH_VIEW`, `WAREHOUSE_WORKBENCH_VIEW` và ba Permission mutation; thấy `/employee/work/warehouse`, không thấy trang quản lý.
 - `WAREHOUSE_STAFF` là profile local cũ, không dùng làm chuẩn cho mô hình phân quyền mới.
 
 Permission mutation độc lập:
@@ -62,8 +62,8 @@ $env:ADMIN_MOCK_PROFILE="WAREHOUSE_MANAGEMENT"
 $env:ADMIN_MOCK_PROFILE="WAREHOUSE_WORKBENCH"
 
 npx @mockoon/cli start --disable-log-to-file --data .\mocks\mockoon\admin_extensions.json
-cd apps\web-admin
+cd apps\web-user
 npm run dev
 ```
 
-Mở `http://localhost:3001/inventory` hoặc `http://localhost:3001/work/warehouse` theo profile.
+Mở `http://localhost:3000/employee/inventory` hoặc `http://localhost:3000/employee/work/warehouse` theo profile.

@@ -2,7 +2,7 @@
 
 **Cập nhật:** 2026-10-02  
 **Nguồn phạm vi:** `docs/01_requirements/epics/EPIC_07_Payment.md`  
-**Màn hình:** `/payments` trong `apps/web-admin`  
+**Màn hình:** `employee/payments` trong `apps/web-user`  
 **Mock Admin:** `mocks/mockoon/admin_extensions.json`, cổng `4030`
 
 ## Phạm vi đã triển khai
@@ -51,9 +51,9 @@ Chưa triển khai đánh dấu Paid, liên kết giao dịch, điều chỉnh, 
 
 ```powershell
 npx @mockoon/cli start --disable-log-to-file --data .\mocks\mockoon\admin_extensions.json
-cd apps\web-admin
+cd apps\web-user
 $env:ADMIN_MOCK_ROLE="ACCOUNTANT"
 npm run dev
 ```
 
-Mở `http://localhost:3001/payments`. Dùng `SALES_MANAGER` để kiểm tra tham chiếu bị che và `SYSTEM_ADMIN` để kiểm tra từ chối truy cập.
+Mở `http://localhost:3000/employee/payments`. Dùng `SALES_MANAGER` để kiểm tra tham chiếu bị che và `SYSTEM_ADMIN` để kiểm tra từ chối truy cập.

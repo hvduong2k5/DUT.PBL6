@@ -45,6 +45,13 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 .header-search button:hover { background: var(--surface-high); }
 .account-button { flex: 0 0 40px; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: white; background: var(--primary); text-decoration: none; font-size: 20px; }
 .account-button.authenticated { background: var(--brick); font-size: 15px; font-weight: 800; }
+.account-menu { position: relative; flex: 0 0 40px; }
+.account-menu > summary { list-style: none; cursor: pointer; }
+.account-menu > summary::-webkit-details-marker { display: none; }
+.account-menu-panel { position: absolute; top: calc(100% + 12px); right: 0; z-index: 50; display: grid; min-width: 210px; gap: 4px; padding: 10px; border: 1px solid var(--border); border-radius: 12px; background: white; box-shadow: var(--shadow); }
+.account-menu-panel strong { padding: 8px 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-menu-panel a, .account-menu-panel button { display: block; padding: 9px 10px; border: 0; border-radius: 8px; color: var(--ink); background: transparent; font: inherit; text-align: left; text-decoration: none; cursor: pointer; }
+.account-menu-panel a:hover, .account-menu-panel button:hover { background: var(--surface-low); }
 .session-state { min-height: 55vh; display: grid; place-content: center; justify-items: center; gap: 14px; padding: 48px 20px; text-align: center; }
 .session-state > span:not(.large-spinner) { width: 48px; height: 48px; display: grid; place-items: center; border-radius: 50%; background: #fff0ec; color: var(--brick); font-size: 24px; font-weight: 800; }
 .session-state h1, .session-state p { margin: 0; }

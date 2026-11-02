@@ -2,7 +2,7 @@
 
 **Cập nhật:** 2026-10-02  
 **Nguồn phạm vi:** `docs/01_requirements/epics/EPIC_14_Return_Refund.md`  
-**Màn hình:** `/returns` trong `apps/web-admin`  
+**Màn hình:** `employee/returns` trong `apps/web-user`  
 **Mock Admin:** `mocks/mockoon/admin_extensions.json`, cổng `4030`
 
 ## Phạm vi đã triển khai
@@ -55,9 +55,9 @@ Chưa triển khai yêu cầu bổ sung, chuyển review, duyệt/từ chối, n
 
 ```powershell
 npx @mockoon/cli start --disable-log-to-file --data .\mocks\mockoon\admin_extensions.json
-cd apps\web-admin
+cd apps\web-user
 $env:ADMIN_MOCK_ROLE="CUSTOMER_SERVICE"
 npm run dev
 ```
 
-Mở `http://localhost:3001/returns`. Dùng `WAREHOUSE_STAFF` để kiểm tra evidence/tài chính bị che, `ACCOUNTANT` để kiểm tra chỉ tài chính được mở và `SYSTEM_ADMIN` để kiểm tra từ chối truy cập.
+Mở `http://localhost:3000/employee/returns`. Dùng `WAREHOUSE_STAFF` để kiểm tra evidence/tài chính bị che, `ACCOUNTANT` để kiểm tra chỉ tài chính được mở và `SYSTEM_ADMIN` để kiểm tra từ chối truy cập.

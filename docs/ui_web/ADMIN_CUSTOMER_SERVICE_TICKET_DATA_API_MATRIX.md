@@ -3,7 +3,7 @@
 **Cập nhật:** 2026-10-02  
 **Nguồn:** `docs/01_requirements/epics/EPIC_16_Customer_Service.md`  
 **Cấp phát hành:** Giai đoạn 2 (`US-CS-02~05`), không thuộc MVP v1.0  
-**Màn hình:** `/support/tickets` trong `apps/web-admin`
+**Màn hình:** `employee/support/tickets` trong `apps/web-user`
 
 ## Phạm vi đã triển khai
 
@@ -41,9 +41,9 @@ Backend thật phải lọc record theo scope. Mock chỉ mô phỏng session; d
 
 ```powershell
 npx @mockoon/cli start --disable-log-to-file --data .\mocks\mockoon\admin_extensions.json
-cd apps\web-admin
+cd apps\web-user
 $env:ADMIN_MOCK_ROLE="CUSTOMER_SERVICE"
 npm run dev
 ```
 
-Mở `http://localhost:3001/support/tickets`. Dùng `SYSTEM_ADMIN` để kiểm tra BFF trả `403`.
+Mở `http://localhost:3000/employee/support/tickets`. Dùng `SYSTEM_ADMIN` để kiểm tra BFF trả `403`.

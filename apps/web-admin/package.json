@@ -1,14 +1,14 @@
 {
-  "name": "@oma/web-admin",
+  "name": "@oma/web-admin-redirect",
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 3001",
-    "build": "next build",
-    "start": "next start -p 3001",
-    "lint": "eslint .",
-    "typecheck": "next typegen && tsc --noEmit",
-    "test": "vitest run"
+    "dev": "npm --prefix ../web-user run dev",
+    "build": "npm --prefix ../web-user run build",
+    "start": "npm --prefix ../web-user run start",
+    "lint": "npm --prefix ../web-user run lint",
+    "typecheck": "npm --prefix ../web-user run typecheck",
+    "test": "npm --prefix ../web-user run test"
   },
   "dependencies": {
     "next": "16.3.6",

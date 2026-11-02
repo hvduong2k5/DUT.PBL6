@@ -16,7 +16,7 @@ Các BFF dùng `CUSTOMER_CORE_UPSTREAM_URL` cho API gốc và `CUSTOMER_EXTENSIO
 
 ## Web Admin API thống nhất
 
-- Toàn bộ API dành cho `apps/web-admin` được đặt trong `admin_extensions.json`, cổng `4030`.
+- Toàn bộ API dành cho `apps/web-user` được đặt trong `admin_extensions.json`, cổng `4030`.
 - Không thêm route `/admin/*` vào `mobile_pbl.json` hoặc `customer_extensions.json`.
 - Khi triển khai module Admin mới, bổ sung route vào duy nhất file Admin này cho đến khi có upstream backend thật.
 
@@ -57,7 +57,7 @@ Các route đầu tiên phục vụ Web Admin `ADM-034`:
 | `GET` | `/admin/support/tickets` | Hàng đợi Ticket nội bộ theo Epic 16 — Giai đoạn 2 |
 | `GET` | `/admin/support/tickets/:ticketId` | Hội thoại, ghi chú nội bộ, SLA và ngữ cảnh nguồn chỉ đọc |
 
-`apps/web-admin` chạy cổng `3001` và dùng `ADMIN_API_UPSTREAM_URL=http://127.0.0.1:4030/api/v1`. Trong local, đặt `ADMIN_MOCK_PROFILE` để chọn một projection Permission/Scope như `SALES_MANAGER`, `CUSTOMER_SERVICE`, `VIEW_ONLY`, `WAREHOUSE_MANAGEMENT`, `WAREHOUSE_WORKBENCH`, `PACKING_MANAGEMENT`, `PACKING_WORKBENCH`, `DELIVERY_WORKBENCH`, `ACCOUNTANT` hoặc `SYSTEM_ADMIN`. Profile mock không phải role: hai profile Warehouse cùng trả role `WAREHOUSE`, còn hai profile Packing cùng trả role `PACKING`, nhưng mỗi profile có Permission khác nhau. `WAREHOUSE_STAFF` chỉ là profile local cũ. Header profile chỉ do BFF local tạo; production không được tin giá trị profile do browser tự khai báo. `ADMIN_MOCK_ROLE` chỉ được giữ làm biến tương thích tạm thời cho cấu hình local cũ.
+`apps/web-user` chạy cổng `3000`, giao diện nhân viên ở `/employee` và dùng `ADMIN_API_UPSTREAM_URL=http://127.0.0.1:4030/api/v1`. Trong local, đặt `ADMIN_MOCK_PROFILE` để chọn một projection Permission/Scope như `SALES_MANAGER`, `CUSTOMER_SERVICE`, `VIEW_ONLY`, `WAREHOUSE_MANAGEMENT`, `WAREHOUSE_WORKBENCH`, `PACKING_MANAGEMENT`, `PACKING_WORKBENCH`, `DELIVERY_WORKBENCH`, `ACCOUNTANT` hoặc `SYSTEM_ADMIN`. Profile mock không phải role: hai profile Warehouse cùng trả role `WAREHOUSE`, còn hai profile Packing cùng trả role `PACKING`, nhưng mỗi profile có Permission khác nhau. `WAREHOUSE_STAFF` chỉ là profile local cũ. Header profile chỉ do BFF local tạo; production không được tin giá trị profile do browser tự khai báo. `ADMIN_MOCK_ROLE` chỉ được giữ làm biến tương thích tạm thời cho cấu hình local cũ.
 
 Để kiểm tra optimistic concurrency của `US-B2B-03`, mở UI với `?mockScenario=admin-b2b-concurrency-conflict`. Mọi mutation phải gửi `expectedRevision`; mock trả `409 B2B_CONCURRENCY_CONFLICT` và UI yêu cầu tải lại dữ liệu trước khi tiếp tục.
 

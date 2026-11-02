@@ -17,8 +17,8 @@ Dự án được tổ chức theo cấu trúc **Monorepo** chuẩn mực công 
 │       └── deploy.yml             # Pipeline tự động: Build Docker image & Auto-deploy
 │
 ├── apps/                          # Tầng Trình diễn (Client Applications)
-│   ├── web-user/                  # Website D2C Khách hàng (Next.js 16 App Router, SSR, SEO Schema.org)
-│   ├── web-admin/                 # Web Portal Quản trị & BI Dashboard (React.js / Vite / ECharts / Shadcn UI)
+│   ├── web-user/                  # Combined customer and employee web app (Next.js 16; employee workspace at /employee)
+│   ├── web-admin/                 # Compatibility scripts forwarding to the combined web-user app
 │   └── mobile-app/                # Ứng dụng Di động Khách hàng (Flutter / React Native)
 │
 ├── services/                      # Tầng Dịch vụ Nghiệp vụ (Microservices - Domain-Driven Design)
