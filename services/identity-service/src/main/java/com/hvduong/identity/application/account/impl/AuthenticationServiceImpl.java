@@ -148,7 +148,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                 OffsetDateTime now = OffsetDateTime.now();
                 principal = new IdentityPrincipalRow();
                 principal.setPrincipalId(newPrincipalId);
-                principal.setIdpIssuer(serverUrl + "/realms/" + realm);
+                principal.setIdpIssuer(publicUrl + "/realms/" + realm);
                 principal.setIdpSubject(subject);
                 principal.setPrincipalType("CUSTOMER");
                 principal.setProvisioningStatus("ACTIVE");

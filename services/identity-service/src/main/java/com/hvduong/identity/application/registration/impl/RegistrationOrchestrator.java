@@ -10,6 +10,7 @@ import com.hvduong.identity.infrastructure.keycloak.KeycloakAdminClient;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.*;
 import com.hvduong.identity.infrastructure.persistence.entity.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -30,6 +31,12 @@ public class RegistrationOrchestrator implements RegisterPrincipalUseCase {
     private final OutboxEventMapper outboxEventMapper;
     private final KeycloakAdminClient keycloakAdminClient;
     private final ObjectMapper objectMapper;
+
+    @Value("${keycloak.public-url:${keycloak.server-url:https://keycloak.omama.vn}}")
+    private String publicUrl = "https://keycloak.omama.vn";
+
+    @Value("${keycloak.realm:omama}")
+    private String realm = "omama";
 
     @Override
     public RegistrationResponse registerCustomer(RegistrationRequest request) {
@@ -73,7 +80,7 @@ public class RegistrationOrchestrator implements RegisterPrincipalUseCase {
     public void initializePendingRegistration(UUID principalId, UUID operationId, RegistrationRequest request) {
         IdentityPrincipalRow principal = new IdentityPrincipalRow();
         principal.setPrincipalId(principalId);
-        principal.setIdpIssuer("https://keycloak.omama.vn/realms/omama");
+        principal.setIdpIssuer(publicUrl + "/realms/" + realm);
         principal.setPrincipalType("CUSTOMER");
         principal.setProvisioningStatus("PENDING");
         principal.setVersion(0L);
