@@ -5,7 +5,7 @@ import {
   type PublicErrorBody
 } from "@/lib/api-contract";
 import { authorizeCustomerCapability, customerAccessFailure } from "@/lib/auth/customer-access-server";
-import { applyTrustedAuthorization, getTrustedAccessToken } from "@/lib/auth/server-credential";
+import { applyTrustedSessionCookie, getTrustedSessionCookie } from "@/lib/auth/server-credential";
 import {
   parseMvpCartRoute,
   validateMvpAddCartItemInput,
@@ -49,7 +49,7 @@ function publicErrorResponse(
 
 function upstreamHeaders(request: NextRequest, hasBody: boolean, scenario?: string): Headers {
   const headers = new Headers({ Accept: "application/json" });
-  applyTrustedAuthorization(headers, request);
+  applyTrustedSessionCookie(headers, request);
   if (hasBody) headers.set("Content-Type", "application/json");
   if (process.env.NODE_ENV !== "production" && scenario) headers.set("X-Mock-Scenario", scenario);
   return headers;
@@ -151,9 +151,9 @@ export async function handleCartRequest(request: NextRequest, path: string[]): P
     return publicErrorResponse(400, "INVALID_REQUEST", "Mock scenario không khả dụng trong production.", "BFF-CART-SCENARIO");
   }
 
-  const accessToken = getTrustedAccessToken(request);
+  const sessionCookie = getTrustedSessionCookie(request);
   try {
-    await authorizeCustomerCapability(accessToken, "CART_MANAGE");
+    await authorizeCustomerCapability(sessionCookie, "CART_MANAGE");
   } catch (cause) {
     const failure = customerAccessFailure(cause);
     return publicErrorResponse(failure.status, failure.code, failure.message, "BFF-CART-ACCESS");

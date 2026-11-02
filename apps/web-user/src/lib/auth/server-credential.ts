@@ -1,14 +1,14 @@
 import type { NextRequest } from "next/server";
 
-export const ACCESS_TOKEN_COOKIE = "oma_access_token";
+export const SESSION_COOKIE = "OMAMA_SESSION";
 
-export function getTrustedAccessToken(request: NextRequest): string | undefined {
-  const token = request.cookies.get(ACCESS_TOKEN_COOKIE)?.value.trim();
-  return token || undefined;
+export function getTrustedSessionCookie(request: NextRequest): string | undefined {
+  const session = request.cookies.get(SESSION_COOKIE)?.value.trim();
+  return session || undefined;
 }
 
-export function applyTrustedAuthorization(headers: Headers, request: NextRequest): string | undefined {
-  const accessToken = getTrustedAccessToken(request);
-  if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
-  return accessToken;
+export function applyTrustedSessionCookie(headers: Headers, request: NextRequest): string | undefined {
+  const session = getTrustedSessionCookie(request);
+  if (session) headers.set("Cookie", `${SESSION_COOKIE}=${session}`);
+  return session;
 }

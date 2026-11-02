@@ -1,10 +1,9 @@
 import {
   AcceptedResult,
   AuthApiError,
-  AuthenticatedSession,
-  RegistrationConfirmation,
   RecoveryVerification
 } from "@/lib/auth/types";
+import { IDENTITY_API_BASE_URL } from "@/services/identity-service";
 
 type RequestOptions = Omit<RequestInit, "body"> & {
   body?: Record<string, unknown>;
@@ -55,33 +54,20 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   return payload as T;
 }
 
+export async function registerCustomer(input: { firstName: string; lastName: string; email: string; rawPassword: string }) {
+  const idempotencyKey = crypto.randomUUID();
+  const response = await fetch(`${IDENTITY_API_BASE_URL}/public/customer-registrations`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json", Accept: "application/json", "Idempotency-Key": idempotencyKey },
+    body: JSON.stringify({ ...input, idempotencyKey, requestFingerprint: input.email.trim().toLocaleLowerCase() })
+  });
+  const payload = (response.headers.get("content-type") ?? "").includes("application/json") ? await response.json() : {};
+  if (!response.ok) throw new AuthApiError(response.status, payload);
+  return payload;
+}
+
 export const authService = {
-  login(input: { phoneNumber: string; password: string; rememberMe: boolean }) {
-    return request<AuthenticatedSession>("/login", { method: "POST", body: input });
-  },
-  me() {
-    return request<AuthenticatedSession>("/me");
-  },
-  logout() {
-    return request<void>("/logout", { method: "POST" });
-  },
-  register(input: { fullName: string; phoneNumber: string; email?: string; password: string }) {
-    return request<AuthenticatedSession>("/register", { method: "POST", body: input });
-  },
-  refresh() {
-    return request<{ refreshed: true }>("/refresh", { method: "POST" });
-  },
-  confirmRegistration(verificationToken: string) {
-    return request<RegistrationConfirmation>("/registration-verifications/confirm", {
-      method: "POST",
-      body: { verificationToken }
-    });
-  },
-  resendRegistration(verificationId: string) {
-    return request<AcceptedResult>(`/registration-verifications/${encodeURIComponent(verificationId)}/resend`, {
-      method: "POST"
-    });
-  },
   requestRecovery(email: string) {
     return request<AcceptedResult>("/recovery-requests", { method: "POST", body: { email } });
   },

@@ -5,7 +5,7 @@ import {
   type PublicErrorBody
 } from "@/lib/api-contract";
 import { authorizeCustomerCapability, customerAccessFailure } from "@/lib/auth/customer-access-server";
-import { applyTrustedAuthorization, getTrustedAccessToken } from "@/lib/auth/server-credential";
+import { applyTrustedSessionCookie, getTrustedSessionCookie } from "@/lib/auth/server-credential";
 import { MVP_FEATURE_GATES } from "@/lib/mvp-feature-gates";
 import { GUEST_ORDER_ACCESS_COOKIE, decodeGuestOrderAccess, encodeGuestOrderAccess } from "@/lib/orders/guest-access";
 import { isOrderCancellation, isOrderTrackingResponse, isOwnedOrder, isOwnedOrdersResponse } from "@/lib/orders/mvp";
@@ -55,7 +55,7 @@ function upstreamHeaders(
   ifMatch?: string
 ) {
   const headers = new Headers({ Accept: "application/json" });
-  applyTrustedAuthorization(headers, request);
+  applyTrustedSessionCookie(headers, request);
   if (hasBody) headers.set("Content-Type", "application/json");
   if (idempotencyKey) headers.set("Idempotency-Key", idempotencyKey);
   if (ifMatch) headers.set("If-Match", ifMatch);
@@ -157,17 +157,17 @@ export async function handleOrderRequest(request: NextRequest, path: string[]): 
     return publicErrorResponse(403, "FEATURE_NOT_ENABLED", "Guest Order chưa được bật trong MVP contract hiện tại.", "BFF-ORDER-GUEST-GATE");
   }
 
-  const accessToken = getTrustedAccessToken(request);
+  const sessionCookie = getTrustedSessionCookie(request);
   const guestAccess = guestExtensionEnabled()
     ? decodeGuestOrderAccess(request.cookies.get(GUEST_ORDER_ACCESS_COOKIE)?.value)
     : undefined;
   const isGatedGuestDetail = route.operation === "detail"
-    && !accessToken
+    && !sessionCookie
     && guestAccess?.orderId === route.orderId;
 
   if (!isGuestExtension && !isGatedGuestDetail) {
     try {
-      await authorizeCustomerCapability(accessToken, "ORDER_HISTORY_VIEW");
+      await authorizeCustomerCapability(sessionCookie, "ORDER_HISTORY_VIEW");
     } catch (cause) {
       const failure = customerAccessFailure(cause);
       return publicErrorResponse(failure.status, failure.code, failure.message, "BFF-ORDER-ACCESS");

@@ -1,6 +1,6 @@
 import type { CustomerCapability, CustomerCapabilityProjection } from "./capabilities";
 import { CapabilityProjectionError, fetchCustomerCapabilities } from "./capability-server";
-import { mapCustomerCoreSession, type CustomerCoreUser } from "./customer-core";
+import { parseIdentityProfile, parseIdentitySession } from "./identity";
 import type { AuthenticatedSession } from "./types";
 
 export class CustomerAccessError extends Error {
@@ -10,43 +10,66 @@ export class CustomerAccessError extends Error {
   }
 }
 
-async function fetchVerifiedSession(accessToken: string): Promise<AuthenticatedSession> {
-  const base = (process.env.CUSTOMER_CORE_UPSTREAM_URL ?? "http://127.0.0.1:4010/api/v1").replace(/\/$/u, "");
-  let response: Response;
+async function fetchIdentity(path: string, sessionCookie: string): Promise<Response> {
+  const base = (process.env.IDENTITY_UPSTREAM_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8016/api/v1").replace(/\/$/u, "");
   try {
-    response = await fetch(`${base}/auth/me`, {
-      headers: { Accept: "application/json", Authorization: `Bearer ${accessToken}` },
+    return await fetch(`${base}${path}`, {
+      headers: { Accept: "application/json", Cookie: `OMAMA_SESSION=${sessionCookie}` },
       cache: "no-store",
       redirect: "manual"
     });
   } catch {
     throw new CustomerAccessError(503, "IDENTITY_UNAVAILABLE", "Chưa thể xác minh phiên đăng nhập lúc này.");
   }
-  if (response.status === 401) throw new CustomerAccessError(401, "AUTH_REQUIRED", "Phiên đăng nhập không hợp lệ hoặc đã hết hạn.");
-  if (response.status === 403) throw new CustomerAccessError(403, "PRINCIPAL_FORBIDDEN", "Tài khoản không được phép sử dụng phiên hiện tại.");
-  if (!response.ok) throw new CustomerAccessError(503, "IDENTITY_UNAVAILABLE", "Chưa thể xác minh phiên đăng nhập lúc này.");
-  const session = mapCustomerCoreSession(await response.json() as CustomerCoreUser);
-  if (!session) throw new CustomerAccessError(503, "IDENTITY_INVALID", "Identity projection không đúng contract.");
-  return session;
 }
 
-export async function requireCustomerSession(accessToken?: string): Promise<AuthenticatedSession> {
-  if (!accessToken) throw new CustomerAccessError(401, "AUTH_REQUIRED", "Vui lòng đăng nhập để sử dụng chức năng này.");
-  const session = await fetchVerifiedSession(accessToken);
-  if (!session.customerAccess || !session.customer || !session.principal.customerId) {
-    throw new CustomerAccessError(403, "CUSTOMER_MAPPING_REQUIRED", "Tài khoản chưa được backend liên kết với Customer.");
+async function fetchVerifiedCustomerSession(sessionCookie: string): Promise<AuthenticatedSession> {
+  const sessionResponse = await fetchIdentity("/public/auth/session", sessionCookie);
+  if (sessionResponse.status === 401) throw new CustomerAccessError(401, "AUTH_REQUIRED", "Phiên đăng nhập không hợp lệ hoặc đã hết hạn.");
+  if (!sessionResponse.ok) throw new CustomerAccessError(503, "IDENTITY_UNAVAILABLE", "Chưa thể xác minh phiên đăng nhập lúc này.");
+  const session = parseIdentitySession(await sessionResponse.json());
+  if (!session) throw new CustomerAccessError(503, "IDENTITY_INVALID", "Identity session không đúng contract.");
+  if (!session.authenticated) throw new CustomerAccessError(401, "AUTH_REQUIRED", "Phiên đăng nhập không hợp lệ hoặc đã hết hạn.");
+
+  const profileResponse = await fetchIdentity("/users/me", sessionCookie);
+  if (profileResponse.status === 401) throw new CustomerAccessError(401, "AUTH_REQUIRED", "Phiên đăng nhập không hợp lệ hoặc đã hết hạn.");
+  if (profileResponse.status === 403) throw new CustomerAccessError(403, "PRINCIPAL_FORBIDDEN", "Tài khoản không được phép sử dụng phiên hiện tại.");
+  if (!profileResponse.ok) throw new CustomerAccessError(503, "IDENTITY_UNAVAILABLE", "Chưa thể tải hồ sơ định danh lúc này.");
+  const profile = parseIdentityProfile(await profileResponse.json());
+  if (!profile) throw new CustomerAccessError(503, "IDENTITY_INVALID", "Identity profile không đúng contract.");
+  if (profile.principalType === "EMPLOYEE") {
+    throw new CustomerAccessError(403, "EMPLOYEE_CUSTOMER_ACCESS_FORBIDDEN", "Tài khoản nhân viên không được sử dụng chức năng mua hàng.");
   }
-  return session;
+
+  return {
+    authenticated: true,
+    principal: {
+      principalId: profile.principalId,
+      principalType: "CUSTOMER",
+      displayName: profile.displayName,
+      email: profile.email,
+      roles: profile.roles,
+      permissions: profile.permissions,
+      customerId: profile.principalId
+    },
+    customerAccess: true,
+    customer: { id: profile.principalId, displayName: profile.displayName, email: profile.email, status: "ACTIVE" }
+  };
+}
+
+export async function requireCustomerSession(sessionCookie?: string): Promise<AuthenticatedSession> {
+  if (!sessionCookie) throw new CustomerAccessError(401, "AUTH_REQUIRED", "Vui lòng đăng nhập để sử dụng chức năng này.");
+  return fetchVerifiedCustomerSession(sessionCookie);
 }
 
 export async function authorizeCustomerCapability(
-  accessToken: string | undefined,
+  sessionCookie: string | undefined,
   capability: CustomerCapability
 ): Promise<{ session: AuthenticatedSession; projection: CustomerCapabilityProjection }> {
-  const session = await requireCustomerSession(accessToken);
+  const session = await requireCustomerSession(sessionCookie);
   let projection: CustomerCapabilityProjection;
   try {
-    projection = await fetchCustomerCapabilities(accessToken);
+    projection = await fetchCustomerCapabilities(sessionCookie);
   } catch (cause) {
     if (cause instanceof CapabilityProjectionError && cause.status === 401) {
       throw new CustomerAccessError(401, "AUTH_REQUIRED", "Phiên đăng nhập không hợp lệ hoặc đã hết hạn.");

@@ -2017,3 +2017,27 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
   .b2b-quote-items article { grid-template-columns: 1fr auto; }
   .b2b-quote-items article > div { grid-column: 1 / -1; }
 }
+/* Employee authentication boundary is intentionally independent from Storefront layout styles. */
+.employee-access-state {
+  min-height: 100vh;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 14px;
+  padding: 32px;
+  text-align: center;
+  color: #442a1d;
+  background: #f6f2eb;
+}
+.employee-access-state > span:not(.employee-spinner) { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%; color: #fff; background: #8f2d1c; font-weight: 800; }
+.employee-access-state button { border: 0; border-radius: 9px; padding: 11px 18px; color: #fff; background: #5b3523; font-weight: 700; cursor: pointer; }
+.employee-spinner { width: 38px; height: 38px; border: 4px solid #dbc8b2; border-top-color: #6a3d27; border-radius: 50%; animation: spin .8s linear infinite; }
+.employee-dashboard-intro { max-width: 760px; padding: 34px; border: 1px solid #e0d3c3; border-radius: 18px; background: #fffdf9; box-shadow: 0 14px 36px rgb(75 45 31 / 8%); }
+.employee-dashboard-intro h1 { margin: 8px 0 14px; font: 700 clamp(30px, 4vw, 48px)/1.08 Georgia, serif; }
+.employee-dashboard-intro p:last-child { color: #765e50; line-height: 1.7; }
+.oidc-login-panel { text-align: center; }
+.oidc-login-mark { display: grid; place-items: center; width: 64px; height: 64px; margin: 0 auto; border-radius: 18px; color: #fff; background: #6b3b24; font: 700 34px Georgia, serif; }
+.oidc-login-panel h2 { margin: 16px 0 8px; }
+.full-width { width: 100%; }
+.auth-toast { margin-bottom: 16px; padding: 12px 16px; border: 1px solid #bad8b5; border-radius: 10px; color: #245b2b; background: #eef8ec; }
+.google-register-button { margin-top: 12px; }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { customerAccessFailure, requireCustomerSession } from "@/lib/auth/customer-access-server";
-import { applyTrustedAuthorization, getTrustedAccessToken } from "@/lib/auth/server-credential";
+import { applyTrustedSessionCookie, getTrustedSessionCookie } from "@/lib/auth/server-credential";
 import type { CustomerCoreOrderDetail } from "@/lib/orders/customer-core";
 import {
   mapCustomerCoreReturnCreated,
@@ -31,7 +31,7 @@ async function readJson(request: NextRequest): Promise<unknown> {
 async function upstream(request: NextRequest, path: string, method: string, scenario?: string, body?: unknown, idempotencyKey?: string) {
   const base = (process.env.CUSTOMER_CORE_UPSTREAM_URL ?? "http://127.0.0.1:4010/api/v1").replace(/\/$/u, "");
   const headers = new Headers({ Accept: "application/json" });
-  applyTrustedAuthorization(headers, request);
+  applyTrustedSessionCookie(headers, request);
   if (body !== undefined) headers.set("Content-Type", "application/json");
   if (idempotencyKey) headers.set("X-Idempotency-Key", idempotencyKey);
   if (process.env.NODE_ENV !== "production" && scenario) headers.set("X-Mock-Scenario", scenario);
@@ -61,7 +61,7 @@ export async function handleReturnRequest(request: NextRequest, path: string[]):
   if (request.method !== "GET" && !hasTrustedOrigin(request)) return errorResponse("ORIGIN_NOT_ALLOWED", "Request origin không được phép.", 403);
 
   try {
-    await requireCustomerSession(getTrustedAccessToken(request));
+    await requireCustomerSession(getTrustedSessionCookie(request));
   } catch (cause) {
     const failure = customerAccessFailure(cause);
     return errorResponse(failure.code, failure.message, failure.status);
