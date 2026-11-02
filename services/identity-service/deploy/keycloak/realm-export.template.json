@@ -4,10 +4,17 @@
   "displayName": "Omama E-commerce",
   "enabled": true,
   "sslRequired": "external",
+  "loginTheme": "omama",
   "registrationAllowed": false,
   "resetPasswordAllowed": true,
   "rememberMe": true,
-  "verifyEmail": true,
+  "verifyEmail": false,
+  "internationalizationEnabled": true,
+  "supportedLocales": [
+    "vi",
+    "en"
+  ],
+  "defaultLocale": "vi",
   "accessTokenLifespan": 900,
   "ssoSessionIdleTimeout": 86400,
   "ssoSessionMaxLifespan": 2592000,
@@ -17,10 +24,16 @@
       "enabled": true,
       "clientAuthenticatorType": "client-secret",
       "redirectUris": [
-        "https://omama.vn/*"
+        "https://omama.vn/*",
+        "https://api.omama.vn/*",
+        "http://localhost:8016/*",
+        "http://127.0.0.1:8016/*",
+        "http://localhost:3000/*",
+        "http://localhost:3001/*",
+        "omama://*"
       ],
       "webOrigins": [
-        "https://omama.vn"
+        "+"
       ],
       "publicClient": true,
       "protocol": "openid-connect",
@@ -122,6 +135,21 @@
             "access.token.claim": "true",
             "userinfo.token.claim": "false"
           }
+        },
+        {
+          "name": "user-permissions-mapper",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "permissions",
+            "claim.name": "permissions",
+            "jsonType.label": "String",
+            "multivalued": "true",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "false"
+          }
         }
       ]
     }
@@ -141,9 +169,13 @@
         }
       ],
       "realmRoles": [
-        "IDENTITY_ADMIN",
-        "EMPLOYEE"
-      ]
+        "ADMIN"
+      ],
+      "attributes": {
+        "app_user_id": [
+          "a0000000-0000-0000-0000-000000000001"
+        ]
+      }
     }
   ],
   "roles": {
@@ -153,11 +185,7 @@
         "description": "Customer role"
       },
       {
-        "name": "EMPLOYEE",
-        "description": "Employee role"
-      },
-      {
-        "name": "IDENTITY_ADMIN",
+        "name": "ADMIN",
         "description": "Administrator of Identity Service"
       }
     ]

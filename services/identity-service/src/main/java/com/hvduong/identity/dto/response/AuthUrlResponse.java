@@ -1,4 +1,4 @@
-package com.hvduong.identity.dto.request;
+package com.hvduong.identity.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -9,7 +9,8 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class SuspendRequest {
-    private String reason;
+public class AuthUrlResponse {
+    private String authorizationUrl;
+    private String state;
 }
 

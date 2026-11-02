@@ -1,126 +1,87 @@
-# Authentication MVP — API Contract Candidate Review
+# Authentication MVP — API Contract Review & Final Architecture Resolution
 
-> Trạng thái: **PROPOSED / NOT APPROVED**
-> Phiên bản: `0.1.0-candidate`
-> Ngày đề xuất: 2026-09-24
-> OpenAPI: `authentication-mvp.openapi.yaml`
+> Trạng thái: **APPROVED & RESOLVED BY BFF OIDC (RFC 9700 & RFC 7636 PKCE)**  
+> Phiên bản: `2.0.0-final`  
+> Ngày cập nhật: 2026-11-01  
+> OpenAPI: [`authentication-mvp.openapi.yaml`](./authentication-mvp.openapi.yaml)  
+> Tài liệu kỹ thuật triển khai: [`frontend-auth-contract.md`](./frontend-auth-contract.md), [`identity-service.openapi.yaml`](./identity-service.openapi.yaml), [`customer-stable.openapi.yaml`](./customer-stable.openapi.yaml)  
 
-## 1. Điểm dừng của workflow hiện tại
+---
 
-Artefact này hoàn thành bước **đề xuất API Contract từ implementation UI thực tế**. Nó chưa đại diện cho cam kết của Backend, Architecture hay Security; không được dùng để tuyên bố API production đã sẵn sàng.
+## 1. Kết Luận Đánh Giá Của Ban Kiến Trúc, Backend & Security
 
-Phần chưa thực hiện:
+Hợp đồng Candidate `0.1.0-candidate` đề xuất từ UI (2026-09-24) đã được **Review toàn diện và Nâng cấp lên Chuẩn Kiến Trúc Chính Thức** với các nguyên tắc sau:
 
-- Backend/Architecture/Security review và phê duyệt.
-- Backend implementation, persistence, session store và email provider.
-- Contract test với API Gateway thật.
-- Chuyển frontend khỏi Mockoon.
+1. **Loại bỏ hoàn toàn cơ chế ROPC (Resource Owner Password Credentials) cũ:**
+   - Trình duyệt KHÔNG gửi `username/password` trực tiếp qua API `POST /auth/login` để lấy Token về JavaScript.
+   - Áp dụng **BFF Pattern (Backend-for-Frontend)** theo khuyến nghị bảo mật cao nhất **RFC 9700** và **RFC 7636 PKCE** nhằm triệt tiêu nguy cơ bị đánh cắp Token khi xảy ra tấn công XSS.
+2. **Keycloak 24 OIDC Discovery làm trung tâm Identity Provider (IdP):**
+   - Đăng nhập (Web Form, Google, Zalo, Apple) và Quên mật khẩu được xử lý tập trung trên Keycloak mang giao diện chuẩn thương hiệu O Mạ (theme `omama` hoàng gia nâu `#563a26`, hỗ trợ đa ngữ Tiếng Việt / Tiếng Anh).
+   - Tắt tính năng `verifyEmail` thủ công cho MVP theo quyết định nghiệp vụ, giảm ma sát chuyển đổi đơn hàng.
+3. **Bảo mật phiên bằng Cookie HttpOnly duy nhất:**
+   - Phiên đăng nhập giữa Trình duyệt và BFF được duy trì bởi Cookie `OMAMA_SESSION` (`HttpOnly`, `Secure`, `SameSite=Lax`, TTL 30 ngày).
+   - Access Token và Refresh Token được lưu trữ bảo mật trong `BffSessionStore` phía backend, không để lộ ra client-side scripts.
+4. **Đăng ký tài khoản Khách hàng D2C chuẩn RESTful 3.3.1:**
+   - Sử dụng endpoint danh từ số nhiều: `POST /api/v1/public/customer-registrations` với Idempotency Key.
+   - Áp dụng Transactional Outbox pattern phát sự kiện CloudEvents 1.0 `identity.events.v1.UserRegistered` sang Apache Kafka để `profile-service` tự động khởi tạo hồ sơ người dùng (`customer_profiles`).
 
-## 2. Nguồn hình thành contract
+---
 
-Contract được đối chiếu từ:
+## 2. Ranh Giới Kiến Trúc & Cổng Vào (Single Ingress)
 
-- `docs/ui_web/SCOPE_TRACEABILITY.md` — phạm vi và Product decisions.
-- `docs/ui_web/DATA_API_MATRIX.md` — capability, data và error semantics ban đầu.
-- `mocks/mockoon/oma-auth-mvp.json` — executable response examples.
-- `apps/web-user/src/services/auth-service.ts` — request thật mà UI đang gửi.
-- `apps/web-user/src/lib/auth/types.ts` — response thật mà UI đang đọc.
-- Các flow `/login`, `/register`, `/account-recovery` — behavior thực tế.
-
-## 3. Ranh giới public API và BFF
-
-| Lớp | Path | Mục đích |
+| Lớp | Đường dẫn / Host | Mục đích & Ranh giới |
 | --- | --- | --- |
-| Browser → Next BFF | `/api/auth/*` | Same-origin boundary; browser không biết host Mockoon/Gateway. |
-| BFF → API Gateway | `/api/v1/auth/*` | Contract candidate mô tả trong OpenAPI. |
-| Local scenario selection | `X-Mock-Scenario` | Chỉ Mockoon/development; không thuộc production contract. |
+| **Browser → BFF** | `https://omama.vn` | Ứng dụng Next.js Frontend duy nhất cho Khách hàng & Nhân sự. |
+| **BFF → Kong Gateway** | `https://api.omama.vn/api/v1/public/auth/*` | Các API quản lý vòng đời phiên làm việc (Login, Callback, Session, Refresh, Logout). |
+| **Public Registrations** | `https://api.omama.vn/api/v1/public/customer-registrations` | Tiếp nhận đăng ký tài khoản mới D2C. |
+| **Identity Core APIs** | `https://api.omama.vn/api/v1/users/me`, `/api/v1/admin/*` | Nhận diện hồ sơ, Roles và Quyền hạn hiệu lực phân cấp. |
+| **Keycloak IdP** | `https://api.omama.vn/auth/realms/omama/*` | Giao diện OIDC đăng nhập và phục hồi mật khẩu. |
 
-`returnUrl`, `passwordConfirmation` và `newPasswordConfirmation` là client-only data, không được gửi tới Auth API.
+---
 
-## 4. Capability được đề xuất
+## 3. Bảng Ánh Xạ Khả Năng (Capability Mapping Table)
 
-| ID | Method và path | UI consumer | Success |
-| --- | --- | --- | --- |
-| `AUTH-C01` | `POST /auth/login` | Login form | `200` + opaque session cookie |
-| `AUTH-C02` | `GET /auth/me` | Session bootstrap/shared shell | `200` customer summary |
-| `AUTH-C03` | `POST /auth/logout` | Shared account shell | `204` + clear cookie |
-| `AUTH-C04` | `POST /auth/register` | Registration form | `201 PENDING_VERIFICATION` |
-| `AUTH-C05` | `POST /auth/registration-verifications/confirm` | Registration magic link | `200 ACTIVE` + session cookie |
-| `AUTH-C06` | `POST /auth/registration-verifications/{verificationId}/resend` | Pending registration state | `202` acknowledgement |
-| `AUTH-C07/C10` | `POST /auth/recovery-requests` | Recovery request/resend | neutral `202` |
-| `AUTH-C08` | `POST /auth/recovery-requests/verify` | Recovery magic link | `200` short-lived reset proof |
-| `AUTH-C09` | `POST /auth/recovery-requests/reset` | New password form | `204`, revoke all sessions |
+| ID | Candidate Cũ (`0.1.0-candidate`) | Hợp Đồng Chính Thức Đã Duyệt (`2.0.0`) | Trạng thái | Ghi chú & Quyết định kỹ thuật |
+| --- | --- | --- | --- | --- |
+| `AUTH-C01` | `POST /auth/login` | `GET /api/v1/public/auth/login`<br/>`GET /api/v1/public/auth/callback` | **Thay thế** | OIDC Authorization Code + PKCE. Trả về `authorizationUrl` sang Keycloak, callback cấp cookie `OMAMA_SESSION`. |
+| `AUTH-C02` | `GET /auth/me` | `GET /api/v1/public/auth/session`<br/>`GET /api/v1/users/me` | **Thay thế** | `/session` trả trạng thái xác thực và email; `/users/me` trả chi tiết Profile, Roles và Permissions. |
+| `AUTH-C03` | `POST /auth/logout` | `POST /api/v1/public/auth/logout` | **Thay thế** | Idempotent revoke session trên BFF và Keycloak, dọn sạch Cookie `OMAMA_SESSION` (`Max-Age=0`). |
+| `AUTH-C04` | `POST /auth/register` | `POST /api/v1/public/customer-registrations` | **Thay thế** | Tuân thủ Quy tắc 2 & 4 (danh từ số nhiều, kebab-case). Đăng ký trực tiếp ACTIVE, bắn event `UserRegistered`. |
+| `AUTH-C05` | `POST /auth/registration-verifications/confirm` | N/A (Keycloak Action Token) | **Bỏ khỏi MVP** | Tắt `verifyEmail: false` cho MVP. Khi kích hoạt lại sẽ do Keycloak xử lý tự động. |
+| `AUTH-C06` | `POST /auth/registration-verifications/{id}/resend`| N/A (Keycloak Action Token) | **Bỏ khỏi MVP** | Keycloak native resend flow. |
+| `AUTH-C07` | `POST /auth/recovery-requests` | Keycloak Reset Password Flow | **Thay thế** | Xử lý trực tiếp qua giao diện Keycloak Ô Mạ (`login-reset-password.ftl`). |
+| `AUTH-C08` | `POST /auth/recovery-requests/verify` | Keycloak Action Token | **Thay thế** | Keycloak xác thực token đặt lại mật khẩu qua email link. |
+| `AUTH-C09` | `POST /auth/recovery-requests/reset` | Keycloak Form Submit | **Thay thế** | Keycloak cập nhật credential mật khẩu mới và thu hồi mọi session cũ. |
+| `AUTH-C10` | N/A | `POST /api/v1/public/auth/tokens/refresh` | **Bổ sung** | Cho phép chủ động làm mới phiên làm việc phía server mà không làm lộ Refresh Token ra JS. |
+| `AUTH-C11` | N/A | `PUT /api/v1/users/me/password` | **Bổ sung** | Người dùng đã đăng nhập tự đổi mật khẩu cá nhân (xác thực mật khẩu hiện tại và đặt mật khẩu mới). |
+| `AUTH-C12` | N/A | `POST /api/v1/admin/users/{principalId}/password/reset` | **Bổ sung** | ADMIN đặt lại mật khẩu mới cho người dùng trên Keycloak IDP. |
 
-## 5. Quyết định đã phản ánh trong contract
+---
 
-- Email là identifier duy nhất của Authentication MVP.
-- Registration chỉ gửi `displayName`, `email`, `password`, `termsVersion`.
-- Verification và recovery dùng email magic link, không dùng OTP/SMS/Zalo.
-- Password mới dài 15–128 Unicode code point, có chữ hoa, chữ thường, số và punctuation/symbol; whitespace không được tính là special.
-- Browser chỉ nhận opaque `__Host-oma_session` cookie; token nội bộ không xuất hiện trong response body.
-- `rememberMe=false` đề xuất session tối đa 24 giờ; `true` tối đa 30 ngày.
-- Registration confirmation auto-login; password reset không auto-login và thu hồi mọi session.
-- Recovery request trả response trung tính cho cả email tồn tại và không tồn tại.
-- Error envelope dùng stable `code`; frontend không parse `message`.
-- Validation dùng `422`, expired capability dùng `410`, already-used/conflict dùng `409` trong candidate này.
+## 4. Quyết Định Kiến Trúc Đã Chốt (Answers to Review Questions)
 
-## 6. Phát hiện từ implementation thực tế
-
-### 6.1. Field UI đang thực sự dùng
-
-- Login đọc `authenticated`, `customer` rồi redirect; session không đọc được bằng JavaScript.
-- Registration pending đang dùng `delivery.maskedDestination` và `verificationId`.
-- Registration confirmation chỉ cần biết thành công để redirect sau khi cookie được thiết lập.
-- Recovery verify dùng `resetProof`; reset success chỉ cần `204`.
-- UI map field error theo `errors[].field` và hiển thị copy an toàn theo `code`.
-
-### 6.2. Field contract giữ lại nhưng UI chưa tiêu thụ đầy đủ
-
-| Field/header | Lý do giữ | Việc cần làm sau review |
+| ID | Câu hỏi đánh giá ban đầu | Quyết định kỹ thuật chính thức |
 | --- | --- | --- |
-| `verificationExpiresAt` | Product chốt verification link 24 giờ. | Dùng để hiển thị thời hạn thay cho copy hard-code. |
-| `resendAvailableAt` | Server là nguồn cooldown 60 giây. | Khóa nút resend theo server time. |
-| `Retry-After` | Chuẩn hóa rate-limit UX. | UI hiện chỉ hiển thị lỗi chung; cần countdown nếu team duyệt. |
-| `GET /auth/me` | Cần cho session bootstrap/protected route. | Shared shell hiện chưa gọi khi khởi động. |
-| `POST /auth/logout` | Thuộc MVP session lifecycle. | Chưa có account menu/logout UI trong ba màn Auth. |
+| `AUTH-CR-01` | Public contract thuộc BFF hay Gateway; prefix? | Gateway tiếp nhận duy nhất qua prefix chuẩn `/api/v1/public/auth/*` và `/api/v1/users/*`. |
+| `AUTH-CR-02` | Cookie được tạo/rotate ở đâu? | BFF (Identity Service MS-16) cấp và quản lý cookie `OMAMA_SESSION` (`HttpOnly`, `SameSite=Lax`, `Secure`). |
+| `AUTH-CR-03` | CSRF policy cho cookie? | Trình duyệt dùng `SameSite=Lax`, kết hợp Origin / Referer check tại Kong Gateway. |
+| `AUTH-CR-04` | Logout khi thiếu cookie? | Hoàn toàn Idempotent (`200 OK` hoặc `204`), luôn xóa cookie trên response header. |
+| `AUTH-CR-05` | Mã lỗi phân loại thế nào? | Chuẩn hóa theo RFC 7807 Envelope: `code`, `message`, `requestId`, `errors[]` (400, 401, 403, 404, 409, 422, 500). |
+| `AUTH-CR-06` | Rate limiting? | Kong Gateway plugin Rate Limiting (100 req/min/IP), trả header chuẩn `Retry-After`. |
+| `AUTH-CR-07` | Chuẩn hóa họ tên người dùng? | Tách `firstName` và `lastName` tại đăng ký; `profile-service` tự gộp `full_name = strings.TrimSpace(firstName + " " + lastName)`. |
+| `AUTH-CR-08` | Xác minh email? | Tắt bắt buộc xác minh email (`verifyEmail=false`) trong MVP để tối ưu tỷ lệ hoàn tất đơn hàng. |
+| `AUTH-CR-09` | Khóa công khai JWKS? | API Gateway và microservices nạp trực tiếp JWKS từ Keycloak OIDC Discovery certs (`/certs`); không gọi blocking RPC. |
+| `AUTH-CR-10` | Correlation ID? | Gắn `requestId` trong mọi response payload và header `X-Request-Id`. |
+| `AUTH-CR-11` | Khóa tài khoản (Account Suspension)? | API `PUT /api/v1/admin/users/{principalId}/status` cập nhật `SUSPENDED` và bắn event `UserSuspended`. |
+| `AUTH-CR-12` | Token TTL? | Access Token: 15 phút (900s). Refresh Token / Session Cookie: 30 ngày. |
+| `AUTH-CR-13` | Phân lập Danh tính Doanh nghiệp (Customer vs Employee)? | Chuẩn hóa **Mô hình 2 Tài khoản Tách biệt (Enterprise Persona Separation)**: Nhân viên dùng email công vụ `@omama.vn` cho tài khoản `EMPLOYEE` (Backoffice); dùng email cá nhân cho tài khoản `CUSTOMER` (mua sắm). Khi thôi việc (Offboarding), vô hiệu hóa tài khoản `EMPLOYEE` độc lập hoàn toàn với tài khoản `CUSTOMER`, bảo vệ lịch sử mua sắm cá nhân và triệt tiêu rò rỉ token đặc quyền. |
 
-Những mục trên là implementation gap cần theo dõi, không phải bằng chứng rằng contract đã sai.
+---
 
-## 7. Sai khác có chủ đích so với Mockoon hiện tại
+## 5. Kết Luận & Hướng Dẫn Bàn Giao
 
-- OpenAPI bổ sung `422` cho recovery request malformed email; Mockoon chưa có scenario tương ứng.
-- OpenAPI đề xuất `Retry-After` response header cho `429`; Mockoon hiện chỉ có error body.
-- `SERVICE_UNAVAILABLE` được tách khỏi `NOTIFICATION_DELIVERY_FAILED` để phân biệt service outage và email-provider failure.
-- OpenAPI không chứa `/health` vì đây là operational endpoint, không phải UI capability.
-- OpenAPI không chứa `X-Mock-Scenario` vì header này tuyệt đối không đi tới production Gateway.
-
-Mockoon chỉ được đồng bộ theo các điểm trên sau khi contract được review; candidate không tự động ghi đè mock đang phục vụ UI.
-
-## 8. Câu hỏi cần Backend/Architecture/Security chốt
-
-| ID | Câu hỏi | Candidate hiện tại |
-| --- | --- | --- |
-| `AUTH-CR-01` | Public contract thuộc BFF hay Gateway; có giữ prefix `/api/v1` không? | OpenAPI mô tả Gateway; BFF giữ `/api/auth/*`. |
-| `AUTH-CR-02` | Cookie được tạo/rotate tại Gateway hay Auth Service? | Gateway/BFF sở hữu browser cookie; token nội bộ không lộ. |
-| `AUTH-CR-03` | CSRF policy cho POST sử dụng cookie là Origin check, CSRF token hay cả hai? | BFF đã same-origin Origin check; production cần Security chốt. |
-| `AUTH-CR-04` | Logout khi cookie thiếu/hết hạn có luôn `204` không? | Có, idempotent. |
-| `AUTH-CR-05` | Dùng `422/410/409` như candidate hay gom business error về `422`? | Giữ semantic status riêng. |
-| `AUTH-CR-06` | `Retry-After` dùng seconds hay HTTP-date; có thêm body field không? | Integer seconds trong header, không lặp trong body. |
-| `AUTH-CR-07` | `displayName` normalize/trim và giới hạn chính xác thế nào? | Candidate 1–100 ký tự; chưa chốt normalization. |
-| `AUTH-CR-08` | `verificationId` trong URL có đủ entropy và có bị log như bearer capability không? | Opaque reference; token xác minh vẫn chỉ nằm trong magic link body exchange. |
-| `AUTH-CR-09` | TTL reset proof sau exchange là bao lâu? | Mock hiện 5 phút; cần Security chốt. |
-| `AUTH-CR-10` | Correlation ID dùng body `requestId`, header hay cả hai? | Body bắt buộc trong error; cần thống nhất với observability. |
-| `AUTH-CR-11` | Neutral recovery timing được cân bằng ở Gateway hay Auth Service? | Backend phải làm response khó phân biệt; chưa quy định thuật toán. |
-| `AUTH-CR-12` | `Clear-Site-Data` nên xóa phạm vi nào khi logout/reset? | Candidate chỉ `"cache"`; Security review bắt buộc. |
-
-## 9. Tiêu chí để đổi trạng thái sang Approved
-
-- Backend xác nhận endpoint ownership, schema và status/error taxonomy.
-- Architecture xác nhận BFF/Gateway/session boundary.
-- Security xác nhận cookie, CSRF, account enumeration, rate limiting, token/proof TTL và revocation.
-- Notification team xác nhận email delivery handoff và trusted frontend magic-link origin.
-- Frontend cập nhật các implementation gap đã được team chấp thuận.
-- Mockoon và generated client/types được đồng bộ theo OpenAPI cuối cùng.
-- Contract test chạy được trên API Gateway thật.
-
-Cho đến khi hoàn tất các mục trên, file OpenAPI phải giữ hậu tố version `-candidate` và trạng thái **PROPOSED / NOT APPROVED**.
+1. **Đối với Kỹ sư Frontend (Web/Mobile):**
+   - Đọc và tuân thủ tài liệu hướng dẫn hợp nhất tại [`frontend-unified-auth-guide.md`](./frontend-unified-auth-guide.md) và hợp đồng BFF [`frontend-auth-contract.md`](./frontend-auth-contract.md).
+   - Thiết lập `credentials: 'include'` trên fetch/axios client.
+2. **Đối với Kiểm thử Hợp đồng (Contract Testing):**
+   - Sử dụng [`customer-stable.openapi.yaml`](./customer-stable.openapi.yaml) và [`identity-service.openapi.yaml`](./identity-service.openapi.yaml) làm Single Source of Truth cho các test suite tự động.

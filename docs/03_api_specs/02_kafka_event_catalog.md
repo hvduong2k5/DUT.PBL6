@@ -84,3 +84,54 @@ Tất cả các sự kiện bất đồng bộ được quản lý trong thư m�
   - `notification-service`: Gửi email và thông báo Zalo ZNS cảnh báo đỏ cho Quản đốc xưởng Hương Thủy và Trưởng phòng HR lên danh sách gia hạn tập huấn kịp thời, đảm bảo 100% điều kiện pháp lý của chuẩn OCOP 4 sao.
   - `fulfillment-service`: Cảnh báo điều phối không xếp ca phụ trách dán tem kiểm định cho nhân sự có chứng chỉ hết hạn.
 
+### 2.8. Sự Kiện Khách Hàng Đăng Ký Mới `UserRegistered` (`identity.events.v1.UserRegistered`)
+- **Topic:** `identity.events.v1` | **Partition Key:** `user_id` (`principal_id`)
+- **Producer:** `identity-service` (MS-16) qua mẫu Transactional Outbox (`identity_outbox`).
+- **Thời điểm bắn:** Khi khách hàng hoàn tất đăng ký tài khoản qua API `POST /api/v1/public/customer-registrations` hoặc JIT Provisioning từ OAuth2 / Social Login.
+- **Cấu trúc Envelope CloudEvents 1.0:**
+  ```json
+  {
+    "eventId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+    "eventType": "identity.events.v1.UserRegistered",
+    "aggregateType": "IdentityPrincipal",
+    "aggregateId": "a1b2c3d4-1111-2222-3333-444455556666",
+    "schemaVersion": 1,
+    "partitionKey": "a1b2c3d4-1111-2222-3333-444455556666",
+    "occurredAt": "2026-11-01T14:30:00Z",
+    "payload": {
+      "principalId": "a1b2c3d4-1111-2222-3333-444455556666",
+      "email": "khachhang@omama.vn",
+      "firstName": "Văn Dương",
+      "lastName": "Hoàng"
+    }
+  }
+  ```
+- **Tác vụ của các Consumer:**
+  - `profile-service` (MS-15): Nhận sự kiện để tự động khởi tạo bản ghi hồ sơ khách hàng (`customer_profiles`), gán `user_id = principalId`, gộp họ tên `full_name = strings.TrimSpace(firstName + " " + lastName)` (hoặc fallback email nếu để trống), trạng thái ban đầu `PENDING_VERIFICATION` để chờ khách hàng cập nhật số điện thoại và địa chỉ giao hàng. Consumer xử lý Idempotent để đảm bảo không tạo trùng lặp khi Kafka re-deliver.
+  - `marketing-service` (MS-14): Kích hoạt workflow chào mừng khách hàng mới (Welcome Campaign), tự động gửi email chào mừng kèm voucher ưu đãi đơn hàng đầu tiên (First Order Coupon).
+
+### 2.9. Sự Kiện Khóa / Đình Chỉ Tài Khoản `UserSuspended` (`identity.events.v1.UserSuspended`)
+- **Topic:** `identity.events.v1` | **Partition Key:** `user_id` (`principal_id`)
+- **Producer:** `identity-service` (MS-16).
+- **Thời điểm bắn:** Khi Quản trị viên cập nhật trạng thái người dùng thành `SUSPENDED` (`PUT /api/v1/users/{principalId}/status`).
+- **Cấu trúc Envelope CloudEvents 1.0:**
+  ```json
+  {
+    "eventId": "e89ba012-34cd-56ef-78ab-901234567890",
+    "eventType": "identity.events.v1.UserSuspended",
+    "aggregateType": "IdentityPrincipal",
+    "aggregateId": "a1b2c3d4-1111-2222-3333-444455556666",
+    "schemaVersion": 1,
+    "partitionKey": "a1b2c3d4-1111-2222-3333-444455556666",
+    "occurredAt": "2026-11-01T15:00:00Z",
+    "payload": {
+      "principalId": "a1b2c3d4-1111-2222-3333-444455556666",
+      "reason": "Vi phạm chính sách thanh toán hoặc gian lận voucher",
+      "suspendedAt": "2026-11-01T15:00:00Z"
+    }
+  }
+  ```
+- **Tác vụ của các Consumer:**
+  - `profile-service`: Cập nhật trạng thái hồ sơ người dùng tương ứng sang trạng thái bị khóa.
+  - `order-service` & `fulfillment-service`: Chặn tạo đơn hàng mới hoặc thu hồi các quyền thao tác trên bàn đóng gói/giao hàng của nhân sự bị đình chỉ.
+

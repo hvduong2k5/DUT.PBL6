@@ -128,15 +128,16 @@ Các hợp đồng này được định nghĩa bằng **Protocol Buffers v3** �
 
 ---
 
-### 2.8. MS-16: `IdentityService` (Port nội bộ: 8016)
+### 2.8. MS-16: `IdentityService` (Port nội bộ: HTTP 8016 / gRPC 9016)
 - **Tệp định nghĩa:** [`packages/proto/identity/v1/identity.proto`](../../packages/proto/identity/v1/identity.proto)
 - **Bên Cung Cấp (Provider):** `identity-service`
-- **Bên Tiêu Thụ (Consumer):** `finance-service` (MS-09), `order-service` (MS-04), `api-gateway`
+- **Bên Tiêu Thụ (Consumer):** `finance-service` (MS-09), `order-service` (MS-04)
 
 #### Chi tiết các RPC Methods:
 1. `CheckSpecializedPermission(SpecializedPermissionRequest) returns (SpecializedPermissionResponse)`:
    - **Mục đích:** Thẩm duyệt phân quyền động (ABAC/PBAC) cho các hành động có rủi ro tài chính cao (HLD Mục 3.5 & 4.7):
      - *"Kế toán duyệt Refund > 10 triệu VND"* (Cần Giám đốc phê duyệt).
      - *"Giám đốc duyệt chiết khấu B2B > 25%"*.
-2. `GetJwksPublicKey(GetJwksPublicKeyRequest) returns (GetJwksPublicKeyResponse)`:
-   - **Mục đích:** Cung cấp khóa công khai JWKS để API Gateway nạp cache cục bộ định kỳ, xác thực JWT ngay tại biên mà không gọi blocking vào Identity Service.
+
+> **Ghi chú về Xác thực JWT & JWKS:**  
+> API Gateway (Kong) và các microservice nội bộ không gọi RPC vào Identity Service để xác thực JWT. Thay vào đó, Gateway và các service đọc trực tiếp tập khóa công khai JWKS từ **Keycloak OIDC Discovery Endpoint** (`http://keycloak:8080/realms/omama/protocol/openid-connect/certs`), lưu cache vào RAM và kiểm tra chữ ký cục bộ siêu tốc (< 0.1ms). Phương thức `GetJwksPublicKey` trước đây đã được loại bỏ hoàn toàn khỏi hợp đồng Proto và wire baselines để đảm bảo tính tinh gọn (Clean Architecture).

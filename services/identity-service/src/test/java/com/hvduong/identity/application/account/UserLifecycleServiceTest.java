@@ -48,6 +48,9 @@ class UserLifecycleServiceTest {
     @Mock
     private AuditService auditService;
 
+    @Mock
+    private org.springframework.web.client.RestTemplate restTemplate;
+
     private ObjectMapper objectMapper = new ObjectMapper();
 
     private UserLifecycleService service;
@@ -62,7 +65,8 @@ class UserLifecycleServiceTest {
                 outboxEventMapper,
                 keycloakAdminClient,
                 auditService,
-                objectMapper
+                objectMapper,
+                restTemplate
         );
     }
 
@@ -114,7 +118,7 @@ class UserLifecycleServiceTest {
     }
 
     @Test
-    void getProfileBySubject_Customer_ReturnsDefaultCustomerRole() {
+    void getProfileBySubject_Customer_ReturnsEmptyRoles() {
         String subject = "kc-cust-999";
         UUID principalId = UUID.randomUUID();
 
@@ -132,8 +136,7 @@ class UserLifecycleServiceTest {
 
         assertTrue(profile.isPresent());
         assertEquals("CUSTOMER", profile.get().getPrincipalType());
-        assertEquals(1, profile.get().getRoles().size());
-        assertEquals("CUSTOMER", profile.get().getRoles().get(0).getRoleCode());
+        assertTrue(profile.get().getRoles().isEmpty());
         assertTrue(profile.get().getPermissions().isEmpty());
     }
 

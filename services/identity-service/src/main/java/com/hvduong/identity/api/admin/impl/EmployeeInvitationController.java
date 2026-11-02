@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
@@ -22,6 +23,7 @@ public class EmployeeInvitationController implements EmployeeInvitationApi {
     private final EmployeeInvitationService invitationService;
 
     @Override
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('EMPLOYEE_INVITE')")
     public ResponseEntity<ApiResponse<InviteEmployeeResponse>> inviteEmployee(
             @RequestBody(required = false) InviteEmployeeRequest request,
             @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorId
@@ -39,6 +41,7 @@ public class EmployeeInvitationController implements EmployeeInvitationApi {
     }
 
     @Override
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('EMPLOYEE_INVITATION_REVOKE')")
     public ResponseEntity<ApiResponse<Void>> revokeInvitation(
             @PathVariable UUID invitationId,
             @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorId

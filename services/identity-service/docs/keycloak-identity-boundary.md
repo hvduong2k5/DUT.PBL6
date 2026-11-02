@@ -152,7 +152,7 @@ Keycloak và `identity-service` kết nối với nhau thông qua **3 giao thứ
 * **Identity Service là Single Source of Truth**:
   - Toàn bộ Role (`iam_roles`), Permission (`iam_permissions`) và quan hệ Role - Permission (`iam_role_permissions`) được quản lý toàn vẹn trong PostgreSQL của `identity-service`.
   - Cơ chế an toàn ngăn chặn xóa nhầm:
-    1. Chặn xóa các vai trò hệ thống được bảo vệ (`is_protected = true` như `SUPER_ADMIN`).
+    1. Chặn xóa các vai trò hệ thống được bảo vệ (`is_protected = true` như `ADMIN`).
     2. Chặn xóa vai trò nếu đang có nhân viên được gán active trong `iam_role_assignments`.
 * **Đồng bộ tự động sang Keycloak**:
   - Khi Admin tạo Role mới (`POST /api/v1/admin/roles`) hoặc cập nhật thông tin (`PATCH /api/v1/admin/roles/{id}`), `identity-service` tự động gọi `KeycloakAdminClient` để tạo/sửa Realm Role tương ứng trên Keycloak.
@@ -188,3 +188,38 @@ Hệ thống giải quyết bài toán "ghi dữ liệu phân tán" (Dual-write 
 | ❌ **Lưu Scope chi nhánh (Store/Warehouse) vào Role của Keycloak** | Keycloak chỉ nên quản lý vai trò thô (`CUSTOMER`, `EMPLOYEE`). Không biến Keycloak thành nơi lưu cấu trúc tổ chức chi nhánh thay đổi liên tục của doanh nghiệp. |
 | ❌ **Gọi `identity-service` qua mạng cho mọi request thông thường** | Gây nghẽn cổ chai (Bottleneck). API Gateway và Backend chỉ cần tự verify JWT bằng cached JWKS là đủ. |
 
+---
+
+## 7. Mô Hình Phân Lập Danh Tính Doanh Nghiệp (Enterprise Persona Separation)
+
+Hệ thống Ô Mạ chuẩn hóa kiến trúc định danh theo **Mô hình Phân lập Danh tính Doanh nghiệp (Enterprise Persona Separation)** nhằm đảm bảo an toàn thông tin theo nguyên tắc Đặc quyền tối thiểu (Least Privilege) và phân định ranh giới tin cậy (Trust Boundary):
+
+### 7.1. Nguyên tắc 2 Tài Khoản Tách Biệt
+Một nhân sự ngoài đời thực làm việc tại Ô Mạ khi tham gia hệ thống sẽ sở hữu **hai tài khoản độc lập**:
+
+1. **Tài khoản Nhân viên (`EMPLOYEE` - Corporate Identity):**
+   * **Mục đích:** Xử lý nghiệp vụ quản trị, vận hành, kho bãi, đối soát tài chính trên hệ thống Backoffice / Admin Portal.
+   * **Email định danh:** Bắt buộc sử dụng email công vụ của tổ chức (ví dụ: `vana@omama.vn`).
+   * **Vòng đời cấp phát:** Do Admin/HR khởi tạo thông qua quy trình Mời nhân sự (`POST /api/v1/admin/employees/invitations`).
+   * **Chính sách an ninh:** Chịu sự quản lý của doanh nghiệp (bắt buộc MFA, tuân thủ chính sách mật khẩu nội bộ, giám sát nhật ký truy cập `identity_audit_log`).
+   * **Phân quyền:** Chỉ tài khoản `principal_type = EMPLOYEE` mới có thể được gán các vai trò nghiệp vụ trong `iam_role_assignments` theo phạm vi (`Scope: GLOBAL, STORE, WAREHOUSE`).
+
+2. **Tài khoản Khách hàng (`CUSTOMER` - Personal Consumer Identity):**
+   * **Mục đích:** Trải nghiệm mua sắm cá nhân trên sàn thương mại điện tử (Web/Mobile App).
+   * **Email định danh:** Sử dụng email cá nhân của nhân sự (ví dụ: `vana.personal@gmail.com`).
+   * **Vòng đời:** Tự do đăng ký công khai (`POST /auth/register` hoặc Social Login).
+   * **Quyền riêng tư (GDPR / NDPE):** Được bảo vệ quyền riêng tư người tiêu dùng, lịch sử đơn hàng, địa chỉ giao hàng và quyền yêu cầu hủy/xóa dữ liệu cá nhân độc lập với tư cách nhân sự công ty.
+
+### 7.2. Quy Trình Thu Hồi Quyền Khi Nghỉ Việc (Offboarding Invariant)
+Khi một nhân viên thôi việc hoặc chuyển công tác:
+* **Hành động:** Quản trị viên thực hiện vô hiệu hóa tài khoản công vụ `EMPLOYEE` (`provisioning_status = 'SUSPENDED'` và vô hiệu hóa trên Keycloak `enabled = false`).
+* **Hiệu lực tức thì:**
+  * Toàn bộ phiên làm việc của tài khoản `EMPLOYEE` bị thu hồi ngay lập tức, chặn truy cập vào toàn bộ các API quản trị `/api/v1/admin/**`.
+  * Các vai trò trong `iam_role_assignments` chuyển trạng thái sang `REVOKED`.
+* **Bảo vệ quyền lợi cá nhân:**
+  * Tài khoản `CUSTOMER` của người đó (gắn với email cá nhân) **hoàn toàn không bị ảnh hưởng**.
+  * Nhân sự sau khi nghỉ việc vẫn là một khách hàng thân thiết của Ô Mạ, lịch sử mua sắm, tích điểm thành viên và giỏ hàng cá nhân được giữ nguyên vẹn.
+  * Ngăn ngừa triệt để các rủi ro:
+    1. **Rò rỉ token đặc quyền:** Tránh việc nhân viên dùng thiết bị cá nhân mua sắm vô tình làm rò rỉ token có quyền quản trị doanh nghiệp.
+    2. **Xung đột pháp lý & GDPR:** Tách biệt rõ ràng tài sản dữ liệu của doanh nghiệp (Audit Log, đơn hàng khách) khỏi dữ liệu đời tư cá nhân.
+    3. **Leo thang đặc quyền (Privilege Escalation):** Bức tường bảo vệ cấp thực thể `principal_type` ngăn chặn vĩnh viễn việc tài khoản công chúng tự đăng ký có thể được gán quyền quản trị.

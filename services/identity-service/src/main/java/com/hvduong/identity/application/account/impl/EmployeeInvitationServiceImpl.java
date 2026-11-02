@@ -9,6 +9,7 @@ import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.EmployeeIn
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IdentityPrincipalMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,6 +27,12 @@ public class EmployeeInvitationServiceImpl implements EmployeeInvitationService 
     private final IdentityPrincipalMapper principalMapper;
     private final AuditService auditService;
 
+    @Value("${keycloak.public-url:${keycloak.server-url:https://keycloak.omama.vn}}")
+    private String publicUrl = "https://keycloak.omama.vn";
+
+    @Value("${keycloak.realm:omama}")
+    private String realm = "omama";
+
     @Override
     @Transactional
     public InviteEmployeeResponse inviteEmployee(UUID invitedBy, int validDays) {
@@ -34,7 +41,7 @@ public class EmployeeInvitationServiceImpl implements EmployeeInvitationService 
         // 1. Create employee principal in PENDING status
         IdentityPrincipalRow principal = new IdentityPrincipalRow();
         principal.setPrincipalId(principalId);
-        principal.setIdpIssuer("https://keycloak.omama.vn/realms/omama");
+        principal.setIdpIssuer(publicUrl + "/realms/" + realm);
         principal.setPrincipalType("EMPLOYEE");
         principal.setProvisioningStatus("PENDING");
         principal.setVersion(0L);

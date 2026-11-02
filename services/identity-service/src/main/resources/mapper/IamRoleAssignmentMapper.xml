@@ -29,6 +29,12 @@
         )
     </insert>
 
+    <select id="findById" resultMap="IamRoleAssignmentRowMap">
+        SELECT *
+        FROM iam_role_assignments
+        WHERE assignment_id = #{assignmentId}
+    </select>
+
     <select id="findActiveByPrincipal" resultMap="IamRoleAssignmentRowMap">
         SELECT *
         FROM iam_role_assignments

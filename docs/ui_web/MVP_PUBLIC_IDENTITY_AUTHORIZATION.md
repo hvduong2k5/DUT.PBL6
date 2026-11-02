@@ -39,12 +39,13 @@ Session frontend tách các khái niệm sau:
 | `customerId` | Mapping tới Customer domain do backend trả. |
 | `customerAccess` | Chỉ `true` khi có `customerId` đã xác minh. |
 
-Quy tắc Employee kế thừa Customer:
+Quy chuẩn Phân lập Danh tính Doanh nghiệp (Enterprise Persona Separation):
 
-- `CUSTOMER` có `customer_id`: được kiểm tra Customer capability bình thường.
-- `EMPLOYEE` có `customer_id`: được dùng Customer feature tương ứng; backend vẫn kiểm tra ownership/capability.
-- `EMPLOYEE` không có `customer_id`: session vẫn authenticated nhưng Customer feature trả `403 CUSTOMER_MAPPING_REQUIRED`.
-- Chỉ có role `CUSTOMER`, hoặc role/permission do browser gửi, không tạo ra mapping Customer.
+- **Tách biệt tài khoản chuẩn hóa:** Nhân viên khi mua sắm cá nhân sử dụng tài khoản `CUSTOMER` độc lập (email cá nhân).
+- **Trường hợp tài khoản `EMPLOYEE` gọi API Customer:**
+  - `EMPLOYEE` có `customer_id` mapping: được thực thi Customer feature tương ứng; backend vẫn kiểm tra ownership/capability.
+  - `EMPLOYEE` không có `customer_id` mapping: session vẫn authenticated nhưng Customer feature trả `403 CUSTOMER_MAPPING_REQUIRED`.
+- **Chính sách Offboarding:** Khi vô hiệu hóa tài khoản `EMPLOYEE`, tài khoản `CUSTOMER` cá nhân của họ hoàn toàn không bị ảnh hưởng.
 
 ## 4. Ma trận `401` và `403`
 

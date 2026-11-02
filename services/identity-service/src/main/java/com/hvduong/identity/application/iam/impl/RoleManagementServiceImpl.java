@@ -1,21 +1,28 @@
 package com.hvduong.identity.application.iam.impl;
 
+import java.time.OffsetDateTime;
+import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.UUID;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.hvduong.identity.application.audit.AuditService;
 import com.hvduong.identity.application.iam.RoleManagementService;
 import com.hvduong.identity.dto.request.CreateRoleRequest;
 import com.hvduong.identity.dto.request.UpdateRoleRequest;
 import com.hvduong.identity.dto.response.RoleDetailResponse;
-
-import com.hvduong.identity.application.audit.AuditService;
 import com.hvduong.identity.infrastructure.keycloak.KeycloakAdminClient;
-import com.hvduong.identity.infrastructure.persistence.entity.*;
-import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.*;
+import com.hvduong.identity.infrastructure.persistence.entity.IamRolePermissionRow;
+import com.hvduong.identity.infrastructure.persistence.entity.IamRoleRow;
+import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IamRoleAssignmentMapper;
+import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IamRoleMapper;
+import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IamRolePermissionMapper;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.time.OffsetDateTime;
-import java.util.*;
 
 @Slf4j
 @Service
@@ -113,6 +120,11 @@ public class RoleManagementServiceImpl implements RoleManagementService {
         IamRoleRow existing = roleMapper.findById(roleId);
         if (existing == null) {
             throw new NoSuchElementException("Role not found with id: " + roleId);
+        }
+
+        // Rule: Protected role cannot be disabled
+        if (Boolean.TRUE.equals(existing.getIsProtected()) && dto.getIsEnabled() != null && !dto.getIsEnabled()) {
+            throw new IllegalStateException("Không thể vô hiệu hóa vai trò bảo vệ hệ thống: " + existing.getRoleCode());
         }
 
         int updated = roleMapper.updateDetails(
@@ -213,6 +225,10 @@ public class RoleManagementServiceImpl implements RoleManagementService {
             throw new NoSuchElementException("Role not found with id: " + roleId);
         }
 
+        if (Boolean.TRUE.equals(existing.getIsProtected())) {
+            throw new IllegalStateException("Không thể thay đổi danh sách quyền của vai trò bảo vệ hệ thống: " + existing.getRoleCode());
+        }
+
         rolePermissionMapper.deleteByRoleId(roleId);
 
         if (permissionCodes != null) {
@@ -247,6 +263,10 @@ public class RoleManagementServiceImpl implements RoleManagementService {
         IamRoleRow existing = roleMapper.findById(roleId);
         if (existing == null) {
             throw new NoSuchElementException("Role not found with id: " + roleId);
+        }
+
+        if (Boolean.TRUE.equals(existing.getIsProtected())) {
+            throw new IllegalStateException("Không thể thêm quyền vào vai trò bảo vệ hệ thống: " + existing.getRoleCode());
         }
 
         if (permissionCode == null || permissionCode.trim().isEmpty()) {
@@ -285,6 +305,10 @@ public class RoleManagementServiceImpl implements RoleManagementService {
         IamRoleRow existing = roleMapper.findById(roleId);
         if (existing == null) {
             throw new NoSuchElementException("Role not found with id: " + roleId);
+        }
+
+        if (Boolean.TRUE.equals(existing.getIsProtected())) {
+            throw new IllegalStateException("Không thể gỡ bỏ quyền của vai trò bảo vệ hệ thống: " + existing.getRoleCode());
         }
 
         rolePermissionMapper.deleteByRoleIdAndPermission(roleId, permissionCode.trim());
