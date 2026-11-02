@@ -10,9 +10,17 @@ export type AuthStatus = "loading" | "guest" | "authenticated" | "error";
 interface AuthContextValue {
   status: AuthStatus;
   profile: IdentityProfile | null;
+  user: IdentityProfile | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  isCustomer: boolean;
+  isEmployee: boolean;
+  hasRole: (roleCode: string) => boolean;
+  hasPermission: (permissionCode: string) => boolean;
   login: (returnUrl?: string) => void;
   logout: () => Promise<void>;
   reload: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -55,12 +63,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     finally {
       setProfile(null);
       setStatus("guest");
-      router.replace("/login");
+      router.replace("/");
       router.refresh();
     }
   }, [router]);
 
-  const value = useMemo(() => ({ status, profile, login, logout, reload }), [login, logout, profile, reload, status]);
+  const hasRole = useCallback((roleCode: string) => Boolean(profile?.roles.some((role) => role.roleCode.toLocaleUpperCase("en") === roleCode.toLocaleUpperCase("en"))), [profile]);
+  const hasPermission = useCallback((permissionCode: string) => Boolean(profile?.permissions.includes(permissionCode)), [profile]);
+  const value = useMemo(() => ({
+    status,
+    profile,
+    user: profile,
+    isAuthenticated: status === "authenticated",
+    isLoading: status === "loading",
+    isCustomer: profile?.principalType === "CUSTOMER",
+    isEmployee: profile?.principalType === "EMPLOYEE",
+    hasRole,
+    hasPermission,
+    login,
+    logout,
+    reload,
+    refreshProfile: reload
+  }), [hasPermission, hasRole, login, logout, profile, reload, status]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

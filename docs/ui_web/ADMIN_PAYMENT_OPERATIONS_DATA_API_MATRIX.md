@@ -2,7 +2,7 @@
 
 **Cập nhật:** 2026-10-02
 **Nguồn phạm vi:** `docs/01_requirements/epics/EPIC_07_Payment.md`
-**Màn hình:** `/employee/payments` trong `apps/web-user`
+**Màn hình:** `/admin/payments` trong `apps/web-user`
 **Mock Admin:** `mocks/mockoon/admin_extensions.json`, cổng `4030`
 
 ## Phạm vi đã triển khai
@@ -59,4 +59,4 @@ $env:ADMIN_MOCK_PROFILE="ACCOUNTANT"
 npm run dev
 ```
 
-Mở `http://localhost:3000/employee/payments`. Dùng `SALES_MANAGER` để kiểm tra tham chiếu bị che và `SYSTEM_ADMIN` để kiểm tra từ chối truy cập.
+Mở `http://localhost:3000/admin/payments`. Dùng `SALES_MANAGER` để kiểm tra tham chiếu bị che và `SYSTEM_ADMIN` để kiểm tra từ chối truy cập.

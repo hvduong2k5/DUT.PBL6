@@ -69,4 +69,4 @@ cd apps\web-user
 npm run dev
 ```
 
-Các màn hình nằm tại `http://localhost:3000/employee/administration/employees`, `/employee/administration/roles` và `/employee/administration/permissions`.
+Các màn hình nằm tại `http://localhost:3000/admin/administration/employees`, `/admin/administration/roles` và `/admin/administration/permissions`.

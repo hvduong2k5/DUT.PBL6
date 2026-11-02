@@ -3,7 +3,7 @@
 **Cập nhật:** 2026-10-02
 **Nguồn:** `docs/01_requirements/epics/EPIC_16_Customer_Service.md`
 **Cấp phát hành:** Giai đoạn 2 (`US-CS-02~05`), không thuộc MVP v1.0
-**Màn hình:** `/employee/support/tickets` trong `apps/web-user`
+**Màn hình:** `/admin/support/tickets` trong `apps/web-user`
 
 ## Phạm vi đã triển khai
 
@@ -49,4 +49,4 @@ $env:ADMIN_MOCK_PROFILE="CUSTOMER_SERVICE"
 npm run dev
 ```
 
-Mở `http://localhost:3000/employee/support/tickets`. Dùng `SYSTEM_ADMIN` để kiểm tra BFF trả `403`.
+Mở `http://localhost:3000/admin/support/tickets`. Dùng `SYSTEM_ADMIN` để kiểm tra BFF trả `403`.

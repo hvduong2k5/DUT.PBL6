@@ -28,7 +28,7 @@ Toàn bộ các thành phần hạ tầng nội bộ gồm **Keycloak** (Port 80
 - **Trình duyệt chỉ nhận và gửi một Cookie bảo mật duy nhất:** `OMAMA_SESSION` với cờ `HttpOnly`, `Secure`, `SameSite=Lax`.
 
 ### 1.2. Mô hình Phân lập Danh tính Doanh nghiệp (Enterprise Persona Separation)
-- **Tài khoản Nhân viên (`EMPLOYEE`):** Sử dụng email công vụ (`@omama.vn`) và chỉ vận hành các phân hệ nội bộ tại `/employee/**`. Được phân quyền chi tiết theo vai trò (`iam_roles`) và phạm vi (`Scope: GLOBAL, STORE, WAREHOUSE`); không được dùng Cart, Checkout, Customer Order hoặc Address.
+- **Tài khoản Nhân viên (`EMPLOYEE`):** Sử dụng email công vụ (`@omama.vn`), vận hành các phân hệ nội bộ tại `/admin/**` và có thể xem catalog Storefront ở chế độ chỉ đọc. Được phân quyền chi tiết theo vai trò (`iam_roles`) và phạm vi (`Scope: GLOBAL, STORE, WAREHOUSE`); không được dùng Cart, Checkout, Customer Order hoặc Address.
 - **Tài khoản Khách hàng (`CUSTOMER`):** Người dùng hoặc nhân viên khi mua sắm cá nhân sẽ sử dụng tài khoản `CUSTOMER` độc lập (email cá nhân).
 - **An toàn phiên làm việc:** Tuyệt đối không dùng chung một tài khoản mang quyền hạn quản trị nội bộ để lướt web mua sắm trên thiết bị cá nhân/mạng công cộng nhằm ngăn ngừa triệt để rủi ro rò rỉ Token đặc quyền.
 - **Quy trình Offboarding:** Khi nhân viên nghỉ việc, Admin khóa tài khoản `EMPLOYEE` mà không làm gián đoạn tài khoản `CUSTOMER` mua sắm cá nhân của họ.

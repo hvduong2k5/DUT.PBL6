@@ -35,5 +35,12 @@ export const identityService = {
   },
   async logout() {
     await request("/public/auth/logout", { method: "POST" });
+  },
+  async changePassword(currentPassword: string, newPassword: string) {
+    return request("/users/me/password", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ currentPassword, newPassword })
+    });
   }
 };

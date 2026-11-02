@@ -2,7 +2,7 @@
 
 **Cập nhật:** 2026-10-02
 **Nguồn phạm vi:** `docs/01_requirements/epics/EPIC_08_Order_Management.md`
-**Màn hình:** `/employee/orders` trong `apps/web-user`
+**Màn hình:** `/admin/orders` trong `apps/web-user`
 **Mock Admin:** `mocks/mockoon/admin_extensions.json`, cổng `4030`
 
 ## Phạm vi đã triển khai
@@ -67,4 +67,4 @@ $env:ADMIN_MOCK_PROFILE="SALES_MANAGER"
 npm run dev
 ```
 
-Mở `http://localhost:3000/employee/orders`. Đổi `ADMIN_MOCK_PROFILE` thành `WAREHOUSE_STAFF` hoặc `CUSTOMER_SERVICE` để kiểm tra dữ liệu người nhận bị che; dùng `VIEW_ONLY` hoặc `SYSTEM_ADMIN` để kiểm tra `403`/menu không hiển thị.
+Mở `http://localhost:3000/admin/orders`. Đổi `ADMIN_MOCK_PROFILE` thành `WAREHOUSE_STAFF` hoặc `CUSTOMER_SERVICE` để kiểm tra dữ liệu người nhận bị che; dùng `VIEW_ONLY` hoặc `SYSTEM_ADMIN` để kiểm tra `403`/menu không hiển thị.

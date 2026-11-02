@@ -17,7 +17,7 @@ describe("Employee server authorization", () => {
 
   it("rejects a Customer account", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(json({ authenticated: true })).mockResolvedValueOnce(json({ principalId: "CUST-01", principalType: "CUSTOMER", email: "customer@example.com", roles: [], permissions: [] })));
-    await expect(requireEmployeeSession(request("trusted"))).rejects.toMatchObject({ status: 403, code: "EMPLOYEE_ACCOUNT_REQUIRED" });
+    await expect(requireEmployeeSession(request("trusted"))).rejects.toMatchObject({ status: 403, code: "STAFF_ACCESS_REQUIRED" });
   });
 
   it("projects Employee roles and permissions", async () => {

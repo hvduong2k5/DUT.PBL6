@@ -2,7 +2,7 @@
 
 **Cập nhật:** 2026-10-02
 **Backlog:** `EPIC_04_Product_SKU.md`
-**Màn hình:** `/employee/catalog/products`
+**Màn hình:** `/admin/catalog/products`
 **Ứng dụng:** `apps/web-user`
 **Mock Admin:** `mocks/mockoon/admin_extensions.json`, cổng `4030`
 
@@ -70,4 +70,4 @@ cd apps\web-user
 npm run dev
 ```
 
-Mở `http://localhost:3000/employee/catalog/products`.
+Mở `http://localhost:3000/admin/catalog/products`.

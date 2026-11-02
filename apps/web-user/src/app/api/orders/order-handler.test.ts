@@ -42,7 +42,7 @@ describe("Order principal isolation", () => {
     const response = await handleOrderRequest(request, ["guest-access", "challenges"]);
 
     expect(response.status).toBe(403);
-    await expect(response.json()).resolves.toMatchObject({ code: "EMPLOYEE_CUSTOMER_ACCESS_FORBIDDEN" });
+    await expect(response.json()).resolves.toMatchObject({ code: "EMPLOYEE_PURCHASE_NOT_ALLOWED" });
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });

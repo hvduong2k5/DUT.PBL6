@@ -2,7 +2,7 @@
 
 **Cập nhật:** 2026-10-03
 **Nguồn phạm vi:** `docs/01_requirements/epics/EPIC_10_Packing.md`
-**Màn hình:** `/employee/packing` (quản lý) và `/employee/work/packing` (công việc cá nhân) trong `apps/web-user`
+**Màn hình:** `/admin/packing` (quản lý) và `/admin/work/packing` (công việc cá nhân) trong `apps/web-user`
 **Mock Admin:** `mocks/mockoon/admin_extensions.json`, cổng `4030`
 
 ## Phạm vi đã triển khai
@@ -69,6 +69,6 @@ $env:ADMIN_MOCK_PROFILE="PACKING_WORKBENCH"
 npm run dev
 ```
 
-Mở `http://localhost:3000/employee/work/packing` với profile `PACKING_WORKBENCH`. Identity session vẫn trả role `PACKING`, nhưng không thấy và không truy cập được `/employee/packing` nếu thiếu `PACKING_MANAGEMENT_VIEW`.
+Mở `http://localhost:3000/admin/work/packing` với profile `PACKING_WORKBENCH`. Identity session vẫn trả role `PACKING`, nhưng không thấy và không truy cập được `/admin/packing` nếu thiếu `PACKING_MANAGEMENT_VIEW`.
 
-Dùng tài khoản Identity có `PACKING_MANAGEMENT_VIEW` hoặc `SALES_MANAGER` để kiểm tra `/employee/packing`. Role `PACKING` không mặc nhiên có quyền thao tác Workbench; quyền thực tế luôn lấy từ Identity.
+Dùng tài khoản Identity có `PACKING_MANAGEMENT_VIEW` hoặc `SALES_MANAGER` để kiểm tra `/admin/packing`. Role `PACKING` không mặc nhiên có quyền thao tác Workbench; quyền thực tế luôn lấy từ Identity.

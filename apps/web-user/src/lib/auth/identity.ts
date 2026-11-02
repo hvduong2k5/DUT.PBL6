@@ -5,6 +5,7 @@ export interface IdentityProfile {
   principalType: PrincipalType;
   email: string;
   displayName: string;
+  provisioningStatus: string;
   roles: PrincipalRole[];
   permissions: string[];
 }
@@ -72,6 +73,7 @@ export function parseIdentityProfile(value: unknown): IdentityProfile | undefine
     principalType,
     email,
     displayName: displayName || email || principalId,
+    provisioningStatus: text(source.provisioningStatus) ?? "ACTIVE",
     roles,
     permissions: Array.isArray(source.permissions)
       ? [...new Set(source.permissions.map(text).filter((item): item is string => Boolean(item)))]

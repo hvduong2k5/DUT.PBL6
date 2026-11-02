@@ -38,7 +38,7 @@ async function fetchVerifiedCustomerSession(sessionCookie: string): Promise<Auth
   const profile = parseIdentityProfile(await profileResponse.json());
   if (!profile) throw new CustomerAccessError(503, "IDENTITY_INVALID", "Identity profile không đúng contract.");
   if (profile.principalType === "EMPLOYEE") {
-    throw new CustomerAccessError(403, "EMPLOYEE_CUSTOMER_ACCESS_FORBIDDEN", "Tài khoản nhân viên không được sử dụng chức năng mua hàng.");
+    throw new CustomerAccessError(403, "EMPLOYEE_PURCHASE_NOT_ALLOWED", "Tài khoản nhân viên không được sử dụng chức năng mua hàng.");
   }
 
   return {

@@ -5,11 +5,12 @@ import { FormEvent, useState } from "react";
 import { FormField, PasswordChecklist, StatusNotice, SubmitButton } from "@/components/auth/form-controls";
 import { useAuth } from "@/components/auth/auth-provider";
 import { getFieldErrors, getSafeErrorMessage } from "@/lib/auth/ui-error";
+import { AuthApiError } from "@/lib/auth/types";
 import { isPasswordValid, isValidEmail } from "@/lib/auth/validation";
 import { registerCustomer } from "@/services/auth-service";
 
 export function RegistrationFlow({ returnUrl }: { returnUrl: string }) {
-  const { login } = useAuth();
+  const { login, isEmployee, isLoading } = useAuth();
   const [password, setPassword] = useState("");
   const [pending, setPending] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -38,12 +39,15 @@ export function RegistrationFlow({ returnUrl }: { returnUrl: string }) {
       setSuccess(true);
       window.setTimeout(() => login(returnUrl), 1200);
     } catch (caught) {
-      setFieldErrors(getFieldErrors(caught));
+      const backendErrors = getFieldErrors(caught);
+      setFieldErrors(caught instanceof AuthApiError && caught.code === "EMAIL_ALREADY_EXISTS" ? { ...backendErrors, email: "Email này đã được đăng ký." } : backendErrors);
       setError(getSafeErrorMessage(caught));
     } finally { setPending(false); }
   }
 
   const query = returnUrl === "/" ? "" : `?returnUrl=${encodeURIComponent(returnUrl)}`;
+  if (isLoading) return <div className="center-state" aria-busy="true"><span className="large-spinner" /><p>Đang kiểm tra phiên đăng nhập…</p></div>;
+  if (isEmployee) return <div className="center-state"><span className="state-icon">!</span><h2>Nhân viên không đăng ký tài khoản tại đây</h2><p>Tài khoản Employee do công ty cấp phát. Hãy dùng tài khoản Customer cá nhân riêng nếu muốn mua hàng.</p><Link className="primary-link" href="/admin">Đến Kênh Quản Trị</Link></div>;
   return (
     <form className="auth-form registration-form" onSubmit={submit} noValidate>
       {success ? <div className="auth-toast" role="status">Đăng ký thành công! Đang chuyển đến màn hình đăng nhập...</div> : null}

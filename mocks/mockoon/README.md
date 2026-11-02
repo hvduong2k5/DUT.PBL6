@@ -16,7 +16,7 @@ Các BFF dùng `CUSTOMER_CORE_UPSTREAM_URL` cho API gốc và `CUSTOMER_EXTENSIO
 
 ## Employee Operations API thống nhất
 
-- Toàn bộ fixture API dành cho vùng `/employee/**` của `apps/web-user` được đặt trong `admin_extensions.json`, cổng `4030`.
+- Toàn bộ fixture API dành cho vùng `/admin/**` của `apps/web-user` được đặt trong `admin_extensions.json`, cổng `4030`.
 - Không thêm route `/admin/*` vào `mobile_pbl.json` hoặc `customer_extensions.json`.
 - Khi triển khai module Admin mới, bổ sung route vào duy nhất file Admin này cho đến khi có upstream backend thật.
 
@@ -57,7 +57,7 @@ Các route đầu tiên phục vụ Employee Operations `ADM-034`:
 | `GET` | `/admin/support/tickets` | Hàng đợi Ticket nội bộ theo Epic 16 — Giai đoạn 2 |
 | `GET` | `/admin/support/tickets/:ticketId` | Hội thoại, ghi chú nội bộ, SLA và ngữ cảnh nguồn chỉ đọc |
 
-`apps/web-user` chạy cổng `3000`; vùng nội bộ bắt đầu tại `/employee` và dùng `ADMIN_API_UPSTREAM_URL=http://127.0.0.1:4030/api/v1`. `ADMIN_MOCK_PROFILE` chỉ chọn dữ liệu fixture mà Mockoon trả về, không cấp Role hoặc Permission cho phiên. Danh tính Employee và effective permissions luôn đến từ `GET /users/me` của Identity Service; BFF kiểm tra lại trước khi gọi Mockoon/upstream. Header profile chỉ do BFF local tạo và production không được tin giá trị do browser tự khai báo. Endpoint fixture `/admin/session` là tương thích lịch sử, không còn là nguồn authorization của frontend.
+`apps/web-user` chạy cổng `3000`; vùng nội bộ bắt đầu tại `/admin` và dùng `ADMIN_API_UPSTREAM_URL=http://127.0.0.1:4030/api/v1`. `ADMIN_MOCK_PROFILE` chỉ chọn dữ liệu fixture mà Mockoon trả về, không cấp Role hoặc Permission cho phiên. Danh tính Employee và effective permissions luôn đến từ `GET /users/me` của Identity Service; BFF kiểm tra lại trước khi gọi Mockoon/upstream. Header profile chỉ do BFF local tạo và production không được tin giá trị do browser tự khai báo. Endpoint fixture `/admin/session` là tương thích lịch sử, không còn là nguồn authorization của frontend.
 
 Để kiểm tra optimistic concurrency của `US-B2B-03`, mở UI với `?mockScenario=admin-b2b-concurrency-conflict`. Mọi mutation phải gửi `expectedRevision`; mock trả `409 B2B_CONCURRENCY_CONFLICT` và UI yêu cầu tải lại dữ liệu trước khi tiếp tục.
 
@@ -72,7 +72,7 @@ Các route đầu tiên phục vụ Employee Operations `ADM-034`:
 | `GET` | `/b2b/quotes/:quoteId` | Chi tiết Quote Version đã phát hành |
 | `POST` | `/b2b/quotes/:quoteId/accept` | Chấp thuận đúng phiên bản và nhận tham chiếu Order B2B |
 
-Mock chỉ lưu metadata logo/tài liệu; upload binary, quét an toàn và signed URL thuộc Media/Object Storage. Giao diện nội bộ Sales Manager nằm tại `/employee/b2b/quotes` và chỉ mở khi Identity cấp permission tương ứng.
+Mock chỉ lưu metadata logo/tài liệu; upload binary, quét an toàn và signed URL thuộc Media/Object Storage. Giao diện nội bộ Sales Manager nằm tại `/admin/b2b/quotes` và chỉ mở khi Identity cấp permission tương ứng.
 
 ## Return & Refund MVP
 

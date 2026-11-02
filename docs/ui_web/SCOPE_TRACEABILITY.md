@@ -15,7 +15,7 @@ Tài liệu này chốt phạm vi làm việc ban đầu và thiết lập trace
 
 | ID | Working assumption | Lý do | Nếu thay đổi |
 | --- | --- | --- | --- |
-| `AUTH-AS-01` | Unified Web nằm trong `apps/web-user`, nhưng Customer và Employee dùng tài khoản, layout và route độc lập. | Storefront nằm ngoài `/employee`; giao diện nội bộ nằm dưới `/employee/**` và lọc bằng permission Identity. | Không cho Employee sử dụng Cart, Checkout, Customer Order hoặc Address; BFF kiểm tra lại principal. |
+| `AUTH-AS-01` | Unified Web nằm trong `apps/web-user`, nhưng Customer và Employee dùng tài khoản, layout và route độc lập. | Storefront nằm ngoài `/admin`; giao diện nội bộ nằm dưới `/admin/**` và lọc bằng permission Identity. | Không cho Employee sử dụng Cart, Checkout, Customer Order hoặc Address; BFF kiểm tra lại principal. |
 | `AUTH-AS-02` | Slice đầu tiên dùng phạm vi MVP v1.0 của EPIC 01. | EPIC 01 đánh dấu `US-AUTH-01`, `02`, `03`, `05` là MVP. | Social Login và Link Guest Order phải được bổ sung nếu release scope mở rộng. |
 | `AUTH-AS-03` | Ba màn được implement trong slice là D2C-009, D2C-010 và D2C-011; D2C-006 chỉ là integration point để bảo đảm Guest Checkout không bị chặn. | Guest Checkout thuộc EPIC 01 nhưng phần form/order chính thuộc EPIC 06. | Nếu nhận luôn Checkout, cần phân tích thêm EPIC 05, 06, 07 và các dependency tồn kho/vận chuyển/thanh toán. |
 | `AUTH-AS-04` | HTML và screenshot Stitch là visual reference, không phải source of truth cho field, policy hoặc release scope. | Các quyết định Product được ghi tại Mục 7, không suy ra trực tiếp từ nội dung do Stitch tạo. | Thay đổi thiết kế không tự động thay đổi business rule/API contract. |

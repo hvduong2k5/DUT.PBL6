@@ -32,7 +32,7 @@ export async function requireEmployeeSession(request: NextRequest): Promise<Empl
   if (!profileResponse.ok) throw new EmployeeAuthorizationError(profileResponse.status === 401 ? 401 : profileResponse.status === 403 ? 403 : 503, profileResponse.status === 401 ? "AUTH_REQUIRED" : profileResponse.status === 403 ? "EMPLOYEE_FORBIDDEN" : "IDENTITY_UNAVAILABLE", "Không thể tải hồ sơ và quyền nhân viên.");
   const profile = parseIdentityProfile(await profileResponse.json());
   if (!profile) throw new EmployeeAuthorizationError(503, "IDENTITY_PROFILE_INVALID", "Hồ sơ Identity không đúng contract.");
-  if (profile.principalType !== "EMPLOYEE") throw new EmployeeAuthorizationError(403, "EMPLOYEE_ACCOUNT_REQUIRED", "Tài khoản Customer không được truy cập nghiệp vụ nội bộ.");
+  if (profile.principalType !== "EMPLOYEE") throw new EmployeeAuthorizationError(403, "STAFF_ACCESS_REQUIRED", "Tài khoản Customer không được truy cập nghiệp vụ nội bộ.");
   const employeeSession = toEmployeeSession(profile);
   if (!employeeSession) throw new EmployeeAuthorizationError(503, "EMPLOYEE_SESSION_INVALID", "Không thể tạo projection quyền nhân viên.");
   return employeeSession;

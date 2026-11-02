@@ -1,7 +1,7 @@
 # Quy chuẩn giao diện Web Admin
 
 **Cập nhật:** 2026-10-03
-**Ứng dụng:** `apps/web-user` — vùng route `/employee/**`
+**Ứng dụng:** `apps/web-user` — vùng route `/admin/**`
 
 Tài liệu này ghi lại quy chuẩn chính đã chốt cho giao diện nhân viên nội bộ. Epic và Product Backlog xác định phạm vi nghiệp vụ; `UI_SCREEN_SPECIFICATION_FOR_STITCH_AI.md` chỉ được dùng để tham khảo cách tổ chức màn hình. Khi cách trình bày khác nhau, quy chuẩn trong tài liệu này được ưu tiên cho Web Admin.
 
@@ -16,7 +16,7 @@ Tài liệu này ghi lại quy chuẩn chính đã chốt cho giao diện nhân 
 
 ## 2. Ranh giới ứng dụng
 
-- Giao diện Customer và Employee cùng được triển khai trong `apps/web-user` nhưng dùng hai layout và hai vùng route độc lập. Customer dùng storefront; Employee chỉ dùng `/employee/**`.
+- Giao diện Customer và Employee cùng được triển khai trong `apps/web-user` nhưng dùng hai layout và hai vùng route độc lập. Customer dùng storefront; Employee chỉ dùng `/admin/**`.
 - Tài khoản Customer và Employee là hai tài khoản khác nhau. Tài khoản Employee tuyệt đối không được tạo giỏ hàng, checkout, tạo đơn hàng Customer hoặc lưu sổ địa chỉ nhận hàng; giao diện Employee không có nút chuyển sang storefront mua hàng.
 - Nhân viên dùng một loại tài khoản nội bộ. `Role` và `Permission` là hai khái niệm riêng: Role gom nhiều Permission, còn giao diện và BFF kiểm tra Permission nguyên tử tại thời điểm xem hoặc thao tác.
 - Không tách role chỉ để biểu diễn cấp quản lý và nhân viên thường trong cùng nghiệp vụ. Ví dụ cùng dùng role `PACKING`; quyền vào trang quản lý, Workbench và phạm vi `ALL`/`ASSIGNED_ONLY` do Permission + Scope quyết định.
@@ -72,4 +72,4 @@ Mỗi trang cần chủ động thiết kế loading, empty, filtered-empty, API
 
 ## 9. Màn tham chiếu đầu tiên
 
-`/employee/b2b/quotes` là implementation tham chiếu ban đầu của quy chuẩn: header + sidebar, page header, status tabs, search/filter, bảng cơ bản, cột `•••`, dropdown theo quyền/trạng thái và toàn bộ hành động trong modal.
+`/admin/b2b/quotes` là implementation tham chiếu ban đầu của quy chuẩn: header + sidebar, page header, status tabs, search/filter, bảng cơ bản, cột `•••`, dropdown theo quyền/trạng thái và toàn bộ hành động trong modal.

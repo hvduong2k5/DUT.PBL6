@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
+import { CustomerPurchaseGuard } from "@/components/auth/customer-purchase-guard";
 import { CartFlow } from "./cart-flow";
 
 export const metadata: Metadata = {
@@ -13,9 +14,9 @@ export default function CartPage() {
   return (
     <>
       <SiteHeader />
-      <Suspense fallback={<CartPageLoading />}>
+      <CustomerPurchaseGuard><Suspense fallback={<CartPageLoading />}>
         <CartFlow />
-      </Suspense>
+      </Suspense></CustomerPurchaseGuard>
       <SiteFooter />
     </>
   );

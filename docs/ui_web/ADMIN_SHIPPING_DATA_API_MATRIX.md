@@ -2,7 +2,7 @@
 
 **Cập nhật:** 2026-10-03
 **Nguồn phạm vi:** `docs/01_requirements/epics/EPIC_11_Shipping_Delivery.md`
-**Màn hình:** `/employee/shipping` (quản lý) và `/employee/work/delivery` (công việc cá nhân) trong `apps/web-user`
+**Màn hình:** `/admin/shipping` (quản lý) và `/admin/work/delivery` (công việc cá nhân) trong `apps/web-user`
 **Mock Admin:** `mocks/mockoon/admin_extensions.json`, cổng `4030`
 
 ## Phạm vi đã triển khai
@@ -67,6 +67,6 @@ $env:ADMIN_MOCK_PROFILE="DELIVERY_WORKBENCH"
 npm run dev
 ```
 
-Mở `http://localhost:3000/employee/work/delivery` với tài khoản Identity có `DELIVERY_WORKBENCH_VIEW`. Tài khoản không truy cập được `/employee/shipping` nếu thiếu `SHIPMENT_MANAGEMENT_VIEW`.
+Mở `http://localhost:3000/admin/work/delivery` với tài khoản Identity có `DELIVERY_WORKBENCH_VIEW`. Tài khoản không truy cập được `/admin/shipping` nếu thiếu `SHIPMENT_MANAGEMENT_VIEW`.
 
-Dùng tài khoản có `SHIPMENT_MANAGEMENT_VIEW` để kiểm tra `/employee/shipping` và xác nhận bị từ chối `/employee/work/delivery` khi thiếu `DELIVERY_WORKBENCH_VIEW`. Role `SYSTEM_ADMIN` không mặc nhiên cấp quyền cho cả hai vùng nghiệp vụ.
+Dùng tài khoản có `SHIPMENT_MANAGEMENT_VIEW` để kiểm tra `/admin/shipping` và xác nhận bị từ chối `/admin/work/delivery` khi thiếu `DELIVERY_WORKBENCH_VIEW`. Role `SYSTEM_ADMIN` không mặc nhiên cấp quyền cho cả hai vùng nghiệp vụ.

@@ -2,7 +2,7 @@
 
 **Cập nhật:** 2026-10-02
 **Backlog:** `EPIC_18_B2B.md`
-**Màn hình:** `ADM-034` — `/employee/b2b/quotes`
+**Màn hình:** `ADM-034` — `/admin/b2b/quotes`
 **Ứng dụng:** `apps/web-user`
 **Mock Admin:** `mocks/mockoon/admin_extensions.json`, cổng `4030`
 
@@ -65,7 +65,7 @@ cd apps\web-user
 npm run dev
 ```
 
-Không gian Employee chạy trong Unified Web tại `http://localhost:3000/employee`. `ADMIN_MOCK_PROFILE` chỉ chọn dữ liệu fixture của Mockoon; Role và Permission dùng để mở menu, route và BFF phải đến từ tài khoản Employee do Identity xác minh.
+Không gian Employee chạy trong Unified Web tại `http://localhost:3000/admin`. `ADMIN_MOCK_PROFILE` chỉ chọn dữ liệu fixture của Mockoon; Role và Permission dùng để mở menu, route và BFF phải đến từ tài khoản Employee do Identity xác minh.
 
 ## Việc còn lại của ADM-034
 

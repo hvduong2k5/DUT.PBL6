@@ -93,7 +93,7 @@ Backend có thể cung cấp gateway thật hoặc một mock mới sinh từ pu
 ## 8. Checklist E2E khi backend sẵn sàng
 
 - Đăng nhập, hết hạn session và principal thiếu quyền trả đúng `401`/`403`.
-- Employee luôn bị từ chối khỏi Customer flow bằng `403 EMPLOYEE_CUSTOMER_ACCESS_FORBIDDEN`; tài khoản Customer độc lập mới được dùng Cart, Checkout, Order và Address.
+- Employee luôn bị từ chối khỏi Customer flow bằng `403 EMPLOYEE_PURCHASE_NOT_ALLOWED`; tài khoản Customer độc lập mới được dùng Cart, Checkout, Order và Address.
 - Duyệt Catalog/Product, chọn SKU, thêm/sửa/xóa Cart và xử lý revision conflict.
 - Tạo quote, nhận thay đổi giá/tồn, accept bằng cùng idempotency key và xử lý cả `201` lẫn `202`.
 - Poll operation tới `SUCCEEDED`, `FAILED` và `MANUAL_REVIEW`; không tạo Order trùng.

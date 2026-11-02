@@ -31,16 +31,16 @@ Hệ thống triển khai theo mô hình **1 Web duy nhất** cho toàn bộ ng�
            Nếu principalType = "CUSTOMER"                  Nếu principalType = "EMPLOYEE"
         (Khách hàng mua kẹo thông thường)              (Admin, Warehouse, Packing, Delivery...)
                         │                                               │
-   • Hiển thị Menu Mua hàng, Giỏ hàng, Đơn mua.     • Chỉ hiển thị layout Employee (/employee).
-   • Trang cá nhân: Điểm thưởng, Địa chỉ.           • Không hiển thị Cart/Checkout/Customer Account:
-   • Nếu cố tình gõ URL /employee/**:                  - Có INVENTORY_VIEW    --> Hiện Tab Kho
+   • Hiển thị Menu Mua hàng, Giỏ hàng, Đơn mua.     • Có thể xem Storefront ở chế độ chỉ đọc.
+   • Trang cá nhân: Điểm thưởng, Địa chỉ.           • Header mở Kênh Quản Trị (/admin), ẩn Cart:
+   • Nếu cố tình gõ URL /admin/**:                  - Có INVENTORY_VIEW    --> Hiện Tab Kho
      --> Middleware chặn & redirect về /               - Có PACKING_WORKBENCH --> Hiện Tab Đóng gói
                                                        - Có ROLE_READ         --> Hiện Tab Phân quyền
 ```
 
 ### 1.1. Mô hình Phân lập Danh tính Doanh nghiệp (Enterprise Persona Separation)
 Để đảm bảo an toàn thông tin theo nguyên tắc Đặc quyền tối thiểu (Least Privilege), hệ thống áp dụng chuẩn phân lập tài khoản:
-* **Tài khoản Công vụ (`EMPLOYEE`):** Sử dụng email công ty (`@omama.vn`) để đăng nhập và làm việc trên giao diện nội bộ `/employee/**`. Chỉ tài khoản này mới được gán quyền trong `iam_role_assignments`.
+* **Tài khoản Công vụ (`EMPLOYEE`):** Sử dụng email công ty (`@omama.vn`) để đăng nhập và làm việc trên giao diện nội bộ `/admin/**`. Tài khoản vẫn được xem nội dung Storefront nhưng mọi action mua hàng bị ẩn và BFF từ chối lại bằng `EMPLOYEE_PURCHASE_NOT_ALLOWED`. Chỉ tài khoản này mới được gán quyền trong `iam_role_assignments`.
 * **Tài khoản Tiêu dùng (`CUSTOMER`):** Sử dụng email cá nhân để mua kẹo mè xửng trên giao diện Storefront.
 * **Quy tắc bảo mật bắt buộc:** `EMPLOYEE` không được dùng Cart, Checkout, Customer Order hoặc Address. Nhân viên mua sắm cá nhân phải sử dụng tài khoản `CUSTOMER` độc lập; legacy `customer_id` hoặc role `CUSTOMER` không mở quyền mua hàng cho Employee.
 
@@ -368,17 +368,15 @@ import Link from "next/link";
 export function Header() {
   const { status, profile, isStaff, login, logout } = useAppSession();
 
-  // StorefrontAccessBoundary chuyển Employee sang /employee; Customer header
-  // không cung cấp nút chuyển layout hoặc chức năng mua hàng cho Employee.
-  if (isStaff) return null;
+  // Employee vẫn được xem catalog, nhưng header chỉ hiện Kênh Quản Trị;
+  // Cart và các action mua hàng không được render.
 
   return (
     <header className="flex justify-between p-4 bg-white shadow">
       <Link href="/" className="font-bold text-xl text-amber-900">Mè Xửng O Mạ</Link>
 
       <div className="flex items-center gap-4">
-        {/* Khách hàng thường & Chưa đăng nhập luôn thấy Giỏ hàng */}
-        <Link href="/cart">Giỏ hàng</Link>
+        {isStaff ? <Link href="/admin">Kênh Quản Trị</Link> : <Link href="/cart">Giỏ hàng</Link>}
 
         {status === "loading" && <span>Đang tải...</span>}
 
@@ -406,7 +404,7 @@ export function Header() {
 
 ### 3.3. Bảo Vệ Route Employee
 
-Bảo vệ tất cả đường dẫn `/employee/**` bằng `EmployeeAccessBoundary` và kiểm tra lại ở `/api/admin/**`. Middleware dưới đây chỉ là lớp chuyển hướng sớm khi thiếu cookie; nó không thay thế việc gọi Identity để xác minh `principalType`.
+Bảo vệ tất cả đường dẫn `/admin/**` bằng `EmployeeAccessBoundary` và kiểm tra lại ở `/api/admin/**`. Middleware dưới đây chỉ là lớp chuyển hướng sớm khi thiếu cookie; nó không thay thế việc gọi Identity để xác minh `principalType`.
 
 ```typescript
 import { NextResponse } from "next/server";
@@ -416,7 +414,7 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Kiểm tra nếu truy cập vào khu vực Employee
-  if (pathname.startsWith("/employee")) {
+  if (pathname.startsWith("/admin")) {
     const sessionCookie = request.cookies.get("OMAMA_SESSION")?.value;
 
     // Chưa đăng nhập -> đá về trang chủ hoặc kích hoạt flow đăng nhập
@@ -431,13 +429,13 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/employee/:path*"],
+  matcher: ["/admin/:path*"],
 };
 ```
 
 ---
 
-### 3.4. Ẩn / Hiện Menu Con Trong Layout Employee (`/employee/layout.tsx`)
+### 3.4. Ẩn / Hiện Menu Con Trong Layout Employee (`/admin/layout.tsx`)
 
 Trong trang quản trị, mỗi tab chức năng chỉ hiển thị khi tài khoản có quyền tương ứng trong danh sách `permissions`:
 
@@ -463,35 +461,35 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         {/* Tab Đơn hàng */}
         {hasPermission("ORDER_READ") && (
-          <Link href="/employee/orders" className="block p-2 hover:bg-slate-800 rounded">
+          <Link href="/admin/orders" className="block p-2 hover:bg-slate-800 rounded">
             📦 Quản lý Đơn hàng
           </Link>
         )}
 
         {/* Tab Kho vận */}
         {hasPermission("INVENTORY_VIEW") && (
-          <Link href="/employee/inventory" className="block p-2 hover:bg-slate-800 rounded">
+          <Link href="/admin/inventory" className="block p-2 hover:bg-slate-800 rounded">
             🏬 Quản lý Kho hàng
           </Link>
         )}
 
         {/* Tab Đóng gói */}
         {hasPermission("PACKING_WORKBENCH_VIEW") && (
-          <Link href="/employee/work/packing" className="block p-2 hover:bg-slate-800 rounded">
+          <Link href="/admin/work/packing" className="block p-2 hover:bg-slate-800 rounded">
             🎁 Bàn Đóng Gói
           </Link>
         )}
 
         {/* Tab Giao hàng */}
         {hasPermission("DELIVERY_WORKBENCH_VIEW") && (
-          <Link href="/employee/work/delivery" className="block p-2 hover:bg-slate-800 rounded">
+          <Link href="/admin/work/delivery" className="block p-2 hover:bg-slate-800 rounded">
             🚚 Bàn Giao Hàng
           </Link>
         )}
 
         {/* Tab Quản trị Role & Phân quyền (Chỉ Super Admin) */}
         {hasPermission("ROLE_READ") && (
-          <Link href="/employee/administration/roles" className="block p-2 hover:bg-slate-800 rounded">
+          <Link href="/admin/administration/roles" className="block p-2 hover:bg-slate-800 rounded">
             🛡️ Quản lý Vai Trò & Phân Quyền
           </Link>
         )}
@@ -517,4 +515,4 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
    - `principalType === 'CUSTOMER'` $\longrightarrow$ **Khách hàng D2C**.
 5. **Điều hướng & Trải nghiệm:**
    - Khách hàng D2C: Mua kẹo Ô Mạ, giỏ hàng, hồ sơ cá nhân.
-   - Nhân viên: Chỉ sử dụng layout `/employee`; menu con ẩn hiện theo `permissions`, không có nút chuyển từ Customer layout.
+   - Nhân viên: Có thể xem Storefront ở chế độ chỉ đọc; header hiện nút `/admin`, ẩn giỏ hàng và Product Detail thay action mua bằng cảnh báo. Menu nội bộ ẩn hiện theo `permissions`.

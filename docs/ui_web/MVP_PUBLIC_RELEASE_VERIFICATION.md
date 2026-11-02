@@ -36,7 +36,7 @@ Vitest dùng cùng alias `@` với TypeScript. Test files chạy tuần tự tro
 | --- | --- |
 | Session trust boundary | Browser `Authorization` bị bỏ qua; chỉ cookie HttpOnly `OMAMA_SESSION` được dùng để xác minh phiên qua Identity. |
 | Unauthorized | Không có trusted token trả `401 AUTH_REQUIRED`. |
-| Customer/Employee isolation | Employee luôn trả `403 EMPLOYEE_CUSTOMER_ACCESS_FORBIDDEN` tại Customer BFF; Customer trả `403 EMPLOYEE_ACCOUNT_REQUIRED` tại Employee BFF. |
+| Customer/Employee isolation | Employee luôn trả `403 EMPLOYEE_PURCHASE_NOT_ALLOWED` tại Customer BFF; Customer trả `403 STAFF_ACCESS_REQUIRED` tại Employee BFF. |
 | Permission/capability | Principal hợp lệ nhưng thiếu capability trả `403 CAPABILITY_FORBIDDEN`. |
 | Principal projection | Customer/Employee, Role và Permission được parse tách biệt; token không lộ trong session response. |
 | Profile contract | Email read-only không bị validate/gửi lại trong Profile mutation. |

@@ -5,12 +5,14 @@ import { useCustomerSession } from "@/components/auth/customer-session-provider"
 import { useCartSummary } from "@/components/cart/cart-summary-provider";
 import { MVP_FEATURE_GATES } from "@/lib/mvp-feature-gates";
 import { BrandMark } from "./brand-mark";
+import { useAuth } from "@/components/auth/auth-provider";
 
 export function SiteHeader() {
+  const auth = useAuth();
   const { status, customer, principal, customerAccess, hasCapability } = useCustomerSession();
   const { itemCount } = useCartSummary();
-  const authenticated = status === "authenticated" && principal !== null;
-  const displayName = customer?.displayName ?? principal?.displayName ?? "Tài khoản";
+  const authenticated = auth.isAuthenticated;
+  const displayName = customer?.displayName ?? principal?.displayName ?? auth.user?.displayName ?? "Tài khoản";
   const initial = authenticated ? displayName.trim().charAt(0).toLocaleUpperCase("vi") || "T" : "♙";
   return (
     <header className="site-header">
@@ -32,14 +34,14 @@ export function SiteHeader() {
           <Link href="/products?category=banh-cung-dinh">Bánh &amp; Kẹo Cung Đình</Link>
           <Link href="/products?category=me-xung-keo-hue">Mè Xửng &amp; Trà Sen</Link>
           <Link href="/products?category=qua-bieu">Quà Biếu Tặng</Link>
-          {hasCapability("B2B_QUOTE_VIEW") ? <Link href="/b2b">Báo Giá Sỉ B2B</Link> : null}
+          {auth.isCustomer && hasCapability("B2B_QUOTE_VIEW") ? <Link href="/b2b">Báo Giá Sỉ B2B</Link> : null}
           <Link href="/#heritage-story">Câu Chuyện Huế</Link>
           <Link href="/#ocop-traceability">Truy Xuất OCOP</Link>
           <Link href="/promotions">Ưu Đãi Tri Kỷ</Link>
         </nav>
-        <Link className="track-order-link" href={authenticated && customerAccess ? "/account/orders" : MVP_FEATURE_GATES.guestOrder ? "/track-order" : "/login?returnUrl=%2Faccount%2Forders"}>{authenticated && customerAccess ? "Đơn hàng" : MVP_FEATURE_GATES.guestOrder ? "Tra cứu đơn" : "Đăng nhập xem đơn"}</Link>
-        <Link className="cart-header-button" href="/cart" aria-label={itemCount === null ? "Mở giỏ hàng" : `Mở giỏ hàng, ${itemCount} sản phẩm`}>♧<span>Giỏ hàng</span>{itemCount !== null ? <b>{itemCount > 99 ? "99+" : itemCount}</b> : null}</Link>
-        <Link className={`account-button ${authenticated ? "authenticated" : ""}`} href={authenticated && customerAccess ? "/account/profile" : authenticated ? "/" : "/login?returnUrl=%2Faccount%2Fprofile"} aria-label={authenticated ? `Tài khoản của ${displayName}` : "Đăng nhập tài khoản Tri Kỷ"} title={authenticated ? displayName : "Đăng nhập"}>{status === "loading" ? "…" : initial}</Link>
+        {auth.isEmployee ? <Link className="track-order-link" href="/admin">🛠 Kênh Quản Trị</Link> : <Link className="track-order-link" href={authenticated && customerAccess ? "/account/orders" : MVP_FEATURE_GATES.guestOrder ? "/track-order" : "/login?returnUrl=%2Faccount%2Forders"}>{authenticated && customerAccess ? "Đơn hàng" : MVP_FEATURE_GATES.guestOrder ? "Tra cứu đơn" : "Đăng nhập xem đơn"}</Link>}
+        {!auth.isEmployee ? <Link className="cart-header-button" href="/cart" aria-label={itemCount === null ? "Mở giỏ hàng" : `Mở giỏ hàng, ${itemCount} sản phẩm`}>♧<span>Giỏ hàng</span>{itemCount !== null ? <b>{itemCount > 99 ? "99+" : itemCount}</b> : null}</Link> : null}
+        {authenticated ? <details className="user-dropdown"><summary className="account-button authenticated" aria-label={`Mở menu tài khoản của ${displayName}`} title={displayName}>{auth.isLoading || status === "loading" ? "…" : initial}</summary><div className="user-dropdown-menu"><strong>{displayName}</strong><small>{auth.user?.email}</small>{auth.isEmployee ? <Link href="/admin">Kênh Quản Trị</Link> : <><Link href="/account/profile">Hồ sơ cá nhân</Link><Link href="/account/orders">Đơn hàng của tôi</Link></>}<Link href="/settings/password">Đổi mật khẩu</Link><button type="button" onClick={() => void auth.logout()}>Đăng xuất</button></div></details> : <Link className="account-button" href="/login?returnUrl=%2Faccount%2Fprofile" aria-label="Đăng nhập tài khoản Tri Kỷ" title="Đăng nhập">{auth.isLoading || status === "loading" ? "…" : initial}</Link>}
       </div>
     </header>
   );

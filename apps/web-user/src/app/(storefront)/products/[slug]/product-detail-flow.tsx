@@ -11,6 +11,7 @@ import { ProductImage } from "@/components/product/product-image";
 import { useCartSummary } from "@/components/cart/cart-summary-provider";
 import { cartService } from "@/services/cart-service";
 import { productDetailService } from "@/services/product-detail-service";
+import { useAuth } from "@/components/auth/auth-provider";
 
 const VND = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 });
 
@@ -33,6 +34,7 @@ function ProductDetailLoading() {
 }
 
 export function ProductDetailFlow({ slug }: { slug: string }) {
+  const { isEmployee } = useAuth();
   const { updateFromCart } = useCartSummary();
   const searchParams = useSearchParams();
   const scenario = searchParams.get("mockScenario") ?? undefined;
@@ -179,7 +181,7 @@ export function ProductDetailFlow({ slug }: { slug: string }) {
             {selectedSku ? <dl><div><dt>Khối lượng</dt><dd>{selectedSku.weightGrams}g</dd></div><div><dt>Hương vị</dt><dd>{selectedSku.flavor || "Nguyên bản"}</dd></div><div><dt>Đóng gói</dt><dd>{selectedSku.packageType}</dd></div><div><dt>Khả dụng</dt><dd className="available">Có thể chọn</dd></div></dl> : <p>Chưa chọn SKU. Không có quy cách nào được ngầm xác nhận.</p>}
           </div>
 
-          <div className="detail-cart-actions">
+          {isEmployee ? <div className="availability-banner employee-purchase-warning" role="note"><span aria-hidden="true">!</span><div><h2>Tài khoản nhân viên công vụ</h2><p>Chỉ được xem thông tin sản phẩm và quản trị; không thể tạo giỏ hàng hoặc đặt mua. Hãy đăng xuất và dùng tài khoản Customer cá nhân nếu cần mua hàng.</p><Link href="/admin">Đến Kênh Quản Trị →</Link></div></div> : <><div className="detail-cart-actions">
             <label htmlFor="detail-quantity">Số lượng</label>
             <div className="detail-quantity-control">
               <button type="button" aria-label="Giảm số lượng" disabled={!selectedSku || addingToCart || quantity <= 1} onClick={() => setQuantity((value) => Math.max(1, value - 1))}>−</button>
@@ -188,7 +190,7 @@ export function ProductDetailFlow({ slug }: { slug: string }) {
             </div>
             <button className="cart-integration-button" type="button" disabled={!hasAvailableSku || addingToCart} onClick={addToCart}>{!hasAvailableSku ? "Tạm thời không thể mua" : addingToCart ? "Đang thêm vào giỏ…" : selectedSku ? "Thêm vào giỏ hàng" : "Chọn SKU để tiếp tục"}</button>
           </div>
-          {selectionMessage ? <div id="sku-message" className={addedToCart ? "integration-note" : "selection-error"} role={addedToCart ? "status" : "alert"}><p>{selectionMessage}</p>{addedToCart ? <Link href="/cart">Xem giỏ hàng →</Link> : null}</div> : <p id="sku-message" className="integration-caption">Giỏ hàng không giữ tồn hoặc cố định giá; hệ thống sẽ kiểm tra lại khi mở cart.</p>}
+          {selectionMessage ? <div id="sku-message" className={addedToCart ? "integration-note" : "selection-error"} role={addedToCart ? "status" : "alert"}><p>{selectionMessage}</p>{addedToCart ? <Link href="/cart">Xem giỏ hàng →</Link> : null}</div> : <p id="sku-message" className="integration-caption">Giỏ hàng không giữ tồn hoặc cố định giá; hệ thống sẽ kiểm tra lại khi mở cart.</p>}</>}
         </div>
       </section>
 

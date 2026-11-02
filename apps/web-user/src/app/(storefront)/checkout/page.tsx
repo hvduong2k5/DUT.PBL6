@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
+import { CustomerPurchaseGuard } from "@/components/auth/customer-purchase-guard";
 import { CheckoutFlow } from "./checkout-flow";
 
 export const metadata: Metadata = {
@@ -13,9 +14,9 @@ export default function CheckoutPage() {
   return (
     <>
       <SiteHeader />
-      <Suspense fallback={<CheckoutPageLoading />}>
+      <CustomerPurchaseGuard><Suspense fallback={<CheckoutPageLoading />}>
         <CheckoutFlow />
-      </Suspense>
+      </Suspense></CustomerPurchaseGuard>
       <SiteFooter />
     </>
   );

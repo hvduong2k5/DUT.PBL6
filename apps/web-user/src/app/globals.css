@@ -45,6 +45,15 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 .header-search button:hover { background: var(--surface-high); }
 .account-button { flex: 0 0 40px; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: white; background: var(--primary); text-decoration: none; font-size: 20px; }
 .account-button.authenticated { background: var(--brick); font-size: 15px; font-weight: 800; }
+.user-dropdown { position: relative; flex: 0 0 40px; }
+.user-dropdown > summary { list-style: none; cursor: pointer; }
+.user-dropdown > summary::-webkit-details-marker { display: none; }
+.user-dropdown-menu { position: absolute; z-index: 80; top: calc(100% + 10px); right: 0; width: 220px; display: grid; gap: 3px; padding: 12px; border: 1px solid var(--border); border-radius: 12px; background: white; box-shadow: 0 16px 38px rgba(62,48,38,.18); }
+.user-dropdown-menu strong, .user-dropdown-menu small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.user-dropdown-menu strong { color: var(--ink); font-size: 12px; }
+.user-dropdown-menu small { margin-bottom: 7px; color: var(--muted); font-size: 9px; }
+.user-dropdown-menu a, .user-dropdown-menu button { min-height: 34px; display: flex; align-items: center; padding: 0 9px; border: 0; border-radius: 7px; color: var(--primary); background: transparent; cursor: pointer; font-family: inherit; font-size: 10px; font-weight: 700; text-align: left; text-decoration: none; }
+.user-dropdown-menu a:hover, .user-dropdown-menu button:hover { background: var(--surface-low); }
 .session-state { min-height: 55vh; display: grid; place-content: center; justify-items: center; gap: 14px; padding: 48px 20px; text-align: center; }
 .session-state > span:not(.large-spinner) { width: 48px; height: 48px; display: grid; place-items: center; border-radius: 50%; background: #fff0ec; color: var(--brick); font-size: 24px; font-weight: 800; }
 .session-state h1, .session-state p { margin: 0; }

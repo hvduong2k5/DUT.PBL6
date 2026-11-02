@@ -47,7 +47,7 @@ describe("verified Customer access", () => {
 
     await expect(requireCustomerSession("trusted-session")).rejects.toMatchObject({
       status: 403,
-      code: "EMPLOYEE_CUSTOMER_ACCESS_FORBIDDEN"
+      code: "EMPLOYEE_PURCHASE_NOT_ALLOWED"
     });
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });

@@ -13,6 +13,6 @@ export function EmployeePermissionGate({ permission, children }: { permission: E
     <span>!</span>
     <h1>Không đủ quyền truy cập</h1>
     <p>Tài khoản nhân viên hiện tại không có permission <strong>{permission}</strong>.</p>
-    <Link className="admin-primary-button" href="/employee">Về bảng điều khiển</Link>
+    <Link className="admin-primary-button" href="/admin">Về bảng điều khiển</Link>
   </main>;
 }

@@ -3,6 +3,10 @@ import { AuthApiError } from "./types";
 const SAFE_ERROR_COPY: Record<string, string> = {
   AUTHENTICATION_FAILED: "Email hoặc mật khẩu chưa chính xác. Vui lòng thử lại.",
   ACCOUNT_UNAVAILABLE: "Tài khoản hiện không thể đăng nhập. Vui lòng liên hệ hỗ trợ.",
+  EMAIL_ALREADY_EXISTS: "Email này đã được đăng ký. Vui lòng đăng nhập hoặc dùng email khác.",
+  AUTH_REQUIRED: "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.",
+  STAFF_ACCESS_REQUIRED: "Tài khoản này không có quyền truy cập Kênh Quản Trị.",
+  EMPLOYEE_PURCHASE_NOT_ALLOWED: "Tài khoản nhân viên không thể mua hàng. Vui lòng dùng tài khoản Customer cá nhân.",
   REGISTRATION_NOT_AVAILABLE:
     "Không thể tạo tài khoản bằng thông tin này. Bạn có thể đăng nhập hoặc khôi phục quyền truy cập.",
   VERIFICATION_INVALID: "Liên kết xác minh không hợp lệ.",

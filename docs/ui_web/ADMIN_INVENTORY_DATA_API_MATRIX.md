@@ -2,7 +2,7 @@
 
 **Cập nhật:** 2026-10-03
 **Backlog:** `EPIC_09_Inventory.md`
-**Màn hình:** `/employee/inventory`, `/employee/work/warehouse`
+**Màn hình:** `/admin/inventory`, `/admin/work/warehouse`
 **Ứng dụng:** `apps/web-user`
 **Mock Admin:** `mocks/mockoon/admin_extensions.json`, cổng `4030`
 
@@ -68,4 +68,4 @@ cd apps\web-user
 npm run dev
 ```
 
-Mở `http://localhost:3000/employee/inventory` hoặc `http://localhost:3000/employee/work/warehouse` theo profile.
+Mở `http://localhost:3000/admin/inventory` hoặc `http://localhost:3000/admin/work/warehouse` theo profile.

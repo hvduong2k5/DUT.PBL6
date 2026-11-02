@@ -10,7 +10,7 @@ export function EmployeeAccessBoundary({ children }: { children: ReactNode }) {
   const { status, profile, reload } = useAuth();
 
   useEffect(() => {
-    if (status === "guest") router.replace(`/login?returnUrl=${encodeURIComponent(pathname || "/employee")}`);
+    if (status === "guest") router.replace(`/login?returnUrl=${encodeURIComponent(pathname || "/admin")}`);
     if (status === "authenticated" && profile?.principalType === "CUSTOMER") router.replace("/");
   }, [pathname, profile?.principalType, router, status]);
 

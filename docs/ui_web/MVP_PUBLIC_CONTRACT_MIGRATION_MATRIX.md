@@ -222,7 +222,7 @@ Các quy tắc đã áp dụng:
 - `FE-AUTH-01`: BFF chỉ dùng cookie HttpOnly `OMAMA_SESSION`; không nhận `Authorization`, `X-User-ID`, Role hoặc Permission do browser tự cung cấp để cấp quyền.
 - Trước khi cấp capability Customer, BFF gọi `/public/auth/session` và `/users/me` bằng `OMAMA_SESSION` để Identity xác minh principal. Response sai contract hoặc Identity không khả dụng đều fail closed.
 - `FE-AUTH-02`: `401` được giữ cho phiên thiếu/hết hạn và đưa UI về đăng nhập; `403` được giữ cho principal đã xác thực nhưng sai loại tài khoản hoặc thiếu quyền và hiển thị access-denied riêng.
-- `FE-AUTH-03`: `CUSTOMER` và `EMPLOYEE` là hai loại tài khoản tách biệt. `EMPLOYEE` không kế thừa Customer features dù có legacy `customer_id` hoặc role `CUSTOMER`; Customer BFF trả `403 EMPLOYEE_CUSTOMER_ACCESS_FORBIDDEN`.
+- `FE-AUTH-03`: `CUSTOMER` và `EMPLOYEE` là hai loại tài khoản tách biệt. `EMPLOYEE` không kế thừa Customer features dù có legacy `customer_id` hoặc role `CUSTOMER`; Customer BFF trả `403 EMPLOYEE_PURCHASE_NOT_ALLOWED`.
 - `FE-AUTH-04`: UI lấy role/permission/capability từ projection đã xác minh để ẩn/hiện. Mọi BFF mutation/read bảo vệ vẫn gọi lại Identity/capability projection; UI không phải authority.
 - Principal session giữ riêng `principalType`, role, permission và `customerAccess`; staff permission không bị trộn với Customer capability.
 - Chi tiết boundary, contract gap và acceptance criteria nằm tại [`MVP_PUBLIC_IDENTITY_AUTHORIZATION.md`](./MVP_PUBLIC_IDENTITY_AUTHORIZATION.md).

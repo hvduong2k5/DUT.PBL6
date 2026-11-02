@@ -42,8 +42,8 @@ Session frontend tách các khái niệm sau:
 Quy chuẩn Phân lập Danh tính Doanh nghiệp (Enterprise Persona Separation):
 
 - **Tách biệt tài khoản chuẩn hóa:** Nhân viên khi mua sắm cá nhân sử dụng tài khoản `CUSTOMER` độc lập (email cá nhân).
-- **Tài khoản `EMPLOYEE` gọi API Customer:** luôn trả `403 EMPLOYEE_CUSTOMER_ACCESS_FORBIDDEN`, kể cả payload cũ có `customer_id` hoặc role `CUSTOMER`.
-- **Tài khoản `CUSTOMER` gọi API Employee:** luôn trả `403 EMPLOYEE_ACCOUNT_REQUIRED`.
+- **Tài khoản `EMPLOYEE` gọi API Customer:** luôn trả `403 EMPLOYEE_PURCHASE_NOT_ALLOWED`, kể cả payload cũ có `customer_id` hoặc role `CUSTOMER`.
+- **Tài khoản `CUSTOMER` gọi API Employee:** luôn trả `403 STAFF_ACCESS_REQUIRED`.
 - Employee không được tạo Cart, Checkout, Customer Order hoặc lưu Address; khi mua sắm cá nhân phải đăng nhập bằng tài khoản `CUSTOMER` độc lập.
 - **Chính sách Offboarding:** Khi vô hiệu hóa tài khoản `EMPLOYEE`, tài khoản `CUSTOMER` cá nhân của họ hoàn toàn không bị ảnh hưởng.
 
@@ -54,8 +54,8 @@ Quy chuẩn Phân lập Danh tính Doanh nghiệp (Enterprise Persona Separation
 | Không có access cookie | `401 AUTH_REQUIRED` | Chuyển tới đăng nhập với `returnUrl` nội bộ. |
 | Token hết hạn/không hợp lệ | `401 AUTH_REQUIRED` | Xóa trạng thái session trên UI và yêu cầu đăng nhập lại. |
 | Principal bị backend từ chối | `403 PRINCIPAL_FORBIDDEN` | Access-denied, không lặp đăng nhập vô hạn. |
-| Employee gọi Customer BFF | `403 EMPLOYEE_CUSTOMER_ACCESS_FORBIDDEN` | Chuyển sang không gian Employee; không hiển thị Customer actions. |
-| Customer gọi Employee BFF | `403 EMPLOYEE_ACCOUNT_REQUIRED` | Chuyển về storefront; không hiển thị menu nội bộ. |
+| Employee gọi Customer BFF | `403 EMPLOYEE_PURCHASE_NOT_ALLOWED` | Chuyển sang không gian Employee; không hiển thị Customer actions. |
+| Customer gọi Employee BFF | `403 STAFF_ACCESS_REQUIRED` | Chuyển về storefront; không hiển thị menu nội bộ. |
 | Thiếu Customer capability | `403 CAPABILITY_FORBIDDEN` | Ẩn action và chặn deep link/direct request. |
 | Identity/capability service lỗi | `503 IDENTITY_UNAVAILABLE` hoặc `CAPABILITY_UNAVAILABLE` | Khóa chức năng và cho phép thử lại read/session check. |
 
@@ -82,5 +82,5 @@ Quy chuẩn Phân lập Danh tính Doanh nghiệp (Enterprise Persona Separation
 - Gateway xác minh issuer, audience, signature, expiry và JWKS; frontend không tự giải mã token để cấp quyền.
 - `/users/me` phải trả `principalId`, `principalType`, Role và Permission hiệu lực; frontend không suy đoán loại tài khoản từ Role.
 - Tài khoản Customer và Employee runtime thật phải được kiểm tra theo cả hai chiều từ chối chéo.
-- Permission/scope nhân viên phải được backend áp dụng lại trên mọi Employee API; frontend dùng same-origin `/api/admin/**` và layout `/employee/**`.
+- Permission/scope nhân viên phải được backend áp dụng lại trên mọi Employee API; frontend dùng same-origin `/api/admin/**` và layout `/admin/**`.
 - Luồng OIDC Authorization Code + PKCE và refresh/revocation cần contract/runtime acceptance riêng trước production.
