@@ -1,4 +1,12 @@
+server:
+  port: ${SERVER_PORT:8005}
+
 spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_PUBLIC_URL:https://keycloak.omama.vn}/realms/${KEYCLOAK_REALM:omama}
   application:
     name: catalog-service
 
@@ -70,7 +78,7 @@ mybatis:
 
 grpc:
   server:
-    port: ${GRPC_PORT:8005}
+    port: ${GRPC_PORT:9005}
     security:
       enabled: false
 
