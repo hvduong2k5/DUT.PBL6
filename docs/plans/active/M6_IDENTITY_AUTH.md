@@ -20,10 +20,10 @@ User answered: “chưa có, tích hợp auth vào thôi”. Source blocker reso
 |---|---|---|---|
 | AUTH-00 | Requirements intake, current architecture audit, roadmap and explicit source gaps | Input file and M5 checkpoint | COMPLETE |
 | AUTH-01 | Confirm source authority; route/DTO/status/cookie/state/PKCE/persona contract matrix | User source clarification | COMPLETE against supplied brief; backend unavailable |
-| AUTH-02 | Strict immutable persona/purchase policy; isolated session persistence and transport boundaries | AUTH-01 target requirements | IMPLEMENTED;6 focused checks PASS |
-| AUTH-03 | Browser login/callback; restoration/single-flight refresh/logout; registration/change password | AUTH-01,02 and supported platform plugin | IMPLEMENTED;12 focused checks PASS |
-| AUTH-04 | Customer login/register/account UX; Employee/non-active purchase guards across UI and domain entry points | AUTH-03, strict user projection, existing theme | IMPLEMENTED;4 domain/widget checks PASS |
-| AUTH-05 | Focused contract/state/navigation tests, full regression/analyze/APK, bounded Android native QA and delivery | AUTH-02–04 validated | CURRENT; regression/build pending |
+| AUTH-02 | Strict immutable persona/purchase policy; isolated session persistence and transport boundaries | AUTH-01 target requirements | COMPLETE;6 focused checks PASS |
+| AUTH-03 | Browser login/callback; restoration/single-flight refresh/logout; registration/change password | AUTH-01,02 and supported platform plugin | COMPLETE against target;18 focused checks PASS |
+| AUTH-04 | Customer login/register/account UX; Employee/non-active purchase guards across UI and domain entry points | AUTH-03, strict user projection, existing theme | COMPLETE;4 domain/widget checks PASS at393x852 |
+| AUTH-05 | Focused contract/state/navigation tests, full regression/analyze/APK, bounded Android native QA and delivery | AUTH-02–04 validated | LOCAL COMPLETE;229 tests/analyze/build/install/native callback PASS; live backend unverified |
 
 Each row's Goal is the durable per-task goal. Native create_goal was attempted for AUTH-01 but rejected because this chat's old parity goal remains unfinished with status usageLimited. Do not mark that broader goal complete to free the slot. Record task outcomes here until the runtime permits new goals; no new native goal has been claimed. Future detail is refined only at task entry.
 
@@ -51,7 +51,7 @@ Each row's Goal is the durable per-task goal. Native create_goal was attempted f
 
 PKCE is stated as backend-owned in the brief; prove actual ownership/correlation in code before claiming RFC conformance. Never send a native client secret, log authorization URLs/code/state/token/cookies/passwords, blindly forward credentials across origins, or trust client-parsed JWT claims as backend authorization. Guard Employee purchase in domain/repository entry points as well as UI; server authorization remains required.
 
-## AUTH-02 current detailed slice
+## AUTH-02 entry slice (completed and subsequently extended to session transport)
 
 Goal: prepare a typed, immutable IdentityPersona and purchase eligibility policy independent of an unconfirmed backend. In scope: principal ID, customer/employee/unknown type, active/suspended/unknown provisioning, immutable roles/permissions and strict input validation against the explicitly supplied shape. Unknown or incomplete projection never defaults to active Customer; Customer with privileged roles is rejected. Optional profile names remain optional; no fabricated phone or local identity conversion. Parser is PREPARED against the supplied reference shape until AUTH-01 confirms it. No existing AuthUser/factory/UI behavior changes in this slice.
 
@@ -70,6 +70,8 @@ Focused tests cover response contracts, origin-scoped bearer/cookie handling, st
 User threshold is **usage below13%**, superseding prior10%. Runtime currently exposes no account/quota percentage (remainingTokens:null); do not invent a percentage or equate context with quota. Checkpoint at meaningful milestones and any runtime low-usage/availability warning; if explicit usage below13% appears, commit/push intentional Mobile/task files, verify remote, record exact next action, and wait for the user's command. Do not start the next task after that checkpoint. Preserve unrelated untracked docs/MOBILE_MVP_DISCUSSION_REFERENCE.md. No secrets, env files, generated artifacts or temporary QA inputs committed.
 
 Exact next action (supersedes original source-blocked sequence): checkpoint implemented AUTH-02–04 with their22 passing focused checks, then full regression/analyze and APK. Use [Identity target/configuration notes](../../03_api_specs/IDENTITY_MOBILE_TARGET.md) for route assumptions and opt-in configuration. Backend remains unavailable, so native/live IdP acceptance is not claimed.
+
+Final next action2026-11-04 supersedes the intermediate sequence above: local implementation/validation/delivery is complete; resume only with actual backend endpoint/source scope to validate assumptions and perform user-controlled live sign-in. Native callback-only evidence is recorded below; live IdP/backend acceptance remains unverified.
 
 ## AUTH-03 entry and implementation
 
@@ -90,3 +92,11 @@ Source25c8d7a pushed/remote verified. Full223/223 PASS69s/analyze14.6s PASS; fou
 Native callback-only probe: ignored temporary entrypoint uses no backend or storage, system browser opens reserved example.invalid fixture URL; SDK-injected synthetic deep link returned to Flutter, M6_NATIVE_CALLBACK_CHANNEL PASS. Wrong callback path has no resolving activity; exact omama://auth/callback resolves plugin CallbackActivity. Probe built104.5s/installed12.5s; standard APK restored and installed-r Success, cold launch5789ms. Probe removed. This is platform-channel/link evidence, not real Identity login/PKCE/provider or backend acceptance. iOS plist XML is valid; Apple native build NOT RUN. Final pre-refinement analyze82.1s PASS.
 
 Final review then added a failing regression proving stored credentials could reach the gateway before persona restore was verified. Small access-token-source fix now withholds saved bearer while currentUser is absent and rechecks actor/epoch after async storage reads; Identity restoration itself retains/uses saved credentials, so recovery is preserved. Final source regression/analyze/APK after this refinement PENDING; native callback configuration/plugin unchanged, no need to repeat that native probe. Build/install latest standard APK and remove any temporary artifacts. Native goal tool still blocked by the old unfinished goal; per-task goals remain durable here. Usage percentage remains unavailable, no sub13% value invented.
+
+### Final AUTH-05 acceptance / handoff
+
+The preceding PENDING statements are historical checkpoint states. Final source3108d3770882cfb4ce2de63ec6bdcf5f03c6bb2b was pushed/remote verified. Full229/229 tests63s PASS; analyze12.2s/no issues PASS; standard debug APK build213.2s PASS with bounded2GB/workers2 process-local options.28 new tests total:6 foundation,18 transport/lifecycle,4 domain/UI. UI tests use393x852. No source/test/lint assertions disabled; no further application source changes after this validation.
+
+Latest artifact build/app/outputs/flutter-apk/app-debug.apk,162023338 bytes, SHA256 E601A38CF2738B10ACA3C115CF10636EA779FE95AE27A797065EEBC343AF84F1. Install-r Success; final app process/resumed MainActivity verified after clearing only the probe's app task stack and restarting. Initial LG am-start outputs temporarily named a restored Chrome/launcher activity; timing is not a launch-performance result. Final PID30218 log window178 lines: zero Flutter/AndroidRuntime crash/Unhandled/RenderFlex matches; two pre-existing ESP migration fallbacks, no probe markers. Ignored native harness removed, no secure-store/user data cleared. Native plugin callback configuration is unchanged from the passing synthetic channel probe; no repeat necessary. iOS native build NOT RUN (plist XML valid).
+
+All per-task implementation goals met in the plan; actual native goal objects could not be created because of the unfinished old goal, and this tool limitation remains explicit. Backend and natural IdP redirect acceptance is NOT VERIFIED. Standard APK intentionally defaults to local mode; configure the documented Identity defines against a reachable environment to exercise actual auth UI/login. No real account, provider, secret, server policy or deployment was created/changed. Final documentation checkpoint/push follows; then user review and actual backend evidence are the next scope.

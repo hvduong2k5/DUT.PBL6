@@ -14,6 +14,8 @@ User steering 2026-10-31: read-only dev contract analysis and implementation of 
 
 Read `docs/CURRENT_STATE.md`, `docs/plans/MASTER_PLAN.md`, then the active phase linked there. Inspect branch, HEAD and status before editing.
 
+User steering2026-11-04: implement Identity auth UI/integration using the supplied prompt_tinh_nang_login_mobile.txt. User confirmed no authservice branch exists yet; the supplied file is the target, with backend acceptance unverified. M6 is the active plan; AUTH_MODE=identity is opt-in, local M5 remains usable. Per-task goals are recorded in M6 because native goal creation is blocked by the unfinished parity goal. If runtime reports usage below13%, checkpoint/push verified progress and wait for user command; do not invent a percentage when none is exposed.
+
 ## Commands
 
 Run from `apps/mobile-app`: `flutter analyze`, `flutter test`, `flutter build apk --debug`. SDK baseline Flutter 3.44.9 / Dart 3.12.2; no dependency upgrades without a verified need.

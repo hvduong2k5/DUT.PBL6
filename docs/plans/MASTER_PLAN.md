@@ -2,9 +2,9 @@
 
 ## Current work — Identity auth integration, approved 2026-11-04
 
-LARGE: supplied prompt_tinh_nang_login_mobile.txt plus the user's authservice branch govern the new auth integration once backend evidence is pinned. [Active M6 task plan and goals](active/M6_IDENTITY_AUTH.md): AUTH-00 intake → AUTH-01 backend contract verification → AUTH-02 persona/session foundations → AUTH-03 native browser/auth lifecycle → AUTH-04 UI/purchase gating → AUTH-05 validation/delivery. M5 local mode stays usable. Only feature/mobile-ui changes/pushes; other branches read-only, no merges or provider deployment.
+LARGE: Identity auth integration uses supplied prompt_tinh_nang_login_mobile.txt as its target; user confirmed no authservice branch exists yet. [M6 task plan and goals](active/M6_IDENTITY_AUTH.md): AUTH-00 intake → AUTH-01 target contract matrix → AUTH-02 persona/session foundations → AUTH-03 native browser/auth lifecycle → AUTH-04 UI/purchase gating → AUTH-05 validation/delivery. Actual backend conformance requires later evidence. M5 local mode stays usable. Only feature/mobile-ui changes/pushes; other branches read-only, no merges or provider deployment.
 
-Current: AUTH-00 complete; AUTH-01 waits for the exact source because remote has no authservice branch; independent AUTH-02 persona policy can proceed. The per-task goal tool is blocked by the old unfinished usageLimited goal; durable goals are in M6 until the runtime permits creation. User requires a checkpoint and wait when reported usage is below13%; no exact usage percentage is currently exposed. Historical M1–M5 scope/evidence below is preserved.
+Current: user confirmed no authservice branch exists yet and requested integration against the supplied file. AUTH-00–05 implementation/local acceptance COMPLETE on source3108d37:229 tests/analyze/APK/install PASS; synthetic Android system-browser callback channel verified. Actual backend/IdP acceptance remains unverified and needs endpoints/source. The per-task goal tool is blocked by the old unfinished usageLimited goal; durable goals/outcomes are in M6, no native goals fabricated. User requires checkpoint+wait when reported usage is below13%; no exact percentage/crossing is exposed. Historical M1–M5 scope/evidence below is preserved.
 
 ## Current roadmap — approved planning scope 2026-10-31
 
