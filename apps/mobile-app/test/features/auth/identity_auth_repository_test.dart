@@ -124,7 +124,49 @@ class FailingStore extends MemoryIdentitySessionStore {
   }
 }
 
+class DelayedReadStore extends MemoryIdentitySessionStore {
+  Completer<IdentitySessionRecord?>? nextRead;
+  @override
+  Future<IdentitySessionRecord?> read() {
+    final pending = nextRead;
+    nextRead = null;
+    return pending?.future ?? super.read();
+  }
+}
+
 void main() {
+  test(
+    'a delayed gateway credential read cannot release bearer after logout',
+    () async {
+      final store = DelayedReadStore();
+      // Use one actual store for restore, delayed read and logout.
+      final scoped = Fixture(sessionStore: store);
+      await store.write(session);
+      await scoped.repo.restoreSession();
+      final gate = Completer<IdentitySessionRecord?>();
+      store.nextRead = gate;
+      final token = scoped.repo.accessToken();
+      await scoped.repo.logout();
+      gate.complete(session);
+      expect(await token, isNull);
+      expect(await store.read(), isNull);
+    },
+  );
+  test(
+    'gateway receives no saved bearer until a current persona has been verified',
+    () async {
+      final f = Fixture();
+      await f.store.write(session);
+      expect(await f.repo.accessToken(), isNull);
+      f.overrides['/api/v1/users/me'] = profile()..remove('provisioningStatus');
+      await expectLater(f.repo.restoreSession(), throwsFormatException);
+      expect((await f.store.read())!.accessToken, session.accessToken);
+      expect(await f.repo.accessToken(), isNull);
+      f.overrides.clear();
+      await f.repo.restoreSession();
+      expect(await f.repo.accessToken(), session.accessToken);
+    },
+  );
   test(
     'malformed session status retains credentials rather than treating schema drift as logout',
     () async {

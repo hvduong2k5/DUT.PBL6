@@ -54,8 +54,15 @@ class IdentityAuthRepository
     }
   }
 
-  Future<String?> accessToken() async =>
-      _blocked ? null : (await store.read())?.accessToken;
+  Future<String?> accessToken() async {
+    final epoch = _epoch, actor = currentUser?.id;
+    if (_blocked || actor == null) return null;
+    final record = await store.read();
+    return epoch == _epoch && !_blocked && currentUser?.id == actor
+        ? record?.accessToken
+        : null;
+  }
+
   AuthSession _session(AuthUser user, IdentitySessionRecord record) =>
       AuthSession(
         user: user,

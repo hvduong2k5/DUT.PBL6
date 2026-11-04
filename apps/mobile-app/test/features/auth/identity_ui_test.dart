@@ -47,6 +47,12 @@ Finder field(String label) => find.byWidgetPredicate(
   (w) => w is TextField && w.decoration?.labelText == label,
 );
 
+void phoneViewport(WidgetTester tester) {
+  tester.view.physicalSize = const Size(393, 852);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+}
+
 void main() {
   test(
     'Employee/suspended cannot call cart or checkout writes even without the UI',
@@ -97,6 +103,7 @@ void main() {
   testWidgets(
     'Identity login has browser handoff, prevents duplicate launch and cancellation can retry',
     (tester) async {
+      phoneViewport(tester);
       final f = Fixture(), gate = Completer<Uri>();
       f.browser = (_) => gate.future;
       await tester.pumpWidget(
@@ -129,6 +136,7 @@ void main() {
   testWidgets(
     'Identity registration has separate name/email inputs and immediately starts browser login',
     (tester) async {
+      phoneViewport(tester);
       final f = Fixture();
       await tester.pumpWidget(
         OmaApp(
@@ -171,6 +179,7 @@ void main() {
   testWidgets(
     'Employee sees purchase restriction and product add button is disabled',
     (tester) async {
+      phoneViewport(tester);
       final f = Fixture()..principalType = 'EMPLOYEE';
       await f.store.write(session);
       await tester.pumpWidget(
