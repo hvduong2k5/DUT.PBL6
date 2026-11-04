@@ -2,6 +2,8 @@
 
 ## Current work — Identity auth integration, approved 2026-11-04
 
+Latest user-approved correction slice is locally complete on Mobile source2144c4f, based on implementation at read-only dev a24492b: transaction cookie, cookie-only session lifecycle, registration status handling.234 tests/analyze/debug APK PASS; live auth activation and backend blockers remain separate. See M6/current handoff. **Checkpoint then WAIT FOR USER REVIEW; no autonomous continuation or other-branch edits.**
+
 LARGE: Identity auth integration uses supplied prompt_tinh_nang_login_mobile.txt as its target; user confirmed no authservice branch exists yet. [M6 task plan and goals](active/M6_IDENTITY_AUTH.md): AUTH-00 intake → AUTH-01 target contract matrix → AUTH-02 persona/session foundations → AUTH-03 native browser/auth lifecycle → AUTH-04 UI/purchase gating → AUTH-05 validation/delivery. Actual backend conformance requires later evidence. M5 local mode stays usable. Only feature/mobile-ui changes/pushes; other branches read-only, no merges or provider deployment.
 
 Current: user confirmed no authservice branch exists yet and requested integration against the supplied file. AUTH-00–05 implementation/local acceptance COMPLETE on source3108d37:229 tests/analyze/APK/install PASS; synthetic Android system-browser callback channel verified. Actual backend/IdP acceptance remains unverified and needs endpoints/source. The per-task goal tool is blocked by the old unfinished usageLimited goal; durable goals/outcomes are in M6, no native goals fabricated. User requires checkpoint+wait when reported usage is below13%; no exact percentage/crossing is exposed. Historical M1–M5 scope/evidence below is preserved.
