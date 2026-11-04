@@ -58,6 +58,8 @@ func (s *Service) processCoreEvent(ctx context.Context, event domain.Event) (str
 	var err error
 	if event.Source == "shipping" && s.Shipping != nil {
 		proof, err = s.Shipping.Revision(ctx, event.ResourceID, event.Version)
+	} else if event.Source == "fulfillment" && s.Fulfillment != nil {
+		proof, err = s.Fulfillment.Revision(ctx, event.ResourceID, event.Version)
 	} else {
 		err = s.Call(ctx, "GET", "/order-core/resources/"+url.PathEscape(event.ResourceID)+"?source="+url.QueryEscape(event.Source)+"&version="+strconv.FormatInt(event.Version, 10), nil, &proof)
 	}

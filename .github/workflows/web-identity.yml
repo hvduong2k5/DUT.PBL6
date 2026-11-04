@@ -15,6 +15,13 @@ on:
       - 'services/inventory-service/**'
       - 'services/order-service/internal/shippingprovider/**'
       - 'services/shipping-service/**'
+      - 'services/fulfillment-service/**'
+      - 'services/order-service/internal/fulfillmentprovider/**'
+      - 'services/order-service/internal/app/fulfillment.go'
+      - 'services/order-service/internal/transport/packing.go'
+      - 'services/order-service/internal/persistence/packing.go'
+      - 'packages/proto/packing/**'
+      - 'scripts/mvp_fulfillment_checks.py'
       - 'services/order-service/tests/webidentityfixture/**'
       - 'scripts/mvp_native_checks.py'
       - 'scripts/test-web-identity.py'
@@ -35,10 +42,12 @@ on:
       - 'scripts/test-web-identity.py'
       - 'scripts/mvp_customer_checks.py'
       - 'services/shipping-service/**'
+      - 'services/fulfillment-service/**'
+      - 'scripts/mvp_fulfillment_checks.py'
 jobs:
   web-identity:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -77,10 +86,12 @@ jobs:
       - name: Profile regression including JWT and forwarded identity rejection
         working-directory: services/profile-service
         run: go vet ./... && go test -race -count=1 ./...
-      - name: Real Web OIDC, Keycloak, Gateway, Identity, Profile and Order
+      - name: Build the real Fulfillment video runtime
+        run: docker build -t omamx/fulfillment-service:integration services/fulfillment-service
+      - name: Real Web, Identity, Order, Inventory, Fulfillment video and Shipping
         run: |
           python -m pip install -r packages/contracts/mvp/requirements.txt
-          python scripts/test-web-identity.py --gradle gradle --flutter flutter
+          python scripts/test-web-identity.py --gradle gradle --flutter flutter --fulfillment
       - name: Shipping regression and notification verification
         run: |
           cd services/shipping-service
@@ -93,6 +104,7 @@ jobs:
           name: web-identity-evidence
           path: |
             .system_generated/web-identity/result.json
+            .system_generated/web-identity/failure.json
             .system_generated/web-identity/identity-build.log
             .system_generated/web-identity/catalog-build.log
             .system_generated/web-identity/mobile-live.log

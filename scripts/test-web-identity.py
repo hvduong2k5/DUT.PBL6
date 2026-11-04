@@ -31,6 +31,7 @@ sys.dont_write_bytecode = True
 from mvp_native_checks import native_identity
 from mvp_customer_checks import profile_addresses
 from mvp_customer_checks import checkout_shipping
+import mvp_fulfillment_checks as fulfillment_checks
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -53,6 +54,7 @@ def main():
     parser.add_argument("--gradle")
     parser.add_argument("--flutter", help="Run the native Dart repositories against the same live stack")
     parser.add_argument("--keep-running", action="store_true")
+    parser.add_argument("--fulfillment", action="store_true", help="Use actual Fulfillment/media providers instead of TEST packing")
     parser.add_argument(
         "--output-dir", default=str(ROOT / ".system_generated/web-identity")
     )
@@ -64,6 +66,8 @@ def main():
     suffix = uuid.uuid4().hex[:10]
     names, processes, logs = [], [], []
     env = os.environ.copy()
+    env["MVP_GO"] = args.go
+    fulfillment_network = None
     # The disposable fixture must never inherit a developer's external payment
     # or carrier configuration. Keep executable/toolchain environment intact.
     for key in list(env):
@@ -92,6 +96,7 @@ def main():
             "shipping",
             "shipping_grpc",
             "control",
+            "order_grpc", "fulfillment", "fulfillment_grpc", "storage", "scanner", "kafka_docker",
         ]
     }
     base = f"http://127.0.0.1:{ports['keycloak']}"
@@ -225,7 +230,7 @@ def main():
                 "-e",
                 f"POSTGRES_DB={db_name}",
                 "-p",
-                f"127.0.0.1:{ports['db']}:5432",
+                f"{'0.0.0.0' if args.fulfillment else '127.0.0.1'}:{ports['db']}:5432",
             ],
         )
         for _ in range(120):
@@ -265,16 +270,17 @@ def main():
             [
                 "-p",
                 f"127.0.0.1:{ports['kafka']}:9094",
+                "-p", f"{'0.0.0.0' if args.fulfillment else '127.0.0.1'}:{ports['kafka_docker']}:9095",
                 "-e",
                 "KAFKA_NODE_ID=1",
                 "-e",
                 "KAFKA_PROCESS_ROLES=broker,controller",
                 "-e",
-                "KAFKA_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094",
+                "KAFKA_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094,DOCKER://:9095",
                 "-e",
-                f"KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://localhost:9092,EXTERNAL://127.0.0.1:{ports['kafka']}",
+                f"KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://localhost:9092,EXTERNAL://127.0.0.1:{ports['kafka']},DOCKER://host.docker.internal:{ports['kafka_docker']}",
                 "-e",
-                "KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT",
+                "KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT,DOCKER:PLAINTEXT",
                 "-e",
                 "KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER",
                 "-e",
@@ -314,6 +320,7 @@ def main():
             "shipping.events.v1",
             "order.events.v3",
             "order.sources.v1",
+            "fulfillment.task.events.v1", "fulfillment.events.v2",
         ]:
             run(
                 [
@@ -341,7 +348,8 @@ def main():
             ).read_text(encoding="utf-8")
         )
         template.update(
-            id=realm, realm=realm, users=[], sslRequired="none", verifyEmail=False
+            id=realm, realm=realm, users=[], sslRequired="none", verifyEmail=False,
+            accessTokenLifespan=1200,
         )
         service_secret = secrets.token_urlsafe(32)
         for client in template["clients"]:
@@ -629,6 +637,9 @@ def main():
             PEER_RESULT_FILE=str(folder / "inventory-result.json"),
         )
         (folder / "inventory-stop").unlink(missing_ok=True)
+        if args.fulfillment:
+            env.update(PEER_ALLOW_DOCKER="true", PEER_PACKING_TOKEN=secrets.token_urlsafe(40))
+            (folder / "inventory-reads").write_text(env["PEER_PACKING_TOKEN"])
         inventory_binary = folder / ("inventory" + extension)
         run(
             [args.go, "build", "-o", inventory_binary, "./tests/peerfixture"],
@@ -642,6 +653,8 @@ def main():
         else:
             raise RuntimeError("Inventory TLS provider not ready")
         peer_address = json.loads(peer_ready.read_text())["address"]
+        if args.fulfillment:
+            peer_address = "127.0.0.1:" + peer_address.rsplit(":",1)[1]
         (folder / "inventory-token").write_text(env["PEER_TOKEN"])
         # Revalidation must fail on a changed price, future price, or unapproved parent product.
         headers={"X-Internal-Token":catalog_token}
@@ -683,10 +696,14 @@ def main():
             [args.go, "build", "-o", shipping_binary, "./cmd/server"],
             ROOT / "services/shipping-service",
         )
-        start([shipping_binary], "shipping")
+        shipping_process = start([shipping_binary], "shipping")
         shipping_url = f"http://127.0.0.1:{ports['shipping']}"
         wait(shipping_url + "/health/ready")
         (folder / "shipping-token").write_text(shipping_token)
+        if args.fulfillment:
+            fulfillment_network = "codex-web-fulfillment-"+suffix
+            fulfillment_network, fulfillment_scanner = fulfillment_checks.prepare(ROOT,folder,ports,env,accounts,sql,run,container,request,issuer,None,db_name,password,suffix,peer_address)
+            wait(f"http://127.0.0.1:{ports['fulfillment']}/health/ready")
         env.update(
             WEB_TEST_CHECKOUT="true",
             WEB_TEST_REAL_CATALOG_URL=catalog_url,
@@ -733,6 +750,12 @@ def main():
             ("http://order-service:8004", "order"),
         ]:
             kong = kong.replace(old, f"http://host.docker.internal:{ports[key]}")
+        if args.fulfillment:
+            import yaml
+            config=yaml.safe_load(kong)
+            for service in config['services']:
+                if service['name']=='fulfillment-service':service['url']=f"http://host.docker.internal:{ports['fulfillment']}"
+            kong=yaml.safe_dump(config,sort_keys=False)
         kong_file = folder / "kong.yml"
         kong_file.write_text(kong, encoding="utf-8")
         container(
@@ -792,6 +815,23 @@ def main():
         for key in ["A","E"]:
             native_identity(request,gateway,issuer,profile_url,f"http://127.0.0.1:{ports['order']}",accounts[key],account_password,key=="E")
         print("PASS: native PKCE/JSON callback, app-bound state, refresh/logout and direct bearer Customer/Employee gates",flush=True)
+        real_packing = None
+        if args.fulfillment:
+            staff_session=native_identity(request,gateway,issuer,profile_url,f"http://127.0.0.1:{ports['order']}",accounts['E'],account_password,True,retain=True)
+            customer_session=native_identity(request,gateway,issuer,profile_url,f"http://127.0.0.1:{ports['order']}",accounts['A'],account_password,False,retain=True)
+            fulfillment_checks.pack.storage_port=ports['storage']
+            def shipping_control(online):
+                nonlocal shipping_process
+                if online:
+                    shipping_process=start([shipping_binary],"shipping")
+                    wait(shipping_url+"/health/ready")
+                else:
+                    shipping_process.terminate()
+                    shipping_process.wait(timeout=20)
+            def handoff(order_id):
+                return json.loads(sql(f"SELECT json_build_object('hash',h.request_hash,'attempts',h.attempts,'shipment_id',h.shipment_id,'shipments',(SELECT count(*) FROM shipping.shipments s WHERE s.order_id=h.order_id::text)) FROM orders.fulfillment_shipping_handoffs h WHERE h.order_id='{uuid.UUID(order_id)}';",tuples=True) or "null")
+            def real_packing(order_id, order_until):
+                return fulfillment_checks.pack(request,gateway,staff_session['accessToken'],customer_session['accessToken'],folder,order_id,order_until,shipping_url,shipping_token,f"http://127.0.0.1:{ports['control']}",run,fulfillment_scanner,shipping_control,handoff)
         foreign_address = None
         registration = {
             "email": f"registered-{suffix}@example.test",
@@ -1146,6 +1186,7 @@ def main():
                     shipping_url,
                     shipping_token,
                     shipping_webhook,
+                    packing=real_packing,
                 )
             elif key == "B":
                 for path in [
@@ -1286,7 +1327,7 @@ def main():
             "head": subprocess.check_output(
                 ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True
             ).strip(),
-            "scope": "real Web/Keycloak/Kong/Identity/Profile/Catalog/Order/Inventory-TLS/Shipping-v2-quotes/PostgreSQL/Redis/Kafka; Fulfillment and SePay statements are TEST providers, carrier FAKE, no external money",
+            "scope": "real Web/Keycloak/Kong/Identity/Profile/Catalog/Order/Inventory-TLS/Shipping-v2/PostgreSQL/Redis/Kafka; " + ("real Fulfillment/RustFS-versioned-video/ffprobe/ClamAV (fixture signature DB); " if args.fulfillment else "Fulfillment TEST; ") + "SePay statements TEST, carrier FAKE, no external money",
             "mobile_client_runtime": mobile_client_runtime,
             "accounts": 4,
             "inventory": stock,
@@ -1362,6 +1403,8 @@ def main():
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
+        if fulfillment_network:
+            subprocess.run(["docker","network","rm",fulfillment_network],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
 
 
 if __name__ == "__main__":

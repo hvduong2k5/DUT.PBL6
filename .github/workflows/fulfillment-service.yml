@@ -1,0 +1,37 @@
+name: Fulfillment service gates
+on:
+  pull_request:
+    paths: ['services/fulfillment-service/**', 'packages/proto/**', 'docs/03_api_specs/fulfillment-service*', 'docs/03_api_specs/fulfillment-service/**', '.github/workflows/fulfillment-service.yml']
+  push:
+    branches: [dev, main, feat/fulfillment-service]
+    paths: ['services/fulfillment-service/**', 'packages/proto/**', '.github/workflows/fulfillment-service.yml']
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build pinned codegen/test toolchain
+        run: docker build -f services/fulfillment-service/Dockerfile.tools -t omamx/fulfillment-go-tools:local services/fulfillment-service
+      - name: Check generated code and formatting
+        run: |
+          docker run --rm -v "$PWD:/workspace" omamx/fulfillment-go-tools:local sh -c 'sh scripts/generate-proto.sh && test -z "$(gofmt -l cmd internal migrations tests)"'
+          git diff --exit-code -- services/fulfillment-service/internal/gen
+      - name: Test real PostgreSQL and Kafka
+        run: docker compose -p fulfillment-ci -f services/fulfillment-service/docker-compose.test.yml run --rm tests
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Validate actual payload contracts
+        run: |
+          python -m pip install -r docs/04_testing/fulfillment-service/requirements-design.txt
+          python services/fulfillment-service/scripts/verify-runtime-contracts.py
+      - name: Build service image
+        run: docker build -t omamx/fulfillment-service:ci services/fulfillment-service
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fulfillment-runtime-payloads
+          path: services/fulfillment-service/tests/results/
+      - name: Stop isolated test stack
+        if: always()
+        run: docker compose -p fulfillment-ci -f services/fulfillment-service/docker-compose.test.yml down

@@ -1,0 +1,9 @@
+# Versions observed in the isolated design-verification environment, 2026-10-30.
+# Use a dedicated virtual environment; these are tooling, not service dependencies.
+PyYAML==6.0.3
+jsonschema==4.26.0
+openapi-spec-validator==0.7.2
+# Optional compiler/parser checks (the verifier reports SKIP if unavailable):
+grpcio-tools==1.85.0
+protobuf==7.36.2
+pglast==8.7
