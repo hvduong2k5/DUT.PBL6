@@ -2,6 +2,7 @@
 import copy
 import json
 import hashlib
+import argparse
 from pathlib import Path
 import yaml
 from jsonschema import Draft7Validator, FormatChecker
@@ -31,5 +32,11 @@ for file,relative in [("accepted-event.json","docs/03_api_specs/fulfillment-serv
     event=json.loads((SERVICE/"tests/results"/file).read_text(encoding="utf-8"))
     Draft7Validator(schema,format_checker=FormatChecker()).validate(event)
 report={"result":"PASS","http_payloads":1,"event_payloads":3,"scope":"Actual Go test payloads; media metadata uses a synthetic verification fixture; no owning-peer E2E acceptance."}
-(SERVICE/"tests/results/contracts.json").write_text(json.dumps(report,indent=2)+"\n")
+parser=argparse.ArgumentParser()
+parser.add_argument("--report",type=Path,default=ROOT/".system_generated/fulfillment/contracts.json")
+output=parser.parse_args().report
+# Go payloads may be created by container root on Linux. Keep the validator's
+# report in the host runner's own directory instead of writing into that mount.
+output.parent.mkdir(parents=True,exist_ok=True)
+output.write_text(json.dumps(report,indent=2)+"\n",encoding="utf-8")
 print(json.dumps(report,indent=2))
