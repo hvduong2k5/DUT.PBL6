@@ -1,5 +1,7 @@
 # Identity Mobile integration target — 2026-11-04
 
+Current correction slice: backend source is now available at dev a24492b (see [audit](IDENTITY_SOURCE_AUDIT_2026-11-04.md)). Flutter now requires the login response's OMAMA_AUTH_STATE cookie to match the authorization state, keeps it only in the pending login call, and sends it only to callback. Session GET/refresh/logout use OMAMA_SESSION without Bearer, allowing recovery with an expired access token. Profile and gateway still use verified Bearer. GET session public correlation IDs never replace stored cookie credentials. Registration requires ACTIVE/COMPLETED; PENDING shows retry feedback with unchanged idempotency identity, unknown/missing status fails closed. Backend derives the HMAC fingerprint; Flutter no longer sends the brief's email-as-fingerprint. Live activation remains deferred; backend password/Gateway/social issues require user approval before any work outside Mobile.
+
 Authority: user supplied prompt_tinh_nang_login_mobile.txt (SHA2567FBAB4545048818EDDF3D14BFED5404EE96909D83AAA9D95203A234FD620375C). User confirmed no authservice branch exists yet and authorized integration against this file. This is an implementation target with fixture-backed tests, not a verified backend/OpenAPI snapshot. Original ZIP provenance is unchanged. See [M6 task goals/status](../plans/active/M6_IDENTITY_AUTH.md).
 
 ## Runtime selection
@@ -27,15 +29,15 @@ All paths below are appended once to /api/v1. Response envelope is success:true,
 | Method/path | Input | Expected success data |
 |---|---|---|
 | GET /public/auth/login | redirect_uri=omama://auth/callback, format=json, optional enabled provider | authorizationUrl |
-| GET /public/auth/callback | code, state, format=json; transaction cookie when returned by login | accessToken, refreshToken, sessionId or Set-Cookie OMAMA_SESSION |
-| GET /public/auth/session | BFF Cookie and Bearer | authenticated:boolean |
+| GET /public/auth/callback | code, state, format=json; required OMAMA_AUTH_STATE from login | native accessToken, refreshToken, sessionId or Set-Cookie OMAMA_SESSION |
+| GET /public/auth/session | BFF Cookie only | authenticated:boolean; public sessionId is not a credential |
 | GET /users/me | BFF Cookie and Bearer | principalId,email,firstName?,lastName?,principalType,provisioningStatus,roles,permissions |
-| POST /public/auth/tokens/refresh | BFF Cookie and current Bearer; no invented raw refresh-token body | new accessToken; optional refreshToken/sessionId rotation/Set-Cookie |
-| POST /public/auth/logout | BFF Cookie and Bearer | command acknowledgement |
-| POST /public/customer-registrations | firstName,lastName,email,rawPassword,idempotencyKey,requestFingerprint; matching Idempotency-Key header | command acknowledgement |
+| POST /public/auth/tokens/refresh | BFF Cookie only; no raw refresh-token body or expired Bearer | new accessToken; optional refreshToken/credential sessionId rotation/Set-Cookie |
+| POST /public/auth/logout | BFF Cookie only | command acknowledgement |
+| POST /public/customer-registrations | firstName,lastName,email,rawPassword,idempotencyKey; matching Idempotency-Key header; fingerprint computed server-side | status ACTIVE or COMPLETED confirms registration; PENDING does not |
 | PUT /users/me/password | currentPassword,newPassword; authenticated session | command acknowledgement |
 
-Registration fingerprint uses normalized email exactly as supplied in the brief; the UI holds a body signature and idempotency key for unchanged retries while the page is mounted. Keys/password bodies are not persisted for cross-process registration retry. An acknowledged registration is separate from login; the app opens browser login next and retains a continue-login path if cancelled. Existing15–128-character registration/change-password UI validation remains until backend policy is supplied. No phone is invented when /users/me has none; account header uses email.
+The UI holds a body signature and idempotency key for unchanged retries while the page is mounted. Keys/password bodies are not persisted for cross-process registration retry. Only a completed registration opens browser login next; cancellation retains a continue-login path. Existing15–128-character registration/change-password UI validation remains until the final Keycloak policy is confirmed (DTOs have different minima, see audit). No phone is invented when /users/me has none; account header uses email.
 
 ## Security and integration assumptions
 

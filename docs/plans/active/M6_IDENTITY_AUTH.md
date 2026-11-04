@@ -1,5 +1,15 @@
 # M6 — Mobile Identity authentication
 
+## Approved Flutter correction slice — 2026-11-04
+
+Implementation complete locally: transaction cookie binding/isolation, cookie-only session lifecycle and explicit registration statuses/server fingerprint ownership.5 regression cases added. Focused auth68/68 PASS, full suite234/234 PASS45s, analyze PASS13.1s; initial test-style warning fixed. Source checkpoint before bounded-memory APK build; native/live sign-in NOT RUN, backend/config blockers unchanged. Final action is checkpoint/push and WAIT FOR REVIEW, not another implementation phase.
+
+MEDIUM. User approved Flutter fixes only on feature/mobile-ui, then checkpoint and WAIT FOR REVIEW. Backend/Drive/other branches must not be modified; ask the user before any proposed cross-branch work. Source: dev a24492b implementation inspected in the linked audit. No live activation.
+
+Goal/steps: (1) bind the login transaction to returned OMAMA_AUTH_STATE, keep it only in the local pending call and send only to callback; reject absent/mismatched cookie before opening browser; (2) use cookie-only session/refresh/logout so expired bearer cannot block recovery, preserve persona verification and logout epoch guards; (3) accept registration only for ACTIVE/COMPLETED, show pending/retry feedback for PENDING and reject unknown/missing status, retaining existing retry key. No new endpoint/provider/dependency or UI redesign.
+
+Files: IdentityApi, IdentityAuthRepository and existing Identity repository tests; target notes/current handoff. Acceptance: callback cookie isolated from profile/session/gateway and later attempts, no bearer on session endpoints, expired-token recovery, pending registration never reports success, existing local mode/regressions pass. Validate focused tests, analyze, full Flutter suite; build debug APK with bounded memory if checks pass. Real IdP/device sign-in NOT RUN without configured environment. Backend password/Gateway/social blockers remain OPEN. After validation commit/push only intentional Mobile/docs paths, verify remote and wait.
+
 ## Source audit follow-up — 2026-11-04
 
 User asked for a branch-by-branch and Drive source audit before further integration; live auth activation was deferred. [Audit](../../03_api_specs/IDENTITY_SOURCE_AUDIT_2026-11-04.md) supersedes historical claims below that backend source is unavailable: refreshed dev a24492b contains all8 prompt endpoints. No application code changed in this audit. Historical AUTH-00–05 target/local results remain valid only for their stated scope; dev conformance is OPEN.

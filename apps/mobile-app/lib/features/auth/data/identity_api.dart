@@ -4,9 +4,10 @@ import 'package:mobile_app/core/network/api_exception.dart';
 import 'identity_session_store.dart';
 
 class IdentityReply {
-  const IdentityReply(this.data, this.sessionId);
+  const IdentityReply(this.data, this.sessionId, this.authStateCookie);
   final Map<String, dynamic> data;
   final String? sessionId;
+  final String? authStateCookie;
 }
 
 /// Dedicated BFF transport: cookies go only to this configured origin/path.
@@ -39,6 +40,7 @@ class IdentityApi {
     Map<String, dynamic>? query,
     Object? body,
     IdentitySessionRecord? session,
+    String? authStateCookie,
     Map<String, String>? headers,
   }) async {
     if (!RegExp(r'^/[a-z0-9/-]+$').hasMatch(path) ||
@@ -49,6 +51,11 @@ class IdentityApi {
       throw ArgumentError('Invalid Identity route');
     }
     final uri = baseUri.resolve(path.substring(1));
+    if (authStateCookie != null &&
+        (path != '/public/auth/callback' || !_validCookie(authStateCookie))) {
+      throw ArgumentError('Invalid authorization transaction cookie');
+    }
+    final cookieOnly = path.startsWith('/public/auth/');
     try {
       final response = await dio.requestUri<Object?>(
         uri.replace(queryParameters: query),
@@ -60,9 +67,13 @@ class IdentityApi {
             'Accept': 'application/json',
             'Content-Type': 'application/json',
             ...?headers,
-            if (session != null && session.accessToken.isNotEmpty)
+            if (!cookieOnly &&
+                session != null &&
+                session.accessToken.isNotEmpty)
               'Authorization': 'Bearer ${session.accessToken}',
-            if (session?.sessionId != null)
+            if (authStateCookie != null)
+              'Cookie': 'OMAMA_AUTH_STATE=$authStateCookie'
+            else if (session?.sessionId != null)
               'Cookie': 'OMAMA_SESSION=${session!.sessionId}',
           },
         ),
@@ -73,23 +84,33 @@ class IdentityApi {
           envelope['data'] != null && envelope['data'] is! Map) {
         throw const FormatException('Invalid Identity response envelope');
       }
-      String? cookie;
-      for (final value in response.headers['set-cookie'] ?? <String>[]) {
-        if (value.startsWith('OMAMA_SESSION=')) {
-          cookie = value.substring('OMAMA_SESSION='.length).split(';').first;
-          if (cookie.isEmpty) cookie = null;
+      String? readCookie(String name) {
+        String? cookie;
+        var found = false;
+        for (final value in response.headers['set-cookie'] ?? <String>[]) {
+          final pair = value.trim().split(';').first;
+          if (!pair.startsWith('$name=')) continue;
+          if (found) throw const FormatException('Duplicate Identity cookie');
+          found = true;
+          cookie = pair.substring(name.length + 1);
+          if (cookie.isEmpty) return null;
+          if (!_validCookie(cookie)) {
+            throw const FormatException('Invalid Identity cookie');
+          }
         }
+        return cookie;
       }
-      if (cookie != null &&
-          !RegExp(r'^[A-Za-z0-9._~+/%=-]+$').hasMatch(cookie)) {
-        throw const FormatException('Invalid BFF cookie');
-      }
+
       return IdentityReply(
         Map<String, dynamic>.from(envelope['data'] as Map? ?? {}),
-        cookie,
+        readCookie('OMAMA_SESSION'),
+        readCookie('OMAMA_AUTH_STATE'),
       );
     } on DioException catch (error) {
       throw ApiException(ApiErrorMapper.fromDio(error));
     }
   }
+
+  static bool _validCookie(String value) =>
+      RegExp(r'^[A-Za-z0-9._~+/%=-]+$').hasMatch(value);
 }

@@ -24,6 +24,17 @@ class Fixture {
         onRequest: (o, h) async {
           requests.add(o);
           final path = o.uri.path;
+          if (rejectExpiredBearer &&
+              o.headers['Authorization'] == 'Bearer ${session.accessToken}') {
+            h.reject(
+              DioException(
+                requestOptions: o,
+                type: DioExceptionType.badResponse,
+                response: Response(requestOptions: o, statusCode: 401),
+              ),
+            );
+            return;
+          }
           if (path.endsWith('/tokens/refresh') && !refreshEntered.isCompleted) {
             refreshEntered.complete();
           }
@@ -59,6 +70,7 @@ class Fixture {
                   'accessToken': 'rotated.access',
                   'refreshToken': 'rotated.refresh',
                 },
+                '/api/v1/public/customer-registrations' => {'status': 'ACTIVE'},
                 _ => <String, dynamic>{},
               };
           h.resolve(
@@ -67,6 +79,7 @@ class Fixture {
               statusCode: 200,
               data: {'success': true, 'data': data},
               headers: Headers.fromMap({
+                if (path.endsWith('/login')) 'set-cookie': loginCookies,
                 if (path.endsWith('/tokens/refresh'))
                   'set-cookie': [
                     'OMAMA_SESSION=rotated.cookie; HttpOnly; Secure',
@@ -102,6 +115,10 @@ class Fixture {
   late final IdentityAuthRepository repo;
   int browserCalls = 0;
   bool authenticated = true;
+  bool rejectExpiredBearer = false;
+  List<String> loginCookies = [
+    'OMAMA_AUTH_STATE=state.fixture; HttpOnly; Secure; Max-Age=600',
+  ];
   String principalType = 'CUSTOMER';
   String authorizationUrl = Uri.https('sso.invalid', '/authorize', {
     'state': 'state.fixture',
@@ -135,6 +152,114 @@ class DelayedReadStore extends MemoryIdentitySessionStore {
 }
 
 void main() {
+  test(
+    'callback sends only transaction cookie; later requests never reuse it',
+    () async {
+      final f = Fixture();
+      await f.repo.signIn();
+      final callback = f.requests.singleWhere(
+        (r) => r.uri.path.endsWith('/callback'),
+      );
+      expect(callback.headers['Cookie'], 'OMAMA_AUTH_STATE=state.fixture');
+      expect(callback.headers['Authorization'], isNull);
+      await f.repo.logout();
+      expect(f.requests.last.headers['Cookie'], 'OMAMA_SESSION=cookie.fixture');
+      expect(f.requests.last.headers['Authorization'], isNull);
+      expect(await f.store.read(), isNull);
+      expect(
+        f.requests
+            .where((r) => !r.uri.path.endsWith('/callback'))
+            .any((r) => '${r.headers['Cookie']}'.contains('OMAMA_AUTH_STATE')),
+        isFalse,
+      );
+    },
+  );
+
+  test(
+    'missing, mismatched or duplicate transaction cookies fail before browser opens',
+    () async {
+      for (final cookies in <List<String>>[
+        [],
+        ['OMAMA_AUTH_STATE=other-state; HttpOnly'],
+        ['OMAMA_AUTH_STATE=state.fixture', 'OMAMA_AUTH_STATE=state.fixture'],
+      ]) {
+        final f = Fixture()..loginCookies = cookies;
+        await expectLater(f.repo.signIn(), throwsFormatException);
+        expect(f.browserCalls, 0);
+        expect(f.requests, hasLength(1));
+        expect(await f.store.read(), isNull);
+      }
+    },
+  );
+
+  test(
+    'cancelled login cannot reuse transaction cookie when next login omits it',
+    () async {
+      final f = Fixture()..browser = (_) async => throw StateError('cancelled');
+      await expectLater(f.repo.signIn(), throwsStateError);
+      f.browser = null;
+      f.loginCookies = [];
+      await expectLater(f.repo.signIn(), throwsFormatException);
+      expect(f.browserCalls, 1);
+      expect(f.requests.any((r) => r.uri.path.endsWith('/callback')), isFalse);
+    },
+  );
+
+  test(
+    'expired bearer restores via cookie refresh and verifies rotated persona',
+    () async {
+      final f = Fixture()..rejectExpiredBearer = true;
+      await f.store.write(session);
+      f.overrides['/api/v1/public/auth/session'] = {
+        'authenticated': true,
+        'sessionId': 'public-correlation-not-a-credential',
+      };
+      expect((await f.repo.restoreSession())!.id, 'principal-test');
+      expect(await f.repo.accessToken(), 'rotated.access');
+      for (final r in f.requests.where(
+        (r) => r.uri.path.contains('/public/auth/'),
+      )) {
+        expect(r.headers['Authorization'], isNull);
+        expect(r.headers['Cookie'], 'OMAMA_SESSION=cookie.fixture');
+      }
+      expect((await f.store.read())!.sessionId, 'rotated.cookie');
+      await f.repo.logout();
+      expect(f.requests.last.headers['Authorization'], isNull);
+    },
+  );
+
+  test(
+    'registration pending or unknown status never reports success; completed retry succeeds',
+    () async {
+      final f = Fixture();
+      final cubit = AuthCubit(f.repo);
+      for (final status in ['PENDING', 'UNKNOWN', null, 'COMPLETED']) {
+        f.overrides['/api/v1/public/customer-registrations'] = {
+          'status': status,
+        };
+        final ok = await cubit.registerIdentity(
+          firstName: 'A',
+          lastName: 'B',
+          email: 'qa@example.invalid',
+          password: 'SyntheticTest!2026',
+          idempotencyKey: 'same-key-for-retry',
+        );
+        expect(ok, status == 'COMPLETED');
+        if (status == 'PENDING') {
+          expect(cubit.state.message, contains('đang được xử lý'));
+        }
+        expect(
+          f.requests.last.headers['Idempotency-Key'],
+          'same-key-for-retry',
+        );
+        expect(f.browserCalls, 0);
+        expect(cubit.state.user, isNull);
+        expect(await f.store.read(), isNull);
+      }
+      await cubit.close();
+    },
+  );
+
   test(
     'a delayed gateway credential read cannot release bearer after logout',
     () async {
@@ -341,10 +466,7 @@ void main() {
         final user = await f.repo.restoreSession();
         expect(user!.canPurchase, type == 'CUSTOMER');
         expect(f.requests.first.uri.path, '/api/v1/public/auth/session');
-        expect(
-          f.requests.first.headers['Authorization'],
-          'Bearer access.fixture',
-        );
+        expect(f.requests.first.headers['Authorization'], isNull);
       }
     },
   );
@@ -363,6 +485,7 @@ void main() {
           .toList();
       expect(requests.length, 1);
       expect(requests.single.data, isNull);
+      expect(requests.single.headers['Authorization'], isNull);
       expect((await f.store.read())!.sessionId, 'rotated.cookie');
       expect((await f.store.read())!.refreshToken, 'rotated.refresh');
     },
@@ -405,7 +528,6 @@ void main() {
         'email': 'qa@example.invalid',
         'rawPassword': 'SyntheticTest!2026',
         'idempotencyKey': 'stable-key',
-        'requestFingerprint': 'qa@example.invalid',
       });
       expect(f.requests.last.headers['Idempotency-Key'], 'stable-key');
       await cubit.close();

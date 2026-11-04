@@ -13,7 +13,7 @@ import 'local_account_store.dart';
 
 typedef IdentityBrowser = Future<Uri> Function(Uri authorizationUrl);
 
-/// Target contract: user-supplied Identity brief (backend acceptance pending).
+/// Identity dev a24492b contract (live backend acceptance pending).
 class IdentityAuthRepository
     implements AuthRepository, BrowserAuthRepository, SessionRecoverySource {
   IdentityAuthRepository({
@@ -136,6 +136,7 @@ class IdentityAuthRepository
               api.allowInsecureLocal && url.scheme == 'http') ||
           state == null ||
           state.isEmpty ||
+          start.authStateCookie != state ||
           query['response_type']?.singleOrNull != 'code' ||
           query['redirect_uri']?.singleOrNull != redirectUri ||
           query['code_challenge_method']?.singleOrNull != 'S256' ||
@@ -168,13 +169,7 @@ class IdentityAuthRepository
           'state': state,
           'format': 'json',
         },
-        session: start.sessionId == null
-            ? null
-            : IdentitySessionRecord(
-                accessToken: '',
-                refreshToken: '',
-                sessionId: start.sessionId,
-              ),
+        authStateCookie: start.authStateCookie,
       );
       _checkEpoch(epoch);
       final record = IdentitySessionRecord.fromJson({
@@ -286,7 +281,7 @@ class IdentityAuthRepository
         idempotencyKey.isEmpty) {
       throw _error('Vui lòng kiểm tra thông tin đăng ký.');
     }
-    await api.request(
+    final reply = await api.request(
       'POST',
       '/public/customer-registrations',
       body: {
@@ -295,10 +290,20 @@ class IdentityAuthRepository
         'email': email.trim().toLowerCase(),
         'rawPassword': password,
         'idempotencyKey': idempotencyKey,
-        'requestFingerprint': email.trim().toLowerCase(),
       },
       headers: {'Idempotency-Key': idempotencyKey},
     );
+    switch (reply.data['status']) {
+      case 'ACTIVE':
+      case 'COMPLETED':
+        return;
+      case 'PENDING':
+        throw _error(
+          'Đăng ký đang được xử lý. Vui lòng chờ rồi thử lại với thông tin đã nhập.',
+        );
+      default:
+        throw const FormatException('Invalid Identity registration status');
+    }
   }
 
   @override

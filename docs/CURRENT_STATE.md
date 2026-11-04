@@ -1,5 +1,13 @@
 # Customer Mobile — current handoff
 
+## Flutter correction checkpoint — 2026-11-04
+
+User approved Flutter fixes only on feature/mobile-ui, followed by checkpoint and WAIT FOR REVIEW; any proposed change to another branch must be discussed with the user first. Entry HEAD72202bf4f7440a53ab14cf8e4e897bf60b88ffe1. Live auth activation remains deferred. Source reference is dev a24492b via read-only Git objects.
+
+Implemented: required matching OMAMA_AUTH_STATE from login, retained only in the pending login call and sent only to callback; cookie-only session/refresh/logout; registration success only ACTIVE/COMPLETED, PENDING retry feedback and unknown/missing status rejection; server-owned registration fingerprint. Existing UI retains retry identity and opens login only on completed registration. Modified application files: IdentityApi, IdentityAuthRepository; extended existing repository tests with5 regression cases and updated fixture semantics. No other branch, backend, Drive, provider or dependency changes.
+
+Validation: focused auth tests68/68 PASS (41s), analyzer PASS (13.1s), full234/234 tests PASS (45s),5 added regression cases. First analyzer attempt reported one missing-braces style issue in the new test, fixed before the passing rerun; no checks disabled. APK build pending. Existing native/live IdP acceptance is NOT VERIFIED. Backend blockers remain Gateway PUT password routing and Keycloak password verification policy; social/JIT/runtime config also unverified. Do not fix them from Mobile. Preserve unrelated docs/MOBILE_MVP_DISCUSSION_REFERENCE.md. Exact next action: source checkpoint, bounded-memory debug APK build, record result in documentation checkpoint, verify remote, then STOP and await user review.
+
 ## Latest read-only API audit — 2026-11-04
 
 User requested checking every Git branch and the supplied Drive folder against the Mobile login prompt, after deferring live auth activation. [Source audit and exact next slice](03_api_specs/IDENTITY_SOURCE_AUDIT_2026-11-04.md): all25 remote branches inventoried after fetch; dev now a24492b63c364f93ad19d880798137e554898c3f and contains all8 prompt endpoints. The historical missing-source statement below is superseded. Mobile source remains unchanged at HEAD0c0dd05 during audit. No merge/checkout/backend/provider changes or runtime tests.
