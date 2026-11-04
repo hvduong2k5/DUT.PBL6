@@ -34,7 +34,7 @@ public class CustomerApiProxyController {
     public ResponseEntity<byte[]> forward(@AuthenticationPrincipal Jwt jwt, HttpServletRequest request) throws Exception {
         if (jwt == null) return ResponseEntity.status(401).build();
         var principal = principals.findByIssuerAndSubject(jwt.getIssuer().toString(), jwt.getSubject());
-        if (principal == null || !"ACTIVE".equals(principal.getProvisioningStatus())
+        if (principal == null || !"CUSTOMER".equals(principal.getPrincipalType()) || !"ACTIVE".equals(principal.getProvisioningStatus())
                 || !principal.getPrincipalId().toString().equals(jwt.getClaimAsString("user_id"))) {
             return ResponseEntity.status(403).build();
         }

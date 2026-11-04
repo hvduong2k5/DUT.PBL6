@@ -17,9 +17,9 @@
         <result property="ocopCertificateNo" column="ocop_certificate_no"/>
         <result property="story"            column="story"/>
         <result property="approvalStatus"   column="approval_status"
-                typeHandler="org.apache.ibatis.type.EnumTypeHandler"/>
+                javaType="com.hvduong.catalog.common.enums.ApprovalStatus"/>
         <result property="listingStatus"    column="listing_status"
-                typeHandler="org.apache.ibatis.type.EnumTypeHandler"/>
+                javaType="com.hvduong.catalog.common.enums.ListingStatus"/>
         <result property="approvedBy"       column="approved_by"/>
         <result property="approvedAt"       column="approved_at"/>
         <result property="version"          column="version"/>

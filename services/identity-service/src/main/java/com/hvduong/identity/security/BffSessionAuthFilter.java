@@ -33,6 +33,11 @@ public class BffSessionAuthFilter extends OncePerRequestFilter {
     @Value("${app.frontend-url:http://localhost:3000}")
     private String frontendUrl;
 
+    private boolean nativeSession(HttpServletRequest request) {
+        try {return bffSessionStore.getSession(UUID.fromString(extractSessionCookie(request))).map(BffSession::isNativeClient).orElse(false);}
+        catch (IllegalArgumentException | NullPointerException error) {return false;}
+    }
+
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
@@ -47,7 +52,7 @@ public class BffSessionAuthFilter extends OncePerRequestFilter {
                 return;
             }
         }
-        if (extractSessionCookie(request) != null && !Set.of("GET", "HEAD", "OPTIONS").contains(request.getMethod())) {
+        if (extractSessionCookie(request) != null && !nativeSession(request) && !Set.of("GET", "HEAD", "OPTIONS").contains(request.getMethod())) {
             String origin = request.getHeader("Origin");
             try {
                 java.net.URI source = java.net.URI.create(origin == null ? "" : origin);
@@ -120,7 +125,7 @@ public class BffSessionAuthFilter extends OncePerRequestFilter {
                     }
                 }
             } catch (IllegalArgumentException ex) {
-                log.debug("Invalid session cookie UUID format: {}", sessionCookie);
+                log.debug("Invalid session cookie UUID format");
             }
         }
 

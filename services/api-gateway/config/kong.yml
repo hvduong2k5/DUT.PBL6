@@ -119,7 +119,7 @@ services:
   # MS-05: CATALOG SERVICE (Products, Categories, Search)
   # ----------------------------------------------------------------------------
   - name: catalog-service
-    url: http://catalog-service:8005
+    url: http://catalog-service:8006
     connect_timeout: 2000
     read_timeout: 3000
     write_timeout: 3000

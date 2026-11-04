@@ -5,7 +5,7 @@ import {
   parseDecimalVersion,
   type PublicErrorBody
 } from "@/lib/api-contract";
-import { authorizeCustomerCapability, customerAccessFailure } from "@/lib/auth/customer-access-server";
+import { authorizeCustomerCapability, requireCustomerSession, customerAccessFailure } from "@/lib/auth/customer-access-server";
 import { applyTrustedAuthorization, getTrustedAccessToken } from "@/lib/auth/server-credential";
 import { MVP_FEATURE_GATES } from "@/lib/mvp-feature-gates";
 import { GUEST_ORDER_ACCESS_COOKIE, decodeGuestOrderAccess, encodeGuestOrderAccess } from "@/lib/orders/guest-access";
@@ -150,6 +150,10 @@ export async function handleOrderRequest(request: NextRequest, path: string[]): 
   }
 
   const accessToken = getTrustedAccessToken(request);
+  if (isGuestExtension && accessToken) {
+    try { await requireCustomerSession(accessToken); }
+    catch (cause) { const failure = customerAccessFailure(cause); return publicErrorResponse(failure.status, failure.code, failure.message, "BFF-ORDER-ACCESS"); }
+  }
   const guestAccess = guestExtensionEnabled()
     ? decodeGuestOrderAccess(request.cookies.get(GUEST_ORDER_ACCESS_COOKIE)?.value)
     : undefined;

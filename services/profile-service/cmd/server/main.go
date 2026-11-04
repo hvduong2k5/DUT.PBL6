@@ -36,6 +36,9 @@ func main() {
 	if cfg.IdentityToken == "" {
 		log.Fatal().Msg("PROFILE_INTERNAL_TOKEN is required for authenticated internal callers")
 	}
+	if cfg.AuthMode == "keycloak" && cfg.IdentityURL == "" {
+		log.Fatal().Msg("IDENTITY_URL is required for account persona verification")
+	}
 	identity, err := security.NewOIDCIdentity(cfg)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Invalid Profile OIDC configuration")

@@ -8,12 +8,13 @@ function identityResponse(data: unknown) {
 }
 
 beforeEach(() => {
-  vi.resetModules();
+  vi.stubEnv("IDENTITY_UPSTREAM_URL", "http://identity.test/api/v1");
+  vi.resetModules(); vi.stubEnv("WEB_AUTH_MODE", "identity-bff"); vi.stubEnv("WEB_PUBLIC_URL", "http://localhost"); vi.stubEnv("WEB_OIDC_ALLOW_LOCAL_HTTP", "true");
   process.env.NEXT_PUBLIC_MVP_GUEST_ORDER_ENABLED = "true";
 });
 
 afterEach(() => {
-  vi.unstubAllGlobals();
+  vi.unstubAllGlobals(); vi.unstubAllEnvs();
   if (originalGuestOrderGate === undefined) delete process.env.NEXT_PUBLIC_MVP_GUEST_ORDER_ENABLED;
   else process.env.NEXT_PUBLIC_MVP_GUEST_ORDER_ENABLED = originalGuestOrderGate;
 });
@@ -21,9 +22,9 @@ afterEach(() => {
 describe("Order principal isolation", () => {
   it("rejects an authenticated Employee from Guest Order endpoints", async () => {
     const fetchMock = vi.fn()
-      .mockResolvedValueOnce(identityResponse({ authenticated: true }))
+      .mockResolvedValueOnce(identityResponse({ authenticated: true, principalId:"10000000-0000-0000-0000-000000000001", expiresAt:"2099-01-01T00:00:00Z" }))
       .mockResolvedValueOnce(identityResponse({
-        principalId: "EMP-01",
+        principalId: "10000000-0000-0000-0000-000000000001", provisioningStatus:"ACTIVE",
         principalType: "EMPLOYEE",
         email: "staff@omama.vn",
         roles: [{ roleCode: "CUSTOMER" }],
@@ -34,7 +35,7 @@ describe("Order principal isolation", () => {
     const request = new NextRequest("http://localhost/api/orders/guest-access/challenges", {
       method: "POST",
       headers: {
-        Cookie: "OMAMA_SESSION=employee-session",
+        Cookie: "OMAMA_SESSION=00000000-0000-0000-0000-000000000001",
         Origin: "http://localhost"
       }
     });

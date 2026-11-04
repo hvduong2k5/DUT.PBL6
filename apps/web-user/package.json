@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "axios": "^1.21.0",
+    "jose": "^6.2.15",
     "next": "16.3.6",
     "react": "19.3.0",
     "react-dom": "19.3.0"

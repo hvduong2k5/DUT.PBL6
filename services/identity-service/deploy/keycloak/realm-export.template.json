@@ -26,9 +26,9 @@
       "directAccessGrantsEnabled": false,
       "clientAuthenticatorType": "client-secret",
       "redirectUris": [
-          "https://api.omama.vn/api/v1/public/auth/callback",
-          "http://localhost:8016/api/v1/public/auth/callback",
-          "http://127.0.0.1:8016/api/v1/public/auth/callback"
+        "https://api.omama.vn/api/v1/public/auth/callback",
+        "http://localhost:8016/api/v1/public/auth/callback",
+        "http://127.0.0.1:8016/api/v1/public/auth/callback"
       ],
       "webOrigins": [
         "+"
@@ -79,6 +79,32 @@
             "userinfo.token.claim": "false"
           }
         }
+      ]
+    },
+    {
+      "clientId": "mobile-app",
+      "enabled": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "clientAuthenticatorType": "client-secret",
+      "redirectUris": [
+        "omama://auth/callback"
+      ],
+      "webOrigins": [],
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "https://omama.vn/api/auth/oidc/logged-out"
+      },
+      "defaultClientScopes": [
+        "web-origins",
+        "acr",
+        "profile",
+        "roles",
+        "email",
+        "audience-scope",
+        "order-customer"
       ]
     }
   ],

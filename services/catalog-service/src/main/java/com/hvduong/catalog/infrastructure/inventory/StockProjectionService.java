@@ -18,12 +18,15 @@ import java.util.Map;
 public class StockProjectionService {
 
     private final StockAvailabilityMapper stockAvailabilityMapper;
+    @org.springframework.beans.factory.annotation.Autowired(required=false)
+    private InventoryStockClient liveInventory;
 
     /**
      * Returns one entry per requested SKU. A null value means the quantity is not
      * known yet because the SKU has not been synchronized from Inventory.
      */
     public Map<String, Long> getAvailableQuantities(Collection<String> skuCodes) {
+        if (liveInventory!=null && liveInventory.configured() && skuCodes!=null) return liveInventory.available(skuCodes);
         Map<String, Long> quantities = new HashMap<>();
         if (skuCodes == null || skuCodes.isEmpty()) return quantities;
 

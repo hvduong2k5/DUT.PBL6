@@ -24,10 +24,10 @@ public class CatalogAdminGrpcService extends CatalogAdminServiceGrpc.CatalogAdmi
     @Override
     public void createProduct(CreateProductRpcRequest request,
                               StreamObserver<ProductCommandResponse> observer) {
-        log.info("[gRPC] createProduct: actor={}", request.getActorId());
+        log.info("[gRPC] createProduct: actor={}", CatalogAccess.actorId());
         complete(observer, () -> {
             var req = grpcMapper.toCreateProductRequest(request);
-            ProductDetailResponse result = adminService.createProduct(req, request.getActorId());
+            ProductDetailResponse result = adminService.createProduct(req, CatalogAccess.actorId());
             return ProductCommandResponse.newBuilder()
                     .setProduct(grpcMapper.toProductDetailProto(result)).build();
         });
@@ -40,7 +40,7 @@ public class CatalogAdminGrpcService extends CatalogAdminServiceGrpc.CatalogAdmi
         complete(observer, () -> {
             var req = grpcMapper.toUpdateProductRequest(request);
             ProductDetailResponse result = adminService.updateProduct(
-                    UUID.fromString(request.getProductId()), req, request.getActorId());
+                    UUID.fromString(request.getProductId()), req, CatalogAccess.actorId());
             return ProductCommandResponse.newBuilder()
                     .setProduct(grpcMapper.toProductDetailProto(result)).build();
         });
@@ -52,7 +52,7 @@ public class CatalogAdminGrpcService extends CatalogAdminServiceGrpc.CatalogAdmi
         log.info("[gRPC] transitionProduct: id={}, transition={}", request.getProductId(), request.getTransition());
         complete(observer, () -> {
             UUID productId = UUID.fromString(request.getProductId());
-            String actorId = request.getActorId();
+            String actorId = CatalogAccess.actorId();
             long version   = request.getExpectedVersion();
 
             ProductDetailResponse result = switch (request.getTransition()) {
@@ -77,7 +77,7 @@ public class CatalogAdminGrpcService extends CatalogAdminServiceGrpc.CatalogAdmi
         complete(observer, () -> {
             var req = grpcMapper.toCreateVariantRequest(request);
             ProductDetailResponse result = adminService.addVariant(
-                    UUID.fromString(request.getProductId()), req, request.getActorId());
+                    UUID.fromString(request.getProductId()), req, CatalogAccess.actorId());
             return ProductCommandResponse.newBuilder()
                     .setProduct(grpcMapper.toProductDetailProto(result)).build();
         });
@@ -93,7 +93,7 @@ public class CatalogAdminGrpcService extends CatalogAdminServiceGrpc.CatalogAdmi
             ProductDetailResponse result = adminService.updateVariantPrices(
                     UUID.fromString(request.getProductId()),
                     UUID.fromString(request.getVariantId()),
-                    req, request.getActorId());
+                    req, CatalogAccess.actorId());
             return ProductCommandResponse.newBuilder()
                     .setProduct(grpcMapper.toProductDetailProto(result)).build();
         });

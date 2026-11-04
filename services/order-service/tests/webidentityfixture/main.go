@@ -17,7 +17,7 @@ import (
 
 func main() {
 	ctx := context.Background()
-	cfg := app.Config{Mode: "sandbox", AuthMode: "keycloak", OIDCIssuer: os.Getenv("WEB_TEST_ISSUER"), OIDCAudience: "order-api", OIDCAllowLocalHTTP: true, Profile: os.Getenv("WEB_TEST_PROFILE_URL"), ProfileToken: os.Getenv("WEB_TEST_INTERNAL_TOKEN")}
+	cfg := app.Config{IdentityURL: os.Getenv("IDENTITY_URL"), Mode: "sandbox", AuthMode: "keycloak", OIDCIssuer: os.Getenv("WEB_TEST_ISSUER"), OIDCAudience: "order-api", OIDCAllowLocalHTTP: true, Profile: os.Getenv("WEB_TEST_PROFILE_URL"), ProfileToken: os.Getenv("WEB_TEST_INTERNAL_TOKEN")}
 	identity, err := app.NewCustomerIdentity(cfg)
 	if err != nil {
 		log.Fatal(err)

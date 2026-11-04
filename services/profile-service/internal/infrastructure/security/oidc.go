@@ -21,11 +21,11 @@ import (
 )
 
 type OIDCIdentity struct {
-	issuer, audience, jwksURL string
-	client                    *http.Client
-	mu                        sync.Mutex
-	keys                      map[string]*rsa.PublicKey
-	expires, nextFetch        time.Time
+	issuer, audience, jwksURL, identityURL string
+	client                                 *http.Client
+	mu                                     sync.Mutex
+	keys                                   map[string]*rsa.PublicKey
+	expires, nextFetch                     time.Time
 }
 
 // NewOIDCIdentity opts into the same signed Customer token profile as Order.
@@ -44,7 +44,7 @@ func NewOIDCIdentity(c *config.Config) (*OIDCIdentity, error) {
 	if jwks == "" {
 		jwks = strings.TrimRight(c.OIDCIssuer, "/") + "/protocol/openid-connect/certs"
 	}
-	for _, raw := range []string{c.OIDCIssuer, jwks} {
+	for _, raw := range append([]string{c.OIDCIssuer, jwks}, optionalIdentityURL(c.IdentityURL)...) {
 		u, err := url.Parse(raw)
 		if err != nil || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
 			return nil, errors.New("invalid configured OIDC URL")
@@ -55,7 +55,7 @@ func NewOIDCIdentity(c *config.Config) (*OIDCIdentity, error) {
 			return nil, errors.New("OIDC requires HTTPS; loopback HTTP is explicit TEST only")
 		}
 	}
-	return &OIDCIdentity{issuer: c.OIDCIssuer, audience: c.OIDCAudience, jwksURL: jwks, client: &http.Client{Timeout: 2 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}, nil
+	return &OIDCIdentity{issuer: c.OIDCIssuer, audience: c.OIDCAudience, identityURL: strings.TrimRight(c.IdentityURL, "/"), jwksURL: jwks, client: &http.Client{Timeout: 2 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}, nil
 }
 
 type Principal struct {
@@ -64,6 +64,8 @@ type Principal struct {
 }
 
 var ErrUnauthorized = errors.New("UNAUTHENTICATED")
+var ErrCustomerRequired = errors.New("CUSTOMER_REQUIRED")
+var ErrIdentityUnavailable = errors.New("IDENTITY_UNAVAILABLE")
 
 type customerClaims struct {
 	jwt.RegisteredClaims
@@ -97,6 +99,43 @@ func (v *OIDCIdentity) Authenticate(ctx context.Context, bearer string) (Princip
 	id, err := uuid.Parse(claims.UserID)
 	if err != nil || id == uuid.Nil {
 		return Principal{}, denied
+	}
+	if v.identityURL != "" {
+		req, err := http.NewRequestWithContext(ctx, "GET", v.identityURL+"/api/v1/users/me", nil)
+		if err != nil {
+			return Principal{}, ErrIdentityUnavailable
+		}
+		req.Header.Set("Authorization", bearer)
+		resp, err := v.client.Do(req)
+		if err != nil {
+			return Principal{}, ErrIdentityUnavailable
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode == 401 {
+			return Principal{}, denied
+		}
+		if resp.StatusCode != 200 {
+			return Principal{}, ErrIdentityUnavailable
+		}
+		raw, err := io.ReadAll(io.LimitReader(resp.Body, (1<<20)+1))
+		if err != nil || len(raw) > 1<<20 {
+			return Principal{}, ErrIdentityUnavailable
+		}
+		var envelope struct {
+			Success bool `json:"success"`
+			Data    struct {
+				ID      string `json:"principalId"`
+				Subject string `json:"idpSubject"`
+				Type    string `json:"principalType"`
+				Status  string `json:"provisioningStatus"`
+			} `json:"data"`
+		}
+		if json.Unmarshal(raw, &envelope) != nil || !envelope.Success || envelope.Data.ID != id.String() || envelope.Data.Subject != claims.Subject {
+			return Principal{}, ErrIdentityUnavailable
+		}
+		if envelope.Data.Type != "CUSTOMER" || envelope.Data.Status != "ACTIVE" {
+			return Principal{}, ErrCustomerRequired
+		}
 	}
 	for _, role := range claims.RealmAccess.Roles {
 		if role == "CUSTOMER" {
@@ -191,4 +230,11 @@ func (v *OIDCIdentity) key(ctx context.Context, kid string) (*rsa.PublicKey, err
 		return k, nil
 	}
 	return nil, errors.New("unknown signing key")
+}
+
+func optionalIdentityURL(value string) []string {
+	if value == "" {
+		return nil
+	}
+	return []string{value}
 }

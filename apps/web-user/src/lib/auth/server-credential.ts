@@ -2,6 +2,18 @@ import type { NextRequest } from "next/server";
 import { publicWebOrigin, usesIdentityBff } from "./oidc-config";
 
 export const ACCESS_TOKEN_COOKIE = "oma_access_token";
+export const SESSION_COOKIE = "OMAMA_SESSION";
+
+export function getTrustedSessionCookie(request: NextRequest): string | undefined {
+  return request.cookies.get(SESSION_COOKIE)?.value.trim() || undefined;
+}
+
+export function applyTrustedSessionCookie(headers: Headers, request: NextRequest): string | undefined {
+  const session = getTrustedSessionCookie(request);
+  if (session) headers.set("Cookie", `${SESSION_COOKIE}=${session}`);
+  if (usesIdentityBff()) headers.set("Origin", publicWebOrigin());
+  return session;
+}
 
 export function getTrustedAccessToken(request: NextRequest): string | undefined {
   // In owner BFF mode this value is an opaque session ID, never an access token.

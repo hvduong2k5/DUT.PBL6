@@ -1,7 +1,7 @@
 package main
 
-// Disposable acceptance environment. Catalog/Fulfillment and SePay statements
-// are explicit TEST providers; Order, Inventory, Shipping and their DBs are real.
+// Disposable acceptance environment. Catalog can use the real provider;
+// Fulfillment and SePay statements remain TEST. Carrier is FAKE.
 import (
 	"bytes"
 	"context"
@@ -49,6 +49,11 @@ func connected(ctx context.Context, cfg app.Config) (*app.Service, error) {
 	cfg.CallbackSecret = strings.Repeat("y", 32)
 	cfg.EncryptionKey = base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{17}, 32))
 	cfg.Receiver = "SYNTHETIC-ONLY"
+	cfg.CatalogURL = os.Getenv("WEB_TEST_REAL_CATALOG_URL")
+	cfg.CatalogWarehouse = "00000000-0000-0000-0000-000000000001"
+	cfg.CatalogShippingCarrier = "FAKE"
+	cfg.CatalogShippingService = "STANDARD"
+	cfg.CatalogShippingPolicy = "test-shipping-1"
 	cfg.Poll = 100 * time.Millisecond
 	cfg.Kafka = os.Getenv("KAFKA_BROKERS")
 	cfg.ConsumerGroup = "web-acceptance-" + uuid.NewString()

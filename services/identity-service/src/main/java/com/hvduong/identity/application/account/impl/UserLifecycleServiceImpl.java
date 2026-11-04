@@ -57,6 +57,14 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
             return Optional.empty();
         }
 
+        // The owner realm uses openid without an email claim. Resolve display
+        // data through the already-bound IdP subject rather than treating a
+        // username or caller header as an email address.
+        if (email == null || email.isBlank()) {
+            email = keycloakAdminClient.getUserById(principal.getIdpSubject())
+                    .map(UserRepresentation::getEmail).orElse(null);
+        }
+
         List<IamRoleAssignmentRow> assignments = roleAssignmentMapper.findActiveByPrincipal(
                 principal.getPrincipalId(), 
                 OffsetDateTime.now()

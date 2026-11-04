@@ -9,7 +9,8 @@ import java.util.UUID;
 /** Response danh mục sản phẩm. */
 @Data
 @Builder
-public class CategoryResponse {
+public class CategoryResponse implements java.io.Serializable {
+    private static final long serialVersionUID = 1L;
     private UUID categoryId;
     private UUID parentId;
     private String name;

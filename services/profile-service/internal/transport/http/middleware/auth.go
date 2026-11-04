@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"crypto/subtle"
+	"errors"
 	"github.com/google/uuid"
 	"github.com/omamx/profile-service/internal/domain"
 	"github.com/omamx/profile-service/internal/infrastructure/security"
@@ -37,6 +38,14 @@ func AuthContextWithIdentity(token string, identity BearerIdentity) func(http.Ha
 					return
 				}
 				principal, err := identity.Authenticate(r.Context(), r.Header.Get("Authorization"))
+				if errors.Is(err, security.ErrCustomerRequired) {
+					authError(w, 403, "CUSTOMER_REQUIRED")
+					return
+				}
+				if errors.Is(err, security.ErrIdentityUnavailable) {
+					authError(w, 503, "IDENTITY_UNAVAILABLE")
+					return
+				}
 				id, parseErr := uuid.Parse(principal.ID)
 				if err != nil || parseErr != nil || id == uuid.Nil {
 					authError(w, 401, "UNAUTHENTICATED")

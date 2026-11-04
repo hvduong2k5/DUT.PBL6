@@ -150,6 +150,27 @@ class UserLifecycleServiceTest {
     }
 
     @Test
+    void getProfileBySubject_OpenidOnly_ResolvesEmailFromBoundKeycloakAccount() {
+        String issuer = "https://keycloak.omama.vn/realms/omama";
+        String subject = "verified-subject";
+        IdentityPrincipalRow row = new IdentityPrincipalRow();
+        row.setPrincipalId(UUID.randomUUID());
+        row.setIdpSubject(subject);
+        row.setPrincipalType("CUSTOMER");
+        row.setProvisioningStatus("ACTIVE");
+        when(principalMapper.findByIssuerAndSubject(issuer, subject)).thenReturn(row);
+        var account = new org.keycloak.representations.idm.UserRepresentation();
+        account.setEmail("customer@example.test");
+        when(keycloakAdminClient.getUserById(subject)).thenReturn(Optional.of(account));
+
+        var profile = service.getProfileBySubject(issuer, subject, null).orElseThrow();
+
+        assertEquals("customer@example.test", profile.getEmail());
+        assertEquals(row.getPrincipalId(), profile.getPrincipalId());
+        assertTrue(profile.getRoles().isEmpty());
+    }
+
+    @Test
     void suspendAccount_Success_UpdatesDbKeycloakAuditAndOutbox() {
         UUID principalId = UUID.randomUUID();
         UUID actorId = UUID.randomUUID();

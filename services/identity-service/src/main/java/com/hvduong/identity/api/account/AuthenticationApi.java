@@ -35,7 +35,10 @@ public interface AuthenticationApi {
             @Parameter(description = "Authorization Code được Keycloak cấp") @RequestParam(value = "code", required = false) String code,
             @Parameter(description = "State ngẫu nhiên chống CSRF") @RequestParam(value = "state", required = false) String state,
             @Parameter(description = "Mã lỗi nếu xác thực thất bại tại IdP") @RequestParam(value = "error", required = false) String error,
-            @Parameter(description = "Chi tiết lỗi") @RequestParam(value = "error_description", required = false) String errorDescription
+            @Parameter(description = "Chi tiết lỗi") @RequestParam(value = "error_description", required = false) String errorDescription,
+            @RequestParam(value="format",required=false) String format,
+            @RequestHeader(value="Accept",required=false) String acceptHeader,
+            @RequestHeader(value="Content-Type",required=false) String contentType
     );
 
     @Operation(summary = "Kiểm tra phiên đăng nhập hiện tại", description = "Đọc HttpOnly Cookie OMAMA_SESSION, trả về trạng thái phiên và danh tính người dùng mà không để lộ JWT Access Token.")

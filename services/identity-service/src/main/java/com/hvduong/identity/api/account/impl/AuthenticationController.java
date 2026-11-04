@@ -64,7 +64,7 @@ public class AuthenticationController implements AuthenticationApi {
     }
 
     @Override
-    public ResponseEntity<?> handleCallback(String code, String state, String error, String errorDescription) {
+    public ResponseEntity<?> handleCallback(String code, String state, String error, String errorDescription, String format, String acceptHeader, String contentType) {
         if (error != null) {
             log.warn("OAuth2 callback received error from IdP: {} - {}", error, errorDescription);
             String errorRedirect = authenticationService.resolveErrorRedirectUri(state, error, errorDescription);
@@ -74,7 +74,7 @@ public class AuthenticationController implements AuthenticationApi {
         }
 
         if (code == null || code.isBlank() || state == null || state.isBlank()) {
-            log.warn("OAuth2 callback missing code or state: code={}, state={}", code, state);
+            log.warn("OAuth2 callback missing required code or state");
             throw new IllegalArgumentException("Thiếu tham số 'code' hoặc 'state' trong yêu cầu xác thực.");
         }
 
@@ -82,11 +82,21 @@ public class AuthenticationController implements AuthenticationApi {
 
         ResponseCookie cookie = buildSessionCookie(result.getSession().getSessionId().toString(), Duration.ofDays(30));
 
+        if (result.getSession().isNativeClient()) {
+            var session=result.getSession();
+            var tokens=com.hvduong.identity.dto.response.AuthTokenResponse.builder().tokenType("Bearer")
+                .accessToken(session.getAccessToken()).refreshToken(session.getRefreshToken())
+                .sessionId(session.getSessionId()).principalId(session.getPrincipalId()).email(session.getEmail())
+                .expiresAt(session.getAccessTokenExpiresAt()).expiresIn(Math.max(0,java.time.Duration.between(java.time.Instant.now(),session.getAccessTokenExpiresAt()).getSeconds())).build();
+            return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE,cookie.toString(),buildCookie("OMAMA_AUTH_STATE","",Duration.ZERO).toString()).body(ApiResponse.success("Đăng nhập thành công",tokens));
+        }
         return ResponseEntity.status(HttpStatus.FOUND)
                 .location(URI.create(result.getRedirectUri()))
                 .header(HttpHeaders.SET_COOKIE, cookie.toString(), buildCookie("OMAMA_AUTH_STATE", "", Duration.ZERO).toString())
                 .build();
     }
+
+    public ResponseEntity<?> handleCallback(String code,String state,String error,String description) {return handleCallback(code,state,error,description,null,null,null);}
 
     @Override
     public ResponseEntity<ApiResponse<SessionResponse>> getSession(String sessionCookie) {
@@ -104,7 +114,8 @@ public class AuthenticationController implements AuthenticationApi {
 
         BffSession session = authenticationService.refreshSession(sessionId);
         SessionResponse response = SessionResponse.builder()
-                .sessionId(session.getPublicId())
+                .sessionId(session.isNativeClient()?session.getSessionId():session.getPublicId())
+                .accessToken(session.isNativeClient()?session.getAccessToken():null)
                 .principalId(session.getPrincipalId())
                 .email(session.getEmail())
                 .isAuthenticated(true)
@@ -153,7 +164,7 @@ public class AuthenticationController implements AuthenticationApi {
         try {
             return UUID.fromString(sessionCookie.trim());
         } catch (IllegalArgumentException e) {
-            log.debug("Invalid session cookie UUID format: {}", sessionCookie);
+            log.debug("Invalid session cookie UUID format");
             return null;
         }
     }

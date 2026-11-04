@@ -19,6 +19,9 @@ public class AuthStateStore {
         private String codeVerifier;
         private String redirectUri;
         private Instant createdAt;
+        private String clientId;
+        private String authorizationRedirectUri;
+        private boolean nativeClient;
     }
 
     private final Map<String, PendingAuthState> states = new ConcurrentHashMap<>();
@@ -26,7 +29,12 @@ public class AuthStateStore {
 
     public void save(String state, String codeVerifier, String redirectUri) {
         cleanExpired();
-        states.put(state, new PendingAuthState(codeVerifier, redirectUri, Instant.now()));
+        states.put(state, new PendingAuthState(codeVerifier, redirectUri, Instant.now(), null, null, false));
+    }
+
+    public void save(String state, String verifier, String destination, String clientId, String authorizationRedirect, boolean nativeClient) {
+        cleanExpired();
+        states.put(state,new PendingAuthState(verifier,destination,Instant.now(),clientId,authorizationRedirect,nativeClient));
     }
 
     public Optional<PendingAuthState> consume(String state) {

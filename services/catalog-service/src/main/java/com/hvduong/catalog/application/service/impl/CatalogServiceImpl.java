@@ -142,6 +142,7 @@ public class CatalogServiceImpl implements CatalogService {
                 .orElseThrow(() -> new CatalogException(ErrorCode.CATALOG_VARIANT_NOT_FOUND,
                         "SKU không tồn tại: " + skuCode));
 
+        if (variant.getListingStatus()!=ListingStatus.ACTIVE || productMapper.findPublicById(variant.getProductId()).isEmpty()) throw new CatalogException(ErrorCode.CATALOG_PRODUCT_NOT_PUBLIC);
         ProductVariantResponse response = dtoMapper.toVariantResponse(variant);
         response.setStockAvailable(stockProjectionService
                 .getAvailableQuantities(List.of(variant.getSkuCode()))
@@ -219,7 +220,7 @@ public class CatalogServiceImpl implements CatalogService {
                 continue;
             }
             Optional<ProductVariant> variantOpt = variantMapper.findBySkuCode(item.getSkuCode());
-            if (variantOpt.isEmpty() || variantOpt.get().getListingStatus() != ListingStatus.ACTIVE) {
+            if (variantOpt.isEmpty() || variantOpt.get().getListingStatus() != ListingStatus.ACTIVE || productMapper.findPublicById(variantOpt.get().getProductId()).isEmpty()) {
                 discrepancies.add(PriceValidationResponse.Discrepancy.builder()
                         .skuCode(item.getSkuCode()).clientUnitPrice(item.getClientUnitPrice())
                         .authoritativeUnitPrice(0L).currencyCode("VND").nanos(0)

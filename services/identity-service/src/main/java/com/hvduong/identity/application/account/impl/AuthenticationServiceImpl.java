@@ -64,17 +64,23 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     @Value("${app.frontend-url:http://localhost:3000}")
     private String defaultFrontendUrl;
 
+    @Value("${keycloak.mobile-client-id:mobile-app}") private String mobileClientId="mobile-app";
+    @Value("${keycloak.mobile-redirect-uri:}") private String mobileRedirectUri="";
+
     @Override
     public AuthUrlResponse initiateLogin(String clientRedirectUri, String provider) {
         String finalRedirectUri = (clientRedirectUri != null && !clientRedirectUri.isBlank()) 
                 ? clientRedirectUri 
                 : getDefaultFrontendUrl();
 
+        boolean nativeClient=mobileRedirectUri!=null && !mobileRedirectUri.isBlank() && mobileRedirectUri.equals(finalRedirectUri);
+        String authorizationRedirect=nativeClient?mobileRedirectUri:redirectUri;
+        String clientId=nativeClient?mobileClientId:publicClientId;
         java.net.URI destination = java.net.URI.create(finalRedirectUri);
         java.net.URI frontend = java.net.URI.create(getDefaultFrontendUrl());
-        if (!java.util.Objects.equals(destination.getScheme(), frontend.getScheme())
+        if (!nativeClient && (!java.util.Objects.equals(destination.getScheme(), frontend.getScheme())
                 || !java.util.Objects.equals(destination.getRawAuthority(), frontend.getRawAuthority())
-                || destination.getUserInfo() != null) {
+                || destination.getUserInfo() != null)) {
             throw new IllegalArgumentException("Địa chỉ quay lại phải thuộc Frontend đã cấu hình.");
         }
 
@@ -82,13 +88,13 @@ public class AuthenticationServiceImpl implements AuthenticationService {
         String codeChallenge = PkceUtil.generateCodeChallenge(codeVerifier);
         String state = PkceUtil.generateState();
 
-        authStateStore.save(state, codeVerifier, finalRedirectUri);
+        authStateStore.save(state, codeVerifier, finalRedirectUri, clientId, authorizationRedirect, nativeClient);
 
         String authEndpoint = buildAuthEndpoint();
         StringBuilder urlBuilder = new StringBuilder(authEndpoint);
         urlBuilder.append("?response_type=code")
-                .append("&client_id=").append(publicClientId)
-                .append("&redirect_uri=").append(URLEncoder.encode(redirectUri, StandardCharsets.UTF_8))
+                .append("&client_id=").append(clientId)
+                .append("&redirect_uri=").append(URLEncoder.encode(authorizationRedirect, StandardCharsets.UTF_8))
                 .append("&scope=").append(URLEncoder.encode(authScope != null && !authScope.isBlank() ? authScope : "openid", StandardCharsets.UTF_8))
                 .append("&state=").append(URLEncoder.encode(state, StandardCharsets.UTF_8))
                 .append("&code_challenge=").append(URLEncoder.encode(codeChallenge, StandardCharsets.UTF_8))
@@ -115,9 +121,9 @@ public class AuthenticationServiceImpl implements AuthenticationService {
 
         MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
         body.add("grant_type", "authorization_code");
-        body.add("client_id", publicClientId);
+        body.add("client_id", pendingState.getClientId()!=null?pendingState.getClientId():publicClientId);
         body.add("code", code);
-        body.add("redirect_uri", redirectUri);
+        body.add("redirect_uri", pendingState.getAuthorizationRedirectUri()!=null?pendingState.getAuthorizationRedirectUri():redirectUri);
         body.add("code_verifier", pendingState.getCodeVerifier());
 
         HttpEntity<MultiValueMap<String, String>> entity = new HttpEntity<>(body, headers);
@@ -182,6 +188,8 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                     refreshExpiresIn
             );
 
+            session.setNativeClient(pendingState.isNativeClient());
+            session.setOauthClientId(pendingState.getClientId());
             return BffCallbackResult.builder()
                     .session(session)
                     .redirectUri(pendingState.getRedirectUri())
@@ -269,7 +277,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
 
         MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
         body.add("grant_type", "refresh_token");
-        body.add("client_id", publicClientId);
+        body.add("client_id", session.getOauthClientId()!=null?session.getOauthClientId():publicClientId);
         body.add("refresh_token", session.getRefreshToken());
 
         HttpEntity<MultiValueMap<String, String>> entity = new HttpEntity<>(body, headers);
@@ -309,14 +317,14 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                 headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
 
                 MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
-                body.add("client_id", publicClientId);
+                body.add("client_id", session.getOauthClientId()!=null?session.getOauthClientId():publicClientId);
                 body.add("refresh_token", session.getRefreshToken());
 
                 HttpEntity<MultiValueMap<String, String>> entity = new HttpEntity<>(body, headers);
                 restTemplate.postForEntity(logoutUrl, entity, String.class);
-                log.info("Revoked Keycloak tokens for sessionId={}", sessionId);
+                log.info("Revoked Keycloak tokens for authenticated session");
             } catch (Exception ex) {
-                log.warn("Error revoking tokens on Keycloak for sessionId={}: {}", sessionId, ex.getMessage());
+                log.warn("Error revoking tokens on Keycloak for authenticated session");
             }
 
             bffSessionStore.removeSession(sessionId);

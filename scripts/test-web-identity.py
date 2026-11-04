@@ -1,7 +1,8 @@
 """Real Web OIDC/BFF -> Kong -> Identity/Profile/Order integration.
 
 Docker, Python 3, Node/npm, Go, Java 21 and the Identity Gradle wrapper are
-required. All data/credentials belong to disposable fixtures. No bank/Catalog.
+required. All data/credentials belong to disposable fixtures. Real Catalog and
+Shipping quotes; payment statements and packing TEST, external carrier FAKE.
 Use --keep-running to inspect the same stack in a browser after acceptance.
 """
 
@@ -27,6 +28,7 @@ import uuid
 import sys
 
 sys.dont_write_bytecode = True
+from mvp_native_checks import native_identity
 from mvp_customer_checks import profile_addresses
 from mvp_customer_checks import checkout_shipping
 
@@ -49,6 +51,7 @@ def main():
     parser.add_argument("--go", default="go")
     parser.add_argument("--java", default="java")
     parser.add_argument("--gradle")
+    parser.add_argument("--flutter", help="Run the native Dart repositories against the same live stack")
     parser.add_argument("--keep-running", action="store_true")
     parser.add_argument(
         "--output-dir", default=str(ROOT / ".system_generated/web-identity")
@@ -75,6 +78,8 @@ def main():
             "db",
             "redis",
             "keycloak",
+            "catalog",
+            "catalog_grpc",
             "identity",
             "identity_grpc",
             "profile",
@@ -101,7 +106,7 @@ def main():
             "customer": str(uuid.uuid4()),
             "email": f"web-{key.lower()}-{suffix}@example.test",
         }
-        for key in ["A", "B"]
+        for key in ["A", "B", "E"]
     }
 
     def run(command, cwd=ROOT, **kwargs):
@@ -186,7 +191,7 @@ def main():
     db_name = "web_identity"
     db_container = "codex-web-db-" + suffix
 
-    def sql(query):
+    def sql(query, tuples=False):
         return run(
             [
                 "docker",
@@ -200,6 +205,7 @@ def main():
                 db_name,
                 "-v",
                 "ON_ERROR_STOP=1",
+                *(["-t", "-A"] if tuples else []),
             ],
             input=query,
             text=True,
@@ -245,7 +251,7 @@ def main():
         else:
             raise RuntimeError("PostgreSQL TCP listener did not become ready")
         sql(
-            "CREATE SCHEMA identity; CREATE SCHEMA identity_test; CREATE SCHEMA profile; CREATE SCHEMA shipping; CREATE SCHEMA orders; CREATE SCHEMA catalog_test;"
+            "CREATE SCHEMA identity; CREATE SCHEMA identity_test; CREATE SCHEMA profile; CREATE SCHEMA shipping; CREATE SCHEMA orders; CREATE SCHEMA catalog_test; CREATE SCHEMA catalog_live;"
         )
         container(
             "codex-web-redis-" + suffix,
@@ -517,12 +523,35 @@ def main():
                 stdout=log,
                 stderr=log,
             )
+        # Boot the real Catalog and verify its migration/HTTP wiring before Order.
+        catalog_url = f"http://127.0.0.1:{ports['catalog']}"
+        env.update(SPRING_DATASOURCE_URL=f"jdbc:postgresql://127.0.0.1:{ports['db']}/{db_name}?currentSchema=catalog_live",
+                   SERVER_PORT=str(ports['catalog']), GRPC_SERVER_PORT=str(ports['catalog_grpc']),
+                   SPRING_KAFKA_LISTENER_AUTO_STARTUP="false", CATALOG_OUTBOX_ENABLED="false",
+                   CATALOG_INTERNAL_TOKEN=env.get("WEB_TEST_INTERNAL_TOKEN", ""))
+        catalog_token = secrets.token_urlsafe(32)
+        env["CATALOG_INTERNAL_TOKEN"] = catalog_token
+        with (folder / "catalog-build.log").open("w") as log:
+            run((["sh", gradle] if os.name != "nt" and gradle.endswith("gradlew") else [gradle]) + ["--no-daemon", "test", "bootJar"], ROOT / "services/catalog-service", stdout=log, stderr=log)
+        catalog_jar = next(p for p in (ROOT / "services/catalog-service/build/libs").glob("*.jar") if "plain" not in p.name)
+        catalog_environment=env.copy()
+        catalog_process=start([args.java, "-jar", catalog_jar], "catalog")
+        wait(catalog_url + "/api/v1/products")
+        sql("""SET search_path TO catalog_live,public;
+            INSERT INTO categories(id,name,slug,description,image_url) VALUES('10000000-0000-0000-0000-000000000001','Synthetic TEST category','test-category','','');
+            INSERT INTO products(id,category_id,name,slug,description,story,approval_status,created_by) VALUES('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','Synthetic TEST SKU','test-product','Synthetic fixture','Synthetic fixture','APPROVED','synthetic-fixture');
+            INSERT INTO product_variants(id,product_id,sku_code,variant_name,weight_value) VALUES('30000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001','PEER','Synthetic TEST SKU',500);
+            INSERT INTO channel_prices(variant_id,channel,amount_units,created_by) VALUES('30000000-0000-0000-0000-000000000001','D2C_WEB',1000,'synthetic-fixture');
+            """)
+        env.update(SPRING_KAFKA_LISTENER_AUTO_STARTUP="true", CATALOG_OUTBOX_ENABLED="true")
         env.update(
             SPRING_DATASOURCE_URL=f"jdbc:postgresql://127.0.0.1:{ports['db']}/{db_name}?currentSchema=identity",
+            GRPC_SERVER_PORT=str(ports["identity_grpc"]),
             SERVER_PORT=str(ports["identity"]),
             KEYCLOAK_SERVER_URL=base,
             KEYCLOAK_PUBLIC_URL=base,
             KEYCLOAK_SCOPE="openid",
+            KEYCLOAK_MOBILE_REDIRECT_URI="omama://auth/callback",
             AUTH_REDIRECT_URI=gateway + "/api/v1/public/auth/callback",
             FRONTEND_BASE_URL=web,
             COOKIE_SECURE="false",
@@ -540,10 +569,11 @@ def main():
         )
         start([args.java, "-jar", jar], "identity")
         identity_url = f"http://127.0.0.1:{ports['identity']}"
+        env["IDENTITY_URL"]=identity_url
         wait(identity_url + "/v3/api-docs")
         for account in accounts.values():
             sql(
-                f"INSERT INTO identity.identity_principals(principal_id,idp_issuer,idp_subject,principal_type,provisioning_status) VALUES('{account['principal']}','{issuer}','{account['subject']}','CUSTOMER','ACTIVE');"
+                f"INSERT INTO identity.identity_principals(principal_id,idp_issuer,idp_subject,principal_type,provisioning_status) VALUES('{account['principal']}','{issuer}','{account['subject']}','{"EMPLOYEE" if account is accounts["E"] else "CUSTOMER"}','ACTIVE');"
             )
 
         sql(
@@ -566,7 +596,7 @@ def main():
         sql(
             "INSERT INTO profile.administrative_units(code,name,full_name,parent_code,level) VALUES('HUE-01','Synthetic TEST ward','Synthetic TEST ward','75','WARD');"
         )
-        internal_token = secrets.token_urlsafe(32)
+        internal_token = catalog_token
         env.update(
             DATABASE_URL=f"postgres://peer:{password}@127.0.0.1:{ports['db']}/{db_name}?sslmode=disable&search_path=profile",
             REDIS_ADDR=f"127.0.0.1:{ports['redis']}",
@@ -613,6 +643,30 @@ def main():
             raise RuntimeError("Inventory TLS provider not ready")
         peer_address = json.loads(peer_ready.read_text())["address"]
         (folder / "inventory-token").write_text(env["PEER_TOKEN"])
+        # Revalidation must fail on a changed price, future price, or unapproved parent product.
+        headers={"X-Internal-Token":catalog_token}
+        selection={"items":[{"sku_code":"PEER","quantity":1}],"channel":"D2C_WEB"}
+        assert request(catalog_url+"/api/v1/internal/catalog/snapshots",selection)[0]==401
+        status,pinned,_=request(catalog_url+"/api/v1/internal/catalog/snapshots",selection,headers=headers)
+        assert status==200 and pinned["subtotal"]==1000
+        assert request(catalog_url+"/api/v1/internal/catalog/snapshots/"+pinned["snapshot_id"]+"/revalidate",method="POST",headers=headers)[1]["valid"]
+        sql("UPDATE catalog_live.channel_prices SET amount_units=1001,version=version+1;")
+        assert not request(catalog_url+"/api/v1/internal/catalog/snapshots/"+pinned["snapshot_id"]+"/revalidate",method="POST",headers=headers)[1]["valid"]
+        sql("UPDATE catalog_live.channel_prices SET amount_units=1000,version=version+1,effective_from=NOW()+interval '1 day';")
+        assert request(catalog_url+"/api/v1/internal/catalog/snapshots",selection,headers=headers)[0]==422
+        sql("UPDATE catalog_live.channel_prices SET effective_from=NOW()-interval '1 day'; UPDATE catalog_live.products SET approval_status='DRAFT';")
+        assert request(catalog_url+"/api/v1/internal/catalog/snapshots",selection,headers=headers)[0]==422
+        sql("UPDATE catalog_live.products SET approval_status='APPROVED',version=version+1;")
+        print("PASS: real Catalog rejects missing credentials, stale snapshots, future prices and unapproved products",flush=True)
+        # Catalog reads live display availability from the authenticated TLS Inventory API.
+        catalog_process.terminate()
+        catalog_process.wait(timeout=20)
+        caller_environment=env.copy()
+        env.clear();env.update(catalog_environment)
+        env.update(IDENTITY_URL=caller_environment["IDENTITY_URL"], CATALOG_INVENTORY_TARGET=peer_address, CATALOG_INVENTORY_TOKEN_FILE=str(folder / "inventory-token"), CATALOG_INVENTORY_CA_FILE=str(folder / "inventory-ca.pem"), CATALOG_INVENTORY_SERVER_NAME="localhost")
+        start([args.java, "-jar", catalog_jar], "catalog")
+        env.clear();env.update(caller_environment)
+        wait(catalog_url + "/api/v1/products")
         shipping_token = secrets.token_urlsafe(32)
         shipping_webhook = secrets.token_urlsafe(32)
         env.update(
@@ -635,6 +689,7 @@ def main():
         (folder / "shipping-token").write_text(shipping_token)
         env.update(
             WEB_TEST_CHECKOUT="true",
+            WEB_TEST_REAL_CATALOG_URL=catalog_url,
             WEB_TEST_FIXTURE_DIR=str(folder),
             WEB_TEST_CONTROL_PORT=str(ports["control"]),
             WEB_TEST_ORDER_DATABASE=f"postgres://peer:{password}@127.0.0.1:{ports['db']}/{db_name}?sslmode=disable&search_path=orders",
@@ -674,6 +729,7 @@ def main():
         for old, key in [
             ("http://identity-service:8016", "identity"),
             ("http://omamx-profile-service:8080", "profile"),
+            ("http://catalog-service:8006", "catalog"),
             ("http://order-service:8004", "order"),
         ]:
             kong = kong.replace(old, f"http://host.docker.internal:{ports[key]}")
@@ -728,6 +784,14 @@ def main():
             ROOT / "apps/web-user",
         )
         wait(web + "/login")
+        status,listing,_=request(web+"/api/catalog/products")
+        assert status==200 and listing["items"][0]["product_id"]=="20000000-0000-0000-0000-000000000001", ("Catalog Web list",status,listing)
+        status,detail,_=request(web+"/api/catalog/products/test-product")
+        assert status==200 and detail["variants"][0]["sku_code"]=="PEER" and detail["variants"][0]["stock_available"]==100, ("Catalog Web detail",status,detail)
+        print("PASS: Web reads product, price, SKU and live Inventory availability from real Catalog",flush=True)
+        for key in ["A","E"]:
+            native_identity(request,gateway,issuer,profile_url,f"http://127.0.0.1:{ports['order']}",accounts[key],account_password,key=="E")
+        print("PASS: native PKCE/JSON callback, app-bound state, refresh/logout and direct bearer Customer/Employee gates",flush=True)
         foreign_address = None
         registration = {
             "email": f"registered-{suffix}@example.test",
@@ -969,6 +1033,13 @@ def main():
                 for c in jar
             ), "Token cookie leaked from Identity BFF"
             status, session, _ = request(web + "/api/auth/me", opener=opener)
+            if key == "E":
+                assert status==200 and session["principal"]["principalType"]=="EMPLOYEE" and not session["customerAccess"] and session["customer"] is None
+                for path in ["/api/cart", "/api/checkout/quote", "/api/orders", "/api/customer/addresses"]:
+                    assert request(web+path, {} if path=="/api/checkout/quote" else None, opener=opener,headers={"Origin":web})[0]==403, ("Employee Web purchase gate",path)
+                assert request(gateway+"/api/v1/customer-api/cart",opener=opener)[0]==403
+                print("PASS: Employee with legacy CUSTOMER role and active Customer mapping is denied all Web purchase paths",flush=True)
+                continue
             assert (
                 status == 200
                 and session["customer"]["id"] == account["customer"]
@@ -1198,15 +1269,30 @@ def main():
             "events": 1,
         }, ("Inventory did not reserve/release/commit exactly once", stock)
         assert "(2 rows)" in sql("SELECT id FROM orders.orders;")
+        mobile_client_runtime="NOT_RUN"
+        if args.flutter:
+            session=native_identity(request,gateway,issuer,profile_url,f"http://127.0.0.1:{ports['order']}",accounts["B"],account_password,False,retain=True)
+            mobile_config=folder/"mobile-live.json"
+            mobile_config.write_text(json.dumps({"gateway":gateway,"issuer":issuer,"session":session}),encoding="utf-8")
+            env["MVP_LIVE_CONFIG"]=str(mobile_config)
+            with (folder/"mobile-live.log").open("w",encoding="utf-8") as log:
+                run([args.flutter,"test","--no-pub","--dart-define=IDENTITY_ALLOW_HTTP=true","test/live_mvp_contract_test.dart"],ROOT/"apps/mobile-app",stdout=log,stderr=log)
+            after=json.loads(sql(f"SELECT json_build_object('physical',physical_qty,'reserved',reserved_qty) FROM \"{inventory_schema}\".inventory_items WHERE sku='PEER';",tuples=True))
+            assert after == {"physical":98,"reserved":0}, ("Native cancellation did not release Inventory",after)
+            mobile_client_runtime="PASS"
+            print("PASS: native Dart runtime -> real Catalog/Profile/cart/quote/checkout/replay/order/payment instructions/cancel -> Inventory released",flush=True)
         result = {
             "status": "PASS",
             "head": subprocess.check_output(
                 ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True
             ).strip(),
-            "scope": "real Web/Keycloak/Kong/Identity/Profile/Order/Inventory-TLS/Shipping/PostgreSQL/Redis/Kafka; Catalog/terms/Fulfillment/SePay statements are TEST providers, carrier FAKE, no external money",
-            "accounts": 3,
+            "scope": "real Web/Keycloak/Kong/Identity/Profile/Catalog/Order/Inventory-TLS/Shipping-v2-quotes/PostgreSQL/Redis/Kafka; Fulfillment and SePay statements are TEST providers, carrier FAKE, no external money",
+            "mobile_client_runtime": mobile_client_runtime,
+            "accounts": 4,
             "inventory": stock,
             "flows": [
+                "native-identity-pkce-state-refresh-logout-and-persona-gates",
+                "real-catalog-public-snapshot-revalidation-and-inventory-display",
                 "profile-addresses-ownership-CAS",
                 "registration-outbox-kafka-provisioning-replay-transient-failure",
                 "checkout-inventory-reserve-cancel-release-payment-commit",

@@ -1,5 +1,7 @@
 # Đồng bộ MVP theo Identity của PR #45
 
+> Cập nhật tích hợp #48/#49, Catalog và Mobile ngày 04/11/2026: xem [runbook MVP](../06_operations/mvp_delivery.md) và [bảng quyền thực tế](../06_operations/mvp_permissions.md). Phần phạm vi TEST cuối tài liệu này mô tả mốc cũ; bản mới đã thay Catalog/terms và Shipping quote bằng service thật.
+
 Nguồn chuẩn cho đăng nhập là PR #45 của `hvduong2k5`, người phụ trách Identity. Bản tích hợp này ghép phần Customer/Order của #43/#44 vào hướng đó. Không merge nguyên ba PR độc lập: phần tích hợp cũ quản lý token ở Web đã được thay bằng phiên do Identity quản lý.
 
 ```mermaid

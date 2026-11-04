@@ -7,6 +7,7 @@ import (
 )
 
 type Config struct {
+	IdentityURL string
 	// Server
 	IdentityToken      string
 	AuthMode           string
@@ -53,6 +54,7 @@ type Config struct {
 
 func LoadConfig() *Config {
 	return &Config{
+		IdentityURL:        getEnv("IDENTITY_URL", ""),
 		IdentityToken:      getEnv("PROFILE_INTERNAL_TOKEN", ""),
 		AuthMode:           getEnv("PROFILE_AUTH_MODE", "internal"),
 		OIDCIssuer:         getEnv("PROFILE_OIDC_ISSUER", ""),

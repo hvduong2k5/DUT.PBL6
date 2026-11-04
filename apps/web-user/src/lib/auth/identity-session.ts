@@ -11,7 +11,7 @@ export class IdentitySessionError extends Error {
 export async function identitySession(accessToken: string) {
   const owner = usesIdentityBff() ? await ownerSession(accessToken) : undefined;
   const claims = owner ? undefined : await verifiedAccess(accessToken);
-  const base = process.env.CUSTOMER_CORE_UPSTREAM_URL?.replace(/\/$/u, "");
+  const base = (process.env.CUSTOMER_CORE_UPSTREAM_URL ?? (owner ? identityBase()+"/customer-api" : undefined))?.replace(/\/$/u, "");
   if (!base) throw new IdentitySessionError(503, "IDENTITY_UNAVAILABLE");
   const read = async (path: string) => fetch(`${owner && path === "/users/me" ? identityBase() : base}${path}`, { headers: credentialHeaders(new Headers({ Accept: "application/json" }), accessToken), cache: "no-store", redirect: "error", signal: AbortSignal.timeout(10000) });
   const response = await read("/users/me");

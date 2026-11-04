@@ -60,7 +60,7 @@ func main() {
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	must(err)
 	server := grpc.NewServer(grpc.Creds(credentials.NewTLS(&tls.Config{Certificates: []tls.Certificate{{Certificate: [][]byte{der}, PrivateKey: key}}, MinVersion: tls.VersionTLS12})))
-	api.RegisterInventoryServiceServer(server, &provider.TerminalServer{DB: db, Token: os.Getenv("PEER_TOKEN")})
+	api.RegisterInventoryServiceServer(server, &provider.TerminalServer{InventoryServiceServer: &api.UnimplementedInventoryServiceServer{}, DB: db, Token: os.Getenv("PEER_TOKEN")})
 	go func() { must(server.Serve(listener)) }()
 	must(os.WriteFile(os.Getenv("PEER_READY_FILE"), func() []byte { b, _ := json.Marshal(map[string]string{"address": listener.Addr().String()}); return b }(), 0600))
 	for {

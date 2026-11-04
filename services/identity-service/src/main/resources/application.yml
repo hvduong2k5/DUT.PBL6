@@ -34,6 +34,8 @@ grpc:
 spring.security.oauth2.resourceserver.jwt.issuer-uri: ${KEYCLOAK_PUBLIC_URL:https://keycloak.omama.vn}/realms/${KEYCLOAK_REALM:omama}
 
 keycloak:
+  mobile-client-id: ${KEYCLOAK_MOBILE_CLIENT_ID:mobile-app}
+  mobile-redirect-uri: ${KEYCLOAK_MOBILE_REDIRECT_URI:}
   server-url: ${KEYCLOAK_SERVER_URL:https://keycloak.omama.vn}
   public-url: ${KEYCLOAK_PUBLIC_URL:${keycloak.server-url}}
   realm: ${KEYCLOAK_REALM:omama}

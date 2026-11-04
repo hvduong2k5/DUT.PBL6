@@ -27,6 +27,7 @@ class CustomerApiProxyTest {
     private void active() {
         var row = new IdentityPrincipalRow();
         row.setPrincipalId(id);
+        row.setPrincipalType("CUSTOMER");
         row.setProvisioningStatus("ACTIVE");
         when(principals.findByIssuerAndSubject(jwt.getIssuer().toString(), jwt.getSubject())).thenReturn(row);
     }

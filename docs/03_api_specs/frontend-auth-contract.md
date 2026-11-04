@@ -5,6 +5,8 @@
 > **Cổng tiếp nhận duy nhất (Single Ingress):** **Kong API Gateway** (`https://api.omama.vn`).  
 > **Phiên bản:** 2.0.0 (Tuân thủ bài giảng Mục 3.3 & 3.3.1 - RESTful API Specification).
 
+> **Bổ sung tích hợp 04/11/2026:** Web tiếp tục dùng BFF HttpOnly, không nhận JWT. Native login phải dùng redirect URI chính xác đã cấu hình `KEYCLOAK_MOBILE_REDIRECT_URI`; Identity lưu client/redirect trong state, đổi code bằng cặp đó và chỉ native flow này mới trả token JSON. `format=json` trên callback Web không được làm lộ token. Ứng dụng giữ cookie `OMAMA_AUTH_STATE` từ login tới callback và gửi cookie phiên khi refresh/logout; không gửi bearer hết hạn vào refresh. Native refresh trả accessToken mới, Web refresh chỉ trả trạng thái và public correlation ID. Xem [OpenAPI](identity-service.openapi.yaml) và [cách chạy MVP](../06_operations/mvp_delivery.md).
+
 ---
 
 ## 1. Nguyên Tắc Kiến Trúc & Cổng Vào Duy Nhất (Kong Gateway)

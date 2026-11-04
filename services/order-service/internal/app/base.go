@@ -32,6 +32,8 @@ import (
 )
 
 type Config struct {
+	IdentityURL                                                                                                                  string
+	CatalogURL, CatalogWarehouse, CatalogShippingCarrier, CatalogShippingService, CatalogShippingPolicy                          string
 	AuthMode, OIDCIssuer, OIDCAudience, OIDCJWKSURL                                                                              string
 	OIDCAllowLocalHTTP                                                                                                           bool
 	SourceTopic                                                                                                                  string
@@ -45,6 +47,12 @@ type Config struct {
 
 func LoadConfig() (Config, error) {
 	c := Config{SourceTopic: os.Getenv("ORDER_SOURCE_TOPIC"), ConsumerGroup: os.Getenv("ORDER_CONSUMER_GROUP"), ProfileToken: os.Getenv("PROFILE_INTERNAL_TOKEN"), DB: os.Getenv("DATABASE_URL"), Redis: os.Getenv("REDIS_ADDR"), Dependencies: os.Getenv("DEPENDENCY_URL"), Profile: os.Getenv("PROFILE_URL"), InternalToken: os.Getenv("ORDER_INTERNAL_TOKEN"), JWTSecret: os.Getenv("ORDER_JWT_SECRET"), EncryptionKey: os.Getenv("ORDER_ENCRYPTION_KEY"), CallbackSecret: os.Getenv("CALLBACK_SECRET"), Receiver: os.Getenv("PAYMENT_RECEIVER"), Kafka: os.Getenv("KAFKA_BROKERS"), HTTP: os.Getenv("HTTP_ADDR"), GRPC: os.Getenv("GRPC_ADDR"), Mode: os.Getenv("APP_MODE"), Poll: 100 * time.Millisecond, AutoComplete: os.Getenv("ENABLE_AUTO_COMPLETE") == "true"}
+	c.IdentityURL = os.Getenv("IDENTITY_URL")
+	c.CatalogURL = os.Getenv("ORDER_CATALOG_URL")
+	c.CatalogWarehouse = os.Getenv("ORDER_WAREHOUSE_ID")
+	c.CatalogShippingCarrier = os.Getenv("ORDER_QUOTE_CARRIER_CODE")
+	c.CatalogShippingService = os.Getenv("ORDER_QUOTE_SERVICE_CODE")
+	c.CatalogShippingPolicy = os.Getenv("ORDER_QUOTE_POLICY_VERSION")
 	c.AuthMode = os.Getenv("ORDER_AUTH_MODE")
 	c.OIDCIssuer = os.Getenv("ORDER_OIDC_ISSUER")
 	c.OIDCAudience = os.Getenv("ORDER_OIDC_AUDIENCE")
@@ -97,6 +105,9 @@ type Service struct {
 }
 
 func New(ctx context.Context, c Config) (*Service, error) {
+	if c.AuthMode == "keycloak" && c.IdentityURL == "" {
+		return nil, errors.New("IDENTITY_URL is required for account persona verification")
+	}
 	if c.Mode != "sandbox" {
 		return nil, errors.New("production adapter set is not implemented")
 	}
@@ -167,6 +178,12 @@ func (s *Service) Open(b []byte, v any) error {
 	return json.Unmarshal(data, v)
 }
 func (s *Service) Call(ctx context.Context, method, path string, in, out any) error {
+	if s.C.CatalogURL != "" && path == "/shipping/quote" && method == "POST" {
+		return s.catalogShippingValidation(ctx, in, out)
+	}
+	if s.C.CatalogURL != "" && method == "POST" && path == "/catalog/validate" {
+		return s.catalogValidation(ctx, in, out)
+	}
 	return s.callURL(ctx, s.C.Dependencies, method, path, in, out)
 }
 func (s *Service) callURL(ctx context.Context, base, method, path string, in, out any) error {

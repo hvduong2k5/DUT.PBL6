@@ -56,7 +56,7 @@ public class UserLifecycleController implements UserLifecycleApi {
         UUID actorId = null;
         if (jwt != null) {
             try {
-                actorId = UUID.fromString(jwt.getSubject());
+                actorId = UUID.fromString(jwt.getClaimAsString("user_id"));
             } catch (Exception ignored) {}
         }
 
@@ -89,16 +89,8 @@ public class UserLifecycleController implements UserLifecycleApi {
     }
 
     private UUID extractActorId(Jwt jwt, String actorHeader) {
-        if (jwt != null) {
-            try {
-                return UUID.fromString(jwt.getSubject());
-            } catch (Exception ignored) {}
-        }
-        if (actorHeader != null) {
-            try {
-                return UUID.fromString(actorHeader);
-            } catch (Exception ignored) {}
-        }
-        return null;
+        if (jwt == null) return null;
+        try { return UUID.fromString(jwt.getClaimAsString("user_id")); }
+        catch (IllegalArgumentException | NullPointerException error) { return null; }
     }
 }
