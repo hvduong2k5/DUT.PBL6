@@ -13,6 +13,46 @@ rules:
   runtime_claim: contract validation does not establish provider or end-to-end acceptance
   unknown_dependency: fail closed; never downgrade to simulator or legacy financial side effects
 contracts:
+  - id: order-fulfillment-permit
+    owner: order-service
+    consumers: [fulfillment-service]
+    artifact: packages/proto/order/v1/order.proto
+    rpc: omamx.order.v1.OrderService.GetFulfillmentPermit
+    state: opt-in-mvp
+    contract_guide: packages/contracts/mvp/fulfillment-integration.md
+    tasks:
+      - Enable only with explicit VIDEO_REQUIRED policy and separate authenticated peer credentials.
+      - Validate original permit, generation, committed stock, blocking cases and expiry; never renew replayed permits.
+      - Remote hold/resume and automatic completion remain disabled until their owning authorities are connected.
+  - id: order-packing-inputs
+    owner: order-service
+    consumers: [fulfillment-service]
+    artifact: packages/proto/packing/v1/packing.proto
+    rpc: omamx.fulfillment.integration.candidate.v1.OrderPackingInputsCandidate.GetPackingSnapshot
+    state: opt-in-mvp
+    contract_guide: packages/contracts/mvp/fulfillment-integration.md
+    tasks:
+      - Return the frozen Order lines, warehouse, committed reservation and explicit versioned packing policy without customer PII.
+  - id: inventory-packing-inputs
+    owner: inventory-service
+    consumers: [fulfillment-service]
+    artifact: packages/proto/packing/v1/packing.proto
+    rpc: omamx.fulfillment.integration.candidate.v1.InventoryPackingInputsCandidate.GetCommittedPackingAllocation
+    state: opt-in-mvp
+    contract_guide: packages/contracts/mvp/fulfillment-integration.md
+    tasks:
+      - Apply migration 000003 and use a separate read-only Fulfillment credential.
+      - ValidatePackingAllocation must reread batch status, expiry and eligibility revision at seal; it never changes stock.
+  - id: fulfillment-package-proof
+    owner: fulfillment-service
+    consumers: [order-service]
+    artifact: packages/proto/packing/v1/packing.proto
+    rpc: omamx.fulfillment.integration.candidate.v1.FulfillmentPackageProofCandidate.GetPackageRevision
+    state: opt-in-mvp
+    contract_guide: packages/contracts/mvp/fulfillment-integration.md
+    tasks:
+      - Read the exact sealed task/package revision with verified media and parcel; never substitute current state for replay.
+      - Order persists the encrypted Shipping request and a package-derived idempotency key before dispatch.
   - id: customer-public
     owner: gateway-bff-and-order
     consumers: [web-user, mobile-app]
