@@ -26,6 +26,9 @@ func (s *Service) EnableFulfillmentFromEnv(ctx context.Context) error {
 	if target == "" {
 		return nil
 	}
+	if s.C.AutoComplete {
+		return errors.New("real Fulfillment MVP requires ENABLE_AUTO_COMPLETE=false until Care/Finance completion authority is connected")
+	}
 	if s.C.Kafka == "" || s.Shipping == nil || s.CoreCheckout == nil {
 		return errors.New("Fulfillment requires Kafka, core checkout and Shipping")
 	}

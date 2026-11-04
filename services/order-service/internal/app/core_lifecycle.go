@@ -15,6 +15,11 @@ func (s *Service) setCoreHold(ctx context.Context, p domain.Principal, id string
 	if !p.Manager() {
 		return domain.E("PERMISSION_DENIED", 403)
 	}
+	// The legacy admission barrier cannot authorize stopping a real packing
+	// task. Keep this operation closed until its remote cancellation handshake.
+	if s.Fulfillment != nil {
+		return domain.E("FULFILLMENT_STOP_CAPABILITY_UNAVAILABLE", 409)
+	}
 	o, e := s.getCoreOrder(ctx, id, p, false)
 	if e != nil {
 		return e
