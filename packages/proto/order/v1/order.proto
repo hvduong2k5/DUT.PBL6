@@ -144,7 +144,7 @@ message CreatePOSOrderResponse {
 // Yêu cầu truy vấn chi tiết đơn hàng
 message GetOrderDetailRequest {
   string order_id = 1;
-  
+
   // Xác thực quyền truy cập: Chỉ chủ đơn hoặc Admin/Staff mới được xem
   string requesting_user_id = 2;
 }

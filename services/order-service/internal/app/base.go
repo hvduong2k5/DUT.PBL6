@@ -17,6 +17,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/omamx/order-service/internal/domain"
+	"github.com/omamx/order-service/internal/fulfillmentprovider"
 	"github.com/omamx/order-service/internal/persistence"
 	"github.com/omamx/order-service/internal/sepay"
 	"github.com/omamx/order-service/internal/shippingprovider"
@@ -80,6 +81,7 @@ func LoadConfig() (Config, error) {
 }
 
 type Service struct {
+	Fulfillment          *fulfillmentprovider.Adapter
 	Shipping             *shippingprovider.Adapter
 	Identity             *CustomerIdentity
 	CoreCheckout         *persistence.CheckoutRuntime

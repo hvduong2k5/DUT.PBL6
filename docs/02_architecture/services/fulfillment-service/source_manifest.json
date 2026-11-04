@@ -1,0 +1,267 @@
+{
+  "design_version": "1.0",
+  "audited_on": "2026-10-30",
+  "client_timezone": "Asia/Saigon",
+  "status": "design-candidate",
+  "repository": "https://github.com/hvduong2k5/DUT.PBL6",
+  "read_only_audit": true,
+  "refs": {
+    "HEAD": "c041774852ac224ca2173a40a90bd045c98735f2",
+    "origin/dev": "7f22226c7b2f4363d3ba376b715feb0e63f69355",
+    "origin/feat/order-service": "5479e198e753e4b5d181cf6a069827fcd89257c0",
+    "origin/feat/inventory-service": "2b9f1790079ef4d1433a91d77ce3c57ac8f3c37f",
+    "origin/feat/shipping-service": "69b5e0dfe924ad308fa5508582e9a791ec4f7203",
+    "origin/feature/identity-service": "aa4b7143efca0b9625c6a9f7d0fc8cda612744b9",
+    "origin/feat/profile-service": "a36afa222cd0af2aa43fb5c38ca22d3e0727b22e",
+    "origin/feat/care-service": "94d8731e969cc6a3966df63784b26d4632e5d4a8"
+  },
+  "sources": [
+    {
+      "ref_at_audit": "HEAD",
+      "commit": "c041774852ac224ca2173a40a90bd045c98735f2",
+      "path": "docs/01_requirements/01_Product_Backlog.md",
+      "sha256": "e98da998ac9a7807575dbb072846e2f2c992539b9f7fc36a92b00947846618b7",
+      "url": "https://github.com/hvduong2k5/DUT.PBL6/blob/c041774852ac224ca2173a40a90bd045c98735f2/docs/01_requirements/01_Product_Backlog.md"
+    },
+    {
+      "ref_at_audit": "HEAD",
+      "commit": "c041774852ac224ca2173a40a90bd045c98735f2",
+      "path": "docs/01_requirements/02_Sprint_Planning.md",
+      "sha256": "54ef0249d45f4b6ac61d8ed076fb41efd79be0c18f63b67b67f4ed7e22a14329",
+      "url": "https://github.com/hvduong2k5/DUT.PBL6/blob/c041774852ac224ca2173a40a90bd045c98735f2/docs/01_requirements/02_Sprint_Planning.md"
+    },
+    {
+      "ref_at_audit": "HEAD",
+      "commit": "c041774852ac224ca2173a40a90bd045c98735f2",
+      "path": "docs/01_requirements/03_Non_Functional_Requirements.md",
+      "sha256": "4d08007366f47e9a76c26a8f269c247e5ae02514d1f89f21361564bfe8191935",
+      "url": "https://github.com/hvduong2k5/DUT.PBL6/blob/c041774852ac224ca2173a40a90bd045c98735f2/docs/01_requirements/03_Non_Functional_Requirements.md"
+    },
+    {
+      "ref_at_audit": "HEAD",
+      "commit": "c041774852ac224ca2173a40a90bd045c98735f2",
+      "path": "docs/01_requirements/04_Functional_Requirements.md",
+      "sha256": "e92681293dc9c84081cbf93db1ee9904f7ad7310e2334111ba3d7b95648ab94a",
+      "url": "https://github.com/hvduong2k5/DUT.PBL6/blob/c041774852ac224ca2173a40a90bd045c98735f2/docs/01_requirements/04_Functional_Requirements.md"
+    },
+    {
+      "ref_at_audit": "HEAD",
+      "commit": "c041774852ac224ca2173a40a90bd045c98735f2",
+      "path": "docs/01_requirements/epics/EPIC_10_Packing.md",
+      "sha256": "ce7c14a24a1628e2aae1acf9ac631eb693847c261aa8720fe193092e7e9db0dc",
+      "url": "https://github.com/hvduong2k5/DUT.PBL6/blob/c041774852ac224ca2173a40a90bd045c98735f2/docs/01_requirements/epics/EPIC_10_Packing.md"
+    },
+    {
+      "ref_at_audit": "HEAD",
+      "commit": "c041774852ac224ca2173a40a90bd045c98735f2",
+      "path": "docs/01_requirements/use_case_specification.md",
+      "sha256": "03c41a0427c088507dce0a9877948628e3b6c11725980d3878646fb10ed2607d",
+      "url": "https://github.com/hvduong2k5/DUT.PBL6/blob/c041774852ac224ca2173a40a90bd045c98735f2/docs/01_requirements/use_case_specification.md"
+    },
+    {
+      "ref_at_audit": "HEAD",
+      "commit": "c041774852ac224ca2173a40a90bd045c98735f2",
+      "path": "docs/02_architecture/service_boundary.md",
+      "sha256": "8c05c78a174d7960f7e67e6c8223277bee826f87c19d299aba5eecde1f6d1b41",
+      "url": "https://github.com/hvduong2k5/DUT.PBL6/blob/c041774852ac224ca2173a40a90bd045c98735f2/docs/02_architecture/service_boundary.md"
+    },
+    {
+      "ref_at_audit": "HEAD",
+      "commit": "c041774852ac224ca2173a40a90bd045c98735f2",
+      "path": "docs/02_architecture/high_level_design.md",
+      "sha256": "8fe4fd2ae75771275d8ae40a826e558343c577fba4ee09f79099c123c2a1149c",
+      "url": "https://github.com/hvduong2k5/DUT.PBL6/blob/c041774852ac224ca2173a40a90bd045c98735f2/docs/02_architecture/high_level_design.md"
+    },
+    {
+      "ref_at_audit": "HEAD",
+      "commit": "c041774852ac224ca2173a40a90bd045c98735f2",
+      "path": "docs/02_architecture/services/order-service/02_state_machine_and_lifecycle.md",
+      "sha256": "84a9421dd8c74395ef5b24f3efb3e648ffba995f490e6c747ad61f6ed3ef1891",
+      "url": "https://github.com/hvduong2k5/DUT.PBL6/blob/c041774852ac224ca2173a40a90bd045c98735f2/docs/02_architecture/services/order-service/02_state_machine_and_lifecycle.md"
+    },
+    {
+      "ref_at_audit": "HEAD",
+      "commit": "c041774852ac224ca2173a40a90bd045c98735f2",
+      "path": "docs/02_architecture/services/order-service/05_api_contracts_and_transports.md",
+      "sha256": "f9bbfd7896e6fb20ea01d5b35cd95ec17285b2540d1906315dab6079dc1cac6e",
+      "url": "https://github.com/hvduong2k5/DUT.PBL6/blob/c041774852ac224ca2173a40a90bd045c98735f2/docs/02_architecture/services/order-service/05_api_contracts_and_transports.md"
+    },
+    {
+      "ref_at_audit": "HEAD",
+      "commit": "c041774852ac224ca2173a40a90bd045c98735f2",
+      "path": "docs/02_architecture/services/order-service/12_order_core_design.md",
+      "sha256": "0114f58022f06ed077bad38ea2a249b5497544f80ec7dd83fb1b97e7c2307fb2",
+      "url": "https://github.com/hvduong2k5/DUT.PBL6/blob/c041774852ac224ca2173a40a90bd045c98735f2/docs/02_architecture/services/order-service/12_order_core_design.md"
+    },
+    {
+      "ref_at_audit": "HEAD",
+      "commit": "c041774852ac224ca2173a40a90bd045c98735f2",
+      "path": "docs/02_architecture/services/order-service/13_order_saga_worker_runtime.md",
+      "sha256": "bb6dac728ef97d9662ce176b219a9834eda575b4d5efc82bdb78eed583cf5ec6",
+      "url": "https://github.com/hvduong2k5/DUT.PBL6/blob/c041774852ac224ca2173a40a90bd045c98735f2/docs/02_architecture/services/order-service/13_order_saga_worker_runtime.md"
+    },
+    {
+      "ref_at_audit": "HEAD",
+      "commit": "c041774852ac224ca2173a40a90bd045c98735f2",
+      "path": "docs/02_architecture/services/order-service/14_order_persistence_messaging_design.md",
+      "sha256": "40e13cb1554e265386ca6983920b07b367e4af9c7f8f4c2852126d1ae8f843d7",
+      "url": "https://github.com/hvduong2k5/DUT.PBL6/blob/c041774852ac224ca2173a40a90bd045c98735f2/docs/02_architecture/services/order-service/14_order_persistence_messaging_design.md"
+    },
+    {
+      "ref_at_audit": "HEAD",
+      "commit": "c041774852ac224ca2173a40a90bd045c98735f2",
+      "path": "docs/02_architecture/services/profile-service/06_hardening_and_contract.md",
+      "sha256": "49f6f949d326ed82852e29e28950ffb3686a7ce0f354f9d57029c9f9b6daabf5",
+      "url": "https://github.com/hvduong2k5/DUT.PBL6/blob/c041774852ac224ca2173a40a90bd045c98735f2/docs/02_architecture/services/profile-service/06_hardening_and_contract.md"
+    },
+    {
+      "ref_at_audit": "HEAD",
+      "commit": "c041774852ac224ca2173a40a90bd045c98735f2",
+      "path": "packages/contracts/order-3.2.md",
+      "sha256": "56c1a436c3584a5d06756beea5ba142302758b58f287a349bcba552c217c8b36",
+      "url": "https://github.com/hvduong2k5/DUT.PBL6/blob/c041774852ac224ca2173a40a90bd045c98735f2/packages/contracts/order-3.2.md"
+    },
+    {
+      "ref_at_audit": "origin/dev",
+      "commit": "7f22226c7b2f4363d3ba376b715feb0e63f69355",
+      "path": "packages/contracts/mvp/registry.yaml",
+      "sha256": "bfd7c1af6a382917809532840acb4dee031e90e0cb7c4f034ff600281ce0f2c0",
+      "url": "https://github.com/hvduong2k5/DUT.PBL6/blob/7f22226c7b2f4363d3ba376b715feb0e63f69355/packages/contracts/mvp/registry.yaml"
+    },
+    {
+      "ref_at_audit": "origin/dev",
+      "commit": "7f22226c7b2f4363d3ba376b715feb0e63f69355",
+      "path": "packages/contracts/mvp/TEAM-DECISIONS.md",
+      "sha256": "9d79db505e0677d6de41c4c53a68b41760889e6d7dac493d23de342273893168",
+      "url": "https://github.com/hvduong2k5/DUT.PBL6/blob/7f22226c7b2f4363d3ba376b715feb0e63f69355/packages/contracts/mvp/TEAM-DECISIONS.md"
+    },
+    {
+      "ref_at_audit": "origin/dev",
+      "commit": "7f22226c7b2f4363d3ba376b715feb0e63f69355",
+      "path": "packages/proto/order/v1/order.proto",
+      "sha256": "119782933a414e8d39d1c34f0224e14c60c1554fd72e2d61fe7beb82ef70ce67",
+      "url": "https://github.com/hvduong2k5/DUT.PBL6/blob/7f22226c7b2f4363d3ba376b715feb0e63f69355/packages/proto/order/v1/order.proto"
+    },
+    {
+      "ref_at_audit": "origin/dev",
+      "commit": "7f22226c7b2f4363d3ba376b715feb0e63f69355",
+      "path": "packages/proto/inventory/v1/inventory.proto",
+      "sha256": "1f8c90cd652c9daeed2582981615222129961d95519706a654adf949cfa3afd9",
+      "url": "https://github.com/hvduong2k5/DUT.PBL6/blob/7f22226c7b2f4363d3ba376b715feb0e63f69355/packages/proto/inventory/v1/inventory.proto"
+    },
+    {
+      "ref_at_audit": "origin/dev",
+      "commit": "7f22226c7b2f4363d3ba376b715feb0e63f69355",
+      "path": "packages/proto/fulfillment/v1/fulfillment.proto",
+      "sha256": "564811ddc72802bc66ff1554f07674b638b8708399dee773e0cca7afeb1cd72f",
+      "url": "https://github.com/hvduong2k5/DUT.PBL6/blob/7f22226c7b2f4363d3ba376b715feb0e63f69355/packages/proto/fulfillment/v1/fulfillment.proto"
+    },
+    {
+      "ref_at_audit": "origin/dev",
+      "commit": "7f22226c7b2f4363d3ba376b715feb0e63f69355",
+      "path": "packages/proto/common/v1/workflow.proto",
+      "sha256": "4222118a1f6c2b1417bb9f4c3081880543955efde786a938f605fb5b7dd3822a",
+      "url": "https://github.com/hvduong2k5/DUT.PBL6/blob/7f22226c7b2f4363d3ba376b715feb0e63f69355/packages/proto/common/v1/workflow.proto"
+    },
+    {
+      "ref_at_audit": "origin/dev",
+      "commit": "7f22226c7b2f4363d3ba376b715feb0e63f69355",
+      "path": "packages/events/schemas/fulfillment/v2/packing_completed.event.json",
+      "sha256": "bb1eb2ffdba55026d21412e922d78e8fc536f664c48c8344d8c6a9550eb967e5",
+      "url": "https://github.com/hvduong2k5/DUT.PBL6/blob/7f22226c7b2f4363d3ba376b715feb0e63f69355/packages/events/schemas/fulfillment/v2/packing_completed.event.json"
+    },
+    {
+      "ref_at_audit": "origin/dev",
+      "commit": "7f22226c7b2f4363d3ba376b715feb0e63f69355",
+      "path": "packages/events/schemas/order/v3/fulfillment_ready.event.json",
+      "sha256": "b8699dccac1836f41e6b7ba6f137c9f3aaac3cc9d7f7b9f0bf55d6429854f3bf",
+      "url": "https://github.com/hvduong2k5/DUT.PBL6/blob/7f22226c7b2f4363d3ba376b715feb0e63f69355/packages/events/schemas/order/v3/fulfillment_ready.event.json"
+    },
+    {
+      "ref_at_audit": "origin/feat/order-service",
+      "commit": "5479e198e753e4b5d181cf6a069827fcd89257c0",
+      "path": "services/order-service/internal/transport/grpc.go",
+      "sha256": "b7c82670eb8a0d66d63d25e42d39cd8c45395e064b53154c6534226c8bf0373c",
+      "url": "https://github.com/hvduong2k5/DUT.PBL6/blob/5479e198e753e4b5d181cf6a069827fcd89257c0/services/order-service/internal/transport/grpc.go"
+    },
+    {
+      "ref_at_audit": "origin/feat/order-service",
+      "commit": "5479e198e753e4b5d181cf6a069827fcd89257c0",
+      "path": "docs/04_testing/order-service/12_dev_merge_preparation.md",
+      "sha256": "b1b22b303172fb54b39bb6d058b7822f56652e20e251cd65dec6a3834604d036",
+      "url": "https://github.com/hvduong2k5/DUT.PBL6/blob/5479e198e753e4b5d181cf6a069827fcd89257c0/docs/04_testing/order-service/12_dev_merge_preparation.md"
+    },
+    {
+      "ref_at_audit": "origin/feat/inventory-service",
+      "commit": "2b9f1790079ef4d1433a91d77ce3c57ac8f3c37f",
+      "path": "services/inventory-service/internal/presentation/grpc/handler.go",
+      "sha256": "2c59ec8fde2ef958a1b5f2a509050f458f2335e72ca822694bb44e00a36f4a18",
+      "url": "https://github.com/hvduong2k5/DUT.PBL6/blob/2b9f1790079ef4d1433a91d77ce3c57ac8f3c37f/services/inventory-service/internal/presentation/grpc/handler.go"
+    },
+    {
+      "ref_at_audit": "origin/feat/inventory-service",
+      "commit": "2b9f1790079ef4d1433a91d77ce3c57ac8f3c37f",
+      "path": "services/inventory-service/internal/presentation/kafka/consumer.go",
+      "sha256": "7b8aabdd8b5aecbfcfe1ee825156391bb18fa5053955e6aecc989211ef1e1619",
+      "url": "https://github.com/hvduong2k5/DUT.PBL6/blob/2b9f1790079ef4d1433a91d77ce3c57ac8f3c37f/services/inventory-service/internal/presentation/kafka/consumer.go"
+    },
+    {
+      "ref_at_audit": "origin/feat/shipping-service",
+      "commit": "69b5e0dfe924ad308fa5508582e9a791ec4f7203",
+      "path": "services/shipping-service/README.md",
+      "sha256": "7a20a137ac3f30d53a8ca5b78311c099866517be561b089388e1a830034344d5",
+      "url": "https://github.com/hvduong2k5/DUT.PBL6/blob/69b5e0dfe924ad308fa5508582e9a791ec4f7203/services/shipping-service/README.md"
+    },
+    {
+      "ref_at_audit": "origin/feat/shipping-service",
+      "commit": "69b5e0dfe924ad308fa5508582e9a791ec4f7203",
+      "path": "services/shipping-service/internal/worker/packing_consumer.go",
+      "sha256": "3dd826fb67db924f2454bab80f8b7b3f21d0edcee21b6877493af562e430f9e3",
+      "url": "https://github.com/hvduong2k5/DUT.PBL6/blob/69b5e0dfe924ad308fa5508582e9a791ec4f7203/services/shipping-service/internal/worker/packing_consumer.go"
+    },
+    {
+      "ref_at_audit": "origin/feat/shipping-service",
+      "commit": "69b5e0dfe924ad308fa5508582e9a791ec4f7203",
+      "path": "services/shipping-service/internal/transport/grpcapi/server_v2.go",
+      "sha256": "1cc5dac2d7c26fac194f3c6973c67567c02b22e988a21478ff6153c50ebfd1a4",
+      "url": "https://github.com/hvduong2k5/DUT.PBL6/blob/69b5e0dfe924ad308fa5508582e9a791ec4f7203/services/shipping-service/internal/transport/grpcapi/server_v2.go"
+    },
+    {
+      "ref_at_audit": "origin/feature/identity-service",
+      "commit": "aa4b7143efca0b9625c6a9f7d0fc8cda612744b9",
+      "path": "README.md",
+      "sha256": "22ef3f579876c7ec86660cdd43acefd8aa3ff95a8a0a300d36df6fe9f39e7150",
+      "url": "https://github.com/hvduong2k5/DUT.PBL6/blob/aa4b7143efca0b9625c6a9f7d0fc8cda612744b9/README.md"
+    },
+    {
+      "ref_at_audit": "origin/feat/profile-service",
+      "commit": "a36afa222cd0af2aa43fb5c38ca22d3e0727b22e",
+      "path": "services/profile-service/README.md",
+      "sha256": "b491e480117950d1a411dcb78da2e7a9e0bcf033e542cdc9191e66842bc76667",
+      "url": "https://github.com/hvduong2k5/DUT.PBL6/blob/a36afa222cd0af2aa43fb5c38ca22d3e0727b22e/services/profile-service/README.md"
+    },
+    {
+      "ref_at_audit": "origin/feat/care-service",
+      "commit": "94d8731e969cc6a3966df63784b26d4632e5d4a8",
+      "path": "services/care-service/README.md",
+      "sha256": "f629c62ab271665be355177aedc60713f2ca721c6007ec782818d968436ebf2b",
+      "url": "https://github.com/hvduong2k5/DUT.PBL6/blob/94d8731e969cc6a3966df63784b26d4632e5d4a8/services/care-service/README.md"
+    },
+    {
+      "ref_at_audit": "origin/feat/shipping-service",
+      "commit": "69b5e0dfe924ad308fa5508582e9a791ec4f7203",
+      "path": "services/shipping-service/internal/transport/grpcapi/canonical_hash.go",
+      "sha256": "a3218f966059658c7f6ce0910906a3b43537dccc15e6fe0aeca20f0a217f366e",
+      "url": "https://github.com/hvduong2k5/DUT.PBL6/blob/69b5e0dfe924ad308fa5508582e9a791ec4f7203/services/shipping-service/internal/transport/grpcapi/canonical_hash.go"
+    }
+  ],
+  "snapshots": [
+    {
+      "local_path": "docs/03_api_specs/fulfillment-service/packing_completed.v2.baseline.schema.json",
+      "source_commit": "7f22226c7b2f4363d3ba376b715feb0e63f69355",
+      "source_path": "packages/events/schemas/fulfillment/v2/packing_completed.event.json",
+      "sha256": "bb1eb2ffdba55026d21412e922d78e8fc536f664c48c8344d8c6a9550eb967e5"
+    }
+  ],
+  "runtime_acceptance": "PENDING"
+}

@@ -172,6 +172,10 @@ func connected(ctx context.Context, cfg app.Config) (*app.Service, error) {
 		w.WriteHeader(202)
 	})
 	control.HandleFunc("/pack", func(w http.ResponseWriter, r *http.Request) {
+		if service.Fulfillment != nil {
+			http.Error(w, "TEST packing disabled: real Fulfillment configured", 409)
+			return
+		}
 		id := r.URL.Query().Get("order")
 		p := domain.Principal{ID: os.Getenv("WEB_TEST_PRINCIPAL_A"), Role: "CUSTOMER", CustomerID: os.Getenv("WEB_TEST_CUSTOMER_A")}
 		o, e := service.GetOrder(r.Context(), id, p, true)

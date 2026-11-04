@@ -16,6 +16,13 @@ import (
 
 func (s *Service) Registry() *prometheus.Registry { return s.register }
 func (s *Service) Start(ctx context.Context) {
+	if s.Fulfillment != nil && s.CoreCheckout != nil {
+		for _, topic := range []string{"fulfillment.task.events.v1", "fulfillment.events.v2"} {
+			s.stop.Add(1)
+			go s.consumeFulfillment(ctx, topic)
+		}
+		s.startPaymentLoop(ctx, time.Second, "fulfillment shipment retry", s.WorkFulfillmentShipment)
+	}
 	if s.Shipping != nil && s.CoreCheckout != nil && s.C.Kafka != "" {
 		s.stop.Add(1)
 		go s.consumeShipping(ctx)

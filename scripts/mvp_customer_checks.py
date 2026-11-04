@@ -132,7 +132,7 @@ def profile_addresses(request, web, opener, profile, foreign_id=None):
     return first["id"]
 
 
-def checkout_shipping(request, web, opener, control, shipping, token, webhook):
+def checkout_shipping(request, web, opener, control, shipping, token, webhook, packing=None):
     def call(path, body=None, method=None, headers=None):
         return request(
             web + path,
@@ -241,12 +241,15 @@ def checkout_shipping(request, web, opener, control, shipping, token, webhook):
     assert request(control + "/pay?order=" + paid, {}, method="POST")[0] == 202
     order_until(
         paid,
-        lambda o: o["status"] == "PAID"
+        lambda o: o["status"] in (["PAID", "PROCESSING"] if packing else ["PAID"])
         and o["stock_status"] == "COMMITTED"
         and o["ready_authorized"],
     )
-    status, shipment, _ = request(control + "/pack?order=" + paid, {}, method="POST")
-    assert status == 200, ("shipping create", status, shipment)
+    if packing:
+        shipment = packing(paid, order_until)
+    else:
+        status, shipment, _ = request(control + "/pack?order=" + paid, {}, method="POST")
+        assert status == 200, ("shipping create", status, shipment)
     order_until(paid, lambda o: o.get("shipment_id") == shipment["shipment_id"])
     status, _, _ = request(
         shipping
@@ -303,7 +306,7 @@ def checkout_shipping(request, web, opener, control, shipping, token, webhook):
         {o["order_id"] for o in history["items"]}
     ), ("history", status, history)
     print(
-        "PASS: Web quote/accept/replay/poll -> Order -> real TLS Inventory reserve/release/commit -> TEST payment -> TEST packing -> real Shipping/Kafka/revision -> delivered/history",
+        "PASS: Web quote/accept/replay/poll -> Order -> real TLS Inventory reserve/release/commit -> TEST payment -> " + ("real Fulfillment/video" if packing else "TEST packing") + " -> real Shipping/Kafka/revision -> delivered/history",
         flush=True,
     )
     return paid
