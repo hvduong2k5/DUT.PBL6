@@ -74,7 +74,7 @@ sequenceDiagram
     Note over User,KC: 4. Frontend kiểm tra phiên làm việc (Check Session)
     FE->>GW: GET /api/v1/public/auth/session (Tự động gửi Cookie)
     GW->>BFF: Forward request
-    BFF-->>FE: 200 OK (email, principalId, isAuthenticated: true)
+    BFF-->>FE: 200 OK (email, principalId, authenticated: true)
     Note right of FE: JavaScript KHÔNG cần giữ Token!
 
     Note over User,KC: 5. Gọi API tài nguyên bảo vệ

@@ -1419,7 +1419,7 @@ components:
         email:
           type: string
           example: customer@omama.vn
-        isAuthenticated:
+        authenticated:
           type: boolean
           example: true
         expiresAt:
