@@ -187,7 +187,10 @@ def pack(request, gateway, token, customer_token, folder, order_id, order_until,
     assert status==200,("shipment tracking",status,tracking)
     assert tracking["shipment"]["package_id"]==package and tracking["shipment"]["parcel"]==parcel,("Shipping did not use sealed parcel",tracking)
     if original_handoff:
-        recovered=handoff(order_id)
+        for _ in range(60):
+            recovered=handoff(order_id)
+            if recovered["shipment_id"]==order["shipment_id"]:break
+            time.sleep(.25)
         assert recovered["hash"]==original_handoff["hash"] and recovered["shipments"]==1 and recovered["shipment_id"]==order["shipment_id"],("handoff retry changed request or duplicated shipment",recovered)
     print("PASS: real Fulfillment admission -> staff picks/checklist -> versioned video/ffprobe/ClamAV -> sealed replay -> automatic Order/Shipping; Customer denied, unsafe media rejected, scanner outage blocks seal",flush=True)
     return {"shipment_id":order["shipment_id"],"tracking_code":tracking["shipment"]["tracking_code"]}
