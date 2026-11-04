@@ -31,7 +31,9 @@ jobs:
         if: always()
         with:
           name: fulfillment-runtime-payloads
-          path: services/fulfillment-service/tests/results/
+          path: |
+            services/fulfillment-service/tests/results/
+            .system_generated/fulfillment/contracts.json
       - name: Stop isolated test stack
         if: always()
         run: docker compose -p fulfillment-ci -f services/fulfillment-service/docker-compose.test.yml down
