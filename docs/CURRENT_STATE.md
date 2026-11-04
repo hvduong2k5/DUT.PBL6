@@ -1,5 +1,11 @@
 # Customer Mobile — current handoff
 
+## Latest read-only API audit — 2026-11-04
+
+User requested checking every Git branch and the supplied Drive folder against the Mobile login prompt, after deferring live auth activation. [Source audit and exact next slice](03_api_specs/IDENTITY_SOURCE_AUDIT_2026-11-04.md): all25 remote branches inventoried after fetch; dev now a24492b63c364f93ad19d880798137e554898c3f and contains all8 prompt endpoints. The historical missing-source statement below is superseded. Mobile source remains unchanged at HEAD0c0dd05 during audit. No merge/checkout/backend/provider changes or runtime tests.
+
+Open integration gaps: missing OMAMA_AUTH_STATE transaction cookie in Mobile; expired Bearer attached to cookie-based session/refresh/logout; registration PENDING treated as success. Backend blockers: Gateway missing PUT password route, password-grant verification conflicts with realm template; social/JIT/config/live acceptance unverified. Drive Customer contracts match the historical Mobile snapshots, not the new Identity routes. Next recommended implementation: small Mobile cookie/session lifecycle correction with existing tests, then registration status handling; actual auth activation remains deferred. Audit documents are the only intentional new changes; preserve unrelated MOBILE_MVP_DISCUSSION_REFERENCE.md.
+
 Updated2026-11-04. Branch feature/mobile-ui. Final application source3108d3770882cfb4ce2de63ec6bdcf5f03c6bb2b pushed/remote verified; preceding implementation25c8d7a and lifecycle checkpoint173bc4a. Final documentation checkpoint follows this source. Active M6 implementation is complete and locally verified; real Identity backend acceptance is unverified.
 
 ## Plans and authority

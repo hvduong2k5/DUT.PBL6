@@ -1,5 +1,11 @@
 # M6 — Mobile Identity authentication
 
+## Source audit follow-up — 2026-11-04
+
+User asked for a branch-by-branch and Drive source audit before further integration; live auth activation was deferred. [Audit](../../03_api_specs/IDENTITY_SOURCE_AUDIT_2026-11-04.md) supersedes historical claims below that backend source is unavailable: refreshed dev a24492b contains all8 prompt endpoints. No application code changed in this audit. Historical AUTH-00–05 target/local results remain valid only for their stated scope; dev conformance is OPEN.
+
+Next proposed slice: analyze/implement Mobile OMAMA_AUTH_STATE transaction binding and cookie-only session/refresh/logout; extend existing contract/lifecycle tests. Then handle registration ACTIVE/COMPLETED/PENDING accurately. Gateway password route, Keycloak password-grant policy, social JIT and deployed config require backend-owner work/verification. No backend edits or live activation authorized by this audit. Report contains full25-branch coverage,11 Drive files, exact code evidence and limits; do not repeat the full scan at resume unless refs change.
+
 Approved 2026-11-04: use the supplied login requirements, integrate authentication from the user's authservice branch, update Mobile UI, plan/implement task by task, create a goal per task, checkpoint and wait when usage is reported below13%. LARGE / auth+session+native callback change. Work/commit/push only feature/mobile-ui; no merges, backend writes, production deployment or provider configuration.
 
 ## Goal and dependencies
