@@ -7,6 +7,7 @@ import 'package:mobile_app/features/auth/data/identity_api.dart';
 import 'package:mobile_app/features/auth/data/identity_auth_repository.dart';
 import 'package:mobile_app/features/auth/data/identity_session_store.dart';
 import 'package:mobile_app/features/auth/presentation/auth_cubit.dart';
+import 'package:mobile_app/features/auth/domain/auth_models.dart';
 import 'identity_foundations_test.dart' show profile;
 
 const session = IdentitySessionRecord(
@@ -23,6 +24,9 @@ class Fixture {
         onRequest: (o, h) async {
           requests.add(o);
           final path = o.uri.path;
+          if (path.endsWith('/tokens/refresh') && !refreshEntered.isCompleted) {
+            refreshEntered.complete();
+          }
           final status = statuses[path] ?? 200;
           if (status != 200) {
             h.reject(
@@ -40,19 +44,23 @@ class Fixture {
           if (path.endsWith('/callback') && callbackGate != null) {
             await callbackGate!.future;
           }
-          final data = switch (path) {
-            '/api/v1/public/auth/login' => {
-              'authorizationUrl': authorizationUrl,
-            },
-            '/api/v1/public/auth/callback' => session.toJson(),
-            '/api/v1/public/auth/session' => {'authenticated': authenticated},
-            '/api/v1/users/me' => profile(type: principalType),
-            '/api/v1/public/auth/tokens/refresh' => {
-              'accessToken': 'rotated.access',
-              'refreshToken': 'rotated.refresh',
-            },
-            _ => <String, dynamic>{},
-          };
+          final data =
+              overrides[path] ??
+              switch (path) {
+                '/api/v1/public/auth/login' => {
+                  'authorizationUrl': authorizationUrl,
+                },
+                '/api/v1/public/auth/callback' => session.toJson(),
+                '/api/v1/public/auth/session' => {
+                  'authenticated': authenticated,
+                },
+                '/api/v1/users/me' => profile(type: principalType),
+                '/api/v1/public/auth/tokens/refresh' => {
+                  'accessToken': 'rotated.access',
+                  'refreshToken': 'rotated.refresh',
+                },
+                _ => <String, dynamic>{},
+              };
           h.resolve(
             Response(
               requestOptions: o,
@@ -90,6 +98,7 @@ class Fixture {
   final dio = Dio();
   final requests = <RequestOptions>[];
   final statuses = <String, int>{};
+  final overrides = <String, Map<String, dynamic>>{};
   late final IdentityAuthRepository repo;
   int browserCalls = 0;
   bool authenticated = true;
@@ -103,6 +112,7 @@ class Fixture {
   }).toString();
   Future<Uri> Function(Uri)? browser;
   Completer<void>? callbackGate, refreshGate;
+  final refreshEntered = Completer<void>();
 }
 
 class FailingStore extends MemoryIdentitySessionStore {
@@ -115,6 +125,65 @@ class FailingStore extends MemoryIdentitySessionStore {
 }
 
 void main() {
+  test(
+    'malformed session status retains credentials rather than treating schema drift as logout',
+    () async {
+      final f = Fixture();
+      await f.store.write(session);
+      f.overrides['/api/v1/public/auth/session'] = {};
+      await expectLater(f.repo.restoreSession(), throwsFormatException);
+      expect((await f.store.read())!.accessToken, session.accessToken);
+      expect(f.repo.currentUser, isNull);
+    },
+  );
+  test(
+    'logout while refresh is pending never restores rotated credentials or actor',
+    () async {
+      final f = Fixture()..refreshGate = Completer<void>();
+      await f.store.write(session);
+      final refreshing = f.repo.refreshSession();
+      await f.refreshEntered.future;
+      expect(
+        f.requests.where((r) => r.uri.path.endsWith('/tokens/refresh')),
+        hasLength(1),
+      );
+      await f.repo.logout();
+      final rejected = expectLater(refreshing, throwsA(isA<ApiException>()));
+      f.refreshGate!.complete();
+      await rejected;
+      expect(await f.store.read(), isNull);
+      expect(f.repo.currentUser, isNull);
+    },
+  );
+  test(
+    'malformed persona never publishes or saves callback credentials',
+    () async {
+      final f = Fixture();
+      f.overrides['/api/v1/users/me'] = profile()..remove('provisioningStatus');
+      await expectLater(f.repo.signIn(), throwsFormatException);
+      expect(await f.store.read(), isNull);
+      expect(f.repo.currentUser, isNull);
+    },
+  );
+  test(
+    'legacy profile update cannot erase Employee purchase restrictions',
+    () async {
+      final f = Fixture()..principalType = 'EMPLOYEE';
+      await f.store.write(session);
+      final c = AuthCubit(f.repo);
+      await c.restore();
+      c.updateUser(
+        const AuthUser(
+          id: 'principal-test',
+          phoneNumber: '',
+          fullName: 'Legacy projection',
+        ),
+      );
+      expect(c.state.user!.persona!.isEmployee, isTrue);
+      expect(c.state.canPurchase, isFalse);
+      await c.close();
+    },
+  );
   test(
     'native login target uses JSON callback, validates persona and persists complete session',
     () async {
