@@ -1,6 +1,8 @@
 package com.hvduong.catalog.application.service;
 
 import com.hvduong.catalog.application.dto.request.ProductFilterRequest;
+import com.hvduong.catalog.application.dto.response.AdminProductDetailResponse;
+import com.hvduong.catalog.application.dto.response.AdminProductListItemResponse;
 import com.hvduong.catalog.application.dto.request.PriceValidationRequest;
 import com.hvduong.catalog.application.dto.response.CategoryResponse;
 import com.hvduong.catalog.application.dto.response.ProductDetailResponse;
@@ -30,7 +32,7 @@ public interface CatalogService {
 
     PriceValidationResponse validatePrices(PriceValidationRequest request);
 
-    PageResponse<com.hvduong.catalog.application.dto.response.AdminProductListItemResponse> getAdminProducts(int page, int pageSize);
+    PageResponse<AdminProductListItemResponse> getAdminProducts(int page, int pageSize);
 
-    com.hvduong.catalog.application.dto.response.AdminProductDetailResponse getAdminProductDetail(String productId);
+    AdminProductDetailResponse getAdminProductDetail(String productId);
 }

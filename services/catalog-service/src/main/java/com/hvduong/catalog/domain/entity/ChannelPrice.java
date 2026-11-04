@@ -1,5 +1,6 @@
 package com.hvduong.catalog.domain.entity;
 
+import com.hvduong.catalog.common.enums.SalesChannel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -15,7 +16,7 @@ import java.util.UUID;
 public class ChannelPrice {
     private UUID id;
     private UUID variantId;
-    private com.hvduong.catalog.common.enums.SalesChannel channel;
+    private SalesChannel channel;
     private String currencyCode;
     private long amountUnits;
     private int amountNanos;

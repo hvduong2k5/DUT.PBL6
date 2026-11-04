@@ -1,5 +1,9 @@
 package com.hvduong.catalog.application.mapper;
 
+import com.hvduong.catalog.application.dto.response.AdminProductDetailResponse;
+import com.hvduong.catalog.application.dto.response.AdminProductDetailResponse.AdminFoodInformationResponse;
+import com.hvduong.catalog.application.dto.response.AdminProductDetailResponse.AdminProductSkuResponse;
+import com.hvduong.catalog.application.dto.response.AdminProductListItemResponse;
 import com.hvduong.catalog.application.dto.response.CategoryResponse;
 import com.hvduong.catalog.application.dto.response.MoneyResponse;
 import com.hvduong.catalog.application.dto.response.ProductDetailResponse;
@@ -70,9 +74,9 @@ public interface CatalogDtoMapper {
     @Mapping(target = "updatedAt",     ignore = true)
     @Mapping(source = "version",       target = "revision")
     @Mapping(target = "categoryName",  ignore = true)
-    com.hvduong.catalog.application.dto.response.AdminProductListItemResponse toAdminListItemResponse(Product product);
+    AdminProductListItemResponse toAdminListItemResponse(Product product);
 
-    List<com.hvduong.catalog.application.dto.response.AdminProductListItemResponse> toAdminListItemResponseList(List<Product> products);
+    List<AdminProductListItemResponse> toAdminListItemResponseList(List<Product> products);
 
     @Mapping(source = "id",            target = "productId")
     @Mapping(source = "listingStatus", target = "saleStatus")
@@ -88,9 +92,16 @@ public interface CatalogDtoMapper {
     @Mapping(target = "longDescription",  ignore = true)
     @Mapping(target = "coverImageUrl",    ignore = true)
     @Mapping(target = "coverImageAlt",    ignore = true)
-    @Mapping(target = "foodInformation",  ignore = true)
+    @Mapping(target = "foodInformation",  expression = "java(toAdminFoodInformationResponse(product))")
     @Mapping(target = "skus",             ignore = true)
-    com.hvduong.catalog.application.dto.response.AdminProductDetailResponse toAdminDetailResponse(Product product);
+    AdminProductDetailResponse toAdminDetailResponse(Product product);
+
+    @Mapping(source = "ingredients", target = "ingredients")
+    @Mapping(source = "storageGuide", target = "storageInstructions")
+    @Mapping(target = "allergenStatement", constant = "Thông tin cảnh báo dị ứng đang được cập nhật")
+    @Mapping(target = "manufacturingDatePolicy", constant = "Ngày sản xuất ghi trên bao bì")
+    @Mapping(target = "shelfLifeDescription", constant = "Hạn sử dụng ghi trên bao bì")
+    AdminFoodInformationResponse toAdminFoodInformationResponse(Product product);
 
     @Mapping(source = "id",            target = "skuId")
     @Mapping(source = "listingStatus", target = "saleStatus")
@@ -102,8 +113,8 @@ public interface CatalogDtoMapper {
     @Mapping(target = "saleStatusLabel", ignore = true)
     @Mapping(target = "updatedAt",     ignore = true)
     @Mapping(target = "revision",      ignore = true)
-    com.hvduong.catalog.application.dto.response.AdminProductDetailResponse.AdminProductSkuResponse toAdminSkuResponse(ProductVariant variant);
+    AdminProductSkuResponse toAdminSkuResponse(ProductVariant variant);
 
-    List<com.hvduong.catalog.application.dto.response.AdminProductDetailResponse.AdminProductSkuResponse> toAdminSkuResponseList(List<ProductVariant> variants);
+    List<AdminProductSkuResponse> toAdminSkuResponseList(List<ProductVariant> variants);
 
 }

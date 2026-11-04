@@ -1,5 +1,6 @@
 package com.hvduong.catalog.application.dto.response;
 
+import com.hvduong.catalog.domain.entity.Product;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -41,6 +42,20 @@ public class AdminProductDetailResponse {
         private String storageInstructions;
         private String manufacturingDatePolicy;
         private String shelfLifeDescription;
+
+        /** Utility factory method map từ Product entity */
+        public static AdminFoodInformationResponse from(Product product) {
+            if (product == null) {
+                return null;
+            }
+            return AdminFoodInformationResponse.builder()
+                    .ingredients(product.getIngredients())
+                    .allergenStatement("Thông tin cảnh báo dị ứng đang được cập nhật")
+                    .storageInstructions(product.getStorageGuide())
+                    .manufacturingDatePolicy("Ngày sản xuất ghi trên bao bì")
+                    .shelfLifeDescription("Hạn sử dụng ghi trên bao bì")
+                    .build();
+        }
     }
     
     @Data

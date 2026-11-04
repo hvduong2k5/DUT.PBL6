@@ -2,6 +2,10 @@ package com.hvduong.catalog.application.service.impl;
 
 import com.hvduong.catalog.application.dto.request.ProductFilterRequest;
 import com.hvduong.catalog.application.dto.request.PriceValidationRequest;
+import com.hvduong.catalog.application.dto.response.AdminProductDetailResponse;
+import com.hvduong.catalog.application.dto.response.AdminProductDetailResponse.AdminFoodInformationResponse;
+import com.hvduong.catalog.application.dto.response.AdminProductDetailResponse.AdminProductSkuResponse;
+import com.hvduong.catalog.application.dto.response.AdminProductListItemResponse;
 import com.hvduong.catalog.application.dto.response.CategoryResponse;
 import com.hvduong.catalog.application.dto.response.MoneyResponse;
 import com.hvduong.catalog.application.dto.response.ProductDetailResponse;
@@ -152,22 +156,20 @@ public class CatalogServiceImpl implements CatalogService {
     }
 
     @Override
-    public PageResponse<com.hvduong.catalog.application.dto.response.AdminProductListItemResponse> getAdminProducts(int page, int pageSize) {
+    public PageResponse<AdminProductListItemResponse> getAdminProducts(int page, int pageSize) {
         log.debug("[CATALOG] getAdminProducts: page={}, pageSize={}", page, pageSize);
         
         int offset = (page - 1) * pageSize;
         List<Product> products = productMapper.findAll(offset, pageSize);
         long total = productMapper.countAll();
         
-        List<com.hvduong.catalog.application.dto.response.AdminProductListItemResponse> items = products.stream()
-                .map(dtoMapper::toAdminListItemResponse)
-                .collect(Collectors.toList());
+        List<AdminProductListItemResponse> items = dtoMapper.toAdminListItemResponseList(products);
         
         return PageResponse.of(items, page, pageSize, total);
     }
 
     @Override
-    public com.hvduong.catalog.application.dto.response.AdminProductDetailResponse getAdminProductDetail(String productId) {
+    public AdminProductDetailResponse getAdminProductDetail(String productId) {
         log.debug("[CATALOG] getAdminProductDetail: productId={}", productId);
         
         UUID id;
@@ -180,26 +182,11 @@ public class CatalogServiceImpl implements CatalogService {
         Product product = productMapper.findById(id)
                 .orElseThrow(() -> new CatalogException(ErrorCode.CATALOG_PRODUCT_NOT_FOUND, "Không tìm thấy sản phẩm: " + productId));
                 
-        com.hvduong.catalog.application.dto.response.AdminProductDetailResponse response = dtoMapper.toAdminDetailResponse(product);
-        
-        // Cập nhật foodInformation
-        com.hvduong.catalog.application.dto.response.AdminProductDetailResponse.AdminFoodInformationResponse foodInfo = 
-            new com.hvduong.catalog.application.dto.response.AdminProductDetailResponse.AdminFoodInformationResponse(
-                product.getIngredients(),
-                "Thông tin cảnh báo dị ứng đang được cập nhật",
-                product.getStorageGuide(),
-                "Ngày sản xuất ghi trên bao bì",
-                "Hạn sử dụng ghi trên bao bì"
-            );
-        response.setFoodInformation(foodInfo);
+        AdminProductDetailResponse response = dtoMapper.toAdminDetailResponse(product);
         
         // Cập nhật SKUs
         List<ProductVariant> variants = variantMapper.findActiveByProductId(id);
-        List<com.hvduong.catalog.application.dto.response.AdminProductDetailResponse.AdminProductSkuResponse> skus = variants.stream()
-            .map(dtoMapper::toAdminSkuResponse)
-            .collect(Collectors.toList());
-            
-        response.setSkus(skus);
+        response.setSkus(dtoMapper.toAdminSkuResponseList(variants));
         
         return response;
     }
