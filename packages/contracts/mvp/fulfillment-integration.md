@@ -124,3 +124,9 @@ Nếu peer/scanner lỗi, giữ job/handoff để retry. Handoff giữ nguyên r
 đã mã hóa và khóa `fulfillment:shipment:<package_id>` sau timeout/restart.
 Theo dõi job MANUAL_REVIEW, tuổi outbox và handoff chưa có shipment; permit
 đã hết hạn cần xử lý có kiểm soát, không tự đổi key để né kết quả cũ.
+
+Profile Fulfillment thật yêu cầu `ENABLE_AUTO_COMPLETE=false` cho tới khi
+Care/Finance cung cấp completion authority. Hold/resume qua admission barrier
+cũ bị chặn bằng `FULFILLMENT_STOP_CAPABILITY_UNAVAILABLE`; chưa có giao thức
+dừng task từ xa thì không được thông báo đã dừng đóng gói. Hủy đơn chưa thanh
+toán vẫn đi luồng CancelPending/Inventory release hiện có.
