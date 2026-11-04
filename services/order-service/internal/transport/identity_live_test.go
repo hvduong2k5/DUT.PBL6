@@ -23,6 +23,13 @@ func TestKeycloakLiveCart(t *testing.T) {
 		t.Fatal("requires isolated local realm")
 	}
 	c := app.Config{Mode: "sandbox", AuthMode: "keycloak", OIDCIssuer: issuer, OIDCAudience: "order-api", OIDCAllowLocalHTTP: true, Profile: "http://unused-profile.test", ProfileToken: "unused-profile-credential"}
+	// This legacy live fixture proves Keycloak/Cart isolation only. Its Profile
+	// stub is distinct from the real Profile used by test-web-identity.py.
+	profile := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(map[string]string{"id": "11111111-1111-4111-8111-111111111111", "user_id": r.Header.Get("X-User-ID"), "status": "ACTIVE"})
+	}))
+	defer profile.Close()
+	c.Profile = profile.URL
 	v, e := app.NewCustomerIdentity(c)
 	if e != nil {
 		t.Fatal(e)
@@ -43,7 +50,7 @@ func TestKeycloakLiveCart(t *testing.T) {
 		}
 		defer rdb.Del(ctx, key)
 	}
-	s := &app.Service{C: c, Identity: v, Redis: rdb}
+	s := &app.Service{C: c, Identity: v, Redis: rdb, Client: profile.Client()}
 	server := httptest.NewServer(Handler(s))
 	defer server.Close()
 	for _, id := range []string{"A", "B"} {

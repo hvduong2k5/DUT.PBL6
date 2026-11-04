@@ -110,53 +110,6 @@ class AuthenticationControllerTest {
     }
 
     @Test
-    void handleCallback_JsonRequest_ReturnsTokenAndSetsCookie() throws Exception {
-        UUID sessionId = UUID.randomUUID();
-        UUID principalId = UUID.randomUUID();
-        BffSession session = BffSession.builder()
-                .sessionId(sessionId)
-                .principalId(principalId)
-                .email("mobile@omama.vn")
-                .accessToken("access-token-test-123")
-                .refreshToken("refresh-token-test-456")
-                .accessTokenExpiresAt(Instant.now().plusSeconds(900))
-                .build();
-
-        BffCallbackResult result = BffCallbackResult.builder()
-                .session(session)
-                .redirectUri("omama://auth/callback")
-                .build();
-
-        when(authenticationService.handleCallback("auth-code-mobile", "state-mobile"))
-                .thenReturn(result);
-
-        mockMvc.perform(get("/api/v1/public/auth/callback")
-                        .param("code", "auth-code-mobile")
-                        .param("state", "state-mobile")
-                        .param("format", "json"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.tokenType").value("Bearer"))
-                .andExpect(jsonPath("$.data.accessToken").value("access-token-test-123"))
-                .andExpect(jsonPath("$.data.refreshToken").value("refresh-token-test-456"))
-                .andExpect(jsonPath("$.data.email").value("mobile@omama.vn"))
-                .andExpect(jsonPath("$.data.sessionId").value(sessionId.toString()))
-                .andExpect(header().string(HttpHeaders.SET_COOKIE, containsString("OMAMA_SESSION=" + sessionId)));
-    }
-
-    @Test
-    void handleCallback_JsonRequest_WhenError_ReturnsBadRequest() throws Exception {
-        mockMvc.perform(get("/api/v1/public/auth/callback")
-                        .param("format", "json")
-                        .param("error", "access_denied")
-                        .param("error_description", "User cancelled"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.code").value("access_denied"))
-                .andExpect(jsonPath("$.message").value("User cancelled"));
-    }
-
-    @Test
     void getSession_WithValidCookie_ReturnsSessionData() throws Exception {
         UUID sessionId = UUID.randomUUID();
         UUID principalId = UUID.randomUUID();

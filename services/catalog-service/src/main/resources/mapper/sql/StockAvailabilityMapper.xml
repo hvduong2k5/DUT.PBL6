@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.hvduong.catalog.repository.mybatis.StockAvailabilityMapper">
+    <resultMap id="StockAvailabilityProjectionMap"
+               type="com.hvduong.catalog.infrastructure.inventory.StockAvailabilityProjection">
+        <constructor>
+            <arg column="sku_code" javaType="String"/>
+            <arg column="sellable_quantity" javaType="java.lang.Long"/>
+            <arg column="inventory_version" javaType="long"/>
+            <arg column="source_updated_at" javaType="java.time.Instant"/>
+            <arg column="synced_at" javaType="java.time.Instant"/>
+        </constructor>
+    </resultMap>
+
+    <select id="findBySkuCodes" resultMap="StockAvailabilityProjectionMap">
+        SELECT sku_code, sellable_quantity, inventory_version, source_updated_at, synced_at
+        FROM sku_stock_projection
+        WHERE sku_code IN
+        <foreach collection="skuCodes" item="skuCode" open="(" separator="," close=")">
+            #{skuCode}
+        </foreach>
+    </select>
+
+    <insert id="upsert" parameterType="com.hvduong.catalog.infrastructure.inventory.StockChangedEvent">
+        INSERT INTO sku_stock_projection
+            (sku_code, sellable_quantity, inventory_version, source_updated_at, synced_at)
+        VALUES (#{skuCode}, #{sellableQuantity}, #{inventoryVersion}, #{sourceUpdatedAt}, NOW())
+        ON CONFLICT (sku_code) DO UPDATE SET
+            sellable_quantity = EXCLUDED.sellable_quantity,
+            inventory_version = EXCLUDED.inventory_version,
+            source_updated_at = EXCLUDED.source_updated_at,
+            synced_at = NOW()
+        WHERE EXCLUDED.inventory_version &gt; sku_stock_projection.inventory_version
+    </insert>
+</mapper>

@@ -11,6 +11,7 @@ import (
 	"github.com/omamx/order-service/internal/persistence"
 	"github.com/redis/go-redis/v9"
 	"os"
+	"strconv"
 	"time"
 )
 
@@ -32,6 +33,22 @@ func (c coreSource) Revalidate(ctx context.Context, terms core.SnapshotInput) er
 	}
 	var out struct {
 		Valid bool `json:"valid"`
+	}
+	if c.s.C.CatalogURL != "" {
+		if e := c.s.callURL(ctx, c.s.C.CatalogURL, "POST", "/api/v1/internal/catalog/snapshots/"+terms.Catalog.SnapshotID+"/revalidate", nil, &out); e != nil {
+			return e
+		}
+		if !out.Valid {
+			return persistence.ErrTermsChanged
+		}
+		ship, e := c.s.Shipping.Quote(ctx, domain.Address{Name: terms.Address.RecipientName, Phone: terms.Address.PhoneE164, Street: terms.Address.Street, Ward: terms.Address.WardCode, Province: terms.Address.ProvinceCode}, terms.Shipping.PackageWeightGrams, terms.Shipping.CarrierCode, terms.Shipping.ServiceCode, terms.WarehouseID, "shipping:"+terms.Provenance.QuoteID)
+		if e != nil {
+			return e
+		}
+		if ship.ID != terms.Shipping.QuoteReference || strconv.FormatInt(ship.Version, 10) != terms.Shipping.QuoteVersion || ship.Fee != terms.Shipping.QuotedFee || !ship.Until.Equal(terms.Shipping.ValidUntil) {
+			return persistence.ErrTermsChanged
+		}
+		return nil
 	}
 	e := c.s.Call(ctx, "POST", "/order-core/revalidate", terms, &out)
 	if e != nil {
@@ -57,14 +74,20 @@ func (s *Service) EnableCoreCheckout() error {
 		return errors.New("ORDER_MERCHANT_ID must be a stable UUID")
 	}
 	s.CoreCheckout = &persistence.CheckoutRuntime{Store: s.Payment.Store, Source: coreSource{s}, Inventory: inventory}
-	return nil
+	return s.EnableShippingFromEnv(context.Background())
 }
 func (s *Service) coreQuote(ctx context.Context, p domain.Principal, q domain.Quote) (domain.Quote, error) {
 	if p.Role == "GUEST" && q.Method == "VIETQR" && s.Payment.GrantKey == nil {
 		return q, domain.E("GUEST_PAYMENT_ACCESS_UNAVAILABLE", 503)
 	}
 	var terms core.SnapshotInput
-	if e := s.Call(ctx, "POST", "/order-core/terms", q, &terms); e != nil {
+	var termsError error
+	if s.C.CatalogURL != "" {
+		terms, termsError = s.catalogTerms(ctx, q)
+	} else {
+		termsError = s.Call(ctx, "POST", "/order-core/terms", q, &terms)
+	}
+	if e := termsError; e != nil {
 		return q, e
 	}
 	// Bind authority fields locally. Provider terms cannot select a different owner,

@@ -1,3 +1,4 @@
+import { hasTrustedOrigin } from "@/lib/auth/request-origin";
 import {
   isValidIdempotencyKey,
   normalizePublicError,
@@ -21,16 +22,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function hasTrustedOrigin(request: NextRequest): boolean {
-  const origin = request.headers.get("origin");
-  if (!origin) return true;
-  try {
-    const source = new URL(origin);
-    return source.protocol === request.nextUrl.protocol && source.host === request.nextUrl.host;
-  } catch {
-    return false;
-  }
-}
+
 
 async function readJsonBody(request: NextRequest): Promise<unknown> {
   try {
@@ -52,7 +44,7 @@ function publicErrorResponse(
 }
 
 function upstreamHeaders(request: NextRequest, scenario?: string, hasBody = false, idempotencyKey?: string): Headers {
-  const headers = new Headers({ Accept: "application/json" });
+  const headers = new Headers({ Accept: "application/vnd.omama.customer-mvp+json, application/json" });
   applyTrustedAuthorization(headers, request);
   if (hasBody) headers.set("Content-Type", "application/json");
   if (idempotencyKey) headers.set("Idempotency-Key", idempotencyKey);

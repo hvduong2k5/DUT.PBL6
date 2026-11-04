@@ -26,6 +26,7 @@ import java.util.Set;
 public class SecurityConfig {
 
     private final BffSessionAuthFilter bffSessionAuthFilter;
+    private final PrincipalAccess principalAccess;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -34,6 +35,8 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(authorize -> authorize
                 .requestMatchers("/api/v1/public/**").permitAll()
+                .requestMatchers("/api/v1/admin/**").access((authentication,context) ->
+                        new org.springframework.security.authorization.AuthorizationDecision(principalAccess.employee(authentication.get())))
                 .requestMatchers("/actuator/**").permitAll()
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
                 .anyRequest().authenticated()

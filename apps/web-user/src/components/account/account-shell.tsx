@@ -31,6 +31,7 @@ export function AccountShell({ active, customerName = "Thành viên Tri Kỷ", c
             {hasCapability("ADDRESS_MANAGE") ? <Link className={active === "addresses" ? "active" : ""} href="/account/addresses"><span>⌖</span> Sổ địa chỉ nhận hàng <b>›</b></Link> : null}
             {hasCapability("ORDER_HISTORY_VIEW") ? <Link className={active === "orders" ? "active" : ""} href="/account/orders"><span>▤</span> Đơn hàng của tôi <b>›</b></Link> : null}
             {hasCapability("LOYALTY_VIEW") ? <Link className={active === "loyalty" ? "active" : ""} href="/account/loyalty"><span>♡</span> Điểm &amp; ưu đãi <b>›</b></Link> : null}
+            <Link href="/settings/password"><span>⌑</span> Đổi mật khẩu <b>›</b></Link>
           </nav>
           <LogoutButton />
           <div className="account-help"><span>☏</span><p><strong>Cần hỗ trợ?</strong><br />Hotline Tri Kỷ: 1900 68 Hue</p></div>

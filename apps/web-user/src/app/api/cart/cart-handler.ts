@@ -1,3 +1,4 @@
+import { hasTrustedOrigin } from "@/lib/auth/request-origin";
 import {
   normalizePublicError,
   type OrderCart,
@@ -17,16 +18,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function hasTrustedOrigin(request: NextRequest): boolean {
-  const origin = request.headers.get("origin");
-  if (!origin) return true;
-  try {
-    const source = new URL(origin);
-    return source.protocol === request.nextUrl.protocol && source.host === request.nextUrl.host;
-  } catch {
-    return false;
-  }
-}
+
 
 async function readJsonBody(request: NextRequest): Promise<unknown> {
   try {
@@ -50,6 +42,8 @@ function publicErrorResponse(
 function upstreamHeaders(request: NextRequest, hasBody: boolean, scenario?: string): Headers {
   const headers = new Headers({ Accept: "application/json" });
   applyTrustedAuthorization(headers, request);
+  const ifMatch = request.headers.get("if-match");
+  if (ifMatch) headers.set("If-Match", ifMatch);
   if (hasBody) headers.set("Content-Type", "application/json");
   if (process.env.NODE_ENV !== "production" && scenario) headers.set("X-Mock-Scenario", scenario);
   return headers;
@@ -65,7 +59,7 @@ async function callUpstream(request: NextRequest, path: string, method: string, 
     redirect: "manual"
   });
   const contentType = response.headers.get("content-type") ?? "";
-  const payload = contentType.includes("application/json") ? await response.json() as unknown : undefined;
+  const payload = response.status !== 204 && contentType.includes("application/json") ? await response.json() as unknown : undefined;
   return { response, payload };
 }
 

@@ -31,18 +31,18 @@ Hệ thống triển khai theo mô hình **1 Web duy nhất** cho toàn bộ ng�
            Nếu principalType = "CUSTOMER"                  Nếu principalType = "EMPLOYEE"
         (Khách hàng mua kẹo thông thường)              (Admin, Warehouse, Packing, Delivery...)
                         │                                               │
-   • Hiển thị Menu Mua hàng, Giỏ hàng, Đơn mua.     • Header xuất hiện nút "Kênh Quản Trị" (/admin).
-   • Trang cá nhân: Điểm thưởng, Địa chỉ.           • Chuyển sang khu vực /admin:
-   • Nếu cố tình gõ URL /admin/**:                     - Có INVENTORY_VIEW    --> Hiện Tab Kho
+   • Hiển thị Menu Mua hàng, Giỏ hàng, Đơn mua.     • Có thể xem Storefront ở chế độ chỉ đọc.
+   • Trang cá nhân: Điểm thưởng, Địa chỉ.           • Header mở Kênh Quản Trị (/admin), ẩn Cart:
+   • Nếu cố tình gõ URL /admin/**:                  - Có INVENTORY_VIEW    --> Hiện Tab Kho
      --> Middleware chặn & redirect về /               - Có PACKING_WORKBENCH --> Hiện Tab Đóng gói
                                                        - Có ROLE_READ         --> Hiện Tab Phân quyền
 ```
 
 ### 1.1. Mô hình Phân lập Danh tính Doanh nghiệp (Enterprise Persona Separation)
 Để đảm bảo an toàn thông tin theo nguyên tắc Đặc quyền tối thiểu (Least Privilege), hệ thống áp dụng chuẩn phân lập tài khoản:
-* **Tài khoản Công vụ (`EMPLOYEE`):** Sử dụng email công ty (`@omama.vn`) để đăng nhập và làm việc trên giao diện Quản trị `/admin/**`. Chỉ tài khoản này mới được gán quyền trong `iam_role_assignments`.
+* **Tài khoản Công vụ (`EMPLOYEE`):** Sử dụng email công ty (`@omama.vn`) để đăng nhập và làm việc trên giao diện nội bộ `/admin/**`. Tài khoản vẫn được xem nội dung Storefront nhưng mọi action mua hàng bị ẩn và BFF từ chối lại bằng `EMPLOYEE_PURCHASE_NOT_ALLOWED`. Chỉ tài khoản này mới được gán quyền trong `iam_role_assignments`.
 * **Tài khoản Tiêu dùng (`CUSTOMER`):** Sử dụng email cá nhân để mua kẹo mè xửng trên giao diện Storefront.
-* **Quy tắc bảo mật:** Nhân viên công ty khi mua sắm cá nhân được khuyến nghị sử dụng tài khoản `CUSTOMER` riêng biệt. Điều này giúp ngăn ngừa rò rỉ token quyền hạn nội bộ trên thiết bị cá nhân hoặc mạng công cộng, đồng thời khi nhân viên thôi việc (Offboarding), việc khóa tài khoản công ty `EMPLOYEE` không làm ảnh hưởng đến tài khoản mua sắm cá nhân của họ.
+* **Quy tắc bảo mật bắt buộc:** `EMPLOYEE` không được dùng Cart, Checkout, Customer Order hoặc Address. Nhân viên mua sắm cá nhân phải sử dụng tài khoản `CUSTOMER` độc lập; legacy `customer_id` hoặc role `CUSTOMER` không mở quyền mua hàng cho Employee.
 
 ---
 
@@ -66,21 +66,10 @@ Frontend gọi endpoint này khi người dùng bấm nút "Đăng nhập" hoặ
 - **Query Parameters:**
   - `redirect_uri` *(optional)*: Đường dẫn trang Frontend cần quay lại sau khi đăng nhập (ví dụ: `https://omama.vn/checkout`). Mặc định: `https://omama.vn`.
   - `provider` *(optional)*: Tên nhà cung cấp SSO nếu muốn đi thẳng vào trang OAuth2 của bên thứ ba (`google`, `facebook`, `zalo`, `apple`). Để trống sẽ hiển thị trang đăng nhập Keycloak mang bản sắc Ô Mạ.
-- **Response `200 OK`:**
-  ```json
-  {
-    "success": true,
-    "code": "SUCCESS",
-    "message": "Khởi tạo đăng nhập thành công",
-    "data": {
-      "authorizationUrl": "https://api.omama.vn/auth/realms/omama/protocol/openid-connect/auth?response_type=code&client_id=frontend-web&redirect_uri=https%3A%2F%2Fapi.omama.vn%2Fapi%2Fv1%2Fpublic%2Fauth%2Fcallback&scope=openid+profile+email&state=7f9b8c2d-1111-2222&code_challenge=xyz...&code_challenge_method=S256",
-      "state": "7f9b8c2d-1111-2222"
-    }
-  }
-  ```
-- **Hành động của Frontend:**
+- **Response Web mặc định:** `302 Found` sang Keycloak/OIDC. Backend giữ PKCE verifier/state và tự thiết lập `OMAMA_SESSION` sau callback.
+- **Hành động của Frontend:** điều hướng toàn trang; không gọi Axios và không nhận token.
   ```typescript
-  window.location.href = res.data.data.authorizationUrl;
+  window.location.href = `${apiBase}/public/auth/login?redirect_uri=${encodeURIComponent(returnUrl)}`;
   ```
 
 ---
@@ -315,28 +304,15 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
     void reload();
   }, [reload]);
 
-  const login = useCallback(async (provider?: string) => {
-    try {
-      const currentUrl = window.location.href;
-      const searchParams = new URLSearchParams();
-      searchParams.set("redirect_uri", currentUrl);
-      if (provider) searchParams.set("provider", provider);
-
-      const res = await fetch(`/api/v1/public/auth/login?${searchParams.toString()}`, {
-        headers: { Accept: "application/json" },
-      });
-      if (res.ok) {
-        const json = await res.json();
-        window.location.href = json.data.authorizationUrl;
-      }
-    } catch (err) {
-      console.error("Lỗi khởi tạo đăng nhập:", err);
-    }
+  const login = useCallback((provider?: string) => {
+    const searchParams = new URLSearchParams({ redirect_uri: window.location.href });
+    if (provider) searchParams.set("provider", provider);
+    window.location.href = `/api/v1/public/auth/login?${searchParams.toString()}`;
   }, []);
 
   const isStaff = useMemo(() => {
     if (!profile) return false;
-    return profile.principalType === "EMPLOYEE" || profile.roles.some((r) => r.roleCode !== "CUSTOMER");
+    return profile.principalType === "EMPLOYEE";
   }, [profile]);
 
   const hasRole = useCallback(
@@ -392,13 +368,15 @@ import Link from "next/link";
 export function Header() {
   const { status, profile, isStaff, login, logout } = useAppSession();
 
+  // Employee vẫn được xem catalog, nhưng header chỉ hiện Kênh Quản Trị;
+  // Cart và các action mua hàng không được render.
+
   return (
     <header className="flex justify-between p-4 bg-white shadow">
       <Link href="/" className="font-bold text-xl text-amber-900">Mè Xửng O Mạ</Link>
 
       <div className="flex items-center gap-4">
-        {/* Khách hàng thường & Chưa đăng nhập luôn thấy Giỏ hàng */}
-        <Link href="/cart">Giỏ hàng</Link>
+        {isStaff ? <Link href="/admin">Kênh Quản Trị</Link> : <Link href="/cart">Giỏ hàng</Link>}
 
         {status === "loading" && <span>Đang tải...</span>}
 
@@ -412,16 +390,6 @@ export function Header() {
           <>
             <span>Xin chào, {profile?.email}</span>
 
-            {/* NÚT KÊNH QUẢN TRỊ: Chỉ hiển thị nếu tài khoản là nhân viên/admin */}
-            {isStaff && (
-              <Link 
-                href="/admin" 
-                className="bg-amber-600 text-white px-3 py-1.5 rounded font-medium hover:bg-amber-700"
-              >
-                🛠️ Kênh Quản Trị
-              </Link>
-            )}
-
             <Link href="/account/profile">Tài khoản</Link>
             <button onClick={logout} className="text-red-600">Đăng xuất</button>
           </>
@@ -434,9 +402,9 @@ export function Header() {
 
 ---
 
-### 3.3. Bảo Vệ Route Quản Trị Bằng Next.js Middleware (`middleware.ts`)
+### 3.3. Bảo Vệ Route Employee
 
-Bảo vệ tất cả các đường dẫn `/admin/**` để khách thường hoặc người chưa đăng nhập không vào được:
+Bảo vệ tất cả đường dẫn `/admin/**` bằng `EmployeeAccessBoundary` và kiểm tra lại ở `/api/admin/**`. Middleware dưới đây chỉ là lớp chuyển hướng sớm khi thiếu cookie; nó không thay thế việc gọi Identity để xác minh `principalType`.
 
 ```typescript
 import { NextResponse } from "next/server";
@@ -445,7 +413,7 @@ import type { NextRequest } from "next/server";
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Kiểm tra nếu truy cập vào khu vực quản trị /admin
+  // Kiểm tra nếu truy cập vào khu vực Employee
   if (pathname.startsWith("/admin")) {
     const sessionCookie = request.cookies.get("OMAMA_SESSION")?.value;
 
@@ -467,7 +435,7 @@ export const config = {
 
 ---
 
-### 3.4. Ẩn / Hiện Menu Con Trong Layout Quản Trị (`/admin/layout.tsx`)
+### 3.4. Ẩn / Hiện Menu Con Trong Layout Employee (`/admin/layout.tsx`)
 
 Trong trang quản trị, mỗi tab chức năng chỉ hiển thị khi tài khoản có quyền tương ứng trong danh sách `permissions`:
 
@@ -537,14 +505,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
 ## 4. Tóm Tắt Cho Kỹ Sư Frontend
 
-1. **Khởi tạo Đăng nhập:** Gọi `GET /api/v1/public/auth/login` và chuyển hướng trình duyệt đến `authorizationUrl`.
+1. **Khởi tạo Đăng nhập:** Điều hướng toàn trang đến `GET /api/v1/public/auth/login`; backend trả `302` sang OIDC.
 2. **Quản lý Phiên:** Dùng Cookie bảo mật `OMAMA_SESSION` (`HttpOnly`, `SameSite=Lax`). Luôn cấu hình `credentials: 'include'`.
 3. **Kiểm tra Phiên & Quyền:**
    - `GET /api/v1/public/auth/session` -> kiểm tra `authenticated`.
    - `GET /api/v1/users/me` -> nhận danh mục `roles` và `permissions`.
 4. **Phân biệt Khách hàng & Nhân sự:**
-   - `roles.some(r => r.roleCode !== 'CUSTOMER')` $\longrightarrow$ **Nhân viên / Quản lý / Admin**.
-   - `roles.every(r => r.roleCode === 'CUSTOMER')` $\longrightarrow$ **Khách hàng D2C**.
+   - `principalType === 'EMPLOYEE'` $\longrightarrow$ **Nhân viên / Quản lý / Admin**.
+   - `principalType === 'CUSTOMER'` $\longrightarrow$ **Khách hàng D2C**.
 5. **Điều hướng & Trải nghiệm:**
    - Khách hàng D2C: Mua kẹo Ô Mạ, giỏ hàng, hồ sơ cá nhân.
-   - Nhân viên: Hiển thị thêm nút **"Kênh Quản Trị"** dẫn vào `/admin` và các menu con ẩn hiện tự động theo `permissions`.
+   - Nhân viên: Có thể xem Storefront ở chế độ chỉ đọc; header hiện nút `/admin`, ẩn giỏ hàng và Product Detail thay action mua bằng cảnh báo. Menu nội bộ ẩn hiện theo `permissions`.

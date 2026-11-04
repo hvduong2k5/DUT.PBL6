@@ -41,7 +41,7 @@ Các nguyên tắc runtime:
 
 Gate chỉ kiểm soát việc phát hành capability. Authorization thực tế vẫn phải do backend kiểm tra. Với COD/Voucher, BFF Checkout fail closed ngay cả khi client gọi trực tiếp.
 
-Gate không thay thế Identity. Một capability được bật vẫn yêu cầu principal hợp lệ, mapping Customer và capability/permission tương ứng. Chi tiết tại [`MVP_PUBLIC_IDENTITY_AUTHORIZATION.md`](./MVP_PUBLIC_IDENTITY_AUTHORIZATION.md).
+Gate không thay thế Identity. Một capability được bật vẫn yêu cầu principal `CUSTOMER` hợp lệ và capability tương ứng; principal `EMPLOYEE` luôn bị từ chối khỏi Customer flow. Chi tiết tại [`MVP_PUBLIC_IDENTITY_AUTHORIZATION.md`](./MVP_PUBLIC_IDENTITY_AUTHORIZATION.md).
 
 Bốn public operation còn `GATED` là paid cancellation request, create guest session, issue guest payment access và revoke guest payment access.
 
@@ -50,8 +50,8 @@ Bốn public operation còn `GATED` là paid cancellation request, create guest 
 | Dependency | Frontend cần | Trạng thái bàn giao |
 | --- | --- | --- |
 | Public API gateway | `CUSTOMER_CORE_UPSTREAM_URL`; cung cấp đúng public contract được pin. | Chờ backend runtime acceptance. |
-| Identity/session | BFF giữ token trong cookie HttpOnly, xác minh principal qua backend/gateway và không tin identity header từ browser. | Frontend boundary đã hoàn tất; chờ E2E với runtime thật. |
-| Customer capability projection | `CUSTOMER_EXTENSIONS_UPSTREAM_URL`; BFF hiện dùng để xác nhận capability Customer. | Cần duy trì cho đến khi capability được hợp nhất vào Identity/gateway. |
+| Identity/session | OIDC PKCE, BFF giữ token HttpOnly; Identity tra issuer/subject/principal, Profile tra Customer và từng service kiểm JWT. | Có [lát cắt Web→Identity→Profile→Cart](./WEB_IDENTITY_GATEWAY_INTEGRATION.md) kiểm trên runtime thật; full purchase E2E còn PENDING. |
+| Customer capability projection | `/api/v1/customer/capabilities` qua cùng Gateway; Profile xác minh token và Customer ACTIVE. | Đã có support contract và provider; capability không bật provider/release gate chưa nghiệm thu. |
 | Catalog/Profile/Order/Payment providers | DTO, ETag/version, idempotency và error mapping đúng contract. | Registry owning-service acceptance còn `PENDING`. |
 | Locations | Danh sách tỉnh/thành và phường/xã phục vụ form địa chỉ. | Support API ngoài 30-operation target; backend phải công bố contract/runtime riêng. |
 
@@ -93,7 +93,7 @@ Backend có thể cung cấp gateway thật hoặc một mock mới sinh từ pu
 ## 8. Checklist E2E khi backend sẵn sàng
 
 - Đăng nhập, hết hạn session và principal thiếu quyền trả đúng `401`/`403`.
-- Employee chỉ dùng Customer flow khi backend trả mapping `customer_id`; Employee không có mapping phải nhận `403` ở BFF và access-denied ở UI.
+- Employee luôn bị từ chối khỏi Customer flow bằng `403 EMPLOYEE_PURCHASE_NOT_ALLOWED`; tài khoản Customer độc lập mới được dùng Cart, Checkout, Order và Address.
 - Duyệt Catalog/Product, chọn SKU, thêm/sửa/xóa Cart và xử lý revision conflict.
 - Tạo quote, nhận thay đổi giá/tồn, accept bằng cùng idempotency key và xử lý cả `201` lẫn `202`.
 - Poll operation tới `SUCCEEDED`, `FAILED` và `MANUAL_REVIEW`; không tạo Order trùng.
@@ -113,4 +113,4 @@ Chạy tại `apps/web-user`:
 npm run verify:mvp
 ```
 
-Kết quả local ngày 2026-10-31: typecheck PASS, ESLint PASS, 27 test files/89 tests PASS. Chi tiết và giới hạn bằng chứng tại [`MVP_PUBLIC_RELEASE_VERIFICATION.md`](./MVP_PUBLIC_RELEASE_VERIFICATION.md).
+Kết quả local ngày 2026-11-02: typecheck PASS, ESLint PASS, 41 test files/124 tests PASS, production build PASS và Admin Mockoon validation PASS. Chi tiết và giới hạn bằng chứng tại [`MVP_PUBLIC_RELEASE_VERIFICATION.md`](./MVP_PUBLIC_RELEASE_VERIFICATION.md).

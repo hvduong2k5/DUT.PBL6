@@ -1,0 +1,126 @@
+openapi: 3.0.3
+info:
+  title: Catalog checkout internal HTTP adapter
+  version: catalog-checkout-1.0
+  description: >-
+    Server-to-server adapter used by Order. Not exposed as a public Gateway route.
+    Catalog owns the persisted snapshot. Revalidation compares equality of an opaque
+    revision fingerprint, not ordering. Canonical GetCheckoutSnapshot gRPC remains available.
+servers:
+  - url: http://catalog-service:8006
+security:
+  - internalToken: []
+paths:
+  /api/v1/internal/catalog/snapshots:
+    post:
+      operationId: createCheckoutSnapshot
+      summary: Pin currently saleable prices and shipping metadata
+      description: >-
+        Each call creates a new snapshot; no Idempotency-Key guarantee. Items are read
+        in one repeatable-read transaction. Parent and SKU must be active, parent
+        approved and the requested channel's VND price currently effective.
+        Snapshot lifetime is at most 300 seconds, shortened by price expiry.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Selection'
+            example:
+              channel: D2C_WEB
+              items: [{sku_code: PEER, quantity: 2}]
+      responses:
+        '200':
+          description: Persisted snapshot; integer VND without fractional nanos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Snapshot'
+        '401':
+          description: Missing or invalid server credential, or server not configured
+        '422':
+          description: Selection, saleability, price or weight cannot form a snapshot
+        '500':
+          description: Persistence or unexpected metadata failure; do not proceed with checkout
+  /api/v1/internal/catalog/snapshots/{id}/revalidate:
+    post:
+      operationId: revalidateCheckoutSnapshot
+      summary: Check the original persisted snapshot against current Catalog data
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: {type: string, format: uuid}
+      responses:
+        '200':
+          description: False for missing/expired snapshot or changed/unavailable terms
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [valid]
+                properties:
+                  valid: {type: boolean}
+              examples:
+                unchanged: {value: {valid: true}}
+                changedOrExpired: {value: {valid: false}}
+        '401':
+          description: Missing or invalid server credential
+        '500':
+          description: Persistence failure; never assume a successful revalidation
+components:
+  securitySchemes:
+    internalToken:
+      type: apiKey
+      in: header
+      name: X-Internal-Token
+      description: Server-only credential at least 32 characters; never embedded in UI
+  schemas:
+    Selection:
+      type: object
+      required: [items]
+      properties:
+        channel:
+          type: string
+          enum: [D2C_WEB, MOBILE_APP]
+          default: D2C_WEB
+        items:
+          type: array
+          minItems: 1
+          maxItems: 100
+          description: SKU codes must be unique
+          items:
+            type: object
+            required: [sku_code, quantity]
+            properties:
+              sku_code: {type: string, minLength: 1}
+              quantity: {type: integer, minimum: 1, maximum: 999}
+    Snapshot:
+      type: object
+      required: [snapshot_id, catalog_version, valid_until, items, subtotal, contract_version, channel]
+      properties:
+        snapshot_id: {type: string, format: uuid}
+        catalog_version:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Positive 63-bit fingerprint; compare equality only. Preserve int64 precision.
+        valid_until: {type: string, format: date-time}
+        contract_version: {type: string, enum: [catalog-checkout-1.0]}
+        channel: {type: string, enum: [D2C_WEB, MOBILE_APP]}
+        subtotal: {type: integer, format: int64, minimum: 1}
+        items:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            type: object
+            required: [sku_code, quantity, product_name, unit_price, weight_grams, packaging_type, is_active]
+            properties:
+              sku_code: {type: string}
+              quantity: {type: integer, minimum: 1, maximum: 999}
+              product_name: {type: string}
+              unit_price: {type: integer, format: int64, minimum: 1, description: Integer VND}
+              weight_grams: {type: integer, format: int64, minimum: 1}
+              packaging_type: {type: string}
+              is_active: {type: boolean, enum: [true]}

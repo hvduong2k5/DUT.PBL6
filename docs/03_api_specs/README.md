@@ -1,6 +1,10 @@
 > **MVP integration release 26/10/2026:** bắt đầu tại [contract guide](../../packages/contracts/mvp/README.md), [owner/consumer registry](../../packages/contracts/mvp/registry.yaml) và [migration](../../packages/contracts/mvp/MIGRATION.md).
 >
 > Public target: [mvp-customer.openapi.yaml](mvp-customer.openapi.yaml). Core adapter target: [order-core-dependencies.mvp.openapi.yaml](order-core-dependencies.mvp.openapi.yaml). Các spec D2C tổng và frontend/candidate bên dưới giữ vai trò reference/provider proposal; không ghi đè target MVP ở các route trùng. Implementation acceptance vẫn pending, không được suy từ CI contract xanh.
+>
+> Customer access support: [customer-access.support.openapi.yaml](customer-access.support.openapi.yaml), owner Profile. Luồng Web OIDC/Identity/Gateway và cách chạy kiểm tra nằm trong [hướng dẫn tích hợp](../ui_web/WEB_IDENTITY_GATEWAY_INTEGRATION.md). Các auth password-login spec/mock cũ không được dùng để suy ra runtime PKCE đã hỗ trợ các endpoint đó.
+
+> Registration/locations support: [customer-onboarding.support.openapi.yaml](customer-onboarding.support.openapi.yaml), owner Identity/Profile. Bốn luồng hồ sơ, đăng ký, checkout–Inventory và Shipping có phạm vi/nghiệm thu tại [MVP_CUSTOMER_ORDER_SHIPPING_ACCEPTANCE.md](../ui_web/MVP_CUSTOMER_ORDER_SHIPPING_ACCEPTANCE.md).
 
 # CẨM NANG ĐẶC TẢ GIAO DIỆN & HỢP ĐỒNG HỆ THỐNG (API & CONTRACTS SPECIFICATIONS)
 ## HỆ SINH THÁI THƯƠNG MẠI ĐIỆN TỬ & CHUỖI CUNG ỨNG ĐẶC SẢN OCOP HUẾ (MÈ XỬNG O MẠ)

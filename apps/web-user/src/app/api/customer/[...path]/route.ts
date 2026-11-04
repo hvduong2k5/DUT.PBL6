@@ -1,3 +1,4 @@
+import { hasTrustedOrigin } from "@/lib/auth/request-origin";
 import {
   normalizePublicError,
   parseStrongVersionEtag,
@@ -10,7 +11,7 @@ import {
 } from "@/lib/api-contract";
 import type { CustomerCapability } from "@/lib/auth/capabilities";
 import { authorizeCustomerCapability, customerAccessFailure } from "@/lib/auth/customer-access-server";
-import { applyTrustedAuthorization, getTrustedAccessToken } from "@/lib/auth/server-credential";
+import { applyTrustedSessionCookie, getTrustedSessionCookie } from "@/lib/auth/server-credential";
 import { parseCheckoutLocations } from "@/lib/checkout/locations";
 import { NextRequest } from "next/server";
 
@@ -40,16 +41,7 @@ function isAllowed(method: string, path: string): boolean {
   return DEFAULT_ROUTE.test(path) && (method === "PUT" || method === "PATCH");
 }
 
-function hasTrustedOrigin(request: NextRequest): boolean {
-  const origin = request.headers.get("origin");
-  if (!origin) return true;
-  try {
-    const source = new URL(origin);
-    return source.protocol === request.nextUrl.protocol && source.host === request.nextUrl.host;
-  } catch {
-    return false;
-  }
-}
+
 
 async function readBody<T>(request: NextRequest): Promise<T | undefined> {
   try {
@@ -63,7 +55,7 @@ function headersFor(request: NextRequest, hasBody = false): Headers {
   const headers = new Headers({ Accept: "application/json" });
   const scenario = request.headers.get("x-mock-scenario");
   const ifMatch = request.headers.get("if-match");
-  applyTrustedAuthorization(headers, request);
+  applyTrustedSessionCookie(headers, request);
   if (ifMatch) headers.set("If-Match", ifMatch);
   if (hasBody) headers.set("Content-Type", "application/json");
   if (process.env.NODE_ENV !== "production" && scenario && SCENARIO_PATTERN.test(scenario)) {
@@ -246,10 +238,10 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
     return publicErrorResponse(403, "ORIGIN_NOT_ALLOWED", "Request origin is not allowed.", "BFF-CUSTOMER-ORIGIN");
   }
 
-  const accessToken = getTrustedAccessToken(request);
+  const sessionCookie = getTrustedSessionCookie(request);
   const requiredCapability: CustomerCapability = path === "profile" ? "PROFILE_MANAGE" : "ADDRESS_MANAGE";
   try {
-    await authorizeCustomerCapability(accessToken, requiredCapability);
+    await authorizeCustomerCapability(sessionCookie, requiredCapability);
   } catch (cause) {
     const failure = customerAccessFailure(cause);
     return publicErrorResponse(failure.status, failure.code, failure.message, "BFF-CUSTOMER-ACCESS");

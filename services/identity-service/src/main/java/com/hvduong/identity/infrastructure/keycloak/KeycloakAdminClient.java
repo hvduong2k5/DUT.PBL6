@@ -44,7 +44,9 @@ public class KeycloakAdminClient {
         CredentialRepresentation credential = new CredentialRepresentation();
         credential.setType(CredentialRepresentation.PASSWORD);
         credential.setValue(temporaryPassword);
-        credential.setTemporary(true);
+        // Self-registration chooses the permanent password; invitation flows
+        // must use a separate temporary-credential operation.
+        credential.setTemporary(false);
 
         user.setCredentials(Collections.singletonList(credential));
 

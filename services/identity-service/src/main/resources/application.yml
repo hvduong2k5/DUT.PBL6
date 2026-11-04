@@ -2,6 +2,8 @@ server:
   port: 8016
 
 app:
+  customer-api:
+    gateway-url: ${CUSTOMER_API_GATEWAY_URL:}
   frontend-url: ${FRONTEND_BASE_URL:http://localhost:3000}
   session:
     cookie-secure: ${COOKIE_SECURE:false}
@@ -32,6 +34,8 @@ grpc:
 spring.security.oauth2.resourceserver.jwt.issuer-uri: ${KEYCLOAK_PUBLIC_URL:https://keycloak.omama.vn}/realms/${KEYCLOAK_REALM:omama}
 
 keycloak:
+  mobile-client-id: ${KEYCLOAK_MOBILE_CLIENT_ID:mobile-app}
+  mobile-redirect-uri: ${KEYCLOAK_MOBILE_REDIRECT_URI:}
   server-url: ${KEYCLOAK_SERVER_URL:https://keycloak.omama.vn}
   public-url: ${KEYCLOAK_PUBLIC_URL:${keycloak.server-url}}
   realm: ${KEYCLOAK_REALM:omama}

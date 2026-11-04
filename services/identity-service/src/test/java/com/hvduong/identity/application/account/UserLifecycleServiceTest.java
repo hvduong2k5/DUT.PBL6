@@ -81,7 +81,7 @@ class UserLifecycleServiceTest {
         row.setPrincipalType("EMPLOYEE");
         row.setProvisioningStatus("ACTIVE");
 
-        when(principalMapper.findBySubject(subject)).thenReturn(row);
+        when(principalMapper.findByIssuerAndSubject("https://keycloak.omama.vn/realms/omama", subject)).thenReturn(row);
 
         UUID roleId = UUID.randomUUID();
         IamRoleAssignmentRow assignment = new IamRoleAssignmentRow();
@@ -103,7 +103,7 @@ class UserLifecycleServiceTest {
         permRow.setPermissionCode("STORE_INVENTORY_VIEW");
         when(rolePermissionMapper.findByRoleId(roleId)).thenReturn(List.of(permRow));
 
-        Optional<UserProfileResponse> profile = service.getProfileBySubject(subject, "test@omama.vn");
+        Optional<UserProfileResponse> profile = service.getProfileBySubject("https://keycloak.omama.vn/realms/omama", subject, "test@omama.vn");
 
         assertTrue(profile.isPresent());
         assertEquals(principalId, profile.get().getPrincipalId());
@@ -128,11 +128,11 @@ class UserLifecycleServiceTest {
         row.setPrincipalType("CUSTOMER");
         row.setProvisioningStatus("ACTIVE");
 
-        when(principalMapper.findBySubject(subject)).thenReturn(row);
+        when(principalMapper.findByIssuerAndSubject("https://keycloak.omama.vn/realms/omama", subject)).thenReturn(row);
         when(roleAssignmentMapper.findActiveByPrincipal(eq(principalId), any(OffsetDateTime.class)))
                 .thenReturn(Collections.emptyList());
 
-        Optional<UserProfileResponse> profile = service.getProfileBySubject(subject, "cust@gmail.com");
+        Optional<UserProfileResponse> profile = service.getProfileBySubject("https://keycloak.omama.vn/realms/omama", subject, "cust@gmail.com");
 
         assertTrue(profile.isPresent());
         assertEquals("CUSTOMER", profile.get().getPrincipalType());
@@ -142,11 +142,32 @@ class UserLifecycleServiceTest {
 
     @Test
     void getProfileBySubject_NotFound_ReturnsEmpty() {
-        when(principalMapper.findBySubject("unknown")).thenReturn(null);
+        when(principalMapper.findByIssuerAndSubject("https://keycloak.omama.vn/realms/omama", "unknown")).thenReturn(null);
 
-        Optional<UserProfileResponse> profile = service.getProfileBySubject("unknown", "unknown@omama.vn");
+        Optional<UserProfileResponse> profile = service.getProfileBySubject("https://keycloak.omama.vn/realms/omama", "unknown", "unknown@omama.vn");
 
         assertTrue(profile.isEmpty());
+    }
+
+    @Test
+    void getProfileBySubject_OpenidOnly_ResolvesEmailFromBoundKeycloakAccount() {
+        String issuer = "https://keycloak.omama.vn/realms/omama";
+        String subject = "verified-subject";
+        IdentityPrincipalRow row = new IdentityPrincipalRow();
+        row.setPrincipalId(UUID.randomUUID());
+        row.setIdpSubject(subject);
+        row.setPrincipalType("CUSTOMER");
+        row.setProvisioningStatus("ACTIVE");
+        when(principalMapper.findByIssuerAndSubject(issuer, subject)).thenReturn(row);
+        var account = new org.keycloak.representations.idm.UserRepresentation();
+        account.setEmail("customer@example.test");
+        when(keycloakAdminClient.getUserById(subject)).thenReturn(Optional.of(account));
+
+        var profile = service.getProfileBySubject(issuer, subject, null).orElseThrow();
+
+        assertEquals("customer@example.test", profile.getEmail());
+        assertEquals(row.getPrincipalId(), profile.getPrincipalId());
+        assertTrue(profile.getRoles().isEmpty());
     }
 
     @Test

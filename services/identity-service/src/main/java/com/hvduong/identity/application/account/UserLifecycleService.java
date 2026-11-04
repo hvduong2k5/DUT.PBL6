@@ -9,7 +9,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface UserLifecycleService {
-    Optional<UserProfileResponse> getProfileBySubject(String idpSubject, String email);
+    Optional<UserProfileResponse> getProfileBySubject(String idpIssuer, String idpSubject, String email);
 
     void suspendAccount(UUID principalId, String reason, UUID actorPrincipalId);
 

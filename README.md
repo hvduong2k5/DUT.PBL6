@@ -19,8 +19,7 @@ Dự án được tổ chức theo cấu trúc **Monorepo** chuẩn mực công 
 │       └── deploy.yml             # Pipeline tự động: Build Docker image & Auto-deploy
 │
 ├── apps/                          # Tầng Trình diễn (Client Applications)
-│   ├── web-user/                  # Website D2C Khách hàng (Next.js 16 App Router, SSR, SEO Schema.org)
-│   ├── web-admin/                 # Web Portal Quản trị & BI Dashboard (React.js / Vite / ECharts / Shadcn UI)
+│   ├── web-user/                  # Unified Web: storefront Customer + không gian Employee tách layout (Next.js 16)
 │   └── mobile-app/                # Ứng dụng Di động Khách hàng (Flutter / React Native)
 │
 ├── services/                      # Tầng Dịch vụ Nghiệp vụ (Microservices - Domain-Driven Design)
@@ -65,8 +64,7 @@ Dự án được tổ chức theo cấu trúc **Monorepo** chuẩn mực công 
 
 | Phân hệ / Tầng | Công nghệ Sử dụng | Ghi chú & Mục đích |
 | :--- | :--- | :--- |
-| **Web Khách Hàng (D2C)** | **Next.js 16 (App Router)**, Tailwind CSS, TypeScript | Server-Side Rendering (SSR), Schema.org JSON-LD, SEO Lighthouse > 95. |
-| **Web Quản Trị (Admin)** | **React.js (Vite)**, Shadcn UI / Ant Design, **ECharts / Recharts** | Dashboard quản lý đơn hàng realtime và trực quan hóa phân tích BI. |
+| **Unified Web** | **Next.js 16 (App Router)**, React, TypeScript | Cùng một ứng dụng triển khai nhưng tách tuyệt đối layout và quyền Customer/Employee; storefront có SSR/SEO, Employee có dashboard/workbench theo permission. |
 | **Ứng Dụng Di Động** | **Flutter** (Dart) / React Native | Đồng bộ giỏ hàng, quét QR thanh toán, nhận thông báo đẩy Firebase FCM. |
 | **API Gateway & BFF** | Node.js (NestJS/Express) hoặc Spring Cloud Gateway | Định tuyến động, Centralized JWT Auth, Redis Rate Limiting, Circuit Breaker. |
 | **Core Microservices** | Node.js (NestJS/TypeScript) / Python FastAPI / Java Spring | Áp dụng mô hình Layered MVC / Clean Architecture (Controller - Service - Repository). |

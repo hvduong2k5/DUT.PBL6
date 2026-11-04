@@ -28,15 +28,7 @@ public class IamAssignmentController implements IamAssignmentApi {
             @RequestBody AssignRoleRequest request,
             @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorId
     ) {
-        UUID assignedBy = null;
-        try {
-            if (actorId != null) {
-                assignedBy = UUID.fromString(actorId);
-            }
-        } catch (Exception ignored) {}
-        if (assignedBy == null) {
-            assignedBy = UUID.fromString("00000000-0000-0000-0000-000000000001");
-        }
+        UUID assignedBy = com.hvduong.identity.security.VerifiedActor.id();
         UUID assignmentId = roleAssignmentService.assignRole(request, assignedBy);
         return ResponseEntity.ok(ApiResponse.success("Gán vai trò cho nhân viên thành công", assignmentId));
     }
@@ -49,13 +41,7 @@ public class IamAssignmentController implements IamAssignmentApi {
             @RequestParam(required = false, defaultValue = "0") long expectedVersion,
             @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorId
     ) {
-        UUID revokedBy = null;
-        try {
-            if (actorId != null) {
-                revokedBy = UUID.fromString(actorId);
-            }
-        } catch (Exception ignored) {}
-
+        UUID revokedBy = com.hvduong.identity.security.VerifiedActor.id();
         boolean revoked = roleAssignmentService.revokeRole(assignmentId, revokedBy, reason, expectedVersion);
         if (revoked) {
             return ResponseEntity.ok(ApiResponse.success("Thu hồi vai trò thành công", null));

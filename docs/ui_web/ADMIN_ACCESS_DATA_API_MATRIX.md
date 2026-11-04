@@ -1,9 +1,9 @@
 # Admin Access Data/API Matrix
 
-**Cập nhật:** 2026-10-02  
-**Backlog:** `EPIC_22_Administration.md`  
-**Màn hình:** Employee System Access, Access Review, Role & Permission Catalog  
-**Ứng dụng:** `apps/web-admin`  
+**Cập nhật:** 2026-10-02
+**Backlog:** `EPIC_22_Administration.md`
+**Màn hình:** Employee System Access, Access Review, Role & Permission Catalog
+**Ứng dụng:** `apps/web-user`
 **Mock Admin:** `mocks/mockoon/admin_extensions.json`, cổng `4030`
 
 **Decision register:** `docs/ui_web/ACCESS_MANAGEMENT_POLICY_DECISIONS.md`. Mutation đang tạm gác cho đến khi các mục `Chưa chốt` liên quan được duyệt.
@@ -56,14 +56,17 @@
 
 ## Chạy local
 
+> `ADMIN_MOCK_PROFILE` chỉ chọn dữ liệu fixture upstream. Quyền truy cập thực tế lấy từ tài khoản `EMPLOYEE` và mảng `permissions` do Identity Service trả về; đổi profile Mockoon không cấp thêm quyền.
+
+
 ```powershell
-# apps/web-admin/.env.local
+# apps/web-user/.env.local
 ADMIN_API_UPSTREAM_URL=http://127.0.0.1:4030/api/v1
-ADMIN_MOCK_ROLE=SYSTEM_ADMIN
+ADMIN_MOCK_PROFILE=SYSTEM_ADMIN
 
 npx @mockoon/cli start --disable-log-to-file --data .\mocks\mockoon\admin_extensions.json
-cd apps\web-admin
+cd apps\web-user
 npm run dev
 ```
 
-Các màn hình nằm tại `http://localhost:3001/administration/employees`, `/administration/roles` và `/administration/permissions`.
+Các màn hình nằm tại `http://localhost:3000/admin/administration/employees`, `/admin/administration/roles` và `/admin/administration/permissions`.

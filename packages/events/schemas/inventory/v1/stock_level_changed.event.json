@@ -1,0 +1,14 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "StockChangedEvent",
+  "description": "Complete sellable-stock snapshot published by Inventory after a change that can affect sellability. Topic: inventory.stock-changed.v1. Partition Key: sku_code.",
+  "type": "object",
+  "required": ["sku_code", "sellable_quantity", "inventory_version", "source_updated_at"],
+  "properties": {
+    "sku_code": { "type": "string", "minLength": 1 },
+    "sellable_quantity": { "type": "integer", "minimum": 0, "description": "Authoritative quantity that may be sold after reservations, expiry and quarantine rules." },
+    "inventory_version": { "type": "integer", "minimum": 0, "description": "Monotonically increasing version per SKU; Catalog writes only a newer version." },
+    "source_updated_at": { "type": "string", "format": "date-time", "description": "Time represented by this Inventory snapshot." }
+  },
+  "additionalProperties": false
+}
