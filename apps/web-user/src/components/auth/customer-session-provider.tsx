@@ -62,7 +62,7 @@ export function CustomerSessionProvider({ children }: { children: ReactNode }) {
         : customerIdentity
           ? "authenticated"
           : "forbidden";
-  const customerAccess = Boolean(customerIdentity);
+  const customerAccess = Boolean(customerIdentity?.customerId);
   const principal = useMemo<PrincipalSummary | null>(() => customerIdentity ? {
     principalId: customerIdentity.principalId,
     principalType: "CUSTOMER",
@@ -70,13 +70,13 @@ export function CustomerSessionProvider({ children }: { children: ReactNode }) {
     email: customerIdentity.email,
     roles: customerIdentity.roles,
     permissions: customerIdentity.permissions,
-    customerId: customerIdentity.principalId
+    customerId: customerIdentity.customerId
   } : null, [customerIdentity]);
-  const customer = useMemo<CustomerSummary | null>(() => customerIdentity ? {
-    id: customerIdentity.principalId,
+  const customer = useMemo<CustomerSummary | null>(() => customerIdentity?.customerId ? {
+    id: customerIdentity.customerId,
     displayName: customerIdentity.displayName,
     email: customerIdentity.email,
-    status: "ACTIVE"
+    status: customerIdentity.customerStatus ?? "ACTIVE"
   } : null, [customerIdentity]);
 
   useEffect(() => {

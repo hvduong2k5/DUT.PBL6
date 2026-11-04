@@ -1,6 +1,8 @@
 import type { PrincipalRole, PrincipalType } from "./types";
 
 export interface IdentityProfile {
+  customerId?: string;
+  customerStatus?: "ACTIVE" | "PENDING_VERIFICATION";
   principalId: string;
   principalType: PrincipalType;
   email: string;

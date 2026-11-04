@@ -20,6 +20,11 @@ import lombok.extern.slf4j.Slf4j;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(org.springframework.web.server.ResponseStatusException.class)
+    public ResponseEntity<ApiResponse<Void>> handleUnavailable(org.springframework.web.server.ResponseStatusException ex) {
+        return ResponseEntity.status(ex.getStatusCode()).body(ApiResponse.error("SERVICE_UNAVAILABLE", "Chức năng tạm thời chưa khả dụng."));
+    }
+
     @ExceptionHandler(NoSuchElementException.class)
     public ResponseEntity<ApiResponse<Void>> handleNotFound(NoSuchElementException ex) {
         log.warn("Resource not found: {}", ex.getMessage());

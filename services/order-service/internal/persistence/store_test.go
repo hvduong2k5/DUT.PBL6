@@ -208,8 +208,19 @@ func prepared(t *testing.T, h *harness, index int) (Acceptance, Placement) {
 
 func TestMigrationUpgradePreservesLegacy(t *testing.T) {
 	h := database(t, true)
-	if h.count(t, "SELECT count(*) FROM orders WHERE cohort='sandbox-3.1'") != 1 || h.count(t, "SELECT count(*) FROM order_migrations") != 6 {
+	if h.count(t, "SELECT count(*) FROM orders WHERE cohort='sandbox-3.1'") != 1 || h.count(t, "SELECT count(*) FROM order_migrations WHERE version=7") != 1 {
 		t.Fatal("legacy migration compatibility")
+	}
+	var accepted, updated time.Time
+	if err := h.db.QueryRow(h.ctx, "SELECT accepted_at,updated_at FROM checkout_operations WHERE cohort='sandbox-3.1'").Scan(&accepted, &updated); err != nil || !accepted.Equal(updated) {
+		t.Fatal("legacy operation timestamp must retain its known acceptance time", err)
+	}
+	if _, err := h.db.Exec(h.ctx, "UPDATE checkout_operations SET attempts=attempts+1 WHERE cohort='sandbox-3.1'"); err != nil {
+		t.Fatal(err)
+	}
+	var next time.Time
+	if err := h.db.QueryRow(h.ctx, "SELECT updated_at FROM checkout_operations WHERE cohort='sandbox-3.1'").Scan(&next); err != nil || !next.After(updated) {
+		t.Fatal("operation mutation must advance the durable projection timestamp", err)
 	}
 	if _, err := h.db.Exec(h.ctx, "UPDATE orders SET version=version+1 WHERE cohort='sandbox-3.1'"); err != nil {
 		t.Fatal("legacy historical association was constrained", err)

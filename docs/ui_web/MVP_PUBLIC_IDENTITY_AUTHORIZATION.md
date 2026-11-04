@@ -10,7 +10,7 @@ Tài liệu này chốt Giai đoạn 8 cho Web Customer. Nó mô tả trust boun
 | Public customer baseline | `2d7737b2b6112456cec3cdf9090833ceb38fcc3e` |
 | Frontend implementation | `feature/ui-web` |
 
-Identity quyết định OIDC/JWT được xác minh tại Gateway. Web hiện vẫn bọc auth runtime qua same-origin BFF và cookie HttpOnly; việc thay login proxy hiện tại bằng Authorization Code + PKCE cần contract/runtime riêng, không được frontend tự suy diễn trong giai đoạn này.
+Lát cắt [Web–Identity–Gateway](./WEB_IDENTITY_GATEWAY_INTEGRATION.md) bổ sung chế độ OIDC Authorization Code + PKCE, cookie HttpOnly, principal→Customer mapping và capability projection. Gateway chuyển Bearer token và loại header giả; Identity/Profile/Order tự xác minh JWT/JWKS/audience tại service. Các mục dưới đây mô tả boundary chung; acceptance toàn bộ luồng mua hàng vẫn PENDING.
 
 ## 2. Trust boundary
 

@@ -18,5 +18,5 @@ public interface RegistrationApi {
 
     @Operation(summary = "Đăng ký tài khoản Khách hàng [Chuẩn RESTful 3.3.1]", description = "Đăng ký tài khoản D2C với Idempotency Key, đồng bộ Keycloak và Outbox Event qua POST /api/v1/public/customer-registrations.")
     @PostMapping
-    ResponseEntity<ApiResponse<RegistrationResponse>> registerCustomer(@RequestBody RegistrationRequest request);
+    ResponseEntity<ApiResponse<RegistrationResponse>> registerCustomer(@jakarta.validation.Valid @RequestBody RegistrationRequest request);
 }

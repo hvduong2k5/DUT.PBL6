@@ -19,6 +19,7 @@ import (
 	"github.com/omamx/order-service/internal/domain"
 	"github.com/omamx/order-service/internal/persistence"
 	"github.com/omamx/order-service/internal/sepay"
+	"github.com/omamx/order-service/internal/shippingprovider"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/redis/go-redis/v9"
 	"github.com/segmentio/kafka-go"
@@ -71,6 +72,7 @@ func LoadConfig() (Config, error) {
 }
 
 type Service struct {
+	Shipping             *shippingprovider.Adapter
 	Identity             *CustomerIdentity
 	CoreCheckout         *persistence.CheckoutRuntime
 	PaymentVault         persistence.EvidenceVault
@@ -239,15 +241,22 @@ func (s *Service) Resolve(ctx context.Context, p domain.Principal) (domain.Princ
 			return p, domain.E("IDENTITY_RESOLUTION_UNAVAILABLE", 503)
 		}
 		defer resp.Body.Close()
+		if resp.StatusCode == 403 || resp.StatusCode == 404 {
+			return p, domain.E("CUSTOMER_FORBIDDEN", 403)
+		}
 		if resp.StatusCode != 200 {
 			return p, domain.E("IDENTITY_RESOLUTION_UNAVAILABLE", 503)
 		}
 		var v struct {
 			ID     string `json:"id"`
 			UserID string `json:"user_id"`
+			Status string `json:"status"`
 		}
 		if e = json.NewDecoder(resp.Body).Decode(&v); e != nil || v.UserID != p.ID {
 			return p, domain.E("IDENTITY_RESOLUTION_UNAVAILABLE", 503)
+		}
+		if s.C.AuthMode == "keycloak" && v.Status != "ACTIVE" {
+			return p, domain.E("CUSTOMER_VERIFICATION_REQUIRED", 403)
 		}
 		p.CustomerID = v.ID
 	} else {

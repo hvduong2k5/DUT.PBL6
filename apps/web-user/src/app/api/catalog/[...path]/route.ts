@@ -10,6 +10,7 @@ import { mapCatalogCategoriesResponse } from "@/lib/catalog/mvp";
 import { parseCatalogQuery, toPublicCatalogQuery } from "@/lib/catalog/query";
 import { parseProductDetailRequest, toProductDetailUpstreamPath } from "@/lib/product-detail/validation";
 import { NextRequest } from "next/server";
+import { usesIdentityBff } from "@/lib/auth/oidc-config";
 
 export const dynamic = "force-dynamic";
 
@@ -132,7 +133,7 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
 
   const scenario = isDetailPath ? detailValidation?.mockScenario : request.nextUrl.searchParams.get("mockScenario") ?? undefined;
   const headers = upstreamHeaders(scenario);
-  const upstreamBase = (process.env.CUSTOMER_CORE_UPSTREAM_URL ?? "http://127.0.0.1:4010/api/v1").replace(/\/$/u, "");
+  const upstreamBase = ((usesIdentityBff() ? process.env.IDENTITY_UPSTREAM_URL : process.env.CUSTOMER_CORE_UPSTREAM_URL) ?? "http://127.0.0.1:4010/api/v1").replace(/\/$/u, "");
 
   try {
     if (path === "discovery-config") {

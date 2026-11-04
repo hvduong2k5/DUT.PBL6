@@ -1,3 +1,4 @@
+import { hasTrustedOrigin } from "@/lib/auth/request-origin";
 import {
   isValidIdempotencyKey,
   normalizePublicError,
@@ -6,7 +7,7 @@ import {
   type PublicErrorBody
 } from "@/lib/api-contract";
 import { authorizeCustomerCapability, customerAccessFailure } from "@/lib/auth/customer-access-server";
-import { applyTrustedSessionCookie, getTrustedSessionCookie } from "@/lib/auth/server-credential";
+import { applyTrustedAuthorization, getTrustedAccessToken } from "@/lib/auth/server-credential";
 import { MVP_FEATURE_GATES } from "@/lib/mvp-feature-gates";
 import {
   parseMvpCheckoutRoute,
@@ -21,16 +22,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function hasTrustedOrigin(request: NextRequest): boolean {
-  const origin = request.headers.get("origin");
-  if (!origin) return true;
-  try {
-    const source = new URL(origin);
-    return source.protocol === request.nextUrl.protocol && source.host === request.nextUrl.host;
-  } catch {
-    return false;
-  }
-}
+
 
 async function readJsonBody(request: NextRequest): Promise<unknown> {
   try {
@@ -52,8 +44,8 @@ function publicErrorResponse(
 }
 
 function upstreamHeaders(request: NextRequest, scenario?: string, hasBody = false, idempotencyKey?: string): Headers {
-  const headers = new Headers({ Accept: "application/json" });
-  applyTrustedSessionCookie(headers, request);
+  const headers = new Headers({ Accept: "application/vnd.omama.customer-mvp+json, application/json" });
+  applyTrustedAuthorization(headers, request);
   if (hasBody) headers.set("Content-Type", "application/json");
   if (idempotencyKey) headers.set("Idempotency-Key", idempotencyKey);
   if (process.env.NODE_ENV !== "production" && scenario) headers.set("X-Mock-Scenario", scenario);
@@ -171,9 +163,9 @@ export async function handleCheckoutRequest(request: NextRequest, path: string[]
     return publicErrorResponse(400, "INVALID_REQUEST", "Mock scenario không khả dụng trong production.", "BFF-CHECKOUT-SCENARIO");
   }
 
-  const sessionCookie = getTrustedSessionCookie(request);
+  const accessToken = getTrustedAccessToken(request);
   try {
-    await authorizeCustomerCapability(sessionCookie, "CHECKOUT_CREATE");
+    await authorizeCustomerCapability(accessToken, "CHECKOUT_CREATE");
   } catch (cause) {
     const failure = customerAccessFailure(cause);
     return publicErrorResponse(failure.status, failure.code, failure.message, "BFF-CHECKOUT-ACCESS");

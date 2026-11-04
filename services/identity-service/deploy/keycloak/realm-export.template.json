@@ -22,15 +22,13 @@
     {
       "clientId": "frontend-web",
       "enabled": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
       "clientAuthenticatorType": "client-secret",
       "redirectUris": [
-        "https://omama.vn/*",
-        "https://api.omama.vn/*",
-        "http://localhost:8016/*",
-        "http://127.0.0.1:8016/*",
-        "http://localhost:3000/*",
-        "http://localhost:3001/*",
-        "omama://*"
+          "https://api.omama.vn/api/v1/public/auth/callback",
+          "http://localhost:8016/api/v1/public/auth/callback",
+          "http://127.0.0.1:8016/api/v1/public/auth/callback"
       ],
       "webOrigins": [
         "+"
@@ -38,7 +36,8 @@
       "publicClient": true,
       "protocol": "openid-connect",
       "attributes": {
-        "pkce.code.challenge.method": "S256"
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "https://omama.vn/api/auth/oidc/logged-out"
       },
       "defaultClientScopes": [
         "web-origins",
@@ -63,6 +62,23 @@
         "profile",
         "roles",
         "email"
+      ],
+      "protocolMappers": [
+        {
+          "name": "realm-management-roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-client-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "usermodel.clientRoleMapping.clientId": "realm-management",
+            "claim.name": "resource_access.realm-management.roles",
+            "jsonType.label": "String",
+            "multivalued": "true",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "userinfo.token.claim": "false"
+          }
+        }
       ]
     }
   ],

@@ -16,6 +16,10 @@ import (
 
 func (s *Service) Registry() *prometheus.Registry { return s.register }
 func (s *Service) Start(ctx context.Context) {
+	if s.Shipping != nil && s.CoreCheckout != nil && s.C.Kafka != "" {
+		s.stop.Add(1)
+		go s.consumeShipping(ctx)
+	}
 	if s.CoreCheckout != nil {
 		s.startPaymentLoop(ctx, s.C.Poll, "target checkout retry", func(ctx context.Context) error { _, e := s.CoreCheckout.Work(ctx); return e })
 	}

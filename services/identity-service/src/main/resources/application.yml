@@ -2,6 +2,8 @@ server:
   port: 8016
 
 app:
+  customer-api:
+    gateway-url: ${CUSTOMER_API_GATEWAY_URL:}
   frontend-url: ${FRONTEND_BASE_URL:http://localhost:3000}
   session:
     cookie-secure: ${COOKIE_SECURE:false}

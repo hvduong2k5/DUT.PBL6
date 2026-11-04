@@ -21,6 +21,10 @@ describe("Checkout route allowlist", () => {
 });
 
 describe("Checkout request validation", () => {
+  it("accepts the UUID v7 address IDs produced by Profile", () => {
+    expect(validateMvpQuoteRequest({ cart_revision: 3, payment_method: "VIETQR", shipping_address_id: "0191a27a-1216-7cdf-b7e1-d867e51d7f1b" }).errors).toEqual([]);
+    expect(validateMvpQuoteRequest({ cart_revision: 3, payment_method: "VIETQR", shipping_address_id: "not-an-address-id" }).errors[0].field).toBe("shipping_address_id");
+  });
   it("requires exactly one shipping address representation for an MVP quote", () => {
     const inlineAddress = { recipient_name: "Nguyễn Văn An", phone: "0914288668", street: "84 Nguyễn Huệ", ward_code: "WARD-1", province_code: "PROVINCE-1" };
     expect(validateMvpQuoteRequest({ cart_revision: 3, payment_method: "VIETQR", address: inlineAddress }).errors).toEqual([]);

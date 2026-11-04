@@ -83,7 +83,7 @@ func (v *CustomerIdentity) Authenticate(ctx context.Context, bearer string) (dom
 			return nil, errors.New("missing key ID")
 		}
 		return v.key(ctx, kid)
-	}, jwt.WithValidMethods([]string{"RS256"}), jwt.WithIssuer(v.issuer), jwt.WithAudience(v.audience), jwt.WithExpirationRequired(), jwt.WithIssuedAt())
+	}, jwt.WithValidMethods([]string{"RS256"}), jwt.WithIssuer(v.issuer), jwt.WithAudience(v.audience), jwt.WithExpirationRequired(), jwt.WithIssuedAt(), jwt.WithLeeway(5*time.Second))
 	if err != nil || !token.Valid || claims.Subject == "" || claims.Type != "Bearer" || claims.IssuedAt == nil {
 		return domain.Principal{}, denied
 	}

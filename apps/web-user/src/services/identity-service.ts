@@ -1,4 +1,4 @@
-import { parseIdentityProfile, parseIdentitySession, type IdentityProfile } from "@/lib/auth/identity";
+import { type IdentityProfile } from "@/lib/auth/identity";
 import { AuthApiError, type ApiErrorBody } from "@/lib/auth/types";
 
 export const IDENTITY_API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8016/api/v1").replace(/\/$/u, "");
@@ -21,16 +21,16 @@ async function request(path: string, init: RequestInit = {}): Promise<unknown> {
 
 export const identityService = {
   async currentProfile(): Promise<IdentityProfile | null> {
-    const session = parseIdentitySession(await request("/public/auth/session"));
-    if (!session) throw new AuthApiError(502, { code: "IDENTITY_SESSION_INVALID", message: "Dữ liệu phiên đăng nhập không đúng contract." });
-    if (!session.authenticated) return null;
-    const profile = parseIdentityProfile(await request("/users/me"));
-    if (!profile) throw new AuthApiError(502, { code: "IDENTITY_PROFILE_INVALID", message: "Hồ sơ định danh không đúng contract." });
-    return profile;
+    const response = await fetch("/api/auth/me", { credentials: "include", cache: "no-store" });
+    if (response.status === 401) return null;
+    if (!response.ok) throw new AuthApiError(response.status, { code: "IDENTITY_UNAVAILABLE", message: "Chưa thể xác minh danh tính." });
+    const session = await response.json();
+    if (session.authenticated !== true || !session.principal) throw new AuthApiError(502, { code: "IDENTITY_PROFILE_INVALID", message: "Hồ sơ định danh không đúng contract." });
+    return { ...session.principal, provisioningStatus: "ACTIVE", email: session.principal.email ?? "", customerId: session.customer?.id, customerStatus: session.customer?.status } as IdentityProfile;
   },
   loginUrl(returnUrl: string) {
-    const url = new URL(`${IDENTITY_API_BASE_URL}/public/auth/login`);
-    url.searchParams.set("redirect_uri", returnUrl);
+    const url = new URL("/api/auth/oidc/login", window.location.origin);
+    url.searchParams.set("returnUrl", new URL(returnUrl, window.location.origin).pathname);
     return url.toString();
   },
   async logout() {

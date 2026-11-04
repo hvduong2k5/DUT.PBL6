@@ -1,5 +1,6 @@
 import { parseCustomerCapabilityProjection, type CustomerCapabilityProjection } from "./capabilities";
 import type { CustomerActor } from "./capabilities";
+import { credentialHeaders } from "./server-credential";
 
 export class CapabilityProjectionError extends Error {
   constructor(readonly status: number, message: string) {
@@ -8,10 +9,10 @@ export class CapabilityProjectionError extends Error {
   }
 }
 
-export async function fetchCustomerCapabilities(sessionCookie?: string): Promise<CustomerCapabilityProjection> {
+export async function fetchCustomerCapabilities(accessToken?: string): Promise<CustomerCapabilityProjection> {
   const base = (process.env.CUSTOMER_EXTENSIONS_UPSTREAM_URL ?? "http://127.0.0.1:4020/api/v1").replace(/\/$/u, "");
-  const headers = new Headers({ Accept: "application/json", "X-Customer-Actor": resolveMockCustomerActor(sessionCookie) });
-  if (sessionCookie) headers.set("Cookie", `OMAMA_SESSION=${sessionCookie}`);
+  const headers = new Headers({ Accept: "application/json", "X-Customer-Actor": resolveMockCustomerActor(accessToken) });
+  credentialHeaders(headers, accessToken);
   const response = await fetch(`${base}/customer/capabilities`, { headers, cache: "no-store", redirect: "manual" });
   if (!response.ok) throw new CapabilityProjectionError(response.status, "Không thể tải quyền Customer.");
   const projection = parseCustomerCapabilityProjection(await response.json());
@@ -19,8 +20,8 @@ export async function fetchCustomerCapabilities(sessionCookie?: string): Promise
   return projection;
 }
 
-export function resolveMockCustomerActor(sessionCookie?: string): CustomerActor {
-  if (!sessionCookie) return "GUEST";
+export function resolveMockCustomerActor(accessToken?: string): CustomerActor {
+  if (!accessToken) return "GUEST";
   const configured = process.env.CUSTOMER_MOCK_ACTOR;
   if (process.env.NODE_ENV !== "production" && configured && ["REGISTERED", "B2B", "MARKETPLACE", "OFFLINE"].includes(configured)) return configured as CustomerActor;
   return "REGISTERED";

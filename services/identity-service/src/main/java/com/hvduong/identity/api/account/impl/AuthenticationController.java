@@ -3,7 +3,6 @@ package com.hvduong.identity.api.account.impl;
 import com.hvduong.identity.api.account.AuthenticationApi;
 import com.hvduong.identity.application.account.AuthenticationService;
 import com.hvduong.identity.dto.common.ApiResponse;
-import com.hvduong.identity.dto.response.AuthTokenResponse;
 import com.hvduong.identity.dto.response.AuthUrlResponse;
 import com.hvduong.identity.dto.response.BffCallbackResult;
 import com.hvduong.identity.dto.response.SessionResponse;
@@ -13,14 +12,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.net.URI;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.UUID;
 
 @Slf4j
@@ -48,36 +45,28 @@ public class AuthenticationController implements AuthenticationApi {
             String contentType
     ) {
         AuthUrlResponse response = authenticationService.initiateLogin(redirectUri, provider);
+        String bindingCookie = buildCookie("OMAMA_AUTH_STATE", response.getState(), Duration.ofMinutes(10)).toString();
 
-        boolean wantsJson = isJsonRequested(format, acceptHeader, contentType);
+        boolean wantsJson = "json".equalsIgnoreCase(format)
+                || (contentType != null && contentType.contains(org.springframework.http.MediaType.APPLICATION_JSON_VALUE))
+                || (acceptHeader != null && acceptHeader.contains(org.springframework.http.MediaType.APPLICATION_JSON_VALUE) 
+                    && !acceptHeader.contains(org.springframework.http.MediaType.TEXT_HTML_VALUE));
 
         if (wantsJson) {
-            return ResponseEntity.ok(ApiResponse.success("Khởi tạo đăng nhập thành công", response));
+            return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, bindingCookie)
+                    .body(ApiResponse.success("Khởi tạo đăng nhập thành công", response));
         }
 
         return ResponseEntity.status(HttpStatus.FOUND)
+                .header(HttpHeaders.SET_COOKIE, bindingCookie)
                 .location(URI.create(response.getAuthorizationUrl()))
                 .build();
     }
 
     @Override
-    public ResponseEntity<?> handleCallback(
-            String code, 
-            String state, 
-            String error, 
-            String errorDescription,
-            String format,
-            String acceptHeader,
-            String contentType
-    ) {
-        boolean wantsJson = isJsonRequested(format, acceptHeader, contentType);
-
+    public ResponseEntity<?> handleCallback(String code, String state, String error, String errorDescription) {
         if (error != null) {
             log.warn("OAuth2 callback received error from IdP: {} - {}", error, errorDescription);
-            if (wantsJson) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body(ApiResponse.error(error, errorDescription != null ? errorDescription : "Đăng nhập thất bại tại Identity Provider."));
-            }
             String errorRedirect = authenticationService.resolveErrorRedirectUri(state, error, errorDescription);
             return ResponseEntity.status(HttpStatus.FOUND)
                     .location(URI.create(errorRedirect))
@@ -90,35 +79,12 @@ public class AuthenticationController implements AuthenticationApi {
         }
 
         BffCallbackResult result = authenticationService.handleCallback(code, state);
-        BffSession session = result.getSession();
 
-        ResponseCookie cookie = buildSessionCookie(session.getSessionId().toString(), Duration.ofDays(30));
-
-        if (wantsJson) {
-            long expiresIn = 0;
-            if (session.getAccessTokenExpiresAt() != null) {
-                expiresIn = Math.max(0, Duration.between(Instant.now(), session.getAccessTokenExpiresAt()).getSeconds());
-            }
-
-            AuthTokenResponse tokenResponse = AuthTokenResponse.builder()
-                    .tokenType("Bearer")
-                    .accessToken(session.getAccessToken())
-                    .refreshToken(session.getRefreshToken())
-                    .expiresIn(expiresIn)
-                    .expiresAt(session.getAccessTokenExpiresAt())
-                    .sessionId(session.getSessionId())
-                    .principalId(session.getPrincipalId())
-                    .email(session.getEmail())
-                    .build();
-
-            return ResponseEntity.ok()
-                    .header(HttpHeaders.SET_COOKIE, cookie.toString())
-                    .body(ApiResponse.success("Đăng nhập thành công", tokenResponse));
-        }
+        ResponseCookie cookie = buildSessionCookie(result.getSession().getSessionId().toString(), Duration.ofDays(30));
 
         return ResponseEntity.status(HttpStatus.FOUND)
                 .location(URI.create(result.getRedirectUri()))
-                .header(HttpHeaders.SET_COOKIE, cookie.toString())
+                .header(HttpHeaders.SET_COOKIE, cookie.toString(), buildCookie("OMAMA_AUTH_STATE", "", Duration.ZERO).toString())
                 .build();
     }
 
@@ -138,12 +104,11 @@ public class AuthenticationController implements AuthenticationApi {
 
         BffSession session = authenticationService.refreshSession(sessionId);
         SessionResponse response = SessionResponse.builder()
-                .sessionId(session.getSessionId())
+                .sessionId(session.getPublicId())
                 .principalId(session.getPrincipalId())
                 .email(session.getEmail())
                 .isAuthenticated(true)
                 .expiresAt(session.getAccessTokenExpiresAt())
-                .accessToken(session.getAccessToken())
                 .build();
 
         return ResponseEntity.ok(ApiResponse.success("Làm mới phiên làm việc thành công", response));
@@ -163,15 +128,12 @@ public class AuthenticationController implements AuthenticationApi {
                 .body(ApiResponse.success("Đăng xuất thành công", null));
     }
 
-    private boolean isJsonRequested(String format, String acceptHeader, String contentType) {
-        return "json".equalsIgnoreCase(format)
-                || (contentType != null && contentType.contains(MediaType.APPLICATION_JSON_VALUE))
-                || (acceptHeader != null && acceptHeader.contains(MediaType.APPLICATION_JSON_VALUE) 
-                    && !acceptHeader.contains(MediaType.TEXT_HTML_VALUE));
+    private ResponseCookie buildSessionCookie(String value, Duration maxAge) {
+        return buildCookie("OMAMA_SESSION", value, maxAge);
     }
 
-    private ResponseCookie buildSessionCookie(String value, Duration maxAge) {
-        ResponseCookie.ResponseCookieBuilder builder = ResponseCookie.from("OMAMA_SESSION", value)
+    private ResponseCookie buildCookie(String name, String value, Duration maxAge) {
+        ResponseCookie.ResponseCookieBuilder builder = ResponseCookie.from(name, value)
                 .httpOnly(true)
                 .secure(cookieSecure)
                 .path("/")

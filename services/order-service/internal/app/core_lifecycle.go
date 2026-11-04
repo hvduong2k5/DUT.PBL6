@@ -55,8 +55,14 @@ func (s *Service) setCoreHold(ctx context.Context, p domain.Principal, id string
 
 func (s *Service) processCoreEvent(ctx context.Context, event domain.Event) (string, error) {
 	var proof persistence.SourceEvidence
-	if e := s.Call(ctx, "GET", "/order-core/resources/"+url.PathEscape(event.ResourceID)+"?source="+url.QueryEscape(event.Source)+"&version="+strconv.FormatInt(event.Version, 10), nil, &proof); e != nil {
-		return "", e
+	var err error
+	if event.Source == "shipping" && s.Shipping != nil {
+		proof, err = s.Shipping.Revision(ctx, event.ResourceID, event.Version)
+	} else {
+		err = s.Call(ctx, "GET", "/order-core/resources/"+url.PathEscape(event.ResourceID)+"?source="+url.QueryEscape(event.Source)+"&version="+strconv.FormatInt(event.Version, 10), nil, &proof)
+	}
+	if err != nil {
+		return "", err
 	}
 	status, e := s.CoreCheckout.Store.ApplySource(ctx, event, proof)
 	return status, coreFailure(e)

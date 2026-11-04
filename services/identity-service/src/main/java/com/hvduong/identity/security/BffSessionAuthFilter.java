@@ -12,6 +12,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -29,9 +30,37 @@ public class BffSessionAuthFilter extends OncePerRequestFilter {
     @Lazy
     private final AuthenticationService authenticationService;
 
+    @Value("${app.frontend-url:http://localhost:3000}")
+    private String frontendUrl;
+
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
+
+        response.setHeader("Cache-Control", "no-store");
+        if (request.getRequestURI().equals("/api/v1/public/auth/callback")) {
+            String binding = cookie(request, "OMAMA_AUTH_STATE");
+            String state = request.getParameter("state");
+            if (binding == null || state == null || !java.security.MessageDigest.isEqual(
+                    binding.getBytes(java.nio.charset.StandardCharsets.UTF_8), state.getBytes(java.nio.charset.StandardCharsets.UTF_8))) {
+                reject(response, 400, "INVALID_AUTH_STATE");
+                return;
+            }
+        }
+        if (extractSessionCookie(request) != null && !Set.of("GET", "HEAD", "OPTIONS").contains(request.getMethod())) {
+            String origin = request.getHeader("Origin");
+            try {
+                java.net.URI source = java.net.URI.create(origin == null ? "" : origin);
+                java.net.URI allowed = java.net.URI.create(frontendUrl);
+                if (!Objects.equals(source.getScheme(), allowed.getScheme()) || !Objects.equals(source.getAuthority(), allowed.getAuthority())) {
+                    reject(response, 403, "ORIGIN_NOT_ALLOWED");
+                    return;
+                }
+            } catch (IllegalArgumentException ex) {
+                reject(response, 403, "ORIGIN_NOT_ALLOWED");
+                return;
+            }
+        }
 
         String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
         if (authHeader != null && authHeader.toLowerCase().startsWith("bearer ")) {
@@ -99,9 +128,21 @@ public class BffSessionAuthFilter extends OncePerRequestFilter {
     }
 
     private String extractSessionCookie(HttpServletRequest request) {
+        return cookie(request, "OMAMA_SESSION");
+    }
+
+    private void reject(HttpServletResponse response, int status, String code) throws IOException {
+        // sendError dispatches through /error, where anonymous security can
+        // incorrectly replace this explicit 400/403 with a 401.
+        response.setStatus(status);
+        response.setContentType("application/json");
+        response.getWriter().write("{\"success\":false,\"code\":\"" + code + "\"}");
+    }
+
+    private String cookie(HttpServletRequest request, String name) {
         if (request.getCookies() == null) return null;
         for (Cookie cookie : request.getCookies()) {
-            if ("OMAMA_SESSION".equals(cookie.getName())) {
+            if (name.equals(cookie.getName())) {
                 return cookie.getValue();
             }
         }

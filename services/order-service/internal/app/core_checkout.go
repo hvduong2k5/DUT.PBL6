@@ -57,7 +57,7 @@ func (s *Service) EnableCoreCheckout() error {
 		return errors.New("ORDER_MERCHANT_ID must be a stable UUID")
 	}
 	s.CoreCheckout = &persistence.CheckoutRuntime{Store: s.Payment.Store, Source: coreSource{s}, Inventory: inventory}
-	return nil
+	return s.EnableShippingFromEnv(context.Background())
 }
 func (s *Service) coreQuote(ctx context.Context, p domain.Principal, q domain.Quote) (domain.Quote, error) {
 	if p.Role == "GUEST" && q.Method == "VIETQR" && s.Payment.GrantKey == nil {

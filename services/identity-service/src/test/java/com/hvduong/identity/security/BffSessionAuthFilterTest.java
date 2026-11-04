@@ -48,7 +48,28 @@ class BffSessionAuthFilterTest {
     @BeforeEach
     void setUp() {
         request = new MockHttpServletRequest();
+        request.setMethod("GET");
         response = new MockHttpServletResponse();
+    }
+
+    @Test
+    void cookieMutationWithoutTrustedOriginIsRejectedBeforeSessionLookup() throws Exception {
+        request.setMethod("POST");
+        request.setCookies(new Cookie("OMAMA_SESSION", UUID.randomUUID().toString()));
+        org.springframework.test.util.ReflectionTestUtils.setField(bffSessionAuthFilter, "frontendUrl", "https://omama.vn");
+        bffSessionAuthFilter.doFilterInternal(request, response, filterChain);
+        assertThat(response.getStatus()).isEqualTo(403);
+        verifyNoInteractions(filterChain, bffSessionStore);
+    }
+
+    @Test
+    void callbackRequiresStateBoundToTheSameBrowser() throws Exception {
+        request.setRequestURI("/api/v1/public/auth/callback");
+        request.setParameter("state", "attacker-state");
+        request.setCookies(new Cookie("OMAMA_AUTH_STATE", "victim-state"));
+        bffSessionAuthFilter.doFilterInternal(request, response, filterChain);
+        assertThat(response.getStatus()).isEqualTo(400);
+        verifyNoInteractions(filterChain, bffSessionStore);
     }
 
     @Test

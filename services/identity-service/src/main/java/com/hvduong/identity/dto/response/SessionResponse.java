@@ -18,5 +18,5 @@ public class SessionResponse {
     private String email;
     private boolean isAuthenticated;
     private Instant expiresAt;
-    private String accessToken;
 }
+

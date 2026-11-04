@@ -8,10 +8,15 @@ import (
 
 type Config struct {
 	// Server
-	IdentityToken string
-	HTTPPort      string
-	GRPCPort      string
-	LogLevel      string
+	IdentityToken      string
+	AuthMode           string
+	OIDCIssuer         string
+	OIDCAudience       string
+	OIDCJWKSURL        string
+	OIDCAllowLocalHTTP bool
+	HTTPPort           string
+	GRPCPort           string
+	LogLevel           string
 
 	// Database
 	DatabaseURL  string
@@ -48,10 +53,15 @@ type Config struct {
 
 func LoadConfig() *Config {
 	return &Config{
-		IdentityToken: getEnv("PROFILE_INTERNAL_TOKEN", ""),
-		HTTPPort:      getEnv("HTTP_PORT", "8080"),
-		GRPCPort:      getEnv("GRPC_PORT", "50051"),
-		LogLevel:      getEnv("LOG_LEVEL", "info"),
+		IdentityToken:      getEnv("PROFILE_INTERNAL_TOKEN", ""),
+		AuthMode:           getEnv("PROFILE_AUTH_MODE", "internal"),
+		OIDCIssuer:         getEnv("PROFILE_OIDC_ISSUER", ""),
+		OIDCAudience:       getEnv("PROFILE_OIDC_AUDIENCE", ""),
+		OIDCJWKSURL:        getEnv("PROFILE_OIDC_JWKS_URL", ""),
+		OIDCAllowLocalHTTP: getEnvAsBool("PROFILE_OIDC_ALLOW_LOCAL_HTTP", false),
+		HTTPPort:           getEnv("HTTP_PORT", "8080"),
+		GRPCPort:           getEnv("GRPC_PORT", "50051"),
+		LogLevel:           getEnv("LOG_LEVEL", "info"),
 
 		DatabaseURL:  getEnv("DATABASE_URL", "postgres://omamx_user:omamx_password@localhost:5432/profile_db?sslmode=disable"),
 		DBMaxConns:   getEnvAsInt("DB_MAX_CONNS", 50),

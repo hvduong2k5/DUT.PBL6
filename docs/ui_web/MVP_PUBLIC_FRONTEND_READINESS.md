@@ -50,8 +50,8 @@ Bốn public operation còn `GATED` là paid cancellation request, create guest 
 | Dependency | Frontend cần | Trạng thái bàn giao |
 | --- | --- | --- |
 | Public API gateway | `CUSTOMER_CORE_UPSTREAM_URL`; cung cấp đúng public contract được pin. | Chờ backend runtime acceptance. |
-| Identity/session | BFF giữ token trong cookie HttpOnly, xác minh principal qua backend/gateway và không tin identity header từ browser. | Frontend boundary đã hoàn tất; chờ E2E với runtime thật. |
-| Customer capability projection | `CUSTOMER_EXTENSIONS_UPSTREAM_URL`; BFF hiện dùng để xác nhận capability Customer. | Cần duy trì cho đến khi capability được hợp nhất vào Identity/gateway. |
+| Identity/session | OIDC PKCE, BFF giữ token HttpOnly; Identity tra issuer/subject/principal, Profile tra Customer và từng service kiểm JWT. | Có [lát cắt Web→Identity→Profile→Cart](./WEB_IDENTITY_GATEWAY_INTEGRATION.md) kiểm trên runtime thật; full purchase E2E còn PENDING. |
+| Customer capability projection | `/api/v1/customer/capabilities` qua cùng Gateway; Profile xác minh token và Customer ACTIVE. | Đã có support contract và provider; capability không bật provider/release gate chưa nghiệm thu. |
 | Catalog/Profile/Order/Payment providers | DTO, ETag/version, idempotency và error mapping đúng contract. | Registry owning-service acceptance còn `PENDING`. |
 | Locations | Danh sách tỉnh/thành và phường/xã phục vụ form địa chỉ. | Support API ngoài 30-operation target; backend phải công bố contract/runtime riêng. |
 
