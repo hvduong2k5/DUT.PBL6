@@ -1,5 +1,11 @@
 # Customer Mobile — parity baseline and MVP contract migration
 
+## Current work — Identity auth integration, approved 2026-11-04
+
+LARGE: supplied prompt_tinh_nang_login_mobile.txt plus the user's authservice branch govern the new auth integration once backend evidence is pinned. [Active M6 task plan and goals](active/M6_IDENTITY_AUTH.md): AUTH-00 intake → AUTH-01 backend contract verification → AUTH-02 persona/session foundations → AUTH-03 native browser/auth lifecycle → AUTH-04 UI/purchase gating → AUTH-05 validation/delivery. M5 local mode stays usable. Only feature/mobile-ui changes/pushes; other branches read-only, no merges or provider deployment.
+
+Current: AUTH-00 complete; AUTH-01 waits for the exact source because remote has no authservice branch; independent AUTH-02 persona policy can proceed. The per-task goal tool is blocked by the old unfinished usageLimited goal; durable goals are in M6 until the runtime permits creation. User requires a checkpoint and wait when reported usage is below13%; no exact usage percentage is currently exposed. Historical M1–M5 scope/evidence below is preserved.
+
 ## Current roadmap — approved planning scope 2026-10-31
 
 Classification: LARGE / contract-driven Mobile migration. The user initially requested a four-step master plan and analysis at each step's entry; later authorized agreed Mobile implementation and autonomous continuation through remaining steps. Each phase has its entry analysis. Work/commit/push only feature/mobile-ui; no merges, PRs or writes to dev/Web.

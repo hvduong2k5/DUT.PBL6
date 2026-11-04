@@ -17,6 +17,11 @@ import 'package:mobile_app/features/auth/data/mock_auth_repository.dart';
 import 'package:mobile_app/features/auth/data/local_auth_repository.dart';
 import 'package:mobile_app/features/auth/data/local_password_hasher.dart';
 import 'package:mobile_app/features/auth/data/rest_auth_repository.dart';
+import 'package:mobile_app/features/auth/data/identity_auth_repository.dart';
+import 'package:mobile_app/features/auth/data/identity_api.dart';
+import 'package:mobile_app/features/auth/data/identity_session_store.dart';
+import 'package:mobile_app/features/auth/data/native_identity_browser.dart';
+import 'package:mobile_app/features/auth/data/identity_purchase_guards.dart';
 import 'package:mobile_app/features/auth/domain/auth_repository.dart';
 import 'package:mobile_app/features/cart/data/in_memory_cart_repository.dart';
 import 'package:mobile_app/features/cart/data/rest_cart_repository.dart';
@@ -110,6 +115,11 @@ abstract final class RepositoryFactory {
     TokenStore? tokenStore,
     bool localMvpCheckout = true,
     LocalPasswordHasher? localPasswordHasher,
+    bool? identityAuth,
+    String? identityBaseUrl,
+    Set<String>? identityAuthorizationOrigins,
+    IdentityBrowser? identityBrowser,
+    IdentitySessionStore? identityStore,
   }) {
     final selectedMode = mode ?? AppConfig.dataSourceMode;
     if (!selectedMode.isRemote) {
@@ -124,23 +134,67 @@ abstract final class RepositoryFactory {
       throw StateError('Remote data source requires a non-empty API base URL.');
     }
     final tokens = tokenStore ?? TokenStore();
-    final client = ApiClient(baseUrl: baseUrl, tokenStore: tokens);
+    final useIdentity =
+        identityAuth ?? const String.fromEnvironment('AUTH_MODE') == 'identity';
+    final identity = useIdentity
+        ? IdentityAuthRepository(
+            api: IdentityApi(
+              baseUri: Uri.parse(
+                identityBaseUrl ??
+                    const String.fromEnvironment('IDENTITY_BASE_URL'),
+              ),
+              allowInsecureLocal: const bool.fromEnvironment(
+                'IDENTITY_ALLOW_HTTP',
+              ),
+            ),
+            store:
+                identityStore ??
+                SecureIdentitySessionStore(
+                  '${identityBaseUrl ?? const String.fromEnvironment('IDENTITY_BASE_URL')}|$baseUrl',
+                ),
+            openBrowser: identityBrowser ?? openNativeIdentityBrowser,
+            authorizationOrigins:
+                identityAuthorizationOrigins ??
+                const String.fromEnvironment(
+                  'IDENTITY_AUTHORIZATION_ORIGINS',
+                ).split(',').where((s) => s.isNotEmpty).toSet(),
+            providers: const String.fromEnvironment(
+              'IDENTITY_PROVIDERS',
+            ).split(',').where((s) => {'google', 'zalo'}.contains(s)).toSet(),
+          )
+        : null;
+    final client = ApiClient(
+      baseUrl: baseUrl,
+      tokenStore: tokens,
+      accessTokenReader: identity?.accessToken,
+      manageCookies: !useIdentity,
+    );
+    if (identity != null) client.recoverSession = identity.refreshSession;
+    final cart = RestCartRepository(client),
+        checkout = RestCheckoutRepository(client);
+    final capabilities = RestCustomerCapabilitiesRepository(client);
     return AppDependencies(
       catalogRepository: RestCatalogRepository(
         RestCatalogRemoteDataSource(client),
       ),
-      cartRepository: RestCartRepository(client),
-      checkoutRepository: RestCheckoutRepository(client),
+      cartRepository: identity == null
+          ? cart
+          : IdentityCartGuard(cart, () => identity.currentUser),
+      checkoutRepository: identity == null
+          ? checkout
+          : IdentityCheckoutGuard(checkout, () => identity.currentUser),
       ordersRepository: RestOrdersRepository(client),
       addressRepository: RestAddressRepository(client),
-      authRepository: RestAuthRepository(client, tokens),
+      authRepository: identity ?? RestAuthRepository(client, tokens),
       // No notification endpoint exists in the supplied contracts.
       notificationsRepository: LocalNotificationsRepository(),
       promotionsRepository: RestPromotionsRepository(client),
       customerAccountRepository: RestCustomerAccountRepository(client),
       guestOrdersRepository: RestGuestOrdersRepository(client),
       supportRepository: RestSupportRepository(client),
-      capabilitiesRepository: RestCustomerCapabilitiesRepository(client),
+      capabilitiesRepository: identity == null
+          ? capabilities
+          : IdentityCapabilitiesGuard(capabilities, () => identity.currentUser),
       traceRepository: RestTraceRepository(client),
       b2bRepository: RestB2bRepository(client),
       reviewsRepository: RestReviewsRepository(client),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mobile_app/features/auth/presentation/purchase_access_banner.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_app/core/theme/app_colors.dart';
@@ -110,6 +111,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
             110,
           ),
           children: [
+            const PurchaseAccessBanner(),
             if (submitting)
               Container(
                 margin: const EdgeInsets.only(bottom: AppSpacing.sm),
@@ -436,7 +438,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   child: AppPrimaryButton(
                     label: 'Đặt Hàng',
                     loading: submitting,
-                    onPressed: cart.items.isEmpty
+                    onPressed:
+                        !context.watch<AuthCubit>().state.canPurchase ||
+                            cart.items.isEmpty
                         ? null
                         : context.read<CheckoutCubit>().submit,
                   ),

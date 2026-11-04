@@ -12,6 +12,8 @@ import 'package:mobile_app/core/widgets/app_navigation_drawer.dart';
 import 'package:mobile_app/features/auth/domain/auth_models.dart';
 import 'package:mobile_app/features/auth/presentation/auth_cubit.dart';
 import 'package:mobile_app/features/cart/presentation/cart_cubit.dart';
+import 'package:mobile_app/features/auth/presentation/purchase_access_banner.dart';
+import 'package:mobile_app/features/auth/presentation/identity_password_page.dart';
 
 class AccountPage extends StatelessWidget {
   const AccountPage({super.key});
@@ -27,6 +29,7 @@ class AccountPage extends StatelessWidget {
           body: ListView(
             padding: const EdgeInsets.all(16),
             children: [
+              const PurchaseAccessBanner(),
               if (authState.sessionRestoreFailed)
                 Card(
                   child: ListTile(
@@ -47,6 +50,19 @@ class AccountPage extends StatelessWidget {
                 _ProfileCard(user: authState.user!),
               if (!isGuest) ...[
                 const SizedBox(height: AppSpacing.lg),
+                if (context.read<AuthCubit>().usesBrowserIdentity)
+                  _MenuRow(
+                    icon: Icons.lock_outline,
+                    label: 'Đổi mật khẩu',
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => BlocProvider.value(
+                          value: context.read<AuthCubit>(),
+                          child: const IdentityPasswordPage(),
+                        ),
+                      ),
+                    ),
+                  ),
                 const _SectionLabel('TÀI KHOẢN'),
                 _MenuRow(
                   icon: Icons.person_outline,
@@ -161,7 +177,11 @@ class _ProfileCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
-                Text(user.phoneNumber),
+                Text(
+                  user.phoneNumber.isEmpty
+                      ? user.email ?? ''
+                      : user.phoneNumber,
+                ),
                 const Text(
                   'Thông tin hồ sơ người dùng',
                   style: TextStyle(fontSize: 11),

@@ -12,6 +12,7 @@ import 'package:mobile_app/features/auth/presentation/auth_cubit.dart';
 import 'package:mobile_app/features/auth/domain/auth_validation.dart';
 import 'package:mobile_app/features/auth/presentation/auth_return_location.dart';
 import 'package:mobile_app/features/auth/presentation/password_checklist.dart';
+import 'identity_auth_page.dart';
 
 class AuthPage extends StatefulWidget {
   const AuthPage({
@@ -97,7 +98,14 @@ class _AuthPageState extends State<AuthPage> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) {
+    if (context.read<AuthCubit>().usesBrowserIdentity) {
+      return IdentityAuthPage(register: widget.register, returnLocation: widget.returnLocation);
+    }
+    return _buildLocal(context);
+  }
+
+  Widget _buildLocal(BuildContext context) => Scaffold(
     appBar: AppMobileHeader(
       title: widget.register ? 'Đăng Ký' : 'Đăng Nhập',
       showBack: true,

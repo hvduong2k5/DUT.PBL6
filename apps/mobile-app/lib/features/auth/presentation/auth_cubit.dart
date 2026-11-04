@@ -4,6 +4,7 @@ import 'package:mobile_app/features/auth/domain/auth_models.dart';
 import 'package:mobile_app/features/auth/domain/auth_repository.dart';
 import 'package:mobile_app/features/auth/domain/auth_validation.dart';
 import 'package:mobile_app/core/network/api_exception.dart';
+import 'package:mobile_app/features/auth/domain/browser_auth_repository.dart';
 
 enum AuthStatus { guest, restoring, submitting, authenticated, failure }
 
@@ -20,6 +21,9 @@ class AuthState extends Equatable {
   final bool sessionRestoreFailed;
   bool get pending =>
       status == AuthStatus.restoring || status == AuthStatus.submitting;
+  bool get canPurchase =>
+      !pending && !sessionRestoreFailed && (user?.canPurchase ?? true);
+  String? get purchaseRestriction => user?.purchaseRestriction;
   @override
   List<Object?> get props => [status, user, message, sessionRestoreFailed];
 }
@@ -44,6 +48,95 @@ class AuthCubit extends Cubit<AuthState> {
   }
   final AuthRepository _repository;
   int _sessionRevision = 0;
+  bool get usesBrowserIdentity => _repository is BrowserAuthRepository;
+  Set<String> get identityProviders => _repository is BrowserAuthRepository
+      ? (_repository as BrowserAuthRepository).providers
+      : const {};
+
+  Future<bool> signInWithBrowser({String? provider}) async {
+    if (!usesBrowserIdentity || state.pending || state.user != null) {
+      return false;
+    }
+    final revision = ++_sessionRevision;
+    emit(const AuthState(status: AuthStatus.submitting));
+    try {
+      final session = await (_repository as BrowserAuthRepository).signIn(
+        provider: provider,
+      );
+      if (isClosed || revision != _sessionRevision) return false;
+      emit(AuthState(status: AuthStatus.authenticated, user: session.user));
+      return true;
+    } catch (error) {
+      if (!isClosed && revision == _sessionRevision) {
+        emit(
+          AuthState(
+            status: AuthStatus.failure,
+            message: error is ApiException
+                ? error.failure.message
+                : 'Chưa thể đăng nhập. Vui lòng thử lại.',
+          ),
+        );
+      }
+      return false;
+    }
+  }
+
+  Future<bool> registerIdentity({
+    required String firstName,
+    required String lastName,
+    required String email,
+    required String password,
+    required String idempotencyKey,
+  }) async {
+    if (!usesBrowserIdentity || state.pending || state.user != null) {
+      return false;
+    }
+    final revision = ++_sessionRevision;
+    emit(const AuthState(status: AuthStatus.submitting));
+    try {
+      await (_repository as BrowserAuthRepository).registerCustomer(
+        firstName: firstName,
+        lastName: lastName,
+        email: email,
+        password: password,
+        idempotencyKey: idempotencyKey,
+      );
+      if (isClosed || revision != _sessionRevision) return false;
+      // Registration is not an authenticated session; page explicitly offers browser login.
+      emit(
+        const AuthState(
+          message: 'Đăng ký thành công. Tiếp tục đăng nhập để mở tài khoản.',
+        ),
+      );
+      return true;
+    } catch (error) {
+      if (!isClosed && revision == _sessionRevision) {
+        emit(
+          AuthState(
+            status: AuthStatus.failure,
+            message: error is ApiException
+                ? error.failure.message
+                : 'Chưa xác nhận được đăng ký. Hãy thử lại với cùng thông tin.',
+          ),
+        );
+      }
+      return false;
+    }
+  }
+
+  Future<void> changeIdentityPassword(String current, String next) async {
+    if (!usesBrowserIdentity || state.pending || state.user == null) {
+      throw StateError('Identity session unavailable');
+    }
+    final revision = _sessionRevision;
+    await (_repository as BrowserAuthRepository).changePassword(
+      currentPassword: current,
+      newPassword: next,
+    );
+    if (revision != _sessionRevision || state.user == null) {
+      throw StateError('Identity session changed');
+    }
+  }
 
   Future<void> restore() async {
     if (state.status == AuthStatus.submitting ||
@@ -185,6 +278,9 @@ class AuthCubit extends Cubit<AuthState> {
   }
 
   void updateUser(AuthUser user) {
+    if (state.user?.persona != null && user.persona != state.user!.persona) {
+      return;
+    }
     if (state.status == AuthStatus.authenticated && state.user?.id == user.id) {
       emit(AuthState(status: AuthStatus.authenticated, user: user));
     }

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:mobile_app/features/auth/presentation/auth_cubit.dart';
+import 'package:mobile_app/features/auth/presentation/purchase_access_banner.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_app/app/router/routes.dart';
@@ -328,35 +330,44 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
               child: Row(
                 children: [
                   Expanded(
-                    child: AppPrimaryButton(
-                      label: 'Thêm vào giỏ',
-                      loading: cartState.pending,
-                      icon: Icons.shopping_bag_outlined,
-                      onPressed:
-                          product == null ||
-                              _selectedVariant == null ||
-                              !product.inStock
-                          ? null
-                          : () async {
-                              final added = await context.read<CartCubit>().add(
-                                product,
-                                _selectedVariant!,
-                                quantity: _quantity,
-                              );
-                              if (!context.mounted) return;
-                              if (added) {
-                                AppSnackBar.success(
-                                  context,
-                                  'Đã thêm vào giỏ hàng',
-                                );
-                              } else {
-                                AppSnackBar.error(
-                                  context,
-                                  context.read<CartCubit>().state.message ??
-                                      'Chưa thể thêm sản phẩm.',
-                                );
-                              }
-                            },
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const PurchaseAccessBanner(),
+                        AppPrimaryButton(
+                          label: 'Thêm vào giỏ',
+                          loading: cartState.pending,
+                          icon: Icons.shopping_bag_outlined,
+                          onPressed:
+                              !context.watch<AuthCubit>().state.canPurchase ||
+                                  product == null ||
+                                  _selectedVariant == null ||
+                                  !product.inStock
+                              ? null
+                              : () async {
+                                  final added = await context
+                                      .read<CartCubit>()
+                                      .add(
+                                        product,
+                                        _selectedVariant!,
+                                        quantity: _quantity,
+                                      );
+                                  if (!context.mounted) return;
+                                  if (added) {
+                                    AppSnackBar.success(
+                                      context,
+                                      'Đã thêm vào giỏ hàng',
+                                    );
+                                  } else {
+                                    AppSnackBar.error(
+                                      context,
+                                      context.read<CartCubit>().state.message ??
+                                          'Chưa thể thêm sản phẩm.',
+                                    );
+                                  }
+                                },
+                        ),
+                      ],
                     ),
                   ),
                 ],

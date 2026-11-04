@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'identity_persona.dart';
 
 class AuthUser extends Equatable {
   const AuthUser({
@@ -6,11 +7,19 @@ class AuthUser extends Equatable {
     required this.phoneNumber,
     required this.fullName,
     this.email,
+    this.persona,
   });
   final String id;
   final String phoneNumber;
   final String fullName;
   final String? email;
+  final IdentityPersona? persona;
+  bool get canPurchase => persona?.canPurchase ?? true;
+  String? get purchaseRestriction => canPurchase
+      ? null
+      : persona!.isEmployee
+      ? employeePurchaseMessage
+      : inactivePurchaseMessage;
 
   factory AuthUser.fromJson(Map<String, dynamic> json) => AuthUser(
     id: json['customer_id'] as String? ?? '',
@@ -19,7 +28,7 @@ class AuthUser extends Equatable {
     email: json['email'] as String?,
   );
   @override
-  List<Object?> get props => [id, phoneNumber, fullName, email];
+  List<Object?> get props => [id, phoneNumber, fullName, email, persona];
 }
 
 class AuthSession extends Equatable {

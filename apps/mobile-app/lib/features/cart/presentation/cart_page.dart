@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:mobile_app/features/auth/presentation/auth_cubit.dart';
+import 'package:mobile_app/features/auth/presentation/purchase_access_banner.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_app/app/router/routes.dart';
@@ -138,12 +140,15 @@ class CartPage extends StatelessWidget {
                     child: const Text('Xem báo giá cả giỏ'),
                   ),
                 ),
+              const PurchaseAccessBanner(),
               for (final line in cart.items)
                 _CartLineTile(
                   line: line,
                   selected: state.selectedIds.contains(line.itemId),
                   available: state.availableIds.contains(line.itemId),
-                  pending: state.pending,
+                  pending:
+                      state.pending ||
+                      !context.watch<AuthCubit>().state.canPurchase,
                   selectionEnabled: !checkoutEnabled,
                 ),
               Card(
@@ -258,7 +263,8 @@ class CartPage extends StatelessWidget {
                               : 'Thanh Toán',
                           icon: Icons.arrow_forward,
                           onPressed:
-                              state.pending ||
+                              !context.watch<AuthCubit>().state.canPurchase ||
+                                  state.pending ||
                                   (!checkoutEnabled &&
                                       state.selectedIds.isEmpty)
                               ? null
