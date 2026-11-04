@@ -19,13 +19,14 @@ var DefaultWarehouseID = uuid.MustParse("00000000-0000-0000-0000-000000000001")
 // InventoryItem is the Aggregate Root representing stock at the SKU level.
 // ProductInventory is an alias for InventoryItem to match ubiquitous language across specs.
 type InventoryItem struct {
-	SKU         string     `json:"sku"`
-	WarehouseID uuid.UUID  `json:"warehouse_id"`
-	PhysicalQty int        `json:"physical_qty"`
-	ReservedQty int        `json:"reserved_qty"`
-	Status      ItemStatus `json:"status"`
-	UpdatedAt   time.Time  `json:"updated_at"`
-	Batches     []*Batch   `json:"batches,omitempty"`
+	SellableQuantity *int       `json:"-"` // DB-authoritative sellable stock; physical/reserved remain separate.
+	SKU              string     `json:"sku"`
+	WarehouseID      uuid.UUID  `json:"warehouse_id"`
+	PhysicalQty      int        `json:"physical_qty"`
+	ReservedQty      int        `json:"reserved_qty"`
+	Status           ItemStatus `json:"status"`
+	UpdatedAt        time.Time  `json:"updated_at"`
+	Batches          []*Batch   `json:"batches,omitempty"`
 }
 
 type ProductInventory = InventoryItem

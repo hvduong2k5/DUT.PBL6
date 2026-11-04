@@ -1,6 +1,17 @@
 -- Emit absolute stock snapshots atomically for both legacy and terminal cohorts.
 ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS inventory_version BIGINT NOT NULL DEFAULT 0;
 
+-- Single rule shared by gRPC reads and transactional Kafka snapshots.
+CREATE FUNCTION inventory_sellable_quantity(target_sku TEXT, observed TIMESTAMPTZ)
+RETURNS BIGINT LANGUAGE sql STABLE AS $$
+ SELECT CASE WHEN i.status <> 'ACTIVE' THEN 0 ELSE
+ GREATEST(0, LEAST(i.physical_qty::BIGINT - i.reserved_qty,
+ COALESCE((SELECT SUM(GREATEST(b.physical_qty::BIGINT-b.reserved_qty,0))
+ FROM batches b WHERE b.sku=i.sku AND b.status IN ('ACTIVE','NEAR_EXPIRY')
+ AND b.exp_date > observed),0))) END
+ FROM inventory_items i WHERE i.sku=target_sku
+$$;
+
 CREATE FUNCTION inventory_emit_stock_snapshot(target_sku TEXT) RETURNS void
 LANGUAGE plpgsql AS $$
 DECLARE
@@ -14,11 +25,7 @@ BEGIN
  WHERE sku = target_sku RETURNING * INTO item;
  IF NOT FOUND THEN RETURN; END IF;
  observed := clock_timestamp();
- SELECT COALESCE(SUM(GREATEST(physical_qty::BIGINT - reserved_qty, 0)), 0)
- INTO sellable FROM batches
- WHERE sku = target_sku AND status IN ('ACTIVE', 'NEAR_EXPIRY') AND exp_date > observed;
- IF item.status <> 'ACTIVE' THEN sellable := 0; END IF;
- sellable := GREATEST(0, LEAST(sellable, item.physical_qty::BIGINT - item.reserved_qty));
+ sellable := inventory_sellable_quantity(target_sku, observed);
  INSERT INTO outbox_events(id, aggregate_type, aggregate_id, event_type, payload, status, retry_count, created_at)
  VALUES(gen_random_uuid(), 'InventoryItem', target_sku, 'inventory.stock-changed.v1',
  jsonb_build_object('sku_code', target_sku, 'sellable_quantity', sellable,

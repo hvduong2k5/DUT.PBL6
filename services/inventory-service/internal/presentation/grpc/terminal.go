@@ -27,8 +27,9 @@ import (
 // be delivered over an authenticated encrypted deployment transport; never expose publicly.
 type TerminalServer struct {
 	inventoryv1.InventoryServiceServer
-	DB    *sql.DB
-	Token string
+	DB           *sql.DB
+	Token        string
+	CatalogToken string
 }
 type terminalRecord struct {
 	outcome     *inventoryv1.ReservationOutcome
@@ -141,6 +142,9 @@ func replay(r *terminalRecord, action, key, hash string) (bool, error) {
 func (s *TerminalServer) ReserveStock(ctx context.Context, req *inventoryv1.ReserveStockRequest) (*inventoryv1.ReserveStockResponse, error) {
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "request required")
+	}
+	if err := s.authorize(ctx); err != nil {
+		return nil, err
 	}
 	if req.ContractVersion == "" {
 		return s.InventoryServiceServer.ReserveStock(ctx, req)
@@ -457,4 +461,28 @@ func (s *TerminalServer) RunExpiry(ctx context.Context) {
 			}
 		}
 	}
+}
+
+func (s *TerminalServer) authorizeRead(ctx context.Context) error {
+	if s.authorize(ctx) == nil {
+		return nil
+	}
+	md, _ := metadata.FromIncomingContext(ctx)
+	values := md.Get("authorization")
+	if len(s.CatalogToken) >= 32 && len(values) == 1 && subtle.ConstantTimeCompare([]byte(values[0]), []byte("Bearer "+s.CatalogToken)) == 1 {
+		return nil
+	}
+	return status.Error(codes.Unauthenticated, "internal read credential required")
+}
+func (s *TerminalServer) GetBatchFEFODetails(ctx context.Context, r *inventoryv1.GetBatchFEFODetailsRequest) (*inventoryv1.GetBatchFEFODetailsResponse, error) {
+	if err := s.authorizeRead(ctx); err != nil {
+		return nil, err
+	}
+	return s.InventoryServiceServer.GetBatchFEFODetails(ctx, r)
+}
+func (s *TerminalServer) ReleaseReservation(ctx context.Context, r *inventoryv1.ReleaseReservationRequest) (*inventoryv1.ReleaseReservationResponse, error) {
+	if err := s.authorize(ctx); err != nil {
+		return nil, err
+	}
+	return s.InventoryServiceServer.ReleaseReservation(ctx, r)
 }

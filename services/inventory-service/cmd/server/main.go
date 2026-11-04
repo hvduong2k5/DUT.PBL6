@@ -206,8 +206,15 @@ func main() {
 		if err := db.QueryRow("SELECT to_regclass('inventory_terminal') IS NOT NULL").Scan(&tableExists); err != nil || !tableExists {
 			log.Fatal("apply terminal migration before enabling profile")
 		}
+		catalogToken := os.Getenv("INVENTORY_CATALOG_TOKEN")
+		if catalogToken != "" && (len(catalogToken) < 32 || catalogToken == token) {
+			log.Fatal("Catalog read credential must be distinct from Order and at least 32 bytes")
+		}
+		if _, err := db.Exec("SELECT inventory_sellable_quantity(NULL,statement_timestamp())"); err != nil {
+			log.Fatal("apply stock projection migration 000003 before enabling terminal profile")
+		}
 		serverOptions = append(serverOptions, grpc.Creds(tlsCredentials))
-		terminal := &presentationgrpc.TerminalServer{InventoryServiceServer: grpcHandler, DB: db, Token: token}
+		terminal := &presentationgrpc.TerminalServer{InventoryServiceServer: grpcHandler, DB: db, Token: token, CatalogToken: os.Getenv("INVENTORY_CATALOG_TOKEN")}
 		serviceHandler = terminal
 		go terminal.RunExpiry(workerCtx)
 	}

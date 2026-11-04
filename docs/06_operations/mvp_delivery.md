@@ -103,6 +103,7 @@ Fixture tự tạo cấu hình TEST. Nếu chạy service riêng, dùng `.env.ex
 | Order | `ORDER_CATALOG_URL`, `ORDER_WAREHOUSE_ID`, `ORDER_QUOTE_CARRIER_CODE`, `ORDER_QUOTE_SERVICE_CODE` | Catalog nội bộ và tuyến kho/hãng/dịch vụ vận chuyển |
 | Order / Catalog | `ORDER_INTERNAL_TOKEN` / `CATALOG_INTERNAL_TOKEN` | Cùng credential server cho snapshot HTTP, ít nhất 32 ký tự, không gửi xuống UI |
 | Catalog | `HTTP_PORT=8006`, `GRPC_PORT=8005` | Kong gọi HTTP 8006; gRPC giữ cổng riêng |
+| Inventory | `INVENTORY_CATALOG_TOKEN` | Credential chỉ đọc riêng cho Catalog, tối thiểu 32 bytes, khác `INVENTORY_ORDER_TOKEN`; khớp nội dung file token phía Catalog |
 | Catalog | `CATALOG_INVENTORY_TARGET`, `CATALOG_INVENTORY_TOKEN_FILE`, `CATALOG_INVENTORY_CA_FILE`, `CATALOG_INVENTORY_SERVER_NAME` | Đọc tồn hiển thị bằng TLS và credential nội bộ; lỗi đọc trả tồn chưa biết, không giả thành 0 |
 | Order | Các `ORDER_SHIPPING_*`, `SEPAY_INVENTORY_*` theo runbook Order | TLS/credential tích hợp Shipping, Inventory; fixture chỉ cho Shipping loopback TEST không TLS |
 | Identity | `CUSTOMER_API_GATEWAY_URL`, `FRONTEND_BASE_URL`, `AUTH_REDIRECT_URI` | BFF Web và callback public thống nhất với Keycloak |

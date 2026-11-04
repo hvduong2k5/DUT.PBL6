@@ -18,10 +18,10 @@ type ExpiryCheckWorkerConfig struct {
 	BatchSize     int
 }
 
-// DefaultExpiryCheckWorkerConfig returns default settings (daily run, 45-day threshold, batch size 50).
+// DefaultExpiryCheckWorkerConfig returns default settings (minute run, 45-day threshold, batch size 50).
 func DefaultExpiryCheckWorkerConfig() ExpiryCheckWorkerConfig {
 	return ExpiryCheckWorkerConfig{
-		Interval:      24 * time.Hour,
+		Interval:      time.Minute,
 		ThresholdDays: 45,
 		BatchSize:     50,
 	}
@@ -49,7 +49,7 @@ func NewExpiryCheckWorker(
 	if len(cfg) > 0 {
 		c = cfg[0]
 		if c.Interval <= 0 {
-			c.Interval = 24 * time.Hour
+			c.Interval = time.Minute
 		}
 		if c.ThresholdDays <= 0 {
 			c.ThresholdDays = 45
@@ -106,6 +106,7 @@ func (w *ExpiryCheckWorker) Stop(timeout ...time.Duration) error {
 func (w *ExpiryCheckWorker) run(ctx context.Context) {
 	defer close(w.doneChan)
 
+	_, _ = w.RunOnce(ctx, time.Now().UTC()) // Catch up after downtime before waiting for the first tick.
 	ticker := time.NewTicker(w.config.Interval)
 	defer ticker.Stop()
 

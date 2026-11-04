@@ -16,7 +16,13 @@ Một transaction có thể phát nhiều version cùng SKU do nhiều dòng bat
 4. Rebuild: SELECT inventory_emit_stock_snapshot(sku) FROM inventory_items ORDER BY sku; hàm tăng version và enqueue snapshot, không reset version.
 5. Down migration gỡ trigger/hàm nhưng cố ý giữ cột inventory_version để redeploy không gửi version thấp hơn Catalog đã nhận.
 
-Expiry tự nhiên phản ánh khi worker cập nhật batch hoặc khi phát rebuild; vẫn phụ thuộc lịch expiry worker hiện có. Chưa thay lịch worker trong bản sửa này. Cần chủ động chạy expiry/rebuild trước demo nếu dữ liệu đã qua hạn.
+API GetStockLevel và snapshot cùng dùng inventory_sellable_quantity(sku, observed_at). API loại batch hết hạn ngay lúc đọc, không cần chờ worker. Physical/reserved vẫn được trả riêng để quản lý kho. Warehouse-scoped reads chưa hỗ trợ sẽ bị từ chối rõ ràng thay vì bỏ qua bộ lọc.
+
+Worker expiry chạy mỗi phút và quét ngay khi khởi động. Query loại các lô NEAR_EXPIRY chưa hết hạn khỏi danh sách cần xử lý lại, tránh 50 lô đầu chặn các lô tiếp theo. Projection Kafka vẫn eventual: sau mốc hết hạn cần worker commit và broker/consumer nhận event, không bảo đảm cập nhật tức thời.
+
+Credential: cấu hình INVENTORY_CATALOG_TOKEN riêng, ít nhất 32 bytes và khác INVENTORY_ORDER_TOKEN. File CATALOG_INVENTORY_TOKEN_FILE phải chứa đúng Catalog token; Order tiếp tục dùng token riêng. Token Catalog được đọc tồn/batch, không reserve/finalize/release. Khi bỏ trống Catalog token, chỉ Order credential có quyền đọc. Các kiểm tra này áp dụng trên terminal server TLS; không tự mở legacy server ra public.
+
+Khi rollout, cập nhật secret Inventory và file token Catalog cùng đợt; fixture Web đã dùng hai secret riêng. Không dùng token người mua cho kết nối service. Startup terminal yêu cầu migration 000003 đã apply.
 
 ## Kiểm tra
 - go test ./... và go vet ./...: PASS.
@@ -24,3 +30,9 @@ Expiry tự nhiên phản ánh khi worker cập nhật batch hoặc khi phát re
 - python scripts/test-inventory-stock-projection.py: PASS trên PostgreSQL 16 thật, container dùng riêng; kiểm bootstrap, reserve 10→8, release 8→10, deduction, rollback, quarantine, expiry, status, rebuild và down/up giữ version.
 - Bài Order–Inventory TLS/PostgreSQL chạy lại cùng migration mới: PASS; stock 100→94, reserved=0, đúng 3 commit outbox dù retry/mất ACK.
 - Chưa tuyên bố E2E Kafka → consumer Java Catalog thực tế trong bài test này. CI đã thêm bài PostgreSQL snapshot để chạy lại.
+
+## Kiểm tra bổ sung: API đọc và quyền
+- Test PostgreSQL thật kiểm GetStockLevel trả cùng sellable quantity với snapshot: quarantine và hết hạn trả 0 nhưng physical vẫn 8.
+- Test token Catalog đọc được, bị chặn reserve (kể cả legacy RPC trên terminal), finalize và release; token sai/thiếu/trùng header bị chặn.
+- Chạy lại Order–Inventory TLS/PostgreSQL, unit tests và vet: PASS.
+- Chưa chạy lại toàn bộ UI/Identity/Catalog stack local trong lần bổ sung; fixture secrets đã cập nhật và CI sẽ chạy lại. Không tuyên bố zero lag cho Kafka projection.

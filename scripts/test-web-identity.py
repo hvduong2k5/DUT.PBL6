@@ -623,6 +623,7 @@ def main():
         env.update(
             INVENTORY_TEST_DATABASE_URL=f"postgres://peer:{password}@127.0.0.1:{ports['db']}/{db_name}?sslmode=disable",
             PEER_TOKEN=secrets.token_urlsafe(32),
+            PEER_CATALOG_TOKEN=secrets.token_urlsafe(32),
             PEER_CA_FILE=str(folder / "inventory-ca.pem"),
             PEER_READY_FILE=str(peer_ready),
             PEER_STOP_FILE=str(folder / "inventory-stop"),
@@ -643,6 +644,7 @@ def main():
             raise RuntimeError("Inventory TLS provider not ready")
         peer_address = json.loads(peer_ready.read_text())["address"]
         (folder / "inventory-token").write_text(env["PEER_TOKEN"])
+        (folder / "inventory-catalog-token").write_text(env["PEER_CATALOG_TOKEN"])
         # Revalidation must fail on a changed price, future price, or unapproved parent product.
         headers={"X-Internal-Token":catalog_token}
         selection={"items":[{"sku_code":"PEER","quantity":1}],"channel":"D2C_WEB"}
@@ -663,7 +665,7 @@ def main():
         catalog_process.wait(timeout=20)
         caller_environment=env.copy()
         env.clear();env.update(catalog_environment)
-        env.update(IDENTITY_URL=caller_environment["IDENTITY_URL"], CATALOG_INVENTORY_TARGET=peer_address, CATALOG_INVENTORY_TOKEN_FILE=str(folder / "inventory-token"), CATALOG_INVENTORY_CA_FILE=str(folder / "inventory-ca.pem"), CATALOG_INVENTORY_SERVER_NAME="localhost")
+        env.update(IDENTITY_URL=caller_environment["IDENTITY_URL"], CATALOG_INVENTORY_TARGET=peer_address, CATALOG_INVENTORY_TOKEN_FILE=str(folder / "inventory-catalog-token"), CATALOG_INVENTORY_CA_FILE=str(folder / "inventory-ca.pem"), CATALOG_INVENTORY_SERVER_NAME="localhost")
         start([args.java, "-jar", catalog_jar], "catalog")
         env.clear();env.update(caller_environment)
         wait(catalog_url + "/api/v1/products")
