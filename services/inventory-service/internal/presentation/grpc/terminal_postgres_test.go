@@ -35,7 +35,7 @@ func TestTerminalPostgresLifecycle(t *testing.T) {
 	defer db.Exec("DROP SCHEMA " + schema + " CASCADE")
 	_, err = db.Exec("SET search_path TO " + schema + ", public")
 	require.NoError(t, err)
-	for _, file := range []string{"000001_init_inventory_schema.up.sql", "000002_terminal_profile.up.sql"} {
+	for _, file := range []string{"000001_init_inventory_schema.up.sql", "000002_terminal_profile.up.sql", "000003_stock_projection.up.sql"} {
 		b, e := os.ReadFile(filepath.Join("../../../migrations", file))
 		require.NoError(t, e)
 		_, e = db.Exec(string(b))

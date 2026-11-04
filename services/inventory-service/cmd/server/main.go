@@ -142,7 +142,9 @@ func main() {
 
 	// 6.1 Transactional Outbox Publisher Worker
 	outboxWorker := worker.NewOutboxPublisherWorker(outboxRepo, eventPublisher)
-	if err := outboxWorker.Start(workerCtx); err != nil {
+	if kafkaBrokersStr == "" {
+		log.Printf("[InventoryService] Kafka disabled; durable outbox records remain PENDING.")
+	} else if err := outboxWorker.Start(workerCtx); err != nil {
 		log.Printf("[InventoryService] Warning: Failed to start OutboxPublisherWorker: %v", err)
 	} else {
 		log.Printf("[InventoryService] OutboxPublisherWorker started.")

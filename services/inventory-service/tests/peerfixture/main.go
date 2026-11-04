@@ -40,7 +40,7 @@ func main() {
 	defer func() { db.Exec("DROP SCHEMA " + schema + " CASCADE"); db.Close() }()
 	_, err = db.Exec("SET search_path TO " + schema + ", public")
 	must(err)
-	for _, name := range []string{"000001_init_inventory_schema.up.sql", "000002_terminal_profile.up.sql"} {
+	for _, name := range []string{"000001_init_inventory_schema.up.sql", "000002_terminal_profile.up.sql", "000003_stock_projection.up.sql"} {
 		b, e := os.ReadFile(filepath.Join("migrations", name))
 		must(e)
 		_, e = db.Exec(string(b))
