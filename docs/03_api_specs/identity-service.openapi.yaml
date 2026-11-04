@@ -127,6 +127,11 @@ paths:
 
         - Chuyển hướng HTTP 302 FOUND đưa người dùng quay lại Frontend.
 
+        Native flow đã lưu ở bước login với redirect URI được cấu hình chính xác
+        trả HTTP 200 AuthTokenApiResponse. Format query hoặc Accept JSON đơn thuần
+        không chuyển một phiên Web thành phiên native. Callback bắt buộc cookie
+        OMAMA_AUTH_STATE khớp state và state chỉ được dùng một lần.
+
         '
       operationId: handleCallback
       parameters:
@@ -167,6 +172,12 @@ paths:
               description: HttpOnly, Secure, SameSite=Lax Session Cookie
               schema:
                 type: string
+        '200':
+          description: Chỉ native flow đã được server ghi nhận từ login
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokenApiResponse'
         '400':
           description: State không hợp lệ hoặc đã hết hạn
           content:
@@ -213,8 +224,12 @@ paths:
       tags:
       - Authentication & BFF Sessions
       summary: Làm mới phiên đăng nhập BFF
-      description: Sử dụng Refresh Token được lưu an toàn trong session server-side
-        để cấp mới Token với Keycloak.
+      description: >-
+        Sử dụng Refresh Token được lưu trong session server-side để cấp mới token.
+        Browser mutation cần Origin được phép. Native session được nhận diện từ
+        server có thể gọi không Origin, chỉ bằng cookie phiên; không gửi bearer
+        hết hạn. Chỉ native refresh trả accessToken và credential sessionId;
+        Web trả public sessionId và không có token.
       operationId: refreshSession
       parameters:
       - name: Cookie
@@ -1396,7 +1411,7 @@ components:
         sessionId:
           type: string
           format: uuid
-          description: ID phiên làm việc BFF
+          description: Public correlation ID; native refresh mới trả credential phiên thực
         principalId:
           type: string
           format: uuid
@@ -1404,7 +1419,7 @@ components:
         email:
           type: string
           example: customer@omama.vn
-        isAuthenticated:
+        authenticated:
           type: boolean
           example: true
         expiresAt:
@@ -1412,6 +1427,26 @@ components:
           format: date-time
           description: Thời điểm Access Token trong phiên hết hạn
           example: '2026-10-31T15:30:00Z'
+        accessToken:
+          type: string
+          description: Chỉ có trong native refresh; không trả cho phiên Web hoặc session GET
+    AuthTokenApiResponse:
+      allOf:
+      - $ref: '#/components/schemas/ApiResponse'
+      - type: object
+        properties:
+          data:
+            type: object
+            required: [tokenType, accessToken, refreshToken, sessionId, principalId, expiresAt, expiresIn]
+            properties:
+              tokenType: {type: string, enum: [Bearer]}
+              accessToken: {type: string}
+              refreshToken: {type: string}
+              sessionId: {type: string, format: uuid, description: 'Credential native, lưu trong secure storage'}
+              principalId: {type: string, format: uuid}
+              email: {type: string, nullable: true}
+              expiresAt: {type: string, format: date-time}
+              expiresIn: {type: integer, format: int64, minimum: 0}
     SessionApiResponse:
       allOf:
       - $ref: '#/components/schemas/ApiResponse'

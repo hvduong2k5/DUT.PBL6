@@ -1,4 +1,4 @@
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 
@@ -13,6 +13,7 @@ function run(name, entry, args) {
 }
 
 try {
+  await rm(join(root, ".next", "dev", "types"), { recursive: true, force: true });
   run("next", "node_modules/next/dist/bin/next", ["typegen"]);
   run("tsc", "node_modules/typescript/bin/tsc", ["--noEmit"]);
 } finally {

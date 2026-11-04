@@ -34,6 +34,7 @@ export interface AuthenticatedSession {
   principal: PrincipalSummary;
   customer: CustomerSummary | null;
   customerAccess: boolean;
+  sessionExpiresAt?: string;
 }
 
 export interface RegistrationResult {

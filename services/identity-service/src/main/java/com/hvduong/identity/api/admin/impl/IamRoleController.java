@@ -135,16 +135,8 @@ public class IamRoleController implements IamRoleApi {
     }
 
     private UUID extractActorId(Jwt jwt, String actorHeader) {
-        if (jwt != null) {
-            try {
-                return UUID.fromString(jwt.getSubject());
-            } catch (Exception ignored) {}
-        }
-        if (actorHeader != null) {
-            try {
-                return UUID.fromString(actorHeader);
-            } catch (Exception ignored) {}
-        }
-        return null;
+        if (jwt == null) return null;
+        try { return UUID.fromString(jwt.getClaimAsString("user_id")); }
+        catch (IllegalArgumentException | NullPointerException error) { return null; }
     }
 }

@@ -1,0 +1,35 @@
+abstract final class AppRoutes {
+  static const onboarding = '/onboarding';
+  static const home = '/';
+  static const catalog = '/catalog';
+  static const product = '/product/:id';
+  static const cart = '/cart';
+  static const checkout = '/checkout';
+  static const quoteReview = '/checkout/quote';
+  static const checkoutOperation = '/checkout/operation';
+  static const orderConfirmation = '/order-confirmation/:id';
+  static const orders = '/orders';
+  static const orderDetail = '/orders/:id';
+  static const account = '/account';
+  static const addresses = '/addresses';
+  static const addressForm = '/addresses/form';
+  static const notifications = '/notifications';
+  static const login = '/login';
+  static const register = '/register';
+  static const recovery = '/account-recovery';
+  static const promotions = '/promotions';
+  static const payment = '/payment/:id';
+  static const profile = '/account/profile';
+  static const loyalty = '/account/loyalty';
+  static const guestOrderLookup = '/track-order';
+  static const supportRequest = '/support/request';
+  static const supportTicket = '/support/tickets/:id';
+  static const trace = '/trace';
+  static const traceDetail = '/trace/:code';
+  static const orderTracking = '/orders/:id/tracking';
+  static const returnRequest = '/orders/:id/after-sales/request';
+  static const returnLookup = '/after-sales';
+  static const returnCase = '/after-sales/:id';
+  static const b2b = '/b2b';
+  static const b2bQuote = '/b2b/quotes/:id';
+}

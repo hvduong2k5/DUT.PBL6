@@ -1,5 +1,5 @@
 server:
-  port: ${SERVER_PORT:8005}
+  port: ${SERVER_PORT:${HTTP_PORT:8005}}
 
 spring:
   security:
@@ -63,7 +63,7 @@ spring:
       write-dates-as-timestamps: false
     deserialization:
       fail-on-unknown-properties: false
-    default-property-inclusion: non_null
+    default-property-inclusion: always
 
 mybatis:
   mapper-locations: classpath:mapper/sql/*.xml
@@ -87,6 +87,8 @@ app:
     inventory-stock-topic: ${INVENTORY_STOCK_TOPIC:inventory.stock-changed.v1}
 
 catalog:
+  identity-url: ${IDENTITY_URL:}
+  internal-token: ${CATALOG_INTERNAL_TOKEN:}
   cache:
     product-ttl-seconds: ${REDIS_TTL_SECONDS:3600}
     category-ttl-seconds: 86400
@@ -100,5 +102,7 @@ catalog:
 
 logging:
   level:
-    "[com.hvduong.catalog]": DEBUG
-    "[org.mybatis]": DEBUG
+    root: INFO
+    com.hvduong.catalog: ${LOG_LEVEL:DEBUG}
+    org.springframework.security: INFO
+    org.mybatis: WARN

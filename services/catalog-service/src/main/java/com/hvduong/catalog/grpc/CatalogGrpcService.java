@@ -1,13 +1,20 @@
 package com.hvduong.catalog.grpc;
 
+import com.google.protobuf.Timestamp;
 import com.hvduong.catalog.application.dto.response.PriceValidationResponse;
 import com.hvduong.catalog.application.dto.response.ProductVariantResponse;
 import com.hvduong.catalog.application.service.CatalogService;
+import com.hvduong.catalog.application.service.CheckoutSnapshotService;
 import com.omamx.proto.catalog.v1.*;
+import com.omamx.proto.common.v1.Money;
+import com.omamx.proto.common.v1.Weight;
+import com.omamx.proto.common.v1.WeightUnit;
+import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.devh.boot.grpc.server.service.GrpcService;
+import org.springframework.web.server.ResponseStatusException;
 
 /**
  * Service gRPC nội bộ phục vụ giao tiếp liên microservice (East-West Traffic)
@@ -20,6 +27,7 @@ public class CatalogGrpcService extends CatalogServiceGrpc.CatalogServiceImplBas
 
     private final CatalogService catalogService;
     private final CatalogGrpcMapper grpcMapper;
+    private final CheckoutSnapshotService snapshots;
 
     @Override
     public void validatePriceAndSKU(ValidatePriceAndSKURequest request,
@@ -58,10 +66,46 @@ public class CatalogGrpcService extends CatalogServiceGrpc.CatalogServiceImplBas
     public void getCheckoutSnapshot(GetCheckoutSnapshotRequest request,
                                     StreamObserver<GetCheckoutSnapshotResponse> observer) {
         log.debug("[gRPC-Internal] getCheckoutSnapshot: itemsCount={}", request.getItemsCount());
-        complete(observer, () -> {
-            // Snapshot giá và thông số phục vụ đơn hàng
-            return GetCheckoutSnapshotResponse.newBuilder().build();
-        });
+        try {
+            if (!"catalog-checkout-1.0".equals(request.getContractVersion())) {
+                observer.onError(Status.INVALID_ARGUMENT.withDescription("UNSUPPORTED_CONTRACT_VERSION").asRuntimeException());
+                return;
+            }
+            var snapshot = snapshots.create(new CheckoutSnapshotService.Request(
+                    request.getItemsList().stream()
+                            .map(item -> new CheckoutSnapshotService.Selection(item.getSkuCode(), item.getQuantity()))
+                            .toList(),
+                    request.getChannel()
+            ));
+            var response = GetCheckoutSnapshotResponse.newBuilder()
+                    .setSnapshotId(snapshot.snapshot_id())
+                    .setCatalogVersion(snapshot.catalog_version())
+                    .setContractVersion(snapshot.contract_version())
+                    .setValidUntil(Timestamp.newBuilder()
+                            .setSeconds(snapshot.valid_until().getEpochSecond())
+                            .setNanos(snapshot.valid_until().getNano()))
+                    .setSubtotal(Money.newBuilder().setCurrencyCode("VND").setUnits(snapshot.subtotal()));
+
+            for (var item : snapshot.items()) {
+                response.addItems(CheckoutSnapshotItem.newBuilder()
+                        .setSkuCode(item.sku_code())
+                        .setQuantity(Math.toIntExact(item.quantity()))
+                        .setProductName(item.product_name())
+                        .setUnitPrice(Money.newBuilder().setCurrencyCode("VND").setUnits(item.unit_price()))
+                        .setNetWeight(Weight.newBuilder()
+                                .setDecimalValue(Long.toString(item.weight_grams()))
+                                .setUnit(WeightUnit.WEIGHT_UNIT_GRAM))
+                        .setPackagingType(item.packaging_type())
+                        .setIsActive(item.is_active()));
+            }
+            observer.onNext(response.build());
+            observer.onCompleted();
+        } catch (ResponseStatusException | IllegalArgumentException error) {
+            observer.onError(Status.FAILED_PRECONDITION.withDescription("CATALOG_SELECTION_UNAVAILABLE").asRuntimeException());
+        } catch (Exception error) {
+            log.error("[gRPC-Internal] Error executing getCheckoutSnapshot", error);
+            observer.onError(Status.UNAVAILABLE.withDescription("CATALOG_UNAVAILABLE").asRuntimeException());
+        }
     }
 
     @FunctionalInterface
@@ -75,10 +119,9 @@ public class CatalogGrpcService extends CatalogServiceGrpc.CatalogServiceImplBas
             observer.onCompleted();
         } catch (Exception e) {
             log.error("[gRPC-Internal] Error executing call", e);
-            observer.onError(io.grpc.Status.INTERNAL
+            observer.onError(Status.INTERNAL
                     .withDescription(e.getMessage())
                     .asRuntimeException());
         }
     }
 }
-

@@ -219,10 +219,10 @@ Các quy tắc đã áp dụng:
 
 ## 14A. Kết quả Giai đoạn 8 — Identity và quyền
 
-- `FE-AUTH-01`: BFF chỉ lấy access token từ cookie HttpOnly `oma_access_token`; không còn nhận `Authorization`, `X-User-ID`, role, permission hoặc toàn bộ cookie do browser tự cung cấp để chuyển tiếp upstream.
-- Trước khi cấp capability Customer, BFF gọi `/auth/me` bằng token server-side để backend/gateway xác minh principal. Response sai contract hoặc Identity không khả dụng đều fail closed.
-- `FE-AUTH-02`: `401` được giữ cho phiên thiếu/hết hạn và đưa UI về đăng nhập; `403` được giữ cho principal đã xác thực nhưng thiếu mapping/quyền và hiển thị access-denied riêng.
-- `FE-AUTH-03`: `CUSTOMER` dùng Customer features khi có `customer_id`. `EMPLOYEE` chỉ kế thừa Customer features khi Identity/backend trả `customer_id` đã liên kết; role `CUSTOMER` do browser khai báo không đủ để mở quyền.
+- `FE-AUTH-01`: BFF chỉ dùng cookie HttpOnly `OMAMA_SESSION`; không nhận `Authorization`, `X-User-ID`, Role hoặc Permission do browser tự cung cấp để cấp quyền.
+- Trước khi cấp capability Customer, BFF gọi `/public/auth/session` và `/users/me` bằng `OMAMA_SESSION` để Identity xác minh principal. Response sai contract hoặc Identity không khả dụng đều fail closed.
+- `FE-AUTH-02`: `401` được giữ cho phiên thiếu/hết hạn và đưa UI về đăng nhập; `403` được giữ cho principal đã xác thực nhưng sai loại tài khoản hoặc thiếu quyền và hiển thị access-denied riêng.
+- `FE-AUTH-03`: `CUSTOMER` và `EMPLOYEE` là hai loại tài khoản tách biệt. `EMPLOYEE` không kế thừa Customer features dù có legacy `customer_id` hoặc role `CUSTOMER`; Customer BFF trả `403 EMPLOYEE_PURCHASE_NOT_ALLOWED`.
 - `FE-AUTH-04`: UI lấy role/permission/capability từ projection đã xác minh để ẩn/hiện. Mọi BFF mutation/read bảo vệ vẫn gọi lại Identity/capability projection; UI không phải authority.
 - Principal session giữ riêng `principalType`, role, permission và `customerAccess`; staff permission không bị trộn với Customer capability.
 - Chi tiết boundary, contract gap và acceptance criteria nằm tại [`MVP_PUBLIC_IDENTITY_AUTHORIZATION.md`](./MVP_PUBLIC_IDENTITY_AUTHORIZATION.md).
@@ -231,7 +231,7 @@ Các quy tắc đã áp dụng:
 
 - Tổng số operation trong target: **30**; frontend đã căn chỉnh **26** operation đang mở và giữ **4** operation Guest/paid cancellation ở trạng thái `GATED`.
 - COD, Voucher và Guest Order được khóa mặc định bằng capability gate dùng chung. UI không hiển thị capability bị khóa; BFF Checkout vẫn kiểm tra lại và trả `403 FEATURE_NOT_ENABLED` nếu client gọi trực tiếp.
-- Feature gate chỉ khóa/mở việc phát hành capability; không cấp quyền. Khi gate được bật, Identity/mapping/capability check của Giai đoạn 8 vẫn chạy trước nghiệp vụ được bảo vệ.
+- Feature gate chỉ khóa/mở việc phát hành capability; không cấp quyền. Khi gate được bật, Identity/principal/capability check của Giai đoạn 8 vẫn chạy trước nghiệp vụ được bảo vệ.
 - Header đưa người dùng đã đăng nhập tới lịch sử Order. Người chưa đăng nhập chỉ thấy Guest Order khi capability này được bật; mặc định được hướng tới đăng nhập.
 - `.env.example` chỉ còn các upstream/config thực sự được source hiện tại sử dụng; các URL chia nhỏ theo mock feature cũ đã bị loại khỏi cấu hình chuẩn.
 - Các script `dev:cart`, `dev:checkout`, `dev:orders`, `dev:payment` vẫn là fixture lịch sử cho từng lát cắt. Chúng không đại diện cho public target 30-operation và không được dùng làm bằng chứng E2E/acceptance.
@@ -243,7 +243,7 @@ Các quy tắc đã áp dụng:
 - Thêm một cổng kiểm tra thống nhất `npm run verify:mvp` cho Web User: typecheck → lint → test.
 - Vitest đã được cấu hình alias `@` giống TypeScript và chạy một worker không isolate để ổn định trên Windows sandbox.
 - Bổ sung regression test chứng minh BFF chỉ nhận access token từ cookie tin cậy, bỏ qua browser `Authorization`.
-- Bổ sung regression test cho `401`, Employee thiếu/có Customer mapping và capability `403` sau khi principal được xác minh.
+- Bổ sung regression test cho `401`, từ chối Employee khỏi Customer BFF, từ chối Customer khỏi Employee BFF và capability/permission `403` sau khi principal được xác minh.
 - Đồng bộ assertion Profile email read-only và availability ba trạng thái của Catalog/Product Detail với contract hiện tại.
-- Kết quả local ngày 2026-10-31: typecheck PASS, ESLint PASS, **27 test files / 89 tests PASS**.
+- Kết quả local ngày 2026-11-02: typecheck PASS, ESLint PASS, **41 test files / 124 tests PASS**, production build PASS và Admin Mockoon validation PASS.
 - Đây là frontend regression evidence, chưa thay thế live-service E2E hoặc owning-service runtime acceptance. Báo cáo đầy đủ nằm tại [`MVP_PUBLIC_RELEASE_VERIFICATION.md`](./MVP_PUBLIC_RELEASE_VERIFICATION.md).

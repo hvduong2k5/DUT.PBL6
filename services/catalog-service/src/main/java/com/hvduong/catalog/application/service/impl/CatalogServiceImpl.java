@@ -52,25 +52,32 @@ public class CatalogServiceImpl implements CatalogService {
 
     private final ProductMapper productMapper;
     private final ProductVariantMapper variantMapper;
-    private final CategoryMapper categoryMapper;
     private final ChannelPriceMapper channelPriceMapper;
     private final ProductImageMapper imageMapper;
-    private final CatalogDtoMapper dtoMapper;
+    private final CategoryMapper categoryMapper;
     private final StockProjectionService stockProjectionService;
+    private final CatalogDtoMapper dtoMapper;
 
     @Override
     public PageResponse<ProductListItemResponse> getPublicProducts(ProductFilterRequest filter) {
         log.debug("[CATALOG] getPublicProducts: filter={}", filter);
 
         List<Product> products = productMapper.findPublicProducts(
-                filter.getCategoryId(), filter.getOcopStar(),
-                filter.getMinPrice(), filter.getMaxPrice(),
-                filter.getSortBy().name(), filter.getChannel().getValue(),
-                filter.getOffset(), filter.getPageSize()
+                filter.getCategoryId(),
+                filter.getOcopStar(),
+                filter.getMinPrice(),
+                filter.getMaxPrice(),
+                filter.getSortBy().name(),
+                filter.getChannel().getValue(),
+                filter.getOffset(),
+                filter.getPageSize()
         );
+
         long total = productMapper.countPublicProducts(
-                filter.getCategoryId(), filter.getOcopStar(),
-                filter.getMinPrice(), filter.getMaxPrice(),
+                filter.getCategoryId(),
+                filter.getOcopStar(),
+                filter.getMinPrice(),
+                filter.getMaxPrice(),
                 filter.getChannel().getValue()
         );
 
@@ -146,6 +153,10 @@ public class CatalogServiceImpl implements CatalogService {
                 .orElseThrow(() -> new CatalogException(ErrorCode.CATALOG_VARIANT_NOT_FOUND,
                         "SKU không tồn tại: " + skuCode));
 
+        if (variant.getListingStatus() != ListingStatus.ACTIVE || productMapper.findPublicById(variant.getProductId()).isEmpty()) {
+            throw new CatalogException(ErrorCode.CATALOG_PRODUCT_NOT_PUBLIC);
+        }
+
         ProductVariantResponse response = dtoMapper.toVariantResponse(variant);
         response.setStockAvailable(stockProjectionService
                 .getAvailableQuantities(List.of(variant.getSkuCode()))
@@ -206,7 +217,7 @@ public class CatalogServiceImpl implements CatalogService {
                 continue;
             }
             Optional<ProductVariant> variantOpt = variantMapper.findBySkuCode(item.getSkuCode());
-            if (variantOpt.isEmpty() || variantOpt.get().getListingStatus() != ListingStatus.ACTIVE) {
+            if (variantOpt.isEmpty() || variantOpt.get().getListingStatus() != ListingStatus.ACTIVE || productMapper.findPublicById(variantOpt.get().getProductId()).isEmpty()) {
                 discrepancies.add(PriceValidationResponse.Discrepancy.builder()
                         .skuCode(item.getSkuCode()).clientUnitPrice(item.getClientUnitPrice())
                         .authoritativeUnitPrice(0L).currencyCode("VND").nanos(0)

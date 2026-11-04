@@ -1,9 +1,9 @@
 # Admin Product & SKU Catalog — Data/API Matrix
 
-**Cập nhật:** 2026-10-02  
-**Backlog:** `EPIC_04_Product_SKU.md`  
-**Màn hình:** `/catalog/products`  
-**Ứng dụng:** `apps/web-admin`  
+**Cập nhật:** 2026-10-02
+**Backlog:** `EPIC_04_Product_SKU.md`
+**Màn hình:** `/admin/catalog/products`
+**Ứng dụng:** `apps/web-user`
 **Mock Admin:** `mocks/mockoon/admin_extensions.json`, cổng `4030`
 
 ## 1. Phạm vi đã triển khai
@@ -58,14 +58,16 @@ Chưa triển khai tạo/sửa Product, tạo/sửa SKU, cập nhật giá hoặ
 
 ## 6. Chạy local
 
+> `ADMIN_MOCK_PROFILE` chỉ chọn dữ liệu fixture upstream. Quyền truy cập thực tế lấy từ tài khoản `EMPLOYEE` và mảng `permissions` do Identity Service trả về; đổi profile Mockoon không cấp thêm quyền.
+
 ```powershell
-# apps/web-admin/.env.local
+# apps/web-user/.env.local
 ADMIN_API_UPSTREAM_URL=http://127.0.0.1:4030/api/v1
-ADMIN_MOCK_ROLE=SALES_MANAGER
+ADMIN_MOCK_PROFILE=SALES_MANAGER
 
 npx @mockoon/cli start --disable-log-to-file --data .\mocks\mockoon\admin_extensions.json
-cd apps\web-admin
+cd apps\web-user
 npm run dev
 ```
 
-Mở `http://localhost:3001/catalog/products`.
+Mở `http://localhost:3000/admin/catalog/products`.

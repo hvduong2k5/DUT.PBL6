@@ -50,7 +50,7 @@ type Recipient struct {
 func (r Recipient) Validate() error {
 	if strings.TrimSpace(r.Name) == "" || strings.TrimSpace(r.Phone) == "" ||
 		strings.TrimSpace(r.Street) == "" || strings.TrimSpace(r.Ward) == "" ||
-		strings.TrimSpace(r.District) == "" || strings.TrimSpace(r.Province) == "" {
+		strings.TrimSpace(r.Province) == "" {
 		return fmt.Errorf("%w: recipient name, phone and complete address are required", ErrInvalidShipment)
 	}
 	if r.CountryCode != "" && !strings.EqualFold(r.CountryCode, "VN") {

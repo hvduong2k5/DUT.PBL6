@@ -33,8 +33,15 @@ public class UserLifecycleController implements UserLifecycleApi {
         String subject = jwt.getSubject();
         String email = jwt.getClaimAsString("email");
 
-        return userLifecycleService.getProfileBySubject(subject, email)
-                .map(profile -> ResponseEntity.ok(ApiResponse.success(profile)))
+        return userLifecycleService.getProfileBySubject(jwt.getIssuer().toString(), subject, email)
+                .map(profile -> {
+                    if (!"ACTIVE".equals(profile.getProvisioningStatus())
+                            || !profile.getPrincipalId().toString().equals(jwt.getClaimAsString("user_id"))) {
+                        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                                .body(ApiResponse.<UserProfileResponse>error("PRINCIPAL_FORBIDDEN", "Tài khoản chưa được phép truy cập"));
+                    }
+                    return ResponseEntity.ok(ApiResponse.success(profile));
+                })
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .body(ApiResponse.error("USER_NOT_FOUND", "Không tìm thấy thông tin tài khoản")));
     }
@@ -49,7 +56,7 @@ public class UserLifecycleController implements UserLifecycleApi {
         UUID actorId = null;
         if (jwt != null) {
             try {
-                actorId = UUID.fromString(jwt.getSubject());
+                actorId = UUID.fromString(jwt.getClaimAsString("user_id"));
             } catch (Exception ignored) {}
         }
 
@@ -82,16 +89,8 @@ public class UserLifecycleController implements UserLifecycleApi {
     }
 
     private UUID extractActorId(Jwt jwt, String actorHeader) {
-        if (jwt != null) {
-            try {
-                return UUID.fromString(jwt.getSubject());
-            } catch (Exception ignored) {}
-        }
-        if (actorHeader != null) {
-            try {
-                return UUID.fromString(actorHeader);
-            } catch (Exception ignored) {}
-        }
-        return null;
+        if (jwt == null) return null;
+        try { return UUID.fromString(jwt.getClaimAsString("user_id")); }
+        catch (IllegalArgumentException | NullPointerException error) { return null; }
     }
 }

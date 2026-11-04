@@ -1,9 +1,9 @@
 # B2B Admin Data/API Matrix
 
-**Cập nhật:** 2026-10-02  
-**Backlog:** `EPIC_18_B2B.md`  
-**Màn hình:** `ADM-034`  
-**Ứng dụng:** `apps/web-admin`  
+**Cập nhật:** 2026-10-02
+**Backlog:** `EPIC_18_B2B.md`
+**Màn hình:** `ADM-034` — `/admin/b2b/quotes`
+**Ứng dụng:** `apps/web-user`
 **Mock Admin:** `mocks/mockoon/admin_extensions.json`, cổng `4030`
 
 **Nguồn phạm vi:** `US-B2B-02~03`, đặc biệt các scenario quản lý phiên bản/từ chối truy cập tệp, “Hai nhân viên cập nhật đồng thời”, “Sửa Quote đã phát hành” và `FR-B2B-04~12`. Các nội dung SLA escalation/message thread, preview vector, giới hạn file và retention ở Mục 8 của Epic vẫn là điểm cần chốt nên không được tự mở rộng từ UI specification.
@@ -52,17 +52,20 @@ Màn `/b2b/quotes` có status tabs, tìm theo mã/doanh nghiệp/mã số thuế
 - Concurrency dùng optimistic revision: UI gửi revision đã tải, mutation thành công tăng revision; conflict khóa nút gửi lại cho đến khi tải dữ liệu mới.
 - Không triển khai message thread hai chiều hoặc SLA escalation khi Epic chưa chốt ranh giới với Ticket/Notification và chính sách SLA.
 - Audit explorer thuộc phạm vi Epic/Audit tương ứng, chưa được suy diễn thành chức năng của ADM-034.
-- Mock fixture ưu tiên `ADMIN_MOCK_PROFILE` (`ADMIN_MOCK_ROLE` chỉ tương thích cấu hình local cũ); production không được tin header profile do browser gửi.
+- Mock fixture dùng `ADMIN_MOCK_PROFILE` để chọn dữ liệu minh họa; production không được tin header profile do browser gửi và không dùng fixture để cấp quyền.
 
 ## Chạy local
 
+> `ADMIN_MOCK_PROFILE` chỉ chọn dữ liệu fixture upstream. Quyền truy cập thực tế lấy từ tài khoản `EMPLOYEE` và mảng `permissions` do Identity Service trả về; đổi profile Mockoon không cấp thêm quyền.
+
+
 ```powershell
 npx @mockoon/cli start --disable-log-to-file --data .\mocks\mockoon\admin_extensions.json
-cd apps\web-admin
+cd apps\web-user
 npm run dev
 ```
 
-Mặc định Web Admin chạy ở `http://localhost:3001`. Chọn fixture bằng `ADMIN_MOCK_PROFILE=SALES_MANAGER`, `CUSTOMER_SERVICE` hoặc `VIEW_ONLY` trong `.env.local`.
+Không gian Employee chạy trong Unified Web tại `http://localhost:3000/admin`. `ADMIN_MOCK_PROFILE` chỉ chọn dữ liệu fixture của Mockoon; Role và Permission dùng để mở menu, route và BFF phải đến từ tài khoản Employee do Identity xác minh.
 
 ## Việc còn lại của ADM-034
 

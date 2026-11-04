@@ -1,6 +1,7 @@
 import type { AuthenticatedSession, PrincipalRole, PrincipalType } from "./types";
 
 export interface CustomerCoreUser {
+  customer_status?: "ACTIVE" | "PENDING_VERIFICATION";
   customer_id?: string;
   customerId?: string;
   principal_id?: string;
@@ -59,15 +60,16 @@ function mapRoles(value: CustomerCoreUser["roles"], principalType: PrincipalType
 }
 
 export function mapCustomerCoreSession(user: CustomerCoreUser): AuthenticatedSession | undefined {
-  const customerId = clean(user.customer_id) ?? clean(user.customerId);
+  const mappedCustomerId = clean(user.customer_id) ?? clean(user.customerId);
   const explicitType = user.principal_type ?? user.principalType;
   const principalType: PrincipalType | undefined = explicitType === "CUSTOMER" || explicitType === "EMPLOYEE"
     ? explicitType
-    : customerId
+    : mappedCustomerId
       ? "CUSTOMER"
       : undefined;
-  const principalId = clean(user.principal_id) ?? clean(user.principalId) ?? customerId;
+  const principalId = clean(user.principal_id) ?? clean(user.principalId) ?? mappedCustomerId;
   if (!principalType || !principalId) return undefined;
+  const customerId = principalType === "CUSTOMER" ? mappedCustomerId : undefined;
 
   const displayName = clean(user.full_name) ?? clean(user.displayName) ?? clean(user.email) ?? principalId;
   const roles = mapRoles(user.roles, principalType);
@@ -88,7 +90,7 @@ export function mapCustomerCoreSession(user: CustomerCoreUser): AuthenticatedSes
     customer: customerId ? {
       id: customerId,
       displayName,
-      status: "ACTIVE",
+      status: user.customer_status ?? "ACTIVE",
       ...(clean(user.phone_number) ? { phoneNumber: clean(user.phone_number) } : {}),
       ...(clean(user.email) ? { email: clean(user.email) } : {}),
       ...(user.membership_tier ? { membershipTier: user.membership_tier } : {}),

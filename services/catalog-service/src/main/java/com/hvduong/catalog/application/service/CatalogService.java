@@ -1,9 +1,9 @@
 package com.hvduong.catalog.application.service;
 
 import com.hvduong.catalog.application.dto.request.ProductFilterRequest;
+import com.hvduong.catalog.application.dto.request.PriceValidationRequest;
 import com.hvduong.catalog.application.dto.response.AdminProductDetailResponse;
 import com.hvduong.catalog.application.dto.response.AdminProductListItemResponse;
-import com.hvduong.catalog.application.dto.request.PriceValidationRequest;
 import com.hvduong.catalog.application.dto.response.CategoryResponse;
 import com.hvduong.catalog.application.dto.response.ProductDetailResponse;
 import com.hvduong.catalog.application.dto.response.ProductListItemResponse;

@@ -14,10 +14,12 @@ async function getCart(mockScenario?: string): Promise<Cart> {
   return mapMvpCart(response.data);
 }
 
-async function removeCartItem(itemId: string, mockScenario?: string): Promise<Cart> {
+async function removeCartItem(itemId: string, revision: number | undefined, mockScenario?: string): Promise<Cart> {
+  if (typeof revision !== "number" || !Number.isSafeInteger(revision) || revision < 1) throw new Error("Thiếu phiên bản giỏ hàng. Vui lòng tải lại giỏ trước khi xóa.");
   const response = await requestPublicJson<OrderCart>(pathWithScenario(`/items/${encodeURIComponent(itemId)}`, mockScenario), {
     method: "DELETE",
-    credentials: "include"
+    credentials: "include",
+    ifMatch: `"${revision}"`
   });
   return mapMvpCart(response.data);
 }
@@ -54,7 +56,7 @@ export const cartService = {
 
   async clear(mockScenario?: string): Promise<Cart> {
     let current = await getCart(mockScenario);
-    for (const item of current.items) current = await removeCartItem(item.itemId, mockScenario);
+    for (const item of current.items) current = await removeCartItem(item.itemId, current.revision, mockScenario);
     return process.env.NODE_ENV === "production" ? current : {
       ...current,
       items: [],

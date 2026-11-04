@@ -72,8 +72,8 @@ class CatalogServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        catalogService = new CatalogServiceImpl(productMapper, variantMapper, categoryMapper,
-                channelPriceMapper, imageMapper, dtoMapper, stockProjectionService);
+        catalogService = new CatalogServiceImpl(productMapper, variantMapper, channelPriceMapper,
+                imageMapper, categoryMapper, stockProjectionService, dtoMapper);
         productId = UUID.randomUUID();
         variantId = UUID.randomUUID();
         categoryId = UUID.randomUUID();
@@ -83,6 +83,7 @@ class CatalogServiceImplTest {
         mockProduct.setName("Test Product");
         mockProduct.setSlug("test-product");
         mockProduct.setDescription("Description");
+        org.mockito.Mockito.lenient().when(productMapper.findPublicById(productId)).thenReturn(Optional.of(mockProduct));
 
         mockVariant = new ProductVariant();
         mockVariant.setId(variantId);

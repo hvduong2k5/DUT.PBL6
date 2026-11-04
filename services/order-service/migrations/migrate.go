@@ -24,6 +24,9 @@ var SepayPayment string
 //go:embed 000006_connected_runtime.up.sql
 var ConnectedRuntime string
 
+//go:embed 000007_customer_projection.up.sql
+var CustomerProjection string
+
 func Apply(ctx context.Context, db *pgxpool.Pool) error {
 	tx, e := db.Begin(ctx)
 	if e != nil {
@@ -36,7 +39,7 @@ func Apply(ctx context.Context, db *pgxpool.Pool) error {
 	if _, e = tx.Exec(ctx, "CREATE TABLE IF NOT EXISTS order_migrations(version integer PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT clock_timestamp())"); e != nil {
 		return e
 	}
-	for index, ddl := range []string{Schema, Observability, ProviderCursor, CoreFoundation, SepayPayment, ConnectedRuntime} {
+	for index, ddl := range []string{Schema, Observability, ProviderCursor, CoreFoundation, SepayPayment, ConnectedRuntime, CustomerProjection} {
 		version := index + 1
 		var done bool
 		if e = tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM order_migrations WHERE version=$1)", version).Scan(&done); e != nil {

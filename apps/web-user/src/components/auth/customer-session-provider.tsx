@@ -1,10 +1,9 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useAuth } from "@/components/auth/auth-provider";
 import type { CustomerSummary, PrincipalSummary } from "@/lib/auth/types";
 import type { CustomerActor, CustomerCapability } from "@/lib/auth/capabilities";
-import { AuthApiError } from "@/lib/auth/types";
-import { authService } from "@/services/auth-service";
 import { CapabilityApiError, getCustomerCapabilities } from "@/services/capability-service";
 
 type SessionStatus = "loading" | "authenticated" | "guest" | "forbidden" | "error";
@@ -15,7 +14,6 @@ interface CustomerSessionValue {
   customer: CustomerSummary | null;
   principal: PrincipalSummary | null;
   customerAccess: boolean;
-  isEmployee: boolean;
   actor: CustomerActor | null;
   capabilityStatus: CapabilityStatus;
   capabilities: readonly CustomerCapability[];
@@ -29,10 +27,7 @@ interface CustomerSessionValue {
 const CustomerSessionContext = createContext<CustomerSessionValue | null>(null);
 
 export function CustomerSessionProvider({ children }: { children: ReactNode }) {
-  const [status, setStatus] = useState<SessionStatus>("loading");
-  const [customer, setCustomer] = useState<CustomerSummary | null>(null);
-  const [principal, setPrincipal] = useState<PrincipalSummary | null>(null);
-  const [customerAccess, setCustomerAccess] = useState(false);
+  const auth = useAuth();
   const [actor, setActor] = useState<CustomerActor | null>(null);
   const [capabilityStatus, setCapabilityStatus] = useState<CapabilityStatus>("loading");
   const [capabilities, setCapabilities] = useState<CustomerCapability[]>([]);
@@ -53,50 +48,45 @@ export function CustomerSessionProvider({ children }: { children: ReactNode }) {
     } catch (cause) {
       setActor(null);
       setCapabilities([]);
-      if (cause instanceof CapabilityApiError && cause.status === 401) throw cause;
-      setCapabilityStatus(cause instanceof CapabilityApiError && cause.status === 403 ? "forbidden" : "error");
+      setCapabilityStatus(cause instanceof CapabilityApiError && (cause.status === 401 || cause.status === 403) ? "forbidden" : "error");
     }
   }, []);
 
-  const reload = useCallback(async () => {
-    try {
-      const session = await authService.me();
-      setCustomer(session.customer);
-      setPrincipal(session.principal);
-      setCustomerAccess(session.customerAccess);
-      setStatus("authenticated");
-      await loadCapabilities(session.customerAccess);
-    } catch (cause) {
-      setCustomer(null);
-      setPrincipal(null);
-      setCustomerAccess(false);
-      setActor(null);
-      setCapabilities([]);
-      setCapabilityStatus("ready");
-      const unauthorized = cause instanceof AuthApiError && cause.status === 401 || cause instanceof CapabilityApiError && cause.status === 401;
-      const forbidden = cause instanceof AuthApiError && cause.status === 403 || cause instanceof CapabilityApiError && cause.status === 403;
-      setStatus(unauthorized ? "guest" : forbidden ? "forbidden" : "error");
-    }
-  }, [loadCapabilities]);
+  const customerIdentity = auth.profile?.principalType === "CUSTOMER" ? auth.profile : null;
+  const status: SessionStatus = auth.status === "loading"
+    ? "loading"
+    : auth.status === "guest"
+      ? "guest"
+      : auth.status === "error"
+        ? "error"
+        : customerIdentity
+          ? "authenticated"
+          : "forbidden";
+  const customerAccess = Boolean(customerIdentity?.customerId);
+  const principal = useMemo<PrincipalSummary | null>(() => customerIdentity ? {
+    principalId: customerIdentity.principalId,
+    principalType: "CUSTOMER",
+    displayName: customerIdentity.displayName,
+    email: customerIdentity.email,
+    roles: customerIdentity.roles,
+    permissions: customerIdentity.permissions,
+    customerId: customerIdentity.customerId
+  } : null, [customerIdentity]);
+  const customer = useMemo<CustomerSummary | null>(() => customerIdentity?.customerId ? {
+    id: customerIdentity.customerId,
+    displayName: customerIdentity.displayName,
+    email: customerIdentity.email,
+    status: customerIdentity.customerStatus ?? "ACTIVE"
+  } : null, [customerIdentity]);
 
-  useEffect(() => { void Promise.resolve().then(reload); }, [reload]);
-
-  const logout = useCallback(async () => {
-    try { await authService.logout(); }
-    finally {
-      setCustomer(null);
-      setPrincipal(null);
-      setCustomerAccess(false);
-      setStatus("guest");
-      await loadCapabilities(false);
-    }
-  }, [loadCapabilities]);
+  useEffect(() => {
+    void Promise.resolve().then(() => loadCapabilities(customerAccess));
+  }, [customerAccess, loadCapabilities]);
 
   const hasCapability = useCallback((capability: CustomerCapability) => capabilityStatus === "ready" && capabilities.includes(capability), [capabilities, capabilityStatus]);
   const hasRole = useCallback((roleCode: string) => Boolean(principal?.roles.some((role) => role.roleCode === roleCode)), [principal]);
   const hasPermission = useCallback((permissionCode: string) => Boolean(principal?.permissions.includes(permissionCode)), [principal]);
-  const isEmployee = principal?.principalType === "EMPLOYEE";
-  const value = useMemo(() => ({ status, customer, principal, customerAccess, isEmployee, actor, capabilityStatus, capabilities, hasCapability, hasRole, hasPermission, reload, logout }), [actor, capabilities, capabilityStatus, customer, customerAccess, hasCapability, hasPermission, hasRole, isEmployee, logout, principal, reload, status]);
+  const value = useMemo(() => ({ status, customer, principal, customerAccess, actor, capabilityStatus, capabilities, hasCapability, hasRole, hasPermission, reload: auth.reload, logout: auth.logout }), [actor, auth.logout, auth.reload, capabilities, capabilityStatus, customer, customerAccess, hasCapability, hasPermission, hasRole, principal, status]);
   return <CustomerSessionContext.Provider value={value}>{children}</CustomerSessionContext.Provider>;
 }
 
