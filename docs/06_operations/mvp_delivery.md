@@ -39,6 +39,8 @@ sequenceDiagram
 
 Giỏ MVP mua toàn bộ các dòng hiện tại. Muốn bỏ món nào thì xóa khỏi giỏ trước khi lấy báo giá; chưa có checkout một tập con của giỏ. Báo giá mới là số tiền quyết định, giá trên màn hình giỏ chỉ phục vụ hiển thị. Thay giỏ, giá hoặc địa chỉ sau báo giá có thể buộc lấy báo giá mới. Khi mạng lỗi ở bước xác nhận, giữ cùng Idempotency-Key để hỏi lại kết quả, không tạo khóa mới để thử mua lần nữa.
 
+“Dọn giỏ” ghép từ API xóa từng dòng với revision; chưa có API xóa toàn giỏ nguyên tử. Nếu gặp xung đột hoặc lỗi giữa chừng, tải lại giỏ để xem kết quả thực trước khi thao tác tiếp.
+
 Customer mới đăng ký được tạo qua outbox/Kafka sang Profile nhưng còn `PENDING_VERIFICATION`: sửa hồ sơ được, mua hàng và lưu địa chỉ nhận hàng còn bị chặn. Fixture cấp sẵn hai Customer ACTIVE để nghiệm thu; không tự xác minh mọi tài khoản mới.
 
 Employee dùng các màn hình nội bộ. Có role CUSTOMER cũ hoặc có bản ghi Profile không làm Employee trở thành người mua. Web, Mobile, Identity proxy và API Profile/Order đều có chặn tương ứng.
@@ -118,6 +120,8 @@ flutter run --dart-define=DATA_SOURCE=backend --dart-define=AUTH_MODE=identity \
 ```
 
 Ứng dụng native dùng bearer token trong bộ nhớ/secure storage và cookie phiên khi refresh; không gửi bearer hết hạn kèm request refresh. Web callback chỉ redirect, native callback mới trả token JSON. Cookie state được giữ riêng tới callback để chống tráo phiên đăng nhập.
+
+Các request báo giá, operation, đơn hàng của Mobile gửi `Accept: application/vnd.omama.customer-mvp+json, application/json` như Web BFF để nhận đúng DTO MVP (VND nguyên, địa chỉ và snapshot đã chốt). Không dùng parser DTO cũ để đọc response MVP hoặc ngược lại.
 
 TEST loopback có thể thêm `IDENTITY_ALLOW_HTTP=true`. Khi chạy Android qua USB/emulator, có thể `adb reverse` cả cổng Gateway và Keycloak, dùng cùng host `127.0.0.1` như issuer fixture. Cần tự nghiệm thu deep link/trình duyệt và màn hình trên thiết bị; không đổi issuer tùy tiện sang IP khác. Không bật HTTP cho môi trường public.
 

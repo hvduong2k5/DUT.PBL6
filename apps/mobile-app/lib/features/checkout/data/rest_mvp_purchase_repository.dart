@@ -28,6 +28,7 @@ class RestMvpPurchaseRepository implements MvpPurchaseRepository {
     final quote = MvpQuote.fromJson(
       await _client.postJson(
         '/api/v1/checkout/quote',
+        headers: mvpCustomerHeaders,
         data: {
           'cart_revision': cartRevision,
           'payment_method': 'VIETQR',

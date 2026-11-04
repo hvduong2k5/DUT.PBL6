@@ -1297,11 +1297,13 @@ def main():
                 "registration-outbox-kafka-provisioning-replay-transient-failure",
                 "checkout-inventory-reserve-cancel-release-payment-commit",
                 "shipping-revision-kafka-delivery-order-history",
+                "native-app-bound-PKCE-refresh-logout-persona-gates",
+                *( ["native-Dart-real-purchase-cancel-and-Inventory-release"] if args.flutter else [] ),
             ],
         }
         (folder / "result.json").write_text(json.dumps(result, indent=2))
         print(
-            "PASS: no browser identity-header bypass; no token JSON exposure; missing session and invalid callback rejected",
+            "PASS: no browser identity-header bypass; no Web token JSON exposure; missing session and invalid callback rejected",
             flush=True,
         )
         if args.keep_running:

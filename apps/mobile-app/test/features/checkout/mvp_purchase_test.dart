@@ -135,6 +135,10 @@ void main() {
       expect((await repo.savedAddresses()).single.wardCode, '00001');
       final q = await repo.quote(cartRevision: 4, addressId: 'a');
       expect(q.total.units, BigInt.from(112000));
+      expect(
+        requests.last.headers['Accept'],
+        contains('application/vnd.omama.customer-mvp+json'),
+      );
       expect(requests.last.data, {
         'cart_revision': 4,
         'payment_method': 'VIETQR',

@@ -17,7 +17,7 @@ class RestMvpCheckoutRepository implements MvpCheckoutRepository {
       await _client.postJson(
         '/api/v1/checkout',
         data: input.toJson(),
-        headers: {'Idempotency-Key': key},
+        headers: {...mvpCustomerHeaders, 'Idempotency-Key': key},
       ),
     );
   }
@@ -26,7 +26,10 @@ class RestMvpCheckoutRepository implements MvpCheckoutRepository {
   Future<MvpCheckoutOperation> operation(String id) async {
     checkoutId(id);
     final value = MvpCheckoutOperation.fromJson(
-      await _client.getJson('/api/v1/checkout-operations/$id'),
+      await _client.getJson(
+        '/api/v1/checkout-operations/$id',
+        headers: mvpCustomerHeaders,
+      ),
     );
     if (value.id != id) {
       throw const FormatException('Checkout operation identity mismatch');

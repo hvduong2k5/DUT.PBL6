@@ -174,6 +174,14 @@ void main() {
       expect(requests.last.data, {'reason': 'Fixture', 'active': true});
       expect(requests.last.headers['If-Match'], '1');
       expect(requests.last.headers['Idempotency-Key'], command.key);
+      expect(
+        requests.every(
+          (request) => request.headers['Accept'].toString().contains(
+            'application/vnd.omama.customer-mvp+json',
+          ),
+        ),
+        isTrue,
+      );
       expect(requests.where((r) => r.method == 'POST').length, 1);
     },
   );

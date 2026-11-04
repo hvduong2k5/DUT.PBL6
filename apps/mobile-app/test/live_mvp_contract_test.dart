@@ -56,6 +56,12 @@ void main() {
             await Future<void>.delayed(const Duration(seconds: 1));
             handler.next(request);
           },
+          onError: (error, handler) {
+            stdout.writeln(
+              'Live API failure: ${error.requestOptions.method} ${error.requestOptions.uri.path} HTTP ${error.response?.statusCode} (${error.type.name})',
+            );
+            handler.next(error);
+          },
         ),
       );
       final locations = await dependencies.checkoutRepository.locations();

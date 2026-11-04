@@ -137,6 +137,10 @@ void main() {
         'payment_method': 'VIETQR',
       });
       expect(requests.single.headers['Idempotency-Key'], 'fixture-key-123456');
+      expect(
+        requests.single.headers['Accept'],
+        contains('application/vnd.omama.customer-mvp+json'),
+      );
       expect(requests.single.headers.containsKey('X-Idempotency-Key'), isFalse);
       await r.operation(operationId);
       expect(requests.last.path, '/api/v1/checkout-operations/$operationId');

@@ -8,11 +8,14 @@ class RestMvpOrdersRepository implements MvpOrdersRepository {
   final ApiClient _client;
   String _path(String id) => '/api/v1/orders/${checkoutId(id)}';
   @override
-  Future<MvpOrderPageData> firstPage() async =>
-      MvpOrderPageData.fromJson(await _client.getJson('/api/v1/orders'));
+  Future<MvpOrderPageData> firstPage() async => MvpOrderPageData.fromJson(
+    await _client.getJson('/api/v1/orders', headers: mvpCustomerHeaders),
+  );
   @override
   Future<MvpOrder> order(String id) async {
-    final value = MvpOrder.fromJson(await _client.getJson(_path(id)));
+    final value = MvpOrder.fromJson(
+      await _client.getJson(_path(id), headers: mvpCustomerHeaders),
+    );
     if (value.id != id) throw const FormatException('Order identity mismatch');
     return value;
   }
@@ -20,7 +23,10 @@ class RestMvpOrdersRepository implements MvpOrdersRepository {
   @override
   Future<MvpPaymentStatus> payment(String id) async {
     final value = MvpPaymentStatus.fromJson(
-      await _client.getJson('${_path(id)}/payment'),
+      await _client.getJson(
+        '${_path(id)}/payment',
+        headers: mvpCustomerHeaders,
+      ),
     );
     if (value.orderId != id) {
       throw const FormatException('Payment identity mismatch');
@@ -31,7 +37,10 @@ class RestMvpOrdersRepository implements MvpOrdersRepository {
   @override
   Future<MvpPaymentInstructions> instructions(String id) async {
     final value = MvpPaymentInstructions.fromJson(
-      await _client.getJson('${_path(id)}/payment-instructions'),
+      await _client.getJson(
+        '${_path(id)}/payment-instructions',
+        headers: mvpCustomerHeaders,
+      ),
     );
     if (value.orderId != id) {
       throw const FormatException('Payment instructions identity mismatch');
@@ -46,6 +55,7 @@ class RestMvpOrdersRepository implements MvpOrdersRepository {
         '${_path(command.orderId)}/cancel',
         data: command.body,
         headers: {
+          ...mvpCustomerHeaders,
           'Idempotency-Key': command.key,
           'If-Match': command.version.toString(),
         },

@@ -6,6 +6,11 @@ import 'package:mobile_app/core/storage/token_store.dart';
 import 'package:mobile_app/core/network/session_cookies.dart';
 import 'package:mobile_app/core/error/failures.dart';
 
+// Order serves the pinned integer-VND customer representation by negotiation.
+const mvpCustomerHeaders = <String, String>{
+  'Accept': 'application/vnd.omama.customer-mvp+json, application/json',
+};
+
 class ApiClient {
   ApiClient({
     Dio? dio,

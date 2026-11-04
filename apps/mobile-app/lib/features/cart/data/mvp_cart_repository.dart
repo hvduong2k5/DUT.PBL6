@@ -46,22 +46,33 @@ class MvpCartRepository implements CartRepository {
   @override
   Future<Cart> remove(String itemId) async {
     final revision = await _revision();
-    return _cart(
-      await client.deleteJson(
-        '/api/v1/cart/items/${Uri.encodeComponent(itemId)}',
-        headers: {'If-Match': '"$revision"'},
-      ),
+    await client.deleteVoid(
+      '/api/v1/cart/items/${Uri.encodeComponent(itemId)}',
+      headers: {'If-Match': '"$revision"'},
     );
+    return getCart();
   }
 
   @override
   Future<Cart> clear() async {
-    final revision = await _revision();
-    await client.deleteVoid(
-      '/api/v1/cart',
-      headers: {'If-Match': '"$revision"'},
+    var current = await client.getJson('/api/v1/cart');
+    final original = List<Map<String, dynamic>>.from(
+      (current['items'] as List).map(
+        (item) => Map<String, dynamic>.from(item as Map),
+      ),
     );
-    return getCart();
+    // Order only exposes line deletion (204), not DELETE /cart. Stop on a
+    // conflict; never replay a write or pretend a partial clear was atomic.
+    for (final item in original) {
+      final id = (item['item_id'] as String?) ?? item['sku_code'] as String;
+      final revision = current['revision'] as int;
+      await client.deleteVoid(
+        '/api/v1/cart/items/${Uri.encodeComponent(id)}',
+        headers: {'If-Match': '"$revision"'},
+      );
+      current = await client.getJson('/api/v1/cart');
+    }
+    return _cart(current);
   }
 
   Future<Cart> _cart(Map<String, dynamic> data) async {

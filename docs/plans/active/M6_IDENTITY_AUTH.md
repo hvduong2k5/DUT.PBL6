@@ -1,3 +1,5 @@
+> Tích hợp tiếp theo ngày 04/11/2026 trong PR #46: backend Identity #48 + Web #49 + Catalog #19 và Mobile đã nối cùng API MVP. Các checkpoint bên dưới là lịch sử của nhánh Mobile; trạng thái nghiệm thu tích hợp hiện tại và giới hạn thiết bị nằm tại [runbook MVP](../../06_operations/mvp_delivery.md).
+
 # M6 — Mobile Identity authentication
 
 Approved 2026-11-04: use the supplied login requirements, integrate authentication from the user's authservice branch, update Mobile UI, plan/implement task by task, create a goal per task, checkpoint and wait when usage is reported below13%. LARGE / auth+session+native callback change. Work/commit/push only feature/mobile-ui; no merges, backend writes, production deployment or provider configuration.
