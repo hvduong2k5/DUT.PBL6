@@ -167,7 +167,7 @@ func (s *Service) WorkFulfillmentShipment(ctx context.Context) error {
 	var id, task string
 	var version, epoch int64
 	var cipher []byte
-	e := s.DB.QueryRow(ctx, `WITH pick AS(SELECT h.order_id FROM fulfillment_shipping_handoffs h JOIN orders o ON o.id=h.order_id WHERE h.shipment_id IS NULL AND h.retry_at<=clock_timestamp() AND (h.lease_until IS NULL OR h.lease_until<clock_timestamp()) AND o.status='PACKED' AND NOT o.operational_hold AND NOT o.has_active_case ORDER BY h.created_at FOR UPDATE OF h SKIP LOCKED LIMIT 1) UPDATE fulfillment_shipping_handoffs h SET lease_owner=$1,lease_until=clock_timestamp()+interval '30 seconds',lease_epoch=lease_epoch+1,attempts=attempts+1 FROM pick WHERE h.order_id=pick.order_id RETURNING h.order_id::text,h.task_id::text,h.sealed_version,h.request_cipher,h.lease_epoch`, s.workerID).Scan(&id, &task, &version, &cipher, &epoch)
+	e := s.DB.QueryRow(ctx, `WITH pick AS(SELECT h.order_id FROM fulfillment_shipping_handoffs h JOIN orders o ON o.id=h.order_id WHERE h.shipment_id IS NULL AND h.retry_at<=clock_timestamp() AND (h.lease_until IS NULL OR h.lease_until<clock_timestamp()) AND ((o.status='PACKED' AND NOT o.operational_hold AND NOT o.has_active_case) OR o.shipment_id IS NOT NULL) ORDER BY h.created_at FOR UPDATE OF h SKIP LOCKED LIMIT 1) UPDATE fulfillment_shipping_handoffs h SET lease_owner=$1,lease_until=clock_timestamp()+interval '30 seconds',lease_epoch=lease_epoch+1,attempts=attempts+1 FROM pick WHERE h.order_id=pick.order_id RETURNING h.order_id::text,h.task_id::text,h.sealed_version,h.request_cipher,h.lease_epoch`, s.workerID).Scan(&id, &task, &version, &cipher, &epoch)
 	if errors.Is(e, pgx.ErrNoRows) {
 		return nil
 	}
@@ -181,30 +181,39 @@ func (s *Service) WorkFulfillmentShipment(ctx context.Context) error {
 	if e == nil {
 		e = proto.Unmarshal(payload, request)
 	}
+	associated := false
 	if e == nil {
 		var currentTask, currentSeal string
 		var currentGeneration int64
-		e = s.DB.QueryRow(ctx, `SELECT task_id::text,seal_code,ready_generation FROM orders WHERE id=$1 AND status='PACKED' AND NOT operational_hold AND NOT has_active_case`, id).Scan(&currentTask, &currentSeal, &currentGeneration)
+		var bound *string
+		e = s.DB.QueryRow(ctx, `SELECT task_id::text,seal_code,ready_generation,shipment_id::text FROM orders WHERE id=$1 AND ((status='PACKED' AND NOT operational_hold AND NOT has_active_case) OR shipment_id IS NOT NULL)`, id).Scan(&currentTask, &currentSeal, &currentGeneration, &bound)
 		if e == nil && (currentTask != task || currentSeal != request.SealCode || currentGeneration != request.ReadyGeneration) {
 			e = domain.E("HANDOFF_ORDER_MISMATCH", 422)
 		}
+		// This association was already applied from authenticated immutable
+		// Shipping evidence (Kafka may win the race). Finish bookkeeping even
+		// after handover; do not create another shipment or guess its revision.
+		if e == nil && bound != nil {
+			shipment = *bound
+			associated = true
+		}
 	}
-	if e == nil {
+	if e == nil && !associated {
 		proof, err := s.Fulfillment.Revision(ctx, task, version)
 		e = err
 		if e == nil && (proof.Order != id || proof.Kind != "PACKING_SEALED" || proof.Seal != request.SealCode || proof.Generation != request.ReadyGeneration || proof.Occurred.After(time.Now())) {
 			e = domain.E("HANDOFF_SOURCE_NOT_READY", 503)
 		}
 	}
-	if e == nil {
+	if e == nil && !associated {
 		shipment, e = s.Shipping.Create(ctx, request)
 	}
 	// Reconcile the provider's immutable creation revision even if Kafka is delayed.
-	if e == nil {
-		proof, err := s.Shipping.Revision(ctx, shipment, 1)
+	if e == nil && !associated {
+		proof, err := s.Shipping.CreationRevision(ctx, request, shipment)
 		e = err
 		if e == nil {
-			event := domain.Event{ID: uuid.NewSHA1(uuid.MustParse(request.PackageId), []byte("shipping-created")).String(), Source: "shipping", OrderID: id, ResourceID: shipment, Type: "SHIPMENT_CREATED", Version: 1, Generation: proof.Generation, Seal: proof.Seal}
+			event := domain.Event{ID: uuid.NewSHA1(uuid.MustParse(request.PackageId), []byte("shipping-created")).String(), Source: "shipping", OrderID: id, ResourceID: shipment, Type: "SHIPMENT_CREATED", Version: proof.Version, Generation: proof.Generation, Seal: proof.Seal}
 			event.Signature = domain.EventSignature(event, s.C.InternalToken)
 			state, err := s.ProcessEvent(ctx, event)
 			e = err
