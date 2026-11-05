@@ -2425,13 +2425,13 @@ paths:
         '400':
           $ref: '#/components/responses/CatalogAdminBadRequest'
         '401':
-          $ref: '#/components/responses/Unauthorized'
+          $ref: '#/components/responses/CatalogAdminUnauthorized'
         '403':
           $ref: '#/components/responses/CatalogAdminForbidden'
         '500':
           $ref: '#/components/responses/CatalogAdminInternalError'
         '503':
-          $ref: '#/components/responses/ServiceUnavailable'
+          $ref: '#/components/responses/CatalogAdminServiceUnavailable'
       parameters:
       - name: q
         in: query
@@ -2566,7 +2566,7 @@ paths:
                         updatedAt: '2026-09-30T04:00:00.000Z'
                         revision: 5
         '401':
-          $ref: '#/components/responses/Unauthorized'
+          $ref: '#/components/responses/CatalogAdminUnauthorized'
         '403':
           $ref: '#/components/responses/CatalogAdminForbidden'
         '404':
@@ -2574,7 +2574,7 @@ paths:
         '500':
           $ref: '#/components/responses/CatalogAdminInternalError'
         '503':
-          $ref: '#/components/responses/ServiceUnavailable'
+          $ref: '#/components/responses/CatalogAdminServiceUnavailable'
       parameters:
       - name: productId
         in: path
@@ -10572,4 +10572,28 @@ components:
             success: false
             code: INTERNAL_SERVER_ERROR
             message: Hệ thống gặp sự cố, vui lòng thử lại sau.
+            timestamp: '2026-10-02T02:30:00.000Z'
+    CatalogAdminUnauthorized:
+      description: Authentication is missing, invalid, or expired. Catalog admin
+        endpoints return the service ApiResponse error envelope.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AdminApiErrorResponse'
+          example:
+            success: false
+            code: AUTHENTICATION_REQUIRED
+            message: Bạn chưa đăng nhập hoặc phiên làm việc đã hết hạn.
+            timestamp: '2026-10-02T02:30:00.000Z'
+    CatalogAdminServiceUnavailable:
+      description: A required service is temporarily unavailable. Catalog admin
+        endpoints return the service ApiResponse error envelope.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AdminApiErrorResponse'
+          example:
+            success: false
+            code: SERVICE_UNAVAILABLE
+            message: Dịch vụ tạm thời không khả dụng, vui lòng thử lại sau.
             timestamp: '2026-10-02T02:30:00.000Z'

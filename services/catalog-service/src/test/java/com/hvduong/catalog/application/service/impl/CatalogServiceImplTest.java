@@ -2,6 +2,9 @@ package com.hvduong.catalog.application.service.impl;
 
 import com.hvduong.catalog.application.dto.request.PriceValidationRequest;
 import com.hvduong.catalog.application.dto.request.ProductFilterRequest;
+import com.hvduong.catalog.application.dto.response.AdminProductDetailResponse;
+import com.hvduong.catalog.application.dto.response.AdminProductListItemResponse;
+import com.hvduong.catalog.application.dto.response.AdminProductListResponse;
 import com.hvduong.catalog.application.dto.response.CategoryResponse;
 import com.hvduong.catalog.application.dto.response.MoneyResponse;
 import com.hvduong.catalog.application.dto.response.PriceValidationResponse;
@@ -25,6 +28,8 @@ import com.hvduong.catalog.repository.mybatis.ChannelPriceMapper;
 import com.hvduong.catalog.repository.mybatis.ProductImageMapper;
 import com.hvduong.catalog.repository.mybatis.ProductMapper;
 import com.hvduong.catalog.repository.mybatis.ProductVariantMapper;
+import com.hvduong.catalog.repository.mybatis.projection.AdminCategoryRow;
+import com.hvduong.catalog.repository.mybatis.projection.AdminStatusCountRow;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -83,6 +88,7 @@ class CatalogServiceImplTest {
         mockProduct.setName("Test Product");
         mockProduct.setSlug("test-product");
         mockProduct.setDescription("Description");
+        mockProduct.setCategoryId(categoryId);
         org.mockito.Mockito.lenient().when(productMapper.findPublicById(productId)).thenReturn(Optional.of(mockProduct));
 
         mockVariant = new ProductVariant();
@@ -352,5 +358,134 @@ class CatalogServiceImplTest {
         assertFalse(response.isValid());
         assertEquals(1, response.getDiscrepancies().size());
         assertTrue(response.getDiscrepancies().get(0).getReason().contains("SKU không tồn tại"));
+    }
+
+    @Test
+    void testSearchProducts_PushesQueryToSql() {
+        // Given
+        when(productMapper.findPublicProducts(eq("mè xùng"), any(), any(), any(), any(),
+                eq("NEWEST"), eq("D2C_WEB"), eq(0), eq(20)))
+                .thenReturn(List.of(mockProduct));
+        when(productMapper.countPublicProducts(eq("mè xùng"), any(), any(), any(), any(),
+                eq("D2C_WEB")))
+                .thenReturn(5L);
+
+        when(variantMapper.findActiveByProductId(productId)).thenReturn(List.of(mockVariant));
+        when(channelPriceMapper.findActiveCurrentByVariantIds(any(), anyString()))
+                .thenReturn(List.of(mockPrice));
+        when(imageMapper.findApprovedByProductId(productId)).thenReturn(List.of(mockImage));
+
+        ProductListItemResponse mockListItemResponse = new ProductListItemResponse();
+        when(dtoMapper.toListItemResponse(any(Product.class))).thenReturn(mockListItemResponse);
+
+        // When
+        PageResponse<ProductListItemResponse> result = catalogService.searchProducts("mè xùng", 1, 20);
+
+        // Then
+        assertNotNull(result);
+        assertEquals(5, result.getTotal());
+        assertEquals(1, result.getItems().size());
+    }
+
+    @Test
+    void testSearchProducts_EmptyQueryReturnsEmpty() {
+        // When
+        PageResponse<ProductListItemResponse> result = catalogService.searchProducts("   ", 1, 20);
+
+        // Then
+        assertNotNull(result);
+        assertTrue(result.getItems().isEmpty());
+        assertEquals(0, result.getTotal());
+    }
+
+    @Test
+    void testGetAdminProducts_WithFilter() {
+        // Given
+        when(productMapper.findAdminProducts(eq("mè"), eq("ACTIVE"), eq(0), eq(20)))
+                .thenReturn(List.of(mockProduct));
+        when(productMapper.countAdminProducts(eq("mè"), eq("ACTIVE"))).thenReturn(1L);
+
+        AdminStatusCountRow activeRow = new AdminStatusCountRow();
+        activeRow.setStatus("ACTIVE");
+        activeRow.setCount(1L);
+        AdminStatusCountRow suspendedRow = new AdminStatusCountRow();
+        suspendedRow.setStatus("SUSPENDED");
+        suspendedRow.setCount(0L);
+        when(productMapper.countAdminProductsByStatus(eq("mè")))
+                .thenReturn(List.of(activeRow, suspendedRow));
+
+        AdminCategoryRow catRow = new AdminCategoryRow();
+        catRow.setCategoryId(categoryId);
+        catRow.setCategoryName("Mè xửng Huế");
+        when(productMapper.findAdminCategories(eq("mè")))
+                .thenReturn(List.of(catRow));
+
+        when(variantMapper.findByProductIds(any())).thenReturn(List.of(mockVariant));
+        when(channelPriceMapper.findActiveCurrentByVariantIds(any(), anyString()))
+                .thenReturn(List.of(mockPrice));
+        org.mockito.Mockito.lenient().when(imageMapper.findApprovedByProductId(productId)).thenReturn(List.of(mockImage));
+
+        AdminProductListItemResponse mockListItem = new AdminProductListItemResponse();
+        org.mockito.Mockito.lenient().when(dtoMapper.toAdminListItemResponse(any(Product.class))).thenReturn(mockListItem);
+
+        // When
+        AdminProductListResponse result = catalogService.getAdminProducts(1, 20, "mè", "ACTIVE");
+
+        // Then
+        assertNotNull(result);
+        assertEquals(1, result.getItems().size());
+        assertEquals(3, result.getStatusCounts().size());
+        assertEquals("ACTIVE", result.getStatusCounts().get(0).getStatus());
+        assertEquals("Đang bán", result.getStatusCounts().get(0).getLabel());
+        assertEquals(1L, result.getStatusCounts().get(0).getCount());
+        assertEquals(1, result.getCategories().size());
+        assertEquals(categoryId.toString(), result.getCategories().get(0).getCategoryId());
+        assertEquals("Mè xửng Huế", result.getCategories().get(0).getCategoryName());
+        assertNotNull(result.getCalculatedAt());
+    }
+
+    @Test
+    void testGetAdminProducts_ReturnsAllStatusCounts() {
+        // Given
+        org.mockito.Mockito.lenient().when(productMapper.findAdminProducts(anyString(), anyString(), anyInt(), anyInt()))
+                .thenReturn(List.of());
+        org.mockito.Mockito.lenient().when(productMapper.countAdminProducts(anyString(), anyString())).thenReturn(0L);
+        org.mockito.Mockito.lenient().when(productMapper.countAdminProductsByStatus(anyString())).thenReturn(List.of());
+        org.mockito.Mockito.lenient().when(productMapper.findAdminCategories(anyString())).thenReturn(List.of());
+
+        // When
+        AdminProductListResponse result = catalogService.getAdminProducts(1, 20, null, null);
+
+        // Then
+        assertNotNull(result);
+        assertEquals(3, result.getStatusCounts().size()); // ACTIVE, SUSPENDED, ARCHIVED
+        assertEquals("ACTIVE", result.getStatusCounts().get(0).getStatus());
+        assertEquals("Đang bán", result.getStatusCounts().get(0).getLabel());
+        assertEquals("SUSPENDED", result.getStatusCounts().get(1).getStatus());
+        assertEquals("Tạm ngừng bán", result.getStatusCounts().get(1).getLabel());
+        assertEquals("ARCHIVED", result.getStatusCounts().get(2).getStatus());
+        assertEquals("Ngừng kinh doanh", result.getStatusCounts().get(2).getLabel());
+    }
+
+    @Test
+    void testGetAdminProductDetail_ReturnsAllVariantsWithPrices() {
+        // Given
+        UUID id = UUID.randomUUID();
+        when(productMapper.findById(eq(id))).thenReturn(Optional.of(mockProduct));
+        when(imageMapper.findApprovedByProductId(id)).thenReturn(List.of(mockImage));
+
+        when(variantMapper.findAllByProductId(id)).thenReturn(List.of(mockVariant));
+        when(channelPriceMapper.findActiveCurrentByVariantIds(any(), anyString()))
+                .thenReturn(List.of(mockPrice));
+
+        AdminProductDetailResponse mockDetail = new AdminProductDetailResponse();
+        when(dtoMapper.toAdminDetailResponse(any(Product.class))).thenReturn(mockDetail);
+
+        // When
+        AdminProductDetailResponse result = catalogService.getAdminProductDetail(id.toString());
+
+        // Then
+        assertNotNull(result);
+        assertEquals(1, result.getSkus().size());
     }
 }
