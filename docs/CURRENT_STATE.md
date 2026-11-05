@@ -1,5 +1,15 @@
 # Customer Mobile — current handoff
 
+## Environment availability checkpoint — 2026-11-05
+
+User authorized discovery and use of an existing environment if found. Branch feature/mobile-ui, entry HEADe1d4ec8c05ea7e8b63254f6663d112ab1dd6c326; remote Mobile/dev tips unchanged (dev a24492b). Checked Mobile config, process environment allowlisted URL/mode keys, relevant local config locations, read-only dev Identity/Gateway env examples, README/runbooks and Web integration/deployment guides. No configured local Identity URL/authorization origins found in checked locations; one worktree only. Private secrets were not retrieved. AppConfig's production API default is api.omama.vn; dev is localhost/Android-emulator8000.
+
+Actual anonymous HTTP probes: https://api.omama.vn/api/v1/public/auth/session and https://keycloak.omama.vn/realms/omama/.well-known/openid-configuration both fail DNS resolution (11001). example.com resolves, so no conclusion of universal network failure. Local127.0.0.1:8016/actuator/health and127.0.0.1:8000/api/v1/public/auth/session both refuse connections10061; no listener in the checked common service ports. Docker ps fails because dockerDesktopLinuxEngine pipe is absent. Remaining guide origins are internal service names or explicit sample domains/LAN/tunnel examples, not a verified deployed dev environment. These are observations from this machine, not proof that no deployment exists elsewhere.
+
+Result: backend implementation exists, but no usable existing environment was found; live Mobile login remains BLOCKED on reachable environment/configuration. No login/account/provider/deployment action, Docker start, service bootstrap, database migration, credential operation or app config change performed. No runtime changes, so tests/build NOT RUN this discovery slice. ADB phone remains connected.
+
+**Exact next action:** user supplies a reachable approved environment URL, or explicitly authorizes an isolated local backend environment with separate containers/volumes/ports and a pinned source snapshot. The latter is new environment work, beyond authorization to merely use an existing environment; plan resources/source/configuration/rollback before starting and keep backend branches untouched unless separately approved. Prior Gateway/password/social blockers remain open. Checkpoint discovery docs on Mobile only, then wait for user decision. Preserve unrelated MOBILE_MVP_DISCUSSION_REFERENCE.md.
+
 ## Registration UI and native acceptance checkpoint — 2026-11-05
 
 Resumed with user instruction to continue, from feature/mobile-ui HEAD16dc35b2171ea3dc1defa7c34169b9e23cd0911d, remote SHA verified. Scope: registration widget acceptance and install/start verification of the existing APK; no runtime source/API/dependency/provider or other-branch changes. Only identity_ui_test.dart plus current/master/M6 documentation intentionally changed. Preserve unrelated untracked MOBILE_MVP_DISCUSSION_REFERENCE.md.

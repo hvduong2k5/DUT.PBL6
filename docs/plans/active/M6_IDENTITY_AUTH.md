@@ -1,5 +1,9 @@
 # M6 — Mobile Identity authentication
 
+## Existing environment discovery — 2026-11-05
+
+User allowed using an existing environment if found. Read-only discovery complete: checked config/runbooks/examples and allowlisted local URL/mode settings; remote dev/Mobile refs unchanged. Public API session and Keycloak discovery URLs fail DNS11001 while control domain resolves; localhost8016/8000 refuse10061; Docker Engine unavailable. Other guide URLs are internal/examples. No usable environment found from inspected sources; live acceptance BLOCKED. No runtime change/test/build or external provisioning performed. Detailed evidence in CURRENT_STATE. Next requires a supplied reachable environment or explicit approval/planning for isolated local backend setup; do not bootstrap containers, change backend branches or providers under the existing-use authorization. Checkpoint then wait.
+
 ## Resume / registration UI acceptance — 2026-11-05
 
 COMPLETE for this validation slice:2 added page-level registration/retry/cancel tests, Identity UI6/6 PASS, auth70/70 PASS20s, analyze PASS71.2s. Initial test-helper visibility failure fixed with scrollUntilVisible; no production code change. Existing source2144c4f APK reverified/installed-r successfully; resumed MainActivity/Home visually confirmed after manual unlock, PID20765/log180lines has0 exact crash/Flutter error/overflow matches and2 historical ESP fallback events. Launch wait includes locked screen; no performance claim. No data cleared, no real credentials/IdP used. Runtime source unchanged, so no APK rebuild/full-suite repeat. Checkpoint and WAIT FOR USER REVIEW; actual backend acceptance and prior backend blockers remain open.
