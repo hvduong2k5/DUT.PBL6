@@ -39,7 +39,8 @@ function mapSummary(value: unknown): AdminProductSummary {
   const item = record(value) ? value : {};
   return { productId: string(item.productId), name: string(item.name), categoryId: string(item.categoryId), categoryName: string(item.categoryName), saleStatus: productStatus(item.saleStatus), saleStatusLabel: string(item.saleStatusLabel), skuCount: Math.max(0, number(item.skuCount)), onSaleSkuCount: Math.max(0, number(item.onSaleSkuCount)), basePriceFromVnd: typeof item.basePriceFromVnd === "number" && Number.isFinite(item.basePriceFromVnd) ? Math.max(0, item.basePriceFromVnd) : null, foodInformationComplete: item.foodInformationComplete === true, updatedAt: date(item.updatedAt), revision: Math.max(1, number(item.revision, 1)) };
 }
-function mapList(payload: Record<string, unknown>): AdminProductList {
+function mapList(data: Record<string, unknown>): AdminProductList {
+  const payload = record(data.data) ? data.data : data;
   const items = array(payload.items).map(mapSummary).filter((item) => item.productId);
   const statusCounts = array(payload.statusCounts).map((value) => { const item = record(value) ? value : {}; const raw = string(item.status) as "ALL" | ProductSaleStatus; return { status: raw === "ALL" || PRODUCT_STATUSES.has(raw as ProductSaleStatus) ? raw : "ALL", label: string(item.label), count: Math.max(0, number(item.count)) }; });
   for (const status of PRODUCT_STATUSES) if (!statusCounts.some((item) => item.status === status)) statusCounts.push({ status, label: status, count: items.filter((item) => item.saleStatus === status).length });
@@ -50,7 +51,8 @@ function mapSku(value: unknown): AdminProductSku {
   const item = record(value) ? value : {};
   return { skuId: string(item.skuId), skuCode: string(item.skuCode), label: string(item.label), weightGrams: typeof item.weightGrams === "number" && Number.isFinite(item.weightGrams) ? Math.max(0, item.weightGrams) : null, flavor: typeof item.flavor === "string" ? item.flavor : null, packageType: string(item.packageType), basePriceVnd: Math.max(0, number(item.basePriceVnd)), currency: "VND", saleStatus: skuStatus(item.saleStatus), saleStatusLabel: string(item.saleStatusLabel), updatedAt: date(item.updatedAt), revision: Math.max(1, number(item.revision, 1)) };
 }
-function mapDetail(payload: Record<string, unknown>): AdminProductDetail {
+function mapDetail(data: Record<string, unknown>): AdminProductDetail {
+  const payload = record(data.data) ? data.data : data;
   const summary = mapSummary(payload);
   const food = record(payload.foodInformation) ? payload.foodInformation : null;
   return { ...summary, shortDescription: string(payload.shortDescription), longDescription: string(payload.longDescription), coverImageUrl: typeof payload.coverImageUrl === "string" ? payload.coverImageUrl : null, coverImageAlt: string(payload.coverImageAlt, summary.name), foodInformation: food ? { ingredients: string(food.ingredients), allergenStatement: typeof food.allergenStatement === "string" ? food.allergenStatement : null, storageInstructions: string(food.storageInstructions), manufacturingDatePolicy: string(food.manufacturingDatePolicy), shelfLifeDescription: string(food.shelfLifeDescription) } : null, skus: array(payload.skus).map(mapSku).filter((item) => item.skuId) };
