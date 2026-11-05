@@ -8,6 +8,7 @@ import com.hvduong.catalog.application.dto.request.CreateProductRequest;
 import com.hvduong.catalog.application.dto.request.UpdateProductRequest;
 import com.hvduong.catalog.application.dto.response.ProductDetailResponse;
 import com.hvduong.catalog.application.mapper.CatalogDtoMapper;
+import com.hvduong.catalog.application.service.CatalogCacheEvictor;
 import com.hvduong.catalog.common.exception.CatalogException;
 import com.hvduong.catalog.domain.entity.Category;
 import com.hvduong.catalog.domain.entity.Product;
@@ -36,7 +37,7 @@ class CatalogAdminServiceImplTest {
   @Mock private ChannelPriceMapper channelPriceMapper;
   @Mock private ProductImageMapper imageMapper;
   @Mock private CatalogDtoMapper dtoMapper;
-  @Mock private CatalogServiceImpl catalogService;
+  @Mock private CatalogCacheEvictor cacheEvictor;
   @Mock private CatalogOutboxWriter outboxWriter;
 
   private CatalogAdminServiceImpl adminService;
@@ -53,7 +54,8 @@ class CatalogAdminServiceImplTest {
             imageMapper,
             categoryMapper,
             dtoMapper,
-            outboxWriter);
+            outboxWriter,
+            cacheEvictor);
     productId = UUID.randomUUID();
   }
 

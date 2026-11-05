@@ -11,6 +11,7 @@ import com.hvduong.catalog.application.dto.response.ProductDetailResponse;
 import com.hvduong.catalog.application.dto.response.ProductVariantResponse;
 import com.hvduong.catalog.application.mapper.CatalogDtoMapper;
 import com.hvduong.catalog.application.service.CatalogAdminService;
+import com.hvduong.catalog.application.service.CatalogCacheEvictor;
 import com.hvduong.catalog.common.enums.ApprovalStatus;
 import com.hvduong.catalog.common.enums.ListingStatus;
 import com.hvduong.catalog.common.enums.SalesChannel;
@@ -60,6 +61,7 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
   private final CategoryMapper categoryMapper;
   private final CatalogDtoMapper dtoMapper;
   private final CatalogOutboxWriter outboxWriter;
+  private final CatalogCacheEvictor cacheEvictor;
 
   // ── Admin Read ──────────────────────────────────────────────────────
 
@@ -261,6 +263,7 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
             "approval_status", product.getApprovalStatus().name(),
             "listing_status", product.getListingStatus().name(),
             "version", product.getVersion()));
+    cacheEvictor.evictCategoriesCache();
     return buildDetailResponse(product);
   }
 
@@ -302,6 +305,7 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
     int updated = productMapper.update(existing);
     if (updated == 0) throw CatalogException.versionConflict(productId.toString());
 
+    cacheEvictor.evictCategoriesCache();
     return buildDetailResponse(existing);
   }
 
@@ -329,6 +333,8 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
         productMapper.updateApprovalStatus(
             productId, ApprovalStatus.PENDING.getValue(), actorId, expectedVersion);
     if (updated == 0) throw CatalogException.versionConflict(productId.toString());
+
+    cacheEvictor.evictCategoriesCache();
     return buildDetailResponse(product);
   }
 
@@ -356,6 +362,8 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
         productMapper.updateApprovalStatus(
             productId, ApprovalStatus.APPROVED.getValue(), approverActorId, expectedVersion);
     if (updated == 0) throw CatalogException.versionConflict(productId.toString());
+
+    cacheEvictor.evictCategoriesCache();
     return buildDetailResponse(product);
   }
 
@@ -380,6 +388,8 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
         productMapper.updateApprovalStatus(
             productId, ApprovalStatus.REJECTED.getValue(), approverActorId, expectedVersion);
     if (updated == 0) throw CatalogException.versionConflict(productId.toString());
+
+    cacheEvictor.evictCategoriesCache();
     return buildDetailResponse(product);
   }
 
@@ -404,6 +414,8 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
         productMapper.updateListingStatus(
             productId, ListingStatus.SUSPENDED.getValue(), expectedVersion);
     if (updated == 0) throw CatalogException.versionConflict(productId.toString());
+
+    cacheEvictor.evictCategoriesCache();
     return buildDetailResponse(product);
   }
 
@@ -428,6 +440,8 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
         productMapper.updateListingStatus(
             productId, ListingStatus.ARCHIVED.getValue(), expectedVersion);
     if (updated == 0) throw CatalogException.versionConflict(productId.toString());
+
+    cacheEvictor.evictCategoriesCache();
     return buildDetailResponse(product);
   }
 
@@ -481,6 +495,7 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
               .build());
     }
 
+    cacheEvictor.evictCategoriesCache();
     return buildDetailResponse(productMapper.findById(productId).orElseThrow());
   }
 
@@ -541,6 +556,7 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
     outboxWriter.enqueue(
         "Product", productId.toString(), "vn.omama.catalog.product.price.changed.v1", eventData);
 
+    cacheEvictor.evictCategoriesCache();
     return buildDetailResponse(productMapper.findById(productId).orElseThrow());
   }
 
