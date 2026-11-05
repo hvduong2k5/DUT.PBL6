@@ -79,7 +79,7 @@ public class CatalogGrpcMapper {
     public ProductVariantDetail toVariantDetailProto(ProductVariantResponse v) {
         var builder = ProductVariantDetail.newBuilder()
                 .setSkuCode(v.getSkuCode() != null ? v.getSkuCode() : "")
-                .setProductId(v.getVariantId() != null ? v.getVariantId().toString() : "")
+                .setProductId(v.getProductId() != null ? v.getProductId().toString() : "")
                 .setVariantName(v.getName() != null ? v.getName() : "")
                 .setPackagingType(v.getPackagingType() != null ? v.getPackagingType() : "")
                 .setShelfLifeDays(v.getShelfLifeDays() != null ? v.getShelfLifeDays() : 90)

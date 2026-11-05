@@ -50,6 +50,7 @@ public interface CatalogDtoMapper {
 
     // ── Variant ───────────────────────────────────────────────────────────────
     @Mapping(source = "id",          target = "variantId")
+    @Mapping(source = "productId",   target = "productId")
     @Mapping(source = "variantName", target = "name")
     @Mapping(target = "price",       ignore = true)
     @Mapping(target = "stockAvailable", ignore = true)

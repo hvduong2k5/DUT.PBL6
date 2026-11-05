@@ -15,6 +15,7 @@ import java.util.UUID;
 @AllArgsConstructor
 public class ProductVariantResponse {
     private UUID variantId;
+    private UUID productId;
     private String skuCode;
     private String name;
     private BigDecimal weightValue;

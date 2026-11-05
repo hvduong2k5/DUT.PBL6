@@ -5,6 +5,8 @@ import com.hvduong.catalog.application.dto.response.PriceValidationResponse;
 import com.hvduong.catalog.application.dto.response.ProductVariantResponse;
 import com.hvduong.catalog.application.service.CatalogService;
 import com.hvduong.catalog.application.service.CheckoutSnapshotService;
+import com.hvduong.catalog.common.exception.CatalogException;
+import com.hvduong.catalog.common.exception.ErrorCode;
 import com.omamx.proto.catalog.v1.*;
 import com.omamx.proto.common.v1.Money;
 import com.omamx.proto.common.v1.Weight;
@@ -117,11 +119,28 @@ public class CatalogGrpcService extends CatalogServiceGrpc.CatalogServiceImplBas
         try {
             observer.onNext(call.execute());
             observer.onCompleted();
+        } catch (CatalogException ex) {
+            Status status = mapCatalogExceptionToStatus(ex);
+            log.warn("[gRPC-Internal] CatalogException: code={}, message={}", ex.getErrorCode(), ex.getMessage());
+            observer.onError(status.withDescription(ex.getMessage()).asRuntimeException());
         } catch (Exception e) {
             log.error("[gRPC-Internal] Error executing call", e);
             observer.onError(Status.INTERNAL
                     .withDescription(e.getMessage())
                     .asRuntimeException());
         }
+    }
+
+    private Status mapCatalogExceptionToStatus(CatalogException ex) {
+        ErrorCode code = ex.getErrorCode();
+        String name = code.name();
+        if (name.endsWith("_NOT_FOUND")) return Status.NOT_FOUND;
+        if (name.endsWith("_INVALID_STATE") || name.equals("CATALOG_PRICE_TAMPERED")
+                || name.equals("CATALOG_PRODUCT_OUT_OF_SEASON")) return Status.FAILED_PRECONDITION;
+        if (name.equals("INVALID_ARGUMENT")) return Status.INVALID_ARGUMENT;
+        if (name.equals("PERMISSION_DENIED") || name.equals("UNAUTHENTICATED")) return Status.PERMISSION_DENIED;
+        if (name.equals("RESOURCE_NOT_FOUND")) return Status.NOT_FOUND;
+        if (name.equals("CIRCUIT_BREAKER_OPEN") || name.equals("DEADLINE_EXCEEDED")) return Status.UNAVAILABLE;
+        return Status.INTERNAL;
     }
 }

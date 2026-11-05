@@ -98,7 +98,8 @@ public class CatalogHttpController {
     @PostMapping("/internal/catalog/snapshots/{id}/revalidate")
     public Object revalidate(@RequestHeader(name="X-Internal-Token",required=false) String token, @PathVariable String id) { authorize(token); return Map.of("valid", snapshots.revalidate(id)); }
     @PostMapping("/internal/prices/validate")
-    public Object validatePriceAndSku(@RequestBody PriceValidationRequest request) {
+    public Object validatePriceAndSku(@RequestHeader(name="X-Internal-Token",required=false) String token, @RequestBody PriceValidationRequest request) {
+        authorize(token);
         return catalog.validatePrices(request);
     }
     private void authorize(String token) {
