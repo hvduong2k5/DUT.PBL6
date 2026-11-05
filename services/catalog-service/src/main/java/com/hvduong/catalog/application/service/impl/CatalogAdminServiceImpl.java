@@ -33,7 +33,6 @@ import com.hvduong.catalog.repository.mybatis.ProductVariantMapper;
 import com.hvduong.catalog.repository.mybatis.projection.AdminCategoryRow;
 import com.hvduong.catalog.repository.mybatis.projection.AdminStatusCountRow;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -47,7 +46,6 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -83,7 +81,6 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
 
     List<UUID> productIds = products.stream().map(Product::getId).collect(Collectors.toList());
 
-    // Batch variants cho toàn bộ trang (tránh N+1)
     Map<UUID, List<ProductVariant>> variantsByProduct = new HashMap<>();
     if (!productIds.isEmpty()) {
       List<ProductVariant> allVariants = variantMapper.findByProductIds(productIds);
@@ -92,7 +89,6 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
       }
     }
 
-    // Batch giá hiệu lực theo channel admin (mặc định D2C_WEB)
     List<UUID> variantIds =
         variantsByProduct.values().stream()
             .flatMap(List::stream)
@@ -101,19 +97,18 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
     Map<UUID, ChannelPrice> currentPriceByVariant = new HashMap<>();
     if (!variantIds.isEmpty()) {
       String channel = CatalogConstants.CHANNEL_D2C_WEB;
-      for (ChannelPrice price : channelPriceMapper.findActiveCurrentByVariantIds(variantIds, channel)) {
+      for (ChannelPrice price :
+          channelPriceMapper.findActiveCurrentByVariantIds(variantIds, channel)) {
         currentPriceByVariant.putIfAbsent(price.getVariantId(), price);
       }
     }
 
-    // statusCounts: tính trên tập đã lọc bởi q (không lọc theo status đang chọn)
     List<AdminStatusCountRow> statusRows = productMapper.countAdminProductsByStatus(q);
     Map<String, Long> statusCountMap = new HashMap<>();
     for (AdminStatusCountRow row : statusRows) {
       statusCountMap.merge(row.getStatus(), row.getCount(), Long::sum);
     }
 
-    // categories: các category có Product trong tập q
     List<AdminCategoryRow> categoryRows = productMapper.findAdminCategories(q);
 
     String calculatedAt = Instant.now().toString();
@@ -168,14 +163,13 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
 
     AdminProductDetailResponse response = dtoMapper.toAdminDetailResponse(product);
     response.setCategoryName(product.getCategoryName());
-    SaleStatus status = SaleStatus.fromListingStatus(product.getListingStatus());
-    response.setSaleStatus(status.getCode());
-    response.setSaleStatusLabel(status.getLabelVn());
+    SaleStatus saleStatus = SaleStatus.fromListingStatus(product.getListingStatus());
+    response.setSaleStatus(saleStatus.getCode());
+    response.setSaleStatusLabel(saleStatus.getLabelVn());
     response.setLongDescription(product.getDescription());
     response.setCoverImageUrl(AdminCatalogMapper.coverImageUrl(images));
     response.setCoverImageAlt(AdminCatalogMapper.coverImageAlt(images, product.getName()));
 
-    // Trả toàn bộ variant (ACTIVE + SUSPENDED + ARCHIVED), kèm giá hiện hành theo channel admin
     List<ProductVariant> variants = variantMapper.findAllByProductId(id);
     List<UUID> variantIds = variants.stream().map(ProductVariant::getId).collect(Collectors.toList());
     Map<UUID, ChannelPrice> currentPriceByVariant = new HashMap<>();
@@ -189,7 +183,10 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
 
     List<AdminProductDetailResponse.AdminProductSkuResponse> skus =
         variants.stream()
-            .map(variant -> AdminCatalogMapper.toSkuResponse(variant, currentPriceByVariant.get(variant.getId())))
+            .map(
+                variant ->
+                    AdminCatalogMapper.toSkuResponse(
+                        variant, currentPriceByVariant.get(variant.getId())))
             .collect(Collectors.toList());
     response.setSkus(skus);
 
@@ -450,7 +447,8 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
         .orElseThrow(
             () ->
                 new CatalogException(
-                    ErrorCode.CATALOG_PRODUCT_NOT_FOUND, "Product không tồn tại: " + productId));
+                    ErrorCode.CATALOG_PRODUCT_NOT_FOUND,
+                    "Product không tồn tại: " + productId));
 
     if (variantMapper.existsBySkuCode(request.getSkuCode(), null)) {
       throw new CatalogException(
@@ -572,124 +570,5 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
             .collect(Collectors.toList());
     response.setVariants(variantResponses);
     return response;
-  }
-
-  // ── Admin Read Helpers ──────────────────────────────────────────────
-
-  private AdminProductListItemResponse toAdminListItemResponse(
-      Product product,
-      List<ProductVariant> variants,
-      Map<UUID, ChannelPrice> currentPriceByVariant) {
-    AdminProductListItemResponse item = new AdminProductListItemResponse();
-    item.setProductId(product.getId().toString());
-    item.setName(product.getName());
-    item.setCategoryId(product.getCategoryId().toString());
-    item.setCategoryName(product.getCategoryName());
-    item.setSaleStatus(statusLabel(product.getListingStatus()));
-    item.setSaleStatusLabel(displayStatusLabel(product.getListingStatus()));
-    item.setSkuCount(variants.size());
-    item.setOnSaleSkuCount(
-        variants.stream()
-            .filter(v -> v.getListingStatus() == ListingStatus.ACTIVE)
-            .mapToInt(v -> 1)
-            .sum());
-    item.setBasePriceFromVnd(skuBasePriceFromVnd(variants, currentPriceByVariant));
-    item.setFoodInformationComplete(foodInformationComplete(product));
-    item.setUpdatedAt(formatInstant(product.getUpdatedAt()));
-    item.setRevision(product.getVersion());
-    return item;
-  }
-
-  private AdminProductDetailResponse.AdminProductSkuResponse toAdminSkuResponse(
-      ProductVariant variant, ChannelPrice price) {
-    AdminProductDetailResponse.AdminProductSkuResponse sku = new AdminProductDetailResponse.AdminProductSkuResponse();
-    sku.setSkuId(variant.getId().toString());
-    sku.setSkuCode(variant.getSkuCode());
-    sku.setLabel(variant.getVariantName());
-    sku.setWeightGrams(weightGrams(variant.getWeightValue()));
-    sku.setFlavor(variant.getFlavor());
-    sku.setPackageType(packagingLabel(variant.getPackagingType()));
-    sku.setBasePriceVnd(price != null ? price.getAmountUnits() : null);
-    sku.setCurrency(price != null ? price.getCurrencyCode() : "VND");
-    sku.setSaleStatus(statusLabel(variant.getListingStatus()));
-    sku.setSaleStatusLabel(displayStatusLabel(variant.getListingStatus()));
-    sku.setUpdatedAt(formatInstant(variant.getUpdatedAt()));
-    sku.setRevision(variant.getVersion());
-    return sku;
-  }
-
-  private String statusLabel(ListingStatus listingStatus) {
-    if (listingStatus == null) return "DISCONTINUED";
-    return switch (listingStatus) {
-      case ACTIVE -> "ON_SALE";
-      case SUSPENDED -> "PAUSED";
-      case ARCHIVED -> "DISCONTINUED";
-    };
-  }
-
-  private String displayStatusLabel(ListingStatus listingStatus) {
-    if (listingStatus == null) return "Ngừng kinh doanh";
-    return switch (listingStatus) {
-      case ACTIVE -> "Đang bán";
-      case SUSPENDED -> "Tạm ngừng bán";
-      case ARCHIVED -> "Ngừng kinh doanh";
-    };
-  }
-
-  private Long skuBasePriceFromVnd(
-      List<ProductVariant> variants, Map<UUID, ChannelPrice> currentPriceByVariant) {
-    Long min = null;
-    for (ProductVariant variant : variants) {
-      ChannelPrice price = currentPriceByVariant.get(variant.getId());
-      if (price != null && price.getAmountUnits() > 0) {
-        Long units = price.getAmountUnits();
-        min = (min == null || units < min) ? units : min;
-      }
-    }
-    return min;
-  }
-
-  private boolean foodInformationComplete(Product product) {
-    return StringUtils.hasText(product.getIngredients())
-        && StringUtils.hasText(product.getStorageGuide())
-        && StringUtils.hasText(product.getName());
-  }
-
-  private Integer weightGrams(BigDecimal weightValue) {
-    if (weightValue == null) return null;
-    return weightValue.intValue();
-  }
-
-  private String packagingLabel(String packagingType) {
-    if (packagingType == null) return null;
-    return packagingType.replace('_', ' ').toLowerCase();
-  }
-
-  private String formatInstant(Instant instant) {
-    return instant == null ? null : instant.toString();
-  }
-
-  private String coverImageUrl(Product product) {
-    if (product.getImages() == null || product.getImages().isEmpty()) return null;
-    return product.getImages().stream()
-        .filter(img -> "COVER".equals(img.getRole()) && "APPROVED".equals(img.getMediaStatus()))
-        .findFirst()
-        .map(img -> buildPresignedUrl(img.getObjectKey()))
-        .orElse(null);
-  }
-
-  private String coverImageAlt(Product product) {
-    if (product.getImages() == null || product.getImages().isEmpty()) return null;
-    return product.getImages().stream()
-        .filter(img -> "COVER".equals(img.getRole()) && "APPROVED".equals(img.getMediaStatus()))
-        .findFirst()
-        .map(ProductImage::getAltText)
-        .filter(StringUtils::hasText)
-        .orElse(product.getName());
-  }
-
-  /** TODO Phase 2: MinIO presigned URL generator */
-  private String buildPresignedUrl(String objectKey) {
-    return "https://cdn.example.com/" + objectKey;
   }
 }
