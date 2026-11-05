@@ -128,9 +128,9 @@ public class CatalogAdminController {
         return ResponseEntity.ok(ApiResponse.success("Chuyển trạng thái sản phẩm thành công", result));
     }
 
-    @Operation(summary = "Thêm biến thể mới cho sản phẩm", description = "Tạo mã SKU và quy cách đóng gói mới")
+    @Operation(summary = "Thêm SKU mới cho sản phẩm", description = "Tạo mã SKU và quy cách đóng gói mới")
     @PreAuthorize("hasRole('ADMIN') or hasAuthority('CATALOG_MANAGE')")
-    @PostMapping("/products/{productId}/variants")
+    @PostMapping("/products/{productId}/skus")
     public ResponseEntity<ApiResponse<ProductDetailResponse>> addVariant(
             @Parameter(description = "ID sản phẩm (UUID)", required = true) @PathVariable UUID productId,
             @Valid @RequestBody CreateVariantRequest request,

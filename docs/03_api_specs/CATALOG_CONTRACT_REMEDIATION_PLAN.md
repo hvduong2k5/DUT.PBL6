@@ -73,7 +73,7 @@ Ghi chú:
 | C-13 | Admin derived fields | `saleStatusLabel`, `skuCount`, `onSaleSkuCount`, `basePriceFromVnd`, `foodInformationComplete`, `updatedAt`, `categoryName`, ảnh bìa... bị null | Required trong `admin-stable` | Tính/join đầy đủ | P1 |
 | C-14 | Admin detail | Chỉ trả SKU ACTIVE; nhiều field mapper ignore | Trả cả PAUSED/DISCONTINUED kèm giá/trạng thái/revision | Sửa query + mapper | P1 |
 | C-15 | Admin list filter | Controller/BFF không truyền `q/status/page/pageSize` | Contract hỗ trợ | Thêm filter + BFF passthrough | P1 |
-| C-16 | Admin write | Contract draft dùng `/skus`, service dùng `/variants`; response khác | Chưa freeze | Chốt contract trước khi code | P1 |
+| C-16 | Admin write | Contract draft dùng `/skus`, service dùng `/variants`; response khác | Chưa freeze | Đã chốt contract-first `/skus`; response bọc `ApiResponse` | P1 — Done |
 | C-17 | Price future | Unique index `(variant_id, channel) WHERE status='ACTIVE'` chặn giá tương lai | Cần nhiều giá theo thời gian | Exclusion constraint hoặc versioning | P1 |
 | C-18 | gRPC list | `ListProductVariants` trả response rỗng | Có phân trang/filter | Implement | P2 |
 | C-19 | Kafka stock | Retry vô hạn, không DLT | Poison message không chặn partition | Phân loại lỗi + DLT | P2 |
@@ -229,12 +229,17 @@ File: `ProductVariantMapper.java/.xml`, `CatalogServiceImpl.java`, `CatalogDtoMa
 
 File: `CatalogAdminController.java`, `CatalogServiceImpl.java`, `ProductMapper.xml`, `apps/web-user/.../handler.ts`.
 
-### P1-6. Chốt admin write contract
+### P1-6. Chốt admin write contract (ĐÃ LÀM)
 
-- Chọn một trong hai:
-  - Contract-first: đổi service sang `/api/v1/admin/catalog/products/{id}/skus` và response tối thiểu `{skuId, skuCode, priceVnd,...}`.
-  - Implementation-first: cập nhật `admin-draft-planned.openapi.yaml` theo `/variants` và DTO hiện có.
-- Đồng thời chốt response create/update (draft hiện trả object tối thiểu, service trả `ProductDetailResponse`).
+Quyết định: **contract-first với `/skus`** (theo D-03).
+
+- `POST /api/v1/admin/catalog/products/{productId}/skus` (đã đổi từ `/variants` trong `CatalogAdminController`).
+- `PUT /api/v1/admin/catalog/products/{productId}/skus/{skuId}/prices` (đã thêm vào draft contract).
+- `POST /api/v1/admin/catalog/products/{productId}/transition` (đã thêm vào draft contract).
+- Tất cả response write bọc trong `ApiResponse` envelope (`success/code/message/data/requestId/timestamp`).
+- `admin-draft-planned.openapi.yaml`: 5 endpoint catalog write đã được cập nhật envelope và chốt response.
+
+File: `controller/CatalogAdminController.java` (đã đổi `/variants` → `/skus`), `docs/03_api_specs/admin-draft-planned.openapi.yaml`.
 
 ### P1-7. Giá tương lai
 

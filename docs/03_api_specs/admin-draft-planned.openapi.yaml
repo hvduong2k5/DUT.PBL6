@@ -64,29 +64,59 @@ paths:
           $ref: "#/components/parameters/IdempotencyKey"
       responses:
         "201":
-          description: "Proposed successful response."
+          description: "Product created successfully."
           content:
             "application/json":
               schema:
                 type: "object"
                 required:
-                  - "productId"
-                  - "saleStatus"
-                  - "revision"
+                  - "success"
+                  - "code"
+                  - "message"
+                  - "data"
                 properties:
-                  productId:
+                  success:
+                    type: "boolean"
+                    enum:
+                      - true
+                  code:
                     type: "string"
-                  saleStatus:
+                    description: "Stable machine-readable result code; SUCCESS for successful writes."
+                  message:
                     type: "string"
-                  revision:
-                    type: "integer"
+                    description: "Safe user-facing message in Vietnamese or the negotiated locale."
+                  data:
+                    type: "object"
+                    required:
+                      - "productId"
+                      - "saleStatus"
+                      - "revision"
+                    properties:
+                      productId:
+                        type: "string"
+                      saleStatus:
+                        type: "string"
+                      revision:
+                        type: "integer"
+                    additionalProperties: false
+                  requestId:
+                    type: "string"
+                    description: "Correlation identifier for support and logs."
+                  timestamp:
+                    type: "string"
+                    format: "date-time"
                 additionalProperties: false
               examples:
                 success:
                   value:
-                    productId: "PROD-01"
-                    saleStatus: "DRAFT"
-                    revision: 1
+                    success: true
+                    code: SUCCESS
+                    message: "Tạo sản phẩm thành công"
+                    data:
+                      productId: "PROD-01"
+                      saleStatus: "DRAFT"
+                      revision: 1
+                    timestamp: "2026-10-05T09:00:00Z"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -156,25 +186,55 @@ paths:
           $ref: "#/components/parameters/IdempotencyKey"
       responses:
         "200":
-          description: "Proposed successful response."
+          description: "Product updated successfully."
           content:
             "application/json":
               schema:
                 type: "object"
                 required:
-                  - "productId"
-                  - "revision"
+                  - "success"
+                  - "code"
+                  - "message"
+                  - "data"
                 properties:
-                  productId:
+                  success:
+                    type: "boolean"
+                    enum:
+                      - true
+                  code:
                     type: "string"
-                  revision:
-                    type: "integer"
+                    description: "Stable machine-readable result code; SUCCESS for successful writes."
+                  message:
+                    type: "string"
+                    description: "Safe user-facing message in Vietnamese or the negotiated locale."
+                  data:
+                    type: "object"
+                    required:
+                      - "productId"
+                      - "revision"
+                    properties:
+                      productId:
+                        type: "string"
+                      revision:
+                        type: "integer"
+                    additionalProperties: false
+                  requestId:
+                    type: "string"
+                    description: "Correlation identifier for support and logs."
+                  timestamp:
+                    type: "string"
+                    format: "date-time"
                 additionalProperties: false
               examples:
                 success:
                   value:
-                    productId: "PROD-01"
-                    revision: 2
+                    success: true
+                    code: SUCCESS
+                    message: "Cập nhật sản phẩm thành công"
+                    data:
+                      productId: "PROD-01"
+                      revision: 2
+                    timestamp: "2026-10-05T09:00:00Z"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -242,25 +302,55 @@ paths:
           $ref: "#/components/parameters/IdempotencyKey"
       responses:
         "201":
-          description: "Proposed successful response."
+          description: "SKU created successfully."
           content:
             "application/json":
               schema:
                 type: "object"
                 required:
-                  - "skuId"
-                  - "revision"
+                  - "success"
+                  - "code"
+                  - "message"
+                  - "data"
                 properties:
-                  skuId:
+                  success:
+                    type: "boolean"
+                    enum:
+                      - true
+                  code:
                     type: "string"
-                  revision:
-                    type: "integer"
+                    description: "Stable machine-readable result code; SUCCESS for successful writes."
+                  message:
+                    type: "string"
+                    description: "Safe user-facing message in Vietnamese or the negotiated locale."
+                  data:
+                    type: "object"
+                    required:
+                      - "skuId"
+                      - "revision"
+                    properties:
+                      skuId:
+                        type: "string"
+                      revision:
+                        type: "integer"
+                    additionalProperties: false
+                  requestId:
+                    type: "string"
+                    description: "Correlation identifier for support and logs."
+                  timestamp:
+                    type: "string"
+                    format: "date-time"
                 additionalProperties: false
               examples:
                 success:
                   value:
-                    skuId: "SKU-01"
-                    revision: 1
+                    success: true
+                    code: SUCCESS
+                    message: "Thêm SKU thành công"
+                    data:
+                      skuId: "SKU-01"
+                      revision: 1
+                    timestamp: "2026-10-05T09:00:00Z"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -299,6 +389,269 @@ paths:
               skuCode: "MX-500"
               label: "Hop 500g"
               priceVnd: 345000
+  "/api/v1/admin/catalog/products/{productId}/transition":
+    post:
+      tags:
+        - "Product management"
+      operationId: "postAdminCatalogProductsProductIdTransition"
+      summary: "Chuyển trạng thái vòng đời sản phẩm (SUBMIT_FOR_REVIEW, APPROVE, REJECT, SUSPEND, ARCHIVE)."
+      x-lifecycle: "draft"
+      x-decision-required: true
+      x-backlog:
+        - "EPIC_04"
+      x-ui-states:
+        - "loading"
+        - "success"
+        - "error"
+        - "unauthorized"
+        - "forbidden"
+      security:
+        -
+          bearerAuth: []
+        -
+          adminSession: []
+      parameters:
+        -
+          name: "productId"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            minLength: 1
+        -
+          $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: "Product status transitioned successfully."
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required:
+                  - "success"
+                  - "code"
+                  - "message"
+                  - "data"
+                properties:
+                  success:
+                    type: "boolean"
+                    enum:
+                      - true
+                  code:
+                    type: "string"
+                    description: "Stable machine-readable result code; SUCCESS for successful writes."
+                  message:
+                    type: "string"
+                    description: "Safe user-facing message in Vietnamese or the negotiated locale."
+                  data:
+                    type: "object"
+                    required:
+                      - "productId"
+                      - "saleStatus"
+                      - "revision"
+                    properties:
+                      productId:
+                        type: "string"
+                      saleStatus:
+                        type: "string"
+                      revision:
+                        type: "integer"
+                    additionalProperties: false
+                  requestId:
+                    type: "string"
+                    description: "Correlation identifier for support and logs."
+                  timestamp:
+                    type: "string"
+                    format: "date-time"
+                additionalProperties: false
+              examples:
+                success:
+                  value:
+                    success: true
+                    code: SUCCESS
+                    message: "Chuyển trạng thái sản phẩm thành công"
+                    data:
+                      productId: "PROD-01"
+                      saleStatus: "ON_SALE"
+                      revision: 2
+                    timestamp: "2026-10-05T09:00:00Z"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: "object"
+              required:
+                - "transition"
+                - "expectedVersion"
+              properties:
+                transition:
+                  type: "string"
+                  description: "SUBMIT_FOR_REVIEW, APPROVE, REJECT, SUSPEND, ARCHIVE"
+                expectedVersion:
+                  type: "integer"
+                  description: "Bắt buộc để optimistic locking."
+              additionalProperties: false
+            example:
+              transition: "APPROVE"
+              expectedVersion: 1
+  "/api/v1/admin/catalog/products/{productId}/skus/{skuId}/prices":
+    put:
+      tags:
+        - "Product management"
+      operationId: "putAdminCatalogProductsProductIdSkusSkuIdPrices"
+      summary: "Cập nhật bảng giá bán của SKU theo từng kênh (D2C, Shopee, TikTok...)."
+      x-lifecycle: "draft"
+      x-decision-required: true
+      x-backlog:
+        - "EPIC_04"
+      x-ui-states:
+        - "loading"
+        - "success"
+        - "error"
+        - "unauthorized"
+        - "forbidden"
+      security:
+        -
+          bearerAuth: []
+        -
+          adminSession: []
+      parameters:
+        -
+          name: "productId"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            minLength: 1
+        -
+          name: "skuId"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            minLength: 1
+        -
+          $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: "Variant prices updated successfully."
+          content:
+            "application/json":
+              schema:
+                type: "object"
+                required:
+                  - "success"
+                  - "code"
+                  - "message"
+                  - "data"
+                properties:
+                  success:
+                    type: "boolean"
+                    enum:
+                      - true
+                  code:
+                    type: "string"
+                    description: "Stable machine-readable result code; SUCCESS for successful writes."
+                  message:
+                    type: "string"
+                    description: "Safe user-facing message in Vietnamese or the negotiated locale."
+                  data:
+                    type: "object"
+                    required:
+                      - "productId"
+                      - "skuId"
+                      - "revision"
+                    properties:
+                      productId:
+                        type: "string"
+                      skuId:
+                        type: "string"
+                      revision:
+                        type: "integer"
+                    additionalProperties: false
+                  requestId:
+                    type: "string"
+                    description: "Correlation identifier for support and logs."
+                  timestamp:
+                    type: "string"
+                    format: "date-time"
+                additionalProperties: false
+              examples:
+                success:
+                  value:
+                    success: true
+                    code: SUCCESS
+                    message: "Cập nhật bảng giá thành công"
+                    data:
+                      productId: "PROD-01"
+                      skuId: "SKU-01"
+                      revision: 2
+                    timestamp: "2026-10-05T09:00:00Z"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: "object"
+              required:
+                - "prices"
+              properties:
+                prices:
+                  type: "array"
+                  items:
+                    type: "object"
+                    required:
+                      - "channel"
+                      - "amountUnits"
+                    properties:
+                      channel:
+                        type: "string"
+                        description: "D2C_WEB, MOBILE_APP, SHOPEE, TIKTOK, ..."
+                      amountUnits:
+                        type: "integer"
+                        description: "Giá theo đơn vị nhỏ nhất (VND)."
+                      currencyCode:
+                        type: "string"
+                        description: "Mã tiền tệ, mặc định VND."
+                  additionalProperties: false
+            example:
+              prices:
+                - channel: "D2C_WEB"
+                  amountUnits: 345000
+                  currencyCode: "VND"
   "/api/v1/admin/orders/{orderId}/actions":
     post:
       tags:
