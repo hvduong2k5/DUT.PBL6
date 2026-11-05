@@ -58,24 +58,24 @@ Ghi chú:
 
 | ID | Khu vực | Hiện trạng | Contract / kỳ vọng | Hành động | Phase |
 | --- | --- | --- | --- | --- | --- |
-| C-01 | Public search | Lấy 1 trang sản phẩm rồi lọc keyword trong bộ nhớ; `total` chỉ đếm trong trang | `q`, `page`, `page_size`; `total` là tổng kết quả | Đẩy filter/pagination xuống SQL | P0 |
-| C-02 | Public price filter/sort | Thiếu `pv.listing_status`, `effective_from/to`; sort thiếu `channel` | Chỉ dùng giá ACTIVE, còn hiệu lực, đúng kênh | Sửa SQL filter/sort/count | P0 |
-| C-03 | Public default sort | Service mặc định `NEWEST` | Contract mặc định `BEST_SELLING` | Đổi default; chốt semantics | P0 |
-| C-04 | Public categories | Service trả cây root + children; controller chỉ trả root, bỏ children | Danh sách phẳng, có `parent_id` | Flatten ở adapter/service | P0 |
-| C-05 | Public item price | Lấy giá variant đầu tiên; thiếu giá → 503 cả trang | `base_price` bắt buộc, đúng kênh | Chọn giá thấp nhất còn hiệu lực; loại item không có giá khỏi list | P0 |
-| C-06 | Public ảnh | `thumbnail_url` có thể là chuỗi rỗng | `format: uri`, required | Fallback ảnh hợp lệ hoặc chốt nullable | P0 |
-| C-07 | Public stock | Có nhánh biến null thành 0 | Null = chưa đồng bộ; `in_stock = stock > 0` | Giữ null xuyên suốt | P0 |
-| C-08 | Internal auth | `CatalogAccess` fail-open khi token rỗng; `/internal/prices/validate` không kiểm token | Token ≥ 32 ký tự, fail closed | Sửa interceptor + controller | P0 |
-| C-09 | gRPC mapping | `product_id` đang set bằng `variantId` | Phải là product ID thật | Thêm `productId` vào DTO/mapper | P0 |
-| C-10 | gRPC error | `complete()` biến mọi lỗi thành `INTERNAL` | Map `CatalogException`/`ErrorCode` đúng status | Sửa interceptor/service | P0 |
-| C-11 | Admin response | Bọc `ApiResponse`; BFF đọc trực tiếp `payload.items` | Contract mô tả `ApiResponse<data>`; BFF đọc `payload.data.items` | Giữ envelope, sửa contract + BFF unwrap `data` | P1 |
-| C-12 | Admin status | Trả `ACTIVE`/`SUSPENDED`/`ARCHIVED` | `ON_SALE`/`PAUSED`/`DISCONTINUED` | Map ở adapter | P1 |
-| C-13 | Admin derived fields | `saleStatusLabel`, `skuCount`, `onSaleSkuCount`, `basePriceFromVnd`, `foodInformationComplete`, `updatedAt`, `categoryName`, ảnh bìa... bị null | Required trong `admin-stable` | Tính/join đầy đủ | P1 |
-| C-14 | Admin detail | Chỉ trả SKU ACTIVE; nhiều field mapper ignore | Trả cả PAUSED/DISCONTINUED kèm giá/trạng thái/revision | Sửa query + mapper | P1 |
-| C-15 | Admin list filter | Controller/BFF không truyền `q/status/page/pageSize` | Contract hỗ trợ | Thêm filter + BFF passthrough | P1 |
+| C-01 | Public search | Lấy 1 trang sản phẩm rồi lọc keyword trong bộ nhớ; `total` chỉ đếm trong trang | `q`, `page`, `page_size`; `total` là tổng kết quả | Đẩy filter/pagination xuống SQL | P0 — Done |
+| C-02 | Public price filter/sort | Thiếu `pv.listing_status`, `effective_from/to`; sort thiếu `channel` | Chỉ dùng giá ACTIVE, còn hiệu lực, đúng kênh | Sửa SQL filter/sort/count | P0 — Done |
+| C-03 | Public default sort | Service mặc định `NEWEST` | Contract mặc định `BEST_SELLING` | Đổi default; chốt semantics | P0 — Done |
+| C-04 | Public categories | Service trả cây root + children; controller chỉ trả root, bỏ children | Danh sách phẳng, có `parent_id` | Flatten ở adapter/service | P0 — Done |
+| C-05 | Public item price | Lấy giá variant đầu tiên; thiếu giá → 503 cả trang | `base_price` bắt buộc, đúng kênh | Chọn giá thấp nhất còn hiệu lực; loại item không có giá khỏi list | P0 — Done |
+| C-06 | Public ảnh | `thumbnail_url` có thể là chuỗi rỗng | `format: uri`, required | Fallback ảnh hợp lệ hoặc chốt nullable | P0 — Done |
+| C-07 | Public stock | Có nhánh biến null thành 0 | Null = chưa đồng bộ; `in_stock = stock > 0` | Giữ null xuyên suốt | P0 — Done |
+| C-08 | Internal auth | `CatalogAccess` fail-open khi token rỗng; `/internal/prices/validate` không kiểm token | Token ≥ 32 ký tự, fail closed | Sửa interceptor + controller | P0 — Done |
+| C-09 | gRPC mapping | `product_id` đang set bằng `variantId` | Phải là product ID thật | Thêm `productId` vào DTO/mapper | P0 — Done |
+| C-10 | gRPC error | `complete()` biến mọi lỗi thành `INTERNAL` | Map `CatalogException`/`ErrorCode` đúng status | Sửa interceptor/service | P0 — Done |
+| C-11 | Admin response | Bọc `ApiResponse`; BFF đọc trực tiếp `payload.items` | Contract mô tả `ApiResponse<data>`; BFF đọc `payload.data.items` | Giữ envelope, sửa contract + BFF unwrap `data` | P1 — Done |
+| C-12 | Admin status | Trả `ACTIVE`/`SUSPENDED`/`ARCHIVED` | `ON_SALE`/`PAUSED`/`DISCONTINUED` | Map ở adapter | P1 — Done |
+| C-13 | Admin derived fields | `saleStatusLabel`, `skuCount`, `onSaleSkuCount`, `basePriceFromVnd`, `foodInformationComplete`, `updatedAt`, `categoryName`, ảnh bìa... bị null | Required trong `admin-stable` | Tính/join đầy đủ | P1 — Done |
+| C-14 | Admin detail | Chỉ trả SKU ACTIVE; nhiều field mapper ignore | Trả cả PAUSED/DISCONTINUED kèm giá/trạng thái/revision | Sửa query + mapper | P1 — Done |
+| C-15 | Admin list filter | Controller/BFF không truyền `q/status/page/pageSize` | Contract hỗ trợ | Thêm filter + BFF passthrough | P1 — Done |
 | C-16 | Admin write | Contract draft dùng `/skus`, service dùng `/variants`; response khác | Chưa freeze | Đã chốt contract-first `/skus`; response bọc `ApiResponse` | P1 — Done |
-| C-17 | Price future | Unique index `(variant_id, channel) WHERE status='ACTIVE'` chặn giá tương lai | Cần nhiều giá theo thời gian | Exclusion constraint hoặc versioning | P1 |
-| C-18 | gRPC list | `ListProductVariants` trả response rỗng | Có phân trang/filter | Implement | P2 |
+| C-17 | Price future | Unique index `(variant_id, channel) WHERE status='ACTIVE'` chặn giá tương lai | Cần nhiều giá theo thời gian | Exclusion constraint hoặc versioning | P1 — Done |
+| C-18 | gRPC list | `ListProductVariants` trả response rỗng | Có phân trang/filter | Implement | P2 — Done |
 | C-19 | Kafka stock | Retry vô hạn, không DLT | Phân loại lỗi + DLT | `KafkaConsumerConfig`: retry 3 lần + `DeadLetterPublishingRecoverer`; `IllegalArgumentException` vào DLT ngay; DLT topic `{topic}.DLT` | P2 — Done |
 | C-20 | Public search mô tả | Contract cũ ghi ElasticSearch | MVP dùng PostgreSQL ILIKE | Đã sửa mô tả | Done |
 
@@ -278,7 +278,7 @@ Không làm P1 trước P0 vì admin BFF đang phụ thuộc public contract và
 
 | ID | Câu hỏi | Đề xuất |
 | --- | --- | --- |
-| D-01 | `BEST_SELLING` chưa có dữ liệu bán | MVP: map về `created_at DESC` và ghi rõ là fallback; bật analytics ở phase sau. Hoặc đổi contract default sang `NEWEST`. |
+| D-01 | `BEST_SELLING` chưa có dữ liệu bán | **Chốt:** map về `created_at DESC` làm fallback; ghi rõ trong SQL comment. Bật analytics ở phase sau khi có dữ liệu bán. |
 | D-02 | `thumbnail_url` không có ảnh | Dùng placeholder CDN cấu hình; giữ contract required + URI. Không trả chuỗi rỗng. |
 | D-03 | Admin write dùng `/skus` hay `/variants` | Ưu tiên contract-first: `/skus`; nếu giữ `/variants`, cập nhật draft contract. |
 | D-04 | Giá tương lai | Exclusion constraint theo khoảng thời gian; không dùng unique `status='ACTIVE'`. |
@@ -287,7 +287,7 @@ Không làm P1 trước P0 vì admin BFF đang phụ thuộc public contract và
 
 ## 9. Acceptance criteria
 
-### P0
+### P0 (Đã đạt)
 
 - `GET /api/v1/categories` trả **flat list**, có category con và `parent_id`.
 - `GET /api/v1/products` mặc định `sort_by=BEST_SELLING`; filter/sort giá chỉ dùng variant ACTIVE, giá ACTIVE còn hiệu lực, đúng `channel`.
@@ -297,7 +297,7 @@ Không làm P1 trước P0 vì admin BFF đang phụ thuộc public contract và
 - Snapshot/revalidate/validate từ chối token thiếu/sai/ngắn; cấu hình token rỗng không fail-open.
 - gRPC trả `product_id` thật; lỗi nghiệp vụ map đúng status, không thành `INTERNAL`.
 
-### P1
+### P1 (Đã đạt)
 
 - Admin list/detail giữ `ApiResponse`; schema 200 mô tả envelope và `data` đúng required fields.
 - BFF đọc `payload.data`, không đọc trực tiếp `payload.items`/field detail.
@@ -308,11 +308,11 @@ Không làm P1 trước P0 vì admin BFF đang phụ thuộc public contract và
 - Admin list nhận `q/status/page/pageSize`; BFF chuyển query xuống.
 - Migration giá tương lai chạy được, không phá dữ liệu cũ.
 
-### P2
+### P2 (Đang tiến hành)
 
-- `verify.py` pass trong môi trường đủ dependency.
+- `verify.py` pass trong môi trường đủ dependency. ✅
 - CI chặn contract stale (`public != build()`), OpenAPI invalid, registry trỏ file thiếu, baseline compatibility fail.
-- Kafka có DLT, không chặn partition vì message độc.
+- Kafka có DLT, không chặn partition vì message độc. ✅
 - Không còn tài liệu mô tả public/admin gRPC.
 
 ## 10. Rủi ro

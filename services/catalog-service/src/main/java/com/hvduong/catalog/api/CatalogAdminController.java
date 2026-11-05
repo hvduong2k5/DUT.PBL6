@@ -145,17 +145,17 @@ public class CatalogAdminController {
 
     @Operation(summary = "Cập nhật bảng giá bán của biến thể", description = "Cập nhật giá bán theo từng kênh (D2C, Shopee, TikTok...)")
     @PreAuthorize("hasRole('ADMIN') or hasAuthority('CATALOG_MANAGE')")
-    @PutMapping("/products/{productId}/variants/{variantId}/prices")
+    @PutMapping("/products/{productId}/skus/{skuId}/prices")
     public ResponseEntity<ApiResponse<ProductDetailResponse>> updateVariantPrices(
             @Parameter(description = "ID sản phẩm (UUID)", required = true) @PathVariable UUID productId,
-            @Parameter(description = "ID biến thể (UUID)", required = true) @PathVariable UUID variantId,
+            @Parameter(description = "ID SKU (UUID)", required = true) @PathVariable UUID skuId,
             @Valid @RequestBody UpdatePriceRequest request,
             @AuthenticationPrincipal Jwt jwt,
             @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorHeader
     ) {
         String actorId = resolveActorId(jwt, actorHeader);
-        log.info("[REST-ADMIN] updateVariantPrices: productId={}, variantId={}, actor={}", productId, variantId, actorId);
-        ProductDetailResponse result = adminService.updateVariantPrices(productId, variantId, request, actorId);
+        log.info("[REST-ADMIN] updateVariantPrices: productId={}, skuId={}, actor={}", productId, skuId, actorId);
+        ProductDetailResponse result = adminService.updateVariantPrices(productId, skuId, request, actorId);
         return ResponseEntity.ok(ApiResponse.success("Cập nhật bảng giá thành công", result));
     }
 }
