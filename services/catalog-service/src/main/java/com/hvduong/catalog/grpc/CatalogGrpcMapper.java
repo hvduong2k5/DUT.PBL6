@@ -5,11 +5,14 @@ import com.hvduong.catalog.application.dto.response.MoneyResponse;
 import com.hvduong.catalog.application.dto.response.PriceValidationResponse;
 import com.hvduong.catalog.application.dto.response.ProductVariantResponse;
 import com.hvduong.catalog.common.enums.SalesChannel;
+import com.hvduong.catalog.domain.entity.ChannelPrice;
+import com.hvduong.catalog.domain.entity.ProductVariant;
 import com.omamx.proto.catalog.v1.PriceDiscrepancy;
 import com.omamx.proto.catalog.v1.ProductVariantDetail;
 import com.omamx.proto.catalog.v1.ValidatePriceAndSKURequest;
 import com.omamx.proto.catalog.v1.ValidatePriceAndSKUResponse;
 import com.omamx.proto.common.v1.Money;
+import com.omamx.proto.common.v1.PaginationResponse;
 import com.omamx.proto.common.v1.Weight;
 import com.omamx.proto.common.v1.WeightUnit;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +20,7 @@ import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -91,6 +95,28 @@ public class CatalogGrpcMapper {
 
         if (v.getWeightValue() != null) {
             builder.setNetWeight(toWeightProto(v.getWeightValue(), v.getWeightUnit()));
+        }
+
+        return builder.build();
+    }
+
+    public ProductVariantDetail toVariantDetailProto(ProductVariant variant, ChannelPrice price) {
+        var builder = ProductVariantDetail.newBuilder()
+                .setSkuCode(variant.getSkuCode() != null ? variant.getSkuCode() : "")
+                .setProductId(variant.getProductId() != null ? variant.getProductId().toString() : "")
+                .setVariantName(variant.getVariantName() != null ? variant.getVariantName() : "")
+                .setPackagingType(variant.getPackagingType() != null ? variant.getPackagingType() : "")
+                .setShelfLifeDays(variant.getShelfLifeDays() != null ? variant.getShelfLifeDays() : 90)
+                .setIsActive(variant.getListingStatus() != null
+                        && "ACTIVE".equalsIgnoreCase(variant.getListingStatus().getValue()));
+
+        if (price != null) {
+            builder.setUnitPrice(toMoneyProto(new MoneyResponse(
+                    price.getCurrencyCode(), price.getAmountUnits(), price.getAmountNanos())));
+        }
+
+        if (variant.getWeightValue() != null) {
+            builder.setNetWeight(toWeightProto(variant.getWeightValue(), variant.getWeightUnit()));
         }
 
         return builder.build();

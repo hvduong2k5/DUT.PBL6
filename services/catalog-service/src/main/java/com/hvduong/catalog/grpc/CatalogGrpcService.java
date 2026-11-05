@@ -7,8 +7,14 @@ import com.hvduong.catalog.application.service.CatalogService;
 import com.hvduong.catalog.application.service.CheckoutSnapshotService;
 import com.hvduong.catalog.common.exception.CatalogException;
 import com.hvduong.catalog.common.exception.ErrorCode;
+import com.hvduong.catalog.common.enums.SalesChannel;
+import com.hvduong.catalog.domain.entity.ChannelPrice;
+import com.hvduong.catalog.domain.entity.ProductVariant;
+import com.hvduong.catalog.repository.mybatis.ChannelPriceMapper;
+import com.hvduong.catalog.repository.mybatis.ProductVariantMapper;
 import com.omamx.proto.catalog.v1.*;
 import com.omamx.proto.common.v1.Money;
+import com.omamx.proto.common.v1.PaginationResponse;
 import com.omamx.proto.common.v1.Weight;
 import com.omamx.proto.common.v1.WeightUnit;
 import io.grpc.Status;
@@ -17,6 +23,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.devh.boot.grpc.server.service.GrpcService;
 import org.springframework.web.server.ResponseStatusException;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * Service gRPC nội bộ phục vụ giao tiếp liên microservice (East-West Traffic)
@@ -30,6 +42,8 @@ public class CatalogGrpcService extends CatalogServiceGrpc.CatalogServiceImplBas
     private final CatalogService catalogService;
     private final CatalogGrpcMapper grpcMapper;
     private final CheckoutSnapshotService snapshots;
+    private final ProductVariantMapper variantMapper;
+    private final ChannelPriceMapper channelPriceMapper;
 
     @Override
     public void validatePriceAndSKU(ValidatePriceAndSKURequest request,
@@ -57,10 +71,63 @@ public class CatalogGrpcService extends CatalogServiceGrpc.CatalogServiceImplBas
     @Override
     public void listProductVariants(ListProductVariantsRequest request,
                                     StreamObserver<ListProductVariantsResponse> observer) {
-        log.debug("[gRPC-Internal] listProductVariants");
+        log.debug("[gRPC-Internal] listProductVariants: categoryId={}, ocopRating={}, activeOnly={}, page={}, pageSize={}",
+                request.getCategoryId(), request.getOcopRating(), request.getActiveOnly(),
+                request.getPagination().getPage(), request.getPagination().getPageSize());
         complete(observer, () -> {
-            // Danh sách biến thể cơ bản
-            return ListProductVariantsResponse.newBuilder().build();
+            int page = request.getPagination().getPage();
+            if (page < 1) page = 1;
+            int pageSize = request.getPagination().getPageSize();
+            if (pageSize < 1) pageSize = 20;
+            if (pageSize > 100) pageSize = 100;
+            int offset = (page - 1) * pageSize;
+
+            UUID categoryId = null;
+            if (!request.getCategoryId().isEmpty()) {
+                try {
+                    categoryId = UUID.fromString(request.getCategoryId());
+                } catch (IllegalArgumentException e) {
+                    throw new CatalogException(ErrorCode.INVALID_ARGUMENT,
+                            "category_id không phải UUID hợp lệ: " + request.getCategoryId());
+                }
+            }
+
+            String ocopRating = request.getOcopRating().isEmpty() ? null : request.getOcopRating();
+            // Proto3 optional bool default là false; contract ghi default = true,
+            // nên chỉ lọc active khi client gửi rõ ràng active_only = true.
+            Boolean activeOnly = request.hasActiveOnly() && request.getActiveOnly() ? true : null;
+
+            List<ProductVariant> variants = variantMapper.findByFilter(
+                    categoryId, ocopRating, activeOnly, offset, pageSize);
+            long total = variantMapper.countByFilter(categoryId, ocopRating, activeOnly);
+
+            // Batch load giá hiện hành theo kênh D2C_WEB
+            List<UUID> variantIds = variants.stream()
+                    .map(ProductVariant::getId)
+                    .collect(Collectors.toList());
+            Map<UUID, ChannelPrice> currentPriceByVariant = new HashMap<>();
+            if (!variantIds.isEmpty()) {
+                for (ChannelPrice price : channelPriceMapper
+                        .findActiveCurrentByVariantIds(variantIds, SalesChannel.D2C_WEB.getValue())) {
+                    currentPriceByVariant.putIfAbsent(price.getVariantId(), price);
+                }
+            }
+
+            List<ProductVariantDetail> variantDetails = variants.stream()
+                    .map(v -> grpcMapper.toVariantDetailProto(v, currentPriceByVariant.get(v.getId())))
+                    .collect(Collectors.toList());
+
+            int totalPages = pageSize == 0 ? 0 : (int) Math.ceil((double) total / pageSize);
+
+            return ListProductVariantsResponse.newBuilder()
+                    .addAllVariants(variantDetails)
+                    .setPagination(PaginationResponse.newBuilder()
+                            .setCurrentPage(page)
+                            .setPageSize(pageSize)
+                            .setTotalItems(total)
+                            .setTotalPages(totalPages)
+                            .build())
+                    .build();
         });
     }
 
