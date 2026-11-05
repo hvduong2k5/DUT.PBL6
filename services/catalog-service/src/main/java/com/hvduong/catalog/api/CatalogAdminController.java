@@ -1,4 +1,4 @@
-package com.hvduong.catalog.controller;
+package com.hvduong.catalog.api;
 
 import com.hvduong.catalog.application.dto.request.CreateProductRequest;
 import com.hvduong.catalog.application.dto.request.CreateVariantRequest;
