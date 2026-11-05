@@ -763,7 +763,7 @@ def main():
             import yaml
             config=yaml.safe_load(kong)
             for service in config['services']:
-                if service['name']=='fulfillment-service':service['url']=f"http://host.docker.internal:{ports['fulfillment']}"
+                if service['name']=='fulfillment-service':service['url']=f"http://codex-web-fulfillment-{suffix}:8002"
             kong=yaml.safe_dump(config,sort_keys=False)
         kong_file = folder / "kong.yml"
         kong_file.write_text(kong, encoding="utf-8")
@@ -771,6 +771,7 @@ def main():
             "codex-web-gateway-" + suffix,
             "kong:3.9",
             [
+                *(["--network",fulfillment_network] if args.fulfillment else []),
                 "--add-host",
                 "host.docker.internal:host-gateway",
                 "-p",
@@ -790,6 +791,10 @@ def main():
             ],
         )
         wait(f"http://127.0.0.1:{ports['gateway_admin']}/status")
+        if args.fulfillment:
+            # Container-to-container traffic uses the private Docker network;
+            # Linux cannot reach another container's host-loopback mapping.
+            wait(gateway+"/api/v1/admin/fulfillment/tasks",401,seconds=30)
         env.update(
             WEB_AUTH_MODE="identity-bff",
             WEB_PUBLIC_URL=web,
