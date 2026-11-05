@@ -106,4 +106,8 @@ buildNumber.properties
 
 hs_err_pid*
 replay_pid*
+
+# Local browser QA may contain session state and synthetic account details.
+.playwright-cli/
+output/playwright/
 bin/

@@ -845,7 +845,7 @@ def main():
             def handoff(order_id):
                 return json.loads(sql(f"SELECT json_build_object('hash',h.request_hash,'attempts',h.attempts,'shipment_id',h.shipment_id,'shipments',(SELECT count(*) FROM shipping.shipments s WHERE s.order_id=h.order_id::text)) FROM orders.fulfillment_shipping_handoffs h WHERE h.order_id='{uuid.UUID(order_id)}';",tuples=True) or "null")
             def real_packing(order_id, order_until):
-                return fulfillment_checks.pack(request,gateway,staff_session['accessToken'],customer_session['accessToken'],folder,order_id,order_until,shipping_url,shipping_token,f"http://127.0.0.1:{ports['control']}",run,fulfillment_scanner,shipping_control,handoff)
+                return fulfillment_checks.pack(request,gateway,staff_session['accessToken'],customer_session['accessToken'],folder,order_id,order_until,shipping_url,shipping_token,f"http://127.0.0.1:{ports['control']}",run,fulfillment_scanner,shipping_control,handoff,web,staff_session['sessionId'],customer_session['sessionId'])
         foreign_address = None
         registration = {
             "email": f"registered-{suffix}@example.test",
@@ -1002,6 +1002,8 @@ def main():
             "gateway": gateway,
             "identity": identity_url,
             "profile": profile_url,
+            "control": f"http://127.0.0.1:{ports['control']}",
+            "shipping": shipping_url,
             "issuer": issuer,
             "accounts": accounts,
             "password": account_password,

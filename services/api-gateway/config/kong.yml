@@ -46,6 +46,7 @@ services:
         paths:
           - /api/v1/public/auth
           - /api/v1/customer-api
+          - /api/v1/admin/packing-api
         strip_path: false
         methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
       - name: auth-public-routes

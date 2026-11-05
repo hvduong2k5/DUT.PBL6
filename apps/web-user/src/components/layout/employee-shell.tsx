@@ -5,10 +5,11 @@ import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import { useEmployeeSession } from "@/components/auth/employee-session-provider";
 import { EMPLOYEE_NAVIGATION } from "@/features/employee/shared/navigation";
+import { canUseFulfillment } from "@/features/employee/packing/fulfillment-types";
 
-export function EmployeeShell({ children }: { children: ReactNode }) {
+export function EmployeeShell({ children, fulfillmentEnabled = false }: { children: ReactNode; fulfillmentEnabled?: boolean }) {
   const pathname = usePathname() ?? "/admin";
-  const { session, hasPermission, logout } = useEmployeeSession();
+  const { session, employee, hasPermission, logout } = useEmployeeSession();
   const [mobileOpen, setMobileOpen] = useState(false);
   const initials = session.employee.displayName.split(" ").slice(-2).map((part) => part[0]).join("").toLocaleUpperCase("vi") || "NV";
 
@@ -22,7 +23,8 @@ export function EmployeeShell({ children }: { children: ReactNode }) {
     <aside className={`admin-sidebar ${mobileOpen ? "open" : ""}`}>
       <div className="admin-scope"><small>Không gian làm việc</small><strong>{session.employee.department}</strong><span>● Đang hoạt động</span></div>
       <nav>{EMPLOYEE_NAVIGATION.map((section) => {
-        const visible = section.items.filter((item) => !item.permission || hasPermission(item.permission));
+        const visible = section.items.filter((item) => !item.permission || hasPermission(item.permission)
+          || (fulfillmentEnabled && ["/admin/packing", "/admin/work/packing"].includes(item.href) && canUseFulfillment(employee)));
         if (!visible.length) return null;
         return <section key={section.group}><h2>{section.group}</h2>{visible.map((item) => {
           const active = pathname === item.href || (item.href !== "/admin" && pathname.startsWith(`${item.href}/`));
