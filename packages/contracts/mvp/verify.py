@@ -269,10 +269,15 @@ def main():
                 'go_grpc': 'PASS' if options.go_grpc_plugin else 'NOT_RUN'}
         for path in sorted((HERE / 'baselines').glob('*.json')):
             baseline = json.loads(path.read_bytes())
-            excluded = ('omamx.shipping.v1',) if path.stem == 'order' else ()
+            excluded = ('omamx.shipping.v1',) if path.stem == 'order' else ('hvduong.catalog.v1',) if path.stem == 'catalog' else ()
             count = compatibility(baseline['wire'], current, excluded)
+            exception = None
+            if path.stem == 'order':
+                exception = 'Unimplemented Order 3.2 Shipping v1 quote proposal migrated explicitly to v2; provider v1 retained.'
+            elif path.stem == 'catalog':
+                exception = 'Catalog public/admin gRPC removed by decision; REST OpenAPI is the canonical public/admin contract.'
             result['protobuf']['baselines'][path.stem] = {'source_sha': baseline['source_sha'], 'preserved_fields': count,
-                'exception': 'Unimplemented Order 3.2 Shipping v1 quote proposal migrated explicitly to v2; provider v1 retained.' if excluded else None}
+                'exception': exception}
         check(len(result['protobuf']['baselines']) == 4, 'Expected four pinned wire baselines')
         # Prove the guard rejects both a changed field and a removed RPC.
         dev = json.loads((HERE / 'baselines/dev.json').read_bytes())['wire']
