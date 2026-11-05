@@ -87,7 +87,8 @@ public class CatalogHttpController {
     @SuppressWarnings("unchecked")
     private Object summary(com.hvduong.catalog.application.dto.response.ProductListItemResponse item) {
         var value=(Map<String,Object>)dto(item);
-        for(String field:List.of("summary","thumbnail_url","category_name")) if(value.get(field)==null)value.put(field,"");
+        for(String field:List.of("summary","category_name")) if(value.get(field)==null)value.put(field,"");
+        if(value.get("thumbnail_url")==null)value.put("thumbnail_url","https://cdn.omama.vn/products/placeholder-thumb.jpg");
         if(value.get("ocop_star")==null)value.put("ocop_star",0);
         if(item.getBasePrice()==null)throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,"CATALOG_PRICE_UNAVAILABLE");
         return value;
