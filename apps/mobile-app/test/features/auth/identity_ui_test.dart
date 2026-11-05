@@ -53,7 +53,152 @@ void phoneViewport(WidgetTester tester) {
   addTearDown(tester.view.reset);
 }
 
+Future<void> fillRegistration(WidgetTester tester) async {
+  for (final entry in {
+    'Họ': 'Customer',
+    'Tên': 'Synthetic',
+    'Email': 'ui@example.invalid',
+    'Mật khẩu': 'SyntheticTest!2026',
+    'Xác nhận mật khẩu': 'SyntheticTest!2026',
+  }.entries) {
+    await tester.ensureVisible(field(entry.key));
+    await tester.enterText(field(entry.key), entry.value);
+  }
+  tester.testTextInput.hide();
+  await tester.ensureVisible(find.byType(CheckboxListTile));
+  await tester.pumpAndSettle();
+  await tester.tap(find.byType(CheckboxListTile));
+}
+
+Future<void> submitRegistration(WidgetTester tester) async {
+  await tester.scrollUntilVisible(
+    find.text('Đăng ký'),
+    250,
+    scrollable: find.byType(Scrollable).first,
+  );
+  await tester.tap(find.text('Đăng ký').last);
+  await tester.pumpAndSettle();
+}
+
+Future<void> registrationTop(WidgetTester tester) async {
+  tester
+      .state<ScrollableState>(find.byType(Scrollable).first)
+      .position
+      .jumpTo(0);
+  await tester.pumpAndSettle();
+}
+
 void main() {
+  testWidgets(
+    'pending registration retains form and retry key; changed input gets a new key',
+    (tester) async {
+      phoneViewport(tester);
+      final f = Fixture();
+      f.overrides['/api/v1/public/customer-registrations'] = {
+        'status': 'PENDING',
+      };
+      await tester.pumpWidget(
+        OmaApp(
+          initialLocation: '/register',
+          dependencies: identityDependencies(f.repo),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await fillRegistration(tester);
+      await submitRegistration(tester);
+      final first = f.requests.last;
+      expect(f.browserCalls, 0);
+      await registrationTop(tester);
+      expect(find.textContaining('Đăng ký đang được xử lý'), findsOneWidget);
+      expect(find.textContaining('Đã đăng ký thành công'), findsNothing);
+      expect(
+        tester.widget<TextField>(field('Email')).controller!.text,
+        'ui@example.invalid',
+      );
+      await submitRegistration(tester);
+      expect(
+        f.requests.where((r) => r.uri.path.endsWith('/customer-registrations')),
+        hasLength(2),
+      );
+      expect(
+        f.requests.last.headers['Idempotency-Key'],
+        first.headers['Idempotency-Key'],
+      );
+      expect(f.requests.last.data, first.data);
+      expect(f.browserCalls, 0);
+      await registrationTop(tester);
+      await tester.ensureVisible(field('Email'));
+      await tester.enterText(field('Email'), 'changed@example.invalid');
+      tester.testTextInput.hide();
+      await submitRegistration(tester);
+      expect(
+        f.requests.where((r) => r.uri.path.endsWith('/customer-registrations')),
+        hasLength(3),
+      );
+      expect(
+        f.requests.last.headers['Idempotency-Key'],
+        isNot(first.headers['Idempotency-Key']),
+      );
+      expect((f.requests.last.data as Map)['email'], 'changed@example.invalid');
+      expect(f.browserCalls, 0);
+      expect(await f.store.read(), isNull);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  testWidgets(
+    'completed retry opens login; cancellation offers login without registering twice',
+    (tester) async {
+      phoneViewport(tester);
+      final f = Fixture();
+      f.overrides['/api/v1/public/customer-registrations'] = {
+        'status': 'PENDING',
+      };
+      await tester.pumpWidget(
+        OmaApp(
+          initialLocation: '/register',
+          dependencies: identityDependencies(f.repo),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await fillRegistration(tester);
+      await submitRegistration(tester);
+      final key = f.requests.last.headers['Idempotency-Key'];
+      f.overrides['/api/v1/public/customer-registrations'] = {
+        'status': 'COMPLETED',
+      };
+      f.browser = (_) async =>
+          throw StateError('Synthetic browser cancellation');
+      await submitRegistration(tester);
+      final registrations = f.requests
+          .where((r) => r.uri.path.endsWith('/customer-registrations'))
+          .toList();
+      expect(registrations, hasLength(2));
+      expect(registrations.last.headers['Idempotency-Key'], key);
+      expect(f.browserCalls, 1);
+      await registrationTop(tester);
+      expect(find.textContaining('Đã đăng ký thành công'), findsOneWidget);
+      expect(
+        find.text('Chưa thể đăng nhập. Vui lòng thử lại.'),
+        findsOneWidget,
+      );
+      expect(field('Mật khẩu'), findsNothing);
+      expect(await f.store.read(), isNull);
+      f.browser = null;
+      await tester.ensureVisible(find.text('Tiếp tục đăng nhập'));
+      await tester.tap(find.text('Tiếp tục đăng nhập'));
+      await tester.pumpAndSettle();
+      expect(f.browserCalls, 2);
+      expect(
+        f.requests.where((r) => r.uri.path.endsWith('/customer-registrations')),
+        hasLength(2),
+      );
+      expect(find.text('Synthetic Customer'), findsWidgets);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
   test(
     'Employee/suspended cannot call cart or checkout writes even without the UI',
     () async {

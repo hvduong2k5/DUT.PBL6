@@ -1,5 +1,15 @@
 # Customer Mobile — current handoff
 
+## Registration UI and native acceptance checkpoint — 2026-11-05
+
+Resumed with user instruction to continue, from feature/mobile-ui HEAD16dc35b2171ea3dc1defa7c34169b9e23cd0911d, remote SHA verified. Scope: registration widget acceptance and install/start verification of the existing APK; no runtime source/API/dependency/provider or other-branch changes. Only identity_ui_test.dart plus current/master/M6 documentation intentionally changed. Preserve unrelated untracked MOBILE_MVP_DISCUSSION_REFERENCE.md.
+
+Added2 tests through the actual page/Cubit/Identity adapter with the existing HTTP fixture at393x852: PENDING retains inputs and sends a real unchanged retry with the same body/key; changed email sends a new request/key. COMPLETED retry opens browser; cancellation leaves registration complete and offers login again without another registration. Existing local/Employee guards retained. Targeted Identity UI6/6 PASS; auth group70/70 PASS20s; flutter analyze PASS71.2s. First new-test run failed because the test had not scrolled to the lazily built submit button; corrected helper to scrollUntilVisible, no application fix or weakened assertions. Full234-test result belongs to prior source checkpoint; full suite/build not repeated for this test-only slice.
+
+Native: user reconnected LMV409N70de1ce3 (LG LM-V409N Android10). Existing source2144c4f APK hash reverified as F9B47461FD284A867EF1343C40CA46B2495488AB7B998912592ADED80BEB4B05,190289804bytes. adb install-r Success; stopped-process start succeeded. Device initially locked; user unlocked and confirmed swipe-only/no passcode. Home screen visually observed after unlock, resumed MainActivity and PID20765 verified. Log180lines:0 exact Flutter error/FATAL/Unhandled/RenderFlex/AndroidRuntime matches;2 historical ESP fallback events remain. Broad E/flutter search initially matched FlutterSecureStorage class names, not an app crash; exact-tag review confirms the distinction. am-start wait included the locked-screen interval and is not a performance measurement. No app data cleared/uninstall, no credentials entered, no browser/IdP flow run. Temporary screenshot removed, logs remain ignored under .dart_tool.
+
+**Exact next action: WAIT FOR USER REVIEW of this checkpoint.** Mobile source correction is validated against fixtures, plus default-local native install/start; real Identity/gateway/provider acceptance remains NOT VERIFIED. Gateway PUT password route and Keycloak password-grant policy require user approval before any other-branch work; social/JIT/live endpoint configuration remains unresolved. Do not enable live auth or invent further APIs to bypass these blockers.
+
 ## Flutter correction checkpoint — 2026-11-04
 
 User approved Flutter fixes only on feature/mobile-ui, followed by checkpoint and WAIT FOR REVIEW; any proposed change to another branch must be discussed with the user first. Entry HEAD72202bf4f7440a53ab14cf8e4e897bf60b88ffe1. Live auth activation remains deferred. Source reference is dev a24492b via read-only Git objects.

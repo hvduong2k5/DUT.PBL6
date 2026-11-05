@@ -2,6 +2,8 @@
 
 ## Current work — Identity auth integration, approved 2026-11-04
 
+2026-11-05 follow-up validation complete:2 registration UI retry/cancel tests added (Identity UI6/6, auth70/70, analyze PASS), existing Mobile APK installed and Home/native startup observed. No application source or backend change. Live Identity/provider acceptance still open. Current handoff/M6 record evidence; checkpoint then wait for review.
+
 Latest user-approved correction slice is locally complete on Mobile source2144c4f, based on implementation at read-only dev a24492b: transaction cookie, cookie-only session lifecycle, registration status handling.234 tests/analyze/debug APK PASS; live auth activation and backend blockers remain separate. See M6/current handoff. **Checkpoint then WAIT FOR USER REVIEW; no autonomous continuation or other-branch edits.**
 
 LARGE: Identity auth integration uses supplied prompt_tinh_nang_login_mobile.txt as its target; user confirmed no authservice branch exists yet. [M6 task plan and goals](active/M6_IDENTITY_AUTH.md): AUTH-00 intake → AUTH-01 target contract matrix → AUTH-02 persona/session foundations → AUTH-03 native browser/auth lifecycle → AUTH-04 UI/purchase gating → AUTH-05 validation/delivery. Actual backend conformance requires later evidence. M5 local mode stays usable. Only feature/mobile-ui changes/pushes; other branches read-only, no merges or provider deployment.
