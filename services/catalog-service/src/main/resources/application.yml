@@ -85,6 +85,7 @@ grpc:
 app:
   kafka:
     inventory-stock-topic: ${INVENTORY_STOCK_TOPIC:inventory.stock-changed.v1}
+    inventory-stock-dlt-topic: ${INVENTORY_STOCK_DLT_TOPIC:inventory.stock-changed.v1.DLT}
 
 catalog:
   identity-url: ${IDENTITY_URL:}

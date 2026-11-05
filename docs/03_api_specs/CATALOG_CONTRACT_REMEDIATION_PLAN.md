@@ -76,7 +76,7 @@ Ghi chú:
 | C-16 | Admin write | Contract draft dùng `/skus`, service dùng `/variants`; response khác | Chưa freeze | Đã chốt contract-first `/skus`; response bọc `ApiResponse` | P1 — Done |
 | C-17 | Price future | Unique index `(variant_id, channel) WHERE status='ACTIVE'` chặn giá tương lai | Cần nhiều giá theo thời gian | Exclusion constraint hoặc versioning | P1 |
 | C-18 | gRPC list | `ListProductVariants` trả response rỗng | Có phân trang/filter | Implement | P2 |
-| C-19 | Kafka stock | Retry vô hạn, không DLT | Poison message không chặn partition | Phân loại lỗi + DLT | P2 |
+| C-19 | Kafka stock | Retry vô hạn, không DLT | Phân loại lỗi + DLT | `KafkaConsumerConfig`: retry 3 lần + `DeadLetterPublishingRecoverer`; `IllegalArgumentException` vào DLT ngay; DLT topic `{topic}.DLT` | P2 — Done |
 | C-20 | Public search mô tả | Contract cũ ghi ElasticSearch | MVP dùng PostgreSQL ILIKE | Đã sửa mô tả | Done |
 
 ## 4. Phase P0 — Public correctness + internal security
