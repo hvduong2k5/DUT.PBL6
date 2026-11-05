@@ -105,6 +105,7 @@ jobs:
           path: |
             .system_generated/web-identity/result.json
             .system_generated/web-identity/failure.json
+            .system_generated/web-identity/fulfillment-container.log
             .system_generated/web-identity/identity-build.log
             .system_generated/web-identity/catalog-build.log
             .system_generated/web-identity/mobile-live.log
