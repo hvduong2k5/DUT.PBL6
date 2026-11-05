@@ -1,20 +1,33 @@
 package com.hvduong.catalog.application.service.impl;
 
-import com.hvduong.catalog.application.dto.request.ProductFilterRequest;
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+
 import com.hvduong.catalog.application.dto.request.PriceValidationRequest;
+import com.hvduong.catalog.application.dto.request.ProductFilterRequest;
 import com.hvduong.catalog.application.dto.response.AdminProductDetailResponse;
-import com.hvduong.catalog.application.dto.response.AdminProductDetailResponse.AdminFoodInformationResponse;
 import com.hvduong.catalog.application.dto.response.AdminProductDetailResponse.AdminProductSkuResponse;
 import com.hvduong.catalog.application.dto.response.AdminProductListItemResponse;
 import com.hvduong.catalog.application.dto.response.AdminProductListResponse;
 import com.hvduong.catalog.application.dto.response.CategoryResponse;
 import com.hvduong.catalog.application.dto.response.MoneyResponse;
+import com.hvduong.catalog.application.dto.response.PriceValidationResponse;
 import com.hvduong.catalog.application.dto.response.ProductDetailResponse;
 import com.hvduong.catalog.application.dto.response.ProductListItemResponse;
 import com.hvduong.catalog.application.dto.response.ProductVariantResponse;
-import com.hvduong.catalog.application.dto.response.PriceValidationResponse;
 import com.hvduong.catalog.application.mapper.CatalogDtoMapper;
-import com.hvduong.catalog.infrastructure.inventory.StockProjectionService;
 import com.hvduong.catalog.application.service.CatalogService;
 import com.hvduong.catalog.common.enums.ListingStatus;
 import com.hvduong.catalog.common.enums.SalesChannel;
@@ -26,6 +39,7 @@ import com.hvduong.catalog.domain.entity.ChannelPrice;
 import com.hvduong.catalog.domain.entity.Product;
 import com.hvduong.catalog.domain.entity.ProductImage;
 import com.hvduong.catalog.domain.entity.ProductVariant;
+import com.hvduong.catalog.infrastructure.inventory.StockProjectionService;
 import com.hvduong.catalog.repository.mybatis.CategoryMapper;
 import com.hvduong.catalog.repository.mybatis.ChannelPriceMapper;
 import com.hvduong.catalog.repository.mybatis.ProductImageMapper;
@@ -33,22 +47,9 @@ import com.hvduong.catalog.repository.mybatis.ProductMapper;
 import com.hvduong.catalog.repository.mybatis.ProductVariantMapper;
 import com.hvduong.catalog.repository.mybatis.projection.AdminCategoryRow;
 import com.hvduong.catalog.repository.mybatis.projection.AdminStatusCountRow;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.Cacheable;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
-
-import java.math.BigDecimal;
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -77,8 +78,7 @@ public class CatalogServiceImpl implements CatalogService {
                 filter.getSortBy().name(),
                 filter.getChannel().getValue(),
                 filter.getOffset(),
-                filter.getPageSize()
-        );
+                filter.getPageSize());
 
         long total = productMapper.countPublicProducts(
                 "", // non-search: no query filter
@@ -86,8 +86,7 @@ public class CatalogServiceImpl implements CatalogService {
                 filter.getOcopStar(),
                 filter.getMinPrice(),
                 filter.getMaxPrice(),
-                filter.getChannel().getValue()
-        );
+                filter.getChannel().getValue());
 
         List<ProductListItemResponse> items = enrichListItems(products, filter.getChannel());
 
@@ -122,11 +121,9 @@ public class CatalogServiceImpl implements CatalogService {
         // MVP: PostgreSQL ILIKE pushed down to SQL; no in-memory filtering.
         List<Product> products = productMapper.findPublicProducts(
                 query, null, null, null, null, "NEWEST", "D2C_WEB",
-                (page - 1) * pageSize, pageSize
-        );
+                (page - 1) * pageSize, pageSize);
         long total = productMapper.countPublicProducts(
-                query, null, null, null, null, "D2C_WEB"
-        );
+                query, null, null, null, null, "D2C_WEB");
 
         List<ProductListItemResponse> items = enrichListItems(products, SalesChannel.D2C_WEB);
 
@@ -154,7 +151,8 @@ public class CatalogServiceImpl implements CatalogService {
                 .orElseThrow(() -> new CatalogException(ErrorCode.CATALOG_VARIANT_NOT_FOUND,
                         "SKU không tồn tại: " + skuCode));
 
-        if (variant.getListingStatus() != ListingStatus.ACTIVE || productMapper.findPublicById(variant.getProductId()).isEmpty()) {
+        if (variant.getListingStatus() != ListingStatus.ACTIVE
+                || productMapper.findPublicById(variant.getProductId()).isEmpty()) {
             throw new CatalogException(ErrorCode.CATALOG_PRODUCT_NOT_PUBLIC);
         }
 
@@ -219,8 +217,7 @@ public class CatalogServiceImpl implements CatalogService {
                 .collect(Collectors.toList());
 
         List<AdminProductListResponse.StatusCount> statusCounts = List.of(
-                ListingStatus.ACTIVE, ListingStatus.SUSPENDED, ListingStatus.ARCHIVED
-        ).stream()
+                ListingStatus.ACTIVE, ListingStatus.SUSPENDED, ListingStatus.ARCHIVED).stream()
                 .map(st -> new AdminProductListResponse.StatusCount(
                         st.getValue(),
                         displayStatusLabel(st),
@@ -266,7 +263,8 @@ public class CatalogServiceImpl implements CatalogService {
         response.setCoverImageUrl(coverImageUrl(product));
         response.setCoverImageAlt(coverImageAlt(product));
 
-        // Trả toàn bộ variant (ACTIVE + SUSPENDED + ARCHIVED), kèm giá hiện hành theo channel admin
+        // Trả toàn bộ variant (ACTIVE + SUSPENDED + ARCHIVED), kèm giá hiện hành theo
+        // channel admin
         List<ProductVariant> variants = variantMapper.findAllByProductId(id);
         List<UUID> variantIds = variants.stream().map(ProductVariant::getId).collect(Collectors.toList());
         Map<UUID, ChannelPrice> currentPriceByVariant = new HashMap<>();
@@ -296,8 +294,8 @@ public class CatalogServiceImpl implements CatalogService {
     }
 
     private AdminProductListItemResponse toAdminListItemResponse(Product product,
-                                                                 List<ProductVariant> variants,
-                                                                 Map<UUID, ChannelPrice> currentPriceByVariant) {
+            List<ProductVariant> variants,
+            Map<UUID, ChannelPrice> currentPriceByVariant) {
         AdminProductListItemResponse item = new AdminProductListItemResponse();
         item.setProductId(product.getId().toString());
         item.setName(product.getName());
@@ -335,7 +333,8 @@ public class CatalogServiceImpl implements CatalogService {
     }
 
     private String statusLabel(ListingStatus listingStatus) {
-        if (listingStatus == null) return "DISCONTINUED";
+        if (listingStatus == null)
+            return "DISCONTINUED";
         return switch (listingStatus) {
             case ACTIVE -> "ON_SALE";
             case SUSPENDED -> "PAUSED";
@@ -344,7 +343,8 @@ public class CatalogServiceImpl implements CatalogService {
     }
 
     private String displayStatusLabel(ListingStatus listingStatus) {
-        if (listingStatus == null) return "Ngừng kinh doanh";
+        if (listingStatus == null)
+            return "Ngừng kinh doanh";
         return switch (listingStatus) {
             case ACTIVE -> "Đang bán";
             case SUSPENDED -> "Tạm ngừng bán";
@@ -371,12 +371,14 @@ public class CatalogServiceImpl implements CatalogService {
     }
 
     private Integer weightGrams(BigDecimal weightValue) {
-        if (weightValue == null) return null;
+        if (weightValue == null)
+            return null;
         return weightValue.intValue();
     }
 
     private String packagingLabel(String packagingType) {
-        if (packagingType == null) return null;
+        if (packagingType == null)
+            return null;
         return packagingType.replace('_', ' ').toLowerCase();
     }
 
@@ -385,7 +387,8 @@ public class CatalogServiceImpl implements CatalogService {
     }
 
     private String coverImageUrl(Product product) {
-        if (product.getImages() == null || product.getImages().isEmpty()) return null;
+        if (product.getImages() == null || product.getImages().isEmpty())
+            return null;
         return product.getImages().stream()
                 .filter(img -> "COVER".equals(img.getRole()) && "APPROVED".equals(img.getMediaStatus()))
                 .findFirst()
@@ -394,7 +397,8 @@ public class CatalogServiceImpl implements CatalogService {
     }
 
     private String coverImageAlt(Product product) {
-        if (product.getImages() == null || product.getImages().isEmpty()) return null;
+        if (product.getImages() == null || product.getImages().isEmpty())
+            return null;
         return product.getImages().stream()
                 .filter(img -> "COVER".equals(img.getRole()) && "APPROVED".equals(img.getMediaStatus()))
                 .findFirst()
@@ -418,7 +422,8 @@ public class CatalogServiceImpl implements CatalogService {
                 continue;
             }
             Optional<ProductVariant> variantOpt = variantMapper.findBySkuCode(item.getSkuCode());
-            if (variantOpt.isEmpty() || variantOpt.get().getListingStatus() != ListingStatus.ACTIVE || productMapper.findPublicById(variantOpt.get().getProductId()).isEmpty()) {
+            if (variantOpt.isEmpty() || variantOpt.get().getListingStatus() != ListingStatus.ACTIVE
+                    || productMapper.findPublicById(variantOpt.get().getProductId()).isEmpty()) {
                 discrepancies.add(PriceValidationResponse.Discrepancy.builder()
                         .skuCode(item.getSkuCode()).clientUnitPrice(item.getClientUnitPrice())
                         .authoritativeUnitPrice(0L).currencyCode("VND").nanos(0)
@@ -438,7 +443,8 @@ public class CatalogServiceImpl implements CatalogService {
             subtotal = Math.addExact(subtotal, Math.multiplyExact(auth.getAmountUnits(), item.getQuantity()));
             if (item.getClientUnitPrice() != auth.getAmountUnits()
                     || item.getNanos() != auth.getAmountNanos()
-                    || (StringUtils.hasText(item.getCurrencyCode()) && !auth.getCurrencyCode().equals(item.getCurrencyCode()))) {
+                    || (StringUtils.hasText(item.getCurrencyCode())
+                            && !auth.getCurrencyCode().equals(item.getCurrencyCode()))) {
                 discrepancies.add(PriceValidationResponse.Discrepancy.builder()
                         .skuCode(item.getSkuCode()).clientUnitPrice(item.getClientUnitPrice())
                         .authoritativeUnitPrice(auth.getAmountUnits())
@@ -478,7 +484,8 @@ public class CatalogServiceImpl implements CatalogService {
                 .collect(Collectors.toList());
         Map<UUID, ChannelPrice> currentPriceByVariant = new HashMap<>();
         if (!variantIds.isEmpty()) {
-            for (ChannelPrice price : channelPriceMapper.findActiveCurrentByVariantIds(variantIds, channel.getValue())) {
+            for (ChannelPrice price : channelPriceMapper.findActiveCurrentByVariantIds(variantIds,
+                    channel.getValue())) {
                 currentPriceByVariant.putIfAbsent(price.getVariantId(), price);
             }
         }
@@ -494,9 +501,9 @@ public class CatalogServiceImpl implements CatalogService {
     }
 
     private ProductListItemResponse enrichListItem(Product product, SalesChannel channel,
-                                                   List<ProductVariant> variants,
-                                                   Map<UUID, ChannelPrice> currentPriceByVariant,
-                                                   Map<String, Long> quantities) {
+            List<ProductVariant> variants,
+            Map<UUID, ChannelPrice> currentPriceByVariant,
+            Map<String, Long> quantities) {
         ProductListItemResponse item = dtoMapper.toListItemResponse(product);
         boolean stockKnown = variants.stream()
                 .allMatch(variant -> quantities.get(variant.getSkuCode()) != null);

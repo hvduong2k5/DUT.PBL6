@@ -54,8 +54,7 @@ public class CatalogAdminController {
             @RequestParam(required = false, defaultValue = "1") int page,
             @RequestParam(required = false, defaultValue = "20") int pageSize,
             @RequestParam(required = false) String q,
-            @RequestParam(required = false) String status
-    ) {
+            @RequestParam(required = false) String status) {
         log.info("[REST-ADMIN] listAdminProducts: page={}, pageSize={}, q={}, status={}", page, pageSize, q, status);
         AdminProductListResponse result = catalogService.getAdminProducts(page, pageSize, q, status);
         return ResponseEntity.ok(ApiResponse.success(result));
@@ -65,8 +64,7 @@ public class CatalogAdminController {
     @PreAuthorize("hasRole('ADMIN') or hasAuthority('CATALOG_VIEW')")
     @GetMapping("/products/{productId}")
     public ResponseEntity<ApiResponse<AdminProductDetailResponse>> getAdminProduct(
-            @Parameter(description = "ID sản phẩm (UUID)", required = true) @PathVariable String productId
-    ) {
+            @Parameter(description = "ID sản phẩm (UUID)", required = true) @PathVariable String productId) {
         log.info("[REST-ADMIN] getAdminProduct: id={}", productId);
         AdminProductDetailResponse result = catalogService.getAdminProductDetail(productId);
         return ResponseEntity.ok(ApiResponse.success(result));
@@ -78,8 +76,7 @@ public class CatalogAdminController {
     public ResponseEntity<ApiResponse<ProductDetailResponse>> createProduct(
             @Valid @RequestBody CreateProductRequest request,
             @AuthenticationPrincipal Jwt jwt,
-            @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorHeader
-    ) {
+            @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorHeader) {
         String actorId = resolveActorId(jwt, actorHeader);
         log.info("[REST-ADMIN] createProduct: actor={}", actorId);
         ProductDetailResponse result = adminService.createProduct(request, actorId);
@@ -93,8 +90,7 @@ public class CatalogAdminController {
             @Parameter(description = "ID sản phẩm (UUID)", required = true) @PathVariable UUID productId,
             @Valid @RequestBody UpdateProductRequest request,
             @AuthenticationPrincipal Jwt jwt,
-            @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorHeader
-    ) {
+            @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorHeader) {
         String actorId = resolveActorId(jwt, actorHeader);
         log.info("[REST-ADMIN] updateProduct: id={}, actor={}", productId, actorId);
         ProductDetailResponse result = adminService.updateProduct(productId, request, actorId);
@@ -108,8 +104,7 @@ public class CatalogAdminController {
             @Parameter(description = "ID sản phẩm (UUID)", required = true) @PathVariable UUID productId,
             @Valid @RequestBody ProductTransitionRequest request,
             @AuthenticationPrincipal Jwt jwt,
-            @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorHeader
-    ) {
+            @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorHeader) {
         String actorId = resolveActorId(jwt, actorHeader);
         long version = request.getExpectedVersion();
         String transition = request.getTransition().toUpperCase();
@@ -135,8 +130,7 @@ public class CatalogAdminController {
             @Parameter(description = "ID sản phẩm (UUID)", required = true) @PathVariable UUID productId,
             @Valid @RequestBody CreateVariantRequest request,
             @AuthenticationPrincipal Jwt jwt,
-            @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorHeader
-    ) {
+            @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorHeader) {
         String actorId = resolveActorId(jwt, actorHeader);
         log.info("[REST-ADMIN] addVariant: productId={}, actor={}", productId, actorId);
         ProductDetailResponse result = adminService.addVariant(productId, request, actorId);
@@ -151,12 +145,10 @@ public class CatalogAdminController {
             @Parameter(description = "ID SKU (UUID)", required = true) @PathVariable UUID skuId,
             @Valid @RequestBody UpdatePriceRequest request,
             @AuthenticationPrincipal Jwt jwt,
-            @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorHeader
-    ) {
+            @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorHeader) {
         String actorId = resolveActorId(jwt, actorHeader);
         log.info("[REST-ADMIN] updateVariantPrices: productId={}, skuId={}, actor={}", productId, skuId, actorId);
         ProductDetailResponse result = adminService.updateVariantPrices(productId, skuId, request, actorId);
         return ResponseEntity.ok(ApiResponse.success("Cập nhật bảng giá thành công", result));
     }
 }
-
