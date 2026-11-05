@@ -38,7 +38,7 @@ public class CatalogHttpController {
     public Object products(@RequestParam(defaultValue="1") int page, @RequestParam(name="page_size",required=false) Integer requestedSize,
             @RequestParam(name="pageSize",required=false) Integer legacySize,
             @RequestParam(required=false) UUID category_id, @RequestParam(required=false) Long min_price,
-            @RequestParam(required=false) Long max_price, @RequestParam(defaultValue="NEWEST") SortBy sort_by,
+            @RequestParam(required=false) Long max_price, @RequestParam(defaultValue="BEST_SELLING") SortBy sort_by,
             @RequestParam(defaultValue="D2C_WEB") SalesChannel channel) {
         int size=pageSize(requestedSize,legacySize);
         if (page < 1 || page > 100000) throw new ResponseStatusException(HttpStatus.BAD_REQUEST);

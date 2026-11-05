@@ -138,16 +138,11 @@ public class CatalogServiceImpl implements CatalogService {
     public List<CategoryResponse> getAllCategories() {
         log.debug("[CATALOG] getAllCategories");
 
+        // Trả danh sách phẳng toàn bộ category active, giữ parent_id;
+        // controller映射 flat, không trả cây children.
         List<Category> all = categoryMapper.findAllActive();
-        Map<UUID, List<Category>> byParent = all.stream()
-                .filter(c -> c.getParentId() != null)
-                .collect(Collectors.groupingBy(Category::getParentId));
-        List<Category> roots = all.stream()
-                .filter(c -> c.getParentId() == null)
-                .collect(Collectors.toList());
-
-        return roots.stream()
-                .map(root -> buildCategoryTree(root, byParent))
+        return all.stream()
+                .map(dtoMapper::toCategoryResponse)
                 .collect(Collectors.toList());
     }
 
@@ -540,16 +535,5 @@ public class CatalogServiceImpl implements CatalogService {
     /** TODO Phase 2: MinIO presigned URL generator */
     private String buildPresignedUrl(String objectKey) {
         return "https://cdn.example.com/" + objectKey;
-    }
-
-    private CategoryResponse buildCategoryTree(Category category, Map<UUID, List<Category>> byParent) {
-        CategoryResponse response = dtoMapper.toCategoryResponse(category);
-        List<Category> children = byParent.getOrDefault(category.getId(), List.of());
-        if (!children.isEmpty()) {
-            response.setChildren(children.stream()
-                    .map(child -> buildCategoryTree(child, byParent))
-                    .collect(Collectors.toList()));
-        }
-        return response;
     }
 }

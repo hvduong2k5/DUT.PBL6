@@ -232,8 +232,9 @@ class CatalogServiceImplTest {
 
         // Then
         assertNotNull(result);
-        assertEquals(1, result.size());
+        assertEquals(2, result.size());
         assertEquals(parentResponse, result.get(0));
+        assertEquals(childResponse, result.get(1));
     }
 
     @Test

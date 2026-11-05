@@ -24,7 +24,7 @@ public class ProductFilterRequest {
     @Min(0)
     private Long maxPrice;
 
-    private SortBy sortBy = SortBy.NEWEST;
+    private SortBy sortBy = SortBy.BEST_SELLING;
 
     private SalesChannel channel = SalesChannel.D2C_WEB;
 
