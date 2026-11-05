@@ -655,6 +655,10 @@ def main():
         peer_address = json.loads(peer_ready.read_text())["address"]
         if args.fulfillment:
             peer_address = "127.0.0.1:" + peer_address.rsplit(":",1)[1]
+            # The fixture exports only a public CA certificate (no private key).
+            # Its native owner writes mode 0600; the unprivileged Fulfillment
+            # container must be able to read this public trust anchor on Linux.
+            (folder / "inventory-ca.pem").chmod(0o644)
         (folder / "inventory-token").write_text(env["PEER_TOKEN"])
         # Revalidation must fail on a changed price, future price, or unapproved parent product.
         headers={"X-Internal-Token":catalog_token}
@@ -703,7 +707,12 @@ def main():
         if args.fulfillment:
             fulfillment_network = "codex-web-fulfillment-"+suffix
             fulfillment_network, fulfillment_scanner = fulfillment_checks.prepare(ROOT,folder,ports,env,accounts,sql,run,container,request,issuer,None,db_name,password,suffix,peer_address)
-            wait(f"http://127.0.0.1:{ports['fulfillment']}/health/ready")
+            try:
+                wait(f"http://127.0.0.1:{ports['fulfillment']}/health/ready")
+            except RuntimeError:
+                diagnostic=run(["docker","logs","codex-web-fulfillment-"+suffix],capture_output=True,text=True)
+                (folder/"fulfillment-container.log").write_text(diagnostic.stdout+diagnostic.stderr,encoding="utf-8")
+                raise
         env.update(
             WEB_TEST_CHECKOUT="true",
             WEB_TEST_REAL_CATALOG_URL=catalog_url,
