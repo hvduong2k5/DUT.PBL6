@@ -5,12 +5,11 @@ import java.time.Instant;
 /**
  * Read model tồn kho theo SKU trong Catalog.
  *
- * <p>Đây là projection nhận từ Inventory, không phải nguồn chân lý tồn kho.</p>
+ * <p>Đây là projection nhận từ Inventory, không phải nguồn chân lý tồn kho.
  */
 public record StockAvailabilityProjection(
-        String skuCode,
-        Long sellableQuantity,
-        long inventoryVersion,
-        Instant sourceUpdatedAt,
-        Instant syncedAt
-) { }
+    String skuCode,
+    Long sellableQuantity,
+    long inventoryVersion,
+    Instant sourceUpdatedAt,
+    Instant syncedAt) {}

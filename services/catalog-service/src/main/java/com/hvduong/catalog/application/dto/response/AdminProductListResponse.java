@@ -1,15 +1,15 @@
 package com.hvduong.catalog.application.dto.response;
 
+import java.util.List;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.List;
-
 /**
- * Payload nằm trong {@code data} của GET /api/v1/admin/catalog/products.
- * Khớp với {@code CatalogAdminProductListData} trong admin-stable.openapi.yaml.
+ * Payload nằm trong {@code data} của GET /api/v1/admin/catalog/products. Khớp với {@code
+ * CatalogAdminProductListData} trong admin-stable.openapi.yaml.
  */
 @Data
 @Builder
@@ -17,27 +17,27 @@ import java.util.List;
 @AllArgsConstructor
 public class AdminProductListResponse {
 
-    private List<AdminProductListItemResponse> items;
-    private List<StatusCount> statusCounts;
-    private List<CategoryOption> categories;
-    private String calculatedAt;
+  private List<AdminProductListItemResponse> items;
+  private List<StatusCount> statusCounts;
+  private List<CategoryOption> categories;
+  private String calculatedAt;
 
-    @Data
-    @Builder
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class StatusCount {
-        private String status;
-        private String label;
-        private long count;
-    }
+  @Data
+  @Builder
+  @NoArgsConstructor
+  @AllArgsConstructor
+  public static class StatusCount {
+    private String status;
+    private String label;
+    private long count;
+  }
 
-    @Data
-    @Builder
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class CategoryOption {
-        private String categoryId;
-        private String categoryName;
-    }
+  @Data
+  @Builder
+  @NoArgsConstructor
+  @AllArgsConstructor
+  public static class CategoryOption {
+    private String categoryId;
+    private String categoryName;
+  }
 }

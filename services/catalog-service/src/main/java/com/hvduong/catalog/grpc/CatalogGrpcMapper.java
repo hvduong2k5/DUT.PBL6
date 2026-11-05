@@ -7,151 +7,172 @@ import com.hvduong.catalog.application.dto.response.ProductVariantResponse;
 import com.hvduong.catalog.common.enums.SalesChannel;
 import com.hvduong.catalog.domain.entity.ChannelPrice;
 import com.hvduong.catalog.domain.entity.ProductVariant;
+
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import org.springframework.stereotype.Component;
+
 import com.omamx.proto.catalog.v1.PriceDiscrepancy;
 import com.omamx.proto.catalog.v1.ProductVariantDetail;
 import com.omamx.proto.catalog.v1.ValidatePriceAndSKURequest;
 import com.omamx.proto.catalog.v1.ValidatePriceAndSKUResponse;
 import com.omamx.proto.common.v1.Money;
-import com.omamx.proto.common.v1.PaginationResponse;
 import com.omamx.proto.common.v1.Weight;
 import com.omamx.proto.common.v1.WeightUnit;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
 
-import java.math.BigDecimal;
-import java.util.List;
-import java.util.UUID;
-import java.util.stream.Collectors;
-
-/**
- * Mapper giữa Protobuf generated classes của omamx.catalog.v1 và Application DTOs.
- */
+/** Mapper giữa Protobuf generated classes của omamx.catalog.v1 và Application DTOs. */
 @Component
 @RequiredArgsConstructor
 public class CatalogGrpcMapper {
 
-    public PriceValidationRequest toValidationRequest(ValidatePriceAndSKURequest proto) {
-        List<PriceValidationRequest.Item> items = proto.getItemsList().stream()
-                .map(i -> PriceValidationRequest.Item.builder()
+  public PriceValidationRequest toValidationRequest(ValidatePriceAndSKURequest proto) {
+    List<PriceValidationRequest.Item> items =
+        proto.getItemsList().stream()
+            .map(
+                i ->
+                    PriceValidationRequest.Item.builder()
                         .skuCode(i.getSkuCode())
                         .quantity(i.getQuantity())
-                        .clientUnitPrice(i.hasClientUnitPrice() ? i.getClientUnitPrice().getUnits() : 0L)
-                        .currencyCode(i.hasClientUnitPrice() && !i.getClientUnitPrice().getCurrencyCode().isBlank()
-                                ? i.getClientUnitPrice().getCurrencyCode() : "VND")
+                        .clientUnitPrice(
+                            i.hasClientUnitPrice() ? i.getClientUnitPrice().getUnits() : 0L)
+                        .currencyCode(
+                            i.hasClientUnitPrice()
+                                    && !i.getClientUnitPrice().getCurrencyCode().isBlank()
+                                ? i.getClientUnitPrice().getCurrencyCode()
+                                : "VND")
                         .nanos(i.hasClientUnitPrice() ? i.getClientUnitPrice().getNanos() : 0)
                         .build())
-                .collect(Collectors.toList());
+            .collect(Collectors.toList());
 
-        return PriceValidationRequest.builder()
-                .idempotencyKey(proto.getIdempotencyKey())
-                .channel(toSalesChannel(proto.getChannel()))
-                .items(items)
-                .build();
+    return PriceValidationRequest.builder()
+        .idempotencyKey(proto.getIdempotencyKey())
+        .channel(toSalesChannel(proto.getChannel()))
+        .items(items)
+        .build();
+  }
+
+  public ValidatePriceAndSKUResponse toValidationResponse(PriceValidationResponse resp) {
+    var builder =
+        ValidatePriceAndSKUResponse.newBuilder()
+            .setIsValid(resp.isValid())
+            .setCanonicalSubtotal(
+                Money.newBuilder()
+                    .setCurrencyCode(
+                        resp.getCurrencyCode() != null ? resp.getCurrencyCode() : "VND")
+                    .setUnits(resp.getCanonicalSubtotalUnits())
+                    .setNanos(0)
+                    .build());
+
+    if (resp.getDiscrepancies() != null) {
+      resp.getDiscrepancies()
+          .forEach(
+              d ->
+                  builder.addDiscrepancies(
+                      PriceDiscrepancy.newBuilder()
+                          .setSkuCode(d.getSkuCode())
+                          .setClientUnitPrice(
+                              Money.newBuilder()
+                                  .setCurrencyCode(
+                                      d.getCurrencyCode() != null ? d.getCurrencyCode() : "VND")
+                                  .setUnits(d.getClientUnitPrice())
+                                  .setNanos(d.getNanos())
+                                  .build())
+                          .setAuthoritativeUnitPrice(
+                              Money.newBuilder()
+                                  .setCurrencyCode(
+                                      d.getCurrencyCode() != null ? d.getCurrencyCode() : "VND")
+                                  .setUnits(d.getAuthoritativeUnitPrice())
+                                  .setNanos(0)
+                                  .build())
+                          .setDiscrepancyReason(d.getReason() != null ? d.getReason() : "")
+                          .build()));
     }
 
-    public ValidatePriceAndSKUResponse toValidationResponse(PriceValidationResponse resp) {
-        var builder = ValidatePriceAndSKUResponse.newBuilder()
-                .setIsValid(resp.isValid())
-                .setCanonicalSubtotal(Money.newBuilder()
-                        .setCurrencyCode(resp.getCurrencyCode() != null ? resp.getCurrencyCode() : "VND")
-                        .setUnits(resp.getCanonicalSubtotalUnits())
-                        .setNanos(0)
-                        .build());
+    return builder.build();
+  }
 
-        if (resp.getDiscrepancies() != null) {
-            resp.getDiscrepancies().forEach(d -> builder.addDiscrepancies(
-                    PriceDiscrepancy.newBuilder()
-                            .setSkuCode(d.getSkuCode())
-                            .setClientUnitPrice(Money.newBuilder()
-                                    .setCurrencyCode(d.getCurrencyCode() != null ? d.getCurrencyCode() : "VND")
-                                    .setUnits(d.getClientUnitPrice())
-                                    .setNanos(d.getNanos())
-                                    .build())
-                            .setAuthoritativeUnitPrice(Money.newBuilder()
-                                    .setCurrencyCode(d.getCurrencyCode() != null ? d.getCurrencyCode() : "VND")
-                                    .setUnits(d.getAuthoritativeUnitPrice())
-                                    .setNanos(0)
-                                    .build())
-                            .setDiscrepancyReason(d.getReason() != null ? d.getReason() : "")
-                            .build()
-            ));
-        }
+  public ProductVariantDetail toVariantDetailProto(ProductVariantResponse v) {
+    var builder =
+        ProductVariantDetail.newBuilder()
+            .setSkuCode(v.getSkuCode() != null ? v.getSkuCode() : "")
+            .setProductId(v.getProductId() != null ? v.getProductId().toString() : "")
+            .setVariantName(v.getName() != null ? v.getName() : "")
+            .setPackagingType(v.getPackagingType() != null ? v.getPackagingType() : "")
+            .setShelfLifeDays(v.getShelfLifeDays() != null ? v.getShelfLifeDays() : 90)
+            .setIsActive(
+                v.getListingStatus() != null && "ACTIVE".equalsIgnoreCase(v.getListingStatus()));
 
-        return builder.build();
+    if (v.getPrice() != null) {
+      builder.setUnitPrice(toMoneyProto(v.getPrice()));
     }
 
-    public ProductVariantDetail toVariantDetailProto(ProductVariantResponse v) {
-        var builder = ProductVariantDetail.newBuilder()
-                .setSkuCode(v.getSkuCode() != null ? v.getSkuCode() : "")
-                .setProductId(v.getProductId() != null ? v.getProductId().toString() : "")
-                .setVariantName(v.getName() != null ? v.getName() : "")
-                .setPackagingType(v.getPackagingType() != null ? v.getPackagingType() : "")
-                .setShelfLifeDays(v.getShelfLifeDays() != null ? v.getShelfLifeDays() : 90)
-                .setIsActive(v.getListingStatus() != null && "ACTIVE".equalsIgnoreCase(v.getListingStatus()));
-
-        if (v.getPrice() != null) {
-            builder.setUnitPrice(toMoneyProto(v.getPrice()));
-        }
-
-        if (v.getWeightValue() != null) {
-            builder.setNetWeight(toWeightProto(v.getWeightValue(), v.getWeightUnit()));
-        }
-
-        return builder.build();
+    if (v.getWeightValue() != null) {
+      builder.setNetWeight(toWeightProto(v.getWeightValue(), v.getWeightUnit()));
     }
 
-    public ProductVariantDetail toVariantDetailProto(ProductVariant variant, ChannelPrice price) {
-        var builder = ProductVariantDetail.newBuilder()
-                .setSkuCode(variant.getSkuCode() != null ? variant.getSkuCode() : "")
-                .setProductId(variant.getProductId() != null ? variant.getProductId().toString() : "")
-                .setVariantName(variant.getVariantName() != null ? variant.getVariantName() : "")
-                .setPackagingType(variant.getPackagingType() != null ? variant.getPackagingType() : "")
-                .setShelfLifeDays(variant.getShelfLifeDays() != null ? variant.getShelfLifeDays() : 90)
-                .setIsActive(variant.getListingStatus() != null
-                        && "ACTIVE".equalsIgnoreCase(variant.getListingStatus().getValue()));
+    return builder.build();
+  }
 
-        if (price != null) {
-            builder.setUnitPrice(toMoneyProto(new MoneyResponse(
-                    price.getCurrencyCode(), price.getAmountUnits(), price.getAmountNanos())));
-        }
+  public ProductVariantDetail toVariantDetailProto(ProductVariant variant, ChannelPrice price) {
+    var builder =
+        ProductVariantDetail.newBuilder()
+            .setSkuCode(variant.getSkuCode() != null ? variant.getSkuCode() : "")
+            .setProductId(variant.getProductId() != null ? variant.getProductId().toString() : "")
+            .setVariantName(variant.getVariantName() != null ? variant.getVariantName() : "")
+            .setPackagingType(variant.getPackagingType() != null ? variant.getPackagingType() : "")
+            .setShelfLifeDays(variant.getShelfLifeDays() != null ? variant.getShelfLifeDays() : 90)
+            .setIsActive(
+                variant.getListingStatus() != null
+                    && "ACTIVE".equalsIgnoreCase(variant.getListingStatus().getValue()));
 
-        if (variant.getWeightValue() != null) {
-            builder.setNetWeight(toWeightProto(variant.getWeightValue(), variant.getWeightUnit()));
-        }
-
-        return builder.build();
+    if (price != null) {
+      builder.setUnitPrice(
+          toMoneyProto(
+              new MoneyResponse(
+                  price.getCurrencyCode(), price.getAmountUnits(), price.getAmountNanos())));
     }
 
-    public Money toMoneyProto(MoneyResponse m) {
-        if (m == null) {
-            return Money.newBuilder().setCurrencyCode("VND").setUnits(0).setNanos(0).build();
-        }
-        return Money.newBuilder()
-                .setCurrencyCode(m.getCurrencyCode() != null ? m.getCurrencyCode() : "VND")
-                .setUnits(m.getUnits())
-                .setNanos(m.getNanos())
-                .build();
+    if (variant.getWeightValue() != null) {
+      builder.setNetWeight(toWeightProto(variant.getWeightValue(), variant.getWeightUnit()));
     }
 
-    public Weight toWeightProto(BigDecimal weightValue, String unit) {
-        WeightUnit weightUnit = WeightUnit.WEIGHT_UNIT_GRAM;
-        if (unit != null && unit.toUpperCase().contains("KG")) {
-            weightUnit = WeightUnit.WEIGHT_UNIT_KILOGRAM;
-        }
-        return Weight.newBuilder()
-                .setDecimalValue(weightValue != null ? weightValue.toPlainString() : "0")
-                .setUnit(weightUnit)
-                .build();
-    }
+    return builder.build();
+  }
 
-    public SalesChannel toSalesChannel(String channelStr) {
-        if (channelStr == null || channelStr.isBlank()) {
-            return SalesChannel.D2C_WEB;
-        }
-        try {
-            return SalesChannel.valueOf(channelStr.toUpperCase());
-        } catch (IllegalArgumentException e) {
-            return SalesChannel.D2C_WEB;
-        }
+  public Money toMoneyProto(MoneyResponse m) {
+    if (m == null) {
+      return Money.newBuilder().setCurrencyCode("VND").setUnits(0).setNanos(0).build();
     }
+    return Money.newBuilder()
+        .setCurrencyCode(m.getCurrencyCode() != null ? m.getCurrencyCode() : "VND")
+        .setUnits(m.getUnits())
+        .setNanos(m.getNanos())
+        .build();
+  }
+
+  public Weight toWeightProto(BigDecimal weightValue, String unit) {
+    WeightUnit weightUnit = WeightUnit.WEIGHT_UNIT_GRAM;
+    if (unit != null && unit.toUpperCase().contains("KG")) {
+      weightUnit = WeightUnit.WEIGHT_UNIT_KILOGRAM;
+    }
+    return Weight.newBuilder()
+        .setDecimalValue(weightValue != null ? weightValue.toPlainString() : "0")
+        .setUnit(weightUnit)
+        .build();
+  }
+
+  public SalesChannel toSalesChannel(String channelStr) {
+    if (channelStr == null || channelStr.isBlank()) {
+      return SalesChannel.D2C_WEB;
+    }
+    try {
+      return SalesChannel.valueOf(channelStr.toUpperCase());
+    } catch (IllegalArgumentException e) {
+      return SalesChannel.D2C_WEB;
+    }
+  }
 }

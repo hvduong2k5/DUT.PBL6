@@ -12,9 +12,8 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class ProductTransitionRequest {
 
-    @NotBlank(message = "Hành động chuyển trạng thái không được để trống")
-    private String transition; // SUBMIT_FOR_REVIEW, APPROVE, REJECT, SUSPEND, ARCHIVE
+  @NotBlank(message = "Hành động chuyển trạng thái không được để trống")
+  private String transition; // SUBMIT_FOR_REVIEW, APPROVE, REJECT, SUSPEND, ARCHIVE
 
-    private long expectedVersion;
+  private long expectedVersion;
 }
-

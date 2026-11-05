@@ -1,5 +1,9 @@
 package com.hvduong.catalog.application.service.impl;
 
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
 import com.hvduong.catalog.application.dto.request.CreateProductRequest;
 import com.hvduong.catalog.application.dto.request.UpdateProductRequest;
 import com.hvduong.catalog.application.dto.response.ProductDetailResponse;
@@ -12,92 +16,95 @@ import com.hvduong.catalog.repository.mybatis.CategoryMapper;
 import com.hvduong.catalog.repository.mybatis.ChannelPriceMapper;
 import com.hvduong.catalog.repository.mybatis.ProductMapper;
 import com.hvduong.catalog.repository.mybatis.ProductVariantMapper;
+
+import java.util.Optional;
+import java.util.UUID;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.Optional;
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
-
 @ExtendWith(MockitoExtension.class)
 class CatalogAdminServiceImplTest {
 
-    @Mock private ProductMapper productMapper;
-    @Mock private CategoryMapper categoryMapper;
-    @Mock private ProductVariantMapper variantMapper;
-    @Mock private ChannelPriceMapper channelPriceMapper;
-    @Mock private CatalogDtoMapper dtoMapper;
-    @Mock private CatalogServiceImpl catalogService;
-    @Mock private CatalogOutboxWriter outboxWriter;
+  @Mock private ProductMapper productMapper;
+  @Mock private CategoryMapper categoryMapper;
+  @Mock private ProductVariantMapper variantMapper;
+  @Mock private ChannelPriceMapper channelPriceMapper;
+  @Mock private CatalogDtoMapper dtoMapper;
+  @Mock private CatalogServiceImpl catalogService;
+  @Mock private CatalogOutboxWriter outboxWriter;
 
-    private CatalogAdminServiceImpl adminService;
+  private CatalogAdminServiceImpl adminService;
 
-    private UUID productId;
-    
-    @BeforeEach
-    void setUp() {
-        adminService = new CatalogAdminServiceImpl(productMapper, variantMapper, channelPriceMapper,
-                categoryMapper, dtoMapper, outboxWriter);
-        productId = UUID.randomUUID();
-    }
+  private UUID productId;
 
-    @Test
-    void createProduct_Success() {
-        CreateProductRequest req = new CreateProductRequest();
-        req.setSlug("test-slug");
-        req.setCategoryId(UUID.randomUUID());
-        req.setName("Test Product");
-        
-        when(productMapper.existsBySlug(req.getSlug(), null)).thenReturn(false);
-        when(categoryMapper.findById(req.getCategoryId())).thenReturn(Optional.of(new Category()));
-        
-        ProductDetailResponse mockResponse = ProductDetailResponse.builder().build();
-        mockResponse.setProductId(productId);
-        when(dtoMapper.toDetailResponse(any())).thenReturn(mockResponse);
+  @BeforeEach
+  void setUp() {
+    adminService =
+        new CatalogAdminServiceImpl(
+            productMapper,
+            variantMapper,
+            channelPriceMapper,
+            categoryMapper,
+            dtoMapper,
+            outboxWriter);
+    productId = UUID.randomUUID();
+  }
 
-        ProductDetailResponse result = adminService.createProduct(req, "admin-1");
+  @Test
+  void createProduct_Success() {
+    CreateProductRequest req = new CreateProductRequest();
+    req.setSlug("test-slug");
+    req.setCategoryId(UUID.randomUUID());
+    req.setName("Test Product");
 
-        assertNotNull(result);
-        verify(productMapper, times(1)).insert(any(Product.class));
-    }
+    when(productMapper.existsBySlug(req.getSlug(), null)).thenReturn(false);
+    when(categoryMapper.findById(req.getCategoryId())).thenReturn(Optional.of(new Category()));
 
-    @Test
-    void createProduct_SlugExists_ThrowsException() {
-        CreateProductRequest req = new CreateProductRequest();
-        req.setSlug("existing-slug");
-        
-        when(productMapper.existsBySlug(req.getSlug(), null)).thenReturn(true);
+    ProductDetailResponse mockResponse = ProductDetailResponse.builder().build();
+    mockResponse.setProductId(productId);
+    when(dtoMapper.toDetailResponse(any())).thenReturn(mockResponse);
 
-        assertThrows(CatalogException.class, () -> adminService.createProduct(req, "admin-1"));
-        verify(productMapper, never()).insert(any());
-    }
+    ProductDetailResponse result = adminService.createProduct(req, "admin-1");
 
-    @Test
-    void updateProduct_Success() {
-        UpdateProductRequest req = new UpdateProductRequest();
-        req.setSlug("new-slug");
-        req.setName("Updated Name");
-        
-        Product existingProduct = new Product();
-        existingProduct.setId(productId);
-        existingProduct.setVersion(1L);
-        
-        when(productMapper.findById(productId)).thenReturn(Optional.of(existingProduct));
-        when(productMapper.existsBySlug("new-slug", productId)).thenReturn(false);
-        when(productMapper.update(any(Product.class))).thenReturn(1);
-        
-        ProductDetailResponse mockResponse = ProductDetailResponse.builder().build();
-        when(dtoMapper.toDetailResponse(any())).thenReturn(mockResponse);
-        
-        ProductDetailResponse result = adminService.updateProduct(productId, req, "admin-1");
-        
-        assertNotNull(result);
-        verify(productMapper, times(1)).update(any(Product.class));
-    }
+    assertNotNull(result);
+    verify(productMapper, times(1)).insert(any(Product.class));
+  }
+
+  @Test
+  void createProduct_SlugExists_ThrowsException() {
+    CreateProductRequest req = new CreateProductRequest();
+    req.setSlug("existing-slug");
+
+    when(productMapper.existsBySlug(req.getSlug(), null)).thenReturn(true);
+
+    assertThrows(CatalogException.class, () -> adminService.createProduct(req, "admin-1"));
+    verify(productMapper, never()).insert(any());
+  }
+
+  @Test
+  void updateProduct_Success() {
+    UpdateProductRequest req = new UpdateProductRequest();
+    req.setSlug("new-slug");
+    req.setName("Updated Name");
+
+    Product existingProduct = new Product();
+    existingProduct.setId(productId);
+    existingProduct.setVersion(1L);
+
+    when(productMapper.findById(productId)).thenReturn(Optional.of(existingProduct));
+    when(productMapper.existsBySlug("new-slug", productId)).thenReturn(false);
+    when(productMapper.update(any(Product.class))).thenReturn(1);
+
+    ProductDetailResponse mockResponse = ProductDetailResponse.builder().build();
+    when(dtoMapper.toDetailResponse(any())).thenReturn(mockResponse);
+
+    ProductDetailResponse result = adminService.updateProduct(productId, req, "admin-1");
+
+    assertNotNull(result);
+    verify(productMapper, times(1)).update(any(Product.class));
+  }
 }
