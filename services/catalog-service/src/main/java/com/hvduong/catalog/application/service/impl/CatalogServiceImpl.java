@@ -10,6 +10,7 @@ import com.hvduong.catalog.application.dto.response.ProductListItemResponse;
 import com.hvduong.catalog.application.dto.response.ProductVariantResponse;
 import com.hvduong.catalog.application.mapper.CatalogDtoMapper;
 import com.hvduong.catalog.application.service.CatalogService;
+import com.hvduong.catalog.common.constant.CatalogConstants;
 import com.hvduong.catalog.common.enums.ListingStatus;
 import com.hvduong.catalog.common.enums.SalesChannel;
 import com.hvduong.catalog.common.exception.CatalogException;
@@ -122,8 +123,8 @@ public class CatalogServiceImpl implements CatalogService {
     // MVP: PostgreSQL ILIKE pushed down to SQL; no in-memory filtering.
     List<Product> products =
         productMapper.findPublicProducts(
-            query, null, null, null, null, "NEWEST", "D2C_WEB", (page - 1) * pageSize, pageSize);
-    long total = productMapper.countPublicProducts(query, null, null, null, null, "D2C_WEB");
+            query, null, null, null, null, "NEWEST", CatalogConstants.CHANNEL_D2C_WEB, (page - 1) * pageSize, pageSize);
+    long total = productMapper.countPublicProducts(query, null, null, null, null, CatalogConstants.CHANNEL_D2C_WEB);
 
     List<ProductListItemResponse> items = enrichListItems(products, SalesChannel.D2C_WEB);
 
