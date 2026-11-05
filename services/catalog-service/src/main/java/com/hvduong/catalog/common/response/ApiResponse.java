@@ -60,6 +60,7 @@ public class ApiResponse<T> {
         .success(false)
         .code(code)
         .message(message)
+        .requestId(java.util.UUID.randomUUID().toString())
         .timestamp(OffsetDateTime.now())
         .build();
   }
@@ -70,6 +71,7 @@ public class ApiResponse<T> {
         .code("VALIDATION_ERROR")
         .message("Dữ liệu đầu vào không hợp lệ")
         .errors(errors)
+        .requestId(java.util.UUID.randomUUID().toString())
         .timestamp(OffsetDateTime.now())
         .build();
   }
