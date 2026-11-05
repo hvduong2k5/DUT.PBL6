@@ -1,6 +1,7 @@
 package com.hvduong.catalog.grpc;
 
 import com.google.protobuf.Timestamp;
+import com.hvduong.catalog.application.dto.request.CheckoutSnapshotRequest;
 import com.hvduong.catalog.application.dto.response.PriceValidationResponse;
 import com.hvduong.catalog.application.dto.response.ProductVariantResponse;
 import com.hvduong.catalog.application.service.CatalogService;
@@ -140,32 +141,32 @@ public class CatalogGrpcService extends CatalogServiceGrpc.CatalogServiceImplBas
                 observer.onError(Status.INVALID_ARGUMENT.withDescription("UNSUPPORTED_CONTRACT_VERSION").asRuntimeException());
                 return;
             }
-            var snapshot = snapshots.create(new CheckoutSnapshotService.Request(
+            var snapshot = snapshots.create(new CheckoutSnapshotRequest(
                     request.getItemsList().stream()
-                            .map(item -> new CheckoutSnapshotService.Selection(item.getSkuCode(), item.getQuantity()))
+                            .map(item -> new CheckoutSnapshotRequest.Selection(item.getSkuCode(), item.getQuantity()))
                             .toList(),
                     request.getChannel()
             ));
             var response = GetCheckoutSnapshotResponse.newBuilder()
-                    .setSnapshotId(snapshot.snapshot_id())
-                    .setCatalogVersion(snapshot.catalog_version())
-                    .setContractVersion(snapshot.contract_version())
+                    .setSnapshotId(snapshot.snapshotId())
+                    .setCatalogVersion(snapshot.catalogVersion())
+                    .setContractVersion(snapshot.contractVersion())
                     .setValidUntil(Timestamp.newBuilder()
-                            .setSeconds(snapshot.valid_until().getEpochSecond())
-                            .setNanos(snapshot.valid_until().getNano()))
+                            .setSeconds(snapshot.validUntil().getEpochSecond())
+                            .setNanos(snapshot.validUntil().getNano()))
                     .setSubtotal(Money.newBuilder().setCurrencyCode("VND").setUnits(snapshot.subtotal()));
 
             for (var item : snapshot.items()) {
                 response.addItems(CheckoutSnapshotItem.newBuilder()
-                        .setSkuCode(item.sku_code())
+                        .setSkuCode(item.skuCode())
                         .setQuantity(Math.toIntExact(item.quantity()))
-                        .setProductName(item.product_name())
-                        .setUnitPrice(Money.newBuilder().setCurrencyCode("VND").setUnits(item.unit_price()))
+                        .setProductName(item.productName())
+                        .setUnitPrice(Money.newBuilder().setCurrencyCode("VND").setUnits(item.unitPrice()))
                         .setNetWeight(Weight.newBuilder()
-                                .setDecimalValue(Long.toString(item.weight_grams()))
+                                .setDecimalValue(Long.toString(item.weightGrams()))
                                 .setUnit(WeightUnit.WEIGHT_UNIT_GRAM))
-                        .setPackagingType(item.packaging_type())
-                        .setIsActive(item.is_active()));
+                        .setPackagingType(item.packagingType())
+                        .setIsActive(item.isActive()));
             }
             observer.onNext(response.build());
             observer.onCompleted();

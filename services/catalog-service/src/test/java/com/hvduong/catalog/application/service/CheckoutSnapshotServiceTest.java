@@ -2,6 +2,7 @@ package com.hvduong.catalog.application.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.hvduong.catalog.application.dto.request.CheckoutSnapshotRequest;
 import com.hvduong.catalog.infrastructure.snapshot.SkuCheckoutDetail;
 import com.hvduong.catalog.repository.mybatis.CheckoutSnapshotMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -53,8 +54,8 @@ class CheckoutSnapshotServiceTest {
         when(mapper.findSkuCheckoutDetails(eq("MX-GION-500G"), eq("D2C_WEB")))
                 .thenReturn(List.of(detail));
 
-        var request = new CheckoutSnapshotService.Request(
-                List.of(new CheckoutSnapshotService.Selection("MX-GION-500G", 2)),
+        var request = new CheckoutSnapshotRequest(
+                List.of(new CheckoutSnapshotRequest.Selection("MX-GION-500G", 2)),
                 "D2C_WEB"
         );
 
@@ -63,9 +64,10 @@ class CheckoutSnapshotServiceTest {
         assertThat(snapshot).isNotNull();
         assertThat(snapshot.subtotal()).isEqualTo(100000L);
         assertThat(snapshot.items()).hasSize(1);
-        assertThat(snapshot.items().getFirst().product_name()).isEqualTo("Keo Me Xung");
+        assertThat(snapshot.items().getFirst().productName()).isEqualTo("Keo Me Xung");
 
-        verify(mapper).insertSnapshot(eq(UUID.fromString(snapshot.snapshot_id())), anyString(), eq(snapshot.valid_until()));
+        verify(mapper).insertSnapshot(eq(UUID.fromString(snapshot.snapshotId())), anyString(),
+                eq(snapshot.validUntil()));
     }
 
     @Test
@@ -74,8 +76,8 @@ class CheckoutSnapshotServiceTest {
         when(mapper.findSkuCheckoutDetails(eq("UNKNOWN-SKU"), eq("D2C_WEB")))
                 .thenReturn(List.of());
 
-        var request = new CheckoutSnapshotService.Request(
-                List.of(new CheckoutSnapshotService.Selection("UNKNOWN-SKU", 1)),
+        var request = new CheckoutSnapshotRequest(
+                List.of(new CheckoutSnapshotRequest.Selection("UNKNOWN-SKU", 1)),
                 "D2C_WEB"
         );
 
