@@ -111,14 +111,14 @@ class CatalogServiceImplTest {
         filter.setPageSize(10);
         filter.setCategoryId(categoryId);
 
-        when(productMapper.findPublicProducts(eq(categoryId), any(), any(), any(), anyString(), anyString(), anyInt(), anyInt()))
+        when(productMapper.findPublicProducts(anyString(), eq(categoryId), any(), any(), any(), anyString(), anyString(), anyInt(), anyInt()))
                 .thenReturn(List.of(mockProduct));
-        when(productMapper.countPublicProducts(eq(categoryId), any(), any(), any(), anyString()))
+        when(productMapper.countPublicProducts(anyString(), eq(categoryId), any(), any(), any(), anyString()))
                 .thenReturn(1L);
 
         when(variantMapper.findActiveByProductId(productId)).thenReturn(List.of(mockVariant));
-        when(channelPriceMapper.findActiveByVariantAndChannel(eq(variantId), anyString()))
-                .thenReturn(Optional.of(mockPrice));
+        when(channelPriceMapper.findActiveCurrentByVariantIds(any(), anyString()))
+                .thenReturn(List.of(mockPrice));
         when(imageMapper.findApprovedByProductId(productId)).thenReturn(List.of(mockImage));
 
         ProductListItemResponse mockListItemResponse = new ProductListItemResponse();
@@ -176,13 +176,17 @@ class CatalogServiceImplTest {
     @Test
     void testSearchProducts() {
         // Given
-        when(productMapper.findPublicProducts(null, null, null, null, "NEWEST", "D2C_WEB", 0, 20))
+        when(productMapper.findPublicProducts(eq("Test"), any(), any(), any(), any(), eq("NEWEST"), eq("D2C_WEB"), eq(0), eq(20)))
                 .thenReturn(List.of(mockProduct));
+        when(productMapper.countPublicProducts(eq("Test"), any(), any(), any(), any(), eq("D2C_WEB")))
+                .thenReturn(1L);
         
         ProductListItemResponse mockListItemResponse = new ProductListItemResponse();
         when(dtoMapper.toListItemResponse(any(Product.class))).thenReturn(mockListItemResponse);
 
         when(variantMapper.findActiveByProductId(productId)).thenReturn(List.of(mockVariant));
+        when(channelPriceMapper.findActiveCurrentByVariantIds(any(), anyString()))
+                .thenReturn(List.of(mockPrice));
         when(imageMapper.findApprovedByProductId(productId)).thenReturn(List.of(mockImage));
 
         // When

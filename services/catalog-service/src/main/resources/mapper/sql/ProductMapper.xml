@@ -82,37 +82,64 @@
         </if>
     </sql>
 
+    <!-- Điều kiện tìm kiếm toàn văn (MVP: PostgreSQL ILIKE) -->
+    <sql id="publicSearchCondition">
+        <if test="query != null and query != ''">
+            AND (
+                p.name ILIKE '%' || #{query} || '%'
+                OR p.description ILIKE '%' || #{query} || '%'
+                OR EXISTS (
+                    SELECT 1 FROM product_variants pv
+                    WHERE pv.product_id = p.id
+                      AND pv.sku_code ILIKE '%' || #{query} || '%'
+                )
+            )
+        </if>
+    </sql>
+
+    <!-- Điều kiện lọc giá theo kênh, hiệu lực thời gian (dùng cho count + sort) -->
+    <sql id="publicPriceCondition">
+        AND EXISTS (
+            SELECT 1 FROM channel_prices cp
+            JOIN product_variants pv ON pv.id = cp.variant_id
+            WHERE pv.product_id = p.id
+              AND pv.listing_status = 'ACTIVE'
+              AND cp.channel = #{channel}::sales_channel
+              AND cp.status = 'ACTIVE'
+              AND cp.effective_from <= NOW()
+              AND (cp.effective_to IS NULL OR cp.effective_to > NOW())
+            <if test="minPrice != null">
+                AND cp.amount_units &gt;= #{minPrice}
+            </if>
+            <if test="maxPrice != null">
+                AND cp.amount_units &lt;= #{maxPrice}
+            </if>
+        )
+    </sql>
+
     <!-- findPublicProducts: lọc + phân trang -->
     <select id="findPublicProducts" resultMap="ProductResultMap">
         <include refid="selectPublicBase"/>
+        <include refid="publicSearchCondition"/>
         <if test="categoryId != null">
             AND p.category_id = #{categoryId}
         </if>
         <if test="ocopStar != null">
             AND p.ocop_star = #{ocopStar}
         </if>
-        <if test="minPrice != null or maxPrice != null">
-            AND EXISTS (
-                SELECT 1 FROM channel_prices cp
-                JOIN product_variants pv ON pv.id = cp.variant_id
-                WHERE pv.product_id = p.id
-                  AND cp.channel = #{channel}
-                  AND cp.status = 'ACTIVE'
-                <if test="minPrice != null">
-                    AND cp.amount_units &gt;= #{minPrice}
-                </if>
-                <if test="maxPrice != null">
-                    AND cp.amount_units &lt;= #{maxPrice}
-                </if>
-            )
-        </if>
+        <include refid="publicPriceCondition"/>
         <choose>
             <when test="sortBy == 'PRICE_ASC'">
                 ORDER BY (
                     SELECT MIN(cp.amount_units)
                     FROM channel_prices cp
                     JOIN product_variants pv ON pv.id = cp.variant_id
-                    WHERE pv.product_id = p.id AND cp.status = 'ACTIVE'
+                    WHERE pv.product_id = p.id
+                      AND pv.listing_status = 'ACTIVE'
+                      AND cp.channel = #{channel}::sales_channel
+                      AND cp.status = 'ACTIVE'
+                      AND cp.effective_from <= NOW()
+                      AND (cp.effective_to IS NULL OR cp.effective_to > NOW())
                 ) ASC
             </when>
             <when test="sortBy == 'PRICE_DESC'">
@@ -120,14 +147,19 @@
                     SELECT MIN(cp.amount_units)
                     FROM channel_prices cp
                     JOIN product_variants pv ON pv.id = cp.variant_id
-                    WHERE pv.product_id = p.id AND cp.status = 'ACTIVE'
+                    WHERE pv.product_id = p.id
+                      AND pv.listing_status = 'ACTIVE'
+                      AND cp.channel = #{channel}::sales_channel
+                      AND cp.status = 'ACTIVE'
+                      AND cp.effective_from <= NOW()
+                      AND (cp.effective_to IS NULL OR cp.effective_to > NOW())
                 ) DESC
             </when>
             <when test="sortBy == 'NEWEST'">
                 ORDER BY p.created_at DESC
             </when>
             <otherwise>
-                ORDER BY p.created_at DESC <!-- BEST_SELLING: sẽ dùng analytics data phase 2 -->
+                ORDER BY p.created_at DESC
             </otherwise>
         </choose>
         LIMIT #{limit} OFFSET #{offset}
@@ -139,27 +171,14 @@
         FROM products p
         WHERE p.approval_status = 'APPROVED'
           AND p.listing_status = 'ACTIVE'
+        <include refid="publicSearchCondition"/>
         <if test="categoryId != null">
             AND p.category_id = #{categoryId}
         </if>
         <if test="ocopStar != null">
             AND p.ocop_star = #{ocopStar}
         </if>
-        <if test="minPrice != null or maxPrice != null">
-            AND EXISTS (
-                SELECT 1 FROM channel_prices cp
-                JOIN product_variants pv ON pv.id = cp.variant_id
-                WHERE pv.product_id = p.id
-                  AND cp.channel = #{channel}
-                  AND cp.status = 'ACTIVE'
-                <if test="minPrice != null">
-                    AND cp.amount_units &gt;= #{minPrice}
-                </if>
-                <if test="maxPrice != null">
-                    AND cp.amount_units &lt;= #{maxPrice}
-                </if>
-            )
-        </if>
+        <include refid="publicPriceCondition"/>
     </select>
 
     <!-- findPublicById -->

@@ -18,6 +18,7 @@ import java.util.UUID;
 public interface ProductMapper {
 
     List<Product> findPublicProducts(
+            @Param("query") String query,
             @Param("categoryId") UUID categoryId,
             @Param("ocopStar") Integer ocopStar,
             @Param("minPrice") Long minPrice,
@@ -29,6 +30,7 @@ public interface ProductMapper {
     );
 
     long countPublicProducts(
+            @Param("query") String query,
             @Param("categoryId") UUID categoryId,
             @Param("ocopStar") Integer ocopStar,
             @Param("minPrice") Long minPrice,

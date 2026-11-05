@@ -69,6 +69,7 @@ public class CatalogServiceImpl implements CatalogService {
         log.debug("[CATALOG] getPublicProducts: filter={}", filter);
 
         List<Product> products = productMapper.findPublicProducts(
+                "", // non-search: no query filter
                 filter.getCategoryId(),
                 filter.getOcopStar(),
                 filter.getMinPrice(),
@@ -80,6 +81,7 @@ public class CatalogServiceImpl implements CatalogService {
         );
 
         long total = productMapper.countPublicProducts(
+                "", // non-search: no query filter
                 filter.getCategoryId(),
                 filter.getOcopStar(),
                 filter.getMinPrice(),
@@ -117,20 +119,18 @@ public class CatalogServiceImpl implements CatalogService {
             return PageResponse.of(List.of(), page, pageSize, 0);
         }
 
-        // MVP: PostgreSQL ILIKE — Phase 3: Elasticsearch
+        // MVP: PostgreSQL ILIKE pushed down to SQL; no in-memory filtering.
         List<Product> products = productMapper.findPublicProducts(
-                null, null, null, null, "NEWEST", "D2C_WEB",
+                query, null, null, null, null, "NEWEST", "D2C_WEB",
                 (page - 1) * pageSize, pageSize
         );
-        String normalized = query.toLowerCase().trim();
-        List<Product> filtered = products.stream()
-                .filter(p -> p.getName().toLowerCase().contains(normalized)
-                        || (p.getDescription() != null && p.getDescription().toLowerCase().contains(normalized)))
-                .collect(Collectors.toList());
+        long total = productMapper.countPublicProducts(
+                query, null, null, null, null, "D2C_WEB"
+        );
 
-        List<ProductListItemResponse> items = enrichListItems(filtered, SalesChannel.D2C_WEB);
+        List<ProductListItemResponse> items = enrichListItems(products, SalesChannel.D2C_WEB);
 
-        return PageResponse.of(items, page, pageSize, filtered.size());
+        return PageResponse.of(items, page, pageSize, total);
     }
 
     @Override
@@ -472,9 +472,21 @@ public class CatalogServiceImpl implements CatalogService {
     }
 
     private List<ProductListItemResponse> enrichListItems(List<Product> products, SalesChannel channel) {
-        Map<UUID, List<ProductVariant>> variantsByProduct = products.stream()
-                .collect(Collectors.toMap(Product::getId,
-                        product -> variantMapper.findActiveByProductId(product.getId())));
+        Map<UUID, List<ProductVariant>> variantsByProduct = new HashMap<>();
+        for (Product product : products) {
+            variantsByProduct.putIfAbsent(product.getId(), variantMapper.findActiveByProductId(product.getId()));
+        }
+        List<UUID> variantIds = variantsByProduct.values().stream()
+                .flatMap(List::stream)
+                .map(ProductVariant::getId)
+                .distinct()
+                .collect(Collectors.toList());
+        Map<UUID, ChannelPrice> currentPriceByVariant = new HashMap<>();
+        if (!variantIds.isEmpty()) {
+            for (ChannelPrice price : channelPriceMapper.findActiveCurrentByVariantIds(variantIds, channel.getValue())) {
+                currentPriceByVariant.putIfAbsent(price.getVariantId(), price);
+            }
+        }
         Map<String, Long> quantities = stockProjectionService.getAvailableQuantities(variantsByProduct.values().stream()
                 .flatMap(List::stream)
                 .map(ProductVariant::getSkuCode)
@@ -482,12 +494,13 @@ public class CatalogServiceImpl implements CatalogService {
                 .collect(Collectors.toList()));
         return products.stream()
                 .map(product -> enrichListItem(product, channel,
-                        variantsByProduct.getOrDefault(product.getId(), List.of()), quantities))
+                        variantsByProduct.getOrDefault(product.getId(), List.of()), currentPriceByVariant, quantities))
                 .collect(Collectors.toList());
     }
 
     private ProductListItemResponse enrichListItem(Product product, SalesChannel channel,
                                                    List<ProductVariant> variants,
+                                                   Map<UUID, ChannelPrice> currentPriceByVariant,
                                                    Map<String, Long> quantities) {
         ProductListItemResponse item = dtoMapper.toListItemResponse(product);
         boolean stockKnown = variants.stream()
@@ -497,9 +510,9 @@ public class CatalogServiceImpl implements CatalogService {
                 .sum() : null;
         item.setStockAvailable(available);
         item.setInStock(available == null ? null : available > 0);
-        if (!variants.isEmpty()) {
-            channelPriceMapper.findActiveByVariantAndChannel(variants.get(0).getId(), channel.getValue())
-                    .ifPresent(price -> item.setBasePrice(MoneyResponse.ofVnd(price.getAmountUnits())));
+        Long minPrice = skuBasePriceFromVnd(variants, currentPriceByVariant);
+        if (minPrice != null) {
+            item.setBasePrice(MoneyResponse.ofVnd(minPrice));
         }
         imageMapper.findApprovedByProductId(product.getId()).stream()
                 .filter(img -> "COVER".equals(img.getRole())).findFirst()
