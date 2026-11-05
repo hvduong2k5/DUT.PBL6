@@ -241,13 +241,13 @@ Quyết định: **contract-first với `/skus`** (theo D-03).
 
 File: `controller/CatalogAdminController.java` (đã đổi `/variants` → `/skus`), `docs/03_api_specs/admin-draft-planned.openapi.yaml`.
 
-### P1-7. Giá tương lai
+### P1-7. Giá tương lai (ĐÃ LÀM)
 
-- Thay unique index `uq_channel_prices_active` bằng exclusion constraint trên khoảng `[effective_from, effective_to)` cho cùng `(variant_id, channel)`.
-- Hoặc thêm cột version/valid range và unique theo `(variant_id, channel, effective_from)`.
-- Viết migration mới; không sửa migration cũ đã chạy.
+- Migration `V11__channel_price_exclusion_constraint.sql`: tạo extension `btree_gist`, xóa unique index `uq_channel_prices_active`, thêm exclusion constraint `excl_channel_prices_no_overlap` dùng `tstzrange(effective_from, COALESCE(effective_to, 'infinity'))` với operator `&&` (overlaps) cho cùng `(variant_id, channel)`.
+- Giữ index `idx_channel_prices_variant_channel_effective` hỗ trợ query tìm giá hiệu lực.
+- Không sửa migration cũ đã chạy.
 
-File: `resources/db/migration/V*__...sql`, `ChannelPriceMapper.xml`.
+File: `resources/db/migration/V11__channel_price_exclusion_constraint.sql`.
 
 ## 6. Phase P2 — Hardening, docs, CI
 
