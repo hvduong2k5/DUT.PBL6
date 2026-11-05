@@ -9,7 +9,6 @@ import com.hvduong.catalog.application.dto.response.AdminProductDetailResponse;
 import com.hvduong.catalog.application.dto.response.AdminProductListResponse;
 import com.hvduong.catalog.application.dto.response.ProductDetailResponse;
 import com.hvduong.catalog.application.service.CatalogAdminService;
-import com.hvduong.catalog.application.service.CatalogService;
 import com.hvduong.catalog.common.response.ApiResponse;
 
 import java.util.UUID;
@@ -40,7 +39,6 @@ import lombok.extern.slf4j.Slf4j;
 public class CatalogAdminController {
 
   private final CatalogAdminService adminService;
-  private final CatalogService catalogService;
 
   private String resolveActorId(Jwt jwt, String actorHeader) {
     if (actorHeader != null && !actorHeader.isBlank()) {
@@ -68,7 +66,7 @@ public class CatalogAdminController {
         pageSize,
         q,
         status);
-    AdminProductListResponse result = catalogService.getAdminProducts(page, pageSize, q, status);
+    AdminProductListResponse result = adminService.getAdminProducts(page, pageSize, q, status);
     return ResponseEntity.ok(ApiResponse.success(result));
   }
 
@@ -81,7 +79,7 @@ public class CatalogAdminController {
       @Parameter(description = "ID sản phẩm (UUID)", required = true) @PathVariable
           String productId) {
     log.info("[REST-ADMIN] getAdminProduct: id={}", productId);
-    AdminProductDetailResponse result = catalogService.getAdminProductDetail(productId);
+    AdminProductDetailResponse result = adminService.getAdminProductDetail(productId);
     return ResponseEntity.ok(ApiResponse.success(result));
   }
 

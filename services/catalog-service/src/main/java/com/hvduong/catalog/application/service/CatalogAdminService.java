@@ -4,6 +4,8 @@ import com.hvduong.catalog.application.dto.request.CreateProductRequest;
 import com.hvduong.catalog.application.dto.request.CreateVariantRequest;
 import com.hvduong.catalog.application.dto.request.UpdatePriceRequest;
 import com.hvduong.catalog.application.dto.request.UpdateProductRequest;
+import com.hvduong.catalog.application.dto.response.AdminProductDetailResponse;
+import com.hvduong.catalog.application.dto.response.AdminProductListResponse;
 import com.hvduong.catalog.application.dto.response.ProductDetailResponse;
 
 import java.util.UUID;
@@ -11,6 +13,12 @@ import java.util.UUID;
 /** Application Service interface cho các chức năng admin catalog. Không phụ thuộc gRPC/protobuf. */
 public interface CatalogAdminService {
 
+  // ── Read ────────────────────────────────────────────────────────
+  AdminProductListResponse getAdminProducts(int page, int pageSize, String q, String status);
+
+  AdminProductDetailResponse getAdminProductDetail(String productId);
+
+  // ── Write ───────────────────────────────────────────────────────
   ProductDetailResponse createProduct(CreateProductRequest request, String actorId);
 
   ProductDetailResponse updateProduct(UUID productId, UpdateProductRequest request, String actorId);

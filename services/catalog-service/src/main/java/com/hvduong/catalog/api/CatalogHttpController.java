@@ -1,5 +1,28 @@
 package com.hvduong.catalog.api;
 
+import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.UUID;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.hvduong.catalog.application.dto.request.CheckoutSnapshotRequest;
 import com.hvduong.catalog.application.dto.request.PriceValidationRequest;
 import com.hvduong.catalog.application.dto.request.ProductFilterRequest;
@@ -8,19 +31,6 @@ import com.hvduong.catalog.application.service.CatalogService;
 import com.hvduong.catalog.application.service.CheckoutSnapshotService;
 import com.hvduong.catalog.common.enums.SalesChannel;
 import com.hvduong.catalog.common.enums.SortBy;
-
-import java.math.BigDecimal;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.util.*;
-
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.web.server.ResponseStatusException;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 
 import lombok.RequiredArgsConstructor;
 

@@ -14,6 +14,7 @@ import com.hvduong.catalog.domain.entity.Product;
 import com.hvduong.catalog.infrastructure.outbox.CatalogOutboxWriter;
 import com.hvduong.catalog.repository.mybatis.CategoryMapper;
 import com.hvduong.catalog.repository.mybatis.ChannelPriceMapper;
+import com.hvduong.catalog.repository.mybatis.ProductImageMapper;
 import com.hvduong.catalog.repository.mybatis.ProductMapper;
 import com.hvduong.catalog.repository.mybatis.ProductVariantMapper;
 
@@ -33,6 +34,7 @@ class CatalogAdminServiceImplTest {
   @Mock private CategoryMapper categoryMapper;
   @Mock private ProductVariantMapper variantMapper;
   @Mock private ChannelPriceMapper channelPriceMapper;
+  @Mock private ProductImageMapper imageMapper;
   @Mock private CatalogDtoMapper dtoMapper;
   @Mock private CatalogServiceImpl catalogService;
   @Mock private CatalogOutboxWriter outboxWriter;
@@ -48,6 +50,7 @@ class CatalogAdminServiceImplTest {
             productMapper,
             variantMapper,
             channelPriceMapper,
+            imageMapper,
             categoryMapper,
             dtoMapper,
             outboxWriter);

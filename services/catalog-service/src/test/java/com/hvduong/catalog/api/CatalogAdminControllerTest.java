@@ -11,7 +11,6 @@ import com.hvduong.catalog.application.dto.response.AdminProductDetailResponse;
 import com.hvduong.catalog.application.dto.response.AdminProductListResponse;
 import com.hvduong.catalog.application.dto.response.ProductDetailResponse;
 import com.hvduong.catalog.application.service.CatalogAdminService;
-import com.hvduong.catalog.application.service.CatalogService;
 import com.hvduong.catalog.common.handler.GlobalRestExceptionHandler;
 
 import java.util.Collections;
@@ -41,8 +40,6 @@ class CatalogAdminControllerTest {
   private MockMvc mockMvc;
 
   @Mock private CatalogAdminService adminService;
-
-  @Mock private CatalogService catalogService;
 
   @InjectMocks private CatalogAdminController adminController;
 
@@ -88,7 +85,7 @@ class CatalogAdminControllerTest {
             .calculatedAt("2026-10-02T02:30:00.000Z")
             .build();
 
-    when(catalogService.getAdminProducts(eq(1), eq(20), isNull(), isNull())).thenReturn(list);
+    when(adminService.getAdminProducts(eq(1), eq(20), isNull(), isNull())).thenReturn(list);
 
     mockMvc
         .perform(get("/api/v1/admin/catalog/products"))
@@ -106,7 +103,7 @@ class CatalogAdminControllerTest {
             .name("Kẹo mè xửng Huế O Mạ")
             .build();
 
-    when(catalogService.getAdminProductDetail(id.toString())).thenReturn(detail);
+    when(adminService.getAdminProductDetail(id.toString())).thenReturn(detail);
 
     mockMvc
         .perform(get("/api/v1/admin/catalog/products/" + id))
