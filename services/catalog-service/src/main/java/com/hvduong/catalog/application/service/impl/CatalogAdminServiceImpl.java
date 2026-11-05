@@ -9,9 +9,12 @@ import com.hvduong.catalog.application.dto.response.AdminProductListItemResponse
 import com.hvduong.catalog.application.dto.response.AdminProductListResponse;
 import com.hvduong.catalog.application.dto.response.ProductDetailResponse;
 import com.hvduong.catalog.application.dto.response.ProductVariantResponse;
+import com.hvduong.catalog.application.mapper.AdminCatalogMapper;
 import com.hvduong.catalog.application.mapper.CatalogDtoMapper;
 import com.hvduong.catalog.application.service.CatalogAdminService;
 import com.hvduong.catalog.application.service.CatalogCacheEvictor;
+import com.hvduong.catalog.common.constant.CatalogConstants;
+import com.hvduong.catalog.common.constant.SaleStatus;
 import com.hvduong.catalog.common.enums.ApprovalStatus;
 import com.hvduong.catalog.common.enums.ListingStatus;
 import com.hvduong.catalog.common.enums.SalesChannel;
@@ -97,7 +100,7 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
             .collect(Collectors.toList());
     Map<UUID, ChannelPrice> currentPriceByVariant = new HashMap<>();
     if (!variantIds.isEmpty()) {
-      String channel = SalesChannel.D2C_WEB.getValue();
+      String channel = CatalogConstants.CHANNEL_D2C_WEB;
       for (ChannelPrice price : channelPriceMapper.findActiveCurrentByVariantIds(variantIds, channel)) {
         currentPriceByVariant.putIfAbsent(price.getVariantId(), price);
       }
@@ -119,27 +122,17 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
         products.stream()
             .map(
                 product ->
-                    toAdminListItemResponse(
+                    AdminCatalogMapper.toListItemResponse(
                         product,
                         variantsByProduct.getOrDefault(product.getId(), List.of()),
                         currentPriceByVariant))
             .collect(Collectors.toList());
 
     List<AdminProductListResponse.StatusCount> statusCounts =
-        List.of(ListingStatus.ACTIVE, ListingStatus.SUSPENDED, ListingStatus.ARCHIVED).stream()
-            .map(
-                st ->
-                    new AdminProductListResponse.StatusCount(
-                        st.getValue(), displayStatusLabel(st), statusCountMap.getOrDefault(st.getValue(), 0L)))
-            .collect(Collectors.toList());
+        AdminCatalogMapper.toStatusCounts(statusCountMap);
 
     List<AdminProductListResponse.CategoryOption> categories =
-        categoryRows.stream()
-            .map(
-                row ->
-                    new AdminProductListResponse.CategoryOption(
-                        row.getCategoryId().toString(), row.getCategoryName()))
-            .collect(Collectors.toList());
+        AdminCatalogMapper.toCategoryOptions(categoryRows);
 
     return AdminProductListResponse.builder()
         .items(items)
@@ -175,18 +168,19 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
 
     AdminProductDetailResponse response = dtoMapper.toAdminDetailResponse(product);
     response.setCategoryName(product.getCategoryName());
-    response.setSaleStatus(statusLabel(product.getListingStatus()));
-    response.setSaleStatusLabel(displayStatusLabel(product.getListingStatus()));
+    SaleStatus status = SaleStatus.fromListingStatus(product.getListingStatus());
+    response.setSaleStatus(status.getCode());
+    response.setSaleStatusLabel(status.getLabelVn());
     response.setLongDescription(product.getDescription());
-    response.setCoverImageUrl(coverImageUrl(product));
-    response.setCoverImageAlt(coverImageAlt(product));
+    response.setCoverImageUrl(AdminCatalogMapper.coverImageUrl(images));
+    response.setCoverImageAlt(AdminCatalogMapper.coverImageAlt(images, product.getName()));
 
     // Trả toàn bộ variant (ACTIVE + SUSPENDED + ARCHIVED), kèm giá hiện hành theo channel admin
     List<ProductVariant> variants = variantMapper.findAllByProductId(id);
     List<UUID> variantIds = variants.stream().map(ProductVariant::getId).collect(Collectors.toList());
     Map<UUID, ChannelPrice> currentPriceByVariant = new HashMap<>();
     if (!variantIds.isEmpty()) {
-      String channel = SalesChannel.D2C_WEB.getValue();
+      String channel = CatalogConstants.CHANNEL_D2C_WEB;
       for (ChannelPrice price :
           channelPriceMapper.findActiveCurrentByVariantIds(variantIds, channel)) {
         currentPriceByVariant.putIfAbsent(price.getVariantId(), price);
@@ -195,7 +189,7 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
 
     List<AdminProductDetailResponse.AdminProductSkuResponse> skus =
         variants.stream()
-            .map(variant -> toAdminSkuResponse(variant, currentPriceByVariant.get(variant.getId())))
+            .map(variant -> AdminCatalogMapper.toSkuResponse(variant, currentPriceByVariant.get(variant.getId())))
             .collect(Collectors.toList());
     response.setSkus(skus);
 
@@ -205,9 +199,9 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
             .filter(v -> v.getListingStatus() == ListingStatus.ACTIVE)
             .mapToInt(v -> 1)
             .sum());
-    response.setBasePriceFromVnd(skuBasePriceFromVnd(variants, currentPriceByVariant));
-    response.setFoodInformationComplete(foodInformationComplete(product));
-    response.setUpdatedAt(formatInstant(product.getUpdatedAt()));
+    response.setBasePriceFromVnd(AdminCatalogMapper.skuBasePriceFromVnd(variants, currentPriceByVariant));
+    response.setFoodInformationComplete(AdminCatalogMapper.foodInformationComplete(product));
+    response.setUpdatedAt(AdminCatalogMapper.formatInstant(product.getUpdatedAt()));
     response.setRevision(product.getVersion());
 
     return response;
