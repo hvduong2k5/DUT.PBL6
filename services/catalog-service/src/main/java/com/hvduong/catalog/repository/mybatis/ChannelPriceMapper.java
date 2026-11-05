@@ -21,6 +21,11 @@ public interface ChannelPriceMapper {
 
     List<ChannelPrice> findActiveByVariantId(@Param("variantId") UUID variantId);
 
+    List<ChannelPrice> findActiveCurrentByVariantIds(
+            @Param("variantIds") List<UUID> variantIds,
+            @Param("channel") String channel
+    );
+
     List<ChannelPrice> findHistoryByVariantAndChannel(
             @Param("variantId") UUID variantId,
             @Param("channel") String channel

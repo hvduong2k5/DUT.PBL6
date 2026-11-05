@@ -18,6 +18,8 @@ public interface ProductVariantMapper {
 
     List<ProductVariant> findAllByProductId(@Param("productId") UUID productId);
 
+    List<ProductVariant> findByProductIds(@Param("productIds") List<UUID> productIds);
+
     Optional<ProductVariant> findBySkuCode(@Param("skuCode") String skuCode);
 
     Optional<ProductVariant> findById(@Param("id") UUID id);

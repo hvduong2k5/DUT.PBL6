@@ -6,12 +6,11 @@ import com.hvduong.catalog.application.dto.request.ProductTransitionRequest;
 import com.hvduong.catalog.application.dto.request.UpdatePriceRequest;
 import com.hvduong.catalog.application.dto.request.UpdateProductRequest;
 import com.hvduong.catalog.application.dto.response.AdminProductDetailResponse;
-import com.hvduong.catalog.application.dto.response.AdminProductListItemResponse;
+import com.hvduong.catalog.application.dto.response.AdminProductListResponse;
 import com.hvduong.catalog.application.dto.response.ProductDetailResponse;
 import com.hvduong.catalog.application.service.CatalogAdminService;
 import com.hvduong.catalog.application.service.CatalogService;
 import com.hvduong.catalog.common.response.ApiResponse;
-import com.hvduong.catalog.common.response.PageResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -51,12 +50,14 @@ public class CatalogAdminController {
     @Operation(summary = "Xem danh sách sản phẩm quản trị", description = "Xem toàn bộ sản phẩm trên hệ thống bất kể trạng thái")
     @PreAuthorize("hasRole('ADMIN') or hasAuthority('CATALOG_VIEW')")
     @GetMapping("/products")
-    public ResponseEntity<ApiResponse<PageResponse<AdminProductListItemResponse>>> listAdminProducts(
+    public ResponseEntity<ApiResponse<AdminProductListResponse>> listAdminProducts(
             @RequestParam(required = false, defaultValue = "1") int page,
-            @RequestParam(required = false, defaultValue = "20") int pageSize
+            @RequestParam(required = false, defaultValue = "20") int pageSize,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) String status
     ) {
-        log.info("[REST-ADMIN] listAdminProducts: page={}, pageSize={}", page, pageSize);
-        PageResponse<AdminProductListItemResponse> result = catalogService.getAdminProducts(page, pageSize);
+        log.info("[REST-ADMIN] listAdminProducts: page={}, pageSize={}, q={}, status={}", page, pageSize, q, status);
+        AdminProductListResponse result = catalogService.getAdminProducts(page, pageSize, q, status);
         return ResponseEntity.ok(ApiResponse.success(result));
     }
 

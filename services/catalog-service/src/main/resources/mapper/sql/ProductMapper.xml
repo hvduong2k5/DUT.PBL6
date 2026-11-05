@@ -60,6 +60,28 @@
 
     <!-- ── Queries ────────────────────────────────────────────────────────────── -->
 
+    <!-- Điều kiện tìm kiếm admin: tên, slug hoặc mã SKU -->
+    <sql id="adminSearchCondition">
+        <if test="q != null and q != ''">
+            AND (
+                p.name ILIKE '%' || #{q} || '%'
+                OR p.slug ILIKE '%' || #{q} || '%'
+                OR EXISTS (
+                    SELECT 1 FROM product_variants pv
+                    WHERE pv.product_id = p.id
+                      AND pv.sku_code ILIKE '%' || #{q} || '%'
+                )
+            )
+        </if>
+    </sql>
+
+    <!-- Điều kiện trạng thái admin (giá trị DB: ACTIVE/SUSPENDED/ARCHIVED) -->
+    <sql id="adminStatusCondition">
+        <if test="status != null and status != ''">
+            AND p.listing_status = #{status}::listing_status
+        </if>
+    </sql>
+
     <!-- findPublicProducts: lọc + phân trang -->
     <select id="findPublicProducts" resultMap="ProductResultMap">
         <include refid="selectPublicBase"/>
@@ -162,20 +184,48 @@
         WHERE p.id = #{id}
     </select>
 
-    <!-- findAll (admin) -->
-    <select id="findAll" resultMap="ProductResultMap">
+    <!-- findAdminProducts (admin list + filter) -->
+    <select id="findAdminProducts" resultMap="ProductResultMap">
         SELECT
             p.*,
             c.name AS category_name
         FROM products p
         LEFT JOIN categories c ON c.id = p.category_id
-        ORDER BY p.created_at DESC
+        WHERE 1=1
+        <include refid="adminSearchCondition"/>
+        <include refid="adminStatusCondition"/>
+        ORDER BY p.created_at DESC, p.id ASC
         LIMIT #{limit} OFFSET #{offset}
     </select>
 
-    <!-- countAll (admin) -->
-    <select id="countAll" resultType="long">
-        SELECT COUNT(id) FROM products
+    <!-- countAdminProducts -->
+    <select id="countAdminProducts" resultType="long">
+        SELECT COUNT(*)
+        FROM products p
+        WHERE 1=1
+        <include refid="adminSearchCondition"/>
+        <include refid="adminStatusCondition"/>
+    </select>
+
+    <!-- countAdminProductsByStatus: chỉ áp dụng q, không áp dụng status -->
+    <select id="countAdminProductsByStatus"
+            resultType="com.hvduong.catalog.repository.mybatis.projection.AdminStatusCountRow">
+        SELECT p.listing_status AS status, COUNT(*) AS count
+        FROM products p
+        WHERE 1=1
+        <include refid="adminSearchCondition"/>
+        GROUP BY p.listing_status
+    </select>
+
+    <!-- findAdminCategories: danh mục có Product trong tập q -->
+    <select id="findAdminCategories"
+            resultType="com.hvduong.catalog.repository.mybatis.projection.AdminCategoryRow">
+        SELECT DISTINCT c.id AS category_id, c.name AS category_name
+        FROM products p
+        JOIN categories c ON c.id = p.category_id
+        WHERE 1=1
+        <include refid="adminSearchCondition"/>
+        ORDER BY c.name ASC
     </select>
 
     <!-- existsBySlug -->

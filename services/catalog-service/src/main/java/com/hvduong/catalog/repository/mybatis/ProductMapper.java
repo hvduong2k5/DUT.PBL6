@@ -1,6 +1,8 @@
 package com.hvduong.catalog.repository.mybatis;
 
 import com.hvduong.catalog.domain.entity.Product;
+import com.hvduong.catalog.repository.mybatis.projection.AdminCategoryRow;
+import com.hvduong.catalog.repository.mybatis.projection.AdminStatusCountRow;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -40,9 +42,18 @@ public interface ProductMapper {
 
     Optional<Product> findById(@Param("id") UUID id);
 
-    List<Product> findAll(@Param("offset") int offset, @Param("limit") int limit);
+    List<Product> findAdminProducts(
+            @Param("q") String q,
+            @Param("status") String status,
+            @Param("offset") int offset,
+            @Param("limit") int limit
+    );
 
-    long countAll();
+    long countAdminProducts(@Param("q") String q, @Param("status") String status);
+
+    List<AdminStatusCountRow> countAdminProductsByStatus(@Param("q") String q);
+
+    List<AdminCategoryRow> findAdminCategories(@Param("q") String q);
 
     boolean existsBySlug(@Param("slug") String slug, @Param("excludeId") UUID excludeId);
 

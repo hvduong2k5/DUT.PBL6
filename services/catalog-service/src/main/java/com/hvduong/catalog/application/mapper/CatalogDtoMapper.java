@@ -64,7 +64,7 @@ public interface CatalogDtoMapper {
 
     // ── Admin ─────────────────────────────────────────────────────────────────
     @Mapping(source = "id",            target = "productId")
-    @Mapping(source = "listingStatus", target = "saleStatus")
+    @Mapping(target = "saleStatus",    ignore = true)
     @Mapping(target = "saleStatusLabel", ignore = true)
     @Mapping(target = "skuCount",      ignore = true)
     @Mapping(target = "onSaleSkuCount",ignore = true)
@@ -78,7 +78,7 @@ public interface CatalogDtoMapper {
     List<AdminProductListItemResponse> toAdminListItemResponseList(List<Product> products);
 
     @Mapping(source = "id",            target = "productId")
-    @Mapping(source = "listingStatus", target = "saleStatus")
+    @Mapping(target = "saleStatus",    ignore = true)
     @Mapping(target = "saleStatusLabel", ignore = true)
     @Mapping(target = "skuCount",      ignore = true)
     @Mapping(target = "onSaleSkuCount",ignore = true)

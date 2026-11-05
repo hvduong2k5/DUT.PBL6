@@ -1,12 +1,15 @@
 package com.hvduong.catalog.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.hvduong.catalog.application.dto.request.*;
-import com.hvduong.catalog.application.dto.response.*;
+import com.hvduong.catalog.application.dto.request.CreateProductRequest;
+import com.hvduong.catalog.application.dto.request.ProductTransitionRequest;
+import com.hvduong.catalog.application.dto.response.AdminProductDetailResponse;
+import com.hvduong.catalog.application.dto.response.AdminProductListResponse;
+import com.hvduong.catalog.application.dto.response.ProductDetailResponse;
 import com.hvduong.catalog.application.service.CatalogAdminService;
 import com.hvduong.catalog.application.service.CatalogService;
 import com.hvduong.catalog.common.handler.GlobalRestExceptionHandler;
-import com.hvduong.catalog.common.response.PageResponse;
+import com.hvduong.catalog.common.response.ApiResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -74,19 +77,19 @@ class CatalogAdminControllerTest {
 
     @Test
     void listAdminProducts_ReturnsSuccess() throws Exception {
-        PageResponse<AdminProductListItemResponse> page = PageResponse.<AdminProductListItemResponse>builder()
+        AdminProductListResponse list = AdminProductListResponse.builder()
                 .items(Collections.emptyList())
-                .page(1)
-                .pageSize(20)
-                .total(0L)
-                .totalPages(0)
+                .statusCounts(Collections.emptyList())
+                .categories(Collections.emptyList())
+                .calculatedAt("2026-10-02T02:30:00.000Z")
                 .build();
 
-        when(catalogService.getAdminProducts(eq(1), eq(20))).thenReturn(page);
+        when(catalogService.getAdminProducts(eq(1), eq(20), isNull(), isNull())).thenReturn(list);
 
         mockMvc.perform(get("/api/v1/admin/catalog/products"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data").exists());
     }
 
     @Test

@@ -34,6 +34,15 @@ typeHandler="org.apache.ibatis.type.EnumTypeHandler"/>
         ORDER BY created_at ASC
     </select>
 
+    <select id="findByProductIds" resultMap="VariantResultMap">
+        SELECT * FROM product_variants
+        WHERE product_id IN
+        <foreach collection="productIds" item="productId" open="(" separator="," close=")">
+            #{productId}
+        </foreach>
+        ORDER BY product_id, created_at ASC
+    </select>
+
     <select id="findBySkuCode" resultMap="VariantResultMap">
         SELECT * FROM product_variants WHERE sku_code = #{skuCode}
     </select>
