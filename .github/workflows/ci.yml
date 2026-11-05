@@ -1,19 +1,53 @@
-name: CI Pipeline
+name: CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [feature/catalog-service, dev, main]
   pull_request:
-    branches: [ main, develop ]
+    branches: [feature/catalog-service, dev, main]
 
 jobs:
-  lint-and-check:
+  contract:
+    name: Contract verification
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Project Structure Check
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install Python dependencies
         run: |
-          echo "Verifying PBL Monorepo structure..."
-          ls -la
+          python -m pip install -r packages/contracts/mvp/requirements.txt
+
+      - name: Verify public contract is current (build_public_contract.py idempotent)
+        run: |
+          python packages/contracts/mvp/build_public_contract.py
+          git diff --quiet -- docs/03_api_specs/mvp-customer.openapi.yaml \
+            || { echo "ERROR: public contract is stale; run build_public_contract.py and commit"; exit 1; }
+          echo "Public contract is current (generated == tracked)"
+
+      - name: Run verify.py
+        run: |
+          python packages/contracts/mvp/verify.py
+
+  test:
+    name: Catalog service tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Run Gradle tests
+        run: |
+          ./gradlew test --offline
+        working-directory: services/catalog-service

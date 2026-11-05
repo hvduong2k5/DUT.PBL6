@@ -308,12 +308,12 @@ Không làm P1 trước P0 vì admin BFF đang phụ thuộc public contract và
 - Admin list nhận `q/status/page/pageSize`; BFF chuyển query xuống.
 - Migration giá tương lai chạy được, không phá dữ liệu cũ.
 
-### P2 (Đang tiến hành)
+### P2 (Đã đạt)
 
-- `verify.py` pass trong môi trường đủ dependency. ✅
-- CI chặn contract stale (`public != build()`), OpenAPI invalid, registry trỏ file thiếu, baseline compatibility fail.
+- `verify.py` pass trong môi trường đủ dependency (venv + requirements.txt). ✅
+- CI workflow `.github/workflows/ci.yml`: chặn contract stale (`build_public_contract.py` idempotent), `verify.py` (OpenAPI + protobuf + registry), `gradlew test --offline`. ✅
 - Kafka có DLT, không chặn partition vì message độc. ✅
-- Không còn tài liệu mô tả public/admin gRPC.
+- Không còn tài liệu mô tả public/admin gRPC. ✅
 
 ## 10. Rủi ro
 
