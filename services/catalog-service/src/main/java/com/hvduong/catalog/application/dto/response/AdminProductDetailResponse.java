@@ -28,8 +28,19 @@ public class AdminProductDetailResponse {
   private Long revision;
   private String shortDescription;
   private String longDescription;
+
+  // ── Nội dung đầy đủ để admin chỉnh sửa (PATCH) ─────────────────────────
+  private String slug;
+  private String description;
+  private Integer ocopStar;
+  private String ocopCertificateNo;
+  private String story;
+  private String approvalStatus;
+  private String listingStatus;
+
   private String coverImageUrl;
   private String coverImageAlt;
+  private List<AdminProductImageResponse> images;
 
   private AdminFoodInformationResponse foodInformation;
   private List<AdminProductSkuResponse> skus;

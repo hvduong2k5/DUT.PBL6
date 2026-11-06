@@ -1,16 +1,22 @@
 package com.hvduong.catalog.api;
 
+import com.hvduong.catalog.application.dto.request.CreateProductImageRequest;
 import com.hvduong.catalog.application.dto.request.CreateProductRequest;
 import com.hvduong.catalog.application.dto.request.CreateVariantRequest;
+import com.hvduong.catalog.application.dto.request.PatchProductRequest;
+import com.hvduong.catalog.application.dto.request.PatchVariantRequest;
 import com.hvduong.catalog.application.dto.request.ProductTransitionRequest;
 import com.hvduong.catalog.application.dto.request.UpdatePriceRequest;
+import com.hvduong.catalog.application.dto.request.UpdateProductImageRequest;
 import com.hvduong.catalog.application.dto.request.UpdateProductRequest;
+import com.hvduong.catalog.application.dto.response.AdminPriceResponse;
 import com.hvduong.catalog.application.dto.response.AdminProductDetailResponse;
 import com.hvduong.catalog.application.dto.response.AdminProductListResponse;
 import com.hvduong.catalog.application.dto.response.ProductDetailResponse;
 import com.hvduong.catalog.application.service.CatalogAdminService;
 import com.hvduong.catalog.common.response.ApiResponse;
 
+import java.util.List;
 import java.util.UUID;
 
 import org.springframework.http.ResponseEntity;
@@ -115,6 +121,29 @@ public class CatalogAdminController {
   }
 
   @Operation(
+      summary = "Cập nhật một phần nội dung sản phẩm",
+      description =
+          "PATCH cho phép chỉnh sửa mọi thông tin nội dung: tên, slug, danh mục, mô tả, thành phần, "
+              + "hướng dẫn bảo quản, sao OCOP, số chứng nhận và câu chuyện thương hiệu. "
+              + "Field không gửi lên sẽ giữ nguyên; chuỗi rỗng dùng để xóa field optional.")
+  @PreAuthorize("hasRole('ADMIN') or hasAuthority('CATALOG_MANAGE')")
+  @PatchMapping("/products/{productId}")
+  public ResponseEntity<ApiResponse<ProductDetailResponse>> patchProduct(
+      @Parameter(description = "ID sản phẩm (UUID)", required = true) @PathVariable UUID productId,
+      @Valid @RequestBody PatchProductRequest request,
+      @AuthenticationPrincipal Jwt jwt,
+      @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorHeader) {
+    String actorId = resolveActorId(jwt, actorHeader);
+    log.info(
+        "[REST-ADMIN] patchProduct: id={}, expectedVersion={}, actor={}",
+        productId,
+        request.getExpectedVersion(),
+        actorId);
+    ProductDetailResponse result = adminService.patchProduct(productId, request, actorId);
+    return ResponseEntity.ok(ApiResponse.success("Cập nhật nội dung sản phẩm thành công", result));
+  }
+
+  @Operation(
       summary = "Chuyển trạng thái vòng đời sản phẩm",
       description = "Hỗ trợ các chuyển đổi: SUBMIT_FOR_REVIEW, APPROVE, REJECT, SUSPEND, ARCHIVE")
   @PreAuthorize("hasRole('ADMIN') or hasAuthority('CATALOG_APPROVE')")
@@ -163,6 +192,103 @@ public class CatalogAdminController {
     log.info("[REST-ADMIN] addVariant: productId={}, actor={}", productId, actorId);
     ProductDetailResponse result = adminService.addVariant(productId, request, actorId);
     return ResponseEntity.ok(ApiResponse.success("Thêm biến thể thành công", result));
+  }
+
+  @Operation(
+      summary = "Cập nhật một phần thông tin SKU",
+      description =
+          "Chỉnh sửa tên biến thể, khối lượng, đơn vị, hương vị, loại bao bì, hạn sử dụng và "
+              + "trạng thái bán. Mã SKU là bất biến, không thể đổi qua API này.")
+  @PreAuthorize("hasRole('ADMIN') or hasAuthority('CATALOG_MANAGE')")
+  @PatchMapping("/products/{productId}/skus/{skuId}")
+  public ResponseEntity<ApiResponse<ProductDetailResponse>> patchVariant(
+      @Parameter(description = "ID sản phẩm (UUID)", required = true) @PathVariable UUID productId,
+      @Parameter(description = "ID SKU (UUID)", required = true) @PathVariable UUID skuId,
+      @Valid @RequestBody PatchVariantRequest request,
+      @AuthenticationPrincipal Jwt jwt,
+      @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorHeader) {
+    String actorId = resolveActorId(jwt, actorHeader);
+    log.info(
+        "[REST-ADMIN] patchVariant: productId={}, skuId={}, expectedVersion={}, actor={}",
+        productId,
+        skuId,
+        request.getExpectedVersion(),
+        actorId);
+    ProductDetailResponse result = adminService.patchVariant(productId, skuId, request, actorId);
+    return ResponseEntity.ok(ApiResponse.success("Cập nhật SKU thành công", result));
+  }
+
+  @Operation(
+      summary = "Xem lịch sử giá của SKU",
+      description = "Trả toàn bộ bản ghi giá theo mọi kênh bán, gồm ACTIVE, SUPERSEDED và EXPIRED.")
+  @PreAuthorize("hasRole('ADMIN') or hasAuthority('CATALOG_VIEW')")
+  @GetMapping("/products/{productId}/skus/{skuId}/prices")
+  public ResponseEntity<ApiResponse<List<AdminPriceResponse>>> getVariantPrices(
+      @Parameter(description = "ID sản phẩm (UUID)", required = true) @PathVariable UUID productId,
+      @Parameter(description = "ID SKU (UUID)", required = true) @PathVariable UUID skuId) {
+    log.info("[REST-ADMIN] getVariantPrices: productId={}, skuId={}", productId, skuId);
+    return ResponseEntity.ok(ApiResponse.success(adminService.getVariantPrices(productId, skuId)));
+  }
+
+  @Operation(
+      summary = "Thêm ảnh cho sản phẩm",
+      description =
+          "Thêm metadata ảnh (object key MinIO/S3). Nếu role=COVER và mediaStatus=APPROVED, "
+              + "ảnh cover APPROVED cũ sẽ tự động được hạ xuống GALLERY.")
+  @PreAuthorize("hasRole('ADMIN') or hasAuthority('CATALOG_MANAGE')")
+  @PostMapping("/products/{productId}/images")
+  public ResponseEntity<ApiResponse<ProductDetailResponse>> addImage(
+      @Parameter(description = "ID sản phẩm (UUID)", required = true) @PathVariable UUID productId,
+      @Valid @RequestBody CreateProductImageRequest request,
+      @AuthenticationPrincipal Jwt jwt,
+      @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorHeader) {
+    String actorId = resolveActorId(jwt, actorHeader);
+    log.info("[REST-ADMIN] addImage: productId={}, actor={}", productId, actorId);
+    ProductDetailResponse result = adminService.addImage(productId, request, actorId);
+    return ResponseEntity.ok(ApiResponse.success("Thêm ảnh sản phẩm thành công", result));
+  }
+
+  @Operation(
+      summary = "Cập nhật metadata/trạng thái ảnh sản phẩm",
+      description =
+          "Cập nhật alt text, role, thứ tự và trạng thái kiểm duyệt ảnh với optimistic locking.")
+  @PreAuthorize("hasRole('ADMIN') or hasAuthority('CATALOG_MANAGE')")
+  @PatchMapping("/products/{productId}/images/{imageId}")
+  public ResponseEntity<ApiResponse<ProductDetailResponse>> updateImage(
+      @Parameter(description = "ID sản phẩm (UUID)", required = true) @PathVariable UUID productId,
+      @Parameter(description = "ID ảnh (UUID)", required = true) @PathVariable UUID imageId,
+      @Valid @RequestBody UpdateProductImageRequest request,
+      @AuthenticationPrincipal Jwt jwt,
+      @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorHeader) {
+    String actorId = resolveActorId(jwt, actorHeader);
+    log.info(
+        "[REST-ADMIN] updateImage: productId={}, imageId={}, actor={}",
+        productId,
+        imageId,
+        actorId);
+    ProductDetailResponse result = adminService.updateImage(productId, imageId, request, actorId);
+    return ResponseEntity.ok(ApiResponse.success("Cập nhật ảnh sản phẩm thành công", result));
+  }
+
+  @Operation(
+      summary = "Xóa ảnh sản phẩm",
+      description =
+          "Xóa metadata ảnh khỏi catalog. Object trên storage cần được dọn bởi job riêng.")
+  @PreAuthorize("hasRole('ADMIN') or hasAuthority('CATALOG_MANAGE')")
+  @DeleteMapping("/products/{productId}/images/{imageId}")
+  public ResponseEntity<ApiResponse<ProductDetailResponse>> deleteImage(
+      @Parameter(description = "ID sản phẩm (UUID)", required = true) @PathVariable UUID productId,
+      @Parameter(description = "ID ảnh (UUID)", required = true) @PathVariable UUID imageId,
+      @AuthenticationPrincipal Jwt jwt,
+      @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorHeader) {
+    String actorId = resolveActorId(jwt, actorHeader);
+    log.info(
+        "[REST-ADMIN] deleteImage: productId={}, imageId={}, actor={}",
+        productId,
+        imageId,
+        actorId);
+    ProductDetailResponse result = adminService.deleteImage(productId, imageId, actorId);
+    return ResponseEntity.ok(ApiResponse.success("Xóa ảnh sản phẩm thành công", result));
   }
 
   @Operation(

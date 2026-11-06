@@ -93,6 +93,9 @@ public interface CatalogDtoMapper {
   @Mapping(target = "coverImageAlt", ignore = true)
   @Mapping(target = "foodInformation", expression = "java(toAdminFoodInformationResponse(product))")
   @Mapping(target = "skus", ignore = true)
+  @Mapping(target = "images", ignore = true)
+  @Mapping(target = "approvalStatus", ignore = true)
+  @Mapping(target = "listingStatus", ignore = true)
   AdminProductDetailResponse toAdminDetailResponse(Product product);
 
   @Mapping(source = "ingredients", target = "ingredients")

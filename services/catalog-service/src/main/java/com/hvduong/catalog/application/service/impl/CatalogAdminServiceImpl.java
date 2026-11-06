@@ -1,9 +1,14 @@
 package com.hvduong.catalog.application.service.impl;
 
+import com.hvduong.catalog.application.dto.request.CreateProductImageRequest;
 import com.hvduong.catalog.application.dto.request.CreateProductRequest;
 import com.hvduong.catalog.application.dto.request.CreateVariantRequest;
+import com.hvduong.catalog.application.dto.request.PatchProductRequest;
+import com.hvduong.catalog.application.dto.request.PatchVariantRequest;
 import com.hvduong.catalog.application.dto.request.UpdatePriceRequest;
+import com.hvduong.catalog.application.dto.request.UpdateProductImageRequest;
 import com.hvduong.catalog.application.dto.request.UpdateProductRequest;
+import com.hvduong.catalog.application.dto.response.AdminPriceResponse;
 import com.hvduong.catalog.application.dto.response.AdminProductDetailResponse;
 import com.hvduong.catalog.application.dto.response.AdminProductListItemResponse;
 import com.hvduong.catalog.application.dto.response.AdminProductListResponse;
@@ -38,8 +43,11 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import org.springframework.cache.annotation.CacheEvict;
@@ -68,7 +76,8 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
 
   @Override
   @Cacheable(value = "catalog:categories", key = "'all'")
-  public AdminProductListResponse getAdminProducts(int page, int pageSize, String q, String status) {
+  public AdminProductListResponse getAdminProducts(
+      int page, int pageSize, String q, String status) {
     log.debug(
         "[CATALOG-ADMIN] getAdminProducts: page={}, pageSize={}, q={}, status={}",
         page,
@@ -158,7 +167,7 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
                         ErrorCode.CATALOG_PRODUCT_NOT_FOUND,
                         "Không tìm thấy sản phẩm: " + productId));
 
-    List<ProductImage> images = imageMapper.findApprovedByProductId(id);
+    List<ProductImage> images = imageMapper.findAllByProductId(id);
     product.setImages(images);
 
     AdminProductDetailResponse response = dtoMapper.toAdminDetailResponse(product);
@@ -166,12 +175,24 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
     SaleStatus saleStatus = SaleStatus.fromListingStatus(product.getListingStatus());
     response.setSaleStatus(saleStatus.getCode());
     response.setSaleStatusLabel(saleStatus.getLabelVn());
+    response.setSlug(product.getSlug());
+    response.setDescription(product.getDescription());
     response.setLongDescription(product.getDescription());
+    response.setOcopStar(product.getOcopStar());
+    response.setOcopCertificateNo(product.getOcopCertificateNo());
+    response.setStory(product.getStory());
+    response.setApprovalStatus(
+        product.getApprovalStatus() == null ? null : product.getApprovalStatus().name());
+    response.setListingStatus(
+        product.getListingStatus() == null ? null : product.getListingStatus().getValue());
+    response.setImages(
+        images.stream().map(AdminCatalogMapper::toAdminImageResponse).collect(Collectors.toList()));
     response.setCoverImageUrl(AdminCatalogMapper.coverImageUrl(images));
     response.setCoverImageAlt(AdminCatalogMapper.coverImageAlt(images, product.getName()));
 
     List<ProductVariant> variants = variantMapper.findAllByProductId(id);
-    List<UUID> variantIds = variants.stream().map(ProductVariant::getId).collect(Collectors.toList());
+    List<UUID> variantIds =
+        variants.stream().map(ProductVariant::getId).collect(Collectors.toList());
     Map<UUID, ChannelPrice> currentPriceByVariant = new HashMap<>();
     if (!variantIds.isEmpty()) {
       String channel = CatalogConstants.CHANNEL_D2C_WEB;
@@ -196,7 +217,8 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
             .filter(v -> v.getListingStatus() == ListingStatus.ACTIVE)
             .mapToInt(v -> 1)
             .sum());
-    response.setBasePriceFromVnd(AdminCatalogMapper.skuBasePriceFromVnd(variants, currentPriceByVariant));
+    response.setBasePriceFromVnd(
+        AdminCatalogMapper.skuBasePriceFromVnd(variants, currentPriceByVariant));
     response.setFoodInformationComplete(AdminCatalogMapper.foodInformationComplete(product));
     response.setUpdatedAt(AdminCatalogMapper.formatInstant(product.getUpdatedAt()));
     response.setRevision(product.getVersion());
@@ -281,7 +303,10 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
       }
     }
 
-    if (request.getCategoryId() != null) existing.setCategoryId(request.getCategoryId());
+    if (request.getCategoryId() != null) {
+      requireCategory(request.getCategoryId());
+      existing.setCategoryId(request.getCategoryId());
+    }
     if (request.getName() != null) existing.setName(request.getName());
     if (request.getSlug() != null) existing.setSlug(request.getSlug());
     if (request.getDescription() != null) existing.setDescription(request.getDescription());
@@ -297,7 +322,52 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
     if (updated == 0) throw CatalogException.versionConflict(productId.toString());
 
     cacheEvictor.evictCategoriesCache();
-    return buildDetailResponse(existing);
+    return buildDetailResponse(findProductOrThrow(productId));
+  }
+
+  @Override
+  @Transactional
+  @CacheEvict(value = "catalog:product", allEntries = true)
+  public ProductDetailResponse patchProduct(
+      UUID productId, PatchProductRequest request, String actorId) {
+    log.info(
+        "[CATALOG-ADMIN] patchProduct: id={}, expectedVersion={}",
+        productId,
+        request.getExpectedVersion());
+
+    Product existing = findProductOrThrow(productId);
+
+    if (request.getCategoryId() != null) {
+      requireCategory(request.getCategoryId());
+      existing.setCategoryId(request.getCategoryId());
+    }
+    if (request.getName() != null) {
+      existing.setName(requireText(request.getName(), "name"));
+    }
+    if (request.getSlug() != null) {
+      String slug = requireText(request.getSlug(), "slug");
+      if (!slug.equals(existing.getSlug()) && productMapper.existsBySlug(slug, productId)) {
+        throw new CatalogException(
+            ErrorCode.CATALOG_SLUG_DUPLICATE, "Slug đã được sử dụng: " + slug);
+      }
+      existing.setSlug(slug);
+    }
+    applyText(request.getDescription(), existing::setDescription);
+    applyText(request.getIngredients(), existing::setIngredients);
+    applyText(request.getStorageGuide(), existing::setStorageGuide);
+    applyText(request.getOcopCertificateNo(), existing::setOcopCertificateNo);
+    applyText(request.getStory(), existing::setStory);
+    if (request.getOcopStar() != null) {
+      existing.setOcopStar(request.getOcopStar());
+    }
+
+    existing.setVersion(request.getExpectedVersion());
+    if (productMapper.update(existing) == 0) {
+      throw CatalogException.versionConflict(productId.toString());
+    }
+
+    cacheEvictor.evictCategoriesCache();
+    return buildDetailResponse(findProductOrThrow(productId));
   }
 
   @Override
@@ -447,8 +517,7 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
         .orElseThrow(
             () ->
                 new CatalogException(
-                    ErrorCode.CATALOG_PRODUCT_NOT_FOUND,
-                    "Product không tồn tại: " + productId));
+                    ErrorCode.CATALOG_PRODUCT_NOT_FOUND, "Product không tồn tại: " + productId));
 
     if (variantMapper.existsBySkuCode(request.getSkuCode(), null)) {
       throw new CatalogException(
@@ -489,6 +558,178 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
 
     cacheEvictor.evictCategoriesCache();
     return buildDetailResponse(productMapper.findById(productId).orElseThrow());
+  }
+
+  @Override
+  @Transactional
+  @CacheEvict(value = "catalog:product", allEntries = true)
+  public ProductDetailResponse patchVariant(
+      UUID productId, UUID variantId, PatchVariantRequest request, String actorId) {
+    log.info(
+        "[CATALOG-ADMIN] patchVariant: productId={}, variantId={}, expectedVersion={}",
+        productId,
+        variantId,
+        request.getExpectedVersion());
+
+    findProductOrThrow(productId);
+    ProductVariant variant = findVariantOfProduct(productId, variantId);
+
+    if (request.getVariantName() != null) {
+      variant.setVariantName(requireText(request.getVariantName(), "variantName"));
+    }
+    if (request.getWeightValue() != null) {
+      variant.setWeightValue(request.getWeightValue());
+    }
+    if (request.getWeightUnit() != null) {
+      String unit = requireText(request.getWeightUnit(), "weightUnit").toUpperCase(Locale.ROOT);
+      if (!CatalogConstants.WEIGHT_UNITS.contains(unit)) {
+        throw new CatalogException(
+            ErrorCode.CATALOG_VARIANT_INVALID,
+            "weightUnit không hợp lệ: " + request.getWeightUnit());
+      }
+      variant.setWeightUnit(unit);
+    }
+    applyText(request.getFlavor(), variant::setFlavor);
+    if (request.getPackagingType() != null) {
+      String packaging =
+          requireText(request.getPackagingType(), "packagingType").toUpperCase(Locale.ROOT);
+      if (!CatalogConstants.PACKAGING_TYPES.contains(packaging)) {
+        throw new CatalogException(
+            ErrorCode.CATALOG_VARIANT_INVALID,
+            "packagingType không hợp lệ: " + request.getPackagingType());
+      }
+      variant.setPackagingType(packaging);
+    }
+    if (request.getShelfLifeDays() != null) {
+      variant.setShelfLifeDays(request.getShelfLifeDays());
+    }
+    if (request.getSaleStatus() != null) {
+      ListingStatus status = SaleStatus.toListingStatus(request.getSaleStatus());
+      if (status == null) {
+        throw new CatalogException(
+            ErrorCode.CATALOG_VARIANT_INVALID,
+            "saleStatus không hợp lệ: " + request.getSaleStatus());
+      }
+      variant.setListingStatus(status);
+    }
+
+    variant.setVersion(request.getExpectedVersion());
+    if (variantMapper.update(variant) == 0) {
+      throw CatalogException.versionConflict(variantId.toString());
+    }
+
+    cacheEvictor.evictCategoriesCache();
+    return buildDetailResponse(findProductOrThrow(productId));
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public List<AdminPriceResponse> getVariantPrices(UUID productId, UUID variantId) {
+    findProductOrThrow(productId);
+    findVariantOfProduct(productId, variantId);
+
+    return channelPriceMapper.findAllByVariantId(variantId).stream()
+        .map(
+            price ->
+                AdminPriceResponse.builder()
+                    .priceId(price.getId() == null ? null : price.getId().toString())
+                    .channel(price.getChannel() == null ? null : price.getChannel().name())
+                    .currencyCode(price.getCurrencyCode())
+                    .amountUnits(price.getAmountUnits())
+                    .amountNanos(price.getAmountNanos())
+                    .status(price.getStatus())
+                    .effectiveFrom(formatInstant(price.getEffectiveFrom()))
+                    .effectiveTo(formatInstant(price.getEffectiveTo()))
+                    .revision(price.getVersion())
+                    .build())
+        .collect(Collectors.toList());
+  }
+
+  @Override
+  @Transactional
+  @CacheEvict(value = "catalog:product", allEntries = true)
+  public ProductDetailResponse addImage(
+      UUID productId, CreateProductImageRequest request, String actorId) {
+    findProductOrThrow(productId);
+
+    String role = normalizeEnum("GALLERY", request.getRole(), CatalogConstants.IMAGE_ROLES, "role");
+    String mediaStatus =
+        normalizeEnum(
+            "PENDING_SCAN",
+            request.getMediaStatus(),
+            CatalogConstants.IMAGE_STATUSES,
+            "mediaStatus");
+    int position = request.getPosition() == null ? 0 : request.getPosition();
+
+    if (isApprovedCover(role, mediaStatus)) {
+      imageMapper.demoteOtherApprovedCovers(productId, null);
+    }
+
+    imageMapper.insert(
+        ProductImage.builder()
+            .id(UUID.randomUUID())
+            .productId(productId)
+            .objectKey(requireText(request.getObjectKey(), "objectKey"))
+            .altText(trimToNull(request.getAltText()))
+            .role(role)
+            .position(position)
+            .mediaStatus(mediaStatus)
+            .version(0L)
+            .build());
+
+    cacheEvictor.evictCategoriesCache();
+    return buildDetailResponse(findProductOrThrow(productId));
+  }
+
+  @Override
+  @Transactional
+  @CacheEvict(value = "catalog:product", allEntries = true)
+  public ProductDetailResponse updateImage(
+      UUID productId, UUID imageId, UpdateProductImageRequest request, String actorId) {
+    findProductOrThrow(productId);
+    ProductImage image = findImageOfProduct(productId, imageId);
+
+    if (request.getAltText() != null) {
+      image.setAltText(trimToNull(request.getAltText()));
+    }
+    if (request.getRole() != null) {
+      image.setRole(
+          normalizeEnum(image.getRole(), request.getRole(), CatalogConstants.IMAGE_ROLES, "role"));
+    }
+    if (request.getMediaStatus() != null) {
+      image.setMediaStatus(
+          normalizeEnum(
+              image.getMediaStatus(),
+              request.getMediaStatus(),
+              CatalogConstants.IMAGE_STATUSES,
+              "mediaStatus"));
+    }
+    if (request.getPosition() != null) {
+      image.setPosition(request.getPosition());
+    }
+
+    if (isApprovedCover(image.getRole(), image.getMediaStatus())) {
+      imageMapper.demoteOtherApprovedCovers(productId, imageId);
+    }
+
+    image.setVersion(request.getExpectedVersion());
+    if (imageMapper.update(image) == 0) {
+      throw CatalogException.versionConflict(imageId.toString());
+    }
+
+    cacheEvictor.evictCategoriesCache();
+    return buildDetailResponse(findProductOrThrow(productId));
+  }
+
+  @Override
+  @Transactional
+  @CacheEvict(value = "catalog:product", allEntries = true)
+  public ProductDetailResponse deleteImage(UUID productId, UUID imageId, String actorId) {
+    findProductOrThrow(productId);
+    ProductImage image = findImageOfProduct(productId, imageId);
+    imageMapper.deleteById(image.getId());
+    cacheEvictor.evictCategoriesCache();
+    return buildDetailResponse(findProductOrThrow(productId));
   }
 
   @Override
@@ -569,6 +810,102 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
                 })
             .collect(Collectors.toList());
     response.setVariants(variantResponses);
+    response.setImageUrls(
+        imageMapper.findApprovedByProductId(product.getId()).stream()
+            .map(image -> AdminCatalogMapper.imageUrl(image.getObjectKey()))
+            .filter(Objects::nonNull)
+            .collect(Collectors.toList()));
     return response;
+  }
+
+  private Product findProductOrThrow(UUID productId) {
+    return productMapper
+        .findById(productId)
+        .orElseThrow(
+            () ->
+                new CatalogException(
+                    ErrorCode.CATALOG_PRODUCT_NOT_FOUND, "Product không tồn tại: " + productId));
+  }
+
+  private ProductVariant findVariantOfProduct(UUID productId, UUID variantId) {
+    ProductVariant variant =
+        variantMapper
+            .findById(variantId)
+            .orElseThrow(
+                () ->
+                    new CatalogException(
+                        ErrorCode.CATALOG_VARIANT_NOT_FOUND,
+                        "Variant không tồn tại: " + variantId));
+    if (!variant.getProductId().equals(productId)) {
+      throw new CatalogException(
+          ErrorCode.CATALOG_VARIANT_MISMATCH,
+          "Variant " + variantId + " không thuộc Product " + productId);
+    }
+    return variant;
+  }
+
+  private ProductImage findImageOfProduct(UUID productId, UUID imageId) {
+    ProductImage image =
+        imageMapper
+            .findById(imageId)
+            .orElseThrow(
+                () -> new CatalogException(ErrorCode.CATALOG_IMAGE_NOT_FOUND, "Ảnh không tồn tại"));
+    if (!image.getProductId().equals(productId)) {
+      throw new CatalogException(
+          ErrorCode.CATALOG_IMAGE_NOT_FOUND,
+          "Ảnh " + imageId + " không thuộc Product " + productId);
+    }
+    return image;
+  }
+
+  private void requireCategory(UUID categoryId) {
+    categoryMapper
+        .findById(categoryId)
+        .orElseThrow(
+            () ->
+                new CatalogException(
+                    ErrorCode.CATALOG_CATEGORY_NOT_FOUND, "Category không tồn tại: " + categoryId));
+  }
+
+  private static String requireText(String value, String field) {
+    if (value == null || value.isBlank()) {
+      throw new CatalogException(ErrorCode.INVALID_ARGUMENT, field + " không được để trống");
+    }
+    return value.trim();
+  }
+
+  private static void applyText(String value, Consumer<String> setter) {
+    if (value != null) {
+      setter.accept(trimToNull(value));
+    }
+  }
+
+  private static String trimToNull(String value) {
+    if (value == null) {
+      return null;
+    }
+    String trimmed = value.trim();
+    return trimmed.isEmpty() ? null : trimmed;
+  }
+
+  private static String normalizeEnum(
+      String defaultValue, String value, java.util.Set<String> allowed, String field) {
+    if (value == null) {
+      return defaultValue;
+    }
+    String normalized = value.trim().toUpperCase(Locale.ROOT);
+    if (!allowed.contains(normalized)) {
+      throw new CatalogException(
+          ErrorCode.CATALOG_IMAGE_INVALID, field + " không hợp lệ: " + value);
+    }
+    return normalized;
+  }
+
+  private static boolean isApprovedCover(String role, String mediaStatus) {
+    return "COVER".equals(role) && "APPROVED".equals(mediaStatus);
+  }
+
+  private static String formatInstant(Instant instant) {
+    return instant == null ? null : instant.toString();
   }
 }

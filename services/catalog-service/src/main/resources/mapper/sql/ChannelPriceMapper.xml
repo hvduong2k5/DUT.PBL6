@@ -59,6 +59,12 @@
         ORDER BY created_at DESC
     </select>
 
+    <select id="findAllByVariantId" resultMap="PriceResultMap">
+        SELECT * FROM channel_prices
+        WHERE variant_id = #{variantId}
+        ORDER BY channel ASC, effective_from DESC, created_at DESC
+    </select>
+
     <select id="findById" resultMap="PriceResultMap">
         SELECT * FROM channel_prices WHERE id = #{id}
     </select>

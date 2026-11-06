@@ -34,7 +34,10 @@ public enum ErrorCode {
   CATALOG_PRICE_NOT_FOUND(209, 404, "Không tìm thấy giá niêm yết cho kênh bán này."),
   CATALOG_SLUG_DUPLICATE(210, 409, "Đường dẫn (slug) này đã được sử dụng bởi sản phẩm khác."),
   CATALOG_VERSION_CONFLICT(
-      211, 409, "Sản phẩm đã được người khác cập nhật. Vui lòng tải lại và thử lại.");
+      211, 409, "Sản phẩm đã được người khác cập nhật. Vui lòng tải lại và thử lại."),
+  CATALOG_IMAGE_NOT_FOUND(212, 404, "Không tìm thấy ảnh sản phẩm."),
+  CATALOG_IMAGE_INVALID(213, 400, "Loại ảnh hoặc trạng thái ảnh không hợp lệ."),
+  CATALOG_VARIANT_INVALID(214, 400, "Thông tin biến thể sản phẩm không hợp lệ.");
 
   private final int protoCode;
   private final int httpStatus;

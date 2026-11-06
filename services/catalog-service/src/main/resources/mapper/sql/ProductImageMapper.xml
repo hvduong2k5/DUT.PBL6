@@ -30,6 +30,10 @@
         ORDER BY position ASC
     </select>
 
+    <select id="findById" resultMap="ImageResultMap">
+        SELECT * FROM product_images WHERE id = #{id}
+    </select>
+
     <insert id="insert" parameterType="com.hvduong.catalog.domain.entity.ProductImage">
         INSERT INTO product_images (id, product_id, object_key, alt_text, role, position, media_status, created_at, updated_at)
         VALUES (#{id}, #{productId}, #{objectKey}, #{altText}, #{role}::image_role, #{position}, #{mediaStatus}::media_status, NOW(), NOW())
@@ -50,5 +54,18 @@
     <delete id="deleteById">
         DELETE FROM product_images WHERE id = #{id}
     </delete>
+
+    <update id="demoteOtherApprovedCovers">
+        UPDATE product_images
+        SET role       = 'GALLERY'::image_role,
+            version    = version + 1,
+            updated_at = NOW()
+        WHERE product_id = #{productId}
+          AND role = 'COVER'
+          AND media_status = 'APPROVED'
+        <if test="excludeId != null">
+          AND id != #{excludeId}
+        </if>
+    </update>
 
 </mapper>

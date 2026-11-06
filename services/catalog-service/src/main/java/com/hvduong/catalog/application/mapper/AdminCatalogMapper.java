@@ -1,15 +1,16 @@
 package com.hvduong.catalog.application.mapper;
 
 import com.hvduong.catalog.application.dto.response.AdminProductDetailResponse;
+import com.hvduong.catalog.application.dto.response.AdminProductImageResponse;
 import com.hvduong.catalog.application.dto.response.AdminProductListItemResponse;
 import com.hvduong.catalog.application.dto.response.AdminProductListResponse;
 import com.hvduong.catalog.common.constant.CatalogConstants;
 import com.hvduong.catalog.common.constant.SaleStatus;
+import com.hvduong.catalog.common.enums.ListingStatus;
 import com.hvduong.catalog.domain.entity.ChannelPrice;
 import com.hvduong.catalog.domain.entity.Product;
 import com.hvduong.catalog.domain.entity.ProductImage;
 import com.hvduong.catalog.domain.entity.ProductVariant;
-import com.hvduong.catalog.common.enums.ListingStatus;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -19,9 +20,8 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * Centralized mapper cho Admin Catalog responses.
- * Tập trung logic chuyển đổi từ Entity + ChannelPrice sang Admin DTO,
- * tránh散 khắp service layer.
+ * Centralized mapper cho Admin Catalog responses. Tập trung logic chuyển đổi từ Entity +
+ * ChannelPrice sang Admin DTO, tránh散 khắp service layer.
  */
 public final class AdminCatalogMapper {
 
@@ -61,11 +61,11 @@ public final class AdminCatalogMapper {
     sku.setSkuId(variant.getId().toString());
     sku.setSkuCode(variant.getSkuCode());
     sku.setLabel(variant.getVariantName());
-    sku.setWeightGrams(weightGrams(variant.getWeightValue()));
+    sku.setWeightGrams(weightGrams(variant.getWeightValue(), variant.getWeightUnit()));
     sku.setFlavor(variant.getFlavor());
     sku.setPackageType(packagingLabel(variant.getPackagingType()));
     sku.setBasePriceVnd(price != null ? price.getAmountUnits() : null);
-    sku.setCurrency(price != null ? price.getCurrencyCode() : CatalogConstants.CHANNEL_D2C_WEB.equals("D2C_WEB") ? "VND" : "VND");
+    sku.setCurrency("VND");
     SaleStatus status = SaleStatus.fromListingStatus(variant.getListingStatus());
     sku.setSaleStatus(status.getCode());
     sku.setSaleStatusLabel(status.getLabelVn());
@@ -93,8 +93,13 @@ public final class AdminCatalogMapper {
         && org.springframework.util.StringUtils.hasText(product.getName());
   }
 
-  public static Integer weightGrams(BigDecimal weightValue) {
-    if (weightValue == null) return null;
+  public static Integer weightGrams(BigDecimal weightValue, String weightUnit) {
+    if (weightValue == null) {
+      return null;
+    }
+    if ("KILOGRAM".equalsIgnoreCase(weightUnit)) {
+      return weightValue.multiply(BigDecimal.valueOf(1000)).intValue();
+    }
     return weightValue.intValue();
   }
 
@@ -113,8 +118,35 @@ public final class AdminCatalogMapper {
     return images.stream()
         .filter(img -> "COVER".equals(img.getRole()) && "APPROVED".equals(img.getMediaStatus()))
         .findFirst()
-        .map(img -> "https://cdn.example.com/" + img.getObjectKey())
+        .map(img -> imageUrl(img.getObjectKey()))
         .orElse(null);
+  }
+
+  /** Ghép object key với media base URL. */
+  public static String imageUrl(String objectKey) {
+    if (objectKey == null || objectKey.isBlank()) {
+      return null;
+    }
+    if (objectKey.startsWith("http://") || objectKey.startsWith("https://")) {
+      return objectKey;
+    }
+    return CatalogConstants.MEDIA_BASE_URL + objectKey;
+  }
+
+  /** Map ProductImage entity sang DTO admin. */
+  public static AdminProductImageResponse toAdminImageResponse(ProductImage image) {
+    return AdminProductImageResponse.builder()
+        .imageId(image.getId() == null ? null : image.getId().toString())
+        .objectKey(image.getObjectKey())
+        .url(imageUrl(image.getObjectKey()))
+        .altText(image.getAltText())
+        .role(image.getRole())
+        .position(image.getPosition())
+        .mediaStatus(image.getMediaStatus())
+        .revision(image.getVersion())
+        .createdAt(formatInstant(image.getCreatedAt()))
+        .updatedAt(formatInstant(image.getUpdatedAt()))
+        .build();
   }
 
   /** Chuẩn hóa cover image alt text. */

@@ -122,6 +122,7 @@ typeHandler="org.apache.ibatis.type.EnumTypeHandler"/>
             flavor          = #{flavor},
             packaging_type  = #{packagingType}::packaging_type,
             shelf_life_days = #{shelfLifeDays},
+            listing_status  = #{listingStatus}::variant_listing_status,
             version         = version + 1,
             updated_at      = NOW()
         WHERE id = #{id}

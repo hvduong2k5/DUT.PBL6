@@ -5,7 +5,10 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+import com.hvduong.catalog.application.dto.request.CreateProductImageRequest;
 import com.hvduong.catalog.application.dto.request.CreateProductRequest;
+import com.hvduong.catalog.application.dto.request.PatchProductRequest;
+import com.hvduong.catalog.application.dto.request.PatchVariantRequest;
 import com.hvduong.catalog.application.dto.request.ProductTransitionRequest;
 import com.hvduong.catalog.application.dto.response.AdminProductDetailResponse;
 import com.hvduong.catalog.application.dto.response.AdminProductListResponse;
@@ -158,5 +161,70 @@ class CatalogAdminControllerTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.success").value(true))
         .andExpect(jsonPath("$.message").value("Chuyển trạng thái sản phẩm thành công"));
+  }
+
+  @Test
+  void patchProduct_ReturnsSuccess() throws Exception {
+    UUID id = UUID.randomUUID();
+    PatchProductRequest req = new PatchProductRequest();
+    req.setStory("Câu chuyện thương hiệu O Mạ");
+    req.setExpectedVersion(1L);
+
+    ProductDetailResponse res =
+        ProductDetailResponse.builder().productId(id).story("Câu chuyện thương hiệu O Mạ").build();
+
+    when(adminService.patchProduct(eq(id), any(), any())).thenReturn(res);
+
+    mockMvc
+        .perform(
+            patch("/api/v1/admin/catalog/products/" + id)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(req)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.success").value(true))
+        .andExpect(jsonPath("$.message").value("Cập nhật nội dung sản phẩm thành công"));
+  }
+
+  @Test
+  void patchVariant_ReturnsSuccess() throws Exception {
+    UUID productId = UUID.randomUUID();
+    UUID skuId = UUID.randomUUID();
+    PatchVariantRequest req = new PatchVariantRequest();
+    req.setSaleStatus("PAUSED");
+    req.setExpectedVersion(2L);
+
+    ProductDetailResponse res = ProductDetailResponse.builder().productId(productId).build();
+
+    when(adminService.patchVariant(eq(productId), eq(skuId), any(), any())).thenReturn(res);
+
+    mockMvc
+        .perform(
+            patch("/api/v1/admin/catalog/products/" + productId + "/skus/" + skuId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(req)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.success").value(true))
+        .andExpect(jsonPath("$.message").value("Cập nhật SKU thành công"));
+  }
+
+  @Test
+  void addImage_ReturnsSuccess() throws Exception {
+    UUID productId = UUID.randomUUID();
+    CreateProductImageRequest req = new CreateProductImageRequest();
+    req.setObjectKey("products/cover.jpg");
+    req.setRole("COVER");
+
+    ProductDetailResponse res = ProductDetailResponse.builder().productId(productId).build();
+
+    when(adminService.addImage(eq(productId), any(), any())).thenReturn(res);
+
+    mockMvc
+        .perform(
+            post("/api/v1/admin/catalog/products/" + productId + "/images")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(req)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.success").value(true))
+        .andExpect(jsonPath("$.message").value("Thêm ảnh sản phẩm thành công"));
   }
 }

@@ -24,6 +24,9 @@ public interface ChannelPriceMapper {
   List<ChannelPrice> findHistoryByVariantAndChannel(
       @Param("variantId") UUID variantId, @Param("channel") String channel);
 
+  /** Toàn bộ giá (mọi kênh, mọi trạng thái) của một variant — dùng cho màn hình lịch sử giá. */
+  List<ChannelPrice> findAllByVariantId(@Param("variantId") UUID variantId);
+
   void insert(ChannelPrice price);
 
   void supersedePreviousPrice(@Param("variantId") UUID variantId, @Param("channel") String channel);
