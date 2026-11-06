@@ -3,7 +3,7 @@
 ## Authority and isolation
 
 - User follow-up 2026-11-06 authorizes implementation following the plan. Execute the local foundation and later phases when their entry criteria pass; owner/provider integration gates remain explicit. No real sends or production operations are implied.
-- Branch: `codex/notification-service`, created from local `origin/dev` snapshot `a24492b63c364f93ad19d880798137e554898c3f`. **NO MERGE, NO PUSH, NO PR**, including automatic checkpoints. Local checkpoint commits may include only intentional files in this directory.
+- Branch: `codex/notification-service`, created from local `origin/dev` snapshot `a24492b63c364f93ad19d880798137e554898c3f`. **NO MERGE, NO PR.** User follow-up 2026-11-06 explicitly authorizes committing the testing handoff and pushing this branch, including its existing planning/foundation commits. No other branch push is authorized. Checkpoint commits may include only intentional files in this directory.
 - All task source, plans, contracts, tests and evidence belong under `services/notification-service/`. Do not edit root `docs/`, `packages/`, `infra/`, `.github/`, apps or sibling services without separate authorization. Read reference branches using `git show <pinned-sha>:<path>`.
 - Do not copy Mobile `CURRENT_STATE`, master/phase plans or AGENTS instructions into this service. Root documents are reference sources, not this service's progress tracker.
 - Preserve unrelated untracked `docs/MOBILE_MVP_DISCUSSION_REFERENCE.md`. Do not stage it, move it or delete it.

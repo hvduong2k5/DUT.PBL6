@@ -17,6 +17,7 @@ Nhánh riêng `codex/notification-service`, base `origin/dev` local snapshot `a2
 | [DATA_AND_DELIVERY](docs/DATA_AND_DELIVERY.md) | Schema ứng viên, transaction, dedup, retry, callback |
 | [DECISIONS](docs/DECISIONS.md) | Quyết định thiết kế, phương án thay thế, approval gates |
 | [VALIDATION](docs/VALIDATION.md) | Acceptance, failure matrix, bằng chứng cần thu |
+| [TESTING_TASKS](docs/TESTING_TASKS.md) | Checklist kiểm thử đã chạy/cần chạy và lệnh tiếp tục N1 |
 | [MASTER_PLAN](docs/plans/MASTER_PLAN.md) | Phases và dependencies ổn định |
 | [N0_N1_CONTRACT_FOUNDATION](docs/plans/active/N0_N1_CONTRACT_FOUNDATION.md) | Kế hoạch chi tiết cho bước hiện tại/tiếp theo |
 | [IMPLEMENTATION_PROMPT](docs/IMPLEMENTATION_PROMPT.md) | Prompt bàn giao copy-paste cho model khác |

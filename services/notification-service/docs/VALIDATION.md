@@ -1,6 +1,6 @@
 # Verification và acceptance plan
 
-**Hiện tại: runtime tests/build/containers/provider sends NOT RUN** vì chỉ có tài liệu. Test matrix dưới đây là yêu cầu tương lai, không kết quả đã đạt. Mọi evidence mới ghi trong `docs/verification/` (metadata nhỏ, không raw secrets/log dumps), kèm commit/toolchain/config/mode và skipped cases.
+**Cập nhật N1:** unit/race/vet/build và schema checks đã PASS ở source `40461df`; PostgreSQL thật SKIPPED, container/runtime/provider acceptance chưa chạy. [TESTING_TASKS](TESTING_TASKS.md) theo dõi checklist và trạng thái thực tế. Ma trận dưới đây là yêu cầu acceptance toàn service, không phải mọi case đã đạt. Evidence mới ghi trong `docs/verification/` (metadata nhỏ, không raw secrets/log dumps), kèm commit/toolchain/config/mode và skipped cases.
 
 ## Layers / commands dự kiến
 

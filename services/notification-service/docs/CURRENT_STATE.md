@@ -1,5 +1,7 @@
 # Implementation checkpoint — 2026-11-06
 
+Latest user instruction authorizes documenting testing work, committing and pushing **only `codex/notification-service`**, including existing planning/source commits. This supersedes earlier no-push statements for this delivery; merge/PR remain unauthorized. [TESTING_TASKS](TESTING_TASKS.md) records completed checks, prepared DB tests, missing runtime cases and exact commands. Documentation-only delivery: runtime checks were not repeated; N1 remains NOT ACCEPTED. Verify pushed HEAD against the remote before claiming remote delivery.
+
 This section supersedes the planning-only status below. User authorized implementation from the plan, portable Go download, Docker Desktop start and an isolated Notification test stack. No merge/push/PR permitted.
 
 Branch `codex/notification-service`; entry HEAD `cb76184a0899ba8e57dd2ee28cb1f034a6f5acad`. Local foundation checkpoint follows; inspect `git log -1 --format=%H -- services/notification-service` for its SHA.
