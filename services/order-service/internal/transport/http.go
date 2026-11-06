@@ -106,6 +106,9 @@ func Handler(s *app.Service) http.Handler {
 		})
 	})
 	sepayRoutes(s, r)
+	if s.C.AuthMode == "keycloak" {
+		adminOrderReadRoutes(s, r)
+	}
 	r.Get("/livez", func(w http.ResponseWriter, _ *http.Request) { write(w, 200, map[string]bool{"live": true}) })
 	r.Get("/readyz", func(w http.ResponseWriter, r *http.Request) {
 		if e := s.DB.Ping(r.Context()); e != nil {
@@ -330,8 +333,10 @@ func Handler(s *app.Service) http.Handler {
 			}
 		}
 		api.Get("/api/v1/orders", list(false, false))
-		api.Get("/api/v1/admin/orders", list(true, false))
-		api.Get("/api/v1/admin/orders/queue", list(true, true))
+		if s.C.AuthMode != "keycloak" {
+			api.Get("/api/v1/admin/orders", list(true, false))
+			api.Get("/api/v1/admin/orders/queue", list(true, true))
+		}
 		api.Get("/api/v1/orders/{id}", func(w http.ResponseWriter, r *http.Request) {
 			o, e := s.GetOrder(r.Context(), chi.URLParam(r, "id"), principal(r), true)
 			if e != nil {

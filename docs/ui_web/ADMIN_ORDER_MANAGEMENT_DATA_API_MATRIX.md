@@ -1,5 +1,25 @@
 # Admin Order Management — Data/API Matrix
 
+## Chế độ Identity BFF
+
+`/admin/orders` đọc danh sách, hàng đợi và chi tiết từ Order Service khi
+`WEB_AUTH_MODE=identity-bff`. Web gửi cookie phiên qua
+`/api/v1/admin/order-api/orders` ở Identity. Identity chuyển JWT của nhân viên
+tới Order qua Gateway. Web dùng `?view=queue` để chọn hàng đợi.
+
+Identity đăng ký `ORDER_VIEW` và `ORDER_SENSITIVE_VIEW` trong migration V8.
+Quản trị IAM cấp các quyền này qua vai trò đang bật với phạm vi GLOBAL hoặc
+WAREHOUSE. Order lọc ở truy vấn theo phạm vi của chính quyền đọc. Thông tin
+người nhận chỉ được trả nếu quyền nhạy cảm bao phủ cùng đơn. Fixture cấp quyền
+cho tài khoản Employee kiểm thử. Migration chỉ đăng ký danh mục quyền.
+
+Danh sách dùng cursor theo nhân viên, phạm vi và chế độ xem. Hàng đợi ưu tiên
+hạn SLA đã lưu và giữ điều kiện sẵn sàng của Order. UI hiển thị số đơn đã tải
+và đánh dấu đơn thiếu hạn SLA. Chi tiết gồm snapshot sản phẩm, trạng thái thanh
+toán/tồn, tham chiếu task/vận đơn và lịch sử chuyển trạng thái gần nhất.
+
+Ma trận và hướng dẫn Mockoon bên dưới mô tả chế độ legacy local.
+
 **Cập nhật:** 2026-10-02
 **Nguồn phạm vi:** `docs/01_requirements/epics/EPIC_08_Order_Management.md`
 **Màn hình:** `/admin/orders` trong `apps/web-user`

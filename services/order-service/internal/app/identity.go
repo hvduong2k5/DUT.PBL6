@@ -20,8 +20,8 @@ import (
 	"github.com/omamx/order-service/internal/domain"
 )
 
-// CustomerIdentity accepts Keycloak access tokens only. Staff IAM and guest
-// credentials intentionally have no mapping in this first integration slice.
+// CustomerIdentity validates Keycloak tokens and reads current Identity grants.
+// The purchase and staff read paths apply separate authorization rules.
 type CustomerIdentity struct {
 	issuer, audience, jwksURL, identityURL string
 	client                                 *http.Client
@@ -70,11 +70,25 @@ type customerClaims struct {
 	} `json:"realm_access"`
 }
 
-func (v *CustomerIdentity) Authenticate(ctx context.Context, bearer string) (domain.Principal, error) {
+type identityRole struct {
+	Scope       string   `json:"scopeType"`
+	ScopeID     string   `json:"scopeId"`
+	Permissions []string `json:"permissions"`
+}
+
+type identityProfile struct {
+	ID      string         `json:"principalId"`
+	Subject string         `json:"idpSubject"`
+	Type    string         `json:"principalType"`
+	Status  string         `json:"provisioningStatus"`
+	Roles   []identityRole `json:"roles"`
+}
+
+func (v *CustomerIdentity) verifiedClaims(ctx context.Context, bearer string) (customerClaims, error) {
 	denied := domain.E("UNAUTHENTICATED", 401)
 	parts := strings.Fields(bearer)
 	if len(bearer) > 8192 || len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
-		return domain.Principal{}, denied
+		return customerClaims{}, denied
 	}
 	var claims customerClaims
 	token, err := jwt.ParseWithClaims(parts[1], &claims, func(t *jwt.Token) (any, error) {
@@ -85,46 +99,57 @@ func (v *CustomerIdentity) Authenticate(ctx context.Context, bearer string) (dom
 		return v.key(ctx, kid)
 	}, jwt.WithValidMethods([]string{"RS256"}), jwt.WithIssuer(v.issuer), jwt.WithAudience(v.audience), jwt.WithExpirationRequired(), jwt.WithIssuedAt(), jwt.WithLeeway(5*time.Second))
 	if err != nil || !token.Valid || claims.Subject == "" || claims.Type != "Bearer" || claims.IssuedAt == nil {
-		return domain.Principal{}, denied
+		return customerClaims{}, denied
 	}
 	id, err := uuid.Parse(claims.UserID)
 	if err != nil || id == uuid.Nil {
-		return domain.Principal{}, denied
+		return customerClaims{}, denied
+	}
+	claims.UserID = id.String()
+	return claims, nil
+}
+
+func (v *CustomerIdentity) profile(ctx context.Context, bearer string, claims customerClaims) (identityProfile, error) {
+	unavailable := domain.E("IDENTITY_UNAVAILABLE", 503)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, v.identityURL+"/api/v1/users/me", nil)
+	if err != nil {
+		return identityProfile{}, unavailable
+	}
+	req.Header.Set("Authorization", bearer)
+	resp, err := v.client.Do(req)
+	if err != nil {
+		return identityProfile{}, unavailable
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusUnauthorized {
+		return identityProfile{}, domain.E("UNAUTHENTICATED", 401)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return identityProfile{}, unavailable
+	}
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, (1<<20)+1))
+	var envelope struct {
+		Success bool            `json:"success"`
+		Data    identityProfile `json:"data"`
+	}
+	if err != nil || len(raw) > 1<<20 || json.Unmarshal(raw, &envelope) != nil || !envelope.Success ||
+		envelope.Data.ID != claims.UserID || envelope.Data.Subject != claims.Subject {
+		return identityProfile{}, unavailable
+	}
+	return envelope.Data, nil
+}
+
+func (v *CustomerIdentity) Authenticate(ctx context.Context, bearer string) (domain.Principal, error) {
+	claims, err := v.verifiedClaims(ctx, bearer)
+	if err != nil {
+		return domain.Principal{}, err
 	}
 	if v.identityURL != "" {
-		req, err := http.NewRequestWithContext(ctx, "GET", v.identityURL+"/api/v1/users/me", nil)
+		profile, err := v.profile(ctx, bearer, claims)
 		if err != nil {
-			return domain.Principal{}, domain.E("IDENTITY_UNAVAILABLE", 503)
+			return domain.Principal{}, err
 		}
-		req.Header.Set("Authorization", bearer)
-		resp, err := v.client.Do(req)
-		if err != nil {
-			return domain.Principal{}, domain.E("IDENTITY_UNAVAILABLE", 503)
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode == 401 {
-			return domain.Principal{}, denied
-		}
-		if resp.StatusCode != 200 {
-			return domain.Principal{}, domain.E("IDENTITY_UNAVAILABLE", 503)
-		}
-		raw, err := io.ReadAll(io.LimitReader(resp.Body, (1<<20)+1))
-		if err != nil || len(raw) > 1<<20 {
-			return domain.Principal{}, domain.E("IDENTITY_UNAVAILABLE", 503)
-		}
-		var envelope struct {
-			Success bool `json:"success"`
-			Data    struct {
-				ID      string `json:"principalId"`
-				Subject string `json:"idpSubject"`
-				Type    string `json:"principalType"`
-				Status  string `json:"provisioningStatus"`
-			} `json:"data"`
-		}
-		if json.Unmarshal(raw, &envelope) != nil || !envelope.Success || envelope.Data.ID != id.String() || envelope.Data.Subject != claims.Subject {
-			return domain.Principal{}, domain.E("IDENTITY_UNAVAILABLE", 503)
-		}
-		if envelope.Data.Type != "CUSTOMER" || envelope.Data.Status != "ACTIVE" {
+		if profile.Type != "CUSTOMER" || profile.Status != "ACTIVE" {
 			return domain.Principal{}, domain.E("CUSTOMER_REQUIRED", 403)
 		}
 	}
@@ -132,10 +157,10 @@ func (v *CustomerIdentity) Authenticate(ctx context.Context, bearer string) (dom
 		if role == "CUSTOMER" {
 			// sub belongs to Keycloak; user_id is Identity's immutable principal UUID.
 			// CustomerID is deliberately left empty until Profile.Resolve proves it.
-			return domain.Principal{ID: id.String(), Role: "CUSTOMER"}, nil
+			return domain.Principal{ID: claims.UserID, Role: "CUSTOMER"}, nil
 		}
 	}
-	return domain.Principal{}, denied
+	return domain.Principal{}, domain.E("UNAUTHENTICATED", 401)
 }
 
 func (v *CustomerIdentity) key(ctx context.Context, kid string) (*rsa.PublicKey, error) {

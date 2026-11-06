@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { EmployeeAuthorizationError, requireEmployeeSession } from "@/features/employee/auth/server";
 import { applyTrustedSessionCookie } from "@/lib/auth/server-credential";
+import { usesIdentityBff } from "@/lib/auth/oidc-config";
+import { liveOrderDetail, liveOrderList } from "../live";
 import { ADMIN_ORDER_STATUSES, type AdminOrderDetail, type AdminOrderList, type AdminOrderRelatedState, type AdminOrderSource, type AdminOrderSlaState, type AdminOrderStatus, type AdminOrderSummary, type AdminPaymentStatus } from "@/features/employee/orders/types";
 import { parseAdminOrderPath } from "@/features/employee/orders/validation";
 
@@ -89,6 +91,33 @@ export async function handleAdminOrders(request: NextRequest, path: string[]) {
   try {
     const currentSession = await session(request);
     if (!currentSession.permissions.includes("ORDER_VIEW")) return responseError("PERMISSION_FORBIDDEN", "Nhân viên không có quyền xem đơn hàng.", 403);
+    if (usesIdentityBff()) {
+      const base = process.env.IDENTITY_UPSTREAM_URL?.replace(/\/$/u, "");
+      if (!base) throw new Error("Identity upstream unavailable");
+      const query = new URLSearchParams();
+      for (const [name, value] of request.nextUrl.searchParams) {
+        if (route.kind !== "order-list" || !["cursor", "limit", "status", "view"].includes(name) || query.has(name)) {
+          return responseError("INVALID_QUERY", "Bộ lọc đơn hàng không hợp lệ.", 400);
+        }
+        query.set(name, value);
+      }
+      const view = query.get("view");
+      if (view !== null && view !== "queue") return responseError("INVALID_QUERY", "Bộ lọc đơn hàng không hợp lệ.", 400);
+      query.delete("view");
+      const target = route.kind === "order-list" ? `orders${view ? "/queue" : ""}?${query}` : `orders/${encodeURIComponent(route.orderId)}`;
+      const trusted = new Headers({ Accept: "application/json" });
+      applyTrustedSessionCookie(trusted, request);
+      const response = await fetch(`${base}/admin/order-api/${target}`, {
+        headers: trusted, cache: "no-store", redirect: "error", signal: AbortSignal.timeout(10000),
+      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new UpstreamHttpError(response.status, error);
+      }
+      const payload = await response.json();
+      const data = route.kind === "order-list" ? liveOrderList(payload) : liveOrderDetail(payload);
+      return NextResponse.json(data, { headers: { "Cache-Control": "no-store" } });
+    }
     if (route.kind === "order-list") return NextResponse.json(mapList(await upstream(request, "admin/orders")));
     const canViewSensitive = currentSession.permissions.includes("ORDER_SENSITIVE_VIEW");
     return NextResponse.json(mapDetail(await upstream(request, `admin/orders/${encodeURIComponent(route.orderId)}`), canViewSensitive));

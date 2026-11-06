@@ -1,5 +1,6 @@
 package com.hvduong.identity.dto.response;
 
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -14,5 +15,6 @@ public class UserRoleScopeResponse {
     private String roleName;
     private String scopeType;
     private String scopeId;
+    private List<String> permissions;
 }
 
