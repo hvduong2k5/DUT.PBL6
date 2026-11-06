@@ -49,6 +49,8 @@ type Repository interface {
 	CreateSupplyPlan(context.Context, domain.SupplyPlan) (domain.SupplyPlan, error)
 	GetSupplyPlan(context.Context, uuid.UUID) (domain.SupplyPlan, error)
 	ListSupplyPlans(context.Context, int, int) ([]domain.SupplyPlan, error)
+	ReviseSupplyPlan(context.Context, domain.SupplyPlan, domain.SupplyPlanRevision, int64) (domain.SupplyPlan, error)
+	ListSupplyPlanRevisions(context.Context, uuid.UUID) ([]domain.SupplyPlanRevision, error)
 }
 
 type Service struct{ repo Repository }
@@ -90,6 +92,26 @@ func (s *Service) GetSupplyPlan(ctx context.Context, id uuid.UUID) (domain.Suppl
 
 func (s *Service) ListSupplyPlans(ctx context.Context, limit, offset int) ([]domain.SupplyPlan, error) {
 	return s.repo.ListSupplyPlans(ctx, limit, offset)
+}
+
+func (s *Service) ReviseSupplyPlan(ctx context.Context, id uuid.UUID, expectedVersion int64, input domain.SupplyPlanInput, actor string, now time.Time) (domain.SupplyPlan, error) {
+	current, err := s.repo.GetSupplyPlan(ctx, id)
+	if err != nil {
+		return domain.SupplyPlan{}, err
+	}
+	preview, err := s.PreviewSupplyPlan(ctx, input, now)
+	if err != nil {
+		return domain.SupplyPlan{}, err
+	}
+	updated, revision, err := current.Revise(actor, expectedVersion, preview, now)
+	if err != nil {
+		return domain.SupplyPlan{}, err
+	}
+	return s.repo.ReviseSupplyPlan(ctx, updated, revision, expectedVersion)
+}
+
+func (s *Service) ListSupplyPlanRevisions(ctx context.Context, id uuid.UUID) ([]domain.SupplyPlanRevision, error) {
+	return s.repo.ListSupplyPlanRevisions(ctx, id)
 }
 
 func (s *Service) CreateSupplier(ctx context.Context, supplier domain.Supplier) (domain.Supplier, error) {

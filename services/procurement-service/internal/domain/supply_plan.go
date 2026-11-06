@@ -65,14 +65,52 @@ type SupplyPlan struct {
 	Version   int64             `json:"version"`
 }
 
+type SupplyPlanRevision struct {
+	SupplyPlanID uuid.UUID         `json:"supply_plan_id"`
+	Revision     int               `json:"revision"`
+	Snapshot     SupplyPlanPreview `json:"snapshot"`
+	CreatedBy    string            `json:"created_by"`
+	CreatedAt    time.Time         `json:"created_at"`
+}
+
 func NewSupplyPlan(number, actor string, snapshot SupplyPlanPreview) (SupplyPlan, error) {
 	number, actor = strings.TrimSpace(number), strings.TrimSpace(actor)
 	if number == "" || actor == "" || len(snapshot.Lines) == 0 || snapshot.Status != "DRAFT_PREVIEW" && snapshot.Status != "INPUT_WARNING" {
 		return SupplyPlan{}, ErrInvalidArgument
 	}
 	now := time.Now().UTC()
-	return SupplyPlan{ID: uuid.New(), Number: number, Revision: 1, Status: SupplyPlanDraft, Snapshot: snapshot,
+	return SupplyPlan{ID: uuid.New(), Number: number, Revision: 1, Status: SupplyPlanDraft, Snapshot: cloneSupplyPlanPreview(snapshot),
 		CreatedBy: actor, CreatedAt: now, UpdatedAt: now, Version: 1}, nil
+}
+
+func (p SupplyPlan) Revise(actor string, expectedVersion int64, snapshot SupplyPlanPreview, now time.Time) (SupplyPlan, SupplyPlanRevision, error) {
+	actor = strings.TrimSpace(actor)
+	if actor == "" || expectedVersion <= 0 || now.IsZero() || len(snapshot.Lines) == 0 ||
+		(snapshot.Status != "DRAFT_PREVIEW" && snapshot.Status != "INPUT_WARNING") {
+		return SupplyPlan{}, SupplyPlanRevision{}, ErrInvalidArgument
+	}
+	if p.Status != SupplyPlanDraft {
+		return SupplyPlan{}, SupplyPlanRevision{}, ErrInvalidState
+	}
+	if p.Version != expectedVersion {
+		return SupplyPlan{}, SupplyPlanRevision{}, ErrConflict
+	}
+	p.Revision++
+	p.Version++
+	p.Snapshot = cloneSupplyPlanPreview(snapshot)
+	p.UpdatedAt = now.UTC()
+	revision := SupplyPlanRevision{SupplyPlanID: p.ID, Revision: p.Revision, Snapshot: cloneSupplyPlanPreview(snapshot), CreatedBy: actor, CreatedAt: now.UTC()}
+	return p, revision, nil
+}
+
+func cloneSupplyPlanPreview(snapshot SupplyPlanPreview) SupplyPlanPreview {
+	clone := snapshot
+	clone.Warnings = append([]string(nil), snapshot.Warnings...)
+	clone.Lines = append([]SupplyPlanLine(nil), snapshot.Lines...)
+	for i := range clone.Lines {
+		clone.Lines[i].Warnings = append([]string(nil), snapshot.Lines[i].Warnings...)
+	}
+	return clone
 }
 
 type SupplyPlanLine struct {

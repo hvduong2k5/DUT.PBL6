@@ -89,3 +89,33 @@ func TestNewSupplyPlanCreatesDraftRevisionFromSnapshot(t *testing.T) {
 		t.Fatalf("unexpected new supply plan: %+v", plan)
 	}
 }
+
+func TestSupplyPlanRevisionRequiresCurrentVersionAndRetainsDraftState(t *testing.T) {
+	preview, err := domain.PreviewSupplyPlan(supplyPlanFixture(), time.Date(2026, 11, 7, 10, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, err := domain.NewSupplyPlan("SP-20261107-REVISION", "supply-manager", preview)
+	if err != nil {
+		t.Fatal(err)
+	}
+	originalForecast := plan.Snapshot.Lines[0].ForecastQuantity
+	preview.Lines[0].ForecastQuantity = "25"
+	updated, revision, err := plan.Revise("supply-manager", 1, preview, time.Date(2026, 11, 7, 11, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.Revision != 2 || updated.Version != 2 || updated.Status != domain.SupplyPlanDraft || revision.Revision != 2 || revision.Snapshot.Lines[0].ForecastQuantity != "25" {
+		t.Fatalf("unexpected revised plan: updated=%+v revision=%+v", updated, revision)
+	}
+	if plan.Snapshot.Lines[0].ForecastQuantity != originalForecast {
+		t.Fatalf("revising plan mutated the previous snapshot: %+v", plan.Snapshot.Lines[0])
+	}
+	if _, _, err := plan.Revise("supply-manager", 2, preview, time.Now()); !errors.Is(err, domain.ErrConflict) {
+		t.Fatalf("stale version error=%v, want conflict", err)
+	}
+	plan.Status = domain.SupplyPlanStatus("APPROVED")
+	if _, _, err := plan.Revise("supply-manager", 1, preview, time.Now()); !errors.Is(err, domain.ErrInvalidState) {
+		t.Fatalf("non-draft revision error=%v, want invalid state", err)
+	}
+}

@@ -17,20 +17,21 @@ import (
 
 type httpRepository struct {
 	application.Repository
-	suppliers map[uuid.UUID]domain.Supplier
-	materials map[uuid.UUID]domain.RawMaterial
-	offers    map[uuid.UUID][]domain.SupplierMaterialOffer
-	orders    map[uuid.UUID]domain.PurchaseOrder
-	receipts  map[uuid.UUID]domain.GoodsReceipt
-	contracts map[uuid.UUID]domain.SupplierContract
-	revisions map[uuid.UUID][]domain.PurchaseOrderRevision
-	plans     map[uuid.UUID]domain.SupplyPlan
+	suppliers     map[uuid.UUID]domain.Supplier
+	materials     map[uuid.UUID]domain.RawMaterial
+	offers        map[uuid.UUID][]domain.SupplierMaterialOffer
+	orders        map[uuid.UUID]domain.PurchaseOrder
+	receipts      map[uuid.UUID]domain.GoodsReceipt
+	contracts     map[uuid.UUID]domain.SupplierContract
+	revisions     map[uuid.UUID][]domain.PurchaseOrderRevision
+	plans         map[uuid.UUID]domain.SupplyPlan
+	planRevisions map[uuid.UUID][]domain.SupplyPlanRevision
 }
 
 func newHTTPRepository() *httpRepository {
 	return &httpRepository{
 		suppliers: make(map[uuid.UUID]domain.Supplier), materials: make(map[uuid.UUID]domain.RawMaterial),
-		offers: make(map[uuid.UUID][]domain.SupplierMaterialOffer), orders: make(map[uuid.UUID]domain.PurchaseOrder), receipts: make(map[uuid.UUID]domain.GoodsReceipt), contracts: make(map[uuid.UUID]domain.SupplierContract), revisions: make(map[uuid.UUID][]domain.PurchaseOrderRevision), plans: make(map[uuid.UUID]domain.SupplyPlan),
+		offers: make(map[uuid.UUID][]domain.SupplierMaterialOffer), orders: make(map[uuid.UUID]domain.PurchaseOrder), receipts: make(map[uuid.UUID]domain.GoodsReceipt), contracts: make(map[uuid.UUID]domain.SupplierContract), revisions: make(map[uuid.UUID][]domain.PurchaseOrderRevision), plans: make(map[uuid.UUID]domain.SupplyPlan), planRevisions: make(map[uuid.UUID][]domain.SupplyPlanRevision),
 	}
 }
 
@@ -119,6 +120,7 @@ func (r *httpRepository) GetSupplierContract(_ context.Context, id uuid.UUID) (d
 }
 func (r *httpRepository) CreateSupplyPlan(_ context.Context, plan domain.SupplyPlan) (domain.SupplyPlan, error) {
 	r.plans[plan.ID] = plan
+	r.planRevisions[plan.ID] = []domain.SupplyPlanRevision{{SupplyPlanID: plan.ID, Revision: plan.Revision, Snapshot: plan.Snapshot, CreatedBy: plan.CreatedBy, CreatedAt: plan.CreatedAt}}
 	return plan, nil
 }
 func (r *httpRepository) GetSupplyPlan(_ context.Context, id uuid.UUID) (domain.SupplyPlan, error) {
@@ -142,6 +144,24 @@ func (r *httpRepository) ListSupplyPlans(_ context.Context, limit, offset int) (
 		end = len(items)
 	}
 	return items[start:end], nil
+}
+func (r *httpRepository) ReviseSupplyPlan(_ context.Context, plan domain.SupplyPlan, revision domain.SupplyPlanRevision, expectedVersion int64) (domain.SupplyPlan, error) {
+	current, ok := r.plans[plan.ID]
+	if !ok {
+		return domain.SupplyPlan{}, domain.ErrNotFound
+	}
+	if current.Version != expectedVersion {
+		return domain.SupplyPlan{}, domain.ErrConflict
+	}
+	r.planRevisions[plan.ID] = append(r.planRevisions[plan.ID], revision)
+	r.plans[plan.ID] = plan
+	return plan, nil
+}
+func (r *httpRepository) ListSupplyPlanRevisions(_ context.Context, id uuid.UUID) ([]domain.SupplyPlanRevision, error) {
+	if _, ok := r.plans[id]; !ok {
+		return nil, domain.ErrNotFound
+	}
+	return append([]domain.SupplyPlanRevision(nil), r.planRevisions[id]...), nil
 }
 func (r *httpRepository) ListSupplierContracts(_ context.Context, id uuid.UUID, _, _ int) ([]domain.SupplierContract, error) {
 	items := []domain.SupplierContract{}
@@ -530,6 +550,25 @@ func TestSupplyPlanPreviewRouteReturnsComputedProposal(t *testing.T) {
 	listed := performRequest(handler, http.MethodGet, "/api/v1/admin/procurement/supply-plans?limit=20&offset=0", "", "supply", "SUPPLY_MANAGER")
 	if listed.Code != http.StatusOK || !strings.Contains(listed.Body.String(), plan.ID.String()) {
 		t.Fatalf("list supply plans status=%d body=%s", listed.Code, listed.Body.String())
+	}
+	var revisionRequest map[string]any
+	if err := json.Unmarshal(bodyBytes, &revisionRequest); err != nil {
+		t.Fatal(err)
+	}
+	revisionRequest["expected_version"] = float64(plan.Version)
+	lines := revisionRequest["lines"].([]any)
+	lines[0].(map[string]any)["forecast_quantity"] = "20"
+	revisionBody, err := json.Marshal(revisionRequest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	revised := performRequest(handler, http.MethodPost, "/api/v1/admin/procurement/supply-plans/"+plan.ID.String()+"/revisions", string(revisionBody), "supply", "SUPPLY_MANAGER")
+	if revised.Code != http.StatusOK || !strings.Contains(revised.Body.String(), `"revision":2`) {
+		t.Fatalf("revise supply plan status=%d body=%s", revised.Code, revised.Body.String())
+	}
+	revisionList := performRequest(handler, http.MethodGet, "/api/v1/admin/procurement/supply-plans/"+plan.ID.String()+"/revisions", "", "supply", "SUPPLY_MANAGER")
+	if revisionList.Code != http.StatusOK || !strings.Contains(revisionList.Body.String(), `"revision":1`) || !strings.Contains(revisionList.Body.String(), `"revision":2`) || !strings.Contains(revisionList.Body.String(), `"forecast_quantity":"15.000000"`) {
+		t.Fatalf("list supply plan revisions status=%d body=%s", revisionList.Code, revisionList.Body.String())
 	}
 }
 

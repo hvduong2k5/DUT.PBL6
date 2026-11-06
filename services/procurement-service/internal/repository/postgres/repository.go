@@ -646,6 +646,70 @@ func (r *Repository) ListSupplyPlans(ctx context.Context, limit, offset int) ([]
 	return items, rows.Err()
 }
 
+func (r *Repository) ReviseSupplyPlan(ctx context.Context, plan domain.SupplyPlan, revision domain.SupplyPlanRevision, expectedVersion int64) (domain.SupplyPlan, error) {
+	snapshot, err := json.Marshal(revision.Snapshot)
+	if err != nil {
+		return domain.SupplyPlan{}, err
+	}
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return domain.SupplyPlan{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	var currentVersion int64
+	var status string
+	if err := tx.QueryRow(ctx, `SELECT version,status FROM supply_plans WHERE id=$1 FOR UPDATE`, plan.ID).Scan(&currentVersion, &status); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.SupplyPlan{}, domain.ErrNotFound
+		}
+		return domain.SupplyPlan{}, err
+	}
+	if currentVersion != expectedVersion {
+		return domain.SupplyPlan{}, domain.ErrConflict
+	}
+	if domain.SupplyPlanStatus(status) != domain.SupplyPlanDraft {
+		return domain.SupplyPlan{}, domain.ErrInvalidState
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO supply_plan_revisions (supply_plan_id,revision,snapshot,created_by,created_at) VALUES ($1,$2,$3,$4,$5)`,
+		plan.ID, revision.Revision, snapshot, revision.CreatedBy, revision.CreatedAt); err != nil {
+		return domain.SupplyPlan{}, mapError(err)
+	}
+	if _, err := tx.Exec(ctx, `UPDATE supply_plans SET current_revision=$2,version=version+1,updated_at=$3 WHERE id=$1`,
+		plan.ID, revision.Revision, revision.CreatedAt); err != nil {
+		return domain.SupplyPlan{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return domain.SupplyPlan{}, err
+	}
+	plan.Version = expectedVersion + 1
+	plan.UpdatedAt = revision.CreatedAt
+	return plan, nil
+}
+
+func (r *Repository) ListSupplyPlanRevisions(ctx context.Context, id uuid.UUID) ([]domain.SupplyPlanRevision, error) {
+	if _, err := r.GetSupplyPlan(ctx, id); err != nil {
+		return nil, err
+	}
+	rows, err := r.pool.Query(ctx, `SELECT supply_plan_id,revision,snapshot,created_by,created_at FROM supply_plan_revisions WHERE supply_plan_id=$1 ORDER BY revision`, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := make([]domain.SupplyPlanRevision, 0)
+	for rows.Next() {
+		var item domain.SupplyPlanRevision
+		var snapshot []byte
+		if err := rows.Scan(&item.SupplyPlanID, &item.Revision, &snapshot, &item.CreatedBy, &item.CreatedAt); err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal(snapshot, &item.Snapshot); err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
 const supplyPlanSelect = `SELECT plan.id,plan.plan_number,plan.current_revision,plan.status,revision.snapshot,plan.created_by,plan.created_at,plan.updated_at,plan.version
 	FROM supply_plans AS plan JOIN supply_plan_revisions AS revision ON revision.supply_plan_id=plan.id AND revision.revision=plan.current_revision`
 

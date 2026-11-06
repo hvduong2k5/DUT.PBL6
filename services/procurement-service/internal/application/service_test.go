@@ -13,19 +13,20 @@ import (
 
 type fakeRepository struct {
 	application.Repository
-	suppliers map[uuid.UUID]domain.Supplier
-	materials map[uuid.UUID]domain.RawMaterial
-	offers    map[uuid.UUID][]domain.SupplierMaterialOffer
-	orders    map[uuid.UUID]domain.PurchaseOrder
-	receipts  map[uuid.UUID]domain.GoodsReceipt
-	contracts map[uuid.UUID]domain.SupplierContract
-	plans     map[uuid.UUID]domain.SupplyPlan
+	suppliers     map[uuid.UUID]domain.Supplier
+	materials     map[uuid.UUID]domain.RawMaterial
+	offers        map[uuid.UUID][]domain.SupplierMaterialOffer
+	orders        map[uuid.UUID]domain.PurchaseOrder
+	receipts      map[uuid.UUID]domain.GoodsReceipt
+	contracts     map[uuid.UUID]domain.SupplierContract
+	plans         map[uuid.UUID]domain.SupplyPlan
+	planRevisions map[uuid.UUID][]domain.SupplyPlanRevision
 }
 
 func newFakeRepository() *fakeRepository {
 	return &fakeRepository{
 		suppliers: make(map[uuid.UUID]domain.Supplier), materials: make(map[uuid.UUID]domain.RawMaterial),
-		offers: make(map[uuid.UUID][]domain.SupplierMaterialOffer), orders: make(map[uuid.UUID]domain.PurchaseOrder), receipts: make(map[uuid.UUID]domain.GoodsReceipt), contracts: make(map[uuid.UUID]domain.SupplierContract), plans: make(map[uuid.UUID]domain.SupplyPlan),
+		offers: make(map[uuid.UUID][]domain.SupplierMaterialOffer), orders: make(map[uuid.UUID]domain.PurchaseOrder), receipts: make(map[uuid.UUID]domain.GoodsReceipt), contracts: make(map[uuid.UUID]domain.SupplierContract), plans: make(map[uuid.UUID]domain.SupplyPlan), planRevisions: make(map[uuid.UUID][]domain.SupplyPlanRevision),
 	}
 }
 
@@ -111,6 +112,7 @@ func (r *fakeRepository) CreateSupplierContract(_ context.Context, item domain.S
 }
 func (r *fakeRepository) CreateSupplyPlan(_ context.Context, plan domain.SupplyPlan) (domain.SupplyPlan, error) {
 	r.plans[plan.ID] = plan
+	r.planRevisions[plan.ID] = []domain.SupplyPlanRevision{{SupplyPlanID: plan.ID, Revision: plan.Revision, Snapshot: plan.Snapshot, CreatedBy: plan.CreatedBy, CreatedAt: plan.CreatedAt}}
 	return plan, nil
 }
 func (r *fakeRepository) GetSupplyPlan(_ context.Context, id uuid.UUID) (domain.SupplyPlan, error) {
@@ -134,6 +136,24 @@ func (r *fakeRepository) ListSupplyPlans(_ context.Context, limit, offset int) (
 		end = len(items)
 	}
 	return items[start:end], nil
+}
+func (r *fakeRepository) ReviseSupplyPlan(_ context.Context, plan domain.SupplyPlan, revision domain.SupplyPlanRevision, expectedVersion int64) (domain.SupplyPlan, error) {
+	current, ok := r.plans[plan.ID]
+	if !ok {
+		return domain.SupplyPlan{}, domain.ErrNotFound
+	}
+	if current.Version != expectedVersion {
+		return domain.SupplyPlan{}, domain.ErrConflict
+	}
+	r.planRevisions[plan.ID] = append(r.planRevisions[plan.ID], revision)
+	r.plans[plan.ID] = plan
+	return plan, nil
+}
+func (r *fakeRepository) ListSupplyPlanRevisions(_ context.Context, id uuid.UUID) ([]domain.SupplyPlanRevision, error) {
+	if _, ok := r.plans[id]; !ok {
+		return nil, domain.ErrNotFound
+	}
+	return append([]domain.SupplyPlanRevision(nil), r.planRevisions[id]...), nil
 }
 func (r *fakeRepository) GetSupplierContract(_ context.Context, id uuid.UUID) (domain.SupplierContract, error) {
 	item, ok := r.contracts[id]
@@ -626,5 +646,35 @@ func TestCreateSupplyPlanPersistsDraftSnapshotAndSupportsLookup(t *testing.T) {
 	}
 	if created.Status != domain.SupplyPlanDraft || created.Revision != 1 || loaded.Snapshot.Lines[0].NetRequirement != "11.000000" || len(items) != 1 || items[0].ID != created.ID {
 		t.Fatalf("supply plan snapshot was not persisted and retrievable: created=%+v loaded=%+v list=%+v", created, loaded, items)
+	}
+}
+
+func TestReviseSupplyPlanAppendsSnapshotAndRejectsStaleVersion(t *testing.T) {
+	repo := newFakeRepository()
+	material, _ := domain.NewRawMaterial("RICE-PLAN-REVISION", "Rice", "KG", "")
+	repo.materials[material.ID] = material
+	now := time.Date(2026, 11, 7, 10, 0, 0, 0, time.UTC)
+	input := domain.SupplyPlanInput{HorizonStart: now.AddDate(0, 0, 1), HorizonEnd: now.AddDate(0, 1, 0), ForecastSource: "forecast-1", ForecastAsOf: now.Add(-time.Minute),
+		InventorySource: "inventory-1", InventoryAsOf: now.Add(-time.Minute), StaleAfterMinutes: 120, PolicyVersion: "policy-v1",
+		Lines: []domain.SupplyPlanLineInput{{MaterialID: material.ID, ForecastQuantity: "15", OnHandQuantity: "2", OpenPOQuantity: "3", SafetyStock: "1", MinimumOrderQty: "4", PackSize: "1", LeadTimeDays: 2}}}
+	service := application.NewService(repo)
+	created, err := service.CreateSupplyPlan(context.Background(), input, "supply-manager", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	input.Lines[0].ForecastQuantity = "20"
+	updated, err := service.ReviseSupplyPlan(context.Background(), created.ID, created.Version, input, "supply-manager", now.Add(time.Minute))
+	if err != nil {
+		t.Fatal(err)
+	}
+	revisions, err := service.ListSupplyPlanRevisions(context.Background(), created.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.Revision != 2 || updated.Version != 2 || len(revisions) != 2 || revisions[0].Snapshot.Lines[0].ForecastQuantity != "15.000000" || revisions[1].Snapshot.Lines[0].ForecastQuantity != "20.000000" {
+		t.Fatalf("revision history did not preserve snapshots: updated=%+v revisions=%+v", updated, revisions)
+	}
+	if _, err := service.ReviseSupplyPlan(context.Background(), created.ID, created.Version, input, "supply-manager", now.Add(2*time.Minute)); !errors.Is(err, domain.ErrConflict) {
+		t.Fatalf("stale revision error=%v, want conflict", err)
 	}
 }

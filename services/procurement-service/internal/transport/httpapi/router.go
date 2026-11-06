@@ -50,6 +50,8 @@ func NewRouter(service *application.Service, internalToken string, ping func(con
 		r.Post("/api/v1/admin/procurement/supply-plans", h.createSupplyPlan)
 		r.Post("/api/v1/admin/procurement/supply-plans/preview", h.previewSupplyPlan)
 		r.Get("/api/v1/admin/procurement/supply-plans/{supplyPlanID}", h.getSupplyPlan)
+		r.Get("/api/v1/admin/procurement/supply-plans/{supplyPlanID}/revisions", h.listSupplyPlanRevisions)
+		r.Post("/api/v1/admin/procurement/supply-plans/{supplyPlanID}/revisions", h.reviseSupplyPlan)
 		r.Post("/api/v1/admin/procurement/purchase-orders", h.createPurchaseOrder)
 		r.Get("/api/v1/admin/procurement/purchase-orders/{purchaseOrderID}", h.getPurchaseOrder)
 		r.Put("/api/v1/admin/procurement/purchase-orders/{purchaseOrderID}", h.updatePurchaseOrderDraft)
@@ -82,6 +84,7 @@ func NewRouter(service *application.Service, internalToken string, ping func(con
 }
 
 type supplyPlanPreviewRequest struct {
+	ExpectedVersion   int64                          `json:"expected_version,omitempty"`
 	HorizonStart      string                         `json:"horizon_start"`
 	HorizonEnd        string                         `json:"horizon_end"`
 	ForecastSource    string                         `json:"forecast_source"`
@@ -105,8 +108,12 @@ type supplyPlanPreviewLineRequest struct {
 }
 
 func (h *Router) previewSupplyPlan(w http.ResponseWriter, r *http.Request) {
-	input, ok := h.decodeSupplyPlanInput(w, r)
+	input, expectedVersion, ok := h.decodeSupplyPlanInput(w, r)
 	if !ok {
+		return
+	}
+	if expectedVersion != 0 {
+		writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "expected_version is only accepted when creating a new plan revision")
 		return
 	}
 	preview, err := h.service.PreviewSupplyPlan(r.Context(), input, time.Now().UTC())
@@ -118,8 +125,12 @@ func (h *Router) previewSupplyPlan(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Router) createSupplyPlan(w http.ResponseWriter, r *http.Request) {
-	input, ok := h.decodeSupplyPlanInput(w, r)
+	input, expectedVersion, ok := h.decodeSupplyPlanInput(w, r)
 	if !ok {
+		return
+	}
+	if expectedVersion != 0 {
+		writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "expected_version is only accepted when creating a new plan revision")
 		return
 	}
 	plan, err := h.service.CreateSupplyPlan(r.Context(), input, strings.TrimSpace(r.Header.Get("X-User-ID")), time.Now().UTC())
@@ -156,30 +167,64 @@ func (h *Router) listSupplyPlans(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"items": items, "limit": limit, "offset": offset})
 }
 
-func (h *Router) decodeSupplyPlanInput(w http.ResponseWriter, r *http.Request) (domain.SupplyPlanInput, bool) {
+func (h *Router) reviseSupplyPlan(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathUUID(w, chi.URLParam(r, "supplyPlanID"))
+	if !ok {
+		return
+	}
+	input, expectedVersion, ok := h.decodeSupplyPlanInput(w, r)
+	if !ok {
+		return
+	}
+	if expectedVersion <= 0 {
+		writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "expected_version must be a positive integer")
+		return
+	}
+	plan, err := h.service.ReviseSupplyPlan(r.Context(), id, expectedVersion, input, strings.TrimSpace(r.Header.Get("X-User-ID")), time.Now().UTC())
+	if err != nil {
+		h.writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, plan)
+}
+
+func (h *Router) listSupplyPlanRevisions(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathUUID(w, chi.URLParam(r, "supplyPlanID"))
+	if !ok {
+		return
+	}
+	items, err := h.service.ListSupplyPlanRevisions(r.Context(), id)
+	if err != nil {
+		h.writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"items": items})
+}
+
+func (h *Router) decodeSupplyPlanInput(w http.ResponseWriter, r *http.Request) (domain.SupplyPlanInput, int64, bool) {
 	var request supplyPlanPreviewRequest
 	if !decodeJSON(w, r, &request) {
-		return domain.SupplyPlanInput{}, false
+		return domain.SupplyPlanInput{}, 0, false
 	}
 	start, err := time.Parse("2006-01-02", request.HorizonStart)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "horizon_start must use YYYY-MM-DD")
-		return domain.SupplyPlanInput{}, false
+		return domain.SupplyPlanInput{}, 0, false
 	}
 	end, err := time.Parse("2006-01-02", request.HorizonEnd)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "horizon_end must use YYYY-MM-DD")
-		return domain.SupplyPlanInput{}, false
+		return domain.SupplyPlanInput{}, 0, false
 	}
 	forecastAsOf, err := time.Parse(time.RFC3339, request.ForecastAsOf)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "forecast_as_of must use RFC3339")
-		return domain.SupplyPlanInput{}, false
+		return domain.SupplyPlanInput{}, 0, false
 	}
 	inventoryAsOf, err := time.Parse(time.RFC3339, request.InventoryAsOf)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "inventory_as_of must use RFC3339")
-		return domain.SupplyPlanInput{}, false
+		return domain.SupplyPlanInput{}, 0, false
 	}
 	input := domain.SupplyPlanInput{HorizonStart: start, HorizonEnd: end, ForecastSource: request.ForecastSource, ForecastAsOf: forecastAsOf,
 		InventorySource: request.InventorySource, InventoryAsOf: inventoryAsOf, StaleAfterMinutes: request.StaleAfterMinutes,
@@ -188,13 +233,13 @@ func (h *Router) decodeSupplyPlanInput(w http.ResponseWriter, r *http.Request) (
 		materialID, parseErr := uuid.Parse(strings.TrimSpace(line.MaterialID))
 		if parseErr != nil {
 			writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "material_id must be a UUID")
-			return domain.SupplyPlanInput{}, false
+			return domain.SupplyPlanInput{}, 0, false
 		}
 		input.Lines = append(input.Lines, domain.SupplyPlanLineInput{MaterialID: materialID, ForecastQuantity: line.ForecastQuantity,
 			OnHandQuantity: line.OnHandQuantity, OpenPOQuantity: line.OpenPOQuantity, SafetyStock: line.SafetyStock,
 			MinimumOrderQty: line.MinimumOrderQty, PackSize: line.PackSize, LeadTimeDays: line.LeadTimeDays})
 	}
-	return input, true
+	return input, request.ExpectedVersion, true
 }
 
 func (h *Router) live(w http.ResponseWriter, _ *http.Request) {
