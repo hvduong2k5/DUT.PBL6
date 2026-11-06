@@ -2,7 +2,6 @@
 
 > Dự án hệ thống thương mại điện tử (Omama) — microservices architecture.
 > Ngày cập nhật: 2026-11-05
-
 ---
 
 ## 1. Tổng quan thư mục gốc
@@ -177,15 +176,20 @@ services/catalog-service/
 │   │   │       ├── ProductDetailResponse.java
 │   │   │       └── ProductVariantResponse.java
 │   │   ├── mapper/
+│   │   │   ├── AdminCatalogMapper.java      # Centralized admin DTO mapping (toListItemResponse, toSkuResponse, ...)
 │   │   │   └── CatalogDtoMapper.java      # MapStruct: Entity ↔ DTO
 │   │   ├── service/
-│   │   │   ├── CatalogService.java        # Interface public catalog
-│   │   │   ├── CatalogAdminService.java   # Interface admin catalog
+│   │   │   ├── CatalogCacheEvictor.java     # @Component, @CacheEvict(catalog:categories) cho admin mutation
+│   │   │   ├── CatalogService.java          # Interface: public catalog only (getPublicProducts, searchProducts, ...)
+│   │   │   ├── CatalogAdminService.java     # Interface: admin read + write
 │   │   │   ├── impl/
-│   │   │   │   ├── CatalogServiceImpl.java
-│   │   │   ├── CatalogAdminServiceImpl.java
+│   │   │   │   ├── CatalogServiceImpl.java  # Public catalog: products, search, categories, variants, price validation
+│   │   │   ├── CatalogAdminServiceImpl.java # Admin catalog: read + write + cache eviction
 │   │   │   └── CheckoutSnapshotService.java
 │   │   ├── common/
+│   │   │   ├── constant/
+│   │   │   │   ├── CatalogConstants.java    # Magic strings: channels, contract version, snapshot limits
+│   │   │   │   └── SaleStatus.java          # ListingStatus <-> ON_SALE/PAUSED/DISCONTINUED + label VN
 │   │   │   ├── response/
 │   │   │   │   ├── ApiResponse.java       # Envelope: success/code/message/data/errors/requestId/timestamp
 │   │   │   │   └── PageResponse.java
@@ -251,7 +255,7 @@ services/catalog-service/
 │   │       ├── ChannelPriceMapper.xml
 │   │       └── ...
 │   └── src/test/java/com/hvduong/catalog/
-│       └── ... (33+ unit tests: CatalogServiceImplTest, CatalogAdminControllerTest, etc.)
+│       └── ... (38 unit tests: CatalogServiceImplTest, CatalogAdminControllerTest, etc.)
 ```
 
 ---
@@ -310,7 +314,6 @@ docs/
 │   ├── schema.graphql
 │   ├── *.candidate.openapi.yaml           # Draft candidates
 │   ├── *._REVIEW.md                       # Contract review docs
-│   ├── CATALOG_CONTRACT_REMEDIATION_PLAN.md # Plan tái cấu trúc contract catalog
 │   ├── AUTHENTICATION_MVP_CONTRACT_REVIEW.md
 │   ├── CHECKOUT_MVP_CONTRACT_REVIEW.md
 │   ├── CUSTOMER_PROFILE_MVP_CONTRACT_REVIEW.md
@@ -570,12 +573,19 @@ scripts/
 12. **DTO Refactor**: Tách record checkout snapshot thành `CheckoutSnapshotRequest` / `CheckoutSnapshotResponse` DTO riêng.
 13. **Tests**: Thêm 5 unit test cho search + admin filter (38 tests total pass).
 14. **Verification**: `verify.py` PASS (40 OpenAPI specs, 4 protobuf baselines, 13 registry contracts).
+15. **Spotless**: Áp dụng `googleJavaFormat` + `importOrder` cho toàn bộ Java (~60 files).
+16. **Tách service**: `CatalogService` chỉ public, `CatalogAdminServiceImpl` chỉ admin; thêm `CatalogCacheEvictor`.
+17. **Cache**: `CatalogAdminServiceImpl` gọi `evictCategoriesCache()` sau mọi mutation admin.
+18. **Centralized Mapper**: `AdminCatalogMapper` tập trung toàn bộ mapping admin DTO; xóa dead code.
+19. **Constants**: `CatalogConstants` + `SaleStatus` enum thay thế magic strings.
+20. **Error Envelope**: `ApiResponse.error()`/`validationError()` thêm `requestId` (UUID).
+21. **Catalog admin write**: PATCH Product (mọi nội dung gồm `story`), PATCH SKU, lịch sử/cập nhật giá, quản lý ảnh; contract ghi trong `admin-draft-planned.openapi.yaml`, đọc trong `admin-stable.openapi.yaml`, quy ước trong `admin-api-state-matrix.md`.
 
 ---
 
 ## 13. Mismatch matrix (tất cả đã xử lý)
 
-Tất cả C-01 đến C-20 trong `CATALOG_CONTRACT_REMEDIATION_PLAN.md` đã được đánh dấu **Done**. Không còn vấn đề mở trong plan.
+Tất cả C-01 đến C-20 của đợt tái cấu trúc contract catalog đã hoàn tất. Trạng thái và quy ước hiện hành nằm trong `docs/03_api_specs/admin-api-state-matrix.md`.
 
 ---
 *Tài liệu này được tạo tự động từ cấu trúc thư mục thực tế của dự án DUT.PBL6.*

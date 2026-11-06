@@ -2467,9 +2467,9 @@ paths:
       tags:
       - Product management
       operationId: getAdminCatalogProductsProductId
-      summary: Read-only Product detail with SKU base prices and catalog food information
-        for US-PROD-02, US-PROD-04 and US-PROD-05. Manufacturing and shelf-life values
-        are catalog policies, not actual Batch dates.
+      summary: Read-only Product detail with full editable content, SKU base prices and catalog food information
+        for US-PROD-02, US-PROD-04 and US-PROD-05. Includes story, OCOP fields and image metadata.
+        Manufacturing and shelf-life values are catalog policies, not actual Batch dates.
       x-lifecycle: stable
       x-backlog:
       - EPIC_04
@@ -2515,8 +2515,31 @@ paths:
                         SKU.
                       longDescription: Dữ liệu mô tả catalog cơ bản; nội dung marketing
                         và SEO chi tiết thuộc Epic 20.
+                      slug: san-pham-catalog
+                      description: Đặc sản Huế được quản lý theo từng quy cách SKU.
+                      story: Sinh ra từ làng nghề Hương Thủy ven sông Hương, nghệ nhân
+                        O Mạ gìn giữ ngọn lửa nấu kẹo qua nhiều thế hệ.
+                      ingredients: Mè trắng, mạch nha, đường và nguyên liệu theo công
+                        thức công bố.
+                      storageGuide: Bảo quản nơi khô ráo, thoáng mát và tránh ánh nắng
+                        trực tiếp.
+                      ocopStar: 5
+                      ocopCertificateNo: OCOP-HUE-2026-001
+                      approvalStatus: APPROVED
+                      listingStatus: ACTIVE
                       coverImageUrl: https://res.cloudinary.com/oma-demo/image/upload/v1/catalog/product-cover.webp
                       coverImageAlt: Ảnh đại diện sản phẩm catalog
+                      images:
+                      - imageId: '{{urlParam ''productId''}}-img-cover'
+                        objectKey: products/catalog/product-cover.webp
+                        url: https://cdn.omama.vn/products/catalog/product-cover.webp
+                        altText: Ảnh đại diện sản phẩm catalog
+                        role: COVER
+                        position: 0
+                        mediaStatus: APPROVED
+                        revision: 2
+                        createdAt: '2026-10-01T08:00:00.000Z'
+                        updatedAt: '2026-10-02T02:10:00.000Z'
                       foodInformation:
                         ingredients: Mè trắng, mạch nha, đường và nguyên liệu theo công
                           thức công bố.
@@ -10341,6 +10364,54 @@ components:
           type: string
         longDescription:
           type: string
+        slug:
+          type: string
+          description: Định danh URL của sản phẩm; duy nhất toàn catalog.
+        description:
+          type:
+          - string
+          - 'null'
+          description: Mô tả nội dung sản phẩm (dùng cho PATCH admin).
+        story:
+          type:
+          - string
+          - 'null'
+          description: Câu chuyện thương hiệu/làng nghề của sản phẩm.
+        ingredients:
+          type:
+          - string
+          - 'null'
+          description: Thành phần nguyên liệu.
+        storageGuide:
+          type:
+          - string
+          - 'null'
+          description: Hướng dẫn bảo quản.
+        ocopStar:
+          type:
+          - integer
+          - 'null'
+          minimum: 3
+          maximum: 5
+          description: Số sao OCOP.
+        ocopCertificateNo:
+          type:
+          - string
+          - 'null'
+          description: Số chứng nhận OCOP.
+        approvalStatus:
+          type: string
+          enum:
+          - DRAFT
+          - PENDING
+          - APPROVED
+          - REJECTED
+        listingStatus:
+          type: string
+          enum:
+          - ACTIVE
+          - SUSPENDED
+          - ARCHIVED
         coverImageUrl:
           type:
           - string
@@ -10348,6 +10419,56 @@ components:
           format: uri
         coverImageAlt:
           type: string
+        images:
+          type: array
+          description: Toàn bộ ảnh của sản phẩm, gồm cả ảnh chưa duyệt (admin view).
+          items:
+            type: object
+            required:
+            - imageId
+            - objectKey
+            - role
+            - position
+            - mediaStatus
+            properties:
+              imageId:
+                type: string
+              objectKey:
+                type: string
+              url:
+                type:
+                - string
+                - 'null'
+                format: uri
+              altText:
+                type:
+                - string
+                - 'null'
+              role:
+                type: string
+                enum:
+                - COVER
+                - GALLERY
+                - THUMBNAIL
+              position:
+                type: integer
+                minimum: 0
+              mediaStatus:
+                type: string
+                enum:
+                - PENDING_SCAN
+                - APPROVED
+                - REJECTED
+              revision:
+                type: integer
+                format: int64
+              createdAt:
+                type: string
+                format: date-time
+              updatedAt:
+                type: string
+                format: date-time
+            additionalProperties: false
         foodInformation:
           type: object
           required:
