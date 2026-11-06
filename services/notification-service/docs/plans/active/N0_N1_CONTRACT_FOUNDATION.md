@@ -1,6 +1,6 @@
 # N0/N1 — contract ratification và Go foundation
 
-Status 2026-11-06: N0 source audit/design complete; ratification/open contracts pending; N1 NOT STARTED. File này là detailed current/next phase plan, không authorization viết code từ yêu cầu planning-only.
+Status 2026-11-06: user authorized implementation. N0 local candidate contract/fixtures complete; peer-owner gates open. N1 code implemented and unit/race/vet/build checks pass; required real PostgreSQL tests NOT RUN because Docker backend cannot start. N1 NOT ACCEPTED, N2 NOT STARTED. Current evidence and exact next action are in docs/CURRENT_STATE.md.
 
 ## Goal / Why
 
@@ -73,6 +73,6 @@ N0 DONE khi contract ratification cho current slice rõ, unresolved gates assign
 
 Completed this task: source audit, branch isolation, specification/architecture/data/reliability/API proposals, roadmap/test matrix và handoff prompt.
 
-Blockers: chưa giao implementation; G01–G12 chưa ratify theo phạm vi tương ứng. Không có runtime failure vì chưa có runtime.
+Blockers: Docker runtime socket startup failure and earlier WSL HCS feature error prevent real DB acceptance. G01 local toolchain resolved; owner gates remain open for their integrations.
 
-Next: user/model review DECISIONS, nhận implementation authority; thực hiện N0.1–N0.4 rồi N1.1. Đừng tạo branch mới nếu đang ở đúng nhánh. Mọi local milestone commit chỉ intentional service files; không push kể cả khi low quota/context. Current handoff ở docs/CURRENT_STATE.md.
+Next: restore approved isolated DB test environment and run required integration verification, then confirm N1 DoD before opening N2. Đừng tạo branch mới nếu đang ở đúng nhánh. Mọi local milestone commit chỉ intentional service files; không push kể cả khi low quota/context. Current handoff ở docs/CURRENT_STATE.md.

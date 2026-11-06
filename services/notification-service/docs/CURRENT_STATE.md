@@ -1,3 +1,33 @@
+# Implementation checkpoint — 2026-11-06
+
+This section supersedes the planning-only status below. User authorized implementation from the plan, portable Go download, Docker Desktop start and an isolated Notification test stack. No merge/push/PR permitted.
+
+Branch `codex/notification-service`; entry HEAD `cb76184a0899ba8e57dd2ee28cb1f034a6f5acad`. Local foundation checkpoint follows; inspect `git log -1 --format=%H -- services/notification-service` for its SHA.
+
+## Implemented
+
+- Go module (repo baseline language Go1.22.0; verified compiler portable Go1.27.3), Chi HTTP, pgx pool, local-only mode/loopback configuration, protected requests deny when no token, shutdown and health/readiness, bounded listener settings and metadata-only metrics.
+- Domain/usecase/ports/Postgres/HTTP separation. Source/purpose authorization before repository access; only local ORDER_CONFIRMATION buyer cohort enabled.
+- POST internal intake, GET producer-scoped status; durable WAITING_CONTEXT request, idempotency key and intent dedup, transactional audit obligation, conflict evidence and schema checksum/advisory-lock migration runner. External I/O is outside transactions. No recipient resolution or actual Email send yet.
+- Candidate OpenAPI, synthetic command fixture, disabled event manifest and exact pinned Order v3 schema/fixture, real PostgreSQL concurrency/migration tests, isolated DB Compose and explicit integration verification script.
+- All changes service-local; unrelated Mobile reference hash remains unchanged. Portable Go archive/tools are outside repo and are not committed. No credentials or .env committed.
+
+## Validation / evidence
+
+- `go test -race -count=1 -v ./...`: PASS for five top-level unit/HTTP/contract tests and their subcases; one real Postgres integration test SKIPPED because no test DB URL. No DB correctness acceptance claimed.
+- `go vet ./...`, `go build ./...`: PASS via scripts/verify.ps1, exit0.
+- `python scripts/verify-contracts.py`: PASS producer Draft7 schema+fixture and local Draft2020 command positive/negative fixtures, installed jsonschema4.26.0.
+- Required-integration gate tested: setting NOTIFICATION_REQUIRE_INTEGRATION=1 without DB URL causes test failure as intended; runner cannot silently accept skipped required integration.
+- Go portable1.27.3 from official go.dev release JSON; verified archive SHA256 F26081F438319757F8A1B46D7D0B2C5EC7583D4038E485E0AA725CFDE7885FFF. No PATH system modification. Module dependencies use existing repository versions; full vulnerability audit NOT RUN, production unsupported.
+
+## Current blocker / exact next action
+
+N1 implemented but NOT ACCEPTED until real DB concurrency, rollback, migration and restart tests run. N2 remains NOT STARTED; do not skip N1 DoD. Docker Desktop startup was authorized and attempted; backend log reports failure to remove/listen on `%LOCALAPPDATA%/Docker/run/dockerInference` (file cannot be accessed by system). Earlier WSL launch also failed HCS_E_SERVICE_NOT_AVAILABLE. No test stack/container/volume or DB migration was created. Do not factory-reset Docker or delete volumes to bypass it. Host Docker/WSL repair is separate from starting the approved isolated stack.
+
+Next action: restore a working Docker engine through a separately scoped host repair, or supply a disposable PostgreSQL URL. Then run isolated local compose with a runtime-only disposable password and `scripts/verify.ps1 -Integration` with NOTIFICATION_TEST_DATABASE_URL. Address actual DB failures, verify N1 runtime, then open the N2 detailed delivery plan. Real provider, recipient/OTP/invoice/auth/consent gates G02–G12 remain open; no real sends or production acceptance.
+
+---
+
 # Notification Service — current handoff
 
 Updated: 2026-11-06 (Asia/Saigon). Classification LARGE/ARCHITECTURAL, **planning-only task**.

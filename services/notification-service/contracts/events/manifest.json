@@ -1,0 +1,15 @@
+{
+  "baseline": "a24492b63c364f93ad19d880798137e554898c3f",
+  "enabled": false,
+  "reason": "recipient and producer authority gates G02/G03 open",
+  "events": [
+    {
+      "topic": "order.events.v3",
+      "type": "vn.omama.order.placed.v3",
+      "source": "https://omama.vn/services/order-service",
+      "partition_key": "data.aggregate_id",
+      "schema": "order.placed.v3.schema.json",
+      "sha256": "126dc5d0e8e9fe84fbde4a9d1860bea4ecde06a65df2ccddb2967eba14211bd5"
+    }
+  ]
+}

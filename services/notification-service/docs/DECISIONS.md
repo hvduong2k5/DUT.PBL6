@@ -4,6 +4,8 @@ Status vocabulary: **FIXED BY REQUEST** = user yêu cầu; **PROPOSED BASELINE**
 
 ## Baseline decisions
 
+Implementation follow-up 2026-11-06: user instructed “dựa vào kế hoạch đó tiến hành làm notification service đi”, authorizing the planned implementation. Local N0/N1 proceeds without re-asking architecture approval. G01 resolved for local validation with user-authorized portable Go 1.27.3 (official archive SHA256 checked); module baseline stays 1.22.0 with existing repository Chi/pgx/UUID pins. No claim of full dependency security audit or production readiness. G02/G03/G08 remain peer-owner integration gates; the executable is local-only and persists opaque references in WAITING_CONTEXT, without resolving recipients or sending. Runtime uses standard-library slog for metadata-only startup failure rather than adding Zerolog for the foundation; no sensitive underlying connection error is logged. Redis/Kafka/provider dependencies are added only when their phases open.
+
 | ID | Status | Quyết định / alternatives / lý do |
 |---|---|---|
 | D01 | FIXED BY REQUEST | Nhánh mới, không merge/push, plan kỹ cho model khác, docs tách biệt. `codex/notification-service` từ dev snapshot; toàn bộ writes dưới service. Không dùng Mobile branch làm base vì kéo theo task docs không liên quan |
