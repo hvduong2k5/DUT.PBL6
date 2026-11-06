@@ -1,5 +1,13 @@
 package com.hvduong.catalog.application.service.impl;
 
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.when;
+
 import com.hvduong.catalog.application.dto.request.PriceValidationRequest;
 import com.hvduong.catalog.application.dto.request.ProductFilterRequest;
 import com.hvduong.catalog.application.dto.response.CategoryResponse;
@@ -35,14 +43,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class CatalogServiceImplTest {
@@ -114,8 +114,15 @@ class CatalogServiceImplTest {
     filter.setCategoryId(categoryId);
 
     when(productMapper.findPublicProducts(
-            anyString(), eq(categoryId), any(), any(), any(), anyString(), anyString(),
-            anyInt(), anyInt()))
+            anyString(),
+            eq(categoryId),
+            any(),
+            any(),
+            any(),
+            anyString(),
+            anyString(),
+            anyInt(),
+            anyInt()))
         .thenReturn(List.of(mockProduct));
     when(productMapper.countPublicProducts(
             anyString(), eq(categoryId), any(), any(), any(), anyString()))
@@ -187,8 +194,7 @@ class CatalogServiceImplTest {
     when(productMapper.findPublicProducts(
             eq("Test"), any(), any(), any(), any(), eq("NEWEST"), eq("D2C_WEB"), eq(0), eq(20)))
         .thenReturn(List.of(mockProduct));
-    when(productMapper.countPublicProducts(eq("Test"), any(), any(), any(), any(),
-            eq("D2C_WEB")))
+    when(productMapper.countPublicProducts(eq("Test"), any(), any(), any(), any(), eq("D2C_WEB")))
         .thenReturn(1L);
 
     ProductListItemResponse mockListItemResponse = new ProductListItemResponse();
@@ -278,8 +284,7 @@ class CatalogServiceImplTest {
     // When & Then
     CatalogException exception =
         assertThrows(
-            CatalogException.class,
-            () -> catalogService.getVariantBySkuCode("INVALID-SKU"));
+            CatalogException.class, () -> catalogService.getVariantBySkuCode("INVALID-SKU"));
     assertEquals(ErrorCode.CATALOG_VARIANT_NOT_FOUND, exception.getErrorCode());
   }
 

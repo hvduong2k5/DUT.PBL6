@@ -28,8 +28,6 @@ import com.hvduong.catalog.repository.mybatis.ProductImageMapper;
 import com.hvduong.catalog.repository.mybatis.ProductMapper;
 import com.hvduong.catalog.repository.mybatis.ProductVariantMapper;
 
-import java.math.BigDecimal;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -113,7 +111,8 @@ public class CatalogServiceImpl implements CatalogService {
   }
 
   @Override
-  public PageResponse<ProductListItemResponse> searchProducts(String query, int page, int pageSize) {
+  public PageResponse<ProductListItemResponse> searchProducts(
+      String query, int page, int pageSize) {
     log.debug("[CATALOG] searchProducts: query='{}', page={}, size={}", query, page, pageSize);
 
     if (!StringUtils.hasText(query)) {
@@ -123,8 +122,18 @@ public class CatalogServiceImpl implements CatalogService {
     // MVP: PostgreSQL ILIKE pushed down to SQL; no in-memory filtering.
     List<Product> products =
         productMapper.findPublicProducts(
-            query, null, null, null, null, "NEWEST", CatalogConstants.CHANNEL_D2C_WEB, (page - 1) * pageSize, pageSize);
-    long total = productMapper.countPublicProducts(query, null, null, null, null, CatalogConstants.CHANNEL_D2C_WEB);
+            query,
+            null,
+            null,
+            null,
+            null,
+            "NEWEST",
+            CatalogConstants.CHANNEL_D2C_WEB,
+            (page - 1) * pageSize,
+            pageSize);
+    long total =
+        productMapper.countPublicProducts(
+            query, null, null, null, null, CatalogConstants.CHANNEL_D2C_WEB);
 
     List<ProductListItemResponse> items = enrichListItems(products, SalesChannel.D2C_WEB);
 
@@ -165,7 +174,9 @@ public class CatalogServiceImpl implements CatalogService {
 
     ProductVariantResponse response = dtoMapper.toVariantResponse(variant);
     response.setStockAvailable(
-        stockProjectionService.getAvailableQuantities(List.of(variant.getSkuCode())).get(variant.getSkuCode()));
+        stockProjectionService
+            .getAvailableQuantities(List.of(variant.getSkuCode()))
+            .get(variant.getSkuCode()));
     channelPriceMapper
         .findActiveByVariantAndChannel(variant.getId(), SalesChannel.D2C_WEB.getValue())
         .ifPresent(price -> response.setPrice(dtoMapper.toMoneyResponse(price)));
@@ -174,7 +185,8 @@ public class CatalogServiceImpl implements CatalogService {
 
   @Override
   public PriceValidationResponse validatePrices(PriceValidationRequest request) {
-    SalesChannel channel = request.getChannel() == null ? SalesChannel.D2C_WEB : request.getChannel();
+    SalesChannel channel =
+        request.getChannel() == null ? SalesChannel.D2C_WEB : request.getChannel();
     List<PriceValidationResponse.Discrepancy> discrepancies = new ArrayList<>();
     long subtotal = 0L;
 
@@ -207,7 +219,8 @@ public class CatalogServiceImpl implements CatalogService {
         continue;
       }
       Optional<ChannelPrice> priceOpt =
-          channelPriceMapper.findActiveByVariantAndChannel(variantOpt.get().getId(), channel.getValue());
+          channelPriceMapper.findActiveByVariantAndChannel(
+              variantOpt.get().getId(), channel.getValue());
       if (priceOpt.isEmpty()) {
         discrepancies.add(
             PriceValidationResponse.Discrepancy.builder()
@@ -221,7 +234,8 @@ public class CatalogServiceImpl implements CatalogService {
         continue;
       }
       ChannelPrice auth = priceOpt.get();
-      subtotal = Math.addExact(subtotal, Math.multiplyExact(auth.getAmountUnits(), item.getQuantity()));
+      subtotal =
+          Math.addExact(subtotal, Math.multiplyExact(auth.getAmountUnits(), item.getQuantity()));
       if (item.getClientUnitPrice() != auth.getAmountUnits()
           || item.getNanos() != auth.getAmountNanos()
           || (StringUtils.hasText(item.getCurrencyCode())
@@ -257,10 +271,12 @@ public class CatalogServiceImpl implements CatalogService {
     }
   }
 
-  private List<ProductListItemResponse> enrichListItems(List<Product> products, SalesChannel channel) {
+  private List<ProductListItemResponse> enrichListItems(
+      List<Product> products, SalesChannel channel) {
     Map<UUID, List<ProductVariant>> variantsByProduct = new HashMap<>();
     for (Product product : products) {
-      variantsByProduct.putIfAbsent(product.getId(), variantMapper.findActiveByProductId(product.getId()));
+      variantsByProduct.putIfAbsent(
+          product.getId(), variantMapper.findActiveByProductId(product.getId()));
     }
     List<UUID> variantIds =
         variantsByProduct.values().stream()
@@ -320,7 +336,8 @@ public class CatalogServiceImpl implements CatalogService {
     return item;
   }
 
-  private List<ProductVariantResponse> buildVariantResponses(List<ProductVariant> variants, SalesChannel channel) {
+  private List<ProductVariantResponse> buildVariantResponses(
+      List<ProductVariant> variants, SalesChannel channel) {
     Map<String, Long> quantities =
         stockProjectionService.getAvailableQuantities(
             variants.stream().map(ProductVariant::getSkuCode).collect(Collectors.toList()));
@@ -338,7 +355,9 @@ public class CatalogServiceImpl implements CatalogService {
   }
 
   private List<String> buildImageUrls(List<ProductImage> images) {
-    return images.stream().map(img -> buildPresignedUrl(img.getObjectKey())).collect(Collectors.toList());
+    return images.stream()
+        .map(img -> buildPresignedUrl(img.getObjectKey()))
+        .collect(Collectors.toList());
   }
 
   private Long skuBasePriceFromVnd(

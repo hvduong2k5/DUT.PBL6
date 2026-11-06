@@ -1,5 +1,14 @@
 package com.hvduong.catalog.api;
 
+import com.hvduong.catalog.application.dto.request.CheckoutSnapshotRequest;
+import com.hvduong.catalog.application.dto.request.PriceValidationRequest;
+import com.hvduong.catalog.application.dto.request.ProductFilterRequest;
+import com.hvduong.catalog.application.dto.response.ProductVariantResponse;
+import com.hvduong.catalog.application.service.CatalogService;
+import com.hvduong.catalog.application.service.CheckoutSnapshotService;
+import com.hvduong.catalog.common.enums.SalesChannel;
+import com.hvduong.catalog.common.enums.SortBy;
+
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -23,14 +32,6 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
-import com.hvduong.catalog.application.dto.request.CheckoutSnapshotRequest;
-import com.hvduong.catalog.application.dto.request.PriceValidationRequest;
-import com.hvduong.catalog.application.dto.request.ProductFilterRequest;
-import com.hvduong.catalog.application.dto.response.ProductVariantResponse;
-import com.hvduong.catalog.application.service.CatalogService;
-import com.hvduong.catalog.application.service.CheckoutSnapshotService;
-import com.hvduong.catalog.common.enums.SalesChannel;
-import com.hvduong.catalog.common.enums.SortBy;
 
 import lombok.RequiredArgsConstructor;
 
