@@ -41,6 +41,7 @@ type Hold struct {
 	ReasonCode     string
 	DecisionAt     time.Time
 	ResultingState string
+	DecisionID     string
 }
 
 type HoldCommandEvidence struct {
@@ -123,6 +124,29 @@ func (r *VoucherRepository) LockVoucher(ctx context.Context, request LockRequest
 	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, request.IdempotencyKey); err != nil {
 		return Hold{}, err
 	}
+	var storedHash, commandType string
+	var storedResponse []byte
+	err = tx.QueryRow(ctx, `SELECT request_hash,command_type,response_json FROM command_idempotency WHERE idempotency_key=$1`, request.IdempotencyKey).Scan(&storedHash, &commandType, &storedResponse)
+	if err == nil {
+		if storedHash != request.RequestHash || commandType != "LOCK_VOUCHER" {
+			return Hold{}, domain.ErrIdempotencyConflict
+		}
+		var hold Hold
+		if err := json.Unmarshal(storedResponse, &hold); err != nil {
+			return Hold{}, err
+		}
+		if hold.OrderID != request.OrderID {
+			return Hold{}, domain.ErrIdempotencyConflict
+		}
+		hold.Replay = true
+		if err := tx.Commit(ctx); err != nil {
+			return Hold{}, err
+		}
+		return hold, nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return Hold{}, err
+	}
 	if existing, err := scanHold(tx.QueryRow(ctx, `SELECT h.id::text,h.order_id,h.customer_id,c.code,c.discount_type,h.discount_amount,h.currency_code,h.state,h.expires_at,h.resource_version,h.created_at,h.request_hash
 		FROM voucher_holds h JOIN coupons c ON c.id=h.coupon_id WHERE h.idempotency_key=$1`, request.IdempotencyKey)); err == nil {
 		if existing.RequestHash != request.RequestHash {
@@ -138,6 +162,9 @@ func (r *VoucherRepository) LockVoucher(ctx context.Context, request LockRequest
 	}
 	coupon, err := r.findCoupon(ctx, tx, request.VoucherCode, true)
 	if err != nil {
+		if isVoucherEligibilityError(err) {
+			return recordLockRejection(ctx, tx, request, err)
+		}
 		return Hold{}, err
 	}
 	if err := tx.QueryRow(ctx, `SELECT clock_timestamp()`).Scan(&now); err != nil {
@@ -148,13 +175,19 @@ func (r *VoucherRepository) LockVoucher(ctx context.Context, request LockRequest
 		return Hold{}, err
 	}
 	if orderHasHold {
-		return Hold{}, domain.ErrVoucherAlreadyLocked
+		return recordLockRejection(ctx, tx, request, domain.ErrVoucherAlreadyLocked)
 	}
 	discount, err := coupon.Discount(request.Subtotal, request.ShippingFee, request.Currency, now)
 	if err != nil {
+		if isVoucherEligibilityError(err) {
+			return recordLockRejection(ctx, tx, request, err)
+		}
 		return Hold{}, err
 	}
 	if err := r.checkAvailability(ctx, tx, coupon, request.CustomerID, now); err != nil {
+		if isVoucherEligibilityError(err) {
+			return recordLockRejection(ctx, tx, request, err)
+		}
 		return Hold{}, err
 	}
 	expiresAt := now.Add(request.TTL)
@@ -171,11 +204,69 @@ func (r *VoucherRepository) LockVoucher(ctx context.Context, request LockRequest
 		}
 		return Hold{}, err
 	}
+	hold := Hold{ID: holdID, OrderID: request.OrderID, CustomerID: request.CustomerID, CouponCode: coupon.Code,
+		DiscountType: coupon.DiscountType, DiscountAmount: discount, Currency: request.Currency, State: "HELD",
+		ExpiresAt: expiresAt, Version: version, RequestHash: request.RequestHash, ObservedAt: now,
+		CommandResult: "APPLIED", DecisionAt: now, ResultingState: "HELD", DecisionID: holdID}
+	response, err := json.Marshal(hold)
+	if err != nil {
+		return Hold{}, err
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO command_idempotency(idempotency_key,command_type,request_hash,resource_id,response_json,expires_at)
+		VALUES($1,'LOCK_VOUCHER',$2,$3::uuid,$4,clock_timestamp()+interval '7 days')`, request.IdempotencyKey, request.RequestHash, hold.ID, response); err != nil {
+		return Hold{}, err
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return Hold{}, err
 	}
-	return Hold{ID: holdID, OrderID: request.OrderID, CustomerID: request.CustomerID, CouponCode: coupon.Code,
-		DiscountType: coupon.DiscountType, DiscountAmount: discount, Currency: request.Currency, State: "HELD", ExpiresAt: expiresAt, Version: version, ObservedAt: now}, nil
+	return hold, nil
+}
+
+func recordLockRejection(ctx context.Context, tx pgx.Tx, request LockRequest, reason error) (Hold, error) {
+	var decisionAt time.Time
+	if err := tx.QueryRow(ctx, `SELECT clock_timestamp()`).Scan(&decisionAt); err != nil {
+		return Hold{}, err
+	}
+	hold := Hold{OrderID: request.OrderID, Currency: request.Currency, ObservedAt: decisionAt,
+		DecisionAt: decisionAt, DecisionID: request.IdempotencyKey, CommandResult: "REJECTED",
+		ReasonCode: voucherReasonCode(reason)}
+	response, err := json.Marshal(hold)
+	if err != nil {
+		return Hold{}, err
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO command_idempotency(idempotency_key,command_type,request_hash,response_json,expires_at)
+		VALUES($1,'LOCK_VOUCHER',$2,$3,clock_timestamp()+interval '7 days')`, request.IdempotencyKey, request.RequestHash, response); err != nil {
+		return Hold{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Hold{}, err
+	}
+	return hold, nil
+}
+
+func isVoucherEligibilityError(err error) bool {
+	return errors.Is(err, domain.ErrVoucherNotFound) || errors.Is(err, domain.ErrVoucherInactive) ||
+		errors.Is(err, domain.ErrVoucherExpired) || errors.Is(err, domain.ErrMinimumNotMet) ||
+		errors.Is(err, domain.ErrUsageLimit) || errors.Is(err, domain.ErrVoucherAlreadyLocked)
+}
+
+func voucherReasonCode(err error) string {
+	switch {
+	case errors.Is(err, domain.ErrVoucherNotFound):
+		return "VOUCHER_NOT_FOUND"
+	case errors.Is(err, domain.ErrVoucherInactive):
+		return "VOUCHER_INACTIVE"
+	case errors.Is(err, domain.ErrVoucherExpired):
+		return "VOUCHER_EXPIRED"
+	case errors.Is(err, domain.ErrMinimumNotMet):
+		return "MINIMUM_ORDER_AMOUNT_NOT_MET"
+	case errors.Is(err, domain.ErrUsageLimit):
+		return "USAGE_LIMIT_EXCEEDED"
+	case errors.Is(err, domain.ErrVoucherAlreadyLocked):
+		return "VOUCHER_ALREADY_LOCKED"
+	default:
+		return "VOUCHER_NOT_ELIGIBLE"
+	}
 }
 
 type holdRow interface{ Scan(...any) error }

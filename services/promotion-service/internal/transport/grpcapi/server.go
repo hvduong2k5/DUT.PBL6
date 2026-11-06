@@ -89,6 +89,13 @@ func (s *Server) ValidateAndLockVoucher(ctx context.Context, request *promotionv
 		}
 		return nil, toStatus(err)
 	}
+	if hold.CommandResult == "REJECTED" {
+		return &promotionv1.ValidateAndLockVoucherResponse{
+			IsValid: false,
+			Error:   lockRejectionDetail(hold.ReasonCode),
+			Outcome: outcome(hold, request.GetIdempotencyKey(), "ValidateAndLockVoucher", request.GetRequestHash(), request.GetContractVersion()),
+		}, nil
+	}
 	lockID := hold.ID
 	return &promotionv1.ValidateAndLockVoucherResponse{
 		IsValid: true, DiscountAmount: money(hold.DiscountAmount, hold.Currency),
@@ -276,13 +283,20 @@ func outcome(hold postgres.Hold, key, action, requestHash, contractVersion strin
 			resultingState = hold.State
 		}
 		result.Command = &commonv1.CommandEvidence{IdempotencyKey: key, Action: action, RequestHash: requestHash,
-			Result: commandResult(hold), ReasonCode: hold.ReasonCode, DecisionId: hold.ID,
+			Result: commandResult(hold), ReasonCode: hold.ReasonCode, DecisionId: decisionID(hold),
 			DecisionAt: timestamppb.New(decisionAt), ResultingState: resultingState}
 	}
-	if !hold.Tombstone {
+	if !hold.Tombstone && !hold.ExpiresAt.IsZero() {
 		result.ExpiresAt = timestamppb.New(hold.ExpiresAt)
 	}
 	return result
+}
+
+func decisionID(hold postgres.Hold) string {
+	if hold.DecisionID != "" {
+		return hold.DecisionID
+	}
+	return hold.ID
 }
 
 func commandResult(hold postgres.Hold) string {
@@ -319,6 +333,24 @@ func errorDetail(err error) *commonv1.ErrorDetail {
 		code = commonv1.ErrorCode_ERR_PROMOTION_VOUCHER_ALREADY_LOCKED
 	}
 	return &commonv1.ErrorDetail{ErrorCode: code, UserMessage: err.Error(), DevMessage: err.Error(), Domain: "promotion"}
+}
+
+func lockRejectionDetail(reasonCode string) *commonv1.ErrorDetail {
+	code := commonv1.ErrorCode_ERR_INTERNAL_SERVER_ERROR
+	message := "voucher cannot be applied"
+	switch reasonCode {
+	case "VOUCHER_NOT_FOUND":
+		code, message = commonv1.ErrorCode_ERR_PROMOTION_VOUCHER_NOT_FOUND, "voucher was not found"
+	case "VOUCHER_INACTIVE", "VOUCHER_EXPIRED":
+		code, message = commonv1.ErrorCode_ERR_PROMOTION_VOUCHER_EXPIRED, "voucher is not active"
+	case "MINIMUM_ORDER_AMOUNT_NOT_MET":
+		code, message = commonv1.ErrorCode_ERR_PROMOTION_MIN_ORDER_AMOUNT_NOT_MET, "minimum order amount was not met"
+	case "USAGE_LIMIT_EXCEEDED":
+		code, message = commonv1.ErrorCode_ERR_PROMOTION_USAGE_LIMIT_EXCEEDED, "voucher usage limit was reached"
+	case "VOUCHER_ALREADY_LOCKED":
+		code, message = commonv1.ErrorCode_ERR_PROMOTION_VOUCHER_ALREADY_LOCKED, "voucher is already locked for this order"
+	}
+	return &commonv1.ErrorDetail{ErrorCode: code, UserMessage: message, DevMessage: message, Domain: "promotion"}
 }
 
 func toStatus(err error) error {
