@@ -40,6 +40,7 @@ var (
 	ErrCouponImmutable      = errors.New("coupon cannot be edited after publication")
 	ErrCouponCodeConflict   = errors.New("coupon code already exists")
 	ErrCouponConfigInvalid  = errors.New("coupon configuration is invalid")
+	ErrCouponStateConflict  = errors.New("coupon state transition is not allowed")
 	ErrIdempotencyConflict  = errors.New("idempotency key reused with different request")
 	ErrHoldNotFound         = errors.New("voucher hold not found")
 	ErrHoldTransition       = errors.New("invalid voucher hold state transition")

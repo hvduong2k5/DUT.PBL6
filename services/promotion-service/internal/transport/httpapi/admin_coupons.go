@@ -25,6 +25,8 @@ func RegisterAdminCouponRoutes(router chi.Router, repository *postgres.AdminCoup
 	router.With(auth).Get("/api/v1/admin/coupons", handler.List)
 	router.With(auth).Post("/api/v1/admin/coupons", handler.Create)
 	router.With(auth).Put("/api/v1/admin/coupons/{couponID}", handler.UpdateDraft)
+	router.With(auth).Post("/api/v1/admin/coupons/{couponID}/publish", handler.Publish)
+	router.With(auth).Post("/api/v1/admin/coupons/{couponID}/pause", handler.Pause)
 }
 
 type couponRequest struct {
@@ -74,6 +76,38 @@ func (h *AdminCouponHandler) UpdateDraft(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	coupon, err := h.repository.UpdateDraft(r.Context(), chi.URLParam(r, "couponID"), request.input(), actorFromRequest(r))
+	if err != nil {
+		writeAdminError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, couponResponseFrom(coupon))
+}
+
+func (h *AdminCouponHandler) Publish(w http.ResponseWriter, r *http.Request) {
+	coupon, err := h.repository.Publish(r.Context(), chi.URLParam(r, "couponID"), actorFromRequest(r))
+	if err != nil {
+		writeAdminError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, couponResponseFrom(coupon))
+}
+
+func (h *AdminCouponHandler) Pause(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 16<<10)
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	var request struct {
+		Reason string `json:"reason"`
+	}
+	if err := decoder.Decode(&request); err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "request body must contain a reason")
+		return
+	}
+	if err := decoder.Decode(new(any)); !errors.Is(err, io.EOF) {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "request body must contain one JSON object")
+		return
+	}
+	coupon, err := h.repository.Pause(r.Context(), chi.URLParam(r, "couponID"), request.Reason, actorFromRequest(r))
 	if err != nil {
 		writeAdminError(w, err)
 		return
@@ -189,6 +223,10 @@ func writeAdminError(w http.ResponseWriter, err error) {
 		writeError(w, http.StatusConflict, "COUPON_CODE_EXISTS", "a coupon with this code already exists")
 	case errors.Is(err, domain.ErrCouponImmutable):
 		writeError(w, http.StatusConflict, "COUPON_NOT_EDITABLE", "only draft coupons can be edited")
+	case errors.Is(err, domain.ErrCouponStateConflict):
+		writeError(w, http.StatusConflict, "INVALID_COUPON_STATE", "coupon cannot make this state transition")
+	case errors.Is(err, domain.ErrVoucherExpired):
+		writeError(w, http.StatusConflict, "COUPON_EXPIRED", "expired coupon cannot be published or paused")
 	case errors.Is(err, domain.ErrVoucherNotFound):
 		writeError(w, http.StatusNotFound, "COUPON_NOT_FOUND", "coupon was not found")
 	default:

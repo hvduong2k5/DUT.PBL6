@@ -51,10 +51,12 @@ func main() {
 	}
 	voucherRepository := postgres.NewVoucherRepository(pool)
 	adminCouponRepository := postgres.NewAdminCouponRepository(pool)
+	startCouponLifecycle(rootCtx, adminCouponRepository)
 
 	router := chi.NewRouter()
 	router.Get("/health/live", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })
 	httpapi.RegisterAdminCouponRoutes(router, adminCouponRepository, cfg.InternalToken)
+	httpapi.RegisterPublicPromotionRoutes(router, adminCouponRepository)
 	router.Get("/health/ready", func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), cfg.DBTimeout)
 		defer cancel()
@@ -101,4 +103,24 @@ func main() {
 	case <-shutdownCtx.Done():
 		grpcServer.Stop()
 	}
+}
+
+func startCouponLifecycle(ctx context.Context, repository *postgres.AdminCouponRepository) {
+	if err := repository.AdvanceLifecycle(ctx); err != nil {
+		log.Warn().Err(err).Msg("initial coupon lifecycle advancement failed")
+	}
+	go func() {
+		ticker := time.NewTicker(15 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if err := repository.AdvanceLifecycle(ctx); err != nil {
+					log.Warn().Err(err).Msg("coupon lifecycle advancement failed")
+				}
+			}
+		}
+	}()
 }

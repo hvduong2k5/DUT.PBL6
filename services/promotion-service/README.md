@@ -24,10 +24,14 @@ PostgreSQL at `GET /health/ready`; liveness is `GET /health/live`. PostgreSQL is
 - `POST /api/v1/admin/coupons` creates a coupon in `DRAFT` state.
 - `PUT /api/v1/admin/coupons/{couponID}` edits a draft. Published coupons are immutable; create
   a new coupon if the offer must change.
+- `POST /api/v1/admin/coupons/{couponID}/publish` publishes now or schedules for `starts_at`.
+- `POST /api/v1/admin/coupons/{couponID}/pause` pauses an active/scheduled coupon and requires a reason.
+- `GET /api/v1/promotions/active?limit=50&offset=0` lists public, active, in-window coupons with remaining total uses.
 
 Admin calls require `X-Internal-Token`, `X-User-ID`, and `X-User-Role: SALES_MANAGER`. The
 `X-User-*` values are trusted only from the authenticated API Gateway; do not expose this service
-directly to public clients. Coupon publishing/pause lifecycle endpoints are a follow-up task.
+directly to public clients. A lifecycle worker advances scheduled coupons and ends expired ones;
+all manual/automatic status changes are audited.
 
 ## Configuration
 

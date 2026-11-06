@@ -130,6 +130,208 @@ func (r *AdminCouponRepository) List(ctx context.Context, limit, offset int) ([]
 	return result, rows.Err()
 }
 
+func (r *AdminCouponRepository) ListActive(ctx context.Context, limit, offset int) ([]AdminCoupon, error) {
+	rows, err := r.pool.Query(ctx, `SELECT c.id::text,c.code,c.discount_type,c.discount_value,c.max_discount_amount,c.minimum_order_amount,c.max_redemptions,c.max_redemptions_per_customer,c.starts_at,c.ends_at,c.status,c.created_at,c.updated_at
+		FROM coupons c
+		WHERE c.status='ACTIVE' AND c.starts_at<=clock_timestamp() AND c.ends_at>clock_timestamp()
+		AND (c.max_redemptions IS NULL OR
+			(SELECT count(*) FROM voucher_usage u WHERE u.coupon_id=c.id) +
+			(SELECT count(*) FROM voucher_holds h WHERE h.coupon_id=c.id AND h.state='HELD' AND h.expires_at>clock_timestamp()) < c.max_redemptions)
+		ORDER BY c.starts_at,c.code LIMIT $1 OFFSET $2`, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := make([]AdminCoupon, 0)
+	for rows.Next() {
+		coupon, err := scanAdminCoupon(rows)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, coupon)
+	}
+	return result, rows.Err()
+}
+
+func (r *AdminCouponRepository) Publish(ctx context.Context, id string, actor CouponActor) (AdminCoupon, error) {
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return AdminCoupon{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	before, err := scanAdminCoupon(tx.QueryRow(ctx, `SELECT id::text,code,discount_type,discount_value,max_discount_amount,minimum_order_amount,max_redemptions,max_redemptions_per_customer,starts_at,ends_at,status,created_at,updated_at FROM coupons WHERE id=$1::uuid FOR UPDATE`, id))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return AdminCoupon{}, domain.ErrVoucherNotFound
+	}
+	if err != nil {
+		return AdminCoupon{}, err
+	}
+	var dbNow time.Time
+	if err := tx.QueryRow(ctx, `SELECT clock_timestamp()`).Scan(&dbNow); err != nil {
+		return AdminCoupon{}, err
+	}
+	if before.Status == "ACTIVE" || before.Status == "SCHEDULED" {
+		if !dbNow.Before(before.EndsAt) {
+			return AdminCoupon{}, domain.ErrVoucherExpired
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return AdminCoupon{}, err
+		}
+		return before, nil
+	}
+	if before.Status != "DRAFT" && before.Status != "PAUSED" {
+		return AdminCoupon{}, domain.ErrCouponStateConflict
+	}
+	if !dbNow.Before(before.EndsAt) {
+		return AdminCoupon{}, domain.ErrVoucherExpired
+	}
+	newStatus := "ACTIVE"
+	if before.StartsAt.After(dbNow) {
+		newStatus = "SCHEDULED"
+	}
+	after, err := scanAdminCoupon(tx.QueryRow(ctx, `UPDATE coupons SET status=$2,updated_at=clock_timestamp() WHERE id=$1::uuid
+		RETURNING id::text,code,discount_type,discount_value,max_discount_amount,minimum_order_amount,max_redemptions,max_redemptions_per_customer,starts_at,ends_at,status,created_at,updated_at`, id, newStatus))
+	if err != nil {
+		return AdminCoupon{}, err
+	}
+	action := "COUPON_PUBLISHED"
+	if before.Status == "PAUSED" {
+		action = "COUPON_REACTIVATED"
+	}
+	if err := writeAdminAudit(ctx, tx, actor, action, id, before, after); err != nil {
+		return AdminCoupon{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return AdminCoupon{}, err
+	}
+	return after, nil
+}
+
+func (r *AdminCouponRepository) Pause(ctx context.Context, id, reason string, actor CouponActor) (AdminCoupon, error) {
+	if strings.TrimSpace(reason) == "" || len(strings.TrimSpace(reason)) > 500 {
+		return AdminCoupon{}, domain.ErrCouponConfigInvalid
+	}
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return AdminCoupon{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	before, err := scanAdminCoupon(tx.QueryRow(ctx, `SELECT id::text,code,discount_type,discount_value,max_discount_amount,minimum_order_amount,max_redemptions,max_redemptions_per_customer,starts_at,ends_at,status,created_at,updated_at FROM coupons WHERE id=$1::uuid FOR UPDATE`, id))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return AdminCoupon{}, domain.ErrVoucherNotFound
+	}
+	if err != nil {
+		return AdminCoupon{}, err
+	}
+	var dbNow time.Time
+	if err := tx.QueryRow(ctx, `SELECT clock_timestamp()`).Scan(&dbNow); err != nil {
+		return AdminCoupon{}, err
+	}
+	if before.Status == "PAUSED" {
+		if err := tx.Commit(ctx); err != nil {
+			return AdminCoupon{}, err
+		}
+		return before, nil
+	}
+	if before.Status != "ACTIVE" && before.Status != "SCHEDULED" {
+		return AdminCoupon{}, domain.ErrCouponStateConflict
+	}
+	if !dbNow.Before(before.EndsAt) {
+		return AdminCoupon{}, domain.ErrVoucherExpired
+	}
+	after, err := scanAdminCoupon(tx.QueryRow(ctx, `UPDATE coupons SET status='PAUSED',updated_at=clock_timestamp() WHERE id=$1::uuid
+		RETURNING id::text,code,discount_type,discount_value,max_discount_amount,minimum_order_amount,max_redemptions,max_redemptions_per_customer,starts_at,ends_at,status,created_at,updated_at`, id))
+	if err != nil {
+		return AdminCoupon{}, err
+	}
+	auditAfter := map[string]any{"coupon": after, "reason": strings.TrimSpace(reason)}
+	if err := writeAdminAudit(ctx, tx, actor, "COUPON_PAUSED", id, before, auditAfter); err != nil {
+		return AdminCoupon{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return AdminCoupon{}, err
+	}
+	return after, nil
+}
+
+func (r *AdminCouponRepository) AdvanceLifecycle(ctx context.Context) error {
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	actor := CouponActor{ID: "promotion-lifecycle", Role: "SYSTEM"}
+	activateRows, err := tx.Query(ctx, `WITH due AS (
+		SELECT id FROM coupons WHERE status='SCHEDULED' AND starts_at<=clock_timestamp() AND ends_at>clock_timestamp() FOR UPDATE SKIP LOCKED
+	) UPDATE coupons c SET status='ACTIVE',updated_at=clock_timestamp() FROM due WHERE c.id=due.id
+	RETURNING c.id::text,c.code,c.discount_type,c.discount_value,c.max_discount_amount,c.minimum_order_amount,c.max_redemptions,c.max_redemptions_per_customer,c.starts_at,c.ends_at,c.status,c.created_at,c.updated_at`)
+	if err != nil {
+		return err
+	}
+	var activated []AdminCoupon
+	for activateRows.Next() {
+		coupon, scanErr := scanAdminCoupon(activateRows)
+		if scanErr != nil {
+			activateRows.Close()
+			return scanErr
+		}
+		activated = append(activated, coupon)
+	}
+	if err := activateRows.Err(); err != nil {
+		activateRows.Close()
+		return err
+	}
+	activateRows.Close()
+	for _, coupon := range activated {
+		before := map[string]string{"status": "SCHEDULED"}
+		if err := writeAdminAudit(ctx, tx, actor, "COUPON_AUTO_ACTIVATED", coupon.ID, before, coupon); err != nil {
+			return err
+		}
+	}
+	endRows, err := tx.Query(ctx, `WITH due AS (
+		SELECT id,status AS previous_status FROM coupons WHERE status IN ('ACTIVE','SCHEDULED','PAUSED') AND ends_at<=clock_timestamp() FOR UPDATE SKIP LOCKED
+	) UPDATE coupons c SET status='ENDED',updated_at=clock_timestamp() FROM due WHERE c.id=due.id
+	RETURNING c.id::text,c.code,c.discount_type,c.discount_value,c.max_discount_amount,c.minimum_order_amount,c.max_redemptions,c.max_redemptions_per_customer,c.starts_at,c.ends_at,c.status,c.created_at,c.updated_at,due.previous_status`)
+	if err != nil {
+		return err
+	}
+	type endedCoupon struct {
+		coupon         AdminCoupon
+		previousStatus string
+	}
+	var ended []endedCoupon
+	for endRows.Next() {
+		coupon, previousStatus, scanErr := scanAdminCouponWithPreviousStatus(endRows)
+		if scanErr != nil {
+			endRows.Close()
+			return scanErr
+		}
+		ended = append(ended, endedCoupon{coupon: coupon, previousStatus: previousStatus})
+	}
+	if err := endRows.Err(); err != nil {
+		endRows.Close()
+		return err
+	}
+	endRows.Close()
+	for _, item := range ended {
+		before := map[string]string{"status": item.previousStatus}
+		if err := writeAdminAudit(ctx, tx, actor, "COUPON_AUTO_ENDED", item.coupon.ID, before, item.coupon); err != nil {
+			return err
+		}
+	}
+	return tx.Commit(ctx)
+}
+
+func scanAdminCouponWithPreviousStatus(row interface{ Scan(...any) error }) (AdminCoupon, string, error) {
+	var coupon AdminCoupon
+	var discountType, previousStatus string
+	err := row.Scan(&coupon.ID, &coupon.Code, &discountType, &coupon.DiscountValue, &coupon.MaxDiscountAmount,
+		&coupon.MinimumOrderAmount, &coupon.MaxRedemptions, &coupon.MaxRedemptionsPerCustomer,
+		&coupon.StartsAt, &coupon.EndsAt, &coupon.Status, &coupon.CreatedAt, &coupon.UpdatedAt, &previousStatus)
+	coupon.DiscountType = domain.DiscountType(discountType)
+	return coupon, previousStatus, err
+}
+
 func scanAdminCoupon(row interface{ Scan(...any) error }) (AdminCoupon, error) {
 	var coupon AdminCoupon
 	var discountType string
