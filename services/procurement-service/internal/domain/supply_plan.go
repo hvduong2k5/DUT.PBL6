@@ -56,25 +56,28 @@ const (
 	SupplyPlanPendingApproval SupplyPlanStatus = "PENDING_APPROVAL"
 	SupplyPlanApproved        SupplyPlanStatus = "APPROVED"
 	SupplyPlanRejected        SupplyPlanStatus = "REJECTED"
+	SupplyPlanConverted       SupplyPlanStatus = "CONVERTED"
 )
 
 type SupplyPlan struct {
-	ID              uuid.UUID         `json:"id"`
-	Number          string            `json:"number"`
-	Revision        int               `json:"revision"`
-	Status          SupplyPlanStatus  `json:"status"`
-	Snapshot        SupplyPlanPreview `json:"snapshot"`
-	CreatedBy       string            `json:"created_by"`
-	SubmittedBy     string            `json:"submitted_by,omitempty"`
-	SubmittedAt     *time.Time        `json:"submitted_at,omitempty"`
-	ApprovedBy      string            `json:"approved_by,omitempty"`
-	ApprovedAt      *time.Time        `json:"approved_at,omitempty"`
-	RejectedBy      string            `json:"rejected_by,omitempty"`
-	RejectedAt      *time.Time        `json:"rejected_at,omitempty"`
-	RejectionReason string            `json:"rejection_reason,omitempty"`
-	CreatedAt       time.Time         `json:"created_at"`
-	UpdatedAt       time.Time         `json:"updated_at"`
-	Version         int64             `json:"version"`
+	ID                       uuid.UUID         `json:"id"`
+	Number                   string            `json:"number"`
+	Revision                 int               `json:"revision"`
+	Status                   SupplyPlanStatus  `json:"status"`
+	Snapshot                 SupplyPlanPreview `json:"snapshot"`
+	CreatedBy                string            `json:"created_by"`
+	SubmittedBy              string            `json:"submitted_by,omitempty"`
+	SubmittedAt              *time.Time        `json:"submitted_at,omitempty"`
+	ApprovedBy               string            `json:"approved_by,omitempty"`
+	ApprovedAt               *time.Time        `json:"approved_at,omitempty"`
+	RejectedBy               string            `json:"rejected_by,omitempty"`
+	RejectedAt               *time.Time        `json:"rejected_at,omitempty"`
+	RejectionReason          string            `json:"rejection_reason,omitempty"`
+	ConvertedPurchaseOrderID *uuid.UUID        `json:"converted_purchase_order_id,omitempty"`
+	ConvertedAt              *time.Time        `json:"converted_at,omitempty"`
+	CreatedAt                time.Time         `json:"created_at"`
+	UpdatedAt                time.Time         `json:"updated_at"`
+	Version                  int64             `json:"version"`
 }
 
 type SupplyPlanStatusEvent struct {
@@ -165,6 +168,21 @@ func (p SupplyPlan) Reject(actor, reason string, now time.Time) (SupplyPlan, err
 	p.RejectedBy = actor
 	p.RejectedAt = timePointer(now)
 	p.RejectionReason = reason
+	p.touch(now)
+	return p, nil
+}
+
+func (p SupplyPlan) ConvertToPurchaseOrder(actor string, purchaseOrderID uuid.UUID, expectedVersion int64, now time.Time) (SupplyPlan, error) {
+	actor = strings.TrimSpace(actor)
+	if p.Status != SupplyPlanApproved || actor == "" || purchaseOrderID == uuid.Nil || now.IsZero() {
+		return SupplyPlan{}, ErrInvalidState
+	}
+	if p.Version != expectedVersion {
+		return SupplyPlan{}, ErrConflict
+	}
+	p.Status = SupplyPlanConverted
+	p.ConvertedPurchaseOrderID = &purchaseOrderID
+	p.ConvertedAt = timePointer(now)
 	p.touch(now)
 	return p, nil
 }

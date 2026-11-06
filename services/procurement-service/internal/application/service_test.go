@@ -206,6 +206,27 @@ func (r *fakeRepository) CreatePurchaseOrder(_ context.Context, order domain.Pur
 	r.orders[order.ID] = order
 	return order, nil
 }
+func (r *fakeRepository) CreatePurchaseOrderFromSupplyPlan(_ context.Context, plan domain.SupplyPlan, order domain.PurchaseOrder, expectedVersion int64, actor string) (domain.PurchaseOrder, error) {
+	current, ok := r.plans[plan.ID]
+	if !ok {
+		return domain.PurchaseOrder{}, domain.ErrNotFound
+	}
+	if current.Status == domain.SupplyPlanConverted && current.ConvertedPurchaseOrderID != nil {
+		existing := r.orders[*current.ConvertedPurchaseOrderID]
+		if existing.SupplierID != order.SupplierID {
+			return domain.PurchaseOrder{}, domain.ErrConflict
+		}
+		return existing, nil
+	}
+	if current.Status != domain.SupplyPlanApproved || current.Version != expectedVersion {
+		return domain.PurchaseOrder{}, domain.ErrConflict
+	}
+	r.orders[order.ID] = order
+	r.plans[plan.ID] = plan
+	r.planHistory[plan.ID] = append(r.planHistory[plan.ID], domain.SupplyPlanStatusEvent{SupplyPlanID: plan.ID, FromStatus: current.Status,
+		ToStatus: plan.Status, Action: "PO_CREATED", Actor: actor, Version: plan.Version, CreatedAt: plan.UpdatedAt})
+	return order, nil
+}
 
 func (r *fakeRepository) GetPurchaseOrder(_ context.Context, id uuid.UUID) (domain.PurchaseOrder, error) {
 	order, ok := r.orders[id]
@@ -697,5 +718,79 @@ func TestReviseSupplyPlanAppendsSnapshotAndRejectsStaleVersion(t *testing.T) {
 	}
 	if _, err := service.ReviseSupplyPlan(context.Background(), created.ID, created.Version, input, "supply-manager", now.Add(2*time.Minute)); !errors.Is(err, domain.ErrConflict) {
 		t.Fatalf("stale revision error=%v, want conflict", err)
+	}
+}
+
+func TestApprovedSupplyPlanCreatesLinkedPurchaseOrderIdempotently(t *testing.T) {
+	service, repo, supplierID, materialID := makeApplicationFixture(t)
+	now := time.Now().UTC().Truncate(time.Second)
+	input := domain.SupplyPlanInput{HorizonStart: now.AddDate(0, 0, 1), HorizonEnd: now.AddDate(0, 1, 0),
+		ForecastSource: "forecast-plan-po", ForecastAsOf: now.Add(-time.Minute), InventorySource: "inventory-plan-po", InventoryAsOf: now.Add(-time.Minute),
+		StaleAfterMinutes: 120, PolicyVersion: "policy-v1", Lines: []domain.SupplyPlanLineInput{{MaterialID: materialID, ForecastQuantity: "15", OnHandQuantity: "2", OpenPOQuantity: "3", SafetyStock: "1", MinimumOrderQty: "4", PackSize: "1", LeadTimeDays: 2}}}
+	plan, err := service.CreateSupplyPlan(context.Background(), input, "creator", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, err = service.SubmitSupplyPlan(context.Background(), plan.ID, "submitter", now.Add(time.Minute))
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, err = service.ApproveSupplyPlan(context.Background(), plan.ID, "approver", now.Add(2*time.Minute))
+	if err != nil {
+		t.Fatal(err)
+	}
+	order, err := service.CreatePurchaseOrderFromSupplyPlan(context.Background(), plan.ID, supplierID, plan.Version, "buyer", now.Add(3*time.Minute))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if order.Status != domain.PurchaseOrderDraft || len(order.Lines) != 1 || order.Lines[0].Quantity != "11.000000" || order.Lines[0].UnitPriceMinor != 10001 || order.SourceSupplyPlanID == nil || *order.SourceSupplyPlanID != plan.ID || order.SourceSupplyPlanRevision == nil || *order.SourceSupplyPlanRevision != plan.Revision {
+		t.Fatalf("PO did not preserve approved plan quantity and source: %+v", order)
+	}
+	retried, err := service.CreatePurchaseOrderFromSupplyPlan(context.Background(), plan.ID, supplierID, plan.Version, "buyer", now.Add(4*time.Minute))
+	if err != nil || retried.ID != order.ID {
+		t.Fatalf("idempotent conversion retry returned (%s, %v), want existing PO %s", retried.ID, err, order.ID)
+	}
+	otherSupplier, err := domain.NewSupplier("SUP-OTHER-PLAN-PO", "Other supplier", "COMPANY", "", "", "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	repo.suppliers[otherSupplier.ID] = otherSupplier
+	if _, err := service.CreatePurchaseOrderFromSupplyPlan(context.Background(), plan.ID, otherSupplier.ID, plan.Version, "buyer", now.Add(4*time.Minute)); !errors.Is(err, domain.ErrConflict) {
+		t.Fatalf("conversion retry with different supplier error=%v, want conflict", err)
+	}
+	converted, err := service.GetSupplyPlan(context.Background(), plan.ID)
+	if err != nil || converted.Status != domain.SupplyPlanConverted || converted.ConvertedPurchaseOrderID == nil || *converted.ConvertedPurchaseOrderID != order.ID {
+		t.Fatalf("supply plan not linked to converted PO: plan=%+v error=%v", converted, err)
+	}
+}
+
+func TestSupplyPlanConversionRejectsSupplierMOQAboveApprovedQuantity(t *testing.T) {
+	service, repo, supplierID, materialID := makeApplicationFixture(t)
+	now := time.Now().UTC().Truncate(time.Second)
+	offer, err := domain.NewSupplierMaterialOfferVersion(supplierID, materialID, "", "KG", 10001, "VND", "20", 3, now.Add(-time.Hour), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	repo.offers[supplierID] = []domain.SupplierMaterialOffer{offer}
+	plan, err := service.CreateSupplyPlan(context.Background(), domain.SupplyPlanInput{HorizonStart: now.AddDate(0, 0, 1), HorizonEnd: now.AddDate(0, 1, 0),
+		ForecastSource: "forecast-plan-moq", ForecastAsOf: now.Add(-time.Minute), InventorySource: "inventory-plan-moq", InventoryAsOf: now.Add(-time.Minute),
+		StaleAfterMinutes: 120, PolicyVersion: "policy-v1", Lines: []domain.SupplyPlanLineInput{{MaterialID: materialID, ForecastQuantity: "15", OnHandQuantity: "2", OpenPOQuantity: "3", SafetyStock: "1", MinimumOrderQty: "4", PackSize: "1", LeadTimeDays: 2}}}, "creator", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, err = service.SubmitSupplyPlan(context.Background(), plan.ID, "submitter", now.Add(time.Minute))
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, err = service.ApproveSupplyPlan(context.Background(), plan.ID, "approver", now.Add(2*time.Minute))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.CreatePurchaseOrderFromSupplyPlan(context.Background(), plan.ID, supplierID, plan.Version, "buyer", now.Add(3*time.Minute)); !errors.Is(err, domain.ErrInvalidArgument) {
+		t.Fatalf("conversion below current supplier MOQ error=%v, want invalid argument", err)
+	}
+	current, err := service.GetSupplyPlan(context.Background(), plan.ID)
+	if err != nil || current.Status != domain.SupplyPlanApproved || len(repo.orders) != 0 {
+		t.Fatalf("failed conversion mutated plan/order: plan=%+v orders=%d error=%v", current, len(repo.orders), err)
 	}
 }

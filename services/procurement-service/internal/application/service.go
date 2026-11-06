@@ -35,6 +35,7 @@ type Repository interface {
 	ListSupplierContracts(context.Context, uuid.UUID, int, int) ([]domain.SupplierContract, error)
 	SetSupplierContractStatus(context.Context, uuid.UUID, domain.SupplierContractStatus, string) (domain.SupplierContract, error)
 	CreatePurchaseOrder(context.Context, domain.PurchaseOrder) (domain.PurchaseOrder, error)
+	CreatePurchaseOrderFromSupplyPlan(context.Context, domain.SupplyPlan, domain.PurchaseOrder, int64, string) (domain.PurchaseOrder, error)
 	GetPurchaseOrder(context.Context, uuid.UUID) (domain.PurchaseOrder, error)
 	ListPurchaseOrders(context.Context, uuid.UUID, domain.PurchaseOrderStatus, int, int) ([]domain.PurchaseOrder, error)
 	SavePurchaseOrder(context.Context, domain.PurchaseOrder, int64, domain.PurchaseOrderStatus, string, string, string) (domain.PurchaseOrder, error)
@@ -152,6 +153,58 @@ func (s *Service) ListSupplyPlanStatusHistory(ctx context.Context, id uuid.UUID)
 		return nil, err
 	}
 	return s.repo.ListSupplyPlanStatusHistory(ctx, id)
+}
+
+func (s *Service) CreatePurchaseOrderFromSupplyPlan(ctx context.Context, supplyPlanID, supplierID uuid.UUID, expectedVersion int64, actor string, now time.Time) (domain.PurchaseOrder, error) {
+	actor = strings.TrimSpace(actor)
+	if actor == "" || supplierID == uuid.Nil || expectedVersion <= 0 {
+		return domain.PurchaseOrder{}, domain.ErrInvalidArgument
+	}
+	plan, err := s.repo.GetSupplyPlan(ctx, supplyPlanID)
+	if err != nil {
+		return domain.PurchaseOrder{}, err
+	}
+	if plan.Status == domain.SupplyPlanConverted && plan.ConvertedPurchaseOrderID != nil {
+		order, getErr := s.repo.GetPurchaseOrder(ctx, *plan.ConvertedPurchaseOrderID)
+		if getErr != nil {
+			return domain.PurchaseOrder{}, getErr
+		}
+		if order.SupplierID != supplierID {
+			return domain.PurchaseOrder{}, domain.ErrConflict
+		}
+		return order, nil
+	}
+	if plan.Status != domain.SupplyPlanApproved {
+		return domain.PurchaseOrder{}, domain.ErrInvalidState
+	}
+	if plan.Version != expectedVersion {
+		return domain.PurchaseOrder{}, domain.ErrConflict
+	}
+	lines := make([]PurchaseOrderLineRequest, 0, len(plan.Snapshot.Lines))
+	for _, line := range plan.Snapshot.Lines {
+		quantity, ok := new(big.Rat).SetString(strings.TrimSpace(line.ProposedOrderQuantity))
+		if !ok {
+			return domain.PurchaseOrder{}, domain.ErrInvalidArgument
+		}
+		if quantity.Sign() > 0 {
+			lines = append(lines, PurchaseOrderLineRequest{MaterialID: line.MaterialID, Quantity: line.ProposedOrderQuantity})
+		}
+	}
+	if len(lines) == 0 {
+		return domain.PurchaseOrder{}, domain.ErrInvalidState
+	}
+	order, err := s.buildPurchaseOrder(ctx, "", PurchaseOrderRequest{SupplierID: supplierID, Lines: lines}, actor)
+	if err != nil {
+		return domain.PurchaseOrder{}, err
+	}
+	plan, err = plan.ConvertToPurchaseOrder(actor, order.ID, expectedVersion, now)
+	if err != nil {
+		return domain.PurchaseOrder{}, err
+	}
+	revision := plan.Revision
+	order.SourceSupplyPlanID = &supplyPlanID
+	order.SourceSupplyPlanRevision = &revision
+	return s.repo.CreatePurchaseOrderFromSupplyPlan(ctx, plan, order, expectedVersion, actor)
 }
 
 func (s *Service) CreateSupplier(ctx context.Context, supplier domain.Supplier) (domain.Supplier, error) {

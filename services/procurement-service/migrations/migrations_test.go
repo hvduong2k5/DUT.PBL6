@@ -16,12 +16,25 @@ func TestEmbeddedMigrationsAreOrderedAndIncludeSupplierManagement(t *testing.T) 
 			names = append(names, entry.Name())
 		}
 	}
-	if len(names) != 10 || names[0] != "000001_supplier_material_master.up.sql" || names[1] != "000002_purchase_orders.up.sql" || names[2] != "000003_goods_receipts.up.sql" || names[3] != "000004_supplier_agreements_and_price_versions.up.sql" || names[4] != "000005_purchase_order_supplier_response_and_revisions.up.sql" || names[5] != "000006_goods_receipt_idempotency.up.sql" || names[6] != "000007_goods_receipt_variances.up.sql" || names[7] != "000008_supply_plan_snapshots.up.sql" || names[8] != "000009_supply_plan_revision_immutability.up.sql" || names[9] != "000010_supply_plan_approval_workflow.up.sql" {
+	if len(names) != 11 || names[0] != "000001_supplier_material_master.up.sql" || names[1] != "000002_purchase_orders.up.sql" || names[2] != "000003_goods_receipts.up.sql" || names[3] != "000004_supplier_agreements_and_price_versions.up.sql" || names[4] != "000005_purchase_order_supplier_response_and_revisions.up.sql" || names[5] != "000006_goods_receipt_idempotency.up.sql" || names[6] != "000007_goods_receipt_variances.up.sql" || names[7] != "000008_supply_plan_snapshots.up.sql" || names[8] != "000009_supply_plan_revision_immutability.up.sql" || names[9] != "000010_supply_plan_approval_workflow.up.sql" || names[10] != "000011_supply_plan_purchase_order_conversion.up.sql" {
 		t.Fatalf("unexpected embedded migration sequence: %v", names)
 	}
 	for _, name := range names {
 		if _, err := files.ReadFile(name); err != nil {
 			t.Errorf("migration %s is not embedded: %v", name, err)
+		}
+	}
+}
+
+func TestSupplyPlanConversionMigrationLinksOnlyOnePOPerPlan(t *testing.T) {
+	sqlBytes, err := files.ReadFile("000011_supply_plan_purchase_order_conversion.up.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sql := string(sqlBytes)
+	for _, required := range []string{"'CONVERTED'", "converted_purchase_order_id", "supply_plan_id UUID REFERENCES supply_plans(id)", "supply_plan_revision", "CREATE UNIQUE INDEX purchase_orders_supply_plan_unique_idx"} {
+		if !strings.Contains(sql, required) {
+			t.Errorf("supply plan conversion migration missing %q", required)
 		}
 	}
 }

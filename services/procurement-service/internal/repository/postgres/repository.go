@@ -379,26 +379,90 @@ func (r *Repository) CreatePurchaseOrder(ctx context.Context, order domain.Purch
 		return domain.PurchaseOrder{}, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	const query = `INSERT INTO purchase_orders
-		(id, po_number, supplier_id, supplier_name, status, currency, total_amount_minor, notes,
-		expected_delivery_date, created_by, version, revision)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
-		RETURNING created_at, updated_at`
-	if err := tx.QueryRow(ctx, query, order.ID, order.Number, order.SupplierID, order.SupplierName, order.Status,
-		order.Currency, order.TotalAmountMinor, order.Notes, order.ExpectedDeliveryDate, order.CreatedBy, order.Version, order.Revision).
-		Scan(&order.CreatedAt, &order.UpdatedAt); err != nil {
-		return domain.PurchaseOrder{}, mapError(err)
-	}
-	if err := insertPurchaseOrderLines(ctx, tx, order); err != nil {
-		return domain.PurchaseOrder{}, mapError(err)
-	}
-	if err := insertPurchaseOrderHistory(ctx, tx, order.ID, "", string(order.Status), "CREATED", order.CreatedBy, ""); err != nil {
+	if err := insertPurchaseOrder(ctx, tx, &order); err != nil {
 		return domain.PurchaseOrder{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return domain.PurchaseOrder{}, err
 	}
 	return order, nil
+}
+
+func (r *Repository) CreatePurchaseOrderFromSupplyPlan(ctx context.Context, plan domain.SupplyPlan, order domain.PurchaseOrder, expectedVersion int64, actor string) (domain.PurchaseOrder, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return domain.PurchaseOrder{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	var currentVersion int64
+	var currentStatus string
+	var existingPOID pgtype.UUID
+	if err := tx.QueryRow(ctx, `SELECT version,status,converted_purchase_order_id FROM supply_plans WHERE id=$1 FOR UPDATE`, plan.ID).Scan(&currentVersion, &currentStatus, &existingPOID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.PurchaseOrder{}, domain.ErrNotFound
+		}
+		return domain.PurchaseOrder{}, err
+	}
+	if domain.SupplyPlanStatus(currentStatus) == domain.SupplyPlanConverted && existingPOID.Valid {
+		existingID, parseErr := uuid.FromBytes(existingPOID.Bytes[:])
+		if parseErr != nil {
+			return domain.PurchaseOrder{}, parseErr
+		}
+		var existingSupplierID uuid.UUID
+		if err := tx.QueryRow(ctx, `SELECT supplier_id FROM purchase_orders WHERE id=$1`, existingID).Scan(&existingSupplierID); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return domain.PurchaseOrder{}, domain.ErrConflict
+			}
+			return domain.PurchaseOrder{}, err
+		}
+		if existingSupplierID != order.SupplierID {
+			return domain.PurchaseOrder{}, domain.ErrConflict
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return domain.PurchaseOrder{}, err
+		}
+		return r.GetPurchaseOrder(ctx, existingID)
+	}
+	if domain.SupplyPlanStatus(currentStatus) != domain.SupplyPlanApproved {
+		return domain.PurchaseOrder{}, domain.ErrInvalidState
+	}
+	if currentVersion != expectedVersion || plan.Version != expectedVersion+1 || plan.Revision <= 0 ||
+		order.SourceSupplyPlanID == nil || *order.SourceSupplyPlanID != plan.ID || order.SourceSupplyPlanRevision == nil || *order.SourceSupplyPlanRevision != plan.Revision {
+		return domain.PurchaseOrder{}, domain.ErrConflict
+	}
+	if err := insertPurchaseOrder(ctx, tx, &order); err != nil {
+		return domain.PurchaseOrder{}, err
+	}
+	if _, err := tx.Exec(ctx, `UPDATE supply_plans SET status=$3,converted_purchase_order_id=$4,converted_at=now(),updated_at=now(),version=version+1 WHERE id=$1 AND version=$2`, plan.ID, expectedVersion, domain.SupplyPlanConverted, order.ID); err != nil {
+		return domain.PurchaseOrder{}, err
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO supply_plan_status_history (id,supply_plan_id,from_status,to_status,action,actor,version) VALUES ($1,$2,$3,$4,'PO_CREATED',$5,$6)`,
+		uuid.New(), plan.ID, domain.SupplyPlanApproved, domain.SupplyPlanConverted, actor, plan.Version); err != nil {
+		return domain.PurchaseOrder{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return domain.PurchaseOrder{}, err
+	}
+	return order, nil
+}
+
+func insertPurchaseOrder(ctx context.Context, tx pgx.Tx, order *domain.PurchaseOrder) error {
+	const query = `INSERT INTO purchase_orders
+		(id,po_number,supplier_id,supplier_name,status,currency,total_amount_minor,notes,expected_delivery_date,created_by,version,revision,supply_plan_id,supply_plan_revision)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING created_at,updated_at`
+	if err := tx.QueryRow(ctx, query, order.ID, order.Number, order.SupplierID, order.SupplierName, order.Status,
+		order.Currency, order.TotalAmountMinor, order.Notes, order.ExpectedDeliveryDate, order.CreatedBy, order.Version, order.Revision,
+		order.SourceSupplyPlanID, order.SourceSupplyPlanRevision).Scan(&order.CreatedAt, &order.UpdatedAt); err != nil {
+		return mapError(err)
+	}
+	if err := insertPurchaseOrderLines(ctx, tx, *order); err != nil {
+		return mapError(err)
+	}
+	action := "CREATED"
+	if order.SourceSupplyPlanID != nil {
+		action = "CREATED_FROM_SUPPLY_PLAN"
+	}
+	return insertPurchaseOrderHistory(ctx, tx, order.ID, "", string(order.Status), action, order.CreatedBy, "")
 }
 
 func (r *Repository) GetPurchaseOrder(ctx context.Context, id uuid.UUID) (domain.PurchaseOrder, error) {
@@ -772,6 +836,7 @@ func (r *Repository) ListSupplyPlanStatusHistory(ctx context.Context, id uuid.UU
 
 const supplyPlanSelect = `SELECT plan.id,plan.plan_number,plan.current_revision,plan.status,revision.snapshot,plan.created_by,
 	plan.submitted_by,plan.submitted_at,plan.approved_by,plan.approved_at,plan.rejected_by,plan.rejected_at,plan.rejection_reason,
+	plan.converted_purchase_order_id,plan.converted_at,
 	plan.created_at,plan.updated_at,plan.version
 	FROM supply_plans AS plan JOIN supply_plan_revisions AS revision ON revision.supply_plan_id=plan.id AND revision.revision=plan.current_revision`
 
@@ -781,8 +846,11 @@ func scanSupplyPlan(row rowScanner) (domain.SupplyPlan, error) {
 	var snapshot []byte
 	var submittedBy, approvedBy, rejectedBy, rejectionReason pgtype.Text
 	var submittedAt, approvedAt, rejectedAt pgtype.Timestamptz
+	var convertedPOID pgtype.UUID
+	var convertedAt pgtype.Timestamptz
 	err := row.Scan(&plan.ID, &plan.Number, &plan.Revision, &status, &snapshot, &plan.CreatedBy,
 		&submittedBy, &submittedAt, &approvedBy, &approvedAt, &rejectedBy, &rejectedAt, &rejectionReason,
+		&convertedPOID, &convertedAt,
 		&plan.CreatedAt, &plan.UpdatedAt, &plan.Version)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.SupplyPlan{}, domain.ErrNotFound
@@ -794,6 +862,14 @@ func scanSupplyPlan(row rowScanner) (domain.SupplyPlan, error) {
 	plan.SubmittedBy, plan.ApprovedBy, plan.RejectedBy = submittedBy.String, approvedBy.String, rejectedBy.String
 	plan.RejectionReason = rejectionReason.String
 	plan.SubmittedAt, plan.ApprovedAt, plan.RejectedAt = timestampPointer(submittedAt), timestampPointer(approvedAt), timestampPointer(rejectedAt)
+	if convertedPOID.Valid {
+		id, parseErr := uuid.FromBytes(convertedPOID.Bytes[:])
+		if parseErr != nil {
+			return domain.SupplyPlan{}, parseErr
+		}
+		plan.ConvertedPurchaseOrderID = &id
+	}
+	plan.ConvertedAt = timestampPointer(convertedAt)
 	if err := json.Unmarshal(snapshot, &plan.Snapshot); err != nil {
 		return domain.SupplyPlan{}, err
 	}
@@ -1144,7 +1220,7 @@ const purchaseOrderSelect = `SELECT id, po_number, supplier_id, supplier_name, s
 	revision, total_amount_minor, notes, expected_delivery_date, created_by, submitted_by, submitted_at,
 	approved_by, approved_at, rejected_by, rejected_at, rejection_reason, sent_by, sent_at,
 	supplier_response_note,supplier_responded_by,supplier_responded_at,cancelled_by,cancelled_at,cancellation_reason,
-	closed_by,closed_at,close_reason,created_at,updated_at,version FROM purchase_orders`
+	closed_by,closed_at,close_reason,created_at,updated_at,version,supply_plan_id,supply_plan_revision FROM purchase_orders`
 
 const purchaseOrderLineSelect = `SELECT id, line_number, material_id, material_code, material_name,
 	quantity::text, received_quantity::text, accepted_quantity::text, unit, unit_price_minor, line_amount_minor FROM purchase_order_lines`
@@ -1152,13 +1228,15 @@ const purchaseOrderLineSelect = `SELECT id, line_number, material_id, material_c
 func scanPurchaseOrder(row rowScanner) (domain.PurchaseOrder, error) {
 	var order domain.PurchaseOrder
 	var expected pgtype.Date
+	var sourcePlanID pgtype.UUID
+	var sourcePlanRevision pgtype.Int4
 	var submitted, approved, rejected, sent, supplierResponded, cancelled, closed pgtype.Timestamptz
 	var submittedBy, approvedBy, rejectedBy, rejectionReason, sentBy, supplierRespondedBy, cancellationReason, cancelledBy, closedBy, closeReason pgtype.Text
 	err := row.Scan(&order.ID, &order.Number, &order.SupplierID, &order.SupplierName, &order.Status, &order.Currency,
 		&order.Revision, &order.TotalAmountMinor, &order.Notes, &expected, &order.CreatedBy, &submittedBy, &submitted,
 		&approvedBy, &approved, &rejectedBy, &rejected, &rejectionReason, &sentBy, &sent,
 		&order.SupplierResponseNote, &supplierRespondedBy, &supplierResponded, &cancelledBy, &cancelled, &cancellationReason,
-		&closedBy, &closed, &closeReason, &order.CreatedAt, &order.UpdatedAt, &order.Version)
+		&closedBy, &closed, &closeReason, &order.CreatedAt, &order.UpdatedAt, &order.Version, &sourcePlanID, &sourcePlanRevision)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.PurchaseOrder{}, domain.ErrNotFound
 	}
@@ -1180,6 +1258,17 @@ func scanPurchaseOrder(row rowScanner) (domain.PurchaseOrder, error) {
 	order.SupplierRespondedAt = timestampPointer(supplierResponded)
 	order.CancelledAt = timestampPointer(cancelled)
 	order.ClosedAt = timestampPointer(closed)
+	if sourcePlanID.Valid {
+		id, parseErr := uuid.FromBytes(sourcePlanID.Bytes[:])
+		if parseErr != nil {
+			return domain.PurchaseOrder{}, parseErr
+		}
+		order.SourceSupplyPlanID = &id
+	}
+	if sourcePlanRevision.Valid {
+		revision := int(sourcePlanRevision.Int32)
+		order.SourceSupplyPlanRevision = &revision
+	}
 	return order, nil
 }
 

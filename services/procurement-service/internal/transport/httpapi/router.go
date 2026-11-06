@@ -54,6 +54,7 @@ func NewRouter(service *application.Service, internalToken string, ping func(con
 		r.Post("/api/v1/admin/procurement/supply-plans/{supplyPlanID}/revisions", h.reviseSupplyPlan)
 		r.Post("/api/v1/admin/procurement/supply-plans/{supplyPlanID}/submit", h.submitSupplyPlan)
 		r.Get("/api/v1/admin/procurement/supply-plans/{supplyPlanID}/status-history", h.listSupplyPlanStatusHistory)
+		r.Post("/api/v1/admin/procurement/supply-plans/{supplyPlanID}/purchase-order", h.createPurchaseOrderFromSupplyPlan)
 		r.Post("/api/v1/admin/procurement/purchase-orders", h.createPurchaseOrder)
 		r.Get("/api/v1/admin/procurement/purchase-orders/{purchaseOrderID}", h.getPurchaseOrder)
 		r.Put("/api/v1/admin/procurement/purchase-orders/{purchaseOrderID}", h.updatePurchaseOrderDraft)
@@ -253,6 +254,32 @@ func (h *Router) listSupplyPlanStatusHistory(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"items": items})
+}
+
+func (h *Router) createPurchaseOrderFromSupplyPlan(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathUUID(w, chi.URLParam(r, "supplyPlanID"))
+	if !ok {
+		return
+	}
+	var request struct {
+		SupplierID      string `json:"supplier_id"`
+		ExpectedVersion int64  `json:"expected_version"`
+	}
+	if !decodeJSON(w, r, &request) {
+		return
+	}
+	supplierID, err := uuid.Parse(strings.TrimSpace(request.SupplierID))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "supplier_id must be a UUID")
+		return
+	}
+	order, err := h.service.CreatePurchaseOrderFromSupplyPlan(r.Context(), id, supplierID, request.ExpectedVersion,
+		strings.TrimSpace(r.Header.Get("X-User-ID")), time.Now().UTC())
+	if err != nil {
+		h.writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, order)
 }
 
 func (h *Router) decodeSupplyPlanInput(w http.ResponseWriter, r *http.Request) (domain.SupplyPlanInput, int64, bool) {

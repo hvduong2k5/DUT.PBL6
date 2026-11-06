@@ -206,6 +206,27 @@ func (r *httpRepository) CreatePurchaseOrder(_ context.Context, order domain.Pur
 	r.orders[order.ID] = order
 	return order, nil
 }
+func (r *httpRepository) CreatePurchaseOrderFromSupplyPlan(_ context.Context, plan domain.SupplyPlan, order domain.PurchaseOrder, expectedVersion int64, actor string) (domain.PurchaseOrder, error) {
+	current, ok := r.plans[plan.ID]
+	if !ok {
+		return domain.PurchaseOrder{}, domain.ErrNotFound
+	}
+	if current.Status == domain.SupplyPlanConverted && current.ConvertedPurchaseOrderID != nil {
+		existing := r.orders[*current.ConvertedPurchaseOrderID]
+		if existing.SupplierID != order.SupplierID {
+			return domain.PurchaseOrder{}, domain.ErrConflict
+		}
+		return existing, nil
+	}
+	if current.Status != domain.SupplyPlanApproved || current.Version != expectedVersion {
+		return domain.PurchaseOrder{}, domain.ErrConflict
+	}
+	r.orders[order.ID] = order
+	r.plans[plan.ID] = plan
+	r.planHistory[plan.ID] = append(r.planHistory[plan.ID], domain.SupplyPlanStatusEvent{SupplyPlanID: plan.ID, FromStatus: current.Status,
+		ToStatus: plan.Status, Action: "PO_CREATED", Actor: actor, Version: plan.Version, CreatedAt: plan.UpdatedAt})
+	return order, nil
+}
 func (r *httpRepository) GetPurchaseOrder(_ context.Context, id uuid.UUID) (domain.PurchaseOrder, error) {
 	order, ok := r.orders[id]
 	if !ok {
@@ -537,6 +558,16 @@ func TestSupplyPlanPreviewRouteReturnsComputedProposal(t *testing.T) {
 	repo := newHTTPRepository()
 	material, _ := domain.NewRawMaterial("RICE-PLAN", "Rice", "KG", "")
 	repo.materials[material.ID] = material
+	supplier, err := domain.NewSupplier("SUP-PLAN-PO", "Plan supplier", "COMPANY", "", "", "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	repo.suppliers[supplier.ID] = supplier
+	offer, err := domain.NewSupplierMaterialOfferVersion(supplier.ID, material.ID, "", "KG", 15000, "VND", "0.5", 3, time.Now().UTC().Add(-time.Hour), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	repo.offers[supplier.ID] = []domain.SupplierMaterialOffer{offer}
 	handler := newHandler(repo)
 	now := time.Now().UTC().Truncate(time.Second)
 	bodyBytes, err := json.Marshal(map[string]any{
@@ -603,9 +634,30 @@ func TestSupplyPlanPreviewRouteReturnsComputedProposal(t *testing.T) {
 	if approved.Code != http.StatusOK || !strings.Contains(approved.Body.String(), `"status":"APPROVED"`) {
 		t.Fatalf("approve supply plan status=%d body=%s", approved.Code, approved.Body.String())
 	}
+	var approvedPlan domain.SupplyPlan
+	if err := json.Unmarshal(approved.Body.Bytes(), &approvedPlan); err != nil {
+		t.Fatal(err)
+	}
 	statusHistory := performRequest(handler, http.MethodGet, "/api/v1/admin/procurement/supply-plans/"+plan.ID.String()+"/status-history", "", "supply", "SUPPLY_MANAGER")
 	if statusHistory.Code != http.StatusOK || !strings.Contains(statusHistory.Body.String(), `"to_status":"PENDING_APPROVAL"`) || !strings.Contains(statusHistory.Body.String(), `"to_status":"APPROVED"`) {
 		t.Fatalf("supply plan status history status=%d body=%s", statusHistory.Code, statusHistory.Body.String())
+	}
+	conversionBody, err := json.Marshal(map[string]any{"supplier_id": supplier.ID.String(), "expected_version": approvedPlan.Version})
+	if err != nil {
+		t.Fatal(err)
+	}
+	conversionPath := "/api/v1/admin/procurement/supply-plans/" + plan.ID.String() + "/purchase-order"
+	converted := performRequest(handler, http.MethodPost, conversionPath, string(conversionBody), "supply", "SUPPLY_MANAGER")
+	if converted.Code != http.StatusCreated || !strings.Contains(converted.Body.String(), `"supply_plan_id":"`+plan.ID.String()+`"`) {
+		t.Fatalf("convert supply plan status=%d body=%s", converted.Code, converted.Body.String())
+	}
+	var convertedOrder domain.PurchaseOrder
+	if err := json.Unmarshal(converted.Body.Bytes(), &convertedOrder); err != nil {
+		t.Fatal(err)
+	}
+	retriedConversion := performRequest(handler, http.MethodPost, conversionPath, string(conversionBody), "supply", "SUPPLY_MANAGER")
+	if retriedConversion.Code != http.StatusCreated || !strings.Contains(retriedConversion.Body.String(), convertedOrder.ID.String()) || len(repo.orders) != 1 {
+		t.Fatalf("conversion retry status=%d body=%s orders=%d", retriedConversion.Code, retriedConversion.Body.String(), len(repo.orders))
 	}
 	rejectedPlanResponse := performRequest(handler, http.MethodPost, "/api/v1/admin/procurement/supply-plans", string(bodyBytes), "supply", "SUPPLY_MANAGER")
 	if rejectedPlanResponse.Code != http.StatusCreated {
