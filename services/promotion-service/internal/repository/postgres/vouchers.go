@@ -656,16 +656,64 @@ func (r *VoucherRepository) findHoldCommandEvidence(ctx context.Context, tx pgx.
 	proof := &HoldCommandEvidence{IdempotencyKey: key, Action: action, RequestHash: requestHash, DecisionID: hold.ID}
 	switch action {
 	case "ValidateAndLockVoucher":
-		var storedHash string
+		var storedHash, resourceID string
+		var responseJSON []byte
+		err := tx.QueryRow(ctx, `SELECT request_hash,COALESCE(resource_id::text,''),response_json FROM command_idempotency WHERE idempotency_key=$1 AND command_type='LOCK_VOUCHER'`, key).Scan(&storedHash, &resourceID, &responseJSON)
+		if err == nil {
+			if storedHash != requestHash {
+				return nil, domain.ErrIdempotencyConflict
+			}
+			var original Hold
+			if err := json.Unmarshal(responseJSON, &original); err != nil {
+				return nil, err
+			}
+			if original.OrderID != hold.OrderID {
+				return nil, domain.ErrIdempotencyConflict
+			}
+			if original.CommandResult == "REJECTED" {
+				if resourceID != "" || original.ID != "" {
+					return nil, domain.ErrIdempotencyConflict
+				}
+			} else if resourceID == "" || resourceID != hold.ID || original.ID != hold.ID {
+				return nil, domain.ErrIdempotencyConflict
+			}
+			proof.DecisionID = original.DecisionID
+			if proof.DecisionID == "" {
+				proof.DecisionID = original.ID
+			}
+			proof.DecisionAt = original.DecisionAt
+			if proof.DecisionAt.IsZero() {
+				proof.DecisionAt = original.ObservedAt
+			}
+			proof.ResultingState = original.ResultingState
+			if proof.ResultingState == "" {
+				proof.ResultingState = original.State
+			}
+			proof.ReasonCode = original.ReasonCode
+			proof.Result = original.CommandResult
+			if proof.Result == "" {
+				proof.Result = "APPLIED"
+			}
+			if original.Replay && proof.Result != "REJECTED" {
+				proof.Result = "ALREADY_APPLIED"
+			}
+			return proof, nil
+		}
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return nil, err
+		}
+		// Compatibility for holds created before successful lock decisions
+		// were also recorded in command_idempotency.
+		var legacyStoredHash string
 		var decidedAt time.Time
-		err := tx.QueryRow(ctx, `SELECT request_hash,created_at FROM voucher_holds WHERE idempotency_key=$1 AND order_id=$2 AND id=$3::uuid`, key, hold.OrderID, hold.ID).Scan(&storedHash, &decidedAt)
+		err = tx.QueryRow(ctx, `SELECT request_hash,created_at FROM voucher_holds WHERE idempotency_key=$1 AND order_id=$2 AND id=$3::uuid`, key, hold.OrderID, hold.ID).Scan(&legacyStoredHash, &decidedAt)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, domain.ErrHoldNotFound
 		}
 		if err != nil {
 			return nil, err
 		}
-		if storedHash != requestHash {
+		if legacyStoredHash != requestHash {
 			return nil, domain.ErrIdempotencyConflict
 		}
 		proof.Result, proof.DecisionAt, proof.ResultingState = "APPLIED", decidedAt, "HELD"
