@@ -21,12 +21,13 @@ type httpRepository struct {
 	offers    map[uuid.UUID][]domain.SupplierMaterialOffer
 	orders    map[uuid.UUID]domain.PurchaseOrder
 	receipts  map[uuid.UUID]domain.GoodsReceipt
+	contracts map[uuid.UUID]domain.SupplierContract
 }
 
 func newHTTPRepository() *httpRepository {
 	return &httpRepository{
 		suppliers: make(map[uuid.UUID]domain.Supplier), materials: make(map[uuid.UUID]domain.RawMaterial),
-		offers: make(map[uuid.UUID][]domain.SupplierMaterialOffer), orders: make(map[uuid.UUID]domain.PurchaseOrder), receipts: make(map[uuid.UUID]domain.GoodsReceipt),
+		offers: make(map[uuid.UUID][]domain.SupplierMaterialOffer), orders: make(map[uuid.UUID]domain.PurchaseOrder), receipts: make(map[uuid.UUID]domain.GoodsReceipt), contracts: make(map[uuid.UUID]domain.SupplierContract),
 	}
 }
 
@@ -49,8 +50,87 @@ func (r *httpRepository) GetMaterial(_ context.Context, id uuid.UUID) (domain.Ra
 	}
 	return item, nil
 }
+func (r *httpRepository) UpdateMaterial(_ context.Context, id uuid.UUID, item domain.RawMaterial) (domain.RawMaterial, error) {
+	current, ok := r.materials[id]
+	if !ok {
+		return domain.RawMaterial{}, domain.ErrNotFound
+	}
+	item.ID = id
+	item.Status = current.Status
+	item.PreferredSupplierID = current.PreferredSupplierID
+	r.materials[id] = item
+	return item, nil
+}
+func (r *httpRepository) SetPreferredSupplier(_ context.Context, materialID, supplierID uuid.UUID) (domain.RawMaterial, error) {
+	item, ok := r.materials[materialID]
+	if !ok {
+		return domain.RawMaterial{}, domain.ErrNotFound
+	}
+	if supplierID == uuid.Nil {
+		item.PreferredSupplierID = nil
+	} else {
+		item.PreferredSupplierID = &supplierID
+	}
+	r.materials[materialID] = item
+	return item, nil
+}
 func (r *httpRepository) ListSupplierOffers(_ context.Context, id uuid.UUID) ([]domain.SupplierMaterialOffer, error) {
 	return r.offers[id], nil
+}
+func (r *httpRepository) ListMaterialOffers(_ context.Context, id uuid.UUID) ([]domain.SupplierMaterialOffer, error) {
+	items := []domain.SupplierMaterialOffer{}
+	for _, offers := range r.offers {
+		for _, offer := range offers {
+			if offer.MaterialID == id {
+				items = append(items, offer)
+			}
+		}
+	}
+	return items, nil
+}
+func (r *httpRepository) CreateOffer(_ context.Context, item domain.SupplierMaterialOffer) (domain.SupplierMaterialOffer, error) {
+	r.offers[item.SupplierID] = append(r.offers[item.SupplierID], item)
+	return item, nil
+}
+func (r *httpRepository) SetOfferActive(_ context.Context, supplierID, offerID uuid.UUID, active bool) (domain.SupplierMaterialOffer, error) {
+	for i, item := range r.offers[supplierID] {
+		if item.ID == offerID {
+			item.Active = active
+			r.offers[supplierID][i] = item
+			return item, nil
+		}
+	}
+	return domain.SupplierMaterialOffer{}, domain.ErrNotFound
+}
+func (r *httpRepository) CreateSupplierContract(_ context.Context, item domain.SupplierContract) (domain.SupplierContract, error) {
+	item.Revision = 1
+	r.contracts[item.ID] = item
+	return item, nil
+}
+func (r *httpRepository) GetSupplierContract(_ context.Context, id uuid.UUID) (domain.SupplierContract, error) {
+	item, ok := r.contracts[id]
+	if !ok {
+		return domain.SupplierContract{}, domain.ErrNotFound
+	}
+	return item, nil
+}
+func (r *httpRepository) ListSupplierContracts(_ context.Context, id uuid.UUID, _, _ int) ([]domain.SupplierContract, error) {
+	items := []domain.SupplierContract{}
+	for _, item := range r.contracts {
+		if id == uuid.Nil || item.SupplierID == id {
+			items = append(items, item)
+		}
+	}
+	return items, nil
+}
+func (r *httpRepository) SetSupplierContractStatus(_ context.Context, id uuid.UUID, status domain.SupplierContractStatus, actor string) (domain.SupplierContract, error) {
+	item, ok := r.contracts[id]
+	if !ok {
+		return domain.SupplierContract{}, domain.ErrNotFound
+	}
+	item.Status = status
+	r.contracts[id] = item
+	return item, nil
 }
 func (r *httpRepository) CreatePurchaseOrder(_ context.Context, order domain.PurchaseOrder) (domain.PurchaseOrder, error) {
 	r.orders[order.ID] = order
@@ -134,7 +214,7 @@ func TestAdminSupplierAPIRequiresInternalStaffContext(t *testing.T) {
 func TestCreateSupplierAndStrictJSONValidation(t *testing.T) {
 	repo := newHTTPRepository()
 	handler := newHandler(repo)
-	created := performRequest(handler, http.MethodPost, "/api/v1/admin/procurement/suppliers", `{"code":"SUP-1","name":"Supplier","supplier_type":"COMPANY"}`, "staff", "SUPPLY_MANAGER")
+	created := performRequest(handler, http.MethodPost, "/api/v1/admin/procurement/suppliers", `{"code":"SUP-1","name":"Supplier","supplier_type":"COMPANY","legal_identifier":" ab-123 "}`, "staff", "SUPPLY_MANAGER")
 	if created.Code != http.StatusCreated {
 		t.Fatalf("create status = %d, body=%s", created.Code, created.Body.String())
 	}
@@ -142,7 +222,7 @@ func TestCreateSupplierAndStrictJSONValidation(t *testing.T) {
 	if err := json.Unmarshal(created.Body.Bytes(), &supplier); err != nil {
 		t.Fatal(err)
 	}
-	if supplier.Code != "SUP-1" || supplier.Status != domain.SupplierActive {
+	if supplier.Code != "SUP-1" || supplier.Status != domain.SupplierActive || supplier.LegalIdentifier != "AB-123" {
 		t.Fatalf("unexpected response: %+v", supplier)
 	}
 	invalid := performRequest(handler, http.MethodPost, "/api/v1/admin/procurement/suppliers", `{"code":"SUP-2","name":"Supplier","supplier_type":"COMPANY","unexpected":true}`, "staff", "SUPPLY_MANAGER")
@@ -213,5 +293,47 @@ func TestWarehouseStaffCanCreateGoodsReceiptButNotManageSuppliers(t *testing.T) 
 	denied := performRequest(handler, http.MethodGet, "/api/v1/admin/procurement/suppliers", "", "warehouse-1", "WAREHOUSE_STAFF")
 	if denied.Code != http.StatusForbidden {
 		t.Fatalf("warehouse supplier access status=%d, want 403", denied.Code)
+	}
+}
+
+func TestSupplierContractsRequireSensitiveRoleAndCreateDraftRevision(t *testing.T) {
+	repo := newHTTPRepository()
+	supplier, _ := domain.NewSupplier("SUP-CON", "Supplier", "COMPANY", "", "", "", "")
+	repo.suppliers[supplier.ID] = supplier
+	handler := newHandler(repo)
+	body := `{"contract_number":"AGR-01","scope":"RAW_MATERIALS","payment_terms":"NET 30","document_file_id":"file-abc","effective_from":"2026-11-01"}`
+	denied := performRequest(handler, http.MethodPost, "/api/v1/admin/procurement/suppliers/"+supplier.ID.String()+"/contracts", body, "supply", "SUPPLY_MANAGER")
+	if denied.Code != http.StatusForbidden {
+		t.Fatalf("supply manager contract status=%d, want 403", denied.Code)
+	}
+	created := performRequest(handler, http.MethodPost, "/api/v1/admin/procurement/suppliers/"+supplier.ID.String()+"/contracts", body, "procurement", "PROCUREMENT_MANAGER")
+	if created.Code != http.StatusCreated {
+		t.Fatalf("create contract status=%d body=%s", created.Code, created.Body.String())
+	}
+	var contract domain.SupplierContract
+	if err := json.Unmarshal(created.Body.Bytes(), &contract); err != nil {
+		t.Fatal(err)
+	}
+	if contract.Status != domain.SupplierContractDraft || contract.Revision != 1 || contract.DocumentFileID != "file-abc" {
+		t.Fatalf("unexpected contract response: %+v", contract)
+	}
+}
+
+func TestUpdateMaterialRoutePreservesStatus(t *testing.T) {
+	repo := newHTTPRepository()
+	material, _ := domain.NewRawMaterial("SESAME", "Sesame", "KG", "")
+	material.Status = domain.MaterialInactive
+	repo.materials[material.ID] = material
+	handler := newHandler(repo)
+	updated := performRequest(handler, http.MethodPut, "/api/v1/admin/procurement/materials/"+material.ID.String(), `{"code":"SESAME-2","name":"Sesame updated","base_unit":"KG","description":"new"}`, "staff", "SUPPLY_MANAGER")
+	if updated.Code != http.StatusOK {
+		t.Fatalf("update material status=%d body=%s", updated.Code, updated.Body.String())
+	}
+	var result domain.RawMaterial
+	if err := json.Unmarshal(updated.Body.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	if result.Code != "SESAME-2" || result.Status != domain.MaterialInactive {
+		t.Fatalf("unexpected updated material: %+v", result)
 	}
 }

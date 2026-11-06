@@ -29,14 +29,22 @@ Do not expose this service directly to public clients. The gateway must authenti
 - `GET /api/v1/admin/procurement/suppliers/{supplierID}`
 - `PUT /api/v1/admin/procurement/suppliers/{supplierID}`
 - `PATCH /api/v1/admin/procurement/suppliers/{supplierID}/status`
+- Create/update accepts optional `legal_identifier`; duplicate non-empty identifiers are rejected case-insensitively. Suppliers are suspended rather than hard-deleted so PO/receipt history remains valid.
 - `GET /api/v1/admin/procurement/materials?limit=50&offset=0`
 - `POST /api/v1/admin/procurement/materials`
 - `GET /api/v1/admin/procurement/materials/{materialID}`
+- `GET /api/v1/admin/procurement/materials/{materialID}/offers` compares supplier price versions for a material.
+- `PUT /api/v1/admin/procurement/materials/{materialID}` updates code/name/unit/description while preserving status and preferred supplier.
 - `PATCH /api/v1/admin/procurement/materials/{materialID}/status`
+- `PUT /api/v1/admin/procurement/materials/{materialID}/preferred-supplier` accepts `{"supplier_id":"<uuid>"}`; an empty value clears the preference. The supplier must be active and have an effective offer for the material.
 - `GET /api/v1/admin/procurement/suppliers/{supplierID}/offers`
 - `POST /api/v1/admin/procurement/suppliers/{supplierID}/offers`
+- `PATCH /api/v1/admin/procurement/suppliers/{supplierID}/offers/{offerID}/status` activates/deactivates a price version.
+- `GET/POST /api/v1/admin/procurement/suppliers/{supplierID}/contracts`
+- `GET /api/v1/admin/procurement/contracts/{contractID}`
+- `POST /api/v1/admin/procurement/contracts/{contractID}/activate` and `/terminate`
 
-Supplier types: `FARMER`, `COOPERATIVE`, `OCOP_BUSINESS`, `COMPANY`. A supplier-material offer stores a positive integer minor-unit price, 3-letter currency, unit, decimal minimum quantity, and lead time. A PO can only use an active offer for an active supplier/material, must meet the offer's minimum quantity, and snapshots the offer price and material name/code. All lines in one PO must use the same currency.
+Supplier types: `FARMER`, `COOPERATIVE`, `OCOP_BUSINESS`, `COMPANY`. Contracts use immutable revisions, effective dates, scope, payment terms, and an opaque `document_file_id` rather than an arbitrary URL. Contract endpoints require `ADMIN` or `PROCUREMENT_MANAGER`; activation rejects overlapping active agreements for the same supplier and scope. Offers are immutable price versions with effective dates, MOQ and lead time; overlapping ranges are rejected and a new version closes a previous open-ended version. A PO can only use an effective active offer for an active supplier/material, must meet the offer's minimum quantity, and snapshots the offer price and material name/code. All lines in one PO must use the same currency.
 
 ## Purchase Order workflow
 
@@ -58,7 +66,7 @@ The lifecycle is `DRAFT → PENDING_APPROVAL → APPROVED → SENT`; a pending P
 - `GET /api/v1/admin/procurement/goods-receipts/{goodsReceiptID}` returns the receipt snapshot.
 - `POST /api/v1/admin/procurement/goods-receipts/{goodsReceiptID}/inspect` records accepted/rejected quantities, optional humidity percentage, and inspection notes for every receipt line.
 
-Accepted plus rejected quantity must equal the physical quantity received. Inspection is versioned and updates the receipt, PO received/accepted quantities, PO lifecycle, and both histories in one database transaction. An over-receipt is rejected. A PO reaches `RECEIVED` only when every line's accepted quantity meets the ordered quantity; otherwise it remains `PARTIALLY_RECEIVED`. A rejected quantity does not count toward fulfillment. Procurement does not create Inventory batches, increase stock, or publish `GoodsReceivedEvent`; those effects require the Inventory contract and idempotent integration to be aligned first.
+Accepted plus rejected quantity must equal the physical quantity received. Inspection is versioned and updates the receipt, PO received/accepted quantities, PO lifecycle, and both histories in one database transaction. Accepted quantity cannot exceed the PO quantity; rejected goods can be replaced under the same PO. A PO reaches `RECEIVED` only when every line's accepted quantity meets the ordered quantity; otherwise it remains `PARTIALLY_RECEIVED`. Procurement does not create Inventory batches, increase stock, or publish `GoodsReceivedEvent`; those effects require the Inventory contract and idempotent integration to be aligned first.
 
 Example create request:
 

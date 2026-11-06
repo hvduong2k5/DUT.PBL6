@@ -1,0 +1,12 @@
+DROP TABLE IF EXISTS supplier_contract_status_history;
+DROP TABLE IF EXISTS supplier_contracts;
+DROP INDEX IF EXISTS supplier_material_offers_effective_idx;
+DROP INDEX IF EXISTS supplier_material_offers_version_unique_idx;
+ALTER TABLE supplier_material_offers DROP CONSTRAINT IF EXISTS supplier_material_offers_effective_range_check;
+ALTER TABLE supplier_material_offers ADD CONSTRAINT supplier_material_offers_supplier_material_unique UNIQUE (supplier_id, material_id);
+ALTER TABLE supplier_material_offers DROP COLUMN IF EXISTS effective_to;
+ALTER TABLE supplier_material_offers DROP COLUMN IF EXISTS effective_from;
+ALTER TABLE supplier_material_offers DROP COLUMN IF EXISTS version;
+ALTER TABLE raw_materials DROP COLUMN IF EXISTS preferred_supplier_id;
+DROP INDEX IF EXISTS suppliers_legal_identifier_unique_idx;
+ALTER TABLE suppliers DROP COLUMN IF EXISTS legal_identifier;

@@ -17,11 +17,19 @@ type Repository interface {
 	ListSuppliers(context.Context, int, int) ([]domain.Supplier, error)
 	SetSupplierStatus(context.Context, uuid.UUID, domain.SupplierStatus) (domain.Supplier, error)
 	CreateMaterial(context.Context, domain.RawMaterial) (domain.RawMaterial, error)
+	UpdateMaterial(context.Context, uuid.UUID, domain.RawMaterial) (domain.RawMaterial, error)
 	SetMaterialStatus(context.Context, uuid.UUID, domain.MaterialStatus) (domain.RawMaterial, error)
+	SetPreferredSupplier(context.Context, uuid.UUID, uuid.UUID) (domain.RawMaterial, error)
 	GetMaterial(context.Context, uuid.UUID) (domain.RawMaterial, error)
 	ListMaterials(context.Context, int, int) ([]domain.RawMaterial, error)
 	CreateOffer(context.Context, domain.SupplierMaterialOffer) (domain.SupplierMaterialOffer, error)
+	SetOfferActive(context.Context, uuid.UUID, uuid.UUID, bool) (domain.SupplierMaterialOffer, error)
 	ListSupplierOffers(context.Context, uuid.UUID) ([]domain.SupplierMaterialOffer, error)
+	ListMaterialOffers(context.Context, uuid.UUID) ([]domain.SupplierMaterialOffer, error)
+	CreateSupplierContract(context.Context, domain.SupplierContract) (domain.SupplierContract, error)
+	GetSupplierContract(context.Context, uuid.UUID) (domain.SupplierContract, error)
+	ListSupplierContracts(context.Context, uuid.UUID, int, int) ([]domain.SupplierContract, error)
+	SetSupplierContractStatus(context.Context, uuid.UUID, domain.SupplierContractStatus, string) (domain.SupplierContract, error)
 	CreatePurchaseOrder(context.Context, domain.PurchaseOrder) (domain.PurchaseOrder, error)
 	GetPurchaseOrder(context.Context, uuid.UUID) (domain.PurchaseOrder, error)
 	ListPurchaseOrders(context.Context, uuid.UUID, domain.PurchaseOrderStatus, int, int) ([]domain.PurchaseOrder, error)
@@ -50,11 +58,32 @@ func (s *Service) ListSuppliers(ctx context.Context, limit, offset int) ([]domai
 func (s *Service) SetSupplierStatus(ctx context.Context, id uuid.UUID, status domain.SupplierStatus) (domain.Supplier, error) {
 	return s.repo.SetSupplierStatus(ctx, id, status)
 }
+func (s *Service) UpdateMaterial(ctx context.Context, id uuid.UUID, material domain.RawMaterial) (domain.RawMaterial, error) {
+	current, err := s.repo.GetMaterial(ctx, id)
+	if err != nil {
+		return domain.RawMaterial{}, err
+	}
+	if err := current.Replace(material); err != nil {
+		return domain.RawMaterial{}, err
+	}
+	return s.repo.UpdateMaterial(ctx, id, current)
+}
 func (s *Service) CreateMaterial(ctx context.Context, material domain.RawMaterial) (domain.RawMaterial, error) {
 	return s.repo.CreateMaterial(ctx, material)
 }
 func (s *Service) SetMaterialStatus(ctx context.Context, id uuid.UUID, status domain.MaterialStatus) (domain.RawMaterial, error) {
 	return s.repo.SetMaterialStatus(ctx, id, status)
+}
+func (s *Service) SetPreferredSupplier(ctx context.Context, materialID, supplierID uuid.UUID) (domain.RawMaterial, error) {
+	if _, err := s.repo.GetMaterial(ctx, materialID); err != nil {
+		return domain.RawMaterial{}, err
+	}
+	if supplierID != uuid.Nil {
+		if _, err := s.repo.GetSupplier(ctx, supplierID); err != nil {
+			return domain.RawMaterial{}, err
+		}
+	}
+	return s.repo.SetPreferredSupplier(ctx, materialID, supplierID)
 }
 func (s *Service) GetMaterial(ctx context.Context, id uuid.UUID) (domain.RawMaterial, error) {
 	return s.repo.GetMaterial(ctx, id)
@@ -79,11 +108,51 @@ func (s *Service) CreateOffer(ctx context.Context, offer domain.SupplierMaterial
 	}
 	return s.repo.CreateOffer(ctx, offer)
 }
+func (s *Service) SetOfferActive(ctx context.Context, supplierID, offerID uuid.UUID, active bool) (domain.SupplierMaterialOffer, error) {
+	return s.repo.SetOfferActive(ctx, supplierID, offerID, active)
+}
 func (s *Service) ListSupplierOffers(ctx context.Context, id uuid.UUID) ([]domain.SupplierMaterialOffer, error) {
 	if _, err := s.repo.GetSupplier(ctx, id); err != nil {
 		return nil, err
 	}
 	return s.repo.ListSupplierOffers(ctx, id)
+}
+func (s *Service) ListMaterialOffers(ctx context.Context, id uuid.UUID) ([]domain.SupplierMaterialOffer, error) {
+	if _, err := s.repo.GetMaterial(ctx, id); err != nil {
+		return nil, err
+	}
+	return s.repo.ListMaterialOffers(ctx, id)
+}
+
+func (s *Service) CreateSupplierContract(ctx context.Context, contract domain.SupplierContract) (domain.SupplierContract, error) {
+	supplier, err := s.repo.GetSupplier(ctx, contract.SupplierID)
+	if err != nil {
+		return domain.SupplierContract{}, err
+	}
+	if supplier.Status != domain.SupplierActive {
+		return domain.SupplierContract{}, domain.ErrInvalidState
+	}
+	return s.repo.CreateSupplierContract(ctx, contract)
+}
+func (s *Service) GetSupplierContract(ctx context.Context, id uuid.UUID) (domain.SupplierContract, error) {
+	return s.repo.GetSupplierContract(ctx, id)
+}
+func (s *Service) ListSupplierContracts(ctx context.Context, supplierID uuid.UUID, limit, offset int) ([]domain.SupplierContract, error) {
+	if supplierID != uuid.Nil {
+		if _, err := s.repo.GetSupplier(ctx, supplierID); err != nil {
+			return nil, err
+		}
+	}
+	return s.repo.ListSupplierContracts(ctx, supplierID, limit, offset)
+}
+func (s *Service) SetSupplierContractStatus(ctx context.Context, id uuid.UUID, status domain.SupplierContractStatus, actor string) (domain.SupplierContract, error) {
+	if status != domain.SupplierContractActive && status != domain.SupplierContractTerminated {
+		return domain.SupplierContract{}, domain.ErrInvalidArgument
+	}
+	if strings.TrimSpace(actor) == "" {
+		return domain.SupplierContract{}, domain.ErrInvalidArgument
+	}
+	return s.repo.SetSupplierContractStatus(ctx, id, status, actor)
 }
 
 type PurchaseOrderLineRequest struct {
@@ -243,7 +312,7 @@ func (s *Service) buildPurchaseOrder(ctx context.Context, number string, request
 	}
 	offerByMaterial := make(map[uuid.UUID]domain.SupplierMaterialOffer, len(offers))
 	for _, offer := range offers {
-		if offer.Active {
+		if offer.EffectiveAt(time.Now().UTC()) {
 			offerByMaterial[offer.MaterialID] = offer
 		}
 	}

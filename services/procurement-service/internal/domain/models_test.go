@@ -2,6 +2,7 @@ package domain_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/omamx/procurement-service/internal/domain"
@@ -20,6 +21,16 @@ func TestNewSupplierNormalizesAndValidates(t *testing.T) {
 	}
 	if _, err := domain.NewSupplier("SUP-1", "Name", "OTHER", "", "", "", ""); err == nil {
 		t.Fatal("expected unsupported supplier type to be rejected")
+	}
+}
+
+func TestSupplierLegalIdentifierIsNormalized(t *testing.T) {
+	supplier, err := domain.NewSupplierWithLegalIdentifier("sup-2", "Supplier", "COMPANY", "", "", "", "", "  0123-ab ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if supplier.LegalIdentifier != "0123-AB" {
+		t.Fatalf("identifier=%q", supplier.LegalIdentifier)
 	}
 }
 
@@ -64,5 +75,38 @@ func TestNewSupplierMaterialOfferValidation(t *testing.T) {
 				t.Fatal("expected invalid offer to be rejected")
 			}
 		})
+	}
+}
+
+func TestPriceOfferVersionHasValidEffectiveRange(t *testing.T) {
+	from := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	to := from.AddDate(0, 1, 0)
+	offer, err := domain.NewSupplierMaterialOfferVersion(uuid.New(), uuid.New(), "", "KG", 100, "VND", "1", 2, from, &to)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !offer.EffectiveAt(from.Add(time.Hour)) || offer.EffectiveAt(to) {
+		t.Fatalf("effective window incorrect: %+v", offer)
+	}
+	if _, err := domain.NewSupplierMaterialOfferVersion(uuid.New(), uuid.New(), "", "KG", 100, "VND", "1", 2, to, &from); err == nil {
+		t.Fatal("expected invalid date range")
+	}
+}
+
+func TestSupplierContractRequiresValidDateRangeAndActor(t *testing.T) {
+	from := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	to := from.AddDate(0, 1, 0)
+	contract, err := domain.NewSupplierContract(uuid.New(), "AGR-01", "RAW_MATERIALS", "NET 30", "file-123", from, &to, "manager")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if contract.Status != domain.SupplierContractDraft || contract.Revision != 1 || contract.DocumentFileID != "file-123" {
+		t.Fatalf("unexpected contract: %+v", contract)
+	}
+	if _, err := domain.NewSupplierContract(uuid.New(), "AGR-01", "", "NET 30", "", from, &to, "manager"); err == nil {
+		t.Fatal("expected missing scope to fail")
+	}
+	if _, err := domain.NewSupplierContract(uuid.New(), "AGR-01", "scope", "NET 30", "", to, &from, "manager"); err == nil {
+		t.Fatal("expected invalid date range to fail")
 	}
 }

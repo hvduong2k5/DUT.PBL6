@@ -23,11 +23,11 @@ func New(pool *pgxpool.Pool) *Repository { return &Repository{pool: pool} }
 func (r *Repository) Ping(ctx context.Context) error { return r.pool.Ping(ctx) }
 
 func (r *Repository) CreateSupplier(ctx context.Context, supplier domain.Supplier) (domain.Supplier, error) {
-	const query = `INSERT INTO suppliers (id, code, name, supplier_type, contact_name, phone, email, address, status)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+	const query = `INSERT INTO suppliers (id, code, name, supplier_type, contact_name, phone, email, address, legal_identifier, status)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
 		RETURNING created_at, updated_at`
 	err := r.pool.QueryRow(ctx, query, supplier.ID, supplier.Code, supplier.Name, supplier.SupplierType,
-		supplier.ContactName, supplier.Phone, supplier.Email, supplier.Address, supplier.Status).
+		supplier.ContactName, supplier.Phone, supplier.Email, supplier.Address, supplier.LegalIdentifier, supplier.Status).
 		Scan(&supplier.CreatedAt, &supplier.UpdatedAt)
 	if err != nil {
 		return domain.Supplier{}, mapError(err)
@@ -37,10 +37,10 @@ func (r *Repository) CreateSupplier(ctx context.Context, supplier domain.Supplie
 
 func (r *Repository) UpdateSupplier(ctx context.Context, id uuid.UUID, supplier domain.Supplier) (domain.Supplier, error) {
 	const query = `UPDATE suppliers SET code=$2, name=$3, supplier_type=$4, contact_name=$5, phone=$6,
-		email=$7, address=$8, updated_at=now()
-		WHERE id=$1 RETURNING id, code, name, supplier_type, contact_name, phone, email, address, status, created_at, updated_at`
+		email=$7, address=$8, legal_identifier=$9, updated_at=now()
+		WHERE id=$1 RETURNING id, code, name, supplier_type, contact_name, phone, email, address, legal_identifier, status, created_at, updated_at`
 	item, err := scanSupplier(r.pool.QueryRow(ctx, query, id, supplier.Code, supplier.Name, supplier.SupplierType,
-		supplier.ContactName, supplier.Phone, supplier.Email, supplier.Address))
+		supplier.ContactName, supplier.Phone, supplier.Email, supplier.Address, supplier.LegalIdentifier))
 	if err != nil {
 		return domain.Supplier{}, mapError(err)
 	}
@@ -69,8 +69,25 @@ func (r *Repository) ListSuppliers(ctx context.Context, limit, offset int) ([]do
 }
 
 func (r *Repository) SetSupplierStatus(ctx context.Context, id uuid.UUID, status domain.SupplierStatus) (domain.Supplier, error) {
-	const query = `UPDATE suppliers SET status=$2, updated_at=now() WHERE id=$1 RETURNING id, code, name, supplier_type, contact_name, phone, email, address, status, created_at, updated_at`
-	return scanSupplier(r.pool.QueryRow(ctx, query, id, status))
+	const query = `UPDATE suppliers SET status=$2, updated_at=now() WHERE id=$1 RETURNING id, code, name, supplier_type, contact_name, phone, email, address, legal_identifier, status, created_at, updated_at`
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return domain.Supplier{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	item, err := scanSupplier(tx.QueryRow(ctx, query, id, status))
+	if err != nil {
+		return domain.Supplier{}, err
+	}
+	if status == domain.SupplierSuspended {
+		if _, err := tx.Exec(ctx, `UPDATE raw_materials SET preferred_supplier_id=NULL,updated_at=now() WHERE preferred_supplier_id=$1`, id); err != nil {
+			return domain.Supplier{}, err
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return domain.Supplier{}, err
+	}
+	return item, nil
 }
 
 func (r *Repository) CreateMaterial(ctx context.Context, material domain.RawMaterial) (domain.RawMaterial, error) {
@@ -84,8 +101,24 @@ func (r *Repository) CreateMaterial(ctx context.Context, material domain.RawMate
 	return material, nil
 }
 
+func (r *Repository) UpdateMaterial(ctx context.Context, id uuid.UUID, material domain.RawMaterial) (domain.RawMaterial, error) {
+	return scanMaterial(r.pool.QueryRow(ctx, `UPDATE raw_materials SET code=$2,name=$3,base_unit=$4,description=$5,updated_at=now() WHERE id=$1 RETURNING id,code,name,base_unit,description,status,preferred_supplier_id,created_at,updated_at`, id, material.Code, material.Name, material.BaseUnit, material.Description))
+}
+
+func (r *Repository) SetPreferredSupplier(ctx context.Context, materialID, supplierID uuid.UUID) (domain.RawMaterial, error) {
+	var preferred any
+	if supplierID != uuid.Nil {
+		preferred = supplierID
+	}
+	item, err := scanMaterial(r.pool.QueryRow(ctx, `UPDATE raw_materials m SET preferred_supplier_id=$2,updated_at=now() WHERE m.id=$1 AND ($2::uuid IS NULL OR EXISTS(SELECT 1 FROM suppliers s JOIN supplier_material_offers o ON o.supplier_id=s.id WHERE s.id=$2 AND s.status='ACTIVE' AND o.material_id=m.id AND o.active AND o.effective_from<=now() AND (o.effective_to IS NULL OR o.effective_to>now()))) RETURNING m.id,m.code,m.name,m.base_unit,m.description,m.status,m.preferred_supplier_id,m.created_at,m.updated_at`, materialID, preferred))
+	if errors.Is(err, domain.ErrNotFound) && supplierID != uuid.Nil {
+		return domain.RawMaterial{}, domain.ErrInvalidState
+	}
+	return item, err
+}
+
 func (r *Repository) SetMaterialStatus(ctx context.Context, id uuid.UUID, status domain.MaterialStatus) (domain.RawMaterial, error) {
-	const query = `UPDATE raw_materials SET status=$2, updated_at=now() WHERE id=$1 RETURNING id, code, name, base_unit, description, status, created_at, updated_at`
+	const query = `UPDATE raw_materials SET status=$2, updated_at=now() WHERE id=$1 RETURNING id, code, name, base_unit, description, status, preferred_supplier_id, created_at, updated_at`
 	return scanMaterial(r.pool.QueryRow(ctx, query, id, status))
 }
 
@@ -111,23 +144,95 @@ func (r *Repository) ListMaterials(ctx context.Context, limit, offset int) ([]do
 }
 
 func (r *Repository) CreateOffer(ctx context.Context, offer domain.SupplierMaterialOffer) (domain.SupplierMaterialOffer, error) {
-	const query = `INSERT INTO supplier_material_offers
-		(id, supplier_id, material_id, supplier_sku, unit, unit_price_minor, currency, minimum_quantity, lead_time_days, active)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING created_at, updated_at`
-	err := r.pool.QueryRow(ctx, query, offer.ID, offer.SupplierID, offer.MaterialID, offer.SupplierSKU,
-		offer.Unit, offer.UnitPriceMinor, offer.Currency, offer.MinimumQty, offer.LeadTimeDays, offer.Active).
-		Scan(&offer.CreatedAt, &offer.UpdatedAt)
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return domain.SupplierMaterialOffer{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	var lockedSupplier uuid.UUID
+	if err := tx.QueryRow(ctx, `SELECT id FROM suppliers WHERE id=$1 AND status='ACTIVE' FOR UPDATE`, offer.SupplierID).Scan(&lockedSupplier); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.SupplierMaterialOffer{}, domain.ErrInvalidState
+		}
+		return domain.SupplierMaterialOffer{}, err
+	}
+	var lockedMaterial uuid.UUID
+	if err := tx.QueryRow(ctx, `SELECT id FROM raw_materials WHERE id=$1 AND status='ACTIVE' AND base_unit=$2 FOR UPDATE`, offer.MaterialID, offer.Unit).Scan(&lockedMaterial); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.SupplierMaterialOffer{}, domain.ErrInvalidState
+		}
+		return domain.SupplierMaterialOffer{}, err
+	}
+	if _, err := tx.Exec(ctx, `UPDATE supplier_material_offers SET effective_to=$3,updated_at=now() WHERE supplier_id=$1 AND material_id=$2 AND active AND effective_to IS NULL AND effective_from<$3`, offer.SupplierID, offer.MaterialID, offer.EffectiveFrom); err != nil {
+		return domain.SupplierMaterialOffer{}, err
+	}
+	var overlap bool
+	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM supplier_material_offers WHERE supplier_id=$1 AND material_id=$2 AND active AND effective_from<COALESCE($4::timestamptz,'infinity') AND COALESCE(effective_to,'infinity')>$3::timestamptz)`, offer.SupplierID, offer.MaterialID, offer.EffectiveFrom, offer.EffectiveTo).Scan(&overlap); err != nil {
+		return domain.SupplierMaterialOffer{}, err
+	}
+	if overlap {
+		return domain.SupplierMaterialOffer{}, domain.ErrConflict
+	}
+	if err := tx.QueryRow(ctx, `SELECT COALESCE(MAX(version),0)+1 FROM supplier_material_offers WHERE supplier_id=$1 AND material_id=$2`, offer.SupplierID, offer.MaterialID).Scan(&offer.Version); err != nil {
+		return domain.SupplierMaterialOffer{}, err
+	}
+	err = tx.QueryRow(ctx, `INSERT INTO supplier_material_offers (id,supplier_id,material_id,supplier_sku,unit,unit_price_minor,currency,minimum_quantity,lead_time_days,active,version,effective_from,effective_to) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING created_at,updated_at`, offer.ID, offer.SupplierID, offer.MaterialID, offer.SupplierSKU, offer.Unit, offer.UnitPriceMinor, offer.Currency, offer.MinimumQty, offer.LeadTimeDays, offer.Active, offer.Version, offer.EffectiveFrom, offer.EffectiveTo).Scan(&offer.CreatedAt, &offer.UpdatedAt)
 	if err != nil {
 		return domain.SupplierMaterialOffer{}, mapError(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return domain.SupplierMaterialOffer{}, err
 	}
 	return offer, nil
 }
 
+func (r *Repository) SetOfferActive(ctx context.Context, supplierID, offerID uuid.UUID, active bool) (domain.SupplierMaterialOffer, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return domain.SupplierMaterialOffer{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	var item domain.SupplierMaterialOffer
+	var effectiveTo pgtype.Timestamptz
+	err = tx.QueryRow(ctx, `UPDATE supplier_material_offers SET active=$3,updated_at=now() WHERE supplier_id=$1 AND id=$2 RETURNING id,supplier_id,material_id,supplier_sku,unit,unit_price_minor,currency,minimum_quantity::text,lead_time_days,active,version,effective_from,effective_to,created_at,updated_at`, supplierID, offerID, active).
+		Scan(&item.ID, &item.SupplierID, &item.MaterialID, &item.SupplierSKU, &item.Unit, &item.UnitPriceMinor, &item.Currency, &item.MinimumQty, &item.LeadTimeDays, &item.Active, &item.Version, &item.EffectiveFrom, &effectiveTo, &item.CreatedAt, &item.UpdatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.SupplierMaterialOffer{}, domain.ErrNotFound
+	}
+	if err != nil {
+		return domain.SupplierMaterialOffer{}, mapError(err)
+	}
+	if effectiveTo.Valid {
+		end := effectiveTo.Time
+		item.EffectiveTo = &end
+	}
+	if !active {
+		if _, err := tx.Exec(ctx, `UPDATE raw_materials m SET preferred_supplier_id=NULL,updated_at=now() WHERE m.id=$1 AND m.preferred_supplier_id=$2 AND NOT EXISTS(SELECT 1 FROM supplier_material_offers o JOIN suppliers s ON s.id=o.supplier_id WHERE o.material_id=m.id AND o.supplier_id=$2 AND o.active AND s.status='ACTIVE' AND o.effective_from<=now() AND (o.effective_to IS NULL OR o.effective_to>now()))`, item.MaterialID, supplierID); err != nil {
+			return domain.SupplierMaterialOffer{}, err
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return domain.SupplierMaterialOffer{}, err
+	}
+	return item, nil
+}
+
 func (r *Repository) ListSupplierOffers(ctx context.Context, supplierID uuid.UUID) ([]domain.SupplierMaterialOffer, error) {
-	const query = `SELECT id, supplier_id, material_id, supplier_sku, unit, unit_price_minor,
-		currency, minimum_quantity::text, lead_time_days, active, created_at, updated_at
-		FROM supplier_material_offers WHERE supplier_id=$1 ORDER BY material_id, id`
-	rows, err := r.pool.Query(ctx, query, supplierID)
+	return r.listOffers(ctx, `supplier_id`, supplierID)
+}
+
+func (r *Repository) ListMaterialOffers(ctx context.Context, materialID uuid.UUID) ([]domain.SupplierMaterialOffer, error) {
+	return r.listOffers(ctx, `material_id`, materialID)
+}
+
+func (r *Repository) listOffers(ctx context.Context, column string, id uuid.UUID) ([]domain.SupplierMaterialOffer, error) {
+	if column != "supplier_id" && column != "material_id" {
+		return nil, domain.ErrInvalidArgument
+	}
+	query := `SELECT id, supplier_id, material_id, supplier_sku, unit, unit_price_minor,
+		currency, minimum_quantity::text, lead_time_days, active, version, effective_from, effective_to, created_at, updated_at
+		FROM supplier_material_offers WHERE ` + column + `=$1 ORDER BY supplier_id, material_id, version DESC`
+	rows, err := r.pool.Query(ctx, query, id)
 	if err != nil {
 		return nil, err
 	}
@@ -135,14 +240,136 @@ func (r *Repository) ListSupplierOffers(ctx context.Context, supplierID uuid.UUI
 	items := make([]domain.SupplierMaterialOffer, 0)
 	for rows.Next() {
 		var item domain.SupplierMaterialOffer
+		var effectiveTo pgtype.Timestamptz
 		if err := rows.Scan(&item.ID, &item.SupplierID, &item.MaterialID, &item.SupplierSKU, &item.Unit,
-			&item.UnitPriceMinor, &item.Currency, &item.MinimumQty, &item.LeadTimeDays, &item.Active,
+			&item.UnitPriceMinor, &item.Currency, &item.MinimumQty, &item.LeadTimeDays, &item.Active, &item.Version, &item.EffectiveFrom, &effectiveTo,
 			&item.CreatedAt, &item.UpdatedAt); err != nil {
 			return nil, err
+		}
+		if effectiveTo.Valid {
+			end := effectiveTo.Time
+			item.EffectiveTo = &end
 		}
 		items = append(items, item)
 	}
 	return items, rows.Err()
+}
+
+func (r *Repository) CreateSupplierContract(ctx context.Context, contract domain.SupplierContract) (domain.SupplierContract, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return domain.SupplierContract{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	var supplierID uuid.UUID
+	if err := tx.QueryRow(ctx, `SELECT id FROM suppliers WHERE id=$1 AND status='ACTIVE' FOR UPDATE`, contract.SupplierID).Scan(&supplierID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.SupplierContract{}, domain.ErrInvalidState
+		}
+		return domain.SupplierContract{}, err
+	}
+	if err := tx.QueryRow(ctx, `SELECT COALESCE(MAX(revision),0)+1 FROM supplier_contracts WHERE supplier_id=$1 AND contract_number=$2`, contract.SupplierID, contract.ContractNumber).Scan(&contract.Revision); err != nil {
+		return domain.SupplierContract{}, err
+	}
+	err = tx.QueryRow(ctx, `INSERT INTO supplier_contracts(id,supplier_id,contract_number,revision,scope,payment_terms,document_file_id,effective_from,effective_to,status,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING created_at,updated_at`, contract.ID, contract.SupplierID, contract.ContractNumber, contract.Revision, contract.Scope, contract.PaymentTerms, contract.DocumentFileID, contract.EffectiveFrom, contract.EffectiveTo, contract.Status, contract.CreatedBy).Scan(&contract.CreatedAt, &contract.UpdatedAt)
+	if err != nil {
+		return domain.SupplierContract{}, mapError(err)
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO supplier_contract_status_history(id,supplier_contract_id,to_status,action,actor_id) VALUES($1,$2,$3,'CREATED',$4)`, uuid.New(), contract.ID, contract.Status, contract.CreatedBy); err != nil {
+		return domain.SupplierContract{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return domain.SupplierContract{}, err
+	}
+	return contract, nil
+}
+
+func (r *Repository) GetSupplierContract(ctx context.Context, id uuid.UUID) (domain.SupplierContract, error) {
+	return scanSupplierContract(r.pool.QueryRow(ctx, supplierContractSelect+` WHERE id=$1`, id))
+}
+
+func (r *Repository) ListSupplierContracts(ctx context.Context, supplierID uuid.UUID, limit, offset int) ([]domain.SupplierContract, error) {
+	var filter any
+	if supplierID != uuid.Nil {
+		filter = supplierID
+	}
+	rows, err := r.pool.Query(ctx, `SELECT id FROM supplier_contracts WHERE ($1::uuid IS NULL OR supplier_id=$1) ORDER BY supplier_id,contract_number,revision DESC LIMIT $2 OFFSET $3`, filter, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	ids := make([]uuid.UUID, 0)
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	items := make([]domain.SupplierContract, 0, len(ids))
+	for _, id := range ids {
+		item, err := r.GetSupplierContract(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, nil
+}
+
+func (r *Repository) SetSupplierContractStatus(ctx context.Context, id uuid.UUID, status domain.SupplierContractStatus, actor string) (domain.SupplierContract, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return domain.SupplierContract{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	current, err := scanSupplierContract(tx.QueryRow(ctx, supplierContractSelect+` WHERE id=$1 FOR UPDATE`, id))
+	if err != nil {
+		return domain.SupplierContract{}, err
+	}
+	if status == domain.SupplierContractActive {
+		var supplier uuid.UUID
+		if err := tx.QueryRow(ctx, `SELECT id FROM suppliers WHERE id=$1 AND status='ACTIVE' FOR UPDATE`, current.SupplierID).Scan(&supplier); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return domain.SupplierContract{}, domain.ErrInvalidState
+			}
+			return domain.SupplierContract{}, err
+		}
+		if current.Status != domain.SupplierContractDraft || current.EffectiveTo != nil && !time.Now().UTC().Before(*current.EffectiveTo) {
+			return domain.SupplierContract{}, domain.ErrInvalidState
+		}
+		var overlap bool
+		if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM supplier_contracts WHERE supplier_id=$1 AND lower(scope)=lower($2) AND status='ACTIVE' AND id<>$3 AND effective_from<COALESCE($5::timestamptz,'infinity') AND COALESCE(effective_to,'infinity')>$4::timestamptz)`, current.SupplierID, current.Scope, current.ID, current.EffectiveFrom, current.EffectiveTo).Scan(&overlap); err != nil {
+			return domain.SupplierContract{}, err
+		}
+		if overlap {
+			return domain.SupplierContract{}, domain.ErrConflict
+		}
+	} else if status == domain.SupplierContractTerminated {
+		if current.Status != domain.SupplierContractActive {
+			return domain.SupplierContract{}, domain.ErrInvalidState
+		}
+	} else {
+		return domain.SupplierContract{}, domain.ErrInvalidArgument
+	}
+	previous := current.Status
+	current.Status = status
+	if status == domain.SupplierContractExpired {
+		return domain.SupplierContract{}, domain.ErrInvalidArgument
+	}
+	if err := tx.QueryRow(ctx, `UPDATE supplier_contracts SET status=$2,updated_at=now() WHERE id=$1 RETURNING updated_at`, id, status).Scan(&current.UpdatedAt); err != nil {
+		return domain.SupplierContract{}, err
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO supplier_contract_status_history(id,supplier_contract_id,from_status,to_status,action,actor_id) VALUES($1,$2,$3,$4,$5,$6)`, uuid.New(), id, previous, status, string(status), actor); err != nil {
+		return domain.SupplierContract{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return domain.SupplierContract{}, err
+	}
+	return current, nil
 }
 
 func (r *Repository) CreatePurchaseOrder(ctx context.Context, order domain.PurchaseOrder) (domain.PurchaseOrder, error) {
@@ -489,15 +716,16 @@ func timestampPointer(value pgtype.Timestamptz) *time.Time {
 	return &result
 }
 
-const supplierSelect = `SELECT id, code, name, supplier_type, contact_name, phone, email, address, status, created_at, updated_at FROM suppliers`
-const materialSelect = `SELECT id, code, name, base_unit, description, status, created_at, updated_at FROM raw_materials`
+const supplierSelect = `SELECT id, code, name, supplier_type, contact_name, phone, email, address, legal_identifier, status, created_at, updated_at FROM suppliers`
+const materialSelect = `SELECT id, code, name, base_unit, description, status, preferred_supplier_id, created_at, updated_at FROM raw_materials`
+const supplierContractSelect = `SELECT id,supplier_id,contract_number,revision,scope,payment_terms,document_file_id,effective_from,effective_to,status,created_by,created_at,updated_at FROM supplier_contracts`
 
 type rowScanner interface{ Scan(...any) error }
 
 func scanSupplier(row rowScanner) (domain.Supplier, error) {
 	var item domain.Supplier
 	err := row.Scan(&item.ID, &item.Code, &item.Name, &item.SupplierType, &item.ContactName, &item.Phone,
-		&item.Email, &item.Address, &item.Status, &item.CreatedAt, &item.UpdatedAt)
+		&item.Email, &item.Address, &item.LegalIdentifier, &item.Status, &item.CreatedAt, &item.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Supplier{}, domain.ErrNotFound
 	}
@@ -508,14 +736,36 @@ func scanSupplierRow(row rowScanner) (domain.Supplier, error) { return scanSuppl
 
 func scanMaterial(row rowScanner) (domain.RawMaterial, error) {
 	var item domain.RawMaterial
-	err := row.Scan(&item.ID, &item.Code, &item.Name, &item.BaseUnit, &item.Description, &item.Status, &item.CreatedAt, &item.UpdatedAt)
+	var preferred pgtype.UUID
+	err := row.Scan(&item.ID, &item.Code, &item.Name, &item.BaseUnit, &item.Description, &item.Status, &preferred, &item.CreatedAt, &item.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.RawMaterial{}, domain.ErrNotFound
+	}
+	if preferred.Valid {
+		id, parseErr := uuid.FromBytes(preferred.Bytes[:])
+		if parseErr != nil {
+			return domain.RawMaterial{}, parseErr
+		}
+		item.PreferredSupplierID = &id
 	}
 	return item, err
 }
 
 func scanMaterialRow(row rowScanner) (domain.RawMaterial, error) { return scanMaterial(row) }
+
+func scanSupplierContract(row rowScanner) (domain.SupplierContract, error) {
+	var item domain.SupplierContract
+	var effectiveTo pgtype.Timestamptz
+	err := row.Scan(&item.ID, &item.SupplierID, &item.ContractNumber, &item.Revision, &item.Scope, &item.PaymentTerms, &item.DocumentFileID, &item.EffectiveFrom, &effectiveTo, &item.Status, &item.CreatedBy, &item.CreatedAt, &item.UpdatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.SupplierContract{}, domain.ErrNotFound
+	}
+	if effectiveTo.Valid {
+		end := effectiveTo.Time
+		item.EffectiveTo = &end
+	}
+	return item, err
+}
 
 func mapError(err error) error {
 	var pgErr *pgconn.PgError

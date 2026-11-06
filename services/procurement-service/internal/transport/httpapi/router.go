@@ -38,9 +38,13 @@ func NewRouter(service *application.Service, internalToken string, ping func(con
 		r.Get("/api/v1/admin/procurement/materials", h.listMaterials)
 		r.Post("/api/v1/admin/procurement/materials", h.createMaterial)
 		r.Get("/api/v1/admin/procurement/materials/{materialID}", h.getMaterial)
+		r.Get("/api/v1/admin/procurement/materials/{materialID}/offers", h.listMaterialOffers)
+		r.Put("/api/v1/admin/procurement/materials/{materialID}", h.updateMaterial)
 		r.Patch("/api/v1/admin/procurement/materials/{materialID}/status", h.setMaterialStatus)
+		r.Put("/api/v1/admin/procurement/materials/{materialID}/preferred-supplier", h.setPreferredSupplier)
 		r.Get("/api/v1/admin/procurement/suppliers/{supplierID}/offers", h.listSupplierOffers)
 		r.Post("/api/v1/admin/procurement/suppliers/{supplierID}/offers", h.createSupplierOffer)
+		r.Patch("/api/v1/admin/procurement/suppliers/{supplierID}/offers/{offerID}/status", h.setSupplierOfferStatus)
 		r.Get("/api/v1/admin/procurement/purchase-orders", h.listPurchaseOrders)
 		r.Post("/api/v1/admin/procurement/purchase-orders", h.createPurchaseOrder)
 		r.Get("/api/v1/admin/procurement/purchase-orders/{purchaseOrderID}", h.getPurchaseOrder)
@@ -56,6 +60,14 @@ func NewRouter(service *application.Service, internalToken string, ping func(con
 		r.Post("/api/v1/admin/procurement/goods-receipts", h.createGoodsReceipt)
 		r.Get("/api/v1/admin/procurement/goods-receipts/{goodsReceiptID}", h.getGoodsReceipt)
 		r.Post("/api/v1/admin/procurement/goods-receipts/{goodsReceiptID}/inspect", h.inspectGoodsReceipt)
+	})
+	r.Group(func(r chi.Router) {
+		r.Use(h.requireSensitiveProcurementStaff)
+		r.Get("/api/v1/admin/procurement/suppliers/{supplierID}/contracts", h.listSupplierContracts)
+		r.Post("/api/v1/admin/procurement/suppliers/{supplierID}/contracts", h.createSupplierContract)
+		r.Get("/api/v1/admin/procurement/contracts/{contractID}", h.getSupplierContract)
+		r.Post("/api/v1/admin/procurement/contracts/{contractID}/activate", h.activateSupplierContract)
+		r.Post("/api/v1/admin/procurement/contracts/{contractID}/terminate", h.terminateSupplierContract)
 	})
 	return r
 }
@@ -80,6 +92,10 @@ func (h *Router) requireInternalStaff(next http.Handler) http.Handler {
 
 func (h *Router) requireReceivingStaff(next http.Handler) http.Handler {
 	return h.requireRoles(next, "ADMIN", "SUPPLY_MANAGER", "PROCUREMENT_MANAGER", "WAREHOUSE_STAFF")
+}
+
+func (h *Router) requireSensitiveProcurementStaff(next http.Handler) http.Handler {
+	return h.requireRoles(next, "ADMIN", "PROCUREMENT_MANAGER")
 }
 
 func (h *Router) requireRoles(next http.Handler, allowed ...string) http.Handler {
@@ -392,13 +408,14 @@ func (h *Router) transitionPurchaseOrder(w http.ResponseWriter, r *http.Request,
 }
 
 type supplierRequest struct {
-	Code         string `json:"code"`
-	Name         string `json:"name"`
-	SupplierType string `json:"supplier_type"`
-	ContactName  string `json:"contact_name"`
-	Phone        string `json:"phone"`
-	Email        string `json:"email"`
-	Address      string `json:"address"`
+	Code            string `json:"code"`
+	Name            string `json:"name"`
+	SupplierType    string `json:"supplier_type"`
+	ContactName     string `json:"contact_name"`
+	Phone           string `json:"phone"`
+	Email           string `json:"email"`
+	Address         string `json:"address"`
+	LegalIdentifier string `json:"legal_identifier,omitempty"`
 }
 
 func (h *Router) createSupplier(w http.ResponseWriter, r *http.Request) {
@@ -406,7 +423,7 @@ func (h *Router) createSupplier(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &request) {
 		return
 	}
-	supplier, err := domain.NewSupplier(request.Code, request.Name, request.SupplierType, request.ContactName, request.Phone, request.Email, request.Address)
+	supplier, err := domain.NewSupplierWithLegalIdentifier(request.Code, request.Name, request.SupplierType, request.ContactName, request.Phone, request.Email, request.Address, request.LegalIdentifier)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "code, name and a supported supplier_type are required")
 		return
@@ -454,7 +471,7 @@ func (h *Router) updateSupplier(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &request) {
 		return
 	}
-	supplier, err := domain.NewSupplier(request.Code, request.Name, request.SupplierType, request.ContactName, request.Phone, request.Email, request.Address)
+	supplier, err := domain.NewSupplierWithLegalIdentifier(request.Code, request.Name, request.SupplierType, request.ContactName, request.Phone, request.Email, request.Address, request.LegalIdentifier)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "code, name and a supported supplier_type are required")
 		return
@@ -515,6 +532,56 @@ func (h *Router) createMaterial(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, created)
 }
 
+func (h *Router) updateMaterial(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathUUID(w, chi.URLParam(r, "materialID"))
+	if !ok {
+		return
+	}
+	var request materialRequest
+	if !decodeJSON(w, r, &request) {
+		return
+	}
+	material, err := domain.NewRawMaterial(request.Code, request.Name, request.BaseUnit, request.Description)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "code, name and base_unit are required")
+		return
+	}
+	updated, err := h.service.UpdateMaterial(r.Context(), id, material)
+	if err != nil {
+		h.writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, updated)
+}
+
+func (h *Router) setPreferredSupplier(w http.ResponseWriter, r *http.Request) {
+	materialID, ok := pathUUID(w, chi.URLParam(r, "materialID"))
+	if !ok {
+		return
+	}
+	var request struct {
+		SupplierID string `json:"supplier_id"`
+	}
+	if !decodeJSON(w, r, &request) {
+		return
+	}
+	var supplierID uuid.UUID
+	if value := strings.TrimSpace(request.SupplierID); value != "" {
+		var err error
+		supplierID, err = uuid.Parse(value)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "supplier_id must be a UUID or empty to clear preference")
+			return
+		}
+	}
+	material, err := h.service.SetPreferredSupplier(r.Context(), materialID, supplierID)
+	if err != nil {
+		h.writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, material)
+}
+
 func (h *Router) listMaterials(w http.ResponseWriter, r *http.Request) {
 	limit, offset, ok := pagination(w, r)
 	if !ok {
@@ -572,6 +639,8 @@ type offerRequest struct {
 	Currency        string `json:"currency"`
 	MinimumQuantity string `json:"minimum_quantity"`
 	LeadTimeDays    int    `json:"lead_time_days"`
+	EffectiveFrom   string `json:"effective_from,omitempty"`
+	EffectiveTo     string `json:"effective_to,omitempty"`
 }
 
 func (h *Router) createSupplierOffer(w http.ResponseWriter, r *http.Request) {
@@ -588,7 +657,26 @@ func (h *Router) createSupplierOffer(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "material_id must be a UUID")
 		return
 	}
-	offer, err := domain.NewSupplierMaterialOffer(supplierID, materialID, request.SupplierSKU, request.Unit, request.UnitPriceMinor, request.Currency, request.MinimumQuantity, request.LeadTimeDays)
+	effectiveFrom := time.Now().UTC()
+	if value := strings.TrimSpace(request.EffectiveFrom); value != "" {
+		date, parseErr := time.Parse("2006-01-02", value)
+		if parseErr != nil {
+			writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "effective_from must use YYYY-MM-DD")
+			return
+		}
+		effectiveFrom = date.UTC()
+	}
+	var effectiveTo *time.Time
+	if value := strings.TrimSpace(request.EffectiveTo); value != "" {
+		date, parseErr := time.Parse("2006-01-02", value)
+		if parseErr != nil {
+			writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "effective_to must use YYYY-MM-DD")
+			return
+		}
+		end := date.AddDate(0, 0, 1).UTC()
+		effectiveTo = &end
+	}
+	offer, err := domain.NewSupplierMaterialOfferVersion(supplierID, materialID, request.SupplierSKU, request.Unit, request.UnitPriceMinor, request.Currency, request.MinimumQuantity, request.LeadTimeDays, effectiveFrom, effectiveTo)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "offer fields are invalid")
 		return
@@ -599,6 +687,33 @@ func (h *Router) createSupplierOffer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusCreated, created)
+}
+
+func (h *Router) setSupplierOfferStatus(w http.ResponseWriter, r *http.Request) {
+	supplierID, ok := pathUUID(w, chi.URLParam(r, "supplierID"))
+	if !ok {
+		return
+	}
+	offerID, ok := pathUUID(w, chi.URLParam(r, "offerID"))
+	if !ok {
+		return
+	}
+	var request struct {
+		Active *bool `json:"active"`
+	}
+	if !decodeJSON(w, r, &request) {
+		return
+	}
+	if request.Active == nil {
+		writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "active is required")
+		return
+	}
+	item, err := h.service.SetOfferActive(r.Context(), supplierID, offerID, *request.Active)
+	if err != nil {
+		h.writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, item)
 }
 
 func (h *Router) listSupplierOffers(w http.ResponseWriter, r *http.Request) {
@@ -612,6 +727,114 @@ func (h *Router) listSupplierOffers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"items": items})
+}
+
+func (h *Router) listMaterialOffers(w http.ResponseWriter, r *http.Request) {
+	materialID, ok := pathUUID(w, chi.URLParam(r, "materialID"))
+	if !ok {
+		return
+	}
+	items, err := h.service.ListMaterialOffers(r.Context(), materialID)
+	if err != nil {
+		h.writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"items": items})
+}
+
+type supplierContractRequest struct {
+	ContractNumber string `json:"contract_number"`
+	Scope          string `json:"scope"`
+	PaymentTerms   string `json:"payment_terms"`
+	DocumentFileID string `json:"document_file_id,omitempty"`
+	EffectiveFrom  string `json:"effective_from"`
+	EffectiveTo    string `json:"effective_to,omitempty"`
+}
+
+func (h *Router) createSupplierContract(w http.ResponseWriter, r *http.Request) {
+	supplierID, ok := pathUUID(w, chi.URLParam(r, "supplierID"))
+	if !ok {
+		return
+	}
+	var request supplierContractRequest
+	if !decodeJSON(w, r, &request) {
+		return
+	}
+	from, err := time.Parse("2006-01-02", strings.TrimSpace(request.EffectiveFrom))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "effective_from must use YYYY-MM-DD")
+		return
+	}
+	var to *time.Time
+	if value := strings.TrimSpace(request.EffectiveTo); value != "" {
+		date, parseErr := time.Parse("2006-01-02", value)
+		if parseErr != nil {
+			writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "effective_to must use YYYY-MM-DD")
+			return
+		}
+		end := date.AddDate(0, 0, 1).UTC()
+		to = &end
+	}
+	contract, err := domain.NewSupplierContract(supplierID, request.ContractNumber, request.Scope, request.PaymentTerms, request.DocumentFileID, from, to, strings.TrimSpace(r.Header.Get("X-User-ID")))
+	if err != nil {
+		h.writeServiceError(w, err)
+		return
+	}
+	created, err := h.service.CreateSupplierContract(r.Context(), contract)
+	if err != nil {
+		h.writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, created)
+}
+
+func (h *Router) listSupplierContracts(w http.ResponseWriter, r *http.Request) {
+	supplierID, ok := pathUUID(w, chi.URLParam(r, "supplierID"))
+	if !ok {
+		return
+	}
+	limit, offset, ok := pagination(w, r)
+	if !ok {
+		return
+	}
+	items, err := h.service.ListSupplierContracts(r.Context(), supplierID, limit, offset)
+	if err != nil {
+		h.writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"items": items, "limit": limit, "offset": offset})
+}
+
+func (h *Router) getSupplierContract(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathUUID(w, chi.URLParam(r, "contractID"))
+	if !ok {
+		return
+	}
+	item, err := h.service.GetSupplierContract(r.Context(), id)
+	if err != nil {
+		h.writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, item)
+}
+
+func (h *Router) activateSupplierContract(w http.ResponseWriter, r *http.Request) {
+	h.changeSupplierContractStatus(w, r, domain.SupplierContractActive)
+}
+func (h *Router) terminateSupplierContract(w http.ResponseWriter, r *http.Request) {
+	h.changeSupplierContractStatus(w, r, domain.SupplierContractTerminated)
+}
+func (h *Router) changeSupplierContractStatus(w http.ResponseWriter, r *http.Request, status domain.SupplierContractStatus) {
+	id, ok := pathUUID(w, chi.URLParam(r, "contractID"))
+	if !ok {
+		return
+	}
+	item, err := h.service.SetSupplierContractStatus(r.Context(), id, status, strings.TrimSpace(r.Header.Get("X-User-ID")))
+	if err != nil {
+		h.writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, item)
 }
 
 func (h *Router) writeServiceError(w http.ResponseWriter, err error) {

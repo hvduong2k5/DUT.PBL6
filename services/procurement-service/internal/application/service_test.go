@@ -18,12 +18,13 @@ type fakeRepository struct {
 	offers    map[uuid.UUID][]domain.SupplierMaterialOffer
 	orders    map[uuid.UUID]domain.PurchaseOrder
 	receipts  map[uuid.UUID]domain.GoodsReceipt
+	contracts map[uuid.UUID]domain.SupplierContract
 }
 
 func newFakeRepository() *fakeRepository {
 	return &fakeRepository{
 		suppliers: make(map[uuid.UUID]domain.Supplier), materials: make(map[uuid.UUID]domain.RawMaterial),
-		offers: make(map[uuid.UUID][]domain.SupplierMaterialOffer), orders: make(map[uuid.UUID]domain.PurchaseOrder), receipts: make(map[uuid.UUID]domain.GoodsReceipt),
+		offers: make(map[uuid.UUID][]domain.SupplierMaterialOffer), orders: make(map[uuid.UUID]domain.PurchaseOrder), receipts: make(map[uuid.UUID]domain.GoodsReceipt), contracts: make(map[uuid.UUID]domain.SupplierContract),
 	}
 }
 
@@ -42,14 +43,95 @@ func (r *fakeRepository) GetMaterial(_ context.Context, id uuid.UUID) (domain.Ra
 	}
 	return item, nil
 }
+func (r *fakeRepository) UpdateMaterial(_ context.Context, id uuid.UUID, item domain.RawMaterial) (domain.RawMaterial, error) {
+	current, ok := r.materials[id]
+	if !ok {
+		return domain.RawMaterial{}, domain.ErrNotFound
+	}
+	item.ID = id
+	item.Status = current.Status
+	item.PreferredSupplierID = current.PreferredSupplierID
+	r.materials[id] = item
+	return item, nil
+}
+func (r *fakeRepository) SetPreferredSupplier(_ context.Context, materialID, supplierID uuid.UUID) (domain.RawMaterial, error) {
+	item, ok := r.materials[materialID]
+	if !ok {
+		return domain.RawMaterial{}, domain.ErrNotFound
+	}
+	if supplierID == uuid.Nil {
+		item.PreferredSupplierID = nil
+	} else {
+		item.PreferredSupplierID = &supplierID
+	}
+	r.materials[materialID] = item
+	return item, nil
+}
 
 func (r *fakeRepository) ListSupplierOffers(_ context.Context, supplierID uuid.UUID) ([]domain.SupplierMaterialOffer, error) {
 	return append([]domain.SupplierMaterialOffer(nil), r.offers[supplierID]...), nil
+}
+func (r *fakeRepository) ListMaterialOffers(_ context.Context, materialID uuid.UUID) ([]domain.SupplierMaterialOffer, error) {
+	items := []domain.SupplierMaterialOffer{}
+	for _, offers := range r.offers {
+		for _, offer := range offers {
+			if offer.MaterialID == materialID {
+				items = append(items, offer)
+			}
+		}
+	}
+	return items, nil
 }
 
 func (r *fakeRepository) CreateOffer(_ context.Context, offer domain.SupplierMaterialOffer) (domain.SupplierMaterialOffer, error) {
 	r.offers[offer.SupplierID] = append(r.offers[offer.SupplierID], offer)
 	return offer, nil
+}
+func (r *fakeRepository) SetOfferActive(_ context.Context, supplierID, offerID uuid.UUID, active bool) (domain.SupplierMaterialOffer, error) {
+	items := r.offers[supplierID]
+	for i := range items {
+		if items[i].ID == offerID {
+			items[i].Active = active
+			r.offers[supplierID] = items
+			return items[i], nil
+		}
+	}
+	return domain.SupplierMaterialOffer{}, domain.ErrNotFound
+}
+func (r *fakeRepository) CreateSupplierContract(_ context.Context, item domain.SupplierContract) (domain.SupplierContract, error) {
+	item.Revision = 1
+	for _, existing := range r.contracts {
+		if existing.SupplierID == item.SupplierID && existing.ContractNumber == item.ContractNumber && item.Revision <= existing.Revision {
+			item.Revision = existing.Revision + 1
+		}
+	}
+	r.contracts[item.ID] = item
+	return item, nil
+}
+func (r *fakeRepository) GetSupplierContract(_ context.Context, id uuid.UUID) (domain.SupplierContract, error) {
+	item, ok := r.contracts[id]
+	if !ok {
+		return domain.SupplierContract{}, domain.ErrNotFound
+	}
+	return item, nil
+}
+func (r *fakeRepository) ListSupplierContracts(_ context.Context, id uuid.UUID, _, _ int) ([]domain.SupplierContract, error) {
+	items := []domain.SupplierContract{}
+	for _, item := range r.contracts {
+		if id == uuid.Nil || item.SupplierID == id {
+			items = append(items, item)
+		}
+	}
+	return items, nil
+}
+func (r *fakeRepository) SetSupplierContractStatus(_ context.Context, id uuid.UUID, status domain.SupplierContractStatus, actor string) (domain.SupplierContract, error) {
+	item, ok := r.contracts[id]
+	if !ok {
+		return domain.SupplierContract{}, domain.ErrNotFound
+	}
+	item.Status = status
+	r.contracts[id] = item
+	return item, nil
 }
 
 func (r *fakeRepository) CreatePurchaseOrder(_ context.Context, order domain.PurchaseOrder) (domain.PurchaseOrder, error) {
@@ -147,6 +229,26 @@ func TestCreatePurchaseOrderUsesActiveSupplierOfferSnapshot(t *testing.T) {
 	}
 	if order.Lines[0].UnitPriceMinor != 10001 || order.Lines[0].Quantity != "1.5" {
 		t.Fatalf("line did not snapshot supplier offer: %+v", order.Lines[0])
+	}
+}
+
+func TestPurchaseOrderUsesOnlyEffectivePriceVersion(t *testing.T) {
+	service, repo, supplierID, materialID := makeApplicationFixture(t)
+	now := time.Now().UTC()
+	old := repo.offers[supplierID][0]
+	past := now.Add(-time.Hour)
+	old.EffectiveTo = &past
+	current, err := domain.NewSupplierMaterialOfferVersion(supplierID, materialID, "", "KG", 22000, "VND", "0.5", 3, now.Add(-time.Minute), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	repo.offers[supplierID] = []domain.SupplierMaterialOffer{old, current}
+	order, err := service.CreatePurchaseOrder(context.Background(), application.PurchaseOrderRequest{SupplierID: supplierID, Lines: []application.PurchaseOrderLineRequest{{MaterialID: materialID, Quantity: "1"}}}, "buyer")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if order.Lines[0].UnitPriceMinor != 22000 || order.TotalAmountMinor != 22000 {
+		t.Fatalf("PO used ineffective price version: %+v", order.Lines[0])
 	}
 }
 
@@ -276,5 +378,43 @@ func TestGoodsReceiptApplicationFlow(t *testing.T) {
 	}
 	if inspected.Status != domain.GoodsReceiptInspected || inspected.Lines[0].QuantityAccepted != "1.5" {
 		t.Fatalf("unexpected inspected receipt: %+v", inspected)
+	}
+}
+
+func TestSupplierContractCreationRequiresActiveSupplier(t *testing.T) {
+	service, repo, supplierID, _ := makeApplicationFixture(t)
+	from := time.Now().UTC().Truncate(24 * time.Hour)
+	contract, err := domain.NewSupplierContract(supplierID, "AGR-1", "RAW_MATERIALS", "NET 30", "doc-1", from, nil, "manager")
+	if err != nil {
+		t.Fatal(err)
+	}
+	created, err := service.CreateSupplierContract(context.Background(), contract)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created.Status != domain.SupplierContractDraft || created.Revision != 1 {
+		t.Fatalf("unexpected contract: %+v", created)
+	}
+	supplier := repo.suppliers[supplierID]
+	supplier.Status = domain.SupplierSuspended
+	repo.suppliers[supplierID] = supplier
+	if _, err := service.CreateSupplierContract(context.Background(), contract); !errors.Is(err, domain.ErrInvalidState) {
+		t.Fatalf("inactive supplier contract error=%v", err)
+	}
+}
+
+func TestUpdateMaterialPreservesStatusAndPreferredSupplier(t *testing.T) {
+	service, repo, _, materialID := makeApplicationFixture(t)
+	material := repo.materials[materialID]
+	preferred := uuid.New()
+	material.Status = domain.MaterialInactive
+	material.PreferredSupplierID = &preferred
+	repo.materials[materialID] = material
+	updated, err := service.UpdateMaterial(context.Background(), materialID, domain.RawMaterial{Code: "SESAME-NEW", Name: "New sesame", BaseUnit: "KG", Description: "updated"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.Code != "SESAME-NEW" || updated.Status != domain.MaterialInactive || updated.PreferredSupplierID == nil || *updated.PreferredSupplierID != preferred {
+		t.Fatalf("update lost existing state: %+v", updated)
 	}
 }
