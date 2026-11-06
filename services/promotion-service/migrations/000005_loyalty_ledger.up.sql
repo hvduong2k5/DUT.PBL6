@@ -31,6 +31,16 @@ CREATE TABLE loyalty_ledger_entries (
         OR (entry_type IN ('REDEMPTION_DEBIT', 'REVERSAL', 'EXPIRATION') AND points_delta < 0)
         OR entry_type = 'MANUAL_ADJUSTMENT'
     ),
+    CHECK (entry_type NOT IN ('PURCHASE_EARN', 'REFUND_CONVERSION') OR (basis_amount_vnd IS NOT NULL AND source_decision_id IS NOT NULL)),
+    CHECK (entry_type NOT IN ('REDEMPTION_DEBIT', 'REVERSAL', 'EXPIRATION') OR reference_entry_id IS NOT NULL),
+    CHECK (
+        (entry_type = 'PURCHASE_EARN' AND source_type = 'ORDER_COMPLETION')
+        OR (entry_type = 'REFUND_CONVERSION' AND source_type = 'REFUND_DECISION')
+        OR (entry_type = 'REDEMPTION_DEBIT' AND source_type = 'CHECKOUT_REDEMPTION')
+        OR (entry_type = 'REVERSAL' AND source_type = 'ORDER_OR_RETURN_REVERSAL')
+        OR (entry_type = 'EXPIRATION' AND source_type = 'POINTS_EXPIRY')
+        OR (entry_type = 'MANUAL_ADJUSTMENT' AND source_type = 'ADMIN_ADJUSTMENT')
+    ),
     UNIQUE (source_type, source_id, entry_type)
 );
 

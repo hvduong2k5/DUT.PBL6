@@ -16,6 +16,7 @@ import (
 var (
 	ErrLoyaltyIdempotencyConflict = errors.New("loyalty idempotency key was reused with a different request")
 	ErrLoyaltySourceConflict      = errors.New("loyalty source already has a ledger entry")
+	ErrLoyaltyInsufficientBalance = errors.New("loyalty entry would make the balance negative")
 )
 
 type LoyaltyRepository struct{ pool *pgxpool.Pool }
@@ -98,6 +99,16 @@ func (r *LoyaltyRepository) AppendEntry(ctx context.Context, input LoyaltyEntryI
 	if !errors.Is(err, pgx.ErrNoRows) {
 		return LoyaltyEntry{}, err
 	}
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, "loyalty-customer:"+input.CustomerID); err != nil {
+		return LoyaltyEntry{}, err
+	}
+	var currentBalance int64
+	if err := tx.QueryRow(ctx, `SELECT COALESCE(SUM(points_delta),0)::bigint FROM loyalty_ledger_entries WHERE customer_id=$1`, input.CustomerID).Scan(&currentBalance); err != nil {
+		return LoyaltyEntry{}, err
+	}
+	if input.PointsDelta < 0 && (currentBalance < 0 || input.PointsDelta < -currentBalance) {
+		return LoyaltyEntry{}, ErrLoyaltyInsufficientBalance
+	}
 	entry, err := scanLoyaltyEntry(tx.QueryRow(ctx, `INSERT INTO loyalty_ledger_entries
 		(customer_id,entry_type,points_delta,basis_amount_vnd,source_type,source_id,source_decision_id,idempotency_key,request_hash,policy_version,reference_entry_id)
 		VALUES($1,$2,$3,$4,$5,$6,NULLIF($7,''),$8,$9,$10,NULLIF($11,'')::uuid)
@@ -116,13 +127,50 @@ func (r *LoyaltyRepository) AppendEntry(ctx context.Context, input LoyaltyEntryI
 	return entry.LoyaltyEntry, nil
 }
 
-func (r *LoyaltyRepository) GetBalance(ctx context.Context, customerID string) (int64, error) {
+type LoyaltyLedgerPage struct {
+	Balance int64
+	Entries []LoyaltyEntry
+}
+
+func (r *LoyaltyRepository) GetLedgerPage(ctx context.Context, customerID string, limit, offset int) (LoyaltyLedgerPage, error) {
 	if strings.TrimSpace(customerID) == "" {
-		return 0, errors.New("customer id is required")
+		return LoyaltyLedgerPage{}, errors.New("customer id is required")
 	}
-	var balance int64
-	err := r.pool.QueryRow(ctx, `SELECT COALESCE(SUM(points_delta),0)::bigint FROM loyalty_ledger_entries WHERE customer_id=$1`, customerID).Scan(&balance)
-	return balance, err
+	if limit < 1 || limit > 100 || offset < 0 {
+		return LoyaltyLedgerPage{}, errors.New("limit must be 1-100 and offset must not be negative")
+	}
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
+	if err != nil {
+		return LoyaltyLedgerPage{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	var page LoyaltyLedgerPage
+	if err := tx.QueryRow(ctx, `SELECT COALESCE(SUM(points_delta),0)::bigint FROM loyalty_ledger_entries WHERE customer_id=$1`, customerID).Scan(&page.Balance); err != nil {
+		return LoyaltyLedgerPage{}, err
+	}
+	rows, err := tx.Query(ctx, `SELECT id::text,customer_id,entry_type,points_delta,basis_amount_vnd,source_type,source_id,COALESCE(source_decision_id,''),idempotency_key,request_hash,policy_version,COALESCE(reference_entry_id::text,''),created_at
+		FROM loyalty_ledger_entries WHERE customer_id=$1 ORDER BY created_at DESC,id DESC LIMIT $2 OFFSET $3`, customerID, limit, offset)
+	if err != nil {
+		return LoyaltyLedgerPage{}, err
+	}
+	page.Entries = make([]LoyaltyEntry, 0)
+	for rows.Next() {
+		entry, err := scanLoyaltyEntry(rows)
+		if err != nil {
+			rows.Close()
+			return LoyaltyLedgerPage{}, err
+		}
+		page.Entries = append(page.Entries, entry.LoyaltyEntry)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return LoyaltyLedgerPage{}, err
+	}
+	rows.Close()
+	if err := tx.Commit(ctx); err != nil {
+		return LoyaltyLedgerPage{}, err
+	}
+	return page, nil
 }
 
 type scannedLoyaltyEntry struct {
@@ -148,19 +196,42 @@ func validateLoyaltyEntry(input LoyaltyEntryInput) error {
 	}
 	switch input.EntryType {
 	case "PURCHASE_EARN", "REFUND_CONVERSION":
-		if input.PointsDelta < 0 {
-			return errors.New("credit entries require positive points")
+		if input.PointsDelta < 0 || input.BasisAmountVND == nil || strings.TrimSpace(input.SourceDecisionID) == "" {
+			return errors.New("credit entries require positive points, a basis amount and a source decision")
 		}
 	case "REDEMPTION_DEBIT", "REVERSAL", "EXPIRATION":
-		if input.PointsDelta > 0 {
-			return errors.New("debit entries require negative points")
+		if input.PointsDelta > 0 || strings.TrimSpace(input.ReferenceEntryID) == "" {
+			return errors.New("debit entries require negative points and a referenced ledger entry")
 		}
 	case "MANUAL_ADJUSTMENT":
 	default:
 		return errors.New("unsupported loyalty entry type")
 	}
 	switch input.SourceType {
-	case "ORDER_COMPLETION", "REFUND_DECISION", "CHECKOUT_REDEMPTION", "ORDER_OR_RETURN_REVERSAL", "POINTS_EXPIRY", "ADMIN_ADJUSTMENT":
+	case "ORDER_COMPLETION":
+		if input.EntryType != "PURCHASE_EARN" {
+			return errors.New("order completion source only supports purchase earn entries")
+		}
+	case "REFUND_DECISION":
+		if input.EntryType != "REFUND_CONVERSION" {
+			return errors.New("refund decision source only supports refund conversion entries")
+		}
+	case "CHECKOUT_REDEMPTION":
+		if input.EntryType != "REDEMPTION_DEBIT" {
+			return errors.New("checkout redemption source only supports redemption debit entries")
+		}
+	case "ORDER_OR_RETURN_REVERSAL":
+		if input.EntryType != "REVERSAL" {
+			return errors.New("order or return reversal source only supports reversal entries")
+		}
+	case "POINTS_EXPIRY":
+		if input.EntryType != "EXPIRATION" {
+			return errors.New("points expiry source only supports expiration entries")
+		}
+	case "ADMIN_ADJUSTMENT":
+		if input.EntryType != "MANUAL_ADJUSTMENT" || strings.TrimSpace(input.SourceDecisionID) == "" {
+			return errors.New("admin adjustment requires a manual adjustment entry and decision reference")
+		}
 	default:
 		return errors.New("unsupported loyalty source type")
 	}

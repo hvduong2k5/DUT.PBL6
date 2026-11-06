@@ -52,6 +52,7 @@ func main() {
 	}
 	voucherRepository := postgres.NewVoucherRepository(pool)
 	adminCouponRepository := postgres.NewAdminCouponRepository(pool)
+	loyaltyRepository := postgres.NewLoyaltyRepository(pool)
 	startCouponLifecycle(rootCtx, adminCouponRepository)
 	startVoucherHoldExpiry(rootCtx, voucherRepository)
 	var eventWorkers *worker.EventWorkers
@@ -65,6 +66,7 @@ func main() {
 	router.Get("/health/live", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })
 	httpapi.RegisterAdminCouponRoutes(router, adminCouponRepository, cfg.InternalToken)
 	httpapi.RegisterPublicPromotionRoutes(router, adminCouponRepository)
+	httpapi.RegisterLoyaltyRoutes(router, loyaltyRepository, cfg.InternalToken)
 	router.Get("/health/ready", func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), cfg.DBTimeout)
 		defer cancel()

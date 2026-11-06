@@ -64,6 +64,16 @@ after DLQ publication succeeds. The outbox publisher uses a short database lease
 CloudEvent ID. Keep the feature disabled until Order emits the finalization proof for voucher
 checkouts and both services are configured against the same Kafka cluster.
 
+## Loyalty ledger foundation
+
+`GET /internal/v1/loyalty/customers/{customerID}/ledger?limit=50&offset=0` returns the ledger-derived
+point balance and a paginated entry history. It requires `X-Internal-Token` and is intended for the
+trusted Gateway only; do not expose the internal route directly to customer networks. Ledger entries
+are append-only and idempotent by request key and source. Purchase earn and refund conversion entries
+require a source decision reference, amount basis and policy version. This foundation does not yet
+enable earning or refund conversion: Order completion and Care/Order refund-consent contracts must be
+accepted before trusted producer events can create credits.
+
 ## Current data foundation
 
 The first migration establishes promotion and coupon definitions, order-scoped voucher holds,
