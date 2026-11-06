@@ -49,5 +49,5 @@ jobs:
 
       - name: Run Gradle tests
         run: |
-          ./gradlew test --offline
+          ./gradlew test
         working-directory: services/catalog-service
