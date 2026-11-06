@@ -2,9 +2,9 @@
 
 Promotion Service owns campaigns, coupons, voucher holds and redemption records. This initial
 foundation provides a Go service process, PostgreSQL migrations, liveness/readiness endpoints,
-and a local PostgreSQL Compose stack. Voucher business RPCs and event publishing are the next
-implementation slice; the existing `packages/proto/promotion/v1/promotion.proto` remains the
-integration contract.
+and a local PostgreSQL Compose stack. The voucher domain and transactional hold repository now
+implement discount calculation, availability checks, hold creation, finalization and release.
+The existing `packages/proto/promotion/v1/promotion.proto` remains the integration contract.
 
 ## Run locally
 
@@ -30,5 +30,6 @@ Database migrations run at startup and can also be applied explicitly with `go r
 
 The first migration establishes promotion and coupon definitions, order-scoped voucher holds,
 finalized redemption usage, command idempotency records and a transactional outbox. Coupon
-redemption limits must be enforced transactionally in the application layer in addition to the
-database constraints; a cached counter must never be the authority for availability.
+redemption limits are checked in a transaction while the coupon row is locked; a cached counter
+is never the authority for availability. The gRPC adapter is pending because the checked-in Go
+protobuf output predates the current Promotion proto and omits the Order 3.2 hold messages/RPCs.

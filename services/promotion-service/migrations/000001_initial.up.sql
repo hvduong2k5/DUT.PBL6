@@ -28,7 +28,7 @@ CREATE TABLE coupons (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     CHECK (ends_at > starts_at),
     CHECK (max_discount_amount IS NULL OR max_discount_amount >= 0),
-    CHECK (discount_type <> 'PERCENTAGE' OR discount_value <= 10000)
+    CHECK (discount_type <> 'PERCENTAGE' OR discount_value <= 100)
 );
 CREATE INDEX coupons_status_window_idx ON coupons(status, starts_at, ends_at);
 
