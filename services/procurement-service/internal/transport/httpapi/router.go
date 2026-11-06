@@ -72,6 +72,7 @@ func NewRouter(service *application.Service, internalToken string, ping func(con
 		r.Get("/api/v1/admin/procurement/contracts/{contractID}", h.getSupplierContract)
 		r.Post("/api/v1/admin/procurement/contracts/{contractID}/activate", h.activateSupplierContract)
 		r.Post("/api/v1/admin/procurement/contracts/{contractID}/terminate", h.terminateSupplierContract)
+		r.Post("/api/v1/admin/procurement/goods-receipts/{goodsReceiptID}/variances/{varianceID}/resolve", h.resolveGoodsReceiptVariance)
 	})
 	return r
 }
@@ -206,6 +207,30 @@ func (h *Router) getGoodsReceipt(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	receipt, err := h.service.GetGoodsReceipt(r.Context(), id)
+	if err != nil {
+		h.writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, receipt)
+}
+
+func (h *Router) resolveGoodsReceiptVariance(w http.ResponseWriter, r *http.Request) {
+	receiptID, ok := pathUUID(w, chi.URLParam(r, "goodsReceiptID"))
+	if !ok {
+		return
+	}
+	varianceID, ok := pathUUID(w, chi.URLParam(r, "varianceID"))
+	if !ok {
+		return
+	}
+	var request struct {
+		Decision string `json:"decision"`
+		Note     string `json:"note"`
+	}
+	if !decodeJSON(w, r, &request) {
+		return
+	}
+	receipt, err := h.service.ResolveGoodsReceiptVariance(r.Context(), receiptID, varianceID, request.Decision, strings.TrimSpace(r.Header.Get("X-User-ID")), request.Note)
 	if err != nil {
 		h.writeServiceError(w, err)
 		return

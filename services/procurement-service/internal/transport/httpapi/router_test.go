@@ -197,6 +197,30 @@ func (r *httpRepository) GetGoodsReceipt(_ context.Context, id uuid.UUID) (domai
 	}
 	return receipt, nil
 }
+func (r *httpRepository) HasUnresolvedGoodsReceiptVariances(_ context.Context, purchaseOrderID uuid.UUID) (bool, error) {
+	for _, receipt := range r.receipts {
+		if receipt.PurchaseOrderID != purchaseOrderID {
+			continue
+		}
+		for _, variance := range receipt.Variances {
+			if variance.Status == "OPEN" {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
+}
+func (r *httpRepository) ResolveGoodsReceiptVariance(_ context.Context, receiptID, varianceID uuid.UUID, decision, actor, note string) (domain.GoodsReceipt, error) {
+	receipt, ok := r.receipts[receiptID]
+	if !ok {
+		return domain.GoodsReceipt{}, domain.ErrNotFound
+	}
+	if err := receipt.ResolveVariance(varianceID, decision, actor, note); err != nil {
+		return domain.GoodsReceipt{}, err
+	}
+	r.receipts[receiptID] = receipt
+	return receipt, nil
+}
 func (r *httpRepository) InspectGoodsReceipt(_ context.Context, receipt domain.GoodsReceipt, expected int64, _ string) (domain.GoodsReceipt, error) {
 	current, ok := r.receipts[receipt.ID]
 	if !ok {
@@ -420,6 +444,23 @@ func TestGoodsReceiptIdempotencyReplaysAndRejectsChangedPayload(t *testing.T) {
 	missingKey := performRequest(handler, http.MethodPost, path, body, "warehouse-1", "WAREHOUSE_STAFF")
 	if missingKey.Code != http.StatusBadRequest {
 		t.Fatalf("missing idempotency key status = %d, want 400", missingKey.Code)
+	}
+}
+
+func TestResolvingGoodsReceiptVarianceRequiresSensitiveRole(t *testing.T) {
+	repo := newHTTPRepository()
+	receiptID, varianceID := uuid.New(), uuid.New()
+	repo.receipts[receiptID] = domain.GoodsReceipt{ID: receiptID, Status: domain.GoodsReceiptInspected, Variances: []domain.GoodsReceiptVariance{{ID: varianceID, Type: domain.GoodsReceiptVarianceOverReceived, Status: "OPEN"}}}
+	handler := newHandler(repo)
+	path := "/api/v1/admin/procurement/goods-receipts/" + receiptID.String() + "/variances/" + varianceID.String() + "/resolve"
+	body := `{"decision":"ACCEPT_VARIANCE","note":"approved as documented exception"}`
+	denied := performRequest(handler, http.MethodPost, path, body, "supply", "SUPPLY_MANAGER")
+	if denied.Code != http.StatusForbidden {
+		t.Fatalf("supply manager resolve status = %d, want 403", denied.Code)
+	}
+	resolved := performRequest(handler, http.MethodPost, path, body, "procurement", "PROCUREMENT_MANAGER")
+	if resolved.Code != http.StatusOK || !strings.Contains(resolved.Body.String(), `"status":"RESOLVED"`) {
+		t.Fatalf("procurement manager resolve status=%d body=%s", resolved.Code, resolved.Body.String())
 	}
 }
 

@@ -43,6 +43,8 @@ type Repository interface {
 	CreateGoodsReceipt(context.Context, domain.GoodsReceipt) (domain.GoodsReceipt, error)
 	GetGoodsReceiptByIdempotency(context.Context, string, string) (domain.GoodsReceipt, error)
 	GetGoodsReceipt(context.Context, uuid.UUID) (domain.GoodsReceipt, error)
+	ResolveGoodsReceiptVariance(context.Context, uuid.UUID, uuid.UUID, string, string, string) (domain.GoodsReceipt, error)
+	HasUnresolvedGoodsReceiptVariances(context.Context, uuid.UUID) (bool, error)
 	InspectGoodsReceipt(context.Context, domain.GoodsReceipt, int64, string) (domain.GoodsReceipt, error)
 }
 
@@ -271,6 +273,13 @@ func (s *Service) ListPurchaseOrderRevisions(ctx context.Context, id uuid.UUID, 
 }
 
 func (s *Service) CloseRemainingPurchaseOrder(ctx context.Context, id uuid.UUID, actor, reason string) (domain.PurchaseOrder, error) {
+	hasOpenVariance, err := s.repo.HasUnresolvedGoodsReceiptVariances(ctx, id)
+	if err != nil {
+		return domain.PurchaseOrder{}, err
+	}
+	if hasOpenVariance {
+		return domain.PurchaseOrder{}, domain.ErrInvalidState
+	}
 	return s.transitionPurchaseOrder(ctx, id, actor, reason, "CLOSED", func(order *domain.PurchaseOrder) error { return order.CloseRemaining(actor, reason) })
 }
 
@@ -356,6 +365,10 @@ func (s *Service) CreateGoodsReceipt(ctx context.Context, request GoodsReceiptRe
 
 func (s *Service) GetGoodsReceipt(ctx context.Context, id uuid.UUID) (domain.GoodsReceipt, error) {
 	return s.repo.GetGoodsReceipt(ctx, id)
+}
+
+func (s *Service) ResolveGoodsReceiptVariance(ctx context.Context, receiptID, varianceID uuid.UUID, decision, actor, note string) (domain.GoodsReceipt, error) {
+	return s.repo.ResolveGoodsReceiptVariance(ctx, receiptID, varianceID, decision, actor, note)
 }
 
 func (s *Service) InspectGoodsReceipt(ctx context.Context, id uuid.UUID, actor string, inspections []domain.GoodsReceiptInspectionLine) (domain.GoodsReceipt, error) {

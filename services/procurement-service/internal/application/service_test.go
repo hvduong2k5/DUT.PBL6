@@ -212,6 +212,30 @@ func (r *fakeRepository) GetGoodsReceipt(_ context.Context, id uuid.UUID) (domai
 	}
 	return receipt, nil
 }
+func (r *fakeRepository) HasUnresolvedGoodsReceiptVariances(_ context.Context, purchaseOrderID uuid.UUID) (bool, error) {
+	for _, receipt := range r.receipts {
+		if receipt.PurchaseOrderID != purchaseOrderID {
+			continue
+		}
+		for _, variance := range receipt.Variances {
+			if variance.Status == "OPEN" {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
+}
+func (r *fakeRepository) ResolveGoodsReceiptVariance(_ context.Context, receiptID, varianceID uuid.UUID, decision, actor, note string) (domain.GoodsReceipt, error) {
+	receipt, ok := r.receipts[receiptID]
+	if !ok {
+		return domain.GoodsReceipt{}, domain.ErrNotFound
+	}
+	if err := receipt.ResolveVariance(varianceID, decision, actor, note); err != nil {
+		return domain.GoodsReceipt{}, err
+	}
+	r.receipts[receiptID] = receipt
+	return receipt, nil
+}
 func (r *fakeRepository) InspectGoodsReceipt(_ context.Context, receipt domain.GoodsReceipt, expected int64, _ string) (domain.GoodsReceipt, error) {
 	current, ok := r.receipts[receipt.ID]
 	if !ok {
@@ -450,12 +474,45 @@ func TestGoodsReceiptApplicationFlow(t *testing.T) {
 	if _, err := service.CreateGoodsReceipt(context.Background(), request, "receiver", "warehouse-receipt-0001"); !errors.Is(err, domain.ErrConflict) {
 		t.Fatalf("same key with changed payload error = %v, want conflict", err)
 	}
-	inspected, err := service.InspectGoodsReceipt(context.Background(), receipt.ID, "qc", []domain.GoodsReceiptInspectionLine{{GoodsReceiptLineID: receipt.Lines[0].ID, QuantityAccepted: "1.5", QuantityRejected: "0.5"}})
+	inspected, err := service.InspectGoodsReceipt(context.Background(), receipt.ID, "qc", []domain.GoodsReceiptInspectionLine{{GoodsReceiptLineID: receipt.Lines[0].ID, QuantityAccepted: "1.5", QuantityRejected: "0.5", InspectionNotes: "damaged portion"}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if inspected.Status != domain.GoodsReceiptInspected || inspected.Lines[0].QuantityAccepted != "1.5" {
 		t.Fatalf("unexpected inspected receipt: %+v", inspected)
+	}
+}
+
+func TestPurchaseOrderCannotCloseWhileReceiptVarianceIsOpen(t *testing.T) {
+	repo := newFakeRepository()
+	supplier, _ := domain.NewSupplier("SUP-VAR", "Supplier", "COMPANY", "", "", "", "")
+	material, _ := domain.NewRawMaterial("RICE-VAR", "Rice", "KG", "")
+	order, _ := domain.NewPurchaseOrder("PO-VAR", supplier.ID, supplier.Name, "VND", "", "buyer", nil, []domain.PurchaseOrderLineInput{{MaterialID: material.ID, MaterialCode: material.Code, MaterialName: material.Name, Quantity: "5", Unit: "KG", UnitPriceMinor: 100}})
+	order.Status = domain.PurchaseOrderPartiallyReceived
+	repo.orders[order.ID] = order
+	repo.receipts[uuid.New()] = domain.GoodsReceipt{PurchaseOrderID: order.ID, Variances: []domain.GoodsReceiptVariance{{Status: "OPEN"}}}
+	_, err := application.NewService(repo).CloseRemainingPurchaseOrder(context.Background(), order.ID, "manager", "close remaining")
+	if !errors.Is(err, domain.ErrInvalidState) {
+		t.Fatalf("close PO with open variance error = %v, want invalid state", err)
+	}
+}
+
+func TestResolvedReceiptVarianceAllowsClosingRemainingPurchaseOrder(t *testing.T) {
+	repo := newFakeRepository()
+	supplier, _ := domain.NewSupplier("SUP-VAR-RES", "Supplier", "COMPANY", "", "", "", "")
+	material, _ := domain.NewRawMaterial("RICE-VAR-RES", "Rice", "KG", "")
+	order, _ := domain.NewPurchaseOrder("PO-VAR-RES", supplier.ID, supplier.Name, "VND", "", "buyer", nil, []domain.PurchaseOrderLineInput{{MaterialID: material.ID, MaterialCode: material.Code, MaterialName: material.Name, Quantity: "5", Unit: "KG", UnitPriceMinor: 100}})
+	order.Status = domain.PurchaseOrderPartiallyReceived
+	repo.orders[order.ID] = order
+	receiptID, varianceID := uuid.New(), uuid.New()
+	repo.receipts[receiptID] = domain.GoodsReceipt{ID: receiptID, PurchaseOrderID: order.ID, Status: domain.GoodsReceiptInspected, Variances: []domain.GoodsReceiptVariance{{ID: varianceID, Status: "OPEN"}}}
+	service := application.NewService(repo)
+	if _, err := service.ResolveGoodsReceiptVariance(context.Background(), receiptID, varianceID, "ACCEPT_VARIANCE", "manager", "approved exception"); err != nil {
+		t.Fatal(err)
+	}
+	closed, err := service.CloseRemainingPurchaseOrder(context.Background(), order.ID, "manager", "supplier confirmed no further delivery")
+	if err != nil || closed.Status != domain.PurchaseOrderClosed {
+		t.Fatalf("close after resolving variance = (%s, %v), want CLOSED", closed.Status, err)
 	}
 }
 
