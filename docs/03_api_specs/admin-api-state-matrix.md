@@ -77,17 +77,17 @@ These rows are proposals. Backend may refine them, but must record the decision 
 
 | Operation | Backlog | Lifecycle | Success | Empty | Invalid 400/422 | 401 | 403 | 404 | 409 | 429 | Server 500/503 |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| `POST /api/v1/admin/catalog/products` | EPIC_04 | draft | 200 | N/A | 400/422 | 401 | 403 | — | 409 | — | 500/503 |
-| `PATCH /api/v1/admin/catalog/products/{productId}` | EPIC_04 | draft | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
-| `PUT /api/v1/admin/catalog/products/{productId}` | EPIC_04 | draft (legacy) | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
-| `POST /api/v1/admin/catalog/products/{productId}/transition` | EPIC_04 | draft | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
-| `POST /api/v1/admin/catalog/products/{productId}/skus` | EPIC_04 | draft | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
-| `PATCH /api/v1/admin/catalog/products/{productId}/skus/{skuId}` | EPIC_04 | draft | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
-| `GET /api/v1/admin/catalog/products/{productId}/skus/{skuId}/prices` | EPIC_04 | draft | 200 | 200 (empty list) | 400/— | 401 | 403 | 404 | — | — | 500/503 |
-| `PUT /api/v1/admin/catalog/products/{productId}/skus/{skuId}/prices` | EPIC_04 | draft | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
-| `POST /api/v1/admin/catalog/products/{productId}/images` | EPIC_04 | draft | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
-| `PATCH /api/v1/admin/catalog/products/{productId}/images/{imageId}` | EPIC_04 | draft | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
-| `DELETE /api/v1/admin/catalog/products/{productId}/images/{imageId}` | EPIC_04 | draft | 200 | N/A | —/— | 401 | 403 | 404 | — | — | 500/503 |
+| `POST /api/v1/admin/catalog/products` | EPIC_04 | stable | 200 | N/A | 400/422 | 401 | 403 | — | 409 | — | 500/503 |
+| `PATCH /api/v1/admin/catalog/products/{productId}` | EPIC_04 | stable | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
+| `PUT /api/v1/admin/catalog/products/{productId}` | EPIC_04 | stable (legacy) | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
+| `POST /api/v1/admin/catalog/products/{productId}/transition` | EPIC_04 | stable | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
+| `POST /api/v1/admin/catalog/products/{productId}/skus` | EPIC_04 | stable | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
+| `PATCH /api/v1/admin/catalog/products/{productId}/skus/{skuId}` | EPIC_04 | stable | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
+| `GET /api/v1/admin/catalog/products/{productId}/skus/{skuId}/prices` | EPIC_04 | stable | 200 | 200 (empty list) | 400/— | 401 | 403 | 404 | — | — | 500/503 |
+| `PUT /api/v1/admin/catalog/products/{productId}/skus/{skuId}/prices` | EPIC_04 | stable | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
+| `POST /api/v1/admin/catalog/products/{productId}/images` | EPIC_04 | stable | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
+| `PATCH /api/v1/admin/catalog/products/{productId}/images/{imageId}` | EPIC_04 | stable | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
+| `DELETE /api/v1/admin/catalog/products/{productId}/images/{imageId}` | EPIC_04 | stable | 200 | N/A | —/— | 401 | 403 | 404 | — | — | 500/503 |
 | `POST /api/v1/admin/orders/{orderId}/actions` | EPIC_08 | draft | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
 | `POST /api/v1/admin/packing/tasks/{taskId}/assignments` | EPIC_10 | draft | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
 | `POST /api/v1/admin/shipping/shipments/{shipmentId}/actions` | EPIC_11 | draft | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
@@ -100,7 +100,7 @@ These rows are proposals. Backend may refine them, but must record the decision 
 
 ## Catalog admin write contract
 
-Nguồn chi tiết: [`admin-draft-planned.openapi.yaml`](./admin-draft-planned.openapi.yaml) cho thao tác ghi và [`admin-stable.openapi.yaml`](./admin-stable.openapi.yaml) cho thao tác đọc. Catalog admin chỉ dùng REST; gRPC chỉ internal.
+Nguồn chi tiết: [`admin-stable.openapi.yaml`](./admin-stable.openapi.yaml) cho tất cả thao tác catalog admin (đọc và ghi). Catalog admin chỉ dùng REST; gRPC chỉ internal.
 
 ### Envelope và quyền
 
