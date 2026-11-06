@@ -1,4 +1,4 @@
-FROM golang:1.22-alpine AS build
+FROM golang:1.23-alpine AS build
 WORKDIR /src
 COPY go.mod ./
 RUN go mod download
@@ -9,5 +9,5 @@ FROM alpine:3.20
 RUN addgroup -S app && adduser -S -G app app
 COPY --from=build /out/promotion-service /usr/local/bin/promotion-service
 USER app
-EXPOSE 8017
+EXPOSE 8017 9017
 ENTRYPOINT ["/usr/local/bin/promotion-service"]

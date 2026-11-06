@@ -14,13 +14,14 @@ $env:PROMOTION_INTERNAL_TOKEN = "promotion-local-development-secret"
 docker compose up --build
 ```
 
-The service listens on `localhost:8017`. Readiness checks PostgreSQL at `GET /health/ready`;
-liveness is `GET /health/live`. PostgreSQL is exposed on `localhost:5447`.
+The service listens on HTTP `localhost:8017` and gRPC `localhost:9017`. Readiness checks
+PostgreSQL at `GET /health/ready`; liveness is `GET /health/live`. PostgreSQL is exposed on
+`localhost:5447`. gRPC calls require `authorization: Bearer <PROMOTION_INTERNAL_TOKEN>` metadata.
 
 ## Configuration
 
 - `PROMOTION_HTTP_ADDRESS` (default `:8017`)
-- `PROMOTION_GRPC_ADDRESS` (reserved for the contract server)
+- `PROMOTION_GRPC_ADDRESS` (default `:9017`)
 - `PROMOTION_DATABASE_URL` (local default targets port `5447`)
 - `PROMOTION_INTERNAL_TOKEN` (required)
 
@@ -31,5 +32,5 @@ Database migrations run at startup and can also be applied explicitly with `go r
 The first migration establishes promotion and coupon definitions, order-scoped voucher holds,
 finalized redemption usage, command idempotency records and a transactional outbox. Coupon
 redemption limits are checked in a transaction while the coupon row is locked; a cached counter
-is never the authority for availability. The gRPC adapter is pending because the checked-in Go
-protobuf output predates the current Promotion proto and omits the Order 3.2 hold messages/RPCs.
+is never the authority for availability. The gRPC adapter implements the current Promotion v1
+source contract, including the feature-gated Order 3.2 voucher-hold RPCs.

@@ -36,6 +36,7 @@ var (
 	ErrMinimumNotMet        = errors.New("minimum order amount not met")
 	ErrUsageLimit           = errors.New("voucher usage limit exceeded")
 	ErrVoucherAlreadyLocked = errors.New("voucher already has a hold for this order")
+	ErrHoldVersionConflict  = errors.New("voucher hold version conflict")
 	ErrIdempotencyConflict  = errors.New("idempotency key reused with different request")
 	ErrHoldNotFound         = errors.New("voucher hold not found")
 	ErrHoldTransition       = errors.New("invalid voucher hold state transition")

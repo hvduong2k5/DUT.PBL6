@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -12,9 +13,12 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/omamx/promotion-service/internal/config"
+	"github.com/omamx/promotion-service/internal/repository/postgres"
+	"github.com/omamx/promotion-service/internal/transport/grpcapi"
 	"github.com/omamx/promotion-service/migrations"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"google.golang.org/grpc"
 )
 
 func main() {
@@ -44,6 +48,7 @@ func main() {
 	} else if len(applied) > 0 {
 		log.Info().Strs("migrations", applied).Msg("database migrations applied")
 	}
+	voucherRepository := postgres.NewVoucherRepository(pool)
 
 	router := chi.NewRouter()
 	router.Get("/health/live", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })
@@ -58,6 +63,18 @@ func main() {
 	})
 
 	server := &http.Server{Addr: cfg.HTTPAddress, Handler: router, ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 60 * time.Second}
+	grpcListener, err := net.Listen("tcp", cfg.GRPCAddress)
+	if err != nil {
+		log.Fatal().Err(err).Str("address", cfg.GRPCAddress).Msg("listen for gRPC")
+	}
+	grpcServer := grpcapi.NewGRPCServer(voucherRepository, cfg.InternalToken)
+	go func() {
+		log.Info().Str("address", cfg.GRPCAddress).Msg("Promotion gRPC server listening")
+		if err := grpcapi.Serve(grpcListener, grpcServer); err != nil && !errors.Is(err, grpc.ErrServerStopped) {
+			log.Error().Err(err).Msg("gRPC server stopped unexpectedly")
+			cancel()
+		}
+	}()
 	go func() {
 		log.Info().Str("address", cfg.HTTPAddress).Msg("Promotion HTTP server listening")
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -70,5 +87,15 @@ func main() {
 	defer shutdownCancel()
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		log.Error().Err(err).Msg("HTTP server shutdown failed")
+	}
+	grpcStopped := make(chan struct{})
+	go func() {
+		grpcServer.GracefulStop()
+		close(grpcStopped)
+	}()
+	select {
+	case <-grpcStopped:
+	case <-shutdownCtx.Done():
+		grpcServer.Stop()
 	}
 }

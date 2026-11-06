@@ -19,10 +19,12 @@ services:
     build: .
     environment:
       PROMOTION_HTTP_ADDRESS: :8017
+      PROMOTION_GRPC_ADDRESS: :9017
       PROMOTION_DATABASE_URL: postgres://promotion:promotion@promotion-postgres:5432/promotion_db?sslmode=disable
       PROMOTION_INTERNAL_TOKEN: ${PROMOTION_INTERNAL_TOKEN:-promotion-local-development-secret}
     ports:
       - "8017:8017"
+      - "9017:9017"
     depends_on:
       promotion-postgres:
         condition: service_healthy
