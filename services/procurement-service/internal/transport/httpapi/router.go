@@ -41,6 +41,15 @@ func NewRouter(service *application.Service, internalToken string, ping func(con
 		r.Patch("/api/v1/admin/procurement/materials/{materialID}/status", h.setMaterialStatus)
 		r.Get("/api/v1/admin/procurement/suppliers/{supplierID}/offers", h.listSupplierOffers)
 		r.Post("/api/v1/admin/procurement/suppliers/{supplierID}/offers", h.createSupplierOffer)
+		r.Get("/api/v1/admin/procurement/purchase-orders", h.listPurchaseOrders)
+		r.Post("/api/v1/admin/procurement/purchase-orders", h.createPurchaseOrder)
+		r.Get("/api/v1/admin/procurement/purchase-orders/{purchaseOrderID}", h.getPurchaseOrder)
+		r.Put("/api/v1/admin/procurement/purchase-orders/{purchaseOrderID}", h.updatePurchaseOrderDraft)
+		r.Post("/api/v1/admin/procurement/purchase-orders/{purchaseOrderID}/submit", h.submitPurchaseOrder)
+		r.Post("/api/v1/admin/procurement/purchase-orders/{purchaseOrderID}/approve", h.approvePurchaseOrder)
+		r.Post("/api/v1/admin/procurement/purchase-orders/{purchaseOrderID}/reject", h.rejectPurchaseOrder)
+		r.Post("/api/v1/admin/procurement/purchase-orders/{purchaseOrderID}/send", h.markPurchaseOrderSent)
+		r.Post("/api/v1/admin/procurement/purchase-orders/{purchaseOrderID}/cancel", h.cancelPurchaseOrder)
 	})
 	return r
 }
@@ -72,12 +81,193 @@ func (h *Router) requireInternalStaff(next http.Handler) http.Handler {
 		}
 		role := strings.ToUpper(strings.TrimSpace(r.Header.Get("X-User-Role")))
 		switch role {
-		case "ADMIN", "SUPPLY_MANAGER", "PROCUREMENT_MANAGER", "WAREHOUSE_STAFF":
+		case "ADMIN", "SUPPLY_MANAGER", "PROCUREMENT_MANAGER":
 			next.ServeHTTP(w, r)
 		default:
 			writeError(w, http.StatusForbidden, "FORBIDDEN", "role cannot access procurement administration")
 		}
 	})
+}
+
+type purchaseOrderLineRequest struct {
+	MaterialID string `json:"material_id"`
+	Quantity   string `json:"quantity"`
+}
+
+type purchaseOrderRequest struct {
+	SupplierID           string                     `json:"supplier_id"`
+	ExpectedDeliveryDate string                     `json:"expected_delivery_date,omitempty"`
+	Notes                string                     `json:"notes,omitempty"`
+	Lines                []purchaseOrderLineRequest `json:"lines"`
+}
+
+func (h *Router) createPurchaseOrder(w http.ResponseWriter, r *http.Request) {
+	request, ok := decodePurchaseOrderRequest(w, r)
+	if !ok {
+		return
+	}
+	input, err := request.applicationInput()
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", err.Error())
+		return
+	}
+	order, err := h.service.CreatePurchaseOrder(r.Context(), input, strings.TrimSpace(r.Header.Get("X-User-ID")))
+	if err != nil {
+		h.writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, order)
+}
+
+func (h *Router) updatePurchaseOrderDraft(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathUUID(w, chi.URLParam(r, "purchaseOrderID"))
+	if !ok {
+		return
+	}
+	request, ok := decodePurchaseOrderRequest(w, r)
+	if !ok {
+		return
+	}
+	input, err := request.applicationInput()
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", err.Error())
+		return
+	}
+	order, err := h.service.UpdatePurchaseOrderDraft(r.Context(), id, input, strings.TrimSpace(r.Header.Get("X-User-ID")))
+	if err != nil {
+		h.writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, order)
+}
+
+func decodePurchaseOrderRequest(w http.ResponseWriter, r *http.Request) (purchaseOrderRequest, bool) {
+	var request purchaseOrderRequest
+	if !decodeJSON(w, r, &request) {
+		return purchaseOrderRequest{}, false
+	}
+	return request, true
+}
+
+func (request purchaseOrderRequest) applicationInput() (application.PurchaseOrderRequest, error) {
+	supplierID, err := uuid.Parse(strings.TrimSpace(request.SupplierID))
+	if err != nil {
+		return application.PurchaseOrderRequest{}, errors.New("supplier_id must be a UUID")
+	}
+	input := application.PurchaseOrderRequest{SupplierID: supplierID, Notes: request.Notes}
+	if value := strings.TrimSpace(request.ExpectedDeliveryDate); value != "" {
+		date, err := time.Parse("2006-01-02", value)
+		if err != nil {
+			return application.PurchaseOrderRequest{}, errors.New("expected_delivery_date must use YYYY-MM-DD")
+		}
+		input.ExpectedDeliveryDate = &date
+	}
+	input.Lines = make([]application.PurchaseOrderLineRequest, 0, len(request.Lines))
+	for _, line := range request.Lines {
+		materialID, err := uuid.Parse(strings.TrimSpace(line.MaterialID))
+		if err != nil {
+			return application.PurchaseOrderRequest{}, errors.New("each material_id must be a UUID")
+		}
+		input.Lines = append(input.Lines, application.PurchaseOrderLineRequest{MaterialID: materialID, Quantity: strings.TrimSpace(line.Quantity)})
+	}
+	return input, nil
+}
+
+func (h *Router) listPurchaseOrders(w http.ResponseWriter, r *http.Request) {
+	limit, offset, ok := pagination(w, r)
+	if !ok {
+		return
+	}
+	var supplierID uuid.UUID
+	if raw := strings.TrimSpace(r.URL.Query().Get("supplier_id")); raw != "" {
+		var err error
+		supplierID, err = uuid.Parse(raw)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "supplier_id must be a UUID")
+			return
+		}
+	}
+	status := domain.PurchaseOrderStatus(strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("status"))))
+	items, err := h.service.ListPurchaseOrders(r.Context(), supplierID, status, limit, offset)
+	if err != nil {
+		h.writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"items": items, "limit": limit, "offset": offset})
+}
+
+func (h *Router) getPurchaseOrder(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathUUID(w, chi.URLParam(r, "purchaseOrderID"))
+	if !ok {
+		return
+	}
+	order, err := h.service.GetPurchaseOrder(r.Context(), id)
+	if err != nil {
+		h.writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, order)
+}
+
+func (h *Router) submitPurchaseOrder(w http.ResponseWriter, r *http.Request) {
+	h.transitionPurchaseOrder(w, r, func(id uuid.UUID, actor, _ string) (any, error) {
+		return h.service.SubmitPurchaseOrder(r.Context(), id, actor)
+	})
+}
+
+func (h *Router) approvePurchaseOrder(w http.ResponseWriter, r *http.Request) {
+	h.transitionPurchaseOrder(w, r, func(id uuid.UUID, actor, _ string) (any, error) {
+		return h.service.ApprovePurchaseOrder(r.Context(), id, actor)
+	})
+}
+
+func (h *Router) rejectPurchaseOrder(w http.ResponseWriter, r *http.Request) {
+	var request struct {
+		Reason string `json:"reason"`
+	}
+	if !decodeJSON(w, r, &request) {
+		return
+	}
+	h.transitionPurchaseOrder(w, r, func(id uuid.UUID, actor, _ string) (any, error) {
+		return h.service.RejectPurchaseOrder(r.Context(), id, actor, request.Reason)
+	})
+}
+
+func (h *Router) markPurchaseOrderSent(w http.ResponseWriter, r *http.Request) {
+	h.transitionPurchaseOrder(w, r, func(id uuid.UUID, actor, _ string) (any, error) {
+		return h.service.MarkPurchaseOrderSent(r.Context(), id, actor)
+	})
+}
+
+func (h *Router) cancelPurchaseOrder(w http.ResponseWriter, r *http.Request) {
+	var request struct {
+		Reason string `json:"reason"`
+	}
+	if !decodeJSON(w, r, &request) {
+		return
+	}
+	h.transitionPurchaseOrder(w, r, func(id uuid.UUID, actor, reason string) (any, error) {
+		return h.service.CancelPurchaseOrder(r.Context(), id, actor, reason)
+	}, request.Reason)
+}
+
+type purchaseOrderTransition func(uuid.UUID, string, string) (any, error)
+
+func (h *Router) transitionPurchaseOrder(w http.ResponseWriter, r *http.Request, transition purchaseOrderTransition, reasons ...string) {
+	id, ok := pathUUID(w, chi.URLParam(r, "purchaseOrderID"))
+	if !ok {
+		return
+	}
+	reason := ""
+	if len(reasons) > 0 {
+		reason = reasons[0]
+	}
+	order, err := transition(id, strings.TrimSpace(r.Header.Get("X-User-ID")), reason)
+	if err != nil {
+		h.writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, order)
 }
 
 type supplierRequest struct {
@@ -308,7 +498,9 @@ func (h *Router) writeServiceError(w http.ResponseWriter, err error) {
 	case errors.Is(err, domain.ErrNotFound):
 		writeError(w, http.StatusNotFound, "NOT_FOUND", "resource was not found")
 	case errors.Is(err, domain.ErrConflict):
-		writeError(w, http.StatusConflict, "CONFLICT", "resource code or supplier-material offer already exists")
+		writeError(w, http.StatusConflict, "CONFLICT", "resource already exists or the action conflicts with current data")
+	case errors.Is(err, domain.ErrInvalidState):
+		writeError(w, http.StatusConflict, "INVALID_STATE", "the requested operation is not allowed in the current state")
 	case errors.Is(err, domain.ErrInvalidArgument):
 		writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "request contains invalid or missing fields")
 	default:

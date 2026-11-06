@@ -5,10 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/omamx/procurement-service/internal/domain"
 )
@@ -140,6 +142,216 @@ func (r *Repository) ListSupplierOffers(ctx context.Context, supplierID uuid.UUI
 		items = append(items, item)
 	}
 	return items, rows.Err()
+}
+
+func (r *Repository) CreatePurchaseOrder(ctx context.Context, order domain.PurchaseOrder) (domain.PurchaseOrder, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return domain.PurchaseOrder{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	const query = `INSERT INTO purchase_orders
+		(id, po_number, supplier_id, supplier_name, status, currency, total_amount_minor, notes,
+		expected_delivery_date, created_by, version)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+		RETURNING created_at, updated_at`
+	if err := tx.QueryRow(ctx, query, order.ID, order.Number, order.SupplierID, order.SupplierName, order.Status,
+		order.Currency, order.TotalAmountMinor, order.Notes, order.ExpectedDeliveryDate, order.CreatedBy, order.Version).
+		Scan(&order.CreatedAt, &order.UpdatedAt); err != nil {
+		return domain.PurchaseOrder{}, mapError(err)
+	}
+	if err := insertPurchaseOrderLines(ctx, tx, order); err != nil {
+		return domain.PurchaseOrder{}, mapError(err)
+	}
+	if err := insertPurchaseOrderHistory(ctx, tx, order.ID, "", string(order.Status), "CREATED", order.CreatedBy, ""); err != nil {
+		return domain.PurchaseOrder{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return domain.PurchaseOrder{}, err
+	}
+	return order, nil
+}
+
+func (r *Repository) GetPurchaseOrder(ctx context.Context, id uuid.UUID) (domain.PurchaseOrder, error) {
+	order, err := scanPurchaseOrder(r.pool.QueryRow(ctx, purchaseOrderSelect+` WHERE id=$1`, id))
+	if err != nil {
+		return domain.PurchaseOrder{}, err
+	}
+	rows, err := r.pool.Query(ctx, purchaseOrderLineSelect+` WHERE purchase_order_id=$1 ORDER BY line_number`, id)
+	if err != nil {
+		return domain.PurchaseOrder{}, err
+	}
+	defer rows.Close()
+	order.Lines = make([]domain.PurchaseOrderLine, 0)
+	for rows.Next() {
+		var line domain.PurchaseOrderLine
+		if err := rows.Scan(&line.ID, &line.LineNumber, &line.MaterialID, &line.MaterialCode, &line.MaterialName,
+			&line.Quantity, &line.ReceivedQuantity, &line.Unit, &line.UnitPriceMinor, &line.LineAmountMinor); err != nil {
+			return domain.PurchaseOrder{}, err
+		}
+		order.Lines = append(order.Lines, line)
+	}
+	if err := rows.Err(); err != nil {
+		return domain.PurchaseOrder{}, err
+	}
+	return order, nil
+}
+
+func (r *Repository) ListPurchaseOrders(ctx context.Context, supplierID uuid.UUID, status domain.PurchaseOrderStatus, limit, offset int) ([]domain.PurchaseOrder, error) {
+	var supplierFilter any
+	if supplierID != uuid.Nil {
+		supplierFilter = supplierID
+	}
+	var statusFilter any
+	if status != "" {
+		statusFilter = string(status)
+	}
+	rows, err := r.pool.Query(ctx, `SELECT id FROM purchase_orders
+		WHERE ($1::uuid IS NULL OR supplier_id=$1) AND ($2::text IS NULL OR status=$2)
+		ORDER BY created_at DESC, id LIMIT $3 OFFSET $4`, supplierFilter, statusFilter, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	ids := make([]uuid.UUID, 0)
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	rowsErr := rows.Err()
+	rows.Close()
+	if rowsErr != nil {
+		return nil, rowsErr
+	}
+	items := make([]domain.PurchaseOrder, 0, len(ids))
+	for _, id := range ids {
+		item, err := r.GetPurchaseOrder(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, nil
+}
+
+func (r *Repository) SavePurchaseOrder(ctx context.Context, order domain.PurchaseOrder, expectedVersion int64, previousStatus domain.PurchaseOrderStatus, action, actor, reason string) (domain.PurchaseOrder, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return domain.PurchaseOrder{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	const query = `UPDATE purchase_orders SET supplier_id=$3, supplier_name=$4, status=$5, currency=$6,
+		total_amount_minor=$7, notes=$8, expected_delivery_date=$9, submitted_by=$10, submitted_at=$11,
+		approved_by=$12, approved_at=$13, rejected_by=$14, rejected_at=$15, rejection_reason=$16,
+		sent_by=$17, sent_at=$18, cancelled_by=$19, cancelled_at=$20, cancellation_reason=$21,
+		updated_at=now(), version=version+1
+		WHERE id=$1 AND version=$2
+		RETURNING created_at, updated_at, version`
+	err = tx.QueryRow(ctx, query, order.ID, expectedVersion, order.SupplierID, order.SupplierName, order.Status,
+		order.Currency, order.TotalAmountMinor, order.Notes, order.ExpectedDeliveryDate,
+		emptyToNil(order.SubmittedBy), order.SubmittedAt, emptyToNil(order.ApprovedBy), order.ApprovedAt,
+		emptyToNil(order.RejectedBy), order.RejectedAt, order.RejectionReason,
+		emptyToNil(order.SentBy), order.SentAt, emptyToNil(order.CancelledBy), order.CancelledAt, order.CancellationReason).
+		Scan(&order.CreatedAt, &order.UpdatedAt, &order.Version)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.PurchaseOrder{}, domain.ErrConflict
+	}
+	if err != nil {
+		return domain.PurchaseOrder{}, mapError(err)
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM purchase_order_lines WHERE purchase_order_id=$1`, order.ID); err != nil {
+		return domain.PurchaseOrder{}, err
+	}
+	if err := insertPurchaseOrderLines(ctx, tx, order); err != nil {
+		return domain.PurchaseOrder{}, mapError(err)
+	}
+	if err := insertPurchaseOrderHistory(ctx, tx, order.ID, string(previousStatus), string(order.Status), action, actor, reason); err != nil {
+		return domain.PurchaseOrder{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return domain.PurchaseOrder{}, err
+	}
+	return order, nil
+}
+
+func insertPurchaseOrderLines(ctx context.Context, tx pgx.Tx, order domain.PurchaseOrder) error {
+	const query = `INSERT INTO purchase_order_lines
+		(id, purchase_order_id, line_number, material_id, material_code, material_name, quantity, received_quantity, unit, unit_price_minor, line_amount_minor)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`
+	for _, line := range order.Lines {
+		receivedQuantity := line.ReceivedQuantity
+		if receivedQuantity == "" {
+			receivedQuantity = "0"
+		}
+		if _, err := tx.Exec(ctx, query, line.ID, order.ID, line.LineNumber, line.MaterialID, line.MaterialCode,
+			line.MaterialName, line.Quantity, receivedQuantity, line.Unit, line.UnitPriceMinor, line.LineAmountMinor); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func insertPurchaseOrderHistory(ctx context.Context, tx pgx.Tx, orderID uuid.UUID, fromStatus, toStatus, action, actor, reason string) error {
+	_, err := tx.Exec(ctx, `INSERT INTO purchase_order_status_history
+		(id, purchase_order_id, from_status, to_status, action, actor_id, reason)
+		VALUES ($1,$2,NULLIF($3,''),$4,$5,$6,$7)`, uuid.New(), orderID, fromStatus, toStatus, action, actor, reason)
+	return err
+}
+
+func emptyToNil(value string) any {
+	if strings.TrimSpace(value) == "" {
+		return nil
+	}
+	return value
+}
+
+const purchaseOrderSelect = `SELECT id, po_number, supplier_id, supplier_name, status, currency,
+	total_amount_minor, notes, expected_delivery_date, created_by, submitted_by, submitted_at,
+	approved_by, approved_at, rejected_by, rejected_at, rejection_reason, sent_by, sent_at,
+	cancelled_by, cancelled_at, cancellation_reason, created_at, updated_at, version FROM purchase_orders`
+
+const purchaseOrderLineSelect = `SELECT id, line_number, material_id, material_code, material_name,
+	quantity::text, received_quantity::text, unit, unit_price_minor, line_amount_minor FROM purchase_order_lines`
+
+func scanPurchaseOrder(row rowScanner) (domain.PurchaseOrder, error) {
+	var order domain.PurchaseOrder
+	var expected pgtype.Date
+	var submitted, approved, rejected, sent, cancelled pgtype.Timestamptz
+	var submittedBy, approvedBy, rejectedBy, rejectionReason, sentBy, cancelledBy, cancellationReason pgtype.Text
+	err := row.Scan(&order.ID, &order.Number, &order.SupplierID, &order.SupplierName, &order.Status, &order.Currency,
+		&order.TotalAmountMinor, &order.Notes, &expected, &order.CreatedBy, &submittedBy, &submitted,
+		&approvedBy, &approved, &rejectedBy, &rejected, &rejectionReason, &sentBy, &sent,
+		&cancelledBy, &cancelled, &cancellationReason, &order.CreatedAt, &order.UpdatedAt, &order.Version)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.PurchaseOrder{}, domain.ErrNotFound
+	}
+	if err != nil {
+		return domain.PurchaseOrder{}, err
+	}
+	if expected.Valid {
+		value := expected.Time
+		order.ExpectedDeliveryDate = &value
+	}
+	order.SubmittedBy, order.ApprovedBy, order.RejectedBy = submittedBy.String, approvedBy.String, rejectedBy.String
+	order.RejectionReason, order.SentBy, order.CancelledBy = rejectionReason.String, sentBy.String, cancelledBy.String
+	order.CancellationReason = cancellationReason.String
+	order.SubmittedAt = timestampPointer(submitted)
+	order.ApprovedAt = timestampPointer(approved)
+	order.RejectedAt = timestampPointer(rejected)
+	order.SentAt = timestampPointer(sent)
+	order.CancelledAt = timestampPointer(cancelled)
+	return order, nil
+}
+
+func timestampPointer(value pgtype.Timestamptz) *time.Time {
+	if !value.Valid {
+		return nil
+	}
+	result := value.Time
+	return &result
 }
 
 const supplierSelect = `SELECT id, code, name, supplier_type, contact_name, phone, email, address, status, created_at, updated_at FROM suppliers`

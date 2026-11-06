@@ -100,14 +100,17 @@ type SupplierMaterialOffer struct {
 	UpdatedAt      time.Time `json:"updated_at"`
 }
 
-var decimalQuantityPattern = regexp.MustCompile(`^[0-9]+(?:\.[0-9]{1,6})?$`)
+var (
+	decimalQuantityPattern = regexp.MustCompile(`^[0-9]+(?:\.[0-9]{1,6})?$`)
+	currencyPattern        = regexp.MustCompile(`^[A-Z]{3}$`)
+)
 
 func NewSupplierMaterialOffer(supplierID, materialID uuid.UUID, supplierSKU, unit string, unitPriceMinor int64, currency, minimumQty string, leadTimeDays int) (SupplierMaterialOffer, error) {
 	unit = strings.ToUpper(strings.TrimSpace(unit))
 	currency = strings.ToUpper(strings.TrimSpace(currency))
 	minimumQty = strings.TrimSpace(minimumQty)
 	quantity, ok := new(big.Rat).SetString(minimumQty)
-	if supplierID == uuid.Nil || materialID == uuid.Nil || unit == "" || unitPriceMinor <= 0 || len(currency) != 3 || !ok || quantity.Sign() <= 0 || leadTimeDays < 0 {
+	if supplierID == uuid.Nil || materialID == uuid.Nil || unit == "" || unitPriceMinor <= 0 || !currencyPattern.MatchString(currency) || !ok || quantity.Sign() <= 0 || leadTimeDays < 0 {
 		return SupplierMaterialOffer{}, ErrInvalidArgument
 	}
 	if !decimalQuantityPattern.MatchString(minimumQty) {

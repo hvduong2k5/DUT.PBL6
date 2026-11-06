@@ -1,0 +1,235 @@
+package application_test
+
+import (
+	"context"
+	"errors"
+	"testing"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/omamx/procurement-service/internal/application"
+	"github.com/omamx/procurement-service/internal/domain"
+)
+
+type fakeRepository struct {
+	application.Repository
+	suppliers map[uuid.UUID]domain.Supplier
+	materials map[uuid.UUID]domain.RawMaterial
+	offers    map[uuid.UUID][]domain.SupplierMaterialOffer
+	orders    map[uuid.UUID]domain.PurchaseOrder
+}
+
+func newFakeRepository() *fakeRepository {
+	return &fakeRepository{
+		suppliers: make(map[uuid.UUID]domain.Supplier), materials: make(map[uuid.UUID]domain.RawMaterial),
+		offers: make(map[uuid.UUID][]domain.SupplierMaterialOffer), orders: make(map[uuid.UUID]domain.PurchaseOrder),
+	}
+}
+
+func (r *fakeRepository) GetSupplier(_ context.Context, id uuid.UUID) (domain.Supplier, error) {
+	item, ok := r.suppliers[id]
+	if !ok {
+		return domain.Supplier{}, domain.ErrNotFound
+	}
+	return item, nil
+}
+
+func (r *fakeRepository) GetMaterial(_ context.Context, id uuid.UUID) (domain.RawMaterial, error) {
+	item, ok := r.materials[id]
+	if !ok {
+		return domain.RawMaterial{}, domain.ErrNotFound
+	}
+	return item, nil
+}
+
+func (r *fakeRepository) ListSupplierOffers(_ context.Context, supplierID uuid.UUID) ([]domain.SupplierMaterialOffer, error) {
+	return append([]domain.SupplierMaterialOffer(nil), r.offers[supplierID]...), nil
+}
+
+func (r *fakeRepository) CreateOffer(_ context.Context, offer domain.SupplierMaterialOffer) (domain.SupplierMaterialOffer, error) {
+	r.offers[offer.SupplierID] = append(r.offers[offer.SupplierID], offer)
+	return offer, nil
+}
+
+func (r *fakeRepository) CreatePurchaseOrder(_ context.Context, order domain.PurchaseOrder) (domain.PurchaseOrder, error) {
+	r.orders[order.ID] = order
+	return order, nil
+}
+
+func (r *fakeRepository) GetPurchaseOrder(_ context.Context, id uuid.UUID) (domain.PurchaseOrder, error) {
+	order, ok := r.orders[id]
+	if !ok {
+		return domain.PurchaseOrder{}, domain.ErrNotFound
+	}
+	return order, nil
+}
+
+func (r *fakeRepository) ListPurchaseOrders(_ context.Context, supplierID uuid.UUID, status domain.PurchaseOrderStatus, limit, offset int) ([]domain.PurchaseOrder, error) {
+	items := make([]domain.PurchaseOrder, 0)
+	for _, order := range r.orders {
+		if supplierID != uuid.Nil && order.SupplierID != supplierID || status != "" && order.Status != status {
+			continue
+		}
+		items = append(items, order)
+	}
+	return items, nil
+}
+
+func (r *fakeRepository) SavePurchaseOrder(_ context.Context, order domain.PurchaseOrder, expectedVersion int64, _ domain.PurchaseOrderStatus, _, _, _ string) (domain.PurchaseOrder, error) {
+	current, ok := r.orders[order.ID]
+	if !ok {
+		return domain.PurchaseOrder{}, domain.ErrNotFound
+	}
+	if current.Version != expectedVersion {
+		return domain.PurchaseOrder{}, domain.ErrConflict
+	}
+	r.orders[order.ID] = order
+	return order, nil
+}
+
+func makeApplicationFixture(t *testing.T) (*application.Service, *fakeRepository, uuid.UUID, uuid.UUID) {
+	t.Helper()
+	repo := newFakeRepository()
+	supplier, err := domain.NewSupplier("SUP-ONE", "Supplier One", "COOPERATIVE", "", "", "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	material, err := domain.NewRawMaterial("SESAME", "Sesame", "KG", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	offer, err := domain.NewSupplierMaterialOffer(supplier.ID, material.ID, "", "KG", 10001, "VND", "0.5", 4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	repo.suppliers[supplier.ID] = supplier
+	repo.materials[material.ID] = material
+	repo.offers[supplier.ID] = []domain.SupplierMaterialOffer{offer}
+	return application.NewService(repo), repo, supplier.ID, material.ID
+}
+
+func TestCreatePurchaseOrderUsesActiveSupplierOfferSnapshot(t *testing.T) {
+	service, _, supplierID, materialID := makeApplicationFixture(t)
+	delivery := time.Now().UTC().Add(24 * time.Hour)
+	order, err := service.CreatePurchaseOrder(context.Background(), application.PurchaseOrderRequest{
+		SupplierID: supplierID, ExpectedDeliveryDate: &delivery,
+		Lines: []application.PurchaseOrderLineRequest{{MaterialID: materialID, Quantity: "1.5"}},
+	}, "staff-1")
+	if err != nil {
+		t.Fatalf("CreatePurchaseOrder() error = %v", err)
+	}
+	if order.Status != domain.PurchaseOrderDraft || order.Currency != "VND" || order.TotalAmountMinor != 15002 {
+		t.Fatalf("unexpected draft snapshot: %+v", order)
+	}
+	if order.Lines[0].UnitPriceMinor != 10001 || order.Lines[0].Quantity != "1.5" {
+		t.Fatalf("line did not snapshot supplier offer: %+v", order.Lines[0])
+	}
+}
+
+func TestCreatePurchaseOrderRejectsInactiveSupplierMissingOfferAndBelowMinimum(t *testing.T) {
+	t.Run("inactive supplier", func(t *testing.T) {
+		service, repo, supplierID, materialID := makeApplicationFixture(t)
+		supplier := repo.suppliers[supplierID]
+		supplier.Status = domain.SupplierSuspended
+		repo.suppliers[supplierID] = supplier
+		_, err := service.CreatePurchaseOrder(context.Background(), application.PurchaseOrderRequest{
+			SupplierID: supplierID, Lines: []application.PurchaseOrderLineRequest{{MaterialID: materialID, Quantity: "1"}},
+		}, "staff-1")
+		if !errors.Is(err, domain.ErrInvalidState) {
+			t.Fatalf("error = %v, want ErrInvalidState", err)
+		}
+	})
+	t.Run("missing offer", func(t *testing.T) {
+		service, repo, supplierID, materialID := makeApplicationFixture(t)
+		repo.offers[supplierID] = nil
+		_, err := service.CreatePurchaseOrder(context.Background(), application.PurchaseOrderRequest{
+			SupplierID: supplierID, Lines: []application.PurchaseOrderLineRequest{{MaterialID: materialID, Quantity: "1"}},
+		}, "staff-1")
+		if !errors.Is(err, domain.ErrInvalidState) {
+			t.Fatalf("error = %v, want ErrInvalidState", err)
+		}
+	})
+	t.Run("below minimum", func(t *testing.T) {
+		service, _, supplierID, materialID := makeApplicationFixture(t)
+		_, err := service.CreatePurchaseOrder(context.Background(), application.PurchaseOrderRequest{
+			SupplierID: supplierID, Lines: []application.PurchaseOrderLineRequest{{MaterialID: materialID, Quantity: "0.25"}},
+		}, "staff-1")
+		if !errors.Is(err, domain.ErrInvalidArgument) {
+			t.Fatalf("error = %v, want ErrInvalidArgument", err)
+		}
+	})
+}
+
+func TestCreateOfferRequiresActiveSupplierAndMatchingMaterialUnit(t *testing.T) {
+	t.Run("inactive supplier", func(t *testing.T) {
+		service, repo, supplierID, materialID := makeApplicationFixture(t)
+		supplier := repo.suppliers[supplierID]
+		supplier.Status = domain.SupplierSuspended
+		repo.suppliers[supplierID] = supplier
+		offer, _ := domain.NewSupplierMaterialOffer(supplierID, materialID, "", "KG", 100, "VND", "1", 0)
+		if _, err := service.CreateOffer(context.Background(), offer); !errors.Is(err, domain.ErrInvalidState) {
+			t.Fatalf("error = %v, want ErrInvalidState", err)
+		}
+	})
+	t.Run("unit differs from material base unit", func(t *testing.T) {
+		service, _, supplierID, materialID := makeApplicationFixture(t)
+		offer, _ := domain.NewSupplierMaterialOffer(supplierID, materialID, "", "G", 100, "VND", "1", 0)
+		if _, err := service.CreateOffer(context.Background(), offer); !errors.Is(err, domain.ErrInvalidState) {
+			t.Fatalf("error = %v, want ErrInvalidState", err)
+		}
+	})
+}
+
+func TestPurchaseOrderTransitionsAndConcurrentVersionConflict(t *testing.T) {
+	service, repo, supplierID, materialID := makeApplicationFixture(t)
+	order, err := service.CreatePurchaseOrder(context.Background(), application.PurchaseOrderRequest{
+		SupplierID: supplierID, Lines: []application.PurchaseOrderLineRequest{{MaterialID: materialID, Quantity: "1"}},
+	}, "creator")
+	if err != nil {
+		t.Fatal(err)
+	}
+	order, err = service.SubmitPurchaseOrder(context.Background(), order.ID, "creator")
+	if err != nil || order.Status != domain.PurchaseOrderPendingApproval {
+		t.Fatalf("SubmitPurchaseOrder() = %s, %v", order.Status, err)
+	}
+	if _, err := service.ApprovePurchaseOrder(context.Background(), order.ID, "creator"); !errors.Is(err, domain.ErrConflict) {
+		t.Fatalf("self approval error = %v", err)
+	}
+	order, err = service.ApprovePurchaseOrder(context.Background(), order.ID, "approver")
+	if err != nil || order.Status != domain.PurchaseOrderApproved {
+		t.Fatalf("ApprovePurchaseOrder() = %s, %v", order.Status, err)
+	}
+	order, err = service.MarkPurchaseOrderSent(context.Background(), order.ID, "sender")
+	if err != nil || order.Status != domain.PurchaseOrderSent {
+		t.Fatalf("MarkPurchaseOrderSent() = %s, %v", order.Status, err)
+	}
+	stale := repo.orders[order.ID]
+	stale.Version--
+	if _, err := repo.SavePurchaseOrder(context.Background(), stale, stale.Version-1, stale.Status, "STALE", "staff", ""); !errors.Is(err, domain.ErrConflict) {
+		t.Fatalf("stale write error = %v, want ErrConflict", err)
+	}
+}
+
+func TestUpdatePurchaseOrderDraftOnly(t *testing.T) {
+	service, _, supplierID, materialID := makeApplicationFixture(t)
+	order, err := service.CreatePurchaseOrder(context.Background(), application.PurchaseOrderRequest{
+		SupplierID: supplierID, Lines: []application.PurchaseOrderLineRequest{{MaterialID: materialID, Quantity: "1"}},
+	}, "creator")
+	if err != nil {
+		t.Fatal(err)
+	}
+	updated, err := service.UpdatePurchaseOrderDraft(context.Background(), order.ID, application.PurchaseOrderRequest{
+		SupplierID: supplierID, Notes: "updated", Lines: []application.PurchaseOrderLineRequest{{MaterialID: materialID, Quantity: "2"}},
+	}, "staff-2")
+	if err != nil || updated.Notes != "updated" || updated.Version != order.Version+1 {
+		t.Fatalf("UpdatePurchaseOrderDraft() = %+v, %v", updated, err)
+	}
+	if _, err := service.SubmitPurchaseOrder(context.Background(), order.ID, "creator"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.UpdatePurchaseOrderDraft(context.Background(), order.ID, application.PurchaseOrderRequest{
+		SupplierID: supplierID, Lines: []application.PurchaseOrderLineRequest{{MaterialID: materialID, Quantity: "2"}},
+	}, "staff-2"); !errors.Is(err, domain.ErrInvalidState) {
+		t.Fatalf("edit after submit error = %v", err)
+	}
+}
