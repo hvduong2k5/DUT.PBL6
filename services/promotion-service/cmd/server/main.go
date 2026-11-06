@@ -53,6 +53,7 @@ func main() {
 	voucherRepository := postgres.NewVoucherRepository(pool)
 	adminCouponRepository := postgres.NewAdminCouponRepository(pool)
 	startCouponLifecycle(rootCtx, adminCouponRepository)
+	startVoucherHoldExpiry(rootCtx, voucherRepository)
 	var eventWorkers *worker.EventWorkers
 	if cfg.OrderEventsEnabled {
 		eventWorkers = worker.NewEventWorkers(cfg.KafkaBrokers, cfg.OrderEventsTopic, cfg.OrderConsumerGroup, cfg.PromotionEventsTopic, cfg.OrderEventsDLQTopic, voucherRepository)
@@ -132,6 +133,34 @@ func startCouponLifecycle(ctx context.Context, repository *postgres.AdminCouponR
 				if err := repository.AdvanceLifecycle(ctx); err != nil {
 					log.Warn().Err(err).Msg("coupon lifecycle advancement failed")
 				}
+			}
+		}
+	}()
+}
+
+func startVoucherHoldExpiry(ctx context.Context, repository *postgres.VoucherRepository) {
+	advance := func() {
+		workCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+		expired, err := repository.ExpireDueHolds(workCtx)
+		if err != nil {
+			log.Warn().Err(err).Msg("voucher hold expiry sweep failed")
+			return
+		}
+		if expired > 0 {
+			log.Info().Int64("count", expired).Msg("voucher holds expired")
+		}
+	}
+	advance()
+	go func() {
+		ticker := time.NewTicker(15 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				advance()
 			}
 		}
 	}()

@@ -31,7 +31,10 @@ PostgreSQL at `GET /health/ready`; liveness is `GET /health/live`. PostgreSQL is
 Admin calls require `X-Internal-Token`, `X-User-ID`, and `X-User-Role: SALES_MANAGER`. The
 `X-User-*` values are trusted only from the authenticated API Gateway; do not expose this service
 directly to public clients. A lifecycle worker advances scheduled coupons and ends expired ones;
-all manual/automatic status changes are audited.
+all manual/automatic status changes are audited. A voucher expiry worker marks overdue `HELD`
+resources as `EXPIRED` in batches using PostgreSQL time, incrementing the resource version. It
+serializes with finalize/release through row locks; the Order command remains authoritative for
+its own outcome.
 
 ## Configuration
 
