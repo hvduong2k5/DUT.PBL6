@@ -182,6 +182,22 @@ def main():
             )
             return response.status, body, response.headers
 
+    def wait_port_free(host, port, timeout=30):
+        """Wait until a TCP port is no longer accepting connections."""
+        import socket
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(0.5)
+            try:
+                s.connect((host, port))
+                s.close()
+                time.sleep(0.25)
+            except (OSError, ValueError):
+                s.close()
+                return True
+        return False
+
     def wait(url, expected=200, seconds=90):
         deadline = time.monotonic() + seconds
         while time.monotonic() < deadline:
@@ -697,14 +713,28 @@ def main():
         catalog_process.terminate()
         if not wait_process_exit(catalog_process, timeout=60):
             print("WARNING: catalog process did not exit gracefully; killed", flush=True)
-        # Give the OS time to release the TCP port before restarting.
-        time.sleep(2)
+        # Wait for the TCP port to be released before restarting.
+        catalog_port = ports["catalog"]
+        if not wait_port_free("127.0.0.1", catalog_port, timeout=30):
+            print(f"WARNING: port {catalog_port} still in use after wait", flush=True)
         caller_environment=env.copy()
         env.clear();env.update(catalog_environment)
         env.update(IDENTITY_URL=caller_environment["IDENTITY_URL"], CATALOG_INVENTORY_TARGET=peer_address, CATALOG_INVENTORY_TOKEN_FILE=str(folder / "inventory-token"), CATALOG_INVENTORY_CA_FILE=str(folder / "inventory-ca.pem"), CATALOG_INVENTORY_SERVER_NAME="localhost")
         start([args.java, "-jar", catalog_jar], "catalog")
         env.clear();env.update(caller_environment)
-        wait(catalog_url + "/api/v1/products", seconds=300)
+        try:
+            wait(catalog_url + "/api/v1/products", seconds=300)
+        except RuntimeError:
+            # One retry: terminate, kill, wait port, restart, wait again.
+            print("WARNING: catalog not ready on first restart; retrying once", flush=True)
+            catalog_process.terminate()
+            wait_process_exit(catalog_process, timeout=30)
+            time.sleep(2)
+            if not wait_port_free("127.0.0.1", catalog_port, timeout=30):
+                print(f"WARNING: port {catalog_port} still in use before retry", flush=True)
+            start([args.java, "-jar", catalog_jar], "catalog")
+            env.clear();env.update(caller_environment)
+            wait(catalog_url + "/api/v1/products", seconds=300)
         shipping_token = secrets.token_urlsafe(32)
         shipping_webhook = secrets.token_urlsafe(32)
         env.update(
