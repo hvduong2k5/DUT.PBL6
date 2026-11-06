@@ -210,18 +210,23 @@ def main():
         raise RuntimeError("Fixture not ready: " + urllib.parse.urlparse(url).path)
 
     def wait_process_exit(process, timeout=60):
-        """Wait for a subprocess to exit; kill it if it does not exit in time."""
+        """Wait for a subprocess to exit; force kill it if it does not exit in time."""
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             if process.poll() is not None:
                 return True
             time.sleep(0.25)
+        # Force kill the process group (Java may spawn child threads/processes).
         try:
-            process.kill()
+            pgid = os.getpgid(process.pid)
+            os.killpg(pgid, signal.SIGKILL)
         except Exception:
-            pass
+            try:
+                process.kill()
+            except Exception:
+                pass
         try:
-            process.wait(timeout=10)
+            process.wait(timeout=15)
         except Exception:
             pass
         return process.poll() is not None
@@ -712,11 +717,11 @@ def main():
         # Restart catalog with inventory peer target for live availability lookup.
         catalog_process.terminate()
         if not wait_process_exit(catalog_process, timeout=60):
-            print("WARNING: catalog process did not exit gracefully; killed", flush=True)
+            print("WARNING: catalog process did not exit gracefully; force killed", flush=True)
         # Wait for the TCP port to be released before restarting.
         catalog_port = ports["catalog"]
         if not wait_port_free("127.0.0.1", catalog_port, timeout=30):
-            print(f"WARNING: port {catalog_port} still in use after wait", flush=True)
+            print(f"WARNING: port {catalog_port} still in use after force kill", flush=True)
         caller_environment=env.copy()
         env.clear();env.update(catalog_environment)
         inventory_ca = folder / "inventory-ca.pem"
@@ -732,11 +737,12 @@ def main():
         try:
             wait(catalog_url + "/api/v1/products", seconds=300)
         except RuntimeError:
-            # One retry: terminate, kill, wait port, restart, wait again.
+            # One retry: force kill, wait port, restart, wait again.
             print("WARNING: catalog not ready on first restart; retrying once", flush=True)
             catalog_process.terminate()
-            wait_process_exit(catalog_process, timeout=30)
-            time.sleep(2)
+            if not wait_process_exit(catalog_process, timeout=30):
+                print("WARNING: catalog process still alive after retry kill", flush=True)
+            time.sleep(3)
             if not wait_port_free("127.0.0.1", catalog_port, timeout=30):
                 print(f"WARNING: port {catalog_port} still in use before retry", flush=True)
             start([args.java, "-jar", catalog_jar], "catalog")
