@@ -1,0 +1,463 @@
+openapi: 3.0.3
+info:
+  title: Traceability Service Batch MVP
+  version: 0.1.0-draft
+  description: >-
+    Target contract for MS-03 implementation. Endpoint presence here is not proof
+    of implementation. Sandbox profiles and manually checked certificates must
+    never be represented as verified by an external provider. Shared Web/GraphQL
+    contracts have not been changed by this service-specific draft.
+    Admin writes require their command permission and traceability.read_internal;
+    evidence references additionally require traceability.read_evidence, even on replay.
+servers:
+  - url: http://127.0.0.1:8003
+security:
+  - bearerAuth: []
+paths:
+  /livez:
+    get:
+      operationId: getLiveness
+      security: []
+      responses:
+        '200': {description: Process is live}
+  /readyz:
+    get:
+      operationId: getReadiness
+      security: []
+      responses:
+        '200': {description: Required capabilities for the configured mode are ready}
+        '503': {description: 'Schema, database or required adapters are not ready'}
+  /metrics:
+    get:
+      operationId: getSandboxMetrics
+      security: []
+      responses:
+        '200':
+          description: Sandbox operational metrics with fixed route labels and no evidence or actor data
+          content:
+            text/plain:
+              schema: {type: string}
+        '503':
+          description: Metric snapshot unavailable
+          content:
+            text/plain:
+              schema: {type: string}
+  /api/v1/trace/{qr_code}:
+    get:
+      operationId: getPublishedTraceability
+      security: []
+      parameters:
+        - name: qr_code
+          in: path
+          required: true
+          schema: {type: string, minLength: 22, maxLength: 160, pattern: '^[A-Za-z0-9_-]+$'}
+      responses:
+        '200':
+          description: Only an eligible published revision. No internal evidence or actor data.
+          headers:
+            Cache-Control: {schema: {type: string, enum: [no-store]}}
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PublicRecord'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '410':
+          description: Previously public token is suspended, archived or no longer eligible; never returns the old valid record.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /api/v1/admin/trace/records:
+    get:
+      operationId: listTraceabilityProfiles
+      parameters:
+        - name: cursor
+          in: query
+          schema: {type: string, maxLength: 256}
+        - name: page_size
+          in: query
+          schema: {type: integer, minimum: 1, maximum: 100, default: 20}
+      responses:
+        '200':
+          description: Instance-scoped list; internal evidence requires its own permission.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [items, next_cursor]
+                properties:
+                  items: {type: array, items: {$ref: '#/components/schemas/Profile'}}
+                  next_cursor: {type: string, nullable: true}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+    post:
+      operationId: createTraceabilityProfile
+      parameters:
+        - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [product_id, sku_code, source_namespace, batch_id, content]
+              properties:
+                product_id: {type: string, format: uuid}
+                sku_code: {type: string, minLength: 1, maxLength: 100}
+                source_namespace: {type: string, minLength: 1, maxLength: 100}
+                batch_id: {type: string, minLength: 1, maxLength: 160}
+                content: {$ref: '#/components/schemas/Content'}
+      responses:
+        '201': {$ref: '#/components/responses/ProfileResult'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /api/v1/admin/trace/records/{id}:
+    parameters:
+      - {$ref: '#/components/parameters/ProfileID'}
+    get:
+      operationId: getTraceabilityProfile
+      responses:
+        '200': {$ref: '#/components/responses/ProfileResult'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/v1/admin/trace/records/{id}/revisions:
+    parameters:
+      - {$ref: '#/components/parameters/ProfileID'}
+    post:
+      operationId: createTraceabilityRevision
+      parameters:
+        - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [expected_version, from_revision]
+              properties:
+                expected_version: {type: integer, format: int64, minimum: 1}
+                from_revision: {type: integer, minimum: 1}
+                reason: {type: string, minLength: 1, maxLength: 1000, description: Required when withdrawing an existing working revision}
+      responses:
+        '201': {$ref: '#/components/responses/ProfileResult'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+  /api/v1/admin/trace/records/{id}/revisions/{revision}:
+    parameters:
+      - {$ref: '#/components/parameters/ProfileID'}
+      - {$ref: '#/components/parameters/RevisionNumber'}
+    patch:
+      operationId: replaceDraftContent
+      description: Replaces the whole Draft content snapshot; not a JSON merge patch. Does not change binding or accept contributor identities from the caller.
+      parameters:
+        - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [expected_version, content]
+              properties:
+                expected_version: {type: integer, format: int64, minimum: 1}
+                content: {$ref: '#/components/schemas/Content'}
+      responses:
+        '200': {$ref: '#/components/responses/ProfileResult'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+  /api/v1/admin/trace/records/{id}/revisions/{revision}/submit:
+    parameters:
+      - {$ref: '#/components/parameters/ProfileID'}
+      - {$ref: '#/components/parameters/RevisionNumber'}
+    post:
+      operationId: submitTraceabilityRevision
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {$ref: '#/components/requestBodies/Command'}
+      responses:
+        '200': {$ref: '#/components/responses/ProfileResult'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /api/v1/admin/trace/records/{id}/revisions/{revision}/approve:
+    parameters:
+      - {$ref: '#/components/parameters/ProfileID'}
+      - {$ref: '#/components/parameters/RevisionNumber'}
+    post:
+      operationId: approveTraceabilityRevision
+      description: Reviewer must not be a contributor to this revision, including inherited contributors. Never publishes automatically.
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {$ref: '#/components/requestBodies/ReasonCommand'}
+      responses:
+        '200': {$ref: '#/components/responses/ProfileResult'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+  /api/v1/admin/trace/records/{id}/revisions/{revision}/reject:
+    parameters:
+      - {$ref: '#/components/parameters/ProfileID'}
+      - {$ref: '#/components/parameters/RevisionNumber'}
+    post:
+      operationId: rejectTraceabilityRevision
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {$ref: '#/components/requestBodies/ReasonCommand'}
+      responses:
+        '200': {$ref: '#/components/responses/ProfileResult'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+  /api/v1/admin/trace/records/{id}/revisions/{revision}/publish:
+    parameters:
+      - {$ref: '#/components/parameters/ProfileID'}
+      - {$ref: '#/components/parameters/RevisionNumber'}
+    post:
+      operationId: publishTraceabilityRevision
+      description: Rechecks dependency snapshot and certificate validity; no published result if source changed or contract is unavailable.
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {$ref: '#/components/requestBodies/Command'}
+      responses:
+        '200': {$ref: '#/components/responses/ProfileResult'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /api/v1/admin/trace/records/{id}/suspend:
+    parameters: [{$ref: '#/components/parameters/ProfileID'}]
+    post:
+      operationId: suspendTraceabilityProfile
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {$ref: '#/components/requestBodies/ReasonCommand'}
+      responses:
+        '200': {$ref: '#/components/responses/ProfileResult'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+  /api/v1/admin/trace/records/{id}/archive:
+    parameters: [{$ref: '#/components/parameters/ProfileID'}]
+    post:
+      operationId: archiveTraceabilityProfile
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {$ref: '#/components/requestBodies/ReasonCommand'}
+      responses:
+        '200': {$ref: '#/components/responses/ProfileResult'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+components:
+  securitySchemes:
+    bearerAuth: {type: http, scheme: bearer, bearerFormat: JWT}
+  parameters:
+    ProfileID: {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+    RevisionNumber: {name: revision, in: path, required: true, schema: {type: integer, minimum: 1}}
+    IdempotencyKey:
+      name: X-Idempotency-Key
+      in: header
+      required: true
+      schema: {type: string, minLength: 1, maxLength: 128, pattern: '^[A-Za-z0-9._~-]+$'}
+  requestBodies:
+    Command:
+      required: true
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Command'}
+    ReasonCommand:
+      required: true
+      content:
+        application/json:
+          schema:
+            allOf:
+              - {$ref: '#/components/schemas/Command'}
+              - type: object
+                required: [reason]
+  responses:
+    ProfileResult:
+      description: Profile after the command, including its current version; replay returns the original response.
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Profile'}
+    BadRequest:
+      description: Invalid input, missing evidence or certificate validation failed
+      content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+    Unauthorized:
+      description: Missing or invalid verified identity
+      content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+    Forbidden:
+      description: Permission denied or contributor trying to approve their own revision
+      content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+    NotFound:
+      description: Resource not found or never published; no internal details
+      content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+    Conflict:
+      description: Stale version, invalid state, immutable binding, source changed or idempotency conflict
+      content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+    Unavailable:
+      description: Required dependency or contract unavailable; no fixture fallback in integration
+      content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+  schemas:
+    Command:
+      type: object
+      additionalProperties: false
+      required: [expected_version]
+      properties:
+        expected_version: {type: integer, format: int64, minimum: 1}
+        reason: {type: string, minLength: 1, maxLength: 1000}
+    Error:
+      type: object
+      additionalProperties: false
+      required: [error_code, user_message, request_id]
+      properties:
+        error_code: {type: string}
+        user_message: {type: string}
+        request_id: {type: string}
+    Content:
+      type: object
+      additionalProperties: false
+      description: Draft may be incomplete; submit additionally requires producer, origin, process and a verified in-scope OCOP certificate.
+      properties:
+        product_name: {type: string, maxLength: 250}
+        producer: {type: string, maxLength: 250}
+        workshop_location: {type: string, maxLength: 1000}
+        artisan_name: {type: string, maxLength: 250, nullable: true}
+        process: {type: string, maxLength: 8000}
+        ingredients:
+          type: array
+          maxItems: 20
+          items:
+            type: object
+            additionalProperties: false
+            required: [name, origin]
+            properties:
+              name: {type: string, minLength: 1, maxLength: 250}
+              origin: {type: string, minLength: 1, maxLength: 1000}
+        certificates: {type: array, maxItems: 20, items: {$ref: '#/components/schemas/Certificate'}}
+        evidence: {type: array, maxItems: 50, items: {$ref: '#/components/schemas/Evidence'}}
+        crafting_video_url: {type: string, format: uri, nullable: true, maxLength: 2048}
+    Certificate:
+      type: object
+      additionalProperties: false
+      required: [id, type, number, issuer, scope, scope_id, issued_on, verification_method, verified_at, evidence_ids]
+      properties:
+        id: {type: string, format: uuid}
+        type: {type: string, enum: [OCOP, ATTP, OTHER]}
+        number: {type: string, minLength: 1, maxLength: 250}
+        issuer: {type: string, minLength: 1, maxLength: 250}
+        scope: {type: string, enum: [PRODUCT, SKU, BATCH]}
+        scope_id: {type: string, minLength: 1, maxLength: 160}
+        issued_on: {type: string, format: date}
+        valid_until: {type: string, format: date, nullable: true}
+        no_expiry_stated: {type: boolean, default: false}
+        review_due_at: {type: string, format: date-time, nullable: true}
+        stars: {type: integer, minimum: 1, maximum: 5, nullable: true}
+        verification_method: {type: string, enum: [MANUAL]}
+        verified_at: {type: string, format: date-time}
+        revoked: {type: boolean, default: false}
+        evidence_ids: {type: array, minItems: 1, maxItems: 50, items: {type: string, format: uuid}}
+    Evidence:
+      type: object
+      additionalProperties: false
+      required: [id, reference, kind, description]
+      properties:
+        id: {type: string, format: uuid}
+        reference: {type: string, minLength: 1, maxLength: 1000, description: Internal object/document reference; never returned publicly}
+        kind: {type: string, minLength: 1, maxLength: 100}
+        description: {type: string, minLength: 1, maxLength: 1000}
+    AdminContent:
+      type: object
+      additionalProperties: false
+      description: Content response; internal evidence reference is omitted without traceability.read_evidence, including on replay.
+      properties:
+        product_name: {$ref: '#/components/schemas/Content/properties/product_name'}
+        producer: {$ref: '#/components/schemas/Content/properties/producer'}
+        workshop_location: {$ref: '#/components/schemas/Content/properties/workshop_location'}
+        artisan_name: {$ref: '#/components/schemas/Content/properties/artisan_name'}
+        process: {$ref: '#/components/schemas/Content/properties/process'}
+        ingredients: {$ref: '#/components/schemas/Content/properties/ingredients'}
+        certificates: {$ref: '#/components/schemas/Content/properties/certificates'}
+        crafting_video_url: {$ref: '#/components/schemas/Content/properties/crafting_video_url'}
+        evidence:
+          type: array
+          maxItems: 50
+          items:
+            type: object
+            additionalProperties: false
+            required: [id, kind, description]
+            properties:
+              id: {type: string, format: uuid}
+              kind: {type: string}
+              description: {type: string}
+              reference: {type: string, minLength: 1, description: Present only with the separate evidence permission}
+    Profile:
+      type: object
+      required: [id, mode, version, status, product_id, sku_code, batch_id, qr_code, revisions]
+      properties:
+        id: {type: string, format: uuid}
+        mode: {type: string, enum: [sandbox, integration]}
+        version: {type: integer, format: int64, minimum: 1}
+        status: {type: string, enum: [ACTIVE, SUSPENDED, ARCHIVED]}
+        product_id: {type: string, format: uuid}
+        sku_code: {type: string}
+        source_namespace: {type: string}
+        batch_id: {type: string}
+        qr_code: {type: string}
+        qr_url: {type: string, format: uri, description: Configured Web page URL derived from the stable code; API public-read URL is separate}
+        public_revision: {type: integer, nullable: true}
+        revisions:
+          type: array
+          items:
+            type: object
+            required: [number, status, content]
+            properties:
+              number: {type: integer, minimum: 1}
+              status: {type: string, enum: [DRAFT, IN_REVIEW, APPROVED, REJECTED, PUBLISHED, ARCHIVED]}
+              content: {$ref: '#/components/schemas/AdminContent'}
+    PublicRecord:
+      type: object
+      additionalProperties: false
+      required: [qr_code, product_name, batch_code, scope, revision, mode, verification_method, verified_at, source_verified_at, ocop_star, ocop_certificate_no, production_date, expiry_date, producer, workshop_location, artisan_name, food_safety_cert, raw_materials_origin, process, crafting_video_url]
+      properties:
+        qr_code: {type: string}
+        product_name: {type: string}
+        batch_code: {type: string}
+        scope: {type: string, enum: [BATCH]}
+        revision: {type: integer}
+        mode: {type: string, enum: [sandbox, integration]}
+        verification_method: {type: string, enum: [MANUAL]}
+        verified_at: {type: string, format: date-time}
+        source_verified_at: {type: string, format: date-time, description: Frozen source snapshot check time; distinct from the manual certificate check time}
+        ocop_star: {type: integer, minimum: 1, maximum: 5}
+        ocop_certificate_no: {type: string}
+        production_date: {type: string, format: date}
+        expiry_date: {type: string, format: date}
+        producer: {type: string}
+        workshop_location: {type: string}
+        artisan_name: {type: string, nullable: true}
+        food_safety_cert: {type: string, nullable: true}
+        raw_materials_origin: {type: string}
+        process: {type: string}
+        crafting_video_url: {type: string, format: uri, nullable: true}

@@ -1,0 +1,73 @@
+services:
+  kafka:
+    image: docker.redpanda.com/redpandadata/redpanda:v24.3.18
+    profiles: [broker]
+    command:
+      - redpanda
+      - start
+      - --smp=1
+      - --memory=512M
+      - --reserve-memory=0M
+      - --overprovisioned
+      - --node-id=0
+      - --check=false
+      - --kafka-addr=internal://0.0.0.0:9092,external://0.0.0.0:19092
+      - --advertise-kafka-addr=internal://kafka:9092,external://127.0.0.1:19093
+    ports:
+      - "127.0.0.1:19093:19092"
+    healthcheck:
+      test: ["CMD", "rpk", "cluster", "info", "--brokers", "127.0.0.1:9092"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+    networks: [traceability]
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: om_traceability_db
+      POSTGRES_USER: trace_migrator
+      POSTGRES_PASSWORD: ${TRACEABILITY_DB_PASSWORD:?set TRACEABILITY_DB_PASSWORD for this isolated development database}
+    ports:
+      - "127.0.0.1:15403:5432"
+    volumes:
+      - traceability_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U trace_migrator -d om_traceability_db"]
+      interval: 2s
+      timeout: 2s
+      retries: 20
+    networks: [traceability]
+  api:
+    build: .
+    profiles: [api]
+    stop_grace_period: 15s
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8003/readyz"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+    environment:
+      APP_MODE: sandbox
+      HTTP_ADDR: 0.0.0.0:8003
+      SANDBOX_ISOLATED_CONTAINER: "true"
+      DATABASE_URL: ${TRACEABILITY_RUNTIME_DATABASE_URL:-}
+      PUBLIC_WEB_BASE_URL: http://localhost:3000
+      SANDBOX_JWT_PUBLIC_KEY_FILE: /run/traceability/public.pem
+      SANDBOX_FIXTURE_FILE: /run/traceability/batches.json
+      OUTBOX_RELAY_ENABLED: ${OUTBOX_RELAY_ENABLED:-false}
+      KAFKA_BROKERS: kafka:9092
+      EXPIRY_WORKER_ENABLED: ${EXPIRY_WORKER_ENABLED:-true}
+      VIDEO_ALLOWED_HOSTS: ${VIDEO_ALLOWED_HOSTS:-}
+    volumes:
+      - ./.sandbox/public.pem:/run/traceability/public.pem:ro
+      - ./.sandbox/batches.json:/run/traceability/batches.json:ro
+    ports:
+      - "127.0.0.1:8003:8003"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [traceability]
+networks:
+  traceability: {}
+volumes:
+  traceability_data:
