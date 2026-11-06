@@ -51,6 +51,12 @@ func NewRouter(service *application.Service, internalToken string, ping func(con
 		r.Post("/api/v1/admin/procurement/purchase-orders/{purchaseOrderID}/send", h.markPurchaseOrderSent)
 		r.Post("/api/v1/admin/procurement/purchase-orders/{purchaseOrderID}/cancel", h.cancelPurchaseOrder)
 	})
+	r.Group(func(r chi.Router) {
+		r.Use(h.requireReceivingStaff)
+		r.Post("/api/v1/admin/procurement/goods-receipts", h.createGoodsReceipt)
+		r.Get("/api/v1/admin/procurement/goods-receipts/{goodsReceiptID}", h.getGoodsReceipt)
+		r.Post("/api/v1/admin/procurement/goods-receipts/{goodsReceiptID}/inspect", h.inspectGoodsReceipt)
+	})
 	return r
 }
 
@@ -69,6 +75,14 @@ func (h *Router) ready(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Router) requireInternalStaff(next http.Handler) http.Handler {
+	return h.requireRoles(next, "ADMIN", "SUPPLY_MANAGER", "PROCUREMENT_MANAGER")
+}
+
+func (h *Router) requireReceivingStaff(next http.Handler) http.Handler {
+	return h.requireRoles(next, "ADMIN", "SUPPLY_MANAGER", "PROCUREMENT_MANAGER", "WAREHOUSE_STAFF")
+}
+
+func (h *Router) requireRoles(next http.Handler, allowed ...string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		token := strings.TrimSpace(r.Header.Get("X-Internal-Token"))
 		if token == "" || len(token) != len(h.internalToken) || subtle.ConstantTimeCompare([]byte(token), []byte(h.internalToken)) != 1 {
@@ -80,13 +94,120 @@ func (h *Router) requireInternalStaff(next http.Handler) http.Handler {
 			return
 		}
 		role := strings.ToUpper(strings.TrimSpace(r.Header.Get("X-User-Role")))
-		switch role {
-		case "ADMIN", "SUPPLY_MANAGER", "PROCUREMENT_MANAGER":
-			next.ServeHTTP(w, r)
-		default:
-			writeError(w, http.StatusForbidden, "FORBIDDEN", "role cannot access procurement administration")
+		for _, candidate := range allowed {
+			if role == candidate {
+				next.ServeHTTP(w, r)
+				return
+			}
 		}
+		writeError(w, http.StatusForbidden, "FORBIDDEN", "role cannot access this procurement operation")
 	})
+}
+
+type goodsReceiptLineRequest struct {
+	PurchaseOrderLineID string `json:"purchase_order_line_id"`
+	QuantityReceived    string `json:"quantity_received"`
+	SupplierLotCode     string `json:"supplier_lot_code,omitempty"`
+	ManufacturedOn      string `json:"manufactured_on,omitempty"`
+	ExpiresOn           string `json:"expires_on,omitempty"`
+}
+
+type goodsReceiptRequest struct {
+	PurchaseOrderID string                    `json:"purchase_order_id"`
+	WarehouseCode   string                    `json:"warehouse_code"`
+	Notes           string                    `json:"notes,omitempty"`
+	Lines           []goodsReceiptLineRequest `json:"lines"`
+}
+
+func (h *Router) createGoodsReceipt(w http.ResponseWriter, r *http.Request) {
+	var request goodsReceiptRequest
+	if !decodeJSON(w, r, &request) {
+		return
+	}
+	poID, err := uuid.Parse(strings.TrimSpace(request.PurchaseOrderID))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "purchase_order_id must be a UUID")
+		return
+	}
+	input := application.GoodsReceiptRequest{PurchaseOrderID: poID, WarehouseCode: request.WarehouseCode, Notes: request.Notes, Lines: make([]application.GoodsReceiptLineRequest, 0, len(request.Lines))}
+	for _, line := range request.Lines {
+		lineID, parseErr := uuid.Parse(strings.TrimSpace(line.PurchaseOrderLineID))
+		if parseErr != nil {
+			writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "purchase_order_line_id must be a UUID")
+			return
+		}
+		item := application.GoodsReceiptLineRequest{PurchaseOrderLineID: lineID, QuantityReceived: line.QuantityReceived, SupplierLotCode: line.SupplierLotCode}
+		if line.ManufacturedOn != "" {
+			date, parseErr := time.Parse("2006-01-02", line.ManufacturedOn)
+			if parseErr != nil {
+				writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "manufactured_on must use YYYY-MM-DD")
+				return
+			}
+			item.ManufacturedOn = &date
+		}
+		if line.ExpiresOn != "" {
+			date, parseErr := time.Parse("2006-01-02", line.ExpiresOn)
+			if parseErr != nil {
+				writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "expires_on must use YYYY-MM-DD")
+				return
+			}
+			item.ExpiresOn = &date
+		}
+		input.Lines = append(input.Lines, item)
+	}
+	created, err := h.service.CreateGoodsReceipt(r.Context(), input, strings.TrimSpace(r.Header.Get("X-User-ID")))
+	if err != nil {
+		h.writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, created)
+}
+
+func (h *Router) getGoodsReceipt(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathUUID(w, chi.URLParam(r, "goodsReceiptID"))
+	if !ok {
+		return
+	}
+	receipt, err := h.service.GetGoodsReceipt(r.Context(), id)
+	if err != nil {
+		h.writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, receipt)
+}
+
+func (h *Router) inspectGoodsReceipt(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathUUID(w, chi.URLParam(r, "goodsReceiptID"))
+	if !ok {
+		return
+	}
+	var request struct {
+		Lines []struct {
+			GoodsReceiptLineID string `json:"goods_receipt_line_id"`
+			QuantityAccepted   string `json:"quantity_accepted"`
+			QuantityRejected   string `json:"quantity_rejected"`
+			HumidityPercent    string `json:"humidity_percent,omitempty"`
+			InspectionNotes    string `json:"inspection_notes,omitempty"`
+		} `json:"lines"`
+	}
+	if !decodeJSON(w, r, &request) {
+		return
+	}
+	lines := make([]domain.GoodsReceiptInspectionLine, 0, len(request.Lines))
+	for _, line := range request.Lines {
+		lineID, err := uuid.Parse(strings.TrimSpace(line.GoodsReceiptLineID))
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "goods_receipt_line_id must be a UUID")
+			return
+		}
+		lines = append(lines, domain.GoodsReceiptInspectionLine{GoodsReceiptLineID: lineID, QuantityAccepted: line.QuantityAccepted, QuantityRejected: line.QuantityRejected, HumidityPercent: line.HumidityPercent, InspectionNotes: line.InspectionNotes})
+	}
+	result, err := h.service.InspectGoodsReceipt(r.Context(), id, strings.TrimSpace(r.Header.Get("X-User-ID")), lines)
+	if err != nil {
+		h.writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
 }
 
 type purchaseOrderLineRequest struct {

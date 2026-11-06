@@ -17,12 +17,13 @@ type fakeRepository struct {
 	materials map[uuid.UUID]domain.RawMaterial
 	offers    map[uuid.UUID][]domain.SupplierMaterialOffer
 	orders    map[uuid.UUID]domain.PurchaseOrder
+	receipts  map[uuid.UUID]domain.GoodsReceipt
 }
 
 func newFakeRepository() *fakeRepository {
 	return &fakeRepository{
 		suppliers: make(map[uuid.UUID]domain.Supplier), materials: make(map[uuid.UUID]domain.RawMaterial),
-		offers: make(map[uuid.UUID][]domain.SupplierMaterialOffer), orders: make(map[uuid.UUID]domain.PurchaseOrder),
+		offers: make(map[uuid.UUID][]domain.SupplierMaterialOffer), orders: make(map[uuid.UUID]domain.PurchaseOrder), receipts: make(map[uuid.UUID]domain.GoodsReceipt),
 	}
 }
 
@@ -85,6 +86,29 @@ func (r *fakeRepository) SavePurchaseOrder(_ context.Context, order domain.Purch
 	}
 	r.orders[order.ID] = order
 	return order, nil
+}
+
+func (r *fakeRepository) CreateGoodsReceipt(_ context.Context, receipt domain.GoodsReceipt) (domain.GoodsReceipt, error) {
+	r.receipts[receipt.ID] = receipt
+	return receipt, nil
+}
+func (r *fakeRepository) GetGoodsReceipt(_ context.Context, id uuid.UUID) (domain.GoodsReceipt, error) {
+	receipt, ok := r.receipts[id]
+	if !ok {
+		return domain.GoodsReceipt{}, domain.ErrNotFound
+	}
+	return receipt, nil
+}
+func (r *fakeRepository) InspectGoodsReceipt(_ context.Context, receipt domain.GoodsReceipt, expected int64, _ string) (domain.GoodsReceipt, error) {
+	current, ok := r.receipts[receipt.ID]
+	if !ok {
+		return domain.GoodsReceipt{}, domain.ErrNotFound
+	}
+	if current.Version != expected {
+		return domain.GoodsReceipt{}, domain.ErrConflict
+	}
+	r.receipts[receipt.ID] = receipt
+	return receipt, nil
 }
 
 func makeApplicationFixture(t *testing.T) (*application.Service, *fakeRepository, uuid.UUID, uuid.UUID) {
@@ -231,5 +255,26 @@ func TestUpdatePurchaseOrderDraftOnly(t *testing.T) {
 		SupplierID: supplierID, Lines: []application.PurchaseOrderLineRequest{{MaterialID: materialID, Quantity: "2"}},
 	}, "staff-2"); !errors.Is(err, domain.ErrInvalidState) {
 		t.Fatalf("edit after submit error = %v", err)
+	}
+}
+
+func TestGoodsReceiptApplicationFlow(t *testing.T) {
+	service, repo, supplierID, materialID := makeApplicationFixture(t)
+	order, err := service.CreatePurchaseOrder(context.Background(), application.PurchaseOrderRequest{SupplierID: supplierID, Lines: []application.PurchaseOrderLineRequest{{MaterialID: materialID, Quantity: "5"}}}, "buyer")
+	if err != nil {
+		t.Fatal(err)
+	}
+	order.Status = domain.PurchaseOrderSent
+	repo.orders[order.ID] = order
+	receipt, err := service.CreateGoodsReceipt(context.Background(), application.GoodsReceiptRequest{PurchaseOrderID: order.ID, WarehouseCode: "wh-1", Lines: []application.GoodsReceiptLineRequest{{PurchaseOrderLineID: order.Lines[0].ID, QuantityReceived: "2"}}}, "receiver")
+	if err != nil {
+		t.Fatal(err)
+	}
+	inspected, err := service.InspectGoodsReceipt(context.Background(), receipt.ID, "qc", []domain.GoodsReceiptInspectionLine{{GoodsReceiptLineID: receipt.Lines[0].ID, QuantityAccepted: "1.5", QuantityRejected: "0.5"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if inspected.Status != domain.GoodsReceiptInspected || inspected.Lines[0].QuantityAccepted != "1.5" {
+		t.Fatalf("unexpected inspected receipt: %+v", inspected)
 	}
 }

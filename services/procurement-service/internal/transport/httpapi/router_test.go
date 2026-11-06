@@ -20,12 +20,13 @@ type httpRepository struct {
 	materials map[uuid.UUID]domain.RawMaterial
 	offers    map[uuid.UUID][]domain.SupplierMaterialOffer
 	orders    map[uuid.UUID]domain.PurchaseOrder
+	receipts  map[uuid.UUID]domain.GoodsReceipt
 }
 
 func newHTTPRepository() *httpRepository {
 	return &httpRepository{
 		suppliers: make(map[uuid.UUID]domain.Supplier), materials: make(map[uuid.UUID]domain.RawMaterial),
-		offers: make(map[uuid.UUID][]domain.SupplierMaterialOffer), orders: make(map[uuid.UUID]domain.PurchaseOrder),
+		offers: make(map[uuid.UUID][]domain.SupplierMaterialOffer), orders: make(map[uuid.UUID]domain.PurchaseOrder), receipts: make(map[uuid.UUID]domain.GoodsReceipt),
 	}
 }
 
@@ -72,6 +73,28 @@ func (r *httpRepository) SavePurchaseOrder(_ context.Context, order domain.Purch
 	}
 	r.orders[order.ID] = order
 	return order, nil
+}
+func (r *httpRepository) CreateGoodsReceipt(_ context.Context, receipt domain.GoodsReceipt) (domain.GoodsReceipt, error) {
+	r.receipts[receipt.ID] = receipt
+	return receipt, nil
+}
+func (r *httpRepository) GetGoodsReceipt(_ context.Context, id uuid.UUID) (domain.GoodsReceipt, error) {
+	receipt, ok := r.receipts[id]
+	if !ok {
+		return domain.GoodsReceipt{}, domain.ErrNotFound
+	}
+	return receipt, nil
+}
+func (r *httpRepository) InspectGoodsReceipt(_ context.Context, receipt domain.GoodsReceipt, expected int64, _ string) (domain.GoodsReceipt, error) {
+	current, ok := r.receipts[receipt.ID]
+	if !ok {
+		return domain.GoodsReceipt{}, domain.ErrNotFound
+	}
+	if current.Version != expected {
+		return domain.GoodsReceipt{}, domain.ErrConflict
+	}
+	r.receipts[receipt.ID] = receipt
+	return receipt, nil
 }
 
 func newHandler(repo *httpRepository) http.Handler {
@@ -171,5 +194,24 @@ func TestPurchaseOrderHTTPWorkflowAndSelfApprovalGuard(t *testing.T) {
 	approved := performRequest(handler, http.MethodPost, "/api/v1/admin/procurement/purchase-orders/"+order.ID.String()+"/approve", "", "approver", "PROCUREMENT_MANAGER")
 	if approved.Code != http.StatusOK {
 		t.Fatalf("approval status = %d, body=%s", approved.Code, approved.Body.String())
+	}
+}
+
+func TestWarehouseStaffCanCreateGoodsReceiptButNotManageSuppliers(t *testing.T) {
+	repo := newHTTPRepository()
+	supplier, _ := domain.NewSupplier("SUP-GR", "Supplier", "COMPANY", "", "", "", "")
+	material, _ := domain.NewRawMaterial("RICE", "Rice", "KG", "")
+	po, _ := domain.NewPurchaseOrder("PO-GR", supplier.ID, supplier.Name, "VND", "", "buyer", nil, []domain.PurchaseOrderLineInput{{MaterialID: material.ID, MaterialCode: material.Code, MaterialName: material.Name, Quantity: "5", Unit: "KG", UnitPriceMinor: 100}})
+	po.Status = domain.PurchaseOrderSent
+	repo.orders[po.ID] = po
+	handler := newHandler(repo)
+	body := `{"purchase_order_id":"` + po.ID.String() + `","warehouse_code":"WH-01","lines":[{"purchase_order_line_id":"` + po.Lines[0].ID.String() + `","quantity_received":"2"}]}`
+	created := performRequest(handler, http.MethodPost, "/api/v1/admin/procurement/goods-receipts", body, "warehouse-1", "WAREHOUSE_STAFF")
+	if created.Code != http.StatusCreated {
+		t.Fatalf("create goods receipt status=%d body=%s", created.Code, created.Body.String())
+	}
+	denied := performRequest(handler, http.MethodGet, "/api/v1/admin/procurement/suppliers", "", "warehouse-1", "WAREHOUSE_STAFF")
+	if denied.Code != http.StatusForbidden {
+		t.Fatalf("warehouse supplier access status=%d, want 403", denied.Code)
 	}
 }

@@ -1,6 +1,6 @@
 # Procurement Service (MS-08)
 
-Initial Procurement Service implementation for supplier and raw-material master data plus the manual Purchase Order approval workflow. It owns supplier records, raw material definitions, supplier-specific offers, and PO lifecycle/history. Goods receipts and downstream inventory/finance effects are not part of this slice.
+Procurement Service owns supplier records, raw material definitions, supplier-specific offers, Purchase Order approval, and internal goods-receipt/QC records. Goods receipt inspection updates PO receipt quantities, but does not mutate Inventory or trigger finance effects.
 
 ## Run locally
 
@@ -17,6 +17,8 @@ All `/api/v1/admin/procurement/*` routes require these headers from the trusted 
 - `X-Internal-Token: <PROCUREMENT_INTERNAL_TOKEN>`
 - `X-User-ID: <authenticated-user-id>`
 - `X-User-Role: ADMIN | SUPPLY_MANAGER | PROCUREMENT_MANAGER`
+
+Goods receipt endpoints also allow `WAREHOUSE_STAFF`. Warehouse Staff can create, view, and inspect goods receipts but cannot administer suppliers, materials, offers, or purchase orders.
 
 Do not expose this service directly to public clients. The gateway must authenticate the user and set these trusted headers.
 
@@ -50,6 +52,14 @@ Supplier types: `FARMER`, `COOPERATIVE`, `OCOP_BUSINESS`, `COMPANY`. A supplier-
 
 The lifecycle is `DRAFT → PENDING_APPROVAL → APPROVED → SENT`; a pending PO may instead be `REJECTED`, and eligible states may transition to `CANCELLED`. Every create/update/transition is written to `purchase_order_status_history`. Version-checked updates reject stale concurrent writes. Unit-price times decimal quantity is rounded half-up to the nearest minor currency unit. Decimal quantities support up to six fractional digits.
 
+## Goods receipt and quality inspection
+
+- `POST /api/v1/admin/procurement/goods-receipts` creates a draft receipt against a `SENT` or `PARTIALLY_RECEIVED` PO. Each line references a PO line and records received quantity plus optional supplier lot and paired manufacture/expiry dates.
+- `GET /api/v1/admin/procurement/goods-receipts/{goodsReceiptID}` returns the receipt snapshot.
+- `POST /api/v1/admin/procurement/goods-receipts/{goodsReceiptID}/inspect` records accepted/rejected quantities, optional humidity percentage, and inspection notes for every receipt line.
+
+Accepted plus rejected quantity must equal the physical quantity received. Inspection is versioned and updates the receipt, PO received/accepted quantities, PO lifecycle, and both histories in one database transaction. An over-receipt is rejected. A PO reaches `RECEIVED` only when every line's accepted quantity meets the ordered quantity; otherwise it remains `PARTIALLY_RECEIVED`. A rejected quantity does not count toward fulfillment. Procurement does not create Inventory batches, increase stock, or publish `GoodsReceivedEvent`; those effects require the Inventory contract and idempotent integration to be aligned first.
+
 Example create request:
 
 ```json
@@ -65,7 +75,7 @@ Example create request:
 
 ## Integration boundary
 
-Inventory's current `GetStockLevel` RPC can support a later stock lookup. Goods receipt must not mutate Inventory data directly. The existing `GoodsReceivedEvent` schema and Inventory implementation need alignment on supplier/warehouse identifiers, quantity precision, manufacturing/expiry dates, and inspection results before publishing that event or claiming stock was received.
+Inventory's current `GetStockLevel` RPC can support a later stock lookup. The existing `GoodsReceivedEvent` schema and Inventory implementation need alignment on supplier/warehouse identifiers, quantity precision, manufacturing/expiry dates, inspection results, and idempotency before publishing that event or claiming stock was received.
 
 ## Configuration
 

@@ -26,6 +26,9 @@ type Repository interface {
 	GetPurchaseOrder(context.Context, uuid.UUID) (domain.PurchaseOrder, error)
 	ListPurchaseOrders(context.Context, uuid.UUID, domain.PurchaseOrderStatus, int, int) ([]domain.PurchaseOrder, error)
 	SavePurchaseOrder(context.Context, domain.PurchaseOrder, int64, domain.PurchaseOrderStatus, string, string, string) (domain.PurchaseOrder, error)
+	CreateGoodsReceipt(context.Context, domain.GoodsReceipt) (domain.GoodsReceipt, error)
+	GetGoodsReceipt(context.Context, uuid.UUID) (domain.GoodsReceipt, error)
+	InspectGoodsReceipt(context.Context, domain.GoodsReceipt, int64, string) (domain.GoodsReceipt, error)
 }
 
 type Service struct{ repo Repository }
@@ -165,6 +168,65 @@ func (s *Service) transitionPurchaseOrder(ctx context.Context, id uuid.UUID, act
 		return domain.PurchaseOrder{}, err
 	}
 	return s.repo.SavePurchaseOrder(ctx, current, expectedVersion, previousStatus, action, actor, reason)
+}
+
+type GoodsReceiptLineRequest struct {
+	PurchaseOrderLineID uuid.UUID
+	QuantityReceived    string
+	SupplierLotCode     string
+	ManufacturedOn      *time.Time
+	ExpiresOn           *time.Time
+}
+
+type GoodsReceiptRequest struct {
+	PurchaseOrderID uuid.UUID
+	WarehouseCode   string
+	Notes           string
+	Lines           []GoodsReceiptLineRequest
+}
+
+func (s *Service) CreateGoodsReceipt(ctx context.Context, request GoodsReceiptRequest, actor string) (domain.GoodsReceipt, error) {
+	order, err := s.repo.GetPurchaseOrder(ctx, request.PurchaseOrderID)
+	if err != nil {
+		return domain.GoodsReceipt{}, err
+	}
+	lineByID := make(map[uuid.UUID]domain.PurchaseOrderLine, len(order.Lines))
+	for _, line := range order.Lines {
+		lineByID[line.ID] = line
+	}
+	inputs := make([]domain.GoodsReceiptLineInput, 0, len(request.Lines))
+	for _, requested := range request.Lines {
+		line, exists := lineByID[requested.PurchaseOrderLineID]
+		if !exists {
+			return domain.GoodsReceipt{}, domain.ErrInvalidArgument
+		}
+		inputs = append(inputs, domain.GoodsReceiptLineInput{PurchaseOrderLineID: line.ID, MaterialID: line.MaterialID,
+			MaterialCode: line.MaterialCode, MaterialName: line.MaterialName, Unit: line.Unit,
+			QuantityReceived: requested.QuantityReceived, SupplierLotCode: requested.SupplierLotCode,
+			ManufacturedOn: requested.ManufacturedOn, ExpiresOn: requested.ExpiresOn})
+	}
+	number := "GR-" + time.Now().UTC().Format("20060102") + "-" + strings.ToUpper(uuid.NewString()[:8])
+	receipt, err := domain.NewGoodsReceipt(number, order, request.WarehouseCode, actor, request.Notes, inputs)
+	if err != nil {
+		return domain.GoodsReceipt{}, err
+	}
+	return s.repo.CreateGoodsReceipt(ctx, receipt)
+}
+
+func (s *Service) GetGoodsReceipt(ctx context.Context, id uuid.UUID) (domain.GoodsReceipt, error) {
+	return s.repo.GetGoodsReceipt(ctx, id)
+}
+
+func (s *Service) InspectGoodsReceipt(ctx context.Context, id uuid.UUID, actor string, inspections []domain.GoodsReceiptInspectionLine) (domain.GoodsReceipt, error) {
+	receipt, err := s.repo.GetGoodsReceipt(ctx, id)
+	if err != nil {
+		return domain.GoodsReceipt{}, err
+	}
+	expectedVersion := receipt.Version
+	if err := receipt.Inspect(actor, inspections); err != nil {
+		return domain.GoodsReceipt{}, err
+	}
+	return s.repo.InspectGoodsReceipt(ctx, receipt, expectedVersion, actor)
 }
 
 func (s *Service) buildPurchaseOrder(ctx context.Context, number string, request PurchaseOrderRequest, actor string) (domain.PurchaseOrder, error) {

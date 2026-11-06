@@ -30,6 +30,7 @@ type PurchaseOrderLine struct {
 	MaterialName     string    `json:"material_name"`
 	Quantity         string    `json:"quantity"`
 	ReceivedQuantity string    `json:"received_quantity"`
+	AcceptedQuantity string    `json:"accepted_quantity"`
 	Unit             string    `json:"unit"`
 	UnitPriceMinor   int64     `json:"unit_price_minor"`
 	LineAmountMinor  int64     `json:"line_amount_minor"`
@@ -133,7 +134,7 @@ func newPurchaseOrderLine(lineNumber int, input PurchaseOrderLineInput) (Purchas
 	return PurchaseOrderLine{
 		ID: uuid.New(), LineNumber: lineNumber, MaterialID: input.MaterialID,
 		MaterialCode: strings.TrimSpace(input.MaterialCode), MaterialName: strings.TrimSpace(input.MaterialName),
-		Quantity: quantityText, ReceivedQuantity: "0", Unit: unit, UnitPriceMinor: input.UnitPriceMinor, LineAmountMinor: lineAmount,
+		Quantity: quantityText, ReceivedQuantity: "0", AcceptedQuantity: "0", Unit: unit, UnitPriceMinor: input.UnitPriceMinor, LineAmountMinor: lineAmount,
 	}, nil
 }
 
@@ -244,11 +245,17 @@ func (o *PurchaseOrder) Cancel(actor, reason string) error {
 }
 
 func (o *PurchaseOrder) RecordReceived(lineID uuid.UUID, quantity string) error {
+	return o.RecordReceiptQuantities(lineID, quantity, "0")
+}
+
+func (o *PurchaseOrder) RecordReceiptQuantities(lineID uuid.UUID, acceptedQuantity, rejectedQuantity string) error {
 	if o.Status != PurchaseOrderSent && o.Status != PurchaseOrderPartiallyReceived {
 		return ErrInvalidState
 	}
-	qty, ok := new(big.Rat).SetString(strings.TrimSpace(quantity))
-	if !ok || !purchaseQuantityPattern.MatchString(strings.TrimSpace(quantity)) || qty.Sign() <= 0 {
+	acceptedText, rejectedText := strings.TrimSpace(acceptedQuantity), strings.TrimSpace(rejectedQuantity)
+	accepted, acceptedOK := new(big.Rat).SetString(acceptedText)
+	rejected, rejectedOK := new(big.Rat).SetString(rejectedText)
+	if !acceptedOK || !rejectedOK || !purchaseQuantityPattern.MatchString(acceptedText) || !purchaseQuantityPattern.MatchString(rejectedText) || accepted.Sign() < 0 || rejected.Sign() < 0 || accepted.Sign()+rejected.Sign() <= 0 {
 		return ErrInvalidArgument
 	}
 	for i := range o.Lines {
@@ -256,20 +263,26 @@ func (o *PurchaseOrder) RecordReceived(lineID uuid.UUID, quantity string) error 
 			continue
 		}
 		ordered, _ := new(big.Rat).SetString(o.Lines[i].Quantity)
-		received, _ := new(big.Rat).SetString(o.Lines[i].ReceivedQuantity)
-		if received == nil {
-			received = new(big.Rat)
+		acceptedTotal, _ := new(big.Rat).SetString(o.Lines[i].AcceptedQuantity)
+		if acceptedTotal == nil {
+			acceptedTotal = new(big.Rat)
 		}
-		received.Add(received, qty)
-		if received.Cmp(ordered) > 0 {
+		acceptedTotal.Add(acceptedTotal, accepted)
+		if acceptedTotal.Cmp(ordered) > 0 {
 			return ErrConflict
 		}
-		o.Lines[i].ReceivedQuantity = received.FloatString(6)
+		receivedTotal, _ := new(big.Rat).SetString(o.Lines[i].ReceivedQuantity)
+		if receivedTotal == nil {
+			receivedTotal = new(big.Rat)
+		}
+		receivedTotal.Add(receivedTotal, new(big.Rat).Add(new(big.Rat).Set(accepted), rejected))
+		o.Lines[i].ReceivedQuantity = receivedTotal.FloatString(6)
+		o.Lines[i].AcceptedQuantity = acceptedTotal.FloatString(6)
 		allReceived := true
 		for _, line := range o.Lines {
 			orderedLine, _ := new(big.Rat).SetString(line.Quantity)
-			receivedLine, _ := new(big.Rat).SetString(line.ReceivedQuantity)
-			if receivedLine == nil || receivedLine.Cmp(orderedLine) < 0 {
+			acceptedLine, _ := new(big.Rat).SetString(line.AcceptedQuantity)
+			if acceptedLine == nil || acceptedLine.Cmp(orderedLine) < 0 {
 				allReceived = false
 				break
 			}

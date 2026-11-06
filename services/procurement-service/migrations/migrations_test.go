@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestEmbeddedMigrationsAreOrderedAndIncludePurchaseOrders(t *testing.T) {
+func TestEmbeddedMigrationsAreOrderedAndIncludeGoodsReceipts(t *testing.T) {
 	entries, err := files.ReadDir(".")
 	if err != nil {
 		t.Fatal(err)
@@ -16,7 +16,7 @@ func TestEmbeddedMigrationsAreOrderedAndIncludePurchaseOrders(t *testing.T) {
 			names = append(names, entry.Name())
 		}
 	}
-	if len(names) != 2 || names[0] != "000001_supplier_material_master.up.sql" || names[1] != "000002_purchase_orders.up.sql" {
+	if len(names) != 3 || names[0] != "000001_supplier_material_master.up.sql" || names[1] != "000002_purchase_orders.up.sql" || names[2] != "000003_goods_receipts.up.sql" {
 		t.Fatalf("unexpected embedded migration sequence: %v", names)
 	}
 	for _, name := range names {

@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -186,7 +187,7 @@ func (r *Repository) GetPurchaseOrder(ctx context.Context, id uuid.UUID) (domain
 	for rows.Next() {
 		var line domain.PurchaseOrderLine
 		if err := rows.Scan(&line.ID, &line.LineNumber, &line.MaterialID, &line.MaterialCode, &line.MaterialName,
-			&line.Quantity, &line.ReceivedQuantity, &line.Unit, &line.UnitPriceMinor, &line.LineAmountMinor); err != nil {
+			&line.Quantity, &line.ReceivedQuantity, &line.AcceptedQuantity, &line.Unit, &line.UnitPriceMinor, &line.LineAmountMinor); err != nil {
 			return domain.PurchaseOrder{}, err
 		}
 		order.Lines = append(order.Lines, line)
@@ -277,17 +278,151 @@ func (r *Repository) SavePurchaseOrder(ctx context.Context, order domain.Purchas
 	return order, nil
 }
 
+func (r *Repository) CreateGoodsReceipt(ctx context.Context, receipt domain.GoodsReceipt) (domain.GoodsReceipt, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return domain.GoodsReceipt{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	var status domain.PurchaseOrderStatus
+	if err := tx.QueryRow(ctx, `SELECT status FROM purchase_orders WHERE id=$1 FOR UPDATE`, receipt.PurchaseOrderID).Scan(&status); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.GoodsReceipt{}, domain.ErrNotFound
+		}
+		return domain.GoodsReceipt{}, err
+	}
+	if status != domain.PurchaseOrderSent && status != domain.PurchaseOrderPartiallyReceived {
+		return domain.GoodsReceipt{}, domain.ErrInvalidState
+	}
+	for _, line := range receipt.Lines {
+		var lineID uuid.UUID
+		err := tx.QueryRow(ctx, `SELECT id FROM purchase_order_lines WHERE id=$1 AND purchase_order_id=$2 FOR UPDATE`, line.PurchaseOrderLineID, receipt.PurchaseOrderID).Scan(&lineID)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return domain.GoodsReceipt{}, domain.ErrNotFound
+			}
+			return domain.GoodsReceipt{}, err
+		}
+	}
+	encoded, err := json.Marshal(receipt.Lines)
+	if err != nil {
+		return domain.GoodsReceipt{}, err
+	}
+	if err := tx.QueryRow(ctx, `INSERT INTO goods_receipts (id, receipt_number, purchase_order_id, purchase_order_number, supplier_id, supplier_name, warehouse_code, status, lines, received_by, notes, version)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING created_at,updated_at`, receipt.ID, receipt.Number, receipt.PurchaseOrderID, receipt.PurchaseOrderNumber,
+		receipt.SupplierID, receipt.SupplierName, receipt.WarehouseCode, receipt.Status, encoded, receipt.ReceivedBy, receipt.Notes, receipt.Version).Scan(&receipt.CreatedAt, &receipt.UpdatedAt); err != nil {
+		return domain.GoodsReceipt{}, mapError(err)
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO goods_receipt_status_history (id,goods_receipt_id,to_status,action,actor_id) VALUES ($1,$2,$3,'CREATED',$4)`, uuid.New(), receipt.ID, receipt.Status, receipt.ReceivedBy); err != nil {
+		return domain.GoodsReceipt{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return domain.GoodsReceipt{}, err
+	}
+	return receipt, nil
+}
+
+func (r *Repository) GetGoodsReceipt(ctx context.Context, id uuid.UUID) (domain.GoodsReceipt, error) {
+	var receipt domain.GoodsReceipt
+	var status string
+	var lines []byte
+	var inspectedBy pgtype.Text
+	var inspectedAt pgtype.Timestamptz
+	err := r.pool.QueryRow(ctx, `SELECT id,receipt_number,purchase_order_id,purchase_order_number,supplier_id,supplier_name,warehouse_code,status,lines,received_by,inspected_by,inspected_at,notes,created_at,updated_at,version FROM goods_receipts WHERE id=$1`, id).
+		Scan(&receipt.ID, &receipt.Number, &receipt.PurchaseOrderID, &receipt.PurchaseOrderNumber, &receipt.SupplierID, &receipt.SupplierName, &receipt.WarehouseCode, &status, &lines, &receipt.ReceivedBy, &inspectedBy, &inspectedAt, &receipt.Notes, &receipt.CreatedAt, &receipt.UpdatedAt, &receipt.Version)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.GoodsReceipt{}, domain.ErrNotFound
+	}
+	if err != nil {
+		return domain.GoodsReceipt{}, err
+	}
+	receipt.Status = domain.GoodsReceiptStatus(status)
+	receipt.InspectedBy = inspectedBy.String
+	receipt.InspectedAt = timestampPointer(inspectedAt)
+	if err := json.Unmarshal(lines, &receipt.Lines); err != nil {
+		return domain.GoodsReceipt{}, err
+	}
+	return receipt, nil
+}
+
+func (r *Repository) InspectGoodsReceipt(ctx context.Context, receipt domain.GoodsReceipt, expectedVersion int64, actor string) (domain.GoodsReceipt, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return domain.GoodsReceipt{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	var currentVersion int64
+	var oldStatus domain.GoodsReceiptStatus
+	if err := tx.QueryRow(ctx, `SELECT version,status FROM goods_receipts WHERE id=$1 FOR UPDATE`, receipt.ID).Scan(&currentVersion, &oldStatus); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.GoodsReceipt{}, domain.ErrNotFound
+		}
+		return domain.GoodsReceipt{}, err
+	}
+	if currentVersion != expectedVersion || oldStatus != domain.GoodsReceiptDraft {
+		return domain.GoodsReceipt{}, domain.ErrConflict
+	}
+	var poStatus domain.PurchaseOrderStatus
+	if err := tx.QueryRow(ctx, `SELECT status FROM purchase_orders WHERE id=$1 FOR UPDATE`, receipt.PurchaseOrderID).Scan(&poStatus); err != nil {
+		return domain.GoodsReceipt{}, err
+	}
+	if poStatus != domain.PurchaseOrderSent && poStatus != domain.PurchaseOrderPartiallyReceived {
+		return domain.GoodsReceipt{}, domain.ErrInvalidState
+	}
+	for _, line := range receipt.Lines {
+		tag, err := tx.Exec(ctx, `UPDATE purchase_order_lines SET received_quantity=received_quantity+$1::numeric, accepted_quantity=accepted_quantity+$2::numeric WHERE id=$3 AND purchase_order_id=$4 AND accepted_quantity+$2::numeric<=quantity`, line.QuantityReceived, line.QuantityAccepted, line.PurchaseOrderLineID, receipt.PurchaseOrderID)
+		if err != nil {
+			return domain.GoodsReceipt{}, err
+		}
+		if tag.RowsAffected() != 1 {
+			return domain.GoodsReceipt{}, domain.ErrConflict
+		}
+	}
+	var nextPOStatus domain.PurchaseOrderStatus
+	if err := tx.QueryRow(ctx, `SELECT CASE WHEN bool_and(accepted_quantity>=quantity) THEN 'RECEIVED' ELSE 'PARTIALLY_RECEIVED' END FROM purchase_order_lines WHERE purchase_order_id=$1`, receipt.PurchaseOrderID).Scan(&nextPOStatus); err != nil {
+		return domain.GoodsReceipt{}, err
+	}
+	if _, err := tx.Exec(ctx, `UPDATE purchase_orders SET status=$2,version=version+1,updated_at=now() WHERE id=$1`, receipt.PurchaseOrderID, nextPOStatus); err != nil {
+		return domain.GoodsReceipt{}, err
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO purchase_order_status_history (id,purchase_order_id,from_status,to_status,action,actor_id) VALUES ($1,$2,$3,$4,'GOODS_RECEIPT_INSPECTED',$5)`, uuid.New(), receipt.PurchaseOrderID, poStatus, nextPOStatus, actor); err != nil {
+		return domain.GoodsReceipt{}, err
+	}
+	encoded, err := json.Marshal(receipt.Lines)
+	if err != nil {
+		return domain.GoodsReceipt{}, err
+	}
+	err = tx.QueryRow(ctx, `UPDATE goods_receipts SET status=$3,lines=$4,inspected_by=$5,inspected_at=$6,updated_at=now(),version=version+1 WHERE id=$1 AND version=$2 RETURNING updated_at,version`, receipt.ID, expectedVersion, receipt.Status, encoded, receipt.InspectedBy, receipt.InspectedAt).Scan(&receipt.UpdatedAt, &receipt.Version)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.GoodsReceipt{}, domain.ErrConflict
+	}
+	if err != nil {
+		return domain.GoodsReceipt{}, err
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO goods_receipt_status_history (id,goods_receipt_id,from_status,to_status,action,actor_id) VALUES ($1,$2,$3,$4,'INSPECTED',$5)`, uuid.New(), receipt.ID, oldStatus, receipt.Status, actor); err != nil {
+		return domain.GoodsReceipt{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return domain.GoodsReceipt{}, err
+	}
+	return receipt, nil
+}
+
 func insertPurchaseOrderLines(ctx context.Context, tx pgx.Tx, order domain.PurchaseOrder) error {
 	const query = `INSERT INTO purchase_order_lines
-		(id, purchase_order_id, line_number, material_id, material_code, material_name, quantity, received_quantity, unit, unit_price_minor, line_amount_minor)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`
+		(id, purchase_order_id, line_number, material_id, material_code, material_name, quantity, received_quantity, accepted_quantity, unit, unit_price_minor, line_amount_minor)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`
 	for _, line := range order.Lines {
 		receivedQuantity := line.ReceivedQuantity
 		if receivedQuantity == "" {
 			receivedQuantity = "0"
 		}
+		acceptedQuantity := line.AcceptedQuantity
+		if acceptedQuantity == "" {
+			acceptedQuantity = "0"
+		}
 		if _, err := tx.Exec(ctx, query, line.ID, order.ID, line.LineNumber, line.MaterialID, line.MaterialCode,
-			line.MaterialName, line.Quantity, receivedQuantity, line.Unit, line.UnitPriceMinor, line.LineAmountMinor); err != nil {
+			line.MaterialName, line.Quantity, receivedQuantity, acceptedQuantity, line.Unit, line.UnitPriceMinor, line.LineAmountMinor); err != nil {
 			return err
 		}
 	}
@@ -314,7 +449,7 @@ const purchaseOrderSelect = `SELECT id, po_number, supplier_id, supplier_name, s
 	cancelled_by, cancelled_at, cancellation_reason, created_at, updated_at, version FROM purchase_orders`
 
 const purchaseOrderLineSelect = `SELECT id, line_number, material_id, material_code, material_name,
-	quantity::text, received_quantity::text, unit, unit_price_minor, line_amount_minor FROM purchase_order_lines`
+	quantity::text, received_quantity::text, accepted_quantity::text, unit, unit_price_minor, line_amount_minor FROM purchase_order_lines`
 
 func scanPurchaseOrder(row rowScanner) (domain.PurchaseOrder, error) {
 	var order domain.PurchaseOrder
