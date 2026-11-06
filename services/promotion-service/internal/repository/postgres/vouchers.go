@@ -36,6 +36,7 @@ type Hold struct {
 	RequestHash    string
 	ObservedAt     time.Time
 	Replay         bool
+	Tombstone      bool
 }
 
 type LockRequest struct {
@@ -150,6 +151,9 @@ func (r *VoucherRepository) LockVoucher(ctx context.Context, request LockRequest
 		coupon.ID, request.OrderID, request.CustomerID, request.IdempotencyKey, request.RequestHash,
 		request.ContractVersion, discount, request.Currency, expiresAt).Scan(&holdID, &version, &now)
 	if err != nil {
+		if uniqueViolation(err) {
+			return Hold{}, domain.ErrVoucherAlreadyLocked
+		}
 		return Hold{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -217,7 +221,7 @@ func (r *VoucherRepository) checkAvailability(ctx context.Context, queryer inter
 	return nil
 }
 
-func (r *VoucherRepository) ReleaseHold(ctx context.Context, idempotencyKey, requestHash, orderID, holdID, voucherCode, reason string, expectedVersion *int64, now time.Time) (Hold, error) {
+func (r *VoucherRepository) ReleaseHold(ctx context.Context, idempotencyKey, requestHash, orderID, holdID, voucherCode, reason, contractVersion string, expectedVersion *int64, now time.Time) (Hold, error) {
 	if idempotencyKey == "" || orderID == "" || reason == "" {
 		return Hold{}, fmt.Errorf("idempotency key, order id and release reason are required")
 	}
@@ -261,7 +265,26 @@ func (r *VoucherRepository) ReleaseHold(ctx context.Context, idempotencyKey, req
 		return Hold{}, err
 	}
 	hold, err := r.getHold(ctx, tx, holdID, orderID, true)
-	if err != nil {
+	createdTombstone := false
+	if errors.Is(err, domain.ErrHoldNotFound) && expectedVersion != nil && holdID != "" {
+		if *expectedVersion != 1 {
+			return Hold{}, fmt.Errorf("%w: expected %d, observed 1", domain.ErrHoldVersionConflict, *expectedVersion)
+		}
+		if contractVersion == "" {
+			contractVersion = "order-3.2"
+		}
+		hold = Hold{ID: holdID, OrderID: orderID, State: "RELEASED", Version: 1, Currency: "VND", Tombstone: true}
+		_, err = tx.Exec(ctx, `INSERT INTO voucher_holds
+			(id,coupon_id,order_id,customer_id,idempotency_key,request_hash,contract_version,discount_amount,currency_code,state,resource_version,expires_at,released_at,release_reason,updated_at)
+			VALUES($1::uuid,NULL,$2,'','release:'||$3,$4,$5,0,'VND','RELEASED',1,$6,$6,$7,$6)`, holdID, orderID, idempotencyKey, requestHash, contractVersion, now, reason)
+		if err != nil {
+			if uniqueViolation(err) {
+				return Hold{}, domain.ErrVoucherAlreadyLocked
+			}
+			return Hold{}, err
+		}
+		createdTombstone = true
+	} else if err != nil {
 		return Hold{}, err
 	}
 	if err := tx.QueryRow(ctx, `SELECT clock_timestamp()`).Scan(&now); err != nil {
@@ -284,7 +307,9 @@ func (r *VoucherRepository) ReleaseHold(ctx context.Context, idempotencyKey, req
 		_, err = tx.Exec(ctx, `UPDATE voucher_holds SET state=$2,resource_version=$3,released_at=CASE WHEN $2='RELEASED' THEN $4 ELSE released_at END,release_reason=$5,updated_at=$4 WHERE id=$1::uuid`, hold.ID, hold.State, hold.Version, now, reason)
 	case "RELEASED", "EXPIRED":
 		// Repeated release is a successful, stable outcome.
-		hold.Replay = true
+		if !createdTombstone {
+			hold.Replay = true
+		}
 	case "FINALIZED":
 		return Hold{}, domain.ErrHoldTransition
 	default:
@@ -481,7 +506,7 @@ func (r *VoucherRepository) GetHoldByOrder(ctx context.Context, idempotencyKey, 
 func (r *VoucherRepository) getHold(ctx context.Context, queryer interface {
 	QueryRow(context.Context, string, ...any) pgx.Row
 }, holdID, orderID string, lock bool) (Hold, error) {
-	sql := `SELECT h.id::text,h.order_id,h.customer_id,c.code,c.discount_type,h.discount_amount,h.currency_code,h.state,h.expires_at,h.resource_version FROM voucher_holds h JOIN coupons c ON c.id=h.coupon_id WHERE h.order_id=$1`
+	sql := `SELECT h.id::text,h.order_id,h.customer_id,COALESCE(c.code,''),COALESCE(c.discount_type,''),h.discount_amount,h.currency_code,h.state,h.expires_at,h.resource_version,(h.coupon_id IS NULL) FROM voucher_holds h LEFT JOIN coupons c ON c.id=h.coupon_id WHERE h.order_id=$1`
 	args := []any{orderID}
 	if holdID != "" {
 		sql += ` AND h.id=$2::uuid`
@@ -493,7 +518,7 @@ func (r *VoucherRepository) getHold(ctx context.Context, queryer interface {
 	var hold Hold
 	var discountType string
 	err := queryer.QueryRow(ctx, sql, args...).Scan(&hold.ID, &hold.OrderID, &hold.CustomerID, &hold.CouponCode,
-		&discountType, &hold.DiscountAmount, &hold.Currency, &hold.State, &hold.ExpiresAt, &hold.Version)
+		&discountType, &hold.DiscountAmount, &hold.Currency, &hold.State, &hold.ExpiresAt, &hold.Version, &hold.Tombstone)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Hold{}, domain.ErrHoldNotFound
 	}

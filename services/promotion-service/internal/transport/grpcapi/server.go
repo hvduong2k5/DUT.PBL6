@@ -102,7 +102,7 @@ func (s *Server) ReleaseVoucher(ctx context.Context, request *promotionv1.Releas
 	if request.GetIdempotencyKey() == "" || request.GetOrderId() == "" || request.GetReleaseReason() == "" {
 		return nil, status.Error(codes.InvalidArgument, "idempotency_key, order_id and release_reason are required")
 	}
-	hold, err := s.vouchers.ReleaseHold(ctx, request.GetIdempotencyKey(), "", request.GetOrderId(), request.GetVoucherLockId(), request.GetVoucherCode(), request.GetReleaseReason(), nil, time.Now().UTC())
+	hold, err := s.vouchers.ReleaseHold(ctx, request.GetIdempotencyKey(), "", request.GetOrderId(), request.GetVoucherLockId(), request.GetVoucherCode(), request.GetReleaseReason(), "", nil, time.Now().UTC())
 	if err != nil {
 		return nil, toStatus(err)
 	}
@@ -132,18 +132,21 @@ func (s *Server) GetVoucherHoldByOrder(ctx context.Context, request *promotionv1
 	if err := validateOrderCommand(request); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
+	if request.GetExpectedHoldId() != "" && !holdIDPattern.MatchString(request.GetExpectedHoldId()) {
+		return nil, status.Error(codes.InvalidArgument, "expected_hold_id must be a UUID")
+	}
 	hold, err := s.vouchers.GetHoldByOrder(ctx, request.GetIdempotencyKey(), request.GetRequestHash(), request.GetOrderId(), request.GetExpectedHoldId(), time.Now().UTC())
 	if err != nil {
 		return nil, toStatus(err)
 	}
-	return outcome(hold, request.GetIdempotencyKey(), request.GetQueryAction(), request.GetRequestHash(), request.GetContractVersion()), nil
+	return outcome(hold, request.GetIdempotencyKey(), "GetVoucherHoldByOrder", request.GetRequestHash(), request.GetContractVersion()), nil
 }
 
 func (s *Server) FinalizeVoucherHold(ctx context.Context, request *promotionv1.VoucherHoldCommand) (*promotionv1.VoucherHoldOutcome, error) {
 	if err := validateOrderCommand(request); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	if request.GetExpectedHoldId() == "" || request.ExpectedVersion == nil || request.GetExpectedVersion() < 1 {
+	if request.GetExpectedHoldId() == "" || !holdIDPattern.MatchString(request.GetExpectedHoldId()) || request.ExpectedVersion == nil || request.GetExpectedVersion() < 1 {
 		return nil, status.Error(codes.InvalidArgument, "expected_hold_id and positive expected_version are required")
 	}
 	var expectedVersion *int64
@@ -154,7 +157,7 @@ func (s *Server) FinalizeVoucherHold(ctx context.Context, request *promotionv1.V
 	if err != nil {
 		return nil, toStatus(err)
 	}
-	return outcome(hold, request.GetIdempotencyKey(), request.GetQueryAction(), request.GetRequestHash(), request.GetContractVersion()), nil
+	return outcome(hold, request.GetIdempotencyKey(), "FinalizeVoucherHold", request.GetRequestHash(), request.GetContractVersion()), nil
 }
 
 func (s *Server) ReleaseVoucherHoldByOrder(ctx context.Context, request *promotionv1.VoucherHoldCommand) (*promotionv1.VoucherHoldOutcome, error) {
@@ -165,14 +168,14 @@ func (s *Server) ReleaseVoucherHoldByOrder(ctx context.Context, request *promoti
 	if request.ExpectedVersion != nil {
 		expectedVersion = request.ExpectedVersion
 	}
-	if request.GetExpectedHoldId() == "" || expectedVersion == nil || *expectedVersion < 1 {
+	if request.GetExpectedHoldId() == "" || !holdIDPattern.MatchString(request.GetExpectedHoldId()) || expectedVersion == nil || *expectedVersion < 1 {
 		return nil, status.Error(codes.InvalidArgument, "expected_hold_id and positive expected_version are required")
 	}
-	hold, err := s.vouchers.ReleaseHold(ctx, request.GetIdempotencyKey(), request.GetRequestHash(), request.GetOrderId(), request.GetExpectedHoldId(), "", request.GetQueryAction(), expectedVersion, time.Now().UTC())
+	hold, err := s.vouchers.ReleaseHold(ctx, request.GetIdempotencyKey(), request.GetRequestHash(), request.GetOrderId(), request.GetExpectedHoldId(), "", request.GetQueryAction(), request.GetContractVersion(), expectedVersion, time.Now().UTC())
 	if err != nil {
 		return nil, toStatus(err)
 	}
-	return outcome(hold, request.GetIdempotencyKey(), request.GetQueryAction(), request.GetRequestHash(), request.GetContractVersion()), nil
+	return outcome(hold, request.GetIdempotencyKey(), "ReleaseVoucherHoldByOrder", request.GetRequestHash(), request.GetContractVersion()), nil
 }
 
 func validateOrderCommand(request *promotionv1.VoucherHoldCommand) error {
@@ -186,6 +189,7 @@ func validateOrderCommand(request *promotionv1.VoucherHoldCommand) error {
 }
 
 var idempotencyKeyPattern = regexp.MustCompile(`^[\x21-\x7e]{16,128}$`)
+var holdIDPattern = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 
 func validateCommand(key, requestHash string) error {
 	if !idempotencyKeyPattern.MatchString(key) {
@@ -230,13 +234,17 @@ func outcome(hold postgres.Hold, key, action, requestHash, contractVersion strin
 	if observed.IsZero() {
 		observed = time.Now().UTC()
 	}
-	return &promotionv1.VoucherHoldOutcome{
+	result := &promotionv1.VoucherHoldOutcome{
 		OrderId: hold.OrderID, HoldId: hold.ID, State: hold.State, ResourceVersion: hold.Version,
-		ExpiresAt: timestamppb.New(hold.ExpiresAt), ObservedAt: timestamppb.New(observed),
+		ObservedAt: timestamppb.New(observed),
 		Command: &commonv1.CommandEvidence{IdempotencyKey: key, Action: action, RequestHash: requestHash,
 			Result: commandResult(hold), DecisionId: hold.ID, DecisionAt: timestamppb.New(observed), ResultingState: hold.State},
-		CancellationTombstone: hold.State == "RELEASED", DiscountAmount: money(hold.DiscountAmount, hold.Currency), ContractVersion: contractVersion,
+		CancellationTombstone: hold.Tombstone, DiscountAmount: money(hold.DiscountAmount, hold.Currency), ContractVersion: contractVersion,
 	}
+	if !hold.Tombstone {
+		result.ExpiresAt = timestamppb.New(hold.ExpiresAt)
+	}
+	return result
 }
 
 func commandResult(hold postgres.Hold) string {

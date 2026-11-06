@@ -34,7 +34,9 @@ directly to public clients. A lifecycle worker advances scheduled coupons and en
 all manual/automatic status changes are audited. A voucher expiry worker marks overdue `HELD`
 resources as `EXPIRED` in batches using PostgreSQL time, incrementing the resource version. It
 serializes with finalize/release through row locks; the Order command remains authoritative for
-its own outcome.
+its own outcome. Order 3.2 release-by-order also writes a durable `RELEASED` tombstone when no
+hold exists yet, preventing a late voucher lock from attaching to an order that is already being
+cancelled.
 
 ## Configuration
 
