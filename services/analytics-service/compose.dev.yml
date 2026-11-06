@@ -24,6 +24,22 @@ services:
     volumes:
       - "${ANALYTICS_DEV_CONFIG}/builder:/run/analytics:ro"
     restart: unless-stopped
+  supply-sync:
+    <<: *service
+    profiles: [supply]
+    command: [supply-sync]
+    env_file: ${ANALYTICS_DEV_CONFIG}/collector/service.env
+    environment:
+      ANALYTICS_SUPPLY_INBOX: /run/supply
+    volumes:
+      - "${ANALYTICS_DEV_CONFIG}/collector:/run/analytics:ro"
+      - type: bind
+        source: ${ANALYTICS_SUPPLY_INBOX:-./supply-inbox}
+        target: /run/supply
+        read_only: true
+        bind:
+          create_host_path: false
+    restart: unless-stopped
   api:
     <<: *service
     profiles: [pilot]

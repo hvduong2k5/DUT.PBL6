@@ -16,6 +16,7 @@ MS-11 tổng hợp chỉ số điều hành và tạo kết quả hỗ trợ quy
 | [06 — DSS engines](06_dss_engines.md) | Thiết kế Phase 3 cho US-DSS-02 đến 10 |
 | [07 — Tích hợp và khoảng trống](07_integrations_and_contract_gaps.md) | Topic, event, nguồn chuẩn và điều kiện bật |
 | [08 — Roadmap](08_implementation_roadmap.md) | Các lát triển khai và tiêu chí nghiệm thu |
+| [09 — Supply Analytics v1](09_supply_analytics_v1.md) | Tốc độ bán, tồn đến hạn và hợp đồng bản xuất Order/Inventory |
 
 - [DDL PostgreSQL](analytics_control.candidate.sql) và [DDL ClickHouse](analytics_olap.candidate.sql) mô tả phần nền tảng Dashboard.
 - [OpenAPI Dashboard](../../../03_api_specs/analytics-service.candidate.openapi.yaml), [ADRs](../../adr/analytics-service/README.md), [kế hoạch kiểm thử](../../../04_testing/analytics-service/01_acceptance_and_verification_plan.md) và [kết quả runtime](../../../04_testing/analytics-service/02_implementation_verification.md).

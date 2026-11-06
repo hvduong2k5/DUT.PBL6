@@ -75,6 +75,8 @@ services:
     user: "0:0"
     entrypoint: [python, tests/identity_fixture.py]
     command: []
+    ports:
+      - "127.0.0.1:${ANALYTICS_TEST_IDENTITY_PORT:-0}:8016"
     volumes:
       - pilot-key:/fixture
     healthcheck:
@@ -117,8 +119,10 @@ services:
       ANALYTICS_CLICKHOUSE_USER: analytics_api
       ANALYTICS_CLICKHOUSE_PASSWORD: local-api
       ANALYTICS_JWT_ISSUER: http://identity-fixture:8016
+      ANALYTICS_SUPPLY_ENABLED: "1"
       ANALYTICS_JWT_PUBLIC_KEY_FILE: /fixture/public.pem
       ANALYTICS_IDENTITY_URL: http://identity-fixture:8016
+      ANALYTICS_SESSION_ORIGIN: http://127.0.0.1:13046
       ANALYTICS_PILOT_IDS: 913d2296-944c-4a75-b684-d1a0cf8fd4e8,27bc0f3a-69e5-4aa7-8644-3c7fcb7b3660,fb3ac39b-8597-470e-90b3-0b72b01cf4a1
     volumes:
       - pilot-key:/fixture:ro
@@ -138,6 +142,7 @@ services:
     environment:
       <<: *worker-env
       RUN_ANALYTICS_INTEGRATION: "1"
+      ANALYTICS_PILOT_PG_DSN: postgresql://analytics_migrator:local-migrator@postgres/postgres
     entrypoint: [python, -m, pytest]
     command: [-q, -p, "no:cacheprovider", --junitxml=/tmp/analytics-pytest.xml]
     depends_on:

@@ -11,10 +11,15 @@ COPY services/analytics-service/migrations ./migrations
 COPY packages/events/schemas/order/v3 ./contracts/order/v3
 
 FROM base AS test
+RUN apt-get update && apt-get install -y --no-install-recommends postgresql-client && rm -rf /var/lib/apt/lists/*
 RUN uv sync --locked --no-editable
+COPY scripts/publish-analytics-supply.py ./scripts/
+COPY services/order-service/scripts/analytics-supply-day.sql ./services/order-service/scripts/
+COPY services/inventory-service/scripts/analytics-supply-batches.sql ./services/inventory-service/scripts/
 COPY services/analytics-service/tests ./tests
 COPY packages/events/examples/order/v3 ./fixtures/order/v3
 COPY docs/03_api_specs/analytics-service.candidate.openapi.yaml ./contracts/analytics.openapi.yaml
+COPY docs/03_api_specs/analytics-supply-source.v1.schema.json ./contracts/analytics-supply-source.schema.json
 USER analytics
 ENTRYPOINT ["python", "-m", "analytics_service"]
 CMD ["api"]

@@ -10,6 +10,9 @@
       paths:
         - '~/api/v1/admin/analytics/dashboard$'
         - '~/api/v1/admin/analytics/metrics/[^/]+/series$'
+        - '~/api/v1/admin/analytics/supply/velocity$'
+        - '~/api/v1/admin/analytics/supply/expiry-risk$'
+        - '~/api/v1/admin/analytics/supply/workbench$'
       methods: [GET, OPTIONS]
       strip_path: false
       plugins:

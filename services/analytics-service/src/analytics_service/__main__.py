@@ -2,7 +2,7 @@ import argparse
 import json
 import logging
 import signal
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 from threading import Event
 from uuid import UUID
@@ -10,7 +10,7 @@ from uuid import UUID
 import uvicorn
 from prometheus_client import start_http_server
 
-from . import db, kafka, snapshots
+from . import db, kafka, snapshots, supply, supply_sync
 from .config import Settings, setting
 from .events import OrderAdapter
 from .migrate import migrate
@@ -36,11 +36,15 @@ def worker(settings, name):
     stop = Event()
     for signum in (signal.SIGINT, signal.SIGTERM):
         signal.signal(signum, lambda *_: stop.set())
-    start_http_server(8012 if name == "collector" else 8013)
+    start_http_server({"collector": 8012, "builder": 8013, "supply-sync": 8014}[name])
+    sync = supply_sync.Inbox(settings) if name == "supply-sync" else None
     while not stop.is_set():
         try:
             if name == "collector":
                 kafka.Collector(settings, stop).run()
+            elif sync:
+                sync.run_once()
+                stop.wait(sync.interval)
             else:
                 generation = snapshots.build_once(settings)
                 if generation:
@@ -54,9 +58,18 @@ def worker(settings, name):
 def parse_args():
     parser = argparse.ArgumentParser()
     commands = parser.add_subparsers(dest="command", required=True)
-    for command in ("api", "collector", "builder", "migrate", "status", "topic", "build-once"):
+    for command in (
+        "api",
+        "collector",
+        "builder",
+        "supply-sync",
+        "migrate",
+        "status",
+        "topic",
+        "build-once",
+    ):
         commands.add_parser(command)
-    for command in ("bootstrap", "coverage"):
+    for command in ("bootstrap", "coverage", "import-supply"):
         commands.add_parser(command).add_argument("manifest")
     commands.add_parser("rollback").add_argument("generation", type=UUID)
     repair = commands.add_parser("repair")
@@ -83,7 +96,7 @@ def main():
             port=int(setting("PORT", "8011")),
             access_log=False,
         )
-    elif command in ("collector", "builder"):
+    elif command in ("collector", "builder", "supply-sync"):
         worker(settings, command)
     elif command == "migrate":
         migrate(settings)
@@ -128,6 +141,15 @@ def main():
         print(json.dumps({"approvalId": approval_id}))
     elif command == "build-once":
         print(snapshots.build_once(settings))
+    elif command == "import-supply":
+        with Path(args.manifest).open("rb") as manifest:
+            body = manifest.read(1_048_577)
+        if len(body) > 1_048_576:
+            raise db.Conflict("Supply export exceeds 1 MiB")
+        export = supply.parse_export(body, datetime.now(UTC))
+        with db.connect(settings) as conn:
+            result = supply.import_export(conn, settings, export)
+        print(json.dumps({"status": result, "kind": export.kind, "revision": export.revision}))
     elif command == "rollback":
         snapshots.rollback(settings, args.generation)
     elif command == "repair":

@@ -4,7 +4,7 @@
 
 Analytics sở hữu định nghĩa metric có phiên bản, dữ liệu chiếu tối thiểu, snapshot truy vấn, phiên chạy và kết quả DSS. Order sở hữu mốc đơn và thanh toán nghiệp vụ. Finance sở hữu định nghĩa tài chính và trạng thái chốt kỳ. Inventory sở hữu lượng tồn, tính khả dụng và HSD. Catalog sở hữu Product/SKU. Profile và Identity cung cấp quan hệ khách hàng và quyền. Mọi trao đổi đi qua contract của service nguồn.
 
-Analytics nhận dữ liệu bất đồng bộ. Marketing, Promotion và Procurement có thể nhận tham chiếu insight qua API đã duyệt và xử lý đề xuất theo quy trình riêng. Web Admin đọc qua Gateway. Conversation, RAG và luồng gợi ý giỏ quà thuộc đề xuất AI Agent riêng.
+Analytics nhận dữ liệu bất đồng bộ. Marketing sở hữu phễu GA4 và chỉ số campaign. Product Discovery sở hữu trải nghiệm gợi ý sản phẩm cho khách. Marketing, Promotion và Procurement có thể nhận tham chiếu insight qua API đã duyệt và xử lý đề xuất theo quy trình riêng. Web Admin đọc qua Gateway. Conversation, RAG và luồng gợi ý giỏ quà thuộc đề xuất AI Agent riêng.
 
 ## Thành phần
 
@@ -34,7 +34,7 @@ flowchart LR
 | Query API | Xác thực và áp scope, đọc snapshot, giới hạn truy vấn và trả chất lượng theo card. |
 | DSS workers | Chạy job theo snapshot đã chốt, phiên bản dataset/model và giới hạn tài nguyên riêng. |
 
-PostgreSQL là control plane và journal ngắn hạn cho replay. ClickHouse giữ serving data theo generation. Redis chỉ là cache tùy chọn. MongoDB/clickstream theo định hướng HLD được xét ở Phase 3 sau khi chốt consent, nguồn và retention.
+PostgreSQL là control plane và journal ngắn hạn cho replay. ClickHouse giữ dữ liệu Dashboard theo generation. Supply v1 đọc các bản xuất đã đối soát trong PostgreSQL cho truy vấn giới hạn một SKU/kho. Redis là cache tùy chọn. [Supply Analytics](09_supply_analytics_v1.md)
 
 ## Lát triển khai và cô lập lỗi
 

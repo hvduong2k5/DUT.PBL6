@@ -10,6 +10,14 @@
 !services/analytics-service/migrations/**
 !services/analytics-service/tests/
 !services/analytics-service/tests/*.py
+!services/order-service/
+!services/order-service/scripts/
+!services/order-service/scripts/analytics-supply-day.sql
+!services/inventory-service/
+!services/inventory-service/scripts/
+!services/inventory-service/scripts/analytics-supply-batches.sql
+!scripts/
+!scripts/publish-analytics-supply.py
 !packages/
 !packages/events/
 !packages/events/schemas/
@@ -23,3 +31,4 @@
 !docs/
 !docs/03_api_specs/
 !docs/03_api_specs/analytics-service.candidate.openapi.yaml
+!docs/03_api_specs/analytics-supply-source.v1.schema.json

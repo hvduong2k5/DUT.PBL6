@@ -40,6 +40,7 @@ class Settings:
     build_interval: int
     max_fact_rows: int
     freshness_seconds: int
+    supply_enabled: bool = False
 
     @classmethod
     def load(cls):
@@ -71,6 +72,7 @@ class Settings:
             positive("BUILD_INTERVAL", 60),
             positive("MAX_FACT_ROWS", 500_000),
             positive("FRESHNESS_SECONDS", 86_400),
+            setting("SUPPLY_ENABLED") == "1",
         )
 
     def kafka(self):
@@ -84,6 +86,7 @@ class AuthSettings:
     identity_url: str
     pilot_ids: frozenset[str]
     audience: str = "omama-api"
+    session_origin: str = ""
 
     @classmethod
     def load(cls):
@@ -95,6 +98,7 @@ class AuthSettings:
                 str(UUID(item.strip())) for item in setting("PILOT_IDS").split(",") if item.strip()
             ),
             setting("JWT_AUDIENCE", "omama-api"),
+            setting("SESSION_ORIGIN"),
         )
         if not all((result.issuer, result.public_key, result.identity_url, result.pilot_ids)):
             raise ValueError("JWT issuer/key, Identity URL and pilot IDs are required for the API")

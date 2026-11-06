@@ -4,7 +4,11 @@ on:
   pull_request:
     paths: &analytics-paths
       - services/analytics-service/**
+      - services/order-service/scripts/analytics-supply-day.sql
+      - services/inventory-service/scripts/analytics-supply-batches.sql
+      - scripts/publish-analytics-supply.py
       - docs/03_api_specs/analytics-service.candidate.openapi.yaml
+      - docs/03_api_specs/analytics-supply-source.v1.schema.json
       - packages/events/schemas/order/v3/**
       - packages/events/examples/order/v3/**
       - .github/workflows/analytics-service.yml
@@ -25,8 +29,8 @@ jobs:
         run: docker compose build api tests
       - name: Check source style
         run: |
-          docker compose run --rm --no-deps --entrypoint ruff tests check --no-cache src tests
-          docker compose run --rm --no-deps --entrypoint ruff tests format --no-cache --check src tests
+          docker compose run --rm --no-deps --entrypoint ruff tests check --no-cache src tests scripts
+          docker compose run --rm --no-deps --entrypoint ruff tests format --no-cache --check src tests scripts
       - name: Test actual API, Kafka, PostgreSQL and ClickHouse
         run: docker compose run -T --name analytics-ci-tests tests
       - name: Collect verification evidence

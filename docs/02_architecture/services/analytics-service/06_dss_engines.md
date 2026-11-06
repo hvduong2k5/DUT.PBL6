@@ -6,9 +6,11 @@ Các công thức và thuật toán dưới đây là mặc định đề xuất
 
 - **RFM.** Với khách có ID ổn định, lấy đơn hoàn thành eligible trong cửa sổ tính đến cutoff. Đề xuất loại hủy, test, fraud và hoàn toàn phần. `R` là số ngày nghiệp vụ từ lần mua eligible gần nhất, `F` là số order ID distinct và `M` là giá trị hàng sau chiết khấu, trừ phần refund đã settle theo policy và currency. Chờ owner duyệt việc phân bổ hoàn tiền. Mỗi khách nhận một segment theo rule ưu tiên có version, lưu điểm và căn cứ. Guest/claim chỉ nối bằng mapping có thẩm quyền và effective time.
 - **Churn.** Định nghĩa label theo việc có quay lại mua trong horizon đã duyệt. Đề xuất bắt đầu bằng rule recency so với chu kỳ mua và lịch sử tối thiểu. Với mô hình sau này, chia tập theo thời gian, theo dõi precision/recall theo ngưỡng, độ hiệu chỉnh xác suất và drift; đối chiếu với baseline theo từng nhóm. Xuất audience criteria hoặc segment đã được cấp quyền cho Marketing theo consent hiện hành.
-- **Clickstream.** FR-25 bao gồm hành vi. Thiết kế lane riêng với event taxonomy cho view/search/add-to-cart dạng tối thiểu, ID phiên giả danh và bộ lọc bot/test. Chờ phê duyệt thu thập, thời hạn và quy tắc trộn với giao dịch. Chỉ dùng dữ liệu đã thu thập hợp lệ cho phân tích hành vi.
+- **Nguồn hành vi.** Marketing sở hữu phễu GA4. Khi cần bổ sung tín hiệu hành vi cho phân tích nội bộ, Analytics dùng dữ liệu tổng hợp đã được phép theo hợp đồng với Marketing.
 
 ## Product performance và velocity
+
+Supply v1 đã triển khai lát tốc độ bán và ước lượng cận hạn qua bản xuất có revision. [Hợp đồng và công thức v1](09_supply_analytics_v1.md)
 
 - Chốt product, SKU, channel và snapshot Catalog tại thời điểm giao dịch. Gộp SKU theo product ID ổn định; giữ bản mô tả lịch sử. Rank theo metric riêng (lượng bán ròng, số order đủ điều kiện hoặc doanh thu do Finance phê duyệt). Hiển thị số kỳ đủ và coverage.
 - Đề xuất velocity = (lượng bán eligible − lượng return được xác nhận) / số ngày quan sát đủ dữ liệu. Trả kèm stockout days, unknown days và độ tin cậy. Nếu cần velocity chỉ tính ngày có hàng thì đăng ký một metric version khác, tính tử và mẫu trên cùng tập ngày. Kỳ quan sát bằng 0 trả insufficient.

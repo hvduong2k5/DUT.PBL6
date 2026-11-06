@@ -38,3 +38,20 @@
 Bốn card ngoài Order vẫn trả `UNAVAILABLE` theo phạm vi Dashboard Order v1. Mở các card này cần nguồn Inventory, Customer và Finance được duyệt riêng.
 
 [Hướng dẫn chạy lại và triển khai pilot](../../../services/analytics-service/README.md)
+
+## Supply Analytics v1
+
+- Stack Docker sạch đạt **23/23 test**. Bộ test đi qua CLI import và hai API đọc, kiểm schema bản xuất, revision idempotent, từ chối xung đột, so sánh kỳ, thiếu coverage, phân quyền và lỗi import đã lọc đầu vào.
+- Fixture tốc độ bán cho kết quả 18 đơn vị ròng và 9,00 đơn vị/ngày trong hai ngày, một ngày có stockout. Sau revision mới, lượng bán ròng tăng lên 19.
+- Fixture FEFO với baseline 10 đơn vị/ngày cho kết quả hai lô còn lần lượt 5 và 30 đơn vị khi đến hạn. Smoke Kong với cấu hình pilot đạt 200 cho staff, 401 khi thiếu token và 403 cho Customer.
+- Migration PostgreSQL 003 đã chạy trên database có schema 002 và giữ nguyên checkpoint Order hiện có. Ruff, OpenAPI và Postman lint đạt.
+
+Dev cần bản xuất thật và xác nhận định nghĩa từ Order/Inventory trước khi bật `ANALYTICS_SUPPLY_ENABLED`. [Thiết kế và hợp đồng đầu vào](../../02_architecture/services/analytics-service/09_supply_analytics_v1.md)
+
+### Pilot Supply với dữ liệu mẫu
+
+- Docker đạt **24/24** trên stack cô lập với PostgreSQL, ClickHouse, Kafka và Identity fixture. Ca bổ sung chạy publisher thật qua `psql` trên hai database nguồn mẫu. Một kho, hai SKU và 14 ngày tạo 58 bản xuất. Kiểm việc từ chối số bán lệch đối soát, nhập theo lịch, lặp lại idempotent, bỏ file sai và nhận revision mới.
+- SKU nhanh bán 140 đơn vị và trả 1 trước khi sửa, tương ứng 139 đơn vị ròng. Sau revision trả 2, báo cáo còn 138. SKU chậm bán ròng 28. Lô có 30 đơn vị vật lý và giữ chỗ 5 còn 25 đơn vị bán được, với 5 đơn vị có nguy cơ tới hạn theo FEFO.
+- Web Admin qua typecheck, lint và **138 test**. Playwright kiểm xếp hạng theo cả hai chiều, lô có nguy cơ và drill-down hiển thị đủ 14 ngày từ API thật trong Docker. Kong pilot trả 200 cho phiên staff mẫu đủ quyền, 403 cho staff thiếu quyền và Customer, 401 khi thiếu phiên.
+
+Nghiệm thu trên dev cần kho/SKU thật, cấu hình ClickHouse, tài khoản staff và số liệu 14 ngày do các owner duyệt. Dữ liệu mẫu dùng số trả và số phút hết hàng từ fixture, phản ánh đầu vào đã được owner xác nhận trong pilot thật.
