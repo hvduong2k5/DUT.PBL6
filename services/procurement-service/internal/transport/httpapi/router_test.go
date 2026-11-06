@@ -575,13 +575,13 @@ func TestSupplyPlanPreviewRouteReturnsComputedProposal(t *testing.T) {
 		"forecast_source": "forecast-snapshot-1", "forecast_as_of": now.Add(-time.Minute).Format(time.RFC3339),
 		"inventory_source": "inventory-snapshot-1", "inventory_as_of": now.Add(-time.Minute).Format(time.RFC3339),
 		"stale_after_minutes": 120, "policy_version": "policy-v1",
-		"lines": []map[string]any{{"material_id": material.ID.String(), "forecast_quantity": "15", "on_hand_quantity": "2", "open_po_quantity": "3", "safety_stock": "1", "minimum_order_quantity": "4", "pack_size": "1", "lead_time_days": 2}},
+		"lines": []map[string]any{{"material_id": material.ID.String(), "forecast_quantity": "15", "on_hand_quantity": "2", "open_po_quantity": "3", "safety_stock": "1", "minimum_order_quantity": "4", "pack_size": "1", "lead_time_days": 2, "manual_override_quantity": "8", "manual_override_reason": "Limit purchase to current budget"}},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	response := performRequest(handler, http.MethodPost, "/api/v1/admin/procurement/supply-plans/preview", string(bodyBytes), "supply", "SUPPLY_MANAGER")
-	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"net_requirement":"11.000000"`) || !strings.Contains(response.Body.String(), `"material_code":"RICE-PLAN"`) {
+	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"net_requirement":"11.000000"`) || !strings.Contains(response.Body.String(), `"recommended_order_quantity":"11.000000"`) || !strings.Contains(response.Body.String(), `"proposed_order_quantity":"8.000000"`) || !strings.Contains(response.Body.String(), `"manual_override_reason":"Limit purchase to current budget"`) || !strings.Contains(response.Body.String(), `"material_code":"RICE-PLAN"`) {
 		t.Fatalf("supply plan preview status=%d body=%s", response.Code, response.Body.String())
 	}
 	created := performRequest(handler, http.MethodPost, "/api/v1/admin/procurement/supply-plans", string(bodyBytes), "supply", "SUPPLY_MANAGER")

@@ -672,7 +672,7 @@ func TestCreateSupplyPlanPersistsDraftSnapshotAndSupportsLookup(t *testing.T) {
 	now := time.Date(2026, 11, 7, 10, 0, 0, 0, time.UTC)
 	input := domain.SupplyPlanInput{HorizonStart: now.AddDate(0, 0, 1), HorizonEnd: now.AddDate(0, 1, 0),
 		ForecastSource: "forecast-1", ForecastAsOf: now.Add(-time.Minute), InventorySource: "inventory-1", InventoryAsOf: now.Add(-time.Minute),
-		StaleAfterMinutes: 120, PolicyVersion: "policy-v1", Lines: []domain.SupplyPlanLineInput{{MaterialID: material.ID, ForecastQuantity: "15", OnHandQuantity: "2", OpenPOQuantity: "3", SafetyStock: "1", MinimumOrderQty: "4", PackSize: "1", LeadTimeDays: 2}}}
+		StaleAfterMinutes: 120, PolicyVersion: "policy-v1", Lines: []domain.SupplyPlanLineInput{{MaterialID: material.ID, ForecastQuantity: "15", OnHandQuantity: "2", OpenPOQuantity: "3", SafetyStock: "1", MinimumOrderQty: "4", PackSize: "1", LeadTimeDays: 2, ManualOverrideQuantity: "8", ManualOverrideReason: "Limit purchase to current budget"}}}
 	service := application.NewService(repo)
 	created, err := service.CreateSupplyPlan(context.Background(), input, "supply-manager", now)
 	if err != nil {
@@ -686,7 +686,9 @@ func TestCreateSupplyPlanPersistsDraftSnapshotAndSupportsLookup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if created.Status != domain.SupplyPlanDraft || created.Revision != 1 || loaded.Snapshot.Lines[0].NetRequirement != "11.000000" || len(items) != 1 || items[0].ID != created.ID {
+	if created.Status != domain.SupplyPlanDraft || created.Revision != 1 || loaded.Snapshot.Lines[0].NetRequirement != "11.000000" ||
+		loaded.Snapshot.Lines[0].RecommendedOrderQuantity != "11.000000" || loaded.Snapshot.Lines[0].ProposedOrderQuantity != "8.000000" ||
+		loaded.Snapshot.Lines[0].ManualOverrideReason != "Limit purchase to current budget" || len(items) != 1 || items[0].ID != created.ID {
 		t.Fatalf("supply plan snapshot was not persisted and retrievable: created=%+v loaded=%+v list=%+v", created, loaded, items)
 	}
 }

@@ -22,17 +22,19 @@ type SupplyPlanInput struct {
 }
 
 type SupplyPlanLineInput struct {
-	MaterialID       uuid.UUID
-	MaterialCode     string
-	MaterialName     string
-	Unit             string
-	ForecastQuantity string
-	OnHandQuantity   string
-	OpenPOQuantity   string
-	SafetyStock      string
-	MinimumOrderQty  string
-	PackSize         string
-	LeadTimeDays     int
+	MaterialID             uuid.UUID
+	MaterialCode           string
+	MaterialName           string
+	Unit                   string
+	ForecastQuantity       string
+	OnHandQuantity         string
+	OpenPOQuantity         string
+	SafetyStock            string
+	MinimumOrderQty        string
+	PackSize               string
+	LeadTimeDays           int
+	ManualOverrideQuantity string
+	ManualOverrideReason   string
 }
 
 type SupplyPlanPreview struct {
@@ -208,24 +210,27 @@ func cloneSupplyPlanPreview(snapshot SupplyPlanPreview) SupplyPlanPreview {
 }
 
 type SupplyPlanLine struct {
-	MaterialID            uuid.UUID `json:"material_id"`
-	MaterialCode          string    `json:"material_code"`
-	MaterialName          string    `json:"material_name"`
-	Unit                  string    `json:"unit"`
-	ForecastQuantity      string    `json:"forecast_quantity"`
-	OnHandQuantity        string    `json:"on_hand_quantity"`
-	OpenPOQuantity        string    `json:"open_po_quantity"`
-	SafetyStock           string    `json:"safety_stock"`
-	MinimumOrderQuantity  string    `json:"minimum_order_quantity"`
-	PackSize              string    `json:"pack_size"`
-	LeadTimeDays          int       `json:"lead_time_days"`
-	RecommendedOrderDate  string    `json:"recommended_order_date"`
-	NetRequirement        string    `json:"net_requirement"`
-	ProposedOrderQuantity string    `json:"proposed_order_quantity"`
-	RoundingExcess        string    `json:"rounding_excess"`
-	ProjectedInventory    string    `json:"projected_inventory"`
-	ProjectedAboveSafety  string    `json:"projected_above_safety_stock"`
-	Warnings              []string  `json:"warnings"`
+	MaterialID               uuid.UUID `json:"material_id"`
+	MaterialCode             string    `json:"material_code"`
+	MaterialName             string    `json:"material_name"`
+	Unit                     string    `json:"unit"`
+	ForecastQuantity         string    `json:"forecast_quantity"`
+	OnHandQuantity           string    `json:"on_hand_quantity"`
+	OpenPOQuantity           string    `json:"open_po_quantity"`
+	SafetyStock              string    `json:"safety_stock"`
+	MinimumOrderQuantity     string    `json:"minimum_order_quantity"`
+	PackSize                 string    `json:"pack_size"`
+	LeadTimeDays             int       `json:"lead_time_days"`
+	RecommendedOrderDate     string    `json:"recommended_order_date"`
+	NetRequirement           string    `json:"net_requirement"`
+	RecommendedOrderQuantity string    `json:"recommended_order_quantity"`
+	ProposedOrderQuantity    string    `json:"proposed_order_quantity"`
+	ManuallyOverridden       bool      `json:"manually_overridden"`
+	ManualOverrideReason     string    `json:"manual_override_reason,omitempty"`
+	RoundingExcess           string    `json:"rounding_excess"`
+	ProjectedInventory       string    `json:"projected_inventory"`
+	ProjectedAboveSafety     string    `json:"projected_above_safety_stock"`
+	Warnings                 []string  `json:"warnings"`
 }
 
 var nonNegativeSupplyQuantity = regexp.MustCompile(`^[0-9]+(?:\.[0-9]{1,6})?$`)
@@ -300,20 +305,45 @@ func calculateSupplyPlanLine(input SupplyPlanLineInput, horizonStart time.Time) 
 		}
 		proposal = ceilToMultiple(proposal, pack)
 	}
+	recommendedProposal := new(big.Rat).Set(proposal)
+	manualOverrideQuantity := strings.TrimSpace(input.ManualOverrideQuantity)
+	manualOverrideReason := strings.TrimSpace(input.ManualOverrideReason)
+	manuallyOverridden := manualOverrideQuantity != "" || manualOverrideReason != ""
+	if manuallyOverridden {
+		if manualOverrideQuantity == "" || manualOverrideReason == "" || len(manualOverrideReason) > 500 {
+			return SupplyPlanLine{}, ErrInvalidArgument
+		}
+		override, valid := parseSupplyQuantity(manualOverrideQuantity)
+		if !valid {
+			return SupplyPlanLine{}, ErrInvalidArgument
+		}
+		if override.Sign() > 0 && (override.Cmp(minimum) < 0 || !new(big.Rat).Quo(override, pack).IsInt()) {
+			return SupplyPlanLine{}, ErrInvalidArgument
+		}
+		proposal.Set(override)
+	}
 	projected := new(big.Rat).Sub(new(big.Rat).Add(new(big.Rat).Add(onHand, openPO), proposal), forecast)
 	aboveSafety := new(big.Rat).Sub(projected, safetyStock)
 	recommendedOrderDate := ""
 	if proposal.Sign() > 0 {
 		recommendedOrderDate = horizonStart.AddDate(0, 0, -input.LeadTimeDays).Format("2006-01-02")
 	}
+	lineWarnings := make([]string, 0, 1)
+	if manuallyOverridden {
+		lineWarnings = append(lineWarnings, "MANUAL_QUANTITY_OVERRIDE")
+	}
+	if aboveSafety.Sign() < 0 {
+		lineWarnings = append(lineWarnings, "PROJECTED_BELOW_SAFETY_STOCK")
+	}
 	return SupplyPlanLine{
 		MaterialID: input.MaterialID, MaterialCode: input.MaterialCode, MaterialName: input.MaterialName, Unit: input.Unit,
 		ForecastQuantity: forecast.FloatString(6), OnHandQuantity: onHand.FloatString(6), OpenPOQuantity: openPO.FloatString(6),
 		SafetyStock: safetyStock.FloatString(6), MinimumOrderQuantity: minimum.FloatString(6), PackSize: pack.FloatString(6),
 		LeadTimeDays: input.LeadTimeDays, RecommendedOrderDate: recommendedOrderDate,
-		NetRequirement: net.FloatString(6), ProposedOrderQuantity: proposal.FloatString(6),
-		RoundingExcess:     new(big.Rat).Sub(new(big.Rat).Set(proposal), net).FloatString(6),
-		ProjectedInventory: projected.FloatString(6), ProjectedAboveSafety: aboveSafety.FloatString(6), Warnings: make([]string, 0),
+		NetRequirement: net.FloatString(6), RecommendedOrderQuantity: recommendedProposal.FloatString(6), ProposedOrderQuantity: proposal.FloatString(6),
+		ManuallyOverridden: manuallyOverridden, ManualOverrideReason: manualOverrideReason,
+		RoundingExcess:     new(big.Rat).Sub(new(big.Rat).Set(recommendedProposal), net).FloatString(6),
+		ProjectedInventory: projected.FloatString(6), ProjectedAboveSafety: aboveSafety.FloatString(6), Warnings: lineWarnings,
 	}, nil
 }
 

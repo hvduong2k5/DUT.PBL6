@@ -102,14 +102,16 @@ type supplyPlanPreviewRequest struct {
 }
 
 type supplyPlanPreviewLineRequest struct {
-	MaterialID       string `json:"material_id"`
-	ForecastQuantity string `json:"forecast_quantity"`
-	OnHandQuantity   string `json:"on_hand_quantity"`
-	OpenPOQuantity   string `json:"open_po_quantity"`
-	SafetyStock      string `json:"safety_stock"`
-	MinimumOrderQty  string `json:"minimum_order_quantity"`
-	PackSize         string `json:"pack_size,omitempty"`
-	LeadTimeDays     int    `json:"lead_time_days"`
+	MaterialID             string `json:"material_id"`
+	ForecastQuantity       string `json:"forecast_quantity"`
+	OnHandQuantity         string `json:"on_hand_quantity"`
+	OpenPOQuantity         string `json:"open_po_quantity"`
+	SafetyStock            string `json:"safety_stock"`
+	MinimumOrderQty        string `json:"minimum_order_quantity"`
+	PackSize               string `json:"pack_size,omitempty"`
+	LeadTimeDays           int    `json:"lead_time_days"`
+	ManualOverrideQuantity string `json:"manual_override_quantity,omitempty"`
+	ManualOverrideReason   string `json:"manual_override_reason,omitempty"`
 }
 
 func (h *Router) previewSupplyPlan(w http.ResponseWriter, r *http.Request) {
@@ -318,7 +320,8 @@ func (h *Router) decodeSupplyPlanInput(w http.ResponseWriter, r *http.Request) (
 		}
 		input.Lines = append(input.Lines, domain.SupplyPlanLineInput{MaterialID: materialID, ForecastQuantity: line.ForecastQuantity,
 			OnHandQuantity: line.OnHandQuantity, OpenPOQuantity: line.OpenPOQuantity, SafetyStock: line.SafetyStock,
-			MinimumOrderQty: line.MinimumOrderQty, PackSize: line.PackSize, LeadTimeDays: line.LeadTimeDays})
+			MinimumOrderQty: line.MinimumOrderQty, PackSize: line.PackSize, LeadTimeDays: line.LeadTimeDays,
+			ManualOverrideQuantity: line.ManualOverrideQuantity, ManualOverrideReason: line.ManualOverrideReason})
 	}
 	return input, request.ExpectedVersion, true
 }

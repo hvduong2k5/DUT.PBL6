@@ -168,3 +168,43 @@ func TestSupplyPlanRejectRequiresReasonAndDifferentActor(t *testing.T) {
 		t.Fatalf("rejection decision missing: plan=%+v error=%v", plan, err)
 	}
 }
+
+func TestPreviewSupplyPlanRecordsValidManualQuantityOverride(t *testing.T) {
+	input := supplyPlanFixture()
+	input.Lines[0].ManualOverrideQuantity = "12"
+	input.Lines[0].ManualOverrideReason = "Limit purchase to available budget"
+	preview, err := domain.PreviewSupplyPlan(input, time.Date(2026, 11, 7, 10, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
+	line := preview.Lines[0]
+	if line.RecommendedOrderQuantity != "18.000000" || line.ProposedOrderQuantity != "12.000000" || !line.ManuallyOverridden ||
+		line.ManualOverrideReason != "Limit purchase to available budget" || line.ProjectedInventory != "3.000000" ||
+		line.RoundingExcess != "4.000000" || len(line.Warnings) != 2 || line.Warnings[0] != "MANUAL_QUANTITY_OVERRIDE" || line.Warnings[1] != "PROJECTED_BELOW_SAFETY_STOCK" {
+		t.Fatalf("manual override was not captured in the calculation snapshot: %+v", line)
+	}
+}
+
+func TestPreviewSupplyPlanRejectsInvalidManualOverrides(t *testing.T) {
+	tests := []struct {
+		name     string
+		quantity string
+		reason   string
+	}{
+		{name: "missing reason", quantity: "12"},
+		{name: "below MOQ", quantity: "6", reason: "budget"},
+		{name: "not pack multiple", quantity: "13", reason: "budget"},
+		{name: "invalid quantity", quantity: "-1", reason: "budget"},
+		{name: "reason without quantity", reason: "budget"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			input := supplyPlanFixture()
+			input.Lines[0].ManualOverrideQuantity = test.quantity
+			input.Lines[0].ManualOverrideReason = test.reason
+			if _, err := domain.PreviewSupplyPlan(input, time.Date(2026, 11, 7, 10, 0, 0, 0, time.UTC)); !errors.Is(err, domain.ErrInvalidArgument) {
+				t.Fatalf("override error=%v, want invalid argument", err)
+			}
+		})
+	}
+}
