@@ -21,12 +21,13 @@ type fakeRepository struct {
 	contracts     map[uuid.UUID]domain.SupplierContract
 	plans         map[uuid.UUID]domain.SupplyPlan
 	planRevisions map[uuid.UUID][]domain.SupplyPlanRevision
+	planHistory   map[uuid.UUID][]domain.SupplyPlanStatusEvent
 }
 
 func newFakeRepository() *fakeRepository {
 	return &fakeRepository{
 		suppliers: make(map[uuid.UUID]domain.Supplier), materials: make(map[uuid.UUID]domain.RawMaterial),
-		offers: make(map[uuid.UUID][]domain.SupplierMaterialOffer), orders: make(map[uuid.UUID]domain.PurchaseOrder), receipts: make(map[uuid.UUID]domain.GoodsReceipt), contracts: make(map[uuid.UUID]domain.SupplierContract), plans: make(map[uuid.UUID]domain.SupplyPlan), planRevisions: make(map[uuid.UUID][]domain.SupplyPlanRevision),
+		offers: make(map[uuid.UUID][]domain.SupplierMaterialOffer), orders: make(map[uuid.UUID]domain.PurchaseOrder), receipts: make(map[uuid.UUID]domain.GoodsReceipt), contracts: make(map[uuid.UUID]domain.SupplierContract), plans: make(map[uuid.UUID]domain.SupplyPlan), planRevisions: make(map[uuid.UUID][]domain.SupplyPlanRevision), planHistory: make(map[uuid.UUID][]domain.SupplyPlanStatusEvent),
 	}
 }
 
@@ -113,6 +114,7 @@ func (r *fakeRepository) CreateSupplierContract(_ context.Context, item domain.S
 func (r *fakeRepository) CreateSupplyPlan(_ context.Context, plan domain.SupplyPlan) (domain.SupplyPlan, error) {
 	r.plans[plan.ID] = plan
 	r.planRevisions[plan.ID] = []domain.SupplyPlanRevision{{SupplyPlanID: plan.ID, Revision: plan.Revision, Snapshot: plan.Snapshot, CreatedBy: plan.CreatedBy, CreatedAt: plan.CreatedAt}}
+	r.planHistory[plan.ID] = []domain.SupplyPlanStatusEvent{{SupplyPlanID: plan.ID, FromStatus: plan.Status, ToStatus: plan.Status, Action: "CREATED", Actor: plan.CreatedBy, Version: plan.Version, CreatedAt: plan.CreatedAt}}
 	return plan, nil
 }
 func (r *fakeRepository) GetSupplyPlan(_ context.Context, id uuid.UUID) (domain.SupplyPlan, error) {
@@ -154,6 +156,25 @@ func (r *fakeRepository) ListSupplyPlanRevisions(_ context.Context, id uuid.UUID
 		return nil, domain.ErrNotFound
 	}
 	return append([]domain.SupplyPlanRevision(nil), r.planRevisions[id]...), nil
+}
+func (r *fakeRepository) TransitionSupplyPlan(_ context.Context, plan domain.SupplyPlan, expectedVersion int64, previousStatus domain.SupplyPlanStatus, actor, action, reason string) (domain.SupplyPlan, error) {
+	current, ok := r.plans[plan.ID]
+	if !ok {
+		return domain.SupplyPlan{}, domain.ErrNotFound
+	}
+	if current.Version != expectedVersion || current.Status != previousStatus {
+		return domain.SupplyPlan{}, domain.ErrConflict
+	}
+	r.plans[plan.ID] = plan
+	r.planHistory[plan.ID] = append(r.planHistory[plan.ID], domain.SupplyPlanStatusEvent{SupplyPlanID: plan.ID, FromStatus: previousStatus,
+		ToStatus: plan.Status, Action: action, Actor: actor, Reason: reason, Version: plan.Version, CreatedAt: plan.UpdatedAt})
+	return plan, nil
+}
+func (r *fakeRepository) ListSupplyPlanStatusHistory(_ context.Context, id uuid.UUID) ([]domain.SupplyPlanStatusEvent, error) {
+	if _, ok := r.plans[id]; !ok {
+		return nil, domain.ErrNotFound
+	}
+	return append([]domain.SupplyPlanStatusEvent(nil), r.planHistory[id]...), nil
 }
 func (r *fakeRepository) GetSupplierContract(_ context.Context, id uuid.UUID) (domain.SupplierContract, error) {
 	item, ok := r.contracts[id]

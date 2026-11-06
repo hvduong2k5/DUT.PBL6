@@ -119,3 +119,52 @@ func TestSupplyPlanRevisionRequiresCurrentVersionAndRetainsDraftState(t *testing
 		t.Fatalf("non-draft revision error=%v, want invalid state", err)
 	}
 }
+
+func TestSupplyPlanApprovalRequiresSeparationAndRecordsDecision(t *testing.T) {
+	preview, err := domain.PreviewSupplyPlan(supplyPlanFixture(), time.Date(2026, 11, 7, 10, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, err := domain.NewSupplyPlan("SP-20261107-APPROVAL", "creator", preview)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Date(2026, 11, 7, 11, 0, 0, 0, time.UTC)
+	if _, err := plan.Approve("approver", now); !errors.Is(err, domain.ErrInvalidState) {
+		t.Fatalf("approve before submission error=%v, want invalid state", err)
+	}
+	plan, err = plan.SubmitForApproval("submitter", now)
+	if err != nil || plan.Status != domain.SupplyPlanPendingApproval || plan.Version != 2 || plan.SubmittedBy != "submitter" {
+		t.Fatalf("submit failed or fields missing: plan=%+v error=%v", plan, err)
+	}
+	if _, err := plan.Approve("submitter", now.Add(time.Minute)); !errors.Is(err, domain.ErrConflict) {
+		t.Fatalf("submitter self-approval error=%v, want conflict", err)
+	}
+	plan, err = plan.Approve("manager", now.Add(time.Minute))
+	if err != nil || plan.Status != domain.SupplyPlanApproved || plan.ApprovedBy != "manager" || plan.Version != 3 {
+		t.Fatalf("approval decision missing: plan=%+v error=%v", plan, err)
+	}
+}
+
+func TestSupplyPlanRejectRequiresReasonAndDifferentActor(t *testing.T) {
+	preview, err := domain.PreviewSupplyPlan(supplyPlanFixture(), time.Date(2026, 11, 7, 10, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, err := domain.NewSupplyPlan("SP-20261107-REJECT", "creator", preview)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Date(2026, 11, 7, 11, 0, 0, 0, time.UTC)
+	plan, err = plan.SubmitForApproval("submitter", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := plan.Reject("manager", " ", now.Add(time.Minute)); !errors.Is(err, domain.ErrInvalidState) {
+		t.Fatalf("empty rejection reason error=%v, want invalid state", err)
+	}
+	plan, err = plan.Reject("manager", "forecast source is stale", now.Add(time.Minute))
+	if err != nil || plan.Status != domain.SupplyPlanRejected || plan.RejectionReason != "forecast source is stale" {
+		t.Fatalf("rejection decision missing: plan=%+v error=%v", plan, err)
+	}
+}

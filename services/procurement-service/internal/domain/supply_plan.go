@@ -51,18 +51,41 @@ type SupplyPlanPreview struct {
 
 type SupplyPlanStatus string
 
-const SupplyPlanDraft SupplyPlanStatus = "DRAFT"
+const (
+	SupplyPlanDraft           SupplyPlanStatus = "DRAFT"
+	SupplyPlanPendingApproval SupplyPlanStatus = "PENDING_APPROVAL"
+	SupplyPlanApproved        SupplyPlanStatus = "APPROVED"
+	SupplyPlanRejected        SupplyPlanStatus = "REJECTED"
+)
 
 type SupplyPlan struct {
-	ID        uuid.UUID         `json:"id"`
-	Number    string            `json:"number"`
-	Revision  int               `json:"revision"`
-	Status    SupplyPlanStatus  `json:"status"`
-	Snapshot  SupplyPlanPreview `json:"snapshot"`
-	CreatedBy string            `json:"created_by"`
-	CreatedAt time.Time         `json:"created_at"`
-	UpdatedAt time.Time         `json:"updated_at"`
-	Version   int64             `json:"version"`
+	ID              uuid.UUID         `json:"id"`
+	Number          string            `json:"number"`
+	Revision        int               `json:"revision"`
+	Status          SupplyPlanStatus  `json:"status"`
+	Snapshot        SupplyPlanPreview `json:"snapshot"`
+	CreatedBy       string            `json:"created_by"`
+	SubmittedBy     string            `json:"submitted_by,omitempty"`
+	SubmittedAt     *time.Time        `json:"submitted_at,omitempty"`
+	ApprovedBy      string            `json:"approved_by,omitempty"`
+	ApprovedAt      *time.Time        `json:"approved_at,omitempty"`
+	RejectedBy      string            `json:"rejected_by,omitempty"`
+	RejectedAt      *time.Time        `json:"rejected_at,omitempty"`
+	RejectionReason string            `json:"rejection_reason,omitempty"`
+	CreatedAt       time.Time         `json:"created_at"`
+	UpdatedAt       time.Time         `json:"updated_at"`
+	Version         int64             `json:"version"`
+}
+
+type SupplyPlanStatusEvent struct {
+	SupplyPlanID uuid.UUID        `json:"supply_plan_id"`
+	FromStatus   SupplyPlanStatus `json:"from_status"`
+	ToStatus     SupplyPlanStatus `json:"to_status"`
+	Action       string           `json:"action"`
+	Actor        string           `json:"actor"`
+	Reason       string           `json:"reason,omitempty"`
+	Version      int64            `json:"version"`
+	CreatedAt    time.Time        `json:"created_at"`
 }
 
 type SupplyPlanRevision struct {
@@ -101,6 +124,59 @@ func (p SupplyPlan) Revise(actor string, expectedVersion int64, snapshot SupplyP
 	p.UpdatedAt = now.UTC()
 	revision := SupplyPlanRevision{SupplyPlanID: p.ID, Revision: p.Revision, Snapshot: cloneSupplyPlanPreview(snapshot), CreatedBy: actor, CreatedAt: now.UTC()}
 	return p, revision, nil
+}
+
+func (p SupplyPlan) SubmitForApproval(actor string, now time.Time) (SupplyPlan, error) {
+	actor = strings.TrimSpace(actor)
+	if p.Status != SupplyPlanDraft || actor == "" || now.IsZero() {
+		return SupplyPlan{}, ErrInvalidState
+	}
+	p.Status = SupplyPlanPendingApproval
+	p.SubmittedBy = actor
+	p.SubmittedAt = timePointer(now)
+	p.touch(now)
+	return p, nil
+}
+
+func (p SupplyPlan) Approve(actor string, now time.Time) (SupplyPlan, error) {
+	actor = strings.TrimSpace(actor)
+	if p.Status != SupplyPlanPendingApproval || actor == "" || now.IsZero() {
+		return SupplyPlan{}, ErrInvalidState
+	}
+	if actor == p.CreatedBy || actor == p.SubmittedBy {
+		return SupplyPlan{}, ErrConflict
+	}
+	p.Status = SupplyPlanApproved
+	p.ApprovedBy = actor
+	p.ApprovedAt = timePointer(now)
+	p.touch(now)
+	return p, nil
+}
+
+func (p SupplyPlan) Reject(actor, reason string, now time.Time) (SupplyPlan, error) {
+	actor, reason = strings.TrimSpace(actor), strings.TrimSpace(reason)
+	if p.Status != SupplyPlanPendingApproval || actor == "" || reason == "" || now.IsZero() {
+		return SupplyPlan{}, ErrInvalidState
+	}
+	if actor == p.CreatedBy || actor == p.SubmittedBy {
+		return SupplyPlan{}, ErrConflict
+	}
+	p.Status = SupplyPlanRejected
+	p.RejectedBy = actor
+	p.RejectedAt = timePointer(now)
+	p.RejectionReason = reason
+	p.touch(now)
+	return p, nil
+}
+
+func (p *SupplyPlan) touch(now time.Time) {
+	p.UpdatedAt = now.UTC()
+	p.Version++
+}
+
+func timePointer(value time.Time) *time.Time {
+	value = value.UTC()
+	return &value
 }
 
 func cloneSupplyPlanPreview(snapshot SupplyPlanPreview) SupplyPlanPreview {

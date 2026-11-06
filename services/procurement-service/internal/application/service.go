@@ -51,6 +51,8 @@ type Repository interface {
 	ListSupplyPlans(context.Context, int, int) ([]domain.SupplyPlan, error)
 	ReviseSupplyPlan(context.Context, domain.SupplyPlan, domain.SupplyPlanRevision, int64) (domain.SupplyPlan, error)
 	ListSupplyPlanRevisions(context.Context, uuid.UUID) ([]domain.SupplyPlanRevision, error)
+	TransitionSupplyPlan(context.Context, domain.SupplyPlan, int64, domain.SupplyPlanStatus, string, string, string) (domain.SupplyPlan, error)
+	ListSupplyPlanStatusHistory(context.Context, uuid.UUID) ([]domain.SupplyPlanStatusEvent, error)
 }
 
 type Service struct{ repo Repository }
@@ -112,6 +114,44 @@ func (s *Service) ReviseSupplyPlan(ctx context.Context, id uuid.UUID, expectedVe
 
 func (s *Service) ListSupplyPlanRevisions(ctx context.Context, id uuid.UUID) ([]domain.SupplyPlanRevision, error) {
 	return s.repo.ListSupplyPlanRevisions(ctx, id)
+}
+
+func (s *Service) SubmitSupplyPlan(ctx context.Context, id uuid.UUID, actor string, now time.Time) (domain.SupplyPlan, error) {
+	return s.transitionSupplyPlan(ctx, id, actor, "", "SUBMITTED", now, func(plan domain.SupplyPlan) (domain.SupplyPlan, error) {
+		return plan.SubmitForApproval(actor, now)
+	})
+}
+
+func (s *Service) ApproveSupplyPlan(ctx context.Context, id uuid.UUID, actor string, now time.Time) (domain.SupplyPlan, error) {
+	return s.transitionSupplyPlan(ctx, id, actor, "", "APPROVED", now, func(plan domain.SupplyPlan) (domain.SupplyPlan, error) {
+		return plan.Approve(actor, now)
+	})
+}
+
+func (s *Service) RejectSupplyPlan(ctx context.Context, id uuid.UUID, actor, reason string, now time.Time) (domain.SupplyPlan, error) {
+	return s.transitionSupplyPlan(ctx, id, actor, reason, "REJECTED", now, func(plan domain.SupplyPlan) (domain.SupplyPlan, error) {
+		return plan.Reject(actor, reason, now)
+	})
+}
+
+func (s *Service) transitionSupplyPlan(ctx context.Context, id uuid.UUID, actor, reason, action string, now time.Time, transition func(domain.SupplyPlan) (domain.SupplyPlan, error)) (domain.SupplyPlan, error) {
+	current, err := s.repo.GetSupplyPlan(ctx, id)
+	if err != nil {
+		return domain.SupplyPlan{}, err
+	}
+	previousStatus, expectedVersion := current.Status, current.Version
+	updated, err := transition(current)
+	if err != nil {
+		return domain.SupplyPlan{}, err
+	}
+	return s.repo.TransitionSupplyPlan(ctx, updated, expectedVersion, previousStatus, actor, action, reason)
+}
+
+func (s *Service) ListSupplyPlanStatusHistory(ctx context.Context, id uuid.UUID) ([]domain.SupplyPlanStatusEvent, error) {
+	if _, err := s.repo.GetSupplyPlan(ctx, id); err != nil {
+		return nil, err
+	}
+	return s.repo.ListSupplyPlanStatusHistory(ctx, id)
 }
 
 func (s *Service) CreateSupplier(ctx context.Context, supplier domain.Supplier) (domain.Supplier, error) {

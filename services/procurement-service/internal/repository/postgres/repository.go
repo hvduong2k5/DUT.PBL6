@@ -619,6 +619,10 @@ func (r *Repository) CreateSupplyPlan(ctx context.Context, plan domain.SupplyPla
 	if _, err := tx.Exec(ctx, `INSERT INTO supply_plan_revisions (supply_plan_id,revision,snapshot,created_by) VALUES ($1,$2,$3,$4)`, plan.ID, plan.Revision, snapshot, plan.CreatedBy); err != nil {
 		return domain.SupplyPlan{}, err
 	}
+	if _, err := tx.Exec(ctx, `INSERT INTO supply_plan_status_history (id,supply_plan_id,from_status,to_status,action,actor,version) VALUES ($1,$2,$3,$3,'CREATED',$4,$5)`,
+		uuid.New(), plan.ID, plan.Status, plan.CreatedBy, plan.Version); err != nil {
+		return domain.SupplyPlan{}, err
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return domain.SupplyPlan{}, err
 	}
@@ -710,14 +714,76 @@ func (r *Repository) ListSupplyPlanRevisions(ctx context.Context, id uuid.UUID) 
 	return items, rows.Err()
 }
 
-const supplyPlanSelect = `SELECT plan.id,plan.plan_number,plan.current_revision,plan.status,revision.snapshot,plan.created_by,plan.created_at,plan.updated_at,plan.version
+func (r *Repository) TransitionSupplyPlan(ctx context.Context, plan domain.SupplyPlan, expectedVersion int64, previousStatus domain.SupplyPlanStatus, actor, action, reason string) (domain.SupplyPlan, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return domain.SupplyPlan{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	var currentVersion int64
+	var currentStatus string
+	if err := tx.QueryRow(ctx, `SELECT version,status FROM supply_plans WHERE id=$1 FOR UPDATE`, plan.ID).Scan(&currentVersion, &currentStatus); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.SupplyPlan{}, domain.ErrNotFound
+		}
+		return domain.SupplyPlan{}, err
+	}
+	if currentVersion != expectedVersion || domain.SupplyPlanStatus(currentStatus) != previousStatus {
+		return domain.SupplyPlan{}, domain.ErrConflict
+	}
+	const update = `UPDATE supply_plans SET status=$3,submitted_by=$4,submitted_at=$5,approved_by=$6,approved_at=$7,
+		rejected_by=$8,rejected_at=$9,rejection_reason=$10,updated_at=now(),version=version+1
+		WHERE id=$1 AND version=$2 RETURNING updated_at,version`
+	if err := tx.QueryRow(ctx, update, plan.ID, expectedVersion, plan.Status,
+		emptyToNil(plan.SubmittedBy), plan.SubmittedAt, emptyToNil(plan.ApprovedBy), plan.ApprovedAt,
+		emptyToNil(plan.RejectedBy), plan.RejectedAt, plan.RejectionReason).Scan(&plan.UpdatedAt, &plan.Version); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.SupplyPlan{}, domain.ErrConflict
+		}
+		return domain.SupplyPlan{}, mapError(err)
+	}
+	_, err = tx.Exec(ctx, `INSERT INTO supply_plan_status_history (id,supply_plan_id,from_status,to_status,action,actor,reason,version) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+		uuid.New(), plan.ID, previousStatus, plan.Status, action, actor, reason, plan.Version)
+	if err != nil {
+		return domain.SupplyPlan{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return domain.SupplyPlan{}, err
+	}
+	return plan, nil
+}
+
+func (r *Repository) ListSupplyPlanStatusHistory(ctx context.Context, id uuid.UUID) ([]domain.SupplyPlanStatusEvent, error) {
+	rows, err := r.pool.Query(ctx, `SELECT supply_plan_id,from_status,to_status,action,actor,reason,version,created_at FROM supply_plan_status_history WHERE supply_plan_id=$1 ORDER BY version`, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := make([]domain.SupplyPlanStatusEvent, 0)
+	for rows.Next() {
+		var item domain.SupplyPlanStatusEvent
+		if err := rows.Scan(&item.SupplyPlanID, &item.FromStatus, &item.ToStatus, &item.Action, &item.Actor, &item.Reason, &item.Version, &item.CreatedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+const supplyPlanSelect = `SELECT plan.id,plan.plan_number,plan.current_revision,plan.status,revision.snapshot,plan.created_by,
+	plan.submitted_by,plan.submitted_at,plan.approved_by,plan.approved_at,plan.rejected_by,plan.rejected_at,plan.rejection_reason,
+	plan.created_at,plan.updated_at,plan.version
 	FROM supply_plans AS plan JOIN supply_plan_revisions AS revision ON revision.supply_plan_id=plan.id AND revision.revision=plan.current_revision`
 
 func scanSupplyPlan(row rowScanner) (domain.SupplyPlan, error) {
 	var plan domain.SupplyPlan
 	var status string
 	var snapshot []byte
-	err := row.Scan(&plan.ID, &plan.Number, &plan.Revision, &status, &snapshot, &plan.CreatedBy, &plan.CreatedAt, &plan.UpdatedAt, &plan.Version)
+	var submittedBy, approvedBy, rejectedBy, rejectionReason pgtype.Text
+	var submittedAt, approvedAt, rejectedAt pgtype.Timestamptz
+	err := row.Scan(&plan.ID, &plan.Number, &plan.Revision, &status, &snapshot, &plan.CreatedBy,
+		&submittedBy, &submittedAt, &approvedBy, &approvedAt, &rejectedBy, &rejectedAt, &rejectionReason,
+		&plan.CreatedAt, &plan.UpdatedAt, &plan.Version)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.SupplyPlan{}, domain.ErrNotFound
 	}
@@ -725,6 +791,9 @@ func scanSupplyPlan(row rowScanner) (domain.SupplyPlan, error) {
 		return domain.SupplyPlan{}, err
 	}
 	plan.Status = domain.SupplyPlanStatus(status)
+	plan.SubmittedBy, plan.ApprovedBy, plan.RejectedBy = submittedBy.String, approvedBy.String, rejectedBy.String
+	plan.RejectionReason = rejectionReason.String
+	plan.SubmittedAt, plan.ApprovedAt, plan.RejectedAt = timestampPointer(submittedAt), timestampPointer(approvedAt), timestampPointer(rejectedAt)
 	if err := json.Unmarshal(snapshot, &plan.Snapshot); err != nil {
 		return domain.SupplyPlan{}, err
 	}

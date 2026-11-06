@@ -26,12 +26,13 @@ type httpRepository struct {
 	revisions     map[uuid.UUID][]domain.PurchaseOrderRevision
 	plans         map[uuid.UUID]domain.SupplyPlan
 	planRevisions map[uuid.UUID][]domain.SupplyPlanRevision
+	planHistory   map[uuid.UUID][]domain.SupplyPlanStatusEvent
 }
 
 func newHTTPRepository() *httpRepository {
 	return &httpRepository{
 		suppliers: make(map[uuid.UUID]domain.Supplier), materials: make(map[uuid.UUID]domain.RawMaterial),
-		offers: make(map[uuid.UUID][]domain.SupplierMaterialOffer), orders: make(map[uuid.UUID]domain.PurchaseOrder), receipts: make(map[uuid.UUID]domain.GoodsReceipt), contracts: make(map[uuid.UUID]domain.SupplierContract), revisions: make(map[uuid.UUID][]domain.PurchaseOrderRevision), plans: make(map[uuid.UUID]domain.SupplyPlan), planRevisions: make(map[uuid.UUID][]domain.SupplyPlanRevision),
+		offers: make(map[uuid.UUID][]domain.SupplierMaterialOffer), orders: make(map[uuid.UUID]domain.PurchaseOrder), receipts: make(map[uuid.UUID]domain.GoodsReceipt), contracts: make(map[uuid.UUID]domain.SupplierContract), revisions: make(map[uuid.UUID][]domain.PurchaseOrderRevision), plans: make(map[uuid.UUID]domain.SupplyPlan), planRevisions: make(map[uuid.UUID][]domain.SupplyPlanRevision), planHistory: make(map[uuid.UUID][]domain.SupplyPlanStatusEvent),
 	}
 }
 
@@ -121,6 +122,7 @@ func (r *httpRepository) GetSupplierContract(_ context.Context, id uuid.UUID) (d
 func (r *httpRepository) CreateSupplyPlan(_ context.Context, plan domain.SupplyPlan) (domain.SupplyPlan, error) {
 	r.plans[plan.ID] = plan
 	r.planRevisions[plan.ID] = []domain.SupplyPlanRevision{{SupplyPlanID: plan.ID, Revision: plan.Revision, Snapshot: plan.Snapshot, CreatedBy: plan.CreatedBy, CreatedAt: plan.CreatedAt}}
+	r.planHistory[plan.ID] = []domain.SupplyPlanStatusEvent{{SupplyPlanID: plan.ID, FromStatus: plan.Status, ToStatus: plan.Status, Action: "CREATED", Actor: plan.CreatedBy, Version: plan.Version, CreatedAt: plan.CreatedAt}}
 	return plan, nil
 }
 func (r *httpRepository) GetSupplyPlan(_ context.Context, id uuid.UUID) (domain.SupplyPlan, error) {
@@ -162,6 +164,25 @@ func (r *httpRepository) ListSupplyPlanRevisions(_ context.Context, id uuid.UUID
 		return nil, domain.ErrNotFound
 	}
 	return append([]domain.SupplyPlanRevision(nil), r.planRevisions[id]...), nil
+}
+func (r *httpRepository) TransitionSupplyPlan(_ context.Context, plan domain.SupplyPlan, expectedVersion int64, previousStatus domain.SupplyPlanStatus, actor, action, reason string) (domain.SupplyPlan, error) {
+	current, ok := r.plans[plan.ID]
+	if !ok {
+		return domain.SupplyPlan{}, domain.ErrNotFound
+	}
+	if current.Version != expectedVersion || current.Status != previousStatus {
+		return domain.SupplyPlan{}, domain.ErrConflict
+	}
+	r.plans[plan.ID] = plan
+	r.planHistory[plan.ID] = append(r.planHistory[plan.ID], domain.SupplyPlanStatusEvent{SupplyPlanID: plan.ID, FromStatus: previousStatus,
+		ToStatus: plan.Status, Action: action, Actor: actor, Reason: reason, Version: plan.Version, CreatedAt: plan.UpdatedAt})
+	return plan, nil
+}
+func (r *httpRepository) ListSupplyPlanStatusHistory(_ context.Context, id uuid.UUID) ([]domain.SupplyPlanStatusEvent, error) {
+	if _, ok := r.plans[id]; !ok {
+		return nil, domain.ErrNotFound
+	}
+	return append([]domain.SupplyPlanStatusEvent(nil), r.planHistory[id]...), nil
 }
 func (r *httpRepository) ListSupplierContracts(_ context.Context, id uuid.UUID, _, _ int) ([]domain.SupplierContract, error) {
 	items := []domain.SupplierContract{}
@@ -569,6 +590,38 @@ func TestSupplyPlanPreviewRouteReturnsComputedProposal(t *testing.T) {
 	revisionList := performRequest(handler, http.MethodGet, "/api/v1/admin/procurement/supply-plans/"+plan.ID.String()+"/revisions", "", "supply", "SUPPLY_MANAGER")
 	if revisionList.Code != http.StatusOK || !strings.Contains(revisionList.Body.String(), `"revision":1`) || !strings.Contains(revisionList.Body.String(), `"revision":2`) || !strings.Contains(revisionList.Body.String(), `"forecast_quantity":"15.000000"`) {
 		t.Fatalf("list supply plan revisions status=%d body=%s", revisionList.Code, revisionList.Body.String())
+	}
+	submit := performRequest(handler, http.MethodPost, "/api/v1/admin/procurement/supply-plans/"+plan.ID.String()+"/submit", "", "supply", "SUPPLY_MANAGER")
+	if submit.Code != http.StatusOK || !strings.Contains(submit.Body.String(), `"status":"PENDING_APPROVAL"`) {
+		t.Fatalf("submit supply plan status=%d body=%s", submit.Code, submit.Body.String())
+	}
+	deniedApproval := performRequest(handler, http.MethodPost, "/api/v1/admin/procurement/supply-plans/"+plan.ID.String()+"/approve", "", "supply", "SUPPLY_MANAGER")
+	if deniedApproval.Code != http.StatusForbidden {
+		t.Fatalf("supply manager approval status=%d, want 403", deniedApproval.Code)
+	}
+	approved := performRequest(handler, http.MethodPost, "/api/v1/admin/procurement/supply-plans/"+plan.ID.String()+"/approve", "", "procurement", "PROCUREMENT_MANAGER")
+	if approved.Code != http.StatusOK || !strings.Contains(approved.Body.String(), `"status":"APPROVED"`) {
+		t.Fatalf("approve supply plan status=%d body=%s", approved.Code, approved.Body.String())
+	}
+	statusHistory := performRequest(handler, http.MethodGet, "/api/v1/admin/procurement/supply-plans/"+plan.ID.String()+"/status-history", "", "supply", "SUPPLY_MANAGER")
+	if statusHistory.Code != http.StatusOK || !strings.Contains(statusHistory.Body.String(), `"to_status":"PENDING_APPROVAL"`) || !strings.Contains(statusHistory.Body.String(), `"to_status":"APPROVED"`) {
+		t.Fatalf("supply plan status history status=%d body=%s", statusHistory.Code, statusHistory.Body.String())
+	}
+	rejectedPlanResponse := performRequest(handler, http.MethodPost, "/api/v1/admin/procurement/supply-plans", string(bodyBytes), "supply", "SUPPLY_MANAGER")
+	if rejectedPlanResponse.Code != http.StatusCreated {
+		t.Fatalf("create plan for rejection status=%d body=%s", rejectedPlanResponse.Code, rejectedPlanResponse.Body.String())
+	}
+	var rejectedPlan domain.SupplyPlan
+	if err := json.Unmarshal(rejectedPlanResponse.Body.Bytes(), &rejectedPlan); err != nil {
+		t.Fatal(err)
+	}
+	rejectedSubmit := performRequest(handler, http.MethodPost, "/api/v1/admin/procurement/supply-plans/"+rejectedPlan.ID.String()+"/submit", "", "supply", "SUPPLY_MANAGER")
+	if rejectedSubmit.Code != http.StatusOK {
+		t.Fatalf("submit plan for rejection status=%d body=%s", rejectedSubmit.Code, rejectedSubmit.Body.String())
+	}
+	rejection := performRequest(handler, http.MethodPost, "/api/v1/admin/procurement/supply-plans/"+rejectedPlan.ID.String()+"/reject", `{"reason":"forecast requires correction"}`, "procurement", "PROCUREMENT_MANAGER")
+	if rejection.Code != http.StatusOK || !strings.Contains(rejection.Body.String(), `"status":"REJECTED"`) || !strings.Contains(rejection.Body.String(), `"rejection_reason":"forecast requires correction"`) {
+		t.Fatalf("reject supply plan status=%d body=%s", rejection.Code, rejection.Body.String())
 	}
 }
 

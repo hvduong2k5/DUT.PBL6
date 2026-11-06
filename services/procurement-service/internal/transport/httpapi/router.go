@@ -52,6 +52,8 @@ func NewRouter(service *application.Service, internalToken string, ping func(con
 		r.Get("/api/v1/admin/procurement/supply-plans/{supplyPlanID}", h.getSupplyPlan)
 		r.Get("/api/v1/admin/procurement/supply-plans/{supplyPlanID}/revisions", h.listSupplyPlanRevisions)
 		r.Post("/api/v1/admin/procurement/supply-plans/{supplyPlanID}/revisions", h.reviseSupplyPlan)
+		r.Post("/api/v1/admin/procurement/supply-plans/{supplyPlanID}/submit", h.submitSupplyPlan)
+		r.Get("/api/v1/admin/procurement/supply-plans/{supplyPlanID}/status-history", h.listSupplyPlanStatusHistory)
 		r.Post("/api/v1/admin/procurement/purchase-orders", h.createPurchaseOrder)
 		r.Get("/api/v1/admin/procurement/purchase-orders/{purchaseOrderID}", h.getPurchaseOrder)
 		r.Put("/api/v1/admin/procurement/purchase-orders/{purchaseOrderID}", h.updatePurchaseOrderDraft)
@@ -79,6 +81,8 @@ func NewRouter(service *application.Service, internalToken string, ping func(con
 		r.Post("/api/v1/admin/procurement/contracts/{contractID}/activate", h.activateSupplierContract)
 		r.Post("/api/v1/admin/procurement/contracts/{contractID}/terminate", h.terminateSupplierContract)
 		r.Post("/api/v1/admin/procurement/goods-receipts/{goodsReceiptID}/variances/{varianceID}/resolve", h.resolveGoodsReceiptVariance)
+		r.Post("/api/v1/admin/procurement/supply-plans/{supplyPlanID}/approve", h.approveSupplyPlan)
+		r.Post("/api/v1/admin/procurement/supply-plans/{supplyPlanID}/reject", h.rejectSupplyPlan)
 	})
 	return r
 }
@@ -194,6 +198,56 @@ func (h *Router) listSupplyPlanRevisions(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	items, err := h.service.ListSupplyPlanRevisions(r.Context(), id)
+	if err != nil {
+		h.writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"items": items})
+}
+
+func (h *Router) submitSupplyPlan(w http.ResponseWriter, r *http.Request) {
+	h.transitionSupplyPlan(w, r, func(id uuid.UUID, actor string) (any, error) {
+		return h.service.SubmitSupplyPlan(r.Context(), id, actor, time.Now().UTC())
+	})
+}
+
+func (h *Router) approveSupplyPlan(w http.ResponseWriter, r *http.Request) {
+	h.transitionSupplyPlan(w, r, func(id uuid.UUID, actor string) (any, error) {
+		return h.service.ApproveSupplyPlan(r.Context(), id, actor, time.Now().UTC())
+	})
+}
+
+func (h *Router) rejectSupplyPlan(w http.ResponseWriter, r *http.Request) {
+	var request struct {
+		Reason string `json:"reason"`
+	}
+	if !decodeJSON(w, r, &request) {
+		return
+	}
+	h.transitionSupplyPlan(w, r, func(id uuid.UUID, actor string) (any, error) {
+		return h.service.RejectSupplyPlan(r.Context(), id, actor, request.Reason, time.Now().UTC())
+	})
+}
+
+func (h *Router) transitionSupplyPlan(w http.ResponseWriter, r *http.Request, transition func(uuid.UUID, string) (any, error)) {
+	id, ok := pathUUID(w, chi.URLParam(r, "supplyPlanID"))
+	if !ok {
+		return
+	}
+	result, err := transition(id, strings.TrimSpace(r.Header.Get("X-User-ID")))
+	if err != nil {
+		h.writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
+func (h *Router) listSupplyPlanStatusHistory(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathUUID(w, chi.URLParam(r, "supplyPlanID"))
+	if !ok {
+		return
+	}
+	items, err := h.service.ListSupplyPlanStatusHistory(r.Context(), id)
 	if err != nil {
 		h.writeServiceError(w, err)
 		return
