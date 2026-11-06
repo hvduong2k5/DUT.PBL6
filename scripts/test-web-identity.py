@@ -193,6 +193,23 @@ def main():
             time.sleep(0.25)
         raise RuntimeError("Fixture not ready: " + urllib.parse.urlparse(url).path)
 
+    def wait_process_exit(process, timeout=60):
+        """Wait for a subprocess to exit; kill it if it does not exit in time."""
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if process.poll() is not None:
+                return True
+            time.sleep(0.25)
+        try:
+            process.kill()
+        except Exception:
+            pass
+        try:
+            process.wait(timeout=10)
+        except Exception:
+            pass
+        return process.poll() is not None
+
     db_name = "web_identity"
     db_container = "codex-web-db-" + suffix
 
@@ -676,8 +693,12 @@ def main():
         sql("UPDATE catalog_live.products SET approval_status='APPROVED',version=version+1;")
         print("PASS: real Catalog rejects missing credentials, stale snapshots, future prices and unapproved products",flush=True)
         # Catalog reads live display availability from the authenticated TLS Inventory API.
+        # Restart catalog with inventory peer target for live availability lookup.
         catalog_process.terminate()
-        catalog_process.wait(timeout=60)
+        if not wait_process_exit(catalog_process, timeout=60):
+            print("WARNING: catalog process did not exit gracefully; killed", flush=True)
+        # Give the OS time to release the TCP port before restarting.
+        time.sleep(2)
         caller_environment=env.copy()
         env.clear();env.update(catalog_environment)
         env.update(IDENTITY_URL=caller_environment["IDENTITY_URL"], CATALOG_INVENTORY_TARGET=peer_address, CATALOG_INVENTORY_TOKEN_FILE=str(folder / "inventory-token"), CATALOG_INVENTORY_CA_FILE=str(folder / "inventory-ca.pem"), CATALOG_INVENTORY_SERVER_NAME="localhost")
