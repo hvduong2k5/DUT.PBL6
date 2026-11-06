@@ -37,6 +37,10 @@ type Hold struct {
 	ObservedAt     time.Time
 	Replay         bool
 	Tombstone      bool
+	CommandResult  string
+	ReasonCode     string
+	DecisionAt     time.Time
+	ResultingState string
 }
 
 type HoldCommandEvidence struct {
@@ -311,18 +315,32 @@ func (r *VoucherRepository) ReleaseHold(ctx context.Context, idempotencyKey, req
 	case "HELD":
 		if !now.Before(hold.ExpiresAt) {
 			hold.State = "EXPIRED"
+			hold.CommandResult = "REJECTED"
+			hold.ReasonCode = "VOUCHER_HOLD_EXPIRED"
 		} else {
 			hold.State = "RELEASED"
+			hold.CommandResult = "APPLIED"
+			hold.ReasonCode = ""
 		}
 		hold.Version++
 		_, err = tx.Exec(ctx, `UPDATE voucher_holds SET state=$2,resource_version=$3,released_at=CASE WHEN $2='RELEASED' THEN $4 ELSE released_at END,release_reason=$5,updated_at=$4 WHERE id=$1::uuid`, hold.ID, hold.State, hold.Version, now, reason)
-	case "RELEASED", "EXPIRED":
-		// Repeated release is a successful, stable outcome.
-		if !createdTombstone {
+	case "RELEASED":
+		if createdTombstone {
+			hold.CommandResult = "APPLIED"
+		} else {
 			hold.Replay = true
+			hold.CommandResult = "ALREADY_APPLIED"
 		}
+	case "EXPIRED":
+		hold.CommandResult = "REJECTED"
+		hold.ReasonCode = "VOUCHER_HOLD_EXPIRED"
 	case "FINALIZED":
-		return Hold{}, domain.ErrHoldTransition
+		if contractVersion == "order-3.2" {
+			hold.CommandResult = "REJECTED"
+			hold.ReasonCode = "VOUCHER_HOLD_FINALIZED"
+		} else {
+			return Hold{}, domain.ErrHoldTransition
+		}
 	default:
 		return Hold{}, domain.ErrHoldTransition
 	}
@@ -332,6 +350,10 @@ func (r *VoucherRepository) ReleaseHold(ctx context.Context, idempotencyKey, req
 	if err := tx.QueryRow(ctx, `SELECT clock_timestamp()`).Scan(&hold.ObservedAt); err != nil {
 		return Hold{}, err
 	}
+	if hold.DecisionAt.IsZero() {
+		hold.DecisionAt = hold.ObservedAt
+	}
+	hold.ResultingState = hold.State
 	response, err := json.Marshal(hold)
 	if err != nil {
 		return Hold{}, err
@@ -404,10 +426,14 @@ func (r *VoucherRepository) FinalizeHold(ctx context.Context, idempotencyKey, re
 		if !now.Before(hold.ExpiresAt) {
 			hold.State = "EXPIRED"
 			hold.Version++
+			hold.CommandResult = "REJECTED"
+			hold.ReasonCode = "VOUCHER_HOLD_EXPIRED"
 			_, err = tx.Exec(ctx, `UPDATE voucher_holds SET state='EXPIRED',resource_version=$2,updated_at=$3 WHERE id=$1::uuid`, hold.ID, hold.Version, now)
 		} else {
 			hold.State = "FINALIZED"
 			hold.Version++
+			hold.CommandResult = "APPLIED"
+			hold.ReasonCode = ""
 			_, err = tx.Exec(ctx, `UPDATE voucher_holds SET state='FINALIZED',resource_version=$2,finalized_at=$3,updated_at=$3 WHERE id=$1::uuid`, hold.ID, hold.Version, now)
 			if err == nil {
 				_, err = tx.Exec(ctx, `INSERT INTO voucher_usage(hold_id,coupon_id,order_id,customer_id,discount_amount,finalized_at)
@@ -417,8 +443,15 @@ func (r *VoucherRepository) FinalizeHold(ctx context.Context, idempotencyKey, re
 	case "FINALIZED":
 		// Finalization is idempotent even when it is retried with a new command key.
 		hold.Replay = true
+		hold.CommandResult = "ALREADY_APPLIED"
+		hold.ReasonCode = ""
 	case "RELEASED", "EXPIRED":
-		return Hold{}, domain.ErrHoldTransition
+		hold.CommandResult = "REJECTED"
+		if hold.State == "EXPIRED" {
+			hold.ReasonCode = "VOUCHER_HOLD_EXPIRED"
+		} else {
+			hold.ReasonCode = "VOUCHER_HOLD_RELEASED"
+		}
 	default:
 		return Hold{}, domain.ErrHoldTransition
 	}
@@ -428,6 +461,10 @@ func (r *VoucherRepository) FinalizeHold(ctx context.Context, idempotencyKey, re
 	if err := tx.QueryRow(ctx, `SELECT clock_timestamp()`).Scan(&hold.ObservedAt); err != nil {
 		return Hold{}, err
 	}
+	if hold.DecisionAt.IsZero() {
+		hold.DecisionAt = hold.ObservedAt
+	}
+	hold.ResultingState = hold.State
 	response, err := json.Marshal(hold)
 	if err != nil {
 		return Hold{}, err
@@ -512,10 +549,20 @@ func (r *VoucherRepository) findHoldCommandEvidence(ctx context.Context, tx pgx.
 		if err := json.Unmarshal(responseJSON, &original); err != nil {
 			return nil, err
 		}
-		proof.DecisionAt = original.ObservedAt
-		proof.ResultingState = original.State
-		proof.Result = "APPLIED"
-		if original.Replay {
+		proof.DecisionAt = original.DecisionAt
+		if proof.DecisionAt.IsZero() {
+			proof.DecisionAt = original.ObservedAt
+		}
+		proof.ResultingState = original.ResultingState
+		if proof.ResultingState == "" {
+			proof.ResultingState = original.State
+		}
+		proof.ReasonCode = original.ReasonCode
+		proof.Result = original.CommandResult
+		if proof.Result == "" {
+			proof.Result = "APPLIED"
+		}
+		if original.Replay && proof.Result != "REJECTED" {
 			proof.Result = "ALREADY_APPLIED"
 		}
 	default:

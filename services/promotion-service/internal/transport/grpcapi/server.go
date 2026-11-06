@@ -267,8 +267,17 @@ func outcome(hold postgres.Hold, key, action, requestHash, contractVersion strin
 		CancellationTombstone: hold.Tombstone, DiscountAmount: money(hold.DiscountAmount, hold.Currency), ContractVersion: contractVersion,
 	}
 	if action != "" {
+		decisionAt := hold.DecisionAt
+		if decisionAt.IsZero() {
+			decisionAt = observed
+		}
+		resultingState := hold.ResultingState
+		if resultingState == "" {
+			resultingState = hold.State
+		}
 		result.Command = &commonv1.CommandEvidence{IdempotencyKey: key, Action: action, RequestHash: requestHash,
-			Result: commandResult(hold), DecisionId: hold.ID, DecisionAt: timestamppb.New(observed), ResultingState: hold.State}
+			Result: commandResult(hold), ReasonCode: hold.ReasonCode, DecisionId: hold.ID,
+			DecisionAt: timestamppb.New(decisionAt), ResultingState: resultingState}
 	}
 	if !hold.Tombstone {
 		result.ExpiresAt = timestamppb.New(hold.ExpiresAt)
@@ -277,8 +286,14 @@ func outcome(hold postgres.Hold, key, action, requestHash, contractVersion strin
 }
 
 func commandResult(hold postgres.Hold) string {
+	if hold.CommandResult == "REJECTED" {
+		return "REJECTED"
+	}
 	if hold.Replay {
 		return "ALREADY_APPLIED"
+	}
+	if hold.CommandResult != "" {
+		return hold.CommandResult
 	}
 	return "APPLIED"
 }
@@ -315,7 +330,7 @@ func toStatus(err error) error {
 	case errors.Is(err, domain.ErrHoldTransition), errors.Is(err, domain.ErrVoucherExpired), errors.Is(err, domain.ErrUsageLimit):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, domain.ErrHoldVersionConflict):
-		return status.Error(codes.Aborted, err.Error())
+		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, domain.ErrMinimumNotMet), errors.Is(err, domain.ErrVoucherInactive):
 		return status.Error(codes.InvalidArgument, err.Error())
 	default:
