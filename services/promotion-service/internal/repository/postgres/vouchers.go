@@ -16,6 +16,8 @@ import (
 
 type VoucherRepository struct{ pool *pgxpool.Pool }
 
+func (r *VoucherRepository) Pool() *pgxpool.Pool { return r.pool }
+
 func NewVoucherRepository(pool *pgxpool.Pool) *VoucherRepository {
 	return &VoucherRepository{pool: pool}
 }

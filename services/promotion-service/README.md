@@ -39,8 +39,23 @@ all manual/automatic status changes are audited.
 - `PROMOTION_GRPC_ADDRESS` (default `:9017`)
 - `PROMOTION_DATABASE_URL` (local default targets port `5447`)
 - `PROMOTION_INTERNAL_TOKEN` (required)
+- `PROMOTION_ORDER_EVENTS_ENABLED` (default `false`; enables the Order v3 paid consumer and Promotion outbox publisher)
+- `PROMOTION_KAFKA_BROKERS` (comma-separated broker addresses; required when the consumer is enabled)
+- `PROMOTION_ORDER_EVENTS_TOPIC` (default `order.events.v3`)
+- `PROMOTION_ORDER_CONSUMER_GROUP` (default `promotion-order-v3`)
+- `PROMOTION_ORDER_EVENTS_DLQ_TOPIC` (default `promotion.order.v3.dlq`)
+- `PROMOTION_EVENTS_TOPIC` (default `promotion.events.v1`)
 
 Database migrations run at startup and can also be applied explicitly with `go run ./cmd/migrate`.
+
+The Order v3 event integration is opt-in. A paid event with `voucher_finalization: null` is recorded
+as consumed and produces no voucher event. A proof-bearing event must reference the matching
+FINALIZED hold and its decision ID before `voucher.used` is inserted into the transactional
+outbox. Invalid paid events are sent to the configured DLQ; the source offset is committed only
+after DLQ publication succeeds. The outbox publisher uses a short database lease, Kafka keyed by
+`customer_id`, and exponential retry. Delivery is at least once, so consumers should deduplicate by
+CloudEvent ID. Keep the feature disabled until Order emits the finalization proof for voucher
+checkouts and both services are configured against the same Kafka cluster.
 
 ## Current data foundation
 

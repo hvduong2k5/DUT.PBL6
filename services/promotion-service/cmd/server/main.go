@@ -16,6 +16,7 @@ import (
 	"github.com/omamx/promotion-service/internal/repository/postgres"
 	"github.com/omamx/promotion-service/internal/transport/grpcapi"
 	"github.com/omamx/promotion-service/internal/transport/httpapi"
+	"github.com/omamx/promotion-service/internal/worker"
 	"github.com/omamx/promotion-service/migrations"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -52,6 +53,12 @@ func main() {
 	voucherRepository := postgres.NewVoucherRepository(pool)
 	adminCouponRepository := postgres.NewAdminCouponRepository(pool)
 	startCouponLifecycle(rootCtx, adminCouponRepository)
+	var eventWorkers *worker.EventWorkers
+	if cfg.OrderEventsEnabled {
+		eventWorkers = worker.NewEventWorkers(cfg.KafkaBrokers, cfg.OrderEventsTopic, cfg.OrderConsumerGroup, cfg.PromotionEventsTopic, cfg.OrderEventsDLQTopic, voucherRepository)
+		eventWorkers.Run(rootCtx)
+		log.Info().Str("input_topic", cfg.OrderEventsTopic).Str("output_topic", cfg.PromotionEventsTopic).Msg("Order v3 event integration enabled")
+	}
 
 	router := chi.NewRouter()
 	router.Get("/health/live", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })
@@ -88,6 +95,11 @@ func main() {
 		}
 	}()
 	<-rootCtx.Done()
+	if eventWorkers != nil {
+		if err := eventWorkers.Close(); err != nil {
+			log.Warn().Err(err).Msg("close Promotion Kafka workers")
+		}
+	}
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), cfg.ShutdownWait)
 	defer shutdownCancel()
 	if err := server.Shutdown(shutdownCtx); err != nil {
