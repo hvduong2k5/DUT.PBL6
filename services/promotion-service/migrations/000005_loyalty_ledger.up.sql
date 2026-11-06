@@ -21,6 +21,7 @@ CREATE TABLE loyalty_ledger_entries (
     )),
     source_id TEXT NOT NULL CHECK (length(btrim(source_id)) > 0),
     source_decision_id TEXT,
+    consent_reference_id TEXT,
     idempotency_key TEXT NOT NULL UNIQUE,
     request_hash CHAR(64) NOT NULL CHECK (request_hash ~ '^[0-9a-f]{64}$'),
     policy_version TEXT NOT NULL CHECK (length(btrim(policy_version)) > 0),
@@ -32,7 +33,8 @@ CREATE TABLE loyalty_ledger_entries (
         OR entry_type = 'MANUAL_ADJUSTMENT'
     ),
     CHECK (entry_type NOT IN ('PURCHASE_EARN', 'REFUND_CONVERSION') OR (basis_amount_vnd IS NOT NULL AND source_decision_id IS NOT NULL)),
-    CHECK (entry_type NOT IN ('REDEMPTION_DEBIT', 'REVERSAL', 'EXPIRATION') OR reference_entry_id IS NOT NULL),
+    CHECK (entry_type <> 'REFUND_CONVERSION' OR consent_reference_id IS NOT NULL),
+    CHECK (entry_type NOT IN ('REVERSAL', 'EXPIRATION') OR reference_entry_id IS NOT NULL),
     CHECK (
         (entry_type = 'PURCHASE_EARN' AND source_type = 'ORDER_COMPLETION')
         OR (entry_type = 'REFUND_CONVERSION' AND source_type = 'REFUND_DECISION')

@@ -17,6 +17,7 @@ var (
 	ErrLoyaltyIdempotencyConflict = errors.New("loyalty idempotency key was reused with a different request")
 	ErrLoyaltySourceConflict      = errors.New("loyalty source already has a ledger entry")
 	ErrLoyaltyInsufficientBalance = errors.New("loyalty entry would make the balance negative")
+	ErrNoLoyaltyPointsEarned      = errors.New("policy calculation produced no points")
 )
 
 type LoyaltyRepository struct{ pool *pgxpool.Pool }
@@ -26,32 +27,34 @@ func NewLoyaltyRepository(pool *pgxpool.Pool) *LoyaltyRepository {
 }
 
 type LoyaltyEntryInput struct {
-	CustomerID       string
-	EntryType        string
-	PointsDelta      int64
-	BasisAmountVND   *int64
-	SourceType       string
-	SourceID         string
-	SourceDecisionID string
-	IdempotencyKey   string
-	PolicyVersion    string
-	ReferenceEntryID string
+	CustomerID         string
+	EntryType          string
+	PointsDelta        int64
+	BasisAmountVND     *int64
+	SourceType         string
+	SourceID           string
+	SourceDecisionID   string
+	ConsentReferenceID string
+	IdempotencyKey     string
+	PolicyVersion      string
+	ReferenceEntryID   string
 }
 
 type LoyaltyEntry struct {
-	ID               string
-	CustomerID       string
-	EntryType        string
-	PointsDelta      int64
-	BasisAmountVND   *int64
-	SourceType       string
-	SourceID         string
-	SourceDecisionID string
-	IdempotencyKey   string
-	PolicyVersion    string
-	ReferenceEntryID string
-	CreatedAt        time.Time
-	Replay           bool
+	ID                 string
+	CustomerID         string
+	EntryType          string
+	PointsDelta        int64
+	BasisAmountVND     *int64
+	SourceType         string
+	SourceID           string
+	SourceDecisionID   string
+	ConsentReferenceID string
+	IdempotencyKey     string
+	PolicyVersion      string
+	ReferenceEntryID   string
+	CreatedAt          time.Time
+	Replay             bool
 }
 
 func (r *LoyaltyRepository) AppendEntry(ctx context.Context, input LoyaltyEntryInput) (LoyaltyEntry, error) {
@@ -59,17 +62,18 @@ func (r *LoyaltyRepository) AppendEntry(ctx context.Context, input LoyaltyEntryI
 		return LoyaltyEntry{}, err
 	}
 	fingerprint, err := json.Marshal(struct {
-		CustomerID       string `json:"customer_id"`
-		EntryType        string `json:"entry_type"`
-		PointsDelta      int64  `json:"points_delta"`
-		BasisAmountVND   *int64 `json:"basis_amount_vnd"`
-		SourceType       string `json:"source_type"`
-		SourceID         string `json:"source_id"`
-		SourceDecisionID string `json:"source_decision_id"`
-		PolicyVersion    string `json:"policy_version"`
-		ReferenceEntryID string `json:"reference_entry_id"`
+		CustomerID         string `json:"customer_id"`
+		EntryType          string `json:"entry_type"`
+		PointsDelta        int64  `json:"points_delta"`
+		BasisAmountVND     *int64 `json:"basis_amount_vnd"`
+		SourceType         string `json:"source_type"`
+		SourceID           string `json:"source_id"`
+		SourceDecisionID   string `json:"source_decision_id"`
+		ConsentReferenceID string `json:"consent_reference_id"`
+		PolicyVersion      string `json:"policy_version"`
+		ReferenceEntryID   string `json:"reference_entry_id"`
 	}{input.CustomerID, input.EntryType, input.PointsDelta, input.BasisAmountVND, input.SourceType,
-		input.SourceID, input.SourceDecisionID, input.PolicyVersion, input.ReferenceEntryID})
+		input.SourceID, input.SourceDecisionID, input.ConsentReferenceID, input.PolicyVersion, input.ReferenceEntryID})
 	if err != nil {
 		return LoyaltyEntry{}, err
 	}
@@ -84,7 +88,7 @@ func (r *LoyaltyRepository) AppendEntry(ctx context.Context, input LoyaltyEntryI
 	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, input.IdempotencyKey); err != nil {
 		return LoyaltyEntry{}, err
 	}
-	existing, err := scanLoyaltyEntry(tx.QueryRow(ctx, `SELECT id::text,customer_id,entry_type,points_delta,basis_amount_vnd,source_type,source_id,COALESCE(source_decision_id,''),idempotency_key,request_hash,policy_version,COALESCE(reference_entry_id::text,''),created_at
+	existing, err := scanLoyaltyEntry(tx.QueryRow(ctx, `SELECT id::text,customer_id,entry_type,points_delta,basis_amount_vnd,source_type,source_id,COALESCE(source_decision_id,''),COALESCE(consent_reference_id,''),idempotency_key,request_hash,policy_version,COALESCE(reference_entry_id::text,''),created_at
 		FROM loyalty_ledger_entries WHERE idempotency_key=$1`, input.IdempotencyKey))
 	if err == nil {
 		if existing.RequestHash != requestHash {
@@ -106,15 +110,21 @@ func (r *LoyaltyRepository) AppendEntry(ctx context.Context, input LoyaltyEntryI
 	if err := tx.QueryRow(ctx, `SELECT COALESCE(SUM(points_delta),0)::bigint FROM loyalty_ledger_entries WHERE customer_id=$1`, input.CustomerID).Scan(&currentBalance); err != nil {
 		return LoyaltyEntry{}, err
 	}
-	if input.PointsDelta < 0 && (currentBalance < 0 || input.PointsDelta < -currentBalance) {
-		return LoyaltyEntry{}, ErrLoyaltyInsufficientBalance
+	if input.PointsDelta < 0 {
+		var held int64
+		if err := tx.QueryRow(ctx, `SELECT COALESCE(SUM(points),0)::bigint FROM loyalty_redemption_holds WHERE customer_id=$1 AND state='HELD' AND expires_at>clock_timestamp()`, input.CustomerID).Scan(&held); err != nil {
+			return LoyaltyEntry{}, err
+		}
+		if currentBalance < held || input.PointsDelta < held-currentBalance {
+			return LoyaltyEntry{}, ErrLoyaltyInsufficientBalance
+		}
 	}
 	entry, err := scanLoyaltyEntry(tx.QueryRow(ctx, `INSERT INTO loyalty_ledger_entries
-		(customer_id,entry_type,points_delta,basis_amount_vnd,source_type,source_id,source_decision_id,idempotency_key,request_hash,policy_version,reference_entry_id)
-		VALUES($1,$2,$3,$4,$5,$6,NULLIF($7,''),$8,$9,$10,NULLIF($11,'')::uuid)
-		RETURNING id::text,customer_id,entry_type,points_delta,basis_amount_vnd,source_type,source_id,COALESCE(source_decision_id,''),idempotency_key,request_hash,policy_version,COALESCE(reference_entry_id::text,''),created_at`,
+		(customer_id,entry_type,points_delta,basis_amount_vnd,source_type,source_id,source_decision_id,consent_reference_id,idempotency_key,request_hash,policy_version,reference_entry_id)
+		VALUES($1,$2,$3,$4,$5,$6,NULLIF($7,''),NULLIF($8,''),$9,$10,$11,NULLIF($12,'')::uuid)
+		RETURNING id::text,customer_id,entry_type,points_delta,basis_amount_vnd,source_type,source_id,COALESCE(source_decision_id,''),COALESCE(consent_reference_id,''),idempotency_key,request_hash,policy_version,COALESCE(reference_entry_id::text,''),created_at`,
 		input.CustomerID, input.EntryType, input.PointsDelta, input.BasisAmountVND, input.SourceType, input.SourceID,
-		input.SourceDecisionID, input.IdempotencyKey, requestHash, input.PolicyVersion, input.ReferenceEntryID))
+		input.SourceDecisionID, input.ConsentReferenceID, input.IdempotencyKey, requestHash, input.PolicyVersion, input.ReferenceEntryID))
 	if err != nil {
 		if uniqueViolation(err) {
 			return LoyaltyEntry{}, ErrLoyaltySourceConflict
@@ -148,7 +158,7 @@ func (r *LoyaltyRepository) GetLedgerPage(ctx context.Context, customerID string
 	if err := tx.QueryRow(ctx, `SELECT COALESCE(SUM(points_delta),0)::bigint FROM loyalty_ledger_entries WHERE customer_id=$1`, customerID).Scan(&page.Balance); err != nil {
 		return LoyaltyLedgerPage{}, err
 	}
-	rows, err := tx.Query(ctx, `SELECT id::text,customer_id,entry_type,points_delta,basis_amount_vnd,source_type,source_id,COALESCE(source_decision_id,''),idempotency_key,request_hash,policy_version,COALESCE(reference_entry_id::text,''),created_at
+	rows, err := tx.Query(ctx, `SELECT id::text,customer_id,entry_type,points_delta,basis_amount_vnd,source_type,source_id,COALESCE(source_decision_id,''),COALESCE(consent_reference_id,''),idempotency_key,request_hash,policy_version,COALESCE(reference_entry_id::text,''),created_at
 		FROM loyalty_ledger_entries WHERE customer_id=$1 ORDER BY created_at DESC,id DESC LIMIT $2 OFFSET $3`, customerID, limit, offset)
 	if err != nil {
 		return LoyaltyLedgerPage{}, err
@@ -181,7 +191,7 @@ type scannedLoyaltyEntry struct {
 func scanLoyaltyEntry(row interface{ Scan(...any) error }) (scannedLoyaltyEntry, error) {
 	var entry scannedLoyaltyEntry
 	err := row.Scan(&entry.ID, &entry.CustomerID, &entry.EntryType, &entry.PointsDelta, &entry.BasisAmountVND,
-		&entry.SourceType, &entry.SourceID, &entry.SourceDecisionID, &entry.IdempotencyKey, &entry.RequestHash,
+		&entry.SourceType, &entry.SourceID, &entry.SourceDecisionID, &entry.ConsentReferenceID, &entry.IdempotencyKey, &entry.RequestHash,
 		&entry.PolicyVersion, &entry.ReferenceEntryID, &entry.CreatedAt)
 	return entry, err
 }
@@ -198,6 +208,9 @@ func validateLoyaltyEntry(input LoyaltyEntryInput) error {
 	case "PURCHASE_EARN", "REFUND_CONVERSION":
 		if input.PointsDelta < 0 || input.BasisAmountVND == nil || strings.TrimSpace(input.SourceDecisionID) == "" {
 			return errors.New("credit entries require positive points, a basis amount and a source decision")
+		}
+		if input.EntryType == "REFUND_CONVERSION" && strings.TrimSpace(input.ConsentReferenceID) == "" {
+			return errors.New("refund conversion requires an explicit customer consent reference")
 		}
 	case "REDEMPTION_DEBIT", "REVERSAL", "EXPIRATION":
 		if input.PointsDelta > 0 || strings.TrimSpace(input.ReferenceEntryID) == "" {

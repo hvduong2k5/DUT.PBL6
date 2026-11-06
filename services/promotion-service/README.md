@@ -52,6 +52,8 @@ idempotency key and request hash to retrieve its durable command evidence.
 - `PROMOTION_ORDER_CONSUMER_GROUP` (default `promotion-order-v3`)
 - `PROMOTION_ORDER_EVENTS_DLQ_TOPIC` (default `promotion.order.v3.dlq`)
 - `PROMOTION_EVENTS_TOPIC` (default `promotion.events.v1`)
+- `PROMOTION_LOYALTY_ORDER_TOKEN` (optional; enables internal Order earn/redemption commands)
+- `PROMOTION_LOYALTY_REFUND_TOKEN` (optional; enables internal refund conversion command)
 
 Database migrations run at startup and can also be applied explicitly with `go run ./cmd/migrate`.
 
@@ -66,13 +68,22 @@ checkouts and both services are configured against the same Kafka cluster.
 
 ## Loyalty ledger foundation
 
-`GET /internal/v1/loyalty/customers/{customerID}/ledger?limit=50&offset=0` returns the ledger-derived
-point balance and a paginated entry history. It requires `X-Internal-Token` and is intended for the
-trusted Gateway only; do not expose the internal route directly to customer networks. Ledger entries
-are append-only and idempotent by request key and source. Purchase earn and refund conversion entries
-require a source decision reference, amount basis and policy version. This foundation does not yet
-enable earning or refund conversion: Order completion and Care/Order refund-consent contracts must be
-accepted before trusted producer events can create credits.
+`GET /internal/v1/loyalty/customers/{customerID}/points` provides the current wallet fields, and
+`GET /internal/v1/loyalty/customers/{customerID}/ledger?limit=50&offset=0` provides a paginated history.
+Both require `X-Internal-Token` and are intended for the trusted Gateway only; do not expose internal
+routes directly to customer networks. Ledger entries are append-only and idempotent by request key and
+source. The active development policy `loyalty-dev-v1` uses 100 basis points for purchase earning,
+floor rounding, one point per VND for redemption/refund conversion, BRONZE as the base tier, a
+15-minute redemption hold and no point expiry. These are provisional defaults for development.
+
+The active policy is readable at `GET /internal/v1/loyalty/policy/active`. Internal commands are
+separately gated: `PROMOTION_LOYALTY_ORDER_TOKEN` enables Order purchase earning and redemption
+hold/finalize/release routes; `PROMOTION_LOYALTY_REFUND_TOKEN` enables refund conversion. Purchase
+earn commands require a completion decision and policy version. Refund conversion commands require
+an approved refund decision, explicit consent reference, amount and policy version. These routes do
+not verify remote proofs themselves; only trusted Order/Care integrations may call them. Automatic
+Order event consumption and automatic Refund processing remain disabled until their producer
+contracts and credentials are accepted.
 
 ## Current data foundation
 

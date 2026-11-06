@@ -20,6 +20,8 @@ type Config struct {
 	OrderEventsDLQTopic  string
 	OrderConsumerGroup   string
 	PromotionEventsTopic string
+	LoyaltyOrderToken    string
+	LoyaltyRefundToken   string
 }
 
 func Load() (Config, error) {
@@ -36,6 +38,8 @@ func Load() (Config, error) {
 		OrderEventsDLQTopic:  env("PROMOTION_ORDER_EVENTS_DLQ_TOPIC", "promotion.order.v3.dlq"),
 		OrderConsumerGroup:   env("PROMOTION_ORDER_CONSUMER_GROUP", "promotion-order-v3"),
 		PromotionEventsTopic: env("PROMOTION_EVENTS_TOPIC", "promotion.events.v1"),
+		LoyaltyOrderToken:    strings.TrimSpace(os.Getenv("PROMOTION_LOYALTY_ORDER_TOKEN")),
+		LoyaltyRefundToken:   strings.TrimSpace(os.Getenv("PROMOTION_LOYALTY_REFUND_TOKEN")),
 	}
 	if cfg.InternalToken == "" {
 		return Config{}, fmt.Errorf("PROMOTION_INTERNAL_TOKEN is required")

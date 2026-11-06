@@ -55,6 +55,7 @@ func main() {
 	loyaltyRepository := postgres.NewLoyaltyRepository(pool)
 	startCouponLifecycle(rootCtx, adminCouponRepository)
 	startVoucherHoldExpiry(rootCtx, voucherRepository)
+	startLoyaltyHoldExpiry(rootCtx, loyaltyRepository)
 	var eventWorkers *worker.EventWorkers
 	if cfg.OrderEventsEnabled {
 		eventWorkers = worker.NewEventWorkers(cfg.KafkaBrokers, cfg.OrderEventsTopic, cfg.OrderConsumerGroup, cfg.PromotionEventsTopic, cfg.OrderEventsDLQTopic, voucherRepository)
@@ -66,7 +67,7 @@ func main() {
 	router.Get("/health/live", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })
 	httpapi.RegisterAdminCouponRoutes(router, adminCouponRepository, cfg.InternalToken)
 	httpapi.RegisterPublicPromotionRoutes(router, adminCouponRepository)
-	httpapi.RegisterLoyaltyRoutes(router, loyaltyRepository, cfg.InternalToken)
+	httpapi.RegisterLoyaltyRoutes(router, loyaltyRepository, cfg.InternalToken, cfg.LoyaltyOrderToken, cfg.LoyaltyRefundToken)
 	router.Get("/health/ready", func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), cfg.DBTimeout)
 		defer cancel()
@@ -151,6 +152,34 @@ func startVoucherHoldExpiry(ctx context.Context, repository *postgres.VoucherRep
 		}
 		if expired > 0 {
 			log.Info().Int64("count", expired).Msg("voucher holds expired")
+		}
+	}
+	advance()
+	go func() {
+		ticker := time.NewTicker(15 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				advance()
+			}
+		}
+	}()
+}
+
+func startLoyaltyHoldExpiry(ctx context.Context, repository *postgres.LoyaltyRepository) {
+	advance := func() {
+		workCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+		expired, err := repository.ExpireDueRedemptionHolds(workCtx, 100)
+		if err != nil {
+			log.Warn().Err(err).Msg("loyalty redemption hold expiry sweep failed")
+			return
+		}
+		if expired > 0 {
+			log.Info().Int64("count", expired).Msg("loyalty redemption holds expired")
 		}
 	}
 	advance()
