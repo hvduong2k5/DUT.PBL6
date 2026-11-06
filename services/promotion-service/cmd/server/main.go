@@ -15,6 +15,7 @@ import (
 	"github.com/omamx/promotion-service/internal/config"
 	"github.com/omamx/promotion-service/internal/repository/postgres"
 	"github.com/omamx/promotion-service/internal/transport/grpcapi"
+	"github.com/omamx/promotion-service/internal/transport/httpapi"
 	"github.com/omamx/promotion-service/migrations"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -49,9 +50,11 @@ func main() {
 		log.Info().Strs("migrations", applied).Msg("database migrations applied")
 	}
 	voucherRepository := postgres.NewVoucherRepository(pool)
+	adminCouponRepository := postgres.NewAdminCouponRepository(pool)
 
 	router := chi.NewRouter()
 	router.Get("/health/live", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })
+	httpapi.RegisterAdminCouponRoutes(router, adminCouponRepository, cfg.InternalToken)
 	router.Get("/health/ready", func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), cfg.DBTimeout)
 		defer cancel()
