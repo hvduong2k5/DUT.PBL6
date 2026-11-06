@@ -81,6 +81,8 @@ type PurchaseOrder struct {
 	CloseReason              string              `json:"close_reason,omitempty"`
 	SourceSupplyPlanID       *uuid.UUID          `json:"supply_plan_id,omitempty"`
 	SourceSupplyPlanRevision *int                `json:"supply_plan_revision,omitempty"`
+	IdempotencyKey           string              `json:"-"`
+	RequestHash              string              `json:"-"`
 	CreatedAt                time.Time           `json:"created_at"`
 	UpdatedAt                time.Time           `json:"updated_at"`
 	Version                  int64               `json:"version"`

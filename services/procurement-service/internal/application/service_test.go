@@ -206,6 +206,14 @@ func (r *fakeRepository) CreatePurchaseOrder(_ context.Context, order domain.Pur
 	r.orders[order.ID] = order
 	return order, nil
 }
+func (r *fakeRepository) GetPurchaseOrderByIdempotency(_ context.Context, actor, key string) (domain.PurchaseOrder, error) {
+	for _, order := range r.orders {
+		if order.CreatedBy == actor && order.IdempotencyKey == key {
+			return order, nil
+		}
+	}
+	return domain.PurchaseOrder{}, domain.ErrNotFound
+}
 func (r *fakeRepository) CreatePurchaseOrderFromSupplyPlan(_ context.Context, plan domain.SupplyPlan, order domain.PurchaseOrder, expectedVersion int64, actor string) (domain.PurchaseOrder, error) {
 	current, ok := r.plans[plan.ID]
 	if !ok {
@@ -373,6 +381,29 @@ func TestCreatePurchaseOrderUsesActiveSupplierOfferSnapshot(t *testing.T) {
 	}
 	if order.Lines[0].UnitPriceMinor != 10001 || order.Lines[0].Quantity != "1.5" {
 		t.Fatalf("line did not snapshot supplier offer: %+v", order.Lines[0])
+	}
+}
+
+func TestCreatePurchaseOrderWithIdempotencyReplaysAndRejectsChangedRequest(t *testing.T) {
+	service, repo, supplierID, materialID := makeApplicationFixture(t)
+	request := application.PurchaseOrderRequest{SupplierID: supplierID, Notes: "weekly replenishment",
+		Lines: []application.PurchaseOrderLineRequest{{MaterialID: materialID, Quantity: "1.5"}}}
+	key := "purchase-order-create-0001"
+	first, err := service.CreatePurchaseOrderWithIdempotency(context.Background(), request, "buyer-1", key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	retry, err := service.CreatePurchaseOrderWithIdempotency(context.Background(), request, "buyer-1", key)
+	if err != nil || retry.ID != first.ID || len(repo.orders) != 1 {
+		t.Fatalf("retry returned (%s,%v) orders=%d, want same PO %s", retry.ID, err, len(repo.orders), first.ID)
+	}
+	changed := request
+	changed.Notes = "different payload"
+	if _, err := service.CreatePurchaseOrderWithIdempotency(context.Background(), changed, "buyer-1", key); !errors.Is(err, domain.ErrConflict) {
+		t.Fatalf("reused key with changed request error=%v, want conflict", err)
+	}
+	if _, err := service.CreatePurchaseOrderWithIdempotency(context.Background(), request, "buyer-1", "short"); !errors.Is(err, domain.ErrInvalidArgument) {
+		t.Fatalf("invalid idempotency key error=%v, want invalid argument", err)
 	}
 }
 

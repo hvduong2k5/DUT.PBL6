@@ -448,11 +448,11 @@ func (r *Repository) CreatePurchaseOrderFromSupplyPlan(ctx context.Context, plan
 
 func insertPurchaseOrder(ctx context.Context, tx pgx.Tx, order *domain.PurchaseOrder) error {
 	const query = `INSERT INTO purchase_orders
-		(id,po_number,supplier_id,supplier_name,status,currency,total_amount_minor,notes,expected_delivery_date,created_by,version,revision,supply_plan_id,supply_plan_revision)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING created_at,updated_at`
+		(id,po_number,supplier_id,supplier_name,status,currency,total_amount_minor,notes,expected_delivery_date,created_by,version,revision,supply_plan_id,supply_plan_revision,idempotency_key,idempotency_request_hash)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING created_at,updated_at`
 	if err := tx.QueryRow(ctx, query, order.ID, order.Number, order.SupplierID, order.SupplierName, order.Status,
 		order.Currency, order.TotalAmountMinor, order.Notes, order.ExpectedDeliveryDate, order.CreatedBy, order.Version, order.Revision,
-		order.SourceSupplyPlanID, order.SourceSupplyPlanRevision).Scan(&order.CreatedAt, &order.UpdatedAt); err != nil {
+		order.SourceSupplyPlanID, order.SourceSupplyPlanRevision, emptyToNil(order.IdempotencyKey), emptyToNil(order.RequestHash)).Scan(&order.CreatedAt, &order.UpdatedAt); err != nil {
 		return mapError(err)
 	}
 	if err := insertPurchaseOrderLines(ctx, tx, *order); err != nil {
@@ -487,6 +487,23 @@ func (r *Repository) GetPurchaseOrder(ctx context.Context, id uuid.UUID) (domain
 	if err := rows.Err(); err != nil {
 		return domain.PurchaseOrder{}, err
 	}
+	return order, nil
+}
+
+func (r *Repository) GetPurchaseOrderByIdempotency(ctx context.Context, actor, key string) (domain.PurchaseOrder, error) {
+	var id uuid.UUID
+	var requestHash string
+	if err := r.pool.QueryRow(ctx, `SELECT id,idempotency_request_hash FROM purchase_orders WHERE created_by=$1 AND idempotency_key=$2`, actor, key).Scan(&id, &requestHash); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.PurchaseOrder{}, domain.ErrNotFound
+		}
+		return domain.PurchaseOrder{}, err
+	}
+	order, err := r.GetPurchaseOrder(ctx, id)
+	if err != nil {
+		return domain.PurchaseOrder{}, err
+	}
+	order.RequestHash = requestHash
 	return order, nil
 }
 
@@ -1220,7 +1237,7 @@ const purchaseOrderSelect = `SELECT id, po_number, supplier_id, supplier_name, s
 	revision, total_amount_minor, notes, expected_delivery_date, created_by, submitted_by, submitted_at,
 	approved_by, approved_at, rejected_by, rejected_at, rejection_reason, sent_by, sent_at,
 	supplier_response_note,supplier_responded_by,supplier_responded_at,cancelled_by,cancelled_at,cancellation_reason,
-	closed_by,closed_at,close_reason,created_at,updated_at,version,supply_plan_id,supply_plan_revision FROM purchase_orders`
+	closed_by,closed_at,close_reason,created_at,updated_at,version,supply_plan_id,supply_plan_revision,idempotency_key,idempotency_request_hash FROM purchase_orders`
 
 const purchaseOrderLineSelect = `SELECT id, line_number, material_id, material_code, material_name,
 	quantity::text, received_quantity::text, accepted_quantity::text, unit, unit_price_minor, line_amount_minor FROM purchase_order_lines`
@@ -1230,13 +1247,14 @@ func scanPurchaseOrder(row rowScanner) (domain.PurchaseOrder, error) {
 	var expected pgtype.Date
 	var sourcePlanID pgtype.UUID
 	var sourcePlanRevision pgtype.Int4
+	var idempotencyKey, requestHash pgtype.Text
 	var submitted, approved, rejected, sent, supplierResponded, cancelled, closed pgtype.Timestamptz
 	var submittedBy, approvedBy, rejectedBy, rejectionReason, sentBy, supplierRespondedBy, cancellationReason, cancelledBy, closedBy, closeReason pgtype.Text
 	err := row.Scan(&order.ID, &order.Number, &order.SupplierID, &order.SupplierName, &order.Status, &order.Currency,
 		&order.Revision, &order.TotalAmountMinor, &order.Notes, &expected, &order.CreatedBy, &submittedBy, &submitted,
 		&approvedBy, &approved, &rejectedBy, &rejected, &rejectionReason, &sentBy, &sent,
 		&order.SupplierResponseNote, &supplierRespondedBy, &supplierResponded, &cancelledBy, &cancelled, &cancellationReason,
-		&closedBy, &closed, &closeReason, &order.CreatedAt, &order.UpdatedAt, &order.Version, &sourcePlanID, &sourcePlanRevision)
+		&closedBy, &closed, &closeReason, &order.CreatedAt, &order.UpdatedAt, &order.Version, &sourcePlanID, &sourcePlanRevision, &idempotencyKey, &requestHash)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.PurchaseOrder{}, domain.ErrNotFound
 	}
@@ -1269,6 +1287,7 @@ func scanPurchaseOrder(row rowScanner) (domain.PurchaseOrder, error) {
 		revision := int(sourcePlanRevision.Int32)
 		order.SourceSupplyPlanRevision = &revision
 	}
+	order.IdempotencyKey, order.RequestHash = idempotencyKey.String, requestHash.String
 	return order, nil
 }
 

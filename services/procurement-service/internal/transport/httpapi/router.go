@@ -534,6 +534,11 @@ type purchaseOrderRequest struct {
 }
 
 func (h *Router) createPurchaseOrder(w http.ResponseWriter, r *http.Request) {
+	idempotencyKey := strings.TrimSpace(r.Header.Get("Idempotency-Key"))
+	if !validIdempotencyKey(idempotencyKey) {
+		writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "Idempotency-Key must contain 16-128 visible ASCII characters")
+		return
+	}
 	request, ok := decodePurchaseOrderRequest(w, r)
 	if !ok {
 		return
@@ -543,7 +548,7 @@ func (h *Router) createPurchaseOrder(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", err.Error())
 		return
 	}
-	order, err := h.service.CreatePurchaseOrder(r.Context(), input, strings.TrimSpace(r.Header.Get("X-User-ID")))
+	order, err := h.service.CreatePurchaseOrderWithIdempotency(r.Context(), input, strings.TrimSpace(r.Header.Get("X-User-ID")), idempotencyKey)
 	if err != nil {
 		h.writeServiceError(w, err)
 		return

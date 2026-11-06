@@ -35,6 +35,7 @@ type Repository interface {
 	ListSupplierContracts(context.Context, uuid.UUID, int, int) ([]domain.SupplierContract, error)
 	SetSupplierContractStatus(context.Context, uuid.UUID, domain.SupplierContractStatus, string) (domain.SupplierContract, error)
 	CreatePurchaseOrder(context.Context, domain.PurchaseOrder) (domain.PurchaseOrder, error)
+	GetPurchaseOrderByIdempotency(context.Context, string, string) (domain.PurchaseOrder, error)
 	CreatePurchaseOrderFromSupplyPlan(context.Context, domain.SupplyPlan, domain.PurchaseOrder, int64, string) (domain.PurchaseOrder, error)
 	GetPurchaseOrder(context.Context, uuid.UUID) (domain.PurchaseOrder, error)
 	ListPurchaseOrders(context.Context, uuid.UUID, domain.PurchaseOrderStatus, int, int) ([]domain.PurchaseOrder, error)
@@ -337,6 +338,59 @@ func (s *Service) CreatePurchaseOrder(ctx context.Context, request PurchaseOrder
 		return domain.PurchaseOrder{}, err
 	}
 	return s.repo.CreatePurchaseOrder(ctx, order)
+}
+
+func (s *Service) CreatePurchaseOrderWithIdempotency(ctx context.Context, request PurchaseOrderRequest, actor, idempotencyKey string) (domain.PurchaseOrder, error) {
+	actor, idempotencyKey = strings.TrimSpace(actor), strings.TrimSpace(idempotencyKey)
+	if actor == "" || !validIdempotencyKey(idempotencyKey) {
+		return domain.PurchaseOrder{}, domain.ErrInvalidArgument
+	}
+	encoded, err := json.Marshal(request)
+	if err != nil {
+		return domain.PurchaseOrder{}, err
+	}
+	digest := sha256.Sum256(encoded)
+	requestHash := hex.EncodeToString(digest[:])
+	existing, err := s.repo.GetPurchaseOrderByIdempotency(ctx, actor, idempotencyKey)
+	if err == nil {
+		if existing.RequestHash != requestHash {
+			return domain.PurchaseOrder{}, domain.ErrConflict
+		}
+		return existing, nil
+	}
+	if !errors.Is(err, domain.ErrNotFound) {
+		return domain.PurchaseOrder{}, err
+	}
+	order, err := s.buildPurchaseOrder(ctx, "", request, actor)
+	if err != nil {
+		return domain.PurchaseOrder{}, err
+	}
+	order.IdempotencyKey, order.RequestHash = idempotencyKey, requestHash
+	created, err := s.repo.CreatePurchaseOrder(ctx, order)
+	if !errors.Is(err, domain.ErrConflict) {
+		return created, err
+	}
+	// Another request may have won the unique-key race while this request was building the PO.
+	existing, lookupErr := s.repo.GetPurchaseOrderByIdempotency(ctx, actor, idempotencyKey)
+	if lookupErr != nil {
+		return domain.PurchaseOrder{}, err
+	}
+	if existing.RequestHash != requestHash {
+		return domain.PurchaseOrder{}, domain.ErrConflict
+	}
+	return existing, nil
+}
+
+func validIdempotencyKey(value string) bool {
+	if len(value) < 16 || len(value) > 128 {
+		return false
+	}
+	for _, char := range value {
+		if char < 0x21 || char > 0x7e {
+			return false
+		}
+	}
+	return true
 }
 
 func (s *Service) UpdatePurchaseOrderDraft(ctx context.Context, id uuid.UUID, request PurchaseOrderRequest, actor string) (domain.PurchaseOrder, error) {

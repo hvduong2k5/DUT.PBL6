@@ -49,7 +49,7 @@ Supplier types: `FARMER`, `COOPERATIVE`, `OCOP_BUSINESS`, `COMPANY`. Contracts u
 ## Purchase Order workflow
 
 - `GET /api/v1/admin/procurement/purchase-orders?limit=50&offset=0&supplier_id={uuid}&status=DRAFT`
-- `POST /api/v1/admin/procurement/purchase-orders` creates a `DRAFT` from active supplier offers.
+- `POST /api/v1/admin/procurement/purchase-orders` creates a `DRAFT` from active supplier offers and requires an `Idempotency-Key` header (16–128 visible ASCII characters). The key is scoped to the authenticated user; retrying the same key and payload returns the original PO, while reusing it with a changed payload returns `409 CONFLICT`.
 - `GET /api/v1/admin/procurement/purchase-orders/{purchaseOrderID}` returns the PO, price snapshots, version, and current lifecycle metadata.
 - `PUT /api/v1/admin/procurement/purchase-orders/{purchaseOrderID}` replaces a draft's supplier/lines/notes/delivery date. Only drafts can be edited.
 - `POST /api/v1/admin/procurement/purchase-orders/{purchaseOrderID}/submit` submits for approval.

@@ -206,6 +206,14 @@ func (r *httpRepository) CreatePurchaseOrder(_ context.Context, order domain.Pur
 	r.orders[order.ID] = order
 	return order, nil
 }
+func (r *httpRepository) GetPurchaseOrderByIdempotency(_ context.Context, actor, key string) (domain.PurchaseOrder, error) {
+	for _, order := range r.orders {
+		if order.CreatedBy == actor && order.IdempotencyKey == key {
+			return order, nil
+		}
+	}
+	return domain.PurchaseOrder{}, domain.ErrNotFound
+}
 func (r *httpRepository) CreatePurchaseOrderFromSupplyPlan(_ context.Context, plan domain.SupplyPlan, order domain.PurchaseOrder, expectedVersion int64, actor string) (domain.PurchaseOrder, error) {
 	current, ok := r.plans[plan.ID]
 	if !ok {
@@ -384,6 +392,49 @@ func TestCreateSupplierAndStrictJSONValidation(t *testing.T) {
 	}
 }
 
+func TestCreatePurchaseOrderHTTPRequiresAndReplaysIdempotencyKey(t *testing.T) {
+	repo := newHTTPRepository()
+	supplier, err := domain.NewSupplier("SUP-PO-IDEMP", "Idempotent supplier", "COMPANY", "", "", "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	material, err := domain.NewRawMaterial("RICE-PO-IDEMP", "Rice", "KG", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	offer, err := domain.NewSupplierMaterialOfferVersion(supplier.ID, material.ID, "", "KG", 12500, "VND", "0.5", 2, time.Now().UTC().Add(-time.Hour), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	repo.suppliers[supplier.ID], repo.materials[material.ID] = supplier, material
+	repo.offers[supplier.ID] = []domain.SupplierMaterialOffer{offer}
+	handler := newHandler(repo)
+	path := "/api/v1/admin/procurement/purchase-orders"
+	body := `{"supplier_id":"` + supplier.ID.String() + `","notes":"weekly restock","lines":[{"material_id":"` + material.ID.String() + `","quantity":"1.5"}]}`
+	missingKey := performRequest(handler, http.MethodPost, path, body, "buyer", "SUPPLY_MANAGER")
+	if missingKey.Code != http.StatusBadRequest {
+		t.Fatalf("missing idempotency key status=%d, want 400", missingKey.Code)
+	}
+	key := "purchase-order-http-0001"
+	first := performRequestWithIdempotency(handler, http.MethodPost, path, body, "buyer", "SUPPLY_MANAGER", key)
+	if first.Code != http.StatusCreated {
+		t.Fatalf("create PO status=%d body=%s", first.Code, first.Body.String())
+	}
+	var created domain.PurchaseOrder
+	if err := json.Unmarshal(first.Body.Bytes(), &created); err != nil {
+		t.Fatal(err)
+	}
+	retry := performRequestWithIdempotency(handler, http.MethodPost, path, body, "buyer", "SUPPLY_MANAGER", key)
+	if retry.Code != http.StatusCreated || !strings.Contains(retry.Body.String(), created.ID.String()) || len(repo.orders) != 1 {
+		t.Fatalf("retry status=%d body=%s orders=%d", retry.Code, retry.Body.String(), len(repo.orders))
+	}
+	changedBody := strings.Replace(body, "weekly restock", "changed request", 1)
+	conflict := performRequestWithIdempotency(handler, http.MethodPost, path, changedBody, "buyer", "SUPPLY_MANAGER", key)
+	if conflict.Code != http.StatusConflict || len(repo.orders) != 1 {
+		t.Fatalf("changed payload status=%d body=%s orders=%d", conflict.Code, conflict.Body.String(), len(repo.orders))
+	}
+}
+
 func TestPurchaseOrderHTTPWorkflowAndSelfApprovalGuard(t *testing.T) {
 	repo := newHTTPRepository()
 	supplier, err := domain.NewSupplier("SUP-1", "Supplier", "COOPERATIVE", "", "", "", "")
@@ -404,7 +455,7 @@ func TestPurchaseOrderHTTPWorkflowAndSelfApprovalGuard(t *testing.T) {
 	handler := newHandler(repo)
 
 	body := `{"supplier_id":"` + supplier.ID.String() + `","notes":"routine restock","lines":[{"material_id":"` + material.ID.String() + `","quantity":"2.5"}]}`
-	created := performRequest(handler, http.MethodPost, "/api/v1/admin/procurement/purchase-orders", body, "creator", "SUPPLY_MANAGER")
+	created := performRequestWithIdempotency(handler, http.MethodPost, "/api/v1/admin/procurement/purchase-orders", body, "creator", "SUPPLY_MANAGER", "purchase-order-create-flow")
 	if created.Code != http.StatusCreated {
 		t.Fatalf("create PO status = %d, body=%s", created.Code, created.Body.String())
 	}
@@ -440,7 +491,7 @@ func TestPurchaseOrderSupplierResponseRevisionAndSendRetryHTTP(t *testing.T) {
 	repo.offers[supplier.ID] = []domain.SupplierMaterialOffer{offer}
 	handler := newHandler(repo)
 	body := `{"supplier_id":"` + supplier.ID.String() + `","lines":[{"material_id":"` + material.ID.String() + `","quantity":"1"}]}`
-	created := performRequest(handler, http.MethodPost, "/api/v1/admin/procurement/purchase-orders", body, "buyer", "SUPPLY_MANAGER")
+	created := performRequestWithIdempotency(handler, http.MethodPost, "/api/v1/admin/procurement/purchase-orders", body, "buyer", "SUPPLY_MANAGER", "purchase-order-revision-flow")
 	if created.Code != http.StatusCreated {
 		t.Fatalf("create status=%d body=%s", created.Code, created.Body.String())
 	}
