@@ -1,0 +1,42 @@
+x-service: &service
+  image: ${ANALYTICS_IMAGE:?Set a pinned Analytics image}
+  networks: [dev]
+
+services:
+  migrate:
+    <<: *service
+    profiles: [migration]
+    command: [migrate]
+    env_file: ${ANALYTICS_DEV_CONFIG:?Set the external config directory}/migration/service.env
+    volumes:
+      - "${ANALYTICS_DEV_CONFIG}/migration:/run/analytics:ro"
+  collector:
+    <<: *service
+    command: [collector]
+    env_file: ${ANALYTICS_DEV_CONFIG}/collector/service.env
+    volumes:
+      - "${ANALYTICS_DEV_CONFIG}/collector:/run/analytics:ro"
+    restart: unless-stopped
+  builder:
+    <<: *service
+    command: [builder]
+    env_file: ${ANALYTICS_DEV_CONFIG}/builder/service.env
+    volumes:
+      - "${ANALYTICS_DEV_CONFIG}/builder:/run/analytics:ro"
+    restart: unless-stopped
+  api:
+    <<: *service
+    profiles: [pilot]
+    command: [api]
+    env_file: ${ANALYTICS_DEV_CONFIG}/api/service.env
+    volumes:
+      - "${ANALYTICS_DEV_CONFIG}/api:/run/analytics:ro"
+    restart: unless-stopped
+    networks:
+      dev:
+        aliases: [analytics-service]
+
+networks:
+  dev:
+    external: true
+    name: ${ANALYTICS_DEV_NETWORK:?Set the private dev network shared with Kong}

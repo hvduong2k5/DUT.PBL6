@@ -1,0 +1,475 @@
+openapi: 3.1.0
+info:
+  title: MS-11 Analytics Dashboard API
+  version: 0.1.0-candidate
+  description: Hợp đồng đề xuất cho Dashboard điều hành. Dữ liệu mỗi card chỉ được công bố khi đạt gate của nguồn.
+servers:
+  - url: /api/v1/admin/analytics
+tags:
+  - name: Dashboard
+security:
+  - StaffBearer: []
+paths:
+  /dashboard:
+    get:
+      tags: [Dashboard]
+      operationId: getAnalyticsDashboard
+      summary: Đọc Dashboard theo kỳ ngày Việt Nam
+      description: >
+        Yêu cầu quyền analytics.dashboard.read. Kỳ có từ 1 đến 90 ngày.
+        Các card báo chất lượng riêng, kể cả khi một provider chưa khả dụng.
+      parameters:
+        - $ref: '#/components/parameters/FromDate'
+        - $ref: '#/components/parameters/ToDate'
+        - name: comparison
+          in: query
+          description: Kỳ liền trước cùng số ngày với kỳ hiện tại.
+          schema:
+            type: string
+            enum: [previous_period]
+      responses:
+        '200':
+          description: Sáu card theo kỳ trên cùng serving generation
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Dashboard'
+              examples:
+                sourceGates:
+                  summary: Có đủ mốc Order và đang chờ các nguồn khác
+                  value:
+                    snapshotId: 718b3656-cbd3-4e15-a894-f3c9373b3fe2
+                    snapshotPublishedAt: '2026-11-02T01:20:00Z'
+                    timeZone: Asia/Ho_Chi_Minh
+                    from: '2026-11-01'
+                    to: '2026-11-02'
+                    orderCohorts: [order-v3]
+                    metrics:
+                      - metricId: orders_paid
+                        definitionVersion: '1'
+                        definition: Số đơn ghi nhận mốc PAID đầu tiên trong kỳ.
+                        unit: ORDER
+                        sources: [order-service]
+                        value: '12'
+                        quality: FRESH
+                        sourceAsOf: '2026-11-01T17:00:00Z'
+                        reasonCodes: []
+                        coveredPeriods:
+                          - {from: '2026-11-01', to: '2026-11-02'}
+                      - metricId: orders_completed
+                        definitionVersion: '1'
+                        definition: Số đơn ghi nhận mốc COMPLETED trong kỳ.
+                        unit: ORDER
+                        sources: [order-service]
+                        value: '0'
+                        quality: FRESH
+                        sourceAsOf: '2026-11-01T17:00:00Z'
+                        reasonCodes: []
+                        coveredPeriods:
+                          - {from: '2026-11-01', to: '2026-11-02'}
+                      - metricId: active_customers
+                        definitionVersion: null
+                        definition: null
+                        unit: CUSTOMER
+                        sources: [order-service, profile-service]
+                        value: null
+                        quality: UNAVAILABLE
+                        sourceAsOf: null
+                        reasonCodes: [SOURCE_CONTRACT_PENDING]
+                        coveredPeriods: []
+                      - metricId: sellable_stock
+                        definitionVersion: null
+                        definition: null
+                        unit: ITEM
+                        sources: [inventory-service]
+                        value: null
+                        quality: UNAVAILABLE
+                        sourceAsOf: null
+                        reasonCodes: [SOURCE_CONTRACT_PENDING]
+                        coveredPeriods: []
+                      - metricId: recognized_revenue
+                        definitionVersion: null
+                        definition: null
+                        unit: VND
+                        sources: [finance-service]
+                        value: null
+                        quality: UNAVAILABLE
+                        sourceAsOf: null
+                        reasonCodes: [METRIC_APPROVAL_PENDING]
+                        coveredPeriods: []
+                      - metricId: profit
+                        definitionVersion: null
+                        definition: null
+                        unit: VND
+                        sources: [finance-service]
+                        value: null
+                        quality: UNAVAILABLE
+                        sourceAsOf: null
+                        reasonCodes: [METRIC_APPROVAL_PENDING]
+                        coveredPeriods: []
+        '400':
+          $ref: '#/components/responses/InvalidInput'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /metrics/{metricId}/series:
+    get:
+      tags: [Dashboard]
+      operationId: getAnalyticsMetricSeries
+      summary: Đọc chuỗi ngày của một metric Order
+      description: >
+        Yêu cầu quyền analytics.dashboard.read. Dùng cùng from/to và snapshotId
+        đã nhận từ Dashboard để đối chiếu. Có một bucket mỗi ngày trong kỳ.
+        Bucket thiếu coverage trả null. Kỳ có từ 1 đến 90 ngày.
+      parameters:
+        - name: metricId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/OrderMetricId'
+        - $ref: '#/components/parameters/FromDate'
+        - $ref: '#/components/parameters/ToDate'
+        - name: snapshotId
+          in: query
+          required: true
+          description: ID generation của Dashboard trong scope đã được cấp.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Chuỗi số liệu ngày theo generation đã ghim
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetricSeries'
+              example:
+                snapshotId: 718b3656-cbd3-4e15-a894-f3c9373b3fe2
+                snapshotPublishedAt: '2026-11-02T01:20:00Z'
+                timeZone: Asia/Ho_Chi_Minh
+                from: '2026-11-01'
+                to: '2026-11-02'
+                orderCohorts: [order-v3]
+                metricId: orders_paid
+                definitionVersion: '1'
+                definition: Số đơn ghi nhận mốc PAID đầu tiên trong kỳ.
+                sources: [order-service]
+                unit: ORDER
+                sourceAsOf: '2026-11-01T17:00:00Z'
+                buckets:
+                  - date: '2026-11-01'
+                    value: '12'
+                    quality: FRESH
+                    reasonCodes: []
+        '400':
+          $ref: '#/components/responses/InvalidInput'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/SnapshotNotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+components:
+  securitySchemes:
+    StaffBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Token nhân viên theo Identity. Service kiểm audience và quyền Dashboard.
+  headers:
+    NoStore:
+      description: Phản hồi dành riêng cho người gọi và không được cache bởi HTTP intermediaries.
+      schema:
+        type: string
+        const: private, no-store
+  parameters:
+    FromDate:
+      name: from
+      in: query
+      required: true
+      description: Ngày bắt đầu, bao gồm.
+      schema:
+        type: string
+        format: date
+      example: '2026-11-01'
+    ToDate:
+      name: to
+      in: query
+      required: true
+      description: Ngày kết thúc, loại trừ.
+      schema:
+        type: string
+        format: date
+      example: '2026-11-02'
+  responses:
+    InvalidInput:
+      description: Kỳ, bộ lọc hoặc metric ID không hợp lệ
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: INVALID_DATE_RANGE
+            message: Kỳ phải có từ 1 đến 90 ngày.
+            requestId: request-101
+    Unauthorized:
+      description: Thiếu token hoặc token không hợp lệ
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Forbidden:
+      description: Thiếu quyền hoặc scope yêu cầu
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    SnapshotNotFound:
+      description: Generation không tồn tại, nằm ngoài scope, hết hạn hoặc đã bị thu hồi
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: SNAPSHOT_NOT_FOUND
+            message: Tải lại Dashboard để lấy snapshot mới.
+            requestId: request-102
+    TooManyRequests:
+      description: Vượt quota truy vấn. Thử lại sau khoảng thời gian trong Retry-After.
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+            minimum: 1
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unavailable:
+      description: Identity hoặc kho phục vụ tạm thời gián đoạn, hoặc snapshot không thể xác minh
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: ANALYTICS_TEMPORARILY_UNAVAILABLE
+            message: Dashboard tạm thời gián đoạn. Vui lòng thử lại sau.
+            requestId: request-103
+  schemas:
+    Error:
+      type: object
+      required: [code, message, requestId]
+      properties:
+        code:
+          type: string
+          enum: [INVALID_DATE_RANGE, INVALID_QUERY, UNAUTHENTICATED, FORBIDDEN, SNAPSHOT_NOT_FOUND, RATE_LIMITED, ANALYTICS_TEMPORARILY_UNAVAILABLE]
+        message:
+          type: string
+        requestId:
+          type: string
+    MetricId:
+      type: string
+      enum: [orders_paid, orders_completed, active_customers, sellable_stock, recognized_revenue, profit]
+    OrderMetricId:
+      type: string
+      enum: [orders_paid, orders_completed]
+    DecimalValue:
+      type: [string, 'null']
+      pattern: '^-?(0|[1-9][0-9]*)(\.[0-9]+)?$'
+    Observation:
+      type: object
+      required: [value, quality, reasonCodes]
+      properties:
+        value:
+          $ref: '#/components/schemas/DecimalValue'
+        quality:
+          type: string
+          enum: [FRESH, STALE, PARTIAL, UNAVAILABLE]
+        reasonCodes:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            enum: [SOURCE_CONTRACT_PENDING, METRIC_APPROVAL_PENDING, SOURCE_LATE, COVERAGE_GAP, SOURCE_INVALID, SNAPSHOT_MISSING]
+      if:
+        properties:
+          quality:
+            const: UNAVAILABLE
+      then:
+        properties:
+          value:
+            type: 'null'
+          reasonCodes:
+            minItems: 1
+      else:
+        properties:
+          value:
+            type: string
+        if:
+          properties:
+            quality:
+              const: FRESH
+        then:
+          properties:
+            reasonCodes:
+              maxItems: 0
+        else:
+          properties:
+            reasonCodes:
+              minItems: 1
+    SourceAsOf:
+      type: [string, 'null']
+      format: date-time
+      description: Mốc nguồn đã kiểm chứng. Null khi chưa xác định.
+    CoveredPeriods:
+      type: array
+      description: Các khoảng ngày liên tục đủ coverage trong kỳ, đã sắp xếp và không chồng nhau.
+      items:
+        type: object
+        required: [from, to]
+        properties:
+          from:
+            type: string
+            format: date
+          to:
+            type: string
+            format: date
+            description: Biên cuối loại trừ.
+    MetricDefinition:
+      type: object
+      required: [definitionVersion, definition, sources, sourceAsOf]
+      properties:
+        definitionVersion:
+          type: [string, 'null']
+          description: Null khi chưa có định nghĩa được duyệt.
+        definition:
+          type: [string, 'null']
+          description: Quy tắc tính được hiển thị cho người đọc, null khi chưa duyệt.
+        sources:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: string
+        sourceAsOf:
+          $ref: '#/components/schemas/SourceAsOf'
+    Card:
+      allOf:
+        - $ref: '#/components/schemas/Observation'
+        - $ref: '#/components/schemas/MetricDefinition'
+        - type: object
+          required: [metricId, unit, coveredPeriods]
+          properties:
+            metricId:
+              $ref: '#/components/schemas/MetricId'
+            unit:
+              type: string
+              enum: [ORDER, CUSTOMER, ITEM, VND]
+            coveredPeriods:
+              $ref: '#/components/schemas/CoveredPeriods'
+            financialPeriodStatus:
+              type: string
+              enum: [OPEN, REVIEWING, CLOSED, MIXED]
+              description: Có mặt khi Finance cung cấp trạng thái kỳ.
+            comparison:
+              $ref: '#/components/schemas/Comparison'
+    Comparison:
+      allOf:
+        - $ref: '#/components/schemas/Observation'
+        - type: object
+          required: [from, to, sourceAsOf, coveredPeriods, absoluteChange, percentChange]
+          properties:
+            from:
+              type: string
+              format: date
+            to:
+              type: string
+              format: date
+            sourceAsOf:
+              $ref: '#/components/schemas/SourceAsOf'
+            coveredPeriods:
+              $ref: '#/components/schemas/CoveredPeriods'
+            absoluteChange:
+              $ref: '#/components/schemas/DecimalValue'
+            percentChange:
+              $ref: '#/components/schemas/DecimalValue'
+          description: Delta chỉ có khi hai kỳ đủ coverage và tương thích. Mẫu số bằng 0 cho percentChange null.
+    SnapshotRange:
+      type: object
+      required: [snapshotId, snapshotPublishedAt, timeZone, from, to, orderCohorts]
+      properties:
+        snapshotId:
+          type: string
+          format: uuid
+        snapshotPublishedAt:
+          type: string
+          format: date-time
+        timeZone:
+          type: string
+          const: Asia/Ho_Chi_Minh
+        from:
+          type: string
+          format: date
+        to:
+          type: string
+          format: date
+        orderCohorts:
+          type: array
+          description: Cohort Order đã cấu hình cho scope của generation.
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: string
+    Dashboard:
+      allOf:
+        - $ref: '#/components/schemas/SnapshotRange'
+        - type: object
+          required: [metrics]
+          properties:
+            metrics:
+              type: array
+              description: Mỗi metric ID xuất hiện đúng một lần.
+              minItems: 6
+              maxItems: 6
+              items:
+                $ref: '#/components/schemas/Card'
+    MetricSeries:
+      allOf:
+        - $ref: '#/components/schemas/SnapshotRange'
+        - $ref: '#/components/schemas/MetricDefinition'
+        - type: object
+          required: [metricId, unit, buckets]
+          properties:
+            metricId:
+              $ref: '#/components/schemas/OrderMetricId'
+            unit:
+              type: string
+              const: ORDER
+            buckets:
+              type: array
+              minItems: 1
+              maxItems: 90
+              items:
+                allOf:
+                  - $ref: '#/components/schemas/Observation'
+                  - type: object
+                    required: [date]
+                    properties:
+                      date:
+                        type: string
+                        format: date

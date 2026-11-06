@@ -1,0 +1,23 @@
+# Append this list item under services in the dev-only Kong declarative config after sign-off.
+- name: analytics-service
+  url: http://analytics-service:8011
+  connect_timeout: 2000
+  read_timeout: 7000
+  write_timeout: 3000
+  retries: 0
+  routes:
+    - name: analytics-dashboard-pilot
+      paths:
+        - '~/api/v1/admin/analytics/dashboard$'
+        - '~/api/v1/admin/analytics/metrics/[^/]+/series$'
+      methods: [GET, OPTIONS]
+      strip_path: false
+      plugins:
+        - name: request-transformer
+          config:
+            remove:
+              headers:
+                - X-User-Id
+                - X-User-Role
+                - X-User-Permissions
+                - X-Internal-Token

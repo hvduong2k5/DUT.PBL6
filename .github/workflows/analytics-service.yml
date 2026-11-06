@@ -1,0 +1,45 @@
+name: Analytics service gates
+
+on:
+  pull_request:
+    paths: &analytics-paths
+      - services/analytics-service/**
+      - docs/03_api_specs/analytics-service.candidate.openapi.yaml
+      - packages/events/schemas/order/v3/**
+      - packages/events/examples/order/v3/**
+      - .github/workflows/analytics-service.yml
+  push:
+    branches: [dev, main, feat/analysis-service]
+    paths: *analytics-paths
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      COMPOSE_PROJECT_NAME: analytics-ci
+      COMPOSE_FILE: services/analytics-service/compose.test.yml
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build runtime and test images
+        run: docker compose build api tests
+      - name: Check source style
+        run: |
+          docker compose run --rm --no-deps --entrypoint ruff tests check --no-cache src tests
+          docker compose run --rm --no-deps --entrypoint ruff tests format --no-cache --check src tests
+      - name: Test actual API, Kafka, PostgreSQL and ClickHouse
+        run: docker compose run -T --name analytics-ci-tests tests
+      - name: Collect verification evidence
+        if: always()
+        run: |
+          mkdir -p .system_generated/analytics
+          docker cp analytics-ci-tests:/tmp/analytics-pytest.xml .system_generated/analytics/pytest.xml || true
+          docker compose logs --no-color api collector builder migrate > .system_generated/analytics/services.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: analytics-verification
+          path: .system_generated/analytics
+      - name: Stop isolated stack
+        if: always()
+        run: docker compose down --volumes --remove-orphans
