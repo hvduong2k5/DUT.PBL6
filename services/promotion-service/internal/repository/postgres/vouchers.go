@@ -584,6 +584,19 @@ func (r *VoucherRepository) GetHoldByOrder(ctx context.Context, orderID, holdID,
 	defer func() { _ = tx.Rollback(ctx) }()
 	hold, err := r.getHold(ctx, tx, holdID, orderID, false)
 	if err != nil {
+		// A rejected lock decision is durable command evidence, but it has no
+		// voucher_holds resource to load. Allow Order to recover that decision
+		// by its original idempotency tuple when it did not request a hold ID.
+		if errors.Is(err, domain.ErrHoldNotFound) && holdID == "" && queryAction == "ValidateAndLockVoucher" {
+			hold, proof, lookupErr := r.findRejectedLockWithoutHold(ctx, tx, orderID, idempotencyKey, requestHash)
+			if lookupErr != nil {
+				return Hold{}, nil, lookupErr
+			}
+			if err := tx.Commit(ctx); err != nil {
+				return Hold{}, nil, err
+			}
+			return hold, proof, nil
+		}
 		return Hold{}, nil, err
 	}
 	if err := tx.QueryRow(ctx, `SELECT clock_timestamp()`).Scan(&hold.ObservedAt); err != nil {
@@ -598,6 +611,43 @@ func (r *VoucherRepository) GetHoldByOrder(ctx context.Context, orderID, holdID,
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return Hold{}, nil, err
+	}
+	return hold, proof, nil
+}
+
+func (r *VoucherRepository) findRejectedLockWithoutHold(ctx context.Context, tx pgx.Tx, orderID, key, requestHash string) (Hold, *HoldCommandEvidence, error) {
+	var storedHash string
+	var responseJSON []byte
+	err := tx.QueryRow(ctx, `SELECT request_hash,response_json FROM command_idempotency WHERE idempotency_key=$1 AND command_type='LOCK_VOUCHER' AND resource_id IS NULL`, key).Scan(&storedHash, &responseJSON)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Hold{}, nil, domain.ErrHoldNotFound
+	}
+	if err != nil {
+		return Hold{}, nil, err
+	}
+	if storedHash != requestHash {
+		return Hold{}, nil, domain.ErrIdempotencyConflict
+	}
+	var hold Hold
+	if err := json.Unmarshal(responseJSON, &hold); err != nil {
+		return Hold{}, nil, err
+	}
+	if hold.OrderID != orderID || hold.ID != "" || hold.CommandResult != "REJECTED" {
+		return Hold{}, nil, domain.ErrHoldNotFound
+	}
+	if err := tx.QueryRow(ctx, `SELECT clock_timestamp()`).Scan(&hold.ObservedAt); err != nil {
+		return Hold{}, nil, err
+	}
+	if hold.DecisionID == "" {
+		hold.DecisionID = key
+	}
+	if hold.DecisionAt.IsZero() {
+		hold.DecisionAt = hold.ObservedAt
+	}
+	proof := &HoldCommandEvidence{
+		IdempotencyKey: key, Action: "ValidateAndLockVoucher", RequestHash: requestHash,
+		Result: "REJECTED", ReasonCode: hold.ReasonCode, DecisionID: hold.DecisionID,
+		DecisionAt: hold.DecisionAt, ResultingState: hold.ResultingState,
 	}
 	return hold, proof, nil
 }
