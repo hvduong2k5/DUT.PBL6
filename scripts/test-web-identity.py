@@ -719,7 +719,14 @@ def main():
             print(f"WARNING: port {catalog_port} still in use after wait", flush=True)
         caller_environment=env.copy()
         env.clear();env.update(catalog_environment)
-        env.update(IDENTITY_URL=caller_environment["IDENTITY_URL"], CATALOG_INVENTORY_TARGET=peer_address, CATALOG_INVENTORY_TOKEN_FILE=str(folder / "inventory-token"), CATALOG_INVENTORY_CA_FILE=str(folder / "inventory-ca.pem"), CATALOG_INVENTORY_SERVER_NAME="localhost")
+        inventory_ca = folder / "inventory-ca.pem"
+        inventory_token = folder / "inventory-token"
+        ca_ok = inventory_ca.exists() and inventory_ca.stat().st_size > 0
+        token_ok = inventory_token.exists() and inventory_token.stat().st_size >= 32
+        if ca_ok and token_ok and peer_address:
+            env.update(IDENTITY_URL=caller_environment["IDENTITY_URL"], CATALOG_INVENTORY_TARGET=peer_address, CATALOG_INVENTORY_TOKEN_FILE=str(inventory_token), CATALOG_INVENTORY_CA_FILE=str(inventory_ca), CATALOG_INVENTORY_SERVER_NAME="localhost")
+        else:
+            print(f"WARNING: skipping Inventory TLS env (ca_ok={ca_ok}, token_ok={token_ok}, peer_address={peer_address}); catalog will start without live Inventory lookup", flush=True)
         start([args.java, "-jar", catalog_jar], "catalog")
         env.clear();env.update(caller_environment)
         try:
