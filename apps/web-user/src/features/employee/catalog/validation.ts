@@ -1,7 +1,8 @@
 export type AdminCatalogRoute =
   | { kind: "product-list" }
   | { kind: "product-detail"; productId: string }
-  | { kind: "product-subresource"; productId: string; segments: string[] };
+  | { kind: "product-subresource"; productId: string; segments: string[] }
+  | { kind: "invalid" };
 
 const SUBRESOURCE_PATTERNS: string[][] = [
   ["transition"],
