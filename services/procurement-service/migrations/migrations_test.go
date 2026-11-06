@@ -16,12 +16,25 @@ func TestEmbeddedMigrationsAreOrderedAndIncludeSupplierManagement(t *testing.T) 
 			names = append(names, entry.Name())
 		}
 	}
-	if len(names) != 5 || names[0] != "000001_supplier_material_master.up.sql" || names[1] != "000002_purchase_orders.up.sql" || names[2] != "000003_goods_receipts.up.sql" || names[3] != "000004_supplier_agreements_and_price_versions.up.sql" || names[4] != "000005_purchase_order_supplier_response_and_revisions.up.sql" {
+	if len(names) != 6 || names[0] != "000001_supplier_material_master.up.sql" || names[1] != "000002_purchase_orders.up.sql" || names[2] != "000003_goods_receipts.up.sql" || names[3] != "000004_supplier_agreements_and_price_versions.up.sql" || names[4] != "000005_purchase_order_supplier_response_and_revisions.up.sql" || names[5] != "000006_goods_receipt_idempotency.up.sql" {
 		t.Fatalf("unexpected embedded migration sequence: %v", names)
 	}
 	for _, name := range names {
 		if _, err := files.ReadFile(name); err != nil {
 			t.Errorf("migration %s is not embedded: %v", name, err)
+		}
+	}
+}
+
+func TestGoodsReceiptIdempotencyMigrationAddsUniqueActorKeyAndPayloadHash(t *testing.T) {
+	sqlBytes, err := files.ReadFile("000006_goods_receipt_idempotency.up.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sql := string(sqlBytes)
+	for _, required := range []string{"idempotency_key", "idempotency_request_hash", "UNIQUE INDEX", "goods_receipts_received_by_idempotency_key_unique"} {
+		if !strings.Contains(sql, required) {
+			t.Errorf("goods receipt idempotency migration missing %q", required)
 		}
 	}
 }

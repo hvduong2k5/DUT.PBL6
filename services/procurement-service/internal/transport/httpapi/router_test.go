@@ -171,8 +171,24 @@ func (r *httpRepository) ListPurchaseOrderRevisions(_ context.Context, id uuid.U
 	return r.revisions[id], nil
 }
 func (r *httpRepository) CreateGoodsReceipt(_ context.Context, receipt domain.GoodsReceipt) (domain.GoodsReceipt, error) {
+	for _, existing := range r.receipts {
+		if existing.ReceivedBy == receipt.ReceivedBy && existing.IdempotencyKey == receipt.IdempotencyKey {
+			if existing.RequestHash != receipt.RequestHash {
+				return domain.GoodsReceipt{}, domain.ErrConflict
+			}
+			return existing, nil
+		}
+	}
 	r.receipts[receipt.ID] = receipt
 	return receipt, nil
+}
+func (r *httpRepository) GetGoodsReceiptByIdempotency(_ context.Context, actor, key string) (domain.GoodsReceipt, error) {
+	for _, receipt := range r.receipts {
+		if receipt.ReceivedBy == actor && receipt.IdempotencyKey == key {
+			return receipt, nil
+		}
+	}
+	return domain.GoodsReceipt{}, domain.ErrNotFound
 }
 func (r *httpRepository) GetGoodsReceipt(_ context.Context, id uuid.UUID) (domain.GoodsReceipt, error) {
 	receipt, ok := r.receipts[id]
@@ -198,6 +214,10 @@ func newHandler(repo *httpRepository) http.Handler {
 }
 
 func performRequest(handler http.Handler, method, path, body, user, role string) *httptest.ResponseRecorder {
+	return performRequestWithIdempotency(handler, method, path, body, user, role, "")
+}
+
+func performRequestWithIdempotency(handler http.Handler, method, path, body, user, role, key string) *httptest.ResponseRecorder {
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(method, path, strings.NewReader(body))
 	if user != "" {
@@ -207,6 +227,9 @@ func performRequest(handler http.Handler, method, path, body, user, role string)
 		request.Header.Set("X-User-Role", role)
 	}
 	request.Header.Set("X-Internal-Token", "test-token")
+	if key != "" {
+		request.Header.Set("Idempotency-Key", key)
+	}
 	handler.ServeHTTP(recorder, request)
 	return recorder
 }
@@ -353,13 +376,50 @@ func TestWarehouseStaffCanCreateGoodsReceiptButNotManageSuppliers(t *testing.T) 
 	repo.orders[po.ID] = po
 	handler := newHandler(repo)
 	body := `{"purchase_order_id":"` + po.ID.String() + `","warehouse_code":"WH-01","lines":[{"purchase_order_line_id":"` + po.Lines[0].ID.String() + `","quantity_received":"2"}]}`
-	created := performRequest(handler, http.MethodPost, "/api/v1/admin/procurement/goods-receipts", body, "warehouse-1", "WAREHOUSE_STAFF")
+	created := performRequestWithIdempotency(handler, http.MethodPost, "/api/v1/admin/procurement/goods-receipts", body, "warehouse-1", "WAREHOUSE_STAFF", "warehouse-receipt-0001")
 	if created.Code != http.StatusCreated {
 		t.Fatalf("create goods receipt status=%d body=%s", created.Code, created.Body.String())
 	}
 	denied := performRequest(handler, http.MethodGet, "/api/v1/admin/procurement/suppliers", "", "warehouse-1", "WAREHOUSE_STAFF")
 	if denied.Code != http.StatusForbidden {
 		t.Fatalf("warehouse supplier access status=%d, want 403", denied.Code)
+	}
+}
+
+func TestGoodsReceiptIdempotencyReplaysAndRejectsChangedPayload(t *testing.T) {
+	repo := newHTTPRepository()
+	supplier, _ := domain.NewSupplier("SUP-GR-RETRY", "Supplier", "COMPANY", "", "", "", "")
+	material, _ := domain.NewRawMaterial("RICE-RETRY", "Rice", "KG", "")
+	po, _ := domain.NewPurchaseOrder("PO-GR-RETRY", supplier.ID, supplier.Name, "VND", "", "buyer", nil, []domain.PurchaseOrderLineInput{{MaterialID: material.ID, MaterialCode: material.Code, MaterialName: material.Name, Quantity: "5", Unit: "KG", UnitPriceMinor: 100}})
+	po.Status = domain.PurchaseOrderSent
+	repo.orders[po.ID] = po
+	handler := newHandler(repo)
+	path := "/api/v1/admin/procurement/goods-receipts"
+	body := `{"purchase_order_id":"` + po.ID.String() + `","warehouse_code":"WH-01","lines":[{"purchase_order_line_id":"` + po.Lines[0].ID.String() + `","quantity_received":"2"}]}`
+	key := "warehouse-receipt-retry-0001"
+	first := performRequestWithIdempotency(handler, http.MethodPost, path, body, "warehouse-1", "WAREHOUSE_STAFF", key)
+	retry := performRequestWithIdempotency(handler, http.MethodPost, path, body, "warehouse-1", "WAREHOUSE_STAFF", key)
+	if first.Code != http.StatusCreated || retry.Code != http.StatusCreated {
+		t.Fatalf("create/retry statuses = %d/%d, want 201/201; bodies=%s / %s", first.Code, retry.Code, first.Body.String(), retry.Body.String())
+	}
+	var firstReceipt, retriedReceipt domain.GoodsReceipt
+	if err := json.Unmarshal(first.Body.Bytes(), &firstReceipt); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(retry.Body.Bytes(), &retriedReceipt); err != nil {
+		t.Fatal(err)
+	}
+	if firstReceipt.ID != retriedReceipt.ID || len(repo.receipts) != 1 {
+		t.Fatalf("retry created duplicate receipt: first=%s retry=%s stored=%d", firstReceipt.ID, retriedReceipt.ID, len(repo.receipts))
+	}
+	changedBody := strings.Replace(body, `"quantity_received":"2"`, `"quantity_received":"3"`, 1)
+	conflict := performRequestWithIdempotency(handler, http.MethodPost, path, changedBody, "warehouse-1", "WAREHOUSE_STAFF", key)
+	if conflict.Code != http.StatusConflict {
+		t.Fatalf("same key with changed payload status = %d body=%s, want 409", conflict.Code, conflict.Body.String())
+	}
+	missingKey := performRequest(handler, http.MethodPost, path, body, "warehouse-1", "WAREHOUSE_STAFF")
+	if missingKey.Code != http.StatusBadRequest {
+		t.Fatalf("missing idempotency key status = %d, want 400", missingKey.Code)
 	}
 }
 

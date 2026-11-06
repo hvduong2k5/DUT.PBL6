@@ -140,6 +140,11 @@ type goodsReceiptRequest struct {
 }
 
 func (h *Router) createGoodsReceipt(w http.ResponseWriter, r *http.Request) {
+	idempotencyKey := strings.TrimSpace(r.Header.Get("Idempotency-Key"))
+	if !validIdempotencyKey(idempotencyKey) {
+		writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "Idempotency-Key must contain 16-128 visible ASCII characters")
+		return
+	}
 	var request goodsReceiptRequest
 	if !decodeJSON(w, r, &request) {
 		return
@@ -175,12 +180,24 @@ func (h *Router) createGoodsReceipt(w http.ResponseWriter, r *http.Request) {
 		}
 		input.Lines = append(input.Lines, item)
 	}
-	created, err := h.service.CreateGoodsReceipt(r.Context(), input, strings.TrimSpace(r.Header.Get("X-User-ID")))
+	created, err := h.service.CreateGoodsReceipt(r.Context(), input, strings.TrimSpace(r.Header.Get("X-User-ID")), idempotencyKey)
 	if err != nil {
 		h.writeServiceError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, created)
+}
+
+func validIdempotencyKey(value string) bool {
+	if len(value) < 16 || len(value) > 128 {
+		return false
+	}
+	for i := 0; i < len(value); i++ {
+		if value[i] < 0x21 || value[i] > 0x7e {
+			return false
+		}
+	}
+	return true
 }
 
 func (h *Router) getGoodsReceipt(w http.ResponseWriter, r *http.Request) {

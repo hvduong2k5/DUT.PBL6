@@ -2,6 +2,10 @@ package application
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
 	"math/big"
 	"strings"
 	"time"
@@ -37,6 +41,7 @@ type Repository interface {
 	RevisePurchaseOrder(context.Context, domain.PurchaseOrder, int64, string, string) (domain.PurchaseOrder, error)
 	ListPurchaseOrderRevisions(context.Context, uuid.UUID, int, int) ([]domain.PurchaseOrderRevision, error)
 	CreateGoodsReceipt(context.Context, domain.GoodsReceipt) (domain.GoodsReceipt, error)
+	GetGoodsReceiptByIdempotency(context.Context, string, string) (domain.GoodsReceipt, error)
 	GetGoodsReceipt(context.Context, uuid.UUID) (domain.GoodsReceipt, error)
 	InspectGoodsReceipt(context.Context, domain.GoodsReceipt, int64, string) (domain.GoodsReceipt, error)
 }
@@ -300,7 +305,26 @@ type GoodsReceiptRequest struct {
 	Lines           []GoodsReceiptLineRequest
 }
 
-func (s *Service) CreateGoodsReceipt(ctx context.Context, request GoodsReceiptRequest, actor string) (domain.GoodsReceipt, error) {
+func (s *Service) CreateGoodsReceipt(ctx context.Context, request GoodsReceiptRequest, actor, idempotencyKey string) (domain.GoodsReceipt, error) {
+	if strings.TrimSpace(idempotencyKey) == "" {
+		return domain.GoodsReceipt{}, domain.ErrInvalidArgument
+	}
+	canonicalRequest, err := json.Marshal(request)
+	if err != nil {
+		return domain.GoodsReceipt{}, err
+	}
+	requestHash := sha256.Sum256(canonicalRequest)
+	hashText := hex.EncodeToString(requestHash[:])
+	existing, err := s.repo.GetGoodsReceiptByIdempotency(ctx, actor, idempotencyKey)
+	if err == nil {
+		if existing.RequestHash != hashText {
+			return domain.GoodsReceipt{}, domain.ErrConflict
+		}
+		return existing, nil
+	}
+	if !errors.Is(err, domain.ErrNotFound) {
+		return domain.GoodsReceipt{}, err
+	}
 	order, err := s.repo.GetPurchaseOrder(ctx, request.PurchaseOrderID)
 	if err != nil {
 		return domain.GoodsReceipt{}, err
@@ -325,6 +349,8 @@ func (s *Service) CreateGoodsReceipt(ctx context.Context, request GoodsReceiptRe
 	if err != nil {
 		return domain.GoodsReceipt{}, err
 	}
+	receipt.IdempotencyKey = idempotencyKey
+	receipt.RequestHash = hashText
 	return s.repo.CreateGoodsReceipt(ctx, receipt)
 }
 

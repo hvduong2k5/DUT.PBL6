@@ -53,6 +53,8 @@ type GoodsReceipt struct {
 	Status              GoodsReceiptStatus `json:"status"`
 	Lines               []GoodsReceiptLine `json:"lines"`
 	ReceivedBy          string             `json:"received_by"`
+	IdempotencyKey      string             `json:"-"`
+	RequestHash         string             `json:"-"`
 	InspectedBy         string             `json:"inspected_by,omitempty"`
 	InspectedAt         *time.Time         `json:"inspected_at,omitempty"`
 	Notes               string             `json:"notes,omitempty"`

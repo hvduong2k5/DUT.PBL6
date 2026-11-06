@@ -66,7 +66,7 @@ The lifecycle is `DRAFT → PENDING_APPROVAL → APPROVED → SENT`. After sendi
 
 ## Goods receipt and quality inspection
 
-- `POST /api/v1/admin/procurement/goods-receipts` creates a draft receipt against a `SENT`, `ACKNOWLEDGED`, or `PARTIALLY_RECEIVED` PO. Each line references a PO line and records received quantity plus optional supplier lot and paired manufacture/expiry dates.
+- `POST /api/v1/admin/procurement/goods-receipts` creates a draft receipt against a `SENT`, `ACKNOWLEDGED`, or `PARTIALLY_RECEIVED` PO. Each line references a PO line and records received quantity plus optional supplier lot and paired manufacture/expiry dates. It requires an `Idempotency-Key` header (16–128 visible ASCII characters); retrying the same key and payload returns the original receipt, while reusing the key with changed data returns `409 CONFLICT`.
 - `GET /api/v1/admin/procurement/goods-receipts/{goodsReceiptID}` returns the receipt snapshot.
 - `POST /api/v1/admin/procurement/goods-receipts/{goodsReceiptID}/inspect` records accepted/rejected quantities, optional humidity percentage, and inspection notes for every receipt line.
 

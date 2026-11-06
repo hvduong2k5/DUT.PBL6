@@ -186,8 +186,24 @@ func (r *fakeRepository) ListPurchaseOrderRevisions(_ context.Context, id uuid.U
 }
 
 func (r *fakeRepository) CreateGoodsReceipt(_ context.Context, receipt domain.GoodsReceipt) (domain.GoodsReceipt, error) {
+	for _, existing := range r.receipts {
+		if existing.ReceivedBy == receipt.ReceivedBy && existing.IdempotencyKey == receipt.IdempotencyKey {
+			if existing.RequestHash != receipt.RequestHash {
+				return domain.GoodsReceipt{}, domain.ErrConflict
+			}
+			return existing, nil
+		}
+	}
 	r.receipts[receipt.ID] = receipt
 	return receipt, nil
+}
+func (r *fakeRepository) GetGoodsReceiptByIdempotency(_ context.Context, actor, key string) (domain.GoodsReceipt, error) {
+	for _, receipt := range r.receipts {
+		if receipt.ReceivedBy == actor && receipt.IdempotencyKey == key {
+			return receipt, nil
+		}
+	}
+	return domain.GoodsReceipt{}, domain.ErrNotFound
 }
 func (r *fakeRepository) GetGoodsReceipt(_ context.Context, id uuid.UUID) (domain.GoodsReceipt, error) {
 	receipt, ok := r.receipts[id]
@@ -419,9 +435,20 @@ func TestGoodsReceiptApplicationFlow(t *testing.T) {
 	}
 	order.Status = domain.PurchaseOrderSent
 	repo.orders[order.ID] = order
-	receipt, err := service.CreateGoodsReceipt(context.Background(), application.GoodsReceiptRequest{PurchaseOrderID: order.ID, WarehouseCode: "wh-1", Lines: []application.GoodsReceiptLineRequest{{PurchaseOrderLineID: order.Lines[0].ID, QuantityReceived: "2"}}}, "receiver")
+	request := application.GoodsReceiptRequest{PurchaseOrderID: order.ID, WarehouseCode: "wh-1", Lines: []application.GoodsReceiptLineRequest{{PurchaseOrderLineID: order.Lines[0].ID, QuantityReceived: "2"}}}
+	receipt, err := service.CreateGoodsReceipt(context.Background(), request, "receiver", "warehouse-receipt-0001")
 	if err != nil {
 		t.Fatal(err)
+	}
+	order.Status = domain.PurchaseOrderReceived
+	repo.orders[order.ID] = order
+	retried, err := service.CreateGoodsReceipt(context.Background(), request, "receiver", "warehouse-receipt-0001")
+	if err != nil || retried.ID != receipt.ID {
+		t.Fatalf("same-key receipt retry = (%s, %v), want original receipt %s", retried.ID, err, receipt.ID)
+	}
+	request.Lines[0].QuantityReceived = "3"
+	if _, err := service.CreateGoodsReceipt(context.Background(), request, "receiver", "warehouse-receipt-0001"); !errors.Is(err, domain.ErrConflict) {
+		t.Fatalf("same key with changed payload error = %v, want conflict", err)
 	}
 	inspected, err := service.InspectGoodsReceipt(context.Background(), receipt.ID, "qc", []domain.GoodsReceiptInspectionLine{{GoodsReceiptLineID: receipt.Lines[0].ID, QuantityAccepted: "1.5", QuantityRejected: "0.5"}})
 	if err != nil {

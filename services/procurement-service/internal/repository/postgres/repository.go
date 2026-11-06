@@ -602,6 +602,20 @@ func (r *Repository) ListPurchaseOrderRevisions(ctx context.Context, id uuid.UUI
 }
 
 func (r *Repository) CreateGoodsReceipt(ctx context.Context, receipt domain.GoodsReceipt) (domain.GoodsReceipt, error) {
+	if receipt.IdempotencyKey != "" {
+		var existingID uuid.UUID
+		var existingHash string
+		err := r.pool.QueryRow(ctx, `SELECT id,idempotency_request_hash FROM goods_receipts WHERE received_by=$1 AND idempotency_key=$2`, receipt.ReceivedBy, receipt.IdempotencyKey).Scan(&existingID, &existingHash)
+		if err == nil {
+			if existingHash != receipt.RequestHash {
+				return domain.GoodsReceipt{}, domain.ErrConflict
+			}
+			return r.GetGoodsReceipt(ctx, existingID)
+		}
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return domain.GoodsReceipt{}, err
+		}
+	}
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return domain.GoodsReceipt{}, err
@@ -631,10 +645,23 @@ func (r *Repository) CreateGoodsReceipt(ctx context.Context, receipt domain.Good
 	if err != nil {
 		return domain.GoodsReceipt{}, err
 	}
-	if err := tx.QueryRow(ctx, `INSERT INTO goods_receipts (id, receipt_number, purchase_order_id, purchase_order_number, supplier_id, supplier_name, warehouse_code, status, lines, received_by, notes, version)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING created_at,updated_at`, receipt.ID, receipt.Number, receipt.PurchaseOrderID, receipt.PurchaseOrderNumber,
-		receipt.SupplierID, receipt.SupplierName, receipt.WarehouseCode, receipt.Status, encoded, receipt.ReceivedBy, receipt.Notes, receipt.Version).Scan(&receipt.CreatedAt, &receipt.UpdatedAt); err != nil {
-		return domain.GoodsReceipt{}, mapError(err)
+	insertErr := tx.QueryRow(ctx, `INSERT INTO goods_receipts (id, receipt_number, purchase_order_id, purchase_order_number, supplier_id, supplier_name, warehouse_code, status, lines, received_by, notes, version, idempotency_key, idempotency_request_hash)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) ON CONFLICT (received_by,idempotency_key) DO NOTHING RETURNING created_at,updated_at`, receipt.ID, receipt.Number, receipt.PurchaseOrderID, receipt.PurchaseOrderNumber,
+		receipt.SupplierID, receipt.SupplierName, receipt.WarehouseCode, receipt.Status, encoded, receipt.ReceivedBy, receipt.Notes, receipt.Version, emptyToNil(receipt.IdempotencyKey), emptyToNil(receipt.RequestHash)).Scan(&receipt.CreatedAt, &receipt.UpdatedAt)
+	if errors.Is(insertErr, pgx.ErrNoRows) && receipt.IdempotencyKey != "" {
+		_ = tx.Rollback(ctx)
+		var existingID uuid.UUID
+		var existingHash string
+		if err := r.pool.QueryRow(ctx, `SELECT id,idempotency_request_hash FROM goods_receipts WHERE received_by=$1 AND idempotency_key=$2`, receipt.ReceivedBy, receipt.IdempotencyKey).Scan(&existingID, &existingHash); err != nil {
+			return domain.GoodsReceipt{}, err
+		}
+		if existingHash != receipt.RequestHash {
+			return domain.GoodsReceipt{}, domain.ErrConflict
+		}
+		return r.GetGoodsReceipt(ctx, existingID)
+	}
+	if insertErr != nil {
+		return domain.GoodsReceipt{}, mapError(insertErr)
 	}
 	if _, err := tx.Exec(ctx, `INSERT INTO goods_receipt_status_history (id,goods_receipt_id,to_status,action,actor_id) VALUES ($1,$2,$3,'CREATED',$4)`, uuid.New(), receipt.ID, receipt.Status, receipt.ReceivedBy); err != nil {
 		return domain.GoodsReceipt{}, err
@@ -663,6 +690,25 @@ func (r *Repository) GetGoodsReceipt(ctx context.Context, id uuid.UUID) (domain.
 	receipt.InspectedBy = inspectedBy.String
 	receipt.InspectedAt = timestampPointer(inspectedAt)
 	if err := json.Unmarshal(lines, &receipt.Lines); err != nil {
+		return domain.GoodsReceipt{}, err
+	}
+	return receipt, nil
+}
+
+func (r *Repository) GetGoodsReceiptByIdempotency(ctx context.Context, actor, key string) (domain.GoodsReceipt, error) {
+	var id uuid.UUID
+	err := r.pool.QueryRow(ctx, `SELECT id FROM goods_receipts WHERE received_by=$1 AND idempotency_key=$2`, actor, key).Scan(&id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.GoodsReceipt{}, domain.ErrNotFound
+	}
+	if err != nil {
+		return domain.GoodsReceipt{}, err
+	}
+	receipt, err := r.GetGoodsReceipt(ctx, id)
+	if err != nil {
+		return domain.GoodsReceipt{}, err
+	}
+	if err := r.pool.QueryRow(ctx, `SELECT idempotency_request_hash FROM goods_receipts WHERE id=$1`, id).Scan(&receipt.RequestHash); err != nil {
 		return domain.GoodsReceipt{}, err
 	}
 	return receipt, nil
