@@ -24,12 +24,13 @@ type httpRepository struct {
 	receipts  map[uuid.UUID]domain.GoodsReceipt
 	contracts map[uuid.UUID]domain.SupplierContract
 	revisions map[uuid.UUID][]domain.PurchaseOrderRevision
+	plans     map[uuid.UUID]domain.SupplyPlan
 }
 
 func newHTTPRepository() *httpRepository {
 	return &httpRepository{
 		suppliers: make(map[uuid.UUID]domain.Supplier), materials: make(map[uuid.UUID]domain.RawMaterial),
-		offers: make(map[uuid.UUID][]domain.SupplierMaterialOffer), orders: make(map[uuid.UUID]domain.PurchaseOrder), receipts: make(map[uuid.UUID]domain.GoodsReceipt), contracts: make(map[uuid.UUID]domain.SupplierContract), revisions: make(map[uuid.UUID][]domain.PurchaseOrderRevision),
+		offers: make(map[uuid.UUID][]domain.SupplierMaterialOffer), orders: make(map[uuid.UUID]domain.PurchaseOrder), receipts: make(map[uuid.UUID]domain.GoodsReceipt), contracts: make(map[uuid.UUID]domain.SupplierContract), revisions: make(map[uuid.UUID][]domain.PurchaseOrderRevision), plans: make(map[uuid.UUID]domain.SupplyPlan),
 	}
 }
 
@@ -115,6 +116,32 @@ func (r *httpRepository) GetSupplierContract(_ context.Context, id uuid.UUID) (d
 		return domain.SupplierContract{}, domain.ErrNotFound
 	}
 	return item, nil
+}
+func (r *httpRepository) CreateSupplyPlan(_ context.Context, plan domain.SupplyPlan) (domain.SupplyPlan, error) {
+	r.plans[plan.ID] = plan
+	return plan, nil
+}
+func (r *httpRepository) GetSupplyPlan(_ context.Context, id uuid.UUID) (domain.SupplyPlan, error) {
+	plan, ok := r.plans[id]
+	if !ok {
+		return domain.SupplyPlan{}, domain.ErrNotFound
+	}
+	return plan, nil
+}
+func (r *httpRepository) ListSupplyPlans(_ context.Context, limit, offset int) ([]domain.SupplyPlan, error) {
+	items := make([]domain.SupplyPlan, 0, len(r.plans))
+	for _, plan := range r.plans {
+		items = append(items, plan)
+	}
+	start := offset
+	if start > len(items) {
+		start = len(items)
+	}
+	end := start + limit
+	if end > len(items) {
+		end = len(items)
+	}
+	return items[start:end], nil
 }
 func (r *httpRepository) ListSupplierContracts(_ context.Context, id uuid.UUID, _, _ int) ([]domain.SupplierContract, error) {
 	items := []domain.SupplierContract{}
@@ -484,6 +511,25 @@ func TestSupplyPlanPreviewRouteReturnsComputedProposal(t *testing.T) {
 	response := performRequest(handler, http.MethodPost, "/api/v1/admin/procurement/supply-plans/preview", string(bodyBytes), "supply", "SUPPLY_MANAGER")
 	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"net_requirement":"11.000000"`) || !strings.Contains(response.Body.String(), `"material_code":"RICE-PLAN"`) {
 		t.Fatalf("supply plan preview status=%d body=%s", response.Code, response.Body.String())
+	}
+	created := performRequest(handler, http.MethodPost, "/api/v1/admin/procurement/supply-plans", string(bodyBytes), "supply", "SUPPLY_MANAGER")
+	if created.Code != http.StatusCreated {
+		t.Fatalf("create supply plan status=%d body=%s", created.Code, created.Body.String())
+	}
+	var plan domain.SupplyPlan
+	if err := json.Unmarshal(created.Body.Bytes(), &plan); err != nil {
+		t.Fatal(err)
+	}
+	if plan.Status != domain.SupplyPlanDraft || plan.Revision != 1 {
+		t.Fatalf("unexpected created supply plan state: %+v", plan)
+	}
+	loaded := performRequest(handler, http.MethodGet, "/api/v1/admin/procurement/supply-plans/"+plan.ID.String(), "", "supply", "SUPPLY_MANAGER")
+	if loaded.Code != http.StatusOK || !strings.Contains(loaded.Body.String(), `"net_requirement":"11.000000"`) {
+		t.Fatalf("get supply plan status=%d body=%s", loaded.Code, loaded.Body.String())
+	}
+	listed := performRequest(handler, http.MethodGet, "/api/v1/admin/procurement/supply-plans?limit=20&offset=0", "", "supply", "SUPPLY_MANAGER")
+	if listed.Code != http.StatusOK || !strings.Contains(listed.Body.String(), plan.ID.String()) {
+		t.Fatalf("list supply plans status=%d body=%s", listed.Code, listed.Body.String())
 	}
 }
 

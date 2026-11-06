@@ -46,6 +46,9 @@ type Repository interface {
 	ResolveGoodsReceiptVariance(context.Context, uuid.UUID, uuid.UUID, string, string, string) (domain.GoodsReceipt, error)
 	HasUnresolvedGoodsReceiptVariances(context.Context, uuid.UUID) (bool, error)
 	InspectGoodsReceipt(context.Context, domain.GoodsReceipt, int64, string) (domain.GoodsReceipt, error)
+	CreateSupplyPlan(context.Context, domain.SupplyPlan) (domain.SupplyPlan, error)
+	GetSupplyPlan(context.Context, uuid.UUID) (domain.SupplyPlan, error)
+	ListSupplyPlans(context.Context, int, int) ([]domain.SupplyPlan, error)
 }
 
 type Service struct{ repo Repository }
@@ -66,6 +69,27 @@ func (s *Service) PreviewSupplyPlan(ctx context.Context, input domain.SupplyPlan
 		input.Lines[i].Unit = material.BaseUnit
 	}
 	return domain.PreviewSupplyPlan(input, now)
+}
+
+func (s *Service) CreateSupplyPlan(ctx context.Context, input domain.SupplyPlanInput, actor string, now time.Time) (domain.SupplyPlan, error) {
+	preview, err := s.PreviewSupplyPlan(ctx, input, now)
+	if err != nil {
+		return domain.SupplyPlan{}, err
+	}
+	number := "SP-" + now.UTC().Format("20060102") + "-" + strings.ToUpper(uuid.NewString()[:8])
+	plan, err := domain.NewSupplyPlan(number, actor, preview)
+	if err != nil {
+		return domain.SupplyPlan{}, err
+	}
+	return s.repo.CreateSupplyPlan(ctx, plan)
+}
+
+func (s *Service) GetSupplyPlan(ctx context.Context, id uuid.UUID) (domain.SupplyPlan, error) {
+	return s.repo.GetSupplyPlan(ctx, id)
+}
+
+func (s *Service) ListSupplyPlans(ctx context.Context, limit, offset int) ([]domain.SupplyPlan, error) {
+	return s.repo.ListSupplyPlans(ctx, limit, offset)
 }
 
 func (s *Service) CreateSupplier(ctx context.Context, supplier domain.Supplier) (domain.Supplier, error) {

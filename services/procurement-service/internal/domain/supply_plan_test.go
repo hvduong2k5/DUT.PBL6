@@ -75,3 +75,17 @@ func TestPreviewSupplyPlanRejectsDuplicateOrInvalidLines(t *testing.T) {
 		t.Fatalf("zero pack size error = %v, want invalid argument", err)
 	}
 }
+
+func TestNewSupplyPlanCreatesDraftRevisionFromSnapshot(t *testing.T) {
+	preview, err := domain.PreviewSupplyPlan(supplyPlanFixture(), time.Date(2026, 11, 7, 10, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, err := domain.NewSupplyPlan("SP-20261107-1234ABCD", "supply-manager", preview)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plan.Status != domain.SupplyPlanDraft || plan.Revision != 1 || plan.Version != 1 || plan.Snapshot.Lines[0].ProposedOrderQuantity != "18.000000" {
+		t.Fatalf("unexpected new supply plan: %+v", plan)
+	}
+}

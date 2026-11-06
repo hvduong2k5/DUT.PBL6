@@ -67,9 +67,10 @@ The lifecycle is `DRAFT → PENDING_APPROVAL → APPROVED → SENT`. After sendi
 ## Supply planning preview
 
 - `POST /api/v1/admin/procurement/supply-plans/preview` accepts forecast and inventory snapshots, their source IDs/timestamps, a caller-provided freshness threshold and policy version, plus per-material forecast, on-hand, open-PO, safety-stock, MOQ, pack-size and lead-time values.
+- `POST /api/v1/admin/procurement/supply-plans` saves the same calculation as a `DRAFT` plan with revision 1 and an immutable JSON snapshot. `GET /api/v1/admin/procurement/supply-plans/{supplyPlanID}` retrieves its current snapshot; `GET /api/v1/admin/procurement/supply-plans?limit=50&offset=0` lists plans.
 - The endpoint resolves material code/name/unit from the active Procurement catalog. It returns a `DRAFT_PREVIEW`, or `INPUT_WARNING` when either source is stale/future-dated; it does not save, approve, or create a PO.
 - Net requirement is `max(0, forecast + safety stock - on hand - open PO)`. A positive proposal is raised to MOQ and rounded up to a pack-size multiple. The response includes rounding excess, projected inventory and a suggested order-by date computed as horizon start minus lead time.
-- This preview uses caller-supplied snapshots. Live Analytics/Inventory connectors, plan persistence/versioning, approval, manual overrides, and plan-to-PO conversion remain separate work.
+- These plans use caller-supplied snapshots. Live Analytics/Inventory connectors, creating later plan revisions, approval, manual overrides, and plan-to-PO conversion remain separate work.
 
 ## Goods receipt and quality inspection
 

@@ -19,12 +19,13 @@ type fakeRepository struct {
 	orders    map[uuid.UUID]domain.PurchaseOrder
 	receipts  map[uuid.UUID]domain.GoodsReceipt
 	contracts map[uuid.UUID]domain.SupplierContract
+	plans     map[uuid.UUID]domain.SupplyPlan
 }
 
 func newFakeRepository() *fakeRepository {
 	return &fakeRepository{
 		suppliers: make(map[uuid.UUID]domain.Supplier), materials: make(map[uuid.UUID]domain.RawMaterial),
-		offers: make(map[uuid.UUID][]domain.SupplierMaterialOffer), orders: make(map[uuid.UUID]domain.PurchaseOrder), receipts: make(map[uuid.UUID]domain.GoodsReceipt), contracts: make(map[uuid.UUID]domain.SupplierContract),
+		offers: make(map[uuid.UUID][]domain.SupplierMaterialOffer), orders: make(map[uuid.UUID]domain.PurchaseOrder), receipts: make(map[uuid.UUID]domain.GoodsReceipt), contracts: make(map[uuid.UUID]domain.SupplierContract), plans: make(map[uuid.UUID]domain.SupplyPlan),
 	}
 }
 
@@ -107,6 +108,32 @@ func (r *fakeRepository) CreateSupplierContract(_ context.Context, item domain.S
 	}
 	r.contracts[item.ID] = item
 	return item, nil
+}
+func (r *fakeRepository) CreateSupplyPlan(_ context.Context, plan domain.SupplyPlan) (domain.SupplyPlan, error) {
+	r.plans[plan.ID] = plan
+	return plan, nil
+}
+func (r *fakeRepository) GetSupplyPlan(_ context.Context, id uuid.UUID) (domain.SupplyPlan, error) {
+	plan, ok := r.plans[id]
+	if !ok {
+		return domain.SupplyPlan{}, domain.ErrNotFound
+	}
+	return plan, nil
+}
+func (r *fakeRepository) ListSupplyPlans(_ context.Context, limit, offset int) ([]domain.SupplyPlan, error) {
+	items := make([]domain.SupplyPlan, 0, len(r.plans))
+	for _, plan := range r.plans {
+		items = append(items, plan)
+	}
+	start := offset
+	if start > len(items) {
+		start = len(items)
+	}
+	end := start + limit
+	if end > len(items) {
+		end = len(items)
+	}
+	return items[start:end], nil
 }
 func (r *fakeRepository) GetSupplierContract(_ context.Context, id uuid.UUID) (domain.SupplierContract, error) {
 	item, ok := r.contracts[id]
@@ -573,5 +600,31 @@ func TestPreviewSupplyPlanUsesActiveCatalogSnapshot(t *testing.T) {
 	repo.materials[material.ID] = material
 	if _, err := application.NewService(repo).PreviewSupplyPlan(context.Background(), input, now); !errors.Is(err, domain.ErrInvalidState) {
 		t.Fatalf("inactive material preview error = %v, want invalid state", err)
+	}
+}
+
+func TestCreateSupplyPlanPersistsDraftSnapshotAndSupportsLookup(t *testing.T) {
+	repo := newFakeRepository()
+	material, _ := domain.NewRawMaterial("RICE-PLAN-SAVE", "Rice", "KG", "")
+	repo.materials[material.ID] = material
+	now := time.Date(2026, 11, 7, 10, 0, 0, 0, time.UTC)
+	input := domain.SupplyPlanInput{HorizonStart: now.AddDate(0, 0, 1), HorizonEnd: now.AddDate(0, 1, 0),
+		ForecastSource: "forecast-1", ForecastAsOf: now.Add(-time.Minute), InventorySource: "inventory-1", InventoryAsOf: now.Add(-time.Minute),
+		StaleAfterMinutes: 120, PolicyVersion: "policy-v1", Lines: []domain.SupplyPlanLineInput{{MaterialID: material.ID, ForecastQuantity: "15", OnHandQuantity: "2", OpenPOQuantity: "3", SafetyStock: "1", MinimumOrderQty: "4", PackSize: "1", LeadTimeDays: 2}}}
+	service := application.NewService(repo)
+	created, err := service.CreateSupplyPlan(context.Background(), input, "supply-manager", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := service.GetSupplyPlan(context.Background(), created.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	items, err := service.ListSupplyPlans(context.Background(), 20, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created.Status != domain.SupplyPlanDraft || created.Revision != 1 || loaded.Snapshot.Lines[0].NetRequirement != "11.000000" || len(items) != 1 || items[0].ID != created.ID {
+		t.Fatalf("supply plan snapshot was not persisted and retrievable: created=%+v loaded=%+v list=%+v", created, loaded, items)
 	}
 }

@@ -601,6 +601,72 @@ func (r *Repository) ListPurchaseOrderRevisions(ctx context.Context, id uuid.UUI
 	return items, rows.Err()
 }
 
+func (r *Repository) CreateSupplyPlan(ctx context.Context, plan domain.SupplyPlan) (domain.SupplyPlan, error) {
+	snapshot, err := json.Marshal(plan.Snapshot)
+	if err != nil {
+		return domain.SupplyPlan{}, err
+	}
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return domain.SupplyPlan{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if err := tx.QueryRow(ctx, `INSERT INTO supply_plans (id,plan_number,status,current_revision,created_by,version)
+		VALUES ($1,$2,$3,$4,$5,$6) RETURNING created_at,updated_at`, plan.ID, plan.Number, plan.Status, plan.Revision, plan.CreatedBy, plan.Version).
+		Scan(&plan.CreatedAt, &plan.UpdatedAt); err != nil {
+		return domain.SupplyPlan{}, mapError(err)
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO supply_plan_revisions (supply_plan_id,revision,snapshot,created_by) VALUES ($1,$2,$3,$4)`, plan.ID, plan.Revision, snapshot, plan.CreatedBy); err != nil {
+		return domain.SupplyPlan{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return domain.SupplyPlan{}, err
+	}
+	return plan, nil
+}
+
+func (r *Repository) GetSupplyPlan(ctx context.Context, id uuid.UUID) (domain.SupplyPlan, error) {
+	return scanSupplyPlan(r.pool.QueryRow(ctx, supplyPlanSelect+` WHERE plan.id=$1`, id))
+}
+
+func (r *Repository) ListSupplyPlans(ctx context.Context, limit, offset int) ([]domain.SupplyPlan, error) {
+	rows, err := r.pool.Query(ctx, supplyPlanSelect+` ORDER BY plan.created_at DESC,plan.id LIMIT $1 OFFSET $2`, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := make([]domain.SupplyPlan, 0)
+	for rows.Next() {
+		item, scanErr := scanSupplyPlan(rows)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+const supplyPlanSelect = `SELECT plan.id,plan.plan_number,plan.current_revision,plan.status,revision.snapshot,plan.created_by,plan.created_at,plan.updated_at,plan.version
+	FROM supply_plans AS plan JOIN supply_plan_revisions AS revision ON revision.supply_plan_id=plan.id AND revision.revision=plan.current_revision`
+
+func scanSupplyPlan(row rowScanner) (domain.SupplyPlan, error) {
+	var plan domain.SupplyPlan
+	var status string
+	var snapshot []byte
+	err := row.Scan(&plan.ID, &plan.Number, &plan.Revision, &status, &snapshot, &plan.CreatedBy, &plan.CreatedAt, &plan.UpdatedAt, &plan.Version)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.SupplyPlan{}, domain.ErrNotFound
+	}
+	if err != nil {
+		return domain.SupplyPlan{}, err
+	}
+	plan.Status = domain.SupplyPlanStatus(status)
+	if err := json.Unmarshal(snapshot, &plan.Snapshot); err != nil {
+		return domain.SupplyPlan{}, err
+	}
+	return plan, nil
+}
+
 func (r *Repository) CreateGoodsReceipt(ctx context.Context, receipt domain.GoodsReceipt) (domain.GoodsReceipt, error) {
 	if receipt.IdempotencyKey != "" {
 		var existingID uuid.UUID

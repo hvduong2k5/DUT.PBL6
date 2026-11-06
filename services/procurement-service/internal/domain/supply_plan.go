@@ -49,6 +49,32 @@ type SupplyPlanPreview struct {
 	Lines             []SupplyPlanLine `json:"lines"`
 }
 
+type SupplyPlanStatus string
+
+const SupplyPlanDraft SupplyPlanStatus = "DRAFT"
+
+type SupplyPlan struct {
+	ID        uuid.UUID         `json:"id"`
+	Number    string            `json:"number"`
+	Revision  int               `json:"revision"`
+	Status    SupplyPlanStatus  `json:"status"`
+	Snapshot  SupplyPlanPreview `json:"snapshot"`
+	CreatedBy string            `json:"created_by"`
+	CreatedAt time.Time         `json:"created_at"`
+	UpdatedAt time.Time         `json:"updated_at"`
+	Version   int64             `json:"version"`
+}
+
+func NewSupplyPlan(number, actor string, snapshot SupplyPlanPreview) (SupplyPlan, error) {
+	number, actor = strings.TrimSpace(number), strings.TrimSpace(actor)
+	if number == "" || actor == "" || len(snapshot.Lines) == 0 || snapshot.Status != "DRAFT_PREVIEW" && snapshot.Status != "INPUT_WARNING" {
+		return SupplyPlan{}, ErrInvalidArgument
+	}
+	now := time.Now().UTC()
+	return SupplyPlan{ID: uuid.New(), Number: number, Revision: 1, Status: SupplyPlanDraft, Snapshot: snapshot,
+		CreatedBy: actor, CreatedAt: now, UpdatedAt: now, Version: 1}, nil
+}
+
 type SupplyPlanLine struct {
 	MaterialID            uuid.UUID `json:"material_id"`
 	MaterialCode          string    `json:"material_code"`

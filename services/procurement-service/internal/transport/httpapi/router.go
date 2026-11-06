@@ -46,7 +46,10 @@ func NewRouter(service *application.Service, internalToken string, ping func(con
 		r.Post("/api/v1/admin/procurement/suppliers/{supplierID}/offers", h.createSupplierOffer)
 		r.Patch("/api/v1/admin/procurement/suppliers/{supplierID}/offers/{offerID}/status", h.setSupplierOfferStatus)
 		r.Get("/api/v1/admin/procurement/purchase-orders", h.listPurchaseOrders)
+		r.Get("/api/v1/admin/procurement/supply-plans", h.listSupplyPlans)
+		r.Post("/api/v1/admin/procurement/supply-plans", h.createSupplyPlan)
 		r.Post("/api/v1/admin/procurement/supply-plans/preview", h.previewSupplyPlan)
+		r.Get("/api/v1/admin/procurement/supply-plans/{supplyPlanID}", h.getSupplyPlan)
 		r.Post("/api/v1/admin/procurement/purchase-orders", h.createPurchaseOrder)
 		r.Get("/api/v1/admin/procurement/purchase-orders/{purchaseOrderID}", h.getPurchaseOrder)
 		r.Put("/api/v1/admin/procurement/purchase-orders/{purchaseOrderID}", h.updatePurchaseOrderDraft)
@@ -102,29 +105,81 @@ type supplyPlanPreviewLineRequest struct {
 }
 
 func (h *Router) previewSupplyPlan(w http.ResponseWriter, r *http.Request) {
+	input, ok := h.decodeSupplyPlanInput(w, r)
+	if !ok {
+		return
+	}
+	preview, err := h.service.PreviewSupplyPlan(r.Context(), input, time.Now().UTC())
+	if err != nil {
+		h.writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, preview)
+}
+
+func (h *Router) createSupplyPlan(w http.ResponseWriter, r *http.Request) {
+	input, ok := h.decodeSupplyPlanInput(w, r)
+	if !ok {
+		return
+	}
+	plan, err := h.service.CreateSupplyPlan(r.Context(), input, strings.TrimSpace(r.Header.Get("X-User-ID")), time.Now().UTC())
+	if err != nil {
+		h.writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, plan)
+}
+
+func (h *Router) getSupplyPlan(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathUUID(w, chi.URLParam(r, "supplyPlanID"))
+	if !ok {
+		return
+	}
+	plan, err := h.service.GetSupplyPlan(r.Context(), id)
+	if err != nil {
+		h.writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, plan)
+}
+
+func (h *Router) listSupplyPlans(w http.ResponseWriter, r *http.Request) {
+	limit, offset, ok := pagination(w, r)
+	if !ok {
+		return
+	}
+	items, err := h.service.ListSupplyPlans(r.Context(), limit, offset)
+	if err != nil {
+		h.writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"items": items, "limit": limit, "offset": offset})
+}
+
+func (h *Router) decodeSupplyPlanInput(w http.ResponseWriter, r *http.Request) (domain.SupplyPlanInput, bool) {
 	var request supplyPlanPreviewRequest
 	if !decodeJSON(w, r, &request) {
-		return
+		return domain.SupplyPlanInput{}, false
 	}
 	start, err := time.Parse("2006-01-02", request.HorizonStart)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "horizon_start must use YYYY-MM-DD")
-		return
+		return domain.SupplyPlanInput{}, false
 	}
 	end, err := time.Parse("2006-01-02", request.HorizonEnd)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "horizon_end must use YYYY-MM-DD")
-		return
+		return domain.SupplyPlanInput{}, false
 	}
 	forecastAsOf, err := time.Parse(time.RFC3339, request.ForecastAsOf)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "forecast_as_of must use RFC3339")
-		return
+		return domain.SupplyPlanInput{}, false
 	}
 	inventoryAsOf, err := time.Parse(time.RFC3339, request.InventoryAsOf)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "inventory_as_of must use RFC3339")
-		return
+		return domain.SupplyPlanInput{}, false
 	}
 	input := domain.SupplyPlanInput{HorizonStart: start, HorizonEnd: end, ForecastSource: request.ForecastSource, ForecastAsOf: forecastAsOf,
 		InventorySource: request.InventorySource, InventoryAsOf: inventoryAsOf, StaleAfterMinutes: request.StaleAfterMinutes,
@@ -133,18 +188,13 @@ func (h *Router) previewSupplyPlan(w http.ResponseWriter, r *http.Request) {
 		materialID, parseErr := uuid.Parse(strings.TrimSpace(line.MaterialID))
 		if parseErr != nil {
 			writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "material_id must be a UUID")
-			return
+			return domain.SupplyPlanInput{}, false
 		}
 		input.Lines = append(input.Lines, domain.SupplyPlanLineInput{MaterialID: materialID, ForecastQuantity: line.ForecastQuantity,
 			OnHandQuantity: line.OnHandQuantity, OpenPOQuantity: line.OpenPOQuantity, SafetyStock: line.SafetyStock,
 			MinimumOrderQty: line.MinimumOrderQty, PackSize: line.PackSize, LeadTimeDays: line.LeadTimeDays})
 	}
-	preview, err := h.service.PreviewSupplyPlan(r.Context(), input, time.Now().UTC())
-	if err != nil {
-		h.writeServiceError(w, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, preview)
+	return input, true
 }
 
 func (h *Router) live(w http.ResponseWriter, _ *http.Request) {
