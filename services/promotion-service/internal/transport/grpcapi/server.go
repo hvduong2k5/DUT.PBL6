@@ -94,7 +94,7 @@ func (s *Server) ValidateAndLockVoucher(ctx context.Context, request *promotionv
 		IsValid: true, DiscountAmount: money(hold.DiscountAmount, hold.Currency),
 		DiscountType: discountType(hold.DiscountType), VoucherLockId: &lockID,
 		ExpiresAt: timestamppb.New(hold.ExpiresAt),
-		Outcome:   outcome(hold, request.GetIdempotencyKey(), "LOCK_VOUCHER", request.GetRequestHash(), request.GetContractVersion()),
+		Outcome:   outcome(hold, request.GetIdempotencyKey(), "ValidateAndLockVoucher", request.GetRequestHash(), request.GetContractVersion()),
 	}, nil
 }
 
@@ -129,17 +129,25 @@ func (s *Server) CalculateDiscount(ctx context.Context, request *promotionv1.Cal
 }
 
 func (s *Server) GetVoucherHoldByOrder(ctx context.Context, request *promotionv1.VoucherHoldCommand) (*promotionv1.VoucherHoldOutcome, error) {
-	if err := validateOrderCommand(request); err != nil {
+	if err := validateOrderQuery(request); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	if request.GetExpectedHoldId() != "" && !holdIDPattern.MatchString(request.GetExpectedHoldId()) {
 		return nil, status.Error(codes.InvalidArgument, "expected_hold_id must be a UUID")
 	}
-	hold, err := s.vouchers.GetHoldByOrder(ctx, request.GetIdempotencyKey(), request.GetRequestHash(), request.GetOrderId(), request.GetExpectedHoldId(), time.Now().UTC())
+	hold, proof, err := s.vouchers.GetHoldByOrder(ctx, request.GetOrderId(), request.GetExpectedHoldId(), request.GetQueryAction(), request.GetIdempotencyKey(), request.GetRequestHash())
 	if err != nil {
 		return nil, toStatus(err)
 	}
-	return outcome(hold, request.GetIdempotencyKey(), "GetVoucherHoldByOrder", request.GetRequestHash(), request.GetContractVersion()), nil
+	response := outcome(hold, "", "", "", request.GetContractVersion())
+	if proof != nil {
+		response.Command = &commonv1.CommandEvidence{
+			IdempotencyKey: proof.IdempotencyKey, Action: proof.Action, RequestHash: proof.RequestHash,
+			Result: proof.Result, ReasonCode: proof.ReasonCode, DecisionId: proof.DecisionID,
+			DecisionAt: timestamppb.New(proof.DecisionAt), ResultingState: proof.ResultingState,
+		}
+	}
+	return response, nil
 }
 
 func (s *Server) FinalizeVoucherHold(ctx context.Context, request *promotionv1.VoucherHoldCommand) (*promotionv1.VoucherHoldOutcome, error) {
@@ -184,6 +192,25 @@ func validateOrderCommand(request *promotionv1.VoucherHoldCommand) error {
 	}
 	if request.GetOrderId() == "" || request.GetQueryAction() == "" {
 		return errors.New("order_id and query_action are required")
+	}
+	return validateCommand(request.GetIdempotencyKey(), request.GetRequestHash())
+}
+
+func validateOrderQuery(request *promotionv1.VoucherHoldCommand) error {
+	if request.GetContractVersion() != orderContractVersion {
+		return fmt.Errorf("contract_version must be %s", orderContractVersion)
+	}
+	if request.GetOrderId() == "" {
+		return errors.New("order_id is required")
+	}
+	if request.GetQueryAction() == "" {
+		if request.GetIdempotencyKey() != "" || request.GetRequestHash() != "" {
+			return errors.New("query_action, idempotency_key and request_hash must be provided together")
+		}
+		return nil
+	}
+	if request.GetQueryAction() != "ValidateAndLockVoucher" && request.GetQueryAction() != "FinalizeVoucherHold" && request.GetQueryAction() != "ReleaseVoucherHoldByOrder" {
+		return errors.New("query_action must name a supported voucher command")
 	}
 	return validateCommand(request.GetIdempotencyKey(), request.GetRequestHash())
 }
@@ -236,10 +263,12 @@ func outcome(hold postgres.Hold, key, action, requestHash, contractVersion strin
 	}
 	result := &promotionv1.VoucherHoldOutcome{
 		OrderId: hold.OrderID, HoldId: hold.ID, State: hold.State, ResourceVersion: hold.Version,
-		ObservedAt: timestamppb.New(observed),
-		Command: &commonv1.CommandEvidence{IdempotencyKey: key, Action: action, RequestHash: requestHash,
-			Result: commandResult(hold), DecisionId: hold.ID, DecisionAt: timestamppb.New(observed), ResultingState: hold.State},
+		ObservedAt:            timestamppb.New(observed),
 		CancellationTombstone: hold.Tombstone, DiscountAmount: money(hold.DiscountAmount, hold.Currency), ContractVersion: contractVersion,
+	}
+	if action != "" {
+		result.Command = &commonv1.CommandEvidence{IdempotencyKey: key, Action: action, RequestHash: requestHash,
+			Result: commandResult(hold), DecisionId: hold.ID, DecisionAt: timestamppb.New(observed), ResultingState: hold.State}
 	}
 	if !hold.Tombstone {
 		result.ExpiresAt = timestamppb.New(hold.ExpiresAt)

@@ -39,6 +39,17 @@ type Hold struct {
 	Tombstone      bool
 }
 
+type HoldCommandEvidence struct {
+	IdempotencyKey string
+	Action         string
+	RequestHash    string
+	Result         string
+	ReasonCode     string
+	DecisionID     string
+	DecisionAt     time.Time
+	ResultingState string
+}
+
 type LockRequest struct {
 	IdempotencyKey  string
 	RequestHash     string
@@ -431,76 +442,86 @@ func (r *VoucherRepository) FinalizeHold(ctx context.Context, idempotencyKey, re
 	return hold, nil
 }
 
-func (r *VoucherRepository) GetHoldByOrder(ctx context.Context, idempotencyKey, requestHash, orderID, holdID string, now time.Time) (Hold, error) {
-	if idempotencyKey == "" || orderID == "" || requestHash == "" {
-		return Hold{}, errors.New("idempotency key, request hash and order id are required")
+func (r *VoucherRepository) GetHoldByOrder(ctx context.Context, orderID, holdID, queryAction, idempotencyKey, requestHash string) (Hold, *HoldCommandEvidence, error) {
+	if orderID == "" {
+		return Hold{}, nil, errors.New("order id is required")
 	}
-	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
+	if queryAction != "" && (idempotencyKey == "" || requestHash == "") {
+		return Hold{}, nil, errors.New("command evidence filter requires action, idempotency key and request hash")
+	}
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
 	if err != nil {
-		return Hold{}, err
+		return Hold{}, nil, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	if err := tx.QueryRow(ctx, `SELECT clock_timestamp()`).Scan(&now); err != nil {
-		return Hold{}, err
-	}
-	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, idempotencyKey); err != nil {
-		return Hold{}, err
-	}
-	if err := tx.QueryRow(ctx, `SELECT clock_timestamp()`).Scan(&now); err != nil {
-		return Hold{}, err
-	}
-	var storedHash, resourceID, commandType string
-	var responseJSON []byte
-	err = tx.QueryRow(ctx, `SELECT request_hash,resource_id::text,command_type,response_json FROM command_idempotency WHERE idempotency_key=$1`, idempotencyKey).Scan(&storedHash, &resourceID, &commandType, &responseJSON)
-	if err == nil {
-		if storedHash != requestHash || commandType != "GET_VOUCHER_HOLD_BY_ORDER" {
-			return Hold{}, domain.ErrIdempotencyConflict
-		}
-		var result struct {
-			Hold Hold `json:"hold"`
-		}
-		if err := json.Unmarshal(responseJSON, &result); err != nil {
-			return Hold{}, err
-		}
-		if result.Hold.OrderID != orderID || (holdID != "" && result.Hold.ID != holdID) {
-			return Hold{}, domain.ErrIdempotencyConflict
-		}
-		result.Hold.Replay = true
-		if err := tx.Commit(ctx); err != nil {
-			return Hold{}, err
-		}
-		return result.Hold, nil
-	}
-	if !errors.Is(err, pgx.ErrNoRows) {
-		return Hold{}, err
-	}
-	hold, err := r.getHold(ctx, tx, holdID, orderID, true)
+	hold, err := r.getHold(ctx, tx, holdID, orderID, false)
 	if err != nil {
-		return Hold{}, err
-	}
-	if hold.State == "HELD" && !now.Before(hold.ExpiresAt) {
-		hold.State = "EXPIRED"
-		hold.Version++
-		if _, err := tx.Exec(ctx, `UPDATE voucher_holds SET state='EXPIRED',resource_version=$2,updated_at=clock_timestamp() WHERE id=$1::uuid`, hold.ID, hold.Version); err != nil {
-			return Hold{}, err
-		}
+		return Hold{}, nil, err
 	}
 	if err := tx.QueryRow(ctx, `SELECT clock_timestamp()`).Scan(&hold.ObservedAt); err != nil {
-		return Hold{}, err
+		return Hold{}, nil, err
 	}
-	response, err := json.Marshal(struct {
-		Hold Hold `json:"hold"`
-	}{Hold: hold})
-	if err != nil {
-		return Hold{}, err
-	}
-	if _, err := tx.Exec(ctx, `INSERT INTO command_idempotency(idempotency_key,command_type,request_hash,resource_id,response_json,expires_at) VALUES($1,'GET_VOUCHER_HOLD_BY_ORDER',$2,$3::uuid,$4,now()+interval '7 days')`, idempotencyKey, requestHash, hold.ID, response); err != nil {
-		return Hold{}, err
+	var proof *HoldCommandEvidence
+	if queryAction != "" {
+		proof, err = r.findHoldCommandEvidence(ctx, tx, hold, queryAction, idempotencyKey, requestHash)
+		if err != nil {
+			return Hold{}, nil, err
+		}
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return Hold{}, err
+		return Hold{}, nil, err
 	}
-	return hold, nil
+	return hold, proof, nil
+}
+
+func (r *VoucherRepository) findHoldCommandEvidence(ctx context.Context, tx pgx.Tx, hold Hold, action, key, requestHash string) (*HoldCommandEvidence, error) {
+	proof := &HoldCommandEvidence{IdempotencyKey: key, Action: action, RequestHash: requestHash, DecisionID: hold.ID}
+	switch action {
+	case "ValidateAndLockVoucher":
+		var storedHash string
+		var decidedAt time.Time
+		err := tx.QueryRow(ctx, `SELECT request_hash,created_at FROM voucher_holds WHERE idempotency_key=$1 AND order_id=$2 AND id=$3::uuid`, key, hold.OrderID, hold.ID).Scan(&storedHash, &decidedAt)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, domain.ErrHoldNotFound
+		}
+		if err != nil {
+			return nil, err
+		}
+		if storedHash != requestHash {
+			return nil, domain.ErrIdempotencyConflict
+		}
+		proof.Result, proof.DecisionAt, proof.ResultingState = "APPLIED", decidedAt, "HELD"
+	case "FinalizeVoucherHold", "ReleaseVoucherHoldByOrder":
+		expectedType := "FINALIZE_VOUCHER_HOLD"
+		if action == "ReleaseVoucherHoldByOrder" {
+			expectedType = "RELEASE_VOUCHER"
+		}
+		var storedHash, resourceID string
+		var responseJSON []byte
+		err := tx.QueryRow(ctx, `SELECT request_hash,resource_id::text,response_json FROM command_idempotency WHERE idempotency_key=$1 AND command_type=$2`, key, expectedType).Scan(&storedHash, &resourceID, &responseJSON)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, domain.ErrHoldNotFound
+		}
+		if err != nil {
+			return nil, err
+		}
+		if storedHash != requestHash || resourceID != hold.ID {
+			return nil, domain.ErrIdempotencyConflict
+		}
+		var original Hold
+		if err := json.Unmarshal(responseJSON, &original); err != nil {
+			return nil, err
+		}
+		proof.DecisionAt = original.ObservedAt
+		proof.ResultingState = original.State
+		proof.Result = "APPLIED"
+		if original.Replay {
+			proof.Result = "ALREADY_APPLIED"
+		}
+	default:
+		return nil, errors.New("query_action must name a supported voucher command")
+	}
+	return proof, nil
 }
 
 func (r *VoucherRepository) getHold(ctx context.Context, queryer interface {

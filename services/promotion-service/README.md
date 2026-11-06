@@ -36,7 +36,9 @@ resources as `EXPIRED` in batches using PostgreSQL time, incrementing the resour
 serializes with finalize/release through row locks; the Order command remains authoritative for
 its own outcome. Order 3.2 release-by-order also writes a durable `RELEASED` tombstone when no
 hold exists yet, preventing a late voucher lock from attaching to an order that is already being
-cancelled.
+cancelled. `GetVoucherHoldByOrder` is read-only: it returns the current resource without storing a
+query key or advancing expiry state. Callers can optionally provide the original command action,
+idempotency key and request hash to retrieve its durable command evidence.
 
 ## Configuration
 
