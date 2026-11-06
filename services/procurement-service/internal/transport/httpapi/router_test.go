@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/omamx/procurement-service/internal/application"
@@ -461,6 +462,28 @@ func TestResolvingGoodsReceiptVarianceRequiresSensitiveRole(t *testing.T) {
 	resolved := performRequest(handler, http.MethodPost, path, body, "procurement", "PROCUREMENT_MANAGER")
 	if resolved.Code != http.StatusOK || !strings.Contains(resolved.Body.String(), `"status":"RESOLVED"`) {
 		t.Fatalf("procurement manager resolve status=%d body=%s", resolved.Code, resolved.Body.String())
+	}
+}
+
+func TestSupplyPlanPreviewRouteReturnsComputedProposal(t *testing.T) {
+	repo := newHTTPRepository()
+	material, _ := domain.NewRawMaterial("RICE-PLAN", "Rice", "KG", "")
+	repo.materials[material.ID] = material
+	handler := newHandler(repo)
+	now := time.Now().UTC().Truncate(time.Second)
+	bodyBytes, err := json.Marshal(map[string]any{
+		"horizon_start": now.AddDate(0, 0, 1).Format("2006-01-02"), "horizon_end": now.AddDate(0, 1, 0).Format("2006-01-02"),
+		"forecast_source": "forecast-snapshot-1", "forecast_as_of": now.Add(-time.Minute).Format(time.RFC3339),
+		"inventory_source": "inventory-snapshot-1", "inventory_as_of": now.Add(-time.Minute).Format(time.RFC3339),
+		"stale_after_minutes": 120, "policy_version": "policy-v1",
+		"lines": []map[string]any{{"material_id": material.ID.String(), "forecast_quantity": "15", "on_hand_quantity": "2", "open_po_quantity": "3", "safety_stock": "1", "minimum_order_quantity": "4", "pack_size": "1", "lead_time_days": 2}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	response := performRequest(handler, http.MethodPost, "/api/v1/admin/procurement/supply-plans/preview", string(bodyBytes), "supply", "SUPPLY_MANAGER")
+	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"net_requirement":"11.000000"`) || !strings.Contains(response.Body.String(), `"material_code":"RICE-PLAN"`) {
+		t.Fatalf("supply plan preview status=%d body=%s", response.Code, response.Body.String())
 	}
 }
 

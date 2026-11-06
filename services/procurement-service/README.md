@@ -64,6 +64,13 @@ Supplier types: `FARMER`, `COOPERATIVE`, `OCOP_BUSINESS`, `COMPANY`. Contracts u
 
 The lifecycle is `DRAFT → PENDING_APPROVAL → APPROVED → SENT`. After sending, the supplier may acknowledge, request changes, or decline. A change request can be revised into a new `DRAFT` revision and must pass approval again. The old issued revision is kept in `purchase_order_revision_snapshots`; the live PO row represents the latest revision. A sent request retry is idempotent while the PO remains in a post-send state and does not create another status-history entry. A partially received PO can be closed to cancel its remaining quantity; received quantities are preserved. Eligible pre-issue states may transition to `CANCELLED`. Every create/update/transition is written to `purchase_order_status_history`. Version-checked updates reject stale concurrent writes. Unit-price times decimal quantity is rounded half-up to the nearest minor currency unit. Decimal quantities support up to six fractional digits.
 
+## Supply planning preview
+
+- `POST /api/v1/admin/procurement/supply-plans/preview` accepts forecast and inventory snapshots, their source IDs/timestamps, a caller-provided freshness threshold and policy version, plus per-material forecast, on-hand, open-PO, safety-stock, MOQ, pack-size and lead-time values.
+- The endpoint resolves material code/name/unit from the active Procurement catalog. It returns a `DRAFT_PREVIEW`, or `INPUT_WARNING` when either source is stale/future-dated; it does not save, approve, or create a PO.
+- Net requirement is `max(0, forecast + safety stock - on hand - open PO)`. A positive proposal is raised to MOQ and rounded up to a pack-size multiple. The response includes rounding excess, projected inventory and a suggested order-by date computed as horizon start minus lead time.
+- This preview uses caller-supplied snapshots. Live Analytics/Inventory connectors, plan persistence/versioning, approval, manual overrides, and plan-to-PO conversion remain separate work.
+
 ## Goods receipt and quality inspection
 
 - `POST /api/v1/admin/procurement/goods-receipts` creates a draft receipt against a `SENT`, `ACKNOWLEDGED`, or `PARTIALLY_RECEIVED` PO. Each line references a PO line and records received quantity plus optional supplier lot and paired manufacture/expiry dates. It requires an `Idempotency-Key` header (16–128 visible ASCII characters); retrying the same key and payload returns the original receipt, while reusing the key with changed data returns `409 CONFLICT`.

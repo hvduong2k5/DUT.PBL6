@@ -46,6 +46,7 @@ func NewRouter(service *application.Service, internalToken string, ping func(con
 		r.Post("/api/v1/admin/procurement/suppliers/{supplierID}/offers", h.createSupplierOffer)
 		r.Patch("/api/v1/admin/procurement/suppliers/{supplierID}/offers/{offerID}/status", h.setSupplierOfferStatus)
 		r.Get("/api/v1/admin/procurement/purchase-orders", h.listPurchaseOrders)
+		r.Post("/api/v1/admin/procurement/supply-plans/preview", h.previewSupplyPlan)
 		r.Post("/api/v1/admin/procurement/purchase-orders", h.createPurchaseOrder)
 		r.Get("/api/v1/admin/procurement/purchase-orders/{purchaseOrderID}", h.getPurchaseOrder)
 		r.Put("/api/v1/admin/procurement/purchase-orders/{purchaseOrderID}", h.updatePurchaseOrderDraft)
@@ -75,6 +76,75 @@ func NewRouter(service *application.Service, internalToken string, ping func(con
 		r.Post("/api/v1/admin/procurement/goods-receipts/{goodsReceiptID}/variances/{varianceID}/resolve", h.resolveGoodsReceiptVariance)
 	})
 	return r
+}
+
+type supplyPlanPreviewRequest struct {
+	HorizonStart      string                         `json:"horizon_start"`
+	HorizonEnd        string                         `json:"horizon_end"`
+	ForecastSource    string                         `json:"forecast_source"`
+	ForecastAsOf      string                         `json:"forecast_as_of"`
+	InventorySource   string                         `json:"inventory_source"`
+	InventoryAsOf     string                         `json:"inventory_as_of"`
+	StaleAfterMinutes int                            `json:"stale_after_minutes"`
+	PolicyVersion     string                         `json:"policy_version"`
+	Lines             []supplyPlanPreviewLineRequest `json:"lines"`
+}
+
+type supplyPlanPreviewLineRequest struct {
+	MaterialID       string `json:"material_id"`
+	ForecastQuantity string `json:"forecast_quantity"`
+	OnHandQuantity   string `json:"on_hand_quantity"`
+	OpenPOQuantity   string `json:"open_po_quantity"`
+	SafetyStock      string `json:"safety_stock"`
+	MinimumOrderQty  string `json:"minimum_order_quantity"`
+	PackSize         string `json:"pack_size,omitempty"`
+	LeadTimeDays     int    `json:"lead_time_days"`
+}
+
+func (h *Router) previewSupplyPlan(w http.ResponseWriter, r *http.Request) {
+	var request supplyPlanPreviewRequest
+	if !decodeJSON(w, r, &request) {
+		return
+	}
+	start, err := time.Parse("2006-01-02", request.HorizonStart)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "horizon_start must use YYYY-MM-DD")
+		return
+	}
+	end, err := time.Parse("2006-01-02", request.HorizonEnd)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "horizon_end must use YYYY-MM-DD")
+		return
+	}
+	forecastAsOf, err := time.Parse(time.RFC3339, request.ForecastAsOf)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "forecast_as_of must use RFC3339")
+		return
+	}
+	inventoryAsOf, err := time.Parse(time.RFC3339, request.InventoryAsOf)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "inventory_as_of must use RFC3339")
+		return
+	}
+	input := domain.SupplyPlanInput{HorizonStart: start, HorizonEnd: end, ForecastSource: request.ForecastSource, ForecastAsOf: forecastAsOf,
+		InventorySource: request.InventorySource, InventoryAsOf: inventoryAsOf, StaleAfterMinutes: request.StaleAfterMinutes,
+		PolicyVersion: request.PolicyVersion, Lines: make([]domain.SupplyPlanLineInput, 0, len(request.Lines))}
+	for _, line := range request.Lines {
+		materialID, parseErr := uuid.Parse(strings.TrimSpace(line.MaterialID))
+		if parseErr != nil {
+			writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "material_id must be a UUID")
+			return
+		}
+		input.Lines = append(input.Lines, domain.SupplyPlanLineInput{MaterialID: materialID, ForecastQuantity: line.ForecastQuantity,
+			OnHandQuantity: line.OnHandQuantity, OpenPOQuantity: line.OpenPOQuantity, SafetyStock: line.SafetyStock,
+			MinimumOrderQty: line.MinimumOrderQty, PackSize: line.PackSize, LeadTimeDays: line.LeadTimeDays})
+	}
+	preview, err := h.service.PreviewSupplyPlan(r.Context(), input, time.Now().UTC())
+	if err != nil {
+		h.writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, preview)
 }
 
 func (h *Router) live(w http.ResponseWriter, _ *http.Request) {

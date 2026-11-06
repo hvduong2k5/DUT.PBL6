@@ -52,6 +52,22 @@ type Service struct{ repo Repository }
 
 func NewService(repo Repository) *Service { return &Service{repo: repo} }
 
+func (s *Service) PreviewSupplyPlan(ctx context.Context, input domain.SupplyPlanInput, now time.Time) (domain.SupplyPlanPreview, error) {
+	for i := range input.Lines {
+		material, err := s.repo.GetMaterial(ctx, input.Lines[i].MaterialID)
+		if err != nil {
+			return domain.SupplyPlanPreview{}, err
+		}
+		if material.Status != domain.MaterialActive {
+			return domain.SupplyPlanPreview{}, domain.ErrInvalidState
+		}
+		input.Lines[i].MaterialCode = material.Code
+		input.Lines[i].MaterialName = material.Name
+		input.Lines[i].Unit = material.BaseUnit
+	}
+	return domain.PreviewSupplyPlan(input, now)
+}
+
 func (s *Service) CreateSupplier(ctx context.Context, supplier domain.Supplier) (domain.Supplier, error) {
 	return s.repo.CreateSupplier(ctx, supplier)
 }

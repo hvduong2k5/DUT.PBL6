@@ -553,3 +553,25 @@ func TestUpdateMaterialPreservesStatusAndPreferredSupplier(t *testing.T) {
 		t.Fatalf("update lost existing state: %+v", updated)
 	}
 }
+
+func TestPreviewSupplyPlanUsesActiveCatalogSnapshot(t *testing.T) {
+	repo := newFakeRepository()
+	material, _ := domain.NewRawMaterial("RICE-PLAN", "Rice", "KG", "")
+	repo.materials[material.ID] = material
+	now := time.Date(2026, 11, 7, 10, 0, 0, 0, time.UTC)
+	input := domain.SupplyPlanInput{HorizonStart: now.AddDate(0, 0, 1), HorizonEnd: now.AddDate(0, 1, 0),
+		ForecastSource: "forecast-1", ForecastAsOf: now.Add(-time.Minute), InventorySource: "inventory-1", InventoryAsOf: now.Add(-time.Minute),
+		StaleAfterMinutes: 120, PolicyVersion: "policy-v1", Lines: []domain.SupplyPlanLineInput{{MaterialID: material.ID, ForecastQuantity: "15", OnHandQuantity: "2", OpenPOQuantity: "3", SafetyStock: "1", MinimumOrderQty: "4", PackSize: "1", LeadTimeDays: 2}}}
+	preview, err := application.NewService(repo).PreviewSupplyPlan(context.Background(), input, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if preview.Lines[0].MaterialCode != "RICE-PLAN" || preview.Lines[0].Unit != "KG" || preview.Lines[0].NetRequirement != "11.000000" {
+		t.Fatalf("catalog snapshot or plan calculation missing: %+v", preview.Lines[0])
+	}
+	material.Status = domain.MaterialInactive
+	repo.materials[material.ID] = material
+	if _, err := application.NewService(repo).PreviewSupplyPlan(context.Background(), input, now); !errors.Is(err, domain.ErrInvalidState) {
+		t.Fatalf("inactive material preview error = %v, want invalid state", err)
+	}
+}
