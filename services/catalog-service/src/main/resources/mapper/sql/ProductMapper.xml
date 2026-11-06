@@ -106,8 +106,8 @@
               AND pv.listing_status = 'ACTIVE'
               AND cp.channel = #{channel}::sales_channel
               AND cp.status = 'ACTIVE'
-              AND cp.effective_from <= NOW()
-              AND (cp.effective_to IS NULL OR cp.effective_to > NOW())
+              AND cp.effective_from &lt;= NOW()
+              AND (cp.effective_to IS NULL OR cp.effective_to &gt; NOW())
             <if test="minPrice != null">
                 AND cp.amount_units &gt;= #{minPrice}
             </if>
@@ -138,8 +138,8 @@
                       AND pv.listing_status = 'ACTIVE'
                       AND cp.channel = #{channel}::sales_channel
                       AND cp.status = 'ACTIVE'
-                      AND cp.effective_from <= NOW()
-                      AND (cp.effective_to IS NULL OR cp.effective_to > NOW())
+                      AND cp.effective_from &lt;= NOW()
+                      AND (cp.effective_to IS NULL OR cp.effective_to &gt; NOW())
                 ) ASC
             </when>
             <when test="sortBy == 'PRICE_DESC'">
@@ -151,8 +151,8 @@
                       AND pv.listing_status = 'ACTIVE'
                       AND cp.channel = #{channel}::sales_channel
                       AND cp.status = 'ACTIVE'
-                      AND cp.effective_from <= NOW()
-                      AND (cp.effective_to IS NULL OR cp.effective_to > NOW())
+                      AND cp.effective_from &lt;= NOW()
+                      AND (cp.effective_to IS NULL OR cp.effective_to &gt; NOW())
                 ) DESC
             </when>
             <when test="sortBy == 'NEWEST'">
