@@ -7,6 +7,8 @@
 > Registration/locations support: [customer-onboarding.support.openapi.yaml](customer-onboarding.support.openapi.yaml), owner Identity/Profile. Bốn luồng hồ sơ, đăng ký, checkout–Inventory và Shipping có phạm vi/nghiệm thu tại [MVP_CUSTOMER_ORDER_SHIPPING_ACCEPTANCE.md](../ui_web/MVP_CUSTOMER_ORDER_SHIPPING_ACCEPTANCE.md).
 
 # CẨM NANG ĐẶC TẢ GIAO DIỆN & HỢP ĐỒNG HỆ THỐNG (API & CONTRACTS SPECIFICATIONS)
+
+> Fulfillment MVP: [luồng thật, bảng quyền và cách bật](../../packages/contracts/mvp/fulfillment-integration.md), [staff REST](fulfillment-service.candidate.openapi.yaml), [packing gRPC canonical](../../packages/proto/packing/v1/packing.proto). Chỉ bật có cấu hình; Customer không được thao tác đóng gói.
 ## HỆ SINH THÁI THƯƠNG MẠI ĐIỆN TỬ & CHUỖI CUNG ỨNG ĐẶC SẢN OCOP HUẾ (MÈ XỬNG O MẠ)
 
 Thư mục này là **Single Source of Truth** về mặt tài liệu giao tiếp kỹ thuật của toàn bộ 18 Microservices, phục vụ trực tiếp cho quá trình lập trình song song, kiểm thử tự động (CI/CD Contract Test) và tài liệu bảo vệ đồ án.

@@ -2,6 +2,8 @@
 
 Đây là điểm vào chung để cập nhật các service cho luồng **Catalog → Profile/address → Cart/Quote → CheckoutOperation → SePay → Inventory COMMITTED → Fulfillment → Shipping**.
 
+> **Checkpoint tích hợp 04/11:** [Fulfillment thật cho MVP](fulfillment-integration.md) mô tả luồng mới, permission → API → phạm vi, migrations, cấu hình và bài kiểm tra Web/Mobile/video/Shipping. Packing ports là capability opt-in có code provider; chưa mở paid cancellation, COD settlement/completion hoặc production media/carrier. Các mục “provider-required” bên dưới giữ phạm vi target tổng thể, không thay thế checkpoint và evidence cụ thể.
+
 **Trạng thái: integration target.** Bộ contract được hợp nhất để team triển khai; chưa có sign-off owning-service hoặc bằng chứng chạy xuyên service thật. CI xanh chứng minh wire/schema/codegen, không chứng minh service đã hỗ trợ capability. Không tự bật feature sau khi chỉ merge contract.
 
 ## Bắt đầu theo vai trò

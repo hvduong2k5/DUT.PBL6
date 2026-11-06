@@ -23,6 +23,7 @@ import (
 	presentationgrpc "dut-pbl6/inventory-service/internal/presentation/grpc"
 	presentationkafka "dut-pbl6/inventory-service/internal/presentation/kafka"
 	inventoryv1 "dut-pbl6/inventory-service/pkg/proto/inventory/v1"
+	packingv1 "dut-pbl6/inventory-service/pkg/proto/packing/v1"
 	"runtime/debug"
 
 	_ "github.com/lib/pq"
@@ -210,6 +211,17 @@ func main() {
 		go terminal.RunExpiry(workerCtx)
 	}
 	grpcServer := grpc.NewServer(serverOptions...)
+	if terminal, ok := serviceHandler.(*presentationgrpc.TerminalServer); ok && os.Getenv("INVENTORY_FULFILLMENT_TOKEN_FILE") != "" {
+		var packingSchema bool
+		if e := db.QueryRow("SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=current_schema() AND table_name='batches' AND column_name='version')").Scan(&packingSchema); e != nil || !packingSchema {
+			log.Fatal("apply packing migration 000003 before enabling Fulfillment reads")
+		}
+		packingToken, e := os.ReadFile(os.Getenv("INVENTORY_FULFILLMENT_TOKEN_FILE"))
+		if e != nil || len(strings.TrimSpace(string(packingToken))) < 32 {
+			log.Fatal("valid Fulfillment packing credential required")
+		}
+		packingv1.RegisterInventoryPackingInputsCandidateServer(grpcServer, &presentationgrpc.PackingServer{Terminal: terminal, Token: strings.TrimSpace(string(packingToken))})
+	}
 	inventoryv1.RegisterInventoryServiceServer(grpcServer, serviceHandler)
 	reflection.Register(grpcServer)
 
