@@ -5,6 +5,7 @@ package omamx.promotion.v1;
 import "google/protobuf/timestamp.proto";
 import "common/v1/types.proto";
 import "common/v1/errors.proto";
+import "common/v1/workflow.proto";
 
 option go_package = "github.com/omamx/proto/promotion/v1;promotionv1";
 option java_multiple_files = true;
@@ -24,6 +25,10 @@ service PromotionService {
 
   // Tính toán nhanh số tiền giảm giá dự kiến mà không khóa voucher (Dùng khi xem giỏ hàng)
   rpc CalculateDiscount(CalculateDiscountRequest) returns (CalculateDiscountResponse);
+  // Proposed feature-gated Order 3.2 protocol; paid facts never consume a hold.
+  rpc GetVoucherHoldByOrder(VoucherHoldCommand) returns (VoucherHoldOutcome);
+  rpc FinalizeVoucherHold(VoucherHoldCommand) returns (VoucherHoldOutcome);
+  rpc ReleaseVoucherHoldByOrder(VoucherHoldCommand) returns (VoucherHoldOutcome);
 }
 
 // Loại giảm giá của voucher
@@ -53,6 +58,9 @@ message ValidateAndLockVoucherRequest {
 
   // Thời gian khóa giữ chỗ voucher (Mặc định: 15 phút, khớp với TTL của khóa kho)
   int32 ttl_minutes = 6;
+  omamx.common.v1.Money shipping_fee = 7;
+  string request_hash = 8;
+  string contract_version = 9;
 }
 
 // Phản hồi kết quả thẩm định và khóa voucher
@@ -74,6 +82,7 @@ message ValidateAndLockVoucherResponse {
 
   // Chi tiết lỗi nếu voucher không hợp lệ (Hết hạn, chưa đủ tiền tối thiểu, v.v.)
   optional omamx.common.v1.ErrorDetail error = 6;
+  VoucherHoldOutcome outcome = 7;
 }
 
 // Yêu cầu mở khóa voucher khi Saga kích hoạt đền bù
@@ -96,6 +105,29 @@ message CalculateDiscountRequest {
   string voucher_code = 1;
   string customer_id = 2;
   omamx.common.v1.Money order_subtotal = 3;
+  omamx.common.v1.Money shipping_fee = 4;
+}
+
+message VoucherHoldCommand {
+  string order_id = 1;
+  string idempotency_key = 2;
+  string request_hash = 3;
+  optional string expected_hold_id = 4;
+  optional int64 expected_version = 5;
+  string contract_version = 6;
+  string query_action = 7;
+}
+message VoucherHoldOutcome {
+  string order_id = 1;
+  string hold_id = 2;
+  string state = 3; // HELD, FINALIZED, RELEASED, EXPIRED; never UNKNOWN.
+  int64 resource_version = 4;
+  google.protobuf.Timestamp expires_at = 5;
+  google.protobuf.Timestamp observed_at = 6;
+  omamx.common.v1.CommandEvidence command = 7;
+  bool cancellation_tombstone = 8;
+  omamx.common.v1.Money discount_amount = 9;
+  string contract_version = 10;
 }
 
 // Phản hồi tính toán giảm giá thử nghiệm

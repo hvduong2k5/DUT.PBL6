@@ -1,0 +1,203 @@
+syntax = "proto3";
+
+package hvduong.catalog.v1;
+
+import "catalog/v1/catalog_public.proto";
+import "google/api/annotations.proto";
+
+option go_package = "github.com/omamx/proto/catalogpublic/v1;catalogpublicv1";
+option java_multiple_files = true;
+option java_package = "com.hvduong.catalog.grpc.v1";
+option java_outer_classname = "CatalogAdminProto";
+
+service CatalogAdminService {
+  rpc CreateProduct(CreateProductRpcRequest) returns (ProductCommandResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/admin/catalog/products"
+      body: "*"
+    };
+  }
+
+  rpc UpdateProduct(UpdateProductRpcRequest) returns (ProductCommandResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/admin/catalog/products/{product_id}"
+      body: "*"
+    };
+  }
+
+  rpc TransitionProduct(ProductTransitionRequest) returns (ProductCommandResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/admin/catalog/products/{product_id}/transition"
+      body: "*"
+    };
+  }
+
+  rpc CreateVariant(CreateVariantRpcRequest) returns (ProductCommandResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/admin/catalog/products/{product_id}/variants"
+      body: "*"
+    };
+  }
+
+  rpc UpdateVariantPrices(UpdateVariantPricesRpcRequest) returns (ProductCommandResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/admin/catalog/products/{product_id}/variants/{variant_id}/prices"
+      body: "*"
+    };
+  }
+
+  rpc ListAdminProducts(ListAdminProductsRequest) returns (ListAdminProductsResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/admin/catalog/products"
+    };
+  }
+
+  rpc GetAdminProduct(GetAdminProductRequest) returns (GetAdminProductResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/admin/catalog/products/{product_id}"
+      response_body: "product"
+    };
+  }
+}
+
+enum ProductTransition {
+  PRODUCT_TRANSITION_UNSPECIFIED = 0;
+  SUBMIT_FOR_REVIEW = 1;
+  APPROVE = 2;
+  REJECT = 3;
+  SUSPEND = 4;
+  ARCHIVE = 5;
+}
+
+message ProductInput {
+  string category_id = 1;
+  string name = 2;
+  string slug = 3;
+  string description = 4;
+  string ingredients = 5;
+  string storage_guide = 6;
+  optional int32 ocop_star = 7;
+  string ocop_certificate_no = 8;
+  string story = 9;
+}
+message ProductPatch {
+  optional string category_id = 1;
+  optional string name = 2;
+  optional string slug = 3;
+  optional string description = 4;
+  optional string ingredients = 5;
+  optional string storage_guide = 6;
+  optional int32 ocop_star = 7;
+  optional string ocop_certificate_no = 8;
+  optional string story = 9;
+}
+message CreateProductRpcRequest { ProductInput product = 1; string actor_id = 2; }
+message UpdateProductRpcRequest { string product_id = 1; ProductPatch product = 2; int64 expected_version = 3; string actor_id = 4; }
+message ProductTransitionRequest { string product_id = 1; int64 expected_version = 2; string actor_id = 3; ProductTransition transition = 4; }
+message VariantInput {
+  string sku_code = 1;
+  string variant_name = 2;
+  string weight_value = 3;
+  string weight_unit = 4;
+  string flavor = 5;
+  string packaging_type = 6;
+  optional int32 shelf_life_days = 7;
+  int64 base_price_units = 8;
+}
+message CreateVariantRpcRequest { string product_id = 1; VariantInput variant = 2; string actor_id = 3; }
+message PriceEntry { SalesChannel channel = 1; int64 amount_units = 2; string currency_code = 3; }
+message UpdateVariantPricesRpcRequest { string product_id = 1; string variant_id = 2; repeated PriceEntry prices = 3; string actor_id = 4; }
+message ProductCommandResponse { ProductDetail product = 1; }
+
+message AdminFoodInformation {
+  string ingredients = 1;
+  string allergen_statement = 2;
+  string storage_instructions = 3;
+  string manufacturing_date_policy = 4;
+  string shelf_life_description = 5;
+}
+
+message AdminProductSku {
+  string sku_id = 1;
+  string sku_code = 2;
+  string label = 3;
+  int32 weight_grams = 4;
+  string flavor = 5;
+  string package_type = 6;
+  int64 base_price_vnd = 7;
+  string currency = 8;
+  string sale_status = 9;
+  string sale_status_label = 10;
+  string updated_at = 11;
+  int64 revision = 12;
+}
+
+message AdminProductDetail {
+  string product_id = 1;
+  string name = 2;
+  string category_id = 3;
+  string category_name = 4;
+  string sale_status = 5;
+  string sale_status_label = 6;
+  int32 sku_count = 7;
+  int32 on_sale_sku_count = 8;
+  int64 base_price_from_vnd = 9;
+  bool food_information_complete = 10;
+  string updated_at = 11;
+  int64 revision = 12;
+  string short_description = 13;
+  string long_description = 14;
+  string cover_image_url = 15;
+  string cover_image_alt = 16;
+  AdminFoodInformation food_information = 17;
+  repeated AdminProductSku skus = 18;
+}
+
+message AdminProductListItem {
+  string product_id = 1;
+  string name = 2;
+  string category_id = 3;
+  string category_name = 4;
+  string sale_status = 5;
+  string sale_status_label = 6;
+  int32 sku_count = 7;
+  int32 on_sale_sku_count = 8;
+  int64 base_price_from_vnd = 9;
+  bool food_information_complete = 10;
+  string updated_at = 11;
+  int64 revision = 12;
+}
+
+message ListAdminProductsRequest {
+  optional string q = 1;
+  optional string status = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+message StatusCount {
+  string status = 1;
+  string label = 2;
+  int32 count = 3;
+}
+
+message CategorySummary {
+  string category_id = 1;
+  string category_name = 2;
+}
+
+message ListAdminProductsResponse {
+  repeated AdminProductListItem items = 1;
+  repeated StatusCount status_counts = 2;
+  repeated CategorySummary categories = 3;
+  string calculated_at = 4;
+  int32 total = 5;
+}
+
+message GetAdminProductRequest {
+  string product_id = 1;
+}
+
+message GetAdminProductResponse {
+  AdminProductDetail product = 1;
+}

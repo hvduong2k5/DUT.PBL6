@@ -1,0 +1,128 @@
+ Container order-sandbox-redis-1 Running
+ Container order-sandbox-kafka-1 Running
+ Container order-sandbox-db-1 Running
+ Container order-sandbox-kafka-volume-init-1 Starting
+ Container order-sandbox-kafka-volume-init-1 Started
+ Container order-sandbox-kafka-volume-init-1 Waiting
+ Container order-sandbox-kafka-volume-init-1 Exited
+ Container order-sandbox-kafka-1 Waiting
+ Container order-sandbox-kafka-1 Healthy
+ Container order-sandbox-kafka-init-1 Starting
+ Container order-sandbox-kafka-init-1 Started
+ Container order-sandbox-db-1 Waiting
+ Container order-sandbox-redis-1 Waiting
+ Container order-sandbox-kafka-init-1 Waiting
+ Container order-sandbox-db-1 Healthy
+ Container order-sandbox-redis-1 Healthy
+ Container order-sandbox-kafka-init-1 Exited
+ Container order-sandbox-tests-run-e2ad9ec21542 Creating
+ Container order-sandbox-tests-run-e2ad9ec21542 Created
+?   	github.com/omamx/order-service/cmd/server	[no test files]
+?   	github.com/omamx/order-service/cmd/simulator	[no test files]
+?   	github.com/omamx/order-service/internal/app	[no test files]
+?   	github.com/omamx/order-service/internal/gen/common/v1	[no test files]
+?   	github.com/omamx/order-service/internal/gen/inventory/v1	[no test files]
+?   	github.com/omamx/order-service/internal/gen/order/v1	[no test files]
+?   	github.com/omamx/order-service/internal/simulator	[no test files]
+?   	github.com/omamx/order-service/internal/transport	[no test files]
+?   	github.com/omamx/order-service/migrations	[no test files]
+=== RUN   TestMoneyBoundaries
+=== RUN   TestMoneyBoundaries/canonical
+=== RUN   TestMoneyBoundaries/zero_quantity
+=== RUN   TestMoneyBoundaries/overflow
+=== RUN   TestMoneyBoundaries/duplicate_SKU
+=== RUN   TestMoneyBoundaries/sum_overflow
+--- PASS: TestMoneyBoundaries (0.00s)
+    --- PASS: TestMoneyBoundaries/canonical (0.00s)
+    --- PASS: TestMoneyBoundaries/zero_quantity (0.00s)
+    --- PASS: TestMoneyBoundaries/overflow (0.00s)
+    --- PASS: TestMoneyBoundaries/duplicate_SKU (0.00s)
+    --- PASS: TestMoneyBoundaries/sum_overflow (0.00s)
+=== RUN   TestLifecycleGuards
+--- PASS: TestLifecycleGuards (0.00s)
+PASS
+ok  	github.com/omamx/order-service/internal/domain	1.015s
+=== RUN   TestV10OutboxCrashWindowPublishesStableEventID
+--- PASS: TestV10OutboxCrashWindowPublishesStableEventID (11.49s)
+=== RUN   TestV11KafkaConsumerDeduplicatesRealSourceMessages
+--- PASS: TestV11KafkaConsumerDeduplicatesRealSourceMessages (1.63s)
+=== RUN   TestV12AuditIsAppendOnlyAndTamperEvident
+--- PASS: TestV12AuditIsAppendOnlyAndTamperEvident (0.51s)
+=== RUN   TestV10CODReceiptDuringCancelIsReconciled
+--- PASS: TestV10CODReceiptDuringCancelIsReconciled (0.50s)
+=== RUN   TestV10SettledCODRequiresCancellationReview
+--- PASS: TestV10SettledCODRequiresCancellationReview (0.50s)
+=== RUN   TestV11HoldReplayAndAuthorizedResume
+--- PASS: TestV11HoldReplayAndAuthorizedResume (0.53s)
+=== RUN   TestV10FencedWorkerCannotOverwriteNewLease
+--- PASS: TestV10FencedWorkerCannotOverwriteNewLease (2.91s)
+=== RUN   TestV10OrderHistoryOutboxCommitIsAtomic
+--- PASS: TestV10OrderHistoryOutboxCommitIsAtomic (0.53s)
+=== RUN   TestV12ApprovedPaidCancellationKeepsRefundIndependent
+--- PASS: TestV12ApprovedPaidCancellationKeepsRefundIndependent (0.50s)
+=== RUN   TestV10InventoryTerminalRPCsRegisteredAndIdempotent
+--- PASS: TestV10InventoryTerminalRPCsRegisteredAndIdempotent (0.37s)
+=== RUN   TestV11ReadyCancelBarrierAndStaleAuthorization
+--- PASS: TestV11ReadyCancelBarrierAndStaleAuthorization (0.61s)
+=== RUN   TestV11InboxEffectRollbackAndReplay
+--- PASS: TestV11InboxEffectRollbackAndReplay (0.53s)
+=== RUN   TestV11CancelVersusPackingAcceptance
+--- PASS: TestV11CancelVersusPackingAcceptance (0.52s)
+=== RUN   TestV11OutOfOrderPackingAndShipping
+--- PASS: TestV11OutOfOrderPackingAndShipping (0.64s)
+=== RUN   TestV11StaffScopeQueueAndHold
+--- PASS: TestV11StaffScopeQueueAndHold (0.57s)
+=== RUN   TestV11GRPCRegisteredServerAndOwnership
+--- PASS: TestV11GRPCRegisteredServerAndOwnership (0.45s)
+=== RUN   TestV11HeldOrderCannotStartPacking
+--- PASS: TestV11HeldOrderCannotStartPacking (0.50s)
+=== RUN   TestV11AcceptedTaskRejectsLaterCancellation
+--- PASS: TestV11AcceptedTaskRejectsLaterCancellation (0.49s)
+=== RUN   TestV11UnsignedSourceCannotForgeDelivery
+--- PASS: TestV11UnsignedSourceCannotForgeDelivery (0.51s)
+=== RUN   TestV10PaymentLostCallbackAndFinalizeACK
+--- PASS: TestV10PaymentLostCallbackAndFinalizeACK (0.66s)
+=== RUN   TestV10ConcurrentReceiptAndAlteredPayload
+--- PASS: TestV10ConcurrentReceiptAndAlteredPayload (0.60s)
+=== RUN   TestV10UnderOverUnmatchedAndLateReceipts
+--- PASS: TestV10UnderOverUnmatchedAndLateReceipts (0.60s)
+=== RUN   TestV10InventoryExpiryWinsFinalization
+--- PASS: TestV10InventoryExpiryWinsFinalization (0.53s)
+=== RUN   TestV10PaymentTimeoutRace
+--- PASS: TestV10PaymentTimeoutRace (0.50s)
+=== RUN   TestV10CancelOwnershipCASAndReplay
+--- PASS: TestV10CancelOwnershipCASAndReplay (0.52s)
+=== RUN   TestV10CODIsUnpaidAndCanCancel
+--- PASS: TestV10CODIsUnpaidAndCanCancel (0.56s)
+=== RUN   TestV10SignedCallbackValidation
+--- PASS: TestV10SignedCallbackValidation (0.51s)
+=== RUN   TestV10AcceptedPreviewIsNotCommercialOverride
+--- PASS: TestV10AcceptedPreviewIsNotCommercialOverride (0.46s)
+=== RUN   TestV10StatementFindsCancelledAndUnmatchedMoney
+--- PASS: TestV10StatementFindsCancelledAndUnmatchedMoney (0.50s)
+=== RUN   TestV10PlacementAcceptanceAndRestartRecovery
+--- PASS: TestV10PlacementAcceptanceAndRestartRecovery (0.55s)
+=== RUN   TestV10ConcurrentAcceptanceAndRetention
+--- PASS: TestV10ConcurrentAcceptanceAndRetention (0.64s)
+=== RUN   TestV10FailedValidationReplayHasNoOrder
+--- PASS: TestV10FailedValidationReplayHasNoOrder (0.41s)
+=== RUN   TestV10LostReserveACKAndTombstone
+--- PASS: TestV10LostReserveACKAndTombstone (0.59s)
+=== RUN   TestV10QuoteExpiryEligibilityAndOwnership
+--- PASS: TestV10QuoteExpiryEligibilityAndOwnership (0.50s)
+=== RUN   TestV10RegisteredIdentityGuestAndHTTPResource
+--- PASS: TestV10RegisteredIdentityGuestAndHTTPResource (0.64s)
+=== RUN   TestV10InsufficientStockCompensation
+--- PASS: TestV10InsufficientStockCompensation (0.50s)
+=== RUN   TestV10ServerRejectedQuoteAndInput
+--- PASS: TestV10ServerRejectedQuoteAndInput (0.42s)
+=== RUN   TestV12ConcurrentRefundBudgetAndUnknownRecovery
+--- PASS: TestV12ConcurrentRefundBudgetAndUnknownRecovery (0.73s)
+=== RUN   TestV12FullRefundAndReplay
+--- PASS: TestV12FullRefundAndReplay (0.73s)
+=== RUN   TestV12FailedRefundDoesNotRestartFulfillment
+--- PASS: TestV12FailedRefundDoesNotRestartFulfillment (0.65s)
+=== RUN   TestV12CareCaseCompletionBarrier
+--- PASS: TestV12CareCaseCompletionBarrier (0.78s)
+PASS
+ok  	github.com/omamx/order-service/tests/integration	37.906s

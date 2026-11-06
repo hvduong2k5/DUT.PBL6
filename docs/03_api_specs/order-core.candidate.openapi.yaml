@@ -1,0 +1,1934 @@
+openapi: 3.0.3
+info:
+  title: Order Core - Review Candidate
+  version: 1.0.0-review
+  description: Design-only aggregate/control/query slice. See docs architecture chapter 15, Payment1.1
+    and Checkout11. Snapshot v1 JSON Schema is an internal immutable payload; these APIs return separately
+    redacted views. Existing routes require explicit version/cohort rollout. All mutation commands use
+    authenticated actor/action/target scoped idempotency and expected_version; replay same key/hash before
+    stale-version check but reauthorize current rights. No generic PATCH status or snapshot. Async command
+    success must be interpreted by kind/outcome; neither ACK nor local hold proves remote stop.
+  license:
+    name: Internal project review
+servers:
+- url: https://order.example.invalid
+  description: Review placeholder, no deployment represented
+tags:
+- name: OrderQueries
+  description: Owner and scoped staff business views
+- name: OrderCommands
+  description: Guarded durable controls, no direct status mutation
+- name: InternalOrder
+  description: Verified provider/service decisions and purpose-bound snapshot views
+paths:
+  /api/v1/orders:
+    get:
+      tags:
+      - OrderQueries
+      operationId: listOwnedOrders
+      summary: List current owner Orders
+      description: Recheck owner or permission+merchant/warehouse/assignment scope on every page. Owner
+        list sort created_at,id descending; queue sort stage,sla_due_at nulls-last,created_at,id. No PII
+        or raw snapshots in queue.
+      security:
+      - orderPrincipal: []
+      x-required-permission: owner.order.read
+      parameters:
+      - $ref: '#/components/parameters/cursor'
+      - $ref: '#/components/parameters/limit'
+      - $ref: '#/components/parameters/status'
+      responses:
+        '200':
+          description: Authorized projection or durable command result.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                - no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderPage'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '503':
+          $ref: '#/components/responses/Error503'
+  /api/v1/admin/orders:
+    get:
+      tags:
+      - OrderQueries
+      operationId: listScopedStaffOrders
+      summary: List Orders in staff scope
+      description: Recheck owner or permission+merchant/warehouse/assignment scope on every page. Owner
+        list sort created_at,id descending; queue sort stage,sla_due_at nulls-last,created_at,id. No PII
+        or raw snapshots in queue.
+      security:
+      - orderPrincipal: []
+      x-required-permission: order.read
+      parameters:
+      - $ref: '#/components/parameters/cursor'
+      - $ref: '#/components/parameters/limit'
+      - $ref: '#/components/parameters/status'
+      responses:
+        '200':
+          description: Authorized projection or durable command result.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                - no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderPage'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '503':
+          $ref: '#/components/responses/Error503'
+  /api/v1/admin/orders/queue:
+    get:
+      tags:
+      - OrderQueries
+      operationId: listScopedOrderQueue
+      summary: Read state-entry SLA work queue
+      description: Recheck owner or permission+merchant/warehouse/assignment scope on every page. Owner
+        list sort created_at,id descending; queue sort stage,sla_due_at nulls-last,created_at,id. No PII
+        or raw snapshots in queue.
+      security:
+      - orderPrincipal: []
+      x-required-permission: order.queue.read
+      parameters:
+      - $ref: '#/components/parameters/cursor'
+      - $ref: '#/components/parameters/limit'
+      - $ref: '#/components/parameters/status'
+      responses:
+        '200':
+          description: Authorized projection or durable command result.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                - no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderPage'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '503':
+          $ref: '#/components/responses/Error503'
+  /api/v1/orders/{id}:
+    get:
+      tags:
+      - OrderQueries
+      operationId: getCoreOrderDetail
+      summary: Read an owned or scoped Order
+      description: Customer/current Guest owner sees own commercial view. Staff requires order.read and
+        scope; default recipient masked. Return current allowed_actions as hints, never permission tokens.
+        Payment-only Guest read grant is insufficient for this endpoint.
+      security:
+      - orderPrincipal: []
+      x-required-permission: owner.order.read OR order.read
+      parameters:
+      - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Authorized projection or durable command result.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                - no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDetail'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '503':
+          $ref: '#/components/responses/Error503'
+  /api/v1/orders/{id}/tracking:
+    get:
+      tags:
+      - OrderQueries
+      operationId: getCoreOrderTracking
+      summary: Read verified shipment/task checkpoints
+      description: Only associated authenticated checkpoints; SHIPMENT_CREATED does not imply SHIPPED.
+        Business-safe view has no internal actor/PII/free-form provider payload.
+      security:
+      - orderPrincipal: []
+      x-required-permission: owner.order.read OR order.read
+      parameters:
+      - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Authorized projection or durable command result.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                - no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tracking'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '503':
+          $ref: '#/components/responses/Error503'
+  /api/v1/orders/{id}/history:
+    get:
+      tags:
+      - OrderQueries
+      operationId: getCoreOrderHistory
+      summary: Read business Order timeline
+      description: Owner/staff scoped timeline. Redact private actor identifiers, raw evidence, PII and
+        security reasons. No raw outbox payload export.
+      security:
+      - orderPrincipal: []
+      x-required-permission: owner.order.read OR order.history.read
+      parameters:
+      - $ref: '#/components/parameters/id'
+      - $ref: '#/components/parameters/cursor'
+      - $ref: '#/components/parameters/limit'
+      responses:
+        '200':
+          description: Authorized projection or durable command result.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                - no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistoryPage'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '503':
+          $ref: '#/components/responses/Error503'
+  /api/v1/orders/{id}/commands/{command_id}:
+    get:
+      tags:
+      - OrderQueries
+      operationId: getCoreOrderCommand
+      summary: Read durable command outcome
+      description: Both Order and command target must be in current caller scope. Current authorization
+        is rechecked even on replay. Interpret kind/outcome; a review request being recorded is not Order
+        cancellation. Staff needs command read scope.
+      security:
+      - orderPrincipal: []
+      x-required-permission: owner.order.read OR order.command.read
+      parameters:
+      - $ref: '#/components/parameters/id'
+      - $ref: '#/components/parameters/command_id'
+      responses:
+        '200':
+          description: Authorized projection or durable command result.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                - no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderCommand'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '503':
+          $ref: '#/components/responses/Error503'
+  /api/v1/orders/{id}/cancel:
+    post:
+      tags:
+      - OrderCommands
+      operationId: cancelPendingCoreOrder
+      summary: Cancel eligible pending or unpaid COD Order
+      description: Under Order lock/version and DB clock. Pending unallocated before deadline can cancel
+        locally with release obligation; deadline reached uses timeout semantics. Receipt allocation winner
+        requires Care review. COD committed needs authoritative fulfillment stop and reversal; return
+        202 until proofs. Paid/processing self-cancel returns 409 REVIEW_REQUIRED. No direct refund or
+        snapshot edits. Staff outside owner uses a Care-approved cancellation workflow; cannot bypass
+        approval with an owner-cancel role override.
+      security:
+      - orderPrincipal: []
+      x-required-permission: owner.order.cancel
+      parameters:
+      - $ref: '#/components/parameters/id'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Authorized projection or durable command result.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                - no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderCommand'
+        '202':
+          description: Durable workflow accepted or still running; query the scoped command resource.
+            Not proof of remote cancellation, hard stop, stock release or refund.
+          headers:
+            Location:
+              schema:
+                type: string
+            Retry-After:
+              schema:
+                type: integer
+                minimum: 1
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderCommand'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '503':
+          $ref: '#/components/responses/Error503'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '422':
+          $ref: '#/components/responses/Error422'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommonCommand'
+  /api/v1/orders/{id}/cancellation-requests:
+    post:
+      tags:
+      - OrderCommands
+      operationId: requestCoreCancellationReview
+      summary: Request Care cancellation review
+      description: Persist a nonterminal review request for a policy-eligible Order, then deliver to Care
+        durably. SUCCEEDED outcome REVIEW_REQUEST_CREATED only acknowledges request recording; does not
+        imply cancelled, held, stock returned or refunded.
+      security:
+      - orderPrincipal: []
+      x-required-permission: owner.order.cancellation.request OR order.cancellation.request
+      parameters:
+      - $ref: '#/components/parameters/id'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Authorized projection or durable command result.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                - no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderCommand'
+        '202':
+          description: Durable workflow accepted or still running; query the scoped command resource.
+            Not proof of remote cancellation, hard stop, stock release or refund.
+          headers:
+            Location:
+              schema:
+                type: string
+            Retry-After:
+              schema:
+                type: integer
+                minimum: 1
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderCommand'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '503':
+          $ref: '#/components/responses/Error503'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '422':
+          $ref: '#/components/responses/Error422'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommonCommand'
+  /api/v1/admin/orders/{id}/holds:
+    post:
+      tags:
+      - OrderCommands
+      operationId: holdCoreOrder
+      summary: Request an operational hold
+      description: Create one independently identified hold. ADMISSION_ONLY blocks new permits/local transitions
+        but cannot recall in-flight accepted task. REQUIRE_REMOTE_STOP returns pending until cancel barrier
+        proof; ACCEPTED task rejects hard-stop claim. Receipt ingestion/reconciliation and expiry continue.
+        Never extend reservation/payment deadline.
+      security:
+      - orderPrincipal: []
+      x-required-permission: order.hold
+      parameters:
+      - $ref: '#/components/parameters/id'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Authorized projection or durable command result.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                - no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderCommand'
+        '202':
+          description: Durable workflow accepted or still running; query the scoped command resource.
+            Not proof of remote cancellation, hard stop, stock release or refund.
+          headers:
+            Location:
+              schema:
+                type: string
+            Retry-After:
+              schema:
+                type: integer
+                minimum: 1
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderCommand'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '503':
+          $ref: '#/components/responses/Error503'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '422':
+          $ref: '#/components/responses/Error422'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HoldRequest'
+      x-mfa-max-age-seconds: 900
+  /api/v1/admin/orders/{id}/holds/{hold_id}/resume:
+    post:
+      tags:
+      - OrderCommands
+      operationId: resumeCoreOrderHold
+      summary: Resume one eligible operational hold
+      description: Only the targeted hold is closed. No automatic clearing of financial/integrity/cancellation
+        holds. Reject or query if resource expired/released, active refund/cancel/case, unknown task barrier
+        or incomplete proof. Committed proof may be valid after its old lease expiry. Recheck state/version
+        under lock after provider queries. New readiness generation only after old generation closed and
+        all remaining guards valid.
+      security:
+      - orderPrincipal: []
+      x-required-permission: order.resume
+      parameters:
+      - $ref: '#/components/parameters/id'
+      - $ref: '#/components/parameters/hold_id'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Authorized projection or durable command result.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                - no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderCommand'
+        '202':
+          description: Durable workflow accepted or still running; query the scoped command resource.
+            Not proof of remote cancellation, hard stop, stock release or refund.
+          headers:
+            Location:
+              schema:
+                type: string
+            Retry-After:
+              schema:
+                type: integer
+                minimum: 1
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderCommand'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '503':
+          $ref: '#/components/responses/Error503'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '422':
+          $ref: '#/components/responses/Error422'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommonCommand'
+      x-mfa-max-age-seconds: 900
+  /api/v1/admin/orders/{id}/workflows/{workflow_id}/recover:
+    post:
+      tags:
+      - OrderCommands
+      operationId: recoverCoreOrderWorkflow
+      summary: Query and resume an unresolved workflow
+      description: Only same durable stage and stable effect keys; strategy QUERY_AND_RESUME. Evidence
+        references require verification, not client booleans. Cannot mark PAID/DONE/COMMITTED, reset deadline,
+        clear unknown or create a new provider effect key to bypass an obligation.
+      security:
+      - orderPrincipal: []
+      x-required-permission: order.recover
+      parameters:
+      - $ref: '#/components/parameters/id'
+      - $ref: '#/components/parameters/workflow_id'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Authorized projection or durable command result.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                - no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderCommand'
+        '202':
+          description: Durable workflow accepted or still running; query the scoped command resource.
+            Not proof of remote cancellation, hard stop, stock release or refund.
+          headers:
+            Location:
+              schema:
+                type: string
+            Retry-After:
+              schema:
+                type: integer
+                minimum: 1
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderCommand'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '503':
+          $ref: '#/components/responses/Error503'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '422':
+          $ref: '#/components/responses/Error422'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecoveryRequest'
+      x-mfa-max-age-seconds: 900
+  /internal/cancellations/approve:
+    post:
+      tags:
+      - InternalOrder
+      operationId: applyCoreCancellationApproval
+      summary: Apply a verified Care cancellation decision
+      description: Query authoritative approval bound to Order/scope/policy/expected version. Body cannot
+        substitute approved amount or fake fulfillment stopped proof. Core creates cancellation hold/workflow,
+        then remote barrier/reversal outside SQL. This candidate refines the existing route for a pinned
+        cohort.
+      security:
+      - serviceIdentity: []
+      x-required-permission: order.cancellation.approve
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Authorized projection or durable command result.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                - no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderCommand'
+        '202':
+          description: Durable workflow accepted or still running; query the scoped command resource.
+            Not proof of remote cancellation, hard stop, stock release or refund.
+          headers:
+            Location:
+              schema:
+                type: string
+            Retry-After:
+              schema:
+                type: integer
+                minimum: 1
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderCommand'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '503':
+          $ref: '#/components/responses/Error503'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '422':
+          $ref: '#/components/responses/Error422'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancellationApproval'
+  /internal/orders/{id}/completion-decisions/apply:
+    post:
+      tags:
+      - InternalOrder
+      operationId: applyCoreCompletionDecision
+      summary: Apply a serialized Care completion decision
+      description: Verify decision reference and current settlement/window/holds/cases/refund/resource
+        guards. Care serializes case-open with decision; local case projection is insufficient. Same completion
+        milestone once, no network call in SQL transaction. Unknown decision cannot imply allowed.
+      security:
+      - serviceIdentity: []
+      x-required-permission: order.completion.apply
+      parameters:
+      - $ref: '#/components/parameters/id'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Authorized projection or durable command result.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                - no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderCommand'
+        '202':
+          description: Durable workflow accepted or still running; query the scoped command resource.
+            Not proof of remote cancellation, hard stop, stock release or refund.
+          headers:
+            Location:
+              schema:
+                type: string
+            Retry-After:
+              schema:
+                type: integer
+                minimum: 1
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderCommand'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '503':
+          $ref: '#/components/responses/Error503'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '422':
+          $ref: '#/components/responses/Error422'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompletionDecision'
+  /internal/orders/{id}/snapshot-views:
+    post:
+      tags:
+      - InternalOrder
+      operationId: readPurposeBoundOrderSnapshot
+      summary: Read minimum required immutable snapshot fields
+      description: Read-only purpose query with audited access, not raw snapshot export. Verify service
+        ACL, audience and real task association before rendering. FULFILLMENT_PICK_PACK contains no address.
+        SHIPPING_CREATE returns recipient only for associated shipment work. CARE_REVIEW defaults masked.
+        Unknown schema version or unavailable authority fails closed. No client-controlled field list,
+        actor or arbitrary data source URL.
+      security:
+      - serviceIdentity: []
+      x-required-permission: order.snapshot.view
+      parameters:
+      - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Authorized projection or durable command result.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                - no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SnapshotView'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '503':
+          $ref: '#/components/responses/Error503'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '422':
+          $ref: '#/components/responses/Error422'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SnapshotViewRequest'
+components:
+  securitySchemes:
+    orderPrincipal:
+      type: http
+      scheme: bearer
+      description: Pinned issuer/audience/key Customer, live Guest checkout principal or staff JWT. Verify
+        current ownership or permissions+merchant/warehouse/assignment. Guest payment:read grant cannot
+        authorize full Order queries or commands. MFA max15m for sensitive staff controls. Token subject
+        is not arbitrary customer_id.
+    serviceIdentity:
+      type: http
+      scheme: bearer
+      description: Trusted service identity over TLS, pinned audience and method ACL; verify authoritative
+        referenced decisions/task associations. Public X-Internal-Token or self-declared actor headers
+        are not proof.
+  parameters:
+    IdempotencyKey:
+      name: X-Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 16
+        maxLength: 128
+        pattern: ^[!-~]+$
+    id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    command_id:
+      name: command_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    hold_id:
+      name: hold_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    workflow_id:
+      name: workflow_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    cursor:
+      name: cursor
+      in: query
+      schema:
+        type: string
+      description: Signed keyset cursor; binds principal scope, permission-scope digest, filters and sort;
+        TTL proposed 15 minutes.
+    limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    status:
+      name: status
+      in: query
+      schema:
+        $ref: '#/components/schemas/OrderState'
+  responses:
+    Error400:
+      description: Invalid shape/key/reason; no actor or arbitrary status overrides.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Error401:
+      description: Credential invalid, expired or revoked.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Error403:
+      description: Missing permission/purpose/MFA; cannot bypass separation of service/staff authority.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Error404:
+      description: Order/command/hold/workflow absent or outside current ownership/merchant/warehouse/assignment
+        scope.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Error409:
+      description: Stale version, idempotency conflict, state/hold/obligation guard failed or cancellation
+        requires Care review.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Error422:
+      description: Verified decision or business policy invalid; no implied external rollback.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Error429:
+      description: Rate limited; respect Retry-After.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+            minimum: 1
+    Error503:
+      description: Authority/proof/registry unavailable or commit outcome unknown. Retry the same key/body
+        for mutations.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+  schemas:
+    ApiError:
+      type: object
+      additionalProperties: false
+      required:
+      - error
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required:
+          - code
+          - retryable
+          properties:
+            code:
+              type: string
+              minLength: 1
+            retryable:
+              type: boolean
+        operation_id:
+          type: string
+          format: uuid
+      example:
+        error:
+          code: IDEMPOTENCY_CONFLICT
+          retryable: false
+        operation_id: 11111111-1111-4111-8111-111111111111
+    OrderState:
+      type: string
+      enum:
+      - PENDING_PAYMENT
+      - PAYMENT_FINALIZING
+      - PAID
+      - CONFIRMED_COD
+      - PROCESSING
+      - PACKED
+      - SHIPPED
+      - DELIVERED
+      - DELIVERY_FAILED
+      - COMPLETED
+      - CANCELLED_TIMEOUT
+      - CANCELLED_BY_USER
+      - CANCELLED_BY_ADMIN
+    PaymentState:
+      type: string
+      enum:
+      - UNPAID
+      - PENDING
+      - CONFIRMED
+      - RECONCILIATION_REQUIRED
+      - PARTIALLY_REFUNDED
+      - REFUNDED
+    StockState:
+      type: string
+      enum:
+      - RESERVED
+      - COMMITTING
+      - COMMITTED
+      - RELEASING
+      - RELEASED
+      - EXPIRED
+      - REVERSED
+      - UNKNOWN
+    Money:
+      type: integer
+      format: int64
+      minimum: 0
+      maximum: 1000000000000
+    ErrorDetail:
+      type: object
+      additionalProperties: false
+      required:
+      - code
+      - retryable
+      properties:
+        code:
+          type: string
+          minLength: 1
+        retryable:
+          type: boolean
+    CommonCommand:
+      type: object
+      additionalProperties: false
+      required:
+      - expected_version
+      - reason_code
+      properties:
+        expected_version:
+          type: integer
+          format: int64
+          minimum: 1
+        reason_code:
+          type: string
+          minLength: 1
+          maxLength: 64
+      example:
+        expected_version: 3
+        reason_code: CUSTOMER_REQUEST
+    HoldRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - expected_version
+      - reason_code
+      - hold_type
+      - mode
+      properties:
+        expected_version:
+          type: integer
+          format: int64
+          minimum: 1
+        reason_code:
+          type: string
+          minLength: 1
+          maxLength: 64
+        hold_type:
+          type: string
+          enum:
+          - OPERATIONAL
+        mode:
+          type: string
+          enum:
+          - ADMISSION_ONLY
+          - REQUIRE_REMOTE_STOP
+      example:
+        expected_version: 4
+        reason_code: STAFF_REVIEW
+        hold_type: OPERATIONAL
+        mode: REQUIRE_REMOTE_STOP
+    RecoveryRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - expected_version
+      - reason_code
+      - strategy
+      - evidence_references
+      properties:
+        expected_version:
+          type: integer
+          format: int64
+          minimum: 1
+        reason_code:
+          type: string
+          minLength: 1
+          maxLength: 64
+        strategy:
+          type: string
+          enum:
+          - QUERY_AND_RESUME
+        evidence_references:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 128
+    CancellationApproval:
+      type: object
+      additionalProperties: false
+      required:
+      - expected_version
+      - reason_code
+      - order_id
+      - approval_id
+      properties:
+        expected_version:
+          type: integer
+          format: int64
+          minimum: 1
+        reason_code:
+          type: string
+          minLength: 1
+          maxLength: 64
+        order_id:
+          type: string
+          format: uuid
+        approval_id:
+          type: string
+          minLength: 1
+          maxLength: 128
+    CompletionDecision:
+      type: object
+      additionalProperties: false
+      required:
+      - expected_version
+      - reason_code
+      - decision_reference
+      properties:
+        expected_version:
+          type: integer
+          format: int64
+          minimum: 1
+        reason_code:
+          type: string
+          minLength: 1
+          maxLength: 64
+        decision_reference:
+          type: string
+          minLength: 1
+          maxLength: 128
+    OrderCommand:
+      type: object
+      additionalProperties: false
+      required:
+      - command_id
+      - order_id
+      - kind
+      - status
+      - current_order_version
+      - outcome
+      - hold_id
+      - cancellation_request_id
+      - compensation_status
+      - error
+      - created_at
+      - updated_at
+      properties:
+        command_id:
+          type: string
+          format: uuid
+        order_id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum:
+          - CANCEL_PENDING
+          - REQUEST_CANCELLATION_REVIEW
+          - APPLY_CANCELLATION_APPROVAL
+          - HOLD
+          - RESUME
+          - RECOVER
+          - COMPLETE
+        status:
+          type: string
+          enum:
+          - ACCEPTED
+          - RUNNING
+          - SUCCEEDED
+          - REJECTED
+          - MANUAL_REVIEW
+        current_order_version:
+          type: integer
+          format: int64
+          minimum: 1
+        outcome:
+          type: string
+          nullable: true
+        hold_id:
+          type: string
+          format: uuid
+          nullable: true
+        cancellation_request_id:
+          type: string
+          format: uuid
+          nullable: true
+        compensation_status:
+          type: string
+          enum:
+          - NOT_REQUIRED
+          - PENDING
+          - SUCCEEDED
+          - MANUAL_REVIEW
+        error:
+          type: object
+          nullable: true
+          additionalProperties: false
+          required:
+          - code
+          - retryable
+          properties:
+            code:
+              type: string
+              minLength: 1
+            retryable:
+              type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      description: Interpret outcome by kind. REQUEST_CANCELLATION_REVIEW succeeded means request recorded,
+        not Order cancelled/refunded. Current state may be newer on replay; original command effect is
+        not repeated. Compensation pending remains visible.
+      example:
+        command_id: 7ea3a46a-05e7-4cb5-9163-c751a3903668
+        order_id: 689ecf03-33d5-456e-ae10-c7c544b79abc
+        kind: HOLD
+        status: RUNNING
+        current_order_version: 5
+        outcome: null
+        hold_id: ff06936a-bf54-4857-b6cf-8b3cd385d8eb
+        cancellation_request_id: null
+        compensation_status: NOT_REQUIRED
+        error: null
+        created_at: '2026-10-17T10:03:00+07:00'
+        updated_at: '2026-10-17T10:03:00+07:00'
+    Hold:
+      type: object
+      additionalProperties: false
+      required:
+      - hold_id
+      - type
+      - mode
+      - status
+      - reason_code
+      - source
+      - version
+      properties:
+        hold_id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum:
+          - OPERATIONAL
+          - FINANCIAL
+          - CANCELLATION
+          - INTEGRITY
+        mode:
+          type: string
+          enum:
+          - ADMISSION_ONLY
+          - REQUIRE_REMOTE_STOP
+        status:
+          type: string
+          enum:
+          - PENDING_REMOTE
+          - ACTIVE
+          - RESUMED
+          - REJECTED_TASK_ACCEPTED
+          - MANUAL_REVIEW
+        reason_code:
+          type: string
+        source:
+          type: string
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+    OrderSummary:
+      type: object
+      additionalProperties: false
+      required:
+      - order_id
+      - order_code
+      - status
+      - payment_status
+      - stock_status
+      - payment_method
+      - final_amount
+      - currency
+      - version
+      - created_at
+      - sla_due_at
+      - blocking_hold
+      - cancellation_pending
+      - ready_generation
+      - ready_authorized
+      - allowed_actions
+      properties:
+        order_id:
+          type: string
+          format: uuid
+        order_code:
+          type: string
+        status:
+          $ref: '#/components/schemas/OrderState'
+        payment_status:
+          $ref: '#/components/schemas/PaymentState'
+        stock_status:
+          $ref: '#/components/schemas/StockState'
+        payment_method:
+          type: string
+          enum:
+          - VIETQR
+          - COD
+        final_amount:
+          $ref: '#/components/schemas/Money'
+        currency:
+          type: string
+          enum:
+          - VND
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+        created_at:
+          type: string
+          format: date-time
+        sla_due_at:
+          type: string
+          format: date-time
+          nullable: true
+        blocking_hold:
+          type: boolean
+        cancellation_pending:
+          type: boolean
+        ready_generation:
+          type: integer
+          format: int64
+          minimum: 0
+        ready_authorized:
+          type: boolean
+        allowed_actions:
+          type: array
+          items:
+            type: string
+            enum:
+            - CANCEL_PENDING
+            - REQUEST_CANCELLATION_REVIEW
+            - HOLD
+            - RESUME
+            - RECOVER
+      example: &id001
+        order_id: 689ecf03-33d5-456e-ae10-c7c544b79abc
+        order_code: ORDER-EXAMPLE-001
+        status: PAYMENT_FINALIZING
+        payment_status: CONFIRMED
+        stock_status: COMMITTING
+        payment_method: VIETQR
+        final_amount: 230000
+        currency: VND
+        version: 3
+        created_at: '2026-10-17T10:01:05+07:00'
+        sla_due_at: '2026-10-17T10:02:00+07:00'
+        blocking_hold: false
+        cancellation_pending: false
+        ready_generation: 0
+        ready_authorized: false
+        allowed_actions:
+        - REQUEST_CANCELLATION_REVIEW
+    ItemView:
+      type: object
+      additionalProperties: false
+      required:
+      - sku_code
+      - product_name
+      - quantity
+      - unit_price
+      - line_subtotal
+      properties:
+        sku_code:
+          type: string
+        product_name:
+          type: string
+        quantity:
+          type: integer
+          format: int64
+          minimum: 1
+        unit_price:
+          $ref: '#/components/schemas/Money'
+        line_subtotal:
+          $ref: '#/components/schemas/Money'
+    RecipientView:
+      type: object
+      additionalProperties: false
+      required:
+      - visibility
+      - recipient_name
+      - phone
+      - street
+      - province_name
+      - ward_name
+      properties:
+        visibility:
+          type: string
+          enum:
+          - FULL
+          - MASKED
+          - OMITTED
+        recipient_name:
+          type: string
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        street:
+          type: string
+          nullable: true
+        province_name:
+          type: string
+          nullable: true
+        ward_name:
+          type: string
+          nullable: true
+    SnapshotSummary:
+      type: object
+      additionalProperties: false
+      required:
+      - snapshot_id
+      - snapshot_schema_version
+      - items
+      - subtotal
+      - shipping_fee
+      - final_amount
+      - currency
+      - shipping_service_code
+      - recipient
+      properties:
+        snapshot_id:
+          type: string
+          format: uuid
+        snapshot_schema_version:
+          type: string
+          enum:
+          - '1.0'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ItemView'
+        subtotal:
+          $ref: '#/components/schemas/Money'
+        shipping_fee:
+          $ref: '#/components/schemas/Money'
+        final_amount:
+          $ref: '#/components/schemas/Money'
+        currency:
+          type: string
+          enum:
+          - VND
+        shipping_service_code:
+          type: string
+        recipient:
+          $ref: '#/components/schemas/RecipientView'
+      description: Redacted read projection, not the full internal OrderSnapshot payload. Owner view may
+        include own address; staff defaults masked. Unknown snapshot version fails closed; no live Catalog/Profile
+        replacement.
+    OrderDetail:
+      type: object
+      additionalProperties: false
+      required:
+      - order_id
+      - order_code
+      - status
+      - payment_status
+      - stock_status
+      - payment_method
+      - final_amount
+      - currency
+      - version
+      - created_at
+      - sla_due_at
+      - blocking_hold
+      - cancellation_pending
+      - ready_generation
+      - ready_authorized
+      - allowed_actions
+      - snapshot
+      - holds
+      - compensation_status
+      - payment_expires_at
+      - task_id
+      - shipment_id
+      properties:
+        order_id:
+          type: string
+          format: uuid
+        order_code:
+          type: string
+        status:
+          $ref: '#/components/schemas/OrderState'
+        payment_status:
+          $ref: '#/components/schemas/PaymentState'
+        stock_status:
+          $ref: '#/components/schemas/StockState'
+        payment_method:
+          type: string
+          enum:
+          - VIETQR
+          - COD
+        final_amount:
+          $ref: '#/components/schemas/Money'
+        currency:
+          type: string
+          enum:
+          - VND
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+        created_at:
+          type: string
+          format: date-time
+        sla_due_at:
+          type: string
+          format: date-time
+          nullable: true
+        blocking_hold:
+          type: boolean
+        cancellation_pending:
+          type: boolean
+        ready_generation:
+          type: integer
+          format: int64
+          minimum: 0
+        ready_authorized:
+          type: boolean
+        allowed_actions:
+          type: array
+          items:
+            type: string
+            enum:
+            - CANCEL_PENDING
+            - REQUEST_CANCELLATION_REVIEW
+            - HOLD
+            - RESUME
+            - RECOVER
+        snapshot:
+          $ref: '#/components/schemas/SnapshotSummary'
+        holds:
+          type: array
+          items:
+            $ref: '#/components/schemas/Hold'
+        compensation_status:
+          type: string
+          enum:
+          - NOT_REQUIRED
+          - PENDING
+          - SUCCEEDED
+          - MANUAL_REVIEW
+        payment_expires_at:
+          type: string
+          format: date-time
+          nullable: true
+        task_id:
+          type: string
+          nullable: true
+        shipment_id:
+          type: string
+          nullable: true
+      description: Owner-safe or staff-masked projection. Redact hold actor/evidence/private finance details
+        by purpose. allowed_actions is advisory and authorization/state is always rechecked for commands.
+    OrderPage:
+      type: object
+      additionalProperties: false
+      required:
+      - items
+      - next_cursor
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderSummary'
+        next_cursor:
+          type: string
+          nullable: true
+      example:
+        items:
+        - *id001
+        next_cursor: null
+    HistoryEntry:
+      type: object
+      additionalProperties: false
+      required:
+      - entry_id
+      - order_version
+      - entry_sequence
+      - event_code
+      - reason_code
+      - occurred_at
+      properties:
+        entry_id:
+          type: string
+          format: uuid
+        order_version:
+          type: integer
+          format: int64
+          minimum: 1
+        entry_sequence:
+          type: integer
+          format: int64
+          minimum: 0
+        event_code:
+          type: string
+        reason_code:
+          type: string
+        occurred_at:
+          type: string
+          format: date-time
+    HistoryPage:
+      type: object
+      additionalProperties: false
+      required:
+      - items
+      - next_cursor
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/HistoryEntry'
+        next_cursor:
+          type: string
+          nullable: true
+    Checkpoint:
+      type: object
+      additionalProperties: false
+      required:
+      - event_code
+      - occurred_at
+      - resource_reference
+      - attempt_reference
+      properties:
+        event_code:
+          type: string
+        occurred_at:
+          type: string
+          format: date-time
+        resource_reference:
+          type: string
+        attempt_reference:
+          type: string
+          nullable: true
+    Tracking:
+      type: object
+      additionalProperties: false
+      required:
+      - order_id
+      - status
+      - checkpoints
+      properties:
+        order_id:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/OrderState'
+        checkpoints:
+          type: array
+          items:
+            $ref: '#/components/schemas/Checkpoint'
+    SnapshotViewRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - purpose
+      - task_reference
+      properties:
+        purpose:
+          type: string
+          enum:
+          - FULFILLMENT_PICK_PACK
+          - SHIPPING_CREATE
+          - CARE_REVIEW
+        task_reference:
+          type: string
+          minLength: 1
+          maxLength: 128
+    PickPackItem:
+      type: object
+      additionalProperties: false
+      required:
+      - sku_code
+      - quantity
+      - packaging_description
+      properties:
+        sku_code:
+          type: string
+        quantity:
+          type: integer
+          format: int64
+          minimum: 1
+        packaging_description:
+          type: string
+    PickPackView:
+      type: object
+      additionalProperties: false
+      required:
+      - purpose
+      - snapshot_id
+      - snapshot_schema_version
+      - order_id
+      - items
+      - view_created_at
+      properties:
+        purpose:
+          type: string
+          enum:
+          - FULFILLMENT_PICK_PACK
+        snapshot_id:
+          type: string
+          format: uuid
+        snapshot_schema_version:
+          type: string
+          enum:
+          - '1.0'
+        order_id:
+          type: string
+          format: uuid
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PickPackItem'
+        view_created_at:
+          type: string
+          format: date-time
+      example:
+        purpose: FULFILLMENT_PICK_PACK
+        snapshot_id: bec651a6-ce89-4464-b427-8280a074af19
+        snapshot_schema_version: '1.0'
+        order_id: 689ecf03-33d5-456e-ae10-c7c544b79abc
+        items:
+        - sku_code: MX-GION-500G
+          quantity: 2
+          packaging_description: Hop 500 g
+        view_created_at: '2026-10-17T10:03:30+07:00'
+    ShipmentView:
+      type: object
+      additionalProperties: false
+      required:
+      - purpose
+      - snapshot_id
+      - snapshot_schema_version
+      - order_id
+      - recipient
+      - package_weight_grams
+      - shipping_service_code
+      - cod_collect_amount
+      - currency
+      - view_created_at
+      properties:
+        purpose:
+          type: string
+          enum:
+          - SHIPPING_CREATE
+        snapshot_id:
+          type: string
+          format: uuid
+        snapshot_schema_version:
+          type: string
+          enum:
+          - '1.0'
+        order_id:
+          type: string
+          format: uuid
+        recipient:
+          $ref: '#/components/schemas/FullRecipientView'
+        package_weight_grams:
+          type: integer
+          format: int64
+          minimum: 1
+        shipping_service_code:
+          type: string
+        cod_collect_amount:
+          $ref: '#/components/schemas/Money'
+        currency:
+          type: string
+          enum:
+          - VND
+        view_created_at:
+          type: string
+          format: date-time
+    CareView:
+      type: object
+      additionalProperties: false
+      required:
+      - purpose
+      - order_id
+      - snapshot
+      - view_created_at
+      properties:
+        purpose:
+          type: string
+          enum:
+          - CARE_REVIEW
+        order_id:
+          type: string
+          format: uuid
+        snapshot:
+          $ref: '#/components/schemas/CareSnapshotSummary'
+        view_created_at:
+          type: string
+          format: date-time
+    SnapshotView:
+      oneOf:
+      - $ref: '#/components/schemas/PickPackView'
+      - $ref: '#/components/schemas/ShipmentView'
+      - $ref: '#/components/schemas/CareView'
+      description: Task association and service ACL determine allowed purpose. Pick-pack has no address.
+        Shipping recipient FULL only for authorized associated shipment work. Care view remains masked
+        without a separate reviewed reveal capability.
+    MaskedRecipientView:
+      type: object
+      additionalProperties: false
+      required:
+      - visibility
+      - recipient_name
+      - phone
+      - street
+      - province_name
+      - ward_name
+      properties:
+        visibility:
+          type: string
+          enum:
+          - MASKED
+          - OMITTED
+        recipient_name:
+          type: string
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        street:
+          type: string
+          nullable: true
+        province_name:
+          type: string
+          nullable: true
+        ward_name:
+          type: string
+          nullable: true
+    FullRecipientView:
+      type: object
+      additionalProperties: false
+      required:
+      - visibility
+      - recipient_name
+      - phone
+      - street
+      - province_name
+      - ward_name
+      properties:
+        visibility:
+          type: string
+          enum:
+          - FULL
+        recipient_name:
+          type: string
+          minLength: 1
+        phone:
+          type: string
+          minLength: 1
+        street:
+          type: string
+          minLength: 1
+        province_name:
+          type: string
+          minLength: 1
+        ward_name:
+          type: string
+          minLength: 1
+    CareSnapshotSummary:
+      type: object
+      additionalProperties: false
+      required:
+      - snapshot_id
+      - snapshot_schema_version
+      - items
+      - subtotal
+      - shipping_fee
+      - final_amount
+      - currency
+      - shipping_service_code
+      - recipient
+      properties:
+        snapshot_id:
+          type: string
+          format: uuid
+        snapshot_schema_version:
+          type: string
+          enum:
+          - '1.0'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ItemView'
+        subtotal:
+          $ref: '#/components/schemas/Money'
+        shipping_fee:
+          $ref: '#/components/schemas/Money'
+        final_amount:
+          $ref: '#/components/schemas/Money'
+        currency:
+          type: string
+          enum:
+          - VND
+        shipping_service_code:
+          type: string
+        recipient:
+          $ref: '#/components/schemas/MaskedRecipientView'
+      description: Redacted read projection, not the full internal OrderSnapshot payload. Owner view may
+        include own address; staff defaults masked. Unknown snapshot version fails closed; no live Catalog/Profile
+        replacement.

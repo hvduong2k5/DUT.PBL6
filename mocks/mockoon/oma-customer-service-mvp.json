@@ -1,0 +1,677 @@
+{
+  "uuid": "a0000000-0000-4000-8000-000000000001",
+  "lastMigration": 33,
+  "name": "O Ma - Customer Service MVP",
+  "endpointPrefix": "api/v1",
+  "latency": 0,
+  "port": 4019,
+  "hostname": "127.0.0.1",
+  "folders": [],
+  "routes": [
+    {
+      "uuid": "a0000000-0000-4000-8000-000000000003",
+      "type": "http",
+      "method": "get",
+      "endpoint": "health",
+      "documentation": "Local health only.",
+      "responses": [
+        {
+          "uuid": "a0000000-0000-4000-8000-000000000002",
+          "body": "{\"status\":\"ok\",\"environment\":\"oma-customer-service-mvp\",\"version\":\"0.1\"}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "healthy",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "a0000000-0000-4000-8000-000000000008",
+      "type": "http",
+      "method": "get",
+      "endpoint": "support/context",
+      "documentation": "SUP-C01 customer-safe support form context.",
+      "responses": [
+        {
+          "uuid": "a0000000-0000-4000-8000-000000000004",
+          "body": "{\"customerMode\":\"GUEST\",\"customer\":null,\"subjects\":[{\"code\":\"PRODUCT_ADVICE\",\"label\":\"Tư vấn phối ngự trà & lễ vật biếu tặng Cung Đình\",\"description\":\"Nghệ nhân và bếp trưởng hỗ trợ thẩm định câu hỏi về ẩm thực cung đình.\"},{\"code\":\"ORDER_HELP\",\"label\":\"Hỗ trợ đơn hàng\",\"description\":\"Thông tin đặt hàng và trạng thái được hiển thị từ nguồn Order.\"},{\"code\":\"DELIVERY_HELP\",\"label\":\"Giao nhận thức quà\",\"description\":\"Hỗ trợ thông tin giao nhận, không tự thay đổi Shipment.\"},{\"code\":\"PAYMENT_HELP\",\"label\":\"Thanh toán\",\"description\":\"Hỗ trợ tra cứu, không xác nhận thanh toán thay Payment.\"},{\"code\":\"RETURN_HELP\",\"label\":\"Đổi trả & hậu mãi\",\"description\":\"Ticket giữ trao đổi; Return Case sở hữu quyết định nghiệp vụ.\"},{\"code\":\"OTHER\",\"label\":\"Chủ đề khác\",\"description\":\"Các câu hỏi khác dành cho Ban Chăm Sóc Tri Kỷ.\"}],\"priorities\":[{\"code\":\"NORMAL\",\"label\":\"Bình thường\",\"description\":\"Phản hồi trong vòng 24 giờ làm việc\",\"responsePromiseLabel\":\"Trong 24 giờ\"},{\"code\":\"IMPORTANT\",\"label\":\"Ưu tiên Cố Đô\",\"description\":\"Tiếp nhận xử lý trong 2–4 giờ\",\"responsePromiseLabel\":\"Trong 2–4 giờ\"},{\"code\":\"URGENT\",\"label\":\"Khẩn cấp gia lễ\",\"description\":\"Lễ tiệc diễn ra gấp, cần xác minh lại\",\"responsePromiseLabel\":\"Ưu tiên thẩm định\"}],\"linkableOrders\":[],\"servicePromise\":\"Phản hồi trong vòng 2 giờ làm việc (07:30–21:30 hằng ngày).\",\"attachmentPolicy\":{\"allowedMediaTypes\":[\"image/jpeg\",\"image/png\",\"image/webp\",\"application/pdf\"],\"maxFiles\":5,\"maxBytesPerFile\":10485760}}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "context-guest",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "context-guest",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "a0000000-0000-4000-8000-000000000005",
+          "body": "{\"code\":\"SUPPORT_ERROR\",\"message\":\"Chưa thể tải trung tâm hỗ trợ.\",\"requestId\":\"REQ-SUP-CONTEXT-500\"}",
+          "latency": 0,
+          "statusCode": 500,
+          "label": "context-error",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "context-error",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "a0000000-0000-4000-8000-000000000006",
+          "body": "{\"customerMode\":\"REGISTERED\",\"customer\":{\"displayName\":\"Nguyễn Văn Bảo Long\",\"emailDisplay\":\"baolong.nguyen@heritage.vn\",\"phoneDisplay\":\"0914 *** 668\",\"membershipLabel\":\"Hội viên Tri Kỷ Hoàng Cung\"},\"subjects\":[{\"code\":\"PRODUCT_ADVICE\",\"label\":\"Tư vấn phối ngự trà & lễ vật biếu tặng Cung Đình\",\"description\":\"Nghệ nhân và bếp trưởng hỗ trợ thẩm định câu hỏi về ẩm thực cung đình.\"},{\"code\":\"ORDER_HELP\",\"label\":\"Hỗ trợ đơn hàng\",\"description\":\"Thông tin đặt hàng và trạng thái được hiển thị từ nguồn Order.\"},{\"code\":\"DELIVERY_HELP\",\"label\":\"Giao nhận thức quà\",\"description\":\"Hỗ trợ thông tin giao nhận, không tự thay đổi Shipment.\"},{\"code\":\"PAYMENT_HELP\",\"label\":\"Thanh toán\",\"description\":\"Hỗ trợ tra cứu, không xác nhận thanh toán thay Payment.\"},{\"code\":\"RETURN_HELP\",\"label\":\"Đổi trả & hậu mãi\",\"description\":\"Ticket giữ trao đổi; Return Case sở hữu quyết định nghiệp vụ.\"},{\"code\":\"OTHER\",\"label\":\"Chủ đề khác\",\"description\":\"Các câu hỏi khác dành cho Ban Chăm Sóc Tri Kỷ.\"}],\"priorities\":[{\"code\":\"NORMAL\",\"label\":\"Bình thường\",\"description\":\"Phản hồi trong vòng 24 giờ làm việc\",\"responsePromiseLabel\":\"Trong 24 giờ\"},{\"code\":\"IMPORTANT\",\"label\":\"Ưu tiên Cố Đô\",\"description\":\"Tiếp nhận xử lý trong 2–4 giờ\",\"responsePromiseLabel\":\"Trong 2–4 giờ\"},{\"code\":\"URGENT\",\"label\":\"Khẩn cấp gia lễ\",\"description\":\"Lễ tiệc diễn ra gấp, cần xác minh lại\",\"responsePromiseLabel\":\"Ưu tiên thẩm định\"}],\"linkableOrders\":[{\"orderId\":\"order-mock-20260926-001\",\"orderNumber\":\"OMA-260926-001\",\"statusLabel\":\"Đã giao thành công\",\"placedAt\":\"2026-09-23T03:20:00Z\",\"summary\":\"Bánh Phục Linh Ngũ Sắc, Mè Xửng Dẻo Thượng Hạng, Trà Sen Hồ Tịnh Tâm\"}],\"servicePromise\":\"Phản hồi trong vòng 2 giờ làm việc (07:30–21:30 hằng ngày).\",\"attachmentPolicy\":{\"allowedMediaTypes\":[\"image/jpeg\",\"image/png\",\"image/webp\",\"application/pdf\"],\"maxFiles\":5,\"maxBytesPerFile\":10485760}}",
+          "latency": 3000,
+          "statusCode": 200,
+          "label": "context-slow",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "context-slow",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "a0000000-0000-4000-8000-000000000007",
+          "body": "{\"customerMode\":\"REGISTERED\",\"customer\":{\"displayName\":\"Nguyễn Văn Bảo Long\",\"emailDisplay\":\"baolong.nguyen@heritage.vn\",\"phoneDisplay\":\"0914 *** 668\",\"membershipLabel\":\"Hội viên Tri Kỷ Hoàng Cung\"},\"subjects\":[{\"code\":\"PRODUCT_ADVICE\",\"label\":\"Tư vấn phối ngự trà & lễ vật biếu tặng Cung Đình\",\"description\":\"Nghệ nhân và bếp trưởng hỗ trợ thẩm định câu hỏi về ẩm thực cung đình.\"},{\"code\":\"ORDER_HELP\",\"label\":\"Hỗ trợ đơn hàng\",\"description\":\"Thông tin đặt hàng và trạng thái được hiển thị từ nguồn Order.\"},{\"code\":\"DELIVERY_HELP\",\"label\":\"Giao nhận thức quà\",\"description\":\"Hỗ trợ thông tin giao nhận, không tự thay đổi Shipment.\"},{\"code\":\"PAYMENT_HELP\",\"label\":\"Thanh toán\",\"description\":\"Hỗ trợ tra cứu, không xác nhận thanh toán thay Payment.\"},{\"code\":\"RETURN_HELP\",\"label\":\"Đổi trả & hậu mãi\",\"description\":\"Ticket giữ trao đổi; Return Case sở hữu quyết định nghiệp vụ.\"},{\"code\":\"OTHER\",\"label\":\"Chủ đề khác\",\"description\":\"Các câu hỏi khác dành cho Ban Chăm Sóc Tri Kỷ.\"}],\"priorities\":[{\"code\":\"NORMAL\",\"label\":\"Bình thường\",\"description\":\"Phản hồi trong vòng 24 giờ làm việc\",\"responsePromiseLabel\":\"Trong 24 giờ\"},{\"code\":\"IMPORTANT\",\"label\":\"Ưu tiên Cố Đô\",\"description\":\"Tiếp nhận xử lý trong 2–4 giờ\",\"responsePromiseLabel\":\"Trong 2–4 giờ\"},{\"code\":\"URGENT\",\"label\":\"Khẩn cấp gia lễ\",\"description\":\"Lễ tiệc diễn ra gấp, cần xác minh lại\",\"responsePromiseLabel\":\"Ưu tiên thẩm định\"}],\"linkableOrders\":[{\"orderId\":\"order-mock-20260926-001\",\"orderNumber\":\"OMA-260926-001\",\"statusLabel\":\"Đã giao thành công\",\"placedAt\":\"2026-09-23T03:20:00Z\",\"summary\":\"Bánh Phục Linh Ngũ Sắc, Mè Xửng Dẻo Thượng Hạng, Trà Sen Hồ Tịnh Tâm\"}],\"servicePromise\":\"Phản hồi trong vòng 2 giờ làm việc (07:30–21:30 hằng ngày).\",\"attachmentPolicy\":{\"allowedMediaTypes\":[\"image/jpeg\",\"image/png\",\"image/webp\",\"application/pdf\"],\"maxFiles\":5,\"maxBytesPerFile\":10485760}}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "context-default",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "a0000000-0000-4000-8000-000000000014",
+      "type": "http",
+      "method": "post",
+      "endpoint": "support/tickets",
+      "documentation": "SUP-C02 idempotent Ticket creation.",
+      "responses": [
+        {
+          "uuid": "a0000000-0000-4000-8000-000000000009",
+          "body": "{\"code\":\"DUPLICATE_TICKET\",\"message\":\"Yêu cầu này đã được tiếp nhận trước đó.\",\"requestId\":\"REQ-SUP-CREATE-409\",\"existingTicketId\":\"support-ticket-mock-001\"}",
+          "latency": 0,
+          "statusCode": 409,
+          "label": "create-duplicate",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "create-duplicate",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "a0000000-0000-4000-8000-000000000010",
+          "body": "{\"code\":\"ORDER_LINK_NOT_ALLOWED\",\"message\":\"Không thể liên kết Order này với yêu cầu hỗ trợ.\",\"requestId\":\"REQ-SUP-CREATE-403\"}",
+          "latency": 0,
+          "statusCode": 403,
+          "label": "create-order-forbidden",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "create-order-forbidden",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "a0000000-0000-4000-8000-000000000011",
+          "body": "{\"code\":\"SUPPORT_ERROR\",\"message\":\"Chưa thể tạo Ticket hỗ trợ.\",\"requestId\":\"REQ-SUP-CREATE-500\"}",
+          "latency": 0,
+          "statusCode": 500,
+          "label": "create-error",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "create-error",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "a0000000-0000-4000-8000-000000000012",
+          "body": "{\"ticketId\":\"support-ticket-mock-001\",\"ticketNumber\":\"TCK-2410-0195\",\"status\":\"NEW\",\"createdAt\":\"2026-10-24T09:20:00Z\",\"message\":\"Yêu cầu đã được tiếp nhận. Ban Chăm Sóc Tri Kỷ sẽ phản hồi sớm.\"}",
+          "latency": 3000,
+          "statusCode": 201,
+          "label": "create-slow",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "create-slow",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "a0000000-0000-4000-8000-000000000013",
+          "body": "{\"ticketId\":\"support-ticket-mock-001\",\"ticketNumber\":\"TCK-2410-0195\",\"status\":\"NEW\",\"createdAt\":\"2026-10-24T09:20:00Z\",\"message\":\"Yêu cầu đã được tiếp nhận. Ban Chăm Sóc Tri Kỷ sẽ phản hồi sớm.\"}",
+          "latency": 0,
+          "statusCode": 201,
+          "label": "create-default",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "a0000000-0000-4000-8000-000000000023",
+      "type": "http",
+      "method": "get",
+      "endpoint": "support/tickets/:ticketId",
+      "documentation": "SUP-C03 customer-safe Ticket detail.",
+      "responses": [
+        {
+          "uuid": "a0000000-0000-4000-8000-000000000015",
+          "body": "{\"ticketId\":\"support-ticket-mock-001\",\"ticketNumber\":\"TCK-2410-0195\",\"createdAt\":\"2026-10-24T09:20:00Z\",\"updatedAt\":\"2026-10-24T09:20:00Z\",\"status\":\"NEW\",\"statusLabel\":\"Đã tiếp nhận\",\"statusDescription\":\"Ticket đã được ghi nhận và đang chờ phân công.\",\"subjectLabel\":\"Tư vấn phối ngự trà & lễ vật biếu tặng\",\"title\":\"Tư vấn cách bảo quản Bánh Phục Linh & Nghi thức dâng Trà Sen mừng đại thọ\",\"requestedPriority\":\"IMPORTANT\",\"requestedPriorityLabel\":\"Ưu tiên Cố Đô\",\"servicePromise\":{\"label\":\"Đạt chuẩn 25 phút\",\"targetAt\":\"2026-10-24T11:20:00Z\",\"met\":true},\"publicAssignee\":null,\"linkedOrder\":{\"orderId\":\"order-mock-20260926-001\",\"orderNumber\":\"OMA-260926-001\",\"statusLabel\":\"Đã giao thành công\",\"products\":[{\"name\":\"Bánh Phục Linh Ngũ Sắc\",\"variant\":\"Hộp sơn mài\",\"quantity\":2,\"priceVnd\":245000},{\"name\":\"Trà Sen Tịnh Tâm Thượng Hạng\",\"variant\":\"Hũ gốm ngự\",\"quantity\":1,\"priceVnd\":480000}]},\"messages\":[{\"messageId\":\"msg-customer-001\",\"senderRole\":\"CUSTOMER\",\"senderDisplayName\":\"Nguyễn Văn Bảo Long\",\"message\":\"Kính gửi Ô Mạ, chiều mai gia đình tôi có tổ chức lễ mừng đại thọ. Tôi vừa nhận 2 hộp Bánh Phục Linh Ngũ Sắc và 1 hũ Trà Sen Tịnh Tâm trong đơn hàng #OMA-260926-001.\\n\\nNhờ quý nghệ nhân hướng dẫn cách bày trí bánh và nghi thức pha trà phù hợp.\",\"occurredAt\":\"2026-10-24T09:20:00Z\",\"attachments\":[{\"attachmentId\":\"att-001\",\"label\":\"khay_tra_dong_co_do_chuan_bi_tiec.jpg\",\"mediaType\":\"image/jpeg\",\"state\":\"READY\"}]}],\"canReply\":true}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "ticket-new",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "ticket-new",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "a0000000-0000-4000-8000-000000000016",
+          "body": "{\"ticketId\":\"support-ticket-mock-001\",\"ticketNumber\":\"TCK-2410-0195\",\"createdAt\":\"2026-10-24T09:20:00Z\",\"updatedAt\":\"2026-10-24T10:05:00Z\",\"status\":\"WAITING_CUSTOMER\",\"statusLabel\":\"Chờ Tri Kỷ phản hồi\",\"statusDescription\":\"Ban Chăm Sóc cần thêm thông tin công khai từ quý khách.\",\"subjectLabel\":\"Tư vấn phối ngự trà & lễ vật biếu tặng\",\"title\":\"Tư vấn cách bảo quản Bánh Phục Linh & Nghi thức dâng Trà Sen mừng đại thọ\",\"requestedPriority\":\"IMPORTANT\",\"requestedPriorityLabel\":\"Ưu tiên Cố Đô\",\"servicePromise\":{\"label\":\"Đạt chuẩn 25 phút\",\"targetAt\":\"2026-10-24T11:20:00Z\",\"met\":true},\"publicAssignee\":{\"displayName\":\"Nghệ nhân Tôn Nữ Diệu Hạnh\",\"roleLabel\":\"Trưởng ban Cố vấn Hương vị\"},\"linkedOrder\":{\"orderId\":\"order-mock-20260926-001\",\"orderNumber\":\"OMA-260926-001\",\"statusLabel\":\"Đã giao thành công\",\"products\":[{\"name\":\"Bánh Phục Linh Ngũ Sắc\",\"variant\":\"Hộp sơn mài\",\"quantity\":2,\"priceVnd\":245000},{\"name\":\"Trà Sen Tịnh Tâm Thượng Hạng\",\"variant\":\"Hũ gốm ngự\",\"quantity\":1,\"priceVnd\":480000}]},\"messages\":[{\"messageId\":\"msg-customer-001\",\"senderRole\":\"CUSTOMER\",\"senderDisplayName\":\"Nguyễn Văn Bảo Long\",\"message\":\"Kính gửi Ô Mạ, chiều mai gia đình tôi có tổ chức lễ mừng đại thọ. Tôi vừa nhận 2 hộp Bánh Phục Linh Ngũ Sắc và 1 hũ Trà Sen Tịnh Tâm trong đơn hàng #OMA-260926-001.\\n\\nNhờ quý nghệ nhân hướng dẫn cách bày trí bánh và nghi thức pha trà phù hợp.\",\"occurredAt\":\"2026-10-24T09:20:00Z\",\"attachments\":[{\"attachmentId\":\"att-001\",\"label\":\"khay_tra_dong_co_do_chuan_bi_tiec.jpg\",\"mediaType\":\"image/jpeg\",\"state\":\"READY\"}]},{\"messageId\":\"msg-support-001\",\"senderRole\":\"SUPPORT\",\"senderDisplayName\":\"Nghệ nhân Tôn Nữ Diệu Hạnh\",\"message\":\"Đa tạ Quý tri kỷ Bảo Long! Toàn thể nghệ nhân Ô Mạ xin kính chúc Trưởng lão Nguyễn Khoa Thức phúc như Đông Hải, thọ tỷ Nam Sơn.\\n\\nBánh Phục Linh nên được bày trên đĩa sứ men trắng, mỗi vị trí cách nhau một khoảng nhỏ. Trà sen sao nhẹ với nước khoảng 85°C, tráng ấm trước khi hãm và dùng chén thành mỏng.\",\"occurredAt\":\"2026-10-24T09:45:00Z\",\"attachments\":[{\"attachmentId\":\"att-002\",\"label\":\"Nghi_Thuc_Ngu_Tra_Va_Bay_Banh_O_Ma.pdf\",\"mediaType\":\"application/pdf\",\"state\":\"READY\"}]}],\"canReply\":true}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "ticket-waiting",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "ticket-waiting",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "a0000000-0000-4000-8000-000000000017",
+          "body": "{\"ticketId\":\"support-ticket-mock-001\",\"ticketNumber\":\"TCK-2410-0195\",\"createdAt\":\"2026-10-24T09:20:00Z\",\"updatedAt\":\"2026-10-24T10:05:00Z\",\"status\":\"RESOLVED\",\"statusLabel\":\"Đã giải quyết\",\"statusDescription\":\"Nội dung hỗ trợ đã được giải đáp. Quý khách vẫn có thể phản hồi theo chính sách mở lại.\",\"subjectLabel\":\"Tư vấn phối ngự trà & lễ vật biếu tặng\",\"title\":\"Tư vấn cách bảo quản Bánh Phục Linh & Nghi thức dâng Trà Sen mừng đại thọ\",\"requestedPriority\":\"IMPORTANT\",\"requestedPriorityLabel\":\"Ưu tiên Cố Đô\",\"servicePromise\":{\"label\":\"Đạt chuẩn 25 phút\",\"targetAt\":\"2026-10-24T11:20:00Z\",\"met\":true},\"publicAssignee\":{\"displayName\":\"Nghệ nhân Tôn Nữ Diệu Hạnh\",\"roleLabel\":\"Trưởng ban Cố vấn Hương vị\"},\"linkedOrder\":{\"orderId\":\"order-mock-20260926-001\",\"orderNumber\":\"OMA-260926-001\",\"statusLabel\":\"Đã giao thành công\",\"products\":[{\"name\":\"Bánh Phục Linh Ngũ Sắc\",\"variant\":\"Hộp sơn mài\",\"quantity\":2,\"priceVnd\":245000},{\"name\":\"Trà Sen Tịnh Tâm Thượng Hạng\",\"variant\":\"Hũ gốm ngự\",\"quantity\":1,\"priceVnd\":480000}]},\"messages\":[{\"messageId\":\"msg-customer-001\",\"senderRole\":\"CUSTOMER\",\"senderDisplayName\":\"Nguyễn Văn Bảo Long\",\"message\":\"Kính gửi Ô Mạ, chiều mai gia đình tôi có tổ chức lễ mừng đại thọ. Tôi vừa nhận 2 hộp Bánh Phục Linh Ngũ Sắc và 1 hũ Trà Sen Tịnh Tâm trong đơn hàng #OMA-260926-001.\\n\\nNhờ quý nghệ nhân hướng dẫn cách bày trí bánh và nghi thức pha trà phù hợp.\",\"occurredAt\":\"2026-10-24T09:20:00Z\",\"attachments\":[{\"attachmentId\":\"att-001\",\"label\":\"khay_tra_dong_co_do_chuan_bi_tiec.jpg\",\"mediaType\":\"image/jpeg\",\"state\":\"READY\"}]},{\"messageId\":\"msg-support-001\",\"senderRole\":\"SUPPORT\",\"senderDisplayName\":\"Nghệ nhân Tôn Nữ Diệu Hạnh\",\"message\":\"Đa tạ Quý tri kỷ Bảo Long! Toàn thể nghệ nhân Ô Mạ xin kính chúc Trưởng lão Nguyễn Khoa Thức phúc như Đông Hải, thọ tỷ Nam Sơn.\\n\\nBánh Phục Linh nên được bày trên đĩa sứ men trắng, mỗi vị trí cách nhau một khoảng nhỏ. Trà sen sao nhẹ với nước khoảng 85°C, tráng ấm trước khi hãm và dùng chén thành mỏng.\",\"occurredAt\":\"2026-10-24T09:45:00Z\",\"attachments\":[{\"attachmentId\":\"att-002\",\"label\":\"Nghi_Thuc_Ngu_Tra_Va_Bay_Banh_O_Ma.pdf\",\"mediaType\":\"application/pdf\",\"state\":\"READY\"}]},{\"messageId\":\"msg-customer-002\",\"senderRole\":\"CUSTOMER\",\"senderDisplayName\":\"Nguyễn Văn Bảo Long\",\"message\":\"Cảm ơn Nghệ nhân Diệu Hạnh rất nhiều! Chỉ dẫn vô cùng chu đáo, nhã nhặn và chuẩn mực văn hiến Huế.\",\"occurredAt\":\"2026-10-24T10:05:00Z\",\"attachments\":[]}],\"canReply\":true}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "ticket-resolved",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "ticket-resolved",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "a0000000-0000-4000-8000-000000000018",
+          "body": "{\"ticketId\":\"support-ticket-mock-001\",\"ticketNumber\":\"TCK-2410-0195\",\"createdAt\":\"2026-10-24T09:20:00Z\",\"updatedAt\":\"2026-10-24T10:05:00Z\",\"status\":\"CLOSED\",\"statusLabel\":\"Đã đóng\",\"statusDescription\":\"Ticket đã đóng trao đổi. Vui lòng tạo Ticket mới nếu cần hỗ trợ khác.\",\"subjectLabel\":\"Tư vấn phối ngự trà & lễ vật biếu tặng\",\"title\":\"Tư vấn cách bảo quản Bánh Phục Linh & Nghi thức dâng Trà Sen mừng đại thọ\",\"requestedPriority\":\"IMPORTANT\",\"requestedPriorityLabel\":\"Ưu tiên Cố Đô\",\"servicePromise\":{\"label\":\"Đạt chuẩn 25 phút\",\"targetAt\":\"2026-10-24T11:20:00Z\",\"met\":true},\"publicAssignee\":{\"displayName\":\"Nghệ nhân Tôn Nữ Diệu Hạnh\",\"roleLabel\":\"Trưởng ban Cố vấn Hương vị\"},\"linkedOrder\":{\"orderId\":\"order-mock-20260926-001\",\"orderNumber\":\"OMA-260926-001\",\"statusLabel\":\"Đã giao thành công\",\"products\":[{\"name\":\"Bánh Phục Linh Ngũ Sắc\",\"variant\":\"Hộp sơn mài\",\"quantity\":2,\"priceVnd\":245000},{\"name\":\"Trà Sen Tịnh Tâm Thượng Hạng\",\"variant\":\"Hũ gốm ngự\",\"quantity\":1,\"priceVnd\":480000}]},\"messages\":[{\"messageId\":\"msg-customer-001\",\"senderRole\":\"CUSTOMER\",\"senderDisplayName\":\"Nguyễn Văn Bảo Long\",\"message\":\"Kính gửi Ô Mạ, chiều mai gia đình tôi có tổ chức lễ mừng đại thọ. Tôi vừa nhận 2 hộp Bánh Phục Linh Ngũ Sắc và 1 hũ Trà Sen Tịnh Tâm trong đơn hàng #OMA-260926-001.\\n\\nNhờ quý nghệ nhân hướng dẫn cách bày trí bánh và nghi thức pha trà phù hợp.\",\"occurredAt\":\"2026-10-24T09:20:00Z\",\"attachments\":[{\"attachmentId\":\"att-001\",\"label\":\"khay_tra_dong_co_do_chuan_bi_tiec.jpg\",\"mediaType\":\"image/jpeg\",\"state\":\"READY\"}]},{\"messageId\":\"msg-support-001\",\"senderRole\":\"SUPPORT\",\"senderDisplayName\":\"Nghệ nhân Tôn Nữ Diệu Hạnh\",\"message\":\"Đa tạ Quý tri kỷ Bảo Long! Toàn thể nghệ nhân Ô Mạ xin kính chúc Trưởng lão Nguyễn Khoa Thức phúc như Đông Hải, thọ tỷ Nam Sơn.\\n\\nBánh Phục Linh nên được bày trên đĩa sứ men trắng, mỗi vị trí cách nhau một khoảng nhỏ. Trà sen sao nhẹ với nước khoảng 85°C, tráng ấm trước khi hãm và dùng chén thành mỏng.\",\"occurredAt\":\"2026-10-24T09:45:00Z\",\"attachments\":[{\"attachmentId\":\"att-002\",\"label\":\"Nghi_Thuc_Ngu_Tra_Va_Bay_Banh_O_Ma.pdf\",\"mediaType\":\"application/pdf\",\"state\":\"READY\"}]},{\"messageId\":\"msg-customer-002\",\"senderRole\":\"CUSTOMER\",\"senderDisplayName\":\"Nguyễn Văn Bảo Long\",\"message\":\"Cảm ơn Nghệ nhân Diệu Hạnh rất nhiều! Chỉ dẫn vô cùng chu đáo, nhã nhặn và chuẩn mực văn hiến Huế.\",\"occurredAt\":\"2026-10-24T10:05:00Z\",\"attachments\":[]}],\"canReply\":false}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "ticket-closed",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "ticket-closed",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "a0000000-0000-4000-8000-000000000019",
+          "body": "{\"code\":\"TICKET_NOT_FOUND\",\"message\":\"Ticket không tồn tại hoặc bạn không có quyền xem.\",\"requestId\":\"REQ-SUP-TICKET-404\"}",
+          "latency": 0,
+          "statusCode": 404,
+          "label": "ticket-not-found",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "ticket-not-found",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "a0000000-0000-4000-8000-000000000020",
+          "body": "{\"code\":\"SUPPORT_ERROR\",\"message\":\"Chưa thể tải Ticket hỗ trợ.\",\"requestId\":\"REQ-SUP-TICKET-500\"}",
+          "latency": 0,
+          "statusCode": 500,
+          "label": "ticket-error",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "ticket-error",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "a0000000-0000-4000-8000-000000000021",
+          "body": "{\"ticketId\":\"support-ticket-mock-001\",\"ticketNumber\":\"TCK-2410-0195\",\"createdAt\":\"2026-10-24T09:20:00Z\",\"updatedAt\":\"2026-10-24T10:05:00Z\",\"status\":\"IN_PROGRESS\",\"statusLabel\":\"Đang xử lý — đã có phản hồi từ nghệ nhân\",\"statusDescription\":\"Ban Chăm Sóc Tri Kỷ đang đồng hành và chờ trao đổi tiếp theo của quý khách.\",\"subjectLabel\":\"Tư vấn phối ngự trà & lễ vật biếu tặng\",\"title\":\"Tư vấn cách bảo quản Bánh Phục Linh & Nghi thức dâng Trà Sen mừng đại thọ\",\"requestedPriority\":\"IMPORTANT\",\"requestedPriorityLabel\":\"Ưu tiên Cố Đô\",\"servicePromise\":{\"label\":\"Đạt chuẩn 25 phút\",\"targetAt\":\"2026-10-24T11:20:00Z\",\"met\":true},\"publicAssignee\":{\"displayName\":\"Nghệ nhân Tôn Nữ Diệu Hạnh\",\"roleLabel\":\"Trưởng ban Cố vấn Hương vị\"},\"linkedOrder\":{\"orderId\":\"order-mock-20260926-001\",\"orderNumber\":\"OMA-260926-001\",\"statusLabel\":\"Đã giao thành công\",\"products\":[{\"name\":\"Bánh Phục Linh Ngũ Sắc\",\"variant\":\"Hộp sơn mài\",\"quantity\":2,\"priceVnd\":245000},{\"name\":\"Trà Sen Tịnh Tâm Thượng Hạng\",\"variant\":\"Hũ gốm ngự\",\"quantity\":1,\"priceVnd\":480000}]},\"messages\":[{\"messageId\":\"msg-customer-001\",\"senderRole\":\"CUSTOMER\",\"senderDisplayName\":\"Nguyễn Văn Bảo Long\",\"message\":\"Kính gửi Ô Mạ, chiều mai gia đình tôi có tổ chức lễ mừng đại thọ. Tôi vừa nhận 2 hộp Bánh Phục Linh Ngũ Sắc và 1 hũ Trà Sen Tịnh Tâm trong đơn hàng #OMA-260926-001.\\n\\nNhờ quý nghệ nhân hướng dẫn cách bày trí bánh và nghi thức pha trà phù hợp.\",\"occurredAt\":\"2026-10-24T09:20:00Z\",\"attachments\":[{\"attachmentId\":\"att-001\",\"label\":\"khay_tra_dong_co_do_chuan_bi_tiec.jpg\",\"mediaType\":\"image/jpeg\",\"state\":\"READY\"}]},{\"messageId\":\"msg-support-001\",\"senderRole\":\"SUPPORT\",\"senderDisplayName\":\"Nghệ nhân Tôn Nữ Diệu Hạnh\",\"message\":\"Đa tạ Quý tri kỷ Bảo Long! Toàn thể nghệ nhân Ô Mạ xin kính chúc Trưởng lão Nguyễn Khoa Thức phúc như Đông Hải, thọ tỷ Nam Sơn.\\n\\nBánh Phục Linh nên được bày trên đĩa sứ men trắng, mỗi vị trí cách nhau một khoảng nhỏ. Trà sen sao nhẹ với nước khoảng 85°C, tráng ấm trước khi hãm và dùng chén thành mỏng.\",\"occurredAt\":\"2026-10-24T09:45:00Z\",\"attachments\":[{\"attachmentId\":\"att-002\",\"label\":\"Nghi_Thuc_Ngu_Tra_Va_Bay_Banh_O_Ma.pdf\",\"mediaType\":\"application/pdf\",\"state\":\"READY\"}]},{\"messageId\":\"msg-customer-002\",\"senderRole\":\"CUSTOMER\",\"senderDisplayName\":\"Nguyễn Văn Bảo Long\",\"message\":\"Cảm ơn Nghệ nhân Diệu Hạnh rất nhiều! Chỉ dẫn vô cùng chu đáo, nhã nhặn và chuẩn mực văn hiến Huế.\",\"occurredAt\":\"2026-10-24T10:05:00Z\",\"attachments\":[]}],\"canReply\":true}",
+          "latency": 3000,
+          "statusCode": 200,
+          "label": "ticket-slow",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "ticket-slow",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "a0000000-0000-4000-8000-000000000022",
+          "body": "{\"ticketId\":\"support-ticket-mock-001\",\"ticketNumber\":\"TCK-2410-0195\",\"createdAt\":\"2026-10-24T09:20:00Z\",\"updatedAt\":\"2026-10-24T10:05:00Z\",\"status\":\"IN_PROGRESS\",\"statusLabel\":\"Đang xử lý — đã có phản hồi từ nghệ nhân\",\"statusDescription\":\"Ban Chăm Sóc Tri Kỷ đang đồng hành và chờ trao đổi tiếp theo của quý khách.\",\"subjectLabel\":\"Tư vấn phối ngự trà & lễ vật biếu tặng\",\"title\":\"Tư vấn cách bảo quản Bánh Phục Linh & Nghi thức dâng Trà Sen mừng đại thọ\",\"requestedPriority\":\"IMPORTANT\",\"requestedPriorityLabel\":\"Ưu tiên Cố Đô\",\"servicePromise\":{\"label\":\"Đạt chuẩn 25 phút\",\"targetAt\":\"2026-10-24T11:20:00Z\",\"met\":true},\"publicAssignee\":{\"displayName\":\"Nghệ nhân Tôn Nữ Diệu Hạnh\",\"roleLabel\":\"Trưởng ban Cố vấn Hương vị\"},\"linkedOrder\":{\"orderId\":\"order-mock-20260926-001\",\"orderNumber\":\"OMA-260926-001\",\"statusLabel\":\"Đã giao thành công\",\"products\":[{\"name\":\"Bánh Phục Linh Ngũ Sắc\",\"variant\":\"Hộp sơn mài\",\"quantity\":2,\"priceVnd\":245000},{\"name\":\"Trà Sen Tịnh Tâm Thượng Hạng\",\"variant\":\"Hũ gốm ngự\",\"quantity\":1,\"priceVnd\":480000}]},\"messages\":[{\"messageId\":\"msg-customer-001\",\"senderRole\":\"CUSTOMER\",\"senderDisplayName\":\"Nguyễn Văn Bảo Long\",\"message\":\"Kính gửi Ô Mạ, chiều mai gia đình tôi có tổ chức lễ mừng đại thọ. Tôi vừa nhận 2 hộp Bánh Phục Linh Ngũ Sắc và 1 hũ Trà Sen Tịnh Tâm trong đơn hàng #OMA-260926-001.\\n\\nNhờ quý nghệ nhân hướng dẫn cách bày trí bánh và nghi thức pha trà phù hợp.\",\"occurredAt\":\"2026-10-24T09:20:00Z\",\"attachments\":[{\"attachmentId\":\"att-001\",\"label\":\"khay_tra_dong_co_do_chuan_bi_tiec.jpg\",\"mediaType\":\"image/jpeg\",\"state\":\"READY\"}]},{\"messageId\":\"msg-support-001\",\"senderRole\":\"SUPPORT\",\"senderDisplayName\":\"Nghệ nhân Tôn Nữ Diệu Hạnh\",\"message\":\"Đa tạ Quý tri kỷ Bảo Long! Toàn thể nghệ nhân Ô Mạ xin kính chúc Trưởng lão Nguyễn Khoa Thức phúc như Đông Hải, thọ tỷ Nam Sơn.\\n\\nBánh Phục Linh nên được bày trên đĩa sứ men trắng, mỗi vị trí cách nhau một khoảng nhỏ. Trà sen sao nhẹ với nước khoảng 85°C, tráng ấm trước khi hãm và dùng chén thành mỏng.\",\"occurredAt\":\"2026-10-24T09:45:00Z\",\"attachments\":[{\"attachmentId\":\"att-002\",\"label\":\"Nghi_Thuc_Ngu_Tra_Va_Bay_Banh_O_Ma.pdf\",\"mediaType\":\"application/pdf\",\"state\":\"READY\"}]},{\"messageId\":\"msg-customer-002\",\"senderRole\":\"CUSTOMER\",\"senderDisplayName\":\"Nguyễn Văn Bảo Long\",\"message\":\"Cảm ơn Nghệ nhân Diệu Hạnh rất nhiều! Chỉ dẫn vô cùng chu đáo, nhã nhặn và chuẩn mực văn hiến Huế.\",\"occurredAt\":\"2026-10-24T10:05:00Z\",\"attachments\":[]}],\"canReply\":true}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "ticket-default",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "a0000000-0000-4000-8000-000000000029",
+      "type": "http",
+      "method": "post",
+      "endpoint": "support/tickets/:ticketId/messages",
+      "documentation": "SUP-C04 idempotent public Customer reply.",
+      "responses": [
+        {
+          "uuid": "a0000000-0000-4000-8000-000000000024",
+          "body": "{\"code\":\"TICKET_COMMUNICATION_CLOSED\",\"message\":\"Ticket đã đóng trao đổi. Hãy tạo yêu cầu mới.\",\"requestId\":\"REQ-SUP-MSG-409\"}",
+          "latency": 0,
+          "statusCode": 409,
+          "label": "message-closed",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "message-closed",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "a0000000-0000-4000-8000-000000000025",
+          "body": "{\"code\":\"SUPPORT_RATE_LIMITED\",\"message\":\"Bạn gửi phản hồi quá nhanh. Vui lòng thử lại sau.\",\"requestId\":\"REQ-SUP-MSG-429\",\"retryAfterSeconds\":30}",
+          "latency": 0,
+          "statusCode": 429,
+          "label": "message-rate-limited",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "message-rate-limited",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "a0000000-0000-4000-8000-000000000026",
+          "body": "{\"code\":\"SUPPORT_ERROR\",\"message\":\"Chưa thể gửi phản hồi.\",\"requestId\":\"REQ-SUP-MSG-500\"}",
+          "latency": 0,
+          "statusCode": 500,
+          "label": "message-error",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "message-error",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "a0000000-0000-4000-8000-000000000027",
+          "body": "{\"messageId\":\"msg-customer-new\",\"senderRole\":\"CUSTOMER\",\"senderDisplayName\":\"Nguyễn Văn Bảo Long\",\"message\":\"Nội dung phản hồi đã được ghi nhận.\",\"occurredAt\":\"2026-10-24T10:20:00Z\",\"attachments\":[]}",
+          "latency": 3000,
+          "statusCode": 201,
+          "label": "message-slow",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "message-slow",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "a0000000-0000-4000-8000-000000000028",
+          "body": "{\"messageId\":\"msg-customer-new\",\"senderRole\":\"CUSTOMER\",\"senderDisplayName\":\"Nguyễn Văn Bảo Long\",\"message\":\"Nội dung phản hồi đã được ghi nhận.\",\"occurredAt\":\"2026-10-24T10:20:00Z\",\"attachments\":[]}",
+          "latency": 0,
+          "statusCode": 201,
+          "label": "message-default",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    }
+  ],
+  "rootChildren": [],
+  "proxyMode": false,
+  "proxyHost": "",
+  "proxyRemovePrefix": false,
+  "tlsOptions": {
+    "enabled": false,
+    "type": "CERT",
+    "pfxPath": "",
+    "certPath": "",
+    "keyPath": "",
+    "caPath": "",
+    "passphrase": ""
+  },
+  "cors": true,
+  "headers": [
+    {
+      "key": "Content-Type",
+      "value": "application/json"
+    }
+  ],
+  "proxyReqHeaders": [],
+  "proxyResHeaders": [],
+  "data": [],
+  "callbacks": []
+}

@@ -1238,6 +1238,7 @@ Role (Aggregate Root)
 2. **AUTH-BI-02**: Tài khoản nội bộ phải có Role trước khi truy cập chức năng quản trị (BR-AUTH-03).
 3. **AUTH-BI-03**: Sau 5 lần đăng nhập thất bại liên tiếp → khóa tài khoản.
 4. **AUTH-BI-04**: JWT Access Token TTL = 1 giờ, Refresh Token TTL = 7 ngày.
+5. **AUTH-BI-05 (Enterprise Persona Separation)**: Tách bạch danh tính tổ chức và cá nhân. Nhân viên sử dụng tài khoản `EMPLOYEE` cho công việc quản trị; khi mua sắm cá nhân sử dụng tài khoản `CUSTOMER` riêng biệt. Khi nhân viên thôi việc (Offboarding), vô hiệu hóa tài khoản `EMPLOYEE` độc lập hoàn toàn với tài khoản `CUSTOMER`.
 
 ---
 

@@ -3,8 +3,8 @@ syntax = "proto3";
 package omamx.fulfillment.v1;
 
 import "google/protobuf/timestamp.proto";
-import "common/v1/types.proto";
 import "common/v1/errors.proto";
+import "common/v1/workflow.proto";
 
 option go_package = "github.com/omamx/proto/fulfillment/v1;fulfillmentv1";
 option java_multiple_files = true;
@@ -16,11 +16,59 @@ option java_package = "com.omamx.proto.fulfillment.v1";
 // =============================================================================
 
 service FulfillmentService {
+  // Additive exact-revision lookup for source proof and out-of-order replay.
+  rpc GetTaskRevision(GetTaskRevisionRequest) returns (TaskRevision);
+  // Proposed Order 3.2 methods. Serialized accept/cancel, including absent task.
+  rpc AcceptTask(AcceptTaskRequest) returns (TaskDecision);
+  rpc CancelTask(CancelTaskRequest) returns (TaskDecision);
+  rpc GetTaskDecision(GetTaskDecisionRequest) returns (TaskDecision);
   // Lấy Pre-signed S3 URL video niêm phong tem Seal O Mạ phục vụ đối soát khiếu nại (NFR-09)
   rpc GetPackingVideoUrl(GetPackingVideoUrlRequest) returns (GetPackingVideoUrlResponse);
 
   // Thợ xưởng quét mã vạch lô hàng FEFO và nạp video niêm phong tem Seal hoàn tất đóng gói
   rpc SubmitPackingEvidence(SubmitPackingEvidenceRequest) returns (SubmitPackingEvidenceResponse);
+}
+
+message AcceptTaskRequest {
+  string order_id = 1;
+  int64 generation = 2;
+  string idempotency_key = 3;
+  string request_hash = 4;
+  omamx.common.v1.FulfillmentPermit permit = 5;
+  string contract_version = 6;
+}
+
+message CancelTaskRequest {
+  string order_id = 1;
+  int64 generation = 2;
+  string idempotency_key = 3;
+  string request_hash = 4;
+  string reason = 5;
+  string contract_version = 6;
+}
+
+message GetTaskDecisionRequest {
+  string order_id = 1;
+  int64 generation = 2;
+  // Optional pair to recover an original command; both empty for resource query.
+  string command_key = 3;
+  string command_action = 4;
+  string contract_version = 5;
+}
+
+message TaskDecision {
+  string order_id = 1;
+  int64 generation = 2;
+  string state = 3; // OPEN, ACCEPTED, CANCELLED; never UNKNOWN.
+  optional string task_id = 4;
+  int64 resource_version = 5;
+  google.protobuf.Timestamp observed_at = 6;
+  omamx.common.v1.CommandEvidence command = 7;
+  string items_digest = 8;
+  string warehouse_id = 9;
+  string contract_version = 10;
+  // Lookup identity for Inventory; CANCELLED is authoritative only with evidence.
+  omamx.common.v1.DecisionReference decision = 11;
 }
 
 // Yêu cầu lấy link video đóng gói niêm phong
@@ -85,4 +133,20 @@ message SubmitPackingEvidenceResponse {
   bool is_confirmed = 1;
   string fulfillment_task_id = 2;
   google.protobuf.Timestamp packed_at = 3;
+}
+
+message GetTaskRevisionRequest {
+  string task_id = 1;
+  int64 resource_version = 2;
+}
+message TaskRevision {
+  string order_id = 1;
+  string task_id = 2;
+  int64 resource_version = 3;
+  int64 ready_generation = 4;
+  string kind = 5; // PACKING_ACCEPTED or PACKING_SEALED; matches Order core ingress.
+  string seal_code = 6;
+  google.protobuf.Timestamp occurred_at = 7;
+  string items_digest = 8;
+  string warehouse_id = 9;
 }

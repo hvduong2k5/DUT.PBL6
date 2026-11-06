@@ -1,0 +1,11 @@
+{
+  "worker": "order-sepay-sandbox",
+  "compatibility_date": "2026-10-24",
+  "account_id": "04e36d94d53c6ebd5b6d95787f17dead",
+  "zone_id": "e2b05928e5f2b416f7f9ffcd4efe566f",
+  "hostname": "sepay-test.npanhbao.dev",
+  "database_id": "763fc8cb-acbc-4cdc-9141-a2b6c654be43",
+  "database_name": "order-sepay-sandbox",
+  "bindings": { "DB": "d1", "WEBHOOK_SECRET": "secret_text", "CAPTURE_KEY": "secret_text" },
+  "payment_processing": false
+}

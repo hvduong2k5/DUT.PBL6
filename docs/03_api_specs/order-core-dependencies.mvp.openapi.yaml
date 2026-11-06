@@ -1,0 +1,920 @@
+openapi: 3.1.0
+info:
+  title: Order core integration facade - MVP target
+  version: 1.0.0-integration
+  description: Server-to-server interfaces already called by Order core. Provider
+    adapters remain to be implemented and verified; no simulator capability is claimed
+    as a real provider.
+servers:
+- url: https://order-dependencies.example
+security:
+- internalToken: []
+paths:
+  /order-core/terms:
+    post:
+      operationId: core_post_terms
+      description: Compose authoritative Catalog/Profile/Shipping terms. Order overwrites
+        owner/cart/operation/receiver identity locally. This adapter is not a simulator
+        and must not invent unavailable terms.
+      responses:
+        '200':
+          description: Authenticated authoritative result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommercialTerms'
+        '503':
+          description: No authority or peer unavailable; fail closed
+      x-contract-status: integration-target
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Quote'
+  /order-core/revalidate:
+    post:
+      operationId: core_post_revalidate
+      description: Requery owning providers before inventory reserve. False or unavailable
+        rejects placement; never silently update a previously accepted quote.
+      responses:
+        '200':
+          description: Authenticated authoritative result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Revalidation'
+        '503':
+          description: No authority or peer unavailable; fail closed
+      x-contract-status: integration-target
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SnapshotInput'
+  /order-core/resources/{id}:
+    get:
+      operationId: core_get_id
+      description: Return evidence for the requested original resource revision, including
+        original kind/time/generation/seal. A latest-state projection is insufficient
+        for replay. NOT_FOUND is not terminal absence.
+      responses:
+        '200':
+          description: Authenticated authoritative result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SourceEvidence'
+        '503':
+          description: No authority or peer unavailable; fail closed
+      x-contract-status: integration-target
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: source
+        in: query
+        required: true
+        schema:
+          type: string
+          enum:
+          - fulfillment
+          - shipping
+          - care
+      - name: version
+        in: query
+        required: true
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+  /order-core/completion:
+    post:
+      operationId: core_post_completion
+      description: Compose a bounded decision from Shipping/Care/settlement authorities;
+        any unknown fact denies completion. COD must have verified settlement. No
+        permissive Care stub.
+      responses:
+        '200':
+          description: Authenticated authoritative result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompletionDecision'
+        '503':
+          description: No authority or peer unavailable; fail closed
+      x-contract-status: integration-target
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompletionRequest'
+  /order-core/admission-barrier:
+    post:
+      operationId: core_admission_barrier
+      description: Authoritative Fulfillment decision for HOLD/RESUME. No active task
+        requires an owning-service barrier, never NOT_FOUND. Unavailable denies the
+        transition.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdmissionRequest'
+      responses:
+        '200':
+          description: Bounded authoritative barrier
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdmissionBarrier'
+        '503':
+          description: Owning authority unavailable; no transition
+      x-contract-status: integration-target
+components:
+  securitySchemes:
+    internalToken:
+      type: apiKey
+      in: header
+      name: X-Internal-Token
+  schemas:
+    SnapshotInput:
+      type: object
+      additionalProperties: false
+      required:
+      - snapshot_schema_version
+      - snapshot_id
+      - order_id
+      - operation_id
+      - merchant_id
+      - warehouse_id
+      - channel
+      - placed_at
+      - owner_at_placement
+      - provenance
+      - catalog
+      - items
+      - shipping_address
+      - shipping
+      - money
+      - payment_terms
+      - policies
+      properties:
+        snapshot_schema_version:
+          const: '1.0'
+        snapshot_id:
+          type: string
+          format: uuid
+        order_id:
+          type: string
+          format: uuid
+        operation_id:
+          type: string
+          format: uuid
+        merchant_id:
+          type: string
+          format: uuid
+        warehouse_id:
+          type: string
+          minLength: 1
+          maxLength: 255
+        channel:
+          const: D2C_WEB
+        placed_at:
+          type: string
+          format: date-time
+        owner_at_placement:
+          $ref: '#/components/schemas/Snapshot_Owner'
+        provenance:
+          $ref: '#/components/schemas/Snapshot_Provenance'
+        catalog:
+          $ref: '#/components/schemas/Snapshot_CatalogEvidence'
+        items:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/Snapshot_Item'
+        shipping_address:
+          $ref: '#/components/schemas/Snapshot_Address'
+        shipping:
+          $ref: '#/components/schemas/Snapshot_Shipping'
+        money:
+          $ref: '#/components/schemas/Snapshot_Money'
+        payment_terms:
+          $ref: '#/components/schemas/Snapshot_PaymentTerms'
+        policies:
+          $ref: '#/components/schemas/Snapshot_Policies'
+    Item:
+      type: object
+      additionalProperties: false
+      required:
+      - sku_code
+      - quantity
+      properties:
+        item_id:
+          type: string
+        sku_code:
+          type: string
+        quantity:
+          type: integer
+          format: int64
+          minimum: 1
+        unit_price:
+          type: integer
+          format: int64
+        product_name:
+          type: string
+        weight_grams:
+          type: integer
+          format: int64
+        catalog_version:
+          type: integer
+          format: int64
+    Address:
+      type: object
+      additionalProperties: false
+      required:
+      - recipient_name
+      - phone
+      - street
+      - ward_code
+      - province_code
+      properties:
+        recipient_name:
+          type: string
+        phone:
+          type: string
+        street:
+          type: string
+        ward_code:
+          type: string
+        province_code:
+          type: string
+    Quote:
+      type: object
+      additionalProperties: false
+      required:
+      - catalog_snapshot_id
+      - catalog_expires_at
+      - shipping_quote_reference
+      - quote_id
+      - cart_revision
+      - payment_method
+      - items
+      - address
+      - subtotal
+      - shipping_fee
+      - final_amount
+      - expires_at
+      - shipping_expires_at
+      properties:
+        catalog_snapshot_id:
+          type: string
+        catalog_expires_at:
+          type: string
+          format: date-time
+        shipping_quote_reference:
+          type: string
+        source_address_id:
+          type: string
+        source_address_version:
+          type: integer
+          format: int64
+        quote_id:
+          type: string
+        cart_revision:
+          type: integer
+          format: int64
+        payment_method:
+          type: string
+          enum:
+          - VIETQR
+          - COD
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Item'
+        address:
+          $ref: '#/components/schemas/Address'
+        subtotal:
+          type: integer
+          format: int64
+        shipping_fee:
+          type: integer
+          format: int64
+        final_amount:
+          type: integer
+          format: int64
+        customer_id:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+        shipping_expires_at:
+          type: string
+          format: date-time
+      description: Owned immutable server quote. Confirmation revalidates coherent
+        Catalog/Shipping terms for both transfer and COD. Expiry/retry never extends
+        the commercial deadline.
+    SourceEvidence:
+      type: object
+      additionalProperties: false
+      required:
+      - order_id
+      - resource_id
+      - source
+      - kind
+      - version
+      - generation
+      - seal_code
+      - occurred_at
+      - settlement_verified
+      properties:
+        order_id:
+          type: string
+          format: uuid
+        resource_id:
+          type: string
+          format: uuid
+        source:
+          enum:
+          - fulfillment
+          - shipping
+          - care
+        kind:
+          type: string
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+        generation:
+          type: integer
+          format: int64
+          minimum: 1
+        seal_code:
+          type: string
+        occurred_at:
+          type: string
+          format: date-time
+        settlement_verified:
+          type: boolean
+    CompletionRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - order_id
+      - order_version
+      properties:
+        order_id:
+          type: string
+          format: uuid
+        order_version:
+          type: integer
+          format: int64
+          minimum: 1
+    CompletionDecision:
+      type: object
+      additionalProperties: false
+      required:
+      - order_id
+      - order_version
+      - allowed
+      - decision_id
+      - expires_at
+      - settlement_verified
+      properties:
+        order_id:
+          type: string
+          format: uuid
+        order_version:
+          type: integer
+          format: int64
+          minimum: 1
+        allowed:
+          type: boolean
+        decision_id:
+          type: string
+          format: uuid
+        expires_at:
+          type: string
+          format: date-time
+        settlement_verified:
+          type: boolean
+    Revalidation:
+      type: object
+      additionalProperties: false
+      required:
+      - valid
+      properties:
+        valid:
+          type: boolean
+    Snapshot_CustomerOwner:
+      type: object
+      additionalProperties: false
+      required:
+      - kind
+      - principal_id
+      - customer_id
+      - guest_session_id
+      properties:
+        kind:
+          const: CUSTOMER
+        principal_id:
+          type: string
+          format: uuid
+        customer_id:
+          type: string
+          format: uuid
+        guest_session_id:
+          type: 'null'
+    Snapshot_GuestOwner:
+      type: object
+      additionalProperties: false
+      required:
+      - kind
+      - principal_id
+      - customer_id
+      - guest_session_id
+      properties:
+        kind:
+          const: GUEST
+        principal_id:
+          type: string
+          format: uuid
+        customer_id:
+          type: 'null'
+        guest_session_id:
+          type: string
+          format: uuid
+    Snapshot_Owner:
+      oneOf:
+      - $ref: '#/components/schemas/Snapshot_CustomerOwner'
+      - $ref: '#/components/schemas/Snapshot_GuestOwner'
+    Snapshot_Provenance:
+      type: object
+      additionalProperties: false
+      required:
+      - quote_id
+      - cart_id
+      - cart_revision
+      - selection_digest
+      - items_digest
+      - quote_hash
+      - accepted_at
+      - canonicalized_at
+      properties:
+        quote_id:
+          type: string
+          format: uuid
+        cart_id:
+          type: string
+          format: uuid
+        cart_revision:
+          type: integer
+          minimum: 0
+        selection_digest:
+          type: string
+          pattern: ^[a-f0-9]{64}$
+        items_digest:
+          type: string
+          pattern: ^[a-f0-9]{64}$
+        quote_hash:
+          type: string
+          pattern: ^[a-f0-9]{64}$
+        accepted_at:
+          type: string
+          format: date-time
+        canonicalized_at:
+          type: string
+          format: date-time
+    Snapshot_CatalogEvidence:
+      type: object
+      additionalProperties: false
+      required:
+      - snapshot_id
+      - version
+      - valid_until
+      properties:
+        snapshot_id:
+          type: string
+          minLength: 1
+          maxLength: 255
+        version:
+          type: string
+          minLength: 1
+          maxLength: 255
+        valid_until:
+          type: string
+          format: date-time
+    Snapshot_Packaging:
+      type: object
+      additionalProperties: false
+      required:
+      - description
+      - unit_code
+      - packaging_version
+      properties:
+        description:
+          type: string
+          minLength: 1
+          maxLength: 255
+        unit_code:
+          type: string
+          minLength: 1
+          maxLength: 255
+        packaging_version:
+          type: string
+          minLength: 1
+          maxLength: 255
+    Snapshot_Item:
+      type: object
+      additionalProperties: false
+      required:
+      - line_id
+      - sku_code
+      - product_name
+      - quantity
+      - unit_price
+      - line_subtotal
+      - weight_grams
+      - packaging
+      - catalog_version
+      properties:
+        line_id:
+          type: string
+          format: uuid
+        sku_code:
+          type: string
+          pattern: ^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$
+        product_name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 999
+        unit_price:
+          type: integer
+          minimum: 1
+          maximum: 1000000000000
+        line_subtotal:
+          type: integer
+          minimum: 1
+          maximum: 1000000000000
+        weight_grams:
+          type: integer
+          minimum: 1
+          maximum: 1000000000
+        packaging:
+          $ref: '#/components/schemas/Snapshot_Packaging'
+        catalog_version:
+          type: string
+          minLength: 1
+          maxLength: 255
+    Snapshot_AddressSource:
+      type: object
+      additionalProperties: false
+      required:
+      - kind
+      - profile_address_id
+      - address_version
+      - validation_reference
+      properties:
+        kind:
+          enum:
+          - PROFILE_ADDRESS
+          - VALIDATED_INLINE
+        profile_address_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+        address_version:
+          anyOf:
+          - type: integer
+            minimum: 1
+          - type: 'null'
+        validation_reference:
+          type: string
+          minLength: 1
+          maxLength: 255
+      allOf:
+      - if:
+          properties:
+            kind:
+              const: PROFILE_ADDRESS
+        then:
+          properties:
+            profile_address_id:
+              type: string
+              format: uuid
+            address_version:
+              type: integer
+              minimum: 1
+        else:
+          properties:
+            profile_address_id:
+              type: 'null'
+            address_version:
+              type: 'null'
+    Snapshot_Address:
+      type: object
+      additionalProperties: false
+      required:
+      - recipient_name
+      - phone_e164
+      - street
+      - province_code
+      - province_name
+      - ward_code
+      - ward_name
+      - postal_code
+      - source
+      properties:
+        recipient_name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        phone_e164:
+          type: string
+          pattern: ^\+84[35789][0-9]{8}$
+        street:
+          type: string
+          minLength: 1
+          maxLength: 255
+        province_code:
+          type: string
+          minLength: 1
+          maxLength: 255
+        province_name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        ward_code:
+          type: string
+          minLength: 1
+          maxLength: 255
+        ward_name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        postal_code:
+          anyOf:
+          - type: string
+            minLength: 1
+            maxLength: 255
+          - type: 'null'
+        source:
+          $ref: '#/components/schemas/Snapshot_AddressSource'
+    Snapshot_Shipping:
+      type: object
+      additionalProperties: false
+      required:
+      - carrier_code
+      - service_code
+      - quote_reference
+      - quote_version
+      - valid_until
+      - package_weight_grams
+      - quoted_fee
+      properties:
+        carrier_code:
+          type: string
+          minLength: 1
+          maxLength: 255
+        service_code:
+          type: string
+          minLength: 1
+          maxLength: 255
+        quote_reference:
+          type: string
+          minLength: 1
+          maxLength: 255
+        quote_version:
+          type: string
+          minLength: 1
+          maxLength: 255
+        valid_until:
+          type: string
+          format: date-time
+        package_weight_grams:
+          type: integer
+          minimum: 1
+          maximum: 1000000000
+        quoted_fee:
+          type: integer
+          minimum: 0
+          maximum: 1000000000000
+    Snapshot_Money:
+      type: object
+      additionalProperties: false
+      required:
+      - currency
+      - subtotal
+      - merchandise_discount
+      - shipping_fee
+      - shipping_discount
+      - final_amount
+      properties:
+        currency:
+          const: VND
+        subtotal:
+          type: integer
+          minimum: 1
+          maximum: 1000000000000
+        merchandise_discount:
+          const: 0
+        shipping_fee:
+          type: integer
+          minimum: 0
+          maximum: 1000000000000
+        shipping_discount:
+          const: 0
+        final_amount:
+          type: integer
+          minimum: 1
+          maximum: 1000000000000
+    Snapshot_VietqrTerms:
+      type: object
+      additionalProperties: false
+      required:
+      - method
+      - provider
+      - payment_expires_at
+      - receiver_profile_id
+      - receiver_profile_version
+      - cod_policy_reference
+      - collect_amount
+      properties:
+        method:
+          const: VIETQR
+        provider:
+          const: SEPAY
+        payment_expires_at:
+          type: string
+          format: date-time
+        receiver_profile_id:
+          type: string
+          format: uuid
+        receiver_profile_version:
+          type: integer
+          minimum: 1
+        cod_policy_reference:
+          type: 'null'
+        collect_amount:
+          type: 'null'
+    Snapshot_CodTerms:
+      type: object
+      additionalProperties: false
+      required:
+      - method
+      - provider
+      - payment_expires_at
+      - receiver_profile_id
+      - receiver_profile_version
+      - cod_policy_reference
+      - collect_amount
+      properties:
+        method:
+          const: COD
+        provider:
+          type: 'null'
+        payment_expires_at:
+          type: 'null'
+        receiver_profile_id:
+          type: 'null'
+        receiver_profile_version:
+          type: 'null'
+        cod_policy_reference:
+          type: string
+          minLength: 1
+          maxLength: 255
+        collect_amount:
+          type: integer
+          minimum: 1
+          maximum: 1000000000000
+    Snapshot_PaymentTerms:
+      oneOf:
+      - $ref: '#/components/schemas/Snapshot_VietqrTerms'
+      - $ref: '#/components/schemas/Snapshot_CodTerms'
+    Snapshot_Policies:
+      type: object
+      additionalProperties: false
+      required:
+      - order_policy_version
+      - checkout_policy_version
+      - payment_policy_version
+      - shipping_policy_version
+      - promotion_policy_version
+      properties:
+        order_policy_version:
+          type: string
+          minLength: 1
+          maxLength: 255
+        checkout_policy_version:
+          type: string
+          minLength: 1
+          maxLength: 255
+        payment_policy_version:
+          type: string
+          minLength: 1
+          maxLength: 255
+        shipping_policy_version:
+          type: string
+          minLength: 1
+          maxLength: 255
+        promotion_policy_version:
+          type: 'null'
+    AdmissionRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - order_id
+      - order_version
+      - generation
+      - purpose
+      properties:
+        order_id: &id001
+          type: string
+          format: uuid
+        order_version: &id002
+          type: integer
+          format: int64
+          minimum: 1
+        generation: &id003
+          type: integer
+          format: int64
+          minimum: 0
+        purpose:
+          type: string
+          enum:
+          - HOLD
+          - RESUME
+    AdmissionBarrier:
+      type: object
+      additionalProperties: false
+      required:
+      - order_id
+      - order_version
+      - generation
+      - purpose
+      - no_active_task
+      - decision_id
+      - expires_at
+      properties:
+        order_id: *id001
+        order_version: *id002
+        generation: *id003
+        purpose:
+          type: string
+          enum:
+          - HOLD
+          - RESUME
+        no_active_task:
+          type: boolean
+        decision_id: *id001
+        expires_at:
+          type: string
+          format: date-time
+    CommercialTerms:
+      type: object
+      additionalProperties: false
+      required:
+      - warehouse_id
+      - catalog
+      - items
+      - shipping_address
+      - shipping
+      - money
+      - payment_terms
+      - policies
+      properties:
+        warehouse_id:
+          type: string
+          minLength: 1
+          maxLength: 255
+        catalog:
+          $ref: '#/components/schemas/Snapshot_CatalogEvidence'
+        items:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/Snapshot_Item'
+        shipping_address:
+          $ref: '#/components/schemas/Snapshot_Address'
+        shipping:
+          $ref: '#/components/schemas/Snapshot_Shipping'
+        money:
+          $ref: '#/components/schemas/Snapshot_Money'
+        payment_terms:
+          $ref: '#/components/schemas/Snapshot_PaymentTerms'
+        policies:
+          $ref: '#/components/schemas/Snapshot_Policies'

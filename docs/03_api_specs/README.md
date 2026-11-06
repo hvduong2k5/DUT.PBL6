@@ -1,7 +1,20 @@
+> **MVP integration release 26/10/2026:** bắt đầu tại [contract guide](../../packages/contracts/mvp/README.md), [owner/consumer registry](../../packages/contracts/mvp/registry.yaml) và [migration](../../packages/contracts/mvp/MIGRATION.md).
+>
+> Public target: [mvp-customer.openapi.yaml](mvp-customer.openapi.yaml). Core adapter target: [order-core-dependencies.mvp.openapi.yaml](order-core-dependencies.mvp.openapi.yaml). Các spec D2C tổng và frontend/candidate bên dưới giữ vai trò reference/provider proposal; không ghi đè target MVP ở các route trùng. Implementation acceptance vẫn pending, không được suy từ CI contract xanh.
+>
+> Customer access support: [customer-access.support.openapi.yaml](customer-access.support.openapi.yaml), owner Profile. Luồng Web OIDC/Identity/Gateway và cách chạy kiểm tra nằm trong [hướng dẫn tích hợp](../ui_web/WEB_IDENTITY_GATEWAY_INTEGRATION.md). Các auth password-login spec/mock cũ không được dùng để suy ra runtime PKCE đã hỗ trợ các endpoint đó.
+
+> Registration/locations support: [customer-onboarding.support.openapi.yaml](customer-onboarding.support.openapi.yaml), owner Identity/Profile. Bốn luồng hồ sơ, đăng ký, checkout–Inventory và Shipping có phạm vi/nghiệm thu tại [MVP_CUSTOMER_ORDER_SHIPPING_ACCEPTANCE.md](../ui_web/MVP_CUSTOMER_ORDER_SHIPPING_ACCEPTANCE.md).
+
 # CẨM NANG ĐẶC TẢ GIAO DIỆN & HỢP ĐỒNG HỆ THỐNG (API & CONTRACTS SPECIFICATIONS)
+
+> Fulfillment MVP: [luồng thật, bảng quyền và cách bật](../../packages/contracts/mvp/fulfillment-integration.md), [staff REST](fulfillment-service.candidate.openapi.yaml), [packing gRPC canonical](../../packages/proto/packing/v1/packing.proto). Chỉ bật có cấu hình; Customer không được thao tác đóng gói.
 ## HỆ SINH THÁI THƯƠNG MẠI ĐIỆN TỬ & CHUỖI CUNG ỨNG ĐẶC SẢN OCOP HUẾ (MÈ XỬNG O MẠ)
 
 Thư mục này là **Single Source of Truth** về mặt tài liệu giao tiếp kỹ thuật của toàn bộ 18 Microservices, phục vụ trực tiếp cho quá trình lập trình song song, kiểm thử tự động (CI/CD Contract Test) và tài liệu bảo vệ đồ án.
+
+> [!IMPORTANT]
+> Với migration Web Customer MVP, dùng baseline đã pin trong [`../ui_web/MVP_PUBLIC_CONTRACT_MIGRATION_MATRIX.md`](../ui_web/MVP_PUBLIC_CONTRACT_MIGRATION_MATRIX.md). Ở các route trùng nhau, `mvp-customer.openapi.yaml` tại commit contract đã pin được ưu tiên hơn `openapi_d2c.yaml`, các file feature candidate và snapshot Web/Mobile cũ. Contract hiện là `integration-target`; CI contract không thay thế runtime acceptance của service.
 
 ---
 

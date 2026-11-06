@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package omamx.catalog.v1;
 
+import "google/protobuf/timestamp.proto";
 import "common/v1/types.proto";
 import "common/v1/errors.proto";
 
@@ -23,6 +24,32 @@ service CatalogService {
 
   // Truy vấn danh sách biến thể sản phẩm theo bộ lọc (Có phân trang)
   rpc ListProductVariants(ListProductVariantsRequest) returns (ListProductVariantsResponse);
+  // Proposed Order 3.2: one coherent revision for price AND shipping metadata.
+  rpc GetCheckoutSnapshot(GetCheckoutSnapshotRequest) returns (GetCheckoutSnapshotResponse);
+}
+
+message GetCheckoutSnapshotRequest {
+  repeated PriceCheckItem items = 1;
+  string channel = 2;
+  string contract_version = 3;
+}
+message GetCheckoutSnapshotResponse {
+  string snapshot_id = 1;
+  int64 catalog_version = 2;
+  google.protobuf.Timestamp valid_until = 3;
+  repeated CheckoutSnapshotItem items = 4;
+  omamx.common.v1.Money subtotal = 5;
+  omamx.common.v1.ErrorDetail error = 6;
+  string contract_version = 7;
+}
+message CheckoutSnapshotItem {
+  string sku_code = 1;
+  int32 quantity = 2;
+  string product_name = 3;
+  omamx.common.v1.Money unit_price = 4;
+  omamx.common.v1.Weight net_weight = 5;
+  string packaging_type = 6;
+  bool is_active = 7;
 }
 
 // Mặt hàng cần kiểm tra giá bán

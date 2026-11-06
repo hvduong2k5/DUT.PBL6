@@ -1,0 +1,34 @@
+{
+  "release": "mvp-2026-10-26",
+  "status": "integration-target",
+  "base": "2291ef5a44dd3a6f7985297903bfec01b325b087",
+  "sources": {
+    "dev": {
+      "ref": "origin/dev",
+      "sha": "2291ef5a44dd3a6f7985297903bfec01b325b087"
+    },
+    "order": {
+      "ref": "feat/order-service",
+      "sha": "c753a5201caa88fffa7caf29af5681030138a4ff"
+    },
+    "catalog": {
+      "ref": "origin/feature/catalog-service",
+      "sha": "db95c369bce3ed91f62b4d562c9825b1140ecf58"
+    },
+    "shipping": {
+      "ref": "origin/feat/shipping-service",
+      "sha": "1242209c476c137f81900897c266657ebecb81b1"
+    },
+    "mobile": {
+      "ref": "origin/feature/mobile-ui",
+      "sha": "3f206027dc8de3b992bfc327aeb9dcb27db9a86f"
+    },
+    "web": {
+      "ref": "origin/feature/ui-web",
+      "sha": "b1ff2918c7297fc93d0cb9a15cc1d0a0ee46b72e"
+    }
+  },
+  "preserved_event_baselines": {
+    "packages/events/schemas/fulfillment/v1/packing_completed.event.json": "e38a5d3a1ec3676bb88e54d4c7c50fac62ecbfe4345fd2c52ca6518d38da9b2e"
+  }
+}

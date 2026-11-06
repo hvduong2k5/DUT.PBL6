@@ -1,0 +1,549 @@
+openapi: 3.1.0
+info:
+  title: Ô Mạ Payment MVP API
+  version: 0.1.0-candidate
+  summary: Candidate Payment contract derived from the approved Web D2C implementation.
+  license:
+    name: Proprietary - internal project use
+    identifier: LicenseRef-Proprietary
+  description: |
+    PROPOSED / NOT APPROVED contract for presenting Bank Transfer/QR instructions,
+    representing the COD collection obligation, reading a trusted persisted payment
+    status and creating a replacement bank-transfer attempt when the Order remains
+    eligible. It awaits Backend, Architecture, Order, Finance, Security and Product review.
+
+    Browser components call same-origin Next.js BFF paths under `/api/payments`.
+    The BFF calls the API Gateway resource paths documented here. Order ownership,
+    method, amount, currency and attempt eligibility are resolved from trusted server
+    state; they are never accepted from browser query or request body.
+
+    A browser return URL, page reload, polling request or retry request can never mark
+    an Order paid. `SUCCEEDED` and `PAID` may only be persisted after a trusted,
+    authenticated and idempotently processed verification source confirms the expected
+    Order reference, amount and currency. Provider webhook/statement ingestion and staff
+    reconciliation commands are intentionally outside this customer-facing contract.
+servers:
+  - url: /api/v1
+    description: API Gateway relative base URL
+tags:
+  - name: Payment
+    description: Customer-visible Order payment instructions, status and retry eligibility.
+security:
+  - PaymentAccess: []
+
+paths:
+  /payments/orders/{orderId}:
+    parameters:
+      - $ref: "#/components/parameters/OrderId"
+    get:
+      tags: [Payment]
+      operationId: getOrderPayment
+      summary: Get the customer-visible Payment resource for an Order
+      description: |
+        Resolves Order access from the current authenticated customer or a short-lived,
+        server-issued Guest payment capability. The response amount, currency, method
+        and status come from trusted Order/Payment state. A missing Order and an Order
+        outside the caller scope use the same public not-found response.
+
+        `instructions` is present only for `BANK_TRANSFER`. COD represents an obligation
+        to collect during delivery and must not be represented as a completed payment.
+      responses:
+        "200":
+          description: Current customer-visible Payment resource.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentSummary"
+              examples:
+                bankTransferPending:
+                  $ref: "#/components/examples/BankTransferPending"
+                codPendingCollection:
+                  $ref: "#/components/examples/CodPendingCollection"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/PaymentAccessRequired"
+        "404":
+          $ref: "#/components/responses/PaymentNotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /payments/orders/{orderId}/status:
+    parameters:
+      - $ref: "#/components/parameters/OrderId"
+    get:
+      tags: [Payment]
+      operationId: getOrderPaymentStatus
+      summary: Read the trusted persisted Payment status for an Order
+      description: |
+        Returns the latest status already accepted by the Payment domain. This read
+        operation does not verify a browser claim, query a client-selected provider URL,
+        process a callback or mutate Payment/Order state. The service may refresh from
+        an approved provider integration internally, subject to Architecture review.
+      responses:
+        "200":
+          description: Latest persisted Payment and derived Order payment state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentStatusResult"
+              examples:
+                pending:
+                  value:
+                    paymentId: 57f74799-a493-437a-8769-9942923e086d
+                    status: PENDING
+                    orderPaymentState: PENDING_PAYMENT
+                    verifiedAt: null
+                    message: Chưa ghi nhận xác minh thanh toán từ nguồn tin cậy.
+                    canRetry: false
+                verified:
+                  value:
+                    paymentId: 57f74799-a493-437a-8769-9942923e086d
+                    status: SUCCEEDED
+                    orderPaymentState: PAID
+                    verifiedAt: "2026-09-26T03:05:00Z"
+                    message: Khoản thanh toán đã được xác minh.
+                    canRetry: false
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/PaymentAccessRequired"
+        "404":
+          $ref: "#/components/responses/PaymentNotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /payments/orders/{orderId}/attempts:
+    parameters:
+      - $ref: "#/components/parameters/OrderId"
+    post:
+      tags: [Payment]
+      operationId: createOrderPaymentAttempt
+      summary: Create a replacement bank-transfer Payment attempt
+      description: |
+        Creates a new attempt only when the Order uses `BANK_TRANSFER`, remains unpaid,
+        has no verified or unresolved duplicate payment, and its Order/reservation policy
+        permits retry. Method, expected amount, currency and Order reference are copied
+        from trusted server state; this operation deliberately has no business request body.
+
+        Replays with the same idempotency key must return the original result. The service
+        must serialize or otherwise protect concurrent retry requests so that duplicate
+        active attempts cannot create ambiguous payment instructions.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "201":
+          description: Replacement attempt created, or the original idempotent result replayed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentRetryResult"
+              examples:
+                created:
+                  value:
+                    paymentId: 967b2780-e942-4d34-a57a-19d196406f67
+                    status: PENDING
+                    orderPaymentState: PENDING_PAYMENT
+                    expiresAt: "2026-09-26T03:20:00Z"
+                    message: Đã tạo lần thử thanh toán mới.
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/PaymentAccessRequired"
+        "404":
+          $ref: "#/components/responses/PaymentNotFound"
+        "409":
+          $ref: "#/components/responses/PaymentRetryConflict"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+components:
+  securitySchemes:
+    PaymentAccess:
+      type: apiKey
+      in: cookie
+      name: oma_payment_access
+      description: |
+        Candidate representation of either the authenticated Customer context or a
+        short-lived, server-issued Guest capability bound to exactly one Order. Browser
+        JavaScript must not read or manufacture it. Production identity propagation,
+        signing/encryption, rotation, revocation and account binding require Security
+        and Architecture approval; the cookie name is not yet normative for Gateway.
+
+  parameters:
+    OrderId:
+      name: orderId
+      in: path
+      required: true
+      description: Opaque Order identifier. It grants no access by itself.
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 100
+        pattern: "^[A-Za-z0-9-]+$"
+      example: 948cf1cb-b22c-4238-b3f7-78d057d6c34d
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: |
+        Unique key for one logical replacement-attempt request. A retry after an
+        uncertain response must reuse the same key.
+      schema:
+        type: string
+        minLength: 10
+        maxLength: 100
+        pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{9,99}$"
+      example: payment-retry-550e8400-e29b-41d4-a716-446655440000
+
+  schemas:
+    PaymentMethod:
+      type: string
+      enum: [BANK_TRANSFER, COD]
+
+    PaymentStatus:
+      type: string
+      description: Customer-visible status derived from trusted Payment state.
+      enum:
+        - PENDING
+        - SUCCEEDED
+        - FAILED
+        - EXPIRED
+        - REQUIRES_RECONCILIATION
+        - COD_PENDING_COLLECTION
+
+    OrderPaymentState:
+      type: string
+      description: Payment-facing projection of the Order state; Order owns its canonical lifecycle.
+      enum:
+        - PENDING_PAYMENT
+        - PAID
+        - PAYMENT_EXPIRED
+        - PAYMENT_REVIEW
+        - PAYMENT_ON_DELIVERY
+
+    Currency:
+      type: string
+      enum: [VND]
+
+    BankTransferInstructions:
+      type: object
+      additionalProperties: false
+      required:
+        - providerLabel
+        - beneficiary
+        - accountNumberDisplay
+        - transferReference
+        - qrCodeImageUrl
+      properties:
+        providerLabel:
+          type: string
+          minLength: 1
+          maxLength: 120
+          example: Ngân hàng ABC
+        beneficiary:
+          type: string
+          minLength: 1
+          maxLength: 160
+          example: CONG TY TNHH O MA
+        accountNumberDisplay:
+          type: string
+          minLength: 4
+          maxLength: 40
+          description: Official merchant receiving account formatted for customer display/copy.
+          example: "0123456789"
+        transferReference:
+          type: string
+          minLength: 4
+          maxLength: 80
+          description: Unique, non-PII reference bound to this attempt and expected by reconciliation.
+          example: OMA-8G4D2F
+        qrCodeImageUrl:
+          type: string
+          format: uri
+          maxLength: 2048
+          description: HTTPS URL to a server/provider-generated QR image; never a browser-built payload.
+          example: https://payments.example.test/qr/57f74799-a493-437a-8769-9942923e086d
+
+    PaymentSummary:
+      type: object
+      additionalProperties: false
+      required:
+        - orderId
+        - orderNumber
+        - method
+        - amountVnd
+        - currency
+        - paymentId
+        - status
+        - orderPaymentState
+        - expiresAt
+        - instructions
+        - checkedAt
+      properties:
+        orderId:
+          type: string
+          minLength: 8
+          maxLength: 100
+        orderNumber:
+          type: string
+          minLength: 3
+          maxLength: 40
+        method:
+          $ref: "#/components/schemas/PaymentMethod"
+        amountVnd:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Expected amount from immutable Order commercial state; never client-calculated.
+        currency:
+          $ref: "#/components/schemas/Currency"
+        paymentId:
+          type: string
+          minLength: 8
+          maxLength: 100
+        status:
+          $ref: "#/components/schemas/PaymentStatus"
+        orderPaymentState:
+          $ref: "#/components/schemas/OrderPaymentState"
+        expiresAt:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: "null"
+          description: Expiry of bank-transfer instructions; null for COD or non-expiring display state.
+        instructions:
+          oneOf:
+            - $ref: "#/components/schemas/BankTransferInstructions"
+            - type: "null"
+          description: Present only for BANK_TRANSFER while instructions remain customer-visible.
+        checkedAt:
+          type: string
+          format: date-time
+
+    PaymentStatusResult:
+      type: object
+      additionalProperties: false
+      required:
+        - paymentId
+        - status
+        - orderPaymentState
+        - verifiedAt
+        - message
+        - canRetry
+      properties:
+        paymentId:
+          type: string
+          minLength: 8
+          maxLength: 100
+        status:
+          $ref: "#/components/schemas/PaymentStatus"
+        orderPaymentState:
+          $ref: "#/components/schemas/OrderPaymentState"
+        verifiedAt:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: "null"
+          description: Trusted verification time; non-null only after successful verification.
+        message:
+          type: string
+          minLength: 1
+          maxLength: 300
+        canRetry:
+          type: boolean
+          description: Server decision after evaluating Order, attempt, reservation and duplicate-payment state.
+
+    PaymentRetryResult:
+      type: object
+      additionalProperties: false
+      required: [paymentId, status, orderPaymentState, expiresAt, message]
+      properties:
+        paymentId:
+          type: string
+          minLength: 8
+          maxLength: 100
+        status:
+          type: string
+          const: PENDING
+        orderPaymentState:
+          type: string
+          const: PENDING_PAYMENT
+        expiresAt:
+          type: string
+          format: date-time
+        message:
+          type: string
+          minLength: 1
+          maxLength: 300
+
+    FieldError:
+      type: object
+      additionalProperties: false
+      required: [field, message]
+      properties:
+        field:
+          type: string
+          minLength: 1
+          maxLength: 100
+        message:
+          type: string
+          minLength: 1
+          maxLength: 300
+
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      required: [code, message, requestId]
+      properties:
+        code:
+          type: string
+          pattern: "^[A-Z][A-Z0-9_]+$"
+        message:
+          type: string
+          minLength: 1
+          maxLength: 300
+        requestId:
+          type: string
+          minLength: 1
+          maxLength: 100
+        errors:
+          type: array
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/FieldError"
+        retryAfterSeconds:
+          type: integer
+          minimum: 1
+          maximum: 86400
+
+  responses:
+    InvalidRequest:
+      description: Method, path, identifier or header is invalid.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: INVALID_REQUEST
+            message: Yêu cầu Payment không hợp lệ.
+            requestId: req-payment-invalid-001
+    PaymentAccessRequired:
+      description: No valid authenticated Customer context or Guest payment capability.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: PAYMENT_ACCESS_REQUIRED
+            message: Phiên truy cập Payment đã hết hạn hoặc không hợp lệ.
+            requestId: req-payment-access-001
+    PaymentNotFound:
+      description: Payment does not exist or is outside the caller scope; ownership is not disclosed.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: PAYMENT_NOT_FOUND
+            message: Không tìm thấy thông tin thanh toán phù hợp.
+            requestId: req-payment-not-found-001
+    PaymentRetryConflict:
+      description: Retry is not allowed or the idempotency key conflicts with a different logical request.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          examples:
+            notEligible:
+              value:
+                code: PAYMENT_RETRY_NOT_ALLOWED
+                message: Order không còn phù hợp để tạo lần thử thanh toán mới.
+                requestId: req-payment-retry-001
+            idempotencyConflict:
+              value:
+                code: IDEMPOTENCY_CONFLICT
+                message: Idempotency key đã được dùng cho yêu cầu khác.
+                requestId: req-payment-idempotency-001
+    RateLimited:
+      description: Too many Payment reads or retry attempts.
+      headers:
+        Retry-After:
+          description: Seconds until another request may be attempted.
+          schema:
+            type: integer
+            minimum: 1
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: PAYMENT_RATE_LIMITED
+            message: Có quá nhiều yêu cầu. Vui lòng thử lại sau.
+            requestId: req-payment-rate-001
+            retryAfterSeconds: 30
+    InternalError:
+      description: Unexpected Payment processing failure; no success may be inferred.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: PAYMENT_ERROR
+            message: Không thể xử lý Payment lúc này.
+            requestId: req-payment-error-001
+    ServiceUnavailable:
+      description: Payment or a required dependency is temporarily unavailable.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: PAYMENT_UPSTREAM_UNAVAILABLE
+            message: Dịch vụ Payment đang tạm thời gián đoạn.
+            requestId: req-payment-unavailable-001
+
+  examples:
+    BankTransferPending:
+      value:
+        orderId: 948cf1cb-b22c-4238-b3f7-78d057d6c34d
+        orderNumber: OMA-260926-001
+        method: BANK_TRANSFER
+        amountVnd: 695000
+        currency: VND
+        paymentId: 57f74799-a493-437a-8769-9942923e086d
+        status: PENDING
+        orderPaymentState: PENDING_PAYMENT
+        expiresAt: "2026-09-26T03:20:00Z"
+        instructions:
+          providerLabel: Ngân hàng ABC
+          beneficiary: CONG TY TNHH O MA
+          accountNumberDisplay: "0123456789"
+          transferReference: OMA-8G4D2F
+          qrCodeImageUrl: https://payments.example.test/qr/57f74799-a493-437a-8769-9942923e086d
+        checkedAt: "2026-09-26T03:05:00Z"
+    CodPendingCollection:
+      value:
+        orderId: 948cf1cb-b22c-4238-b3f7-78d057d6c34d
+        orderNumber: OMA-260926-001
+        method: COD
+        amountVnd: 695000
+        currency: VND
+        paymentId: 652d7833-673b-4ad6-8cd7-36463aed969c
+        status: COD_PENDING_COLLECTION
+        orderPaymentState: PAYMENT_ON_DELIVERY
+        expiresAt: null
+        instructions: null
+        checkedAt: "2026-09-26T03:05:00Z"

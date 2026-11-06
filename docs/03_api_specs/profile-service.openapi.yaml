@@ -1,0 +1,1360 @@
+openapi: 3.0.3
+info:
+  title: MS-15 Profile Service implemented direct-backend contract
+  version: 1.1.0
+  description: Implementation contract 2026-10-08. Server-to-server only. Separate
+    from the proposed /customers/me MVP candidate. Operational probes /livez /readyz
+    /metrics are outside /api/v1.
+servers:
+- url: http://localhost:18080/api/v1
+security:
+- internalToken: []
+paths:
+  /profile:
+    get:
+      operationId: getProfile
+      summary: Resolve UserID to CustomerID and read authoritative profile
+      parameters:
+      - name: X-User-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: X-User-Role
+        in: header
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+          headers:
+            ETag:
+              description: Strong version ETag
+              schema:
+                type: string
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Untrusted or missing internal identity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Missing resource or wrong owner
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      operationId: updateProfile
+      summary: CAS update with read-only email
+      parameters:
+      - name: X-User-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: X-User-Role
+        in: header
+        schema:
+          type: string
+      - name: If-Match
+        in: header
+        required: false
+        schema:
+          type: string
+          pattern: ^"[1-9][0-9]*"$
+        example: '"1"'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+          headers:
+            ETag:
+              description: Strong version ETag
+              schema:
+                type: string
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Untrusted or missing internal identity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Missing resource or wrong owner
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Stale version
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileUpdate'
+  /profile/addresses:
+    get:
+      operationId: listAddresses
+      summary: List own active addresses
+      parameters:
+      - name: X-User-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: X-User-Role
+        in: header
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ShippingAddress'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Untrusted or missing internal identity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Missing resource or wrong owner
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      operationId: createAddress
+      summary: Create; first address automatically default
+      parameters:
+      - name: X-User-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: X-User-Role
+        in: header
+        schema:
+          type: string
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShippingAddress'
+          headers:
+            ETag:
+              description: Strong version ETag
+              schema:
+                type: string
+            Location:
+              description: Created address URL
+              schema:
+                type: string
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Untrusted or missing internal identity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Missing resource or wrong owner
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddressWrite'
+  /profile/addresses/{id}:
+    get:
+      operationId: getAddress
+      summary: Read owned address
+      parameters:
+      - name: X-User-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: X-User-Role
+        in: header
+        schema:
+          type: string
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShippingAddress'
+          headers:
+            ETag:
+              description: Strong version ETag
+              schema:
+                type: string
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Untrusted or missing internal identity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Missing resource or wrong owner
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      operationId: updateAddress
+      summary: Update owned address with version check
+      parameters:
+      - name: X-User-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: X-User-Role
+        in: header
+        schema:
+          type: string
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        schema:
+          type: string
+          pattern: ^"[1-9][0-9]*"$
+        example: '"1"'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShippingAddress'
+          headers:
+            ETag:
+              description: Strong version ETag
+              schema:
+                type: string
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Untrusted or missing internal identity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Missing resource or wrong owner
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Stale version
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '428':
+          description: If-Match required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddressUpdate'
+    delete:
+      operationId: deleteAddress
+      summary: Delete and replace default atomically; return current list
+      parameters:
+      - name: X-User-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: X-User-Role
+        in: header
+        schema:
+          type: string
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        schema:
+          type: string
+          pattern: ^"[1-9][0-9]*"$
+        example: '"1"'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ShippingAddress'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Untrusted or missing internal identity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Missing resource or wrong owner
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Stale version
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '428':
+          description: If-Match required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /profile/addresses/{id}/default:
+    put:
+      operationId: putDefaultAddress
+      summary: Set default; already-default intent is idempotent
+      parameters:
+      - name: X-User-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: X-User-Role
+        in: header
+        schema:
+          type: string
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        schema:
+          type: string
+          pattern: ^"[1-9][0-9]*"$
+        example: '"1"'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ShippingAddress'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Untrusted or missing internal identity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Missing resource or wrong owner
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Stale version
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '428':
+          description: If-Match required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    patch:
+      operationId: patchDefaultAddress
+      summary: Set default; already-default intent is idempotent
+      parameters:
+      - name: X-User-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: X-User-Role
+        in: header
+        schema:
+          type: string
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        schema:
+          type: string
+          pattern: ^"[1-9][0-9]*"$
+        example: '"1"'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ShippingAddress'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Untrusted or missing internal identity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Missing resource or wrong owner
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Stale version
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '428':
+          description: If-Match required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /profile/addresses/validate:
+    post:
+      operationId: fuzzyAddress
+      summary: Suggest ward; not a substitute for area ownership validation
+      parameters:
+      - name: X-User-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: X-User-Role
+        in: header
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: string
+                  name:
+                    type: string
+                  score:
+                    type: number
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Untrusted or missing internal identity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Missing resource or wrong owner
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - raw_address
+              properties:
+                raw_address:
+                  type: string
+                  minLength: 1
+                  maxLength: 255
+  /profile/addresses/validate-consistency:
+    post:
+      operationId: addressConsistency
+      summary: Unknown streets are unverified; storage errors remain errors
+      parameters:
+      - name: X-User-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: X-User-Role
+        in: header
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  is_consistent:
+                    type: boolean
+                  confidence_score:
+                    type: number
+                  warning_level:
+                    type: string
+                    enum:
+                    - VERIFIED
+                    - MULTI_WARD_STREET
+                    - MISMATCH_DETECTED
+                    - UNVERIFIED_NEW_STREET
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Untrusted or missing internal identity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Missing resource or wrong owner
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - street_address
+              - ward_code
+              - province_code
+              properties:
+                street_address:
+                  type: string
+                ward_code:
+                  type: string
+                province_code:
+                  type: string
+  /profile/guest-claims:
+    post:
+      operationId: claimGuestOrder
+      summary: Requires configured ownership verifier; unavailable by default
+      parameters:
+      - name: X-User-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: X-User-Role
+        in: header
+        schema:
+          type: string
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Untrusted or missing internal identity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Missing resource or wrong owner
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Stale version
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Dependency unavailable or claim verifier not configured
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - order_id
+              - phone_number
+              - verification_token
+              properties:
+                order_id:
+                  type: string
+                phone_number:
+                  type: string
+                verification_token:
+                  type: string
+  /profile/guest-claims/{order_id}:
+    get:
+      operationId: getOwnClaim
+      summary: Read own verified claim
+      parameters:
+      - name: X-User-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: X-User-Role
+        in: header
+        schema:
+          type: string
+      - name: order_id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Untrusted or missing internal identity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Missing resource or wrong owner
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /admin/employees:
+    get:
+      operationId: listEmployees
+      summary: HR role required; limit capped to 100
+      parameters:
+      - name: X-User-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: X-User-Role
+        in: header
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Untrusted or missing internal identity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Insufficient role
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      operationId: createEmployee
+      summary: HR role required; encrypt ID card before persistence
+      parameters:
+      - name: X-User-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: X-User-Role
+        in: header
+        schema:
+          type: string
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Untrusted or missing internal identity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Insufficient role
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Dependency unavailable or claim verifier not configured
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmployeeCreate'
+  /admin/employees/{id}:
+    get:
+      operationId: getEmployee
+      summary: HR role required; decrypt ID card through Vault
+      parameters:
+      - name: X-User-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: X-User-Role
+        in: header
+        schema:
+          type: string
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Untrusted or missing internal identity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Insufficient role
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Missing resource or wrong owner
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Dependency unavailable or claim verifier not configured
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /admin/employees/compliance:
+    get:
+      operationId: employeeCompliance
+      summary: HR role required; days must be 1..365
+      parameters:
+      - name: X-User-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: X-User-Role
+        in: header
+        schema:
+          type: string
+      - name: days
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 365
+          default: 30
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Untrusted or missing internal identity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Insufficient role
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+components:
+  securitySchemes:
+    internalToken:
+      type: apiKey
+      in: header
+      name: X-Internal-Token
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        code:
+          type: string
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+    Profile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        full_name:
+          type: string
+        phone_number:
+          type: string
+        email:
+          type: string
+          readOnly: true
+        date_of_birth:
+          type: string
+          format: date-time
+          nullable: true
+        gender:
+          type: string
+        avatar_url:
+          type: string
+        preferences:
+          type: object
+        status:
+          type: string
+        version:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    ProfileUpdate:
+      type: object
+      additionalProperties: false
+      required:
+      - full_name
+      - phone_number
+      description: Supply If-Match header or positive body version. Email may only
+        echo its current value. Date of birth/gender updates are outside this implemented
+        write contract.
+      properties:
+        full_name:
+          type: string
+          minLength: 1
+          maxLength: 150
+        phone_number:
+          type: string
+        email:
+          type: string
+        version:
+          type: integer
+          minimum: 1
+    AddressWrite:
+      type: object
+      additionalProperties: false
+      required:
+      - recipient_name
+      - phone_number
+      - street_address
+      - ward_code
+      - province_code
+      properties:
+        recipient_name:
+          type: string
+          minLength: 1
+          maxLength: 150
+        phone_number:
+          type: string
+        street_address:
+          type: string
+          minLength: 1
+          maxLength: 255
+        ward_code:
+          type: string
+        province_code:
+          type: string
+        ward_name:
+          type: string
+          description: Ignored input; canonical server master data wins
+        province_name:
+          type: string
+          description: Ignored input; canonical server master data wins
+        latitude:
+          type: number
+          nullable: true
+        longitude:
+          type: number
+          nullable: true
+        label:
+          type: string
+          enum:
+          - HOME
+          - OFFICE
+          - GIFT_RECIPIENT
+          - OTHER
+          - GIFT
+        is_default:
+          type: boolean
+    AddressUpdate:
+      type: object
+      additionalProperties: false
+      required:
+      - recipient_name
+      - phone_number
+      - street_address
+      - ward_code
+      - province_code
+      properties:
+        recipient_name:
+          type: string
+          minLength: 1
+          maxLength: 150
+        phone_number:
+          type: string
+        street_address:
+          type: string
+          minLength: 1
+          maxLength: 255
+        ward_code:
+          type: string
+        province_code:
+          type: string
+        ward_name:
+          type: string
+          description: Ignored input; canonical server master data wins
+        province_name:
+          type: string
+          description: Ignored input; canonical server master data wins
+        latitude:
+          type: number
+          nullable: true
+        longitude:
+          type: number
+          nullable: true
+        label:
+          type: string
+          enum:
+          - HOME
+          - OFFICE
+          - GIFT_RECIPIENT
+          - OTHER
+          - GIFT
+    ShippingAddress:
+      type: object
+      properties:
+        recipient_name:
+          type: string
+          minLength: 1
+          maxLength: 150
+        phone_number:
+          type: string
+        street_address:
+          type: string
+          minLength: 1
+          maxLength: 255
+        ward_code:
+          type: string
+        province_code:
+          type: string
+        ward_name:
+          type: string
+          description: Ignored input; canonical server master data wins
+        province_name:
+          type: string
+          description: Ignored input; canonical server master data wins
+        latitude:
+          type: number
+          nullable: true
+        longitude:
+          type: number
+          nullable: true
+        label:
+          type: string
+          enum:
+          - HOME
+          - OFFICE
+          - GIFT_RECIPIENT
+          - OTHER
+          - GIFT
+        id:
+          type: string
+          format: uuid
+        customer_id:
+          type: string
+          format: uuid
+        version:
+          type: integer
+          minimum: 1
+        is_default:
+          type: boolean
+        is_deleted:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    EmployeeCreate:
+      type: object
+      additionalProperties: false
+      required:
+      - employee_code
+      - full_name
+      - id_card_number
+      - department_id
+      - phone_number
+      - position
+      - contract_type
+      - contract_start_date
+      properties:
+        employee_code:
+          type: string
+        full_name:
+          type: string
+        phone_number:
+          type: string
+        id_card_number:
+          type: string
+        department_id:
+          type: string
+        position:
+          type: string
+        contract_type:
+          type: string
+        food_safety_cert_no:
+          type: string
+        user_id:
+          type: string
+          format: uuid
+          nullable: true
+        contract_start_date:
+          type: string
+          format: date-time
+          nullable: false
+        contract_end_date:
+          type: string
+          format: date-time
+          nullable: true
+        food_safety_cert_expiry:
+          type: string
+          format: date-time
+          nullable: true
