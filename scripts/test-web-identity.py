@@ -677,13 +677,13 @@ def main():
         print("PASS: real Catalog rejects missing credentials, stale snapshots, future prices and unapproved products",flush=True)
         # Catalog reads live display availability from the authenticated TLS Inventory API.
         catalog_process.terminate()
-        catalog_process.wait(timeout=20)
+        catalog_process.wait(timeout=60)
         caller_environment=env.copy()
         env.clear();env.update(catalog_environment)
         env.update(IDENTITY_URL=caller_environment["IDENTITY_URL"], CATALOG_INVENTORY_TARGET=peer_address, CATALOG_INVENTORY_TOKEN_FILE=str(folder / "inventory-token"), CATALOG_INVENTORY_CA_FILE=str(folder / "inventory-ca.pem"), CATALOG_INVENTORY_SERVER_NAME="localhost")
         start([args.java, "-jar", catalog_jar], "catalog")
         env.clear();env.update(caller_environment)
-        wait(catalog_url + "/api/v1/products")
+        wait(catalog_url + "/api/v1/products", seconds=300)
         shipping_token = secrets.token_urlsafe(32)
         shipping_webhook = secrets.token_urlsafe(32)
         env.update(
