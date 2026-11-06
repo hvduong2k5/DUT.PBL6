@@ -267,12 +267,13 @@ services/catalog-service/
 ## 8. Quy tắc Commit
 
 ### 8.1. Commit Message Convention
+**All commit messages MUST be written in 100% English.** No Vietnamese text in commit subject or body.
 ```
-<type>(<scope>): <mô tả ngắn gọn bằng tiếng Việt>
+<type>(<scope>): <short description in English>
 
-- Chi tiết thay đổi 1
-- Chi tiết thay đổi 2
-- gradlew test --offline: pass
+- Detail of change 1
+- Detail of change 2
+- ./gradlew test --offline: PASS
 ```
 
 ### 8.2. Các loại commit
