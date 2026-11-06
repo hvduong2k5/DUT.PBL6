@@ -140,6 +140,65 @@ func TestPurchaseOrderPartialAndCompleteReceiptDomainTransition(t *testing.T) {
 	}
 }
 
+func TestSupplierResponseRevisionAndSendRetryAreSafe(t *testing.T) {
+	order := newTestPurchaseOrder(t)
+	if err := order.Submit("creator-1"); err != nil {
+		t.Fatal(err)
+	}
+	if err := order.Approve("approver-1"); err != nil {
+		t.Fatal(err)
+	}
+	if err := order.MarkSent("sender-1"); err != nil {
+		t.Fatal(err)
+	}
+	version, sentAt := order.Version, *order.SentAt
+	if err := order.MarkSent("sender-1"); err != nil {
+		t.Fatal(err)
+	}
+	if order.Version != version || !order.SentAt.Equal(sentAt) {
+		t.Fatal("retry changed the sent PO")
+	}
+	if err := order.RecordSupplierResponse(domain.SupplierPOChangeRequested, "recorder-1", "Please adjust delivery quantity"); err != nil {
+		t.Fatal(err)
+	}
+	updated, err := domain.NewPurchaseOrder(order.Number, order.SupplierID, order.SupplierName, order.Currency, "revised terms", order.CreatedBy, order.ExpectedDeliveryDate, []domain.PurchaseOrderLineInput{{MaterialID: uuid.New(), MaterialCode: "SESAME", MaterialName: "Sesame", Quantity: "2", Unit: "KG", UnitPriceMinor: 10001}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := order.ReviseAsDraft(updated, "buyer-2", "Accepted supplier change request"); err != nil {
+		t.Fatal(err)
+	}
+	if order.Status != domain.PurchaseOrderDraft || order.Revision != 2 || order.CreatedBy != "buyer-2" || order.SupplierRespondedAt != nil || order.Lines[0].Quantity != "2" {
+		t.Fatalf("unexpected revised draft: %+v", order)
+	}
+}
+
+func TestCloseRemainingAfterPartialReceiptPreservesReceivedAmounts(t *testing.T) {
+	order := newTestPurchaseOrder(t)
+	if err := order.Submit("creator-1"); err != nil {
+		t.Fatal(err)
+	}
+	if err := order.Approve("approver-1"); err != nil {
+		t.Fatal(err)
+	}
+	if err := order.MarkSent("sender-1"); err != nil {
+		t.Fatal(err)
+	}
+	line := order.Lines[0]
+	if err := order.RecordReceived(line.ID, "1"); err != nil {
+		t.Fatal(err)
+	}
+	if err := order.CloseRemaining("manager-1", "supplier cannot fulfill balance"); err != nil {
+		t.Fatal(err)
+	}
+	if order.Status != domain.PurchaseOrderClosed || order.Lines[0].ReceivedQuantity != "1.000000" || order.CloseReason == "" {
+		t.Fatalf("unexpected closed PO: %+v", order)
+	}
+	if err := order.RecordReceived(line.ID, "0.5"); !errors.Is(err, domain.ErrInvalidState) {
+		t.Fatalf("receipt after close error=%v", err)
+	}
+}
+
 func TestReplaceDraftPreservesIdentityAndRejectsSubmittedOrder(t *testing.T) {
 	order := newTestPurchaseOrder(t)
 	id, number, createdAt, version := order.ID, order.Number, order.CreatedAt, order.Version

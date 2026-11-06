@@ -55,14 +55,18 @@ Supplier types: `FARMER`, `COOPERATIVE`, `OCOP_BUSINESS`, `COMPANY`. Contracts u
 - `POST /api/v1/admin/procurement/purchase-orders/{purchaseOrderID}/submit` submits for approval.
 - `POST /api/v1/admin/procurement/purchase-orders/{purchaseOrderID}/approve` approves a pending PO. The creator cannot approve their own PO.
 - `POST /api/v1/admin/procurement/purchase-orders/{purchaseOrderID}/reject` rejects a pending PO and requires `{"reason":"..."}`.
-- `POST /api/v1/admin/procurement/purchase-orders/{purchaseOrderID}/send` records that an approved PO was sent to the supplier.
+- `POST /api/v1/admin/procurement/purchase-orders/{purchaseOrderID}/send` records that an approved PO was sent to the supplier. Repeating the request after it was sent returns the current PO without adding another transition.
+- `POST /api/v1/admin/procurement/purchase-orders/{purchaseOrderID}/supplier-response` records a supplier response: `ACKNOWLEDGED`, `CHANGE_REQUESTED`, or `DECLINED`. Change requests and declines require a note.
+- `GET /api/v1/admin/procurement/purchase-orders/{purchaseOrderID}/revisions` lists immutable snapshots of prior issued revisions.
+- `POST /api/v1/admin/procurement/purchase-orders/{purchaseOrderID}/revisions` creates the next draft revision after `CHANGE_REQUESTED`; it requires a reason and revised lines. The supplier cannot change. The old revision is archived before the PO is updated, in one transaction.
 - `POST /api/v1/admin/procurement/purchase-orders/{purchaseOrderID}/cancel` cancels an eligible PO and requires a reason.
+- `POST /api/v1/admin/procurement/purchase-orders/{purchaseOrderID}/close` closes the outstanding quantity for a `SENT`, `ACKNOWLEDGED`, or `PARTIALLY_RECEIVED` PO and requires a reason. Quantities already received remain recorded; further receipts are rejected.
 
-The lifecycle is `DRAFT → PENDING_APPROVAL → APPROVED → SENT`; a pending PO may instead be `REJECTED`, and eligible states may transition to `CANCELLED`. Every create/update/transition is written to `purchase_order_status_history`. Version-checked updates reject stale concurrent writes. Unit-price times decimal quantity is rounded half-up to the nearest minor currency unit. Decimal quantities support up to six fractional digits.
+The lifecycle is `DRAFT → PENDING_APPROVAL → APPROVED → SENT`. After sending, the supplier may acknowledge, request changes, or decline. A change request can be revised into a new `DRAFT` revision and must pass approval again. The old issued revision is kept in `purchase_order_revision_snapshots`; the live PO row represents the latest revision. A sent request retry is idempotent while the PO remains in a post-send state and does not create another status-history entry. A partially received PO can be closed to cancel its remaining quantity; received quantities are preserved. Eligible pre-issue states may transition to `CANCELLED`. Every create/update/transition is written to `purchase_order_status_history`. Version-checked updates reject stale concurrent writes. Unit-price times decimal quantity is rounded half-up to the nearest minor currency unit. Decimal quantities support up to six fractional digits.
 
 ## Goods receipt and quality inspection
 
-- `POST /api/v1/admin/procurement/goods-receipts` creates a draft receipt against a `SENT` or `PARTIALLY_RECEIVED` PO. Each line references a PO line and records received quantity plus optional supplier lot and paired manufacture/expiry dates.
+- `POST /api/v1/admin/procurement/goods-receipts` creates a draft receipt against a `SENT`, `ACKNOWLEDGED`, or `PARTIALLY_RECEIVED` PO. Each line references a PO line and records received quantity plus optional supplier lot and paired manufacture/expiry dates.
 - `GET /api/v1/admin/procurement/goods-receipts/{goodsReceiptID}` returns the receipt snapshot.
 - `POST /api/v1/admin/procurement/goods-receipts/{goodsReceiptID}/inspect` records accepted/rejected quantities, optional humidity percentage, and inspection notes for every receipt line.
 

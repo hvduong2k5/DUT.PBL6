@@ -85,7 +85,7 @@ func NewGoodsReceipt(number string, purchaseOrder PurchaseOrder, warehouseCode, 
 	number = strings.TrimSpace(number)
 	warehouseCode = strings.ToUpper(strings.TrimSpace(warehouseCode))
 	receivedBy = strings.TrimSpace(receivedBy)
-	if number == "" || purchaseOrder.ID == uuid.Nil || purchaseOrder.SupplierID == uuid.Nil || purchaseOrder.Status != PurchaseOrderSent && purchaseOrder.Status != PurchaseOrderPartiallyReceived || warehouseCode == "" || receivedBy == "" || len(lines) == 0 {
+	if number == "" || purchaseOrder.ID == uuid.Nil || purchaseOrder.SupplierID == uuid.Nil || purchaseOrder.Status != PurchaseOrderSent && purchaseOrder.Status != PurchaseOrderAcknowledged && purchaseOrder.Status != PurchaseOrderPartiallyReceived || warehouseCode == "" || receivedBy == "" || len(lines) == 0 {
 		return GoodsReceipt{}, ErrInvalidArgument
 	}
 	poLines := make(map[uuid.UUID]PurchaseOrderLine, len(purchaseOrder.Lines))

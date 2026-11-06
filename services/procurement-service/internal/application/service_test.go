@@ -169,6 +169,21 @@ func (r *fakeRepository) SavePurchaseOrder(_ context.Context, order domain.Purch
 	r.orders[order.ID] = order
 	return order, nil
 }
+func (r *fakeRepository) RevisePurchaseOrder(_ context.Context, order domain.PurchaseOrder, expectedVersion int64, actor, reason string) (domain.PurchaseOrder, error) {
+	current, ok := r.orders[order.ID]
+	if !ok {
+		return domain.PurchaseOrder{}, domain.ErrNotFound
+	}
+	if current.Version != expectedVersion {
+		return domain.PurchaseOrder{}, domain.ErrConflict
+	}
+	order.Version = expectedVersion + 1
+	r.orders[order.ID] = order
+	return order, nil
+}
+func (r *fakeRepository) ListPurchaseOrderRevisions(_ context.Context, id uuid.UUID, _, _ int) ([]domain.PurchaseOrderRevision, error) {
+	return nil, nil
+}
 
 func (r *fakeRepository) CreateGoodsReceipt(_ context.Context, receipt domain.GoodsReceipt) (domain.GoodsReceipt, error) {
 	r.receipts[receipt.ID] = receipt
@@ -333,6 +348,42 @@ func TestPurchaseOrderTransitionsAndConcurrentVersionConflict(t *testing.T) {
 	stale.Version--
 	if _, err := repo.SavePurchaseOrder(context.Background(), stale, stale.Version-1, stale.Status, "STALE", "staff", ""); !errors.Is(err, domain.ErrConflict) {
 		t.Fatalf("stale write error = %v, want ErrConflict", err)
+	}
+}
+
+func TestPurchaseOrderSupplierResponseRevisionAndRepeatedSend(t *testing.T) {
+	service, _, supplierID, materialID := makeApplicationFixture(t)
+	order, err := service.CreatePurchaseOrder(context.Background(), application.PurchaseOrderRequest{SupplierID: supplierID, Lines: []application.PurchaseOrderLineRequest{{MaterialID: materialID, Quantity: "1"}}}, "buyer")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = service.SubmitPurchaseOrder(context.Background(), order.ID, "buyer"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = service.ApprovePurchaseOrder(context.Background(), order.ID, "approver"); err != nil {
+		t.Fatal(err)
+	}
+	sent, err := service.MarkPurchaseOrderSent(context.Background(), order.ID, "sender")
+	if err != nil {
+		t.Fatal(err)
+	}
+	retried, err := service.MarkPurchaseOrderSent(context.Background(), order.ID, "sender")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if retried.Version != sent.Version {
+		t.Fatal("repeated send created another PO transition")
+	}
+	changed, err := service.RecordSupplierResponse(context.Background(), order.ID, "procurement", "CHANGE_REQUESTED", "Please change the quantity")
+	if err != nil || changed.Status != domain.PurchaseOrderChangeRequested {
+		t.Fatalf("supplier response = %+v, %v", changed, err)
+	}
+	revised, err := service.RevisePurchaseOrder(context.Background(), order.ID, application.PurchaseOrderRequest{SupplierID: supplierID, Notes: "revised", Lines: []application.PurchaseOrderLineRequest{{MaterialID: materialID, Quantity: "2"}}}, "buyer-2", "Supplier requested a quantity update")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if revised.Status != domain.PurchaseOrderDraft || revised.Revision != 2 || revised.Lines[0].Quantity != "2" {
+		t.Fatalf("unexpected new PO revision: %+v", revised)
 	}
 }
 

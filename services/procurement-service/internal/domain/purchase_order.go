@@ -17,9 +17,21 @@ const (
 	PurchaseOrderApproved          PurchaseOrderStatus = "APPROVED"
 	PurchaseOrderRejected          PurchaseOrderStatus = "REJECTED"
 	PurchaseOrderSent              PurchaseOrderStatus = "SENT"
+	PurchaseOrderAcknowledged      PurchaseOrderStatus = "ACKNOWLEDGED"
+	PurchaseOrderChangeRequested   PurchaseOrderStatus = "CHANGE_REQUESTED"
+	PurchaseOrderSupplierDeclined  PurchaseOrderStatus = "SUPPLIER_DECLINED"
 	PurchaseOrderPartiallyReceived PurchaseOrderStatus = "PARTIALLY_RECEIVED"
 	PurchaseOrderReceived          PurchaseOrderStatus = "RECEIVED"
 	PurchaseOrderCancelled         PurchaseOrderStatus = "CANCELLED"
+	PurchaseOrderClosed            PurchaseOrderStatus = "CLOSED"
+)
+
+type SupplierPOResponse string
+
+const (
+	SupplierPOAcknowledged    SupplierPOResponse = "ACKNOWLEDGED"
+	SupplierPOChangeRequested SupplierPOResponse = "CHANGE_REQUESTED"
+	SupplierPODeclined        SupplierPOResponse = "DECLINED"
 )
 
 type PurchaseOrderLine struct {
@@ -39,6 +51,7 @@ type PurchaseOrderLine struct {
 type PurchaseOrder struct {
 	ID                   uuid.UUID           `json:"id"`
 	Number               string              `json:"number"`
+	Revision             int                 `json:"revision"`
 	SupplierID           uuid.UUID           `json:"supplier_id"`
 	SupplierName         string              `json:"supplier_name"`
 	Status               PurchaseOrderStatus `json:"status"`
@@ -57,12 +70,26 @@ type PurchaseOrder struct {
 	RejectionReason      string              `json:"rejection_reason,omitempty"`
 	SentBy               string              `json:"sent_by,omitempty"`
 	SentAt               *time.Time          `json:"sent_at,omitempty"`
+	SupplierResponseNote string              `json:"supplier_response_note,omitempty"`
+	SupplierRespondedBy  string              `json:"supplier_responded_by,omitempty"`
+	SupplierRespondedAt  *time.Time          `json:"supplier_responded_at,omitempty"`
 	CancelledBy          string              `json:"cancelled_by,omitempty"`
 	CancelledAt          *time.Time          `json:"cancelled_at,omitempty"`
 	CancellationReason   string              `json:"cancellation_reason,omitempty"`
+	ClosedBy             string              `json:"closed_by,omitempty"`
+	ClosedAt             *time.Time          `json:"closed_at,omitempty"`
+	CloseReason          string              `json:"close_reason,omitempty"`
 	CreatedAt            time.Time           `json:"created_at"`
 	UpdatedAt            time.Time           `json:"updated_at"`
 	Version              int64               `json:"version"`
+}
+
+type PurchaseOrderRevision struct {
+	Revision     int           `json:"revision"`
+	Snapshot     PurchaseOrder `json:"snapshot"`
+	ChangedBy    string        `json:"changed_by"`
+	ChangeReason string        `json:"change_reason"`
+	CreatedAt    time.Time     `json:"created_at"`
 }
 
 type PurchaseOrderLineInput struct {
@@ -96,6 +123,7 @@ func NewPurchaseOrder(number string, supplierID uuid.UUID, supplierName, currenc
 	order := PurchaseOrder{
 		ID: uuid.New(), Number: number, SupplierID: supplierID, SupplierName: supplierName,
 		Status: PurchaseOrderDraft, Currency: currency, Notes: strings.TrimSpace(notes),
+		Revision:  1,
 		CreatedBy: createdBy, ExpectedDeliveryDate: expectedDeliveryDate,
 		CreatedAt: now, UpdatedAt: now, Version: 1,
 		Lines: make([]PurchaseOrderLine, 0, len(lines)),
@@ -214,6 +242,9 @@ func (o *PurchaseOrder) Reject(actor, reason string) error {
 }
 
 func (o *PurchaseOrder) MarkSent(actor string) error {
+	if o.Status == PurchaseOrderSent {
+		return nil
+	}
 	if o.Status != PurchaseOrderApproved || strings.TrimSpace(actor) == "" {
 		return ErrInvalidState
 	}
@@ -225,13 +256,57 @@ func (o *PurchaseOrder) MarkSent(actor string) error {
 	return nil
 }
 
+func (o *PurchaseOrder) RecordSupplierResponse(response SupplierPOResponse, actor, note string) error {
+	actor, note = strings.TrimSpace(actor), strings.TrimSpace(note)
+	if o.Status != PurchaseOrderSent || actor == "" {
+		return ErrInvalidState
+	}
+	if response != SupplierPOAcknowledged && response != SupplierPOChangeRequested && response != SupplierPODeclined {
+		return ErrInvalidArgument
+	}
+	if (response == SupplierPOChangeRequested || response == SupplierPODeclined) && note == "" {
+		return ErrInvalidArgument
+	}
+	switch response {
+	case SupplierPOAcknowledged:
+		o.Status = PurchaseOrderAcknowledged
+	case SupplierPOChangeRequested:
+		o.Status = PurchaseOrderChangeRequested
+	case SupplierPODeclined:
+		o.Status = PurchaseOrderSupplierDeclined
+	}
+	o.SupplierRespondedBy, o.SupplierResponseNote = actor, note
+	now := time.Now().UTC()
+	o.SupplierRespondedAt = &now
+	o.touch()
+	return nil
+}
+
+func (o *PurchaseOrder) ReviseAsDraft(updated PurchaseOrder, actor, reason string) error {
+	actor, reason = strings.TrimSpace(actor), strings.TrimSpace(reason)
+	if o.Status != PurchaseOrderChangeRequested || actor == "" || reason == "" || len(updated.Lines) == 0 {
+		return ErrInvalidState
+	}
+	if updated.SupplierID != o.SupplierID {
+		return ErrInvalidArgument
+	}
+	updated.ID, updated.Number = o.ID, o.Number
+	updated.Revision = o.Revision + 1
+	updated.Status, updated.CreatedBy = PurchaseOrderDraft, actor
+	updated.CreatedAt = o.CreatedAt
+	updated.Version = o.Version + 1
+	updated.UpdatedAt = time.Now().UTC()
+	*o = updated
+	return nil
+}
+
 func (o *PurchaseOrder) Cancel(actor, reason string) error {
 	actor, reason = strings.TrimSpace(actor), strings.TrimSpace(reason)
 	if actor == "" || reason == "" {
 		return ErrInvalidArgument
 	}
 	switch o.Status {
-	case PurchaseOrderDraft, PurchaseOrderPendingApproval, PurchaseOrderApproved, PurchaseOrderRejected, PurchaseOrderSent:
+	case PurchaseOrderDraft, PurchaseOrderPendingApproval, PurchaseOrderApproved, PurchaseOrderRejected:
 	default:
 		return ErrInvalidState
 	}
@@ -244,12 +319,28 @@ func (o *PurchaseOrder) Cancel(actor, reason string) error {
 	return nil
 }
 
+func (o *PurchaseOrder) CloseRemaining(actor, reason string) error {
+	actor, reason = strings.TrimSpace(actor), strings.TrimSpace(reason)
+	if actor == "" || reason == "" {
+		return ErrInvalidArgument
+	}
+	if o.Status != PurchaseOrderSent && o.Status != PurchaseOrderAcknowledged && o.Status != PurchaseOrderPartiallyReceived {
+		return ErrInvalidState
+	}
+	o.Status = PurchaseOrderClosed
+	o.ClosedBy, o.CloseReason = actor, reason
+	now := time.Now().UTC()
+	o.ClosedAt = &now
+	o.touch()
+	return nil
+}
+
 func (o *PurchaseOrder) RecordReceived(lineID uuid.UUID, quantity string) error {
 	return o.RecordReceiptQuantities(lineID, quantity, "0")
 }
 
 func (o *PurchaseOrder) RecordReceiptQuantities(lineID uuid.UUID, acceptedQuantity, rejectedQuantity string) error {
-	if o.Status != PurchaseOrderSent && o.Status != PurchaseOrderPartiallyReceived {
+	if o.Status != PurchaseOrderSent && o.Status != PurchaseOrderAcknowledged && o.Status != PurchaseOrderPartiallyReceived {
 		return ErrInvalidState
 	}
 	acceptedText, rejectedText := strings.TrimSpace(acceptedQuantity), strings.TrimSpace(rejectedQuantity)

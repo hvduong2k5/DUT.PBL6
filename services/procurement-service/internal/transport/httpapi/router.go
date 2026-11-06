@@ -53,7 +53,11 @@ func NewRouter(service *application.Service, internalToken string, ping func(con
 		r.Post("/api/v1/admin/procurement/purchase-orders/{purchaseOrderID}/approve", h.approvePurchaseOrder)
 		r.Post("/api/v1/admin/procurement/purchase-orders/{purchaseOrderID}/reject", h.rejectPurchaseOrder)
 		r.Post("/api/v1/admin/procurement/purchase-orders/{purchaseOrderID}/send", h.markPurchaseOrderSent)
+		r.Post("/api/v1/admin/procurement/purchase-orders/{purchaseOrderID}/supplier-response", h.recordSupplierResponse)
+		r.Get("/api/v1/admin/procurement/purchase-orders/{purchaseOrderID}/revisions", h.listPurchaseOrderRevisions)
+		r.Post("/api/v1/admin/procurement/purchase-orders/{purchaseOrderID}/revisions", h.revisePurchaseOrder)
 		r.Post("/api/v1/admin/procurement/purchase-orders/{purchaseOrderID}/cancel", h.cancelPurchaseOrder)
+		r.Post("/api/v1/admin/procurement/purchase-orders/{purchaseOrderID}/close", h.closePurchaseOrder)
 	})
 	r.Group(func(r chi.Router) {
 		r.Use(h.requireReceivingStaff)
@@ -376,6 +380,66 @@ func (h *Router) markPurchaseOrderSent(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (h *Router) recordSupplierResponse(w http.ResponseWriter, r *http.Request) {
+	var request struct {
+		Response domain.SupplierPOResponse `json:"response"`
+		Note     string                    `json:"note,omitempty"`
+	}
+	if !decodeJSON(w, r, &request) {
+		return
+	}
+	h.transitionPurchaseOrder(w, r, func(id uuid.UUID, actor, _ string) (any, error) {
+		return h.service.RecordSupplierResponse(r.Context(), id, actor, request.Response, request.Note)
+	})
+}
+
+type purchaseOrderRevisionRequest struct {
+	SupplierID           string                     `json:"supplier_id"`
+	ExpectedDeliveryDate string                     `json:"expected_delivery_date,omitempty"`
+	Notes                string                     `json:"notes,omitempty"`
+	Lines                []purchaseOrderLineRequest `json:"lines"`
+	Reason               string                     `json:"reason"`
+}
+
+func (h *Router) revisePurchaseOrder(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathUUID(w, chi.URLParam(r, "purchaseOrderID"))
+	if !ok {
+		return
+	}
+	var request purchaseOrderRevisionRequest
+	if !decodeJSON(w, r, &request) {
+		return
+	}
+	input, err := (purchaseOrderRequest{SupplierID: request.SupplierID, ExpectedDeliveryDate: request.ExpectedDeliveryDate, Notes: request.Notes, Lines: request.Lines}).applicationInput()
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", err.Error())
+		return
+	}
+	updated, err := h.service.RevisePurchaseOrder(r.Context(), id, input, strings.TrimSpace(r.Header.Get("X-User-ID")), request.Reason)
+	if err != nil {
+		h.writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, updated)
+}
+
+func (h *Router) listPurchaseOrderRevisions(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathUUID(w, chi.URLParam(r, "purchaseOrderID"))
+	if !ok {
+		return
+	}
+	limit, offset, ok := pagination(w, r)
+	if !ok {
+		return
+	}
+	items, err := h.service.ListPurchaseOrderRevisions(r.Context(), id, limit, offset)
+	if err != nil {
+		h.writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"items": items, "limit": limit, "offset": offset})
+}
+
 func (h *Router) cancelPurchaseOrder(w http.ResponseWriter, r *http.Request) {
 	var request struct {
 		Reason string `json:"reason"`
@@ -385,6 +449,18 @@ func (h *Router) cancelPurchaseOrder(w http.ResponseWriter, r *http.Request) {
 	}
 	h.transitionPurchaseOrder(w, r, func(id uuid.UUID, actor, reason string) (any, error) {
 		return h.service.CancelPurchaseOrder(r.Context(), id, actor, reason)
+	}, request.Reason)
+}
+
+func (h *Router) closePurchaseOrder(w http.ResponseWriter, r *http.Request) {
+	var request struct {
+		Reason string `json:"reason"`
+	}
+	if !decodeJSON(w, r, &request) {
+		return
+	}
+	h.transitionPurchaseOrder(w, r, func(id uuid.UUID, actor, reason string) (any, error) {
+		return h.service.CloseRemainingPurchaseOrder(r.Context(), id, actor, reason)
 	}, request.Reason)
 }
 

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/big"
 	"strings"
 	"time"
 
@@ -380,11 +381,11 @@ func (r *Repository) CreatePurchaseOrder(ctx context.Context, order domain.Purch
 	defer func() { _ = tx.Rollback(ctx) }()
 	const query = `INSERT INTO purchase_orders
 		(id, po_number, supplier_id, supplier_name, status, currency, total_amount_minor, notes,
-		expected_delivery_date, created_by, version)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+		expected_delivery_date, created_by, version, revision)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
 		RETURNING created_at, updated_at`
 	if err := tx.QueryRow(ctx, query, order.ID, order.Number, order.SupplierID, order.SupplierName, order.Status,
-		order.Currency, order.TotalAmountMinor, order.Notes, order.ExpectedDeliveryDate, order.CreatedBy, order.Version).
+		order.Currency, order.TotalAmountMinor, order.Notes, order.ExpectedDeliveryDate, order.CreatedBy, order.Version, order.Revision).
 		Scan(&order.CreatedAt, &order.UpdatedAt); err != nil {
 		return domain.PurchaseOrder{}, mapError(err)
 	}
@@ -474,7 +475,8 @@ func (r *Repository) SavePurchaseOrder(ctx context.Context, order domain.Purchas
 	const query = `UPDATE purchase_orders SET supplier_id=$3, supplier_name=$4, status=$5, currency=$6,
 		total_amount_minor=$7, notes=$8, expected_delivery_date=$9, submitted_by=$10, submitted_at=$11,
 		approved_by=$12, approved_at=$13, rejected_by=$14, rejected_at=$15, rejection_reason=$16,
-		sent_by=$17, sent_at=$18, cancelled_by=$19, cancelled_at=$20, cancellation_reason=$21,
+		sent_by=$17, sent_at=$18, supplier_response_note=$19, supplier_responded_by=$20, supplier_responded_at=$21,
+		cancelled_by=$22, cancelled_at=$23, cancellation_reason=$24, closed_by=$25, closed_at=$26, close_reason=$27, revision=$28,
 		updated_at=now(), version=version+1
 		WHERE id=$1 AND version=$2
 		RETURNING created_at, updated_at, version`
@@ -482,7 +484,8 @@ func (r *Repository) SavePurchaseOrder(ctx context.Context, order domain.Purchas
 		order.Currency, order.TotalAmountMinor, order.Notes, order.ExpectedDeliveryDate,
 		emptyToNil(order.SubmittedBy), order.SubmittedAt, emptyToNil(order.ApprovedBy), order.ApprovedAt,
 		emptyToNil(order.RejectedBy), order.RejectedAt, order.RejectionReason,
-		emptyToNil(order.SentBy), order.SentAt, emptyToNil(order.CancelledBy), order.CancelledAt, order.CancellationReason).
+		emptyToNil(order.SentBy), order.SentAt, order.SupplierResponseNote, emptyToNil(order.SupplierRespondedBy), order.SupplierRespondedAt,
+		emptyToNil(order.CancelledBy), order.CancelledAt, order.CancellationReason, emptyToNil(order.ClosedBy), order.ClosedAt, order.CloseReason, order.Revision).
 		Scan(&order.CreatedAt, &order.UpdatedAt, &order.Version)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.PurchaseOrder{}, domain.ErrConflict
@@ -505,6 +508,99 @@ func (r *Repository) SavePurchaseOrder(ctx context.Context, order domain.Purchas
 	return order, nil
 }
 
+func (r *Repository) RevisePurchaseOrder(ctx context.Context, order domain.PurchaseOrder, expectedVersion int64, actor, reason string) (domain.PurchaseOrder, error) {
+	previous, err := r.GetPurchaseOrder(ctx, order.ID)
+	if err != nil {
+		return domain.PurchaseOrder{}, err
+	}
+	if previous.Version != expectedVersion {
+		return domain.PurchaseOrder{}, domain.ErrConflict
+	}
+	encoded, err := json.Marshal(previous)
+	if err != nil {
+		return domain.PurchaseOrder{}, err
+	}
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return domain.PurchaseOrder{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	var currentVersion int64
+	var currentStatus domain.PurchaseOrderStatus
+	if err := tx.QueryRow(ctx, `SELECT version,status FROM purchase_orders WHERE id=$1 FOR UPDATE`, order.ID).Scan(&currentVersion, &currentStatus); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.PurchaseOrder{}, domain.ErrNotFound
+		}
+		return domain.PurchaseOrder{}, err
+	}
+	if currentVersion != expectedVersion || currentStatus != domain.PurchaseOrderChangeRequested {
+		return domain.PurchaseOrder{}, domain.ErrConflict
+	}
+	var hasReceipt bool
+	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM goods_receipts WHERE purchase_order_id=$1)`, order.ID).Scan(&hasReceipt); err != nil {
+		return domain.PurchaseOrder{}, err
+	}
+	if hasReceipt {
+		return domain.PurchaseOrder{}, domain.ErrInvalidState
+	}
+	for _, line := range previous.Lines {
+		if line.ReceivedQuantity != "0" && line.ReceivedQuantity != "0.000000" {
+			q, ok := new(big.Rat).SetString(line.ReceivedQuantity)
+			if ok && q.Sign() > 0 {
+				return domain.PurchaseOrder{}, domain.ErrInvalidState
+			}
+		}
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO purchase_order_revision_snapshots(purchase_order_id,revision,snapshot,changed_by,change_reason) VALUES($1,$2,$3,$4,$5)`, order.ID, previous.Revision, encoded, actor, reason); err != nil {
+		return domain.PurchaseOrder{}, mapError(err)
+	}
+	const query = `UPDATE purchase_orders SET supplier_id=$3,supplier_name=$4,status=$5,currency=$6,total_amount_minor=$7,notes=$8,expected_delivery_date=$9,created_by=$10,
+		submitted_by=NULL,submitted_at=NULL,approved_by=NULL,approved_at=NULL,rejected_by=NULL,rejected_at=NULL,rejection_reason='',sent_by=NULL,sent_at=NULL,
+		supplier_response_note='',supplier_responded_by=NULL,supplier_responded_at=NULL,cancelled_by=NULL,cancelled_at=NULL,cancellation_reason='',closed_by=NULL,closed_at=NULL,close_reason='',revision=$11,
+		updated_at=now(),version=version+1 WHERE id=$1 AND version=$2 RETURNING created_at,updated_at,version`
+	err = tx.QueryRow(ctx, query, order.ID, expectedVersion, order.SupplierID, order.SupplierName, order.Status, order.Currency, order.TotalAmountMinor, order.Notes, order.ExpectedDeliveryDate, order.CreatedBy, order.Revision).Scan(&order.CreatedAt, &order.UpdatedAt, &order.Version)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.PurchaseOrder{}, domain.ErrConflict
+	}
+	if err != nil {
+		return domain.PurchaseOrder{}, mapError(err)
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM purchase_order_lines WHERE purchase_order_id=$1`, order.ID); err != nil {
+		return domain.PurchaseOrder{}, err
+	}
+	if err := insertPurchaseOrderLines(ctx, tx, order); err != nil {
+		return domain.PurchaseOrder{}, mapError(err)
+	}
+	if err := insertPurchaseOrderHistory(ctx, tx, order.ID, string(currentStatus), string(order.Status), "REVISION_CREATED", actor, reason); err != nil {
+		return domain.PurchaseOrder{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return domain.PurchaseOrder{}, err
+	}
+	return order, nil
+}
+
+func (r *Repository) ListPurchaseOrderRevisions(ctx context.Context, id uuid.UUID, limit, offset int) ([]domain.PurchaseOrderRevision, error) {
+	rows, err := r.pool.Query(ctx, `SELECT revision,snapshot,changed_by,change_reason,created_at FROM purchase_order_revision_snapshots WHERE purchase_order_id=$1 ORDER BY revision DESC LIMIT $2 OFFSET $3`, id, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := make([]domain.PurchaseOrderRevision, 0)
+	for rows.Next() {
+		var item domain.PurchaseOrderRevision
+		var snapshot []byte
+		if err := rows.Scan(&item.Revision, &snapshot, &item.ChangedBy, &item.ChangeReason, &item.CreatedAt); err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal(snapshot, &item.Snapshot); err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
 func (r *Repository) CreateGoodsReceipt(ctx context.Context, receipt domain.GoodsReceipt) (domain.GoodsReceipt, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -518,7 +614,7 @@ func (r *Repository) CreateGoodsReceipt(ctx context.Context, receipt domain.Good
 		}
 		return domain.GoodsReceipt{}, err
 	}
-	if status != domain.PurchaseOrderSent && status != domain.PurchaseOrderPartiallyReceived {
+	if status != domain.PurchaseOrderSent && status != domain.PurchaseOrderAcknowledged && status != domain.PurchaseOrderPartiallyReceived {
 		return domain.GoodsReceipt{}, domain.ErrInvalidState
 	}
 	for _, line := range receipt.Lines {
@@ -593,7 +689,7 @@ func (r *Repository) InspectGoodsReceipt(ctx context.Context, receipt domain.Goo
 	if err := tx.QueryRow(ctx, `SELECT status FROM purchase_orders WHERE id=$1 FOR UPDATE`, receipt.PurchaseOrderID).Scan(&poStatus); err != nil {
 		return domain.GoodsReceipt{}, err
 	}
-	if poStatus != domain.PurchaseOrderSent && poStatus != domain.PurchaseOrderPartiallyReceived {
+	if poStatus != domain.PurchaseOrderSent && poStatus != domain.PurchaseOrderAcknowledged && poStatus != domain.PurchaseOrderPartiallyReceived {
 		return domain.GoodsReceipt{}, domain.ErrInvalidState
 	}
 	for _, line := range receipt.Lines {
@@ -671,9 +767,10 @@ func emptyToNil(value string) any {
 }
 
 const purchaseOrderSelect = `SELECT id, po_number, supplier_id, supplier_name, status, currency,
-	total_amount_minor, notes, expected_delivery_date, created_by, submitted_by, submitted_at,
+	revision, total_amount_minor, notes, expected_delivery_date, created_by, submitted_by, submitted_at,
 	approved_by, approved_at, rejected_by, rejected_at, rejection_reason, sent_by, sent_at,
-	cancelled_by, cancelled_at, cancellation_reason, created_at, updated_at, version FROM purchase_orders`
+	supplier_response_note,supplier_responded_by,supplier_responded_at,cancelled_by,cancelled_at,cancellation_reason,
+	closed_by,closed_at,close_reason,created_at,updated_at,version FROM purchase_orders`
 
 const purchaseOrderLineSelect = `SELECT id, line_number, material_id, material_code, material_name,
 	quantity::text, received_quantity::text, accepted_quantity::text, unit, unit_price_minor, line_amount_minor FROM purchase_order_lines`
@@ -681,12 +778,13 @@ const purchaseOrderLineSelect = `SELECT id, line_number, material_id, material_c
 func scanPurchaseOrder(row rowScanner) (domain.PurchaseOrder, error) {
 	var order domain.PurchaseOrder
 	var expected pgtype.Date
-	var submitted, approved, rejected, sent, cancelled pgtype.Timestamptz
-	var submittedBy, approvedBy, rejectedBy, rejectionReason, sentBy, cancelledBy, cancellationReason pgtype.Text
+	var submitted, approved, rejected, sent, supplierResponded, cancelled, closed pgtype.Timestamptz
+	var submittedBy, approvedBy, rejectedBy, rejectionReason, sentBy, supplierRespondedBy, cancellationReason, cancelledBy, closedBy, closeReason pgtype.Text
 	err := row.Scan(&order.ID, &order.Number, &order.SupplierID, &order.SupplierName, &order.Status, &order.Currency,
-		&order.TotalAmountMinor, &order.Notes, &expected, &order.CreatedBy, &submittedBy, &submitted,
+		&order.Revision, &order.TotalAmountMinor, &order.Notes, &expected, &order.CreatedBy, &submittedBy, &submitted,
 		&approvedBy, &approved, &rejectedBy, &rejected, &rejectionReason, &sentBy, &sent,
-		&cancelledBy, &cancelled, &cancellationReason, &order.CreatedAt, &order.UpdatedAt, &order.Version)
+		&order.SupplierResponseNote, &supplierRespondedBy, &supplierResponded, &cancelledBy, &cancelled, &cancellationReason,
+		&closedBy, &closed, &closeReason, &order.CreatedAt, &order.UpdatedAt, &order.Version)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.PurchaseOrder{}, domain.ErrNotFound
 	}
@@ -699,12 +797,15 @@ func scanPurchaseOrder(row rowScanner) (domain.PurchaseOrder, error) {
 	}
 	order.SubmittedBy, order.ApprovedBy, order.RejectedBy = submittedBy.String, approvedBy.String, rejectedBy.String
 	order.RejectionReason, order.SentBy, order.CancelledBy = rejectionReason.String, sentBy.String, cancelledBy.String
-	order.CancellationReason = cancellationReason.String
+	order.SupplierRespondedBy, order.CancellationReason = supplierRespondedBy.String, cancellationReason.String
+	order.ClosedBy, order.CloseReason = closedBy.String, closeReason.String
 	order.SubmittedAt = timestampPointer(submitted)
 	order.ApprovedAt = timestampPointer(approved)
 	order.RejectedAt = timestampPointer(rejected)
 	order.SentAt = timestampPointer(sent)
+	order.SupplierRespondedAt = timestampPointer(supplierResponded)
 	order.CancelledAt = timestampPointer(cancelled)
+	order.ClosedAt = timestampPointer(closed)
 	return order, nil
 }
 

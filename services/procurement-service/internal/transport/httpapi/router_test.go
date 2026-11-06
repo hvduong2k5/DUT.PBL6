@@ -22,12 +22,13 @@ type httpRepository struct {
 	orders    map[uuid.UUID]domain.PurchaseOrder
 	receipts  map[uuid.UUID]domain.GoodsReceipt
 	contracts map[uuid.UUID]domain.SupplierContract
+	revisions map[uuid.UUID][]domain.PurchaseOrderRevision
 }
 
 func newHTTPRepository() *httpRepository {
 	return &httpRepository{
 		suppliers: make(map[uuid.UUID]domain.Supplier), materials: make(map[uuid.UUID]domain.RawMaterial),
-		offers: make(map[uuid.UUID][]domain.SupplierMaterialOffer), orders: make(map[uuid.UUID]domain.PurchaseOrder), receipts: make(map[uuid.UUID]domain.GoodsReceipt), contracts: make(map[uuid.UUID]domain.SupplierContract),
+		offers: make(map[uuid.UUID][]domain.SupplierMaterialOffer), orders: make(map[uuid.UUID]domain.PurchaseOrder), receipts: make(map[uuid.UUID]domain.GoodsReceipt), contracts: make(map[uuid.UUID]domain.SupplierContract), revisions: make(map[uuid.UUID][]domain.PurchaseOrderRevision),
 	}
 }
 
@@ -154,6 +155,21 @@ func (r *httpRepository) SavePurchaseOrder(_ context.Context, order domain.Purch
 	r.orders[order.ID] = order
 	return order, nil
 }
+func (r *httpRepository) RevisePurchaseOrder(_ context.Context, order domain.PurchaseOrder, expectedVersion int64, actor, reason string) (domain.PurchaseOrder, error) {
+	current, ok := r.orders[order.ID]
+	if !ok {
+		return domain.PurchaseOrder{}, domain.ErrNotFound
+	}
+	if current.Version != expectedVersion {
+		return domain.PurchaseOrder{}, domain.ErrConflict
+	}
+	r.revisions[order.ID] = append(r.revisions[order.ID], domain.PurchaseOrderRevision{Revision: current.Revision, Snapshot: current, ChangedBy: actor, ChangeReason: reason})
+	r.orders[order.ID] = order
+	return order, nil
+}
+func (r *httpRepository) ListPurchaseOrderRevisions(_ context.Context, id uuid.UUID, limit, offset int) ([]domain.PurchaseOrderRevision, error) {
+	return r.revisions[id], nil
+}
 func (r *httpRepository) CreateGoodsReceipt(_ context.Context, receipt domain.GoodsReceipt) (domain.GoodsReceipt, error) {
 	r.receipts[receipt.ID] = receipt
 	return receipt, nil
@@ -274,6 +290,57 @@ func TestPurchaseOrderHTTPWorkflowAndSelfApprovalGuard(t *testing.T) {
 	approved := performRequest(handler, http.MethodPost, "/api/v1/admin/procurement/purchase-orders/"+order.ID.String()+"/approve", "", "approver", "PROCUREMENT_MANAGER")
 	if approved.Code != http.StatusOK {
 		t.Fatalf("approval status = %d, body=%s", approved.Code, approved.Body.String())
+	}
+}
+
+func TestPurchaseOrderSupplierResponseRevisionAndSendRetryHTTP(t *testing.T) {
+	repo := newHTTPRepository()
+	supplier, _ := domain.NewSupplier("SUP-REV", "Supplier", "COMPANY", "", "", "", "")
+	material, _ := domain.NewRawMaterial("SESAME", "Sesame", "KG", "")
+	offer, _ := domain.NewSupplierMaterialOffer(supplier.ID, material.ID, "", "KG", 10000, "VND", "1", 2)
+	repo.suppliers[supplier.ID] = supplier
+	repo.materials[material.ID] = material
+	repo.offers[supplier.ID] = []domain.SupplierMaterialOffer{offer}
+	handler := newHandler(repo)
+	body := `{"supplier_id":"` + supplier.ID.String() + `","lines":[{"material_id":"` + material.ID.String() + `","quantity":"1"}]}`
+	created := performRequest(handler, http.MethodPost, "/api/v1/admin/procurement/purchase-orders", body, "buyer", "SUPPLY_MANAGER")
+	if created.Code != http.StatusCreated {
+		t.Fatalf("create status=%d body=%s", created.Code, created.Body.String())
+	}
+	var order domain.PurchaseOrder
+	if err := json.Unmarshal(created.Body.Bytes(), &order); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{"/submit", "/approve", "/send"} {
+		rec := performRequest(handler, http.MethodPost, "/api/v1/admin/procurement/purchase-orders/"+order.ID.String()+path, "", "staff", "PROCUREMENT_MANAGER")
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s status=%d body=%s", path, rec.Code, rec.Body.String())
+		}
+	}
+	sentVersion := repo.orders[order.ID].Version
+	retry := performRequest(handler, http.MethodPost, "/api/v1/admin/procurement/purchase-orders/"+order.ID.String()+"/send", "", "staff", "PROCUREMENT_MANAGER")
+	if retry.Code != http.StatusOK || repo.orders[order.ID].Version != sentVersion {
+		t.Fatalf("send retry status=%d version=%d want %d", retry.Code, repo.orders[order.ID].Version, sentVersion)
+	}
+	response := performRequest(handler, http.MethodPost, "/api/v1/admin/procurement/purchase-orders/"+order.ID.String()+"/supplier-response", `{"response":"CHANGE_REQUESTED","note":"Change delivery quantity"}`, "buyer", "SUPPLY_MANAGER")
+	if response.Code != http.StatusOK {
+		t.Fatalf("supplier response status=%d body=%s", response.Code, response.Body.String())
+	}
+	revisionBody := `{"supplier_id":"` + supplier.ID.String() + `","notes":"revision 2","reason":"supplier requested quantity change","lines":[{"material_id":"` + material.ID.String() + `","quantity":"2"}]}`
+	revised := performRequest(handler, http.MethodPost, "/api/v1/admin/procurement/purchase-orders/"+order.ID.String()+"/revisions", revisionBody, "buyer-2", "SUPPLY_MANAGER")
+	if revised.Code != http.StatusOK {
+		t.Fatalf("revision status=%d body=%s", revised.Code, revised.Body.String())
+	}
+	var current domain.PurchaseOrder
+	if err := json.Unmarshal(revised.Body.Bytes(), &current); err != nil {
+		t.Fatal(err)
+	}
+	if current.Revision != 2 || current.Status != domain.PurchaseOrderDraft {
+		t.Fatalf("unexpected current revision: %+v", current)
+	}
+	history := performRequest(handler, http.MethodGet, "/api/v1/admin/procurement/purchase-orders/"+order.ID.String()+"/revisions", "", "buyer", "SUPPLY_MANAGER")
+	if history.Code != http.StatusOK || !strings.Contains(history.Body.String(), `"revision":1`) {
+		t.Fatalf("revision history response status=%d body=%s", history.Code, history.Body.String())
 	}
 }
 

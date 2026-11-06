@@ -34,6 +34,8 @@ type Repository interface {
 	GetPurchaseOrder(context.Context, uuid.UUID) (domain.PurchaseOrder, error)
 	ListPurchaseOrders(context.Context, uuid.UUID, domain.PurchaseOrderStatus, int, int) ([]domain.PurchaseOrder, error)
 	SavePurchaseOrder(context.Context, domain.PurchaseOrder, int64, domain.PurchaseOrderStatus, string, string, string) (domain.PurchaseOrder, error)
+	RevisePurchaseOrder(context.Context, domain.PurchaseOrder, int64, string, string) (domain.PurchaseOrder, error)
+	ListPurchaseOrderRevisions(context.Context, uuid.UUID, int, int) ([]domain.PurchaseOrderRevision, error)
 	CreateGoodsReceipt(context.Context, domain.GoodsReceipt) (domain.GoodsReceipt, error)
 	GetGoodsReceipt(context.Context, uuid.UUID) (domain.GoodsReceipt, error)
 	InspectGoodsReceipt(context.Context, domain.GoodsReceipt, int64, string) (domain.GoodsReceipt, error)
@@ -220,7 +222,51 @@ func (s *Service) RejectPurchaseOrder(ctx context.Context, id uuid.UUID, actor, 
 }
 
 func (s *Service) MarkPurchaseOrderSent(ctx context.Context, id uuid.UUID, actor string) (domain.PurchaseOrder, error) {
-	return s.transitionPurchaseOrder(ctx, id, actor, "", "SENT", func(order *domain.PurchaseOrder) error { return order.MarkSent(actor) })
+	current, err := s.repo.GetPurchaseOrder(ctx, id)
+	if err != nil {
+		return domain.PurchaseOrder{}, err
+	}
+	switch current.Status {
+	case domain.PurchaseOrderSent, domain.PurchaseOrderAcknowledged, domain.PurchaseOrderChangeRequested, domain.PurchaseOrderSupplierDeclined, domain.PurchaseOrderPartiallyReceived, domain.PurchaseOrderReceived, domain.PurchaseOrderClosed:
+		return current, nil
+	}
+	previousStatus, expectedVersion := current.Status, current.Version
+	if err := current.MarkSent(actor); err != nil {
+		return domain.PurchaseOrder{}, err
+	}
+	return s.repo.SavePurchaseOrder(ctx, current, expectedVersion, previousStatus, "SENT", actor, "")
+}
+
+func (s *Service) RecordSupplierResponse(ctx context.Context, id uuid.UUID, actor string, response domain.SupplierPOResponse, note string) (domain.PurchaseOrder, error) {
+	action := string(response)
+	return s.transitionPurchaseOrder(ctx, id, actor, note, "SUPPLIER_"+action, func(order *domain.PurchaseOrder) error { return order.RecordSupplierResponse(response, actor, note) })
+}
+
+func (s *Service) RevisePurchaseOrder(ctx context.Context, id uuid.UUID, request PurchaseOrderRequest, actor, reason string) (domain.PurchaseOrder, error) {
+	current, err := s.repo.GetPurchaseOrder(ctx, id)
+	if err != nil {
+		return domain.PurchaseOrder{}, err
+	}
+	expectedVersion := current.Version
+	updated, err := s.buildPurchaseOrder(ctx, current.Number, request, actor)
+	if err != nil {
+		return domain.PurchaseOrder{}, err
+	}
+	if err := current.ReviseAsDraft(updated, actor, reason); err != nil {
+		return domain.PurchaseOrder{}, err
+	}
+	return s.repo.RevisePurchaseOrder(ctx, current, expectedVersion, actor, reason)
+}
+
+func (s *Service) ListPurchaseOrderRevisions(ctx context.Context, id uuid.UUID, limit, offset int) ([]domain.PurchaseOrderRevision, error) {
+	if _, err := s.repo.GetPurchaseOrder(ctx, id); err != nil {
+		return nil, err
+	}
+	return s.repo.ListPurchaseOrderRevisions(ctx, id, limit, offset)
+}
+
+func (s *Service) CloseRemainingPurchaseOrder(ctx context.Context, id uuid.UUID, actor, reason string) (domain.PurchaseOrder, error) {
+	return s.transitionPurchaseOrder(ctx, id, actor, reason, "CLOSED", func(order *domain.PurchaseOrder) error { return order.CloseRemaining(actor, reason) })
 }
 
 func (s *Service) CancelPurchaseOrder(ctx context.Context, id uuid.UUID, actor, reason string) (domain.PurchaseOrder, error) {
@@ -354,8 +400,8 @@ func (s *Service) buildPurchaseOrder(ctx context.Context, number string, request
 func validPurchaseOrderStatus(status domain.PurchaseOrderStatus) bool {
 	switch status {
 	case domain.PurchaseOrderDraft, domain.PurchaseOrderPendingApproval, domain.PurchaseOrderApproved,
-		domain.PurchaseOrderRejected, domain.PurchaseOrderSent, domain.PurchaseOrderPartiallyReceived,
-		domain.PurchaseOrderReceived, domain.PurchaseOrderCancelled:
+		domain.PurchaseOrderRejected, domain.PurchaseOrderSent, domain.PurchaseOrderAcknowledged, domain.PurchaseOrderChangeRequested,
+		domain.PurchaseOrderSupplierDeclined, domain.PurchaseOrderPartiallyReceived, domain.PurchaseOrderReceived, domain.PurchaseOrderCancelled, domain.PurchaseOrderClosed:
 		return true
 	default:
 		return false
