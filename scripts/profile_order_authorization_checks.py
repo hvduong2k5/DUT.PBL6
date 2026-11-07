@@ -43,13 +43,13 @@ def verify(request, sql, identity, profile, order, staff, customer, principal):
             INSERT INTO identity.iam_role_permissions(role_id,permission_code)
             SELECT '{other_role}',permission_code FROM identity.iam_permissions WHERE permission_code IN
             ('EMPLOYEE_PROFILE_SENSITIVE_VIEW','ORDER_SENSITIVE_VIEW','ORDER_HOLD_MANAGE','ORDER_CANCEL_REQUEST');
-            INSERT INTO identity.iam_role_assignments(assignment_id,principal_id,role_id,scope_type,scope_id) VALUES
-            ('{assignment}','{principal}','{role}','DEPARTMENT','AUTH_A'),
-            ('{other_assignment}','{principal}','{other_role}','DEPARTMENT','AUTH_B'),
-            ('{uuid.uuid4()}','{principal}','{role}','WAREHOUSE','{warehouse}'),
-            ('{uuid.uuid4()}','{principal}','{other_role}','WAREHOUSE','{foreign_warehouse}');""")
+            INSERT INTO identity.iam_role_assignments(assignment_id,principal_id,role_id,scope_type,scope_id,valid_from) VALUES
+            ('{assignment}','{principal}','{role}','DEPARTMENT','AUTH_A',now()-interval '1 minute'),
+            ('{other_assignment}','{principal}','{other_role}','DEPARTMENT','AUTH_B',now()-interval '1 minute'),
+            ('{uuid.uuid4()}','{principal}','{role}','WAREHOUSE','{warehouse}',now()-interval '1 minute'),
+            ('{uuid.uuid4()}','{principal}','{other_role}','WAREHOUSE','{foreign_warehouse}',now()-interval '1 minute');""")
         me = call(identity, "/api/v1/users/me")["data"]
-        assert any(g["permissionCode"] == "ORDER_VIEW" and g["scopeId"] == warehouse for g in me["permissionGrants"])
+        assert any(g["permissionCode"] == "ORDER_VIEW" and g["scopeId"] == warehouse for g in me["permissionGrants"]), ("active assignment grants missing", me["permissionGrants"])
         # Customer routes stay closed even though this synthetic employee has a
         # legacy customer row in the main integration fixture.
         call(profile, "/api/v1/profile", expected=403)
