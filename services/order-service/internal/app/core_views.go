@@ -78,7 +78,7 @@ func (s *Service) OrderResponse(o domain.Order, p domain.Principal, detail bool)
 		items = append(items, map[string]any{"sku_code": i.SKU, "product_name": i.Name, "quantity": i.Quantity, "unit_price": i.UnitPrice, "line_subtotal": i.LineSubtotal})
 	}
 	recipient := map[string]any{"visibility": "MASKED", "recipient_name": nil, "phone": nil, "street": nil, "province_name": t.Address.ProvinceName, "ward_name": t.Address.WardName}
-	if p.Scope() == o.Scope {
+	if p.Scope() == o.Scope || p.IAM && p.CanSeeRecipient(o) {
 		recipient = map[string]any{"visibility": "FULL", "recipient_name": t.Address.RecipientName, "phone": t.Address.PhoneE164, "street": t.Address.Street, "province_name": t.Address.ProvinceName, "ward_name": t.Address.WardName}
 	}
 	out["snapshot"] = map[string]any{"snapshot_id": t.SnapshotID, "snapshot_schema_version": t.SchemaVersion, "items": items, "subtotal": t.Money.Subtotal, "shipping_fee": t.Money.ShippingFee, "final_amount": t.Money.FinalAmount, "currency": "VND", "shipping_service_code": t.Shipping.ServiceCode, "recipient": recipient}

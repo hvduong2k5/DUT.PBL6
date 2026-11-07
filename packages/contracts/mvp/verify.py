@@ -20,7 +20,7 @@ from google.api import annotations_pb2
 from google.protobuf.descriptor_pb2 import FileDescriptorSet
 from jsonschema import Draft7Validator, FormatChecker
 from jsonschema.validators import validator_for
-from openapi_spec_validator import validate_spec
+from openapi_spec_validator import validate
 from openapi_schema_validator import OAS30Validator
 import yaml
 
@@ -190,11 +190,30 @@ def main():
         if not isinstance(document, dict) or 'openapi' not in document:
             continue
         try:
-            validate_spec(document, base_uri=path.resolve().as_uri())
+            # The deprecated validate_spec ignores base_uri in pinned 0.7.2.
+            # validate retains the document URI for relative handoff references.
+            validate(document, base_uri=path.resolve().as_uri())
         except Exception as exc:
             raise AssertionError('Invalid OpenAPI: ' + str(path.relative_to(ROOT)) + ': ' + str(exc)[:220]) from exc
         spec_count += 1
     result['openapi'] = {'validated_specs': spec_count, 'generated_public_contract': 'current'}
+    staff_schema = json.loads((ROOT / 'packages/contracts/iam/staff-token.v1.schema.json').read_bytes())
+    staff_validator_cls = validator_for(staff_schema)
+    staff_validator_cls.check_schema(staff_schema)
+    staff_validator = staff_validator_cls(staff_schema, format_checker=FormatChecker())
+    staff_example = {'iss': 'https://identity.example.test/realms/test', 'aud': 'omama-api',
+                     'sub': 'synthetic-staff', 'user_id': '11111111-1111-4111-8111-111111111111',
+                     'typ': 'Bearer', 'iat': 1794052800, 'exp': 1794053700,
+                     'principal_type': 'EMPLOYEE', 'principal_status': 'ACTIVE', 'authz_version': 1,
+                     'permission_grants': [{'permissionCode': 'ORDER_VIEW', 'scopeType': 'GLOBAL', 'scopeId': None}]}
+    staff_validator.validate(staff_example)
+    for change in [{'principal_type': 'ADMIN'}, {'authz_version': 2}, {'permission_grants': None},
+                   {'permission_grants': [{'permissionCode': 'ORDER_VIEW', 'scopeType': 'GLOBAL', 'scopeId': 'WH-A'}]},
+                   {'permission_grants': [{'permissionCode': 'ORDER_VIEW', 'scopeType': 'WAREHOUSE', 'scopeId': ''}]},
+                   {'permission_grants': [{'permissionCode': 'ORDER_VIEW', 'scopeType': 'GLOBAL', 'validUntill': '2099-01-01T00:00:00Z'}]}]:
+        check(not staff_validator.is_valid({**staff_example, **change}), 'Staff schema accepted invalid claims: ' + str(change))
+    result['iam_consumer'] = {'staff_schema': 'provisional-v1', 'negative_examples': 6,
+                              'issuer_and_projection_producers': 'PENDING task 1-2'}
     schema_count = 0
     for directory in ['packages/events/schemas', 'packages/events/profiles']:
         for path in (ROOT / directory).rglob('*.json'):

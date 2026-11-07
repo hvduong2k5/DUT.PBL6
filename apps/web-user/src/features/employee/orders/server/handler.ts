@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { EmployeeAuthorizationError, requireEmployeeSession } from "@/features/employee/auth/server";
 import { applyTrustedSessionCookie } from "@/lib/auth/server-credential";
+import { usesIdentityBff } from "@/lib/auth/oidc-config";
+import { handleLiveAdminOrders } from "./live-handler";
 import { ADMIN_ORDER_STATUSES, type AdminOrderDetail, type AdminOrderList, type AdminOrderRelatedState, type AdminOrderSource, type AdminOrderSlaState, type AdminOrderStatus, type AdminOrderSummary, type AdminPaymentStatus } from "@/features/employee/orders/types";
 import { parseAdminOrderPath } from "@/features/employee/orders/validation";
 
@@ -86,6 +88,7 @@ export async function handleAdminOrders(request: NextRequest, path: string[]) {
   const route = parseAdminOrderPath(path);
   if (route.kind === "invalid") return responseError("NOT_FOUND", "Admin order route không tồn tại.", 404);
   if (request.method !== "GET") return responseError("METHOD_NOT_ALLOWED", "Method không được hỗ trợ.", 405);
+  if (usesIdentityBff() || process.env.WEB_AUTH_MODE === "oidc") return handleLiveAdminOrders(request, path);
   try {
     const currentSession = await session(request);
     if (!currentSession.permissions.includes("ORDER_VIEW")) return responseError("PERMISSION_FORBIDDEN", "Nhân viên không có quyền xem đơn hàng.", 403);

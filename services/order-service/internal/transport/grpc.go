@@ -23,9 +23,15 @@ func (r *RPC) principal(ctx context.Context) (domain.Principal, error) {
 	if len(auth) != 1 {
 		return domain.Principal{}, status.Error(codes.Unauthenticated, "verified principal required")
 	}
-	p, e := r.S.Authenticate(auth[0])
+	p, e := r.S.AuthenticateContext(ctx, auth[0])
 	if e != nil {
-		return p, status.Error(codes.Unauthenticated, "invalid credentials")
+		return p, rpcError(r.S, e)
+	}
+	if r.S.C.AuthMode == "keycloak" {
+		p, e = r.S.Resolve(ctx, p)
+		if e != nil {
+			return p, rpcError(r.S, e)
+		}
 	}
 	if r.S.Payment != nil && p.Role == "GUEST" {
 		if e := r.S.Payment.CheckGuestSession(ctx, p.ID); e != nil {
@@ -93,7 +99,7 @@ func (r *RPC) GetOrderDetail(ctx context.Context, in *order.GetOrderDetailReques
 			out.AllowedActions = []string{"CANCEL_PENDING"}
 		}
 		a := t.Address
-		if p.Scope() == o.Scope {
+		if p.Scope() == o.Scope || p.IAM && p.CanSeeRecipient(o) {
 			out.ShippingAddress = &common.Address{RecipientName: a.RecipientName, PhoneNumber: a.PhoneE164, StreetAddress: a.Street, Ward: a.WardName, Province: a.ProvinceName, CountryCode: "VN"}
 		}
 		for _, i := range t.Items {

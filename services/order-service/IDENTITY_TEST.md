@@ -1,5 +1,7 @@
 # Ghép Order với Identity/Keycloak — lát cắt khách đăng nhập
 
+> Bổ sung phân quyền nhân viên theo [hướng dẫn Profile/Order](../../docs/06_operations/profile-order-api-authorization.md). Keycloak mode cần `IDENTITY_URL` để kiểm persona và permissionGrants; ngoại lệ thiếu Identity chỉ dành cho fixture JWT độc lập bật loopback TEST. Staff đọc đơn/hold/recovery dùng quyền theo kho; Finance vẫn có gate riêng. Các ghi chú chưa ánh xạ staff bên dưới thuộc lát cắt lịch sử.
+
 ## Thay đổi này làm được gì?
 
 Order có chế độ `ORDER_AUTH_MODE=keycloak`: kiểm access token RS256 từ Keycloak,

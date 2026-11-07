@@ -30,7 +30,7 @@ Các dòng sau giữ nguyên điều kiện owner `hasRole('ADMIN') OR hasAuthor
 | Service | Quyền/credential thực sự dùng | API hoặc gRPC | Phạm vi hiện được kiểm |
 |---|---|---|---|
 | Profile | Customer ACTIVE từ Identity + JWT; Profile customer có trạng thái nghiệp vụ phù hợp | `/api/v1/profile`, `/api/v1/profile/addresses/**` | Chỉ hồ sơ/địa chỉ của principal; CAS version khi sửa/xóa; Employee bị chặn |
-| Order | Customer ACTIVE từ Identity + JWT + ánh xạ Profile thực | `/api/v1/cart/**`, `/api/v1/checkout/**`, `/api/v1/checkout-operations/**`, `/api/v1/orders/**` của customer | Giỏ, báo giá, operation, đơn, payment read của chính Customer; Employee bị chặn |
+| Order customer | Customer ACTIVE từ Identity + JWT + ánh xạ Profile thực | `/api/v1/cart/**`, `/api/v1/checkout/**`, `/api/v1/checkout-operations/**`, `/api/v1/orders/**` của customer | Giỏ, báo giá, operation, đơn, payment read của chính Customer; staff có API đọc đơn riêng với ORDER_VIEW và scope kho |
 | Identity BFF | Cookie phiên, loại principal từ DB, Origin với browser mutation | `/api/v1/customer-api/**` allowlist | Chỉ chuyển các route Customer đã định nghĩa; không chuyển admin/internal hoặc header danh tính tự khai |
 | Catalog public | Anonymous read | REST `/api/v1/categories`, `/api/v1/products`, `/api/v1/products/search`, `/api/v1/products/{id_or_slug}` | Chỉ sản phẩm ACTIVE + APPROVED, giá còn hiệu lực; chưa có quyền nhân viên ở public |
 | Catalog admin | Employee ACTIVE và role `ADMIN` do `/users/me` trả từ DB | REST `/api/v1/admin/catalog/**` (JWT + permission `CATALOG_VIEW`/`CATALOG_MANAGE`) | **GLOBAL MVP**; actor lấy từ Identity, không tin `request.actor_id`; chưa kiểm phạm vi kho/cửa hàng |
@@ -52,3 +52,9 @@ Các dòng sau giữ nguyên điều kiện owner `hasRole('ADMIN') OR hasAuthor
 | Care, các service ngoài luồng đã test | Owner cung cấp endpoint thực, permission và object scope; chưa mở truy cập bằng role chung chỉ để demo |
 
 Tên quyền chi tiết của các service này cần owner xác nhận trước khi seed vào Identity. MVP mua hàng không cần đợi toàn bộ IAM nội bộ hoàn chỉnh, nhưng không được quảng bá là đã phân quyền đủ mọi chức năng nhân viên.
+
+## Profile và Order — quyền nhân viên theo phạm vi
+
+Profile kiểm `EMPLOYEE_PROFILE_VIEW`, `EMPLOYEE_PROFILE_CREATE`, `EMPLOYEE_PROFILE_SENSITIVE_VIEW`, `EMPLOYEE_COMPLIANCE_VIEW` theo GLOBAL/DEPARTMENT. Order kiểm `ORDER_VIEW`, `ORDER_SENSITIVE_VIEW`, `ORDER_CANCEL_REQUEST`, `ORDER_HOLD_MANAGE`, `ORDER_RECOVERY_EXECUTE` theo GLOBAL/WAREHOUSE. Nguồn quyền là `permissionGrants` từ Identity, giữ từng quyền gắn với assignment scope của chính nó.
+
+[Bảng API, phạm vi, giới hạn nghiệp vụ và cách cấp quyền](profile-order-api-authorization.md). Không suy diễn rằng có permission thì hủy/hold/payment đã mở mọi khả năng. Customer và credential service nội bộ giữ ranh giới hiện có.

@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Provisional staff access token v1 payload",
+  "description": "Consumer handoff only. Issuer, audience, signature, token size, grant intervals and expiry require runtime checks.",
+  "type": "object",
+  "required": ["iss", "aud", "sub", "user_id", "typ", "iat", "exp", "principal_type", "principal_status", "authz_version", "permission_grants"],
+  "properties": {
+    "iss": {"type": "string", "format": "uri"},
+    "aud": {"oneOf": [{"type": "string", "minLength": 1}, {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}]},
+    "sub": {"type": "string", "minLength": 1},
+    "user_id": {"type": "string", "format": "uuid", "not": {"const": "00000000-0000-0000-0000-000000000000"}},
+    "typ": {"const": "Bearer"},
+    "iat": {"type": "integer"},
+    "exp": {"type": "integer"},
+    "principal_type": {"const": "EMPLOYEE"},
+    "principal_status": {"const": "ACTIVE"},
+    "authz_version": {"const": 1},
+    "service": {"const": ""},
+    "permission_grants": {
+      "type": "array", "maxItems": 128,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["permissionCode", "scopeType"],
+        "properties": {
+          "permissionCode": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_.:-]{0,159}$"},
+          "scopeType": {"enum": ["GLOBAL", "WAREHOUSE", "DEPARTMENT", "STORE", "REGION", "BRANCH", "BUSINESS_UNIT"]},
+          "scopeId": {"type": ["string", "null"], "maxLength": 160},
+          "validFrom": {"type": ["string", "null"], "format": "date-time"},
+          "validUntil": {"type": ["string", "null"], "format": "date-time"}
+        },
+        "allOf": [{
+          "if": {"properties": {"scopeType": {"const": "GLOBAL"}}},
+          "then": {"properties": {"scopeId": {"enum": [null, ""]}}},
+          "else": {"required": ["scopeId"], "properties": {"scopeId": {"type": "string", "minLength": 1, "maxLength": 160, "pattern": "^\\S(?:.*\\S)?$"}}}
+        }]
+      }
+    }
+  }
+}
