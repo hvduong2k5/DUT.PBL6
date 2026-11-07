@@ -75,7 +75,7 @@ public class InventoryStockClient {
               "OUT_OF_STOCK".equals(item.getStockStatus())
                   ? 0L
                   : (long) item.getAvailableQuantity());
-    } catch (StatusRuntimeException unavailable) {
+    } catch (Exception unavailable) {
       /* Preserve unknown; never turn an outage into zero stock or stale availability. */
     }
     return quantities;
