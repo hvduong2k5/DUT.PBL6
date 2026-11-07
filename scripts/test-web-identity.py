@@ -63,6 +63,8 @@ def main():
     folder.mkdir(parents=True, exist_ok=True)
     for transient in ["stop", "ready.json", "result.json", "failure.json"]:
         (folder / transient).unlink(missing_ok=True)
+    for log_file in folder.glob("*.log"):
+        log_file.unlink(missing_ok=True)
     suffix = uuid.uuid4().hex[:10]
     names, processes, logs = [], [], []
     env = os.environ.copy()
@@ -120,7 +122,9 @@ def main():
         )
 
     def start(command, name, cwd=ROOT):
-        log = (folder / (name + ".log")).open("w", encoding="utf-8")
+        log = (folder / (name + ".log")).open("a", encoding="utf-8")
+        log.write(f"\n=== Process '{name}' started: {command} ===\n")
+        log.flush()
         logs.append(log)
         process = subprocess.Popen(
             [str(x) for x in command],
@@ -196,6 +200,29 @@ def main():
             except (OSError, ValueError):
                 s.close()
                 return True
+        return False
+
+    def kill_process_on_port(port, timeout=30):
+        """Find and kill any process listening on the given TCP port (Linux /proc)."""
+        import glob
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            killed = False
+            for pid_dir in glob.glob("/proc/[0-9]*/fd/*"):
+                try:
+                    link = os.readlink(pid_dir)
+                    if f"socket:[{port}]" in link or f":{port:x}" in link:
+                        pid = int(pid_dir.split("/")[2])
+                        try:
+                            os.kill(pid, signal.SIGKILL)
+                            killed = True
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+            if not killed:
+                return True
+            time.sleep(0.5)
         return False
 
     def wait(url, expected=200, seconds=90):
@@ -721,7 +748,8 @@ def main():
         # Wait for the TCP port to be released before restarting.
         catalog_port = ports["catalog"]
         if not wait_port_free("127.0.0.1", catalog_port, timeout=30):
-            print(f"WARNING: port {catalog_port} still in use after force kill", flush=True)
+            print(f"WARNING: port {catalog_port} still in use; killing socket holder", flush=True)
+            kill_process_on_port(catalog_port, timeout=15)
         caller_environment=env.copy()
         env.clear();env.update(catalog_environment)
         inventory_ca = folder / "inventory-ca.pem"
@@ -732,7 +760,7 @@ def main():
             env.update(IDENTITY_URL=caller_environment["IDENTITY_URL"], CATALOG_INVENTORY_TARGET=peer_address, CATALOG_INVENTORY_TOKEN_FILE=str(inventory_token), CATALOG_INVENTORY_CA_FILE=str(inventory_ca), CATALOG_INVENTORY_SERVER_NAME="localhost")
         else:
             print(f"WARNING: skipping Inventory TLS env (ca_ok={ca_ok}, token_ok={token_ok}, peer_address={peer_address}); catalog will start without live Inventory lookup", flush=True)
-        start([args.java, "-jar", catalog_jar], "catalog")
+        catalog_process = start([args.java, "-jar", catalog_jar], "catalog")
         env.clear();env.update(caller_environment)
         try:
             wait(catalog_url + "/api/v1/products", seconds=300)
@@ -744,8 +772,9 @@ def main():
                 print("WARNING: catalog process still alive after retry kill", flush=True)
             time.sleep(3)
             if not wait_port_free("127.0.0.1", catalog_port, timeout=30):
-                print(f"WARNING: port {catalog_port} still in use before retry", flush=True)
-            start([args.java, "-jar", catalog_jar], "catalog")
+                print(f"WARNING: port {catalog_port} still in use before retry; killing socket holder", flush=True)
+                kill_process_on_port(catalog_port, timeout=15)
+            catalog_process = start([args.java, "-jar", catalog_jar], "catalog")
             env.clear();env.update(caller_environment)
             wait(catalog_url + "/api/v1/products", seconds=300)
         shipping_token = secrets.token_urlsafe(32)
