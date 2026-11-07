@@ -1,4 +1,4 @@
-package com.hvduong.identity.infrastructure.security.pkce;
+package com.hvduong.identity.security.pkce;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
