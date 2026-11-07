@@ -17,6 +17,7 @@ export const EMPLOYEE_NAVIGATION: Array<{ group: string; items: EmployeeNavigati
   { group: "Danh mục", items: [{ href: "/admin/catalog/products", label: "Sản phẩm & SKU", icon: "◇", permission: "PRODUCT_VIEW" }] },
   { group: "Vận hành", items: [
     { href: "/admin/inventory", label: "Tồn kho & Batch", icon: "▦", permission: "INVENTORY_MANAGEMENT_VIEW" },
+    { href: "/admin/analytics", label: "Phân tích cung ứng", icon: "▥", permission: "INVENTORY_MANAGEMENT_VIEW" },
     { href: "/admin/packing", label: "Quản lý đóng gói", icon: "▧", permission: "PACKING_MANAGEMENT_VIEW" },
     { href: "/admin/shipping", label: "Quản lý giao vận", icon: "▰", permission: "SHIPMENT_MANAGEMENT_VIEW" }
   ] },

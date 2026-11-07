@@ -820,6 +820,8 @@ PUT  /api/v1/admin/articles/{id}/publish  # Xuất bản
 
 ### MS-11: `analytics-service`
 
+> [Bộ thiết kế MS-11](services/analytics-service/README.md) mô tả Dashboard theo cohort, các điều kiện bật nguồn và lộ trình DSS.
+
 #### Thông tin cơ bản
 
 | Thuộc tính | Chi tiết |
