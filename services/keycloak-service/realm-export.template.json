@@ -15,7 +15,9 @@
     "en"
   ],
   "defaultLocale": "vi",
-  "accessTokenLifespan": 900,
+  "accessTokenLifespan": 300,
+  "revokeRefreshToken": true,
+  "refreshTokenMaxReuse": 0,
   "ssoSessionIdleTimeout": 86400,
   "ssoSessionMaxLifespan": 2592000,
   "clients": [
