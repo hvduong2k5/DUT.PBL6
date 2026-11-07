@@ -23,17 +23,20 @@
         </div>
 
         <h1 class="omama-section-title">${msg("checkEmailHeading")}</h1>
-        <p class="omama-section-text">
-            ${msg("checkEmailPrefix")} <strong id="omama-sent-email" data-fallback="${msg('checkEmailFallback')}">${msg('checkEmailFallback')}</strong> ${msg("checkEmailSuffix")}
+        <#assign attemptedEmail = (auth.attemptedUsername!'')>
+        <p class="omama-section-text" id="omama-check-email-with-addr" <#if !attemptedEmail?has_content>style="display:none"</#if>>
+            ${msg("checkEmailPrefix")} <strong id="omama-sent-email">${attemptedEmail}</strong>. ${msg("checkEmailSpamNote")}
         </p>
-        <p class="omama-section-text">${msg("checkEmailPrivacy")}</p>
+        <p class="omama-section-text" id="omama-check-email-generic" <#if attemptedEmail?has_content>style="display:none"</#if>>
+            ${msg("checkEmailGeneric")} ${msg("checkEmailSpamNote")}
+        </p>
 
         <div class="omama-submit-group">
-            <a href="${url.loginResetCredentialsUrl}" class="omama-btn omama-btn--outline omama-btn--full">${msg("checkEmailResend")}</a>
+            <a href="${url.loginUrl}" class="omama-btn omama-btn--primary omama-btn--full">${msg("backToLoginTriKy")}</a>
         </div>
 
         <p class="omama-back-row">
-            <a href="${url.loginUrl}" class="omama-link omama-link--guest">${msg("backToLoginTriKy")}</a>
+            ${msg("checkEmailWrongAddress")} <a href="${url.loginResetCredentialsUrl}" class="omama-link omama-link--bold">${msg("checkEmailTryAgain")}</a>
         </p>
 
     <#elseif section = "form">

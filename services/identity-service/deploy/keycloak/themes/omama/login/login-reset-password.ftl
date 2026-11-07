@@ -45,8 +45,6 @@
                       data-invalid-message="${msg('resetEmailInvalid')}"><#if messagesPerField.existsError('username')>${kcSanitize(messagesPerField.get('username'))?no_esc}</#if></span>
             </div>
 
-            <p class="omama-hint">${msg("resetPrivacyHint")}</p>
-
             <div class="omama-submit-group">
                 <input id="kc-reset-password-submit" class="omama-btn omama-btn--primary omama-btn--full" type="submit" value="${msg('resetDoSubmit')}"/>
             </div>
