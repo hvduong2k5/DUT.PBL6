@@ -18,7 +18,7 @@ Quy tắc này áp dụng cho mọi thay đổi code trong `services/identity-se
 | `identity_audit_log` | Ghi nhật ký kiểm toán (actor, target, action, reason, timestamp) |
 
 ## 2. Quy tắc Role & Permission
-- **Chỉ EMPLOYEE được gán role hành chính.** `principal_type = CUSTOMER` không được gán `ADMIN`, `USER_MANAGER`, `ROLE_MANAGER`, `AUDITOR`.
+- **Chỉ EMPLOYEE (`principal_type = EMPLOYEE`) được gán role hành chính.** `principal_type = CUSTOMER` không được gán role `ADMIN` hoặc bất kỳ role quản trị nào. Hiện tại chỉ có role `ADMIN` trong hệ thống.
 - **Không self-assignment:** Người dùng không được tự gán role cho chính mình.
 - **Phân tách nhiệm vụ:** Người tạo request không được đồng thời là người phê duyệt.
 - **Role bảo vệ:** `is_protected = TRUE` (ví dụ `ADMIN`) không được xóa cứng hoặc xóa mềm nếu là admin cuối cùng.

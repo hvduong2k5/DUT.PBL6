@@ -12,7 +12,7 @@
 |------|-------------------|--------|
 | 4. Bộ trạng thái Account | `provisioningStatus` (`ACTIVE`, `PENDING_VERIFICATION`) trong DB và `customer_status`. Chưa có endpoint mở khóa/reactivate rõ ràng. | Cần thêm API admin để CRUD tài khoản, khóa tạm/vĩnh viễn, mở khóa/reactivate. |
 | 5. Thời gian thu hồi Role | JWT exp do Keycloak cấp; refresh token maxAge 28.800s (8 giờ) trong `oidc.ts`. Không có cấu hình propagate thu hồi role lên session/cache. | Chốt thời gian tối đa (5–15 phút) và xử lý phiên đang thực hiện giao dịch quan trọng. |
-| 8. Danh sách Role | Chỉ thấy `ADMIN` (`ROLE_ADMIN`), `EMPLOYEE`, `CUSTOMER`. `ROLE_ADMIN` là super-admin. | Chưa có quy trình sửa/clone/archive role và cơ chế bảo vệ Admin hợp lệ cuối cùng. |
+| 8. Danh sách Role | Chỉ thấy `ADMIN` (`ROLE_ADMIN` từ Keycloak realm role). `CUSTOMER` và `EMPLOYEE` là `principal_type` (loại tài khoản), không phải role phân quyền. | Chưa có quy trình sửa/clone/archive role và cơ chế bảo vệ Admin hợp lệ cuối cùng. |
 | 9. Ma trận thẩm quyền | Không thấy mã nguồn triển khai ma trận chi tiết, self-assignment, break-glass. | Cần bổ sung tài liệu thiết kế (role_permission_matrix.md). |
 | 10. Assignment tạm thời | Không thấy mã nguồn. | Cần thiết kế thời điểm hiệu lực, timezone, nhắc hết hạn, người chịu trách nhiệm gia hạn. |
 | 11. Access Review | Không thấy mã nguồn/tài liệu. | Cần thiết kế chu kỳ review, owner phê duyệt/thu hồi, export, xử lý quyền thừa/orphaned. |
@@ -37,13 +37,14 @@
 - **Phiên đang thực hiện giao dịch quan trọng:** Cho phép hoàn thành giao dịch đang chạy hoặc chặn ngay tuỳ mức độ rủi ro (cần đánh giá theo từng service gọi).
 
 ### 8. Danh sách Role hệ thống, Role đặc quyền & bảo vệ Admin cuối cùng
-- **Role hệ thống:** `ADMIN` (super-admin), `EMPLOYEE`, `CUSTOMER`.
-- **Role đặc quyền:** Các role có quyền quản trị (ví dụ: `USER_MANAGER`, `ROLE_MANAGER`, `AUDITOR`).
+- **Role hệ thống:** Chỉ có `ADMIN` (super-admin, từ Keycloak realm role → `ROLE_ADMIN` trong Spring Security).
+- **`principal_type` (không phải role phân quyền):** `CUSTOMER`, `EMPLOYEE` — dùng để phân loại loại tài khoản, không gắn chặt với quyền cụ thể.
+- **Role đặc quyền:** Hiện tại chỉ `ADMIN` là role đặc quyền duy nhất. Các role mở rộng (`USER_MANAGER`, `ROLE_MANAGER`, `AUDITOR`) cần được chốt thêm trong thiết kế kỹ thuật nếu hệ thống yêu cầu.
 - **Bảo vệ Admin hợp lệ cuối cùng:** Không cho phép xóa hoặc thu hồi toàn quyền của Admin cuối cùng trong hệ thống (tránh khoá cửa). Cần kiểm tra trước khi thực hiện `REVOKED` hoặc `TERMINATED` trên admin cuối cùng.
 
 ### 9. Ma trận thẩm quyền gán Role, phân tách nhiệm vụ, break-glass
 - **Ma trận:** Xem file `docs/03_api_specs/iam-role-permission-matrix.md`.
-- **Phân tách nhiệm vụ (SoD):** Người tạo request không được zugleich là người phê duyệt cùng request.
+- **Phân tách nhiệm vụ (SoD):** Người tạo request không được đồng thời là người phê duyệt cùng request.
 - **Self-assignment:** Người dùng không được tự gán role cho mình.
 - **Break-glass:** Quy trình khẩn cấp khi cần quyền tạm thời, phải có bản ghi audit và thời gian hiệu lực ngắn.
 

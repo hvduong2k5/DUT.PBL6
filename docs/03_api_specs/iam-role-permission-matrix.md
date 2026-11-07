@@ -11,13 +11,11 @@
 | Role Code | Tên hiển thị | Loại | Mô tả | Có được gán cho EMPLOYEE | Có được gán cho CUSTOMER |
 |-----------|-------------|------|-------|--------------------------|--------------------------|
 | `ADMIN` | Quản trị viên hệ thống | Hệ thống | Super-admin, toàn quyền mọi endpoint admin | Có (chỉ Admin khác) | Không |
-| `USER_MANAGER` | Quản lý người dùng | Nghiệp vụ | Quản lý tài khoản, khóa/mở khóa, reactivate | Có | Không |
-| `ROLE_MANAGER` | Quản lý vai trò | Nghiệp vụ | Quản lý catalog role, gán thu hồi role | Có | Không |
-| `AUDITOR` | Kiểm toán viên | Nghiệp vụ | Xem audit log, export báo cáo | Có | Không |
-| `EMPLOYEE` | Nhân viên | Cơ sở | Nhân viên cơ bản, không có quyền quản trị | Có (mặc định) | Không |
-| `CUSTOMER` | Khách hàng | Cơ sở | Khách hàng mua sắm, xem profile cá nhân | Không | Có (mặc định) |
 
-> **Quy tắc:** `principal_type = EMPLOYEE` mới được gán các role hành chính (`ADMIN`, `USER_MANAGER`, `ROLE_MANAGER`, `AUDITOR`). `CUSTOMER` chỉ giữ role `CUSTOMER`.
+> **Quy tắc:** Hiện tại hệ thống chỉ có 1 role phân quyền là `ADMIN` (từ Keycloak realm role → `ROLE_ADMIN` trong Spring Security).
+> `CUSTOMER` và `EMPLOYEE` là `principal_type` (loại tài khoản), không phải role phân quyền. Chúng không được liệt kê trong bảng role này.
+>
+> Các role mở rộng (`USER_MANAGER`, `ROLE_MANAGER`, `AUDITOR`, …) cần được chốt thêm trong thiết kế kỹ thuật nếu hệ thống yêu cầu.
 
 ---
 
@@ -25,12 +23,13 @@
 
 | Permission Code | Resource | Action | Risk Level | Scope Required | Mô tả |
 |-----------------|----------|--------|------------|----------------|-------|
-| `USER_VIEW` | USER | VIEW | LOW | FALSE | Xem danh sách và chi tiết tài khoản |
-| `USER_MANAGE` | USER | MANAGE | HIGH | TRUE | Khóa/mở khóa, reactivate tài khoản |
-| `ROLE_VIEW` | ROLE | VIEW | LOW | FALSE | Xem danh sách vai trò |
-| `ROLE_MANAGE` | ROLE | MANAGE | HIGH | TRUE | Tạo/sửa/xóa mềm role, gán thu hồi role |
-| `ACCOUNT_READ` | ACCOUNT | READ | LOW | FALSE | Đọc profile tài khoản của mình |
-| `ACCOUNT_WRITE` | ACCOUNT | WRITE | MEDIUM | FALSE | Cập nhật profile tài khoản của mình |
+| `CATALOG_VIEW` | CATALOG | VIEW | LOW | FALSE | Xem danh mục và chi tiết sản phẩm trong hệ thống quản trị |
+| `CATALOG_MANAGE` | CATALOG | MANAGE | HIGH | TRUE | Tạo/cập nhật/xóa sản phẩm, biến thể, bảng giá, ảnh |
+| `CATALOG_APPROVE` | CATALOG | APPROVE | HIGH | TRUE | Phê duyệt/từ chối sản phẩm (chuyển trạng thái vòng đời) |
+
+> **Quy tắc:** Danh sách permission trên được seed trong migration `V7__seed_identity_roles_and_permissions.sql` và `V8__seed_catalog_permissions.sql` của `identity-service`.
+>
+> Các permission mở rộng (`USER_VIEW`, `USER_MANAGE`, `ROLE_VIEW`, `ROLE_MANAGE`, …) cần được chốt thêm trong thiết kế kỹ thuật nếu hệ thống yêu cầu quản lý tài khoản/vai trò qua API admin của identity-service.
 
 ---
 
@@ -52,7 +51,7 @@
 
 ## 4. Quy tắc gán / thu hồi Role
 
-1. **Chỉ EMPLOYEE được gán role hành chính.** CUSTOMER không được gán `ADMIN`, `USER_MANAGER`, ...
+1. **Chỉ EMPLOYEE (`principal_type = EMPLOYEE`) được gán role hành chính.** CUSTOMER không được gán role `ADMIN` hoặc bất kỳ role quản trị nào.
 2. **Không self-assignment:** Người dùng không được tự gán role cho chính mình.
 3. **Phân tách nhiệm vụ (SoD):** Người tạo yêu cầu gán role không được đồng thời là người phê duyệt cùng yêu cầu đó.
 4. **Role được gán kèm thời hạn:** `valid_from`, `valid_until`. Khi hết hạn, tự động chuyển thành `EXPIRED` khi truy vấn.
@@ -79,3 +78,4 @@
 - **Empty collections:** Trả về 200 với mảng rỗng và tổng bằng 0.
 - **401:** Xác thực bị bỏ lỗi hoặc không hợp lệ.
 - **403:** Danh tính đã biết nhưng quyền hạn/khả năng/sở hữu/phạm vi không đủ.
+- **`principal_type` không phải phân quyền:** `CUSTOMER` và `EMPLOYEE` chỉ phân loại loại tài khoản, không dùng để kiểm tra quyền truy cập endpoint.
