@@ -63,4 +63,45 @@
           AND (valid_until IS NULL OR valid_until &gt; #{now})
     </select>
 
+    <select id="countAllByRoleId" resultType="int">
+        SELECT COUNT(*)
+        FROM iam_role_assignments
+        WHERE role_id = #{roleId}
+    </select>
+
+    <update id="revokeAllByRoleId">
+        UPDATE iam_role_assignments
+        SET assignment_status       = 'REVOKED',
+            revoked_by_principal_id = #{revokedBy},
+            reason                  = COALESCE(#{reason}, reason),
+            version                 = version + 1,
+            updated_at              = NOW()
+        WHERE role_id = #{roleId}
+          AND assignment_status = 'ACTIVE'
+    </update>
+
+    <select id="listAssignments" resultMap="IamRoleAssignmentRowMap">
+        SELECT ra.*
+        FROM iam_role_assignments ra
+        <where>
+            <if test="principalId != null">AND ra.principal_id = #{principalId}</if>
+            <if test="roleId != null">AND ra.role_id = #{roleId}</if>
+            <if test="scopeType != null">AND ra.scope_type = #{scopeType}</if>
+            <if test="status != null">AND ra.assignment_status = #{status}</if>
+        </where>
+        ORDER BY ra.created_at DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countActiveAdmins" resultType="int">
+        SELECT COUNT(DISTINCT ra.principal_id)
+        FROM iam_role_assignments ra
+        JOIN iam_roles r ON r.role_id = ra.role_id
+        WHERE r.role_code = #{adminRoleCode}
+          AND r.is_enabled = TRUE
+          AND ra.assignment_status = 'ACTIVE'
+          AND ra.valid_from &lt;= #{now}
+          AND (ra.valid_until IS NULL OR ra.valid_until &gt; #{now})
+    </select>
+
 </mapper>

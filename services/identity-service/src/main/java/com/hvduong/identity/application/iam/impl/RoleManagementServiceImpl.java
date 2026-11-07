@@ -117,9 +117,15 @@ public class RoleManagementServiceImpl implements RoleManagementService {
     @Override
     @Transactional
     public void updateRole(UUID roleId, UpdateRoleRequest dto, UUID updaterId) {
-        IamRoleRow existing = roleMapper.findById(roleId);
+        // Always load including disabled so we can give meaningful 404 vs 409
+        IamRoleRow existing = roleMapper.findByIdIncludeDisabled(roleId);
         if (existing == null) {
             throw new NoSuchElementException("Role not found with id: " + roleId);
+        }
+
+        // Block reactivation of soft-deleted roles
+        if (!existing.getIsEnabled()) {
+            throw new IllegalStateException("Role is already soft-deleted and cannot be reactivated: " + existing.getRoleCode());
         }
 
         // Rule: Protected role cannot be disabled
@@ -127,11 +133,18 @@ public class RoleManagementServiceImpl implements RoleManagementService {
             throw new IllegalStateException("Không thể vô hiệu hóa vai trò bảo vệ hệ thống: " + existing.getRoleCode());
         }
 
+        // If caller wants to disable → trigger soft-delete flow
+        if (Boolean.FALSE.equals(dto.getIsEnabled())) {
+            softDeleteRoleInternal(existing, updaterId);
+            return;
+        }
+
+        // Normal update (roleName, description)
         int updated = roleMapper.updateDetails(
                 roleId,
                 dto.getRoleName(),
                 dto.getDescription(),
-                dto.getIsEnabled(),
+                null, // isEnabled change handled above
                 updaterId,
                 existing.getVersion()
         );
@@ -164,8 +177,8 @@ public class RoleManagementServiceImpl implements RoleManagementService {
     @Override
     @Transactional
     public void deleteRole(UUID roleId, UUID actorId) {
-        IamRoleRow existing = roleMapper.findById(roleId);
-        if (existing == null) {
+        IamRoleRow existing = roleMapper.findByIdIncludeDisabled(roleId);
+        if (existing == null || !existing.getIsEnabled()) {
             throw new NoSuchElementException("Role not found with id: " + roleId);
         }
 
@@ -175,33 +188,45 @@ public class RoleManagementServiceImpl implements RoleManagementService {
 
         int activeAssignments = roleAssignmentMapper.countActiveByRoleId(roleId, OffsetDateTime.now());
         if (activeAssignments > 0) {
-            throw new IllegalStateException("Cannot delete role " + existing.getRoleCode() 
+            throw new IllegalStateException("Cannot delete role " + existing.getRoleCode()
                     + " because it is currently assigned to " + activeAssignments + " active user(s)");
         }
 
-        // Remove role permissions association first
-        rolePermissionMapper.deleteByRoleId(roleId);
+        int totalAssignments = roleAssignmentMapper.countAllByRoleId(roleId);
+        if (totalAssignments == 0) {
+            // Hard delete: role has never been assigned — safe to fully remove
+            rolePermissionMapper.deleteByRoleId(roleId);
+            roleMapper.deleteById(roleId);
+            keycloakAdminClient.deleteRealmRole(existing.getRoleCode());
+            auditService.recordAudit("USER", actorId, null, "DELETE_ROLE", "ROLE",
+                    roleId.toString(), "SUCCESS", null, null, null,
+                    Map.of("roleCode", existing.getRoleCode(), "type", "HARD_DELETE"));
+        } else {
+            // Soft delete: role has historical assignments — preserve audit trail
+            softDeleteRoleInternal(existing, actorId);
+        }
+    }
 
-        // Delete role
-        roleMapper.deleteById(roleId);
+    /** Shared soft-delete logic: set is_enabled=FALSE, revoke active assignments, audit. */
+    private void softDeleteRoleInternal(IamRoleRow existing, UUID actorId) {
+        UUID roleId = existing.getRoleId();
 
-        // Remove from Keycloak
-        keycloakAdminClient.deleteRealmRole(existing.getRoleCode());
+        int updated = roleMapper.softDeleteById(roleId, actorId, existing.getVersion());
+        if (updated == 0) {
+            throw new IllegalStateException("Optimistic lock conflict while soft-deleting role: " + roleId);
+        }
 
-        // Audit Log
-        auditService.recordAudit(
-                "USER",
-                actorId,
-                null,
-                "DELETE_ROLE",
-                "ROLE",
-                roleId.toString(),
-                "SUCCESS",
-                null,
-                null,
-                null,
-                Map.of("roleCode", existing.getRoleCode())
-        );
+        // Revoke any remaining active assignments (should be 0, but as safety measure)
+        roleAssignmentMapper.revokeAllByRoleId(roleId, actorId, "Role disabled");
+
+        // Disable in Keycloak (do not delete — historical tokens may reference it)
+        try {
+            keycloakAdminClient.createOrUpdateRealmRole(existing.getRoleCode(), "[DISABLED] " + existing.getDescription());
+        } catch (Exception ignored) {}
+
+        auditService.recordAudit("USER", actorId, null, "ROLE_DISABLE", "ROLE",
+                roleId.toString(), "SUCCESS", null, null, null,
+                Map.of("roleCode", existing.getRoleCode(), "type", "SOFT_DELETE"));
     }
 
     @Override

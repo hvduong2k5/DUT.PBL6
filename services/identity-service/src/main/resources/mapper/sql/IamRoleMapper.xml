@@ -28,17 +28,26 @@
         SELECT *
         FROM iam_roles
         WHERE role_id = #{roleId}
+          AND is_enabled = TRUE
+    </select>
+
+    <select id="findByIdIncludeDisabled" resultMap="IamRoleRowMap">
+        SELECT *
+        FROM iam_roles
+        WHERE role_id = #{roleId}
     </select>
 
     <select id="findByCode" resultMap="IamRoleRowMap">
         SELECT *
         FROM iam_roles
         WHERE role_code = #{roleCode}
+          AND is_enabled = TRUE
     </select>
 
     <select id="findAll" resultMap="IamRoleRowMap">
         SELECT *
         FROM iam_roles
+        WHERE is_enabled = TRUE
         ORDER BY created_at ASC
     </select>
 
@@ -57,5 +66,16 @@
         DELETE FROM iam_roles
         WHERE role_id = #{roleId}
     </delete>
+
+    <update id="softDeleteById">
+        UPDATE iam_roles
+        SET is_enabled              = FALSE,
+            updated_by_principal_id = #{updatedBy},
+            version                 = version + 1,
+            updated_at              = NOW()
+        WHERE role_id = #{roleId}
+          AND version = #{expectedVersion}
+          AND is_enabled = TRUE
+    </update>
 
 </mapper>

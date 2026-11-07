@@ -131,8 +131,9 @@ class RoleManagementServiceTest {
         row.setRoleId(roleId);
         row.setRoleCode("CASHIER");
         row.setVersion(1L);
+        row.setIsEnabled(true);
 
-        when(roleMapper.findById(roleId)).thenReturn(row);
+        when(roleMapper.findByIdIncludeDisabled(roleId)).thenReturn(row);
         when(roleMapper.updateDetails(eq(roleId), any(), any(), any(), any(), eq(1L))).thenReturn(1);
 
         UpdateRoleRequest dto = new UpdateRoleRequest();
@@ -152,8 +153,9 @@ class RoleManagementServiceTest {
         row.setRoleId(roleId);
         row.setRoleCode("ADMIN");
         row.setIsProtected(true);
+        row.setIsEnabled(true);
 
-        when(roleMapper.findById(roleId)).thenReturn(row);
+        when(roleMapper.findByIdIncludeDisabled(roleId)).thenReturn(row);
 
         assertThrows(IllegalStateException.class, () -> service.deleteRole(roleId, UUID.randomUUID()));
     }
@@ -165,23 +167,27 @@ class RoleManagementServiceTest {
         row.setRoleId(roleId);
         row.setRoleCode("STAFF");
         row.setIsProtected(false);
+        row.setIsEnabled(true);
 
-        when(roleMapper.findById(roleId)).thenReturn(row);
+        when(roleMapper.findByIdIncludeDisabled(roleId)).thenReturn(row);
         when(roleAssignmentMapper.countActiveByRoleId(eq(roleId), any())).thenReturn(5);
 
         assertThrows(IllegalStateException.class, () -> service.deleteRole(roleId, UUID.randomUUID()));
     }
 
     @Test
-    void deleteRole_Success() {
+    void deleteRole_Success_HardDeleteWhenNoHistory() {
         UUID roleId = UUID.randomUUID();
         IamRoleRow row = new IamRoleRow();
         row.setRoleId(roleId);
         row.setRoleCode("TEMPORARY_STAFF");
         row.setIsProtected(false);
+        row.setIsEnabled(true);
+        row.setVersion(0L);
 
-        when(roleMapper.findById(roleId)).thenReturn(row);
+        when(roleMapper.findByIdIncludeDisabled(roleId)).thenReturn(row);
         when(roleAssignmentMapper.countActiveByRoleId(eq(roleId), any())).thenReturn(0);
+        when(roleAssignmentMapper.countAllByRoleId(roleId)).thenReturn(0);
 
         service.deleteRole(roleId, UUID.randomUUID());
 
@@ -189,6 +195,28 @@ class RoleManagementServiceTest {
         verify(roleMapper).deleteById(roleId);
         verify(keycloakAdminClient).deleteRealmRole("TEMPORARY_STAFF");
         verify(auditService).recordAudit(any(), any(), any(), eq("DELETE_ROLE"), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void deleteRole_Success_SoftDeleteWhenHistoryExists() {
+        UUID roleId = UUID.randomUUID();
+        IamRoleRow row = new IamRoleRow();
+        row.setRoleId(roleId);
+        row.setRoleCode("OLD_STAFF");
+        row.setIsProtected(false);
+        row.setIsEnabled(true);
+        row.setVersion(2L);
+
+        when(roleMapper.findByIdIncludeDisabled(roleId)).thenReturn(row);
+        when(roleAssignmentMapper.countActiveByRoleId(eq(roleId), any())).thenReturn(0);
+        when(roleAssignmentMapper.countAllByRoleId(roleId)).thenReturn(3);
+        when(roleMapper.softDeleteById(eq(roleId), any(), eq(2L))).thenReturn(1);
+
+        service.deleteRole(roleId, UUID.randomUUID());
+
+        verify(roleMapper).softDeleteById(eq(roleId), any(), eq(2L));
+        verify(roleAssignmentMapper).revokeAllByRoleId(eq(roleId), any(), any());
+        verify(auditService).recordAudit(any(), any(), any(), eq("ROLE_DISABLE"), any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
