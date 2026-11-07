@@ -452,7 +452,7 @@ def main():
         template = json.loads(
             (
                 ROOT
-                / "services/identity-service/deploy/keycloak/realm-export.template.json"
+                / "services/keycloak-service/realm-export.template.json"
             ).read_text(encoding="utf-8")
         )
         template.update(
@@ -493,7 +493,7 @@ def main():
                 "-v",
                 str(realm_file) + ":/opt/keycloak/data/import/realm.json:ro",
                 "-v",
-                str(ROOT / "services/identity-service/deploy/keycloak/themes/omama")
+                str(ROOT / "services/keycloak-service/themes/omama")
                 + ":/opt/keycloak/themes/omama:ro",
                 "quay.io/keycloak/keycloak:24.0.5",
                 "start-dev",
@@ -550,7 +550,7 @@ def main():
             json.loads(
                 (
                     ROOT
-                    / "services/identity-service/deploy/keycloak/order-user-profile-attribute.json"
+                    / "services/keycloak-service/order-user-profile-attribute.json"
                 ).read_text()
             )
         )

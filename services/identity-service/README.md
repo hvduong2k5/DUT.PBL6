@@ -42,11 +42,7 @@ services/identity-service/
 ├── deploy/                              # Hạ tầng triển khai Docker Compose
 │   ├── docker-compose.all-in-one.yml    # Cụm All-in-One (Postgres, Keycloak, Kafka, Identity)
 │   ├── docker-compose.yml               # Chỉ chạy riêng Identity Service trên Docker
-│   ├── init-db.sql                      # Script tạo sẵn keycloak_db và identity_db
-│   └── keycloak/
-│       ├── .env.example                 # Mẫu env cho Keycloak độc lập
-│       ├── docker-compose.yml           # Compose chạy riêng Keycloak
-│       └── realm-export.template.json   # Template import sẵn Realm 'omama'
+│   └── init-db.sql                      # Script tạo keycloak_db và identity_db (chỉ cho cụm all-in-one dev)
 ├── docs/                                # Tài liệu kỹ thuật chi tiết
 ├── src/
 │   ├── main/

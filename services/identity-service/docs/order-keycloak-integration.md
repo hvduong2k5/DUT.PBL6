@@ -26,7 +26,7 @@ mapping CUSTOMER theo `scopeMappings` trong template. Không gắn scope này v�
 admin để giả lập người mua.
 
 **Bắt buộc trước khi tin claim:** cấu hình User Profile cho `app_user_id` chỉ admin
-được xem/sửa. File [attribute mẫu](../deploy/keycloak/order-user-profile-attribute.json)
+được xem/sửa. File [attribute mẫu](../../keycloak-service/order-user-profile-attribute.json)
 là một phần tử để thêm vào danh sách `attributes` của User Profile hiện tại; không
 ghi đè toàn bộ cấu hình bằng file này. Admin Console → Realm → User profile, hoặc
 GET/merge/PUT API cấu hình profile qua quyền admin. Kiểm chứng người mua không thể
