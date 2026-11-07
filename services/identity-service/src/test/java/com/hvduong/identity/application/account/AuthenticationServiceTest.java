@@ -6,7 +6,7 @@ import com.hvduong.identity.application.audit.AuditService;
 import com.hvduong.identity.application.dto.response.AuthUrlResponse;
 import com.hvduong.identity.application.dto.response.BffCallbackResult;
 import com.hvduong.identity.application.dto.response.SessionResponse;
-import com.hvduong.identity.infrastructure.persistence.entity.IdentityPrincipalRow;
+import com.hvduong.identity.domain.entity.IdentityPrincipalRow;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IdentityPrincipalMapper;
 import com.hvduong.identity.infrastructure.session.AuthStateStore;
 import com.hvduong.identity.infrastructure.session.BffSession;

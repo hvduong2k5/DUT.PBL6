@@ -1,6 +1,6 @@
 package com.hvduong.identity.infrastructure.persistence.mybatis.mapper;
 
-import com.hvduong.identity.infrastructure.persistence.entity.IdentityPrincipalRow;
+import com.hvduong.identity.domain.entity.IdentityPrincipalRow;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.List;

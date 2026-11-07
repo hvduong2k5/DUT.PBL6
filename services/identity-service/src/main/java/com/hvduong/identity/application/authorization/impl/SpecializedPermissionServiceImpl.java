@@ -4,9 +4,9 @@ import com.hvduong.identity.application.authorization.SpecializedPermissionServi
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.hvduong.identity.infrastructure.persistence.entity.AuthorizationDecisionRow;
-import com.hvduong.identity.infrastructure.persistence.entity.IdentityAuditLogRow;
-import com.hvduong.identity.infrastructure.persistence.entity.SpecializedPermissionPolicyRow;
+import com.hvduong.identity.domain.entity.AuthorizationDecisionRow;
+import com.hvduong.identity.domain.entity.IdentityAuditLogRow;
+import com.hvduong.identity.domain.entity.SpecializedPermissionPolicyRow;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.AuthorizationDecisionMapper;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IdentityAuditLogMapper;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.SpecializedPermissionPolicyMapper;

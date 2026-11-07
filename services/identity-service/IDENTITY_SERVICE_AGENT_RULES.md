@@ -86,7 +86,7 @@ Quy tắc này áp dụng cho mọi thay đổi code trong `services/identity-se
 - `application/{account,audit,authorization,iam,registration}` (+ `impl/`): service nghiệp vụ.
 - `application/dto/{request,response}`: DTO. `application/mapper/`: MapStruct mapper.
 - `common/{constant,enums,exception,handler,response}`: thành phần dùng chung (`ApiResponse`, `PageResponse`, `IdentityException`, `ErrorCode`, `GlobalExceptionHandler`).
-- `domain/entity/`: domain entity. `infrastructure/persistence/entity/*Row`: row MyBatis.
+- `domain/entity/`: domain/persistence entity (`*Row`). `infrastructure/persistence/mybatis/mapper/`: MyBatis mapper interfaces.
 - MyBatis XML đặt tại `src/main/resources/mapper/sql/` (`mybatis.mapper-locations: classpath:mapper/sql/*.xml`).
 - Keycloak (compose, realm, theme) thuộc `services/keycloak-service`; xem `KEYCLOAK_SERVICE_AGENT_RULES.md`.
 

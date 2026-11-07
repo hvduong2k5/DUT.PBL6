@@ -3,7 +3,7 @@ package com.hvduong.identity.application.iam;
 import com.hvduong.identity.application.dto.request.CreateRoleRequest;
 import com.hvduong.identity.application.dto.request.UpdateRoleRequest;
 import com.hvduong.identity.application.dto.response.RoleDetailResponse;
-import com.hvduong.identity.infrastructure.persistence.entity.IamRoleRow;
+import com.hvduong.identity.domain.entity.IamRoleRow;
 
 import java.util.List;
 import java.util.UUID;

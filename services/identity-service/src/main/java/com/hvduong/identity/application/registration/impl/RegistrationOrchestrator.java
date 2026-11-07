@@ -8,7 +8,7 @@ import com.hvduong.identity.application.dto.request.RegistrationRequest;
 import com.hvduong.identity.application.dto.response.RegistrationResponse;
 import com.hvduong.identity.infrastructure.keycloak.KeycloakAdminClient;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.*;
-import com.hvduong.identity.infrastructure.persistence.entity.*;
+import com.hvduong.identity.domain.entity.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import lombok.extern.slf4j.Slf4j;

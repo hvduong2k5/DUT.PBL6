@@ -5,7 +5,7 @@ import com.hvduong.identity.application.dto.response.InviteEmployeeResponse;
 
 import com.hvduong.identity.application.audit.AuditService;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.EmployeeInvitationMapper;
-import com.hvduong.identity.infrastructure.persistence.entity.EmployeeInvitationRow;
+import com.hvduong.identity.domain.entity.EmployeeInvitationRow;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IdentityPrincipalMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

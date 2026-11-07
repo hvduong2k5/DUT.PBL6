@@ -9,7 +9,7 @@ import com.hvduong.identity.application.dto.response.AdminUserItemResponse;
 import com.hvduong.identity.application.dto.response.UserProfileResponse;
 import com.hvduong.identity.application.dto.response.UserRoleScopeResponse;
 import com.hvduong.identity.infrastructure.keycloak.KeycloakAdminClient;
-import com.hvduong.identity.infrastructure.persistence.entity.*;
+import com.hvduong.identity.domain.entity.*;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.*;
 import com.hvduong.identity.infrastructure.session.BffSessionStore;
 import lombok.RequiredArgsConstructor;

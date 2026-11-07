@@ -1,4 +1,4 @@
-package com.hvduong.identity.infrastructure.persistence.entity;
+package com.hvduong.identity.domain.entity;
 
 import lombok.Data;
 import java.util.UUID;

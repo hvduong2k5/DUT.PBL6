@@ -2,7 +2,7 @@ package com.hvduong.identity.application.iam;
 
 import com.hvduong.identity.application.dto.request.AssignRoleRequest;
 import com.hvduong.identity.application.dto.response.RoleAssignmentResponse;
-import com.hvduong.identity.infrastructure.persistence.entity.IamRoleAssignmentRow;
+import com.hvduong.identity.domain.entity.IamRoleAssignmentRow;
 
 import java.util.List;
 import java.util.UUID;
