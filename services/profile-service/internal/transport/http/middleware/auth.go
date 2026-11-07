@@ -17,6 +17,7 @@ const (
 	UserIDKey     contextKey = "user_id"
 	UserRoleKey   contextKey = "user_role"
 	CustomerIDKey contextKey = "customer_id"
+	PrincipalKey  contextKey = "verified_principal"
 )
 
 // Forwarded identities are accepted only from an authenticated internal caller.
@@ -53,6 +54,7 @@ func AuthContextWithIdentity(token string, identity BearerIdentity) func(http.Ha
 				}
 				ctx := context.WithValue(r.Context(), UserIDKey, id)
 				ctx = context.WithValue(ctx, UserRoleKey, principal.Role)
+				ctx = context.WithValue(ctx, PrincipalKey, principal)
 				next.ServeHTTP(w, r.WithContext(ctx))
 				return
 			}
@@ -80,6 +82,10 @@ type CustomerResolver interface {
 func ResolveCustomer(repo CustomerResolver) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if role, _ := r.Context().Value(UserRoleKey).(string); role != "CUSTOMER" {
+				authError(w, 403, "CUSTOMER_REQUIRED")
+				return
+			}
 			uid, ok := GetUserIDFromContext(r.Context())
 			if !ok {
 				authError(w, 401, "UNAUTHENTICATED")
@@ -103,6 +109,28 @@ func ResolveCustomer(repo CustomerResolver) func(http.Handler) http.Handler {
 				return
 			}
 			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), CustomerIDKey, profile.ID)))
+		})
+	}
+}
+
+func StaffScope(ctx context.Context, permission string) domain.PermissionScope {
+	p, ok := ctx.Value(PrincipalKey).(security.Principal)
+	if !ok || p.Role != "EMPLOYEE" {
+		return domain.PermissionScope{}
+	}
+	return domain.ScopeFor(p.Grants, permission, "DEPARTMENT")
+}
+
+func RequirePermission(permission string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			scope := StaffScope(r.Context(), permission)
+			if !scope.Global && len(scope.IDs) == 0 {
+				authError(w, 403, "PERMISSION_DENIED")
+				return
+			}
+			w.Header().Set("Cache-Control", "no-store")
+			next.ServeHTTP(w, r)
 		})
 	}
 }

@@ -18,6 +18,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/omamx/profile-service/internal/config"
+	"github.com/omamx/profile-service/internal/domain"
 )
 
 type OIDCIdentity struct {
@@ -59,8 +60,9 @@ func NewOIDCIdentity(c *config.Config) (*OIDCIdentity, error) {
 }
 
 type Principal struct {
-	ID   string
-	Role string
+	ID     string
+	Role   string
+	Grants []domain.PermissionGrant
 }
 
 var ErrUnauthorized = errors.New("UNAUTHENTICATED")
@@ -114,6 +116,9 @@ func (v *OIDCIdentity) Authenticate(ctx context.Context, bearer string) (Princip
 		if resp.StatusCode == 401 {
 			return Principal{}, denied
 		}
+		if resp.StatusCode == 403 {
+			return Principal{}, ErrCustomerRequired
+		}
 		if resp.StatusCode != 200 {
 			return Principal{}, ErrIdentityUnavailable
 		}
@@ -124,16 +129,23 @@ func (v *OIDCIdentity) Authenticate(ctx context.Context, bearer string) (Princip
 		var envelope struct {
 			Success bool `json:"success"`
 			Data    struct {
-				ID      string `json:"principalId"`
-				Subject string `json:"idpSubject"`
-				Type    string `json:"principalType"`
-				Status  string `json:"provisioningStatus"`
+				ID      string                   `json:"principalId"`
+				Subject string                   `json:"idpSubject"`
+				Type    string                   `json:"principalType"`
+				Status  string                   `json:"provisioningStatus"`
+				Grants  []domain.PermissionGrant `json:"permissionGrants"`
 			} `json:"data"`
 		}
 		if json.Unmarshal(raw, &envelope) != nil || !envelope.Success || envelope.Data.ID != id.String() || envelope.Data.Subject != claims.Subject {
 			return Principal{}, ErrIdentityUnavailable
 		}
-		if envelope.Data.Type != "CUSTOMER" || envelope.Data.Status != "ACTIVE" {
+		if envelope.Data.Status != "ACTIVE" {
+			return Principal{}, ErrCustomerRequired
+		}
+		if envelope.Data.Type == "EMPLOYEE" {
+			return Principal{ID: id.String(), Role: "EMPLOYEE", Grants: envelope.Data.Grants}, nil
+		}
+		if envelope.Data.Type != "CUSTOMER" {
 			return Principal{}, ErrCustomerRequired
 		}
 	}

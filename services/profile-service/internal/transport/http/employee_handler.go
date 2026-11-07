@@ -7,6 +7,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/omamx/profile-service/internal/domain"
+	"github.com/omamx/profile-service/internal/transport/http/middleware"
 	"github.com/omamx/profile-service/internal/usecase"
 )
 
@@ -32,6 +33,10 @@ func (h *EmployeeHandler) CreateEmployee(w http.ResponseWriter, r *http.Request)
 		writeJSONError(w, http.StatusBadRequest, "employee_code, full_name, id_card_number and department_id are required")
 		return
 	}
+	if !middleware.StaffScope(r.Context(), "EMPLOYEE_PROFILE_CREATE").Allows(req.DepartmentID) {
+		writeJSON(w, 403, map[string]string{"code": "PERMISSION_DENIED"})
+		return
+	}
 
 	emp, err := h.employeeUsecase.CreateEmployee(r.Context(), req)
 	if err != nil {
@@ -39,6 +44,7 @@ func (h *EmployeeHandler) CreateEmployee(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	maskEmployee(r, emp)
 	writeJSON(w, http.StatusCreated, emp)
 }
 
@@ -51,7 +57,8 @@ func (h *EmployeeHandler) GetEmployeeDetail(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	detail, err := h.employeeUsecase.GetEmployeeDetail(r.Context(), empID)
+	detail, err := h.employeeUsecase.GetEmployeeDetailScoped(r.Context(), empID,
+		middleware.StaffScope(r.Context(), "EMPLOYEE_PROFILE_VIEW"), middleware.StaffScope(r.Context(), "EMPLOYEE_PROFILE_SENSITIVE_VIEW"))
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -78,12 +85,20 @@ func (h *EmployeeHandler) ListEmployees(w http.ResponseWriter, r *http.Request) 
 		limit = 20
 	}
 
-	employees, err := h.employeeUsecase.ListEmployees(r.Context(), deptID, status, limit, offset)
+	scope := middleware.StaffScope(r.Context(), "EMPLOYEE_PROFILE_VIEW")
+	if deptID != "" && !scope.Allows(deptID) {
+		writeJSON(w, 403, map[string]string{"code": "PERMISSION_DENIED"})
+		return
+	}
+	employees, err := h.employeeUsecase.ListEmployeesScoped(r.Context(), deptID, status, limit, offset, scope)
 	if err != nil {
 		writeDomainError(w, err)
 		return
 	}
 
+	for _, emp := range employees {
+		maskEmployee(r, emp)
+	}
 	writeJSON(w, http.StatusOK, employees)
 }
 
@@ -99,7 +114,7 @@ func (h *EmployeeHandler) GetCompliance(w http.ResponseWriter, r *http.Request) 
 		thresholdDays = d
 	}
 
-	expiring, err := h.employeeUsecase.FindExpiringCertificates(r.Context(), thresholdDays)
+	expiring, err := h.employeeUsecase.FindExpiringCertificatesScoped(r.Context(), thresholdDays, middleware.StaffScope(r.Context(), "EMPLOYEE_COMPLIANCE_VIEW"))
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -108,5 +123,15 @@ func (h *EmployeeHandler) GetCompliance(w http.ResponseWriter, r *http.Request) 
 	if expiring == nil {
 		expiring = []*domain.EmployeeProfile{}
 	}
+	for _, emp := range expiring {
+		maskEmployee(r, emp)
+	}
 	writeJSON(w, http.StatusOK, expiring)
+}
+
+func maskEmployee(r *http.Request, emp *domain.EmployeeProfile) {
+	if !middleware.StaffScope(r.Context(), "EMPLOYEE_PROFILE_SENSITIVE_VIEW").Allows(emp.DepartmentID) {
+		emp.PhoneNumber = ""
+		emp.FoodSafetyCertNo = ""
+	}
 }
