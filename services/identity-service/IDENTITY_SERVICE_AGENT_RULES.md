@@ -25,8 +25,8 @@ Quy tắc này áp dụng cho mọi thay đổi code trong `services/identity-se
 - **Chặn mất Admin hợp lệ cuối cùng:** Trước khi thực hiện `REVOKED` hoặc `TERMINATED` trên Admin, phải kiểm tra xem còn ít nhất 1 Admin active khác trong hệ thống không. Áp dụng cả thao tác đồng thời (concurrent).
 - **Soft delete role:** Dùng `is_enabled = FALSE`. **Role đã xóa mềm không được phép reactivate** (bật lại) trong bất kỳ trường hợp nào.
 - **Chỉ xóa mềm khi không còn user đang gán active** (không có `iam_role_assignments` với `assignment_status = 'ACTIVE'` và `valid_until > now` tham chiếu đến role này).
-- **Xóa vật lý role chưa sử dụng:** Chỉ xóa vĩnh viễn khi không còn assignment nào tham chiếu role đó.
-- **UNIQUE role_code:** Sử dụng partial unique index `WHERE is_enabled = TRUE`. Có thể để nguyên `role_code` cũ trên hàng đã xóa mềm vì không bao giờ có 2 dòng `is_enabled = TRUE` cùng mã.
+- **Xóa vật lý role chưa sử dụng:** Chỉ xóa vĩnh viễn khi không có bất kỳ `iam_role_assignments` nào (kể cả lịch sử) tham chiếu role đó; ngược lại phải xóa mềm.
+- **UNIQUE role_code:** Dùng partial unique index `uq_iam_roles_role_code_enabled ON iam_roles(role_code) WHERE is_enabled = TRUE` (migration `V9`). **Giữ nguyên `role_code` cũ** trên hàng đã xóa mềm, không đổi tên mã.
 - **Các assignment cũ sau khi soft delete:** Phải được chuyển sang `REVOKED`, không được để trỏ nhầm sang role mới (vì `role_id` khác).
 - **Kiểm tra phiên bản (optimistic locking):** Khi người dùng lưu form cũ, phải kiểm tra `version` để tránh ghi đè thay đổi mới.
 
@@ -39,6 +39,12 @@ Quy tắc này áp dụng cho mọi thay đổi code trong `services/identity-se
 - Khi đổi permission của role, disable role, hoặc thu hồi assignment → phải cập nhật dữ liệu dùng để phát token cho tất cả nhân viên bị ảnh hưởng (gọi `syncPermissionsToKeycloak(principalId)`).
 - Token mới phải nhận quyền mới.
 - Quyền có thời hạn không được sống lâu hơn assignment (khi assignment `REVOKED`/`EXPIRED`, token tương ứng phải bị vô hiệu hóa hoặc không thể refresh được quyền cũ).
+
+### 3.1 Thu hồi phiên tức thời (Force Re-login)
+- Access token ngắn hạn: `accessTokenLifespan = 300s` (5 phút, tối đa 15 phút). Refresh Token Rotation bật (`revokeRefreshToken = true`, `refreshTokenMaxReuse = 0`) tại `services/keycloak-service/realm-export.template.json`.
+- Khi **thu hồi** quyền (revoke assignment, xóa/thay thế bớt permission của role, disable/soft delete role, suspend tài khoản): sync permission, rồi gọi `KeycloakAdminClient.logoutUser(idpSubject)` và `BffSessionStore.removeSessionsByPrincipalId(principalId)` cho mọi principal bị ảnh hưởng.
+- Khi chỉ **thêm** permission: chỉ sync Keycloak, không force re-login.
+- Khi Keycloak từ chối refresh token (session đã bị revoke): xóa BFF session và trả `401`.
 
 ## 4. Truy vấn đọc Role
 - Mọi truy vấn đọc `iam_roles` phải thêm điều kiện `AND is_enabled = TRUE` (hoặc `deleted_at IS NULL` nếu có).
@@ -75,6 +81,15 @@ Quy tắc này áp dụng cho mọi thay đổi code trong `services/identity-se
 - Viết integration test cho API admin account và role.
 - Chạy `./gradlew test` trong `services/identity-service` trước khi commit.
 
-## 10. Tham khảo
+## 10. Cấu trúc package (`com.hvduong.identity`)
+- `api/{account,admin,registration}` (+ `impl/`): interface API và controller.
+- `application/{account,audit,authorization,iam,registration}` (+ `impl/`): service nghiệp vụ.
+- `application/dto/{common,request,response}`: DTO. `application/mapper/`: MapStruct mapper.
+- `common/{constant,enums,exception,handler,response}`: thành phần dùng chung (`ApiResponse`, `PageResponse`, `IdentityException`, `ErrorCode`, `GlobalExceptionHandler`).
+- `domain/entity/`: domain entity. `infrastructure/persistence/entity/*Row`: row MyBatis.
+- MyBatis XML đặt tại `src/main/resources/mapper/sql/` (`mybatis.mapper-locations: classpath:mapper/sql/*.xml`).
+- Keycloak (compose, realm, theme) thuộc `services/keycloak-service`; xem `KEYCLOAK_SERVICE_AGENT_RULES.md`.
+
+## 11. Tham khảo
 - `docs/01_requirements/identity-iam-lifecycle-plan.md`: Kế hoạch chi tiết vòng đời IAM.
-- `docs/03_api_specs/iam-role-permission-matrix.md`: Ma trận phân quyền.
+- `services/identity-service/docs/iam-role-permission-matrix.md`: Ma trận phân quyền.

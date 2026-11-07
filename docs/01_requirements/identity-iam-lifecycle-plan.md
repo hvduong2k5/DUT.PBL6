@@ -54,9 +54,11 @@ Quy trình khi có thay đổi quyền:
 - **API cần bổ sung:** `PATCH /api/v1/admin/accounts/{id}/status`, `POST /api/v1/admin/accounts/{id}/reactivate`, `GET /api/v1/admin/accounts`.
 
 ### 5. Thời gian tối đa khóa/thu hồi Role hiệu lực lên session/cache
-- **Access Token:** Giữ nguyên exp do Keycloak cấp (khuyên dùng ngắn, ví dụ 5–15 phút cho tài khoản nhạy cảm).
-- **Refresh Token:** maxAge 28.800 giây (8 giờ).
-- **Thu hồi Role:** Khi `iam_role_assignments` chuyển sang `REVOKED` hoặc `EXPIRED`, identity-service phải sync ngay lên Keycloak (`syncPermissionsToKeycloak`).
+- **Short-lived Access Token:** `accessTokenLifespan = 300` giây (5 phút) trong realm `omama` (`services/keycloak-service/realm-export.template.json`); tối đa 15 phút khi có quyết định rõ ràng. Giới hạn thời gian token cũ còn hiệu lực sau khi thu hồi quyền.
+- **Refresh Token Rotation:** `revokeRefreshToken = true`, `refreshTokenMaxReuse = 0`. BFF luôn lưu refresh token mới sau mỗi lần refresh.
+- **Thu hồi Role (Force Re-login):** Khi `iam_role_assignments` chuyển sang `REVOKED`/`EXPIRED`, hoặc permission của role bị **giảm** (xóa/thay thế bớt), hoặc role bị disable/soft delete, identity-service phải: (1) sync permission lên Keycloak (`syncPermissionsToKeycloak`), (2) gọi Keycloak Admin API `logoutUser` để hủy toàn bộ session/refresh token, (3) xóa toàn bộ BFF session của principal. User phải đăng nhập lại để nhận token mới.
+- **Chỉ thêm permission:** chỉ sync Keycloak, không force re-login.
+- **Realm đang chạy** không tự nhận cấu hình từ template; phải cập nhật thủ công (xem `services/keycloak-service/README.md`).
 - **Phiên đang thực hiện giao dịch quan trọng:** Cho phép hoàn thành giao dịch đang chạy hoặc chặn ngay tuỳ mức độ rủi ro (cần đánh giá theo từng service gọi).
 
 ### 8. Danh sách Role hệ thống, Role đặc quyền & bảo vệ Admin cuối cùng
@@ -66,7 +68,7 @@ Quy trình khi có thay đổi quyền:
 - **Bảo vệ Admin hợp lệ cuối cùng:** Không cho phép xóa hoặc thu hồi toàn quyền của Admin cuối cùng trong hệ thống (tránh khoá cửa). Cần kiểm tra trước khi thực hiện `REVOKED` hoặc `TERMINATED` trên admin cuối cùng.
 
 ### 9. Ma trận thẩm quyền gán Role, phân tách nhiệm vụ, break-glass
-- **Ma trận:** Xem file `docs/03_api_specs/iam-role-permission-matrix.md`.
+- **Ma trận:** Xem file `services/identity-service/docs/iam-role-permission-matrix.md`.
 - **Phân tách nhiệm vụ (SoD):** Người tạo request không được đồng thời là người phê duyệt cùng request.
 - **Self-assignment:** Người dùng không được tự gán role cho mình.
 - **Break-glass:** Quy trình khẩn cấp khi cần quyền tạm thời, phải có bản ghi audit và thời gian hiệu lực ngắn.
@@ -84,12 +86,13 @@ Quy trình khi có thay đổi quyền:
 **Quy tắc:**
 - Role đã xóa mềm (`is_enabled = FALSE`) **không được phép reactivate** (bật lại) trong bất kỳ trường hợp nào.
 - Do đó, có thể **để nguyên `role_code` cũ** trên hàng đã xóa mềm, không cần đổi mã.
-- Thêm partial unique index để đảm bảo `role_code` không trùng giữa các role **đang bật** (`is_enabled = TRUE`):
+- Thêm partial unique index (migration `V9__partial_unique_role_code_on_iam_roles.sql`) để đảm bảo `role_code` không trùng giữa các role **đang bật** (`is_enabled = TRUE`):
 ```sql
 -- Thay thế UNIQUE(role_code) toàn bảng bằng partial unique index
 CREATE UNIQUE INDEX uq_iam_roles_role_code_enabled
 ON iam_roles (role_code) WHERE is_enabled = TRUE;
 ```
+- Role chưa từng có assignment nào trong lịch sử: xóa vật lý. Role đã có lịch sử nhưng không còn assignment active: xóa mềm.
 - Chỉ được xóa mềm role khi **không còn user nào đang được gán active** (không có `iam_role_assignments` với `assignment_status = 'ACTIVE'` và `valid_until > now` tham chiếu đến role này).
 - Các assignment cũ sau khi soft delete phải được chuyển sang `REVOKED`, không được để trỏ nhầm sang role mới (vì `role_id` khác, dù `role_code` có thể giống nhau nếu role mới được tạo sau).
 
@@ -117,7 +120,7 @@ Tất cả repository/service đọc `iam_roles` phải thêm điều kiện `AN
 ## 5. Thay đổi Keycloak sync
 
 - Khi `iam_role_assignments` thay đổi (gán/thu hồi/hết hạn), gọi `syncPermissionsToKeycloak(principalId)` để cập nhật Keycloak User Attributes.
-- Khi đổi permission của role, phải sync lại tất cả principal đang được gán role đó.
+- Khi đổi permission của role, phải sync lại tất cả principal đang được gán role đó; nếu quyền bị giảm thì force re-login (logout Keycloak + xóa BFF session).
 - **Không xóa realm role ngay khi soft delete trong DB.**
 - Khi thực sự xóa vĩnh viễn role (chưa được sử dụng), đồng bộ xóa trên Keycloak sau khi không còn assignment nào tham chiếu.
 
@@ -156,6 +159,6 @@ Xem file `services/identity-service/IDENTITY_SERVICE_AGENT_RULES.md`.
 ---
 
 **Tài liệu liên quan:**
-- `docs/03_api_specs/iam-role-permission-matrix.md`
+- `services/identity-service/docs/iam-role-permission-matrix.md`
 - `services/identity-service/IDENTITY_SERVICE_AGENT_RULES.md`
 - `services/catalog-service/CATALOG_SERVICE_AGENT_RULES.md` (mẫu tham khảo)
