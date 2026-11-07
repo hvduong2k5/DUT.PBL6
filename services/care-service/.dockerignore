@@ -1,0 +1,8 @@
+.git
+.env
+coverage.out
+bin/
+tmp/
+**/*_test.go
+*.exe
+

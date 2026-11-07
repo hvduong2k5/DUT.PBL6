@@ -1,0 +1,99 @@
+groups:
+  - name: care-service-availability
+    rules:
+      - alert: CareServiceHighHTTP5xxRate
+        expr: |
+          sum(rate(care_http_requests_total{status=~"5.."}[5m]))
+          /
+          clamp_min(sum(rate(care_http_requests_total[5m])), 0.001)
+          > 0.05
+        for: 10m
+        labels:
+          severity: warning
+          service: care-service
+        annotations:
+          summary: Care Service HTTP 5xx rate exceeds 5%
+          runbook: docs/05_deployment/care_service_runbook.md
+      - alert: CareServiceHighP95Latency
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le) (rate(care_http_request_duration_seconds_bucket[5m]))
+          ) > 2
+        for: 10m
+        labels:
+          severity: warning
+          service: care-service
+        annotations:
+          summary: Care Service p95 HTTP latency exceeds two seconds
+          runbook: docs/05_deployment/care_service_runbook.md
+      - alert: CareServiceDatabasePoolSaturated
+        expr: |
+          care_db_pool_connections{state="acquired"}
+          /
+          clamp_min(care_db_pool_connections{state="max"}, 1)
+          > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          service: care-service
+        annotations:
+          summary: Care Service PostgreSQL pool is over 90% utilized
+          runbook: docs/05_deployment/care_service_runbook.md
+  - name: care-service-reliability
+    rules:
+      - alert: CareServiceOutboxBacklogStuck
+        expr: care_outbox_pending_events > 0 and care_outbox_oldest_pending_age_seconds > 300
+        for: 5m
+        labels:
+          severity: critical
+          service: care-service
+        annotations:
+          summary: Care Service outbox has pending events older than five minutes
+          runbook: docs/05_deployment/care_service_runbook.md#3-outbox-backlog-recovery
+      - alert: CareServiceOutboxPublishRetries
+        expr: increase(care_outbox_publish_total{outcome="retry_scheduled"}[10m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+          service: care-service
+        annotations:
+          summary: Care Service is scheduling Kafka publication retries
+          runbook: docs/05_deployment/care_service_runbook.md#3-outbox-backlog-recovery
+      - alert: CareServiceMediaCleanupFailures
+        expr: increase(care_media_cleanup_objects_total{outcome="failed"}[15m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+          service: care-service
+        annotations:
+          summary: Care Service failed to delete expired media objects
+          runbook: docs/05_deployment/care_service_runbook.md#4-stuck-upload-and-media-cleanup
+      - alert: CareServiceBusinessMetricsCollectionFailing
+        expr: increase(care_business_metrics_collections_total{outcome="failed"}[10m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+          service: care-service
+        annotations:
+          summary: Care Service business metrics collection is failing
+          runbook: docs/05_deployment/care_service_runbook.md
+  - name: care-service-business
+    rules:
+      - alert: CareServiceSLAMilestoneBreached
+        expr: sum(care_sla_milestones{state="breached"}) > 0
+        for: 1m
+        labels:
+          severity: warning
+          service: care-service
+        annotations:
+          summary: Care Service has active breached SLA milestones
+          runbook: docs/05_deployment/care_service_runbook.md#5-sla-alert-worker
+      - alert: CareServiceUrgentTicketUnassigned
+        expr: sum(care_tickets{priority="URGENT",assignment="unassigned",status!~"RESOLVED|CLOSED"}) > 0
+        for: 2m
+        labels:
+          severity: critical
+          service: care-service
+        annotations:
+          summary: An urgent Care ticket remains unassigned
+          runbook: docs/05_deployment/care_service_runbook.md

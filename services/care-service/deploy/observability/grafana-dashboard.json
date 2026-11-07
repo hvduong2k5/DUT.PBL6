@@ -1,0 +1,79 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "graphTooltip": 1,
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "HTTP requests by status",
+      "id": 1,
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "targets": [{"expr": "sum by (status) (rate(care_http_requests_total[5m]))", "legendFormat": "{{status}}", "refId": "A"}]
+    },
+    {
+      "type": "timeseries",
+      "title": "HTTP latency percentiles",
+      "id": 2,
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "fieldConfig": {"defaults": {"unit": "s"}},
+      "targets": [
+        {"expr": "histogram_quantile(0.50, sum by (le) (rate(care_http_request_duration_seconds_bucket[5m])))", "legendFormat": "p50", "refId": "A"},
+        {"expr": "histogram_quantile(0.95, sum by (le) (rate(care_http_request_duration_seconds_bucket[5m])))", "legendFormat": "p95", "refId": "B"},
+        {"expr": "histogram_quantile(0.99, sum by (le) (rate(care_http_request_duration_seconds_bucket[5m])))", "legendFormat": "p99", "refId": "C"}
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Pending outbox events",
+      "id": 3,
+      "gridPos": {"h": 5, "w": 6, "x": 0, "y": 8},
+      "targets": [{"expr": "care_outbox_pending_events", "refId": "A"}]
+    },
+    {
+      "type": "stat",
+      "title": "Oldest outbox event",
+      "id": 4,
+      "gridPos": {"h": 5, "w": 6, "x": 6, "y": 8},
+      "fieldConfig": {"defaults": {"unit": "s"}},
+      "targets": [{"expr": "care_outbox_oldest_pending_age_seconds", "refId": "A"}]
+    },
+    {
+      "type": "gauge",
+      "title": "Database pool utilization",
+      "id": 5,
+      "gridPos": {"h": 5, "w": 6, "x": 12, "y": 8},
+      "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0, "max": 1}},
+      "targets": [{"expr": "care_db_pool_connections{state=\"acquired\"} / clamp_min(care_db_pool_connections{state=\"max\"}, 1)", "refId": "A"}]
+    },
+    {
+      "type": "stat",
+      "title": "Active SLA breaches",
+      "id": 6,
+      "gridPos": {"h": 5, "w": 6, "x": 18, "y": 8},
+      "targets": [{"expr": "sum(care_sla_milestones{state=\"breached\"})", "refId": "A"}]
+    },
+    {
+      "type": "barchart",
+      "title": "Ticket backlog",
+      "id": 7,
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 13},
+      "targets": [{"expr": "sum by (status, priority) (care_tickets{status!~\"RESOLVED|CLOSED\"})", "legendFormat": "{{status}} / {{priority}}", "refId": "A"}]
+    },
+    {
+      "type": "timeseries",
+      "title": "Media lifecycle",
+      "id": 8,
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 13},
+      "targets": [{"expr": "care_media_files", "legendFormat": "{{status}}", "refId": "A"}]
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["care-service", "omama"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "timezone": "browser",
+  "title": "OMAMA Care Service",
+  "uid": "omama-care-service",
+  "version": 1
+}
