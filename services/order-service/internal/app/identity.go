@@ -20,8 +20,8 @@ import (
 	"github.com/omamx/order-service/internal/domain"
 )
 
-// CustomerIdentity accepts Keycloak access tokens only. Staff IAM and guest
-// credentials intentionally have no mapping in this first integration slice.
+// CustomerIdentity verifies Keycloak tokens and authoritative Identity personas.
+// Employee permissions retain the scope of each individual IAM assignment.
 type CustomerIdentity struct {
 	issuer, audience, jwksURL, identityURL string
 	client                                 *http.Client
@@ -42,6 +42,13 @@ func NewCustomerIdentity(c Config) (*CustomerIdentity, error) {
 	}
 	if c.OIDCAudience == "" || c.Profile == "" || len(c.ProfileToken) < 16 {
 		return nil, errors.New("keycloak requires ORDER_OIDC_AUDIENCE, PROFILE_URL and PROFILE_INTERNAL_TOKEN")
+	}
+	if c.IdentityURL == "" {
+		u, err := url.Parse(c.OIDCIssuer)
+		localTest := err == nil && u != nil && c.Mode == "sandbox" && c.OIDCAllowLocalHTTP && (u.Hostname() == "localhost" || net.ParseIP(u.Hostname()).IsLoopback())
+		if !localTest {
+			return nil, errors.New("keycloak requires IDENTITY_URL for authoritative persona and permission grants")
+		}
 	}
 	if c.OIDCJWKSURL == "" {
 		c.OIDCJWKSURL = strings.TrimRight(c.OIDCIssuer, "/") + "/protocol/openid-connect/certs"

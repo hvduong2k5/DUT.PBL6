@@ -18,18 +18,18 @@ func (s *Service) setCoreHold(ctx context.Context, p domain.Principal, id string
 	if p.IAM && !p.HasPermission("ORDER_HOLD_MANAGE") {
 		return domain.E("PERMISSION_DENIED", 403)
 	}
-	if p.IAM {
-		o, err := s.getCoreOrder(ctx, id, p, false)
-		if err != nil {
-			return err
-		}
-		if !p.AllowsAction("ORDER_HOLD_MANAGE", o.Warehouse) {
-			return domain.E("ORDER_NOT_FOUND", 404)
-		}
-	}
 	// The legacy admission barrier cannot authorize stopping a real packing
 	// task. Keep this operation closed until its remote cancellation handshake.
 	if s.Fulfillment != nil {
+		if p.IAM {
+			o, err := s.getCoreOrder(ctx, id, p, false)
+			if err != nil {
+				return err
+			}
+			if !p.AllowsAction("ORDER_HOLD_MANAGE", o.Warehouse) {
+				return domain.E("ORDER_NOT_FOUND", 404)
+			}
+		}
 		return domain.E("FULFILLMENT_STOP_CAPABILITY_UNAVAILABLE", 409)
 	}
 	o, e := s.getCoreOrder(ctx, id, p, false)
