@@ -23,9 +23,11 @@ Quy tắc này áp dụng cho mọi thay đổi code trong `services/identity-se
 - **Phân tách nhiệm vụ:** Người tạo request không được đồng thời là người phê duyệt.
 - **Role bảo vệ:** `is_protected = TRUE` (ví dụ `ADMIN`) không được xóa cứng hoặc xóa mềm nếu là admin cuối cùng.
 - **Chặn mất Admin hợp lệ cuối cùng:** Trước khi thực hiện `REVOKED` hoặc `TERMINATED` trên Admin, phải kiểm tra xem còn ít nhất 1 Admin active khác trong hệ thống không. Áp dụng cả thao tác đồng thời (concurrent).
-- **Soft delete role:** Dùng `is_enabled = FALSE`. Chỉ xóa mềm khi **không còn user nào đang được gán** (không có `iam_role_assignments` với `assignment_status = 'ACTIVE'` và `valid_until > now` tham chiếu đến role này).
+- **Soft delete role:** Dùng `is_enabled = FALSE`. Khi soft delete, **tự động đổi `role_code` thành giá trị duy nhất** (ví dụ: `ADMIN_deleted_<timestamp>`) để giải phóng `role_code` gốc và cho phép tái sử dụng.
+- **Chỉ xóa mềm khi không còn user đang gán active** (không có `iam_role_assignments` với `assignment_status = 'ACTIVE'` và `valid_until > now` tham chiếu đến role này).
 - **Xóa vật lý role chưa sử dụng:** Chỉ xóa vĩnh viễn khi không còn assignment nào tham chiếu role đó.
 - **UNIQUE role_code:** Sử dụng partial unique index `WHERE is_enabled = TRUE` để cho phép tái sử dụng mã role sau khi xóa mềm.
+- **Các assignment cũ sau khi soft delete:** Phải được chuyển sang `REVOKED`, không được để trỏ nhầm sang role mới có cùng `role_code` (vì `role_id` khác).
 - **Kiểm tra phiên bản (optimistic locking):** Khi người dùng lưu form cũ, phải kiểm tra `version` để tránh ghi đè thay đổi mới.
 
 ## 3. Chuẩn hóa JWT và đồng bộ quyền (ƯU TIÊN ĐẦU)
