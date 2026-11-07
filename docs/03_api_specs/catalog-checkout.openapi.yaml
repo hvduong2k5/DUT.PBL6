@@ -7,7 +7,7 @@ info:
     Catalog owns the persisted snapshot. Revalidation compares equality of an opaque
     revision fingerprint, not ordering. Canonical GetCheckoutSnapshot gRPC remains available.
 servers:
-  - url: http://catalog-service:8006
+  - url: http://catalog-service:8005
 security:
   - internalToken: []
 paths:
@@ -68,6 +68,44 @@ paths:
           description: Missing or invalid server credential
         '500':
           description: Persistence failure; never assume a successful revalidation
+  /api/v1/internal/prices/validate:
+    post:
+      operationId: validatePriceAndSku
+      deprecated: true
+      summary: Legacy synchronous SKU/price comparison
+      description: >-
+        Compatibility bridge for the canonical omamx.catalog.v1.CatalogService/ValidatePriceAndSKU
+        RPC. New integrations MUST use the snapshot endpoints. This route carries the same
+        server credential requirement as snapshots and must reject unauthenticated calls.
+      security:
+        - internalToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PriceValidationRequest'
+            example:
+              channel: D2C_WEB
+              items:
+                - skuCode: MX-500
+                  quantity: 2
+                  clientUnitPrice: 345000
+                  currencyCode: VND
+                  nanos: 0
+      responses:
+        '200':
+          description: Comparison result; valid=false lists every discrepancy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceValidationResponse'
+        '400':
+          description: Malformed selection or unsupported money
+        '401':
+          description: Missing or invalid server credential
+        '422':
+          description: SKU unavailable or price no longer effective
 components:
   securitySchemes:
     internalToken:
@@ -84,6 +122,10 @@ components:
           type: string
           enum: [D2C_WEB, MOBILE_APP]
           default: D2C_WEB
+          description: >-
+            Snapshot intentionally supports only the two customer channels. Other Catalog
+            SalesChannel values (B2B_WHOLESALE, POS_QUAY, SHOPEE, TIKTOK) are rejected
+            with 422 until their pricing flow is contracted separately.
         items:
           type: array
           minItems: 1
@@ -124,3 +166,42 @@ components:
               weight_grams: {type: integer, format: int64, minimum: 1}
               packaging_type: {type: string}
               is_active: {type: boolean, enum: [true]}
+    PriceValidationRequest:
+      type: object
+      required: [channel, items]
+      properties:
+        idempotencyKey: {type: string, minLength: 16, maxLength: 128}
+        channel: {type: string, enum: [D2C_WEB, MOBILE_APP], default: D2C_WEB}
+        items:
+          type: array
+          minItems: 1
+          maxItems: 100
+          description: SKU codes must be unique; wire naming follows the current adapter (camelCase).
+          items:
+            type: object
+            required: [skuCode, quantity, clientUnitPrice, currencyCode]
+            properties:
+              skuCode: {type: string, minLength: 1}
+              quantity: {type: integer, minimum: 1, maximum: 999}
+              clientUnitPrice: {type: integer, format: int64, minimum: 0}
+              currencyCode: {type: string, enum: [VND]}
+              nanos: {type: integer, minimum: 0, maximum: 999999999, default: 0}
+    PriceValidationResponse:
+      type: object
+      required: [valid, canonicalSubtotalUnits, currencyCode, discrepancies]
+      properties:
+        valid: {type: boolean}
+        canonicalSubtotalUnits: {type: integer, format: int64, minimum: 0, description: Integer VND}
+        currencyCode: {type: string, enum: [VND]}
+        discrepancies:
+          type: array
+          items:
+            type: object
+            required: [skuCode, clientUnitPrice, authoritativeUnitPrice, currencyCode, nanos, reason]
+            properties:
+              skuCode: {type: string}
+              clientUnitPrice: {type: integer, format: int64}
+              authoritativeUnitPrice: {type: integer, format: int64}
+              currencyCode: {type: string}
+              nanos: {type: integer}
+              reason: {type: string}

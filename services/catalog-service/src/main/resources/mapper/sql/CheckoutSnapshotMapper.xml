@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.hvduong.catalog.repository.mybatis.CheckoutSnapshotMapper">
+
+    <resultMap id="SkuCheckoutDetailMap" type="com.hvduong.catalog.infrastructure.snapshot.SkuCheckoutDetail">
+        <constructor>
+            <arg column="name" javaType="java.lang.String"/>
+            <arg column="product_version" javaType="java.lang.Long"/>
+            <arg column="variant_version" javaType="java.lang.Long"/>
+            <arg column="weight_value" javaType="java.math.BigDecimal"/>
+            <arg column="weight_unit" javaType="java.lang.String"/>
+            <arg column="packaging_type" javaType="java.lang.String"/>
+            <arg column="amount_units" javaType="java.lang.Long"/>
+            <arg column="currency_code" javaType="java.lang.String"/>
+            <arg column="amount_nanos" javaType="java.lang.Integer"/>
+            <arg column="price_version" javaType="java.lang.Long"/>
+            <arg column="effective_to" javaType="java.time.Instant"/>
+        </constructor>
+    </resultMap>
+
+    <insert id="insertSnapshot">
+        INSERT INTO checkout_snapshots (id, payload, expires_at)
+        VALUES (#{id}, #{payload}::jsonb, #{expiresAt})
+    </insert>
+
+    <select id="findValidPayloadById" resultType="java.lang.String">
+        SELECT payload::text
+        FROM checkout_snapshots
+        WHERE id = #{id}
+          AND expires_at &gt; NOW()
+    </select>
+
+    <select id="getCurrentTimestamp" resultType="java.time.Instant">
+        SELECT CURRENT_TIMESTAMP
+    </select>
+
+    <select id="findSkuCheckoutDetails" resultMap="SkuCheckoutDetailMap">
+        SELECT p.name,
+               p.version AS product_version,
+               v.version AS variant_version,
+               v.weight_value,
+               v.weight_unit,
+               v.packaging_type::text AS packaging_type,
+               c.amount_units,
+               c.currency_code,
+               c.amount_nanos,
+               c.version AS price_version,
+               c.effective_to
+        FROM product_variants v
+        JOIN products p ON p.id = v.product_id
+        JOIN channel_prices c ON c.variant_id = v.id
+        WHERE v.sku_code = #{skuCode}
+          AND v.listing_status = 'ACTIVE'
+          AND p.listing_status = 'ACTIVE'
+          AND p.approval_status = 'APPROVED'
+          AND c.channel = #{channel}::sales_channel
+          AND c.status = 'ACTIVE'
+          AND c.effective_from &lt;= CURRENT_TIMESTAMP
+          AND (c.effective_to IS NULL OR c.effective_to &gt; CURRENT_TIMESTAMP)
+    </select>
+
+</mapper>
+

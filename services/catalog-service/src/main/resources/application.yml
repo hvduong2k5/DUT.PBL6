@@ -1,7 +1,12 @@
 server:
-  port: ${HTTP_PORT:8006}
+  port: ${SERVER_PORT:${HTTP_PORT:8006}}
 
 spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_PUBLIC_URL:https://keycloak.omama.vn}/realms/${KEYCLOAK_REALM:omama}
   application:
     name: catalog-service
 
@@ -73,13 +78,14 @@ mybatis:
 
 grpc:
   server:
-    port: ${GRPC_PORT:8005}
+    port: ${GRPC_SERVER_PORT:${GRPC_PORT:9005}}
     security:
       enabled: false
 
 app:
   kafka:
     inventory-stock-topic: ${INVENTORY_STOCK_TOPIC:inventory.stock-changed.v1}
+    inventory-stock-dlt-topic: ${INVENTORY_STOCK_DLT_TOPIC:inventory.stock-changed.v1.DLT}
 
 catalog:
   identity-url: ${IDENTITY_URL:}
@@ -97,5 +103,7 @@ catalog:
 
 logging:
   level:
-    "[com.hvduong.catalog]": DEBUG
-    "[org.mybatis]": DEBUG
+    root: INFO
+    com.hvduong.catalog: ${LOG_LEVEL:DEBUG}
+    org.springframework.security: INFO
+    org.mybatis: WARN

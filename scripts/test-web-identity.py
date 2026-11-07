@@ -63,6 +63,8 @@ def main():
     folder.mkdir(parents=True, exist_ok=True)
     for transient in ["stop", "ready.json", "result.json", "failure.json"]:
         (folder / transient).unlink(missing_ok=True)
+    for log_file in folder.glob("*.log"):
+        log_file.unlink(missing_ok=True)
     suffix = uuid.uuid4().hex[:10]
     names, processes, logs = [], [], []
     env = os.environ.copy()
@@ -120,7 +122,9 @@ def main():
         )
 
     def start(command, name, cwd=ROOT):
-        log = (folder / (name + ".log")).open("w", encoding="utf-8")
+        log = (folder / (name + ".log")).open("a", encoding="utf-8")
+        log.write(f"\n=== Process '{name}' started: {command} ===\n")
+        log.flush()
         logs.append(log)
         process = subprocess.Popen(
             [str(x) for x in command],
@@ -182,16 +186,117 @@ def main():
             )
             return response.status, body, response.headers
 
-    def wait(url, expected=200, seconds=90):
-        deadline = time.monotonic() + seconds
+    def wait_port_free(host, port, timeout=30):
+        """Wait until a TCP port is no longer accepting connections."""
+        import socket
+        deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(0.5)
             try:
-                if request(url)[0] == expected:
-                    return
+                s.connect((host, port))
+                s.close()
+                time.sleep(0.25)
             except (OSError, ValueError):
-                pass
+                s.close()
+                return True
+        return False
+
+    def kill_process_on_port(port, timeout=30):
+        """Find and kill any process listening on the given TCP port (Linux /proc).
+
+        Checks both /proc/net/tcp (IPv4) and /proc/net/tcp6 (IPv6/dual-stack),
+        mapping port -> socket inode, then matching inode against /proc/*/fd/*
+        symlinks to find the owning PID and sending SIGKILL.
+        """
+        import glob
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            killed = False
+            for proc_net_file in ["/proc/net/tcp", "/proc/net/tcp6"]:
+                try:
+                    with open(proc_net_file, "r") as f:
+                        for line in f:
+                            parts = line.split()
+                            if len(parts) < 10:
+                                continue
+                            local_addr = parts[1]
+                            state = parts[3]
+                            inode = parts[9]
+                            if ":" in local_addr:
+                                try:
+                                    hex_port = local_addr.rsplit(":", 1)[1]
+                                    if int(hex_port, 16) == port and state == "0A":  # 0A = LISTEN
+                                        target = f"socket:[{inode}]"
+                                        for pid_dir in glob.glob("/proc/[0-9]*/fd/*"):
+                                            try:
+                                                if os.readlink(pid_dir) == target:
+                                                    pid = int(pid_dir.split("/")[2])
+                                                    try:
+                                                        os.kill(pid, signal.SIGKILL)
+                                                        killed = True
+                                                    except Exception:
+                                                        pass
+                                            except Exception:
+                                                pass
+                                except ValueError:
+                                    pass
+                except Exception:
+                    pass
+            if not killed:
+                return True
+            time.sleep(0.5)
+        return False
+
+    def wait(url, expected=200, seconds=90, process=None):
+        deadline = time.monotonic() + seconds
+        last_status = None
+        last_body = None
+        last_print = time.monotonic()
+        while time.monotonic() < deadline:
+            if process is not None and process.poll() is not None:
+                raise RuntimeError(
+                    f"Process died with exit code {process.returncode} while waiting for {url}"
+                )
+            try:
+                res = request(url)
+                last_status = res[0]
+                last_body = res[1]
+                if last_status == expected:
+                    return
+            except (OSError, ValueError) as err:
+                last_status = str(err)
+            if time.monotonic() - last_print >= 10:
+                print(f"[WAIT] {url}: current status={last_status}, body={str(last_body)[:100]}", flush=True)
+                last_print = time.monotonic()
+            time.sleep(0.5)
+        raise RuntimeError(
+            f"Fixture not ready: {urllib.parse.urlparse(url).path} (last status: {last_status}, body: {str(last_body)[:200]})"
+        )
+
+    def wait_process_exit(process, timeout=15):
+        """Wait for a subprocess to exit; force kill it if it does not exit in time."""
+        # Give process up to 5s to shut down gracefully after SIGTERM.
+        grace_deadline = time.monotonic() + min(5, timeout)
+        while time.monotonic() < grace_deadline:
+            if process.poll() is not None:
+                return True
             time.sleep(0.25)
-        raise RuntimeError("Fixture not ready: " + urllib.parse.urlparse(url).path)
+        # Force kill the process group (Java may have non-daemon threads).
+        try:
+            pgid = os.getpgid(process.pid)
+            os.killpg(pgid, signal.SIGKILL)
+        except Exception:
+            try:
+                process.kill()
+            except Exception:
+                pass
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if process.poll() is not None:
+                return True
+            time.sleep(0.25)
+        return process.poll() is not None
 
     db_name = "web_identity"
     db_container = "codex-web-db-" + suffix
@@ -543,8 +648,8 @@ def main():
             run((["sh", gradle] if os.name != "nt" and gradle.endswith("gradlew") else [gradle]) + ["--no-daemon", "test", "bootJar"], ROOT / "services/catalog-service", stdout=log, stderr=log)
         catalog_jar = next(p for p in (ROOT / "services/catalog-service/build/libs").glob("*.jar") if "plain" not in p.name)
         catalog_environment=env.copy()
-        catalog_process=start([args.java, "-jar", catalog_jar], "catalog")
-        wait(catalog_url + "/api/v1/products")
+        catalog_process=start([args.java, "-Djava.net.preferIPv4Stack=true", "-jar", str(catalog_jar)], "catalog")
+        wait(catalog_url + "/api/v1/products", process=catalog_process)
         sql("""SET search_path TO catalog_live,public;
             INSERT INTO categories(id,name,slug,description,image_url) VALUES('10000000-0000-0000-0000-000000000001','Synthetic TEST category','test-category','','');
             INSERT INTO products(id,category_id,name,slug,description,story,approval_status,created_by) VALUES('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','Synthetic TEST SKU','test-product','Synthetic fixture','Synthetic fixture','APPROVED','synthetic-fixture');
@@ -676,14 +781,51 @@ def main():
         sql("UPDATE catalog_live.products SET approval_status='APPROVED',version=version+1;")
         print("PASS: real Catalog rejects missing credentials, stale snapshots, future prices and unapproved products",flush=True)
         # Catalog reads live display availability from the authenticated TLS Inventory API.
+        # Restart catalog with inventory peer target for live availability lookup.
         catalog_process.terminate()
-        catalog_process.wait(timeout=20)
-        caller_environment=env.copy()
-        env.clear();env.update(catalog_environment)
-        env.update(IDENTITY_URL=caller_environment["IDENTITY_URL"], CATALOG_INVENTORY_TARGET=peer_address, CATALOG_INVENTORY_TOKEN_FILE=str(folder / "inventory-token"), CATALOG_INVENTORY_CA_FILE=str(folder / "inventory-ca.pem"), CATALOG_INVENTORY_SERVER_NAME="localhost")
-        start([args.java, "-jar", catalog_jar], "catalog")
-        env.clear();env.update(caller_environment)
-        wait(catalog_url + "/api/v1/products")
+        if not wait_process_exit(catalog_process, timeout=15):
+            print("WARNING: catalog process did not exit gracefully; force killed", flush=True)
+        # Wait for both HTTP and gRPC TCP ports to be released before restarting.
+        for p in [ports["catalog"], ports["catalog_grpc"]]:
+            if not wait_port_free("127.0.0.1", p, timeout=15):
+                print(f"WARNING: port {p} still in use; killing socket holder", flush=True)
+                kill_process_on_port(p, timeout=10)
+        caller_environment = env.copy()
+        catalog_restart_env = catalog_environment.copy()
+        inventory_ca = folder / "inventory-ca.pem"
+        inventory_token = folder / "inventory-token"
+        ca_ok = inventory_ca.exists() and inventory_ca.stat().st_size > 0
+        token_ok = inventory_token.exists() and inventory_token.stat().st_size >= 32
+        if ca_ok and token_ok and peer_address:
+            catalog_restart_env.update(
+                IDENTITY_URL=caller_environment["IDENTITY_URL"],
+                CATALOG_INVENTORY_TARGET=peer_address,
+                CATALOG_INVENTORY_TOKEN_FILE=str(inventory_token),
+                CATALOG_INVENTORY_CA_FILE=str(inventory_ca),
+                CATALOG_INVENTORY_SERVER_NAME="localhost",
+            )
+        else:
+            print(f"WARNING: skipping Inventory TLS env (ca_ok={ca_ok}, token_ok={token_ok}, peer_address={peer_address}); catalog will start without live Inventory lookup", flush=True)
+        env.clear(); env.update(catalog_restart_env)
+        catalog_cmd = [args.java, "-Djava.net.preferIPv4Stack=true", "-jar", str(catalog_jar)]
+        catalog_process = start(catalog_cmd, "catalog")
+        env.clear(); env.update(caller_environment)
+        try:
+            wait(catalog_url + "/api/v1/products", seconds=60, process=catalog_process)
+        except RuntimeError as restart_err:
+            # One retry: force kill, wait port, restart with catalog_restart_env, wait again.
+            print(f"WARNING: catalog not ready on first restart ({restart_err}); retrying once", flush=True)
+            catalog_process.terminate()
+            if not wait_process_exit(catalog_process, timeout=15):
+                print("WARNING: catalog process still alive after retry kill", flush=True)
+            time.sleep(2)
+            for p in [ports["catalog"], ports["catalog_grpc"]]:
+                if not wait_port_free("127.0.0.1", p, timeout=15):
+                    kill_process_on_port(p, timeout=10)
+            env.clear(); env.update(catalog_restart_env)
+            catalog_process = start(catalog_cmd, "catalog")
+            env.clear(); env.update(caller_environment)
+            wait(catalog_url + "/api/v1/products", seconds=90, process=catalog_process)
         shipping_token = secrets.token_urlsafe(32)
         shipping_webhook = secrets.token_urlsafe(32)
         env.update(
@@ -1373,6 +1515,13 @@ def main():
             json.dumps({"type": type(error).__name__, "message": str(error)}),
             encoding="utf-8",
         )
+        print(f"\n!!! TEST RUN FAILED: {type(error).__name__}: {error} !!!\n", flush=True)
+        catalog_log = folder / "catalog.log"
+        if catalog_log.exists():
+            print("=== LAST 80 LINES OF CATALOG.LOG ===", flush=True)
+            for line in catalog_log.read_text(encoding="utf-8", errors="replace").splitlines()[-80:]:
+                print(line, flush=True)
+            print("=== END CATALOG.LOG ===", flush=True)
         if args.keep_running:
             import traceback
 

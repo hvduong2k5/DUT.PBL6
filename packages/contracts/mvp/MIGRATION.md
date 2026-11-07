@@ -17,7 +17,7 @@ Xem [đề xuất chốt 6 điểm](TEAM-DECISIONS.md) cho lý do, phân công v
 
 Không che việc async bằng cách đổi `202` thành `201` hoặc tạo Order ID giả. Nếu BFF có chờ có giới hạn, hết hạn chờ vẫn phải trả operation để client tiếp tục theo dõi. Giao dịch SePay xác nhận từ canonical provider API; webhook 200 chỉ xác nhận observation bền vững.
 
-Catalog public mapper đọc protobuf JSON theo field naming cấu hình của transcoder, map `products` → `items`, `page_info` → tổng/trang và giữ Money object của public DTO. Parse int64 string chính xác, kiểm VND/nanos, không đổi unavailable stock thành 0/sold-out. Nếu public DTO cần boolean `in_stock` mà projection chưa biết thì trả lỗi availability đã mô tả, không tự bịa kết quả. Các filter category/price/sort và channel phải được chuyển rõ sang Catalog ProductFilter; metadata/HTTP annotations không tự tạo REST server.
+Catalog public là REST DTO tại `docs/03_api_specs/mvp-customer.openapi.yaml`; không còn transcoder từ protobuf public. Response phải giữ Money object với `units`/`nanos` chính xác, không đổi unavailable stock thành 0/sold-out, và trả `in_stock`/`stock_available` null khi projection chưa đồng bộ. Categories là danh sách phẳng kèm `parent_id`, không phải cây lồng nhau. Search và list phải phân trang server-side với `total`/`total_pages` đúng; filter category/price/sort và `channel` phải áp dụng trong truy vấn, không lọc trong bộ nhớ.
 
 ## Protobuf Shipping: xử lý xung đột field numbers
 
@@ -40,7 +40,7 @@ Chọn provider Shipping v1 làm baseline v1 vì đây là wire contract của n
 
 Đây là migration có chủ ý của proposal chưa được provider nghiệm thu. Verification **loại riêng package Shipping v1 khỏi baseline Order cũ**, đồng thời kiểm nguyên package đó với baseline Shipping và dev. Ngoại lệ được ghi thẳng trong evidence, không tuyên bố tương thích wire với stub quote v1 của Order cũ. Các package khác của Order giữ tag/type/signature hiện có.
 
-Dual-serve v1/v2 hoặc triển khai adapter version rõ ràng. Không đổi endpoint v1 sang schema v2, không alias method path, không reuse v1 request bytes. Regenerate Go theo go_package/import-mode; Catalog public có Go package khác Catalog internal dù cùng thư mục source proto.
+Dual-serve v1/v2 hoặc triển khai adapter version rõ ràng. Không đổi endpoint v1 sang schema v2, không alias method path, không reuse v1 request bytes. Regenerate Go theo go_package/import-mode; Catalog public/admin không còn proto nên không cần package Go riêng.
 
 ## Order ↔ Shipping snapshot
 
