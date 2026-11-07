@@ -29,7 +29,7 @@ type OIDCIdentity struct {
 	expires, nextFetch                     time.Time
 }
 
-// NewOIDCIdentity opts into the same signed Customer token profile as Order.
+// NewOIDCIdentity verifies the same signed token and IAM profile as Order.
 // Internal callers retain their separate credential; invalid bearer never falls back.
 func NewOIDCIdentity(c *config.Config) (*OIDCIdentity, error) {
 	if c.AuthMode == "" || c.AuthMode == "internal" {
@@ -40,6 +40,13 @@ func NewOIDCIdentity(c *config.Config) (*OIDCIdentity, error) {
 	}
 	if c.AuthMode != "keycloak" || c.OIDCIssuer == "" || c.OIDCAudience == "" {
 		return nil, errors.New("Profile requires keycloak mode, issuer and audience")
+	}
+	if c.IdentityURL == "" {
+		u, err := url.Parse(c.OIDCIssuer)
+		localTest := err == nil && u != nil && c.OIDCAllowLocalHTTP && (u.Hostname() == "localhost" || net.ParseIP(u.Hostname()).IsLoopback())
+		if !localTest {
+			return nil, errors.New("keycloak requires IDENTITY_URL for authoritative persona and permission grants")
+		}
 	}
 	jwks := c.OIDCJWKSURL
 	if jwks == "" {

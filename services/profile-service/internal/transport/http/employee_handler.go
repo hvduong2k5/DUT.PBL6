@@ -57,7 +57,7 @@ func (h *EmployeeHandler) GetEmployeeDetail(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	detail, err := h.employeeUsecase.GetEmployeeDetailScoped(r.Context(), empID,
+	detail, err := h.employeeUsecase.GetEmployeeDetail(r.Context(), empID,
 		middleware.StaffScope(r.Context(), "EMPLOYEE_PROFILE_VIEW"), middleware.StaffScope(r.Context(), "EMPLOYEE_PROFILE_SENSITIVE_VIEW"))
 	if err != nil {
 		writeDomainError(w, err)
@@ -90,7 +90,7 @@ func (h *EmployeeHandler) ListEmployees(w http.ResponseWriter, r *http.Request) 
 		writeJSON(w, 403, map[string]string{"code": "PERMISSION_DENIED"})
 		return
 	}
-	employees, err := h.employeeUsecase.ListEmployeesScoped(r.Context(), deptID, status, limit, offset, scope)
+	employees, err := h.employeeUsecase.ListEmployees(r.Context(), deptID, status, limit, offset, scope)
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -114,7 +114,7 @@ func (h *EmployeeHandler) GetCompliance(w http.ResponseWriter, r *http.Request) 
 		thresholdDays = d
 	}
 
-	expiring, err := h.employeeUsecase.FindExpiringCertificatesScoped(r.Context(), thresholdDays, middleware.StaffScope(r.Context(), "EMPLOYEE_COMPLIANCE_VIEW"))
+	expiring, err := h.employeeUsecase.FindExpiringCertificates(r.Context(), thresholdDays, middleware.StaffScope(r.Context(), "EMPLOYEE_COMPLIANCE_VIEW"))
 	if err != nil {
 		writeDomainError(w, err)
 		return

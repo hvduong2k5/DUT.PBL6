@@ -94,12 +94,8 @@ func (u *EmployeeUsecase) CreateEmployee(ctx context.Context, req CreateEmployee
 	return emp, nil
 }
 
-// GetEmployeeDetail retrieves employee details and decrypts PII CCCD number.
-func (u *EmployeeUsecase) GetEmployeeDetail(ctx context.Context, id uuid.UUID) (*EmployeeDetailResponse, error) {
-	return u.GetEmployeeDetailScoped(ctx, id, domain.PermissionScope{Global: true}, domain.PermissionScope{Global: true})
-}
-
-func (u *EmployeeUsecase) GetEmployeeDetailScoped(ctx context.Context, id uuid.UUID, view, sensitive domain.PermissionScope) (*EmployeeDetailResponse, error) {
+// GetEmployeeDetail checks department access before optionally decrypting PII.
+func (u *EmployeeUsecase) GetEmployeeDetail(ctx context.Context, id uuid.UUID, view, sensitive domain.PermissionScope) (*EmployeeDetailResponse, error) {
 	emp, err := u.repo.GetEmployeeByID(ctx, id)
 	if err != nil {
 		return nil, err
@@ -145,20 +141,10 @@ func (u *EmployeeUsecase) GetEmployeeDetailScoped(ctx context.Context, id uuid.U
 	}, nil
 }
 
-func (u *EmployeeUsecase) ListEmployeesScoped(ctx context.Context, departmentID, status string, limit, offset int, scope domain.PermissionScope) ([]*domain.EmployeeProfile, error) {
+func (u *EmployeeUsecase) ListEmployees(ctx context.Context, departmentID, status string, limit, offset int, scope domain.PermissionScope) ([]*domain.EmployeeProfile, error) {
 	return u.repo.ListEmployeesScoped(ctx, departmentID, status, limit, offset, scope)
 }
 
-func (u *EmployeeUsecase) FindExpiringCertificatesScoped(ctx context.Context, days int, scope domain.PermissionScope) ([]*domain.EmployeeProfile, error) {
+func (u *EmployeeUsecase) FindExpiringCertificates(ctx context.Context, days int, scope domain.PermissionScope) ([]*domain.EmployeeProfile, error) {
 	return u.repo.FindExpiringCertificatesScoped(ctx, days, scope)
-}
-
-// ListEmployees lists employee profiles.
-func (u *EmployeeUsecase) ListEmployees(ctx context.Context, departmentID, status string, limit, offset int) ([]*domain.EmployeeProfile, error) {
-	return u.repo.ListEmployees(ctx, departmentID, status, limit, offset)
-}
-
-// FindExpiringCertificates retrieves employees whose food safety certificates expire within thresholdDays.
-func (u *EmployeeUsecase) FindExpiringCertificates(ctx context.Context, thresholdDays int) ([]*domain.EmployeeProfile, error) {
-	return u.repo.FindExpiringCertificates(ctx, thresholdDays)
 }
