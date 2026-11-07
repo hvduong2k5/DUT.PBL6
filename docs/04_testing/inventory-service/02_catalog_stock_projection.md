@@ -1,4 +1,4 @@
-# Đồng bộ tồn Inventory → Catalog (04/11/2026)
+# Đồng bộ tồn Inventory → Catalog (07/11/2026)
 
 ## Lỗi và thay đổi
 Catalog nghe inventory.stock-changed.v1, payload JSON phẳng gồm sku_code, sellable_quantity, inventory_version, source_updated_at. Inventory trước đây chỉ phát CloudEvents nghiệp vụ trên inventory.events.v1, nên projection Catalog không nhận được snapshot.
@@ -25,14 +25,18 @@ Credential: cấu hình INVENTORY_CATALOG_TOKEN riêng, ít nhất 32 bytes và 
 Khi rollout, cập nhật secret Inventory và file token Catalog cùng đợt; fixture Web đã dùng hai secret riêng. Không dùng token người mua cho kết nối service. Startup terminal yêu cầu migration 000004 đã apply.
 
 ## Kiểm tra
-- go test ./... và go vet ./...: PASS.
-- Test worker kiểm đúng topic, SKU key và nguyên payload phẳng.
-- python scripts/test-inventory-stock-projection.py: PASS trên PostgreSQL 16 thật, container dùng riêng; kiểm bootstrap, reserve 10→8, release 8→10, deduction, rollback, quarantine, expiry, status, rebuild và down/up giữ version.
-- Bài Order–Inventory TLS/PostgreSQL chạy lại cùng migration mới: PASS; stock 100→94, reserved=0, đúng 3 commit outbox dù retry/mất ACK.
-- Chưa tuyên bố E2E Kafka → consumer Java Catalog thực tế trong bài test này. CI đã thêm bài PostgreSQL snapshot để chạy lại.
 
-## Kiểm tra bổ sung: API đọc và quyền
-- Test PostgreSQL thật kiểm GetStockLevel trả cùng sellable quantity với snapshot: quarantine và hết hạn trả 0 nhưng physical vẫn 8.
-- Test token Catalog đọc được, bị chặn reserve (kể cả legacy RPC trên terminal), finalize và release; token sai/thiếu/trùng header bị chặn.
-- Chạy lại Order–Inventory TLS/PostgreSQL, unit tests và vet: PASS.
-- Chưa chạy lại toàn bộ UI/Identity/Catalog stack local trong lần bổ sung; fixture secrets đã cập nhật và CI sẽ chạy lại. Không tuyên bố zero lag cho Kafka projection.
+- Inventory qua `go vet ./...` và `go test -race -count=1 ./...`.
+- `python scripts/test-inventory-stock-projection.py` qua PostgreSQL 16 thật với migration packing 000003 và stock 000004. Kiểm bootstrap, reserve 10→8, release 8→10, deduction, rollback, quarantine, expiry, status, rebuild và down/up giữ version.
+- `python scripts/test-order-inventory.py` qua Order–Inventory TLS/PostgreSQL với race detector. Stock 100→94, reserved=0, đúng 3 commit outbox dù retry/mất ACK. Cùng bài kiểm chạy lifecycle PostgreSQL gồm cả quyền đọc Catalog và kiểm phân bổ lô Fulfillment.
+- Catalog qua 43 test. Phép đọc snapshot thật đã phát hiện mapping `inventory_version` dùng kiểu wrapper trong khi record nhận primitive. Mapper dùng alias `_long` để khớp constructor và phục vụ được API public sau khi nhận snapshot Kafka.
+- Test PostgreSQL thật kiểm GetStockLevel trả cùng sellable quantity với snapshot. Quarantine và hết hạn trả 0 trong khi physical vẫn 8. Token Catalog đọc được và bị chặn reserve, finalize và release. Token thiếu, sai hoặc lặp header bị chặn.
+- Kiểm hợp đồng MVP và codegen qua 41 OpenAPI spec, 52 event schema và 13 file protobuf. Public contract sinh lại khớp bản đã lưu.
+
+## Kiểm tích hợp qua Kafka và Web
+
+`scripts/test-web-identity.py --fulfillment` chạy publisher outbox Inventory thật, Kafka và consumer Java Catalog. Bài kiểm đọc `stock_available` qua API public khi Catalog đang dùng projection, rồi khởi động lại Catalog để đọc trực tiếp Inventory qua TLS bằng token Catalog riêng.
+
+Các ca quarantine, hết hạn, khóa SKU và thay đổi lượng giữ chỗ phải cho cùng kết quả giữa API và projection. Bài kiểm chờ version phía Catalog bắt kịp version Inventory, với thời hạn 90 giây để bao gồm thời gian rebalance khi Catalog khởi động lại.
+
+Sau đó chạy tiếp Web checkout, hủy/nhả tồn, thanh toán TEST/chốt tồn, Fulfillment/video và Shipping. Tồn sau chốt là 98 và projection phải bắt kịp đúng version đó. Môi trường dùng PostgreSQL, Redis, Kafka, Keycloak, các service thật và dữ liệu tổng hợp. Hãng vận chuyển dùng FAKE, statement thanh toán dùng TEST.

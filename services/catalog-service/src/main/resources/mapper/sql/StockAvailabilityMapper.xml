@@ -8,7 +8,7 @@
         <constructor>
             <arg column="sku_code" javaType="String"/>
             <arg column="sellable_quantity" javaType="java.lang.Long"/>
-            <arg column="inventory_version" javaType="long"/>
+            <arg column="inventory_version" javaType="_long"/>
             <arg column="source_updated_at" javaType="java.time.Instant"/>
             <arg column="synced_at" javaType="java.time.Instant"/>
         </constructor>

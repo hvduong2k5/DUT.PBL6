@@ -2,6 +2,7 @@
 package main
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -9,6 +10,9 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"database/sql"
+	kafkainfra "dut-pbl6/inventory-service/internal/infrastructure/kafka"
+	"dut-pbl6/inventory-service/internal/infrastructure/postgres"
+	"dut-pbl6/inventory-service/internal/infrastructure/worker"
 	provider "dut-pbl6/inventory-service/internal/presentation/grpc"
 	api "dut-pbl6/inventory-service/pkg/proto/inventory/v1"
 	packing "dut-pbl6/inventory-service/pkg/proto/packing/v1"
@@ -22,6 +26,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -68,6 +73,13 @@ func main() {
 	terminal := &provider.TerminalServer{InventoryServiceServer: &api.UnimplementedInventoryServiceServer{}, DB: db, Token: os.Getenv("PEER_TOKEN"), CatalogToken: os.Getenv("PEER_CATALOG_TOKEN")}
 	api.RegisterInventoryServiceServer(server, terminal)
 	packing.RegisterInventoryPackingInputsCandidateServer(server, &provider.PackingServer{Terminal: terminal, Token: os.Getenv("PEER_PACKING_TOKEN")})
+	if brokers := os.Getenv("PEER_KAFKA_BROKERS"); brokers != "" {
+		publisher := kafkainfra.NewKafkaProducer(strings.Split(brokers, ","))
+		defer publisher.Close()
+		outbox := worker.NewOutboxPublisherWorker(postgres.NewPostgresOutboxRepository(db), publisher)
+		must(outbox.Start(context.Background()))
+		defer outbox.Stop()
+	}
 	go func() { must(server.Serve(listener)) }()
 	must(os.WriteFile(os.Getenv("PEER_READY_FILE"), func() []byte { b, _ := json.Marshal(map[string]string{"address": listener.Addr().String()}); return b }(), 0600))
 	for {
