@@ -7,8 +7,7 @@
     <resultMap id="PriceResultMap" type="com.hvduong.catalog.domain.entity.ChannelPrice">
         <id     property="id"           column="id"/>
         <result property="variantId"    column="variant_id"/>
-        <result property="channel"      column="channel"
-                typeHandler="org.apache.ibatis.type.EnumTypeHandler"/>
+        <result property="channel"      column="channel"/>
         <result property="currencyCode" column="currency_code"/>
         <result property="amountUnits"  column="amount_units"/>
         <result property="amountNanos"  column="amount_nanos"/>

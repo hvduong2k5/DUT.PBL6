@@ -16,10 +16,8 @@
         <result property="ocopStar"         column="ocop_star"/>
         <result property="ocopCertificateNo" column="ocop_certificate_no"/>
         <result property="story"            column="story"/>
-        <result property="approvalStatus"   column="approval_status"
-                typeHandler="org.apache.ibatis.type.EnumTypeHandler"/>
-        <result property="listingStatus"    column="listing_status"
-                typeHandler="org.apache.ibatis.type.EnumTypeHandler"/>
+        <result property="approvalStatus"   column="approval_status"/>
+        <result property="listingStatus"    column="listing_status"/>
         <result property="approvedBy"       column="approved_by"/>
         <result property="approvedAt"       column="approved_at"/>
         <result property="version"          column="version"/>
