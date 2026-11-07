@@ -13,7 +13,9 @@ func (s *Service) PaymentStaff(bearer string) (persistence.PaymentActor, error) 
 	if e != nil {
 		return persistence.PaymentActor{}, e
 	}
-	if !principal.Staff() {
+	// Finance requires connection/receiver grants and recent MFA. Order IAM
+	// permissions alone cannot authorize the legacy payment staff protocol.
+	if !principal.Staff() || principal.IAM {
 		return persistence.PaymentActor{}, persistence.ErrForbidden
 	}
 	// Authenticate already validated this exact JWT's MAC/issuer/audience/expiry.

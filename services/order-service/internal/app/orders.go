@@ -22,12 +22,18 @@ func (s *Service) lockOrder(ctx context.Context, tx pgx.Tx, id string) (domain.O
 	return scanOrder(tx.QueryRow(ctx, "SELECT "+orderColumns+" FROM orders WHERE cohort='sandbox-3.1' AND id=$1 FOR UPDATE", id))
 }
 func CanRead(p domain.Principal, o domain.Order) bool {
+	if p.IAM {
+		return p.PermissionScope("ORDER_VIEW").Allows(o.Warehouse)
+	}
 	if p.Scope() == o.Scope {
 		return true
 	}
 	return p.Staff() && (p.Role == "ADMIN" || p.Warehouse == o.Warehouse)
 }
 func (s *Service) GetOrder(ctx context.Context, id string, p domain.Principal, detail bool) (domain.Order, error) {
+	if p.IAM && !p.HasPermission("ORDER_VIEW") {
+		return domain.Order{}, domain.E("PERMISSION_DENIED", 403)
+	}
 	if s.isCoreOrder(ctx, id) {
 		return s.getCoreOrder(ctx, id, p, detail)
 	}
@@ -50,7 +56,7 @@ func (s *Service) GetOrder(ctx context.Context, id string, p domain.Principal, d
 		if e = s.Open(data, &q); e != nil {
 			return o, e
 		}
-		if p.Role == "CUSTOMER_SERVICE" {
+		if !p.CanSeeRecipient(o) {
 			q.Address.Street = "[masked]"
 			q.Address.Name = "[masked]"
 			if len(q.Address.Phone) > 4 {
@@ -93,6 +99,9 @@ func (s *Service) listOrders(ctx context.Context, p domain.Principal, staff, que
 	if staff && !p.Staff() {
 		return nil, domain.E("PERMISSION_DENIED", 403)
 	}
+	if p.IAM && (!staff || !p.HasPermission("ORDER_VIEW")) {
+		return nil, domain.E("PERMISSION_DENIED", 403)
+	}
 	args := []any{}
 	query := "SELECT " + orderColumns + " FROM orders WHERE cohort='sandbox-3.1' AND TRUE"
 	if s.CoreCheckout != nil {
@@ -101,6 +110,11 @@ func (s *Service) listOrders(ctx context.Context, p domain.Principal, staff, que
 	add := func(v any) string { args = append(args, v); return "$" + strconv.Itoa(len(args)) }
 	if !staff {
 		query += " AND scope=" + add(p.Scope())
+	} else if p.IAM {
+		scope := p.PermissionScope("ORDER_VIEW")
+		if !scope.Global {
+			query += " AND warehouse_id=ANY(" + add(scope.IDs) + "::text[])"
+		}
 	} else if p.Role != "ADMIN" {
 		if p.Warehouse == "" {
 			return nil, domain.E("WAREHOUSE_SCOPE_REQUIRED", 403)
@@ -189,6 +203,9 @@ func (s *Service) touch(ctx context.Context, tx pgx.Tx, o *domain.Order, source 
 	return s.Emit(ctx, tx, o.ID, "ORDER", o.Version, 9, "audit", o.Status, o.Payment, o.Stock, o.Generation)
 }
 func (s *Service) Cancel(ctx context.Context, p domain.Principal, id, key string, version int64, reason string, review bool) (map[string]any, error) {
+	if p.IAM && !p.HasPermission("ORDER_CANCEL_REQUEST") {
+		return nil, domain.E("PERMISSION_DENIED", 403)
+	}
 	if s.isCoreOrder(ctx, id) {
 		if review || p.Staff() {
 			return nil, domain.E("CARE_APPROVAL_REQUIRED", 409)
@@ -216,6 +233,9 @@ func (s *Service) Cancel(ctx context.Context, p domain.Principal, id, key string
 		return nil, e
 	}
 	if !CanRead(p, o) || (p.Scope() != o.Scope && !p.Manager()) {
+		return nil, domain.E("ORDER_NOT_FOUND", 404)
+	}
+	if p.IAM && !p.AllowsAction("ORDER_CANCEL_REQUEST", o.Warehouse) {
 		return nil, domain.E("ORDER_NOT_FOUND", 404)
 	}
 	var old string
@@ -290,6 +310,9 @@ func (s *Service) SetHold(ctx context.Context, p domain.Principal, id string, ve
 	if !p.Manager() {
 		return domain.E("PERMISSION_DENIED", 403)
 	}
+	if p.IAM && !p.HasPermission("ORDER_HOLD_MANAGE") {
+		return domain.E("PERMISSION_DENIED", 403)
+	}
 	if len(key) < 16 || len(key) > 128 {
 		return domain.E("INVALID_IDEMPOTENCY_KEY", 400)
 	}
@@ -303,6 +326,9 @@ func (s *Service) SetHold(ctx context.Context, p domain.Principal, id string, ve
 		return e
 	}
 	if !CanRead(p, o) {
+		return domain.E("ORDER_NOT_FOUND", 404)
+	}
+	if !p.AllowsAction("ORDER_HOLD_MANAGE", o.Warehouse) {
 		return domain.E("ORDER_NOT_FOUND", 404)
 	}
 	hash := domain.Hash(map[string]any{"order_id": id, "version": version, "active": active})

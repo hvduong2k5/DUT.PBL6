@@ -105,6 +105,9 @@ func (v *CustomerIdentity) Authenticate(ctx context.Context, bearer string) (dom
 		if resp.StatusCode == 401 {
 			return domain.Principal{}, denied
 		}
+		if resp.StatusCode == 403 {
+			return domain.Principal{}, domain.E("PRINCIPAL_FORBIDDEN", 403)
+		}
 		if resp.StatusCode != 200 {
 			return domain.Principal{}, domain.E("IDENTITY_UNAVAILABLE", 503)
 		}
@@ -115,16 +118,23 @@ func (v *CustomerIdentity) Authenticate(ctx context.Context, bearer string) (dom
 		var envelope struct {
 			Success bool `json:"success"`
 			Data    struct {
-				ID      string `json:"principalId"`
-				Subject string `json:"idpSubject"`
-				Type    string `json:"principalType"`
-				Status  string `json:"provisioningStatus"`
+				ID      string                   `json:"principalId"`
+				Subject string                   `json:"idpSubject"`
+				Type    string                   `json:"principalType"`
+				Status  string                   `json:"provisioningStatus"`
+				Grants  []domain.PermissionGrant `json:"permissionGrants"`
 			} `json:"data"`
 		}
 		if json.Unmarshal(raw, &envelope) != nil || !envelope.Success || envelope.Data.ID != id.String() || envelope.Data.Subject != claims.Subject {
 			return domain.Principal{}, domain.E("IDENTITY_UNAVAILABLE", 503)
 		}
-		if envelope.Data.Type != "CUSTOMER" || envelope.Data.Status != "ACTIVE" {
+		if envelope.Data.Status != "ACTIVE" {
+			return domain.Principal{}, domain.E("CUSTOMER_REQUIRED", 403)
+		}
+		if envelope.Data.Type == "EMPLOYEE" {
+			return domain.Principal{ID: id.String(), Role: "EMPLOYEE", IAM: true, Grants: envelope.Data.Grants}, nil
+		}
+		if envelope.Data.Type != "CUSTOMER" {
 			return domain.Principal{}, domain.E("CUSTOMER_REQUIRED", 403)
 		}
 	}

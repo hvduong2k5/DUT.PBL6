@@ -15,6 +15,18 @@ func (s *Service) setCoreHold(ctx context.Context, p domain.Principal, id string
 	if !p.Manager() {
 		return domain.E("PERMISSION_DENIED", 403)
 	}
+	if p.IAM && !p.HasPermission("ORDER_HOLD_MANAGE") {
+		return domain.E("PERMISSION_DENIED", 403)
+	}
+	if p.IAM {
+		o, err := s.getCoreOrder(ctx, id, p, false)
+		if err != nil {
+			return err
+		}
+		if !p.AllowsAction("ORDER_HOLD_MANAGE", o.Warehouse) {
+			return domain.E("ORDER_NOT_FOUND", 404)
+		}
+	}
 	// The legacy admission barrier cannot authorize stopping a real packing
 	// task. Keep this operation closed until its remote cancellation handshake.
 	if s.Fulfillment != nil {
@@ -23,6 +35,9 @@ func (s *Service) setCoreHold(ctx context.Context, p domain.Principal, id string
 	o, e := s.getCoreOrder(ctx, id, p, false)
 	if e != nil {
 		return e
+	}
+	if !p.AllowsAction("ORDER_HOLD_MANAGE", o.Warehouse) {
+		return domain.E("ORDER_NOT_FOUND", 404)
 	}
 	var prior string
 	if e = s.DB.QueryRow(ctx, "SELECT request_hash FROM command_registry WHERE scope=$1 AND kind=$2 AND key=$3", p.Scope(), "CORE_HOLD:"+id, key).Scan(&prior); e == nil {
