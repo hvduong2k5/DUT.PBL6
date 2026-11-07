@@ -53,6 +53,11 @@ Customer legacy vẫn kiểm persona qua Identity và resolve trạng thái Prof
 hiện cũng kiểm principal ACTIVE trong DB trước proxy; do đó đường Web có thể
 chặn account sớm hơn bearer trực tiếp. Task 1 cần thống nhất điều này cùng
 session/refresh; không tuyên bố toàn hệ thống đã thuần stateless.
+Menu và session UI hiện vẫn lấy projection `/api/auth/me` từ Identity; danh sách
+quyền cấu hình tươi có thể ẩn menu trước khi bearer cũ hết hạn. Đây chỉ là UX,
+không thay quyết định JWT của Order/Profile. Task 1–2 cần đưa snapshot quyền
+của session vào projection phiên để UX và hạn token thống nhất; không suy ra
+quyền API bằng cách ghép danh sách role/scope hiển thị trên UI.
 
 Hai adapter cần sửa khi contract chính thức đổi:
 
