@@ -35,7 +35,7 @@
                     class="omama-input<#if messagesPerField.existsError('username')> omama-input--error</#if>"
                     autocomplete="email"
                     autofocus
-                    value="${(auth.attemptedUsername!'')?html}"
+                    value="${(auth.attemptedUsername!'')}"
                     placeholder="${msg('resetEmailPlaceholder')}"
                     aria-label="${msg('resetEmailPlaceholder')}"
                     aria-describedby="omama-email-error"

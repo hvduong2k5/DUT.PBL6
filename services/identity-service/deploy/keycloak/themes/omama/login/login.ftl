@@ -1,11 +1,8 @@
 <#import "template.ftl" as layout>
-<#-- Keycloak returns to this page with the success message "emailSentMessage" after a reset
-     request (same message whether the account exists or not), so we render the check-email view. -->
-<#assign omamaEmailSent = (message?? && message.type == 'success' && message.summary == msg("emailSentMessage"))>
 <@layout.registrationLayout displayMessage=false displayInfo=false; section>
     <#if section = "header">
         ${msg("loginAccountTitle")}
-    <#elseif section = "form" && omamaEmailSent>
+    <#elseif section = "form" && message?has_content && (message.type!'') == 'success' && (message.summary!'') == msg("emailSentMessage")>
 
         <#-- ── Top navigation bar ── -->
         <div class="omama-top-nav">
@@ -100,7 +97,7 @@
                     type="text"
                     autocomplete="username"
                     placeholder="${msg('usernameOrEmail')}"
-                    value="${(login.username!'')?html}"
+                    value="${(login.username!'')}"
                     autofocus
                     aria-label="${msg('usernameOrEmail')}"
                     <#if messagesPerField.existsError('username','password')>aria-invalid="true"</#if>
@@ -171,7 +168,7 @@
                 />
             </div>
 
-            <input type="hidden" id="id-hidden-input" name="credentialId" <#if auth.selectedCredential?has_content>value="${auth.selectedCredential}"</#if>/>
+            <input type="hidden" id="id-hidden-input" name="credentialId" <#if auth?has_content && auth.selectedCredential?has_content>value="${auth.selectedCredential}"</#if>/>
         </form>
 
         <#-- ── Register link ── -->
