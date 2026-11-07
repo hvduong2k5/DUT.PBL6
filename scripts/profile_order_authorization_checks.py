@@ -1,130 +1,119 @@
-"""Authorization acceptance against the real disposable IAM/Profile/Order stack."""
+"""Consumer acceptance against a disposable stack and TEST-only signed claims.
+
+The fixture issuer deliberately stands in for task 1. It does not implement or
+prove production IAM-to-Keycloak synchronization. Never reuse its client in dev.
+"""
 
 import json
 import uuid
 
 
-def verify(request, sql, identity, profile, order, staff, customer, principal):
-    def call(base, path, token=staff, data=None, method=None, expected=200, headers=None):
-        status, body, response_headers = request(base + path, data, token=token, method=method, headers=headers)
+def fixture_issuer(request, admin_api, admin_token, issuer, account, password):
+    def mint(grants):
+        client_id = "test-staff-snapshot-" + uuid.uuid4().hex
+
+        def claim(name, value, kind="String"):
+            return {"name": name, "protocol": "openid-connect", "protocolMapper": "oidc-hardcoded-claim-mapper",
+                    "config": {"claim.name": name, "claim.value": value, "jsonType.label": kind,
+                               "access.token.claim": "true", "id.token.claim": "false", "userinfo.token.claim": "false"}}
+
+        # Keycloak 24.0.5 HardcodedClaim + OIDCAttributeMapperHelper support JSON.
+        # Only a dedicated client inside this disposable realm receives claims.
+        client = {"clientId": client_id, "enabled": True, "publicClient": True,
+                  "protocol": "openid-connect", "standardFlowEnabled": False,
+                  "directAccessGrantsEnabled": True, "defaultClientScopes": ["roles", "profile", "email", "audience-scope", "order-customer"],
+                  "protocolMappers": [claim("principal_type", "EMPLOYEE"), claim("principal_status", "ACTIVE"),
+                                      claim("authz_version", "1", "int"), claim("user_id", account["principal"]),
+                                      claim("permission_grants", json.dumps(grants), "JSON")]}
+        status, _, headers = request(admin_api + "/clients", client, token=admin_token, method="POST")
+        assert status == 201, ("TEST-only staff client", status)
+        location = headers["Location"]
+        try:
+            status, body, _ = request(issuer + "/protocol/openid-connect/token",
+                                      {"grant_type": "password", "client_id": client_id,
+                                       "username": account["email"], "password": password}, form=True)
+            assert status == 200, ("TEST-only staff token", status, body.get("error"))
+            return body["access_token"]
+        finally:
+            assert request(location, token=admin_token, method="DELETE")[0] == 204
+    return mint
+
+
+def verify(request, sql, identity, profile, order, legacy_staff, customer, principal, mint):
+    staff = mint([])
+
+    def call(base, path, token=None, data=None, method=None, expected=200, headers=None):
+        status, body, _ = request(base + path, data, token=staff if token is None else token, method=method, headers=headers)
         assert status == expected, ("authorization", path, status, expected, body)
         return body
 
-    def rows(query):
-        return json.loads(sql(query, tuples=True))
+    def grant(code, kind="GLOBAL", scope=None):
+        return {"permissionCode": code, "scopeType": kind, "scopeId": scope}
 
-    # Test assignments use their own roles; no existing Fulfillment grant changes.
-    role, other_role = str(uuid.uuid4()), str(uuid.uuid4())
-    assignment, other_assignment = str(uuid.uuid4()), str(uuid.uuid4())
-    departments = ["AUTH_A", "AUTH_B"]
-    orders = rows("SELECT json_agg(json_build_object('id',id,'warehouse',warehouse_id)) FROM orders.orders;")
+    orders = json.loads(sql("SELECT json_agg(json_build_object('id',id,'warehouse',warehouse_id)) FROM orders.orders;", tuples=True))
     assert len(orders) >= 2
-    warehouse = orders[0]["warehouse"]
-    foreign_warehouse = "AUTH_OTHER_WAREHOUSE"
-    # The full packing acceptance grants this employee ADMIN. Temporarily
-    # remove pre-existing assignments so they cannot hide scope regressions.
-    existing = rows(f"SELECT COALESCE(json_agg(assignment_id),'[]'::json) FROM identity.iam_role_assignments WHERE principal_id='{principal}' AND assignment_status='ACTIVE';")
-    sql(f"""INSERT INTO identity.iam_roles(role_id,role_code,role_name) VALUES
-        ('{role}','PROFILE_ORDER_AUTH_A','Authorization fixture A'),
-        ('{other_role}','PROFILE_ORDER_AUTH_B','Authorization fixture B');
-        INSERT INTO profile.departments(id,name) VALUES ('AUTH_A','Authorization A'),('AUTH_B','Authorization B');""")
+    warehouse, foreign_warehouse = orders[0]["warehouse"], "AUTH_OTHER_WAREHOUSE"
+    sql("INSERT INTO profile.departments(id,name) VALUES ('AUTH_A','Authorization A'),('AUTH_B','Authorization B');")
     employee_ids = []
+    foreign = orders[1]
     try:
-        for assigned in existing:
-            sql(f"UPDATE identity.iam_role_assignments SET assignment_status='REVOKED' WHERE assignment_id='{uuid.UUID(assigned)}';")
-        # A missing permission cannot use a signed realm role or forwarded header.
+        for token in [legacy_staff, customer, staff]:
+            call(profile, "/api/v1/admin/employees", token=token, expected=403)
+            call(order, "/api/v1/admin/orders", token=token, expected=403)
+        staff = mint([grant("EMPLOYEE_PROFILE_VIEW", "DEPARTMENT", "AUTH_A")])
         call(profile, "/api/v1/admin/employees", expected=403)
-        call(order, "/api/v1/admin/orders", expected=403)
-        call(profile, "/api/v1/admin/employees", token=customer, expected=403)
-        call(order, "/api/v1/admin/orders", token=customer, expected=403)
-        sql(f"""INSERT INTO identity.iam_role_permissions(role_id,permission_code)
-            SELECT '{role}',permission_code FROM identity.iam_permissions WHERE permission_code IN
-            ('EMPLOYEE_PROFILE_VIEW','EMPLOYEE_PROFILE_CREATE','EMPLOYEE_COMPLIANCE_VIEW','ORDER_VIEW');
-            INSERT INTO identity.iam_role_permissions(role_id,permission_code)
-            SELECT '{other_role}',permission_code FROM identity.iam_permissions WHERE permission_code IN
-            ('EMPLOYEE_PROFILE_SENSITIVE_VIEW','ORDER_SENSITIVE_VIEW','ORDER_HOLD_MANAGE','ORDER_CANCEL_REQUEST');
-            INSERT INTO identity.iam_role_assignments(assignment_id,principal_id,role_id,scope_type,scope_id,valid_from) VALUES
-            ('{assignment}','{principal}','{role}','DEPARTMENT','AUTH_A',now()-interval '1 minute'),
-            ('{other_assignment}','{principal}','{other_role}','DEPARTMENT','AUTH_B',now()-interval '1 minute'),
-            ('{uuid.uuid4()}','{principal}','{role}','WAREHOUSE','{warehouse}',now()-interval '1 minute'),
-            ('{uuid.uuid4()}','{principal}','{other_role}','WAREHOUSE','{foreign_warehouse}',now()-interval '1 minute');""")
-        me = call(identity, "/api/v1/users/me")["data"]
-        assert any(g["permissionCode"] == "ORDER_VIEW" and g["scopeId"] == warehouse for g in me["permissionGrants"]), ("active assignment grants missing", me["permissionGrants"])
-        # Customer routes stay closed even though this synthetic employee has a
-        # legacy customer row in the main integration fixture.
-        call(profile, "/api/v1/profile", expected=403)
-        call(profile, "/api/v1/customer/capabilities", expected=403)
+        grants = [grant(code) for code in ["EMPLOYEE_PROFILE_VIEW", "EMPLOYEE_PROFILE_CREATE", "EMPLOYEE_COMPLIANCE_VIEW"]]
+        grants += [grant("ORDER_VIEW", "WAREHOUSE", warehouse),
+                   grant("EMPLOYEE_PROFILE_SENSITIVE_VIEW", "DEPARTMENT", "AUTH_B")]
+        grants += [grant(code, "WAREHOUSE", foreign_warehouse) for code in ["ORDER_SENSITIVE_VIEW", "ORDER_HOLD_MANAGE", "ORDER_CANCEL_REQUEST"]]
+        staff = mint(grants)
+        # Customer routes stay closed even if the employee has a legacy customer row.
+        for path in ["/api/v1/profile", "/api/v1/customer/capabilities"]:
+            call(profile, path, expected=403)
         call(order, "/api/v1/cart", expected=403)
-        call(order, "/api/v1/checkout", data={}, expected=403)
-        for department in departments:
+        # A bodyless POST avoids Python 3.14/Windows reset-on-early-denial behavior.
+        call(order, "/api/v1/checkout", method="POST", expected=403)
+        for department in ["AUTH_A", "AUTH_B"]:
             payload = {"employee_code": "AUTH_" + department, "full_name": "Authorization Fixture",
                        "phone_number": "0901234567", "id_card_number": "012345678901",
                        "department_id": department, "position": "TEST", "contract_type": "FULLTIME",
                        "contract_start_date": "2026-01-01T00:00:00Z", "food_safety_cert_no": "SENSITIVE-CERT",
                        "food_safety_cert_expiry": "2099-01-01T00:00:00Z"}
-            if department == "AUTH_B":
-                call(profile, "/api/v1/admin/employees", data=payload, expected=403)
-                # Seed the foreign object using its own temporary valid grant.
-                sql(f"UPDATE identity.iam_role_assignments SET scope_id='AUTH_B' WHERE assignment_id='{assignment}';")
             created = call(profile, "/api/v1/admin/employees", data=payload, expected=201)
             employee_ids.append(created["id"])
-            if department == "AUTH_B":
-                sql(f"UPDATE identity.iam_role_assignments SET scope_id='AUTH_A' WHERE assignment_id='{assignment}';")
-            else:
-                assert created["phone_number"] == "" and created["food_safety_cert_no"] == ""
-        # Scope predicates must execute before LIMIT/OFFSET.
-        listed = call(profile, "/api/v1/admin/employees?limit=1")
-        assert [e["id"] for e in listed] == [employee_ids[0]]
-        assert call(profile, "/api/v1/admin/employees?limit=1&offset=1") in ([], None)
-        call(profile, "/api/v1/admin/employees?department_id=AUTH_B", expected=403)
-        detail = call(profile, "/api/v1/admin/employees/" + employee_ids[0])
-        assert detail["phone_number"] == "" and detail["id_card_number"] == "" and detail["food_safety_cert_no"] == ""
-        call(profile, "/api/v1/admin/employees/" + employee_ids[1], expected=404)
+            assert created["phone_number"] == "" and created["food_safety_cert_no"] == ""
+        for department, employee in zip(["AUTH_A", "AUTH_B"], employee_ids):
+            listed = call(profile, "/api/v1/admin/employees?department_id=" + department + "&limit=1")
+            assert [e["id"] for e in listed] == [employee]
+            detail = call(profile, "/api/v1/admin/employees/" + employee)
+            assert detail["id_card_number"] == "" and detail["phone_number"] == ""
         sql("UPDATE profile.employee_profiles SET food_safety_cert_expiry=CURRENT_DATE+1 WHERE employee_code LIKE 'AUTH_%';")
         compliance = call(profile, "/api/v1/admin/employees/compliance")
-        assert [e["id"] for e in compliance] == [employee_ids[0]]
-        assert compliance[0]["food_safety_cert_no"] == ""
+        assert all(e["food_safety_cert_no"] == "" for e in compliance if e["id"] in employee_ids)
 
-        # Reuse real placed orders, and restore the foreign row even on failure.
-        foreign = orders[1]
-        sql(f"UPDATE orders.orders SET warehouse_id='{foreign_warehouse}' WHERE id='{foreign['id']}';")
-        try:
-            listed = call(order, "/api/v1/admin/orders?limit=100")["items"]
-            assert all(o.get("order_id", o.get("id")) != foreign["id"] for o in listed)
-            detail = call(order, "/api/v1/orders/" + orders[0]["id"])
-            assert detail["snapshot"]["recipient"]["visibility"] == "MASKED"
-            call(order, "/api/v1/orders/" + foreign["id"], expected=404)
-            call(order, "/api/v1/orders/" + orders[0]["id"] + "/cancellation-requests", data={"reason":"scope regression"},
-                 headers={"If-Match": '"1"', "Idempotency-Key": uuid.uuid4().hex}, expected=404)
-            call(order, "/api/v1/admin/orders/" + orders[0]["id"] + "/hold", data={"active": True},
-                 headers={"If-Match": '"1"', "Idempotency-Key": uuid.uuid4().hex}, expected=404)
-            # Permission A on one assignment cannot borrow a sensitive scope B.
-            sql(f"""INSERT INTO identity.iam_role_permissions(role_id,permission_code) VALUES
-                ('{role}','EMPLOYEE_PROFILE_SENSITIVE_VIEW'),('{role}','ORDER_SENSITIVE_VIEW');""")
-            full = call(profile, "/api/v1/admin/employees/" + employee_ids[0])
-            assert full["id_card_number"] == "012345678901" and full["phone_number"] == "0901234567"
-            full = call(order, "/api/v1/orders/" + orders[0]["id"])
-            assert full["snapshot"]["recipient"]["visibility"] == "FULL"
-        finally:
-            sql(f"UPDATE orders.orders SET warehouse_id='{foreign['warehouse']}' WHERE id='{foreign['id']}';")
-
-        # Authoritative grants are re-read on every request, without token refresh.
-        sql(f"UPDATE identity.iam_roles SET is_enabled=false WHERE role_id='{role}';")
-        call(profile, "/api/v1/admin/employees", expected=403)
-        call(order, "/api/v1/admin/orders", expected=403)
-        sql(f"UPDATE identity.iam_roles SET is_enabled=true WHERE role_id='{role}';")
-        sql(f"UPDATE identity.iam_role_assignments SET valid_from=now()-interval '2 days',valid_until=now()-interval '1 day' WHERE role_id='{role}';")
-        call(profile, "/api/v1/admin/employees", expected=403)
-        call(order, "/api/v1/admin/orders", expected=403)
-        sql(f"UPDATE identity.iam_role_assignments SET valid_until=NULL,assignment_status='REVOKED' WHERE role_id='{role}';")
-        call(profile, "/api/v1/admin/employees", expected=403)
-        call(order, "/api/v1/admin/orders", expected=403)
-        print("PASS: Profile/Order IAM permissions, department/warehouse scopes before pagination, cross-role isolation, sensitive redaction, persona gates, role disable, expiry and revocation", flush=True)
+        sql(f"UPDATE orders.orders SET warehouse_id='{foreign_warehouse}' WHERE id='{uuid.UUID(foreign['id'])}';")
+        listed = call(order, "/api/v1/admin/orders?limit=100")["items"]
+        assert all(o.get("order_id", o.get("id")) != foreign["id"] for o in listed)
+        call(order, "/api/v1/orders/" + foreign["id"], expected=404)
+        detail = call(order, "/api/v1/orders/" + orders[0]["id"])
+        assert detail["snapshot"]["recipient"]["visibility"] == "MASKED"
+        projection_headers = {"Accept": "application/vnd.omama.admin-order+json"}
+        projected = call(order, "/api/v1/admin/orders/" + orders[0]["id"], headers=projection_headers)
+        assert projected["recipient"] is None and projected["order"]["order_id"] == orders[0]["id"]
+        old_staff = staff
+        staff = mint(grants + [grant("EMPLOYEE_PROFILE_SENSITIVE_VIEW"), grant("ORDER_SENSITIVE_VIEW", "WAREHOUSE", warehouse)])
+        full = call(profile, "/api/v1/admin/employees/" + employee_ids[1])
+        assert full["id_card_number"] == "012345678901" and full["phone_number"] == "0901234567"
+        assert call(order, "/api/v1/orders/" + orders[0]["id"])["snapshot"]["recipient"]["visibility"] == "FULL"
+        assert call(order, "/api/v1/orders/" + orders[0]["id"], token=old_staff)["snapshot"]["recipient"]["visibility"] == "MASKED"
+        revoked_snapshot = mint([])
+        call(profile, "/api/v1/admin/employees", token=revoked_snapshot, expected=403)
+        call(order, "/api/v1/admin/orders", token=revoked_snapshot, expected=403)
+        # Old signed snapshot remains valid. This is NOT proof of producer sync.
+        call(profile, "/api/v1/admin/employees", token=old_staff)
+        call(order, "/api/v1/admin/orders", token=old_staff)
+        print("PASS: TEST-issued JWT snapshots, HR GLOBAL across departments, warehouse isolation, masked projections, old/new token semantics; production issuer sync NOT tested", flush=True)
     finally:
-        sql(f"DELETE FROM identity.iam_role_assignments WHERE role_id IN ('{role}','{other_role}');"
-            f"DELETE FROM identity.iam_role_permissions WHERE role_id IN ('{role}','{other_role}');"
-            f"DELETE FROM identity.iam_roles WHERE role_id IN ('{role}','{other_role}');"
+        sql(f"UPDATE orders.orders SET warehouse_id='{foreign['warehouse']}' WHERE id='{uuid.UUID(foreign['id'])}';"
             "DELETE FROM profile.employee_profiles WHERE employee_code LIKE 'AUTH_%';"
             "DELETE FROM profile.departments WHERE id IN ('AUTH_A','AUTH_B');")
-        for assigned in existing:
-            sql(f"UPDATE identity.iam_role_assignments SET assignment_status='ACTIVE' WHERE assignment_id='{uuid.UUID(assigned)}';")

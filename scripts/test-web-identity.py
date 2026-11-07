@@ -1532,7 +1532,13 @@ def main():
             print("PASS: native Dart runtime -> real Catalog/Profile/cart/quote/checkout/replay/order/payment instructions/cancel -> Inventory released",flush=True)
         auth_staff = native_identity(request,gateway,issuer,profile_url,f"http://127.0.0.1:{ports['order']}",accounts['E'],account_password,True,retain=True)
         auth_customer = native_identity(request,gateway,issuer,profile_url,f"http://127.0.0.1:{ports['order']}",accounts['A'],account_password,False,retain=True)
-        profile_order_authorization_checks.verify(request,sql,identity_url,profile_url,f"http://127.0.0.1:{ports['order']}",auth_staff['accessToken'],auth_customer['accessToken'],accounts['E']['principal'])
+        # Dedicated TEST clients stand in for the not-yet-implemented staff issuer.
+        status, fixture_admin, _ = request(base + "/realms/master/protocol/openid-connect/token",
+            {"grant_type": "password", "client_id": "admin-cli", "username": "admin", "password": admin_password}, form=True)
+        assert status == 200, "Disposable issuer administrator unavailable"
+        admin_token = fixture_admin["access_token"]
+        snapshot_issuer = profile_order_authorization_checks.fixture_issuer(request, admin_api, admin_token, issuer, accounts['E'], account_password)
+        profile_order_authorization_checks.verify(request,sql,identity_url,profile_url,f"http://127.0.0.1:{ports['order']}",auth_staff['accessToken'],auth_customer['accessToken'],accounts['E']['principal'],snapshot_issuer)
         result = {
             "status": "PASS",
             "head": subprocess.check_output(
@@ -1547,7 +1553,7 @@ def main():
                 "real-catalog-public-snapshot-revalidation-and-inventory-display",
                 "inventory-outbox-kafka-catalog-projection-and-live-sellability-parity",
                 "profile-addresses-ownership-CAS",
-                "profile-order-scoped-IAM-permissions-sensitive-redaction-and-revocation",
+                "profile-order-TEST-issued-JWT-snapshots-HR-global-warehouse-PII-and-old-new-tokens",
                 "registration-outbox-kafka-provisioning-replay-transient-failure",
                 "checkout-inventory-reserve-cancel-release-payment-commit",
                 "shipping-revision-kafka-delivery-order-history",
