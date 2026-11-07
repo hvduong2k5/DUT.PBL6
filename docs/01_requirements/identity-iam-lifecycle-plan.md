@@ -79,23 +79,21 @@ Quy trình khi có thay đổi quyền:
 
 ## 3. Thay đổi cơ sở dữ liệu (Migration)
 
-### 3.1 Soft delete Role & tái sử dụng role_code
+### 3.1 Soft delete Role & unique role_code
 
-**Vấn đề:** Migration hiện tại có `role_code VARCHAR(100) NOT NULL UNIQUE` (áp dụng toàn bảng, không phân biệt `is_enabled`). Sau khi soft delete, hàng vẫn giữ `role_code` cũ, nên **không thể tạo lại role mới với cùng mã**.
-
-**Giải pháp được chốt:**
-1. Khi soft delete role, tự động đổi `role_code` thành giá trị duy nhất (ví dụ: `ADMIN_deleted_<timestamp>`) để giải phóng `role_code` gốc.
-2. Đồng thời chuyển tất cả `iam_role_assignments` liên quan sang `assignment_status = 'REVOKED'` (hoặc xóa nếu không còn cần lịch sử).
-3. Thêm partial unique index để đảm bảo `role_code` không trùng giữa các role **đang bật**:
+**Quy tắc:**
+- Role đã xóa mềm (`is_enabled = FALSE`) **không được phép reactivate** (bật lại) trong bất kỳ trường hợp nào.
+- Do đó, có thể **để nguyên `role_code` cũ** trên hàng đã xóa mềm, không cần đổi mã.
+- Thêm partial unique index để đảm bảo `role_code` không trùng giữa các role **đang bật** (`is_enabled = TRUE`):
 ```sql
 -- Thay thế UNIQUE(role_code) toàn bảng bằng partial unique index
 CREATE UNIQUE INDEX uq_iam_roles_role_code_enabled
 ON iam_roles (role_code) WHERE is_enabled = TRUE;
 ```
-4. Chỉ được xóa mềm role khi **không còn user nào đang được gán active** (không có `iam_role_assignments` với `assignment_status = 'ACTIVE'` và `valid_until > now` tham chiếu đến role này).
-5. Các assignment cũ sau khi soft delete phải được chuyển sang `REVOKED`, không được để trỏ nhầm sang role mới có cùng `role_code` (vì `role_id` khác).
+- Chỉ được xóa mềm role khi **không còn user nào đang được gán active** (không có `iam_role_assignments` với `assignment_status = 'ACTIVE'` và `valid_until > now` tham chiếu đến role này).
+- Các assignment cũ sau khi soft delete phải được chuyển sang `REVOKED`, không được để trỏ nhầm sang role mới (vì `role_id` khác, dù `role_code` có thể giống nhau nếu role mới được tạo sau).
 
-**Lý do:** JWT/Keycloak attribute cũ của user không ảnh hưởng vì khi thu hồi role của user, assignment sẽ được xóa/trả về trước. Việc đổi `role_code` khi soft delete tránh nhầm lẫn giữa role cũ đã ngừng sử dụng và role mới tái sử dụng mã.
+**Lý do:** Vì role đã xóa không bao giờ được reactivate, sẽ không bao giờ có 2 dòng `is_enabled = TRUE` cùng `role_code`. JWT/Keycloak attribute cũ của user không ảnh hưởng vì khi thu hồi role của user, assignment sẽ được xóa/trả về trước, đồng bộ lại Keycloak.
 
 ### 3.2 Centralize truy vấn đọc Role
 Tất cả repository/service đọc `iam_roles` phải thêm điều kiện `AND is_enabled = TRUE` (hoặc `deleted_at IS NULL` nếu thêm cột đó).
