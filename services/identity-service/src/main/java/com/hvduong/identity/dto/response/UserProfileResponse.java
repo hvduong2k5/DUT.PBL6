@@ -20,5 +20,6 @@ public class UserProfileResponse {
     private String provisioningStatus;
     private List<UserRoleScopeResponse> roles;
     private List<String> permissions;
+    private List<PermissionGrantResponse> permissionGrants;
 }
 
