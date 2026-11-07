@@ -31,11 +31,11 @@ public class SecurityConfig {
             authorize ->
                 authorize
                     // Public REST APIs
-                    .requestMatchers("/api/v1/categories/**")
+                    .requestMatchers("/api/v1/categories", "/api/v1/categories/**")
                     .permitAll()
-                    .requestMatchers("/api/v1/products/**")
+                    .requestMatchers("/api/v1/products", "/api/v1/products/**")
                     .permitAll()
-                    .requestMatchers("/api/v1/search/**")
+                    .requestMatchers("/api/v1/search", "/api/v1/search/**")
                     .permitAll()
                     .requestMatchers("/api/v1/internal/**")
                     .permitAll()

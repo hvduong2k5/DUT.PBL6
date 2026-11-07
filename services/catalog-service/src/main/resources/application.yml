@@ -1,5 +1,5 @@
 server:
-  port: ${SERVER_PORT:${HTTP_PORT:8005}}
+  port: ${SERVER_PORT:${HTTP_PORT:8006}}
 
 spring:
   security:
@@ -78,7 +78,7 @@ mybatis:
 
 grpc:
   server:
-    port: ${GRPC_PORT:9005}
+    port: ${GRPC_SERVER_PORT:${GRPC_PORT:9005}}
     security:
       enabled: false
 
