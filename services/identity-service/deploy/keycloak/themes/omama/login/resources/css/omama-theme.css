@@ -883,3 +883,120 @@ body:has(#kc-reset-password-form) #kc-info {
     background: #FAF7EE !important;
   }
 }
+
+/* ══════════════════════════════════════════════════════════════
+   Forgot password + Check email screens — matches mobile mockup
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── Page icon (mail with check) ── */
+.omama-page-icon {
+  display: flex !important;
+  justify-content: center !important;
+  margin: 8px 0 18px 0 !important;
+}
+
+/* ── Left-aligned serif section heading ── */
+.omama-section-title {
+  font-family: var(--omama-font-display) !important;
+  font-size: 22px !important;
+  font-weight: 700 !important;
+  color: var(--omama-primary) !important;
+  text-align: left !important;
+  margin: 0 0 10px 0 !important;
+  line-height: 1.3 !important;
+  letter-spacing: -0.01em !important;
+}
+
+.omama-section-text {
+  font-family: var(--omama-font-body) !important;
+  font-size: 14px !important;
+  line-height: 1.6 !important;
+  color: var(--omama-ink) !important;
+  text-align: left !important;
+  margin: 0 0 14px 0 !important;
+  word-break: break-word !important;
+}
+
+.omama-section-text strong {
+  font-weight: 600 !important;
+  color: var(--omama-ink) !important;
+}
+
+/* ── Inline field error ── */
+.omama-input--error,
+.omama-input--error:focus {
+  border-color: #b3261e !important;
+  box-shadow: 0 0 0 3px rgba(179, 38, 30, 0.08) !important;
+}
+
+.omama-field-error {
+  display: block !important;
+  min-height: 0 !important;
+  margin: 6px 0 0 14px !important;
+  font-family: var(--omama-font-body) !important;
+  font-size: 12.5px !important;
+  color: #b3261e !important;
+}
+
+.omama-field-error:empty {
+  display: none !important;
+}
+
+/* ── Small privacy hint ── */
+.omama-hint {
+  font-family: var(--omama-font-body) !important;
+  font-size: 12px !important;
+  line-height: 1.5 !important;
+  color: var(--omama-muted) !important;
+  margin: 4px 0 22px 0 !important;
+}
+
+/* ── Outline button (Gửi một yêu cầu khác) ── */
+a.omama-btn {
+  text-decoration: none !important;
+  box-sizing: border-box !important;
+}
+
+.omama-btn--outline {
+  background-color: transparent !important;
+  color: var(--omama-ink) !important;
+  border: 1.5px solid var(--omama-primary) !important;
+  font-weight: 500 !important;
+  font-size: 14.5px !important;
+  box-shadow: none !important;
+}
+
+.omama-btn--outline.omama-btn--full {
+  height: 44px !important;
+}
+
+.omama-btn--outline:hover {
+  background-color: var(--omama-surface-low) !important;
+  color: var(--omama-primary) !important;
+}
+
+/* ── Back to login link ── */
+.omama-back-row {
+  text-align: center !important;
+  font-size: 14px !important;
+  margin: 4px 0 0 0 !important;
+}
+
+/* ── Non-field alerts (success / warning / info) ── */
+.omama-alert--success {
+  background-color: #eef6ee !important;
+  border: 1px solid #bcd9bc !important;
+  color: #2e5e2e !important;
+}
+
+.omama-alert--warning {
+  background-color: #fff6e5 !important;
+  border: 1px solid #f0d49a !important;
+  color: #7a5200 !important;
+}
+
+.omama-alert--info {
+  background-color: var(--omama-surface-low) !important;
+  border: 1px solid var(--omama-border) !important;
+  color: var(--omama-ink) !important;
+}

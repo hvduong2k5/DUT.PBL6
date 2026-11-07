@@ -1,7 +1,44 @@
 <#import "template.ftl" as layout>
-<@layout.registrationLayout displayMessage=!messagesPerField.existsError('username','password') displayInfo=realm.password && realm.registrationAllowed && !registrationDisabled??; section>
+<#-- Keycloak returns to this page with the success message "emailSentMessage" after a reset
+     request (same message whether the account exists or not), so we render the check-email view. -->
+<#assign omamaEmailSent = (message?? && message.type == 'success' && message.summary == msg("emailSentMessage"))>
+<@layout.registrationLayout displayMessage=false displayInfo=false; section>
     <#if section = "header">
         ${msg("loginAccountTitle")}
+    <#elseif section = "form" && omamaEmailSent>
+
+        <#-- ── Top navigation bar ── -->
+        <div class="omama-top-nav">
+            <a href="${url.loginUrl}" class="omama-top-nav__back" aria-label="${msg('backToLogin')}">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#563a26" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="15 18 9 12 15 6"></polyline>
+                </svg>
+            </a>
+            <span class="omama-top-nav__title">${msg("resetTopTitle")}</span>
+        </div>
+
+        <div class="omama-page-icon" aria-hidden="true">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#563a26" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 12.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8"/>
+                <path d="m3 6 9 6 9-6"/>
+                <path d="m16 19 2 2 4-4"/>
+            </svg>
+        </div>
+
+        <h1 class="omama-section-title">${msg("checkEmailHeading")}</h1>
+        <p class="omama-section-text">
+            ${msg("checkEmailPrefix")} <strong id="omama-sent-email" data-fallback="${msg('checkEmailFallback')}">${msg('checkEmailFallback')}</strong> ${msg("checkEmailSuffix")}
+        </p>
+        <p class="omama-section-text">${msg("checkEmailPrivacy")}</p>
+
+        <div class="omama-submit-group">
+            <a href="${url.loginResetCredentialsUrl}" class="omama-btn omama-btn--outline omama-btn--full">${msg("checkEmailResend")}</a>
+        </div>
+
+        <p class="omama-back-row">
+            <a href="${url.loginUrl}" class="omama-link omama-link--guest">${msg("backToLoginTriKy")}</a>
+        </p>
+
     <#elseif section = "form">
 
         <#-- ── Top Navigation Bar (Mobile Header) ── -->
@@ -43,6 +80,11 @@
             <div class="omama-alert omama-alert--error" role="alert">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
                 <span>${kcSanitize(messagesPerField.getFirstError('username','password'))?no_esc}</span>
+            </div>
+        <#elseif message?has_content>
+            <#-- Non-field messages (session expired, account disabled, ...) -->
+            <div class="omama-alert omama-alert--${message.type}" role="alert">
+                <span>${kcSanitize(message.summary)?no_esc}</span>
             </div>
         </#if>
 
