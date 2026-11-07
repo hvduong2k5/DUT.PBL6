@@ -1150,6 +1150,24 @@ components:
           type: array
           items:
             type: string
+        permissionGrants:
+          type: array
+          description: Permissions paired with the scope of the same active assignment and enabled role. Consumers must not combine flat permissions with unrelated role scopes.
+          items:
+            $ref: '#/components/schemas/PermissionGrantDto'
+    PermissionGrantDto:
+      type: object
+      required: [permissionCode, scopeType]
+      properties:
+        permissionCode:
+          type: string
+        scopeType:
+          type: string
+          enum: [GLOBAL, WAREHOUSE, STORE, REGION, DEPARTMENT, BRANCH, BUSINESS_UNIT]
+        scopeId:
+          type: string
+          nullable: true
+          description: Null for GLOBAL; nonempty resource ID for scoped assignments.
     UserRoleScopeDto:
       type: object
       properties:
