@@ -9,13 +9,15 @@ export const ADMIN_ORDER_STATUSES = [
   "COMPLETED",
   "DELIVERY_FAILED",
   "EXPIRED",
-  "CANCELLED"
+  "CANCELLED",
+  "PAYMENT_FINALIZING",
+  "UNKNOWN"
 ] as const;
 
 export type AdminOrderStatus = (typeof ADMIN_ORDER_STATUSES)[number];
-export type AdminPaymentStatus = "PENDING" | "PAID" | "UNPAID" | "REFUND_PENDING" | "COD_PENDING_COLLECTION";
+export type AdminPaymentStatus = "PENDING" | "PAID" | "UNPAID" | "REFUND_PENDING" | "COD_PENDING_COLLECTION" | "RECONCILIATION_REQUIRED" | "PARTIALLY_REFUNDED" | "REFUNDED" | "UNKNOWN";
 export type AdminOrderSource = "WEB_D2C" | "B2B" | "MARKETPLACE" | "OFFLINE";
-export type AdminOrderSlaState = "ON_TRACK" | "AT_RISK" | "OVERDUE" | "COMPLETE";
+export type AdminOrderSlaState = "ON_TRACK" | "AT_RISK" | "OVERDUE" | "COMPLETE" | "UNAVAILABLE";
 
 export interface AdminOrderSummary {
   orderId: string;
@@ -46,6 +48,7 @@ export interface AdminOrderList {
   sources: Array<{ source: AdminOrderSource; label: string }>;
   paymentStatuses: Array<{ status: AdminPaymentStatus; label: string }>;
   calculatedAt: string;
+  nextCursor?: string | null;
 }
 
 export interface AdminOrderLine {
