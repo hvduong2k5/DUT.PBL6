@@ -9,6 +9,8 @@ func TestEmployeeRouteAllowlist(t *testing.T) {
 	}{
 		{"GET", "/api/v1/admin/orders", true},
 		{"GET", "/api/v1/admin/orders/queue", true},
+		{"GET", "/api/v1/admin/orders/id", true},
+		{"GET", "/api/v1/admin/orders/id/future-route", false},
 		{"GET", "/api/v1/orders/id", true},
 		{"GET", "/api/v1/orders/id/tracking", true},
 		{"POST", "/api/v1/orders/id/cancellation-requests", true},

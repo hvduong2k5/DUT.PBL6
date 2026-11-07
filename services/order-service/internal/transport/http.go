@@ -341,8 +341,9 @@ func Handler(s *app.Service) http.Handler {
 			}
 		}
 		api.Get("/api/v1/orders", list(false, false))
-		api.Get("/api/v1/admin/orders", list(true, false))
-		api.Get("/api/v1/admin/orders/queue", list(true, true))
+		api.Get("/api/v1/admin/orders", adminOrderList(s, false, list(true, false)))
+		api.Get("/api/v1/admin/orders/queue", adminOrderList(s, true, list(true, true)))
+		api.Get("/api/v1/admin/orders/{id}", adminOrderProjection(s, false, true))
 		api.Get("/api/v1/orders/{id}", func(w http.ResponseWriter, r *http.Request) {
 			o, e := s.GetOrder(r.Context(), chi.URLParam(r, "id"), principal(r), true)
 			if e != nil {
@@ -550,6 +551,10 @@ func Handler(s *app.Service) http.Handler {
 func staffOrderRoute(method, path string) bool {
 	if method == http.MethodGet && (path == "/api/v1/admin/orders" || path == "/api/v1/admin/orders/queue") {
 		return true
+	}
+	if method == http.MethodGet && strings.HasPrefix(path, "/api/v1/admin/orders/") {
+		parts := strings.Split(strings.TrimPrefix(path, "/api/v1/admin/orders/"), "/")
+		return len(parts) == 1 && parts[0] != ""
 	}
 	if strings.HasPrefix(path, "/api/v1/orders/") {
 		parts := strings.Split(strings.TrimPrefix(path, "/api/v1/orders/"), "/")

@@ -13,9 +13,10 @@ import (
 
 const orderColumns = `id,operation_id,order_code,scope,principal_id,customer_id,warehouse_id,method,status,payment_status,stock_status,subtotal,shipping_fee,final_amount,version,ready_generation,ready_authorized,operational_hold,has_active_case,reservation_id,COALESCE(provider_reference,''),task_id,shipment_id,seal_code,payment_expires_at,created_at,sla_due_at,completion_due_at,updated_at,cohort`
 
-func scanOrder(row pgx.Row) (domain.Order, error) {
+func scanOrder(row pgx.Row, extra ...any) (domain.Order, error) {
 	var o domain.Order
-	e := row.Scan(&o.ID, &o.OperationID, &o.Code, &o.Scope, &o.PrincipalID, &o.CustomerID, &o.Warehouse, &o.Method, &o.Status, &o.Payment, &o.Stock, &o.Subtotal, &o.Shipping, &o.Final, &o.Version, &o.Generation, &o.Ready, &o.Hold, &o.ActiveCase, &o.Reservation, &o.Reference, &o.Task, &o.Shipment, &o.Seal, &o.ExpiresAt, &o.CreatedAt, &o.SLA, &o.CompletionDue, &o.UpdatedAt, &o.Cohort)
+	fields := []any{&o.ID, &o.OperationID, &o.Code, &o.Scope, &o.PrincipalID, &o.CustomerID, &o.Warehouse, &o.Method, &o.Status, &o.Payment, &o.Stock, &o.Subtotal, &o.Shipping, &o.Final, &o.Version, &o.Generation, &o.Ready, &o.Hold, &o.ActiveCase, &o.Reservation, &o.Reference, &o.Task, &o.Shipment, &o.Seal, &o.ExpiresAt, &o.CreatedAt, &o.SLA, &o.CompletionDue, &o.UpdatedAt, &o.Cohort}
+	e := row.Scan(append(fields, extra...)...)
 	return o, e
 }
 func (s *Service) lockOrder(ctx context.Context, tx pgx.Tx, id string) (domain.Order, error) {
