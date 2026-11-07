@@ -85,3 +85,14 @@ func TestProfileSignedIdentity(t *testing.T) {
 		t.Fatal("misconfigured OIDC silently downgraded")
 	}
 }
+
+func TestProfileKeycloakRequiresAuthoritativeIdentityOutsideLocalTest(t *testing.T) {
+	cfg := &config.Config{AuthMode: "keycloak", OIDCIssuer: "https://identity.example/realms/omama", OIDCAudience: "omama-api"}
+	if _, err := NewOIDCIdentity(cfg); err == nil {
+		t.Fatal("missing Identity silently bypassed persona verification")
+	}
+	cfg.IdentityURL = "https://identity.example"
+	if _, err := NewOIDCIdentity(cfg); err != nil {
+		t.Fatal(err)
+	}
+}
