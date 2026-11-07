@@ -1165,6 +1165,11 @@ components:
         scopeId:
           type: string
           example: STR-HUE-01
+        permissions:
+          type: array
+          description: Permissions granted by this enabled role within this assignment's scope.
+          items:
+            type: string
     UpdateUserStatusRequest:
       type: object
       required:

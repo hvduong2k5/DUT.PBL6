@@ -75,6 +75,8 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
 
         if (assignments != null) {
             for (IamRoleAssignmentRow a : assignments) {
+                List<String> scopedPermissions = new ArrayList<>();
+                boolean enabled = false;
                 String roleCode = a.getRoleId() != null ? a.getRoleId().toString() : "UNKNOWN";
                 String roleName = null;
                 if (roleMapper != null && a.getRoleId() != null) {
@@ -82,6 +84,7 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
                     if (role != null) {
                         roleCode = role.getRoleCode();
                         roleName = role.getRoleName();
+                        enabled = Boolean.TRUE.equals(role.getIsEnabled());
                     }
                 }
                 if (rolePermissionMapper != null && a.getRoleId() != null) {
@@ -90,6 +93,7 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
                         for (IamRolePermissionRow p : permRows) {
                             if (p.getPermissionCode() != null && !p.getPermissionCode().isBlank()) {
                                 effectivePermissions.add(p.getPermissionCode());
+                                if (enabled) scopedPermissions.add(p.getPermissionCode());
                             }
                         }
                     }
@@ -99,6 +103,7 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
                         .roleName(roleName)
                         .scopeType(a.getScopeType())
                         .scopeId(a.getScopeId())
+                        .permissions(scopedPermissions)
                         .build());
             }
         }

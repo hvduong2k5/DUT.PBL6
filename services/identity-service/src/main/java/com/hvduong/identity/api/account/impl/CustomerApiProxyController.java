@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.net.URI;
@@ -44,17 +45,33 @@ public class CustomerApiProxyController {
                 || !Set.of("GET", "POST", "PUT", "PATCH", "DELETE").contains(request.getMethod())) {
             return ResponseEntity.notFound().build();
         }
+        return send(jwt, request, "/api/v1" + path, true);
+    }
+
+    @GetMapping("/api/v1/admin/order-api/**")
+    public ResponseEntity<byte[]> forwardStaffOrder(@AuthenticationPrincipal Jwt jwt, HttpServletRequest request) throws Exception {
+        // SecurityConfig resolves the ACTIVE Employee for /api/v1/admin/**.
+        // Order verifies its own read and PII permissions from scoped roles.
+        if (jwt == null) return ResponseEntity.status(401).build();
+        String path = request.getRequestURI().substring("/api/v1/admin/order-api".length());
+        if (!path.matches("/orders(?:/queue|/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12})?")) {
+            return ResponseEntity.notFound().build();
+        }
+        return send(jwt, request, "/api/v1/admin" + path, false);
+    }
+
+    private ResponseEntity<byte[]> send(Jwt jwt, HttpServletRequest request, String path, boolean forwardBody) throws Exception {
         if (gatewayUrl == null || gatewayUrl.isBlank()) return ResponseEntity.status(503).build();
         String query = request.getQueryString();
-        URI target = URI.create(gatewayUrl.replaceAll("/$", "") + "/api/v1" + path
+        URI target = URI.create(gatewayUrl.replaceAll("/$", "") + path
                 + (query == null ? "" : "?" + query));
-        byte[] body = request.getInputStream().readNBytes((1 << 20) + 1);
+        byte[] body = forwardBody ? request.getInputStream().readNBytes((1 << 20) + 1) : new byte[0];
         if (body.length > (1 << 20)) return ResponseEntity.status(413).build();
         var outbound = HttpRequest.newBuilder(target).timeout(Duration.ofSeconds(8))
                 .header("Authorization", "Bearer " + jwt.getTokenValue())
                 .method(request.getMethod(), body.length == 0
                         ? HttpRequest.BodyPublishers.noBody() : HttpRequest.BodyPublishers.ofByteArray(body));
-        for (String name : REQUEST_HEADERS) {
+        for (String name : forwardBody ? REQUEST_HEADERS : Set.of("Accept")) {
             String value = request.getHeader(name);
             if (value != null) outbound.header(name, value);
         }

@@ -71,6 +71,10 @@ services:
             config:
               minute: 10
               policy: local
+      - name: identity-staff-order-read
+        paths: [/api/v1/admin/order-api]
+        strip_path: false
+        methods: [GET]
 
   # ----------------------------------------------------------------------------
   # MS-15: PROFILE SERVICE (Profiles, Address Book, Staff)

@@ -987,8 +987,27 @@ def main():
             def handoff(order_id):
                 return json.loads(sql(f"SELECT json_build_object('hash',h.request_hash,'attempts',h.attempts,'shipment_id',h.shipment_id,'shipments',(SELECT count(*) FROM shipping.shipments s WHERE s.order_id=h.order_id::text)) FROM orders.fulfillment_shipping_handoffs h WHERE h.order_id='{uuid.UUID(order_id)}';",tuples=True) or "null")
             def real_packing(order_id, order_until):
+                status, queue, _ = request(web + "/api/admin/orders?view=queue", headers={
+                    "Cookie": "OMAMA_SESSION=" + staff_session["sessionId"],
+                })
+                assert status == 200 and any(row["orderId"] == order_id for row in queue["items"]), ("Paid order missing from staff queue", status)
                 return fulfillment_checks.pack(request,gateway,staff_session['accessToken'],customer_session['accessToken'],folder,order_id,order_until,shipping_url,shipping_token,f"http://127.0.0.1:{ports['control']}",run,fulfillment_scanner,shipping_control,handoff)
         foreign_address = None
+        order_view_role, order_sensitive_role = str(uuid.uuid4()), str(uuid.uuid4())
+        order_view_assignment, order_sensitive_assignment = str(uuid.uuid4()), str(uuid.uuid4())
+        warehouse = "00000000-0000-0000-0000-000000000001"
+        other_warehouse = "00000000-0000-0000-0000-000000000002"
+        sql(f"""INSERT INTO identity.iam_roles(role_id,role_code,role_name) VALUES
+              ('{order_view_role}','ORDER_TEST_VIEW','Order TEST view'),
+              ('{order_sensitive_role}','ORDER_TEST_SENSITIVE','Order TEST sensitive');
+              INSERT INTO identity.iam_role_permissions(role_id,permission_code) VALUES
+              ('{order_view_role}','ORDER_VIEW'), ('{order_sensitive_role}','ORDER_SENSITIVE_VIEW');
+              INSERT INTO identity.iam_role_assignments(assignment_id,principal_id,role_id,scope_type,scope_id) VALUES
+              ('{order_view_assignment}','{accounts['E']['principal']}','{order_view_role}','WAREHOUSE','{warehouse}'),
+              ('{order_sensitive_assignment}','{accounts['E']['principal']}','{order_sensitive_role}','WAREHOUSE','{other_warehouse}');
+              INSERT INTO identity.iam_role_assignments(assignment_id,principal_id,role_id,scope_type)
+              SELECT '{uuid.uuid4()}','{accounts['E']['principal']}',role_id,'GLOBAL'
+              FROM identity.iam_roles WHERE role_code='ADMIN' ON CONFLICT DO NOTHING;""")
         registration = {
             "email": f"registered-{suffix}@example.test",
             "firstName": "New",
@@ -1235,6 +1254,30 @@ def main():
                     assert request(web+path, {} if path=="/api/checkout/quote" else None, opener=opener,headers={"Origin":web})[0]==403, ("Employee Web purchase gate",path)
                 assert request(gateway+"/api/v1/customer-api/cart",opener=opener)[0]==403
                 print("PASS: Employee with legacy CUSTOMER role and active Customer mapping is denied all Web purchase paths",flush=True)
+                admin_orders = web + "/api/admin/orders"
+                status, page, _ = request(admin_orders + "?limit=1", opener=opener)
+                assert status == 200 and len(page["items"]) == 1 and page["nextCursor"], ("Staff Order page", status, page)
+                cursor = urllib.parse.urlencode({"limit": 1, "cursor": page["nextCursor"]})
+                status, next_page, _ = request(admin_orders + "?" + cursor, opener=opener)
+                assert status == 200 and len(next_page["items"]) == 1 and not next_page["nextCursor"]
+                assert page["items"][0]["orderId"] != next_page["items"][0]["orderId"]
+                status, queue, _ = request(admin_orders + "?view=queue", opener=opener)
+                assert status == 200 and not queue["items"], "Delivered and cancelled orders stayed in the work queue"
+                assert request(admin_orders + "?view=queue&" + cursor, opener=opener)[0] == 400, "List cursor reused in work queue"
+                detail_url = admin_orders + "/" + placed_order
+                status, detail, _ = request(detail_url, opener=opener, headers={"X-User-Permissions": "ORDER_SENSITIVE_VIEW"})
+                assert status == 200 and detail["status"] == "DELIVERED" and detail["itemCount"] == 2, ("Staff Order detail", status)
+                assert detail["recipient"]["masked"] and detail["shipping"]["reference"] and detail["timeline"]
+                sql(f"UPDATE identity.iam_role_assignments SET scope_id='{other_warehouse}' WHERE assignment_id='{order_view_assignment}';")
+                status, inaccessible, _ = request(admin_orders, opener=opener)
+                assert status == 200 and not inaccessible["items"], "Unrelated global role widened warehouse visibility"
+                assert request(detail_url, opener=opener)[0] == 404
+                assert request(admin_orders + "?" + cursor, opener=opener)[0] == 400, "Old cursor survived scope change"
+                sql(f"""UPDATE identity.iam_role_assignments SET scope_id='{warehouse}'
+                     WHERE assignment_id IN ('{order_view_assignment}','{order_sensitive_assignment}');""")
+                status, detail, _ = request(detail_url, opener=opener)
+                assert status == 200 and not detail["recipient"]["masked"] and detail["recipient"]["displayName"] == "Synthetic Recipient"
+                print("PASS: Web admin reads real Order snapshots/history, scoped list/detail, cursor fencing and separate recipient permission", flush=True)
                 continue
             assert (
                 status == 200
@@ -1344,6 +1387,7 @@ def main():
                     shipping_webhook,
                     packing=real_packing,
                 )
+                assert request(web + "/api/admin/orders", opener=opener, headers={"X-User-Role": "ADMIN"})[0] == 403
             elif key == "B":
                 for path in [
                     "/api/orders/" + placed_order,
@@ -1494,6 +1538,7 @@ def main():
                 "registration-outbox-kafka-provisioning-replay-transient-failure",
                 "checkout-inventory-reserve-cancel-release-payment-commit",
                 "shipping-revision-kafka-delivery-order-history",
+                "admin-order-scoped-read-history-cursor-and-recipient",
                 "native-app-bound-PKCE-refresh-logout-persona-gates",
                 *( ["native-Dart-real-purchase-cancel-and-Inventory-release"] if args.flutter else [] ),
             ],
