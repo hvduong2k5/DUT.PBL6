@@ -33,7 +33,7 @@ Không có quyền nhạy cảm thì các chuỗi tương ứng rỗng. CCCD ch�
 | `GET /api/v1/admin/orders`, `/queue` | `ORDER_VIEW` | Lọc warehouse trong SQL trước phân trang |
 | `GET /api/v1/orders/{id}`, `/{id}/tracking`; gRPC GetOrderDetail | `ORDER_VIEW` | Đơn ngoài warehouse trả 404 |
 | Người nhận, điện thoại, địa chỉ đường/phố | `ORDER_SENSITIVE_VIEW` | Kiểm tra riêng theo kho của đơn; mặc định che thông tin |
-| `POST /api/v1/orders/{id}/cancellation-requests`; gRPC CancelOrder cho staff | `ORDER_CANCEL_REQUEST` | Kiểm tra quyền; vẫn chịu state machine, version và approval protocol hiện có |
+| `POST /api/v1/orders/{id}/cancellation-requests`; gRPC CancelOrder cho staff | `ORDER_CANCEL_REQUEST` và quyền đọc đơn | Kho của đơn phải thuộc cả hai quyền trước khi kiểm state machine, version và approval protocol hiện có |
 | `POST /api/v1/admin/orders/{id}/hold` | `ORDER_HOLD_MANAGE` và quyền đọc đơn | Kho của đơn phải thuộc cả hai quyền |
 | `POST /api/v1/admin/checkout-operations/{id}/recover` | `ORDER_RECOVERY_EXECUTE` | Kiểm kho từ accepted checkout đã mã hóa, trong transaction trước thay đổi dữ liệu; hỗ trợ nhiều kho |
 | `POST /internal/recovery/{id}` | Credential nội bộ và `ORDER_RECOVERY_EXECUTE` | Job theo kho cần thêm quyền đọc đơn; operation sandbox chưa có kho yêu cầu GLOBAL |

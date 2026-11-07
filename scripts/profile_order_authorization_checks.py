@@ -42,7 +42,7 @@ def verify(request, sql, identity, profile, order, staff, customer, principal):
             ('EMPLOYEE_PROFILE_VIEW','EMPLOYEE_PROFILE_CREATE','EMPLOYEE_COMPLIANCE_VIEW','ORDER_VIEW');
             INSERT INTO identity.iam_role_permissions(role_id,permission_code)
             SELECT '{other_role}',permission_code FROM identity.iam_permissions WHERE permission_code IN
-            ('EMPLOYEE_PROFILE_SENSITIVE_VIEW','ORDER_SENSITIVE_VIEW','ORDER_HOLD_MANAGE');
+            ('EMPLOYEE_PROFILE_SENSITIVE_VIEW','ORDER_SENSITIVE_VIEW','ORDER_HOLD_MANAGE','ORDER_CANCEL_REQUEST');
             INSERT INTO identity.iam_role_assignments(assignment_id,principal_id,role_id,scope_type,scope_id) VALUES
             ('{assignment}','{principal}','{role}','DEPARTMENT','AUTH_A'),
             ('{other_assignment}','{principal}','{other_role}','DEPARTMENT','AUTH_B'),
@@ -94,6 +94,8 @@ def verify(request, sql, identity, profile, order, staff, customer, principal):
             detail = call(order, "/api/v1/orders/" + orders[0]["id"])
             assert detail["snapshot"]["recipient"]["visibility"] == "MASKED"
             call(order, "/api/v1/orders/" + foreign["id"], expected=404)
+            call(order, "/api/v1/orders/" + orders[0]["id"] + "/cancellation-requests", data={"reason":"scope regression"},
+                 headers={"If-Match": '"1"', "Idempotency-Key": uuid.uuid4().hex}, expected=404)
             call(order, "/api/v1/admin/orders/" + orders[0]["id"] + "/hold", data={"active": True},
                  headers={"If-Match": '"1"', "Idempotency-Key": uuid.uuid4().hex}, expected=404)
             # Permission A on one assignment cannot borrow a sensitive scope B.
