@@ -4,9 +4,11 @@ import (
 	"context"
 	"github.com/omamx/order-service/internal/app"
 	order "github.com/omamx/order-service/internal/gen/order/v1"
+	packing "github.com/omamx/order-service/internal/gen/packing/v1"
 	"github.com/omamx/order-service/internal/transport"
 	"github.com/omamx/order-service/migrations"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"log/slog"
 	"net"
 	"net/http"
@@ -47,8 +49,23 @@ func main() {
 		slog.Error("gRPC listen failed")
 		os.Exit(1)
 	}
-	rpc := grpc.NewServer(grpc.MaxRecvMsgSize(64 << 10))
-	order.RegisterOrderServiceServer(rpc, &transport.RPC{S: s})
+	options := []grpc.ServerOption{grpc.MaxRecvMsgSize(64 << 10)}
+	certificate, key := os.Getenv("ORDER_GRPC_TLS_CERT"), os.Getenv("ORDER_GRPC_TLS_KEY")
+	if certificate != "" || key != "" {
+		creds, e := credentials.NewServerTLSFromFile(certificate, key)
+		if e != nil {
+			slog.Error("invalid Order gRPC TLS configuration")
+			os.Exit(1)
+		}
+		options = append(options, grpc.Creds(creds))
+	} else if s.Fulfillment != nil && cfg.Mode != "sandbox" {
+		slog.Error("Fulfillment integration requires Order gRPC TLS outside sandbox")
+		os.Exit(1)
+	}
+	rpc := grpc.NewServer(options...)
+	orderRPC := &transport.RPC{S: s}
+	order.RegisterOrderServiceServer(rpc, orderRPC)
+	packing.RegisterOrderPackingInputsCandidateServer(rpc, &transport.PackingRPC{S: orderRPC})
 	go func() {
 		if e := rpc.Serve(listener); e != nil {
 			cancel()

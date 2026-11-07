@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	inventoryv1 "dut-pbl6/inventory-service/pkg/proto/inventory/v1"
+	packing "dut-pbl6/inventory-service/pkg/proto/packing/v1"
 	"encoding/json"
 	"fmt"
 	"github.com/google/uuid"
@@ -37,7 +38,7 @@ func TestTerminalPostgresLifecycle(t *testing.T) {
 	defer db.Exec("DROP SCHEMA " + schema + " CASCADE")
 	_, err = db.Exec("SET search_path TO " + schema + ", public")
 	require.NoError(t, err)
-	for _, file := range []string{"000001_init_inventory_schema.up.sql", "000002_terminal_profile.up.sql", "000003_stock_projection.up.sql"} {
+	for _, file := range []string{"000001_init_inventory_schema.up.sql", "000002_terminal_profile.up.sql", "000003_packing_reads.up.sql", "000004_stock_projection.up.sql"} {
 		b, e := os.ReadFile(filepath.Join("../../../migrations", file))
 		require.NoError(t, e)
 		_, e = db.Exec(string(b))
@@ -75,6 +76,34 @@ func TestTerminalPostgresLifecycle(t *testing.T) {
 	require.NoError(t, db.QueryRow(`SELECT physical_qty,reserved_qty FROM inventory_items WHERE sku='A'`).Scan(&physical, &reserved))
 	require.Equal(t, 8, physical)
 	require.Zero(t, reserved)
+	// A separate, read-only Fulfillment capability proves committed lot coverage.
+	packingToken := strings.Repeat("p", 40)
+	packer := &PackingServer{Terminal: s, Token: packingToken}
+	packingCtx := metadata.NewIncomingContext(context.Background(), metadata.Pairs("authorization", "Bearer "+packingToken))
+	read := &packing.GetCommittedPackingAllocationRequest{OrderId: "order", ReservationId: out.Outcome.ReservationId, ReadyGeneration: 1, ItemsDigest: digest, WarehouseId: warehouse, ContractVersion: "order-3.2", Lines: []*packing.PackingLine{{OrderLineId: uuid.NewString(), SkuCode: "A", Quantity: 2}}}
+	_, err = packer.GetCommittedPackingAllocation(ctx, read)
+	require.Error(t, err, "Order stock credential must not authorize packing reads")
+	allocation, err := packer.GetCommittedPackingAllocation(packingCtx, read)
+	require.NoError(t, err)
+	require.NotEmpty(t, allocation.OriginalCommitDecisionId)
+	require.Len(t, allocation.Slots, 1)
+	slot := allocation.Slots[0]
+	validation := &packing.ValidatePackingAllocationRequest{OrderId: "order", TaskId: uuid.NewString(), ReservationId: read.ReservationId, ReadyGeneration: 1, ItemsDigest: digest, WarehouseId: warehouse, ContractVersion: "order-3.2", AllocationVersion: allocation.AllocationVersion, Picks: []*packing.PickedSlot{{AllocationId: slot.AllocationId, OrderLineId: slot.OrderLineId, BatchId: slot.BatchId, CountedQuantity: 2}}}
+	checked, err := packer.ValidatePackingAllocation(packingCtx, validation)
+	require.NoError(t, err)
+	require.True(t, checked.Allowed)
+	_, err = db.Exec("UPDATE batches SET status='QUARANTINE'")
+	require.NoError(t, err)
+	checked, err = packer.ValidatePackingAllocation(packingCtx, validation)
+	require.NoError(t, err)
+	require.False(t, checked.Allowed)
+	require.Greater(t, checked.Slots[0].EligibilityRevision, slot.EligibilityRevision)
+	validation.Picks[0].CountedQuantity = 1
+	_, err = packer.ValidatePackingAllocation(packingCtx, validation)
+	require.Error(t, err, "wrong counted quantity must fail closed")
+	require.NoError(t, db.QueryRow(`SELECT physical_qty,reserved_qty FROM inventory_items WHERE sku='A'`).Scan(&physical, &reserved))
+	require.Equal(t, 8, physical)
+	require.Zero(t, reserved)
 	// Release after commit must carry REJECTED evidence, never restore physical stock.
 	c.IdempotencyKey = "release-key-0001"
 	c.RequestHash = requestHash(c.ProtoReflect())
@@ -95,6 +124,8 @@ func TestTerminalPostgresLifecycle(t *testing.T) {
 	// TTL is based on the database clock, not a client-supplied timestamp.
 	require.True(t, out.ExpiresAt.AsTime().After(time.Now()))
 	// Same rule at RPC read time and in the snapshot, including wall-clock expiry.
+	_, err = db.Exec("UPDATE batches SET status='ACTIVE' WHERE sku='A'")
+	require.NoError(t, err)
 	s.CatalogToken = "catalog-read-credential-32-bytes-long"
 	readCtx := metadata.NewIncomingContext(context.Background(), metadata.Pairs("authorization", "Bearer "+s.CatalogToken))
 	levels, e := s.GetStockLevel(readCtx, &inventoryv1.GetStockLevelRequest{SkuCodes: []string{"A"}})

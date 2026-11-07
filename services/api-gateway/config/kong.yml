@@ -5,6 +5,16 @@ _transform: true
 # 1. UPSTREAMS & SERVICES (18 MICROSERVICES ROUTING TABLE)
 # ==============================================================================
 services:
+  # Fulfillment verifies the signed token and current Employee/ADMIN scope in
+  # Identity. Never expose internal permit/allocation/proof gRPC endpoints.
+  - name: fulfillment-service
+    url: http://fulfillment-service:8002
+    routes:
+      - name: fulfillment-staff
+        paths: [/api/v1/admin/fulfillment]
+        strip_path: false
+        methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
+
   # ----------------------------------------------------------------------------
   # MS-00: API GATEWAY ROOT / HEALTH INFO ROUTE
   # ----------------------------------------------------------------------------
@@ -134,6 +144,22 @@ services:
         methods:
           - GET
           - OPTIONS
+      - name: catalog-admin-routes
+        paths:
+          - /api/v1/admin/catalog
+        strip_path: false
+        methods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - PATCH
+          - OPTIONS
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify:
+                - exp
 
   # ----------------------------------------------------------------------------
   # MS-04: ORDER SERVICE (Cart sessions, Checkout Saga, Order Tracking)

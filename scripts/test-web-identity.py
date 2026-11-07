@@ -31,6 +31,7 @@ sys.dont_write_bytecode = True
 from mvp_native_checks import native_identity
 from mvp_customer_checks import profile_addresses
 from mvp_customer_checks import checkout_shipping
+import mvp_fulfillment_checks as fulfillment_checks
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -53,6 +54,7 @@ def main():
     parser.add_argument("--gradle")
     parser.add_argument("--flutter", help="Run the native Dart repositories against the same live stack")
     parser.add_argument("--keep-running", action="store_true")
+    parser.add_argument("--fulfillment", action="store_true", help="Use actual Fulfillment/media providers instead of TEST packing")
     parser.add_argument(
         "--output-dir", default=str(ROOT / ".system_generated/web-identity")
     )
@@ -61,9 +63,13 @@ def main():
     folder.mkdir(parents=True, exist_ok=True)
     for transient in ["stop", "ready.json", "result.json", "failure.json"]:
         (folder / transient).unlink(missing_ok=True)
+    for log_file in folder.glob("*.log"):
+        log_file.unlink(missing_ok=True)
     suffix = uuid.uuid4().hex[:10]
     names, processes, logs = [], [], []
     env = os.environ.copy()
+    env["MVP_GO"] = args.go
+    fulfillment_network = None
     # The disposable fixture must never inherit a developer's external payment
     # or carrier configuration. Keep executable/toolchain environment intact.
     for key in list(env):
@@ -92,6 +98,7 @@ def main():
             "shipping",
             "shipping_grpc",
             "control",
+            "order_grpc", "fulfillment", "fulfillment_grpc", "storage", "scanner", "kafka_docker",
         ]
     }
     base = f"http://127.0.0.1:{ports['keycloak']}"
@@ -115,7 +122,9 @@ def main():
         )
 
     def start(command, name, cwd=ROOT):
-        log = (folder / (name + ".log")).open("w", encoding="utf-8")
+        log = (folder / (name + ".log")).open("a", encoding="utf-8")
+        log.write(f"\n=== Process '{name}' started: {command} ===\n")
+        log.flush()
         logs.append(log)
         process = subprocess.Popen(
             [str(x) for x in command],
@@ -177,16 +186,117 @@ def main():
             )
             return response.status, body, response.headers
 
-    def wait(url, expected=200, seconds=90):
-        deadline = time.monotonic() + seconds
+    def wait_port_free(host, port, timeout=30):
+        """Wait until a TCP port is no longer accepting connections."""
+        import socket
+        deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(0.5)
             try:
-                if request(url)[0] == expected:
-                    return
+                s.connect((host, port))
+                s.close()
+                time.sleep(0.25)
             except (OSError, ValueError):
-                pass
+                s.close()
+                return True
+        return False
+
+    def kill_process_on_port(port, timeout=30):
+        """Find and kill any process listening on the given TCP port (Linux /proc).
+
+        Checks both /proc/net/tcp (IPv4) and /proc/net/tcp6 (IPv6/dual-stack),
+        mapping port -> socket inode, then matching inode against /proc/*/fd/*
+        symlinks to find the owning PID and sending SIGKILL.
+        """
+        import glob
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            killed = False
+            for proc_net_file in ["/proc/net/tcp", "/proc/net/tcp6"]:
+                try:
+                    with open(proc_net_file, "r") as f:
+                        for line in f:
+                            parts = line.split()
+                            if len(parts) < 10:
+                                continue
+                            local_addr = parts[1]
+                            state = parts[3]
+                            inode = parts[9]
+                            if ":" in local_addr:
+                                try:
+                                    hex_port = local_addr.rsplit(":", 1)[1]
+                                    if int(hex_port, 16) == port and state == "0A":  # 0A = LISTEN
+                                        target = f"socket:[{inode}]"
+                                        for pid_dir in glob.glob("/proc/[0-9]*/fd/*"):
+                                            try:
+                                                if os.readlink(pid_dir) == target:
+                                                    pid = int(pid_dir.split("/")[2])
+                                                    try:
+                                                        os.kill(pid, signal.SIGKILL)
+                                                        killed = True
+                                                    except Exception:
+                                                        pass
+                                            except Exception:
+                                                pass
+                                except ValueError:
+                                    pass
+                except Exception:
+                    pass
+            if not killed:
+                return True
+            time.sleep(0.5)
+        return False
+
+    def wait(url, expected=200, seconds=90, process=None):
+        deadline = time.monotonic() + seconds
+        last_status = None
+        last_body = None
+        last_print = time.monotonic()
+        while time.monotonic() < deadline:
+            if process is not None and process.poll() is not None:
+                raise RuntimeError(
+                    f"Process died with exit code {process.returncode} while waiting for {url}"
+                )
+            try:
+                res = request(url)
+                last_status = res[0]
+                last_body = res[1]
+                if last_status == expected:
+                    return
+            except (OSError, ValueError) as err:
+                last_status = str(err)
+            if time.monotonic() - last_print >= 10:
+                print(f"[WAIT] {url}: current status={last_status}, body={str(last_body)[:100]}", flush=True)
+                last_print = time.monotonic()
+            time.sleep(0.5)
+        raise RuntimeError(
+            f"Fixture not ready: {urllib.parse.urlparse(url).path} (last status: {last_status}, body: {str(last_body)[:200]})"
+        )
+
+    def wait_process_exit(process, timeout=15):
+        """Wait for a subprocess to exit; force kill it if it does not exit in time."""
+        # Give process up to 5s to shut down gracefully after SIGTERM.
+        grace_deadline = time.monotonic() + min(5, timeout)
+        while time.monotonic() < grace_deadline:
+            if process.poll() is not None:
+                return True
             time.sleep(0.25)
-        raise RuntimeError("Fixture not ready: " + urllib.parse.urlparse(url).path)
+        # Force kill the process group (Java may have non-daemon threads).
+        try:
+            pgid = os.getpgid(process.pid)
+            os.killpg(pgid, signal.SIGKILL)
+        except Exception:
+            try:
+                process.kill()
+            except Exception:
+                pass
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if process.poll() is not None:
+                return True
+            time.sleep(0.25)
+        return process.poll() is not None
 
     db_name = "web_identity"
     db_container = "codex-web-db-" + suffix
@@ -225,7 +335,7 @@ def main():
                 "-e",
                 f"POSTGRES_DB={db_name}",
                 "-p",
-                f"127.0.0.1:{ports['db']}:5432",
+                f"{'0.0.0.0' if args.fulfillment else '127.0.0.1'}:{ports['db']}:5432",
             ],
         )
         for _ in range(120):
@@ -265,16 +375,17 @@ def main():
             [
                 "-p",
                 f"127.0.0.1:{ports['kafka']}:9094",
+                "-p", f"{'0.0.0.0' if args.fulfillment else '127.0.0.1'}:{ports['kafka_docker']}:9095",
                 "-e",
                 "KAFKA_NODE_ID=1",
                 "-e",
                 "KAFKA_PROCESS_ROLES=broker,controller",
                 "-e",
-                "KAFKA_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094",
+                "KAFKA_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094,DOCKER://:9095",
                 "-e",
-                f"KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://localhost:9092,EXTERNAL://127.0.0.1:{ports['kafka']}",
+                f"KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://localhost:9092,EXTERNAL://127.0.0.1:{ports['kafka']},DOCKER://host.docker.internal:{ports['kafka_docker']}",
                 "-e",
-                "KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT",
+                "KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT,DOCKER:PLAINTEXT",
                 "-e",
                 "KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER",
                 "-e",
@@ -314,6 +425,7 @@ def main():
             "shipping.events.v1",
             "order.events.v3",
             "order.sources.v1",
+            "fulfillment.task.events.v1", "fulfillment.events.v2",
         ]:
             run(
                 [
@@ -341,7 +453,8 @@ def main():
             ).read_text(encoding="utf-8")
         )
         template.update(
-            id=realm, realm=realm, users=[], sslRequired="none", verifyEmail=False
+            id=realm, realm=realm, users=[], sslRequired="none", verifyEmail=False,
+            accessTokenLifespan=1200,
         )
         service_secret = secrets.token_urlsafe(32)
         for client in template["clients"]:
@@ -535,8 +648,8 @@ def main():
             run((["sh", gradle] if os.name != "nt" and gradle.endswith("gradlew") else [gradle]) + ["--no-daemon", "test", "bootJar"], ROOT / "services/catalog-service", stdout=log, stderr=log)
         catalog_jar = next(p for p in (ROOT / "services/catalog-service/build/libs").glob("*.jar") if "plain" not in p.name)
         catalog_environment=env.copy()
-        catalog_process=start([args.java, "-jar", catalog_jar], "catalog")
-        wait(catalog_url + "/api/v1/products")
+        catalog_process=start([args.java, "-Djava.net.preferIPv4Stack=true", "-jar", str(catalog_jar)], "catalog")
+        wait(catalog_url + "/api/v1/products", process=catalog_process)
         sql("""SET search_path TO catalog_live,public;
             INSERT INTO categories(id,name,slug,description,image_url) VALUES('10000000-0000-0000-0000-000000000001','Synthetic TEST category','test-category','','');
             INSERT INTO products(id,category_id,name,slug,description,story,approval_status,created_by) VALUES('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','Synthetic TEST SKU','test-product','Synthetic fixture','Synthetic fixture','APPROVED','synthetic-fixture');
@@ -630,6 +743,9 @@ def main():
             PEER_RESULT_FILE=str(folder / "inventory-result.json"),
         )
         (folder / "inventory-stop").unlink(missing_ok=True)
+        if args.fulfillment:
+            env.update(PEER_ALLOW_DOCKER="true", PEER_PACKING_TOKEN=secrets.token_urlsafe(40))
+            (folder / "inventory-reads").write_text(env["PEER_PACKING_TOKEN"])
         inventory_binary = folder / ("inventory" + extension)
         run(
             [args.go, "build", "-o", inventory_binary, "./tests/peerfixture"],
@@ -643,6 +759,12 @@ def main():
         else:
             raise RuntimeError("Inventory TLS provider not ready")
         peer_address = json.loads(peer_ready.read_text())["address"]
+        if args.fulfillment:
+            peer_address = "127.0.0.1:" + peer_address.rsplit(":",1)[1]
+            # The fixture exports only a public CA certificate (no private key).
+            # Its native owner writes mode 0600; the unprivileged Fulfillment
+            # container must be able to read this public trust anchor on Linux.
+            (folder / "inventory-ca.pem").chmod(0o644)
         (folder / "inventory-token").write_text(env["PEER_TOKEN"])
         (folder / "inventory-catalog-token").write_text(env["PEER_CATALOG_TOKEN"])
         # Revalidation must fail on a changed price, future price, or unapproved parent product.
@@ -661,14 +783,51 @@ def main():
         sql("UPDATE catalog_live.products SET approval_status='APPROVED',version=version+1;")
         print("PASS: real Catalog rejects missing credentials, stale snapshots, future prices and unapproved products",flush=True)
         # Catalog reads live display availability from the authenticated TLS Inventory API.
+        # Restart catalog with inventory peer target for live availability lookup.
         catalog_process.terminate()
-        catalog_process.wait(timeout=20)
-        caller_environment=env.copy()
-        env.clear();env.update(catalog_environment)
-        env.update(IDENTITY_URL=caller_environment["IDENTITY_URL"], CATALOG_INVENTORY_TARGET=peer_address, CATALOG_INVENTORY_TOKEN_FILE=str(folder / "inventory-catalog-token"), CATALOG_INVENTORY_CA_FILE=str(folder / "inventory-ca.pem"), CATALOG_INVENTORY_SERVER_NAME="localhost")
-        start([args.java, "-jar", catalog_jar], "catalog")
-        env.clear();env.update(caller_environment)
-        wait(catalog_url + "/api/v1/products")
+        if not wait_process_exit(catalog_process, timeout=15):
+            print("WARNING: catalog process did not exit gracefully; force killed", flush=True)
+        # Wait for both HTTP and gRPC TCP ports to be released before restarting.
+        for p in [ports["catalog"], ports["catalog_grpc"]]:
+            if not wait_port_free("127.0.0.1", p, timeout=15):
+                print(f"WARNING: port {p} still in use; killing socket holder", flush=True)
+                kill_process_on_port(p, timeout=10)
+        caller_environment = env.copy()
+        catalog_restart_env = catalog_environment.copy()
+        inventory_ca = folder / "inventory-ca.pem"
+        inventory_token = folder / "inventory-catalog-token"
+        ca_ok = inventory_ca.exists() and inventory_ca.stat().st_size > 0
+        token_ok = inventory_token.exists() and inventory_token.stat().st_size >= 32
+        if ca_ok and token_ok and peer_address:
+            catalog_restart_env.update(
+                IDENTITY_URL=caller_environment["IDENTITY_URL"],
+                CATALOG_INVENTORY_TARGET=peer_address,
+                CATALOG_INVENTORY_TOKEN_FILE=str(inventory_token),
+                CATALOG_INVENTORY_CA_FILE=str(inventory_ca),
+                CATALOG_INVENTORY_SERVER_NAME="localhost",
+            )
+        else:
+            print(f"WARNING: skipping Inventory TLS env (ca_ok={ca_ok}, token_ok={token_ok}, peer_address={peer_address}); catalog will start without live Inventory lookup", flush=True)
+        env.clear(); env.update(catalog_restart_env)
+        catalog_cmd = [args.java, "-Djava.net.preferIPv4Stack=true", "-jar", str(catalog_jar)]
+        catalog_process = start(catalog_cmd, "catalog")
+        env.clear(); env.update(caller_environment)
+        try:
+            wait(catalog_url + "/api/v1/products", seconds=60, process=catalog_process)
+        except RuntimeError as restart_err:
+            # One retry: force kill, wait port, restart with catalog_restart_env, wait again.
+            print(f"WARNING: catalog not ready on first restart ({restart_err}); retrying once", flush=True)
+            catalog_process.terminate()
+            if not wait_process_exit(catalog_process, timeout=15):
+                print("WARNING: catalog process still alive after retry kill", flush=True)
+            time.sleep(2)
+            for p in [ports["catalog"], ports["catalog_grpc"]]:
+                if not wait_port_free("127.0.0.1", p, timeout=15):
+                    kill_process_on_port(p, timeout=10)
+            env.clear(); env.update(catalog_restart_env)
+            catalog_process = start(catalog_cmd, "catalog")
+            env.clear(); env.update(caller_environment)
+            wait(catalog_url + "/api/v1/products", seconds=90, process=catalog_process)
         shipping_token = secrets.token_urlsafe(32)
         shipping_webhook = secrets.token_urlsafe(32)
         env.update(
@@ -685,10 +844,19 @@ def main():
             [args.go, "build", "-o", shipping_binary, "./cmd/server"],
             ROOT / "services/shipping-service",
         )
-        start([shipping_binary], "shipping")
+        shipping_process = start([shipping_binary], "shipping")
         shipping_url = f"http://127.0.0.1:{ports['shipping']}"
         wait(shipping_url + "/health/ready")
         (folder / "shipping-token").write_text(shipping_token)
+        if args.fulfillment:
+            fulfillment_network = "codex-web-fulfillment-"+suffix
+            fulfillment_network, fulfillment_scanner = fulfillment_checks.prepare(ROOT,folder,ports,env,accounts,sql,run,container,request,issuer,None,db_name,password,suffix,peer_address)
+            try:
+                wait(f"http://127.0.0.1:{ports['fulfillment']}/health/ready")
+            except RuntimeError:
+                diagnostic=run(["docker","logs","codex-web-fulfillment-"+suffix],capture_output=True,text=True)
+                (folder/"fulfillment-container.log").write_text(diagnostic.stdout+diagnostic.stderr,encoding="utf-8")
+                raise
         env.update(
             WEB_TEST_CHECKOUT="true",
             WEB_TEST_REAL_CATALOG_URL=catalog_url,
@@ -735,12 +903,19 @@ def main():
             ("http://order-service:8004", "order"),
         ]:
             kong = kong.replace(old, f"http://host.docker.internal:{ports[key]}")
+        if args.fulfillment:
+            import yaml
+            config=yaml.safe_load(kong)
+            for service in config['services']:
+                if service['name']=='fulfillment-service':service['url']=f"http://codex-web-fulfillment-{suffix}:8002"
+            kong=yaml.safe_dump(config,sort_keys=False)
         kong_file = folder / "kong.yml"
         kong_file.write_text(kong, encoding="utf-8")
         container(
             "codex-web-gateway-" + suffix,
             "kong:3.9",
             [
+                *(["--network",fulfillment_network] if args.fulfillment else []),
                 "--add-host",
                 "host.docker.internal:host-gateway",
                 "-p",
@@ -760,6 +935,10 @@ def main():
             ],
         )
         wait(f"http://127.0.0.1:{ports['gateway_admin']}/status")
+        if args.fulfillment:
+            # Container-to-container traffic uses the private Docker network;
+            # Linux cannot reach another container's host-loopback mapping.
+            wait(gateway+"/api/v1/admin/fulfillment/tasks",401,seconds=30)
         env.update(
             WEB_AUTH_MODE="identity-bff",
             WEB_PUBLIC_URL=web,
@@ -794,6 +973,23 @@ def main():
         for key in ["A","E"]:
             native_identity(request,gateway,issuer,profile_url,f"http://127.0.0.1:{ports['order']}",accounts[key],account_password,key=="E")
         print("PASS: native PKCE/JSON callback, app-bound state, refresh/logout and direct bearer Customer/Employee gates",flush=True)
+        real_packing = None
+        if args.fulfillment:
+            staff_session=native_identity(request,gateway,issuer,profile_url,f"http://127.0.0.1:{ports['order']}",accounts['E'],account_password,True,retain=True)
+            customer_session=native_identity(request,gateway,issuer,profile_url,f"http://127.0.0.1:{ports['order']}",accounts['A'],account_password,False,retain=True)
+            fulfillment_checks.pack.storage_port=ports['storage']
+            def shipping_control(online):
+                nonlocal shipping_process
+                if online:
+                    shipping_process=start([shipping_binary],"shipping")
+                    wait(shipping_url+"/health/ready")
+                else:
+                    shipping_process.terminate()
+                    shipping_process.wait(timeout=20)
+            def handoff(order_id):
+                return json.loads(sql(f"SELECT json_build_object('hash',h.request_hash,'attempts',h.attempts,'shipment_id',h.shipment_id,'shipments',(SELECT count(*) FROM shipping.shipments s WHERE s.order_id=h.order_id::text)) FROM orders.fulfillment_shipping_handoffs h WHERE h.order_id='{uuid.UUID(order_id)}';",tuples=True) or "null")
+            def real_packing(order_id, order_until):
+                return fulfillment_checks.pack(request,gateway,staff_session['accessToken'],customer_session['accessToken'],folder,order_id,order_until,shipping_url,shipping_token,f"http://127.0.0.1:{ports['control']}",run,fulfillment_scanner,shipping_control,handoff)
         foreign_address = None
         registration = {
             "email": f"registered-{suffix}@example.test",
@@ -1148,6 +1344,7 @@ def main():
                     shipping_url,
                     shipping_token,
                     shipping_webhook,
+                    packing=real_packing,
                 )
             elif key == "B":
                 for path in [
@@ -1288,7 +1485,7 @@ def main():
             "head": subprocess.check_output(
                 ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True
             ).strip(),
-            "scope": "real Web/Keycloak/Kong/Identity/Profile/Catalog/Order/Inventory-TLS/Shipping-v2-quotes/PostgreSQL/Redis/Kafka; Fulfillment and SePay statements are TEST providers, carrier FAKE, no external money",
+            "scope": "real Web/Keycloak/Kong/Identity/Profile/Catalog/Order/Inventory-TLS/Shipping-v2/PostgreSQL/Redis/Kafka; " + ("real Fulfillment/RustFS-versioned-video/ffprobe/ClamAV (fixture signature DB); " if args.fulfillment else "Fulfillment TEST; ") + "SePay statements TEST, carrier FAKE, no external money",
             "mobile_client_runtime": mobile_client_runtime,
             "accounts": 4,
             "inventory": stock,
@@ -1320,6 +1517,13 @@ def main():
             json.dumps({"type": type(error).__name__, "message": str(error)}),
             encoding="utf-8",
         )
+        print(f"\n!!! TEST RUN FAILED: {type(error).__name__}: {error} !!!\n", flush=True)
+        catalog_log = folder / "catalog.log"
+        if catalog_log.exists():
+            print("=== LAST 80 LINES OF CATALOG.LOG ===", flush=True)
+            for line in catalog_log.read_text(encoding="utf-8", errors="replace").splitlines()[-80:]:
+                print(line, flush=True)
+            print("=== END CATALOG.LOG ===", flush=True)
         if args.keep_running:
             import traceback
 
@@ -1364,6 +1568,8 @@ def main():
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
+        if fulfillment_network:
+            subprocess.run(["docker","network","rm",fulfillment_network],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
 
 
 if __name__ == "__main__":

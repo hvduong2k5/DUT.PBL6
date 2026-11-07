@@ -23,6 +23,7 @@ import (
 	presentationgrpc "dut-pbl6/inventory-service/internal/presentation/grpc"
 	presentationkafka "dut-pbl6/inventory-service/internal/presentation/kafka"
 	inventoryv1 "dut-pbl6/inventory-service/pkg/proto/inventory/v1"
+	packingv1 "dut-pbl6/inventory-service/pkg/proto/packing/v1"
 	"runtime/debug"
 
 	_ "github.com/lib/pq"
@@ -211,14 +212,25 @@ func main() {
 			log.Fatal("Catalog read credential must be distinct from Order and at least 32 bytes")
 		}
 		if _, err := db.Exec("SELECT inventory_sellable_quantity(NULL,statement_timestamp())"); err != nil {
-			log.Fatal("apply stock projection migration 000003 before enabling terminal profile")
+			log.Fatal("apply stock projection migration 000004 before enabling terminal profile")
 		}
 		serverOptions = append(serverOptions, grpc.Creds(tlsCredentials))
-		terminal := &presentationgrpc.TerminalServer{InventoryServiceServer: grpcHandler, DB: db, Token: token, CatalogToken: os.Getenv("INVENTORY_CATALOG_TOKEN")}
+		terminal := &presentationgrpc.TerminalServer{InventoryServiceServer: grpcHandler, DB: db, Token: token, CatalogToken: catalogToken}
 		serviceHandler = terminal
 		go terminal.RunExpiry(workerCtx)
 	}
 	grpcServer := grpc.NewServer(serverOptions...)
+	if terminal, ok := serviceHandler.(*presentationgrpc.TerminalServer); ok && os.Getenv("INVENTORY_FULFILLMENT_TOKEN_FILE") != "" {
+		var packingSchema bool
+		if e := db.QueryRow("SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=current_schema() AND table_name='batches' AND column_name='version')").Scan(&packingSchema); e != nil || !packingSchema {
+			log.Fatal("apply packing migration 000003 before enabling Fulfillment reads")
+		}
+		packingToken, e := os.ReadFile(os.Getenv("INVENTORY_FULFILLMENT_TOKEN_FILE"))
+		if e != nil || len(strings.TrimSpace(string(packingToken))) < 32 {
+			log.Fatal("valid Fulfillment packing credential required")
+		}
+		packingv1.RegisterInventoryPackingInputsCandidateServer(grpcServer, &presentationgrpc.PackingServer{Terminal: terminal, Token: strings.TrimSpace(string(packingToken))})
+	}
 	inventoryv1.RegisterInventoryServiceServer(grpcServer, serviceHandler)
 	reflection.Register(grpcServer)
 

@@ -3,6 +3,15 @@ plugins {
     id 'org.springframework.boot' version '3.3.4'
     id 'io.spring.dependency-management' version '1.1.6'
     id 'com.google.protobuf' version '0.9.4'
+    id 'com.diffplug.spotless' version '6.25.0'
+}
+
+spotless {
+    java {
+        googleJavaFormat('1.17.0')
+        importOrder 'com.hvduong', 'java', 'javax', 'org', 'com', ''
+        removeUnusedImports()
+    }
 }
 
 group = 'com.hvduong'
@@ -44,9 +53,12 @@ ext {
 }
 
 dependencies {
-    // ── Spring Boot Core ─────────────────────────────────────────────────────
+    // ── Spring Boot Core, Web & Security ────────────────────────────────────
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'org.springframework.boot:spring-boot-starter-oauth2-resource-server'
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.6.0'
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
     implementation 'me.paulschwarz:spring-dotenv:4.0.0'
 
@@ -83,6 +95,7 @@ dependencies {
 
     // ── Test ──────────────────────────────────────────────────────────────────
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.security:spring-security-test'
     testImplementation 'org.springframework.kafka:spring-kafka-test'
     testImplementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter-test:3.0.3'
     testImplementation 'org.mockito:mockito-core'

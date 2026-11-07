@@ -35,12 +35,12 @@ try:
     else:
         raise RuntimeError("test database did not start")
     migrations = root / "services/inventory-service/migrations"
-    for file in ["000001_init_inventory_schema.up.sql", "000002_terminal_profile.up.sql"]:
+    for file in ["000001_init_inventory_schema.up.sql", "000002_terminal_profile.up.sql", "000003_packing_reads.up.sql"]:
         sql((migrations / file).read_text(encoding="utf-8"))
     sql("""INSERT INTO inventory_items(sku,physical_qty) VALUES('SKU-A',10);
     INSERT INTO batches(batch_code,sku,supplier_id,mfg_date,exp_date,physical_qty,status)
     VALUES('LOT-A','SKU-A',gen_random_uuid(),CURRENT_DATE-1,CURRENT_DATE+30,10,'ACTIVE');""")
-    sql((migrations / "000003_stock_projection.up.sql").read_text(encoding="utf-8"))
+    sql((migrations / "000004_stock_projection.up.sql").read_text(encoding="utf-8"))
     assert latest()["sellable_quantity"] == 10
     def change(statement, quantity):
         old = latest()["inventory_version"]
@@ -65,8 +65,8 @@ try:
     change("SELECT inventory_emit_stock_snapshot('SKU-A')", 8)
     # Migration rollback and reapply must remain executable without losing stock.
     previous_version = latest()["inventory_version"]
-    sql((migrations / "000003_stock_projection.down.sql").read_text(encoding="utf-8"))
-    sql((migrations / "000003_stock_projection.up.sql").read_text(encoding="utf-8"))
+    sql((migrations / "000004_stock_projection.down.sql").read_text(encoding="utf-8"))
+    sql((migrations / "000004_stock_projection.up.sql").read_text(encoding="utf-8"))
     assert latest()["sellable_quantity"] == 8
     assert latest()["inventory_version"] > previous_version
     print("PASS: bootstrap, reserve, release, deduction, rollback, quarantine, expiry, item status, rebuild and migration round-trip")

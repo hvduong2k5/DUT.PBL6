@@ -7,8 +7,7 @@
     <resultMap id="PriceResultMap" type="com.hvduong.catalog.domain.entity.ChannelPrice">
         <id     property="id"           column="id"/>
         <result property="variantId"    column="variant_id"/>
-        <result property="channel"      column="channel"
-                javaType="com.hvduong.catalog.common.enums.SalesChannel"/>
+        <result property="channel"      column="channel"/>
         <result property="currencyCode" column="currency_code"/>
         <result property="amountUnits"  column="amount_units"/>
         <result property="amountNanos"  column="amount_nanos"/>
@@ -40,11 +39,29 @@
         ORDER BY channel
     </select>
 
+    <select id="findActiveCurrentByVariantIds" resultMap="PriceResultMap">
+        SELECT * FROM channel_prices
+        WHERE variant_id IN
+        <foreach collection="variantIds" item="variantId" open="(" separator="," close=")">
+            #{variantId}
+        </foreach>
+          AND channel = #{channel}::sales_channel
+          AND status = 'ACTIVE'
+          AND effective_from &lt;= NOW()
+          AND (effective_to IS NULL OR effective_to > NOW())
+    </select>
+
     <select id="findHistoryByVariantAndChannel" resultMap="PriceResultMap">
         SELECT * FROM channel_prices
         WHERE variant_id = #{variantId}
           AND channel = #{channel}::sales_channel
         ORDER BY created_at DESC
+    </select>
+
+    <select id="findAllByVariantId" resultMap="PriceResultMap">
+        SELECT * FROM channel_prices
+        WHERE variant_id = #{variantId}
+        ORDER BY channel ASC, effective_from DESC, created_at DESC
     </select>
 
     <select id="findById" resultMap="PriceResultMap">

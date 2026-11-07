@@ -11,6 +11,7 @@ import (
 	"database/sql"
 	provider "dut-pbl6/inventory-service/internal/presentation/grpc"
 	api "dut-pbl6/inventory-service/pkg/proto/inventory/v1"
+	packing "dut-pbl6/inventory-service/pkg/proto/packing/v1"
 	"encoding/json"
 	"encoding/pem"
 	"github.com/google/uuid"
@@ -40,7 +41,7 @@ func main() {
 	defer func() { db.Exec("DROP SCHEMA " + schema + " CASCADE"); db.Close() }()
 	_, err = db.Exec("SET search_path TO " + schema + ", public")
 	must(err)
-	for _, name := range []string{"000001_init_inventory_schema.up.sql", "000002_terminal_profile.up.sql", "000003_stock_projection.up.sql"} {
+	for _, name := range []string{"000001_init_inventory_schema.up.sql", "000002_terminal_profile.up.sql", "000003_packing_reads.up.sql", "000004_stock_projection.up.sql"} {
 		b, e := os.ReadFile(filepath.Join("migrations", name))
 		must(e)
 		_, e = db.Exec(string(b))
@@ -57,10 +58,16 @@ func main() {
 	must(err)
 	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
 	must(os.WriteFile(os.Getenv("PEER_CA_FILE"), certPEM, 0600))
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	bind := "127.0.0.1:0"
+	if os.Getenv("PEER_ALLOW_DOCKER") == "true" {
+		bind = "0.0.0.0:0"
+	}
+	listener, err := net.Listen("tcp", bind)
 	must(err)
 	server := grpc.NewServer(grpc.Creds(credentials.NewTLS(&tls.Config{Certificates: []tls.Certificate{{Certificate: [][]byte{der}, PrivateKey: key}}, MinVersion: tls.VersionTLS12})))
-	api.RegisterInventoryServiceServer(server, &provider.TerminalServer{InventoryServiceServer: &api.UnimplementedInventoryServiceServer{}, DB: db, Token: os.Getenv("PEER_TOKEN"), CatalogToken: os.Getenv("PEER_CATALOG_TOKEN")})
+	terminal := &provider.TerminalServer{InventoryServiceServer: &api.UnimplementedInventoryServiceServer{}, DB: db, Token: os.Getenv("PEER_TOKEN"), CatalogToken: os.Getenv("PEER_CATALOG_TOKEN")}
+	api.RegisterInventoryServiceServer(server, terminal)
+	packing.RegisterInventoryPackingInputsCandidateServer(server, &provider.PackingServer{Terminal: terminal, Token: os.Getenv("PEER_PACKING_TOKEN")})
 	go func() { must(server.Serve(listener)) }()
 	must(os.WriteFile(os.Getenv("PEER_READY_FILE"), func() []byte { b, _ := json.Marshal(map[string]string{"address": listener.Addr().String()}); return b }(), 0600))
 	for {

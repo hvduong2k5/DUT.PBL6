@@ -7,9 +7,13 @@ import (
 	"encoding/json"
 	"github.com/omamx/order-service/internal/app"
 	"github.com/omamx/order-service/internal/domain"
+	f "github.com/omamx/order-service/internal/gen/order/v1"
+	p "github.com/omamx/order-service/internal/gen/packing/v1"
 	"github.com/omamx/order-service/internal/transport"
 	"github.com/redis/go-redis/v9"
+	"google.golang.org/grpc"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"time"
@@ -38,6 +42,17 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
+	}
+	if port := os.Getenv("WEB_TEST_ORDER_GRPC_PORT"); port != "" {
+		listener, err := net.Listen("tcp", ":"+port)
+		if err != nil {
+			log.Fatal(err)
+		}
+		server := grpc.NewServer()
+		f.RegisterOrderServiceServer(server, &transport.RPC{S: service})
+		p.RegisterOrderPackingInputsCandidateServer(server, &transport.PackingRPC{S: &transport.RPC{S: service}})
+		go server.Serve(listener)
+		defer server.Stop()
 	}
 	log.Fatal(http.ListenAndServe(":"+os.Getenv("WEB_TEST_ORDER_PORT"), transport.Handler(service)))
 }

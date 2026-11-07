@@ -1,0 +1,96 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://contracts.omama.example/fulfillment/task/accepted/v1",
+  "title": "TaskAcceptedEventV1 — candidate discovery fact",
+  "description": "DESIGN CANDIDATE; proposed topic fulfillment.task.events.v1; key order_id. Not an existing shared production contract. This event triggers exact GetTaskRevision lookup; it does not grant payment/stock authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "specversion",
+    "id",
+    "source",
+    "type",
+    "subject",
+    "time",
+    "datacontenttype",
+    "traceparent",
+    "data"
+  ],
+  "properties": {
+    "specversion": {
+      "const": "1.0"
+    },
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "source": {
+      "const": "https://omama.vn/services/fulfillment-service"
+    },
+    "type": {
+      "const": "vn.omama.fulfillment.task.accepted.v1"
+    },
+    "subject": {
+      "type": "string",
+      "pattern": "^order_id:[0-9a-f-]{36}$"
+    },
+    "time": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "datacontenttype": {
+      "const": "application/json"
+    },
+    "traceparent": {
+      "type": "string",
+      "pattern": "^00-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}$"
+    },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "order_id",
+        "task_id",
+        "resource_version",
+        "ready_generation",
+        "kind",
+        "items_digest",
+        "warehouse_id",
+        "occurred_at"
+      ],
+      "properties": {
+        "order_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "task_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "resource_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "ready_generation": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "kind": {
+          "const": "PACKING_ACCEPTED"
+        },
+        "items_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "warehouse_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "occurred_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    }
+  }
+}

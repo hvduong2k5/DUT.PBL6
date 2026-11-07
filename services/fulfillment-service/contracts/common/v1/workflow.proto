@@ -1,0 +1,49 @@
+syntax = "proto3";
+
+package omamx.common.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/omamx/proto/common/v1;commonv1";
+option java_multiple_files = true;
+option java_package = "com.omamx.proto.common.v1";
+
+// Proposed Order 3.2 capability. Identity comes from authenticated transport,
+// never from actor fields supplied by a public client. See packages/contracts/.
+message CommandEvidence {
+  string idempotency_key = 1;
+  string action = 2;
+  string request_hash = 3;
+  // APPLIED, ALREADY_APPLIED, REJECTED. Empty is not verified success.
+  string result = 4;
+  string reason_code = 5;
+  string decision_id = 6;
+  google.protobuf.Timestamp decision_at = 7;
+  // Original durable result; the enclosing resource may since have advanced.
+  string resulting_state = 8;
+}
+
+// Opaque reference, resolved against the owning service over authenticated RPC.
+// A caller-supplied reference/boolean alone is never authorization.
+message DecisionReference {
+  string service = 1;
+  string decision_id = 2;
+  string order_id = 3;
+  int64 generation = 4;
+  int64 resource_version = 5;
+}
+
+// Order-issued opaque token, verified online with Order before task acceptance.
+// CancelTask and AcceptTask still serialize at Fulfillment after verification.
+message FulfillmentPermit {
+  string permit_id = 1;
+  string order_id = 2;
+  int64 generation = 3;
+  string items_digest = 4;
+  string warehouse_id = 5;
+  int64 order_version = 6;
+  string policy_version = 7;
+  google.protobuf.Timestamp expires_at = 8;
+  string task_request_key = 9;
+  string audience = 10;
+}
