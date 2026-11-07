@@ -11,9 +11,11 @@ import com.hvduong.identity.dto.response.UserRoleScopeResponse;
 import com.hvduong.identity.infrastructure.keycloak.KeycloakAdminClient;
 import com.hvduong.identity.infrastructure.persistence.entity.*;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.*;
+import com.hvduong.identity.infrastructure.session.BffSessionStore;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.keycloak.representations.idm.UserRepresentation;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
@@ -39,6 +41,9 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
     private final AuditService auditService;
     private final ObjectMapper objectMapper;
     private final RestTemplate restTemplate;
+
+    @Autowired(required = false)
+    private BffSessionStore bffSessionStore;
 
     @Value("${keycloak.server-url}")
     private String serverUrl;
@@ -157,6 +162,9 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
             } catch (Exception ex) {
                 log.warn("Failed to disable user {} in Keycloak: {}", principal.getIdpSubject(), ex.getMessage());
             }
+        }
+        if (bffSessionStore != null) {
+            bffSessionStore.removeSessionsByPrincipalId(principalId);
         }
 
         auditService.recordAudit(
@@ -412,6 +420,9 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
 
         if (principal.getIdpSubject() != null) {
             keycloakAdminClient.logoutUser(principal.getIdpSubject());
+        }
+        if (bffSessionStore != null) {
+            bffSessionStore.removeSessionsByPrincipalId(principalId);
         }
 
         auditService.recordAudit(

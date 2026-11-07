@@ -13,6 +13,7 @@ import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IamRoleAss
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IamRoleMapper;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IamRolePermissionMapper;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IdentityPrincipalMapper;
+import com.hvduong.identity.infrastructure.session.BffSessionStore;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -40,6 +41,9 @@ public class RoleAssignmentServiceImpl implements RoleAssignmentService {
 
     @Autowired(required = false)
     private IamRoleMapper roleMapper;
+
+    @Autowired(required = false)
+    private BffSessionStore bffSessionStore;
 
     @Override
     @Transactional
@@ -132,7 +136,7 @@ public class RoleAssignmentServiceImpl implements RoleAssignmentService {
         int updated = roleAssignmentMapper.revokeAssignment(assignmentId, revokedBy, reason, expectedVersion);
         if (updated > 0) {
             if (existing != null) {
-                syncPermissionsToKeycloak(existing.getPrincipalId());
+                syncAndForceRelogin(existing.getPrincipalId());
             }
 
             auditService.recordAudit(
@@ -184,6 +188,40 @@ public class RoleAssignmentServiceImpl implements RoleAssignmentService {
                 .updatedAt(row.getUpdatedAt())
                 .version(row.getVersion() != null ? row.getVersion() : 0L)
                 .build();
+    }
+
+    /**
+     * Sync permissions to Keycloak AND force re-login (logout user + remove BFF session).
+     * Called on revoke/reduce operations only.
+     */
+    void syncAndForceRelogin(UUID principalId) {
+        if (principalId == null) return;
+        try {
+            if (bffSessionStore != null) {
+                bffSessionStore.removeSessionsByPrincipalId(principalId);
+            }
+            if (keycloakAdminClient == null) return;
+            IdentityPrincipalRow principal = principalMapper.findById(principalId);
+            if (principal == null || principal.getIdpSubject() == null) return;
+
+            List<IamRoleAssignmentRow> activeAssignments = roleAssignmentMapper.findActiveByPrincipal(principalId, OffsetDateTime.now());
+            Set<String> perms = new HashSet<>();
+            if (activeAssignments != null && rolePermissionMapper != null) {
+                for (IamRoleAssignmentRow a : activeAssignments) {
+                    if (a.getRoleId() != null) {
+                        List<IamRolePermissionRow> rolePerms = rolePermissionMapper.findByRoleId(a.getRoleId());
+                        if (rolePerms != null) {
+                            for (IamRolePermissionRow p : rolePerms) {
+                                perms.add(p.getPermissionCode());
+                            }
+                        }
+                    }
+                }
+            }
+
+            keycloakAdminClient.updateUserPermissions(principal.getIdpSubject(), new ArrayList<>(perms));
+            keycloakAdminClient.logoutUser(principal.getIdpSubject());
+        } catch (Exception ignored) {}
     }
 
     private void syncPermissionsToKeycloak(UUID principalId) {

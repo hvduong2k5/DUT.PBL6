@@ -184,5 +184,36 @@ class RoleAssignmentServiceTest {
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getAssignmentId()).isEqualTo(row.getAssignmentId());
     }
+
+    @Test
+    void shouldForceReloginWhenRevokingRole() {
+        var keycloakAdminClient = mock(com.hvduong.identity.infrastructure.keycloak.KeycloakAdminClient.class);
+        var bffSessionStore = mock(com.hvduong.identity.infrastructure.session.BffSessionStore.class);
+        ReflectionTestUtils.setField(assignmentService, "keycloakAdminClient", keycloakAdminClient);
+        ReflectionTestUtils.setField(assignmentService, "bffSessionStore", bffSessionStore);
+
+        UUID assignmentId = UUID.randomUUID();
+        UUID principalId = UUID.randomUUID();
+        UUID roleId = UUID.randomUUID();
+
+        IamRoleAssignmentRow existing = new IamRoleAssignmentRow();
+        existing.setAssignmentId(assignmentId);
+        existing.setPrincipalId(principalId);
+        existing.setRoleId(roleId);
+
+        IdentityPrincipalRow principal = new IdentityPrincipalRow();
+        principal.setPrincipalId(principalId);
+        principal.setIdpSubject("kc-sub-123");
+
+        when(roleAssignmentMapper.findById(assignmentId)).thenReturn(existing);
+        when(roleAssignmentMapper.revokeAssignment(assignmentId, null, "Revoked", 0L)).thenReturn(1);
+        when(principalMapper.findById(principalId)).thenReturn(principal);
+
+        boolean revoked = assignmentService.revokeRole(assignmentId, null, "Revoked", 0L);
+
+        assertThat(revoked).isTrue();
+        verify(bffSessionStore).removeSessionsByPrincipalId(principalId);
+        verify(keycloakAdminClient).logoutUser("kc-sub-123");
+    }
 }
 

@@ -24,6 +24,9 @@ public interface IamRoleAssignmentMapper {
     /** Count currently active assignments for a role (used before soft delete). */
     int countActiveByRoleId(@Param("roleId") UUID roleId, @Param("now") OffsetDateTime now);
 
+    /** Find all currently active assignments for a role (used to sync/revoke sessions when role permissions change). */
+    List<IamRoleAssignmentRow> findActiveByRoleId(@Param("roleId") UUID roleId, @Param("now") OffsetDateTime now);
+
     /** Count ALL assignments ever made for a role (active + revoked + expired). Used to decide hard vs soft delete. */
     int countAllByRoleId(@Param("roleId") UUID roleId);
 

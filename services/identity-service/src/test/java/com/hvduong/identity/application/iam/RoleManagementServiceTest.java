@@ -1,28 +1,40 @@
 package com.hvduong.identity.application.iam;
 
-import com.hvduong.identity.application.iam.impl.RoleManagementServiceImpl;
-import com.hvduong.identity.dto.request.CreateRoleRequest;
-import com.hvduong.identity.dto.request.UpdateRoleRequest;
-import com.hvduong.identity.dto.response.RoleDetailResponse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
-import com.hvduong.identity.application.audit.AuditService;
-import com.hvduong.identity.infrastructure.keycloak.KeycloakAdminClient;
-import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.*;
-import com.hvduong.identity.infrastructure.persistence.entity.*;
+import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.UUID;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.OffsetDateTime;
-import java.util.List;
-import java.util.NoSuchElementException;
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import com.hvduong.identity.application.audit.AuditService;
+import com.hvduong.identity.application.iam.impl.RoleManagementServiceImpl;
+import com.hvduong.identity.dto.request.CreateRoleRequest;
+import com.hvduong.identity.dto.request.UpdateRoleRequest;
+import com.hvduong.identity.dto.response.RoleDetailResponse;
+import com.hvduong.identity.infrastructure.keycloak.KeycloakAdminClient;
+import com.hvduong.identity.infrastructure.persistence.entity.IamRoleAssignmentRow;
+import com.hvduong.identity.infrastructure.persistence.entity.IamRolePermissionRow;
+import com.hvduong.identity.infrastructure.persistence.entity.IamRoleRow;
+import com.hvduong.identity.infrastructure.persistence.entity.IdentityPrincipalRow;
+import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IamRoleAssignmentMapper;
+import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IamRoleMapper;
+import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IamRolePermissionMapper;
+import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IdentityPrincipalMapper;
 
 @ExtendWith(MockitoExtension.class)
 class RoleManagementServiceTest {
@@ -231,6 +243,71 @@ class RoleManagementServiceTest {
 
         verify(rolePermissionMapper).deleteByRoleId(roleId);
         verify(rolePermissionMapper, times(2)).insert(any(IamRolePermissionRow.class));
+    }
+
+    @Test
+    void removePermissionFromRole_ForcesRelogin() {
+        var principalMapper = mock(IdentityPrincipalMapper.class);
+        var bffSessionStore = mock(com.hvduong.identity.infrastructure.session.BffSessionStore.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "principalMapper", principalMapper);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "bffSessionStore", bffSessionStore);
+
+        UUID roleId = UUID.randomUUID();
+        UUID principalId = UUID.randomUUID();
+
+        IamRoleRow role = new IamRoleRow();
+        role.setRoleId(roleId);
+        role.setIsProtected(false);
+
+        IamRoleAssignmentRow assignment = new IamRoleAssignmentRow();
+        assignment.setPrincipalId(principalId);
+        assignment.setRoleId(roleId);
+
+        IdentityPrincipalRow principal = new IdentityPrincipalRow();
+        principal.setPrincipalId(principalId);
+        principal.setIdpSubject("kc-sub-999");
+
+        when(roleMapper.findById(roleId)).thenReturn(role);
+        when(roleAssignmentMapper.findActiveByRoleId(eq(roleId), any())).thenReturn(List.of(assignment));
+        when(principalMapper.findById(principalId)).thenReturn(principal);
+
+        service.removePermissionFromRole(roleId, "order:delete", UUID.randomUUID());
+
+        verify(bffSessionStore).removeSessionsByPrincipalId(principalId);
+        verify(keycloakAdminClient).logoutUser("kc-sub-999");
+    }
+
+    @Test
+    void addPermissionToRole_DoesNotForceRelogin() {
+        var principalMapper = mock(IdentityPrincipalMapper.class);
+        var bffSessionStore = mock(com.hvduong.identity.infrastructure.session.BffSessionStore.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "principalMapper", principalMapper);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "bffSessionStore", bffSessionStore);
+
+        UUID roleId = UUID.randomUUID();
+        UUID principalId = UUID.randomUUID();
+
+        IamRoleRow role = new IamRoleRow();
+        role.setRoleId(roleId);
+        role.setIsProtected(false);
+
+        IamRoleAssignmentRow assignment = new IamRoleAssignmentRow();
+        assignment.setPrincipalId(principalId);
+        assignment.setRoleId(roleId);
+
+        IdentityPrincipalRow principal = new IdentityPrincipalRow();
+        principal.setPrincipalId(principalId);
+        principal.setIdpSubject("kc-sub-999");
+
+        when(roleMapper.findById(roleId)).thenReturn(role);
+        when(roleAssignmentMapper.findActiveByRoleId(eq(roleId), any())).thenReturn(List.of(assignment));
+        when(principalMapper.findById(principalId)).thenReturn(principal);
+
+        service.addPermissionToRole(roleId, "order:read", UUID.randomUUID());
+
+        verify(keycloakAdminClient).updateUserPermissions(eq("kc-sub-999"), any());
+        verify(bffSessionStore, never()).removeSessionsByPrincipalId(any());
+        verify(keycloakAdminClient, never()).logoutUser(any());
     }
 }
 

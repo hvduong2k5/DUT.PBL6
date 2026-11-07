@@ -66,6 +66,15 @@ public class BffSessionStore {
         }
     }
 
+    /**
+     * Remove all BFF sessions belonging to a principal (called on role revoke / permission reduce).
+     * This forces the client to re-authenticate and receive a fresh token with updated permissions.
+     */
+    public void removeSessionsByPrincipalId(UUID principalId) {
+        if (principalId == null) return;
+        sessions.entrySet().removeIf(e -> principalId.equals(e.getValue().getPrincipalId()));
+    }
+
     private void cleanExpired() {
         Instant now = Instant.now();
         sessions.entrySet().removeIf(entry -> {

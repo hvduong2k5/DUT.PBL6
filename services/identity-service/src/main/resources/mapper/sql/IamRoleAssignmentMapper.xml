@@ -63,6 +63,15 @@
           AND (valid_until IS NULL OR valid_until &gt; #{now})
     </select>
 
+    <select id="findActiveByRoleId" resultMap="IamRoleAssignmentRowMap">
+        SELECT *
+        FROM iam_role_assignments
+        WHERE role_id = #{roleId}
+          AND assignment_status = 'ACTIVE'
+          AND valid_from &lt;= #{now}
+          AND (valid_until IS NULL OR valid_until &gt; #{now})
+    </select>
+
     <select id="countAllByRoleId" resultType="int">
         SELECT COUNT(*)
         FROM iam_role_assignments
