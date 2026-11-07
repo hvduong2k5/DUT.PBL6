@@ -85,12 +85,26 @@
   function init() {
     /* ── Wire guest & back links to return to frontend / mobile app ───────── */
     var guestReturnUrl = resolveGuestReturnUrl();
-    if (guestReturnUrl) {
-      var guestLink = document.getElementById('omama-guest-link');
-      var backLink = document.getElementById('omama-login-back');
-      if (guestLink) guestLink.setAttribute('href', guestReturnUrl);
-      if (backLink) backLink.setAttribute('href', guestReturnUrl);
+    var guestLink = document.getElementById('omama-guest-link');
+    var backLink = document.getElementById('omama-login-back');
+
+    function wireReturnLink(linkEl) {
+      if (!linkEl) return;
+      if (guestReturnUrl) {
+        linkEl.setAttribute('href', guestReturnUrl);
+        return;
+      }
+      var currentHref = linkEl.getAttribute('href');
+      if (!currentHref || currentHref === '#') {
+        linkEl.addEventListener('click', function (event) {
+          event.preventDefault();
+          window.history.back();
+        });
+      }
     }
+
+    wireReturnLink(guestLink);
+    wireReturnLink(backLink);
 
     /* ── Login page ───────────────────────────────────────────────────────── */
     var loginForm = document.getElementById('kc-form-login');

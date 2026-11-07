@@ -37,8 +37,9 @@ services:
 
       # Cấu hình Hostname & Traefik Reverse Proxy trên Coolify
       KC_PROXY_HEADERS: ${KC_PROXY_HEADERS:-xforwarded}
-      KC_HOSTNAME: "${KC_HOSTNAME:?Vui lòng cấu hình KC_HOSTNAME (ví dụ: https://keycloak.omama.vn)}"
+      KC_HOSTNAME: "${KC_HOSTNAME:?Vui lòng cấu hình KC_HOSTNAME}"
       KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      FRONTEND_BASE_URL: "${FRONTEND_BASE_URL:-}"
     volumes:
       # Nạp custom theme Ô Mạ từ Git repo được Coolify kéo về
       - ./themes:/opt/keycloak/themes:ro
