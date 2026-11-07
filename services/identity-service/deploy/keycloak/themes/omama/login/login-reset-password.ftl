@@ -3,6 +3,15 @@
     <#if section = "header">
         ${msg("emailForgotTitle")}
     <#elseif section = "form">
+        <div class="omama-top-nav">
+            <a href="${url.loginUrl}" class="omama-top-nav__back" aria-label="${msg('backToLogin')}">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#563a26" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="15 18 9 12 15 6"></polyline>
+                </svg>
+            </a>
+            <span class="omama-top-nav__title">${msg("emailForgotTitle")}</span>
+        </div>
+
         <div class="omama-instruction-card">
             <div class="omama-instruction-icon">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

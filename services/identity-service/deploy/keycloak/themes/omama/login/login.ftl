@@ -4,17 +4,37 @@
         ${msg("loginAccountTitle")}
     <#elseif section = "form">
 
-        <#-- ── Brand mark ── -->
+        <#-- ── Top Navigation Bar (Mobile Header) ── -->
+        <div class="omama-top-nav">
+            <a href="javascript:history.back()" class="omama-top-nav__back" aria-label="${msg('backToLogin')}">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#563a26" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="15 18 9 12 15 6"></polyline>
+                </svg>
+            </a>
+            <span class="omama-top-nav__title">${msg("loginTopTitle")}</span>
+        </div>
+
+        <#-- ── Brand mark (Hoa văn truyền thống Ô Mạ) ── -->
         <div class="omama-brand-mark" aria-hidden="true">
-            <svg width="44" height="44" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="22" cy="16" r="7" stroke="#563a26" stroke-width="2" fill="none"/>
-                <path d="M10 36 Q22 24 34 36" stroke="#563a26" stroke-width="2" fill="none" stroke-linecap="round"/>
-                <circle cx="22" cy="9" r="2.5" fill="#563a26"/>
-                <path d="M15 16 Q16 20 22 22 Q28 20 29 16" stroke="#d4a24c" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+            <svg width="44" height="44" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <!-- Center circle -->
+                <circle cx="24" cy="18" r="3.5" stroke="#563a26" stroke-width="2.4" fill="none"/>
+                <!-- 8 Petals radiating -->
+                <circle cx="24" cy="9.5" r="2.8" stroke="#563a26" stroke-width="2.2" fill="none"/>
+                <circle cx="24" cy="26.5" r="2.8" stroke="#563a26" stroke-width="2.2" fill="none"/>
+                <circle cx="15.5" cy="18" r="2.8" stroke="#563a26" stroke-width="2.2" fill="none"/>
+                <circle cx="32.5" cy="18" r="2.8" stroke="#563a26" stroke-width="2.2" fill="none"/>
+                <circle cx="18" cy="12" r="2.8" stroke="#563a26" stroke-width="2.2" fill="none"/>
+                <circle cx="30" cy="12" r="2.8" stroke="#563a26" stroke-width="2.2" fill="none"/>
+                <circle cx="18" cy="24" r="2.8" stroke="#563a26" stroke-width="2.2" fill="none"/>
+                <circle cx="30" cy="24" r="2.8" stroke="#563a26" stroke-width="2.2" fill="none"/>
+                <!-- 2 Leaves cradling the base -->
+                <path d="M14 29 C 17 35, 21 37.5, 24 37.5 C 27 37.5, 31 35, 34 29" stroke="#563a26" stroke-width="2.4" stroke-linecap="round" fill="none"/>
+                <path d="M11 31.5 C 15 39, 20 41.5, 24 41.5 C 28 41.5, 33 39, 37 31.5" stroke="#563a26" stroke-width="2.4" stroke-linecap="round" fill="none"/>
             </svg>
         </div>
 
-        <#-- ── Heading ── -->
+        <#-- ── Heading & Subtitle ── -->
         <h1 class="omama-welcome-title">${msg("loginWelcomeBack")}</h1>
         <p class="omama-welcome-sub">${msg("loginWelcomeSub")}</p>
 
@@ -45,10 +65,10 @@
                 />
             </div>
 
-            <#-- ── Password field with toggle ── -->
+            <#-- ── Password field with lock icon & eye toggle ── -->
             <div class="omama-field-group omama-field-group--password">
                 <span class="omama-input-icon omama-input-icon--left" aria-hidden="true">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#563a26" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
                     </svg>
                 </span>
@@ -70,24 +90,24 @@
                     onclick="togglePassword()"
                     tabindex="-1"
                 >
-                    <svg id="eye-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <svg id="eye-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#563a26" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
                     </svg>
-                    <svg id="eye-off-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+                    <svg id="eye-off-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#563a26" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
                         <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
                         <line x1="1" y1="1" x2="23" y2="23"/>
                     </svg>
                 </button>
             </div>
 
-            <#-- ── Forgot password ── -->
+            <#-- ── Forgot password (aligned right) ── -->
             <#if realm.resetPasswordAllowed>
                 <div class="omama-forgot-row">
                     <a tabindex="5" href="${url.loginResetCredentialsUrl}" class="omama-link omama-link--forgot">${msg("doForgotPassword")}</a>
                 </div>
             </#if>
 
-            <#-- ── Remember me (hidden by default, only shown if realm enables it) ── -->
+            <#-- ── Remember me (optional) ── -->
             <#if realm.rememberMe && !usernameEditDisabled??>
                 <div class="omama-remember-row">
                     <label class="omama-checkbox-label">
@@ -97,7 +117,7 @@
                 </div>
             </#if>
 
-            <#-- ── Submit ── -->
+            <#-- ── Submit Button ── -->
             <div class="omama-submit-group">
                 <input
                     tabindex="4"
@@ -115,13 +135,13 @@
         <#-- ── Register link ── -->
         <#if realm.password && realm.registrationAllowed && !registrationDisabled??>
             <p class="omama-register-row">
-                ${msg("noAccount")} <a tabindex="6" href="${url.registrationUrl}" class="omama-link">${msg("doRegister")}</a>
+                ${msg("noAccount")} <a tabindex="6" href="${url.registrationUrl}" class="omama-link omama-link--bold">${msg("doRegister")}</a>
             </p>
         </#if>
 
-        <#-- ── Guest link ── -->
+        <#-- ── Continue as guest link ── -->
         <p class="omama-guest-row">
-            <a href="${properties.guestUrl!'/'}" class="omama-link omama-link--muted">${msg("continueAsGuest")}</a>
+            <a href="${properties.guestUrl!'/'}" class="omama-link omama-link--guest">${msg("continueAsGuest")}</a>
         </p>
 
         <#-- ── Password toggle script ── -->
