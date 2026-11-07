@@ -1,0 +1,144 @@
+package migrations
+
+import (
+	"strings"
+	"testing"
+)
+
+func TestEmbeddedMigrationsAreOrderedAndIncludeSupplierManagement(t *testing.T) {
+	entries, err := files.ReadDir(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var names []string
+	for _, entry := range entries {
+		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".up.sql") {
+			names = append(names, entry.Name())
+		}
+	}
+	if len(names) != 12 || names[0] != "000001_supplier_material_master.up.sql" || names[1] != "000002_purchase_orders.up.sql" || names[2] != "000003_goods_receipts.up.sql" || names[3] != "000004_supplier_agreements_and_price_versions.up.sql" || names[4] != "000005_purchase_order_supplier_response_and_revisions.up.sql" || names[5] != "000006_goods_receipt_idempotency.up.sql" || names[6] != "000007_goods_receipt_variances.up.sql" || names[7] != "000008_supply_plan_snapshots.up.sql" || names[8] != "000009_supply_plan_revision_immutability.up.sql" || names[9] != "000010_supply_plan_approval_workflow.up.sql" || names[10] != "000011_supply_plan_purchase_order_conversion.up.sql" || names[11] != "000012_purchase_order_idempotency.up.sql" {
+		t.Fatalf("unexpected embedded migration sequence: %v", names)
+	}
+	for _, name := range names {
+		if _, err := files.ReadFile(name); err != nil {
+			t.Errorf("migration %s is not embedded: %v", name, err)
+		}
+	}
+}
+
+func TestPurchaseOrderIdempotencyMigrationAddsActorScopedUniqueKey(t *testing.T) {
+	sqlBytes, err := files.ReadFile("000012_purchase_order_idempotency.up.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sql := string(sqlBytes)
+	for _, required := range []string{"idempotency_key VARCHAR(128)", "idempotency_request_hash VARCHAR(64)", "purchase_orders_created_by_idempotency_key_unique", "ON purchase_orders (created_by, idempotency_key)"} {
+		if !strings.Contains(sql, required) {
+			t.Errorf("purchase order idempotency migration missing %q", required)
+		}
+	}
+}
+
+func TestSupplyPlanConversionMigrationLinksOnlyOnePOPerPlan(t *testing.T) {
+	sqlBytes, err := files.ReadFile("000011_supply_plan_purchase_order_conversion.up.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sql := string(sqlBytes)
+	for _, required := range []string{"'CONVERTED'", "converted_purchase_order_id", "supply_plan_id UUID REFERENCES supply_plans(id)", "supply_plan_revision", "CREATE UNIQUE INDEX purchase_orders_supply_plan_unique_idx"} {
+		if !strings.Contains(sql, required) {
+			t.Errorf("supply plan conversion migration missing %q", required)
+		}
+	}
+}
+
+func TestSupplyPlanApprovalMigrationAddsLifecycleAndAuditHistory(t *testing.T) {
+	sqlBytes, err := files.ReadFile("000010_supply_plan_approval_workflow.up.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sql := string(sqlBytes)
+	for _, required := range []string{"PENDING_APPROVAL", "APPROVED", "REJECTED", "submitted_by", "approved_by", "rejected_by", "CREATE TABLE supply_plan_status_history", "UNIQUE (supply_plan_id, version)"} {
+		if !strings.Contains(sql, required) {
+			t.Errorf("supply plan approval migration missing %q", required)
+		}
+	}
+}
+
+func TestSupplyPlanRevisionMutationIsRejectedByDatabase(t *testing.T) {
+	sqlBytes, err := files.ReadFile("000009_supply_plan_revision_immutability.up.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sql := string(sqlBytes)
+	for _, required := range []string{"BEFORE UPDATE OR DELETE ON supply_plan_revisions", "RAISE EXCEPTION 'supply plan revisions are immutable'"} {
+		if !strings.Contains(sql, required) {
+			t.Errorf("revision immutability migration missing %q", required)
+		}
+	}
+}
+
+func TestSupplyPlanMigrationStoresImmutableRevisionSnapshots(t *testing.T) {
+	sqlBytes, err := files.ReadFile("000008_supply_plan_snapshots.up.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sql := string(sqlBytes)
+	for _, required := range []string{"CREATE TABLE IF NOT EXISTS supply_plans", "current_revision", "CREATE TABLE IF NOT EXISTS supply_plan_revisions", "snapshot JSONB", "PRIMARY KEY (supply_plan_id, revision)"} {
+		if !strings.Contains(sql, required) {
+			t.Errorf("supply plan migration missing %q", required)
+		}
+	}
+}
+
+func TestGoodsReceiptVarianceMigrationAddsJSONArray(t *testing.T) {
+	sqlBytes, err := files.ReadFile("000007_goods_receipt_variances.up.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sql := string(sqlBytes)
+	for _, required := range []string{"variances JSONB", "DEFAULT '[]'::jsonb", "jsonb_typeof(variances) = 'array'"} {
+		if !strings.Contains(sql, required) {
+			t.Errorf("goods receipt variance migration missing %q", required)
+		}
+	}
+}
+
+func TestGoodsReceiptIdempotencyMigrationAddsUniqueActorKeyAndPayloadHash(t *testing.T) {
+	sqlBytes, err := files.ReadFile("000006_goods_receipt_idempotency.up.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sql := string(sqlBytes)
+	for _, required := range []string{"idempotency_key", "idempotency_request_hash", "UNIQUE INDEX", "goods_receipts_received_by_idempotency_key_unique"} {
+		if !strings.Contains(sql, required) {
+			t.Errorf("goods receipt idempotency migration missing %q", required)
+		}
+	}
+}
+
+func TestSupplierManagementMigrationDefinesContractsAndEffectiveOfferVersions(t *testing.T) {
+	sqlBytes, err := files.ReadFile("000004_supplier_agreements_and_price_versions.up.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sql := string(sqlBytes)
+	for _, required := range []string{"legal_identifier", "preferred_supplier_id", "effective_from", "effective_to", "supplier_contracts", "supplier_contract_status_history"} {
+		if !strings.Contains(sql, required) {
+			t.Errorf("supplier management migration missing %q", required)
+		}
+	}
+}
+
+func TestPurchaseOrderLifecycleMigrationIncludesResponseRevisionAndCloseStates(t *testing.T) {
+	sqlBytes, err := files.ReadFile("000005_purchase_order_supplier_response_and_revisions.up.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sql := string(sqlBytes)
+	for _, required := range []string{"ACKNOWLEDGED", "CHANGE_REQUESTED", "SUPPLIER_DECLINED", "CLOSED", "supplier_responded_at", "closed_at", "purchase_order_revision_snapshots"} {
+		if !strings.Contains(sql, required) {
+			t.Errorf("PO lifecycle migration missing %q", required)
+		}
+	}
+}
