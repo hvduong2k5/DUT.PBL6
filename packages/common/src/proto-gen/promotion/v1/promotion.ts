@@ -17,9 +17,11 @@ import {
   type ServiceError,
   type UntypedServiceImplementation,
 } from "@grpc/grpc-js";
+import Long from "long";
 import _m0 from "protobufjs/minimal";
 import { ErrorDetail } from "../../common/v1/errors";
 import { Money } from "../../common/v1/types";
+import { CommandEvidence } from "../../common/v1/workflow";
 import { Timestamp } from "../../google/protobuf/timestamp";
 
 export const protobufPackage = "omamx.promotion.v1";
@@ -89,6 +91,9 @@ export interface ValidateAndLockVoucherRequest {
     | undefined;
   /** Thời gian khóa giữ chỗ voucher (Mặc định: 15 phút, khớp với TTL của khóa kho) */
   ttlMinutes: number;
+  shippingFee?: Money | undefined;
+  requestHash: string;
+  contractVersion: string;
 }
 
 /** Phản hồi kết quả thẩm định và khóa voucher */
@@ -111,6 +116,7 @@ export interface ValidateAndLockVoucherResponse {
     | undefined;
   /** Chi tiết lỗi nếu voucher không hợp lệ (Hết hạn, chưa đủ tiền tối thiểu, v.v.) */
   error?: ErrorDetail | undefined;
+  outcome?: VoucherHoldOutcome | undefined;
 }
 
 /** Yêu cầu mở khóa voucher khi Saga kích hoạt đền bù */
@@ -133,6 +139,31 @@ export interface CalculateDiscountRequest {
   voucherCode: string;
   customerId: string;
   orderSubtotal?: Money | undefined;
+  shippingFee?: Money | undefined;
+}
+
+export interface VoucherHoldCommand {
+  orderId: string;
+  idempotencyKey: string;
+  requestHash: string;
+  expectedHoldId?: string | undefined;
+  expectedVersion?: bigint | undefined;
+  contractVersion: string;
+  queryAction: string;
+}
+
+export interface VoucherHoldOutcome {
+  orderId: string;
+  holdId: string;
+  /** HELD, FINALIZED, RELEASED, EXPIRED; never UNKNOWN. */
+  state: string;
+  resourceVersion: bigint;
+  expiresAt?: Date | undefined;
+  observedAt?: Date | undefined;
+  command?: CommandEvidence | undefined;
+  cancellationTombstone: boolean;
+  discountAmount?: Money | undefined;
+  contractVersion: string;
 }
 
 /** Phản hồi tính toán giảm giá thử nghiệm */
@@ -143,7 +174,17 @@ export interface CalculateDiscountResponse {
 }
 
 function createBaseValidateAndLockVoucherRequest(): ValidateAndLockVoucherRequest {
-  return { idempotencyKey: "", voucherCode: "", orderId: "", customerId: "", orderSubtotal: undefined, ttlMinutes: 0 };
+  return {
+    idempotencyKey: "",
+    voucherCode: "",
+    orderId: "",
+    customerId: "",
+    orderSubtotal: undefined,
+    ttlMinutes: 0,
+    shippingFee: undefined,
+    requestHash: "",
+    contractVersion: "",
+  };
 }
 
 export const ValidateAndLockVoucherRequest = {
@@ -165,6 +206,15 @@ export const ValidateAndLockVoucherRequest = {
     }
     if (message.ttlMinutes !== 0) {
       writer.uint32(48).int32(message.ttlMinutes);
+    }
+    if (message.shippingFee !== undefined) {
+      Money.encode(message.shippingFee, writer.uint32(58).fork()).ldelim();
+    }
+    if (message.requestHash !== "") {
+      writer.uint32(66).string(message.requestHash);
+    }
+    if (message.contractVersion !== "") {
+      writer.uint32(74).string(message.contractVersion);
     }
     return writer;
   },
@@ -218,6 +268,27 @@ export const ValidateAndLockVoucherRequest = {
 
           message.ttlMinutes = reader.int32();
           continue;
+        case 7:
+          if (tag !== 58) {
+            break;
+          }
+
+          message.shippingFee = Money.decode(reader, reader.uint32());
+          continue;
+        case 8:
+          if (tag !== 66) {
+            break;
+          }
+
+          message.requestHash = reader.string();
+          continue;
+        case 9:
+          if (tag !== 74) {
+            break;
+          }
+
+          message.contractVersion = reader.string();
+          continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -235,6 +306,9 @@ export const ValidateAndLockVoucherRequest = {
       customerId: isSet(object.customerId) ? globalThis.String(object.customerId) : "",
       orderSubtotal: isSet(object.orderSubtotal) ? Money.fromJSON(object.orderSubtotal) : undefined,
       ttlMinutes: isSet(object.ttlMinutes) ? globalThis.Number(object.ttlMinutes) : 0,
+      shippingFee: isSet(object.shippingFee) ? Money.fromJSON(object.shippingFee) : undefined,
+      requestHash: isSet(object.requestHash) ? globalThis.String(object.requestHash) : "",
+      contractVersion: isSet(object.contractVersion) ? globalThis.String(object.contractVersion) : "",
     };
   },
 
@@ -258,6 +332,15 @@ export const ValidateAndLockVoucherRequest = {
     if (message.ttlMinutes !== 0) {
       obj.ttlMinutes = Math.round(message.ttlMinutes);
     }
+    if (message.shippingFee !== undefined) {
+      obj.shippingFee = Money.toJSON(message.shippingFee);
+    }
+    if (message.requestHash !== "") {
+      obj.requestHash = message.requestHash;
+    }
+    if (message.contractVersion !== "") {
+      obj.contractVersion = message.contractVersion;
+    }
     return obj;
   },
 
@@ -276,6 +359,11 @@ export const ValidateAndLockVoucherRequest = {
       ? Money.fromPartial(object.orderSubtotal)
       : undefined;
     message.ttlMinutes = object.ttlMinutes ?? 0;
+    message.shippingFee = (object.shippingFee !== undefined && object.shippingFee !== null)
+      ? Money.fromPartial(object.shippingFee)
+      : undefined;
+    message.requestHash = object.requestHash ?? "";
+    message.contractVersion = object.contractVersion ?? "";
     return message;
   },
 };
@@ -288,6 +376,7 @@ function createBaseValidateAndLockVoucherResponse(): ValidateAndLockVoucherRespo
     voucherLockId: undefined,
     expiresAt: undefined,
     error: undefined,
+    outcome: undefined,
   };
 }
 
@@ -310,6 +399,9 @@ export const ValidateAndLockVoucherResponse = {
     }
     if (message.error !== undefined) {
       ErrorDetail.encode(message.error, writer.uint32(50).fork()).ldelim();
+    }
+    if (message.outcome !== undefined) {
+      VoucherHoldOutcome.encode(message.outcome, writer.uint32(58).fork()).ldelim();
     }
     return writer;
   },
@@ -363,6 +455,13 @@ export const ValidateAndLockVoucherResponse = {
 
           message.error = ErrorDetail.decode(reader, reader.uint32());
           continue;
+        case 7:
+          if (tag !== 58) {
+            break;
+          }
+
+          message.outcome = VoucherHoldOutcome.decode(reader, reader.uint32());
+          continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -380,6 +479,7 @@ export const ValidateAndLockVoucherResponse = {
       voucherLockId: isSet(object.voucherLockId) ? globalThis.String(object.voucherLockId) : undefined,
       expiresAt: isSet(object.expiresAt) ? fromJsonTimestamp(object.expiresAt) : undefined,
       error: isSet(object.error) ? ErrorDetail.fromJSON(object.error) : undefined,
+      outcome: isSet(object.outcome) ? VoucherHoldOutcome.fromJSON(object.outcome) : undefined,
     };
   },
 
@@ -403,6 +503,9 @@ export const ValidateAndLockVoucherResponse = {
     if (message.error !== undefined) {
       obj.error = ErrorDetail.toJSON(message.error);
     }
+    if (message.outcome !== undefined) {
+      obj.outcome = VoucherHoldOutcome.toJSON(message.outcome);
+    }
     return obj;
   },
 
@@ -422,6 +525,9 @@ export const ValidateAndLockVoucherResponse = {
     message.expiresAt = object.expiresAt ?? undefined;
     message.error = (object.error !== undefined && object.error !== null)
       ? ErrorDetail.fromPartial(object.error)
+      : undefined;
+    message.outcome = (object.outcome !== undefined && object.outcome !== null)
+      ? VoucherHoldOutcome.fromPartial(object.outcome)
       : undefined;
     return message;
   },
@@ -621,7 +727,7 @@ export const ReleaseVoucherResponse = {
 };
 
 function createBaseCalculateDiscountRequest(): CalculateDiscountRequest {
-  return { voucherCode: "", customerId: "", orderSubtotal: undefined };
+  return { voucherCode: "", customerId: "", orderSubtotal: undefined, shippingFee: undefined };
 }
 
 export const CalculateDiscountRequest = {
@@ -634,6 +740,9 @@ export const CalculateDiscountRequest = {
     }
     if (message.orderSubtotal !== undefined) {
       Money.encode(message.orderSubtotal, writer.uint32(26).fork()).ldelim();
+    }
+    if (message.shippingFee !== undefined) {
+      Money.encode(message.shippingFee, writer.uint32(34).fork()).ldelim();
     }
     return writer;
   },
@@ -666,6 +775,13 @@ export const CalculateDiscountRequest = {
 
           message.orderSubtotal = Money.decode(reader, reader.uint32());
           continue;
+        case 4:
+          if (tag !== 34) {
+            break;
+          }
+
+          message.shippingFee = Money.decode(reader, reader.uint32());
+          continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -680,6 +796,7 @@ export const CalculateDiscountRequest = {
       voucherCode: isSet(object.voucherCode) ? globalThis.String(object.voucherCode) : "",
       customerId: isSet(object.customerId) ? globalThis.String(object.customerId) : "",
       orderSubtotal: isSet(object.orderSubtotal) ? Money.fromJSON(object.orderSubtotal) : undefined,
+      shippingFee: isSet(object.shippingFee) ? Money.fromJSON(object.shippingFee) : undefined,
     };
   },
 
@@ -694,6 +811,9 @@ export const CalculateDiscountRequest = {
     if (message.orderSubtotal !== undefined) {
       obj.orderSubtotal = Money.toJSON(message.orderSubtotal);
     }
+    if (message.shippingFee !== undefined) {
+      obj.shippingFee = Money.toJSON(message.shippingFee);
+    }
     return obj;
   },
 
@@ -707,6 +827,383 @@ export const CalculateDiscountRequest = {
     message.orderSubtotal = (object.orderSubtotal !== undefined && object.orderSubtotal !== null)
       ? Money.fromPartial(object.orderSubtotal)
       : undefined;
+    message.shippingFee = (object.shippingFee !== undefined && object.shippingFee !== null)
+      ? Money.fromPartial(object.shippingFee)
+      : undefined;
+    return message;
+  },
+};
+
+function createBaseVoucherHoldCommand(): VoucherHoldCommand {
+  return {
+    orderId: "",
+    idempotencyKey: "",
+    requestHash: "",
+    expectedHoldId: undefined,
+    expectedVersion: undefined,
+    contractVersion: "",
+    queryAction: "",
+  };
+}
+
+export const VoucherHoldCommand = {
+  encode(message: VoucherHoldCommand, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.orderId !== "") {
+      writer.uint32(10).string(message.orderId);
+    }
+    if (message.idempotencyKey !== "") {
+      writer.uint32(18).string(message.idempotencyKey);
+    }
+    if (message.requestHash !== "") {
+      writer.uint32(26).string(message.requestHash);
+    }
+    if (message.expectedHoldId !== undefined) {
+      writer.uint32(34).string(message.expectedHoldId);
+    }
+    if (message.expectedVersion !== undefined) {
+      if (BigInt.asIntN(64, message.expectedVersion) !== message.expectedVersion) {
+        throw new globalThis.Error("value provided for field message.expectedVersion of type int64 too large");
+      }
+      writer.uint32(40).int64(message.expectedVersion.toString());
+    }
+    if (message.contractVersion !== "") {
+      writer.uint32(50).string(message.contractVersion);
+    }
+    if (message.queryAction !== "") {
+      writer.uint32(58).string(message.queryAction);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): VoucherHoldCommand {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseVoucherHoldCommand();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.orderId = reader.string();
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.idempotencyKey = reader.string();
+          continue;
+        case 3:
+          if (tag !== 26) {
+            break;
+          }
+
+          message.requestHash = reader.string();
+          continue;
+        case 4:
+          if (tag !== 34) {
+            break;
+          }
+
+          message.expectedHoldId = reader.string();
+          continue;
+        case 5:
+          if (tag !== 40) {
+            break;
+          }
+
+          message.expectedVersion = longToBigint(reader.int64() as Long);
+          continue;
+        case 6:
+          if (tag !== 50) {
+            break;
+          }
+
+          message.contractVersion = reader.string();
+          continue;
+        case 7:
+          if (tag !== 58) {
+            break;
+          }
+
+          message.queryAction = reader.string();
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): VoucherHoldCommand {
+    return {
+      orderId: isSet(object.orderId) ? globalThis.String(object.orderId) : "",
+      idempotencyKey: isSet(object.idempotencyKey) ? globalThis.String(object.idempotencyKey) : "",
+      requestHash: isSet(object.requestHash) ? globalThis.String(object.requestHash) : "",
+      expectedHoldId: isSet(object.expectedHoldId) ? globalThis.String(object.expectedHoldId) : undefined,
+      expectedVersion: isSet(object.expectedVersion) ? BigInt(object.expectedVersion) : undefined,
+      contractVersion: isSet(object.contractVersion) ? globalThis.String(object.contractVersion) : "",
+      queryAction: isSet(object.queryAction) ? globalThis.String(object.queryAction) : "",
+    };
+  },
+
+  toJSON(message: VoucherHoldCommand): unknown {
+    const obj: any = {};
+    if (message.orderId !== "") {
+      obj.orderId = message.orderId;
+    }
+    if (message.idempotencyKey !== "") {
+      obj.idempotencyKey = message.idempotencyKey;
+    }
+    if (message.requestHash !== "") {
+      obj.requestHash = message.requestHash;
+    }
+    if (message.expectedHoldId !== undefined) {
+      obj.expectedHoldId = message.expectedHoldId;
+    }
+    if (message.expectedVersion !== undefined) {
+      obj.expectedVersion = message.expectedVersion.toString();
+    }
+    if (message.contractVersion !== "") {
+      obj.contractVersion = message.contractVersion;
+    }
+    if (message.queryAction !== "") {
+      obj.queryAction = message.queryAction;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<VoucherHoldCommand>, I>>(base?: I): VoucherHoldCommand {
+    return VoucherHoldCommand.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<VoucherHoldCommand>, I>>(object: I): VoucherHoldCommand {
+    const message = createBaseVoucherHoldCommand();
+    message.orderId = object.orderId ?? "";
+    message.idempotencyKey = object.idempotencyKey ?? "";
+    message.requestHash = object.requestHash ?? "";
+    message.expectedHoldId = object.expectedHoldId ?? undefined;
+    message.expectedVersion = object.expectedVersion ?? undefined;
+    message.contractVersion = object.contractVersion ?? "";
+    message.queryAction = object.queryAction ?? "";
+    return message;
+  },
+};
+
+function createBaseVoucherHoldOutcome(): VoucherHoldOutcome {
+  return {
+    orderId: "",
+    holdId: "",
+    state: "",
+    resourceVersion: BigInt("0"),
+    expiresAt: undefined,
+    observedAt: undefined,
+    command: undefined,
+    cancellationTombstone: false,
+    discountAmount: undefined,
+    contractVersion: "",
+  };
+}
+
+export const VoucherHoldOutcome = {
+  encode(message: VoucherHoldOutcome, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.orderId !== "") {
+      writer.uint32(10).string(message.orderId);
+    }
+    if (message.holdId !== "") {
+      writer.uint32(18).string(message.holdId);
+    }
+    if (message.state !== "") {
+      writer.uint32(26).string(message.state);
+    }
+    if (message.resourceVersion !== BigInt("0")) {
+      if (BigInt.asIntN(64, message.resourceVersion) !== message.resourceVersion) {
+        throw new globalThis.Error("value provided for field message.resourceVersion of type int64 too large");
+      }
+      writer.uint32(32).int64(message.resourceVersion.toString());
+    }
+    if (message.expiresAt !== undefined) {
+      Timestamp.encode(toTimestamp(message.expiresAt), writer.uint32(42).fork()).ldelim();
+    }
+    if (message.observedAt !== undefined) {
+      Timestamp.encode(toTimestamp(message.observedAt), writer.uint32(50).fork()).ldelim();
+    }
+    if (message.command !== undefined) {
+      CommandEvidence.encode(message.command, writer.uint32(58).fork()).ldelim();
+    }
+    if (message.cancellationTombstone !== false) {
+      writer.uint32(64).bool(message.cancellationTombstone);
+    }
+    if (message.discountAmount !== undefined) {
+      Money.encode(message.discountAmount, writer.uint32(74).fork()).ldelim();
+    }
+    if (message.contractVersion !== "") {
+      writer.uint32(82).string(message.contractVersion);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): VoucherHoldOutcome {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseVoucherHoldOutcome();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.orderId = reader.string();
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.holdId = reader.string();
+          continue;
+        case 3:
+          if (tag !== 26) {
+            break;
+          }
+
+          message.state = reader.string();
+          continue;
+        case 4:
+          if (tag !== 32) {
+            break;
+          }
+
+          message.resourceVersion = longToBigint(reader.int64() as Long);
+          continue;
+        case 5:
+          if (tag !== 42) {
+            break;
+          }
+
+          message.expiresAt = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
+          continue;
+        case 6:
+          if (tag !== 50) {
+            break;
+          }
+
+          message.observedAt = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
+          continue;
+        case 7:
+          if (tag !== 58) {
+            break;
+          }
+
+          message.command = CommandEvidence.decode(reader, reader.uint32());
+          continue;
+        case 8:
+          if (tag !== 64) {
+            break;
+          }
+
+          message.cancellationTombstone = reader.bool();
+          continue;
+        case 9:
+          if (tag !== 74) {
+            break;
+          }
+
+          message.discountAmount = Money.decode(reader, reader.uint32());
+          continue;
+        case 10:
+          if (tag !== 82) {
+            break;
+          }
+
+          message.contractVersion = reader.string();
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): VoucherHoldOutcome {
+    return {
+      orderId: isSet(object.orderId) ? globalThis.String(object.orderId) : "",
+      holdId: isSet(object.holdId) ? globalThis.String(object.holdId) : "",
+      state: isSet(object.state) ? globalThis.String(object.state) : "",
+      resourceVersion: isSet(object.resourceVersion) ? BigInt(object.resourceVersion) : BigInt("0"),
+      expiresAt: isSet(object.expiresAt) ? fromJsonTimestamp(object.expiresAt) : undefined,
+      observedAt: isSet(object.observedAt) ? fromJsonTimestamp(object.observedAt) : undefined,
+      command: isSet(object.command) ? CommandEvidence.fromJSON(object.command) : undefined,
+      cancellationTombstone: isSet(object.cancellationTombstone)
+        ? globalThis.Boolean(object.cancellationTombstone)
+        : false,
+      discountAmount: isSet(object.discountAmount) ? Money.fromJSON(object.discountAmount) : undefined,
+      contractVersion: isSet(object.contractVersion) ? globalThis.String(object.contractVersion) : "",
+    };
+  },
+
+  toJSON(message: VoucherHoldOutcome): unknown {
+    const obj: any = {};
+    if (message.orderId !== "") {
+      obj.orderId = message.orderId;
+    }
+    if (message.holdId !== "") {
+      obj.holdId = message.holdId;
+    }
+    if (message.state !== "") {
+      obj.state = message.state;
+    }
+    if (message.resourceVersion !== BigInt("0")) {
+      obj.resourceVersion = message.resourceVersion.toString();
+    }
+    if (message.expiresAt !== undefined) {
+      obj.expiresAt = message.expiresAt.toISOString();
+    }
+    if (message.observedAt !== undefined) {
+      obj.observedAt = message.observedAt.toISOString();
+    }
+    if (message.command !== undefined) {
+      obj.command = CommandEvidence.toJSON(message.command);
+    }
+    if (message.cancellationTombstone !== false) {
+      obj.cancellationTombstone = message.cancellationTombstone;
+    }
+    if (message.discountAmount !== undefined) {
+      obj.discountAmount = Money.toJSON(message.discountAmount);
+    }
+    if (message.contractVersion !== "") {
+      obj.contractVersion = message.contractVersion;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<VoucherHoldOutcome>, I>>(base?: I): VoucherHoldOutcome {
+    return VoucherHoldOutcome.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<VoucherHoldOutcome>, I>>(object: I): VoucherHoldOutcome {
+    const message = createBaseVoucherHoldOutcome();
+    message.orderId = object.orderId ?? "";
+    message.holdId = object.holdId ?? "";
+    message.state = object.state ?? "";
+    message.resourceVersion = object.resourceVersion ?? BigInt("0");
+    message.expiresAt = object.expiresAt ?? undefined;
+    message.observedAt = object.observedAt ?? undefined;
+    message.command = (object.command !== undefined && object.command !== null)
+      ? CommandEvidence.fromPartial(object.command)
+      : undefined;
+    message.cancellationTombstone = object.cancellationTombstone ?? false;
+    message.discountAmount = (object.discountAmount !== undefined && object.discountAmount !== null)
+      ? Money.fromPartial(object.discountAmount)
+      : undefined;
+    message.contractVersion = object.contractVersion ?? "";
     return message;
   },
 };
@@ -837,6 +1334,34 @@ export const PromotionServiceService = {
       Buffer.from(CalculateDiscountResponse.encode(value).finish()),
     responseDeserialize: (value: Buffer) => CalculateDiscountResponse.decode(value),
   },
+  /** Proposed feature-gated Order 3.2 protocol; paid facts never consume a hold. */
+  getVoucherHoldByOrder: {
+    path: "/omamx.promotion.v1.PromotionService/GetVoucherHoldByOrder",
+    requestStream: false,
+    responseStream: false,
+    requestSerialize: (value: VoucherHoldCommand) => Buffer.from(VoucherHoldCommand.encode(value).finish()),
+    requestDeserialize: (value: Buffer) => VoucherHoldCommand.decode(value),
+    responseSerialize: (value: VoucherHoldOutcome) => Buffer.from(VoucherHoldOutcome.encode(value).finish()),
+    responseDeserialize: (value: Buffer) => VoucherHoldOutcome.decode(value),
+  },
+  finalizeVoucherHold: {
+    path: "/omamx.promotion.v1.PromotionService/FinalizeVoucherHold",
+    requestStream: false,
+    responseStream: false,
+    requestSerialize: (value: VoucherHoldCommand) => Buffer.from(VoucherHoldCommand.encode(value).finish()),
+    requestDeserialize: (value: Buffer) => VoucherHoldCommand.decode(value),
+    responseSerialize: (value: VoucherHoldOutcome) => Buffer.from(VoucherHoldOutcome.encode(value).finish()),
+    responseDeserialize: (value: Buffer) => VoucherHoldOutcome.decode(value),
+  },
+  releaseVoucherHoldByOrder: {
+    path: "/omamx.promotion.v1.PromotionService/ReleaseVoucherHoldByOrder",
+    requestStream: false,
+    responseStream: false,
+    requestSerialize: (value: VoucherHoldCommand) => Buffer.from(VoucherHoldCommand.encode(value).finish()),
+    requestDeserialize: (value: Buffer) => VoucherHoldCommand.decode(value),
+    responseSerialize: (value: VoucherHoldOutcome) => Buffer.from(VoucherHoldOutcome.encode(value).finish()),
+    responseDeserialize: (value: Buffer) => VoucherHoldOutcome.decode(value),
+  },
 } as const;
 
 export interface PromotionServiceServer extends UntypedServiceImplementation {
@@ -846,6 +1371,10 @@ export interface PromotionServiceServer extends UntypedServiceImplementation {
   releaseVoucher: handleUnaryCall<ReleaseVoucherRequest, ReleaseVoucherResponse>;
   /** Tính toán nhanh số tiền giảm giá dự kiến mà không khóa voucher (Dùng khi xem giỏ hàng) */
   calculateDiscount: handleUnaryCall<CalculateDiscountRequest, CalculateDiscountResponse>;
+  /** Proposed feature-gated Order 3.2 protocol; paid facts never consume a hold. */
+  getVoucherHoldByOrder: handleUnaryCall<VoucherHoldCommand, VoucherHoldOutcome>;
+  finalizeVoucherHold: handleUnaryCall<VoucherHoldCommand, VoucherHoldOutcome>;
+  releaseVoucherHoldByOrder: handleUnaryCall<VoucherHoldCommand, VoucherHoldOutcome>;
 }
 
 export interface PromotionServiceClient extends Client {
@@ -897,6 +1426,52 @@ export interface PromotionServiceClient extends Client {
     options: Partial<CallOptions>,
     callback: (error: ServiceError | null, response: CalculateDiscountResponse) => void,
   ): ClientUnaryCall;
+  /** Proposed feature-gated Order 3.2 protocol; paid facts never consume a hold. */
+  getVoucherHoldByOrder(
+    request: VoucherHoldCommand,
+    callback: (error: ServiceError | null, response: VoucherHoldOutcome) => void,
+  ): ClientUnaryCall;
+  getVoucherHoldByOrder(
+    request: VoucherHoldCommand,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: VoucherHoldOutcome) => void,
+  ): ClientUnaryCall;
+  getVoucherHoldByOrder(
+    request: VoucherHoldCommand,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: VoucherHoldOutcome) => void,
+  ): ClientUnaryCall;
+  finalizeVoucherHold(
+    request: VoucherHoldCommand,
+    callback: (error: ServiceError | null, response: VoucherHoldOutcome) => void,
+  ): ClientUnaryCall;
+  finalizeVoucherHold(
+    request: VoucherHoldCommand,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: VoucherHoldOutcome) => void,
+  ): ClientUnaryCall;
+  finalizeVoucherHold(
+    request: VoucherHoldCommand,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: VoucherHoldOutcome) => void,
+  ): ClientUnaryCall;
+  releaseVoucherHoldByOrder(
+    request: VoucherHoldCommand,
+    callback: (error: ServiceError | null, response: VoucherHoldOutcome) => void,
+  ): ClientUnaryCall;
+  releaseVoucherHoldByOrder(
+    request: VoucherHoldCommand,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: VoucherHoldOutcome) => void,
+  ): ClientUnaryCall;
+  releaseVoucherHoldByOrder(
+    request: VoucherHoldCommand,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: VoucherHoldOutcome) => void,
+  ): ClientUnaryCall;
 }
 
 export const PromotionServiceClient = makeGenericClientConstructor(
@@ -940,6 +1515,15 @@ function fromJsonTimestamp(o: any): Date {
   } else {
     return fromTimestamp(Timestamp.fromJSON(o));
   }
+}
+
+function longToBigint(long: Long) {
+  return BigInt(long.toString());
+}
+
+if (_m0.util.Long !== Long) {
+  _m0.util.Long = Long as any;
+  _m0.configure();
 }
 
 function isSet(value: any): boolean {
