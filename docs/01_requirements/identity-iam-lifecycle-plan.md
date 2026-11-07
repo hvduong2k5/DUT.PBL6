@@ -10,17 +10,40 @@
 
 | Điểm | Trạng thái hiện tại | Vấn đề |
 |------|-------------------|--------|
+| 1. Chuẩn hóa JWT & đồng bộ quyền | JWT, Keycloak attributes và grants đọc chưa thống nhất. Khi đổi permission của role, disable role hoặc thu hồi assignment, không cập nhật dữ liệu phát token kịp thời. | Token cũ vẫn sống lâu hơn assignment, quyền mới không được phản chiếu kịp vào token. |
+| 2. An toàn Super Admin & lifecycle role | Chỉ có `ADMIN` (super-admin). Chưa có cơ chế chặn khóa/thu hồi Admin hợp lệ cuối cùng. Chưa có audit chi tiết cho thay đổi role/permission/assignment. | Rủi ro khoá cửa hệ thống nếu xóa nhầm Admin cuối cùng. |
 | 4. Bộ trạng thái Account | `provisioningStatus` (`ACTIVE`, `PENDING_VERIFICATION`) trong DB và `customer_status`. Chưa có endpoint mở khóa/reactivate rõ ràng. | Cần thêm API admin để CRUD tài khoản, khóa tạm/vĩnh viễn, mở khóa/reactivate. |
 | 5. Thời gian thu hồi Role | JWT exp do Keycloak cấp; refresh token maxAge 28.800s (8 giờ) trong `oidc.ts`. Không có cấu hình propagate thu hồi role lên session/cache. | Chốt thời gian tối đa (5–15 phút) và xử lý phiên đang thực hiện giao dịch quan trọng. |
 | 8. Danh sách Role | Chỉ thấy `ADMIN` (`ROLE_ADMIN` từ Keycloak realm role). `CUSTOMER` và `EMPLOYEE` là `principal_type` (loại tài khoản), không phải role phân quyền. | Chưa có quy trình sửa/clone/archive role và cơ chế bảo vệ Admin hợp lệ cuối cùng. |
 | 9. Ma trận thẩm quyền | Không thấy mã nguồn triển khai ma trận chi tiết, self-assignment, break-glass. | Cần bổ sung tài liệu thiết kế (role_permission_matrix.md). |
 | 10. Assignment tạm thời | Không thấy mã nguồn. | Cần thiết kế thời điểm hiệu lực, timezone, nhắc hết hạn, người chịu trách nhiệm gia hạn. |
-| 11. Access Review | Không thấy mã nguồn/tài liệu. | Cần thiết kế chu kỳ review, owner phê duyệt/thu hồi, export, xử lý quyền thừa/orphaned. |
-| Soft delete Role | `iam_roles` có `is_enabled`, `is_protected`. `UNIQUE(role_code)` chặn tạo lại mã trùng sau xóa mềm. | Cần partial unique index, centralized `WHERE is_enabled = TRUE`, không xóa realm role ngay khi soft delete. |
+| Soft delete Role | `iam_roles` có `is_enabled`, `is_protected`. `UNIQUE(role_code)` chặn tạo lại mã trùng sau xóa mềm. | Cần partial unique index, centralized `WHERE is_enabled = TRUE`, chỉ xóa mềm khi không còn user nào tham chiếu. |
 
 ---
 
 ## 2. Các mục cần chốt
+
+### 1. Chuẩn hóa JWT và đồng bộ quyền trong Identity (ƯU TIÊN ĐẦU)
+
+Token JWT cần thể hiện được:
+- **Principal là CUSTOMER hay EMPLOYEE** (`principal_type`)
+- **Principal ID nội bộ** (`principal_id`)
+- **Permission gắn đúng scope** (từ `iam_role_permissions` qua `iam_role_assignments`)
+- **Thời hạn hiệu lực** (`exp`, `valid_from`, `valid_until`)
+
+Quy trình khi có thay đổi quyền:
+- Khi đổi permission của role, disable role, hoặc thu hồi assignment → phải cập nhật dữ liệu dùng để phát token cho tất cả nhân viên bị ảnh hưởng.
+- Token mới phải nhận quyền mới.
+- Quyền có thời hạn không được sống lâu hơn assignment (khi assignment `REVOKED`/`EXPIRED`, token tương ứng phải bị vô hiệu hóa hoặc không thể refresh được quyền cũ).
+
+### 2. Hoàn thiện an toàn cho Super Admin và lifecycle role
+
+- **Giữ ADMIN là Super Admin hiện tại.**
+- **Chặn khóa/thu hồi quyền làm mất Admin hợp lệ cuối cùng:** Kiểm tra trước khi thực hiện `REVOKED` hoặc `TERMINATED` trên Admin cuối cùng, kể cả thao tác đồng thời (concurrent).
+- **Ghi Audit cho thay đổi role, permission và assignment.**
+- **Ngừng hiệu lực/archive role đã sử dụng:** Không xóa cứng role đã từng có user gán, chỉ xóa mềm (`is_enabled = FALSE`) khi không còn user nào tham chiếu.
+- **Chốt và thực thi điều kiện xóa vật lý role chưa sử dụng:** Chỉ xóa vĩnh viễn khi không còn assignment nào tham chiếu (kiểm tra `iam_role_assignments`).
+- **Kiểm tra phiên bản khi người dùng lưu form cũ:** Tránh ghi đè thay đổi mới (optimistic locking với `version`).
 
 ### 4. Bộ trạng thái Account & quyền mở khóa/reactivate
 - **Trạng thái tài khoản:** `ACTIVE`, `PENDING_VERIFICATION`, `SUSPENDED` (khóa tạm), `TERMINATED` (khóa vĩnh viễn).
@@ -52,12 +75,6 @@
 - `iam_role_assignments` đã có `valid_from`, `valid_until`, `assignment_status`.
 - Cần bổ sung: thông báo nhắc hết hạn (ví dụ 7 ngày trước), người chịu trách nhiệm gia hạn (owner), quy trình gia hạn hoặc tự động `EXPIRED`.
 
-### 11. Chu kỳ Access Review, owner phê duyệt/thu hồi, bằng chứng xác nhận, export, quyền thừa/orphaned Account
-- **Chu kỳ Review:** Theo định kỳ (ví dụ quý một lần), owner phê duyệt lại quyền của mỗi nhân viên.
-- **Bằng chứng:** Ghi log ai phê duyệt, khi nào, lý do.
-- **Export:** Xuất danh sách tài khoản/quyen ra CSV/JSON cho auditor.
-- **Quyền thừa/orphaned:** Phát hiện tài khoản có role nhưng không còn cần thiết, hoặc account không có role nào (orphaned), tiến hành thu hồi.
-
 ---
 
 ## 3. Thay đổi cơ sở dữ liệu (Migration)
@@ -69,22 +86,13 @@ CREATE UNIQUE INDEX uq_iam_roles_role_code_enabled
 ON iam_roles (role_code) WHERE is_enabled = TRUE;
 ```
 
+**Quy tắc xóa mềm role:**
+- Chỉ được xóa mềm (`is_enabled = FALSE`) role khi **không còn user nào đang được gán** (không có `iam_role_assignments` với `assignment_status = 'ACTIVE'` và `valid_until > now` tham chiếu đến role này).
+- JWT/Keycloak attribute cũ của user không ảnh hưởng vì khi thu hồi role của user, assignment sẽ được xóa/thu hồi trước, đồng bộ lại Keycloak.
+- Các `iam_role_assignments` cũ liên quan đến role đã xóa mềm sẽ được chuyển sang `REVOKED` hoặc giữ lịch sử audit, không được để trỏ nhầm.
+
 ### 3.2 Centralize truy vấn đọc Role
 Tất cả repository/service đọc `iam_roles` phải thêm điều kiện `AND is_enabled = TRUE` (hoặc `deleted_at IS NULL` nếu thêm cột đó).
-
-### 3.3 Bảng hỗ trợ Access Review (nếu cần)
-```sql
-CREATE TABLE IF NOT EXISTS iam_access_review (
-    review_id UUID PRIMARY KEY,
-    reviewer_principal_id UUID NOT NULL,
-    reviewed_principal_id UUID NOT NULL,
-    review_status VARCHAR(32) NOT NULL CHECK (review_status IN ('PENDING', 'APPROVED', 'REVOKED')),
-    review_date TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    next_review_date TIMESTAMPTZ,
-    evidence TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-```
 
 ---
 
@@ -92,30 +100,31 @@ CREATE TABLE IF NOT EXISTS iam_access_review (
 
 | Endpoint | Phương Gesetz | Mô tả | Quyền |
 |----------|-------------|-------|-------|
-| `/api/v1/admin/accounts` | GET | Liệt kê tài khoản, lọc theo trạng thái | `ROLE_ADMIN` hoặc `USER_VIEW` |
-| `/api/v1/admin/accounts/{id}/status` | PATCH | Khóa tạm/vĩnh viễn, mở khóa | `ROLE_ADMIN` hoặc `USER_MANAGE` |
-| `/api/v1/admin/accounts/{id}/reactivate` | POST | Khôi phục tài khoản đã khóa | `ROLE_ADMIN` hoặc `USER_MANAGE` |
-| `/api/v1/admin/roles` | GET | Liệt kê role (bao gồm `is_enabled`) | `ROLE_ADMIN` hoặc `ROLE_VIEW` |
-| `/api/v1/admin/roles/{id}` | DELETE | Soft delete role (chặn nếu là admin cuối cùng) | `ROLE_ADMIN` hoặc `ROLE_MANAGE` |
-| `/api/v1/admin/role-assignments` | GET | Xem assignment, lọc theo principal/role/scope | `ROLE_ADMIN` hoặc `ROLE_VIEW` |
-| `/api/v1/admin/role-assignments/{id}` | DELETE | Thu hồi assignment (REVOKED) | `ROLE_ADMIN` hoặc `ROLE_MANAGE` |
+| `/api/v1/admin/accounts` | GET | Liệt kê tài khoản, lọc theo trạng thái | `ROLE_ADMIN` |
+| `/api/v1/admin/accounts/{id}/status` | PATCH | Khóa tạm/vĩnh viễn, mở khóa | `ROLE_ADMIN` |
+| `/api/v1/admin/accounts/{id}/reactivate` | POST | Khôi phục tài khoản đã khóa | `ROLE_ADMIN` |
+| `/api/v1/admin/roles` | GET | Liệt kê role (bao gồm `is_enabled`) | `ROLE_ADMIN` |
+| `/api/v1/admin/roles/{id}` | DELETE | Soft delete role (chỉ khi không còn user tham chiếu; chặn nếu là admin cuối cùng) | `ROLE_ADMIN` |
+| `/api/v1/admin/role-assignments` | GET | Xem assignment, lọc theo principal/role/scope | `ROLE_ADMIN` |
+| `/api/v1/admin/role-assignments/{id}` | DELETE | Thu hồi assignment (REVOKED) | `ROLE_ADMIN` |
 
 ---
 
 ## 5. Thay đổi Keycloak sync
 
 - Khi `iam_role_assignments` thay đổi (gán/thu hồi/hết hạn), gọi `syncPermissionsToKeycloak(principalId)` để cập nhật Keycloak User Attributes.
-- **Không xóa realm role ngay khi soft delete trong DB** để tránh làm hỏng JWT/attribute cũ của user đang lưu permissions của role đó.
-- Khi thực sự xóa vĩnh viễn role (nếu cần), đồng bộ xóa trên Keycloak sau khi không còn assignment nào tham chiếu.
+- Khi đổi permission của role, phải sync lại tất cả principal đang được gán role đó.
+- **Không xóa realm role ngay khi soft delete trong DB.**
+- Khi thực sự xóa vĩnh viễn role (chưa được sử dụng), đồng bộ xóa trên Keycloak sau khi không còn assignment nào tham chiếu.
 
 ---
 
 ## 6. Audit Log
 
-Tất cả thao tác khóa/mở khóa, gán/thu hồi role, reactivate, access review phải ghi vào `identity_audit_log` (bảng đã có từ migration `V4__create_identity_audit_log.sql`) với trường:
+Tất cả thao tác khóa/mở khóa, gán/thu hồi role, reactivate, thay đổi role/permission/assignment phải ghi vào `identity_audit_log` (bảng đã có từ migration `V4__create_identity_audit_log.sql`) với trường:
 - `actor_principal_id`
 - `target_principal_id`
-- `action` (ví dụ: `ACCOUNT_SUSPEND`, `ACCOUNT_REACTIVATE`, `ROLE_ASSIGN`, `ROLE_REVOKE`, `ACCESS_REVIEW`)
+- `action` (ví dụ: `ACCOUNT_SUSPEND`, `ACCOUNT_REACTIVATE`, `ROLE_ASSIGN`, `ROLE_REVOKE`, `ROLE_DISABLE`, `PERMISSION_CHANGE`)
 - `reason`
 - `timestamp`
 
@@ -132,11 +141,11 @@ Xem file `services/identity-service/IDENTITY_SERVICE_AGENT_RULES.md`.
 | Tuần | Công việc |
 |------|-----------|
 | 1 | Thiết kế & chốt ma trận phân quyền (`iam-role-permission-matrix.md`) |
-| 2 | Thêm migration soft delete role + partial unique index |
-| 3 | Implement API khóa/mở khóa tài khoản + reactivate |
-| 4 | Implement API CRUD role & role-assignment (soft delete) |
-| 5 | Bổ sung sync Keycloak khi thu hồi role |
-| 6 | Thiết kế & implement Access Review (nếu yêu cầu) |
+| 2 | Chuẩn hóa JWT & đồng bộ quyền (syncPermissionsToKeycloak khi thay đổi role/permission/assignment) |
+| 3 | Thêm migration soft delete role + partial unique index |
+| 4 | Implement API khóa/mở khóa tài khoản + reactivate |
+| 5 | Implement API CRUD role & role-assignment (soft delete, chỉ xóa khi không còn user tham chiếu) |
+| 6 | Bổ sung sync Keycloak khi thu hồi role và thay đổi permission |
 | 7 | Viết unit test & integration test cho tất cả API mới |
 | 8 | Review code & merge vào `dev` |
 
