@@ -34,6 +34,9 @@ tags:
   description: Shipping operations for the admin web application.
 - name: Customer support
   description: Customer support operations for the admin web application.
+security:
+- bearerAuth: []
+- adminSession: []
 paths:
   /api/v1/admin/users:
     get:
@@ -519,11 +522,131 @@ paths:
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
   /api/v1/admin/role-assignments:
+    get:
+      tags:
+      - Access management
+      operationId: getAdminRoleAssignments
+      summary: Liệt kê danh sách bản ghi gán vai trò
+      description: Truy vấn danh sách gán vai trò với bộ lọc tùy chọn. Trả về 200 với mảng rỗng nếu không có bản ghi khớp.
+      x-lifecycle: stable
+      x-backlog:
+      - EPIC_22
+      parameters:
+      - name: principalId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: roleId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: scopeType
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - GLOBAL
+          - WAREHOUSE
+          - STORE
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - ACTIVE
+          - REVOKED
+          - EXPIRED
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 0
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 20
+      responses:
+        '200':
+          description: Role assignment list (empty array when no match).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        assignmentId:
+                          type: string
+                          format: uuid
+                        principalId:
+                          type: string
+                          format: uuid
+                        roleId:
+                          type: string
+                          format: uuid
+                        scopeType:
+                          type: string
+                        scopeId:
+                          type:
+                          - string
+                          - 'null'
+                        assignmentStatus:
+                          type: string
+                        assignedByPrincipalId:
+                          type:
+                          - string
+                          - 'null'
+                          format: uuid
+                        reason:
+                          type:
+                          - string
+                          - 'null'
+                        validFrom:
+                          type: string
+                          format: date-time
+                        validUntil:
+                          type:
+                          - string
+                          - 'null'
+                          format: date-time
+                        createdAt:
+                          type: string
+                          format: date-time
+                        updatedAt:
+                          type: string
+                          format: date-time
+                        version:
+                          type: integer
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
     post:
       tags:
       - Access management
       operationId: postAdminRoleAssignments
       summary: Gán vai trò có phạm vi cho nhân viên
+      description: Gán vai trò đang hoạt động (is_enabled=true) cho nhân viên (EMPLOYEE). Chặn tự gán vai trò cho chính mình (Self-assign forbidden).
       x-lifecycle: stable
       x-backlog:
       - EPIC_22
@@ -535,13 +658,15 @@ paths:
               type: object
               required:
               - principalId
-              - roleCode
+              - roleId
+              - scopeType
               properties:
                 principalId:
                   type: string
                   format: uuid
-                roleCode:
+                roleId:
                   type: string
+                  format: uuid
                 scopeType:
                   type: string
                   enum:
@@ -549,9 +674,36 @@ paths:
                   - WAREHOUSE
                   - STORE
                 scopeId:
-                  type: string
-                  nullable: true
+                  type:
+                  - string
+                  - 'null'
+                validFrom:
+                  type:
+                  - string
+                  - 'null'
+                  format: date-time
+                validUntil:
+                  type:
+                  - string
+                  - 'null'
+                  format: date-time
+                reason:
+                  type:
+                  - string
+                  - 'null'
       responses:
+        '200':
+          description: Role assigned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: string
+                    format: uuid
         '201':
           description: Role assigned.
           content:
@@ -568,6 +720,8 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
         '500':
@@ -580,6 +734,7 @@ paths:
       - Access management
       operationId: deleteAdminRoleAssignmentsAssignmentId
       summary: Thu hồi phân công vai trò
+      description: Thu hồi phân công vai trò (optimistic lock qua expectedVersion). Chặn thu hồi ADMIN cuối cùng (409). Đồng bộ quyền lên Keycloak, thu hồi phiên Keycloak và xóa phiên BFF (Force Re-login).
       x-lifecycle: stable
       x-backlog:
       - EPIC_22
@@ -590,9 +745,24 @@ paths:
         schema:
           type: string
           format: uuid
+      - name: reason
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: expectedVersion
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 0
       responses:
+        '200':
+          description: Assignment revoked.
         '204':
           description: Assignment revoked.
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -720,11 +890,12 @@ paths:
           $ref: '#/components/responses/InternalError'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
-    put:
+    patch:
       tags:
       - Access management
-      operationId: putAdminRolesRoleId
-      summary: Cập nhật vai trò (Optimistic Concurrency)
+      operationId: patchAdminRolesRoleId
+      summary: Cập nhật vai trò (Optimistic Concurrency & Soft Delete)
+      description: Cập nhật tên/mô tả vai trò hoặc tắt vai trò (isEnabled=false kích hoạt xóa mềm và thu hồi phân công đang hoạt động). Vai trò đã xóa mềm (is_enabled=false) giữ nguyên role_code và không được phép kích hoạt lại (409).
       x-lifecycle: stable
       x-backlog:
       - EPIC_22
@@ -748,8 +919,6 @@ paths:
                   type: string
                 isEnabled:
                   type: boolean
-                version:
-                  type: integer
       responses:
         '200':
           description: Role updated.
@@ -771,7 +940,8 @@ paths:
       tags:
       - Access management
       operationId: deleteAdminRolesRoleId
-      summary: Xóa vai trò (Bảo vệ vai trò hệ thống)
+      summary: Xóa vai trò (Bảo vệ vai trò hệ thống, Soft/Hard Delete)
+      description: Chặn xóa vai trò hệ thống (is_protected=true) và vai trò đang có nhân viên gán active (409). Nếu vai trò chưa từng có lịch sử gán thì xóa cứng; nếu đã có lịch sử gán thì xóa mềm (is_enabled=false, giữ nguyên role_code, không cho kích hoạt lại).
       x-lifecycle: stable
       x-backlog:
       - EPIC_22
@@ -783,6 +953,8 @@ paths:
           type: string
           format: uuid
       responses:
+        '200':
+          description: Role deleted or soft-deleted.
         '204':
           description: Role deleted.
         '400':
@@ -833,6 +1005,7 @@ paths:
       - Access management
       operationId: putAdminRolesRoleIdPermissions
       summary: Thay thế toàn bộ quyền của vai trò
+      description: Thay thế danh sách quyền của vai trò. Nếu tập quyền mới làm giảm quyền so với trước đó, hệ thống đồng bộ quyền lên Keycloak, thu hồi phiên Keycloak và xóa phiên BFF (Force Re-login) cho toàn bộ nhân viên đang giữ vai trò này.
       x-lifecycle: stable
       x-backlog:
       - EPIC_22
@@ -878,6 +1051,7 @@ paths:
       - Access management
       operationId: postAdminRolesRoleIdPermissions
       summary: Gán thêm quyền vào vai trò
+      description: Gán thêm quyền vào vai trò và đồng bộ lên Keycloak (không thu hồi phiên đăng nhập hiện tại).
       x-lifecycle: stable
       x-backlog:
       - EPIC_22
@@ -922,6 +1096,7 @@ paths:
       - Access management
       operationId: deleteAdminRolesRoleIdPermissionsPermissionCode
       summary: Thu hồi quyền khỏi vai trò
+      description: Gỡ quyền khỏi vai trò, đồng bộ quyền lên Keycloak, thu hồi phiên Keycloak và xóa phiên BFF (Force Re-login) cho toàn bộ nhân viên đang giữ vai trò này.
       x-lifecycle: stable
       x-backlog:
       - EPIC_22
@@ -938,6 +1113,8 @@ paths:
         schema:
           type: string
       responses:
+        '200':
+          description: Permission removed.
         '204':
           description: Permission removed.
         '401':

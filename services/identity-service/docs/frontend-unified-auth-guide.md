@@ -48,7 +48,7 @@ Hệ thống triển khai theo mô hình **1 Web duy nhất** cho toàn bộ ng�
 
 ## 2. Các API Xác Thực & Phiên Làm Việc (BFF Pattern)
 
-Hợp đồng chi tiết được đặc tả tại [`frontend-auth-contract.md`](./frontend-auth-contract.md) và [`identity-service.openapi.yaml`](./identity-service.openapi.yaml).
+Hợp đồng chi tiết được đặc tả tại [`frontend-auth-contract.md`](./frontend-auth-contract.md), [`customer-stable.openapi.yaml`](../../../docs/03_api_specs/customer-stable.openapi.yaml) và [`admin-stable.openapi.yaml`](../../../docs/03_api_specs/admin-stable.openapi.yaml).
 
 > **Bảo vệ Token theo RFC 9700:**
 > - **Tuyệt đối không lưu Access Token hoặc Refresh Token trong `localStorage` hay `sessionStorage` của trình duyệt** để triệt tiêu hoàn toàn nguy cơ rò rỉ token khi bị tấn công XSS.
