@@ -1,6 +1,7 @@
 package com.hvduong.identity.application.iam;
 
 import com.hvduong.identity.dto.request.AssignRoleRequest;
+import com.hvduong.identity.dto.response.RoleAssignmentResponse;
 import com.hvduong.identity.infrastructure.persistence.entity.IamRoleAssignmentRow;
 
 import java.util.List;
@@ -13,4 +14,7 @@ public interface RoleAssignmentService {
     boolean revokeRole(UUID assignmentId, UUID revokedBy, String reason, long expectedVersion);
 
     List<IamRoleAssignmentRow> getActiveAssignments(UUID principalId);
+
+    /** List assignments with optional filters (principalId, roleId, scopeType, status). Empty result = 200 with empty list. */
+    List<RoleAssignmentResponse> listAssignments(UUID principalId, UUID roleId, String scopeType, String status, int page, int size);
 }

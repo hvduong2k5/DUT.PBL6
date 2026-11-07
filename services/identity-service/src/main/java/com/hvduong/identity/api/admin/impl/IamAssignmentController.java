@@ -4,6 +4,7 @@ import com.hvduong.identity.api.admin.IamAssignmentApi;
 import com.hvduong.identity.application.iam.RoleAssignmentService;
 import com.hvduong.identity.dto.common.ApiResponse;
 import com.hvduong.identity.dto.request.AssignRoleRequest;
+import com.hvduong.identity.dto.response.RoleAssignmentResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -21,6 +23,20 @@ import java.util.UUID;
 public class IamAssignmentController implements IamAssignmentApi {
 
     private final RoleAssignmentService roleAssignmentService;
+
+    @Override
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('ROLE_ASSIGN')")
+    public ResponseEntity<ApiResponse<List<RoleAssignmentResponse>>> listAssignments(
+            @RequestParam(required = false) UUID principalId,
+            @RequestParam(required = false) UUID roleId,
+            @RequestParam(required = false) String scopeType,
+            @RequestParam(required = false) String status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        List<RoleAssignmentResponse> result = roleAssignmentService.listAssignments(principalId, roleId, scopeType, status, page, size);
+        return ResponseEntity.ok(ApiResponse.success(result));
+    }
 
     @Override
     @PreAuthorize("hasRole('ADMIN') or hasAuthority('ROLE_ASSIGN')")
