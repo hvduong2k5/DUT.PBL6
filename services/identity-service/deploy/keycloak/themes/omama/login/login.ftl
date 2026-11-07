@@ -1,4 +1,9 @@
 <#import "template.ftl" as layout>
+<#if client?? && client.baseUrl?has_content && client.baseUrl != "/">
+    <#assign omamaGuestUrl = client.baseUrl>
+<#else>
+    <#assign omamaGuestUrl = properties.guestUrl!'https://omama.vn'>
+</#if>
 <@layout.registrationLayout displayMessage=false displayInfo=false; section>
     <#if section = "header">
         ${msg("loginAccountTitle")}
@@ -43,7 +48,7 @@
 
         <#-- ── Top Navigation Bar (Mobile Header) ── -->
         <div class="omama-top-nav">
-            <a href="javascript:history.back()" class="omama-top-nav__back" aria-label="${msg('backToLogin')}">
+            <a id="omama-login-back" href="${omamaGuestUrl}" class="omama-top-nav__back" aria-label="${msg('backToLogin')}">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#563a26" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="15 18 9 12 15 6"></polyline>
                 </svg>
@@ -183,7 +188,7 @@
 
         <#-- ── Continue as guest link ── -->
         <p class="omama-guest-row">
-            <a href="${properties.guestUrl!'/'}" class="omama-link omama-link--guest">${msg("continueAsGuest")}</a>
+            <a id="omama-guest-link" href="${omamaGuestUrl}" class="omama-link omama-link--guest">${msg("continueAsGuest")}</a>
         </p>
 
         <#-- ── Password toggle script ── -->
