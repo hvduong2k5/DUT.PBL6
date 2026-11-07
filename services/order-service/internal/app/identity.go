@@ -20,8 +20,8 @@ import (
 	"github.com/omamx/order-service/internal/domain"
 )
 
-// CustomerIdentity verifies Keycloak tokens and authoritative Identity personas.
-// Employee permissions retain the scope of each individual IAM assignment.
+// CustomerIdentity verifies signed staff snapshots and legacy customer personas.
+// Each employee permission retains the scope of its issuing IAM assignment.
 type CustomerIdentity struct {
 	issuer, audience, jwksURL, identityURL string
 	client                                 *http.Client
@@ -47,7 +47,7 @@ func NewCustomerIdentity(c Config) (*CustomerIdentity, error) {
 		u, err := url.Parse(c.OIDCIssuer)
 		localTest := err == nil && u != nil && c.Mode == "sandbox" && c.OIDCAllowLocalHTTP && (u.Hostname() == "localhost" || net.ParseIP(u.Hostname()).IsLoopback())
 		if !localTest {
-			return nil, errors.New("keycloak requires IDENTITY_URL for authoritative persona and permission grants")
+			return nil, errors.New("keycloak requires IDENTITY_URL for legacy customer persona verification")
 		}
 	}
 	if c.OIDCJWKSURL == "" {
@@ -70,6 +70,7 @@ func NewCustomerIdentity(c Config) (*CustomerIdentity, error) {
 
 type customerClaims struct {
 	jwt.RegisteredClaims
+	staffAuthorizationClaims
 	UserID      string `json:"user_id"`
 	Type        string `json:"typ"`
 	RealmAccess struct {
@@ -98,6 +99,16 @@ func (v *CustomerIdentity) Authenticate(ctx context.Context, bearer string) (dom
 	if err != nil || id == uuid.Nil {
 		return domain.Principal{}, denied
 	}
+	grants, staff, err := claims.staffGrants(time.Now())
+	if errors.Is(err, errInactivePrincipal) {
+		return domain.Principal{}, domain.E("PRINCIPAL_FORBIDDEN", 403)
+	}
+	if err != nil {
+		return domain.Principal{}, denied
+	}
+	if staff {
+		return domain.Principal{ID: id.String(), Role: "EMPLOYEE", IAM: true, Grants: grants}, nil
+	}
 	if v.identityURL != "" {
 		req, err := http.NewRequestWithContext(ctx, "GET", v.identityURL+"/api/v1/users/me", nil)
 		if err != nil {
@@ -125,11 +136,10 @@ func (v *CustomerIdentity) Authenticate(ctx context.Context, bearer string) (dom
 		var envelope struct {
 			Success bool `json:"success"`
 			Data    struct {
-				ID      string                   `json:"principalId"`
-				Subject string                   `json:"idpSubject"`
-				Type    string                   `json:"principalType"`
-				Status  string                   `json:"provisioningStatus"`
-				Grants  []domain.PermissionGrant `json:"permissionGrants"`
+				ID      string `json:"principalId"`
+				Subject string `json:"idpSubject"`
+				Type    string `json:"principalType"`
+				Status  string `json:"provisioningStatus"`
 			} `json:"data"`
 		}
 		if json.Unmarshal(raw, &envelope) != nil || !envelope.Success || envelope.Data.ID != id.String() || envelope.Data.Subject != claims.Subject {
@@ -139,7 +149,7 @@ func (v *CustomerIdentity) Authenticate(ctx context.Context, bearer string) (dom
 			return domain.Principal{}, domain.E("CUSTOMER_REQUIRED", 403)
 		}
 		if envelope.Data.Type == "EMPLOYEE" {
-			return domain.Principal{ID: id.String(), Role: "EMPLOYEE", IAM: true, Grants: envelope.Data.Grants}, nil
+			return domain.Principal{}, domain.E("STAFF_TOKEN_REQUIRED", 403)
 		}
 		if envelope.Data.Type != "CUSTOMER" {
 			return domain.Principal{}, domain.E("CUSTOMER_REQUIRED", 403)

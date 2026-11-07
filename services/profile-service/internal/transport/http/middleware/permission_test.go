@@ -12,23 +12,26 @@ import (
 func TestStaffPermissionRequiresVerifiedMatchingGrant(t *testing.T) {
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		scope := StaffScope(r.Context(), "EMPLOYEE_PROFILE_VIEW")
-		if !scope.Allows("A") || scope.Allows("B") {
-			t.Error("scope hopping")
+		if !scope.Allows("A") || !scope.Allows("B") {
+			t.Error("company HR permission was restricted by department")
+		}
+		if StaffScope(r.Context(), "EMPLOYEE_PROFILE_SENSITIVE_VIEW").Allows("B") {
+			t.Error("department grant revealed sensitive data")
 		}
 		w.WriteHeader(204)
 	})
 	verified := security.Principal{Role: "EMPLOYEE", Grants: []domain.PermissionGrant{
-		{PermissionCode: "EMPLOYEE_PROFILE_VIEW", ScopeType: "DEPARTMENT", ScopeID: "A"},
+		{PermissionCode: "EMPLOYEE_PROFILE_VIEW", ScopeType: "GLOBAL"},
 		{PermissionCode: "EMPLOYEE_PROFILE_SENSITIVE_VIEW", ScopeType: "DEPARTMENT", ScopeID: "B"},
 	}}
-	for _, p := range []security.Principal{verified, {Role: "ADMIN"}, {Role: "EMPLOYEE"}, {Role: "CUSTOMER", Grants: verified.Grants}} {
+	for _, p := range []security.Principal{verified, {Role: "ADMIN"}, {Role: "EMPLOYEE"}, {Role: "CUSTOMER", Grants: verified.Grants}, {Role: "EMPLOYEE", Grants: []domain.PermissionGrant{{PermissionCode: "EMPLOYEE_PROFILE_VIEW", ScopeType: "DEPARTMENT", ScopeID: "A"}}}} {
 		r := httptest.NewRequest("GET", "/", nil)
 		r = r.WithContext(context.WithValue(r.Context(), PrincipalKey, p))
 		r.Header.Set("X-User-Role", "ADMIN")
 		w := httptest.NewRecorder()
 		RequirePermission("EMPLOYEE_PROFILE_VIEW")(next).ServeHTTP(w, r)
 		expected := 403
-		if p.Role == "EMPLOYEE" && len(p.Grants) > 0 {
+		if p.Role == "EMPLOYEE" && domain.ScopeFor(p.Grants, "EMPLOYEE_PROFILE_VIEW", "DEPARTMENT").Global {
 			expected = 204
 		}
 		if w.Code != expected {

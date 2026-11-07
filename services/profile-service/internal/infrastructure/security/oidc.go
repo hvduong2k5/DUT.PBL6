@@ -29,7 +29,7 @@ type OIDCIdentity struct {
 	expires, nextFetch                     time.Time
 }
 
-// NewOIDCIdentity verifies the same signed token and IAM profile as Order.
+// NewOIDCIdentity verifies signed staff snapshots and legacy customer personas.
 // Internal callers retain their separate credential; invalid bearer never falls back.
 func NewOIDCIdentity(c *config.Config) (*OIDCIdentity, error) {
 	if c.AuthMode == "" || c.AuthMode == "internal" {
@@ -45,7 +45,7 @@ func NewOIDCIdentity(c *config.Config) (*OIDCIdentity, error) {
 		u, err := url.Parse(c.OIDCIssuer)
 		localTest := err == nil && u != nil && c.OIDCAllowLocalHTTP && (u.Hostname() == "localhost" || net.ParseIP(u.Hostname()).IsLoopback())
 		if !localTest {
-			return nil, errors.New("keycloak requires IDENTITY_URL for authoritative persona and permission grants")
+			return nil, errors.New("keycloak requires IDENTITY_URL for legacy customer persona verification")
 		}
 	}
 	jwks := c.OIDCJWKSURL
@@ -75,9 +75,12 @@ type Principal struct {
 var ErrUnauthorized = errors.New("UNAUTHENTICATED")
 var ErrCustomerRequired = errors.New("CUSTOMER_REQUIRED")
 var ErrIdentityUnavailable = errors.New("IDENTITY_UNAVAILABLE")
+var ErrPrincipalForbidden = errors.New("PRINCIPAL_FORBIDDEN")
+var ErrStaffTokenRequired = errors.New("STAFF_TOKEN_REQUIRED")
 
 type customerClaims struct {
 	jwt.RegisteredClaims
+	staffAuthorizationClaims
 	UserID      string `json:"user_id"`
 	Type        string `json:"typ"`
 	RealmAccess struct {
@@ -109,6 +112,16 @@ func (v *OIDCIdentity) Authenticate(ctx context.Context, bearer string) (Princip
 	if err != nil || id == uuid.Nil {
 		return Principal{}, denied
 	}
+	grants, staff, err := claims.staffGrants(time.Now())
+	if errors.Is(err, errInactivePrincipal) {
+		return Principal{}, ErrPrincipalForbidden
+	}
+	if err != nil {
+		return Principal{}, denied
+	}
+	if staff {
+		return Principal{ID: id.String(), Role: "EMPLOYEE", Grants: grants}, nil
+	}
 	if v.identityURL != "" {
 		req, err := http.NewRequestWithContext(ctx, "GET", v.identityURL+"/api/v1/users/me", nil)
 		if err != nil {
@@ -136,11 +149,10 @@ func (v *OIDCIdentity) Authenticate(ctx context.Context, bearer string) (Princip
 		var envelope struct {
 			Success bool `json:"success"`
 			Data    struct {
-				ID      string                   `json:"principalId"`
-				Subject string                   `json:"idpSubject"`
-				Type    string                   `json:"principalType"`
-				Status  string                   `json:"provisioningStatus"`
-				Grants  []domain.PermissionGrant `json:"permissionGrants"`
+				ID      string `json:"principalId"`
+				Subject string `json:"idpSubject"`
+				Type    string `json:"principalType"`
+				Status  string `json:"provisioningStatus"`
 			} `json:"data"`
 		}
 		if json.Unmarshal(raw, &envelope) != nil || !envelope.Success || envelope.Data.ID != id.String() || envelope.Data.Subject != claims.Subject {
@@ -150,7 +162,7 @@ func (v *OIDCIdentity) Authenticate(ctx context.Context, bearer string) (Princip
 			return Principal{}, ErrCustomerRequired
 		}
 		if envelope.Data.Type == "EMPLOYEE" {
-			return Principal{ID: id.String(), Role: "EMPLOYEE", Grants: envelope.Data.Grants}, nil
+			return Principal{}, ErrStaffTokenRequired
 		}
 		if envelope.Data.Type != "CUSTOMER" {
 			return Principal{}, ErrCustomerRequired

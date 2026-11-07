@@ -39,6 +39,14 @@ func AuthContextWithIdentity(token string, identity BearerIdentity) func(http.Ha
 					return
 				}
 				principal, err := identity.Authenticate(r.Context(), r.Header.Get("Authorization"))
+				if errors.Is(err, security.ErrPrincipalForbidden) {
+					authError(w, 403, "PRINCIPAL_FORBIDDEN")
+					return
+				}
+				if errors.Is(err, security.ErrStaffTokenRequired) {
+					authError(w, 403, "STAFF_TOKEN_REQUIRED")
+					return
+				}
 				if errors.Is(err, security.ErrCustomerRequired) {
 					authError(w, 403, "CUSTOMER_REQUIRED")
 					return
@@ -118,7 +126,10 @@ func StaffScope(ctx context.Context, permission string) domain.PermissionScope {
 	if !ok || p.Role != "EMPLOYEE" {
 		return domain.PermissionScope{}
 	}
-	return domain.ScopeFor(p.Grants, permission, "DEPARTMENT")
+	// MVP HR manages the whole company. Department is a filter on employee
+	// data, not an implicit authorization boundary of the employee's own team.
+	scope := domain.ScopeFor(p.Grants, permission, "DEPARTMENT")
+	return domain.PermissionScope{Global: scope.Global}
 }
 
 func RequirePermission(permission string) func(http.Handler) http.Handler {
