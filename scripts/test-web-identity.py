@@ -425,6 +425,9 @@ def main():
             "shipping.events.v1",
             "order.events.v3",
             "order.sources.v1",
+            "inventory.events.v1",
+            "inventory.stock-changed.v1",
+            "inventory.stock-changed.v1.DLT",
             "fulfillment.task.events.v1", "fulfillment.events.v2",
         ]:
             run(
@@ -640,7 +643,8 @@ def main():
         catalog_url = f"http://127.0.0.1:{ports['catalog']}"
         env.update(SPRING_DATASOURCE_URL=f"jdbc:postgresql://127.0.0.1:{ports['db']}/{db_name}?currentSchema=catalog_live",
                    SERVER_PORT=str(ports['catalog']), GRPC_SERVER_PORT=str(ports['catalog_grpc']),
-                   SPRING_KAFKA_LISTENER_AUTO_STARTUP="false", CATALOG_OUTBOX_ENABLED="false",
+                   SPRING_KAFKA_LISTENER_AUTO_STARTUP="true", CATALOG_OUTBOX_ENABLED="false",
+                   KAFKA_BOOTSTRAP_SERVERS=f"127.0.0.1:{ports['kafka']}",
                    CATALOG_INTERNAL_TOKEN=env.get("WEB_TEST_INTERNAL_TOKEN", ""))
         catalog_token = secrets.token_urlsafe(32)
         env["CATALOG_INTERNAL_TOKEN"] = catalog_token
@@ -736,6 +740,8 @@ def main():
         env.update(
             INVENTORY_TEST_DATABASE_URL=f"postgres://peer:{password}@127.0.0.1:{ports['db']}/{db_name}?sslmode=disable",
             PEER_TOKEN=secrets.token_urlsafe(32),
+            PEER_CATALOG_TOKEN=secrets.token_urlsafe(32),
+            PEER_KAFKA_BROKERS=f"127.0.0.1:{ports['kafka']}",
             PEER_CA_FILE=str(folder / "inventory-ca.pem"),
             PEER_READY_FILE=str(peer_ready),
             PEER_STOP_FILE=str(folder / "inventory-stop"),
@@ -765,6 +771,32 @@ def main():
             # container must be able to read this public trust anchor on Linux.
             (folder / "inventory-ca.pem").chmod(0o644)
         (folder / "inventory-token").write_text(env["PEER_TOKEN"])
+        (folder / "inventory-catalog-token").write_text(env["PEER_CATALOG_TOKEN"])
+        inventory_schema = (
+            sql("SELECT nspname FROM pg_namespace WHERE nspname LIKE 'peer_%';", tuples=True).strip()
+        )
+        assert re.fullmatch(r"peer_[a-f0-9-]{36}", inventory_schema), "Unexpected Inventory fixture schema"
+
+        def inventory_projection(expected):
+            observation = None
+            deadline = time.monotonic() + 90
+            while time.monotonic() < deadline:
+                observation = json.loads(sql(
+                    f"""SELECT json_build_object('quantity',p.sellable_quantity,'version',p.inventory_version,
+                    'source_version',i.inventory_version)
+                    FROM "{inventory_schema}".inventory_items i
+                    LEFT JOIN catalog_live.sku_stock_projection p ON p.sku_code=i.sku
+                    WHERE i.sku='PEER';""", tuples=True,
+                ))
+                if observation["quantity"] == expected and observation["version"] == observation["source_version"]:
+                    return observation
+                time.sleep(0.25)
+            raise AssertionError(("Inventory Kafka projection did not converge", expected, observation))
+
+        inventory_projection(100)
+        status, detail, _ = request(catalog_url + "/api/v1/products/test-product")
+        assert status == 200 and detail["variants"][0]["stock_available"] == 100, ("Catalog Kafka display", status, detail)
+        print("PASS: real Inventory outbox -> Kafka -> Java Catalog consumer -> public stock display", flush=True)
         # Revalidation must fail on a changed price, future price, or unapproved parent product.
         headers={"X-Internal-Token":catalog_token}
         selection={"items":[{"sku_code":"PEER","quantity":1}],"channel":"D2C_WEB"}
@@ -793,7 +825,7 @@ def main():
         caller_environment = env.copy()
         catalog_restart_env = catalog_environment.copy()
         inventory_ca = folder / "inventory-ca.pem"
-        inventory_token = folder / "inventory-token"
+        inventory_token = folder / "inventory-catalog-token"
         ca_ok = inventory_ca.exists() and inventory_ca.stat().st_size > 0
         token_ok = inventory_token.exists() and inventory_token.stat().st_size >= 32
         if ca_ok and token_ok and peer_address:
@@ -826,6 +858,22 @@ def main():
             catalog_process = start(catalog_cmd, "catalog")
             env.clear(); env.update(caller_environment)
             wait(catalog_url + "/api/v1/products", seconds=90, process=catalog_process)
+        # Compare the live gRPC display against the separately persisted Kafka projection.
+        for mutation, expected in (
+            ("UPDATE batches SET status='QUARANTINE' WHERE sku='PEER'", 0),
+            ("UPDATE batches SET status='ACTIVE' WHERE sku='PEER'", 100),
+            ("UPDATE batches SET exp_date=CURRENT_DATE WHERE sku='PEER'", 0),
+            ("UPDATE batches SET exp_date=CURRENT_DATE+30 WHERE sku='PEER'", 100),
+            ("UPDATE inventory_items SET status='SUSPENDED' WHERE sku='PEER'", 0),
+            ("UPDATE inventory_items SET status='ACTIVE' WHERE sku='PEER'", 100),
+            ("UPDATE inventory_items SET reserved_qty=2 WHERE sku='PEER'; UPDATE batches SET reserved_qty=2 WHERE sku='PEER'", 98),
+            ("UPDATE inventory_items SET reserved_qty=0 WHERE sku='PEER'; UPDATE batches SET reserved_qty=0 WHERE sku='PEER'", 100),
+        ):
+            sql(f'SET search_path TO "{inventory_schema}",public; BEGIN; {mutation}; COMMIT;')
+            inventory_projection(expected)
+            status, detail, _ = request(catalog_url + "/api/v1/products/test-product")
+            assert status == 200 and detail["variants"][0]["stock_available"] == expected, ("Live/projection mismatch", mutation, detail)
+        print("PASS: live Inventory TLS and Kafka stock agree for quarantine, expiry, inactive SKU and reservations", flush=True)
         shipping_token = secrets.token_urlsafe(32)
         shipping_webhook = secrets.token_urlsafe(32)
         env.update(
@@ -1465,6 +1513,7 @@ def main():
             "batch_reserved": 0,
             "events": 1,
         }, ("Inventory did not reserve/release/commit exactly once", stock)
+        inventory_projection(98)
         assert "(2 rows)" in sql("SELECT id FROM orders.orders;")
         mobile_client_runtime="NOT_RUN"
         if args.flutter:
@@ -1490,6 +1539,7 @@ def main():
             "flows": [
                 "native-identity-pkce-state-refresh-logout-and-persona-gates",
                 "real-catalog-public-snapshot-revalidation-and-inventory-display",
+                "inventory-outbox-kafka-catalog-projection-and-live-sellability-parity",
                 "profile-addresses-ownership-CAS",
                 "registration-outbox-kafka-provisioning-replay-transient-failure",
                 "checkout-inventory-reserve-cancel-release-payment-commit",

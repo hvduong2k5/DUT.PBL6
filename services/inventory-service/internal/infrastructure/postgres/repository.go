@@ -393,7 +393,7 @@ func (r *PostgresInventoryRepository) GetBatchesNearExpiry(ctx context.Context, 
 	}
 	query := `SELECT id, batch_code, sku, supplier_id, mfg_date, exp_date, physical_qty, reserved_qty, status, created_at
               FROM batches
-              WHERE status IN ('ACTIVE', 'NEAR_EXPIRY') AND exp_date <= $1
+              WHERE (status = 'ACTIVE' AND exp_date <= $1) OR (status = 'NEAR_EXPIRY' AND exp_date <= statement_timestamp())
               ORDER BY exp_date ASC
               LIMIT $2`
 	rows, err := r.db.QueryContext(ctx, query, thresholdDate.UTC(), limit)
@@ -413,4 +413,36 @@ func (r *PostgresInventoryRepository) GetBatchesNearExpiry(ctx context.Context, 
 		batches = append(batches, b)
 	}
 	return batches, rows.Err()
+}
+
+// GetSellableItemsBySKUs uses the same SQL rule as the Catalog snapshot outbox.
+// One statement keeps item, batch balances and the observation time coherent.
+func (r *PostgresInventoryRepository) GetSellableItemsBySKUs(ctx context.Context, skus []string) ([]*entity.InventoryItem, error) {
+	if len(skus) == 0 {
+		return nil, nil
+	}
+	placeholders := make([]string, len(skus))
+	args := make([]any, len(skus))
+	for i, sku := range skus {
+		placeholders[i] = fmt.Sprintf("$%d", i+1)
+		args[i] = sku
+	}
+	rows, err := r.db.QueryContext(ctx, fmt.Sprintf(`SELECT sku,warehouse_id,physical_qty,reserved_qty,status,updated_at,inventory_sellable_quantity(sku,statement_timestamp()) FROM inventory_items WHERE sku IN (%s)`, strings.Join(placeholders, ",")), args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*entity.InventoryItem{}
+	for rows.Next() {
+		item := &entity.InventoryItem{}
+		var status string
+		var quantity int
+		if err := rows.Scan(&item.SKU, &item.WarehouseID, &item.PhysicalQty, &item.ReservedQty, &status, &item.UpdatedAt, &quantity); err != nil {
+			return nil, err
+		}
+		item.Status = entity.ItemStatus(status)
+		item.SellableQuantity = &quantity
+		items = append(items, item)
+	}
+	return items, rows.Err()
 }

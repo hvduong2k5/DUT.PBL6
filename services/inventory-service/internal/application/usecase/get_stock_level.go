@@ -53,7 +53,15 @@ func (uc *GetStockLevelUseCase) Execute(ctx context.Context, skus []string) ([]S
 		return []StockLevelOutput{}, nil
 	}
 
-	items, err := uc.repo.GetItemsBySKUs(ctx, cleanSKUs)
+	var items []*entity.InventoryItem
+	var err error
+	if reader, ok := uc.repo.(interface {
+		GetSellableItemsBySKUs(context.Context, []string) ([]*entity.InventoryItem, error)
+	}); ok {
+		items, err = reader.GetSellableItemsBySKUs(ctx, cleanSKUs)
+	} else {
+		items, err = uc.repo.GetItemsBySKUs(ctx, cleanSKUs)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -78,6 +86,12 @@ func (uc *GetStockLevelUseCase) Execute(ctx context.Context, skus []string) ([]S
 		}
 
 		avail := item.AvailableQty()
+		if item.SellableQuantity != nil {
+			avail = *item.SellableQuantity
+		}
+		if item.Status != entity.ItemStatusActive {
+			avail = 0
+		}
 		stockStatus := "IN_STOCK"
 		if item.Status == entity.ItemStatusSuspended {
 			stockStatus = "OUT_OF_STOCK"
