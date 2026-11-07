@@ -203,8 +203,17 @@ func (s *Service) touch(ctx context.Context, tx pgx.Tx, o *domain.Order, source 
 	return s.Emit(ctx, tx, o.ID, "ORDER", o.Version, 9, "audit", o.Status, o.Payment, o.Stock, o.Generation)
 }
 func (s *Service) Cancel(ctx context.Context, p domain.Principal, id, key string, version int64, reason string, review bool) (map[string]any, error) {
-	if p.IAM && !p.HasPermission("ORDER_CANCEL_REQUEST") {
-		return nil, domain.E("PERMISSION_DENIED", 403)
+	if p.IAM {
+		if !p.HasPermission("ORDER_CANCEL_REQUEST") || !p.HasPermission("ORDER_VIEW") {
+			return nil, domain.E("PERMISSION_DENIED", 403)
+		}
+		o, err := s.GetOrder(ctx, id, p, false)
+		if err != nil {
+			return nil, err
+		}
+		if !p.AllowsAction("ORDER_CANCEL_REQUEST", o.Warehouse) {
+			return nil, domain.E("ORDER_NOT_FOUND", 404)
+		}
 	}
 	if s.isCoreOrder(ctx, id) {
 		if review || p.Staff() {
