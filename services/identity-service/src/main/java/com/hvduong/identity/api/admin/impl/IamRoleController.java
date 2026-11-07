@@ -15,12 +15,12 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.hvduong.identity.api.admin.IamRoleApi;
 import com.hvduong.identity.application.iam.RoleManagementService;
-import com.hvduong.identity.dto.common.ApiResponse;
-import com.hvduong.identity.dto.request.AddPermissionRequest;
-import com.hvduong.identity.dto.request.CreateRoleRequest;
-import com.hvduong.identity.dto.request.ReplacePermissionsRequest;
-import com.hvduong.identity.dto.request.UpdateRoleRequest;
-import com.hvduong.identity.dto.response.RoleDetailResponse;
+import com.hvduong.identity.common.response.ApiResponse;
+import com.hvduong.identity.application.dto.request.AddPermissionRequest;
+import com.hvduong.identity.application.dto.request.CreateRoleRequest;
+import com.hvduong.identity.application.dto.request.ReplacePermissionsRequest;
+import com.hvduong.identity.application.dto.request.UpdateRoleRequest;
+import com.hvduong.identity.application.dto.response.RoleDetailResponse;
 import com.hvduong.identity.infrastructure.persistence.entity.IamRoleRow;
 
 import lombok.RequiredArgsConstructor;

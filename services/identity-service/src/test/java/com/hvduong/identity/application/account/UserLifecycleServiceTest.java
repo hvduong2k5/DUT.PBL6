@@ -1,7 +1,7 @@
 package com.hvduong.identity.application.account;
 
 import com.hvduong.identity.application.account.impl.UserLifecycleServiceImpl;
-import com.hvduong.identity.dto.response.UserProfileResponse;
+import com.hvduong.identity.application.dto.response.UserProfileResponse;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hvduong.identity.application.audit.AuditService;

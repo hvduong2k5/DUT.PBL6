@@ -1,7 +1,7 @@
 package com.hvduong.identity.application.iam;
 
-import com.hvduong.identity.dto.request.AssignRoleRequest;
-import com.hvduong.identity.dto.response.RoleAssignmentResponse;
+import com.hvduong.identity.application.dto.request.AssignRoleRequest;
+import com.hvduong.identity.application.dto.response.RoleAssignmentResponse;
 import com.hvduong.identity.infrastructure.persistence.entity.IamRoleAssignmentRow;
 
 import java.util.List;

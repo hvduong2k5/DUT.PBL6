@@ -2,11 +2,11 @@ package com.hvduong.identity.api.admin.impl;
 
 import com.hvduong.identity.api.admin.AdminUserApi;
 import com.hvduong.identity.application.account.UserLifecycleService;
-import com.hvduong.identity.dto.common.ApiResponse;
-import com.hvduong.identity.dto.common.PageResponse;
-import com.hvduong.identity.dto.request.ResetPasswordRequest;
-import com.hvduong.identity.dto.response.AdminUserDetailResponse;
-import com.hvduong.identity.dto.response.AdminUserItemResponse;
+import com.hvduong.identity.common.response.ApiResponse;
+import com.hvduong.identity.common.response.PageResponse;
+import com.hvduong.identity.application.dto.request.ResetPasswordRequest;
+import com.hvduong.identity.application.dto.response.AdminUserDetailResponse;
+import com.hvduong.identity.application.dto.response.AdminUserItemResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

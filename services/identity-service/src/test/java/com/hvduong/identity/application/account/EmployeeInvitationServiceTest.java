@@ -1,7 +1,7 @@
 package com.hvduong.identity.application.account;
 
 import com.hvduong.identity.application.account.impl.EmployeeInvitationServiceImpl;
-import com.hvduong.identity.dto.response.InviteEmployeeResponse;
+import com.hvduong.identity.application.dto.response.InviteEmployeeResponse;
 
 import com.hvduong.identity.application.audit.AuditService;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.EmployeeInvitationMapper;

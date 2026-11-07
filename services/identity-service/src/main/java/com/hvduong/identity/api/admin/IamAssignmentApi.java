@@ -13,9 +13,9 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
-import com.hvduong.identity.dto.common.ApiResponse;
-import com.hvduong.identity.dto.request.AssignRoleRequest;
-import com.hvduong.identity.dto.response.RoleAssignmentResponse;
+import com.hvduong.identity.common.response.ApiResponse;
+import com.hvduong.identity.application.dto.request.AssignRoleRequest;
+import com.hvduong.identity.application.dto.response.RoleAssignmentResponse;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;

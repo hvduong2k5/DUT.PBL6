@@ -16,12 +16,12 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 
-import com.hvduong.identity.dto.common.ApiResponse;
-import com.hvduong.identity.dto.request.AddPermissionRequest;
-import com.hvduong.identity.dto.request.CreateRoleRequest;
-import com.hvduong.identity.dto.request.ReplacePermissionsRequest;
-import com.hvduong.identity.dto.request.UpdateRoleRequest;
-import com.hvduong.identity.dto.response.RoleDetailResponse;
+import com.hvduong.identity.common.response.ApiResponse;
+import com.hvduong.identity.application.dto.request.AddPermissionRequest;
+import com.hvduong.identity.application.dto.request.CreateRoleRequest;
+import com.hvduong.identity.application.dto.request.ReplacePermissionsRequest;
+import com.hvduong.identity.application.dto.request.UpdateRoleRequest;
+import com.hvduong.identity.application.dto.response.RoleDetailResponse;
 import com.hvduong.identity.infrastructure.persistence.entity.IamRoleRow;
 
 import io.swagger.v3.oas.annotations.Operation;

@@ -12,17 +12,27 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import com.hvduong.identity.common.exception.ErrorCode;
+import com.hvduong.identity.common.exception.IdentityException;
 import com.hvduong.identity.common.response.ApiResponse;
 
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Canonical global exception handler.
- * Replaces the deprecated {@link com.hvduong.identity.api.common.GlobalExceptionHandler}.
+ * Canonical global exception handler for Identity Service REST endpoints.
  */
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler(IdentityException.class)
+    public ResponseEntity<ApiResponse<Void>> handleIdentityException(IdentityException ex) {
+        ErrorCode errorCode = ex.getErrorCode();
+        String requestId = "req-" + UUID.randomUUID();
+        log.warn("Identity business error [code={}, requestId={}]: {}", errorCode.name(), requestId, ex.getDevMessage());
+        return ResponseEntity.status(errorCode.getHttpStatus())
+                .body(ApiResponse.error(errorCode.name(), ex.getMessage(), requestId));
+    }
 
     @ExceptionHandler(org.springframework.web.server.ResponseStatusException.class)
     public ResponseEntity<ApiResponse<Void>> handleUnavailable(org.springframework.web.server.ResponseStatusException ex) {

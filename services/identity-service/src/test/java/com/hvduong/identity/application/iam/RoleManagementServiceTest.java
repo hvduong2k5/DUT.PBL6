@@ -23,9 +23,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.hvduong.identity.application.audit.AuditService;
 import com.hvduong.identity.application.iam.impl.RoleManagementServiceImpl;
-import com.hvduong.identity.dto.request.CreateRoleRequest;
-import com.hvduong.identity.dto.request.UpdateRoleRequest;
-import com.hvduong.identity.dto.response.RoleDetailResponse;
+import com.hvduong.identity.application.dto.request.CreateRoleRequest;
+import com.hvduong.identity.application.dto.request.UpdateRoleRequest;
+import com.hvduong.identity.application.dto.response.RoleDetailResponse;
 import com.hvduong.identity.infrastructure.keycloak.KeycloakAdminClient;
 import com.hvduong.identity.infrastructure.persistence.entity.IamRoleAssignmentRow;
 import com.hvduong.identity.infrastructure.persistence.entity.IamRolePermissionRow;

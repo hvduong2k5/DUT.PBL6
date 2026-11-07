@@ -2,9 +2,9 @@ package com.hvduong.identity.api.admin.impl;
 
 import com.hvduong.identity.api.admin.EmployeeInvitationApi;
 import com.hvduong.identity.application.account.EmployeeInvitationService;
-import com.hvduong.identity.dto.common.ApiResponse;
-import com.hvduong.identity.dto.request.InviteEmployeeRequest;
-import com.hvduong.identity.dto.response.InviteEmployeeResponse;
+import com.hvduong.identity.common.response.ApiResponse;
+import com.hvduong.identity.application.dto.request.InviteEmployeeRequest;
+import com.hvduong.identity.application.dto.response.InviteEmployeeResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

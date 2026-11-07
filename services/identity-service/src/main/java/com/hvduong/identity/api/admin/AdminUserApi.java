@@ -1,10 +1,10 @@
 package com.hvduong.identity.api.admin;
 
-import com.hvduong.identity.dto.common.ApiResponse;
-import com.hvduong.identity.dto.common.PageResponse;
-import com.hvduong.identity.dto.request.ResetPasswordRequest;
-import com.hvduong.identity.dto.response.AdminUserDetailResponse;
-import com.hvduong.identity.dto.response.AdminUserItemResponse;
+import com.hvduong.identity.common.response.ApiResponse;
+import com.hvduong.identity.common.response.PageResponse;
+import com.hvduong.identity.application.dto.request.ResetPasswordRequest;
+import com.hvduong.identity.application.dto.response.AdminUserDetailResponse;
+import com.hvduong.identity.application.dto.response.AdminUserItemResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;

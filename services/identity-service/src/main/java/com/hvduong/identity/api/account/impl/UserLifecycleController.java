@@ -2,9 +2,9 @@ package com.hvduong.identity.api.account.impl;
 
 import com.hvduong.identity.api.account.UserLifecycleApi;
 import com.hvduong.identity.application.account.UserLifecycleService;
-import com.hvduong.identity.dto.common.ApiResponse;
-import com.hvduong.identity.dto.request.UpdateUserStatusRequest;
-import com.hvduong.identity.dto.response.UserProfileResponse;
+import com.hvduong.identity.common.response.ApiResponse;
+import com.hvduong.identity.application.dto.request.UpdateUserStatusRequest;
+import com.hvduong.identity.application.dto.response.UserProfileResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -74,7 +74,7 @@ public class UserLifecycleController implements UserLifecycleApi {
 
     @Override
     public ResponseEntity<ApiResponse<Void>> changeOwnPassword(
-            @jakarta.validation.Valid @RequestBody com.hvduong.identity.dto.request.ChangePasswordRequest request,
+            @jakarta.validation.Valid @RequestBody com.hvduong.identity.application.dto.request.ChangePasswordRequest request,
             @AuthenticationPrincipal Jwt jwt,
             String actorHeader
     ) {

@@ -84,7 +84,7 @@ Quy tắc này áp dụng cho mọi thay đổi code trong `services/identity-se
 ## 10. Cấu trúc package (`com.hvduong.identity`)
 - `api/{account,admin,registration}` (+ `impl/`): interface API và controller.
 - `application/{account,audit,authorization,iam,registration}` (+ `impl/`): service nghiệp vụ.
-- `application/dto/{common,request,response}`: DTO. `application/mapper/`: MapStruct mapper.
+- `application/dto/{request,response}`: DTO. `application/mapper/`: MapStruct mapper.
 - `common/{constant,enums,exception,handler,response}`: thành phần dùng chung (`ApiResponse`, `PageResponse`, `IdentityException`, `ErrorCode`, `GlobalExceptionHandler`).
 - `domain/entity/`: domain entity. `infrastructure/persistence/entity/*Row`: row MyBatis.
 - MyBatis XML đặt tại `src/main/resources/mapper/sql/` (`mybatis.mapper-locations: classpath:mapper/sql/*.xml`).

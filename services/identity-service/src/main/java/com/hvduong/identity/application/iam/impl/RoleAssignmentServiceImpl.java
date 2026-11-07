@@ -2,8 +2,8 @@ package com.hvduong.identity.application.iam.impl;
 
 import com.hvduong.identity.application.iam.RoleAssignmentService;
 
-import com.hvduong.identity.dto.request.AssignRoleRequest;
-import com.hvduong.identity.dto.response.RoleAssignmentResponse;
+import com.hvduong.identity.application.dto.request.AssignRoleRequest;
+import com.hvduong.identity.application.dto.response.RoleAssignmentResponse;
 import com.hvduong.identity.application.audit.AuditService;
 import com.hvduong.identity.infrastructure.keycloak.KeycloakAdminClient;
 import com.hvduong.identity.infrastructure.persistence.entity.IamRoleAssignmentRow;

@@ -1,9 +1,9 @@
 package com.hvduong.identity.application.account;
 
-import com.hvduong.identity.dto.common.PageResponse;
-import com.hvduong.identity.dto.response.AdminUserDetailResponse;
-import com.hvduong.identity.dto.response.AdminUserItemResponse;
-import com.hvduong.identity.dto.response.UserProfileResponse;
+import com.hvduong.identity.common.response.PageResponse;
+import com.hvduong.identity.application.dto.response.AdminUserDetailResponse;
+import com.hvduong.identity.application.dto.response.AdminUserItemResponse;
+import com.hvduong.identity.application.dto.response.UserProfileResponse;
 
 import java.util.Optional;
 import java.util.UUID;

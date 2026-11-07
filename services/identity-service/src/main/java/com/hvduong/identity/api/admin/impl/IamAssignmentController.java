@@ -2,9 +2,9 @@ package com.hvduong.identity.api.admin.impl;
 
 import com.hvduong.identity.api.admin.IamAssignmentApi;
 import com.hvduong.identity.application.iam.RoleAssignmentService;
-import com.hvduong.identity.dto.common.ApiResponse;
-import com.hvduong.identity.dto.request.AssignRoleRequest;
-import com.hvduong.identity.dto.response.RoleAssignmentResponse;
+import com.hvduong.identity.common.response.ApiResponse;
+import com.hvduong.identity.application.dto.request.AssignRoleRequest;
+import com.hvduong.identity.application.dto.response.RoleAssignmentResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
