@@ -203,23 +203,44 @@ def main():
         return False
 
     def kill_process_on_port(port, timeout=30):
-        """Find and kill any process listening on the given TCP port (Linux /proc)."""
+        """Find and kill any process listening on the given TCP port (Linux /proc).
+
+        /proc/pid/fd/* symlinks show socket inodes (socket:[12345]), not port
+        numbers, so we must map port -> inode via /proc/net/tcp first.
+        """
         import glob
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             killed = False
-            for pid_dir in glob.glob("/proc/[0-9]*/fd/*"):
-                try:
-                    link = os.readlink(pid_dir)
-                    if f"socket:[{port}]" in link or f":{port:x}" in link:
-                        pid = int(pid_dir.split("/")[2])
-                        try:
-                            os.kill(pid, signal.SIGKILL)
-                            killed = True
-                        except Exception:
-                            pass
-                except Exception:
-                    pass
+            try:
+                with open("/proc/net/tcp", "r") as f:
+                    for line in f:
+                        parts = line.split()
+                        if len(parts) < 10:
+                            continue
+                        local_addr = parts[1]
+                        state = parts[3]
+                        inode = parts[9]
+                        if ":" in local_addr:
+                            try:
+                                _, hex_port = local_addr.split(":")
+                                if int(hex_port, 16) == port and state == "0A":  # 0A = LISTEN
+                                    target = f"socket:[{inode}]"
+                                    for pid_dir in glob.glob("/proc/[0-9]*/fd/*"):
+                                        try:
+                                            if os.readlink(pid_dir) == target:
+                                                pid = int(pid_dir.split("/")[2])
+                                                try:
+                                                    os.kill(pid, signal.SIGKILL)
+                                                    killed = True
+                                                except Exception:
+                                                    pass
+                                        except Exception:
+                                            pass
+                            except ValueError:
+                                pass
+            except Exception:
+                pass
             if not killed:
                 return True
             time.sleep(0.5)
