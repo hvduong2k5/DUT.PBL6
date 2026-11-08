@@ -85,7 +85,7 @@
 ## 7. Quy tắc JWT claims (chốt trước PR #71 / #73)
 
 - **Thêm claim `principal_type` vào JWT.** Giá trị: `CUSTOMER` hoặc `EMPLOYEE`. Nguồn: `identity_principals.principal_type`. Được ghi vào Keycloak user attribute `principal_type`, rồi protocol mapper đưa vào claim `principal_type` của access token.
-- **Stale data tối đa 5 phút:** Access token chỉ sống 5 phút (`accessTokenLifespan = 300s`). Nếu `principal_type` thay đổi (rất hiếm), token cũ vẫn có giá trị đến khi hết hạn, sau đó phải refresh để nhận claim mới.
+- **Stale data tối đa 15 phút:** Access token chỉ sống 15 phút (`accessTokenLifespan = 900s`). Nếu `principal_type` thay đổi (rất hiếm), token cũ vẫn có giá trị đến khi hết hạn, sau đó phải refresh để nhận claim mới.
 - `permission_grants` là nguồn quyền staff có thẩm quyền theo 2-A. Mỗi phần tử trói `permission` với `scope_type` + `scope_id` của chính assignment sinh ra nó; **không ghép chéo** giữa các phần tử.
   - `scope_type = GLOBAL` ⇒ `scope_id` phải `null`.
   - `scope_type = WAREHOUSE/STORE/REGION/DEPARTMENT/BRANCH/BUSINESS_UNIT` ⇒ `scope_id` bắt buộc có giá trị.

@@ -279,7 +279,7 @@ Keycloak cấp phát JWT Access Token với cấu trúc tối ưu (**Lean JWT**)
 - `permission_grants`: Danh sách quyền hạn phân bổ theo phạm vi định dạng `<PERMISSION_CODE>#<SCOPE_TYPE>[#<SCOPE_ID>]`. Spring Security trong Identity Service sẽ tự động phân rã thành các quyền `hasAuthority(...)` để bảo vệ API.
 - `aud`: Danh sách Audience dịch vụ được phép tiêu thụ token.
 - `azp`: Client ID của ứng dụng gọi OIDC (ví dụ `frontend-web` hoặc `mobile-app`).
-- `exp` / `iat`: Thời điểm hết hạn (5 phút) và thời điểm phát hành token.
+- `exp` / `iat`: Thời điểm hết hạn (15 phút / 900 giây) và thời điểm phát hành token.
 
 ### Cách Giải Mã & Xem Nội Dung Token:
 - **Cách 1 (Giao diện web):** Truy cập [jwt.io](https://jwt.io) và dán chuỗi Access Token vào ô Encoded.

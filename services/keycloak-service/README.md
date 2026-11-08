@@ -86,7 +86,7 @@ docker compose up -d
 ## 3. Cấu Hình Bảo Mật Token & Realm Template
 
 Trong `realm-export.template.json`, cấu hình token tuân thủ nghiêm ngặt chuẩn kiến trúc IAM hiện đại:
-- **Thời lượng Access Token ngắn:** `accessTokenLifespan = 300` (5 phút) nhằm thu hồi quyền gần với thời gian thực.
+- **Thời lượng Access Token chuẩn:** `accessTokenLifespan = 900` (15 phút). Chu kỳ này tối ưu tải cho hệ thống (giảm tần suất refresh token từ 12 lần/giờ xuống 4 lần/giờ/người dùng), trong khi việc thu hồi đặc quyền khi nhân viên bị hạ quyền/thu hồi vai trò vẫn được đảm bảo an toàn tuyệt đối nhờ cơ chế Force Re-login / Revoke session tức thì của Identity Service.
 - **Refresh Token Rotation:** `revokeRefreshToken = true`, `refreshTokenMaxReuse = 0` (mỗi refresh token chỉ được dùng 1 lần duy nhất, ngăn chặn token replay attack).
 - **Cấu trúc Lean JWT (Thu gọn tối đa):**
   - Đã loại bỏ các claim PII cồng kềnh khỏi Access Token (`email`, `name`, `given_name`, `family_name`, `preferred_username`).
@@ -98,7 +98,7 @@ Trong `realm-export.template.json`, cấu hình token tuân thủ nghiêm ngặt
 > Nếu realm đã tồn tại, thay đổi cấu hình token thủ công qua Admin Console hoặc CLI:
 > ```bash
 > kcadm.sh config credentials --server http://localhost:8080 --realm master --user admin
-> kcadm.sh update realms/omama -s accessTokenLifespan=300 -s revokeRefreshToken=true -s refreshTokenMaxReuse=0
+> kcadm.sh update realms/omama -s accessTokenLifespan=900 -s revokeRefreshToken=true -s refreshTokenMaxReuse=0
 > ```
 
 ---
@@ -119,4 +119,4 @@ Trong `realm-export.template.json`, cấu hình token tuân thủ nghiêm ngặt
 | Keycloak không kết nối DB | Volume DB cũ lưu mật khẩu khác với `.env` | Chạy `docker compose down -v` để xóa volume dev hoặc cập nhật lại mật khẩu trong `.env` |
 | `Invalid parameter: redirect_uri` | Client chưa khai báo redirect URI hợp lệ | Vào Admin Console -> Realm `omama` -> Clients -> Thêm URI vào **Valid redirect URIs** |
 | `An internal server error has occurred` ở trang login | Lỗi cú pháp FreeMarker trong theme `.ftl` | Kiểm tra log container: `docker compose logs -f keycloak`, loại bỏ các filter không tương thích như `?html` |
-| Token cũ vẫn dùng được sau khi đổi quyền | Realm đang chạy chưa áp thời lượng 5 phút / rotation | Cập nhật lại `accessTokenLifespan=300` và bật *Revoke Refresh Token* trong *Realm settings -> Tokens* |
+| Token cũ vẫn dùng được sau khi đổi quyền | Realm đang chạy chưa áp thời lượng 15 phút / rotation | Cập nhật lại `accessTokenLifespan=900` và bật *Revoke Refresh Token* trong *Realm settings -> Tokens* |

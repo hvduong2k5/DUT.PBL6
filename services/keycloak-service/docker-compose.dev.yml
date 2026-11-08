@@ -4,7 +4,7 @@ version: '3.8'
 # KEYCLOAK SERVICE - LOCAL DEVELOPMENT ENVIRONMENT
 # =============================================================================
 # - Chạy Keycloak 24 độc lập ở chế độ start-dev
-# - Tự động import realm template `omama` (với token 5 phút, rotation, lean JWT)
+# - Tự động import realm template `omama` (với token 15 phút, rotation, lean JWT)
 # - Không yêu cầu mạng external `coolify`
 # - Port PostgreSQL: 5434 (tránh xung đột với port 5432 mặc định hoặc 5433 của identity)
 # - Port Keycloak: 8080 (Admin Console: http://localhost:8080/admin)

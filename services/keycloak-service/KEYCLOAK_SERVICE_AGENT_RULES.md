@@ -17,7 +17,7 @@ services/keycloak-service/
 
 ## 2. Realm template & bảo mật token
 - `realm-export.template.json` **không được chứa secret thật** (client secret, mật khẩu).
-- `accessTokenLifespan` = `300` (5 phút). Chỉ được tăng tối đa `900` khi có quyết định rõ ràng.
+- `accessTokenLifespan` = `900` (15 phút) nhằm tối ưu hiệu năng và giảm tải token refresh (giảm 67% số lần refresh so với 5 phút), trong khi việc thu hồi quyền vẫn được bảo vệ an toàn bằng cơ chế session revocation / Force Re-login tức thì.
 - Bắt buộc bật Refresh Token Rotation: `revokeRefreshToken = true`, `refreshTokenMaxReuse = 0`.
 - `--import-realm` chỉ import khi realm chưa tồn tại. Realm đang chạy phải cập nhật thủ công (Admin Console → Realm settings → Tokens, hoặc `kcadm.sh update realms/omama`).
 - Client public (`frontend-web`) bắt buộc PKCE `S256`, redirect URI liệt kê tường minh.

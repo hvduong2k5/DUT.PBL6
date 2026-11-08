@@ -35,7 +35,7 @@ Quy tắc này áp dụng cho mọi thay đổi code trong `services/identity-se
 
 ## 3. Chuẩn hóa JWT và đồng bộ quyền (ƯU TIÊN ĐẦU)
 - **Thêm claim `principal_type` vào JWT.** Giá trị: `CUSTOMER` hoặc `EMPLOYEE`. Nguồn: `identity_principals.principal_type`. Được ghi vào Keycloak user attribute `principal_type`, rồi protocol mapper đưa vào claim `principal_type` của access token.
-- **Stale data tối đa 5 phút:** Access token chỉ sống 5 phút (`accessTokenLifespan = 300s`). Nếu `principal_type` thay đổi (rất hiếm), token cũ vẫn có giá trị đến khi hết hạn, sau đó phải refresh để nhận claim mới.
+- **Stale data tối đa 15 phút:** Access token chỉ sống 15 phút (`accessTokenLifespan = 900s`). Nếu `principal_type` thay đổi (rất hiếm), token cũ vẫn có giá trị đến khi hết hạn, sau đó phải refresh để nhận claim mới.
 - Token JWT phải thể hiện được:
   - **Loại tài khoản** (`principal_type`: `CUSTOMER` hoặc `EMPLOYEE`)
   - **Principal ID nội bộ** (`user_id`)
@@ -48,7 +48,7 @@ Quy tắc này áp dụng cho mọi thay đổi code trong `services/identity-se
 - Quyền có thời hạn không được sống lâu hơn assignment (khi assignment `REVOKED`/`EXPIRED`, token tương ứng phải bị vô hiệu hóa hoặc không thể refresh được quyền cũ).
 
 ### 3.1 Thu hồi phiên tức thời (Force Re-login)
-- Access token ngắn hạn: `accessTokenLifespan = 300s` (5 phút, tối đa 15 phút). Refresh Token Rotation bật (`revokeRefreshToken = true`, `refreshTokenMaxReuse = 0`) tại `services/keycloak-service/realm-export.template.json`.
+- Access token ngắn hạn: `accessTokenLifespan = 900s` (15 phút). Refresh Token Rotation bật (`revokeRefreshToken = true`, `refreshTokenMaxReuse = 0`) tại `services/keycloak-service/realm-export.template.json`.
 - Khi **thu hồi** quyền (revoke assignment, xóa/thay thế bớt permission của role, disable/soft delete role, suspend tài khoản): sync permission, rồi gọi `KeycloakAdminClient.logoutUser(idpSubject)` và `BffSessionStore.removeSessionsByPrincipalId(principalId)` cho mọi principal bị ảnh hưởng.
 - Khi chỉ **thêm** permission: chỉ sync Keycloak, không force re-login.
 - Khi Keycloak từ chối refresh token (session đã bị revoke): xóa BFF session và trả `401`.
