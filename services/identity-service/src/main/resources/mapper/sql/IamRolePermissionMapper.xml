@@ -23,4 +23,20 @@
         WHERE role_id = #{roleId}
     </delete>
 
+    <!-- Effective permissions = active assignments of enabled roles. Never read a stale copy. -->
+    <select id="findEffectivePermissionCodesByPrincipal" resultType="java.lang.String">
+        SELECT DISTINCT rp.permission_code
+        FROM iam_role_assignments ra
+        JOIN iam_roles r ON r.role_id = ra.role_id
+                        AND r.is_enabled = TRUE
+        JOIN iam_role_permissions rp ON rp.role_id = ra.role_id
+        WHERE ra.principal_id = #{principalId}
+          AND ra.assignment_status = 'ACTIVE'
+          AND ra.valid_from &lt;= #{now}
+          AND (ra.valid_until IS NULL OR ra.valid_until &gt; #{now})
+          AND rp.permission_code IS NOT NULL
+          AND rp.permission_code &lt;&gt; ''
+        ORDER BY rp.permission_code
+    </select>
+
 </mapper>

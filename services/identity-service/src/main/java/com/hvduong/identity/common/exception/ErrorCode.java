@@ -26,7 +26,8 @@ public enum ErrorCode {
     SELF_ASSIGNMENT_FORBIDDEN(106, 403, "Không được phép tự gán vai trò cho chính mình."),
     LAST_ADMIN_PROTECTION(107, 409, "Không thể thu hồi hoặc khóa quản trị viên hoạt động cuối cùng của hệ thống."),
     CUSTOMER_ADMIN_ROLE_FORBIDDEN(108, 400, "Không thể gán vai trò quản trị cho tài khoản khách hàng."),
-    VERSION_CONFLICT(109, 409, "Dữ liệu đã bị thay đổi bởi người khác. Vui lòng tải lại trang và thử lại.");
+    VERSION_CONFLICT(109, 409, "Dữ liệu đã bị thay đổi bởi người khác. Vui lòng tải lại trang và thử lại."),
+    PERMISSION_SYNC_FAILED(110, 502, "Không thể đồng bộ quyền sang Keycloak. Vui lòng thử lại hoặc chạy lại đồng bộ cho tài khoản này.");
 
     private final int protoCode;
     private final int httpStatus;

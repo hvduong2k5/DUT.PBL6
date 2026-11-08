@@ -3,6 +3,7 @@ package com.hvduong.identity.application.account.impl;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hvduong.identity.application.account.UserLifecycleService;
 import com.hvduong.identity.application.audit.AuditService;
+import com.hvduong.identity.application.iam.PermissionSyncService;
 import com.hvduong.identity.common.response.PageResponse;
 import com.hvduong.identity.application.dto.response.AdminUserDetailResponse;
 import com.hvduong.identity.application.dto.response.AdminUserItemResponse;
@@ -44,6 +45,9 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
 
     @Autowired(required = false)
     private BffSessionStore bffSessionStore;
+
+    @Autowired(required = false)
+    private PermissionSyncService permissionSyncService;
 
     @Value("${keycloak.server-url}")
     private String serverUrl;
@@ -213,6 +217,13 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
             } catch (Exception ex) {
                 log.warn("Failed to enable user {} in Keycloak: {}", principal.getIdpSubject(), ex.getMessage());
             }
+        }
+
+        // Grants may have changed while the account was suspended. Re-project the
+        // current IAM state before the user can obtain a new token.
+        if (permissionSyncService != null) {
+            permissionSyncService.syncPrincipal(
+                    principalId, false, PermissionSyncService.Trigger.ACCOUNT_STATUS_CHANGE, actorPrincipalId);
         }
 
         auditService.recordAudit(

@@ -16,11 +16,11 @@ Các dòng sau giữ nguyên điều kiện owner `hasRole('ADMIN') OR hasAuthor
 | `USER_SESSION_REVOKE` | `POST /api/v1/admin/users/{principalId}/sessions/revoke` | Tài khoản đích |
 | `EMPLOYEE_INVITE` | `POST /api/v1/admin/employee-invitations` | Lời mời nhân viên |
 | `EMPLOYEE_INVITATION_REVOKE` | `DELETE /api/v1/admin/employee-invitations/{invitationId}` | Lời mời đích |
-| `ROLE_VIEW` | `GET /api/v1/admin/roles`, `GET /api/v1/admin/roles/{roleId}` | Danh mục vai trò |
+| `ROLE_VIEW` | `GET /api/v1/admin/roles`, `GET /api/v1/admin/roles/{roleId}`, `GET /api/v1/admin/role-assignments`, `GET /api/v1/admin/iam/principals/{principalId}/effective-permissions` | Danh mục vai trò và quyền đang cấu hình của principal |
 | `ROLE_MANAGE` | `POST /api/v1/admin/roles`, `PATCH /api/v1/admin/roles/{roleId}`, `DELETE /api/v1/admin/roles/{roleId}` | Vai trò đích |
 | `ROLE_ASSIGN` | `POST /api/v1/admin/role-assignments`, `DELETE /api/v1/admin/role-assignments/{assignmentId}` | Gán/thu hồi role; payload có GLOBAL/WAREHOUSE/STORE, chưa chứng minh enforcement scope đó ở mọi service |
 | `PERMISSION_VIEW` | `GET /api/v1/admin/roles/{roleId}/permissions` | Quyền của vai trò đích |
-| `PERMISSION_MANAGE` | `PUT/POST /api/v1/admin/roles/{roleId}/permissions`, `DELETE .../permissions/{permissionCode}` | Danh sách quyền của role đích |
+| `PERMISSION_MANAGE` | `PUT/POST /api/v1/admin/roles/{roleId}/permissions`, `DELETE .../permissions/{permissionCode}`, `POST /api/v1/admin/iam/principals/{principalId}/sync-permissions` | Danh sách quyền của role đích và chạy lại đồng bộ sang Keycloak |
 | `AUDIT_LOG_VIEW`, `AUDIT_LOG_EXPORT` | Chưa tìm thấy API đọc/export tương ứng trong controller | Không coi mã seed là endpoint đã được bảo vệ và triển khai |
 
 `GET /api/v1/users/me`, `PUT /api/v1/users/me/password` là truy cập chính mình theo principal đã xác minh, không cần quyền admin. Test tích hợp tập trung đăng nhập và ranh giới persona; chưa nghiệm thu toàn bộ thao tác IAM quản trị qua giao diện.

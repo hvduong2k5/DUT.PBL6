@@ -119,10 +119,15 @@ Tất cả repository/service đọc `iam_roles` phải thêm điều kiện `AN
 
 ## 5. Thay đổi Keycloak sync
 
-- Khi `iam_role_assignments` thay đổi (gán/thu hồi/hết hạn), gọi `syncPermissionsToKeycloak(principalId)` để cập nhật Keycloak User Attributes.
-- Khi đổi permission của role, phải sync lại tất cả principal đang được gán role đó; nếu quyền bị giảm thì force re-login (logout Keycloak + xóa BFF session).
+- **Nguồn sự thật là DB IAM** (`iam_roles`, `iam_role_permissions`, `iam_role_assignments`). Keycloak user attributes (`permissions`) chỉ là bản sao để phát token.
+- Mọi thay đổi làm đổi grants hiệu lực phải sync: gán role, thu hồi assignment, sửa permissions của role, disable/enable role, khóa/mở tài khoản. Dùng `PermissionSyncService.syncPrincipal(...)` / `syncAllPrincipalsForRole(...)`.
+- Quyền hiệu lực được tính lại bằng một truy vấn duy nhất: `IamRolePermissionMapper.findEffectivePermissionCodesByPrincipal` (ACTIVE + `is_enabled = TRUE`).
+- Khi quyền bị **giảm** (thu hồi assignment, bớt permission của role, disable role, suspend tài khoản) thì force re-login: logout Keycloak + xóa BFF session. Khi chỉ **thêm** quyền thì chỉ sync.
+- **Disable role (PATCH isEnabled=false):** lấy danh sách principal bị ảnh hưởng → revoke assignment → tính lại → sync → xử lý session.
 - **Không xóa realm role ngay khi soft delete trong DB.**
 - Khi thực sự xóa vĩnh viễn role (chưa được sử dụng), đồng bộ xóa trên Keycloak sau khi không còn assignment nào tham chiếu.
+- Sync thất bại phải log lỗi + ghi audit `IAM_PERMISSION_SYNC_FAILED` (kèm trigger và error code). Đường đối soát: `POST /api/v1/admin/iam/principals/{principalId}/sync-permissions`. Xem "quyền đang cấu hình": `GET /api/v1/admin/iam/principals/{principalId}/effective-permissions`.
+- **Token đã phát không sửa được:** thay đổi chỉ áp dụng cho token phát sau lần refresh kế tiếp. UI phải phân biệt "quyền đang cấu hình" và "quyền token đang mang".
 
 ---
 

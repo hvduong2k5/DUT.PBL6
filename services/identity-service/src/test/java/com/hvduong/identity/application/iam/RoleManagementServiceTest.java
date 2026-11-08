@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -30,11 +29,9 @@ import com.hvduong.identity.infrastructure.keycloak.KeycloakAdminClient;
 import com.hvduong.identity.domain.entity.IamRoleAssignmentRow;
 import com.hvduong.identity.domain.entity.IamRolePermissionRow;
 import com.hvduong.identity.domain.entity.IamRoleRow;
-import com.hvduong.identity.domain.entity.IdentityPrincipalRow;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IamRoleAssignmentMapper;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IamRoleMapper;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IamRolePermissionMapper;
-import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IdentityPrincipalMapper;
 
 @ExtendWith(MockitoExtension.class)
 class RoleManagementServiceTest {
@@ -54,6 +51,9 @@ class RoleManagementServiceTest {
     @Mock
     private AuditService auditService;
 
+    @Mock
+    private PermissionSyncService permissionSyncService;
+
     private RoleManagementService service;
 
     @BeforeEach
@@ -63,7 +63,8 @@ class RoleManagementServiceTest {
                 rolePermissionMapper,
                 roleAssignmentMapper,
                 keycloakAdminClient,
-                auditService
+                auditService,
+                permissionSyncService
         );
     }
 
@@ -159,6 +160,39 @@ class RoleManagementServiceTest {
     }
 
     @Test
+    void updateRole_Disable_SyncsAndForcesReloginForAffectedPrincipals() {
+        UUID roleId = UUID.randomUUID();
+        UUID principalId = UUID.randomUUID();
+        UUID actorId = UUID.randomUUID();
+
+        IamRoleRow row = new IamRoleRow();
+        row.setRoleId(roleId);
+        row.setRoleCode("STORE_STAFF");
+        row.setIsProtected(false);
+        row.setIsEnabled(true);
+        row.setVersion(2L);
+        row.setDescription("Nhân viên cửa hàng");
+
+        IamRoleAssignmentRow assignment = new IamRoleAssignmentRow();
+        assignment.setPrincipalId(principalId);
+        assignment.setRoleId(roleId);
+
+        when(roleMapper.findByIdIncludeDisabled(roleId)).thenReturn(row);
+        when(roleAssignmentMapper.findActiveByRoleId(eq(roleId), any())).thenReturn(List.of(assignment));
+        when(roleMapper.softDeleteById(eq(roleId), eq(actorId), eq(2L))).thenReturn(1);
+
+        UpdateRoleRequest dto = new UpdateRoleRequest();
+        dto.setIsEnabled(false);
+
+        service.updateRole(roleId, dto, actorId);
+
+        verify(roleAssignmentMapper).revokeAllByRoleId(eq(roleId), eq(actorId), any());
+        verify(permissionSyncService).syncPrincipal(
+                eq(principalId), eq(true), eq(PermissionSyncService.Trigger.ROLE_DISABLE), eq(actorId));
+        verify(auditService).recordAudit(any(), any(), any(), eq("ROLE_DISABLE"), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
     void deleteRole_Protected_ThrowsException() {
         UUID roleId = UUID.randomUUID();
         IamRoleRow row = new IamRoleRow();
@@ -232,82 +266,75 @@ class RoleManagementServiceTest {
     }
 
     @Test
-    void replaceRolePermissions_Success() {
+    void replaceRolePermissions_ReducedPermissionsForceRelogin() {
         UUID roleId = UUID.randomUUID();
         IamRoleRow row = new IamRoleRow();
         row.setRoleId(roleId);
+        row.setIsProtected(false);
 
         when(roleMapper.findById(roleId)).thenReturn(row);
+        when(rolePermissionMapper.findByRoleId(roleId)).thenReturn(List.of(
+                permissionRow(roleId, "order:read"),
+                permissionRow(roleId, "order:delete")));
+
+        service.replaceRolePermissions(roleId, List.of("order:read"), UUID.randomUUID());
+
+        verify(rolePermissionMapper).deleteByRoleId(roleId);
+        verify(permissionSyncService).syncAllPrincipalsForRole(
+                eq(roleId), eq(true), eq(PermissionSyncService.Trigger.ROLE_PERMISSION_CHANGE), any());
+    }
+
+    @Test
+    void replaceRolePermissions_AddedPermissionsDoNotForceRelogin() {
+        UUID roleId = UUID.randomUUID();
+        IamRoleRow row = new IamRoleRow();
+        row.setRoleId(roleId);
+        row.setIsProtected(false);
+
+        when(roleMapper.findById(roleId)).thenReturn(row);
+        when(rolePermissionMapper.findByRoleId(roleId)).thenReturn(List.of(permissionRow(roleId, "order:read")));
 
         service.replaceRolePermissions(roleId, List.of("order:read", "order:update"), UUID.randomUUID());
 
-        verify(rolePermissionMapper).deleteByRoleId(roleId);
-        verify(rolePermissionMapper, times(2)).insert(any(IamRolePermissionRow.class));
+        verify(permissionSyncService).syncAllPrincipalsForRole(
+                eq(roleId), eq(false), eq(PermissionSyncService.Trigger.ROLE_PERMISSION_CHANGE), any());
     }
 
     @Test
     void removePermissionFromRole_ForcesRelogin() {
-        var principalMapper = mock(IdentityPrincipalMapper.class);
-        var bffSessionStore = mock(com.hvduong.identity.infrastructure.session.BffSessionStore.class);
-        org.springframework.test.util.ReflectionTestUtils.setField(service, "principalMapper", principalMapper);
-        org.springframework.test.util.ReflectionTestUtils.setField(service, "bffSessionStore", bffSessionStore);
-
         UUID roleId = UUID.randomUUID();
-        UUID principalId = UUID.randomUUID();
-
         IamRoleRow role = new IamRoleRow();
         role.setRoleId(roleId);
         role.setIsProtected(false);
 
-        IamRoleAssignmentRow assignment = new IamRoleAssignmentRow();
-        assignment.setPrincipalId(principalId);
-        assignment.setRoleId(roleId);
-
-        IdentityPrincipalRow principal = new IdentityPrincipalRow();
-        principal.setPrincipalId(principalId);
-        principal.setIdpSubject("kc-sub-999");
-
         when(roleMapper.findById(roleId)).thenReturn(role);
-        when(roleAssignmentMapper.findActiveByRoleId(eq(roleId), any())).thenReturn(List.of(assignment));
-        when(principalMapper.findById(principalId)).thenReturn(principal);
 
         service.removePermissionFromRole(roleId, "order:delete", UUID.randomUUID());
 
-        verify(bffSessionStore).removeSessionsByPrincipalId(principalId);
-        verify(keycloakAdminClient).logoutUser("kc-sub-999");
+        verify(permissionSyncService).syncAllPrincipalsForRole(
+                eq(roleId), eq(true), eq(PermissionSyncService.Trigger.ROLE_PERMISSION_CHANGE), any());
     }
 
     @Test
     void addPermissionToRole_DoesNotForceRelogin() {
-        var principalMapper = mock(IdentityPrincipalMapper.class);
-        var bffSessionStore = mock(com.hvduong.identity.infrastructure.session.BffSessionStore.class);
-        org.springframework.test.util.ReflectionTestUtils.setField(service, "principalMapper", principalMapper);
-        org.springframework.test.util.ReflectionTestUtils.setField(service, "bffSessionStore", bffSessionStore);
-
         UUID roleId = UUID.randomUUID();
-        UUID principalId = UUID.randomUUID();
-
         IamRoleRow role = new IamRoleRow();
         role.setRoleId(roleId);
         role.setIsProtected(false);
 
-        IamRoleAssignmentRow assignment = new IamRoleAssignmentRow();
-        assignment.setPrincipalId(principalId);
-        assignment.setRoleId(roleId);
-
-        IdentityPrincipalRow principal = new IdentityPrincipalRow();
-        principal.setPrincipalId(principalId);
-        principal.setIdpSubject("kc-sub-999");
-
         when(roleMapper.findById(roleId)).thenReturn(role);
-        when(roleAssignmentMapper.findActiveByRoleId(eq(roleId), any())).thenReturn(List.of(assignment));
-        when(principalMapper.findById(principalId)).thenReturn(principal);
 
         service.addPermissionToRole(roleId, "order:read", UUID.randomUUID());
 
-        verify(keycloakAdminClient).updateUserPermissions(eq("kc-sub-999"), any());
-        verify(bffSessionStore, never()).removeSessionsByPrincipalId(any());
-        verify(keycloakAdminClient, never()).logoutUser(any());
+        verify(permissionSyncService).syncAllPrincipalsForRole(
+                eq(roleId), eq(false), eq(PermissionSyncService.Trigger.ROLE_PERMISSION_CHANGE), any());
+        verify(permissionSyncService, never()).syncPrincipal(any(), eq(true), any(), any());
+    }
+
+    private IamRolePermissionRow permissionRow(UUID roleId, String code) {
+        IamRolePermissionRow row = new IamRolePermissionRow();
+        row.setRoleId(roleId);
+        row.setPermissionCode(code);
+        return row;
     }
 }
-

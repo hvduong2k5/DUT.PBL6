@@ -7,6 +7,8 @@ import org.keycloak.representations.idm.UserRepresentation;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -14,6 +16,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
+@Slf4j
 @Service
 public class KeycloakAdminClient {
 
@@ -86,13 +89,17 @@ public class KeycloakAdminClient {
                 newRole.setDescription(description);
                 rolesResource.create(newRole);
             }
-        } catch (Exception ignored) {}
+        } catch (Exception ex) {
+            log.error("Failed to create/update Keycloak realm role '{}'", roleName, ex);
+        }
     }
 
     public void deleteRealmRole(String roleName) {
         try {
             keycloak.realm(realm).roles().deleteRole(roleName);
-        } catch (Exception ignored) {}
+        } catch (Exception ex) {
+            log.error("Failed to delete Keycloak realm role '{}'", roleName, ex);
+        }
     }
 
     public void resetUserPassword(String keycloakUserId, String newPassword, boolean temporary) {
@@ -103,10 +110,23 @@ public class KeycloakAdminClient {
         keycloak.realm(realm).users().get(keycloakUserId).resetPassword(credential);
     }
 
+    /**
+     * Best-effort logout. Prefer {@link #logoutUserStrict(String)} on revocation paths
+     * where a failure must be visible to the caller.
+     */
     public void logoutUser(String keycloakUserId) {
         try {
             keycloak.realm(realm).users().get(keycloakUserId).logout();
-        } catch (Exception ignored) {}
+        } catch (Exception ex) {
+            log.warn("Failed to log out Keycloak user '{}'", keycloakUserId, ex);
+        }
+    }
+
+    /**
+     * Logout that propagates failures so callers can audit/retry them.
+     */
+    public void logoutUserStrict(String keycloakUserId) {
+        keycloak.realm(realm).users().get(keycloakUserId).logout();
     }
 
     public Optional<UserRepresentation> getUserById(String keycloakUserId) {
@@ -117,19 +137,21 @@ public class KeycloakAdminClient {
         }
     }
 
+    /**
+     * Replace the {@code permissions} user attribute. Failures propagate to the caller so
+     * the sync can be audited and retried (see {@code PermissionSyncService}).
+     */
     public void updateUserPermissions(String keycloakUserId, List<String> permissions) {
-        try {
-            org.keycloak.admin.client.resource.UserResource userResource = keycloak.realm(realm).users().get(keycloakUserId);
-            UserRepresentation user = userResource.toRepresentation();
-            Map<String, List<String>> attributes = user.getAttributes();
-            if (attributes == null) {
-                attributes = new HashMap<>();
-            } else {
-                attributes = new HashMap<>(attributes);
-            }
-            attributes.put("permissions", permissions != null ? permissions : Collections.emptyList());
-            user.setAttributes(attributes);
-            userResource.update(user);
-        } catch (Exception ignored) {}
+        org.keycloak.admin.client.resource.UserResource userResource = keycloak.realm(realm).users().get(keycloakUserId);
+        UserRepresentation user = userResource.toRepresentation();
+        Map<String, List<String>> attributes = user.getAttributes();
+        if (attributes == null) {
+            attributes = new HashMap<>();
+        } else {
+            attributes = new HashMap<>(attributes);
+        }
+        attributes.put("permissions", permissions != null ? permissions : Collections.emptyList());
+        user.setAttributes(attributes);
+        userResource.update(user);
     }
 }

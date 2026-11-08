@@ -25,7 +25,7 @@ public class IamAssignmentController implements IamAssignmentApi {
     private final RoleAssignmentService roleAssignmentService;
 
     @Override
-    @PreAuthorize("hasRole('ADMIN') or hasAuthority('ROLE_ASSIGN')")
+    @PreAuthorize("hasAuthority('ROLE_VIEW')")
     public ResponseEntity<ApiResponse<List<RoleAssignmentResponse>>> listAssignments(
             @RequestParam(required = false) UUID principalId,
             @RequestParam(required = false) UUID roleId,
@@ -39,7 +39,7 @@ public class IamAssignmentController implements IamAssignmentApi {
     }
 
     @Override
-    @PreAuthorize("hasRole('ADMIN') or hasAuthority('ROLE_ASSIGN')")
+    @PreAuthorize("hasAuthority('ROLE_ASSIGN')")
     public ResponseEntity<ApiResponse<UUID>> assignRole(
             @RequestBody AssignRoleRequest request,
             @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorId
@@ -50,7 +50,7 @@ public class IamAssignmentController implements IamAssignmentApi {
     }
 
     @Override
-    @PreAuthorize("hasRole('ADMIN') or hasAuthority('ROLE_ASSIGN')")
+    @PreAuthorize("hasAuthority('ROLE_ASSIGN')")
     public ResponseEntity<ApiResponse<Void>> revokeRole(
             @PathVariable UUID assignmentId,
             @RequestParam(required = false) String reason,

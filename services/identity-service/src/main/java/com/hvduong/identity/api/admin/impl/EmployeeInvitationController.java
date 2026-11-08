@@ -23,7 +23,7 @@ public class EmployeeInvitationController implements EmployeeInvitationApi {
     private final EmployeeInvitationService invitationService;
 
     @Override
-    @PreAuthorize("hasRole('ADMIN') or hasAuthority('EMPLOYEE_INVITE')")
+    @PreAuthorize("hasAuthority('EMPLOYEE_INVITE')")
     public ResponseEntity<ApiResponse<InviteEmployeeResponse>> inviteEmployee(
             @RequestBody(required = false) InviteEmployeeRequest request,
             @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorId
@@ -35,7 +35,7 @@ public class EmployeeInvitationController implements EmployeeInvitationApi {
     }
 
     @Override
-    @PreAuthorize("hasRole('ADMIN') or hasAuthority('EMPLOYEE_INVITATION_REVOKE')")
+    @PreAuthorize("hasAuthority('EMPLOYEE_INVITATION_REVOKE')")
     public ResponseEntity<ApiResponse<Void>> revokeInvitation(
             @PathVariable UUID invitationId,
             @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorId

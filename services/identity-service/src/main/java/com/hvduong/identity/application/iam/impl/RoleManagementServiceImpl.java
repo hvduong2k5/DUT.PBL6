@@ -1,7 +1,6 @@
 package com.hvduong.identity.application.iam.impl;
 
 import java.time.OffsetDateTime;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -9,11 +8,11 @@ import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.UUID;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.hvduong.identity.application.audit.AuditService;
+import com.hvduong.identity.application.iam.PermissionSyncService;
 import com.hvduong.identity.application.iam.RoleManagementService;
 import com.hvduong.identity.application.dto.request.CreateRoleRequest;
 import com.hvduong.identity.application.dto.request.UpdateRoleRequest;
@@ -22,12 +21,9 @@ import com.hvduong.identity.infrastructure.keycloak.KeycloakAdminClient;
 import com.hvduong.identity.domain.entity.IamRoleAssignmentRow;
 import com.hvduong.identity.domain.entity.IamRolePermissionRow;
 import com.hvduong.identity.domain.entity.IamRoleRow;
-import com.hvduong.identity.domain.entity.IdentityPrincipalRow;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IamRoleAssignmentMapper;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IamRoleMapper;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IamRolePermissionMapper;
-import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IdentityPrincipalMapper;
-import com.hvduong.identity.infrastructure.session.BffSessionStore;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -42,12 +38,7 @@ public class RoleManagementServiceImpl implements RoleManagementService {
     private final IamRoleAssignmentMapper roleAssignmentMapper;
     private final KeycloakAdminClient keycloakAdminClient;
     private final AuditService auditService;
-
-    @Autowired(required = false)
-    private IdentityPrincipalMapper principalMapper;
-
-    @Autowired(required = false)
-    private BffSessionStore bffSessionStore;
+    private final PermissionSyncService permissionSyncService;
 
     @Override
     @Transactional(readOnly = true)
@@ -147,9 +138,9 @@ public class RoleManagementServiceImpl implements RoleManagementService {
             throw new IllegalStateException("Không thể vô hiệu hóa vai trò bảo vệ hệ thống: " + existing.getRoleCode());
         }
 
-        // If caller wants to disable → trigger soft-delete flow
+        // If caller wants to disable → revoke affected grants, sync, force re-login
         if (Boolean.FALSE.equals(dto.getIsEnabled())) {
-            softDeleteRoleInternal(existing, updaterId);
+            disableRoleInternal(existing, updaterId);
             return;
         }
 
@@ -221,7 +212,44 @@ public class RoleManagementServiceImpl implements RoleManagementService {
         }
     }
 
-    /** Shared soft-delete logic: set is_enabled=FALSE, revoke active assignments, audit. */
+    /**
+     * Disable (PATCH isEnabled=false) keeps the role row but revokes every active
+     * assignment. The affected principals must be recomputed, synced to Keycloak and
+     * forced to re-authenticate so their next token no longer carries the grants.
+     */
+    private void disableRoleInternal(IamRoleRow existing, UUID actorId) {
+        UUID roleId = existing.getRoleId();
+
+        // Capture affected principals BEFORE revoking, otherwise the lookup returns nothing.
+        Set<UUID> affected = collectActivePrincipalIds(roleId);
+
+        int updated = roleMapper.softDeleteById(roleId, actorId, existing.getVersion());
+        if (updated == 0) {
+            throw new IllegalStateException("Optimistic lock conflict while disabling role: " + roleId);
+        }
+
+        roleAssignmentMapper.revokeAllByRoleId(roleId, actorId, "Role disabled");
+
+        // Recompute + sync + force re-login for every holder of the disabled role.
+        for (UUID principalId : affected) {
+            permissionSyncService.syncPrincipal(
+                    principalId, true, PermissionSyncService.Trigger.ROLE_DISABLE, actorId);
+        }
+
+        // Do not delete the realm role: historical tokens/attributes may still reference it.
+        keycloakAdminClient.createOrUpdateRealmRole(
+                existing.getRoleCode(), disabledDescription(existing));
+
+        auditService.recordAudit("USER", actorId, null, "ROLE_DISABLE", "ROLE",
+                roleId.toString(), "SUCCESS", null, null, null,
+                Map.of(
+                        "roleCode", existing.getRoleCode(),
+                        "type", "SOFT_DELETE",
+                        "affectedPrincipals", affected.size()
+                ));
+    }
+
+    /** Shared soft-delete logic for DELETE: set is_enabled=FALSE, revoke assignments, audit. */
     private void softDeleteRoleInternal(IamRoleRow existing, UUID actorId) {
         UUID roleId = existing.getRoleId();
 
@@ -230,17 +258,36 @@ public class RoleManagementServiceImpl implements RoleManagementService {
             throw new IllegalStateException("Optimistic lock conflict while soft-deleting role: " + roleId);
         }
 
-        // Revoke any remaining active assignments (should be 0, but as safety measure)
+        // DELETE only reaches this point when no active assignment exists; this also
+        // cleans up any expired rows that were still flagged ACTIVE.
         roleAssignmentMapper.revokeAllByRoleId(roleId, actorId, "Role disabled");
 
-        // Disable in Keycloak (do not delete — historical tokens may reference it)
-        try {
-            keycloakAdminClient.createOrUpdateRealmRole(existing.getRoleCode(), "[DISABLED] " + existing.getDescription());
-        } catch (Exception ignored) {}
+        // Do not delete the realm role: historical tokens/attributes may still reference it.
+        keycloakAdminClient.createOrUpdateRealmRole(
+                existing.getRoleCode(), disabledDescription(existing));
 
         auditService.recordAudit("USER", actorId, null, "ROLE_DISABLE", "ROLE",
                 roleId.toString(), "SUCCESS", null, null, null,
                 Map.of("roleCode", existing.getRoleCode(), "type", "SOFT_DELETE"));
+    }
+
+    private String disabledDescription(IamRoleRow existing) {
+        String base = existing.getDescription() != null ? existing.getDescription() : existing.getRoleCode();
+        return "[DISABLED] " + base;
+    }
+
+    private Set<UUID> collectActivePrincipalIds(UUID roleId) {
+        List<IamRoleAssignmentRow> active = roleAssignmentMapper.findActiveByRoleId(roleId, OffsetDateTime.now());
+        Set<UUID> principalIds = new HashSet<>();
+        if (active == null) {
+            return principalIds;
+        }
+        for (IamRoleAssignmentRow assignment : active) {
+            if (assignment.getPrincipalId() != null) {
+                principalIds.add(assignment.getPrincipalId());
+            }
+        }
+        return principalIds;
     }
 
     @Override
@@ -296,7 +343,8 @@ public class RoleManagementServiceImpl implements RoleManagementService {
         }
 
         boolean permissionsReduced = !newPerms.containsAll(oldPerms);
-        syncActivePrincipalsForRole(roleId, permissionsReduced);
+        permissionSyncService.syncAllPrincipalsForRole(
+                roleId, permissionsReduced, PermissionSyncService.Trigger.ROLE_PERMISSION_CHANGE, actorId);
 
         auditService.recordAudit(
                 "USER",
@@ -309,7 +357,10 @@ public class RoleManagementServiceImpl implements RoleManagementService {
                 null,
                 null,
                 null,
-                Map.of("permissionCount", permissionCodes != null ? permissionCodes.size() : 0)
+                Map.of(
+                        "permissionCount", permissionCodes != null ? permissionCodes.size() : 0,
+                        "permissionsReduced", permissionsReduced
+                )
         );
     }
 
@@ -341,7 +392,8 @@ public class RoleManagementServiceImpl implements RoleManagementService {
         }
 
         // Adding permission does NOT force re-login; only syncs permissions to Keycloak
-        syncActivePrincipalsForRole(roleId, false);
+        permissionSyncService.syncAllPrincipalsForRole(
+                roleId, false, PermissionSyncService.Trigger.ROLE_PERMISSION_CHANGE, actorId);
 
         auditService.recordAudit(
                 "USER",
@@ -373,7 +425,8 @@ public class RoleManagementServiceImpl implements RoleManagementService {
         rolePermissionMapper.deleteByRoleIdAndPermission(roleId, permissionCode.trim());
 
         // Removing permission forces re-login for all active holders of this role
-        syncActivePrincipalsForRole(roleId, true);
+        permissionSyncService.syncAllPrincipalsForRole(
+                roleId, true, PermissionSyncService.Trigger.ROLE_PERMISSION_CHANGE, actorId);
 
         auditService.recordAudit(
                 "USER",
@@ -389,53 +442,4 @@ public class RoleManagementServiceImpl implements RoleManagementService {
                 Map.of("permissionCode", permissionCode)
         );
     }
-
-    /**
-     * Sync active permissions for all principals currently holding {@code roleId}.
-     * When {@code forceRelogin} is true, also revokes Keycloak sessions and removes BFF sessions.
-     */
-    private void syncActivePrincipalsForRole(UUID roleId, boolean forceRelogin) {
-        if (roleAssignmentMapper == null || roleId == null) return;
-        try {
-            List<IamRoleAssignmentRow> activeForRole = roleAssignmentMapper.findActiveByRoleId(roleId, OffsetDateTime.now());
-            if (activeForRole == null || activeForRole.isEmpty()) return;
-
-            Set<UUID> principalIds = new HashSet<>();
-            for (IamRoleAssignmentRow a : activeForRole) {
-                if (a.getPrincipalId() != null) {
-                    principalIds.add(a.getPrincipalId());
-                }
-            }
-
-            for (UUID principalId : principalIds) {
-                if (forceRelogin && bffSessionStore != null) {
-                    bffSessionStore.removeSessionsByPrincipalId(principalId);
-                }
-                if (principalMapper != null && keycloakAdminClient != null) {
-                    IdentityPrincipalRow principal = principalMapper.findById(principalId);
-                    if (principal != null && principal.getIdpSubject() != null) {
-                        List<IamRoleAssignmentRow> userAssignments = roleAssignmentMapper.findActiveByPrincipal(principalId, OffsetDateTime.now());
-                        Set<String> perms = new HashSet<>();
-                        if (userAssignments != null) {
-                            for (IamRoleAssignmentRow ua : userAssignments) {
-                                if (ua.getRoleId() != null) {
-                                    List<IamRolePermissionRow> rolePerms = rolePermissionMapper.findByRoleId(ua.getRoleId());
-                                    if (rolePerms != null) {
-                                        for (IamRolePermissionRow p : rolePerms) {
-                                            perms.add(p.getPermissionCode());
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        keycloakAdminClient.updateUserPermissions(principal.getIdpSubject(), new ArrayList<>(perms));
-                        if (forceRelogin) {
-                            keycloakAdminClient.logoutUser(principal.getIdpSubject());
-                        }
-                    }
-                }
-            }
-        } catch (Exception ignored) {}
-    }
 }
-

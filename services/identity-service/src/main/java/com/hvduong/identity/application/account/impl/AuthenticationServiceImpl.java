@@ -65,10 +65,10 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     private String defaultFrontendUrl;
 
     @Value("${ACCESS_TOKEN_LIFESPAN_SECONDS:900}")
-    private long accessTokenLifespanSeconds;
+    private long accessTokenLifespanSeconds = 900L;
 
     @Value("${REFRESH_TOKEN_LIFESPAN_SECONDS:2592000}")
-    private long refreshTokenLifespanSeconds;
+    private long refreshTokenLifespanSeconds = 2592000L;
 
     @Value("${keycloak.mobile-client-id:mobile-app}") private String mobileClientId="mobile-app";
     @Value("${keycloak.mobile-redirect-uri:}") private String mobileRedirectUri="";

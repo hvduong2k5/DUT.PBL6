@@ -1,19 +1,16 @@
 package com.hvduong.identity.application.iam.impl;
 
+import com.hvduong.identity.application.iam.PermissionSyncService;
 import com.hvduong.identity.application.iam.RoleAssignmentService;
 
 import com.hvduong.identity.application.dto.request.AssignRoleRequest;
 import com.hvduong.identity.application.dto.response.RoleAssignmentResponse;
 import com.hvduong.identity.application.audit.AuditService;
-import com.hvduong.identity.infrastructure.keycloak.KeycloakAdminClient;
 import com.hvduong.identity.domain.entity.IamRoleAssignmentRow;
-import com.hvduong.identity.domain.entity.IamRolePermissionRow;
 import com.hvduong.identity.domain.entity.IdentityPrincipalRow;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IamRoleAssignmentMapper;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IamRoleMapper;
-import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IamRolePermissionMapper;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IdentityPrincipalMapper;
-import com.hvduong.identity.infrastructure.session.BffSessionStore;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -32,18 +29,10 @@ public class RoleAssignmentServiceImpl implements RoleAssignmentService {
     private final IamRoleAssignmentMapper roleAssignmentMapper;
     private final IdentityPrincipalMapper principalMapper;
     private final AuditService auditService;
-
-    @Autowired(required = false)
-    private KeycloakAdminClient keycloakAdminClient;
-
-    @Autowired(required = false)
-    private IamRolePermissionMapper rolePermissionMapper;
+    private final PermissionSyncService permissionSyncService;
 
     @Autowired(required = false)
     private IamRoleMapper roleMapper;
-
-    @Autowired(required = false)
-    private BffSessionStore bffSessionStore;
 
     @Override
     @Transactional
@@ -89,8 +78,9 @@ public class RoleAssignmentServiceImpl implements RoleAssignmentService {
 
         roleAssignmentMapper.insert(assignment);
 
-        // Sync permissions to Keycloak User Attributes
-        syncPermissionsToKeycloak(request.getPrincipalId());
+        // Project the recomputed grants into Keycloak. Adding a grant does not force re-login.
+        permissionSyncService.syncPrincipal(
+                request.getPrincipalId(), false, PermissionSyncService.Trigger.ROLE_ASSIGN, assignedBy);
 
         // 4. Audit log
         auditService.recordAudit(
@@ -135,9 +125,10 @@ public class RoleAssignmentServiceImpl implements RoleAssignmentService {
 
         int updated = roleAssignmentMapper.revokeAssignment(assignmentId, revokedBy, reason, expectedVersion);
         if (updated > 0) {
-            if (existing != null) {
-                syncAndForceRelogin(existing.getPrincipalId());
-            }
+            // Revoking a grant reduces privileges: sync and force re-login so the next
+            // token cannot carry the revoked permission.
+            permissionSyncService.syncPrincipal(
+                    existing.getPrincipalId(), true, PermissionSyncService.Trigger.ROLE_REVOKE, revokedBy);
 
             auditService.recordAudit(
                     "EMPLOYEE",
@@ -188,66 +179,5 @@ public class RoleAssignmentServiceImpl implements RoleAssignmentService {
                 .updatedAt(row.getUpdatedAt())
                 .version(row.getVersion() != null ? row.getVersion() : 0L)
                 .build();
-    }
-
-    /**
-     * Sync permissions to Keycloak AND force re-login (logout user + remove BFF session).
-     * Called on revoke/reduce operations only.
-     */
-    void syncAndForceRelogin(UUID principalId) {
-        if (principalId == null) return;
-        try {
-            if (bffSessionStore != null) {
-                bffSessionStore.removeSessionsByPrincipalId(principalId);
-            }
-            if (keycloakAdminClient == null) return;
-            IdentityPrincipalRow principal = principalMapper.findById(principalId);
-            if (principal == null || principal.getIdpSubject() == null) return;
-
-            List<IamRoleAssignmentRow> activeAssignments = roleAssignmentMapper.findActiveByPrincipal(principalId, OffsetDateTime.now());
-            Set<String> perms = new HashSet<>();
-            if (activeAssignments != null && rolePermissionMapper != null) {
-                for (IamRoleAssignmentRow a : activeAssignments) {
-                    if (a.getRoleId() != null) {
-                        List<IamRolePermissionRow> rolePerms = rolePermissionMapper.findByRoleId(a.getRoleId());
-                        if (rolePerms != null) {
-                            for (IamRolePermissionRow p : rolePerms) {
-                                perms.add(p.getPermissionCode());
-                            }
-                        }
-                    }
-                }
-            }
-
-            keycloakAdminClient.updateUserPermissions(principal.getIdpSubject(), new ArrayList<>(perms));
-            keycloakAdminClient.logoutUser(principal.getIdpSubject());
-        } catch (Exception ignored) {}
-    }
-
-    private void syncPermissionsToKeycloak(UUID principalId) {
-        if (keycloakAdminClient == null || rolePermissionMapper == null || principalId == null) {
-            return;
-        }
-        try {
-            IdentityPrincipalRow principal = principalMapper.findById(principalId);
-            if (principal == null || principal.getIdpSubject() == null) {
-                return;
-            }
-            List<IamRoleAssignmentRow> activeAssignments = roleAssignmentMapper.findActiveByPrincipal(principalId, OffsetDateTime.now());
-            Set<String> perms = new HashSet<>();
-            if (activeAssignments != null) {
-                for (IamRoleAssignmentRow a : activeAssignments) {
-                    if (a.getRoleId() != null) {
-                        List<IamRolePermissionRow> rolePerms = rolePermissionMapper.findByRoleId(a.getRoleId());
-                        if (rolePerms != null) {
-                            for (IamRolePermissionRow p : rolePerms) {
-                                perms.add(p.getPermissionCode());
-                            }
-                        }
-                    }
-                }
-            }
-            keycloakAdminClient.updateUserPermissions(principal.getIdpSubject(), new ArrayList<>(perms));
-        } catch (Exception ignored) {}
     }
 }

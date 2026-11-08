@@ -775,6 +775,145 @@ paths:
           $ref: '#/components/responses/InternalError'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/admin/iam/principals/{principalId}/effective-permissions:
+    get:
+      tags:
+      - Access management
+      operationId: getAdminIamPrincipalsPrincipalIdEffectivePermissions
+      summary: Xem quyền đang cấu hình của một principal
+      description: |
+        Tính lại danh sách quyền hiệu lực trực tiếp từ cơ sở dữ liệu IAM
+        (`iam_role_assignments` ACTIVE + `iam_roles.is_enabled = TRUE` + `iam_role_permissions`).
+        Đây là "quyền đang cấu hình", không phải "quyền token đang mang": access token đã phát
+        không thể sửa và chỉ nhận thay đổi ở lần refresh kế tiếp.
+      x-lifecycle: stable
+      x-backlog:
+      - EPIC_22
+      x-permission: ROLE_VIEW
+      x-ui-states:
+      - loading
+      - success
+      - empty
+      - error
+      - auth
+      parameters:
+      - name: principalId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Effective permission codes, empty array when the principal holds no active grant.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      principalId:
+                        type: string
+                        format: uuid
+                      permissions:
+                        type: array
+                        items:
+                          type: string
+                      tokenNote:
+                        type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/admin/iam/principals/{principalId}/sync-permissions:
+    post:
+      tags:
+      - Access management
+      operationId: postAdminIamPrincipalsPrincipalIdSyncPermissions
+      summary: Chạy lại đồng bộ quyền Identity → Keycloak
+      description: |
+        Đường đối soát khi lần đồng bộ trước thất bại (audit `IAM_PERMISSION_SYNC_FAILED`).
+        Hệ thống tính lại quyền từ DB IAM và ghi đè user attribute `permissions` trên Keycloak.
+        `forceRelogin=true` thu hồi phiên Keycloak và xóa phiên BFF sau khi đồng bộ.
+        Token đã phát không thể sửa; thay đổi chỉ áp dụng cho token phát sau lần refresh kế tiếp.
+      x-lifecycle: stable
+      x-backlog:
+      - EPIC_22
+      x-permission: PERMISSION_MANAGE
+      x-ui-states:
+      - loading
+      - success
+      - error
+      - auth
+      parameters:
+      - name: principalId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: forceRelogin
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+      responses:
+        '200':
+          description: Sync completed.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      principalId:
+                        type: string
+                        format: uuid
+                      success:
+                        type: boolean
+                      permissionCount:
+                        type: integer
+                      errorCode:
+                        type:
+                        - string
+                        - 'null'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '502':
+          description: Keycloak sync failed; failure is audited and can be retried.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /api/v1/admin/roles:
     get:
       tags:
@@ -895,7 +1034,12 @@ paths:
       - Access management
       operationId: patchAdminRolesRoleId
       summary: Cập nhật vai trò (Optimistic Concurrency & Soft Delete)
-      description: Cập nhật tên/mô tả vai trò hoặc tắt vai trò (isEnabled=false kích hoạt xóa mềm và thu hồi phân công đang hoạt động). Vai trò đã xóa mềm (is_enabled=false) giữ nguyên role_code và không được phép kích hoạt lại (409).
+      description: |
+        Cập nhật tên/mô tả vai trò hoặc tắt vai trò.
+        Khi `isEnabled=false`: thu hồi toàn bộ phân công đang hoạt động của vai trò, tính lại quyền
+        cho từng principal bị ảnh hưởng, đồng bộ lên Keycloak và thu hồi phiên Keycloak + xóa phiên
+        BFF (Force Re-login). Vai trò đã xóa mềm (`is_enabled=false`) giữ nguyên `role_code` và
+        không được phép kích hoạt lại (409).
       x-lifecycle: stable
       x-backlog:
       - EPIC_22

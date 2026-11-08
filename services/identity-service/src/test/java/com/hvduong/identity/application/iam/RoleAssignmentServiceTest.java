@@ -41,11 +41,15 @@ class RoleAssignmentServiceTest {
     @Mock
     private IamRoleMapper roleMapper;
 
+    @Mock
+    private PermissionSyncService permissionSyncService;
+
     private RoleAssignmentService assignmentService;
 
     @BeforeEach
     void setUp() {
-        assignmentService = new RoleAssignmentServiceImpl(roleAssignmentMapper, principalMapper, auditService);
+        assignmentService = new RoleAssignmentServiceImpl(
+                roleAssignmentMapper, principalMapper, auditService, permissionSyncService);
     }
 
     @Test
@@ -73,6 +77,8 @@ class RoleAssignmentServiceTest {
         // Assert
         assertThat(assignmentId).isNotNull();
         verify(roleAssignmentMapper, times(1)).insert(any());
+        verify(permissionSyncService).syncPrincipal(
+                principalId, false, PermissionSyncService.Trigger.ROLE_ASSIGN, assignedBy);
         verify(auditService, times(1)).recordAudit(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
     }
 
@@ -186,34 +192,24 @@ class RoleAssignmentServiceTest {
     }
 
     @Test
-    void shouldForceReloginWhenRevokingRole() {
-        var keycloakAdminClient = mock(com.hvduong.identity.infrastructure.keycloak.KeycloakAdminClient.class);
-        var bffSessionStore = mock(com.hvduong.identity.infrastructure.session.BffSessionStore.class);
-        ReflectionTestUtils.setField(assignmentService, "keycloakAdminClient", keycloakAdminClient);
-        ReflectionTestUtils.setField(assignmentService, "bffSessionStore", bffSessionStore);
-
+    void shouldSyncAndForceReloginWhenRevokingRole() {
         UUID assignmentId = UUID.randomUUID();
         UUID principalId = UUID.randomUUID();
         UUID roleId = UUID.randomUUID();
+        UUID revokedBy = UUID.randomUUID();
 
         IamRoleAssignmentRow existing = new IamRoleAssignmentRow();
         existing.setAssignmentId(assignmentId);
         existing.setPrincipalId(principalId);
         existing.setRoleId(roleId);
 
-        IdentityPrincipalRow principal = new IdentityPrincipalRow();
-        principal.setPrincipalId(principalId);
-        principal.setIdpSubject("kc-sub-123");
-
         when(roleAssignmentMapper.findById(assignmentId)).thenReturn(existing);
-        when(roleAssignmentMapper.revokeAssignment(assignmentId, null, "Revoked", 0L)).thenReturn(1);
-        when(principalMapper.findById(principalId)).thenReturn(principal);
+        when(roleAssignmentMapper.revokeAssignment(assignmentId, revokedBy, "Revoked", 0L)).thenReturn(1);
 
-        boolean revoked = assignmentService.revokeRole(assignmentId, null, "Revoked", 0L);
+        boolean revoked = assignmentService.revokeRole(assignmentId, revokedBy, "Revoked", 0L);
 
         assertThat(revoked).isTrue();
-        verify(bffSessionStore).removeSessionsByPrincipalId(principalId);
-        verify(keycloakAdminClient).logoutUser("kc-sub-123");
+        verify(permissionSyncService).syncPrincipal(
+                principalId, true, PermissionSyncService.Trigger.ROLE_REVOKE, revokedBy);
     }
 }
-

@@ -49,6 +49,33 @@ Quy tắc này áp dụng cho mọi thay đổi code trong `services/identity-se
 - Khi chỉ **thêm** permission: chỉ sync Keycloak, không force re-login.
 - Khi Keycloak từ chối refresh token (session đã bị revoke): xóa BFF session và trả `401`.
 
+### 3.2 Nguồn sự thật & Keycloak chỉ là bản sao
+- Nguồn sự thật của grants là DB IAM: `iam_roles`, `iam_role_permissions`, `iam_role_assignments`.
+- Keycloak user attribute `permissions` chỉ là bản sao để protocol mapper đưa vào claim `permissions` của token.
+- Không được đọc attribute Keycloak để quyết định quyền hiệu lực. Luôn tính lại từ DB.
+
+### 3.3 Luồng sync bắt buộc
+Mọi thay đổi sau phải gọi `PermissionSyncService`:
+- Gán role (`ROLE_ASSIGN`) — sync, không force re-login.
+- Thu hồi assignment (`ROLE_REVOKE`) — sync + force re-login.
+- Sửa permissions của role (`ROLE_PERMISSION_CHANGE`) — sync tất cả holder; nếu quyền giảm thì force re-login.
+- Disable role (`ROLE_DISABLE`) — thu hồi assignment + sync + force re-login các principal bị ảnh hưởng.
+- Khóa/mở tài khoản (`ACCOUNT_STATUS_CHANGE`) — khi mở khóa phải sync lại trước khi user nhận token mới.
+- Chạy tay (`MANUAL_RESYNC`) — endpoint đối soát.
+
+### 3.4 Quy tắc disable role (lỗi P1 của PR #73)
+Thứ tự bắt buộc: lấy danh sách principal bị ảnh hưởng **trước khi** revoke → `softDeleteById` → `revokeAllByRoleId` → với từng principal: tính lại quyền, sync Keycloak, xóa BFF session + logout Keycloak. Không được bỏ qua bước session.
+
+### 3.5 Xử lý lỗi sync & đường đối soát
+- Không được `catch (...) {}` im lặng. Phải `log.error` và ghi audit `IAM_PERMISSION_SYNC_FAILED` với `outcome=FAILED`, `reasonCode` (`KEYCLOAK_SYNC_FAILED`, `PRINCIPAL_NOT_LINKED`, `BFF_SESSION_REVOKE_FAILED`, `KEYCLOAK_LOGOUT_FAILED`), và `details.trigger`.
+- Endpoint đối soát: `POST /api/v1/admin/iam/principals/{principalId}/sync-permissions?forceRelogin=false`. Trả `502` khi Keycloak lỗi.
+- Endpoint xem quyền cấu hình: `GET /api/v1/admin/iam/principals/{principalId}/effective-permissions`.
+
+### 3.6 Token đã phát không sửa được
+- Không có cách thu hồi quyền trong một access token đã ký. Thay đổi chỉ có hiệu lực từ token phát sau lần refresh kế tiếp.
+- Vì vậy mọi đường **giảm quyền** phải force re-login (revoke refresh token + xóa BFF session).
+- UI/Access Review phải hiển thị tách biệt "quyền đang cấu hình" (từ DB) và "quyền token đang mang" (claim hiện tại).
+
 ## 4. Biến môi trường thời gian sống Token & Session (thêm mới)
 
 Tất cả thời gian sống của Access Token, Refresh Token, BFF Session, Flow Cookie phải đọc từ biến môi trường, không được hardcode trong code Java.
@@ -72,15 +99,15 @@ Khai báo đầy đủ trong `services/identity-service/.env.example` (backend) 
   ```
 
 ## 6. Keycloak Sync
-- Khi gán/thu hồi/hết hạn role, phải gọi `syncPermissionsToKeycloak(principalId)` để cập nhật Keycloak User Attributes.
-- Khi đổi permission của role, phải sync lại tất cả principal đang được gán role đó.
+- Điểm vào duy nhất là `PermissionSyncService` (`syncPrincipal`, `syncAllPrincipalsForRole`, `resolveEffectivePermissions`).
+- `KeycloakAdminClient.updateUserPermissions(keycloakUserId, permissions)` ghi attribute; `logoutUserStrict` dùng cho revocation path, `logoutUser` là best-effort.
 - **Không xóa realm role ngay khi soft delete trong DB** để tránh làm hỏng JWT/attribute cũ.
-- `KeycloakAdminClient.updateUserPermissions(keycloakUserId, permissions)` là điểm kết nối duy nhất.
+- Không tính quyền bằng cách cộng dồn `findByRoleId` trong vòng lặp; dùng query `findEffectivePermissionCodesByPrincipal`.
 
 ## 7. API Contract
 - Tất cả endpoint admin phải nằm dưới `/api/v1/admin/**`.
 - Mọi thay đổi REST API phải cập nhật contract tại `docs/03_api_specs/` (xem quy tắc chung trong `AGENTS.md` → Frontend API Contract Handoff).
-- Phân quyền endpoint dùng `@PreAuthorize("hasRole('ADMIN') or hasAuthority('XXX_VIEW/MANAGE')")`.
+- Phân quyền endpoint **chỉ** dùng `@PreAuthorize("hasAuthority('XXX_VIEW/MANAGE')")`. Không dùng `hasRole('ADMIN')` làm bypass.
 
 ## 8. Audit Log
 - Tất cả thao tác khóa/mở khóa tài khoản, gán/thu hồi role, reactivate, thay đổi role/permission/assignment phải ghi vào `identity_audit_log`.

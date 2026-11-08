@@ -47,7 +47,7 @@ public class UserLifecycleController implements UserLifecycleApi {
     }
 
     @Override
-    @PreAuthorize("hasRole('ADMIN') or hasAuthority('USER_STATUS_MANAGE')")
+    @PreAuthorize("hasAuthority('USER_STATUS_MANAGE')")
     public ResponseEntity<ApiResponse<Void>> updateUserStatus(
             @PathVariable UUID principalId,
             @RequestBody UpdateUserStatusRequest request,

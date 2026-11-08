@@ -15,7 +15,7 @@ public class BffSessionStore {
 
     private final Map<UUID, BffSession> sessions = new ConcurrentHashMap<>();
     @Value("${BFF_SESSION_IDLE_SECONDS:2592000}")
-    private long bffSessionIdleSeconds;
+    private long bffSessionIdleSeconds = 2592000L;
 
     public BffSession createSession(String idpSubject, UUID principalId, String email, String accessToken, String refreshToken, long expiresIn, long refreshExpiresIn) {
         cleanExpired();
