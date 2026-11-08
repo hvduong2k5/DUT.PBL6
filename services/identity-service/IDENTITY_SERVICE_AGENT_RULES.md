@@ -137,6 +137,15 @@ Khai báo đầy đủ trong `services/identity-service/.env.example` (backend) 
 - MyBatis XML đặt tại `src/main/resources/mapper/sql/` (`mybatis.mapper-locations: classpath:mapper/sql/*.xml`).
 - Keycloak (compose, realm, theme) thuộc `services/keycloak-service`; xem `KEYCLOAK_SERVICE_AGENT_RULES.md`.
 
-## 12. Tham khảo
+## 12. Code Style & Import
+- Không sử dụng tên class đầy đủ (fully qualified class name) trong code Java. Viết import ngắn gọn và dùng tên class trực tiếp.
+  - Sai: `org.keycloak.representations.idm.RoleRepresentation rep = ...;`
+  - Đúng: `import org.keycloak.representations.idm.RoleRepresentation;` → `RoleRepresentation rep = ...;`
+- Sau khi viết/xem xong code, chạy **Optimize Imports** để tự động thêm import còn thiếu và xóa import không dùng:
+  - IntelliJ IDEA: `Ctrl + Alt + O`
+  - Eclipse: `Ctrl + Shift + O`
+- Không để import unused trong file Java.
+
+## 13. Tham khảo
 - `docs/01_requirements/identity-iam-lifecycle-plan.md`: Kế hoạch chi tiết vòng đời IAM.
 - `services/identity-service/docs/iam-role-permission-matrix.md`: Ma trận phân quyền.
