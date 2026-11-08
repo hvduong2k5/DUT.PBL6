@@ -1,6 +1,7 @@
 package com.hvduong.identity.application.iam;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -32,22 +33,33 @@ public interface PermissionSyncService {
      * Outcome of syncing a single principal. Failures never abort the caller's
      * transaction: they are logged and written to the audit trail.
      */
-    record SyncResult(UUID principalId, boolean success, int permissionCount, String errorCode) {
+    record SyncResult(UUID principalId, boolean success, int permissionCount, int grantCount, String errorCode) {
 
-        public static SyncResult ok(UUID principalId, int permissionCount) {
-            return new SyncResult(principalId, true, permissionCount, null);
+        public static SyncResult ok(UUID principalId, int permissionCount, int grantCount) {
+            return new SyncResult(principalId, true, permissionCount, grantCount, null);
         }
 
         public static SyncResult failed(UUID principalId, String errorCode) {
-            return new SyncResult(principalId, false, 0, errorCode);
+            return new SyncResult(principalId, false, 0, 0, errorCode);
         }
     }
+
+    /**
+     * One permission grant bound to its scope. Never cross-product between elements.
+     */
+    record PermissionGrant(String permission, String scopeType, String scopeId) {}
 
     /**
      * Recompute the effective permission codes for a principal from the IAM database.
      * Only active assignments of enabled roles are counted.
      */
     List<String> resolveEffectivePermissions(UUID principalId);
+
+    /**
+     * Recompute the effective permission grants (with scope) for a principal from the IAM database.
+     * Each element binds a permission to its assignment scope ({@code scope_type} + {@code scope_id}).
+     */
+    List<PermissionGrant> resolveEffectivePermissionGrants(UUID principalId);
 
     /**
      * Push the recomputed permissions of one principal to Keycloak.

@@ -56,6 +56,24 @@ public class PermissionSyncServiceImpl implements PermissionSyncService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public List<PermissionSyncService.PermissionGrant> resolveEffectivePermissionGrants(UUID principalId) {
+        if (principalId == null) {
+            return List.of();
+        }
+        List<IamRolePermissionMapper.PermissionGrantRow> rows =
+                rolePermissionMapper.findEffectivePermissionGrantsByPrincipal(
+                        principalId, OffsetDateTime.now());
+        if (rows == null || rows.isEmpty()) {
+            return List.of();
+        }
+        return rows.stream()
+                .map(r -> new PermissionSyncService.PermissionGrant(
+                        r.getPermissionCode(), r.getScopeType(), r.getScopeId()))
+                .toList();
+    }
+
+    @Override
     public SyncResult syncPrincipal(UUID principalId, boolean forceRelogin, Trigger trigger, UUID actorId) {
         if (principalId == null) {
             return SyncResult.failed(null, "PRINCIPAL_ID_REQUIRED");
@@ -81,10 +99,17 @@ public class PermissionSyncServiceImpl implements PermissionSyncService {
             return SyncResult.failed(principalId, "PRINCIPAL_NOT_LINKED");
         }
 
-        List<String> permissions;
+        List<String> flatPermissions;
+        List<PermissionSyncService.PermissionGrant> grants;
         try {
-            permissions = resolveEffectivePermissions(principalId);
-            keycloakAdminClient.updateUserPermissions(principal.getIdpSubject(), permissions);
+            flatPermissions = resolveEffectivePermissions(principalId);
+            grants = resolveEffectivePermissionGrants(principalId);
+            List<String> grantStrings = grants.stream()
+                    .map(g -> g.permission() + "#" + (g.scopeType() != null ? g.scopeType() : "GLOBAL")
+                            + (g.scopeId() != null && !g.scopeId().isBlank() ? "#" + g.scopeId() : ""))
+                    .toList();
+            keycloakAdminClient.updateUserPermissionsWithGrants(
+                    principal.getIdpSubject(), flatPermissions, grantStrings);
         } catch (Exception ex) {
             log.error("Keycloak permission sync failed [principalId={}, idpSubject={}, trigger={}]",
                     principalId, principal.getIdpSubject(), trigger, ex);
@@ -96,9 +121,9 @@ public class PermissionSyncServiceImpl implements PermissionSyncService {
             revokeSessions(principalId, principal.getIdpSubject(), trigger, actorId);
         }
 
-        log.info("Synced {} permission(s) to Keycloak [principalId={}, trigger={}, forceRelogin={}]",
-                permissions.size(), principalId, trigger, forceRelogin);
-        return SyncResult.ok(principalId, permissions.size());
+        log.info("Synced {} permission(s) / {} grant(s) to Keycloak [principalId={}, trigger={}, forceRelogin={}]",
+                flatPermissions.size(), grants.size(), principalId, trigger, forceRelogin);
+        return SyncResult.ok(principalId, flatPermissions.size(), grants.size());
     }
 
     @Override

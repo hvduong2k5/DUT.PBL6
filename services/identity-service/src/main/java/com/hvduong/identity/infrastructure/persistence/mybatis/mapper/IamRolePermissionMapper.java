@@ -25,4 +25,30 @@ public interface IamRolePermissionMapper {
             @Param("principalId") UUID principalId,
             @Param("now") OffsetDateTime now
     );
+
+    /**
+     * Compute the effective permission grants for a principal directly from the IAM
+     * source of truth. Each element binds a permission to its assignment scope
+     * (scope_type + scope_id). No cross-product between elements.
+     */
+    List<PermissionGrantRow> findEffectivePermissionGrantsByPrincipal(
+            @Param("principalId") UUID principalId,
+            @Param("now") OffsetDateTime now
+    );
+
+    /**
+     * Row representing one permission grant with its scope.
+     */
+    class PermissionGrantRow {
+        private String permissionCode;
+        private String scopeType;
+        private String scopeId;
+
+        public String getPermissionCode() { return permissionCode; }
+        public void setPermissionCode(String permissionCode) { this.permissionCode = permissionCode; }
+        public String getScopeType() { return scopeType; }
+        public void setScopeType(String scopeType) { this.scopeType = scopeType; }
+        public String getScopeId() { return scopeId; }
+        public void setScopeId(String scopeId) { this.scopeId = scopeId; }
+    }
 }

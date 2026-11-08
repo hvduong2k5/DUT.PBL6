@@ -65,11 +65,26 @@ public class SecurityConfig {
                 }
             }
 
-            // 2. Lấy Permissions trực tiếp từ claim 'permissions' trong JWT (Stateless - không query DB)
-            List<String> perms = jwt.getClaimAsStringList("permissions");
-            if (perms != null) {
-                for (String p : perms) {
-                    authorities.add(new SimpleGrantedAuthority(p));
+            // 2. Lấy Permissions scoped từ claim 'permission_grants' trong JWT (Consumer mới)
+            // Mỗi phần tử lưu dưới dạng chuỗi: permission#scope_type#scope_id
+            // Sinh authority dạng: PERMISSION#SCOPE_TYPE#SCOPE_ID (scope_id có thể null)
+            @SuppressWarnings("unchecked")
+            List<String> grantStrings = (List<String>) jwt.getClaim("permission_grants");
+            if (grantStrings != null) {
+                for (String gs : grantStrings) {
+                    if (gs != null && !gs.isBlank()) {
+                        authorities.add(new SimpleGrantedAuthority(gs));
+                    }
+                }
+            }
+
+            // 3. Flat permissions (consumer cũ - Catalog, Identity tự kiểm) giữ trong giai đoạn chuyển tiếp
+            List<String> flatPerms = jwt.getClaimAsStringList("permissions");
+            if (flatPerms != null) {
+                for (String p : flatPerms) {
+                    if (p != null && !p.isBlank()) {
+                        authorities.add(new SimpleGrantedAuthority(p));
+                    }
                 }
             }
 

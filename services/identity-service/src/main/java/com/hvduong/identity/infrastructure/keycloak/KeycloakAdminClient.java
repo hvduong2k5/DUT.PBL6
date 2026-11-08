@@ -138,8 +138,8 @@ public class KeycloakAdminClient {
     }
 
     /**
-     * Replace the {@code permissions} user attribute. Failures propagate to the caller so
-     * the sync can be audited and retried (see {@code PermissionSyncService}).
+     * Replace the flat {@code permissions} user attribute. Kept for consumer cũ
+     * (Catalog, Identity tự kiểm) trong giai đoạn chuyển tiếp.
      */
     public void updateUserPermissions(String keycloakUserId, List<String> permissions) {
         org.keycloak.admin.client.resource.UserResource userResource = keycloak.realm(realm).users().get(keycloakUserId);
@@ -151,6 +151,34 @@ public class KeycloakAdminClient {
             attributes = new HashMap<>(attributes);
         }
         attributes.put("permissions", permissions != null ? permissions : Collections.emptyList());
+        user.setAttributes(attributes);
+        userResource.update(user);
+    }
+
+    /**
+     * Replace both {@code permissions} (flat, consumer cũ) and {@code permission_grants}
+     * (scoped, consumer mới) user attributes. Failures propagate to the caller so
+     * the sync can be audited and retried (see {@code PermissionSyncService}).
+     *
+     * <p>{@code permissionGrants} is a list of strings in the format
+     * {@code permission#scope_type#scope_id} (scope_id may be empty), because Keycloak
+     * user attributes are {@code Map<String, List<String>>}.
+     */
+    public void updateUserPermissionsWithGrants(
+            String keycloakUserId,
+            List<String> flatPermissions,
+            List<String> permissionGrants
+    ) {
+        org.keycloak.admin.client.resource.UserResource userResource = keycloak.realm(realm).users().get(keycloakUserId);
+        UserRepresentation user = userResource.toRepresentation();
+        Map<String, List<String>> attributes = user.getAttributes();
+        if (attributes == null) {
+            attributes = new HashMap<>();
+        } else {
+            attributes = new HashMap<>(attributes);
+        }
+        attributes.put("permissions", flatPermissions != null ? flatPermissions : Collections.emptyList());
+        attributes.put("permission_grants", permissionGrants != null ? permissionGrants : Collections.emptyList());
         user.setAttributes(attributes);
         userResource.update(user);
     }

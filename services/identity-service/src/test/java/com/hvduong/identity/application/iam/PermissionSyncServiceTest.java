@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.times;
 
 import java.util.List;
 import java.util.UUID;
@@ -73,13 +74,17 @@ class PermissionSyncServiceTest {
         when(principalMapper.findById(principalId)).thenReturn(principal);
         when(rolePermissionMapper.findEffectivePermissionCodesByPrincipal(eq(principalId), any()))
                 .thenReturn(List.of("order:read"));
+        when(rolePermissionMapper.findEffectivePermissionGrantsByPrincipal(eq(principalId), any()))
+                .thenReturn(List.of());
 
         PermissionSyncService.SyncResult result = service.syncPrincipal(
                 principalId, false, PermissionSyncService.Trigger.ROLE_ASSIGN, null);
 
         assertThat(result.success()).isTrue();
         assertThat(result.permissionCount()).isEqualTo(1);
-        verify(keycloakAdminClient).updateUserPermissions("kc-sub-1", List.of("order:read"));
+        assertThat(result.grantCount()).isEqualTo(0);
+        verify(keycloakAdminClient).updateUserPermissionsWithGrants(
+                eq("kc-sub-1"), eq(List.of("order:read")), eq(List.of()));
         verify(bffSessionStore, never()).removeSessionsByPrincipalId(any());
         verify(keycloakAdminClient, never()).logoutUserStrict(any());
     }
@@ -94,10 +99,14 @@ class PermissionSyncServiceTest {
         when(principalMapper.findById(principalId)).thenReturn(principal);
         when(rolePermissionMapper.findEffectivePermissionCodesByPrincipal(eq(principalId), any()))
                 .thenReturn(List.of());
+        when(rolePermissionMapper.findEffectivePermissionGrantsByPrincipal(eq(principalId), any()))
+                .thenReturn(List.of());
 
         service.syncPrincipal(principalId, true, PermissionSyncService.Trigger.ROLE_REVOKE, null);
 
         verify(bffSessionStore).removeSessionsByPrincipalId(principalId);
+        verify(keycloakAdminClient).updateUserPermissionsWithGrants(
+                eq("kc-sub-2"), eq(List.of()), eq(List.of()));
         verify(keycloakAdminClient).logoutUserStrict("kc-sub-2");
     }
 
@@ -111,8 +120,10 @@ class PermissionSyncServiceTest {
         when(principalMapper.findById(principalId)).thenReturn(principal);
         when(rolePermissionMapper.findEffectivePermissionCodesByPrincipal(eq(principalId), any()))
                 .thenReturn(List.of("order:read"));
+        when(rolePermissionMapper.findEffectivePermissionGrantsByPrincipal(eq(principalId), any()))
+                .thenReturn(List.of());
         org.mockito.Mockito.doThrow(new RuntimeException("keycloak down"))
-                .when(keycloakAdminClient).updateUserPermissions(eq("kc-sub-3"), any());
+                .when(keycloakAdminClient).updateUserPermissionsWithGrants(any(), any(), any());
 
         PermissionSyncService.SyncResult result = service.syncPrincipal(
                 principalId, false, PermissionSyncService.Trigger.ROLE_PERMISSION_CHANGE, UUID.randomUUID());
@@ -138,7 +149,7 @@ class PermissionSyncServiceTest {
 
         assertThat(result.success()).isFalse();
         assertThat(result.errorCode()).isEqualTo("PRINCIPAL_NOT_LINKED");
-        verify(keycloakAdminClient, never()).updateUserPermissions(any(), any());
+        verify(keycloakAdminClient, never()).updateUserPermissionsWithGrants(any(), any(), any());
     }
 
     @Test
@@ -168,6 +179,7 @@ class PermissionSyncServiceTest {
         when(principalMapper.findById(p1)).thenReturn(principal1);
         when(principalMapper.findById(p2)).thenReturn(principal2);
         when(rolePermissionMapper.findEffectivePermissionCodesByPrincipal(any(), any())).thenReturn(List.of());
+        when(rolePermissionMapper.findEffectivePermissionGrantsByPrincipal(any(), any())).thenReturn(List.of());
 
         int synced = service.syncAllPrincipalsForRole(
                 roleId, true, PermissionSyncService.Trigger.ROLE_DISABLE, null);
@@ -175,5 +187,6 @@ class PermissionSyncServiceTest {
         assertThat(synced).isEqualTo(2);
         verify(bffSessionStore).removeSessionsByPrincipalId(p1);
         verify(bffSessionStore).removeSessionsByPrincipalId(p2);
+        verify(keycloakAdminClient, times(2)).updateUserPermissionsWithGrants(any(), any(), any());
     }
 }
