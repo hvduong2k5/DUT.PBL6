@@ -79,3 +79,15 @@
 - **401:** Xác thực bị bỏ lỗi hoặc không hợp lệ.
 - **403:** Danh tính đã biết nhưng quyền hạn/khả năng/sở hữu/phạm vi không đủ.
 - **`principal_type` không phải phân quyền:** `CUSTOMER` và `EMPLOYEE` chỉ phân loại loại tài khoản, không dùng để kiểm tra quyền truy cập endpoint.
+
+---
+
+## 7. Quy tắc JWT claims (chốt trước PR #71 / #73)
+
+- **Không thêm claim `principal_type` vào JWT.** Loại tài khoản (CUSTOMER/EMPLOYEE) lấy từ DB qua `GET /api/v1/users/me`, đối chiếu `user_id` (Identity Principal UUID) từ JWT. JWT là immutable, không baking metadata persona có thể thay đổi.
+- `permission_grants` là nguồn quyền staff có thẩm quyền theo 2-A. Mỗi phần tử trói `permission` với `scope_type` + `scope_id` của chính assignment sinh ra nó; **không ghép chéo** giữa các phần tử.
+  - `scope_type = GLOBAL` ⇒ `scope_id` phải `null`.
+  - `scope_type = WAREHOUSE/STORE/REGION/DEPARTMENT/BRANCH/BUSINESS_UNIT` ⇒ `scope_id` bắt buộc có giá trị.
+- `permissions` (flat list) chỉ giữ cho consumer cũ (Catalog, Identity tự kiểm) trong giai đoạn chuyển tiếp. Consumer mới **không được** dùng danh sách phẳng để kiểm phạm vi; phải dùng `permission_grants`.
+- `realm_access.roles` chỉ dùng để sinh authority `ROLE_*` (ví dụ `ROLE_ADMIN`), không làm bypass kiểm tra permission chi tiết.
+- `amr` / `auth_time` phục vụ kiểm tra MFA gần đây cho thao tác rủi cao (6-B) — consumer nào cần thì kiểm, không phải mọi request.

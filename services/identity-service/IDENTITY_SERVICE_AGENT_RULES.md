@@ -34,12 +34,14 @@ Quy tắc này áp dụng cho mọi thay đổi code trong `services/identity-se
 - **Không viết mã kiểm tra theo tên role:** Không được viết code dạng `if (role == "ADMIN")` hoặc `if (authorities.contains("ROLE_ADMIN"))` để bỏ qua kiểm tra permission chi tiết.
 
 ## 3. Chuẩn hóa JWT và đồng bộ quyền (ƯU TIÊN ĐẦU)
+- **Không thêm claim `principal_type` vào JWT.** Loại tài khoản (CUSTOMER/EMPLOYEE) lấy từ DB qua `GET /api/v1/users/me`, đối chiếu `user_id` (Identity Principal UUID) từ JWT. Quy ước này đã chốt trong `docs/06_operations/mvp_permissions.md` và `services/identity-service/docs/iam-role-permission-matrix.md`. JWT là immutable, không baking metadata persona có thể thay đổi.
 - Token JWT phải thể hiện được:
-  - **Principal là CUSTOMER hay EMPLOYEE** (`principal_type`)
-  - **Principal ID nội bộ** (`principal_id`)
-  - **Permission gắn đúng scope** (từ `iam_role_permissions` qua `iam_role_assignments`)
-  - **Thời hạn hiệu lực** (`exp`, `valid_from`, `valid_until`)
-- Khi đổi permission của role, disable role, hoặc thu hồi assignment → phải cập nhật dữ liệu dùng để phát token cho tất cả nhân viên bị ảnh hưởng (gọi `syncPermissionsToKeycloak(principalId)`).
+  - **Principal ID nội bộ** (`user_id`)
+  - **Permission gắn đúng scope** (`permission_grants` từ `iam_role_permissions` qua `iam_role_assignments`)
+  - **Thời hạn hiệu lực** (`exp`, `iat`)
+  - **Realm roles** (`realm_access.roles`) — chỉ dùng để sinh authority `ROLE_*`, không làm bypass kiểm tra permission chi tiết.
+- Claim `permissions` (flat list) chỉ giữ cho consumer cũ (Catalog, Identity tự kiểm) trong giai đoạn chuyển tiếp. Consumer mới không được dùng danh sách phẳng để kiểm phạm vi; phải dùng `permission_grants`.
+- Khi đổi permission của role, disable role, hoặc thu hồi assignment → phải cập nhật dữ liệu dùng để phát token cho tất cả nhân viên bị ảnh hưởng (gọi `PermissionSyncService.syncPrincipal` / `syncAllPrincipalsForRole`).
 - Token mới phải nhận quyền mới.
 - Quyền có thời hạn không được sống lâu hơn assignment (khi assignment `REVOKED`/`EXPIRED`, token tương ứng phải bị vô hiệu hóa hoặc không thể refresh được quyền cũ).
 

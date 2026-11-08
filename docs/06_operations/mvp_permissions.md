@@ -25,6 +25,15 @@ Các dòng sau giữ nguyên điều kiện owner `hasRole('ADMIN') OR hasAuthor
 
 `GET /api/v1/users/me`, `PUT /api/v1/users/me/password` là truy cập chính mình theo principal đã xác minh, không cần quyền admin. Test tích hợp tập trung đăng nhập và ranh giới persona; chưa nghiệm thu toàn bộ thao tác IAM quản trị qua giao diện.
 
+### Quy ước JWT claim (chốt trước PR #71 / #73)
+
+- **Không thêm claim `principal_type` vào JWT.** Loại tài khoản (CUSTOMER/EMPLOYEE) lấy từ DB qua `GET /api/v1/users/me`, đối chiếu `user_id` từ JWT. JWT là immutable, không baking metadata persona có thể thay đổi.
+- `permission_grants` là nguồn quyền staff có thẩm quyền theo 2-A. Mỗi phần tử trói `permission` với `scope_type` + `scope_id` của chính assignment sinh ra nó; **không ghép chéo** giữa các phần tử.
+  - `scope_type = GLOBAL` ⇒ `scope_id` phải `null`.
+  - `scope_type = WAREHOUSE/STORE/REGION/DEPARTMENT/BRANCH/BUSINESS_UNIT` ⇒ `scope_id` bắt buộc có giá trị.
+- `permissions` (flat list) chỉ giữ cho consumer cũ (Catalog, Identity tự kiểm) trong giai đoạn chuyển tiếp. Consumer mới **không được** dùng danh sách phẳng để kiểm phạm vi; phải dùng `permission_grants`.
+- `amr` / `auth_time` phục vụ kiểm tra MFA gần đây cho thao tác rủi cao (6-B) — consumer nào cần thì kiểm, không phải mọi request.
+
 ## Các service trong luồng mua
 
 | Service | Quyền/credential thực sự dùng | API hoặc gRPC | Phạm vi hiện được kiểm |
