@@ -563,10 +563,6 @@ def main():
             )[0]
             == 200
         )
-        status, roles, _ = request(
-            base + "/admin/realms/" + realm + "/roles/CUSTOMER", token=admin_token
-        )
-        assert status == 200
         for account in accounts.values():
             status, _, headers = request(
                 base + "/admin/realms/" + realm + "/users",
@@ -577,7 +573,12 @@ def main():
                     "lastName": "Customer",
                     "enabled": True,
                     "emailVerified": True,
-                    "attributes": {"app_user_id": [account["principal"]]},
+                    "attributes": {
+                        "app_user_id": [account["principal"]],
+                        "principal_type": [
+                            "EMPLOYEE" if account is accounts["E"] else "CUSTOMER"
+                        ],
+                    },
                     "credentials": [
                         {
                             "type": "password",
@@ -591,20 +592,6 @@ def main():
             )
             assert status == 201
             account["subject"] = headers["Location"].rsplit("/", 1)[1]
-            assert (
-                request(
-                    base
-                    + "/admin/realms/"
-                    + realm
-                    + "/users/"
-                    + account["subject"]
-                    + "/role-mappings/realm",
-                    [roles],
-                    admin_token,
-                    "POST",
-                )[0]
-                == 204
-            )
 
         env.update(
             DB_HOST="127.0.0.1",
