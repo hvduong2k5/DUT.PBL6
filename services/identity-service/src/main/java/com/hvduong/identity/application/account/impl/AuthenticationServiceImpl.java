@@ -1,5 +1,25 @@
 package com.hvduong.identity.application.account.impl;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.time.OffsetDateTime;
+import java.util.Base64;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.UUID;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.HttpStatusCodeException;
+import org.springframework.web.client.RestTemplate;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hvduong.identity.application.account.AuthenticationService;
@@ -11,31 +31,15 @@ import com.hvduong.identity.common.constant.IdentityConstants;
 import com.hvduong.identity.common.enums.PrincipalType;
 import com.hvduong.identity.common.enums.ProvisioningStatus;
 import com.hvduong.identity.domain.entity.IdentityPrincipalRow;
+import com.hvduong.identity.infrastructure.keycloak.KeycloakAdminClient;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IdentityPrincipalMapper;
-import com.hvduong.identity.security.pkce.PkceUtil;
 import com.hvduong.identity.infrastructure.session.AuthStateStore;
 import com.hvduong.identity.infrastructure.session.BffSession;
 import com.hvduong.identity.infrastructure.session.BffSessionStore;
+import com.hvduong.identity.security.pkce.PkceUtil;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.*;
-import org.springframework.stereotype.Service;
-import org.springframework.util.LinkedMultiValueMap;
-import org.springframework.util.MultiValueMap;
-import org.springframework.web.client.HttpStatusCodeException;
-import org.springframework.web.client.RestTemplate;
-import com.hvduong.identity.infrastructure.keycloak.KeycloakAdminClient;
-
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
-import java.time.OffsetDateTime;
-import java.util.Objects;
-import java.util.Base64;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
 
 @Slf4j
 @Service
@@ -48,9 +52,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     private final ObjectMapper objectMapper;
     private final AuthStateStore authStateStore;
     private final BffSessionStore bffSessionStore;
-
-    @Autowired(required = false)
-    private KeycloakAdminClient keycloakAdminClient;
+    private final KeycloakAdminClient keycloakAdminClient;
 
     @Value("${keycloak.server-url}")
     private String serverUrl;

@@ -50,8 +50,7 @@ class PermissionSyncServiceTest {
     @BeforeEach
     void setUp() {
         service = new PermissionSyncServiceImpl(
-                roleAssignmentMapper, rolePermissionMapper, principalMapper, keycloakAdminClient, auditService);
-        ReflectionTestUtils.setField(service, "bffSessionStore", bffSessionStore);
+                roleAssignmentMapper, rolePermissionMapper, principalMapper, keycloakAdminClient, auditService, bffSessionStore);
     }
 
     @Test

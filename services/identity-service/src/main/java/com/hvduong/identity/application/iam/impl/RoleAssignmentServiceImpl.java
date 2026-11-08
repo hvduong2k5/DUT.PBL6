@@ -1,12 +1,23 @@
 package com.hvduong.identity.application.iam.impl;
 
-import com.hvduong.identity.application.iam.PermissionSyncService;
-import com.hvduong.identity.application.iam.RoleAssignmentService;
+import java.time.OffsetDateTime;
+import java.util.Collections;
+import java.util.ConcurrentModificationException;
+import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.hvduong.identity.application.audit.AuditService;
 import com.hvduong.identity.application.dto.request.AssignRoleRequest;
 import com.hvduong.identity.application.dto.request.UpdateRoleAssignmentRequest;
 import com.hvduong.identity.application.dto.response.RoleAssignmentResponse;
-import com.hvduong.identity.application.audit.AuditService;
+import com.hvduong.identity.application.iam.PermissionSyncService;
+import com.hvduong.identity.application.iam.RoleAssignmentService;
 import com.hvduong.identity.common.constant.IdentityConstants;
 import com.hvduong.identity.common.enums.AssignmentStatus;
 import com.hvduong.identity.common.enums.PrincipalType;
@@ -16,14 +27,8 @@ import com.hvduong.identity.domain.entity.IdentityPrincipalRow;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IamRoleAssignmentMapper;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IamRoleMapper;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IdentityPrincipalMapper;
-import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.time.OffsetDateTime;
-import java.util.*;
-import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
@@ -35,9 +40,7 @@ public class RoleAssignmentServiceImpl implements RoleAssignmentService {
     private final IdentityPrincipalMapper principalMapper;
     private final AuditService auditService;
     private final PermissionSyncService permissionSyncService;
-
-    @Autowired(required = false)
-    private IamRoleMapper roleMapper;
+    private final IamRoleMapper roleMapper;
 
     @Override
     @Transactional

@@ -12,8 +12,8 @@ import com.hvduong.identity.domain.entity.IdentityPrincipalRow;
 import com.hvduong.identity.infrastructure.keycloak.KeycloakAdminClient;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.EmployeeInvitationMapper;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IdentityPrincipalMapper;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,33 +25,13 @@ import java.util.UUID;
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class EmployeeInvitationServiceImpl implements EmployeeInvitationService {
 
     private final EmployeeInvitationMapper invitationMapper;
     private final IdentityPrincipalMapper principalMapper;
     private final AuditService auditService;
     private final KeycloakAdminClient keycloakAdminClient;
-
-    public EmployeeInvitationServiceImpl(
-            EmployeeInvitationMapper invitationMapper,
-            IdentityPrincipalMapper principalMapper,
-            AuditService auditService
-    ) {
-        this(invitationMapper, principalMapper, auditService, null);
-    }
-
-    @Autowired
-    public EmployeeInvitationServiceImpl(
-            EmployeeInvitationMapper invitationMapper,
-            IdentityPrincipalMapper principalMapper,
-            AuditService auditService,
-            @Autowired(required = false) KeycloakAdminClient keycloakAdminClient
-    ) {
-        this.invitationMapper = invitationMapper;
-        this.principalMapper = principalMapper;
-        this.auditService = auditService;
-        this.keycloakAdminClient = keycloakAdminClient;
-    }
 
     @Value("${keycloak.public-url:${keycloak.server-url:https://keycloak.omama.vn}}")
     private String publicUrl = "https://keycloak.omama.vn";

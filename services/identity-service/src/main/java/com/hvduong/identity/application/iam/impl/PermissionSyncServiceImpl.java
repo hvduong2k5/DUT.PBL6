@@ -8,7 +8,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,9 +36,7 @@ public class PermissionSyncServiceImpl implements PermissionSyncService {
     private final IdentityPrincipalMapper principalMapper;
     private final KeycloakAdminClient keycloakAdminClient;
     private final AuditService auditService;
-
-    @Autowired(required = false)
-    private BffSessionStore bffSessionStore;
+    private final BffSessionStore bffSessionStore;
 
     @Override
     @Transactional(readOnly = true)

@@ -49,7 +49,10 @@ class RoleAssignmentServiceTest {
     @BeforeEach
     void setUp() {
         assignmentService = new RoleAssignmentServiceImpl(
-                roleAssignmentMapper, principalMapper, auditService, permissionSyncService);
+                roleAssignmentMapper, principalMapper, auditService, permissionSyncService, roleMapper);
+        IamRoleRow activeRole = new IamRoleRow();
+        activeRole.setIsEnabled(true);
+        lenient().when(roleMapper.findById(any())).thenReturn(activeRole);
     }
 
     @Test
@@ -147,8 +150,6 @@ class RoleAssignmentServiceTest {
 
     @Test
     void shouldRejectRevokingLastActiveAdmin() {
-        ReflectionTestUtils.setField(assignmentService, "roleMapper", roleMapper);
-
         UUID assignmentId = UUID.randomUUID();
         UUID adminRoleId = UUID.randomUUID();
 

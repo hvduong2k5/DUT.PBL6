@@ -56,6 +56,9 @@ class AuthenticationServiceTest {
     @Spy
     private BffSessionStore bffSessionStore = new BffSessionStore();
 
+    @Mock
+    private com.hvduong.identity.infrastructure.keycloak.KeycloakAdminClient keycloakAdminClient;
+
     @InjectMocks
     private AuthenticationServiceImpl authenticationService;
 

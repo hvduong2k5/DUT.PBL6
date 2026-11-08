@@ -51,6 +51,12 @@ class UserLifecycleServiceTest {
     @Mock
     private org.springframework.web.client.RestTemplate restTemplate;
 
+    @Mock
+    private com.hvduong.identity.infrastructure.session.BffSessionStore bffSessionStore;
+
+    @Mock
+    private com.hvduong.identity.application.iam.PermissionSyncService permissionSyncService;
+
     private ObjectMapper objectMapper = new ObjectMapper();
 
     private UserLifecycleService service;
@@ -66,7 +72,9 @@ class UserLifecycleServiceTest {
                 keycloakAdminClient,
                 auditService,
                 objectMapper,
-                restTemplate
+                restTemplate,
+                bffSessionStore,
+                permissionSyncService
         );
     }
 
