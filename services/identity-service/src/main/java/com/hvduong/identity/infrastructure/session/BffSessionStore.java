@@ -9,13 +9,23 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
 
 @Component
 public class BffSessionStore {
 
     private final Map<UUID, BffSession> sessions = new ConcurrentHashMap<>();
+    private final Map<UUID, ReentrantLock> sessionLocks = new ConcurrentHashMap<>();
+
     @Value("${BFF_SESSION_IDLE_SECONDS:2592000}")
     private long bffSessionIdleSeconds = 2592000L;
+
+    /**
+     * Get or create a session-specific ReentrantLock to prevent concurrent token refresh race conditions.
+     */
+    public ReentrantLock getLock(UUID sessionId) {
+        return sessionLocks.computeIfAbsent(sessionId, id -> new ReentrantLock());
+    }
 
     public BffSession createSession(String idpSubject, UUID principalId, String email, String accessToken, String refreshToken, long expiresIn, long refreshExpiresIn) {
         cleanExpired();
@@ -32,6 +42,8 @@ public class BffSessionStore {
                 .refreshTokenExpiresAt(now.plusSeconds(refreshExpiresIn))
                 .createdAt(now)
                 .lastAccessedAt(now)
+                .tokenVersion(1L)
+                .lastRotatedAt(now)
                 .build();
         sessions.put(sessionId, session);
         return session;
@@ -59,12 +71,15 @@ public class BffSessionStore {
             }
             session.setAccessTokenExpiresAt(now.plusSeconds(expiresIn));
             session.setLastAccessedAt(now);
+            session.setTokenVersion(session.getTokenVersion() + 1);
+            session.setLastRotatedAt(now);
         }
     }
 
     public void removeSession(UUID sessionId) {
         if (sessionId != null) {
             sessions.remove(sessionId);
+            sessionLocks.remove(sessionId);
         }
     }
 
@@ -74,7 +89,13 @@ public class BffSessionStore {
      */
     public void removeSessionsByPrincipalId(UUID principalId) {
         if (principalId == null) return;
-        sessions.entrySet().removeIf(e -> principalId.equals(e.getValue().getPrincipalId()));
+        sessions.entrySet().removeIf(e -> {
+            if (principalId.equals(e.getValue().getPrincipalId())) {
+                sessionLocks.remove(e.getKey());
+                return true;
+            }
+            return false;
+        });
     }
 
     private void cleanExpired() {
@@ -83,8 +104,11 @@ public class BffSessionStore {
         sessions.entrySet().removeIf(entry -> {
             BffSession s = entry.getValue();
             boolean idleExpired = Duration.between(s.getLastAccessedAt(), now).compareTo(maxIdle) > 0;
-            return s.isRefreshTokenExpired() || idleExpired;
+            boolean expired = s.isRefreshTokenExpired() || idleExpired;
+            if (expired) {
+                sessionLocks.remove(entry.getKey());
+            }
+            return expired;
         });
     }
 }
-

@@ -28,6 +28,7 @@ import com.hvduong.identity.infrastructure.keycloak.KeycloakAdminClient;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
+import java.util.Objects;
 import java.util.Base64;
 import java.util.Map;
 import java.util.Optional;
@@ -265,12 +266,14 @@ public class AuthenticationServiceImpl implements AuthenticationService {
             return SessionResponse.builder().isAuthenticated(false).build();
         }
 
-        if (session.isAccessTokenExpired()) {
+        if (session.shouldRefreshAccessToken()) {
             try {
                 session = refreshSession(sessionId);
             } catch (Exception e) {
                 log.warn("Auto-refresh session failed for sessionId={}: {}", sessionId, e.getMessage());
-                return SessionResponse.builder().isAuthenticated(false).build();
+                if (session.isAccessTokenExpired()) {
+                    return SessionResponse.builder().isAuthenticated(false).build();
+                }
             }
         }
 
@@ -285,6 +288,10 @@ public class AuthenticationServiceImpl implements AuthenticationService {
 
     @Override
     public BffSession refreshSession(UUID sessionId) {
+        if (sessionId == null) {
+            throw new IllegalArgumentException("Phiên đăng nhập không tồn tại hoặc đã hết hạn.");
+        }
+
         BffSession session = bffSessionStore.getSession(sessionId)
                 .orElseThrow(() -> new IllegalArgumentException("Phiên đăng nhập không tồn tại hoặc đã hết hạn."));
 
@@ -293,36 +300,72 @@ public class AuthenticationServiceImpl implements AuthenticationService {
             throw new IllegalArgumentException("Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại.");
         }
 
-        String tokenUrl = buildTokenEndpoint();
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
-
-        MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
-        body.add("grant_type", "refresh_token");
-        body.add("client_id", session.getOauthClientId()!=null?session.getOauthClientId():publicClientId);
-        body.add("refresh_token", session.getRefreshToken());
-
-        HttpEntity<MultiValueMap<String, String>> entity = new HttpEntity<>(body, headers);
-
+        long initialTokenVersion = session.getTokenVersion();
+        java.util.concurrent.locks.ReentrantLock lock = bffSessionStore.getLock(sessionId);
+        lock.lock();
         try {
-            ResponseEntity<String> response = restTemplate.postForEntity(tokenUrl, entity, String.class);
-            JsonNode root = objectMapper.readTree(response.getBody());
+            // Re-fetch current session state inside lock
+            BffSession currentSession = bffSessionStore.getSession(sessionId)
+                    .orElseThrow(() -> new IllegalArgumentException("Phiên đăng nhập không tồn tại hoặc đã hết hạn."));
 
-            String newAccessToken = root.path("access_token").asText();
-            String newRefreshToken = root.path("refresh_token").asText(session.getRefreshToken());
-            long expiresIn = root.path("expires_in").asLong(accessTokenLifespanSeconds);
-            long refreshExpiresIn = root.path("refresh_expires_in").asLong(refreshTokenLifespanSeconds);
+            if (currentSession.isRefreshTokenExpired()) {
+                bffSessionStore.removeSession(sessionId);
+                throw new IllegalArgumentException("Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại.");
+            }
 
-            bffSessionStore.updateTokens(sessionId, newAccessToken, newRefreshToken, expiresIn, refreshExpiresIn);
-            return session;
+            // In-flight mutex / coalescing:
+            // If another thread already rotated the token while this thread was waiting for lock,
+            // and the access token is fresh (not needing proactive refresh), reuse it immediately!
+            if (currentSession.getTokenVersion() > initialTokenVersion && !currentSession.isAccessTokenExpired()) {
+                log.debug("Session {} was already refreshed by another concurrent thread (v{} -> v{}), reusing fresh token",
+                        sessionId, initialTokenVersion, currentSession.getTokenVersion());
+                return currentSession;
+            }
 
-        } catch (HttpStatusCodeException ex) {
-            log.warn("Keycloak refresh token failed: status={}", ex.getStatusCode());
-            bffSessionStore.removeSession(sessionId);
-            throw new IllegalArgumentException("Không thể làm mới phiên đăng nhập. Vui lòng đăng nhập lại.");
-        } catch (Exception ex) {
-            log.error("Unexpected error during refresh token", ex);
-            throw new RuntimeException("Không thể làm mới phiên đăng nhập.", ex);
+            String currentRefreshToken = currentSession.getRefreshToken();
+            String tokenUrl = buildTokenEndpoint();
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+
+            MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
+            body.add("grant_type", "refresh_token");
+            body.add("client_id", currentSession.getOauthClientId() != null ? currentSession.getOauthClientId() : publicClientId);
+            body.add("refresh_token", currentRefreshToken);
+
+            HttpEntity<MultiValueMap<String, String>> entity = new HttpEntity<>(body, headers);
+
+            try {
+                ResponseEntity<String> response = restTemplate.postForEntity(tokenUrl, entity, String.class);
+                JsonNode root = objectMapper.readTree(response.getBody());
+
+                String newAccessToken = root.path("access_token").asText();
+                String newRefreshToken = root.path("refresh_token").asText(currentRefreshToken);
+                long expiresIn = root.path("expires_in").asLong(accessTokenLifespanSeconds);
+                long refreshExpiresIn = root.path("refresh_expires_in").asLong(refreshTokenLifespanSeconds);
+
+                bffSessionStore.updateTokens(sessionId, newAccessToken, newRefreshToken, expiresIn, refreshExpiresIn);
+                return currentSession;
+
+            } catch (HttpStatusCodeException ex) {
+                log.warn("Keycloak refresh token failed: status={}, body={}", ex.getStatusCode(), ex.getResponseBodyAsString());
+
+                // Graceful fallback for rotation race:
+                // Check if session has been updated concurrently in another context
+                BffSession latestSession = bffSessionStore.getSession(sessionId).orElse(null);
+                if (latestSession != null && (!Objects.equals(latestSession.getRefreshToken(), currentRefreshToken)
+                        || latestSession.getTokenVersion() > initialTokenVersion)) {
+                    log.info("Concurrent refresh detected: session {} was rotated successfully by another caller, reusing fresh tokens", sessionId);
+                    return latestSession;
+                }
+
+                bffSessionStore.removeSession(sessionId);
+                throw new IllegalArgumentException("Không thể làm mới phiên đăng nhập. Vui lòng đăng nhập lại.");
+            } catch (Exception ex) {
+                log.error("Unexpected error during refresh token", ex);
+                throw new RuntimeException("Không thể làm mới phiên đăng nhập.", ex);
+            }
+        } finally {
+            lock.unlock();
         }
     }
 

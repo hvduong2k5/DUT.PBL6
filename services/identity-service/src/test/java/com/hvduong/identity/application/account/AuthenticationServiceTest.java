@@ -263,6 +263,37 @@ class AuthenticationServiceTest {
     }
 
     @Test
+    void refreshSession_ConcurrentThreads_OnlyOneCallsKeycloak() throws Exception {
+        BffSession session = bffSessionStore.createSession(
+                "sub-concurrent", UUID.randomUUID(), "race@omama.vn", "old-at", "old-rt", 900, 2592000
+        );
+
+        String keycloakResponse = "{"
+                + "\"access_token\":\"coalesced-new-at\","
+                + "\"refresh_token\":\"coalesced-new-rt\","
+                + "\"expires_in\":900,"
+                + "\"refresh_expires_in\":2592000"
+                + "}";
+
+        when(restTemplate.postForEntity(anyString(), any(HttpEntity.class), eq(String.class)))
+                .thenAnswer(inv -> {
+                    Thread.sleep(50);
+                    return new ResponseEntity<>(keycloakResponse, HttpStatus.OK);
+                });
+
+        var future1 = java.util.concurrent.CompletableFuture.supplyAsync(() -> authenticationService.refreshSession(session.getSessionId()));
+        var future2 = java.util.concurrent.CompletableFuture.supplyAsync(() -> authenticationService.refreshSession(session.getSessionId()));
+
+        BffSession res1 = future1.get(5, java.util.concurrent.TimeUnit.SECONDS);
+        BffSession res2 = future2.get(5, java.util.concurrent.TimeUnit.SECONDS);
+
+        assertThat(res1.getAccessToken()).isEqualTo("coalesced-new-at");
+        assertThat(res2.getAccessToken()).isEqualTo("coalesced-new-at");
+
+        verify(restTemplate, times(1)).postForEntity(anyString(), any(HttpEntity.class), eq(String.class));
+    }
+
+    @Test
     void logout_Success() {
         BffSession session = bffSessionStore.createSession(
                 "sub-3", UUID.randomUUID(), "logout@omama.vn", "at", "rt", 900, 2592000

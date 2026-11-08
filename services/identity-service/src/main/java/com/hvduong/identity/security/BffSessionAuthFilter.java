@@ -82,12 +82,14 @@ public class BffSessionAuthFilter extends OncePerRequestFilter {
                 if (sessionOpt.isPresent()) {
                     BffSession session = sessionOpt.get();
                     if (!session.isRefreshTokenExpired()) {
-                        if (session.isAccessTokenExpired()) {
+                        if (session.shouldRefreshAccessToken()) {
                             try {
                                 session = authenticationService.refreshSession(sessionId);
                             } catch (Exception ex) {
                                 log.debug("Failed to auto-refresh session in filter: {}", ex.getMessage());
-                                session = null;
+                                if (session.isAccessTokenExpired()) {
+                                    session = null;
+                                }
                             }
                         }
 

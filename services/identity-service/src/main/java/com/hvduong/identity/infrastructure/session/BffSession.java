@@ -29,12 +29,25 @@ public class BffSession {
     private Instant createdAt;
     private Instant lastAccessedAt;
 
+    @Builder.Default
+    private long tokenVersion = 1L;
+
+    @Builder.Default
+    private Instant lastRotatedAt = Instant.now();
+
     public boolean isAccessTokenExpired() {
         return accessTokenExpiresAt != null && Instant.now().isAfter(accessTokenExpiresAt);
+    }
+
+    /**
+     * Proactive refresh buffer: triggers refresh 30 seconds before access token actually expires
+     * to prevent in-flight request failures and clock skew issues.
+     */
+    public boolean shouldRefreshAccessToken() {
+        return accessTokenExpiresAt != null && Instant.now().plusSeconds(30).isAfter(accessTokenExpiresAt);
     }
 
     public boolean isRefreshTokenExpired() {
         return refreshTokenExpiresAt != null && Instant.now().isAfter(refreshTokenExpiresAt);
     }
 }
-
