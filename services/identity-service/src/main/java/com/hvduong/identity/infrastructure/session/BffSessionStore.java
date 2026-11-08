@@ -1,5 +1,6 @@
 package com.hvduong.identity.infrastructure.session;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
@@ -13,7 +14,8 @@ import java.util.concurrent.ConcurrentHashMap;
 public class BffSessionStore {
 
     private final Map<UUID, BffSession> sessions = new ConcurrentHashMap<>();
-    private static final Duration MAX_SESSION_IDLE = Duration.ofDays(30);
+    @Value("${BFF_SESSION_IDLE_SECONDS:2592000}")
+    private long bffSessionIdleSeconds;
 
     public BffSession createSession(String idpSubject, UUID principalId, String email, String accessToken, String refreshToken, long expiresIn, long refreshExpiresIn) {
         cleanExpired();
@@ -77,9 +79,10 @@ public class BffSessionStore {
 
     private void cleanExpired() {
         Instant now = Instant.now();
+        Duration maxIdle = Duration.ofSeconds(bffSessionIdleSeconds);
         sessions.entrySet().removeIf(entry -> {
             BffSession s = entry.getValue();
-            boolean idleExpired = Duration.between(s.getLastAccessedAt(), now).compareTo(MAX_SESSION_IDLE) > 0;
+            boolean idleExpired = Duration.between(s.getLastAccessedAt(), now).compareTo(maxIdle) > 0;
             return s.isRefreshTokenExpired() || idleExpired;
         });
     }

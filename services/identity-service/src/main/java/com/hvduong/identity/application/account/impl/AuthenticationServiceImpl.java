@@ -64,6 +64,12 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     @Value("${app.frontend-url:http://localhost:3000}")
     private String defaultFrontendUrl;
 
+    @Value("${ACCESS_TOKEN_LIFESPAN_SECONDS:900}")
+    private long accessTokenLifespanSeconds;
+
+    @Value("${REFRESH_TOKEN_LIFESPAN_SECONDS:2592000}")
+    private long refreshTokenLifespanSeconds;
+
     @Value("${keycloak.mobile-client-id:mobile-app}") private String mobileClientId="mobile-app";
     @Value("${keycloak.mobile-redirect-uri:}") private String mobileRedirectUri="";
 
@@ -134,8 +140,8 @@ public class AuthenticationServiceImpl implements AuthenticationService {
 
             String accessToken = root.path("access_token").asText();
             String refreshToken = root.path("refresh_token").asText();
-            long expiresIn = root.path("expires_in").asLong(900);
-            long refreshExpiresIn = root.path("refresh_expires_in").asLong(2592000);
+            long expiresIn = root.path("expires_in").asLong(accessTokenLifespanSeconds);
+            long refreshExpiresIn = root.path("refresh_expires_in").asLong(refreshTokenLifespanSeconds);
 
             String subject = extractClaim(accessToken, "sub");
             String email = extractClaim(accessToken, "email");
@@ -288,8 +294,8 @@ public class AuthenticationServiceImpl implements AuthenticationService {
 
             String newAccessToken = root.path("access_token").asText();
             String newRefreshToken = root.path("refresh_token").asText(session.getRefreshToken());
-            long expiresIn = root.path("expires_in").asLong(900);
-            long refreshExpiresIn = root.path("refresh_expires_in").asLong(2592000);
+            long expiresIn = root.path("expires_in").asLong(accessTokenLifespanSeconds);
+            long refreshExpiresIn = root.path("refresh_expires_in").asLong(refreshTokenLifespanSeconds);
 
             bffSessionStore.updateTokens(sessionId, newAccessToken, newRefreshToken, expiresIn, refreshExpiresIn);
             return session;
