@@ -44,7 +44,7 @@ func TestStaffUsesSignedJWTGrantsWithoutIdentityLookup(t *testing.T) {
 	sign := func(edit func(jwt.MapClaims)) string {
 		claims := jwt.MapClaims{"iss": server.URL, "aud": "omama-api", "sub": subject, "user_id": id, "typ": "Bearer", "iat": time.Now().Add(-time.Minute).Unix(), "exp": time.Now().Add(time.Hour).Unix(),
 			"permission_grants": []string{"ORDER_VIEW#WAREHOUSE#A", "ORDER_SENSITIVE_VIEW#WAREHOUSE#B"},
-			"realm_access": map[string]any{"roles": []string{"ADMIN", "CUSTOMER"}}, "permissions": []string{"ORDER_SENSITIVE_VIEW"}}
+			"realm_access":      map[string]any{"roles": []string{"ADMIN", "CUSTOMER"}}, "permissions": []string{"ORDER_SENSITIVE_VIEW"}}
 		if edit != nil {
 			edit(claims)
 		}
