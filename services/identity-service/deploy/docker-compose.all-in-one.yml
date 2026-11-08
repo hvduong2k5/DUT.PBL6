@@ -1,3 +1,23 @@
+version: '3.8'
+
+# =============================================================================
+# IDENTITY SERVICE - ALL-IN-ONE LOCAL DEV ENVIRONMENT
+# =============================================================================
+# Cụm hạ tầng khép kín dành cho môi trường phát triển cục bộ (Local Development):
+# - PostgreSQL 16 (port 5433, tự động tạo keycloak_db và identity_db)
+# - Keycloak 24 (port 8080, chế độ start-dev tự import realm omama)
+# - Apache Kafka (port 9092, KRaft mode single-broker)
+# - Identity Service (port 8016 HTTP, port 9016 gRPC)
+#
+# Cách dùng 1 (Khuyên dùng khi dev code):
+#   docker compose -f deploy/docker-compose.all-in-one.yml up -d postgres keycloak kafka
+#   .\gradlew.bat bootRun
+#
+# Cách dùng 2 (Chạy full container hóa):
+#   .\gradlew.bat bootJar
+#   docker compose -f deploy/docker-compose.all-in-one.yml up -d --build
+# =============================================================================
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -7,7 +27,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password123
     ports:
-      - "5433:5432"   # <-- Chạy port 5433, không lo trùng port 5432 của máy
+      - "5433:5432"   # Chạy port 5433 trên host, tránh xung đột với port 5432 mặc định
     volumes:
       - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
       - postgres_identity_data:/var/lib/postgresql/data
@@ -31,6 +51,9 @@ services:
       KC_DB_PASSWORD: password123
       KC_HEALTH_ENABLED: "true"
       KC_METRICS_ENABLED: "true"
+      KC_HTTP_ENABLED: "true"
+      KC_HOSTNAME: "http://localhost:8080"
+      KC_HOSTNAME_STRICT: "false"
     ports:
       - "8080:8080"
     volumes:
@@ -79,7 +102,9 @@ services:
       FRONTEND_BASE_URL: http://localhost:3000
       KEYCLOAK_REALM: omama
       KEYCLOAK_CLIENT_ID: identity-service-admin
-      KEYCLOAK_CLIENT_SECRET: admin-secret-placeholder
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:-admin-secret-placeholder}
+      IDENTITY_REGISTRATION_FINGERPRINT_KEY: ${IDENTITY_REGISTRATION_FINGERPRINT_KEY:-synthetic-dev-fingerprint-key-at-least-32-chars}
+      CUSTOMER_API_GATEWAY_URL: ${CUSTOMER_API_GATEWAY_URL:-http://localhost:8000}
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     ports:
       - "8016:8016"

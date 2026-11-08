@@ -1,0 +1,68 @@
+version: '3.8'
+
+# =============================================================================
+# KEYCLOAK SERVICE - LOCAL DEVELOPMENT ENVIRONMENT
+# =============================================================================
+# - Chạy Keycloak 24 độc lập ở chế độ start-dev
+# - Tự động import realm template `omama` (với token 5 phút, rotation, lean JWT)
+# - Không yêu cầu mạng external `coolify`
+# - Port PostgreSQL: 5434 (tránh xung đột với port 5432 mặc định hoặc 5433 của identity)
+# - Port Keycloak: 8080 (Admin Console: http://localhost:8080/admin)
+# =============================================================================
+
+services:
+  keycloak-postgres:
+    image: postgres:16-alpine
+    container_name: omafood-keycloak-postgres-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: keycloak_db
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: password123
+    ports:
+      - "5434:5432"
+    volumes:
+      - keycloak_postgres_dev_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak -d keycloak_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0.5
+    container_name: omafood-keycloak-standalone-dev
+    restart: unless-stopped
+    command: start-dev --import-realm
+    depends_on:
+      keycloak-postgres:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak-postgres:5432/keycloak_db
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: password123
+
+      KC_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "true"
+      KC_HTTP_ENABLED: "true"
+
+      KC_HOSTNAME: "http://localhost:8080"
+      KC_HOSTNAME_STRICT: "false"
+    volumes:
+      - ./themes:/opt/keycloak/themes:ro
+      - ./realm-export.template.json:/opt/keycloak/data/import/realm.json:ro
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080; echo -e 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3; grep -q 'HTTP/1.1 200 OK' <&3"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  keycloak_postgres_dev_data:
