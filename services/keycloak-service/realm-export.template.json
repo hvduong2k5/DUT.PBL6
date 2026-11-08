@@ -42,13 +42,15 @@
         "post.logout.redirect.uris": "https://omama.vn/api/auth/oidc/logged-out"
       },
       "defaultClientScopes": [
+        "audience-scope",
+        "order-customer"
+      ],
+      "optionalClientScopes": [
         "web-origins",
         "acr",
         "profile",
         "roles",
-        "email",
-        "audience-scope",
-        "order-customer"
+        "email"
       ]
     },
     {
@@ -100,13 +102,15 @@
         "post.logout.redirect.uris": "https://omama.vn/api/auth/oidc/logged-out"
       },
       "defaultClientScopes": [
+        "audience-scope",
+        "order-customer"
+      ],
+      "optionalClientScopes": [
         "web-origins",
         "acr",
         "profile",
         "roles",
-        "email",
-        "audience-scope",
-        "order-customer"
+        "email"
       ]
     }
   ],
@@ -211,6 +215,107 @@
           }
         }
       ]
+    },
+    {
+      "name": "email",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "true"
+      },
+      "protocolMappers": [
+        {
+          "name": "email",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "email",
+            "claim.name": "email",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "false",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "email verified",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "emailVerified",
+            "claim.name": "email_verified",
+            "jsonType.label": "boolean",
+            "id.token.claim": "true",
+            "access.token.claim": "false",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "name": "profile",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "true"
+      },
+      "protocolMappers": [
+        {
+          "name": "full name",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-full-name-mapper",
+          "consentRequired": false,
+          "config": {
+            "id.token.claim": "true",
+            "access.token.claim": "false",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "username",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "username",
+            "claim.name": "preferred_username",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "false",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "given name",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "firstName",
+            "claim.name": "given_name",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "false",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "family name",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "lastName",
+            "claim.name": "family_name",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "false",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
     }
   ],
   "users": [
@@ -243,21 +348,9 @@
   "roles": {
     "realm": [
       {
-        "name": "CUSTOMER",
-        "description": "Customer role"
-      },
-      {
         "name": "ADMIN",
         "description": "Administrator of Identity Service"
       }
     ]
-  },
-  "scopeMappings": [
-    {
-      "clientScope": "order-customer",
-      "roles": [
-        "CUSTOMER"
-      ]
-    }
-  ]
+  }
 }

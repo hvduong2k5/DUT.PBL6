@@ -32,7 +32,6 @@ public class KeycloakAdminClient {
         if (principalId == null || principalId.equals(new UUID(0, 0))) {
             throw new IllegalArgumentException("A non-zero internal principal ID is required");
         }
-        var customerRole = keycloak.realm(realm).roles().get("CUSTOMER").toRepresentation();
         UsersResource usersResource = keycloak.realm(realm).users();
         
         UserRepresentation user = new UserRepresentation();
@@ -59,9 +58,7 @@ public class KeycloakAdminClient {
         try (var response = usersResource.create(user)) {
             if (response.getStatus() == 201) {
                 String path = response.getLocation().getPath();
-                String subject = path.substring(path.lastIndexOf('/') + 1);
-                usersResource.get(subject).roles().realmLevel().add(Collections.singletonList(customerRole));
-                return subject;
+                return path.substring(path.lastIndexOf('/') + 1);
             }
             throw new RuntimeException("Failed to create user in Keycloak, status: " + response.getStatusInfo().getReasonPhrase());
         }

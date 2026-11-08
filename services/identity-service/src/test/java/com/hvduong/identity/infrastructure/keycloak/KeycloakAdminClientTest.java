@@ -16,12 +16,9 @@ import static org.mockito.Mockito.*;
 
 class KeycloakAdminClientTest {
     @Test
-    void customerProvisioningBindsInternalPrincipalAndRole() {
+    void customerProvisioningBindsInternalPrincipalAndPrincipalTypeWithoutRole() {
         Keycloak kc = mock(Keycloak.class, RETURNS_DEEP_STUBS);
         var users = kc.realm("omama").users();
-        RoleRepresentation role = new RoleRepresentation();
-        role.setName("CUSTOMER");
-        when(kc.realm("omama").roles().get("CUSTOMER").toRepresentation()).thenReturn(role);
         Response response = mock(Response.class);
         when(response.getStatus()).thenReturn(201);
         when(response.getLocation()).thenReturn(URI.create("https://identity.test/users/keycloak-subject"));
@@ -36,7 +33,6 @@ class KeycloakAdminClientTest {
         verify(users).create(captured.capture());
         assertEquals(List.of(principal.toString()), captured.getValue().getAttributes().get("app_user_id"));
         assertEquals(List.of("CUSTOMER"), captured.getValue().getAttributes().get("principal_type"));
-        verify(users.get(subject).roles().realmLevel()).add(List.of(role));
         verify(response).close();
     }
 
@@ -50,16 +46,13 @@ class KeycloakAdminClientTest {
     }
 
     @Test
-    void roleAssignmentFailureDoesNotReportSuccessfulProvisioning() {
+    void nonCreatedResponseThrowsAndClosesResponse() {
         Keycloak kc = mock(Keycloak.class, RETURNS_DEEP_STUBS);
         var users = kc.realm("omama").users();
-        Response response = mock(Response.class);
-        when(response.getStatus()).thenReturn(201);
-        when(response.getLocation()).thenReturn(URI.create("https://identity.test/users/subject"));
+        Response response = mock(Response.class, RETURNS_DEEP_STUBS);
+        when(response.getStatus()).thenReturn(409);
+        when(response.getStatusInfo().getReasonPhrase()).thenReturn("Conflict");
         when(users.create(any(UserRepresentation.class))).thenReturn(response);
-        var realmMappings = users.get("subject").roles().realmLevel();
-        doThrow(new RuntimeException("role mapping unavailable"))
-                .when(realmMappings).add(anyList());
         assertThrows(RuntimeException.class, () -> new KeycloakAdminClient(kc, "omama")
                 .createUser(UUID.randomUUID(), "a", "b", "c", "d"));
         verify(response).close();

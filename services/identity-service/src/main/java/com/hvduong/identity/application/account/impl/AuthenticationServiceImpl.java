@@ -15,6 +15,7 @@ import com.hvduong.identity.infrastructure.session.BffSession;
 import com.hvduong.identity.infrastructure.session.BffSessionStore;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
@@ -22,6 +23,7 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
+import com.hvduong.identity.infrastructure.keycloak.KeycloakAdminClient;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -42,6 +44,9 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     private final ObjectMapper objectMapper;
     private final AuthStateStore authStateStore;
     private final BffSessionStore bffSessionStore;
+
+    @Autowired(required = false)
+    private KeycloakAdminClient keycloakAdminClient;
 
     @Value("${keycloak.server-url}")
     private String serverUrl;
@@ -144,9 +149,20 @@ public class AuthenticationServiceImpl implements AuthenticationService {
             long refreshExpiresIn = root.path("refresh_expires_in").asLong(refreshTokenLifespanSeconds);
 
             String subject = extractClaim(accessToken, "sub");
-            String email = extractClaim(accessToken, "email");
+            String email = null;
+            if (root.has("id_token") && !root.path("id_token").asText().isBlank()) {
+                email = extractClaim(root.path("id_token").asText(), "email");
+            }
+            if (email == null || email.isBlank()) {
+                email = extractClaim(accessToken, "email");
+            }
             if (email == null || email.isBlank()) {
                 email = extractClaim(accessToken, "preferred_username");
+            }
+            if ((email == null || email.isBlank()) && keycloakAdminClient != null && subject != null) {
+                email = keycloakAdminClient.getUserById(subject)
+                        .map(org.keycloak.representations.idm.UserRepresentation::getEmail)
+                        .orElse(null);
             }
 
             IdentityPrincipalRow principal = principalMapper.findBySubject(subject);
