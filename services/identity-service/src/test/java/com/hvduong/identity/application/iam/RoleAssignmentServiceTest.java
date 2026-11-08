@@ -183,12 +183,43 @@ class RoleAssignmentServiceTest {
         row.setAssignmentStatus("ACTIVE");
         row.setVersion(0L);
 
-        when(roleAssignmentMapper.listAssignments(null, null, null, "ACTIVE", 0, 20))
+        when(roleAssignmentMapper.listAssignments(null, null, null, null, null, "ACTIVE", 0, 20))
                 .thenReturn(List.of(row));
 
         var result = assignmentService.listAssignments(null, null, null, "ACTIVE", 0, 20);
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getAssignmentId()).isEqualTo(row.getAssignmentId());
+    }
+
+    @Test
+    void shouldUpdateAssignmentSuccessfully() {
+        UUID assignmentId = UUID.randomUUID();
+        UUID principalId = UUID.randomUUID();
+        UUID updatedBy = UUID.randomUUID();
+        java.time.OffsetDateTime now = java.time.OffsetDateTime.now();
+
+        IamRoleAssignmentRow existing = new IamRoleAssignmentRow();
+        existing.setAssignmentId(assignmentId);
+        existing.setPrincipalId(principalId);
+        existing.setAssignmentStatus("ACTIVE");
+        existing.setValidFrom(now.minusDays(1));
+        existing.setVersion(0L);
+
+        when(roleAssignmentMapper.findById(assignmentId)).thenReturn(existing);
+        when(roleAssignmentMapper.updateAssignment(eq(assignmentId), any(), any(), eq("Gia hạn thêm"), eq(0L)))
+                .thenReturn(1);
+
+        com.hvduong.identity.application.dto.request.UpdateRoleAssignmentRequest req =
+                new com.hvduong.identity.application.dto.request.UpdateRoleAssignmentRequest();
+        req.setValidUntil(now.plusDays(30));
+        req.setReason("Gia hạn thêm");
+        req.setExpectedVersion(0L);
+
+        var updated = assignmentService.updateAssignment(assignmentId, req, updatedBy);
+
+        assertThat(updated).isNotNull();
+        verify(permissionSyncService).syncPrincipal(
+                principalId, false, PermissionSyncService.Trigger.ROLE_ASSIGN, updatedBy);
     }
 
     @Test

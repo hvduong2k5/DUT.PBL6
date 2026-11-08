@@ -29,12 +29,16 @@ public class IamAssignmentController implements IamAssignmentApi {
     public ResponseEntity<ApiResponse<List<RoleAssignmentResponse>>> listAssignments(
             @RequestParam(required = false) UUID principalId,
             @RequestParam(required = false) UUID roleId,
+            @RequestParam(required = false) String roleCode,
             @RequestParam(required = false) String scopeType,
+            @RequestParam(required = false) String scopeId,
             @RequestParam(required = false) String status,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        List<RoleAssignmentResponse> result = roleAssignmentService.listAssignments(principalId, roleId, scopeType, status, page, size);
+        List<RoleAssignmentResponse> result = roleAssignmentService.listAssignments(
+                principalId, roleId, roleCode, scopeType, scopeId, status, page, size
+        );
         return ResponseEntity.ok(ApiResponse.success(result));
     }
 
@@ -47,6 +51,18 @@ public class IamAssignmentController implements IamAssignmentApi {
         UUID assignedBy = com.hvduong.identity.security.VerifiedActor.id();
         UUID assignmentId = roleAssignmentService.assignRole(request, assignedBy);
         return ResponseEntity.ok(ApiResponse.success("Gán vai trò cho nhân viên thành công", assignmentId));
+    }
+
+    @Override
+    @PreAuthorize("hasAuthority('ROLE_ASSIGN')")
+    public ResponseEntity<ApiResponse<RoleAssignmentResponse>> updateRoleAssignment(
+            @PathVariable UUID assignmentId,
+            @RequestBody com.hvduong.identity.application.dto.request.UpdateRoleAssignmentRequest request,
+            @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorId
+    ) {
+        UUID updatedBy = com.hvduong.identity.security.VerifiedActor.id();
+        RoleAssignmentResponse updated = roleAssignmentService.updateAssignment(assignmentId, request, updatedBy);
+        return ResponseEntity.ok(ApiResponse.success("Cập nhật phân công vai trò thành công", updated));
     }
 
     @Override

@@ -4,9 +4,11 @@ import com.hvduong.identity.application.iam.PermissionSyncService;
 import com.hvduong.identity.application.iam.RoleAssignmentService;
 
 import com.hvduong.identity.application.dto.request.AssignRoleRequest;
+import com.hvduong.identity.application.dto.request.UpdateRoleAssignmentRequest;
 import com.hvduong.identity.application.dto.response.RoleAssignmentResponse;
 import com.hvduong.identity.application.audit.AuditService;
 import com.hvduong.identity.domain.entity.IamRoleAssignmentRow;
+import com.hvduong.identity.domain.entity.IamRoleRow;
 import com.hvduong.identity.domain.entity.IdentityPrincipalRow;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IamRoleAssignmentMapper;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IamRoleMapper;
@@ -149,6 +151,62 @@ public class RoleAssignmentServiceImpl implements RoleAssignmentService {
     }
 
     @Override
+    @Transactional
+    public RoleAssignmentResponse updateAssignment(UUID assignmentId, UpdateRoleAssignmentRequest request, UUID updatedBy) {
+        IamRoleAssignmentRow existing = roleAssignmentMapper.findById(assignmentId);
+        if (existing == null) {
+            throw new NoSuchElementException("Không tìm thấy bản ghi gán vai trò: " + assignmentId);
+        }
+
+        if (!"ACTIVE".equals(existing.getAssignmentStatus())) {
+            throw new IllegalStateException("Chỉ có thể cập nhật bản ghi gán vai trò đang ở trạng thái ACTIVE");
+        }
+
+        if (request != null && request.getValidUntil() != null) {
+            if (existing.getValidFrom() != null && request.getValidUntil().isBefore(existing.getValidFrom())) {
+                throw new IllegalArgumentException("validUntil không thể diễn ra trước validFrom");
+            }
+        }
+
+        Long expectedVersion = request != null ? request.getExpectedVersion() : null;
+        OffsetDateTime validUntil = request != null ? request.getValidUntil() : null;
+        Boolean clearValidUntil = request != null ? request.getClearValidUntil() : null;
+        String reason = request != null ? request.getReason() : null;
+
+        int updated = roleAssignmentMapper.updateAssignment(
+                assignmentId, validUntil, clearValidUntil, reason, expectedVersion
+        );
+        if (updated == 0) {
+            throw new ConcurrentModificationException("Cập nhật bản ghi gán vai trò thất bại do xung đột phiên bản (Optimistic Locking)");
+        }
+
+        // Recomputed grants sync into Keycloak
+        permissionSyncService.syncPrincipal(
+                existing.getPrincipalId(), false, PermissionSyncService.Trigger.ROLE_ASSIGN, updatedBy
+        );
+
+        auditService.recordAudit(
+                "EMPLOYEE",
+                updatedBy,
+                null,
+                "IAM_ROLE_UPDATE",
+                "IAM_ASSIGNMENT",
+                assignmentId.toString(),
+                "SUCCESS",
+                null,
+                null,
+                null,
+                Map.of(
+                        "assignmentId", assignmentId.toString(),
+                        "reason", reason != null ? reason : ""
+                )
+        );
+
+        IamRoleAssignmentRow refreshed = roleAssignmentMapper.findById(assignmentId);
+        return toResponse(refreshed);
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public List<IamRoleAssignmentRow> getActiveAssignments(UUID principalId) {
         return roleAssignmentMapper.findActiveByPrincipal(principalId, OffsetDateTime.now());
@@ -156,18 +214,42 @@ public class RoleAssignmentServiceImpl implements RoleAssignmentService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<RoleAssignmentResponse> listAssignments(UUID principalId, UUID roleId, String scopeType, String status, int page, int size) {
-        int offset = page * size;
-        List<IamRoleAssignmentRow> rows = roleAssignmentMapper.listAssignments(principalId, roleId, scopeType, status, offset, size);
+    public List<RoleAssignmentResponse> listAssignments(
+            UUID principalId,
+            UUID roleId,
+            String roleCode,
+            String scopeType,
+            String scopeId,
+            String status,
+            int page,
+            int size
+    ) {
+        int validPage = Math.max(0, page);
+        int validSize = size <= 0 ? 20 : Math.min(size, 100);
+        int offset = validPage * validSize;
+        List<IamRoleAssignmentRow> rows = roleAssignmentMapper.listAssignments(
+                principalId, roleId, roleCode, scopeType, scopeId, status, offset, validSize
+        );
         if (rows == null) return Collections.emptyList();
         return rows.stream().map(this::toResponse).collect(Collectors.toList());
     }
 
     private RoleAssignmentResponse toResponse(IamRoleAssignmentRow row) {
+        String roleCode = null;
+        String roleName = null;
+        if (roleMapper != null && row.getRoleId() != null) {
+            IamRoleRow role = roleMapper.findById(row.getRoleId());
+            if (role != null) {
+                roleCode = role.getRoleCode();
+                roleName = role.getRoleName();
+            }
+        }
         return RoleAssignmentResponse.builder()
                 .assignmentId(row.getAssignmentId())
                 .principalId(row.getPrincipalId())
                 .roleId(row.getRoleId())
+                .roleCode(roleCode)
+                .roleName(roleName)
                 .scopeType(row.getScopeType())
                 .scopeId(row.getScopeId())
                 .assignmentStatus(row.getAssignmentStatus())

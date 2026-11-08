@@ -22,6 +22,9 @@ public class RoleAssignmentResponse {
     private UUID principalId;
     private UUID roleId;
     private String roleCode;
+    private String roleName;
+    private String userEmail;
+    private String userFullName;
     private String scopeType;
     private String scopeId;
     private String assignmentStatus;

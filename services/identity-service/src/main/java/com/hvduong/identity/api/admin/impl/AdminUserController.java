@@ -33,13 +33,20 @@ public class AdminUserController implements AdminUserApi {
     public ResponseEntity<ApiResponse<PageResponse<AdminUserItemResponse>>> listUsers(
             @RequestParam(value = "type", required = false) String type,
             @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "roleId", required = false) UUID roleId,
+            @RequestParam(value = "roleCode", required = false) String roleCode,
+            @RequestParam(value = "scopeType", required = false) String scopeType,
+            @RequestParam(value = "scopeId", required = false) String scopeId,
+            @RequestParam(value = "search", required = false) String search,
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "20") int size,
             @AuthenticationPrincipal Jwt jwt,
             String actorHeader
     ) {
         UUID actorId = extractActorId(jwt, actorHeader);
-        PageResponse<AdminUserItemResponse> result = userLifecycleService.listUsers(type, status, page, size, actorId);
+        PageResponse<AdminUserItemResponse> result = userLifecycleService.listUsers(
+                type, status, roleId, roleCode, scopeType, scopeId, search, page, size, actorId
+        );
         return ResponseEntity.ok(ApiResponse.success(result));
     }
 

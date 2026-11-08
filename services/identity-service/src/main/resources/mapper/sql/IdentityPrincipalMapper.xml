@@ -58,6 +58,63 @@
             <if test="provisioningStatus != null and provisioningStatus != ''">
                 AND provisioning_status = #{provisioningStatus}
             </if>
+            <if test="roleId != null">
+                AND principal_id IN (
+                    SELECT ra.principal_id
+                    FROM iam_role_assignments ra
+                    WHERE ra.role_id = #{roleId}
+                      AND ra.assignment_status = 'ACTIVE'
+                      AND ra.valid_from &lt;= #{now}
+                      AND (ra.valid_until IS NULL OR ra.valid_until &gt; #{now})
+                      <if test="scopeType != null and scopeType != ''">
+                          AND ra.scope_type = #{scopeType}
+                      </if>
+                      <if test="scopeId != null and scopeId != ''">
+                          AND ra.scope_id = #{scopeId}
+                      </if>
+                )
+            </if>
+            <if test="roleCode != null and roleCode != ''">
+                AND principal_id IN (
+                    SELECT ra.principal_id
+                    FROM iam_role_assignments ra
+                    JOIN iam_roles r ON ra.role_id = r.role_id
+                    WHERE r.role_code = #{roleCode}
+                      AND ra.assignment_status = 'ACTIVE'
+                      AND ra.valid_from &lt;= #{now}
+                      AND (ra.valid_until IS NULL OR ra.valid_until &gt; #{now})
+                      <if test="scopeType != null and scopeType != ''">
+                          AND ra.scope_type = #{scopeType}
+                      </if>
+                      <if test="scopeId != null and scopeId != ''">
+                          AND ra.scope_id = #{scopeId}
+                      </if>
+                )
+            </if>
+            <if test="(roleId == null and (roleCode == null or roleCode == '')) and (scopeType != null and scopeType != '')">
+                AND principal_id IN (
+                    SELECT ra.principal_id
+                    FROM iam_role_assignments ra
+                    WHERE ra.scope_type = #{scopeType}
+                      AND ra.assignment_status = 'ACTIVE'
+                      AND ra.valid_from &lt;= #{now}
+                      AND (ra.valid_until IS NULL OR ra.valid_until &gt; #{now})
+                      <if test="scopeId != null and scopeId != ''">
+                          AND ra.scope_id = #{scopeId}
+                      </if>
+                )
+            </if>
+            <if test="search != null and search != ''">
+                AND (
+                    CAST(principal_id AS TEXT) ILIKE CONCAT('%', #{search}, '%')
+                    <if test="idpSubjects != null and idpSubjects.size() > 0">
+                        OR idp_subject IN
+                        <foreach item="subj" collection="idpSubjects" open="(" separator="," close=")">
+                            #{subj}
+                        </foreach>
+                    </if>
+                )
+            </if>
         </where>
         ORDER BY created_at DESC
         LIMIT #{limit} OFFSET #{offset}
@@ -72,6 +129,63 @@
             </if>
             <if test="provisioningStatus != null and provisioningStatus != ''">
                 AND provisioning_status = #{provisioningStatus}
+            </if>
+            <if test="roleId != null">
+                AND principal_id IN (
+                    SELECT ra.principal_id
+                    FROM iam_role_assignments ra
+                    WHERE ra.role_id = #{roleId}
+                      AND ra.assignment_status = 'ACTIVE'
+                      AND ra.valid_from &lt;= #{now}
+                      AND (ra.valid_until IS NULL OR ra.valid_until &gt; #{now})
+                      <if test="scopeType != null and scopeType != ''">
+                          AND ra.scope_type = #{scopeType}
+                      </if>
+                      <if test="scopeId != null and scopeId != ''">
+                          AND ra.scope_id = #{scopeId}
+                      </if>
+                )
+            </if>
+            <if test="roleCode != null and roleCode != ''">
+                AND principal_id IN (
+                    SELECT ra.principal_id
+                    FROM iam_role_assignments ra
+                    JOIN iam_roles r ON ra.role_id = r.role_id
+                    WHERE r.role_code = #{roleCode}
+                      AND ra.assignment_status = 'ACTIVE'
+                      AND ra.valid_from &lt;= #{now}
+                      AND (ra.valid_until IS NULL OR ra.valid_until &gt; #{now})
+                      <if test="scopeType != null and scopeType != ''">
+                          AND ra.scope_type = #{scopeType}
+                      </if>
+                      <if test="scopeId != null and scopeId != ''">
+                          AND ra.scope_id = #{scopeId}
+                      </if>
+                )
+            </if>
+            <if test="(roleId == null and (roleCode == null or roleCode == '')) and (scopeType != null and scopeType != '')">
+                AND principal_id IN (
+                    SELECT ra.principal_id
+                    FROM iam_role_assignments ra
+                    WHERE ra.scope_type = #{scopeType}
+                      AND ra.assignment_status = 'ACTIVE'
+                      AND ra.valid_from &lt;= #{now}
+                      AND (ra.valid_until IS NULL OR ra.valid_until &gt; #{now})
+                      <if test="scopeId != null and scopeId != ''">
+                          AND ra.scope_id = #{scopeId}
+                      </if>
+                )
+            </if>
+            <if test="search != null and search != ''">
+                AND (
+                    CAST(principal_id AS TEXT) ILIKE CONCAT('%', #{search}, '%')
+                    <if test="idpSubjects != null and idpSubjects.size() > 0">
+                        OR idp_subject IN
+                        <foreach item="subj" collection="idpSubjects" open="(" separator="," close=")">
+                            #{subj}
+                        </foreach>
+                    </if>
+                )
             </if>
         </where>
     </select>

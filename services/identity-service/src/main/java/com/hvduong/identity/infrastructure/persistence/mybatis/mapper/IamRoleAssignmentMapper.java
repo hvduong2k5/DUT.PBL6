@@ -21,6 +21,14 @@ public interface IamRoleAssignmentMapper {
         @Param("expectedVersion") Long expectedVersion
     );
 
+    int updateAssignment(
+        @Param("assignmentId") UUID assignmentId,
+        @Param("validUntil") OffsetDateTime validUntil,
+        @Param("clearValidUntil") Boolean clearValidUntil,
+        @Param("reason") String reason,
+        @Param("expectedVersion") Long expectedVersion
+    );
+
     /** Count currently active assignments for a role (used before soft delete). */
     int countActiveByRoleId(@Param("roleId") UUID roleId, @Param("now") OffsetDateTime now);
 
@@ -46,7 +54,9 @@ public interface IamRoleAssignmentMapper {
     List<IamRoleAssignmentRow> listAssignments(
         @Param("principalId") UUID principalId,
         @Param("roleId") UUID roleId,
+        @Param("roleCode") String roleCode,
         @Param("scopeType") String scopeType,
+        @Param("scopeId") String scopeId,
         @Param("status") String status,
         @Param("offset") int offset,
         @Param("limit") int limit

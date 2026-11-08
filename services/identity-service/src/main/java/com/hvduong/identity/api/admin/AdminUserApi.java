@@ -21,12 +21,17 @@ import java.util.UUID;
 @RequestMapping("/api/v1/admin/users")
 public interface AdminUserApi {
 
-    @Operation(summary = "Lấy danh sách người dùng phân trang", description = "Truy vấn danh sách người dùng kèm bộ lọc loại tài khoản (CUSTOMER, EMPLOYEE) và trạng thái (ACTIVE, SUSPENDED). Chỉ ADMIN.")
+    @Operation(summary = "Lấy danh sách người dùng phân trang", description = "Truy vấn danh sách người dùng kèm bộ lọc loại tài khoản, trạng thái, vai trò, phạm vi và tìm kiếm theo từ khóa. Chỉ ADMIN.")
     @SecurityRequirement(name = "bearerAuth")
     @GetMapping
     ResponseEntity<ApiResponse<PageResponse<AdminUserItemResponse>>> listUsers(
             @Parameter(description = "Loại tài khoản: CUSTOMER, EMPLOYEE") @RequestParam(value = "type", required = false) String type,
             @Parameter(description = "Trạng thái: ACTIVE, SUSPENDED") @RequestParam(value = "status", required = false) String status,
+            @Parameter(description = "Lọc theo ID vai trò") @RequestParam(value = "roleId", required = false) UUID roleId,
+            @Parameter(description = "Lọc theo mã vai trò") @RequestParam(value = "roleCode", required = false) String roleCode,
+            @Parameter(description = "Lọc theo loại phạm vi (GLOBAL, WAREHOUSE, STORE)") @RequestParam(value = "scopeType", required = false) String scopeType,
+            @Parameter(description = "Lọc theo mã phạm vi") @RequestParam(value = "scopeId", required = false) String scopeId,
+            @Parameter(description = "Từ khóa tìm kiếm (email, họ tên, hoặc UUID)") @RequestParam(value = "search", required = false) String search,
             @Parameter(description = "Số trang (bắt đầu từ 0)") @RequestParam(value = "page", defaultValue = "0") int page,
             @Parameter(description = "Kích thước trang") @RequestParam(value = "size", defaultValue = "20") int size,
             @AuthenticationPrincipal Jwt jwt,

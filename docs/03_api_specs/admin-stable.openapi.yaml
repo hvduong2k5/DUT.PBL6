@@ -72,6 +72,41 @@ paths:
           - SUSPENDED
         description: Trạng thái tài khoản
       - in: query
+        name: roleId
+        required: false
+        schema:
+          type: string
+          format: uuid
+        description: Lọc người dùng có vai trò theo ID vai trò
+      - in: query
+        name: roleCode
+        required: false
+        schema:
+          type: string
+        description: Lọc người dùng có vai trò theo mã vai trò (ví dụ ADMIN, STORE_MANAGER)
+      - in: query
+        name: scopeType
+        required: false
+        schema:
+          type: string
+          enum:
+          - GLOBAL
+          - WAREHOUSE
+          - STORE
+        description: Lọc người dùng theo loại phạm vi vai trò
+      - in: query
+        name: scopeId
+        required: false
+        schema:
+          type: string
+        description: Lọc người dùng theo mã phạm vi vai trò
+      - in: query
+        name: search
+        required: false
+        schema:
+          type: string
+        description: Tìm kiếm theo từ khóa (email, họ tên, hoặc UUID người dùng)
+      - in: query
         name: page
         schema:
           type: integer
@@ -208,6 +243,9 @@ paths:
                     items:
                       type: object
                       properties:
+                        assignmentId:
+                          type: string
+                          format: uuid
                         roleId:
                           type: string
                           format: uuid
@@ -215,6 +253,42 @@ paths:
                           type: string
                         roleName:
                           type: string
+                        scopeType:
+                          type: string
+                          enum:
+                          - GLOBAL
+                          - WAREHOUSE
+                          - STORE
+                        scopeId:
+                          type:
+                          - string
+                          - 'null'
+                        assignmentStatus:
+                          type: string
+                          enum:
+                          - ACTIVE
+                          - REVOKED
+                          - EXPIRED
+                        validFrom:
+                          type: string
+                          format: date-time
+                        validUntil:
+                          type:
+                          - string
+                          - 'null'
+                          format: date-time
+                        assignedByPrincipalId:
+                          type:
+                          - string
+                          - 'null'
+                          format: uuid
+                        reason:
+                          type:
+                          - string
+                          - 'null'
+                        createdAt:
+                          type: string
+                          format: date-time
                   permissions:
                     type: array
                     items:
@@ -544,6 +618,12 @@ paths:
         schema:
           type: string
           format: uuid
+      - name: roleCode
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Lọc theo mã vai trò
       - name: scopeType
         in: query
         required: false
@@ -553,6 +633,12 @@ paths:
           - GLOBAL
           - WAREHOUSE
           - STORE
+      - name: scopeId
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Lọc theo mã phạm vi vai trò
       - name: status
         in: query
         required: false
@@ -729,6 +815,107 @@ paths:
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
   /api/v1/admin/role-assignments/{assignmentId}:
+    patch:
+      tags:
+      - Access management
+      operationId: patchAdminRoleAssignmentsAssignmentId
+      summary: Cập nhật thông tin phân công vai trò
+      description: Cập nhật thời hạn hết hạn (validUntil) hoặc lý do phân công vai trò. Chặn thay đổi vai trò hoặc phạm vi trực tiếp (phải qua quy trình thu hồi và gán mới).
+      x-lifecycle: stable
+      x-backlog:
+      - EPIC_22
+      parameters:
+      - name: assignmentId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                validUntil:
+                  type:
+                  - string
+                  - 'null'
+                  format: date-time
+                clearValidUntil:
+                  type: boolean
+                  description: Đặt thành true nếu muốn xóa thời hạn kết thúc (vô thời hạn)
+                reason:
+                  type:
+                  - string
+                  - 'null'
+                expectedVersion:
+                  type: integer
+                  description: Phiên bản kỳ vọng cho optimistic locking
+      responses:
+        '200':
+          description: Phân công vai trò đã được cập nhật
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      assignmentId:
+                        type: string
+                        format: uuid
+                      principalId:
+                        type: string
+                        format: uuid
+                      roleId:
+                        type: string
+                        format: uuid
+                      roleCode:
+                        type: string
+                      scopeType:
+                        type: string
+                      scopeId:
+                        type:
+                        - string
+                        - 'null'
+                      assignmentStatus:
+                        type: string
+                      validFrom:
+                        type: string
+                        format: date-time
+                      validUntil:
+                        type:
+                        - string
+                        - 'null'
+                        format: date-time
+                      reason:
+                        type:
+                        - string
+                        - 'null'
+                      updatedAt:
+                        type: string
+                        format: date-time
+                      version:
+                        type: integer
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
     delete:
       tags:
       - Access management

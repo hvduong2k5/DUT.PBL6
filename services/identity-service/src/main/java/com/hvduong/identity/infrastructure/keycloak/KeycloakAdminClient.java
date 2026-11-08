@@ -68,6 +68,18 @@ public class KeycloakAdminClient {
         return keycloak.realm(realm).users().search(email, true).stream().findFirst();
     }
 
+    public List<UserRepresentation> searchUsers(String query, int max) {
+        if (query == null || query.isBlank()) {
+            return Collections.emptyList();
+        }
+        try {
+            return keycloak.realm(realm).users().search(query.trim(), 0, Math.max(10, max));
+        } catch (Exception e) {
+            log.warn("Failed to search users in Keycloak with query '{}'", query, e);
+            return Collections.emptyList();
+        }
+    }
+
     public void setUserEnabled(String keycloakUserId, boolean enabled) {
         org.keycloak.admin.client.resource.UserResource userResource = keycloak.realm(realm).users().get(keycloakUserId);
         UserRepresentation user = userResource.toRepresentation();

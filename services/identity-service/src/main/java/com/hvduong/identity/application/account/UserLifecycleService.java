@@ -15,7 +15,22 @@ public interface UserLifecycleService {
 
     void reactivateAccount(UUID principalId, UUID actorPrincipalId);
 
-    PageResponse<AdminUserItemResponse> listUsers(String type, String status, int page, int size, UUID actorId);
+    default PageResponse<AdminUserItemResponse> listUsers(String type, String status, int page, int size, UUID actorId) {
+        return listUsers(type, status, null, null, null, null, null, page, size, actorId);
+    }
+
+    PageResponse<AdminUserItemResponse> listUsers(
+            String type,
+            String status,
+            UUID roleId,
+            String roleCode,
+            String scopeType,
+            String scopeId,
+            String search,
+            int page,
+            int size,
+            UUID actorId
+    );
 
     AdminUserDetailResponse getUserDetail(UUID principalId, UUID actorId);
 

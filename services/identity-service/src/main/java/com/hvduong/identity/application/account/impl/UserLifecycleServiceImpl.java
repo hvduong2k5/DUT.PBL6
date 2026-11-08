@@ -104,10 +104,18 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
                     }
                 }
                 roleDtos.add(UserRoleScopeResponse.builder()
+                        .assignmentId(a.getAssignmentId())
+                        .roleId(a.getRoleId())
                         .roleCode(roleCode)
                         .roleName(roleName)
                         .scopeType(a.getScopeType())
                         .scopeId(a.getScopeId())
+                        .assignmentStatus(a.getAssignmentStatus())
+                        .validFrom(a.getValidFrom())
+                        .validUntil(a.getValidUntil())
+                        .assignedByPrincipalId(a.getAssignedByPrincipalId())
+                        .reason(a.getReason())
+                        .createdAt(a.getCreatedAt())
                         .build());
             }
         }
@@ -248,18 +256,41 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
 
     @Override
     @Transactional(readOnly = true)
-    public PageResponse<AdminUserItemResponse> listUsers(String type, String status, int page, int size, UUID actorId) {
+    public PageResponse<AdminUserItemResponse> listUsers(
+            String type,
+            String status,
+            UUID roleId,
+            String roleCode,
+            String scopeType,
+            String scopeId,
+            String search,
+            int page,
+            int size,
+            UUID actorId
+    ) {
 
         int validPage = Math.max(0, page);
         int validSize = size <= 0 ? 20 : Math.min(size, 100);
         int offset = validPage * validSize;
+        OffsetDateTime now = OffsetDateTime.now();
 
-        List<IdentityPrincipalRow> rows = principalMapper.findPage(type, status, offset, validSize);
-        long totalItems = principalMapper.countTotal(type, status);
+        List<String> idpSubjects = Collections.emptyList();
+        if (search != null && !search.isBlank()) {
+            List<UserRepresentation> matchedUsers = keycloakAdminClient.searchUsers(search.trim(), 50);
+            if (matchedUsers != null && !matchedUsers.isEmpty()) {
+                idpSubjects = matchedUsers.stream().map(UserRepresentation::getId).filter(Objects::nonNull).toList();
+            }
+        }
+
+        List<IdentityPrincipalRow> rows = principalMapper.findPage(
+                type, status, roleId, roleCode, scopeType, scopeId, now, search != null && !search.isBlank() ? search.trim() : null, idpSubjects, offset, validSize
+        );
+        long totalItems = principalMapper.countTotal(
+                type, status, roleId, roleCode, scopeType, scopeId, now, search != null && !search.isBlank() ? search.trim() : null, idpSubjects
+        );
         int totalPages = (int) Math.ceil((double) totalItems / validSize);
 
         List<AdminUserItemResponse> items = new ArrayList<>();
-        OffsetDateTime now = OffsetDateTime.now();
 
         for (IdentityPrincipalRow row : rows) {
             String email = null;
@@ -365,10 +396,18 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
                     }
                 }
                 roleDtos.add(UserRoleScopeResponse.builder()
+                        .assignmentId(a.getAssignmentId())
+                        .roleId(a.getRoleId())
                         .roleCode(roleCode)
                         .roleName(roleName)
                         .scopeType(a.getScopeType())
                         .scopeId(a.getScopeId())
+                        .assignmentStatus(a.getAssignmentStatus())
+                        .validFrom(a.getValidFrom())
+                        .validUntil(a.getValidUntil())
+                        .assignedByPrincipalId(a.getAssignedByPrincipalId())
+                        .reason(a.getReason())
+                        .createdAt(a.getCreatedAt())
                         .build());
             }
         }

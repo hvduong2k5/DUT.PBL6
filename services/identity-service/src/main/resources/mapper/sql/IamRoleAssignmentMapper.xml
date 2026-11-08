@@ -54,6 +54,20 @@
           AND version = #{expectedVersion}
     </update>
 
+    <update id="updateAssignment">
+        UPDATE iam_role_assignments
+        SET <if test="clearValidUntil != null and clearValidUntil">valid_until = NULL,</if>
+            <if test="(clearValidUntil == null or !clearValidUntil) and validUntil != null">valid_until = #{validUntil},</if>
+            reason = COALESCE(#{reason}, reason),
+            version = version + 1,
+            updated_at = NOW()
+        WHERE assignment_id = #{assignmentId}
+          AND assignment_status = 'ACTIVE'
+          <if test="expectedVersion != null and expectedVersion > 0">
+              AND version = #{expectedVersion}
+          </if>
+    </update>
+
     <select id="countActiveByRoleId" resultType="int">
         SELECT COUNT(*)
         FROM iam_role_assignments
@@ -92,11 +106,16 @@
     <select id="listAssignments" resultMap="IamRoleAssignmentRowMap">
         SELECT ra.*
         FROM iam_role_assignments ra
+        <if test="roleCode != null and roleCode != ''">
+            JOIN iam_roles r ON r.role_id = ra.role_id
+        </if>
         <where>
             <if test="principalId != null">AND ra.principal_id = #{principalId}</if>
             <if test="roleId != null">AND ra.role_id = #{roleId}</if>
-            <if test="scopeType != null">AND ra.scope_type = #{scopeType}</if>
-            <if test="status != null">AND ra.assignment_status = #{status}</if>
+            <if test="roleCode != null and roleCode != ''">AND r.role_code = #{roleCode}</if>
+            <if test="scopeType != null and scopeType != ''">AND ra.scope_type = #{scopeType}</if>
+            <if test="scopeId != null and scopeId != ''">AND ra.scope_id = #{scopeId}</if>
+            <if test="status != null and status != ''">AND ra.assignment_status = #{status}</if>
         </where>
         ORDER BY ra.created_at DESC
         LIMIT #{limit} OFFSET #{offset}
