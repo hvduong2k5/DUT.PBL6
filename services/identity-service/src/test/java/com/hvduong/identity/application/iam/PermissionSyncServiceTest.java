@@ -19,6 +19,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.hvduong.identity.application.audit.AuditService;
+import com.hvduong.identity.common.enums.PrincipalType;
 import com.hvduong.identity.application.iam.impl.PermissionSyncServiceImpl;
 import com.hvduong.identity.domain.entity.IamRoleAssignmentRow;
 import com.hvduong.identity.domain.entity.IdentityPrincipalRow;
@@ -70,7 +71,7 @@ class PermissionSyncServiceTest {
         IdentityPrincipalRow principal = new IdentityPrincipalRow();
         principal.setPrincipalId(principalId);
         principal.setIdpSubject("kc-sub-1");
-        principal.setPrincipalType("EMPLOYEE");
+        principal.setPrincipalType(PrincipalType.EMPLOYEE.name());
 
         when(principalMapper.findById(principalId)).thenReturn(principal);
         when(rolePermissionMapper.findEffectivePermissionCodesByPrincipal(eq(principalId), any()))
@@ -85,7 +86,7 @@ class PermissionSyncServiceTest {
         assertThat(result.permissionCount()).isEqualTo(1);
         assertThat(result.grantCount()).isEqualTo(0);
         verify(keycloakAdminClient).updateUserPermissionsWithGrants(
-                eq("kc-sub-1"), eq(List.of("order:read")), eq(List.of()), eq("EMPLOYEE"));
+                eq("kc-sub-1"), eq(List.of("order:read")), eq(List.of()), eq(PrincipalType.EMPLOYEE.name()));
         verify(bffSessionStore, never()).removeSessionsByPrincipalId(any());
         verify(keycloakAdminClient, never()).logoutUserStrict(any());
     }
@@ -96,7 +97,7 @@ class PermissionSyncServiceTest {
         IdentityPrincipalRow principal = new IdentityPrincipalRow();
         principal.setPrincipalId(principalId);
         principal.setIdpSubject("kc-sub-2");
-        principal.setPrincipalType("EMPLOYEE");
+        principal.setPrincipalType(PrincipalType.EMPLOYEE.name());
 
         when(principalMapper.findById(principalId)).thenReturn(principal);
         when(rolePermissionMapper.findEffectivePermissionCodesByPrincipal(eq(principalId), any()))
@@ -108,7 +109,7 @@ class PermissionSyncServiceTest {
 
         verify(bffSessionStore).removeSessionsByPrincipalId(principalId);
         verify(keycloakAdminClient).updateUserPermissionsWithGrants(
-                eq("kc-sub-2"), eq(List.of()), eq(List.of()), eq("EMPLOYEE"));
+                eq("kc-sub-2"), eq(List.of()), eq(List.of()), eq(PrincipalType.EMPLOYEE.name()));
         verify(keycloakAdminClient).logoutUserStrict("kc-sub-2");
     }
 
@@ -118,7 +119,7 @@ class PermissionSyncServiceTest {
         IdentityPrincipalRow principal = new IdentityPrincipalRow();
         principal.setPrincipalId(principalId);
         principal.setIdpSubject("kc-sub-3");
-        principal.setPrincipalType("EMPLOYEE");
+        principal.setPrincipalType(PrincipalType.EMPLOYEE.name());
 
         when(principalMapper.findById(principalId)).thenReturn(principal);
         when(rolePermissionMapper.findEffectivePermissionCodesByPrincipal(eq(principalId), any()))
@@ -176,11 +177,11 @@ class PermissionSyncServiceTest {
         IdentityPrincipalRow principal1 = new IdentityPrincipalRow();
         principal1.setPrincipalId(p1);
         principal1.setIdpSubject("kc-1");
-        principal1.setPrincipalType("EMPLOYEE");
+        principal1.setPrincipalType(PrincipalType.EMPLOYEE.name());
         IdentityPrincipalRow principal2 = new IdentityPrincipalRow();
         principal2.setPrincipalId(p2);
         principal2.setIdpSubject("kc-2");
-        principal2.setPrincipalType("EMPLOYEE");
+        principal2.setPrincipalType(PrincipalType.EMPLOYEE.name());
         when(principalMapper.findById(p1)).thenReturn(principal1);
         when(principalMapper.findById(p2)).thenReturn(principal2);
         when(rolePermissionMapper.findEffectivePermissionCodesByPrincipal(any(), any())).thenReturn(List.of());

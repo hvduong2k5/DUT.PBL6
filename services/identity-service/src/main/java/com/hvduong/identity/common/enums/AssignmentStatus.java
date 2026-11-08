@@ -1,5 +1,6 @@
 package com.hvduong.identity.common.enums;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
 /**
@@ -19,5 +20,22 @@ public enum AssignmentStatus {
     @JsonValue
     public String getValue() {
         return value;
+    }
+
+    @JsonCreator
+    public static AssignmentStatus fromString(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        for (AssignmentStatus status : values()) {
+            if (status.value.equalsIgnoreCase(value.trim())) {
+                return status;
+            }
+        }
+        throw new IllegalArgumentException("Unknown assignment status: " + value);
+    }
+
+    public boolean matches(String value) {
+        return this.value.equalsIgnoreCase(value);
     }
 }

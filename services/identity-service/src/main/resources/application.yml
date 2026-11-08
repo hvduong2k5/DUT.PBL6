@@ -9,6 +9,12 @@ app:
     cookie-secure: ${COOKIE_SECURE:false}
     cookie-domain: ${COOKIE_DOMAIN:}
     cookie-same-site: ${COOKIE_SAME_SITE:Lax}
+  kafka:
+    topics:
+      identity-events: ${KAFKA_TOPIC_IDENTITY_EVENTS:identity.events.v1}
+  openapi:
+    server-url: ${OPENAPI_SERVER_URL:}
+    url: ${OPENAPI_URL:${FRONTEND_BASE_URL:http://localhost:3000}}
 
 spring:
   application:

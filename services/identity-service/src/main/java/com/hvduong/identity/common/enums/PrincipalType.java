@@ -1,5 +1,6 @@
 package com.hvduong.identity.common.enums;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
 /**
@@ -18,5 +19,22 @@ public enum PrincipalType {
     @JsonValue
     public String getValue() {
         return value;
+    }
+
+    @JsonCreator
+    public static PrincipalType fromString(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        for (PrincipalType type : values()) {
+            if (type.value.equalsIgnoreCase(value.trim())) {
+                return type;
+            }
+        }
+        throw new IllegalArgumentException("Unknown principal type: " + value);
+    }
+
+    public boolean matches(String value) {
+        return this.value.equalsIgnoreCase(value);
     }
 }

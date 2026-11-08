@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hvduong.identity.application.account.UserLifecycleService;
 import com.hvduong.identity.application.audit.AuditService;
 import com.hvduong.identity.application.iam.PermissionSyncService;
+import com.hvduong.identity.common.enums.ProvisioningStatus;
 import com.hvduong.identity.common.response.PageResponse;
 import com.hvduong.identity.application.dto.response.AdminUserDetailResponse;
 import com.hvduong.identity.application.dto.response.AdminUserItemResponse;
@@ -57,6 +58,9 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
 
     @Value("${keycloak.public-client-id:frontend-web}")
     private String publicClientId;
+
+    @Value("${app.kafka.topics.identity-events:identity.events.v1}")
+    private String identityEventsTopic;
 
     @Override
     @Transactional(readOnly = true)
@@ -158,7 +162,7 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
 
         int updated = principalMapper.updateProvisioningStatus(
                 principalId, 
-                "SUSPENDED", 
+                ProvisioningStatus.SUSPENDED.name(), 
                 principal.getIdpSubject(), 
                 principal.getVersion()
         );
@@ -193,7 +197,7 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
                 Map.of("reason", reason != null ? reason : "Administrative suspension")
         );
 
-        enqueueOutboxEvent(principalId, "identity.events.v1.UserSuspended", Map.of(
+        enqueueOutboxEvent(principalId, identityEventsTopic + ".UserSuspended", Map.of(
                 "principalId", principalId.toString(),
                 "reason", reason != null ? reason : "Administrative suspension",
                 "suspendedAt", OffsetDateTime.now().toString()
@@ -210,7 +214,7 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
 
         int updated = principalMapper.updateProvisioningStatus(
                 principalId, 
-                "ACTIVE", 
+                ProvisioningStatus.ACTIVE.name(), 
                 principal.getIdpSubject(), 
                 principal.getVersion()
         );
@@ -248,7 +252,7 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
                 Collections.emptyMap()
         );
 
-        enqueueOutboxEvent(principalId, "identity.events.v1.UserReactivated", Map.of(
+        enqueueOutboxEvent(principalId, identityEventsTopic + ".UserReactivated", Map.of(
                 "principalId", principalId.toString(),
                 "reactivatedAt", OffsetDateTime.now().toString()
         ));

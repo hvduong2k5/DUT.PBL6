@@ -4,6 +4,7 @@ import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.OutboxEven
 import com.hvduong.identity.domain.entity.OutboxEventRow;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -19,6 +20,9 @@ public class OutboxPublisher {
     private final OutboxEventMapper outboxEventMapper;
     private final KafkaTemplate<String, String> kafkaTemplate;
 
+    @Value("${app.kafka.topics.identity-events:identity.events.v1}")
+    private String identityEventsTopic;
+
     @Scheduled(fixedDelay = 2000)
     public void publishPendingEvents() {
         OffsetDateTime now = OffsetDateTime.now();
@@ -32,7 +36,7 @@ public class OutboxPublisher {
 
         for (OutboxEventRow event : pendingEvents) {
             try {
-                String topic = "identity.events.v1";
+                String topic = identityEventsTopic;
                 String key = event.getPartitionKey();
                 String payload = event.getPayload();
 

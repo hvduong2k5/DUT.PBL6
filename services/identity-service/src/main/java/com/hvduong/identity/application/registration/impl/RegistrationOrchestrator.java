@@ -1,6 +1,8 @@
 package com.hvduong.identity.application.registration.impl;
 
 import com.hvduong.identity.application.registration.RegisterPrincipalUseCase;
+import com.hvduong.identity.common.enums.PrincipalType;
+import com.hvduong.identity.common.enums.ProvisioningStatus;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -43,6 +45,8 @@ public class RegistrationOrchestrator implements RegisterPrincipalUseCase {
     private String issuer;
     @Value("${identity.registration.fingerprint-key:}")
     private String fingerprintKey;
+    @Value("${app.kafka.topics.identity-events:identity.events.v1}")
+    private String identityEventsTopic = "identity.events.v1";
 
     private TransactionTemplate transaction() {
         TransactionTemplate template = new TransactionTemplate(transactionManager);
@@ -128,8 +132,8 @@ public class RegistrationOrchestrator implements RegisterPrincipalUseCase {
         IdentityPrincipalRow principal = new IdentityPrincipalRow();
         principal.setPrincipalId(principalId);
         principal.setIdpIssuer(publicUrl.replaceAll("/$", "") + "/realms/" + realm);
-        principal.setPrincipalType("CUSTOMER");
-        principal.setProvisioningStatus("PENDING");
+        principal.setPrincipalType(PrincipalType.CUSTOMER.name());
+        principal.setProvisioningStatus(ProvisioningStatus.PENDING.name());
         principal.setVersion(0L);
         principalMapper.insert(principal);
 
@@ -165,7 +169,7 @@ public class RegistrationOrchestrator implements RegisterPrincipalUseCase {
             outboxEvent.setEventId(UUID.randomUUID());
             outboxEvent.setAggregateType("IdentityPrincipal");
             outboxEvent.setAggregateId(principalId.toString());
-            outboxEvent.setEventType("identity.events.v1.UserRegistered");
+            outboxEvent.setEventType(identityEventsTopic + ".UserRegistered");
             outboxEvent.setSchemaVersion(1);
             outboxEvent.setPartitionKey(principalId.toString());
             

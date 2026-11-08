@@ -7,6 +7,9 @@ import com.hvduong.identity.application.dto.request.AssignRoleRequest;
 import com.hvduong.identity.application.dto.request.UpdateRoleAssignmentRequest;
 import com.hvduong.identity.application.dto.response.RoleAssignmentResponse;
 import com.hvduong.identity.application.audit.AuditService;
+import com.hvduong.identity.common.constant.IdentityConstants;
+import com.hvduong.identity.common.enums.AssignmentStatus;
+import com.hvduong.identity.common.enums.PrincipalType;
 import com.hvduong.identity.domain.entity.IamRoleAssignmentRow;
 import com.hvduong.identity.domain.entity.IamRoleRow;
 import com.hvduong.identity.domain.entity.IdentityPrincipalRow;
@@ -26,7 +29,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class RoleAssignmentServiceImpl implements RoleAssignmentService {
 
-    private static final String ADMIN_ROLE_CODE = "ADMIN";
+    private static final String ADMIN_ROLE_CODE = IdentityConstants.ROLE_ADMIN;
 
     private final IamRoleAssignmentMapper roleAssignmentMapper;
     private final IdentityPrincipalMapper principalMapper;
@@ -54,12 +57,12 @@ public class RoleAssignmentServiceImpl implements RoleAssignmentService {
 
         // 1. Verify principal exists and is an EMPLOYEE
         IdentityPrincipalRow principal = principalMapper.findById(request.getPrincipalId());
-        if (principal == null || !"EMPLOYEE".equals(principal.getPrincipalType())) {
+        if (principal == null || !PrincipalType.EMPLOYEE.matches(principal.getPrincipalType())) {
             throw new IllegalArgumentException("Target principal must be an EMPLOYEE");
         }
 
         // 2. Validate scope
-        if (!"GLOBAL".equals(request.getScopeType()) && (request.getScopeId() == null || request.getScopeId().trim().isEmpty())) {
+        if (!IdentityConstants.SCOPE_GLOBAL.equalsIgnoreCase(request.getScopeType()) && (request.getScopeId() == null || request.getScopeId().trim().isEmpty())) {
             throw new IllegalArgumentException("Scope ID is required for non-GLOBAL assignments");
         }
 
@@ -71,7 +74,7 @@ public class RoleAssignmentServiceImpl implements RoleAssignmentService {
         assignment.setRoleId(request.getRoleId());
         assignment.setScopeType(request.getScopeType());
         assignment.setScopeId(request.getScopeId());
-        assignment.setAssignmentStatus("ACTIVE");
+        assignment.setAssignmentStatus(AssignmentStatus.ACTIVE.name());
         assignment.setValidFrom(request.getValidFrom() != null ? request.getValidFrom() : OffsetDateTime.now());
         assignment.setValidUntil(request.getValidUntil());
         assignment.setAssignedByPrincipalId(assignedBy);
@@ -86,7 +89,7 @@ public class RoleAssignmentServiceImpl implements RoleAssignmentService {
 
         // 4. Audit log
         auditService.recordAudit(
-                "EMPLOYEE",
+                PrincipalType.EMPLOYEE.name(),
                 assignedBy,
                 null,
                 "IAM_ROLE_ASSIGN",
@@ -133,7 +136,7 @@ public class RoleAssignmentServiceImpl implements RoleAssignmentService {
                     existing.getPrincipalId(), true, PermissionSyncService.Trigger.ROLE_REVOKE, revokedBy);
 
             auditService.recordAudit(
-                    "EMPLOYEE",
+                    PrincipalType.EMPLOYEE.name(),
                     revokedBy,
                     null,
                     "IAM_ROLE_REVOKE",
@@ -186,7 +189,7 @@ public class RoleAssignmentServiceImpl implements RoleAssignmentService {
         );
 
         auditService.recordAudit(
-                "EMPLOYEE",
+                PrincipalType.EMPLOYEE.name(),
                 updatedBy,
                 null,
                 "IAM_ROLE_UPDATE",

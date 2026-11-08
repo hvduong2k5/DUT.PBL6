@@ -1,5 +1,6 @@
 package com.hvduong.identity.common.enums;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
 /**
@@ -21,5 +22,22 @@ public enum ProvisioningStatus {
     @JsonValue
     public String getValue() {
         return value;
+    }
+
+    @JsonCreator
+    public static ProvisioningStatus fromString(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        for (ProvisioningStatus status : values()) {
+            if (status.value.equalsIgnoreCase(value.trim())) {
+                return status;
+            }
+        }
+        throw new IllegalArgumentException("Unknown provisioning status: " + value);
+    }
+
+    public boolean matches(String value) {
+        return this.value.equalsIgnoreCase(value);
     }
 }

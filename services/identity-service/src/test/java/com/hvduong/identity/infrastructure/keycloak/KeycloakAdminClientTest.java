@@ -1,5 +1,7 @@
 package com.hvduong.identity.infrastructure.keycloak;
 
+import com.hvduong.identity.common.constant.IdentityConstants;
+import com.hvduong.identity.common.enums.PrincipalType;
 import jakarta.ws.rs.core.Response;
 import org.junit.jupiter.api.Test;
 import org.keycloak.admin.client.Keycloak;
@@ -31,8 +33,8 @@ class KeycloakAdminClientTest {
         assertEquals("keycloak-subject", subject);
         ArgumentCaptor<UserRepresentation> captured = ArgumentCaptor.forClass(UserRepresentation.class);
         verify(users).create(captured.capture());
-        assertEquals(List.of(principal.toString()), captured.getValue().getAttributes().get("app_user_id"));
-        assertEquals(List.of("CUSTOMER"), captured.getValue().getAttributes().get("principal_type"));
+        assertEquals(List.of(principal.toString()), captured.getValue().getAttributes().get(IdentityConstants.ATTR_APP_USER_ID));
+        assertEquals(List.of(PrincipalType.CUSTOMER.name()), captured.getValue().getAttributes().get(IdentityConstants.ATTR_PRINCIPAL_TYPE));
         verify(response).close();
     }
 
@@ -69,13 +71,13 @@ class KeycloakAdminClientTest {
         UUID principal = UUID.randomUUID();
 
         String subject = new KeycloakAdminClient(kc, "omama")
-                .createUser(principal, "employee@example.test", "Staff", "User", "staff-password", "EMPLOYEE");
+                .createUser(principal, "employee@example.test", "Staff", "User", "staff-password", PrincipalType.EMPLOYEE.name());
 
         assertEquals("kc-employee-sub", subject);
         ArgumentCaptor<UserRepresentation> captured = ArgumentCaptor.forClass(UserRepresentation.class);
         verify(users).create(captured.capture());
-        assertEquals(List.of(principal.toString()), captured.getValue().getAttributes().get("app_user_id"));
-        assertEquals(List.of("EMPLOYEE"), captured.getValue().getAttributes().get("principal_type"));
+        assertEquals(List.of(principal.toString()), captured.getValue().getAttributes().get(IdentityConstants.ATTR_APP_USER_ID));
+        assertEquals(List.of(PrincipalType.EMPLOYEE.name()), captured.getValue().getAttributes().get(IdentityConstants.ATTR_PRINCIPAL_TYPE));
         verify(response).close();
     }
 
@@ -88,11 +90,11 @@ class KeycloakAdminClientTest {
         when(userResource.toRepresentation()).thenReturn(user);
 
         var client = new KeycloakAdminClient(kc, "omama");
-        client.setUserAttribute("kc-sub-attr", "principal_type", "EMPLOYEE");
+        client.setUserAttribute("kc-sub-attr", IdentityConstants.ATTR_PRINCIPAL_TYPE, PrincipalType.EMPLOYEE.name());
 
         ArgumentCaptor<UserRepresentation> captured = ArgumentCaptor.forClass(UserRepresentation.class);
         verify(userResource).update(captured.capture());
-        assertEquals(List.of("EMPLOYEE"), captured.getValue().getAttributes().get("principal_type"));
+        assertEquals(List.of(PrincipalType.EMPLOYEE.name()), captured.getValue().getAttributes().get(IdentityConstants.ATTR_PRINCIPAL_TYPE));
     }
 
     @Test
@@ -108,13 +110,13 @@ class KeycloakAdminClientTest {
                 "kc-sub-grants",
                 List.of("ORDER_VIEW"),
                 List.of("ORDER_VIEW#GLOBAL"),
-                "EMPLOYEE"
+                PrincipalType.EMPLOYEE.name()
         );
 
         ArgumentCaptor<UserRepresentation> captured = ArgumentCaptor.forClass(UserRepresentation.class);
         verify(userResource).update(captured.capture());
-        assertEquals(List.of("ORDER_VIEW#GLOBAL"), captured.getValue().getAttributes().get("permission_grants"));
-        assertEquals(List.of("EMPLOYEE"), captured.getValue().getAttributes().get("principal_type"));
-        assertNull(captured.getValue().getAttributes().get("permissions"));
+        assertEquals(List.of("ORDER_VIEW#GLOBAL"), captured.getValue().getAttributes().get(IdentityConstants.ATTR_PERMISSION_GRANTS));
+        assertEquals(List.of(PrincipalType.EMPLOYEE.name()), captured.getValue().getAttributes().get(IdentityConstants.ATTR_PRINCIPAL_TYPE));
+        assertNull(captured.getValue().getAttributes().get(IdentityConstants.ATTR_PERMISSIONS));
     }
 }

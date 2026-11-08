@@ -7,6 +7,9 @@ import com.hvduong.identity.application.audit.AuditService;
 import com.hvduong.identity.application.dto.response.AuthUrlResponse;
 import com.hvduong.identity.application.dto.response.BffCallbackResult;
 import com.hvduong.identity.application.dto.response.SessionResponse;
+import com.hvduong.identity.common.constant.IdentityConstants;
+import com.hvduong.identity.common.enums.PrincipalType;
+import com.hvduong.identity.common.enums.ProvisioningStatus;
 import com.hvduong.identity.domain.entity.IdentityPrincipalRow;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IdentityPrincipalMapper;
 import com.hvduong.identity.security.pkce.PkceUtil;
@@ -61,7 +64,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     @Value("${keycloak.public-client-id:frontend-web}")
     private String publicClientId;
 
-    @Value("${keycloak.redirect-uri:https://api.omama.vn/api/v1/public/auth/callback}")
+    @Value("${keycloak.redirect-uri:http://localhost:8016/api/v1/public/auth/callback}")
     private String redirectUri;
 
     @Value("${keycloak.scope:openid}")
@@ -149,16 +152,16 @@ public class AuthenticationServiceImpl implements AuthenticationService {
             long expiresIn = root.path("expires_in").asLong(accessTokenLifespanSeconds);
             long refreshExpiresIn = root.path("refresh_expires_in").asLong(refreshTokenLifespanSeconds);
 
-            String subject = extractClaim(accessToken, "sub");
+            String subject = extractClaim(accessToken, IdentityConstants.CLAIM_SUB);
             String email = null;
             if (root.has("id_token") && !root.path("id_token").asText().isBlank()) {
-                email = extractClaim(root.path("id_token").asText(), "email");
+                email = extractClaim(root.path("id_token").asText(), IdentityConstants.CLAIM_EMAIL);
             }
             if (email == null || email.isBlank()) {
-                email = extractClaim(accessToken, "email");
+                email = extractClaim(accessToken, IdentityConstants.CLAIM_EMAIL);
             }
             if (email == null || email.isBlank()) {
-                email = extractClaim(accessToken, "preferred_username");
+                email = extractClaim(accessToken, IdentityConstants.CLAIM_PREFERRED_USERNAME);
             }
             if ((email == null || email.isBlank()) && keycloakAdminClient != null && subject != null) {
                 email = keycloakAdminClient.getUserById(subject)
@@ -168,7 +171,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
 
             IdentityPrincipalRow principal = principalMapper.findBySubject(subject);
             if (principal != null) {
-                if ("SUSPENDED".equalsIgnoreCase(principal.getProvisioningStatus())) {
+                if (ProvisioningStatus.SUSPENDED.matches(principal.getProvisioningStatus())) {
                     log.warn("Blocked login attempt for suspended user subject={}", subject);
                     auditService.recordAudit(auditActor(principal), principal.getPrincipalId(), null, "LOGIN_BLOCKED_SUSPENDED",
                             "AUTH", principal.getPrincipalId().toString(), "FAILURE", null, null, null,
@@ -187,8 +190,8 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                 principal.setPrincipalId(newPrincipalId);
                 principal.setIdpIssuer(publicUrl + "/realms/" + realm);
                 principal.setIdpSubject(subject);
-                principal.setPrincipalType("CUSTOMER");
-                principal.setProvisioningStatus("ACTIVE");
+                principal.setPrincipalType(PrincipalType.CUSTOMER.name());
+                principal.setProvisioningStatus(ProvisioningStatus.ACTIVE.name());
                 principal.setCreatedAt(now);
                 principal.setUpdatedAt(now);
                 principal.setVersion(0L);
@@ -198,14 +201,14 @@ public class AuthenticationServiceImpl implements AuthenticationService {
 
                 if (keycloakAdminClient != null && subject != null) {
                     try {
-                        keycloakAdminClient.setUserAttribute(subject, "app_user_id", newPrincipalId.toString());
-                        keycloakAdminClient.setUserAttribute(subject, "principal_type", "CUSTOMER");
+                        keycloakAdminClient.setUserAttribute(subject, IdentityConstants.ATTR_APP_USER_ID, newPrincipalId.toString());
+                        keycloakAdminClient.setUserAttribute(subject, IdentityConstants.ATTR_PRINCIPAL_TYPE, PrincipalType.CUSTOMER.name());
                     } catch (Exception ex) {
                         log.warn("Failed to set Keycloak attributes for JIT customer [subject={}]", subject, ex);
                     }
                 }
 
-                auditService.recordAudit("CUSTOMER", newPrincipalId, null, "JIT_PROVISION_SUCCESS",
+                auditService.recordAudit(PrincipalType.CUSTOMER.name(), newPrincipalId, null, "JIT_PROVISION_SUCCESS",
                         "AUTH", subject, "SUCCESS", null, null, null,
                         Map.of("email", email != null ? email : ""));
             }
@@ -440,7 +443,9 @@ public class AuthenticationServiceImpl implements AuthenticationService {
 
     private String auditActor(IdentityPrincipalRow principal) {
         if (principal == null) return "SYSTEM";
-        return "EMPLOYEE".equals(principal.getPrincipalType()) ? "EMPLOYEE" : "CUSTOMER";
+        return PrincipalType.EMPLOYEE.matches(principal.getPrincipalType())
+                ? PrincipalType.EMPLOYEE.name()
+                : PrincipalType.CUSTOMER.name();
     }
 
     private String extractClaim(String jwtToken, String claimName) {

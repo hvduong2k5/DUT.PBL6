@@ -1,5 +1,8 @@
 package com.hvduong.identity.api.account.impl;
 
+import com.hvduong.identity.common.constant.IdentityConstants;
+import com.hvduong.identity.common.enums.PrincipalType;
+import com.hvduong.identity.common.enums.ProvisioningStatus;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IdentityPrincipalMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -31,9 +34,9 @@ public class FulfillmentApiProxyController {
     public ResponseEntity<byte[]> forward(@AuthenticationPrincipal Jwt jwt, HttpServletRequest request) throws Exception {
         if (jwt == null) return ResponseEntity.status(401).build();
         var principal = principals.findByIssuerAndSubject(jwt.getIssuer().toString(), jwt.getSubject());
-        if (principal == null || !"EMPLOYEE".equals(principal.getPrincipalType())
-                || !"ACTIVE".equals(principal.getProvisioningStatus())
-                || !principal.getPrincipalId().toString().equals(jwt.getClaimAsString("user_id"))) {
+        if (principal == null || !PrincipalType.EMPLOYEE.matches(principal.getPrincipalType())
+                || !ProvisioningStatus.ACTIVE.matches(principal.getProvisioningStatus())
+                || !principal.getPrincipalId().toString().equals(jwt.getClaimAsString(IdentityConstants.CLAIM_USER_ID))) {
             return ResponseEntity.status(403).build();
         }
         String path = request.getRequestURI().substring("/api/v1/admin/packing-api".length());
