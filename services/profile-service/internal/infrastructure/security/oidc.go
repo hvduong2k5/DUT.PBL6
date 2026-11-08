@@ -112,10 +112,7 @@ func (v *OIDCIdentity) Authenticate(ctx context.Context, bearer string) (Princip
 	if err != nil || id == uuid.Nil {
 		return Principal{}, denied
 	}
-	grants, staff, err := claims.staffGrants(time.Now())
-	if errors.Is(err, errInactivePrincipal) {
-		return Principal{}, ErrPrincipalForbidden
-	}
+	grants, staff, err := claims.staffGrants()
 	if err != nil {
 		return Principal{}, denied
 	}

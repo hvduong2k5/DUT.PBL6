@@ -1,9 +1,11 @@
 # Handoff IAM: phần 3–4
 
-Trạng thái: **contract tạm để phát triển consumer** theo lựa chọn 1K-A, 1H-A,
-2-A, 3-A, 4-B + 4-A, 5-B, 6-B + 6-C và 7-B. Chưa phải xác nhận task 1–2
-đã phát hành token hay API projection tương ứng. Không triển khai consumer
-staff này lên dev chung trước khi issuer phát hành đúng contract.
+Trạng thái: **consumer đã khớp format issuer thực tế** theo lựa chọn 1K-A, 1H-A,
+2-A, 3-A, 4-B + 4-A, 5-B, 6-B + 6-C và 7-B. Issuer là đường Identity
+permission sync của PR #73: Identity tính grants hiệu lực từ IAM assignments,
+ghi lên attribute `permission_grants` của user Keycloak, mapper realm đưa vào
+access token. Không triển khai consumer staff này lên dev chung trước khi
+phần issuer (PR #73) được merge.
 
 ## JWT gửi đến Profile và Order
 
@@ -16,10 +18,9 @@ Ví dụ **payload tổng hợp, không phải token đăng nhập**:
   "aud": "omama-api", "sub": "idp-subject",
   "user_id": "11111111-1111-4111-8111-111111111111",
   "typ": "Bearer", "iat": 1794052800, "exp": 1794053700,
-  "principal_type": "EMPLOYEE", "principal_status": "ACTIVE", "authz_version": 1,
   "permission_grants": [
-    {"permissionCode": "EMPLOYEE_PROFILE_VIEW", "scopeType": "GLOBAL", "scopeId": null},
-    {"permissionCode": "ORDER_VIEW", "scopeType": "WAREHOUSE", "scopeId": "HUE"}
+    "EMPLOYEE_PROFILE_VIEW#GLOBAL",
+    "ORDER_VIEW#WAREHOUSE#HUE"
   ]
 }
 ```
@@ -28,15 +29,24 @@ Ví dụ **payload tổng hợp, không phải token đăng nhập**:
   token 5 giây. Tổng Authorization header tối đa 8192 byte, tối đa 128 grants.
 - `ADMIN` là role của EMPLOYEE; không phải principal type và không bypass
   policy trong hai consumer. Issuer phải đưa permission–scope đã cấp vào token.
-- `permission_grants` là array JSON, không phải chuỗi JSON. Mảng rỗng hợp lệ
-  nhưng không mở API staff. Thiếu claim, sai version hoặc grant sai cấu trúc
-  bị từ chối; không chuyển sang lấy quyền tươi từ `/users/me`.
-- Mỗi grant giữ permission và scope **cùng nguồn cấp**. GLOBAL có scopeId
-  null/rỗng/không có. Scope khác cần ID không rỗng, không khoảng trắng đầu/cuối,
-  không ký tự điều khiển, tối đa 160 byte. Không kết hợp chéo role assignments.
-- `validFrom`/`validUntil` tùy chọn, null hoặc RFC3339 có timezone. Khoảng hiệu lực
-  là `[from, until)`; grant chưa đến hạn/hết hạn không cấp quyền. Khoảng sai
-  hoặc trường grant không biết làm token không hợp lệ.
+- `permission_grants` là mảng chuỗi, mỗi chuỗi là một grant theo format
+  `PERMISSION#SCOPE_TYPE` (GLOBAL) hoặc `PERMISSION#SCOPE_TYPE#SCOPE_ID`
+  (scope khác) — đúng format Identity sync lên attribute Keycloak. Mảng rỗng
+  hợp lệ nhưng không mở API staff. Grant sai cấu trúc bị từ chối; không
+  chuyển sang lấy quyền tươi từ `/users/me` cho staff.
+- Không có claim `principal_type`/`principal_status`/`authz_version` (đã chốt
+  ở phía issuer): token **không có** claim `permission_grants` không phải
+  staff token, đi đường customer; nhân viên legacy bị chặn ở `/users/me`
+  (`STAFF_TOKEN_REQUIRED`).
+- Mỗi grant giữ permission và scope **cùng nguồn cấp**. GLOBAL kết thúc ở
+  scope type, không có scope ID. Scope khác cần ID không rỗng, không khoảng
+  trắng đầu/cuối, không ký tự điều khiển, tối đa 160 byte. Không kết hợp
+  chéo role assignments.
+- Token không mang thời hạn từng grant: Identity lọc hiệu lực assignment
+  (`valid_from`/`valid_until`, trạng thái) tại thời điểm sync, nên grant chỉ
+  xuất hiện khi đang hiệu lực. Thay đổi quyền áp dụng từ token phát kế tiếp
+  (cửa sổ tối đa bằng access-token lifespan 15 phút); thay đổi lifecycle
+  còn ép đăng nhập lại ở phía issuer.
 - HR MVP toàn doanh nghiệp: quyền EMPLOYEE_* cần GLOBAL. Department chỉ để
   phân loại/lọc, không tạo ranh giới phân quyền. Order nhận GLOBAL hoặc WAREHOUSE
   đúng ID kho đang lưu; MVP một kho dùng chung không tạo thêm kho.

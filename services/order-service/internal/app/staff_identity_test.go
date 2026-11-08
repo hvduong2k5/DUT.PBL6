@@ -42,10 +42,8 @@ func TestStaffUsesSignedJWTGrantsWithoutIdentityLookup(t *testing.T) {
 		t.Fatal(err)
 	}
 	sign := func(edit func(jwt.MapClaims)) string {
-		claims := jwt.MapClaims{"iss": server.URL, "aud": "omama-api", "sub": subject, "user_id": id, "typ": "Bearer", "iat": time.Now().Add(-time.Minute).Unix(), "exp": time.Now().Add(time.Hour).Unix(), "principal_type": "EMPLOYEE", "principal_status": "ACTIVE", "authz_version": 1,
-			"permission_grants": []any{
-				map[string]any{"permissionCode": "ORDER_VIEW", "scopeType": "WAREHOUSE", "scopeId": "A"},
-				map[string]any{"permissionCode": "ORDER_SENSITIVE_VIEW", "scopeType": "WAREHOUSE", "scopeId": "B"}},
+		claims := jwt.MapClaims{"iss": server.URL, "aud": "omama-api", "sub": subject, "user_id": id, "typ": "Bearer", "iat": time.Now().Add(-time.Minute).Unix(), "exp": time.Now().Add(time.Hour).Unix(),
+			"permission_grants": []string{"ORDER_VIEW#WAREHOUSE#A", "ORDER_SENSITIVE_VIEW#WAREHOUSE#B"},
 			"realm_access": map[string]any{"roles": []string{"ADMIN", "CUSTOMER"}}, "permissions": []string{"ORDER_SENSITIVE_VIEW"}}
 		if edit != nil {
 			edit(claims)
@@ -72,7 +70,7 @@ func TestStaffUsesSignedJWTGrantsWithoutIdentityLookup(t *testing.T) {
 	}
 	// New tokens reflect revocation. Previously issued tokens retain their signed
 	// snapshot until expiry instead of reading the current /users/me permissions.
-	empty := sign(func(c jwt.MapClaims) { c["permission_grants"] = []any{} })
+	empty := sign(func(c jwt.MapClaims) { c["permission_grants"] = []string{} })
 	p, err = verifier.Authenticate(context.Background(), empty)
 	if err != nil || len(p.Grants) != 0 {
 		t.Fatal("role or flat permissions bypassed empty grants", p, err)
@@ -82,24 +80,24 @@ func TestStaffUsesSignedJWTGrantsWithoutIdentityLookup(t *testing.T) {
 		t.Fatal("existing JWT snapshot changed", p, err)
 	}
 	for name, edit := range map[string]func(jwt.MapClaims){
-		"missing version":     func(c jwt.MapClaims) { delete(c, "authz_version") },
-		"unknown version":     func(c jwt.MapClaims) { c["authz_version"] = 2 },
-		"missing status":      func(c jwt.MapClaims) { delete(c, "principal_status") },
-		"inactive":            func(c jwt.MapClaims) { c["principal_status"] = "SUSPENDED" },
-		"role is not persona": func(c jwt.MapClaims) { c["principal_type"] = "ADMIN" },
-		"service credential":  func(c jwt.MapClaims) { c["service"] = "order-service" },
-		"missing grants":      func(c jwt.MapClaims) { delete(c, "permission_grants") },
+		"service credential": func(c jwt.MapClaims) { c["service"] = "order-service" },
+		"grants as objects": func(c jwt.MapClaims) {
+			c["permission_grants"] = []any{map[string]any{"permissionCode": "ORDER_VIEW", "scopeType": "GLOBAL"}}
+		},
+		"grant without scope": func(c jwt.MapClaims) {
+			c["permission_grants"] = []string{"ORDER_VIEW"}
+		},
+		"invalid permission code": func(c jwt.MapClaims) {
+			c["permission_grants"] = []string{"#GLOBAL"}
+		},
 		"invalid global scope": func(c jwt.MapClaims) {
-			c["permission_grants"] = []any{map[string]any{"permissionCode": "ORDER_VIEW", "scopeType": "GLOBAL", "scopeId": "A"}}
+			c["permission_grants"] = []string{"ORDER_VIEW#GLOBAL#A"}
+		},
+		"missing scope id": func(c jwt.MapClaims) {
+			c["permission_grants"] = []string{"ORDER_VIEW#WAREHOUSE"}
 		},
 		"unknown scope": func(c jwt.MapClaims) {
-			c["permission_grants"] = []any{map[string]any{"permissionCode": "ORDER_VIEW", "scopeType": "UNKNOWN", "scopeId": "A"}}
-		},
-		"misspelled expiry": func(c jwt.MapClaims) {
-			c["permission_grants"] = []any{map[string]any{"permissionCode": "ORDER_VIEW", "scopeType": "GLOBAL", "valid_until": time.Now().Add(-time.Hour).Format(time.RFC3339)}}
-		},
-		"invalid interval": func(c jwt.MapClaims) {
-			c["permission_grants"] = []any{map[string]any{"permissionCode": "ORDER_VIEW", "scopeType": "GLOBAL", "validFrom": time.Now().Add(time.Hour).Format(time.RFC3339), "validUntil": time.Now().Format(time.RFC3339)}}
+			c["permission_grants"] = []string{"ORDER_VIEW#UNKNOWN#A"}
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -108,23 +106,11 @@ func TestStaffUsesSignedJWTGrantsWithoutIdentityLookup(t *testing.T) {
 			}
 		})
 	}
-	timed := sign(func(c jwt.MapClaims) {
-		c["permission_grants"] = []any{
-			map[string]any{"permissionCode": "ORDER_VIEW", "scopeType": "GLOBAL", "validUntil": time.Now().Add(-time.Minute).Format(time.RFC3339)},
-			map[string]any{"permissionCode": "ORDER_VIEW", "scopeType": "GLOBAL", "validFrom": time.Now().Add(time.Minute).Format(time.RFC3339)}}
-	})
-	p, err = verifier.Authenticate(context.Background(), timed)
-	if err != nil || len(p.Grants) != 0 {
-		t.Fatal("inactive assignment became effective", p, err)
-	}
 	if identityCalls.Load() != 0 {
 		t.Fatal("malformed staff token fell back to Identity")
 	}
 	legacyEmployee.Store(true)
 	legacy := sign(func(c jwt.MapClaims) {
-		delete(c, "principal_type")
-		delete(c, "principal_status")
-		delete(c, "authz_version")
 		delete(c, "permission_grants")
 	})
 	if _, err := verifier.Authenticate(context.Background(), legacy); err == nil {

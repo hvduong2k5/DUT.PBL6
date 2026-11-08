@@ -99,10 +99,7 @@ func (v *CustomerIdentity) Authenticate(ctx context.Context, bearer string) (dom
 	if err != nil || id == uuid.Nil {
 		return domain.Principal{}, denied
 	}
-	grants, staff, err := claims.staffGrants(time.Now())
-	if errors.Is(err, errInactivePrincipal) {
-		return domain.Principal{}, domain.E("PRINCIPAL_FORBIDDEN", 403)
-	}
+	grants, staff, err := claims.staffGrants()
 	if err != nil {
 		return domain.Principal{}, denied
 	}

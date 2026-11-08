@@ -204,16 +204,17 @@ def main():
     staff_example = {'iss': 'https://identity.example.test/realms/test', 'aud': 'omama-api',
                      'sub': 'synthetic-staff', 'user_id': '11111111-1111-4111-8111-111111111111',
                      'typ': 'Bearer', 'iat': 1794052800, 'exp': 1794053700,
-                     'principal_type': 'EMPLOYEE', 'principal_status': 'ACTIVE', 'authz_version': 1,
-                     'permission_grants': [{'permissionCode': 'ORDER_VIEW', 'scopeType': 'GLOBAL', 'scopeId': None}]}
+                     'permission_grants': ['ORDER_VIEW#GLOBAL']}
     staff_validator.validate(staff_example)
-    for change in [{'principal_type': 'ADMIN'}, {'authz_version': 2}, {'permission_grants': None},
-                   {'permission_grants': [{'permissionCode': 'ORDER_VIEW', 'scopeType': 'GLOBAL', 'scopeId': 'WH-A'}]},
-                   {'permission_grants': [{'permissionCode': 'ORDER_VIEW', 'scopeType': 'WAREHOUSE', 'scopeId': ''}]},
-                   {'permission_grants': [{'permissionCode': 'ORDER_VIEW', 'scopeType': 'GLOBAL', 'validUntill': '2099-01-01T00:00:00Z'}]}]:
+    for change in [{'permission_grants': None},
+                   {'permission_grants': ['ORDER_VIEW#GLOBAL#WH-A']},
+                   {'permission_grants': ['ORDER_VIEW#WAREHOUSE#']},
+                   {'permission_grants': ['ORDER_VIEW']},
+                   {'permission_grants': ['ORDER_VIEW#STORE#WH-A']},
+                   {'permission_grants': [{'permissionCode': 'ORDER_VIEW', 'scopeType': 'GLOBAL', 'scopeId': None}]}]:
         check(not staff_validator.is_valid({**staff_example, **change}), 'Staff schema accepted invalid claims: ' + str(change))
-    result['iam_consumer'] = {'staff_schema': 'provisional-v1', 'negative_examples': 6,
-                              'issuer_and_projection_producers': 'PENDING task 1-2'}
+    result['iam_consumer'] = {'staff_schema': 'identity-sync-v1', 'negative_examples': 6,
+                              'issuer_and_projection_producers': 'identity permission sync (PR #73)'}
     schema_count = 0
     for directory in ['packages/events/schemas', 'packages/events/profiles']:
         for path in (ROOT / directory).rglob('*.json'):

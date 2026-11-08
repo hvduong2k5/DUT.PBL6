@@ -22,8 +22,7 @@ def fixture_issuer(request, admin_api, admin_token, issuer, account, password):
         client = {"clientId": client_id, "enabled": True, "publicClient": True,
                   "protocol": "openid-connect", "standardFlowEnabled": False,
                   "directAccessGrantsEnabled": True, "defaultClientScopes": ["roles", "profile", "email", "audience-scope", "order-customer"],
-                  "protocolMappers": [claim("principal_type", "EMPLOYEE"), claim("principal_status", "ACTIVE"),
-                                      claim("authz_version", "1", "int"), claim("user_id", account["principal"]),
+                  "protocolMappers": [claim("user_id", account["principal"]),
                                       claim("permission_grants", json.dumps(grants), "JSON")]}
         status, _, headers = request(admin_api + "/clients", client, token=admin_token, method="POST")
         assert status == 201, ("TEST-only staff client", status)
@@ -48,7 +47,9 @@ def verify(request, sql, identity, profile, order, legacy_staff, customer, princ
         return body
 
     def grant(code, kind="GLOBAL", scope=None):
-        return {"permissionCode": code, "scopeType": kind, "scopeId": scope}
+        # Same wire format Identity syncs onto the Keycloak user attribute:
+        # PERMISSION#SCOPE_TYPE, plus #SCOPE_ID for non-GLOBAL grants.
+        return code + "#" + kind if scope is None else code + "#" + kind + "#" + scope
 
     orders = json.loads(sql("SELECT json_agg(json_build_object('id',id,'warehouse',warehouse_id)) FROM orders.orders;", tuples=True))
     assert len(orders) >= 2

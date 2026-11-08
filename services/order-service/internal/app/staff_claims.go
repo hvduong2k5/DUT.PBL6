@@ -1,47 +1,35 @@
 package app
 
 import (
-	"bytes"
-	"encoding/json"
 	"errors"
 	"github.com/omamx/order-service/internal/domain"
 	"regexp"
 	"strings"
-	"time"
 	"unicode"
 )
 
-var errInactivePrincipal = errors.New("PRINCIPAL_FORBIDDEN")
 var staffPermissionCode = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_.:-]{0,159}$`)
 
-// Provisional staff JWT v1. This adapter is the only place where the token's
-// authorization claim names are coupled to the service's internal grant model.
+// Staff authorization claims, aligned with the Identity -> Keycloak sync
+// contract implemented by the identity service: Identity recomputes each
+// employee's effective grants from IAM assignments and writes them onto the
+// Keycloak user as the multivalued attribute "permission_grants" — one string
+// per grant, "PERMISSION#SCOPE_TYPE" for GLOBAL grants and
+// "PERMISSION#SCOPE_TYPE#SCOPE_ID" otherwise. A realm protocol mapper copies
+// the attribute into the access token under the same claim name.
+//
+// A token that carries the claim (even as an empty list) is a staff token and
+// is authorized from this signed snapshot alone: Identity filtered the grants
+// by assignment validity at sync time, and revocation takes effect at the
+// next token issuance (bounded by the access-token lifespan), with lifecycle
+// changes additionally forcing re-login. A token without the claim is not a
+// staff token and follows the customer path. This adapter is the only place
+// where the token's wire format is coupled to the internal grant model.
 type staffAuthorizationClaims struct {
-	PrincipalType        string            `json:"principal_type"`
-	PrincipalStatus      string            `json:"principal_status"`
-	AuthorizationVersion int               `json:"authz_version"`
-	PermissionGrants     []staffTokenGrant `json:"permission_grants"`
-	Service              string            `json:"service"`
-}
-type staffTokenGrant struct {
-	PermissionCode string     `json:"permissionCode"`
-	ScopeType      string     `json:"scopeType"`
-	ScopeID        string     `json:"scopeId"`
-	ValidFrom      *time.Time `json:"validFrom,omitempty"`
-	ValidUntil     *time.Time `json:"validUntil,omitempty"`
+	PermissionGrants []string `json:"permission_grants"`
+	Service          string   `json:"service"`
 }
 
-func (g *staffTokenGrant) UnmarshalJSON(raw []byte) error {
-	type grant staffTokenGrant
-	var value grant
-	decoder := json.NewDecoder(bytes.NewReader(raw))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&value); err != nil {
-		return err
-	}
-	*g = staffTokenGrant(value)
-	return nil
-}
 func authorizationValue(value string) bool {
 	if value == "" || len(value) > 160 || strings.TrimSpace(value) != value {
 		return false
@@ -54,50 +42,42 @@ func authorizationValue(value string) bool {
 	return true
 }
 
-func (c staffAuthorizationClaims) staffGrants(now time.Time) ([]domain.PermissionGrant, bool, error) {
+func (c staffAuthorizationClaims) staffGrants() ([]domain.PermissionGrant, bool, error) {
 	invalid := errors.New("INVALID_STAFF_AUTHORIZATION")
 	if c.Service != "" {
 		return nil, false, invalid
 	}
-	if c.PrincipalType == "" {
+	if c.PermissionGrants == nil {
 		return nil, false, nil
 	}
-	if c.PrincipalType != "EMPLOYEE" && c.PrincipalType != "CUSTOMER" {
-		return nil, false, invalid
-	}
-	if c.PrincipalStatus != "ACTIVE" {
-		return nil, false, errInactivePrincipal
-	}
-	if c.PrincipalType == "CUSTOMER" {
-		return nil, false, nil
-	}
-	if c.AuthorizationVersion != 1 || c.PermissionGrants == nil || len(c.PermissionGrants) > 128 {
+	if len(c.PermissionGrants) > 128 {
 		return nil, true, invalid
 	}
 	grants := make([]domain.PermissionGrant, 0, len(c.PermissionGrants))
-	for _, g := range c.PermissionGrants {
-		if !staffPermissionCode.MatchString(g.PermissionCode) {
+	for _, raw := range c.PermissionGrants {
+		parts := strings.Split(raw, "#")
+		if len(parts) < 2 || len(parts) > 3 {
 			return nil, true, invalid
 		}
-		switch g.ScopeType {
+		code, scopeType := parts[0], parts[1]
+		if !staffPermissionCode.MatchString(code) {
+			return nil, true, invalid
+		}
+		var scopeID string
+		switch scopeType {
 		case "GLOBAL":
-			if g.ScopeID != "" {
+			if len(parts) != 2 {
 				return nil, true, invalid
 			}
-		case "WAREHOUSE", "DEPARTMENT", "STORE", "REGION", "BRANCH", "BUSINESS_UNIT":
-			if !authorizationValue(g.ScopeID) {
+		case "WAREHOUSE", "DEPARTMENT":
+			if len(parts) != 3 || !authorizationValue(parts[2]) {
 				return nil, true, invalid
 			}
+			scopeID = parts[2]
 		default:
 			return nil, true, invalid
 		}
-		if g.ValidFrom != nil && g.ValidUntil != nil && !g.ValidFrom.Before(*g.ValidUntil) {
-			return nil, true, invalid
-		}
-		if g.ValidFrom != nil && now.Before(*g.ValidFrom) || g.ValidUntil != nil && !now.Before(*g.ValidUntil) {
-			continue
-		}
-		grants = append(grants, domain.PermissionGrant{PermissionCode: g.PermissionCode, ScopeType: g.ScopeType, ScopeID: g.ScopeID})
+		grants = append(grants, domain.PermissionGrant{PermissionCode: code, ScopeType: scopeType, ScopeID: scopeID})
 	}
 	return grants, true, nil
 }
