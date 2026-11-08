@@ -57,4 +57,64 @@ class KeycloakAdminClientTest {
                 .createUser(UUID.randomUUID(), "a", "b", "c", "d"));
         verify(response).close();
     }
+
+    @Test
+    void employeeProvisioningBindsPrincipalTypeEmployee() {
+        Keycloak kc = mock(Keycloak.class, RETURNS_DEEP_STUBS);
+        var users = kc.realm("omama").users();
+        Response response = mock(Response.class);
+        when(response.getStatus()).thenReturn(201);
+        when(response.getLocation()).thenReturn(URI.create("https://identity.test/users/kc-employee-sub"));
+        when(users.create(any(UserRepresentation.class))).thenReturn(response);
+        UUID principal = UUID.randomUUID();
+
+        String subject = new KeycloakAdminClient(kc, "omama")
+                .createUser(principal, "employee@example.test", "Staff", "User", "staff-password", "EMPLOYEE");
+
+        assertEquals("kc-employee-sub", subject);
+        ArgumentCaptor<UserRepresentation> captured = ArgumentCaptor.forClass(UserRepresentation.class);
+        verify(users).create(captured.capture());
+        assertEquals(List.of(principal.toString()), captured.getValue().getAttributes().get("app_user_id"));
+        assertEquals(List.of("EMPLOYEE"), captured.getValue().getAttributes().get("principal_type"));
+        verify(response).close();
+    }
+
+    @Test
+    void setUserAttributeUpdatesKeycloakUserRepresentation() {
+        Keycloak kc = mock(Keycloak.class, RETURNS_DEEP_STUBS);
+        var userResource = kc.realm("omama").users().get("kc-sub-attr");
+        UserRepresentation user = new UserRepresentation();
+        user.setId("kc-sub-attr");
+        when(userResource.toRepresentation()).thenReturn(user);
+
+        var client = new KeycloakAdminClient(kc, "omama");
+        client.setUserAttribute("kc-sub-attr", "principal_type", "EMPLOYEE");
+
+        ArgumentCaptor<UserRepresentation> captured = ArgumentCaptor.forClass(UserRepresentation.class);
+        verify(userResource).update(captured.capture());
+        assertEquals(List.of("EMPLOYEE"), captured.getValue().getAttributes().get("principal_type"));
+    }
+
+    @Test
+    void updateUserPermissionsWithGrantsSetsPrincipalType() {
+        Keycloak kc = mock(Keycloak.class, RETURNS_DEEP_STUBS);
+        var userResource = kc.realm("omama").users().get("kc-sub-grants");
+        UserRepresentation user = new UserRepresentation();
+        user.setId("kc-sub-grants");
+        when(userResource.toRepresentation()).thenReturn(user);
+
+        var client = new KeycloakAdminClient(kc, "omama");
+        client.updateUserPermissionsWithGrants(
+                "kc-sub-grants",
+                List.of("ORDER_VIEW"),
+                List.of("ORDER_VIEW#GLOBAL"),
+                "EMPLOYEE"
+        );
+
+        ArgumentCaptor<UserRepresentation> captured = ArgumentCaptor.forClass(UserRepresentation.class);
+        verify(userResource).update(captured.capture());
+        assertEquals(List.of("ORDER_VIEW#GLOBAL"), captured.getValue().getAttributes().get("permission_grants"));
+        assertEquals(List.of("EMPLOYEE"), captured.getValue().getAttributes().get("principal_type"));
+        assertNull(captured.getValue().getAttributes().get("permissions"));
+    }
 }

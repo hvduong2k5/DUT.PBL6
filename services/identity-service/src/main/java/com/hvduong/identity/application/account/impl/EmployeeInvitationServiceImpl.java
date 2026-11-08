@@ -5,10 +5,11 @@ import com.hvduong.identity.application.audit.AuditService;
 import com.hvduong.identity.application.dto.response.InviteEmployeeResponse;
 import com.hvduong.identity.domain.entity.EmployeeInvitationRow;
 import com.hvduong.identity.domain.entity.IdentityPrincipalRow;
+import com.hvduong.identity.infrastructure.keycloak.KeycloakAdminClient;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.EmployeeInvitationMapper;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IdentityPrincipalMapper;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,12 +21,33 @@ import java.util.UUID;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class EmployeeInvitationServiceImpl implements EmployeeInvitationService {
 
     private final EmployeeInvitationMapper invitationMapper;
     private final IdentityPrincipalMapper principalMapper;
     private final AuditService auditService;
+    private final KeycloakAdminClient keycloakAdminClient;
+
+    public EmployeeInvitationServiceImpl(
+            EmployeeInvitationMapper invitationMapper,
+            IdentityPrincipalMapper principalMapper,
+            AuditService auditService
+    ) {
+        this(invitationMapper, principalMapper, auditService, null);
+    }
+
+    @Autowired
+    public EmployeeInvitationServiceImpl(
+            EmployeeInvitationMapper invitationMapper,
+            IdentityPrincipalMapper principalMapper,
+            AuditService auditService,
+            @Autowired(required = false) KeycloakAdminClient keycloakAdminClient
+    ) {
+        this.invitationMapper = invitationMapper;
+        this.principalMapper = principalMapper;
+        this.auditService = auditService;
+        this.keycloakAdminClient = keycloakAdminClient;
+    }
 
     @Value("${keycloak.public-url:${keycloak.server-url:https://keycloak.omama.vn}}")
     private String publicUrl = "https://keycloak.omama.vn";
@@ -97,6 +119,16 @@ public class EmployeeInvitationServiceImpl implements EmployeeInvitationService 
 
         invitationMapper.updateStatus(invitationId, "ACCEPTED", null);
         principalMapper.updateProvisioningStatus(inv.getPrincipalId(), "ACTIVE", idpSubject, 0L);
+
+        if (keycloakAdminClient != null && idpSubject != null && !idpSubject.isBlank()) {
+            try {
+                keycloakAdminClient.setUserAttribute(idpSubject, "principal_type", "EMPLOYEE");
+                keycloakAdminClient.setUserAttribute(idpSubject, "app_user_id", inv.getPrincipalId().toString());
+            } catch (Exception ex) {
+                log.warn("Failed to set Keycloak attributes for accepted employee invitation [principalId={}, idpSubject={}]",
+                        inv.getPrincipalId(), idpSubject, ex);
+            }
+        }
 
         auditService.recordAudit(
                 "EMPLOYEE",

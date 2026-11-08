@@ -196,6 +196,15 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                 principalMapper.insert(principal);
                 log.info("JIT provisioned new user principalId={} subject={}", newPrincipalId, subject);
 
+                if (keycloakAdminClient != null && subject != null) {
+                    try {
+                        keycloakAdminClient.setUserAttribute(subject, "app_user_id", newPrincipalId.toString());
+                        keycloakAdminClient.setUserAttribute(subject, "principal_type", "CUSTOMER");
+                    } catch (Exception ex) {
+                        log.warn("Failed to set Keycloak attributes for JIT customer [subject={}]", subject, ex);
+                    }
+                }
+
                 auditService.recordAudit("CUSTOMER", newPrincipalId, null, "JIT_PROVISION_SUCCESS",
                         "AUTH", subject, "SUCCESS", null, null, null,
                         Map.of("email", email != null ? email : ""));

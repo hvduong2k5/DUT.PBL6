@@ -29,9 +29,17 @@ public class KeycloakAdminClient {
     }
 
     public String createUser(UUID principalId, String email, String firstName, String lastName, String temporaryPassword) {
+        return createUser(principalId, email, firstName, lastName, temporaryPassword, "CUSTOMER");
+    }
+
+    public String createUser(UUID principalId, String email, String firstName, String lastName, String temporaryPassword, String principalType) {
         if (principalId == null || principalId.equals(new UUID(0, 0))) {
             throw new IllegalArgumentException("A non-zero internal principal ID is required");
         }
+        String effectivePrincipalType = (principalType != null && !principalType.isBlank())
+                ? principalType.trim().toUpperCase()
+                : "CUSTOMER";
+
         UsersResource usersResource = keycloak.realm(realm).users();
         
         UserRepresentation user = new UserRepresentation();
@@ -43,7 +51,7 @@ public class KeycloakAdminClient {
         user.setEmailVerified(false);
         user.setAttributes(Map.of(
                 "app_user_id", Collections.singletonList(principalId.toString()),
-                "principal_type", Collections.singletonList("CUSTOMER")
+                "principal_type", Collections.singletonList(effectivePrincipalType)
         ));
 
         CredentialRepresentation credential = new CredentialRepresentation();
@@ -84,6 +92,44 @@ public class KeycloakAdminClient {
         org.keycloak.admin.client.resource.UserResource userResource = keycloak.realm(realm).users().get(keycloakUserId);
         UserRepresentation user = userResource.toRepresentation();
         user.setEnabled(enabled);
+        userResource.update(user);
+    }
+
+    public void setUserAttribute(String keycloakUserId, String attributeName, String attributeValue) {
+        if (keycloakUserId == null || keycloakUserId.isBlank() || attributeName == null || attributeName.isBlank()) {
+            return;
+        }
+        org.keycloak.admin.client.resource.UserResource userResource = keycloak.realm(realm).users().get(keycloakUserId);
+        UserRepresentation user = userResource.toRepresentation();
+        Map<String, List<String>> attributes = user.getAttributes();
+        if (attributes == null) {
+            attributes = new HashMap<>();
+        } else {
+            attributes = new HashMap<>(attributes);
+        }
+        if (attributeValue != null) {
+            attributes.put(attributeName, Collections.singletonList(attributeValue));
+        } else {
+            attributes.remove(attributeName);
+        }
+        user.setAttributes(attributes);
+        userResource.update(user);
+    }
+
+    public void setUserAttributes(String keycloakUserId, Map<String, List<String>> newAttributes) {
+        if (keycloakUserId == null || keycloakUserId.isBlank() || newAttributes == null || newAttributes.isEmpty()) {
+            return;
+        }
+        org.keycloak.admin.client.resource.UserResource userResource = keycloak.realm(realm).users().get(keycloakUserId);
+        UserRepresentation user = userResource.toRepresentation();
+        Map<String, List<String>> attributes = user.getAttributes();
+        if (attributes == null) {
+            attributes = new HashMap<>();
+        } else {
+            attributes = new HashMap<>(attributes);
+        }
+        attributes.putAll(newAttributes);
+        user.setAttributes(attributes);
         userResource.update(user);
     }
 
@@ -181,6 +227,15 @@ public class KeycloakAdminClient {
             List<String> flatPermissions,
             List<String> permissionGrants
     ) {
+        updateUserPermissionsWithGrants(keycloakUserId, flatPermissions, permissionGrants, null);
+    }
+
+    public void updateUserPermissionsWithGrants(
+            String keycloakUserId,
+            List<String> flatPermissions,
+            List<String> permissionGrants,
+            String principalType
+    ) {
         org.keycloak.admin.client.resource.UserResource userResource = keycloak.realm(realm).users().get(keycloakUserId);
         UserRepresentation user = userResource.toRepresentation();
         Map<String, List<String>> attributes = user.getAttributes();
@@ -191,6 +246,9 @@ public class KeycloakAdminClient {
         }
         attributes.remove("permissions");
         attributes.put("permission_grants", permissionGrants != null ? permissionGrants : Collections.emptyList());
+        if (principalType != null && !principalType.isBlank()) {
+            attributes.put("principal_type", Collections.singletonList(principalType.trim().toUpperCase()));
+        }
         user.setAttributes(attributes);
         userResource.update(user);
     }

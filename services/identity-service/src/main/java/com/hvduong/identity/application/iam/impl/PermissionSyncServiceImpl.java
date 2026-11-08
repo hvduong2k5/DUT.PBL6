@@ -109,7 +109,7 @@ public class PermissionSyncServiceImpl implements PermissionSyncService {
                             + (g.scopeId() != null && !g.scopeId().isBlank() ? "#" + g.scopeId() : ""))
                     .toList();
             keycloakAdminClient.updateUserPermissionsWithGrants(
-                    principal.getIdpSubject(), flatPermissions, grantStrings);
+                    principal.getIdpSubject(), flatPermissions, grantStrings, principal.getPrincipalType());
         } catch (Exception ex) {
             log.error("Keycloak permission sync failed [principalId={}, idpSubject={}, trigger={}]",
                     principalId, principal.getIdpSubject(), trigger, ex);
