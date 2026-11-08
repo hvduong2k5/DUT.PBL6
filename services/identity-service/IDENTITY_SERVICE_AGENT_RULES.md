@@ -34,8 +34,10 @@ Quy tắc này áp dụng cho mọi thay đổi code trong `services/identity-se
 - **Không viết mã kiểm tra theo tên role:** Không được viết code dạng `if (role == "ADMIN")` hoặc `if (authorities.contains("ROLE_ADMIN"))` để bỏ qua kiểm tra permission chi tiết.
 
 ## 3. Chuẩn hóa JWT và đồng bộ quyền (ƯU TIÊN ĐẦU)
-- **Không thêm claim `principal_type` vào JWT.** Loại tài khoản (CUSTOMER/EMPLOYEE) lấy từ DB qua `GET /api/v1/users/me`, đối chiếu `user_id` (Identity Principal UUID) từ JWT. Quy ước này đã chốt trong `docs/06_operations/mvp_permissions.md` và `services/identity-service/docs/iam-role-permission-matrix.md`. JWT là immutable, không baking metadata persona có thể thay đổi.
+- **Thêm claim `principal_type` vào JWT.** Giá trị: `CUSTOMER` hoặc `EMPLOYEE`. Nguồn: `identity_principals.principal_type`. Được ghi vào Keycloak user attribute `principal_type`, rồi protocol mapper đưa vào claim `principal_type` của access token.
+- **Stale data tối đa 5 phút:** Access token chỉ sống 5 phút (`accessTokenLifespan = 300s`). Nếu `principal_type` thay đổi (rất hiếm), token cũ vẫn có giá trị đến khi hết hạn, sau đó phải refresh để nhận claim mới.
 - Token JWT phải thể hiện được:
+  - **Loại tài khoản** (`principal_type`: `CUSTOMER` hoặc `EMPLOYEE`)
   - **Principal ID nội bộ** (`user_id`)
   - **Permission gắn đúng scope** (`permission_grants` từ `iam_role_permissions` qua `iam_role_assignments`)
   - **Thời hạn hiệu lực** (`exp`, `iat`)

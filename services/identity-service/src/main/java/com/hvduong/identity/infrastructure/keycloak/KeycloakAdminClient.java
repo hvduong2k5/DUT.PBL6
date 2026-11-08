@@ -42,7 +42,10 @@ public class KeycloakAdminClient {
         user.setLastName(lastName);
         user.setEnabled(true);
         user.setEmailVerified(false);
-        user.setAttributes(Map.of("app_user_id", Collections.singletonList(principalId.toString())));
+        user.setAttributes(Map.of(
+                "app_user_id", Collections.singletonList(principalId.toString()),
+                "principal_type", Collections.singletonList("CUSTOMER")
+        ));
 
         CredentialRepresentation credential = new CredentialRepresentation();
         credential.setType(CredentialRepresentation.PASSWORD);
@@ -177,7 +180,7 @@ public class KeycloakAdminClient {
         } else {
             attributes = new HashMap<>(attributes);
         }
-        attributes.put("permissions", flatPermissions != null ? flatPermissions : Collections.emptyList());
+        attributes.remove("permissions");
         attributes.put("permission_grants", permissionGrants != null ? permissionGrants : Collections.emptyList());
         user.setAttributes(attributes);
         userResource.update(user);

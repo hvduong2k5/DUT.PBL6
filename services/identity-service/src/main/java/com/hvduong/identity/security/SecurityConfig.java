@@ -65,25 +65,24 @@ public class SecurityConfig {
                 }
             }
 
-            // 2. Lấy Permissions scoped từ claim 'permission_grants' trong JWT (Consumer mới)
-            // Mỗi phần tử lưu dưới dạng chuỗi: permission#scope_type#scope_id
-            // Sinh authority dạng: PERMISSION#SCOPE_TYPE#SCOPE_ID (scope_id có thể null)
+            // 2. Lấy Permissions scoped từ claim 'permission_grants' trong JWT
+            // Mỗi phần tử lưu dưới dạng chuỗi: permission#scope_type[#scope_id]
+            // Sinh cả authority có scope (PERMISSION#SCOPE_TYPE#SCOPE_ID) lẫn authority mã quyền gốc (PERMISSION)
+            // để các @PreAuthorize("hasAuthority('...')") tự xử lý trực tiếp mà không cần claim 'permissions' rời.
             @SuppressWarnings("unchecked")
             List<String> grantStrings = (List<String>) jwt.getClaim("permission_grants");
             if (grantStrings != null) {
                 for (String gs : grantStrings) {
                     if (gs != null && !gs.isBlank()) {
-                        authorities.add(new SimpleGrantedAuthority(gs));
-                    }
-                }
-            }
-
-            // 3. Flat permissions (consumer cũ - Catalog, Identity tự kiểm) giữ trong giai đoạn chuyển tiếp
-            List<String> flatPerms = jwt.getClaimAsStringList("permissions");
-            if (flatPerms != null) {
-                for (String p : flatPerms) {
-                    if (p != null && !p.isBlank()) {
-                        authorities.add(new SimpleGrantedAuthority(p));
+                        String trimmed = gs.trim();
+                        authorities.add(new SimpleGrantedAuthority(trimmed));
+                        int sepIdx = trimmed.indexOf('#');
+                        if (sepIdx > 0) {
+                            String basePermission = trimmed.substring(0, sepIdx).trim();
+                            if (!basePermission.isEmpty()) {
+                                authorities.add(new SimpleGrantedAuthority(basePermission));
+                            }
+                        }
                     }
                 }
             }

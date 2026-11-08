@@ -181,13 +181,28 @@
           }
         },
         {
-          "name": "user-permissions-mapper",
+          "name": "principal-type-mapper",
           "protocol": "openid-connect",
           "protocolMapper": "oidc-usermodel-attribute-mapper",
           "consentRequired": false,
           "config": {
-            "user.attribute": "permissions",
-            "claim.name": "permissions",
+            "user.attribute": "principal_type",
+            "claim.name": "principal_type",
+            "jsonType.label": "String",
+            "multivalued": "false",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "false"
+          }
+        },
+        {
+          "name": "user-permission-grants-mapper",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "permission_grants",
+            "claim.name": "permission_grants",
             "jsonType.label": "String",
             "multivalued": "true",
             "id.token.claim": "false",
@@ -218,6 +233,9 @@
       "attributes": {
         "app_user_id": [
           "a0000000-0000-0000-0000-000000000001"
+        ],
+        "principal_type": [
+          "EMPLOYEE"
         ]
       }
     }

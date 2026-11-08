@@ -35,6 +35,7 @@ class KeycloakAdminClientTest {
         ArgumentCaptor<UserRepresentation> captured = ArgumentCaptor.forClass(UserRepresentation.class);
         verify(users).create(captured.capture());
         assertEquals(List.of(principal.toString()), captured.getValue().getAttributes().get("app_user_id"));
+        assertEquals(List.of("CUSTOMER"), captured.getValue().getAttributes().get("principal_type"));
         verify(users.get(subject).roles().realmLevel()).add(List.of(role));
         verify(response).close();
     }
