@@ -14,11 +14,20 @@ ISSUER = "http://identity-fixture:8016"
 ADMIN = "913d2296-944c-4a75-b684-d1a0cf8fd4e8"
 CUSTOMER = "27bc0f3a-69e5-4aa7-8644-3c7fcb7b3660"
 WAREHOUSE = "fb3ac39b-8597-470e-90b3-0b72b01cf4a1"
-IDS = {"admin": ADMIN, "customer": CUSTOMER, "warehouse": WAREHOUSE, "outage": ADMIN}
+IDS = {
+    "admin": ADMIN,
+    "customer": CUSTOMER,
+    "customer2": "00000000-0000-0000-0000-000000002711",
+    "customer3": "00000000-0000-0000-0000-000000002712",
+    "warehouse": WAREHOUSE,
+    "outage": ADMIN,
+}
 STAFF_SESSIONS = {
     "f47ac10b-58cc-4372-a567-0e02b2c3d479": "admin",
     "f47ac10b-58cc-4372-a567-0e02b2c3d478": "restricted",
     "f47ac10b-58cc-4372-a567-0e02b2c3d477": "customer",
+    "f47ac10b-58cc-4372-a567-0e02b2c3d476": "customer2",
+    "f47ac10b-58cc-4372-a567-0e02b2c3d475": "customer3",
 }
 KEY = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 PUBLIC = KEY.public_key().public_bytes(
@@ -85,7 +94,7 @@ def identity(
         "data": {
             "principalId": IDS.get(kind, ADMIN),
             "idpSubject": kind,
-            "principalType": "CUSTOMER" if kind == "customer" else "EMPLOYEE",
+            "principalType": "CUSTOMER" if kind.startswith("customer") else "EMPLOYEE",
             "provisioningStatus": "ACTIVE",
             "displayName": "Nhân viên pilot",
             "email": "pilot@example.test",

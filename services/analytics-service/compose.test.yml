@@ -92,6 +92,8 @@ services:
       ANALYTICS_POSTGRES_DSN: postgresql://analytics_migrator:local-migrator@postgres/analytics
       ANALYTICS_POSTGRES_WORKER_ROLE: analytics_worker
       ANALYTICS_POSTGRES_API_ROLE: analytics_api
+      ANALYTICS_REC_POSTGRES_WORKER_ROLE: analytics_rec_worker
+      ANALYTICS_REC_POSTGRES_API_ROLE: analytics_rec_api
       ANALYTICS_CLICKHOUSE_USER: analytics_migrator
       ANALYTICS_CLICKHOUSE_PASSWORD: local-migrator
     depends_on:
@@ -113,7 +115,7 @@ services:
   api:
     <<: *runtime
     command: [api]
-    environment:
+    environment: &api-env
       <<: *worker-env
       ANALYTICS_POSTGRES_DSN: postgresql://analytics_api:local-api@postgres/analytics
       ANALYTICS_CLICKHOUSE_USER: analytics_api
@@ -147,8 +149,33 @@ services:
     command: [-q, -p, "no:cacheprovider", --junitxml=/tmp/analytics-pytest.xml]
     depends_on:
       api: {condition: service_healthy}
+      recommendation-api: {condition: service_healthy}
       collector: {condition: service_started}
       builder: {condition: service_started}
+
+  recommendation-api:
+    <<: *runtime
+    command: [api]
+    environment:
+      <<: *api-env
+      ANALYTICS_REC_ENABLED: "1"
+      ANALYTICS_REC_POSTGRES_DSN: postgresql://analytics_rec_api:local-rec-api@postgres/analytics
+      ANALYTICS_REC_SCOPE_CONFIG_FILE: /run/recommendation-scope.json
+      ANALYTICS_REC_SUBJECT_KEY: isolated-recommendation-test-key-32-bytes
+      ANALYTICS_REC_QUERY_RATE_LIMIT: "100000"
+    volumes:
+      - pilot-key:/fixture:ro
+      - ./dev/recommendation-scope.json:/run/recommendation-scope.json:ro
+    ports:
+      - "127.0.0.1:${ANALYTICS_REC_TEST_PORT:-18112}:8011"
+    depends_on:
+      identity-fixture: {condition: service_healthy}
+      migrate: {condition: service_completed_successfully}
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8011/livez')"]
+      interval: 2s
+      timeout: 4s
+      retries: 20
 
 volumes:
   pilot-key:

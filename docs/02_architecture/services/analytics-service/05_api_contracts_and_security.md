@@ -2,6 +2,8 @@
 
 [OpenAPI v0.1](../../../03_api_specs/analytics-service.candidate.openapi.yaml) mô tả Dashboard. Gateway giữ prefix `/api/v1/admin/analytics` và chỉ mở với audience/permission đã nghiệm thu.
 
+Recommendation bổ sung `GET /api/v1/products/recommended`, consent API và event API dưới `/api/v1/recommendations`. Public context và Customer personalization có policy riêng với route staff trong chương này. Payload, status, Gateway/BFF và quyền ghi bảng mới được mô tả ở [chương 14](14_recommendation_api_and_storefront.md). Đây là thiết kế API cần triển khai và tạo candidate OpenAPI riêng.
+
 | Method / path | Quyền đề xuất | Hành vi |
 | --- | --- | --- |
 | `GET /api/v1/admin/analytics/dashboard` | `analytics.dashboard.read` | Sáu card theo kỳ và `comparison=previous_period` tùy chọn. Phần dữ liệu thiếu được mô tả theo card. |

@@ -5,6 +5,27 @@ _transform: true
 # 1. UPSTREAMS & SERVICES (18 MICROSERVICES ROUTING TABLE)
 # ==============================================================================
 services:
+  # Exact route precedes Catalog's product prefix. MS-11 verifies Customer auth.
+  - name: analytics-recommendation-service
+    url: http://analytics-service:8011
+    connect_timeout: 500
+    read_timeout: 1000
+    write_timeout: 1000
+    retries: 0
+    routes:
+      - name: analytics-recommended-products
+        paths: ["~^/api/v1/products/recommended/?$"]
+        regex_priority: 100
+        strip_path: false
+        methods: [GET, OPTIONS]
+      - name: analytics-recommendation-consent
+        paths: ["~^/api/v1/recommendations/consent/?$"]
+        strip_path: false
+        methods: [GET, PUT, OPTIONS]
+      - name: analytics-recommendation-events
+        paths: ["~^/api/v1/recommendations/events/?$"]
+        strip_path: false
+        methods: [POST, OPTIONS]
   # Fulfillment verifies the signed token and current Employee/ADMIN scope in
   # Identity. Never expose internal permit/allocation/proof gRPC endpoints.
   - name: fulfillment-service

@@ -2,16 +2,18 @@
 
 **Thiết kế đề xuất · 06/11/2026 · Nhánh `feat/analysis-service`.**
 
-Thiết kế gồm hai lát có thể phát hành độc lập. Marketing đo chuyển đổi bằng GA4. Product Discovery đưa gợi ý lên Storefront. Supply Analytics có thể bổ sung tín hiệu bán chạy sau khi nguồn tự động đạt coverage và scope phù hợp với kênh D2C.
+Kế hoạch triển khai ngày 07/11/2026 đã được cụ thể hóa thành [bộ thiết kế Recommendation 12–15](12_recommendation_engine_design.md). Bộ này xác định contract triển khai khi có khác biệt với phác thảo bên dưới.
+
+Thiết kế gồm hai lát có thể phát hành độc lập. MS-14 `marketing-service` sở hữu đo chuyển đổi bằng GA4. MS-11 `analytics-service` sở hữu Recommendation Engine và API gợi ý cho Storefront. Product Discovery là tên năng lực nghiệp vụ trong EPIC 03. Tín hiệu bán chạy từ Supply được dùng khi nguồn đạt coverage và phạm vi phù hợp với kênh D2C.
 
 ## 1. Ranh giới và nguồn dữ liệu
 
 | Thành phần | Trách nhiệm |
 | --- | --- |
 | Marketing / MS-14 | Sở hữu GA4 property, quy ước tracking, phễu và KPI theo chiến dịch. Dùng GA4 Explore trong pilot. Tích hợp báo cáo vào Web Admin khi MS-14 có runtime và quyền đọc riêng. |
-| Product Discovery | Sở hữu trải nghiệm gợi ý, quy tắc xếp hạng, fallback và hợp đồng phục vụ Storefront. Đề xuất đặt engine v1 trong lớp phục vụ Product Discovery hiện có. |
-| MS-11 Analytics | Sở hữu báo cáo Supply và các tín hiệu tổng hợp được xuất bản theo scope. Có thể cung cấp tín hiệu bán chạy cho Product Discovery khi được phê duyệt. |
-| Catalog / Inventory / Order | Catalog xác nhận SKU công khai và danh mục. Inventory xác nhận khả dụng theo vùng phục vụ. Order xác nhận giao dịch và cung cấp dòng đơn nếu cần phân tích mua hàng theo SKU/khách. |
+| MS-05 `catalog-service` | Sở hữu danh mục, trạng thái công khai và dữ liệu hiển thị của Product/SKU. Cung cấp danh sách SKU được duyệt để làm fallback. |
+| MS-11 `analytics-service` | Sở hữu Supply Analytics, tính điểm, xuất bản danh sách theo phạm vi và phục vụ API gợi ý. Recommendation có pipeline và ngân sách tài nguyên riêng trong MS-11. |
+| Inventory / Order | Inventory xác nhận khả dụng theo vùng phục vụ. Order xác nhận giao dịch và cung cấp dòng đơn nếu cần phân tích mua hàng theo SKU/khách. |
 
 [Ranh giới MS-11](00_analytics_service_hld.md#phạm-vi-và-ownership) · [Hợp đồng nguồn](07_integrations_and_contract_gaps.md) · [US-AI-04](../../../01_requirements/epics/EPIC_03_Product_Discovery.md#us-ai-04--product-recommendation-ai)
 
@@ -19,14 +21,20 @@ Thiết kế gồm hai lát có thể phát hành độc lập. Marketing đo ch
 flowchart LR
   Web["Storefront"] -->|Ecommerce events theo consent| GA["GA4"]
   GA --> Explore["Marketing · Funnel Exploration"]
-  Web -->|Vị trí và ngữ cảnh| Rec["Product Discovery · Recommendation Engine"]
-  Cat["Catalog"] -->|SKU công khai và danh mục| Rec
-  Inv["Inventory"] -->|Khả dụng theo vùng| Rec
-  Rec -->|Danh sách SKU| Web
-  Ord["Order"] -->|Bán và trả theo ngày| Supply["MS-11 · Supply Analytics"]
+  Web <-->|Gợi ý sản phẩm| Gateway["API Gateway"]
+  subgraph MS11["MS-11 analytics-service"]
+    Supply["Supply Analytics"]
+    Rank["Recommendation Engine"]
+    Rec["Recommendation API"]
+    Supply -.->|Tín hiệu bán chạy đã duyệt| Rank
+    Rank -->|Danh sách theo ngữ cảnh| Rec
+  end
+  Gateway <--> Rec
+  Catalog["Catalog"] -->|SKU công khai và fallback| Rank
+  Inv["Inventory"] -->|Khả dụng theo vùng| Rank
+  Ord["Order"] -->|Bán và trả theo ngày| Supply
   Inv -->|Lịch sử hết hàng và snapshot lô| Supply
-  Supply -.->|Tín hiệu bán chạy đã duyệt| Rec
-  Web -.->|Tương tác first-party được phép ở v2| Rec
+  Web -.->|Tương tác first-party được phép ở v2| Rank
 ```
 
 ## 2. GA4 pilot
@@ -47,19 +55,21 @@ Marketing dùng phễu đóng `view_item → add_to_cart → begin_checkout → 
 
 ## 3. Recommendation Engine v1
 
-Pilot một vị trí trên trang chi tiết sản phẩm. Ưu tiên SKU cùng danh mục và SKU do Catalog duyệt, rồi xếp hạng theo tín hiệu bán chạy nếu dữ liệu đã đủ phạm vi. Fallback là danh sách SKU Catalog duyệt cho vị trí đó. Lọc bỏ sản phẩm đang xem, SKU trùng, chưa công khai hoặc chưa xác nhận bán được. Kiểm tra khả dụng cả với fallback. Khi không có SKU hợp lệ, Storefront ẩn dãy gợi ý. Cart và Checkout vẫn kiểm giá và tồn theo luồng nghiệp vụ.
+[Cơ sở chọn thuật toán, công thức pilot và cách đánh giá](11_recommendation_algorithm_proposal.md).
 
-**API đề xuất** `GET /api/v1/products/recommended?placement=product_detail&productId=...&limit=6`. Chỉ nhận placement đã hỗ trợ và giới hạn số phần tử. Product Discovery giải quyết product context và vùng giao hàng qua ngữ cảnh Storefront. Response tối thiểu gồm `recommendationId`, `placement`, `strategy` (`RELATED`, `FALLBACK`, `EMPTY`) và `items[]` với `skuCode`, `productId`, `rank`. Storefront lấy thẻ hiển thị theo contract Catalog. Tuyến hiện nằm dưới prefix Catalog. Product Discovery cần chốt handler cho đường dẫn này trước khi mở Gateway. [API trong Service Boundary](../../service_boundary.md) · [Route Catalog](../../../../services/api-gateway/config/kong.yml)
+Pilot một vị trí trên trang chi tiết sản phẩm. Ưu tiên SKU cùng danh mục và SKU do Catalog duyệt, rồi xếp hạng theo tín hiệu bán chạy nếu dữ liệu đã đủ phạm vi. Fallback là danh sách SKU Catalog duyệt cho vị trí đó. MS-11 lọc bỏ sản phẩm đang xem, SKU trùng, chưa công khai hoặc chưa xác nhận bán được trong phạm vi giao hàng. Áp dụng cùng điều kiện cho fallback. Nếu phạm vi giao hàng chưa xác định, chỉ dùng danh sách có khả dụng đã xác nhận cho phạm vi mặc định của Storefront. Storefront ẩn dãy gợi ý khi danh sách rỗng hoặc API không phản hồi trong thời hạn. Cart và Checkout vẫn kiểm giá và tồn theo luồng nghiệp vụ.
 
-**Tái sử dụng Supply.** `order_day` chỉ có số lượng bán/trả theo SKU, kho và ngày. Dùng được làm tín hiệu phổ biến sau khi MS-11 công bố bản tổng hợp có scope kênh/vùng D2C đã được owner xác nhận, kỳ đo, coverage, `asOf` và version. Bản xuất đề xuất có `scope`, `from`, `to`, `asOf`, `version`, `coverage` và `items[]` gồm `skuCode`, `soldUnits`, `returnedUnits`. Chỉ dùng pilot một kho nếu phạm vi recommendation cũng giới hạn đúng kho/vùng và cohort bán. `inventory_batches` là snapshot phục vụ ước lượng rủi ro. Trạng thái bán được trên Storefront cần contract khả dụng của Inventory có ngưỡng độ mới riêng. [Hợp đồng Supply v1](09_supply_analytics_v1.md)
+**API đề xuất** `GET /api/v1/products/recommended` hỗ trợ `product_detail`, `cart` và `home`. MS-11 đối chiếu context và scope cấu hình server, trả recommendationId/generation/strategy cùng thẻ sản phẩm lấy từ projection Catalog đã xác minh. Response, errors và SKU mốc đã chọn được mô tả ở [chương 14](14_recommendation_api_and_storefront.md). Gateway chuyển riêng exact route này đến MS-11, ưu tiên hơn prefix `/api/v1/products` của Catalog. [API trong Service Boundary](../../service_boundary.md) · [Gateway hiện tại](../../../../services/api-gateway/config/kong.yml)
 
-**Cô lập nguồn.** Xuất bản tín hiệu theo lô. Tái sử dụng mẫu generation đã kiểm tra rồi mới cập nhật con trỏ phục vụ của MS-11, với pipeline/scope riêng nếu tín hiệu đi qua ClickHouse. Dữ liệu đầu vào cần revision và cutoff, xử lý lại cùng đầu vào cho cùng kết quả. Product Discovery đọc bản hợp lệ gần nhất trong ngưỡng độ mới đã chốt, sau đó dùng fallback. GA4, BigQuery và API Supply nằm ngoài đường phục vụ gợi ý. [Cơ chế snapshot và recovery](04_messaging_and_recovery.md)
+**Tái sử dụng Supply.** `order_day` chỉ có số lượng bán/trả theo SKU, kho và ngày. Engine đọc tổng hợp nội bộ sau khi Analytics xác nhận phạm vi kênh/vùng D2C, kỳ đo, coverage, `asOf` và version. Snapshot ghi `scope`, `from`, `to`, `asOf`, `version`, `coverage` và số bán/trả theo SKU để truy vết. Chỉ dùng pilot một kho nếu phạm vi recommendation cũng giới hạn đúng kho/vùng và cohort bán. `inventory_batches` là snapshot phục vụ ước lượng rủi ro. Trạng thái bán được trên Storefront cần contract khả dụng của Inventory có ngưỡng độ mới riêng. [Hợp đồng Supply v1](09_supply_analytics_v1.md)
+
+**Cô lập nguồn.** Job xếp hạng của MS-11 đọc projection Catalog, Inventory và Supply theo revision/cutoff. Tái sử dụng cơ chế kiểm generation rồi cập nhật con trỏ, với pipeline/scope riêng cho Recommendation. Request đọc danh sách đã tính và lọc SKU theo projection công khai/khả dụng mới nhất. Nếu tín hiệu xếp hạng quá hạn, dùng fallback đã duyệt khi Catalog và Inventory còn đủ độ mới. Nếu không xác nhận được SKU đủ điều kiện, trả `EMPTY`. Đường phục vụ gợi ý đọc dữ liệu nội bộ đã xuất bản, tách khỏi các job Supply và GA4/BigQuery. [Cơ chế snapshot và recovery](04_messaging_and_recovery.md)
 
 ## 4. Cá nhân hóa v2
 
-Chỉ mở khi có chính sách sử dụng dữ liệu theo mục đích và dữ liệu đủ kiểm chứng. Thu sự kiện first-party theo allowlist cho khách đăng nhập được phép cá nhân hóa. Collector xác định subject từ phiên xác thực, ghi `eventId`, `eventTime`, `skuCode`, `eventType` và consent; xử lý trùng theo `eventId`. Job định kỳ tạo tín hiệu theo danh mục/SKU dựa trên lượt xem hoặc thêm giỏ gần đây. Chỉ thêm lịch sử mua khi Order cung cấp dòng đơn và liên kết khách hàng đã được duyệt. Khi quyền thay đổi, ngừng phục vụ kết quả cá nhân hóa và thu hồi dữ liệu/cache liên quan theo chính sách. Khách chưa đăng nhập hoặc thiếu tín hiệu nhận kết quả v1.
+Chỉ mở khi có chính sách sử dụng dữ liệu theo mục đích và dữ liệu đủ kiểm chứng. Thu sự kiện first-party theo allowlist cho khách đăng nhập được phép cá nhân hóa. Collector của MS-11 xác định subject từ phiên xác thực, ghi `eventId`, `eventTime`, `skuCode`, `eventType` và consent; xử lý trùng theo `eventId`. Job định kỳ tạo tín hiệu theo danh mục/SKU dựa trên lượt xem hoặc thêm giỏ gần đây. Chỉ thêm lịch sử mua khi Order cung cấp dòng đơn và liên kết khách hàng đã được duyệt. Khi quyền thay đổi, ngừng phục vụ kết quả cá nhân hóa và thu hồi dữ liệu/cache liên quan theo chính sách. Khách chưa đăng nhập hoặc thiếu tín hiệu nhận kết quả v1. API cá nhân hóa xác thực subject phía server và không dùng chung cache với danh sách công khai.
 
-GA4 dùng để đo lượt thấy, lượt chọn và chuyển đổi theo vị trí. Nếu Marketing cần phân tích chi tiết hơn, BigQuery Export là nguồn bất đồng bộ theo hợp đồng riêng. Nếu dùng GA4 làm tín hiệu xếp hạng, Marketing có thể xuất số lượt xem/thêm giỏ tổng hợp theo ngày và SKU cùng `asOf`, coverage và version. Product Discovery thử tín hiệu này như một yếu tố bổ sung trong cùng danh mục. Số lượt phát sinh từ dãy gợi ý được tách theo placement để đo riêng hiệu ứng hiển thị. Lượt nhập theo ngày phải xử lý các phân vùng GA4 còn có thể nhận sự kiện muộn và công bố cutoff. Báo cáo GA4 và số giao dịch Order giữ định nghĩa và phạm vi riêng. [GA4 BigQuery Export](https://support.google.com/analytics/answer/9358801) · [Schema và dữ liệu đến muộn](https://support.google.com/analytics/answer/7029846)
+GA4 dùng để đo lượt thấy, lượt chọn và chuyển đổi theo vị trí. Nếu Marketing cần phân tích chi tiết hơn, BigQuery Export là nguồn bất đồng bộ theo hợp đồng riêng. Nếu dùng GA4 làm tín hiệu xếp hạng, Marketing có thể xuất số lượt xem/thêm giỏ tổng hợp theo ngày và SKU cùng `asOf`, coverage và version. MS-11 thử tín hiệu này như một yếu tố bổ sung trong cùng danh mục. Số lượt phát sinh từ dãy gợi ý được tách theo placement để đo riêng hiệu ứng hiển thị. Lượt nhập theo ngày phải xử lý các phân vùng GA4 còn có thể nhận sự kiện muộn và công bố cutoff. Báo cáo GA4 và số giao dịch Order giữ định nghĩa và phạm vi riêng. [GA4 BigQuery Export](https://support.google.com/analytics/answer/9358801) · [Schema và dữ liệu đến muộn](https://support.google.com/analytics/answer/7029846)
 
 ## 5. Thứ tự triển khai và nghiệm thu
 
@@ -67,8 +77,8 @@ GA4 dùng để đo lượt thấy, lượt chọn và chuyển đổi theo vị
 | --- | --- | --- |
 | Supply pilot hiện tại | Có staff, ClickHouse dev và bộ dữ liệu đã đối soát | Hoàn tất các tiêu chí Order, Inventory và FEFO của pilot Supply. |
 | GA4 trên dev | Marketing cấp property dev, chốt consent và điểm phát event | DebugView thấy đúng SKU và chuỗi thao tác. Mua đã xác nhận xuất hiện một lần dù reload. Đơn chưa xác nhận và phiên từ chối consent được kiểm theo policy. Ghi nhận coverage khi khách đóng tab. |
-| Gợi ý theo ngữ cảnh v1 | Catalog có danh sách được duyệt, Inventory có nguồn khả dụng đủ scope | SKU công khai và còn bán được. Có fallback hợp lệ khi MS-11 hoặc GA4 lỗi. Có event hiển thị/chọn theo placement. |
+| Gợi ý theo ngữ cảnh v1 | MS-11 có projection Catalog, khả dụng Inventory và route đã kiểm thử | SKU công khai và còn bán được. Dùng fallback khi thiếu tín hiệu bán chạy. Ẩn dãy khi dữ liệu eligibility hết hạn hoặc API gặp lỗi. Có event hiển thị/chọn theo placement. |
 | Xếp hạng theo tín hiệu Supply | Nguồn tự động đã đối soát và có phạm vi D2C phù hợp | Revision mới đổi đúng bảng xếp hạng. Snapshot cũ hoặc thiếu coverage kích hoạt fallback. |
-| Cá nhân hóa v2 | Product Discovery có consent, dữ liệu first-party và tiêu chí thử nghiệm | Cùng một ngữ cảnh, hồ sơ hành vi khác nhau cho gợi ý phù hợp. Kiểm tách dữ liệu giữa khách, thu hồi quyền và fallback. So sánh với v1 bằng CTR và tỷ lệ thêm giỏ theo placement trước khi mở rộng. |
+| Cá nhân hóa v2 | MS-11 có contract dữ liệu first-party, consent và tiêu chí thử nghiệm | Cùng một ngữ cảnh, hồ sơ hành vi khác nhau cho gợi ý phù hợp. Kiểm tách dữ liệu giữa khách, thu hồi quyền và fallback. So sánh với v1 bằng CTR và tỷ lệ thêm giỏ theo placement trước khi mở rộng. |
 
 **Cần chốt trước khi triển khai:** người sở hữu GA4 dev property; nguồn dòng đơn cho `purchase`; nguồn Catalog/Inventory theo vùng; phạm vi và ngưỡng độ mới của tín hiệu Supply. Các tên trường và endpoint mới trong tài liệu là đề xuất để review.

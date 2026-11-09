@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { AuthProvider } from "@/components/auth/auth-provider";
+import { RecommendationProvider } from "@/components/recommendation/recommendation-provider";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -8,5 +9,5 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="vi"><body><AuthProvider>{children}</AuthProvider></body></html>;
+  return <html lang="vi"><body><AuthProvider><RecommendationProvider>{children}</RecommendationProvider></AuthProvider></body></html>;
 }

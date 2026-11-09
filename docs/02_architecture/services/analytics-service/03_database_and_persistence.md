@@ -1,5 +1,7 @@
 # 03 — Persistence và snapshot
 
+Chương này mô tả persistence Dashboard. Recommendation dùng schema `analytics_recommendation`, projection nguồn và serving generations theo strategy, được thiết kế trong [chương 15](15_recommendation_persistence_and_delivery.md). Các điểm publish CAS, digest và replay dưới đây là cơ sở tái sử dụng cho pipeline mới.
+
 ## Grain và ownership
 
 | Store | Grain | Vai trò |

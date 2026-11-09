@@ -70,5 +70,61 @@ def migrate(settings):
                             privileges, identifier
                         )
                     )
+            for role, worker in (
+                (setting("REC_POSTGRES_WORKER_ROLE"), True),
+                (setting("REC_POSTGRES_API_ROLE"), False),
+            ):
+                if not role:
+                    continue
+                identifier = sql.Identifier(role)
+                conn.execute(
+                    sql.SQL("GRANT USAGE ON SCHEMA analytics_recommendation TO {}").format(
+                        identifier
+                    )
+                )
+                conn.execute(
+                    sql.SQL(
+                        "GRANT SELECT ON ALL TABLES IN SCHEMA analytics_recommendation TO {}"
+                    ).format(identifier)
+                )
+                tables = (
+                    (
+                        "source_snapshot",
+                        "source_pointer",
+                        "generation",
+                        "serving_pointer",
+                        "behavior_event",
+                        "consent_request",
+                        "privacy_state",
+                        "erasure",
+                        "decision_trace",
+                    )
+                    if worker
+                    else (
+                        "consent",
+                        "consent_request",
+                        "privacy_state",
+                        "erasure",
+                        "behavior_event",
+                        "decision_trace",
+                    )
+                )
+                privileges = (
+                    sql.SQL("INSERT, UPDATE, DELETE") if worker else sql.SQL("INSERT, UPDATE")
+                )
+                for table in tables:
+                    conn.execute(
+                        sql.SQL("GRANT {} ON analytics_recommendation.{} TO {}").format(
+                            privileges, sql.Identifier(table), identifier
+                        )
+                    )
+                conn.execute(
+                    sql.SQL("GRANT USAGE ON SCHEMA analytics_config TO {}").format(identifier)
+                )
+                conn.execute(
+                    sql.SQL("GRANT SELECT ON analytics_config.supply_export TO {}").format(
+                        identifier
+                    )
+                )
         finally:
             client.close()

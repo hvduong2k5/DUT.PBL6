@@ -67,11 +67,16 @@ def parse_args():
         "status",
         "topic",
         "build-once",
+        "recommendation-sync",
+        "recommendation-build-once",
+        "recommendation-status",
+        "recommendation-cleanup",
     ):
         commands.add_parser(command)
     for command in ("bootstrap", "coverage", "import-supply"):
         commands.add_parser(command).add_argument("manifest")
     commands.add_parser("rollback").add_argument("generation", type=UUID)
+    commands.add_parser("recommendation-rollback").add_argument("generation", type=UUID)
     repair = commands.add_parser("repair")
     repair.add_argument("topic_id")
     repair.add_argument("partition", type=int)
@@ -88,6 +93,11 @@ def main():
     args = parse_args()
     settings = Settings.load()
     command = args.command
+    if command.startswith("recommendation-"):
+        from .recommendation.jobs import run
+
+        run(command, getattr(args, "generation", None))
+        return
     if command == "api":
         uvicorn.run(
             "analytics_service.api:create_app",

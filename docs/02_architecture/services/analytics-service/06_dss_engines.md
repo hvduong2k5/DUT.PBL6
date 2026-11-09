@@ -24,6 +24,8 @@ Supply v1 đã triển khai lát tốc độ bán và ước lượng cận hạ
 
 ## Market basket và mùa vụ
 
+Product Recommendation dùng basket tại mốc COMPLETED theo policy `basket_pairs_v1`, được thiết kế ở [chương 12](12_recommendation_engine_design.md#6-thường-mua-cùng). Basket DSS dưới đây có thể điều chỉnh return theo policy phân tích riêng. Mỗi metric/model phải pin policy tương ứng trong manifest.
+
 - Mỗi Order eligible tạo một basket set SKU distinct, có điều chỉnh return line theo policy; loại test/fraud/hủy/hoàn toàn phần. Với A → B, support = số basket có cả A, B / tổng basket eligible, confidence = số basket có A, B / số basket có A, lift = confidence / support(B). Chặn mẫu số 0 và cỡ mẫu nhỏ. Đề xuất FP-Growth khi cặp đơn giản đạt baseline; các ngưỡng cần Sales phê duyệt. Kiểm SKU còn bán trước khi chuyển snapshot sang Promotion.
 - So sánh mùa vụ theo khoảng ngày tương đối với ngày sự kiện trong calendar version, gồm Tết âm lịch theo từng năm. Hiển thị tập kỳ so sánh, coverage, Promotion/stockout context. Tác động quan sát được đi kèm điều kiện và giả định.
 

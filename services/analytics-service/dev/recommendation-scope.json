@@ -1,0 +1,10 @@
+{
+  "scopeId": "d2c-hue",
+  "channel": "D2C_WEB",
+  "warehouseId": "a7277eb6-0fd2-4850-b640-169bc446387e",
+  "supplyWarehouseId": "warehouse-supply-pilot",
+  "orderCohort": "order-core-1",
+  "mappingVersion": "scope-v1",
+  "identityMappingVersion": "order-core-identity-v1",
+  "excludedOrderIds": []
+}

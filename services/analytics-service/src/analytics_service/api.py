@@ -17,7 +17,7 @@ from pydantic import BaseModel, ValidationError
 from starlette.exceptions import HTTPException
 
 from . import db, report, snapshots, supply
-from .config import AuthSettings, Settings
+from .config import AuthSettings, Settings, setting
 from .metrics import QUERY_SECONDS
 from .migrate import clickhouse
 
@@ -186,6 +186,10 @@ def create_app(settings=None, auth=None):
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
     freshness = timedelta(seconds=settings.freshness_seconds)
     limiter = RateLimit()
+    if setting("REC_ENABLED") == "1":
+        from .recommendation.api import mount
+
+        mount(app)
 
     @app.middleware("http")
     async def headers(request, call_next):

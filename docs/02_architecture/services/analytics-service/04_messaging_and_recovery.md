@@ -1,5 +1,7 @@
 # 04 — Messaging, checkpoint và replay
 
+Pipeline Dashboard dưới đây ingest Kafka. Recommendation nhập full snapshots có revision từ owner, cùng event first-party có consent và dedup, theo [hợp đồng nguồn](13_recommendation_source_contracts.md) và [vòng đời publish riêng](15_recommendation_persistence_and_delivery.md#2-worker-và-vòng-đời-publish).
+
 ## Ingest theo allowlist
 
 Cấu hình theo môi trường chỉ mở topic/type/cohort đã nghiệm thu ở [chương tích hợp](07_integrations_and_contract_gaps.md). Mỗi partition xử lý tuần tự. Broker ACL cho nhóm Analytics quyền đọc các topic được duyệt. Dùng một pipeline riêng cho shadow/backfill. Broker key, schema và mapping phiên bản được pin cùng release.

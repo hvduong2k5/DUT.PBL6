@@ -1,0 +1,11 @@
+.rail { width: min(1180px, 100%); margin: 32px auto; padding: 20px; }
+.rail h2 { font: 600 1.6rem Georgia, serif; color: #563328; margin: 0 0 20px; }
+.grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 16px; }
+.card { display: flex; flex-direction: column; gap: 10px; text-decoration: none; color: #563328; padding: 12px; background: #fffaf3; border: 1px solid #e7d8c4; border-radius: 12px; }
+.card:hover, .card:focus-visible { border-color: #81583b; }
+.image { position: relative; aspect-ratio: 1; border-radius: 8px; overflow: hidden; background: #f0e5d5; display: grid; place-items: center; font: italic 1.5rem Georgia, serif; }
+.card strong { font-size: .95rem; }
+.preferences { max-width: 1180px; margin: 20px auto; padding: 16px 20px; color: #604c3a; font-size: .85rem; }
+.preferences label { display: flex; gap: 10px; align-items: flex-start; margin: 10px 0; }
+@media (max-width: 900px) { .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

@@ -10,3 +10,9 @@
 | 5 — Strategic Insight | Recommendation, quyết định, audit, handoff và outcome | Epic đích duyệt contract và chặn tự động thay đổi nghiệp vụ. Kiểm quyền, stale/superseded, replay và thu hồi. |
 
 Lát 0–2 chuẩn bị phần khả thi của Dashboard và tạo bằng chứng tích hợp. Lát 3 mới đủ scope story khi các nguồn tương ứng được duyệt. Chạy shadow trước khi bật từng capability. Dùng [kế hoạch kiểm thử](../../../04_testing/analytics-service/01_acceptance_and_verification_plan.md) và [deployment](../../../05_deployment/analytics_service_deployment.md) để xác định gate và rollback.
+
+## Recommendation đầu-cuối
+
+Theo quyết định triển khai đủ ba kiểu gợi ý, Recommendation có chuỗi mốc R0 contract nguồn → R1 nền tảng MS-11 → R2 related trên trang chi tiết → R3 basket trên giỏ → R4 consent/cá nhân hóa trên trang chủ → R5 pilot dev và đo lường. [Deliverable và gate từng mốc](15_recommendation_persistence_and_delivery.md#5-lộ-trình-bàn-giao-và-gate)
+
+Thuật toán khởi đầu là content-based, pair confidence/lift và category affinity + item-to-item. Nguồn, threshold, trạng thái thiếu mẫu và feature flags được chốt trong [chương 12](12_recommendation_engine_design.md), cùng phạm vi một kho/D2C và Customer đăng nhập đã đồng ý cá nhân hóa.

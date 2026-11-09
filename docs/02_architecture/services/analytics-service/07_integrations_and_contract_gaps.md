@@ -13,9 +13,13 @@
 | Profile / Identity | Profile có [guest claim](../../../../services/profile-service/internal/repository/claim_repository.go) và [profile update](../../../../services/profile-service/internal/repository/customer_repository.go) trên `profile.events.v1`. [Identity contract](../../../../packages/contracts/identity-3.3.md) có cơ chế quyền. | Chốt bảng liên kết bền Order–Customer, effective time/merge policy, privacy restriction và staff permission mapping. Profile update mang identity/version, thiếu dữ liệu để tự dựng Customer dimension đầy đủ. |
 | Order line / Catalog / Channel / Care | [MVP guide](../../../../packages/contracts/mvp/README.md) và [event catalog](../../../../packages/events/README.md) | Cần feed/extract tối thiểu với Product/SKU, số lượng, scope/kênh và revision. Mốc nhập đơn Marketplace chỉ là dữ liệu nguồn. Sales fact dùng authority Order đã xác nhận. |
 | Marketing / Promotion / Procurement | [EPIC 21](../../../01_requirements/epics/EPIC_21_Marketing.md), [EPIC 17](../../../01_requirements/epics/EPIC_17_Promotion_Loyalty.md), [EPIC 27](../../../01_requirements/epics/EPIC_27_Procurement.md) | Nhận snapshot/reference đã phê duyệt. Chốt permission, version, idempotency, hết hạn, audit và trạng thái phản hồi trước khi mở handoff. |
-| Marketing / Product Discovery | [HLD hệ thống](../../high_level_design.md) và [đề xuất tách Agent](../../ai_agent_specification_and_proposal.md) | Marketing sở hữu phễu GA4. Product Discovery sở hữu gợi ý cho khách. Trao đổi tín hiệu tổng hợp hoặc insight khi có contract và quyền sử dụng dữ liệu. |
+| Marketing / Recommendation | [Thiết kế GA4 và Recommendation](10_ga4_and_recommendations.md) | Marketing sở hữu phễu GA4. MS-11 xếp hạng và phục vụ API gợi ý, dùng projection SKU công khai từ Catalog và khả dụng theo vùng từ Inventory. Chốt phạm vi, độ mới và quyền sử dụng trước khi mở từng nguồn. |
 
 Mốc Order v3 trong runtime có timestamp và trạng thái mốc, thiếu số tiền đơn, line items, customer ID và kênh. Tránh enrichment đồng bộ theo từng event trên critical path của peer. Đề xuất export theo cutoff có revision và schema, hoặc feed đã lọc. Mỗi adapter ghi completeness theo scope và có fixture riêng; không sửa shared contract trong lượt thiết kế.
+
+## Nguồn bổ sung cho Recommendation v1
+
+[Chương 13](13_recommendation_source_contracts.md) quy định contract cần bổ sung tại owner, gồm snapshot Catalog thương mại, sellability Inventory theo kho, basket Order 90 ngày và namespace Identity. Pilot dùng owner export commands xuất JSONL/manifest theo lịch, có completeness/checksum/revision và quyền đọc riêng; API job/cursor là phương án mở rộng. Phần đánh giá khả thi ghi trường đã có, trường cấu hình và dữ liệu phải xác minh. [Chương 14](14_recommendation_api_and_storefront.md) quy định consent và event first-party cần thêm tại MS-11/Web.
 
 ## Điều kiện chốt trước khi phát hành
 

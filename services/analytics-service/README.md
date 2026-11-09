@@ -2,6 +2,8 @@
 
 Dashboard Order v1 đọc mốc PAID và COMPLETED từ Kafka, lưu checkpoint trong PostgreSQL và phục vụ Dashboard cùng drill-down từ snapshot ClickHouse. [Thiết kế MS-11](../../docs/02_architecture/services/analytics-service/README.md)
 
+Recommendation v1 có Related ở trang chi tiết, Bought Together ở giỏ hàng và Personalized ở trang chủ, gồm category affinity và item-to-item CF. [Thiết kế runtime](../../docs/02_architecture/services/analytics-service/15_recommendation_persistence_and_delivery.md) · [Cách chạy nguồn, worker, Web và kiểm thử](../../docs/02_architecture/services/analytics-service/16_recommendation_runtime_and_verification.md). Router mặc định tắt; xem runbook để cấu hình role, scope, Identity và consent trước khi bật.
+
 ## Chạy kiểm thử cô lập
 
 Từ thư mục gốc repo, dùng project Compose riêng trên Docker Desktop hoặc Linux.

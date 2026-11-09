@@ -14,12 +14,21 @@ FROM base AS test
 RUN apt-get update && apt-get install -y --no-install-recommends postgresql-client && rm -rf /var/lib/apt/lists/*
 RUN uv sync --locked --no-editable
 COPY scripts/publish-analytics-supply.py ./scripts/
+COPY scripts/publish-analytics-recommendation.py ./scripts/
+COPY services/catalog-service/scripts/analytics-recommendation-catalog.sql ./services/catalog-service/scripts/
+COPY services/inventory-service/scripts/analytics-recommendation-sellability.sql ./services/inventory-service/scripts/
+COPY services/order-service/scripts/analytics-recommendation-baskets.sql ./services/order-service/scripts/
+COPY services/catalog-service/src/main/resources/db/migration ./services/catalog-service/src/main/resources/db/migration
+COPY services/inventory-service/migrations ./services/inventory-service/migrations
+COPY services/order-service/migrations ./services/order-service/migrations
 COPY services/order-service/scripts/analytics-supply-day.sql ./services/order-service/scripts/
 COPY services/inventory-service/scripts/analytics-supply-batches.sql ./services/inventory-service/scripts/
 COPY services/analytics-service/tests ./tests
 COPY packages/events/examples/order/v3 ./fixtures/order/v3
 COPY docs/03_api_specs/analytics-service.candidate.openapi.yaml ./contracts/analytics.openapi.yaml
 COPY docs/03_api_specs/analytics-supply-source.v1.schema.json ./contracts/analytics-supply-source.schema.json
+COPY docs/03_api_specs/analytics-recommendation.candidate.openapi.yaml docs/03_api_specs/analytics-recommendation.v1.schema.json ./contracts/
+COPY services/analytics-service/dev/recommendation-scope.json ./recommendation-scope.json
 USER analytics
 ENTRYPOINT ["python", "-m", "analytics_service"]
 CMD ["api"]

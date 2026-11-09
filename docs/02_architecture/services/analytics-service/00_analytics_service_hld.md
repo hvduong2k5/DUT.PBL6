@@ -4,7 +4,7 @@
 
 Analytics sở hữu định nghĩa metric có phiên bản, dữ liệu chiếu tối thiểu, snapshot truy vấn, phiên chạy và kết quả DSS. Order sở hữu mốc đơn và thanh toán nghiệp vụ. Finance sở hữu định nghĩa tài chính và trạng thái chốt kỳ. Inventory sở hữu lượng tồn, tính khả dụng và HSD. Catalog sở hữu Product/SKU. Profile và Identity cung cấp quan hệ khách hàng và quyền. Mọi trao đổi đi qua contract của service nguồn.
 
-Analytics nhận dữ liệu bất đồng bộ. Marketing sở hữu phễu GA4 và chỉ số campaign. Product Discovery sở hữu trải nghiệm gợi ý sản phẩm cho khách. Marketing, Promotion và Procurement có thể nhận tham chiếu insight qua API đã duyệt và xử lý đề xuất theo quy trình riêng. Web Admin đọc qua Gateway. Conversation, RAG và luồng gợi ý giỏ quà thuộc đề xuất AI Agent riêng.
+Analytics nhận dữ liệu bất đồng bộ. Marketing sở hữu phễu GA4 và chỉ số campaign. MS-11 sở hữu engine và API gợi ý sản phẩm cho Storefront theo [thiết kế Recommendation](12_recommendation_engine_design.md). Catalog và Inventory cấp dữ liệu nguồn. Order cung cấp basket hoàn tất đơn, Identity xác nhận Customer và MS-11 lưu consent cá nhân hóa. Route công khai cho gợi ý có ngân sách tài nguyên riêng với API staff. Marketing, Promotion và Procurement có thể nhận tham chiếu insight qua API đã duyệt và xử lý đề xuất theo quy trình riêng. Web Admin đọc qua Gateway. Conversation, RAG và luồng gợi ý giỏ quà thuộc đề xuất AI Agent riêng.
 
 ## Thành phần
 
@@ -35,6 +35,8 @@ flowchart LR
 | DSS workers | Chạy job theo snapshot đã chốt, phiên bản dataset/model và giới hạn tài nguyên riêng. |
 
 PostgreSQL là control plane và journal ngắn hạn cho replay. ClickHouse giữ dữ liệu Dashboard theo generation. Supply v1 đọc các bản xuất đã đối soát trong PostgreSQL cho truy vấn giới hạn một SKU/kho. Redis là cache tùy chọn. [Supply Analytics](09_supply_analytics_v1.md)
+
+Recommendation có schema PostgreSQL riêng `analytics_recommendation`, source sync và builder theo scope/strategy. Neighbor aggregates tính bằng worker/ClickHouse, còn API Storefront đọc PostgreSQL đã publish. Ba kiểu gợi ý được bật theo các gate riêng. [Kiến trúc và thuật toán](12_recommendation_engine_design.md) · [Source contracts](13_recommendation_source_contracts.md) · [Persistence và rollout](15_recommendation_persistence_and_delivery.md)
 
 ## Lát triển khai và cô lập lỗi
 
