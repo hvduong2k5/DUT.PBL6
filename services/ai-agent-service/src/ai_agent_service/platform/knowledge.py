@@ -96,7 +96,7 @@ class MemoryKnowledgeStore:
                     document_title=title,
                     product_id=product_id,
                     embedding=vector,
-                    keywords=_keywords(part),
+                    keywords=_keywords(part) | _keywords(title),
                 )
             )
         return len(parts)
@@ -163,13 +163,14 @@ class PostgresKnowledgeStore:
             for index, (part, vector) in enumerate(zip(parts, vectors)):
                 conn.execute(
                     "INSERT INTO knowledge_chunks (document_id, product_id, chunk_index, "
-                    "content, embedding, visibility, content_hash, embedding_model) "
-                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                    "content, search_text, embedding, visibility, content_hash, "
+                    "embedding_model) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
                     (
                         document_id,
                         product_id,
                         index,
                         part,
+                        f"{title}\n{part}",
                         "[" + ",".join(str(x) for x in vector) + "]",
                         visibility,
                         hashlib.sha256(part.encode("utf-8")).hexdigest(),
