@@ -135,3 +135,11 @@ npx @graphql-tools/mock-cli docs/03_api_specs/schema.graphql --port 4000
 - [Runtime/evidence](../02_architecture/services/order-service/08_implementation_and_acceptance.md).
 
 Order v2 facts dùng schema riêng; D2C spec tổng hợp cũ chưa được tự thay thế cho các service khác.
+
+## MS-02 Fulfillment — design candidate 1.0 (30/10/2026)
+
+- [Staff REST OpenAPI candidate](fulfillment-service.candidate.openapi.yaml): queue, assignment, picking, checklist, blocks, seal, media và original-command query.
+- [Contract appendix và ví dụ](fulfillment-service/README.md): dependency proto đề xuất, linked examples và packing-v2 schema snapshot có source SHA.
+- [HLD/LLD](../02_architecture/services/fulfillment-service/README.md), [test/verification](../04_testing/fulfillment-service/01_acceptance_and_verification_plan.md), [deployment](../05_deployment/fulfillment_service_deployment.md), [runbook](../06_operations/fulfillment_service_runbook.md).
+
+Đây là candidate để review/implement; không thay shared proto/event wire hoặc xác nhận provider acceptance. Integrated-v2 hiện cần video VERIFIED; reopen sau seal và hard stop task đã ACCEPTED còn gated.

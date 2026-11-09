@@ -1,0 +1,2129 @@
+openapi: 3.0.3
+info:
+  title: MS-02 Fulfillment Service — candidate staff API
+  version: 1.0.0-candidate
+  description: DESIGN CANDIDATE, 2026-10-30. No Fulfillment runtime acceptance. Admission/peer proof APIs are internal
+    gRPC, not public staff actions. Integrated-v2 requires verified video and peer capability gates. Idempotency
+    and If-Match apply to task mutations; never trust caller actor/role headers.
+servers:
+- url: http://localhost:8002
+  description: Proposed isolated local TEST listener; no running service is implied.
+security:
+- StaffBearer: []
+tags:
+- name: Fulfillment
+  description: Warehouse-scoped staff workflow and controlled evidence.
+paths:
+  /api/v1/admin/fulfillment/tasks:
+    get:
+      operationId: ListPackingTasks
+      tags:
+      - Fulfillment
+      summary: ListPackingTasks
+      description: Warehouse-scoped keyset queue. Blocked tasks are explicit. Cursor binds filters; queue_as_of
+        is a freshness boundary, not cross-request snapshot isolation.
+      x-permissions: fulfillment.task.read
+      parameters:
+      - name: warehouse_id
+        in: query
+        schema:
+          type: string
+      - name: workflow_state
+        in: query
+        schema:
+          type: string
+          enum:
+          - READY
+          - ASSIGNED
+          - IN_PROGRESS
+          - BLOCKED
+          - COMPLETED
+      - name: assignee_id
+        in: query
+        schema:
+          type: string
+          format: uuid
+      - name: cursor
+        in: query
+        schema:
+          type: string
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 25
+      responses:
+        '200':
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskPage'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '410':
+          $ref: '#/components/responses/Error410'
+        '412':
+          $ref: '#/components/responses/Error412'
+        '428':
+          $ref: '#/components/responses/Error428'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '503':
+          $ref: '#/components/responses/Error503'
+        '504':
+          $ref: '#/components/responses/Error504'
+  /api/v1/admin/fulfillment/tasks/{task_id}:
+    get:
+      operationId: GetPackingTask
+      tags:
+      - Fulfillment
+      summary: GetPackingTask
+      description: Requires fulfillment.task.read.
+      x-permissions: fulfillment.task.read
+      parameters:
+      - $ref: '#/components/parameters/task_id'
+      responses:
+        '200':
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: Quoted decimal version of this response; replay may be historical.
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '410':
+          $ref: '#/components/responses/Error410'
+        '412':
+          $ref: '#/components/responses/Error412'
+        '428':
+          $ref: '#/components/responses/Error428'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '503':
+          $ref: '#/components/responses/Error503'
+        '504':
+          $ref: '#/components/responses/Error504'
+  /api/v1/admin/fulfillment/tasks/{task_id}/assignments:
+    post:
+      operationId: AssignPackingTask
+      tags:
+      - Fulfillment
+      summary: AssignPackingTask
+      description: Requires fulfillment.task.assign_self or fulfillment.task.assign_other.
+      x-permissions: fulfillment.task.assign_self or fulfillment.task.assign_other
+      parameters:
+      - $ref: '#/components/parameters/task_id'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '200':
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: Quoted decimal version of this response; replay may be historical.
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '410':
+          $ref: '#/components/responses/Error410'
+        '412':
+          $ref: '#/components/responses/Error412'
+        '428':
+          $ref: '#/components/responses/Error428'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '503':
+          $ref: '#/components/responses/Error503'
+        '504':
+          $ref: '#/components/responses/Error504'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignRequest'
+      x-command-action: AssignTask
+      x-idempotency-scope:
+      - authenticated_caller
+      - command_action
+      - order_id
+      - key
+  /api/v1/admin/fulfillment/tasks/{task_id}/start:
+    post:
+      operationId: StartPackingTask
+      tags:
+      - Fulfillment
+      summary: StartPackingTask
+      description: Requires fulfillment.task.work.
+      x-permissions: fulfillment.task.work
+      parameters:
+      - $ref: '#/components/parameters/task_id'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '200':
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: Quoted decimal version of this response; replay may be historical.
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '410':
+          $ref: '#/components/responses/Error410'
+        '412':
+          $ref: '#/components/responses/Error412'
+        '428':
+          $ref: '#/components/responses/Error428'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '503':
+          $ref: '#/components/responses/Error503'
+        '504':
+          $ref: '#/components/responses/Error504'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmptyRequest'
+      x-command-action: StartTask
+      x-idempotency-scope:
+      - authenticated_caller
+      - command_action
+      - order_id
+      - key
+  /api/v1/admin/fulfillment/tasks/{task_id}/picks/{allocation_id}:
+    put:
+      operationId: SetPickedQuantity
+      tags:
+      - Fulfillment
+      summary: SetPickedQuantity
+      description: Requires fulfillment.task.work.
+      x-permissions: fulfillment.task.work
+      parameters:
+      - $ref: '#/components/parameters/task_id'
+      - $ref: '#/components/parameters/allocation_id'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '200':
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: Quoted decimal version of this response; replay may be historical.
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '410':
+          $ref: '#/components/responses/Error410'
+        '412':
+          $ref: '#/components/responses/Error412'
+        '428':
+          $ref: '#/components/responses/Error428'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '503':
+          $ref: '#/components/responses/Error503'
+        '504':
+          $ref: '#/components/responses/Error504'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PickRequest'
+      x-command-action: SetPickedQuantity
+      x-idempotency-scope:
+      - authenticated_caller
+      - command_action
+      - order_id
+      - key
+  /api/v1/admin/fulfillment/tasks/{task_id}/checklist/{item_code}:
+    put:
+      operationId: ConfirmChecklistItem
+      tags:
+      - Fulfillment
+      summary: ConfirmChecklistItem
+      description: Requires fulfillment.task.work.
+      x-permissions: fulfillment.task.work
+      parameters:
+      - $ref: '#/components/parameters/task_id'
+      - $ref: '#/components/parameters/item_code'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '200':
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: Quoted decimal version of this response; replay may be historical.
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '410':
+          $ref: '#/components/responses/Error410'
+        '412':
+          $ref: '#/components/responses/Error412'
+        '428':
+          $ref: '#/components/responses/Error428'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '503':
+          $ref: '#/components/responses/Error503'
+        '504':
+          $ref: '#/components/responses/Error504'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChecklistRequest'
+      x-command-action: ConfirmChecklist
+      x-idempotency-scope:
+      - authenticated_caller
+      - command_action
+      - order_id
+      - key
+  /api/v1/admin/fulfillment/tasks/{task_id}/blocks:
+    post:
+      operationId: BlockPackingTask
+      tags:
+      - Fulfillment
+      summary: BlockPackingTask
+      description: Requires fulfillment.task.block.
+      x-permissions: fulfillment.task.block
+      parameters:
+      - $ref: '#/components/parameters/task_id'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '200':
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: Quoted decimal version of this response; replay may be historical.
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '410':
+          $ref: '#/components/responses/Error410'
+        '412':
+          $ref: '#/components/responses/Error412'
+        '428':
+          $ref: '#/components/responses/Error428'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '503':
+          $ref: '#/components/responses/Error503'
+        '504':
+          $ref: '#/components/responses/Error504'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BlockRequest'
+      x-command-action: BlockTask
+      x-idempotency-scope:
+      - authenticated_caller
+      - command_action
+      - order_id
+      - key
+  /api/v1/admin/fulfillment/tasks/{task_id}/blocks/{block_id}/resolve:
+    post:
+      operationId: ResolvePackingBlock
+      tags:
+      - Fulfillment
+      summary: ResolvePackingBlock
+      description: Requires fulfillment.task.resolve_block.
+      x-permissions: fulfillment.task.resolve_block
+      parameters:
+      - $ref: '#/components/parameters/task_id'
+      - $ref: '#/components/parameters/block_id'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '200':
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: Quoted decimal version of this response; replay may be historical.
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '410':
+          $ref: '#/components/responses/Error410'
+        '412':
+          $ref: '#/components/responses/Error412'
+        '428':
+          $ref: '#/components/responses/Error428'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '503':
+          $ref: '#/components/responses/Error503'
+        '504':
+          $ref: '#/components/responses/Error504'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResolveBlockRequest'
+      x-command-action: ResolveTaskBlock
+      x-idempotency-scope:
+      - authenticated_caller
+      - command_action
+      - order_id
+      - key
+  /api/v1/admin/fulfillment/tasks/{task_id}/seal:
+    post:
+      operationId: SealPackingTask
+      tags:
+      - Fulfillment
+      summary: SealPackingTask
+      description: Requires fulfillment.task.seal.
+      x-permissions: fulfillment.task.seal
+      parameters:
+      - $ref: '#/components/parameters/task_id'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '200':
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SealReceipt'
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: Quoted decimal version of this response; replay may be historical.
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '410':
+          $ref: '#/components/responses/Error410'
+        '412':
+          $ref: '#/components/responses/Error412'
+        '428':
+          $ref: '#/components/responses/Error428'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '503':
+          $ref: '#/components/responses/Error503'
+        '504':
+          $ref: '#/components/responses/Error504'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SealRequest'
+      x-command-action: SealTask
+      x-idempotency-scope:
+      - authenticated_caller
+      - command_action
+      - order_id
+      - key
+  /api/v1/admin/fulfillment/tasks/{task_id}/reopen:
+    post:
+      operationId: ReopenPackingTask
+      tags:
+      - Fulfillment
+      summary: ReopenPackingTask
+      description: 'Disabled in MVP: always 409 FEATURE_DISABLED after authorization. Requires coordinated Order/Shipping
+        stop and rework contract before enable.'
+      x-permissions: fulfillment.task.reopen
+      parameters:
+      - $ref: '#/components/parameters/task_id'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '410':
+          $ref: '#/components/responses/Error410'
+        '412':
+          $ref: '#/components/responses/Error412'
+        '428':
+          $ref: '#/components/responses/Error428'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '503':
+          $ref: '#/components/responses/Error503'
+        '504':
+          $ref: '#/components/responses/Error504'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReopenRequest'
+      x-capability-status: disabled
+      x-command-action: ReopenTask
+      x-idempotency-scope:
+      - authenticated_caller
+      - command_action
+      - order_id
+      - key
+  /api/v1/admin/fulfillment/tasks/{task_id}/media-sessions:
+    post:
+      operationId: CreatePackingMediaSession
+      tags:
+      - Fulfillment
+      summary: CreatePackingMediaSession
+      description: Requires fulfillment.media.upload.
+      x-permissions: fulfillment.media.upload
+      parameters:
+      - $ref: '#/components/parameters/task_id'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '201':
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaSession'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '410':
+          $ref: '#/components/responses/Error410'
+        '412':
+          $ref: '#/components/responses/Error412'
+        '428':
+          $ref: '#/components/responses/Error428'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '503':
+          $ref: '#/components/responses/Error503'
+        '504':
+          $ref: '#/components/responses/Error504'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MediaSessionRequest'
+      x-command-action: CreateMediaSession
+      x-idempotency-scope:
+      - authenticated_caller
+      - command_action
+      - order_id
+      - key
+  /api/v1/admin/fulfillment/media/{file_id}/complete:
+    post:
+      operationId: CompletePackingUpload
+      tags:
+      - Fulfillment
+      summary: CompletePackingUpload
+      description: Enqueues actual object verification. 202 and UPLOADED/VERIFYING do not imply VERIFIED. Session/object
+        binding remains immutable.
+      x-permissions: fulfillment.media.upload
+      parameters:
+      - $ref: '#/components/parameters/file_id'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '202':
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaFile'
+              example:
+                file_id: 00000007-0007-4007-8007-000000000007
+                task_id: 00000002-0002-4002-8002-000000000002
+                package_id: 00000003-0003-4003-8003-000000000003
+                status: VERIFYING
+                media_type: video/mp4
+                size_bytes: 1048576
+                verified_sha256: null
+                verified_at: null
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '410':
+          $ref: '#/components/responses/Error410'
+        '412':
+          $ref: '#/components/responses/Error412'
+        '428':
+          $ref: '#/components/responses/Error428'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '503':
+          $ref: '#/components/responses/Error503'
+        '504':
+          $ref: '#/components/responses/Error504'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmptyRequest'
+      x-command-action: CompleteMediaUpload
+      x-idempotency-scope:
+      - authenticated_caller
+      - command_action
+      - order_id
+      - key
+  /api/v1/admin/fulfillment/media/{file_id}:
+    get:
+      operationId: GetPackingMedia
+      tags:
+      - Fulfillment
+      summary: GetPackingMedia
+      description: Requires fulfillment.media.read_metadata.
+      x-permissions: fulfillment.media.read_metadata
+      parameters:
+      - $ref: '#/components/parameters/file_id'
+      responses:
+        '200':
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaFile'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '410':
+          $ref: '#/components/responses/Error410'
+        '412':
+          $ref: '#/components/responses/Error412'
+        '428':
+          $ref: '#/components/responses/Error428'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '503':
+          $ref: '#/components/responses/Error503'
+        '504':
+          $ref: '#/components/responses/Error504'
+  /api/v1/admin/fulfillment/media/{file_id}/access:
+    post:
+      operationId: CreatePackingMediaAccess
+      tags:
+      - Fulfillment
+      summary: CreatePackingMediaAccess
+      description: Each authorized issuance records a new durable access audit. No signed-URL idempotency cache.
+        Purpose/case authority required. Private exact immutable object; maximum TTL 900s; Cache-Control no-store.
+      x-permissions: fulfillment.media.view
+      parameters:
+      - $ref: '#/components/parameters/file_id'
+      responses:
+        '200':
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaAccess'
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                - no-store
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '410':
+          $ref: '#/components/responses/Error410'
+        '412':
+          $ref: '#/components/responses/Error412'
+        '428':
+          $ref: '#/components/responses/Error428'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '503':
+          $ref: '#/components/responses/Error503'
+        '504':
+          $ref: '#/components/responses/Error504'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MediaAccessRequest'
+  /api/v1/admin/fulfillment/commands/{key}:
+    get:
+      operationId: GetOriginalPackingCommand
+      tags:
+      - Fulfillment
+      summary: GetOriginalPackingCommand
+      description: Query original action/order/key on primary authority. 404 is observational, not terminal proof.
+        Never creates a command record.
+      x-permissions: original caller or fulfillment.recovery.read
+      parameters:
+      - $ref: '#/components/parameters/key'
+      - name: action
+        in: query
+        required: true
+        schema:
+          type: string
+          minLength: 1
+      - name: order_id
+        in: query
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandOutcome'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '410':
+          $ref: '#/components/responses/Error410'
+        '412':
+          $ref: '#/components/responses/Error412'
+        '428':
+          $ref: '#/components/responses/Error428'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '503':
+          $ref: '#/components/responses/Error503'
+        '504':
+          $ref: '#/components/responses/Error504'
+  /api/v1/admin/fulfillment/tasks/{task_id}/unassign:
+    post:
+      operationId: UnassignPackingTask
+      tags:
+      - Fulfillment
+      summary: UnassignPackingTask
+      description: Current assignee or scoped manager only. Requires ASSIGNED state with no picking/checklist work.
+        Reason is audited.
+      x-permissions: fulfillment.task.assign_self or fulfillment.task.assign_other
+      parameters:
+      - $ref: '#/components/parameters/task_id'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '200':
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: Quoted decimal version of this response; replay may be historical.
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '410':
+          $ref: '#/components/responses/Error410'
+        '412':
+          $ref: '#/components/responses/Error412'
+        '428':
+          $ref: '#/components/responses/Error428'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '503':
+          $ref: '#/components/responses/Error503'
+        '504':
+          $ref: '#/components/responses/Error504'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResolveBlockRequest'
+      x-command-action: UnassignTask
+      x-idempotency-scope:
+      - authenticated_caller
+      - command_action
+      - order_id
+      - key
+  /api/v1/admin/fulfillment/tasks/{task_id}/history:
+    get:
+      operationId: ListPackingTaskHistory
+      tags:
+      - Fulfillment
+      summary: ListPackingTaskHistory
+      description: Warehouse-scoped redacted append-only task history, keyset ordered by task_version. No raw media
+        URL, customer PII or internal approval token.
+      x-permissions: fulfillment.task.read_history
+      parameters:
+      - $ref: '#/components/parameters/task_id'
+      - name: cursor
+        in: query
+        schema:
+          type: string
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 25
+      responses:
+        '200':
+          description: Redacted immutable history page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskHistoryPage'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
+        '410':
+          $ref: '#/components/responses/Error410'
+        '412':
+          $ref: '#/components/responses/Error412'
+        '428':
+          $ref: '#/components/responses/Error428'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '503':
+          $ref: '#/components/responses/Error503'
+        '504':
+          $ref: '#/components/responses/Error504'
+components:
+  securitySchemes:
+    StaffBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Verified staff JWT with dedicated Fulfillment audience, permissions and warehouse scopes. Arbitrary
+        public identity headers are rejected.
+  parameters:
+    task_id:
+      name: task_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    allocation_id:
+      name: allocation_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    block_id:
+      name: block_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    file_id:
+      name: file_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    item_code:
+      name: item_code
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 80
+    key:
+      name: key
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 16
+        maxLength: 128
+        pattern: ^[!-~]+$
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 16
+        maxLength: 128
+        pattern: ^[!-~]+$
+      description: Stable original caller/action/order scoped key; preserve payload and expected version on retry.
+    IfMatch:
+      name: If-Match
+      in: header
+      required: true
+      schema:
+        type: string
+        pattern: ^"[1-9][0-9]*"$
+      example: '"7"'
+      description: Strong quoted decimal task version. Replay returns original receipt before checking current version;
+        current authorization remains required.
+  schemas:
+    Error:
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        request_id:
+          type: string
+          format: uuid
+        retryable:
+          type: boolean
+        details:
+          type: object
+          additionalProperties: true
+      required:
+      - code
+      - message
+      - request_id
+      - retryable
+      example:
+        code: CHECKLIST_INCOMPLETE
+        message: Checklist bat buoc chua dat.
+        request_id: 00000013-0013-4013-8013-000000000013
+        retryable: false
+        details:
+          missing_items:
+          - QUANTITY_MATCH
+    Integration:
+      type: object
+      additionalProperties: false
+      properties:
+        order_source:
+          type: string
+          enum:
+          - PENDING
+          - ACKNOWLEDGED
+          - DEFERRED
+          - MANUAL_REVIEW
+        shipping:
+          type: string
+          enum:
+          - PENDING
+          - ACKNOWLEDGED
+          - DEFERRED
+          - MANUAL_REVIEW
+      required:
+      - order_source
+      - shipping
+    Parcel:
+      type: object
+      additionalProperties: false
+      properties:
+        weight_grams:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+        length_cm:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+        width_cm:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+        height_cm:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+        fragile:
+          type: boolean
+      required:
+      - weight_grams
+      - length_cm
+      - width_cm
+      - height_cm
+      - fragile
+    TaskSummary:
+      type: object
+      additionalProperties: false
+      properties:
+        task_id:
+          type: string
+          format: uuid
+        order_id:
+          type: string
+          format: uuid
+        workflow_state:
+          type: string
+          enum:
+          - READY
+          - ASSIGNED
+          - IN_PROGRESS
+          - BLOCKED
+          - COMPLETED
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9007199254740991
+        ready_generation:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9007199254740991
+        warehouse_id:
+          type: string
+          minLength: 1
+        assignee_id:
+          type: string
+          format: uuid
+          nullable: true
+        packing_due_at:
+          type: string
+          format: date-time
+          nullable: true
+        admitted_at:
+          type: string
+          format: date-time
+        integration:
+          $ref: '#/components/schemas/Integration'
+        channel:
+          type: string
+        line_count:
+          type: integer
+          minimum: 1
+        total_quantity:
+          type: integer
+          minimum: 1
+          maximum: 9007199254740991
+        active_block_count:
+          type: integer
+          minimum: 0
+        priority_reason:
+          type: string
+          enum:
+          - NORMAL
+          - DUE_SOON
+          - OVERDUE
+          - SLA_UNAVAILABLE
+          - BLOCKED
+        deadline_revision:
+          type: integer
+          minimum: 1
+          maximum: 9007199254740991
+      required:
+      - task_id
+      - order_id
+      - workflow_state
+      - version
+      - ready_generation
+      - warehouse_id
+      - assignee_id
+      - packing_due_at
+      - admitted_at
+      - integration
+      - channel
+      - line_count
+      - total_quantity
+      - active_block_count
+      - priority_reason
+      - deadline_revision
+    TaskLine:
+      type: object
+      additionalProperties: false
+      properties:
+        order_line_id:
+          type: string
+          format: uuid
+        sku_code:
+          type: string
+          pattern: ^[!-~]+$
+        product_name:
+          type: string
+        packaging_text:
+          type: string
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+        fragile:
+          type: boolean
+      required:
+      - order_line_id
+      - sku_code
+      - product_name
+      - packaging_text
+      - quantity
+      - fragile
+    Allocation:
+      type: object
+      additionalProperties: false
+      properties:
+        allocation_id:
+          type: string
+          format: uuid
+        order_line_id:
+          type: string
+          format: uuid
+        batch_id:
+          type: string
+          format: uuid
+        batch_code:
+          type: string
+        allocated_quantity:
+          type: integer
+          minimum: 1
+        counted_quantity:
+          type: integer
+          minimum: 0
+        allocation_version:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9007199254740991
+        batch_valid_until:
+          type: string
+          format: date-time
+        currently_eligible:
+          type: boolean
+        eligibility_revision:
+          type: integer
+          minimum: 1
+        last_validated_at:
+          type: string
+          format: date-time
+          nullable: true
+        sku_code:
+          type: string
+          description: SKU from the immutable Order line for this allocation slot.
+      required:
+      - allocation_id
+      - order_line_id
+      - batch_id
+      - batch_code
+      - allocated_quantity
+      - counted_quantity
+      - allocation_version
+      - batch_valid_until
+      - currently_eligible
+      - eligibility_revision
+      - last_validated_at
+    ChecklistItem:
+      type: object
+      additionalProperties: false
+      properties:
+        item_code:
+          type: string
+        definition:
+          type: string
+        required:
+          type: boolean
+        result:
+          type: string
+          enum:
+          - PENDING
+          - PASS
+          - FAIL
+        confirmed_by:
+          type: string
+          format: uuid
+          nullable: true
+        confirmed_at:
+          type: string
+          format: date-time
+          nullable: true
+        note:
+          type: string
+          nullable: true
+      required:
+      - item_code
+      - definition
+      - required
+      - result
+      - confirmed_by
+      - confirmed_at
+      - note
+    Block:
+      type: object
+      additionalProperties: false
+      properties:
+        block_id:
+          type: string
+          format: uuid
+        source:
+          type: string
+        reason_code:
+          type: string
+        status:
+          type: string
+          enum:
+          - ACTIVE
+          - RESOLVED
+      required:
+      - block_id
+      - source
+      - reason_code
+      - status
+    Package:
+      type: object
+      additionalProperties: false
+      properties:
+        package_id:
+          type: string
+          format: uuid
+        state:
+          type: string
+          enum:
+          - DRAFT
+          - SEALED
+          - VOID
+        seal_code:
+          type: string
+          nullable: true
+        parcel:
+          type: object
+          additionalProperties: false
+          properties:
+            weight_grams:
+              type: integer
+              minimum: 1
+              maximum: 2147483647
+            length_cm:
+              type: integer
+              minimum: 1
+              maximum: 2147483647
+            width_cm:
+              type: integer
+              minimum: 1
+              maximum: 2147483647
+            height_cm:
+              type: integer
+              minimum: 1
+              maximum: 2147483647
+            fragile:
+              type: boolean
+          required:
+          - weight_grams
+          - length_cm
+          - width_cm
+          - height_cm
+          - fragile
+          nullable: true
+        primary_evidence_id:
+          type: string
+          format: uuid
+          nullable: true
+      required:
+      - package_id
+      - state
+      - seal_code
+      - parcel
+      - primary_evidence_id
+    Task:
+      type: object
+      additionalProperties: false
+      properties:
+        task_id:
+          type: string
+          format: uuid
+        order_id:
+          type: string
+          format: uuid
+        workflow_state:
+          type: string
+          enum:
+          - READY
+          - ASSIGNED
+          - IN_PROGRESS
+          - BLOCKED
+          - COMPLETED
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9007199254740991
+        ready_generation:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9007199254740991
+        warehouse_id:
+          type: string
+          minLength: 1
+        assignee_id:
+          type: string
+          format: uuid
+          nullable: true
+        packing_due_at:
+          type: string
+          format: date-time
+          nullable: true
+        admitted_at:
+          type: string
+          format: date-time
+        integration:
+          $ref: '#/components/schemas/Integration'
+        items_digest:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+        policy_version:
+          type: string
+        evidence_mode:
+          type: string
+          enum:
+          - OPTIONAL
+          - VIDEO_REQUIRED
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TaskLine'
+          minItems: 1
+        allocations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Allocation'
+          minItems: 1
+        checklist:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChecklistItem'
+          minItems: 1
+        active_blocks:
+          type: array
+          items:
+            $ref: '#/components/schemas/Block'
+        package:
+          $ref: '#/components/schemas/Package'
+        queue_as_of:
+          type: string
+          format: date-time
+        channel:
+          type: string
+        line_count:
+          type: integer
+          minimum: 1
+        total_quantity:
+          type: integer
+          minimum: 1
+          maximum: 9007199254740991
+        active_block_count:
+          type: integer
+          minimum: 0
+        priority_reason:
+          type: string
+          enum:
+          - NORMAL
+          - DUE_SOON
+          - OVERDUE
+          - SLA_UNAVAILABLE
+          - BLOCKED
+        deadline_revision:
+          type: integer
+          minimum: 1
+          maximum: 9007199254740991
+      required:
+      - task_id
+      - order_id
+      - workflow_state
+      - version
+      - ready_generation
+      - warehouse_id
+      - assignee_id
+      - packing_due_at
+      - admitted_at
+      - integration
+      - items_digest
+      - policy_version
+      - evidence_mode
+      - items
+      - allocations
+      - checklist
+      - active_blocks
+      - package
+      - queue_as_of
+      - channel
+      - line_count
+      - total_quantity
+      - active_block_count
+      - priority_reason
+      - deadline_revision
+      example:
+        task_id: 00000002-0002-4002-8002-000000000002
+        order_id: 00000001-0001-4001-8001-000000000001
+        workflow_state: IN_PROGRESS
+        version: 7
+        ready_generation: 1
+        warehouse_id: WH-HUE-01
+        assignee_id: 00000008-0008-4008-8008-000000000008
+        packing_due_at: '2026-10-30T10:00:00Z'
+        admitted_at: '2026-10-30T07:00:00Z'
+        integration:
+          order_source: PENDING
+          shipping: PENDING
+        items_digest: a70dd9eecf2ba6537a9027f1d7974ddea8ffa8f0d73b88d3f0ff69cc46472208
+        policy_version: packing-hue.v1
+        evidence_mode: VIDEO_REQUIRED
+        items:
+        - order_line_id: 00000004-0004-4004-8004-000000000004
+          sku_code: MX-GION-500G
+          product_name: Mè xửng giòn 500g
+          packaging_text: Hộp 500g
+          quantity: 2
+          fragile: true
+        allocations:
+        - allocation_id: 00000009-0009-4009-8009-000000000009
+          order_line_id: 00000004-0004-4004-8004-000000000004
+          batch_id: 00000006-0006-4006-8006-000000000006
+          batch_code: BATCH-20261020-01
+          allocated_quantity: 2
+          counted_quantity: 2
+          allocation_version: 3
+          batch_valid_until: '2027-01-20T17:00:00Z'
+          currently_eligible: true
+          eligibility_revision: 5
+          last_validated_at: '2026-10-30T07:10:00Z'
+        checklist:
+        - item_code: SKU_MATCH
+          definition: Đúng SKU theo snapshot
+          required: true
+          result: PASS
+          confirmed_by: 00000008-0008-4008-8008-000000000008
+          confirmed_at: '2026-10-30T07:12:00Z'
+          note: null
+        - item_code: QUANTITY_MATCH
+          definition: Đủ số lượng
+          required: true
+          result: PASS
+          confirmed_by: 00000008-0008-4008-8008-000000000008
+          confirmed_at: '2026-10-30T07:12:00Z'
+          note: null
+        - item_code: BATCH_VALID
+          definition: Đúng batch và còn hạn
+          required: true
+          result: PASS
+          confirmed_by: 00000008-0008-4008-8008-000000000008
+          confirmed_at: '2026-10-30T07:12:00Z'
+          note: null
+        - item_code: PACKAGING_INTACT
+          definition: Bao bì nguyên vẹn
+          required: true
+          result: PASS
+          confirmed_by: 00000008-0008-4008-8008-000000000008
+          confirmed_at: '2026-10-30T07:12:00Z'
+          note: null
+        active_blocks: []
+        package:
+          package_id: 00000003-0003-4003-8003-000000000003
+          state: DRAFT
+          seal_code: null
+          parcel: null
+          primary_evidence_id: null
+        queue_as_of: '2026-10-30T07:10:00Z'
+        channel: D2C_WEB
+        line_count: 1
+        total_quantity: 2
+        active_block_count: 0
+        priority_reason: NORMAL
+        deadline_revision: 1
+    TaskPage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TaskSummary'
+        next_cursor:
+          type: string
+          nullable: true
+        queue_as_of:
+          type: string
+          format: date-time
+      required:
+      - items
+      - next_cursor
+      - queue_as_of
+      example:
+        items:
+        - task_id: 00000002-0002-4002-8002-000000000002
+          order_id: 00000001-0001-4001-8001-000000000001
+          workflow_state: IN_PROGRESS
+          version: 7
+          ready_generation: 1
+          warehouse_id: WH-HUE-01
+          assignee_id: 00000008-0008-4008-8008-000000000008
+          packing_due_at: '2026-10-30T10:00:00Z'
+          admitted_at: '2026-10-30T07:00:00Z'
+          integration:
+            order_source: PENDING
+            shipping: PENDING
+          channel: D2C_WEB
+          line_count: 1
+          total_quantity: 2
+          active_block_count: 0
+          priority_reason: NORMAL
+          deadline_revision: 1
+        next_cursor: null
+        queue_as_of: '2026-10-30T07:10:00Z'
+    AssignRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        assignee_id:
+          type: string
+          format: uuid
+        reason:
+          type: string
+          minLength: 3
+          maxLength: 1000
+      description: Omit assignee_id to assign self. Assigning another staff requires elevated permission, membership
+        validation and reason.
+      example: {}
+    EmptyRequest:
+      type: object
+      additionalProperties: false
+      properties: {}
+      example: {}
+    PickRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        counted_quantity:
+          type: integer
+          minimum: 0
+          maximum: 2147483647
+        allocation_version:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9007199254740991
+      required:
+      - counted_quantity
+      - allocation_version
+      description: Set total for this allocation slot; not an increment. Must not exceed allocated quantity.
+      example:
+        counted_quantity: 2
+        allocation_version: 3
+    ChecklistRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        result:
+          type: string
+          enum:
+          - PASS
+          - FAIL
+        note:
+          type: string
+          maxLength: 1000
+      required:
+      - result
+      example:
+        result: PASS
+        note: Đã đối chiếu SKU và số lượng.
+    BlockRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        reason_code:
+          type: string
+          minLength: 1
+        reason:
+          type: string
+          minLength: 3
+          maxLength: 1000
+      required:
+      - reason_code
+      - reason
+      example:
+        reason_code: PACKAGING_DAMAGED
+        reason: Hộp bị móp, cần thay bao bì trước khi niêm phong.
+    ResolveBlockRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        reason:
+          type: string
+          minLength: 3
+          maxLength: 1000
+      required:
+      - reason
+      example:
+        reason: Đã thay hộp và kiểm tra lại.
+    ReopenRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        reason:
+          type: string
+          minLength: 3
+          maxLength: 1000
+      required:
+      - reason
+      example:
+        reason: Phát hiện sai lệch trước bàn giao; MVP hiện chưa hỗ trợ mở lại.
+    SealRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        package_id:
+          type: string
+          format: uuid
+        seal_code:
+          type: string
+          pattern: ^[A-Z0-9][A-Z0-9-]{5,79}$
+        parcel:
+          $ref: '#/components/schemas/Parcel'
+        primary_evidence_id:
+          type: string
+          format: uuid
+          nullable: true
+      required:
+      - package_id
+      - seal_code
+      - parcel
+      description: Integrated-v2 requires a non-null primary VERIFIED video. Domain-only optional media does not
+        permit v2 handoff.
+      example:
+        package_id: 00000003-0003-4003-8003-000000000003
+        seal_code: SEAL-OMA-20261030-0001
+        parcel:
+          weight_grams: 1100
+          length_cm: 25
+          width_cm: 18
+          height_cm: 12
+          fragile: true
+        primary_evidence_id: 00000007-0007-4007-8007-000000000007
+    SealReceipt:
+      type: object
+      additionalProperties: false
+      properties:
+        task_id:
+          type: string
+          format: uuid
+        order_id:
+          type: string
+          format: uuid
+        package_id:
+          type: string
+          format: uuid
+        workflow_state:
+          type: string
+          enum:
+          - COMPLETED
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9007199254740991
+        seal_code:
+          type: string
+        packed_at:
+          type: string
+          format: date-time
+        integration:
+          $ref: '#/components/schemas/Integration'
+      required:
+      - task_id
+      - order_id
+      - package_id
+      - workflow_state
+      - version
+      - seal_code
+      - packed_at
+      - integration
+      example:
+        task_id: 00000002-0002-4002-8002-000000000002
+        order_id: 00000001-0001-4001-8001-000000000001
+        package_id: 00000003-0003-4003-8003-000000000003
+        workflow_state: COMPLETED
+        version: 8
+        seal_code: SEAL-OMA-20261030-0001
+        packed_at: '2026-10-30T07:15:00Z'
+        integration:
+          order_source: PENDING
+          shipping: PENDING
+    MediaSessionRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        package_id:
+          type: string
+          format: uuid
+        media_type:
+          type: string
+          enum:
+          - video/mp4
+          - video/webm
+        size_bytes:
+          type: integer
+          minimum: 1
+          maximum: 209715200
+        sha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+      required:
+      - package_id
+      - media_type
+      - size_bytes
+      - sha256
+      example:
+        package_id: 00000003-0003-4003-8003-000000000003
+        media_type: video/mp4
+        size_bytes: 1048576
+        sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    MediaSession:
+      type: object
+      additionalProperties: false
+      properties:
+        file_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+          - CREATED
+        upload_url:
+          type: string
+          format: uri
+        expires_at:
+          type: string
+          format: date-time
+      required:
+      - file_id
+      - status
+      - upload_url
+      - expires_at
+      example:
+        file_id: 00000007-0007-4007-8007-000000000007
+        status: CREATED
+        upload_url: https://upload.invalid/example-only
+        expires_at: '2026-10-30T07:20:00Z'
+    MediaFile:
+      type: object
+      additionalProperties: false
+      properties:
+        file_id:
+          type: string
+          format: uuid
+        task_id:
+          type: string
+          format: uuid
+        package_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+          - CREATED
+          - UPLOADED
+          - VERIFYING
+          - VERIFIED
+          - REJECTED
+          - EXPIRED
+          - DELETE_PENDING
+          - DELETED
+        media_type:
+          type: string
+        size_bytes:
+          type: integer
+          minimum: 1
+        verified_sha256:
+          type: string
+          nullable: true
+          pattern: ^[0-9a-f]{64}$
+        verified_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - file_id
+      - task_id
+      - package_id
+      - status
+      - media_type
+      - size_bytes
+      - verified_sha256
+      - verified_at
+      example:
+        file_id: 00000007-0007-4007-8007-000000000007
+        task_id: 00000002-0002-4002-8002-000000000002
+        package_id: 00000003-0003-4003-8003-000000000003
+        status: VERIFIED
+        media_type: video/mp4
+        size_bytes: 1048576
+        verified_sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+        verified_at: '2026-10-30T07:14:00Z'
+    MediaAccessRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        purpose:
+          type: string
+          enum:
+          - PACKING_REVIEW
+          - CUSTOMER_SUPPORT
+          - QUALITY_INVESTIGATION
+        case_reference:
+          type: string
+          maxLength: 200
+      required:
+      - purpose
+      description: CUSTOMER_SUPPORT requires authoritative case entitlement; request role/user fields are never
+        accepted.
+      example:
+        purpose: PACKING_REVIEW
+    MediaAccess:
+      type: object
+      additionalProperties: false
+      properties:
+        url:
+          type: string
+          format: uri
+        expires_at:
+          type: string
+          format: date-time
+        access_audit_id:
+          type: string
+          format: uuid
+      required:
+      - url
+      - expires_at
+      - access_audit_id
+      example:
+        url: https://media.invalid/example-only
+        expires_at: '2026-10-30T07:20:00Z'
+        access_audit_id: 00000016-0016-4016-8016-000000000016
+    CommandOutcome:
+      type: object
+      additionalProperties: false
+      properties:
+        action:
+          type: string
+        order_id:
+          type: string
+          format: uuid
+        command_key:
+          type: string
+        result:
+          type: string
+          enum:
+          - APPLIED
+          - ALREADY_APPLIED
+          - REJECTED
+        decision_id:
+          type: string
+          format: uuid
+        decision_at:
+          type: string
+          format: date-time
+        resulting_state:
+          type: string
+        task_id:
+          type: string
+          format: uuid
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9007199254740991
+      required:
+      - action
+      - order_id
+      - command_key
+      - result
+      - decision_id
+      - decision_at
+      - resulting_state
+      example:
+        action: SealTask
+        order_id: 00000001-0001-4001-8001-000000000001
+        command_key: seal-task-20261030-0001
+        result: APPLIED
+        decision_id: 00000014-0014-4014-8014-000000000014
+        decision_at: '2026-10-30T07:15:00Z'
+        resulting_state: COMPLETED
+        task_id: 00000002-0002-4002-8002-000000000002
+        version: 8
+    TaskHistoryEntry:
+      type: object
+      additionalProperties: false
+      required:
+      - history_id
+      - task_version
+      - action
+      - actor_id
+      - reason
+      - occurred_at
+      properties:
+        history_id:
+          type: string
+          format: uuid
+        task_version:
+          type: integer
+          minimum: 1
+          maximum: 9007199254740991
+        action:
+          type: string
+        actor_id:
+          type: string
+        reason:
+          type: string
+          nullable: true
+        occurred_at:
+          type: string
+          format: date-time
+    TaskHistoryPage:
+      type: object
+      additionalProperties: false
+      required:
+      - items
+      - next_cursor
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TaskHistoryEntry'
+        next_cursor:
+          type: string
+          nullable: true
+      example:
+        items:
+        - history_id: 00000017-0017-4017-8017-000000000017
+          task_version: 7
+          action: ConfirmChecklist
+          actor_id: 00000008-0008-4008-8008-000000000008
+          reason: null
+          occurred_at: '2026-10-30T07:12:00Z'
+        next_cursor: null
+  responses:
+    Error400:
+      description: Malformed input
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Error401:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Error403:
+      description: Permission or warehouse scope denied
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Error404:
+      description: Resource or original command not observed; not terminal absence
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Error409:
+      description: State, idempotency or capability conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Error410:
+      description: Original response or session expired; key is not reusable
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Error412:
+      description: Task version mismatch
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Error428:
+      description: If-Match is required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Error429:
+      description: Rate limit; respect Retry-After
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Error503:
+      description: Dependency/capability unavailable; no fallback
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Error504:
+      description: Outcome unknown; query/retry original command
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+x-design-status: candidate
+x-runtime-acceptance: pending

@@ -1,0 +1,13 @@
+{
+  "shared_commit": "7f22226c7b2f4363d3ba376b715feb0e63f69355",
+  "status": "pinned-dev-baseline-plus-candidate-packing-ports",
+  "candidate_acceptance": "pending",
+  "files": {
+    "packing.proto": "d9d61cc810e6b94a9a9cdd6e8f47ac4221641a097bcaef68ffa9066b31c5fb8d",
+    "order/v1/order.proto": "119782933a414e8d39d1c34f0224e14c60c1554fd72e2d61fe7beb82ef70ce67",
+    "fulfillment/v1/fulfillment.proto": "564811ddc72802bc66ff1554f07674b638b8708399dee773e0cca7afeb1cd72f",
+    "common/v1/errors.proto": "9c306c0f430dd1a5e3b1f41a6f512f0dd3ca9bd3f6e26331a2d788405aad1a5b",
+    "common/v1/types.proto": "c73eb8ab710ce5db25e2c54e26bcd3306b1c5c3e375b600e0c85b4e97b707878",
+    "common/v1/workflow.proto": "4222118a1f6c2b1417bb9f4c3081880543955efde786a938f605fb5b7dd3822a"
+  }
+}

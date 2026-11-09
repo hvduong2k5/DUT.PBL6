@@ -1,0 +1,159 @@
+syntax = "proto3";
+
+// DESIGN ONLY. Not a deployed stable API. Promote additive RPCs/messages into
+// owning Order/Inventory/Fulfillment namespaces after provider/consumer review.
+package omamx.fulfillment.integration.candidate.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// Owned by Order. Transport identity Fulfillment; response excludes customer PII.
+service OrderPackingInputsCandidate {
+  rpc GetPackingSnapshot(GetPackingSnapshotRequest) returns (PackingSnapshot);
+}
+// Owned by Inventory. These reads never reserve/finalize/reverse or change stock.
+service InventoryPackingInputsCandidate {
+  rpc GetCommittedPackingAllocation(GetCommittedPackingAllocationRequest) returns (CommittedPackingAllocation);
+  rpc ValidatePackingAllocation(ValidatePackingAllocationRequest) returns (PackingValidation);
+}
+// Owned by Fulfillment. Exact sealed version, not current/latest parcel lookup.
+service FulfillmentPackageProofCandidate {
+  rpc GetPackageRevision(GetPackageRevisionRequest) returns (PackageRevision);
+}
+
+message GetPackingSnapshotRequest {
+  string order_id = 1;
+  int64 ready_generation = 2;
+  string contract_version = 3; // order-3.2
+}
+message PackingLine {
+  string order_line_id = 1;
+  string sku_code = 2;
+  string product_name = 3;
+  string packaging_text = 4;
+  int32 quantity = 5;
+  bool fragile = 6;
+}
+message ChecklistDefinition {
+  string item_code = 1;
+  string definition = 2;
+  bool required = 3;
+}
+message PackingPolicy {
+  string policy_version = 1;
+  string evidence_mode = 2; // OPTIONAL or VIDEO_REQUIRED; integrated-v2 requires VIDEO_REQUIRED
+  repeated ChecklistDefinition checklist = 3;
+  int32 maximum_weight_grams = 4;
+  int32 maximum_dimension_cm = 5;
+  int64 maximum_video_bytes = 6;
+  int32 maximum_video_seconds = 7;
+}
+message PackingSnapshot {
+  string schema_version = 1; // packing-inputs.v1
+  string contract_version = 2;
+  string snapshot_id = 3;
+  int64 snapshot_version = 4;
+  string order_id = 5;
+  int64 ready_generation = 6;
+  string items_digest = 7;
+  string warehouse_id = 8;
+  string reservation_id = 9;
+  string channel = 10;
+  google.protobuf.Timestamp packing_due_at = 11;
+  int64 deadline_revision = 12;
+  repeated PackingLine lines = 13;
+  PackingPolicy policy = 14;
+}
+message GetCommittedPackingAllocationRequest {
+  string order_id = 1;
+  string reservation_id = 2;
+  int64 ready_generation = 3;
+  string items_digest = 4;
+  string warehouse_id = 5;
+  string contract_version = 6;
+}
+message BatchSlot {
+  string allocation_id = 1;
+  string order_line_id = 2;
+  string sku_code = 3;
+  string batch_id = 4;
+  string batch_code = 5;
+  int32 allocated_quantity = 6;
+  google.protobuf.Timestamp batch_valid_until = 7;
+  int64 eligibility_revision = 8;
+  bool currently_eligible = 9;
+  string location_reference = 10;
+}
+message CommittedPackingAllocation {
+  string contract_version = 1;
+  string order_id = 2;
+  string reservation_id = 3;
+  string state = 4; // exactly COMMITTED; absence/legacy SUCCESS is insufficient
+  int64 allocation_version = 5;
+  string items_digest = 6;
+  string warehouse_id = 7;
+  google.protobuf.Timestamp observed_at = 8;
+  repeated BatchSlot slots = 9;
+  string original_commit_decision_id = 10;
+  int64 ready_generation = 11;
+}
+message PickedSlot {
+  string allocation_id = 1;
+  string order_line_id = 2;
+  string batch_id = 3;
+  int32 counted_quantity = 4;
+}
+message ValidatePackingAllocationRequest {
+  string order_id = 1;
+  string task_id = 2;
+  string reservation_id = 3;
+  int64 allocation_version = 4;
+  int64 ready_generation = 5;
+  string items_digest = 6;
+  string warehouse_id = 7;
+  repeated PickedSlot picks = 8;
+  string contract_version = 9;
+}
+message PackingValidation {
+  bool allowed = 1;
+  string reason_code = 2;
+  string validation_id = 3;
+  google.protobuf.Timestamp observed_at = 4;
+  google.protobuf.Timestamp valid_until = 5;
+  string order_id = 6;
+  string task_id = 7;
+  string reservation_id = 8;
+  int64 allocation_version = 9;
+  int64 ready_generation = 10;
+  string items_digest = 11;
+  string warehouse_id = 12;
+  string contract_version = 13;
+  repeated BatchSlot slots = 14;
+  // Checkpoint authority only. A later recall requires a separate stop/quality
+  // protocol; valid_until is NOT a distributed lock against quarantine.
+}
+message GetPackageRevisionRequest {
+  string package_id = 1;
+  int64 sealed_task_version = 2;
+}
+message ParcelMeasurements {
+  int32 weight_grams = 1;
+  int32 length_cm = 2;
+  int32 width_cm = 3;
+  int32 height_cm = 4;
+  bool fragile = 5;
+}
+message PackageRevision {
+  string order_id = 1;
+  string task_id = 2;
+  string package_id = 3;
+  int64 sealed_task_version = 4;
+  int64 ready_generation = 5;
+  string items_digest = 6;
+  string warehouse_id = 7;
+  string seal_code = 8;
+  ParcelMeasurements parcel = 9;
+  google.protobuf.Timestamp packed_at = 10;
+  string immutable_video_object_key = 11;
+  string video_checksum_sha256 = 12;
+  string contract_version = 13;
+}

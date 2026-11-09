@@ -1,5 +1,7 @@
 # THIẾT KẾ RANH GIỚI DỊCH VỤ & QUYỀN SỞ HỮU DỮ LIỆU (SERVICE BOUNDARY & DATA OWNERSHIP)
 
+> **Fulfillment design candidate — 30/10/2026:** [Bộ HLD/LLD MS-02](services/fulfillment-service/README.md) cụ thể hóa admission barrier, packing, parcel/media, contracts và integration gates theo Order 3.2/MVP. Đây là thiết kế đề xuất, chưa có runtime Fulfillment; đọc requirement conflicts và provider gaps trước khi triển khai.
+
 > **Order integration baseline3.2 — 13/10/2026:** [HLD/LLD Order](services/order-service/README.md) là nguồn chuẩn cho interaction của MS-04, Inventory terminal protocol, Fulfillment barrier và Payment ownership. Các capability mới là target cần provider sign-off/test; bảng nghiệp vụ của các service khác không chứng minh capability đã implement.
 
 ## HỆ SINH THÁI THƯƠNG MẠI ĐIỆN TỬ ĐA KÊNH & HỖ TRỢ QUYẾT ĐỊNH — MÈ XỬNG O MẠ

@@ -1,0 +1,151 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PackingCompletedEventV2",
+  "description": "MVP integration target. Topic fulfillment.events.v2; key order_id. v1 remains unchanged.",
+  "type": "object",
+  "required": [
+    "specversion",
+    "id",
+    "source",
+    "type",
+    "subject",
+    "time",
+    "datacontenttype",
+    "traceparent",
+    "data"
+  ],
+  "properties": {
+    "specversion": {
+      "type": "string",
+      "enum": [
+        "1.0"
+      ]
+    },
+    "id": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string",
+      "format": "uri",
+      "example": "https://omama.vn/services/fulfillment-service"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "vn.omama.fulfillment.packing.completed.v2"
+      ]
+    },
+    "subject": {
+      "type": "string",
+      "example": "order_id:ORD-20261015-0042"
+    },
+    "time": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "datacontenttype": {
+      "type": "string",
+      "enum": [
+        "application/json"
+      ]
+    },
+    "traceparent": {
+      "type": "string"
+    },
+    "data": {
+      "type": "object",
+      "required": [
+        "order_id",
+        "package_id",
+        "packer_staff_id",
+        "seal_code",
+        "parcel",
+        "s3_video_object_key",
+        "video_checksum_sha256",
+        "scanned_batch_codes",
+        "packed_at",
+        "task_id",
+        "resource_version",
+        "ready_generation"
+      ],
+      "properties": {
+        "order_id": {
+          "type": "string"
+        },
+        "package_id": {
+          "type": "string",
+          "description": "Định danh bất biến của kiện hàng; một Order có thể có nhiều Package/Shipment"
+        },
+        "packer_staff_id": {
+          "type": "string"
+        },
+        "seal_code": {
+          "type": "string",
+          "example": "SEAL-OMA-20261015-8899"
+        },
+        "parcel": {
+          "type": "object",
+          "required": [
+            "weight_grams",
+            "length_cm",
+            "width_cm",
+            "height_cm",
+            "fragile"
+          ],
+          "properties": {
+            "weight_grams": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "length_cm": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "width_cm": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "height_cm": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "fragile": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        },
+        "s3_video_object_key": {
+          "type": "string",
+          "example": "packing-evidence/2026/10/15/ORD-20261015-0042.mp4"
+        },
+        "video_checksum_sha256": {
+          "type": "string",
+          "pattern": "^[a-fA-F0-9]{64}$"
+        },
+        "scanned_batch_codes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "packed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "task_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "resource_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "ready_generation": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    }
+  }
+}
