@@ -78,6 +78,22 @@ def extract_money(text: str) -> set[int]:
     return amounts
 
 
+class _EphemeralMessages:
+    """Store proxy: delegates everything except message persistence."""
+
+    def __init__(self, inner: ConversationStore):
+        self._inner = inner
+
+    def __getattr__(self, name):
+        return getattr(self._inner, name)
+
+    def add_message(self, conversation_id, role, content, metadata=None):
+        return None
+
+    def list_messages(self, conversation_id):
+        return []
+
+
 def _filter_url(slots: dict) -> str:
     params = {}
     if slots.get("budget_vnd"):
@@ -107,6 +123,11 @@ class ShoppingAdvisor:
         user_text: str,
         authorization: str | None = None,
     ) -> AsyncIterator[dict]:
+        # Consent (chat-history use): a logged-in customer who has not given
+        # it chats fully functionally, but their messages are not persisted —
+        # the session keeps only its working slots (see _EphemeralMessages).
+        if principal.customer_id and not store.get_history_consent(principal.customer_id):
+            store = _EphemeralMessages(store)
         ctx = ToolContext(customer_id=principal.customer_id, authorization=authorization)
         state = TurnState(
             max_steps=self.settings.max_steps, max_tool_calls=self.settings.max_tool_calls
@@ -302,6 +323,8 @@ class ShoppingAdvisor:
         history_users = [
             m.content for m in store.list_messages(conv.id) if m.role == "user"
         ]
+        if not history_users:
+            history_users = [user_text]
         extraction = await self.llm.generate(
             LLMRequest(
                 messages=[Message(role="user", content="\n".join(history_users))],
@@ -310,6 +333,11 @@ class ShoppingAdvisor:
         )
         if extraction.tool_calls:
             new_slots = extraction.tool_calls[0].arguments
+            # Extracted slots are untrusted model output: validate before use.
+            # (An injected "giá ... là 1.000đ" must never become the budget.)
+            budget = new_slots.get("budget_vnd")
+            if budget is not None and not (10_000 <= int(budget) <= 1_000_000_000):
+                new_slots.pop("budget_vnd", None)
             for key, value in new_slots.items():
                 if value in (None, "", []):
                     continue

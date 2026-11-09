@@ -31,6 +31,10 @@ class FeedbackRequest(BaseModel):
     signal: str  # helpful | not_helpful | clicked | dismissed
 
 
+class ConsentRequest(BaseModel):
+    history_use: bool
+
+
 class KnowledgeSyncRequest(BaseModel):
     title: str
     source: str = "api"
@@ -167,6 +171,21 @@ def build_router(
         else:
             raise HTTPException(status_code=422, detail="invalid_placement")
         return {"items": [p.public_dict() for p in products]}
+
+    @router.get("/api/v1/ai/consent")
+    async def get_consent(request: Request) -> dict:
+        principal = _principal(request, settings)
+        if principal.is_guest:
+            raise HTTPException(status_code=401, detail="login_required")
+        return {"history_use": store.get_history_consent(principal.customer_id)}
+
+    @router.put("/api/v1/ai/consent")
+    async def put_consent(request: Request, body: ConsentRequest) -> dict:
+        principal = _principal(request, settings)
+        if principal.is_guest:
+            raise HTTPException(status_code=401, detail="login_required")
+        store.set_history_consent(principal.customer_id, body.history_use)
+        return {"history_use": body.history_use}
 
     @router.post("/api/v1/ai/knowledge/products/sync")
     async def sync_knowledge(body: KnowledgeSyncRequest) -> dict:
