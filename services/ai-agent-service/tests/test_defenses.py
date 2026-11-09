@@ -3,6 +3,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
+from test_shopping_flow import chat, create_conversation, done, reply_text
 
 from ai_agent_service.config import Settings
 from ai_agent_service.integrations.fixtures import (
@@ -22,7 +23,6 @@ from ai_agent_service.platform.gateway import ToolGateway
 from ai_agent_service.platform.knowledge import MemoryKnowledgeStore
 from ai_agent_service.providers.embeddings import FakeEmbedder
 from ai_agent_service.providers.llm import FakeProvider
-from test_shopping_flow import chat, create_conversation, done, reply_text
 
 
 def fixture_backends() -> Backends:

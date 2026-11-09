@@ -90,7 +90,7 @@ class ProviderError(RuntimeError):
 
 _BUDGET_RE = re.compile(r"(\d+(?:[.,]\d+)?)\s*(triệu|trieu|nghìn|nghin|k\b|đ\b|vnd)", re.IGNORECASE)
 _RECIPIENTS = ("bố mẹ", "ba mẹ", "mẹ", "bố", "ba", "ông", "bà", "sếp", "bạn gái", "bạn trai",
-               "vợ", "chồng", "thầy", "cô", "đồng nghiệp", "khách hàng")
+               "vợ", "chồng", "thầy", "cô", "đồng nghiệp", "khách hàng", "bạn")
 _OCCASIONS = ("tết", "sinh nhật", "trung thu", "20/10", "8/3", "giáng sinh", "noel",
               "tri ân", "khai trương", "đám cưới", "thôi nôi")
 _TASTES = ("ngọt", "mặn", "ít đường", "không đường", "cay", "truyền thống", "giòn", "dẻo")
