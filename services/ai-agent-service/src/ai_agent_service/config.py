@@ -60,7 +60,7 @@ class Settings:
     # Agent execution limits (controlled runtime)
     tool_timeout_seconds: float = 2.0
     max_steps: int = 8
-    max_tool_calls: int = 6
+    max_tool_calls: int = 10
     max_reply_tokens: int = 700
 
     # Conversation retention (decided 2026-11-09: 30 / 15 days)
@@ -96,7 +96,7 @@ class Settings:
             jwks_url=_env("AI_JWKS_URL", ""),
             tool_timeout_seconds=_float("AI_TOOL_TIMEOUT_SECONDS", 2.0),
             max_steps=_int("AI_MAX_STEPS", 8),
-            max_tool_calls=_int("AI_MAX_TOOL_CALLS", 6),
+            max_tool_calls=_int("AI_MAX_TOOL_CALLS", 10),
             max_reply_tokens=_int("AI_MAX_REPLY_TOKENS", 700),
             retention_customer_days=_int("AI_RETENTION_CUSTOMER_DAYS", 30),
             retention_guest_days=_int("AI_RETENTION_GUEST_DAYS", 15),

@@ -13,7 +13,9 @@ def test_health_ok_without_db():
 
 
 def test_ready_reports_db_down():
-    settings = Settings(database_url="postgresql://invalid:invalid@127.0.0.1:1/none")
+    settings = Settings(
+        database_url="postgresql://invalid:invalid@127.0.0.1:1/none", fixtures_mode=False
+    )
     client = TestClient(create_app(settings))
     response = client.get("/health/ready")
     assert response.status_code == 503

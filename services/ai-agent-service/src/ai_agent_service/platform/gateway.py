@@ -26,6 +26,7 @@ class ToolError(Exception):
 class ToolContext:
     customer_id: str | None = None  # None for guests
     run_id: str | None = None
+    authorization: str | None = None  # caller's Bearer header, forwarded to owned-data APIs
 
 
 Handler = Callable[[ToolContext, BaseModel], Awaitable[dict]]
