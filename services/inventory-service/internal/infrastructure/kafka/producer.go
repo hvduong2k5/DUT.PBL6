@@ -16,7 +16,7 @@ type KafkaProducer struct {
 func NewKafkaProducer(brokers []string) *KafkaProducer {
 	writer := &kafka.Writer{
 		Addr:         kafka.TCP(brokers...),
-		Balancer:     &kafka.LeastBytes{},
+		Balancer:     &kafka.Hash{},
 		RequiredAcks: kafka.RequireAll,
 		Async:        false,
 	}

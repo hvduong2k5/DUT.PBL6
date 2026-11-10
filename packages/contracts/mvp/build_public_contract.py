@@ -96,17 +96,29 @@ def build():
             operation['parameters'] = [p for p in operation.get('parameters', []) if p.get('name') not in ('X-User-ID', 'X-User-Role')]
             operation['x-provider-contract'] = 'profile-service'
             operation['x-gateway-identity'] = 'Map verified subject to X-User-ID; add X-Internal-Token server-side. Strip client-supplied identity/trust headers.'
-    # Catalog public DTO remains the established frontend shape; BFF maps proto JSON.
+    # Catalog public DTO remains the established frontend shape; catalog-service serves it over REST.
     for path in ('/api/v1/categories', '/api/v1/products', '/api/v1/products/search', '/api/v1/products/{id_or_slug}'):
         spec['paths'][path] = namespace(copy.deepcopy(sources['Frontend']['paths'][path]), 'Frontend')
         op = spec['paths'][path]['get']
         op['operationId'] = 'catalog_' + op['operationId']
         op['security'] = []
-        op['x-provider-contract'] = 'hvduong.catalog.v1.CatalogPublicService'
-        op['x-bff-mapping'] = 'products -> items, page_info -> pagination; Money converted without precision loss. See packages/contracts/mvp/MIGRATION.md.'
+        op['x-provider-contract'] = 'catalog-service'
+        op['x-bff-mapping'] = 'catalog-service REST DTO is already the public shape; preserve flat categories, pagination fields and Money without precision loss. See packages/contracts/mvp/MIGRATION.md.'
         # Preserve existing category/price/sort filtering instead of generic generated filters.
         legacy = sources['D2C']['paths'][path]['get']
         op['parameters'] = namespace(copy.deepcopy(legacy.get('parameters', [])), 'D2C')
+    # Search is implemented with PostgreSQL ILIKE in the MVP; Elasticsearch remains a later phase.
+    spec['paths']['/api/v1/products/search']['get']['summary'] = (
+        'Tìm kiếm sản phẩm (MVP: PostgreSQL ILIKE; Elasticsearch ở phase sau)'
+    )
+    # The pinned frontend snapshot still carries a legacy category code. Catalog returns UUIDs.
+    categories = spec['paths']['/api/v1/categories']['get']['responses']['200']['content']['application/json']
+    item = categories['schema']['properties']['categories']['items']['properties']
+    item['category_id'] = {'type': 'string', 'format': 'uuid'}
+    item['parent_id'] = {'type': 'string', 'format': 'uuid', 'nullable': True, 'description': 'parent_id may be null.'}
+    for example in categories.get('examples', {}).values():
+        for category in example.get('value', {}).get('categories', []):
+            category['category_id'] = '3f1c2a9e-7b4d-4c8e-9a1f-2d6b5c0e8a71'
     # One error boundary and idempotency spelling. Provider shapes stay unchanged.
     for path, item in spec['paths'].items():
         for method, operation in item.items():

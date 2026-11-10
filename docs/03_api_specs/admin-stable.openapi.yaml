@@ -2342,173 +2342,96 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                - items
-                - statusCounts
-                - categories
-                - calculatedAt
-                properties:
-                  items:
-                    type: array
-                    items:
-                      type: object
-                      required:
-                      - productId
-                      - name
-                      - categoryId
-                      - categoryName
-                      - saleStatus
-                      - saleStatusLabel
-                      - skuCount
-                      - onSaleSkuCount
-                      - basePriceFromVnd
-                      - foodInformationComplete
-                      - updatedAt
-                      - revision
-                      properties:
-                        productId:
-                          type: string
-                        name:
-                          type: string
-                        categoryId:
-                          type: string
-                        categoryName:
-                          type: string
-                        saleStatus:
-                          type: string
-                        saleStatusLabel:
-                          type: string
-                        skuCount:
-                          type: integer
-                        onSaleSkuCount:
-                          type: integer
-                        basePriceFromVnd:
-                          type: integer
-                        foodInformationComplete:
-                          type: boolean
-                        updatedAt:
-                          type: string
-                          format: date-time
-                        revision:
-                          type: integer
-                          format: int64
-                          minimum: 0
-                          description: Catalog optimistic-lock version for this product;
-                            incremented after a successful catalog mutation.
-                      additionalProperties: false
-                  statusCounts:
-                    type: array
-                    items:
-                      type: object
-                      required:
-                      - status
-                      - label
-                      - count
-                      properties:
-                        status:
-                          type: string
-                        label:
-                          type: string
-                        count:
-                          type: integer
-                      additionalProperties: false
-                  categories:
-                    type: array
-                    items:
-                      type: object
-                      required:
-                      - categoryId
-                      - categoryName
-                      properties:
-                        categoryId:
-                          type: string
-                        categoryName:
-                          type: string
-                      additionalProperties: false
-                  calculatedAt:
-                    type: string
-                    format: date-time
-                additionalProperties: false
+                $ref: '#/components/schemas/CatalogAdminProductListResponse'
               examples:
                 success:
                   summary: Successful response
                   value:
-                    items:
-                    - productId: prod-me-xung-truyen-thong
-                      name: Mè Xửng Truyền Thống
-                      categoryId: cat-me-xung
-                      categoryName: Mè xửng Huế
-                      saleStatus: ON_SALE
-                      saleStatusLabel: Đang bán
-                      skuCount: 3
-                      onSaleSkuCount: 2
-                      basePriceFromVnd: 85000
-                      foodInformationComplete: true
-                      updatedAt: '2026-10-02T02:10:00.000Z'
-                      revision: 4
-                    - productId: prod-tra-sen-tinh-tam
-                      name: Trà Sen Tịnh Tâm
-                      categoryId: cat-tra-hue
-                      categoryName: Trà Huế
-                      saleStatus: PAUSED
-                      saleStatusLabel: Tạm ngừng bán
-                      skuCount: 3
-                      onSaleSkuCount: 0
-                      basePriceFromVnd: 120000
-                      foodInformationComplete: true
-                      updatedAt: '2026-10-01T08:20:00.000Z'
-                      revision: 3
-                    - productId: prod-banh-ngu-sac
-                      name: Bánh Ngũ Sắc Cung Đình
-                      categoryId: cat-banh-cung-dinh
-                      categoryName: Bánh cung đình
-                      saleStatus: DISCONTINUED
-                      saleStatusLabel: Ngừng kinh doanh
-                      skuCount: 3
-                      onSaleSkuCount: 0
-                      basePriceFromVnd: 95000
-                      foodInformationComplete: false
-                      updatedAt: '2026-09-28T03:30:00.000Z'
-                      revision: 7
-                    statusCounts:
-                    - status: ALL
-                      label: Tất cả
-                      count: 3
-                    - status: ON_SALE
-                      label: Đang bán
-                      count: 1
-                    - status: PAUSED
-                      label: Tạm ngừng bán
-                      count: 1
-                    - status: DISCONTINUED
-                      label: Ngừng kinh doanh
-                      count: 1
-                    categories:
-                    - categoryId: cat-me-xung
-                      categoryName: Mè xửng Huế
-                    - categoryId: cat-tra-hue
-                      categoryName: Trà Huế
-                    - categoryId: cat-banh-cung-dinh
-                      categoryName: Bánh cung đình
-                    calculatedAt: '2026-10-02T02:30:00.000Z'
+                    success: true
+                    code: SUCCESS
+                    message: Thao tác thành công
+                    timestamp: '2026-10-02T02:30:00.000Z'
+                    data:
+                      items:
+                      - productId: prod-me-xung-truyen-thong
+                        name: Mè Xửng Truyền Thống
+                        categoryId: cat-me-xung
+                        categoryName: Mè xửng Huế
+                        saleStatus: ON_SALE
+                        saleStatusLabel: Đang bán
+                        skuCount: 3
+                        onSaleSkuCount: 2
+                        basePriceFromVnd: 85000
+                        foodInformationComplete: true
+                        updatedAt: '2026-10-02T02:10:00.000Z'
+                        revision: 4
+                      - productId: prod-tra-sen-tinh-tam
+                        name: Trà Sen Tịnh Tâm
+                        categoryId: cat-tra-hue
+                        categoryName: Trà Huế
+                        saleStatus: PAUSED
+                        saleStatusLabel: Tạm ngừng bán
+                        skuCount: 3
+                        onSaleSkuCount: 0
+                        basePriceFromVnd: 120000
+                        foodInformationComplete: true
+                        updatedAt: '2026-10-01T08:20:00.000Z'
+                        revision: 3
+                      - productId: prod-banh-ngu-sac
+                        name: Bánh Ngũ Sắc Cung Đình
+                        categoryId: cat-banh-cung-dinh
+                        categoryName: Bánh cung đình
+                        saleStatus: DISCONTINUED
+                        saleStatusLabel: Ngừng kinh doanh
+                        skuCount: 3
+                        onSaleSkuCount: 0
+                        basePriceFromVnd: 95000
+                        foodInformationComplete: false
+                        updatedAt: '2026-09-28T03:30:00.000Z'
+                        revision: 7
+                      statusCounts:
+                      - status: ALL
+                        label: Tất cả
+                        count: 3
+                      - status: ON_SALE
+                        label: Đang bán
+                        count: 1
+                      - status: PAUSED
+                        label: Tạm ngừng bán
+                        count: 1
+                      - status: DISCONTINUED
+                        label: Ngừng kinh doanh
+                        count: 1
+                      categories:
+                      - categoryId: cat-me-xung
+                        categoryName: Mè xửng Huế
+                      - categoryId: cat-tra-hue
+                        categoryName: Trà Huế
+                      - categoryId: cat-banh-cung-dinh
+                        categoryName: Bánh cung đình
+                      calculatedAt: '2026-10-02T02:30:00.000Z'
                 empty:
                   summary: Valid empty result
                   value:
-                    items: []
-                    statusCounts: []
-                    categories: []
-                    calculatedAt: '2026-10-02T02:30:00.000Z'
+                    success: true
+                    code: SUCCESS
+                    message: Thao tác thành công
+                    timestamp: '2026-10-02T02:30:00.000Z'
+                    data:
+                      items: []
+                      statusCounts: []
+                      categories: []
+                      calculatedAt: '2026-10-02T02:30:00.000Z'
         '400':
-          $ref: '#/components/responses/BadRequest'
+          $ref: '#/components/responses/CatalogAdminBadRequest'
         '401':
-          $ref: '#/components/responses/Unauthorized'
+          $ref: '#/components/responses/CatalogAdminUnauthorized'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          $ref: '#/components/responses/CatalogAdminForbidden'
         '500':
-          $ref: '#/components/responses/InternalError'
+          $ref: '#/components/responses/CatalogAdminInternalError'
         '503':
-          $ref: '#/components/responses/ServiceUnavailable'
+          $ref: '#/components/responses/CatalogAdminServiceUnavailable'
       parameters:
       - name: q
         in: query
@@ -2539,14 +2462,64 @@ paths:
           minimum: 1
           maximum: 100
           default: 20
+    post:
+      tags:
+      - Product management
+      operationId: postAdminCatalogProducts
+      summary: Tạo Product mới ở trạng thái DRAFT cho EPIC_04.
+      description: SKU được sinh tự động từ slug nếu không cung cấp.
+      x-lifecycle: stable
+      x-backlog:
+      - EPIC_04
+      x-ui-states:
+      - loading
+      - success
+      - error
+      - unauthorized
+      - forbidden
+      x-test-latency-ms: 1200
+      security:
+      - bearerAuth: []
+      - adminSession: []
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CatalogAdminProductCreateRequest'
+      responses:
+        '200':
+          description: Đã tạo Product thành công.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogAdminProductWriteResponse'
+        '400':
+          $ref: '#/components/responses/CatalogAdminBadRequest'
+        '401':
+          $ref: '#/components/responses/CatalogAdminUnauthorized'
+        '403':
+          $ref: '#/components/responses/CatalogAdminForbidden'
+        '404':
+          $ref: '#/components/responses/CatalogAdminNotFound'
+        '409':
+          $ref: '#/components/responses/CatalogAdminConflict'
+        '422':
+          $ref: '#/components/responses/CatalogAdminUnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/CatalogAdminInternalError'
+        '503':
+          $ref: '#/components/responses/CatalogAdminServiceUnavailable'
   /api/v1/admin/catalog/products/{productId}:
     get:
       tags:
       - Product management
       operationId: getAdminCatalogProductsProductId
-      summary: Read-only Product detail with SKU base prices and catalog food information
-        for US-PROD-02, US-PROD-04 and US-PROD-05. Manufacturing and shelf-life values
-        are catalog policies, not actual Batch dates.
+      summary: Read-only Product detail with full editable content, SKU base prices and catalog food information
+        for US-PROD-02, US-PROD-04 and US-PROD-05. Includes story, OCOP fields and image metadata.
+        Manufacturing and shelf-life values are catalog policies, not actual Batch dates.
       x-lifecycle: stable
       x-backlog:
       - EPIC_04
@@ -2566,214 +2539,115 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                - productId
-                - name
-                - categoryId
-                - categoryName
-                - saleStatus
-                - saleStatusLabel
-                - skuCount
-                - onSaleSkuCount
-                - basePriceFromVnd
-                - foodInformationComplete
-                - updatedAt
-                - revision
-                - shortDescription
-                - longDescription
-                - coverImageUrl
-                - coverImageAlt
-                - foodInformation
-                - skus
-                properties:
-                  productId:
-                    type: string
-                  name:
-                    type: string
-                  categoryId:
-                    type: string
-                  categoryName:
-                    type: string
-                  saleStatus:
-                    type: string
-                  saleStatusLabel:
-                    type: string
-                  skuCount:
-                    type: integer
-                  onSaleSkuCount:
-                    type: integer
-                  basePriceFromVnd:
-                    type: integer
-                  foodInformationComplete:
-                    type: boolean
-                  updatedAt:
-                    type: string
-                    format: date-time
-                  revision:
-                    type: integer
-                    format: int64
-                    minimum: 0
-                    description: Catalog optimistic-lock version for this product;
-                      incremented after a successful catalog mutation.
-                  shortDescription:
-                    type: string
-                  longDescription:
-                    type: string
-                  coverImageUrl:
-                    type: string
-                    format: uri
-                  coverImageAlt:
-                    type: string
-                  foodInformation:
-                    type: object
-                    required:
-                    - ingredients
-                    - allergenStatement
-                    - storageInstructions
-                    - manufacturingDatePolicy
-                    - shelfLifeDescription
-                    properties:
-                      ingredients:
-                        type: string
-                      allergenStatement:
-                        type: string
-                      storageInstructions:
-                        type: string
-                      manufacturingDatePolicy:
-                        type: string
-                      shelfLifeDescription:
-                        type: string
-                    additionalProperties: false
-                  skus:
-                    type: array
-                    items:
-                      type: object
-                      required:
-                      - skuId
-                      - skuCode
-                      - label
-                      - weightGrams
-                      - flavor
-                      - packageType
-                      - basePriceVnd
-                      - currency
-                      - saleStatus
-                      - saleStatusLabel
-                      - updatedAt
-                      - revision
-                      properties:
-                        skuId:
-                          type: string
-                        skuCode:
-                          type: string
-                        label:
-                          type: string
-                        weightGrams:
-                          type: integer
-                        flavor:
-                          type: string
-                        packageType:
-                          type: string
-                        basePriceVnd:
-                          type: integer
-                        currency:
-                          type: string
-                        saleStatus:
-                          type: string
-                        saleStatusLabel:
-                          type: string
-                        updatedAt:
-                          type: string
-                          format: date-time
-                        revision:
-                          type: integer
-                          format: int64
-                          minimum: 0
-                          description: Catalog optimistic-lock version for this SKU;
-                            incremented after a successful catalog mutation.
-                      additionalProperties: false
-                additionalProperties: false
+                $ref: '#/components/schemas/CatalogAdminProductDetailResponse'
               examples:
                 success:
                   summary: Successful response
                   value:
-                    productId: '{{urlParam ''productId''}}'
-                    name: Sản phẩm catalog
-                    categoryId: cat-me-xung
-                    categoryName: Mè xửng Huế
-                    saleStatus: ON_SALE
-                    saleStatusLabel: Đang bán
-                    skuCount: 3
-                    onSaleSkuCount: 2
-                    basePriceFromVnd: 85000
-                    foodInformationComplete: true
-                    updatedAt: '2026-10-02T02:10:00.000Z'
-                    revision: 4
-                    shortDescription: Đặc sản Huế được quản lý theo từng quy cách
-                      SKU.
-                    longDescription: Dữ liệu mô tả catalog cơ bản; nội dung marketing
-                      và SEO chi tiết thuộc Epic 20.
-                    coverImageUrl: https://res.cloudinary.com/oma-demo/image/upload/v1/catalog/product-cover.webp
-                    coverImageAlt: Ảnh đại diện sản phẩm catalog
-                    foodInformation:
+                    success: true
+                    code: SUCCESS
+                    message: Thao tác thành công
+                    timestamp: '2026-10-02T02:30:00.000Z'
+                    data:
+                      productId: '{{urlParam ''productId''}}'
+                      name: Sản phẩm catalog
+                      categoryId: cat-me-xung
+                      categoryName: Mè xửng Huế
+                      saleStatus: ON_SALE
+                      saleStatusLabel: Đang bán
+                      skuCount: 3
+                      onSaleSkuCount: 2
+                      basePriceFromVnd: 85000
+                      foodInformationComplete: true
+                      updatedAt: '2026-10-02T02:10:00.000Z'
+                      revision: 4
+                      shortDescription: Đặc sản Huế được quản lý theo từng quy cách
+                        SKU.
+                      longDescription: Dữ liệu mô tả catalog cơ bản; nội dung marketing
+                        và SEO chi tiết thuộc Epic 20.
+                      slug: san-pham-catalog
+                      description: Đặc sản Huế được quản lý theo từng quy cách SKU.
+                      story: Sinh ra từ làng nghề Hương Thủy ven sông Hương, nghệ nhân
+                        O Mạ gìn giữ ngọn lửa nấu kẹo qua nhiều thế hệ.
                       ingredients: Mè trắng, mạch nha, đường và nguyên liệu theo công
                         thức công bố.
-                      allergenStatement: Có chứa mè; sản xuất tại cơ sở có xử lý đậu
-                        phộng.
-                      storageInstructions: Bảo quản nơi khô ráo, thoáng mát và tránh
-                        ánh nắng trực tiếp.
-                      manufacturingDatePolicy: Ngày sản xuất thực tế được in trên
-                        bao bì và lấy từ Batch/Lot khi xuất hàng.
-                      shelfLifeDescription: 'Chính sách catalog: 06 tháng kể từ ngày
-                        sản xuất khi bảo quản đúng hướng dẫn.'
-                    skus:
-                    - skuId: '{{urlParam ''productId''}}-sku-250'
-                      skuCode: OMA-{{urlParam 'productId'}}-250
-                      label: Hộp 250 g
-                      weightGrams: 250
-                      flavor: Truyền thống
-                      packageType: Hộp giấy
-                      basePriceVnd: 85000
-                      currency: VND
-                      saleStatus: ON_SALE
-                      saleStatusLabel: Đang bán
-                      updatedAt: '2026-10-02T02:10:00.000Z'
-                      revision: 3
-                    - skuId: '{{urlParam ''productId''}}-sku-500'
-                      skuCode: OMA-{{urlParam 'productId'}}-500
-                      label: Hộp 500 g
-                      weightGrams: 500
-                      flavor: Truyền thống
-                      packageType: Hộp giấy cao cấp
-                      basePriceVnd: 155000
-                      currency: VND
-                      saleStatus: ON_SALE
-                      saleStatusLabel: Đang bán
-                      updatedAt: '2026-10-01T09:15:00.000Z'
-                      revision: 2
-                    - skuId: '{{urlParam ''productId''}}-sku-gift'
-                      skuCode: OMA-{{urlParam 'productId'}}-GIFT
-                      label: Hộp quà 750 g
-                      weightGrams: 750
-                      flavor: Tổng hợp
-                      packageType: Hộp quà
-                      basePriceVnd: 245000
-                      currency: VND
-                      saleStatus: PAUSED
-                      saleStatusLabel: Tạm ngừng bán
-                      updatedAt: '2026-09-30T04:00:00.000Z'
-                      revision: 5
+                      storageGuide: Bảo quản nơi khô ráo, thoáng mát và tránh ánh nắng
+                        trực tiếp.
+                      ocopStar: 5
+                      ocopCertificateNo: OCOP-HUE-2026-001
+                      approvalStatus: APPROVED
+                      listingStatus: ACTIVE
+                      coverImageUrl: https://res.cloudinary.com/oma-demo/image/upload/v1/catalog/product-cover.webp
+                      coverImageAlt: Ảnh đại diện sản phẩm catalog
+                      images:
+                      - imageId: '{{urlParam ''productId''}}-img-cover'
+                        objectKey: products/catalog/product-cover.webp
+                        url: https://cdn.omama.vn/products/catalog/product-cover.webp
+                        altText: Ảnh đại diện sản phẩm catalog
+                        role: COVER
+                        position: 0
+                        mediaStatus: APPROVED
+                        revision: 2
+                        createdAt: '2026-10-01T08:00:00.000Z'
+                        updatedAt: '2026-10-02T02:10:00.000Z'
+                      foodInformation:
+                        ingredients: Mè trắng, mạch nha, đường và nguyên liệu theo công
+                          thức công bố.
+                        allergenStatement: Có chứa mè; sản xuất tại cơ sở có xử lý đậu
+                          phộng.
+                        storageInstructions: Bảo quản nơi khô ráo, thoáng mát và tránh
+                          ánh nắng trực tiếp.
+                        manufacturingDatePolicy: Ngày sản xuất thực tế được in trên
+                          bao bì và lấy từ Batch/Lot khi xuất hàng.
+                        shelfLifeDescription: 'Chính sách catalog: 06 tháng kể từ ngày
+                          sản xuất khi bảo quản đúng hướng dẫn.'
+                      skus:
+                      - skuId: '{{urlParam ''productId''}}-sku-250'
+                        skuCode: OMA-{{urlParam 'productId'}}-250
+                        label: Hộp 250 g
+                        weightGrams: 250
+                        flavor: Truyền thống
+                        packageType: Hộp giấy
+                        basePriceVnd: 85000
+                        currency: VND
+                        saleStatus: ON_SALE
+                        saleStatusLabel: Đang bán
+                        updatedAt: '2026-10-02T02:10:00.000Z'
+                        revision: 3
+                      - skuId: '{{urlParam ''productId''}}-sku-500'
+                        skuCode: OMA-{{urlParam 'productId'}}-500
+                        label: Hộp 500 g
+                        weightGrams: 500
+                        flavor: Truyền thống
+                        packageType: Hộp giấy cao cấp
+                        basePriceVnd: 155000
+                        currency: VND
+                        saleStatus: ON_SALE
+                        saleStatusLabel: Đang bán
+                        updatedAt: '2026-10-01T09:15:00.000Z'
+                        revision: 2
+                      - skuId: '{{urlParam ''productId''}}-sku-gift'
+                        skuCode: OMA-{{urlParam 'productId'}}-GIFT
+                        label: Hộp quà 750 g
+                        weightGrams: 750
+                        flavor: Tổng hợp
+                        packageType: Hộp quà
+                        basePriceVnd: 245000
+                        currency: VND
+                        saleStatus: PAUSED
+                        saleStatusLabel: Tạm ngừng bán
+                        updatedAt: '2026-09-30T04:00:00.000Z'
+                        revision: 5
         '401':
-          $ref: '#/components/responses/Unauthorized'
+          $ref: '#/components/responses/CatalogAdminUnauthorized'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          $ref: '#/components/responses/CatalogAdminForbidden'
         '404':
-          $ref: '#/components/responses/NotFound'
+          $ref: '#/components/responses/CatalogAdminNotFound'
         '500':
-          $ref: '#/components/responses/InternalError'
+          $ref: '#/components/responses/CatalogAdminInternalError'
         '503':
-          $ref: '#/components/responses/ServiceUnavailable'
+          $ref: '#/components/responses/CatalogAdminServiceUnavailable'
       parameters:
       - name: productId
         in: path
@@ -2781,6 +2655,581 @@ paths:
         schema:
           type: string
           minLength: 1
+    patch:
+      tags:
+      - Product management
+      operationId: patchAdminCatalogProductsProductId
+      summary: Cập nhật một phần nội dung Product cho EPIC_04, bao gồm story và các trường OCOP.
+      description: >
+        Trường không gửi hoặc null = giữ nguyên. Chuỗi rỗng "" = xóa trường optional
+        (description, ingredients, storageGuide, ocopCertificateNo, story). name và slug
+        không được rỗng nếu cung cấp. expectedVersion là bắt buộc cho khóa lạc quan.
+      x-lifecycle: stable
+      x-backlog:
+      - EPIC_04
+      x-ui-states:
+      - loading
+      - success
+      - error
+      - unauthorized
+      - forbidden
+      x-test-latency-ms: 1200
+      security:
+      - bearerAuth: []
+      - adminSession: []
+      parameters:
+      - name: productId
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CatalogAdminProductPatchRequest'
+      responses:
+        '200':
+          description: Đã cập nhật nội dung Product thành công.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogAdminProductWriteResponse'
+        '400':
+          $ref: '#/components/responses/CatalogAdminBadRequest'
+        '401':
+          $ref: '#/components/responses/CatalogAdminUnauthorized'
+        '403':
+          $ref: '#/components/responses/CatalogAdminForbidden'
+        '404':
+          $ref: '#/components/responses/CatalogAdminNotFound'
+        '409':
+          $ref: '#/components/responses/CatalogAdminConflict'
+        '422':
+          $ref: '#/components/responses/CatalogAdminUnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/CatalogAdminInternalError'
+        '503':
+          $ref: '#/components/responses/CatalogAdminServiceUnavailable'
+    put:
+      tags:
+      - Product management
+      operationId: putAdminCatalogProductsProductId
+      summary: Thay thế toàn bộ nội dung Product (legacy, ưu tiên PATCH) cho EPIC_04.
+      deprecated: true
+      x-lifecycle: stable
+      x-backlog:
+      - EPIC_04
+      x-ui-states:
+      - loading
+      - success
+      - error
+      - unauthorized
+      - forbidden
+      x-test-latency-ms: 1200
+      security:
+      - bearerAuth: []
+      - adminSession: []
+      parameters:
+      - name: productId
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CatalogAdminProductPutRequest'
+      responses:
+        '200':
+          description: Đã cập nhật Product thành công.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogAdminProductWriteResponse'
+        '400':
+          $ref: '#/components/responses/CatalogAdminBadRequest'
+        '401':
+          $ref: '#/components/responses/CatalogAdminUnauthorized'
+        '403':
+          $ref: '#/components/responses/CatalogAdminForbidden'
+        '404':
+          $ref: '#/components/responses/CatalogAdminNotFound'
+        '409':
+          $ref: '#/components/responses/CatalogAdminConflict'
+        '422':
+          $ref: '#/components/responses/CatalogAdminUnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/CatalogAdminInternalError'
+        '503':
+          $ref: '#/components/responses/CatalogAdminServiceUnavailable'
+  /api/v1/admin/catalog/products/{productId}/transition:
+    post:
+      tags:
+      - Product management
+      operationId: postAdminCatalogProductsProductIdTransition
+      summary: Chuyển trạng thái vòng đời Product cho EPIC_04.
+      description: Hỗ trợ SUBMIT_FOR_REVIEW, APPROVE, REJECT, SUSPEND và ARCHIVE.
+      x-lifecycle: stable
+      x-backlog:
+      - EPIC_04
+      x-ui-states:
+      - loading
+      - success
+      - error
+      - unauthorized
+      - forbidden
+      x-test-latency-ms: 1200
+      security:
+      - bearerAuth: []
+      - adminSession: []
+      parameters:
+      - name: productId
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CatalogAdminProductTransitionRequest'
+      responses:
+        '200':
+          description: Đã chuyển trạng thái Product thành công.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogAdminProductWriteResponse'
+        '400':
+          $ref: '#/components/responses/CatalogAdminBadRequest'
+        '401':
+          $ref: '#/components/responses/CatalogAdminUnauthorized'
+        '403':
+          $ref: '#/components/responses/CatalogAdminForbidden'
+        '404':
+          $ref: '#/components/responses/CatalogAdminNotFound'
+        '409':
+          $ref: '#/components/responses/CatalogAdminConflict'
+        '422':
+          $ref: '#/components/responses/CatalogAdminUnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/CatalogAdminInternalError'
+        '503':
+          $ref: '#/components/responses/CatalogAdminServiceUnavailable'
+  /api/v1/admin/catalog/products/{productId}/skus:
+    post:
+      tags:
+      - Product management
+      operationId: postAdminCatalogProductsProductIdSkus
+      summary: Tạo SKU mới cho Product cho EPIC_04.
+      description: Mã SKU là duy nhất trên toàn catalog và bất biến sau khi tạo.
+      x-lifecycle: stable
+      x-backlog:
+      - EPIC_04
+      x-ui-states:
+      - loading
+      - success
+      - error
+      - unauthorized
+      - forbidden
+      x-test-latency-ms: 1200
+      security:
+      - bearerAuth: []
+      - adminSession: []
+      parameters:
+      - name: productId
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CatalogAdminSkuCreateRequest'
+      responses:
+        '200':
+          description: Đã tạo SKU thành công.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogAdminProductWriteResponse'
+        '400':
+          $ref: '#/components/responses/CatalogAdminBadRequest'
+        '401':
+          $ref: '#/components/responses/CatalogAdminUnauthorized'
+        '403':
+          $ref: '#/components/responses/CatalogAdminForbidden'
+        '404':
+          $ref: '#/components/responses/CatalogAdminNotFound'
+        '409':
+          $ref: '#/components/responses/CatalogAdminConflict'
+        '422':
+          $ref: '#/components/responses/CatalogAdminUnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/CatalogAdminInternalError'
+        '503':
+          $ref: '#/components/responses/CatalogAdminServiceUnavailable'
+  /api/v1/admin/catalog/products/{productId}/skus/{skuId}:
+    patch:
+      tags:
+      - Product management
+      operationId: patchAdminCatalogProductsProductIdSkusSkuId
+      summary: Cập nhật một phần thuộc tính SKU và trạng thái bán cho EPIC_04.
+      description: Mã SKU bất biến. Trường không gửi giữ nguyên giá trị hiện tại.
+      x-lifecycle: stable
+      x-backlog:
+      - EPIC_04
+      x-ui-states:
+      - loading
+      - success
+      - error
+      - unauthorized
+      - forbidden
+      x-test-latency-ms: 1200
+      security:
+      - bearerAuth: []
+      - adminSession: []
+      parameters:
+      - name: productId
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+      - name: skuId
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CatalogAdminSkuPatchRequest'
+      responses:
+        '200':
+          description: Đã cập nhật SKU thành công.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogAdminProductWriteResponse'
+        '400':
+          $ref: '#/components/responses/CatalogAdminBadRequest'
+        '401':
+          $ref: '#/components/responses/CatalogAdminUnauthorized'
+        '403':
+          $ref: '#/components/responses/CatalogAdminForbidden'
+        '404':
+          $ref: '#/components/responses/CatalogAdminNotFound'
+        '409':
+          $ref: '#/components/responses/CatalogAdminConflict'
+        '422':
+          $ref: '#/components/responses/CatalogAdminUnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/CatalogAdminInternalError'
+        '503':
+          $ref: '#/components/responses/CatalogAdminServiceUnavailable'
+  /api/v1/admin/catalog/products/{productId}/skus/{skuId}/prices:
+    get:
+      tags:
+      - Product management
+      operationId: getAdminCatalogProductsProductIdSkusSkuIdPrices
+      summary: Đọc toàn bộ lịch sử giá theo kênh của SKU cho EPIC_04.
+      x-lifecycle: stable
+      x-backlog:
+      - EPIC_04
+      x-ui-states:
+      - loading
+      - success
+      - empty
+      - error
+      - unauthorized
+      - forbidden
+      x-test-latency-ms: 1200
+      security:
+      - bearerAuth: []
+      - adminSession: []
+      parameters:
+      - name: productId
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+      - name: skuId
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+      responses:
+        '200':
+          description: Đã trả về lịch sử giá.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogAdminPriceListResponse'
+        '400':
+          $ref: '#/components/responses/CatalogAdminBadRequest'
+        '401':
+          $ref: '#/components/responses/CatalogAdminUnauthorized'
+        '403':
+          $ref: '#/components/responses/CatalogAdminForbidden'
+        '404':
+          $ref: '#/components/responses/CatalogAdminNotFound'
+        '500':
+          $ref: '#/components/responses/CatalogAdminInternalError'
+        '503':
+          $ref: '#/components/responses/CatalogAdminServiceUnavailable'
+    put:
+      tags:
+      - Product management
+      operationId: putAdminCatalogProductsProductIdSkusSkuIdPrices
+      summary: Thay thế bảng giá theo kênh của SKU cho EPIC_04.
+      description: Mỗi mục ghi đè giá ACTIVE cùng kênh và tạo bản ghi hiệu lực mới.
+      x-lifecycle: stable
+      x-backlog:
+      - EPIC_04
+      x-ui-states:
+      - loading
+      - success
+      - error
+      - unauthorized
+      - forbidden
+      x-test-latency-ms: 1200
+      security:
+      - bearerAuth: []
+      - adminSession: []
+      parameters:
+      - name: productId
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+      - name: skuId
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CatalogAdminPriceUpdateRequest'
+      responses:
+        '200':
+          description: Đã cập nhật giá thành công.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogAdminProductWriteResponse'
+        '400':
+          $ref: '#/components/responses/CatalogAdminBadRequest'
+        '401':
+          $ref: '#/components/responses/CatalogAdminUnauthorized'
+        '403':
+          $ref: '#/components/responses/CatalogAdminForbidden'
+        '404':
+          $ref: '#/components/responses/CatalogAdminNotFound'
+        '409':
+          $ref: '#/components/responses/CatalogAdminConflict'
+        '422':
+          $ref: '#/components/responses/CatalogAdminUnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/CatalogAdminInternalError'
+        '503':
+          $ref: '#/components/responses/CatalogAdminServiceUnavailable'
+  /api/v1/admin/catalog/products/{productId}/images:
+    post:
+      tags:
+      - Product management
+      operationId: postAdminCatalogProductsProductIdImages
+      summary: Thêm metadata ảnh cho Product cho EPIC_04.
+      description: Khi role là COVER và mediaStatus là APPROVED, cover đã duyệt trước đó sẽ bị hạ xuống GALLERY.
+      x-lifecycle: stable
+      x-backlog:
+      - EPIC_04
+      x-ui-states:
+      - loading
+      - success
+      - error
+      - unauthorized
+      - forbidden
+      x-test-latency-ms: 1200
+      security:
+      - bearerAuth: []
+      - adminSession: []
+      parameters:
+      - name: productId
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CatalogAdminImageCreateRequest'
+      responses:
+        '200':
+          description: Đã thêm ảnh thành công.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogAdminProductWriteResponse'
+        '400':
+          $ref: '#/components/responses/CatalogAdminBadRequest'
+        '401':
+          $ref: '#/components/responses/CatalogAdminUnauthorized'
+        '403':
+          $ref: '#/components/responses/CatalogAdminForbidden'
+        '404':
+          $ref: '#/components/responses/CatalogAdminNotFound'
+        '409':
+          $ref: '#/components/responses/CatalogAdminConflict'
+        '422':
+          $ref: '#/components/responses/CatalogAdminUnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/CatalogAdminInternalError'
+        '503':
+          $ref: '#/components/responses/CatalogAdminServiceUnavailable'
+  /api/v1/admin/catalog/products/{productId}/images/{imageId}:
+    patch:
+      tags:
+      - Product management
+      operationId: patchAdminCatalogProductsProductIdImagesImageId
+      summary: Cập nhật metadata và trạng thái duyệt ảnh cho EPIC_04.
+      x-lifecycle: stable
+      x-backlog:
+      - EPIC_04
+      x-ui-states:
+      - loading
+      - success
+      - error
+      - unauthorized
+      - forbidden
+      x-test-latency-ms: 1200
+      security:
+      - bearerAuth: []
+      - adminSession: []
+      parameters:
+      - name: productId
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+      - name: imageId
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CatalogAdminImagePatchRequest'
+      responses:
+        '200':
+          description: Đã cập nhật ảnh thành công.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogAdminProductWriteResponse'
+        '400':
+          $ref: '#/components/responses/CatalogAdminBadRequest'
+        '401':
+          $ref: '#/components/responses/CatalogAdminUnauthorized'
+        '403':
+          $ref: '#/components/responses/CatalogAdminForbidden'
+        '404':
+          $ref: '#/components/responses/CatalogAdminNotFound'
+        '409':
+          $ref: '#/components/responses/CatalogAdminConflict'
+        '422':
+          $ref: '#/components/responses/CatalogAdminUnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/CatalogAdminInternalError'
+        '503':
+          $ref: '#/components/responses/CatalogAdminServiceUnavailable'
+    delete:
+      tags:
+      - Product management
+      operationId: deleteAdminCatalogProductsProductIdImagesImageId
+      summary: Xóa metadata ảnh khỏi Product cho EPIC_04.
+      description: Chỉ xóa metadata trong catalog; object trên storage được dọn dẹp bởi job riêng.
+      x-lifecycle: stable
+      x-backlog:
+      - EPIC_04
+      x-ui-states:
+      - loading
+      - success
+      - error
+      - unauthorized
+      - forbidden
+      x-test-latency-ms: 1200
+      security:
+      - bearerAuth: []
+      - adminSession: []
+      parameters:
+      - name: productId
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+      - name: imageId
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Đã xóa ảnh thành công.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogAdminProductWriteResponse'
+        '401':
+          $ref: '#/components/responses/CatalogAdminUnauthorized'
+        '403':
+          $ref: '#/components/responses/CatalogAdminForbidden'
+        '404':
+          $ref: '#/components/responses/CatalogAdminNotFound'
+        '500':
+          $ref: '#/components/responses/CatalogAdminInternalError'
+        '503':
+          $ref: '#/components/responses/CatalogAdminServiceUnavailable'
   /api/v1/admin/inventory/skus:
     get:
       tags:
@@ -10314,6 +10763,933 @@ components:
           type: object
           additionalProperties: true
       additionalProperties: false
+    AdminApiSuccessResponse:
+      type: object
+      required:
+      - success
+      - code
+      - message
+      - data
+      - timestamp
+      properties:
+        success:
+          type: boolean
+          enum:
+          - true
+        code:
+          type: string
+          description: Stable machine-readable result code; SUCCESS for successful reads.
+        message:
+          type: string
+          description: Safe user-facing message in Vietnamese or the negotiated locale.
+        data: {}
+        requestId:
+          type: string
+          description: Correlation identifier; omitted when the service has no request context.
+        timestamp:
+          type: string
+          format: date-time
+      additionalProperties: false
+    AdminApiErrorResponse:
+      type: object
+      required:
+      - success
+      - code
+      - message
+      - timestamp
+      properties:
+        success:
+          type: boolean
+          enum:
+          - false
+        code:
+          type: string
+          description: Stable machine-readable error code.
+        message:
+          type: string
+          description: Safe user-facing message in Vietnamese or the negotiated locale.
+        errors:
+          type: array
+          items:
+            type: object
+            required:
+            - field
+            - code
+            - message
+            properties:
+              field:
+                type: string
+              code:
+                type: string
+              message:
+                type: string
+            additionalProperties: false
+        requestId:
+          type: string
+          description: Correlation identifier; omitted when the service has no request context.
+        timestamp:
+          type: string
+          format: date-time
+      additionalProperties: false
+    CatalogAdminProductListData:
+      type: object
+      required:
+      - items
+      - statusCounts
+      - categories
+      - calculatedAt
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required:
+            - productId
+            - name
+            - categoryId
+            - categoryName
+            - saleStatus
+            - saleStatusLabel
+            - skuCount
+            - onSaleSkuCount
+            - foodInformationComplete
+            - updatedAt
+            - revision
+            properties:
+              productId:
+                type: string
+              name:
+                type: string
+              categoryId:
+                type: string
+              categoryName:
+                type: string
+              saleStatus:
+                type: string
+              saleStatusLabel:
+                type: string
+              skuCount:
+                type: integer
+              onSaleSkuCount:
+                type: integer
+              basePriceFromVnd:
+                type:
+                - integer
+                - 'null'
+                description: Lowest effective base price across active SKUs; null when
+                  no effective price exists.
+              foodInformationComplete:
+                type: boolean
+              updatedAt:
+                type: string
+                format: date-time
+              revision:
+                type: integer
+                format: int64
+                minimum: 0
+                description: Catalog optimistic-lock version for this product;
+                  incremented after a successful catalog mutation.
+            additionalProperties: false
+        statusCounts:
+          type: array
+          items:
+            type: object
+            required:
+            - status
+            - label
+            - count
+            properties:
+              status:
+                type: string
+              label:
+                type: string
+              count:
+                type: integer
+            additionalProperties: false
+        categories:
+          type: array
+          items:
+            type: object
+            required:
+            - categoryId
+            - categoryName
+            properties:
+              categoryId:
+                type: string
+              categoryName:
+                type: string
+            additionalProperties: false
+        calculatedAt:
+          type: string
+          format: date-time
+      additionalProperties: false
+    CatalogAdminProductListResponse:
+      allOf:
+      - $ref: '#/components/schemas/AdminApiSuccessResponse'
+      - type: object
+        required:
+        - data
+        properties:
+          data:
+            $ref: '#/components/schemas/CatalogAdminProductListData'
+    CatalogAdminProductDetailData:
+      type: object
+      required:
+      - productId
+      - name
+      - categoryId
+      - categoryName
+      - saleStatus
+      - saleStatusLabel
+      - skuCount
+      - onSaleSkuCount
+      - foodInformationComplete
+      - updatedAt
+      - revision
+      - shortDescription
+      - longDescription
+      - coverImageAlt
+      - foodInformation
+      - skus
+      properties:
+        productId:
+          type: string
+        name:
+          type: string
+        categoryId:
+          type: string
+        categoryName:
+          type: string
+        saleStatus:
+          type: string
+        saleStatusLabel:
+          type: string
+        skuCount:
+          type: integer
+        onSaleSkuCount:
+          type: integer
+        basePriceFromVnd:
+          type:
+          - integer
+          - 'null'
+          description: Lowest effective base price across active SKUs; null when no
+            effective price exists.
+        foodInformationComplete:
+          type: boolean
+        updatedAt:
+          type: string
+          format: date-time
+        revision:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Catalog optimistic-lock version for this product;
+            incremented after a successful catalog mutation.
+        shortDescription:
+          type: string
+        longDescription:
+          type: string
+        slug:
+          type: string
+          description: Định danh URL của sản phẩm; duy nhất toàn catalog.
+        description:
+          type:
+          - string
+          - 'null'
+          description: Mô tả nội dung sản phẩm (dùng cho PATCH admin).
+        story:
+          type:
+          - string
+          - 'null'
+          description: Câu chuyện thương hiệu/làng nghề của sản phẩm.
+        ingredients:
+          type:
+          - string
+          - 'null'
+          description: Thành phần nguyên liệu.
+        storageGuide:
+          type:
+          - string
+          - 'null'
+          description: Hướng dẫn bảo quản.
+        ocopStar:
+          type:
+          - integer
+          - 'null'
+          minimum: 3
+          maximum: 5
+          description: Số sao OCOP.
+        ocopCertificateNo:
+          type:
+          - string
+          - 'null'
+          description: Số chứng nhận OCOP.
+        approvalStatus:
+          type: string
+          enum:
+          - DRAFT
+          - PENDING
+          - APPROVED
+          - REJECTED
+        listingStatus:
+          type: string
+          enum:
+          - ACTIVE
+          - SUSPENDED
+          - ARCHIVED
+        coverImageUrl:
+          type:
+          - string
+          - 'null'
+          format: uri
+        coverImageAlt:
+          type: string
+        images:
+          type: array
+          description: Toàn bộ ảnh của sản phẩm, gồm cả ảnh chưa duyệt (admin view).
+          items:
+            type: object
+            required:
+            - imageId
+            - objectKey
+            - role
+            - position
+            - mediaStatus
+            properties:
+              imageId:
+                type: string
+              objectKey:
+                type: string
+              url:
+                type:
+                - string
+                - 'null'
+                format: uri
+              altText:
+                type:
+                - string
+                - 'null'
+              role:
+                type: string
+                enum:
+                - COVER
+                - GALLERY
+                - THUMBNAIL
+              position:
+                type: integer
+                minimum: 0
+              mediaStatus:
+                type: string
+                enum:
+                - PENDING_SCAN
+                - APPROVED
+                - REJECTED
+              revision:
+                type: integer
+                format: int64
+              createdAt:
+                type: string
+                format: date-time
+              updatedAt:
+                type: string
+                format: date-time
+            additionalProperties: false
+        foodInformation:
+          type: object
+          required:
+          - ingredients
+          - allergenStatement
+          - storageInstructions
+          - manufacturingDatePolicy
+          - shelfLifeDescription
+          properties:
+            ingredients:
+              type: string
+            allergenStatement:
+              type: string
+            storageInstructions:
+              type: string
+            manufacturingDatePolicy:
+              type: string
+            shelfLifeDescription:
+              type: string
+          additionalProperties: false
+        skus:
+          type: array
+          items:
+            type: object
+            required:
+            - skuId
+            - skuCode
+            - label
+            - weightGrams
+            - packageType
+            - currency
+            - saleStatus
+            - saleStatusLabel
+            - updatedAt
+            - revision
+            properties:
+              skuId:
+                type: string
+              skuCode:
+                type: string
+              label:
+                type: string
+              weightGrams:
+                type: integer
+              flavor:
+                type:
+                - string
+                - 'null'
+              packageType:
+                type: string
+              basePriceVnd:
+                type:
+                - integer
+                - 'null'
+              currency:
+                type: string
+              saleStatus:
+                type: string
+              saleStatusLabel:
+                type: string
+              updatedAt:
+                type: string
+                format: date-time
+              revision:
+                type: integer
+                format: int64
+                minimum: 0
+                description: Catalog optimistic-lock version for this SKU;
+                  incremented after a successful catalog mutation.
+            additionalProperties: false
+      additionalProperties: false
+    CatalogAdminProductDetailResponse:
+      allOf:
+      - $ref: '#/components/schemas/AdminApiSuccessResponse'
+      - type: object
+        required:
+        - data
+        properties:
+          data:
+            $ref: '#/components/schemas/CatalogAdminProductDetailData'
+    CatalogAdminProductCreateRequest:
+      type: object
+      required:
+      - name
+      - categoryId
+      properties:
+        name:
+          type: string
+          maxLength: 500
+          description: Tên sản phẩm.
+        slug:
+          type:
+          - string
+          - 'null'
+          maxLength: 500
+          description: Định danh URL; duy nhất toàn catalog.
+        categoryId:
+          type: string
+          format: uuid
+          description: ID danh mục phải tồn tại.
+        description:
+          type:
+          - string
+          - 'null'
+          maxLength: 5000
+          description: Mô tả sản phẩm.
+        ingredients:
+          type:
+          - string
+          - 'null'
+          maxLength: 2000
+          description: Thành phần nguyên liệu.
+        storageGuide:
+          type:
+          - string
+          - 'null'
+          maxLength: 1000
+          description: Hướng dẫn bảo quản.
+        ocopStar:
+          type:
+          - integer
+          - 'null'
+          minimum: 3
+          maximum: 5
+          description: Số sao OCOP.
+        ocopCertificateNo:
+          type:
+          - string
+          - 'null'
+          maxLength: 100
+          description: Số chứng nhận OCOP.
+        story:
+          type:
+          - string
+          - 'null'
+          maxLength: 5000
+          description: Câu chuyện thương hiệu/làng nghề.
+      additionalProperties: false
+    CatalogAdminProductPatchRequest:
+      type: object
+      required:
+      - expectedVersion
+      properties:
+        name:
+          type: string
+          maxLength: 500
+          description: Tên sản phẩm; không được rỗng nếu gửi.
+        slug:
+          type:
+          - string
+          - 'null'
+          maxLength: 500
+          description: Định danh URL; không được rỗng nếu gửi.
+        categoryId:
+          type: string
+          format: uuid
+          description: ID danh mục phải tồn tại.
+        description:
+          type:
+          - string
+          - 'null'
+          maxLength: 5000
+          description: Mô tả sản phẩm; chuỗi rỗng xóa trường.
+        ingredients:
+          type:
+          - string
+          - 'null'
+          maxLength: 2000
+          description: Thành phần nguyên liệu; chuỗi rỗng xóa trường.
+        storageGuide:
+          type:
+          - string
+          - 'null'
+          maxLength: 1000
+          description: Hướng dẫn bảo quản; chuỗi rỗng xóa trường.
+        ocopStar:
+          type:
+          - integer
+          - 'null'
+          minimum: 3
+          maximum: 5
+          description: Số sao OCOP.
+        ocopCertificateNo:
+          type:
+          - string
+          - 'null'
+          maxLength: 100
+          description: Số chứng nhận OCOP; chuỗi rỗng xóa trường.
+        story:
+          type:
+          - string
+          - 'null'
+          maxLength: 5000
+          description: Câu chuyện thương hiệu/làng nghề; chuỗi rỗng xóa trường.
+        expectedVersion:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Bắt buộc cho khóa lạc quan; phải khớp revision hiện tại.
+      additionalProperties: false
+    CatalogAdminProductPutRequest:
+      type: object
+      required:
+      - name
+      - categoryId
+      - expectedVersion
+      properties:
+        name:
+          type: string
+          maxLength: 500
+        slug:
+          type:
+          - string
+          - 'null'
+          maxLength: 500
+        categoryId:
+          type: string
+          format: uuid
+        description:
+          type:
+          - string
+          - 'null'
+          maxLength: 5000
+        ingredients:
+          type:
+          - string
+          - 'null'
+          maxLength: 2000
+        storageGuide:
+          type:
+          - string
+          - 'null'
+          maxLength: 1000
+        ocopStar:
+          type:
+          - integer
+          - 'null'
+          minimum: 3
+          maximum: 5
+        ocopCertificateNo:
+          type:
+          - string
+          - 'null'
+          maxLength: 100
+        story:
+          type:
+          - string
+          - 'null'
+          maxLength: 5000
+        expectedVersion:
+          type: integer
+          format: int64
+          minimum: 0
+      additionalProperties: false
+      deprecated: true
+    CatalogAdminProductTransitionRequest:
+      type: object
+      required:
+      - transition
+      - expectedVersion
+      properties:
+        transition:
+          type: string
+          enum:
+          - SUBMIT_FOR_REVIEW
+          - APPROVE
+          - REJECT
+          - SUSPEND
+          - ARCHIVE
+        expectedVersion:
+          type: integer
+          format: int64
+          minimum: 0
+      additionalProperties: false
+    CatalogAdminSkuCreateRequest:
+      type: object
+      required:
+      - skuCode
+      - variantName
+      - weightValue
+      - packagingType
+      - shelfLifeDays
+      properties:
+        skuCode:
+          type: string
+          maxLength: 100
+          description: Mã SKU; duy nhất toàn catalog và bất biến sau khi tạo.
+        variantName:
+          type: string
+          maxLength: 500
+          description: Tên biến thể.
+        weightValue:
+          type: number
+          format: decimal
+          minimum: 0
+          description: Trọng lượng.
+        weightUnit:
+          type: string
+          enum:
+          - GRAM
+          - KILOGRAM
+          description: Đơn vị trọng lượng; mặc định GRAM.
+        flavor:
+          type:
+          - string
+          - 'null'
+          maxLength: 200
+          description: Hương vị; chuỗi rỗng xóa trường.
+        packagingType:
+          type: string
+          enum:
+          - HOP_GIAY_KRAFT
+          - HOP_THIEC
+          - GOI_HUT_CHAN_KHONG
+          - HOP_QUA_TANG
+          - DANG_ROI
+          description: Loại bao bì.
+        shelfLifeDays:
+          type: integer
+          minimum: 1
+          description: Hạn sử dụng (ngày).
+        basePriceUnits:
+          type: integer
+          minimum: 0
+          description: Giá cơ sở (VND).
+      additionalProperties: false
+    CatalogAdminSkuPatchRequest:
+      type: object
+      required:
+      - expectedVersion
+      properties:
+        variantName:
+          type: string
+          maxLength: 500
+        weightValue:
+          type: number
+          format: decimal
+          minimum: 0
+        weightUnit:
+          type: string
+          enum:
+          - GRAM
+          - KILOGRAM
+        flavor:
+          type:
+          - string
+          - 'null'
+          maxLength: 200
+        packagingType:
+          type: string
+          enum:
+          - HOP_GIAY_KRAFT
+          - HOP_THIEC
+          - GOI_HUT_CHAN_KHONG
+          - HOP_QUA_TANG
+          - DANG_ROI
+        shelfLifeDays:
+          type: integer
+          minimum: 1
+        saleStatus:
+          type: string
+          enum:
+          - ON_SALE
+          - PAUSED
+          - DISCONTINUED
+        expectedVersion:
+          type: integer
+          format: int64
+          minimum: 0
+      additionalProperties: false
+    CatalogAdminPriceUpdateRequest:
+      type: object
+      required:
+      - prices
+      properties:
+        prices:
+          type: array
+          items:
+            type: object
+            required:
+            - channel
+            - amountUnits
+            properties:
+              channel:
+                type: string
+                enum:
+                - D2C_WEB
+                - MOBILE_APP
+                - B2B_WHOLESALE
+                - POS_QUAY
+                - SHOPEE
+                - TIKTOK
+              amountUnits:
+                type: integer
+                minimum: 0
+              currencyCode:
+                type: string
+              effectiveFrom:
+                type: string
+                format: date-time
+      additionalProperties: false
+    CatalogAdminImageCreateRequest:
+      type: object
+      required:
+      - objectKey
+      properties:
+        objectKey:
+          type: string
+          maxLength: 1024
+          description: Khóa object trên MinIO/S3.
+        altText:
+          type:
+          - string
+          - 'null'
+          maxLength: 500
+        role:
+          type: string
+          enum:
+          - COVER
+          - GALLERY
+          - THUMBNAIL
+          description: Mặc định GALLERY.
+        position:
+          type: integer
+          minimum: 0
+          description: Vị trí hiển thị; mặc định 0.
+        mediaStatus:
+          type: string
+          enum:
+          - PENDING_SCAN
+          - APPROVED
+          - REJECTED
+          description: Mặc định PENDING_SCAN cho ảnh mới.
+      additionalProperties: false
+    CatalogAdminImagePatchRequest:
+      type: object
+      required:
+      - expectedVersion
+      properties:
+        altText:
+          type:
+          - string
+          - 'null'
+          maxLength: 500
+        role:
+          type: string
+          enum:
+          - COVER
+          - GALLERY
+          - THUMBNAIL
+        position:
+          type: integer
+          minimum: 0
+        mediaStatus:
+          type: string
+          enum:
+          - PENDING_SCAN
+          - APPROVED
+          - REJECTED
+        expectedVersion:
+          type: integer
+          format: int64
+          minimum: 0
+      additionalProperties: false
+    CatalogAdminProductWriteResponse:
+      allOf:
+      - $ref: '#/components/schemas/AdminApiSuccessResponse'
+      - type: object
+        required:
+        - data
+        properties:
+          data:
+            $ref: '#/components/schemas/CatalogAdminProductWriteData'
+    CatalogAdminProductWriteData:
+      type: object
+      required:
+      - productId
+      - name
+      - saleStatus
+      - revision
+      properties:
+        productId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        saleStatus:
+          type: string
+          enum:
+          - ON_SALE
+          - PAUSED
+          - DISCONTINUED
+        revision:
+          type: integer
+          format: int64
+      additionalProperties: false
+    CatalogAdminProductWriteVariant:
+      type: object
+      required:
+      - skuId
+      - skuCode
+      - variantName
+      - saleStatus
+      properties:
+        skuId:
+          type: string
+          format: uuid
+        skuCode:
+          type: string
+        variantName:
+          type: string
+        saleStatus:
+          type: string
+          enum:
+          - ON_SALE
+          - PAUSED
+          - DISCONTINUED
+      additionalProperties: false
+    CatalogAdminMoney:
+      type: object
+      required:
+      - amountUnits
+      properties:
+        amountUnits:
+          type: integer
+          minimum: 0
+        amountNanos:
+          type: integer
+          minimum: 0
+          maximum: 999999999
+        currencyCode:
+          type: string
+      additionalProperties: false
+    CatalogAdminPriceRecord:
+      type: object
+      required:
+      - priceId
+      - channel
+      - amountUnits
+      - status
+      - effectiveFrom
+      - revision
+      properties:
+        priceId:
+          type: string
+          format: uuid
+        channel:
+          type: string
+        currencyCode:
+          type: string
+        amountUnits:
+          type: integer
+          minimum: 0
+        amountNanos:
+          type: integer
+          minimum: 0
+          maximum: 999999999
+        status:
+          type: string
+          enum:
+          - ACTIVE
+          - SUPERSEDED
+          - EXPIRED
+        effectiveFrom:
+          type: string
+          format: date-time
+        effectiveTo:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        revision:
+          type: integer
+          format: int64
+      additionalProperties: false
+    CatalogAdminPriceListResponse:
+      allOf:
+      - $ref: '#/components/schemas/AdminApiSuccessResponse'
+      - type: object
+        required:
+        - data
+        properties:
+          data:
+            type: object
+            required:
+            - skuId
+            - prices
+            properties:
+              skuId:
+                type: string
+                format: uuid
+              prices:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CatalogAdminPriceRecord'
+      additionalProperties: false
   responses:
     BadRequest:
       description: Malformed request or invalid query parameters.
@@ -10410,4 +11786,102 @@ components:
             code: SERVICE_UNAVAILABLE
             message: A required service is temporarily unavailable.
             requestId: req-01J9YAJ6CX8G5E0K7M8N9PQRST
+            errors: []
+    CatalogAdminBadRequest:
+      description: Invalid query parameters or malformed request. Catalog admin
+        endpoints return the service ApiResponse error envelope.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AdminApiErrorResponse'
+          example:
+            success: false
+            code: INVALID_ARGUMENT
+            message: Dữ liệu đầu vào không hợp lệ.
+            timestamp: '2026-10-02T02:30:00.000Z'
+    CatalogAdminForbidden:
+      description: Authenticated actor lacks CATALOG_VIEW or ADMIN role. Catalog
+        admin endpoints return the service ApiResponse error envelope.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AdminApiErrorResponse'
+          example:
+            success: false
+            code: FORBIDDEN
+            message: Bạn không có quyền thực hiện thao tác này.
+            timestamp: '2026-10-02T02:30:00.000Z'
+    CatalogAdminNotFound:
+      description: Product does not exist. Catalog admin endpoints return the service
+        ApiResponse error envelope.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AdminApiErrorResponse'
+          example:
+            success: false
+            code: CATALOG_PRODUCT_NOT_FOUND
+            message: Không tìm thấy sản phẩm.
+            timestamp: '2026-10-02T02:30:00.000Z'
+    CatalogAdminInternalError:
+      description: Unexpected server error. Catalog admin endpoints return the service
+        ApiResponse error envelope.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AdminApiErrorResponse'
+          example:
+            success: false
+            code: INTERNAL_SERVER_ERROR
+            message: Hệ thống gặp sự cố, vui lòng thử lại sau.
+            timestamp: '2026-10-02T02:30:00.000Z'
+    CatalogAdminUnauthorized:
+      description: Authentication is missing, invalid, or expired. Catalog admin
+        endpoints return the service ApiResponse error envelope.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AdminApiErrorResponse'
+          example:
+            success: false
+            code: AUTHENTICATION_REQUIRED
+            message: Bạn chưa đăng nhập hoặc phiên làm việc đã hết hạn.
+            timestamp: '2026-10-02T02:30:00.000Z'
+    CatalogAdminServiceUnavailable:
+      description: A required service is temporarily unavailable. Catalog admin
+        endpoints return the service ApiResponse error envelope.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AdminApiErrorResponse'
+          example:
+            success: false
+            code: SERVICE_UNAVAILABLE
+            message: Dịch vụ tạm thời không khả dụng, vui lòng thử lại sau.
+            timestamp: '2026-10-02T02:30:00.000Z'
+    CatalogAdminConflict:
+      description: Xung đột trạng thái, bản sửa đổi, khóa idempotency, hoặc giá trị duy nhất. Catalog admin endpoints return the service ApiResponse error envelope.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AdminApiErrorResponse'
+          example:
+            success: false
+            code: CATALOG_VERSION_CONFLICT
+            message: expectedVersion không khớp với revision hiện tại.
+            requestId: req-01J9YAJ6CX8G5E0K7M8N9PQRST
+            timestamp: '2026-10-02T02:30:00.000Z'
+            errors: []
+    CatalogAdminUnprocessableEntity:
+      description: Payload đúng cú pháp nhưng vi phạm quy tắc kiểm tra trường hoặc nghiệp vụ. Catalog admin endpoints return the service ApiResponse error envelope.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AdminApiErrorResponse'
+          example:
+            success: false
+            code: VALIDATION_FAILED
+            message: Dữ liệu đầu vào không hợp lệ.
+            requestId: req-01J9YAJ6CX8G5E0K7M8N9PQRST
+            timestamp: '2026-10-02T02:30:00.000Z'
             errors: []

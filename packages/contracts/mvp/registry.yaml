@@ -70,18 +70,17 @@ contracts:
     state: provider-required
     tasks:
       - Implement a coherent price, weight and packaging snapshot with version and validity.
-      - Preserve CatalogPublicService for frontend; do not rename or replace the internal Order service.
+      - Keep HTTP snapshot and revalidate behind X-Internal-Token; Catalog public/admin read models stay on REST.
       - Implement Order dependency adapters for catalog validation and core terms/revalidation.
   - id: catalog-public
     owner: catalog-service
     consumers: [gateway-bff, web-user, mobile-app]
-    artifact: packages/proto/catalog/v1/catalog_public.proto
-    rpc: hvduong.catalog.v1.CatalogPublicService.ListProducts
+    artifact: docs/03_api_specs/mvp-customer.openapi.yaml
     state: adapter-required
     tasks:
-      - Map products/page_info to frontend items/pagination with exact Money handling.
-      - Preserve category, price and sort query filters and default channel D2C_WEB explicitly.
-      - HTTP annotations need a real REST/transcoding adapter; annotations alone expose no HTTP server.
+      - Serve /api/v1/categories, /api/v1/products, /api/v1/products/search and /api/v1/products/{id_or_slug} over REST.
+      - Return flat categories with parent_id, server-side search pagination/total, and the contracted default sort BEST_SELLING.
+      - Preserve stock_available/in_stock null semantics and Money without precision loss; never replace unavailable price with an empty value.
   - id: inventory-terminal
     owner: inventory-service
     consumers: [order-service]

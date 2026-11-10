@@ -67,6 +67,7 @@ services:
         paths:
           - /api/v1/public/auth
           - /api/v1/customer-api
+          - /api/v1/admin/packing-api
         strip_path: false
         methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
       - name: auth-public-routes
@@ -165,6 +166,22 @@ services:
         methods:
           - GET
           - OPTIONS
+      - name: catalog-admin-routes
+        paths:
+          - /api/v1/admin/catalog
+        strip_path: false
+        methods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - PATCH
+          - OPTIONS
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify:
+                - exp
 
   # ----------------------------------------------------------------------------
   # MS-04: ORDER SERVICE (Cart sessions, Checkout Saga, Order Tracking)
