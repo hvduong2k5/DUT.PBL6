@@ -12,6 +12,14 @@ public interface IamRoleMapper {
     /** Returns active role only (is_enabled = TRUE). Returns null if not found or soft-deleted. */
     IamRoleRow findById(@Param("roleId") UUID roleId);
 
+    /**
+     * Same lookup as findById but takes a row lock (SELECT ... FOR UPDATE) held
+     * until the caller's transaction ends. Used to serialize the last-admin
+     * check in revokeRole: concurrent revokes of the same role queue on this
+     * row, so the admin count they read cannot go stale mid-check.
+     */
+    IamRoleRow findByIdForUpdate(@Param("roleId") UUID roleId);
+
     /** Returns role regardless of is_enabled status. Use for soft-delete guard checks. */
     IamRoleRow findByIdIncludeDisabled(@Param("roleId") UUID roleId);
 

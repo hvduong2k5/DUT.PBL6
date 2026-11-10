@@ -124,6 +124,12 @@ public class RoleAssignmentServiceImpl implements RoleAssignmentService {
         if (existing.getRoleId() != null && roleMapper != null) {
             var roleRow = roleMapper.findById(existing.getRoleId());
             if (roleRow != null && ADMIN_ROLE_CODE.equals(roleRow.getRoleCode())) {
+                // Serialize concurrent ADMIN revokes on the role row lock.
+                // Without it, two parallel revokes of two different admin
+                // assignments both count 2 active admins and both pass,
+                // removing the last admin. The lock is held until this
+                // transaction commits, so the count below cannot go stale.
+                roleMapper.findByIdForUpdate(existing.getRoleId());
                 int activeAdmins = roleAssignmentMapper.countActiveAdmins(ADMIN_ROLE_CODE, OffsetDateTime.now());
                 if (activeAdmins <= 1) {
                     throw new IllegalStateException("Cannot revoke the last active ADMIN assignment. At least one ADMIN must remain.");
@@ -135,8 +141,19 @@ public class RoleAssignmentServiceImpl implements RoleAssignmentService {
         if (updated > 0) {
             // Revoking a grant reduces privileges: sync and force re-login so the next
             // token cannot carry the revoked permission.
-            permissionSyncService.syncPrincipal(
+            var sync = permissionSyncService.syncPrincipal(
                     existing.getPrincipalId(), true, PermissionSyncService.Trigger.ROLE_REVOKE, revokedBy);
+            if (sync != null && !sync.success()) {
+                // The projection into Keycloak failed, so issued tokens would
+                // keep carrying the revoked grant. Abort: the transaction
+                // rolls back instead of recording a revoke that did not take
+                // effect. (Assign/update keep the sync service's documented
+                // non-aborting contract - a missing grant fails safe and is
+                // recoverable through manual resync.)
+                throw new IllegalStateException(
+                        "Permission sync failed after role revoke (error: " + sync.errorCode()
+                                + "); revoke rolled back.");
+            }
 
             auditService.recordAudit(
                     PrincipalType.EMPLOYEE.name(),

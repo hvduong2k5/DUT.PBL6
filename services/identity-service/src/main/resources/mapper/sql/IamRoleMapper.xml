@@ -31,6 +31,14 @@
           AND is_enabled = TRUE
     </select>
 
+    <select id="findByIdForUpdate" resultMap="IamRoleRowMap">
+        SELECT *
+        FROM iam_roles
+        WHERE role_id = #{roleId}
+          AND is_enabled = TRUE
+        FOR UPDATE
+    </select>
+
     <select id="findByIdIncludeDisabled" resultMap="IamRoleRowMap">
         SELECT *
         FROM iam_roles

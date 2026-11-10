@@ -10,6 +10,7 @@ import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IdentityPr
 import com.hvduong.identity.domain.entity.IamRoleAssignmentRow;
 import com.hvduong.identity.domain.entity.IamRoleRow;
 import com.hvduong.identity.domain.entity.IdentityPrincipalRow;
+import com.hvduong.identity.common.constant.IdentityConstants;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -23,6 +24,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
@@ -243,5 +245,81 @@ class RoleAssignmentServiceTest {
         assertThat(revoked).isTrue();
         verify(permissionSyncService).syncPrincipal(
                 principalId, true, PermissionSyncService.Trigger.ROLE_REVOKE, revokedBy);
+    }
+
+    @Test
+    void shouldRefuseToRevokeLastAdmin() {
+        UUID assignmentId = UUID.randomUUID();
+        UUID roleId = UUID.randomUUID();
+
+        IamRoleAssignmentRow existing = new IamRoleAssignmentRow();
+        existing.setAssignmentId(assignmentId);
+        existing.setPrincipalId(UUID.randomUUID());
+        existing.setRoleId(roleId);
+
+        IamRoleRow adminRole = new IamRoleRow();
+        adminRole.setRoleId(roleId);
+        adminRole.setRoleCode(IdentityConstants.ROLE_ADMIN);
+        adminRole.setIsEnabled(true);
+
+        when(roleAssignmentMapper.findById(assignmentId)).thenReturn(existing);
+        when(roleMapper.findById(roleId)).thenReturn(adminRole);
+        when(roleAssignmentMapper.countActiveAdmins(eq(IdentityConstants.ROLE_ADMIN), any()))
+                .thenReturn(1);
+
+        assertThatThrownBy(() -> assignmentService.revokeRole(assignmentId, UUID.randomUUID(), "Revoked", 0L))
+                .isInstanceOf(IllegalStateException.class);
+        verify(roleAssignmentMapper, never()).revokeAssignment(any(), any(), any(), anyLong());
+    }
+
+    @Test
+    void shouldLockAdminRoleRowBeforeCountingAdmins() {
+        UUID assignmentId = UUID.randomUUID();
+        UUID principalId = UUID.randomUUID();
+        UUID roleId = UUID.randomUUID();
+        UUID revokedBy = UUID.randomUUID();
+
+        IamRoleAssignmentRow existing = new IamRoleAssignmentRow();
+        existing.setAssignmentId(assignmentId);
+        existing.setPrincipalId(principalId);
+        existing.setRoleId(roleId);
+
+        IamRoleRow adminRole = new IamRoleRow();
+        adminRole.setRoleId(roleId);
+        adminRole.setRoleCode(IdentityConstants.ROLE_ADMIN);
+        adminRole.setIsEnabled(true);
+
+        when(roleAssignmentMapper.findById(assignmentId)).thenReturn(existing);
+        when(roleMapper.findById(roleId)).thenReturn(adminRole);
+        when(roleAssignmentMapper.countActiveAdmins(eq(IdentityConstants.ROLE_ADMIN), any()))
+                .thenReturn(2);
+        when(roleAssignmentMapper.revokeAssignment(assignmentId, revokedBy, "Revoked", 0L)).thenReturn(1);
+
+        boolean revoked = assignmentService.revokeRole(assignmentId, revokedBy, "Revoked", 0L);
+
+        assertThat(revoked).isTrue();
+        verify(roleMapper).findByIdForUpdate(roleId);
+    }
+
+    @Test
+    void shouldAbortRevokeWhenPermissionSyncFails() {
+        UUID assignmentId = UUID.randomUUID();
+        UUID principalId = UUID.randomUUID();
+        UUID roleId = UUID.randomUUID();
+        UUID revokedBy = UUID.randomUUID();
+
+        IamRoleAssignmentRow existing = new IamRoleAssignmentRow();
+        existing.setAssignmentId(assignmentId);
+        existing.setPrincipalId(principalId);
+        existing.setRoleId(roleId);
+
+        when(roleAssignmentMapper.findById(assignmentId)).thenReturn(existing);
+        when(roleAssignmentMapper.revokeAssignment(assignmentId, revokedBy, "Revoked", 0L)).thenReturn(1);
+        when(permissionSyncService.syncPrincipal(
+                principalId, true, PermissionSyncService.Trigger.ROLE_REVOKE, revokedBy))
+                .thenReturn(PermissionSyncService.SyncResult.failed(principalId, "KEYCLOAK_SYNC_FAILED"));
+
+        assertThatThrownBy(() -> assignmentService.revokeRole(assignmentId, revokedBy, "Revoked", 0L))
+                .isInstanceOf(IllegalStateException.class);
     }
 }
