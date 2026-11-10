@@ -11,18 +11,25 @@ words and decides what monetary evidence actually exists.
 Evidence states (per conversation, user messages in order, the latest
 budget statement wins):
 
-- EXACT: an explicit amount in budget position ("ngân sách 200k",
-  "tối đa 500.000đ", "2 triệu rưỡi"). The parser is authoritative.
+- EXACT: an explicit amount the parser can tie to the *budget role*
+  ("ngân sách 200k", "tối đa 500.000đ", "2 triệu rưỡi", "có thể chi
+  300k", "Tôi có 200k, mua quà cho mẹ"). Seeing an amount is never
+  enough — its role must be evidenced. The parser is authoritative.
 - INVALID: an explicit budget amount outside the accepted range
   ("5đ", "5 tỷ"). The LLM is forbidden from overriding it — an invalid
   statement is evidence, not absence of evidence.
 - AMBIGUOUS: a budget statement without one determinate value
   ("2-3 trăm nghìn", "vài trăm", "ngân sách 500" without a unit).
   Never resolved by guessing: the workflow asks.
-- ABSENT: no budget-position amount anywhere. The LLM's number may be
-  used only when it matches an amount the user literally wrote in a
-  non-price position (the model may identify which literal amount is
-  the budget; it may never invent one, e.g. from "ngân sách sinh viên").
+- ABSENT: no budget-role amount anywhere. A number the LLM returns
+  may become a *candidate* when it matches an amount the user
+  literally wrote in a non-price, non-suppressed position — but a
+  candidate is never committed by the gate (đợt 1.7 audit: existence
+  of a money mention is not evidence of its role; "tặng bạn 200k" is
+  money given away, not a shopping budget). The workflow asks the
+  customer to confirm the candidate; only that confirmation commits
+  it. An amount the user never wrote can not even become a candidate
+  (e.g. a budget invented from "ngân sách sinh viên").
 
 Cap phrasings ("dưới 200k", "không quá 200k", "tối đa 200k") are EXACT
 with the cap as value: the workflow treats budget as a maximum price
@@ -81,7 +88,11 @@ _VAGUE = re.compile(rf"(?:vài|mấy)\s+(?:{_UNIT})", re.IGNORECASE)
 _ANCHORS = (
     "ngân sách", "tối đa", "không quá", "không vượt quá", "khoảng",
     "tầm", "dưới", "chỉ có", "trong vòng", "budget",
+    "có thể chi", "chỉ mang theo", "mang theo",
 )
+# Possession-only markers right after an amount veto the possessive
+# reading ("Tôi có 200k trong ví" states funds, not a budget).
+_POSSESSION_VETOES = ("ví", "tài khoản", "tiền mặt", "chưa biết", "có nên")
 # Statements that must NOT become budget evidence. Checked before the
 # anchors ("không quá" is an anchor, not a negation — it is excluded
 # from this list deliberately). "nhầm" is NOT a suppressor: "À nhầm,
@@ -195,13 +206,28 @@ def _is_suppressed(text: str, start: int) -> bool:
     return any(marker in window for marker in _SUPPRESSORS)
 
 
-def _is_budget_position(text: str, amount: _Amount) -> bool:
+def _is_budget_position(text: str, amount: _Amount, budget_requested: bool = False) -> bool:
     window = _context_before(text, amount.start)
     if any(anchor in window for anchor in _ANCHORS):
         return True
-    # Possessive: the amount directly follows "có" ("Tôi có 200k ...").
+    # "dành X để mua" states an allocation for buying; "dành tặng" is
+    # money given away, the opposite role.
+    if "dành" in window and "dành tặng" not in window:
+        return True
+    # Possessive: the amount directly follows "có". That is budget
+    # evidence only when the amount is tied to the purchase — the
+    # message links it to buying/gifting, or it directly answers a
+    # budget question the workflow just asked. Bare possession
+    # ("trong ví", "tiền mặt") is a candidate at most (đợt 1.7).
     before = text[:amount.start].rstrip().lower()
-    return before.endswith("có") or before.endswith("có khoảng") or before.endswith("có tầm")
+    if not before.endswith("có"):
+        return False
+    after = text[amount.end:amount.end + 24].lower()
+    if any(veto in after for veto in _POSSESSION_VETOES):
+        return False
+    if budget_requested:
+        return True
+    return any(marker in text.lower() for marker in ("mua", "quà"))
 
 
 def _is_price_position(text: str, amount: _Amount) -> bool:
@@ -221,7 +247,9 @@ class BudgetEvidence:
     source_text: str | None = None
 
 
-def _message_outcome(text: str, index: int) -> BudgetEvidence | None:
+def _message_outcome(
+    text: str, index: int, budget_requested: bool = False
+) -> BudgetEvidence | None:
     """Budget outcome of a single message, or None when the message
     carries no budget-position statement."""
     low_text = text.lower()
@@ -229,7 +257,7 @@ def _message_outcome(text: str, index: int) -> BudgetEvidence | None:
     for amount in _amounts_in(text):
         if _is_suppressed(text, amount.start):
             continue
-        if not _is_budget_position(low_text, amount):
+        if not _is_budget_position(low_text, amount, budget_requested):
             continue
         span = text[amount.start:amount.end]
         if amount.value is None:
@@ -264,7 +292,7 @@ def _message_outcome(text: str, index: int) -> BudgetEvidence | None:
             )
             if _is_suppressed(low_text, probe.start):
                 continue
-            if _is_budget_position(low_text, probe):
+            if _is_budget_position(low_text, probe, budget_requested):
                 outcome = BudgetEvidence(
                     status=AMBIGUOUS, message_index=index,
                     source_text=text[match.start():match.end()],
@@ -272,13 +300,23 @@ def _message_outcome(text: str, index: int) -> BudgetEvidence | None:
     return outcome
 
 
-def parse_budget_evidence(messages: list[str]) -> BudgetEvidence:
+def parse_budget_evidence(
+    messages: list[str], budget_requested: bool = False
+) -> BudgetEvidence:
     """Evidence over the whole conversation: the latest budget
     statement wins (a later correction supersedes an earlier amount,
-    including a later invalid one)."""
+    including a later invalid one).
+
+    `budget_requested` is true when the workflow has already asked for
+    the budget (a clarification is in flight): a possessive amount in
+    the latest message then directly answers that question and counts
+    as budget evidence (đợt 1.7).
+    """
     result = BudgetEvidence(status=ABSENT)
     for index, message in enumerate(messages):
-        outcome = _message_outcome(message, index)
+        outcome = _message_outcome(
+            message, index, budget_requested and index == len(messages) - 1
+        )
         if outcome is not None:
             result = outcome
     return result
@@ -292,6 +330,34 @@ def literal_amounts(messages: list[str]) -> set[int]:
             if amount.value is not None:
                 values.add(amount.value)
     return values
+
+
+_AFFIRMATIONS = {
+    "đúng", "đúng rồi", "đúng vậy", "ừ", "ừ đúng", "ừm", "ừm đúng",
+    "ok", "oke", "ok đúng", "phải", "vâng", "chuẩn", "đồng ý",
+}
+_AFFIRM_HEADS = {"đúng", "ừ", "ừm", "ok", "oke", "phải", "vâng", "chuẩn"}
+_AFFIRM_BLOCKERS = {"không", "chưa", "đừng", "nhưng"}
+
+
+def is_affirmation(text: str) -> bool:
+    """True only for a short, unambiguous yes with no new content.
+
+    Used to confirm a budget candidate (đợt 1.7): the reply must carry
+    no digits (a new amount is evidence, handled by the parser), no
+    negation or concession ("đúng nhưng..." is not a confirmation),
+    and at most a short affirmation phrase.
+    """
+    cleaned = re.sub(r"[.!?…~]", " ", text.lower()).replace(",", " ")
+    cleaned = " ".join(cleaned.split())
+    if not cleaned or any(ch.isdigit() for ch in cleaned):
+        return False
+    tokens = cleaned.split()
+    if any(token in _AFFIRM_BLOCKERS for token in tokens):
+        return False
+    if cleaned in _AFFIRMATIONS:
+        return True
+    return tokens[0] in _AFFIRM_HEADS and len(tokens) <= 4
 
 
 def _supported_literals(messages: list[str]) -> set[int]:
@@ -322,7 +388,12 @@ def resolve_budget(
     """The gate. Returns (budget_vnd, decision) — decision names the
     provenance of the outcome for metrics and audit:
     evidence | invalid_blocked | ambiguous_clarify |
-    model_supported | model_unsupported | no_budget.
+    model_candidate | model_unsupported | no_budget.
+
+    "model_candidate" (đợt 1.7) commits nothing: under ABSENT, a model
+    budget that matches a literal amount the user wrote becomes a
+    candidate the workflow must confirm with the customer — existence
+    of a money mention is not evidence of its budget role.
     """
     if evidence.status == EXACT:
         return evidence.value_vnd, "evidence"
@@ -335,5 +406,5 @@ def resolve_budget(
     if not (BUDGET_MIN_VND <= model_budget <= BUDGET_MAX_VND):
         return None, "model_unsupported"
     if model_budget in _supported_literals(messages):
-        return model_budget, "model_supported"
+        return None, "model_candidate"
     return None, "model_unsupported"

@@ -46,3 +46,10 @@ def metrics_response() -> tuple[bytes, str]:
 BUDGET_GATE = Counter(
     "ai_budget_gate", "Budget evidence gate decisions", ["decision"]
 )
+
+
+FAQ_REPAIRS = Counter(
+    "ai_faq_repairs",
+    "FAQ coverage guard appended a missing critical fact",
+    ["fact_id"],
+)

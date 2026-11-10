@@ -17,9 +17,14 @@ from urllib.parse import urlencode
 
 from ...config import Settings
 from ...integrations.models import Product
-from ...observability import BUDGET_GATE, CHAT_TURNS
+from ...observability import BUDGET_GATE, CHAT_TURNS, FAQ_REPAIRS
 from ...platform.auth import Principal
-from ...platform.budget_evidence import parse_budget_evidence, resolve_budget
+from ...platform.budget_evidence import (
+    ABSENT,
+    is_affirmation,
+    parse_budget_evidence,
+    resolve_budget,
+)
 from ...platform.conversations import Conversation, ConversationStore
 from ...platform.eligibility import (
     OUT_OF_STOCK,
@@ -30,6 +35,7 @@ from ...platform.gateway import ToolContext, ToolError, ToolGateway
 from ...platform.knowledge import KnowledgeStore
 from ...platform.runtime import BudgetExceeded, TurnState
 from ...providers.llm import LLMRequest, Message, ProviderError, ToolSpec
+from .seed import FAQ_FACTS
 
 RULES = (
     "Bạn là trợ lý mua sắm của cửa hàng đặc sản OCOP Huế. Trả lời bằng tiếng Việt, "
@@ -236,6 +242,7 @@ class ShoppingAdvisor:
         )
         if not self._check_grounding(reply, grounding, set()):
             reply = results[0].content
+        reply = self._repair_faq_coverage(reply, results[0].document_title, user_text)
         citations = sorted({chunk.document_title for chunk in results})
         store.add_message(conv.id, "assistant", reply)
         CHAT_TURNS.labels(outcome="faq").inc()
@@ -243,6 +250,34 @@ class ShoppingAdvisor:
             yield {"type": "token", "text": reply[i:i + 48]}
         yield {"type": "citations", "items": citations}
         yield {"type": "done", "intent": "faq"}
+
+    def _repair_faq_coverage(self, reply: str, document_title: str, user_text: str) -> str:
+        """Deterministic completeness repair (docs ch. 12/14, dot 1.7).
+
+        When a FAQ document declares critical facts, and the composed
+        reply drops one that the question actually asks about, append
+        the source-backed sentence from the fact declaration. This
+        repairs omissions only: it never rewrites the model's answer
+        and never adds information the source does not state.
+        """
+        entry = FAQ_FACTS.get(document_title)
+        if not entry:
+            return reply
+        question = user_text.lower()
+        lowered = reply.lower()
+        missing = [
+            fact
+            for fact in entry["facts"]
+            if fact["critical"]
+            and any(keyword in question for keyword in fact["when"])
+            and not any(phrase.lower() in lowered for phrase in fact["any_of"])
+        ]
+        if not missing:
+            return reply
+        for fact in missing:
+            FAQ_REPAIRS.labels(fact_id=fact["fact_id"]).inc()
+        additions = " ".join(fact["append"] for fact in missing)
+        return reply.rstrip() + f"\n\nL\u01b0u \u00fd th\u00eam t\u1eeb c\u1eeda h\u00e0ng: {additions}"
 
     # -- order status --------------------------------------------------------
     async def _order_reply(self, store, conv, principal, ctx, state, user_text, code_match):
@@ -382,13 +417,44 @@ class ShoppingAdvisor:
                     slots["tastes"] = sorted(set(slots["tastes"]) | set(value))
                 else:
                     slots[key] = value
-        evidence = parse_budget_evidence(history_users)
+        evidence = parse_budget_evidence(
+            history_users,
+            budget_requested=int(slots.get("_clarifications", 0)) > 0
+            or "_budget_candidate" in slots,
+        )
         budget, decision = resolve_budget(evidence, model_budget, history_users)
+        pending = slots.pop("_budget_candidate", None)
+        if pending is not None and budget is None:
+            # A candidate lives for exactly one following user message
+            # (docs ch. 14, dot 1.7): new budget evidence has already
+            # won inside resolve_budget; a direct affirmation as the
+            # immediately following message confirms it; anything else
+            # lets it expire.
+            if (
+                pending.get("created_user_index", -1) + 1 == len(history_users) - 1
+                and is_affirmation(history_users[-1])
+            ):
+                budget = int(pending["amount"])
+                decision = "candidate_confirmed"
+        if budget is None and evidence.status == ABSENT and slots.get("budget_vnd"):
+            # A budget committed earlier — by evidence or by candidate
+            # confirmation — is not re-litigated on a later turn that
+            # carries no budget statement of its own. (Corrections and
+            # contradictions still win: they produce non-ABSENT
+            # evidence, handled above.)
+            budget = int(slots["budget_vnd"])
+            decision = "previously_committed"
         BUDGET_GATE.labels(decision=decision).inc()
         if budget is not None:
             slots["budget_vnd"] = budget
         else:
             slots.pop("budget_vnd", None)
+            if decision == "model_candidate" and model_budget is not None:
+                slots["_budget_candidate"] = {
+                    "amount": model_budget,
+                    "created_user_index": len(history_users) - 1,
+                    "status": "pending",
+                }
         slots["_budget_source"] = {
             "decision": decision,
             "status": evidence.status,
@@ -407,10 +473,19 @@ class ShoppingAdvisor:
             slots["_clarifications"] = clarifications + 1
             store.set_slots(conv.id, slots)
             known = f" quà {slots['occasion']}" if slots.get("occasion") else ""
-            reply = (
-                f"Dạ, em sẵn sàng tư vấn{known} cho anh/chị. Để gợi ý đúng ý nhất, "
-                f"anh/chị cho em biết thêm: {' và '.join(missing)} ạ?"
-            )
+            candidate = slots.get("_budget_candidate")
+            if candidate and not slots.get("budget_vnd"):
+                reply = (
+                    f"Dạ, anh/chị có nhắc tới {format_vnd(candidate['amount'])} — "
+                    "đó có phải ngân sách mua quà lần này không ạ?"
+                )
+                if not slots.get("recipient"):
+                    reply += " Và món quà này tặng ai ạ?"
+            else:
+                reply = (
+                    f"Dạ, em sẵn sàng tư vấn{known} cho anh/chị. Để gợi ý đúng ý nhất, "
+                    f"anh/chị cho em biết thêm: {' và '.join(missing)} ạ?"
+                )
             async for event in self._emit_reply(store, conv, reply, "clarification"):
                 yield event
             return

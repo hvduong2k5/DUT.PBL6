@@ -59,3 +59,41 @@ async def seed_knowledge(store: KnowledgeStore, catalog: FixtureCatalog | None =
                 f"Sản phẩm: {product.name}", "catalog-fixture", text, product_id=product.id
             )
     return total
+
+
+# Critical facts per FAQ document (docs ch. 12/14, dot 1.7). The FAQ
+# coverage guard checks composed replies against these and appends the
+# source-backed sentence when a critical fact the question asks about
+# is missing. Facts live WITH the document text above and carry its
+# version; a consistency test asserts every fact's canonical phrase
+# appears in the document text, so editing one without the other
+# fails loudly. "when" gates relevance: a fact is only checked when
+# the customer's question is about that fact's topic.
+FAQ_FACTS = {
+    "Hạn sử dụng và cách bảo quản mè xửng": {
+        "source_version": 1,
+        "facts": [
+            {
+                "fact_id": "shelf_life",
+                "critical": True,
+                "when": ["hạn", "để được bao lâu", "dùng được bao lâu"],
+                "any_of": ["6 tháng", "sáu tháng"],
+                "append": "Mè xửng có hạn sử dụng 6 tháng kể từ ngày sản xuất.",
+            },
+            {
+                "fact_id": "storage_environment",
+                "critical": True,
+                "when": ["bảo quản"],
+                "any_of": ["khô ráo", "khô thoáng", "tránh nơi ẩm", "tránh ẩm", "nơi khô"],
+                "append": "Bảo quản nơi khô ráo, thoáng mát, tránh ánh nắng trực tiếp.",
+            },
+            {
+                "fact_id": "storage_duration",
+                "critical": True,
+                "when": ["bảo quản", "mở gói"],
+                "any_of": ["7 ngày", "bảy ngày"],
+                "append": "Sau khi mở gói, nên dùng trong 7 ngày và buộc kín miệng túi.",
+            },
+        ],
+    },
+}
