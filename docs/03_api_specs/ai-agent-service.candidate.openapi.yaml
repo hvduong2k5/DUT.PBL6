@@ -1,0 +1,292 @@
+openapi: 3.1.0
+info:
+  title: MS-19 AI Agent Service API
+  version: 0.1.0
+  description: >-
+    Candidate contract of ai-agent-service phase 1 (customer shopping advisor
+    US-AI-01, recommendation consumption US-AI-04). Matches the implementation
+    on branch feat/ai-agent-service at 7af8b52. The AI only suggests: no
+    endpoint writes business data to another service.
+servers:
+  - url: http://localhost:8019
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      responses:
+        '200':
+          description: Service is up.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: {type: string, const: ok}
+                  service: {type: string, const: ai-agent-service}
+                  version: {type: string}
+                required: [status, service, version]
+  /health/ready:
+    get:
+      operationId: getReadiness
+      description: In fixture mode always ready; in production mode pings ai_db.
+      responses:
+        '200':
+          description: Ready.
+          content: {application/json: {schema: {$ref: '#/components/schemas/Readiness'}}}
+        '503':
+          description: Database unreachable.
+          content: {application/json: {schema: {$ref: '#/components/schemas/Readiness'}}}
+  /metrics:
+    get:
+      operationId: getMetrics
+      responses:
+        '200':
+          description: Prometheus exposition (ai_chat_turns, ai_tool_calls, ai_tool_seconds, ai_retrieval_results).
+          content: {text/plain: {schema: {type: string}}}
+  /api/v1/ai/shopping/conversations:
+    post:
+      operationId: createConversation
+      description: Creates a chat session. Without an Authorization header the session is a guest session (15-day retention); with a valid customer JWT it is a customer session (30-day retention).
+      security: [{bearerAuth: []}, {}]
+      responses:
+        '201':
+          description: Session created.
+          content: {application/json: {schema: {$ref: '#/components/schemas/CreateConversationResponse'}}}
+        '401': {$ref: '#/components/responses/Error'}
+  /api/v1/ai/shopping/conversations/{conversation_id}:
+    get:
+      operationId: getConversation
+      description: Own session with its working slots and persisted messages. Another owner's session is indistinguishable from a missing one (404).
+      security: [{bearerAuth: []}, {}]
+      parameters:
+        - {name: conversation_id, in: path, required: true, schema: {type: string}}
+      responses:
+        '200':
+          description: Session detail.
+          content: {application/json: {schema: {$ref: '#/components/schemas/ConversationDetail'}}}
+        '401': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+  /api/v1/ai/shopping/conversations/{conversation_id}/messages:
+    post:
+      operationId: postMessage
+      description: >-
+        Sends one chat turn. The response is a Server-Sent Events stream of
+        data: lines carrying one ChatEvent each. Replies are composed fully
+        and grounding-checked before any token is emitted (phase 1).
+      security: [{bearerAuth: []}, {}]
+      parameters:
+        - {name: conversation_id, in: path, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: '#/components/schemas/MessageRequest'}}}
+      responses:
+        '200':
+          description: SSE stream of chat events.
+          content:
+            text/event-stream:
+              schema: {$ref: '#/components/schemas/ChatEvent'}
+        '401': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+  /api/v1/ai/shopping/feedback:
+    post:
+      operationId: postFeedback
+      description: Records one feedback signal for a product shown in the caller's own session.
+      security: [{bearerAuth: []}, {}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: '#/components/schemas/FeedbackRequest'}}}
+      responses:
+        '200':
+          description: Recorded.
+          content:
+            application/json:
+              schema: {type: object, properties: {status: {type: string, const: recorded}}, required: [status]}
+        '401': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+  /api/v1/ai/recommendations:
+    get:
+      operationId: getRecommendations
+      description: >-
+        Storefront recommendations proxied from the Analytics recommendation
+        API and resolved against the current Catalog. Analytics owns the
+        personalisation consent; with no or failing Analytics answer the
+        service falls back to popular published products.
+      security: [{bearerAuth: []}, {}]
+      parameters:
+        - {name: placement, in: query, schema: {type: string, enum: [home, product_detail, cart], default: home}}
+        - {name: product_id, in: query, description: Required when placement is product_detail., schema: {type: string}}
+        - {name: sku_codes, in: query, description: Comma-separated SKU codes for placement cart., schema: {type: string}}
+      responses:
+        '200':
+          description: Resolved, currently published products.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: {type: array, items: {$ref: '#/components/schemas/Product'}}
+                required: [items]
+        '401': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+  /api/v1/ai/consent:
+    get:
+      operationId: getChatHistoryConsent
+      description: The service's own consent for persisting chat history. Not the Analytics recommendation consent. Customers only.
+      security: [{bearerAuth: []}]
+      responses:
+        '200':
+          description: Current consent state.
+          content: {application/json: {schema: {$ref: '#/components/schemas/Consent'}}}
+        '401': {$ref: '#/components/responses/Error'}
+    put:
+      operationId: putChatHistoryConsent
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: '#/components/schemas/Consent'}}}
+      responses:
+        '200':
+          description: Consent stored; the stored record's version increments on every change.
+          content: {application/json: {schema: {$ref: '#/components/schemas/Consent'}}}
+        '401': {$ref: '#/components/responses/Error'}
+  /api/v1/ai/knowledge/products/sync:
+    post:
+      operationId: syncKnowledge
+      description: >-
+        Internal ingestion. Chunks, embeds and stores one knowledge document;
+        returns the number of chunks created. Phase 1 has no permission gate
+        on this endpoint; phase 2 locks it with a staff permission grant.
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: '#/components/schemas/KnowledgeSyncRequest'}}}
+      responses:
+        '200':
+          description: Ingested.
+          content:
+            application/json:
+              schema: {type: object, properties: {chunks: {type: integer}}, required: [chunks]}
+        '422': {$ref: '#/components/responses/Error'}
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Customer JWT (RS256, verified via JWKS). The customer id is read from the user_id claim.
+  responses:
+    Error:
+      description: Error with a stable machine-readable code in detail.
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+  schemas:
+    Error:
+      type: object
+      properties:
+        detail: {type: string, description: 'Stable codes include: invalid_token, auth_not_configured, conversation_not_found, login_required, invalid_signal, product_id_required, invalid_placement.'}
+      required: [detail]
+    Readiness:
+      type: object
+      properties:
+        status: {type: string, enum: [ready, not_ready]}
+        db: {type: string, enum: [up, down]}
+      required: [status, db]
+    CreateConversationResponse:
+      type: object
+      properties:
+        conversation_id: {type: string}
+        owner_type: {type: string, enum: [guest, customer]}
+        expires_at: {type: string, format: date-time}
+      required: [conversation_id, owner_type, expires_at]
+    ConversationDetail:
+      type: object
+      properties:
+        conversation_id: {type: string}
+        owner_type: {type: string, enum: [guest, customer]}
+        slots: {type: object, additionalProperties: true, description: Working slots (budget_vnd, recipient, occasion, tastes).}
+        messages:
+          type: array
+          items:
+            type: object
+            properties:
+              role: {type: string, enum: [user, assistant, system]}
+              content: {type: string}
+            required: [role, content]
+      required: [conversation_id, owner_type, slots, messages]
+    MessageRequest:
+      type: object
+      properties:
+        content: {type: string, minLength: 1, maxLength: 2000}
+      required: [content]
+    FeedbackRequest:
+      type: object
+      properties:
+        conversation_id: {type: string}
+        product_id: {type: string}
+        signal: {type: string, enum: [helpful, not_helpful, clicked, dismissed]}
+      required: [conversation_id, product_id, signal]
+    Consent:
+      type: object
+      properties:
+        history_use: {type: boolean}
+      required: [history_use]
+    KnowledgeSyncRequest:
+      type: object
+      properties:
+        title: {type: string}
+        source: {type: string, default: api}
+        text: {type: string}
+        product_id: {type: [string, 'null']}
+        visibility: {type: string, default: public}
+      required: [title, text]
+    Product:
+      type: object
+      properties:
+        id: {type: string}
+        sku: {type: string}
+        name: {type: string}
+        price_vnd: {type: integer}
+        description: {type: string}
+      required: [id, sku, name, price_vnd, description]
+    ProductCard:
+      allOf:
+        - $ref: '#/components/schemas/Product'
+        - type: object
+          properties:
+            stock: {type: integer}
+            url: {type: string, description: 'Storefront path, e.g. /san-pham/{id}.'}
+          required: [stock, url]
+    ChatEvent:
+      description: One SSE data payload of a chat turn, discriminated by type.
+      oneOf:
+        - type: object
+          properties:
+            type: {type: string, const: token}
+            text: {type: string}
+          required: [type, text]
+        - type: object
+          properties:
+            type: {type: string, const: product_cards}
+            cards: {type: array, items: {$ref: '#/components/schemas/ProductCard'}}
+          required: [type, cards]
+        - type: object
+          properties:
+            type: {type: string, const: citations}
+            items: {type: array, items: {type: string}, description: Knowledge document titles used.}
+          required: [type, items]
+        - type: object
+          properties:
+            type: {type: string, enum: [done]}
+            intent: {type: string, enum: [shopping, clarification, faq, order_status, shipping_fee, basket]}
+            fallback_url: {type: string}
+            needs_login: {type: boolean}
+          required: [type, intent]
+        - type: object
+          properties:
+            type: {type: string, const: error}
+            code: {type: string, enum: [llm_unavailable, tool_unavailable]}
+            message: {type: string}
+            fallback_url: {type: string}
+          required: [type, code, message]
