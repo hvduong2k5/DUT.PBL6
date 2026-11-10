@@ -5,9 +5,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 
-import com.hvduong.identity.dto.common.ApiResponse;
-import com.hvduong.identity.dto.request.RegistrationRequest;
-import com.hvduong.identity.dto.response.RegistrationResponse;
+import com.hvduong.identity.common.response.ApiResponse;
+import com.hvduong.identity.application.dto.request.RegistrationRequest;
+import com.hvduong.identity.application.dto.response.RegistrationResponse;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;

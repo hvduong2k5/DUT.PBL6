@@ -452,7 +452,7 @@ def main():
         template = json.loads(
             (
                 ROOT
-                / "services/identity-service/deploy/keycloak/realm-export.template.json"
+                / "services/keycloak-service/realm-export.template.json"
             ).read_text(encoding="utf-8")
         )
         template.update(
@@ -493,7 +493,7 @@ def main():
                 "-v",
                 str(realm_file) + ":/opt/keycloak/data/import/realm.json:ro",
                 "-v",
-                str(ROOT / "services/identity-service/deploy/keycloak/themes/omama")
+                str(ROOT / "services/keycloak-service/themes/omama")
                 + ":/opt/keycloak/themes/omama:ro",
                 "quay.io/keycloak/keycloak:24.0.5",
                 "start-dev",
@@ -550,7 +550,7 @@ def main():
             json.loads(
                 (
                     ROOT
-                    / "services/identity-service/deploy/keycloak/order-user-profile-attribute.json"
+                    / "services/keycloak-service/order-user-profile-attribute.json"
                 ).read_text()
             )
         )
@@ -563,7 +563,7 @@ def main():
             )[0]
             == 200
         )
-        status, roles, _ = request(
+        status, customer_role, _ = request(
             base + "/admin/realms/" + realm + "/roles/CUSTOMER", token=admin_token
         )
         assert status == 200
@@ -577,7 +577,12 @@ def main():
                     "lastName": "Customer",
                     "enabled": True,
                     "emailVerified": True,
-                    "attributes": {"app_user_id": [account["principal"]]},
+                    "attributes": {
+                        "app_user_id": [account["principal"]],
+                        "principal_type": [
+                            "EMPLOYEE" if account is accounts["E"] else "CUSTOMER"
+                        ],
+                    },
                     "credentials": [
                         {
                             "type": "password",
@@ -591,6 +596,10 @@ def main():
             )
             assert status == 201
             account["subject"] = headers["Location"].rsplit("/", 1)[1]
+            # Every seeded account carries the CUSTOMER realm role,
+            # including the employee: consumers must deny the employee
+            # through the Identity principal mapping (principal_type),
+            # not through the absence of this legacy role. Mirrors dev.
             assert (
                 request(
                     base
@@ -599,7 +608,7 @@ def main():
                     + "/users/"
                     + account["subject"]
                     + "/role-mappings/realm",
-                    [roles],
+                    [customer_role],
                     admin_token,
                     "POST",
                 )[0]

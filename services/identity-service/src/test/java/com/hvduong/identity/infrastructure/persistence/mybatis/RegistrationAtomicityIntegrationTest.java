@@ -1,7 +1,7 @@
 package com.hvduong.identity.infrastructure.persistence.mybatis;
 
 import com.hvduong.identity.application.registration.RegisterPrincipalUseCase;
-import com.hvduong.identity.dto.request.RegistrationRequest;
+import com.hvduong.identity.application.dto.request.RegistrationRequest;
 import com.hvduong.identity.infrastructure.keycloak.KeycloakAdminClient;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.OutboxEventMapper;
 import org.junit.jupiter.api.Test;

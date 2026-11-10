@@ -1,29 +1,52 @@
 package com.hvduong.identity.application.account.impl;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.hvduong.identity.application.account.UserLifecycleService;
-import com.hvduong.identity.application.audit.AuditService;
-import com.hvduong.identity.dto.common.PageResponse;
-import com.hvduong.identity.dto.response.AdminUserDetailResponse;
-import com.hvduong.identity.dto.response.AdminUserItemResponse;
-import com.hvduong.identity.dto.response.UserProfileResponse;
-import com.hvduong.identity.dto.response.UserRoleScopeResponse;
-import com.hvduong.identity.infrastructure.keycloak.KeycloakAdminClient;
-import com.hvduong.identity.infrastructure.persistence.entity.*;
-import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.*;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
+
 import org.keycloak.representations.idm.UserRepresentation;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.*;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
-import java.time.OffsetDateTime;
-import java.util.*;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.hvduong.identity.application.account.UserLifecycleService;
+import com.hvduong.identity.application.audit.AuditService;
+import com.hvduong.identity.application.dto.response.AdminUserDetailResponse;
+import com.hvduong.identity.application.dto.response.AdminUserItemResponse;
+import com.hvduong.identity.application.dto.response.UserProfileResponse;
+import com.hvduong.identity.application.dto.response.UserRoleScopeResponse;
+import com.hvduong.identity.application.iam.PermissionSyncService;
+import com.hvduong.identity.common.enums.ProvisioningStatus;
+import com.hvduong.identity.common.response.PageResponse;
+import com.hvduong.identity.domain.entity.IamRoleAssignmentRow;
+import com.hvduong.identity.domain.entity.IamRolePermissionRow;
+import com.hvduong.identity.domain.entity.IamRoleRow;
+import com.hvduong.identity.domain.entity.IdentityPrincipalRow;
+import com.hvduong.identity.domain.entity.OutboxEventRow;
+import com.hvduong.identity.infrastructure.keycloak.KeycloakAdminClient;
+import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IamRoleAssignmentMapper;
+import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IamRoleMapper;
+import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IamRolePermissionMapper;
+import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IdentityPrincipalMapper;
+import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.OutboxEventMapper;
+import com.hvduong.identity.infrastructure.session.BffSessionStore;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Service
@@ -40,6 +63,9 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
     private final ObjectMapper objectMapper;
     private final RestTemplate restTemplate;
 
+    private final BffSessionStore bffSessionStore;
+    private final PermissionSyncService permissionSyncService;
+
     @Value("${keycloak.server-url}")
     private String serverUrl;
 
@@ -48,6 +74,9 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
 
     @Value("${keycloak.public-client-id:frontend-web}")
     private String publicClientId;
+
+    @Value("${app.kafka.topics.identity-events:identity.events.v1}")
+    private String identityEventsTopic;
 
     @Override
     @Transactional(readOnly = true)
@@ -66,9 +95,8 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
         }
 
         List<IamRoleAssignmentRow> assignments = roleAssignmentMapper.findActiveByPrincipal(
-                principal.getPrincipalId(), 
-                OffsetDateTime.now()
-        );
+                principal.getPrincipalId(),
+                OffsetDateTime.now());
 
         Set<String> effectivePermissions = new LinkedHashSet<>();
         List<UserRoleScopeResponse> roleDtos = new ArrayList<>();
@@ -95,15 +123,21 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
                     }
                 }
                 roleDtos.add(UserRoleScopeResponse.builder()
+                        .assignmentId(a.getAssignmentId())
+                        .roleId(a.getRoleId())
                         .roleCode(roleCode)
                         .roleName(roleName)
                         .scopeType(a.getScopeType())
                         .scopeId(a.getScopeId())
+                        .assignmentStatus(a.getAssignmentStatus())
+                        .validFrom(a.getValidFrom())
+                        .validUntil(a.getValidUntil())
+                        .assignedByPrincipalId(a.getAssignedByPrincipalId())
+                        .reason(a.getReason())
+                        .createdAt(a.getCreatedAt())
                         .build());
             }
         }
-
-
 
         return Optional.of(UserProfileResponse.builder()
                 .principalId(principal.getPrincipalId())
@@ -129,7 +163,7 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
             throw new IllegalArgumentException("Principal not found: " + principalId);
         }
 
-        if (principal.getIdpSubject() != null && actorPrincipalId != null 
+        if (principal.getIdpSubject() != null && actorPrincipalId != null
                 && principal.getIdpSubject().equals(actorPrincipalId.toString())) {
             throw new IllegalArgumentException("ADMIN không được phép tự khóa tài khoản của chính mình.");
         }
@@ -140,11 +174,10 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
         }
 
         int updated = principalMapper.updateProvisioningStatus(
-                principalId, 
-                "SUSPENDED", 
-                principal.getIdpSubject(), 
-                principal.getVersion()
-        );
+                principalId,
+                ProvisioningStatus.SUSPENDED.name(),
+                principal.getIdpSubject(),
+                principal.getVersion());
 
         if (updated == 0) {
             throw new IllegalStateException("Optimistic lock conflict when suspending principal: " + principalId);
@@ -158,6 +191,9 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
                 log.warn("Failed to disable user {} in Keycloak: {}", principal.getIdpSubject(), ex.getMessage());
             }
         }
+        if (bffSessionStore != null) {
+            bffSessionStore.removeSessionsByPrincipalId(principalId);
+        }
 
         auditService.recordAudit(
                 "USER",
@@ -170,14 +206,12 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
                 reason,
                 null,
                 null,
-                Map.of("reason", reason != null ? reason : "Administrative suspension")
-        );
+                Map.of("reason", reason != null ? reason : "Administrative suspension"));
 
-        enqueueOutboxEvent(principalId, "identity.events.v1.UserSuspended", Map.of(
+        enqueueOutboxEvent(principalId, identityEventsTopic + ".UserSuspended", Map.of(
                 "principalId", principalId.toString(),
                 "reason", reason != null ? reason : "Administrative suspension",
-                "suspendedAt", OffsetDateTime.now().toString()
-        ));
+                "suspendedAt", OffsetDateTime.now().toString()));
     }
 
     @Override
@@ -189,11 +223,10 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
         }
 
         int updated = principalMapper.updateProvisioningStatus(
-                principalId, 
-                "ACTIVE", 
-                principal.getIdpSubject(), 
-                principal.getVersion()
-        );
+                principalId,
+                ProvisioningStatus.ACTIVE.name(),
+                principal.getIdpSubject(),
+                principal.getVersion());
 
         if (updated == 0) {
             throw new IllegalStateException("Optimistic lock conflict when reactivating principal: " + principalId);
@@ -207,6 +240,13 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
             }
         }
 
+        // Grants may have changed while the account was suspended. Re-project the
+        // current IAM state before the user can obtain a new token.
+        if (permissionSyncService != null) {
+            permissionSyncService.syncPrincipal(
+                    principalId, false, PermissionSyncService.Trigger.ACCOUNT_STATUS_CHANGE, actorPrincipalId);
+        }
+
         auditService.recordAudit(
                 "USER",
                 actorPrincipalId,
@@ -218,29 +258,49 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
                 null,
                 null,
                 null,
-                Collections.emptyMap()
-        );
+                Collections.emptyMap());
 
-        enqueueOutboxEvent(principalId, "identity.events.v1.UserReactivated", Map.of(
+        enqueueOutboxEvent(principalId, identityEventsTopic + ".UserReactivated", Map.of(
                 "principalId", principalId.toString(),
-                "reactivatedAt", OffsetDateTime.now().toString()
-        ));
+                "reactivatedAt", OffsetDateTime.now().toString()));
     }
 
     @Override
     @Transactional(readOnly = true)
-    public PageResponse<AdminUserItemResponse> listUsers(String type, String status, int page, int size, UUID actorId) {
+    public PageResponse<AdminUserItemResponse> listUsers(
+            String type,
+            String status,
+            UUID roleId,
+            String roleCode,
+            String scopeType,
+            String scopeId,
+            String search,
+            int page,
+            int size,
+            UUID actorId) {
 
         int validPage = Math.max(0, page);
         int validSize = size <= 0 ? 20 : Math.min(size, 100);
         int offset = validPage * validSize;
+        OffsetDateTime now = OffsetDateTime.now();
 
-        List<IdentityPrincipalRow> rows = principalMapper.findPage(type, status, offset, validSize);
-        long totalItems = principalMapper.countTotal(type, status);
+        List<String> idpSubjects = Collections.emptyList();
+        if (search != null && !search.isBlank()) {
+            List<UserRepresentation> matchedUsers = keycloakAdminClient.searchUsers(search.trim(), 50);
+            if (matchedUsers != null && !matchedUsers.isEmpty()) {
+                idpSubjects = matchedUsers.stream().map(UserRepresentation::getId).filter(Objects::nonNull).toList();
+            }
+        }
+
+        List<IdentityPrincipalRow> rows = principalMapper.findPage(
+                type, status, roleId, roleCode, scopeType, scopeId, now,
+                search != null && !search.isBlank() ? search.trim() : null, idpSubjects, offset, validSize);
+        long totalItems = principalMapper.countTotal(
+                type, status, roleId, roleCode, scopeType, scopeId, now,
+                search != null && !search.isBlank() ? search.trim() : null, idpSubjects);
         int totalPages = (int) Math.ceil((double) totalItems / validSize);
 
         List<AdminUserItemResponse> items = new ArrayList<>();
-        OffsetDateTime now = OffsetDateTime.now();
 
         for (IdentityPrincipalRow row : rows) {
             String email = null;
@@ -258,7 +318,8 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
             }
 
             List<String> roleCodes = new ArrayList<>();
-            List<IamRoleAssignmentRow> assignments = roleAssignmentMapper.findActiveByPrincipal(row.getPrincipalId(), now);
+            List<IamRoleAssignmentRow> assignments = roleAssignmentMapper.findActiveByPrincipal(row.getPrincipalId(),
+                    now);
             if (assignments != null) {
                 for (IamRoleAssignmentRow a : assignments) {
                     if (a.getRoleId() != null) {
@@ -269,7 +330,6 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
                     }
                 }
             }
-
 
             items.add(AdminUserItemResponse.builder()
                     .principalId(row.getPrincipalId())
@@ -317,9 +377,8 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
         }
 
         List<IamRoleAssignmentRow> assignments = roleAssignmentMapper.findActiveByPrincipal(
-                principal.getPrincipalId(), 
-                OffsetDateTime.now()
-        );
+                principal.getPrincipalId(),
+                OffsetDateTime.now());
 
         Set<String> effectivePermissions = new LinkedHashSet<>();
         List<UserRoleScopeResponse> roleDtos = new ArrayList<>();
@@ -346,15 +405,21 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
                     }
                 }
                 roleDtos.add(UserRoleScopeResponse.builder()
+                        .assignmentId(a.getAssignmentId())
+                        .roleId(a.getRoleId())
                         .roleCode(roleCode)
                         .roleName(roleName)
                         .scopeType(a.getScopeType())
                         .scopeId(a.getScopeId())
+                        .assignmentStatus(a.getAssignmentStatus())
+                        .validFrom(a.getValidFrom())
+                        .validUntil(a.getValidUntil())
+                        .assignedByPrincipalId(a.getAssignedByPrincipalId())
+                        .reason(a.getReason())
+                        .createdAt(a.getCreatedAt())
                         .build());
             }
         }
-
-
 
         return AdminUserDetailResponse.builder()
                 .principalId(principal.getPrincipalId())
@@ -397,8 +462,7 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
                 null,
                 null,
                 null,
-                Map.of("temporary", temporary)
-        );
+                Map.of("temporary", temporary));
     }
 
     @Override
@@ -413,6 +477,9 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
         if (principal.getIdpSubject() != null) {
             keycloakAdminClient.logoutUser(principal.getIdpSubject());
         }
+        if (bffSessionStore != null) {
+            bffSessionStore.removeSessionsByPrincipalId(principalId);
+        }
 
         auditService.recordAudit(
                 "USER",
@@ -425,8 +492,7 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
                 null,
                 null,
                 null,
-                Collections.emptyMap()
-        );
+                Collections.emptyMap());
     }
 
     @Override
@@ -481,35 +547,13 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
                 null,
                 null,
                 null,
-                Collections.emptyMap()
-        );
-    }
-
-    private UUID resolvePrincipalId(UUID actorId) {
-        if (actorId == null) {
-            return null;
-        }
-        IdentityPrincipalRow row = principalMapper.findById(actorId);
-        if (row != null) {
-            return row.getPrincipalId();
-        }
-        row = principalMapper.findBySubject(actorId.toString());
-        if (row != null) {
-            return row.getPrincipalId();
-        }
-        return actorId;
+                Collections.emptyMap());
     }
 
     private boolean isAdmin(UUID principalId) {
-        if (principalId == null) return false;
+        if (principalId == null)
+            return false;
         return principalMapper.hasRoleCode(principalId, "ADMIN");
-    }
-
-    private void requireAdmin(UUID actorId) {
-        UUID effectiveActorId = resolvePrincipalId(actorId);
-        if (effectiveActorId == null || !isAdmin(effectiveActorId)) {
-            throw new SecurityException("Thao tác này chỉ dành riêng cho tài khoản có vai trò ADMIN.");
-        }
     }
 
     private String buildTokenEndpoint() {

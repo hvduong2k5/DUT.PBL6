@@ -16,14 +16,24 @@ Các dòng sau giữ nguyên điều kiện owner `hasRole('ADMIN') OR hasAuthor
 | `USER_SESSION_REVOKE` | `POST /api/v1/admin/users/{principalId}/sessions/revoke` | Tài khoản đích |
 | `EMPLOYEE_INVITE` | `POST /api/v1/admin/employee-invitations` | Lời mời nhân viên |
 | `EMPLOYEE_INVITATION_REVOKE` | `DELETE /api/v1/admin/employee-invitations/{invitationId}` | Lời mời đích |
-| `ROLE_VIEW` | `GET /api/v1/admin/roles`, `GET /api/v1/admin/roles/{roleId}` | Danh mục vai trò |
+| `ROLE_VIEW` | `GET /api/v1/admin/roles`, `GET /api/v1/admin/roles/{roleId}`, `GET /api/v1/admin/role-assignments`, `GET /api/v1/admin/iam/principals/{principalId}/effective-permissions` | Danh mục vai trò và quyền đang cấu hình của principal |
 | `ROLE_MANAGE` | `POST /api/v1/admin/roles`, `PATCH /api/v1/admin/roles/{roleId}`, `DELETE /api/v1/admin/roles/{roleId}` | Vai trò đích |
 | `ROLE_ASSIGN` | `POST /api/v1/admin/role-assignments`, `DELETE /api/v1/admin/role-assignments/{assignmentId}` | Gán/thu hồi role; payload có GLOBAL/WAREHOUSE/STORE, chưa chứng minh enforcement scope đó ở mọi service |
 | `PERMISSION_VIEW` | `GET /api/v1/admin/roles/{roleId}/permissions` | Quyền của vai trò đích |
-| `PERMISSION_MANAGE` | `PUT/POST /api/v1/admin/roles/{roleId}/permissions`, `DELETE .../permissions/{permissionCode}` | Danh sách quyền của role đích |
+| `PERMISSION_MANAGE` | `PUT/POST /api/v1/admin/roles/{roleId}/permissions`, `DELETE .../permissions/{permissionCode}`, `POST /api/v1/admin/iam/principals/{principalId}/sync-permissions` | Danh sách quyền của role đích và chạy lại đồng bộ sang Keycloak |
 | `AUDIT_LOG_VIEW`, `AUDIT_LOG_EXPORT` | Chưa tìm thấy API đọc/export tương ứng trong controller | Không coi mã seed là endpoint đã được bảo vệ và triển khai |
 
 `GET /api/v1/users/me`, `PUT /api/v1/users/me/password` là truy cập chính mình theo principal đã xác minh, không cần quyền admin. Test tích hợp tập trung đăng nhập và ranh giới persona; chưa nghiệm thu toàn bộ thao tác IAM quản trị qua giao diện.
+
+### Quy ước JWT claim (chốt trước PR #71 / #73)
+
+- **Thêm claim `principal_type` vào JWT.** Giá trị: `CUSTOMER` hoặc `EMPLOYEE`. Nguồn: `identity_principals.principal_type`. Được ghi vào Keycloak user attribute `principal_type`, rồi protocol mapper đưa vào claim `principal_type` của access token.
+- **Stale data tối đa 5 phút:** Access token chỉ sống 5 phút (`accessTokenLifespan = 300s`). Nếu `principal_type` thay đổi (rất hiếm), token cũ vẫn có giá trị đến khi hết hạn, sau đó phải refresh để nhận claim mới.
+- `permission_grants` là nguồn quyền staff có thẩm quyền theo 2-A. Mỗi phần tử trói `permission` với `scope_type` + `scope_id` của chính assignment sinh ra nó; **không ghép chéo** giữa các phần tử.
+  - `scope_type = GLOBAL` ⇒ `scope_id` phải `null`.
+  - `scope_type = WAREHOUSE/STORE/REGION/DEPARTMENT/BRANCH/BUSINESS_UNIT` ⇒ `scope_id` bắt buộc có giá trị.
+- `permissions` (flat list) chỉ giữ cho consumer cũ (Catalog, Identity tự kiểm) trong giai đoạn chuyển tiếp. Consumer mới **không được** dùng danh sách phẳng để kiểm phạm vi; phải dùng `permission_grants`.
+- `amr` / `auth_time` phục vụ kiểm tra MFA gần đây cho thao tác rủi cao (6-B) — consumer nào cần thì kiểm, không phải mọi request.
 
 ## Các service trong luồng mua
 

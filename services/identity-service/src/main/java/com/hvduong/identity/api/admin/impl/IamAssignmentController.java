@@ -2,8 +2,9 @@ package com.hvduong.identity.api.admin.impl;
 
 import com.hvduong.identity.api.admin.IamAssignmentApi;
 import com.hvduong.identity.application.iam.RoleAssignmentService;
-import com.hvduong.identity.dto.common.ApiResponse;
-import com.hvduong.identity.dto.request.AssignRoleRequest;
+import com.hvduong.identity.common.response.ApiResponse;
+import com.hvduong.identity.application.dto.request.AssignRoleRequest;
+import com.hvduong.identity.application.dto.response.RoleAssignmentResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -23,7 +25,25 @@ public class IamAssignmentController implements IamAssignmentApi {
     private final RoleAssignmentService roleAssignmentService;
 
     @Override
-    @PreAuthorize("hasRole('ADMIN') or hasAuthority('ROLE_ASSIGN')")
+    @PreAuthorize("hasAuthority('ROLE_VIEW')")
+    public ResponseEntity<ApiResponse<List<RoleAssignmentResponse>>> listAssignments(
+            @RequestParam(required = false) UUID principalId,
+            @RequestParam(required = false) UUID roleId,
+            @RequestParam(required = false) String roleCode,
+            @RequestParam(required = false) String scopeType,
+            @RequestParam(required = false) String scopeId,
+            @RequestParam(required = false) String status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        List<RoleAssignmentResponse> result = roleAssignmentService.listAssignments(
+                principalId, roleId, roleCode, scopeType, scopeId, status, page, size
+        );
+        return ResponseEntity.ok(ApiResponse.success(result));
+    }
+
+    @Override
+    @PreAuthorize("hasAuthority('ROLE_ASSIGN')")
     public ResponseEntity<ApiResponse<UUID>> assignRole(
             @RequestBody AssignRoleRequest request,
             @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorId
@@ -34,7 +54,19 @@ public class IamAssignmentController implements IamAssignmentApi {
     }
 
     @Override
-    @PreAuthorize("hasRole('ADMIN') or hasAuthority('ROLE_ASSIGN')")
+    @PreAuthorize("hasAuthority('ROLE_ASSIGN')")
+    public ResponseEntity<ApiResponse<RoleAssignmentResponse>> updateRoleAssignment(
+            @PathVariable UUID assignmentId,
+            @RequestBody com.hvduong.identity.application.dto.request.UpdateRoleAssignmentRequest request,
+            @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorId
+    ) {
+        UUID updatedBy = com.hvduong.identity.security.VerifiedActor.id();
+        RoleAssignmentResponse updated = roleAssignmentService.updateAssignment(assignmentId, request, updatedBy);
+        return ResponseEntity.ok(ApiResponse.success("Cập nhật phân công vai trò thành công", updated));
+    }
+
+    @Override
+    @PreAuthorize("hasAuthority('ROLE_ASSIGN')")
     public ResponseEntity<ApiResponse<Void>> revokeRole(
             @PathVariable UUID assignmentId,
             @RequestParam(required = false) String reason,

@@ -2,11 +2,11 @@ package com.hvduong.identity.api.admin.impl;
 
 import com.hvduong.identity.api.admin.AdminUserApi;
 import com.hvduong.identity.application.account.UserLifecycleService;
-import com.hvduong.identity.dto.common.ApiResponse;
-import com.hvduong.identity.dto.common.PageResponse;
-import com.hvduong.identity.dto.request.ResetPasswordRequest;
-import com.hvduong.identity.dto.response.AdminUserDetailResponse;
-import com.hvduong.identity.dto.response.AdminUserItemResponse;
+import com.hvduong.identity.common.response.ApiResponse;
+import com.hvduong.identity.common.response.PageResponse;
+import com.hvduong.identity.application.dto.request.ResetPasswordRequest;
+import com.hvduong.identity.application.dto.response.AdminUserDetailResponse;
+import com.hvduong.identity.application.dto.response.AdminUserItemResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,22 +29,29 @@ public class AdminUserController implements AdminUserApi {
     private final UserLifecycleService userLifecycleService;
 
     @Override
-    @PreAuthorize("hasRole('ADMIN') or hasAuthority('USER_VIEW')")
+    @PreAuthorize("hasAuthority('USER_VIEW')")
     public ResponseEntity<ApiResponse<PageResponse<AdminUserItemResponse>>> listUsers(
             @RequestParam(value = "type", required = false) String type,
             @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "roleId", required = false) UUID roleId,
+            @RequestParam(value = "roleCode", required = false) String roleCode,
+            @RequestParam(value = "scopeType", required = false) String scopeType,
+            @RequestParam(value = "scopeId", required = false) String scopeId,
+            @RequestParam(value = "search", required = false) String search,
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "20") int size,
             @AuthenticationPrincipal Jwt jwt,
             String actorHeader
     ) {
         UUID actorId = extractActorId(jwt, actorHeader);
-        PageResponse<AdminUserItemResponse> result = userLifecycleService.listUsers(type, status, page, size, actorId);
+        PageResponse<AdminUserItemResponse> result = userLifecycleService.listUsers(
+                type, status, roleId, roleCode, scopeType, scopeId, search, page, size, actorId
+        );
         return ResponseEntity.ok(ApiResponse.success(result));
     }
 
     @Override
-    @PreAuthorize("hasRole('ADMIN') or hasAuthority('USER_VIEW')")
+    @PreAuthorize("hasAuthority('USER_VIEW')")
     public ResponseEntity<ApiResponse<AdminUserDetailResponse>> getUserDetail(
             @PathVariable UUID principalId,
             @AuthenticationPrincipal Jwt jwt,
@@ -56,7 +63,7 @@ public class AdminUserController implements AdminUserApi {
     }
 
     @Override
-    @PreAuthorize("hasRole('ADMIN') or hasAuthority('USER_PASSWORD_RESET')")
+    @PreAuthorize("hasAuthority('USER_PASSWORD_RESET')")
     public ResponseEntity<ApiResponse<Void>> resetUserPassword(
             @PathVariable UUID principalId,
             @Valid @RequestBody ResetPasswordRequest request,
@@ -69,7 +76,7 @@ public class AdminUserController implements AdminUserApi {
     }
 
     @Override
-    @PreAuthorize("hasRole('ADMIN') or hasAuthority('USER_SESSION_REVOKE')")
+    @PreAuthorize("hasAuthority('USER_SESSION_REVOKE')")
     public ResponseEntity<ApiResponse<Void>> revokeUserSessions(
             @PathVariable UUID principalId,
             @AuthenticationPrincipal Jwt jwt,
