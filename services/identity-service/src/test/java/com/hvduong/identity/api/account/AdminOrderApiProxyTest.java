@@ -1,7 +1,7 @@
 package com.hvduong.identity.api.account;
 
 import com.hvduong.identity.api.account.impl.AdminOrderApiProxyController;
-import com.hvduong.identity.infrastructure.persistence.entity.IdentityPrincipalRow;
+import com.hvduong.identity.domain.entity.IdentityPrincipalRow;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IdentityPrincipalMapper;
 import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.Test;
