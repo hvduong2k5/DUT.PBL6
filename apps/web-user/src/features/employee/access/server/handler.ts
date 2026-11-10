@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { usesIdentityBff } from "@/lib/auth/oidc-config";
+import { handleLiveAdminAccess } from "./live-handler";
 import { EmployeeAuthorizationError, requireEmployeeSession } from "@/features/employee/auth/server";
 import { applyTrustedSessionCookie } from "@/lib/auth/server-credential";
 import { ADMIN_PERMISSIONS, type AdminPermission } from "@/features/employee/auth/types";
@@ -67,7 +69,7 @@ function mapList(payload: Record<string, unknown>, canReview: boolean): Employee
   return {
     items, statusCounts, departments: array(payload.departments).map((item) => string(item)).filter(Boolean),
     roles: array(payload.roles).map((value) => { const item = record(value) ? value : {}; return { roleCode: string(item.roleCode), roleName: string(item.roleName) }; }).filter((item) => item.roleCode),
-    permissions: canReview ? array(payload.permissions).map((value) => { const item = record(value) ? value : {}; return permission(item.permissionCode) ? { permissionCode: item.permissionCode, permissionName: string(item.permissionName) } : null; }).filter((item): item is EmployeeAccessList["permissions"][number] => item !== null) : [], calculatedAt: date(payload.calculatedAt)
+    permissions: canReview ? array(payload.permissions).map((value) => { const item = record(value) ? value : {}; return permission(item.permissionCode) ? { permissionCode: item.permissionCode, permissionName: string(item.permissionName) } : null; }).filter((item) => item !== null) : [], calculatedAt: date(payload.calculatedAt)
   };
 }
 function mapAssignment(value: unknown): EmployeeRoleAssignment {
@@ -114,7 +116,7 @@ function mapRoleList(payload: Record<string, unknown>): AdminRoleList {
 function mapRoleDetail(payload: Record<string, unknown>): AdminRoleDetail {
   const summary = mapAdminRoleSummary(payload);
   const impact = record(payload.impact) ? payload.impact : {};
-  return { ...summary, protectedRole: payload.protectedRole === true || summary.kind === "SYSTEM", permissions: array(payload.permissions).map((value) => { const item = record(value) ? value : {}; return permission(item.permissionCode) ? { permissionCode: item.permissionCode, permissionName: string(item.permissionName), action: string(item.action), resource: string(item.resource), scopeLabel: string(item.scopeLabel) } : null; }).filter((item): item is AdminRoleDetail["permissions"][number] => item !== null), impact: { activeEmployees: Math.max(0, number(impact.activeEmployees)), scheduledAssignments: Math.max(0, number(impact.scheduledAssignments)), lockedAccounts: Math.max(0, number(impact.lockedAccounts)) } };
+  return { ...summary, protectedRole: payload.protectedRole === true || summary.kind === "SYSTEM", permissions: array(payload.permissions).map((value) => { const item = record(value) ? value : {}; return permission(item.permissionCode) ? { permissionCode: item.permissionCode, permissionName: string(item.permissionName), action: string(item.action), resource: string(item.resource), scopeLabel: string(item.scopeLabel) } : null; }).filter((item) => item !== null), impact: { activeEmployees: Math.max(0, number(impact.activeEmployees)), scheduledAssignments: Math.max(0, number(impact.scheduledAssignments)), lockedAccounts: Math.max(0, number(impact.lockedAccounts)) } };
 }
 function permissionStatus(value: unknown): AdminPermissionStatus {
   const status = string(value) as AdminPermissionStatus;
@@ -139,6 +141,7 @@ function mapPermissionDetail(payload: Record<string, unknown>): AdminPermissionD
 }
 
 export async function handleAdminAccess(request: NextRequest, path: string[]) {
+  if (usesIdentityBff() || process.env.WEB_AUTH_MODE === "oidc") return handleLiveAdminAccess(request, path);
   const route = parseAdminAccessPath(path);
   if (route.kind === "invalid") return responseError("NOT_FOUND", "Admin access route không tồn tại.", 404);
   if (request.method !== "GET") return responseError("METHOD_NOT_ALLOWED", "Method không được hỗ trợ.", 405);

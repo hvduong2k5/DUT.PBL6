@@ -1,10 +1,14 @@
 openapi: 3.1.0
 info:
   title: Internal Employee Web API - Stable
-  version: 1.0.0
+  version: 1.1.0
   description: Implementation-ready contract for employee sessions, permission-scoped
     management views, and approved workbench operations. Authorization MUST use effective
-    permissions and data scopes; role names alone are insufficient.
+    permissions and data scopes; role names alone are insufficient. The provisional
+    staff JWT and IAM read producer handoff is documented separately in
+    iam-consumer-read.openapi.yaml and admin-draft-planned.openapi.yaml; it does
+    not assert that producer tasks 1-2 are deployed. Existing UI response schemas
+    below remain unchanged; Order uses an adapter for its direct backend projection.
   license:
     name: Proprietary
     identifier: LicenseRef-Proprietary

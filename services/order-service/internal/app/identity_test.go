@@ -196,11 +196,12 @@ func TestKeycloakProfileResolution(t *testing.T) {
 }
 
 func TestKeycloakConfiguration(t *testing.T) {
-	c := Config{Mode: "sandbox", AuthMode: "keycloak", OIDCIssuer: "https://identity.example/realms/omama", OIDCAudience: "order-api", Profile: "http://profile:8003", ProfileToken: "test-internal-profile-token"}
+	c := Config{Mode: "sandbox", AuthMode: "keycloak", OIDCIssuer: "https://identity.example/realms/omama", OIDCAudience: "order-api", Profile: "http://profile:8003", ProfileToken: "test-internal-profile-token", IdentityURL: "https://identity.example"}
 	if _, e := NewCustomerIdentity(c); e != nil {
 		t.Fatal(e)
 	}
 	for _, edit := range []func(*Config){
+		func(c *Config) { c.IdentityURL = "" },
 		func(c *Config) { c.AuthMode = "typo" }, func(c *Config) { c.OIDCAudience = "" }, func(c *Config) { c.Profile = "" },
 		func(c *Config) { c.AuthMode = "" },
 		func(c *Config) { c.OIDCIssuer = "http://identity.example/realms/omama"; c.OIDCAllowLocalHTTP = true },

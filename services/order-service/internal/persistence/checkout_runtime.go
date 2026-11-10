@@ -6,6 +6,7 @@ import (
 	"errors"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/omamx/order-service/internal/domain"
 	"github.com/omamx/order-service/internal/domain/core"
 	"time"
 )
@@ -410,6 +411,10 @@ func (r *CheckoutRuntime) Work(ctx context.Context) (bool, error) {
 	return true, e
 }
 func (r *CheckoutRuntime) Recover(ctx context.Context, id, actor, warehouse, merchant, key, reason string) error {
+	return r.RecoverAuthorized(ctx, id, actor, domain.PermissionScope{Global: warehouse == "", IDs: []string{warehouse}}, merchant, key, reason)
+}
+
+func (r *CheckoutRuntime) RecoverAuthorized(ctx context.Context, id, actor string, scopeGrant domain.PermissionScope, merchant, key, reason string) error {
 	if !validID(id) || !commandKey(key) || reason == "" || len(reason) > 1000 {
 		return ErrInput
 	}
@@ -429,7 +434,7 @@ func (r *CheckoutRuntime) Recover(ctx context.Context, id, actor, warehouse, mer
 		if json.Unmarshal(clear, &accepted) != nil {
 			return ErrIntegrity
 		}
-		if accepted.Terms.MerchantID != merchant || warehouse != "" && accepted.Terms.WarehouseID != warehouse {
+		if accepted.Terms.MerchantID != merchant || !scopeGrant.Allows(accepted.Terms.WarehouseID) {
 			return ErrForbidden
 		}
 		var prior string

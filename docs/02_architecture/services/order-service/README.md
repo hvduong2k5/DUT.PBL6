@@ -1,5 +1,7 @@
 # MS-04 Order Service — baseline thiết kế 3.2
 
+**Phân quyền API hiện thực:** [Permission, warehouse scope và thông tin nhạy cảm](../../../06_operations/profile-order-api-authorization.md). Các chốt Care/Fulfillment/Payment vẫn áp dụng sau kiểm tra quyền.
+
 **Hoàn thiện ngày 14/10/2026.** Bộ HLD/LLD này thống nhất thiết kế mục tiêu để phối hợp các service. Runtime hiện có là sandbox 3.1; provider thật chưa đủ mọi capability. Đọc gaps trước khi tuyên bố integration-ready.
 
 | Tài liệu | Vai trò |

@@ -27,6 +27,7 @@ import com.hvduong.identity.application.account.UserLifecycleService;
 import com.hvduong.identity.application.audit.AuditService;
 import com.hvduong.identity.application.dto.response.AdminUserDetailResponse;
 import com.hvduong.identity.application.dto.response.AdminUserItemResponse;
+import com.hvduong.identity.application.dto.response.PermissionGrantResponse;
 import com.hvduong.identity.application.dto.response.UserProfileResponse;
 import com.hvduong.identity.application.dto.response.UserRoleScopeResponse;
 import com.hvduong.identity.application.iam.PermissionSyncService;
@@ -100,6 +101,7 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
 
         Set<String> effectivePermissions = new LinkedHashSet<>();
         List<UserRoleScopeResponse> roleDtos = new ArrayList<>();
+        Set<PermissionGrantResponse> grants = new LinkedHashSet<>();
 
         if (assignments != null) {
             for (IamRoleAssignmentRow a : assignments) {
@@ -107,6 +109,9 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
                 String roleName = null;
                 if (roleMapper != null && a.getRoleId() != null) {
                     IamRoleRow role = roleMapper.findById(a.getRoleId());
+                    if (role == null || !Boolean.TRUE.equals(role.getIsEnabled())) {
+                        continue;
+                    }
                     if (role != null) {
                         roleCode = role.getRoleCode();
                         roleName = role.getRoleName();
@@ -118,6 +123,7 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
                         for (IamRolePermissionRow p : permRows) {
                             if (p.getPermissionCode() != null && !p.getPermissionCode().isBlank()) {
                                 effectivePermissions.add(p.getPermissionCode());
+                                grants.add(new PermissionGrantResponse(p.getPermissionCode(), a.getScopeType(), a.getScopeId()));
                             }
                         }
                     }
@@ -147,6 +153,7 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
                 .provisioningStatus(principal.getProvisioningStatus())
                 .roles(roleDtos)
                 .permissions(new ArrayList<>(effectivePermissions))
+                .permissionGrants(new ArrayList<>(grants))
                 .build());
     }
 
