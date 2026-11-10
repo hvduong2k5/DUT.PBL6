@@ -39,7 +39,7 @@ class Settings:
     gemini_api_key: str | None = None
     gemini_base_url: str = "https://generativelanguage.googleapis.com/v1beta/openai/"
     gemini_model: str = "gemini-2.0-flash"
-    aws_region: str = "ap-southeast-1"
+    aws_region: str = "ap-southeast-2"
     embedding_provider: str = "fake"  # fake | gemini | titan
     embedding_model: str = "amazon.titan-embed-text-v2:0"
     embedding_dim: int = 1024
@@ -86,7 +86,7 @@ class Settings:
                 "AI_GEMINI_BASE_URL", "https://generativelanguage.googleapis.com/v1beta/openai/"
             ),
             gemini_model=_env("AI_GEMINI_MODEL", "gemini-2.0-flash"),
-            aws_region=_env("AWS_REGION", "ap-southeast-1"),
+            aws_region=_env("AWS_REGION", "ap-southeast-2"),
             embedding_provider=_env("AI_EMBEDDING_PROVIDER", "fake"),
             embedding_model=_env("AI_EMBEDDING_MODEL", "amazon.titan-embed-text-v2:0"),
             embedding_dim=_int("AI_EMBEDDING_DIM", 1024),

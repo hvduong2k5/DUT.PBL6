@@ -25,7 +25,7 @@ Thứ tự việc sau lát này: (1) contract test 4 tầng với MS-11 khi PR #
 
 ## Kích hoạt production (không phải viết code mới, là nối dây + nghiệm thu)
 
-1. **IAM Bedrock:** cấp quyền, đặt `AI_LLM_PROVIDER=bedrock`, `AI_EMBEDDING_PROVIDER=titan`; chạy lại **toàn bộ golden set trên Nova Pro** — lần chạy này là nghiệm thu production, vì FakeProvider không chứng minh được chất lượng model thật.
+1. **IAM Bedrock:** cấp quyền, đặt `AI_LLM_PROVIDER=bedrock`, `AI_EMBEDDING_PROVIDER=titan`; chạy lại **toàn bộ golden set trên Nova Pro** — lần chạy này là nghiệm thu production, vì FakeProvider không chứng minh được chất lượng model thật. **Tiến độ 10/11/2026:** IAM đã được cấp; kiểm chứng thật ở **ap-southeast-2** đạt cho cả hai model (Nova Pro gọi trực tiếp 63/17 token, Titan V2 trả vector 1024 chiều — chi tiết ở ghi chú region, chương 06). Còn lại đúng bước chạy golden set trên Nova Pro.
 2. **Analytics thật:** chờ PR #62 merge vào `dev`; tắt fixture cho riêng adapter Analytics trước để kiểm chứng placement `home` có/không consent.
 3. **Đối chiếu adapter:** đọc controller thật của Catalog/Inventory/Order/Shipping, sửa `http_clients.py`, bổ sung test contract cho từng service ([chương 07](07_integrations_and_contract_gaps.md)).
 4. **Triển khai:** đưa service vào dự án `pbl6` trên Coolify (VPS đã có Kong/Keycloak/Kafka), thêm route Kong, đặt lịch chạy job `cleanup`, cấu hình `AI_JWT_*` trỏ Keycloak production.

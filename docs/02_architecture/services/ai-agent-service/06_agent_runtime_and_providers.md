@@ -33,7 +33,7 @@ Kiểu chuẩn dùng chung (hình dạng theo Bedrock Converse): `LLMRequest` (m
 | --- | --- | --- |
 | `FakeProvider` | Test, CI, dev mặc định | Xác định hoàn toàn: trích xuất slot bằng luật (regex ngân sách “triệu/k/đ”, danh sách người nhận/dịp/vị), trả lời từ khối `[GROUNDING]`; giả lập được lỗi, timeout và độ trễ cho test khả năng chịu lỗi |
 | `GeminiProvider` | Dev thủ công (tùy chọn) | Qua endpoint tương thích OpenAI của Gemini (`AI_GEMINI_MODEL`, mặc định `gemini-2.0-flash`), timeout 30 giây. Không phải đường production |
-| `BedrockProvider` | **Production** | Converse API + `converse_stream` qua aioboto3; model `AI_MODEL_ID`, mặc định `amazon.nova-pro-v1:0`; region mặc định `ap-southeast-1` |
+| `BedrockProvider` | **Production** | Converse API + `converse_stream` qua aioboto3; model `AI_MODEL_ID`, mặc định `amazon.nova-pro-v1:0`; region mặc định `ap-southeast-2` (quyết định 10/11/2026 — xem ghi chú region bên dưới bảng biến môi trường) |
 
 Embedding có cùng mẫu trừu tượng: `FakeEmbedder` (băm SHA-256 có hạt giống, chuẩn hóa, 1024 chiều — tính liên quan trong test do nửa từ khóa của hybrid gánh), `GeminiEmbedder`, và `TitanEmbedder` (Bedrock `invoke_model`, model mặc định `amazon.titan-embed-text-v2:0`, xin đúng số chiều cấu hình và chuẩn hóa). **Đổi model embedding bắt buộc nhúng lại toàn bộ corpus** vì vector của hai model không cùng không gian; từng chunk đã mang `embedding_model`/`embedding_version` để phục vụ việc này.
 
@@ -45,7 +45,9 @@ Embedding có cùng mẫu trừu tượng: `FakeEmbedder` (băm SHA-256 có hạ
 | `AI_LLM_PROVIDER` | `fake` | `fake` / `gemini` / `bedrock` |
 | `AI_MODEL_ID` | `amazon.nova-pro-v1:0` | Model LLM production |
 | `GEMINI_API_KEY`, `AI_GEMINI_MODEL`, `AI_GEMINI_BASE_URL` | — / `gemini-2.0-flash` / endpoint v1beta | Chỉ cho dev Gemini |
-| `AWS_REGION` | `ap-southeast-1` | Region Bedrock |
+| `AWS_REGION` | `ap-southeast-2` | Region Bedrock |
+
+**Ghi chú region (10/11/2026):** mặc định ban đầu là `ap-southeast-1` (Singapore), nhưng kiểm chứng thực tế cho thấy Titan Text Embeddings V2 **không được AWS cung cấp tại Singapore** và Nova Pro tại đó chỉ gọi được qua inference profile xuyên region (`apac.amazon.nova-pro-v1:0`). Bao chốt chuyển toàn bộ sang **ap-southeast-2 (Sydney)** — region gần nhất phục vụ cả hai model ngay trong region bằng model ID trực tiếp (đã kiểm chứng bằng lời gọi thật: Nova Pro 63/17 token, Titan V2 trả vector 1024 chiều).
 | `AI_EMBEDDING_PROVIDER` / `AI_EMBEDDING_MODEL` / `AI_EMBEDDING_DIM` | `fake` / `amazon.titan-embed-text-v2:0` / 1024 | Embedding |
 | `AI_FIXTURES` | `1` (bật) | `1` = adapter fixture + store in-memory; `0` = HTTP + PostgreSQL |
 | `AI_CATALOG_BASE_URL` / `AI_INVENTORY_BASE_URL` / `AI_ORDER_BASE_URL` / `AI_SHIPPING_BASE_URL` / `AI_ANALYTICS_BASE_URL` | cổng 8005 / 8001 / 8004 / 8012 / 8011 | Địa chỉ các service bạn (theo cổng đăng ký trong service boundary) |
