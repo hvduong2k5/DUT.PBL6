@@ -118,7 +118,7 @@ at = admin_token()
 d = json.loads(
     (
         identity
-        / "services/identity-service/deploy/keycloak/realm-export.template.json"
+        / "services/keycloak-service/realm-export.template.json"
     ).read_text()
 )
 d["id"] = realm
@@ -136,7 +136,7 @@ profile["attributes"].append(
     json.loads(
         (
             identity
-            / "services/identity-service/deploy/keycloak/order-user-profile-attribute.json"
+            / "services/keycloak-service/order-user-profile-attribute.json"
         ).read_text()
     )
 )

@@ -4,9 +4,11 @@ import com.hvduong.identity.application.authorization.SpecializedPermissionServi
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.hvduong.identity.infrastructure.persistence.entity.AuthorizationDecisionRow;
-import com.hvduong.identity.infrastructure.persistence.entity.IdentityAuditLogRow;
-import com.hvduong.identity.infrastructure.persistence.entity.SpecializedPermissionPolicyRow;
+import com.hvduong.identity.common.constant.IdentityConstants;
+import com.hvduong.identity.common.enums.PrincipalType;
+import com.hvduong.identity.domain.entity.AuthorizationDecisionRow;
+import com.hvduong.identity.domain.entity.IdentityAuditLogRow;
+import com.hvduong.identity.domain.entity.SpecializedPermissionPolicyRow;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.AuthorizationDecisionMapper;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IdentityAuditLogMapper;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.SpecializedPermissionPolicyMapper;
@@ -76,7 +78,7 @@ public class SpecializedPermissionServiceImpl implements SpecializedPermissionSe
         UUID decisionId = UUID.randomUUID();
         AuthorizationDecisionRow decisionRow = new AuthorizationDecisionRow();
         decisionRow.setDecisionId(decisionId);
-        decisionRow.setActorKind(actorPrincipalId != null ? "EMPLOYEE" : "SERVICE");
+        decisionRow.setActorKind(actorPrincipalId != null ? PrincipalType.EMPLOYEE.name() : IdentityConstants.ACTOR_KIND_SERVICE);
         decisionRow.setActorPrincipalId(actorPrincipalId);
         decisionRow.setActorClientId(actorPrincipalId == null ? userId : null);
         decisionRow.setActionCode(action);
@@ -97,7 +99,7 @@ public class SpecializedPermissionServiceImpl implements SpecializedPermissionSe
         IdentityAuditLogRow auditLogRow = new IdentityAuditLogRow();
         auditLogRow.setAuditId(UUID.randomUUID());
         auditLogRow.setOccurredAt(OffsetDateTime.now());
-        auditLogRow.setActorKind(actorPrincipalId != null ? "EMPLOYEE" : "SERVICE");
+        auditLogRow.setActorKind(actorPrincipalId != null ? PrincipalType.EMPLOYEE.name() : IdentityConstants.ACTOR_KIND_SERVICE);
         auditLogRow.setActorPrincipalId(actorPrincipalId);
         auditLogRow.setActorClientId(actorPrincipalId == null ? userId : null);
         auditLogRow.setActionCode("SPECIALIZED_PERMISSION_CHECK:" + action);

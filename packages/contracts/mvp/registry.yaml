@@ -174,7 +174,7 @@ contracts:
   - id: identity-rest
     owner: identity-service
     consumers: [web-admin, mobile-app, gateway-bff]
-    artifact: docs/03_api_specs/identity-service.openapi.yaml
+    artifact: docs/03_api_specs/admin-stable.openapi.yaml
     contract_guide: packages/contracts/identity-3.3.md
     state: provider-ready
     tasks:

@@ -2,9 +2,9 @@ package com.hvduong.identity.api.account;
 
 import com.hvduong.identity.api.account.impl.AuthenticationController;
 import com.hvduong.identity.application.account.AuthenticationService;
-import com.hvduong.identity.dto.response.AuthUrlResponse;
-import com.hvduong.identity.dto.response.BffCallbackResult;
-import com.hvduong.identity.dto.response.SessionResponse;
+import com.hvduong.identity.application.dto.response.AuthUrlResponse;
+import com.hvduong.identity.application.dto.response.BffCallbackResult;
+import com.hvduong.identity.application.dto.response.SessionResponse;
 import com.hvduong.identity.infrastructure.session.BffSession;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.BeforeEach;
@@ -43,7 +43,7 @@ class AuthenticationControllerTest {
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders.standaloneSetup(authenticationController)
-                .setControllerAdvice(new com.hvduong.identity.api.common.GlobalExceptionHandler())
+                .setControllerAdvice(new com.hvduong.identity.common.handler.GlobalExceptionHandler())
                 .build();
     }
 

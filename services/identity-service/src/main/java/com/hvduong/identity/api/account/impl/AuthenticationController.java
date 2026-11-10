@@ -2,10 +2,10 @@ package com.hvduong.identity.api.account.impl;
 
 import com.hvduong.identity.api.account.AuthenticationApi;
 import com.hvduong.identity.application.account.AuthenticationService;
-import com.hvduong.identity.dto.common.ApiResponse;
-import com.hvduong.identity.dto.response.AuthUrlResponse;
-import com.hvduong.identity.dto.response.BffCallbackResult;
-import com.hvduong.identity.dto.response.SessionResponse;
+import com.hvduong.identity.common.response.ApiResponse;
+import com.hvduong.identity.application.dto.response.AuthUrlResponse;
+import com.hvduong.identity.application.dto.response.BffCallbackResult;
+import com.hvduong.identity.application.dto.response.SessionResponse;
 import com.hvduong.identity.infrastructure.session.BffSession;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -84,7 +84,7 @@ public class AuthenticationController implements AuthenticationApi {
 
         if (result.getSession().isNativeClient()) {
             var session=result.getSession();
-            var tokens=com.hvduong.identity.dto.response.AuthTokenResponse.builder().tokenType("Bearer")
+            var tokens=com.hvduong.identity.application.dto.response.AuthTokenResponse.builder().tokenType("Bearer")
                 .accessToken(session.getAccessToken()).refreshToken(session.getRefreshToken())
                 .sessionId(session.getSessionId()).principalId(session.getPrincipalId()).email(session.getEmail())
                 .expiresAt(session.getAccessTokenExpiresAt()).expiresIn(Math.max(0,java.time.Duration.between(java.time.Instant.now(),session.getAccessTokenExpiresAt()).getSeconds())).build();

@@ -1,13 +1,13 @@
 package com.hvduong.identity.application.account;
 
 import com.hvduong.identity.application.account.impl.UserLifecycleServiceImpl;
-import com.hvduong.identity.dto.response.UserProfileResponse;
+import com.hvduong.identity.application.dto.response.UserProfileResponse;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hvduong.identity.application.audit.AuditService;
 import com.hvduong.identity.infrastructure.keycloak.KeycloakAdminClient;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.*;
-import com.hvduong.identity.infrastructure.persistence.entity.*;
+import com.hvduong.identity.domain.entity.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -51,6 +51,12 @@ class UserLifecycleServiceTest {
     @Mock
     private org.springframework.web.client.RestTemplate restTemplate;
 
+    @Mock
+    private com.hvduong.identity.infrastructure.session.BffSessionStore bffSessionStore;
+
+    @Mock
+    private com.hvduong.identity.application.iam.PermissionSyncService permissionSyncService;
+
     private ObjectMapper objectMapper = new ObjectMapper();
 
     private UserLifecycleService service;
@@ -66,7 +72,9 @@ class UserLifecycleServiceTest {
                 keycloakAdminClient,
                 auditService,
                 objectMapper,
-                restTemplate
+                restTemplate,
+                bffSessionStore,
+                permissionSyncService
         );
     }
 
@@ -180,8 +188,8 @@ class UserLifecycleServiceTest {
         when(rolePermissionMapper.findByRoleId(sensitiveRole.getRoleId())).thenReturn(List.of(sensitive));
         var profile = service.getProfileBySubject("issuer", "staff", "staff@example.test").orElseThrow();
         assertEquals(List.of(
-            new com.hvduong.identity.dto.response.PermissionGrantResponse("ORDER_VIEW", "WAREHOUSE", "A"),
-            new com.hvduong.identity.dto.response.PermissionGrantResponse("ORDER_SENSITIVE_VIEW", "WAREHOUSE", "B")
+            new com.hvduong.identity.application.dto.response.PermissionGrantResponse("ORDER_VIEW", "WAREHOUSE", "A"),
+            new com.hvduong.identity.application.dto.response.PermissionGrantResponse("ORDER_SENSITIVE_VIEW", "WAREHOUSE", "B")
         ), profile.getPermissionGrants());
         assertEquals(2, profile.getRoles().size());
         verify(rolePermissionMapper, never()).findByRoleId(disabled.getRoleId());
