@@ -563,6 +563,10 @@ def main():
             )[0]
             == 200
         )
+        status, customer_role, _ = request(
+            base + "/admin/realms/" + realm + "/roles/CUSTOMER", token=admin_token
+        )
+        assert status == 200
         for account in accounts.values():
             status, _, headers = request(
                 base + "/admin/realms/" + realm + "/users",
@@ -592,6 +596,24 @@ def main():
             )
             assert status == 201
             account["subject"] = headers["Location"].rsplit("/", 1)[1]
+            # Every seeded account carries the CUSTOMER realm role,
+            # including the employee: consumers must deny the employee
+            # through the Identity principal mapping (principal_type),
+            # not through the absence of this legacy role. Mirrors dev.
+            assert (
+                request(
+                    base
+                    + "/admin/realms/"
+                    + realm
+                    + "/users/"
+                    + account["subject"]
+                    + "/role-mappings/realm",
+                    [customer_role],
+                    admin_token,
+                    "POST",
+                )[0]
+                == 204
+            )
 
         env.update(
             DB_HOST="127.0.0.1",
