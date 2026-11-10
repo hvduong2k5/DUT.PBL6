@@ -43,3 +43,6 @@ def setup_logging() -> None:
 
 def metrics_response() -> tuple[bytes, str]:
     return generate_latest(), CONTENT_TYPE_LATEST
+BUDGET_GATE = Counter(
+    "ai_budget_gate", "Budget evidence gate decisions", ["decision"]
+)

@@ -17,8 +17,9 @@ from urllib.parse import urlencode
 
 from ...config import Settings
 from ...integrations.models import Product
-from ...observability import CHAT_TURNS
+from ...observability import BUDGET_GATE, CHAT_TURNS
 from ...platform.auth import Principal
+from ...platform.budget_evidence import parse_budget_evidence, resolve_budget
 from ...platform.conversations import Conversation, ConversationStore
 from ...platform.eligibility import (
     OUT_OF_STOCK,
@@ -39,7 +40,13 @@ RULES = (
 
 EXTRACT_SPEC = ToolSpec(
     name="extract_needs",
-    description="Extract shopping needs (budget_vnd, recipient, occasion, tastes) from the conversation",
+    description=(
+        "Extract shopping needs (budget_vnd, recipient, occasion, tastes) "
+        "from the conversation. Report budget_vnd EXACTLY as the user stated "
+        "it, converting only with the unit the user wrote (k/nghin = 1000, "
+        "trieu = 1000000, ty = 1000000000). Never round, repair or substitute "
+        "a more plausible amount; if no amount is stated, omit budget_vnd."
+    ),
     input_schema={
         "type": "object",
         "properties": {
@@ -187,7 +194,8 @@ class ShoppingAdvisor:
             yield event
 
     # -- shared helpers ----------------------------------------------------
-    async def _compose(self, store, conv, grounding: str, user_text: str) -> str:
+    async def _compose(self, store, conv, grounding: str, user_text: str,
+                       extra_rules: str = "") -> str:
         history = [
             Message(role=m.role, content=m.content)
             for m in store.list_messages(conv.id)
@@ -197,7 +205,7 @@ class ShoppingAdvisor:
             history.append(Message(role="user", content=user_text))
         request = LLMRequest(
             messages=history,
-            system_prompt=RULES + "\n[GROUNDING]\n" + grounding,
+            system_prompt=RULES + extra_rules + "\n[GROUNDING]\n" + grounding,
         )
         response = await self.llm.generate(request)
         return response.content
@@ -219,7 +227,13 @@ class ShoppingAdvisor:
     # -- FAQ ---------------------------------------------------------------
     async def _faq_reply(self, store, conv, user_text, results):
         grounding = "\n".join(f"- {chunk.content}" for chunk in results)
-        reply = await self._compose(store, conv, grounding, user_text)
+        reply = await self._compose(
+            store, conv, grounding, user_text,
+            extra_rules=(
+                " Trình bày đủ các điều kiện, hướng dẫn liên quan trực tiếp "
+                "tới câu hỏi có trong [GROUNDING]; không bỏ sót điều kiện nào."
+            ),
+        )
         if not self._check_grounding(reply, grounding, set()):
             reply = results[0].content
         citations = sorted({chunk.document_title for chunk in results})
@@ -349,13 +363,18 @@ class ShoppingAdvisor:
                 tools=[EXTRACT_SPEC],
             )
         )
+        model_budget = None
         if extraction.tool_calls:
             new_slots = extraction.tool_calls[0].arguments
-            # Extracted slots are untrusted model output: validate before use.
+            # The model's budget is a claim, not a fact: it is set aside
+            # here and decided by the evidence gate below (docs ch. 14).
             # (An injected "giá ... là 1.000đ" must never become the budget.)
-            budget = new_slots.get("budget_vnd")
-            if budget is not None and not (10_000 <= int(budget) <= 1_000_000_000):
-                new_slots.pop("budget_vnd", None)
+            raw_budget = new_slots.pop("budget_vnd", None)
+            if raw_budget is not None:
+                try:
+                    model_budget = int(raw_budget)
+                except (TypeError, ValueError):
+                    model_budget = None
             for key, value in new_slots.items():
                 if value in (None, "", []):
                     continue
@@ -363,6 +382,19 @@ class ShoppingAdvisor:
                     slots["tastes"] = sorted(set(slots["tastes"]) | set(value))
                 else:
                     slots[key] = value
+        evidence = parse_budget_evidence(history_users)
+        budget, decision = resolve_budget(evidence, model_budget, history_users)
+        BUDGET_GATE.labels(decision=decision).inc()
+        if budget is not None:
+            slots["budget_vnd"] = budget
+        else:
+            slots.pop("budget_vnd", None)
+        slots["_budget_source"] = {
+            "decision": decision,
+            "status": evidence.status,
+            "message_index": evidence.message_index,
+            "text": evidence.source_text,
+        }
         store.set_slots(conv.id, slots)
 
         missing = []
