@@ -31,6 +31,7 @@ flowchart LR
 | Workflow (`modules/shopping_advisor/workflow.py`) | Sở hữu thứ tự bước của một lượt chat: định tuyến intent → trích xuất nhu cầu → hỏi làm rõ → gọi tool → soạn trả lời → hậu kiểm grounding. |
 | Controlled runtime (`platform/runtime.py`) | Ngân sách mỗi lượt: tối đa số bước và số lần gọi tool (mặc định 8 / 10, cấu hình được). |
 | Tool Execution Gateway (`platform/gateway.py`) | Đường bắt buộc duy nhất cho mọi tool call: allowlist → yêu cầu khách đăng nhập → validate schema → timeout → kiểm tra kết quả → metric/audit. |
+| Product Eligibility (đợt 1.5 — thiết kế đã chốt, chưa triển khai) | Lớp dùng chung mà mọi Product Card phải đi qua: resolve published qua Catalog → lọc ngân sách cứng → kiểm tồn song song fail-closed theo SKU, kèm outcome taxonomy. Thiết kế tại [chương 13](13_unified_eligibility.md). |
 | Knowledge (`platform/knowledge.py`) | Ingestion, chunking và truy hồi hybrid (vector + từ khóa) với bộ lọc hiệu lực áp ngay trong truy vấn. |
 | Providers (`providers/`) | Trừu tượng LLM và embedding theo kiểu chuẩn Bedrock Converse; code nghiệp vụ không rẽ nhánh theo provider. |
 | Stores (`platform/conversations.py`) | Phiên, tin nhắn, slot làm việc, consent — hai hiện thực: PostgreSQL (production) và in-memory (fixture/test). |
@@ -40,7 +41,7 @@ flowchart LR
 
 1. Đợt 1 chạy hoàn chỉnh ở chế độ fixture (`AI_FIXTURES=1`): adapter trả dữ liệu mẫu trong repo, store in-memory, LLM FakeProvider xác định — đủ để kiểm thử đầu-cuối và CI mà không cần service bạn hay khóa API.
 2. Chế độ thật (`AI_FIXTURES=0`): store PostgreSQL, adapter HTTP, provider theo cấu hình. Chuyển đổi chỉ bằng biến môi trường; điểm nối dây duy nhất là `integrations/http_clients.py` ([chương 07](07_integrations_and_contract_gaps.md)).
-3. Cô lập lỗi: LLM lỗi/timeout → sự kiện SSE `error` mã `llm_unavailable` kèm liên kết danh mục đã lọc; tool lỗi/timeout/quá ngân sách → mã `tool_unavailable` cùng fallback. Analytics lỗi → gợi ý suy biến về danh sách phổ biến. Service bạn dừng không làm sập phiên chat.
+3. Cô lập lỗi: LLM lỗi/timeout → sự kiện SSE `error` mã `llm_unavailable` kèm liên kết danh mục đã lọc; tool lỗi/timeout/quá ngân sách → mã `tool_unavailable` cùng fallback. Analytics lỗi → gợi ý suy biến về danh sách phổ biến. Service bạn dừng không làm sập phiên chat. Đợt 1.5 bổ sung chính sách lỗi ở tầng hiển thị: kiểm tồn không xác minh được thì loại riêng SKU đó (fail-closed theo SKU), các SKU còn lại vẫn hiển thị — xem ADR-03 tại [chương 13](13_unified_eligibility.md).
 
 ## Đơn giản hóa đã biết (đợt 1)
 

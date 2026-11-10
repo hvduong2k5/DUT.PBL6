@@ -24,10 +24,11 @@ Nguyên tắc cứng xuyên suốt: **AI chỉ gợi ý và soạn nháp; con ng
 | [10 — Tri thức và retrieval](10_knowledge_retrieval_design.md) | Chunking, hybrid pgvector + FTS, ingestion và thu hồi |
 | [11 — Tiêu thụ Recommendation](11_recommendation_consumption.md) | Ba placement, resolve qua Catalog và fallback phổ biến |
 | [12 — Đánh giá và kiểm chứng](12_evaluation_and_verification.md) | Golden set 30 ca tiếng Việt, test phòng thủ và CI |
+| [13 — Unified Eligibility (đợt 1.5)](13_unified_eligibility.md) | Lớp kiểm tra đủ điều kiện hiển thị dùng chung cho mọi Product Card — **thiết kế đã chốt 10/11/2026, chưa triển khai** |
 
 - [DDL PostgreSQL](ai_db.candidate.sql) là bản chụp của migration `services/ai-agent-service/migrations/postgres/001_ai_agent.sql` — file migration mới là nguồn thực thi.
 - [OpenAPI](../../../03_api_specs/ai-agent-service.candidate.openapi.yaml) mô tả toàn bộ endpoint đợt 1.
 - Nguồn yêu cầu gốc: [đề xuất AI Agent](../../ai_agent_specification_and_proposal.md) và [service boundary MS-19](../../service_boundary.md#ms-19-ai-agent-service).
 - Phần gợi ý phía Analytics xem [MS-11 chương 12–15](../analytics-service/12_recommendation_engine_design.md) và [OpenAPI Recommendation](../../../03_api_specs/analytics-recommendation.candidate.openapi.yaml) (hiện trên nhánh của PR #62, chờ merge vào `dev`).
 
-Trạng thái cần nhớ khi đọc bộ này: code đợt 1 chạy đầy đủ ở chế độ fixture (dữ liệu mẫu trong repo) và có sẵn adapter HTTP cho chế độ thật; việc nối dây production còn chờ IAM Bedrock, PR #62 merge và đối chiếu API công khai của Catalog/Inventory/Order/Shipping — chi tiết ở [chương 07](07_integrations_and_contract_gaps.md) và [chương 08](08_implementation_roadmap.md).
+Trạng thái cần nhớ khi đọc bộ này: code đợt 1 chạy đầy đủ ở chế độ fixture (dữ liệu mẫu trong repo) và có sẵn adapter HTTP cho chế độ thật; việc nối dây production còn chờ IAM Bedrock, PR #62 merge và đối chiếu API công khai của Catalog/Inventory/Order/Shipping — chi tiết ở [chương 07](07_integrations_and_contract_gaps.md) và [chương 08](08_implementation_roadmap.md). Riêng [chương 13](13_unified_eligibility.md) là thiết kế của đợt 1.5 được chốt sau baseline (10/11/2026) và **chưa có trong code** — các chương 00–12 vẫn mô tả hiện trạng tại `7af8b52`.

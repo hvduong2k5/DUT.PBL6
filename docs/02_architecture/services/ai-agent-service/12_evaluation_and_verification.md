@@ -39,6 +39,17 @@ Kết quả tại baseline: **toàn bộ 68 test đạt** (gồm golden set và 
 
 `/metrics` phơi Prometheus: `ai_chat_turns{outcome}` (shopping/clarification/faq/order_status/shipping_fee/basket/grounding_fallback/shopping_fallback/llm_error/tool_error), `ai_tool_calls{tool,result}` và `ai_tool_seconds{tool}` từ gateway, `ai_retrieval_results` (histogram số kết quả truy hồi). Hai counter `ai_llm_calls` / `ai_llm_tokens` đã định nghĩa nhưng provider chưa phát — khoảng trống vận hành ghi tại [chương 07](07_integrations_and_contract_gaps.md).
 
+## Nhóm ca đợt 1.5 — eligibility (thiết kế đã chốt, chưa triển khai)
+
+Khi lát Unified Eligibility ([chương 13](13_unified_eligibility.md)) được triển khai, bộ kiểm thử phải có thêm các ca bắt buộc sau (rút từ bộ nghiệm thu E1–E30 đã chốt khi thiết kế); mỗi ca phải có khả năng fail nếu triển khai sai:
+
+- **Đủ bốn đường:** shopping, basket, cả ba placement qua API gợi ý và fallback phổ biến — không đường nào ra thẻ sản phẩm hết hàng, chưa `published` hoặc vượt ngân sách phiên.
+- **Biên ngân sách:** giá bằng đúng ngân sách → hiển thị; giá = ngân sách + 1đ → loại; ngân sách giảm giữa phiên xuống dưới giá sản phẩm đã gợi ý → lần hiển thị sau không còn sản phẩm đó.
+- **Biên tồn kho:** quantity 0 → loại (`OUT_OF_STOCK`); quantity 1 → hiển thị; quantity không xác minh được → loại kèm đúng outcome (`INVENTORY_TIMEOUT` tách khỏi `INVENTORY_UNKNOWN`, không ghi thành hết hàng).
+- **Lỗi từng phần:** một SKU timeout trong nhóm 6 SKU — năm SKU còn lại vẫn hiển thị; toàn bộ SKU timeout → lượt kết thúc trong giới hạn deadline, không treo.
+- **Song song thật:** test chứng minh các lời gọi kiểm tồn chạy đồng thời có giới hạn concurrency, không serialize ngầm.
+- **Phân loại outcome của Analytics:** chưa consent → `NOT_CONSENTED`; timeout → `TIMEOUT` + fallback; 5xx → `UNAVAILABLE` + fallback; productId không resolve được → `INVALID_RESPONSE` và loại item; trùng productId → khử trùng; `strategy` lạ → ghi log, không crash adapter.
+
 ## Nghiệm thu production
 
 Đổi provider không đổi test: golden set chạy trên FakeProvider để khóa hành vi xác định trong CI. Khi bật Bedrock, **chạy lại nguyên golden set với Nova Pro** và coi đó là nghiệm thu phát hành — ca nào lệch do model thật thì xử lý ở prompt/workflow, không nới kỳ vọng âm thầm. Cùng nguyên tắc khi đổi model embedding: nhúng lại toàn bộ corpus rồi mới đánh giá retrieval.

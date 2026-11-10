@@ -12,6 +12,7 @@
 | Runtime dùng LangGraph/Redis không? | Quyết định 09/11/2026 trong service boundary MS-19 | **Không, ở đợt này.** Đề xuất gốc (§3.2) kê LangGraph + RedisSaver; bản triển khai trì hoãn cả hai: workflow xác định do service tự quản, trạng thái phiên ở PostgreSQL của chính service. Cần xác nhận lại với nhóm khi mở PR. |
 | Consent gợi ý cá nhân hóa thuộc ai? | Contract Analytics đã kiểm chứng trên nhánh PR #62 | Analytics sở hữu (GET/PUT `/api/v1/recommendations/consent`). MS-19 **không** nhân bản consent này; consent riêng của MS-19 chỉ bao phủ việc lưu lịch sử chat (xem [chương 02](02_usecases_and_lifecycle.md)). |
 | Dữ kiện giá/tồn/đơn lấy ở đâu? | Nguyên tắc grounding của đợt 1 ([chương 09](09_shopping_workflow_design.md)) | Chỉ từ tool gọi service sở hữu dữ liệu, trong cùng lượt chat. RAG không bao giờ là nguồn giá/tồn. |
+| Product Card phải thỏa điều kiện gì mới được hiển thị? | Quyết định đợt 1.5 ngày 10/11/2026 ([chương 13](13_unified_eligibility.md), ADR-01→04) | Mọi thẻ — từ shopping, basket, recommendation hay fallback — đều qua một lớp eligibility duy nhất: `published` → ngân sách cứng → còn hàng đã xác minh, fail-closed theo SKU. Tồn kho trong chat là advisory, không phải reservation; reservation/finalize thuộc Order/Inventory ở checkout. Thiết kế đã chốt, chưa triển khai tại baseline. |
 
 ## Story, chương và gate
 
