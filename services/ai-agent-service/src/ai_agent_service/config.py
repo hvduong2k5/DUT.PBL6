@@ -63,6 +63,11 @@ class Settings:
     max_tool_calls: int = 10
     max_reply_tokens: int = 700
 
+    # Unified product eligibility (docs ch. 13): bounded parallel stock
+    # checks under one global deadline per eligibility pass.
+    eligibility_concurrency: int = 3
+    eligibility_deadline_seconds: float = 1.8
+
     # Conversation retention (decided 2026-11-09: 30 / 15 days)
     retention_customer_days: int = 30
     retention_guest_days: int = 15
@@ -98,6 +103,8 @@ class Settings:
             max_steps=_int("AI_MAX_STEPS", 8),
             max_tool_calls=_int("AI_MAX_TOOL_CALLS", 10),
             max_reply_tokens=_int("AI_MAX_REPLY_TOKENS", 700),
+            eligibility_concurrency=_int("AI_ELIGIBILITY_CONCURRENCY", 3),
+            eligibility_deadline_seconds=_float("AI_ELIGIBILITY_DEADLINE_SECONDS", 1.8),
             retention_customer_days=_int("AI_RETENTION_CUSTOMER_DAYS", 30),
             retention_guest_days=_int("AI_RETENTION_GUEST_DAYS", 15),
         )

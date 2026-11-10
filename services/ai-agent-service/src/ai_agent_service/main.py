@@ -18,6 +18,7 @@ from .platform.conversations import (
     MemoryConversationStore,
     PostgresConversationStore,
 )
+from .platform.eligibility import ProductEligibility
 from .platform.gateway import ToolGateway
 from .platform.knowledge import (
     KnowledgeStore,
@@ -81,8 +82,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     backends = build_backends(settings)
     gateway = ToolGateway(build_registry(backends), timeout_seconds=settings.tool_timeout_seconds)
     llm = build_llm_provider(settings)
-    recommendations = RecommendationService(backends)
-    advisor = ShoppingAdvisor(llm, gateway, knowledge, settings, recommendations)
+    eligibility = ProductEligibility(
+        concurrency=settings.eligibility_concurrency,
+        deadline_seconds=settings.eligibility_deadline_seconds,
+    )
+    recommendations = RecommendationService(backends, gateway, eligibility)
+    advisor = ShoppingAdvisor(
+        llm, gateway, knowledge, settings, recommendations, eligibility
+    )
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):

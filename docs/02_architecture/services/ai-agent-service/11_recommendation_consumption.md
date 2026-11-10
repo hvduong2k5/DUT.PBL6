@@ -18,7 +18,7 @@ Engine gợi ý (thuật toán, dữ liệu nguồn, consent cá nhân hóa) thu
 3. **Fallback xác định:** Analytics lỗi, trả rỗng, hoặc mọi item bị loại ở bước resolve → dùng danh sách **phổ biến** của Catalog (`popular`), vẫn lọc `published`; riêng `product_detail` loại chính sản phẩm đang xem khỏi fallback.
 4. Giới hạn mặc định: `home` 6, `product_detail`/`cart` 4 (khớp trần `limit` 1–6 của contract Analytics).
 
-*Thay đổi ở đợt 1.5 (thiết kế đã chốt, chưa triển khai — [chương 13](13_unified_eligibility.md)): sau bước resolve, mọi kết quả — kể cả fallback — đi qua lớp eligibility dùng chung (thêm lọc ngân sách của phiên và kiểm tồn kho), và kết quả của bước 1–3 được phân loại tường minh thay vì gom chung: Analytics trả rỗng do chưa consent (`NOT_CONSENTED`), timeout, lỗi 5xx và rỗng không rõ nguyên nhân là các outcome khác nhau trong quan trắc, dù hành vi fallback trước mắt vẫn giống nhau.*
+*Thay đổi ở đợt 1.5 (đã triển khai 10/11/2026 — [chương 13](13_unified_eligibility.md)): sau bước resolve, mọi kết quả — kể cả fallback — đi qua lớp eligibility dùng chung (thêm lọc ngân sách của phiên và kiểm tồn kho), và kết quả của bước 1–3 được phân loại tường minh thay vì gom chung: Analytics trả rỗng do chưa consent (`NOT_CONSENTED`), timeout, lỗi 5xx và rỗng không rõ nguyên nhân là các outcome khác nhau trong quan trắc, dù hành vi fallback trước mắt vẫn giống nhau.*
 
 ## Consent và cá nhân hóa
 

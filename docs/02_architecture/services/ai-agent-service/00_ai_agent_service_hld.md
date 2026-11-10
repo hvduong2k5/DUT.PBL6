@@ -31,7 +31,7 @@ flowchart LR
 | Workflow (`modules/shopping_advisor/workflow.py`) | Sở hữu thứ tự bước của một lượt chat: định tuyến intent → trích xuất nhu cầu → hỏi làm rõ → gọi tool → soạn trả lời → hậu kiểm grounding. |
 | Controlled runtime (`platform/runtime.py`) | Ngân sách mỗi lượt: tối đa số bước và số lần gọi tool (mặc định 8 / 10, cấu hình được). |
 | Tool Execution Gateway (`platform/gateway.py`) | Đường bắt buộc duy nhất cho mọi tool call: allowlist → yêu cầu khách đăng nhập → validate schema → timeout → kiểm tra kết quả → metric/audit. |
-| Product Eligibility (đợt 1.5 — thiết kế đã chốt, chưa triển khai) | Lớp dùng chung mà mọi Product Card phải đi qua: resolve published qua Catalog → lọc ngân sách cứng → kiểm tồn song song fail-closed theo SKU, kèm outcome taxonomy. Thiết kế tại [chương 13](13_unified_eligibility.md). |
+| Product Eligibility (đợt 1.5 — đã triển khai 10/11/2026) | Lớp dùng chung mà mọi Product Card phải đi qua: resolve published qua Catalog → lọc ngân sách cứng → kiểm tồn song song fail-closed theo SKU, kèm outcome taxonomy. Thiết kế tại [chương 13](13_unified_eligibility.md). |
 | Knowledge (`platform/knowledge.py`) | Ingestion, chunking và truy hồi hybrid (vector + từ khóa) với bộ lọc hiệu lực áp ngay trong truy vấn. |
 | Providers (`providers/`) | Trừu tượng LLM và embedding theo kiểu chuẩn Bedrock Converse; code nghiệp vụ không rẽ nhánh theo provider. |
 | Stores (`platform/conversations.py`) | Phiên, tin nhắn, slot làm việc, consent — hai hiện thực: PostgreSQL (production) và in-memory (fixture/test). |

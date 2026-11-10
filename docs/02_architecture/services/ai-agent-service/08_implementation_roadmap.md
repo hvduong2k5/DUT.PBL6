@@ -12,13 +12,13 @@
 | WP5+WP6 | Lưu trữ theo consent, job retention, phòng thủ tiêm nhiễm/timeout tool, tiêu thụ contract Analytics + fallback phổ biến | Test defenses/consent/retention |
 | WP7 | Golden set 30 ca tiếng Việt + test tích hợp PostgreSQL, README bàn giao | Toàn suite: 68 test đạt trong Docker (gồm tích hợp pgvector thật), ruff sạch; smoke trực tiếp trên máy dev: health/ready đạt, một lượt chat thật trả thẻ sản phẩm có grounding, phiên guest hết hạn đúng +15 ngày; CI GitHub Actions chạy đầu tiên trên nhánh đạt (run #1, commit `7af8b52`) |
 
-## Đợt 1.5 — Unified Eligibility (thiết kế đã chốt 10/11/2026, chưa triển khai)
+## Đợt 1.5 — Unified Eligibility (đã triển khai 10/11/2026)
 
 Lát correctness đặt trước contract test và trước kích hoạt production, vì lỗi nó sửa đang tồn tại trong code đợt 1: đường recommendation/basket có thể hiển thị sản phẩm hết hàng hoặc vượt ngân sách. Thiết kế đầy đủ tại [chương 13](13_unified_eligibility.md); tóm tắt phạm vi:
 
 - Một lớp eligibility dùng chung cho cả bốn đường sinh Product Card (shopping, basket, ba placement của RecommendationService, fallback phổ biến): khử trùng theo SKU → resolve `published` qua Catalog → lọc ngân sách cứng → kiểm tồn song song có deadline toàn cục, fail-closed theo từng SKU.
 - Outcome taxonomy hai cấp (recommendation và sản phẩm) cho quan trắc; ghi log `strategy` của Analytics thay vì suy diễn lời giải thích.
-- Spike đọc bề mặt API thật của Inventory để chốt ngữ nghĩa số lượng; đo latency tồn kho thật làm căn cứ tinh chỉnh timeout.
+- Spike đã xong: ngữ nghĩa `available_qty` = khả dụng để bán sau giữ hàng (INV-BI-01) — khớp interface adapter; Inventory thật là gRPC và đã có batch (xem [chương 13](13_unified_eligibility.md)). Đo latency tồn kho thật để tinh chỉnh timeout để lại cho bước nối dây production.
 - Nghiệm thu bằng nhóm ca eligibility tại [chương 12](12_evaluation_and_verification.md).
 
 Thứ tự việc sau lát này: (1) contract test 4 tầng với MS-11 khi PR #62 merge, dùng artifact schema v1 của Analytics làm nguồn sự thật; (2) shadow reranking — chỉ đo, không ảnh hưởng kết quả — khi có retrieval ứng viên thật từ Catalog và một rerank contract; (3) feedback forwarding: chuyển tiếp signal sang `POST /api/v1/recommendations/events` của Analytics kiểu fire-and-forget kèm idempotency (hướng xử lý của khoảng trống #6 tại [chương 07](07_integrations_and_contract_gaps.md), thực hiện khi nối dây thật).

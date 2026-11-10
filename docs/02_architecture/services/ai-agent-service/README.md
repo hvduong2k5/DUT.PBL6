@@ -24,7 +24,7 @@ Nguyên tắc cứng xuyên suốt: **AI chỉ gợi ý và soạn nháp; con ng
 | [10 — Tri thức và retrieval](10_knowledge_retrieval_design.md) | Chunking, hybrid pgvector + FTS, ingestion và thu hồi |
 | [11 — Tiêu thụ Recommendation](11_recommendation_consumption.md) | Ba placement, resolve qua Catalog và fallback phổ biến |
 | [12 — Đánh giá và kiểm chứng](12_evaluation_and_verification.md) | Golden set 30 ca tiếng Việt, test phòng thủ và CI |
-| [13 — Unified Eligibility (đợt 1.5)](13_unified_eligibility.md) | Lớp kiểm tra đủ điều kiện hiển thị dùng chung cho mọi Product Card — **thiết kế đã chốt 10/11/2026, chưa triển khai** |
+| [13 — Unified Eligibility (đợt 1.5)](13_unified_eligibility.md) | Lớp kiểm tra đủ điều kiện hiển thị dùng chung cho mọi Product Card — **đã triển khai 10/11/2026** |
 
 - [DDL PostgreSQL](ai_db.candidate.sql) là bản chụp của migration `services/ai-agent-service/migrations/postgres/001_ai_agent.sql` — file migration mới là nguồn thực thi.
 - [OpenAPI](../../../03_api_specs/ai-agent-service.candidate.openapi.yaml) mô tả toàn bộ endpoint đợt 1.

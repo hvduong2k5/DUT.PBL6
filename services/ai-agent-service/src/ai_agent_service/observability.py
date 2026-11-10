@@ -22,6 +22,16 @@ TOOL_SECONDS = Histogram(
 RETRIEVAL_RESULTS = Histogram(
     "ai_retrieval_results", "Knowledge retrieval result count", buckets=(0, 1, 2, 3, 5, 8, 13)
 )
+ELIGIBILITY_REJECTIONS = Counter(
+    "ai_eligibility_rejections",
+    "Product cards rejected by the unified eligibility layer",
+    ["source", "outcome"],
+)
+RECOMMENDATION_OUTCOMES = Counter(
+    "ai_recommendation_outcomes",
+    "Analytics recommendation fetch outcomes",
+    ["placement", "outcome"],
+)
 
 
 def setup_logging() -> None:

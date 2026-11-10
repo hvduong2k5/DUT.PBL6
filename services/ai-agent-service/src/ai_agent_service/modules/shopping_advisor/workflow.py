@@ -16,9 +16,15 @@ from collections.abc import AsyncIterator
 from urllib.parse import urlencode
 
 from ...config import Settings
+from ...integrations.models import Product
 from ...observability import CHAT_TURNS
 from ...platform.auth import Principal
 from ...platform.conversations import Conversation, ConversationStore
+from ...platform.eligibility import (
+    OUT_OF_STOCK,
+    ProductEligibility,
+    gateway_stock_checker,
+)
 from ...platform.gateway import ToolContext, ToolError, ToolGateway
 from ...platform.knowledge import KnowledgeStore
 from ...platform.runtime import BudgetExceeded, TurnState
@@ -107,12 +113,13 @@ def _filter_url(slots: dict) -> str:
 
 class ShoppingAdvisor:
     def __init__(self, llm, gateway: ToolGateway, knowledge: KnowledgeStore,
-                 settings: Settings, recommendations=None):
+                 settings: Settings, recommendations=None, eligibility=None):
         self.llm = llm
         self.gateway = gateway
         self.knowledge = knowledge
         self.settings = settings
         self.recommendations = recommendations
+        self.eligibility = eligibility or ProductEligibility()
 
     # -- public entry ------------------------------------------------------
     async def turn_events(
@@ -304,7 +311,18 @@ class ShoppingAdvisor:
             async for event in self._emit_reply(store, conv, reply, "basket"):
                 yield event
             return
-        products = await self.recommendations.basket(skus, 4)
+        slots = store.get_slots(conv.id)
+        products = await self.recommendations.basket(
+            skus, 4, budget_vnd=slots.get("budget_vnd")
+        )
+        if not products:
+            reply = (
+                "Dạ, các món thường mua kèm với sản phẩm này hiện chưa có món nào "
+                "còn hàng phù hợp. Anh/chị xem thêm trong danh mục giúp em nhé ạ."
+            )
+            async for event in self._emit_reply(store, conv, reply, "basket"):
+                yield event
+            return
         cards = [
             {**p.public_dict(), "url": f"/san-pham/{p.id}"} for p in products
         ]
@@ -380,14 +398,42 @@ class ShoppingAdvisor:
             },
             ctx,
         )
-        products = result["products"]
-        for product in products:
-            stock = await state.call_tool(
-                self.gateway, "check_stock", {"sku": product["sku"]}, ctx
+        raw_products = result["products"]
+        # Every Product Card passes the unified eligibility layer (docs
+        # ch. 13): the search tool already guarantees published + budget,
+        # the layer re-checks both and verifies stock in parallel,
+        # fail-closed per SKU.
+        candidates = [
+            Product(
+                id=p["id"], sku=p["sku"], name=p["name"],
+                price_vnd=p["price_vnd"], status="published",
+                description=p.get("description", ""),
             )
-            product["stock"] = stock["available"]
-        available = [p for p in products if p["stock"] > 0]
-        sold_out = [p for p in products if p["stock"] <= 0]
+            for p in raw_products
+        ]
+        check = gateway_stock_checker(self.gateway, ctx, state)
+        outcome = await self.eligibility.filter(
+            candidates,
+            budget_vnd=slots.get("budget_vnd"),
+            check_stock=check,
+            source="shopping",
+            fatal=(BudgetExceeded,),
+        )
+        available = [
+            {
+                "id": e.product.id, "sku": e.product.sku, "name": e.product.name,
+                "price_vnd": e.product.price_vnd,
+                "description": e.product.description, "stock": e.available,
+            }
+            for e in outcome.eligible
+        ]
+        # Only verified out-of-stock products are named as such; SKUs whose
+        # stock could not be verified are dropped silently, never labelled
+        # "tạm hết hàng".
+        sold_out = [
+            {"name": p.name, "price_vnd": p.price_vnd}
+            for p in outcome.rejected_products(candidates, OUT_OF_STOCK)
+        ]
 
         citations: list[str] = []
         context_lines: list[str] = []
@@ -430,7 +476,7 @@ class ShoppingAdvisor:
         ]
         grounding = "\n".join(lines + context_lines)
         reply = await self._compose(store, conv, grounding, user_text)
-        allowed = {p["price_vnd"] for p in products}
+        allowed = {p["price_vnd"] for p in raw_products}
         if slots.get("budget_vnd"):
             allowed.add(slots["budget_vnd"])
         if not self._check_grounding(reply, grounding, allowed):

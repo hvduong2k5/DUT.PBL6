@@ -39,9 +39,9 @@ Kết quả tại baseline: **toàn bộ 68 test đạt** (gồm golden set và 
 
 `/metrics` phơi Prometheus: `ai_chat_turns{outcome}` (shopping/clarification/faq/order_status/shipping_fee/basket/grounding_fallback/shopping_fallback/llm_error/tool_error), `ai_tool_calls{tool,result}` và `ai_tool_seconds{tool}` từ gateway, `ai_retrieval_results` (histogram số kết quả truy hồi). Hai counter `ai_llm_calls` / `ai_llm_tokens` đã định nghĩa nhưng provider chưa phát — khoảng trống vận hành ghi tại [chương 07](07_integrations_and_contract_gaps.md).
 
-## Nhóm ca đợt 1.5 — eligibility (thiết kế đã chốt, chưa triển khai)
+## Nhóm ca đợt 1.5 — eligibility (đã triển khai)
 
-Khi lát Unified Eligibility ([chương 13](13_unified_eligibility.md)) được triển khai, bộ kiểm thử phải có thêm các ca bắt buộc sau (rút từ bộ nghiệm thu E1–E30 đã chốt khi thiết kế); mỗi ca phải có khả năng fail nếu triển khai sai:
+Lát Unified Eligibility ([chương 13](13_unified_eligibility.md)) đã triển khai kèm các ca bắt buộc sau (rút từ bộ nghiệm thu E1–E30 đã chốt khi thiết kế), tại `tests/test_eligibility.py` — 14 test: 7 ca đơn vị cho lớp eligibility, 5 ca tích hợp RecommendationService, 2 ca tích hợp workflow; mỗi ca đều có khả năng fail nếu triển khai sai:
 
 - **Đủ bốn đường:** shopping, basket, cả ba placement qua API gợi ý và fallback phổ biến — không đường nào ra thẻ sản phẩm hết hàng, chưa `published` hoặc vượt ngân sách phiên.
 - **Biên ngân sách:** giá bằng đúng ngân sách → hiển thị; giá = ngân sách + 1đ → loại; ngân sách giảm giữa phiên xuống dưới giá sản phẩm đã gợi ý → lần hiển thị sau không còn sản phẩm đó.

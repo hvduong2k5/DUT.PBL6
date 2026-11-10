@@ -21,7 +21,7 @@
 | Conversations | Phiên, tin nhắn, slot làm việc, consent lưu lịch sử, retention và dọn dẹp. |
 | Knowledge | Kho tài liệu/chunk có vòng đời (draft/active/retracted), truy hồi hybrid có lọc quyền và cửa sổ hiệu lực ngay trong truy vấn. |
 | Tool Gateway | Mọi tương tác ra ngoài (kể cả đọc) đều qua gateway: đăng ký allowlist, schema, timeout, audit. |
-| Product Eligibility (đợt 1.5, chưa triển khai) | Kiểm tra đủ điều kiện hiển thị dùng chung cho `shopping_advisor` và `recommendation`: published → ngân sách cứng → tồn kho, fail-closed theo SKU. Thiết kế tại [chương 13](13_unified_eligibility.md). |
+| Product Eligibility (đợt 1.5) | Kiểm tra đủ điều kiện hiển thị dùng chung cho `shopping_advisor` và `recommendation`: published → ngân sách cứng → tồn kho, fail-closed theo SKU. Thiết kế tại [chương 13](13_unified_eligibility.md). |
 | Providers | LLM (Fake/Gemini/Bedrock) và embedding (Fake/Gemini/Titan) sau interface chuẩn; hoán đổi bằng cấu hình. |
 | Auth | Khách đăng nhập xác thực bằng JWT RS256/JWKS như Order/Profile; khách vãng lai là phiên ẩn danh. Quyền nhân viên (đợt 2) sẽ theo `permission_grants` trong JWT theo baseline phân quyền 7-B. |
 

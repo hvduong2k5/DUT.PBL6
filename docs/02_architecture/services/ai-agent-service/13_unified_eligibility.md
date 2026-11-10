@@ -1,6 +1,6 @@
 # 13 — Unified Product Eligibility (đợt 1.5)
 
-**Trạng thái: thiết kế đã chốt ngày 10/11/2026, chưa triển khai.** Nội dung chương này là kết quả tranh luận ba vòng giữa Muse và ChatGPT trên dữ kiện code tại baseline `7af8b52` (kết luận “Approved with conditions”); bản kế hoạch đầy đủ nằm ngoài repo. Code hiện tại vẫn vận hành theo [chương 09](09_shopping_workflow_design.md) và [chương 11](11_recommendation_consumption.md) — chương này ghi rõ chỗ nào sẽ thay khi lát được triển khai, để không ai đọc nhầm thiết kế thành hiện trạng.
+**Trạng thái: đã triển khai ngày 10/11/2026** trên nhánh `feat/ai-agent-service` — thành phần `platform/eligibility.py`, nối vào cả bốn đường sinh Product Card, kèm 14 test tại `tests/test_eligibility.py` (full suite 82 test đạt, ruff sạch). Nội dung chương này là kết quả tranh luận ba vòng giữa Muse và ChatGPT trên dữ kiện code tại baseline `7af8b52` (kết luận “Approved with conditions”); bản kế hoạch đầy đủ nằm ngoài repo. [Chương 09](09_shopping_workflow_design.md) và [chương 11](11_recommendation_consumption.md) đã cập nhật theo hiện trạng mới.
 
 ## Vấn đề
 
@@ -37,7 +37,7 @@ Pipeline theo đúng thứ tự, kiểm theo **SKU** (không chỉ productId):
 
 Lỗi ở một SKU **không** hủy các SKU còn lại: lượt gợi ý trả các sản phẩm đã xác minh được và loại phần chưa xác minh. Không bao giờ biến lỗi kỹ thuật thành “hết hàng” trong số liệu, và không bao giờ coi chưa xác minh được là còn hàng.
 
-Điều kiện kèm theo của lát: một spike ngắn đọc bề mặt API thật của Inventory trong cùng repo để xác nhận số lượng adapter nhận về là khả dụng để bán (sau giữ hàng) hay tồn kho thô. Nếu ngữ nghĩa lệch với interface hiện giả định, dừng lại sửa interface trước khi hoàn thành lớp eligibility (xem [chương 07, khoảng trống #9–#10](07_integrations_and_contract_gaps.md)).
+Điều kiện kèm theo của lát — **spike đã thực hiện ngày 10/11/2026**, đọc code Inventory trên `dev`: RPC `GetStockLevel` (gRPC, nhận danh sách SKU) trả `available_qty` đúng bằng **khả dụng để bán** — `Q_avail = Q_phy − Q_res` (quy tắc INV-BI-01), ưu tiên `sellable_quantity` nếu có, ép 0 khi item không ở trạng thái Active, SKU lạ trả 0/`OUT_OF_STOCK`. Ngữ nghĩa khớp interface adapter hiện giả định nên không phải sửa interface. Hai hệ quả cho lúc nối dây thật (xem [chương 07, khoảng trống #9–#10](07_integrations_and_contract_gaps.md)): Inventory thật **chỉ có gRPC, không có REST kiểm tồn**, và **đã có batch** ở tầng gRPC — adapter HTTP hiện tại chỉ là hình dạng tạm.
 
 ## Outcome taxonomy
 
