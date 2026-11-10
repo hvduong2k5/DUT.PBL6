@@ -14,16 +14,16 @@ services:
     retries: 0
     routes:
       - name: analytics-recommended-products
-        paths: ["~^/api/v1/products/recommended/?$"]
+        paths: ["~/api/v1/products/recommended/?$"]
         regex_priority: 100
         strip_path: false
         methods: [GET, OPTIONS]
       - name: analytics-recommendation-consent
-        paths: ["~^/api/v1/recommendations/consent/?$"]
+        paths: ["~/api/v1/recommendations/consent/?$"]
         strip_path: false
         methods: [GET, PUT, OPTIONS]
       - name: analytics-recommendation-events
-        paths: ["~^/api/v1/recommendations/events/?$"]
+        paths: ["~/api/v1/recommendations/events/?$"]
         strip_path: false
         methods: [POST, OPTIONS]
   # Fulfillment verifies the signed token and current Employee/ADMIN scope in
