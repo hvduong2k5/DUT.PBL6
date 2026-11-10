@@ -15,6 +15,7 @@ from ai_agent_service.platform.budget_evidence import (
     AMBIGUOUS,
     EXACT,
     INVALID,
+    _supported_literals,
     literal_amounts,
     parse_budget_evidence,
     resolve_budget,
@@ -56,13 +57,15 @@ def test_gate_replay(case_id):
     elif expected["status"] == AMBIGUOUS:
         assert budget is None, f"{case_id}: ambiguous budget resolved by guessing: {budget}"
     elif expected["status"] == ABSENT:
-        if budget is not None:
-            # A model budget may survive only with literal support from
-            # the user's own words (never an invented number).
-            assert budget in literal_amounts(turns), (
-                f"{case_id}: unsupported budget accepted: {budget}"
-            )
-            assert decision == "model_supported"
+        # Đợt 1.7: under ABSENT the gate never commits. A model budget
+        # matching a literal amount becomes a candidate for the
+        # workflow to confirm; anything else is unsupported.
+        assert budget is None, f"{case_id}: ABSENT budget committed: {budget}"
+        recorded = _recorded_budget(case_id)
+        if recorded is not None and recorded in _supported_literals(turns):
+            assert decision == "model_candidate"
+        else:
+            assert decision in ("model_unsupported", "no_budget")
 
 
 def test_replay_safety_metrics():
