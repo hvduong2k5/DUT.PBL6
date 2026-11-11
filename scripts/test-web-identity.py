@@ -1031,6 +1031,44 @@ def main():
         print("PASS: native PKCE/JSON callback, app-bound state, refresh/logout and direct bearer Customer/Employee gates",flush=True)
         real_packing = None
         if args.fulfillment:
+            # The ADMIN assignment for this Employee was inserted directly
+            # into the DB (mvp_fulfillment_checks.prepare), bypassing
+            # Identity's assignment API, so the Keycloak attribute sync
+            # never ran. Project the DB truth onto the Keycloak user
+            # exactly as PermissionSyncService formats it, so the staff
+            # tokens minted below carry permission_grants — Fulfillment
+            # authorizes staff from that claim alone since the grants
+            # migration. The projection is removed again before the
+            # authorization checks at the end of the run, which expect
+            # this account's real-login token to be a grant-less legacy
+            # snapshot.
+            status, fixture_admin, _ = request(base + "/realms/master/protocol/openid-connect/token",
+                {"grant_type": "password", "client_id": "admin-cli", "username": "admin", "password": admin_password}, form=True)
+            assert status == 200, "Fixture administrator unavailable"
+            grant_rows = sql("SELECT DISTINCT rp.permission_code || '#' || ra.scope_type || CASE WHEN ra.scope_id IS NOT NULL AND ra.scope_id <> '' THEN '#' || ra.scope_id ELSE '' END FROM identity.iam_role_assignments ra JOIN identity.iam_roles r ON r.role_id = ra.role_id AND r.is_enabled = TRUE JOIN identity.iam_role_permissions rp ON rp.role_id = ra.role_id WHERE ra.principal_id = '" + accounts["E"]["principal"] + "' AND ra.assignment_status = 'ACTIVE' AND ra.valid_from <= now() AND (ra.valid_until IS NULL OR ra.valid_until > now()) ORDER BY 1;", tuples=True)
+            flat_rows = sql("SELECT DISTINCT rp.permission_code FROM identity.iam_role_assignments ra JOIN identity.iam_roles r ON r.role_id = ra.role_id AND r.is_enabled = TRUE JOIN identity.iam_role_permissions rp ON rp.role_id = ra.role_id WHERE ra.principal_id = '" + accounts["E"]["principal"] + "' AND ra.assignment_status = 'ACTIVE' AND ra.valid_from <= now() AND (ra.valid_until IS NULL OR ra.valid_until > now()) ORDER BY 1;", tuples=True)
+            # Keycloak silently drops user attributes that are not
+            # declared in the realm user profile (verified on 24.0.5):
+            # declare the two grant attributes before writing them,
+            # the same way app_user_id is declared at realm setup.
+            status, realm_profile, _ = request(admin_api + "/users/profile", token=fixture_admin["access_token"])
+            assert status == 200, "Fixture realm profile lookup failed"
+            declared = {attribute["name"] for attribute in realm_profile["attributes"]}
+            for attribute_name in ("permission_grants", "permissions"):
+                if attribute_name not in declared:
+                    realm_profile["attributes"].append({
+                        "name": attribute_name, "displayName": attribute_name, "multivalued": True,
+                        "permissions": {"view": ["admin"], "edit": ["admin"]},
+                    })
+            if {"permission_grants", "permissions"} - declared:
+                assert request(admin_api + "/users/profile", realm_profile, fixture_admin["access_token"], "PUT")[0] == 200, "Fixture realm profile declaration failed"
+            status, kc_user, _ = request(admin_api + "/users/" + accounts["E"]["subject"], token=fixture_admin["access_token"])
+            assert status == 200, "Fixture employee lookup failed"
+            kc_user.setdefault("attributes", {}).update({
+                "permission_grants": [row for row in grant_rows.splitlines() if row],
+                "permissions": [row for row in flat_rows.splitlines() if row],
+            })
+            assert request(admin_api + "/users/" + accounts["E"]["subject"], kc_user, fixture_admin["access_token"], "PUT")[0] == 204, "Fixture grant projection failed"
             staff_session=native_identity(request,gateway,issuer,profile_url,f"http://127.0.0.1:{ports['order']}",accounts['E'],account_password,True,retain=True)
             customer_session=native_identity(request,gateway,issuer,profile_url,f"http://127.0.0.1:{ports['order']}",accounts['A'],account_password,False,retain=True)
             fulfillment_checks.pack.storage_port=ports['storage']
@@ -1539,6 +1577,18 @@ def main():
             assert after == {"physical":98,"reserved":0}, ("Native cancellation did not release Inventory",after)
             mobile_client_runtime="PASS"
             print("PASS: native Dart runtime -> real Catalog/Profile/cart/quote/checkout/replay/order/payment instructions/cancel -> Inventory released",flush=True)
+        # Drop the grants projected onto the fixture Employee for the
+        # Fulfillment section above: the authorization checks below
+        # expect this account's real-login token to be a grant-less
+        # legacy snapshot.
+        status, fixture_admin, _ = request(base + "/realms/master/protocol/openid-connect/token",
+            {"grant_type": "password", "client_id": "admin-cli", "username": "admin", "password": admin_password}, form=True)
+        assert status == 200, "Fixture administrator unavailable"
+        status, kc_user, _ = request(admin_api + "/users/" + accounts["E"]["subject"], token=fixture_admin["access_token"])
+        assert status == 200, "Fixture employee lookup failed"
+        for attribute in ("permission_grants", "permissions"):
+            kc_user.get("attributes", {}).pop(attribute, None)
+        assert request(admin_api + "/users/" + accounts["E"]["subject"], kc_user, fixture_admin["access_token"], "PUT")[0] == 204, "Fixture grant removal failed"
         auth_staff = native_identity(request,gateway,issuer,profile_url,f"http://127.0.0.1:{ports['order']}",accounts['E'],account_password,True,retain=True)
         auth_customer = native_identity(request,gateway,issuer,profile_url,f"http://127.0.0.1:{ports['order']}",accounts['A'],account_password,False,retain=True)
         # Dedicated TEST clients stand in for the not-yet-implemented staff issuer.

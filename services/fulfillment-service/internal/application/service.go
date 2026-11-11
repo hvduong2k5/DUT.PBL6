@@ -78,10 +78,10 @@ func (s *Service) Mutate(ctx context.Context, p d.Principal, id, key, hash strin
 	}
 	permission := t.Permission(m.Action)
 	if m.Action == "AssignTask" && m.AssigneeID != "" && m.AssigneeID != p.ID {
-		permission = "fulfillment.task.assign_other"
+		permission = "FULFILLMENT_TASK_ASSIGN_OTHER"
 	}
 	if m.Action == "UnassignTask" && (t.Assignee == nil || *t.Assignee != p.ID) {
-		permission = "fulfillment.task.assign_other"
+		permission = "FULFILLMENT_TASK_ASSIGN_OTHER"
 	}
 	if !p.Can(permission, t.Warehouse) {
 		return d.Task{}, d.Fail("FORBIDDEN", 403)

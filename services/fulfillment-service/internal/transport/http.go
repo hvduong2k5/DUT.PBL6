@@ -98,7 +98,7 @@ func (h HTTP) Router() http.Handler {
 }
 func (h HTTP) task(w http.ResponseWriter, r *http.Request) {
 	t, e := h.Service.Store.Task(r.Context(), chi.URLParam(r, "task_id"))
-	if e == nil && !principal(r.Context()).Can("fulfillment.task.read", t.Warehouse) {
+	if e == nil && !principal(r.Context()).Can("FULFILLMENT_TASK_READ", t.Warehouse) {
 		e = d.Fail("FORBIDDEN", 403)
 	}
 	if e != nil {
@@ -295,7 +295,7 @@ func (h HTTP) file(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	t, e := h.Service.Store.Task(r.Context(), f.TaskID)
-	if e == nil && !principal(r.Context()).Can("fulfillment.media.read_metadata", t.Warehouse) {
+	if e == nil && !principal(r.Context()).Can("FULFILLMENT_MEDIA_READ_METADATA", t.Warehouse) {
 		e = d.Fail("FORBIDDEN", 403)
 	}
 	if e != nil {
