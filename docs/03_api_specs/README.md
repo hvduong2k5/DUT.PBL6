@@ -9,6 +9,8 @@
 # CẨM NANG ĐẶC TẢ GIAO DIỆN & HỢP ĐỒNG HỆ THỐNG (API & CONTRACTS SPECIFICATIONS)
 
 > Fulfillment MVP: [luồng thật, bảng quyền và cách bật](../../packages/contracts/mvp/fulfillment-integration.md), [staff REST](fulfillment-service.candidate.openapi.yaml), [packing gRPC canonical](../../packages/proto/packing/v1/packing.proto). Chỉ bật có cấu hình; Customer không được thao tác đóng gói.
+>
+> MS-11 Analytics: [OpenAPI Dashboard đề xuất](analytics-service.candidate.openapi.yaml) và [hợp đồng nguồn](../02_architecture/services/analytics-service/07_integrations_and_contract_gaps.md).
 ## HỆ SINH THÁI THƯƠNG MẠI ĐIỆN TỬ & CHUỖI CUNG ỨNG ĐẶC SẢN OCOP HUẾ (MÈ XỬNG O MẠ)
 
 Thư mục này là **Single Source of Truth** về mặt tài liệu giao tiếp kỹ thuật của toàn bộ 18 Microservices, phục vụ trực tiếp cho quá trình lập trình song song, kiểm thử tự động (CI/CD Contract Test) và tài liệu bảo vệ đồ án.

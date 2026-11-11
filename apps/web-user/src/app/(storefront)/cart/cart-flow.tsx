@@ -9,6 +9,7 @@ import { MAX_CART_ITEM_QUANTITY } from "@/lib/cart/validation";
 import { cartService } from "@/services/cart-service";
 import { useCartSummary } from "@/components/cart/cart-summary-provider";
 import { ProductImage } from "@/components/product/product-image";
+import { RecommendationRail } from "@/components/recommendation/recommendation-rail";
 
 const VND = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 });
 
@@ -211,6 +212,7 @@ export function CartFlow() {
           </aside>
         </div>
       )}
+      {cart?.items.length ? <RecommendationRail placement="cart" skuCodes={cart.items.map((item) => item.skuId)} /> : null}
     </main>
   );
 }

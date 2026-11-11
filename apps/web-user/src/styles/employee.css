@@ -108,6 +108,17 @@
 .admin-table td > strong, .admin-table td > small { display: block; }
 .admin-table td > strong { color: #3f2d22; font-size: 10px; }
 .admin-table td > small { margin-top: 3px; color: #938277; font-size: 8px; }
+.supply-filters { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
+.supply-filters label { display: grid; gap: 5px; font-size: 13px; font-weight: 600; }
+.supply-filters input { padding: 8px; border: 1px solid var(--border); border-radius: 6px; color: inherit; background: white; }
+.supply-report { margin: 0 0 16px; padding: 16px; border: 1px solid var(--border); border-radius: 10px; background: white; }
+.supply-report header { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.supply-report h2 { margin: 0 0 4px; font-size: 18px; }
+.supply-report p, .supply-report summary { margin: 8px 0; font-size: 13px; }
+.supply-scroll { overflow-x: auto; }
+.supply-report .admin-table { min-width: 520px; table-layout: auto; }
+.supply-report .admin-table th, .supply-report .admin-table td { width: auto; font-size: 12px; }
+.supply-sku { background: transparent; border: 0; color: #784023; cursor: pointer; font-weight: 650; text-decoration: underline; }
 .admin-table th:nth-child(1) { width: 13%; }.admin-table th:nth-child(2) { width: 19%; }.admin-table th:nth-child(3) { width: 11%; }.admin-table th:nth-child(4) { width: 9%; }.admin-table th:nth-child(5) { width: 13%; }.admin-table th:nth-child(6) { width: 10%; }.admin-table th:nth-child(7) { width: 11%; }.admin-table th:nth-child(8) { width: 9%; }.admin-table th:last-child { width: 48px; }
 .admin-status { display: inline-flex; padding: 5px 7px; border-radius: 999px; color: #695426; background: #fff3d9; font-size: 8px; font-weight: 800; white-space: nowrap; }
 .status-needs_info { color: #8a4d0c; background: #ffead0; }.status-draft { color: #5d5475; background: #eee9fa; }.status-sent { color: #275679; background: #e4f1fb; }.status-accepted, .status-converted { color: #386634; background: #e7f4e4; }.status-rejected, .status-expired, .status-withdrawn { color: #8c3025; background: #fbe5e2; }.status-superseded { color: #625d59; background: #eeeae7; }
