@@ -1,0 +1,34 @@
+# Git-based deployment variant (Coolify) of the repo Dockerfile.
+# Identical build; the entrypoint additionally materializes the
+# file-based secrets the terminal profile needs (TLS cert/key and the
+# fulfillment packing token) from base64 environment variables,
+# because Coolify cannot mount files into app containers (W0 E3).
+# When the *_B64 variables are absent no files are written and the
+# exported paths simply point at nonexistent files, which the service
+# treats the same as unset (terminal profile stays off).
+FROM --platform=$BUILDPLATFORM golang:1.25-alpine AS build
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+ARG TARGETOS=linux
+ARG TARGETARCH=arm64
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
+    go build -trimpath -ldflags="-s -w" -o /out/inventory-service ./cmd/server
+
+FROM alpine:3.20
+RUN addgroup -S app && adduser -S app -G app && mkdir -p /run/secrets && chown app:app /run/secrets
+WORKDIR /app
+COPY --from=build /out/inventory-service ./inventory-service
+# SQL migrations ship with the image in case the runtime applies them from disk.
+COPY --from=build /src/migrations ./migrations
+RUN printf '%s\n' '#!/bin/sh' \
+  'if [ -n "$INVENTORY_TLS_CERT_B64" ]; then printf %s "$INVENTORY_TLS_CERT_B64" | base64 -d > /run/secrets/tls.crt; fi' \
+  'if [ -n "$INVENTORY_TLS_KEY_B64" ]; then printf %s "$INVENTORY_TLS_KEY_B64" | base64 -d > /run/secrets/tls.key; fi' \
+  'if [ -n "$INVENTORY_FULFILLMENT_TOKEN_B64" ]; then printf %s "$INVENTORY_FULFILLMENT_TOKEN_B64" | base64 -d > /run/secrets/fulfillment-token.txt; fi' \
+  'export INVENTORY_TLS_CERT=/run/secrets/tls.crt INVENTORY_TLS_KEY=/run/secrets/tls.key INVENTORY_FULFILLMENT_TOKEN_FILE=/run/secrets/fulfillment-token.txt' \
+  'exec /app/inventory-service' > /entrypoint.sh && chmod +x /entrypoint.sh
+USER app
+ENV PORT=8001
+EXPOSE 8001
+ENTRYPOINT ["/entrypoint.sh"]
