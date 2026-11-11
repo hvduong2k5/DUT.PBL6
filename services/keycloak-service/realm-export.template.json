@@ -363,10 +363,6 @@
   "roles": {
     "realm": [
       {
-        "name": "CUSTOMER",
-        "description": "Customer role"
-      },
-      {
         "name": "ADMIN",
         "description": "Administrator of Identity Service"
       }

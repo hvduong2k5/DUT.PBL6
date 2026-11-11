@@ -31,7 +31,7 @@ func jwk(k *rsa.PrivateKey, kid string) map[string]any {
 }
 func signedCustomer(t *testing.T, k *rsa.PrivateKey, kid, issuer, user string, edit func(jwt.MapClaims)) string {
 	t.Helper()
-	c := jwt.MapClaims{"iss": issuer, "aud": []string{"account", "order-api"}, "sub": uuid.NewString(), "user_id": user, "typ": "Bearer", "iat": time.Now().Add(-time.Minute).Unix(), "exp": time.Now().Add(time.Hour).Unix(), "realm_access": map[string]any{"roles": []string{"CUSTOMER"}}}
+	c := jwt.MapClaims{"iss": issuer, "aud": []string{"account", "order-api"}, "sub": uuid.NewString(), "user_id": user, "typ": "Bearer", "iat": time.Now().Add(-time.Minute).Unix(), "exp": time.Now().Add(time.Hour).Unix(), "principal_type": "CUSTOMER"}
 	if edit != nil {
 		edit(c)
 	}
@@ -96,8 +96,8 @@ func TestKeycloakValidationAndCustomerOwnership(t *testing.T) {
 		"invalid principal":         func(c jwt.MapClaims) { c["user_id"] = "not-a-uuid" },
 		"nil principal":             func(c jwt.MapClaims) { c["user_id"] = uuid.Nil.String() },
 		"id token":                  func(c jwt.MapClaims) { c["typ"] = "ID" },
-		"staff not customer":        func(c jwt.MapClaims) { c["realm_access"] = map[string]any{"roles": []string{"EMPLOYEE", "ADMIN"}} },
-		"self declared role":        func(c jwt.MapClaims) { delete(c, "realm_access"); c["role"] = "CUSTOMER" },
+		"staff not customer":        func(c jwt.MapClaims) { c["principal_type"] = "EMPLOYEE" },
+		"self declared role":        func(c jwt.MapClaims) { delete(c, "principal_type"); c["role"] = "CUSTOMER" },
 	}
 	for name, edit := range cases {
 		t.Run(name, func(t *testing.T) {

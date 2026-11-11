@@ -35,7 +35,7 @@ func TestProfileSignedIdentity(t *testing.T) {
 	}
 	principal := uuid.NewString()
 	signed := func(edit func(jwt.MapClaims)) string {
-		claims := jwt.MapClaims{"iss": server.URL, "aud": []string{"omama-api", "order-api"}, "sub": uuid.NewString(), "user_id": principal, "typ": "Bearer", "iat": time.Now().Add(-time.Minute).Unix(), "exp": time.Now().Add(time.Minute).Unix(), "realm_access": map[string]any{"roles": []string{"CUSTOMER"}}}
+		claims := jwt.MapClaims{"iss": server.URL, "aud": []string{"omama-api", "order-api"}, "sub": uuid.NewString(), "user_id": principal, "typ": "Bearer", "iat": time.Now().Add(-time.Minute).Unix(), "exp": time.Now().Add(time.Minute).Unix(), "principal_type": "CUSTOMER"}
 		if edit != nil {
 			edit(claims)
 		}
@@ -65,7 +65,7 @@ func TestProfileSignedIdentity(t *testing.T) {
 		"no principal":              func(c jwt.MapClaims) { delete(c, "user_id") },
 		"nil principal":             func(c jwt.MapClaims) { c["user_id"] = uuid.Nil.String() },
 		"id token":                  func(c jwt.MapClaims) { c["typ"] = "ID" },
-		"unscoped staff":            func(c jwt.MapClaims) { c["realm_access"] = map[string]any{"roles": []string{"ADMIN", "EMPLOYEE"}} },
+		"unscoped staff":            func(c jwt.MapClaims) { c["principal_type"] = "EMPLOYEE" },
 	} {
 		t.Run(name, func(t *testing.T) {
 			if _, e := verifier.Authenticate(context.Background(), signed(edit)); e == nil {

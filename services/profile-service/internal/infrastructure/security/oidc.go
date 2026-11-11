@@ -81,11 +81,9 @@ var ErrStaffTokenRequired = errors.New("STAFF_TOKEN_REQUIRED")
 type customerClaims struct {
 	jwt.RegisteredClaims
 	staffAuthorizationClaims
-	UserID      string `json:"user_id"`
-	Type        string `json:"typ"`
-	RealmAccess struct {
-		Roles []string `json:"roles"`
-	} `json:"realm_access"`
+	UserID        string `json:"user_id"`
+	Type          string `json:"typ"`
+	PrincipalType string `json:"principal_type"`
 }
 
 func (v *OIDCIdentity) Authenticate(ctx context.Context, bearer string) (Principal, error) {
@@ -165,12 +163,13 @@ func (v *OIDCIdentity) Authenticate(ctx context.Context, bearer string) (Princip
 			return Principal{}, ErrCustomerRequired
 		}
 	}
-	for _, role := range claims.RealmAccess.Roles {
-		if role == "CUSTOMER" {
-			// sub belongs to Keycloak; user_id is Identity's immutable principal UUID.
-			// CustomerID is deliberately left empty until Profile.Resolve proves it.
-			return Principal{ID: id.String(), Role: "CUSTOMER"}, nil
-		}
+	if claims.PrincipalType == "EMPLOYEE" {
+		return Principal{}, ErrStaffTokenRequired
+	}
+	if claims.PrincipalType == "CUSTOMER" {
+		// sub belongs to Keycloak; user_id is Identity's immutable principal UUID.
+		// CustomerID is deliberately left empty until Profile.Resolve proves it.
+		return Principal{ID: id.String(), Role: "CUSTOMER"}, nil
 	}
 	return Principal{}, denied
 }
