@@ -547,14 +547,19 @@ def main():
             base + "/admin/realms/" + realm + "/users/profile", token=admin_token
         )
         assert status == 200
-        profile["attributes"].append(
-            json.loads(
-                (
-                    ROOT
-                    / "services/keycloak-service/order-user-profile-attribute.json"
-                ).read_text()
-            )
+        app_user_id_declaration = json.loads(
+            (
+                ROOT
+                / "services/keycloak-service/order-user-profile-attribute.json"
+            ).read_text()
         )
+        # The realm template may already declare app_user_id; appending a
+        # second attribute with the same name would invalidate the update.
+        if all(
+            attribute.get("name") != app_user_id_declaration["name"]
+            for attribute in profile["attributes"]
+        ):
+            profile["attributes"].append(app_user_id_declaration)
         assert (
             request(
                 base + "/admin/realms/" + realm + "/users/profile",
