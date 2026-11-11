@@ -73,16 +73,66 @@ public class SecurityConfig {
             }
           }
 
-          // 2. Map Stateless Permissions Claim (e.g., CATALOG_VIEW, CATALOG_MANAGE)
-          List<String> perms = jwt.getClaimAsStringList("permissions");
-          if (perms != null) {
-            for (String p : perms) {
-              authorities.add(new SimpleGrantedAuthority(p));
+          // 2. Map scoped permission grants, the Identity sync contract
+          //    (e.g., "CATALOG_VIEW#GLOBAL",
+          //    "CATALOG_MANAGE#WAREHOUSE#WH-HCM-01"). The authority is the
+          //    permission code alone: the flat "permissions" claim this
+          //    replaces carried no scope, so code-only mapping preserves
+          //    the previous authorization semantics.
+          List<String> grants = jwt.getClaimAsStringList("permission_grants");
+          if (grants != null) {
+            for (String grant : grants) {
+              authorities.add(new SimpleGrantedAuthority(parseGrantPermissionCode(grant)));
             }
           }
 
           return authorities;
         });
     return converter;
+  }
+
+  private static final java.util.regex.Pattern PERMISSION_CODE =
+      java.util.regex.Pattern.compile("^[A-Za-z][A-Za-z0-9_.:-]{0,159}$");
+
+  /**
+   * Extracts the permission code from one {@code permission_grants} entry:
+   * {@code PERMISSION#SCOPE_TYPE} for GLOBAL grants,
+   * {@code PERMISSION#SCOPE_TYPE#SCOPE_ID} for WAREHOUSE and DEPARTMENT
+   * grants. The grammar mirrors the Order/Profile staff-claims parser so
+   * every consumer reads the Identity contract the same way; a malformed
+   * entry fails the conversion closed instead of silently widening or
+   * narrowing access.
+   */
+  static String parseGrantPermissionCode(String grant) {
+    String[] parts = grant.split("#", -1);
+    if (parts.length < 2 || parts.length > 3 || !PERMISSION_CODE.matcher(parts[0]).matches()) {
+      throw new IllegalArgumentException("INVALID_STAFF_AUTHORIZATION");
+    }
+    switch (parts[1]) {
+      case "GLOBAL" -> {
+        if (parts.length != 2) {
+          throw new IllegalArgumentException("INVALID_STAFF_AUTHORIZATION");
+        }
+      }
+      case "WAREHOUSE", "DEPARTMENT" -> {
+        if (parts.length != 3 || !isValidScopeId(parts[2])) {
+          throw new IllegalArgumentException("INVALID_STAFF_AUTHORIZATION");
+        }
+      }
+      default -> throw new IllegalArgumentException("INVALID_STAFF_AUTHORIZATION");
+    }
+    return parts[0];
+  }
+
+  private static boolean isValidScopeId(String value) {
+    if (value.isEmpty() || value.length() > 160 || !value.trim().equals(value)) {
+      return false;
+    }
+    for (int i = 0; i < value.length(); i++) {
+      if (Character.isISOControl(value.charAt(i))) {
+        return false;
+      }
+    }
+    return true;
   }
 }
