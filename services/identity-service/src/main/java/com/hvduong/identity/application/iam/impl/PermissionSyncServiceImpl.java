@@ -96,17 +96,15 @@ public class PermissionSyncServiceImpl implements PermissionSyncService {
             return SyncResult.failed(principalId, "PRINCIPAL_NOT_LINKED");
         }
 
-        List<String> flatPermissions;
         List<PermissionSyncService.PermissionGrant> grants;
         try {
-            flatPermissions = resolveEffectivePermissions(principalId);
             grants = resolveEffectivePermissionGrants(principalId);
             List<String> grantStrings = grants.stream()
                     .map(g -> g.permission() + "#" + (g.scopeType() != null ? g.scopeType() : "GLOBAL")
                             + (g.scopeId() != null && !g.scopeId().isBlank() ? "#" + g.scopeId() : ""))
                     .toList();
             keycloakAdminClient.updateUserPermissionsWithGrants(
-                    principal.getIdpSubject(), flatPermissions, grantStrings, principal.getPrincipalType());
+                    principal.getIdpSubject(), grantStrings, principal.getPrincipalType());
         } catch (Exception ex) {
             log.error("Keycloak permission sync failed [principalId={}, idpSubject={}, trigger={}]",
                     principalId, principal.getIdpSubject(), trigger, ex);
@@ -118,9 +116,13 @@ public class PermissionSyncServiceImpl implements PermissionSyncService {
             revokeSessions(principalId, principal.getIdpSubject(), trigger, actorId);
         }
 
+        int permissionCount = (int) grants.stream()
+                .map(PermissionSyncService.PermissionGrant::permission)
+                .distinct()
+                .count();
         log.info("Synced {} permission(s) / {} grant(s) to Keycloak [principalId={}, trigger={}, forceRelogin={}]",
-                flatPermissions.size(), grants.size(), principalId, trigger, forceRelogin);
-        return SyncResult.ok(principalId, flatPermissions.size(), grants.size());
+                permissionCount, grants.size(), principalId, trigger, forceRelogin);
+        return SyncResult.ok(principalId, permissionCount, grants.size());
     }
 
     @Override

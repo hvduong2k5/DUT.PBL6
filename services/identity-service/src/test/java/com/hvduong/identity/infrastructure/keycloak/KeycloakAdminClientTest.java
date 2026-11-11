@@ -108,7 +108,6 @@ class KeycloakAdminClientTest {
         var client = new KeycloakAdminClient(kc, "omama");
         client.updateUserPermissionsWithGrants(
                 "kc-sub-grants",
-                List.of("ORDER_VIEW"),
                 List.of("ORDER_VIEW#GLOBAL"),
                 PrincipalType.EMPLOYEE.name()
         );

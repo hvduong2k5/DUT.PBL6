@@ -73,19 +73,20 @@ class PermissionSyncServiceTest {
         principal.setPrincipalType(PrincipalType.EMPLOYEE.name());
 
         when(principalMapper.findById(principalId)).thenReturn(principal);
-        when(rolePermissionMapper.findEffectivePermissionCodesByPrincipal(eq(principalId), any()))
-                .thenReturn(List.of("order:read"));
+        IamRolePermissionMapper.PermissionGrantRow grantRow = new IamRolePermissionMapper.PermissionGrantRow();
+        grantRow.setPermissionCode("order:read");
+        grantRow.setScopeType("GLOBAL");
         when(rolePermissionMapper.findEffectivePermissionGrantsByPrincipal(eq(principalId), any()))
-                .thenReturn(List.of());
+                .thenReturn(List.of(grantRow));
 
         PermissionSyncService.SyncResult result = service.syncPrincipal(
                 principalId, false, PermissionSyncService.Trigger.ROLE_ASSIGN, null);
 
         assertThat(result.success()).isTrue();
         assertThat(result.permissionCount()).isEqualTo(1);
-        assertThat(result.grantCount()).isEqualTo(0);
+        assertThat(result.grantCount()).isEqualTo(1);
         verify(keycloakAdminClient).updateUserPermissionsWithGrants(
-                eq("kc-sub-1"), eq(List.of("order:read")), eq(List.of()), eq(PrincipalType.EMPLOYEE.name()));
+                eq("kc-sub-1"), eq(List.of("order:read#GLOBAL")), eq(PrincipalType.EMPLOYEE.name()));
         verify(bffSessionStore, never()).removeSessionsByPrincipalId(any());
         verify(keycloakAdminClient, never()).logoutUserStrict(any());
     }
@@ -99,8 +100,6 @@ class PermissionSyncServiceTest {
         principal.setPrincipalType(PrincipalType.EMPLOYEE.name());
 
         when(principalMapper.findById(principalId)).thenReturn(principal);
-        when(rolePermissionMapper.findEffectivePermissionCodesByPrincipal(eq(principalId), any()))
-                .thenReturn(List.of());
         when(rolePermissionMapper.findEffectivePermissionGrantsByPrincipal(eq(principalId), any()))
                 .thenReturn(List.of());
 
@@ -108,7 +107,7 @@ class PermissionSyncServiceTest {
 
         verify(bffSessionStore).removeSessionsByPrincipalId(principalId);
         verify(keycloakAdminClient).updateUserPermissionsWithGrants(
-                eq("kc-sub-2"), eq(List.of()), eq(List.of()), eq(PrincipalType.EMPLOYEE.name()));
+                eq("kc-sub-2"), eq(List.of()), eq(PrincipalType.EMPLOYEE.name()));
         verify(keycloakAdminClient).logoutUserStrict("kc-sub-2");
     }
 
@@ -121,12 +120,10 @@ class PermissionSyncServiceTest {
         principal.setPrincipalType(PrincipalType.EMPLOYEE.name());
 
         when(principalMapper.findById(principalId)).thenReturn(principal);
-        when(rolePermissionMapper.findEffectivePermissionCodesByPrincipal(eq(principalId), any()))
-                .thenReturn(List.of("order:read"));
         when(rolePermissionMapper.findEffectivePermissionGrantsByPrincipal(eq(principalId), any()))
                 .thenReturn(List.of());
         org.mockito.Mockito.doThrow(new RuntimeException("keycloak down"))
-                .when(keycloakAdminClient).updateUserPermissionsWithGrants(any(), any(), any(), any());
+                .when(keycloakAdminClient).updateUserPermissionsWithGrants(any(), any(), any());
 
         PermissionSyncService.SyncResult result = service.syncPrincipal(
                 principalId, false, PermissionSyncService.Trigger.ROLE_PERMISSION_CHANGE, UUID.randomUUID());
@@ -152,7 +149,7 @@ class PermissionSyncServiceTest {
 
         assertThat(result.success()).isFalse();
         assertThat(result.errorCode()).isEqualTo("PRINCIPAL_NOT_LINKED");
-        verify(keycloakAdminClient, never()).updateUserPermissionsWithGrants(any(), any(), any(), any());
+        verify(keycloakAdminClient, never()).updateUserPermissionsWithGrants(any(), any(), any());
     }
 
     @Test
@@ -183,7 +180,6 @@ class PermissionSyncServiceTest {
         principal2.setPrincipalType(PrincipalType.EMPLOYEE.name());
         when(principalMapper.findById(p1)).thenReturn(principal1);
         when(principalMapper.findById(p2)).thenReturn(principal2);
-        when(rolePermissionMapper.findEffectivePermissionCodesByPrincipal(any(), any())).thenReturn(List.of());
         when(rolePermissionMapper.findEffectivePermissionGrantsByPrincipal(any(), any())).thenReturn(List.of());
 
         int synced = service.syncAllPrincipalsForRole(
@@ -192,6 +188,6 @@ class PermissionSyncServiceTest {
         assertThat(synced).isEqualTo(2);
         verify(bffSessionStore).removeSessionsByPrincipalId(p1);
         verify(bffSessionStore).removeSessionsByPrincipalId(p2);
-        verify(keycloakAdminClient, times(2)).updateUserPermissionsWithGrants(any(), any(), any(), any());
+        verify(keycloakAdminClient, times(2)).updateUserPermissionsWithGrants(any(), any(), any());
     }
 }
