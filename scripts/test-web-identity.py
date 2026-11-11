@@ -1029,27 +1029,25 @@ def main():
                 {"grant_type": "password", "client_id": "admin-cli", "username": "admin", "password": admin_password}, form=True)
             assert status == 200, "Fixture administrator unavailable"
             grant_rows = sql("SELECT DISTINCT rp.permission_code || '#' || ra.scope_type || CASE WHEN ra.scope_id IS NOT NULL AND ra.scope_id <> '' THEN '#' || ra.scope_id ELSE '' END FROM identity.iam_role_assignments ra JOIN identity.iam_roles r ON r.role_id = ra.role_id AND r.is_enabled = TRUE JOIN identity.iam_role_permissions rp ON rp.role_id = ra.role_id WHERE ra.principal_id = '" + accounts["E"]["principal"] + "' AND ra.assignment_status = 'ACTIVE' AND ra.valid_from <= now() AND (ra.valid_until IS NULL OR ra.valid_until > now()) ORDER BY 1;", tuples=True)
-            flat_rows = sql("SELECT DISTINCT rp.permission_code FROM identity.iam_role_assignments ra JOIN identity.iam_roles r ON r.role_id = ra.role_id AND r.is_enabled = TRUE JOIN identity.iam_role_permissions rp ON rp.role_id = ra.role_id WHERE ra.principal_id = '" + accounts["E"]["principal"] + "' AND ra.assignment_status = 'ACTIVE' AND ra.valid_from <= now() AND (ra.valid_until IS NULL OR ra.valid_until > now()) ORDER BY 1;", tuples=True)
             # Keycloak silently drops user attributes that are not
             # declared in the realm user profile (verified on 24.0.5):
-            # declare the two grant attributes before writing them,
+            # declare the grant attribute before writing it,
             # the same way app_user_id is declared at realm setup.
             status, realm_profile, _ = request(admin_api + "/users/profile", token=fixture_admin["access_token"])
             assert status == 200, "Fixture realm profile lookup failed"
             declared = {attribute["name"] for attribute in realm_profile["attributes"]}
-            for attribute_name in ("permission_grants", "permissions"):
+            for attribute_name in ("permission_grants",):
                 if attribute_name not in declared:
                     realm_profile["attributes"].append({
                         "name": attribute_name, "displayName": attribute_name, "multivalued": True,
                         "permissions": {"view": ["admin"], "edit": ["admin"]},
                     })
-            if {"permission_grants", "permissions"} - declared:
+            if "permission_grants" not in declared:
                 assert request(admin_api + "/users/profile", realm_profile, fixture_admin["access_token"], "PUT")[0] == 200, "Fixture realm profile declaration failed"
             status, kc_user, _ = request(admin_api + "/users/" + accounts["E"]["subject"], token=fixture_admin["access_token"])
             assert status == 200, "Fixture employee lookup failed"
             kc_user.setdefault("attributes", {}).update({
                 "permission_grants": [row for row in grant_rows.splitlines() if row],
-                "permissions": [row for row in flat_rows.splitlines() if row],
             })
             assert request(admin_api + "/users/" + accounts["E"]["subject"], kc_user, fixture_admin["access_token"], "PUT")[0] == 204, "Fixture grant projection failed"
             staff_session=native_identity(request,gateway,issuer,profile_url,f"http://127.0.0.1:{ports['order']}",accounts['E'],account_password,True,retain=True)
@@ -1569,7 +1567,7 @@ def main():
         assert status == 200, "Fixture administrator unavailable"
         status, kc_user, _ = request(admin_api + "/users/" + accounts["E"]["subject"], token=fixture_admin["access_token"])
         assert status == 200, "Fixture employee lookup failed"
-        for attribute in ("permission_grants", "permissions"):
+        for attribute in ("permission_grants",):
             kc_user.get("attributes", {}).pop(attribute, None)
         assert request(admin_api + "/users/" + accounts["E"]["subject"], kc_user, fixture_admin["access_token"], "PUT")[0] == 204, "Fixture grant removal failed"
         auth_staff = native_identity(request,gateway,issuer,profile_url,f"http://127.0.0.1:{ports['order']}",accounts['E'],account_password,True,retain=True)

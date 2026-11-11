@@ -204,27 +204,10 @@ public class KeycloakAdminClient {
     }
 
     /**
-     * Replace the flat {@code permissions} user attribute. Kept for consumer cũ
-     * (Catalog, Identity tự kiểm) trong giai đoạn chuyển tiếp.
-     */
-    public void updateUserPermissions(String keycloakUserId, List<String> permissions) {
-       UserResource userResource = keycloak.realm(realm).users().get(keycloakUserId);
-        UserRepresentation user = userResource.toRepresentation();
-        Map<String, List<String>> attributes = user.getAttributes();
-        if (attributes == null) {
-            attributes = new HashMap<>();
-        } else {
-            attributes = new HashMap<>(attributes);
-        }
-        attributes.put(IdentityConstants.ATTR_PERMISSIONS, permissions != null ? permissions : Collections.emptyList());
-        user.setAttributes(attributes);
-        userResource.update(user);
-    }
-
-    /**
-     * Replace both {@code permissions} (flat, consumer cũ) and {@code permission_grants}
-     * (scoped, consumer mới) user attributes. Failures propagate to the caller so
-     * the sync can be audited and retried (see {@code PermissionSyncService}).
+     * Replace the {@code permission_grants} (scoped) user attribute and strip
+     * any legacy flat {@code permissions} attribute left over from before the
+     * grants migration. Failures propagate to the caller so the sync can be
+     * audited and retried (see {@code PermissionSyncService}).
      *
      * <p>{@code permissionGrants} is a list of strings in the format
      * {@code permission#scope_type#scope_id} (scope_id may be empty), because Keycloak
@@ -232,15 +215,13 @@ public class KeycloakAdminClient {
      */
     public void updateUserPermissionsWithGrants(
             String keycloakUserId,
-            List<String> flatPermissions,
             List<String> permissionGrants
     ) {
-        updateUserPermissionsWithGrants(keycloakUserId, flatPermissions, permissionGrants, null);
+        updateUserPermissionsWithGrants(keycloakUserId, permissionGrants, null);
     }
 
     public void updateUserPermissionsWithGrants(
             String keycloakUserId,
-            List<String> flatPermissions,
             List<String> permissionGrants,
             String principalType
     ) {
