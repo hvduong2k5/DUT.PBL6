@@ -81,7 +81,7 @@ services:
   # MS-15: PROFILE SERVICE (Profiles, Address Book, Staff)
   # ----------------------------------------------------------------------------
   - name: profile-service
-    url: http://profile-service:8080
+    url: http://omamx-profile-service:8080
     connect_timeout: 2000
     read_timeout: 5000
     write_timeout: 5000
