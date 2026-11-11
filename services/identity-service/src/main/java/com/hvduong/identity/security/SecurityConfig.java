@@ -16,7 +16,6 @@ import org.springframework.security.web.SecurityFilterChain;
 
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 @Configuration
@@ -55,17 +54,7 @@ public class SecurityConfig {
         converter.setJwtGrantedAuthoritiesConverter(jwt -> {
             Set<GrantedAuthority> authorities = new HashSet<>();
 
-            // 1. Lấy Realm Roles từ Keycloak (ví dụ: ADMIN -> ROLE_ADMIN)
-            Map<String, Object> realmAccess = jwt.getClaim("realm_access");
-            if (realmAccess != null && realmAccess.containsKey("roles")) {
-                @SuppressWarnings("unchecked")
-                List<String> kcRoles = (List<String>) realmAccess.get("roles");
-                for (String r : kcRoles) {
-                    authorities.add(new SimpleGrantedAuthority("ROLE_" + r));
-                }
-            }
-
-            // 2. Lấy Permissions scoped từ claim 'permission_grants' trong JWT
+            // Lấy Permissions scoped từ claim 'permission_grants' trong JWT
             // Mỗi phần tử lưu dưới dạng chuỗi: permission#scope_type[#scope_id]
             // Sinh cả authority có scope (PERMISSION#SCOPE_TYPE#SCOPE_ID) lẫn authority mã quyền gốc (PERMISSION)
             // để các @PreAuthorize("hasAuthority('...')") tự xử lý trực tiếp mà không cần claim 'permissions' rời.

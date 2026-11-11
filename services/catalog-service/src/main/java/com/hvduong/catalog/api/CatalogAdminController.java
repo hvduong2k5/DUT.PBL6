@@ -59,7 +59,7 @@ public class CatalogAdminController {
   @Operation(
       summary = "Xem danh sách sản phẩm quản trị",
       description = "Xem toàn bộ sản phẩm trên hệ thống bất kể trạng thái")
-  @PreAuthorize("hasRole('ADMIN') or hasAuthority('CATALOG_VIEW')")
+  @PreAuthorize("hasAuthority('CATALOG_VIEW')")
   @GetMapping("/products")
   public ResponseEntity<ApiResponse<AdminProductListResponse>> listAdminProducts(
       @RequestParam(required = false, defaultValue = "1") int page,
@@ -79,7 +79,7 @@ public class CatalogAdminController {
   @Operation(
       summary = "Xem chi tiết sản phẩm CMS",
       description = "Xem chi tiết sản phẩm kèm thông tin kiểm duyệt, phiên bản và các biến thể")
-  @PreAuthorize("hasRole('ADMIN') or hasAuthority('CATALOG_VIEW')")
+  @PreAuthorize("hasAuthority('CATALOG_VIEW')")
   @GetMapping("/products/{productId}")
   public ResponseEntity<ApiResponse<AdminProductDetailResponse>> getAdminProduct(
       @Parameter(description = "ID sản phẩm (UUID)", required = true) @PathVariable
@@ -92,7 +92,7 @@ public class CatalogAdminController {
   @Operation(
       summary = "Tạo mới một sản phẩm",
       description = "Khởi tạo sản phẩm mới ở trạng thái DRAFT")
-  @PreAuthorize("hasRole('ADMIN') or hasAuthority('CATALOG_MANAGE')")
+  @PreAuthorize("hasAuthority('CATALOG_MANAGE')")
   @PostMapping("/products")
   public ResponseEntity<ApiResponse<ProductDetailResponse>> createProduct(
       @Valid @RequestBody CreateProductRequest request,
@@ -107,7 +107,7 @@ public class CatalogAdminController {
   @Operation(
       summary = "Cập nhật thông tin sản phẩm",
       description = "Cập nhật tên, mô tả, sao OCOP và các thông tin cơ bản")
-  @PreAuthorize("hasRole('ADMIN') or hasAuthority('CATALOG_MANAGE')")
+  @PreAuthorize("hasAuthority('CATALOG_MANAGE')")
   @PutMapping("/products/{productId}")
   public ResponseEntity<ApiResponse<ProductDetailResponse>> updateProduct(
       @Parameter(description = "ID sản phẩm (UUID)", required = true) @PathVariable UUID productId,
@@ -126,7 +126,7 @@ public class CatalogAdminController {
           "PATCH cho phép chỉnh sửa mọi thông tin nội dung: tên, slug, danh mục, mô tả, thành phần, "
               + "hướng dẫn bảo quản, sao OCOP, số chứng nhận và câu chuyện thương hiệu. "
               + "Field không gửi lên sẽ giữ nguyên; chuỗi rỗng dùng để xóa field optional.")
-  @PreAuthorize("hasRole('ADMIN') or hasAuthority('CATALOG_MANAGE')")
+  @PreAuthorize("hasAuthority('CATALOG_MANAGE')")
   @PatchMapping("/products/{productId}")
   public ResponseEntity<ApiResponse<ProductDetailResponse>> patchProduct(
       @Parameter(description = "ID sản phẩm (UUID)", required = true) @PathVariable UUID productId,
@@ -146,7 +146,7 @@ public class CatalogAdminController {
   @Operation(
       summary = "Chuyển trạng thái vòng đời sản phẩm",
       description = "Hỗ trợ các chuyển đổi: SUBMIT_FOR_REVIEW, APPROVE, REJECT, SUSPEND, ARCHIVE")
-  @PreAuthorize("hasRole('ADMIN') or hasAuthority('CATALOG_APPROVE')")
+  @PreAuthorize("hasAuthority('CATALOG_APPROVE')")
   @PostMapping("/products/{productId}/transition")
   public ResponseEntity<ApiResponse<ProductDetailResponse>> transitionProduct(
       @Parameter(description = "ID sản phẩm (UUID)", required = true) @PathVariable UUID productId,
@@ -181,7 +181,7 @@ public class CatalogAdminController {
   @Operation(
       summary = "Thêm SKU mới cho sản phẩm",
       description = "Tạo mã SKU và quy cách đóng gói mới")
-  @PreAuthorize("hasRole('ADMIN') or hasAuthority('CATALOG_MANAGE')")
+  @PreAuthorize("hasAuthority('CATALOG_MANAGE')")
   @PostMapping("/products/{productId}/skus")
   public ResponseEntity<ApiResponse<ProductDetailResponse>> addVariant(
       @Parameter(description = "ID sản phẩm (UUID)", required = true) @PathVariable UUID productId,
@@ -199,7 +199,7 @@ public class CatalogAdminController {
       description =
           "Chỉnh sửa tên biến thể, khối lượng, đơn vị, hương vị, loại bao bì, hạn sử dụng và "
               + "trạng thái bán. Mã SKU là bất biến, không thể đổi qua API này.")
-  @PreAuthorize("hasRole('ADMIN') or hasAuthority('CATALOG_MANAGE')")
+  @PreAuthorize("hasAuthority('CATALOG_MANAGE')")
   @PatchMapping("/products/{productId}/skus/{skuId}")
   public ResponseEntity<ApiResponse<ProductDetailResponse>> patchVariant(
       @Parameter(description = "ID sản phẩm (UUID)", required = true) @PathVariable UUID productId,
@@ -221,7 +221,7 @@ public class CatalogAdminController {
   @Operation(
       summary = "Xem lịch sử giá của SKU",
       description = "Trả toàn bộ bản ghi giá theo mọi kênh bán, gồm ACTIVE, SUPERSEDED và EXPIRED.")
-  @PreAuthorize("hasRole('ADMIN') or hasAuthority('CATALOG_VIEW')")
+  @PreAuthorize("hasAuthority('CATALOG_VIEW')")
   @GetMapping("/products/{productId}/skus/{skuId}/prices")
   public ResponseEntity<ApiResponse<List<AdminPriceResponse>>> getVariantPrices(
       @Parameter(description = "ID sản phẩm (UUID)", required = true) @PathVariable UUID productId,
@@ -235,7 +235,7 @@ public class CatalogAdminController {
       description =
           "Thêm metadata ảnh (object key MinIO/S3). Nếu role=COVER và mediaStatus=APPROVED, "
               + "ảnh cover APPROVED cũ sẽ tự động được hạ xuống GALLERY.")
-  @PreAuthorize("hasRole('ADMIN') or hasAuthority('CATALOG_MANAGE')")
+  @PreAuthorize("hasAuthority('CATALOG_MANAGE')")
   @PostMapping("/products/{productId}/images")
   public ResponseEntity<ApiResponse<ProductDetailResponse>> addImage(
       @Parameter(description = "ID sản phẩm (UUID)", required = true) @PathVariable UUID productId,
@@ -252,7 +252,7 @@ public class CatalogAdminController {
       summary = "Cập nhật metadata/trạng thái ảnh sản phẩm",
       description =
           "Cập nhật alt text, role, thứ tự và trạng thái kiểm duyệt ảnh với optimistic locking.")
-  @PreAuthorize("hasRole('ADMIN') or hasAuthority('CATALOG_MANAGE')")
+  @PreAuthorize("hasAuthority('CATALOG_MANAGE')")
   @PatchMapping("/products/{productId}/images/{imageId}")
   public ResponseEntity<ApiResponse<ProductDetailResponse>> updateImage(
       @Parameter(description = "ID sản phẩm (UUID)", required = true) @PathVariable UUID productId,
@@ -274,7 +274,7 @@ public class CatalogAdminController {
       summary = "Xóa ảnh sản phẩm",
       description =
           "Xóa metadata ảnh khỏi catalog. Object trên storage cần được dọn bởi job riêng.")
-  @PreAuthorize("hasRole('ADMIN') or hasAuthority('CATALOG_MANAGE')")
+  @PreAuthorize("hasAuthority('CATALOG_MANAGE')")
   @DeleteMapping("/products/{productId}/images/{imageId}")
   public ResponseEntity<ApiResponse<ProductDetailResponse>> deleteImage(
       @Parameter(description = "ID sản phẩm (UUID)", required = true) @PathVariable UUID productId,
@@ -294,7 +294,7 @@ public class CatalogAdminController {
   @Operation(
       summary = "Cập nhật bảng giá bán của biến thể",
       description = "Cập nhật giá bán theo từng kênh (D2C, Shopee, TikTok...)")
-  @PreAuthorize("hasRole('ADMIN') or hasAuthority('CATALOG_MANAGE')")
+  @PreAuthorize("hasAuthority('CATALOG_MANAGE')")
   @PutMapping("/products/{productId}/skus/{skuId}/prices")
   public ResponseEntity<ApiResponse<ProductDetailResponse>> updateVariantPrices(
       @Parameter(description = "ID sản phẩm (UUID)", required = true) @PathVariable UUID productId,
