@@ -182,8 +182,15 @@ public class RoleManagementServiceImpl implements RoleManagementService {
     @Override
     @Transactional
     public void deleteRole(UUID roleId, UUID actorId) {
+        // Lifecycle rules: docs/02_architecture/adr/identity-service/adr_001_role_hard_delete_conditions.md
+        // isEnabled (can the role still authorize?) and deletion eligibility
+        // (has it ever been used?) are independent dimensions: a disabled
+        // role is not "not found", and a never-assigned role stays eligible
+        // for hard delete from the disabled state (the create-by-mistake
+        // flow). Only a genuinely missing role is a 404; every lifecycle
+        // refusal below is an IllegalStateException, mapped to 409.
         IamRoleRow existing = roleMapper.findByIdIncludeDisabled(roleId);
-        if (existing == null || !existing.getIsEnabled()) {
+        if (existing == null) {
             throw new NoSuchElementException("Role not found with id: " + roleId);
         }
 
@@ -197,19 +204,36 @@ public class RoleManagementServiceImpl implements RoleManagementService {
                     + " because it is currently assigned to " + activeAssignments + " active user(s)");
         }
 
+        int pendingAssignments = roleAssignmentMapper.countPendingByRoleId(roleId, OffsetDateTime.now());
+        if (pendingAssignments > 0) {
+            throw new IllegalStateException("Cannot delete role " + existing.getRoleCode()
+                    + " because it has " + pendingAssignments + " assignment(s) scheduled in the future");
+        }
+
         int totalAssignments = roleAssignmentMapper.countAllByRoleId(roleId);
         if (totalAssignments == 0) {
-            // Hard delete: role has never been assigned — safe to fully remove
+            // Hard delete: role has never been assigned — safe to fully remove.
+            // deleteRealmRole propagates failures, so a Keycloak outage rolls
+            // the whole delete back instead of leaving an orphan realm role.
             rolePermissionMapper.deleteByRoleId(roleId);
             roleMapper.deleteById(roleId);
             keycloakAdminClient.deleteRealmRole(existing.getRoleCode());
             auditService.recordAudit("USER", actorId, null, "DELETE_ROLE", "ROLE",
                     roleId.toString(), "SUCCESS", null, null, null,
                     Map.of("roleCode", existing.getRoleCode(), "type", "HARD_DELETE"));
-        } else {
-            // Soft delete: role has historical assignments — preserve audit trail
-            softDeleteRoleInternal(existing, actorId);
+            return;
         }
+
+        if (!existing.getIsEnabled()) {
+            // Already retired (disabled/archived) and it has history: the
+            // soft-delete end state is already reached; a repeated delete is
+            // a conflict, not a second soft delete.
+            throw new IllegalStateException("Cannot delete role " + existing.getRoleCode()
+                    + " because it is already disabled and has assignment history");
+        }
+
+        // Soft delete: role has historical assignments — preserve audit trail
+        softDeleteRoleInternal(existing, actorId);
     }
 
     /**

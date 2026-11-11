@@ -266,6 +266,66 @@ class RoleManagementServiceTest {
     }
 
     @Test
+    void deleteRole_DisabledNeverAssigned_HardDeletes() {
+        UUID roleId = UUID.randomUUID();
+        IamRoleRow row = new IamRoleRow();
+        row.setRoleId(roleId);
+        row.setRoleCode("DISABLED_BY_MISTAKE");
+        row.setIsProtected(false);
+        row.setIsEnabled(false);
+        row.setVersion(1L);
+
+        when(roleMapper.findByIdIncludeDisabled(roleId)).thenReturn(row);
+        when(roleAssignmentMapper.countActiveByRoleId(eq(roleId), any())).thenReturn(0);
+        when(roleAssignmentMapper.countPendingByRoleId(eq(roleId), any())).thenReturn(0);
+        when(roleAssignmentMapper.countAllByRoleId(roleId)).thenReturn(0);
+
+        service.deleteRole(roleId, UUID.randomUUID());
+
+        verify(rolePermissionMapper).deleteByRoleId(roleId);
+        verify(roleMapper).deleteById(roleId);
+        verify(keycloakAdminClient).deleteRealmRole("DISABLED_BY_MISTAKE");
+        verify(auditService).recordAudit(any(), any(), any(), eq("DELETE_ROLE"), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void deleteRole_FutureAssignmentsExist_ThrowsException() {
+        UUID roleId = UUID.randomUUID();
+        IamRoleRow row = new IamRoleRow();
+        row.setRoleId(roleId);
+        row.setRoleCode("FUTURE_STAFF");
+        row.setIsProtected(false);
+        row.setIsEnabled(true);
+
+        when(roleMapper.findByIdIncludeDisabled(roleId)).thenReturn(row);
+        when(roleAssignmentMapper.countActiveByRoleId(eq(roleId), any())).thenReturn(0);
+        when(roleAssignmentMapper.countPendingByRoleId(eq(roleId), any())).thenReturn(2);
+
+        assertThrows(IllegalStateException.class, () -> service.deleteRole(roleId, UUID.randomUUID()));
+        verify(roleMapper, never()).deleteById(any());
+        verify(roleMapper, never()).softDeleteById(any(), any(), any());
+    }
+
+    @Test
+    void deleteRole_AlreadyDisabledWithHistory_ThrowsException() {
+        UUID roleId = UUID.randomUUID();
+        IamRoleRow row = new IamRoleRow();
+        row.setRoleId(roleId);
+        row.setRoleCode("RETIRED_STAFF");
+        row.setIsProtected(false);
+        row.setIsEnabled(false);
+
+        when(roleMapper.findByIdIncludeDisabled(roleId)).thenReturn(row);
+        when(roleAssignmentMapper.countActiveByRoleId(eq(roleId), any())).thenReturn(0);
+        when(roleAssignmentMapper.countPendingByRoleId(eq(roleId), any())).thenReturn(0);
+        when(roleAssignmentMapper.countAllByRoleId(roleId)).thenReturn(3);
+
+        assertThrows(IllegalStateException.class, () -> service.deleteRole(roleId, UUID.randomUUID()));
+        verify(roleMapper, never()).deleteById(any());
+        verify(roleMapper, never()).softDeleteById(any(), any(), any());
+    }
+
+    @Test
     void replaceRolePermissions_ReducedPermissionsForceRelogin() {
         UUID roleId = UUID.randomUUID();
         IamRoleRow row = new IamRoleRow();
