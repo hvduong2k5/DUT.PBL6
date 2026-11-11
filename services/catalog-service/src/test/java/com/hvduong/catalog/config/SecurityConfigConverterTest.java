@@ -32,9 +32,9 @@ class SecurityConfigConverterTest {
   }
 
   @Test
-  void realmRolesStillMapToRoleAuthorities() {
+  void realmRolesAreNoLongerHonored() {
     Jwt jwt = baseJwt().claim("realm_access", Map.of("roles", List.of("ADMIN"))).build();
-    assertThat(authoritiesOf(jwt)).containsExactly("ROLE_ADMIN");
+    assertThat(authoritiesOf(jwt)).isEmpty();
   }
 
   @Test

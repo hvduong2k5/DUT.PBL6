@@ -2,7 +2,6 @@ package com.hvduong.catalog.config;
 
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import org.springframework.context.annotation.Bean;
@@ -63,17 +62,7 @@ public class SecurityConfig {
         jwt -> {
           Set<GrantedAuthority> authorities = new HashSet<>();
 
-          // 1. Map Keycloak Realm Roles (e.g., ADMIN -> ROLE_ADMIN)
-          Map<String, Object> realmAccess = jwt.getClaim("realm_access");
-          if (realmAccess != null && realmAccess.containsKey("roles")) {
-            @SuppressWarnings("unchecked")
-            List<String> kcRoles = (List<String>) realmAccess.get("roles");
-            for (String r : kcRoles) {
-              authorities.add(new SimpleGrantedAuthority("ROLE_" + r));
-            }
-          }
-
-          // 2. Map scoped permission grants, the Identity sync contract
+          // Map scoped permission grants, the Identity sync contract
           //    (e.g., "CATALOG_VIEW#GLOBAL",
           //    "CATALOG_MANAGE#WAREHOUSE#WH-HCM-01"). The authority is the
           //    permission code alone: the flat "permissions" claim this
