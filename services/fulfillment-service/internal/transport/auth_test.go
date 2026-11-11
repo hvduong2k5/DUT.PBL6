@@ -88,8 +88,8 @@ func TestStaffGrantsAuthorization(t *testing.T) {
 		forged := jwt.MapClaims{
 			"user_id": id, "sub": "verified-sub", "iss": "https://issuer.example",
 			"aud": "omama-api", "iat": jwt.NewNumericDate(time.Now().Add(-time.Minute)).Unix(),
-			"exp":          jwt.NewNumericDate(time.Now().Add(time.Minute)).Unix(),
-			"permissions":  []string{"FULFILLMENT_TASK_SEAL"},
+			"exp":           jwt.NewNumericDate(time.Now().Add(time.Minute)).Unix(),
+			"permissions":   []string{"FULFILLMENT_TASK_SEAL"},
 			"warehouse_ids": []string{"w1"},
 		}
 		token, e := jwt.NewWithClaims(jwt.SigningMethodRS256, forged).SignedString(key)
