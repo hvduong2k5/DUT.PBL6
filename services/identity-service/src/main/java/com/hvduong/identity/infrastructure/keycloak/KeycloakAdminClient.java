@@ -48,17 +48,6 @@ public class KeycloakAdminClient {
                 ? principalType.trim().toUpperCase()
                 : PrincipalType.CUSTOMER.name();
 
-        // Order/Profile customer authorization still requires the CUSTOMER
-        // realm role in the token (realm_access.roles); the principal_type
-        // attribute alone does not satisfy those consumers. Resolve the role
-        // up front, mirroring dev, so a realm missing it fails before the
-        // user exists. Keep assigning it until the consumers migrate
-        // (7-B rollout step 3).
-        RoleRepresentation customerRole = null;
-        if (PrincipalType.CUSTOMER.name().equals(effectivePrincipalType)) {
-            customerRole = keycloak.realm(realm).roles().get("CUSTOMER").toRepresentation();
-        }
-
         UsersResource usersResource = keycloak.realm(realm).users();
         
         UserRepresentation user = new UserRepresentation();
@@ -85,12 +74,7 @@ public class KeycloakAdminClient {
         try (var response = usersResource.create(user)) {
             if (response.getStatus() == 201) {
                 String path = response.getLocation().getPath();
-                String subject = path.substring(path.lastIndexOf('/') + 1);
-                if (customerRole != null) {
-                    usersResource.get(subject).roles().realmLevel()
-                            .add(Collections.singletonList(customerRole));
-                }
-                return subject;
+                return path.substring(path.lastIndexOf('/') + 1);
             }
             throw new RuntimeException("Failed to create user in Keycloak, status: " + response.getStatusInfo().getReasonPhrase());
         }

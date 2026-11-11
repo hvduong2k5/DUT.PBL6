@@ -71,11 +71,9 @@ func NewCustomerIdentity(c Config) (*CustomerIdentity, error) {
 type customerClaims struct {
 	jwt.RegisteredClaims
 	staffAuthorizationClaims
-	UserID      string `json:"user_id"`
-	Type        string `json:"typ"`
-	RealmAccess struct {
-		Roles []string `json:"roles"`
-	} `json:"realm_access"`
+	UserID        string `json:"user_id"`
+	Type          string `json:"typ"`
+	PrincipalType string `json:"principal_type"`
 }
 
 func (v *CustomerIdentity) Authenticate(ctx context.Context, bearer string) (domain.Principal, error) {
@@ -152,12 +150,13 @@ func (v *CustomerIdentity) Authenticate(ctx context.Context, bearer string) (dom
 			return domain.Principal{}, domain.E("CUSTOMER_REQUIRED", 403)
 		}
 	}
-	for _, role := range claims.RealmAccess.Roles {
-		if role == "CUSTOMER" {
-			// sub belongs to Keycloak; user_id is Identity's immutable principal UUID.
-			// CustomerID is deliberately left empty until Profile.Resolve proves it.
-			return domain.Principal{ID: id.String(), Role: "CUSTOMER"}, nil
-		}
+	if claims.PrincipalType == "EMPLOYEE" {
+		return domain.Principal{}, domain.E("STAFF_TOKEN_REQUIRED", 403)
+	}
+	if claims.PrincipalType == "CUSTOMER" {
+		// sub belongs to Keycloak; user_id is Identity's immutable principal UUID.
+		// CustomerID is deliberately left empty until Profile.Resolve proves it.
+		return domain.Principal{ID: id.String(), Role: "CUSTOMER"}, nil
 	}
 	return domain.Principal{}, denied
 }
