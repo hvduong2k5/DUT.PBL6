@@ -20,7 +20,8 @@ COPY --from=builder /bin/order-api /bin/order-simulator /usr/local/bin/
 RUN printf '%s\n' '#!/bin/sh' \
   'if [ -n "$ORDER_FULFILLMENT_TOKEN_B64" ]; then printf %s "$ORDER_FULFILLMENT_TOKEN_B64" | base64 -d > /run/secrets/order-fulfillment-token.txt; fi' \
   'if [ -n "$ORDER_FULFILLMENT_CALLER_TOKEN_B64" ]; then printf %s "$ORDER_FULFILLMENT_CALLER_TOKEN_B64" | base64 -d > /run/secrets/order-fulfillment-caller-token.txt; fi' \
-  'export ORDER_FULFILLMENT_TOKEN_FILE=/run/secrets/order-fulfillment-token.txt ORDER_FULFILLMENT_CALLER_TOKEN_FILE=/run/secrets/order-fulfillment-caller-token.txt' \
+  'if [ -n "$ORDER_SHIPPING_TOKEN_B64" ]; then printf %s "$ORDER_SHIPPING_TOKEN_B64" | base64 -d > /run/secrets/order-shipping-token.txt; fi' \
+  'export ORDER_FULFILLMENT_TOKEN_FILE=/run/secrets/order-fulfillment-token.txt ORDER_FULFILLMENT_CALLER_TOKEN_FILE=/run/secrets/order-fulfillment-caller-token.txt ORDER_SHIPPING_TOKEN_FILE=/run/secrets/order-shipping-token.txt' \
   'if [ "$ORDER_SIMULATOR_ENABLED" = "true" ]; then order-simulator & fi' \
   'exec order-api' > /usr/local/bin/entrypoint.sh && chmod +x /usr/local/bin/entrypoint.sh
 USER app
