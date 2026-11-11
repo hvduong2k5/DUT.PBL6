@@ -332,9 +332,6 @@
           "temporary": true
         }
       ],
-      "realmRoles": [
-        "ADMIN"
-      ],
       "attributes": {
         "app_user_id": [
           "a0000000-0000-0000-0000-000000000001"
@@ -346,12 +343,7 @@
     }
   ],
   "roles": {
-    "realm": [
-      {
-        "name": "ADMIN",
-        "description": "Administrator of Identity Service"
-      }
-    ]
+    "realm": []
   },
   "components":   {
     "org.keycloak.userprofile.UserProfileProvider": [

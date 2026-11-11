@@ -161,10 +161,15 @@ public class KeycloakAdminClient {
     }
 
     public void deleteRealmRole(String roleName) {
+        // Strict on purpose: the only caller is role hard delete, which runs
+        // inside a database transaction. Propagating the failure rolls the
+        // delete back instead of committing a role removal whose Keycloak
+        // counterpart silently survives as an orphan.
         try {
             keycloak.realm(realm).roles().deleteRole(roleName);
         } catch (Exception ex) {
             log.error("Failed to delete Keycloak realm role '{}'", roleName, ex);
+            throw new IllegalStateException("Failed to delete Keycloak realm role: " + roleName, ex);
         }
     }
 
