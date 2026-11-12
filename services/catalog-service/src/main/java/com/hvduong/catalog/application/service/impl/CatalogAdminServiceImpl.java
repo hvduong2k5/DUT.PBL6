@@ -396,7 +396,7 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
     if (updated == 0) throw CatalogException.versionConflict(productId.toString());
 
     cacheEvictor.evictCategoriesCache();
-    return buildDetailResponse(product);
+    return buildDetailResponse(findProductOrThrow(productId));
   }
 
   @Override
@@ -425,7 +425,7 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
     if (updated == 0) throw CatalogException.versionConflict(productId.toString());
 
     cacheEvictor.evictCategoriesCache();
-    return buildDetailResponse(product);
+    return buildDetailResponse(findProductOrThrow(productId));
   }
 
   @Override
@@ -451,7 +451,7 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
     if (updated == 0) throw CatalogException.versionConflict(productId.toString());
 
     cacheEvictor.evictCategoriesCache();
-    return buildDetailResponse(product);
+    return buildDetailResponse(findProductOrThrow(productId));
   }
 
   @Override
@@ -477,7 +477,7 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
     if (updated == 0) throw CatalogException.versionConflict(productId.toString());
 
     cacheEvictor.evictCategoriesCache();
-    return buildDetailResponse(product);
+    return buildDetailResponse(findProductOrThrow(productId));
   }
 
   @Override
@@ -503,7 +503,7 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
     if (updated == 0) throw CatalogException.versionConflict(productId.toString());
 
     cacheEvictor.evictCategoriesCache();
-    return buildDetailResponse(product);
+    return buildDetailResponse(findProductOrThrow(productId));
   }
 
   @Override
