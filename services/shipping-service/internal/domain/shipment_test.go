@@ -52,6 +52,30 @@ func TestCreateCommandRequiresPackageDimensions(t *testing.T) {
 	}
 }
 
+func TestCreateShipmentRequestHashExcludesKeyAndDetectsPayloadChanges(t *testing.T) {
+	command := validCommand()
+	first, err := command.RequestHash()
+	if err != nil {
+		t.Fatal(err)
+	}
+	command.IdempotencyKey = "another-key"
+	keyOnlyChange, err := command.RequestHash()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first != keyOnlyChange {
+		t.Fatal("request hash must not include the idempotency key")
+	}
+	command.Recipient.Name = "Different Recipient"
+	changedPayload, err := command.RequestHash()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first == changedPayload {
+		t.Fatal("request hash must change when the request payload changes")
+	}
+}
+
 func TestRecipientAllowsMissingDistrictForTwoTierAddresses(t *testing.T) {
 	command := validCommand()
 	command.Recipient.District = ""

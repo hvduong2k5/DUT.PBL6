@@ -21,7 +21,12 @@ must not include provider credentials, raw webhook bodies, or internal exception
 
 Shipment creation, cancellation, and handover require a 16-128 character printable ASCII
 `Idempotency-Key`. Repeated cancellation and handover requests return the current shipment
-state without repeating the state transition; create replays use the persisted key.
+state without repeating the state transition. Shipment creation replays return the original
+shipment only when the key and request payload match; reusing a key with a different payload
+returns `409 IDEMPOTENCY_KEY_REUSED`. The request fingerprint is persisted with the shipment.
+Shipments created before the fingerprint migration have no stored fingerprint and fail
+closed with the same conflict on create replay; reconcile those legacy requests before
+retrying them with a new key.
 
 ## Explicitly not covered
 

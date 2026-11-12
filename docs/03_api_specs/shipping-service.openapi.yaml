@@ -1,13 +1,14 @@
 openapi: 3.0.3
 info:
   title: MS-12 Shipping Service Internal HTTP API
-  version: 2.0.0
+  version: 2.1.0
   description: >-
     Contract for the implemented Shipping HTTP endpoints. These are service-to-service,
     operational, and provider-webhook endpoints; they are not a customer-facing API and
     are not currently exposed through Kong. Order integrations should use the versioned
     Shipping gRPC contract unless an owning-service decision explicitly selects HTTP.
     Version 2.0.0 requires Idempotency-Key on shipment creation, cancellation, and handover.
+    Version 2.1.0 rejects reuse of a shipment-creation key with a different request payload.
 servers:
   - url: http://localhost:8012
     description: Local development only
@@ -77,7 +78,10 @@ paths:
       tags: [Internal shipping]
       operationId: shippingCreateShipment
       summary: Create a carrier shipment idempotently
-      description: Required retry key. If the legacy body idempotency_key is also supplied, it must match this header.
+      description: >-
+        Required retry key. If the legacy body idempotency_key is also supplied, it must
+        match this header. Reusing the same key with the same request returns the original
+        shipment; reusing it with a different request returns 409 IDEMPOTENCY_KEY_REUSED.
       security:
         - internalBearer: []
         - internalToken: []

@@ -400,6 +400,8 @@ func (h *Router) handleError(w http.ResponseWriter, err error) {
 		writeError(w, http.StatusNotFound, "NOT_FOUND", "shipment or tracking resource was not found")
 	case errors.Is(err, domain.ErrInvalidShipment), errors.Is(err, domain.ErrUnsupportedCarrier):
 		writeError(w, http.StatusUnprocessableEntity, "VALIDATION_FAILED", "request does not satisfy shipping requirements")
+	case errors.Is(err, domain.ErrIdempotencyConflict):
+		writeError(w, http.StatusConflict, "IDEMPOTENCY_KEY_REUSED", "Idempotency-Key was already used with a different request")
 	case errors.Is(err, domain.ErrInvalidTransition), errors.Is(err, domain.ErrConcurrentUpdate):
 		writeError(w, http.StatusConflict, "CONFLICT", "shipment state changed or does not allow this action")
 	default:

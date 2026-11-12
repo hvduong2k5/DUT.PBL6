@@ -1,6 +1,9 @@
 package domain
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -27,12 +30,12 @@ const (
 )
 
 var (
-	ErrInvalidShipment    = errors.New("invalid shipment")
-	ErrInvalidTransition  = errors.New("invalid shipment status transition")
-	ErrConcurrentUpdate   = errors.New("shipment was updated concurrently")
-	ErrShipmentNotFound   = errors.New("shipment not found")
-	ErrTrackingNotFound   = errors.New("tracking code not found")
-	ErrDuplicateEvent     = errors.New("tracking event already processed")
+	ErrInvalidShipment     = errors.New("invalid shipment")
+	ErrInvalidTransition   = errors.New("invalid shipment status transition")
+	ErrConcurrentUpdate    = errors.New("shipment was updated concurrently")
+	ErrShipmentNotFound    = errors.New("shipment not found")
+	ErrTrackingNotFound    = errors.New("tracking code not found")
+	ErrDuplicateEvent      = errors.New("tracking event already processed")
 	ErrUnsupportedCarrier = errors.New("unsupported carrier")
 )
 
@@ -97,6 +100,18 @@ type CreateShipmentCommand struct {
 	PackedAt             time.Time `json:"packed_at,omitempty"`
 	EventVersion         int       `json:"event_version,omitempty"`
 	ShippingNotes        string    `json:"shipping_notes,omitempty"`
+}
+
+// RequestHash returns a stable fingerprint of the command payload, excluding the
+// idempotency key itself. Reusing a key for a different payload must be rejected.
+func (c CreateShipmentCommand) RequestHash() (string, error) {
+	c.IdempotencyKey = ""
+	encoded, err := json.Marshal(c)
+	if err != nil {
+		return "", err
+	}
+	digest := sha256.Sum256(encoded)
+	return hex.EncodeToString(digest[:]), nil
 }
 
 func (c CreateShipmentCommand) Validate() error {

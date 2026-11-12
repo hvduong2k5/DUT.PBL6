@@ -17,6 +17,7 @@ type memoryRepository struct {
 	mu       sync.Mutex
 	byID     map[uuid.UUID]*domain.Shipment
 	byKey    map[string]uuid.UUID
+	hashes   map[string]string
 	timeline map[uuid.UUID][]domain.TrackingEvent
 	eventIDs map[string]struct{}
 }
@@ -31,7 +32,7 @@ func (s snapshotStub) GetShippingSnapshot(context.Context, string, string) (Orde
 }
 
 func newMemoryRepository() *memoryRepository {
-	return &memoryRepository{byID: map[uuid.UUID]*domain.Shipment{}, byKey: map[string]uuid.UUID{}, timeline: map[uuid.UUID][]domain.TrackingEvent{}, eventIDs: map[string]struct{}{}}
+	return &memoryRepository{byID: map[uuid.UUID]*domain.Shipment{}, byKey: map[string]uuid.UUID{}, hashes: map[string]string{}, timeline: map[uuid.UUID][]domain.TrackingEvent{}, eventIDs: map[string]struct{}{}}
 }
 
 func cloneShipment(value *domain.Shipment) *domain.Shipment {
@@ -43,13 +44,17 @@ func cloneShipment(value *domain.Shipment) *domain.Shipment {
 
 func (r *memoryRepository) Ping(context.Context) error { return nil }
 
-func (r *memoryRepository) BeginCreation(_ context.Context, key string, shipment *domain.Shipment) (*domain.Shipment, bool, error) {
+func (r *memoryRepository) BeginCreation(_ context.Context, key, requestHash string, shipment *domain.Shipment) (*domain.Shipment, bool, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if id, ok := r.byKey[key]; ok {
+		if r.hashes[key] != requestHash {
+			return nil, false, domain.ErrIdempotencyConflict
+		}
 		return cloneShipment(r.byID[id]), false, nil
 	}
 	r.byKey[key] = shipment.ID
+	r.hashes[key] = requestHash
 	r.byID[shipment.ID] = cloneShipment(shipment)
 	return cloneShipment(shipment), true, nil
 }
@@ -149,6 +154,22 @@ func TestCreateShipmentIsIdempotent(t *testing.T) {
 	}
 	if len(repository.byID) != 1 {
 		t.Fatalf("expected one shipment, got %d", len(repository.byID))
+	}
+}
+
+func TestCreateShipmentRejectsReusedKeyWithDifferentPayload(t *testing.T) {
+	repository := newMemoryRepository()
+	service := NewService(repository, carrier.NewRegistry(carrier.NewFake()))
+	command := applicationCommand()
+	if _, err := service.CreateShipment(context.Background(), command); err != nil {
+		t.Fatal(err)
+	}
+	command.Recipient.Name = "Different Recipient"
+	if _, err := service.CreateShipment(context.Background(), command); !errors.Is(err, domain.ErrIdempotencyConflict) {
+		t.Fatalf("expected idempotency conflict, got %v", err)
+	}
+	if len(repository.byID) != 1 {
+		t.Fatalf("expected original shipment to remain the only shipment, got %d", len(repository.byID))
 	}
 }
 

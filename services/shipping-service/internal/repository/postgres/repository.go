@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/omamx/shipping-service/internal/application"
 	"github.com/omamx/shipping-service/internal/domain"
@@ -59,7 +60,7 @@ func (r *Repository) SaveQuote(ctx context.Context, quote *domain.ShippingQuote)
 	return persisted, false, err
 }
 
-func (r *Repository) BeginCreation(ctx context.Context, idempotencyKey string, shipment *domain.Shipment) (*domain.Shipment, bool, error) {
+func (r *Repository) BeginCreation(ctx context.Context, idempotencyKey, requestHash string, shipment *domain.Shipment) (*domain.Shipment, bool, error) {
 	recipient, err := json.Marshal(shipment.Recipient)
 	if err != nil {
 		return nil, false, err
@@ -70,14 +71,14 @@ func (r *Repository) BeginCreation(ctx context.Context, idempotencyKey string, s
 	}
 	commandTag, err := r.pool.Exec(ctx, `
 		INSERT INTO shipments (
-			id, shipment_number, idempotency_key, order_id, package_id, seal_code,
+			id, shipment_number, idempotency_key, request_hash, order_id, package_id, seal_code,
 			carrier_code, service_code, status, recipient, parcel, cod_amount_vnd,
 			checkout_fee_vnd, quote_id, ready_generation, items_digest,
 			order_snapshot_version, packing_task_id, packing_task_version, packed_at,
 			event_version, created_at, updated_at, revision
-		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25)
 		ON CONFLICT (idempotency_key) DO NOTHING`,
-		shipment.ID, shipment.ShipmentNumber, idempotencyKey, shipment.OrderID, shipment.PackageID,
+		shipment.ID, shipment.ShipmentNumber, idempotencyKey, requestHash, shipment.OrderID, shipment.PackageID,
 		shipment.SealCode, shipment.CarrierCode, shipment.ServiceCode, shipment.Status, recipient, parcel,
 		shipment.CODAmountVND, shipment.CheckoutFeeVND, shipment.QuoteID, shipment.ReadyGeneration,
 		shipment.ItemsDigest, shipment.OrderSnapshotVersion, shipment.PackingTaskID,
@@ -91,6 +92,13 @@ func (r *Repository) BeginCreation(ctx context.Context, idempotencyKey string, s
 	}
 	if commandTag.RowsAffected() == 1 {
 		return shipment, true, nil
+	}
+	var existingHash pgtype.Text
+	if err := r.pool.QueryRow(ctx, `SELECT request_hash FROM shipments WHERE idempotency_key=$1`, idempotencyKey).Scan(&existingHash); err != nil {
+		return nil, false, err
+	}
+	if !existingHash.Valid || existingHash.String != requestHash {
+		return nil, false, domain.ErrIdempotencyConflict
 	}
 	existing, err := r.getByIdempotencyKey(ctx, idempotencyKey)
 	return existing, false, err

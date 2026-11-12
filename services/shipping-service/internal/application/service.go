@@ -22,7 +22,7 @@ type ListFilter struct {
 
 type Repository interface {
 	Ping(context.Context) error
-	BeginCreation(context.Context, string, *domain.Shipment) (*domain.Shipment, bool, error)
+	BeginCreation(context.Context, string, string, *domain.Shipment) (*domain.Shipment, bool, error)
 	Save(context.Context, *domain.Shipment, int64, *domain.TrackingEvent, *domain.DomainEvent) error
 	GetByID(context.Context, uuid.UUID) (*domain.Shipment, error)
 	GetByTracking(context.Context, string, string) (*domain.Shipment, error)
@@ -168,15 +168,15 @@ func (s *Service) CreateShipment(ctx context.Context, cmd domain.CreateShipmentC
 	if err != nil {
 		return nil, err
 	}
-	requestedEventVersion := shipment.EventVersion
-	shipment, inserted, err := s.repository.BeginCreation(ctx, cmd.IdempotencyKey, shipment)
+	requestHash, err := cmd.RequestHash()
+	if err != nil {
+		return nil, err
+	}
+	shipment, inserted, err := s.repository.BeginCreation(ctx, cmd.IdempotencyKey, requestHash, shipment)
 	if err != nil {
 		return nil, err
 	}
 	if !inserted {
-		if shipment.EventVersion != requestedEventVersion {
-			return nil, domain.ErrIdempotencyConflict
-		}
 		return shipment, nil
 	}
 

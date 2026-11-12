@@ -24,6 +24,7 @@ import (
 type httpMemoryRepository struct {
 	shipments map[uuid.UUID]*domain.Shipment
 	keys      map[string]uuid.UUID
+	hashes    map[string]string
 	timeline  map[uuid.UUID][]domain.TrackingEvent
 	pingErr   error
 }
@@ -32,17 +33,22 @@ func newHTTPMemoryRepository() *httpMemoryRepository {
 	return &httpMemoryRepository{
 		shipments: make(map[uuid.UUID]*domain.Shipment),
 		keys:      make(map[string]uuid.UUID),
+		hashes:    make(map[string]string),
 		timeline:  make(map[uuid.UUID][]domain.TrackingEvent),
 	}
 }
 
 func (r *httpMemoryRepository) Ping(context.Context) error { return r.pingErr }
 
-func (r *httpMemoryRepository) BeginCreation(_ context.Context, key string, shipment *domain.Shipment) (*domain.Shipment, bool, error) {
+func (r *httpMemoryRepository) BeginCreation(_ context.Context, key, requestHash string, shipment *domain.Shipment) (*domain.Shipment, bool, error) {
 	if id, ok := r.keys[key]; ok {
+		if r.hashes[key] != requestHash {
+			return nil, false, domain.ErrIdempotencyConflict
+		}
 		return r.clone(r.shipments[id]), false, nil
 	}
 	r.keys[key] = shipment.ID
+	r.hashes[key] = requestHash
 	r.shipments[shipment.ID] = r.clone(shipment)
 	return r.clone(shipment), true, nil
 }
@@ -213,6 +219,17 @@ func TestInternalShipmentHTTPContractLifecycle(t *testing.T) {
 	var replayedShipment domain.Shipment
 	if replay.Code != http.StatusCreated || json.Unmarshal(replay.Body.Bytes(), &replayedShipment) != nil || replayedShipment.ID != shipment.ID {
 		t.Fatalf("create replay did not return original shipment: status=%d body=%s", replay.Code, replay.Body.String())
+	}
+	changedPayload := strings.Replace(requestBody, `"name":"Customer"`, `"name":"Different Customer"`, 1)
+	conflictingCreate := httptest.NewRequest(http.MethodPost, "/api/v1/internal/shipments", strings.NewReader(changedPayload))
+	conflictingCreate.Header.Set("Authorization", "Bearer internal-token")
+	conflictingCreate.Header.Set("Content-Type", "application/json")
+	conflictingCreate.Header.Set("Idempotency-Key", "rest-create-key-0001")
+	conflictResponse := httptest.NewRecorder()
+	handler.ServeHTTP(conflictResponse, conflictingCreate)
+	var idempotencyError errorBody
+	if conflictResponse.Code != http.StatusConflict || json.Unmarshal(conflictResponse.Body.Bytes(), &idempotencyError) != nil || idempotencyError.Code != "IDEMPOTENCY_KEY_REUSED" {
+		t.Fatalf("changed payload with reused key must conflict: status=%d body=%s", conflictResponse.Code, conflictResponse.Body.String())
 	}
 
 	get := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/v1/admin/shipping/shipments/%s", shipment.ID), nil)
