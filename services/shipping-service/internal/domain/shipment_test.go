@@ -51,3 +51,11 @@ func TestCreateCommandRequiresPackageDimensions(t *testing.T) {
 		t.Fatalf("expected invalid shipment, got %v", err)
 	}
 }
+
+func TestRecipientAllowsMissingDistrictForTwoTierAddresses(t *testing.T) {
+	command := validCommand()
+	command.Recipient.District = ""
+	if _, err := NewCreatingShipment(command, time.Now()); err != nil {
+		t.Fatalf("two-tier address without district should be accepted: %v", err)
+	}
+}
