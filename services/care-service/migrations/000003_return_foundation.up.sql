@@ -49,6 +49,7 @@ CREATE TABLE return_case_lines (
     previously_committed_return_quantity INTEGER NOT NULL DEFAULT 0 CHECK (previously_committed_return_quantity >= 0),
     requested_quantity INTEGER NOT NULL CHECK (requested_quantity > 0),
     refundable_ceiling_minor BIGINT NOT NULL CHECK (refundable_ceiling_minor >= 0),
+    refundable_unit_ceiling_minor BIGINT NOT NULL CHECK (refundable_unit_ceiling_minor >= 0),
     currency CHAR(3) NOT NULL CHECK (currency ~ '^[A-Z]{3}$'),
     source_snapshot JSONB NOT NULL CHECK (
         jsonb_typeof(source_snapshot) = 'object' AND octet_length(source_snapshot::text) <= 32768

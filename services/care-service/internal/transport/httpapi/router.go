@@ -23,6 +23,7 @@ type RouterConfig struct {
 	MediaHandler       *MediaHandler
 	TicketHandler      *TicketHandler
 	StaffTicketHandler *StaffTicketHandler
+	ReturnHandler      *ReturnHandler
 }
 
 func NewRouter(cfg RouterConfig) http.Handler {
@@ -56,9 +57,15 @@ func NewRouter(cfg RouterConfig) http.Handler {
 			customer.Get("/tickets", cfg.TicketHandler.List)
 			customer.Get("/tickets/{ticketID}", cfg.TicketHandler.Get)
 			customer.Post("/tickets/{ticketID}/messages", cfg.TicketHandler.AddMessage)
+			customer.Post("/returns", cfg.ReturnHandler.Create)
+			customer.Get("/returns", cfg.ReturnHandler.ListOwned)
+			customer.Get("/returns/{caseID}", cfg.ReturnHandler.GetOwned)
 		})
 		api.Group(func(staff chi.Router) {
 			staff.Use(GatewayOrStaffJWTAuth(cfg.InternalToken, cfg.StaffAuthenticator), rateLimiter.Middleware)
+			staff.With(RequirePermission("RETURN_CASE_VIEW")).Get("/admin/returns/cases", cfg.ReturnHandler.ListAdmin)
+			staff.With(RequirePermission("RETURN_CASE_VIEW")).Get("/admin/returns/cases/{caseID}", cfg.ReturnHandler.GetAdmin)
+			staff.Post("/admin/returns/cases/{caseID}/actions", cfg.ReturnHandler.Action)
 			staff.With(RequirePermission("TICKET_QUEUE_VIEW")).Get("/admin/support/tickets", cfg.StaffTicketHandler.List)
 			staff.With(RequirePermission("TICKET_QUEUE_VIEW")).Get("/admin/support/tickets/{ticketID}", cfg.StaffTicketHandler.Get)
 			staff.With(RequirePermission("TICKET_CLAIM")).Post("/admin/support/tickets/{ticketID}/claim", cfg.StaffTicketHandler.Claim)

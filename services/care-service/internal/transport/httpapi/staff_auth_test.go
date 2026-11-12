@@ -35,7 +35,7 @@ func TestJWTStaffAuthenticatorValidatesIdentityTokenAndMapsCareGrants(t *testing
 		"iss": server.URL + "/realms/omama", "sub": uuid.NewString(), "aud": []string{"order-api", "omama-api"},
 		"exp": time.Now().Add(time.Minute).Unix(), "iat": time.Now().Add(-time.Second).Unix(), "typ": "Bearer",
 		"user_id": actorID.String(), "principal_type": "EMPLOYEE",
-		"permission_grants": []string{"TICKET_QUEUE_VIEW#GLOBAL", "TICKET_REPLY#GLOBAL", "ORDER_VIEW#GLOBAL"},
+		"permission_grants": []string{"TICKET_QUEUE_VIEW#GLOBAL", "TICKET_REPLY#GLOBAL", "RETURN_CASE_VIEW#GLOBAL", "RETURN_CASE_DECIDE#GLOBAL", "ORDER_VIEW#GLOBAL"},
 	})
 
 	actor, err := authenticator.Authenticate(context.Background(), "Bearer "+token)
@@ -44,6 +44,8 @@ func TestJWTStaffAuthenticatorValidatesIdentityTokenAndMapsCareGrants(t *testing
 	require.Equal(t, "EMPLOYEE", actor.PrincipalType)
 	require.Contains(t, actor.Permissions, "TICKET_QUEUE_VIEW")
 	require.Contains(t, actor.Permissions, "TICKET_REPLY")
+	require.Contains(t, actor.Permissions, "RETURN_CASE_VIEW")
+	require.Contains(t, actor.Permissions, "RETURN_CASE_DECIDE")
 	require.NotContains(t, actor.Permissions, "ORDER_VIEW")
 }
 
@@ -116,9 +118,10 @@ func testJWKS(keyID string, key *rsa.PublicKey) string {
 
 func TestCanonicalCarePermissionAliases(t *testing.T) {
 	for input, expected := range map[string]string{
-		" care.tickets.read ": "TICKET_QUEUE_VIEW",
-		"care.tickets.claim":  "TICKET_CLAIM",
-		"ticket_reply":        "TICKET_REPLY",
+		" care.tickets.read ":      "TICKET_QUEUE_VIEW",
+		"care.tickets.claim":       "TICKET_CLAIM",
+		"care.return.cases.decide": "RETURN_CASE_DECIDE",
+		"ticket_reply":             "TICKET_REPLY",
 	} {
 		require.Equal(t, expected, canonicalCarePermission(input))
 	}

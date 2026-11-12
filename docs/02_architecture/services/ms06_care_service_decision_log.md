@@ -94,6 +94,8 @@ These are policy defaults: `MEDIA_MAX_*` configuration. Storage-side policy and 
 | `CARE-RETURN-011` | `ACCEPTED` | Rejected cases may be appealed/reopened within 7 days with new evidence; prior decisions remain immutable. Completed/refunded cases require a new linked appeal case. | Preserves audit history and prevents state rewrites. Config: `RETURN_APPEAL_WINDOW=168h`. |
 | `CARE-RETURN-012` | `PROPOSED` | Care approves and tracks; Order orchestrates the cross-service refund flow; the existing Finance contract reports final refund outcome; Inventory owns inspection/disposition. | This best matches current HLD and schemas, but Order, Payment/Finance, and Inventory teams must ratify publisher/command ownership before implementation. Care never executes the refund. |
 | `CARE-RETURN-013` | `PROPOSED` | Version the approved-return event before use. Include case ID, decision ID, order lines, quantities, approved amounts/currency, return-required flag, reason codes, actor, and timestamps. | The existing event is too coarse for partial return/refund and idempotent downstream work. |
+| `CARE-RETURN-014` | `PROPOSED` | Care fetches an immutable Order return-context snapshot from `GET /api/v1/internal/orders/{order_id}/care-return-context` using a service credential. The response includes customer ownership, order/line identities and quantities, already-committed return quantities, eligibility timestamps/revision, a refundable ceiling per unit already allocated for discounts/tax and currency, pickup address, warehouse destination, and parcel dimensions. | This is the implementation assumption for the Care adapter, not an accepted Order contract. Per-unit ceilings prevent a partial-quantity decision from using the refund limit for an entire line. Care rejects client-supplied snapshots and fails closed when the provider is unavailable. Order must review and ratify the wire shape before integrated release. |
+| `CARE-RETURN-015` | `PROPOSED` | After a persisted manager decision requiring physical return, Care requests a reverse shipment from Shipping using the separate return-shipment API, a stable idempotency key, fake carrier, zero COD, and shop-paid fee. | Shipping owns shipment state; Care stores only the reverse-shipment reference. The client has mock-based tests only until Shipping accepts the contract and a live integration test passes. |
 
 ## 6. Review policy decisions
 
@@ -135,11 +137,12 @@ Release work must not silently guess these contracts:
 
 1. Exact owner and schema for refund command, execution, and final result (`CARE-RETURN-012`).
 2. Reverse-shipment API/events and shipping-fee policy (`CARE-RETURN-005`).
-3. Order Care-context/eligibility Protobuf contract (`CARE-REVIEW-002`, `CARE-RETURN-008`).
+3. Order Care-context/eligibility provider contract, including the proposed HTTP return context (`CARE-REVIEW-002`, `CARE-RETURN-008`, `CARE-RETURN-014`).
 4. Versioned return-approved and inspection event schemas (`CARE-RETURN-013`).
 5. Production evidence retention/legal-hold duration (`CARE-MEDIA-009`).
 6. Agent queue category/priority/escalation mapping (`CARE-TICKET-008`).
 7. Public review identity masking (`CARE-REVIEW-010`).
+8. Shipping return-shipment endpoint and event contract (`CARE-RETURN-015`).
 
 Until ratified, implement behind ports or feature flags and do not expose a misleading production-complete workflow.
 

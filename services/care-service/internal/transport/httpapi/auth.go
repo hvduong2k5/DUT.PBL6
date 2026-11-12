@@ -110,6 +110,14 @@ func canonicalCarePermission(value string) string {
 		return "TICKET_REPLY"
 	case "care.tickets.transition", "ticket_transition":
 		return "TICKET_TRANSITION"
+	case "care.return.cases.view":
+		return "RETURN_CASE_VIEW"
+	case "care.return.cases.review":
+		return "RETURN_CASE_REVIEW"
+	case "care.return.cases.decide", "care.return.approve":
+		return "RETURN_CASE_DECIDE"
+	case "care.return.refund_without_return":
+		return "RETURN_CASE_REFUND_WITHOUT_RETURN"
 	default:
 		return strings.ToUpper(strings.TrimSpace(value))
 	}

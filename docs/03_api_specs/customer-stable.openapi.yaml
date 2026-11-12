@@ -4762,7 +4762,8 @@ paths:
       - After-sales
       operationId: postReturns
       summary: Gửi yêu cầu đổi trả / hoàn tiền (Ticket Khiếu nại)
-      x-lifecycle: stable
+      x-lifecycle: draft
+      x-decision-required: true
       x-backlog:
       - EPIC_14
       x-ui-states:
@@ -4783,52 +4784,58 @@ paths:
               schema:
                 type: object
                 required:
-                - return_id
+                - case_id
+                - case_number
                 - order_id
                 - status
-                - reason
-                - refund_amount
+                - requested_resolution
+                - reason_code
+                - revision
                 - created_at
                 properties:
-                  return_id:
+                  case_id:
+                    type: string
+                    format: uuid
+                  case_number:
                     type: string
                   order_id:
                     type: string
                   status:
                     type: string
-                  reason:
+                  requested_resolution:
                     type: string
-                  refund_amount:
-                    type: object
-                    required:
-                    - currency_code
-                    - units
-                    - nanos
-                    properties:
-                      currency_code:
-                        type: string
-                      units:
-                        type: integer
-                      nanos:
-                        type: integer
-                    additionalProperties: false
+                  reason_code:
+                    type: string
+                  revision:
+                    type: integer
+                  customer_note:
+                    type: string
+                  lines:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                  evidence_file_ids:
+                    type: array
+                    items: {type: string, format: uuid}
                   created_at:
                     type: string
                     format: date-time
-                additionalProperties: false
+                  updated_at:
+                    type: string
+                    format: date-time
+                additionalProperties: true
               examples:
                 success:
                   summary: Successful response
                   value:
-                    return_id: RET-20261016-0012
+                    case_id: 8a12409f-2385-4d85-9e3a-9cef3ac80291
+                    case_number: RET-8A12409F2385
                     order_id: ORD-20261015-0042
-                    status: '{{oneOf ''REQUESTED'' ''INSPECTING'' ''APPROVED'' ''REFUNDED''
-                      ''REJECTED''}}'
-                    reason: Bao bì phong kẹo bị rách
-                    refund_amount:
-                      currency_code: VND
-                      units: 345000
-                      nanos: 0
+                    status: REQUESTED
+                    requested_resolution: RETURN_AND_REFUND
+                    reason_code: DAMAGED_IN_TRANSIT
+                    revision: 1
                     created_at: '2026-10-16T10:15:00.000Z'
         '400':
           $ref: '#/components/responses/BadRequest'
@@ -4852,61 +4859,57 @@ paths:
               type: object
               required:
               - order_id
+              - requested_resolution
               - lines
               - reason_code
-              - details
-              - evidence_media_urls
-              - refund_bank_code
-              - refund_account_number
-              - refund_account_holder
-              - idempotency_key
+              - customer_note
+              - evidence_file_ids
               properties:
                 order_id:
                   type: string
+                requested_resolution:
+                  type: string
+                  enum:
+                  - RETURN_AND_REFUND
+                  - REFUND_WITHOUT_RETURN
                 lines:
                   type: array
+                  minItems: 1
+                  maxItems: 50
                   items:
                     type: object
                     required:
-                    - line_id
+                    - order_line_id
                     - quantity
                     properties:
-                      line_id:
+                      order_line_id:
                         type: string
                       quantity:
                         type: integer
+                        minimum: 1
                     additionalProperties: false
                 reason_code:
                   type: string
-                details:
+                customer_note:
                   type: string
-                evidence_media_urls:
+                  maxLength: 2000
+                evidence_file_ids:
                   type: array
+                  maxItems: 6
                   items:
                     type: string
-                    format: uri
-                refund_bank_code:
-                  type: string
-                refund_account_number:
-                  type: string
-                refund_account_holder:
-                  type: string
-                idempotency_key:
-                  type: string
+                    format: uuid
               additionalProperties: false
             example:
               order_id: ORD-20261015-0042
+              requested_resolution: RETURN_AND_REFUND
               lines:
-              - line_id: LINE-01
+              - order_line_id: LINE-01
                 quantity: 1
               reason_code: DAMAGED_IN_TRANSIT
-              details: Bao bi bi rach
-              evidence_media_urls:
-              - https://cdn.example.com/evidence.jpg
-              refund_bank_code: MBBANK
-              refund_account_number: 0905123456
-              refund_account_holder: NGUYEN VAN AN
-              idempotency_key: 6f5902ac-2377-4d4f-8b32-17cb34f29450
+              customer_note: Packaging arrived damaged
+              evidence_file_ids:
+              - 550e8400-e29b-41d4-a716-446655440000
       parameters:
       - $ref: '#/components/parameters/IdempotencyKey'
   /api/v1/returns/{return_id}:
@@ -4915,7 +4918,8 @@ paths:
       - After-sales
       operationId: getReturnsReturnId
       summary: Tra cứu tiến độ xử lý yêu cầu đổi trả / hoàn tiền
-      x-lifecycle: stable
+      x-lifecycle: draft
+      x-decision-required: true
       x-backlog:
       - EPIC_14
       x-ui-states:
@@ -4936,52 +4940,69 @@ paths:
               schema:
                 type: object
                 required:
-                - return_id
+                - case_id
+                - case_number
                 - order_id
                 - status
-                - reason
-                - refund_amount
+                - requested_resolution
+                - reason_code
+                - revision
+                - lines
+                - evidence_file_ids
                 - created_at
                 properties:
-                  return_id:
+                  case_id:
+                    type: string
+                    format: uuid
+                  case_number:
                     type: string
                   order_id:
                     type: string
                   status:
                     type: string
-                  reason:
+                  requested_resolution:
                     type: string
-                  refund_amount:
+                  reason_code:
+                    type: string
+                  revision:
+                    type: integer
+                  lines:
+                    type: array
+                    items:
+                      type: object
+                      required: [case_line_id, order_line_id, product_name, requested_quantity]
+                      properties:
+                        case_line_id: {type: string, format: uuid}
+                        order_line_id: {type: string}
+                        product_name: {type: string}
+                        requested_quantity: {type: integer}
+                      additionalProperties: false
+                  evidence_file_ids:
+                    type: array
+                    items: {type: string, format: uuid}
+                  decision:
                     type: object
-                    required:
-                    - currency_code
-                    - units
-                    - nanos
-                    properties:
-                      currency_code:
-                        type: string
-                      units:
-                        type: integer
-                      nanos:
-                        type: integer
-                    additionalProperties: false
+                    nullable: true
                   created_at:
                     type: string
                     format: date-time
-                additionalProperties: false
+                  updated_at:
+                    type: string
+                    format: date-time
+                additionalProperties: true
               examples:
                 success:
                   summary: Successful response
                   value:
-                    return_id: RET-20261016-0012
+                    case_id: 8a12409f-2385-4d85-9e3a-9cef3ac80291
+                    case_number: RET-8A12409F2385
                     order_id: ORD-20261015-0042
-                    status: '{{oneOf ''REQUESTED'' ''INSPECTING'' ''APPROVED'' ''REFUNDED''
-                      ''REJECTED''}}'
-                    reason: Bao bì phong kẹo bị rách
-                    refund_amount:
-                      currency_code: VND
-                      units: 345000
-                      nanos: 0
+                    status: REQUESTED
+                    requested_resolution: RETURN_AND_REFUND
+                    reason_code: DAMAGED_IN_TRANSIT
+                    revision: 1
+                    lines: []
+                    evidence_file_ids: []
                     created_at: '2026-10-16T10:15:00.000Z'
         '401':
           $ref: '#/components/responses/Unauthorized'

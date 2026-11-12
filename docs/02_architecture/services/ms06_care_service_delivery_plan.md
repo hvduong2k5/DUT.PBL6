@@ -30,7 +30,11 @@ Implemented in the first vertical slice:
 - duplicate-safe near-breach and breached SLA workers with configurable polling/window and metadata-only outbox events;
 - immutable upload-session expiry and retry-safe orphan-media cleanup;
 - Return schema/domain foundation with separate case, immutable line-level decision,
-  returned-goods, and refund-obligation lifecycles; no external Return API is exposed;
+  returned-goods, and refund-obligation lifecycles;
+- Care return intake and staff decision API are implemented behind the proposed Order
+  return-context contract; the Order provider and Shipping HTTP adapters have mock-based
+  tests only. Provider acceptance, PostgreSQL runtime verification, and cross-service E2E
+  remain release gates. Care does not execute or publish a refund command.
 - unit tests, isolated-schema PostgreSQL migration/repository integration tests, `go vet`, build, JSON schema parse, and OpenAPI lint.
 
 Local Compose verification now covers PostgreSQL, Kafka topic initialization, SeaweedFS S3 compatibility, migration startup, service readiness, direct upload and orphan cleanup, staff queue/detail authorization and audit, concurrent self-claim, internal-note isolation, staff in-app public reply, the ticket state machine, and SLA alert polling. Media cleanup verification proves an expired READY orphan becomes `DELETED`, its object returns `404`, API access returns `409`, attached media remains accessible, and replay/complete cannot extend the original upload deadline. Self-claim proves one `200`/one `409` for competing agents, replay safety across different request IDs, and exactly one assignment, claim audit, assigned event, and idempotency result. Internal-note verification proves `403` without permission, `201` then `200` on replay, `409` for a changed payload, no customer DTO leakage, metadata-only audit, and no note event in outbox. Staff reply verification covers permission and assigned-owner scope, idempotent replay, customer visibility, first-response completion, and content-free audit/outbox metadata. Transition verification covers permission and assigned-staff scope, invalid edges, replay and changed-payload conflicts, `WAITING_CUSTOMER` pause/resume, resolve/reopen/close, seven atomic audit/outbox/idempotency records, and successful publication of all seven Kafka events. SLA verification proves one near-breach and one breached event, publication through Kafka, metadata-only payloads, no duplicates across repeated polls, and exclusion of paused, completed, resolved, and closed milestones. The host race test remains unavailable because its installed C compiler lacks 64-bit race support; normal unit tests, vet, and build pass.
@@ -226,19 +230,21 @@ Contract gate: do not start externally integrated refund execution before `CARE-
 ### `CARE-400` - Return case intake
 
 - [x] Add case, lines, evidence references, immutable decision scope, status history, returned-goods projection, and refund-obligation schemas.
-- [ ] Query Order for ownership, immutable lines, eligibility, quantity, timestamps, and refundable ceiling.
-- [ ] Enforce one non-conflicting active return quantity per order line.
-- [ ] Create return with `evidence_file_ids` and idempotency.
-- [ ] Store timestamped minimum source snapshot.
-- [ ] Implement customer list/detail/supplement APIs.
+- [x] Implement the Order return-context client port and reject unknown owner/line/eligibility data; the provider route and wire format are still proposed, not provider-accepted.
+- [x] Enforce one non-conflicting active return quantity per order line under a transaction advisory lock.
+- [x] Create return with `evidence_file_ids`, same-owner/clean/purpose checks, and idempotency.
+- [x] Store a timestamped minimum Order snapshot including pickup/parcel context needed for a reverse pickup.
+- [x] Implement customer create/list/detail; supplements remain unimplemented.
+- [ ] Run PostgreSQL integration tests for case create/replay, evidence attachment, quantity race, and decision/Shipping reference persistence.
 
 ### `CARE-410` - Review and decision workflow
 
-- [ ] Implement `NEEDS_INFORMATION` and `REVIEWING` transitions.
-- [ ] Enforce Manager permission for approve/partial approve/reject.
-- [ ] Store immutable decision scope, reasons, quantities, amount, currency, and return-required flag.
+- [x] Implement `NEEDS_INFORMATION` and `REVIEWING` transitions with expected revision and idempotency.
+- [x] Enforce `RETURN_CASE_DECIDE`; refund-without-return additionally requires `RETURN_CASE_REFUND_WITHOUT_RETURN`.
+- [x] Store immutable decision scope, reasons, quantities, amount, currency, source snapshot, and return-required flag.
 - [ ] Implement packing-video access through Fulfillment and audit it.
 - [ ] Publish versioned decision event via outbox.
+- [x] Request an idempotent fake-carrier reverse pickup from Shipping only after an approved decision requiring returned goods; external provider acceptance and live E2E remain pending.
 
 ### `CARE-420` - Returned goods
 

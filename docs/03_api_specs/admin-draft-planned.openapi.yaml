@@ -677,7 +677,7 @@ paths:
       tags:
         - "After-sales"
       operationId: "postAdminReturnsCasesCaseIdActions"
-      summary: "Request information, decide, receive goods, classify, or trigger refund according to the approved state machine."
+      summary: "Request information, start review, or record an immutable return decision. A physical reverse pickup is requested from Shipping after approval when required; Care does not execute refunds."
       x-lifecycle: "draft"
       x-decision-required: true
       x-backlog:
@@ -704,30 +704,41 @@ paths:
         -
           $ref: "#/components/parameters/IdempotencyKey"
       responses:
-        "202":
-          description: "Proposed successful response."
+        "200":
+          description: "The case action was applied or the previous idempotent result was returned. Shipping reverse-pickup creation is completed before a decision requiring returned goods is acknowledged."
           content:
             "application/json":
               schema:
                 type: "object"
                 required:
-                  - "caseId"
+                  - "case_id"
                   - "status"
                   - "revision"
                 properties:
-                  caseId:
+                  case_id:
                     type: "string"
                   status:
                     type: "string"
                   revision:
                     type: "integer"
+                  reverse_shipment_id:
+                    type: "string"
+                  decision:
+                    type: "object"
+                    nullable: true
+                    additionalProperties: true
                 additionalProperties: false
               examples:
                 success:
                   value:
-                    caseId: "RET-01"
-                    status: "REVIEWING"
+                    case_id: "8a12409f-2385-4d85-9e3a-9cef3ac80291"
+                    status: "IN_FULFILLMENT"
                     revision: 3
+                    reverse_shipment_id: "retship-01"
+                    decision:
+                      decision_id: "6d4edcdb-9713-4de7-bb3c-704626425d17"
+                      outcome: "APPROVED"
+                      return_required: true
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -753,23 +764,55 @@ paths:
               required:
                 - "action"
                 - "note"
-                - "expectedRevision"
-                - "idempotencyKey"
+                - "expected_revision"
               properties:
                 action:
                   type: "string"
+                  enum: ["START_REVIEW", "REQUEST_INFORMATION", "DECIDE"]
                 note:
                   type: "string"
-                expectedRevision:
+                  minLength: 1
+                  maxLength: 2000
+                expected_revision:
                   type: "integer"
-                idempotencyKey:
+                  minimum: 1
+                reason_code:
                   type: "string"
+                  maxLength: 50
+                return_required:
+                  type: "boolean"
+                lines:
+                  type: "array"
+                  minItems: 1
+                  maxItems: 50
+                  items:
+                    type: "object"
+                    required: ["return_case_line_id", "approved_quantity", "approved_amount_minor"]
+                    properties:
+                      return_case_line_id:
+                        type: "string"
+                        format: "uuid"
+                      approved_quantity:
+                        type: "integer"
+                        minimum: 0
+                      approved_amount_minor:
+                        type: "integer"
+                        minimum: 0
+                      reason_code:
+                        type: "string"
+                        maxLength: 50
+                    additionalProperties: false
               additionalProperties: false
             example:
-              action: "REQUEST_INFORMATION"
-              note: "Can them anh"
-              expectedRevision: 2
-              idempotencyKey: "092564c7-54f2-4fa7-a32c-7ef687775468"
+              action: "DECIDE"
+              note: "Verified damage from evidence"
+              expected_revision: 2
+              reason_code: "DAMAGED_IN_TRANSIT"
+              return_required: true
+              lines:
+                - return_case_line_id: "123e4567-e89b-42d3-a456-426614174000"
+                  approved_quantity: 1
+                  approved_amount_minor: 345000
   "/api/v1/admin/support/tickets/{ticketId}/actions":
     post:
       tags:

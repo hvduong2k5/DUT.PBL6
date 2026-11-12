@@ -207,7 +207,8 @@ func validateCarePermissionGrants(grants []string, permissions map[string]struct
 
 func isCarePermission(permission string) bool {
 	switch permission {
-	case "TICKET_QUEUE_VIEW", "TICKET_CLAIM", "TICKET_NOTE_WRITE", "TICKET_REPLY", "TICKET_TRANSITION":
+	case "TICKET_QUEUE_VIEW", "TICKET_CLAIM", "TICKET_NOTE_WRITE", "TICKET_REPLY", "TICKET_TRANSITION",
+		"RETURN_CASE_VIEW", "RETURN_CASE_REVIEW", "RETURN_CASE_DECIDE", "RETURN_CASE_REFUND_WITHOUT_RETURN":
 		return true
 	default:
 		return false

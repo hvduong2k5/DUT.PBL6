@@ -60,8 +60,8 @@ Customer APIs distinguish Guest, Registered Customer and verified B2B Customer c
 | `DELETE /api/v1/profile/addresses/{address_id}` | EPIC_02 | stable | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
 | `POST /api/v1/promotions/validate` | EPIC_17 | stable | 200 | N/A | 400/422 | — | — | — | 409 | — | 500/503 |
 | `GET /api/v1/promotions/vouchers` | EPIC_17 | stable | 200 | 200 (collection empty) | 400/— | — | — | — | — | — | 500/503 |
-| `POST /api/v1/returns` | EPIC_14 | stable | 201 | N/A | 400/422 | 401 | 403 | — | 409 | — | 500/503 |
-| `GET /api/v1/returns/{return_id}` | EPIC_14 | stable | 200 | N/A | —/— | 401 | 403 | 404 | — | — | 500/503 |
+| `POST /api/v1/returns` | EPIC_14 | draft | 201 | N/A | 400/422 | 401 | 403 | — | 409 | — | 500/503 |
+| `GET /api/v1/returns/{return_id}` | EPIC_14 | draft | 200 | N/A | —/— | 401 | 403 | 404 | — | — | 500/503 |
 | `POST /api/v1/reviews` | EPIC_15 | stable | 201 | N/A | 400/422 | 401 | 403 | — | 409 | — | 500/503 |
 | `GET /api/v1/reviews/products/{product_id}` | EPIC_15 | stable | 200 | 200 (collection empty) | —/— | — | — | 404 | — | — | 500/503 |
 | `GET /api/v1/support/context` | EPIC_16 | stable | 200 | N/A | 400/— | 401 | 403 | — | — | — | 500/503 |

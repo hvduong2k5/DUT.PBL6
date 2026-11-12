@@ -14,12 +14,16 @@ type Config struct {
 	HTTPPort    string
 	LogLevel    string
 
-	InternalToken      string
-	OIDCIssuer         string
-	OIDCAudience       string
-	OIDCJWKSURL        string
-	RateLimitPerSecond int
-	RateLimitBurst     int
+	InternalToken          string
+	OrderServiceBaseURL    string
+	OrderInternalToken     string
+	ShippingServiceBaseURL string
+	ShippingInternalToken  string
+	OIDCIssuer             string
+	OIDCAudience           string
+	OIDCJWKSURL            string
+	RateLimitPerSecond     int
+	RateLimitBurst         int
 
 	DatabaseURL   string
 	DBMaxConns    int32
@@ -63,12 +67,16 @@ func Load() (Config, error) {
 		HTTPPort:    getString("HTTP_PORT", "8006"),
 		LogLevel:    getString("LOG_LEVEL", "info"),
 
-		InternalToken:      os.Getenv("CARE_INTERNAL_TOKEN"),
-		OIDCIssuer:         strings.TrimSpace(os.Getenv("CARE_OIDC_ISSUER")),
-		OIDCAudience:       getString("CARE_OIDC_AUDIENCE", "omama-api"),
-		OIDCJWKSURL:        strings.TrimSpace(os.Getenv("CARE_OIDC_JWKS_URL")),
-		RateLimitPerSecond: getInt("RATE_LIMIT_PER_SECOND", 20),
-		RateLimitBurst:     getInt("RATE_LIMIT_BURST", 40),
+		InternalToken:          os.Getenv("CARE_INTERNAL_TOKEN"),
+		OrderServiceBaseURL:    strings.TrimRight(strings.TrimSpace(os.Getenv("CARE_ORDER_SERVICE_BASE_URL")), "/"),
+		OrderInternalToken:     strings.TrimSpace(os.Getenv("CARE_ORDER_INTERNAL_TOKEN")),
+		ShippingServiceBaseURL: strings.TrimRight(strings.TrimSpace(os.Getenv("CARE_SHIPPING_SERVICE_BASE_URL")), "/"),
+		ShippingInternalToken:  strings.TrimSpace(os.Getenv("CARE_SHIPPING_INTERNAL_TOKEN")),
+		OIDCIssuer:             strings.TrimSpace(os.Getenv("CARE_OIDC_ISSUER")),
+		OIDCAudience:           getString("CARE_OIDC_AUDIENCE", "omama-api"),
+		OIDCJWKSURL:            strings.TrimSpace(os.Getenv("CARE_OIDC_JWKS_URL")),
+		RateLimitPerSecond:     getInt("RATE_LIMIT_PER_SECOND", 20),
+		RateLimitBurst:         getInt("RATE_LIMIT_BURST", 40),
 
 		DatabaseURL:   getString("DATABASE_URL", "postgres://care_user:care_password@localhost:5438/care_db?sslmode=disable"),
 		DBMaxConns:    int32(getInt("DB_MAX_CONNS", 20)),
@@ -113,6 +121,12 @@ func (c Config) Validate() error {
 	var validationErrors []error
 	if strings.TrimSpace(c.InternalToken) == "" {
 		validationErrors = append(validationErrors, errors.New("CARE_INTERNAL_TOKEN is required"))
+	}
+	if (c.OrderServiceBaseURL == "") != (c.OrderInternalToken == "") {
+		validationErrors = append(validationErrors, errors.New("CARE_ORDER_SERVICE_BASE_URL and CARE_ORDER_INTERNAL_TOKEN must be configured together"))
+	}
+	if (c.ShippingServiceBaseURL == "") != (c.ShippingInternalToken == "") {
+		validationErrors = append(validationErrors, errors.New("CARE_SHIPPING_SERVICE_BASE_URL and CARE_SHIPPING_INTERNAL_TOKEN must be configured together"))
 	}
 	if c.RateLimitPerSecond < 1 || c.RateLimitBurst < 1 {
 		validationErrors = append(validationErrors, errors.New("rate limit and burst must be positive"))

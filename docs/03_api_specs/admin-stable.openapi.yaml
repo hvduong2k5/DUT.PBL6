@@ -7144,9 +7144,9 @@ paths:
       tags:
       - After-sales
       operationId: getAdminReturnsCases
-      summary: Read-only Return/Refund Case queue for US-RET-04~06 and FR-RET-07~22.
-        Mutation policies remain open in Epic 14.
-      x-lifecycle: stable
+      summary: Care return-case queue; currently an implementation proposal pending Profile display-label and Order provider contracts.
+      x-lifecycle: draft
+      x-decision-required: true
       x-backlog:
       - EPIC_14
       x-ui-states:
@@ -7509,9 +7509,9 @@ paths:
       tags:
       - After-sales
       operationId: getAdminReturnsCasesCaseId
-      summary: Read-only Return Case detail with independent Order, Payment, Shipment,
-        evidence, returned-goods and Refund projections.
-      x-lifecycle: stable
+      summary: Care return-case detail and immutable review decision; financial and warehouse projections remain pending their owner contracts.
+      x-lifecycle: draft
+      x-decision-required: true
       x-backlog:
       - EPIC_14
       x-ui-states:

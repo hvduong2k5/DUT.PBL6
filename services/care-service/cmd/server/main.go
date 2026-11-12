@@ -18,6 +18,8 @@ import (
 	"github.com/omamx/care-service/internal/infrastructure/telemetry"
 	"github.com/omamx/care-service/internal/media"
 	postgresrepo "github.com/omamx/care-service/internal/repository/postgres"
+	careReturns "github.com/omamx/care-service/internal/returns"
+	careShipping "github.com/omamx/care-service/internal/shipping"
 	"github.com/omamx/care-service/internal/tickets"
 	"github.com/omamx/care-service/internal/transport/httpapi"
 	"github.com/omamx/care-service/internal/worker"
@@ -93,6 +95,21 @@ func main() {
 	})
 	ticketService := tickets.NewService(ticketRepository, nil)
 	staffTicketService := tickets.NewStaffService(ticketRepository, cfg.TicketReopenWindow)
+	var orderContextProvider careReturns.OrderContextProvider
+	if cfg.OrderServiceBaseURL != "" {
+		orderContextProvider, err = careReturns.NewHTTPOrderClient(cfg.OrderServiceBaseURL, cfg.OrderInternalToken, nil)
+		if err != nil {
+			log.Fatal().Err(err).Msg("invalid Order return-context client configuration")
+		}
+	}
+	var shippingClient *careShipping.Client
+	if cfg.ShippingServiceBaseURL != "" {
+		shippingClient, err = careShipping.NewClient(cfg.ShippingServiceBaseURL, cfg.ShippingInternalToken, nil)
+		if err != nil {
+			log.Fatal().Err(err).Msg("invalid Shipping return-shipment client configuration")
+		}
+	}
+	returnService := careReturns.NewService(postgresrepo.NewReturnRepository(pool), orderContextProvider, shippingClient)
 	var staffAuthenticator httpapi.StaffAuthenticator
 	if cfg.OIDCIssuer != "" {
 		staffAuthenticator, err = httpapi.NewJWTStaffAuthenticator(cfg.OIDCIssuer, cfg.OIDCAudience, cfg.OIDCJWKSURL)
@@ -126,6 +143,7 @@ func main() {
 		MediaHandler:       httpapi.NewMediaHandler(mediaService),
 		TicketHandler:      httpapi.NewTicketHandler(ticketService),
 		StaffTicketHandler: httpapi.NewStaffTicketHandler(staffTicketService),
+		ReturnHandler:      httpapi.NewReturnHandler(returnService),
 	})
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%s", cfg.HTTPPort),

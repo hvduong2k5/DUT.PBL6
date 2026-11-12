@@ -405,7 +405,20 @@ paths:
                 properties:
                   items:
                     type: "array"
-                    items: {}
+                    items:
+                      type: "object"
+                      required: ["case_id", "case_number", "order_id", "status", "revision"]
+                      properties:
+                        case_id: {type: "string", format: "uuid"}
+                        case_number: {type: "string"}
+                        order_id: {type: "string"}
+                        status: {type: "string"}
+                        requested_resolution: {type: "string"}
+                        reason_code: {type: "string"}
+                        revision: {type: "integer"}
+                        created_at: {type: "string", format: "date-time"}
+                        updated_at: {type: "string", format: "date-time"}
+                      additionalProperties: true
                   total:
                     type: "integer"
                   page:

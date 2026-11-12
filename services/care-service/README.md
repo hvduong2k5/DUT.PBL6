@@ -25,8 +25,9 @@ Architecture and delivery references:
 - Immutable upload-session expiry and retry-safe deletion of never-attached orphan objects.
 - Prometheus media lifecycle, scan-status, and cleanup-outcome metrics.
 - Return persistence/domain foundation with separate case, immutable decision scope,
-  returned-goods, and refund-obligation lifecycles; no Return API or external action
-  is enabled before the Order/refund contracts are ratified.
+  returned-goods, and refund-obligation lifecycles; registered-customer return intake,
+  staff review/decision, immutable Order snapshots, and idempotent Shipping reverse-pickup
+  requests are implemented behind proposed provider contracts.
 - Attachment ownership, purpose, status, and scan checks in the same transaction as ticket writes.
 - Health, readiness, Prometheus metrics, structured logs, and optional OTLP traces.
 - Per-actor token-bucket rate limiting as a service-side safeguard, with bounded
@@ -37,7 +38,17 @@ Not yet implemented:
 
 - assignment/reassignment to other staff or queues and external email/push delivery;
 - Order ownership query for linking an order to a ticket;
-- Return/refund application workflows and APIs (only schema/domain foundations exist);
+- Refund orchestration/execution and authoritative refund-result projection; Order/Payment
+  ownership is not ratified and Care never moves money;
+- Order must implement/accept `GET /api/v1/internal/orders/{order_id}/care-return-context`
+  and provide ownership, immutable lines, return eligibility, committed-return quantities,
+  a promotion/tax-allocated refundable ceiling per unit, pickup address, warehouse
+  destination, and parcel dimensions;
+- Shipping must provide `POST /api/v1/internal/return-shipments`; the Care adapter uses
+  `CARE_SHIPPING_SERVICE_BASE_URL` and `CARE_SHIPPING_INTERNAL_TOKEN` and has only been
+  verified with an HTTP mock, not against the running provider;
+- customer supplements/appeals, Fulfillment packing-video access, versioned decision
+  events, warehouse inspection, and consumer-side return-shipment status updates;
 - Review workflows;
 - production malware-scanner adapter;
 - Kafka consumers and inbox processing for external events.
