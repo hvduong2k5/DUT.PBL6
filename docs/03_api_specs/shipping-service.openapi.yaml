@@ -1,0 +1,593 @@
+openapi: 3.0.3
+info:
+  title: MS-12 Shipping Service Internal HTTP API
+  version: 1.0.0
+  description: >-
+    Contract for the implemented Shipping HTTP endpoints. These are service-to-service,
+    operational, and provider-webhook endpoints; they are not a customer-facing API and
+    are not currently exposed through Kong. Order integrations should use the versioned
+    Shipping gRPC contract unless an owning-service decision explicitly selects HTTP.
+servers:
+  - url: http://localhost:8012
+    description: Local development only
+tags:
+  - name: Health
+  - name: Internal shipping
+  - name: Internal query
+  - name: Carrier webhooks
+paths:
+  /health/live:
+    get:
+      tags: [Health]
+      operationId: shippingLiveness
+      summary: Check that the process is running
+      responses:
+        '200':
+          description: Process is alive
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status: { type: string, enum: [ok] }
+  /health/ready:
+    get:
+      tags: [Health]
+      operationId: shippingReadiness
+      summary: Check database readiness
+      responses:
+        '200':
+          description: Database is reachable
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status: { type: string, enum: [ready] }
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/internal/shipping/quotes:
+    post:
+      tags: [Internal shipping]
+      operationId: shippingGetQuote
+      summary: Calculate a provider-neutral delivery quote
+      security:
+        - internalBearer: []
+        - internalToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/QuoteRequest' }
+      responses:
+        '200':
+          description: Quote calculated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Quote' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /api/v1/internal/shipments:
+    post:
+      tags: [Internal shipping]
+      operationId: shippingCreateShipment
+      summary: Create a carrier shipment idempotently
+      description: The body idempotency_key is required by business validation; new integrations should also send Idempotency-Key, and the two values must match when both are supplied.
+      security:
+        - internalBearer: []
+        - internalToken: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateShipmentRequest' }
+      responses:
+        '201':
+          description: Shipment created or idempotent prior result returned
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Shipment' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '502':
+          description: Carrier rejected or failed shipment creation; shipment state may be included
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [error]
+                properties:
+                  error: { $ref: '#/components/schemas/Error' }
+                  shipment: { $ref: '#/components/schemas/Shipment' }
+  /api/v1/internal/shipments/{shipmentID}/cancel:
+    post:
+      tags: [Internal shipping]
+      operationId: shippingCancelShipment
+      summary: Cancel a shipment before handover
+      security:
+        - internalBearer: []
+        - internalToken: []
+      parameters:
+        - $ref: '#/components/parameters/ShipmentID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason_code:
+                  type: string
+                  enum: [PICKUP_DELAY, OUT_OF_STOCK, RECIPIENT_CHANGED_MIND, OTHER]
+                  default: OTHER
+                reason: { type: string, maxLength: 500 }
+      responses:
+        '200':
+          description: Shipment cancellation completed or idempotent prior result returned
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Shipment' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '502':
+          description: Carrier rejected cancellation; shipment state is included
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [error, shipment]
+                properties:
+                  error: { $ref: '#/components/schemas/Error' }
+                  shipment: { $ref: '#/components/schemas/Shipment' }
+  /api/v1/internal/shipments/{shipmentID}/label-url:
+    post:
+      tags: [Internal shipping]
+      operationId: shippingGenerateLabelUrl
+      summary: Generate a short-lived carrier label URL
+      security:
+        - internalBearer: []
+        - internalToken: []
+      parameters:
+        - $ref: '#/components/parameters/ShipmentID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                format: { type: string, enum: [A5, 80X80, 52X70], default: A5 }
+      responses:
+        '200':
+          description: Short-lived label access
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LabelAccess' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '502': { $ref: '#/components/responses/BadGateway' }
+  /api/v1/internal/shipments/{shipmentID}/handover:
+    post:
+      tags: [Internal shipping]
+      operationId: shippingConfirmHandover
+      summary: Record carrier handover
+      security:
+        - internalBearer: []
+        - internalToken: []
+      parameters:
+        - $ref: '#/components/parameters/ShipmentID'
+      responses:
+        '200':
+          description: Handover recorded
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Shipment' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /api/v1/admin/shipping/shipments:
+    get:
+      tags: [Internal query]
+      operationId: shippingListShipments
+      summary: List shipments for trusted internal tooling
+      description: This route currently uses the shared internal token, not employee authentication or permission-and-scope authorization.
+      security:
+        - internalBearer: []
+        - internalToken: []
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: pageSize
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: status
+          in: query
+          schema: { $ref: '#/components/schemas/ShipmentStatus' }
+        - name: carrier
+          in: query
+          schema: { type: string }
+        - name: orderId
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: Page of shipments; empty results return an empty items array
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, page, page_size]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Shipment' }
+                  page: { type: integer }
+                  page_size: { type: integer }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /api/v1/admin/shipping/shipments/{shipmentID}:
+    get:
+      tags: [Internal query]
+      operationId: shippingGetShipment
+      summary: Get a shipment and its tracking timeline for trusted internal tooling
+      description: This route currently uses the shared internal token, not employee authentication or permission-and-scope authorization.
+      security:
+        - internalBearer: []
+        - internalToken: []
+      parameters:
+        - $ref: '#/components/parameters/ShipmentID'
+      responses:
+        '200':
+          description: Shipment and tracking events
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [shipment, tracking_events]
+                properties:
+                  shipment: { $ref: '#/components/schemas/Shipment' }
+                  tracking_events:
+                    type: array
+                    items: { $ref: '#/components/schemas/TrackingEvent' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /api/v1/orders/{orderID}/tracking:
+    get:
+      tags: [Internal query]
+      operationId: shippingTrackOrder
+      summary: Get customer-safe tracking data for an order
+      description: Internal-token protected; not a public customer endpoint or currently exposed by Kong.
+      security:
+        - internalBearer: []
+        - internalToken: []
+      parameters:
+        - name: orderID
+          in: path
+          required: true
+          schema: { type: string, minLength: 1 }
+      responses:
+        '200':
+          description: Order shipment tracking; no shipments returns an empty array
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [order_id, shipments]
+                properties:
+                  order_id: { type: string }
+                  shipments:
+                    type: array
+                    items: { $ref: '#/components/schemas/PublicTracking' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /api/v1/webhooks/logistics/fake:
+    post:
+      tags: [Carrier webhooks]
+      operationId: shippingReceiveFakeCarrierWebhook
+      summary: Accept a signed fake-carrier tracking callback
+      security:
+        - fakeWebhookSignature: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: true }
+      responses:
+        '200':
+          description: Callback accepted or recognized as duplicate
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WebhookAccepted' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /api/v1/webhooks/logistics/ghn:
+    post:
+      tags: [Carrier webhooks]
+      operationId: shippingReceiveGhnWebhook
+      summary: Accept an authenticated GHN tracking callback
+      description: Returns 404 when GHN webhook configuration is disabled. The secret is compared in constant time.
+      security:
+        - ghnWebhookSecret: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: true }
+      responses:
+        '200':
+          description: Callback accepted or recognized as duplicate
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WebhookAccepted' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '503':
+          description: Shipment is not committed yet; provider should retry
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '500': { $ref: '#/components/responses/InternalError' }
+components:
+  securitySchemes:
+    internalBearer:
+      type: http
+      scheme: bearer
+      description: Shared trusted-service token from SHIPPING_INTERNAL_TOKEN
+    internalToken:
+      type: apiKey
+      in: header
+      name: X-Internal-Token
+      description: Compatibility form of the shared trusted-service token
+    fakeWebhookSignature:
+      type: apiKey
+      in: header
+      name: X-Shipping-Signature
+      description: sha256=<hex HMAC-SHA256 of the exact request body>
+    ghnWebhookSecret:
+      type: apiKey
+      in: header
+      name: X-GHN-Webhook-Secret
+  parameters:
+    ShipmentID:
+      name: shipmentID
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: Retry key. Create also accepts body idempotency_key for legacy callers.
+      schema: { type: string, minLength: 1, maxLength: 128 }
+  responses:
+    BadRequest:
+      description: Malformed JSON, invalid path identifier, or invalid input encoding
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Unauthorized:
+      description: Missing or invalid service token or webhook secret
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotFound:
+      description: Shipment or tracking resource not found
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Conflict:
+      description: Invalid state transition or idempotency conflict
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    ValidationFailed:
+      description: Business validation failed
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    InternalError:
+      description: Unexpected internal failure
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    ServiceUnavailable:
+      description: Dependency unavailable or callback must be retried
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    BadGateway:
+      description: Carrier operation failed
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+  schemas:
+    Error:
+      type: object
+      additionalProperties: false
+      required: [code, message, requestId]
+      properties:
+        code: { type: string, minLength: 1 }
+        message: { type: string, minLength: 1 }
+        requestId: { type: string, minLength: 1 }
+    Recipient:
+      type: object
+      required: [name, phone, street, ward, province]
+      properties:
+        name: { type: string, minLength: 1 }
+        phone: { type: string, minLength: 1 }
+        street: { type: string, minLength: 1 }
+        ward: { type: string, minLength: 1 }
+        district: { type: string, description: Optional for supported two-tier address formats }
+        province: { type: string, minLength: 1 }
+        country_code: { type: string, default: VN }
+        postal_code: { type: string }
+    Parcel:
+      type: object
+      required: [weight_grams, length_cm, width_cm, height_cm]
+      properties:
+        weight_grams: { type: integer, format: int64, minimum: 1 }
+        length_cm: { type: integer, format: int32, minimum: 1 }
+        width_cm: { type: integer, format: int32, minimum: 1 }
+        height_cm: { type: integer, format: int32, minimum: 1 }
+        fragile: { type: boolean }
+    QuoteRequest:
+      type: object
+      required: [carrier_code, destination, parcel]
+      properties:
+        carrier_code: { type: string, minLength: 1 }
+        destination: { $ref: '#/components/schemas/Recipient' }
+        parcel: { $ref: '#/components/schemas/Parcel' }
+        service_code: { type: string }
+    Quote:
+      type: object
+      required: [carrier_code, service_code, service_name, fee_vnd, estimated_delivery_at, expires_at]
+      properties:
+        carrier_code: { type: string }
+        service_code: { type: string }
+        service_name: { type: string }
+        fee_vnd: { type: integer, format: int64, minimum: 0 }
+        estimated_delivery_at: { type: string, format: date-time }
+        expires_at: { type: string, format: date-time }
+    CreateShipmentRequest:
+      type: object
+      required: [order_id, package_id, carrier_code, service_code, recipient, parcel]
+      properties:
+        idempotency_key: { type: string, description: Required for new callers; legacy requests may send the header instead }
+        order_id: { type: string, minLength: 1 }
+        package_id: { type: string, minLength: 1 }
+        seal_code: { type: string }
+        carrier_code: { type: string, minLength: 1 }
+        service_code: { type: string, minLength: 1 }
+        recipient: { $ref: '#/components/schemas/Recipient' }
+        parcel: { $ref: '#/components/schemas/Parcel' }
+        cod_amount_vnd: { type: integer, format: int64, minimum: 0 }
+        checkout_fee_vnd: { type: integer, format: int64, minimum: 0 }
+        quote_id: { type: string }
+        ready_generation: { type: integer, format: int64, minimum: 0 }
+        items_digest: { type: string }
+        order_snapshot_version: { type: integer, format: int64, minimum: 0 }
+        packing_task_id: { type: string, format: uuid }
+        packing_task_version: { type: integer, format: int64, minimum: 0 }
+        packed_at: { type: string, format: date-time }
+        event_version: { type: integer, enum: [0, 1, 2], default: 1 }
+        shipping_notes: { type: string }
+    ShipmentStatus:
+      type: string
+      enum: [CREATING, CREATION_FAILED, CREATED, READY_FOR_HANDOVER, HANDED_OVER, IN_TRANSIT, OUT_FOR_DELIVERY, DELIVERED, DELIVERY_FAILED, RETURNING, RETURNED, CANCELLED]
+    Shipment:
+      type: object
+      required: [shipment_id, shipment_number, order_id, package_id, carrier_code, service_code, status, recipient, parcel, cod_amount_vnd, checkout_fee_vnd, event_version, provider_estimated_fee_vnd, created_at, updated_at, revision]
+      properties:
+        shipment_id: { type: string, format: uuid }
+        shipment_number: { type: string }
+        order_id: { type: string }
+        package_id: { type: string }
+        seal_code: { type: string }
+        carrier_code: { type: string }
+        service_code: { type: string }
+        carrier_order_id: { type: string }
+        tracking_code: { type: string }
+        label_reference: { type: string }
+        status: { $ref: '#/components/schemas/ShipmentStatus' }
+        recipient: { $ref: '#/components/schemas/Recipient' }
+        parcel: { $ref: '#/components/schemas/Parcel' }
+        cod_amount_vnd: { type: integer, format: int64 }
+        checkout_fee_vnd: { type: integer, format: int64 }
+        quote_id: { type: string }
+        ready_generation: { type: integer, format: int64 }
+        items_digest: { type: string }
+        order_snapshot_version: { type: integer, format: int64 }
+        packing_task_id: { type: string, format: uuid }
+        packing_task_version: { type: integer, format: int64 }
+        packed_at: { type: string, format: date-time }
+        event_version: { type: integer }
+        provider_estimated_fee_vnd: { type: integer, format: int64 }
+        actual_fee_vnd: { type: integer, format: int64, nullable: true }
+        failure_code: { type: string }
+        failure_reason: { type: string }
+        estimated_pickup_at: { type: string, format: date-time, nullable: true }
+        estimated_delivery_at: { type: string, format: date-time, nullable: true }
+        handed_over_at: { type: string, format: date-time, nullable: true }
+        delivered_at: { type: string, format: date-time, nullable: true }
+        last_event_at: { type: string, format: date-time, nullable: true }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        revision: { type: integer, format: int64 }
+    LabelAccess:
+      type: object
+      required: [shipment_id, label_reference, format, label_url, expires_at]
+      properties:
+        shipment_id: { type: string, format: uuid }
+        label_reference: { type: string }
+        format: { type: string, enum: [A5, 80X80, 52X70] }
+        label_url: { type: string, format: uri }
+        expires_at: { type: string, format: date-time }
+    TrackingEvent:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        shipment_id: { type: string, format: uuid }
+        external_event_id: { type: string }
+        carrier_code: { type: string }
+        provider_status_code: { type: string }
+        provider_status_label: { type: string }
+        mapped_status: { $ref: '#/components/schemas/ShipmentStatus' }
+        mapping_result: { type: string }
+        location: { type: string }
+        public_description: { type: string }
+        internal_note: { type: string }
+        event_at: { type: string, format: date-time }
+        received_at: { type: string, format: date-time }
+    PublicTracking:
+      type: object
+      required: [shipment_id, package_id, carrier_code, service_code, status, tracking_events]
+      properties:
+        shipment_id: { type: string, format: uuid }
+        package_id: { type: string }
+        carrier_code: { type: string }
+        service_code: { type: string }
+        tracking_code: { type: string }
+        status: { $ref: '#/components/schemas/ShipmentStatus' }
+        estimated_delivery_at: { type: string, format: date-time, nullable: true }
+        delivered_at: { type: string, format: date-time, nullable: true }
+        tracking_events:
+          type: array
+          items:
+            allOf:
+              - $ref: '#/components/schemas/TrackingEvent'
+            description: Internal note is omitted; only applied events are returned.
+    WebhookAccepted:
+      type: object
+      required: [accepted, result, shipment_id, status]
+      properties:
+        accepted: { type: boolean, enum: [true] }
+        result: { type: string }
+        shipment_id: { type: string, format: uuid }
+        status: { $ref: '#/components/schemas/ShipmentStatus' }

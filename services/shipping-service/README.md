@@ -31,8 +31,12 @@ Authenticated endpoints accept either `Authorization: Bearer <token>` or `X-Inte
 
 ## Implemented endpoints
 
+The REST contract is documented in [`shipping-service.openapi.yaml`](../../docs/03_api_specs/shipping-service.openapi.yaml), with access and response-state notes in [`shipping-api-state-matrix.md`](../../docs/03_api_specs/shipping-api-state-matrix.md). These routes are internal/provider endpoints, not public Kong APIs. Errors include `requestId` and the matching `X-Request-Id` response header.
+
 - `POST /api/v1/internal/shipping/quotes`
 - `POST /api/v1/internal/shipments`
+- `POST /api/v1/internal/shipments/{shipmentID}/cancel`
+- `POST /api/v1/internal/shipments/{shipmentID}/label-url`
 - `POST /api/v1/internal/shipments/{shipmentID}/handover`
 - `GET /api/v1/admin/shipping/shipments`
 - `GET /api/v1/admin/shipping/shipments/{shipmentID}`
