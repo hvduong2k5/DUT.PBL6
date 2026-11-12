@@ -561,6 +561,32 @@ func TestListShipmentsRejectsUnknownStatusFilter(t *testing.T) {
 	}
 }
 
+func TestListShipmentsRejectsRepeatedFilters(t *testing.T) {
+	tests := []struct {
+		name  string
+		query string
+		code  string
+	}{
+		{name: "status", query: "status=CREATED&status=DELIVERED", code: "INVALID_STATUS_FILTER"},
+		{name: "carrier", query: "carrier=FAKE&carrier=GHN", code: "INVALID_FILTER"},
+		{name: "order id", query: "orderId=order-1&orderId=order-2", code: "INVALID_FILTER"},
+	}
+	service := application.NewService(newHTTPMemoryRepository(), carrier.NewRegistry(carrier.NewFake()))
+	handler := NewRouter(service, "internal-token", "fake-secret", "", zerolog.Nop())
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodGet, "/api/v1/admin/shipping/shipments?"+test.query, nil)
+			request.Header.Set("Authorization", "Bearer internal-token")
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+			var body errorBody
+			if response.Code != http.StatusBadRequest || json.Unmarshal(response.Body.Bytes(), &body) != nil || body.Code != test.code {
+				t.Fatalf("repeated filter should be rejected as %s: status=%d body=%s", test.code, response.Code, response.Body.String())
+			}
+		})
+	}
+}
+
 func TestReadyEndpointReturnsCommonErrorWhenDatabaseIsUnavailable(t *testing.T) {
 	repository := newHTTPMemoryRepository()
 	repository.pingErr = errors.New("database connection refused")

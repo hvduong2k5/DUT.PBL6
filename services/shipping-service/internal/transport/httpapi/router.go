@@ -260,6 +260,14 @@ func (h *Router) listShipments(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "INVALID_PAGINATION", "page and pageSize may only be specified once")
 		return
 	}
+	if len(query["status"]) > 1 {
+		writeError(w, http.StatusBadRequest, "INVALID_STATUS_FILTER", "status may only be specified once")
+		return
+	}
+	if len(query["carrier"]) > 1 || len(query["orderId"]) > 1 {
+		writeError(w, http.StatusBadRequest, "INVALID_FILTER", "carrier and orderId may only be specified once")
+		return
+	}
 	page, validPage := 1, true
 	if query.Has("page") {
 		page, validPage = parsePositiveInt(query.Get("page"))

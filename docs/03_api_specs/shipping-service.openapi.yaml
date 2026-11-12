@@ -17,6 +17,7 @@ info:
     Version 2.7.0 returns 413 when an HTTP request body exceeds the 1 MiB limit.
     Version 2.8.0 rejects explicitly empty shipment-list pagination parameters.
     Version 2.9.0 rejects repeated shipment-list pagination parameters.
+    Version 2.10.0 rejects repeated shipment-list filter parameters.
 servers:
   - url: http://localhost:8012
     description: Local development only
@@ -240,7 +241,8 @@ paths:
         repeated, empty, non-positive, or non-numeric page values, repeated pageSize values,
         pageSize values outside 1-100, or a computed offset beyond the supported integer range
         return 400 INVALID_PAGINATION. Omitted page and pageSize use their documented defaults.
-        A status outside the declared enum returns 400 INVALID_STATUS_FILTER.
+        Repeated status values and status outside the declared enum return 400 INVALID_STATUS_FILTER.
+        Repeated carrier or orderId values return 400 INVALID_FILTER.
       security:
         - internalBearer: []
         - internalToken: []
