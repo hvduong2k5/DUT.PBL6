@@ -81,7 +81,7 @@ func main() {
 	}
 	httpapi.RegisterAdminCouponRoutes(router, adminCouponRepository, staffAuth)
 	httpapi.RegisterPublicPromotionRoutes(router, adminCouponRepository)
-	httpapi.RegisterLoyaltyRoutes(router, loyaltyRepository, cfg.InternalToken, cfg.LoyaltyOrderToken, cfg.LoyaltyRefundToken)
+	httpapi.RegisterLoyaltyRoutes(router, loyaltyRepository, cfg.InternalToken, cfg.LoyaltyOrderToken, cfg.LoyaltyRefundToken, cfg.CustomerProfileURL)
 	router.Get("/health/ready", func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), cfg.DBTimeout)
 		defer cancel()

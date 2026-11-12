@@ -15,6 +15,7 @@ type Config struct {
 	StaffJWTIssuer        string
 	StaffJWTAudience      string
 	StaffJWTPublicKeyPath string
+	CustomerProfileURL    string
 	DBTimeout             time.Duration
 	ShutdownWait          time.Duration
 	OrderEventsEnabled    bool
@@ -36,6 +37,7 @@ func Load() (Config, error) {
 		StaffJWTIssuer:        strings.TrimSpace(os.Getenv("PROMOTION_STAFF_JWT_ISSUER")),
 		StaffJWTAudience:      env("PROMOTION_STAFF_JWT_AUDIENCE", "omama-api"),
 		StaffJWTPublicKeyPath: strings.TrimSpace(os.Getenv("PROMOTION_STAFF_JWT_PUBLIC_KEY_PATH")),
+		CustomerProfileURL:    strings.TrimSpace(os.Getenv("PROMOTION_CUSTOMER_PROFILE_URL")),
 		DBTimeout:             5 * time.Second,
 		ShutdownWait:          10 * time.Second,
 		OrderEventsEnabled:    strings.EqualFold(env("PROMOTION_ORDER_EVENTS_ENABLED", "false"), "true"),

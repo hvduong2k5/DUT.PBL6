@@ -63,3 +63,15 @@ func TestLoadPromotionStaffJWTConfiguration(t *testing.T) {
 		t.Fatalf("unexpected Promotion JWT config: %+v", cfg)
 	}
 }
+
+func TestLoadPromotionCustomerProfileURL(t *testing.T) {
+	t.Setenv("PROMOTION_INTERNAL_TOKEN", "token")
+	t.Setenv("PROMOTION_CUSTOMER_PROFILE_URL", " http://profile-service:8080/api/v1/profile ")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if cfg.CustomerProfileURL != "http://profile-service:8080/api/v1/profile" {
+		t.Fatalf("CustomerProfileURL = %q", cfg.CustomerProfileURL)
+	}
+}

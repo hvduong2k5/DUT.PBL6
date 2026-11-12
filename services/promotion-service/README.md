@@ -57,6 +57,7 @@ idempotency key and request hash to retrieve its durable command evidence.
 - `PROMOTION_STAFF_JWT_ISSUER` (required to enable staff coupon administration)
 - `PROMOTION_STAFF_JWT_AUDIENCE` (default `omama-api`)
 - `PROMOTION_STAFF_JWT_PUBLIC_KEY_PATH` (path to the Identity/Keycloak RSA public key PEM)
+- `PROMOTION_CUSTOMER_PROFILE_URL` (Profile's authenticated customer-self endpoint for customer Loyalty reads)
 - `PROMOTION_ORDER_EVENTS_ENABLED` (default `false`; enables the Order v3 paid consumer and Promotion outbox publisher)
 - `PROMOTION_KAFKA_BROKERS` (comma-separated broker addresses; required when the consumer is enabled)
 - `PROMOTION_ORDER_EVENTS_TOPIC` (default `order.events.v3`)
@@ -78,6 +79,14 @@ CloudEvent ID. Keep the feature disabled until Order emits the finalization proo
 checkouts and both services are configured against the same Kafka cluster.
 
 ## Loyalty ledger foundation
+
+`GET /api/v1/loyalty/points` is the customer-facing contract endpoint. It requires a customer Bearer
+token and calls Profile's authenticated `GET /api/v1/profile` endpoint to verify the active customer
+and resolve the canonical Profile customer ID before reading the ledger. It never accepts a customer
+ID from the caller's path, query, body, or identity headers. Configure
+`PROMOTION_CUSTOMER_PROFILE_URL` to Profile's customer-self endpoint (for example
+`http://profile-service:8080/api/v1/profile`). Missing configuration, malformed Profile identity,
+or an upstream outage fails closed; an inactive customer receives `403`.
 
 `GET /internal/v1/loyalty/customers/{customerID}/points` provides the current wallet fields, and
 `GET /internal/v1/loyalty/customers/{customerID}/ledger?limit=50&offset=0` provides a paginated history.

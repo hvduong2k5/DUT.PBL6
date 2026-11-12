@@ -113,7 +113,7 @@ func TestStaffJWTRequiresValidPrincipalPermissionAndGlobalScope(t *testing.T) {
 
 func TestLoyaltyInternalRoutesRequireConfiguredToken(t *testing.T) {
 	router := chi.NewRouter()
-	RegisterLoyaltyRoutes(router, nil, "gateway-token", "order-token", "refund-token")
+	RegisterLoyaltyRoutes(router, nil, "gateway-token", "order-token", "refund-token", "")
 	for _, tt := range []struct {
 		name, token string
 		want        int
@@ -130,6 +130,27 @@ func TestLoyaltyInternalRoutesRequireConfiguredToken(t *testing.T) {
 				t.Fatalf("status=%d want=%d", response.Code, tt.want)
 			}
 		})
+	}
+}
+
+func TestCustomerLoyaltyPointsRequiresProfileVerifiedBearer(t *testing.T) {
+	router := chi.NewRouter()
+	RegisterLoyaltyRoutes(router, nil, "gateway-token", "order-token", "refund-token", "")
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/loyalty/points?customer_id=somebody-else", nil)
+	request.Header.Set("X-Customer-ID", "somebody-else")
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, request)
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("missing bearer status=%d want=%d body=%s", response.Code, http.StatusUnauthorized, response.Body.String())
+	}
+
+	request = httptest.NewRequest(http.MethodGet, "/api/v1/loyalty/points?customer_id=somebody-else", nil)
+	request.Header.Set("Authorization", "Bearer customer-token")
+	request.Header.Set("X-Customer-ID", "somebody-else")
+	response = httptest.NewRecorder()
+	router.ServeHTTP(response, request)
+	if response.Code != http.StatusServiceUnavailable {
+		t.Fatalf("unconfigured resolver status=%d want=%d body=%s", response.Code, http.StatusServiceUnavailable, response.Body.String())
 	}
 }
 

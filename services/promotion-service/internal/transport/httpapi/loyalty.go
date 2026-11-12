@@ -14,7 +14,8 @@ import (
 )
 
 type LoyaltyHandler struct {
-	repository *postgres.LoyaltyRepository
+	repository      *postgres.LoyaltyRepository
+	customerProfile *customerProfileResolver
 }
 
 type loyaltyEntryResponse struct {
@@ -68,12 +69,13 @@ type loyaltyPolicyResponse struct {
 	PointsExpireDays    *int64 `json:"points_expire_days,omitempty"`
 }
 
-func RegisterLoyaltyRoutes(router chi.Router, repository *postgres.LoyaltyRepository, internalToken, orderToken, refundToken string) {
-	handler := &LoyaltyHandler{repository: repository}
+func RegisterLoyaltyRoutes(router chi.Router, repository *postgres.LoyaltyRepository, internalToken, orderToken, refundToken, customerProfileURL string) {
+	handler := &LoyaltyHandler{repository: repository, customerProfile: newCustomerProfileResolver(customerProfileURL)}
 	auth := requireInternalGateway(internalToken)
 	router.With(requireAnyInternalToken(internalToken, orderToken, refundToken)).Get("/internal/v1/loyalty/policy/active", handler.GetActivePolicy)
 	router.With(auth).Get("/internal/v1/loyalty/customers/{customerID}/points", handler.GetPoints)
 	router.With(auth).Get("/internal/v1/loyalty/customers/{customerID}/ledger", handler.GetLedger)
+	router.Get("/api/v1/loyalty/points", handler.GetCurrentCustomerPoints)
 	if orderToken != "" {
 		router.With(requireInternalGateway(orderToken)).Post("/internal/v1/loyalty/order-completions/{orderID}/earn", handler.RecordPurchaseEarn)
 	}
@@ -237,6 +239,20 @@ func (h *LoyaltyHandler) GetPoints(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "INVALID_CUSTOMER", "customer id is required")
 		return
 	}
+	h.getPoints(w, r, customerID)
+}
+
+func (h *LoyaltyHandler) GetCurrentCustomerPoints(w http.ResponseWriter, r *http.Request) {
+	customerID, err := h.customerProfile.Resolve(r.Context(), r.Header)
+	if err != nil {
+		status, code, message := customerProfileHTTPError(err)
+		writeError(w, status, code, message)
+		return
+	}
+	h.getPoints(w, r, customerID)
+}
+
+func (h *LoyaltyHandler) getPoints(w http.ResponseWriter, r *http.Request, customerID string) {
 	page, err := h.repository.GetLedgerPage(r.Context(), customerID, 1, 0)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "could not read loyalty balance")
