@@ -594,6 +594,7 @@ func TestFakeWebhookValidatesSignatureAndAppliesTrackingEvent(t *testing.T) {
 	body := fmt.Sprintf(`{"event_id":"event-1","tracking_code":%q,"status":"IN_TRANSIT","event_at":"2026-11-12T10:00:00Z"}`, shipment.TrackingCode)
 	request := httptest.NewRequest(http.MethodPost, "/api/v1/webhooks/logistics/fake", strings.NewReader(body))
 	request.Header.Set("X-Shipping-Signature", "sha256=00")
+	request.Header.Set("Content-Type", "application/json")
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusUnauthorized {
@@ -604,6 +605,7 @@ func TestFakeWebhookValidatesSignatureAndAppliesTrackingEvent(t *testing.T) {
 	_, _ = mac.Write([]byte(body))
 	request = httptest.NewRequest(http.MethodPost, "/api/v1/webhooks/logistics/fake", strings.NewReader(body))
 	request.Header.Set("X-Shipping-Signature", "sha256="+hex.EncodeToString(mac.Sum(nil)))
+	request.Header.Set("Content-Type", "application/json")
 	response = httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"result":"APPLIED"`) || !strings.Contains(response.Body.String(), `"status":"IN_TRANSIT"`) {
@@ -633,6 +635,7 @@ func TestGHNWebhookAppliesCallbackAndReturnsRetryableStatusBeforeShipmentExists(
 		handler := NewRouter(service, "internal-token", "fake-secret", "ghn-webhook-secret", zerolog.Nop())
 		request := httptest.NewRequest(http.MethodPost, "/api/v1/webhooks/logistics/ghn", strings.NewReader(body))
 		request.Header.Set("X-GHN-Webhook-Secret", "ghn-webhook-secret")
+		request.Header.Set("Content-Type", "application/json")
 		response := httptest.NewRecorder()
 		handler.ServeHTTP(response, request)
 		if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"status":"HANDED_OVER"`) {
@@ -646,6 +649,7 @@ func TestGHNWebhookAppliesCallbackAndReturnsRetryableStatusBeforeShipmentExists(
 		handler := NewRouter(service, "internal-token", "fake-secret", "ghn-webhook-secret", zerolog.Nop())
 		request := httptest.NewRequest(http.MethodPost, "/api/v1/webhooks/logistics/ghn", strings.NewReader(body))
 		request.Header.Set("X-GHN-Webhook-Secret", "ghn-webhook-secret")
+		request.Header.Set("Content-Type", "application/json")
 		response := httptest.NewRecorder()
 		handler.ServeHTTP(response, request)
 		if response.Code != http.StatusServiceUnavailable {
@@ -666,6 +670,7 @@ func TestGHNWebhookAppliesCallbackAndReturnsRetryableStatusBeforeShipmentExists(
 		handler := NewRouter(service, "internal-token", "fake-secret", "ghn-webhook-secret", zerolog.Nop())
 		request := httptest.NewRequest(http.MethodPost, "/api/v1/webhooks/logistics/ghn", strings.NewReader(`{}`))
 		request.Header.Set("X-GHN-Webhook-Secret", "ghn-webhook-secret")
+		request.Header.Set("Content-Type", "application/json")
 		response := httptest.NewRecorder()
 		handler.ServeHTTP(response, request)
 		if response.Code != http.StatusBadRequest {
@@ -679,4 +684,38 @@ func TestGHNWebhookAppliesCallbackAndReturnsRetryableStatusBeforeShipmentExists(
 			t.Fatalf("unexpected malformed GHN error: %+v", errorResponse)
 		}
 	})
+}
+
+func TestWebhooksRejectUnsupportedContentTypeAfterAuthentication(t *testing.T) {
+	body := `{"event_id":"event-1","tracking_code":"track-1","status":"IN_TRANSIT","event_at":"2026-11-12T10:00:00Z"}`
+	mac := hmac.New(sha256.New, []byte("fake-secret"))
+	_, _ = mac.Write([]byte(body))
+	tests := []struct {
+		name      string
+		path      string
+		secretKey string
+		secret    string
+		signature string
+	}{
+		{name: "fake carrier", path: "/api/v1/webhooks/logistics/fake", secretKey: "X-Shipping-Signature", signature: "sha256=" + hex.EncodeToString(mac.Sum(nil))},
+		{name: "GHN", path: "/api/v1/webhooks/logistics/ghn", secretKey: "X-GHN-Webhook-Secret", secret: "ghn-secret"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			handler := NewRouter(nil, "internal-token", "fake-secret", "ghn-secret", zerolog.Nop())
+			request := httptest.NewRequest(http.MethodPost, test.path, strings.NewReader(body))
+			request.Header.Set(test.secretKey, test.signature)
+			if test.secret != "" {
+				request.Header.Set(test.secretKey, test.secret)
+			}
+			request.Header.Set("Content-Type", "text/plain")
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+			var errorResponse errorBody
+			if response.Code != http.StatusUnsupportedMediaType || json.Unmarshal(response.Body.Bytes(), &errorResponse) != nil ||
+				errorResponse.Code != "UNSUPPORTED_MEDIA_TYPE" || errorResponse.RequestID == "" {
+				t.Fatalf("authenticated webhook should reject unsupported media type: status=%d body=%s", response.Code, response.Body.String())
+			}
+		})
+	}
 }

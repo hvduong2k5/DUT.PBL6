@@ -358,6 +358,9 @@ func (h *Router) fakeWebhook(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "INVALID_SIGNATURE", "webhook signature is invalid")
 		return
 	}
+	if !requireJSONContentType(w, r) {
+		return
+	}
 	shipment, result, err := h.service.ApplyWebhook(r.Context(), carrier.FakeCode, body)
 	if err != nil {
 		if errors.Is(err, carrier.ErrInvalidWebhook) {
@@ -378,6 +381,9 @@ func (h *Router) ghnWebhook(w http.ResponseWriter, r *http.Request) {
 	provided := strings.TrimSpace(r.Header.Get("X-GHN-Webhook-Secret"))
 	if len(provided) != len(h.ghnWebhookSecret) || subtle.ConstantTimeCompare([]byte(provided), []byte(h.ghnWebhookSecret)) != 1 {
 		writeError(w, http.StatusUnauthorized, "INVALID_WEBHOOK_SECRET", "webhook authentication failed")
+		return
+	}
+	if !requireJSONContentType(w, r) {
 		return
 	}
 	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 1<<20))
@@ -499,9 +505,7 @@ func writeJSON(w http.ResponseWriter, status int, value any) {
 }
 
 func decodeJSON(w http.ResponseWriter, r *http.Request, target any) bool {
-	mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
-	if err != nil || !strings.EqualFold(mediaType, "application/json") {
-		writeError(w, http.StatusUnsupportedMediaType, "UNSUPPORTED_MEDIA_TYPE", "Content-Type must be application/json")
+	if !requireJSONContentType(w, r) {
 		return false
 	}
 	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20))
@@ -512,6 +516,15 @@ func decodeJSON(w http.ResponseWriter, r *http.Request, target any) bool {
 	}
 	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
 		writeError(w, http.StatusBadRequest, "INVALID_JSON", "request body must contain one JSON value")
+		return false
+	}
+	return true
+}
+
+func requireJSONContentType(w http.ResponseWriter, r *http.Request) bool {
+	mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	if err != nil || !strings.EqualFold(mediaType, "application/json") {
+		writeError(w, http.StatusUnsupportedMediaType, "UNSUPPORTED_MEDIA_TYPE", "Content-Type must be application/json")
 		return false
 	}
 	return true
