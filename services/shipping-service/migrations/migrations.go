@@ -11,7 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-//go:embed *.up.sql
+//go:embed *.up.sql *.down.sql
 var files embed.FS
 
 func Apply(ctx context.Context, pool *pgxpool.Pool) ([]string, error) {
