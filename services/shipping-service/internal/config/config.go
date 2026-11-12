@@ -9,8 +9,11 @@ import (
 )
 
 type Config struct {
+	Environment        string
 	HTTPAddress        string
 	GRPCAddress        string
+	GRPCTLSCertFile    string
+	GRPCTLSKeyFile     string
 	DatabaseURL        string
 	InternalToken      string
 	OIDCIssuer         string
@@ -18,19 +21,12 @@ type Config struct {
 	OIDCJWKSURL        string
 	FakeWebhookSecret  string
 	KafkaBrokers       []string
-	FulfillmentTopic   string
-	FulfillmentGroup   string
-	FulfillmentV2Topic string
-	FulfillmentV2Group string
-	OrderGRPCEndpoint  string
-	OrderInternalToken string
 	DefaultCarrier     string
 	DefaultService     string
 	OutboxPollInterval time.Duration
 	ShutdownTimeout    time.Duration
 	DatabaseTimeout    time.Duration
 	V2Enabled          bool
-	PackingV2Enabled   bool
 	GHNEnabled         bool
 	GHNBaseURL         string
 	GHNToken           string
@@ -45,8 +41,11 @@ type Config struct {
 
 func Load() (Config, error) {
 	cfg := Config{
+		Environment:        env("SHIPPING_ENV", "production"),
 		HTTPAddress:        env("SHIPPING_HTTP_ADDRESS", ":8012"),
 		GRPCAddress:        env("SHIPPING_GRPC_ADDRESS", ":9012"),
+		GRPCTLSCertFile:    strings.TrimSpace(os.Getenv("SHIPPING_GRPC_TLS_CERT_FILE")),
+		GRPCTLSKeyFile:     strings.TrimSpace(os.Getenv("SHIPPING_GRPC_TLS_KEY_FILE")),
 		DatabaseURL:        env("SHIPPING_DATABASE_URL", "postgres://shipping:shipping@localhost:5432/shipping_db?sslmode=disable"),
 		InternalToken:      strings.TrimSpace(os.Getenv("SHIPPING_INTERNAL_TOKEN")),
 		OIDCIssuer:         env("SHIPPING_OIDC_ISSUER", "https://keycloak.omama.vn/realms/omama"),
@@ -54,19 +53,12 @@ func Load() (Config, error) {
 		OIDCJWKSURL:        strings.TrimSpace(os.Getenv("SHIPPING_OIDC_JWKS_URL")),
 		FakeWebhookSecret:  strings.TrimSpace(os.Getenv("SHIPPING_FAKE_WEBHOOK_SECRET")),
 		KafkaBrokers:       csvEnv("SHIPPING_KAFKA_BROKERS", "localhost:9092"),
-		FulfillmentTopic:   env("SHIPPING_FULFILLMENT_TOPIC", "fulfillment.events.v1"),
-		FulfillmentGroup:   env("SHIPPING_FULFILLMENT_GROUP", "shipping-service-v1"),
-		FulfillmentV2Topic: env("SHIPPING_FULFILLMENT_V2_TOPIC", "fulfillment.events.v2"),
-		FulfillmentV2Group: env("SHIPPING_FULFILLMENT_V2_GROUP", "shipping-service-v2"),
-		OrderGRPCEndpoint:  strings.TrimSpace(os.Getenv("SHIPPING_ORDER_GRPC_ENDPOINT")),
-		OrderInternalToken: strings.TrimSpace(os.Getenv("SHIPPING_ORDER_INTERNAL_TOKEN")),
 		DefaultCarrier:     env("SHIPPING_DEFAULT_CARRIER", "FAKE"),
 		DefaultService:     env("SHIPPING_DEFAULT_SERVICE", "STANDARD"),
 		OutboxPollInterval: durationEnv("SHIPPING_OUTBOX_POLL_INTERVAL", time.Second),
 		ShutdownTimeout:    durationEnv("SHIPPING_SHUTDOWN_TIMEOUT", 10*time.Second),
 		DatabaseTimeout:    durationEnv("SHIPPING_DATABASE_TIMEOUT", 5*time.Second),
-		V2Enabled:          boolEnv("SHIPPING_V2_ENABLED", false),
-		PackingV2Enabled:   boolEnv("SHIPPING_PACKING_V2_ENABLED", false),
+		V2Enabled:          boolEnv("SHIPPING_V2_ENABLED", true),
 		GHNEnabled:         boolEnv("SHIPPING_GHN_ENABLED", false),
 		GHNBaseURL:         env("SHIPPING_GHN_BASE_URL", "https://dev-online-gateway.ghn.vn"),
 		GHNToken:           strings.TrimSpace(os.Getenv("SHIPPING_GHN_TOKEN")),
@@ -78,14 +70,20 @@ func Load() (Config, error) {
 		GHNRecoveryTimeout: durationEnv("SHIPPING_GHN_RECONCILE_TIMEOUT", 5*time.Second),
 		GHNQuoteTTL:        durationEnv("SHIPPING_GHN_QUOTE_TTL", 15*time.Minute),
 	}
-	if cfg.InternalToken == "" {
-		return Config{}, fmt.Errorf("SHIPPING_INTERNAL_TOKEN is required")
+	if cfg.Environment != "local" && cfg.Environment != "production" {
+		return Config{}, fmt.Errorf("SHIPPING_ENV must be local or production")
+	}
+	if len(cfg.InternalToken) < 32 {
+		return Config{}, fmt.Errorf("SHIPPING_INTERNAL_TOKEN must contain at least 32 characters")
+	}
+	if (cfg.GRPCTLSCertFile == "") != (cfg.GRPCTLSKeyFile == "") {
+		return Config{}, fmt.Errorf("SHIPPING_GRPC_TLS_CERT_FILE and SHIPPING_GRPC_TLS_KEY_FILE must be configured together")
+	}
+	if cfg.Environment == "production" && cfg.GRPCTLSCertFile == "" {
+		return Config{}, fmt.Errorf("production requires SHIPPING_GRPC_TLS_CERT_FILE and SHIPPING_GRPC_TLS_KEY_FILE")
 	}
 	if cfg.FakeWebhookSecret == "" {
 		return Config{}, fmt.Errorf("SHIPPING_FAKE_WEBHOOK_SECRET is required")
-	}
-	if cfg.OrderGRPCEndpoint != "" && cfg.OrderInternalToken == "" {
-		return Config{}, fmt.Errorf("SHIPPING_ORDER_INTERNAL_TOKEN is required when SHIPPING_ORDER_GRPC_ENDPOINT is set")
 	}
 	if cfg.GHNEnabled {
 		if cfg.GHNToken == "" || cfg.GHNShopID <= 0 || cfg.GHNFromDistrictID <= 0 || cfg.GHNFromWardCode == "" {

@@ -46,45 +46,12 @@ type ProviderError struct {
 	Cause    error
 }
 
-type PackingCompleted struct {
-	EventID             string
-	EventVersion        int
-	OrderID             string
-	PackageID           string
-	SealCode            string
-	Parcel              domain.Parcel
-	TaskID              string
-	TaskResourceVersion int64
-	ReadyGeneration     int64
-	PackedAt            time.Time
-}
-
-type OrderShippingSnapshot struct {
-	OrderID             string
-	PackageID           string
-	SnapshotVersion     int64
-	ReadyGeneration     int64
-	ItemsDigest         string
-	WarehouseID         string
-	Recipient           domain.Recipient
-	CheckoutFeeVND      int64
-	CODAmountVND        int64
-	CarrierCode         string
-	ServiceCode         string
-	QuoteID             string
-	EligibleForShipping bool
-}
-
 type LabelAccess struct {
 	ShipmentID     uuid.UUID `json:"shipment_id"`
 	LabelReference string    `json:"label_reference"`
 	Format         string    `json:"format"`
 	URL            string    `json:"label_url"`
 	ExpiresAt      time.Time `json:"expires_at"`
-}
-
-type ShippingSnapshotProvider interface {
-	GetShippingSnapshot(context.Context, string, string) (OrderShippingSnapshot, error)
 }
 
 func (e *ProviderError) Error() string { return "carrier operation failed: " + e.Cause.Error() }
@@ -215,60 +182,6 @@ func (s *Service) CreateShipment(ctx context.Context, cmd domain.CreateShipmentC
 		return nil, err
 	}
 	return shipment, nil
-}
-
-func (s *Service) CreateFromPacking(ctx context.Context, event PackingCompleted, snapshots ShippingSnapshotProvider, defaultCarrier, defaultService string) (*domain.Shipment, error) {
-	if strings.TrimSpace(event.EventID) == "" || strings.TrimSpace(event.OrderID) == "" ||
-		strings.TrimSpace(event.PackageID) == "" || strings.TrimSpace(event.SealCode) == "" {
-		return nil, fmt.Errorf("%w: packing event id, order id, package id and seal code are required", domain.ErrInvalidShipment)
-	}
-	if err := event.Parcel.Validate(); err != nil {
-		return nil, err
-	}
-	if event.EventVersion == 2 {
-		if _, err := uuid.Parse(event.TaskID); err != nil || event.TaskResourceVersion < 1 ||
-			event.ReadyGeneration < 1 || event.PackedAt.IsZero() {
-			return nil, fmt.Errorf("%w: packing v2 task proof is incomplete", domain.ErrInvalidShipment)
-		}
-	}
-	snapshot, err := snapshots.GetShippingSnapshot(ctx, event.OrderID, event.PackageID)
-	if err != nil {
-		return nil, fmt.Errorf("get immutable order shipping snapshot: %w", err)
-	}
-	if !snapshot.EligibleForShipping {
-		return nil, fmt.Errorf("%w: order is not eligible for shipping", domain.ErrInvalidShipment)
-	}
-	if snapshot.OrderID != event.OrderID || snapshot.PackageID != event.PackageID {
-		return nil, fmt.Errorf("%w: order shipping snapshot identity mismatch", domain.ErrInvalidShipment)
-	}
-	if event.EventVersion == 2 {
-		if snapshot.SnapshotVersion < 1 || snapshot.ReadyGeneration < 1 ||
-			strings.TrimSpace(snapshot.ItemsDigest) == "" || strings.TrimSpace(snapshot.WarehouseID) == "" {
-			return nil, fmt.Errorf("%w: order shipping snapshot proof is incomplete", domain.ErrInvalidShipment)
-		}
-		if snapshot.ReadyGeneration != event.ReadyGeneration {
-			return nil, fmt.Errorf("%w: fulfillment generation does not match order snapshot", domain.ErrInvalidShipment)
-		}
-	}
-	carrierCode := strings.TrimSpace(snapshot.CarrierCode)
-	if carrierCode == "" {
-		carrierCode = defaultCarrier
-	}
-	serviceCode := strings.TrimSpace(snapshot.ServiceCode)
-	if serviceCode == "" {
-		serviceCode = defaultService
-	}
-	return s.CreateShipment(ctx, domain.CreateShipmentCommand{
-		IdempotencyKey: "packing-package:" + event.PackageID,
-		OrderID:        event.OrderID, PackageID: event.PackageID, SealCode: event.SealCode,
-		CarrierCode: carrierCode, ServiceCode: serviceCode, Recipient: snapshot.Recipient,
-		Parcel: event.Parcel, CODAmountVND: snapshot.CODAmountVND,
-		CheckoutFeeVND: snapshot.CheckoutFeeVND, QuoteID: snapshot.QuoteID,
-		ReadyGeneration: snapshot.ReadyGeneration, ItemsDigest: snapshot.ItemsDigest,
-		OrderSnapshotVersion: snapshot.SnapshotVersion,
-		PackingTaskID:        event.TaskID, PackingTaskVersion: event.TaskResourceVersion,
-		PackedAt: event.PackedAt, EventVersion: event.EventVersion,
-	})
 }
 
 func (s *Service) failCreation(ctx context.Context, shipment *domain.Shipment, code string, cause error) (*domain.Shipment, error) {

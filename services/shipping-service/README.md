@@ -1,11 +1,12 @@
 # MS-12 Shipping Service
 
-Shipping Service owns Shipment, waybill and tracking data. The MVP foundation includes PostgreSQL persistence, a transactional outbox, Kafka publication, HTTP and gRPC APIs, a `PackingCompletedEvent` consumer and a deterministic fake carrier. A feature-gated GHN staging adapter supports quote preview, order creation and authenticated status callbacks without exposing GHN-specific payloads to Order Service.
+Shipping Service owns Shipment, waybill and tracking data. The MVP foundation includes PostgreSQL persistence, a transactional outbox, Kafka publication, HTTP and gRPC APIs, and a deterministic fake carrier. A feature-gated GHN staging adapter supports quote preview, order creation and authenticated status callbacks without exposing GHN-specific payloads to Order Service.
 
 ## Run locally
 
 ```powershell
 Set-Location services/shipping-service
+$env:SHIPPING_ENV = "local"
 $env:SHIPPING_INTERNAL_TOKEN = "shipping-local-development-secret"
 $env:SHIPPING_FAKE_WEBHOOK_SECRET = "fake-carrier-webhook-secret"
 docker compose up --build
@@ -17,9 +18,13 @@ Health endpoints:
 - `GET /health/ready`
 
 The gRPC API listens on `localhost:9012` and requires `authorization: Bearer <SHIPPING_INTERNAL_TOKEN>` metadata.
+For production, set `SHIPPING_ENV=production` and provide a TLS certificate and key through
+`SHIPPING_GRPC_TLS_CERT_FILE` and `SHIPPING_GRPC_TLS_KEY_FILE`. This matches the Order client,
+which verifies Shipping's TLS certificate using its configured CA and server name. The local
+Compose profile is explicitly insecure for local development only.
 
-Shipping v1 remains the default provider contract. Set `SHIPPING_V2_ENABLED=true` to register
-the `omamx.shipping.v2.ShippingService` API on the same gRPC listener while retaining v1.
+Shipping registers both gRPC v1 and v2 on the same listener by default; set
+`SHIPPING_V2_ENABLED=false` only for a deployment that has not migrated its callers to v2.
 The v2 API persists bound quotes with their canonical request hash, immutable expiry and
 monotonic quote version. It also serves exact, proof-bearing shipment revisions created after
 the revision migration; older rows are deliberately not backfilled from current state. The
@@ -97,22 +102,19 @@ header `X-GHN-Webhook-Secret` with the same value as `SHIPPING_GHN_WEBHOOK_SECRE
 local shipment returns `503` so GHN retries a callback that raced the shipment transaction;
 invalid secrets and malformed provider payloads are rejected with non-retryable `4xx` responses.
 
-## PackingCompleted integration
+## Order and Fulfillment integration
 
-Shipping consumes `vn.omama.fulfillment.packing.completed.v1` from `fulfillment.events.v1`. The event contains package measurements but no customer PII. Shipping calls Order Service `GetShippingSnapshot` for the immutable checkout recipient, COD amount, shipping fee and selected carrier/service, then creates one shipment per `package_id`.
-
-The consumer is disabled when `SHIPPING_ORDER_GRPC_ENDPOINT` is empty. Enable it when Order Service exposes the contract:
-
-```powershell
-$env:SHIPPING_ORDER_GRPC_ENDPOINT = "localhost:9004"
-$env:SHIPPING_ORDER_INTERNAL_TOKEN = "order-local-development-secret"
-```
-
-The legacy `fulfillment.events.v1` consumer remains active. To opt a rollout cohort into the
-proof-bearing packing contract, set `SHIPPING_PACKING_V2_ENABLED=true`. Shipping then also
-consumes `vn.omama.fulfillment.packing.completed.v2` from `fulfillment.events.v2`, verifies the
-Fulfillment task proof and requires its `ready_generation` to match Order's immutable shipping
-snapshot. Do not publish the same package to both topics.
+Order owns the packing-to-shipment handoff. It consumes the proof-bearing Fulfillment packing
+event, verifies the exact Fulfillment revisions, persists a durable handoff, and calls Shipping's
+gRPC v2 `CreateShipment`; Order also consumes `shipping.events.v2` and verifies exact Shipping
+revisions. Shipping therefore does not consume Fulfillment events or call Order's
+`GetShippingSnapshot`. This avoids two services independently creating a shipment for the same
+package. Shipping v2 is enabled by default for the Order integration; configure the same service
+credential on both sides: Order's `ORDER_SHIPPING_TOKEN_FILE` must
+contain the value configured as Shipping's `SHIPPING_INTERNAL_TOKEN` (minimum 32 characters).
+Outside explicit sandbox loopback, Order verifies Shipping's gRPC TLS certificate using its
+configured CA and server name, so Shipping production deployments must configure its gRPC
+certificate and key.
 
 ## Local verification
 

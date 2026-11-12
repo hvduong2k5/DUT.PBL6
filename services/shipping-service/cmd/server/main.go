@@ -18,7 +18,6 @@ import (
 	shippingv1 "github.com/omamx/shipping-service/internal/gen/shipping/v1"
 	shippingv2 "github.com/omamx/shipping-service/internal/gen/shipping/v2"
 	shippingkafka "github.com/omamx/shipping-service/internal/infrastructure/kafka"
-	"github.com/omamx/shipping-service/internal/infrastructure/ordergrpc"
 	postgresrepo "github.com/omamx/shipping-service/internal/repository/postgres"
 	"github.com/omamx/shipping-service/internal/transport/grpcapi"
 	"github.com/omamx/shipping-service/internal/transport/httpapi"
@@ -94,7 +93,7 @@ func main() {
 		logger.Fatal().Err(err).Msg("listen for gRPC")
 	}
 	grpcOptions := []grpc.ServerOption{grpc.UnaryInterceptor(grpcapi.AuthUnaryInterceptor(cfg.InternalToken))}
-	certFile, keyFile := os.Getenv("SHIPPING_GRPC_TLS_CERT_FILE"), os.Getenv("SHIPPING_GRPC_TLS_KEY_FILE")
+	certFile, keyFile := cfg.GRPCTLSCertFile, cfg.GRPCTLSKeyFile
 	if certFile != "" || keyFile != "" {
 		transport, err := credentials.NewServerTLSFromFile(certFile, keyFile)
 		if err != nil {
@@ -109,45 +108,6 @@ func main() {
 		logger.Info().Msg("Shipping gRPC v2 enabled alongside v1")
 	} else {
 		logger.Info().Msg("Shipping gRPC v2 disabled by SHIPPING_V2_ENABLED")
-	}
-
-	var packingConsumers []*worker.PackingConsumer
-	if cfg.OrderGRPCEndpoint != "" {
-		orderClient, clientErr := ordergrpc.New(cfg.OrderGRPCEndpoint, cfg.OrderInternalToken)
-		if clientErr != nil {
-			logger.Fatal().Err(clientErr).Msg("create Order service client")
-		}
-		defer func() {
-			if closeErr := orderClient.Close(); closeErr != nil {
-				logger.Error().Err(closeErr).Msg("close Order service client")
-			}
-		}()
-		packingV1Consumer := worker.NewPackingConsumer(
-			cfg.KafkaBrokers, cfg.FulfillmentTopic, cfg.FulfillmentGroup,
-			service, orderClient, cfg.DefaultCarrier, cfg.DefaultService, logger,
-		)
-		packingConsumers = append(packingConsumers, packingV1Consumer)
-		go packingV1Consumer.Run(rootCtx)
-		if cfg.PackingV2Enabled {
-			packingV2Consumer := worker.NewPackingV2Consumer(
-				cfg.KafkaBrokers, cfg.FulfillmentV2Topic, cfg.FulfillmentV2Group,
-				service, orderClient, cfg.DefaultCarrier, cfg.DefaultService, logger,
-			)
-			packingConsumers = append(packingConsumers, packingV2Consumer)
-			go packingV2Consumer.Run(rootCtx)
-			logger.Info().Str("topic", cfg.FulfillmentV2Topic).Msg("PackingCompleted v2 consumer enabled alongside v1")
-		} else {
-			logger.Info().Msg("PackingCompleted v2 consumer disabled by SHIPPING_PACKING_V2_ENABLED")
-		}
-		defer func() {
-			for _, consumer := range packingConsumers {
-				if closeErr := consumer.Close(); closeErr != nil {
-					logger.Error().Err(closeErr).Msg("close PackingCompleted consumer")
-				}
-			}
-		}()
-	} else {
-		logger.Warn().Msg("PackingCompleted consumer disabled: SHIPPING_ORDER_GRPC_ENDPOINT is not configured")
 	}
 
 	handler := httpapi.NewRouter(service, cfg.InternalToken, cfg.FakeWebhookSecret, cfg.GHNWebhookSecret, logger, staffAuth)

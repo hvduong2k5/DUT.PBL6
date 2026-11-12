@@ -17,6 +17,47 @@ func TestLoadLeavesGHNDisabledWithoutCredentials(t *testing.T) {
 	}
 }
 
+func TestLoadEnablesShippingV2ForOrderIntegrationByDefault(t *testing.T) {
+	setRequiredBaseEnvironment(t)
+	t.Setenv("SHIPPING_V2_ENABLED", "")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.V2Enabled {
+		t.Fatal("Shipping gRPC v2 must be enabled by default for the Order integration")
+	}
+}
+
+func TestLoadRequiresProductionGRPCTLS(t *testing.T) {
+	setRequiredBaseEnvironment(t)
+	t.Setenv("SHIPPING_ENV", "production")
+	t.Setenv("SHIPPING_GRPC_TLS_CERT_FILE", "")
+	t.Setenv("SHIPPING_GRPC_TLS_KEY_FILE", "")
+	if _, err := Load(); err == nil {
+		t.Fatal("expected production gRPC TLS to be required")
+	}
+
+	t.Setenv("SHIPPING_GRPC_TLS_CERT_FILE", "/run/secrets/shipping.crt")
+	cfg, err := Load()
+	if err == nil || cfg.GRPCAddress != "" {
+		t.Fatal("expected certificate and key to be required as a pair")
+	}
+
+	t.Setenv("SHIPPING_GRPC_TLS_KEY_FILE", "/run/secrets/shipping.key")
+	if _, err := Load(); err != nil {
+		t.Fatalf("expected production TLS configuration to pass validation: %v", err)
+	}
+}
+
+func TestLoadRequiresServiceTokenAtOrderCompatibleLength(t *testing.T) {
+	setRequiredBaseEnvironment(t)
+	t.Setenv("SHIPPING_INTERNAL_TOKEN", "short")
+	if _, err := Load(); err == nil {
+		t.Fatal("expected short service token to be rejected")
+	}
+}
+
 func TestLoadRequiresCompleteGHNCredentialsWhenEnabled(t *testing.T) {
 	setRequiredBaseEnvironment(t)
 	t.Setenv("SHIPPING_GHN_ENABLED", "true")
@@ -42,8 +83,9 @@ func TestLoadRequiresCompleteGHNCredentialsWhenEnabled(t *testing.T) {
 
 func setRequiredBaseEnvironment(t *testing.T) {
 	t.Helper()
-	t.Setenv("SHIPPING_INTERNAL_TOKEN", "internal-token")
+	t.Setenv("SHIPPING_ENV", "local")
+	t.Setenv("SHIPPING_INTERNAL_TOKEN", "shipping-local-development-secret")
+	t.Setenv("SHIPPING_GRPC_TLS_CERT_FILE", "")
+	t.Setenv("SHIPPING_GRPC_TLS_KEY_FILE", "")
 	t.Setenv("SHIPPING_FAKE_WEBHOOK_SECRET", "fake-secret")
-	t.Setenv("SHIPPING_ORDER_GRPC_ENDPOINT", "")
-	t.Setenv("SHIPPING_ORDER_INTERNAL_TOKEN", "")
 }

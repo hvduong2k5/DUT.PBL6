@@ -31,15 +31,6 @@ type actionBinding struct {
 	hash       string
 }
 
-type snapshotStub struct {
-	snapshot OrderShippingSnapshot
-	err      error
-}
-
-func (s snapshotStub) GetShippingSnapshot(context.Context, string, string) (OrderShippingSnapshot, error) {
-	return s.snapshot, s.err
-}
-
 func newMemoryRepository() *memoryRepository {
 	return &memoryRepository{
 		byID: map[uuid.UUID]*domain.Shipment{}, byKey: map[string]uuid.UUID{}, hashes: map[string]string{},
@@ -397,48 +388,5 @@ func TestOlderWebhookDoesNotRegressShipment(t *testing.T) {
 	}
 	if result != "STALE" || updated.Status != domain.StatusInTransit {
 		t.Fatalf("stale event regressed shipment: %s %s", result, updated.Status)
-	}
-}
-
-func TestCreateFromPackingUsesImmutableOrderSnapshotAndPackageIdempotency(t *testing.T) {
-	repository := newMemoryRepository()
-	service := NewService(repository, carrier.NewRegistry(carrier.NewFake()))
-	event := PackingCompleted{
-		EventID: "event-1", OrderID: "ord-1", PackageID: "pkg-1", SealCode: "seal-1",
-		Parcel: domain.Parcel{WeightGrams: 1200, LengthCM: 30, WidthCM: 20, HeightCM: 15, Fragile: true},
-	}
-	snapshots := snapshotStub{snapshot: OrderShippingSnapshot{
-		OrderID: "ord-1", PackageID: "pkg-1", EligibleForShipping: true,
-		Recipient:      domain.Recipient{Name: "Nguyen Van A", Phone: "0905000000", Street: "1 Nguyen Hue", Ward: "Thuan Hoa", District: "Phu Xuan", Province: "Hue", CountryCode: "VN"},
-		CheckoutFeeVND: 30_000, CODAmountVND: 250_000,
-	}}
-	first, err := service.CreateFromPacking(context.Background(), event, snapshots, carrier.FakeCode, "STANDARD")
-	if err != nil {
-		t.Fatal(err)
-	}
-	event.EventID = "event-2"
-	second, err := service.CreateFromPacking(context.Background(), event, snapshots, carrier.FakeCode, "STANDARD")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if first.ID != second.ID || len(repository.byID) != 1 {
-		t.Fatal("re-emitted packing event created a duplicate shipment")
-	}
-	if first.CODAmountVND != 250_000 || first.CheckoutFeeVND != 30_000 || first.Parcel != event.Parcel {
-		t.Fatal("shipment did not preserve order snapshot and fulfillment parcel data")
-	}
-}
-
-func TestCreateFromPackingRejectsSnapshotIdentityMismatch(t *testing.T) {
-	service := NewService(newMemoryRepository(), carrier.NewRegistry(carrier.NewFake()))
-	event := PackingCompleted{
-		EventID: "event-1", OrderID: "ord-1", PackageID: "pkg-1", SealCode: "seal-1",
-		Parcel: domain.Parcel{WeightGrams: 1200, LengthCM: 30, WidthCM: 20, HeightCM: 15},
-	}
-	_, err := service.CreateFromPacking(context.Background(), event, snapshotStub{snapshot: OrderShippingSnapshot{
-		OrderID: "ord-1", PackageID: "another-package", EligibleForShipping: true,
-	}}, carrier.FakeCode, "STANDARD")
-	if err == nil {
-		t.Fatal("expected mismatched snapshot to be rejected")
 	}
 }
