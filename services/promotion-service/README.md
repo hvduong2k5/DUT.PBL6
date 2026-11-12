@@ -26,6 +26,7 @@ PostgreSQL at `GET /health/ready`; liveness is `GET /health/live`. PostgreSQL is
   a new coupon if the offer must change.
 - `POST /api/v1/admin/coupons/{couponID}/publish` publishes now or schedules for `starts_at`.
 - `POST /api/v1/admin/coupons/{couponID}/pause` pauses an active/scheduled coupon and requires a reason.
+- `GET /api/v1/promotions/vouchers?q=...&page=1&pageSize=20` provides the customer contract shape; only active, in-window coupons with remaining total uses are listed.
 - `GET /api/v1/promotions/active?limit=50&offset=0` lists public, active, in-window coupons with remaining total uses.
 
 Admin coupon calls require an Identity-provisioned, Keycloak-signed RS256 employee JWT. Promotion verifies the signature

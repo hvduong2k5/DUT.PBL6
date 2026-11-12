@@ -30,6 +30,16 @@ type AdminCoupon struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+type PublicCoupon struct {
+	Code               string
+	Title              string
+	DiscountType       domain.DiscountType
+	DiscountValue      int64
+	MaxDiscountAmount  *int64
+	MinimumOrderAmount int64
+	EndsAt             time.Time
+}
+
 type CouponActor struct {
 	ID   string
 	Role string
@@ -148,6 +158,34 @@ func (r *AdminCouponRepository) ListActive(ctx context.Context, limit, offset in
 		if err != nil {
 			return nil, err
 		}
+		result = append(result, coupon)
+	}
+	return result, rows.Err()
+}
+
+func (r *AdminCouponRepository) ListPublicActive(ctx context.Context, search string, limit, offset int) ([]PublicCoupon, error) {
+	rows, err := r.pool.Query(ctx, `SELECT c.code,COALESCE(NULLIF(p.name,''),c.code),c.discount_type,c.discount_value,
+		c.max_discount_amount,c.minimum_order_amount,c.ends_at
+		FROM coupons c LEFT JOIN promotions p ON p.id=c.promotion_id
+		WHERE c.status='ACTIVE' AND c.starts_at<=clock_timestamp() AND c.ends_at>clock_timestamp()
+		AND (c.max_redemptions IS NULL OR
+			(SELECT count(*) FROM voucher_usage u WHERE u.coupon_id=c.id) +
+			(SELECT count(*) FROM voucher_holds h WHERE h.coupon_id=c.id AND h.state='HELD' AND h.expires_at>clock_timestamp()) < c.max_redemptions)
+		AND ($1='' OR strpos(lower(c.code),lower($1))>0 OR strpos(lower(COALESCE(p.name,'')),lower($1))>0)
+		ORDER BY c.starts_at,c.code LIMIT $2 OFFSET $3`, search, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := make([]PublicCoupon, 0)
+	for rows.Next() {
+		var coupon PublicCoupon
+		var discountType string
+		if err := rows.Scan(&coupon.Code, &coupon.Title, &discountType, &coupon.DiscountValue,
+			&coupon.MaxDiscountAmount, &coupon.MinimumOrderAmount, &coupon.EndsAt); err != nil {
+			return nil, err
+		}
+		coupon.DiscountType = domain.DiscountType(discountType)
 		result = append(result, coupon)
 	}
 	return result, rows.Err()

@@ -4716,7 +4716,10 @@ paths:
                         min_order_amount:
                           type: integer
                         max_discount_amount:
-                          type: integer
+                          description: Null means the offer has no configured maximum discount.
+                          type:
+                          - integer
+                          - 'null'
                         expires_at:
                           type: string
                           format: date-time
@@ -4755,10 +4758,12 @@ paths:
       - name: status
         in: query
         required: false
-        description: Domain status filter. Allowed values are defined by the endpoint
-          response status vocabulary.
+        description: Public vouchers are limited to active offers; ACTIVE is the only
+          accepted value.
         schema:
           type: string
+          enum:
+          - ACTIVE
       - name: page
         in: query
         required: false
