@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: MS-12 Shipping Service Internal HTTP API
-  version: 2.2.0
+  version: 2.3.0
   description: >-
     Contract for the implemented Shipping HTTP endpoints. These are service-to-service,
     operational, and provider-webhook endpoints; they are not a customer-facing API and
@@ -10,6 +10,7 @@ info:
     Version 2.0.0 requires Idempotency-Key on shipment creation, cancellation, and handover.
     Version 2.1.0 rejects reuse of a shipment-creation key with a different request payload.
     Version 2.2.0 rejects shipment-list pagination values that overflow the supported offset range.
+    Version 2.3.0 rejects shipment-list status filters outside the declared enum.
 servers:
   - url: http://localhost:8012
     description: Local development only
@@ -222,7 +223,8 @@ paths:
         This route currently uses the shared internal token, not employee authentication or
         permission-and-scope authorization. Non-positive or non-numeric page values, pageSize
         values outside 1-100, or a computed offset beyond the supported integer range return
-        400 INVALID_PAGINATION.
+        400 INVALID_PAGINATION. A status outside the declared enum returns 400
+        INVALID_STATUS_FILTER.
       security:
         - internalBearer: []
         - internalToken: []

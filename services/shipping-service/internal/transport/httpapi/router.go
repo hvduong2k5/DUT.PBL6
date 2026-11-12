@@ -224,8 +224,13 @@ func (h *Router) listShipments(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "INVALID_PAGINATION", "page and pageSize exceed the supported offset range")
 		return
 	}
+	status := domain.ShipmentStatus(r.URL.Query().Get("status"))
+	if status != "" && !isValidShipmentStatus(status) {
+		writeError(w, http.StatusBadRequest, "INVALID_STATUS_FILTER", "status must be a supported shipment status")
+		return
+	}
 	items, err := h.service.ListShipments(r.Context(), application.ListFilter{
-		Status:      domain.ShipmentStatus(r.URL.Query().Get("status")),
+		Status:      status,
 		CarrierCode: strings.ToUpper(r.URL.Query().Get("carrier")), OrderID: r.URL.Query().Get("orderId"),
 		Limit: pageSize, Offset: (page - 1) * pageSize,
 	})
@@ -234,6 +239,18 @@ func (h *Router) listShipments(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"items": items, "page": page, "page_size": pageSize})
+}
+
+func isValidShipmentStatus(status domain.ShipmentStatus) bool {
+	switch status {
+	case domain.StatusCreating, domain.StatusCreationFailed, domain.StatusCreated,
+		domain.StatusReadyForHandover, domain.StatusHandedOver, domain.StatusInTransit,
+		domain.StatusOutForDelivery, domain.StatusDelivered, domain.StatusDeliveryFailed,
+		domain.StatusReturning, domain.StatusReturned, domain.StatusCancelled:
+		return true
+	default:
+		return false
+	}
 }
 
 type publicTracking struct {

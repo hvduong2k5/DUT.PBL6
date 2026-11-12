@@ -396,6 +396,20 @@ func TestListShipmentsRejectsOffsetOverflow(t *testing.T) {
 	}
 }
 
+func TestListShipmentsRejectsUnknownStatusFilter(t *testing.T) {
+	repository := newHTTPMemoryRepository()
+	service := application.NewService(repository, carrier.NewRegistry(carrier.NewFake()))
+	handler := NewRouter(service, "internal-token", "fake-secret", "", zerolog.Nop())
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/admin/shipping/shipments?status=NOT_A_STATUS", nil)
+	request.Header.Set("Authorization", "Bearer internal-token")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	var body errorBody
+	if response.Code != http.StatusBadRequest || json.Unmarshal(response.Body.Bytes(), &body) != nil || body.Code != "INVALID_STATUS_FILTER" {
+		t.Fatalf("unknown shipment status must be rejected: status=%d body=%s", response.Code, response.Body.String())
+	}
+}
+
 func TestReadyEndpointReturnsCommonErrorWhenDatabaseIsUnavailable(t *testing.T) {
 	repository := newHTTPMemoryRepository()
 	repository.pingErr = errors.New("database connection refused")
