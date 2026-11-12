@@ -431,7 +431,7 @@ func (h *Router) requireInternalToken(next http.Handler) http.Handler {
 }
 
 func requireIdempotencyKey(w http.ResponseWriter, r *http.Request) (string, bool) {
-	key := strings.TrimSpace(r.Header.Get("Idempotency-Key"))
+	key := r.Header.Get("Idempotency-Key")
 	if key == "" {
 		writeError(w, http.StatusBadRequest, "IDEMPOTENCY_KEY_REQUIRED", "Idempotency-Key header is required")
 		return "", false

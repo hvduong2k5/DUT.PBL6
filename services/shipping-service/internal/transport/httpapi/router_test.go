@@ -447,6 +447,23 @@ func TestRetryableShipmentOperationsRequireIdempotencyHeader(t *testing.T) {
 	}
 }
 
+func TestIdempotencyKeyRejectsLeadingOrTrailingWhitespace(t *testing.T) {
+	handler := NewRouter(nil, "internal-token", "fake-secret", "", zerolog.Nop())
+	for _, key := range []string{" rest-create-key-0001", "rest-create-key-0001 "} {
+		t.Run(fmt.Sprintf("key_%q", key), func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodPost, "/api/v1/internal/shipments", strings.NewReader(`{}`))
+			request.Header.Set("Authorization", "Bearer internal-token")
+			request.Header.Set("Idempotency-Key", key)
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+			var body errorBody
+			if response.Code != http.StatusBadRequest || json.Unmarshal(response.Body.Bytes(), &body) != nil || body.Code != "INVALID_IDEMPOTENCY_KEY" {
+				t.Fatalf("whitespace-padded key must be rejected: status=%d body=%s", response.Code, response.Body.String())
+			}
+		})
+	}
+}
+
 func TestListShipmentsRejectsOffsetOverflow(t *testing.T) {
 	repository := newHTTPMemoryRepository()
 	service := application.NewService(repository, carrier.NewRegistry(carrier.NewFake()))
