@@ -86,7 +86,7 @@ func (r *httpMemoryRepository) GetByTracking(_ context.Context, carrierCode, tra
 }
 
 func (r *httpMemoryRepository) ListByOrder(_ context.Context, orderID string) ([]domain.Shipment, error) {
-	items := make([]domain.Shipment, 0)
+	var items []domain.Shipment
 	for _, shipment := range r.shipments {
 		if shipment.OrderID == orderID {
 			items = append(items, *r.clone(shipment))
@@ -96,7 +96,7 @@ func (r *httpMemoryRepository) ListByOrder(_ context.Context, orderID string) ([
 }
 
 func (r *httpMemoryRepository) List(_ context.Context, filter application.ListFilter) ([]domain.Shipment, error) {
-	items := make([]domain.Shipment, 0)
+	var items []domain.Shipment
 	for _, shipment := range r.shipments {
 		if filter.Status != "" && shipment.Status != filter.Status ||
 			filter.CarrierCode != "" && shipment.CarrierCode != filter.CarrierCode ||
@@ -106,7 +106,7 @@ func (r *httpMemoryRepository) List(_ context.Context, filter application.ListFi
 		items = append(items, *r.clone(shipment))
 	}
 	if filter.Offset >= len(items) {
-		return []domain.Shipment{}, nil
+		return nil, nil
 	}
 	items = items[filter.Offset:]
 	if filter.Limit < len(items) {
@@ -116,7 +116,7 @@ func (r *httpMemoryRepository) List(_ context.Context, filter application.ListFi
 }
 
 func (r *httpMemoryRepository) TrackingTimeline(_ context.Context, id uuid.UUID) ([]domain.TrackingEvent, error) {
-	items := append([]domain.TrackingEvent{}, r.timeline[id]...)
+	items := append([]domain.TrackingEvent(nil), r.timeline[id]...)
 	return items, nil
 }
 
@@ -184,6 +184,36 @@ func TestQuoteMapsCarrierFailureToBadGateway(t *testing.T) {
 	handler.ServeHTTP(invalidResponse, invalidRequest)
 	if invalidResponse.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("invalid quote input should remain a 422 validation error: status=%d body=%s", invalidResponse.Code, invalidResponse.Body.String())
+	}
+}
+
+func TestEmptyCollectionResponsesAreArrays(t *testing.T) {
+	repository := newHTTPMemoryRepository()
+	service := application.NewService(repository, carrier.NewRegistry(carrier.NewFake()))
+	handler := NewRouter(service, "internal-token", "fake-secret", "", zerolog.Nop())
+	tests := []struct {
+		name string
+		path string
+		key  string
+	}{
+		{name: "admin shipment list", path: "/api/v1/admin/shipping/shipments", key: "items"},
+		{name: "order tracking list", path: "/api/v1/orders/order-without-shipments/tracking", key: "shipments"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodGet, test.path, nil)
+			request.Header.Set("Authorization", "Bearer internal-token")
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+			var body map[string]json.RawMessage
+			if response.Code != http.StatusOK || json.Unmarshal(response.Body.Bytes(), &body) != nil {
+				t.Fatalf("empty collection request failed: status=%d body=%s", response.Code, response.Body.String())
+			}
+			var collection []json.RawMessage
+			if err := json.Unmarshal(body[test.key], &collection); err != nil || collection == nil {
+				t.Fatalf("%s must be an empty JSON array, got %s (err=%v)", test.key, body[test.key], err)
+			}
+		})
 	}
 }
 

@@ -482,11 +482,24 @@ func (s *Service) GetShipment(ctx context.Context, id uuid.UUID) (*domain.Shipme
 		return nil, nil, err
 	}
 	timeline, err := s.repository.TrackingTimeline(ctx, id)
-	return shipment, timeline, err
+	if err != nil {
+		return nil, nil, err
+	}
+	if timeline == nil {
+		timeline = []domain.TrackingEvent{}
+	}
+	return shipment, timeline, nil
 }
 
 func (s *Service) GetShipmentTimeline(ctx context.Context, id uuid.UUID) ([]domain.TrackingEvent, error) {
-	return s.repository.TrackingTimeline(ctx, id)
+	timeline, err := s.repository.TrackingTimeline(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if timeline == nil {
+		timeline = []domain.TrackingEvent{}
+	}
+	return timeline, nil
 }
 
 func (s *Service) GetShipmentRevision(ctx context.Context, shipmentID uuid.UUID, resourceVersion int64) (*domain.ShipmentRevision, error) {
@@ -501,7 +514,14 @@ func (s *Service) GetShipmentRevision(ctx context.Context, shipmentID uuid.UUID,
 }
 
 func (s *Service) TrackOrder(ctx context.Context, orderID string) ([]domain.Shipment, error) {
-	return s.repository.ListByOrder(ctx, orderID)
+	shipments, err := s.repository.ListByOrder(ctx, orderID)
+	if err != nil {
+		return nil, err
+	}
+	if shipments == nil {
+		shipments = []domain.Shipment{}
+	}
+	return shipments, nil
 }
 
 func (s *Service) TrackByCode(ctx context.Context, carrierCode, trackingCode string) (*domain.Shipment, []domain.TrackingEvent, error) {
@@ -510,7 +530,13 @@ func (s *Service) TrackByCode(ctx context.Context, carrierCode, trackingCode str
 		return nil, nil, err
 	}
 	timeline, err := s.repository.TrackingTimeline(ctx, shipment.ID)
-	return shipment, timeline, err
+	if err != nil {
+		return nil, nil, err
+	}
+	if timeline == nil {
+		timeline = []domain.TrackingEvent{}
+	}
+	return shipment, timeline, nil
 }
 
 func (s *Service) ListShipments(ctx context.Context, filter ListFilter) ([]domain.Shipment, error) {
@@ -520,5 +546,12 @@ func (s *Service) ListShipments(ctx context.Context, filter ListFilter) ([]domai
 	if filter.Offset < 0 {
 		filter.Offset = 0
 	}
-	return s.repository.List(ctx, filter)
+	shipments, err := s.repository.List(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+	if shipments == nil {
+		shipments = []domain.Shipment{}
+	}
+	return shipments, nil
 }

@@ -117,11 +117,39 @@ func (r *memoryRepository) ListByOrder(_ context.Context, orderID string) ([]dom
 func (r *memoryRepository) List(_ context.Context, _ ListFilter) ([]domain.Shipment, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	result := make([]domain.Shipment, 0, len(r.byID))
+	var result []domain.Shipment
 	for _, value := range r.byID {
 		result = append(result, *cloneShipment(value))
 	}
 	return result, nil
+}
+
+func TestReadCollectionsAreNonNilWhenEmpty(t *testing.T) {
+	repository := newMemoryRepository()
+	service := NewService(repository, carrier.NewRegistry(carrier.NewFake()))
+	ctx := context.Background()
+
+	listed, err := service.ListShipments(ctx, ListFilter{Limit: 20})
+	if err != nil || listed == nil {
+		t.Fatalf("empty shipment list must be a non-nil slice: result=%v err=%v", listed, err)
+	}
+	ordered, err := service.TrackOrder(ctx, "order-without-shipments")
+	if err != nil || ordered == nil {
+		t.Fatalf("empty order shipment list must be a non-nil slice: result=%v err=%v", ordered, err)
+	}
+
+	shipment, err := service.CreateShipment(ctx, applicationCommand())
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, events, err := service.GetShipment(ctx, shipment.ID)
+	if err != nil || events == nil {
+		t.Fatalf("empty shipment timeline must be a non-nil slice: result=%v err=%v", events, err)
+	}
+	events, err = service.GetShipmentTimeline(ctx, shipment.ID)
+	if err != nil || events == nil {
+		t.Fatalf("empty tracking timeline must be a non-nil slice: result=%v err=%v", events, err)
+	}
 }
 
 func (r *memoryRepository) TrackingTimeline(_ context.Context, id uuid.UUID) ([]domain.TrackingEvent, error) {

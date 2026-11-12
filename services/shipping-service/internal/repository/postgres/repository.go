@@ -247,7 +247,7 @@ func (r *Repository) TrackingTimeline(ctx context.Context, shipmentID uuid.UUID)
 		return nil, err
 	}
 	defer rows.Close()
-	var result []domain.TrackingEvent
+	result := make([]domain.TrackingEvent, 0)
 	for rows.Next() {
 		var event domain.TrackingEvent
 		if err := rows.Scan(&event.ID, &event.ShipmentID, &event.ExternalEventID, &event.CarrierCode,
@@ -334,7 +334,7 @@ func scanShipment(row rowScanner) (*domain.Shipment, error) {
 
 func scanShipments(rows pgx.Rows) ([]domain.Shipment, error) {
 	defer rows.Close()
-	var result []domain.Shipment
+	result := make([]domain.Shipment, 0)
 	for rows.Next() {
 		shipment, err := scanShipment(rows)
 		if err != nil {
