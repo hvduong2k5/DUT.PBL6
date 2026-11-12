@@ -84,6 +84,11 @@ func (h *Router) quote(w http.ResponseWriter, r *http.Request) {
 		Destination: request.Destination, Parcel: request.Parcel, ServiceCode: request.ServiceCode,
 	})
 	if err != nil {
+		var providerErr *application.ProviderError
+		if errors.As(err, &providerErr) {
+			writeError(w, http.StatusBadGateway, "CARRIER_QUOTE_FAILED", "carrier could not calculate the shipping quote")
+			return
+		}
 		h.handleError(w, err)
 		return
 	}

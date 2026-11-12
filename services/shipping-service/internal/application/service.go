@@ -111,7 +111,17 @@ func (s *Service) Quote(ctx context.Context, carrierCode string, request carrier
 	if !ok {
 		return carrier.Quote{}, fmt.Errorf("%w: %s", domain.ErrUnsupportedCarrier, carrierCode)
 	}
-	return provider.Quote(ctx, request)
+	if err := request.Destination.Validate(); err != nil {
+		return carrier.Quote{}, err
+	}
+	if err := request.Parcel.Validate(); err != nil {
+		return carrier.Quote{}, err
+	}
+	quote, err := provider.Quote(ctx, request)
+	if err != nil {
+		return carrier.Quote{}, &ProviderError{Cause: err}
+	}
+	return quote, nil
 }
 
 func (s *Service) BoundQuote(ctx context.Context, command domain.BoundQuoteCommand) (*domain.ShippingQuote, error) {

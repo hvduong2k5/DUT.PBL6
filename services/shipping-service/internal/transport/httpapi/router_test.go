@@ -128,6 +128,25 @@ func (r *httpMemoryRepository) clone(shipment *domain.Shipment) *domain.Shipment
 	return &copy
 }
 
+type quoteFailureCarrier struct{}
+
+func (quoteFailureCarrier) Code() string { return "QUOTE-FAILURE" }
+func (quoteFailureCarrier) Quote(context.Context, carrier.QuoteRequest) (carrier.Quote, error) {
+	return carrier.Quote{}, errors.New("provider is unavailable")
+}
+func (quoteFailureCarrier) CreateShipment(context.Context, carrier.CreateRequest) (carrier.CreateResult, error) {
+	return carrier.CreateResult{}, errors.New("not used")
+}
+func (quoteFailureCarrier) CancelShipment(context.Context, carrier.CancelRequest) error {
+	return errors.New("not used")
+}
+func (quoteFailureCarrier) GenerateLabelURL(context.Context, carrier.LabelRequest) (carrier.LabelResult, error) {
+	return carrier.LabelResult{}, errors.New("not used")
+}
+func (quoteFailureCarrier) ParseWebhook([]byte) (carrier.WebhookUpdate, error) {
+	return carrier.WebhookUpdate{}, carrier.ErrInvalidWebhook
+}
+
 func TestGHNWebhookIsHiddenWhenDisabled(t *testing.T) {
 	handler := NewRouter(nil, "internal-token", "fake-secret", "", zerolog.Nop())
 	request := httptest.NewRequest(http.MethodPost, "/api/v1/webhooks/logistics/ghn", nil)
@@ -136,6 +155,35 @@ func TestGHNWebhookIsHiddenWhenDisabled(t *testing.T) {
 	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusNotFound {
 		t.Fatalf("expected 404, got %d", response.Code)
+	}
+}
+
+func TestQuoteMapsCarrierFailureToBadGateway(t *testing.T) {
+	service := application.NewService(newHTTPMemoryRepository(), carrier.NewRegistry(quoteFailureCarrier{}))
+	handler := NewRouter(service, "internal-token", "fake-secret", "", zerolog.Nop())
+	body := `{"carrier_code":"QUOTE-FAILURE","destination":{"name":"Customer","phone":"0905000000","street":"1 Main Street","ward":"Ward 1","province":"Hue","country_code":"VN"},"parcel":{"weight_grams":1000,"length_cm":30,"width_cm":20,"height_cm":15}}`
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/internal/shipping/quotes", strings.NewReader(body))
+	request.Header.Set("Authorization", "Bearer internal-token")
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	var providerError errorBody
+	if response.Code != http.StatusBadGateway || json.Unmarshal(response.Body.Bytes(), &providerError) != nil ||
+		providerError.Code != "CARRIER_QUOTE_FAILED" || providerError.RequestID == "" {
+		t.Fatalf("carrier quote failure should be a safe 502: status=%d body=%s", response.Code, response.Body.String())
+	}
+	if strings.Contains(response.Body.String(), "provider is unavailable") {
+		t.Fatal("provider details must not leak in the public error message")
+	}
+
+	invalidBody := strings.Replace(body, `"weight_grams":1000`, `"weight_grams":0`, 1)
+	invalidRequest := httptest.NewRequest(http.MethodPost, "/api/v1/internal/shipping/quotes", strings.NewReader(invalidBody))
+	invalidRequest.Header.Set("Authorization", "Bearer internal-token")
+	invalidRequest.Header.Set("Content-Type", "application/json")
+	invalidResponse := httptest.NewRecorder()
+	handler.ServeHTTP(invalidResponse, invalidRequest)
+	if invalidResponse.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("invalid quote input should remain a 422 validation error: status=%d body=%s", invalidResponse.Code, invalidResponse.Body.String())
 	}
 }
 
