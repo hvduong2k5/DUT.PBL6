@@ -14,12 +14,21 @@ import (
 )
 
 type memoryRepository struct {
-	mu       sync.Mutex
-	byID     map[uuid.UUID]*domain.Shipment
-	byKey    map[string]uuid.UUID
-	hashes   map[string]string
-	timeline map[uuid.UUID][]domain.TrackingEvent
-	eventIDs map[string]struct{}
+	mu                sync.Mutex
+	byID              map[uuid.UUID]*domain.Shipment
+	byKey             map[string]uuid.UUID
+	hashes            map[string]string
+	timeline          map[uuid.UUID][]domain.TrackingEvent
+	eventIDs          map[string]struct{}
+	actionsByKey      map[string]actionBinding
+	actionsByShipment map[string]actionBinding
+}
+
+type actionBinding struct {
+	shipmentID uuid.UUID
+	action     string
+	key        string
+	hash       string
 }
 
 type snapshotStub struct {
@@ -32,7 +41,11 @@ func (s snapshotStub) GetShippingSnapshot(context.Context, string, string) (Orde
 }
 
 func newMemoryRepository() *memoryRepository {
-	return &memoryRepository{byID: map[uuid.UUID]*domain.Shipment{}, byKey: map[string]uuid.UUID{}, hashes: map[string]string{}, timeline: map[uuid.UUID][]domain.TrackingEvent{}, eventIDs: map[string]struct{}{}}
+	return &memoryRepository{
+		byID: map[uuid.UUID]*domain.Shipment{}, byKey: map[string]uuid.UUID{}, hashes: map[string]string{},
+		timeline: map[uuid.UUID][]domain.TrackingEvent{}, eventIDs: map[string]struct{}{},
+		actionsByKey: map[string]actionBinding{}, actionsByShipment: map[string]actionBinding{},
+	}
 }
 
 func cloneShipment(value *domain.Shipment) *domain.Shipment {
@@ -57,6 +70,28 @@ func (r *memoryRepository) BeginCreation(_ context.Context, key, requestHash str
 	r.hashes[key] = requestHash
 	r.byID[shipment.ID] = cloneShipment(shipment)
 	return cloneShipment(shipment), true, nil
+}
+
+func (r *memoryRepository) BindAction(_ context.Context, shipmentID uuid.UUID, action, key, requestHash string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	binding := actionBinding{shipmentID: shipmentID, action: action, key: key, hash: requestHash}
+	if previous, exists := r.actionsByKey[key]; exists {
+		if previous != binding {
+			return domain.ErrIdempotencyConflict
+		}
+		return nil
+	}
+	shipmentAction := action + ":" + shipmentID.String()
+	if previous, exists := r.actionsByShipment[shipmentAction]; exists {
+		if previous != binding {
+			return domain.ErrIdempotencyConflict
+		}
+		return nil
+	}
+	r.actionsByKey[key] = binding
+	r.actionsByShipment[shipmentAction] = binding
+	return nil
 }
 
 func (r *memoryRepository) Save(_ context.Context, shipment *domain.Shipment, expectedRevision int64, tracking *domain.TrackingEvent, _ *domain.DomainEvent) error {
@@ -208,19 +243,22 @@ func TestCancelShipmentTransitionsAndIsIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cancelled, err := service.CancelShipment(context.Background(), shipment.ID, carrier.CancelReasonOther, "Không còn nhu cầu giao")
+	cancelled, err := service.CancelShipment(context.Background(), shipment.ID, "cancel-shipment-key-01", carrier.CancelReasonOther, "Không còn nhu cầu giao")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if cancelled.Status != domain.StatusCancelled {
 		t.Fatalf("expected cancelled shipment, got %s", cancelled.Status)
 	}
-	replayed, err := service.CancelShipment(context.Background(), shipment.ID, carrier.CancelReasonOther, "retry")
+	replayed, err := service.CancelShipment(context.Background(), shipment.ID, "cancel-shipment-key-01", carrier.CancelReasonOther, "Không còn nhu cầu giao")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if replayed.Status != domain.StatusCancelled || replayed.Revision != cancelled.Revision {
 		t.Fatalf("idempotent cancellation changed shipment: %+v", replayed)
+	}
+	if _, err := service.CancelShipment(context.Background(), shipment.ID, "cancel-shipment-key-01", carrier.CancelReasonOther, "different payload"); !errors.Is(err, domain.ErrIdempotencyConflict) {
+		t.Fatalf("reusing cancellation key with changed reason must conflict, got %v", err)
 	}
 	timeline, err := repository.TrackingTimeline(context.Background(), shipment.ID)
 	if err != nil {
@@ -238,11 +276,11 @@ func TestCancelShipmentRejectsAfterHandover(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	shipment, err = service.ConfirmHandover(context.Background(), shipment.ID)
+	shipment, err = service.ConfirmHandover(context.Background(), shipment.ID, "handover-shipment-key-01")
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = service.CancelShipment(context.Background(), shipment.ID, carrier.CancelReasonOther, "too late")
+	_, err = service.CancelShipment(context.Background(), shipment.ID, "cancel-after-handover-key-01", carrier.CancelReasonOther, "too late")
 	if !errors.Is(err, domain.ErrInvalidTransition) {
 		t.Fatalf("expected invalid transition, got %v", err)
 	}
@@ -255,7 +293,7 @@ func TestCancelShipmentRejectsUnknownReasonCode(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = service.CancelShipment(context.Background(), shipment.ID, "UNKNOWN", "invalid")
+	_, err = service.CancelShipment(context.Background(), shipment.ID, "invalid-cancel-key-01", "UNKNOWN", "invalid")
 	if !errors.Is(err, domain.ErrInvalidShipment) {
 		t.Fatalf("expected invalid shipment, got %v", err)
 	}
@@ -292,7 +330,7 @@ func TestGenerateLabelURLRejectsCancelledShipment(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	shipment, err = service.CancelShipment(context.Background(), shipment.ID, carrier.CancelReasonOther, "cancel")
+	shipment, err = service.CancelShipment(context.Background(), shipment.ID, "label-cancel-key-0001", carrier.CancelReasonOther, "cancel")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -309,7 +347,7 @@ func TestWebhookIsDeduplicated(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	shipment, err = service.ConfirmHandover(context.Background(), shipment.ID)
+	shipment, err = service.ConfirmHandover(context.Background(), shipment.ID, "webhook-handover-key-01")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -344,7 +382,7 @@ func TestOlderWebhookDoesNotRegressShipment(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	shipment, err = service.ConfirmHandover(context.Background(), shipment.ID)
+	shipment, err = service.ConfirmHandover(context.Background(), shipment.ID, "webhook-handover-key-02")
 	if err != nil {
 		t.Fatal(err)
 	}

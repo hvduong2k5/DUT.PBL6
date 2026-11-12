@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: MS-12 Shipping Service Internal HTTP API
-  version: 2.9.0
+  version: 2.11.0
   description: >-
     Contract for the implemented Shipping HTTP endpoints. These are service-to-service,
     operational, and provider-webhook endpoints; they are not a customer-facing API and
@@ -18,6 +18,7 @@ info:
     Version 2.8.0 rejects explicitly empty shipment-list pagination parameters.
     Version 2.9.0 rejects repeated shipment-list pagination parameters.
     Version 2.10.0 rejects repeated shipment-list filter parameters.
+    Version 2.11.0 binds cancellation and handover idempotency keys to their canonical action payload.
 servers:
   - url: http://localhost:8012
     description: Local development only
@@ -132,6 +133,11 @@ paths:
       tags: [Internal shipping]
       operationId: shippingCancelShipment
       summary: Cancel a shipment before handover
+      description: >-
+        The idempotency key is bound to this shipment cancellation and its normalized reason
+        payload. Reusing it with a different request, or using a different key for the same
+        shipment cancellation, returns 409 IDEMPOTENCY_KEY_REUSED. A matching retry returns the
+        current shipment state without repeating the state transition.
       security:
         - internalBearer: []
         - internalToken: []
@@ -212,6 +218,11 @@ paths:
       tags: [Internal shipping]
       operationId: shippingConfirmHandover
       summary: Record carrier handover
+      description: >-
+        The idempotency key is bound to this shipment handover. Reusing it for a different
+        action or using a different key for the same shipment handover returns 409
+        IDEMPOTENCY_KEY_REUSED. A matching retry returns the current shipment state without
+        repeating the state transition.
       security:
         - internalBearer: []
         - internalToken: []

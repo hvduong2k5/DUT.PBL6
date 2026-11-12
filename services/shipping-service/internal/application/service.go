@@ -23,6 +23,7 @@ type ListFilter struct {
 type Repository interface {
 	Ping(context.Context) error
 	BeginCreation(context.Context, string, string, *domain.Shipment) (*domain.Shipment, bool, error)
+	BindAction(context.Context, uuid.UUID, string, string, string) error
 	Save(context.Context, *domain.Shipment, int64, *domain.TrackingEvent, *domain.DomainEvent) error
 	GetByID(context.Context, uuid.UUID) (*domain.Shipment, error)
 	GetByTracking(context.Context, string, string) (*domain.Shipment, error)
@@ -283,12 +284,19 @@ func (s *Service) failCreation(ctx context.Context, shipment *domain.Shipment, c
 	return shipment, &ProviderError{Shipment: shipment, Cause: cause}
 }
 
-func (s *Service) ConfirmHandover(ctx context.Context, id uuid.UUID) (*domain.Shipment, error) {
+func (s *Service) ConfirmHandover(ctx context.Context, id uuid.UUID, idempotencyKey string) (*domain.Shipment, error) {
 	shipment, err := s.repository.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
-	if shipment.Status == domain.StatusHandedOver {
+	requestHash, err := hashActionRequest(actionRequest{Action: "HANDOVER", ShipmentID: id})
+	if err != nil {
+		return nil, err
+	}
+	if err := s.repository.BindAction(ctx, id, "HANDOVER", idempotencyKey, requestHash); err != nil {
+		return nil, err
+	}
+	if shipment.HandedOverAt != nil {
 		return shipment, nil
 	}
 	expectedRevision := shipment.Revision
@@ -298,18 +306,33 @@ func (s *Service) ConfirmHandover(ctx context.Context, id uuid.UUID) (*domain.Sh
 	}
 	event := domain.NewDomainEvent("handed-over", shipment, now)
 	if err := s.repository.Save(ctx, shipment, expectedRevision, nil, &event); err != nil {
+		if errors.Is(err, domain.ErrConcurrentUpdate) {
+			latest, readErr := s.repository.GetByID(ctx, id)
+			if readErr == nil && latest.HandedOverAt != nil {
+				return latest, nil
+			}
+		}
 		return nil, err
 	}
 	return shipment, nil
 }
 
-func (s *Service) CancelShipment(ctx context.Context, id uuid.UUID, reasonCode, reason string) (*domain.Shipment, error) {
+func (s *Service) CancelShipment(ctx context.Context, id uuid.UUID, idempotencyKey, reasonCode, reason string) (*domain.Shipment, error) {
 	reasonCode, err := normalizeCancellationReason(reasonCode)
 	if err != nil {
 		return nil, err
 	}
 	shipment, err := s.repository.GetByID(ctx, id)
 	if err != nil {
+		return nil, err
+	}
+	requestHash, err := hashActionRequest(actionRequest{
+		Action: "CANCEL", ShipmentID: id, ReasonCode: reasonCode, Reason: reason,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if err := s.repository.BindAction(ctx, id, "CANCEL", idempotencyKey, requestHash); err != nil {
 		return nil, err
 	}
 	if shipment.Status == domain.StatusCancelled {
@@ -345,6 +368,12 @@ func (s *Service) CancelShipment(ctx context.Context, id uuid.UUID, reasonCode, 
 		EventAt: now, ReceivedAt: now,
 	}
 	if err := s.repository.Save(ctx, shipment, expectedRevision, tracking, nil); err != nil {
+		if errors.Is(err, domain.ErrConcurrentUpdate) {
+			latest, readErr := s.repository.GetByID(ctx, id)
+			if readErr == nil && latest.Status == domain.StatusCancelled {
+				return latest, nil
+			}
+		}
 		return nil, err
 	}
 	return shipment, nil

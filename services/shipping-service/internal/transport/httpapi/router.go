@@ -163,7 +163,8 @@ func (h *Router) createShipment(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Router) confirmHandover(w http.ResponseWriter, r *http.Request) {
-	if _, ok := requireIdempotencyKey(w, r); !ok {
+	idempotencyKey, ok := requireIdempotencyKey(w, r)
+	if !ok {
 		return
 	}
 	id, err := uuid.Parse(chi.URLParam(r, "shipmentID"))
@@ -171,7 +172,7 @@ func (h *Router) confirmHandover(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "INVALID_SHIPMENT_ID", "shipmentID must be a UUID")
 		return
 	}
-	shipment, err := h.service.ConfirmHandover(r.Context(), id)
+	shipment, err := h.service.ConfirmHandover(r.Context(), id, idempotencyKey)
 	if err != nil {
 		h.handleError(w, err)
 		return
@@ -185,7 +186,8 @@ type cancelShipmentRequest struct {
 }
 
 func (h *Router) cancelShipment(w http.ResponseWriter, r *http.Request) {
-	if _, ok := requireIdempotencyKey(w, r); !ok {
+	idempotencyKey, ok := requireIdempotencyKey(w, r)
+	if !ok {
 		return
 	}
 	id, err := uuid.Parse(chi.URLParam(r, "shipmentID"))
@@ -197,7 +199,7 @@ func (h *Router) cancelShipment(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &request) {
 		return
 	}
-	shipment, err := h.service.CancelShipment(r.Context(), id, request.ReasonCode, request.Reason)
+	shipment, err := h.service.CancelShipment(r.Context(), id, idempotencyKey, request.ReasonCode, request.Reason)
 	if err != nil {
 		var providerErr *application.ProviderError
 		if errors.As(err, &providerErr) {

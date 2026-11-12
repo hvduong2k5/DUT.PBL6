@@ -22,19 +22,28 @@ import (
 )
 
 type httpMemoryRepository struct {
-	shipments map[uuid.UUID]*domain.Shipment
-	keys      map[string]uuid.UUID
-	hashes    map[string]string
-	timeline  map[uuid.UUID][]domain.TrackingEvent
-	pingErr   error
+	shipments         map[uuid.UUID]*domain.Shipment
+	keys              map[string]uuid.UUID
+	hashes            map[string]string
+	actionsByKey      map[string]httpActionBinding
+	actionsByShipment map[string]httpActionBinding
+	timeline          map[uuid.UUID][]domain.TrackingEvent
+	pingErr           error
+}
+
+type httpActionBinding struct {
+	shipmentID uuid.UUID
+	action     string
+	key        string
+	hash       string
 }
 
 func newHTTPMemoryRepository() *httpMemoryRepository {
 	return &httpMemoryRepository{
 		shipments: make(map[uuid.UUID]*domain.Shipment),
-		keys:      make(map[string]uuid.UUID),
-		hashes:    make(map[string]string),
-		timeline:  make(map[uuid.UUID][]domain.TrackingEvent),
+		keys:      make(map[string]uuid.UUID), hashes: make(map[string]string),
+		actionsByKey: make(map[string]httpActionBinding), actionsByShipment: make(map[string]httpActionBinding),
+		timeline: make(map[uuid.UUID][]domain.TrackingEvent),
 	}
 }
 
@@ -51,6 +60,26 @@ func (r *httpMemoryRepository) BeginCreation(_ context.Context, key, requestHash
 	r.hashes[key] = requestHash
 	r.shipments[shipment.ID] = r.clone(shipment)
 	return r.clone(shipment), true, nil
+}
+
+func (r *httpMemoryRepository) BindAction(_ context.Context, shipmentID uuid.UUID, action, key, requestHash string) error {
+	binding := httpActionBinding{shipmentID: shipmentID, action: action, key: key, hash: requestHash}
+	if previous, exists := r.actionsByKey[key]; exists {
+		if previous != binding {
+			return domain.ErrIdempotencyConflict
+		}
+		return nil
+	}
+	shipmentAction := action + ":" + shipmentID.String()
+	if previous, exists := r.actionsByShipment[shipmentAction]; exists {
+		if previous != binding {
+			return domain.ErrIdempotencyConflict
+		}
+		return nil
+	}
+	r.actionsByKey[key] = binding
+	r.actionsByShipment[shipmentAction] = binding
+	return nil
 }
 
 func (r *httpMemoryRepository) Save(_ context.Context, shipment *domain.Shipment, expectedRevision int64, tracking *domain.TrackingEvent, _ *domain.DomainEvent) error {
@@ -420,6 +449,26 @@ func TestInternalShipmentHTTPContractLifecycle(t *testing.T) {
 	if retriedCancel.Code != http.StatusOK || json.Unmarshal(retriedCancel.Body.Bytes(), &retriedShipment) != nil || retriedShipment.Revision != cancelledShipment.Revision {
 		t.Fatalf("cancel retry was not idempotent: status=%d body=%s", retriedCancel.Code, retriedCancel.Body.String())
 	}
+	changedCancel := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/v1/internal/shipments/%s/cancel", shipment.ID), strings.NewReader(`{"reason_code":"OTHER","reason":"different reason"}`))
+	changedCancel.Header.Set("Authorization", "Bearer internal-token")
+	changedCancel.Header.Set("Content-Type", "application/json")
+	changedCancel.Header.Set("Idempotency-Key", "cancel-shipment-key-01")
+	changedCancelResponse := httptest.NewRecorder()
+	handler.ServeHTTP(changedCancelResponse, changedCancel)
+	var changedCancelError errorBody
+	if changedCancelResponse.Code != http.StatusConflict || json.Unmarshal(changedCancelResponse.Body.Bytes(), &changedCancelError) != nil || changedCancelError.Code != "IDEMPOTENCY_KEY_REUSED" {
+		t.Fatalf("changed cancellation payload with reused key must conflict: status=%d body=%s", changedCancelResponse.Code, changedCancelResponse.Body.String())
+	}
+	newCancelKey := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/v1/internal/shipments/%s/cancel", shipment.ID), strings.NewReader(`{"reason_code":"OTHER","reason":"customer request"}`))
+	newCancelKey.Header.Set("Authorization", "Bearer internal-token")
+	newCancelKey.Header.Set("Content-Type", "application/json")
+	newCancelKey.Header.Set("Idempotency-Key", "cancel-shipment-key-02")
+	newCancelKeyResponse := httptest.NewRecorder()
+	handler.ServeHTTP(newCancelKeyResponse, newCancelKey)
+	var newCancelKeyError errorBody
+	if newCancelKeyResponse.Code != http.StatusConflict || json.Unmarshal(newCancelKeyResponse.Body.Bytes(), &newCancelKeyError) != nil || newCancelKeyError.Code != "IDEMPOTENCY_KEY_REUSED" {
+		t.Fatalf("different cancellation key for an already-bound action must conflict: status=%d body=%s", newCancelKeyResponse.Code, newCancelKeyResponse.Body.String())
+	}
 
 	tracking := httptest.NewRequest(http.MethodGet, "/api/v1/orders/order-1/tracking", nil)
 	tracking.Header.Set("Authorization", "Bearer internal-token")
@@ -463,6 +512,15 @@ func TestInternalShipmentHTTPContractLifecycle(t *testing.T) {
 	var retriedHandoverShipment domain.Shipment
 	if retriedHandover.Code != http.StatusOK || json.Unmarshal(retriedHandover.Body.Bytes(), &retriedHandoverShipment) != nil || retriedHandoverShipment.Revision != handedOverShipment.Revision {
 		t.Fatalf("handover retry was not idempotent: status=%d body=%s", retriedHandover.Code, retriedHandover.Body.String())
+	}
+	newHandoverKey := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/v1/internal/shipments/%s/handover", secondShipment.ID), nil)
+	newHandoverKey.Header.Set("Authorization", "Bearer internal-token")
+	newHandoverKey.Header.Set("Idempotency-Key", "handover-shipment-key-02")
+	newHandoverKeyResponse := httptest.NewRecorder()
+	handler.ServeHTTP(newHandoverKeyResponse, newHandoverKey)
+	var newHandoverKeyError errorBody
+	if newHandoverKeyResponse.Code != http.StatusConflict || json.Unmarshal(newHandoverKeyResponse.Body.Bytes(), &newHandoverKeyError) != nil || newHandoverKeyError.Code != "IDEMPOTENCY_KEY_REUSED" {
+		t.Fatalf("different handover key for an already-bound action must conflict: status=%d body=%s", newHandoverKeyResponse.Code, newHandoverKeyResponse.Body.String())
 	}
 }
 

@@ -104,6 +104,38 @@ func (r *Repository) BeginCreation(ctx context.Context, idempotencyKey, requestH
 	return existing, false, err
 }
 
+func (r *Repository) BindAction(ctx context.Context, shipmentID uuid.UUID, action, idempotencyKey, requestHash string) error {
+	tag, err := r.pool.Exec(ctx, `
+		INSERT INTO shipment_action_idempotency (idempotency_key, shipment_id, action_type, request_hash)
+		VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING`, idempotencyKey, shipmentID, action, requestHash)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 1 {
+		return nil
+	}
+	var existingShipmentID uuid.UUID
+	var existingAction, existingHash string
+	err = r.pool.QueryRow(ctx, `
+		SELECT shipment_id, action_type, request_hash FROM shipment_action_idempotency
+		WHERE idempotency_key=$1 OR (shipment_id=$2 AND action_type=$3)
+		LIMIT 1`, idempotencyKey, shipmentID, action).Scan(&existingShipmentID, &existingAction, &existingHash)
+	if err != nil {
+		return err
+	}
+	if existingShipmentID != shipmentID || existingAction != action || existingHash != requestHash {
+		return domain.ErrIdempotencyConflict
+	}
+	var existingKey string
+	if err := r.pool.QueryRow(ctx, `SELECT idempotency_key FROM shipment_action_idempotency WHERE shipment_id=$1 AND action_type=$2`, shipmentID, action).Scan(&existingKey); err != nil {
+		return err
+	}
+	if existingKey != idempotencyKey {
+		return domain.ErrIdempotencyConflict
+	}
+	return nil
+}
+
 func (r *Repository) Save(ctx context.Context, shipment *domain.Shipment, expectedRevision int64, tracking *domain.TrackingEvent, event *domain.DomainEvent) error {
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {

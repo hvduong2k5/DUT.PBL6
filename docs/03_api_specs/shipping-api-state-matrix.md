@@ -24,6 +24,9 @@ Shipment creation, cancellation, and handover require a 16-128 character printab
 state without repeating the state transition. Shipment creation replays return the original
 shipment only when the key and request payload match; reusing a key with a different payload
 returns `409 IDEMPOTENCY_KEY_REUSED`. The request fingerprint is persisted with the shipment.
+Cancellation and handover keys are persisted per shipment/action and bound to a canonical request
+hash. Matching retries return the current shipment state; reusing a key for a changed request or
+using a new key for an already-bound action returns `409 IDEMPOTENCY_KEY_REUSED`.
 Shipments created before the fingerprint migration have no stored fingerprint and fail
 closed with the same conflict on create replay; reconcile those legacy requests before
 retrying them with a new key.
