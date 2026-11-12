@@ -204,6 +204,16 @@ func TestInternalShipmentHTTPContractLifecycle(t *testing.T) {
 	if shipment.ShipmentNumber == "" || shipment.Status != domain.StatusCreated || created.Header().Get("X-Request-Id") == "" {
 		t.Fatalf("unexpected create response: shipment=%+v headers=%v", shipment, created.Header())
 	}
+	replayRequest := httptest.NewRequest(http.MethodPost, "/api/v1/internal/shipments", strings.NewReader(requestBody))
+	replayRequest.Header.Set("Authorization", "Bearer internal-token")
+	replayRequest.Header.Set("Content-Type", "application/json")
+	replayRequest.Header.Set("Idempotency-Key", "rest-create-key-0001")
+	replay := httptest.NewRecorder()
+	handler.ServeHTTP(replay, replayRequest)
+	var replayedShipment domain.Shipment
+	if replay.Code != http.StatusCreated || json.Unmarshal(replay.Body.Bytes(), &replayedShipment) != nil || replayedShipment.ID != shipment.ID {
+		t.Fatalf("create replay did not return original shipment: status=%d body=%s", replay.Code, replay.Body.String())
+	}
 
 	get := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/v1/admin/shipping/shipments/%s", shipment.ID), nil)
 	get.Header.Set("X-Internal-Token", "internal-token")
@@ -243,10 +253,25 @@ func TestInternalShipmentHTTPContractLifecycle(t *testing.T) {
 	cancelRequest := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/v1/internal/shipments/%s/cancel", shipment.ID), strings.NewReader(`{"reason_code":"OTHER","reason":"customer request"}`))
 	cancelRequest.Header.Set("Authorization", "Bearer internal-token")
 	cancelRequest.Header.Set("Content-Type", "application/json")
+	cancelRequest.Header.Set("Idempotency-Key", "cancel-shipment-key-01")
 	cancelled := httptest.NewRecorder()
 	handler.ServeHTTP(cancelled, cancelRequest)
 	if cancelled.Code != http.StatusOK || !strings.Contains(cancelled.Body.String(), `"status":"CANCELLED"`) {
 		t.Fatalf("cancel response = %d, body=%s", cancelled.Code, cancelled.Body.String())
+	}
+	var cancelledShipment domain.Shipment
+	if err := json.Unmarshal(cancelled.Body.Bytes(), &cancelledShipment); err != nil {
+		t.Fatalf("decode cancellation response: %v", err)
+	}
+	retryCancel := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/v1/internal/shipments/%s/cancel", shipment.ID), strings.NewReader(`{"reason_code":"OTHER","reason":"customer request"}`))
+	retryCancel.Header.Set("Authorization", "Bearer internal-token")
+	retryCancel.Header.Set("Content-Type", "application/json")
+	retryCancel.Header.Set("Idempotency-Key", "cancel-shipment-key-01")
+	retriedCancel := httptest.NewRecorder()
+	handler.ServeHTTP(retriedCancel, retryCancel)
+	var retriedShipment domain.Shipment
+	if retriedCancel.Code != http.StatusOK || json.Unmarshal(retriedCancel.Body.Bytes(), &retriedShipment) != nil || retriedShipment.Revision != cancelledShipment.Revision {
+		t.Fatalf("cancel retry was not idempotent: status=%d body=%s", retriedCancel.Code, retriedCancel.Body.String())
 	}
 
 	tracking := httptest.NewRequest(http.MethodGet, "/api/v1/orders/order-1/tracking", nil)
@@ -261,6 +286,7 @@ func TestInternalShipmentHTTPContractLifecycle(t *testing.T) {
 	secondCreate := httptest.NewRequest(http.MethodPost, "/api/v1/internal/shipments", strings.NewReader(secondRequestBody))
 	secondCreate.Header.Set("Authorization", "Bearer internal-token")
 	secondCreate.Header.Set("Content-Type", "application/json")
+	secondCreate.Header.Set("Idempotency-Key", "rest-create-key-0002")
 	secondCreated := httptest.NewRecorder()
 	handler.ServeHTTP(secondCreated, secondCreate)
 	if secondCreated.Code != http.StatusCreated {
@@ -272,10 +298,57 @@ func TestInternalShipmentHTTPContractLifecycle(t *testing.T) {
 	}
 	handover := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/v1/internal/shipments/%s/handover", secondShipment.ID), nil)
 	handover.Header.Set("Authorization", "Bearer internal-token")
+	handover.Header.Set("Idempotency-Key", "handover-shipment-key-01")
 	handedOver := httptest.NewRecorder()
 	handler.ServeHTTP(handedOver, handover)
 	if handedOver.Code != http.StatusOK || !strings.Contains(handedOver.Body.String(), `"status":"HANDED_OVER"`) {
 		t.Fatalf("handover response = %d, body=%s", handedOver.Code, handedOver.Body.String())
+	}
+	var handedOverShipment domain.Shipment
+	if err := json.Unmarshal(handedOver.Body.Bytes(), &handedOverShipment); err != nil {
+		t.Fatalf("decode handover response: %v", err)
+	}
+	retryHandover := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/v1/internal/shipments/%s/handover", secondShipment.ID), nil)
+	retryHandover.Header.Set("Authorization", "Bearer internal-token")
+	retryHandover.Header.Set("Idempotency-Key", "handover-shipment-key-01")
+	retriedHandover := httptest.NewRecorder()
+	handler.ServeHTTP(retriedHandover, retryHandover)
+	var retriedHandoverShipment domain.Shipment
+	if retriedHandover.Code != http.StatusOK || json.Unmarshal(retriedHandover.Body.Bytes(), &retriedHandoverShipment) != nil || retriedHandoverShipment.Revision != handedOverShipment.Revision {
+		t.Fatalf("handover retry was not idempotent: status=%d body=%s", retriedHandover.Code, retriedHandover.Body.String())
+	}
+}
+
+func TestRetryableShipmentOperationsRequireIdempotencyHeader(t *testing.T) {
+	handler := NewRouter(nil, "internal-token", "fake-secret", "", zerolog.Nop())
+	shipmentID := uuid.NewString()
+	requests := []struct {
+		name string
+		path string
+		body string
+	}{
+		{name: "create", path: "/api/v1/internal/shipments", body: `{}`},
+		{name: "cancel", path: "/api/v1/internal/shipments/" + shipmentID + "/cancel", body: `{}`},
+		{name: "handover", path: "/api/v1/internal/shipments/" + shipmentID + "/handover"},
+	}
+	for _, test := range requests {
+		t.Run(test.name, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodPost, test.path, strings.NewReader(test.body))
+			request.Header.Set("Authorization", "Bearer internal-token")
+			request.Header.Set("Content-Type", "application/json")
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+			if response.Code != http.StatusBadRequest {
+				t.Fatalf("missing idempotency key status = %d, body=%s", response.Code, response.Body.String())
+			}
+			var errorResponse errorBody
+			if err := json.Unmarshal(response.Body.Bytes(), &errorResponse); err != nil {
+				t.Fatalf("decode idempotency error: %v", err)
+			}
+			if errorResponse.Code != "IDEMPOTENCY_KEY_REQUIRED" || errorResponse.RequestID == "" {
+				t.Fatalf("unexpected missing-key error: %+v", errorResponse)
+			}
+		})
 	}
 }
 

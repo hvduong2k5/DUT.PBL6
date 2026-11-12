@@ -278,6 +278,9 @@ func (s *Service) ConfirmHandover(ctx context.Context, id uuid.UUID) (*domain.Sh
 	if err != nil {
 		return nil, err
 	}
+	if shipment.Status == domain.StatusHandedOver {
+		return shipment, nil
+	}
 	expectedRevision := shipment.Revision
 	now := s.now()
 	if err := shipment.Transition(domain.StatusHandedOver, now); err != nil {

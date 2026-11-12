@@ -91,17 +91,19 @@ func (h *Router) quote(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Router) createShipment(w http.ResponseWriter, r *http.Request) {
+	headerKey, ok := requireIdempotencyKey(w, r)
+	if !ok {
+		return
+	}
 	var command domain.CreateShipmentCommand
 	if !decodeJSON(w, r, &command) {
 		return
 	}
-	if headerKey := strings.TrimSpace(r.Header.Get("Idempotency-Key")); headerKey != "" {
-		if command.IdempotencyKey != "" && command.IdempotencyKey != headerKey {
-			writeError(w, http.StatusBadRequest, "IDEMPOTENCY_KEY_MISMATCH", "header and body idempotency keys differ")
-			return
-		}
-		command.IdempotencyKey = headerKey
+	if command.IdempotencyKey != "" && command.IdempotencyKey != headerKey {
+		writeError(w, http.StatusBadRequest, "IDEMPOTENCY_KEY_MISMATCH", "header and body idempotency keys differ")
+		return
 	}
+	command.IdempotencyKey = headerKey
 	shipment, err := h.service.CreateShipment(r.Context(), command)
 	if err != nil {
 		var providerErr *application.ProviderError
@@ -119,6 +121,9 @@ func (h *Router) createShipment(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Router) confirmHandover(w http.ResponseWriter, r *http.Request) {
+	if _, ok := requireIdempotencyKey(w, r); !ok {
+		return
+	}
 	id, err := uuid.Parse(chi.URLParam(r, "shipmentID"))
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_SHIPMENT_ID", "shipmentID must be a UUID")
@@ -138,6 +143,9 @@ type cancelShipmentRequest struct {
 }
 
 func (h *Router) cancelShipment(w http.ResponseWriter, r *http.Request) {
+	if _, ok := requireIdempotencyKey(w, r); !ok {
+		return
+	}
 	id, err := uuid.Parse(chi.URLParam(r, "shipmentID"))
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_SHIPMENT_ID", "shipmentID must be a UUID")
@@ -356,6 +364,25 @@ func (h *Router) requireInternalToken(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+func requireIdempotencyKey(w http.ResponseWriter, r *http.Request) (string, bool) {
+	key := strings.TrimSpace(r.Header.Get("Idempotency-Key"))
+	if key == "" {
+		writeError(w, http.StatusBadRequest, "IDEMPOTENCY_KEY_REQUIRED", "Idempotency-Key header is required")
+		return "", false
+	}
+	if len(key) < 16 || len(key) > 128 {
+		writeError(w, http.StatusBadRequest, "INVALID_IDEMPOTENCY_KEY", "Idempotency-Key must contain 16-128 printable ASCII characters without spaces")
+		return "", false
+	}
+	for _, character := range []byte(key) {
+		if character < 0x21 || character > 0x7e {
+			writeError(w, http.StatusBadRequest, "INVALID_IDEMPOTENCY_KEY", "Idempotency-Key must contain 16-128 printable ASCII characters without spaces")
+			return "", false
+		}
+	}
+	return key, true
 }
 
 func (h *Router) requestLog(next http.Handler) http.Handler {
