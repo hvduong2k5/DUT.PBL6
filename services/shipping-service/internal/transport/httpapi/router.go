@@ -213,10 +213,16 @@ func (h *Router) getShipment(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Router) listShipments(w http.ResponseWriter, r *http.Request) {
-	page := parsePositiveInt(r.URL.Query().Get("page"), 1)
-	pageSize := parsePositiveInt(r.URL.Query().Get("pageSize"), 20)
-	if pageSize > 100 {
-		pageSize = 100
+	page, validPage := parsePositiveInt(r.URL.Query().Get("page"), 1)
+	pageSize, validPageSize := parsePositiveInt(r.URL.Query().Get("pageSize"), 20)
+	if !validPage || !validPageSize || pageSize > 100 {
+		writeError(w, http.StatusBadRequest, "INVALID_PAGINATION", "page must be positive and pageSize must be between 1 and 100")
+		return
+	}
+	maxInt := int(^uint(0) >> 1)
+	if page-1 > maxInt/pageSize {
+		writeError(w, http.StatusBadRequest, "INVALID_PAGINATION", "page and pageSize exceed the supported offset range")
+		return
 	}
 	items, err := h.service.ListShipments(r.Context(), application.ListFilter{
 		Status:      domain.ShipmentStatus(r.URL.Query().Get("status")),
@@ -447,10 +453,13 @@ func decodeJSON(w http.ResponseWriter, r *http.Request, target any) bool {
 	return true
 }
 
-func parsePositiveInt(raw string, fallback int) int {
+func parsePositiveInt(raw string, fallback int) (int, bool) {
+	if raw == "" {
+		return fallback, true
+	}
 	value, err := strconv.Atoi(raw)
 	if err != nil || value <= 0 {
-		return fallback
+		return 0, false
 	}
-	return value
+	return value, true
 }

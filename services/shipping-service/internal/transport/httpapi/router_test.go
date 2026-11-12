@@ -369,6 +369,33 @@ func TestRetryableShipmentOperationsRequireIdempotencyHeader(t *testing.T) {
 	}
 }
 
+func TestListShipmentsRejectsOffsetOverflow(t *testing.T) {
+	repository := newHTTPMemoryRepository()
+	service := application.NewService(repository, carrier.NewRegistry(carrier.NewFake()))
+	handler := NewRouter(service, "internal-token", "fake-secret", "", zerolog.Nop())
+	tests := []struct {
+		name  string
+		query string
+	}{
+		{name: "offset overflow", query: fmt.Sprintf("page=%d&pageSize=100", int(^uint(0)>>1))},
+		{name: "non-numeric page", query: "page=abc"},
+		{name: "non-positive page", query: "page=0"},
+		{name: "page size over maximum", query: "pageSize=101"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodGet, "/api/v1/admin/shipping/shipments?"+test.query, nil)
+			request.Header.Set("Authorization", "Bearer internal-token")
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+			var body errorBody
+			if response.Code != http.StatusBadRequest || json.Unmarshal(response.Body.Bytes(), &body) != nil || body.Code != "INVALID_PAGINATION" {
+				t.Fatalf("invalid pagination must be rejected: status=%d body=%s", response.Code, response.Body.String())
+			}
+		})
+	}
+}
+
 func TestReadyEndpointReturnsCommonErrorWhenDatabaseIsUnavailable(t *testing.T) {
 	repository := newHTTPMemoryRepository()
 	repository.pingErr = errors.New("database connection refused")
