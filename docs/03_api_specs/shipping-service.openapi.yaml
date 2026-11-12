@@ -12,6 +12,7 @@ info:
     Version 2.2.0 rejects shipment-list pagination values that overflow the supported offset range.
     Version 2.3.0 rejects shipment-list status filters outside the declared enum.
     Version 2.4.0 maps carrier quote failures to 502 instead of internal errors.
+    Version 2.5.0 rejects JSON-body requests without the application/json media type.
 servers:
   - url: http://localhost:8012
     description: Local development only
@@ -74,6 +75,7 @@ paths:
               schema: { $ref: '#/components/schemas/Quote' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
         '422': { $ref: '#/components/responses/ValidationFailed' }
         '500': { $ref: '#/components/responses/InternalError' }
         '502': { $ref: '#/components/responses/BadGateway' }
@@ -104,6 +106,7 @@ paths:
               schema: { $ref: '#/components/schemas/Shipment' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/ValidationFailed' }
         '500': { $ref: '#/components/responses/InternalError' }
@@ -148,6 +151,7 @@ paths:
               schema: { $ref: '#/components/schemas/Shipment' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/ValidationFailed' }
@@ -188,6 +192,7 @@ paths:
               schema: { $ref: '#/components/schemas/LabelAccess' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/ValidationFailed' }
@@ -406,6 +411,11 @@ components:
   responses:
     BadRequest:
       description: Malformed JSON, invalid path identifier, or invalid input encoding
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    UnsupportedMediaType:
+      description: Request body must use the application/json media type
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }

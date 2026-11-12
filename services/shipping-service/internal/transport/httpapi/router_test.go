@@ -187,6 +187,44 @@ func TestQuoteMapsCarrierFailureToBadGateway(t *testing.T) {
 	}
 }
 
+func TestJSONEndpointsRejectUnsupportedContentType(t *testing.T) {
+	service := application.NewService(newHTTPMemoryRepository(), carrier.NewRegistry(carrier.NewFake()))
+	handler := NewRouter(service, "internal-token", "fake-secret", "", zerolog.Nop())
+	tests := []struct {
+		name        string
+		contentType string
+	}{
+		{name: "missing content type"},
+		{name: "non-json content type", contentType: "text/plain"},
+		{name: "malformed content type", contentType: "application/json; charset=\""},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodPost, "/api/v1/internal/shipping/quotes", strings.NewReader(`{}`))
+			request.Header.Set("Authorization", "Bearer internal-token")
+			if test.contentType != "" {
+				request.Header.Set("Content-Type", test.contentType)
+			}
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+			var body errorBody
+			if response.Code != http.StatusUnsupportedMediaType || json.Unmarshal(response.Body.Bytes(), &body) != nil ||
+				body.Code != "UNSUPPORTED_MEDIA_TYPE" || body.RequestID == "" {
+				t.Fatalf("expected common 415 error, got status=%d body=%s", response.Code, response.Body.String())
+			}
+		})
+	}
+
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/internal/shipping/quotes", strings.NewReader(`{}`))
+	request.Header.Set("Authorization", "Bearer internal-token")
+	request.Header.Set("Content-Type", "application/json; charset=utf-8")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code == http.StatusUnsupportedMediaType {
+		t.Fatalf("valid JSON media type with charset parameter should be accepted, got %s", response.Body.String())
+	}
+}
+
 func TestEmptyCollectionResponsesAreArrays(t *testing.T) {
 	repository := newHTTPMemoryRepository()
 	service := application.NewService(repository, carrier.NewRegistry(carrier.NewFake()))
