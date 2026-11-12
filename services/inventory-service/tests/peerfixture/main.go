@@ -2,6 +2,7 @@
 package main
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -9,6 +10,9 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"database/sql"
+	kafkainfra "dut-pbl6/inventory-service/internal/infrastructure/kafka"
+	"dut-pbl6/inventory-service/internal/infrastructure/postgres"
+	"dut-pbl6/inventory-service/internal/infrastructure/worker"
 	provider "dut-pbl6/inventory-service/internal/presentation/grpc"
 	api "dut-pbl6/inventory-service/pkg/proto/inventory/v1"
 	packing "dut-pbl6/inventory-service/pkg/proto/packing/v1"
@@ -22,6 +26,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -41,7 +46,7 @@ func main() {
 	defer func() { db.Exec("DROP SCHEMA " + schema + " CASCADE"); db.Close() }()
 	_, err = db.Exec("SET search_path TO " + schema + ", public")
 	must(err)
-	for _, name := range []string{"000001_init_inventory_schema.up.sql", "000002_terminal_profile.up.sql", "000003_packing_reads.up.sql"} {
+	for _, name := range []string{"000001_init_inventory_schema.up.sql", "000002_terminal_profile.up.sql", "000003_packing_reads.up.sql", "000004_stock_projection.up.sql"} {
 		b, e := os.ReadFile(filepath.Join("migrations", name))
 		must(e)
 		_, e = db.Exec(string(b))
@@ -65,9 +70,16 @@ func main() {
 	listener, err := net.Listen("tcp", bind)
 	must(err)
 	server := grpc.NewServer(grpc.Creds(credentials.NewTLS(&tls.Config{Certificates: []tls.Certificate{{Certificate: [][]byte{der}, PrivateKey: key}}, MinVersion: tls.VersionTLS12})))
-	terminal := &provider.TerminalServer{InventoryServiceServer: &api.UnimplementedInventoryServiceServer{}, DB: db, Token: os.Getenv("PEER_TOKEN")}
+	terminal := &provider.TerminalServer{InventoryServiceServer: &api.UnimplementedInventoryServiceServer{}, DB: db, Token: os.Getenv("PEER_TOKEN"), CatalogToken: os.Getenv("PEER_CATALOG_TOKEN")}
 	api.RegisterInventoryServiceServer(server, terminal)
 	packing.RegisterInventoryPackingInputsCandidateServer(server, &provider.PackingServer{Terminal: terminal, Token: os.Getenv("PEER_PACKING_TOKEN")})
+	if brokers := os.Getenv("PEER_KAFKA_BROKERS"); brokers != "" {
+		publisher := kafkainfra.NewKafkaProducer(strings.Split(brokers, ","))
+		defer publisher.Close()
+		outbox := worker.NewOutboxPublisherWorker(postgres.NewPostgresOutboxRepository(db), publisher)
+		must(outbox.Start(context.Background()))
+		defer outbox.Stop()
+	}
 	go func() { must(server.Serve(listener)) }()
 	must(os.WriteFile(os.Getenv("PEER_READY_FILE"), func() []byte { b, _ := json.Marshal(map[string]string{"address": listener.Addr().String()}); return b }(), 0600))
 	for {

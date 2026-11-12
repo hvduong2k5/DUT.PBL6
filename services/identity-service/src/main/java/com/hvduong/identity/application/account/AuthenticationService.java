@@ -1,8 +1,8 @@
 package com.hvduong.identity.application.account;
 
-import com.hvduong.identity.dto.response.AuthUrlResponse;
-import com.hvduong.identity.dto.response.BffCallbackResult;
-import com.hvduong.identity.dto.response.SessionResponse;
+import com.hvduong.identity.application.dto.response.AuthUrlResponse;
+import com.hvduong.identity.application.dto.response.BffCallbackResult;
+import com.hvduong.identity.application.dto.response.SessionResponse;
 import com.hvduong.identity.infrastructure.session.BffSession;
 
 import java.util.UUID;

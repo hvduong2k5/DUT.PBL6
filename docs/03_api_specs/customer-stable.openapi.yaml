@@ -140,13 +140,14 @@ paths:
           $ref: '#/components/responses/ServiceUnavailable'
   /api/v1/users/me/password:
     put:
+      operationId: putUsersMePassword
       summary: Tự đổi mật khẩu cá nhân
       description: Người dùng tự cập nhật mật khẩu của mình bằng cách xác thực mật
         khẩu hiện tại và cung cấp mật khẩu mới.
       tags:
-      - Account & Profile
+      - Authentication
       security:
-      - cookieAuth: []
+      - customerSession: []
       - bearerAuth: []
       requestBody:
         required: true
@@ -193,6 +194,7 @@ paths:
       - loading
       - success
       - error
+      security: []
       parameters:
       - name: redirect_uri
         in: query
@@ -256,6 +258,7 @@ paths:
       - loading
       - success
       - error
+      security: []
       parameters:
       - name: code
         in: query
@@ -301,6 +304,9 @@ paths:
       - loading
       - success
       - unauthorized
+      security:
+      - customerSession: []
+      - bearerAuth: []
       responses:
         '200':
           description: Current session state.
@@ -315,19 +321,23 @@ paths:
                     type: object
                     properties:
                       sessionId:
-                        type: string
-                        nullable: true
+                        type:
+                        - string
+                        - 'null'
                       principalId:
-                        type: string
-                        nullable: true
+                        type:
+                        - string
+                        - 'null'
                       email:
-                        type: string
-                        nullable: true
+                        type:
+                        - string
+                        - 'null'
                       authenticated:
                         type: boolean
                       expiresAt:
-                        type: string
-                        nullable: true
+                        type:
+                        - string
+                        - 'null'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '500':
@@ -340,6 +350,7 @@ paths:
       - Authentication
       operationId: postPublicAuthTokensRefresh
       summary: Làm mới phiên làm việc BFF
+      description: Làm mới phiên BFF (Refresh Token Rotation). Nếu phiên Keycloak đã bị thu hồi hoặc phiên BFF đã bị xóa khi thu hồi/giảm quyền (Force Re-login), BFF xóa phiên và trả về 401 để buộc đăng nhập lại.
       x-lifecycle: stable
       x-backlog:
       - EPIC_01
@@ -347,6 +358,9 @@ paths:
       - loading
       - success
       - unauthorized
+      security:
+      - customerSession: []
+      - bearerAuth: []
       responses:
         '200':
           description: Refreshed session.
@@ -388,6 +402,9 @@ paths:
       x-ui-states:
       - loading
       - success
+      security:
+      - customerSession: []
+      - bearerAuth: []
       responses:
         '200':
           description: Logged out successfully, cookie cleared.
@@ -421,6 +438,7 @@ paths:
       - loading
       - success
       - error
+      security: []
       requestBody:
         required: true
         content:

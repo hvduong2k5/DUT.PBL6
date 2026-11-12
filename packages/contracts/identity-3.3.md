@@ -3,7 +3,7 @@
 **Ngày cập nhật:** 31/10/2026  
 **Trạng thái:** Integration Contract — Target MVP 3.3  
 **Tài liệu quy chuẩn:** Bài giảng Thiết kế Hệ thống & Phân tích Nghiệp vụ — **Mục 3.3 & 3.3.1: Áp dụng thiết kế RESTful API**  
-**OpenAPI Spec tương ứng:** [`docs/03_api_specs/identity-service.openapi.yaml`](../../docs/03_api_specs/identity-service.openapi.yaml)  
+**OpenAPI Spec tương ứng:** [`docs/03_api_specs/admin-stable.openapi.yaml`](../../docs/03_api_specs/admin-stable.openapi.yaml), [`docs/03_api_specs/customer-stable.openapi.yaml`](../../docs/03_api_specs/customer-stable.openapi.yaml)  
 **Proto gRPC:** [`packages/proto/identity/v1/identity.proto`](../proto/identity/v1/identity.proto)
 
 ---

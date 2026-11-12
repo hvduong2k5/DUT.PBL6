@@ -1,9 +1,9 @@
 package com.hvduong.identity.application.account;
 
-import com.hvduong.identity.dto.common.PageResponse;
-import com.hvduong.identity.dto.response.AdminUserDetailResponse;
-import com.hvduong.identity.dto.response.AdminUserItemResponse;
-import com.hvduong.identity.dto.response.UserProfileResponse;
+import com.hvduong.identity.common.response.PageResponse;
+import com.hvduong.identity.application.dto.response.AdminUserDetailResponse;
+import com.hvduong.identity.application.dto.response.AdminUserItemResponse;
+import com.hvduong.identity.application.dto.response.UserProfileResponse;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -15,7 +15,22 @@ public interface UserLifecycleService {
 
     void reactivateAccount(UUID principalId, UUID actorPrincipalId);
 
-    PageResponse<AdminUserItemResponse> listUsers(String type, String status, int page, int size, UUID actorId);
+    default PageResponse<AdminUserItemResponse> listUsers(String type, String status, int page, int size, UUID actorId) {
+        return listUsers(type, status, null, null, null, null, null, page, size, actorId);
+    }
+
+    PageResponse<AdminUserItemResponse> listUsers(
+            String type,
+            String status,
+            UUID roleId,
+            String roleCode,
+            String scopeType,
+            String scopeId,
+            String search,
+            int page,
+            int size,
+            UUID actorId
+    );
 
     AdminUserDetailResponse getUserDetail(UUID principalId, UUID actorId);
 

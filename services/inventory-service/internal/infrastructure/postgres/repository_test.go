@@ -433,7 +433,7 @@ func TestPostgresInventoryRepository_GetBatchesNearExpiry(t *testing.T) {
 		"physical_qty", "reserved_qty", "status", "created_at",
 	}).AddRow(batchID, "LOT-001", "SKU-001", supplierID, now.Add(-30*24*time.Hour), now.Add(10*24*time.Hour), 100, 20, "ACTIVE", now)
 
-	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, batch_code, sku, supplier_id, mfg_date, exp_date, physical_qty, reserved_qty, status, created_at FROM batches WHERE status IN ('ACTIVE', 'NEAR_EXPIRY') AND exp_date <= $1 ORDER BY exp_date ASC LIMIT $2")).
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, batch_code, sku, supplier_id, mfg_date, exp_date, physical_qty, reserved_qty, status, created_at FROM batches WHERE (status = 'ACTIVE' AND exp_date <= $1) OR (status = 'NEAR_EXPIRY' AND exp_date <= statement_timestamp()) ORDER BY exp_date ASC LIMIT $2")).
 		WithArgs(threshold, 20).
 		WillReturnRows(rows)
 
@@ -446,6 +446,3 @@ func TestPostgresInventoryRepository_GetBatchesNearExpiry(t *testing.T) {
 
 	require.NoError(t, mock.ExpectationsWereMet())
 }
-
-
-

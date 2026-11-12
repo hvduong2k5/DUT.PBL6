@@ -1,8 +1,8 @@
 package com.hvduong.identity.api.account;
 
-import com.hvduong.identity.dto.common.ApiResponse;
-import com.hvduong.identity.dto.request.UpdateUserStatusRequest;
-import com.hvduong.identity.dto.response.UserProfileResponse;
+import com.hvduong.identity.common.response.ApiResponse;
+import com.hvduong.identity.application.dto.request.UpdateUserStatusRequest;
+import com.hvduong.identity.application.dto.response.UserProfileResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -27,7 +27,7 @@ public interface UserLifecycleApi {
     @SecurityRequirement(name = "bearerAuth")
     @PutMapping("/users/me/password")
     ResponseEntity<ApiResponse<Void>> changeOwnPassword(
-            @jakarta.validation.Valid @RequestBody com.hvduong.identity.dto.request.ChangePasswordRequest request,
+            @jakarta.validation.Valid @RequestBody com.hvduong.identity.application.dto.request.ChangePasswordRequest request,
             @AuthenticationPrincipal Jwt jwt,
             @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorHeader
     );

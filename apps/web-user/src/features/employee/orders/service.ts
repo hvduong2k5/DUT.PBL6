@@ -9,6 +9,11 @@ async function request<T>(path: string): Promise<T> {
 }
 
 export const adminOrderService = {
-  list() { return request<AdminOrderList>(""); },
+  list(cursor?: string, queue = false) {
+    const query = new URLSearchParams();
+    if (cursor) query.set("cursor", cursor);
+    if (queue) query.set("view", "queue");
+    return request<AdminOrderList>(query.size ? `?${query}` : "");
+  },
   detail(orderId: string) { return request<AdminOrderDetail>(`/${encodeURIComponent(orderId)}`); }
 };

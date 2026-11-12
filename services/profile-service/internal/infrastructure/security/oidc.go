@@ -18,6 +18,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/omamx/profile-service/internal/config"
+	"github.com/omamx/profile-service/internal/domain"
 )
 
 type OIDCIdentity struct {
@@ -28,7 +29,7 @@ type OIDCIdentity struct {
 	expires, nextFetch                     time.Time
 }
 
-// NewOIDCIdentity opts into the same signed Customer token profile as Order.
+// NewOIDCIdentity verifies signed staff snapshots and legacy customer personas.
 // Internal callers retain their separate credential; invalid bearer never falls back.
 func NewOIDCIdentity(c *config.Config) (*OIDCIdentity, error) {
 	if c.AuthMode == "" || c.AuthMode == "internal" {
@@ -39,6 +40,13 @@ func NewOIDCIdentity(c *config.Config) (*OIDCIdentity, error) {
 	}
 	if c.AuthMode != "keycloak" || c.OIDCIssuer == "" || c.OIDCAudience == "" {
 		return nil, errors.New("Profile requires keycloak mode, issuer and audience")
+	}
+	if c.IdentityURL == "" {
+		u, err := url.Parse(c.OIDCIssuer)
+		localTest := err == nil && u != nil && c.OIDCAllowLocalHTTP && (u.Hostname() == "localhost" || net.ParseIP(u.Hostname()).IsLoopback())
+		if !localTest {
+			return nil, errors.New("keycloak requires IDENTITY_URL for legacy customer persona verification")
+		}
 	}
 	jwks := c.OIDCJWKSURL
 	if jwks == "" {
@@ -59,21 +67,23 @@ func NewOIDCIdentity(c *config.Config) (*OIDCIdentity, error) {
 }
 
 type Principal struct {
-	ID   string
-	Role string
+	ID     string
+	Role   string
+	Grants []domain.PermissionGrant
 }
 
 var ErrUnauthorized = errors.New("UNAUTHENTICATED")
 var ErrCustomerRequired = errors.New("CUSTOMER_REQUIRED")
 var ErrIdentityUnavailable = errors.New("IDENTITY_UNAVAILABLE")
+var ErrPrincipalForbidden = errors.New("PRINCIPAL_FORBIDDEN")
+var ErrStaffTokenRequired = errors.New("STAFF_TOKEN_REQUIRED")
 
 type customerClaims struct {
 	jwt.RegisteredClaims
-	UserID      string `json:"user_id"`
-	Type        string `json:"typ"`
-	RealmAccess struct {
-		Roles []string `json:"roles"`
-	} `json:"realm_access"`
+	staffAuthorizationClaims
+	UserID        string `json:"user_id"`
+	Type          string `json:"typ"`
+	PrincipalType string `json:"principal_type"`
 }
 
 func (v *OIDCIdentity) Authenticate(ctx context.Context, bearer string) (Principal, error) {
@@ -100,6 +110,13 @@ func (v *OIDCIdentity) Authenticate(ctx context.Context, bearer string) (Princip
 	if err != nil || id == uuid.Nil {
 		return Principal{}, denied
 	}
+	grants, staff, err := claims.staffGrants()
+	if err != nil {
+		return Principal{}, denied
+	}
+	if staff {
+		return Principal{ID: id.String(), Role: "EMPLOYEE", Grants: grants}, nil
+	}
 	if v.identityURL != "" {
 		req, err := http.NewRequestWithContext(ctx, "GET", v.identityURL+"/api/v1/users/me", nil)
 		if err != nil {
@@ -113,6 +130,9 @@ func (v *OIDCIdentity) Authenticate(ctx context.Context, bearer string) (Princip
 		defer resp.Body.Close()
 		if resp.StatusCode == 401 {
 			return Principal{}, denied
+		}
+		if resp.StatusCode == 403 {
+			return Principal{}, ErrCustomerRequired
 		}
 		if resp.StatusCode != 200 {
 			return Principal{}, ErrIdentityUnavailable
@@ -133,16 +153,23 @@ func (v *OIDCIdentity) Authenticate(ctx context.Context, bearer string) (Princip
 		if json.Unmarshal(raw, &envelope) != nil || !envelope.Success || envelope.Data.ID != id.String() || envelope.Data.Subject != claims.Subject {
 			return Principal{}, ErrIdentityUnavailable
 		}
-		if envelope.Data.Type != "CUSTOMER" || envelope.Data.Status != "ACTIVE" {
+		if envelope.Data.Status != "ACTIVE" {
+			return Principal{}, ErrCustomerRequired
+		}
+		if envelope.Data.Type == "EMPLOYEE" {
+			return Principal{}, ErrStaffTokenRequired
+		}
+		if envelope.Data.Type != "CUSTOMER" {
 			return Principal{}, ErrCustomerRequired
 		}
 	}
-	for _, role := range claims.RealmAccess.Roles {
-		if role == "CUSTOMER" {
-			// sub belongs to Keycloak; user_id is Identity's immutable principal UUID.
-			// CustomerID is deliberately left empty until Profile.Resolve proves it.
-			return Principal{ID: id.String(), Role: "CUSTOMER"}, nil
-		}
+	if claims.PrincipalType == "EMPLOYEE" {
+		return Principal{}, ErrStaffTokenRequired
+	}
+	if claims.PrincipalType == "CUSTOMER" {
+		// sub belongs to Keycloak; user_id is Identity's immutable principal UUID.
+		// CustomerID is deliberately left empty until Profile.Resolve proves it.
+		return Principal{ID: id.String(), Role: "CUSTOMER"}, nil
 	}
 	return Principal{}, denied
 }

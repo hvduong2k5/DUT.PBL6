@@ -21,7 +21,7 @@ Invoke-RestMethod http://localhost:18002/health/ready
 
 Compose này chỉ mở read/health skeleton với gates mặc định tắt; không seed task giả và không gọi tiền/carrier. PostgreSQL private, migration job chạy trước API, chỉ ports API bind localhost. Muốn gọi staff API, cung cấp issuer và RSA PEM public key được mount trong `local-keys/`, cấu hình `FULFILLMENT_JWT_PUBLIC_KEY=/keys/public.pem`. Private keys không đưa vào repo/image.
 
-Profile tích hợp dùng `FULFILLMENT_STAFF_AUDIENCE=omama-api`, `user_id` UUID và `IDENTITY_URL`; không yêu cầu thêm permission/warehouse claim vào token hiện tại. Quyền staff lấy từ Identity `/api/v1/users/me`, Customer bị chặn kể cả có role ADMIN. Ba liên kết Order/Fulfillment/Inventory dùng token-file riêng, tối thiểu 32 byte. Legacy JWT claim profile chỉ dành cho kiểm thử nền khi không bật integrated-v2. Runtime pin public key qua file, rotation bằng config/deploy.
+Profile tích hợp dùng `FULFILLMENT_STAFF_AUDIENCE=omama-api` và `user_id` UUID. Quyền staff lấy từ claim `permission_grants` trong JWT — chuỗi `PERM#SCOPE_TYPE[#SCOPE_ID]` do Identity đồng bộ lên Keycloak; service không gọi `/api/v1/users/me` theo từng request nữa. Token không mang claim `permission_grants` (ví dụ token Customer) bị chặn, và chỉ các grant `FULFILLMENT_*` có hiệu lực tại service này. Ba liên kết Order/Fulfillment/Inventory dùng token-file riêng, tối thiểu 32 byte. Runtime pin public key qua file, rotation bằng config/deploy.
 
 Xem [.env.example](.env.example) cho biến cấu hình khi chạy binary/Compose override. Base Compose không tự bật các biến peer/media từ shell. Để tích hợp, thêm override khai báo đúng env/endpoints/keys/brokers trong private network của team; không trỏ provider vào random service root.
 

@@ -56,7 +56,7 @@ func TestKeycloakCartHTTPIsolation(t *testing.T) {
 		rdb.Set("cart:"+(domain.Principal{ID: id, Role: "CUSTOMER"}).Scope(), string(body))
 	}
 	token := func(id string) string {
-		v := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{"iss": jwks.URL, "aud": "order-api", "sub": uuid.NewString(), "user_id": id, "typ": "Bearer", "iat": time.Now().Add(-time.Minute).Unix(), "exp": time.Now().Add(time.Hour).Unix(), "realm_access": map[string]any{"roles": []string{"CUSTOMER"}}})
+		v := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{"iss": jwks.URL, "aud": "order-api", "sub": uuid.NewString(), "user_id": id, "typ": "Bearer", "iat": time.Now().Add(-time.Minute).Unix(), "exp": time.Now().Add(time.Hour).Unix(), "principal_type": "CUSTOMER"})
 		v.Header["kid"] = "test"
 		signed, err := v.SignedString(k)
 		if err != nil {

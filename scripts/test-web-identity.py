@@ -32,6 +32,7 @@ from mvp_native_checks import native_identity
 from mvp_customer_checks import profile_addresses
 from mvp_customer_checks import checkout_shipping
 import mvp_fulfillment_checks as fulfillment_checks
+import profile_order_authorization_checks
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -63,6 +64,8 @@ def main():
     folder.mkdir(parents=True, exist_ok=True)
     for transient in ["stop", "ready.json", "result.json", "failure.json"]:
         (folder / transient).unlink(missing_ok=True)
+    for log_file in folder.glob("*.log"):
+        log_file.unlink(missing_ok=True)
     suffix = uuid.uuid4().hex[:10]
     names, processes, logs = [], [], []
     env = os.environ.copy()
@@ -120,7 +123,9 @@ def main():
         )
 
     def start(command, name, cwd=ROOT):
-        log = (folder / (name + ".log")).open("w", encoding="utf-8")
+        log = (folder / (name + ".log")).open("a", encoding="utf-8")
+        log.write(f"\n=== Process '{name}' started: {command} ===\n")
+        log.flush()
         logs.append(log)
         process = subprocess.Popen(
             [str(x) for x in command],
@@ -182,16 +187,117 @@ def main():
             )
             return response.status, body, response.headers
 
-    def wait(url, expected=200, seconds=90):
-        deadline = time.monotonic() + seconds
+    def wait_port_free(host, port, timeout=30):
+        """Wait until a TCP port is no longer accepting connections."""
+        import socket
+        deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(0.5)
             try:
-                if request(url)[0] == expected:
-                    return
+                s.connect((host, port))
+                s.close()
+                time.sleep(0.25)
             except (OSError, ValueError):
-                pass
+                s.close()
+                return True
+        return False
+
+    def kill_process_on_port(port, timeout=30):
+        """Find and kill any process listening on the given TCP port (Linux /proc).
+
+        Checks both /proc/net/tcp (IPv4) and /proc/net/tcp6 (IPv6/dual-stack),
+        mapping port -> socket inode, then matching inode against /proc/*/fd/*
+        symlinks to find the owning PID and sending SIGKILL.
+        """
+        import glob
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            killed = False
+            for proc_net_file in ["/proc/net/tcp", "/proc/net/tcp6"]:
+                try:
+                    with open(proc_net_file, "r") as f:
+                        for line in f:
+                            parts = line.split()
+                            if len(parts) < 10:
+                                continue
+                            local_addr = parts[1]
+                            state = parts[3]
+                            inode = parts[9]
+                            if ":" in local_addr:
+                                try:
+                                    hex_port = local_addr.rsplit(":", 1)[1]
+                                    if int(hex_port, 16) == port and state == "0A":  # 0A = LISTEN
+                                        target = f"socket:[{inode}]"
+                                        for pid_dir in glob.glob("/proc/[0-9]*/fd/*"):
+                                            try:
+                                                if os.readlink(pid_dir) == target:
+                                                    pid = int(pid_dir.split("/")[2])
+                                                    try:
+                                                        os.kill(pid, signal.SIGKILL)
+                                                        killed = True
+                                                    except Exception:
+                                                        pass
+                                            except Exception:
+                                                pass
+                                except ValueError:
+                                    pass
+                except Exception:
+                    pass
+            if not killed:
+                return True
+            time.sleep(0.5)
+        return False
+
+    def wait(url, expected=200, seconds=90, process=None):
+        deadline = time.monotonic() + seconds
+        last_status = None
+        last_body = None
+        last_print = time.monotonic()
+        while time.monotonic() < deadline:
+            if process is not None and process.poll() is not None:
+                raise RuntimeError(
+                    f"Process died with exit code {process.returncode} while waiting for {url}"
+                )
+            try:
+                res = request(url)
+                last_status = res[0]
+                last_body = res[1]
+                if last_status == expected:
+                    return
+            except (OSError, ValueError) as err:
+                last_status = str(err)
+            if time.monotonic() - last_print >= 10:
+                print(f"[WAIT] {url}: current status={last_status}, body={str(last_body)[:100]}", flush=True)
+                last_print = time.monotonic()
+            time.sleep(0.5)
+        raise RuntimeError(
+            f"Fixture not ready: {urllib.parse.urlparse(url).path} (last status: {last_status}, body: {str(last_body)[:200]})"
+        )
+
+    def wait_process_exit(process, timeout=15):
+        """Wait for a subprocess to exit; force kill it if it does not exit in time."""
+        # Give process up to 5s to shut down gracefully after SIGTERM.
+        grace_deadline = time.monotonic() + min(5, timeout)
+        while time.monotonic() < grace_deadline:
+            if process.poll() is not None:
+                return True
             time.sleep(0.25)
-        raise RuntimeError("Fixture not ready: " + urllib.parse.urlparse(url).path)
+        # Force kill the process group (Java may have non-daemon threads).
+        try:
+            pgid = os.getpgid(process.pid)
+            os.killpg(pgid, signal.SIGKILL)
+        except Exception:
+            try:
+                process.kill()
+            except Exception:
+                pass
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if process.poll() is not None:
+                return True
+            time.sleep(0.25)
+        return process.poll() is not None
 
     db_name = "web_identity"
     db_container = "codex-web-db-" + suffix
@@ -320,6 +426,9 @@ def main():
             "shipping.events.v1",
             "order.events.v3",
             "order.sources.v1",
+            "inventory.events.v1",
+            "inventory.stock-changed.v1",
+            "inventory.stock-changed.v1.DLT",
             "fulfillment.task.events.v1", "fulfillment.events.v2",
         ]:
             run(
@@ -344,7 +453,7 @@ def main():
         template = json.loads(
             (
                 ROOT
-                / "services/identity-service/deploy/keycloak/realm-export.template.json"
+                / "services/keycloak-service/realm-export.template.json"
             ).read_text(encoding="utf-8")
         )
         template.update(
@@ -385,7 +494,7 @@ def main():
                 "-v",
                 str(realm_file) + ":/opt/keycloak/data/import/realm.json:ro",
                 "-v",
-                str(ROOT / "services/identity-service/deploy/keycloak/themes/omama")
+                str(ROOT / "services/keycloak-service/themes/omama")
                 + ":/opt/keycloak/themes/omama:ro",
                 "quay.io/keycloak/keycloak:24.0.5",
                 "start-dev",
@@ -438,14 +547,19 @@ def main():
             base + "/admin/realms/" + realm + "/users/profile", token=admin_token
         )
         assert status == 200
-        profile["attributes"].append(
-            json.loads(
-                (
-                    ROOT
-                    / "services/identity-service/deploy/keycloak/order-user-profile-attribute.json"
-                ).read_text()
-            )
+        app_user_id_declaration = json.loads(
+            (
+                ROOT
+                / "services/keycloak-service/order-user-profile-attribute.json"
+            ).read_text()
         )
+        # The realm template may already declare app_user_id; appending a
+        # second attribute with the same name would invalidate the update.
+        if all(
+            attribute.get("name") != app_user_id_declaration["name"]
+            for attribute in profile["attributes"]
+        ):
+            profile["attributes"].append(app_user_id_declaration)
         assert (
             request(
                 base + "/admin/realms/" + realm + "/users/profile",
@@ -455,10 +569,6 @@ def main():
             )[0]
             == 200
         )
-        status, roles, _ = request(
-            base + "/admin/realms/" + realm + "/roles/CUSTOMER", token=admin_token
-        )
-        assert status == 200
         for account in accounts.values():
             status, _, headers = request(
                 base + "/admin/realms/" + realm + "/users",
@@ -469,7 +579,12 @@ def main():
                     "lastName": "Customer",
                     "enabled": True,
                     "emailVerified": True,
-                    "attributes": {"app_user_id": [account["principal"]]},
+                    "attributes": {
+                        "app_user_id": [account["principal"]],
+                        "principal_type": [
+                            "EMPLOYEE" if account is accounts["E"] else "CUSTOMER"
+                        ],
+                    },
                     "credentials": [
                         {
                             "type": "password",
@@ -483,20 +598,6 @@ def main():
             )
             assert status == 201
             account["subject"] = headers["Location"].rsplit("/", 1)[1]
-            assert (
-                request(
-                    base
-                    + "/admin/realms/"
-                    + realm
-                    + "/users/"
-                    + account["subject"]
-                    + "/role-mappings/realm",
-                    [roles],
-                    admin_token,
-                    "POST",
-                )[0]
-                == 204
-            )
 
         env.update(
             DB_HOST="127.0.0.1",
@@ -535,7 +636,8 @@ def main():
         catalog_url = f"http://127.0.0.1:{ports['catalog']}"
         env.update(SPRING_DATASOURCE_URL=f"jdbc:postgresql://127.0.0.1:{ports['db']}/{db_name}?currentSchema=catalog_live",
                    SERVER_PORT=str(ports['catalog']), GRPC_SERVER_PORT=str(ports['catalog_grpc']),
-                   SPRING_KAFKA_LISTENER_AUTO_STARTUP="false", CATALOG_OUTBOX_ENABLED="false",
+                   SPRING_KAFKA_LISTENER_AUTO_STARTUP="true", CATALOG_OUTBOX_ENABLED="false",
+                   KAFKA_BOOTSTRAP_SERVERS=f"127.0.0.1:{ports['kafka']}",
                    CATALOG_INTERNAL_TOKEN=env.get("WEB_TEST_INTERNAL_TOKEN", ""))
         catalog_token = secrets.token_urlsafe(32)
         env["CATALOG_INTERNAL_TOKEN"] = catalog_token
@@ -543,8 +645,8 @@ def main():
             run((["sh", gradle] if os.name != "nt" and gradle.endswith("gradlew") else [gradle]) + ["--no-daemon", "test", "bootJar"], ROOT / "services/catalog-service", stdout=log, stderr=log)
         catalog_jar = next(p for p in (ROOT / "services/catalog-service/build/libs").glob("*.jar") if "plain" not in p.name)
         catalog_environment=env.copy()
-        catalog_process=start([args.java, "-jar", catalog_jar], "catalog")
-        wait(catalog_url + "/api/v1/products")
+        catalog_process=start([args.java, "-Djava.net.preferIPv4Stack=true", "-jar", str(catalog_jar)], "catalog")
+        wait(catalog_url + "/api/v1/products", process=catalog_process)
         sql("""SET search_path TO catalog_live,public;
             INSERT INTO categories(id,name,slug,description,image_url) VALUES('10000000-0000-0000-0000-000000000001','Synthetic TEST category','test-category','','');
             INSERT INTO products(id,category_id,name,slug,description,story,approval_status,created_by) VALUES('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','Synthetic TEST SKU','test-product','Synthetic fixture','Synthetic fixture','APPROVED','synthetic-fixture');
@@ -631,6 +733,8 @@ def main():
         env.update(
             INVENTORY_TEST_DATABASE_URL=f"postgres://peer:{password}@127.0.0.1:{ports['db']}/{db_name}?sslmode=disable",
             PEER_TOKEN=secrets.token_urlsafe(32),
+            PEER_CATALOG_TOKEN=secrets.token_urlsafe(32),
+            PEER_KAFKA_BROKERS=f"127.0.0.1:{ports['kafka']}",
             PEER_CA_FILE=str(folder / "inventory-ca.pem"),
             PEER_READY_FILE=str(peer_ready),
             PEER_STOP_FILE=str(folder / "inventory-stop"),
@@ -660,6 +764,32 @@ def main():
             # container must be able to read this public trust anchor on Linux.
             (folder / "inventory-ca.pem").chmod(0o644)
         (folder / "inventory-token").write_text(env["PEER_TOKEN"])
+        (folder / "inventory-catalog-token").write_text(env["PEER_CATALOG_TOKEN"])
+        inventory_schema = (
+            sql("SELECT nspname FROM pg_namespace WHERE nspname LIKE 'peer_%';", tuples=True).strip()
+        )
+        assert re.fullmatch(r"peer_[a-f0-9-]{36}", inventory_schema), "Unexpected Inventory fixture schema"
+
+        def inventory_projection(expected):
+            observation = None
+            deadline = time.monotonic() + 90
+            while time.monotonic() < deadline:
+                observation = json.loads(sql(
+                    f"""SELECT json_build_object('quantity',p.sellable_quantity,'version',p.inventory_version,
+                    'source_version',i.inventory_version)
+                    FROM "{inventory_schema}".inventory_items i
+                    LEFT JOIN catalog_live.sku_stock_projection p ON p.sku_code=i.sku
+                    WHERE i.sku='PEER';""", tuples=True,
+                ))
+                if observation["quantity"] == expected and observation["version"] == observation["source_version"]:
+                    return observation
+                time.sleep(0.25)
+            raise AssertionError(("Inventory Kafka projection did not converge", expected, observation))
+
+        inventory_projection(100)
+        status, detail, _ = request(catalog_url + "/api/v1/products/test-product")
+        assert status == 200 and detail["variants"][0]["stock_available"] == 100, ("Catalog Kafka display", status, detail)
+        print("PASS: real Inventory outbox -> Kafka -> Java Catalog consumer -> public stock display", flush=True)
         # Revalidation must fail on a changed price, future price, or unapproved parent product.
         headers={"X-Internal-Token":catalog_token}
         selection={"items":[{"sku_code":"PEER","quantity":1}],"channel":"D2C_WEB"}
@@ -676,14 +806,67 @@ def main():
         sql("UPDATE catalog_live.products SET approval_status='APPROVED',version=version+1;")
         print("PASS: real Catalog rejects missing credentials, stale snapshots, future prices and unapproved products",flush=True)
         # Catalog reads live display availability from the authenticated TLS Inventory API.
+        # Restart catalog with inventory peer target for live availability lookup.
         catalog_process.terminate()
-        catalog_process.wait(timeout=20)
-        caller_environment=env.copy()
-        env.clear();env.update(catalog_environment)
-        env.update(IDENTITY_URL=caller_environment["IDENTITY_URL"], CATALOG_INVENTORY_TARGET=peer_address, CATALOG_INVENTORY_TOKEN_FILE=str(folder / "inventory-token"), CATALOG_INVENTORY_CA_FILE=str(folder / "inventory-ca.pem"), CATALOG_INVENTORY_SERVER_NAME="localhost")
-        start([args.java, "-jar", catalog_jar], "catalog")
-        env.clear();env.update(caller_environment)
-        wait(catalog_url + "/api/v1/products")
+        if not wait_process_exit(catalog_process, timeout=15):
+            print("WARNING: catalog process did not exit gracefully; force killed", flush=True)
+        # Wait for both HTTP and gRPC TCP ports to be released before restarting.
+        for p in [ports["catalog"], ports["catalog_grpc"]]:
+            if not wait_port_free("127.0.0.1", p, timeout=15):
+                print(f"WARNING: port {p} still in use; killing socket holder", flush=True)
+                kill_process_on_port(p, timeout=10)
+        caller_environment = env.copy()
+        catalog_restart_env = catalog_environment.copy()
+        inventory_ca = folder / "inventory-ca.pem"
+        inventory_token = folder / "inventory-catalog-token"
+        ca_ok = inventory_ca.exists() and inventory_ca.stat().st_size > 0
+        token_ok = inventory_token.exists() and inventory_token.stat().st_size >= 32
+        if ca_ok and token_ok and peer_address:
+            catalog_restart_env.update(
+                IDENTITY_URL=caller_environment["IDENTITY_URL"],
+                CATALOG_INVENTORY_TARGET=peer_address,
+                CATALOG_INVENTORY_TOKEN_FILE=str(inventory_token),
+                CATALOG_INVENTORY_CA_FILE=str(inventory_ca),
+                CATALOG_INVENTORY_SERVER_NAME="localhost",
+            )
+        else:
+            print(f"WARNING: skipping Inventory TLS env (ca_ok={ca_ok}, token_ok={token_ok}, peer_address={peer_address}); catalog will start without live Inventory lookup", flush=True)
+        env.clear(); env.update(catalog_restart_env)
+        catalog_cmd = [args.java, "-Djava.net.preferIPv4Stack=true", "-jar", str(catalog_jar)]
+        catalog_process = start(catalog_cmd, "catalog")
+        env.clear(); env.update(caller_environment)
+        try:
+            wait(catalog_url + "/api/v1/products", seconds=60, process=catalog_process)
+        except RuntimeError as restart_err:
+            # One retry: force kill, wait port, restart with catalog_restart_env, wait again.
+            print(f"WARNING: catalog not ready on first restart ({restart_err}); retrying once", flush=True)
+            catalog_process.terminate()
+            if not wait_process_exit(catalog_process, timeout=15):
+                print("WARNING: catalog process still alive after retry kill", flush=True)
+            time.sleep(2)
+            for p in [ports["catalog"], ports["catalog_grpc"]]:
+                if not wait_port_free("127.0.0.1", p, timeout=15):
+                    kill_process_on_port(p, timeout=10)
+            env.clear(); env.update(catalog_restart_env)
+            catalog_process = start(catalog_cmd, "catalog")
+            env.clear(); env.update(caller_environment)
+            wait(catalog_url + "/api/v1/products", seconds=90, process=catalog_process)
+        # Compare the live gRPC display against the separately persisted Kafka projection.
+        for mutation, expected in (
+            ("UPDATE batches SET status='QUARANTINE' WHERE sku='PEER'", 0),
+            ("UPDATE batches SET status='ACTIVE' WHERE sku='PEER'", 100),
+            ("UPDATE batches SET exp_date=CURRENT_DATE WHERE sku='PEER'", 0),
+            ("UPDATE batches SET exp_date=CURRENT_DATE+30 WHERE sku='PEER'", 100),
+            ("UPDATE inventory_items SET status='SUSPENDED' WHERE sku='PEER'", 0),
+            ("UPDATE inventory_items SET status='ACTIVE' WHERE sku='PEER'", 100),
+            ("UPDATE inventory_items SET reserved_qty=2 WHERE sku='PEER'; UPDATE batches SET reserved_qty=2 WHERE sku='PEER'", 98),
+            ("UPDATE inventory_items SET reserved_qty=0 WHERE sku='PEER'; UPDATE batches SET reserved_qty=0 WHERE sku='PEER'", 100),
+        ):
+            sql(f'SET search_path TO "{inventory_schema}",public; BEGIN; {mutation}; COMMIT;')
+            inventory_projection(expected)
+            status, detail, _ = request(catalog_url + "/api/v1/products/test-product")
+            assert status == 200 and detail["variants"][0]["stock_available"] == expected, ("Live/projection mismatch", mutation, detail)
+        print("PASS: live Inventory TLS and Kafka stock agree for quarantine, expiry, inactive SKU and reservations", flush=True)
         shipping_token = secrets.token_urlsafe(32)
         shipping_webhook = secrets.token_urlsafe(32)
         env.update(
@@ -831,6 +1014,42 @@ def main():
         print("PASS: native PKCE/JSON callback, app-bound state, refresh/logout and direct bearer Customer/Employee gates",flush=True)
         real_packing = None
         if args.fulfillment:
+            # The ADMIN assignment for this Employee was inserted directly
+            # into the DB (mvp_fulfillment_checks.prepare), bypassing
+            # Identity's assignment API, so the Keycloak attribute sync
+            # never ran. Project the DB truth onto the Keycloak user
+            # exactly as PermissionSyncService formats it, so the staff
+            # tokens minted below carry permission_grants — Fulfillment
+            # authorizes staff from that claim alone since the grants
+            # migration. The projection is removed again before the
+            # authorization checks at the end of the run, which expect
+            # this account's real-login token to be a grant-less legacy
+            # snapshot.
+            status, fixture_admin, _ = request(base + "/realms/master/protocol/openid-connect/token",
+                {"grant_type": "password", "client_id": "admin-cli", "username": "admin", "password": admin_password}, form=True)
+            assert status == 200, "Fixture administrator unavailable"
+            grant_rows = sql("SELECT DISTINCT rp.permission_code || '#' || ra.scope_type || CASE WHEN ra.scope_id IS NOT NULL AND ra.scope_id <> '' THEN '#' || ra.scope_id ELSE '' END FROM identity.iam_role_assignments ra JOIN identity.iam_roles r ON r.role_id = ra.role_id AND r.is_enabled = TRUE JOIN identity.iam_role_permissions rp ON rp.role_id = ra.role_id WHERE ra.principal_id = '" + accounts["E"]["principal"] + "' AND ra.assignment_status = 'ACTIVE' AND ra.valid_from <= now() AND (ra.valid_until IS NULL OR ra.valid_until > now()) ORDER BY 1;", tuples=True)
+            # Keycloak silently drops user attributes that are not
+            # declared in the realm user profile (verified on 24.0.5):
+            # declare the grant attribute before writing it,
+            # the same way app_user_id is declared at realm setup.
+            status, realm_profile, _ = request(admin_api + "/users/profile", token=fixture_admin["access_token"])
+            assert status == 200, "Fixture realm profile lookup failed"
+            declared = {attribute["name"] for attribute in realm_profile["attributes"]}
+            for attribute_name in ("permission_grants",):
+                if attribute_name not in declared:
+                    realm_profile["attributes"].append({
+                        "name": attribute_name, "displayName": attribute_name, "multivalued": True,
+                        "permissions": {"view": ["admin"], "edit": ["admin"]},
+                    })
+            if "permission_grants" not in declared:
+                assert request(admin_api + "/users/profile", realm_profile, fixture_admin["access_token"], "PUT")[0] == 200, "Fixture realm profile declaration failed"
+            status, kc_user, _ = request(admin_api + "/users/" + accounts["E"]["subject"], token=fixture_admin["access_token"])
+            assert status == 200, "Fixture employee lookup failed"
+            kc_user.setdefault("attributes", {}).update({
+                "permission_grants": [row for row in grant_rows.splitlines() if row],
+            })
+            assert request(admin_api + "/users/" + accounts["E"]["subject"], kc_user, fixture_admin["access_token"], "PUT")[0] == 204, "Fixture grant projection failed"
             staff_session=native_identity(request,gateway,issuer,profile_url,f"http://127.0.0.1:{ports['order']}",accounts['E'],account_password,True,retain=True)
             customer_session=native_identity(request,gateway,issuer,profile_url,f"http://127.0.0.1:{ports['order']}",accounts['A'],account_password,False,retain=True)
             fulfillment_checks.pack.storage_port=ports['storage']
@@ -845,7 +1064,7 @@ def main():
             def handoff(order_id):
                 return json.loads(sql(f"SELECT json_build_object('hash',h.request_hash,'attempts',h.attempts,'shipment_id',h.shipment_id,'shipments',(SELECT count(*) FROM shipping.shipments s WHERE s.order_id=h.order_id::text)) FROM orders.fulfillment_shipping_handoffs h WHERE h.order_id='{uuid.UUID(order_id)}';",tuples=True) or "null")
             def real_packing(order_id, order_until):
-                return fulfillment_checks.pack(request,gateway,staff_session['accessToken'],customer_session['accessToken'],folder,order_id,order_until,shipping_url,shipping_token,f"http://127.0.0.1:{ports['control']}",run,fulfillment_scanner,shipping_control,handoff)
+                return fulfillment_checks.pack(request,gateway,staff_session['accessToken'],customer_session['accessToken'],folder,order_id,order_until,shipping_url,shipping_token,f"http://127.0.0.1:{ports['control']}",run,fulfillment_scanner,shipping_control,handoff,web,staff_session['sessionId'],customer_session['sessionId'])
         foreign_address = None
         registration = {
             "email": f"registered-{suffix}@example.test",
@@ -1002,6 +1221,8 @@ def main():
             "gateway": gateway,
             "identity": identity_url,
             "profile": profile_url,
+            "control": f"http://127.0.0.1:{ports['control']}",
+            "shipping": shipping_url,
             "issuer": issuer,
             "accounts": accounts,
             "password": account_password,
@@ -1323,6 +1544,7 @@ def main():
             "batch_reserved": 0,
             "events": 1,
         }, ("Inventory did not reserve/release/commit exactly once", stock)
+        inventory_projection(98)
         assert "(2 rows)" in sql("SELECT id FROM orders.orders;")
         mobile_client_runtime="NOT_RUN"
         if args.flutter:
@@ -1336,6 +1558,27 @@ def main():
             assert after == {"physical":98,"reserved":0}, ("Native cancellation did not release Inventory",after)
             mobile_client_runtime="PASS"
             print("PASS: native Dart runtime -> real Catalog/Profile/cart/quote/checkout/replay/order/payment instructions/cancel -> Inventory released",flush=True)
+        # Drop the grants projected onto the fixture Employee for the
+        # Fulfillment section above: the authorization checks below
+        # expect this account's real-login token to be a grant-less
+        # legacy snapshot.
+        status, fixture_admin, _ = request(base + "/realms/master/protocol/openid-connect/token",
+            {"grant_type": "password", "client_id": "admin-cli", "username": "admin", "password": admin_password}, form=True)
+        assert status == 200, "Fixture administrator unavailable"
+        status, kc_user, _ = request(admin_api + "/users/" + accounts["E"]["subject"], token=fixture_admin["access_token"])
+        assert status == 200, "Fixture employee lookup failed"
+        for attribute in ("permission_grants",):
+            kc_user.get("attributes", {}).pop(attribute, None)
+        assert request(admin_api + "/users/" + accounts["E"]["subject"], kc_user, fixture_admin["access_token"], "PUT")[0] == 204, "Fixture grant removal failed"
+        auth_staff = native_identity(request,gateway,issuer,profile_url,f"http://127.0.0.1:{ports['order']}",accounts['E'],account_password,True,retain=True)
+        auth_customer = native_identity(request,gateway,issuer,profile_url,f"http://127.0.0.1:{ports['order']}",accounts['A'],account_password,False,retain=True)
+        # Dedicated TEST clients stand in for the not-yet-implemented staff issuer.
+        status, fixture_admin, _ = request(base + "/realms/master/protocol/openid-connect/token",
+            {"grant_type": "password", "client_id": "admin-cli", "username": "admin", "password": admin_password}, form=True)
+        assert status == 200, "Disposable issuer administrator unavailable"
+        admin_token = fixture_admin["access_token"]
+        snapshot_issuer = profile_order_authorization_checks.fixture_issuer(request, admin_api, admin_token, issuer, accounts['E'], account_password)
+        profile_order_authorization_checks.verify(request,sql,identity_url,profile_url,f"http://127.0.0.1:{ports['order']}",auth_staff['accessToken'],auth_customer['accessToken'],accounts['E']['principal'],snapshot_issuer)
         result = {
             "status": "PASS",
             "head": subprocess.check_output(
@@ -1348,7 +1591,9 @@ def main():
             "flows": [
                 "native-identity-pkce-state-refresh-logout-and-persona-gates",
                 "real-catalog-public-snapshot-revalidation-and-inventory-display",
+                "inventory-outbox-kafka-catalog-projection-and-live-sellability-parity",
                 "profile-addresses-ownership-CAS",
+                "profile-order-TEST-issued-JWT-snapshots-HR-global-warehouse-PII-and-old-new-tokens",
                 "registration-outbox-kafka-provisioning-replay-transient-failure",
                 "checkout-inventory-reserve-cancel-release-payment-commit",
                 "shipping-revision-kafka-delivery-order-history",
@@ -1373,6 +1618,13 @@ def main():
             json.dumps({"type": type(error).__name__, "message": str(error)}),
             encoding="utf-8",
         )
+        print(f"\n!!! TEST RUN FAILED: {type(error).__name__}: {error} !!!\n", flush=True)
+        catalog_log = folder / "catalog.log"
+        if catalog_log.exists():
+            print("=== LAST 80 LINES OF CATALOG.LOG ===", flush=True)
+            for line in catalog_log.read_text(encoding="utf-8", errors="replace").splitlines()[-80:]:
+                print(line, flush=True)
+            print("=== END CATALOG.LOG ===", flush=True)
         if args.keep_running:
             import traceback
 

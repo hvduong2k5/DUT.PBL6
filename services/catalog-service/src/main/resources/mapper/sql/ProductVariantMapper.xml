@@ -14,8 +14,7 @@
         <result property="flavor"       column="flavor"/>
         <result property="packagingType" column="packaging_type"/>
         <result property="shelfLifeDays" column="shelf_life_days"/>
-        <result property="listingStatus" column="listing_status"
-                javaType="com.hvduong.catalog.common.enums.ListingStatus"/>
+        <result property="listingStatus" column="listing_status"/>
         <result property="version"      column="version"/>
         <result property="createdAt"    column="created_at"/>
         <result property="updatedAt"    column="updated_at"/>
@@ -32,6 +31,15 @@
         SELECT * FROM product_variants
         WHERE product_id = #{productId}
         ORDER BY created_at ASC
+    </select>
+
+    <select id="findByProductIds" resultMap="VariantResultMap">
+        SELECT * FROM product_variants
+        WHERE product_id IN
+        <foreach collection="productIds" item="productId" open="(" separator="," close=")">
+            #{productId}
+        </foreach>
+        ORDER BY product_id, created_at ASC
     </select>
 
     <select id="findBySkuCode" resultMap="VariantResultMap">
@@ -113,6 +121,7 @@
             flavor          = #{flavor},
             packaging_type  = #{packagingType}::packaging_type,
             shelf_life_days = #{shelfLifeDays},
+            listing_status  = #{listingStatus}::variant_listing_status,
             version         = version + 1,
             updated_at      = NOW()
         WHERE id = #{id}

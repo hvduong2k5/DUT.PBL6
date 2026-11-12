@@ -25,6 +25,7 @@ on:
       - 'services/order-service/tests/webidentityfixture/**'
       - 'scripts/mvp_native_checks.py'
       - 'scripts/test-web-identity.py'
+      - 'scripts/profile_order_authorization_checks.py'
       - 'scripts/mvp_customer_checks.py'
       - '.github/workflows/web-identity.yml'
   push:
@@ -40,6 +41,7 @@ on:
       - 'services/api-gateway/**'
       - 'scripts/mvp_native_checks.py'
       - 'scripts/test-web-identity.py'
+      - 'scripts/profile_order_authorization_checks.py'
       - 'scripts/mvp_customer_checks.py'
       - 'services/shipping-service/**'
       - 'services/fulfillment-service/**'
@@ -68,8 +70,6 @@ jobs:
           distribution: temurin
           java-version: '21'
       - uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '9.2.0'
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -108,4 +108,5 @@ jobs:
             .system_generated/web-identity/fulfillment-container.log
             .system_generated/web-identity/identity-build.log
             .system_generated/web-identity/catalog-build.log
+            .system_generated/web-identity/catalog.log
             .system_generated/web-identity/mobile-live.log

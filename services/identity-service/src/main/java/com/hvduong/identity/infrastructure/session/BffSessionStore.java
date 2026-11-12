@@ -1,5 +1,6 @@
 package com.hvduong.identity.infrastructure.session;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
@@ -8,12 +9,23 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
 
 @Component
 public class BffSessionStore {
 
     private final Map<UUID, BffSession> sessions = new ConcurrentHashMap<>();
-    private static final Duration MAX_SESSION_IDLE = Duration.ofDays(30);
+    private final Map<UUID, ReentrantLock> sessionLocks = new ConcurrentHashMap<>();
+
+    @Value("${BFF_SESSION_IDLE_SECONDS:2592000}")
+    private long bffSessionIdleSeconds = 2592000L;
+
+    /**
+     * Get or create a session-specific ReentrantLock to prevent concurrent token refresh race conditions.
+     */
+    public ReentrantLock getLock(UUID sessionId) {
+        return sessionLocks.computeIfAbsent(sessionId, id -> new ReentrantLock());
+    }
 
     public BffSession createSession(String idpSubject, UUID principalId, String email, String accessToken, String refreshToken, long expiresIn, long refreshExpiresIn) {
         cleanExpired();
@@ -30,6 +42,8 @@ public class BffSessionStore {
                 .refreshTokenExpiresAt(now.plusSeconds(refreshExpiresIn))
                 .createdAt(now)
                 .lastAccessedAt(now)
+                .tokenVersion(1L)
+                .lastRotatedAt(now)
                 .build();
         sessions.put(sessionId, session);
         return session;
@@ -57,22 +71,44 @@ public class BffSessionStore {
             }
             session.setAccessTokenExpiresAt(now.plusSeconds(expiresIn));
             session.setLastAccessedAt(now);
+            session.setTokenVersion(session.getTokenVersion() + 1);
+            session.setLastRotatedAt(now);
         }
     }
 
     public void removeSession(UUID sessionId) {
         if (sessionId != null) {
             sessions.remove(sessionId);
+            sessionLocks.remove(sessionId);
         }
+    }
+
+    /**
+     * Remove all BFF sessions belonging to a principal (called on role revoke / permission reduce).
+     * This forces the client to re-authenticate and receive a fresh token with updated permissions.
+     */
+    public void removeSessionsByPrincipalId(UUID principalId) {
+        if (principalId == null) return;
+        sessions.entrySet().removeIf(e -> {
+            if (principalId.equals(e.getValue().getPrincipalId())) {
+                sessionLocks.remove(e.getKey());
+                return true;
+            }
+            return false;
+        });
     }
 
     private void cleanExpired() {
         Instant now = Instant.now();
+        Duration maxIdle = Duration.ofSeconds(bffSessionIdleSeconds);
         sessions.entrySet().removeIf(entry -> {
             BffSession s = entry.getValue();
-            boolean idleExpired = Duration.between(s.getLastAccessedAt(), now).compareTo(MAX_SESSION_IDLE) > 0;
-            return s.isRefreshTokenExpired() || idleExpired;
+            boolean idleExpired = Duration.between(s.getLastAccessedAt(), now).compareTo(maxIdle) > 0;
+            boolean expired = s.isRefreshTokenExpired() || idleExpired;
+            if (expired) {
+                sessionLocks.remove(entry.getKey());
+            }
+            return expired;
         });
     }
 }
-

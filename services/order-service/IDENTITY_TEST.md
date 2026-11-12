@@ -1,5 +1,7 @@
 # Ghép Order với Identity/Keycloak — lát cắt khách đăng nhập
 
+> Bổ sung phân quyền nhân viên theo [hướng dẫn Profile/Order](../../docs/06_operations/profile-order-api-authorization.md). Keycloak mode cần `IDENTITY_URL` để kiểm persona và permissionGrants; ngoại lệ thiếu Identity chỉ dành cho fixture JWT độc lập bật loopback TEST. Staff đọc đơn/hold/recovery dùng quyền theo kho; Finance vẫn có gate riêng. Các ghi chú chưa ánh xạ staff bên dưới thuộc lát cắt lịch sử.
+
 ## Thay đổi này làm được gì?
 
 Order có chế độ `ORDER_AUTH_MODE=keycloak`: kiểm access token RS256 từ Keycloak,
@@ -22,15 +24,16 @@ auth thật không biến cả hệ thống thành production-ready.
 Áp dụng nhánh companion `codex/identity-order-claims` lên nhánh Identity. Nhánh đó:
 
 - Truyền principal UUID do server tạo vào Keycloak attribute `app_user_id` khi đăng ký.
-- Gán realm role `CUSTOMER`, chỉ báo provisioning thành công khi bước này thành công.
+- Ghi attribute `principal_type=CUSTOMER`; Order/Profile nhận diện người mua bằng
+  claim này, không còn realm role `CUSTOMER`.
 - Thêm client scope `order-customer`: audience `order-api`, claim `user_id` lấy từ
-  `app_user_id`, mapper `realm_access.roles` và role scope mapping CUSTOMER; giữ
+  `app_user_id`, mapper `realm_access.roles` và mapper `principal_type`; giữ
   nguyên audience `omama-api` hiện tại. Không phụ thuộc scope `roles` có sẵn.
 
 Realm đã tồn tại **không tự thay đổi** khi sửa file template. Nhóm Identity phải áp
 dụng các mapper vào realm hiện tại và gắn scope vào client Web/Mobile dùng để test.
-Áp đủ cả ba mapper và role scope mapping; thiếu mapper role thì token vẫn đăng nhập
-được nhưng Order từ chối vì không có `realm_access.roles`.
+Áp đủ các mapper; thiếu mapper `principal_type` thì token vẫn đăng nhập
+được nhưng Order từ chối vì không xác định được loại principal.
 
 **Bắt buộc bảo vệ `app_user_id`:** cấu hình User Profile để chỉ admin/service account
 được sửa attribute này, người dùng không được sửa qua Account Console hoặc API.
@@ -47,7 +50,7 @@ Token access dùng cho Order phải có:
   "sub": "keycloak-subject",
   "user_id": "UUID-PRINCIPAL-NOI-BO",
   "typ": "Bearer",
-  "realm_access": {"roles": ["CUSTOMER"]},
+  "principal_type": "CUSTOMER",
   "iat": 0,
   "exp": 0
 }

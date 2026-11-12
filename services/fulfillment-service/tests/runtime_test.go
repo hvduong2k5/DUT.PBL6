@@ -109,7 +109,7 @@ func mustTask(t *testing.T, s *persistence.Store, in d.AdmissionInput) d.Task {
 	return task
 }
 func principal(t d.Task) d.Principal {
-	return d.Principal{ID: uuid.NewString(), Warehouses: []string{t.Warehouse}, Permissions: []string{"fulfillment.task.read", "fulfillment.task.read_history", "fulfillment.task.work", "fulfillment.task.assign_self", "fulfillment.task.seal", "fulfillment.task.block", "fulfillment.task.resolve_block", "fulfillment.media.upload", "fulfillment.media.read_metadata", "fulfillment.media.view", "fulfillment.task.reopen"}}
+	return d.Principal{ID: uuid.NewString(), Warehouses: []string{t.Warehouse}, Permissions: []string{"FULFILLMENT_TASK_READ", "FULFILLMENT_TASK_READ_HISTORY", "FULFILLMENT_TASK_WORK", "FULFILLMENT_TASK_ASSIGN_SELF", "FULFILLMENT_TASK_SEAL", "FULFILLMENT_TASK_BLOCK", "FULFILLMENT_TASK_RESOLVE_BLOCK", "FULFILLMENT_MEDIA_UPLOAD", "FULFILLMENT_MEDIA_READ_METADATA", "FULFILLMENT_MEDIA_VIEW", "FULFILLMENT_TASK_REOPEN"}}
 }
 func change(t *testing.T, s *persistence.Store, p d.Principal, task d.Task, m d.Mutation) d.Task {
 	t.Helper()
@@ -297,7 +297,16 @@ func TestHTTPJWTVersionAndPayloadIsolation(t *testing.T) {
 	}
 	svc := &application.Service{Store: s}
 	router := (transport.HTTP{Service: svc, Auth: transport.Auth{Key: &key.PublicKey, Issuer: "test-issuer"}}).Router()
-	claims := transport.Claims{UserID: p.ID, Permissions: p.Permissions, Warehouses: p.Warehouses, RegisteredClaims: jwt.RegisteredClaims{Subject: p.ID, Issuer: "test-issuer", Audience: jwt.ClaimStrings{"fulfillment-api"}, ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour))}}
+	grants := make([]string, 0, len(p.Permissions))
+	for _, permission := range p.Permissions {
+		if p.Global {
+			grants = append(grants, permission+"#GLOBAL")
+		}
+		for _, warehouse := range p.Warehouses {
+			grants = append(grants, permission+"#WAREHOUSE#"+warehouse)
+		}
+	}
+	claims := transport.Claims{UserID: p.ID, PermissionGrants: grants, RegisteredClaims: jwt.RegisteredClaims{Subject: p.ID, Issuer: "test-issuer", Audience: jwt.ClaimStrings{"fulfillment-api"}, ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour))}}
 	token, e := jwt.NewWithClaims(jwt.SigningMethodRS256, claims).SignedString(key)
 	if e != nil {
 		t.Fatal(e)

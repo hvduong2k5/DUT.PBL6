@@ -11,7 +11,9 @@ import (
 	"github.com/google/uuid"
 	_ "github.com/lib/pq"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 	"os"
 	"path/filepath"
 	"strings"
@@ -36,7 +38,7 @@ func TestTerminalPostgresLifecycle(t *testing.T) {
 	defer db.Exec("DROP SCHEMA " + schema + " CASCADE")
 	_, err = db.Exec("SET search_path TO " + schema + ", public")
 	require.NoError(t, err)
-	for _, file := range []string{"000001_init_inventory_schema.up.sql", "000002_terminal_profile.up.sql", "000003_packing_reads.up.sql"} {
+	for _, file := range []string{"000001_init_inventory_schema.up.sql", "000002_terminal_profile.up.sql", "000003_packing_reads.up.sql", "000004_stock_projection.up.sql"} {
 		b, e := os.ReadFile(filepath.Join("../../../migrations", file))
 		require.NoError(t, e)
 		_, e = db.Exec(string(b))
@@ -121,4 +123,29 @@ func TestTerminalPostgresLifecycle(t *testing.T) {
 	require.Error(t, err)
 	// TTL is based on the database clock, not a client-supplied timestamp.
 	require.True(t, out.ExpiresAt.AsTime().After(time.Now()))
+	// Same rule at RPC read time and in the snapshot, including wall-clock expiry.
+	_, err = db.Exec("UPDATE batches SET status='ACTIVE' WHERE sku='A'")
+	require.NoError(t, err)
+	s.CatalogToken = "catalog-read-credential-32-bytes-long"
+	readCtx := metadata.NewIncomingContext(context.Background(), metadata.Pairs("authorization", "Bearer "+s.CatalogToken))
+	levels, e := s.GetStockLevel(readCtx, &inventoryv1.GetStockLevelRequest{SkuCodes: []string{"A"}})
+	require.NoError(t, e)
+	require.Equal(t, int32(8), levels.Items[0].AvailableQuantity)
+	_, e = db.Exec("UPDATE batches SET status='QUARANTINE' WHERE sku='A'")
+	require.NoError(t, e)
+	levels, e = s.GetStockLevel(readCtx, &inventoryv1.GetStockLevelRequest{SkuCodes: []string{"A"}})
+	require.NoError(t, e)
+	require.Zero(t, levels.Items[0].AvailableQuantity)
+	require.Equal(t, int32(8), levels.Items[0].PhysicalQuantity)
+	var snapshotQuantity int
+	require.NoError(t, db.QueryRow(`SELECT (payload->>'sellable_quantity')::int FROM outbox_events WHERE event_type='inventory.stock-changed.v1' AND aggregate_id='A' ORDER BY (payload->>'inventory_version')::bigint DESC LIMIT 1`).Scan(&snapshotQuantity))
+	require.Zero(t, snapshotQuantity)
+	_, e = db.Exec("UPDATE batches SET status='ACTIVE', exp_date=CURRENT_DATE WHERE sku='A'")
+	require.NoError(t, e)
+	levels, e = s.GetStockLevel(readCtx, &inventoryv1.GetStockLevelRequest{SkuCodes: []string{"A"}})
+	require.NoError(t, e)
+	require.Zero(t, levels.Items[0].AvailableQuantity)
+	_, e = s.FinalizeReservation(readCtx, c)
+	require.Equal(t, codes.Unauthenticated, status.Code(e))
+
 }

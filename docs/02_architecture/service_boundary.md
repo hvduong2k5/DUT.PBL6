@@ -488,7 +488,6 @@ GET  /api/v1/products                     # Danh sách sản phẩm (pagination,
 GET  /api/v1/products/{product_id}        # Chi tiết sản phẩm
 GET  /api/v1/products/search?q=...        # Tìm kiếm full-text
 GET  /api/v1/categories                   # Danh mục
-GET  /api/v1/products/recommended         # Sản phẩm đề xuất / AI recommendation
 
 # gRPC Internal (Critical Path)
 rpc GetProductPrice(GetPriceRequest) returns (PriceResponse);     # From MS-04 Order
@@ -820,6 +819,8 @@ PUT  /api/v1/admin/articles/{id}/publish  # Xuất bản
 
 ### MS-11: `analytics-service`
 
+> [Bộ thiết kế MS-11](services/analytics-service/README.md) mô tả Dashboard theo cohort, các điều kiện bật nguồn và lộ trình DSS.
+
 #### Thông tin cơ bản
 
 | Thuộc tính | Chi tiết |
@@ -832,7 +833,7 @@ PUT  /api/v1/admin/articles/{id}/publish  # Xuất bản
 
 #### Business Responsibility
 
-Thu thập, tổng hợp và phân tích dữ liệu toàn hệ thống phục vụ BI Dashboard, RFM segmentation, dự báo nhu cầu, và các khuyến nghị chiến lược (DSS).
+Thu thập, tổng hợp và phân tích dữ liệu toàn hệ thống phục vụ BI Dashboard, RFM segmentation, dự báo nhu cầu và các khuyến nghị chiến lược (DSS). MS-11 cũng đảm nhận engine và API gợi ý sản phẩm tương tự, thường mua cùng và cá nhân hóa cho Storefront theo [thiết kế triển khai](services/analytics-service/12_recommendation_engine_design.md). Catalog, Inventory và Order cung cấp snapshot theo [hợp đồng Recommendation](services/analytics-service/13_recommendation_source_contracts.md).
 
 #### Data sở hữu
 
@@ -1504,6 +1505,7 @@ API Gateway (Kong / Nginx)
     │ ├── Request Routing (by path prefix)
     │ └── TLS Termination
     │
+    ├── GET /api/v1/products/recommended (exact, đề xuất) → MS-11 analytics-service
     ├── /api/v1/products/**    → MS-05 catalog-service (REST)
     ├── /api/v1/cart/**        → MS-04 order-service (REST)
     ├── /api/v1/orders/**      → MS-04 order-service (REST)

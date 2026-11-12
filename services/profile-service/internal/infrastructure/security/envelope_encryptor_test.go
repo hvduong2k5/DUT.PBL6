@@ -197,11 +197,12 @@ func TestEnvelopeEncryption_DEKZeroizeOnEviction(t *testing.T) {
 	keyHash := hashDEKKey(payload.EncryptedDEK)
 	cachedDEK, found := enc.dekCache.Get(keyHash)
 	require.True(t, found)
-	require.Len(t, cachedDEK, 32)
+	keyBytes := cachedDEK.copy()
+	require.Len(t, keyBytes, 32)
 
 	// Xác nhận trước khi evict, DEK không phải là mảng toàn số 0
 	isAllZeroBefore := true
-	for _, b := range cachedDEK {
+	for _, b := range keyBytes {
 		if b != 0 {
 			isAllZeroBefore = false
 			break
@@ -215,7 +216,32 @@ func TestEnvelopeEncryption_DEKZeroizeOnEviction(t *testing.T) {
 	enc.dekCache.Remove(keyHash)
 
 	// Xác nhận OnEvict hook đã zeroize toàn bộ byte của DEK trong RAM
-	for idx, b := range cachedDEK {
-		require.Equal(t, byte(0), b, "Byte thứ %d của DEK phải được zeroize về 0 sau khi evict", idx)
+	require.Empty(t, cachedDEK.copy(), "Evicted key must no longer be readable")
+}
+
+func TestCachedKeyConcurrentCopyAndEviction(t *testing.T) {
+	backing := make([]byte, 32)
+	for i := range backing {
+		backing[i] = 42
 	}
+	key := &cachedKey{bytes: backing}
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for i := 0; i < 10000; i++ {
+			copy := key.copy()
+			for _, b := range copy {
+				if b != 42 {
+					t.Error("partially erased key escaped cache")
+					return
+				}
+			}
+		}
+	}()
+	key.erase()
+	<-done
+	for _, b := range backing {
+		require.Zero(t, b, "eviction must erase the original backing array")
+	}
+	require.Empty(t, key.copy())
 }

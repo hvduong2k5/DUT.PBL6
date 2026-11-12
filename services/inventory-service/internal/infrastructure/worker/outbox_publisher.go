@@ -188,7 +188,11 @@ func (w *OutboxPublisherWorker) ProcessBatch(ctx context.Context) (int, error) {
 		partitionKey := ev.AggregateID
 
 		var lp lightPayload
-		if err := json.Unmarshal(ev.Payload, &lp); err == nil {
+		if ev.EventType == "inventory.stock-changed.v1" {
+			// Catalog consumes a flat JSON snapshot, not a CloudEvent envelope.
+			topic = "inventory.stock-changed.v1"
+			partitionKey = ev.AggregateID
+		} else if err := json.Unmarshal(ev.Payload, &lp); err == nil {
 			if lp.Data.SKUCode != "" {
 				partitionKey = lp.Data.SKUCode
 			} else if lp.Data.BatchCode != "" {

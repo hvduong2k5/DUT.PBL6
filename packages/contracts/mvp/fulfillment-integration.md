@@ -1,5 +1,10 @@
 # Nối Fulfillment thật vào MVP
 
+Màn Web quản lý/workbench và cookie-to-bearer proxy được mô tả tại
+[Fulfillment UI integration](../../../docs/ui_web/FULFILLMENT_UI_INTEGRATION.md).
+Trong profile Identity BFF, bài kiểm tra packing đi qua BFF Web (kể cả upload
+video), không chỉ gọi Gateway bằng bearer token.
+
 Nhánh gốc: `dev@a24492b` sau merge PR #46. Bốn workflow chạy trên commit
 này đều thành công: Contracts `41812670003`, Order–Inventory `41812669876`,
 Mobile `41812669906`, Web–Identity–Gateway `41812669908`.

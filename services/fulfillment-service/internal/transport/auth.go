@@ -4,27 +4,26 @@ import (
 	"context"
 	"crypto/rsa"
 	"crypto/subtle"
-	"encoding/json"
 	"github.com/golang-jwt/jwt/v5"
 	d "github.com/omamx/fulfillment-service/internal/domain"
-	"io"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
+	"unicode"
 )
 
 type Claims struct {
-	UserID      string   `json:"user_id"`
-	Service     string   `json:"service"`
-	Permissions []string `json:"permissions"`
-	Warehouses  []string `json:"warehouse_ids"`
+	UserID           string   `json:"user_id"`
+	Service          string   `json:"service"`
+	PermissionGrants []string `json:"permission_grants"`
 	jwt.RegisteredClaims
 }
 type Auth struct {
-	Key                        *rsa.PublicKey
-	Issuer                     string
-	IdentityURL, StaffAudience string
-	InternalTokens             map[string]string
+	Key            *rsa.PublicKey
+	Issuer         string
+	StaffAudience  string
+	InternalTokens map[string]string
 }
 
 func (a Auth) Verify(header, audience string) (d.Principal, error) {
@@ -51,77 +50,87 @@ func (a Auth) Verify(header, audience string) (d.Principal, error) {
 		if c.Service != "" || !d.UUID(c.UserID) {
 			return d.Principal{}, d.Fail("UNAUTHENTICATED", 401)
 		}
-		if a.IdentityURL != "" {
-			return a.employee(header, c)
-		}
-	} else {
-		if c.Service != "fulfillment-service" && c.Service != "order-service" && c.Service != "inventory-service" && c.Service != "shipping-service" {
-			return d.Principal{}, d.Fail("FORBIDDEN", 403)
-		}
+		return a.staff(c)
 	}
-	return d.Principal{ID: c.UserID, Service: c.Service, Permissions: c.Permissions, Warehouses: c.Warehouses}, nil
+	if c.Service != "fulfillment-service" && c.Service != "order-service" && c.Service != "inventory-service" && c.Service != "shipping-service" {
+		return d.Principal{}, d.Fail("FORBIDDEN", 403)
+	}
+	return d.Principal{ID: c.UserID, Service: c.Service}, nil
 }
 
-// Reuse Identity's verified persona and existing ADMIN role/scope. Never invent
-// permissions/warehouse JWT claims for the owner's current tokens.
-func (a Auth) employee(header string, c *Claims) (d.Principal, error) {
-	request, e := http.NewRequest("GET", strings.TrimRight(a.IdentityURL, "/")+"/api/v1/users/me", nil)
-	if e != nil {
-		return d.Principal{}, d.Fail("IDENTITY_UNAVAILABLE", 503)
+var staffPermissionCode = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_.:-]{0,159}$`)
+
+func authorizationValue(value string) bool {
+	if value == "" || len(value) > 160 || strings.TrimSpace(value) != value {
+		return false
 	}
-	request.Header.Set("Authorization", header)
-	client := &http.Client{Timeout: 2 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
-	response, e := client.Do(request)
-	if e != nil {
-		return d.Principal{}, d.Fail("IDENTITY_UNAVAILABLE", 503)
+	for _, r := range value {
+		if unicode.IsControl(r) {
+			return false
+		}
 	}
-	defer response.Body.Close()
-	if response.StatusCode >= 500 {
-		return d.Principal{}, d.Fail("IDENTITY_UNAVAILABLE", 503)
-	}
-	if response.StatusCode != 200 {
+	return true
+}
+
+// Staff authorization comes from the token's permission_grants claim —
+// "PERM#SCOPE_TYPE" for GLOBAL grants, "PERM#SCOPE_TYPE#SCOPE_ID" otherwise —
+// projected onto the token by Identity's permission sync, the same contract
+// Profile and Order consume. A token that carries the claim (even as an
+// empty list) is a staff token and is authorized from this signed snapshot
+// alone; a token without it is not staff and is rejected here. There is no
+// per-request /users/me lookup anymore. Only FULFILLMENT_* grants take
+// effect, and their scopes collapse into the principal's Global/Warehouses
+// sets exactly as the previous ADMIN role/scope mapping did.
+func (a Auth) staff(c *Claims) (d.Principal, error) {
+	if c.PermissionGrants == nil {
 		return d.Principal{}, d.Fail("EMPLOYEE_REQUIRED", 403)
 	}
-	var envelope struct {
-		Success bool `json:"success"`
-		Data    struct {
-			ID      string `json:"principalId"`
-			Subject string `json:"idpSubject"`
-			Type    string `json:"principalType"`
-			Status  string `json:"provisioningStatus"`
-			Roles   []struct {
-				Code  string `json:"roleCode"`
-				Scope string `json:"scopeType"`
-				ID    string `json:"scopeId"`
-			} `json:"roles"`
-		} `json:"data"`
+	if len(c.PermissionGrants) > 128 {
+		return d.Principal{}, d.Fail("UNAUTHENTICATED", 401)
 	}
-	raw, e := io.ReadAll(io.LimitReader(response.Body, (1<<20)+1))
-	if e != nil || len(raw) > 1<<20 || json.Unmarshal(raw, &envelope) != nil || !envelope.Success {
-		return d.Principal{}, d.Fail("IDENTITY_UNAVAILABLE", 503)
-	}
-	p := envelope.Data
-	if p.ID != c.UserID || p.Subject != c.Subject || p.Type != "EMPLOYEE" || p.Status != "ACTIVE" {
-		return d.Principal{}, d.Fail("EMPLOYEE_REQUIRED", 403)
-	}
-	actor := d.Principal{ID: p.ID}
-	for _, role := range p.Roles {
-		if role.Code != "ADMIN" {
+	actor := d.Principal{ID: c.UserID}
+	seenPermissions := map[string]bool{}
+	seenWarehouses := map[string]bool{}
+	for _, raw := range c.PermissionGrants {
+		parts := strings.Split(raw, "#")
+		if len(parts) < 2 || len(parts) > 3 || !staffPermissionCode.MatchString(parts[0]) {
+			return d.Principal{}, d.Fail("UNAUTHENTICATED", 401)
+		}
+		code, scopeType := parts[0], parts[1]
+		var scopeID string
+		switch scopeType {
+		case "GLOBAL":
+			if len(parts) != 2 {
+				return d.Principal{}, d.Fail("UNAUTHENTICATED", 401)
+			}
+		case "WAREHOUSE", "DEPARTMENT":
+			if len(parts) != 3 || !authorizationValue(parts[2]) {
+				return d.Principal{}, d.Fail("UNAUTHENTICATED", 401)
+			}
+			scopeID = parts[2]
+		default:
+			return d.Principal{}, d.Fail("UNAUTHENTICATED", 401)
+		}
+		if !strings.HasPrefix(code, "FULFILLMENT_") {
 			continue
 		}
-		if role.Scope == "GLOBAL" {
-			actor.Global = true
+		if !seenPermissions[code] {
+			seenPermissions[code] = true
+			actor.Permissions = append(actor.Permissions, code)
 		}
-		if role.Scope == "WAREHOUSE" && role.ID != "" {
-			actor.Warehouses = append(actor.Warehouses, role.ID)
+		switch scopeType {
+		case "GLOBAL":
+			actor.Global = true
+		case "WAREHOUSE":
+			if !seenWarehouses[scopeID] {
+				seenWarehouses[scopeID] = true
+				actor.Warehouses = append(actor.Warehouses, scopeID)
+			}
 		}
 	}
-	if !actor.Global && len(actor.Warehouses) == 0 {
+	if len(actor.Permissions) == 0 {
 		return d.Principal{}, d.Fail("FULFILLMENT_ADMIN_REQUIRED", 403)
 	}
-	// Service-local checks remain owned by Fulfillment. These are an ADMIN MVP
-	// mapping, not new JWT authorities or approved fine-grained IAM permissions.
-	actor.Permissions = []string{"fulfillment.task.read", "fulfillment.task.read_history", "fulfillment.task.assign_self", "fulfillment.task.work", "fulfillment.task.seal", "fulfillment.task.block", "fulfillment.task.resolve_block", "fulfillment.media.upload", "fulfillment.media.read_metadata", "fulfillment.media.view"}
 	return actor, nil
 }
 
