@@ -225,6 +225,20 @@ func TestJSONEndpointsRejectUnsupportedContentType(t *testing.T) {
 	}
 }
 
+func TestOversizedJSONBodyReturnsPayloadTooLarge(t *testing.T) {
+	handler := NewRouter(application.NewService(newHTTPMemoryRepository(), carrier.NewRegistry(carrier.NewFake())), "internal-token", "fake-secret", "", zerolog.Nop())
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/internal/shipping/quotes", strings.NewReader(`{"padding":"`+strings.Repeat("x", 1<<20)+`"}`))
+	request.Header.Set("Authorization", "Bearer internal-token")
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	var body errorBody
+	if response.Code != http.StatusRequestEntityTooLarge || json.Unmarshal(response.Body.Bytes(), &body) != nil ||
+		body.Code != "PAYLOAD_TOO_LARGE" || body.RequestID == "" {
+		t.Fatalf("oversized JSON body should return 413: status=%d body=%s", response.Code, response.Body.String())
+	}
+}
+
 func TestEmptyCollectionResponsesAreArrays(t *testing.T) {
 	repository := newHTTPMemoryRepository()
 	service := application.NewService(repository, carrier.NewRegistry(carrier.NewFake()))
@@ -717,5 +731,19 @@ func TestWebhooksRejectUnsupportedContentTypeAfterAuthentication(t *testing.T) {
 				t.Fatalf("authenticated webhook should reject unsupported media type: status=%d body=%s", response.Code, response.Body.String())
 			}
 		})
+	}
+}
+
+func TestOversizedAuthenticatedWebhookBodyReturnsPayloadTooLarge(t *testing.T) {
+	handler := NewRouter(nil, "internal-token", "fake-secret", "ghn-secret", zerolog.Nop())
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/webhooks/logistics/ghn", strings.NewReader(strings.Repeat("x", (1<<20)+1)))
+	request.Header.Set("X-GHN-Webhook-Secret", "ghn-secret")
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	var body errorBody
+	if response.Code != http.StatusRequestEntityTooLarge || json.Unmarshal(response.Body.Bytes(), &body) != nil ||
+		body.Code != "PAYLOAD_TOO_LARGE" || body.RequestID == "" {
+		t.Fatalf("oversized webhook body should return 413: status=%d body=%s", response.Code, response.Body.String())
 	}
 }

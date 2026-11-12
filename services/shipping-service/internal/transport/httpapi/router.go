@@ -351,7 +351,7 @@ func publicEvents(events []domain.TrackingEvent) []domain.TrackingEvent {
 func (h *Router) fakeWebhook(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 1<<20))
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "INVALID_BODY", "request body is invalid or too large")
+		writeBodyReadError(w, err)
 		return
 	}
 	if !verifySignature(body, r.Header.Get("X-Shipping-Signature"), h.fakeWebhookSecret) {
@@ -388,7 +388,7 @@ func (h *Router) ghnWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 1<<20))
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "INVALID_BODY", "request body is invalid or too large")
+		writeBodyReadError(w, err)
 		return
 	}
 	shipment, result, err := h.service.ApplyWebhook(r.Context(), "GHN", body)
@@ -511,14 +511,32 @@ func decodeJSON(w http.ResponseWriter, r *http.Request, target any) bool {
 	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(target); err != nil {
-		writeError(w, http.StatusBadRequest, "INVALID_JSON", "request body must be valid JSON matching the documented schema")
+		writeJSONDecodeError(w, err)
 		return false
 	}
 	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
-		writeError(w, http.StatusBadRequest, "INVALID_JSON", "request body must contain one JSON value")
+		writeJSONDecodeError(w, err)
 		return false
 	}
 	return true
+}
+
+func writeJSONDecodeError(w http.ResponseWriter, err error) {
+	var maxBytesError *http.MaxBytesError
+	if errors.As(err, &maxBytesError) {
+		writeError(w, http.StatusRequestEntityTooLarge, "PAYLOAD_TOO_LARGE", "request body exceeds the 1 MiB limit")
+		return
+	}
+	writeError(w, http.StatusBadRequest, "INVALID_JSON", "request body must be valid JSON matching the documented schema")
+}
+
+func writeBodyReadError(w http.ResponseWriter, err error) {
+	var maxBytesError *http.MaxBytesError
+	if errors.As(err, &maxBytesError) {
+		writeError(w, http.StatusRequestEntityTooLarge, "PAYLOAD_TOO_LARGE", "request body exceeds the 1 MiB limit")
+		return
+	}
+	writeError(w, http.StatusBadRequest, "INVALID_BODY", "request body is invalid")
 }
 
 func requireJSONContentType(w http.ResponseWriter, r *http.Request) bool {

@@ -14,6 +14,7 @@ info:
     Version 2.4.0 maps carrier quote failures to 502 instead of internal errors.
     Version 2.5.0 rejects JSON-body requests without the application/json media type.
     Version 2.6.0 applies the same media-type requirement to authenticated carrier webhooks.
+    Version 2.7.0 returns 413 when an HTTP request body exceeds the 1 MiB limit.
 servers:
   - url: http://localhost:8012
     description: Local development only
@@ -77,6 +78,7 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
         '422': { $ref: '#/components/responses/ValidationFailed' }
         '500': { $ref: '#/components/responses/InternalError' }
         '502': { $ref: '#/components/responses/BadGateway' }
@@ -108,6 +110,7 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/ValidationFailed' }
         '500': { $ref: '#/components/responses/InternalError' }
@@ -153,6 +156,7 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/ValidationFailed' }
@@ -194,6 +198,7 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/ValidationFailed' }
@@ -348,6 +353,7 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
         '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/InternalError' }
   /api/v1/webhooks/logistics/ghn:
@@ -372,6 +378,7 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
         '404': { $ref: '#/components/responses/NotFound' }
         '503':
           description: Shipment is not committed yet; provider should retry
@@ -419,6 +426,11 @@ components:
           schema: { $ref: '#/components/schemas/Error' }
     UnsupportedMediaType:
       description: Request body must use the application/json media type
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    PayloadTooLarge:
+      description: Request body exceeds the 1 MiB limit
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
