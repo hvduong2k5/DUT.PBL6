@@ -169,3 +169,11 @@ Mức độ: **Blocker** = chặn một luồng nghiệp vụ chính; **High** =
 - **Ghi chú vận hành Keycloak.** Đổi cờ Direct Access Grants của client `frontend-web` bằng cách sửa thẳng DB không có hiệu lực ngay (cache client) — phải restart Keycloak thì password grant mới dùng được; sau buổi nghiệm thu cờ đã tắt lại và kiểm chứng bị từ chối (`unauthorized_client`). Ưu tiên thao tác qua Admin API/console thay vì sửa DB.
 - **F-26 bổ sung danh sách dọn dẹp:** sản phẩm kiểm chứng F-22 (`0350fb42-3d42-49ed-9c3e-e24b2629c158`, SKU `F22-1794470583`) và các tài khoản `w4fix-diag2-1794467700@test.local`, `w4cors-1794468675@test.local`.
 - **Trạng thái Blocker sau đợt này:** F-12 đã đóng; **Blocker duy nhất còn lại cho đường vàng là F-15** (lệch hợp đồng sự kiện order→fulfillment v2/v3 — cần team chốt hợp đồng), kèm F-14 chờ order core mode.
+
+---
+
+## Cập nhật 12/11/2026 — Kong Stage 2 hoàn tất, F-11 đóng
+
+- **F-11 → ĐÃ ĐÓNG.** Stage 2 đã áp dụng lên Kong live (đúng cấu hình kong.yml khai): plugin toàn cục `correlation-id` (`X-Request-Id`, uuid#counter, echo downstream), `request-transformer` toàn cục (gỡ 6 header định danh khỏi request từ trình duyệt) và bản tương ứng trên route khách hàng của profile, `prometheus` (status/latency/bandwidth/upstream-health), service `payment-webhook-handler` (upstream `order-svc:8004` — dùng alias ổn định thay tên container như kong.yml viết) + route `vietqr-callback-route` (hai path callback VietQR/SePay, chỉ POST, rate-limit 600/phút). Tổng số plugin live: 10; Stage 1 và service/route gRPC của đồng đội không bị đụng.
+- **Kiểm chứng:** response của API sản phẩm công khai đã kèm header `x-request-id` đúng định dạng; POST body rỗng tới `/api/v1/payments/vietqr/callback` nhận **401 ở tầng ứng dụng** từ order-service (kèm header rate-limit 600/phút) thay vì 404 "no Route matched" của Kong như trước — route đã thông tới upstream. Không giả lập callback có chữ ký trong buổi kiểm chứng này.
+- Như vậy Kong live nay đã khớp toàn bộ phần plugin/service mà kong.yml khai báo; ba mục F-09, F-10, F-11 cùng một nguyên nhân gốc đều đã đóng.
