@@ -36,7 +36,7 @@ func NewRouter(service *application.Service, internalToken, fakeWebhookSecret, g
 		fakeWebhookSecret: fakeWebhookSecret, ghnWebhookSecret: ghnWebhookSecret, logger: logger,
 	}
 	r := chi.NewRouter()
-	r.Use(middleware.RequestID, middleware.RealIP, middleware.Recoverer)
+	r.Use(middleware.RequestID, middleware.RealIP, h.recoverer)
 	r.Use(h.requestIDHeader)
 	r.Use(h.requestLog)
 	r.Get("/health/live", h.live)
@@ -52,6 +52,42 @@ func NewRouter(service *application.Service, internalToken, fakeWebhookSecret, g
 	r.Post("/api/v1/webhooks/logistics/fake", h.fakeWebhook)
 	r.Post("/api/v1/webhooks/logistics/ghn", h.ghnWebhook)
 	return r
+}
+
+type recoveryResponseWriter struct {
+	http.ResponseWriter
+	wroteHeader bool
+}
+
+func (w *recoveryResponseWriter) WriteHeader(status int) {
+	if !w.wroteHeader {
+		w.wroteHeader = true
+	}
+	w.ResponseWriter.WriteHeader(status)
+}
+
+func (w *recoveryResponseWriter) Write(body []byte) (int, error) {
+	if !w.wroteHeader {
+		w.WriteHeader(http.StatusOK)
+	}
+	return w.ResponseWriter.Write(body)
+}
+
+func (w *recoveryResponseWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
+
+func (h *Router) recoverer(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		tracked := &recoveryResponseWriter{ResponseWriter: w}
+		defer func() {
+			if recovered := recover(); recovered != nil {
+				h.logger.Error().Interface("panic", recovered).Msg("http handler panic")
+				if !tracked.wroteHeader {
+					writeError(tracked, http.StatusInternalServerError, "INTERNAL_ERROR", "an internal error occurred")
+				}
+			}
+		}()
+		next.ServeHTTP(tracked, r)
+	})
 }
 
 func (h *Router) live(w http.ResponseWriter, _ *http.Request) {

@@ -507,6 +507,22 @@ func TestReadyEndpointReturnsCommonErrorWhenDatabaseIsUnavailable(t *testing.T) 
 	}
 }
 
+func TestRecoveredHandlerPanicUsesCommonErrorEnvelope(t *testing.T) {
+	handler := NewRouter(nil, "internal-token", "fake-secret", "", zerolog.Nop())
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/health/ready", nil))
+	var body errorBody
+	if response.Code != http.StatusInternalServerError || json.Unmarshal(response.Body.Bytes(), &body) != nil {
+		t.Fatalf("panic response must use JSON error envelope: status=%d body=%s", response.Code, response.Body.String())
+	}
+	if body.Code != "INTERNAL_ERROR" || body.RequestID == "" || body.RequestID != response.Header().Get("X-Request-Id") {
+		t.Fatalf("unexpected recovered panic error: body=%+v headers=%v", body, response.Header())
+	}
+	if strings.Contains(response.Body.String(), "nil pointer") {
+		t.Fatal("panic details must not be returned to the caller")
+	}
+}
+
 func TestFakeWebhookValidatesSignatureAndAppliesTrackingEvent(t *testing.T) {
 	repository := newHTTPMemoryRepository()
 	service := application.NewService(repository, carrier.NewRegistry(carrier.NewFake()))
