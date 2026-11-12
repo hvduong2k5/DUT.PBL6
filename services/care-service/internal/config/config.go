@@ -15,6 +15,9 @@ type Config struct {
 	LogLevel    string
 
 	InternalToken      string
+	OIDCIssuer         string
+	OIDCAudience       string
+	OIDCJWKSURL        string
 	RateLimitPerSecond int
 	RateLimitBurst     int
 
@@ -61,6 +64,9 @@ func Load() (Config, error) {
 		LogLevel:    getString("LOG_LEVEL", "info"),
 
 		InternalToken:      os.Getenv("CARE_INTERNAL_TOKEN"),
+		OIDCIssuer:         strings.TrimSpace(os.Getenv("CARE_OIDC_ISSUER")),
+		OIDCAudience:       getString("CARE_OIDC_AUDIENCE", "omama-api"),
+		OIDCJWKSURL:        strings.TrimSpace(os.Getenv("CARE_OIDC_JWKS_URL")),
 		RateLimitPerSecond: getInt("RATE_LIMIT_PER_SECOND", 20),
 		RateLimitBurst:     getInt("RATE_LIMIT_BURST", 40),
 

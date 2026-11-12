@@ -74,7 +74,9 @@ Invoke-RestMethod http://localhost:8006/health/ready
 
 ## Trusted gateway headers
 
-The service is not designed for direct public exposure. API Gateway authenticates the public bearer token, then forwards:
+The service is not designed for direct public exposure. Customer and media API calls use the trusted API Gateway path. The staff ticket routes also retain this path for trusted internal callers, and can optionally validate Identity-issued employee JWTs directly when `CARE_OIDC_ISSUER` is configured. For direct JWT requests Care verifies RS256 signatures from the configured/discovered JWKS, exact issuer, `omama-api` audience by default, expiry, `principal_type=EMPLOYEE`, and `user_id`; a presented but invalid Bearer token is never downgraded to gateway-header authentication. Keep network access restricted to trusted callers even when JWT validation is enabled.
+
+For the gateway path, API Gateway authenticates the public bearer token, then forwards:
 
 - `X-Internal-Token`: server-side shared trust token;
 - `X-User-ID`: authenticated immutable user ID;
@@ -87,6 +89,16 @@ headers. Correlation ID is stored with audit/outbox records and emitted as the
 CloudEvents `correlationid` extension; request ID remains specific to one HTTP call.
 
 Clients must not be allowed to inject or overwrite these headers at the public edge.
+
+Direct staff JWT authorization accepts these global Identity grants:
+
+- `TICKET_QUEUE_VIEW#GLOBAL` for queue/list and ticket detail reads;
+- `TICKET_CLAIM#GLOBAL` for claiming a ticket;
+- `TICKET_NOTE_WRITE#GLOBAL` for internal notes;
+- `TICKET_REPLY#GLOBAL` for customer replies;
+- `TICKET_TRANSITION#GLOBAL` for ticket status transitions.
+
+Warehouse/department-scoped grants do not authorize these operations yet because Care has no corresponding staff data-scope policy. These grant codes and the `omama-api` audience are proposed defaults pending Identity/team confirmation. Existing gateway permission aliases (`care.tickets.*`) remain accepted during migration.
 
 Authenticated API calls are limited per actor and per Care Service replica by
 `RATE_LIMIT_PER_SECOND` (default `20`) with `RATE_LIMIT_BURST` (default `40`). This

@@ -15,6 +15,7 @@ import (
 
 type RouterConfig struct {
 	InternalToken      string
+	StaffAuthenticator StaffAuthenticator
 	RateLimitPerSecond int
 	RateLimitBurst     int
 	Pool               *pgxpool.Pool
@@ -43,24 +44,28 @@ func NewRouter(cfg RouterConfig) http.Handler {
 	router.Handle("/metrics", promhttp.Handler())
 
 	router.Route("/api/v1", func(api chi.Router) {
-		api.Use(TrustedGatewayAuth(cfg.InternalToken))
-		api.Use(rateLimiter.Middleware)
-		api.Route("/media", func(media chi.Router) {
-			media.Post("/upload-sessions", cfg.MediaHandler.CreateUploadSession)
-			media.Post("/upload-sessions/{fileID}/complete", cfg.MediaHandler.Complete)
-			media.Get("/{fileID}/access", cfg.MediaHandler.Access)
-			media.Delete("/{fileID}", cfg.MediaHandler.Delete)
+		api.Group(func(customer chi.Router) {
+			customer.Use(TrustedGatewayAuth(cfg.InternalToken), rateLimiter.Middleware)
+			customer.Route("/media", func(media chi.Router) {
+				media.Post("/upload-sessions", cfg.MediaHandler.CreateUploadSession)
+				media.Post("/upload-sessions/{fileID}/complete", cfg.MediaHandler.Complete)
+				media.Get("/{fileID}/access", cfg.MediaHandler.Access)
+				media.Delete("/{fileID}", cfg.MediaHandler.Delete)
+			})
+			customer.Post("/tickets", cfg.TicketHandler.Create)
+			customer.Get("/tickets", cfg.TicketHandler.List)
+			customer.Get("/tickets/{ticketID}", cfg.TicketHandler.Get)
+			customer.Post("/tickets/{ticketID}/messages", cfg.TicketHandler.AddMessage)
 		})
-		api.Post("/tickets", cfg.TicketHandler.Create)
-		api.Get("/tickets", cfg.TicketHandler.List)
-		api.Get("/tickets/{ticketID}", cfg.TicketHandler.Get)
-		api.Post("/tickets/{ticketID}/messages", cfg.TicketHandler.AddMessage)
-		api.With(RequirePermission("care.tickets.read")).Get("/admin/support/tickets", cfg.StaffTicketHandler.List)
-		api.With(RequirePermission("care.tickets.read")).Get("/admin/support/tickets/{ticketID}", cfg.StaffTicketHandler.Get)
-		api.With(RequirePermission("care.tickets.claim")).Post("/admin/support/tickets/{ticketID}/claim", cfg.StaffTicketHandler.Claim)
-		api.With(RequirePermission("care.tickets.notes.write")).Post("/admin/support/tickets/{ticketID}/internal-notes", cfg.StaffTicketHandler.AddInternalNote)
-		api.With(RequirePermission("care.tickets.reply")).Post("/admin/support/tickets/{ticketID}/messages", cfg.StaffTicketHandler.AddReply)
-		api.With(RequirePermission("care.tickets.transition")).Post("/admin/support/tickets/{ticketID}/transitions", cfg.StaffTicketHandler.Transition)
+		api.Group(func(staff chi.Router) {
+			staff.Use(GatewayOrStaffJWTAuth(cfg.InternalToken, cfg.StaffAuthenticator), rateLimiter.Middleware)
+			staff.With(RequirePermission("TICKET_QUEUE_VIEW")).Get("/admin/support/tickets", cfg.StaffTicketHandler.List)
+			staff.With(RequirePermission("TICKET_QUEUE_VIEW")).Get("/admin/support/tickets/{ticketID}", cfg.StaffTicketHandler.Get)
+			staff.With(RequirePermission("TICKET_CLAIM")).Post("/admin/support/tickets/{ticketID}/claim", cfg.StaffTicketHandler.Claim)
+			staff.With(RequirePermission("TICKET_NOTE_WRITE")).Post("/admin/support/tickets/{ticketID}/internal-notes", cfg.StaffTicketHandler.AddInternalNote)
+			staff.With(RequirePermission("TICKET_REPLY")).Post("/admin/support/tickets/{ticketID}/messages", cfg.StaffTicketHandler.AddReply)
+			staff.With(RequirePermission("TICKET_TRANSITION")).Post("/admin/support/tickets/{ticketID}/transitions", cfg.StaffTicketHandler.Transition)
+		})
 	})
 
 	router.NotFound(func(w http.ResponseWriter, r *http.Request) {

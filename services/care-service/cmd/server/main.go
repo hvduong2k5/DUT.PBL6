@@ -93,6 +93,13 @@ func main() {
 	})
 	ticketService := tickets.NewService(ticketRepository, nil)
 	staffTicketService := tickets.NewStaffService(ticketRepository, cfg.TicketReopenWindow)
+	var staffAuthenticator httpapi.StaffAuthenticator
+	if cfg.OIDCIssuer != "" {
+		staffAuthenticator, err = httpapi.NewJWTStaffAuthenticator(cfg.OIDCIssuer, cfg.OIDCAudience, cfg.OIDCJWKSURL)
+		if err != nil {
+			log.Fatal().Err(err).Msg("invalid Care OIDC configuration")
+		}
+	}
 
 	producer := carekafka.NewProducer(cfg.KafkaBrokers)
 	defer producer.Close()
@@ -113,6 +120,7 @@ func main() {
 
 	handler := httpapi.NewRouter(httpapi.RouterConfig{
 		InternalToken:      cfg.InternalToken,
+		StaffAuthenticator: staffAuthenticator,
 		RateLimitPerSecond: cfg.RateLimitPerSecond, RateLimitBurst: cfg.RateLimitBurst,
 		Pool: pool, Storage: objectStorage,
 		MediaHandler:       httpapi.NewMediaHandler(mediaService),
