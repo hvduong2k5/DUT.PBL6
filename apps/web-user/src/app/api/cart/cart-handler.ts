@@ -6,7 +6,9 @@ import {
   type PublicErrorBody
 } from "@/lib/api-contract";
 import { authorizeCustomerCapability, customerAccessFailure } from "@/lib/auth/customer-access-server";
-import { applyTrustedAuthorization, getTrustedAccessToken } from "@/lib/auth/server-credential";
+import { credentialHeaders } from "@/lib/auth/server-credential";
+import { withCustomerAuth } from "@/lib/auth/customer-auth";
+import { gatewayUpstreamUrl } from "@/lib/upstream";
 import {
   parseMvpCartRoute,
   validateMvpAddCartItemInput,
@@ -39,21 +41,20 @@ function publicErrorResponse(
   return Response.json(body, { status });
 }
 
-function upstreamHeaders(request: NextRequest, hasBody: boolean, scenario?: string): Headers {
+function upstreamHeaders(credential: string | undefined, hasBody: boolean, scenario?: string, ifMatch?: string): Headers {
   const headers = new Headers({ Accept: "application/json" });
-  applyTrustedAuthorization(headers, request);
-  const ifMatch = request.headers.get("if-match");
+  credentialHeaders(headers, credential);
   if (ifMatch) headers.set("If-Match", ifMatch);
   if (hasBody) headers.set("Content-Type", "application/json");
   if (process.env.NODE_ENV !== "production" && scenario) headers.set("X-Mock-Scenario", scenario);
   return headers;
 }
 
-async function callUpstream(request: NextRequest, path: string, method: string, scenario?: string, body?: unknown) {
-  const base = (process.env.CUSTOMER_CORE_UPSTREAM_URL ?? "http://127.0.0.1:4010/api/v1").replace(/\/$/u, "");
+async function callUpstream(request: NextRequest, credential: string | undefined, path: string, method: string, scenario?: string, body?: unknown) {
+  const base = gatewayUpstreamUrl();
   const response = await fetch(`${base}/${path}`, {
     method,
-    headers: upstreamHeaders(request, body !== undefined, scenario),
+    headers: upstreamHeaders(credential, body !== undefined, scenario, request.headers.get("if-match") ?? undefined),
     body: body === undefined ? undefined : JSON.stringify(body),
     cache: "no-store",
     redirect: "manual"
@@ -127,6 +128,10 @@ function normalizeCart(payload: unknown, fallbackRevision: number, updatedItem?:
 }
 
 export async function handleCartRequest(request: NextRequest, path: string[]): Promise<Response> {
+  return withCustomerAuth(request, (credential) => handleCartRequestWithCredential(request, path, credential));
+}
+
+async function handleCartRequestWithCredential(request: NextRequest, path: string[], credential: string | undefined): Promise<Response> {
   const validation = parseMvpCartRoute(request.method, path, request.nextUrl.searchParams);
   if (validation.error || !validation.operation) {
     const notFound = validation.error?.field === "path";
@@ -145,9 +150,8 @@ export async function handleCartRequest(request: NextRequest, path: string[]): P
     return publicErrorResponse(400, "INVALID_REQUEST", "Mock scenario không khả dụng trong production.", "BFF-CART-SCENARIO");
   }
 
-  const accessToken = getTrustedAccessToken(request);
   try {
-    await authorizeCustomerCapability(accessToken, "CART_MANAGE");
+    await authorizeCustomerCapability(credential, "CART_MANAGE");
   } catch (cause) {
     const failure = customerAccessFailure(cause);
     return publicErrorResponse(failure.status, failure.code, failure.message, "BFF-CART-ACCESS");
@@ -155,7 +159,7 @@ export async function handleCartRequest(request: NextRequest, path: string[]): P
 
   try {
     if (validation.operation === "get-cart") {
-      const result = await callUpstream(request, "cart", "GET", validation.mockScenario);
+      const result = await callUpstream(request, credential, "cart", "GET", validation.mockScenario);
       if (!result.response.ok) return relayUpstreamError(result.payload, result.response);
       const cart = normalizeCart(result.payload, 0);
       return cart
@@ -166,7 +170,7 @@ export async function handleCartRequest(request: NextRequest, path: string[]): P
     if (validation.operation === "add-item") {
       const parsed = validateMvpAddCartItemInput(await readJsonBody(request));
       if (!parsed.data) return publicErrorResponse(400, "INVALID_REQUEST", "Dữ liệu thêm giỏ chưa hợp lệ.", "BFF-CART-ADD", { errors: parsed.errors });
-      const result = await callUpstream(request, "cart/items", "POST", validation.mockScenario, parsed.data);
+      const result = await callUpstream(request, credential, "cart/items", "POST", validation.mockScenario, parsed.data);
       if (!result.response.ok) return relayUpstreamError(result.payload, result.response);
       const cart = normalizeCart(result.payload, parsed.data.revision + 1);
       return cart
@@ -179,6 +183,7 @@ export async function handleCartRequest(request: NextRequest, path: string[]): P
       if (!parsed.data) return publicErrorResponse(400, "INVALID_REQUEST", "Dữ liệu cập nhật giỏ chưa hợp lệ.", "BFF-CART-UPDATE", { errors: parsed.errors });
       const result = await callUpstream(
         request,
+        credential,
         `cart/items/${encodeURIComponent(validation.itemId!)}`,
         "PUT",
         validation.mockScenario,
@@ -193,12 +198,13 @@ export async function handleCartRequest(request: NextRequest, path: string[]): P
 
     const deletion = await callUpstream(
       request,
+      credential,
       `cart/items/${encodeURIComponent(validation.itemId!)}`,
       "DELETE",
       validation.mockScenario
     );
     if (!deletion.response.ok) return relayUpstreamError(deletion.payload, deletion.response);
-    const current = await callUpstream(request, "cart", "GET", validation.mockScenario);
+    const current = await callUpstream(request, credential, "cart", "GET", validation.mockScenario);
     if (!current.response.ok) return relayUpstreamError(current.payload, current.response);
     const cart = normalizeCart(current.payload, 1);
     if (!cart) return publicErrorResponse(502, "INVALID_CART_RESPONSE", "Dữ liệu giỏ hàng không đúng contract.", "BFF-CART-DELETE");

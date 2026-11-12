@@ -5,7 +5,7 @@ import { getTrustedAccessToken, getTrustedSessionCookie } from "./server-credent
 
 /**
  * Credential boundary for the customer API routes (capabilities, customer,
- * customer-core, payments, returns, support, b2b).
+ * customer-core, cart, checkout, orders, payments, returns, support, b2b).
  *
  * Why this module exists: the handlers used to read the credential through
  * getTrustedSessionCookie(), which only knows the identity-BFF session
