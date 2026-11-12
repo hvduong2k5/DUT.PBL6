@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -38,6 +37,7 @@ func NewRouter(service *application.Service, internalToken, fakeWebhookSecret, g
 	}
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID, middleware.RealIP, middleware.Recoverer)
+	r.Use(h.requestIDHeader)
 	r.Use(h.requestLog)
 	r.Get("/health/live", h.live)
 	r.Get("/health/ready", h.ready)
@@ -106,7 +106,10 @@ func (h *Router) createShipment(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		var providerErr *application.ProviderError
 		if errors.As(err, &providerErr) {
-			writeJSON(w, http.StatusBadGateway, map[string]any{"error": errorBody{Code: "CARRIER_REJECTED", Message: providerErr.Cause.Error()}, "shipment": shipment})
+			writeJSON(w, http.StatusBadGateway, map[string]any{
+				"error":    errorBody{Code: "CARRIER_REJECTED", Message: "carrier rejected shipment creation", RequestID: w.Header().Get("X-Request-Id")},
+				"shipment": shipment,
+			})
 			return
 		}
 		h.handleError(w, err)
@@ -149,7 +152,7 @@ func (h *Router) cancelShipment(w http.ResponseWriter, r *http.Request) {
 		var providerErr *application.ProviderError
 		if errors.As(err, &providerErr) {
 			writeJSON(w, http.StatusBadGateway, map[string]any{
-				"error":    errorBody{Code: "CARRIER_CANCEL_REJECTED", Message: providerErr.Cause.Error()},
+				"error":    errorBody{Code: "CARRIER_CANCEL_REJECTED", Message: "carrier rejected shipment cancellation", RequestID: w.Header().Get("X-Request-Id")},
 				"shipment": shipment,
 			})
 			return
@@ -178,7 +181,7 @@ func (h *Router) generateLabelURL(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		var providerErr *application.ProviderError
 		if errors.As(err, &providerErr) {
-			writeError(w, http.StatusBadGateway, "LABEL_GENERATION_FAILED", providerErr.Cause.Error())
+			writeError(w, http.StatusBadGateway, "LABEL_GENERATION_FAILED", "carrier could not generate the shipment label")
 			return
 		}
 		h.handleError(w, err)
@@ -284,6 +287,10 @@ func (h *Router) fakeWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 	shipment, result, err := h.service.ApplyWebhook(r.Context(), carrier.FakeCode, body)
 	if err != nil {
+		if errors.Is(err, carrier.ErrInvalidWebhook) {
+			writeError(w, http.StatusBadRequest, "INVALID_WEBHOOK", "carrier webhook payload is invalid")
+			return
+		}
 		h.handleError(w, err)
 		return
 	}
@@ -309,7 +316,7 @@ func (h *Router) ghnWebhook(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, carrier.ErrInvalidWebhook):
-			writeError(w, http.StatusBadRequest, "INVALID_GHN_WEBHOOK", err.Error())
+			writeError(w, http.StatusBadRequest, "INVALID_GHN_WEBHOOK", "GHN webhook payload is invalid")
 		case errors.Is(err, domain.ErrTrackingNotFound), errors.Is(err, domain.ErrShipmentNotFound):
 			// GHN can deliver the create callback before the local create transaction commits.
 			// A retryable response prevents that callback from being dropped permanently.
@@ -363,11 +370,11 @@ func (h *Router) requestLog(next http.Handler) http.Handler {
 func (h *Router) handleError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, domain.ErrShipmentNotFound), errors.Is(err, domain.ErrTrackingNotFound):
-		writeError(w, http.StatusNotFound, "NOT_FOUND", err.Error())
+		writeError(w, http.StatusNotFound, "NOT_FOUND", "shipment or tracking resource was not found")
 	case errors.Is(err, domain.ErrInvalidShipment), errors.Is(err, domain.ErrUnsupportedCarrier):
-		writeError(w, http.StatusUnprocessableEntity, "VALIDATION_FAILED", err.Error())
+		writeError(w, http.StatusUnprocessableEntity, "VALIDATION_FAILED", "request does not satisfy shipping requirements")
 	case errors.Is(err, domain.ErrInvalidTransition), errors.Is(err, domain.ErrConcurrentUpdate):
-		writeError(w, http.StatusConflict, "CONFLICT", err.Error())
+		writeError(w, http.StatusConflict, "CONFLICT", "shipment state changed or does not allow this action")
 	default:
 		h.logger.Error().Err(err).Msg("request failed")
 		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "an internal error occurred")
@@ -375,12 +382,20 @@ func (h *Router) handleError(w http.ResponseWriter, err error) {
 }
 
 type errorBody struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
+	Code      string `json:"code"`
+	Message   string `json:"message"`
+	RequestID string `json:"requestId"`
 }
 
 func writeError(w http.ResponseWriter, status int, code, message string) {
-	writeJSON(w, status, map[string]any{"error": errorBody{Code: code, Message: message}})
+	writeJSON(w, status, errorBody{Code: code, Message: message, RequestID: w.Header().Get("X-Request-Id")})
+}
+
+func (h *Router) requestIDHeader(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Request-Id", middleware.GetReqID(r.Context()))
+		next.ServeHTTP(w, r)
+	})
 }
 
 func writeJSON(w http.ResponseWriter, status int, value any) {
@@ -393,7 +408,7 @@ func decodeJSON(w http.ResponseWriter, r *http.Request, target any) bool {
 	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(target); err != nil {
-		writeError(w, http.StatusBadRequest, "INVALID_JSON", fmt.Sprintf("invalid request body: %v", err))
+		writeError(w, http.StatusBadRequest, "INVALID_JSON", "request body must be valid JSON matching the documented schema")
 		return false
 	}
 	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {

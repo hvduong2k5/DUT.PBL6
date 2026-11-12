@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -28,5 +29,33 @@ func TestGHNWebhookRejectsInvalidSecretBeforeProcessing(t *testing.T) {
 	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusUnauthorized {
 		t.Fatalf("expected 401, got %d", response.Code)
+	}
+	if response.Header().Get("X-Request-Id") == "" {
+		t.Fatal("expected request id response header")
+	}
+	var body errorBody
+	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode error response: %v", err)
+	}
+	if body.RequestID != response.Header().Get("X-Request-Id") {
+		t.Fatalf("error requestId %q does not match response header %q", body.RequestID, response.Header().Get("X-Request-Id"))
+	}
+}
+
+func TestInternalEndpointsRequireAuthenticationAndReturnCommonErrorEnvelope(t *testing.T) {
+	handler := NewRouter(nil, "internal-token", "fake-secret", "", zerolog.Nop())
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/admin/shipping/shipments", nil)
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d", response.Code)
+	}
+	var body errorBody
+	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode error response: %v", err)
+	}
+	if body.Code != "UNAUTHORIZED" || body.RequestID == "" {
+		t.Fatalf("unexpected common error envelope: %+v", body)
 	}
 }
