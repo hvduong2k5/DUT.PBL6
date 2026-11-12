@@ -8,8 +8,11 @@ import { usesIdentityBff } from "./auth/oidc-config";
  *   identity's public endpoints — products, cart, checkout, orders and
  *   public/customer-registrations live here;
  * - the identity customer-api mount (…/api/v1/customer-api), configured
- *   through CUSTOMER_CORE_UPSTREAM_URL, serves only identity's own
- *   customer surface (session, profile, addresses).
+ *   through CUSTOMER_CORE_UPSTREAM_URL. What it serves depends on the
+ *   auth mode: in OIDC mode only identity's own customer surface
+ *   (session, profile, addresses); in identity-BFF mode it is also the
+ *   translating proxy for the credentialed commerce routes (see
+ *   customerCommerceUpstreamUrl below).
  *
  * The commerce handlers (catalog, cart, checkout, orders, payments,
  * returns) build root-relative paths, so they must resolve the gateway
@@ -45,4 +48,27 @@ export function gatewayUpstreamUrl(): string {
   const customerCore = clean(process.env.CUSTOMER_CORE_UPSTREAM_URL);
   if (customerCore) return customerCore.replace(/\/customer-api$/u, "");
   return DEFAULT_UPSTREAM_URL;
+}
+
+/**
+ * Base for the credentialed commerce routes (cart, checkout, orders,
+ * payments, returns). The modes differ in kind, not in prefix: in
+ * identity-BFF mode the credential is an opaque session id that only
+ * identity's customer BFF can translate into a principal, and the
+ * customer-api mount proxies these routes onward — so the commerce
+ * base stays CUSTOMER_CORE_UPSTREAM_URL there. In OIDC mode the access
+ * token is a self-contained JWT that each service verifies itself, so
+ * the calls go to the gateway root like the anonymous routes.
+ *
+ * The first version of the F-12 fix used the gateway root in both
+ * modes and the web-identity fixture caught it: its cross-owner cart
+ * check failed because the order service cannot resolve a raw session
+ * id. This resolver is the correction.
+ */
+export function customerCommerceUpstreamUrl(): string {
+  if (usesIdentityBff()) {
+    const customerCore = clean(process.env.CUSTOMER_CORE_UPSTREAM_URL);
+    if (customerCore) return customerCore;
+  }
+  return gatewayUpstreamUrl();
 }
