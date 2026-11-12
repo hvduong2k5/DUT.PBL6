@@ -41,11 +41,12 @@ landed on identity paths that do not exist there:
       removed — the mount always hangs below the same gateway root, and
       the local root-shaped mock passes through unchanged;
    4. the local mock default (`http://127.0.0.1:4010/api/v1`).
-2. The catalog route, the registration helper, and the cart / checkout /
-   orders / payments / returns handlers build their upstream URLs from
-   `gatewayUpstreamUrl()`. Identity's own customer surface (customer,
-   customer-core, session and capability checks) keeps using
-   `CUSTOMER_CORE_UPSTREAM_URL` unchanged.
+2. The catalog route and the registration helper build their upstream
+   URLs from `gatewayUpstreamUrl()`; the credentialed commerce handlers
+   (cart / checkout / orders / payments / returns) use the companion
+   resolver `customerCommerceUpstreamUrl()` — see the amendment below.
+   Identity's own customer surface (customer, customer-core, session and
+   capability checks) keeps using `CUSTOMER_CORE_UPSTREAM_URL` unchanged.
 3. Cart, checkout and orders join the ADR-001 credential boundary: their
    exported handlers resolve (and when needed refresh) the customer
    credential through `withCustomerAuth()` and forward that credential,
@@ -67,3 +68,24 @@ landed on identity paths that do not exist there:
 - The employee/admin handlers are untouched; their upstream contract
   (`IDENTITY_UPSTREAM_URL`, `ADMIN_API_UPSTREAM_URL`) is separate, as
   recorded in ADR-001.
+
+## Amendment (2026-11-12): the commerce base is mode-dependent
+
+The first version of this fix sent the credentialed commerce handlers
+to the gateway root in every mode. The web-identity fixture
+(`scripts/test-web-identity.py`, which runs the web in identity-BFF
+mode) failed its cross-owner cart check on that version, while the
+previous code passed: in BFF mode the credential is an opaque session
+id that only identity's customer BFF can translate into a principal,
+and the customer-api mount proxies the commerce routes onward. Sending
+the raw session id straight to the order service cannot work — the
+mount is a different backend in that mode, not a mere URL prefix.
+
+`customerCommerceUpstreamUrl()` therefore resolves by mode:
+identity-BFF mode keeps `CUSTOMER_CORE_UPSTREAM_URL` (the translating
+mount); OIDC mode uses `gatewayUpstreamUrl()`, because the access
+token is a self-contained JWT that each service verifies itself —
+which is also the only shape that works in the OIDC deployment, where
+the mount serves no commerce paths. The anonymous routes (catalog,
+registration) are unaffected: they use the gateway root in both modes,
+as they already did in BFF mode before this change.

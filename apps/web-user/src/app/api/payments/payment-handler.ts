@@ -2,7 +2,7 @@ import { normalizePublicError, type PublicErrorBody } from "@/lib/api-contract";
 import { authorizeCustomerCapability, customerAccessFailure } from "@/lib/auth/customer-access-server";
 import { credentialHeaders } from "@/lib/auth/server-credential";
 import { withCustomerAuth } from "@/lib/auth/customer-auth";
-import { gatewayUpstreamUrl } from "@/lib/upstream";
+import { customerCommerceUpstreamUrl } from "@/lib/upstream";
 import { isPaymentInstructions, isPaymentStatus } from "@/lib/payment/mvp";
 import { parsePaymentRoute } from "@/lib/payment/validation";
 import { NextRequest, NextResponse } from "next/server";
@@ -20,7 +20,7 @@ function upstreamHeaders(request: NextRequest, credential: string | undefined, s
 }
 
 async function upstream(request: NextRequest, credential: string | undefined, path: string, scenario?: string) {
-  const base = gatewayUpstreamUrl();
+  const base = customerCommerceUpstreamUrl();
   const response = await fetch(`${base}/${path}`, {
     method: "GET",
     headers: upstreamHeaders(request, credential, scenario),

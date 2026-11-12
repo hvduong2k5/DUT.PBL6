@@ -8,7 +8,7 @@ import {
 import { authorizeCustomerCapability, customerAccessFailure } from "@/lib/auth/customer-access-server";
 import { credentialHeaders } from "@/lib/auth/server-credential";
 import { withCustomerAuth } from "@/lib/auth/customer-auth";
-import { gatewayUpstreamUrl } from "@/lib/upstream";
+import { customerCommerceUpstreamUrl } from "@/lib/upstream";
 import {
   parseMvpCartRoute,
   validateMvpAddCartItemInput,
@@ -51,7 +51,7 @@ function upstreamHeaders(credential: string | undefined, hasBody: boolean, scena
 }
 
 async function callUpstream(request: NextRequest, credential: string | undefined, path: string, method: string, scenario?: string, body?: unknown) {
-  const base = gatewayUpstreamUrl();
+  const base = customerCommerceUpstreamUrl();
   const response = await fetch(`${base}/${path}`, {
     method,
     headers: upstreamHeaders(credential, body !== undefined, scenario, request.headers.get("if-match") ?? undefined),

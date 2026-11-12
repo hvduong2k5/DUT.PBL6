@@ -16,12 +16,6 @@ import { handleCartRequest } from "./cart-handler";
 const principal = "11111111-1111-4111-8111-111111111111";
 const customerId = "22222222-2222-4222-8222-222222222222";
 const gateway = "http://gateway.test/api/v1";
-const original = { ...process.env };
-const ENV_KEYS = [
-  "WEB_AUTH_MODE", "WEB_PUBLIC_URL", "WEB_OIDC_ISSUER", "WEB_OIDC_CLIENT_ID",
-  "WEB_OIDC_COOKIE_SECRET", "WEB_OIDC_ALLOW_LOCAL_HTTP", "CUSTOMER_CORE_UPSTREAM_URL",
-  "CUSTOMER_EXTENSIONS_UPSTREAM_URL", "API_GATEWAY_UPSTREAM_URL", "IDENTITY_UPSTREAM_URL"
-];
 
 let server: Server;
 let issuer = "";
@@ -58,18 +52,16 @@ describe("cart handler upstream wiring (oidc mode)", () => {
     const address = server.address();
     if (!address || typeof address === "string") throw new Error("No provider address");
     issuer = `http://127.0.0.1:${address.port}`;
-    Object.assign(process.env, {
-      WEB_AUTH_MODE: "oidc",
-      WEB_PUBLIC_URL: "http://localhost:13000",
-      WEB_OIDC_ISSUER: issuer,
-      WEB_OIDC_CLIENT_ID: "frontend-web",
-      WEB_OIDC_COOKIE_SECRET: "test-cookie-secret-more-than-thirty-two-bytes",
-      WEB_OIDC_ALLOW_LOCAL_HTTP: "true",
-      CUSTOMER_CORE_UPSTREAM_URL: `${gateway}/customer-api`,
-      CUSTOMER_EXTENSIONS_UPSTREAM_URL: `${gateway}/extensions`
-    });
-    delete process.env.API_GATEWAY_UPSTREAM_URL;
-    delete process.env.IDENTITY_UPSTREAM_URL;
+    vi.stubEnv("WEB_AUTH_MODE", "oidc");
+    vi.stubEnv("WEB_PUBLIC_URL", "http://localhost:13000");
+    vi.stubEnv("WEB_OIDC_ISSUER", issuer);
+    vi.stubEnv("WEB_OIDC_CLIENT_ID", "frontend-web");
+    vi.stubEnv("WEB_OIDC_COOKIE_SECRET", "test-cookie-secret-more-than-thirty-two-bytes");
+    vi.stubEnv("WEB_OIDC_ALLOW_LOCAL_HTTP", "true");
+    vi.stubEnv("CUSTOMER_CORE_UPSTREAM_URL", `${gateway}/customer-api`);
+    vi.stubEnv("CUSTOMER_EXTENSIONS_UPSTREAM_URL", `${gateway}/extensions`);
+    vi.stubEnv("API_GATEWAY_UPSTREAM_URL", "");
+    vi.stubEnv("IDENTITY_UPSTREAM_URL", "");
 
     const realFetch = globalThis.fetch;
     vi.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -94,12 +86,13 @@ describe("cart handler upstream wiring (oidc mode)", () => {
   });
 
   afterEach(async () => {
+    // Restore the environment first and synchronously: this suite runs
+    // non-isolated, so a leaked WEB_AUTH_MODE would flip later files
+    // into OIDC resolution.
+    vi.unstubAllEnvs();
     vi.unstubAllGlobals();
     server.closeAllConnections();
     await new Promise<void>(resolve => server.close(() => resolve()));
-    for (const key of ENV_KEYS) {
-      if (original[key] === undefined) delete process.env[key]; else process.env[key] = original[key];
-    }
   });
 
   async function login() {

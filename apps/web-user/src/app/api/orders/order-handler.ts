@@ -8,7 +8,7 @@ import {
 import { authorizeCustomerCapability, requireCustomerSession, customerAccessFailure } from "@/lib/auth/customer-access-server";
 import { credentialHeaders } from "@/lib/auth/server-credential";
 import { withCustomerAuth } from "@/lib/auth/customer-auth";
-import { gatewayUpstreamUrl } from "@/lib/upstream";
+import { customerCommerceUpstreamUrl } from "@/lib/upstream";
 import { MVP_FEATURE_GATES } from "@/lib/mvp-feature-gates";
 import { GUEST_ORDER_ACCESS_COOKIE, decodeGuestOrderAccess, encodeGuestOrderAccess } from "@/lib/orders/guest-access";
 import { isOrderCancellation, isOrderTrackingResponse, isOwnedOrder, isOwnedOrdersResponse } from "@/lib/orders/mvp";
@@ -67,7 +67,7 @@ async function upstream(
   idempotencyKey?: string,
   ifMatch?: string
 ) {
-  const base = gatewayUpstreamUrl();
+  const base = customerCommerceUpstreamUrl();
   const response = await fetch(`${base}/${path}`, {
     method,
     headers: upstreamHeaders(credential, scenario, body !== undefined, idempotencyKey, ifMatch),

@@ -9,7 +9,7 @@ import {
 import { authorizeCustomerCapability, customerAccessFailure } from "@/lib/auth/customer-access-server";
 import { credentialHeaders } from "@/lib/auth/server-credential";
 import { withCustomerAuth } from "@/lib/auth/customer-auth";
-import { gatewayUpstreamUrl } from "@/lib/upstream";
+import { customerCommerceUpstreamUrl } from "@/lib/upstream";
 import { MVP_FEATURE_GATES } from "@/lib/mvp-feature-gates";
 import {
   parseMvpCheckoutRoute,
@@ -63,7 +63,7 @@ async function callUpstream(
   body?: unknown,
   idempotencyKey?: string
 ) {
-  const base = gatewayUpstreamUrl();
+  const base = customerCommerceUpstreamUrl();
   const response = await fetch(`${base}/${path}`, {
     method,
     headers: upstreamHeaders(credential, scenario, body !== undefined, idempotencyKey),
