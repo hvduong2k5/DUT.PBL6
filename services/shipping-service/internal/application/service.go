@@ -41,10 +41,26 @@ type QuoteRepository interface {
 	SaveQuote(context.Context, *domain.ShippingQuote) (*domain.ShippingQuote, bool, error)
 }
 
+type ReturnShipmentRepository interface {
+	BeginReturnCreation(context.Context, string, string, *domain.ReturnShipment) (*domain.ReturnShipment, bool, error)
+	SaveReturnShipment(context.Context, *domain.ReturnShipment, int64, *domain.ReturnShipmentEvent) error
+	GetReturnShipment(context.Context, uuid.UUID) (*domain.ReturnShipment, error)
+}
+
 type ProviderError struct {
 	Shipment *domain.Shipment
 	Cause    error
 }
+
+type ReturnProviderError struct {
+	ReturnShipment *domain.ReturnShipment
+	Cause          error
+}
+
+func (e *ReturnProviderError) Error() string {
+	return "return carrier operation failed: " + e.Cause.Error()
+}
+func (e *ReturnProviderError) Unwrap() error { return e.Cause }
 
 type LabelAccess struct {
 	ShipmentID     uuid.UUID `json:"shipment_id"`
@@ -182,6 +198,82 @@ func (s *Service) CreateShipment(ctx context.Context, cmd domain.CreateShipmentC
 		return nil, err
 	}
 	return shipment, nil
+}
+
+func (s *Service) CreateReturnShipment(ctx context.Context, cmd domain.CreateReturnShipmentCommand) (*domain.ReturnShipment, error) {
+	if err := cmd.Validate(); err != nil {
+		return nil, err
+	}
+	provider, ok := s.carriers.Get(cmd.CarrierCode)
+	if !ok {
+		return nil, fmt.Errorf("%w: %s", domain.ErrUnsupportedCarrier, cmd.CarrierCode)
+	}
+	returnCarrier, ok := provider.(carrier.ReturnCarrier)
+	if !ok {
+		return nil, fmt.Errorf("%w: carrier %s does not support return pickup", domain.ErrUnsupportedCarrier, cmd.CarrierCode)
+	}
+	repository, ok := s.repository.(ReturnShipmentRepository)
+	if !ok {
+		return nil, errors.New("return shipment repository is not configured")
+	}
+	shipment, err := domain.NewReturnShipment(cmd, s.now())
+	if err != nil {
+		return nil, err
+	}
+	requestHash, err := cmd.RequestHash()
+	if err != nil {
+		return nil, err
+	}
+	shipment, inserted, err := repository.BeginReturnCreation(ctx, cmd.IdempotencyKey, requestHash, shipment)
+	if err != nil {
+		return nil, err
+	}
+	if !inserted && shipment.Status == domain.ReturnShipmentCreated {
+		return shipment, nil
+	}
+	result, providerErr := returnCarrier.CreateReturnShipment(ctx, carrier.ReturnCreateRequest{
+		IdempotencyKey: cmd.IdempotencyKey, ReturnShipmentID: shipment.ID.String(),
+		ReturnCaseID: shipment.ReturnCaseID, OrderID: shipment.OrderID, PackageID: shipment.PackageID,
+		ServiceCode: shipment.ServiceCode, PickupAddress: shipment.PickupAddress,
+		Destination: shipment.Destination, Parcel: shipment.Parcel,
+		ReasonCode: shipment.ReasonCode, ShippingNotes: cmd.ShippingNotes,
+	})
+	if providerErr != nil {
+		expectedRevision := shipment.Revision
+		now := s.now()
+		if err := shipment.MarkCreationFailed("CARRIER_REJECTED", "carrier rejected return shipment creation", now); err != nil {
+			return nil, errors.Join(providerErr, err)
+		}
+		event := domain.NewReturnShipmentEvent("creation-failed", shipment, now)
+		if err := repository.SaveReturnShipment(ctx, shipment, expectedRevision, &event); err != nil {
+			return nil, errors.Join(providerErr, err)
+		}
+		return shipment, &ReturnProviderError{ReturnShipment: shipment, Cause: providerErr}
+	}
+	expectedRevision := shipment.Revision
+	now := s.now()
+	if err := shipment.MarkCreated(result.CarrierOrderID, result.TrackingCode, result.EstimatedFeeVND, now); err != nil {
+		return nil, err
+	}
+	event := domain.NewReturnShipmentEvent("created", shipment, now)
+	if err := repository.SaveReturnShipment(ctx, shipment, expectedRevision, &event); err != nil {
+		if errors.Is(err, domain.ErrConcurrentUpdate) {
+			latest, readErr := repository.GetReturnShipment(ctx, shipment.ID)
+			if readErr == nil && latest.Status == domain.ReturnShipmentCreated {
+				return latest, nil
+			}
+		}
+		return nil, err
+	}
+	return shipment, nil
+}
+
+func (s *Service) GetReturnShipment(ctx context.Context, id uuid.UUID) (*domain.ReturnShipment, error) {
+	repository, ok := s.repository.(ReturnShipmentRepository)
+	if !ok {
+		return nil, errors.New("return shipment repository is not configured")
+	}
+	return repository.GetReturnShipment(ctx, id)
 }
 
 func (s *Service) failCreation(ctx context.Context, shipment *domain.Shipment, code string, cause error) (*domain.Shipment, error) {

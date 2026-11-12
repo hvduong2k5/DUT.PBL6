@@ -7,7 +7,7 @@ publish these routes through Kong.
 | Route group | Authentication / intended caller | Success and empty state | Error and retry behavior | Exposure status |
 |---|---|---|---|---|
 | `/health/*` | No auth; platform probes | `200` when process/database is healthy | Readiness returns `503` when database is unavailable | Operational only |
-| `/api/v1/internal/*` | Shared `SHIPPING_INTERNAL_TOKEN`; trusted service caller | Quote `200`; shipment creation `201`; actions `200` | `400` malformed input or missing/invalid `Idempotency-Key`, `401` missing/invalid token, `404` missing shipment, `409` transition/idempotency conflict, `413` body exceeds 1 MiB, `415` missing/unsupported JSON media type on JSON-body routes, `422` validation, `502` carrier failure | Internal only; Order's canonical integration remains versioned gRPC |
+| `/api/v1/internal/*` | Shared `SHIPPING_INTERNAL_TOKEN`; trusted service caller (Care for approved return cases) | Quote `200`; shipment and return-shipment creation `201`; reads/actions `200` | `400` malformed input or missing/invalid `Idempotency-Key`, `401` missing/invalid token, `404` missing resource, `409` transition/idempotency conflict, `413` body exceeds 1 MiB, `415` missing/unsupported JSON media type on JSON-body routes, `422` validation, `502` carrier failure | Internal only; Order's outbound integration remains versioned gRPC |
 | `/api/v1/admin/shipping/*` | Identity-issued employee RS256 JWT; issuer and audience validated; requires `principal_type=EMPLOYEE` and `SHIPMENT_VIEW#GLOBAL` | Shipment `200`; list returns `200` with `items: []` when empty | `400 INVALID_PAGINATION` for invalid/out-of-range/repeated page values or overflow; `400 INVALID_STATUS_FILTER` for an invalid or repeated status; `400 INVALID_FILTER` for repeated carrier/orderId; `401` missing/invalid JWT, `403` missing global shipment permission, `404` missing shipment, `500` internal failure | Employee read-only API; no warehouse/department filtering is supported yet |
 | `/api/v1/orders/{orderID}/tracking` | Shared internal token; backend/BFF caller | `200`; no shipments returns `shipments: []`; only applied events and no internal notes | `400` blank order ID, `401` invalid token, `500` internal failure | Not a public customer route; no Kong route is implied |
 | Fake carrier webhook | HMAC-SHA256 in `X-Shipping-Signature` using exact body | `200` accepted or duplicate callback | `400` malformed body/payload, `401` invalid signature, `404` unknown shipment, `413` body exceeds 1 MiB, `415` missing/unsupported JSON media type after signature validation, `500` processing failure | Local/test carrier only |
@@ -30,6 +30,14 @@ using a new key for an already-bound action returns `409 IDEMPOTENCY_KEY_REUSED`
 Shipments created before the fingerprint migration have no stored fingerprint and fail
 closed with the same conflict on create replay; reconcile those legacy requests before
 retrying them with a new key.
+
+Return pickup is a different resource from an outbound shipment and from an outbound shipment's
+`RETURNING`/`RETURNED` (return-to-sender) states. Care owns case review: only after an employee
+approves a case should Care call `POST /api/v1/internal/return-shipments`. The request uses the
+customer as pickup and warehouse as destination; COD is fixed at zero and `fee_payer` is fixed to
+`SHOP`. Creation is idempotent by key and unique per return-case/package. MVP supports `FAKE`
+only. Return creation events use `shipping.return.events.v1`, never `shipping.events.v1/v2`.
+Shipping does not approve a case, refund money, or mutate Order.
 
 ## Explicitly not covered
 

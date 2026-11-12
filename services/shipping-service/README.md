@@ -49,6 +49,8 @@ The REST contract is documented in [`shipping-service.openapi.yaml`](../../docs/
 
 - `POST /api/v1/internal/shipping/quotes`
 - `POST /api/v1/internal/shipments`
+- `POST /api/v1/internal/return-shipments` (Care only after employee case approval)
+- `GET /api/v1/internal/return-shipments/{returnShipmentID}`
 - `POST /api/v1/internal/shipments/{shipmentID}/cancel`
 - `POST /api/v1/internal/shipments/{shipmentID}/label-url`
 - `POST /api/v1/internal/shipments/{shipmentID}/handover`
@@ -59,6 +61,19 @@ The REST contract is documented in [`shipping-service.openapi.yaml`](../../docs/
 - `POST /api/v1/webhooks/logistics/ghn` (only active when GHN is configured)
 
 The fake webhook requires `X-Shipping-Signature: sha256=<hex hmac>` calculated from the exact request body and `SHIPPING_FAKE_WEBHOOK_SECRET`.
+
+### Customer return pickup (MVP)
+
+Care approves or rejects a return case; Shipping does not make that decision. After approval,
+Care can create a separate return-shipment through the internal endpoint using a stable
+`Idempotency-Key`. The customer address is the pickup, the warehouse is the destination, COD is
+always zero, and the shop pays the carrier fee. This MVP deliberately supports the deterministic
+`FAKE` carrier only; GHN return pickup is unsupported until its mapping and sandbox behavior are
+implemented and verified. Any future carrier adapter must honor the stable idempotency key or
+reconcile by a stable client reference before retrying a create. Return records and outbox events are separate from outbound delivery
+shipments, and their events use `shipping.return.events.v1` (partition key `return_shipment_id`).
+Shipping does not approve Care cases, issue refunds, or change Order state. Return event
+consumers remain pending integration acceptance.
 
 ## GHN staging adapter
 

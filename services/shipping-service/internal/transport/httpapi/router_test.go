@@ -31,6 +31,14 @@ type httpMemoryRepository struct {
 	pingErr           error
 }
 
+type httpReturnMemoryRepository struct {
+	*httpMemoryRepository
+	returnShipments map[uuid.UUID]*domain.ReturnShipment
+	returnKeys      map[string]uuid.UUID
+	returnHashes    map[string]string
+	returnEvents    []domain.ReturnShipmentEvent
+}
+
 type httpActionBinding struct {
 	shipmentID uuid.UUID
 	action     string
@@ -45,6 +53,64 @@ func newHTTPMemoryRepository() *httpMemoryRepository {
 		actionsByKey: make(map[string]httpActionBinding), actionsByShipment: make(map[string]httpActionBinding),
 		timeline: make(map[uuid.UUID][]domain.TrackingEvent),
 	}
+}
+
+func newHTTPReturnMemoryRepository() *httpReturnMemoryRepository {
+	return &httpReturnMemoryRepository{
+		httpMemoryRepository: newHTTPMemoryRepository(),
+		returnShipments:      make(map[uuid.UUID]*domain.ReturnShipment),
+		returnKeys:           make(map[string]uuid.UUID), returnHashes: make(map[string]string),
+	}
+}
+
+func cloneHTTPReturnShipment(value *domain.ReturnShipment) *domain.ReturnShipment {
+	data, _ := json.Marshal(value)
+	var result domain.ReturnShipment
+	_ = json.Unmarshal(data, &result)
+	return &result
+}
+
+func (r *httpReturnMemoryRepository) BeginReturnCreation(_ context.Context, key, hash string, shipment *domain.ReturnShipment) (*domain.ReturnShipment, bool, error) {
+	for id, existing := range r.returnShipments {
+		if existing.ReturnCaseID == shipment.ReturnCaseID && existing.PackageID == shipment.PackageID {
+			if r.returnKeys[key] == id && r.returnHashes[key] == hash {
+				return cloneHTTPReturnShipment(existing), false, nil
+			}
+			return nil, false, domain.ErrIdempotencyConflict
+		}
+	}
+	if id, exists := r.returnKeys[key]; exists {
+		if r.returnHashes[key] != hash {
+			return nil, false, domain.ErrIdempotencyConflict
+		}
+		return cloneHTTPReturnShipment(r.returnShipments[id]), false, nil
+	}
+	r.returnKeys[key], r.returnHashes[key] = shipment.ID, hash
+	r.returnShipments[shipment.ID] = cloneHTTPReturnShipment(shipment)
+	return cloneHTTPReturnShipment(shipment), true, nil
+}
+
+func (r *httpReturnMemoryRepository) SaveReturnShipment(_ context.Context, shipment *domain.ReturnShipment, expectedRevision int64, event *domain.ReturnShipmentEvent) error {
+	stored := r.returnShipments[shipment.ID]
+	if stored == nil {
+		return domain.ErrReturnShipmentNotFound
+	}
+	if stored.Revision != expectedRevision {
+		return domain.ErrConcurrentUpdate
+	}
+	r.returnShipments[shipment.ID] = cloneHTTPReturnShipment(shipment)
+	if event != nil {
+		r.returnEvents = append(r.returnEvents, *event)
+	}
+	return nil
+}
+
+func (r *httpReturnMemoryRepository) GetReturnShipment(_ context.Context, id uuid.UUID) (*domain.ReturnShipment, error) {
+	shipment := r.returnShipments[id]
+	if shipment == nil {
+		return nil, domain.ErrReturnShipmentNotFound
+	}
+	return cloneHTTPReturnShipment(shipment), nil
 }
 
 type fixedStaffAuthenticator struct{}
@@ -726,6 +792,59 @@ func TestFakeWebhookValidatesSignatureAndAppliesTrackingEvent(t *testing.T) {
 	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"result":"APPLIED"`) || !strings.Contains(response.Body.String(), `"status":"IN_TRANSIT"`) {
 		t.Fatalf("signed fake webhook response = %d, body=%s", response.Code, response.Body.String())
+	}
+}
+
+func TestReturnShipmentRequiresInternalAuthAndCreatesSeparateFakeReturn(t *testing.T) {
+	repository := newHTTPReturnMemoryRepository()
+	service := application.NewService(repository, carrier.NewRegistry(carrier.NewFake()))
+	handler := NewRouter(service, "internal-token", "fake-secret", "", zerolog.Nop())
+	command := domain.CreateReturnShipmentCommand{
+		ReturnCaseID: uuid.NewString(), OrderID: "ORD-RETURN-2", PackageID: "PKG-2",
+		CarrierCode: carrier.FakeCode, ServiceCode: "STANDARD", ReasonCode: "DAMAGED",
+		PickupAddress: domain.Recipient{Name: "Customer", Phone: "0900000000", Street: "Customer address", Ward: "Ward 1", District: "District 1", Province: "Hue", CountryCode: "VN"},
+		Destination:   domain.Recipient{Name: "Warehouse", Phone: "0900000001", Street: "Warehouse address", Ward: "Ward 2", District: "District 1", Province: "Hue", CountryCode: "VN"},
+		Parcel:        domain.Parcel{WeightGrams: 600, LengthCM: 10, WidthCM: 12, HeightCM: 8},
+	}
+	body, err := json.Marshal(command)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/internal/return-shipments", strings.NewReader(string(body)))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Idempotency-Key", "approved-return-case-123")
+	unauthorized := httptest.NewRecorder()
+	handler.ServeHTTP(unauthorized, request)
+	if unauthorized.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401 without internal token, got %d", unauthorized.Code)
+	}
+
+	request = httptest.NewRequest(http.MethodPost, "/api/v1/internal/return-shipments", strings.NewReader(string(body)))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Idempotency-Key", "approved-return-case-123")
+	request.Header.Set("Authorization", "Bearer internal-token")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d: %s", response.Code, response.Body.String())
+	}
+	var created domain.ReturnShipment
+	if err := json.Unmarshal(response.Body.Bytes(), &created); err != nil {
+		t.Fatal(err)
+	}
+	if created.Status != domain.ReturnShipmentCreated || created.CODAmountVND != 0 || created.FeePayer != domain.ReturnShipmentFeePayerShop || created.PickupAddress.Name != "Customer" || created.Destination.Name != "Warehouse" {
+		t.Fatalf("return shipment did not preserve approved return semantics: %+v", created)
+	}
+	if len(repository.returnEvents) != 1 || repository.returnEvents[0].Topic != "shipping.return.events.v1" {
+		t.Fatalf("expected isolated return event stream, got %+v", repository.returnEvents)
+	}
+
+	getRequest := httptest.NewRequest(http.MethodGet, "/api/v1/internal/return-shipments/"+created.ID.String(), nil)
+	getRequest.Header.Set("X-Internal-Token", "internal-token")
+	getResponse := httptest.NewRecorder()
+	handler.ServeHTTP(getResponse, getRequest)
+	if getResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 when reading return shipment, got %d: %s", getResponse.Code, getResponse.Body.String())
 	}
 }
 

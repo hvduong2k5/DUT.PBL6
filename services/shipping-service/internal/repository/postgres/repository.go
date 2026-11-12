@@ -104,6 +104,92 @@ func (r *Repository) BeginCreation(ctx context.Context, idempotencyKey, requestH
 	return existing, false, err
 }
 
+func (r *Repository) BeginReturnCreation(ctx context.Context, idempotencyKey, requestHash string, shipment *domain.ReturnShipment) (*domain.ReturnShipment, bool, error) {
+	pickup, err := json.Marshal(shipment.PickupAddress)
+	if err != nil {
+		return nil, false, err
+	}
+	destination, err := json.Marshal(shipment.Destination)
+	if err != nil {
+		return nil, false, err
+	}
+	parcel, err := json.Marshal(shipment.Parcel)
+	if err != nil {
+		return nil, false, err
+	}
+	tag, err := r.pool.Exec(ctx, `
+		INSERT INTO return_shipments (
+			id, shipment_number, return_case_id, order_id, package_id, idempotency_key,
+			request_hash, carrier_code, service_code, pickup_address, destination, parcel,
+			reason_code, shipping_notes, status, cod_amount_vnd, fee_payer,
+			provider_estimated_fee_vnd, failure_code, failure_reason, created_at, updated_at, revision
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,0,'SHOP',0,'','',$16,$17,$18)
+		ON CONFLICT DO NOTHING`,
+		shipment.ID, shipment.ShipmentNumber, shipment.ReturnCaseID, shipment.OrderID, shipment.PackageID,
+		idempotencyKey, requestHash, shipment.CarrierCode, shipment.ServiceCode, pickup, destination, parcel,
+		shipment.ReasonCode, shipment.ShippingNotes, shipment.Status, shipment.CreatedAt, shipment.UpdatedAt, shipment.Revision)
+	if err != nil {
+		return nil, false, err
+	}
+	if tag.RowsAffected() == 1 {
+		return shipment, true, nil
+	}
+	var existingKey, existingHash string
+	err = r.pool.QueryRow(ctx, `
+		SELECT idempotency_key, request_hash FROM return_shipments
+		WHERE idempotency_key=$1 OR (return_case_id=$2 AND package_id=$3)
+		ORDER BY CASE WHEN idempotency_key=$1 THEN 0 ELSE 1 END LIMIT 1`,
+		idempotencyKey, shipment.ReturnCaseID, shipment.PackageID).Scan(&existingKey, &existingHash)
+	if err != nil {
+		return nil, false, err
+	}
+	if existingKey != idempotencyKey || existingHash != requestHash {
+		return nil, false, domain.ErrIdempotencyConflict
+	}
+	existing, err := scanReturnShipment(r.pool.QueryRow(ctx, selectReturnShipment+` WHERE idempotency_key=$1`, idempotencyKey))
+	return existing, false, err
+}
+
+func (r *Repository) SaveReturnShipment(ctx context.Context, shipment *domain.ReturnShipment, expectedRevision int64, event *domain.ReturnShipmentEvent) error {
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	tag, err := tx.Exec(ctx, `
+		UPDATE return_shipments SET carrier_order_id=$2, tracking_code=$3, status=$4,
+			provider_estimated_fee_vnd=$5, failure_code=$6, failure_reason=$7,
+			updated_at=$8, revision=$9
+		WHERE id=$1 AND revision=$10`,
+		shipment.ID, shipment.CarrierOrderID, shipment.TrackingCode, shipment.Status,
+		shipment.ProviderEstimatedFeeVND, shipment.FailureCode, shipment.FailureReason,
+		shipment.UpdatedAt, shipment.Revision, expectedRevision)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() != 1 {
+		return domain.ErrConcurrentUpdate
+	}
+	if event != nil {
+		payload, marshalErr := json.Marshal(event)
+		if marshalErr != nil {
+			return marshalErr
+		}
+		_, err = tx.Exec(ctx, `
+			INSERT INTO outbox_events (id, aggregate_id, aggregate_type, event_type, topic, partition_key, payload, occurred_at)
+			VALUES ($1,$2,'return_shipment',$3,$4,$5,$6,$7)`,
+			event.ID, event.AggregateID, event.Type, event.Topic, event.AggregateID.String(), payload, event.OccurredAt)
+		if err != nil {
+			return err
+		}
+	}
+	return tx.Commit(ctx)
+}
+
+func (r *Repository) GetReturnShipment(ctx context.Context, id uuid.UUID) (*domain.ReturnShipment, error) {
+	return scanReturnShipment(r.pool.QueryRow(ctx, selectReturnShipment+` WHERE id=$1`, id))
+}
+
 func (r *Repository) BindAction(ctx context.Context, shipmentID uuid.UUID, action, idempotencyKey, requestHash string) error {
 	tag, err := r.pool.Exec(ctx, `
 		INSERT INTO shipment_action_idempotency (idempotency_key, shipment_id, action_type, request_hash)
@@ -310,6 +396,13 @@ const selectQuote = `SELECT
 	created_at, quote_version
 FROM shipping_quotes`
 
+const selectReturnShipment = `SELECT
+	id, shipment_number, return_case_id, order_id, package_id, carrier_code, service_code,
+	carrier_order_id, tracking_code, status, pickup_address, destination, parcel,
+	cod_amount_vnd, fee_payer, provider_estimated_fee_vnd, reason_code, shipping_notes,
+	failure_code, failure_reason, created_at, updated_at, revision
+FROM return_shipments`
+
 type rowScanner interface{ Scan(...any) error }
 
 func scanQuote(row rowScanner) (*domain.ShippingQuote, error) {
@@ -356,6 +449,33 @@ func scanShipment(row rowScanner) (*domain.Shipment, error) {
 		return nil, err
 	}
 	if err := json.Unmarshal(recipient, &shipment.Recipient); err != nil {
+		return nil, err
+	}
+	if err := json.Unmarshal(parcel, &shipment.Parcel); err != nil {
+		return nil, err
+	}
+	return &shipment, nil
+}
+
+func scanReturnShipment(row rowScanner) (*domain.ReturnShipment, error) {
+	var shipment domain.ReturnShipment
+	var pickup, destination, parcel []byte
+	err := row.Scan(&shipment.ID, &shipment.ShipmentNumber, &shipment.ReturnCaseID,
+		&shipment.OrderID, &shipment.PackageID, &shipment.CarrierCode, &shipment.ServiceCode,
+		&shipment.CarrierOrderID, &shipment.TrackingCode, &shipment.Status, &pickup,
+		&destination, &parcel, &shipment.CODAmountVND, &shipment.FeePayer,
+		&shipment.ProviderEstimatedFeeVND, &shipment.ReasonCode, &shipment.ShippingNotes, &shipment.FailureCode,
+		&shipment.FailureReason, &shipment.CreatedAt, &shipment.UpdatedAt, &shipment.Revision)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, domain.ErrReturnShipmentNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	if err := json.Unmarshal(pickup, &shipment.PickupAddress); err != nil {
+		return nil, err
+	}
+	if err := json.Unmarshal(destination, &shipment.Destination); err != nil {
 		return nil, err
 	}
 	if err := json.Unmarshal(parcel, &shipment.Parcel); err != nil {

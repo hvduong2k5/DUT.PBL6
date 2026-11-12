@@ -73,6 +73,38 @@ func (f *Fake) CreateShipment(_ context.Context, req CreateRequest) (CreateResul
 	}, nil
 }
 
+func (f *Fake) CreateReturnShipment(_ context.Context, req ReturnCreateRequest) (CreateResult, error) {
+	if strings.TrimSpace(req.IdempotencyKey) == "" || strings.TrimSpace(req.ReturnShipmentID) == "" || strings.TrimSpace(req.ReturnCaseID) == "" {
+		return CreateResult{}, fmt.Errorf("idempotency key, return shipment ID and return case ID are required")
+	}
+	if err := req.PickupAddress.Validate(); err != nil {
+		return CreateResult{}, fmt.Errorf("invalid return pickup address: %w", err)
+	}
+	if err := req.Destination.Validate(); err != nil {
+		return CreateResult{}, fmt.Errorf("invalid return destination: %w", err)
+	}
+	if err := req.Parcel.Validate(); err != nil {
+		return CreateResult{}, err
+	}
+	if strings.Contains(strings.ToUpper(req.PickupAddress.Street), "REJECT") {
+		return CreateResult{}, fmt.Errorf("FAKE_ADDRESS_REJECTED: carrier rejected pickup address")
+	}
+	sum := sha256.Sum256([]byte("return:" + req.IdempotencyKey))
+	suffix := strings.ToUpper(hex.EncodeToString(sum[:6]))
+	now := f.now().UTC()
+	pickup := now.Add(4 * time.Hour)
+	delivery := now.Add(72 * time.Hour)
+	fee := int64(22000) + ((req.Parcel.WeightGrams+499)/500)*5000
+	if req.Parcel.Fragile {
+		fee += 7000
+	}
+	return CreateResult{
+		CarrierOrderID: "FAKE-RETURN-ORDER-" + suffix, TrackingCode: "FAKER" + suffix,
+		LabelReference: "labels/fake/return/" + suffix + ".pdf", EstimatedFeeVND: fee,
+		EstimatedPickupAt: &pickup, EstimatedDeliveryAt: &delivery,
+	}, nil
+}
+
 func (f *Fake) CancelShipment(_ context.Context, req CancelRequest) error {
 	if strings.TrimSpace(req.CarrierOrderID) == "" {
 		return fmt.Errorf("carrier order id is required")

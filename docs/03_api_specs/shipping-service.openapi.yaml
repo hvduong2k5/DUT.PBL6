@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: MS-12 Shipping Service Internal HTTP API
-  version: 2.12.0
+  version: 2.13.0
   description: >-
     Contract for the implemented Shipping HTTP endpoints. These are employee-admin,
     service-to-service, operational, and provider-webhook endpoints; they are not a customer-facing API and
@@ -20,6 +20,7 @@ info:
     Version 2.10.0 rejects repeated shipment-list filter parameters.
     Version 2.11.0 binds cancellation and handover idempotency keys to their canonical action payload.
     Version 2.12.0 protects employee admin reads with an Identity-issued JWT and SHIPMENT_VIEW#GLOBAL; service-to-service routes retain the internal token.
+    Version 2.13.0 adds a separate internal return-shipment resource and event stream. Care may request creation only after an employee approves the return case; Shipping does not approve cases, refund money, or mutate Order.
 servers:
   - url: http://localhost:8012
     description: Local development only
@@ -130,6 +131,74 @@ paths:
                 properties:
                   error: { $ref: '#/components/schemas/Error' }
                   shipment: { $ref: '#/components/schemas/Shipment' }
+  /api/v1/internal/return-shipments:
+    post:
+      tags: [Internal shipping]
+      operationId: shippingCreateReturnShipment
+      summary: Create a customer-to-warehouse return pickup
+      description: >-
+        Care may call this endpoint only after its employee has approved the return case.
+        The return pickup is a separate resource from the outbound shipment. The customer
+        address is the pickup address, the warehouse is the destination, COD is always zero,
+        and the shop pays the carrier fee. Shipping does not approve the case, execute refunds,
+        or change Order. The MVP supports the deterministic FAKE carrier only.
+      security:
+        - internalBearer: []
+        - internalToken: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateReturnShipmentRequest' }
+      responses:
+        '201':
+          description: Return shipment created or matching idempotent result returned
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReturnShipment' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '502':
+          description: Carrier rejected creation; the persisted failed return shipment is included
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [error, return_shipment]
+                properties:
+                  error: { $ref: '#/components/schemas/Error' }
+                  return_shipment: { $ref: '#/components/schemas/ReturnShipment' }
+  /api/v1/internal/return-shipments/{returnShipmentID}:
+    get:
+      tags: [Internal shipping]
+      operationId: shippingGetReturnShipment
+      summary: Get a return shipment
+      description: Internal read for Care and other trusted backend callers; not customer-facing.
+      security:
+        - internalBearer: []
+        - internalToken: []
+      parameters:
+        - name: returnShipmentID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Return shipment resource
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReturnShipment' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
   /api/v1/internal/shipments/{shipmentID}/cancel:
     post:
       tags: [Internal shipping]
@@ -570,6 +639,54 @@ components:
         packed_at: { type: string, format: date-time }
         event_version: { type: integer, enum: [0, 1, 2], default: 1 }
         shipping_notes: { type: string }
+    CreateReturnShipmentRequest:
+      type: object
+      required: [return_case_id, order_id, package_id, carrier_code, service_code, pickup_address, destination, parcel, reason_code]
+      properties:
+        return_case_id: { type: string, minLength: 1, maxLength: 128, description: Approved Care return-case identifier }
+        order_id: { type: string, minLength: 1, maxLength: 128 }
+        package_id: { type: string, minLength: 1, maxLength: 128 }
+        carrier_code: { type: string, enum: [FAKE] }
+        service_code: { type: string, minLength: 1 }
+        pickup_address:
+          allOf: [{ $ref: '#/components/schemas/Recipient' }]
+          description: Customer address
+        destination:
+          allOf: [{ $ref: '#/components/schemas/Recipient' }]
+          description: Return warehouse address
+        parcel: { $ref: '#/components/schemas/Parcel' }
+        reason_code: { type: string, minLength: 1, maxLength: 80 }
+        shipping_notes: { type: string }
+    ReturnShipmentStatus:
+      type: string
+      enum: [CREATING, CREATED, CREATION_FAILED]
+    ReturnShipment:
+      type: object
+      required: [return_shipment_id, shipment_number, return_case_id, order_id, package_id, carrier_code, service_code, status, pickup_address, destination, parcel, cod_amount_vnd, fee_payer, provider_estimated_fee_vnd, reason_code, created_at, updated_at, revision]
+      properties:
+        return_shipment_id: { type: string, format: uuid }
+        shipment_number: { type: string }
+        return_case_id: { type: string }
+        order_id: { type: string }
+        package_id: { type: string }
+        carrier_code: { type: string }
+        service_code: { type: string }
+        carrier_order_id: { type: string }
+        tracking_code: { type: string }
+        status: { $ref: '#/components/schemas/ReturnShipmentStatus' }
+        pickup_address: { $ref: '#/components/schemas/Recipient' }
+        destination: { $ref: '#/components/schemas/Recipient' }
+        parcel: { $ref: '#/components/schemas/Parcel' }
+        shipping_notes: { type: string }
+        cod_amount_vnd: { type: integer, format: int64, enum: [0] }
+        fee_payer: { type: string, enum: [SHOP] }
+        provider_estimated_fee_vnd: { type: integer, format: int64, minimum: 0 }
+        reason_code: { type: string }
+        failure_code: { type: string }
+        failure_reason: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        revision: { type: integer, format: int64, minimum: 1 }
     ShipmentStatus:
       type: string
       enum: [CREATING, CREATION_FAILED, CREATED, READY_FOR_HANDOVER, HANDED_OVER, IN_TRANSIT, OUT_FOR_DELIVERY, DELIVERED, DELIVERY_FAILED, RETURNING, RETURNED, CANCELLED]

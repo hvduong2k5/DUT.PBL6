@@ -48,6 +48,8 @@ func NewRouter(service *application.Service, internalToken, fakeWebhookSecret, g
 	r.Get("/health/ready", h.ready)
 	r.With(h.requireInternalToken).Post("/api/v1/internal/shipping/quotes", h.quote)
 	r.With(h.requireInternalToken).Post("/api/v1/internal/shipments", h.createShipment)
+	r.With(h.requireInternalToken).Post("/api/v1/internal/return-shipments", h.createReturnShipment)
+	r.With(h.requireInternalToken).Get("/api/v1/internal/return-shipments/{returnShipmentID}", h.getReturnShipment)
 	r.With(h.requireInternalToken).Post("/api/v1/internal/shipments/{shipmentID}/cancel", h.cancelShipment)
 	r.With(h.requireInternalToken).Post("/api/v1/internal/shipments/{shipmentID}/label-url", h.generateLabelURL)
 	r.With(h.requireInternalToken).Post("/api/v1/internal/shipments/{shipmentID}/handover", h.confirmHandover)
@@ -164,6 +166,46 @@ func (h *Router) createShipment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusCreated, shipment)
+}
+
+func (h *Router) createReturnShipment(w http.ResponseWriter, r *http.Request) {
+	headerKey, ok := requireIdempotencyKey(w, r)
+	if !ok {
+		return
+	}
+	var command domain.CreateReturnShipmentCommand
+	if !decodeJSON(w, r, &command) {
+		return
+	}
+	command.IdempotencyKey = headerKey
+	shipment, err := h.service.CreateReturnShipment(r.Context(), command)
+	if err != nil {
+		var providerErr *application.ReturnProviderError
+		if errors.As(err, &providerErr) {
+			writeJSON(w, http.StatusBadGateway, map[string]any{
+				"error":           errorBody{Code: "CARRIER_REJECTED", Message: "carrier rejected return shipment creation", RequestID: w.Header().Get("X-Request-Id")},
+				"return_shipment": shipment,
+			})
+			return
+		}
+		h.handleError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, shipment)
+}
+
+func (h *Router) getReturnShipment(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(chi.URLParam(r, "returnShipmentID"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_RETURN_SHIPMENT_ID", "returnShipmentID must be a UUID")
+		return
+	}
+	shipment, err := h.service.GetReturnShipment(r.Context(), id)
+	if err != nil {
+		h.handleError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, shipment)
 }
 
 func (h *Router) confirmHandover(w http.ResponseWriter, r *http.Request) {
@@ -510,8 +552,8 @@ func (h *Router) requestLog(next http.Handler) http.Handler {
 
 func (h *Router) handleError(w http.ResponseWriter, err error) {
 	switch {
-	case errors.Is(err, domain.ErrShipmentNotFound), errors.Is(err, domain.ErrTrackingNotFound):
-		writeError(w, http.StatusNotFound, "NOT_FOUND", "shipment or tracking resource was not found")
+	case errors.Is(err, domain.ErrShipmentNotFound), errors.Is(err, domain.ErrReturnShipmentNotFound), errors.Is(err, domain.ErrTrackingNotFound):
+		writeError(w, http.StatusNotFound, "NOT_FOUND", "shipping or tracking resource was not found")
 	case errors.Is(err, domain.ErrInvalidShipment), errors.Is(err, domain.ErrUnsupportedCarrier):
 		writeError(w, http.StatusUnprocessableEntity, "VALIDATION_FAILED", "request does not satisfy shipping requirements")
 	case errors.Is(err, domain.ErrIdempotencyConflict):
