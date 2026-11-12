@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: MS-12 Shipping Service Internal HTTP API
-  version: 2.4.0
+  version: 2.9.0
   description: >-
     Contract for the implemented Shipping HTTP endpoints. These are service-to-service,
     operational, and provider-webhook endpoints; they are not a customer-facing API and
