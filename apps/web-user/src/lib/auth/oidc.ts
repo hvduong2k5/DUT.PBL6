@@ -112,7 +112,7 @@ async function exchange(values: Record<string, string>): Promise<Tokens> {
 
 function cookieOptions() { return { httpOnly: true, sameSite: "lax" as const, secure: oidcConfig().secure, path: "/" }; }
 
-function applyTokens(response: NextResponse, tokens: Tokens, session: Session) {
+export function applyTokens(response: NextResponse, tokens: Tokens, session: Session) {
   response.cookies.set(ACCESS_COOKIE, tokens.access_token, { ...cookieOptions(), maxAge: Math.floor(tokens.expires_in) });
   response.cookies.set(REFRESH_COOKIE, tokens.refresh_token, { ...cookieOptions(), maxAge: Math.min(tokens.refresh_expires_in ?? 28800, 28800) });
   response.cookies.set(SESSION_COOKIE, seal(session, SESSION_COOKIE), { ...cookieOptions(), maxAge: 28800 });
