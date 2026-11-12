@@ -2,6 +2,9 @@ package httpapi
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/omamx/shipping-service/internal/application"
 	"github.com/omamx/shipping-service/internal/carrier"
+	ghncarrier "github.com/omamx/shipping-service/internal/carrier/ghn"
 	"github.com/omamx/shipping-service/internal/domain"
 	"github.com/rs/zerolog"
 )
@@ -292,4 +296,107 @@ func TestReadyEndpointReturnsCommonErrorWhenDatabaseIsUnavailable(t *testing.T) 
 	if body.Code != "NOT_READY" || body.RequestID == "" {
 		t.Fatalf("unexpected readiness error: %+v", body)
 	}
+}
+
+func TestFakeWebhookValidatesSignatureAndAppliesTrackingEvent(t *testing.T) {
+	repository := newHTTPMemoryRepository()
+	service := application.NewService(repository, carrier.NewRegistry(carrier.NewFake()))
+	shipment, err := service.CreateShipment(context.Background(), domain.CreateShipmentCommand{
+		IdempotencyKey: "fake-webhook-test-key", OrderID: "order-webhook", PackageID: "package-webhook",
+		CarrierCode: carrier.FakeCode, ServiceCode: "STANDARD",
+		Recipient: domain.Recipient{Name: "Customer", Phone: "0905000000", Street: "1 Main Street", Ward: "Ward 1", Province: "Hue"},
+		Parcel:    domain.Parcel{WeightGrams: 1000, LengthCM: 30, WidthCM: 20, HeightCM: 15},
+	})
+	if err != nil {
+		t.Fatalf("create shipment for webhook: %v", err)
+	}
+	handler := NewRouter(service, "internal-token", "fake-secret", "", zerolog.Nop())
+	body := fmt.Sprintf(`{"event_id":"event-1","tracking_code":%q,"status":"IN_TRANSIT","event_at":"2026-11-12T10:00:00Z"}`, shipment.TrackingCode)
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/webhooks/logistics/fake", strings.NewReader(body))
+	request.Header.Set("X-Shipping-Signature", "sha256=00")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("invalid signature status = %d, body=%s", response.Code, response.Body.String())
+	}
+
+	mac := hmac.New(sha256.New, []byte("fake-secret"))
+	_, _ = mac.Write([]byte(body))
+	request = httptest.NewRequest(http.MethodPost, "/api/v1/webhooks/logistics/fake", strings.NewReader(body))
+	request.Header.Set("X-Shipping-Signature", "sha256="+hex.EncodeToString(mac.Sum(nil)))
+	response = httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"result":"APPLIED"`) || !strings.Contains(response.Body.String(), `"status":"IN_TRANSIT"`) {
+		t.Fatalf("signed fake webhook response = %d, body=%s", response.Code, response.Body.String())
+	}
+}
+
+func TestGHNWebhookAppliesCallbackAndReturnsRetryableStatusBeforeShipmentExists(t *testing.T) {
+	ghn, err := ghncarrier.New(ghncarrier.Config{
+		BaseURL: "https://dev-online-gateway.ghn.vn", Token: "test-token", ShopID: 123,
+		FromDistrictID: 1450, FromWardCode: "11111",
+	})
+	if err != nil {
+		t.Fatalf("create GHN provider: %v", err)
+	}
+	body := `{"ShopID":123,"Time":"2026-11-12T10:00:00Z","OrderCode":"GHN-TRACK-1","Type":"StatusUpdate","Status":"picked","Description":"Picked up"}`
+
+	t.Run("applies callback for known shipment", func(t *testing.T) {
+		repository := newHTTPMemoryRepository()
+		shipmentID := uuid.New()
+		repository.shipments[shipmentID] = &domain.Shipment{
+			ID: shipmentID, OrderID: "order-ghn", PackageID: "package-ghn",
+			CarrierCode: ghncarrier.Code, TrackingCode: "GHN-TRACK-1",
+			Status: domain.StatusCreated, Revision: 1,
+		}
+		service := application.NewService(repository, carrier.NewRegistry(carrier.NewFake(), ghn))
+		handler := NewRouter(service, "internal-token", "fake-secret", "ghn-webhook-secret", zerolog.Nop())
+		request := httptest.NewRequest(http.MethodPost, "/api/v1/webhooks/logistics/ghn", strings.NewReader(body))
+		request.Header.Set("X-GHN-Webhook-Secret", "ghn-webhook-secret")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"status":"HANDED_OVER"`) {
+			t.Fatalf("valid GHN callback response = %d, body=%s", response.Code, response.Body.String())
+		}
+	})
+
+	t.Run("asks provider to retry before shipment is committed", func(t *testing.T) {
+		repository := newHTTPMemoryRepository()
+		service := application.NewService(repository, carrier.NewRegistry(carrier.NewFake(), ghn))
+		handler := NewRouter(service, "internal-token", "fake-secret", "ghn-webhook-secret", zerolog.Nop())
+		request := httptest.NewRequest(http.MethodPost, "/api/v1/webhooks/logistics/ghn", strings.NewReader(body))
+		request.Header.Set("X-GHN-Webhook-Secret", "ghn-webhook-secret")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != http.StatusServiceUnavailable {
+			t.Fatalf("race callback status = %d, body=%s", response.Code, response.Body.String())
+		}
+		var errorResponse errorBody
+		if err := json.Unmarshal(response.Body.Bytes(), &errorResponse); err != nil {
+			t.Fatalf("decode retryable GHN error: %v", err)
+		}
+		if errorResponse.Code != "SHIPMENT_NOT_READY" || errorResponse.RequestID == "" {
+			t.Fatalf("unexpected retryable GHN error: %+v", errorResponse)
+		}
+	})
+
+	t.Run("rejects malformed provider payload with a safe error", func(t *testing.T) {
+		repository := newHTTPMemoryRepository()
+		service := application.NewService(repository, carrier.NewRegistry(carrier.NewFake(), ghn))
+		handler := NewRouter(service, "internal-token", "fake-secret", "ghn-webhook-secret", zerolog.Nop())
+		request := httptest.NewRequest(http.MethodPost, "/api/v1/webhooks/logistics/ghn", strings.NewReader(`{}`))
+		request.Header.Set("X-GHN-Webhook-Secret", "ghn-webhook-secret")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != http.StatusBadRequest {
+			t.Fatalf("malformed GHN callback status = %d, body=%s", response.Code, response.Body.String())
+		}
+		var errorResponse errorBody
+		if err := json.Unmarshal(response.Body.Bytes(), &errorResponse); err != nil {
+			t.Fatalf("decode malformed GHN error: %v", err)
+		}
+		if errorResponse.Code != "INVALID_GHN_WEBHOOK" || errorResponse.Message != "GHN webhook payload is invalid" || errorResponse.RequestID == "" {
+			t.Fatalf("unexpected malformed GHN error: %+v", errorResponse)
+		}
+	})
 }
