@@ -7,7 +7,9 @@ import {
   type PublicErrorBody
 } from "@/lib/api-contract";
 import { authorizeCustomerCapability, customerAccessFailure } from "@/lib/auth/customer-access-server";
-import { applyTrustedAuthorization, getTrustedAccessToken } from "@/lib/auth/server-credential";
+import { credentialHeaders } from "@/lib/auth/server-credential";
+import { withCustomerAuth } from "@/lib/auth/customer-auth";
+import { gatewayUpstreamUrl } from "@/lib/upstream";
 import { MVP_FEATURE_GATES } from "@/lib/mvp-feature-gates";
 import {
   parseMvpCheckoutRoute,
@@ -43,9 +45,9 @@ function publicErrorResponse(
   return Response.json(body, { status });
 }
 
-function upstreamHeaders(request: NextRequest, scenario?: string, hasBody = false, idempotencyKey?: string): Headers {
+function upstreamHeaders(credential: string | undefined, scenario?: string, hasBody = false, idempotencyKey?: string): Headers {
   const headers = new Headers({ Accept: "application/vnd.omama.customer-mvp+json, application/json" });
-  applyTrustedAuthorization(headers, request);
+  credentialHeaders(headers, credential);
   if (hasBody) headers.set("Content-Type", "application/json");
   if (idempotencyKey) headers.set("Idempotency-Key", idempotencyKey);
   if (process.env.NODE_ENV !== "production" && scenario) headers.set("X-Mock-Scenario", scenario);
@@ -54,16 +56,17 @@ function upstreamHeaders(request: NextRequest, scenario?: string, hasBody = fals
 
 async function callUpstream(
   request: NextRequest,
+  credential: string | undefined,
   path: string,
   method: string,
   scenario?: string,
   body?: unknown,
   idempotencyKey?: string
 ) {
-  const base = (process.env.CUSTOMER_CORE_UPSTREAM_URL ?? "http://127.0.0.1:4010/api/v1").replace(/\/$/u, "");
+  const base = gatewayUpstreamUrl();
   const response = await fetch(`${base}/${path}`, {
     method,
-    headers: upstreamHeaders(request, scenario, body !== undefined, idempotencyKey),
+    headers: upstreamHeaders(credential, scenario, body !== undefined, idempotencyKey),
     body: body === undefined ? undefined : JSON.stringify(body),
     cache: "no-store",
     redirect: "manual"
@@ -145,6 +148,10 @@ function isCheckoutOperation(value: unknown): value is CheckoutOperation {
 }
 
 export async function handleCheckoutRequest(request: NextRequest, path: string[]): Promise<Response> {
+  return withCustomerAuth(request, (credential) => handleCheckoutRequestWithCredential(request, path, credential));
+}
+
+async function handleCheckoutRequestWithCredential(request: NextRequest, path: string[], credential: string | undefined): Promise<Response> {
   const route = parseMvpCheckoutRoute(request.method, path, request.nextUrl.searchParams);
   if (route.error || !route.operation) {
     const notFound = route.error?.field === "path";
@@ -163,9 +170,8 @@ export async function handleCheckoutRequest(request: NextRequest, path: string[]
     return publicErrorResponse(400, "INVALID_REQUEST", "Mock scenario không khả dụng trong production.", "BFF-CHECKOUT-SCENARIO");
   }
 
-  const accessToken = getTrustedAccessToken(request);
   try {
-    await authorizeCustomerCapability(accessToken, "CHECKOUT_CREATE");
+    await authorizeCustomerCapability(credential, "CHECKOUT_CREATE");
   } catch (cause) {
     const failure = customerAccessFailure(cause);
     return publicErrorResponse(failure.status, failure.code, failure.message, "BFF-CHECKOUT-ACCESS");
@@ -173,7 +179,7 @@ export async function handleCheckoutRequest(request: NextRequest, path: string[]
 
   try {
     if (route.operation === "get-operation") {
-      const result = await callUpstream(request, `checkout-operations/${encodeURIComponent(route.operationId!)}`, "GET", route.mockScenario);
+      const result = await callUpstream(request, credential, `checkout-operations/${encodeURIComponent(route.operationId!)}`, "GET", route.mockScenario);
       if (!result.response.ok) return relayUpstreamError(result.payload, result.response);
       if (result.response.status !== 200) return publicErrorResponse(502, "INVALID_CHECKOUT_STATUS", "Checkout operation trả status ngoài contract.", "BFF-CHECKOUT-OPERATION");
       return isCheckoutOperation(result.payload)
@@ -201,7 +207,7 @@ export async function handleCheckoutRequest(request: NextRequest, path: string[]
       if (parsed.data.voucher_code && !MVP_FEATURE_GATES.voucher) {
         return publicErrorResponse(403, "FEATURE_NOT_ENABLED", "Voucher chưa được bật cho Web MVP hiện tại.", "BFF-CHECKOUT-VOUCHER-GATE");
       }
-      const result = await callUpstream(request, "checkout/quote", "POST", route.mockScenario, parsed.data);
+      const result = await callUpstream(request, credential, "checkout/quote", "POST", route.mockScenario, parsed.data);
       if (!result.response.ok) return relayUpstreamError(result.payload, result.response);
       if (result.response.status !== 200) return publicErrorResponse(502, "INVALID_CHECKOUT_STATUS", "Checkout quote trả status ngoài contract.", "BFF-CHECKOUT-QUOTE");
       return isOrderQuote(result.payload)
@@ -218,7 +224,7 @@ export async function handleCheckoutRequest(request: NextRequest, path: string[]
     if (parsed.data.payment_method === "COD" && !MVP_FEATURE_GATES.cod) {
       return publicErrorResponse(403, "FEATURE_NOT_ENABLED", "COD chưa được bật cho Web MVP hiện tại.", "BFF-CHECKOUT-COD-GATE");
     }
-    const result = await callUpstream(request, "checkout", "POST", route.mockScenario, parsed.data, idempotencyKey);
+    const result = await callUpstream(request, credential, "checkout", "POST", route.mockScenario, parsed.data, idempotencyKey);
     if (!result.response.ok) return relayUpstreamError(result.payload, result.response);
     if (result.response.status !== 201 && result.response.status !== 202) {
       return publicErrorResponse(502, "INVALID_CHECKOUT_STATUS", "Checkout accept trả status ngoài contract.", "BFF-CHECKOUT-ACCEPT");
