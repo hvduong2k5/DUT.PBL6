@@ -527,9 +527,11 @@ func TestListShipmentsRejectsOffsetOverflow(t *testing.T) {
 		{name: "offset overflow", query: fmt.Sprintf("page=%d&pageSize=100", int(^uint(0)>>1))},
 		{name: "non-numeric page", query: "page=abc"},
 		{name: "empty page", query: "page="},
+		{name: "repeated page", query: "page=1&page=2"},
 		{name: "non-positive page", query: "page=0"},
 		{name: "page size over maximum", query: "pageSize=101"},
 		{name: "empty page size", query: "pageSize="},
+		{name: "repeated page size", query: "pageSize=10&pageSize=20"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

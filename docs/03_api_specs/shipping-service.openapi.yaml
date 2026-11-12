@@ -16,6 +16,7 @@ info:
     Version 2.6.0 applies the same media-type requirement to authenticated carrier webhooks.
     Version 2.7.0 returns 413 when an HTTP request body exceeds the 1 MiB limit.
     Version 2.8.0 rejects explicitly empty shipment-list pagination parameters.
+    Version 2.9.0 rejects repeated shipment-list pagination parameters.
 servers:
   - url: http://localhost:8012
     description: Local development only
@@ -236,6 +237,7 @@ paths:
       description: >-
         This route currently uses the shared internal token, not employee authentication or
         permission-and-scope authorization. Empty, non-positive, or non-numeric page values,
+        repeated, empty, non-positive, or non-numeric page values, repeated pageSize values,
         pageSize values outside 1-100, or a computed offset beyond the supported integer range
         return 400 INVALID_PAGINATION. Omitted page and pageSize use their documented defaults.
         A status outside the declared enum returns 400 INVALID_STATUS_FILTER.

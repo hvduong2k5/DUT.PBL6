@@ -256,6 +256,10 @@ func (h *Router) getShipment(w http.ResponseWriter, r *http.Request) {
 
 func (h *Router) listShipments(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
+	if len(query["page"]) > 1 || len(query["pageSize"]) > 1 {
+		writeError(w, http.StatusBadRequest, "INVALID_PAGINATION", "page and pageSize may only be specified once")
+		return
+	}
 	page, validPage := 1, true
 	if query.Has("page") {
 		page, validPage = parsePositiveInt(query.Get("page"))
