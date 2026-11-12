@@ -49,3 +49,17 @@ func TestLoadAcceptsKafkaConfiguration(t *testing.T) {
 		t.Fatalf("unexpected Order event defaults: %+v", cfg)
 	}
 }
+
+func TestLoadPromotionStaffJWTConfiguration(t *testing.T) {
+	t.Setenv("PROMOTION_INTERNAL_TOKEN", "token")
+	t.Setenv("PROMOTION_STAFF_JWT_ISSUER", " https://keycloak.example/realms/omama ")
+	t.Setenv("PROMOTION_STAFF_JWT_AUDIENCE", " omama-api ")
+	t.Setenv("PROMOTION_STAFF_JWT_PUBLIC_KEY_PATH", " /run/secrets/identity-public.pem ")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if cfg.StaffJWTIssuer != "https://keycloak.example/realms/omama" || cfg.StaffJWTAudience != "omama-api" || cfg.StaffJWTPublicKeyPath != "/run/secrets/identity-public.pem" {
+		t.Fatalf("unexpected Promotion JWT config: %+v", cfg)
+	}
+}

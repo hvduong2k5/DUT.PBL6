@@ -1,13 +1,11 @@
 package httpapi
 
 import (
-	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -19,14 +17,13 @@ type AdminCouponHandler struct {
 	repository *postgres.AdminCouponRepository
 }
 
-func RegisterAdminCouponRoutes(router chi.Router, repository *postgres.AdminCouponRepository, internalToken string) {
+func RegisterAdminCouponRoutes(router chi.Router, repository *postgres.AdminCouponRepository, auth StaffJWTAuth) {
 	handler := &AdminCouponHandler{repository: repository}
-	auth := requireSalesManager(internalToken)
-	router.With(auth).Get("/api/v1/admin/coupons", handler.List)
-	router.With(auth).Post("/api/v1/admin/coupons", handler.Create)
-	router.With(auth).Put("/api/v1/admin/coupons/{couponID}", handler.UpdateDraft)
-	router.With(auth).Post("/api/v1/admin/coupons/{couponID}/publish", handler.Publish)
-	router.With(auth).Post("/api/v1/admin/coupons/{couponID}/pause", handler.Pause)
+	router.With(auth.Require(PermissionPromotionView)).Get("/api/v1/admin/coupons", handler.List)
+	router.With(auth.Require(PermissionPromotionManage)).Post("/api/v1/admin/coupons", handler.Create)
+	router.With(auth.Require(PermissionPromotionManage)).Put("/api/v1/admin/coupons/{couponID}", handler.UpdateDraft)
+	router.With(auth.Require(PermissionPromotionManage)).Post("/api/v1/admin/coupons/{couponID}/publish", handler.Publish)
+	router.With(auth.Require(PermissionPromotionManage)).Post("/api/v1/admin/coupons/{couponID}/pause", handler.Pause)
 }
 
 type couponRequest struct {
@@ -190,29 +187,8 @@ func decodeCouponRequest(w http.ResponseWriter, r *http.Request) (couponRequest,
 	return request, true
 }
 
-func requireSalesManager(token string) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			supplied := r.Header.Get("X-Internal-Token")
-			if token == "" || len(supplied) != len(token) || subtle.ConstantTimeCompare([]byte(supplied), []byte(token)) != 1 {
-				writeError(w, http.StatusUnauthorized, "UNAUTHENTICATED", "internal gateway authentication is required")
-				return
-			}
-			if strings.TrimSpace(r.Header.Get("X-User-ID")) == "" {
-				writeError(w, http.StatusUnauthorized, "UNAUTHENTICATED", "authenticated actor identity is required")
-				return
-			}
-			if !strings.EqualFold(strings.TrimSpace(r.Header.Get("X-User-Role")), "SALES_MANAGER") {
-				writeError(w, http.StatusForbidden, "FORBIDDEN", "sales manager permission is required")
-				return
-			}
-			next.ServeHTTP(w, r)
-		})
-	}
-}
-
 func actorFromRequest(r *http.Request) postgres.CouponActor {
-	return postgres.CouponActor{ID: strings.TrimSpace(r.Header.Get("X-User-ID")), Role: strings.ToUpper(strings.TrimSpace(r.Header.Get("X-User-Role")))}
+	return staffActorFromRequest(r)
 }
 
 func writeAdminError(w http.ResponseWriter, err error) {

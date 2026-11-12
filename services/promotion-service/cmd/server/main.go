@@ -2,6 +2,9 @@ package main
 
 import (
 	"context"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"net"
 	"net/http"
@@ -65,7 +68,18 @@ func main() {
 
 	router := chi.NewRouter()
 	router.Get("/health/live", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })
-	httpapi.RegisterAdminCouponRoutes(router, adminCouponRepository, cfg.InternalToken)
+	staffAuth := httpapi.StaffJWTAuth{Issuer: cfg.StaffJWTIssuer, Audience: cfg.StaffJWTAudience}
+	if cfg.StaffJWTPublicKeyPath != "" {
+		publicKeyPEM, err := os.ReadFile(cfg.StaffJWTPublicKeyPath)
+		if err != nil {
+			log.Fatal().Err(err).Msg("read Promotion staff JWT public key")
+		}
+		staffAuth.Key, err = parseRSAPublicKey(publicKeyPEM)
+		if err != nil {
+			log.Fatal().Err(err).Msg("parse Promotion staff JWT public key")
+		}
+	}
+	httpapi.RegisterAdminCouponRoutes(router, adminCouponRepository, staffAuth)
 	httpapi.RegisterPublicPromotionRoutes(router, adminCouponRepository)
 	httpapi.RegisterLoyaltyRoutes(router, loyaltyRepository, cfg.InternalToken, cfg.LoyaltyOrderToken, cfg.LoyaltyRefundToken)
 	router.Get("/health/ready", func(w http.ResponseWriter, r *http.Request) {
@@ -119,6 +133,28 @@ func main() {
 	case <-shutdownCtx.Done():
 		grpcServer.Stop()
 	}
+}
+
+func parseRSAPublicKey(publicKeyPEM []byte) (*rsa.PublicKey, error) {
+	block, _ := pem.Decode(publicKeyPEM)
+	if block == nil {
+		return nil, errors.New("public key file is not PEM encoded")
+	}
+	if key, err := x509.ParsePKIXPublicKey(block.Bytes); err == nil {
+		if rsaKey, ok := key.(*rsa.PublicKey); ok {
+			return rsaKey, nil
+		}
+		return nil, errors.New("public key is not RSA")
+	}
+	if key, err := x509.ParsePKCS1PublicKey(block.Bytes); err == nil {
+		return key, nil
+	}
+	if certificate, err := x509.ParseCertificate(block.Bytes); err == nil {
+		if key, ok := certificate.PublicKey.(*rsa.PublicKey); ok {
+			return key, nil
+		}
+	}
+	return nil, errors.New("public key PEM does not contain an RSA public key")
 }
 
 func startCouponLifecycle(ctx context.Context, repository *postgres.AdminCouponRepository) {

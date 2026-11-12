@@ -28,9 +28,17 @@ PostgreSQL at `GET /health/ready`; liveness is `GET /health/live`. PostgreSQL is
 - `POST /api/v1/admin/coupons/{couponID}/pause` pauses an active/scheduled coupon and requires a reason.
 - `GET /api/v1/promotions/active?limit=50&offset=0` lists public, active, in-window coupons with remaining total uses.
 
-Admin calls require `X-Internal-Token`, `X-User-ID`, and `X-User-Role: SALES_MANAGER`. The
-`X-User-*` values are trusted only from the authenticated API Gateway; do not expose this service
-directly to public clients. A lifecycle worker advances scheduled coupons and ends expired ones;
+Admin coupon calls require an Identity-provisioned, Keycloak-signed RS256 employee JWT. Promotion verifies the signature
+with its configured public key, issuer, `omama-api` audience, expiry, `principal_type=EMPLOYEE`,
+and the signed `permission_grants` claim. `GET /api/v1/admin/coupons` requires
+`PROMOTION_VIEW#GLOBAL`; create/update/publish/pause require `PROMOTION_MANAGE#GLOBAL`. Roles and
+browser-supplied `X-User-*` headers do not grant access. Configure `PROMOTION_STAFF_JWT_ISSUER`,
+`PROMOTION_STAFF_JWT_AUDIENCE` (default `omama-api`) and `PROMOTION_STAFF_JWT_PUBLIC_KEY_PATH`;
+mount the matching Identity/Keycloak RSA public key read-only at that path. Until these values are
+configured, admin routes fail closed with `503 AUTH_UNAVAILABLE`. Keep the key public only (never
+mount a signing private key). gRPC and service-to-service loyalty routes continue using their
+separate internal tokens. Do not expose service-internal routes directly to untrusted networks.
+A lifecycle worker advances scheduled coupons and ends expired ones;
 all manual/automatic status changes are audited. A voucher expiry worker marks overdue `HELD`
 resources as `EXPIRED` in batches using PostgreSQL time, incrementing the resource version. It
 serializes with finalize/release through row locks; the Order command remains authoritative for
@@ -46,6 +54,9 @@ idempotency key and request hash to retrieve its durable command evidence.
 - `PROMOTION_GRPC_ADDRESS` (default `:9017`)
 - `PROMOTION_DATABASE_URL` (local default targets port `5447`)
 - `PROMOTION_INTERNAL_TOKEN` (required)
+- `PROMOTION_STAFF_JWT_ISSUER` (required to enable staff coupon administration)
+- `PROMOTION_STAFF_JWT_AUDIENCE` (default `omama-api`)
+- `PROMOTION_STAFF_JWT_PUBLIC_KEY_PATH` (path to the Identity/Keycloak RSA public key PEM)
 - `PROMOTION_ORDER_EVENTS_ENABLED` (default `false`; enables the Order v3 paid consumer and Promotion outbox publisher)
 - `PROMOTION_KAFKA_BROKERS` (comma-separated broker addresses; required when the consumer is enabled)
 - `PROMOTION_ORDER_EVENTS_TOPIC` (default `order.events.v3`)

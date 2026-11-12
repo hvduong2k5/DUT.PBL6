@@ -23,6 +23,14 @@ a fallback. Order retains each permission's GLOBAL/WAREHOUSE scope. Both retain
 the old signed snapshot until token/grant expiry; role ADMIN alone never bypasses.
 Issuer tasks 1–2 are pending; see [handoff](../06_operations/profile-order-jwt-handoff.md).
 
+Promotion's service-backend coupon routes (`/api/v1/admin/coupons`) now verify the signed
+employee JWT (`principal_type=EMPLOYEE`, `omama-api` audience) and require `PROMOTION_VIEW#GLOBAL`
+for listing or `PROMOTION_MANAGE#GLOBAL` for mutations. These permission codes are a provisional
+Identity handoff, not yet confirmed/seeded by the Identity owner. The backend routes are not
+currently exposed as Admin stable operations or mapped to an Identity/BFF route; add the external
+operation to OpenAPI only when that facade/path is agreed. Until then, missing JWT verification
+configuration fails closed and role/header claims do not grant access.
+
 The entries below supplement the existing UI-format rows, without rewriting
 historical inferred examples. Producer responses and BFF adaptation are defined
 in [consumer read OpenAPI](iam-consumer-read.openapi.yaml), referenced by draft.
