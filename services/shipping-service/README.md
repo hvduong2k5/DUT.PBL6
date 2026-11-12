@@ -27,7 +27,16 @@ event cohort is pinned on each Shipment: legacy callers publish only `shipping.e
 gRPC v2 and Packing v2 shipments publish proof-bearing events to `shipping.events.v2`. Runtime
 rollout remains gated until owning-service and consumer acceptance is complete.
 
-Authenticated endpoints accept either `Authorization: Bearer <token>` or `X-Internal-Token`.
+The employee read-only admin endpoints require an Identity-issued RS256 JWT in
+`Authorization: Bearer <token>`. Shipping validates the issuer, audience, signature, expiry,
+employee principal type and `SHIPMENT_VIEW#GLOBAL` grant. The current Shipping read model has
+no warehouse ownership field, so warehouse- or department-scoped grants are not treated as
+global access. Configure `SHIPPING_OIDC_ISSUER` and `SHIPPING_OIDC_AUDIENCE` (default
+`omama-api`); `SHIPPING_OIDC_JWKS_URL` is optional and defaults to the Keycloak realm JWKS URL.
+
+Service-to-service HTTP/gRPC operations continue to use the separate `SHIPPING_INTERNAL_TOKEN`.
+Webhook authentication remains provider-specific; an internal token is not accepted as employee
+authentication on the admin routes.
 
 ## Implemented endpoints
 

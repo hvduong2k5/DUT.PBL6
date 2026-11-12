@@ -35,6 +35,10 @@ func main() {
 	if err != nil {
 		logger.Fatal().Err(err).Msg("load configuration")
 	}
+	staffAuth, err := httpapi.NewJWTStaffAuthenticator(cfg.OIDCIssuer, cfg.OIDCAudience, cfg.OIDCJWKSURL)
+	if err != nil {
+		logger.Fatal().Err(err).Msg("configure employee JWT authentication")
+	}
 
 	rootCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
@@ -146,7 +150,7 @@ func main() {
 		logger.Warn().Msg("PackingCompleted consumer disabled: SHIPPING_ORDER_GRPC_ENDPOINT is not configured")
 	}
 
-	handler := httpapi.NewRouter(service, cfg.InternalToken, cfg.FakeWebhookSecret, cfg.GHNWebhookSecret, logger)
+	handler := httpapi.NewRouter(service, cfg.InternalToken, cfg.FakeWebhookSecret, cfg.GHNWebhookSecret, logger, staffAuth)
 	server := &http.Server{
 		Addr: cfg.HTTPAddress, Handler: handler,
 		ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second,

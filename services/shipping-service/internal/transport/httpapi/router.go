@@ -26,15 +26,19 @@ import (
 type Router struct {
 	service           *application.Service
 	internalToken     string
+	staffAuth         StaffAuthenticator
 	fakeWebhookSecret string
 	ghnWebhookSecret  string
 	logger            zerolog.Logger
 }
 
-func NewRouter(service *application.Service, internalToken, fakeWebhookSecret, ghnWebhookSecret string, logger zerolog.Logger) http.Handler {
+func NewRouter(service *application.Service, internalToken, fakeWebhookSecret, ghnWebhookSecret string, logger zerolog.Logger, staffAuth ...StaffAuthenticator) http.Handler {
 	h := &Router{
 		service: service, internalToken: internalToken,
 		fakeWebhookSecret: fakeWebhookSecret, ghnWebhookSecret: ghnWebhookSecret, logger: logger,
+	}
+	if len(staffAuth) > 0 {
+		h.staffAuth = staffAuth[0]
 	}
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID, middleware.RealIP, h.recoverer)
@@ -47,8 +51,8 @@ func NewRouter(service *application.Service, internalToken, fakeWebhookSecret, g
 	r.With(h.requireInternalToken).Post("/api/v1/internal/shipments/{shipmentID}/cancel", h.cancelShipment)
 	r.With(h.requireInternalToken).Post("/api/v1/internal/shipments/{shipmentID}/label-url", h.generateLabelURL)
 	r.With(h.requireInternalToken).Post("/api/v1/internal/shipments/{shipmentID}/handover", h.confirmHandover)
-	r.With(h.requireInternalToken).Get("/api/v1/admin/shipping/shipments", h.listShipments)
-	r.With(h.requireInternalToken).Get("/api/v1/admin/shipping/shipments/{shipmentID}", h.getShipment)
+	r.With(h.requireStaffShipmentView).Get("/api/v1/admin/shipping/shipments", h.listShipments)
+	r.With(h.requireStaffShipmentView).Get("/api/v1/admin/shipping/shipments/{shipmentID}", h.getShipment)
 	r.With(h.requireInternalToken).Get("/api/v1/orders/{orderID}/tracking", h.trackOrder)
 	r.Post("/api/v1/webhooks/logistics/fake", h.fakeWebhook)
 	r.Post("/api/v1/webhooks/logistics/ghn", h.ghnWebhook)
@@ -452,6 +456,24 @@ func (h *Router) requireInternalToken(next http.Handler) http.Handler {
 		}
 		if len(token) != len(h.internalToken) || subtle.ConstantTimeCompare([]byte(token), []byte(h.internalToken)) != 1 {
 			writeError(w, http.StatusUnauthorized, "UNAUTHORIZED", "valid internal authentication is required")
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (h *Router) requireStaffShipmentView(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if h.staffAuth == nil {
+			writeError(w, http.StatusUnauthorized, "UNAUTHORIZED", "valid employee authentication is required")
+			return
+		}
+		if _, err := h.staffAuth.Authenticate(r.Context(), r.Header.Get("Authorization")); err != nil {
+			if errors.Is(err, errStaffForbidden) {
+				writeError(w, http.StatusForbidden, "FORBIDDEN", "shipment view permission is required")
+				return
+			}
+			writeError(w, http.StatusUnauthorized, "UNAUTHORIZED", "valid employee authentication is required")
 			return
 		}
 		next.ServeHTTP(w, r)

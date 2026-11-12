@@ -1,10 +1,10 @@
 openapi: 3.0.3
 info:
   title: MS-12 Shipping Service Internal HTTP API
-  version: 2.11.0
+  version: 2.12.0
   description: >-
-    Contract for the implemented Shipping HTTP endpoints. These are service-to-service,
-    operational, and provider-webhook endpoints; they are not a customer-facing API and
+    Contract for the implemented Shipping HTTP endpoints. These are employee-admin,
+    service-to-service, operational, and provider-webhook endpoints; they are not a customer-facing API and
     are not currently exposed through Kong. Order integrations should use the versioned
     Shipping gRPC contract unless an owning-service decision explicitly selects HTTP.
     Version 2.0.0 requires Idempotency-Key on shipment creation, cancellation, and handover.
@@ -19,6 +19,7 @@ info:
     Version 2.9.0 rejects repeated shipment-list pagination parameters.
     Version 2.10.0 rejects repeated shipment-list filter parameters.
     Version 2.11.0 binds cancellation and handover idempotency keys to their canonical action payload.
+    Version 2.12.0 protects employee admin reads with an Identity-issued JWT and SHIPMENT_VIEW#GLOBAL; service-to-service routes retain the internal token.
 servers:
   - url: http://localhost:8012
     description: Local development only
@@ -26,6 +27,7 @@ tags:
   - name: Health
   - name: Internal shipping
   - name: Internal query
+  - name: Employee admin
   - name: Carrier webhooks
 paths:
   /health/live:
@@ -243,20 +245,21 @@ paths:
         '500': { $ref: '#/components/responses/InternalError' }
   /api/v1/admin/shipping/shipments:
     get:
-      tags: [Internal query]
+      tags: [Employee admin]
       operationId: shippingListShipments
-      summary: List shipments for trusted internal tooling
+      summary: List shipments for authorized employee operations
       description: >-
-        This route currently uses the shared internal token, not employee authentication or
-        permission-and-scope authorization. Empty, non-positive, or non-numeric page values,
+        Requires a valid Identity-issued RS256 JWT with the configured issuer and audience, principal_type EMPLOYEE,
+        user_id, and SHIPMENT_VIEW#GLOBAL. The current Shipping read model has no warehouse or department ownership
+        field, so scoped grants do not authorize this aggregate list. Other internal operations continue to use the
+        shared internal token. Empty, non-positive, or non-numeric page values,
         repeated, empty, non-positive, or non-numeric page values, repeated pageSize values,
         pageSize values outside 1-100, or a computed offset beyond the supported integer range
         return 400 INVALID_PAGINATION. Omitted page and pageSize use their documented defaults.
         Repeated status values and status outside the declared enum return 400 INVALID_STATUS_FILTER.
         Repeated carrier or orderId values return 400 INVALID_FILTER.
       security:
-        - internalBearer: []
-        - internalToken: []
+        - employeeBearer: []
       parameters:
         - name: page
           in: query
@@ -289,16 +292,16 @@ paths:
                   page_size: { type: integer }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '500': { $ref: '#/components/responses/InternalError' }
   /api/v1/admin/shipping/shipments/{shipmentID}:
     get:
-      tags: [Internal query]
+      tags: [Employee admin]
       operationId: shippingGetShipment
-      summary: Get a shipment and its tracking timeline for trusted internal tooling
-      description: This route currently uses the shared internal token, not employee authentication or permission-and-scope authorization.
+      summary: Get a shipment and its tracking timeline for an authorized employee
+      description: Requires a valid Identity-issued RS256 JWT with configured issuer and audience, principal_type EMPLOYEE, user_id, and SHIPMENT_VIEW#GLOBAL. Warehouse/department scopes are not supported by the current Shipping read model.
       security:
-        - internalBearer: []
-        - internalToken: []
+        - employeeBearer: []
       parameters:
         - $ref: '#/components/parameters/ShipmentID'
       responses:
@@ -316,6 +319,7 @@ paths:
                     items: { $ref: '#/components/schemas/TrackingEvent' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/InternalError' }
   /api/v1/orders/{orderID}/tracking:
@@ -404,6 +408,11 @@ paths:
         '500': { $ref: '#/components/responses/InternalError' }
 components:
   securitySchemes:
+    employeeBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Identity-issued RS256 employee access token; Shipping validates issuer, audience omama-api, employee principal, and SHIPMENT_VIEW#GLOBAL.
     internalBearer:
       type: http
       scheme: bearer
@@ -451,7 +460,12 @@ components:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
     Unauthorized:
-      description: Missing or invalid service token or webhook secret
+      description: Missing or invalid employee JWT, service token, or webhook secret
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Forbidden:
+      description: Employee identity is valid but the required permission or supported scope is missing
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }

@@ -119,6 +119,9 @@ services:
       SHIPPING_PACKING_V2_ENABLED: ${SHIPPING_PACKING_V2_ENABLED:-false}
       SHIPPING_DATABASE_URL: postgres://shipping:shipping@shipping-postgres:5432/shipping_db?sslmode=disable
       SHIPPING_INTERNAL_TOKEN: ${SHIPPING_INTERNAL_TOKEN:-shipping-local-development-secret}
+      SHIPPING_OIDC_ISSUER: ${SHIPPING_OIDC_ISSUER:-https://keycloak.omama.vn/realms/omama}
+      SHIPPING_OIDC_AUDIENCE: ${SHIPPING_OIDC_AUDIENCE:-omama-api}
+      SHIPPING_OIDC_JWKS_URL: ${SHIPPING_OIDC_JWKS_URL:-}
       SHIPPING_FAKE_WEBHOOK_SECRET: ${SHIPPING_FAKE_WEBHOOK_SECRET:-fake-carrier-webhook-secret}
       SHIPPING_KAFKA_BROKERS: shipping-kafka:29092
       SHIPPING_FULFILLMENT_TOPIC: ${SHIPPING_FULFILLMENT_TOPIC:-fulfillment.events.v1}

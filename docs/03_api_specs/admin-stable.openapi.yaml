@@ -9353,6 +9353,9 @@ paths:
         - "Shipping"
       operationId: "getAdminShippingShipments"
       summary: "Read-only Shipment operations list for Epic 11 MVP. Demo provider labels do not select a production Logistics Provider."
+      x-required-permissions:
+        - "SHIPMENT_VIEW"
+      x-required-grant-scope: "GLOBAL"
       x-lifecycle: "stable"
       x-backlog:
         - "EPIC_11"
@@ -9773,6 +9776,9 @@ paths:
         - "Shipping"
       operationId: "getAdminShippingShipmentsShipmentId"
       summary: "Read-only Shipment detail with recipient projection, package snapshot, fees, handover and traceable provider mapping events for US-SHIP-01, US-SHIP-06."
+      x-required-permissions:
+        - "SHIPMENT_VIEW"
+      x-required-grant-scope: "GLOBAL"
       x-lifecycle: "stable"
       x-backlog:
         - "EPIC_11"

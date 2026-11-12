@@ -12,6 +12,7 @@ This matrix and the OpenAPI files are the backend handoff. It is intentionally i
 - **Forbidden:** `403` when identity is known but capability, permission, ownership or scope is insufficient.
 - **Error:** `4xx` is actionable client/business failure; `5xx` is server/dependency failure. All errors use the shared `Error` schema.
 - **Success:** only documented `2xx` codes are compatible. Mutations requiring asynchronous processing use `202`.
+- Shipping admin reads require the employee grant `SHIPMENT_VIEW#GLOBAL` at the Shipping service. Warehouse/department-scoped shipment reads are not yet supported by the current Shipping read model.
 
 Employee APIs require authentication, effective permission and server-side data-scope enforcement. A hidden menu is not authorization.
 

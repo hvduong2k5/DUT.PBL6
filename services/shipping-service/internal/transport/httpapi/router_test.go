@@ -47,6 +47,15 @@ func newHTTPMemoryRepository() *httpMemoryRepository {
 	}
 }
 
+type fixedStaffAuthenticator struct{}
+
+func (fixedStaffAuthenticator) Authenticate(_ context.Context, authorization string) (StaffPrincipal, error) {
+	if authorization != "Bearer staff-jwt-test" {
+		return StaffPrincipal{}, errStaffUnauthenticated
+	}
+	return StaffPrincipal{UserID: "a0000000-0000-0000-0000-000000000001"}, nil
+}
+
 func (r *httpMemoryRepository) Ping(context.Context) error { return r.pingErr }
 
 func (r *httpMemoryRepository) BeginCreation(_ context.Context, key, requestHash string, shipment *domain.Shipment) (*domain.Shipment, bool, error) {
@@ -271,7 +280,7 @@ func TestOversizedJSONBodyReturnsPayloadTooLarge(t *testing.T) {
 func TestEmptyCollectionResponsesAreArrays(t *testing.T) {
 	repository := newHTTPMemoryRepository()
 	service := application.NewService(repository, carrier.NewRegistry(carrier.NewFake()))
-	handler := NewRouter(service, "internal-token", "fake-secret", "", zerolog.Nop())
+	handler := NewRouter(service, "internal-token", "fake-secret", "", zerolog.Nop(), fixedStaffAuthenticator{})
 	tests := []struct {
 		name string
 		path string
@@ -283,7 +292,11 @@ func TestEmptyCollectionResponsesAreArrays(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			request := httptest.NewRequest(http.MethodGet, test.path, nil)
-			request.Header.Set("Authorization", "Bearer internal-token")
+			if test.name == "admin shipment list" {
+				request.Header.Set("Authorization", "Bearer staff-jwt-test")
+			} else {
+				request.Header.Set("Authorization", "Bearer internal-token")
+			}
 			response := httptest.NewRecorder()
 			handler.ServeHTTP(response, request)
 			var body map[string]json.RawMessage
@@ -323,6 +336,7 @@ func TestGHNWebhookRejectsInvalidSecretBeforeProcessing(t *testing.T) {
 func TestInternalEndpointsRequireAuthenticationAndReturnCommonErrorEnvelope(t *testing.T) {
 	handler := NewRouter(nil, "internal-token", "fake-secret", "", zerolog.Nop())
 	request := httptest.NewRequest(http.MethodGet, "/api/v1/admin/shipping/shipments", nil)
+	request.Header.Set("Authorization", "Bearer internal-token")
 	response := httptest.NewRecorder()
 
 	handler.ServeHTTP(response, request)
@@ -341,7 +355,7 @@ func TestInternalEndpointsRequireAuthenticationAndReturnCommonErrorEnvelope(t *t
 func TestInternalShipmentHTTPContractLifecycle(t *testing.T) {
 	repository := newHTTPMemoryRepository()
 	service := application.NewService(repository, carrier.NewRegistry(carrier.NewFake()))
-	handler := NewRouter(service, "internal-token", "fake-secret", "", zerolog.Nop())
+	handler := NewRouter(service, "internal-token", "fake-secret", "", zerolog.Nop(), fixedStaffAuthenticator{})
 	requestBody := `{"idempotency_key":"rest-create-key-0001","order_id":"order-1","package_id":"package-1","carrier_code":"FAKE","service_code":"STANDARD","recipient":{"name":"Customer","phone":"0905000000","street":"1 Main Street","ward":"Ward 1","province":"Hue","country_code":"VN"},"parcel":{"weight_grams":1000,"length_cm":30,"width_cm":20,"height_cm":15}}`
 	quoteBody := `{"carrier_code":"FAKE","destination":{"name":"Customer","phone":"0905000000","street":"1 Main Street","ward":"Ward 1","province":"Hue","country_code":"VN"},"parcel":{"weight_grams":1000,"length_cm":30,"width_cm":20,"height_cm":15}}`
 	quoteRequest := httptest.NewRequest(http.MethodPost, "/api/v1/internal/shipping/quotes", strings.NewReader(quoteBody))
@@ -392,7 +406,7 @@ func TestInternalShipmentHTTPContractLifecycle(t *testing.T) {
 	}
 
 	get := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/v1/admin/shipping/shipments/%s", shipment.ID), nil)
-	get.Header.Set("X-Internal-Token", "internal-token")
+	get.Header.Set("Authorization", "Bearer staff-jwt-test")
 	got := httptest.NewRecorder()
 	handler.ServeHTTP(got, get)
 	if got.Code != http.StatusOK {
@@ -410,7 +424,7 @@ func TestInternalShipmentHTTPContractLifecycle(t *testing.T) {
 	}
 
 	list := httptest.NewRequest(http.MethodGet, "/api/v1/admin/shipping/shipments?page=1&pageSize=20", nil)
-	list.Header.Set("Authorization", "Bearer internal-token")
+	list.Header.Set("Authorization", "Bearer staff-jwt-test")
 	listed := httptest.NewRecorder()
 	handler.ServeHTTP(listed, list)
 	if listed.Code != http.StatusOK || !strings.Contains(listed.Body.String(), `"items":[`) {
@@ -577,7 +591,7 @@ func TestIdempotencyKeyRejectsLeadingOrTrailingWhitespace(t *testing.T) {
 func TestListShipmentsRejectsOffsetOverflow(t *testing.T) {
 	repository := newHTTPMemoryRepository()
 	service := application.NewService(repository, carrier.NewRegistry(carrier.NewFake()))
-	handler := NewRouter(service, "internal-token", "fake-secret", "", zerolog.Nop())
+	handler := NewRouter(service, "internal-token", "fake-secret", "", zerolog.Nop(), fixedStaffAuthenticator{})
 	tests := []struct {
 		name  string
 		query string
@@ -594,7 +608,7 @@ func TestListShipmentsRejectsOffsetOverflow(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			request := httptest.NewRequest(http.MethodGet, "/api/v1/admin/shipping/shipments?"+test.query, nil)
-			request.Header.Set("Authorization", "Bearer internal-token")
+			request.Header.Set("Authorization", "Bearer staff-jwt-test")
 			response := httptest.NewRecorder()
 			handler.ServeHTTP(response, request)
 			var body errorBody
@@ -608,9 +622,9 @@ func TestListShipmentsRejectsOffsetOverflow(t *testing.T) {
 func TestListShipmentsRejectsUnknownStatusFilter(t *testing.T) {
 	repository := newHTTPMemoryRepository()
 	service := application.NewService(repository, carrier.NewRegistry(carrier.NewFake()))
-	handler := NewRouter(service, "internal-token", "fake-secret", "", zerolog.Nop())
+	handler := NewRouter(service, "internal-token", "fake-secret", "", zerolog.Nop(), fixedStaffAuthenticator{})
 	request := httptest.NewRequest(http.MethodGet, "/api/v1/admin/shipping/shipments?status=NOT_A_STATUS", nil)
-	request.Header.Set("Authorization", "Bearer internal-token")
+	request.Header.Set("Authorization", "Bearer staff-jwt-test")
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
 	var body errorBody
@@ -630,11 +644,11 @@ func TestListShipmentsRejectsRepeatedFilters(t *testing.T) {
 		{name: "order id", query: "orderId=order-1&orderId=order-2", code: "INVALID_FILTER"},
 	}
 	service := application.NewService(newHTTPMemoryRepository(), carrier.NewRegistry(carrier.NewFake()))
-	handler := NewRouter(service, "internal-token", "fake-secret", "", zerolog.Nop())
+	handler := NewRouter(service, "internal-token", "fake-secret", "", zerolog.Nop(), fixedStaffAuthenticator{})
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			request := httptest.NewRequest(http.MethodGet, "/api/v1/admin/shipping/shipments?"+test.query, nil)
-			request.Header.Set("Authorization", "Bearer internal-token")
+			request.Header.Set("Authorization", "Bearer staff-jwt-test")
 			response := httptest.NewRecorder()
 			handler.ServeHTTP(response, request)
 			var body errorBody

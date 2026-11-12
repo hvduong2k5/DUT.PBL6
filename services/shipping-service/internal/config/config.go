@@ -13,6 +13,9 @@ type Config struct {
 	GRPCAddress        string
 	DatabaseURL        string
 	InternalToken      string
+	OIDCIssuer         string
+	OIDCAudience       string
+	OIDCJWKSURL        string
 	FakeWebhookSecret  string
 	KafkaBrokers       []string
 	FulfillmentTopic   string
@@ -46,6 +49,9 @@ func Load() (Config, error) {
 		GRPCAddress:        env("SHIPPING_GRPC_ADDRESS", ":9012"),
 		DatabaseURL:        env("SHIPPING_DATABASE_URL", "postgres://shipping:shipping@localhost:5432/shipping_db?sslmode=disable"),
 		InternalToken:      strings.TrimSpace(os.Getenv("SHIPPING_INTERNAL_TOKEN")),
+		OIDCIssuer:         env("SHIPPING_OIDC_ISSUER", "https://keycloak.omama.vn/realms/omama"),
+		OIDCAudience:       env("SHIPPING_OIDC_AUDIENCE", "omama-api"),
+		OIDCJWKSURL:        strings.TrimSpace(os.Getenv("SHIPPING_OIDC_JWKS_URL")),
 		FakeWebhookSecret:  strings.TrimSpace(os.Getenv("SHIPPING_FAKE_WEBHOOK_SECRET")),
 		KafkaBrokers:       csvEnv("SHIPPING_KAFKA_BROKERS", "localhost:9092"),
 		FulfillmentTopic:   env("SHIPPING_FULFILLMENT_TOPIC", "fulfillment.events.v1"),
