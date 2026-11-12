@@ -255,8 +255,15 @@ func (h *Router) getShipment(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Router) listShipments(w http.ResponseWriter, r *http.Request) {
-	page, validPage := parsePositiveInt(r.URL.Query().Get("page"), 1)
-	pageSize, validPageSize := parsePositiveInt(r.URL.Query().Get("pageSize"), 20)
+	query := r.URL.Query()
+	page, validPage := 1, true
+	if query.Has("page") {
+		page, validPage = parsePositiveInt(query.Get("page"))
+	}
+	pageSize, validPageSize := 20, true
+	if query.Has("pageSize") {
+		pageSize, validPageSize = parsePositiveInt(query.Get("pageSize"))
+	}
 	if !validPage || !validPageSize || pageSize > 100 {
 		writeError(w, http.StatusBadRequest, "INVALID_PAGINATION", "page must be positive and pageSize must be between 1 and 100")
 		return
@@ -548,10 +555,7 @@ func requireJSONContentType(w http.ResponseWriter, r *http.Request) bool {
 	return true
 }
 
-func parsePositiveInt(raw string, fallback int) (int, bool) {
-	if raw == "" {
-		return fallback, true
-	}
+func parsePositiveInt(raw string) (int, bool) {
 	value, err := strconv.Atoi(raw)
 	if err != nil || value <= 0 {
 		return 0, false
