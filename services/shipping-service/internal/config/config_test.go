@@ -47,3 +47,21 @@ func setRequiredBaseEnvironment(t *testing.T) {
 	t.Setenv("SHIPPING_ORDER_GRPC_ENDPOINT", "")
 	t.Setenv("SHIPPING_ORDER_INTERNAL_TOKEN", "")
 }
+
+func TestPackingV2RequiresOrderTLS(t *testing.T) {
+	setRequiredBaseEnvironment(t)
+	t.Setenv("SHIPPING_GHN_ENABLED", "false")
+	t.Setenv("SHIPPING_PACKING_V2_ENABLED", "true")
+	t.Setenv("SHIPPING_ORDER_GRPC_ENDPOINT", "order.internal:9004")
+	t.Setenv("SHIPPING_ORDER_INTERNAL_TOKEN", "fixture-token")
+	t.Setenv("SHIPPING_ORDER_CA_FILE", "")
+	t.Setenv("SHIPPING_ORDER_SERVER_NAME", "")
+	if _, err := Load(); err == nil {
+		t.Fatal("packing v2 accepted a plaintext Order connection")
+	}
+	t.Setenv("SHIPPING_ORDER_CA_FILE", "/run/secrets/order-ca.pem")
+	t.Setenv("SHIPPING_ORDER_SERVER_NAME", "order.internal")
+	if _, err := Load(); err != nil {
+		t.Fatal(err)
+	}
+}
