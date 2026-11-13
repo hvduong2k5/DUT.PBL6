@@ -47,6 +47,11 @@ task 2. Common BFF errors include code, safe message, requestId and errors.
 - `POST .../sync-permissions` is the reconciliation path after a failed sync. Failures are audited as `IAM_PERMISSION_SYNC_FAILED` with the trigger and error code. A `502` means Keycloak rejected/failed the update and the call can be retried.
 - Revocation paths (revoke assignment, reduce role permissions, disable role, suspend account) sync and then force re-login: Keycloak sessions are revoked and BFF sessions removed.
 
+## Identity lifecycle
+
+- A disabled role remains in list and detail with `isEnabled=false`. Assignment to it returns 409. Re-enabling the role allows a new assignment.
+- Invitation acceptance requires the exact Keycloak issuer and subject bound to the pending principal. An expired invitation returns 410. Revoked and accepted invitations return 409.
+
 ## Stable operations
 
 | Operation | Backlog | Lifecycle | Success | Empty | Invalid 400/422 | 401 | 403 | 404 | 409 | 429 | Server 500/503 |
@@ -56,9 +61,11 @@ task 2. Common BFF errors include code, safe message, requestId and errors.
 | `POST /api/v1/admin/users/{principalId}/password/reset` | EPIC_22 | stable | 200 | N/A | 400/422 | 401 | 403 | 404 | — | — | 500/503 |
 | `POST /api/v1/admin/users/{principalId}/sessions/revoke` | EPIC_22 | stable | 200 | N/A | —/— | 401 | 403 | 404 | — | — | 500/503 |
 | `PATCH /api/v1/admin/users/{principalId}/status` | EPIC_22 | stable | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
-| `POST /api/v1/admin/employee-invitations` | EPIC_22 | stable | 201 | N/A | 400/422 | 401 | 403 | — | 409 | — | 500/503 |
+| `POST /api/v1/admin/employee-invitations` | EPIC_22 | stable | 200 | N/A | 400/422 | 401 | 403 | — | 409 | — | 500/503 |
 | `GET /api/v1/admin/employee-invitations/{invitationId}` | EPIC_22 | stable | 200 | N/A | —/— | 401 | 403 | 404 | — | — | 500/503 |
 | `DELETE /api/v1/admin/employee-invitations/{invitationId}` | EPIC_22 | stable | 204 | N/A | —/— | 401 | 403 | 404 | 409 | — | 500/503 |
+| `POST /api/v1/public/auth/employee-invitations/{invitationId}/accept` | EPIC_22 | stable | 200 | N/A | 400/— | 401 | 403 | 404 | 409 | — | 500/502 |
+| `GET /api/v1/admin/employees` | EPIC_22 | stable | 200 | 200 (empty array) | 400/— | 401 | 403 | — | — | — | 500 |
 | `GET /api/v1/admin/role-assignments` | EPIC_22 | stable | 200 | 200 (collection empty) | 400/— | 401 | 403 | — | — | — | 500/503 |
 | `POST /api/v1/admin/role-assignments` | EPIC_22 | stable | 200/201 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
 | `PATCH /api/v1/admin/role-assignments/{assignmentId}` | EPIC_22 | stable | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
