@@ -89,8 +89,8 @@ async function verify(raw: string, audience: string, required: string[]): Promis
     keySets.set(doc.jwks_uri, keys);
   }
   try {
-    const payload = (await jwtVerify(raw, keys, { issuer: config.issuer, audience, algorithms: ["RS256"], requiredClaims: ["sub", "iat", "exp", ...required], clockTolerance: 5 })).payload;
-    if (typeof payload.iat !== "number" || payload.iat > Date.now() / 1000 + 5 || !payload.sub || typeof payload.exp !== "number" || payload.exp <= payload.iat) throw new Error("Invalid token lifetime");
+    const payload = (await jwtVerify(raw, keys, { issuer: config.issuer, audience, algorithms: ["RS256"], requiredClaims: ["sub", "iat", "exp", ...required], clockTolerance: JWT_CLOCK_SKEW_SECONDS })).payload;
+    if (typeof payload.iat !== "number" || payload.iat > Date.now() / 1000 + JWT_CLOCK_SKEW_SECONDS || !payload.sub || typeof payload.exp !== "number" || payload.exp <= payload.iat) throw new Error("Invalid token lifetime");
     return payload;
   } catch { throw new OidcError(401, "OIDC_TOKEN_INVALID"); }
 }
