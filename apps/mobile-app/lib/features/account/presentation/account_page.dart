@@ -11,6 +11,7 @@ import 'package:mobile_app/core/widgets/app_mobile_header.dart';
 import 'package:mobile_app/core/widgets/app_navigation_drawer.dart';
 import 'package:mobile_app/features/auth/domain/auth_models.dart';
 import 'package:mobile_app/features/auth/presentation/auth_cubit.dart';
+import 'package:mobile_app/features/auth/presentation/capabilities_cubit.dart';
 import 'package:mobile_app/features/cart/presentation/cart_cubit.dart';
 import 'package:mobile_app/features/auth/presentation/purchase_access_banner.dart';
 import 'package:mobile_app/features/auth/presentation/identity_password_page.dart';
@@ -69,11 +70,14 @@ class AccountPage extends StatelessWidget {
                   label: 'Hồ sơ cá nhân',
                   onTap: () => context.push(AppRoutes.profile),
                 ),
-                _MenuRow(
-                  icon: Icons.loyalty_outlined,
-                  label: 'Ví điểm & đặc quyền',
-                  onTap: () => context.push(AppRoutes.loyalty),
-                ),
+                if (context.select(
+                  (CapabilitiesCubit cubit) => cubit.state.allows('LOYALTY_VIEW'),
+                ))
+                  _MenuRow(
+                    icon: Icons.loyalty_outlined,
+                    label: 'Ví điểm & đặc quyền',
+                    onTap: () => context.push(AppRoutes.loyalty),
+                  ),
                 _MenuRow(
                   icon: Icons.receipt_long_outlined,
                   label: 'Đơn hàng của tôi',

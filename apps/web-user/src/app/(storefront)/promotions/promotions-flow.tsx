@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { useCustomerSession } from "@/components/auth/customer-session-provider";
 import type { Voucher, VoucherValidation } from "@/lib/customer-core/types";
 import { CustomerCoreApiError } from "@/lib/customer-core/types";
 import { customerCoreService } from "@/services/customer-core-service";
@@ -18,6 +19,7 @@ function voucherValue(voucher: Voucher) {
 
 export function PromotionsFlow() {
   const searchParams = useSearchParams();
+  const { hasCapability } = useCustomerSession();
   const scenario = searchParams.get("mockScenario") ?? undefined;
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,7 +76,7 @@ export function PromotionsFlow() {
 
   return (
     <main className="promotions-page">
-      <section className="promotions-hero"><div><p className="eyebrow">Đặc quyền Tri Kỷ</p><h1>Ưu đãi dành cho những cuộc sum vầy</h1><p>Khám phá voucher đang phát hành và kiểm tra điều kiện trước khi dùng tại Checkout.</p></div><Link href="/account/loyalty">Xem ví điểm của tôi →</Link></section>
+      <section className="promotions-hero"><div><p className="eyebrow">Đặc quyền Tri Kỷ</p><h1>Ưu đãi dành cho những cuộc sum vầy</h1><p>Khám phá voucher đang phát hành và kiểm tra điều kiện trước khi dùng tại Checkout.</p></div>{hasCapability("LOYALTY_VIEW") ? <Link href="/account/loyalty">Xem ví điểm của tôi →</Link> : null}</section>
 
       <section className="voucher-section" aria-labelledby="voucher-title">
         <header><div><p className="eyebrow">Kho voucher</p><h2 id="voucher-title">Mã ưu đãi đang khả dụng</h2></div><small>Điều kiện cuối cùng được xác nhận khi đặt hàng.</small></header>
