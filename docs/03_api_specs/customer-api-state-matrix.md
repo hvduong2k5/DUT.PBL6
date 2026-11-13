@@ -101,3 +101,5 @@ These rows are proposals. Backend may refine them, but must record the decision 
 4. Every mutation validates `400/422`, transition or revision conflict `409`, and retry behavior.
 5. Every endpoint has controlled latency and `500/503` UI tests.
 6. Error responses preserve `code` and `requestId`; clients do not branch on translated `message`.
+
+Web and Mobile show the loyalty wallet entry only when the capability projection includes `LOYALTY_VIEW`. Direct navigation remains subject to the same capability check.
