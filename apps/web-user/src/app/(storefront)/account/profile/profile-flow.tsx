@@ -31,6 +31,7 @@ export function ProfileFlow() {
   const [notice, setNotice] = useState<{ kind: "success" | "error"; text: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [activationDone, setActivationDone] = useState(false);
 
   async function loadProfile() {
     setLoading(true);
@@ -81,6 +82,7 @@ export function ProfileFlow() {
       const result = await customerService.updateProfile(payload, profile.version);
       setProfile(result);
       setForm(toForm(result));
+      if (identityProfile?.customerStatus === "PENDING_VERIFICATION" && form.phone) setActivationDone(true);
       setNotice({ kind: "success", text: identityProfile?.customerStatus === "PENDING_VERIFICATION" && form.phone ? "Hồ sơ đã được cập nhật — tài khoản của bạn đã được kích hoạt và có thể mua hàng." : "Hồ sơ Tri Kỷ đã được cập nhật." });
     } catch (error) {
       if (error instanceof PublicApiError) {
@@ -103,7 +105,7 @@ export function ProfileFlow() {
       <form className="account-card profile-form" onSubmit={submit} noValidate>
         <header className="card-heading"><span className="heading-icon">♙</span><div><h2>Thông tin định danh cơ bản</h2><p>Thông tin phục vụ định danh tài khoản và gợi ý cho Checkout.</p></div></header>
         {notice && <div className={`status-notice ${notice.kind}`} role="status">{notice.text}</div>}
-        {identityProfile?.customerStatus === "PENDING_VERIFICATION" ? <div className="status-notice info" role="note">Tài khoản của bạn đang chờ kích hoạt. Hãy nhập số điện thoại hợp lệ rồi lưu hồ sơ — tài khoản sẽ được kích hoạt để mua hàng ngay khi lưu thành công.</div> : null}
+        {identityProfile?.customerStatus === "PENDING_VERIFICATION" && !activationDone ? <div className="status-notice info" role="note">Tài khoản của bạn đang chờ kích hoạt. Hãy nhập số điện thoại hợp lệ rồi lưu hồ sơ — tài khoản sẽ được kích hoạt để mua hàng ngay khi lưu thành công.</div> : null}
         <div className="profile-grid">
           <label className="account-field wide"><span>Họ và tên <b>*</b></span><input value={form.fullName} onChange={(event) => update("fullName", event.target.value)} aria-invalid={Boolean(errors.fullName)} />{errors.fullName && <small>{errors.fullName}</small>}</label>
           <label className="account-field"><span>Số điện thoại tài khoản <b>*</b></span><input inputMode="tel" autoComplete="tel" value={form.phone ?? ""} onChange={(event) => update("phone", event.target.value)} aria-invalid={Boolean(errors.phone)} />{errors.phone ? <small>{errors.phone}</small> : <em>Số điện thoại được cập nhật cùng phiên bản hồ sơ hiện tại.</em>}</label>
