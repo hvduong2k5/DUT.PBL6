@@ -132,6 +132,9 @@ func (r *CustomerRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain
 
 // UpdateProfileWithOptimisticLock executes CAS update on customer profile.
 // If RowsAffected == 0: executes a secondary check to distinguish 404 (Not Found) from 409 (Conflict).
+// A PENDING_VERIFICATION profile becomes ACTIVE in the same update when it
+// saves a phone number: completing the number is the activation step that
+// ProvisionFromRegistration defers to this flow.
 func (r *CustomerRepository) UpdateProfileWithOptimisticLock(
 	ctx context.Context,
 	id uuid.UUID,
@@ -149,6 +152,7 @@ func (r *CustomerRepository) UpdateProfileWithOptimisticLock(
         UPDATE customer_profiles
 		SET full_name = $2,
 		    phone_number = $3,
+		    status = CASE WHEN status = 'PENDING_VERIFICATION' AND $3 <> '' THEN 'ACTIVE' ELSE status END,
 		    email = $4,
 		    version = version + 1,
 		    updated_at = NOW()
