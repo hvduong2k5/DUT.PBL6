@@ -5,8 +5,7 @@ _transform: true
 # 1. UPSTREAMS & SERVICES (18 MICROSERVICES ROUTING TABLE)
 # ==============================================================================
 services:
-  # Fulfillment verifies the signed token and current Employee/ADMIN scope in
-  # Identity. Never expose internal permit/allocation/proof gRPC endpoints.
+  # Fulfillment verifies the signed JWT and scoped grants locally.
   - name: fulfillment-service
     url: http://fulfillment-service:8002
     routes:
