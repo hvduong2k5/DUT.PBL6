@@ -141,3 +141,12 @@ Cho đến khi có bằng chứng duyệt, giữ nhãn “chưa chốt/tạm áp
 ## JWT clock skew
 
 F-05 sets the Keycloak JWT verification tolerance to 30 seconds for Identity, Catalog, Order, Profile, Fulfillment, Inventory, Analytics, and the Web OIDC BFF. Keep service clocks synchronized. Access-token lifetime and refresh timing are independent of this tolerance.
+
+## Limited grant verification
+
+A local Keycloak and Identity test gave identical role-list access before
+and after PermissionSync wrote the same three global grants. The original
+limited-grant denial was reproduced with the same signed token when the
+matching ACTIVE EMPLOYEE record was absent from Identity. Check issuer,
+subject, provisioning status and internal principal ID alongside the
+grant list when investigating an environment that still denies access.
