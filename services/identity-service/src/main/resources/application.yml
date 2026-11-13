@@ -29,6 +29,17 @@ spring:
     enabled: true
     baseline-on-migrate: true
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+
 mybatis:
   mapper-locations: classpath:mapper/sql/*.xml
   type-handlers-package: com.hvduong.identity.infrastructure.persistence.mybatis.typehandler
