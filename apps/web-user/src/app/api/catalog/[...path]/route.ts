@@ -99,7 +99,7 @@ async function relayUpstreamError(upstream: Response): Promise<Response> {
   return Response.json(error, { status: upstream.status, headers: responseHeaders(upstream) });
 }
 
-async function resolveCategoryId(upstreamBase: string, category: string, headers: Headers): Promise<string> {
+async function resolveCategoryId(upstreamBase: string, category: string, headers: Headers): Promise<string | null> {
   const categoryResponse = await fetch(`${upstreamBase}/categories`, {
     headers,
     cache: "no-store",
@@ -108,7 +108,10 @@ async function resolveCategoryId(upstreamBase: string, category: string, headers
   if (!categoryResponse.ok) return category;
   const payload = await categoryResponse.json() as unknown;
   if (!isCategoriesResponse(payload)) return category;
-  return payload.categories.find((item) => item.slug === category || item.category_id === category)?.category_id ?? category;
+  // null = the category list loaded fine but nothing matches: the category
+  // does not exist (F-28). The raw slug is only passed through when the list
+  // itself could not be loaded, preserving the previous error behaviour.
+  return payload.categories.find((item) => item.slug === category || item.category_id === category)?.category_id ?? null;
 }
 
 async function proxy(request: NextRequest, context: { params: Promise<{ path: string[] }> }): Promise<Response> {
@@ -154,7 +157,24 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
 
       const upstreamParams = toPublicCatalogQuery(validation.query);
       if (validation.query.category) {
-        upstreamParams.set("category_id", await resolveCategoryId(upstreamBase, validation.query.category, headers));
+        const categoryId = await resolveCategoryId(upstreamBase, validation.query.category, headers);
+        if (categoryId === null) {
+          // F-28: an unknown category slug is an empty result, not an outage.
+          // Previously the raw slug was forwarded as category_id, the catalog
+          // rejected the non-UUID value, and the storefront rendered its
+          // "system failure" state.
+          if (validation.query.q) {
+            return Response.json({ query: validation.query.q, items: [], total: 0 });
+          }
+          return Response.json({
+            items: [],
+            total: 0,
+            page: validation.query.page,
+            page_size: validation.query.pageSize,
+            total_pages: 0
+          });
+        }
+        upstreamParams.set("category_id", categoryId);
       }
       const upstreamPath = validation.query.q ? "products/search" : "products";
       const upstream = await fetch(`${upstreamBase}/${upstreamPath}?${upstreamParams}`, {
