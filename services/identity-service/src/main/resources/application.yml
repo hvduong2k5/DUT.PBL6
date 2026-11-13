@@ -2,6 +2,8 @@ server:
   port: 8016
 
 app:
+  auth:
+    jwt-clock-skew: 30s
   customer-api:
     gateway-url: ${CUSTOMER_API_GATEWAY_URL:}
   frontend-url: ${FRONTEND_BASE_URL:http://localhost:3000}
