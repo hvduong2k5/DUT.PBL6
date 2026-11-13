@@ -137,3 +137,7 @@ Mẫu ghi quyết định sau thảo luận:
 | Migration/rollout | Dev/review/live, nguồn ID thật, backward compatibility và kế hoạch khôi phục |
 
 Cho đến khi có bằng chứng duyệt, giữ nhãn “chưa chốt/tạm áp dụng” của nguồn. Không dùng danh sách này làm lệnh tự động seed permission, gán GLOBAL hoặc bật UI mutation.
+
+## JWT clock skew
+
+F-05 sets the Keycloak JWT verification tolerance to 30 seconds for Identity, Catalog, Order, Profile, Fulfillment, Inventory, Analytics, and the Web OIDC BFF. Keep service clocks synchronized. Access-token lifetime and refresh timing are independent of this tolerance.

@@ -13,6 +13,8 @@ import (
 	"unicode"
 )
 
+const jwtClockSkew = 30 * time.Second
+
 type Claims struct {
 	UserID           string   `json:"user_id"`
 	Service          string   `json:"service"`
@@ -42,7 +44,7 @@ func (a Auth) Verify(header, audience string) (d.Principal, error) {
 		return d.Principal{}, d.Fail("UNAUTHENTICATED", 401)
 	}
 	c := &Claims{}
-	token, e := jwt.ParseWithClaims(strings.TrimPrefix(header, "Bearer "), c, func(token *jwt.Token) (any, error) { return a.Key, nil }, jwt.WithValidMethods([]string{"RS256"}), jwt.WithIssuer(a.Issuer), jwt.WithAudience(audience), jwt.WithExpirationRequired(), jwt.WithIssuedAt(), jwt.WithLeeway(5*time.Second))
+	token, e := jwt.ParseWithClaims(strings.TrimPrefix(header, "Bearer "), c, func(token *jwt.Token) (any, error) { return a.Key, nil }, jwt.WithValidMethods([]string{"RS256"}), jwt.WithIssuer(a.Issuer), jwt.WithAudience(audience), jwt.WithExpirationRequired(), jwt.WithIssuedAt(), jwt.WithLeeway(jwtClockSkew))
 	if e != nil || !token.Valid || c.Subject == "" {
 		return d.Principal{}, d.Fail("UNAUTHENTICATED", 401)
 	}
