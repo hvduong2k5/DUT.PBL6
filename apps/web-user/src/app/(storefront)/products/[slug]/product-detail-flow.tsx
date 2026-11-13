@@ -6,7 +6,6 @@ import { PublicApiError } from "@/lib/api-contract";
 import { useEffect, useMemo, useState } from "react";
 import { MAX_CART_ITEM_QUANTITY } from "@/lib/cart/validation";
 import type { ProductDetail, ProductSku } from "@/lib/product-detail/types";
-import { ProductReviewsSection } from "@/components/product/product-reviews";
 import { ProductImage } from "@/components/product/product-image";
 import { useCartSummary } from "@/components/cart/cart-summary-provider";
 import { cartService } from "@/services/cart-service";
@@ -219,7 +218,10 @@ export function ProductDetailFlow({ slug }: { slug: string }) {
         </div>
       </section> : <section className="food-information" aria-labelledby="food-title"><div className="section-heading"><p className="eyebrow">Thông tin thực phẩm</p><h2 id="food-title">Thông tin đang được cập nhật</h2><p>API sản phẩm hiện chưa công bố thành phần, cảnh báo dị ứng và hướng dẫn bảo quản. Vui lòng kiểm tra nhãn trên bao bì hoặc tra cứu lô hàng trước khi sử dụng.</p><Link className="product-detail-link" href="/trace/QR-OMA-20261015-LOT08">Xem mẫu hồ sơ truy xuất <span aria-hidden="true">→</span></Link></div></section>}
 
-      <ProductReviewsSection key={product.id} productId={product.id} productName={product.name} mockScenario={scenario} />
+      {/* F-27: the reviews section is hidden until a reviews backend exists.
+          No service owns reviews today, so ProductReviewsSection could only
+          render its error state. The component is kept in the codebase for
+          the future reviews build (F-27-build in the findings register). */}
       <RecommendationRail placement="product_detail" productId={product.id} skuCode={selectedSkuId} />
     </main>
   );
