@@ -1,0 +1,26 @@
+{
+  "release": "mvp-2026-10-31",
+  "contractStatus": "integration-target",
+  "implementationAcceptance": "pending",
+  "sourceRef": "integration/mvp-contracts",
+  "sourceCommit": "edbd17cb9078aad46add9f9af7a65235ca97711a",
+  "publicContractPath": "docs/03_api_specs/mvp-customer.openapi.yaml",
+  "publicContractBlob": "10740addaf126e0c69d00af17aafc2672d56c7b3",
+  "frontendBaseline": {
+    "ref": "feature/ui-web",
+    "commit": "b1ff2918c7297fc93d0cb9a15cc1d0a0ee46b72e"
+  },
+  "publicOperationCount": 30,
+  "precedence": [
+    "docs/03_api_specs/mvp-customer.openapi.yaml",
+    "packages/contracts/mvp/MIGRATION.md",
+    "packages/contracts/mvp/registry.yaml",
+    "packages/contracts/mvp/TEAM-DECISIONS.md"
+  ],
+  "nonAuthoritativePatterns": [
+    "docs/03_api_specs/frontend-contracts/customer-*.openapi.yaml",
+    "docs/03_api_specs/frontend-contracts/web-reference/*.openapi.yaml",
+    "docs/03_api_specs/*.candidate.openapi.yaml"
+  ],
+  "runtimeNote": "Contract validation is an integration target and does not establish provider or end-to-end acceptance."
+}

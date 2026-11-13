@@ -8,8 +8,12 @@ spring:
     enabled: true
     baseline-on-migrate: true
 
+grpc:
+  server:
+    port: -1
+
 mybatis:
-  mapper-locations: classpath:mapper/**/*.xml
+  mapper-locations: classpath:mapper/sql/*.xml
   type-handlers-package: com.hvduong.identity.infrastructure.persistence.mybatis.typehandler
   configuration:
     map-underscore-to-camel-case: true

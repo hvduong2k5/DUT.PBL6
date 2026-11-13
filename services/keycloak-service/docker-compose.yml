@@ -1,0 +1,77 @@
+version: '3.8'
+
+# =============================================================================
+# KEYCLOAK SERVICE - STANDALONE (Keycloak + dedicated PostgreSQL)
+# =============================================================================
+# - Image chính thức từ Quay.io (không cần Dockerfile riêng)
+# - PostgreSQL riêng cho Keycloak (database keycloak_db), tách khỏi identity_db
+# - Theme Ô Mạ mount từ ./themes
+# - Realm template import lần đầu qua --import-realm (bỏ qua nếu realm đã tồn tại)
+# - Traefik/Coolify cấp SSL và route tới port 8080
+# =============================================================================
+
+services:
+  keycloak-postgres:
+    image: postgres:16-alpine
+    container_name: omafood-keycloak-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${KEYCLOAK_DB_NAME:-keycloak_db}
+      POSTGRES_USER: ${KEYCLOAK_DB_USER:-keycloak}
+      POSTGRES_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?Configure KEYCLOAK_DB_PASSWORD}
+    volumes:
+      - keycloak_postgres_data:/var/lib/postgresql/data
+    networks:
+      - coolify
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${KEYCLOAK_DB_USER:-keycloak} -d ${KEYCLOAK_DB_NAME:-keycloak_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0.5
+    container_name: omafood-keycloak-standalone
+    restart: unless-stopped
+    command: start --import-realm
+    depends_on:
+      keycloak-postgres:
+        condition: service_healthy
+    expose:
+      - 8080
+    ports:
+      - "${KEYCLOAK_PORT:-8080}:8080"
+    environment:
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:?Configure KEYCLOAK_ADMIN}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?Configure KEYCLOAK_ADMIN_PASSWORD}
+
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak-postgres:5432/${KEYCLOAK_DB_NAME:-keycloak_db}
+      KC_DB_USERNAME: ${KEYCLOAK_DB_USER:-keycloak}
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?Configure KEYCLOAK_DB_PASSWORD}
+
+      KC_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "true"
+      KC_HTTP_ENABLED: "true"
+
+      KC_PROXY_HEADERS: ${KC_PROXY_HEADERS:-xforwarded}
+      KC_HOSTNAME: "${KC_HOSTNAME:?Configure KC_HOSTNAME (e.g. https://keycloak.omama.vn)}"
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+    volumes:
+      - ./themes:/opt/keycloak/themes:ro
+      - ./realm-export.template.json:/opt/keycloak/data/import/realm.json:ro
+    networks:
+      - coolify
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080; echo -e 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3; grep -q 'HTTP/1.1 200 OK' <&3"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  keycloak_postgres_data:
+
+networks:
+  coolify:
+    external: true

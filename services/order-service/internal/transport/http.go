@@ -59,6 +59,19 @@ func failure(s *app.Service, w http.ResponseWriter, e error) {
 	code, status := s.ErrorCode(e)
 	write(w, status, map[string]any{"error": map[string]any{"code": code, "retryable": status >= 500}})
 }
+
+// Public clients use Idempotency-Key; legacy internal callers retain X-.
+// Ambiguous keys fail normal validation rather than selecting one silently.
+func commandKey(r *http.Request) string {
+	canonical, legacy := r.Header.Get("Idempotency-Key"), r.Header.Get("X-Idempotency-Key")
+	if canonical != "" && legacy != "" && canonical != legacy {
+		return ""
+	}
+	if canonical != "" {
+		return canonical
+	}
+	return legacy
+}
 func version(r *http.Request) (int64, error) {
 	v := r.Header.Get("If-Match")
 	if v == "" {
@@ -86,6 +99,12 @@ func Handler(s *app.Service) http.Handler {
 		})
 	})
 	r.Use(middleware.Timeout(3 * time.Second))
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Add("Vary", "Accept")
+			next.ServeHTTP(w, r)
+		})
+	})
 	sepayRoutes(s, r)
 	r.Get("/livez", func(w http.ResponseWriter, _ *http.Request) { write(w, 200, map[string]bool{"live": true}) })
 	r.Get("/readyz", func(w http.ResponseWriter, r *http.Request) {
@@ -119,10 +138,24 @@ func Handler(s *app.Service) http.Handler {
 	r.Group(func(api chi.Router) {
 		api.Use(func(next http.Handler) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if len(r.Header.Values("Authorization")) != 1 {
+					failure(s, w, domain.E("UNAUTHENTICATED", 401))
+					return
+				}
 				p, e := s.AuthenticateContext(r.Context(), r.Header.Get("Authorization"))
+				if e == nil && s.C.AuthMode == "keycloak" {
+					p, e = s.Resolve(r.Context(), p)
+				}
 				if e != nil {
 					failure(s, w, e)
 					return
+				}
+				w.Header().Set("Cache-Control", "no-store")
+				if p.IAM {
+					if !staffOrderRoute(r.Method, r.URL.Path) {
+						failure(s, w, domain.E("CUSTOMER_REQUIRED", 403))
+						return
+					}
 				}
 				if s.Payment != nil && p.Role == "GUEST" {
 					if e := s.Payment.CheckGuestSession(r.Context(), p.ID); e != nil {
@@ -208,6 +241,10 @@ func Handler(s *app.Service) http.Handler {
 				return
 			}
 			view, e := s.QuoteResponse(r.Context(), q, principal(r))
+			if strings.Contains(r.Header.Get("Accept"), app.CustomerMediaType) {
+				view = q
+				e = nil
+			}
 			if e != nil {
 				failure(s, w, e)
 				return
@@ -220,7 +257,7 @@ func Handler(s *app.Service) http.Handler {
 				failure(s, w, e)
 				return
 			}
-			o, status, e := s.Accept(r.Context(), principal(r), r.Header.Get("X-Idempotency-Key"), in)
+			o, status, e := s.Accept(r.Context(), principal(r), commandKey(r), in)
 			if e != nil {
 				code, httpStatus := s.ErrorCode(e)
 				write(w, httpStatus, map[string]any{"error": map[string]string{"code": code}, "operation_id": o.ID})
@@ -234,6 +271,9 @@ func Handler(s *app.Service) http.Handler {
 				w.Header().Set("Retry-After", "2")
 			}
 			view, e := s.OperationResponse(r.Context(), o, principal(r))
+			if strings.Contains(r.Header.Get("Accept"), app.CustomerMediaType) {
+				view, e = s.CustomerOperation(r.Context(), o, principal(r))
+			}
 			if e != nil {
 				failure(s, w, e)
 				return
@@ -250,6 +290,9 @@ func Handler(s *app.Service) http.Handler {
 				w.Header().Set("Link", "</api/v1/orders/"+*o.OrderID+">; rel=\"item\"")
 			}
 			view, e := s.OperationResponse(r.Context(), o, principal(r))
+			if strings.Contains(r.Header.Get("Accept"), app.CustomerMediaType) {
+				view, e = s.CustomerOperation(r.Context(), o, principal(r))
+			}
 			if e != nil {
 				failure(s, w, e)
 				return
@@ -260,25 +303,47 @@ func Handler(s *app.Service) http.Handler {
 			return func(w http.ResponseWriter, r *http.Request) {
 				p := principal(r)
 				limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-				items, e := s.ListOrders(r.Context(), p, staff, queue, r.URL.Query().Get("status"), r.URL.Query().Get("cursor"), limit)
+				var items []domain.Order
+				var e error
+				next := ""
+				if !staff && !queue {
+					limit, e = ownedOrderLimit(r)
+					if e == nil {
+						items, next, e = s.OwnedOrderPage(r.Context(), p, r.URL.Query().Get("status"), r.URL.Query().Get("cursor"), limit)
+					}
+				} else {
+					items, e = s.ListOrders(r.Context(), p, staff, queue, r.URL.Query().Get("status"), r.URL.Query().Get("cursor"), limit)
+					if e == nil && len(items) > 0 && !queue {
+						next = s.Cursor(items[len(items)-1], p.Scope(), r.URL.Query().Get("status"))
+					}
+				}
 				if e != nil {
 					failure(s, w, e)
 					return
 				}
-				next := ""
-				if len(items) > 0 && !queue {
-					next = s.Cursor(items[len(items)-1], p.Scope(), r.URL.Query().Get("status"))
-				}
 				views := make([]any, 0, len(items))
 				for _, item := range items {
-					views = append(views, s.OrderResponse(item, p, false))
+					if strings.Contains(r.Header.Get("Accept"), app.CustomerMediaType) {
+						if item.Cohort == "order-core-1" {
+							var err error
+							item, err = s.GetOrder(r.Context(), item.ID, p, false)
+							if err != nil {
+								failure(s, w, err)
+								return
+							}
+						}
+						views = append(views, s.CustomerOrder(item, p, false))
+					} else {
+						views = append(views, s.OrderResponse(item, p, false))
+					}
 				}
 				write(w, 200, map[string]any{"items": views, "next_cursor": next})
 			}
 		}
 		api.Get("/api/v1/orders", list(false, false))
-		api.Get("/api/v1/admin/orders", list(true, false))
-		api.Get("/api/v1/admin/orders/queue", list(true, true))
+		api.Get("/api/v1/admin/orders", adminOrderList(s, false, list(true, false)))
+		api.Get("/api/v1/admin/orders/queue", adminOrderList(s, true, list(true, true)))
+		api.Get("/api/v1/admin/orders/{id}", adminOrderProjection(s, false, true))
 		api.Get("/api/v1/orders/{id}", func(w http.ResponseWriter, r *http.Request) {
 			o, e := s.GetOrder(r.Context(), chi.URLParam(r, "id"), principal(r), true)
 			if e != nil {
@@ -286,7 +351,11 @@ func Handler(s *app.Service) http.Handler {
 				return
 			}
 			w.Header().Set("ETag", strconv.Quote(strconv.FormatInt(o.Version, 10)))
-			write(w, 200, s.OrderResponse(o, principal(r), true))
+			if strings.Contains(r.Header.Get("Accept"), app.CustomerMediaType) {
+				write(w, 200, s.CustomerOrder(o, principal(r), true))
+			} else {
+				write(w, 200, s.OrderResponse(o, principal(r), true))
+			}
 		})
 		api.Get("/api/v1/orders/{id}/tracking", func(w http.ResponseWriter, r *http.Request) {
 			o, e := s.GetOrder(r.Context(), chi.URLParam(r, "id"), principal(r), false)
@@ -294,7 +363,7 @@ func Handler(s *app.Service) http.Handler {
 				failure(s, w, e)
 				return
 			}
-			write(w, 200, map[string]any{"shipment_id": o.Shipment, "order_status": o.Status})
+			write(w, 200, orderTracking{ShipmentID: o.Shipment, OrderStatus: o.Status})
 		})
 		cancel := func(review bool) http.HandlerFunc {
 			return func(w http.ResponseWriter, r *http.Request) {
@@ -305,6 +374,7 @@ func Handler(s *app.Service) http.Handler {
 				}
 				var in struct {
 					Reason string `json:"reason"`
+					Active *bool  `json:"active,omitempty"`
 				}
 				if r.ContentLength != 0 {
 					if e = decode(w, r, &in); e != nil {
@@ -312,12 +382,25 @@ func Handler(s *app.Service) http.Handler {
 						return
 					}
 				}
-				result, e := s.Cancel(r.Context(), principal(r), chi.URLParam(r, "id"), r.Header.Get("X-Idempotency-Key"), v, in.Reason, review)
+				if in.Active != nil && !*in.Active {
+					failure(s, w, domain.E("INVALID_CANCELLATION", 400))
+					return
+				}
+				result, e := s.Cancel(r.Context(), principal(r), chi.URLParam(r, "id"), commandKey(r), v, in.Reason, review)
 				if e != nil {
 					failure(s, w, e)
 					return
 				}
-				write(w, 202, result)
+				if strings.Contains(r.Header.Get("Accept"), app.CustomerMediaType) && !review {
+					view, err := s.CustomerCancellation(r.Context(), principal(r), chi.URLParam(r, "id"), commandKey(r))
+					if err != nil {
+						failure(s, w, err)
+						return
+					}
+					write(w, 202, view)
+				} else {
+					write(w, 202, result)
+				}
 			}
 		}
 		api.Post("/api/v1/orders/{id}/cancel", cancel(false))
@@ -337,7 +420,7 @@ func Handler(s *app.Service) http.Handler {
 					active = *in.Active
 				}
 				if e == nil {
-					e = s.SetHold(r.Context(), principal(r), chi.URLParam(r, "id"), v, active, r.Header.Get("X-Idempotency-Key"))
+					e = s.SetHold(r.Context(), principal(r), chi.URLParam(r, "id"), v, active, commandKey(r))
 				}
 			}
 			if e != nil {
@@ -461,4 +544,28 @@ func Handler(s *app.Service) http.Handler {
 		})
 	})
 	return r
+}
+
+// Keep employee access explicit as customer routes grow. Object permissions
+// are still enforced by the application on every admitted route.
+func staffOrderRoute(method, path string) bool {
+	if method == http.MethodGet && (path == "/api/v1/admin/orders" || path == "/api/v1/admin/orders/queue") {
+		return true
+	}
+	if method == http.MethodGet && strings.HasPrefix(path, "/api/v1/admin/orders/") {
+		parts := strings.Split(strings.TrimPrefix(path, "/api/v1/admin/orders/"), "/")
+		return len(parts) == 1 && parts[0] != ""
+	}
+	if strings.HasPrefix(path, "/api/v1/orders/") {
+		parts := strings.Split(strings.TrimPrefix(path, "/api/v1/orders/"), "/")
+		if parts[0] == "" {
+			return false
+		}
+		return method == http.MethodGet && (len(parts) == 1 || len(parts) == 2 && parts[1] == "tracking") || method == http.MethodPost && len(parts) == 2 && parts[1] == "cancellation-requests"
+	}
+	if method == http.MethodPost && strings.HasPrefix(path, "/api/v1/admin/orders/") {
+		parts := strings.Split(strings.TrimPrefix(path, "/api/v1/admin/orders/"), "/")
+		return len(parts) == 2 && parts[0] != "" && parts[1] == "hold"
+	}
+	return false
 }

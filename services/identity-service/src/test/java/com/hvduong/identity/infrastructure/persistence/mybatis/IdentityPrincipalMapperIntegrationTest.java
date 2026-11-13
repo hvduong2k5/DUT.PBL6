@@ -1,7 +1,7 @@
 package com.hvduong.identity.infrastructure.persistence.mybatis;
 
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IdentityPrincipalMapper;
-import com.hvduong.identity.infrastructure.persistence.entity.IdentityPrincipalRow;
+import com.hvduong.identity.domain.entity.IdentityPrincipalRow;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -12,13 +12,33 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest
+@SpringBootTest(properties = {"grpc.server.port=-1"})
 @ActiveProfiles("test")
 @Transactional
 class IdentityPrincipalMapperIntegrationTest {
 
     @Autowired
     private IdentityPrincipalMapper identityPrincipalMapper;
+
+    @Test
+    void sameSubjectInDifferentIssuersMustResolveDifferentPrincipals() {
+        String subject = "shared-subject-" + UUID.randomUUID();
+        UUID first = UUID.randomUUID();
+        UUID second = UUID.randomUUID();
+        for (int index = 0; index < 2; index++) {
+            var row = new IdentityPrincipalRow();
+            row.setPrincipalId(index == 0 ? first : second);
+            row.setIdpIssuer("https://issuer-" + index + ".example.test");
+            row.setIdpSubject(subject);
+            row.setPrincipalType("CUSTOMER");
+            row.setProvisioningStatus("ACTIVE");
+            row.setVersion(0L);
+            identityPrincipalMapper.insert(row);
+        }
+        assertThat(identityPrincipalMapper.findByIssuerAndSubject("https://issuer-0.example.test", subject).getPrincipalId()).isEqualTo(first);
+        assertThat(identityPrincipalMapper.findByIssuerAndSubject("https://issuer-1.example.test", subject).getPrincipalId()).isEqualTo(second);
+        assertThat(identityPrincipalMapper.findByIssuerAndSubject("https://untrusted.example.test", subject)).isNull();
+    }
 
     @Test
     void shouldInsertAndFindPrincipal() {

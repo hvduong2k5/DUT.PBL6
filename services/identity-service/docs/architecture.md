@@ -31,6 +31,11 @@ flowchart TD
 - Fine-grained role assignment with scope/time constraints, specialized permission policies and decision/audit history.
 - Domain event outbox and the custom REST/gRPC contracts that have been explicitly approved.
 
+### Enterprise Persona Separation (Customer vs Employee)
+- **Corporate Account (`EMPLOYEE`)**: Used strictly for administrative and operational duties via corporate email (`@omama.vn`). Managed via admin invitations, bound by organizational security policies (MFA, audit logs), and is the only principal type eligible for `iam_role_assignments`.
+- **Consumer Account (`CUSTOMER`)**: Used for personal shopping via personal email. Self-service registration, isolated from corporate access.
+- **Offboarding Policy**: Suspending an employee's corporate identity (`EMPLOYEE`) immediately revokes administrative access without disrupting their independent consumer account (`CUSTOMER`), preserving purchase history while eliminating privilege leakage and GDPR conflicts.
+
 ### Domain services own
 - Profile fields → Profile Service.
 - Order ownership, guest order grants, cancellation eligibility → Order Service.

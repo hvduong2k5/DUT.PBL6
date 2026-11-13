@@ -226,9 +226,11 @@ paths:
         - name: category_id
           in: query
           required: false
+          description: Opaque category identifier returned as category_id by /api/v1/categories. Clients that only know a category slug must resolve it first; the slug is not an accepted alias.
           schema:
             type: string
-          example: "CAT-ME-XUNG-GION"
+            format: uuid
+          example: "3f1c2a9e-7b4d-4c8e-9a1f-2d6b5c0e8a71"
         - name: ocop_star
           in: query
           required: false
@@ -1359,7 +1361,8 @@ components:
       properties:
         category_id:
           type: string
-          example: "CAT-ME-XUNG-GION"
+          format: uuid
+          example: "3f1c2a9e-7b4d-4c8e-9a1f-2d6b5c0e8a71"
         name:
           type: string
           example: "Mè Xửng Giòn Truyền Thống"
@@ -1375,6 +1378,7 @@ components:
           example: "https://cdn.omama.vn/categories/cat_gion.jpg"
         parent_id:
           type: string
+          format: uuid
           nullable: true
           example: null
 

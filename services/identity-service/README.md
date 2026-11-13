@@ -40,13 +40,10 @@ Dịch vụ Quản lý Định danh & Phân quyền tập trung (Identity & Acce
 ```
 services/identity-service/
 ├── deploy/                              # Hạ tầng triển khai Docker Compose
-│   ├── docker-compose.all-in-one.yml    # Cụm All-in-One (Postgres, Keycloak, Kafka, Identity)
-│   ├── docker-compose.yml               # Chỉ chạy riêng Identity Service trên Docker
-│   ├── init-db.sql                      # Script tạo sẵn keycloak_db và identity_db
-│   └── keycloak/
-│       ├── .env.example                 # Mẫu env cho Keycloak độc lập
-│       ├── docker-compose.yml           # Compose chạy riêng Keycloak
-│       └── realm-export.template.json   # Template import sẵn Realm 'omama'
+│   ├── docker-compose.all-in-one.yml    # Cụm All-in-One Local Dev (Postgres 5433, Keycloak 8080, Kafka, Identity)
+│   ├── docker-compose.yml               # Chỉ chạy riêng Identity Service trên Production / Coolify
+│   ├── init-db.sql                      # Script tạo keycloak_db và identity_db cho cụm all-in-one dev
+│   └── README.md                        # Hướng dẫn chi tiết triển khai container
 ├── docs/                                # Tài liệu kỹ thuật chi tiết
 ├── src/
 │   ├── main/
@@ -54,27 +51,28 @@ services/identity-service/
 │   │   │   ├── api/                     # Interface API (Swagger / OpenAPI 3 annotations)
 │   │   │   │   ├── account/             # UserLifecycleApi & impl/UserLifecycleController
 │   │   │   │   ├── admin/               # IamRoleApi, EmployeeInvitationApi, IamAssignmentApi & impl/
-│   │   │   │   ├── common/              # ApiResponse, GlobalExceptionHandler
 │   │   │   │   └── registration/        # RegistrationApi & impl/RegistrationController
 │   │   │   ├── application/             # Use Cases & Business Logic
 │   │   │   │   ├── account/             # Service Interface & impl/ (Lifecycle, Invitation)
 │   │   │   │   ├── audit/               # Service Interface & impl/ (Audit Log)
 │   │   │   │   ├── authorization/       # Service Interface & impl/ (Specialized Perms)
+│   │   │   │   ├── dto/                 # Data Transfer Objects (account, admin, auth, registration, user)
 │   │   │   │   ├── iam/                 # Service Interface & impl/ (Role, Assignment)
 │   │   │   │   └── registration/        # RegisterPrincipalUseCase & impl/RegistrationOrchestrator
+│   │   │   ├── common/                  # ApiResponse, GlobalExceptionHandler, CommonErrorCode, SecurityUtils
 │   │   │   ├── config/                  # OpenApiConfig, KeycloakConfig
+│   │   │   ├── domain/
+│   │   │   │   └── entity/              # Domain / Persistence Entities (11 models)
 │   │   │   ├── grpc/                    # gRPC Services (Port 9016)
 │   │   │   ├── infrastructure/
 │   │   │   │   ├── keycloak/            # KeycloakAdminClient
 │   │   │   │   ├── outbox/              # OutboxPublisher (Kafka)
-│   │   │   │   └── persistence/
-│   │   │   │       ├── entity/          # Row/Entity models (11 Row classes)
-│   │   │   │       └── mybatis/mapper/  # MyBatis Mapper Interfaces
-│   │   │   └── security/                # Spring Security JWT Resource Server
+│   │   │   │   └── persistence/mybatis/ # MyBatis Mapper Interfaces & TypeHandlers
+│   │   │   └── security/                # Spring Security JWT Resource Server, PKCE Utils
 │   │   └── resources/
 │   │       ├── application.yml          # Cấu hình Spring Boot
-│   │       ├── db/migration/            # Flyway migrations (V1 -> V6)
-│   │       └── mapper/                  # MyBatis XML Mapper definitions
+│   │       ├── db/migration/            # Flyway migrations (V1 -> V9)
+│   │       └── mapper/sql/              # MyBatis XML Mapper definitions
 │   └── test/                            # Bộ kiểm thử Unit & Integration Tests (100% pass)
 ├── .env.example                         # Mẫu biến môi trường
 ├── build.gradle                         # Gradle build config
@@ -107,45 +105,71 @@ cp .env.example .env
 
 ### Bảng Giải Thích Các Biến Môi Trường:
 
-| Biến môi trường | Giá trị mặc định | Mô tả |
+| Biến môi trường | Giá trị mặc định (Dev) | Mô tả |
 | :--- | :--- | :--- |
 | `SERVER_PORT` | `8016` | Cổng HTTP REST API |
-| `GRPC_SERVER_PORT` | `9016` | Cổng gRPC Server |
-| `DB_HOST` | `localhost` | Hostname PostgreSQL (`postgres` nếu chạy trong mạng Docker, `host.docker.internal` nếu container gọi ra máy host) |
-| `DB_PORT` | `5432` | Cổng kết nối PostgreSQL |
+| `GRPC_SERVER_PORT` | `9016` | Cổng gRPC Server nội bộ |
+| `DB_HOST` | `localhost` | Hostname PostgreSQL (`postgres` nếu chạy trong mạng Docker, `localhost` nếu chạy từ host) |
+| `DB_PORT` | `5433` | Cổng kết nối PostgreSQL (`5433` khi dùng container `postgres` từ `docker-compose.all-in-one.yml`, `5432` nếu dùng Postgres mặc định) |
 | `DB_NAME` | `identity_db` | Tên Database nghiệp vụ |
 | `DB_USERNAME` | `postgres` | Tài khoản kết nối CSDL |
-| `DB_PASSWORD` | `12345678` | Mật khẩu CSDL |
-| `KEYCLOAK_SERVER_URL` | `https://keycloak.omama.vn` | URL của Keycloak (`http://keycloak:8080` nếu chạy All-in-One Docker) |
-| `KEYCLOAK_REALM` | `omama` | Tên Realm làm việc |
-| `KEYCLOAK_CLIENT_ID` | `identity-service-admin` | Client ID kết nối Keycloak Admin API |
-| `KEYCLOAK_CLIENT_SECRET`| `fncRzHdc...` | Secret lấy từ Keycloak Admin Console |
-| `SPRING_KAFKA_BOOTSTRAP_SERVERS`| `localhost:9092` | Địa chỉ Kafka Broker (`kafka:9092` nếu chạy Docker) |
+| `DB_PASSWORD` | `password123` | Mật khẩu CSDL (khớp với mật khẩu container `postgres` trong compose) |
+| `KEYCLOAK_SERVER_URL` | `http://localhost:8080` | URL backend gọi sang Keycloak (`http://localhost:8080` khi chạy host, `http://keycloak:8080` khi chạy mạng Docker) |
+| `KEYCLOAK_PUBLIC_URL` | `http://localhost:8080` | URL công khai mà trình duyệt client truy cập Keycloak |
+| `KEYCLOAK_REALM` | `omama` | Tên Realm làm việc trên Keycloak |
+| `KEYCLOAK_CLIENT_ID` | `identity-service-admin` | Client ID kết nối Keycloak Admin REST API |
+| `KEYCLOAK_CLIENT_SECRET`| `changeme` | Secret lấy từ Keycloak Admin Console (Clients → `identity-service-admin` → Credentials) |
+| `KEYCLOAK_PUBLIC_CLIENT_ID`| `frontend-web` | Public Client ID OIDC cho PKCE Flow |
+| `IDENTITY_REGISTRATION_FINGERPRINT_KEY` | `synthetic-dev-fingerprint-key-at-least-32-chars` | Khóa bí mật HMAC tối thiểu 32 ký tự dùng để ký và xác thực request fingerprint khi đăng ký khách hàng |
+| `AUTH_REDIRECT_URI` | `http://localhost:8016/api/v1/public/auth/callback` | Callback URL Keycloak chuyển hướng về sau khi login |
+| `FRONTEND_BASE_URL` | `http://localhost:3000` | URL gốc của Frontend Web (để redirect sau đăng nhập/đăng xuất) |
+| `COOKIE_SECURE` | `false` | Cờ bảo mật Cookie (`false` khi chạy local dev HTTP, `true` trên Production HTTPS) |
+| `COOKIE_SAME_SITE` | `Lax` | Thuộc tính SameSite của Cookie (`Lax` hoặc `None`) |
+| `SPRING_KAFKA_BOOTSTRAP_SERVERS`| `localhost:9092` | Địa chỉ Kafka Broker (`kafka:9092` nếu chạy trong container) |
 
 ---
 
-## 5. Hướng Dẫn Chạy Docker Trên Máy (Local Machine)
+## 5. Hướng Dẫn Khởi Chạy Service (How to Run)
 
+### Kịch Bản 1: Chạy Hybrid Local Dev (Khuyên Dùng Hàng Ngày Để Code & Debug)
+
+Chạy hạ tầng phụ trợ (PostgreSQL, Keycloak, Kafka) trên Docker, chạy `identity-service` trực tiếp bằng Java máy host để dễ dàng debug, hot-reload và xem log chi tiết.
+
+#### Bước 1: Khởi động các hạ tầng phụ trợ
+Đứng tại thư mục `services/identity-service`:
+```bash
+docker compose -f deploy/docker-compose.all-in-one.yml up -d postgres keycloak kafka
+```
+*Ghi chú:* Bạn cũng có thể khởi động Keycloak độc lập từ `services/keycloak-service/docker-compose.dev.yml` nếu muốn.
+
+#### Bước 2: Lấy Client Secret từ Keycloak
+1. Truy cập [http://localhost:8080/admin](http://localhost:8080/admin) (tài khoản: `admin` / `admin`).
+2. Chọn Realm **`omama`** -> menu **Clients** -> click **`identity-service-admin`**.
+3. Chọn tab **Credentials** -> copy **Client Secret**.
+4. Dán vào file `.env` tại `services/identity-service`:
+   ```env
+   KEYCLOAK_CLIENT_SECRET=<secret_vua_copy>
+   ```
+
+#### Bước 3: Khởi chạy Identity Service bằng Gradle Wrapper
+```bash
+# Trên Windows (PowerShell / CMD):
+.\gradlew.bat bootRun
+
+# Trên Linux / macOS:
+./gradlew bootRun
+```
+Ứng dụng sẽ tự động chạy Flyway migration để cập nhật schema CSDL (V1 -> V9) và sẵn sàng tại HTTP `8016` và gRPC `9016`.
+
+---
+
+### Kịch Bản 2: Chạy Toàn Bộ Cụm All-in-One Bằng Docker Compose
+
+Dùng khi bạn muốn kiểm thử toàn diện cả ứng dụng lẫn hạ tầng trong container mà không cần cài đặt JDK/Gradle trên máy host.
+
+#### Bước 1: Build file JAR thực thi
 > [!IMPORTANT]
-> **BƯỚC BẮT BUỘC TRƯỚC KHI BUILD DOCKER:**
-> Dockerfile sử dụng file JAR đã biên dịch sẵn (`COPY build/libs/identity-service-*.jar app.jar`). Do đó, trước khi build Docker image hoặc chạy Docker Compose, bạn **bắt buộc phải build file JAR** bằng Gradle wrapper:
->
-> ```bash
-> # Windows (PowerShell / CMD):
-> .\gradlew.bat bootJar
->
-> # Linux / macOS:
-> ./gradlew bootJar
-> ```
-> File JAR sẽ được tạo tại thư mục `build/libs/identity-service-0.0.1-SNAPSHOT.jar`.
-
----
-
-### Cách 1: Chạy Full Cụm All-in-One (Khuyên Dùng Để Test Nhanh)
-
-Cách này sẽ tự động khởi tạo **PostgreSQL + Keycloak + Kafka + Identity Service** cùng nhau trên Docker trong một mạng nội bộ duy nhất, rất phù hợp khi máy bạn chưa cài sẵn DB hay Keycloak.
-
-#### Bước 1: Build file JAR
+> Dockerfile sử dụng file JAR đã biên dịch sẵn (`COPY build/libs/identity-service-*.jar app.jar`). Bắt buộc build JAR trước:
 ```bash
 # Windows:
 .\gradlew.bat bootJar
@@ -154,154 +178,137 @@ Cách này sẽ tự động khởi tạo **PostgreSQL + Keycloak + Kafka + Iden
 ./gradlew bootJar
 ```
 
-#### Bước 2: Khởi chạy cụm All-in-One bằng Docker Compose
-Đứng tại thư mục `services/identity-service`:
+#### Bước 2: Khởi chạy toàn bộ cụm Container
 ```bash
 docker compose -f deploy/docker-compose.all-in-one.yml up -d --build
 ```
 
-#### Bước 3: Kiểm tra trạng thái các Container
+#### Bước 3: Kiểm tra trạng thái và log hoạt động
 ```bash
+# Kiểm tra danh sách container đang chạy:
 docker compose -f deploy/docker-compose.all-in-one.yml ps
-```
-Bạn sẽ thấy 4 container:
-- `omafood-identity-postgres`: PostgreSQL (Port `5432`)
-- `omafood-identity-keycloak`: Keycloak (Port `8080`)
-- `omafood-identity-kafka`: Apache Kafka (Port `9092`)
-- `omafood-identity-service`: Identity Service (Port `8016` HTTP, `9016` gRPC)
 
-#### Bước 4: Xem log hoạt động của Identity Service
-```bash
+# Xem log realtime của Identity Service:
 docker compose -f deploy/docker-compose.all-in-one.yml logs -f identity-service
 ```
 
 #### Dừng cụm All-in-One:
 ```bash
+# Dừng container, giữ nguyên dữ liệu CSDL:
 docker compose -f deploy/docker-compose.all-in-one.yml down
-# Hoặc nếu muốn xóa luôn volume dữ liệu để làm mới:
+
+# Dừng container và xóa trắng volume để khởi động lại từ đầu:
 docker compose -f deploy/docker-compose.all-in-one.yml down -v
 ```
 
 ---
 
-### Cách 2: Chạy Riêng Container Identity Service (Kết Nối Hạ Tầng Có Sẵn)
+### Kịch Bản 3: Chạy Riêng Container Identity Service (Kết Nối Hạ Tầng Sẵn Có)
 
-Sử dụng khi máy bạn **đã có sẵn** PostgreSQL, Keycloak hoặc Kafka chạy độc lập (hoặc chạy qua `infra/docker/docker-compose.infra.yml`).
-
-#### Bước 1: Cấu hình file `.env`
-Mở file `services/identity-service/.env` và cập nhật địa chỉ trỏ về máy host:
-- Trên Docker Desktop (Windows / macOS): Dùng `host.docker.internal` thay vì `localhost`.
-- Trên Linux: Dùng IP mạng của máy host (hoặc `172.17.0.1`).
-
-Ví dụ `.env`:
-```properties
-SERVER_PORT=8016
-GRPC_SERVER_PORT=9016
-
-DB_HOST=host.docker.internal
-DB_PORT=5432
-DB_NAME=identity_db
-DB_USERNAME=postgres
-DB_PASSWORD=12345678
-
-KEYCLOAK_SERVER_URL=http://host.docker.internal:8080
-KEYCLOAK_REALM=omama
-KEYCLOAK_CLIENT_ID=identity-service-admin
-KEYCLOAK_CLIENT_SECRET=your_client_secret_here
-
-SPRING_KAFKA_BOOTSTRAP_SERVERS=host.docker.internal:9092
-```
-
-#### Bước 2: Build file JAR
+Dùng cho môi trường Production / Coolify:
 ```bash
-# Windows:
+# 1. Build file JAR:
 .\gradlew.bat bootJar
 
-# Linux / macOS:
-./gradlew bootJar
-```
-
-#### Bước 3: Khởi chạy container
-```bash
+# 2. Khởi chạy container với compose sản xuất:
 cd deploy
 docker compose up -d --build
-```
 
-#### Bước 4: Theo dõi log
-```bash
+# 3. Theo dõi log:
 docker compose logs -f identity-service
 ```
 
-#### Dừng container:
+---
+
+### Kịch Bản 4: Chạy Kiểm Thử Tự Động (Unit & Integration Tests)
+
+Hệ thống tích hợp bộ kiểm thử toàn diện với **55/55 test case đạt tỉ lệ thành công 100%**:
+
 ```bash
-docker compose down
+# Trên Windows:
+.\gradlew.bat test
+
+# Trên Linux / macOS:
+./gradlew test
 ```
+Báo cáo kiểm thử HTML chi tiết được lưu tại:  
+`services/identity-service/build/reports/tests/test/index.html`
 
 ---
 
-### Cách 3: Build & Chạy Trực Tiếp Bằng Lệnh Docker CLI (Không Dùng Compose)
+## 6. Cấu Trúc JWT Access Token Chuẩn Hóa & Kiểm Thử
 
-Nếu muốn tự build và chạy container bằng Docker CLI thuần túy:
+### 6.1. Cấu Trúc Lean JWT (Chuẩn Hóa Độc Lập)
 
-```bash
-# 1. Build file JAR
-.\gradlew.bat bootJar    # (hoặc ./gradlew bootJar trên Linux/Mac)
+Keycloak cấp phát JWT Access Token với cấu trúc tối ưu (**Lean JWT**), loại bỏ các trường PII cồng kềnh (`email`, `name`, `given_name`, `family_name`, `preferred_username`) để giảm kích thước gói tin và bảo vệ quyền riêng tư:
 
-# 2. Build Docker Image
-docker build -t omafood-identity-service:latest .
-
-# 3. Chạy Docker Container (kèm file .env)
-docker run -d \
-  --name omafood-identity-service \
-  -p 8016:8016 \
-  -p 9016:9016 \
-  --env-file .env \
-  omafood-identity-service:latest
-
-# 4. Xem log container
-docker logs -f omafood-identity-service
+```json
+{
+  "jti": "9c8b7a65-4321-4ef0-9abc-1234567890ab",
+  "iss": "https://keycloak.omama.vn/realms/omama",
+  "sub": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "aud": [
+    "order-api",
+    "omama-api"
+  ],
+  "exp": 1762565100,
+  "iat": 1762564800,
+  "auth_time": 1762564700,
+  "typ": "Bearer",
+  "azp": "frontend-web",
+  "sid": "7f6e5d4c-3b2a-1908-fedc-ba0987654321",
+  "user_id": "a0000000-0000-0000-0000-000000000001",
+  "principal_type": "EMPLOYEE",
+  "realm_access": {
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  "permission_grants": [
+    "ORDER_VIEW#GLOBAL",
+    "ORDER_SENSITIVE_VIEW#WAREHOUSE#WH-HCM-01"
+  ]
+}
 ```
+
+### Ý Nghĩa Các Trường:
+- `sub`: Keycloak Subject UUID (định danh tài khoản trên Keycloak).
+- `user_id`: Application User UUID (khóa chính `users.id` trong PostgreSQL `identity_db`).
+- `principal_type`: Loại tài khoản (`EMPLOYEE` hoặc `CUSTOMER`).
+- `realm_access.roles`: Danh sách Realm Role của Keycloak (dành cho Admin / System).
+- `permission_grants`: Danh sách quyền hạn phân bổ theo phạm vi định dạng `<PERMISSION_CODE>#<SCOPE_TYPE>[#<SCOPE_ID>]`. Spring Security trong Identity Service sẽ tự động phân rã thành các quyền `hasAuthority(...)` để bảo vệ API.
+- `aud`: Danh sách Audience dịch vụ được phép tiêu thụ token.
+- `azp`: Client ID của ứng dụng gọi OIDC (ví dụ `frontend-web` hoặc `mobile-app`).
+- `exp` / `iat`: Thời điểm hết hạn (15 phút / 900 giây) và thời điểm phát hành token.
+
+### Cách Giải Mã & Xem Nội Dung Token:
+- **Cách 1 (Giao diện web):** Truy cập [jwt.io](https://jwt.io) và dán chuỗi Access Token vào ô Encoded.
+- **Cách 2 (Lệnh PowerShell):**
+  ```powershell
+  $token = "<DÁN_CHUỖI_JWT_VÀO_ĐÂY>"
+  $payload = $token.Split('.')[1]
+  $padding = $payload.Length % 4
+  if ($padding -eq 2) { $payload += "==" } elseif ($padding -eq 3) { $payload += "=" }
+  [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($payload.Replace('-', '+').Replace('_', '/'))) | ConvertFrom-Json | ConvertTo-Json -Depth 5
+  ```
 
 ---
 
-### Cách 4: Chạy Hybrid Development (Dành Cho Lập Trình Viên)
+## 7. Swagger Documentation & Hướng Dẫn Gọi API
 
-Phương án này chạy PostgreSQL, Keycloak, Kafka trên Docker, nhưng chạy ứng dụng Spring Boot trực tiếp bằng máy host để debug, hot-reload và xem log thuận tiện:
-
-```bash
-# 1. Khởi động các phụ trợ trên Docker
-docker compose -f deploy/docker-compose.all-in-one.yml up -d postgres keycloak kafka
-
-# 2. Cập nhật .env trỏ về localhost
-# (DB_HOST=localhost, KEYCLOAK_SERVER_URL=http://localhost:8080, ...)
-
-# 3. Chạy ứng dụng trực tiếp bằng Gradle:
-# Windows:
-.\gradlew.bat bootRun
-
-# Linux / macOS:
-./gradlew bootRun
-```
-
----
-
-## 6. Hướng Dẫn Kiểm Thử & Swagger Documentation
-
-### 6.1. Swagger UI & OpenAPI 3 Documentation
-Dịch vụ đã tích hợp sẵn giao diện Swagger UI để trực quan hóa và kiểm thử tất cả các REST API:
-
-- **Swagger UI Web:** [http://localhost:8016/swagger-ui.html](http://localhost:8016/swagger-ui.html) (hoặc `http://localhost:8016/swagger-ui/index.html`)
+### 7.1. Swagger UI & OpenAPI 3 Documentation
+- **Swagger UI Web:** [http://localhost:8016/swagger-ui.html](http://localhost:8016/swagger-ui.html)
 - **OpenAPI JSON Spec:** [http://localhost:8016/v3/api-docs](http://localhost:8016/v3/api-docs)
 
 > [!TIP]
 > **Cách Ủy Quyền (Authorize) Trên Swagger UI:**
 > 1. Bấm nút **Authorize** (biểu tượng ổ khóa màu xanh lá ở góc phải).
 > 2. Dán chuỗi JWT Access Token nhận được từ Keycloak vào ô `Value`.
-> 3. Bấm **Authorize** -> **Close**. Giờ bạn có thể test trực tiếp các API bảo mật.
+> 3. Bấm **Authorize** -> **Close**.
 
 ---
 
-### 6.2. Kiểm Tra Trạng Thái Sống (Healthcheck)
+### 7.2. Kiểm Tra Trạng Thái Sống (Healthcheck)
 ```bash
 curl http://localhost:8016/actuator/health
 ```
@@ -312,8 +319,8 @@ curl http://localhost:8016/actuator/health
 
 ---
 
-### 6.3. Đăng Ký Tài Khoản Khách Hàng Công Khai (`POST /api/v1/public/customer-registrations`)
-Hỗ trợ cơ chế Idempotent chống đăng ký lặp (tuân thủ Chuẩn RESTful 3.3.1):
+### 7.3. Đăng Ký Tài Khoản Khách Hàng Công Khai (`POST /api/v1/public/customer-registrations`)
+Hỗ trợ cơ chế Idempotent chống đăng ký trùng lặp:
 
 ```bash
 curl -X POST http://localhost:8016/api/v1/public/customer-registrations \
@@ -327,11 +334,35 @@ curl -X POST http://localhost:8016/api/v1/public/customer-registrations \
     "rawPassword": "Password@123"
   }'
 ```
-*(Hệ thống đồng thời hỗ trợ legacy alias: `POST /api/v1/public/registration/customer`).*
 
 ---
 
-### 6.4. Lấy Hồ Sơ & Quyền Của Bản Thân (`GET /api/v1/users/me`)
+### 7.4. Xác Thực Theo Kiến Trúc Backend-for-Frontend (BFF Pattern - RFC 9700 & RFC 7636 PKCE)
+Bảo vệ Token hoàn toàn phía server bằng HttpOnly Cookie `OMAMA_SESSION`, loại bỏ nguy cơ rò rỉ token qua XSS:
+
+```bash
+# 1. Khởi tạo đăng nhập OIDC PKCE (trả về URL xác thực Keycloak kèm state)
+curl -X GET "http://localhost:8016/api/v1/public/auth/login?redirect_uri=https://omama.vn&provider=google"
+
+# 2. Callback từ Keycloak (trình duyệt tự động chuyển hướng, cấp HttpOnly Cookie OMAMA_SESSION và redirect 302)
+# GET http://localhost:8016/api/v1/public/auth/callback?code=<AUTH_CODE>&state=<STATE>
+
+# 3. Kiểm tra thông tin phiên làm việc hiện tại
+curl -X GET http://localhost:8016/api/v1/public/auth/session \
+  -H "Cookie: OMAMA_SESSION=<YOUR_SESSION_UUID>"
+
+# 4. Gia hạn phiên làm việc (Refresh Session)
+curl -X POST http://localhost:8016/api/v1/public/auth/tokens/refresh \
+  -H "Cookie: OMAMA_SESSION=<YOUR_SESSION_UUID>"
+
+# 5. Đăng xuất tài khoản (Thu hồi token trên Keycloak và xóa Cookie)
+curl -X POST http://localhost:8016/api/v1/public/auth/logout \
+  -H "Cookie: OMAMA_SESSION=<YOUR_SESSION_UUID>"
+```
+
+---
+
+### 7.5. Lấy Hồ Sơ & Quyền Của Bản Thân (`GET /api/v1/users/me`)
 Gửi kèm JWT Access Token:
 
 ```bash
@@ -341,9 +372,7 @@ curl -X GET http://localhost:8016/api/v1/users/me \
 
 ---
 
-### 6.5. Cập Nhật Trạng Thái Người Dùng (`PATCH /api/v1/admin/users/{principalId}/status`)
-Tuân thủ Quy tắc 1 (dùng HTTP `PATCH` thay vì động từ `suspend`/`reactivate` trong URI):
-
+### 7.6. Cập Nhật Trạng Thái Người Dùng (`PATCH /api/v1/admin/users/{principalId}/status`)
 ```bash
 # Khóa tài khoản
 curl -X PATCH http://localhost:8016/api/v1/admin/users/e9f8d7c6-1111-2222-3333-444455556666/status \
@@ -360,7 +389,7 @@ curl -X PATCH http://localhost:8016/api/v1/admin/users/e9f8d7c6-1111-2222-3333-4
 
 ---
 
-### 6.6. Quản Lý Danh Mục Vai Trò IAM (`GET /api/v1/admin/roles`)
+### 7.7. Quản Lý Danh Mục Vai Trò IAM (`GET /api/v1/admin/roles`)
 ```bash
 curl -X GET http://localhost:8016/api/v1/admin/roles \
   -H "Authorization: Bearer <ADMIN_ACCESS_TOKEN>"
@@ -368,9 +397,7 @@ curl -X GET http://localhost:8016/api/v1/admin/roles \
 
 ---
 
-### 6.7. Quản Lý Thư Mời Cho Nhân Viên Mới (`/api/v1/admin/employee-invitations`)
-Tuân thủ Quy tắc 1, 2, 4 (danh từ số nhiều, kebab-case, dùng `DELETE` thay vì động từ `revoke`):
-
+### 7.8. Quản Lý Thư Mời Cho Nhân Viên Mới (`/api/v1/admin/employee-invitations`)
 ```bash
 # Tạo thư mời:
 curl -X POST http://localhost:8016/api/v1/admin/employee-invitations \
@@ -385,7 +412,7 @@ curl -X DELETE http://localhost:8016/api/v1/admin/employee-invitations/<INVITATI
 
 ---
 
-### 6.8. Gán & Thu Hồi Vai Trò Chức Danh (`/api/v1/admin/role-assignments`)
+### 7.9. Gán & Thu Hồi Vai Trò Chức Danh (`/api/v1/admin/role-assignments`)
 ```bash
 # Gán vai trò cho nhân viên:
 curl -X POST http://localhost:8016/api/v1/admin/role-assignments \
@@ -406,8 +433,8 @@ curl -X DELETE http://localhost:8016/api/v1/admin/role-assignments/<ASSIGNMENT_U
 
 ---
 
-### 6.9. Kiểm Thử gRPC Service (Port 9016)
-Dịch vụ cung cấp gRPC Server tại cổng `9016` (được định nghĩa trong Proto `IdentityService`):
+### 7.10. Kiểm Thử gRPC Service (Port 9016)
+Service gRPC cung cấp kiểm tra quyền hạn chuyên sâu và phân phối Public Key:
 - `CheckSpecializedPermission`: Đánh giá quyền hạn đặc thù và kiểm soát rủi ro cao.
 - `GetJwksPublicKey`: Trả về Public Key để các Microservices khác kiểm tra chữ ký token nội bộ.
 
@@ -418,7 +445,7 @@ grpcurl -plaintext localhost:9016 list
 
 ---
 
-## 7. Khắc Phục Sự Cố Thường Gặp (Troubleshooting)
+## 8. Khắc Phục Sự Cố Thường Gặp (Troubleshooting)
 
 ### 1. Lỗi `COPY failed: no source files were specified` khi build Docker
 - **Nguyên nhân:** Chưa chạy lệnh build file JAR trước khi chạy `docker build` hoặc `docker compose up --build`.
@@ -440,7 +467,7 @@ grpcurl -plaintext localhost:9016 list
   5. Đảm bảo tab **Service account roles** đã được gán các quyền quản lý `realm-management` (`manage-users`, `view-users`).
 
 ### 4. Xung đột cổng (Port already allocated)
-- **Nguyên nhân:** Cổng `8016`, `9016`, `5432` hoặc `8080` đang bị chiếm dụng bởi một ứng dụng khác trên máy.
+- **Nguyên nhân:** Cổng `8016`, `9016`, `5433` hoặc `8080` đang bị chiếm dụng bởi một ứng dụng khác trên máy.
 - **Khắc phục:**
   - Kiểm tra tiến trình đang chiếm cổng:
     ```powershell
@@ -450,37 +477,3 @@ grpcurl -plaintext localhost:9016 list
     lsof -i :8016
     ```
   - Hoặc đổi sang cổng khác trong `.env` (ví dụ `SERVER_PORT=8017`).
-
-## 7. Khắc Phục Sự Cố Thường Gặp (Troubleshooting)
-
-### 1. Lỗi `COPY failed: no source files were specified` khi build Docker
-- **Nguyên nhân:** Chưa chạy lệnh build file JAR trước khi chạy `docker build` hoặc `docker compose up --build`.
-- **Khắc phục:** Chạy `.\gradlew.bat bootJar` (Windows) hoặc `./gradlew bootJar` (Linux/Mac) rồi thử lại.
-
-### 2. Container không kết nối được PostgreSQL / Keycloak trên máy Host
-- **Nguyên nhân:** Container dùng `localhost` sẽ trỏ vào chính container thay vì máy tính của bạn.
-- **Khắc phục:** 
-  - Trên Windows / macOS: Đặt `DB_HOST=host.docker.internal` và `KEYCLOAK_SERVER_URL=http://host.docker.internal:8080`.
-  - Trên Linux: Thêm cấu hình `extra_hosts: ["host.docker.internal:host-gateway"]` vào docker-compose service.
-
-### 3. Lỗi `401 Unauthorized` hoặc `Connection Refused` từ Keycloak
-- **Nguyên nhân:** Sai `KEYCLOAK_CLIENT_SECRET` hoặc Keycloak chưa sẵn sàng tiếp nhận request.
-- **Khắc phục:**
-  1. Mở Keycloak Admin Console tại `http://localhost:8080/admin`.
-  2. Đăng nhập bằng `admin` / `admin`.
-  3. Chọn Realm `omama` -> menu **Clients** -> chọn `identity-service-admin`.
-  4. Mở tab **Credentials**, copy Client Secret dán vào file `.env`.
-  5. Đảm bảo tab **Service account roles** đã được gán các quyền quản lý `realm-management` (`manage-users`, `view-users`).
-
-### 4. Xung đột cổng (Port already allocated)
-- **Nguyên nhân:** Cổng `8016`, `9016`, `5432` hoặc `8080` đang bị chiếm dụng bởi một ứng dụng khác trên máy.
-- **Khắc phục:**
-  - Kiểm tra tiến trình đang chiếm cổng:
-    ```powershell
-    # Windows:
-    Get-Process -Id (Get-NetTCPConnection -LocalPort 8016).OwningProcess
-    # Linux / macOS:
-    lsof -i :8016
-    ```
-  - Hoặc đổi sang cổng khác trong `.env` (ví dụ `SERVER_PORT=8017`).
-

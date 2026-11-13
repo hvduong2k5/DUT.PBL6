@@ -17,8 +17,10 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/omamx/order-service/internal/domain"
+	"github.com/omamx/order-service/internal/fulfillmentprovider"
 	"github.com/omamx/order-service/internal/persistence"
 	"github.com/omamx/order-service/internal/sepay"
+	"github.com/omamx/order-service/internal/shippingprovider"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/redis/go-redis/v9"
 	"github.com/segmentio/kafka-go"
@@ -31,6 +33,8 @@ import (
 )
 
 type Config struct {
+	IdentityURL                                                                                                                  string
+	CatalogURL, CatalogWarehouse, CatalogShippingCarrier, CatalogShippingService, CatalogShippingPolicy                          string
 	AuthMode, OIDCIssuer, OIDCAudience, OIDCJWKSURL                                                                              string
 	OIDCAllowLocalHTTP                                                                                                           bool
 	SourceTopic                                                                                                                  string
@@ -44,6 +48,12 @@ type Config struct {
 
 func LoadConfig() (Config, error) {
 	c := Config{SourceTopic: os.Getenv("ORDER_SOURCE_TOPIC"), ConsumerGroup: os.Getenv("ORDER_CONSUMER_GROUP"), ProfileToken: os.Getenv("PROFILE_INTERNAL_TOKEN"), DB: os.Getenv("DATABASE_URL"), Redis: os.Getenv("REDIS_ADDR"), Dependencies: os.Getenv("DEPENDENCY_URL"), Profile: os.Getenv("PROFILE_URL"), InternalToken: os.Getenv("ORDER_INTERNAL_TOKEN"), JWTSecret: os.Getenv("ORDER_JWT_SECRET"), EncryptionKey: os.Getenv("ORDER_ENCRYPTION_KEY"), CallbackSecret: os.Getenv("CALLBACK_SECRET"), Receiver: os.Getenv("PAYMENT_RECEIVER"), Kafka: os.Getenv("KAFKA_BROKERS"), HTTP: os.Getenv("HTTP_ADDR"), GRPC: os.Getenv("GRPC_ADDR"), Mode: os.Getenv("APP_MODE"), Poll: 100 * time.Millisecond, AutoComplete: os.Getenv("ENABLE_AUTO_COMPLETE") == "true"}
+	c.IdentityURL = os.Getenv("IDENTITY_URL")
+	c.CatalogURL = os.Getenv("ORDER_CATALOG_URL")
+	c.CatalogWarehouse = os.Getenv("ORDER_WAREHOUSE_ID")
+	c.CatalogShippingCarrier = os.Getenv("ORDER_QUOTE_CARRIER_CODE")
+	c.CatalogShippingService = os.Getenv("ORDER_QUOTE_SERVICE_CODE")
+	c.CatalogShippingPolicy = os.Getenv("ORDER_QUOTE_POLICY_VERSION")
 	c.AuthMode = os.Getenv("ORDER_AUTH_MODE")
 	c.OIDCIssuer = os.Getenv("ORDER_OIDC_ISSUER")
 	c.OIDCAudience = os.Getenv("ORDER_OIDC_AUDIENCE")
@@ -71,6 +81,8 @@ func LoadConfig() (Config, error) {
 }
 
 type Service struct {
+	Fulfillment          *fulfillmentprovider.Adapter
+	Shipping             *shippingprovider.Adapter
 	Identity             *CustomerIdentity
 	CoreCheckout         *persistence.CheckoutRuntime
 	PaymentVault         persistence.EvidenceVault
@@ -95,6 +107,9 @@ type Service struct {
 }
 
 func New(ctx context.Context, c Config) (*Service, error) {
+	if c.AuthMode == "keycloak" && c.IdentityURL == "" {
+		return nil, errors.New("IDENTITY_URL is required for account persona verification")
+	}
 	if c.Mode != "sandbox" {
 		return nil, errors.New("production adapter set is not implemented")
 	}
@@ -165,6 +180,12 @@ func (s *Service) Open(b []byte, v any) error {
 	return json.Unmarshal(data, v)
 }
 func (s *Service) Call(ctx context.Context, method, path string, in, out any) error {
+	if s.C.CatalogURL != "" && path == "/shipping/quote" && method == "POST" {
+		return s.catalogShippingValidation(ctx, in, out)
+	}
+	if s.C.CatalogURL != "" && method == "POST" && path == "/catalog/validate" {
+		return s.catalogValidation(ctx, in, out)
+	}
 	return s.callURL(ctx, s.C.Dependencies, method, path, in, out)
 }
 func (s *Service) callURL(ctx context.Context, base, method, path string, in, out any) error {
@@ -239,15 +260,22 @@ func (s *Service) Resolve(ctx context.Context, p domain.Principal) (domain.Princ
 			return p, domain.E("IDENTITY_RESOLUTION_UNAVAILABLE", 503)
 		}
 		defer resp.Body.Close()
+		if resp.StatusCode == 403 || resp.StatusCode == 404 {
+			return p, domain.E("CUSTOMER_FORBIDDEN", 403)
+		}
 		if resp.StatusCode != 200 {
 			return p, domain.E("IDENTITY_RESOLUTION_UNAVAILABLE", 503)
 		}
 		var v struct {
 			ID     string `json:"id"`
 			UserID string `json:"user_id"`
+			Status string `json:"status"`
 		}
 		if e = json.NewDecoder(resp.Body).Decode(&v); e != nil || v.UserID != p.ID {
 			return p, domain.E("IDENTITY_RESOLUTION_UNAVAILABLE", 503)
+		}
+		if s.C.AuthMode == "keycloak" && v.Status != "ACTIVE" {
+			return p, domain.E("CUSTOMER_VERIFICATION_REQUIRED", 403)
 		}
 		p.CustomerID = v.ID
 	} else {

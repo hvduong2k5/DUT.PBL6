@@ -2,13 +2,19 @@ package com.hvduong.identity.application.account.impl;
 
 import com.hvduong.identity.application.account.EmployeeInvitationService;
 import com.hvduong.identity.application.audit.AuditService;
-import com.hvduong.identity.dto.response.InviteEmployeeResponse;
-import com.hvduong.identity.infrastructure.persistence.entity.EmployeeInvitationRow;
-import com.hvduong.identity.infrastructure.persistence.entity.IdentityPrincipalRow;
+import com.hvduong.identity.application.dto.response.InviteEmployeeResponse;
+import com.hvduong.identity.common.constant.IdentityConstants;
+import com.hvduong.identity.common.enums.InvitationStatus;
+import com.hvduong.identity.common.enums.PrincipalType;
+import com.hvduong.identity.common.enums.ProvisioningStatus;
+import com.hvduong.identity.domain.entity.EmployeeInvitationRow;
+import com.hvduong.identity.domain.entity.IdentityPrincipalRow;
+import com.hvduong.identity.infrastructure.keycloak.KeycloakAdminClient;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.EmployeeInvitationMapper;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IdentityPrincipalMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,6 +31,13 @@ public class EmployeeInvitationServiceImpl implements EmployeeInvitationService 
     private final EmployeeInvitationMapper invitationMapper;
     private final IdentityPrincipalMapper principalMapper;
     private final AuditService auditService;
+    private final KeycloakAdminClient keycloakAdminClient;
+
+    @Value("${keycloak.public-url:${keycloak.server-url:https://keycloak.omama.vn}}")
+    private String publicUrl = "https://keycloak.omama.vn";
+
+    @Value("${keycloak.realm:omama}")
+    private String realm = "omama";
 
     @Override
     @Transactional
@@ -34,9 +47,9 @@ public class EmployeeInvitationServiceImpl implements EmployeeInvitationService 
         // 1. Create employee principal in PENDING status
         IdentityPrincipalRow principal = new IdentityPrincipalRow();
         principal.setPrincipalId(principalId);
-        principal.setIdpIssuer("https://keycloak.omama.vn/realms/omama");
-        principal.setPrincipalType("EMPLOYEE");
-        principal.setProvisioningStatus("PENDING");
+        principal.setIdpIssuer(publicUrl + "/realms/" + realm);
+        principal.setPrincipalType(PrincipalType.EMPLOYEE.name());
+        principal.setProvisioningStatus(ProvisioningStatus.PENDING.name());
         principal.setVersion(0L);
         principalMapper.insert(principal);
 
@@ -48,12 +61,12 @@ public class EmployeeInvitationServiceImpl implements EmployeeInvitationService 
         invitation.setInvitationId(invitationId);
         invitation.setPrincipalId(principalId);
         invitation.setInvitedByPrincipalId(invitedBy);
-        invitation.setInvitationStatus("PENDING");
+        invitation.setInvitationStatus(InvitationStatus.PENDING.name());
         invitation.setExpiresAt(expiresAt);
         invitationMapper.insert(invitation);
 
         auditService.recordAudit(
-                "EMPLOYEE",
+                PrincipalType.EMPLOYEE.name(),
                 invitedBy,
                 null,
                 "EMPLOYEE_INVITE_CREATE",
@@ -69,7 +82,7 @@ public class EmployeeInvitationServiceImpl implements EmployeeInvitationService 
         return InviteEmployeeResponse.builder()
                 .invitationId(invitationId)
                 .principalId(principalId)
-                .status("PENDING")
+                .status(InvitationStatus.PENDING.name())
                 .expiresAt(expiresAt)
                 .build();
     }
@@ -78,21 +91,31 @@ public class EmployeeInvitationServiceImpl implements EmployeeInvitationService 
     @Transactional
     public boolean acceptInvitation(UUID invitationId, String idpSubject) {
         Optional<EmployeeInvitationRow> invOpt = invitationMapper.findById(invitationId);
-        if (invOpt.isEmpty() || !"PENDING".equals(invOpt.get().getInvitationStatus())) {
+        if (invOpt.isEmpty() || !InvitationStatus.PENDING.matches(invOpt.get().getInvitationStatus())) {
             return false;
         }
 
         EmployeeInvitationRow inv = invOpt.get();
         if (inv.getExpiresAt().isBefore(OffsetDateTime.now())) {
-            invitationMapper.updateStatus(invitationId, "EXPIRED", null);
+            invitationMapper.updateStatus(invitationId, InvitationStatus.EXPIRED.name(), null);
             return false;
         }
 
-        invitationMapper.updateStatus(invitationId, "ACCEPTED", null);
-        principalMapper.updateProvisioningStatus(inv.getPrincipalId(), "ACTIVE", idpSubject, 0L);
+        invitationMapper.updateStatus(invitationId, InvitationStatus.ACCEPTED.name(), null);
+        principalMapper.updateProvisioningStatus(inv.getPrincipalId(), ProvisioningStatus.ACTIVE.name(), idpSubject, 0L);
+
+        if (keycloakAdminClient != null && idpSubject != null && !idpSubject.isBlank()) {
+            try {
+                keycloakAdminClient.setUserAttribute(idpSubject, IdentityConstants.ATTR_PRINCIPAL_TYPE, PrincipalType.EMPLOYEE.name());
+                keycloakAdminClient.setUserAttribute(idpSubject, IdentityConstants.ATTR_APP_USER_ID, inv.getPrincipalId().toString());
+            } catch (Exception ex) {
+                log.warn("Failed to set Keycloak attributes for accepted employee invitation [principalId={}, idpSubject={}]",
+                        inv.getPrincipalId(), idpSubject, ex);
+            }
+        }
 
         auditService.recordAudit(
-                "EMPLOYEE",
+                PrincipalType.EMPLOYEE.name(),
                 inv.getPrincipalId(),
                 null,
                 "EMPLOYEE_INVITE_ACCEPT",
@@ -112,14 +135,14 @@ public class EmployeeInvitationServiceImpl implements EmployeeInvitationService 
     @Transactional
     public boolean revokeInvitation(UUID invitationId, UUID revokedBy) {
         Optional<EmployeeInvitationRow> invOpt = invitationMapper.findById(invitationId);
-        if (invOpt.isEmpty() || !"PENDING".equals(invOpt.get().getInvitationStatus())) {
+        if (invOpt.isEmpty() || !InvitationStatus.PENDING.matches(invOpt.get().getInvitationStatus())) {
             return false;
         }
 
-        invitationMapper.updateStatus(invitationId, "REVOKED", null);
+        invitationMapper.updateStatus(invitationId, InvitationStatus.REVOKED.name(), null);
 
         auditService.recordAudit(
-                "EMPLOYEE",
+                PrincipalType.EMPLOYEE.name(),
                 revokedBy,
                 null,
                 "EMPLOYEE_INVITE_REVOKE",

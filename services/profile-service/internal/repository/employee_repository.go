@@ -70,6 +70,10 @@ func (r *EmployeeRepository) GetEmployeeByID(ctx context.Context, id uuid.UUID) 
 
 // ListEmployees retrieves employees with optional filtering by department and status.
 func (r *EmployeeRepository) ListEmployees(ctx context.Context, departmentID, status string, limit, offset int) ([]*domain.EmployeeProfile, error) {
+	return r.ListEmployeesScoped(ctx, departmentID, status, limit, offset, domain.PermissionScope{Global: true})
+}
+
+func (r *EmployeeRepository) ListEmployeesScoped(ctx context.Context, departmentID, status string, limit, offset int, scope domain.PermissionScope) ([]*domain.EmployeeProfile, error) {
 	query := `
 		SELECT id, user_id, employee_code, full_name, phone_number,
 		       id_card_encrypted, id_card_nonce, encrypted_dek, kek_version,
@@ -78,10 +82,11 @@ func (r *EmployeeRepository) ListEmployees(ctx context.Context, departmentID, st
 		FROM employee_profiles
 		WHERE ($1 = '' OR department_id = $1)
 		  AND ($2 = '' OR status = $2)
+		  AND ($5 OR department_id = ANY($6::text[]))
 		ORDER BY created_at DESC
 		LIMIT $3 OFFSET $4
 	`
-	rows, err := r.pool.Query(ctx, query, departmentID, status, limit, offset)
+	rows, err := r.pool.Query(ctx, query, departmentID, status, limit, offset, scope.Global, scope.IDs)
 	if err != nil {
 		return nil, err
 	}
@@ -105,6 +110,10 @@ func (r *EmployeeRepository) ListEmployees(ctx context.Context, departmentID, st
 
 // FindExpiringCertificates scans for active employees whose food safety certificates expire within thresholdDays.
 func (r *EmployeeRepository) FindExpiringCertificates(ctx context.Context, thresholdDays int) ([]*domain.EmployeeProfile, error) {
+	return r.FindExpiringCertificatesScoped(ctx, thresholdDays, domain.PermissionScope{Global: true})
+}
+
+func (r *EmployeeRepository) FindExpiringCertificatesScoped(ctx context.Context, thresholdDays int, scope domain.PermissionScope) ([]*domain.EmployeeProfile, error) {
 	query := `
 		SELECT id, user_id, employee_code, full_name, phone_number,
 		       id_card_encrypted, id_card_nonce, encrypted_dek, kek_version,
@@ -112,12 +121,13 @@ func (r *EmployeeRepository) FindExpiringCertificates(ctx context.Context, thres
 		       food_safety_cert_no, food_safety_cert_expiry, status, created_at, updated_at
 		FROM employee_profiles
 		WHERE status = 'ACTIVE'
+		  AND ($2 OR department_id = ANY($3::text[]))
 		  AND food_safety_cert_expiry IS NOT NULL
 		  AND food_safety_cert_expiry <= CURRENT_DATE + ($1 * INTERVAL '1 day')
 		  AND food_safety_cert_expiry >= CURRENT_DATE
 		ORDER BY food_safety_cert_expiry ASC
 	`
-	rows, err := r.pool.Query(ctx, query, thresholdDays)
+	rows, err := r.pool.Query(ctx, query, thresholdDays, scope.Global, scope.IDs)
 	if err != nil {
 		return nil, err
 	}

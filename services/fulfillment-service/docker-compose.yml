@@ -1,0 +1,34 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: fulfillment_local
+      POSTGRES_PASSWORD: fulfillment_local_only
+      POSTGRES_DB: fulfillment_local
+    volumes: [fulfillment_db:/var/lib/postgresql/data]
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U fulfillment_local -d fulfillment_local"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  migrate:
+    build: .
+    image: omamx/fulfillment-service:local
+    entrypoint: [fulfillment-migrate]
+    environment:
+      FULFILLMENT_DATABASE_URL: postgres://fulfillment_local:fulfillment_local_only@db:5432/fulfillment_local?sslmode=disable
+    depends_on:
+      db: {condition: service_healthy}
+  api:
+    image: omamx/fulfillment-service:local
+    environment:
+      FULFILLMENT_ENV: local
+      FULFILLMENT_DATABASE_URL: postgres://fulfillment_local:fulfillment_local_only@db:5432/fulfillment_local?sslmode=disable
+      FULFILLMENT_JWT_ISSUER: ${FULFILLMENT_JWT_ISSUER:-}
+      FULFILLMENT_JWT_PUBLIC_KEY: ${FULFILLMENT_JWT_PUBLIC_KEY:-}
+    volumes: [./local-keys:/keys:ro]
+    ports: ["127.0.0.1:18002:8002", "127.0.0.1:19002:9002"]
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+volumes:
+  fulfillment_db:

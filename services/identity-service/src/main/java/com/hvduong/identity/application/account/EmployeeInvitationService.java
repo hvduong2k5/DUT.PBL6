@@ -1,6 +1,6 @@
 package com.hvduong.identity.application.account;
 
-import com.hvduong.identity.dto.response.InviteEmployeeResponse;
+import com.hvduong.identity.application.dto.response.InviteEmployeeResponse;
 
 import java.util.UUID;
 

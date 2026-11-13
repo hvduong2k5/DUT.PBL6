@@ -153,7 +153,7 @@ Dịch vụ tuân thủ 4 quy tắc cốt lõi:
 | `GET` | `/api/v1/admin/roles/{roleId}` | Chi tiết Role | Xem thông tin chi tiết một Role kèm danh sách Permissions. |
 | `POST` | `/api/v1/admin/roles` | Tạo Role mới | Tạo Role với `roleCode`, `roleName`, `description`. Đồng bộ tạo Realm Role trên Keycloak. |
 | `PATCH`| `/api/v1/admin/roles/{roleId}` | Cập nhật Role | Cập nhật `roleName`, `description`, `isEnabled`. Áp dụng Optimistic Concurrency Control (`version`). |
-| `DELETE`| `/api/v1/admin/roles/{roleId}`| Xóa Role | **Cơ chế an toàn**:<br>1. Từ chối xóa nếu `is_protected = true` (ví dụ `SUPER_ADMIN`).<br>2. Từ chối xóa nếu đang có nhân viên được gán active trong `iam_role_assignments`.<br>3. Tự động xóa liên kết permission con và đồng bộ xóa trên Keycloak. |
+| `DELETE`| `/api/v1/admin/roles/{roleId}`| Xóa Role | **Cơ chế an toàn**:<br>1. Từ chối xóa nếu `is_protected = true` (ví dụ `ADMIN`).<br>2. Từ chối xóa nếu đang có nhân viên được gán active trong `iam_role_assignments`.<br>3. Tự động xóa liên kết permission con và đồng bộ xóa trên Keycloak. |
 
 ---
 

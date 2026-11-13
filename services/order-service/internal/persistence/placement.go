@@ -133,6 +133,13 @@ func (s *Store) Place(ctx context.Context, in Placement) (core.Aggregate, error)
 			return ErrClock
 		}
 		input.PlacedAt = at // The final snapshot uses the locked transaction's decision time.
+		if input.Payment.ExpiresAt != nil {
+			// The authenticated snapshot and its timestamptz projection must use
+			// the same precision. Round down before freezing/hash, never extend a
+			// deadline supplied by Catalog/Shipping/Inventory by rounding up.
+			expires := input.Payment.ExpiresAt.UTC().Truncate(time.Microsecond)
+			input.Payment.ExpiresAt = &expires
+		}
 		snapshot, err := core.NewSnapshot(input)
 		if err != nil {
 			return err

@@ -1,0 +1,37 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "StockCommittedEvent",
+  "description": "Sự kiện phát ra khi đơn hàng thanh toán thành công và tồn kho vật lý chính thức bị trừ xuất kho. Topic: inventory.events.v1. Partition Key: order_id",
+  "type": "object",
+  "required": ["specversion", "id", "source", "type", "subject", "time", "datacontenttype", "traceparent", "data"],
+  "properties": {
+    "specversion": { "type": "string", "enum": ["1.0"] },
+    "id": { "type": "string" },
+    "source": { "type": "string", "format": "uri", "example": "https://omama.vn/services/inventory-service" },
+    "type": { "type": "string", "enum": ["vn.omama.inventory.stock.committed.v1"] },
+    "subject": { "type": "string", "example": "order:ORD-20261015-0042" },
+    "time": { "type": "string", "format": "date-time" },
+    "datacontenttype": { "type": "string", "enum": ["application/json"] },
+    "traceparent": { "type": "string" },
+    "data": {
+      "type": "object",
+      "required": ["reservation_id", "order_id", "items"],
+      "properties": {
+        "reservation_id": { "type": "string" },
+        "order_id": { "type": "string" },
+        "warehouse_id": { "type": "string" },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["sku_code", "quantity"],
+            "properties": {
+              "sku_code": { "type": "string" },
+              "quantity": { "type": "integer", "minimum": 1 }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -10,17 +10,18 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.hvduong.identity.api.admin.IamRoleApi;
 import com.hvduong.identity.application.iam.RoleManagementService;
-import com.hvduong.identity.dto.common.ApiResponse;
-import com.hvduong.identity.dto.request.AddPermissionRequest;
-import com.hvduong.identity.dto.request.CreateRoleRequest;
-import com.hvduong.identity.dto.request.ReplacePermissionsRequest;
-import com.hvduong.identity.dto.request.UpdateRoleRequest;
-import com.hvduong.identity.dto.response.RoleDetailResponse;
-import com.hvduong.identity.infrastructure.persistence.entity.IamRoleRow;
+import com.hvduong.identity.common.response.ApiResponse;
+import com.hvduong.identity.application.dto.request.AddPermissionRequest;
+import com.hvduong.identity.application.dto.request.CreateRoleRequest;
+import com.hvduong.identity.application.dto.request.ReplacePermissionsRequest;
+import com.hvduong.identity.application.dto.request.UpdateRoleRequest;
+import com.hvduong.identity.application.dto.response.RoleDetailResponse;
+import com.hvduong.identity.domain.entity.IamRoleRow;
 
 import lombok.RequiredArgsConstructor;
 
@@ -31,18 +32,21 @@ public class IamRoleController implements IamRoleApi {
     private final RoleManagementService roleManagementService;
 
     @Override
+    @PreAuthorize("hasAuthority('ROLE_VIEW')")
     public ResponseEntity<ApiResponse<List<IamRoleRow>>> getAllRoles() {
         List<IamRoleRow> roles = roleManagementService.getAllRoles();
         return ResponseEntity.ok(ApiResponse.success(roles));
     }
 
     @Override
+    @PreAuthorize("hasAuthority('ROLE_VIEW')")
     public ResponseEntity<ApiResponse<RoleDetailResponse>> getRoleById(@PathVariable UUID roleId) {
         RoleDetailResponse role = roleManagementService.getRoleById(roleId);
         return ResponseEntity.ok(ApiResponse.success(role));
     }
 
     @Override
+    @PreAuthorize("hasAuthority('ROLE_MANAGE')")
     public ResponseEntity<ApiResponse<UUID>> createRole(
             @RequestBody CreateRoleRequest request,
             @AuthenticationPrincipal Jwt jwt,
@@ -55,6 +59,7 @@ public class IamRoleController implements IamRoleApi {
     }
 
     @Override
+    @PreAuthorize("hasAuthority('ROLE_MANAGE')")
     public ResponseEntity<ApiResponse<Void>> updateRole(
             @PathVariable UUID roleId,
             @RequestBody UpdateRoleRequest request,
@@ -67,6 +72,7 @@ public class IamRoleController implements IamRoleApi {
     }
 
     @Override
+    @PreAuthorize("hasAuthority('ROLE_MANAGE')")
     public ResponseEntity<ApiResponse<Void>> deleteRole(
             @PathVariable UUID roleId,
             @AuthenticationPrincipal Jwt jwt,
@@ -78,12 +84,14 @@ public class IamRoleController implements IamRoleApi {
     }
 
     @Override
+    @PreAuthorize("hasAuthority('PERMISSION_VIEW')")
     public ResponseEntity<ApiResponse<List<String>>> getRolePermissions(@PathVariable UUID roleId) {
         List<String> permissions = roleManagementService.getPermissionsForRole(roleId);
         return ResponseEntity.ok(ApiResponse.success(permissions));
     }
 
     @Override
+    @PreAuthorize("hasAuthority('PERMISSION_MANAGE')")
     public ResponseEntity<ApiResponse<Void>> replacePermissions(
             @PathVariable UUID roleId,
             @RequestBody ReplacePermissionsRequest request,
@@ -97,6 +105,7 @@ public class IamRoleController implements IamRoleApi {
     }
 
     @Override
+    @PreAuthorize("hasAuthority('PERMISSION_MANAGE')")
     public ResponseEntity<ApiResponse<Void>> addPermission(
             @PathVariable UUID roleId,
             @RequestBody AddPermissionRequest request,
@@ -113,6 +122,7 @@ public class IamRoleController implements IamRoleApi {
     }
 
     @Override
+    @PreAuthorize("hasAuthority('PERMISSION_MANAGE')")
     public ResponseEntity<ApiResponse<Void>> removePermission(
             @PathVariable UUID roleId,
             @PathVariable String permissionCode,
@@ -125,16 +135,8 @@ public class IamRoleController implements IamRoleApi {
     }
 
     private UUID extractActorId(Jwt jwt, String actorHeader) {
-        if (jwt != null) {
-            try {
-                return UUID.fromString(jwt.getSubject());
-            } catch (Exception ignored) {}
-        }
-        if (actorHeader != null) {
-            try {
-                return UUID.fromString(actorHeader);
-            } catch (Exception ignored) {}
-        }
-        return null;
+        if (jwt == null) return null;
+        try { return UUID.fromString(jwt.getClaimAsString("user_id")); }
+        catch (IllegalArgumentException | NullPointerException error) { return null; }
     }
 }

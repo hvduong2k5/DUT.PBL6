@@ -1,0 +1,56 @@
+openapi: 3.0.3
+info:
+  title: Customer access support API
+  version: 0.1.0
+  description: >-
+    Profile-owned capability projection for the Web BFF. This supplements the
+    30-operation public MVP contract. A capability permits a Customer action;
+    provider readiness and release gates remain independent.
+paths:
+  /api/v1/customer/capabilities:
+    get:
+      operationId: getCustomerCapabilities
+      summary: Resolve capabilities from a verified principal and active Customer
+      description: >-
+        Profile verifies the Keycloak access-token issuer, audience, signature,
+        expiry, Bearer token type and CUSTOMER realm role. Its user_id is the
+        immutable Identity principal, distinct from Keycloak sub and Customer id.
+        Profile resolves Customer by that principal in its own database. No
+        mapping is 403; an inactive mapped Customer has an empty capability set.
+        The projection grants no employee administration, B2B, guest or financial
+        authority. Public Gateway removes forwarded identity/internal credentials.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Customer capability projection, policy version 1
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [actor, capabilities, version]
+                properties:
+                  actor:
+                    type: string
+                    enum: [REGISTERED]
+                  version:
+                    type: integer
+                    enum: [1]
+                  capabilities:
+                    type: array
+                    uniqueItems: true
+                    items:
+                      type: string
+                      enum: [CATALOG_VIEW, CART_MANAGE, CHECKOUT_CREATE, PROFILE_MANAGE, ADDRESS_MANAGE, ORDER_HISTORY_VIEW, SUPPORT_CREATE]
+        '401':
+          description: Missing or invalid verified access token; no sandbox/header fallback
+        '403':
+          description: Customer mapping required
+        '503':
+          description: Customer authority unavailable; caller must fail closed
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

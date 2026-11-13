@@ -5,6 +5,16 @@ _transform: true
 # 1. UPSTREAMS & SERVICES (18 MICROSERVICES ROUTING TABLE)
 # ==============================================================================
 services:
+  # Fulfillment verifies the signed token and current Employee/ADMIN scope in
+  # Identity. Never expose internal permit/allocation/proof gRPC endpoints.
+  - name: fulfillment-service
+    url: http://fulfillment-service:8002
+    routes:
+      - name: fulfillment-staff
+        paths: [/api/v1/admin/fulfillment]
+        strip_path: false
+        methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
+
   # ----------------------------------------------------------------------------
   # MS-00: API GATEWAY ROOT / HEALTH INFO ROUTE
   # ----------------------------------------------------------------------------
@@ -32,18 +42,40 @@ services:
     write_timeout: 5000
     retries: 2
     routes:
+      - name: identity-bff-routes
+        paths:
+          - /api/v1/public/auth
+          - /api/v1/customer-api
+          - /api/v1/admin/packing-api
+        strip_path: false
+        methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
       - name: auth-public-routes
         paths:
           - /api/v1/auth/login
           - /api/v1/auth/register
           - /api/v1/auth/refresh
           - /api/v1/auth/forgot-password
+          - /api/v1/users/me
           - /.well-known/jwks.json
         strip_path: false
         methods:
           - POST
           - GET
           - OPTIONS
+      - name: customer-registration-route
+        paths:
+          - /api/v1/public/customer-registrations
+        strip_path: false
+        methods: [POST, OPTIONS]
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 10
+              policy: local
+      - name: identity-staff-order-read
+        paths: [/api/v1/admin/order-api]
+        strip_path: false
+        methods: [GET]
 
   # ----------------------------------------------------------------------------
   # MS-15: PROFILE SERVICE (Profiles, Address Book, Staff)
@@ -57,19 +89,30 @@ services:
     routes:
       - name: profile-customer-routes
         paths:
-          - /api/v1/profiles
+          - /api/v1/profile
+          - /api/v1/customer/capabilities
+          - /api/v1/locations/checkout
         strip_path: false
         methods:
           - GET
+          - POST
           - PUT
           - PATCH
+          - DELETE
           - OPTIONS
         plugins:
-          - name: jwt
+          # Profile verifies Keycloak issuer/audience/signature and resolves
+          # Customer ownership. Browser forwarding headers never grant identity.
+          - name: request-transformer
             config:
-              claims_to_verify:
-                - exp
-              secret_is_base64: false
+              remove:
+                headers:
+                  - X-Internal-Token
+                  - X-User-ID
+                  - X-User-Role
+                  - X-Customer-ID
+                  - X-User-Permissions
+                  - X-Internal-Caller
       - name: profile-admin-routes
         paths:
           - /api/v1/admin/employees
@@ -81,17 +124,12 @@ services:
           - PUT
           - DELETE
           - OPTIONS
-        plugins:
-          - name: jwt
-            config:
-              claims_to_verify:
-                - exp
 
   # ----------------------------------------------------------------------------
   # MS-05: CATALOG SERVICE (Products, Categories, Search)
   # ----------------------------------------------------------------------------
   - name: catalog-service
-    url: http://catalog-service:8005
+    url: http://catalog-service:8006
     connect_timeout: 2000
     read_timeout: 3000
     write_timeout: 3000
@@ -105,6 +143,17 @@ services:
         strip_path: false
         methods:
           - GET
+          - OPTIONS
+      - name: catalog-admin-routes
+        paths:
+          - /api/v1/admin/catalog
+        strip_path: false
+        methods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - PATCH
           - OPTIONS
 
   # ----------------------------------------------------------------------------
@@ -133,8 +182,8 @@ services:
           - /api/v1/checkout
           - /api/v1/checkout-operations
           - /api/v1/admin/orders
-            - /api/v1/admin/payments
-            - /api/v1/admin/checkout-operations
+          - /api/v1/admin/payments
+          - /api/v1/admin/checkout-operations
           - /api/v1/guest-sessions
         strip_path: false
         methods:
@@ -146,49 +195,6 @@ services:
           - name: rate-limiting
             config:
               minute: 30
-              policy: local
-
-  # ----------------------------------------------------------------------------
-  # MS-07: PROMOTION SERVICE (Vouchers, Loyalty)
-  # ----------------------------------------------------------------------------
-  - name: promotion-service
-    url: http://promotion-service:8007
-    connect_timeout: 2000
-    read_timeout: 3000
-    write_timeout: 3000
-    retries: 1
-    routes:
-      - name: promotion-routes
-        paths:
-          - /api/v1/promotions
-          - /api/v1/vouchers
-        strip_path: false
-        methods:
-          - GET
-          - POST
-          - OPTIONS
-
-  # ----------------------------------------------------------------------------
-  # MS-13: CHANNEL SERVICE (Shopee / TikTok Shop Webhooks & POS Sync)
-  # ----------------------------------------------------------------------------
-  - name: channel-service
-    url: http://channel-service:8013
-    connect_timeout: 3000
-    read_timeout: 5000
-    write_timeout: 5000
-    retries: 1
-    routes:
-      - name: marketplace-webhooks
-        paths:
-          - /webhooks/marketplace
-        strip_path: false
-        methods:
-          - POST
-          - OPTIONS
-        plugins:
-          - name: rate-limiting
-            config:
-              minute: 1200
               policy: local
 
   # ----------------------------------------------------------------------------
@@ -214,24 +220,6 @@ services:
               minute: 600
               policy: local
 
-  # ----------------------------------------------------------------------------
-  # MOBILE BFF: GRAPHQL ENDPOINT
-  # ----------------------------------------------------------------------------
-  - name: mobile-bff-service
-    url: http://mobile-bff:4000
-    connect_timeout: 2000
-    read_timeout: 5000
-    write_timeout: 5000
-    retries: 1
-    routes:
-      - name: mobile-graphql-route
-        paths:
-          - /graphql
-        strip_path: false
-        methods:
-          - POST
-          - OPTIONS
-
 # ==============================================================================
 # 2. GLOBAL PLUGINS (SECURITY, TRACING, METRICS, CORS)
 # ==============================================================================
@@ -240,7 +228,9 @@ plugins:
   - name: cors
     config:
       origins:
-        - "*"
+        - "https://omama.hvduong.qzz.io"
+        - "https://pbl.npanhbao.dev"
+        - "http://localhost:3000"
       methods:
         - GET
         - POST
@@ -256,9 +246,14 @@ plugins:
         - Authorization
         - X-Request-Id
         - X-Idempotency-Key
+        - Idempotency-Key
+        - If-Match
       exposed_headers:
         - X-Request-Id
         - Content-Range
+        - ETag
+        - Location
+        - Retry-After
       credentials: true
       max_age: 3600
 
@@ -278,6 +273,8 @@ plugins:
           - X-User-Role
           - X-User-Permissions
           - X-Internal-Caller
+          - X-Internal-Token
+          - X-Customer-ID
 
   # 4. Global Rate Limiting
   - name: rate-limiting
@@ -296,16 +293,3 @@ plugins:
       latency_metrics: true
       bandwidth_metrics: true
       upstream_health_metrics: true
-
-# ==============================================================================
-# 3. CONSUMERS & AUTH CREDENTIALS (FOR LOCAL DEV & TESTING)
-# ==============================================================================
-consumers:
-  - username: omamx-test-customer
-    custom_id: "customer_001"
-
-jwt_secrets:
-  - consumer: omamx-test-customer
-    key: "omamx-identity-issuer"
-    secret: "omamx-secret-jwt-key-for-local-development-2026-very-secure"
-    algorithm: "HS256"

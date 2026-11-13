@@ -1,28 +1,37 @@
 package com.hvduong.identity.application.iam;
 
-import com.hvduong.identity.application.iam.impl.RoleManagementServiceImpl;
-import com.hvduong.identity.dto.request.CreateRoleRequest;
-import com.hvduong.identity.dto.request.UpdateRoleRequest;
-import com.hvduong.identity.dto.response.RoleDetailResponse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
-import com.hvduong.identity.application.audit.AuditService;
-import com.hvduong.identity.infrastructure.keycloak.KeycloakAdminClient;
-import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.*;
-import com.hvduong.identity.infrastructure.persistence.entity.*;
+import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.UUID;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.OffsetDateTime;
-import java.util.List;
-import java.util.NoSuchElementException;
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import com.hvduong.identity.application.audit.AuditService;
+import com.hvduong.identity.application.iam.impl.RoleManagementServiceImpl;
+import com.hvduong.identity.application.dto.request.CreateRoleRequest;
+import com.hvduong.identity.application.dto.request.UpdateRoleRequest;
+import com.hvduong.identity.application.dto.response.RoleDetailResponse;
+import com.hvduong.identity.infrastructure.keycloak.KeycloakAdminClient;
+import com.hvduong.identity.domain.entity.IamRoleAssignmentRow;
+import com.hvduong.identity.domain.entity.IamRolePermissionRow;
+import com.hvduong.identity.domain.entity.IamRoleRow;
+import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IamRoleAssignmentMapper;
+import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IamRoleMapper;
+import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IamRolePermissionMapper;
 
 @ExtendWith(MockitoExtension.class)
 class RoleManagementServiceTest {
@@ -42,6 +51,9 @@ class RoleManagementServiceTest {
     @Mock
     private AuditService auditService;
 
+    @Mock
+    private PermissionSyncService permissionSyncService;
+
     private RoleManagementService service;
 
     @BeforeEach
@@ -51,7 +63,8 @@ class RoleManagementServiceTest {
                 rolePermissionMapper,
                 roleAssignmentMapper,
                 keycloakAdminClient,
-                auditService
+                auditService,
+                permissionSyncService
         );
     }
 
@@ -131,8 +144,9 @@ class RoleManagementServiceTest {
         row.setRoleId(roleId);
         row.setRoleCode("CASHIER");
         row.setVersion(1L);
+        row.setIsEnabled(true);
 
-        when(roleMapper.findById(roleId)).thenReturn(row);
+        when(roleMapper.findByIdIncludeDisabled(roleId)).thenReturn(row);
         when(roleMapper.updateDetails(eq(roleId), any(), any(), any(), any(), eq(1L))).thenReturn(1);
 
         UpdateRoleRequest dto = new UpdateRoleRequest();
@@ -146,14 +160,48 @@ class RoleManagementServiceTest {
     }
 
     @Test
+    void updateRole_Disable_SyncsAndForcesReloginForAffectedPrincipals() {
+        UUID roleId = UUID.randomUUID();
+        UUID principalId = UUID.randomUUID();
+        UUID actorId = UUID.randomUUID();
+
+        IamRoleRow row = new IamRoleRow();
+        row.setRoleId(roleId);
+        row.setRoleCode("STORE_STAFF");
+        row.setIsProtected(false);
+        row.setIsEnabled(true);
+        row.setVersion(2L);
+        row.setDescription("Nhân viên cửa hàng");
+
+        IamRoleAssignmentRow assignment = new IamRoleAssignmentRow();
+        assignment.setPrincipalId(principalId);
+        assignment.setRoleId(roleId);
+
+        when(roleMapper.findByIdIncludeDisabled(roleId)).thenReturn(row);
+        when(roleAssignmentMapper.findActiveByRoleId(eq(roleId), any())).thenReturn(List.of(assignment));
+        when(roleMapper.softDeleteById(eq(roleId), eq(actorId), eq(2L))).thenReturn(1);
+
+        UpdateRoleRequest dto = new UpdateRoleRequest();
+        dto.setIsEnabled(false);
+
+        service.updateRole(roleId, dto, actorId);
+
+        verify(roleAssignmentMapper).revokeAllByRoleId(eq(roleId), eq(actorId), any());
+        verify(permissionSyncService).syncPrincipal(
+                eq(principalId), eq(true), eq(PermissionSyncService.Trigger.ROLE_DISABLE), eq(actorId));
+        verify(auditService).recordAudit(any(), any(), any(), eq("ROLE_DISABLE"), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
     void deleteRole_Protected_ThrowsException() {
         UUID roleId = UUID.randomUUID();
         IamRoleRow row = new IamRoleRow();
         row.setRoleId(roleId);
-        row.setRoleCode("SUPER_ADMIN");
+        row.setRoleCode("ADMIN");
         row.setIsProtected(true);
+        row.setIsEnabled(true);
 
-        when(roleMapper.findById(roleId)).thenReturn(row);
+        when(roleMapper.findByIdIncludeDisabled(roleId)).thenReturn(row);
 
         assertThrows(IllegalStateException.class, () -> service.deleteRole(roleId, UUID.randomUUID()));
     }
@@ -165,23 +213,27 @@ class RoleManagementServiceTest {
         row.setRoleId(roleId);
         row.setRoleCode("STAFF");
         row.setIsProtected(false);
+        row.setIsEnabled(true);
 
-        when(roleMapper.findById(roleId)).thenReturn(row);
+        when(roleMapper.findByIdIncludeDisabled(roleId)).thenReturn(row);
         when(roleAssignmentMapper.countActiveByRoleId(eq(roleId), any())).thenReturn(5);
 
         assertThrows(IllegalStateException.class, () -> service.deleteRole(roleId, UUID.randomUUID()));
     }
 
     @Test
-    void deleteRole_Success() {
+    void deleteRole_Success_HardDeleteWhenNoHistory() {
         UUID roleId = UUID.randomUUID();
         IamRoleRow row = new IamRoleRow();
         row.setRoleId(roleId);
         row.setRoleCode("TEMPORARY_STAFF");
         row.setIsProtected(false);
+        row.setIsEnabled(true);
+        row.setVersion(0L);
 
-        when(roleMapper.findById(roleId)).thenReturn(row);
+        when(roleMapper.findByIdIncludeDisabled(roleId)).thenReturn(row);
         when(roleAssignmentMapper.countActiveByRoleId(eq(roleId), any())).thenReturn(0);
+        when(roleAssignmentMapper.countAllByRoleId(roleId)).thenReturn(0);
 
         service.deleteRole(roleId, UUID.randomUUID());
 
@@ -192,17 +244,157 @@ class RoleManagementServiceTest {
     }
 
     @Test
-    void replaceRolePermissions_Success() {
+    void deleteRole_Success_SoftDeleteWhenHistoryExists() {
         UUID roleId = UUID.randomUUID();
         IamRoleRow row = new IamRoleRow();
         row.setRoleId(roleId);
+        row.setRoleCode("OLD_STAFF");
+        row.setIsProtected(false);
+        row.setIsEnabled(true);
+        row.setVersion(2L);
+
+        when(roleMapper.findByIdIncludeDisabled(roleId)).thenReturn(row);
+        when(roleAssignmentMapper.countActiveByRoleId(eq(roleId), any())).thenReturn(0);
+        when(roleAssignmentMapper.countAllByRoleId(roleId)).thenReturn(3);
+        when(roleMapper.softDeleteById(eq(roleId), any(), eq(2L))).thenReturn(1);
+
+        service.deleteRole(roleId, UUID.randomUUID());
+
+        verify(roleMapper).softDeleteById(eq(roleId), any(), eq(2L));
+        verify(roleAssignmentMapper).revokeAllByRoleId(eq(roleId), any(), any());
+        verify(auditService).recordAudit(any(), any(), any(), eq("ROLE_DISABLE"), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void deleteRole_DisabledNeverAssigned_HardDeletes() {
+        UUID roleId = UUID.randomUUID();
+        IamRoleRow row = new IamRoleRow();
+        row.setRoleId(roleId);
+        row.setRoleCode("DISABLED_BY_MISTAKE");
+        row.setIsProtected(false);
+        row.setIsEnabled(false);
+        row.setVersion(1L);
+
+        when(roleMapper.findByIdIncludeDisabled(roleId)).thenReturn(row);
+        when(roleAssignmentMapper.countActiveByRoleId(eq(roleId), any())).thenReturn(0);
+        when(roleAssignmentMapper.countPendingByRoleId(eq(roleId), any())).thenReturn(0);
+        when(roleAssignmentMapper.countAllByRoleId(roleId)).thenReturn(0);
+
+        service.deleteRole(roleId, UUID.randomUUID());
+
+        verify(rolePermissionMapper).deleteByRoleId(roleId);
+        verify(roleMapper).deleteById(roleId);
+        verify(keycloakAdminClient).deleteRealmRole("DISABLED_BY_MISTAKE");
+        verify(auditService).recordAudit(any(), any(), any(), eq("DELETE_ROLE"), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void deleteRole_FutureAssignmentsExist_ThrowsException() {
+        UUID roleId = UUID.randomUUID();
+        IamRoleRow row = new IamRoleRow();
+        row.setRoleId(roleId);
+        row.setRoleCode("FUTURE_STAFF");
+        row.setIsProtected(false);
+        row.setIsEnabled(true);
+
+        when(roleMapper.findByIdIncludeDisabled(roleId)).thenReturn(row);
+        when(roleAssignmentMapper.countActiveByRoleId(eq(roleId), any())).thenReturn(0);
+        when(roleAssignmentMapper.countPendingByRoleId(eq(roleId), any())).thenReturn(2);
+
+        assertThrows(IllegalStateException.class, () -> service.deleteRole(roleId, UUID.randomUUID()));
+        verify(roleMapper, never()).deleteById(any());
+        verify(roleMapper, never()).softDeleteById(any(), any(), any());
+    }
+
+    @Test
+    void deleteRole_AlreadyDisabledWithHistory_ThrowsException() {
+        UUID roleId = UUID.randomUUID();
+        IamRoleRow row = new IamRoleRow();
+        row.setRoleId(roleId);
+        row.setRoleCode("RETIRED_STAFF");
+        row.setIsProtected(false);
+        row.setIsEnabled(false);
+
+        when(roleMapper.findByIdIncludeDisabled(roleId)).thenReturn(row);
+        when(roleAssignmentMapper.countActiveByRoleId(eq(roleId), any())).thenReturn(0);
+        when(roleAssignmentMapper.countPendingByRoleId(eq(roleId), any())).thenReturn(0);
+        when(roleAssignmentMapper.countAllByRoleId(roleId)).thenReturn(3);
+
+        assertThrows(IllegalStateException.class, () -> service.deleteRole(roleId, UUID.randomUUID()));
+        verify(roleMapper, never()).deleteById(any());
+        verify(roleMapper, never()).softDeleteById(any(), any(), any());
+    }
+
+    @Test
+    void replaceRolePermissions_ReducedPermissionsForceRelogin() {
+        UUID roleId = UUID.randomUUID();
+        IamRoleRow row = new IamRoleRow();
+        row.setRoleId(roleId);
+        row.setIsProtected(false);
 
         when(roleMapper.findById(roleId)).thenReturn(row);
+        when(rolePermissionMapper.findByRoleId(roleId)).thenReturn(List.of(
+                permissionRow(roleId, "order:read"),
+                permissionRow(roleId, "order:delete")));
+
+        service.replaceRolePermissions(roleId, List.of("order:read"), UUID.randomUUID());
+
+        verify(rolePermissionMapper).deleteByRoleId(roleId);
+        verify(permissionSyncService).syncAllPrincipalsForRole(
+                eq(roleId), eq(true), eq(PermissionSyncService.Trigger.ROLE_PERMISSION_CHANGE), any());
+    }
+
+    @Test
+    void replaceRolePermissions_AddedPermissionsDoNotForceRelogin() {
+        UUID roleId = UUID.randomUUID();
+        IamRoleRow row = new IamRoleRow();
+        row.setRoleId(roleId);
+        row.setIsProtected(false);
+
+        when(roleMapper.findById(roleId)).thenReturn(row);
+        when(rolePermissionMapper.findByRoleId(roleId)).thenReturn(List.of(permissionRow(roleId, "order:read")));
 
         service.replaceRolePermissions(roleId, List.of("order:read", "order:update"), UUID.randomUUID());
 
-        verify(rolePermissionMapper).deleteByRoleId(roleId);
-        verify(rolePermissionMapper, times(2)).insert(any(IamRolePermissionRow.class));
+        verify(permissionSyncService).syncAllPrincipalsForRole(
+                eq(roleId), eq(false), eq(PermissionSyncService.Trigger.ROLE_PERMISSION_CHANGE), any());
+    }
+
+    @Test
+    void removePermissionFromRole_ForcesRelogin() {
+        UUID roleId = UUID.randomUUID();
+        IamRoleRow role = new IamRoleRow();
+        role.setRoleId(roleId);
+        role.setIsProtected(false);
+
+        when(roleMapper.findById(roleId)).thenReturn(role);
+
+        service.removePermissionFromRole(roleId, "order:delete", UUID.randomUUID());
+
+        verify(permissionSyncService).syncAllPrincipalsForRole(
+                eq(roleId), eq(true), eq(PermissionSyncService.Trigger.ROLE_PERMISSION_CHANGE), any());
+    }
+
+    @Test
+    void addPermissionToRole_DoesNotForceRelogin() {
+        UUID roleId = UUID.randomUUID();
+        IamRoleRow role = new IamRoleRow();
+        role.setRoleId(roleId);
+        role.setIsProtected(false);
+
+        when(roleMapper.findById(roleId)).thenReturn(role);
+
+        service.addPermissionToRole(roleId, "order:read", UUID.randomUUID());
+
+        verify(permissionSyncService).syncAllPrincipalsForRole(
+                eq(roleId), eq(false), eq(PermissionSyncService.Trigger.ROLE_PERMISSION_CHANGE), any());
+        verify(permissionSyncService, never()).syncPrincipal(any(), eq(true), any(), any());
+    }
+
+    private IamRolePermissionRow permissionRow(UUID roleId, String code) {
+        IamRolePermissionRow row = new IamRolePermissionRow();
+        row.setRoleId(roleId);
+        row.setPermissionCode(code);
+        return row;
     }
 }
-
