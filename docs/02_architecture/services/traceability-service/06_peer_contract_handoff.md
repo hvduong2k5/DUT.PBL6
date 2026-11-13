@@ -1,5 +1,26 @@
 # Contract cần xác nhận để triển khai P8
 
+**Cập nhật ngày 13/11/2026 (UTC+7):** Thiết kế P8 đã chốt trong [kế hoạch triển khai](07_p8_integration_plan_2026-11-13.md) và các tài liệu 08–10. Các mục chờ xác nhận bên dưới ghi lại trạng thái trước khi chốt thiết kế.
+
+## Đối chiếu với dev `239c8db`
+
+| Điểm tích hợp | Bằng chứng trên dev | Quyết định còn cần |
+| --- | --- | --- |
+| X-01/X-02 Inventory | `GetBatchFEFODetails` truy vấn theo SKU và không trả UUID hay revision. `GetCommittedPackingAllocation` trả UUID và eligibility revision trong reservation đã commit. | Inventory xác nhận UUID và revision cho tra cứu độc lập, kể cả sau hết tồn, hết hạn hoặc cách ly. Chốt cách phân biệt một lô sản xuất với các phân bổ kho. |
+| X-03 Catalog | Catalog public/admin dùng REST. Contract checkout có SKU và trạng thái bán trong snapshot dành cho Order. | Catalog cung cấp contract xác minh product ID–SKU có revision, gồm SKU ngừng bán hoặc ẩn. |
+| X-04 Identity/Gateway | Identity đã có staff token với `user_id` và `permission_grants` theo scope. Kong chưa route API Traceability. | Identity xác nhận quyền `traceability.*` và scope cho từng thao tác. Gateway xác nhận route public và admin. Dùng `user_id` làm actor theo contract staff sau khi xác thực token và quyền. |
+| X-05 Web | Có trang `/trace/{qrCode}` và BFF gọi customer-core. `customer-stable.openapi.yaml` yêu cầu trường chứng nhận bắt buộc. | Chốt cách đồng bộ contract public với DTO Traceability cho trường nullable, trạng thái xác minh thủ công và HTTP 410. Test browser với dữ liệu thật trước khi đổi upstream. |
+| X-07 Fulfillment | Event `packing.completed.v2` đã có trên dev. Registry MVP chưa đăng ký Traceability là consumer. | Nếu cần truy vết kiện–lô, chốt nguồn cung cấp binding chính xác và điều kiện xử lý event. Workflow phê duyệt QR vẫn do Traceability quản lý. |
+
+Tham chiếu [Inventory proto](../../../../packages/proto/inventory/v1/inventory.proto),
+[Packing proto](../../../../packages/proto/packing/v1/packing.proto),
+[Catalog checkout OpenAPI](../../../03_api_specs/catalog-checkout.openapi.yaml),
+[staff token schema](../../../../packages/contracts/iam/staff-token.v1.schema.json),
+[customer OpenAPI](../../../03_api_specs/customer-stable.openapi.yaml) và
+[MVP registry](../../../../packages/contracts/mvp/registry.yaml).
+
+## Handoff ban đầu ngày 2026-10-17
+
 Ngày 2026-10-17. R1 backend sandbox đã có code/tests/runbook; tài liệu này dành
 cho bước integration thật, chưa phải thỏa thuận của các owner và chưa gửi team.
 

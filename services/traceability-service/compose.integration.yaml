@@ -1,0 +1,28 @@
+services:
+  traceability-service:
+    build: .
+    env_file: .env
+    environment:
+      APP_MODE: integration
+      HTTP_ADDR: 0.0.0.0:8003
+      SANDBOX_ISOLATED_CONTAINER: "false"
+      TRACEABILITY_INVENTORY_CA_FILE: /run/traceability/inventory-ca.pem
+    volumes:
+      - type: bind
+        source: ${TRACEABILITY_INVENTORY_CA_FILE:?Set the host path to the Inventory CA certificate}
+        target: /run/traceability/inventory-ca.pem
+        read_only: true
+        bind:
+          create_host_path: false
+    networks: [integration]
+    stop_grace_period: 15s
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8003/readyz"]
+      interval: 5s
+      timeout: 4s
+      retries: 10
+
+networks:
+  integration:
+    external: true
+    name: ${TRACEABILITY_NETWORK:-omamx-network}

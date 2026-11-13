@@ -25,51 +25,20 @@ import (
 )
 
 func assemble(ctx context.Context, cfg config.Config, getenv func(string) string, logger *slog.Logger) (http.Handler, func(), error) {
-	if cfg.Mode != "sandbox" {
-		return nil, nil, errors.New("integration adapters are not installed")
-	}
 	operations, err := config.LoadOperations(getenv)
 	if err != nil {
 		return nil, nil, err
 	}
-	keyPath, fixturePath := getenv("SANDBOX_JWT_PUBLIC_KEY_FILE"), getenv("SANDBOX_FIXTURE_FILE")
-	if keyPath == "" || fixturePath == "" {
-		return nil, nil, errors.New("sandbox requires explicit verification key and synthetic fixture files")
-	}
-	keyData, err := readBounded(keyPath, 16*1024)
-	if err != nil {
-		return nil, nil, errors.New("cannot read sandbox verification key")
-	}
-	block, rest := pem.Decode(keyData)
-	if block == nil || len(rest) != 0 || block.Type != "PUBLIC KEY" {
-		return nil, nil, errors.New("sandbox requires one PKIX PUBLIC KEY PEM block")
-	}
-	parsed, err := x509.ParsePKIXPublicKey(block.Bytes)
-	if err != nil {
-		return nil, nil, errors.New("invalid sandbox public key")
-	}
-	public, ok := parsed.(ed25519.PublicKey)
-	if !ok {
-		return nil, nil, errors.New("sandbox public key must be Ed25519")
-	}
-	verifier, err := identity.NewSandboxVerifier(cfg.Mode, map[string]ed25519.PublicKey{"sandbox-local": public}, time.Now)
+	verifier, dependencies, closePeers, err := sourceAdapters(ctx, cfg.Mode, getenv)
 	if err != nil {
 		return nil, nil, err
 	}
-	fixtureData, err := readBounded(fixturePath, 256*1024)
-	if err != nil {
-		return nil, nil, errors.New("cannot read synthetic source fixture")
-	}
-	var sources struct {
-		Batches []domain.DependencySnapshot `json:"batches"`
-	}
-	if jsonutil.Decode(fixtureData, &sources) != nil {
-		return nil, nil, errors.New("invalid synthetic fixture document")
-	}
-	dependencies, err := dependency.NewFixture(cfg.Mode, sources.Batches, time.Now)
-	if err != nil {
-		return nil, nil, err
-	}
+	assembled := false
+	defer func() {
+		if !assembled {
+			closePeers()
+		}
+	}()
 	dbConfig, err := pgxpool.ParseConfig(cfg.DatabaseURL)
 	if err != nil {
 		return nil, nil, errors.New("invalid runtime database configuration")
@@ -108,7 +77,8 @@ func assemble(ctx context.Context, cfg config.Config, getenv func(string) string
 		pool.Close()
 		return nil, nil, err
 	}
-	return httptransport.NewHandler(httptransport.HandlerConfig{Readiness: ready, Logger: logger, Identity: verifier, Drafts: service, Workflow: workflow, Metrics: metrics}), func() { stopWorkers(); pool.Close() }, nil
+	assembled = true
+	return httptransport.NewHandler(httptransport.HandlerConfig{Readiness: ready, Logger: logger, Identity: verifier, Drafts: service, Workflow: workflow, Metrics: metrics}), func() { stopWorkers(); pool.Close(); closePeers() }, nil
 }
 
 func readBounded(path string, max int64) ([]byte, error) {
@@ -130,4 +100,49 @@ func readBounded(path string, max int64) ([]byte, error) {
 		return nil, errors.New("configuration file too large")
 	}
 	return data, nil
+}
+
+func sourceAdapters(ctx context.Context, mode string, getenv func(string) string) (httptransport.IdentityVerifier, application.DependencyVerifier, func(), error) {
+	if mode == "integration" {
+		return integrationAdapters(ctx, getenv)
+	}
+	keyPath, fixturePath := getenv("SANDBOX_JWT_PUBLIC_KEY_FILE"), getenv("SANDBOX_FIXTURE_FILE")
+	if keyPath == "" || fixturePath == "" {
+		return nil, nil, nil, errors.New("sandbox requires explicit verification key and synthetic fixture files")
+	}
+	keyData, err := readBounded(keyPath, 16*1024)
+	if err != nil {
+		return nil, nil, nil, errors.New("cannot read sandbox verification key")
+	}
+	block, rest := pem.Decode(keyData)
+	if block == nil || len(rest) != 0 || block.Type != "PUBLIC KEY" {
+		return nil, nil, nil, errors.New("sandbox requires one PKIX PUBLIC KEY PEM block")
+	}
+	parsed, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		return nil, nil, nil, errors.New("invalid sandbox public key")
+	}
+	public, ok := parsed.(ed25519.PublicKey)
+	if !ok {
+		return nil, nil, nil, errors.New("sandbox public key must be Ed25519")
+	}
+	verifier, err := identity.NewSandboxVerifier(mode, map[string]ed25519.PublicKey{"sandbox-local": public}, time.Now)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	fixtureData, err := readBounded(fixturePath, 256*1024)
+	if err != nil {
+		return nil, nil, nil, errors.New("cannot read synthetic source fixture")
+	}
+	var sources struct {
+		Batches []domain.DependencySnapshot `json:"batches"`
+	}
+	if jsonutil.Decode(fixtureData, &sources) != nil {
+		return nil, nil, nil, errors.New("invalid synthetic fixture document")
+	}
+	dependencies, err := dependency.NewFixture(mode, sources.Batches, time.Now)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return verifier, dependencies, func() {}, nil
 }

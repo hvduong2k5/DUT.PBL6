@@ -136,6 +136,10 @@ func authenticate(w http.ResponseWriter, r *http.Request, verifier IdentityVerif
 		return domain.Principal{}, false
 	}
 	p, err := verifier.Verify(r.Context(), parts[1])
+	if errors.Is(err, domain.ErrUnavailable) || errors.Is(err, domain.ErrForbidden) {
+		respondError(w, err)
+		return domain.Principal{}, false
+	}
 	if err != nil || !domain.ValidUUID(p.ID) {
 		respondError(w, domain.ErrUnauthenticated)
 		return domain.Principal{}, false

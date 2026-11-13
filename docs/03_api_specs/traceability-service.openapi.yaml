@@ -14,6 +14,29 @@ servers:
 security:
   - bearerAuth: []
 paths:
+  /api/v2/trace/{qr_code}:
+    get:
+      operationId: getPublishedTraceabilityGatewayV2
+      description: Public Kong route. The upstream Traceability service handles the same request at its internal v1 path.
+      security: []
+      parameters:
+        - name: qr_code
+          in: path
+          required: true
+          schema: {type: string, minLength: 22, maxLength: 160, pattern: '^[A-Za-z0-9_-]+$'}
+      responses:
+        '200':
+          description: Eligible published revision without internal evidence or actor data.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PublicRecord'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '410':
+          description: Previously published record is no longer available.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+        '503': {$ref: '#/components/responses/Unavailable'}
   /livez:
     get:
       operationId: getLiveness
@@ -90,6 +113,7 @@ paths:
                   next_cursor: {type: string, nullable: true}
         '401': {$ref: '#/components/responses/Unauthorized'}
         '403': {$ref: '#/components/responses/Forbidden'}
+        '503': {$ref: '#/components/responses/Unavailable'}
     post:
       operationId: createTraceabilityProfile
       parameters:
@@ -126,6 +150,7 @@ paths:
         '401': {$ref: '#/components/responses/Unauthorized'}
         '403': {$ref: '#/components/responses/Forbidden'}
         '404': {$ref: '#/components/responses/NotFound'}
+        '503': {$ref: '#/components/responses/Unavailable'}
   /api/v1/admin/trace/records/{id}/revisions:
     parameters:
       - {$ref: '#/components/parameters/ProfileID'}
@@ -152,6 +177,7 @@ paths:
         '403': {$ref: '#/components/responses/Forbidden'}
         '404': {$ref: '#/components/responses/NotFound'}
         '409': {$ref: '#/components/responses/Conflict'}
+        '503': {$ref: '#/components/responses/Unavailable'}
   /api/v1/admin/trace/records/{id}/revisions/{revision}:
     parameters:
       - {$ref: '#/components/parameters/ProfileID'}
@@ -179,6 +205,7 @@ paths:
         '403': {$ref: '#/components/responses/Forbidden'}
         '404': {$ref: '#/components/responses/NotFound'}
         '409': {$ref: '#/components/responses/Conflict'}
+        '503': {$ref: '#/components/responses/Unavailable'}
   /api/v1/admin/trace/records/{id}/revisions/{revision}/submit:
     parameters:
       - {$ref: '#/components/parameters/ProfileID'}
@@ -211,6 +238,7 @@ paths:
         '403': {$ref: '#/components/responses/Forbidden'}
         '404': {$ref: '#/components/responses/NotFound'}
         '409': {$ref: '#/components/responses/Conflict'}
+        '503': {$ref: '#/components/responses/Unavailable'}
   /api/v1/admin/trace/records/{id}/revisions/{revision}/reject:
     parameters:
       - {$ref: '#/components/parameters/ProfileID'}
@@ -226,6 +254,7 @@ paths:
         '403': {$ref: '#/components/responses/Forbidden'}
         '404': {$ref: '#/components/responses/NotFound'}
         '409': {$ref: '#/components/responses/Conflict'}
+        '503': {$ref: '#/components/responses/Unavailable'}
   /api/v1/admin/trace/records/{id}/revisions/{revision}/publish:
     parameters:
       - {$ref: '#/components/parameters/ProfileID'}
@@ -256,6 +285,7 @@ paths:
         '403': {$ref: '#/components/responses/Forbidden'}
         '404': {$ref: '#/components/responses/NotFound'}
         '409': {$ref: '#/components/responses/Conflict'}
+        '503': {$ref: '#/components/responses/Unavailable'}
   /api/v1/admin/trace/records/{id}/archive:
     parameters: [{$ref: '#/components/parameters/ProfileID'}]
     post:
@@ -269,6 +299,7 @@ paths:
         '403': {$ref: '#/components/responses/Forbidden'}
         '404': {$ref: '#/components/responses/NotFound'}
         '409': {$ref: '#/components/responses/Conflict'}
+        '503': {$ref: '#/components/responses/Unavailable'}
 components:
   securitySchemes:
     bearerAuth: {type: http, scheme: bearer, bearerFormat: JWT}

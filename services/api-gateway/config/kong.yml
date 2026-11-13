@@ -5,6 +5,20 @@ _transform: true
 # 1. UPSTREAMS & SERVICES (18 MICROSERVICES ROUTING TABLE)
 # ==============================================================================
 services:
+  - name: traceability-public
+    url: http://traceability-service:8003/api/v1/trace
+    routes:
+      - name: traceability-public-v2
+        paths: [/api/v2/trace]
+        strip_path: true
+        methods: [GET]
+  - name: traceability-staff
+    url: http://traceability-service:8003
+    routes:
+      - name: traceability-staff-v1
+        paths: [/api/v1/admin/trace/records]
+        strip_path: false
+        methods: [GET, POST, PATCH]
   # Fulfillment verifies the signed token and current Employee/ADMIN scope in
   # Identity. Never expose internal permit/allocation/proof gRPC endpoints.
   - name: fulfillment-service

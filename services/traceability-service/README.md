@@ -3,7 +3,9 @@
 Implementation in progress on `feat/traceability-service`. See the
 [development plan](../../docs/02_architecture/services/traceability-service/02_development_plan.md).
 
-Current checkpoint: **P7 review candidate with Docker smoke, race tests and runbook**.
+Current checkpoint: **P8 integration adapters and Gateway routes implemented**.
+See the [P8 implementation and verification report](../../docs/04_testing/traceability-service/06_p8_implementation_2026-11-13.md)
+for configuration and acceptance status.
 
 Start here: [reviewer runbook](../../docs/04_testing/traceability-service/02_reviewer_runbook.md).
 From this directory, run `./scripts/dev.ps1 -Action Init`, then `-Action Start`
@@ -17,7 +19,8 @@ get/edit/new revision/submit/review/publish/suspend/archive routes and anonymous
 public QR are wired. Business events are persisted atomically in outbox; the
 optional broker relay and expiry worker are installed. `/readyz` checks schema/mode/checksum and effective runtime
 role privileges; startup fails before listening if these or the verifier/source
-files are missing. `/livez` indicates liveness. Integration startup remains refused.
+files are missing. `/livez` indicates liveness. Integration mode requires its own
+migrated database, OIDC discovery and explicit Catalog and Inventory credentials.
 Signed HTTP/PostgreSQL, real isolated broker tests, Linux race tests and container
 lifecycle smoke pass. The final R1 requirement/evidence audit is recorded in
 `docs/04_testing/traceability-service/04_final_r1_audit.md`; R2 peer integration

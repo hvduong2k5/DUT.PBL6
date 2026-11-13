@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 	"net/http"
 	"os"
@@ -18,9 +17,6 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	if cfg.Mode != "sandbox" {
-		return errors.New("integration adapters are not installed at this implementation checkpoint")
-	}
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -29,7 +25,7 @@ func run() error {
 		return err
 	}
 	server := &http.Server{Addr: cfg.ListenAddress, Handler: handler, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 32 * 1024}
-	logger.Info("traceability listener starting", "address", cfg.ListenAddress, "mode", cfg.Mode, "checkpoint", "P6-workers")
+	logger.Info("traceability listener starting", "address", cfg.ListenAddress, "mode", cfg.Mode)
 	return serve(ctx, server, server.ListenAndServe, closeResources, cfg.ShutdownTimeout)
 }
 

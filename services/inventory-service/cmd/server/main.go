@@ -24,6 +24,7 @@ import (
 	presentationkafka "dut-pbl6/inventory-service/internal/presentation/kafka"
 	inventoryv1 "dut-pbl6/inventory-service/pkg/proto/inventory/v1"
 	packingv1 "dut-pbl6/inventory-service/pkg/proto/packing/v1"
+	traceabilityv1 "dut-pbl6/inventory-service/pkg/proto/traceability/v1"
 	"runtime/debug"
 
 	_ "github.com/lib/pq"
@@ -220,6 +221,7 @@ func main() {
 		go terminal.RunExpiry(workerCtx)
 	}
 	grpcServer := grpc.NewServer(serverOptions...)
+	traceabilityToken := os.Getenv("INVENTORY_TRACEABILITY_TOKEN")
 	if terminal, ok := serviceHandler.(*presentationgrpc.TerminalServer); ok && os.Getenv("INVENTORY_FULFILLMENT_TOKEN_FILE") != "" {
 		var packingSchema bool
 		if e := db.QueryRow("SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=current_schema() AND table_name='batches' AND column_name='version')").Scan(&packingSchema); e != nil || !packingSchema {
@@ -229,9 +231,23 @@ func main() {
 		if e != nil || len(strings.TrimSpace(string(packingToken))) < 32 {
 			log.Fatal("valid Fulfillment packing credential required")
 		}
+		if strings.TrimSpace(string(packingToken)) == traceabilityToken {
+			log.Fatal("Fulfillment and Traceability credentials must be distinct")
+		}
 		packingv1.RegisterInventoryPackingInputsCandidateServer(grpcServer, &presentationgrpc.PackingServer{Terminal: terminal, Token: strings.TrimSpace(string(packingToken))})
 	}
 	inventoryv1.RegisterInventoryServiceServer(grpcServer, serviceHandler)
+	if traceabilityToken != "" {
+		terminal, ok := serviceHandler.(*presentationgrpc.TerminalServer)
+		if !ok || len(traceabilityToken) < 32 || traceabilityToken == terminal.Token || traceabilityToken == terminal.CatalogToken {
+			log.Fatal("Traceability source requires the TLS terminal profile and a separate credential")
+		}
+		var hasBatchVersion bool
+		if err := db.QueryRow("SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=current_schema() AND table_name='batches' AND column_name='version')").Scan(&hasBatchVersion); err != nil || !hasBatchVersion {
+			log.Fatal("apply Inventory migration 000003 before enabling Traceability reads")
+		}
+		traceabilityv1.RegisterBatchSourceServer(grpcServer, &presentationgrpc.TraceabilitySource{DB: db, Token: traceabilityToken})
+	}
 	reflection.Register(grpcServer)
 
 	// 8. Bind TCP Listener

@@ -70,25 +70,25 @@ export function TraceExperience({ qrCode }: { qrCode: string }) {
 
       {!loading && error ? <section className="trace-state" role="alert">
         <span aria-hidden="true">{error.status === 404 ? "⌕" : "!"}</span>
-        <h2>{error.status === 404 ? "Không tìm thấy mã truy xuất" : "Chưa thể mở hồ sơ nguồn gốc"}</h2>
-        <p>{error.message}</p>
-        <div>{error.status !== 404 ? <button type="button" onClick={retryTraceability}>Thử lại</button> : null}<Link href="/products">Khám phá sản phẩm</Link></div>
+        <h2>{error.status === 404 ? "Không tìm thấy mã truy xuất" : error.status === 410 ? "Hồ sơ đã ngừng công bố" : "Chưa thể mở hồ sơ nguồn gốc"}</h2>
+        <p>{error.status === 410 ? "Mã QR này từng được công bố và hiện không còn truy cập được." : error.message}</p>
+        <div>{error.status !== 404 && error.status !== 410 ? <button type="button" onClick={retryTraceability}>Thử lại</button> : null}<Link href="/products">Khám phá sản phẩm</Link></div>
       </section> : null}
 
       {!loading && !error && record ? <>
         <section className="trace-authenticity">
           <div className="trace-seal" aria-hidden="true">✺<small>OCOP</small></div>
-          <div><span className="trace-valid">✓ Hồ sơ hợp lệ</span><h2>{record.product_name}</h2><p>Mã truy xuất <strong>{record.qr_code}</strong> đã được hệ thống Ô Mạ xác nhận.</p></div>
+          <div><span className="trace-valid">{record.mode === "sandbox" ? "Hồ sơ kiểm thử" : record.verification_method === "MANUAL" ? "Xác minh thủ công" : "Hồ sơ đã công bố"}</span><h2>{record.product_name}</h2><p>Mã truy xuất <strong>{record.qr_code}</strong></p></div>
           <div className="trace-stars"><strong>{record.ocop_star} sao</strong><span>{"★".repeat(Math.max(0, Math.min(5, record.ocop_star)))}</span><small>{record.ocop_certificate_no}</small></div>
         </section>
 
         <section className="trace-record-grid">
           <article className="trace-batch-card">
             <p className="eyebrow">Lô sản xuất</p><h2>{record.batch_code}</h2>
-            <dl><div><dt>Ngày sản xuất</dt><dd>{formatDate(record.production_date)}</dd></div><div><dt>Hạn sử dụng</dt><dd>{formatDate(record.expiry_date)}</dd></div><div><dt>Nghệ nhân phụ trách</dt><dd>{record.artisan_name}</dd></div><div><dt>Xưởng sản xuất</dt><dd>{record.workshop_location}</dd></div></dl>
+            <dl><div><dt>Ngày sản xuất</dt><dd>{formatDate(record.production_date)}</dd></div><div><dt>Hạn sử dụng</dt><dd>{formatDate(record.expiry_date)}</dd></div><div><dt>Nghệ nhân phụ trách</dt><dd>{record.artisan_name ?? "Chưa có dữ liệu"}</dd></div><div><dt>Xưởng sản xuất</dt><dd>{record.workshop_location}</dd></div></dl>
           </article>
           <article className="trace-origin-card"><span aria-hidden="true">♧</span><p className="eyebrow">Nguồn nguyên liệu</p><h2>Từ thổ nhưỡng xứ Huế</h2><p>{record.raw_materials_origin}</p></article>
-          <article className="trace-safety-card"><span aria-hidden="true">✓</span><p className="eyebrow">An toàn thực phẩm</p><h2>Chứng nhận kiểm định</h2><p>{record.food_safety_cert}</p></article>
+          <article className="trace-safety-card"><p className="eyebrow">An toàn thực phẩm</p><h2>Chứng nhận kiểm định</h2><p>{record.food_safety_cert ?? "Chưa có dữ liệu"}</p></article>
         </section>
 
         <section className="trace-actions">
