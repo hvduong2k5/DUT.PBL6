@@ -1,6 +1,8 @@
 package com.hvduong.identity.security;
 
+import com.hvduong.identity.api.account.impl.EmployeeInvitationAcceptanceController;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpMethod;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -33,6 +35,7 @@ public class SecurityConfig {
             .csrf(AbstractHttpConfigurer::disable)
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(authorize -> authorize
+                .requestMatchers(HttpMethod.POST, EmployeeInvitationAcceptanceController.ACCEPT_PATH).authenticated()
                 .requestMatchers("/api/v1/public/**").permitAll()
                 .requestMatchers("/api/v1/admin/**").access((authentication,context) ->
                         new org.springframework.security.authorization.AuthorizationDecision(principalAccess.employee(authentication.get())))
