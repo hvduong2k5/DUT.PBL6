@@ -33,7 +33,7 @@ describe("OIDC wire security", () => {
         const form = new URLSearchParams(body);
         if (form.get("grant_type") !== "refresh_token" && createHash("sha256").update(form.get("code_verifier") ?? "").digest("base64url") !== challenge) return send({ error: "invalid_grant" }, 400);
         const idToken = await sign({ nonce: mutation === "nonce" ? "wrong" : nonce }, mutation === "audience" ? "other-client" : "frontend-web");
-        const access = await sign({ user_id: principal, typ: "Bearer", realm_access: { roles: ["CUSTOMER"] } }, "omama-api");
+        const access = await sign({ user_id: principal, typ: "Bearer", principal_type: "CUSTOMER" }, "omama-api");
         return send({ token_type: "Bearer", expires_in: 300, access_token: access, refresh_token: "test-refresh-value", id_token: idToken });
       }
       if (request.url === "/users/me") return send({ success: true, data: { principalId: principal, idpSubject: "idp-subject", principalType: "CUSTOMER", provisioningStatus: "ACTIVE", roles: ["CUSTOMER"], permissions: [] } });

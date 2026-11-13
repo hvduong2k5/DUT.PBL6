@@ -3,9 +3,9 @@
   "contractStatus": "integration-target",
   "implementationAcceptance": "pending",
   "sourceRef": "integration/mvp-contracts",
-  "sourceCommit": "2d7737b2b6112456cec3cdf9090833ceb38fcc3e",
+  "sourceCommit": "edbd17cb9078aad46add9f9af7a65235ca97711a",
   "publicContractPath": "docs/03_api_specs/mvp-customer.openapi.yaml",
-  "publicContractBlob": "bc2da53910efb205ec4dcbaf4a57da5c55a9a746",
+  "publicContractBlob": "10740addaf126e0c69d00af17aafc2672d56c7b3",
   "frontendBaseline": {
     "ref": "feature/ui-web",
     "commit": "b1ff2918c7297fc93d0cb9a15cc1d0a0ee46b72e"

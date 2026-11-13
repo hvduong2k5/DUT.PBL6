@@ -20,7 +20,7 @@ from google.api import annotations_pb2
 from google.protobuf.descriptor_pb2 import FileDescriptorSet
 from jsonschema import Draft7Validator, FormatChecker
 from jsonschema.validators import validator_for
-from openapi_spec_validator import validate_spec
+from openapi_spec_validator import validate
 from openapi_schema_validator import OAS30Validator
 import yaml
 
@@ -190,11 +190,31 @@ def main():
         if not isinstance(document, dict) or 'openapi' not in document:
             continue
         try:
-            validate_spec(document, base_uri=path.resolve().as_uri())
+            # The deprecated validate_spec ignores base_uri in pinned 0.7.2.
+            # validate retains the document URI for relative handoff references.
+            validate(document, base_uri=path.resolve().as_uri())
         except Exception as exc:
             raise AssertionError('Invalid OpenAPI: ' + str(path.relative_to(ROOT)) + ': ' + str(exc)[:220]) from exc
         spec_count += 1
     result['openapi'] = {'validated_specs': spec_count, 'generated_public_contract': 'current'}
+    staff_schema = json.loads((ROOT / 'packages/contracts/iam/staff-token.v1.schema.json').read_bytes())
+    staff_validator_cls = validator_for(staff_schema)
+    staff_validator_cls.check_schema(staff_schema)
+    staff_validator = staff_validator_cls(staff_schema, format_checker=FormatChecker())
+    staff_example = {'iss': 'https://identity.example.test/realms/test', 'aud': 'omama-api',
+                     'sub': 'synthetic-staff', 'user_id': '11111111-1111-4111-8111-111111111111',
+                     'typ': 'Bearer', 'iat': 1794052800, 'exp': 1794053700,
+                     'permission_grants': ['ORDER_VIEW#GLOBAL']}
+    staff_validator.validate(staff_example)
+    for change in [{'permission_grants': None},
+                   {'permission_grants': ['ORDER_VIEW#GLOBAL#WH-A']},
+                   {'permission_grants': ['ORDER_VIEW#WAREHOUSE#']},
+                   {'permission_grants': ['ORDER_VIEW']},
+                   {'permission_grants': ['ORDER_VIEW#STORE#WH-A']},
+                   {'permission_grants': [{'permissionCode': 'ORDER_VIEW', 'scopeType': 'GLOBAL', 'scopeId': None}]}]:
+        check(not staff_validator.is_valid({**staff_example, **change}), 'Staff schema accepted invalid claims: ' + str(change))
+    result['iam_consumer'] = {'staff_schema': 'identity-sync-v1', 'negative_examples': 6,
+                              'issuer_and_projection_producers': 'identity permission sync (PR #73)'}
     schema_count = 0
     for directory in ['packages/events/schemas', 'packages/events/profiles']:
         for path in (ROOT / directory).rglob('*.json'):
@@ -269,10 +289,15 @@ def main():
                 'go_grpc': 'PASS' if options.go_grpc_plugin else 'NOT_RUN'}
         for path in sorted((HERE / 'baselines').glob('*.json')):
             baseline = json.loads(path.read_bytes())
-            excluded = ('omamx.shipping.v1',) if path.stem == 'order' else ()
+            excluded = ('omamx.shipping.v1',) if path.stem == 'order' else ('hvduong.catalog.v1',) if path.stem == 'catalog' else ()
             count = compatibility(baseline['wire'], current, excluded)
+            exception = None
+            if path.stem == 'order':
+                exception = 'Unimplemented Order 3.2 Shipping v1 quote proposal migrated explicitly to v2; provider v1 retained.'
+            elif path.stem == 'catalog':
+                exception = 'Catalog public/admin gRPC removed by decision; REST OpenAPI is the canonical public/admin contract.'
             result['protobuf']['baselines'][path.stem] = {'source_sha': baseline['source_sha'], 'preserved_fields': count,
-                'exception': 'Unimplemented Order 3.2 Shipping v1 quote proposal migrated explicitly to v2; provider v1 retained.' if excluded else None}
+                'exception': exception}
         check(len(result['protobuf']['baselines']) == 4, 'Expected four pinned wire baselines')
         # Prove the guard rejects both a changed field and a removed RPC.
         dev = json.loads((HERE / 'baselines/dev.json').read_bytes())['wire']

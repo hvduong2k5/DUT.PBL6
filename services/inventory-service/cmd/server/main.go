@@ -143,7 +143,9 @@ func main() {
 
 	// 6.1 Transactional Outbox Publisher Worker
 	outboxWorker := worker.NewOutboxPublisherWorker(outboxRepo, eventPublisher)
-	if err := outboxWorker.Start(workerCtx); err != nil {
+	if kafkaBrokersStr == "" {
+		log.Printf("[InventoryService] Kafka disabled; durable outbox records remain PENDING.")
+	} else if err := outboxWorker.Start(workerCtx); err != nil {
 		log.Printf("[InventoryService] Warning: Failed to start OutboxPublisherWorker: %v", err)
 	} else {
 		log.Printf("[InventoryService] OutboxPublisherWorker started.")
@@ -205,8 +207,15 @@ func main() {
 		if err := db.QueryRow("SELECT to_regclass('inventory_terminal') IS NOT NULL").Scan(&tableExists); err != nil || !tableExists {
 			log.Fatal("apply terminal migration before enabling profile")
 		}
+		catalogToken := os.Getenv("INVENTORY_CATALOG_TOKEN")
+		if catalogToken != "" && (len(catalogToken) < 32 || catalogToken == token) {
+			log.Fatal("Catalog read credential must be distinct from Order and at least 32 bytes")
+		}
+		if _, err := db.Exec("SELECT inventory_sellable_quantity(NULL,statement_timestamp())"); err != nil {
+			log.Fatal("apply stock projection migration 000004 before enabling terminal profile")
+		}
 		serverOptions = append(serverOptions, grpc.Creds(tlsCredentials))
-		terminal := &presentationgrpc.TerminalServer{InventoryServiceServer: grpcHandler, DB: db, Token: token}
+		terminal := &presentationgrpc.TerminalServer{InventoryServiceServer: grpcHandler, DB: db, Token: token, CatalogToken: catalogToken}
 		serviceHandler = terminal
 		go terminal.RunExpiry(workerCtx)
 	}

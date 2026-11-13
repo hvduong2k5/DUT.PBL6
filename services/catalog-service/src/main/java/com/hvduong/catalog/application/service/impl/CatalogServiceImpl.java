@@ -1,16 +1,16 @@
 package com.hvduong.catalog.application.service.impl;
 
-import com.hvduong.catalog.application.dto.request.ProductFilterRequest;
 import com.hvduong.catalog.application.dto.request.PriceValidationRequest;
+import com.hvduong.catalog.application.dto.request.ProductFilterRequest;
 import com.hvduong.catalog.application.dto.response.CategoryResponse;
 import com.hvduong.catalog.application.dto.response.MoneyResponse;
+import com.hvduong.catalog.application.dto.response.PriceValidationResponse;
 import com.hvduong.catalog.application.dto.response.ProductDetailResponse;
 import com.hvduong.catalog.application.dto.response.ProductListItemResponse;
 import com.hvduong.catalog.application.dto.response.ProductVariantResponse;
-import com.hvduong.catalog.application.dto.response.PriceValidationResponse;
 import com.hvduong.catalog.application.mapper.CatalogDtoMapper;
-import com.hvduong.catalog.infrastructure.inventory.StockProjectionService;
 import com.hvduong.catalog.application.service.CatalogService;
+import com.hvduong.catalog.common.constant.CatalogConstants;
 import com.hvduong.catalog.common.enums.ListingStatus;
 import com.hvduong.catalog.common.enums.SalesChannel;
 import com.hvduong.catalog.common.exception.CatalogException;
@@ -21,24 +21,29 @@ import com.hvduong.catalog.domain.entity.ChannelPrice;
 import com.hvduong.catalog.domain.entity.Product;
 import com.hvduong.catalog.domain.entity.ProductImage;
 import com.hvduong.catalog.domain.entity.ProductVariant;
+import com.hvduong.catalog.infrastructure.inventory.StockProjectionService;
 import com.hvduong.catalog.repository.mybatis.CategoryMapper;
 import com.hvduong.catalog.repository.mybatis.ChannelPriceMapper;
 import com.hvduong.catalog.repository.mybatis.ProductImageMapper;
 import com.hvduong.catalog.repository.mybatis.ProductMapper;
 import com.hvduong.catalog.repository.mybatis.ProductVariantMapper;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.Cacheable;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
+
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Service
@@ -46,294 +51,330 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class CatalogServiceImpl implements CatalogService {
 
-    private final ProductMapper productMapper;
-    private final ProductVariantMapper variantMapper;
-    private final CategoryMapper categoryMapper;
-    private final ChannelPriceMapper channelPriceMapper;
-    private final ProductImageMapper imageMapper;
-    private final CatalogDtoMapper dtoMapper;
-    private final StockProjectionService stockProjectionService;
+  private final ProductMapper productMapper;
+  private final ProductVariantMapper variantMapper;
+  private final ChannelPriceMapper channelPriceMapper;
+  private final ProductImageMapper imageMapper;
+  private final CategoryMapper categoryMapper;
+  private final StockProjectionService stockProjectionService;
+  private final CatalogDtoMapper dtoMapper;
 
-    @Override
-    public PageResponse<ProductListItemResponse> getPublicProducts(ProductFilterRequest filter) {
-        log.debug("[CATALOG] getPublicProducts: filter={}", filter);
+  @Override
+  public PageResponse<ProductListItemResponse> getPublicProducts(ProductFilterRequest filter) {
+    log.debug("[CATALOG] getPublicProducts: filter={}", filter);
 
-        List<Product> products = productMapper.findPublicProducts(
-                filter.getCategoryId(), filter.getOcopStar(),
-                filter.getMinPrice(), filter.getMaxPrice(),
-                filter.getSortBy().name(), filter.getChannel().getValue(),
-                filter.getOffset(), filter.getPageSize()
-        );
-        long total = productMapper.countPublicProducts(
-                filter.getCategoryId(), filter.getOcopStar(),
-                filter.getMinPrice(), filter.getMaxPrice(),
-                filter.getChannel().getValue()
-        );
+    List<Product> products =
+        productMapper.findPublicProducts(
+            "",
+            filter.getCategoryId(),
+            filter.getOcopStar(),
+            filter.getMinPrice(),
+            filter.getMaxPrice(),
+            filter.getSortBy().name(),
+            filter.getChannel().getValue(),
+            filter.getOffset(),
+            filter.getPageSize());
 
-        List<ProductListItemResponse> items = enrichListItems(products, filter.getChannel());
+    long total =
+        productMapper.countPublicProducts(
+            "",
+            filter.getCategoryId(),
+            filter.getOcopStar(),
+            filter.getMinPrice(),
+            filter.getMaxPrice(),
+            filter.getChannel().getValue());
 
-        return PageResponse.of(items, filter.getPage(), filter.getPageSize(), total);
-    }
+    List<ProductListItemResponse> items = enrichListItems(products, filter.getChannel());
 
-    @Override
-    public ProductDetailResponse getPublicProductDetail(String idOrSlug, SalesChannel channel) {
-        log.debug("[CATALOG] getPublicProductDetail: idOrSlug={}, channel={}", idOrSlug, channel);
+    return PageResponse.of(items, filter.getPage(), filter.getPageSize(), total);
+  }
 
-        Product product = tryFindByIdOrSlug(idOrSlug, true)
-                .orElseThrow(() -> new CatalogException(ErrorCode.CATALOG_PRODUCT_NOT_FOUND,
+  @Override
+  public ProductDetailResponse getPublicProductDetail(String idOrSlug, SalesChannel channel) {
+    log.debug("[CATALOG] getPublicProductDetail: idOrSlug={}, channel={}", idOrSlug, channel);
+
+    Product product =
+        tryFindByIdOrSlug(idOrSlug, true)
+            .orElseThrow(
+                () ->
+                    new CatalogException(
+                        ErrorCode.CATALOG_PRODUCT_NOT_FOUND,
                         "Product không tồn tại hoặc không công khai: " + idOrSlug));
 
-        List<ProductVariant> variants = variantMapper.findActiveByProductId(product.getId());
-        List<ProductImage> images = imageMapper.findApprovedByProductId(product.getId());
+    List<ProductVariant> variants = variantMapper.findActiveByProductId(product.getId());
+    List<ProductImage> images = imageMapper.findApprovedByProductId(product.getId());
 
-        ProductDetailResponse response = dtoMapper.toDetailResponse(product);
-        response.setVariants(buildVariantResponses(variants, channel));
-        response.setImageUrls(buildImageUrls(images));
-        return response;
+    ProductDetailResponse response = dtoMapper.toDetailResponse(product);
+    response.setVariants(buildVariantResponses(variants, channel));
+    response.setImageUrls(buildImageUrls(images));
+    return response;
+  }
+
+  @Override
+  public PageResponse<ProductListItemResponse> searchProducts(
+      String query, int page, int pageSize) {
+    log.debug("[CATALOG] searchProducts: query='{}', page={}, size={}", query, page, pageSize);
+
+    if (!StringUtils.hasText(query)) {
+      return PageResponse.of(List.of(), page, pageSize, 0);
     }
 
-    @Override
-    public PageResponse<ProductListItemResponse> searchProducts(String query, int page, int pageSize) {
-        log.debug("[CATALOG] searchProducts: query='{}', page={}, size={}", query, page, pageSize);
+    // MVP: PostgreSQL ILIKE pushed down to SQL; no in-memory filtering.
+    List<Product> products =
+        productMapper.findPublicProducts(
+            query,
+            null,
+            null,
+            null,
+            null,
+            "NEWEST",
+            CatalogConstants.CHANNEL_D2C_WEB,
+            (page - 1) * pageSize,
+            pageSize);
+    long total =
+        productMapper.countPublicProducts(
+            query, null, null, null, null, CatalogConstants.CHANNEL_D2C_WEB);
 
-        if (!StringUtils.hasText(query)) {
-            return PageResponse.of(List.of(), page, pageSize, 0);
-        }
+    List<ProductListItemResponse> items = enrichListItems(products, SalesChannel.D2C_WEB);
 
-        // MVP: PostgreSQL ILIKE — Phase 3: Elasticsearch
-        List<Product> products = productMapper.findPublicProducts(
-                null, null, null, null, "NEWEST", "D2C_WEB",
-                (page - 1) * pageSize, pageSize
-        );
-        String normalized = query.toLowerCase().trim();
-        List<Product> filtered = products.stream()
-                .filter(p -> p.getName().toLowerCase().contains(normalized)
-                        || (p.getDescription() != null && p.getDescription().toLowerCase().contains(normalized)))
-                .collect(Collectors.toList());
+    return PageResponse.of(items, page, pageSize, total);
+  }
 
-        List<ProductListItemResponse> items = enrichListItems(filtered, SalesChannel.D2C_WEB);
+  @Override
+  @Cacheable(value = "catalog:categories", key = "'all'")
+  public List<CategoryResponse> getAllCategories() {
+    log.debug("[CATALOG] getAllCategories");
 
-        return PageResponse.of(items, page, pageSize, filtered.size());
+    List<Category> all = categoryMapper.findAllActive();
+    return all.stream().map(dtoMapper::toCategoryResponse).collect(Collectors.toList());
+  }
+
+  @CacheEvict(value = "catalog:categories", allEntries = true)
+  @Transactional(readOnly = false)
+  public void clearCategoriesCache() {
+    // Cache eviction helper để xóa cache category khi có mutation admin
+  }
+
+  @Override
+  public ProductVariantResponse getVariantBySkuCode(String skuCode) {
+    log.debug("[CATALOG] getVariantBySkuCode: skuCode={}", skuCode);
+
+    ProductVariant variant =
+        variantMapper
+            .findBySkuCode(skuCode)
+            .orElseThrow(
+                () ->
+                    new CatalogException(
+                        ErrorCode.CATALOG_VARIANT_NOT_FOUND, "SKU không tồn tại: " + skuCode));
+
+    if (variant.getListingStatus() != ListingStatus.ACTIVE
+        || productMapper.findPublicById(variant.getProductId()).isEmpty()) {
+      throw new CatalogException(ErrorCode.CATALOG_PRODUCT_NOT_PUBLIC);
     }
 
-    @Override
-    @Cacheable(value = "catalog:categories", key = "'all'")
-    public List<CategoryResponse> getAllCategories() {
-        log.debug("[CATALOG] getAllCategories");
+    ProductVariantResponse response = dtoMapper.toVariantResponse(variant);
+    response.setStockAvailable(
+        stockProjectionService
+            .getAvailableQuantities(List.of(variant.getSkuCode()))
+            .get(variant.getSkuCode()));
+    channelPriceMapper
+        .findActiveByVariantAndChannel(variant.getId(), SalesChannel.D2C_WEB.getValue())
+        .ifPresent(price -> response.setPrice(dtoMapper.toMoneyResponse(price)));
+    return response;
+  }
 
-        List<Category> all = categoryMapper.findAllActive();
-        Map<UUID, List<Category>> byParent = all.stream()
-                .filter(c -> c.getParentId() != null)
-                .collect(Collectors.groupingBy(Category::getParentId));
-        List<Category> roots = all.stream()
-                .filter(c -> c.getParentId() == null)
-                .collect(Collectors.toList());
+  @Override
+  public PriceValidationResponse validatePrices(PriceValidationRequest request) {
+    SalesChannel channel =
+        request.getChannel() == null ? SalesChannel.D2C_WEB : request.getChannel();
+    List<PriceValidationResponse.Discrepancy> discrepancies = new ArrayList<>();
+    long subtotal = 0L;
 
-        return roots.stream()
-                .map(root -> buildCategoryTree(root, byParent))
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public ProductVariantResponse getVariantBySkuCode(String skuCode) {
-        log.debug("[CATALOG] getVariantBySkuCode: skuCode={}", skuCode);
-
-        ProductVariant variant = variantMapper.findBySkuCode(skuCode)
-                .orElseThrow(() -> new CatalogException(ErrorCode.CATALOG_VARIANT_NOT_FOUND,
-                        "SKU không tồn tại: " + skuCode));
-
-        if (variant.getListingStatus()!=ListingStatus.ACTIVE || productMapper.findPublicById(variant.getProductId()).isEmpty()) throw new CatalogException(ErrorCode.CATALOG_PRODUCT_NOT_PUBLIC);
-        ProductVariantResponse response = dtoMapper.toVariantResponse(variant);
-        response.setStockAvailable(stockProjectionService
-                .getAvailableQuantities(List.of(variant.getSkuCode()))
-                .get(variant.getSkuCode()));
-        channelPriceMapper.findActiveByVariantAndChannel(variant.getId(), SalesChannel.D2C_WEB.getValue())
-                .ifPresent(price -> response.setPrice(dtoMapper.toMoneyResponse(price)));
-        return response;
-    }
-
-    @Override
-    public PageResponse<com.hvduong.catalog.application.dto.response.AdminProductListItemResponse> getAdminProducts(int page, int pageSize) {
-        log.debug("[CATALOG] getAdminProducts: page={}, pageSize={}", page, pageSize);
-        
-        int offset = (page - 1) * pageSize;
-        List<Product> products = productMapper.findAll(offset, pageSize);
-        long total = productMapper.countAll();
-        
-        List<com.hvduong.catalog.application.dto.response.AdminProductListItemResponse> items = products.stream()
-                .map(dtoMapper::toAdminListItemResponse)
-                .collect(Collectors.toList());
-        
-        return PageResponse.of(items, page, pageSize, total);
-    }
-
-    @Override
-    public com.hvduong.catalog.application.dto.response.AdminProductDetailResponse getAdminProductDetail(String productId) {
-        log.debug("[CATALOG] getAdminProductDetail: productId={}", productId);
-        
-        UUID id;
-        try {
-            id = UUID.fromString(productId);
-        } catch (IllegalArgumentException e) {
-            throw new CatalogException(ErrorCode.CATALOG_PRODUCT_NOT_FOUND, "ID không hợp lệ: " + productId);
-        }
-        
-        Product product = productMapper.findById(id)
-                .orElseThrow(() -> new CatalogException(ErrorCode.CATALOG_PRODUCT_NOT_FOUND, "Không tìm thấy sản phẩm: " + productId));
-                
-        com.hvduong.catalog.application.dto.response.AdminProductDetailResponse response = dtoMapper.toAdminDetailResponse(product);
-        
-        // Cập nhật foodInformation
-        com.hvduong.catalog.application.dto.response.AdminProductDetailResponse.AdminFoodInformationResponse foodInfo = 
-            new com.hvduong.catalog.application.dto.response.AdminProductDetailResponse.AdminFoodInformationResponse(
-                product.getIngredients(),
-                "Thông tin cảnh báo dị ứng đang được cập nhật",
-                product.getStorageGuide(),
-                "Ngày sản xuất ghi trên bao bì",
-                "Hạn sử dụng ghi trên bao bì"
-            );
-        response.setFoodInformation(foodInfo);
-        
-        // Cập nhật SKUs
-        List<ProductVariant> variants = variantMapper.findActiveByProductId(id);
-        List<com.hvduong.catalog.application.dto.response.AdminProductDetailResponse.AdminProductSkuResponse> skus = variants.stream()
-            .map(dtoMapper::toAdminSkuResponse)
-            .collect(Collectors.toList());
-            
-        response.setSkus(skus);
-        
-        return response;
-    }
-
-    @Override
-    public PriceValidationResponse validatePrices(PriceValidationRequest request) {
-        SalesChannel channel = request.getChannel() == null ? SalesChannel.D2C_WEB : request.getChannel();
-        List<PriceValidationResponse.Discrepancy> discrepancies = new ArrayList<>();
-        long subtotal = 0L;
-
-        for (PriceValidationRequest.Item item : request.getItems()) {
-            if (!StringUtils.hasText(item.getSkuCode()) || item.getQuantity() <= 0) {
-                discrepancies.add(PriceValidationResponse.Discrepancy.builder()
-                        .skuCode(item.getSkuCode()).clientUnitPrice(item.getClientUnitPrice())
-                        .authoritativeUnitPrice(0L).currencyCode("VND").nanos(0)
-                        .reason("SKU và số lượng phải hợp lệ").build());
-                continue;
-            }
-            Optional<ProductVariant> variantOpt = variantMapper.findBySkuCode(item.getSkuCode());
-            if (variantOpt.isEmpty() || variantOpt.get().getListingStatus() != ListingStatus.ACTIVE || productMapper.findPublicById(variantOpt.get().getProductId()).isEmpty()) {
-                discrepancies.add(PriceValidationResponse.Discrepancy.builder()
-                        .skuCode(item.getSkuCode()).clientUnitPrice(item.getClientUnitPrice())
-                        .authoritativeUnitPrice(0L).currencyCode("VND").nanos(0)
-                        .reason("SKU không tồn tại hoặc không còn được bán").build());
-                continue;
-            }
-            Optional<ChannelPrice> priceOpt = channelPriceMapper.findActiveByVariantAndChannel(
-                    variantOpt.get().getId(), channel.getValue());
-            if (priceOpt.isEmpty()) {
-                discrepancies.add(PriceValidationResponse.Discrepancy.builder()
-                        .skuCode(item.getSkuCode()).clientUnitPrice(item.getClientUnitPrice())
-                        .authoritativeUnitPrice(0L).currencyCode("VND").nanos(0)
-                        .reason("Không tìm thấy giá hiệu lực cho kênh " + channel.getValue()).build());
-                continue;
-            }
-            ChannelPrice auth = priceOpt.get();
-            subtotal = Math.addExact(subtotal, Math.multiplyExact(auth.getAmountUnits(), item.getQuantity()));
-            if (item.getClientUnitPrice() != auth.getAmountUnits()
-                    || item.getNanos() != auth.getAmountNanos()
-                    || (StringUtils.hasText(item.getCurrencyCode()) && !auth.getCurrencyCode().equals(item.getCurrencyCode()))) {
-                discrepancies.add(PriceValidationResponse.Discrepancy.builder()
-                        .skuCode(item.getSkuCode()).clientUnitPrice(item.getClientUnitPrice())
-                        .authoritativeUnitPrice(auth.getAmountUnits())
-                        .currencyCode(auth.getCurrencyCode()).nanos(auth.getAmountNanos())
-                        .reason("Giá hoặc tiền tệ do client gửi không khớp giá niêm yết").build());
-            }
-        }
-
-        return PriceValidationResponse.builder()
-                .valid(discrepancies.isEmpty())
-                .canonicalSubtotalUnits(subtotal)
+    for (PriceValidationRequest.Item item : request.getItems()) {
+      if (!StringUtils.hasText(item.getSkuCode()) || item.getQuantity() <= 0) {
+        discrepancies.add(
+            PriceValidationResponse.Discrepancy.builder()
+                .skuCode(item.getSkuCode())
+                .clientUnitPrice(item.getClientUnitPrice())
+                .authoritativeUnitPrice(0L)
                 .currencyCode("VND")
-                .discrepancies(discrepancies)
-                .build();
+                .nanos(0)
+                .reason("SKU và số lượng phải hợp lệ")
+                .build());
+        continue;
+      }
+      Optional<ProductVariant> variantOpt = variantMapper.findBySkuCode(item.getSkuCode());
+      if (variantOpt.isEmpty()
+          || variantOpt.get().getListingStatus() != ListingStatus.ACTIVE
+          || productMapper.findPublicById(variantOpt.get().getProductId()).isEmpty()) {
+        discrepancies.add(
+            PriceValidationResponse.Discrepancy.builder()
+                .skuCode(item.getSkuCode())
+                .clientUnitPrice(item.getClientUnitPrice())
+                .authoritativeUnitPrice(0L)
+                .currencyCode("VND")
+                .nanos(0)
+                .reason("SKU không tồn tại hoặc không còn được bán")
+                .build());
+        continue;
+      }
+      Optional<ChannelPrice> priceOpt =
+          channelPriceMapper.findActiveByVariantAndChannel(
+              variantOpt.get().getId(), channel.getValue());
+      if (priceOpt.isEmpty()) {
+        discrepancies.add(
+            PriceValidationResponse.Discrepancy.builder()
+                .skuCode(item.getSkuCode())
+                .clientUnitPrice(item.getClientUnitPrice())
+                .authoritativeUnitPrice(0L)
+                .currencyCode("VND")
+                .nanos(0)
+                .reason("Không tìm thấy giá hiệu lực cho kênh " + channel.getValue())
+                .build());
+        continue;
+      }
+      ChannelPrice auth = priceOpt.get();
+      subtotal =
+          Math.addExact(subtotal, Math.multiplyExact(auth.getAmountUnits(), item.getQuantity()));
+      if (item.getClientUnitPrice() != auth.getAmountUnits()
+          || item.getNanos() != auth.getAmountNanos()
+          || (StringUtils.hasText(item.getCurrencyCode())
+              && !auth.getCurrencyCode().equals(item.getCurrencyCode()))) {
+        discrepancies.add(
+            PriceValidationResponse.Discrepancy.builder()
+                .skuCode(item.getSkuCode())
+                .clientUnitPrice(item.getClientUnitPrice())
+                .authoritativeUnitPrice(auth.getAmountUnits())
+                .currencyCode(auth.getCurrencyCode())
+                .nanos(auth.getAmountNanos())
+                .reason("Giá hoặc tiền tệ do client gửi không khớp giá niêm yết")
+                .build());
+      }
     }
 
-    // ── Private helpers ───────────────────────────────────────────────────────
+    return PriceValidationResponse.builder()
+        .valid(discrepancies.isEmpty())
+        .canonicalSubtotalUnits(subtotal)
+        .currencyCode("VND")
+        .discrepancies(discrepancies)
+        .build();
+  }
 
-    private Optional<Product> tryFindByIdOrSlug(String idOrSlug, boolean publicOnly) {
-        try {
-            UUID id = UUID.fromString(idOrSlug);
-            return publicOnly ? productMapper.findPublicById(id) : productMapper.findById(id);
-        } catch (IllegalArgumentException e) {
-            return productMapper.findPublicBySlug(idOrSlug);
-        }
+  // ── Private helpers ───────────────────────────────────────────────────────
+
+  private Optional<Product> tryFindByIdOrSlug(String idOrSlug, boolean publicOnly) {
+    try {
+      UUID id = UUID.fromString(idOrSlug);
+      return publicOnly ? productMapper.findPublicById(id) : productMapper.findById(id);
+    } catch (IllegalArgumentException e) {
+      return productMapper.findPublicBySlug(idOrSlug);
     }
+  }
 
-    private List<ProductListItemResponse> enrichListItems(List<Product> products, SalesChannel channel) {
-        Map<UUID, List<ProductVariant>> variantsByProduct = products.stream()
-                .collect(Collectors.toMap(Product::getId,
-                        product -> variantMapper.findActiveByProductId(product.getId())));
-        Map<String, Long> quantities = stockProjectionService.getAvailableQuantities(variantsByProduct.values().stream()
+  private List<ProductListItemResponse> enrichListItems(
+      List<Product> products, SalesChannel channel) {
+    Map<UUID, List<ProductVariant>> variantsByProduct = new HashMap<>();
+    for (Product product : products) {
+      variantsByProduct.putIfAbsent(
+          product.getId(), variantMapper.findActiveByProductId(product.getId()));
+    }
+    List<UUID> variantIds =
+        variantsByProduct.values().stream()
+            .flatMap(List::stream)
+            .map(ProductVariant::getId)
+            .distinct()
+            .collect(Collectors.toList());
+    Map<UUID, ChannelPrice> currentPriceByVariant = new HashMap<>();
+    if (!variantIds.isEmpty()) {
+      for (ChannelPrice price :
+          channelPriceMapper.findActiveCurrentByVariantIds(variantIds, channel.getValue())) {
+        currentPriceByVariant.putIfAbsent(price.getVariantId(), price);
+      }
+    }
+    Map<String, Long> quantities =
+        stockProjectionService.getAvailableQuantities(
+            variantsByProduct.values().stream()
                 .flatMap(List::stream)
                 .map(ProductVariant::getSkuCode)
                 .distinct()
                 .collect(Collectors.toList()));
-        return products.stream()
-                .map(product -> enrichListItem(product, channel,
-                        variantsByProduct.getOrDefault(product.getId(), List.of()), quantities))
-                .collect(Collectors.toList());
-    }
+    return products.stream()
+        .map(
+            product ->
+                enrichListItem(
+                    product,
+                    channel,
+                    variantsByProduct.getOrDefault(product.getId(), List.of()),
+                    currentPriceByVariant,
+                    quantities))
+        .collect(Collectors.toList());
+  }
 
-    private ProductListItemResponse enrichListItem(Product product, SalesChannel channel,
-                                                   List<ProductVariant> variants,
-                                                   Map<String, Long> quantities) {
-        ProductListItemResponse item = dtoMapper.toListItemResponse(product);
-        boolean stockKnown = variants.stream()
-                .allMatch(variant -> quantities.get(variant.getSkuCode()) != null);
-        Long available = stockKnown ? variants.stream()
-                .mapToLong(variant -> quantities.get(variant.getSkuCode()))
-                .sum() : null;
-        item.setStockAvailable(available);
-        item.setInStock(available == null ? null : available > 0);
-        if (!variants.isEmpty()) {
-            channelPriceMapper.findActiveByVariantAndChannel(variants.get(0).getId(), channel.getValue())
-                    .ifPresent(price -> item.setBasePrice(MoneyResponse.ofVnd(price.getAmountUnits())));
-        }
-        imageMapper.findApprovedByProductId(product.getId()).stream()
-                .filter(img -> "COVER".equals(img.getRole())).findFirst()
-                .ifPresent(img -> item.setThumbnailUrl(buildPresignedUrl(img.getObjectKey())));
-        return item;
+  private ProductListItemResponse enrichListItem(
+      Product product,
+      SalesChannel channel,
+      List<ProductVariant> variants,
+      Map<UUID, ChannelPrice> currentPriceByVariant,
+      Map<String, Long> quantities) {
+    ProductListItemResponse item = dtoMapper.toListItemResponse(product);
+    boolean stockKnown =
+        variants.stream().allMatch(variant -> quantities.get(variant.getSkuCode()) != null);
+    Long available =
+        stockKnown
+            ? variants.stream().mapToLong(variant -> quantities.get(variant.getSkuCode())).sum()
+            : null;
+    item.setStockAvailable(available);
+    item.setInStock(available == null ? null : available > 0);
+    Long minPrice = skuBasePriceFromVnd(variants, currentPriceByVariant);
+    if (minPrice != null) {
+      item.setBasePrice(MoneyResponse.ofVnd(minPrice));
     }
+    imageMapper.findApprovedByProductId(product.getId()).stream()
+        .filter(img -> "COVER".equals(img.getRole()))
+        .findFirst()
+        .ifPresent(img -> item.setThumbnailUrl(buildPresignedUrl(img.getObjectKey())));
+    return item;
+  }
 
-    private List<ProductVariantResponse> buildVariantResponses(List<ProductVariant> variants, SalesChannel channel) {
-        Map<String, Long> quantities = stockProjectionService.getAvailableQuantities(variants.stream()
-                .map(ProductVariant::getSkuCode)
-                .collect(Collectors.toList()));
-        return variants.stream().map(v -> {
-            ProductVariantResponse resp = dtoMapper.toVariantResponse(v);
-            resp.setStockAvailable(quantities.get(v.getSkuCode()));
-            channelPriceMapper.findActiveByVariantAndChannel(v.getId(), channel.getValue())
-                    .ifPresent(price -> resp.setPrice(dtoMapper.toMoneyResponse(price)));
-            return resp;
-        }).collect(Collectors.toList());
-    }
+  private List<ProductVariantResponse> buildVariantResponses(
+      List<ProductVariant> variants, SalesChannel channel) {
+    Map<String, Long> quantities =
+        stockProjectionService.getAvailableQuantities(
+            variants.stream().map(ProductVariant::getSkuCode).collect(Collectors.toList()));
+    return variants.stream()
+        .map(
+            v -> {
+              ProductVariantResponse resp = dtoMapper.toVariantResponse(v);
+              resp.setStockAvailable(quantities.get(v.getSkuCode()));
+              channelPriceMapper
+                  .findActiveByVariantAndChannel(v.getId(), channel.getValue())
+                  .ifPresent(price -> resp.setPrice(dtoMapper.toMoneyResponse(price)));
+              return resp;
+            })
+        .collect(Collectors.toList());
+  }
 
-    private List<String> buildImageUrls(List<ProductImage> images) {
-        return images.stream().map(img -> buildPresignedUrl(img.getObjectKey())).collect(Collectors.toList());
-    }
+  private List<String> buildImageUrls(List<ProductImage> images) {
+    return images.stream()
+        .map(img -> buildPresignedUrl(img.getObjectKey()))
+        .collect(Collectors.toList());
+  }
 
-    /** TODO Phase 2: MinIO presigned URL generator */
-    private String buildPresignedUrl(String objectKey) {
-        return "https://cdn.example.com/" + objectKey;
+  private Long skuBasePriceFromVnd(
+      List<ProductVariant> variants, Map<UUID, ChannelPrice> currentPriceByVariant) {
+    Long min = null;
+    for (ProductVariant variant : variants) {
+      ChannelPrice price = currentPriceByVariant.get(variant.getId());
+      if (price != null && price.getAmountUnits() > 0) {
+        Long units = price.getAmountUnits();
+        min = (min == null || units < min) ? units : min;
+      }
     }
+    return min;
+  }
 
-    private CategoryResponse buildCategoryTree(Category category, Map<UUID, List<Category>> byParent) {
-        CategoryResponse response = dtoMapper.toCategoryResponse(category);
-        List<Category> children = byParent.getOrDefault(category.getId(), List.of());
-        if (!children.isEmpty()) {
-            response.setChildren(children.stream()
-                    .map(child -> buildCategoryTree(child, byParent))
-                    .collect(Collectors.toList()));
-        }
-        return response;
-    }
+  /** TODO Phase 2: MinIO presigned URL generator */
+  private String buildPresignedUrl(String objectKey) {
+    return "https://cdn.example.com/" + objectKey;
+  }
 }

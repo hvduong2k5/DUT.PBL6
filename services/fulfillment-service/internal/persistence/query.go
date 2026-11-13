@@ -31,11 +31,11 @@ func (s *Store) List(ctx context.Context, p d.Principal, f Filter) (out Page, e 
 	}
 	allowed := []string{}
 	for _, w := range p.Warehouses {
-		if p.Can("fulfillment.task.read", w) && (f.Warehouse == "" || f.Warehouse == w) {
+		if p.Can("FULFILLMENT_TASK_READ", w) && (f.Warehouse == "" || f.Warehouse == w) {
 			allowed = append(allowed, w)
 		}
 	}
-	if (len(allowed) == 0 && !p.Global) || (p.Global && !p.Can("fulfillment.task.read", "")) {
+	if (len(allowed) == 0 && !p.Global) || (p.Global && !p.Can("FULFILLMENT_TASK_READ", "")) {
 		return out, d.Fail("FORBIDDEN", 403)
 	}
 	if f.Assignee != "" && !d.UUID(f.Assignee) {
@@ -127,7 +127,7 @@ func (s *Store) History(ctx context.Context, p d.Principal, id string, after int
 	if e != nil {
 		return nil, e
 	}
-	if !p.Can("fulfillment.task.read_history", t.Warehouse) {
+	if !p.Can("FULFILLMENT_TASK_READ_HISTORY", t.Warehouse) {
 		return nil, d.Fail("FORBIDDEN", 403)
 	}
 	if limit < 1 || limit > 100 || after < 0 {
@@ -160,7 +160,7 @@ func (s *Store) Command(ctx context.Context, p d.Principal, order, action, key s
 	if e != nil {
 		return nil, mapped(e)
 	}
-	if !p.Can("fulfillment.task.read", warehouse) {
+	if !p.Can("FULFILLMENT_TASK_READ", warehouse) {
 		return nil, d.Fail("FORBIDDEN", 403)
 	}
 	var result, state, id string

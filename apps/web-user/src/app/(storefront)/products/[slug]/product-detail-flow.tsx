@@ -12,6 +12,8 @@ import { useCartSummary } from "@/components/cart/cart-summary-provider";
 import { cartService } from "@/services/cart-service";
 import { productDetailService } from "@/services/product-detail-service";
 import { useAuth } from "@/components/auth/auth-provider";
+import { RecommendationRail } from "@/components/recommendation/recommendation-rail";
+import { useRecommendation } from "@/components/recommendation/recommendation-provider";
 
 const VND = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 });
 
@@ -35,6 +37,8 @@ function ProductDetailLoading() {
 
 export function ProductDetailFlow({ slug }: { slug: string }) {
   const { isEmployee } = useAuth();
+  const recommendation = useRecommendation();
+  const { record, consent } = recommendation;
   const { updateFromCart } = useCartSummary();
   const searchParams = useSearchParams();
   const scenario = searchParams.get("mockScenario") ?? undefined;
@@ -83,6 +87,10 @@ export function ProductDetailFlow({ slug }: { slug: string }) {
   const hasAvailableSku = product?.skus.some((sku) => sku.availability === "AVAILABLE") ?? false;
   const hasUnknownSku = product?.skus.some((sku) => sku.availability === "UNKNOWN") ?? false;
 
+  useEffect(() => {
+    if (selectedSkuId) record(selectedSkuId, "VIEW_ITEM");
+  }, [selectedSkuId, record, consent?.consentVersion]);
+
   function selectSku(sku: ProductSku) {
     if (sku.availability !== "AVAILABLE") return;
     setSelectedSkuId(sku.skuId);
@@ -105,6 +113,7 @@ export function ProductDetailFlow({ slug }: { slug: string }) {
     setSelectionMessage("");
     try {
       const cart = await cartService.addItem({ skuId: selectedSku.skuId, quantity }, scenario);
+      recommendation.record(selectedSku.skuId, "ADD_TO_CART");
       updateFromCart(cart);
       setAddedToCart(true);
       setSelectionMessage(`Đã thêm ${quantity} × ${selectedSku.label} vào giỏ. Giỏ hiện có ${cart.itemCount} sản phẩm.`);
@@ -211,6 +220,7 @@ export function ProductDetailFlow({ slug }: { slug: string }) {
       </section> : <section className="food-information" aria-labelledby="food-title"><div className="section-heading"><p className="eyebrow">Thông tin thực phẩm</p><h2 id="food-title">Thông tin đang được cập nhật</h2><p>API sản phẩm hiện chưa công bố thành phần, cảnh báo dị ứng và hướng dẫn bảo quản. Vui lòng kiểm tra nhãn trên bao bì hoặc tra cứu lô hàng trước khi sử dụng.</p><Link className="product-detail-link" href="/trace/QR-OMA-20261015-LOT08">Xem mẫu hồ sơ truy xuất <span aria-hidden="true">→</span></Link></div></section>}
 
       <ProductReviewsSection key={product.id} productId={product.id} productName={product.name} mockScenario={scenario} />
+      <RecommendationRail placement="product_detail" productId={product.id} skuCode={selectedSkuId} />
     </main>
   );
 }

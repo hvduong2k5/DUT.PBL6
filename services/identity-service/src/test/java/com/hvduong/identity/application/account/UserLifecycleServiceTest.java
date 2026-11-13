@@ -1,13 +1,13 @@
 package com.hvduong.identity.application.account;
 
 import com.hvduong.identity.application.account.impl.UserLifecycleServiceImpl;
-import com.hvduong.identity.dto.response.UserProfileResponse;
+import com.hvduong.identity.application.dto.response.UserProfileResponse;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hvduong.identity.application.audit.AuditService;
 import com.hvduong.identity.infrastructure.keycloak.KeycloakAdminClient;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.*;
-import com.hvduong.identity.infrastructure.persistence.entity.*;
+import com.hvduong.identity.domain.entity.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -51,6 +51,12 @@ class UserLifecycleServiceTest {
     @Mock
     private org.springframework.web.client.RestTemplate restTemplate;
 
+    @Mock
+    private com.hvduong.identity.infrastructure.session.BffSessionStore bffSessionStore;
+
+    @Mock
+    private com.hvduong.identity.application.iam.PermissionSyncService permissionSyncService;
+
     private ObjectMapper objectMapper = new ObjectMapper();
 
     private UserLifecycleService service;
@@ -66,7 +72,9 @@ class UserLifecycleServiceTest {
                 keycloakAdminClient,
                 auditService,
                 objectMapper,
-                restTemplate
+                restTemplate,
+                bffSessionStore,
+                permissionSyncService
         );
     }
 
@@ -95,6 +103,7 @@ class UserLifecycleServiceTest {
         IamRoleRow roleRow = new IamRoleRow();
         roleRow.setRoleId(roleId);
         roleRow.setRoleCode("STORE_MANAGER");
+        roleRow.setIsEnabled(true);
         roleRow.setRoleName("Quản lý cửa hàng");
         when(roleMapper.findById(roleId)).thenReturn(roleRow);
 
@@ -115,6 +124,10 @@ class UserLifecycleServiceTest {
         assertEquals("STORE_01", profile.get().getRoles().get(0).getScopeId());
         assertEquals(1, profile.get().getPermissions().size());
         assertEquals("STORE_INVENTORY_VIEW", profile.get().getPermissions().get(0));
+        var grant = profile.get().getPermissionGrants().get(0);
+        assertEquals("STORE_INVENTORY_VIEW", grant.permissionCode());
+        assertEquals("STORE", grant.scopeType());
+        assertEquals("STORE_01", grant.scopeId());
     }
 
     @Test
@@ -138,6 +151,48 @@ class UserLifecycleServiceTest {
         assertEquals("CUSTOMER", profile.get().getPrincipalType());
         assertTrue(profile.get().getRoles().isEmpty());
         assertTrue(profile.get().getPermissions().isEmpty());
+    }
+
+    @Test
+    void currentProfileKeepsPermissionScopesBoundToEnabledAssignments() {
+        var principal = new IdentityPrincipalRow();
+        principal.setPrincipalId(UUID.randomUUID());
+        principal.setIdpSubject("staff");
+        principal.setPrincipalType("EMPLOYEE");
+        principal.setProvisioningStatus("ACTIVE");
+        when(principalMapper.findByIssuerAndSubject("issuer", "staff")).thenReturn(principal);
+        var viewRole = new IamRoleRow();
+        viewRole.setRoleId(UUID.randomUUID());
+        viewRole.setRoleCode("VIEW_A");
+        viewRole.setIsEnabled(true);
+        var sensitiveRole = new IamRoleRow();
+        sensitiveRole.setRoleId(UUID.randomUUID());
+        sensitiveRole.setRoleCode("SENSITIVE_B");
+        sensitiveRole.setIsEnabled(true);
+        var disabled = new IamRoleRow();
+        disabled.setRoleId(UUID.randomUUID());
+        disabled.setIsEnabled(false);
+        var assignments = new java.util.ArrayList<IamRoleAssignmentRow>();
+        for (var role : List.of(viewRole, sensitiveRole, disabled)) {
+            var assignment = new IamRoleAssignmentRow();
+            assignment.setRoleId(role.getRoleId());
+            assignment.setScopeType("WAREHOUSE");
+            assignment.setScopeId(role == viewRole ? "A" : "B");
+            assignments.add(assignment);
+            when(roleMapper.findById(role.getRoleId())).thenReturn(role);
+        }
+        when(roleAssignmentMapper.findActiveByPrincipal(eq(principal.getPrincipalId()), any())).thenReturn(assignments);
+        var view = new IamRolePermissionRow(); view.setPermissionCode("ORDER_VIEW");
+        var sensitive = new IamRolePermissionRow(); sensitive.setPermissionCode("ORDER_SENSITIVE_VIEW");
+        when(rolePermissionMapper.findByRoleId(viewRole.getRoleId())).thenReturn(List.of(view));
+        when(rolePermissionMapper.findByRoleId(sensitiveRole.getRoleId())).thenReturn(List.of(sensitive));
+        var profile = service.getProfileBySubject("issuer", "staff", "staff@example.test").orElseThrow();
+        assertEquals(List.of(
+            new com.hvduong.identity.application.dto.response.PermissionGrantResponse("ORDER_VIEW", "WAREHOUSE", "A"),
+            new com.hvduong.identity.application.dto.response.PermissionGrantResponse("ORDER_SENSITIVE_VIEW", "WAREHOUSE", "B")
+        ), profile.getPermissionGrants());
+        assertEquals(2, profile.getRoles().size());
+        verify(rolePermissionMapper, never()).findByRoleId(disabled.getRoleId());
     }
 
     @Test

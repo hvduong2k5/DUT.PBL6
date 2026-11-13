@@ -1,35 +1,45 @@
 package com.hvduong.identity.application.account.impl;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.hvduong.identity.application.account.AuthenticationService;
-import com.hvduong.identity.application.audit.AuditService;
-import com.hvduong.identity.dto.response.AuthUrlResponse;
-import com.hvduong.identity.dto.response.BffCallbackResult;
-import com.hvduong.identity.dto.response.SessionResponse;
-import com.hvduong.identity.infrastructure.persistence.entity.IdentityPrincipalRow;
-import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IdentityPrincipalMapper;
-import com.hvduong.identity.infrastructure.security.pkce.PkceUtil;
-import com.hvduong.identity.infrastructure.session.AuthStateStore;
-import com.hvduong.identity.infrastructure.session.BffSession;
-import com.hvduong.identity.infrastructure.session.BffSessionStore;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.time.OffsetDateTime;
+import java.util.Base64;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.UUID;
+
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.*;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
-import java.time.OffsetDateTime;
-import java.util.Base64;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.hvduong.identity.application.account.AuthenticationService;
+import com.hvduong.identity.application.audit.AuditService;
+import com.hvduong.identity.application.dto.response.AuthUrlResponse;
+import com.hvduong.identity.application.dto.response.BffCallbackResult;
+import com.hvduong.identity.application.dto.response.SessionResponse;
+import com.hvduong.identity.common.constant.IdentityConstants;
+import com.hvduong.identity.common.enums.PrincipalType;
+import com.hvduong.identity.common.enums.ProvisioningStatus;
+import com.hvduong.identity.domain.entity.IdentityPrincipalRow;
+import com.hvduong.identity.infrastructure.keycloak.KeycloakAdminClient;
+import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IdentityPrincipalMapper;
+import com.hvduong.identity.infrastructure.session.AuthStateStore;
+import com.hvduong.identity.infrastructure.session.BffSession;
+import com.hvduong.identity.infrastructure.session.BffSessionStore;
+import com.hvduong.identity.security.pkce.PkceUtil;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Service
@@ -42,6 +52,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     private final ObjectMapper objectMapper;
     private final AuthStateStore authStateStore;
     private final BffSessionStore bffSessionStore;
+    private final KeycloakAdminClient keycloakAdminClient;
 
     @Value("${keycloak.server-url}")
     private String serverUrl;
@@ -55,7 +66,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     @Value("${keycloak.public-client-id:frontend-web}")
     private String publicClientId;
 
-    @Value("${keycloak.redirect-uri:https://api.omama.vn/api/v1/public/auth/callback}")
+    @Value("${keycloak.redirect-uri:http://localhost:8016/api/v1/public/auth/callback}")
     private String redirectUri;
 
     @Value("${keycloak.scope:openid}")
@@ -63,6 +74,12 @@ public class AuthenticationServiceImpl implements AuthenticationService {
 
     @Value("${app.frontend-url:http://localhost:3000}")
     private String defaultFrontendUrl;
+
+    @Value("${ACCESS_TOKEN_LIFESPAN_SECONDS:900}")
+    private long accessTokenLifespanSeconds = 900L;
+
+    @Value("${REFRESH_TOKEN_LIFESPAN_SECONDS:2592000}")
+    private long refreshTokenLifespanSeconds = 2592000L;
 
     @Value("${keycloak.mobile-client-id:mobile-app}") private String mobileClientId="mobile-app";
     @Value("${keycloak.mobile-redirect-uri:}") private String mobileRedirectUri="";
@@ -134,18 +151,29 @@ public class AuthenticationServiceImpl implements AuthenticationService {
 
             String accessToken = root.path("access_token").asText();
             String refreshToken = root.path("refresh_token").asText();
-            long expiresIn = root.path("expires_in").asLong(900);
-            long refreshExpiresIn = root.path("refresh_expires_in").asLong(2592000);
+            long expiresIn = root.path("expires_in").asLong(accessTokenLifespanSeconds);
+            long refreshExpiresIn = root.path("refresh_expires_in").asLong(refreshTokenLifespanSeconds);
 
-            String subject = extractClaim(accessToken, "sub");
-            String email = extractClaim(accessToken, "email");
+            String subject = extractClaim(accessToken, IdentityConstants.CLAIM_SUB);
+            String email = null;
+            if (root.has("id_token") && !root.path("id_token").asText().isBlank()) {
+                email = extractClaim(root.path("id_token").asText(), IdentityConstants.CLAIM_EMAIL);
+            }
             if (email == null || email.isBlank()) {
-                email = extractClaim(accessToken, "preferred_username");
+                email = extractClaim(accessToken, IdentityConstants.CLAIM_EMAIL);
+            }
+            if (email == null || email.isBlank()) {
+                email = extractClaim(accessToken, IdentityConstants.CLAIM_PREFERRED_USERNAME);
+            }
+            if ((email == null || email.isBlank()) && keycloakAdminClient != null && subject != null) {
+                email = keycloakAdminClient.getUserById(subject)
+                        .map(org.keycloak.representations.idm.UserRepresentation::getEmail)
+                        .orElse(null);
             }
 
             IdentityPrincipalRow principal = principalMapper.findBySubject(subject);
             if (principal != null) {
-                if ("SUSPENDED".equalsIgnoreCase(principal.getProvisioningStatus())) {
+                if (ProvisioningStatus.SUSPENDED.matches(principal.getProvisioningStatus())) {
                     log.warn("Blocked login attempt for suspended user subject={}", subject);
                     auditService.recordAudit(auditActor(principal), principal.getPrincipalId(), null, "LOGIN_BLOCKED_SUSPENDED",
                             "AUTH", principal.getPrincipalId().toString(), "FAILURE", null, null, null,
@@ -164,8 +192,8 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                 principal.setPrincipalId(newPrincipalId);
                 principal.setIdpIssuer(publicUrl + "/realms/" + realm);
                 principal.setIdpSubject(subject);
-                principal.setPrincipalType("CUSTOMER");
-                principal.setProvisioningStatus("ACTIVE");
+                principal.setPrincipalType(PrincipalType.CUSTOMER.name());
+                principal.setProvisioningStatus(ProvisioningStatus.ACTIVE.name());
                 principal.setCreatedAt(now);
                 principal.setUpdatedAt(now);
                 principal.setVersion(0L);
@@ -173,7 +201,16 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                 principalMapper.insert(principal);
                 log.info("JIT provisioned new user principalId={} subject={}", newPrincipalId, subject);
 
-                auditService.recordAudit("CUSTOMER", newPrincipalId, null, "JIT_PROVISION_SUCCESS",
+                if (keycloakAdminClient != null && subject != null) {
+                    try {
+                        keycloakAdminClient.setUserAttribute(subject, IdentityConstants.ATTR_APP_USER_ID, newPrincipalId.toString());
+                        keycloakAdminClient.setUserAttribute(subject, IdentityConstants.ATTR_PRINCIPAL_TYPE, PrincipalType.CUSTOMER.name());
+                    } catch (Exception ex) {
+                        log.warn("Failed to set Keycloak attributes for JIT customer [subject={}]", subject, ex);
+                    }
+                }
+
+                auditService.recordAudit(PrincipalType.CUSTOMER.name(), newPrincipalId, null, "JIT_PROVISION_SUCCESS",
                         "AUTH", subject, "SUCCESS", null, null, null,
                         Map.of("email", email != null ? email : ""));
             }
@@ -243,12 +280,14 @@ public class AuthenticationServiceImpl implements AuthenticationService {
             return SessionResponse.builder().isAuthenticated(false).build();
         }
 
-        if (session.isAccessTokenExpired()) {
+        if (session.shouldRefreshAccessToken()) {
             try {
                 session = refreshSession(sessionId);
             } catch (Exception e) {
                 log.warn("Auto-refresh session failed for sessionId={}: {}", sessionId, e.getMessage());
-                return SessionResponse.builder().isAuthenticated(false).build();
+                if (session.isAccessTokenExpired()) {
+                    return SessionResponse.builder().isAuthenticated(false).build();
+                }
             }
         }
 
@@ -263,6 +302,10 @@ public class AuthenticationServiceImpl implements AuthenticationService {
 
     @Override
     public BffSession refreshSession(UUID sessionId) {
+        if (sessionId == null) {
+            throw new IllegalArgumentException("Phiên đăng nhập không tồn tại hoặc đã hết hạn.");
+        }
+
         BffSession session = bffSessionStore.getSession(sessionId)
                 .orElseThrow(() -> new IllegalArgumentException("Phiên đăng nhập không tồn tại hoặc đã hết hạn."));
 
@@ -271,36 +314,72 @@ public class AuthenticationServiceImpl implements AuthenticationService {
             throw new IllegalArgumentException("Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại.");
         }
 
-        String tokenUrl = buildTokenEndpoint();
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
-
-        MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
-        body.add("grant_type", "refresh_token");
-        body.add("client_id", session.getOauthClientId()!=null?session.getOauthClientId():publicClientId);
-        body.add("refresh_token", session.getRefreshToken());
-
-        HttpEntity<MultiValueMap<String, String>> entity = new HttpEntity<>(body, headers);
-
+        long initialTokenVersion = session.getTokenVersion();
+        java.util.concurrent.locks.ReentrantLock lock = bffSessionStore.getLock(sessionId);
+        lock.lock();
         try {
-            ResponseEntity<String> response = restTemplate.postForEntity(tokenUrl, entity, String.class);
-            JsonNode root = objectMapper.readTree(response.getBody());
+            // Re-fetch current session state inside lock
+            BffSession currentSession = bffSessionStore.getSession(sessionId)
+                    .orElseThrow(() -> new IllegalArgumentException("Phiên đăng nhập không tồn tại hoặc đã hết hạn."));
 
-            String newAccessToken = root.path("access_token").asText();
-            String newRefreshToken = root.path("refresh_token").asText(session.getRefreshToken());
-            long expiresIn = root.path("expires_in").asLong(900);
-            long refreshExpiresIn = root.path("refresh_expires_in").asLong(2592000);
+            if (currentSession.isRefreshTokenExpired()) {
+                bffSessionStore.removeSession(sessionId);
+                throw new IllegalArgumentException("Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại.");
+            }
 
-            bffSessionStore.updateTokens(sessionId, newAccessToken, newRefreshToken, expiresIn, refreshExpiresIn);
-            return session;
+            // In-flight mutex / coalescing:
+            // If another thread already rotated the token while this thread was waiting for lock,
+            // and the access token is fresh (not needing proactive refresh), reuse it immediately!
+            if (currentSession.getTokenVersion() > initialTokenVersion && !currentSession.isAccessTokenExpired()) {
+                log.debug("Session {} was already refreshed by another concurrent thread (v{} -> v{}), reusing fresh token",
+                        sessionId, initialTokenVersion, currentSession.getTokenVersion());
+                return currentSession;
+            }
 
-        } catch (HttpStatusCodeException ex) {
-            log.warn("Keycloak refresh token failed: status={}", ex.getStatusCode());
-            bffSessionStore.removeSession(sessionId);
-            throw new IllegalArgumentException("Không thể làm mới phiên đăng nhập. Vui lòng đăng nhập lại.");
-        } catch (Exception ex) {
-            log.error("Unexpected error during refresh token", ex);
-            throw new RuntimeException("Không thể làm mới phiên đăng nhập.", ex);
+            String currentRefreshToken = currentSession.getRefreshToken();
+            String tokenUrl = buildTokenEndpoint();
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+
+            MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
+            body.add("grant_type", "refresh_token");
+            body.add("client_id", currentSession.getOauthClientId() != null ? currentSession.getOauthClientId() : publicClientId);
+            body.add("refresh_token", currentRefreshToken);
+
+            HttpEntity<MultiValueMap<String, String>> entity = new HttpEntity<>(body, headers);
+
+            try {
+                ResponseEntity<String> response = restTemplate.postForEntity(tokenUrl, entity, String.class);
+                JsonNode root = objectMapper.readTree(response.getBody());
+
+                String newAccessToken = root.path("access_token").asText();
+                String newRefreshToken = root.path("refresh_token").asText(currentRefreshToken);
+                long expiresIn = root.path("expires_in").asLong(accessTokenLifespanSeconds);
+                long refreshExpiresIn = root.path("refresh_expires_in").asLong(refreshTokenLifespanSeconds);
+
+                bffSessionStore.updateTokens(sessionId, newAccessToken, newRefreshToken, expiresIn, refreshExpiresIn);
+                return currentSession;
+
+            } catch (HttpStatusCodeException ex) {
+                log.warn("Keycloak refresh token failed: status={}, body={}", ex.getStatusCode(), ex.getResponseBodyAsString());
+
+                // Graceful fallback for rotation race:
+                // Check if session has been updated concurrently in another context
+                BffSession latestSession = bffSessionStore.getSession(sessionId).orElse(null);
+                if (latestSession != null && (!Objects.equals(latestSession.getRefreshToken(), currentRefreshToken)
+                        || latestSession.getTokenVersion() > initialTokenVersion)) {
+                    log.info("Concurrent refresh detected: session {} was rotated successfully by another caller, reusing fresh tokens", sessionId);
+                    return latestSession;
+                }
+
+                bffSessionStore.removeSession(sessionId);
+                throw new IllegalArgumentException("Không thể làm mới phiên đăng nhập. Vui lòng đăng nhập lại.");
+            } catch (Exception ex) {
+                log.error("Unexpected error during refresh token", ex);
+                throw new RuntimeException("Không thể làm mới phiên đăng nhập.", ex);
+            }
+        } finally {
+            lock.unlock();
         }
     }
 
@@ -366,7 +445,9 @@ public class AuthenticationServiceImpl implements AuthenticationService {
 
     private String auditActor(IdentityPrincipalRow principal) {
         if (principal == null) return "SYSTEM";
-        return "EMPLOYEE".equals(principal.getPrincipalType()) ? "EMPLOYEE" : "CUSTOMER";
+        return PrincipalType.EMPLOYEE.matches(principal.getPrincipalType())
+                ? PrincipalType.EMPLOYEE.name()
+                : PrincipalType.CUSTOMER.name();
     }
 
     private String extractClaim(String jwtToken, String claimName) {

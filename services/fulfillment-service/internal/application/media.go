@@ -74,7 +74,7 @@ func (m *Media) Access(ctx context.Context, p d.Principal, id, purpose string) (
 	if e != nil {
 		return nil, e
 	}
-	if !p.Can("fulfillment.media.view", t.Warehouse) {
+	if !p.Can("FULFILLMENT_MEDIA_VIEW", t.Warehouse) {
 		return nil, d.Fail("FORBIDDEN", 403)
 	}
 	if f.Status != "VERIFIED" {

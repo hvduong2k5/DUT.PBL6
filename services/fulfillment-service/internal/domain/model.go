@@ -344,23 +344,23 @@ type Mutation struct {
 func (t *Task) Permission(action string) string {
 	switch action {
 	case "AssignTask", "UnassignTask":
-		return "fulfillment.task.assign_self"
+		return "FULFILLMENT_TASK_ASSIGN_SELF"
 	case "SealTask":
-		return "fulfillment.task.seal"
+		return "FULFILLMENT_TASK_SEAL"
 	case "BlockTask":
-		return "fulfillment.task.block"
+		return "FULFILLMENT_TASK_BLOCK"
 	case "ResolveTaskBlock":
-		return "fulfillment.task.resolve_block"
+		return "FULFILLMENT_TASK_RESOLVE_BLOCK"
 	case "ReopenTask":
-		return "fulfillment.task.reopen"
+		return "FULFILLMENT_TASK_REOPEN"
 	default:
-		return "fulfillment.task.work"
+		return "FULFILLMENT_TASK_WORK"
 	}
 }
 func (t *Task) Apply(p Principal, m Mutation, now time.Time) error {
 	perm := t.Permission(m.Action)
 	if (m.Action == "AssignTask" && m.AssigneeID != "" && m.AssigneeID != p.ID) || (m.Action == "UnassignTask" && (t.Assignee == nil || *t.Assignee != p.ID)) {
-		perm = "fulfillment.task.assign_other"
+		perm = "FULFILLMENT_TASK_ASSIGN_OTHER"
 	}
 	if !p.Can(perm, t.Warehouse) {
 		return Fail("FORBIDDEN", 403)

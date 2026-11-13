@@ -360,7 +360,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 .product-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 17px; }
 .product-card { min-width: 0; overflow: hidden; border: 1px solid var(--border); border-radius: 15px; background: white; box-shadow: 0 3px 11px rgba(86,58,38,.04); transition: transform .18s, box-shadow .18s; }
 .product-card:hover { transform: translateY(-3px); box-shadow: 0 12px 24px rgba(86,58,38,.11); }
-.product-image { position: relative; aspect-ratio: 1.22; overflow: hidden; background: var(--surface-low); }
+.product-image { display: block; position: relative; aspect-ratio: 1.22; overflow: hidden; background: var(--surface-low); }
 .product-image img { object-fit: cover; transition: transform .45s ease; }
 .product-card:hover .product-image img { transform: scale(1.035); }
 .product-badges { position: absolute; top: 11px; left: 11px; display: flex; align-items: flex-start; flex-direction: column; gap: 5px; }

@@ -59,10 +59,14 @@ Các hợp đồng này được định nghĩa bằng **Protocol Buffers v3** �
 
 ---
 
-### 2.3. MS-05: `CatalogService` (Port nội bộ: 8005)
-- **Tệp định nghĩa:** [`packages/proto/catalog/v1/catalog.proto`](../../packages/proto/catalog/v1/catalog.proto)
-- **Bên Cung Cấp (Provider):** `catalog-service` (Node.js/Go)
-- **Bên Tiêu Thụ (Consumer):** `order-service`, `api-gateway`, `channel-service`
+### 2.3. MS-05: CatalogService (Port nội bộ: HTTP 8005 / gRPC 9005)
+- **Tệp định nghĩa:** [packages/proto/catalog/v1/catalog.proto](../../packages/proto/catalog/v1/catalog.proto)
+- **Bên Cung Cấp (Provider):** catalog-service (Java Spring Boot)
+- **Bên Tiêu Thụ gRPC (Consumer):** order-service (MS-04)
+
+> **Kiến trúc phân lập giao thức của Catalog Service:**
+> - **Chiều North - South (Gateway & Client):** Toàn bộ API duyệt danh mục (/api/v1/categories), sản phẩm (/api/v1/products/**) và quản trị CMS (/api/v1/admin/catalog/**) đều sử dụng **REST API (HTTP/JSON)** chạy trên cổng 8005. Có xác thực JWT và kiểm tra quyền RBAC (CATALOG_VIEW, CATALOG_MANAGE, CATALOG_APPROVE).
+> - **Chiều East - West (Inter-Service nội bộ):** Các phương thức thẩm định giá và thông số kỹ thuật phục vụ đặt hàng tiếp tục chạy trên giao thức **gRPC** hiệu năng cao tại cổng 9005.
 
 #### Chi tiết các RPC Methods:
 1. `ValidatePriceAndSKU(ValidatePriceAndSKURequest) returns (ValidatePriceAndSKUResponse)`:

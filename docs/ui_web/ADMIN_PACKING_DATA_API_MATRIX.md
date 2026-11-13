@@ -1,5 +1,10 @@
 # Admin Packing & Fulfillment — Data/API Matrix
 
+> Trong `WEB_AUTH_MODE=identity-bff`, hai màn Packing dùng Fulfillment thật qua
+> cookie BFF, có nhận việc/start/picks/checklist/video/seal. Xem
+> [FULFILLMENT_UI_INTEGRATION.md](FULFILLMENT_UI_INTEGRATION.md).
+> Ma trận Mockoon bên dưới chỉ mô tả chế độ legacy local.
+
 **Cập nhật:** 2026-10-03
 **Nguồn phạm vi:** `docs/01_requirements/epics/EPIC_10_Packing.md`
 **Màn hình:** `/admin/packing` (quản lý) và `/admin/work/packing` (công việc cá nhân) trong `apps/web-user`

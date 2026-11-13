@@ -16,10 +16,8 @@
         <result property="ocopStar"         column="ocop_star"/>
         <result property="ocopCertificateNo" column="ocop_certificate_no"/>
         <result property="story"            column="story"/>
-        <result property="approvalStatus"   column="approval_status"
-                javaType="com.hvduong.catalog.common.enums.ApprovalStatus"/>
-        <result property="listingStatus"    column="listing_status"
-                javaType="com.hvduong.catalog.common.enums.ListingStatus"/>
+        <result property="approvalStatus"   column="approval_status"/>
+        <result property="listingStatus"    column="listing_status"/>
         <result property="approvedBy"       column="approved_by"/>
         <result property="approvedAt"       column="approved_at"/>
         <result property="version"          column="version"/>
@@ -60,37 +58,86 @@
 
     <!-- ── Queries ────────────────────────────────────────────────────────────── -->
 
+    <!-- Điều kiện tìm kiếm admin: tên, slug hoặc mã SKU -->
+    <sql id="adminSearchCondition">
+        <if test="q != null and q != ''">
+            AND (
+                p.name ILIKE '%' || #{q} || '%'
+                OR p.slug ILIKE '%' || #{q} || '%'
+                OR EXISTS (
+                    SELECT 1 FROM product_variants pv
+                    WHERE pv.product_id = p.id
+                      AND pv.sku_code ILIKE '%' || #{q} || '%'
+                )
+            )
+        </if>
+    </sql>
+
+    <!-- Điều kiện trạng thái admin (giá trị DB: ACTIVE/SUSPENDED/ARCHIVED) -->
+    <sql id="adminStatusCondition">
+        <if test="status != null and status != ''">
+            AND p.listing_status = #{status}::listing_status
+        </if>
+    </sql>
+
+    <!-- Điều kiện tìm kiếm toàn văn (MVP: PostgreSQL ILIKE) -->
+    <sql id="publicSearchCondition">
+        <if test="query != null and query != ''">
+            AND (
+                p.name ILIKE '%' || #{query} || '%'
+                OR p.description ILIKE '%' || #{query} || '%'
+                OR EXISTS (
+                    SELECT 1 FROM product_variants pv
+                    WHERE pv.product_id = p.id
+                      AND pv.sku_code ILIKE '%' || #{query} || '%'
+                )
+            )
+        </if>
+    </sql>
+
+    <!-- Điều kiện lọc giá theo kênh, hiệu lực thời gian (dùng cho count + sort) -->
+    <sql id="publicPriceCondition">
+        AND EXISTS (
+            SELECT 1 FROM channel_prices cp
+            JOIN product_variants pv ON pv.id = cp.variant_id
+            WHERE pv.product_id = p.id
+              AND pv.listing_status = 'ACTIVE'
+              AND cp.channel = #{channel}::sales_channel
+              AND cp.status = 'ACTIVE'
+              AND cp.effective_from &lt;= NOW()
+              AND (cp.effective_to IS NULL OR cp.effective_to &gt; NOW())
+            <if test="minPrice != null">
+                AND cp.amount_units &gt;= #{minPrice}
+            </if>
+            <if test="maxPrice != null">
+                AND cp.amount_units &lt;= #{maxPrice}
+            </if>
+        )
+    </sql>
+
     <!-- findPublicProducts: lọc + phân trang -->
     <select id="findPublicProducts" resultMap="ProductResultMap">
         <include refid="selectPublicBase"/>
+        <include refid="publicSearchCondition"/>
         <if test="categoryId != null">
             AND p.category_id = #{categoryId}
         </if>
         <if test="ocopStar != null">
             AND p.ocop_star = #{ocopStar}
         </if>
-        <if test="minPrice != null or maxPrice != null">
-            AND EXISTS (
-                SELECT 1 FROM channel_prices cp
-                JOIN product_variants pv ON pv.id = cp.variant_id
-                WHERE pv.product_id = p.id
-                  AND cp.channel = #{channel}
-                  AND cp.status = 'ACTIVE'
-                <if test="minPrice != null">
-                    AND cp.amount_units &gt;= #{minPrice}
-                </if>
-                <if test="maxPrice != null">
-                    AND cp.amount_units &lt;= #{maxPrice}
-                </if>
-            )
-        </if>
+        <include refid="publicPriceCondition"/>
         <choose>
             <when test="sortBy == 'PRICE_ASC'">
                 ORDER BY (
                     SELECT MIN(cp.amount_units)
                     FROM channel_prices cp
                     JOIN product_variants pv ON pv.id = cp.variant_id
-                    WHERE pv.product_id = p.id AND cp.status = 'ACTIVE'
+                    WHERE pv.product_id = p.id
+                      AND pv.listing_status = 'ACTIVE'
+                      AND cp.channel = #{channel}::sales_channel
+                      AND cp.status = 'ACTIVE'
+                      AND cp.effective_from &lt;= NOW()
+                      AND (cp.effective_to IS NULL OR cp.effective_to &gt; NOW())
                 ) ASC
             </when>
             <when test="sortBy == 'PRICE_DESC'">
@@ -98,14 +145,19 @@
                     SELECT MIN(cp.amount_units)
                     FROM channel_prices cp
                     JOIN product_variants pv ON pv.id = cp.variant_id
-                    WHERE pv.product_id = p.id AND cp.status = 'ACTIVE'
+                    WHERE pv.product_id = p.id
+                      AND pv.listing_status = 'ACTIVE'
+                      AND cp.channel = #{channel}::sales_channel
+                      AND cp.status = 'ACTIVE'
+                      AND cp.effective_from &lt;= NOW()
+                      AND (cp.effective_to IS NULL OR cp.effective_to &gt; NOW())
                 ) DESC
             </when>
             <when test="sortBy == 'NEWEST'">
                 ORDER BY p.created_at DESC
             </when>
             <otherwise>
-                ORDER BY p.created_at DESC <!-- BEST_SELLING: sẽ dùng analytics data phase 2 -->
+                ORDER BY p.created_at DESC
             </otherwise>
         </choose>
         LIMIT #{limit} OFFSET #{offset}
@@ -117,27 +169,14 @@
         FROM products p
         WHERE p.approval_status = 'APPROVED'
           AND p.listing_status = 'ACTIVE'
+        <include refid="publicSearchCondition"/>
         <if test="categoryId != null">
             AND p.category_id = #{categoryId}
         </if>
         <if test="ocopStar != null">
             AND p.ocop_star = #{ocopStar}
         </if>
-        <if test="minPrice != null or maxPrice != null">
-            AND EXISTS (
-                SELECT 1 FROM channel_prices cp
-                JOIN product_variants pv ON pv.id = cp.variant_id
-                WHERE pv.product_id = p.id
-                  AND cp.channel = #{channel}
-                  AND cp.status = 'ACTIVE'
-                <if test="minPrice != null">
-                    AND cp.amount_units &gt;= #{minPrice}
-                </if>
-                <if test="maxPrice != null">
-                    AND cp.amount_units &lt;= #{maxPrice}
-                </if>
-            )
-        </if>
+        <include refid="publicPriceCondition"/>
     </select>
 
     <!-- findPublicById -->
@@ -162,20 +201,48 @@
         WHERE p.id = #{id}
     </select>
 
-    <!-- findAll (admin) -->
-    <select id="findAll" resultMap="ProductResultMap">
+    <!-- findAdminProducts (admin list + filter) -->
+    <select id="findAdminProducts" resultMap="ProductResultMap">
         SELECT
             p.*,
             c.name AS category_name
         FROM products p
         LEFT JOIN categories c ON c.id = p.category_id
-        ORDER BY p.created_at DESC
+        WHERE 1=1
+        <include refid="adminSearchCondition"/>
+        <include refid="adminStatusCondition"/>
+        ORDER BY p.created_at DESC, p.id ASC
         LIMIT #{limit} OFFSET #{offset}
     </select>
 
-    <!-- countAll (admin) -->
-    <select id="countAll" resultType="long">
-        SELECT COUNT(id) FROM products
+    <!-- countAdminProducts -->
+    <select id="countAdminProducts" resultType="long">
+        SELECT COUNT(*)
+        FROM products p
+        WHERE 1=1
+        <include refid="adminSearchCondition"/>
+        <include refid="adminStatusCondition"/>
+    </select>
+
+    <!-- countAdminProductsByStatus: chỉ áp dụng q, không áp dụng status -->
+    <select id="countAdminProductsByStatus"
+            resultType="com.hvduong.catalog.repository.mybatis.projection.AdminStatusCountRow">
+        SELECT p.listing_status AS status, COUNT(*) AS count
+        FROM products p
+        WHERE 1=1
+        <include refid="adminSearchCondition"/>
+        GROUP BY p.listing_status
+    </select>
+
+    <!-- findAdminCategories: danh mục có Product trong tập q -->
+    <select id="findAdminCategories"
+            resultType="com.hvduong.catalog.repository.mybatis.projection.AdminCategoryRow">
+        SELECT DISTINCT c.id AS category_id, c.name AS category_name
+        FROM products p
+        JOIN categories c ON c.id = p.category_id
+        WHERE 1=1
+        <include refid="adminSearchCondition"/>
+        ORDER BY c.name ASC
     </select>
 
     <!-- existsBySlug -->

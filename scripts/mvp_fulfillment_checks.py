@@ -43,6 +43,8 @@ def prepare(root, folder, ports, env, accounts, sql, run, container, request,
     (folder / "jwt-public.pem").write_text("-----BEGIN PUBLIC KEY-----\n" + "\n".join(public[i:i+64] for i in range(0,len(public),64)) + "\n-----END PUBLIC KEY-----\n")
     access, secret = secrets.token_urlsafe(24), secrets.token_urlsafe(40)
     storage = "codex-web-storage-" + suffix
+    env["FULFILLMENT_STORAGE_UPLOAD_ORIGIN"] = "http://" + storage + ":9000"
+    env["FULFILLMENT_STORAGE_UPLOAD_CONNECT_ORIGIN"] = f"http://127.0.0.1:{ports['storage']}"
     container(storage, RUSTFS, ["-e", "RUSTFS_ACCESS_KEY="+access, "-e", "RUSTFS_SECRET_KEY="+secret,
         "-e", "RUSTFS_VOLUMES=/data", "-p", f"127.0.0.1:{ports['storage']}:9000"])
     for _ in range(120):
@@ -106,11 +108,16 @@ def prepare(root, folder, ports, env, accounts, sql, run, container, request,
 
 
 def pack(request, gateway, token, customer_token, folder, order_id, order_until,
-         shipping, shipping_token, control, run, scanner, shipping_control=None, handoff=None):
-    base=gateway+"/api/v1/admin/fulfillment"
-    def call(path,body=None,method=None,headers=None):return request(base+path,body,token,method,headers=headers)
-    status,denied,_=request(base+"/tasks",token=customer_token)
+         shipping, shipping_token, control, run, scanner, shipping_control=None, handoff=None,
+         web=None, staff_cookie=None, customer_cookie=None):
+    base=(web+"/api/admin/fulfillment") if web else (gateway+"/api/v1/admin/fulfillment")
+    staff_headers={"Cookie":"OMAMA_SESSION="+staff_cookie,"Origin":web} if web else {}
+    def call(path,body=None,method=None,headers=None):return request(base+path,body,None if web else token,method,headers={**staff_headers,**(headers or {})})
+    status,denied,_=request(base+"/tasks",token=None if web else customer_token,headers={"Cookie":"OMAMA_SESSION="+customer_cookie} if web else {})
     assert status==403,("Customer staff gate",status,denied)
+    if web:
+        assert request(base+"/tasks",token=token)[0]==401,"Browser bearer header bypassed cookie boundary"
+        assert request(base+"/tasks/"+str(uuid.uuid4())+"/start",{},headers={**staff_headers,"Origin":"https://attacker.invalid"})[0]==403,"Cross-origin staff mutation was accepted"
     assert request(control+"/pack?order="+order_id,{},method="POST")[0]==409,"TEST packing remained enabled"
     task=None
     for _ in range(60):
@@ -139,12 +146,18 @@ def pack(request, gateway, token, customer_token, folder, order_id, order_until,
     parcel={"weight_grams":1250,"length_cm":30,"width_cm":20,"height_cm":10,"fragile":True}
     def upload(name):
         data=(folder/name).read_bytes()
-        status,session,_=call(path+"/media-sessions",{"package_id":package,"media_type":"video/mp4","size_bytes":len(data),"sha256":hashlib.sha256(data).hexdigest()},"POST",{"Idempotency-Key":uuid.uuid4().hex})
-        assert status==201,("media session",status,session)
-        u=urllib.parse.urlsplit(session["upload_url"])
-        # Connect to the published port while retaining the signed Host header.
-        url=urllib.parse.urlunsplit((u.scheme,"127.0.0.1:"+str(pack.storage_port),u.path,u.query,u.fragment))
-        with urllib.request.urlopen(urllib.request.Request(url,data=data,method="PUT",headers={"Host":u.netloc,"Content-Type":"video/mp4"}),timeout=20) as response:assert response.status==200
+        if web:
+            headers={**staff_headers,"Content-Type":"video/mp4","X-Video-Size":str(len(data)),"X-Video-Sha256":hashlib.sha256(data).hexdigest(),"X-Package-ID":package,"Idempotency-Key":uuid.uuid4().hex}
+            with urllib.request.urlopen(urllib.request.Request(base+path+"/video",data=data,method="POST",headers=headers),timeout=30) as response:
+                assert response.status==201
+                session=json.loads(response.read())
+                assert 'upload_url' not in session,"Private signed upload URL leaked through BFF"
+        else:
+            status,session,_=call(path+"/media-sessions",{"package_id":package,"media_type":"video/mp4","size_bytes":len(data),"sha256":hashlib.sha256(data).hexdigest()},"POST",{"Idempotency-Key":uuid.uuid4().hex})
+            assert status==201,("media session",status,session)
+            u=urllib.parse.urlsplit(session["upload_url"])
+            url=urllib.parse.urlunsplit((u.scheme,"127.0.0.1:"+str(pack.storage_port),u.path,u.query,u.fragment))
+            with urllib.request.urlopen(urllib.request.Request(url,data=data,method="PUT",headers={"Host":u.netloc,"Content-Type":"video/mp4"}),timeout=20) as response:assert response.status==200
         status,out,_=call("/media/"+session["file_id"]+"/complete",{},"POST",{"Idempotency-Key":uuid.uuid4().hex})
         assert status==202,("complete media",status,out)
         return session["file_id"]

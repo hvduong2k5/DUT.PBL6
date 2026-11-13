@@ -3,6 +3,7 @@ services:
   api:
     environment:
       ORDER_AUTH_MODE: keycloak
+      IDENTITY_URL: ${IDENTITY_URL:?Set the authoritative Identity API URL}
       ORDER_OIDC_ISSUER: ${ORDER_OIDC_ISSUER:?Set the exact Keycloak issuer}
       ORDER_OIDC_AUDIENCE: order-api
       ORDER_OIDC_JWKS_URL: ${ORDER_OIDC_JWKS_URL:-}

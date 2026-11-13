@@ -1,12 +1,17 @@
 package com.hvduong.identity.application.account;
 
 import com.hvduong.identity.application.account.impl.EmployeeInvitationServiceImpl;
-import com.hvduong.identity.dto.response.InviteEmployeeResponse;
+import com.hvduong.identity.application.dto.response.InviteEmployeeResponse;
 
 import com.hvduong.identity.application.audit.AuditService;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.EmployeeInvitationMapper;
-import com.hvduong.identity.infrastructure.persistence.entity.EmployeeInvitationRow;
+import com.hvduong.identity.domain.entity.EmployeeInvitationRow;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IdentityPrincipalMapper;
+import com.hvduong.identity.common.constant.IdentityConstants;
+import com.hvduong.identity.common.enums.InvitationStatus;
+import com.hvduong.identity.common.enums.PrincipalType;
+import com.hvduong.identity.common.enums.ProvisioningStatus;
+import com.hvduong.identity.infrastructure.keycloak.KeycloakAdminClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -33,11 +38,14 @@ class EmployeeInvitationServiceTest {
     @Mock
     private AuditService auditService;
 
+    @Mock
+    private KeycloakAdminClient keycloakAdminClient;
+
     private EmployeeInvitationService invitationService;
 
     @BeforeEach
     void setUp() {
-        invitationService = new EmployeeInvitationServiceImpl(invitationMapper, principalMapper, auditService);
+        invitationService = new EmployeeInvitationServiceImpl(invitationMapper, principalMapper, auditService, keycloakAdminClient);
     }
 
     @Test
@@ -77,8 +85,10 @@ class EmployeeInvitationServiceTest {
 
         // Assert
         assertThat(accepted).isTrue();
-        verify(invitationMapper, times(1)).updateStatus(invitationId, "ACCEPTED", null);
-        verify(principalMapper, times(1)).updateProvisioningStatus(principalId, "ACTIVE", "keycloak-sub-123", 0L);
+        verify(invitationMapper, times(1)).updateStatus(invitationId, InvitationStatus.ACCEPTED.name(), null);
+        verify(principalMapper, times(1)).updateProvisioningStatus(principalId, ProvisioningStatus.ACTIVE.name(), "keycloak-sub-123", 0L);
+        verify(keycloakAdminClient, times(1)).setUserAttribute("keycloak-sub-123", IdentityConstants.ATTR_PRINCIPAL_TYPE, PrincipalType.EMPLOYEE.name());
+        verify(keycloakAdminClient, times(1)).setUserAttribute("keycloak-sub-123", IdentityConstants.ATTR_APP_USER_ID, principalId.toString());
     }
 
     @Test
@@ -97,7 +107,7 @@ class EmployeeInvitationServiceTest {
 
         // Assert
         assertThat(revoked).isTrue();
-        verify(invitationMapper, times(1)).updateStatus(invitationId, "REVOKED", null);
+        verify(invitationMapper, times(1)).updateStatus(invitationId, InvitationStatus.REVOKED.name(), null);
     }
 }
 

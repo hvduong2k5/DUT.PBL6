@@ -1,5 +1,8 @@
 package com.hvduong.identity.api.account.impl;
 
+import com.hvduong.identity.common.constant.IdentityConstants;
+import com.hvduong.identity.common.enums.PrincipalType;
+import com.hvduong.identity.common.enums.ProvisioningStatus;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IdentityPrincipalMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -26,7 +29,7 @@ public class CustomerApiProxyController {
     private final HttpClient client = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(3)).followRedirects(HttpClient.Redirect.NEVER).build();
     private static final Set<String> REQUEST_HEADERS = Set.of(
-            "Accept", "Content-Type", "If-Match", "Idempotency-Key", "X-Idempotency-Key");
+            "Accept", "Content-Type", "If-Match", IdentityConstants.HEADER_IDEMPOTENCY_KEY, "X-Idempotency-Key");
     private static final Set<String> RESPONSE_HEADERS = Set.of(
             "content-type", "etag", "retry-after", "vary", "location", "link", "x-request-id");
 
@@ -34,8 +37,8 @@ public class CustomerApiProxyController {
     public ResponseEntity<byte[]> forward(@AuthenticationPrincipal Jwt jwt, HttpServletRequest request) throws Exception {
         if (jwt == null) return ResponseEntity.status(401).build();
         var principal = principals.findByIssuerAndSubject(jwt.getIssuer().toString(), jwt.getSubject());
-        if (principal == null || !"CUSTOMER".equals(principal.getPrincipalType()) || !"ACTIVE".equals(principal.getProvisioningStatus())
-                || !principal.getPrincipalId().toString().equals(jwt.getClaimAsString("user_id"))) {
+        if (principal == null || !PrincipalType.CUSTOMER.matches(principal.getPrincipalType()) || !ProvisioningStatus.ACTIVE.matches(principal.getProvisioningStatus())
+                || !principal.getPrincipalId().toString().equals(jwt.getClaimAsString(IdentityConstants.CLAIM_USER_ID))) {
             return ResponseEntity.status(403).build();
         }
         String path = request.getRequestURI().substring("/api/v1/customer-api".length());

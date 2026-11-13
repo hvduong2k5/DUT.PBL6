@@ -2,9 +2,9 @@ package com.hvduong.identity.api.admin.impl;
 
 import com.hvduong.identity.api.admin.EmployeeInvitationApi;
 import com.hvduong.identity.application.account.EmployeeInvitationService;
-import com.hvduong.identity.dto.common.ApiResponse;
-import com.hvduong.identity.dto.request.InviteEmployeeRequest;
-import com.hvduong.identity.dto.response.InviteEmployeeResponse;
+import com.hvduong.identity.common.response.ApiResponse;
+import com.hvduong.identity.application.dto.request.InviteEmployeeRequest;
+import com.hvduong.identity.application.dto.response.InviteEmployeeResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -23,7 +23,7 @@ public class EmployeeInvitationController implements EmployeeInvitationApi {
     private final EmployeeInvitationService invitationService;
 
     @Override
-    @PreAuthorize("hasRole('ADMIN') or hasAuthority('EMPLOYEE_INVITE')")
+    @PreAuthorize("hasAuthority('EMPLOYEE_INVITE')")
     public ResponseEntity<ApiResponse<InviteEmployeeResponse>> inviteEmployee(
             @RequestBody(required = false) InviteEmployeeRequest request,
             @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorId
@@ -35,7 +35,7 @@ public class EmployeeInvitationController implements EmployeeInvitationApi {
     }
 
     @Override
-    @PreAuthorize("hasRole('ADMIN') or hasAuthority('EMPLOYEE_INVITATION_REVOKE')")
+    @PreAuthorize("hasAuthority('EMPLOYEE_INVITATION_REVOKE')")
     public ResponseEntity<ApiResponse<Void>> revokeInvitation(
             @PathVariable UUID invitationId,
             @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorId

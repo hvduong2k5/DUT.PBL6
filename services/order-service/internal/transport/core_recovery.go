@@ -15,7 +15,11 @@ func coreRecoveryRoutes(s *app.Service, r chi.Router) {
 			failure(s, w, domain.E("TARGET_RUNTIME_UNAVAILABLE", 503))
 			return
 		}
-		p, e := s.Authenticate(r.Header.Get("Authorization"))
+		if len(r.Header.Values("Authorization")) != 1 {
+			failure(s, w, domain.E("UNAUTHENTICATED", 401))
+			return
+		}
+		p, e := s.AuthenticateContext(r.Context(), r.Header.Get("Authorization"))
 		if e != nil {
 			failure(s, w, e)
 			return
@@ -24,10 +28,11 @@ func coreRecoveryRoutes(s *app.Service, r chi.Router) {
 			failure(s, w, domain.E("PERMISSION_DENIED", 403))
 			return
 		}
-		warehouse := p.Warehouse
-		if p.Role == "ADMIN" {
-			warehouse = ""
-		} else if warehouse == "" {
+		scope := domain.PermissionScope{Global: p.Role == "ADMIN", IDs: []string{p.Warehouse}}
+		if p.IAM {
+			scope = p.PermissionScope("ORDER_RECOVERY_EXECUTE")
+		}
+		if !scope.Global && (len(scope.IDs) == 0 || scope.IDs[0] == "") {
 			failure(s, w, domain.E("WAREHOUSE_SCOPE_REQUIRED", 403))
 			return
 		}
@@ -38,7 +43,7 @@ func coreRecoveryRoutes(s *app.Service, r chi.Router) {
 			failure(s, w, e)
 			return
 		}
-		e = s.CoreCheckout.Recover(r.Context(), chi.URLParam(r, "id"), p.Scope(), warehouse, os.Getenv("ORDER_MERCHANT_ID"), r.Header.Get("X-Idempotency-Key"), in.Reason)
+		e = s.CoreCheckout.RecoverAuthorized(r.Context(), chi.URLParam(r, "id"), p.Scope(), scope, os.Getenv("ORDER_MERCHANT_ID"), commandKey(r), in.Reason)
 		if e != nil {
 			sepayError(s, w, e)
 			return

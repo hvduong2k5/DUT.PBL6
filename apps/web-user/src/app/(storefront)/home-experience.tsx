@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ProductImage } from "@/components/product/product-image";
+import { RecommendationPreferences, RecommendationRail } from "@/components/recommendation/recommendation-rail";
 
 const HERO_IMAGE = "https://lh3.googleusercontent.com/aida-public/AB6AXuBgDTnNDpDqWayHGmfgdpMZ7xrIpepsmqvZgohQd66eSgDGKr7krs5KknIa7b4nRGLRpZ1FQt5ye-7UfbqbiPvJvJk1WwXIrbwaCwIrTdJFFNr3ykdI5S8DWq6OdVN3-EKG57DFKRSrBew_wdq8j-i8jLch_hKQsGgnqbqtyN9t9H5K_e3TDwZ3WbFQPlBv1Hz4dJd1EJUaLXqGEKZh5C-4YeKNuxpklujrvtUvGDeZTK552UkmRfHd";
 
@@ -50,6 +51,8 @@ export function HomeExperience() {
   }
 
   return <main className="heritage-home">
+    <RecommendationPreferences />
+    <RecommendationRail placement="home" />
     <section className="heritage-hero" style={{ backgroundImage: `linear-gradient(90deg, rgba(60,34,20,.98) 0%, rgba(76,43,24,.86) 47%, rgba(63,35,20,.28) 100%), url(${HERO_IMAGE})` }}>
       <div className="heritage-shell hero-grid"><div className="hero-copy"><span className="heritage-pill">✺ Di sản Ẩm thực Hoàng Cung Triều Nguyễn</span><h1>Tinh Hoa Bánh Mứt Cung Đình Huế<em>Gói Trọn Hương Vị Kinh Kỳ</em></h1><p>Tái hiện chuẩn phong vị yến tiệc cung đình qua bàn tay nghệ nhân ba đời xứ Huế. Nguyên liệu thanh thuần từ sen hồ Tịnh Tâm, gừng cay Kim Long đượm nồng tình cố đô.</p><div className="hero-buttons"><Link href="/products">Khám Phá Bộ Sưu Tập <span>→</span></Link><a href="#ocop-traceability">⌗ Truy Xuất Nguồn Gốc OCOP</a></div><dl className="hero-metrics"><div><dt>100%</dt><dd>Nguyên liệu tự nhiên</dd></div><div><dt>3 Đời</dt><dd>Nghệ nhân gia truyền</dd></div><div><dt>4 Sao</dt><dd>Chứng nhận OCOP Tỉnh</dd></div></dl></div>
       <article className="hero-feature"><div><ProductImage fill priority sizes="(max-width: 760px) 100vw, 360px" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDwdTKbXuXb6nWweFc-2PBl726WKIK1TazWrs7KwBcE-fGSju_T95LHe0AuoEEmunEVket3Hj14nQL_o5jH5S7mfU5NBqJH8HQzupuIlqPtvsv2WEzTFu92FYBE4ftxEo37pyrLiZRvVg7MzPfoLTct5Pg9DpO2DTlDp_je8ldqpu2UESMeuZrdDqxNjA2gOqTnxK1tjz-mh6zhplrJTwlgFMUMV-wbHOLbvZZCcc_shSqG-bxCsWyR" alt="Hộp sơn mài Ngự Triều" /><span>★ Đặc Sản Tiến Vua</span></div><header><h2>Hộp Sơn Mài Ngự Triều</h2><b>680.000đ</b></header><p>Bao gồm 4 vị tiến vua: Mè xửng bọc vàng, Bánh phục linh hoa sen, Trà ướp sen Tịnh Tâm &amp; Mứt gừng tiến chúa.</p><Link href="/products?category=qua-bieu">♧ Thưởng Thức Ngay</Link></article>
