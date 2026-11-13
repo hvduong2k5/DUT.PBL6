@@ -1,5 +1,6 @@
 package com.hvduong.catalog.application.service.impl;
 
+import com.hvduong.catalog.application.dto.request.CreateCategoryRequest;
 import com.hvduong.catalog.application.dto.request.CreateProductImageRequest;
 import com.hvduong.catalog.application.dto.request.CreateProductRequest;
 import com.hvduong.catalog.application.dto.request.CreateVariantRequest;
@@ -12,6 +13,7 @@ import com.hvduong.catalog.application.dto.response.AdminPriceResponse;
 import com.hvduong.catalog.application.dto.response.AdminProductDetailResponse;
 import com.hvduong.catalog.application.dto.response.AdminProductListItemResponse;
 import com.hvduong.catalog.application.dto.response.AdminProductListResponse;
+import com.hvduong.catalog.application.dto.response.CategoryResponse;
 import com.hvduong.catalog.application.dto.response.ProductDetailResponse;
 import com.hvduong.catalog.application.dto.response.ProductVariantResponse;
 import com.hvduong.catalog.application.mapper.AdminCatalogMapper;
@@ -25,6 +27,7 @@ import com.hvduong.catalog.common.enums.ListingStatus;
 import com.hvduong.catalog.common.enums.SalesChannel;
 import com.hvduong.catalog.common.exception.CatalogException;
 import com.hvduong.catalog.common.exception.ErrorCode;
+import com.hvduong.catalog.domain.entity.Category;
 import com.hvduong.catalog.domain.entity.ChannelPrice;
 import com.hvduong.catalog.domain.entity.Product;
 import com.hvduong.catalog.domain.entity.ProductImage;
@@ -38,6 +41,7 @@ import com.hvduong.catalog.repository.mybatis.ProductVariantMapper;
 import com.hvduong.catalog.repository.mybatis.projection.AdminCategoryRow;
 import com.hvduong.catalog.repository.mybatis.projection.AdminStatusCountRow;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -53,6 +57,8 @@ import java.util.stream.Collectors;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -70,6 +76,50 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
   private final CatalogDtoMapper dtoMapper;
   private final CatalogOutboxWriter outboxWriter;
   private final CatalogCacheEvictor cacheEvictor;
+
+  @Override
+  @Transactional
+  public CategoryResponse createCategory(CreateCategoryRequest request, String actorId, String key) {
+    if (!key.matches("[!-~]{16,128}")) {
+      throw new CatalogException(ErrorCode.INVALID_ARGUMENT);
+    }
+    UUID categoryId = UUID.nameUUIDFromBytes(
+        ("catalog:create-category:" + actorId + ":" + key).getBytes(StandardCharsets.UTF_8));
+    Category category = Category.builder()
+        .id(categoryId)
+        .parentId(request.parentId())
+        .name(request.name())
+        .slug(request.slug())
+        .description(request.description())
+        .position(request.position() == null ? 0 : request.position())
+        .isActive(true)
+        .build();
+    if (category.getParentId() != null
+        && categoryMapper.findById(category.getParentId()).isEmpty()) {
+      throw new CatalogException(ErrorCode.CATALOG_CATEGORY_NOT_FOUND);
+    }
+
+    Category saved = category;
+    if (categoryMapper.insert(category) == 0) {
+      Category existing = categoryMapper.findById(categoryId)
+          .orElseThrow(() -> new CatalogException(ErrorCode.CATALOG_CATEGORY_SLUG_DUPLICATE));
+      if (!Objects.equals(existing.getParentId(), category.getParentId())
+          || !Objects.equals(existing.getName(), category.getName())
+          || !Objects.equals(existing.getSlug(), category.getSlug())
+          || !Objects.equals(existing.getDescription(), category.getDescription())
+          || existing.getPosition() != category.getPosition()) {
+        throw new CatalogException(ErrorCode.IDEMPOTENCY_CONFLICT);
+      }
+      saved = existing;
+    }
+    TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+      @Override
+      public void afterCommit() {
+        cacheEvictor.evictCategoriesCache();
+      }
+    });
+    return dtoMapper.toCategoryResponse(saved);
+  }
 
   // ── Admin Read ──────────────────────────────────────────────────────
 

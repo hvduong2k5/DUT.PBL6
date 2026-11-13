@@ -25,7 +25,7 @@ public interface CategoryMapper {
 
   boolean existsBySlug(@Param("slug") String slug, @Param("excludeId") UUID excludeId);
 
-  void insert(Category category);
+  int insert(Category category);
 
   int update(Category category);
 }

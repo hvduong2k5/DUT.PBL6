@@ -2827,6 +2827,109 @@ paths:
           minimum: 1
           maximum: 100
           default: 20
+  /api/v1/admin/catalog/categories:
+    post:
+      tags: [Product management]
+      operationId: postAdminCatalogCategories
+      summary: Create an active Catalog category.
+      description: Requires a global CATALOG_MANAGE grant. A retry with the same key and request returns the created category.
+      x-lifecycle: stable
+      x-backlog: [EPIC_04]
+      x-ui-states: [loading, success, error, unauthorized, forbidden]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            minLength: 16
+            maxLength: 128
+            pattern: '^[!-~]+$'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, slug]
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 255
+                slug:
+                  type: string
+                  maxLength: 255
+                  pattern: '^[a-z0-9]+(-[a-z0-9]+)*$'
+                parentId:
+                  type: [string, 'null']
+                  format: uuid
+                description:
+                  type: [string, 'null']
+                  maxLength: 4000
+                position:
+                  type: [integer, 'null']
+                  minimum: 0
+            example:
+              name: Mè xửng
+              slug: me-xung
+      responses:
+        '201':
+          description: Category created or replayed.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                    const: true
+                  data:
+                    type: object
+                    required: [categoryId, name, slug, position]
+                    properties:
+                      categoryId:
+                        type: string
+                        format: uuid
+                      name:
+                        type: string
+                      slug:
+                        type: string
+                      position:
+                        type: integer
+                      parentId:
+                        type: [string, 'null']
+                        format: uuid
+                      description:
+                        type: [string, 'null']
+                      imageUrl:
+                        type: [string, 'null']
+                      children:
+                        type: [array, 'null']
+                        items:
+                          type: object
+              example:
+                success: true
+                data:
+                  categoryId: e062c830-f25d-5f40-93fb-0358d9d45566
+                  name: Mè xửng
+                  slug: me-xung
+                  position: 0
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /api/v1/admin/catalog/products:
     get:
       tags:

@@ -95,6 +95,9 @@ public class SecurityConfig {
           if (grants != null) {
             for (String grant : grants) {
               authorities.add(new SimpleGrantedAuthority(parseGrantPermissionCode(grant)));
+              if (grant.endsWith("#GLOBAL") && grant.indexOf('#') == grant.lastIndexOf('#')) {
+                authorities.add(new SimpleGrantedAuthority(grant));
+              }
             }
           }
 
