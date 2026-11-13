@@ -10,6 +10,8 @@ const ACCESS_COOKIE = "oma_access_token";
 const REFRESH_COOKIE = "oma_refresh_token";
 type Flow = { state: string; nonce: string; verifier: string; returnUrl: string; at: number };
 type Session = { sub: string; nonce: string; idToken: string };
+const JWT_CLOCK_SKEW_SECONDS = 30;
+
 type Tokens = { access_token: string; refresh_token: string; id_token: string; expires_in: number; refresh_expires_in?: number };
 type Metadata = { issuer: string; authorization_endpoint: string; token_endpoint: string; jwks_uri: string; end_session_endpoint: string };
 let discoveryCache: { issuer: string; until: number; promise: Promise<Metadata> } | undefined;
