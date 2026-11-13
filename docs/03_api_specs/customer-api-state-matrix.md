@@ -21,6 +21,7 @@ Customer APIs distinguish Guest, Registered Customer and verified B2B Customer c
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | `GET /api/v1/users/me` | EPIC_01 | stable | 200 | N/A | —/— | 401 | — | 404 | — | — | 500/503 |
 | `PUT /api/v1/users/me/password` | EPIC_01 | stable | 200 | N/A | 400/422 | 401 | — | 404 | — | — | 500/503 |
+| `GET /api/v1/public/auth/health` | EPIC_01 | stable | 200 | N/A | — | — | — | — | — | — | 503 |
 | `GET /api/v1/public/auth/login` | EPIC_01 | stable | 200 | N/A | 400/— | — | — | — | — | — | 500/503 |
 | `GET /api/v1/public/auth/callback` | EPIC_01 | stable | 302 | N/A | 400/— | — | — | — | — | — | 500/503 |
 | `GET /api/v1/public/auth/session` | EPIC_01 | stable | 200 | N/A | —/— | 401 | — | — | — | — | 500/503 |
