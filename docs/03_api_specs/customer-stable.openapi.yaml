@@ -4169,6 +4169,7 @@ paths:
       parameters:
       - $ref: '#/components/parameters/IdempotencyKey'
   /api/v1/profile/addresses:
+    description: Shipping address responses include the canonical ward and province as separate names. The ward name omits a matching province suffix.
     get:
       tags:
       - Customer profile
@@ -4394,6 +4395,7 @@ paths:
       parameters:
       - $ref: '#/components/parameters/IdempotencyKey'
   /api/v1/profile/addresses/{address_id}:
+    description: Returned ward and province names are separate. Address writes resolve both names from the canonical area codes.
     put:
       tags:
       - Customer profile

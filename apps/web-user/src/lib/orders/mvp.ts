@@ -1,6 +1,7 @@
 import {
   ContractDataError,
   parseVndAmount,
+  type OrderAddress,
   type OrderAllowedAction,
   type OrderCancellation,
   type OrderCancellationStatus,
@@ -101,6 +102,8 @@ function isOrderItem(value: unknown): boolean {
 
 function isOrderAddress(value: unknown): boolean {
   return isRecord(value)
+    && (value.ward_name === undefined || typeof value.ward_name === "string")
+    && (value.province_name === undefined || typeof value.province_name === "string")
     && [value.recipient_name, value.phone, value.street, value.ward_code, value.province_code]
       .every((field) => isText(field));
 }
@@ -237,6 +240,16 @@ export function mapMvpOrderListResponse(value: OwnedOrdersResponse): OrderListRe
   return { items, nextCursor: value.next_cursor, resultCount: items.length };
 }
 
+function snapshotAddressDisplay(address: OrderAddress): string {
+  const province = address.province_name || address.province_code;
+  const suffix = ", " + province;
+  let ward = address.ward_name || address.ward_code;
+  while (province && ward.endsWith(suffix)) {
+    ward = ward.slice(0, -suffix.length);
+  }
+  return [address.street, ward, province].filter(Boolean).join(", ");
+}
+
 export function mapMvpOrderDetail(value: OwnedOrder): OrderDetail {
   if (!isOwnedOrder(value)) throw new ContractDataError("Owned order does not match the public contract.");
   const snapshot = value.snapshot ?? undefined;
@@ -290,7 +303,7 @@ export function mapMvpOrderDetail(value: OwnedOrder): OrderDetail {
       recipient: {
         fullName: snapshot.address.recipient_name,
         phoneDisplay: snapshot.address.phone,
-        addressDisplay: [snapshot.address.street, snapshot.address.ward_code, snapshot.address.province_code].filter(Boolean).join(", ")
+        addressDisplay: snapshotAddressDisplay(snapshot.address)
       }
     } : {}),
     allowedActions: value.allowed_actions,
