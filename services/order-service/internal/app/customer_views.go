@@ -34,7 +34,7 @@ func frozenCustomerQuote(t core.SnapshotInput) domain.Quote {
 	if t.Shipping.ValidUntil.Before(expiry) {
 		expiry = t.Shipping.ValidUntil
 	}
-	q := domain.Quote{ID: t.Provenance.QuoteID, Revision: t.Provenance.CartRevision, Method: t.Payment.Method, CatalogSnapshotID: t.Catalog.SnapshotID, CatalogExpiresAt: t.Catalog.ValidUntil, ShippingReference: t.Shipping.QuoteReference, ShippingExpiresAt: t.Shipping.ValidUntil, ExpiresAt: expiry, Subtotal: t.Money.Subtotal, Shipping: t.Money.ShippingFee, Final: t.Money.FinalAmount, Address: domain.Address{Name: t.Address.RecipientName, Phone: t.Address.PhoneE164, Street: t.Address.Street, Ward: t.Address.WardCode, Province: t.Address.ProvinceCode}, Items: []domain.Item{}}
+	q := domain.Quote{ID: t.Provenance.QuoteID, Revision: t.Provenance.CartRevision, Method: t.Payment.Method, CatalogSnapshotID: t.Catalog.SnapshotID, CatalogExpiresAt: t.Catalog.ValidUntil, ShippingReference: t.Shipping.QuoteReference, ShippingExpiresAt: t.Shipping.ValidUntil, ExpiresAt: expiry, Subtotal: t.Money.Subtotal, Shipping: t.Money.ShippingFee, Final: t.Money.FinalAmount, Address: domain.Address{Name: t.Address.RecipientName, Phone: t.Address.PhoneE164, Street: t.Address.Street, Ward: t.Address.WardCode, WardName: t.Address.WardName, Province: t.Address.ProvinceCode, ProvinceName: t.Address.ProvinceName}, Items: []domain.Item{}}
 	for _, i := range t.Items {
 		q.Items = append(q.Items, domain.Item{SKU: i.SKU, Name: i.Name, Quantity: int(i.Quantity), UnitPrice: i.UnitPrice, Weight: i.WeightGrams})
 	}
@@ -80,9 +80,13 @@ func (s *Service) CustomerOrder(o domain.Order, p domain.Principal, detail bool)
 			out["compensation_status"] = "SUCCEEDED"
 		}
 	}
-	if detail && o.CoreSnapshot != nil {
+	// Emit the snapshot whenever the caller loaded one: detail reads load it
+	// directly, and the customer list handler re-reads each item with its
+	// snapshot so list previews match the detail. A core snapshot is projected
+	// to the frozen customer quote; a legacy quote passes through as stored.
+	if o.CoreSnapshot != nil {
 		out["snapshot"] = frozenCustomerQuote(*o.CoreSnapshot)
-	} else {
+	} else if o.Snapshot == nil {
 		delete(out, "snapshot")
 	}
 	return out
