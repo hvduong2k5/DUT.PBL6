@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package omamx.traceability.v1;
+
+option go_package = "github.com/omamx/proto/traceability/v1;traceabilityv1";
+
+service BatchSource {
+  rpc GetTraceabilityBatch(BatchRequest) returns (BatchSnapshot);
+}
+
+message BatchRequest {
+  string batch_id = 1;
+  string sku_code = 2;
+}
+
+message BatchSnapshot {
+  string batch_id = 1;
+  string sku_code = 2;
+  string batch_code = 3;
+  string production_date = 4;
+  string expiry_date = 5;
+  bool restricted = 6;
+  bool depleted = 7;
+  int64 batch_version = 8;
+}
