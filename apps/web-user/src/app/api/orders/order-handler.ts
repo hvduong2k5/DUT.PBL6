@@ -6,7 +6,9 @@ import {
   type PublicErrorBody
 } from "@/lib/api-contract";
 import { authorizeCustomerCapability, requireCustomerSession, customerAccessFailure } from "@/lib/auth/customer-access-server";
-import { applyTrustedAuthorization, getTrustedAccessToken } from "@/lib/auth/server-credential";
+import { credentialHeaders } from "@/lib/auth/server-credential";
+import { withCustomerAuth } from "@/lib/auth/customer-auth";
+import { customerCommerceUpstreamUrl } from "@/lib/upstream";
 import { MVP_FEATURE_GATES } from "@/lib/mvp-feature-gates";
 import { GUEST_ORDER_ACCESS_COOKIE, decodeGuestOrderAccess, encodeGuestOrderAccess } from "@/lib/orders/guest-access";
 import { isOrderCancellation, isOrderTrackingResponse, isOwnedOrder, isOwnedOrdersResponse } from "@/lib/orders/mvp";
@@ -40,14 +42,14 @@ async function readJson(request: NextRequest): Promise<unknown> {
 }
 
 function upstreamHeaders(
-  request: NextRequest,
+  credential: string | undefined,
   scenario?: string,
   hasBody = false,
   idempotencyKey?: string,
   ifMatch?: string
 ) {
   const headers = new Headers({ Accept: "application/vnd.omama.customer-mvp+json, application/json" });
-  applyTrustedAuthorization(headers, request);
+  credentialHeaders(headers, credential);
   if (hasBody) headers.set("Content-Type", "application/json");
   if (idempotencyKey) headers.set("Idempotency-Key", idempotencyKey);
   if (ifMatch) headers.set("If-Match", ifMatch);
@@ -57,6 +59,7 @@ function upstreamHeaders(
 
 async function upstream(
   request: NextRequest,
+  credential: string | undefined,
   path: string,
   method: string,
   scenario?: string,
@@ -64,10 +67,10 @@ async function upstream(
   idempotencyKey?: string,
   ifMatch?: string
 ) {
-  const base = (process.env.CUSTOMER_CORE_UPSTREAM_URL ?? "http://127.0.0.1:4010/api/v1").replace(/\/$/u, "");
+  const base = customerCommerceUpstreamUrl();
   const response = await fetch(`${base}/${path}`, {
     method,
-    headers: upstreamHeaders(request, scenario, body !== undefined, idempotencyKey, ifMatch),
+    headers: upstreamHeaders(credential, scenario, body !== undefined, idempotencyKey, ifMatch),
     body: body === undefined ? undefined : JSON.stringify(body),
     cache: "no-store",
     redirect: "manual"
@@ -77,11 +80,11 @@ async function upstream(
   return { response, payload };
 }
 
-async function extensionUpstream(request: NextRequest, path: string, scenario?: string, body?: unknown) {
+async function extensionUpstream(request: NextRequest, credential: string | undefined, path: string, scenario?: string, body?: unknown) {
   const base = (process.env.CUSTOMER_EXTENSIONS_UPSTREAM_URL ?? "http://127.0.0.1:4020/api/v1").replace(/\/$/u, "");
   const response = await fetch(`${base}/${path}`, {
     method: "POST",
-    headers: upstreamHeaders(request, scenario, body !== undefined),
+    headers: upstreamHeaders(credential, scenario, body !== undefined),
     body: body === undefined ? undefined : JSON.stringify(body),
     cache: "no-store",
     redirect: "manual"
@@ -126,6 +129,10 @@ function positiveInteger(value: unknown): number | undefined {
 }
 
 export async function handleOrderRequest(request: NextRequest, path: string[]): Promise<NextResponse> {
+  return withCustomerAuth(request, (credential) => handleOrderRequestWithCredential(request, path, credential)) as Promise<NextResponse>;
+}
+
+async function handleOrderRequestWithCredential(request: NextRequest, path: string[], credential: string | undefined): Promise<NextResponse> {
   const route = parseOrderRoute(request.method, path, request.nextUrl.searchParams);
   if (route.error || !route.operation) {
     const notFound = route.error?.field === "path";
@@ -149,21 +156,20 @@ export async function handleOrderRequest(request: NextRequest, path: string[]): 
     return publicErrorResponse(403, "FEATURE_NOT_ENABLED", "Guest Order chưa được bật trong MVP contract hiện tại.", "BFF-ORDER-GUEST-GATE");
   }
 
-  const accessToken = getTrustedAccessToken(request);
-  if (isGuestExtension && accessToken) {
-    try { await requireCustomerSession(accessToken); }
+  if (isGuestExtension && credential) {
+    try { await requireCustomerSession(credential); }
     catch (cause) { const failure = customerAccessFailure(cause); return publicErrorResponse(failure.status, failure.code, failure.message, "BFF-ORDER-ACCESS"); }
   }
   const guestAccess = guestExtensionEnabled()
     ? decodeGuestOrderAccess(request.cookies.get(GUEST_ORDER_ACCESS_COOKIE)?.value)
     : undefined;
   const isGatedGuestDetail = route.operation === "detail"
-    && !accessToken
+    && !credential
     && guestAccess?.orderId === route.orderId;
 
   if (!isGuestExtension && !isGatedGuestDetail) {
     try {
-      await authorizeCustomerCapability(accessToken, "ORDER_HISTORY_VIEW");
+      await authorizeCustomerCapability(credential, "ORDER_HISTORY_VIEW");
     } catch (cause) {
       const failure = customerAccessFailure(cause);
       return publicErrorResponse(failure.status, failure.code, failure.message, "BFF-ORDER-ACCESS");
@@ -174,7 +180,7 @@ export async function handleOrderRequest(request: NextRequest, path: string[]): 
     if (route.operation === "guest-challenge") {
       const parsed = validateGuestChallenge(await readJson(request));
       if (!parsed.data) return publicErrorResponse(422, "VALIDATION_ERROR", "Thông tin tra cứu chưa hợp lệ.", "BFF-ORDER-GUEST", { errors: parsed.errors });
-      const result = await extensionUpstream(request, "orders/guest-access/challenges", route.mockScenario, parsed.data);
+      const result = await extensionUpstream(request, credential, "orders/guest-access/challenges", route.mockScenario, parsed.data);
       if (!result.response.ok) return relayError(result.payload, result.response);
       if (!isRecord(result.payload)) return publicErrorResponse(502, "INVALID_GUEST_CHALLENGE", "Guest challenge không đúng contract mở rộng.", "BFF-ORDER-GUEST");
       const challengeId = text(result.payload.challengeId);
@@ -197,7 +203,7 @@ export async function handleOrderRequest(request: NextRequest, path: string[]): 
     if (route.operation === "guest-verify" && route.challengeId) {
       const parsed = validateGuestOtp(await readJson(request));
       if (!parsed.data) return publicErrorResponse(422, "VALIDATION_ERROR", "Mã xác minh chưa hợp lệ.", "BFF-ORDER-GUEST", { errors: parsed.errors });
-      const result = await extensionUpstream(request, `orders/guest-access/challenges/${encodeURIComponent(route.challengeId)}/verify`, route.mockScenario, parsed.data);
+      const result = await extensionUpstream(request, credential, `orders/guest-access/challenges/${encodeURIComponent(route.challengeId)}/verify`, route.mockScenario, parsed.data);
       if (!result.response.ok) return relayError(result.payload, result.response);
       if (!isRecord(result.payload)) return publicErrorResponse(502, "GUEST_ACCESS_INVALID", "Phản hồi xác minh Guest Order không hợp lệ.", "BFF-ORDER-GUEST");
       const orderId = text(result.payload.orderId);
@@ -224,7 +230,7 @@ export async function handleOrderRequest(request: NextRequest, path: string[]): 
       const query = new URLSearchParams({ limit: String(route.listQuery?.limit ?? 20) });
       if (route.listQuery?.status) query.set("status", route.listQuery.status);
       if (route.listQuery?.cursor) query.set("cursor", route.listQuery.cursor);
-      const result = await upstream(request, `orders?${query}`, "GET", route.mockScenario);
+      const result = await upstream(request, credential, `orders?${query}`, "GET", route.mockScenario);
       if (!result.response.ok) return relayError(result.payload, result.response);
       if (result.response.status !== 200 || !isOwnedOrdersResponse(result.payload)) {
         return publicErrorResponse(502, "INVALID_ORDERS_RESPONSE", "Danh sách Order không đúng public contract.", "BFF-ORDER-LIST");
@@ -233,7 +239,7 @@ export async function handleOrderRequest(request: NextRequest, path: string[]): 
     }
 
     if (route.operation === "detail" && route.orderId) {
-      const result = await upstream(request, `orders/${encodeURIComponent(route.orderId)}`, "GET", route.mockScenario);
+      const result = await upstream(request, credential, `orders/${encodeURIComponent(route.orderId)}`, "GET", route.mockScenario);
       if (!result.response.ok) return relayError(result.payload, result.response);
       if (result.response.status !== 200 || !isOwnedOrder(result.payload) || result.payload.order_id !== route.orderId) {
         return publicErrorResponse(502, "INVALID_ORDER_RESPONSE", "Order detail không đúng public contract.", "BFF-ORDER-DETAIL");
@@ -242,7 +248,7 @@ export async function handleOrderRequest(request: NextRequest, path: string[]): 
     }
 
     if (route.operation === "tracking" && route.orderId) {
-      const result = await upstream(request, `orders/${encodeURIComponent(route.orderId)}/tracking`, "GET", route.mockScenario);
+      const result = await upstream(request, credential, `orders/${encodeURIComponent(route.orderId)}/tracking`, "GET", route.mockScenario);
       if (!result.response.ok) return relayError(result.payload, result.response);
       if (result.response.status !== 200 || !isOrderTrackingResponse(result.payload)) {
         return publicErrorResponse(502, "INVALID_TRACKING_RESPONSE", "Order tracking không đúng public contract.", "BFF-ORDER-TRACKING");
@@ -263,6 +269,7 @@ export async function handleOrderRequest(request: NextRequest, path: string[]): 
       if (!parsed.data) return publicErrorResponse(400, "INVALID_REQUEST", "Yêu cầu hủy Order chưa hợp lệ.", "BFF-ORDER-CANCEL", { errors: parsed.errors });
       const result = await upstream(
         request,
+        credential,
         `orders/${encodeURIComponent(route.orderId)}/cancel`,
         "POST",
         route.mockScenario,

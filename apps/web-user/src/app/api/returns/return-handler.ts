@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { customerAccessFailure, requireCustomerSession } from "@/lib/auth/customer-access-server";
 import { credentialHeaders } from "@/lib/auth/server-credential";
 import { withCustomerAuth } from "@/lib/auth/customer-auth";
+import { customerCommerceUpstreamUrl } from "@/lib/upstream";
 import type { CustomerCoreOrderDetail } from "@/lib/orders/customer-core";
 import {
   mapCustomerCoreReturnCreated,
@@ -24,7 +25,7 @@ async function readJson(request: NextRequest): Promise<unknown> {
 }
 
 async function upstream(request: NextRequest, credential: string | undefined, path: string, method: string, scenario?: string, body?: unknown, idempotencyKey?: string) {
-  const base = (process.env.CUSTOMER_CORE_UPSTREAM_URL ?? "http://127.0.0.1:4010/api/v1").replace(/\/$/u, "");
+  const base = customerCommerceUpstreamUrl();
   const headers = new Headers({ Accept: "application/json" });
   credentialHeaders(headers, credential);
   if (body !== undefined) headers.set("Content-Type", "application/json");
