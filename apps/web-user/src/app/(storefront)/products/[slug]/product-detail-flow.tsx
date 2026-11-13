@@ -47,6 +47,7 @@ export function ProductDetailFlow({ slug }: { slug: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<{ status?: number; message: string }>();
   const [selectionMessage, setSelectionMessage] = useState("");
+  const [selectionErrorCode, setSelectionErrorCode] = useState("");
   const [quantity, setQuantity] = useState(1);
   const [addingToCart, setAddingToCart] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
@@ -110,6 +111,7 @@ export function ProductDetailFlow({ slug }: { slug: string }) {
     setAddingToCart(true);
     setAddedToCart(false);
     setSelectionMessage("");
+    setSelectionErrorCode("");
     try {
       const cart = await cartService.addItem({ skuId: selectedSku.skuId, quantity }, scenario);
       recommendation.record(selectedSku.skuId, "ADD_TO_CART");
@@ -118,6 +120,7 @@ export function ProductDetailFlow({ slug }: { slug: string }) {
       setSelectionMessage(`Đã thêm ${quantity} × ${selectedSku.label} vào giỏ. Giỏ hiện có ${cart.itemCount} sản phẩm.`);
     } catch (cause) {
       setSelectionMessage(cause instanceof PublicApiError ? cause.message : "Không thể thêm vào giỏ hàng lúc này.");
+      setSelectionErrorCode(cause instanceof PublicApiError ? cause.code : "");
     } finally {
       setAddingToCart(false);
     }
@@ -198,7 +201,7 @@ export function ProductDetailFlow({ slug }: { slug: string }) {
             </div>
             <button className="cart-integration-button" type="button" disabled={!hasAvailableSku || addingToCart} onClick={addToCart}>{!hasAvailableSku ? "Tạm thời không thể mua" : addingToCart ? "Đang thêm vào giỏ…" : selectedSku ? "Thêm vào giỏ hàng" : "Chọn SKU để tiếp tục"}</button>
           </div>
-          {selectionMessage ? <div id="sku-message" className={addedToCart ? "integration-note" : "selection-error"} role={addedToCart ? "status" : "alert"}><p>{selectionMessage}</p>{addedToCart ? <Link href="/cart">Xem giỏ hàng →</Link> : null}</div> : <p id="sku-message" className="integration-caption">Giỏ hàng không giữ tồn hoặc cố định giá; hệ thống sẽ kiểm tra lại khi mở cart.</p>}</>}
+          {selectionMessage ? <div id="sku-message" className={addedToCart ? "integration-note" : "selection-error"} role={addedToCart ? "status" : "alert"}><p>{selectionMessage}</p>{selectionErrorCode === "ACCOUNT_ACTIVATION_REQUIRED" ? <Link href="/account/profile">Hoàn thiện hồ sơ →</Link> : addedToCart ? <Link href="/cart">Xem giỏ hàng →</Link> : null}</div> : <p id="sku-message" className="integration-caption">Giỏ hàng không giữ tồn hoặc cố định giá; hệ thống sẽ kiểm tra lại khi mở cart.</p>}</>}
         </div>
       </section>
 
