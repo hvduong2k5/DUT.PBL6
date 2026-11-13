@@ -71,9 +71,20 @@ export interface AdminSession {
 }
 export type EmployeeSession = AdminSession;
 
+/**
+ * IAM grants whose names differ from the web admin vocabulary. The identity
+ * service authorises the administration surfaces with USER_VIEW, while the
+ * employee pages and the Access Review action were drafted against
+ * EMPLOYEE_ACCOUNT_VIEW / ACCESS_REVIEW_VIEW. Expansion happens here, at the
+ * single session projection point, so every consumer sees the same session.
+ */
+const IAM_GRANT_ALIASES: Record<string, string[]> = {
+  USER_VIEW: ["USER_VIEW", "EMPLOYEE_ACCOUNT_VIEW", "ACCESS_REVIEW_VIEW"],
+};
+
 export function toEmployeeSession(profile: IdentityProfile): EmployeeSession | undefined {
   if (profile.principalType !== "EMPLOYEE") return undefined;
-  const permissions = profile.permissions.filter((item): item is EmployeePermission => ADMIN_PERMISSIONS.includes(item as EmployeePermission));
+  const permissions = profile.permissions.flatMap((item) => IAM_GRANT_ALIASES[item] ?? [item]).filter((item): item is EmployeePermission => ADMIN_PERMISSIONS.includes(item as EmployeePermission));
   const global = profile.roles.some((role) => role.scopeType === "GLOBAL" || !role.scopeType);
   const resources = new Set<string>();
   for (const permission of permissions) {
