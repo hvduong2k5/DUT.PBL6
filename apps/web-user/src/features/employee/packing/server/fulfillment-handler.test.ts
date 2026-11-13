@@ -76,6 +76,7 @@ describe("Fulfillment OIDC BFF", () => {
     vi.stubEnv("WEB_AUTH_MODE", "oidc"); vi.stubEnv("WEB_PUBLIC_URL", base);
     vi.stubEnv("WEB_OIDC_ALLOW_LOCAL_HTTP", "true");
     vi.stubEnv("CUSTOMER_CORE_UPSTREAM_URL", "http://identity.test/api/v1/customer-api");
+    vi.stubEnv("IDENTITY_UPSTREAM_URL", "http://identity.test/api/v1");
     vi.stubEnv("NEXT_PUBLIC_API_URL", "http://gateway.test/api/v1");
   }
   it("ignores a browser bearer <redacted> without the trusted token cookie", async () => {
@@ -93,7 +94,7 @@ describe("Fulfillment OIDC BFF", () => {
     expect(response.status).toBe(200);
     expect(fetcher).toHaveBeenCalledTimes(2);
     const [sessionUrl] = fetcher.mock.calls[0];
-    expect(sessionUrl).toBe("http://identity.test/api/v1/customer-api/users/me");
+    expect(sessionUrl).toBe("http://identity.test/api/v1/users/me");
     const [url, init] = fetcher.mock.calls[1];
     expect(url).toBe("http://gateway.test/api/v1/admin/fulfillment/tasks");
     expect(init.headers.get("authorization")).toBe("Bearer staff-token");
