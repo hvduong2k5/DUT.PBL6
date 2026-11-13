@@ -5,6 +5,14 @@ _transform: true
 # 1. UPSTREAMS & SERVICES (18 MICROSERVICES ROUTING TABLE)
 # ==============================================================================
 services:
+  - name: inventory-admin-service
+    url: http://inventory-svc:8003
+    routes:
+      - name: inventory-receipts
+        paths: [/api/v1/admin/inventory/workbench/receipts]
+        strip_path: false
+        methods: [POST, OPTIONS]
+
   # Fulfillment verifies the signed JWT and scoped grants locally.
   - name: fulfillment-service
     url: http://fulfillment-service:8002

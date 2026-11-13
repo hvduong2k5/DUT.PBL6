@@ -4832,6 +4832,7 @@ paths:
       summary: Idempotent stock receipt command for US-INV-02. The real Inventory
         service validates SKU, Batch identity and source reference before updating
         balances.
+      description: Requires INVENTORY_RECEIPT_CREATE with GLOBAL scope or WAREHOUSE scope matching the SKU.
       x-lifecycle: stable
       x-backlog:
       - EPIC_09
@@ -4844,7 +4845,6 @@ paths:
       x-test-latency-ms: 1200
       security:
       - bearerAuth: []
-      - adminSession: []
       responses:
         '200':
           description: Successful response.
@@ -4916,36 +4916,46 @@ paths:
           application/json:
             schema:
               type: object
-              required:
-              - skuId
-              - batchCode
-              - quantity
-              - reasonCode
-              - expectedRevision
-              - idempotencyKey
+              required: [skuId, quantity, expectedRevision]
               properties:
-                skuId:
-                  type: string
-                batchCode:
-                  type: string
-                quantity:
-                  type: integer
-                reasonCode:
-                  type: string
-                expectedRevision:
-                  type: integer
-                idempotencyKey:
-                  type: string
+                skuId: {type: string, minLength: 1, maxLength: 50}
+                batchMode: {type: string, enum: [NEW, EXISTING]}
+                batchId: {type: string, format: uuid}
+                batchCode: {type: string, minLength: 1, maxLength: 100}
+                supplierId: {type: string, format: uuid}
+                manufacturingDate: {type: string, format: date}
+                expiresAt: {type: string, format: date}
+                quantity: {type: integer, minimum: 1, maximum: 2147483647}
+                sourceReference: {type: string, minLength: 1, maxLength: 160}
+                reasonCode: {type: string, maxLength: 80}
+                expectedRevision: {type: integer, minimum: 0}
+                idempotencyKey: {type: string, description: Must match the header if supplied.}
               additionalProperties: false
+              oneOf:
+                - required: [batchMode, batchId, sourceReference]
+                  properties:
+                    batchMode: {const: EXISTING}
+                - required: [batchMode, batchCode, supplierId, manufacturingDate, expiresAt, sourceReference]
+                  properties:
+                    batchMode: {const: NEW}
+                - required: [batchCode, reasonCode, idempotencyKey]
+                  properties:
+                    batchMode: false
             example:
-              skuId: SKU-MX-GION-500G
+              skuId: MX-GION-500G
+              batchMode: NEW
               batchCode: LOT-20261005-01
+              supplierId: b2222222-2222-2222-2222-222222222222
+              manufacturingDate: '2026-10-05'
+              expiresAt: '2027-03-05'
               quantity: 100
-              reasonCode: PRODUCTION_RECEIPT
+              sourceReference: PRODUCTION-20261005-01
               expectedRevision: 8
-              idempotencyKey: 45e011ce-c117-4644-99f9-b4f5a9873581
       parameters:
-      - $ref: '#/components/parameters/IdempotencyKey'
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema: {type: string, minLength: 16, maxLength: 128}
   /api/v1/admin/orders:
     get:
       tags:
