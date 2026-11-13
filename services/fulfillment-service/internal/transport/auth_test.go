@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"github.com/golang-jwt/jwt/v5"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -127,5 +128,51 @@ func TestInternalReadCredentialIsSeparateFromStaff(t *testing.T) {
 	}
 	if _, e = auth.Verify("Bearer "+strings.Repeat("o", 40), "omama-api"); e == nil {
 		t.Fatal("internal credential entered staff API")
+	}
+}
+
+func TestStaffRoutesSeparateAuthenticationFromAuthorization(t *testing.T) {
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const issuer = "https://issuer.example"
+	const prefix = "/api/v1/admin/fulfillment"
+	claims := Claims{
+		UserID:           "e5f9ea69-bdc3-4ee7-9076-96c327335410",
+		PermissionGrants: []string{"ORDER_VIEW#GLOBAL"},
+		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer: issuer, Subject: "employee", Audience: jwt.ClaimStrings{"omama-api"},
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute)),
+		},
+	}
+	header := "Bearer " + signClaims(t, key, claims)
+	router := (HTTP{Auth: Auth{Key: &key.PublicKey, Issuer: issuer}}).Router()
+	routes := []struct{ method, path string }{
+		{"GET", "/tasks"}, {"GET", "/tasks/id"}, {"GET", "/tasks/id/history"},
+		{"POST", "/tasks/id/assignments"}, {"POST", "/tasks/id/start"}, {"POST", "/tasks/id/unassign"},
+		{"PUT", "/tasks/id/picks/allocation"}, {"PUT", "/tasks/id/checklist/item"},
+		{"POST", "/tasks/id/blocks"}, {"POST", "/tasks/id/blocks/block/resolve"},
+		{"POST", "/tasks/id/seal"}, {"POST", "/tasks/id/reopen"}, {"POST", "/tasks/id/media-sessions"},
+		{"POST", "/media/file/complete"}, {"GET", "/media/file"}, {"POST", "/media/file/access"},
+		{"GET", "/commands/key"},
+	}
+	for _, route := range routes {
+		t.Run(route.method+" "+route.path, func(t *testing.T) {
+			for _, test := range []struct {
+				token  string
+				status int
+			}{
+				{"", 401}, {"Bearer invalid", 401}, {header, 403},
+			} {
+				request := httptest.NewRequest(route.method, prefix+route.path, nil)
+				request.Header.Set("Authorization", test.token)
+				recorder := httptest.NewRecorder()
+				router.ServeHTTP(recorder, request)
+				if recorder.Code != test.status {
+					t.Fatalf("got %d, want %d: %s", recorder.Code, test.status, recorder.Body)
+				}
+			}
+		})
 	}
 }
