@@ -13,7 +13,11 @@ export async function identitySession(accessToken: string) {
   const claims = owner ? undefined : await verifiedAccess(accessToken);
   const base = (process.env.CUSTOMER_CORE_UPSTREAM_URL ?? (owner ? identityBase()+"/customer-api" : undefined))?.replace(/\/$/u, "");
   if (!base) throw new IdentitySessionError(503, "IDENTITY_UNAVAILABLE");
-  const read = async (path: string) => fetch(`${owner && path === "/users/me" ? identityBase() : base}${path}`, { headers: credentialHeaders(new Headers({ Accept: "application/json" }), accessToken), cache: "no-store", redirect: "error", signal: AbortSignal.timeout(10000) });
+  // The customer-api proxy only serves CUSTOMER principals (it 403s employees),
+  // so an employee profile must be read from identity itself - the same route
+  // owner (identity-bff) mode has always used for /users/me.
+  const meBase = owner || claims?.principal_type === "EMPLOYEE" ? identityBase() : base;
+  const read = async (path: string) => fetch(`${path === "/users/me" ? meBase : base}${path}`, { headers: credentialHeaders(new Headers({ Accept: "application/json" }), accessToken), cache: "no-store", redirect: "error", signal: AbortSignal.timeout(10000) });
   const response = await read("/users/me");
   if (response.status === 401) throw new IdentitySessionError(401, "AUTH_REQUIRED");
   if (response.status === 403 || response.status === 404) throw new IdentitySessionError(403, "PRINCIPAL_FORBIDDEN");
