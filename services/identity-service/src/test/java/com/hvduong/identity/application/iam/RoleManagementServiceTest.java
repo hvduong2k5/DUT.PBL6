@@ -10,6 +10,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.UUID;
@@ -87,7 +88,7 @@ class RoleManagementServiceTest {
         row.setRoleCode("STORE_STAFF");
         row.setIsProtected(false);
 
-        when(roleMapper.findById(roleId)).thenReturn(row);
+        when(roleMapper.findUnarchivedById(roleId)).thenReturn(row);
 
         IamRolePermissionRow p = new IamRolePermissionRow();
         p.setRoleId(roleId);
@@ -104,7 +105,7 @@ class RoleManagementServiceTest {
     @Test
     void getRoleById_NotFound_ThrowsException() {
         UUID roleId = UUID.randomUUID();
-        when(roleMapper.findById(roleId)).thenReturn(null);
+        when(roleMapper.findUnarchivedById(roleId)).thenReturn(null);
 
         assertThrows(NoSuchElementException.class, () -> service.getRoleById(roleId));
     }
@@ -146,7 +147,7 @@ class RoleManagementServiceTest {
         row.setVersion(1L);
         row.setIsEnabled(true);
 
-        when(roleMapper.findByIdIncludeDisabled(roleId)).thenReturn(row);
+        when(roleMapper.findByIdForUpdate(roleId)).thenReturn(row);
         when(roleMapper.updateDetails(eq(roleId), any(), any(), any(), any(), eq(1L))).thenReturn(1);
 
         UpdateRoleRequest dto = new UpdateRoleRequest();
@@ -177,9 +178,9 @@ class RoleManagementServiceTest {
         assignment.setPrincipalId(principalId);
         assignment.setRoleId(roleId);
 
-        when(roleMapper.findByIdIncludeDisabled(roleId)).thenReturn(row);
+        when(roleMapper.findByIdForUpdate(roleId)).thenReturn(row);
         when(roleAssignmentMapper.findActiveByRoleId(eq(roleId), any())).thenReturn(List.of(assignment));
-        when(roleMapper.softDeleteById(eq(roleId), eq(actorId), eq(2L))).thenReturn(1);
+        when(roleMapper.updateDetails(roleId, null, null, false, actorId, 2L)).thenReturn(1);
 
         UpdateRoleRequest dto = new UpdateRoleRequest();
         dto.setIsEnabled(false);
@@ -201,7 +202,7 @@ class RoleManagementServiceTest {
         row.setIsProtected(true);
         row.setIsEnabled(true);
 
-        when(roleMapper.findByIdIncludeDisabled(roleId)).thenReturn(row);
+        when(roleMapper.findByIdForUpdate(roleId)).thenReturn(row);
 
         assertThrows(IllegalStateException.class, () -> service.deleteRole(roleId, UUID.randomUUID()));
     }
@@ -215,7 +216,7 @@ class RoleManagementServiceTest {
         row.setIsProtected(false);
         row.setIsEnabled(true);
 
-        when(roleMapper.findByIdIncludeDisabled(roleId)).thenReturn(row);
+        when(roleMapper.findByIdForUpdate(roleId)).thenReturn(row);
         when(roleAssignmentMapper.countActiveByRoleId(eq(roleId), any())).thenReturn(5);
 
         assertThrows(IllegalStateException.class, () -> service.deleteRole(roleId, UUID.randomUUID()));
@@ -231,7 +232,7 @@ class RoleManagementServiceTest {
         row.setIsEnabled(true);
         row.setVersion(0L);
 
-        when(roleMapper.findByIdIncludeDisabled(roleId)).thenReturn(row);
+        when(roleMapper.findByIdForUpdate(roleId)).thenReturn(row);
         when(roleAssignmentMapper.countActiveByRoleId(eq(roleId), any())).thenReturn(0);
         when(roleAssignmentMapper.countAllByRoleId(roleId)).thenReturn(0);
 
@@ -250,10 +251,10 @@ class RoleManagementServiceTest {
         row.setRoleId(roleId);
         row.setRoleCode("OLD_STAFF");
         row.setIsProtected(false);
-        row.setIsEnabled(true);
+        row.setIsEnabled(false);
         row.setVersion(2L);
 
-        when(roleMapper.findByIdIncludeDisabled(roleId)).thenReturn(row);
+        when(roleMapper.findByIdForUpdate(roleId)).thenReturn(row);
         when(roleAssignmentMapper.countActiveByRoleId(eq(roleId), any())).thenReturn(0);
         when(roleAssignmentMapper.countAllByRoleId(roleId)).thenReturn(3);
         when(roleMapper.softDeleteById(eq(roleId), any(), eq(2L))).thenReturn(1);
@@ -275,7 +276,7 @@ class RoleManagementServiceTest {
         row.setIsEnabled(false);
         row.setVersion(1L);
 
-        when(roleMapper.findByIdIncludeDisabled(roleId)).thenReturn(row);
+        when(roleMapper.findByIdForUpdate(roleId)).thenReturn(row);
         when(roleAssignmentMapper.countActiveByRoleId(eq(roleId), any())).thenReturn(0);
         when(roleAssignmentMapper.countPendingByRoleId(eq(roleId), any())).thenReturn(0);
         when(roleAssignmentMapper.countAllByRoleId(roleId)).thenReturn(0);
@@ -297,7 +298,7 @@ class RoleManagementServiceTest {
         row.setIsProtected(false);
         row.setIsEnabled(true);
 
-        when(roleMapper.findByIdIncludeDisabled(roleId)).thenReturn(row);
+        when(roleMapper.findByIdForUpdate(roleId)).thenReturn(row);
         when(roleAssignmentMapper.countActiveByRoleId(eq(roleId), any())).thenReturn(0);
         when(roleAssignmentMapper.countPendingByRoleId(eq(roleId), any())).thenReturn(2);
 
@@ -307,18 +308,14 @@ class RoleManagementServiceTest {
     }
 
     @Test
-    void deleteRole_AlreadyDisabledWithHistory_ThrowsException() {
+    void deleteRole_AlreadyArchived_ThrowsException() {
         UUID roleId = UUID.randomUUID();
         IamRoleRow row = new IamRoleRow();
         row.setRoleId(roleId);
         row.setRoleCode("RETIRED_STAFF");
-        row.setIsProtected(false);
         row.setIsEnabled(false);
-
-        when(roleMapper.findByIdIncludeDisabled(roleId)).thenReturn(row);
-        when(roleAssignmentMapper.countActiveByRoleId(eq(roleId), any())).thenReturn(0);
-        when(roleAssignmentMapper.countPendingByRoleId(eq(roleId), any())).thenReturn(0);
-        when(roleAssignmentMapper.countAllByRoleId(roleId)).thenReturn(3);
+        row.setArchivedAt(OffsetDateTime.now());
+        when(roleMapper.findByIdForUpdate(roleId)).thenReturn(row);
 
         assertThrows(IllegalStateException.class, () -> service.deleteRole(roleId, UUID.randomUUID()));
         verify(roleMapper, never()).deleteById(any());
