@@ -11,8 +11,12 @@ export class EmployeeAuthorizationError extends Error {
   }
 }
 
+function identityBaseUrl(): string {
+  return (process.env.IDENTITY_UPSTREAM_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8016/api/v1").replace(/\/$/u, "");
+}
+
 async function identity(path: string, sessionCookie: string): Promise<Response> {
-  const base = (process.env.IDENTITY_UPSTREAM_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8016/api/v1").replace(/\/$/u, "");
+  const base = identityBaseUrl();
   try {
     return await fetch(`${base}${path}`, { headers: { Accept: "application/json", Cookie: `OMAMA_SESSION=${sessionCookie}` }, cache: "no-store", redirect: "manual" });
   } catch {
@@ -21,8 +25,9 @@ async function identity(path: string, sessionCookie: string): Promise<Response> 
 }
 
 async function identityProfileWithBearer(accessToken: string): Promise<Response> {
-  const base = (process.env.CUSTOMER_CORE_UPSTREAM_URL ?? "").replace(/\/$/u, "");
-  if (!base) throw new EmployeeAuthorizationError(503, "IDENTITY_UNAVAILABLE", "Chưa thể xác minh phiên nhân viên lúc này.");
+  // The profile must come from identity itself: the customer-api proxy only
+  // serves CUSTOMER principals and answers 403 for employees.
+  const base = identityBaseUrl();
   try {
     return await fetch(`${base}/users/me`, { headers: { Accept: "application/json", Authorization: `Bearer ${accessToken}` }, cache: "no-store", redirect: "manual" });
   } catch {
