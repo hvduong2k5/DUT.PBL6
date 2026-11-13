@@ -110,7 +110,9 @@ export interface OrderAddress {
   phone: string;
   street: string;
   ward_code: string;
+  ward_name?: string;
   province_code: string;
+  province_name?: string;
 }
 
 export interface CreateCheckoutQuoteRequest {
