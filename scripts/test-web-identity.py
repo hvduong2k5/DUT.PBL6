@@ -1328,6 +1328,12 @@ def main():
                 assert session["customer"]["status"] == "PENDING_VERIFICATION"
                 status, caps, _ = request(web + "/api/capabilities", opener=opener)
                 assert status == 200 and caps["capabilities"] == ["PROFILE_MANAGE"]
+                assert request(web + "/api/cart", opener=opener)[0] == 403
+                assert request(web + "/api/customer/addresses", opener=opener)[0] == 403
+                assert (
+                    request(gateway + "/api/v1/customer-api/cart", opener=opener)[0]
+                    == 403
+                ), "Direct Order API bypassed Customer verification"
                 status, profile, _ = request(
                     web + "/api/customer/profile", opener=opener
                 )
@@ -1345,19 +1351,17 @@ def main():
                     opener=opener,
                     headers={"Origin": web, "If-Match": f'"{profile["version"]}"'},
                 )
-                assert status == 200 and profile["status"] == "PENDING_VERIFICATION", (
-                    "onboarding",
+                assert status == 200 and profile["status"] == "ACTIVE", (
+                    "onboarding activation",
                     status,
                     profile,
                 )
-                assert request(web + "/api/cart", opener=opener)[0] == 403
-                assert request(web + "/api/customer/addresses", opener=opener)[0] == 403
-                assert (
-                    request(gateway + "/api/v1/customer-api/cart", opener=opener)[0]
-                    == 403
-                ), "Direct Order API bypassed Customer verification"
+                status, caps, _ = request(web + "/api/capabilities", opener=opener)
+                assert status == 200 and "CART_MANAGE" in caps["capabilities"]
+                assert request(web + "/api/cart", opener=opener)[0] == 200
+                assert request(web + "/api/customer/addresses", opener=opener)[0] == 200
                 print(
-                    "PASS: newly registered Customer can complete Profile; unverified purchase/address access remains blocked",
+                    "PASS: newly registered Customer is gated until Profile completion; saving a phone activates the account and unlocks purchase/address access",
                     flush=True,
                 )
                 continue
