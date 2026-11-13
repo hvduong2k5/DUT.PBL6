@@ -306,7 +306,7 @@ func TestHTTPJWTVersionAndPayloadIsolation(t *testing.T) {
 			grants = append(grants, permission+"#WAREHOUSE#"+warehouse)
 		}
 	}
-	claims := transport.Claims{UserID: p.ID, PermissionGrants: grants, RegisteredClaims: jwt.RegisteredClaims{Subject: p.ID, Issuer: "test-issuer", Audience: jwt.ClaimStrings{"fulfillment-api"}, ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour))}}
+	claims := transport.Claims{UserID: p.ID, PermissionGrants: grants, RegisteredClaims: jwt.RegisteredClaims{Subject: p.ID, Issuer: "test-issuer", Audience: jwt.ClaimStrings{"omama-api"}, ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour))}}
 	token, e := jwt.NewWithClaims(jwt.SigningMethodRS256, claims).SignedString(key)
 	if e != nil {
 		t.Fatal(e)

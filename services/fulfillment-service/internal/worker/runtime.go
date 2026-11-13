@@ -7,6 +7,7 @@ import (
 	"github.com/omamx/fulfillment-service/internal/application"
 	"github.com/omamx/fulfillment-service/internal/persistence"
 	"github.com/segmentio/kafka-go"
+	"log/slog"
 	"time"
 )
 
@@ -47,7 +48,12 @@ func (r *Runtime) Step(ctx context.Context) {
 			c, cancel := context.WithTimeout(ctx, 5*time.Second)
 			e = r.Kafka.WriteMessages(c, kafka.Message{Topic: v.Topic, Key: []byte(v.Key), Value: v.Payload})
 			cancel()
-			_ = r.Store.DeliveryResult(ctx, r.Owner, v, e == nil)
+			if e != nil {
+				slog.Warn("Fulfillment outbox publish failed", "event_id", v.ID, "topic", v.Topic, "error", e)
+			}
+			if resultErr := r.Store.DeliveryResult(ctx, r.Owner, v, e == nil); resultErr != nil {
+				slog.Error("Fulfillment outbox result was not saved", "event_id", v.ID, "error", resultErr)
+			}
 		}
 	}
 	if r.Media != nil && r.Media.Storage != nil && r.Media.Scanner != nil {
