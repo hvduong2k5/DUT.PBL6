@@ -80,6 +80,9 @@ export function toEmployeeSession(profile: IdentityProfile): EmployeeSession | u
   // catalog's IAM grants satisfy the catalog workspace's PRODUCT_* gates.
   if (granted.has("CATALOG_VIEW")) granted.add("PRODUCT_VIEW");
   if (granted.has("CATALOG_MANAGE")) granted.add("PRODUCT_MANAGE");
+  // identity authorises the administration surfaces with USER_VIEW; the
+  // employee pages and Access Review were drafted against the names below.
+  if (profile.permissions.includes("USER_VIEW")) { granted.add("EMPLOYEE_ACCOUNT_VIEW"); granted.add("ACCESS_REVIEW_VIEW"); }
   const permissions = [...granted];
   const global = profile.roles.some((role) => role.scopeType === "GLOBAL" || !role.scopeType);
   const resources = new Set<string>();

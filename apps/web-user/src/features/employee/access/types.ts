@@ -61,7 +61,7 @@ export interface EffectivePermission {
 
 export interface EmployeeAccessDetail extends EmployeeAccessSummary {
   profileReference: { employeeId: string; employeeCode: string; profileOwner: "EPIC_02" };
-  identity: { emailVerified: boolean; lastAuthenticatedAt: string | null; credentialReadable: false };
+  identity: { credentialReadable: false };
   lock: null | { effectiveAt: string; reason: string; decidedByLabel: string };
   roleAssignments: EmployeeRoleAssignment[];
   effectivePermissions: EffectivePermission[];
