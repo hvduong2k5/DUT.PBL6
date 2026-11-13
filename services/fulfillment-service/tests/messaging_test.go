@@ -166,3 +166,45 @@ func TestSLARecordedOnceWithoutChangingTask(t *testing.T) {
 		t.Fatal("SLA mutated task", e)
 	}
 }
+
+func TestOutboxQuarantinesRepeatedFailuresAndAllowsReplay(t *testing.T) {
+	s, _ := fixture(t)
+	ctx := context.Background()
+	id := uuid.NewString()
+	if _, err := pool.Exec(ctx, `INSERT INTO fulfillment.outbox
+		(event_id,stream_id,stream_version,ordinal,topic,partition_key,envelope,occurred_at,next_run_at)
+		VALUES ($1,$2,1,0,'audit.events.v1',$2,'{}',now()-interval '1 day',now())`, id, id); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 10; i++ {
+		delivery, found, err := s.ClaimDelivery(ctx, "outbox-test")
+		if err != nil || !found || delivery.ID != id {
+			t.Fatalf("claim %d: %v %v %s", i, err, found, delivery.ID)
+		}
+		if err = s.DeliveryResult(ctx, "outbox-test", delivery, false); err != nil {
+			t.Fatal(err)
+		}
+		if _, err = pool.Exec(ctx, "UPDATE fulfillment.outbox SET next_run_at=now() WHERE event_id=$1", id); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var dead bool
+	var attempts int
+	if err := pool.QueryRow(ctx, "SELECT dead_lettered_at IS NOT NULL,attempts FROM fulfillment.outbox WHERE event_id=$1", id).Scan(&dead, &attempts); err != nil || !dead || attempts != 10 {
+		t.Fatalf("dead-letter state: %v %d %v", dead, attempts, err)
+	}
+	if delivery, found, err := s.ClaimDelivery(ctx, "outbox-test"); err != nil || (found && delivery.ID == id) {
+		t.Fatalf("dead letter was eligible again: %v %v %s", err, found, delivery.ID)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE fulfillment.outbox SET dead_lettered_at=NULL,
+		last_error_code=NULL,consecutive_failures=0,next_run_at=now() WHERE event_id=$1`, id); err != nil {
+		t.Fatal(err)
+	}
+	delivery, found, err := s.ClaimDelivery(ctx, "outbox-test")
+	if err != nil || !found || delivery.ID != id {
+		t.Fatalf("replay: %v %v %s", err, found, delivery.ID)
+	}
+	if err := s.DeliveryResult(ctx, "outbox-test", delivery, true); err != nil {
+		t.Fatal(err)
+	}
+}
