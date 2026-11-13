@@ -1,2 +1,5 @@
 # Canonical newlines; original and normalized handoff hashes are both recorded.
 docs/03_api_specs/frontend-contracts/customer-* text eol=lf
+
+# Traceability embeds and hashes the migration bytes at runtime.
+services/traceability-service/migrations/*.sql text eol=lf

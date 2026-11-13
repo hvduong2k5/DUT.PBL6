@@ -1,6 +1,7 @@
 /coverage
 /coverage.out
 /*.test
+!/Dockerfile.test
 /.sandbox/
 *.jwt
 **/runtime-url.txt
