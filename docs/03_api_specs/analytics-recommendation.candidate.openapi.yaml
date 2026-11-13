@@ -1,0 +1,156 @@
+openapi: 3.1.0
+info:
+  title: MS-11 Product Recommendation API
+  version: 1.0.0
+  description: Three Storefront placements backed by owner-approved source snapshots and purpose-scoped customer history.
+servers:
+  - url: http://localhost:18112
+paths:
+  /api/v1/products/recommended:
+    get:
+      operationId: getProductRecommendations
+      description: product_detail requires productId. skuCode must belong to that product. cart accepts up to 20 repeated skuCodes. home uses current customer consent when a credential is supplied, otherwise approved fallback.
+      parameters:
+        - {name: placement, in: query, required: true, schema: {type: string, enum: [product_detail, cart, home]}}
+        - {name: productId, in: query, schema: {type: string, format: uuid}}
+        - {name: skuCode, in: query, schema: {$ref: '#/components/schemas/SkuCode'}}
+        - name: skuCodes
+          in: query
+          style: form
+          explode: true
+          schema: {type: array, maxItems: 20, items: {$ref: '#/components/schemas/SkuCode'}}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 6, default: 6}}
+      responses:
+        '200':
+          description: Ranked, currently eligible products, fallback or a verified empty set.
+          headers:
+            Cache-Control: {schema: {type: string, const: 'private, no-store'}}
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Recommendations'}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '429': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+  /api/v1/recommendations/consent:
+    get:
+      operationId: getRecommendationConsent
+      security: [{customerSession: []}, {bearerAuth: []}]
+      responses:
+        '200':
+          description: Current purpose consent, with a strong numeric ETag.
+          headers: {ETag: {schema: {type: string}}}
+          content: {application/json: {schema: {$ref: '#/components/schemas/Consent'}}}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+        '429': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+    put:
+      operationId: updateRecommendationConsent
+      security: [{customerSession: []}, {bearerAuth: []}]
+      description: Cookie-authenticated mutations require the configured Web Origin. The Web BFF additionally validates its double-submit CSRF cookie/header.
+      parameters:
+        - {name: If-Match, in: header, required: true, schema: {type: string, pattern: '^"[0-9]+"$'}}
+        - {name: Idempotency-Key, in: header, required: true, schema: {type: string, format: uuid}}
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: './analytics-recommendation.v1.schema.json#/$defs/ConsentWrite'}}}
+      responses:
+        '200':
+          description: New consent or current consent for an idempotent replay.
+          headers: {ETag: {schema: {type: string}}}
+          content: {application/json: {schema: {$ref: '#/components/schemas/Consent'}}}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+        '412': {$ref: '#/components/responses/Error'}
+        '428': {$ref: '#/components/responses/Error'}
+        '429': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+  /api/v1/recommendations/events:
+    post:
+      operationId: recordRecommendationBehavior
+      security: [{customerSession: []}, {bearerAuth: []}]
+      description: At most 4 KiB. Current customer and consent version are checked server-side. PURCHASE is owner-sourced and cannot be submitted here.
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: './analytics-recommendation.v1.schema.json#/$defs/Behavior'}}}
+      responses:
+        '202':
+          description: Event committed.
+          content: {application/json: {schema: {$ref: '#/components/schemas/EventResult'}}}
+        '200':
+          description: Identical event already committed.
+          content: {application/json: {schema: {$ref: '#/components/schemas/EventResult'}}}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+        '413': {$ref: '#/components/responses/Error'}
+        '415': {$ref: '#/components/responses/Error'}
+        '429': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+components:
+  securitySchemes:
+    customerSession: {type: apiKey, in: cookie, name: OMAMA_SESSION}
+    bearerAuth: {type: http, scheme: bearer, bearerFormat: JWT}
+  responses:
+    Error:
+      description: Stable error code and request trace. Retry-After is supplied for rate limiting.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [code, message, requestId]
+            properties:
+              code: {type: string}
+              message: {type: string}
+              requestId: {type: string}
+  schemas:
+    SkuCode: {type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$'}
+    Consent:
+      type: object
+      required: [enabled, consentVersion, policyVersion, grantedAt, revokedAt]
+      properties:
+        enabled: {type: boolean}
+        consentVersion: {type: integer, minimum: 0}
+        policyVersion: {type: string, const: personalization-v1}
+        grantedAt: {type: [string, 'null'], format: date-time}
+        revokedAt: {type: [string, 'null'], format: date-time}
+    EventResult:
+      type: object
+      required: [status]
+      properties: {status: {type: string, enum: [ACCEPTED, DUPLICATE]}}
+    Recommendations:
+      type: object
+      additionalProperties: false
+      required: [recommendationId, placement, scopeId, generationId, algorithmVersion, strategy, reasonCodes, asOf, items]
+      properties:
+        recommendationId: {type: string, format: uuid}
+        placement: {type: string, enum: [product_detail, cart, home]}
+        scopeId: {type: string}
+        generationId: {type: [string, 'null'], format: uuid}
+        algorithmVersion: {type: string}
+        strategy: {type: string, enum: [RELATED, BOUGHT_TOGETHER, PERSONALIZED, FALLBACK, EMPTY]}
+        reasonCodes: {type: array, items: {type: string}}
+        asOf: {type: string, format: date-time}
+        items:
+          type: array
+          maxItems: 6
+          items:
+            type: object
+            additionalProperties: false
+            required: [productId, skuCode, slug, name, thumbnailUrl, priceVnd, rank, algorithmVersion, reasonCode]
+            properties:
+              productId: {type: string, format: uuid}
+              skuCode: {$ref: '#/components/schemas/SkuCode'}
+              slug: {type: string}
+              name: {type: string}
+              thumbnailUrl: {type: string}
+              priceVnd: {type: integer, minimum: 1, maximum: 1000000000000}
+              rank: {type: integer, minimum: 1, maximum: 6}
+              algorithmVersion: {type: string}
+              reasonCode: {type: string}

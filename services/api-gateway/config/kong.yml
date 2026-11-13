@@ -72,6 +72,10 @@ services:
             config:
               minute: 10
               policy: local
+      - name: identity-staff-order-read
+        paths: [/api/v1/admin/order-api]
+        strip_path: false
+        methods: [GET]
 
   # ----------------------------------------------------------------------------
   # MS-15: PROFILE SERVICE (Profiles, Address Book, Staff)
@@ -120,11 +124,6 @@ services:
           - PUT
           - DELETE
           - OPTIONS
-        plugins:
-          - name: jwt
-            config:
-              claims_to_verify:
-                - exp
 
   # ----------------------------------------------------------------------------
   # MS-05: CATALOG SERVICE (Products, Categories, Search)
@@ -156,11 +155,6 @@ services:
           - DELETE
           - PATCH
           - OPTIONS
-        plugins:
-          - name: jwt
-            config:
-              claims_to_verify:
-                - exp
 
   # ----------------------------------------------------------------------------
   # MS-04: ORDER SERVICE (Cart sessions, Checkout Saga, Order Tracking)
@@ -204,49 +198,6 @@ services:
               policy: local
 
   # ----------------------------------------------------------------------------
-  # MS-07: PROMOTION SERVICE (Vouchers, Loyalty)
-  # ----------------------------------------------------------------------------
-  - name: promotion-service
-    url: http://promotion-service:8007
-    connect_timeout: 2000
-    read_timeout: 3000
-    write_timeout: 3000
-    retries: 1
-    routes:
-      - name: promotion-routes
-        paths:
-          - /api/v1/promotions
-          - /api/v1/vouchers
-        strip_path: false
-        methods:
-          - GET
-          - POST
-          - OPTIONS
-
-  # ----------------------------------------------------------------------------
-  # MS-13: CHANNEL SERVICE (Shopee / TikTok Shop Webhooks & POS Sync)
-  # ----------------------------------------------------------------------------
-  - name: channel-service
-    url: http://channel-service:8013
-    connect_timeout: 3000
-    read_timeout: 5000
-    write_timeout: 5000
-    retries: 1
-    routes:
-      - name: marketplace-webhooks
-        paths:
-          - /webhooks/marketplace
-        strip_path: false
-        methods:
-          - POST
-          - OPTIONS
-        plugins:
-          - name: rate-limiting
-            config:
-              minute: 1200
-              policy: local
-
-  # ----------------------------------------------------------------------------
   # PARTNER WEBHOOKS: VIETQR CALLBACK
   # ----------------------------------------------------------------------------
   - name: payment-webhook-handler
@@ -269,24 +220,6 @@ services:
               minute: 600
               policy: local
 
-  # ----------------------------------------------------------------------------
-  # MOBILE BFF: GRAPHQL ENDPOINT
-  # ----------------------------------------------------------------------------
-  - name: mobile-bff-service
-    url: http://mobile-bff:4000
-    connect_timeout: 2000
-    read_timeout: 5000
-    write_timeout: 5000
-    retries: 1
-    routes:
-      - name: mobile-graphql-route
-        paths:
-          - /graphql
-        strip_path: false
-        methods:
-          - POST
-          - OPTIONS
-
 # ==============================================================================
 # 2. GLOBAL PLUGINS (SECURITY, TRACING, METRICS, CORS)
 # ==============================================================================
@@ -295,7 +228,8 @@ plugins:
   - name: cors
     config:
       origins:
-        - "https://omama.vn"
+        - "https://omama.hvduong.qzz.io"
+        - "https://pbl.npanhbao.dev"
         - "http://localhost:3000"
       methods:
         - GET
@@ -359,14 +293,3 @@ plugins:
       latency_metrics: true
       bandwidth_metrics: true
       upstream_health_metrics: true
-
-# ==============================================================================
-# 3. CONSUMERS & AUTH CREDENTIALS (FOR LOCAL DEV & TESTING)
-# ==============================================================================
-consumers:
-  - username: omamx-test-customer
-    custom_id: "customer_001"
-    jwt_secrets:
-      - key: "omamx-identity-issuer"
-        secret: "omamx-secret-jwt-key-for-local-development-2026-very-secure"
-        algorithm: "HS256"

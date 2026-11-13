@@ -1,0 +1,285 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]: 🚚 Giao hàng chuẩn quốc bảo toàn quốc
+      - generic [ref=e5]: ✺ Di sản Ẩm thực Cung Đình Huế
+      - generic [ref=e6]: "⌖ Cửa hàng Cố Đô: 128 Lê Lợi, TP. Huế"
+      - strong [ref=e7]: ☎ 1900 68 Hue
+    - generic [ref=e8]:
+      - link "Ô Mạ - Trang chủ" [ref=e9] [cursor=pointer]:
+        - /url: /
+        - generic [aria-hidden] [ref=e10]: Ô
+        - generic [ref=e11]:
+          - strong [ref=e12]: Ô MẠ
+          - generic [ref=e13]: Tinh hoa bánh mứt Cố Đô
+      - search [ref=e14]:
+        - generic [ref=e15]: Tìm sản phẩm
+        - textbox "Tìm sản phẩm" [ref=e16]:
+          - /placeholder: Tìm mè xửng, hạt sen, trà…
+        - button "Tìm kiếm" [ref=e17] [cursor=pointer]: ⌕
+      - navigation "Điều hướng chính" [ref=e18]:
+        - link "Trang Chủ" [ref=e19] [cursor=pointer]:
+          - /url: /
+        - link "Bánh & Kẹo Cung Đình" [ref=e20] [cursor=pointer]:
+          - /url: /products?category=banh-cung-dinh
+        - link "Mè Xửng & Trà Sen" [ref=e21] [cursor=pointer]:
+          - /url: /products?category=me-xung-keo-hue
+        - link "Quà Biếu Tặng" [ref=e22] [cursor=pointer]:
+          - /url: /products?category=qua-bieu
+        - link "Câu Chuyện Huế" [ref=e23] [cursor=pointer]:
+          - /url: /#heritage-story
+        - link "Truy Xuất OCOP" [ref=e24] [cursor=pointer]:
+          - /url: /#ocop-traceability
+        - link "Ưu Đãi Tri Kỷ" [ref=e25] [cursor=pointer]:
+          - /url: /promotions
+      - link "Đăng nhập xem đơn" [ref=e26] [cursor=pointer]:
+        - /url: /login?returnUrl=%2Faccount%2Forders
+      - link "Mở giỏ hàng" [ref=e27] [cursor=pointer]:
+        - /url: /cart
+        - text: ♧
+        - generic [ref=e28]: Giỏ hàng
+      - link "Đăng nhập tài khoản Tri Kỷ" [ref=e29] [cursor=pointer]:
+        - /url: /login?returnUrl=%2Faccount%2Fprofile
+        - text: …
+  - main [ref=e30]:
+    - region "Lựa chọn gợi ý" [ref=e31]:
+      - generic [ref=e32]:
+        - checkbox "Cho phép đo hiệu quả gợi ý bằng Google Analytics." [ref=e33]
+        - text: Cho phép đo hiệu quả gợi ý bằng Google Analytics.
+    - generic [ref=e35]:
+      - generic [ref=e36]:
+        - generic [ref=e37]: ✺ Di sản Ẩm thực Hoàng Cung Triều Nguyễn
+        - heading [level=1] [ref=e38]:
+          - text: Tinh Hoa Bánh Mứt Cung Đình Huế
+          - emphasis [ref=e39]: Gói Trọn Hương Vị Kinh Kỳ
+        - paragraph [ref=e40]: Tái hiện chuẩn phong vị yến tiệc cung đình qua bàn tay nghệ nhân ba đời xứ Huế. Nguyên liệu thanh thuần từ sen hồ Tịnh Tâm, gừng cay Kim Long đượm nồng tình cố đô.
+        - generic [ref=e41]:
+          - link "Khám Phá Bộ Sưu Tập →" [ref=e42] [cursor=pointer]:
+            - /url: /products
+            - text: Khám Phá Bộ Sưu Tập
+            - generic [ref=e43]: →
+          - link "⌗ Truy Xuất Nguồn Gốc OCOP" [ref=e44] [cursor=pointer]:
+            - /url: "#ocop-traceability"
+        - generic [ref=e45]:
+          - generic [ref=e46]:
+            - term [ref=e47]: 100%
+            - definition [ref=e48]: Nguyên liệu tự nhiên
+          - generic [ref=e49]:
+            - term [ref=e50]: 3 Đời
+            - definition [ref=e51]: Nghệ nhân gia truyền
+          - generic [ref=e52]:
+            - term [ref=e53]: 4 Sao
+            - definition [ref=e54]: Chứng nhận OCOP Tỉnh
+      - article [ref=e55]:
+        - generic [ref=e56]:
+          - img "Hộp sơn mài Ngự Triều" [ref=e57]
+          - generic [ref=e58]: ★ Đặc Sản Tiến Vua
+        - generic [ref=e59]:
+          - heading "Hộp Sơn Mài Ngự Triều" [level=2] [ref=e60]
+          - generic [ref=e61]: 680.000đ
+        - paragraph [ref=e62]: "Bao gồm 4 vị tiến vua: Mè xửng bọc vàng, Bánh phục linh hoa sen, Trà ướp sen Tịnh Tâm & Mứt gừng tiến chúa."
+        - link "♧ Thưởng Thức Ngay" [ref=e63] [cursor=pointer]:
+          - /url: /products?category=qua-bieu
+    - generic [ref=e65]:
+      - generic [ref=e66]:
+        - generic [ref=e67]:
+          - text: Tứ Đại Danh Vị
+          - heading "Danh Mục Di Sản Cố Đô" [level=2] [ref=e68]
+        - paragraph [ref=e69]: "Tuyển lựa theo quy chuẩn mỹ vị Cung đình Nguyễn: thanh tao, chuẩn mực, lưu giữ tinh chất dược thảo xứ Huế."
+      - generic [ref=e70]:
+        - link "Bánh Phục Linh Hoàng Gia OCOP 4 Sao 12 Món Tiến Vua Bánh Phục Linh Hoàng Gia Bột bình tinh hảo hạng hòa nước cốt dừa nạo tay, đúc khuôn hoa sen tinh xảo tan êm đầu lưỡi. Khám phá bộ trà →" [ref=e71] [cursor=pointer]:
+          - /url: /products?category=banh-cung-dinh
+          - generic [ref=e72]:
+            - img "Bánh Phục Linh Hoàng Gia" [ref=e73]
+            - generic [ref=e74]: OCOP 4 Sao
+          - generic [ref=e75]: 12 Món Tiến Vua
+          - heading "Bánh Phục Linh Hoàng Gia" [level=3] [ref=e76]
+          - paragraph [ref=e77]: Bột bình tinh hảo hạng hòa nước cốt dừa nạo tay, đúc khuôn hoa sen tinh xảo tan êm đầu lưỡi.
+          - generic [ref=e78]: Khám phá bộ trà →
+        - link "Mè Xửng Giòn & Dẻo OCOP 4 Sao 16 Đặc Sản Mè Mè Xửng Giòn & Dẻo Nấu bằng mật mía nguyên chất, đậu phộng rang cát thủ công và mè lụa thơm lừng bên sông An Cựu. Xem hương vị →" [ref=e79] [cursor=pointer]:
+          - /url: /products?category=me-xung-keo-hue
+          - generic [ref=e80]:
+            - img "Mè Xửng Giòn & Dẻo" [ref=e81]
+            - generic [ref=e82]: OCOP 4 Sao
+          - generic [ref=e83]: 16 Đặc Sản Mè
+          - heading "Mè Xửng Giòn & Dẻo" [level=3] [ref=e84]
+          - paragraph [ref=e85]: Nấu bằng mật mía nguyên chất, đậu phộng rang cát thủ công và mè lụa thơm lừng bên sông An Cựu.
+          - generic [ref=e86]: Xem hương vị →
+        - link "Mứt Gừng Kim Long OCOP 4 Sao 08 Loại Mứt Cố Đô Mứt Gừng Kim Long Gừng củ nhỏ vùng đất phù sa Kim Long cay nồng đậm đà, sao lửa củi đều tay giữ trọn vị cay ấm. Tìm hiểu mứt gừng →" [ref=e87] [cursor=pointer]:
+          - /url: /products?category=mut-hat-sen
+          - generic [ref=e88]:
+            - img "Mứt Gừng Kim Long" [ref=e89]
+            - generic [ref=e90]: OCOP 4 Sao
+          - generic [ref=e91]: 08 Loại Mứt Cố Đô
+          - heading "Mứt Gừng Kim Long" [level=3] [ref=e92]
+          - paragraph [ref=e93]: Gừng củ nhỏ vùng đất phù sa Kim Long cay nồng đậm đà, sao lửa củi đều tay giữ trọn vị cay ấm.
+          - generic [ref=e94]: Tìm hiểu mứt gừng →
+        - link "Trà Sen Tịnh Tâm OCOP 4 Sao 06 Thức Ngự Trà Trà Sen Tịnh Tâm Sen Bách Diệp hái từ tờ mờ sương sớm tại hồ Tịnh Tâm, ướp trà nõn tôm Thái Nguyên thượng hạng. Thưởng ngự trà →" [ref=e95] [cursor=pointer]:
+          - /url: /products?category=tra-cung-dinh
+          - generic [ref=e96]:
+            - img "Trà Sen Tịnh Tâm" [ref=e97]
+            - generic [ref=e98]: OCOP 4 Sao
+          - generic [ref=e99]: 06 Thức Ngự Trà
+          - heading "Trà Sen Tịnh Tâm" [level=3] [ref=e100]
+          - paragraph [ref=e101]: Sen Bách Diệp hái từ tờ mờ sương sớm tại hồ Tịnh Tâm, ướp trà nõn tôm Thái Nguyên thượng hạng.
+          - generic [ref=e102]: Thưởng ngự trà →
+    - generic [ref=e104]:
+      - generic [ref=e105]:
+        - generic [ref=e106]:
+          - text: ✧ Tuyển Chọn Đắt Khách Nhất
+          - heading "Ngự Phẩm Được Ưa Chuộng" [level=2] [ref=e107]
+        - generic [ref=e108]:
+          - button "Sản phẩm trước" [ref=e109] [cursor=pointer]: ‹
+          - button "Sản phẩm tiếp theo" [ref=e110] [cursor=pointer]: ›
+      - generic [ref=e111]:
+        - article [ref=e112]:
+          - link "Hộp Quà Cố Đô Ngự Thiện ✺ OCOP 4 Sao ♡" [ref=e113] [cursor=pointer]:
+            - /url: /products/bo-qua-hoang-trieu
+            - img "Hộp Quà Cố Đô Ngự Thiện" [ref=e114]
+            - generic [ref=e115]: ✺ OCOP 4 Sao
+            - generic [ref=e116]: ♡
+          - generic [ref=e117]: "Trọng lượng: 500g"
+          - link "Hộp Quà Cố Đô Ngự Thiện" [ref=e118] [cursor=pointer]:
+            - /url: /products/bo-qua-hoang-trieu
+          - paragraph [ref=e119]: Tuyển tập 5 vị bánh mứt cung đình trong hộp sơn mài đỏ thẫm đài các.
+          - generic [ref=e120]:
+            - generic [ref=e121]: 450.000đ
+            - deletion [ref=e122]: 520.000đ
+          - button "♧ Thêm Vào Giỏ" [ref=e123] [cursor=pointer]
+        - article [ref=e124]:
+          - link "Mè Xửng Dẻo Ngự Trà Thượng Hạng ✺ OCOP 4 Sao ♡" [ref=e125] [cursor=pointer]:
+            - /url: /products/me-xung-deo-ngu-thien
+            - img "Mè Xửng Dẻo Ngự Trà Thượng Hạng" [ref=e126]
+            - generic [ref=e127]: ✺ OCOP 4 Sao
+            - generic [ref=e128]: ♡
+          - generic [ref=e129]: "Hộp cao cấp: 250g"
+          - link "Mè Xửng Dẻo Ngự Trà Thượng Hạng" [ref=e130] [cursor=pointer]:
+            - /url: /products/me-xung-deo-ngu-thien
+          - paragraph [ref=e131]: Độ dẻo đạt chuẩn hoàng gia, không dính răng, vị ngọt thanh đượm từ mật mía.
+          - generic [ref=e132]:
+            - generic [ref=e133]: 85.000đ
+            - deletion [ref=e134]: 95.000đ
+          - button "♧ Thêm Vào Giỏ" [ref=e135] [cursor=pointer]
+        - article [ref=e136]:
+          - link "Bánh Đậu Xanh Trái Cây Nghệ Nhân ✺ OCOP 4 Sao ♡" [ref=e137] [cursor=pointer]:
+            - /url: /products/banh-dau-xanh-trai-cay
+            - img "Bánh Đậu Xanh Trái Cây Nghệ Nhân" [ref=e138]
+            - generic [ref=e139]: ✺ OCOP 4 Sao
+            - generic [ref=e140]: ♡
+          - generic [ref=e141]: "Hộp sơn mài: 12 cái"
+          - link "Bánh Đậu Xanh Trái Cây Nghệ Nhân" [ref=e142] [cursor=pointer]:
+            - /url: /products/banh-dau-xanh-trai-cay
+          - paragraph [ref=e143]: Nặn tay tỉ mỉ hình trái cây cung đình, tráng lớp rau câu tự nhiên giòn mọng.
+          - generic [ref=e144]:
+            - generic [ref=e145]: 120.000đ
+            - deletion [ref=e146]: 140.000đ
+          - button "♧ Thêm Vào Giỏ" [ref=e147] [cursor=pointer]
+        - article [ref=e148]:
+          - link "Trà Sen Bách Diệp Hồ Tịnh Tâm ✺ OCOP 4 Sao ♡" [ref=e149] [cursor=pointer]:
+            - /url: /products/tra-sen-tinh-tam
+            - img "Trà Sen Bách Diệp Hồ Tịnh Tâm" [ref=e150]
+            - generic [ref=e151]: ✺ OCOP 4 Sao
+            - generic [ref=e152]: ♡
+          - generic [ref=e153]: "Hộp thiếc cao cấp: 100g"
+          - link "Trà Sen Bách Diệp Hồ Tịnh Tâm" [ref=e154] [cursor=pointer]:
+            - /url: /products/tra-sen-tinh-tam
+          - paragraph [ref=e155]: Gạo sen thu hái từ 1000 bông sen Bách Diệp cổ, hương thơm tinh khiết an thần.
+          - generic [ref=e156]:
+            - generic [ref=e157]: 380.000đ
+            - deletion [ref=e158]: 420.000đ
+          - button "♧ Thêm Vào Giỏ" [ref=e159] [cursor=pointer]
+    - generic [ref=e161]:
+      - generic [ref=e162]:
+        - img "Nghệ nhân Ô Mạ làm bánh trong nhà vườn Kim Long" [ref=e163]
+        - complementary [ref=e164]:
+          - generic [ref=e165]: ◎
+          - generic [ref=e166]:
+            - strong [ref=e167]: Chuẩn VSATTP Quốc Tế
+            - generic [ref=e168]: ISO 22000:2018
+            - paragraph [ref=e169]: 100% không chất bảo quản công nghiệp, giữ vị bằng phương pháp ngào đường cát tự nhiên.
+      - generic [ref=e170]:
+        - text: ▧ Chuyện Làng Nghề Kim Long
+        - heading "Ba Đời Gìn Giữ Mật Mã Hương Vị Của Các Bậc Ngự Trù" [level=2] [ref=e171]
+        - paragraph [ref=e172]: Khởi nguồn từ xưởng bánh thủ công nhỏ ven bờ sông Hương thuộc làng cổ Kim Long vào những năm 1950, Ô Mạ được nuôi dưỡng bởi công thức bí truyền của cụ cố từng phục vụ tại ngự trù Nội đình Huế.
+        - paragraph [ref=e173]: Từng chiếc mè xửng vàng óng, từng đĩa mứt gừng cay đượm không đơn thuần là món điểm tâm thưởng trà, mà là tác phẩm kết tinh từ tính cách trầm mặc, tỉ mỉ và tôn kính cội nguồn.
+        - generic [ref=e174]:
+          - article [ref=e175]:
+            - generic [ref=e176]: ♧
+            - generic [ref=e177]:
+              - strong [ref=e178]: Nguồn Gốc Bản Địa
+              - generic [ref=e179]: Hạt sen Tịnh Tâm, mè rang cát An Cựu, mạch nha Kim Long.
+          - article [ref=e180]:
+            - generic [ref=e181]: ✣
+            - generic [ref=e182]:
+              - strong [ref=e183]: Kỹ Nghệ Thủ Công
+              - generic [ref=e184]: Ngào lửa củi thanh trà, nhào nặn khuôn gỗ chạm trổ hoa văn.
+        - link "Đọc toàn bộ biên niên sử Ô Mạ Huế →" [ref=e185] [cursor=pointer]:
+          - /url: /products
+    - generic [ref=e188]:
+      - generic [ref=e189]:
+        - generic [ref=e190]: ⌗ Hệ Thống Số Hóa Nông Sản Cố Đô
+        - heading "Minh Bạch Nguồn Gốc Chuẩn OCOP 4 Sao" [level=2] [ref=e191]
+        - paragraph [ref=e192]: Mỗi hộp bánh mứt Ô Mạ khi xuất xưởng đều gắn liền mã định danh độc bản. Nhập mã QR trên nhãn hộp để thẩm định vùng nguyên liệu, lô sản xuất và chứng nhận VSATTP.
+        - generic [ref=e193]:
+          - generic [ref=e194]:
+            - 'textbox "Nhập mã QR (VD: QR-OMA-20261015-LOT08)" [ref=e195]'
+            - button "Mã mẫu" [ref=e196] [cursor=pointer]
+          - button "⌕ Kiểm Tra Ngay" [ref=e197] [cursor=pointer]
+      - generic [ref=e198]:
+        - article [ref=e199]:
+          - generic [ref=e200]: ♧
+          - strong [ref=e201]: 100% Thuần Tự Nhiên
+          - generic [ref=e202]: Không phẩm màu nhân tạo
+        - article [ref=e203]:
+          - generic [ref=e204]: ✺
+          - strong [ref=e205]: Chuẩn OCOP 4 Sao
+          - generic [ref=e206]: Chứng nhận cấp Tỉnh
+        - article [ref=e207]:
+          - generic [ref=e208]: ⌾
+          - strong [ref=e209]: Bảo Hộ Chỉ Dẫn Địa Lý
+          - generic [ref=e210]: Đặc sản sông Hương
+        - article [ref=e211]:
+          - generic [ref=e212]: ✈
+          - strong [ref=e213]: Đạt Chuẩn Xuất Khẩu
+          - generic [ref=e214]: Nhật Bản, Pháp & Hoa Kỳ
+      - text: ♧
+    - generic [ref=e216]:
+      - generic [ref=e217]:
+        - text: ♧ Món Quà Tri Kỷ Bốn Phương
+        - heading "Đăng Ký Nhận Hương Trà Cố Đô & Giảm 10% Cho Đơn Hàng Đầu Tiên" [level=2] [ref=e218]
+        - paragraph [ref=e219]: Trở thành tri âm của Ô Mạ để nhận cẩm nang thưởng trà theo mùa cung đình, những câu chuyện di sản kinh thành và ưu đãi đặc quyền dịp lễ Tết.
+      - generic [ref=e220]:
+        - generic [ref=e221]:
+          - textbox "Nhập địa chỉ thư điện tử của bạn…" [ref=e222]
+          - button "Đăng Ký →" [ref=e223] [cursor=pointer]
+        - generic [ref=e224]: Chúng tôi cam kết tôn trọng quyền riêng tư và không gửi thư rác.
+  - contentinfo [ref=e225]:
+    - generic [ref=e226]:
+      - generic [ref=e227]:
+        - link "Ô Mạ - Trang chủ" [ref=e228] [cursor=pointer]:
+          - /url: /
+          - generic [aria-hidden] [ref=e229]: Ô
+          - generic [ref=e230]:
+            - strong [ref=e231]: Ô MẠ
+            - generic [ref=e232]: Tinh hoa bánh mứt Cố Đô
+        - paragraph [ref=e233]: Gìn giữ và tôn vinh phong vị bánh mứt yến tiệc hoàng triều Cố Đô, chuẩn hóa theo tinh thần OCOP đương đại.
+        - generic [ref=e234]: ✺ OCOP 4 Sao Thừa Thiên Huế
+      - generic [ref=e235]:
+        - heading "Bộ Sưu Tập" [level=2] [ref=e236]
+        - paragraph [ref=e237]: Mè Xửng Dẻo Ngự Thiện
+        - paragraph [ref=e238]: Bánh Hạt Sen Cung Đình
+        - paragraph [ref=e239]: Trà Ướp Hoa Sen Tịnh Tâm
+      - generic [ref=e240]:
+        - heading "Chăm Sóc & Hỗ Trợ" [level=2] [ref=e241]
+        - paragraph [ref=e242]:
+          - link "Trung tâm hỗ trợ khách hàng" [ref=e243] [cursor=pointer]:
+            - /url: /support/request
+        - paragraph [ref=e244]: Chính sách vận chuyển
+        - paragraph [ref=e245]: Cam kết nguồn gốc
+      - generic [ref=e246]:
+        - heading "Phòng Trưng Bày & Xưởng Bánh" [level=2] [ref=e247]
+        - paragraph [ref=e248]: 128 Lê Lợi, Phường Phú Nhuận, Thành phố Huế
+        - paragraph [ref=e249]: (0234) 388 9988 · thuquan@omahue.vn
+    - generic [ref=e250]: © 2026 Ô Mạ · Tinh tuyển Di sản · Chuẩn hóa OCOP
+  - button "Open Next.js Dev Tools" [ref=e256] [cursor=pointer]
+  - alert [ref=e260]

@@ -6,12 +6,13 @@ import { PublicApiError } from "@/lib/api-contract";
 import { useEffect, useMemo, useState } from "react";
 import { MAX_CART_ITEM_QUANTITY } from "@/lib/cart/validation";
 import type { ProductDetail, ProductSku } from "@/lib/product-detail/types";
-import { ProductReviewsSection } from "@/components/product/product-reviews";
 import { ProductImage } from "@/components/product/product-image";
 import { useCartSummary } from "@/components/cart/cart-summary-provider";
 import { cartService } from "@/services/cart-service";
 import { productDetailService } from "@/services/product-detail-service";
 import { useAuth } from "@/components/auth/auth-provider";
+import { RecommendationRail } from "@/components/recommendation/recommendation-rail";
+import { useRecommendation } from "@/components/recommendation/recommendation-provider";
 
 const VND = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 });
 
@@ -35,6 +36,8 @@ function ProductDetailLoading() {
 
 export function ProductDetailFlow({ slug }: { slug: string }) {
   const { isEmployee } = useAuth();
+  const recommendation = useRecommendation();
+  const { record, consent } = recommendation;
   const { updateFromCart } = useCartSummary();
   const searchParams = useSearchParams();
   const scenario = searchParams.get("mockScenario") ?? undefined;
@@ -44,6 +47,7 @@ export function ProductDetailFlow({ slug }: { slug: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<{ status?: number; message: string }>();
   const [selectionMessage, setSelectionMessage] = useState("");
+  const [selectionErrorCode, setSelectionErrorCode] = useState("");
   const [quantity, setQuantity] = useState(1);
   const [addingToCart, setAddingToCart] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
@@ -83,6 +87,10 @@ export function ProductDetailFlow({ slug }: { slug: string }) {
   const hasAvailableSku = product?.skus.some((sku) => sku.availability === "AVAILABLE") ?? false;
   const hasUnknownSku = product?.skus.some((sku) => sku.availability === "UNKNOWN") ?? false;
 
+  useEffect(() => {
+    if (selectedSkuId) record(selectedSkuId, "VIEW_ITEM");
+  }, [selectedSkuId, record, consent?.consentVersion]);
+
   function selectSku(sku: ProductSku) {
     if (sku.availability !== "AVAILABLE") return;
     setSelectedSkuId(sku.skuId);
@@ -103,13 +111,16 @@ export function ProductDetailFlow({ slug }: { slug: string }) {
     setAddingToCart(true);
     setAddedToCart(false);
     setSelectionMessage("");
+    setSelectionErrorCode("");
     try {
       const cart = await cartService.addItem({ skuId: selectedSku.skuId, quantity }, scenario);
+      recommendation.record(selectedSku.skuId, "ADD_TO_CART");
       updateFromCart(cart);
       setAddedToCart(true);
       setSelectionMessage(`Đã thêm ${quantity} × ${selectedSku.label} vào giỏ. Giỏ hiện có ${cart.itemCount} sản phẩm.`);
     } catch (cause) {
       setSelectionMessage(cause instanceof PublicApiError ? cause.message : "Không thể thêm vào giỏ hàng lúc này.");
+      setSelectionErrorCode(cause instanceof PublicApiError ? cause.code : "");
     } finally {
       setAddingToCart(false);
     }
@@ -190,7 +201,7 @@ export function ProductDetailFlow({ slug }: { slug: string }) {
             </div>
             <button className="cart-integration-button" type="button" disabled={!hasAvailableSku || addingToCart} onClick={addToCart}>{!hasAvailableSku ? "Tạm thời không thể mua" : addingToCart ? "Đang thêm vào giỏ…" : selectedSku ? "Thêm vào giỏ hàng" : "Chọn SKU để tiếp tục"}</button>
           </div>
-          {selectionMessage ? <div id="sku-message" className={addedToCart ? "integration-note" : "selection-error"} role={addedToCart ? "status" : "alert"}><p>{selectionMessage}</p>{addedToCart ? <Link href="/cart">Xem giỏ hàng →</Link> : null}</div> : <p id="sku-message" className="integration-caption">Giỏ hàng không giữ tồn hoặc cố định giá; hệ thống sẽ kiểm tra lại khi mở cart.</p>}</>}
+          {selectionMessage ? <div id="sku-message" className={addedToCart ? "integration-note" : "selection-error"} role={addedToCart ? "status" : "alert"}><p>{selectionMessage}</p>{selectionErrorCode === "ACCOUNT_ACTIVATION_REQUIRED" ? <Link href="/account/profile">Hoàn thiện hồ sơ →</Link> : addedToCart ? <Link href="/cart">Xem giỏ hàng →</Link> : null}</div> : <p id="sku-message" className="integration-caption">Giỏ hàng không giữ tồn hoặc cố định giá; hệ thống sẽ kiểm tra lại khi mở cart.</p>}</>}
         </div>
       </section>
 
@@ -210,7 +221,11 @@ export function ProductDetailFlow({ slug }: { slug: string }) {
         </div>
       </section> : <section className="food-information" aria-labelledby="food-title"><div className="section-heading"><p className="eyebrow">Thông tin thực phẩm</p><h2 id="food-title">Thông tin đang được cập nhật</h2><p>API sản phẩm hiện chưa công bố thành phần, cảnh báo dị ứng và hướng dẫn bảo quản. Vui lòng kiểm tra nhãn trên bao bì hoặc tra cứu lô hàng trước khi sử dụng.</p><Link className="product-detail-link" href="/trace/QR-OMA-20261015-LOT08">Xem mẫu hồ sơ truy xuất <span aria-hidden="true">→</span></Link></div></section>}
 
-      <ProductReviewsSection key={product.id} productId={product.id} productName={product.name} mockScenario={scenario} />
+      {/* F-27: the reviews section is hidden until a reviews backend exists.
+          No service owns reviews today, so ProductReviewsSection could only
+          render its error state. The component is kept in the codebase for
+          the future reviews build (F-27-build in the findings register). */}
+      <RecommendationRail placement="product_detail" productId={product.id} skuCode={selectedSkuId} />
     </main>
   );
 }

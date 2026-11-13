@@ -111,3 +111,10 @@ Các sản phẩm tạo ra có thể được làm mới bằng `node scripts/ge
 
 ## Catalog Service Specific Rules
 See `services/catalog-service/CATALOG_SERVICE_AGENT_RULES.md`.
+
+## Identity Service Specific Rules
+See `services/identity-service/IDENTITY_SERVICE_AGENT_RULES.md`.
+
+
+## Keycloak Service Specific Rules
+See `services/keycloak-service/KEYCLOAK_SERVICE_AGENT_RULES.md`.

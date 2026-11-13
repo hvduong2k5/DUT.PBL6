@@ -1,0 +1,26 @@
+# Git-based deployment variant (Coolify) of the repo Dockerfile.
+# Identical build; the entrypoint additionally materializes the
+# file-based secrets (JWT public key, peer tokens, inventory CA) from
+# base64 environment variables, because Coolify cannot mount files
+# into app containers (W0 E3). The exported *_FILE variables point at
+# the decoded files under /run/secrets.
+FROM golang:1.22 AS build
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 go build -trimpath -o /out/fulfillment-server ./cmd/server && CGO_ENABLED=0 go build -trimpath -o /out/fulfillment-migrate ./cmd/migrate
+FROM alpine:3.20
+RUN apk add --no-cache ca-certificates ffmpeg && addgroup -S app && adduser -S -G app app && mkdir -p /run/secrets && chown app:app /run/secrets
+COPY --from=build /out/ /usr/local/bin/
+RUN printf '%s\n' '#!/bin/sh' \
+  'if [ -n "$FULFILLMENT_JWT_PUBLIC_KEY_B64" ]; then printf %s "$FULFILLMENT_JWT_PUBLIC_KEY_B64" | base64 -d > /run/secrets/jwt-public.pem; fi' \
+  'if [ -n "$FULFILLMENT_ORDER_TOKEN_B64" ]; then printf %s "$FULFILLMENT_ORDER_TOKEN_B64" | base64 -d > /run/secrets/order-token.txt; fi' \
+  'if [ -n "$FULFILLMENT_ORDER_CALLER_TOKEN_B64" ]; then printf %s "$FULFILLMENT_ORDER_CALLER_TOKEN_B64" | base64 -d > /run/secrets/order-caller-token.txt; fi' \
+  'if [ -n "$FULFILLMENT_INVENTORY_TOKEN_B64" ]; then printf %s "$FULFILLMENT_INVENTORY_TOKEN_B64" | base64 -d > /run/secrets/inventory-token.txt; fi' \
+  'if [ -n "$FULFILLMENT_INVENTORY_CA_B64" ]; then printf %s "$FULFILLMENT_INVENTORY_CA_B64" | base64 -d > /run/secrets/inventory-ca.pem; fi' \
+  'export FULFILLMENT_JWT_PUBLIC_KEY=/run/secrets/jwt-public.pem FULFILLMENT_ORDER_TOKEN_FILE=/run/secrets/order-token.txt FULFILLMENT_ORDER_CALLER_TOKEN_FILE=/run/secrets/order-caller-token.txt FULFILLMENT_INVENTORY_TOKEN_FILE=/run/secrets/inventory-token.txt FULFILLMENT_INVENTORY_CA_FILE=/run/secrets/inventory-ca.pem' \
+  'exec fulfillment-server' > /entrypoint.sh && chmod +x /entrypoint.sh
+USER app
+EXPOSE 8002 9002
+ENTRYPOINT ["/entrypoint.sh"]

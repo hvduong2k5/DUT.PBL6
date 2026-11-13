@@ -3,10 +3,10 @@ package com.hvduong.identity.application.account;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hvduong.identity.application.account.impl.AuthenticationServiceImpl;
 import com.hvduong.identity.application.audit.AuditService;
-import com.hvduong.identity.dto.response.AuthUrlResponse;
-import com.hvduong.identity.dto.response.BffCallbackResult;
-import com.hvduong.identity.dto.response.SessionResponse;
-import com.hvduong.identity.infrastructure.persistence.entity.IdentityPrincipalRow;
+import com.hvduong.identity.application.dto.response.AuthUrlResponse;
+import com.hvduong.identity.application.dto.response.BffCallbackResult;
+import com.hvduong.identity.application.dto.response.SessionResponse;
+import com.hvduong.identity.domain.entity.IdentityPrincipalRow;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IdentityPrincipalMapper;
 import com.hvduong.identity.infrastructure.session.AuthStateStore;
 import com.hvduong.identity.infrastructure.session.BffSession;
@@ -55,6 +55,9 @@ class AuthenticationServiceTest {
 
     @Spy
     private BffSessionStore bffSessionStore = new BffSessionStore();
+
+    @Mock
+    private com.hvduong.identity.infrastructure.keycloak.KeycloakAdminClient keycloakAdminClient;
 
     @InjectMocks
     private AuthenticationServiceImpl authenticationService;
@@ -260,6 +263,37 @@ class AuthenticationServiceTest {
         assertThat(refreshed).isNotNull();
         assertThat(refreshed.getAccessToken()).isEqualTo("new-at");
         assertThat(refreshed.getRefreshToken()).isEqualTo("new-rt");
+    }
+
+    @Test
+    void refreshSession_ConcurrentThreads_OnlyOneCallsKeycloak() throws Exception {
+        BffSession session = bffSessionStore.createSession(
+                "sub-concurrent", UUID.randomUUID(), "race@omama.vn", "old-at", "old-rt", 900, 2592000
+        );
+
+        String keycloakResponse = "{"
+                + "\"access_token\":\"coalesced-new-at\","
+                + "\"refresh_token\":\"coalesced-new-rt\","
+                + "\"expires_in\":900,"
+                + "\"refresh_expires_in\":2592000"
+                + "}";
+
+        when(restTemplate.postForEntity(anyString(), any(HttpEntity.class), eq(String.class)))
+                .thenAnswer(inv -> {
+                    Thread.sleep(50);
+                    return new ResponseEntity<>(keycloakResponse, HttpStatus.OK);
+                });
+
+        var future1 = java.util.concurrent.CompletableFuture.supplyAsync(() -> authenticationService.refreshSession(session.getSessionId()));
+        var future2 = java.util.concurrent.CompletableFuture.supplyAsync(() -> authenticationService.refreshSession(session.getSessionId()));
+
+        BffSession res1 = future1.get(5, java.util.concurrent.TimeUnit.SECONDS);
+        BffSession res2 = future2.get(5, java.util.concurrent.TimeUnit.SECONDS);
+
+        assertThat(res1.getAccessToken()).isEqualTo("coalesced-new-at");
+        assertThat(res2.getAccessToken()).isEqualTo("coalesced-new-at");
+
+        verify(restTemplate, times(1)).postForEntity(anyString(), any(HttpEntity.class), eq(String.class));
     }
 
     @Test

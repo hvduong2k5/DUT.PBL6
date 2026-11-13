@@ -6,7 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.AuthorizationDecisionMapper;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IdentityAuditLogMapper;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.SpecializedPermissionPolicyMapper;
-import com.hvduong.identity.infrastructure.persistence.entity.SpecializedPermissionPolicyRow;
+import com.hvduong.identity.domain.entity.SpecializedPermissionPolicyRow;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

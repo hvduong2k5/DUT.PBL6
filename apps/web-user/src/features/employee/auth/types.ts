@@ -73,7 +73,14 @@ export type EmployeeSession = AdminSession;
 
 export function toEmployeeSession(profile: IdentityProfile): EmployeeSession | undefined {
   if (profile.principalType !== "EMPLOYEE") return undefined;
-  const permissions = profile.permissions.filter((item): item is EmployeePermission => ADMIN_PERMISSIONS.includes(item as EmployeePermission));
+  const granted = new Set(profile.permissions.filter((item): item is EmployeePermission => ADMIN_PERMISSIONS.includes(item as EmployeePermission)));
+  // The IAM catalogue is the source of truth, but parts of the admin UI
+  // were built against a draft permission vocabulary. Expand the real
+  // grants into the draft names those gates use, in this one place:
+  // catalog's IAM grants satisfy the catalog workspace's PRODUCT_* gates.
+  if (granted.has("CATALOG_VIEW")) granted.add("PRODUCT_VIEW");
+  if (granted.has("CATALOG_MANAGE")) granted.add("PRODUCT_MANAGE");
+  const permissions = [...granted];
   const global = profile.roles.some((role) => role.scopeType === "GLOBAL" || !role.scopeType);
   const resources = new Set<string>();
   for (const permission of permissions) {

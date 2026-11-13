@@ -1,6 +1,6 @@
 package com.hvduong.identity.infrastructure.persistence.mybatis.mapper;
 
-import com.hvduong.identity.infrastructure.persistence.entity.IdentityPrincipalRow;
+import com.hvduong.identity.domain.entity.IdentityPrincipalRow;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
@@ -28,13 +28,27 @@ public interface IdentityPrincipalMapper {
     List<IdentityPrincipalRow> findPage(
         @Param("principalType") String principalType,
         @Param("provisioningStatus") String provisioningStatus,
+        @Param("roleId") UUID roleId,
+        @Param("roleCode") String roleCode,
+        @Param("scopeType") String scopeType,
+        @Param("scopeId") String scopeId,
+        @Param("now") java.time.OffsetDateTime now,
+        @Param("search") String search,
+        @Param("idpSubjects") List<String> idpSubjects,
         @Param("offset") int offset,
         @Param("limit") int limit
     );
 
     long countTotal(
         @Param("principalType") String principalType,
-        @Param("provisioningStatus") String provisioningStatus
+        @Param("provisioningStatus") String provisioningStatus,
+        @Param("roleId") UUID roleId,
+        @Param("roleCode") String roleCode,
+        @Param("scopeType") String scopeType,
+        @Param("scopeId") String scopeId,
+        @Param("now") java.time.OffsetDateTime now,
+        @Param("search") String search,
+        @Param("idpSubjects") List<String> idpSubjects
     );
 
     boolean hasRoleCode(

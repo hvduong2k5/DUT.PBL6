@@ -32,6 +32,7 @@ from mvp_native_checks import native_identity
 from mvp_customer_checks import profile_addresses
 from mvp_customer_checks import checkout_shipping
 import mvp_fulfillment_checks as fulfillment_checks
+import profile_order_authorization_checks
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -452,7 +453,7 @@ def main():
         template = json.loads(
             (
                 ROOT
-                / "services/identity-service/deploy/keycloak/realm-export.template.json"
+                / "services/keycloak-service/realm-export.template.json"
             ).read_text(encoding="utf-8")
         )
         template.update(
@@ -493,7 +494,7 @@ def main():
                 "-v",
                 str(realm_file) + ":/opt/keycloak/data/import/realm.json:ro",
                 "-v",
-                str(ROOT / "services/identity-service/deploy/keycloak/themes/omama")
+                str(ROOT / "services/keycloak-service/themes/omama")
                 + ":/opt/keycloak/themes/omama:ro",
                 "quay.io/keycloak/keycloak:24.0.5",
                 "start-dev",
@@ -546,14 +547,19 @@ def main():
             base + "/admin/realms/" + realm + "/users/profile", token=admin_token
         )
         assert status == 200
-        profile["attributes"].append(
-            json.loads(
-                (
-                    ROOT
-                    / "services/identity-service/deploy/keycloak/order-user-profile-attribute.json"
-                ).read_text()
-            )
+        app_user_id_declaration = json.loads(
+            (
+                ROOT
+                / "services/keycloak-service/order-user-profile-attribute.json"
+            ).read_text()
         )
+        # The realm template may already declare app_user_id; appending a
+        # second attribute with the same name would invalidate the update.
+        if all(
+            attribute.get("name") != app_user_id_declaration["name"]
+            for attribute in profile["attributes"]
+        ):
+            profile["attributes"].append(app_user_id_declaration)
         assert (
             request(
                 base + "/admin/realms/" + realm + "/users/profile",
@@ -563,10 +569,6 @@ def main():
             )[0]
             == 200
         )
-        status, roles, _ = request(
-            base + "/admin/realms/" + realm + "/roles/CUSTOMER", token=admin_token
-        )
-        assert status == 200
         for account in accounts.values():
             status, _, headers = request(
                 base + "/admin/realms/" + realm + "/users",
@@ -577,7 +579,12 @@ def main():
                     "lastName": "Customer",
                     "enabled": True,
                     "emailVerified": True,
-                    "attributes": {"app_user_id": [account["principal"]]},
+                    "attributes": {
+                        "app_user_id": [account["principal"]],
+                        "principal_type": [
+                            "EMPLOYEE" if account is accounts["E"] else "CUSTOMER"
+                        ],
+                    },
                     "credentials": [
                         {
                             "type": "password",
@@ -591,20 +598,6 @@ def main():
             )
             assert status == 201
             account["subject"] = headers["Location"].rsplit("/", 1)[1]
-            assert (
-                request(
-                    base
-                    + "/admin/realms/"
-                    + realm
-                    + "/users/"
-                    + account["subject"]
-                    + "/role-mappings/realm",
-                    [roles],
-                    admin_token,
-                    "POST",
-                )[0]
-                == 204
-            )
 
         env.update(
             DB_HOST="127.0.0.1",
@@ -1021,6 +1014,42 @@ def main():
         print("PASS: native PKCE/JSON callback, app-bound state, refresh/logout and direct bearer Customer/Employee gates",flush=True)
         real_packing = None
         if args.fulfillment:
+            # The ADMIN assignment for this Employee was inserted directly
+            # into the DB (mvp_fulfillment_checks.prepare), bypassing
+            # Identity's assignment API, so the Keycloak attribute sync
+            # never ran. Project the DB truth onto the Keycloak user
+            # exactly as PermissionSyncService formats it, so the staff
+            # tokens minted below carry permission_grants — Fulfillment
+            # authorizes staff from that claim alone since the grants
+            # migration. The projection is removed again before the
+            # authorization checks at the end of the run, which expect
+            # this account's real-login token to be a grant-less legacy
+            # snapshot.
+            status, fixture_admin, _ = request(base + "/realms/master/protocol/openid-connect/token",
+                {"grant_type": "password", "client_id": "admin-cli", "username": "admin", "password": admin_password}, form=True)
+            assert status == 200, "Fixture administrator unavailable"
+            grant_rows = sql("SELECT DISTINCT rp.permission_code || '#' || ra.scope_type || CASE WHEN ra.scope_id IS NOT NULL AND ra.scope_id <> '' THEN '#' || ra.scope_id ELSE '' END FROM identity.iam_role_assignments ra JOIN identity.iam_roles r ON r.role_id = ra.role_id AND r.is_enabled = TRUE JOIN identity.iam_role_permissions rp ON rp.role_id = ra.role_id WHERE ra.principal_id = '" + accounts["E"]["principal"] + "' AND ra.assignment_status = 'ACTIVE' AND ra.valid_from <= now() AND (ra.valid_until IS NULL OR ra.valid_until > now()) ORDER BY 1;", tuples=True)
+            # Keycloak silently drops user attributes that are not
+            # declared in the realm user profile (verified on 24.0.5):
+            # declare the grant attribute before writing it,
+            # the same way app_user_id is declared at realm setup.
+            status, realm_profile, _ = request(admin_api + "/users/profile", token=fixture_admin["access_token"])
+            assert status == 200, "Fixture realm profile lookup failed"
+            declared = {attribute["name"] for attribute in realm_profile["attributes"]}
+            for attribute_name in ("permission_grants",):
+                if attribute_name not in declared:
+                    realm_profile["attributes"].append({
+                        "name": attribute_name, "displayName": attribute_name, "multivalued": True,
+                        "permissions": {"view": ["admin"], "edit": ["admin"]},
+                    })
+            if "permission_grants" not in declared:
+                assert request(admin_api + "/users/profile", realm_profile, fixture_admin["access_token"], "PUT")[0] == 200, "Fixture realm profile declaration failed"
+            status, kc_user, _ = request(admin_api + "/users/" + accounts["E"]["subject"], token=fixture_admin["access_token"])
+            assert status == 200, "Fixture employee lookup failed"
+            kc_user.setdefault("attributes", {}).update({
+                "permission_grants": [row for row in grant_rows.splitlines() if row],
+            })
+            assert request(admin_api + "/users/" + accounts["E"]["subject"], kc_user, fixture_admin["access_token"], "PUT")[0] == 204, "Fixture grant projection failed"
             staff_session=native_identity(request,gateway,issuer,profile_url,f"http://127.0.0.1:{ports['order']}",accounts['E'],account_password,True,retain=True)
             customer_session=native_identity(request,gateway,issuer,profile_url,f"http://127.0.0.1:{ports['order']}",accounts['A'],account_password,False,retain=True)
             fulfillment_checks.pack.storage_port=ports['storage']
@@ -1299,6 +1328,12 @@ def main():
                 assert session["customer"]["status"] == "PENDING_VERIFICATION"
                 status, caps, _ = request(web + "/api/capabilities", opener=opener)
                 assert status == 200 and caps["capabilities"] == ["PROFILE_MANAGE"]
+                assert request(web + "/api/cart", opener=opener)[0] == 403
+                assert request(web + "/api/customer/addresses", opener=opener)[0] == 403
+                assert (
+                    request(gateway + "/api/v1/customer-api/cart", opener=opener)[0]
+                    == 403
+                ), "Direct Order API bypassed Customer verification"
                 status, profile, _ = request(
                     web + "/api/customer/profile", opener=opener
                 )
@@ -1316,19 +1351,17 @@ def main():
                     opener=opener,
                     headers={"Origin": web, "If-Match": f'"{profile["version"]}"'},
                 )
-                assert status == 200 and profile["status"] == "PENDING_VERIFICATION", (
-                    "onboarding",
+                assert status == 200 and profile["status"] == "ACTIVE", (
+                    "onboarding activation",
                     status,
                     profile,
                 )
-                assert request(web + "/api/cart", opener=opener)[0] == 403
-                assert request(web + "/api/customer/addresses", opener=opener)[0] == 403
-                assert (
-                    request(gateway + "/api/v1/customer-api/cart", opener=opener)[0]
-                    == 403
-                ), "Direct Order API bypassed Customer verification"
+                status, caps, _ = request(web + "/api/capabilities", opener=opener)
+                assert status == 200 and "CART_MANAGE" in caps["capabilities"]
+                assert request(web + "/api/cart", opener=opener)[0] == 200
+                assert request(web + "/api/customer/addresses", opener=opener)[0] == 200
                 print(
-                    "PASS: newly registered Customer can complete Profile; unverified purchase/address access remains blocked",
+                    "PASS: newly registered Customer is gated until Profile completion; saving a phone activates the account and unlocks purchase/address access",
                     flush=True,
                 )
                 continue
@@ -1529,6 +1562,27 @@ def main():
             assert after == {"physical":98,"reserved":0}, ("Native cancellation did not release Inventory",after)
             mobile_client_runtime="PASS"
             print("PASS: native Dart runtime -> real Catalog/Profile/cart/quote/checkout/replay/order/payment instructions/cancel -> Inventory released",flush=True)
+        # Drop the grants projected onto the fixture Employee for the
+        # Fulfillment section above: the authorization checks below
+        # expect this account's real-login token to be a grant-less
+        # legacy snapshot.
+        status, fixture_admin, _ = request(base + "/realms/master/protocol/openid-connect/token",
+            {"grant_type": "password", "client_id": "admin-cli", "username": "admin", "password": admin_password}, form=True)
+        assert status == 200, "Fixture administrator unavailable"
+        status, kc_user, _ = request(admin_api + "/users/" + accounts["E"]["subject"], token=fixture_admin["access_token"])
+        assert status == 200, "Fixture employee lookup failed"
+        for attribute in ("permission_grants",):
+            kc_user.get("attributes", {}).pop(attribute, None)
+        assert request(admin_api + "/users/" + accounts["E"]["subject"], kc_user, fixture_admin["access_token"], "PUT")[0] == 204, "Fixture grant removal failed"
+        auth_staff = native_identity(request,gateway,issuer,profile_url,f"http://127.0.0.1:{ports['order']}",accounts['E'],account_password,True,retain=True)
+        auth_customer = native_identity(request,gateway,issuer,profile_url,f"http://127.0.0.1:{ports['order']}",accounts['A'],account_password,False,retain=True)
+        # Dedicated TEST clients stand in for the not-yet-implemented staff issuer.
+        status, fixture_admin, _ = request(base + "/realms/master/protocol/openid-connect/token",
+            {"grant_type": "password", "client_id": "admin-cli", "username": "admin", "password": admin_password}, form=True)
+        assert status == 200, "Disposable issuer administrator unavailable"
+        admin_token = fixture_admin["access_token"]
+        snapshot_issuer = profile_order_authorization_checks.fixture_issuer(request, admin_api, admin_token, issuer, accounts['E'], account_password)
+        profile_order_authorization_checks.verify(request,sql,identity_url,profile_url,f"http://127.0.0.1:{ports['order']}",auth_staff['accessToken'],auth_customer['accessToken'],accounts['E']['principal'],snapshot_issuer)
         result = {
             "status": "PASS",
             "head": subprocess.check_output(
@@ -1543,6 +1597,7 @@ def main():
                 "real-catalog-public-snapshot-revalidation-and-inventory-display",
                 "inventory-outbox-kafka-catalog-projection-and-live-sellability-parity",
                 "profile-addresses-ownership-CAS",
+                "profile-order-TEST-issued-JWT-snapshots-HR-global-warehouse-PII-and-old-new-tokens",
                 "registration-outbox-kafka-provisioning-replay-transient-failure",
                 "checkout-inventory-reserve-cancel-release-payment-commit",
                 "shipping-revision-kafka-delivery-order-history",

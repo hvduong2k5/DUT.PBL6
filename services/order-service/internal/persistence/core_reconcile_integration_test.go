@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/omamx/order-service/internal/domain"
 	"github.com/omamx/order-service/internal/domain/core"
 )
 
@@ -237,6 +238,34 @@ func TestReconcileProofStaleAfterAdminRecover(t *testing.T) {
 	}
 	if got := jobStatus(t, h, "RESOURCE_RECONCILE", a.OperationID); got != "DONE" {
 		t.Fatalf("reconcile job after stale proof: %s", got)
+	}
+}
+
+func TestRecoveryRequiresScopeOfAcceptedCheckoutBeforeMutation(t *testing.T) {
+	h := database(t, true)
+	a := acceptWorkable(t, h)
+	d := snapshotInput(t, 0)
+	rt := &CheckoutRuntime{Store: h.store, Source: &fakeCheckoutSource{}, Inventory: &fakeCheckoutInventory{reserveErr: errInventoryDown}}
+	driveToPark(t, h, rt, a.OperationID)
+	for _, scope := range []domain.PermissionScope{{}, {IDs: []string{"unrelated-warehouse"}}} {
+		err := rt.RecoverAuthorized(h.ctx, a.OperationID, "employee:test", scope, d.MerchantID, "recover-scope-key-01", "reviewed")
+		if !errors.Is(err, ErrForbidden) {
+			t.Fatalf("foreign checkout recovery: %v", err)
+		}
+		var state string
+		if err := h.db.QueryRow(h.ctx, "SELECT status FROM checkout_operations WHERE id=$1", a.OperationID).Scan(&state); err != nil {
+			t.Fatal(err)
+		}
+		if state != "MANUAL_REVIEW" {
+			t.Fatal("denied request mutated operation", state)
+		}
+		if h.count(t, "SELECT count(*) FROM command_registry WHERE scope='employee:test'") != 0 {
+			t.Fatal("denied request recorded command")
+		}
+	}
+	scope := domain.PermissionScope{IDs: []string{"another-warehouse", d.WarehouseID}}
+	if err := rt.RecoverAuthorized(h.ctx, a.OperationID, "employee:test", scope, d.MerchantID, "recover-scope-key-01", "reviewed"); err != nil {
+		t.Fatal("valid multi-warehouse scope denied", err)
 	}
 }
 

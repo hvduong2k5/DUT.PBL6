@@ -13,6 +13,7 @@ import com.hvduong.catalog.application.dto.response.AdminPriceResponse;
 import com.hvduong.catalog.application.dto.response.ProductDetailResponse;
 import com.hvduong.catalog.application.mapper.CatalogDtoMapper;
 import com.hvduong.catalog.application.service.CatalogCacheEvictor;
+import com.hvduong.catalog.common.enums.ApprovalStatus;
 import com.hvduong.catalog.common.enums.ListingStatus;
 import com.hvduong.catalog.common.enums.SalesChannel;
 import com.hvduong.catalog.common.exception.CatalogException;
@@ -37,6 +38,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.springframework.cache.annotation.Cacheable;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
@@ -282,6 +284,87 @@ class CatalogAdminServiceImplTest {
     assertEquals(1, result.size());
     assertEquals("D2C_WEB", result.get(0).getChannel());
     assertEquals(345000L, result.get(0).getAmountUnits());
+  }
+
+  // F-22: các transition cập nhật trạng thái bằng SQL trực tiếp nên object đã nạp
+  // trước đó vẫn giữ trạng thái cũ. Response phải được dựng từ lần đọc mới nhất —
+  // trước bản sửa, submit trả về DRAFT v0 trong khi DB đã là PENDING v1.
+  @Test
+  void submitProductForReview_ResponseReflectsUpdatedState() {
+    Product draft = new Product();
+    draft.setId(productId);
+    draft.setApprovalStatus(ApprovalStatus.DRAFT);
+    draft.setVersion(0L);
+    Product pending = new Product();
+    pending.setId(productId);
+    pending.setApprovalStatus(ApprovalStatus.PENDING);
+    pending.setVersion(1L);
+
+    when(productMapper.findById(productId))
+        .thenReturn(Optional.of(draft), Optional.of(pending));
+    when(productMapper.updateApprovalStatus(
+            productId, ApprovalStatus.PENDING.getValue(), "admin-1", 0L))
+        .thenReturn(1);
+    stubDetailMappingFromEntity();
+
+    ProductDetailResponse result = adminService.submitProductForReview(productId, "admin-1", 0L);
+
+    assertEquals("PENDING", result.getApprovalStatus());
+    assertEquals(1L, result.getVersion());
+  }
+
+  @Test
+  void approveProduct_ResponseReflectsUpdatedState() {
+    Product pending = new Product();
+    pending.setId(productId);
+    pending.setApprovalStatus(ApprovalStatus.PENDING);
+    pending.setVersion(1L);
+    Product approved = new Product();
+    approved.setId(productId);
+    approved.setApprovalStatus(ApprovalStatus.APPROVED);
+    approved.setVersion(2L);
+
+    when(productMapper.findById(productId))
+        .thenReturn(Optional.of(pending), Optional.of(approved));
+    when(productMapper.updateApprovalStatus(
+            productId, ApprovalStatus.APPROVED.getValue(), "admin-1", 1L))
+        .thenReturn(1);
+    stubDetailMappingFromEntity();
+
+    ProductDetailResponse result = adminService.approveProduct(productId, "admin-1", 1L);
+
+    assertEquals("APPROVED", result.getApprovalStatus());
+    assertEquals(2L, result.getVersion());
+  }
+
+  private void stubDetailMappingFromEntity() {
+    when(dtoMapper.toDetailResponse(any()))
+        .thenAnswer(
+            invocation -> {
+              Product p = invocation.getArgument(0);
+              return ProductDetailResponse.builder()
+                  .productId(p.getId())
+                  .approvalStatus(p.getApprovalStatus().name())
+                  .version(p.getVersion())
+                  .build();
+            });
+    when(variantMapper.findAllByProductId(productId)).thenReturn(List.of());
+    when(imageMapper.findApprovedByProductId(productId)).thenReturn(List.of());
+  }
+
+  @Test
+  void getAdminProductsMustNotShareTheCategoriesCache() throws Exception {
+    // F-43: getAdminProducts once carried the categories list's own
+    // @Cacheable("catalog:categories", 'all'); a cache hit cast the
+    // cached ArrayList of categories to AdminProductListResponse and
+    // the admin products endpoint returned HTTP 500.
+    var method =
+        CatalogAdminServiceImpl.class.getMethod(
+            "getAdminProducts", int.class, int.class, String.class, String.class);
+    assertNull(method.getAnnotation(Cacheable.class));
+    // The categories list itself keeps its cache.
+    var categories = CatalogServiceImpl.class.getMethod("getAllCategories");
+    assertNotNull(categories.getAnnotation(Cacheable.class));
   }
 
   private void stubDetailMapping() {

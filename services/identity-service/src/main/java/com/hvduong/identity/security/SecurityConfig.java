@@ -16,7 +16,6 @@ import org.springframework.security.web.SecurityFilterChain;
 
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 @Configuration
@@ -55,21 +54,25 @@ public class SecurityConfig {
         converter.setJwtGrantedAuthoritiesConverter(jwt -> {
             Set<GrantedAuthority> authorities = new HashSet<>();
 
-            // 1. Lấy Realm Roles từ Keycloak (ví dụ: ADMIN -> ROLE_ADMIN)
-            Map<String, Object> realmAccess = jwt.getClaim("realm_access");
-            if (realmAccess != null && realmAccess.containsKey("roles")) {
-                @SuppressWarnings("unchecked")
-                List<String> kcRoles = (List<String>) realmAccess.get("roles");
-                for (String r : kcRoles) {
-                    authorities.add(new SimpleGrantedAuthority("ROLE_" + r));
-                }
-            }
-
-            // 2. Lấy Permissions trực tiếp từ claim 'permissions' trong JWT (Stateless - không query DB)
-            List<String> perms = jwt.getClaimAsStringList("permissions");
-            if (perms != null) {
-                for (String p : perms) {
-                    authorities.add(new SimpleGrantedAuthority(p));
+            // Lấy Permissions scoped từ claim 'permission_grants' trong JWT
+            // Mỗi phần tử lưu dưới dạng chuỗi: permission#scope_type[#scope_id]
+            // Sinh cả authority có scope (PERMISSION#SCOPE_TYPE#SCOPE_ID) lẫn authority mã quyền gốc (PERMISSION)
+            // để các @PreAuthorize("hasAuthority('...')") tự xử lý trực tiếp mà không cần claim 'permissions' rời.
+            @SuppressWarnings("unchecked")
+            List<String> grantStrings = (List<String>) jwt.getClaim("permission_grants");
+            if (grantStrings != null) {
+                for (String gs : grantStrings) {
+                    if (gs != null && !gs.isBlank()) {
+                        String trimmed = gs.trim();
+                        authorities.add(new SimpleGrantedAuthority(trimmed));
+                        int sepIdx = trimmed.indexOf('#');
+                        if (sepIdx > 0) {
+                            String basePermission = trimmed.substring(0, sepIdx).trim();
+                            if (!basePermission.isEmpty()) {
+                                authorities.add(new SimpleGrantedAuthority(basePermission));
+                            }
+                        }
+                    }
                 }
             }
 

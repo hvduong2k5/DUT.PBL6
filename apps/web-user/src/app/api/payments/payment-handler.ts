@@ -1,6 +1,8 @@
 import { normalizePublicError, type PublicErrorBody } from "@/lib/api-contract";
 import { authorizeCustomerCapability, customerAccessFailure } from "@/lib/auth/customer-access-server";
-import { applyTrustedSessionCookie, getTrustedSessionCookie } from "@/lib/auth/server-credential";
+import { credentialHeaders } from "@/lib/auth/server-credential";
+import { withCustomerAuth } from "@/lib/auth/customer-auth";
+import { customerCommerceUpstreamUrl } from "@/lib/upstream";
 import { isPaymentInstructions, isPaymentStatus } from "@/lib/payment/mvp";
 import { parsePaymentRoute } from "@/lib/payment/validation";
 import { NextRequest, NextResponse } from "next/server";
@@ -10,18 +12,18 @@ function publicErrorResponse(status: number, code: string, message: string, requ
   return NextResponse.json(body, { status });
 }
 
-function upstreamHeaders(request: NextRequest, scenario?: string) {
+function upstreamHeaders(request: NextRequest, credential: string | undefined, scenario?: string) {
   const headers = new Headers({ Accept: "application/json" });
-  applyTrustedSessionCookie(headers, request);
+  credentialHeaders(headers, credential);
   if (process.env.NODE_ENV !== "production" && scenario) headers.set("X-Mock-Scenario", scenario);
   return headers;
 }
 
-async function upstream(request: NextRequest, path: string, scenario?: string) {
-  const base = (process.env.CUSTOMER_CORE_UPSTREAM_URL ?? "http://127.0.0.1:4010/api/v1").replace(/\/$/u, "");
+async function upstream(request: NextRequest, credential: string | undefined, path: string, scenario?: string) {
+  const base = customerCommerceUpstreamUrl();
   const response = await fetch(`${base}/${path}`, {
     method: "GET",
-    headers: upstreamHeaders(request, scenario),
+    headers: upstreamHeaders(request, credential, scenario),
     cache: "no-store",
     redirect: "manual"
   });
@@ -49,6 +51,10 @@ function relayError(payload: unknown, upstreamResponse: Response) {
 }
 
 export async function handlePaymentRequest(request: NextRequest, path: string[]): Promise<NextResponse> {
+  return withCustomerAuth(request, (credential) => handlePaymentRequestWithCredential(request, path, credential)) as Promise<NextResponse>;
+}
+
+async function handlePaymentRequestWithCredential(request: NextRequest, path: string[], credential: string | undefined): Promise<NextResponse> {
   const route = parsePaymentRoute(request.method, path, request.nextUrl.searchParams);
   if (route.error || !route.operation || !route.orderId) {
     const notFound = route.error?.field === "path";
@@ -63,9 +69,8 @@ export async function handlePaymentRequest(request: NextRequest, path: string[])
     return publicErrorResponse(400, "INVALID_REQUEST", "Mock scenario không khả dụng trong production.", "BFF-PAYMENT-SCENARIO");
   }
 
-  const sessionCookie = getTrustedSessionCookie(request);
   try {
-    await authorizeCustomerCapability(sessionCookie, "ORDER_HISTORY_VIEW");
+    await authorizeCustomerCapability(credential, "ORDER_HISTORY_VIEW");
   } catch (cause) {
     const failure = customerAccessFailure(cause);
     return publicErrorResponse(failure.status, failure.code, failure.message, "BFF-PAYMENT-ACCESS");
@@ -75,7 +80,7 @@ export async function handlePaymentRequest(request: NextRequest, path: string[])
     const upstreamPath = route.operation === "instructions"
       ? `orders/${encodeURIComponent(route.orderId)}/payment-instructions`
       : `orders/${encodeURIComponent(route.orderId)}/payment`;
-    const result = await upstream(request, upstreamPath, route.mockScenario);
+    const result = await upstream(request, credential, upstreamPath, route.mockScenario);
     if (!result.response.ok) return relayError(result.payload, result.response);
     if (result.response.status !== 200) {
       return publicErrorResponse(502, "INVALID_PAYMENT_STATUS", "Payment trả HTTP status ngoài contract.", "BFF-PAYMENT-CONTRACT");

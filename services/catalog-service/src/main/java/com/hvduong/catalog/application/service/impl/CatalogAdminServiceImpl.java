@@ -51,7 +51,6 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -75,7 +74,6 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
   // ── Admin Read ──────────────────────────────────────────────────────
 
   @Override
-  @Cacheable(value = "catalog:categories", key = "'all'")
   public AdminProductListResponse getAdminProducts(
       int page, int pageSize, String q, String status) {
     log.debug(
@@ -396,7 +394,7 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
     if (updated == 0) throw CatalogException.versionConflict(productId.toString());
 
     cacheEvictor.evictCategoriesCache();
-    return buildDetailResponse(product);
+    return buildDetailResponse(findProductOrThrow(productId));
   }
 
   @Override
@@ -425,7 +423,7 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
     if (updated == 0) throw CatalogException.versionConflict(productId.toString());
 
     cacheEvictor.evictCategoriesCache();
-    return buildDetailResponse(product);
+    return buildDetailResponse(findProductOrThrow(productId));
   }
 
   @Override
@@ -451,7 +449,7 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
     if (updated == 0) throw CatalogException.versionConflict(productId.toString());
 
     cacheEvictor.evictCategoriesCache();
-    return buildDetailResponse(product);
+    return buildDetailResponse(findProductOrThrow(productId));
   }
 
   @Override
@@ -477,7 +475,7 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
     if (updated == 0) throw CatalogException.versionConflict(productId.toString());
 
     cacheEvictor.evictCategoriesCache();
-    return buildDetailResponse(product);
+    return buildDetailResponse(findProductOrThrow(productId));
   }
 
   @Override
@@ -503,7 +501,7 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
     if (updated == 0) throw CatalogException.versionConflict(productId.toString());
 
     cacheEvictor.evictCategoriesCache();
-    return buildDetailResponse(product);
+    return buildDetailResponse(findProductOrThrow(productId));
   }
 
   @Override
