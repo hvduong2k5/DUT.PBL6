@@ -152,7 +152,7 @@ func (r *CustomerRepository) UpdateProfileWithOptimisticLock(
         UPDATE customer_profiles
 		SET full_name = $2,
 		    phone_number = $3,
-		    status = CASE WHEN status = 'PENDING_VERIFICATION' AND $3 <> '' THEN 'ACTIVE' ELSE status END,
+		    status = CASE WHEN status = 'PENDING_VERIFICATION' AND $3::varchar <> '' THEN 'ACTIVE' ELSE status END,
 		    email = $4,
 		    version = version + 1,
 		    updated_at = NOW()
