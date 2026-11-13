@@ -38,6 +38,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.springframework.cache.annotation.Cacheable;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
@@ -349,6 +350,21 @@ class CatalogAdminServiceImplTest {
             });
     when(variantMapper.findAllByProductId(productId)).thenReturn(List.of());
     when(imageMapper.findApprovedByProductId(productId)).thenReturn(List.of());
+  }
+
+  @Test
+  void getAdminProductsMustNotShareTheCategoriesCache() throws Exception {
+    // F-43: getAdminProducts once carried the categories list's own
+    // @Cacheable("catalog:categories", 'all'); a cache hit cast the
+    // cached ArrayList of categories to AdminProductListResponse and
+    // the admin products endpoint returned HTTP 500.
+    var method =
+        CatalogAdminServiceImpl.class.getMethod(
+            "getAdminProducts", int.class, int.class, String.class, String.class);
+    assertNull(method.getAnnotation(Cacheable.class));
+    // The categories list itself keeps its cache.
+    var categories = CatalogServiceImpl.class.getMethod("getAllCategories");
+    assertNotNull(categories.getAnnotation(Cacheable.class));
   }
 
   private void stubDetailMapping() {
