@@ -215,7 +215,7 @@ func (s *Service) startPaymentLoop(ctx context.Context, interval time.Duration, 
 				return
 			case <-ticker.C:
 				if e := work(ctx); e != nil && ctx.Err() == nil {
-					slog.Error(label)
+					slog.Error(label, "error", e)
 				}
 			}
 		}
