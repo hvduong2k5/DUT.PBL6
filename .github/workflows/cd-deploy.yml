@@ -1,0 +1,240 @@
+name: CD - Deploy to Coolify
+
+# Deploys the release branches to the team's Coolify VPS.
+#
+# Flow: push to a release branch (or a manual dispatch) -> detect which apps
+# changed -> call the Coolify deploy API for each changed app -> restart Kong
+# (finding F-08: after a service container is replaced, Kong serves the stale
+# upstream IP until Kong itself is restarted) -> smoke-check the public
+# surface. A failed smoke marks the run failed.
+#
+# Rollback is intentionally NOT automated in v1: it is one action in Coolify
+# (open the app -> Deployments -> roll back to the previous deployment),
+# the same path proven manually in W4 (R3). The run summary prints it.
+#
+# Required repository secret:
+#   COOLIFY_API_TOKEN - created in Coolify (Keys & Tokens -> API tokens)
+#   with deploy permission, then pasted into GitHub Settings ->
+#   Secrets and variables -> Actions. App UUIDs below are plain
+#   identifiers (they appear in Coolify URLs), not secrets.
+#
+# Branch mapping (matches how the apps are actually configured):
+#   release/v0.1.0-rc.1 -> identity-service ONLY (its Coolify app builds
+#                          this branch; every other app builds rc.2)
+#   release/v0.1.0-rc.2 -> catalog, profile, order, fulfillment, shipping,
+#                          inventory, web-user (identity changes landing on
+#                          rc.2 do NOT deploy identity; they deploy when the
+#                          same change is cherry-picked to rc.1)
+
+on:
+  push:
+    branches:
+      - release/v0.1.0-rc.1
+      - release/v0.1.0-rc.2
+  workflow_dispatch:
+    inputs:
+      apps:
+        description: "Apps to deploy: identity,catalog,profile,order,fulfillment,shipping,inventory,web - or 'all'"
+        required: true
+        default: "web"
+
+concurrency:
+  group: cd-coolify
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  COOLIFY_BASE: https://coolify.hvduong.qzz.io
+  APP_UUID_IDENTITY: "gor2wstpcecmiz4rvdnlzzyi"
+  APP_UUID_CATALOG: "uqvxq9butuq56tbusobpyceu"
+  APP_UUID_PROFILE: "pxu44nnipidoqrhmobitgxq3"
+  APP_UUID_ORDER: "vvzqmfxcrdxly5ndhads7kxn"
+  APP_UUID_FULFILLMENT: "afdzvapvnwrmlaqu5gg2omtn"
+  APP_UUID_SHIPPING: "vymxdc94fzfrrerg9umizerj"
+  APP_UUID_INVENTORY: "qaficsfc5om7icdrjizorqoz"
+  APP_UUID_WEB: "plf5cnfxylu2d1cl6cginegx"
+  # Kong is a Coolify Service (docker-compose resource), not an Application.
+  KONG_UUID: "1tmlaxcmgpkgqadugbfaaddz"
+
+jobs:
+  detect:
+    name: Detect changed apps
+    runs-on: ubuntu-latest
+    outputs:
+      apps: ${{ steps.detect.outputs.apps }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: detect
+        shell: bash
+        run: |
+          set -euo pipefail
+          apps=()
+          add() { local a="$1"; for x in "${apps[@]:-}"; do [ "$x" = "$a" ] && return; done; apps+=("$a"); }
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            input="${{ inputs.apps }}"
+            if [ "$input" = "all" ]; then
+              apps=(identity catalog profile order fulfillment shipping inventory web)
+            else
+              IFS=',' read -ra parts <<< "$input"
+              for p in "${parts[@]}"; do add "$(echo "$p" | tr -d ' ')"; done
+            fi
+          elif [ "${{ github.ref_name }}" = "release/v0.1.0-rc.1" ]; then
+            # This branch feeds identity-service only.
+            apps=(identity)
+          else
+            before="${{ github.event.before }}"
+            after="${{ github.event.after }}"
+            if [ -z "$before" ] || [ "$before" = "0000000000000000000000000000000000000000" ]; then
+              before="${after}~1"
+            fi
+            files=$(git diff --name-only "$before" "$after")
+            echo "Changed files:"; echo "$files"
+            while IFS= read -r f; do
+              case "$f" in
+                services/catalog-service/*) add catalog ;;
+                services/profile-service/*) add profile ;;
+                services/order-service/*) add order ;;
+                services/fulfillment-service/*) add fulfillment ;;
+                services/shipping-service/*) add shipping ;;
+                services/inventory-service/*) add inventory ;;
+                apps/web-user/*) add web ;;
+                services/identity-service/*)
+                  echo "::notice::identity-service changed on rc.2 - it deploys from rc.1, cherry-pick the change there to deploy it." ;;
+                packages/*)
+                  add catalog; add profile; add order; add fulfillment; add shipping; add inventory ;;
+              esac
+            done <<< "$files"
+          fi
+          json=$(printf '%s\n' "${apps[@]:-}" | jq -R 'select(length>0)' | jq -sc .)
+          echo "Apps to deploy: $json"
+          echo "apps=$json" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    name: Deploy ${{ matrix.app }}
+    needs: detect
+    if: needs.detect.outputs.apps != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        app: ${{ fromJSON(needs.detect.outputs.apps) }}
+    steps:
+      - name: Trigger Coolify deploy
+        shell: bash
+        env:
+          APP: ${{ matrix.app }}
+          TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          case "$APP" in
+            identity) uuid="$APP_UUID_IDENTITY" ;;
+            catalog) uuid="$APP_UUID_CATALOG" ;;
+            profile) uuid="$APP_UUID_PROFILE" ;;
+            order) uuid="$APP_UUID_ORDER" ;;
+            fulfillment) uuid="$APP_UUID_FULFILLMENT" ;;
+            shipping) uuid="$APP_UUID_SHIPPING" ;;
+            inventory) uuid="$APP_UUID_INVENTORY" ;;
+            web) uuid="$APP_UUID_WEB" ;;
+            *) echo "Unknown app: $APP"; exit 1 ;;
+          esac
+          if [ -z "$TOKEN" ]; then
+            echo "::error::COOLIFY_API_TOKEN secret is not set - create the token in Coolify (Keys & Tokens) and add it under Settings -> Secrets and variables -> Actions."
+            exit 1
+          fi
+          echo "Deploying $APP ($uuid) at $GITHUB_SHA"
+          response=$(curl -fsS -X GET \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Accept: application/json" \
+            "$COOLIFY_BASE/api/v1/deploy?uuid=$uuid&force=true")
+          echo "$response" | jq . || echo "$response"
+          deployment=$(echo "$response" | jq -r '.deployments[0].uuid // .deployment_uuid // .uuid // empty')
+          echo "deployment=$deployment" >> "$GITHUB_ENV"
+      - name: Wait for the deployment to settle
+        shell: bash
+        env:
+          TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
+        run: |
+          set -uo pipefail
+          # Best-effort status polling: the smoke job below is the real gate,
+          # so an unrecognised status payload never fails this step.
+          if [ -z "${deployment:-}" ]; then
+            echo "No deployment id returned; waiting a fixed settle time."
+            sleep 120
+            exit 0
+          fi
+          for i in $(seq 1 45); do
+            body=$(curl -fsS -H "Authorization: Bearer $TOKEN" -H "Accept: application/json" \
+              "$COOLIFY_BASE/api/v1/deployments/$deployment" || true)
+            status=$(echo "$body" | jq -r '.status // empty' 2>/dev/null || true)
+            echo "poll $i: status=$status"
+            case "$status" in
+              finished|success|deployed) exit 0 ;;
+              failed|error|cancelled) echo "::error::Coolify deployment $deployment ended with status $status"; exit 1 ;;
+            esac
+            sleep 20
+          done
+          echo "::warning::Deployment status did not settle in ~15 min; the smoke job decides."
+
+  kong:
+    name: Restart Kong (F-08)
+    needs: [detect, deploy]
+    if: needs.detect.outputs.apps != '[]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Restart the Kong resource
+        shell: bash
+        env:
+          TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "$KONG_UUID" ]; then
+            echo "::warning::Kong UUID not configured - restart Kong manually (F-08) or the gateway may serve stale upstreams."
+            exit 0
+          fi
+          curl -fsS -X POST \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Accept: application/json" \
+            "$COOLIFY_BASE/api/v1/services/$KONG_UUID/restart"
+          echo "Kong restart requested; giving it time to become healthy."
+          sleep 45
+
+  smoke:
+    name: Smoke check
+    needs: [deploy, kong]
+    if: |
+      always() && needs.deploy.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Public surface must answer
+        shell: bash
+        run: |
+          set -uo pipefail
+          check() {
+            local url="$1"
+            for i in $(seq 1 18); do
+              code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "$url" || true)
+              echo "$url -> $code (try $i)"
+              [ "$code" = "200" ] && return 0
+              sleep 10
+            done
+            return 1
+          }
+          fail=0
+          check "https://api-pbl6.hvduong.qzz.io/api/v1/products" || fail=1
+          check "https://pbl.npanhbao.dev/products" || fail=1
+          {
+            echo "## CD smoke result"
+            if [ "$fail" = "0" ]; then
+              echo "Public surface healthy after deploying: ${{ needs.detect.outputs.apps }}"
+            else
+              echo "SMOKE FAILED after deploying: ${{ needs.detect.outputs.apps }}"
+              echo ""
+              echo "Rollback (manual, proven in W4 R3): Coolify -> the app -> Deployments -> roll back to the previous deployment, then restart Kong."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit $fail
