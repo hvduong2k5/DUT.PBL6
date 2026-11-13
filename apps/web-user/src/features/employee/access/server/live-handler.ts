@@ -4,13 +4,21 @@ import { applyTrustedSessionCookie, getTrustedAccessToken } from "@/lib/auth/ser
 import { AccessProjectionError, decodeAccessProjection } from "../live";
 import { parseAdminAccessPath } from "../validation";
 import { AccessUpstreamError, composeAccessProjection } from "./compose";
+import { handleLiveAdminAccessWrite } from "./write-handler";
 
 const failure = (status: number, code: string, message: string) => NextResponse.json({ code, message, requestId: `BFF-ACCESS-${crypto.randomUUID()}`, errors: [] }, { status, headers: { "Cache-Control": "no-store" } });
 
 export async function handleLiveAdminAccess(request: NextRequest, path: string[]) {
+  if (path.some((part) => !/^[A-Za-z0-9_.:-]{1,160}$/u.test(part))) return failure(404, "NOT_FOUND", "Đường dẫn quản trị không tồn tại.");
+  if (request.method !== "GET") {
+    // Writes exist only in OIDC mode, where the BFF can forward the caller's
+    // staff token to the identity admin APIs (F-47). The identity-bff fixture
+    // mode has no write surface.
+    if (usesIdentityBff()) return failure(405, "METHOD_NOT_ALLOWED", "Chức năng này chỉ hỗ trợ tra cứu.");
+    return handleLiveAdminAccessWrite(request, path);
+  }
   const route = parseAdminAccessPath(path);
-  if (route.kind === "invalid" || path.some((part) => !/^[A-Za-z0-9_.:-]{1,160}$/u.test(part))) return failure(404, "NOT_FOUND", "Đường dẫn quản trị không tồn tại.");
-  if (request.method !== "GET") return failure(405, "METHOD_NOT_ALLOWED", "Chức năng này chỉ hỗ trợ tra cứu.");
+  if (route.kind === "invalid") return failure(404, "NOT_FOUND", "Đường dẫn quản trị không tồn tại.");
   if (!getTrustedAccessToken(request)) return failure(401, "AUTH_REQUIRED", "Vui lòng đăng nhập bằng tài khoản nhân viên.");
   if (request.nextUrl.search) return failure(400, "INVALID_QUERY", "Bộ lọc chưa được hỗ trợ.");
   const base = process.env.IDENTITY_UPSTREAM_URL?.replace(/\/$/u, "");
