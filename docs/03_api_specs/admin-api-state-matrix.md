@@ -274,3 +274,5 @@ Ví dụ xóa mô tả cũ và cập nhật OCOP:
 4. Every mutation validates `400/422`, transition or revision conflict `409`, and retry behavior.
 5. Every endpoint has controlled latency and `500/503` UI tests.
 6. Error responses preserve `code` and `requestId`; clients do not branch on translated `message`.
+
+`GET /api/v1/admin/roles` also accepts the `identity-service-admin` client-credentials token for audience `identity-roles-api`. This service permission covers the list operation only.

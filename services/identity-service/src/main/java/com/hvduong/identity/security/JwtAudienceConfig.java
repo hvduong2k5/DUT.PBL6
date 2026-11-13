@@ -17,6 +17,15 @@ import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 
 @Configuration
 public class JwtAudienceConfig {
+    static final String ROLES_AUDIENCE = "identity-roles-api";
+    static final String ROLES_READER_CLIENT = "identity-service-admin";
+    static final String ROLES_READER_AUTHORITY = "IDENTITY_SERVICE_ROLE_LIST";
+
+    static boolean isRolesReader(Jwt jwt) {
+        return ROLES_READER_CLIENT.equals(jwt.getClaimAsString("azp"))
+                && jwt.getAudience() != null && jwt.getAudience().contains(ROLES_AUDIENCE);
+    }
+
     @Bean
     JwtDecoder jwtDecoder(
             @Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}") String issuer,
@@ -37,6 +46,7 @@ public class JwtAudienceConfig {
 
     static OAuth2TokenValidator<Jwt> audienceValidator(String audience) {
         return jwt -> {
+            if (isRolesReader(jwt)) return OAuth2TokenValidatorResult.success();
             List<String> audiences = jwt.getAudience();
             return audiences != null && audiences.contains(audience)
                     ? OAuth2TokenValidatorResult.success()
