@@ -35,6 +35,7 @@ describe("Employee server authorization (OIDC mode)", () => {
   function setupOidc() {
     vi.stubEnv("WEB_AUTH_MODE", "oidc");
     vi.stubEnv("CUSTOMER_CORE_UPSTREAM_URL", "http://identity.test/api/v1/customer-api");
+    vi.stubEnv("IDENTITY_UPSTREAM_URL", "http://identity.test/api/v1");
   }
 
   it("requires the access-token cookie", async () => {
@@ -52,7 +53,7 @@ describe("Employee server authorization (OIDC mode)", () => {
     await expect(requireEmployeeSession(oidcRequest("staff-token"))).resolves.toMatchObject({ employee: { employeeId: "EMP-02" }, roles: ["ADMIN"], permissions: ["ORDER_VIEW", "PACKING_TASK_VIEW"] });
     expect(fetcher).toHaveBeenCalledTimes(1);
     const [url, init] = fetcher.mock.calls[0];
-    expect(url).toBe("http://identity.test/api/v1/customer-api/users/me");
+    expect(url).toBe("http://identity.test/api/v1/users/me");
     expect((init.headers as Record<string, string>).Authorization).toBe("Bearer staff-token");
   });
 
