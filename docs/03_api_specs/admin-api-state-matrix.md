@@ -277,4 +277,6 @@ Ví dụ xóa mô tả cũ và cập nhật OCOP:
 
 `GET /api/v1/admin/roles` also accepts the `identity-service-admin` client-credentials token for audience `identity-roles-api`. This service permission covers the list operation only.
 
+Inventory receipts require `INVENTORY_RECEIPT_CREATE` globally or for the SKU warehouse. The API checks the expected revision and replays the stored result for matching idempotent retries.
+
 Fulfillment staff routes validate the `omama-api` audience by default. Missing or invalid credentials return 401. Valid credentials without an eligible staff identity or the required grant return 403.
