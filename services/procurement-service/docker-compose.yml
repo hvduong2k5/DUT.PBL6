@@ -20,7 +20,10 @@ services:
     environment:
       PROCUREMENT_HTTP_ADDRESS: :8008
       PROCUREMENT_DATABASE_URL: postgres://procurement:procurement@procurement-postgres:5432/procurement_db?sslmode=disable
-      PROCUREMENT_INTERNAL_TOKEN: ${PROCUREMENT_INTERNAL_TOKEN:-procurement-local-development-secret}
+      PROCUREMENT_OIDC_ISSUER: ${PROCUREMENT_OIDC_ISSUER:?Set the exact Identity Keycloak issuer}
+      PROCUREMENT_OIDC_AUDIENCE: ${PROCUREMENT_OIDC_AUDIENCE:-omama-api}
+      PROCUREMENT_OIDC_JWKS_URL: ${PROCUREMENT_OIDC_JWKS_URL:-}
+      PROCUREMENT_OIDC_ALLOW_LOCAL_HTTP: ${PROCUREMENT_OIDC_ALLOW_LOCAL_HTTP:-false}
       KAFKA_BROKERS: ${KAFKA_BROKERS:-}
     ports:
       - "8008:8008"

@@ -78,7 +78,14 @@ func main() {
 		}()
 		logger.Info("goods-received outbox publisher started", "topic", "procurement.events.v1")
 	}
-	handler := httpapi.NewRouter(service, cfg.InternalToken, repository.Ping)
+	handler, err := httpapi.NewRouter(service, httpapi.IdentityConfig{
+		Issuer: cfg.OIDCIssuer, Audience: cfg.OIDCAudience, JWKSURL: cfg.OIDCJWKSURL,
+		AllowLocalHTTP: cfg.OIDCAllowLocalHTTP,
+	}, repository.Ping)
+	if err != nil {
+		logger.Error("configure Identity JWT verification", "error", err)
+		os.Exit(1)
+	}
 	server := &http.Server{
 		Addr: cfg.HTTPAddress, Handler: handler,
 		ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second,

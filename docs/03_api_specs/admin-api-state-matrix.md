@@ -40,6 +40,29 @@ JWT permissions. Missing task 2 lifecycle/projection fields are an unavailable
 capability, never invented dates, revision, impact or status. Existing CRUD APIs
 are not silently aliased to the new projections. Role mutations remain owned by
 task 2. Common BFF errors include code, safe message, requestId and errors.
+
+## Procurement service authorization (internal API; not yet a frontend route)
+
+Procurement's `/api/v1/admin/procurement/*` endpoints accept an Identity-issued
+RS256 bearer JWT and require `principal_type=EMPLOYEE`, `user_id`, and the signed
+`permission_grants` claim. Procurement no longer treats internal-token or user
+role headers as user authentication. Its BFF/Gateway must forward the bearer
+token and keep the service inaccessible to public clients. The service audience
+is configurable; align it with Identity (currently expected to be `omama-api`).
+
+| Procurement route family | Required grant | Scope/result |
+|---|---|---|
+| Supplier, material, offer, PO, and supply-plan reads; supply-plan preview | `PROCUREMENT_VIEW` | `GLOBAL` |
+| Supplier, material, offer, contract reads and changes; PO and supply-plan changes excluding approvals | `PROCUREMENT_MANAGE` | `GLOBAL` |
+| PO and supply-plan approve/reject actions | `PROCUREMENT_APPROVE` | `GLOBAL`; creator cannot approve their own submission |
+| Goods receipt create/inspect; receipt read for warehouse staff | `PROCUREMENT_RECEIVE` | Matching `WAREHOUSE#<warehouseCode>`; operational admins may receive `GLOBAL` |
+| Goods receipt variance resolution | `PROCUREMENT_VARIANCE_RESOLVE` | Matching `WAREHOUSE#<warehouseCode>`; operational admins may receive `GLOBAL` |
+
+Missing/invalid credentials produce 401. A valid employee token missing the
+required permission or matching warehouse scope produces 403. These operations
+remain absent from the frontend OpenAPI paths until a BFF route is explicitly
+approved; the corresponding policy summary is recorded in the draft OpenAPI
+metadata meanwhile.
 ## Permission sync semantics
 
 - The IAM database is the source of truth; Keycloak user attributes are a projection used to mint tokens.

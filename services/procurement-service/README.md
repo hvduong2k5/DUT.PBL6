@@ -6,21 +6,24 @@ Procurement Service owns supplier records, raw material definitions, supplier-sp
 
 ```powershell
 Set-Location services/procurement-service
-$env:PROCUREMENT_INTERNAL_TOKEN = "procurement-local-development-secret"
+$env:PROCUREMENT_OIDC_ISSUER = "https://keycloak.omama.vn/realms/omama"
+$env:PROCUREMENT_OIDC_AUDIENCE = "omama-api"
 docker compose up --build
 ```
 
 The HTTP API listens on `localhost:8008`; PostgreSQL is exposed on `localhost:5449`. The service applies pending migrations at startup. `GET /health/live` reports process liveness and `GET /health/ready` checks the database.
 
-All `/api/v1/admin/procurement/*` routes require these headers from the trusted API Gateway:
+All `/api/v1/admin/procurement/*` routes validate an Identity-issued RS256 bearer access token. Configure `PROCUREMENT_OIDC_ISSUER` and `PROCUREMENT_OIDC_AUDIENCE`; `PROCUREMENT_OIDC_JWKS_URL` is optional and defaults to the Keycloak certs endpoint. HTTP is rejected except for an explicitly enabled loopback-only local test (`PROCUREMENT_OIDC_ALLOW_LOCAL_HTTP=true`). The token must contain `principal_type=EMPLOYEE`, `user_id`, and the signed `permission_grants` array. The service does not trust `X-User-ID`, `X-User-Role`, or `X-Internal-Token` as user authentication. A BFF/Gateway must forward the user's bearer token to Procurement and must not make Procurement publicly reachable.
 
-- `X-Internal-Token: <PROCUREMENT_INTERNAL_TOKEN>`
-- `X-User-ID: <authenticated-user-id>`
-- `X-User-Role: ADMIN | SUPPLY_MANAGER | PROCUREMENT_MANAGER`
+The compact authorization vocabulary is:
 
-Goods receipt endpoints also allow `WAREHOUSE_STAFF`. Warehouse Staff can create, view, and inspect goods receipts but cannot administer suppliers, materials, offers, or purchase orders.
+- `PROCUREMENT_VIEW#GLOBAL`: read supplier/material/offer/PO/plan data and preview supply plans.
+- `PROCUREMENT_MANAGE#GLOBAL`: manage suppliers, materials, offers, contracts (including contract reads), purchase orders, and supply plans, excluding approval actions.
+- `PROCUREMENT_APPROVE#GLOBAL`: approve or reject purchase orders and supply plans. Existing no-self-approval checks remain in force.
+- `PROCUREMENT_RECEIVE#WAREHOUSE#<warehouseCode>`: create and inspect receipts, and read receipts for that warehouse. A GLOBAL grant is accepted for operational admins.
+- `PROCUREMENT_VARIANCE_RESOLVE#WAREHOUSE#<warehouseCode>`: resolve receipt variances for that warehouse. A GLOBAL grant is accepted for operational admins.
 
-Do not expose this service directly to public clients. The gateway must authenticate the user and set these trusted headers.
+Grant format follows Identity's signed snapshot convention: `PERMISSION#GLOBAL` or `PERMISSION#WAREHOUSE#<scopeId>`. Realm roles are not used as authorization bypasses. Missing/invalid JWT returns 401; a valid employee token without the required permission or warehouse scope returns 403. The identity owner must seed/map these five permissions to employee roles before users can call Procurement.
 
 ## Supplier and material API
 
@@ -106,5 +109,8 @@ Example create request:
 
 - `PROCUREMENT_HTTP_ADDRESS` (default `:8008`)
 - `PROCUREMENT_DATABASE_URL` (default `postgres://procurement:procurement@localhost:5449/procurement_db?sslmode=disable`)
-- `PROCUREMENT_INTERNAL_TOKEN` (required)
+- `PROCUREMENT_OIDC_ISSUER` (required)
+- `PROCUREMENT_OIDC_AUDIENCE` (optional; defaults to `omama-api`, which must be present in Identity-issued Procurement tokens)
+- `PROCUREMENT_OIDC_JWKS_URL` (optional; defaults to `${PROCUREMENT_OIDC_ISSUER}/protocol/openid-connect/certs`)
+- `PROCUREMENT_OIDC_ALLOW_LOCAL_HTTP` (optional; loopback-only development/testing)
 - `KAFKA_BROKERS` (optional comma-separated brokers; when unset, committed outbox events remain pending until a broker is configured)

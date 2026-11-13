@@ -2,10 +2,17 @@ package httpapi_test
 
 import (
 	"context"
+	"crypto"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
+	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -13,6 +20,12 @@ import (
 	"github.com/omamx/procurement-service/internal/application"
 	"github.com/omamx/procurement-service/internal/domain"
 	"github.com/omamx/procurement-service/internal/transport/httpapi"
+)
+
+var (
+	testIdentityOnce sync.Once
+	testIdentityKey  *rsa.PrivateKey
+	testJWKS         *httptest.Server
 )
 
 type httpRepository struct {
@@ -332,7 +345,59 @@ func (r *httpRepository) InspectGoodsReceipt(_ context.Context, receipt domain.G
 }
 
 func newHandler(repo *httpRepository) http.Handler {
-	return httpapi.NewRouter(application.NewService(repo), "test-token", repo.Ping)
+	config := testIdentityConfig()
+	handler, err := httpapi.NewRouter(application.NewService(repo), config, repo.Ping)
+	if err != nil {
+		panic(err)
+	}
+	return handler
+}
+
+func testIdentityConfig() httpapi.IdentityConfig {
+	testIdentityOnce.Do(func() {
+		var err error
+		testIdentityKey, err = rsa.GenerateKey(rand.Reader, 2048)
+		if err != nil {
+			panic(err)
+		}
+		exponent := big.NewInt(int64(testIdentityKey.PublicKey.E)).Bytes()
+		jwks := map[string]any{"keys": []any{map[string]string{
+			"kid": "procurement-test-key", "kty": "RSA", "alg": "RS256", "use": "sig",
+			"n": base64.RawURLEncoding.EncodeToString(testIdentityKey.PublicKey.N.Bytes()),
+			"e": base64.RawURLEncoding.EncodeToString(exponent),
+		}}}
+		testJWKS = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			_ = json.NewEncoder(w).Encode(jwks)
+		}))
+	})
+	return httpapi.IdentityConfig{Issuer: "https://identity.test/realms/omama", Audience: "procurement-api", JWKSURL: testJWKS.URL, AllowLocalHTTP: true}
+}
+
+func employeeToken(user, role string) string {
+	grants := []string{}
+	switch role {
+	case "ADMIN", "PROCUREMENT_MANAGER":
+		grants = []string{"PROCUREMENT_VIEW#GLOBAL", "PROCUREMENT_MANAGE#GLOBAL", "PROCUREMENT_APPROVE#GLOBAL", "PROCUREMENT_RECEIVE#GLOBAL", "PROCUREMENT_VARIANCE_RESOLVE#GLOBAL"}
+	case "SUPPLY_MANAGER":
+		grants = []string{"PROCUREMENT_VIEW#GLOBAL", "PROCUREMENT_MANAGE#GLOBAL", "PROCUREMENT_RECEIVE#GLOBAL"}
+	case "WAREHOUSE_STAFF":
+		grants = []string{"PROCUREMENT_RECEIVE#WAREHOUSE#WH-01"}
+	}
+	principalID := uuid.NewSHA1(uuid.NameSpaceOID, []byte(user)).String()
+	claims := map[string]any{
+		"iss": "https://identity.test/realms/omama", "sub": "subject-" + user, "aud": []string{"omama-api", "procurement-api"},
+		"exp": time.Now().Add(time.Hour).Unix(), "iat": time.Now().Add(-time.Minute).Unix(), "typ": "Bearer",
+		"user_id": principalID, "principal_type": "EMPLOYEE", "permission_grants": grants,
+	}
+	header, _ := json.Marshal(map[string]string{"alg": "RS256", "kid": "procurement-test-key", "typ": "JWT"})
+	body, _ := json.Marshal(claims)
+	unsigned := base64.RawURLEncoding.EncodeToString(header) + "." + base64.RawURLEncoding.EncodeToString(body)
+	digest := sha256.Sum256([]byte(unsigned))
+	signature, err := rsa.SignPKCS1v15(rand.Reader, testIdentityKey, crypto.SHA256, digest[:])
+	if err != nil {
+		panic(err)
+	}
+	return unsigned + "." + base64.RawURLEncoding.EncodeToString(signature)
 }
 
 func performRequest(handler http.Handler, method, path, body, user, role string) *httptest.ResponseRecorder {
@@ -342,13 +407,7 @@ func performRequest(handler http.Handler, method, path, body, user, role string)
 func performRequestWithIdempotency(handler http.Handler, method, path, body, user, role, key string) *httptest.ResponseRecorder {
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(method, path, strings.NewReader(body))
-	if user != "" {
-		request.Header.Set("X-User-ID", user)
-	}
-	if role != "" {
-		request.Header.Set("X-User-Role", role)
-	}
-	request.Header.Set("X-Internal-Token", "test-token")
+	request.Header.Set("Authorization", "Bearer "+employeeToken(user, role))
 	if key != "" {
 		request.Header.Set("Idempotency-Key", key)
 	}
@@ -356,19 +415,38 @@ func performRequestWithIdempotency(handler http.Handler, method, path, body, use
 	return recorder
 }
 
-func TestAdminSupplierAPIRequiresInternalStaffContext(t *testing.T) {
+func TestAdminSupplierAPIRequiresEmployeeJWTAndPermission(t *testing.T) {
 	repo := newHTTPRepository()
 	handler := newHandler(repo)
 	request := httptest.NewRequest(http.MethodPost, "/api/v1/admin/procurement/suppliers", strings.NewReader(`{"code":"SUP-1","name":"Supplier","supplier_type":"COMPANY"}`))
+	request.Header.Set("X-Internal-Token", "test-token")
+	request.Header.Set("X-User-ID", uuid.NewString())
+	request.Header.Set("X-User-Role", "ADMIN")
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, request)
 	if recorder.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d, want 401", recorder.Code)
 	}
+	noPermission := performRequest(handler, http.MethodPost, "/api/v1/admin/procurement/suppliers", `{"code":"SUP-0","name":"Supplier","supplier_type":"COMPANY"}`, "unassigned", "UNASSIGNED")
+	if noPermission.Code != http.StatusForbidden {
+		t.Fatalf("valid employee without PROCUREMENT_MANAGE status=%d body=%s, want 403", noPermission.Code, noPermission.Body.String())
+	}
 
 	denied := performRequest(handler, http.MethodPost, "/api/v1/admin/procurement/suppliers", `{"code":"SUP-1","name":"Supplier","supplier_type":"COMPANY"}`, "staff", "WAREHOUSE_STAFF")
 	if denied.Code != http.StatusForbidden {
 		t.Fatalf("warehouse staff status = %d, want 403", denied.Code)
+	}
+}
+
+func TestWarehouseReceiptGrantCannotCrossWarehouseScope(t *testing.T) {
+	handler := newHandler(newHTTPRepository())
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/admin/procurement/goods-receipts", strings.NewReader(`{"purchase_order_id":"`+uuid.NewString()+`","warehouse_code":"WH-02","lines":[]}`))
+	request.Header.Set("Authorization", "Bearer "+employeeToken("warehouse-1", "WAREHOUSE_STAFF"))
+	request.Header.Set("Idempotency-Key", "warehouse-scope-check-001")
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("out-of-scope goods receipt status = %d body=%s, want 403", recorder.Code, recorder.Body.String())
 	}
 }
 
@@ -455,7 +533,7 @@ func TestPurchaseOrderHTTPWorkflowAndSelfApprovalGuard(t *testing.T) {
 	handler := newHandler(repo)
 
 	body := `{"supplier_id":"` + supplier.ID.String() + `","notes":"routine restock","lines":[{"material_id":"` + material.ID.String() + `","quantity":"2.5"}]}`
-	created := performRequestWithIdempotency(handler, http.MethodPost, "/api/v1/admin/procurement/purchase-orders", body, "creator", "SUPPLY_MANAGER", "purchase-order-create-flow")
+	created := performRequestWithIdempotency(handler, http.MethodPost, "/api/v1/admin/procurement/purchase-orders", body, "creator", "PROCUREMENT_MANAGER", "purchase-order-create-flow")
 	if created.Code != http.StatusCreated {
 		t.Fatalf("create PO status = %d, body=%s", created.Code, created.Body.String())
 	}
@@ -467,11 +545,11 @@ func TestPurchaseOrderHTTPWorkflowAndSelfApprovalGuard(t *testing.T) {
 		t.Fatalf("unexpected created PO: %+v", order)
 	}
 
-	submitted := performRequest(handler, http.MethodPost, "/api/v1/admin/procurement/purchase-orders/"+order.ID.String()+"/submit", "", "creator", "SUPPLY_MANAGER")
+	submitted := performRequest(handler, http.MethodPost, "/api/v1/admin/procurement/purchase-orders/"+order.ID.String()+"/submit", "", "creator", "PROCUREMENT_MANAGER")
 	if submitted.Code != http.StatusOK {
 		t.Fatalf("submit status = %d, body=%s", submitted.Code, submitted.Body.String())
 	}
-	selfApproval := performRequest(handler, http.MethodPost, "/api/v1/admin/procurement/purchase-orders/"+order.ID.String()+"/approve", "", "creator", "SUPPLY_MANAGER")
+	selfApproval := performRequest(handler, http.MethodPost, "/api/v1/admin/procurement/purchase-orders/"+order.ID.String()+"/approve", "", "creator", "PROCUREMENT_MANAGER")
 	if selfApproval.Code != http.StatusConflict {
 		t.Fatalf("self approval status = %d, want 409", selfApproval.Code)
 	}
@@ -591,7 +669,7 @@ func TestGoodsReceiptIdempotencyReplaysAndRejectsChangedPayload(t *testing.T) {
 func TestResolvingGoodsReceiptVarianceRequiresSensitiveRole(t *testing.T) {
 	repo := newHTTPRepository()
 	receiptID, varianceID := uuid.New(), uuid.New()
-	repo.receipts[receiptID] = domain.GoodsReceipt{ID: receiptID, Status: domain.GoodsReceiptInspected, Variances: []domain.GoodsReceiptVariance{{ID: varianceID, Type: domain.GoodsReceiptVarianceOverReceived, Status: "OPEN"}}}
+	repo.receipts[receiptID] = domain.GoodsReceipt{ID: receiptID, WarehouseCode: "WH-01", Status: domain.GoodsReceiptInspected, Variances: []domain.GoodsReceiptVariance{{ID: varianceID, Type: domain.GoodsReceiptVarianceOverReceived, Status: "OPEN"}}}
 	handler := newHandler(repo)
 	path := "/api/v1/admin/procurement/goods-receipts/" + receiptID.String() + "/variances/" + varianceID.String() + "/resolve"
 	body := `{"decision":"ACCEPT_VARIANCE","note":"approved as documented exception"}`
@@ -728,15 +806,15 @@ func TestSupplyPlanPreviewRouteReturnsComputedProposal(t *testing.T) {
 	}
 }
 
-func TestSupplierContractsRequireSensitiveRoleAndCreateDraftRevision(t *testing.T) {
+func TestSupplierContractsRequireManagePermissionAndCreateDraftRevision(t *testing.T) {
 	repo := newHTTPRepository()
 	supplier, _ := domain.NewSupplier("SUP-CON", "Supplier", "COMPANY", "", "", "", "")
 	repo.suppliers[supplier.ID] = supplier
 	handler := newHandler(repo)
 	body := `{"contract_number":"AGR-01","scope":"RAW_MATERIALS","payment_terms":"NET 30","document_file_id":"file-abc","effective_from":"2026-11-01"}`
-	denied := performRequest(handler, http.MethodPost, "/api/v1/admin/procurement/suppliers/"+supplier.ID.String()+"/contracts", body, "supply", "SUPPLY_MANAGER")
+	denied := performRequest(handler, http.MethodPost, "/api/v1/admin/procurement/suppliers/"+supplier.ID.String()+"/contracts", body, "warehouse", "WAREHOUSE_STAFF")
 	if denied.Code != http.StatusForbidden {
-		t.Fatalf("supply manager contract status=%d, want 403", denied.Code)
+		t.Fatalf("warehouse staff contract status=%d, want 403", denied.Code)
 	}
 	created := performRequest(handler, http.MethodPost, "/api/v1/admin/procurement/suppliers/"+supplier.ID.String()+"/contracts", body, "procurement", "PROCUREMENT_MANAGER")
 	if created.Code != http.StatusCreated {

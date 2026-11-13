@@ -6,6 +6,26 @@ info:
     name: "Proprietary"
     identifier: "LicenseRef-Proprietary"
   description: "Non-stable proposal for backend review. Every operation requires an explicit product/security decision before implementation compatibility is promised. Draft means a concrete proposal exists; planned means the capability is identified but policy or workflow remains incomplete."
+  x-procurement-service-authorization:
+    status: "service-internal; Procurement routes are not currently exposed as frontend operations in this contract"
+    token:
+      type: "Bearer JWT"
+      issuer: "Identity-configured OIDC issuer"
+      audience: "Identity-configured Procurement audience (currently expected to be omama-api)"
+      requiredClaims:
+        - "principal_type=EMPLOYEE"
+        - "user_id"
+        - "permission_grants"
+    permissions:
+      - "PROCUREMENT_VIEW#GLOBAL"
+      - "PROCUREMENT_MANAGE#GLOBAL"
+      - "PROCUREMENT_APPROVE#GLOBAL"
+      - "PROCUREMENT_RECEIVE#WAREHOUSE#<warehouseCode>"
+      - "PROCUREMENT_VARIANCE_RESOLVE#WAREHOUSE#<warehouseCode>"
+    rules:
+      - "Role names do not bypass permission checks."
+      - "Receipt actions and variance resolution enforce the matching warehouse scope; GLOBAL grants are allowed for operational admins."
+      - "Missing or invalid authentication returns 401; valid employee tokens missing permission or scope return 403."
 servers:
   -
     url: "https://api.omama.vn"

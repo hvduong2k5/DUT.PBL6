@@ -2,7 +2,6 @@ package httpapi
 
 import (
 	"context"
-	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"io"
@@ -18,18 +17,22 @@ import (
 )
 
 type Router struct {
-	service       *application.Service
-	internalToken string
-	ping          func(context.Context) error
+	service  *application.Service
+	identity *jwtVerifier
+	ping     func(context.Context) error
 }
 
-func NewRouter(service *application.Service, internalToken string, ping func(context.Context) error) http.Handler {
-	h := &Router{service: service, internalToken: internalToken, ping: ping}
+func NewRouter(service *application.Service, identityConfig IdentityConfig, ping func(context.Context) error) (http.Handler, error) {
+	identity, err := newJWTVerifier(identityConfig)
+	if err != nil {
+		return nil, err
+	}
+	h := &Router{service: service, identity: identity, ping: ping}
 	r := chi.NewRouter()
 	r.Get("/health/live", h.live)
 	r.Get("/health/ready", h.ready)
 	r.Group(func(r chi.Router) {
-		r.Use(h.requireInternalStaff)
+		r.Use(h.authorizeRequest)
 		r.Get("/api/v1/admin/procurement/suppliers", h.listSuppliers)
 		r.Post("/api/v1/admin/procurement/suppliers", h.createSupplier)
 		r.Get("/api/v1/admin/procurement/suppliers/{supplierID}", h.getSupplier)
@@ -69,13 +72,13 @@ func NewRouter(service *application.Service, internalToken string, ping func(con
 		r.Post("/api/v1/admin/procurement/purchase-orders/{purchaseOrderID}/close", h.closePurchaseOrder)
 	})
 	r.Group(func(r chi.Router) {
-		r.Use(h.requireReceivingStaff)
+		r.Use(h.authorizeRequest)
 		r.Post("/api/v1/admin/procurement/goods-receipts", h.createGoodsReceipt)
 		r.Get("/api/v1/admin/procurement/goods-receipts/{goodsReceiptID}", h.getGoodsReceipt)
 		r.Post("/api/v1/admin/procurement/goods-receipts/{goodsReceiptID}/inspect", h.inspectGoodsReceipt)
 	})
 	r.Group(func(r chi.Router) {
-		r.Use(h.requireSensitiveProcurementStaff)
+		r.Use(h.authorizeRequest)
 		r.Get("/api/v1/admin/procurement/suppliers/{supplierID}/contracts", h.listSupplierContracts)
 		r.Post("/api/v1/admin/procurement/suppliers/{supplierID}/contracts", h.createSupplierContract)
 		r.Get("/api/v1/admin/procurement/contracts/{contractID}", h.getSupplierContract)
@@ -85,7 +88,7 @@ func NewRouter(service *application.Service, internalToken string, ping func(con
 		r.Post("/api/v1/admin/procurement/supply-plans/{supplyPlanID}/approve", h.approveSupplyPlan)
 		r.Post("/api/v1/admin/procurement/supply-plans/{supplyPlanID}/reject", h.rejectSupplyPlan)
 	})
-	return r
+	return r, nil
 }
 
 type supplyPlanPreviewRequest struct {
@@ -140,7 +143,7 @@ func (h *Router) createSupplyPlan(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "expected_version is only accepted when creating a new plan revision")
 		return
 	}
-	plan, err := h.service.CreateSupplyPlan(r.Context(), input, strings.TrimSpace(r.Header.Get("X-User-ID")), time.Now().UTC())
+	plan, err := h.service.CreateSupplyPlan(r.Context(), input, actorID(r), time.Now().UTC())
 	if err != nil {
 		h.writeServiceError(w, err)
 		return
@@ -187,7 +190,7 @@ func (h *Router) reviseSupplyPlan(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "expected_version must be a positive integer")
 		return
 	}
-	plan, err := h.service.ReviseSupplyPlan(r.Context(), id, expectedVersion, input, strings.TrimSpace(r.Header.Get("X-User-ID")), time.Now().UTC())
+	plan, err := h.service.ReviseSupplyPlan(r.Context(), id, expectedVersion, input, actorID(r), time.Now().UTC())
 	if err != nil {
 		h.writeServiceError(w, err)
 		return
@@ -237,7 +240,7 @@ func (h *Router) transitionSupplyPlan(w http.ResponseWriter, r *http.Request, tr
 	if !ok {
 		return
 	}
-	result, err := transition(id, strings.TrimSpace(r.Header.Get("X-User-ID")))
+	result, err := transition(id, actorID(r))
 	if err != nil {
 		h.writeServiceError(w, err)
 		return
@@ -276,7 +279,7 @@ func (h *Router) createPurchaseOrderFromSupplyPlan(w http.ResponseWriter, r *htt
 		return
 	}
 	order, err := h.service.CreatePurchaseOrderFromSupplyPlan(r.Context(), id, supplierID, request.ExpectedVersion,
-		strings.TrimSpace(r.Header.Get("X-User-ID")), time.Now().UTC())
+		actorID(r), time.Now().UTC())
 	if err != nil {
 		h.writeServiceError(w, err)
 		return
@@ -340,38 +343,80 @@ func (h *Router) ready(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ready"})
 }
 
-func (h *Router) requireInternalStaff(next http.Handler) http.Handler {
-	return h.requireRoles(next, "ADMIN", "SUPPLY_MANAGER", "PROCUREMENT_MANAGER")
-}
+type principalContextKey struct{}
 
-func (h *Router) requireReceivingStaff(next http.Handler) http.Handler {
-	return h.requireRoles(next, "ADMIN", "SUPPLY_MANAGER", "PROCUREMENT_MANAGER", "WAREHOUSE_STAFF")
-}
-
-func (h *Router) requireSensitiveProcurementStaff(next http.Handler) http.Handler {
-	return h.requireRoles(next, "ADMIN", "PROCUREMENT_MANAGER")
-}
-
-func (h *Router) requireRoles(next http.Handler, allowed ...string) http.Handler {
+func (h *Router) authorizeRequest(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		token := strings.TrimSpace(r.Header.Get("X-Internal-Token"))
-		if token == "" || len(token) != len(h.internalToken) || subtle.ConstantTimeCompare([]byte(token), []byte(h.internalToken)) != 1 {
-			writeError(w, http.StatusUnauthorized, "UNAUTHENTICATED", "valid internal token is required")
-			return
-		}
-		if strings.TrimSpace(r.Header.Get("X-User-ID")) == "" {
-			writeError(w, http.StatusUnauthorized, "UNAUTHENTICATED", "authenticated user context is required")
-			return
-		}
-		role := strings.ToUpper(strings.TrimSpace(r.Header.Get("X-User-Role")))
-		for _, candidate := range allowed {
-			if role == candidate {
-				next.ServeHTTP(w, r)
-				return
+		principal, status := h.identity.authenticate(r.Context(), r.Header.Get("Authorization"))
+		if status != http.StatusOK {
+			if status == http.StatusForbidden {
+				writeError(w, status, "FORBIDDEN", "an employee account is required")
+			} else {
+				writeError(w, status, "UNAUTHENTICATED", "a valid employee bearer token is required")
 			}
+			return
 		}
-		writeError(w, http.StatusForbidden, "FORBIDDEN", "role cannot access this procurement operation")
+		permission, scopeType, scopeID := requiredPermission(r.Method, r.URL.Path)
+		allowed := principal.allows(permission, scopeType, scopeID)
+		if scopeType == "" {
+			allowed = hasPermission(principal, permission)
+		}
+		if strings.Contains(r.URL.Path, "/goods-receipts") && r.Method == http.MethodGet {
+			allowed = allowed || hasPermission(principal, "PROCUREMENT_RECEIVE")
+		}
+		if permission != "" && !allowed {
+			writeError(w, http.StatusForbidden, "FORBIDDEN", "required procurement permission or scope is missing")
+			return
+		}
+		ctx := context.WithValue(r.Context(), principalContextKey{}, principal)
+		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+func actorID(r *http.Request) string {
+	principal, _ := r.Context().Value(principalContextKey{}).(employeePrincipal)
+	return principal.id
+}
+
+func employeeFromRequest(r *http.Request) employeePrincipal {
+	principal, _ := r.Context().Value(principalContextKey{}).(employeePrincipal)
+	return principal
+}
+
+func hasWarehouseScope(r *http.Request, permission, warehouse string) bool {
+	principal, _ := r.Context().Value(principalContextKey{}).(employeePrincipal)
+	return principal.allows(permission, "GLOBAL", "") || principal.allows(permission, "WAREHOUSE", warehouse)
+}
+
+func requiredPermission(method, path string) (string, string, string) {
+	if strings.Contains(path, "/contracts") {
+		return "PROCUREMENT_MANAGE", "GLOBAL", ""
+	}
+	if strings.HasSuffix(path, "/preview") {
+		return "PROCUREMENT_VIEW", "GLOBAL", ""
+	}
+	if method == http.MethodGet {
+		return "PROCUREMENT_VIEW", "GLOBAL", ""
+	}
+	if strings.HasSuffix(path, "/approve") || strings.HasSuffix(path, "/reject") {
+		return "PROCUREMENT_APPROVE", "GLOBAL", ""
+	}
+	if strings.Contains(path, "/variances/") && strings.HasSuffix(path, "/resolve") {
+		return "PROCUREMENT_VARIANCE_RESOLVE", "", ""
+	}
+	if strings.Contains(path, "/goods-receipts") {
+		return "PROCUREMENT_RECEIVE", "", ""
+	}
+	return "PROCUREMENT_MANAGE", "GLOBAL", ""
+}
+
+func hasPermission(principal employeePrincipal, code string) bool {
+	for _, grant := range principal.grants {
+		if grant.code == code {
+			return true
+		}
+	}
+	return false
 }
 
 type goodsReceiptLineRequest struct {
@@ -430,7 +475,11 @@ func (h *Router) createGoodsReceipt(w http.ResponseWriter, r *http.Request) {
 		}
 		input.Lines = append(input.Lines, item)
 	}
-	created, err := h.service.CreateGoodsReceipt(r.Context(), input, strings.TrimSpace(r.Header.Get("X-User-ID")), idempotencyKey)
+	if !hasWarehouseScope(r, "PROCUREMENT_RECEIVE", request.WarehouseCode) {
+		writeError(w, http.StatusForbidden, "FORBIDDEN", "goods receipt is outside the employee warehouse scope")
+		return
+	}
+	created, err := h.service.CreateGoodsReceipt(r.Context(), input, actorID(r), idempotencyKey)
 	if err != nil {
 		h.writeServiceError(w, err)
 		return
@@ -460,6 +509,10 @@ func (h *Router) getGoodsReceipt(w http.ResponseWriter, r *http.Request) {
 		h.writeServiceError(w, err)
 		return
 	}
+	if !hasWarehouseScope(r, "PROCUREMENT_RECEIVE", receipt.WarehouseCode) && !hasPermission(employeeFromRequest(r), "PROCUREMENT_VIEW") {
+		writeError(w, http.StatusForbidden, "FORBIDDEN", "goods receipt is outside the employee warehouse scope")
+		return
+	}
 	writeJSON(w, http.StatusOK, receipt)
 }
 
@@ -479,7 +532,16 @@ func (h *Router) resolveGoodsReceiptVariance(w http.ResponseWriter, r *http.Requ
 	if !decodeJSON(w, r, &request) {
 		return
 	}
-	receipt, err := h.service.ResolveGoodsReceiptVariance(r.Context(), receiptID, varianceID, request.Decision, strings.TrimSpace(r.Header.Get("X-User-ID")), request.Note)
+	current, err := h.service.GetGoodsReceipt(r.Context(), receiptID)
+	if err != nil {
+		h.writeServiceError(w, err)
+		return
+	}
+	if !hasWarehouseScope(r, "PROCUREMENT_VARIANCE_RESOLVE", current.WarehouseCode) {
+		writeError(w, http.StatusForbidden, "FORBIDDEN", "goods receipt variance is outside the employee warehouse scope")
+		return
+	}
+	receipt, err := h.service.ResolveGoodsReceiptVariance(r.Context(), receiptID, varianceID, request.Decision, actorID(r), request.Note)
 	if err != nil {
 		h.writeServiceError(w, err)
 		return
@@ -504,6 +566,15 @@ func (h *Router) inspectGoodsReceipt(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &request) {
 		return
 	}
+	current, err := h.service.GetGoodsReceipt(r.Context(), id)
+	if err != nil {
+		h.writeServiceError(w, err)
+		return
+	}
+	if !hasWarehouseScope(r, "PROCUREMENT_RECEIVE", current.WarehouseCode) {
+		writeError(w, http.StatusForbidden, "FORBIDDEN", "goods receipt is outside the employee warehouse scope")
+		return
+	}
 	lines := make([]domain.GoodsReceiptInspectionLine, 0, len(request.Lines))
 	for _, line := range request.Lines {
 		lineID, err := uuid.Parse(strings.TrimSpace(line.GoodsReceiptLineID))
@@ -513,7 +584,7 @@ func (h *Router) inspectGoodsReceipt(w http.ResponseWriter, r *http.Request) {
 		}
 		lines = append(lines, domain.GoodsReceiptInspectionLine{GoodsReceiptLineID: lineID, QuantityAccepted: line.QuantityAccepted, QuantityRejected: line.QuantityRejected, HumidityPercent: line.HumidityPercent, InspectionNotes: line.InspectionNotes})
 	}
-	result, err := h.service.InspectGoodsReceipt(r.Context(), id, strings.TrimSpace(r.Header.Get("X-User-ID")), lines)
+	result, err := h.service.InspectGoodsReceipt(r.Context(), id, actorID(r), lines)
 	if err != nil {
 		h.writeServiceError(w, err)
 		return
@@ -548,7 +619,7 @@ func (h *Router) createPurchaseOrder(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", err.Error())
 		return
 	}
-	order, err := h.service.CreatePurchaseOrderWithIdempotency(r.Context(), input, strings.TrimSpace(r.Header.Get("X-User-ID")), idempotencyKey)
+	order, err := h.service.CreatePurchaseOrderWithIdempotency(r.Context(), input, actorID(r), idempotencyKey)
 	if err != nil {
 		h.writeServiceError(w, err)
 		return
@@ -570,7 +641,7 @@ func (h *Router) updatePurchaseOrderDraft(w http.ResponseWriter, r *http.Request
 		writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", err.Error())
 		return
 	}
-	order, err := h.service.UpdatePurchaseOrderDraft(r.Context(), id, input, strings.TrimSpace(r.Header.Get("X-User-ID")))
+	order, err := h.service.UpdatePurchaseOrderDraft(r.Context(), id, input, actorID(r))
 	if err != nil {
 		h.writeServiceError(w, err)
 		return
@@ -711,7 +782,7 @@ func (h *Router) revisePurchaseOrder(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", err.Error())
 		return
 	}
-	updated, err := h.service.RevisePurchaseOrder(r.Context(), id, input, strings.TrimSpace(r.Header.Get("X-User-ID")), request.Reason)
+	updated, err := h.service.RevisePurchaseOrder(r.Context(), id, input, actorID(r), request.Reason)
 	if err != nil {
 		h.writeServiceError(w, err)
 		return
@@ -771,7 +842,7 @@ func (h *Router) transitionPurchaseOrder(w http.ResponseWriter, r *http.Request,
 	if len(reasons) > 0 {
 		reason = reasons[0]
 	}
-	order, err := transition(id, strings.TrimSpace(r.Header.Get("X-User-ID")), reason)
+	order, err := transition(id, actorID(r), reason)
 	if err != nil {
 		h.writeServiceError(w, err)
 		return
@@ -1147,7 +1218,7 @@ func (h *Router) createSupplierContract(w http.ResponseWriter, r *http.Request) 
 		end := date.AddDate(0, 0, 1).UTC()
 		to = &end
 	}
-	contract, err := domain.NewSupplierContract(supplierID, request.ContractNumber, request.Scope, request.PaymentTerms, request.DocumentFileID, from, to, strings.TrimSpace(r.Header.Get("X-User-ID")))
+	contract, err := domain.NewSupplierContract(supplierID, request.ContractNumber, request.Scope, request.PaymentTerms, request.DocumentFileID, from, to, actorID(r))
 	if err != nil {
 		h.writeServiceError(w, err)
 		return
@@ -1201,7 +1272,7 @@ func (h *Router) changeSupplierContractStatus(w http.ResponseWriter, r *http.Req
 	if !ok {
 		return
 	}
-	item, err := h.service.SetSupplierContractStatus(r.Context(), id, status, strings.TrimSpace(r.Header.Get("X-User-ID")))
+	item, err := h.service.SetSupplierContractStatus(r.Context(), id, status, actorID(r))
 	if err != nil {
 		h.writeServiceError(w, err)
 		return
