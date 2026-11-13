@@ -7,14 +7,17 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/omamx/procurement-service/internal/application"
 	"github.com/omamx/procurement-service/internal/config"
+	kafkainfra "github.com/omamx/procurement-service/internal/infrastructure/kafka"
 	postgresrepo "github.com/omamx/procurement-service/internal/repository/postgres"
 	"github.com/omamx/procurement-service/internal/transport/httpapi"
+	"github.com/omamx/procurement-service/internal/worker"
 	"github.com/omamx/procurement-service/migrations"
 )
 
@@ -53,6 +56,28 @@ func main() {
 
 	repository := postgresrepo.New(pool)
 	service := application.NewService(repository)
+	var outboxDone chan struct{}
+	if cfg.KafkaBrokers == "" {
+		logger.Warn("KAFKA_BROKERS is empty; goods-received events remain durable in the outbox")
+	} else {
+		producer, producerErr := kafkainfra.NewProducer(strings.Split(cfg.KafkaBrokers, ","))
+		if producerErr != nil {
+			logger.Error("configure Kafka producer", "error", producerErr)
+			os.Exit(1)
+		}
+		defer func() {
+			if err := producer.Close(); err != nil {
+				logger.Error("close Kafka producer", "error", err)
+			}
+		}()
+		outboxWorker := worker.NewGoodsReceivedOutboxWorker(repository, producer, logger)
+		outboxDone = make(chan struct{})
+		go func() {
+			defer close(outboxDone)
+			outboxWorker.Run(rootCtx)
+		}()
+		logger.Info("goods-received outbox publisher started", "topic", "procurement.events.v1")
+	}
 	handler := httpapi.NewRouter(service, cfg.InternalToken, repository.Ping)
 	server := &http.Server{
 		Addr: cfg.HTTPAddress, Handler: handler,
@@ -71,6 +96,13 @@ func main() {
 		defer cancel()
 		if err := server.Shutdown(ctx); err != nil {
 			logger.Error("graceful shutdown failed", "error", err)
+		}
+		if outboxDone != nil {
+			select {
+			case <-outboxDone:
+			case <-ctx.Done():
+				logger.Warn("timed out waiting for goods-received outbox publisher shutdown")
+			}
 		}
 	case err := <-serverErr:
 		if !errors.Is(err, http.ErrServerClosed) {

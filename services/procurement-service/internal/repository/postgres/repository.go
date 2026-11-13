@@ -1192,10 +1192,64 @@ func (r *Repository) InspectGoodsReceipt(ctx context.Context, receipt domain.Goo
 	if _, err := tx.Exec(ctx, `INSERT INTO goods_receipt_status_history (id,goods_receipt_id,from_status,to_status,action,actor_id) VALUES ($1,$2,$3,$4,'INSPECTED',$5)`, uuid.New(), receipt.ID, oldStatus, receipt.Status, actor); err != nil {
 		return domain.GoodsReceipt{}, err
 	}
+	events, err := domain.BuildGoodsReceivedEvents(receipt)
+	if err != nil {
+		return domain.GoodsReceipt{}, err
+	}
+	for _, event := range events {
+		payload, marshalErr := json.Marshal(event)
+		if marshalErr != nil {
+			return domain.GoodsReceipt{}, marshalErr
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO goods_received_outbox (event_id,topic,message_key,payload)
+			VALUES ($1,$2,$3,$4) ON CONFLICT (event_id) DO NOTHING`, event.ID, domain.GoodsReceivedEventTopic, event.Data.SKUCode, payload); err != nil {
+			return domain.GoodsReceipt{}, err
+		}
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return domain.GoodsReceipt{}, err
 	}
 	return receipt, nil
+}
+
+func (r *Repository) ClaimGoodsReceivedEvent(ctx context.Context) (domain.OutboxMessage, bool, error) {
+	var message domain.OutboxMessage
+	err := r.pool.QueryRow(ctx, `WITH candidate AS (
+		SELECT event_id FROM goods_received_outbox
+		WHERE published_at IS NULL AND next_attempt_at <= now()
+		  AND (claimed_until IS NULL OR claimed_until < now())
+		ORDER BY created_at, event_id
+		FOR UPDATE SKIP LOCKED LIMIT 1
+	)
+	UPDATE goods_received_outbox AS outbox
+	SET claimed_until = now() + interval '60 seconds'
+	FROM candidate
+	WHERE outbox.event_id = candidate.event_id
+	RETURNING outbox.event_id,outbox.topic,outbox.message_key,outbox.payload`).
+		Scan(&message.ID, &message.Topic, &message.Key, &message.Payload)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.OutboxMessage{}, false, nil
+	}
+	return message, err == nil, err
+}
+
+func (r *Repository) MarkGoodsReceivedEventPublished(ctx context.Context, eventID string) error {
+	_, err := r.pool.Exec(ctx, `UPDATE goods_received_outbox
+		SET published_at=now(),claimed_until=NULL,last_error=''
+		WHERE event_id=$1 AND published_at IS NULL`, eventID)
+	return err
+}
+
+func (r *Repository) RetryGoodsReceivedEvent(ctx context.Context, eventID, failure string) error {
+	if len(failure) > 2000 {
+		failure = failure[:2000]
+	}
+	_, err := r.pool.Exec(ctx, `UPDATE goods_received_outbox
+		SET attempts=attempts+1,
+		    next_attempt_at=now() + make_interval(secs => LEAST(300, 5 * power(2, LEAST(attempts, 6)))::integer),
+		    claimed_until=NULL,last_error=$2
+		WHERE event_id=$1 AND published_at IS NULL`, eventID, failure)
+	return err
 }
 
 func insertPurchaseOrderLines(ctx context.Context, tx pgx.Tx, order domain.PurchaseOrder) error {

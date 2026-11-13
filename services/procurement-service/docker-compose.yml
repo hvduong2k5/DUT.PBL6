@@ -21,6 +21,7 @@ services:
       PROCUREMENT_HTTP_ADDRESS: :8008
       PROCUREMENT_DATABASE_URL: postgres://procurement:procurement@procurement-postgres:5432/procurement_db?sslmode=disable
       PROCUREMENT_INTERNAL_TOKEN: ${PROCUREMENT_INTERNAL_TOKEN:-procurement-local-development-secret}
+      KAFKA_BROKERS: ${KAFKA_BROKERS:-}
     ports:
       - "8008:8008"
     depends_on:

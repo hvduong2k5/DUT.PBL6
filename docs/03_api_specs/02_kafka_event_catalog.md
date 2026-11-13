@@ -66,7 +66,10 @@ Tất cả các sự kiện bất đồng bộ được quản lý trong thư m�
 
 ### 2.5. Sự Kiện `GoodsReceivedEvent` (`vn.omama.procurement.goods.received.v1`)
 - **Tệp Schema:** [`packages/events/schemas/procurement/v1/goods_received.event.json`](../../packages/events/schemas/procurement/v1/goods_received.event.json)
-- **Topic:** `procurement.events.v1` | **Partition Key:** `sku_code`
+- **Producer:** `procurement-service`, qua transactional outbox sau khi kiểm định phiếu nhận hàng commit thành công.
+- **Topic:** `procurement.events.v1` | **Partition Key:** `sku_code` | **Một event cho mỗi dòng phiếu nhận**.
+- `id` là ID ổn định của dòng receipt; consumer cần deduplicate theo CloudEvent ID. `quantity_received` là lượng giao thực tế, `quantity_accepted` là lượng đủ điều kiện nhập tồn, `quantity_rejected` chỉ phục vụ đối soát. Inventory chỉ cộng `quantity_accepted` và bỏ qua dòng có lượng chấp nhận bằng 0.
+- Producer luôn gửi các trường bổ sung `receipt_line_id`, `purchase_order_id`, `purchase_order_line_id`, `quantity_accepted`, `quantity_rejected`, `batch_code`, `quality_status` và `inspected_at`; các trường này là optional trong JSON Schema v1 để payload producer cũ vẫn hợp lệ. Event giữ `supplier_id` dạng UUID, `warehouse_id` là mã kho Procurement để Inventory ánh xạ, `sku_code` là mã vật liệu Procurement. `batch_code` được tạo xác định từ receipt/receipt-line; mã lô nhà cung cấp được truyền riêng. Ngày sản xuất/hết hạn được truyền khi có.
 - **Tác vụ của các Consumer:**
   - `inventory-service`: Nhập kho và tạo Lot sản xuất mới.
   - `finance-service`: Ghi nhận khoản phải trả người bán (Accounts Payable - AP) cho Hợp tác xã mè/đậu Huế.

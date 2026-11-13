@@ -1,9 +1,9 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "GoodsReceivedEvent",
-  "description": "Sự kiện phát ra khi xưởng Hương Thủy nhập nguyên liệu mè/đậu từ Hợp tác xã Huế hoặc nhập kẹo thành phẩm. Topic: procurement.events.v1. Partition Key: sku_code",
+  "description": "One event per inspected procurement receipt line. quantity_accepted is the stock quantity; consumers deduplicate by CloudEvent id. Topic: procurement.events.v1. Partition Key: sku_code.",
   "type": "object",
-  "required": ["specversion", "id", "source", "type", "subject", "time", "datacontenttype", "traceparent", "data"],
+  "required": ["specversion", "id", "source", "type", "subject", "time", "datacontenttype", "data"],
   "properties": {
     "specversion": { "type": "string", "enum": ["1.0"] },
     "id": { "type": "string" },
@@ -12,21 +12,32 @@
     "subject": { "type": "string", "example": "sku:NGUYEN-LIEU-ME-TRANG-HUE" },
     "time": { "type": "string", "format": "date-time" },
     "datacontenttype": { "type": "string", "enum": ["application/json"] },
-    "traceparent": { "type": "string" },
+    "traceparent": { "type": "string", "description": "Optional W3C trace context when propagated by the caller." },
     "data": {
       "type": "object",
       "required": ["receipt_id", "po_number", "supplier_id", "sku_code", "quantity_received", "unit", "warehouse_id", "received_at"],
       "properties": {
         "receipt_id": { "type": "string" },
+        "receipt_line_id": { "type": "string", "format": "uuid" },
+        "purchase_order_id": { "type": "string", "format": "uuid" },
+        "purchase_order_line_id": { "type": "string", "format": "uuid" },
         "po_number": { "type": "string", "example": "PO-2026-0881" },
-        "supplier_id": { "type": "string", "example": "SUP-HTX-QUANG-THO" },
+        "supplier_id": { "type": "string" },
         "supplier_name": { "type": "string", "example": "Hợp Tác Xã Nông Nghiệp Quảng Thọ - Thừa Thiên Huế" },
         "sku_code": { "type": "string" },
-        "quantity_received": { "type": "number", "minimum": 0.01 },
+        "quantity_received": { "type": "number", "minimum": 0.000001 },
+        "quantity_accepted": { "type": "number", "minimum": 0 },
+        "quantity_rejected": { "type": "number", "minimum": 0 },
         "unit": { "type": "string", "example": "KG" },
-        "warehouse_id": { "type": "string", "example": "KHO-HUONG-THUY" },
+        "warehouse_id": { "type": "string", "description": "Procurement warehouse code; Inventory maps this to its warehouse identity." },
+        "batch_code": { "type": "string", "description": "Unique deterministic Inventory batch code derived from the full receipt and receipt-line UUIDs." },
+        "supplier_lot_code": { "type": "string" },
+        "manufactured_on": { "type": "string", "format": "date" },
+        "expires_on": { "type": "string", "format": "date" },
+        "quality_status": { "type": "string", "enum": ["ACCEPTED", "PARTIALLY_ACCEPTED", "REJECTED"] },
         "raw_material_origin_region": { "type": "string", "example": "Vùng mè cát Quảng Điền, Thừa Thiên Huế" },
-        "received_at": { "type": "string", "format": "date-time" }
+        "received_at": { "type": "string", "format": "date-time" },
+        "inspected_at": { "type": "string", "format": "date-time" }
       }
     }
   }
