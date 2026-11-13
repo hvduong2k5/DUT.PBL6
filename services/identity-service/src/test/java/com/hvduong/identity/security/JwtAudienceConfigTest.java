@@ -29,4 +29,19 @@ class JwtAudienceConfigTest {
         assertFalse(validator.validate(builder.expiresAt(now.plusSeconds(120)).notBefore(now.plusSeconds(29)).build()).hasErrors());
         assertTrue(validator.validate(builder.notBefore(now.plusSeconds(31)).build()).hasErrors());
     }
+
+    @Test
+    void isolatesTheRoleListCredentialToItsDedicatedAudienceAndClient() {
+        var validator = JwtAudienceConfig.audienceValidator("omama-api");
+        var builder = Jwt.withTokenValue("test").header("alg", "RS256").subject("service-account")
+                .audience(List.of("identity-roles-api"));
+        assertTrue(validator.validate(builder.claim("azp", "another-client").build()).hasErrors());
+
+        var valid = builder.claim("azp", "identity-service-admin")
+                .claim("permission_grants", List.of("ROLE_MANAGE#GLOBAL")).build();
+        assertFalse(validator.validate(valid).hasErrors());
+        var auth = new SecurityConfig(null, null).jwtAuthenticationConverter().convert(valid);
+        assertEquals(List.of("IDENTITY_SERVICE_ROLE_LIST"),
+                auth.getAuthorities().stream().map(a -> a.getAuthority()).toList());
+    }
 }

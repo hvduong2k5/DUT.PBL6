@@ -72,6 +72,10 @@ services:
             config:
               minute: 10
               policy: local
+      - name: identity-role-list
+        paths: ['~/api/v1/admin/roles$']
+        strip_path: false
+        methods: [GET]
       - name: identity-staff-order-read
         paths: [/api/v1/admin/order-api]
         strip_path: false

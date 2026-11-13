@@ -1111,6 +1111,7 @@ paths:
       - Access management
       operationId: getAdminRoles
       summary: Lấy danh sách tất cả vai trò
+      description: Requires an employee with ROLE_VIEW or a client-credentials token from identity-service-admin with audience identity-roles-api. The service credential grants access to this list operation only.
       x-lifecycle: stable
       x-backlog:
       - EPIC_22

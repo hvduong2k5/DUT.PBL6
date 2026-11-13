@@ -3,6 +3,8 @@ package com.hvduong.identity.security;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
+import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -34,11 +36,19 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(authorize -> authorize
                 .requestMatchers("/api/v1/public/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/admin/roles")
+                    .access((authentication, context) -> new AuthorizationDecision(
+                            isRolesReader(authentication.get()) || principalAccess.employee(authentication.get())))
                 .requestMatchers("/api/v1/admin/**").access((authentication,context) ->
                         new org.springframework.security.authorization.AuthorizationDecision(principalAccess.employee(authentication.get())))
                 .requestMatchers("/actuator/**").permitAll()
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
-                .anyRequest().authenticated()
+                .anyRequest().access((authentication, context) -> {
+                    var actor = authentication.get();
+                    return new AuthorizationDecision(actor.isAuthenticated()
+                            && !(actor instanceof org.springframework.security.authentication.AnonymousAuthenticationToken)
+                            && !isRolesReader(actor));
+                })
             )
             .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> 
                 jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())
@@ -48,10 +58,18 @@ public class SecurityConfig {
         return http.build();
     }
 
+    private static boolean isRolesReader(org.springframework.security.core.Authentication authentication) {
+        return authentication.getAuthorities().stream()
+                .anyMatch(authority -> JwtAudienceConfig.ROLES_READER_AUTHORITY.equals(authority.getAuthority()));
+    }
+
     @Bean
     public JwtAuthenticationConverter jwtAuthenticationConverter() {
         JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
         converter.setJwtGrantedAuthoritiesConverter(jwt -> {
+            if (JwtAudienceConfig.isRolesReader(jwt)) {
+                return Set.of(new SimpleGrantedAuthority(JwtAudienceConfig.ROLES_READER_AUTHORITY));
+            }
             Set<GrantedAuthority> authorities = new HashSet<>();
 
             // Lấy Permissions scoped từ claim 'permission_grants' trong JWT
@@ -64,6 +82,8 @@ public class SecurityConfig {
                 for (String gs : grantStrings) {
                     if (gs != null && !gs.isBlank()) {
                         String trimmed = gs.trim();
+                        if (trimmed.equals(JwtAudienceConfig.ROLES_READER_AUTHORITY)
+                                || trimmed.startsWith(JwtAudienceConfig.ROLES_READER_AUTHORITY + "#")) continue;
                         authorities.add(new SimpleGrantedAuthority(trimmed));
                         int sepIdx = trimmed.indexOf('#');
                         if (sepIdx > 0) {
