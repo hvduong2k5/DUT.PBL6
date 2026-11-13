@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireEmployeeSession, EmployeeAuthorizationError } from "@/features/employee/auth/server";
-import { applyTrustedSessionCookie } from "@/lib/auth/server-credential";
+import { applyTrustedSessionCookie, getTrustedAccessToken } from "@/lib/auth/server-credential";
 import { hasTrustedOrigin } from "@/lib/auth/request-origin";
 import { usesIdentityBff } from "@/lib/auth/oidc-config";
 import { uploadPackingVideo } from "./video-upload";
@@ -15,20 +15,21 @@ export function fulfillmentFailure(code: string, status: number) {
   return NextResponse.json({ code, message: code }, { status, headers: { "Cache-Control": "no-store" } });
 }
 export async function fulfillmentUpstream(request: NextRequest, path: string, method = "GET", body?: string, key?: string) {
-  const base = process.env.IDENTITY_UPSTREAM_URL?.replace(/\/$/u, "");
-  if (!base) throw new Error("IDENTITY_UPSTREAM_URL missing");
+  const bff = usesIdentityBff();
+  const base = (bff ? process.env.IDENTITY_UPSTREAM_URL : process.env.NEXT_PUBLIC_API_URL)?.replace(/\/$/u, "");
+  if (!base) throw new Error("Fulfillment upstream URL missing");
   const headers = new Headers({ Accept: "application/json" });
-  applyTrustedSessionCookie(headers, request);
+  if (bff) applyTrustedSessionCookie(headers, request);
+  else { const accessToken = getTrustedAccessToken(request); if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`); }
   if (body !== undefined) headers.set("Content-Type", "application/json");
   if (key) headers.set("Idempotency-Key", key);
   const etag = request.headers.get("if-match");
   if (etag) headers.set("If-Match", etag);
-  return fetch(`${base}/admin/packing-api/${path}`, { method, headers, body, cache: "no-store", redirect: "manual", signal: AbortSignal.timeout(15000) });
+  return fetch(`${base}${bff ? "/admin/packing-api/" : "/admin/fulfillment/"}${path}`, { method, headers, body, cache: "no-store", redirect: "manual", signal: AbortSignal.timeout(15000) });
 }
 export async function handleFulfillment(request: NextRequest, segments: string[]) {
   const path = segments.join("/");
   if (!allowedFulfillmentRoute(path, request.method)) return fulfillmentFailure("NOT_FOUND", 404);
-  if (!usesIdentityBff()) return fulfillmentFailure("IDENTITY_BFF_REQUIRED", 503);
   if (request.method !== "GET" && !hasTrustedOrigin(request)) return fulfillmentFailure("ORIGIN_NOT_ALLOWED", 403);
   try {
     await requireEmployeeSession(request);
