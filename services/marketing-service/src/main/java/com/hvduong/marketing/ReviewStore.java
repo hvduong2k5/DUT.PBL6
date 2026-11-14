@@ -41,8 +41,10 @@ class ReviewStore {
     Object latestView(UUID revision) {
         return jdbc.sql("""
                 SELECT r.id, r.state, r.submitted_by, r.submitted_at, r.snapshot::text,
-                       d.actor_id, d.decided_at, d.reason, d.approved_budget_vnd
+                       d.actor_id, d.decided_at, d.reason, d.approved_budget_vnd,
+                       v.actor_id AS revoked_by, v.reason AS revoked_reason, v.occurred_at AS revoked_at
                 FROM approval_requests r LEFT JOIN approval_decisions d ON d.request_id = r.id
+                LEFT JOIN campaign_approval_revocations v ON v.approval_id = r.id
                 WHERE r.revision_id = :revision ORDER BY r.submitted_revision_version DESC LIMIT 1
                 """).param("revision", revision).query((rs, n) -> {
                     var snapshot = parse(rs.getString("snapshot"), Snapshot.class);
@@ -62,6 +64,12 @@ class ReviewStore {
                     }
                     if (rs.getObject("approved_budget_vnd") != null) {
                         result.put("approvedBudgetVnd", rs.getLong("approved_budget_vnd"));
+                    }
+                    if (rs.getObject("revoked_by") != null) {
+                        result.put("revocation", java.util.Map.of(
+                                "actorId", CampaignStore.uuid(rs, "revoked_by"),
+                                "reason", rs.getString("revoked_reason"),
+                                "occurredAt", CampaignStore.instant(rs, "revoked_at")));
                     }
                     return result;
                 }).optional().orElse(null);

@@ -11,8 +11,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 class ManualExecutions {
-    enum State { SCHEDULED, ACTIVE, PAUSED, COMPLETED, CANCELLED }
-    enum Action { START, PAUSE, COMPLETE, CANCEL }
+    enum State { SCHEDULED, ACTIVE, PAUSED, STOP_PENDING, COMPLETED, CANCELLED }
+    enum Action { START, PAUSE, COMPLETE, CANCEL, CONFIRM_STOP }
     record Execution(UUID id, String channel, Instant startsAt, Instant endsAt, State state, long version) {}
     record Schedule(String channel, long expectedVersion) {}
     record Change(Action action, long expectedVersion, String reason, String evidenceRef) {}
@@ -21,11 +21,13 @@ class ManualExecutions {
     private final JdbcClient jdbc;
     private final CampaignStore campaigns;
     private final CampaignCommands commands;
+    private final ReviewStore reviews;
 
-    ManualExecutions(JdbcClient jdbc, CampaignStore campaigns, CampaignCommands commands) {
+    ManualExecutions(JdbcClient jdbc, CampaignStore campaigns, CampaignCommands commands, ReviewStore reviews) {
         this.jdbc = jdbc;
         this.campaigns = campaigns;
         this.commands = commands;
+        this.reviews = reviews;
     }
 
     record HistoryEntry(long version, UUID actorId, String requestId, String fromState, String toState,
@@ -81,8 +83,9 @@ class ManualExecutions {
                         throw new MarketingFailure("STATE_CONFLICT", 409);
                     }
                     var approved = jdbc.sql("""
-                            SELECT id FROM approval_requests WHERE revision_id = :revision AND state = 'APPROVED'
-                            """).param("revision", revisionId).query(UUID.class).single();
+                            SELECT id FROM approval_requests WHERE revision_id = :revision AND state = 'APPROVED' AND NOT EXISTS (SELECT 1 FROM campaign_approval_revocations WHERE approval_id = approval_requests.id)
+                            """).param("revision", revisionId).query(UUID.class).optional()
+                            .orElseThrow(() -> new MarketingFailure("STATE_CONFLICT", 409));
                     var plan = revision.plan().channels().stream().filter(c -> c.channel().equals(channel)).findFirst()
                             .orElseThrow(() -> new MarketingFailure("VALIDATION_FAILED", 422));
                     if (!plan.endsAt().isAfter(Instant.now())) {
@@ -131,18 +134,65 @@ class ManualExecutions {
                 });
     }
 
+    record Revoke(long expectedVersion, UUID approvalRequestId, String reason) {}
+
+    @Transactional
+    public ReviewStore.Receipt revoke(StaffActor actor, UUID campaignId, UUID revisionId, Revoke input,
+                                     String key, String requestId) {
+        var campaign = campaigns.campaign(campaignId, true);
+        if (!actor.can("MARKETING_PLAN_APPROVE", campaign.departmentId())) {
+            throw new MarketingFailure("FORBIDDEN", 403);
+        }
+        String reason = required(input.reason());
+        return commands.keyed(actor, campaign.departmentId(), "APPROVAL_REVOKE", key,
+                List.of(campaignId, revisionId, input.approvalRequestId(), input.expectedVersion(), reason), 200, () -> {
+                    var revision = campaigns.revision(campaignId, revisionId);
+                    commands.requireVersion(revision, input.expectedVersion());
+                    if (revision.state() != ReviewWorkflow.State.APPROVED || !revisionId.equals(campaign.currentRevisionId())) {
+                        throw new MarketingFailure("STATE_CONFLICT", 409);
+                    }
+                    int inserted = jdbc.sql("""
+                            INSERT INTO campaign_approval_revocations (approval_id,actor_id,request_id,reason)
+                            SELECT id,:actor,:request,:reason FROM approval_requests
+                            WHERE id = :approval AND revision_id = :revision AND state = 'APPROVED'
+                            ON CONFLICT (approval_id) DO NOTHING
+                            """).param("actor", actor.id()).param("request", requestId).param("reason", reason)
+                            .param("approval", input.approvalRequestId()).param("revision", revisionId).update();
+                    if (inserted == 0) {
+                        throw new MarketingFailure("STATE_CONFLICT", 409);
+                    }
+                    for (var execution : query("""
+                            SELECT * FROM campaign_executions WHERE revision_id = :revision
+                            AND state IN ('SCHEDULED','ACTIVE','PAUSED') ORDER BY channel
+                            """, revisionId).list()) {
+                        State next = execution.state() == State.SCHEDULED ? State.CANCELLED : State.STOP_PENDING;
+                        jdbc.sql("UPDATE campaign_executions SET state = :state, version = version + 1 WHERE id = :id")
+                                .param("state", next.name()).param("id", execution.id()).update();
+                        history(get(revisionId, execution.id()), execution.state(), actor, requestId, reason, null);
+                    }
+                    long version = revision.version() + 1;
+                    campaigns.changeState(revisionId, new ReviewWorkflow.Transition(revision.state(), version, null));
+                    campaigns.touch(campaignId);
+                    reviews.audit(campaign, revisionId, input.approvalRequestId(), "REVOKE_APPROVAL", actor.id(),
+                            requestId, revision.state().name(), revision.state().name(), version, reason, List.of("approval"));
+                    return commands.view(campaign, campaigns.revision(campaignId, revisionId));
+                });
+    }
+
+
     static State transition(Execution execution, Action action, String reason, String evidence, Instant now) {
         State state = execution.state();
         boolean allowed = switch (action) {
             case START -> state == State.SCHEDULED || state == State.PAUSED;
             case PAUSE, COMPLETE -> state == State.ACTIVE;
+            case CONFIRM_STOP -> state == State.STOP_PENDING;
             case CANCEL -> state == State.SCHEDULED || state == State.ACTIVE || state == State.PAUSED;
         };
         if (!allowed) {
             throw new MarketingFailure("STATE_CONFLICT", 409);
         }
         if ((action == Action.START && (now.isBefore(execution.startsAt()) || !now.isBefore(execution.endsAt())))
-                || ((action == Action.START || action == Action.COMPLETE) && evidence == null)
+                || ((action == Action.START || action == Action.COMPLETE || action == Action.CONFIRM_STOP) && evidence == null)
                 || ((action == Action.PAUSE || action == Action.CANCEL) && reason == null)) {
             throw new MarketingFailure("VALIDATION_FAILED", 422);
         }
@@ -150,7 +200,7 @@ class ManualExecutions {
             case START -> State.ACTIVE;
             case PAUSE -> State.PAUSED;
             case COMPLETE -> State.COMPLETED;
-            case CANCEL -> State.CANCELLED;
+            case CANCEL, CONFIRM_STOP -> State.CANCELLED;
         };
     }
 

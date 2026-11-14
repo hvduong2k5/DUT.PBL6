@@ -72,7 +72,7 @@ class CampaignStore {
     boolean hasUnfinishedExecutions(UUID campaignId) {
         return jdbc.sql("""
                 SELECT EXISTS (SELECT 1 FROM campaign_executions
-                WHERE campaign_id = :campaign AND state IN ('SCHEDULED','ACTIVE','PAUSED'))
+                WHERE campaign_id = :campaign AND state IN ('SCHEDULED','ACTIVE','PAUSED','STOP_PENDING'))
                 """).param("campaign", campaignId).query(Boolean.class).single();
     }
 

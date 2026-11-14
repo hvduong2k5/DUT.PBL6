@@ -91,7 +91,8 @@ class CampaignCommandsIntegrationTest {
         var starts = Instant.now().minusSeconds(60);
         var ends = starts.plusSeconds(3600);
         var plan = new CampaignPlan("Execution pilot", "Launch", operator.id(), starts, ends, "Asia/Ho_Chi_Minh",
-                100, List.of(new CampaignPlan.Channel("EMAIL", starts, ends, "Launch brief")), List.of(),
+                100, List.of(new CampaignPlan.Channel("EMAIL", starts, ends, "Launch brief"),
+                        new CampaignPlan.Channel("SOCIAL", starts, ends, "Social brief")), List.of(),
                 List.of(new CampaignPlan.KpiTarget("CLICKS", "count", "100")));
         var draft = json.readTree(commands.create(operator, "marketing", plan, "execution-create", "create").body());
         UUID campaign = UUID.fromString(draft.path("campaignId").asText());
@@ -157,6 +158,35 @@ class CampaignCommandsIntegrationTest {
                 .andExpect(status().isNotFound());
         assertThat(jdbc.sql("SELECT count(*) FROM campaign_execution_history WHERE execution_id = :id")
                 .param("id", id).query(Long.class).single()).isEqualTo(3);
+
+        when(peers.staff("Bearer reviewer", null, null)).thenReturn(reviewer);
+        var social = http.perform(post(path).header("Authorization", "Bearer operator")
+                        .header("Idempotency-Key", "execution-social-schedule").contentType("application/json")
+                        .content("""
+                                {"channel":"SOCIAL","expectedVersion":3}
+                                """))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        String socialAction = path + "/" + json.readTree(social).path("id").asText() + "/actions";
+        http.perform(post(socialAction).header("Authorization", "Bearer operator")
+                        .header("Idempotency-Key", "execution-social-start").contentType("application/json")
+                        .content("""
+                                {"action":"START","expectedVersion":1,"evidenceRef":"manual:ready"}
+                                """)).andExpect(status().isOk());
+        String revoke = path.substring(0, path.lastIndexOf('/')) + "/revoke-approval";
+        http.perform(post(revoke).header("Authorization", "Bearer reviewer")
+                        .header("Idempotency-Key", "execution-revoke-approval").contentType("application/json")
+                        .content(json.writeValueAsString(java.util.Map.of(
+                                "expectedVersion", 3, "approvalRequestId", approval, "reason", "Campaign withdrawn"))))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.version").value(4))
+                .andExpect(jsonPath("$.approvalRequest.revocation.actorId").value(reviewer.id().toString()));
+        http.perform(get(path).header("Authorization", "Bearer operator"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.items[0].state").value("COMPLETED"))
+                .andExpect(jsonPath("$.items[1].state").value("STOP_PENDING"));
+        http.perform(post(socialAction).header("Authorization", "Bearer operator")
+                        .header("Idempotency-Key", "execution-social-stop").contentType("application/json")
+                        .content("""
+                                {"action":"CONFIRM_STOP","expectedVersion":3,"evidenceRef":"manual:stopped"}
+                                """)).andExpect(status().isOk()).andExpect(jsonPath("$.state").value("CANCELLED"));
     }
 
 

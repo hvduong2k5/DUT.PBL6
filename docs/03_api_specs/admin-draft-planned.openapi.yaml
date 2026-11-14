@@ -641,6 +641,64 @@ paths:
           minLength: 16
           maxLength: 128
           pattern: ^[!-~]+$
+  /api/v1/admin/marketing/campaigns/{campaignId}/revisions/{revisionId}/revoke-approval:
+    x-employee-session-path: '/api/v1/admin/marketing-api/campaigns/{campaignId}/revisions/{revisionId}/revoke-approval'
+    parameters:
+    - name: campaignId
+      in: path
+      required: true
+      schema: *id001
+    - name: revisionId
+      in: path
+      required: true
+      schema: *id001
+    post:
+      tags:
+      - Marketing
+      operationId: revokeMarketingApproval
+      summary: Revoke approval for a campaign revision
+      description: Requires MARKETING_PLAN_APPROVE in the campaign department or GLOBAL. Records a revocation for an approved revision and prevents further scheduling. Unstarted channels are cancelled; active and paused channels require an operator to confirm the stop.
+      security:
+      - marketingEmployeeSession: []
+      - bearerAuth: []
+      responses:
+        '200':
+          description: Marketing operation succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarketingRevision'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MarketingReviewAction'
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 16
+          maxLength: 128
+          pattern: ^[!-~]+$
   /api/v1/admin/marketing/campaigns/{campaignId}/revisions/{revisionId}/approve:
     x-employee-session-path: '/api/v1/admin/marketing-api/campaigns/{campaignId}/revisions/{revisionId}/approve'
     parameters:
@@ -1740,6 +1798,7 @@ components:
           - SCHEDULED
           - ACTIVE
           - PAUSED
+          - STOP_PENDING
           - COMPLETED
           - CANCELLED
         version:
@@ -1793,6 +1852,7 @@ components:
           - PAUSE
           - COMPLETE
           - CANCEL
+          - CONFIRM_STOP
         expectedVersion:
           type: integer
           minimum: 1
@@ -2014,6 +2074,14 @@ components:
               approvalStatus: {type: string}
               listingStatus: {type: string}
               observedAt: {type: string, format: date-time}
+        revocation:
+          type: object
+          additionalProperties: false
+          required: [actorId, reason, occurredAt]
+          properties:
+            actorId: {type: string, format: uuid}
+            reason: {type: string, minLength: 1, maxLength: 200}
+            occurredAt: {type: string, format: date-time}
     MarketingRevision:
       type: object
       additionalProperties: false

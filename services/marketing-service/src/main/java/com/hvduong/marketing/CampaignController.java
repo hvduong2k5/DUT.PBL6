@@ -200,6 +200,19 @@ class CampaignController {
     }
 
 
+    @PostMapping("/{campaignId}/revisions/{revisionId}/revoke-approval")
+    ResponseEntity<String> revokeApproval(HttpServletRequest request, @PathVariable UUID campaignId,
+            @PathVariable UUID revisionId, @RequestBody ManualExecutions.Revoke body,
+            @RequestHeader("Idempotency-Key") String key) {
+        var actor = staff(request);
+        checkVersion(body.expectedVersion());
+        if (body.approvalRequestId() == null) {
+            throw new MarketingFailure("BAD_REQUEST", 400);
+        }
+        return response(executions.revoke(actor, campaignId, revisionId, body, key, requestId(request)));
+    }
+
+
     private List<ReviewStore.ProductEvidence> evidence(HttpServletRequest request, StaffActor actor, UUID campaignId,
                                                        UUID revisionId, long expectedVersion) {
         var products = readTransaction.execute(status -> {
