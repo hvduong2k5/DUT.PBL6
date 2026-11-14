@@ -21,3 +21,21 @@ Smoke test trên stack Docker cô lập đã đi qua Keycloak, Kong, Identity, C
 - Tích hợp gửi tự động sau khi chốt kênh pilot, chủ sở hữu dịch vụ gửi, consent/suppression, idempotency và cơ chế đối soát khi timeout. Các adapter tự động và KPI/Finance nằm ngoài PR lát 1.
 
 [Kiến trúc MS-14](README.md) · [Thiết kế lát 1 và kết quả test](01_planning_and_approval.md) · [Admin OpenAPI draft](../../../03_api_specs/admin-draft-planned.openapi.yaml) · [Admin state matrix](../../../03_api_specs/admin-api-state-matrix.md)
+
+## 4. Checklist phần còn thiếu sau PR lát 1
+
+### Để nghiệm thu pilot lập kế hoạch và duyệt
+
+- [ ] Nối Web Admin cho danh sách, form Draft và màn hình review. Kiểm Chrome/Edge với phiên thật, quyền sai phòng ban, phiên hết hạn và xung đột version. Smoke test hiện có dùng HTTP client với cookie jar.
+- [ ] Cấu hình mã DEPARTMENT, role assignments và CATALOG_VIEW cho staff phù hợp trên môi trường pilot. Triển khai Marketing cùng route Kong và migration IAM V14, rồi chạy lại luồng có Product trên môi trường đó.
+- [ ] Hoàn tất ví dụ và contract tests cho các trạng thái, sau đó xác nhận contract Admin trước khi chuyển các operation đủ điều kiện sang stable.
+
+### Các phần còn thiếu để bao phủ EPIC 21
+
+- [ ] **Audience và tài sản (US-MKTG-01–02).** Liên kết segment theo ID/version, kiểm quyền sử dụng và consent. Tích hợp Article/Publication, Promotion và Media/fileId có version và readiness. Lát 1 đã có Content Brief và bằng chứng Product.
+- [ ] **Lập lịch và execution (US-MKTG-03–04, FR-MKTG-12/26).** Lịch, execution từng kênh, readiness trước khi chạy, pause/cancel/revoke, bằng chứng chạy thủ công. Sau đó bổ sung worker, adapter gửi, retry/idempotency và đối soát kết quả theo kênh.
+- [ ] **KPI và đồng bộ (US-MKTG-05–06).** Từ điển KPI, mapping campaign ngoài, sync theo kênh, quarantine, correction/backfill, coverage và dashboard target–actual.
+- [ ] **Attribution và Finance (US-MKTG-07).** Chốt bằng chứng nối Order với Campaign và contract Finance, tính doanh thu quy gán, chi phí đối soát, refund và báo cáo có công thức, phiên bản và scope tài chính.
+- [ ] **Vận hành.** Bổ sung metrics, cảnh báo và runbook cho job/kênh khi triển khai worker. Nối audit tập trung sau khi xác nhận consumer và contract. Lát 1 đã ghi audit nội bộ trong transaction.
+
+Ưu tiên nghiệm thu pilot và Web Admin, sau đó triển khai lập lịch và execution thủ công. Các tích hợp kênh, KPI và Finance theo thứ tự phụ thuộc nguồn.
