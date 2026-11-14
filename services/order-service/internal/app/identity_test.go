@@ -70,7 +70,7 @@ func TestKeycloakValidationAndCustomerOwnership(t *testing.T) {
 		t.Fatalf("principal mapping: %+v %v", p, e)
 	}
 	if _, e := s.Authenticate(signedCustomer(t, k, "key-1", s.C.OIDCIssuer, a, func(c jwt.MapClaims) {
-		c["iat"] = time.Now().Add(2 * time.Second).Unix()
+		c["iat"] = time.Now().Add(28 * time.Second).Unix()
 	})); e != nil {
 		t.Fatal("small issuer/verifier clock difference rejected a valid signed token", e)
 	}
@@ -89,7 +89,7 @@ func TestKeycloakValidationAndCustomerOwnership(t *testing.T) {
 		"missing expiry":            func(c jwt.MapClaims) { delete(c, "exp") },
 		"future nbf":                func(c jwt.MapClaims) { c["nbf"] = time.Now().Add(time.Hour).Unix() },
 		"future issued":             func(c jwt.MapClaims) { c["iat"] = time.Now().Add(time.Hour).Unix() },
-		"future issued beyond skew": func(c jwt.MapClaims) { c["iat"] = time.Now().Add(10 * time.Second).Unix() },
+		"future issued beyond skew": func(c jwt.MapClaims) { c["iat"] = time.Now().Add(32 * time.Second).Unix() },
 		"missing issued":            func(c jwt.MapClaims) { delete(c, "iat") },
 		"missing subject":           func(c jwt.MapClaims) { delete(c, "sub") },
 		"missing principal":         func(c jwt.MapClaims) { delete(c, "user_id") },

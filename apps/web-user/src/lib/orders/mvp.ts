@@ -66,6 +66,21 @@ const STOCK_LABELS: Record<OrderStockStatus, string> = {
   UNKNOWN: "Đang phục hồi trạng thái tồn"
 };
 
+const CANCELLATION_LABELS: Record<OrderCancellationStatus, string> = {
+  NONE: "Không có yêu cầu hủy",
+  PENDING: "Đang xử lý",
+  SUCCEEDED: "Đã hủy",
+  REJECTED: "Đã bị từ chối",
+  MANUAL_REVIEW: "Đang xem xét thủ công"
+};
+
+const COMPENSATION_LABELS: Record<OrderCompensationStatus, string> = {
+  NOT_REQUIRED: "Không áp dụng",
+  PENDING: "Đang xử lý",
+  SUCCEEDED: "Đã hoàn tất",
+  MANUAL_REVIEW: "Đang xem xét thủ công"
+};
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -196,10 +211,10 @@ function cancellationMessage(order: OwnedOrder): string {
   if (order.cancellation_status === "PENDING") return "Yêu cầu hủy đang được xử lý; chưa được coi là đã hủy.";
   if (order.cancellation_status === "MANUAL_REVIEW") return "Yêu cầu hủy cần nhân viên xem xét thủ công.";
   if (order.cancellation_status === "REJECTED") return "Yêu cầu hủy gần nhất đã bị từ chối.";
-  if (order.cancellation_status === "SUCCEEDED") return "Order đã được hủy theo quyết định của backend.";
-  if (order.allowed_actions.includes("CANCEL")) return "Backend cho phép gửi lệnh hủy trực tiếp ở version hiện tại.";
-  if (order.allowed_actions.includes("REQUEST_CANCELLATION")) return "Order cần quy trình Care phê duyệt; capability này chưa được bật trong giai đoạn hiện tại.";
-  return "Order hiện không có hành động hủy trong allowed_actions.";
+  if (order.cancellation_status === "SUCCEEDED") return "Đơn đã được hủy thành công.";
+  if (order.allowed_actions.includes("CANCEL")) return "Bạn có thể hủy đơn trực tiếp ở bước này.";
+  if (order.allowed_actions.includes("REQUEST_CANCELLATION")) return "Đơn đã thanh toán cần đội chăm sóc phê duyệt hủy; tính năng gửi yêu cầu chưa mở trong giai đoạn này.";
+  return "Đơn hiện không thể hủy.";
 }
 
 function mapListItem(order: OwnedOrder): OrderListItem {
@@ -265,10 +280,10 @@ export function mapMvpOrderDetail(value: OwnedOrder): OrderDetail {
     status: value.status,
     statusLabel: STATUS_LABELS[value.status],
     statusDescription: value.operational_hold
-      ? "Order đang có operational hold và cần được xử lý trước khi tiếp tục."
+      ? "Đơn đang tạm dừng xử lý và cần được xử lý thêm trước khi tiếp tục."
       : value.has_active_case
-        ? "Order đang có vụ việc liên quan cần được theo dõi."
-        : "Trạng thái được đọc trực tiếp từ Order service.",
+        ? "Đơn đang có yêu cầu hỗ trợ liên quan cần được theo dõi."
+        : "Trạng thái đơn được cập nhật theo tiến trình xử lý.",
     payment: {
       method: value.payment_method,
       status: value.payment_status,
@@ -290,7 +305,7 @@ export function mapMvpOrderDetail(value: OwnedOrder): OrderDetail {
       recipient: {
         fullName: snapshot.address.recipient_name,
         phoneDisplay: snapshot.address.phone,
-        addressDisplay: [snapshot.address.street, snapshot.address.ward_code, snapshot.address.province_code].filter(Boolean).join(", ")
+        addressDisplay: [snapshot.address.street, snapshot.address.ward_name || snapshot.address.ward_code, snapshot.address.province_name || snapshot.address.province_code].filter(Boolean).join(", ")
       }
     } : {}),
     allowedActions: value.allowed_actions,
@@ -302,6 +317,8 @@ export function mapMvpOrderDetail(value: OwnedOrder): OrderDetail {
       canCancel: value.allowed_actions.includes("CANCEL"),
       canRequestPaidCancellation: value.allowed_actions.includes("REQUEST_CANCELLATION"),
       canViewTracking: value.allowed_actions.includes("VIEW_TRACKING"),
+      statusLabel: CANCELLATION_LABELS[value.cancellation_status],
+      compensationLabel: COMPENSATION_LABELS[value.compensation_status],
       message: cancellationMessage(value),
       allowedReasons: value.allowed_actions.includes("CANCEL")
         ? [
@@ -317,9 +334,9 @@ export function mapMvpOrderDetail(value: OwnedOrder): OrderDetail {
 export function mapMvpCancellation(value: OrderCancellation): CancelOrderResult {
   if (!isOrderCancellation(value)) throw new ContractDataError("Order cancellation does not match the public contract.");
   const messages: Record<OrderCancellation["status"], string> = {
-    PENDING: "Yêu cầu hủy đã được ghi nhận và đang chờ quyết định/compensation từ backend.",
-    SUCCEEDED: "Backend đã xác nhận hủy Order thành công.",
-    REJECTED: "Backend đã từ chối yêu cầu hủy Order.",
+    PENDING: "Yêu cầu hủy đã được ghi nhận và đang chờ đội chăm sóc xác nhận; phần hoàn tiền (nếu có) sẽ được xử lý sau khi yêu cầu được duyệt.",
+    SUCCEEDED: "Đơn đã được hủy thành công.",
+    REJECTED: "Yêu cầu hủy đã bị từ chối.",
     MANUAL_REVIEW: "Yêu cầu hủy cần được nhân viên xem xét thủ công."
   };
   return {

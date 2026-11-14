@@ -11,13 +11,13 @@ function error(status: number, code: string, message: string) {
 /** The owning API checks the server-held JWT. Browser role headers and fresh
  * configuration permissions do not replace the token's authorization snapshot. */
 export async function handleLiveAdminOrders(request: NextRequest, path: string[]) {
-  if (!usesIdentityBff()) return error(503, "ADMIN_AUTH_MODE_UNAVAILABLE", "Tra cứu nội bộ cần phiên đăng nhập Identity.");
   const route = parseAdminOrderPath(path);
   if (route.kind === "invalid") return error(404, "NOT_FOUND", "Đường dẫn đơn hàng không tồn tại.");
   if (request.method !== "GET") return error(405, "METHOD_NOT_ALLOWED", "Chức năng này chỉ hỗ trợ tra cứu.");
   if (route.kind === "order-detail" && !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/u.test(route.orderId)) return error(404, "NOT_FOUND", "Đường dẫn đơn hàng không tồn tại.");
   if (!getTrustedAccessToken(request)) return error(401, "AUTH_REQUIRED", "Vui lòng đăng nhập bằng tài khoản nhân viên.");
-  const base = process.env.IDENTITY_UPSTREAM_URL?.replace(/\/$/u, "");
+  const bff = usesIdentityBff();
+  const base = (bff ? process.env.IDENTITY_UPSTREAM_URL : process.env.NEXT_PUBLIC_API_URL)?.replace(/\/$/u, "");
   if (!base) return error(503, "ADMIN_ORDER_UPSTREAM_UNAVAILABLE", "Chưa thể kết nối dịch vụ đơn hàng.");
   const query = new URLSearchParams();
   for (const [name, value] of request.nextUrl.searchParams) {
@@ -29,9 +29,10 @@ export async function handleLiveAdminOrders(request: NextRequest, path: string[]
   query.delete("view");
   const target = route.kind === "order-list" ? `orders${view ? "/queue" : ""}${query.size ? `?${query}` : ""}` : `orders/${encodeURIComponent(route.orderId)}`;
   const headers = new Headers({ Accept: "application/vnd.omama.admin-order+json" });
-  applyTrustedSessionCookie(headers, request);
+  if (bff) applyTrustedSessionCookie(headers, request);
+  else headers.set("Authorization", `Bearer ${getTrustedAccessToken(request)}`);
   try {
-    const response = await fetch(`${base}/admin/order-api/${target}`, { headers, cache: "no-store", redirect: "manual", signal: AbortSignal.timeout(10000) });
+    const response = await fetch(`${base}${bff ? "/admin/order-api/" : "/admin/"}${target}`, { headers, cache: "no-store", redirect: "manual", signal: AbortSignal.timeout(10000) });
     if (!response.ok) {
       if (response.status === 401) return error(401, "AUTH_REQUIRED", "Phiên đăng nhập đã hết hạn hoặc không hợp lệ.");
       if (response.status === 403) return error(403, "PERMISSION_FORBIDDEN", "Bạn chưa được cấp quyền tra cứu đơn hàng này.");

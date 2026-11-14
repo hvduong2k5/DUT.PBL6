@@ -13,10 +13,16 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"github.com/google/uuid"
+	"github.com/omamx/order-service/internal/app"
 	"github.com/omamx/order-service/internal/domain"
+	orderwire "github.com/omamx/order-service/internal/gen/order/v1"
 	"github.com/omamx/order-service/internal/persistence"
 	"github.com/omamx/order-service/internal/sepay"
+	"github.com/omamx/order-service/internal/transport"
 	"github.com/segmentio/kafka-go"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -309,6 +315,39 @@ func TestConnectedPublicCheckoutSePayPaidReadyKafka(t *testing.T) {
 	completeConnectedOrder(t, h, &order)
 }
 
+func checkShippingSnapshot(t *testing.T, h *harness, order *domain.Order, task string) {
+	t.Helper()
+	const caller = "isolated-shipping-snapshot-token-0001"
+	t.Setenv("ORDER_SHIPPING_CALLER_TOKEN", caller)
+	pkg := uuid.NewString()
+	if _, err := h.S.DB.Exec(h.ctx, `INSERT INTO fulfillment_shipping_handoffs
+		(order_id, package_id, task_id, sealed_version, request_hash, request_cipher)
+		VALUES ($1, $2, $3, 2, 'fixture', 'fixture')`, order.ID, pkg, task); err != nil {
+		t.Fatal(err)
+	}
+
+	// Use the same database and core checkout runtime without changing the
+	// running service's configuration.
+	rpc := transport.RPC{S: &app.Service{
+		DB: h.S.DB, CoreCheckout: h.S.CoreCheckout, C: app.Config{ShippingOwnsPackingHandoff: true},
+	}}
+	request := &orderwire.GetShippingSnapshotRequest{OrderId: order.ID, PackageId: pkg, RequestingService: "shipping-service"}
+	if _, err := rpc.GetShippingSnapshot(h.ctx, request); status.Code(err) != codes.Unauthenticated {
+		t.Fatalf("unauthenticated snapshot: %v", err)
+	}
+	ctx := metadata.NewIncomingContext(h.ctx, metadata.Pairs("authorization", "Bearer "+caller))
+	out, err := rpc.GetShippingSnapshot(ctx, request)
+	if err != nil || !out.GetEligibleForShipping() || out.GetPackageId() != pkg ||
+		out.GetReadyGeneration() != order.Generation || out.GetItemsDigest() == "" ||
+		out.GetOrderStatus() != orderwire.OrderStatus_ORDER_STATUS_PACKED {
+		t.Fatalf("snapshot does not match the packed order: %v %v", out, err)
+	}
+	request.PackageId = uuid.NewString()
+	if _, err = rpc.GetShippingSnapshot(ctx, request); status.Code(err) != codes.FailedPrecondition {
+		t.Fatalf("snapshot was not bound to the verified package: %v", err)
+	}
+}
+
 func sourceEvent(t *testing.T, h *harness, o domain.Order, kind, source, resource string, version int64, seal string) domain.Event {
 	t.Helper()
 	proof := persistence.SourceEvidence{Order: o.ID, Resource: resource, Source: source, Kind: kind, Version: version, Generation: o.Generation, Seal: seal}
@@ -346,6 +385,32 @@ func completeConnectedOrder(t *testing.T, h *harness, order *domain.Order) {
 		h.request(h.API.URL, "GET", "/api/v1/orders/"+order.ID, h.Token, nil, order)
 		return order.Status == "PACKED"
 	})
+	if order.Task == nil || *order.Task != task || order.Seal == nil || *order.Seal != "synthetic-seal" {
+		t.Fatalf("customer order omitted the verified packing result: task=%v seal=%v", order.Task, order.Seal)
+	}
+	reader, err := app.NewAdminOrderReader(domain.Principal{
+		ID: uuid.NewString(), Role: "EMPLOYEE", IAM: true,
+		Grants: []domain.PermissionGrant{{PermissionCode: "ORDER_VIEW", ScopeType: "GLOBAL"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	detail, err := h.S.AdminOrderDetail(h.ctx, reader, order.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := json.Marshal(detail)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var staff struct {
+		Order domain.Order `json:"order"`
+	}
+	if err = json.Unmarshal(raw, &staff); err != nil || staff.Order.Status != "PACKED" ||
+		staff.Order.Task == nil || *staff.Order.Task != task || staff.Order.Seal == nil || *staff.Order.Seal != "synthetic-seal" {
+		t.Fatalf("staff order omitted the verified packing result: %s, %v", raw, err)
+	}
+	checkShippingSnapshot(t, h, order, task)
 	shipment := uuid.NewString()
 	for _, step := range []struct {
 		kind    string

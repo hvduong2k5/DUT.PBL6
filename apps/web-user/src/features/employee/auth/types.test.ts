@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseAdminSession, toEmployeeSession } from "./types";
+import type { IdentityProfile } from "@/lib/auth/identity";
 
 const employee = { employeeId: "EMP-001", displayName: "Lê Thị Đoan Trang", email: "trang@oma.vn", jobTitle: "Sales Manager", department: "Kinh doanh B2B" };
 
@@ -81,5 +82,30 @@ describe("employee session IAM alias expansion (F-37B administration)", () => {
     const session = toEmployeeSession({ ...staffProfile, permissions: ["ORDER_VIEW"] });
     expect(session?.permissions).not.toContain("EMPLOYEE_ACCOUNT_VIEW");
     expect(session?.permissions).not.toContain("ACCESS_REVIEW_VIEW");
+  });
+});
+
+describe("employee session projection from identity profiles", () => {
+  const profileWith = (permissions: string[]): IdentityProfile => ({
+    principalId: "emp-1",
+    principalType: "EMPLOYEE",
+    email: "staff@oma.vn",
+    displayName: "Staff One",
+    provisioningStatus: "ACTIVE",
+    roles: [{ roleCode: "ADMIN", scopeType: "GLOBAL" }],
+    permissions
+  });
+
+  it("expands catalog IAM grants into the catalog workspace draft permission names", () => {
+    const session = toEmployeeSession(profileWith(["CATALOG_VIEW", "CATALOG_MANAGE", "ORDER_VIEW", "USER_VIEW"]));
+    expect(session?.permissions).toEqual(expect.arrayContaining(["CATALOG_VIEW", "CATALOG_MANAGE", "PRODUCT_VIEW", "PRODUCT_MANAGE", "ORDER_VIEW"]));
+    // USER_VIEW is outside the web session vocabulary and stays out.
+    expect(session?.permissions).not.toContain("USER_VIEW");
+  });
+
+  it("does not invent draft permissions without the underlying IAM grant", () => {
+    const session = toEmployeeSession(profileWith(["ORDER_VIEW"]));
+    expect(session?.permissions).not.toContain("PRODUCT_VIEW");
+    expect(session?.permissions).not.toContain("PRODUCT_MANAGE");
   });
 });
