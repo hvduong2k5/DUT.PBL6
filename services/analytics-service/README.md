@@ -17,9 +17,21 @@ docker compose -p analytics-local -f services/analytics-service/compose.test.yml
 
 API local bind loopback trên port 18011. Test tạo ngày dữ liệu có thể đối soát, kiểm API HTTP và dùng fixture Identity có khóa ký tạm thời. Kafka, PostgreSQL và ClickHouse chạy thật. Chỉ dùng lệnh xóa volume ở trên cho project test cô lập.
 
+Để giữ một pilot local chạy nền, dùng project riêng `analytics-pilot-local`:
+
+```powershell
+docker compose -p analytics-pilot-local -f services/analytics-service/compose.test.yml up -d --build api collector builder
+Invoke-WebRequest http://127.0.0.1:18011/readyz
+docker compose -p analytics-pilot-local -f services/analytics-service/compose.test.yml ps
+```
+
+`readyz` chỉ chứng minh API nối được PostgreSQL và ClickHouse; Kafka chạy với topic fixture, Identity dùng tài khoản/khóa thử nghiệm. Đường Dashboard không có token phải trả 401. Pilot này không đọc Order/Inventory thật và không chứng minh số liệu kinh doanh. Dừng bằng `docker compose -p analytics-pilot-local -f services/analytics-service/compose.test.yml stop`; chỉ xóa volume của project này sau khi đã lưu bằng chứng cần thiết.
+
 ## Pilot dev
 
 Dùng image build với context gốc repo và `-f services/analytics-service/Dockerfile`. Set `ANALYTICS_IMAGE` bằng image digest, `ANALYTICS_DEV_NETWORK` bằng network private có Kong và `ANALYTICS_DEV_CONFIG` bằng thư mục cấu hình ngoài repo. Tạo `migration/service.env`, `collector/service.env`, `builder/service.env`, `api/service.env`. Mỗi container chỉ mount thư mục cấu hình của role tương ứng tại `/run/analytics`.
+
+Trước khi migrate hoặc bật API trên host shared dev, chạy `services/analytics-service/dev/preflight.ps1 -Supply` với các biến môi trường trên và `ANALYTICS_SUPPLY_INBOX`. Preflight kiểm image digest, network riêng, cấu hình ngoài repo, hai thư mục nguồn và Compose; không in secret hoặc khởi động container. Kết quả pass chỉ xác nhận hạ tầng tối thiểu, không thay cho đối soát dữ liệu và smoke test qua Kong.
 
 | Role | Biến cần cấu hình |
 | --- | --- |
