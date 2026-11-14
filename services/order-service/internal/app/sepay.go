@@ -152,6 +152,14 @@ func (s *Service) EnableSePayFromEnv(ctx context.Context) error {
 		s.PaymentApproval = authority
 		s.PaymentCases = authority
 	}
+	if s.PaymentCases == nil {
+		// F-55: no external care authority exists in this deployment, so
+		// reconciliation-case decisions are recorded locally under the
+		// PAYMENT_CASE_DECIDE grant, with maker-checker enforced by the
+		// persistence layer. PaymentApproval is deliberately NOT replaced:
+		// refund approvals and execution stay with the external design.
+		s.PaymentCases = p.LocalCaseAuthority()
+	}
 	if base := os.Getenv("SEPAY_FINANCE_URL"); base != "" {
 		authority, e := paymentauthority.New(base, s.C.InternalToken)
 		if e != nil {

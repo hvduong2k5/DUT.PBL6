@@ -59,7 +59,9 @@ func (s *Service) PaymentStaff(bearer string) (persistence.PaymentActor, error) 
 // intentionally absent: it only opens the admin web page and must never
 // authorize an API read. PAYMENT_SENSITIVE_VIEW maps to nothing by itself;
 // together with PAYMENT_REFUND_VIEW it unlocks the refund queue, whose views
-// carry beneficiary bank data.
+// carry beneficiary bank data. PAYMENT_CASE_DECIDE joins the write tier
+// under the same auth_time freshness rule: it records the resolution
+// decision that a different holder then consumes (F-55 maker-checker).
 func paymentStaffPermissions(grants []domain.PermissionGrant, writeFresh bool) map[string]bool {
 	iam := map[string]bool{}
 	for _, g := range grants {
@@ -76,6 +78,9 @@ func paymentStaffPermissions(grants []domain.PermissionGrant, writeFresh bool) m
 	}
 	if writeFresh && iam["PAYMENT_CASE_RESOLVE"] {
 		perms["payment.reconciliation.manage"] = true
+	}
+	if writeFresh && iam["PAYMENT_CASE_DECIDE"] {
+		perms["payment.case.decide"] = true
 	}
 	return perms
 }
