@@ -47,6 +47,13 @@ permissions:
 
 env:
   COOLIFY_BASE: https://coolify.hvduong.qzz.io
+  # Cloudflare in front of this domain serves its "Just a moment..." managed
+  # challenge to GitHub-hosted runners, so every Coolify API call from a run
+  # died with HTTP 403 before it ever reached Coolify (diagnosed 2026-11-14
+  # from the response body printed by the deploy step). All curl calls below
+  # therefore resolve the VPS hostnames straight to the origin IP; SNI, the
+  # Host header and certificate validation still use the real hostname.
+  VPS_IP: "150.230.104.168"
   APP_UUID_IDENTITY: "gor2wstpcecmiz4rvdnlzzyi"
   APP_UUID_CATALOG: "uqvxq9butuq56tbusobpyceu"
   APP_UUID_PROFILE: "pxu44nnipidoqrhmobitgxq3"
@@ -150,6 +157,7 @@ jobs:
           response_file=$(mktemp)
           trap 'rm -f "$response_file"' EXIT
           status=$(curl -sS -o "$response_file" -w '%{http_code}' -X GET \
+            --resolve coolify.hvduong.qzz.io:443:$VPS_IP \
             -H "Authorization: Bearer $TOKEN" \
             -H "Accept: application/json" \
             "$COOLIFY_BASE/api/v1/deploy?uuid=$uuid&force=true")
@@ -179,7 +187,7 @@ jobs:
             exit 0
           fi
           for i in $(seq 1 45); do
-            body=$(curl -fsS -H "Authorization: Bearer $TOKEN" -H "Accept: application/json" \
+            body=$(curl -fsS --resolve coolify.hvduong.qzz.io:443:$VPS_IP -H "Authorization: Bearer $TOKEN" -H "Accept: application/json" \
               "$COOLIFY_BASE/api/v1/deployments/$deployment" || true)
             status=$(echo "$body" | jq -r '.status // empty' 2>/dev/null || true)
             echo "poll $i: status=$status"
@@ -208,6 +216,7 @@ jobs:
             exit 0
           fi
           curl -fsS -X POST \
+            --resolve coolify.hvduong.qzz.io:443:$VPS_IP \
             -H "Authorization: Bearer $TOKEN" \
             -H "Accept: application/json" \
             "$COOLIFY_BASE/api/v1/services/$KONG_UUID/restart"
@@ -228,7 +237,7 @@ jobs:
           check() {
             local url="$1"
             for i in $(seq 1 18); do
-              code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "$url" || true)
+              code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 --resolve api-pbl6.hvduong.qzz.io:443:$VPS_IP --resolve pbl.npanhbao.dev:443:$VPS_IP "$url" || true)
               echo "$url -> $code (try $i)"
               [ "$code" = "200" ] && return 0
               sleep 10
