@@ -227,4 +227,25 @@ class CatalogAdminControllerTest {
         .andExpect(jsonPath("$.success").value(true))
         .andExpect(jsonPath("$.message").value("Thêm ảnh sản phẩm thành công"));
   }
+
+  @Test
+  void createsCategoryWithIdempotencyKey() throws Exception {
+    var category = com.hvduong.catalog.application.dto.response.CategoryResponse.builder()
+        .categoryId(UUID.randomUUID()).name("Mè xửng").slug("me-xung").build();
+    when(adminService.createCategory(any(), anyString(), eq("category-create-01"))).thenReturn(category);
+    mockMvc.perform(post("/api/v1/admin/catalog/categories")
+            .header("Idempotency-Key", "category-create-01")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"name\":\"Mè xửng\",\"slug\":\"me-xung\"}"))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.data.categoryId").value(category.getCategoryId().toString()));
+  }
+
+  @Test
+  void categoryCreationRejectsMissingIdempotencyKey() throws Exception {
+    mockMvc.perform(post("/api/v1/admin/catalog/categories")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"name\":\"Mè xửng\",\"slug\":\"me-xung\"}"))
+        .andExpect(status().isBadRequest());
+  }
 }

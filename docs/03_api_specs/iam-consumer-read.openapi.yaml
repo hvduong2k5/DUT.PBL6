@@ -1587,6 +1587,9 @@ components:
           anyOf:
           - *id003
           - type: 'null'
+        seal_code:
+          type: [string, 'null']
+          description: Seal from the verified packing revision, when available.
         shipment_id:
           anyOf:
           - *id003

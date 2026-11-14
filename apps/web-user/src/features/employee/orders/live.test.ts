@@ -26,6 +26,15 @@ describe("live employee order projection", () => {
     const visible = liveOrderDetail({ ...payload, recipient: { name: "Authorized name", phone: "0901234567", address: "Authorized street" } });
     expect(visible.recipient).toMatchObject({ masked: false, displayName: "Authorized name", phoneDisplay: "0901234567" });
   });
+  it("labels the payment method on the detail projection", () => {
+    expect(liveOrderDetail(detailFixture()).payment.methodLabel).toBe("COD");
+    const vietqr = detailFixture();
+    vietqr.order = { ...vietqr.order, payment_method: "VIETQR" };
+    expect(liveOrderDetail(vietqr).payment.methodLabel).toBe("VietQR");
+    const future = detailFixture();
+    future.order = { ...future.order, payment_method: "B2B_BANK_TRANSFER" };
+    expect(liveOrderDetail(future).payment.methodLabel).toBe("B2B_BANK_TRANSFER");
+  });
   it("rejects malformed data instead of showing fallback success, zero totals or a fabricated timestamp", () => {
     for (const order of [{ ...orderFixture(), final_amount: "1200" }, { ...orderFixture(), version: 0 }, { ...orderFixture(), created_at: "" }, { ...orderFixture(), final_amount: 1.5 }]) {
       expect(() => liveOrderList({ items: [order], calculated_at: "2026-11-07T12:00:00Z", next_cursor: null })).toThrow(AdminOrderProjectionError);

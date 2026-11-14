@@ -1,5 +1,6 @@
 package com.hvduong.catalog.application.service;
 
+import com.hvduong.catalog.application.dto.request.CreateCategoryRequest;
 import com.hvduong.catalog.application.dto.request.CreateProductImageRequest;
 import com.hvduong.catalog.application.dto.request.CreateProductRequest;
 import com.hvduong.catalog.application.dto.request.CreateVariantRequest;
@@ -11,6 +12,7 @@ import com.hvduong.catalog.application.dto.request.UpdateProductRequest;
 import com.hvduong.catalog.application.dto.response.AdminPriceResponse;
 import com.hvduong.catalog.application.dto.response.AdminProductDetailResponse;
 import com.hvduong.catalog.application.dto.response.AdminProductListResponse;
+import com.hvduong.catalog.application.dto.response.CategoryResponse;
 import com.hvduong.catalog.application.dto.response.ProductDetailResponse;
 
 import java.util.List;
@@ -25,6 +27,8 @@ public interface CatalogAdminService {
   AdminProductDetailResponse getAdminProductDetail(String productId);
 
   // ── Write ───────────────────────────────────────────────────────
+  CategoryResponse createCategory(CreateCategoryRequest request, String actorId, String key);
+
   ProductDetailResponse createProduct(CreateProductRequest request, String actorId);
 
   ProductDetailResponse updateProduct(UUID productId, UpdateProductRequest request, String actorId);
