@@ -33,6 +33,15 @@ Dùng image build với context gốc repo và `-f services/analytics-service/Do
 
 Trước khi migrate hoặc bật API trên host shared dev, chạy `services/analytics-service/dev/preflight.ps1 -Supply` với các biến môi trường trên và `ANALYTICS_SUPPLY_INBOX`. Preflight kiểm image digest, network riêng, cấu hình ngoài repo, hai thư mục nguồn và Compose; không in secret hoặc khởi động container. Kết quả pass chỉ xác nhận hạ tầng tối thiểu, không thay cho đối soát dữ liệu và smoke test qua Kong.
 
+`ANALYTICS_AUTH_MODE=pilot` giữ giới hạn UUID pilot. Khi chuyển sang `scoped`, Dashboard yêu cầu `ANALYTICS_DASHBOARD_VIEW#GLOBAL`, Supply yêu cầu `ANALYTICS_SUPPLY_VIEW#GLOBAL`. JWT phải mang `permission_grants` do Identity sync phát; phiên cookie dùng `permissionGrants` từ Identity. Quyền phẳng và tên role không mở API ở chế độ này. Chỉ dùng GLOBAL cho MVP một kho; scope WAREHOUSE chờ hai owner thống nhất ID kho canonical. Migration Identity V14 đăng ký hai permission và cấp cho role ADMIN seed; tạo role nghiệp vụ riêng qua IAM nếu cần.
+
+| Admin route | Quyền ở `scoped` |
+| --- | --- |
+| `GET /dashboard`, `GET /metrics/{metricId}/series` | `ANALYTICS_DASHBOARD_VIEW#GLOBAL` |
+| `GET /supply/workbench`, `GET /supply/velocity`, `GET /supply/expiry-risk` | `ANALYTICS_SUPPLY_VIEW#GLOBAL` |
+
+Sau khi deploy Identity có V14, migration SQL trực tiếp **không tự chạy PermissionSync**. Role ADMIN được bảo vệ, nên `PUT /api/v1/admin/roles/{roleId}/permissions` sẽ bị từ chối. Với mỗi principal ADMIN cần dùng Analytics, người có `PERMISSION_MANAGE` gọi `POST /api/v1/admin/iam/principals/{principalId}/sync-permissions`, rồi yêu cầu nhân viên đăng nhập lại. Kiểm token mới có hai `ANALYTICS_*#GLOBAL`; ADMIN seed có 37 permission thay vì 35. Token cũ giữ grant cũ cho đến khi hết hạn hoặc được cấp lại. Chưa đồng bộ xong thì chưa bật `scoped` cho nhân viên đó.
+
 | Role | Biến cần cấu hình |
 | --- | --- |
 | Migration | `ANALYTICS_POSTGRES_DSN_FILE`, `ANALYTICS_POSTGRES_WORKER_ROLE`, `ANALYTICS_POSTGRES_API_ROLE`, `ANALYTICS_CLICKHOUSE_HOST`, `ANALYTICS_CLICKHOUSE_USER`, `ANALYTICS_CLICKHOUSE_PASSWORD_FILE` |
