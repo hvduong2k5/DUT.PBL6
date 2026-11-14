@@ -256,6 +256,45 @@ services:
               minute: 600
               policy: local
 
+  # ----------------------------------------------------------------------------
+  # MS-19: AI AGENT SERVICE (public shopping copilot only)
+  # Internal knowledge ingestion is intentionally not routed through Kong.
+  # ----------------------------------------------------------------------------
+  - name: ai-agent-service
+    url: http://ai-agent-service:8019
+    connect_timeout: 2000
+    read_timeout: 65000
+    write_timeout: 5000
+    retries: 0
+    routes:
+      - name: ai-shopping-routes
+        paths:
+          - /api/v1/ai/shopping
+        strip_path: false
+        methods: [GET, POST, OPTIONS]
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 30
+              limit_by: ip
+              policy: local
+      - name: ai-recommendation-routes
+        paths:
+          - /api/v1/ai/recommendations
+        strip_path: false
+        methods: [GET, OPTIONS]
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 60
+              limit_by: ip
+              policy: local
+      - name: ai-consent-routes
+        paths:
+          - /api/v1/ai/consent
+        strip_path: false
+        methods: [GET, PUT, OPTIONS]
+
 # ==============================================================================
 # 2. GLOBAL PLUGINS (SECURITY, TRACING, METRICS, CORS)
 # ==============================================================================
@@ -284,6 +323,7 @@ plugins:
         - X-Idempotency-Key
         - Idempotency-Key
         - If-Match
+        - X-Guest-Conversation-Token
       exposed_headers:
         - X-Request-Id
         - Content-Range

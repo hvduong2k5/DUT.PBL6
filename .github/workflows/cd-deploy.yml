@@ -22,7 +22,7 @@ name: CD - Deploy to Coolify
 #   release/v0.1.0-rc.1 -> identity-service ONLY (its Coolify app builds
 #                          this branch; every other app builds rc.2)
 #   release/v0.1.0-rc.2 -> catalog, profile, order, fulfillment, shipping,
-#                          inventory, web-user (identity changes landing on
+#                          inventory, ai-agent, web-user (identity changes landing on
 #                          rc.2 do NOT deploy identity; they deploy when the
 #                          same change is cherry-picked to rc.1)
 
@@ -34,7 +34,7 @@ on:
   workflow_dispatch:
     inputs:
       apps:
-        description: "Apps to deploy: identity,catalog,profile,order,fulfillment,shipping,inventory,web - or 'all'"
+        description: "Apps to deploy: identity,catalog,profile,order,fulfillment,shipping,inventory,ai,web - or 'all'"
         required: true
         default: "web"
 
@@ -61,6 +61,7 @@ env:
   APP_UUID_FULFILLMENT: "afdzvapvnwrmlaqu5gg2omtn"
   APP_UUID_SHIPPING: "vymxdc94fzfrrerg9umizerj"
   APP_UUID_INVENTORY: "qaficsfc5om7icdrjizorqoz"
+  APP_UUID_AI: ${{ vars.COOLIFY_APP_UUID_AI }}
   APP_UUID_WEB: "plf5cnfxylu2d1cl6cginegx"
   # Kong is a Coolify Service (docker-compose resource), not an Application.
   KONG_UUID: "1tmlaxcmgpkgqadugbfaaddz"
@@ -84,7 +85,7 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             input="${{ inputs.apps }}"
             if [ "$input" = "all" ]; then
-              apps=(identity catalog profile order fulfillment shipping inventory web)
+              apps=(identity catalog profile order fulfillment shipping inventory ai web)
             else
               IFS=',' read -ra parts <<< "$input"
               for p in "${parts[@]}"; do add "$(echo "$p" | tr -d ' ')"; done
@@ -108,11 +109,12 @@ jobs:
                 services/fulfillment-service/*) add fulfillment ;;
                 services/shipping-service/*) add shipping ;;
                 services/inventory-service/*) add inventory ;;
+                services/ai-agent-service/*) add ai ;;
                 apps/web-user/*) add web ;;
                 services/identity-service/*)
                   echo "::notice::identity-service changed on rc.2 - it deploys from rc.1, cherry-pick the change there to deploy it." ;;
                 packages/*)
-                  add catalog; add profile; add order; add fulfillment; add shipping; add inventory ;;
+                  add catalog; add profile; add order; add fulfillment; add shipping; add inventory; add ai ;;
               esac
             done <<< "$files"
           fi
@@ -146,11 +148,16 @@ jobs:
             fulfillment) uuid="$APP_UUID_FULFILLMENT" ;;
             shipping) uuid="$APP_UUID_SHIPPING" ;;
             inventory) uuid="$APP_UUID_INVENTORY" ;;
+            ai) uuid="$APP_UUID_AI" ;;
             web) uuid="$APP_UUID_WEB" ;;
             *) echo "Unknown app: $APP"; exit 1 ;;
           esac
           if [ -z "$TOKEN" ]; then
             echo "::error::COOLIFY_API_TOKEN secret is not set - create the token in Coolify (Keys & Tokens) and add it under Settings -> Secrets and variables -> Actions."
+            exit 1
+          fi
+          if [ -z "$uuid" ]; then
+            echo "::error::Coolify application UUID is not configured for $APP. Set the matching repository variable before deploying."
             exit 1
           fi
           echo "Deploying $APP ($uuid) at $GITHUB_SHA"
@@ -246,6 +253,9 @@ jobs:
           }
           fail=0
           check "https://api-pbl6.hvduong.qzz.io/api/v1/products" || fail=1
+          if echo '${{ needs.detect.outputs.apps }}' | jq -e 'index("ai")' >/dev/null; then
+            check "https://api-pbl6.hvduong.qzz.io/api/v1/ai/recommendations?placement=home" || fail=1
+          fi
           check "https://pbl.npanhbao.dev/products" || fail=1
           {
             echo "## CD smoke result"
