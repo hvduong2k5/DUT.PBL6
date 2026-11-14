@@ -2,6 +2,11 @@ package com.hvduong.marketing;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Instant;
@@ -19,7 +24,6 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 @EnabledIfEnvironmentVariable(named = "MARKETING_DB_URL", matches = ".+")
 class CampaignCommandsIntegrationTest {
     @Autowired CampaignCommands commands;
-    @Autowired ManualExecutions executions;
     @Autowired ObjectMapper json;
     @Autowired JdbcClient jdbc;
     @Autowired org.springframework.test.web.servlet.MockMvc http;
@@ -98,39 +102,59 @@ class CampaignCommandsIntegrationTest {
         commands.review(reviewer, campaign, revision, 2, ReviewWorkflow.Action.APPROVE, approval, null,
                 "execution-approve", "approve", List.of());
 
-        var schedule = new ManualExecutions.Schedule("EMAIL", 3);
-        var scheduled = json.readTree(executions.schedule(operator, campaign, revision, schedule,
-                "execution-schedule", "schedule").body());
-        UUID id = UUID.fromString(scheduled.path("id").asText());
-        var replay = json.readTree(executions.schedule(operator, campaign, revision, schedule,
-                "execution-schedule", "replay").body());
-        assertThat(replay).isEqualTo(scheduled);
-        assertThrows(MarketingFailure.class, () -> executions.schedule(operator, campaign, revision,
-                schedule, "execution-duplicate", "duplicate"));
+        when(peers.staff("Bearer operator", null, null)).thenReturn(operator);
+        var outsider = new StaffActor(UUID.randomUUID(), Set.of(new StaffActor.Grant(
+                "MARKETING_CAMPAIGN_VIEW", "DEPARTMENT", "other")));
+        when(peers.staff("Bearer outsider", null, null)).thenReturn(outsider);
+        String path = "/api/v1/admin/marketing/campaigns/" + campaign + "/revisions/" + revision + "/executions";
+        String schedule = """
+                {"channel":"EMAIL","expectedVersion":3}
+                """;
+        var created = http.perform(post(path).header("Authorization", "Bearer operator")
+                        .header("Idempotency-Key", "execution-schedule").contentType("application/json").content(schedule))
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.state").value("SCHEDULED"))
+                .andReturn().getResponse().getContentAsString();
+        UUID id = UUID.fromString(json.readTree(created).path("id").asText());
+        http.perform(post(path).header("Authorization", "Bearer operator")
+                        .header("Idempotency-Key", "execution-schedule").contentType("application/json").content(schedule))
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.id").value(id.toString()));
+        http.perform(post(path).header("Authorization", "Bearer operator")
+                        .header("Idempotency-Key", "execution-duplicate").contentType("application/json").content(schedule))
+                .andExpect(status().isConflict());
         assertThrows(MarketingFailure.class, () -> commands.revise(operator, campaign, revision, 3,
                 "execution-revise", "revise"));
 
-        var start = new ManualExecutions.Change(ManualExecutions.Action.START, 1, null, "manual:ready");
-        executions.act(operator, campaign, revision, id, start, "execution-start-v1", "start");
-        assertThat(executions.list(operator, campaign, revision).items().getFirst().state())
-                .isEqualTo(ManualExecutions.State.ACTIVE);
-        var complete = new ManualExecutions.Change(ManualExecutions.Action.COMPLETE, 2, null, "manual:report");
-        executions.act(operator, campaign, revision, id, complete, "execution-complete", "complete");
-        assertThat(executions.list(operator, campaign, revision).items().getFirst().state())
-                .isEqualTo(ManualExecutions.State.COMPLETED);
-        var first = executions.history(operator, campaign, revision, id, 0, 2);
-        assertThat(first.total()).isEqualTo(3);
-        assertThat(first.nextAfterVersion()).isEqualTo(2L);
-        assertThat(first.items()).extracting(ManualExecutions.HistoryEntry::toState)
-                .containsExactly("SCHEDULED", "ACTIVE");
-        var last = executions.history(operator, campaign, revision, id, first.nextAfterVersion(), 2);
-        assertThat(last.nextAfterVersion()).isNull();
-        assertThat(last.items().getFirst().evidenceRef()).isEqualTo("manual:report");
-        assertThat(last.items().getFirst().actorId()).isEqualTo(operator.id());
-        var outsider = new StaffActor(UUID.randomUUID(), Set.of(new StaffActor.Grant(
-                "MARKETING_CAMPAIGN_VIEW", "DEPARTMENT", "other")));
-        assertThat(assertThrows(MarketingFailure.class,
-                () -> executions.history(outsider, campaign, revision, id, 0, 2)).status()).isEqualTo(404);
+        String action = path + "/" + id + "/actions";
+        http.perform(post(action).header("Authorization", "Bearer operator")
+                        .header("Idempotency-Key", "execution-no-evidence").contentType("application/json")
+                        .content("{\"action\":\"START\",\"expectedVersion\":1}"))
+                .andExpect(status().isUnprocessableEntity());
+        http.perform(post(action).header("Authorization", "Bearer operator")
+                        .header("Idempotency-Key", "execution-start-v1").contentType("application/json")
+                        .content("{\"action\":\"START\",\"expectedVersion\":1,\"evidenceRef\":\"manual:ready\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.state").value("ACTIVE"));
+        http.perform(post(action).header("Authorization", "Bearer operator")
+                        .header("Idempotency-Key", "execution-stale-v1").contentType("application/json")
+                        .content("{\"action\":\"COMPLETE\",\"expectedVersion\":1,\"evidenceRef\":\"manual:report\"}"))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("STALE_REVISION"));
+        http.perform(post(action).header("Authorization", "Bearer operator")
+                        .header("Idempotency-Key", "execution-complete").contentType("application/json")
+                        .content("{\"action\":\"COMPLETE\",\"expectedVersion\":2,\"evidenceRef\":\"manual:report\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.state").value("COMPLETED"));
+        http.perform(get(path).header("Authorization", "Bearer operator"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.items[0].state").value("COMPLETED"));
+        String history = path + "/" + id + "/history";
+        http.perform(get(history).header("Authorization", "Bearer operator").param("limit", "2"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.total").value(3))
+                .andExpect(jsonPath("$.nextAfterVersion").value(2))
+                .andExpect(jsonPath("$.items[0].toState").value("SCHEDULED"))
+                .andExpect(jsonPath("$.items[1].toState").value("ACTIVE"));
+        http.perform(get(history).header("Authorization", "Bearer operator").param("afterVersion", "2"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.nextAfterVersion").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.items[0].evidenceRef").value("manual:report"))
+                .andExpect(jsonPath("$.items[0].actorId").value(operator.id().toString()));
+        http.perform(get(history).header("Authorization", "Bearer outsider"))
+                .andExpect(status().isNotFound());
         assertThat(jdbc.sql("SELECT count(*) FROM campaign_execution_history WHERE execution_id = :id")
                 .param("id", id).query(Long.class).single()).isEqualTo(3);
     }

@@ -19,3 +19,7 @@ Admin API draft nằm dưới revision, gồm GET/POST executions và POST execu
 ### Đọc lịch sử execution
 
 GET executions/{executionId}/history dùng cùng scope với danh sách execution. API trả actor, request ID, trạng thái trước/sau, thời điểm, lý do và mã bằng chứng. UI dùng afterVersion để tải trang tiếp theo theo thứ tự ghi. PostgreSQL đọc execution và lịch sử trong cùng snapshot để total và cursor nhất quán. Scope ngoài phòng ban và execution không thuộc revision đều trả 404. Mã bằng chứng là tham chiếu nội bộ, UI hiển thị dạng văn bản.
+
+### Kiểm chứng ở lớp HTTP
+
+Test tích hợp chạy Spring MVC và PostgreSQL 16, với Identity fixture cấp grant theo phòng ban. Test gọi các route execution từ schedule đến complete, kiểm replay cùng key, trùng lịch bằng key khác, thiếu evidence, version cũ và phân trang history. Đọc history từ phòng ban khác trả 404. Nghiệm thu qua Kong và Identity BFF với phiên thật là bước kiểm riêng.
