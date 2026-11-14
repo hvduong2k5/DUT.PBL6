@@ -266,3 +266,62 @@ func TestSePayPagedSyncQuarantineAndLostLease(t *testing.T) {
 		t.Fatal("stale paid")
 	}
 }
+
+func TestSePayLatePaymentAfterTimeoutStatusContract(t *testing.T) {
+	h, p, a, tr := paymentFixture(t)
+	scope := ownerScope(a.Owner())
+	// Drive the order through the same timeout transition the sweep performs,
+	// with the decision clock past the payment deadline: the aggregate times
+	// out and finishCancellation closes the payment intent (internal CLOSED).
+	// The decision clock must come from the database: loadOrder compares
+	// the stored decided-at against the state cipher with Equal, and a
+	// host time.Now() carries nanoseconds the timestamptz round-trip drops.
+	var dbNow time.Time
+	if e := h.db.QueryRow(h.ctx, "SELECT clock_timestamp()").Scan(&dbNow); e != nil {
+		t.Fatal(e)
+	}
+	at := dbNow.Add(16 * time.Minute)
+	e := h.store.runner.Do(h.ctx, func(tx pgx.Tx) error {
+		cur, e := h.store.loadOrder(h.ctx, tx, a.ID(), scope)
+		if e != nil {
+			return e
+		}
+		next, e := cur.Timeout(core.DecisionContext{ExpectedVersion: cur.Version(), At: at})
+		if e != nil {
+			return e
+		}
+		return h.store.finishCancellation(h.ctx, tx, cur, next, at)
+	})
+	if e != nil {
+		t.Fatal(e)
+	}
+	current, e := h.store.LoadOrder(h.ctx, a.ID(), scope)
+	if e != nil || current.State() != core.CancelledTimeout {
+		t.Fatal(current.State(), e)
+	}
+	// The exact amount arrives after the deadline: it must land in
+	// reconciliation as LATE_PAYMENT and never allocate.
+	if e := p.Ingest(h.ctx, tr); e != nil {
+		t.Fatal(e)
+	}
+	if h.count(t, "SELECT count(*) FROM allocations") != 0 || h.count(t, "SELECT count(*) FROM reconciliation_cases WHERE reason='LATE_PAYMENT'") != 1 {
+		t.Fatal("late payment not reconciled")
+	}
+	status, e := p.Status(h.ctx, a.ID(), scope)
+	if e != nil {
+		t.Fatal(e)
+	}
+	// F-54: the customer payment status must stay inside the public contract.
+	// The internal CLOSED intent state must never leak to the web validator,
+	// and an open reconciliation case must outrank the expired display so the
+	// customer sees the review state and its support reference.
+	if status.IntentStatus != "EXPIRED" {
+		t.Fatalf("intent_status outside public contract: %s", status.IntentStatus)
+	}
+	if status.Display != "RECONCILIATION_REQUIRED" || !status.Review {
+		t.Fatalf("late payment must surface as reconciliation, got display=%s review=%v", status.Display, status.Review)
+	}
+	if status.Reason == nil || *status.Reason != "LATE_PAYMENT" || status.Support == nil || *status.Support == "" {
+		t.Fatalf("missing support reason/reference: %+v", status)
+	}
+}
