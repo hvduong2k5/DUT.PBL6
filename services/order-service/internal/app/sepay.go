@@ -156,9 +156,16 @@ func (s *Service) EnableSePayFromEnv(ctx context.Context) error {
 		// F-55: no external care authority exists in this deployment, so
 		// reconciliation-case decisions are recorded locally under the
 		// PAYMENT_CASE_DECIDE grant, with maker-checker enforced by the
-		// persistence layer. PaymentApproval is deliberately NOT replaced:
-		// refund approvals and execution stay with the external design.
+		// persistence layer.
 		s.PaymentCases = p.LocalCaseAuthority()
+	}
+	if s.PaymentApproval == nil {
+		// F-42 slice 2: no external care authority exists either, so
+		// refund approvals are recorded locally under the
+		// PAYMENT_REFUND_APPROVE grant. Approval alone moves no money:
+		// acceptance, execution and verification stay separated per
+		// person in the persistence layer.
+		s.PaymentApproval = p.LocalRefundApproval()
 	}
 	if base := os.Getenv("SEPAY_FINANCE_URL"); base != "" {
 		authority, e := paymentauthority.New(base, s.C.InternalToken)
@@ -172,6 +179,14 @@ func (s *Service) EnableSePayFromEnv(ctx context.Context) error {
 				s.PaymentEvidenceHosts = append(s.PaymentEvidenceHosts, strings.TrimSpace(host))
 			}
 		}
+	}
+	if s.PaymentEvidence == nil {
+		// F-42 slice 2: bank-statement evidence certificates are issued
+		// locally under the PAYMENT_REFUND_VERIFY grant. The evidence
+		// vault (PaymentVault) is deliberately NOT replaced: evidence
+		// file upload/download keeps the external contract and stays
+		// unavailable until a finance service is deployed.
+		s.PaymentEvidence = p.LocalRefundEvidence()
 	}
 	return s.enableInventoryFromEnv(ctx)
 }
