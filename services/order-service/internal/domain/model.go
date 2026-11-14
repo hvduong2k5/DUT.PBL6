@@ -59,11 +59,13 @@ type Item struct {
 	Version   int64  `json:"catalog_version,omitempty"`
 }
 type Address struct {
-	Name     string `json:"recipient_name"`
-	Phone    string `json:"phone"`
-	Street   string `json:"street"`
-	Ward     string `json:"ward_code"`
-	Province string `json:"province_code"`
+	Name         string `json:"recipient_name"`
+	Phone        string `json:"phone"`
+	Street       string `json:"street"`
+	Ward         string `json:"ward_code"`
+	WardName     string `json:"ward_name,omitempty"`
+	Province     string `json:"province_code"`
+	ProvinceName string `json:"province_name,omitempty"`
 }
 
 var phonePattern = regexp.MustCompile(`^(?:\+84|0)[35789][0-9]{8}$`)

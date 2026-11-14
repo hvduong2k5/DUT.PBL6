@@ -23,7 +23,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 @RequestMapping("/api/v1/admin/employee-invitations")
 public interface EmployeeInvitationApi {
 
-    @Operation(summary = "Tạo thư mời nhân viên [Chuẩn RESTful 3.3.1]", description = "Sinh mã lời mời token kèm thời hạn có hiệu lực (mặc định 7 ngày) qua POST /api/v1/admin/employee-invitations.")
+    @Operation(summary = "Tạo thư mời nhân viên [Chuẩn RESTful 3.3.1]", description = "Tạo lời mời gắn với subject Keycloak đã được chỉ định, mặc định có hiệu lực 7 ngày. Lời mời cần có subject mới được chấp nhận.")
     @SecurityRequirement(name = "bearerAuth")
     @PostMapping
     ResponseEntity<ApiResponse<InviteEmployeeResponse>> inviteEmployee(

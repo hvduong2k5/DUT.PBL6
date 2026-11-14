@@ -17,7 +17,7 @@ from pydantic import BaseModel, ValidationError
 from starlette.exceptions import HTTPException
 
 from . import db, report, snapshots, supply
-from .config import AuthSettings, Settings, setting
+from .config import JWT_CLOCK_SKEW_SECONDS, AuthSettings, Settings, setting
 from .metrics import QUERY_SECONDS
 from .migrate import clickhouse
 
@@ -96,7 +96,7 @@ class PilotAuth:
                 algorithms=["RS256"],
                 issuer=self.settings.issuer,
                 audience=self.settings.audience,
-                leeway=5,
+                leeway=JWT_CLOCK_SKEW_SECONDS,
                 options={"require": ["exp", "iss", "sub", "aud"]},
             )
             if claims.get("service"):

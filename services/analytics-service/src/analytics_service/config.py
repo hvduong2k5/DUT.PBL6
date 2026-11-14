@@ -6,6 +6,7 @@ from uuid import UUID
 
 TOPIC = "order.events.v3"
 COHORT = "order-v3"
+JWT_CLOCK_SKEW_SECONDS = 30
 SCHEMA_ROOT = Path(__file__).resolve().parents[4] / "packages/events/schemas/order/v3"
 MIGRATION_ROOT = Path(__file__).resolve().parents[2] / "migrations"
 

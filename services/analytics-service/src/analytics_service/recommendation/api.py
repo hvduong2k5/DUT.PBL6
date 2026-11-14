@@ -12,7 +12,7 @@ from prometheus_client import Counter, Histogram
 from pydantic import TypeAdapter, ValidationError
 from starlette.concurrency import run_in_threadpool
 
-from ..config import AuthSettings, positive
+from ..config import JWT_CLOCK_SKEW_SECONDS, AuthSettings, positive
 from .models import Behavior, Code, Config, ConsentWrite
 from .store import Error, Store
 
@@ -45,6 +45,7 @@ class CustomerAuth:
                     algorithms=["RS256"],
                     audience=self.settings.audience,
                     issuer=self.settings.issuer,
+                    leeway=JWT_CLOCK_SKEW_SECONDS,
                     options={"require": ["exp", "iss", "sub", "aud", "user_id"]},
                 )
                 UUID(claims["user_id"])

@@ -50,7 +50,7 @@ const employeeList = object({
 const employeeDetail = object({
   ...summaryFields,
   profileReference: object({ employeeId: text, employeeCode: text, profileOwner: choice("EPIC_02") }),
-  identity: object({ emailVerified: boolean, lastAuthenticatedAt: nullable(timestamp), credentialReadable: choice(false) }),
+  identity: object({ credentialReadable: choice(false) }),
   lock: nullable(object({ effectiveAt: timestamp, reason: text, decidedByLabel: text })),
   roleAssignments: array(object({ assignmentId: text, roleCode: text, roleName: text, roleStatus,
     assignmentStatus, scopeLabel: text, effectiveFrom: timestamp, effectiveUntil: nullable(timestamp), assignedByLabel: text })),

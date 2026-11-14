@@ -15,13 +15,14 @@ let nonce = "";
 let challenge = "";
 let mutation = "";
 let tokenCalls = 0;
+let issuedAtOffset = 0;
 
 describe("OIDC wire security", () => {
   beforeEach(async () => {
-    nonce = ""; challenge = ""; mutation = ""; tokenCalls = 0;
+    nonce = ""; challenge = ""; mutation = ""; tokenCalls = 0; issuedAtOffset = 0;
     const { privateKey, publicKey } = await generateKeyPair("RS256");
     const jwk = { ...await exportJWK(publicKey), kid: "test-key", use: "sig", alg: "RS256" };
-    const sign = (claims: Record<string, unknown>, audience: string) => new SignJWT(claims).setProtectedHeader({ alg: "RS256", kid: "test-key" }).setIssuer(issuer).setAudience(audience).setSubject("idp-subject").setIssuedAt().setExpirationTime(mutation === "expiry" && tokenCalls === 1 ? "20s" : "5m").sign(privateKey);
+    const sign = (claims: Record<string, unknown>, audience: string) => new SignJWT(claims).setProtectedHeader({ alg: "RS256", kid: "test-key" }).setIssuer(issuer).setAudience(audience).setSubject("idp-subject").setIssuedAt(Math.floor(Date.now() / 1000) + issuedAtOffset).setExpirationTime(mutation === "expiry" && tokenCalls === 1 ? "20s" : "5m").sign(privateKey);
     server = createServer(async (request, response) => {
       response.setHeader("Content-Type", "application/json");
       const send = (body: unknown, status = 200) => { response.statusCode = status; response.end(JSON.stringify(body)); };
@@ -75,6 +76,17 @@ describe("OIDC wire security", () => {
     expect(await session.json()).toMatchObject({ authenticated: true, customer: { id: customer }, principal: { principalId: principal, customerId: customer } });
     expect(session.headers.get("cache-control")).toBe("no-store");
     expect(session.cookies.get("oma_access_token")).toBeUndefined();
+  });
+
+  it.each([20, 40])("checks a signed token issued %is in the future against the 30s tolerance", async (offset) => {
+    const flow = await begin();
+    issuedAtOffset = offset;
+    const callback = new NextRequest(`http://localhost:13000/api/auth/oidc/callback?code=test-code&state=${flow.authorize.searchParams.get("state")}`, { headers: { cookie: flow.cookie } });
+    if (offset === 20) {
+      expect((await oidcCallback(callback)).cookies.get("oma_access_token")?.value).toBeTruthy();
+    } else {
+      await expect(oidcCallback(callback)).rejects.toMatchObject({ status: 401, code: "OIDC_TOKEN_INVALID" });
+    }
   });
 
   it("rejects wrong state before token exchange", async () => {

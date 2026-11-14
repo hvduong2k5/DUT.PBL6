@@ -86,6 +86,8 @@ export interface OrderDetail {
   cancellation: {
     status: OrderCancellationStatus;
     compensationStatus: OrderCompensationStatus;
+    statusLabel: string;
+    compensationLabel: string;
     canCancel: boolean;
     canRequestPaidCancellation: boolean;
     canViewTracking: boolean;

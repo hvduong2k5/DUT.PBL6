@@ -49,7 +49,7 @@ class SecurityConfigConverterTest {
                     "CATALOG_APPROVE#DEPARTMENT#SALES"))
             .build();
     assertThat(authoritiesOf(jwt))
-        .containsExactlyInAnyOrder("CATALOG_VIEW", "CATALOG_MANAGE", "CATALOG_APPROVE");
+        .containsExactlyInAnyOrder("CATALOG_VIEW", "CATALOG_VIEW#GLOBAL", "CATALOG_MANAGE", "CATALOG_APPROVE");
   }
 
   @Test

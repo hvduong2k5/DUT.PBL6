@@ -109,7 +109,7 @@ func main() {
 
 	var packingConsumers []*worker.PackingConsumer
 	if cfg.OrderGRPCEndpoint != "" {
-		orderClient, clientErr := ordergrpc.New(cfg.OrderGRPCEndpoint, cfg.OrderInternalToken)
+		orderClient, clientErr := ordergrpc.New(cfg.OrderGRPCEndpoint, cfg.OrderInternalToken, cfg.OrderCAFile, cfg.OrderServerName)
 		if clientErr != nil {
 			logger.Fatal().Err(clientErr).Msg("create Order service client")
 		}

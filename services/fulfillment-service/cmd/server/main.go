@@ -57,7 +57,7 @@ func main() {
 	}
 	var auth transport.Auth
 	auth.Issuer = os.Getenv("FULFILLMENT_JWT_ISSUER")
-	auth.StaffAudience = env("FULFILLMENT_STAFF_AUDIENCE", "fulfillment-api")
+	auth.StaffAudience = env("FULFILLMENT_STAFF_AUDIENCE", "omama-api")
 	if path := os.Getenv("FULFILLMENT_ORDER_CALLER_TOKEN_FILE"); path != "" {
 		raw, e := os.ReadFile(path)
 		if e != nil || len(strings.TrimSpace(string(raw))) < 32 {

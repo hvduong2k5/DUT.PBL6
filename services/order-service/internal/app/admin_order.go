@@ -48,6 +48,7 @@ type adminOrderSummary struct {
 	Warehouse  string     `json:"warehouse_id"`
 	CustomerID *string    `json:"customer_id"`
 	Task       *string    `json:"task_id"`
+	Seal       *string    `json:"seal_code"`
 	Shipment   *string    `json:"shipment_id"`
 	Final      int64      `json:"final_amount"`
 	ItemCount  int64      `json:"item_count"`
@@ -62,7 +63,7 @@ type adminOrderSummary struct {
 func adminSummary(o domain.Order, count int64) adminOrderSummary {
 	return adminOrderSummary{
 		ID: o.ID, Code: o.Code, Status: o.Status, Payment: o.Payment, Method: o.Method,
-		Stock: o.Stock, Warehouse: o.Warehouse, CustomerID: o.CustomerID, Task: o.Task,
+		Stock: o.Stock, Warehouse: o.Warehouse, CustomerID: o.CustomerID, Task: o.Task, Seal: o.Seal,
 		Shipment: o.Shipment, Final: o.Final, ItemCount: count, Version: o.Version,
 		Hold: o.Hold, ActiveCase: o.ActiveCase, SLA: o.SLA, Created: o.CreatedAt, Updated: o.UpdatedAt,
 	}
@@ -228,7 +229,7 @@ func (s *Service) adminOrderRecipient(ctx context.Context, o domain.Order) (map[
 		address := order.Snapshot().Data().Address
 		return map[string]string{
 			"name": address.RecipientName, "phone": address.PhoneE164,
-			"address": strings.Join([]string{address.Street, address.WardName, address.ProvinceName}, ", "),
+			"address": formatAdminAddress(address.Street, address.WardName, address.WardCode, address.ProvinceName, address.ProvinceCode),
 		}, nil
 	}
 	var cipher []byte
@@ -241,6 +242,16 @@ func (s *Service) adminOrderRecipient(ctx context.Context, o domain.Order) (map[
 	}
 	return map[string]string{
 		"name": quote.Address.Name, "phone": quote.Address.Phone,
-		"address": strings.Join([]string{quote.Address.Street, quote.Address.Ward, quote.Address.Province}, ", "),
+		"address": formatAdminAddress(quote.Address.Street, quote.Address.WardName, quote.Address.Ward, quote.Address.ProvinceName, quote.Address.Province),
 	}, nil
+}
+
+func formatAdminAddress(street, wardName, wardCode, provinceName, provinceCode string) string {
+	wardName = addressNameOrCode(wardName, wardCode)
+	provinceName = addressNameOrCode(provinceName, provinceCode)
+	suffix := ", " + provinceName
+	for provinceName != "" && strings.HasSuffix(wardName, suffix) {
+		wardName = strings.TrimSuffix(wardName, suffix)
+	}
+	return strings.Join([]string{street, wardName, provinceName}, ", ")
 }

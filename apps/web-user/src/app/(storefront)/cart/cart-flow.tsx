@@ -25,6 +25,7 @@ export function CartFlow() {
   const [cart, setCart] = useState<Cart | null>(null);
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState("");
+  const [pageErrorCode, setPageErrorCode] = useState("");
   const [pendingItemId, setPendingItemId] = useState<string>();
   const [lineErrors, setLineErrors] = useState<Record<string, string>>({});
   const [draftQuantities, setDraftQuantities] = useState<Record<string, string>>({});
@@ -35,6 +36,7 @@ export function CartFlow() {
     let active = true;
     setLoading(true);
     setPageError("");
+    setPageErrorCode("");
     setStatusMessage("");
     cartService.get(scenario).then((payload) => {
       if (active) {
@@ -45,6 +47,7 @@ export function CartFlow() {
     }).catch((cause: unknown) => {
       if (!active) return;
       setPageError(cause instanceof PublicApiError ? cause.message : "Không thể tải giỏ hàng lúc này.");
+      setPageErrorCode(cause instanceof PublicApiError ? cause.code : "");
     }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [retryKey, scenario, updateFromCart]);
@@ -117,10 +120,10 @@ export function CartFlow() {
       <main className="cart-page">
         <section className="cart-error-state" role="alert">
           <span aria-hidden="true">!</span>
-          <p className="eyebrow">Kết nối gián đoạn</p>
-          <h1>Chưa thể mở giỏ hàng</h1>
+          <p className="eyebrow">{pageErrorCode === "ACCOUNT_ACTIVATION_REQUIRED" ? "Tài khoản chưa kích hoạt" : "Kết nối gián đoạn"}</p>
+          <h1>{pageErrorCode === "ACCOUNT_ACTIVATION_REQUIRED" ? "Hoàn thiện hồ sơ để mua hàng" : "Chưa thể mở giỏ hàng"}</h1>
           <p>{pageError}</p>
-          <div><button type="button" className="primary-button" onClick={() => setRetryKey((value) => value + 1)}>Thử tải lại</button><Link href="/products">Tiếp tục chọn sản phẩm</Link></div>
+          <div>{pageErrorCode === "ACCOUNT_ACTIVATION_REQUIRED" ? <Link className="primary-button" href="/account/profile">Đến trang hồ sơ</Link> : <button type="button" className="primary-button" onClick={() => setRetryKey((value) => value + 1)}>Thử tải lại</button>}<Link href="/products">Tiếp tục chọn sản phẩm</Link></div>
         </section>
       </main>
     );

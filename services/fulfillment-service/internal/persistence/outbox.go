@@ -13,14 +13,23 @@ type Delivery struct {
 }
 
 func (s *Store) ClaimDelivery(ctx context.Context, owner string) (out Delivery, found bool, e error) {
-	e = s.DB.QueryRow(ctx, `WITH pick AS (SELECT o.event_id FROM fulfillment.outbox o WHERE o.published_at IS NULL AND o.next_run_at<=clock_timestamp() AND (o.lease_until IS NULL OR o.lease_until<clock_timestamp()) AND NOT EXISTS(SELECT 1 FROM fulfillment.outbox h WHERE h.stream_id=o.stream_id AND h.published_at IS NULL AND (h.stream_version,h.ordinal)<(o.stream_version,o.ordinal)) ORDER BY o.occurred_at,o.event_id FOR UPDATE OF o SKIP LOCKED LIMIT 1) UPDATE fulfillment.outbox o SET lease_owner=$1,lease_epoch=lease_epoch+1,lease_until=clock_timestamp()+interval '15 seconds',attempts=attempts+1 FROM pick WHERE o.event_id=pick.event_id RETURNING o.event_id::text,o.topic,o.partition_key,o.envelope,o.lease_epoch`, owner).Scan(&out.ID, &out.Topic, &out.Key, &out.Payload, &out.Epoch)
+	e = s.DB.QueryRow(ctx, `WITH pick AS (SELECT o.event_id FROM fulfillment.outbox o WHERE o.published_at IS NULL AND o.dead_lettered_at IS NULL AND o.next_run_at<=clock_timestamp() AND (o.lease_until IS NULL OR o.lease_until<clock_timestamp()) AND NOT EXISTS(SELECT 1 FROM fulfillment.outbox h WHERE h.stream_id=o.stream_id AND h.published_at IS NULL AND (h.stream_version,h.ordinal)<(o.stream_version,o.ordinal)) ORDER BY o.occurred_at,o.event_id FOR UPDATE OF o SKIP LOCKED LIMIT 1) UPDATE fulfillment.outbox o SET lease_owner=$1,lease_epoch=lease_epoch+1,lease_until=clock_timestamp()+interval '15 seconds',attempts=attempts+1 FROM pick WHERE o.event_id=pick.event_id RETURNING o.event_id::text,o.topic,o.partition_key,o.envelope,o.lease_epoch`, owner).Scan(&out.ID, &out.Topic, &out.Key, &out.Payload, &out.Epoch)
 	if errors.Is(e, pgx.ErrNoRows) {
 		return out, false, nil
 	}
 	return out, e == nil, e
 }
 func (s *Store) DeliveryResult(ctx context.Context, owner string, v Delivery, ok bool) error {
-	_, e := s.DB.Exec(ctx, `UPDATE fulfillment.outbox SET published_at=CASE WHEN $4 THEN clock_timestamp() ELSE NULL END,lease_until=NULL,next_run_at=clock_timestamp()+interval '5 seconds' WHERE event_id=$1 AND lease_owner=$2 AND lease_epoch=$3`, v.ID, owner, v.Epoch, ok)
+	_, e := s.DB.Exec(ctx, `
+		UPDATE fulfillment.outbox
+		SET published_at = CASE WHEN $4 THEN clock_timestamp() END,
+		    consecutive_failures = CASE WHEN $4 THEN 0 ELSE consecutive_failures + 1 END,
+		    last_error_code = CASE WHEN NOT $4 THEN 'KAFKA_PUBLISH_FAILED' END,
+		    dead_lettered_at = CASE WHEN NOT $4 AND consecutive_failures + 1 >= 10 THEN clock_timestamp() END,
+		    lease_until = NULL, lease_owner = NULL,
+		    next_run_at = clock_timestamp() + interval '5 seconds'
+		WHERE event_id = $1 AND lease_owner = $2 AND lease_epoch = $3
+		  AND published_at IS NULL AND dead_lettered_at IS NULL`, v.ID, owner, v.Epoch, ok)
 	return e
 }
 

@@ -17,6 +17,7 @@ public class PrincipalAccess {
     public boolean employee(Authentication authentication) {
         if (!(authentication instanceof JwtAuthenticationToken token) || !authentication.isAuthenticated()) return false;
         var jwt = token.getToken();
+        if (JwtAudienceConfig.isRolesReader(jwt) || jwt.getIssuer() == null) return false;
         var principal = principals.findByIssuerAndSubject(jwt.getIssuer().toString(), jwt.getSubject());
         return principal != null
                 && PrincipalType.EMPLOYEE.matches(principal.getPrincipalType())

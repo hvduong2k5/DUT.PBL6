@@ -83,6 +83,8 @@ grpc:
       enabled: false
 
 app:
+  auth:
+    jwt-clock-skew: 30s
   kafka:
     inventory-stock-topic: ${INVENTORY_STOCK_TOPIC:inventory.stock-changed.v1}
     inventory-stock-dlt-topic: ${INVENTORY_STOCK_DLT_TOPIC:inventory.stock-changed.v1.DLT}

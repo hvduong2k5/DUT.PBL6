@@ -37,7 +37,6 @@ export function RegistrationFlow({ returnUrl }: { returnUrl: string }) {
     try {
       await registerCustomer({ firstName, lastName, email, rawPassword: password });
       setSuccess(true);
-      window.setTimeout(() => login(returnUrl), 1200);
     } catch (caught) {
       const backendErrors = getFieldErrors(caught);
       setFieldErrors(caught instanceof AuthApiError && caught.code === "EMAIL_ALREADY_EXISTS" ? { ...backendErrors, email: "Email này đã được đăng ký." } : backendErrors);
@@ -48,9 +47,9 @@ export function RegistrationFlow({ returnUrl }: { returnUrl: string }) {
   const query = returnUrl === "/" ? "" : `?returnUrl=${encodeURIComponent(returnUrl)}`;
   if (isLoading) return <div className="center-state" aria-busy="true"><span className="large-spinner" /><p>Đang kiểm tra phiên đăng nhập…</p></div>;
   if (isEmployee) return <div className="center-state"><span className="state-icon">!</span><h2>Nhân viên không đăng ký tài khoản tại đây</h2><p>Tài khoản Employee do công ty cấp phát. Hãy dùng tài khoản Customer cá nhân riêng nếu muốn mua hàng.</p><Link className="primary-link" href="/admin">Đến Kênh Quản Trị</Link></div>;
+  if (success) return <div className="auth-form"><StatusNotice tone="info">Đăng ký thành công! Tài khoản của bạn đã được tạo.</StatusNotice><p>Bước tiếp theo: hãy đăng nhập, sau đó vào trang Hồ sơ để thêm số điện thoại. Tài khoản sẽ được kích hoạt đầy đủ quyền mua hàng ngay khi hồ sơ có số điện thoại hợp lệ.</p><button className="primary-button full-width" type="button" onClick={() => login("/account/profile")}>Đăng nhập và hoàn thiện hồ sơ</button></div>;
   return (
     <form className="auth-form registration-form" onSubmit={submit} noValidate>
-      {success ? <div className="auth-toast" role="status">Đăng ký thành công! Đang chuyển đến màn hình đăng nhập...</div> : null}
       {error ? <StatusNotice>{error}</StatusNotice> : null}
       <div className="form-grid"><FormField id="first-name" name="firstName" label="Họ" icon="♙" autoComplete="family-name" placeholder="Nguyễn" required error={fieldErrors.firstName} /><FormField id="last-name" name="lastName" label="Tên" icon="♙" autoComplete="given-name" placeholder="Văn An" required error={fieldErrors.lastName} /></div>
       <FormField id="register-email" name="email" type="email" label="Email" icon="✉" autoComplete="email" placeholder="quykhach@example.com" required error={fieldErrors.email} />
@@ -59,7 +58,7 @@ export function RegistrationFlow({ returnUrl }: { returnUrl: string }) {
       <FormField id="password-confirmation" name="passwordConfirmation" type="password" label="Xác nhận mật khẩu" icon="⌑" autoComplete="new-password" required error={fieldErrors.passwordConfirmation} />
       <label className="checkbox terms"><input type="checkbox" name="terms" aria-describedby={fieldErrors.terms ? "terms-error" : undefined} /><span>Tôi đồng ý với <a href="#terms">Quy chế Thẻ Tri Kỷ</a> và Chính sách Bảo mật.</span></label>
       {fieldErrors.terms ? <span className="field-error" id="terms-error">{fieldErrors.terms}</span> : null}
-      <SubmitButton pending={pending}>{success ? "Đang chuyển hướng..." : "Đăng Ký Tài Khoản"}</SubmitButton>
+      <SubmitButton pending={pending}>Đăng Ký Tài Khoản</SubmitButton>
       <button className="secondary-button full-width google-register-button" type="button" onClick={() => login(returnUrl)} disabled={pending}>Đăng ký nhanh bằng Google</button>
       <p className="switch-flow">Đã sở hữu tài khoản? <Link href={`/login${query}`}>Đăng nhập ngay →</Link></p>
     </form>

@@ -27,8 +27,9 @@ RUN printf '%s\n' '#!/bin/sh' \
   'if [ -n "$INVENTORY_TLS_KEY_B64" ]; then printf %s "$INVENTORY_TLS_KEY_B64" | base64 -d > /run/secrets/tls.key; fi' \
   'if [ -n "$INVENTORY_FULFILLMENT_TOKEN_B64" ]; then printf %s "$INVENTORY_FULFILLMENT_TOKEN_B64" | base64 -d > /run/secrets/fulfillment-token.txt; fi' \
   'export INVENTORY_TLS_CERT=/run/secrets/tls.crt INVENTORY_TLS_KEY=/run/secrets/tls.key INVENTORY_FULFILLMENT_TOKEN_FILE=/run/secrets/fulfillment-token.txt' \
+  'if [ -n "$INVENTORY_STAFF_PUBLIC_KEY_B64" ]; then printf %s "$INVENTORY_STAFF_PUBLIC_KEY_B64" | base64 -d > /run/secrets/staff.pem; export INVENTORY_STAFF_PUBLIC_KEY_FILE=/run/secrets/staff.pem; fi' \
   'exec /app/inventory-service' > /entrypoint.sh && chmod +x /entrypoint.sh
 USER app
 ENV PORT=8001
-EXPOSE 8001
+EXPOSE 8001 8003
 ENTRYPOINT ["/entrypoint.sh"]

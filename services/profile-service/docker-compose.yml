@@ -12,6 +12,7 @@ services:
       - ./migrations/000001_init_schema.up.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
       - ./migrations/000002_street_mappings_and_national_seed.up.sql:/docker-entrypoint-initdb.d/02_street_mappings.sql:ro
       - ./migrations/000003_profile_integrity.up.sql:/docker-entrypoint-initdb.d/03_integrity.sql:ro
+      - ./migrations/000004_normalize_shipping_ward_names.up.sql:/docker-entrypoint-initdb.d/04_ward_names.sql:ro
       - pgdata:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U omamx_user -d profile_db"]

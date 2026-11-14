@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { AdminRoleDetail, AdminRoleList, AdminRoleStatus, AdminRoleSummary } from "@/features/employee/access/types";
+import { useEmployeeSession } from "@/components/auth/employee-session-provider";
+import type { AdminPermissionList, AdminRoleDetail, AdminRoleList, AdminRoleStatus, AdminRoleSummary } from "@/features/employee/access/types";
 import { AdminAccessApiError } from "@/features/employee/access/types";
 import { adminAccessService } from "@/features/employee/access/service";
 
@@ -23,18 +24,116 @@ export function RoleCatalogWorkspace() {
   const [detail, setDetail] = useState<AdminRoleDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState("");
+  const { hasPermission } = useEmployeeSession();
+  const canManageRoles = hasPermission("ROLE_MANAGE");
+  const canManagePermissions = hasPermission("PERMISSION_MANAGE");
+  const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState<AdminRoleSummary | null>(null);
+  const [deleting, setDeleting] = useState<AdminRoleSummary | null>(null);
+  const [toggling, setToggling] = useState<AdminRoleSummary | null>(null);
+  const [notice, setNotice] = useState("");
   const load = useCallback(async () => { setLoading(true); setLoadError(""); try { setData(await adminAccessService.roles()); } catch (cause) { setLoadError(cause instanceof AdminAccessApiError ? cause.message : "Không thể tải danh mục Role."); } finally { setLoading(false); } }, []);
   useEffect(() => { void Promise.resolve().then(load); }, [load]);
   const filtered = useMemo(() => { const needle = query.trim().toLocaleLowerCase("vi"); return data?.items.filter((item) => (status === "ALL" || item.status === status) && (kind === "ALL" || item.kind === kind) && (privileged === "ALL" || item.privileged === (privileged === "YES")) && (!needle || [item.roleCode, item.roleName, item.description, item.scopeLabel].some((value) => value.toLocaleLowerCase("vi").includes(needle)))) ?? []; }, [data, kind, privileged, query, status]);
   async function openDetail(item: AdminRoleSummary) { setMenuCode(""); setSelected(item); setDetail(null); setDetailError(""); setDetailLoading(true); try { const result = await adminAccessService.role(item.roleCode); setDetail({ ...result, ...item, protectedRole: item.kind === "SYSTEM" || item.privileged }); } catch (cause) { setDetailError(cause instanceof AdminAccessApiError ? cause.message : "Không thể tải chi tiết Role."); } finally { setDetailLoading(false); } }
+  async function afterMutation(message: string) { setNotice(message); setCreating(false); setEditing(null); setDeleting(null); setToggling(null); setSelected(null); setDetail(null); await load(); }
+  async function refreshDetail() { await load(); if (selected) { try { const result = await adminAccessService.role(selected.roleCode); setDetail({ ...result, ...selected, protectedRole: selected.kind === "SYSTEM" || selected.privileged }); } catch { /* list reload already reflects the change */ } } }
   if (loading) return <div className="admin-page"><div className="admin-page-skeleton"><div /><div /><div /></div></div>;
   if (!data) return <div className="admin-page"><section className="admin-error-state"><span>!</span><h1>Chưa thể tải danh mục Role</h1><p>{loadError}</p><button className="admin-primary-button" onClick={() => void load()}>Thử lại</button></section></div>;
-  return <div className="admin-page"><header className="admin-page-header"><div><nav>Admin <span>›</span> Quản trị <span>›</span> Role</nav><h1>Quản lý Role</h1><p>Kiểm tra nhóm quyền, phạm vi, trạng thái và mức ảnh hưởng trước khi thay đổi cấu hình phân quyền.</p></div><div className="admin-page-actions"><button className="admin-secondary-button" type="button" onClick={() => void load()}>↻ Làm mới</button></div></header>
+  return <div className="admin-page"><header className="admin-page-header"><div><nav>Admin <span>›</span> Quản trị <span>›</span> Role</nav><h1>Quản lý Role</h1><p>Kiểm tra nhóm quyền, phạm vi, trạng thái và mức ảnh hưởng trước khi thay đổi cấu hình phân quyền.</p></div><div className="admin-page-actions">{canManageRoles ? <button className="admin-primary-button" type="button" onClick={() => { setNotice(""); setCreating(true); }}>＋ Tạo Role</button> : null}<button className="admin-secondary-button" type="button" onClick={() => void load()}>↻ Làm mới</button></div></header>
+    {notice ? <p className="admin-section-note">✓ {notice}</p> : null}
     <section className="admin-summary-grid"><article><span>Tổng Role</span><strong>{data.items.length}</strong><small>Gồm Role hệ thống và tùy chỉnh</small></article><article><span>Đang hoạt động</span><strong>{data.items.filter((item) => item.status === "ACTIVE").length}</strong><small>Có thể tham gia quyền hiệu lực</small></article><article><span>Role được bảo vệ</span><strong>{data.items.filter((item) => item.kind === "SYSTEM" || item.privileged).length}</strong><small>Không sửa ngoài quy trình đặc biệt</small></article><article><span>Employee đang nhận Role</span><strong>{data.items.reduce((sum, item) => sum + item.employeeCount, 0)}</strong><small>Có thể trùng giữa nhiều Role</small></article></section>
     <section className="admin-list-card"><div className="admin-status-tabs" role="tablist" aria-label="Lọc trạng thái Role">{data.statusCounts.map((item) => <button className={status === item.status ? "active" : ""} type="button" role="tab" aria-selected={status === item.status} onClick={() => setStatus(item.status)} key={item.status}>{item.label}<b>{item.count}</b></button>)}</div><div className="admin-list-toolbar"><label className="admin-table-search"><span>⌕</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm mã, tên, mô tả hoặc phạm vi Role…" /></label><label><span className="sr-only">Loại Role</span><select value={kind} onChange={(event) => setKind(event.target.value)}><option value="ALL">Tất cả loại Role</option><option value="SYSTEM">Role hệ thống</option><option value="CUSTOM">Role tùy chỉnh</option></select></label><label><span className="sr-only">Đặc quyền</span><select value={privileged} onChange={(event) => setPrivileged(event.target.value)}><option value="ALL">Tất cả mức quyền</option><option value="YES">Role đặc quyền</option><option value="NO">Role thông thường</option></select></label><button className="admin-filter-reset" type="button" onClick={() => { setQuery(""); setKind("ALL"); setPrivileged("ALL"); setStatus("ALL"); }}>Đặt lại</button></div><div className="admin-table-meta"><span>Hiển thị <strong>{filtered.length}</strong> Role</span><span>Tính lúc {DATE_TIME.format(new Date(data.calculatedAt))}</span></div>
-      <div className="admin-table-wrap"><table className="admin-table admin-role-table"><thead><tr><th>Role</th><th>Phạm vi</th><th>Loại</th><th>Trạng thái</th><th>Permission</th><th>Employee</th><th>Cập nhật</th><th aria-label="Tùy chọn" /></tr></thead><tbody>{filtered.map((item) => <tr key={item.roleCode}><td><strong>{item.roleName}</strong><small>{item.roleCode}</small></td><td><span>{item.scopeLabel}</span></td><td><span>{item.kind === "SYSTEM" ? "Hệ thống" : "Tùy chỉnh"}{item.privileged ? " · Đặc quyền" : ""}</span></td><td><RoleStatus role={item} /></td><td><strong>{item.permissionCount}</strong><small>permission</small></td><td><strong>{item.employeeCount}</strong><small>assignment hiệu lực</small></td><td>{DATE_TIME.format(new Date(item.updatedAt))}</td><td className="admin-action-cell"><button type="button" aria-label={`Tùy chọn ${item.roleCode}`} onClick={() => setMenuCode((current) => current === item.roleCode ? "" : item.roleCode)}>•••</button>{menuCode === item.roleCode ? <div className="admin-row-menu"><button type="button" onClick={() => void openDetail(item)}>Xem chi tiết và ảnh hưởng</button></div> : null}</td></tr>)}</tbody></table>{!filtered.length ? <div className="admin-empty"><span>⌕</span><h3>Không có Role phù hợp</h3><p>Hãy thay đổi trạng thái, từ khóa hoặc bộ lọc hiện tại.</p></div> : null}</div><footer className="admin-pagination"><span>Trang 1 / 1</span><div><button disabled>‹</button><button className="active">1</button><button disabled>›</button></div></footer></section>
-    {selected ? <Modal title={`Role · ${selected.roleCode}`} subtitle={selected.roleName} onClose={() => setSelected(null)}>{detailLoading ? <div className="admin-modal-loading">Đang tải cấu hình Role…</div> : detail ? <RoleDetailContent detail={detail} /> : <div className="admin-inline-error">{detailError}</div>}</Modal> : null}
+      <div className="admin-table-wrap"><table className="admin-table admin-role-table"><thead><tr><th>Role</th><th>Phạm vi</th><th>Loại</th><th>Trạng thái</th><th>Permission</th><th>Employee</th><th>Cập nhật</th><th aria-label="Tùy chọn" /></tr></thead><tbody>{filtered.map((item) => <tr key={item.roleCode}><td><strong>{item.roleName}</strong><small>{item.roleCode}</small></td><td><span>{item.scopeLabel}</span></td><td><span>{item.kind === "SYSTEM" ? "Hệ thống" : "Tùy chỉnh"}{item.privileged ? " · Đặc quyền" : ""}</span></td><td><RoleStatus role={item} /></td><td><strong>{item.permissionCount}</strong><small>permission</small></td><td><strong>{item.employeeCount}</strong><small>assignment hiệu lực</small></td><td>{DATE_TIME.format(new Date(item.updatedAt))}</td><td className="admin-action-cell"><button type="button" aria-label={`Tùy chọn ${item.roleCode}`} onClick={() => setMenuCode((current) => current === item.roleCode ? "" : item.roleCode)}>•••</button>{menuCode === item.roleCode ? <div className="admin-row-menu"><button type="button" onClick={() => void openDetail(item)}>Xem chi tiết và ảnh hưởng</button>{canManageRoles && item.kind !== "SYSTEM" && !item.privileged ? <><button type="button" onClick={() => { setMenuCode(""); setNotice(""); setEditing(item); }}>Sửa thông tin</button>{item.status !== "ARCHIVED" ? <button type="button" onClick={() => { setMenuCode(""); setNotice(""); setToggling(item); }}>{item.status === "ACTIVE" ? "Vô hiệu hóa Role" : "Kích hoạt lại Role"}</button> : null}<button type="button" onClick={() => { setMenuCode(""); setDeleting(item); }}>Xóa Role</button></> : null}</div> : null}</td></tr>)}</tbody></table>{!filtered.length ? <div className="admin-empty"><span>⌕</span><h3>Không có Role phù hợp</h3><p>Hãy thay đổi trạng thái, từ khóa hoặc bộ lọc hiện tại.</p></div> : null}</div><footer className="admin-pagination"><span>Trang 1 / 1</span><div><button disabled>‹</button><button className="active">1</button><button disabled>›</button></div></footer></section>
+    {selected ? <Modal title={`Role · ${selected.roleCode}`} subtitle={selected.roleName} onClose={() => setSelected(null)}>{detailLoading ? <div className="admin-modal-loading">Đang tải cấu hình Role…</div> : detail ? <RoleDetailContent detail={detail} canManageRoles={canManageRoles} canManagePermissions={canManagePermissions} onEdit={() => { setNotice(""); setEditing(selected); }} onToggle={() => setToggling(selected)} onDelete={() => setDeleting(selected)} onSaved={() => void refreshDetail()} /> : <div className="admin-inline-error">{detailError}</div>}</Modal> : null}
+    {creating ? <RoleFormModal title="Tạo Role mới" submitLabel="Tạo Role" onClose={() => setCreating(false)} onSubmit={async (values) => { await adminAccessService.createRole(values); await afterMutation(`Đã tạo Role ${values.roleCode}.`); }} /> : null}
+    {editing ? <RoleFormModal title={`Sửa Role · ${editing.roleCode}`} submitLabel="Lưu thay đổi" initial={{ roleCode: editing.roleCode, roleName: editing.roleName, description: editing.description }} lockCode onClose={() => setEditing(null)} onSubmit={async (values) => { await adminAccessService.updateRole(editing.roleCode, { roleName: values.roleName, description: values.description }); await afterMutation(`Đã cập nhật Role ${editing.roleCode}.`); }} /> : null}
+    {deleting ? <DeleteRoleModal role={deleting} onClose={() => setDeleting(null)} onConfirm={async () => { await adminAccessService.deleteRole(deleting.roleCode); await afterMutation(`Đã xóa Role ${deleting.roleCode}.`); }} /> : null}
+    {toggling ? <ToggleRoleModal role={toggling} onClose={() => setToggling(null)} onConfirm={async () => { const enable = toggling.status === "INACTIVE"; await adminAccessService.updateRole(toggling.roleCode, { isEnabled: enable }); await afterMutation(enable ? `Đã kích hoạt lại Role ${toggling.roleCode}.` : `Đã vô hiệu hóa Role ${toggling.roleCode}. Mọi assignment đang hiệu lực đã bị thu hồi.`); }} /> : null}
   </div>;
 }
 
-function RoleDetailContent({ detail }: { detail: AdminRoleDetail }) { return <div className="admin-catalog-detail"><div className="admin-detail-summary"><RoleStatus role={detail} /><span>{detail.kind === "SYSTEM" ? "Role hệ thống" : "Role tùy chỉnh"}</span><span>{detail.scopeLabel}</span></div>{detail.protectedRole ? <section className="admin-protected-notice"><strong>Role được bảo vệ</strong><p>Role này không được sửa, vô hiệu hóa hoặc xóa cứng ngoài quy trình đặc biệt đã được phê duyệt.</p></section> : null}<div className="admin-detail-grid"><section><h3>Thông tin Role</h3><dl><div><dt>Mã Role</dt><dd>{detail.roleCode}</dd></div><div><dt>Tên hiển thị</dt><dd>{detail.roleName}</dd></div><div><dt>Mô tả</dt><dd>{detail.description}</dd></div><div><dt>Phạm vi</dt><dd>{detail.scopeLabel}</dd></div></dl></section><section><h3>Ảnh hưởng hiện tại</h3><dl><div><dt>Employee hiệu lực</dt><dd>{detail.impact.activeEmployees}</dd></div><div><dt>Assignment chờ hiệu lực</dt><dd>{detail.impact.scheduledAssignments}</dd></div><div><dt>Account đang khóa</dt><dd>{detail.impact.lockedAccounts}</dd></div><div><dt>Tổng Permission</dt><dd>{detail.permissions.length}</dd></div></dl></section></div><section><h3>Permission của Role</h3><table className="admin-permission-table"><thead><tr><th>Permission</th><th>Action</th><th>Resource</th><th>Scope</th></tr></thead><tbody>{detail.permissions.map((item) => <tr key={item.permissionCode}><td><strong>{item.permissionName}</strong><small>{item.permissionCode}</small></td><td>{item.action}</td><td>{item.resource}</td><td>{item.scopeLabel}</td></tr>)}</tbody></table></section><footer>Thay đổi tập Permission phải tính lại quyền hiệu lực từ mọi Role còn lại và phát sinh Audit; popup này chưa thực hiện mutation.</footer></div>; }
+function RoleFormModal({ title, submitLabel, initial, lockCode, onClose, onSubmit }: { title: string; submitLabel: string; initial?: { roleCode: string; roleName: string; description: string }; lockCode?: boolean; onClose: () => void; onSubmit: (values: { roleCode: string; roleName: string; description: string }) => Promise<void> }) {
+  const [roleCode, setRoleCode] = useState(initial?.roleCode ?? "");
+  const [roleName, setRoleName] = useState(initial?.roleName ?? "");
+  const [description, setDescription] = useState(initial?.description ?? "");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  async function submit(event: React.FormEvent) {
+    event.preventDefault(); setBusy(true); setError("");
+    try { await onSubmit({ roleCode: roleCode.trim().toUpperCase(), roleName: roleName.trim(), description: description.trim() }); }
+    catch (cause) { setError(cause instanceof AdminAccessApiError ? cause.message : "Không thể lưu Role."); setBusy(false); }
+  }
+  return <Modal title={title} onClose={onClose}><form className="admin-action-form" onSubmit={(event) => void submit(event)}>
+    <label><span>Mã Role *</span><input value={roleCode} disabled={lockCode} onChange={(event) => setRoleCode(event.target.value)} placeholder="VD: WAREHOUSE_LEAD" required /><small>Viết hoa, bắt đầu bằng chữ cái, chỉ gồm chữ, số và dấu gạch dưới. Mã không đổi được sau khi tạo.</small></label>
+    <label><span>Tên hiển thị *</span><input value={roleName} onChange={(event) => setRoleName(event.target.value)} placeholder="VD: Trưởng kho" required /></label>
+    <label><span>Mô tả</span><textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Phạm vi trách nhiệm của Role…" /></label>
+    {error ? <div className="admin-inline-error">{error}</div> : null}
+    <footer><button className="admin-secondary-button" type="button" onClick={onClose}>Hủy</button><button className="admin-primary-button" type="submit" disabled={busy}>{busy ? "Đang lưu…" : submitLabel}</button></footer>
+  </form></Modal>;
+}
+
+function DeleteRoleModal({ role, onClose, onConfirm }: { role: AdminRoleSummary; onClose: () => void; onConfirm: () => Promise<void> }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  async function confirm() {
+    setBusy(true); setError("");
+    try { await onConfirm(); }
+    catch (cause) { setError(cause instanceof AdminAccessApiError ? cause.message : "Không thể xóa Role."); setBusy(false); }
+  }
+  return <Modal title={`Xóa Role · ${role.roleCode}`} subtitle={role.roleName} onClose={onClose}><div className="admin-action-form">
+    <p>Thao tác này không khôi phục được từ giao diện. Backend sẽ từ chối nếu Role còn assignment đang hiệu lực{role.employeeCount ? ` (hiện có ${role.employeeCount} employee đang nhận Role này)` : ""}; Role từng được gán sẽ được chuyển sang trạng thái xóa mềm để giữ dấu vết kiểm toán.</p>
+    {error ? <div className="admin-inline-error">{error}</div> : null}
+    <footer><button className="admin-secondary-button" type="button" onClick={onClose}>Hủy</button><button className="admin-primary-button" type="button" disabled={busy} onClick={() => void confirm()}>{busy ? "Đang xóa…" : "Xóa Role"}</button></footer>
+  </div></Modal>;
+}
+
+function ToggleRoleModal({ role, onClose, onConfirm }: { role: AdminRoleSummary; onClose: () => void; onConfirm: () => Promise<void> }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const disabling = role.status === "ACTIVE";
+  async function confirm() {
+    setBusy(true); setError("");
+    try { await onConfirm(); }
+    catch (cause) { setError(cause instanceof AdminAccessApiError ? cause.message : "Không thể thay đổi trạng thái Role."); setBusy(false); }
+  }
+  return <Modal title={`${disabling ? "Vô hiệu hóa" : "Kích hoạt lại"} Role · ${role.roleCode}`} subtitle={role.roleName} onClose={onClose}><div className="admin-action-form">
+    {disabling ? <p>Role sẽ ngừng tham gia phân quyền ngay: backend thu hồi mọi assignment đang hiệu lực{role.employeeCount ? ` (hiện có ${role.employeeCount} employee đang nhận Role này)` : ""} và đồng bộ lại quyền, nên nhân viên giữ Role này mất các quyền từ nó ở token kế tiếp. Role vẫn hiển thị trong danh mục, không bị xóa, và có thể kích hoạt lại bất cứ lúc nào — nhưng các assignment đã thu hồi sẽ không tự khôi phục khi kích hoạt lại.</p> : <p>Role sẽ quay lại trạng thái hoạt động và có thể được gán cho nhân viên. Các assignment đã bị thu hồi khi vô hiệu hóa không tự khôi phục — cần gán lại cho từng nhân viên.</p>}
+    {error ? <div className="admin-inline-error">{error}</div> : null}
+    <footer><button className="admin-secondary-button" type="button" onClick={onClose}>Hủy</button><button className="admin-primary-button" type="button" disabled={busy} onClick={() => void confirm()}>{busy ? "Đang xử lý…" : disabling ? "Vô hiệu hóa Role" : "Kích hoạt lại Role"}</button></footer>
+  </div></Modal>;
+}
+
+function RoleDetailContent({ detail, canManageRoles, canManagePermissions, onEdit, onToggle, onDelete, onSaved }: { detail: AdminRoleDetail; canManageRoles: boolean; canManagePermissions: boolean; onEdit: () => void; onToggle: () => void; onDelete: () => void; onSaved: () => void }) {
+  const editable = canManagePermissions && !detail.protectedRole;
+  return <div className="admin-catalog-detail"><div className="admin-detail-summary"><RoleStatus role={detail} /><span>{detail.kind === "SYSTEM" ? "Role hệ thống" : "Role tùy chỉnh"}</span><span>{detail.scopeLabel}</span>{canManageRoles && !detail.protectedRole ? <span><button className="admin-secondary-button" type="button" onClick={onEdit}>Sửa thông tin</button> {detail.status !== "ARCHIVED" ? <><button className="admin-secondary-button" type="button" onClick={onToggle}>{detail.status === "ACTIVE" ? "Vô hiệu hóa Role" : "Kích hoạt lại Role"}</button> </> : null}<button className="admin-secondary-button" type="button" onClick={onDelete}>Xóa Role</button></span> : null}</div>{detail.protectedRole ? <section className="admin-protected-notice"><strong>Role được bảo vệ</strong><p>Role này không được sửa, vô hiệu hóa hoặc xóa cứng ngoài quy trình đặc biệt đã được phê duyệt.</p></section> : null}<div className="admin-detail-grid"><section><h3>Thông tin Role</h3><dl><div><dt>Mã Role</dt><dd>{detail.roleCode}</dd></div><div><dt>Tên hiển thị</dt><dd>{detail.roleName}</dd></div><div><dt>Mô tả</dt><dd>{detail.description}</dd></div><div><dt>Phạm vi</dt><dd>{detail.scopeLabel}</dd></div></dl></section><section><h3>Ảnh hưởng hiện tại</h3><dl><div><dt>Employee hiệu lực</dt><dd>{detail.impact.activeEmployees}</dd></div><div><dt>Assignment chờ hiệu lực</dt><dd>{detail.impact.scheduledAssignments}</dd></div><div><dt>Account đang khóa</dt><dd>{detail.impact.lockedAccounts}</dd></div><div><dt>Tổng Permission</dt><dd>{detail.permissions.length}</dd></div></dl></section></div>
+  {editable ? <RolePermissionEditor key={detail.roleCode} detail={detail} onSaved={onSaved} /> : <><section><h3>Permission của Role</h3><table className="admin-permission-table"><thead><tr><th>Permission</th><th>Action</th><th>Resource</th><th>Scope</th></tr></thead><tbody>{detail.permissions.map((item) => <tr key={item.permissionCode}><td><strong>{item.permissionName}</strong><small>{item.permissionCode}</small></td><td>{item.action}</td><td>{item.resource}</td><td>{item.scopeLabel}</td></tr>)}</tbody></table></section><footer>{detail.protectedRole ? "Role được bảo vệ: tập Permission chỉ xem, không sửa từ giao diện này." : "Bạn không có quyền PERMISSION_MANAGE nên tập Permission chỉ xem."}</footer></>}
+  </div>;
+}
+
+function RolePermissionEditor({ detail, onSaved }: { detail: AdminRoleDetail; onSaved: () => void }) {
+  const [catalogue, setCatalogue] = useState<AdminPermissionList | null>(null);
+  const [checked, setChecked] = useState<Set<string>>(() => new Set(detail.permissions.map((item) => item.permissionCode)));
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [savedNote, setSavedNote] = useState("");
+  useEffect(() => { let live = true; void adminAccessService.permissions().then((result) => { if (live) setCatalogue(result); }).catch(() => { if (live) setCatalogue(null); }); return () => { live = false; }; }, []);
+  const original = useMemo(() => new Set(detail.permissions.map((item) => item.permissionCode)), [detail]);
+  const dirty = checked.size !== original.size || [...checked].some((code) => !original.has(code));
+  const groups = useMemo(() => {
+    const map = new Map<string, AdminPermissionList["items"]>();
+    for (const item of catalogue?.items ?? []) { const list = map.get(item.resource) ?? []; list.push(item); map.set(item.resource, list); }
+    return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  }, [catalogue]);
+  async function save() {
+    setBusy(true); setError(""); setSavedNote("");
+    try { await adminAccessService.replaceRolePermissions(detail.roleCode, [...checked].sort()); setSavedNote("Đã lưu tập Permission. Quyền mới có hiệu lực ở lần đăng nhập/refresh token kế tiếp của nhân viên giữ Role này."); onSaved(); }
+    catch (cause) { setError(cause instanceof AdminAccessApiError ? cause.message : "Không thể lưu tập Permission."); }
+    finally { setBusy(false); }
+  }
+  return <section><h3>Permission của Role</h3><p className="admin-section-note">Tick để cấp, bỏ tick để thu hồi. Lưu sẽ thay toàn bộ tập Permission của Role và backend tự đồng bộ lại quyền cho mọi nhân viên đang giữ Role.</p>
+    {catalogue ? <table className="admin-permission-table"><thead><tr><th>Cấp</th><th>Permission</th><th>Action</th><th>Resource</th></tr></thead><tbody>{groups.map(([, items]) => items.map((item) => <tr key={item.permissionCode}><td><input type="checkbox" aria-label={`Cấp ${item.permissionCode}`} checked={checked.has(item.permissionCode)} onChange={(event) => setChecked((current) => { const next = new Set(current); if (event.target.checked) next.add(item.permissionCode); else next.delete(item.permissionCode); return next; })} /></td><td><strong>{item.permissionName}</strong><small>{item.permissionCode}</small></td><td>{item.action}</td><td>{item.resource}</td></tr>))}</tbody></table> : <p className="admin-section-note">Đang tải danh mục Permission…</p>}
+    {error ? <div className="admin-inline-error">{error}</div> : null}
+    {savedNote ? <p className="admin-section-note">✓ {savedNote}</p> : null}
+    <footer><button className="admin-primary-button" type="button" disabled={!dirty || busy} onClick={() => void save()}>{busy ? "Đang lưu…" : `Lưu Permission (${checked.size})`}</button></footer></section>;
+}

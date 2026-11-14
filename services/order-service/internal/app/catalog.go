@@ -84,6 +84,15 @@ func (s *Service) catalogValidation(ctx context.Context, input, output any) erro
 	return json.Unmarshal(raw, output)
 }
 
+// addressNameOrCode prefers the human-readable name captured with the
+// address; older flows that only carry codes keep working unchanged.
+func addressNameOrCode(name, code string) string {
+	if name != "" {
+		return name
+	}
+	return code
+}
+
 // Catalog owns its snapshot. Shipping metadata identifies the separately configured
 // quote provider; sandbox callers must explicitly label their TEST provider.
 func (s *Service) catalogTerms(ctx context.Context, q domain.Quote) (core.SnapshotInput, error) {
@@ -100,7 +109,7 @@ func (s *Service) catalogTerms(ctx context.Context, q domain.Quote) (core.Snapsh
 		terms.Items = append(terms.Items, core.SnapshotItem{LineID: uuid.NewString(), SKU: item.SKU, Name: item.Name, Quantity: int64(item.Quantity), UnitPrice: item.Price, LineSubtotal: item.Price * int64(item.Quantity), WeightGrams: item.Weight, Packaging: core.Packaging{Description: item.Packaging, UnitCode: "UNIT", Version: "catalog-packaging-1"}, CatalogVersion: version})
 		weight += item.Weight * int64(item.Quantity)
 	}
-	terms.Address = core.ShippingAddress{RecipientName: q.Address.Name, PhoneE164: q.Address.Phone, Street: q.Address.Street, ProvinceCode: q.Address.Province, ProvinceName: q.Address.Province, WardCode: q.Address.Ward, WardName: q.Address.Ward, Source: core.AddressSource{Kind: "VALIDATED_INLINE", ValidationReference: uuid.NewString()}}
+	terms.Address = core.ShippingAddress{RecipientName: q.Address.Name, PhoneE164: q.Address.Phone, Street: q.Address.Street, ProvinceCode: q.Address.Province, ProvinceName: addressNameOrCode(q.Address.ProvinceName, q.Address.Province), WardCode: q.Address.Ward, WardName: addressNameOrCode(q.Address.WardName, q.Address.Ward), Source: core.AddressSource{Kind: "VALIDATED_INLINE", ValidationReference: uuid.NewString()}}
 	if q.AddressID != "" {
 		id, v := q.AddressID, q.AddressVersion
 		terms.Address.Source.Kind = "PROFILE_ADDRESS"

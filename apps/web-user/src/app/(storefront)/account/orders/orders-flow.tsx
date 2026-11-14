@@ -70,7 +70,7 @@ export function OrdersFlow() {
         const payload = await orderService.list({ limit: PAGE_LIMIT, status, mockScenario: scenario });
         if (active) setData(payload);
       } catch (cause) {
-        if (active) setError(cause instanceof PublicApiError ? cause.message : "Không thể tải lịch sử Order.");
+        if (active) setError(cause instanceof PublicApiError ? cause.message : "Không thể tải lịch sử đơn hàng.");
       } finally {
         if (active) setLoading(false);
       }
@@ -86,28 +86,28 @@ export function OrdersFlow() {
       const next = await orderService.list({ cursor: data.nextCursor, limit: PAGE_LIMIT, status, mockScenario: scenario });
       setData((current) => current ? appendUnique(current, next) : next);
     } catch (cause) {
-      setError(cause instanceof PublicApiError ? cause.message : "Không thể tải trang Order tiếp theo.");
+      setError(cause instanceof PublicApiError ? cause.message : "Không thể tải thêm đơn hàng.");
     } finally {
       setLoadingMore(false);
     }
   }
 
   return <><SiteHeader /><AccountShell active="orders">
-    <section className="orders-hero"><div><span className="eyebrow">Nhật ký thưởng thức</span><h1>Đơn hàng của tôi</h1><p>Danh sách được đọc theo cursor, mới nhất trước; trạng thái là trạng thái Order canonical.</p></div><dl><div><dt>Đã tải</dt><dd>{data?.items.length ?? "—"}</dd></div><div><dt>Đang xử lý</dt><dd>{data?.items.filter((item) => ["PENDING_PAYMENT", "PAYMENT_FINALIZING", "PAID", "CONFIRMED_COD", "PROCESSING", "PACKED", "SHIPPED"].includes(item.status)).length ?? "—"}</dd></div></dl></section>
+    <section className="orders-hero"><div><span className="eyebrow">Nhật ký thưởng thức</span><h1>Đơn hàng của tôi</h1><p>Đơn mới nhất hiển thị trước; trạng thái được cập nhật theo tiến trình xử lý.</p></div><dl><div><dt>Đã tải</dt><dd>{data?.items.length ?? "—"}</dd></div><div><dt>Đang xử lý</dt><dd>{data?.items.filter((item) => ["PENDING_PAYMENT", "PAYMENT_FINALIZING", "PAID", "CONFIRMED_COD", "PROCESSING", "PACKED", "SHIPPED"].includes(item.status)).length ?? "—"}</dd></div></dl></section>
 
     <section className="orders-toolbar">
-      <div className="orders-tabs" role="tablist" aria-label="Lọc chính xác theo trạng thái Order">{FILTERS.map((item) => <button key={item.value} type="button" role="tab" aria-selected={status === item.value} className={status === item.value ? "active" : ""} onClick={() => setStatus(item.value)}>{item.label}</button>)}</div>
+      <div className="orders-tabs" role="tablist" aria-label="Lọc theo trạng thái đơn">{FILTERS.map((item) => <button key={item.value} type="button" role="tab" aria-selected={status === item.value} className={status === item.value ? "active" : ""} onClick={() => setStatus(item.value)}>{item.label}</button>)}</div>
       <button type="button" className="secondary-button" disabled={loading || loadingMore} onClick={() => setRefreshKey((value) => value + 1)}>Làm mới từ đầu</button>
     </section>
 
-    {loading ? <section className="orders-loading" aria-busy="true"><div /><div /><div /></section> : error && !data ? <section className="orders-state error" role="alert"><span>!</span><h2>Chưa thể mở lịch sử Order</h2><p>{error}</p><button className="secondary-button" onClick={() => setRefreshKey((value) => value + 1)}>Thử lại</button></section> : !data?.items.length ? <section className="orders-state"><span>▤</span><h2>Chưa có Order phù hợp</h2><p>Bộ lọc trạng thái hiện tại chưa có Order. Tìm kiếm theo mã hoặc sản phẩm chưa thuộc public contract.</p><Link className="primary-link" href="/products">Khám phá sản phẩm</Link></section> : <section className="orders-list" aria-live="polite">
+    {loading ? <section className="orders-loading" aria-busy="true"><div /><div /><div /></section> : error && !data ? <section className="orders-state error" role="alert"><span>!</span><h2>Chưa thể mở lịch sử đơn hàng</h2><p>{error}</p><button className="secondary-button" onClick={() => setRefreshKey((value) => value + 1)}>Thử lại</button></section> : !data?.items.length ? <section className="orders-state"><span>▤</span><h2>Chưa có đơn phù hợp</h2><p>Chưa có đơn nào ở trạng thái đang lọc.</p><Link className="primary-link" href="/products">Khám phá sản phẩm</Link></section> : <section className="orders-list" aria-live="polite">
       {data.items.map((order) => <article className="order-card" key={order.orderId}>
         <header><div><strong>#{order.orderNumber}</strong><span>{new Date(order.placedAt).toLocaleString("vi-VN", { dateStyle: "medium", timeStyle: "short" })}</span></div><b className={`order-status ${statusTone(order.status)}`}>{order.statusLabel}</b></header>
-        <div className="order-card-body"><div className="order-preview-stack">{order.previewItems.length ? order.previewItems.map((item, index) => <div className="order-preview" key={`${order.orderId}-${item.name}`}><span aria-hidden="true">{index === 0 ? "◈" : "◇"}</span><div><strong>{item.name}</strong><small>Số lượng: {item.quantity}</small></div></div>) : <div className="order-preview"><span aria-hidden="true">◇</span><div><strong>Snapshot sản phẩm chưa được trả về</strong><small>Thông tin Order tổng quan vẫn là dữ liệu canonical.</small></div></div>}</div><dl><div><dt>Số món</dt><dd>{order.itemCount ?? "—"}</dd></div><div><dt>Payment</dt><dd>{order.paymentStatusLabel}</dd></div><div><dt>Tổng thanh toán</dt><dd>{VND.format(order.totalVnd)}</dd></div></dl></div>
+        <div className="order-card-body"><div className="order-preview-stack">{order.previewItems.length ? order.previewItems.map((item, index) => <div className="order-preview" key={`${order.orderId}-${item.name}`}><span aria-hidden="true">{index === 0 ? "◈" : "◇"}</span><div><strong>{item.name}</strong><small>Số lượng: {item.quantity}</small></div></div>) : <div className="order-preview"><span aria-hidden="true">◇</span><div><strong>Thông tin sản phẩm đang được cập nhật</strong><small>Mở chi tiết đơn để xem đầy đủ thông tin.</small></div></div>}</div><dl><div><dt>Số món</dt><dd>{order.itemCount ?? "—"}</dd></div><div><dt>Thanh toán</dt><dd>{order.paymentStatusLabel}</dd></div><div><dt>Tổng thanh toán</dt><dd>{VND.format(order.totalVnd)}</dd></div></dl></div>
         <footer><p>{order.cancelPolicyMessage}</p><Link className="primary-link" href={`/orders/${encodeURIComponent(order.orderId)}`}>Xem chi tiết &amp; tracking</Link></footer>
       </article>)}
       {error ? <div className="status-notice error" role="alert">{error}</div> : null}
-      {data.nextCursor ? <button type="button" className="secondary-button" disabled={loadingMore} onClick={() => void loadMore()}>{loadingMore ? "Đang tải…" : "Tải thêm Order"}</button> : <p className="cart-checkout-note" role="status">Đã tải hết danh sách cho bộ lọc hiện tại.</p>}
+      {data.nextCursor ? <button type="button" className="secondary-button" disabled={loadingMore} onClick={() => void loadMore()}>{loadingMore ? "Đang tải…" : "Tải thêm đơn"}</button> : <p className="cart-checkout-note" role="status">Đã tải hết danh sách cho bộ lọc hiện tại.</p>}
     </section>}
   </AccountShell><SiteFooter /></>;
 }
