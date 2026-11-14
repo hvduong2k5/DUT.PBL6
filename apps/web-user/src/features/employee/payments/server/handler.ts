@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { EmployeeAuthorizationError, requireEmployeeSession } from "@/features/employee/auth/server";
-import { applyTrustedSessionCookie } from "@/lib/auth/server-credential";
+import { applyTrustedSessionCookie, getTrustedAccessToken } from "@/lib/auth/server-credential";
+import { usesIdentityBff } from "@/lib/auth/oidc-config";
 import { PAYMENT_CASE_REASON_LABELS, PAYMENT_CASE_STATUS_LABELS, type PaymentCaseDetail, type PaymentCaseList, type PaymentCaseSummary } from "@/features/employee/payments/types";
 import { parseAdminPaymentPath } from "@/features/employee/payments/validation";
 
@@ -14,10 +15,35 @@ const nullableString = (value: unknown) => typeof value === "string" && value.tr
 const stringList = (value: unknown): string[] => array(value).filter((item): item is string => typeof item === "string" && item.length > 0);
 
 function responseError(code: string, message: string, status: number, errors: Array<{ field: string; message: string }> = []) { return NextResponse.json({ code, message, errors, requestId: `BFF-ADMIN-PAYMENT-${code}` }, { status }); }
-function baseUrl() { return (process.env.ADMIN_API_UPSTREAM_URL ?? "http://127.0.0.1:4030/api/v1").replace(/\/$/u, ""); }
+
+// The live staff surface authenticates exactly like the orders live handler:
+// in OIDC mode the browser session holds the Keycloak access token, and the
+// owning API verifies that JWT itself — forward it as a Bearer credential to
+// the public gateway base. The identity-bff deployment keeps the legacy
+// session-cookie behaviour against ADMIN_API_UPSTREAM_URL.
+function baseUrl() {
+  if (usesIdentityBff()) return (process.env.ADMIN_API_UPSTREAM_URL ?? "http://127.0.0.1:4030/api/v1").replace(/\/$/u, "");
+  return (process.env.NEXT_PUBLIC_API_URL ?? process.env.ADMIN_API_UPSTREAM_URL ?? "http://127.0.0.1:4030/api/v1").replace(/\/$/u, "");
+}
 function mockProfile() { return process.env.NODE_ENV === "production" ? "" : process.env.ADMIN_MOCK_PROFILE ?? process.env.ADMIN_MOCK_ROLE ?? "SALES_MANAGER"; }
-function headers(request: NextRequest) { const result = new Headers({ Accept: "application/json" }); applyTrustedSessionCookie(result, request); const profile = mockProfile(); if (profile) result.set("X-Admin-Profile", profile); return result; }
-async function upstream(request: NextRequest, path: string) { const response = await fetch(`${baseUrl()}/${path}`, { headers: headers(request), cache: "no-store", redirect: "manual" }); const payload: unknown = (response.headers.get("content-type") ?? "").includes("application/json") ? await response.json() : {}; if (!response.ok) throw new UpstreamHttpError(response.status, record(payload) ? payload : {}); return record(payload) ? payload : {}; }
+function headers(request: NextRequest) {
+  const result = new Headers({ Accept: "application/json" });
+  if (usesIdentityBff()) applyTrustedSessionCookie(result, request);
+  else { const token = getTrustedAccessToken(request); if (token) result.set("Authorization", `Bearer ${token}`); }
+  const profile = mockProfile(); if (profile) result.set("X-Admin-Profile", profile);
+  return result;
+}
+async function upstream(request: NextRequest, path: string) {
+  const response = await fetch(`${baseUrl()}/${path}`, { headers: headers(request), cache: "no-store", redirect: "manual" });
+  const payload: unknown = (response.headers.get("content-type") ?? "").includes("application/json") ? await response.json() : {};
+  if (!response.ok) {
+    const body = record(payload) ? payload : {};
+    // Owning APIs answer with a nested {"error": {code, message}} envelope.
+    const nested = record(body.error) ? body.error : {};
+    throw new UpstreamHttpError(response.status, { code: string(nested.code) || string(body.code), message: string(nested.message) || string(body.message), errors: array(body.errors) as UpstreamError["errors"] });
+  }
+  return record(payload) ? payload : {};
+}
 async function session(request: NextRequest) { return requireEmployeeSession(request); }
 
 // The upstream staff API returns the persistence PaymentCase shape
