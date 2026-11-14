@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: MS-04 Order — asynchronous operations
-  version: 3.2.0
+  version: 3.3.0
   description: Proposed Order 3.2 target contract, pending provider agreement and implementation. Integer VND. This
     is not evidence of deployed capability; runtime 3.1 is frozen in order-service.sandbox-3.1.openapi.yaml.
 servers:
@@ -122,6 +122,13 @@ paths:
       operationId: createCheckoutQuote
       summary: createCheckoutQuote
       responses:
+        '422':
+          description: Voucher is unavailable/inapplicable, checkout identity or payment method is unsupported,
+            or the discounted total requires an unsupported zero-payment flow.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
         '200':
           description: Durable response
           content:
@@ -228,7 +235,10 @@ paths:
       description: 'Full-cart MVP: quotes every server cart line at cart_revision; no selected-item or partial-cart
         input. A quote does not reserve stock. After successful placement the asynchronous cleanup only removes
         the same cart ID/revision; a changed/replaced cart is preserved. Client must refetch cart after operation
-        success and never clear it locally. Exactly one saved shipping_address_id or inline address is required.'
+        success and never clear it locally. Exactly one saved shipping_address_id or inline address is required.
+        A voucher requires the configured Promotion provider, Customer identity and VIETQR. Discounts are calculated
+        by Promotion and bound to the stored quote; invalid or unavailable vouchers never fall back to a full-price
+        quote. Accept revalidates and reserves both stock and voucher using durable keys.'
   /api/v1/checkout:
     post:
       operationId: acceptCheckout
@@ -1171,6 +1181,7 @@ paths:
         values are not proof. Not enabled until its provider protocol is agreed.'
   /livez:
     get:
+      security: []
       operationId: liveness
       summary: liveness
       responses:
@@ -1212,6 +1223,7 @@ paths:
                 $ref: '#/components/schemas/ApiError'
   /readyz:
     get:
+      security: []
       operationId: readiness
       summary: readiness
       responses:
@@ -1369,6 +1381,8 @@ paths:
   /api/v1/guest-sessions:
     post:
       operationId: createGuestSession
+      summary: Create a sandbox guest session
+      security: []
       description: Sandbox opaque Guest principal without account registration
       responses:
         '201':
@@ -1376,6 +1390,7 @@ paths:
   /internal/cancellations/approve:
     post:
       operationId: applyCareCancellationApproval
+      summary: Apply a Care cancellation approval
       security:
       - serviceIdentity: []
       requestBody:
@@ -1594,6 +1609,17 @@ components:
       - expires_at
       - shipping_expires_at
       properties:
+        voucher_code:
+          type: string
+          pattern: '^[A-Z0-9_-]{3,50}$'
+        merchandise_discount:
+          type: integer
+          format: int64
+          minimum: 0
+        shipping_discount:
+          type: integer
+          format: int64
+          minimum: 0
         catalog_snapshot_id:
           type: string
         catalog_expires_at:

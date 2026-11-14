@@ -171,6 +171,10 @@ export interface CalculateDiscountResponse {
   isApplicable: boolean;
   estimatedDiscount?: Money | undefined;
   description: string;
+  /** Quote-only evidence; no usage is held until ValidateAndLockVoucher. */
+  discountType: DiscountType;
+  validUntil?: Date | undefined;
+  policyVersion: string;
 }
 
 function createBaseValidateAndLockVoucherRequest(): ValidateAndLockVoucherRequest {
@@ -1209,7 +1213,14 @@ export const VoucherHoldOutcome = {
 };
 
 function createBaseCalculateDiscountResponse(): CalculateDiscountResponse {
-  return { isApplicable: false, estimatedDiscount: undefined, description: "" };
+  return {
+    isApplicable: false,
+    estimatedDiscount: undefined,
+    description: "",
+    discountType: 0,
+    validUntil: undefined,
+    policyVersion: "",
+  };
 }
 
 export const CalculateDiscountResponse = {
@@ -1222,6 +1233,15 @@ export const CalculateDiscountResponse = {
     }
     if (message.description !== "") {
       writer.uint32(26).string(message.description);
+    }
+    if (message.discountType !== 0) {
+      writer.uint32(32).int32(message.discountType);
+    }
+    if (message.validUntil !== undefined) {
+      Timestamp.encode(toTimestamp(message.validUntil), writer.uint32(42).fork()).ldelim();
+    }
+    if (message.policyVersion !== "") {
+      writer.uint32(50).string(message.policyVersion);
     }
     return writer;
   },
@@ -1254,6 +1274,27 @@ export const CalculateDiscountResponse = {
 
           message.description = reader.string();
           continue;
+        case 4:
+          if (tag !== 32) {
+            break;
+          }
+
+          message.discountType = reader.int32() as any;
+          continue;
+        case 5:
+          if (tag !== 42) {
+            break;
+          }
+
+          message.validUntil = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
+          continue;
+        case 6:
+          if (tag !== 50) {
+            break;
+          }
+
+          message.policyVersion = reader.string();
+          continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -1268,6 +1309,9 @@ export const CalculateDiscountResponse = {
       isApplicable: isSet(object.isApplicable) ? globalThis.Boolean(object.isApplicable) : false,
       estimatedDiscount: isSet(object.estimatedDiscount) ? Money.fromJSON(object.estimatedDiscount) : undefined,
       description: isSet(object.description) ? globalThis.String(object.description) : "",
+      discountType: isSet(object.discountType) ? discountTypeFromJSON(object.discountType) : 0,
+      validUntil: isSet(object.validUntil) ? fromJsonTimestamp(object.validUntil) : undefined,
+      policyVersion: isSet(object.policyVersion) ? globalThis.String(object.policyVersion) : "",
     };
   },
 
@@ -1282,6 +1326,15 @@ export const CalculateDiscountResponse = {
     if (message.description !== "") {
       obj.description = message.description;
     }
+    if (message.discountType !== 0) {
+      obj.discountType = discountTypeToJSON(message.discountType);
+    }
+    if (message.validUntil !== undefined) {
+      obj.validUntil = message.validUntil.toISOString();
+    }
+    if (message.policyVersion !== "") {
+      obj.policyVersion = message.policyVersion;
+    }
     return obj;
   },
 
@@ -1295,6 +1348,9 @@ export const CalculateDiscountResponse = {
       ? Money.fromPartial(object.estimatedDiscount)
       : undefined;
     message.description = object.description ?? "";
+    message.discountType = object.discountType ?? 0;
+    message.validUntil = object.validUntil ?? undefined;
+    message.policyVersion = object.policyVersion ?? "";
     return message;
   },
 };

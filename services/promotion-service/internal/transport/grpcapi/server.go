@@ -33,8 +33,9 @@ func NewServer(vouchers *postgres.VoucherRepository) *Server {
 	return &Server{vouchers: vouchers}
 }
 
-func NewGRPCServer(vouchers *postgres.VoucherRepository, token string) *grpc.Server {
-	server := grpc.NewServer(grpc.UnaryInterceptor(authUnaryInterceptor(token)))
+func NewGRPCServer(vouchers *postgres.VoucherRepository, token string, options ...grpc.ServerOption) *grpc.Server {
+	options = append(options, grpc.UnaryInterceptor(authUnaryInterceptor(token)))
+	server := grpc.NewServer(options...)
 	promotionv1.RegisterPromotionServiceServer(server, NewServer(vouchers))
 	return server
 }
@@ -132,7 +133,7 @@ func (s *Server) CalculateDiscount(ctx context.Context, request *promotionv1.Cal
 	if err != nil {
 		return &promotionv1.CalculateDiscountResponse{IsApplicable: false, Description: err.Error()}, nil
 	}
-	return &promotionv1.CalculateDiscountResponse{IsApplicable: true, EstimatedDiscount: money(discount, currency), Description: fmt.Sprintf("%s discount", coupon.DiscountType)}, nil
+	return &promotionv1.CalculateDiscountResponse{IsApplicable: true, EstimatedDiscount: money(discount, currency), Description: fmt.Sprintf("%s discount", coupon.DiscountType), DiscountType: discountType(coupon.DiscountType), ValidUntil: timestamppb.New(coupon.EndsAt), PolicyVersion: "promotion-voucher-1"}, nil
 }
 
 func (s *Server) GetVoucherHoldByOrder(ctx context.Context, request *promotionv1.VoucherHoldCommand) (*promotionv1.VoucherHoldOutcome, error) {

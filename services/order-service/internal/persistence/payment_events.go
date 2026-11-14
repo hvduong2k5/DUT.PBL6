@@ -37,7 +37,14 @@ func (p *Payment) receiptEvent(ctx context.Context, tx pgx.Tx, id string, t sepa
 	return p.Store.paymentEvent(ctx, tx, "RECEIPT", id, "payment.events.v1", "vn.omama.payment.receipt_recorded.v1", "https://contracts.omama.example/payment/candidate/events.v1.schema.json", "bf4374af8940203097b703aa80f3c31a7b8dd3aa528518a9a993e04ffd7ff39a", 1, 0, data, order, at)
 }
 func (s *Store) paidEvent(ctx context.Context, tx pgx.Tx, a core.Aggregate, at time.Time) error {
+	return s.paidEventWithVoucher(ctx, tx, a, at, nil)
+}
+func (s *Store) paidEventWithVoucher(ctx context.Context, tx pgx.Tx, a core.Aggregate, at time.Time, voucher *core.VoucherDecision) error {
 	r, d := a.Record(), a.Snapshot().Data()
+	if d.Voucher != nil && (voucher == nil || d.Voucher.HoldID == nil || voucher.HoldID != *d.Voucher.HoldID || voucher.DecisionID == "") {
+		return ErrIntegrity
+	}
 	data := map[string]any{"aggregate_id": a.ID(), "version": a.Version(), "ordinal": 0, "status": "PAID", "payment_status": "CONFIRMED", "stock_status": "COMMITTED", "items_digest": d.Provenance.ItemsDigest, "warehouse_id": d.WarehouseID, "reservation_id": r.Reservation.ReservationID, "stock_resource_version": r.Reservation.ResourceVersion, "allocation_id": r.Allocation.AllocationID, "stock_decision_id": r.Reservation.DecisionID, "voucher_finalization": nil}
+	data["voucher_finalization"] = voucher
 	return s.paymentEvent(ctx, tx, "ORDER", a.ID(), "order.events.v3", "vn.omama.order.paid.v3", "https://contracts.omama.example/order/v3/paid.event.json", "e77a0a724ce30e27c00dc658ffb3818254db595f8de9d8b4c7bc27523f7cda1d", a.Version(), 0, data, a.ID(), at)
 }

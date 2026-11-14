@@ -161,6 +161,13 @@ func (r *CheckoutRuntime) WorkFollowup(ctx context.Context, cleanup CoreCleanup)
 		}
 	case "STOCK_RELEASE":
 		released, e = r.Inventory.Release(ctx, a.Snapshot().Data(), a.Record().Reservation, "inventory:release:"+a.ID())
+		if e == nil && a.Snapshot().Data().Voucher != nil {
+			if r.Promotion == nil {
+				e = ErrCapability
+			} else {
+				e = r.Promotion.Release(ctx, a.Snapshot().Data())
+			}
+		}
 	}
 	p := &Payment{Store: r.Store}
 	if e != nil {

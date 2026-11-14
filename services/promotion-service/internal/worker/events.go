@@ -9,18 +9,32 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/omamx/promotion-service/internal/repository/postgres"
 	"github.com/rs/zerolog/log"
 	"github.com/segmentio/kafka-go"
 )
 
 type EventWorkers struct {
-	reader      *kafka.Reader
-	writer      *kafka.Writer
-	repo        *postgres.VoucherRepository
+	reader      orderEventReader
+	writer      eventWriter
+	repo        orderEventRepository
 	outputTopic string
 	dlqTopic    string
 	wg          sync.WaitGroup
+}
+type orderEventReader interface {
+	FetchMessage(context.Context) (kafka.Message, error)
+	CommitMessages(context.Context, ...kafka.Message) error
+	Close() error
+}
+type eventWriter interface {
+	WriteMessages(context.Context, ...kafka.Message) error
+	Close() error
+}
+type orderEventRepository interface {
+	ProcessOrderPaidV3(context.Context, []byte, string) (bool, error)
+	Pool() *pgxpool.Pool
 }
 
 func NewEventWorkers(brokers, inputTopic, group, outputTopic, dlqTopic string, repo *postgres.VoucherRepository) *EventWorkers {
@@ -55,12 +69,22 @@ func (w *EventWorkers) consumeOrderPaid(ctx context.Context) {
 			log.Warn().Err(err).Msg("fetch Order event")
 			continue
 		}
-		_, err = w.repo.ProcessOrderPaidV3(ctx, message.Value, w.outputTopic)
+		if !w.processOrderMessage(ctx, message) {
+			return
+		}
+	}
+}
+
+// FetchMessage advances the reader cursor even without an offset commit. Retry
+// this exact record before fetching another, otherwise a later commit loses it.
+func (w *EventWorkers) processOrderMessage(ctx context.Context, message kafka.Message) bool {
+	for ctx.Err() == nil {
+		_, err := w.repo.ProcessOrderPaidV3(ctx, message.Value, w.outputTopic)
 		if err != nil {
 			if !errors.Is(err, postgres.ErrInvalidOrderEvent) {
 				log.Warn().Err(err).Str("topic", message.Topic).Int64("offset", message.Offset).Msg("Order event processing failed; retrying without committing offset")
 				if !pause(ctx, time.Second) {
-					return
+					return false
 				}
 				continue
 			}
@@ -77,15 +101,21 @@ func (w *EventWorkers) consumeOrderPaid(ctx context.Context) {
 			if dlqErr != nil {
 				log.Error().Err(dlqErr).Msg("publish Order event to DLQ; source offset not committed")
 				if !pause(ctx, time.Second) {
-					return
+					return false
 				}
 				continue
 			}
 		}
 		if err := w.reader.CommitMessages(ctx, message); err != nil {
 			log.Error().Err(err).Str("topic", message.Topic).Int64("offset", message.Offset).Msg("commit Order event offset")
+			if !pause(ctx, time.Second) {
+				return false
+			}
+			continue
 		}
+		return true
 	}
+	return false
 }
 
 func (w *EventWorkers) publishOutbox(ctx context.Context) {

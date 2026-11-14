@@ -5,6 +5,28 @@ _transform: true
 # 1. UPSTREAMS & SERVICES (18 MICROSERVICES ROUTING TABLE)
 # ==============================================================================
 services:
+  # MS-07: Promotion HTTP surfaces only. Internal loyalty commands and gRPC
+  # remain on the private service network; staff JWTs are verified by Promotion.
+  - name: promotion-service
+    url: http://promotion-service:8017
+    connect_timeout: 2000
+    read_timeout: 5000
+    write_timeout: 5000
+    retries: 0
+    routes:
+      - name: promotion-public-vouchers
+        paths: ['~/api/v1/promotions/(vouchers|active)$']
+        strip_path: false
+        methods: [GET, OPTIONS]
+      - name: promotion-customer-loyalty
+        paths: ['~/api/v1/loyalty/points$']
+        strip_path: false
+        methods: [GET, OPTIONS]
+      - name: promotion-staff-coupons
+        paths: [/api/v1/admin/coupons]
+        strip_path: false
+        methods: [GET, POST, PUT, OPTIONS]
+
   - name: inventory-admin-service
     url: http://inventory-svc:8003
     routes:

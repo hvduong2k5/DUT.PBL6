@@ -28,7 +28,7 @@ func (s *Service) QuoteResponse(ctx context.Context, q domain.Quote, p domain.Pr
 		selected = append(selected, i.SKU)
 		items = append(items, map[string]any{"sku_code": i.SKU, "quantity": i.Quantity, "product_name": i.Name, "unit_price": i.UnitPrice, "line_total": i.LineSubtotal, "weight_grams": i.WeightGrams, "catalog_version": i.CatalogVersion})
 	}
-	return map[string]any{"quote_id": q.ID, "cart_id": t.Provenance.CartID, "cart_revision": q.Revision, "selected_sku_codes": selected, "selection_digest": t.Provenance.SelectionDigest, "quote_hash": t.Provenance.QuoteHash, "items": items, "payment_method": q.Method, "shipping_service_code": t.Shipping.ServiceCode, "subtotal": q.Subtotal, "shipping_fee": q.Shipping, "merchandise_discount": 0, "shipping_discount": 0, "final_amount": q.Final, "currency": "VND", "expires_at": q.ExpiresAt, "stock_reserved": false}, nil
+	return map[string]any{"quote_id": q.ID, "cart_id": t.Provenance.CartID, "cart_revision": q.Revision, "selected_sku_codes": selected, "selection_digest": t.Provenance.SelectionDigest, "quote_hash": t.Provenance.QuoteHash, "items": items, "payment_method": q.Method, "shipping_service_code": t.Shipping.ServiceCode, "subtotal": q.Subtotal, "shipping_fee": q.Shipping, "merchandise_discount": q.MerchandiseDiscount, "shipping_discount": q.ShippingDiscount, "voucher_code": q.Voucher, "final_amount": q.Final, "currency": "VND", "expires_at": q.ExpiresAt, "stock_reserved": false}, nil
 }
 func (s *Service) OperationResponse(ctx context.Context, o domain.Operation, p domain.Principal) (any, error) {
 	if s.CoreCheckout == nil {

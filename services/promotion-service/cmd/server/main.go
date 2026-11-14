@@ -24,6 +24,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 func main() {
@@ -97,7 +98,19 @@ func main() {
 	if err != nil {
 		log.Fatal().Err(err).Str("address", cfg.GRPCAddress).Msg("listen for gRPC")
 	}
-	grpcServer := grpcapi.NewGRPCServer(voucherRepository, cfg.InternalToken)
+	var grpcOptions []grpc.ServerOption
+	certFile, keyFile := os.Getenv("PROMOTION_GRPC_TLS_CERT_FILE"), os.Getenv("PROMOTION_GRPC_TLS_KEY_FILE")
+	if certFile != "" || keyFile != "" {
+		if certFile == "" || keyFile == "" {
+			log.Fatal().Msg("both Promotion gRPC TLS certificate and key are required")
+		}
+		transport, err := credentials.NewServerTLSFromFile(certFile, keyFile)
+		if err != nil {
+			log.Fatal().Err(err).Msg("load Promotion gRPC TLS certificate")
+		}
+		grpcOptions = append(grpcOptions, grpc.Creds(transport))
+	}
+	grpcServer := grpcapi.NewGRPCServer(voucherRepository, cfg.InternalToken, grpcOptions...)
 	go func() {
 		log.Info().Str("address", cfg.GRPCAddress).Msg("Promotion gRPC server listening")
 		if err := grpcapi.Serve(grpcListener, grpcServer); err != nil && !errors.Is(err, grpc.ErrServerStopped) {

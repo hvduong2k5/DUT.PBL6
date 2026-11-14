@@ -124,6 +124,9 @@ export interface CreateCheckoutQuoteRequest {
 }
 
 export interface OrderQuote {
+	merchandise_discount?: number;
+	shipping_discount?: number;
+	voucher_code?: string;
   catalog_snapshot_id: string;
   catalog_expires_at: IsoDateTime;
   shipping_quote_reference: string;

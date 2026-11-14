@@ -18,6 +18,51 @@ The service listens on HTTP `localhost:8017` and gRPC `localhost:9017`. Readines
 PostgreSQL at `GET /health/ready`; liveness is `GET /health/live`. PostgreSQL is exposed on
 `localhost:5447`. gRPC calls require `authorization: Bearer <PROMOTION_INTERNAL_TOKEN>` metadata.
 
+## Order, web checkout and Kong integration
+
+Order supports one voucher per authenticated Customer VIETQR checkout when `ORDER_PROMOTION_GRPC`
+is configured. It calls `CalculateDiscount` for a read-only quote, reserves stock and calls
+`ValidateAndLockVoucher` at acceptance, then finalizes the voucher after Inventory commitment and
+before recording PAID. The paid v3 fact contains the real hold/decision proof. Cancellation,
+payment timeout and checkout compensation release the hold using the original stable command keys.
+A rejected voucher after stock/funds commitment parks payment finalization for reconciliation;
+it never changes the order to full price or authorizes fulfillment without the discount proof.
+Order snapshot 1.1 records the voucher; existing 1.0 snapshots and hashes are preserved.
+
+The Order deployment needs `ORDER_PROMOTION_GRPC`, `ORDER_PROMOTION_TOKEN_FILE` (matching this
+service's `PROMOTION_INTERNAL_TOKEN`), `ORDER_PROMOTION_CA_FILE` and `ORDER_PROMOTION_SERVER_NAME`.
+Set `PROMOTION_GRPC_TLS_CERT_FILE` and `PROMOTION_GRPC_TLS_KEY_FILE` on Promotion and mount both
+files read-only to serve TLS. Explicit plaintext is supported by Order only for loopback sandbox
+tests via `ORDER_PROMOTION_ALLOW_LOCAL_INSECURE=true`; it is not a Docker-hostname bypass.
+
+Kong's declarative config registers `/api/v1/promotions/vouchers`, `/api/v1/promotions/active`,
+`/api/v1/loyalty/points` and the JWT-protected `/api/v1/admin/coupons` tree against
+`http://promotion-service:8017`. The deployed container must join Kong's network with that DNS
+alias. Internal loyalty commands and gRPC are not exposed through these routes. Applying this
+repository config to a deployed Kong is a separate deployment step.
+
+For the local gateway network, run `docker compose -f docker-compose.yml -f
+docker-compose.gateway.yml up -d --build` from this service directory. The external
+`omamx-network` must already exist (create it with `docker network create omamx-network`
+if needed). This overlay preserves PostgreSQL's private default network and adds only the
+service to Kong's shared network. TLS/key files still need read-only deployment mounts;
+the overlay neither creates credentials nor enables customer/employee authentication by itself.
+
+Web OIDC calls use the gateway root (`API_GATEWAY_UPSTREAM_URL`, ending in `/api/v1`) for vouchers,
+and the credentialed commerce resolver for loyalty. Checkout uses Order's quote, displays its
+discounts and accepts only quote/cart/payment identifiers. Set `NEXT_PUBLIC_MVP_VOUCHER_ENABLED=true`
+at web build time after the Order provider is configured; the flag alone cannot enable backend
+discounts. Loyalty earning/redemption/refund automation is still a separate integration.
+
+Run `./scripts/run-checkout-integration.ps1` on Windows with Docker Desktop and Go available.
+It starts an isolated PostgreSQL/Redis/Kafka stack, builds/runs the real Promotion server, tests
+Order checkout/discounted payment/paid-event consumption and unpaid cancellation, and removes
+only that disposable stack on exit (use `-KeepStack` to retain it). Native logs are under the
+repository's ignored `.tmp/promotion-checkout` directory. Catalog, Shipping, Inventory and SePay
+use Order's existing deterministic test peers; they are not live carrier/bank acceptance tests.
+Use `-SkipOrderRegressions` only for a focused rerun of the provider integration after the
+full Order PostgreSQL suite has already passed. It is not a replacement for the default test run.
+
 ## Admin coupon API
 
 - `GET /api/v1/admin/coupons?limit=50&offset=0`

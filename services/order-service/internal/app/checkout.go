@@ -248,8 +248,12 @@ func (s *Service) CreateQuote(ctx context.Context, p domain.Principal, in domain
 	if s.CoreCheckout == nil && s.Payment != nil && in.Method == "VIETQR" {
 		return domain.Quote{}, domain.E("TARGET_CHECKOUT_NOT_READY", 503)
 	}
-	if in.Voucher != "" {
+	in.Voucher = strings.ToUpper(strings.TrimSpace(in.Voucher))
+	if in.Voucher != "" && (s.CoreCheckout == nil || s.Promotion == nil) {
 		return domain.Quote{}, domain.E("VOUCHER_FEATURE_DISABLED", 422)
+	}
+	if in.Voucher != "" && (!voucherCodePattern.MatchString(in.Voucher) || p.Role != "CUSTOMER" || in.Method != "VIETQR") {
+		return domain.Quote{}, domain.E("INVALID_VOUCHER_INPUT", 422)
 	}
 	if in.Method != "VIETQR" && in.Method != "COD" {
 		return domain.Quote{}, domain.E("INVALID_PAYMENT_METHOD", 422)
@@ -265,7 +269,7 @@ func (s *Service) CreateQuote(ctx context.Context, p domain.Principal, in domain
 	if cart.Revision != in.Revision {
 		return domain.Quote{}, domain.E("VERSION_CONFLICT", 409)
 	}
-	q := domain.Quote{ID: uuid.NewString(), Scope: p.Scope(), Principal: p, Revision: cart.Revision, Method: in.Method, Items: cart.Items, CustomerID: p.CustomerID, AddressID: in.AddressID}
+	q := domain.Quote{ID: uuid.NewString(), Scope: p.Scope(), Principal: p, Revision: cart.Revision, Method: in.Method, Items: cart.Items, CustomerID: p.CustomerID, AddressID: in.AddressID, Voucher: in.Voucher}
 	if in.AddressID != "" {
 		if in.Address != nil {
 			return q, domain.E("AMBIGUOUS_ADDRESS", 400)

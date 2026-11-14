@@ -163,11 +163,11 @@ func (s *Store) Place(ctx context.Context, in Placement) (core.Aggregate, error)
 		}
 		_, err = tx.Exec(ctx, `INSERT INTO orders(id,operation_id,order_code,scope,principal_id,customer_id,warehouse_id,method,status,payment_status,stock_status,
  subtotal,shipping_fee,final_amount,snapshot_cipher,reservation_id,payment_expires_at,version,policy_version,created_at,updated_at,
- cohort,owner_kind,guest_session_id,snapshot_id,snapshot_schema_version,snapshot_hash,core_state_cipher)
- VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,1,$18,$19,$19,$20,$21,$22,$23,'1.0',$24,$25)`,
+ cohort,owner_kind,guest_session_id,snapshot_id,snapshot_schema_version,snapshot_hash,core_state_cipher,merchandise_discount,shipping_discount)
+ VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,1,$18,$19,$19,$20,$21,$22,$23,$26,$24,$25,$27,$28)`,
 			planned, in.OperationID, "ORD-"+planned, scope, principal, customer, input.WarehouseID, method, out.State(), payment, in.Proof.State, input.Money.Subtotal,
 			input.Money.ShippingFee, input.Money.FinalAmount, snapCipher, in.Proof.ReservationID, input.Payment.ExpiresAt, input.Policies.Order, at,
-			Cohort, ownerKind, guest, input.SnapshotID, snapshot.Hash(), stateCipher)
+			Cohort, ownerKind, guest, input.SnapshotID, snapshot.Hash(), stateCipher, input.SchemaVersion, input.Money.MerchandiseDiscount, input.Money.ShippingDiscount)
 		if err != nil {
 			return err
 		}

@@ -3,6 +3,7 @@ import { authorizeCustomerCapability, customerAccessFailure } from "@/lib/auth/c
 import { credentialHeaders } from "@/lib/auth/server-credential";
 import { withCustomerAuth } from "@/lib/auth/customer-auth";
 import type { CustomerCapability } from "@/lib/auth/capabilities";
+import { gatewayUpstreamUrl, customerCommerceUpstreamUrl } from "@/lib/upstream";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +32,11 @@ async function proxyWithCredential(request: NextRequest, context: { params: Prom
     return Response.json({ error_code: "ERR_NOT_FOUND", user_message: "Customer route is not available." }, { status: 404 });
   }
 
-  const upstreamBase = (process.env.CUSTOMER_CORE_UPSTREAM_URL ?? "http://127.0.0.1:4010/api/v1").replace(/\/$/u, "");
+  const upstreamBase = path === "promotions/vouchers"
+    ? gatewayUpstreamUrl()
+    : path === "loyalty/points"
+      ? customerCommerceUpstreamUrl()
+      : (process.env.CUSTOMER_CORE_UPSTREAM_URL ?? "http://127.0.0.1:4010/api/v1").replace(/\/$/u, "");
   const scenario = request.nextUrl.searchParams.get("mockScenario");
   const headers = new Headers({ Accept: "application/json" });
   credentialHeaders(headers, credential);
@@ -51,7 +56,14 @@ async function proxyWithCredential(request: NextRequest, context: { params: Prom
   }
 
   try {
-    const upstream = await fetch(`${upstreamBase}/${parts.map(encodeURIComponent).join("/")}`, {
+    const query = new URLSearchParams();
+    if (path === "promotions/vouchers") {
+      for (const name of ["q", "page", "pageSize", "status"]) {
+        const value = request.nextUrl.searchParams.get(name);
+        if (value !== null) query.set(name, value);
+      }
+    }
+    const upstream = await fetch(`${upstreamBase}/${parts.map(encodeURIComponent).join("/")}${query.size ? `?${query}` : ""}`, {
       method: request.method,
       headers,
       body: request.method === "POST" ? await request.text() : undefined,
@@ -67,7 +79,7 @@ async function proxyWithCredential(request: NextRequest, context: { params: Prom
   } catch {
     return Response.json({
       error_code: "ERR_UPSTREAM_UNAVAILABLE",
-      user_message: "Chưa thể kết nối dữ liệu customer. Hãy kiểm tra Mockoon mobile_pbl.json."
+      user_message: "Chưa thể kết nối dịch vụ. Vui lòng thử lại sau."
     }, { status: 503 });
   }
 }

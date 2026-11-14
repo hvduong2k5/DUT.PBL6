@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 	"unicode/utf8"
 
@@ -259,18 +260,27 @@ func requireShape(v any, t reflect.Type) error {
 	switch t.Kind() {
 	case reflect.Struct:
 		obj, ok := v.(map[string]any)
-		if !ok || len(obj) != t.NumField() {
+		if !ok || len(obj) > t.NumField() {
 			return ErrSnapshot
 		}
+		matched := 0
 		for i := 0; i < t.NumField(); i++ {
 			field := t.Field(i)
-			item, exists := obj[field.Tag.Get("json")]
+			tag := strings.Split(field.Tag.Get("json"), ",")
+			item, exists := obj[tag[0]]
+			if !exists && len(tag) > 1 && tag[1] == "omitempty" {
+				continue
+			}
 			if !exists {
 				return ErrSnapshot
 			}
+			matched++
 			if err := requireShape(item, field.Type); err != nil {
 				return err
 			}
+		}
+		if matched != len(obj) {
+			return ErrSnapshot
 		}
 	case reflect.Slice:
 		arr, ok := v.([]any)

@@ -12,6 +12,7 @@ func TestLoadRequiresInternalToken(t *testing.T) {
 func TestLoadDefaultsAndTrimsValues(t *testing.T) {
 	t.Setenv("PROMOTION_INTERNAL_TOKEN", " local-token ")
 	t.Setenv("PROMOTION_HTTP_ADDRESS", " ")
+	t.Setenv("PROMOTION_GRPC_ADDRESS", " ")
 	t.Setenv("PROMOTION_ORDER_EVENTS_ENABLED", "false")
 	cfg, err := Load()
 	if err != nil {
