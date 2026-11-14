@@ -1,4 +1,4 @@
-"""Contract guards for Promotion's Order/web/Kong integration (PyYAML + jsonschema)."""
+"""Contract guards for Promotion's Order/web/Kong integration (MVP requirements.txt)."""
 import copy
 import json
 from pathlib import Path
@@ -7,11 +7,46 @@ import unittest
 
 import yaml
 from jsonschema import Draft202012Validator, FormatChecker
+from openapi_schema_validator import OAS30Validator
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 class PromotionCheckoutContracts(unittest.TestCase):
+    def test_sandbox_order_snapshot_preserves_discount_fields_and_strict_shape(self):
+        spec = yaml.safe_load((ROOT / "docs/03_api_specs/order-service.sandbox-3.1.openapi.yaml").read_text(encoding="utf-8"))
+
+        def expand(value):
+            if isinstance(value, list):
+                return [expand(item) for item in value]
+            if not isinstance(value, dict):
+                return value
+            if "$ref" in value:
+                return expand(spec["components"]["schemas"][value["$ref"].rsplit("/", 1)[1]])
+            return {key: expand(child) for key, child in value.items()}
+
+        # Both the quote endpoint and Order.snapshot serialize domain.Quote,
+        # including zero discounts when the Promotion provider is disabled.
+        quote = dict(catalog_snapshot_id="catalog-1", catalog_expires_at="2026-11-14T11:00:00Z",
+                     shipping_quote_reference="shipping-1", quote_id="quote-1", cart_revision=1,
+                     payment_method="VIETQR", items=[dict(sku_code="MX-GION-500G", quantity=1)],
+                     address=dict(recipient_name="Synthetic Customer", phone="+84905123456",
+                                  street="Test only", ward_code="HUE-01", province_code="75"),
+                     subtotal=110000, shipping_fee=25000, final_amount=135000,
+                     expires_at="2026-11-14T10:49:00Z", shipping_expires_at="2026-11-14T10:49:00Z",
+                     merchandise_discount=0, shipping_discount=0)
+        schemas = spec["components"]["schemas"]
+        for name, schema in [("Quote", schemas["Quote"]), ("Order.snapshot", schemas["Order"]["properties"]["snapshot"])]:
+            validator = OAS30Validator(expand(schema), format_checker=FormatChecker())
+            with self.subTest(schema=name):
+                validator.validate(quote)
+                legacy = {k: v for k, v in quote.items() if k not in ("merchandise_discount", "shipping_discount")}
+                validator.validate(legacy)
+                for field in ("merchandise_discount", "shipping_discount"):
+                    for invalid in (-1, "0"):
+                        self.assertFalse(validator.is_valid({**quote, field: invalid}))
+                self.assertFalse(validator.is_valid({**quote, "unexpected_discount": 1}))
+
     def test_snapshot_versions_and_voucher_shape(self):
         base = ROOT / "docs/03_api_specs"
         schema = json.loads((base / "order-snapshot.v1.schema.json").read_text(encoding="utf-8"))

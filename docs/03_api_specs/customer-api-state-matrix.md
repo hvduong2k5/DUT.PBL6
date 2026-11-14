@@ -28,6 +28,8 @@ Customer APIs distinguish Guest, Registered Customer and verified B2B Customer c
 - Acceptance keeps the existing quote/cart/payment input and Idempotency-Key. Replay recovers the same operation,
   hold and finalization; cancellation/timeout remains pending until authoritative resource release is confirmed.
 - See customer-stable.openapi.yaml and mvp-customer.openapi.yaml for the quote and operation schemas.
+- The sandbox Quote and Order.snapshot contract also accepts merchandise_discount and shipping_discount,
+  including zero for undiscounted checkouts. Historical quotes may omit them; unexpected fields remain rejected.
 
 ## Stable operations
 
