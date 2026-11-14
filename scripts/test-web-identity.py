@@ -699,6 +699,13 @@ def main():
                 / "services/profile-service/migrations/000003_profile_integrity.up.sql"
             ).read_text(encoding="utf-8")
         )
+        sql(
+            "SET search_path TO profile,public;"
+            + (
+                ROOT
+                / "services/profile-service/migrations/000004_normalize_shipping_ward_names.up.sql"
+            ).read_text(encoding="utf-8")
+        )
         for index, account in enumerate(accounts.values()):
             sql(
                 f"INSERT INTO profile.customer_profiles(id,user_id,full_name,phone_number,email,status) VALUES('{account['customer']}','{account['principal']}','Synthetic Customer {index}','090000000{index}','{account['email']}','ACTIVE');"
@@ -1328,6 +1335,12 @@ def main():
                 assert session["customer"]["status"] == "PENDING_VERIFICATION"
                 status, caps, _ = request(web + "/api/capabilities", opener=opener)
                 assert status == 200 and caps["capabilities"] == ["PROFILE_MANAGE"]
+                assert request(web + "/api/cart", opener=opener)[0] == 403
+                assert request(web + "/api/customer/addresses", opener=opener)[0] == 403
+                assert (
+                    request(gateway + "/api/v1/customer-api/cart", opener=opener)[0]
+                    == 403
+                ), "Direct Order API bypassed Customer verification"
                 status, profile, _ = request(
                     web + "/api/customer/profile", opener=opener
                 )
@@ -1345,19 +1358,17 @@ def main():
                     opener=opener,
                     headers={"Origin": web, "If-Match": f'"{profile["version"]}"'},
                 )
-                assert status == 200 and profile["status"] == "PENDING_VERIFICATION", (
-                    "onboarding",
+                assert status == 200 and profile["status"] == "ACTIVE", (
+                    "onboarding activation",
                     status,
                     profile,
                 )
-                assert request(web + "/api/cart", opener=opener)[0] == 403
-                assert request(web + "/api/customer/addresses", opener=opener)[0] == 403
-                assert (
-                    request(gateway + "/api/v1/customer-api/cart", opener=opener)[0]
-                    == 403
-                ), "Direct Order API bypassed Customer verification"
+                status, caps, _ = request(web + "/api/capabilities", opener=opener)
+                assert status == 200 and "CART_MANAGE" in caps["capabilities"]
+                assert request(web + "/api/cart", opener=opener)[0] == 200
+                assert request(web + "/api/customer/addresses", opener=opener)[0] == 200
                 print(
-                    "PASS: newly registered Customer can complete Profile; unverified purchase/address access remains blocked",
+                    "PASS: newly registered Customer is gated until Profile completion; saving a phone activates the account and unlocks purchase/address access",
                     flush=True,
                 )
                 continue

@@ -273,6 +273,9 @@ func (s *Service) CreateQuote(ctx context.Context, p domain.Principal, in domain
 		q.Address, q.AddressVersion, e = s.Address(ctx, p, in.AddressID)
 	} else if in.Address != nil {
 		q.Address = *in.Address
+		// Only the authoritative address lookup supplies names for the snapshot.
+		q.Address.WardName = ""
+		q.Address.ProvinceName = ""
 	} else {
 		e = domain.E("ADDRESS_REQUIRED", 422)
 	}
