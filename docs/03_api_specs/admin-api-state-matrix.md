@@ -304,3 +304,13 @@ Ví dụ xóa mô tả cũ và cập nhật OCOP:
 Inventory receipts require `INVENTORY_RECEIPT_CREATE` globally or for the SKU warehouse. The API checks the expected revision and replays the stored result for matching idempotent retries.
 
 Fulfillment staff routes validate the `omama-api` audience by default. Missing or invalid credentials return 401. Valid credentials without an eligible staff identity or the required grant return 403.
+
+### Marketing manual execution (draft)
+
+Paths are relative to the campaign revision. Cookie clients use the matching Identity BFF path.
+
+| Operation | Success / empty | Error handling |
+|---|---|---|
+| GET executions | 200 with items and total, including an empty list | 401 renew session, 403 missing permission, 404 hidden or missing revision, 500/503 retry |
+| POST executions | 201 scheduled channel | 409 reload revision or existing execution, 422 invalid channel, 400 invalid body/key, 401/403/404 as above, 500/503 retry with the original key |
+| POST executions/{executionId}/actions | 200 updated execution | 409 refresh state/version, 422 missing reason/evidence or outside schedule, 400 invalid body/key, 401/403/404 as above, 500/503 retry with the original key |

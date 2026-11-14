@@ -67,7 +67,8 @@ class CampaignCommands {
         return keyed(actor, campaign.departmentId(), "REVISE", key, List.of(campaignId, baseId, expectedVersion), 201, () -> {
             var base = current(campaign, baseId);
             requireVersion(base, expectedVersion);
-            if (base.state() == ReviewWorkflow.State.DRAFT || base.state() == ReviewWorkflow.State.IN_REVIEW) {
+            if (base.state() == ReviewWorkflow.State.DRAFT || base.state() == ReviewWorkflow.State.IN_REVIEW
+                    || campaigns.hasUnfinishedExecutions(campaignId)) {
                 throw new MarketingFailure("STATE_CONFLICT", 409);
             }
             UUID id = UUID.randomUUID();
@@ -126,7 +127,7 @@ class CampaignCommands {
         });
     }
 
-    private ReviewStore.Receipt keyed(StaffActor actor, String department, String action, String key, Object payload,
+    ReviewStore.Receipt keyed(StaffActor actor, String department, String action, String key, Object payload,
                                       int status, Supplier<Object> write) {
         if (key == null || !key.matches("[!-~]{16,128}")) {
             throw new MarketingFailure("BAD_REQUEST", 400);
@@ -153,7 +154,7 @@ class CampaignCommands {
         return revision;
     }
 
-    private void requireVersion(CampaignStore.Revision revision, long version) {
+    void requireVersion(CampaignStore.Revision revision, long version) {
         if (revision.version() != version) {
             throw new MarketingFailure("STALE_REVISION", 409);
         }

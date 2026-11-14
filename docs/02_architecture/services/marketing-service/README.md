@@ -146,3 +146,5 @@ Identity xác thực phiên employee và quyền hiện hành; Marketing kiểm 
 Marketing và Executive chốt taxonomy, các trường bắt buộc còn lại và chính sách sửa lịch/ngân sách. Xác nhận mã phòng ban với Identity và mức trần ngân sách với Executive nếu pilot áp dụng hạn mức. Content, Promotion, Media, Analytics và Notification chốt version/readiness, quyền audience, consent và contract gửi. Marketing Ops chốt provider, KPI dictionary, lịch đồng bộ và retention. Order và Finance chốt bằng chứng attribution, window, tiền tệ, doanh thu, điều chỉnh và kỳ đối soát. Có thể triển khai domain và test với fixture trước khi các tích hợp tương ứng được xác nhận.
 
 [Lộ trình bàn giao Web Admin và lát triển khai tiếp theo](02_handoff_and_next_steps.md)
+
+[Thiết kế lập lịch và thực thi thủ công](03_manual_execution.md)

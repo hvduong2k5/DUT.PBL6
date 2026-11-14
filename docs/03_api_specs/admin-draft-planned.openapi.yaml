@@ -37,6 +37,162 @@ tags:
   - name: Marketing
     description: Draft Campaign planning and approval operations for EPIC 21.
 paths:
+  /api/v1/admin/marketing/campaigns/{campaignId}/revisions/{revisionId}/executions:
+    x-employee-session-path: /api/v1/admin/marketing-api/campaigns/{campaignId}/revisions/{revisionId}/executions
+    parameters:
+    - name: campaignId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - name: revisionId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    get:
+      operationId: listMarketingExecutions
+      summary: List channel executions
+      tags:
+      - Marketing
+      security:
+      - marketingEmployeeSession: []
+      - bearerAuth: []
+      responses:
+        '200':
+          description: Execution result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarketingExecutions'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+      description: Requires MARKETING_CAMPAIGN_VIEW in the campaign department or GLOBAL.
+    post:
+      operationId: scheduleMarketingExecution
+      summary: Schedule a channel from the approved revision
+      tags:
+      - Marketing
+      security:
+      - marketingEmployeeSession: []
+      - bearerAuth: []
+      responses:
+        '201':
+          description: Execution result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarketingExecution'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+      description: Requires MARKETING_EXECUTION_MANAGE in the campaign department or
+        GLOBAL.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MarketingScheduleExecution'
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          pattern: ^[!-~]{16,128}$
+  /api/v1/admin/marketing/campaigns/{campaignId}/revisions/{revisionId}/executions/{executionId}/actions:
+    x-employee-session-path: /api/v1/admin/marketing-api/campaigns/{campaignId}/revisions/{revisionId}/executions/{executionId}/actions
+    parameters:
+    - name: campaignId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - name: revisionId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - name: executionId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    post:
+      operationId: actOnMarketingExecution
+      summary: Record a manual channel action
+      tags:
+      - Marketing
+      security:
+      - marketingEmployeeSession: []
+      - bearerAuth: []
+      responses:
+        '200':
+          description: Execution result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarketingExecution'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+      description: Requires MARKETING_EXECUTION_MANAGE in the campaign department or
+        GLOBAL.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MarketingExecutionAction'
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          pattern: ^[!-~]{16,128}$
   /api/v1/admin/marketing/campaigns:
     x-employee-session-path: '/api/v1/admin/marketing-api/campaigns'
     get:
@@ -1484,6 +1640,96 @@ components:
         type: "string"
         format: "uuid"
   schemas:
+    MarketingExecution:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        channel:
+          type: string
+          minLength: 1
+          maxLength: 200
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+        state:
+          type: string
+          enum:
+          - SCHEDULED
+          - ACTIVE
+          - PAUSED
+          - COMPLETED
+          - CANCELLED
+        version:
+          type: integer
+          minimum: 1
+          maximum: 9007199254740991
+      required:
+      - id
+      - channel
+      - startsAt
+      - endsAt
+      - state
+      - version
+      additionalProperties: false
+    MarketingExecutions:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/MarketingExecution'
+        total:
+          type: integer
+          minimum: 0
+      required:
+      - items
+      - total
+      additionalProperties: false
+    MarketingScheduleExecution:
+      type: object
+      properties:
+        channel:
+          type: string
+          minLength: 1
+          maxLength: 200
+        expectedVersion:
+          type: integer
+          minimum: 1
+          maximum: 9007199254740991
+      required:
+      - channel
+      - expectedVersion
+      additionalProperties: false
+    MarketingExecutionAction:
+      type: object
+      properties:
+        action:
+          type: string
+          enum:
+          - START
+          - PAUSE
+          - COMPLETE
+          - CANCEL
+        expectedVersion:
+          type: integer
+          minimum: 1
+          maximum: 9007199254740991
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 200
+        evidenceRef:
+          type: string
+          pattern: ^[A-Za-z0-9._:/-]{1,200}$
+      required:
+      - action
+      - expectedVersion
+      additionalProperties: false
     MarketingChannelPlan:
       type: object
       additionalProperties: false

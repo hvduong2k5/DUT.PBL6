@@ -27,15 +27,17 @@ class CampaignController {
     record Revise(UUID baseRevisionId, long expectedVersion) {}
     record Review(long expectedVersion, UUID approvalRequestId, String reason) {}
 
+    private final ManualExecutions executions;
     private final MarketingPeers peers;
     private final CampaignCommands commands;
     private final CampaignStore store;
     private final String adminOrigin;
     private final TransactionTemplate readTransaction;
 
-    CampaignController(MarketingPeers peers, CampaignCommands commands, CampaignStore store,
+    CampaignController(MarketingPeers peers, CampaignCommands commands, CampaignStore store, ManualExecutions executions,
                        PlatformTransactionManager transactions, @Value("${marketing.admin-origin:}") String adminOrigin) {
         this.peers = peers;
+        this.executions = executions;
         this.commands = commands;
         this.store = store;
         this.adminOrigin = adminOrigin;
@@ -164,6 +166,31 @@ class CampaignController {
         return response(commands.review(actor, campaignId, revisionId, body.expectedVersion(), operation,
                 body.approvalRequestId(), body.reason(), key, requestId(request), evidence));
     }
+
+    @GetMapping("/{campaignId}/revisions/{revisionId}/executions")
+    ManualExecutions.Page executions(HttpServletRequest request, @PathVariable UUID campaignId,
+                                     @PathVariable UUID revisionId) {
+        return executions.list(staff(request), campaignId, revisionId);
+    }
+
+    @PostMapping("/{campaignId}/revisions/{revisionId}/executions")
+    ResponseEntity<String> schedule(HttpServletRequest request, @PathVariable UUID campaignId,
+                                    @PathVariable UUID revisionId, @RequestBody ManualExecutions.Schedule body,
+                                    @RequestHeader("Idempotency-Key") String key) {
+        var actor = staff(request);
+        checkVersion(body.expectedVersion());
+        return response(executions.schedule(actor, campaignId, revisionId, body, key, requestId(request)));
+    }
+
+    @PostMapping("/{campaignId}/revisions/{revisionId}/executions/{executionId}/actions")
+    ResponseEntity<String> act(HttpServletRequest request, @PathVariable UUID campaignId,
+                               @PathVariable UUID revisionId, @PathVariable UUID executionId,
+                               @RequestBody ManualExecutions.Change body, @RequestHeader("Idempotency-Key") String key) {
+        var actor = staff(request);
+        checkVersion(body.expectedVersion());
+        return response(executions.act(actor, campaignId, revisionId, executionId, body, key, requestId(request)));
+    }
+
 
     private List<ReviewStore.ProductEvidence> evidence(HttpServletRequest request, StaffActor actor, UUID campaignId,
                                                        UUID revisionId, long expectedVersion) {

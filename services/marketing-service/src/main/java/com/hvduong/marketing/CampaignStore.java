@@ -69,6 +69,14 @@ class CampaignStore {
     }
 
 
+    boolean hasUnfinishedExecutions(UUID campaignId) {
+        return jdbc.sql("""
+                SELECT EXISTS (SELECT 1 FROM campaign_executions
+                WHERE campaign_id = :campaign AND state IN ('SCHEDULED','ACTIVE','PAUSED'))
+                """).param("campaign", campaignId).query(Boolean.class).single();
+    }
+
+
     Campaign campaign(UUID id, boolean lock) {
         String sql = """
                 SELECT id, department_id, current_revision_id, next_revision_number

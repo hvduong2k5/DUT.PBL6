@@ -19,6 +19,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 @EnabledIfEnvironmentVariable(named = "MARKETING_DB_URL", matches = ".+")
 class CampaignCommandsIntegrationTest {
     @Autowired CampaignCommands commands;
+    @Autowired ManualExecutions executions;
     @Autowired ObjectMapper json;
     @Autowired JdbcClient jdbc;
     @Autowired org.springframework.test.web.servlet.MockMvc http;
@@ -75,6 +76,50 @@ class CampaignCommandsIntegrationTest {
                         .get("/api/v1/admin/marketing/campaigns").header("Authorization", "Bearer fixture")
                         .param("departmentId", "other-department"))
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isForbidden());
+    }
+
+
+    @Test
+    void schedulesApprovedChannelAndRecordsManualActionsOnce() throws Exception {
+        var operator = new StaffActor(UUID.randomUUID(), Set.of(grant("PLAN_EDIT"), grant("BUDGET_EDIT"),
+                grant("PLAN_SUBMIT"), grant("EXECUTION_MANAGE"), grant("CAMPAIGN_VIEW")));
+        var reviewer = new StaffActor(UUID.randomUUID(), Set.of(grant("PLAN_APPROVE")));
+        var starts = Instant.now().minusSeconds(60);
+        var ends = starts.plusSeconds(3600);
+        var plan = new CampaignPlan("Execution pilot", "Launch", operator.id(), starts, ends, "Asia/Ho_Chi_Minh",
+                100, List.of(new CampaignPlan.Channel("EMAIL", starts, ends, "Launch brief")), List.of(),
+                List.of(new CampaignPlan.KpiTarget("CLICKS", "count", "100")));
+        var draft = json.readTree(commands.create(operator, "marketing", plan, "execution-create", "create").body());
+        UUID campaign = UUID.fromString(draft.path("campaignId").asText());
+        UUID revision = UUID.fromString(draft.path("revisionId").asText());
+        var submitted = json.readTree(commands.review(operator, campaign, revision, 1, ReviewWorkflow.Action.SUBMIT,
+                null, null, "execution-submit", "submit", List.of()).body());
+        UUID approval = UUID.fromString(submitted.path("approvalRequest").path("requestId").asText());
+        commands.review(reviewer, campaign, revision, 2, ReviewWorkflow.Action.APPROVE, approval, null,
+                "execution-approve", "approve", List.of());
+
+        var schedule = new ManualExecutions.Schedule("EMAIL", 3);
+        var scheduled = json.readTree(executions.schedule(operator, campaign, revision, schedule,
+                "execution-schedule", "schedule").body());
+        UUID id = UUID.fromString(scheduled.path("id").asText());
+        var replay = json.readTree(executions.schedule(operator, campaign, revision, schedule,
+                "execution-schedule", "replay").body());
+        assertThat(replay).isEqualTo(scheduled);
+        assertThrows(MarketingFailure.class, () -> executions.schedule(operator, campaign, revision,
+                schedule, "execution-duplicate", "duplicate"));
+        assertThrows(MarketingFailure.class, () -> commands.revise(operator, campaign, revision, 3,
+                "execution-revise", "revise"));
+
+        var start = new ManualExecutions.Change(ManualExecutions.Action.START, 1, null, "manual:ready");
+        executions.act(operator, campaign, revision, id, start, "execution-start-v1", "start");
+        assertThat(executions.list(operator, campaign, revision).items().getFirst().state())
+                .isEqualTo(ManualExecutions.State.ACTIVE);
+        var complete = new ManualExecutions.Change(ManualExecutions.Action.COMPLETE, 2, null, "manual:report");
+        executions.act(operator, campaign, revision, id, complete, "execution-complete", "complete");
+        assertThat(executions.list(operator, campaign, revision).items().getFirst().state())
+                .isEqualTo(ManualExecutions.State.COMPLETED);
+        assertThat(jdbc.sql("SELECT count(*) FROM campaign_execution_history WHERE execution_id = :id")
+                .param("id", id).query(Long.class).single()).isEqualTo(3);
     }
 
 
