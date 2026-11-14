@@ -11,6 +11,7 @@ and statuses in a reply must trace to tool results of the same turn.
 """
 from __future__ import annotations
 
+import asyncio
 import re
 from collections.abc import AsyncIterator
 from urllib.parse import urlencode
@@ -126,13 +127,15 @@ def _filter_url(slots: dict) -> str:
 
 class ShoppingAdvisor:
     def __init__(self, llm, gateway: ToolGateway, knowledge: KnowledgeStore,
-                 settings: Settings, recommendations=None, eligibility=None):
+                 settings: Settings, recommendations=None, eligibility=None,
+                 run_recorder=None):
         self.llm = llm
         self.gateway = gateway
         self.knowledge = knowledge
         self.settings = settings
         self.recommendations = recommendations
         self.eligibility = eligibility or ProductEligibility()
+        self.run_recorder = run_recorder
 
     # -- public entry ------------------------------------------------------
     async def turn_events(
@@ -146,32 +149,65 @@ class ShoppingAdvisor:
         # Consent (chat-history use): a logged-in customer who has not given
         # it chats fully functionally, but their messages are not persisted —
         # the session keeps only its working slots (see _EphemeralMessages).
-        if principal.customer_id and not store.get_history_consent(principal.customer_id):
-            store = _EphemeralMessages(store)
-        ctx = ToolContext(customer_id=principal.customer_id, authorization=authorization)
+        if principal.customer_id:
+            consented = await asyncio.to_thread(
+                store.get_history_consent, principal.customer_id
+            )
+            if not consented:
+                store = _EphemeralMessages(store)
+        run_id = (
+            await asyncio.to_thread(self.run_recorder.start, conv.id)
+            if self.run_recorder
+            else None
+        )
+        ctx = ToolContext(
+            customer_id=principal.customer_id, authorization=authorization, run_id=run_id
+        )
         state = TurnState(
             max_steps=self.settings.max_steps, max_tool_calls=self.settings.max_tool_calls
         )
-        store.add_message(conv.id, "user", user_text)
+        await asyncio.to_thread(store.add_message, conv.id, "user", user_text)
+        run_status = "completed"
+        run_error = None
         try:
             async for event in self._dispatch(store, conv, principal, ctx, state, user_text):
                 yield event
         except (ProviderError, TimeoutError):
+            run_status = "degraded"
+            run_error = "llm_unavailable"
             CHAT_TURNS.labels(outcome="llm_error").inc()
+            slots = await asyncio.to_thread(store.get_slots, conv.id)
             yield {
                 "type": "error",
                 "code": "llm_unavailable",
                 "message": "Dạ, hệ thống tư vấn đang bận. Anh/chị xem tạm danh mục sản phẩm nhé ạ.",
-                "fallback_url": _filter_url(store.get_slots(conv.id)),
+                "fallback_url": _filter_url(slots),
             }
         except (ToolError, BudgetExceeded):
+            run_status = "degraded"
+            run_error = "tool_unavailable"
             CHAT_TURNS.labels(outcome="tool_error").inc()
+            slots = await asyncio.to_thread(store.get_slots, conv.id)
             yield {
                 "type": "error",
                 "code": "tool_unavailable",
                 "message": "Dạ, em chưa tra cứu được dữ liệu lúc này. Anh/chị dùng bộ lọc sản phẩm giúp em nhé ạ.",
-                "fallback_url": _filter_url(store.get_slots(conv.id)),
+                "fallback_url": _filter_url(slots),
             }
+        except Exception as exc:
+            run_status = "failed"
+            run_error = type(exc).__name__
+            raise
+        finally:
+            if self.run_recorder and run_id:
+                await asyncio.to_thread(
+                    self.run_recorder.finish,
+                    run_id,
+                    run_status,
+                    state.steps,
+                    state.tool_calls,
+                    run_error,
+                )
 
     # -- routing -----------------------------------------------------------
     async def _dispatch(self, store, conv, principal, ctx, state, user_text):
@@ -202,9 +238,10 @@ class ShoppingAdvisor:
     # -- shared helpers ----------------------------------------------------
     async def _compose(self, store, conv, grounding: str, user_text: str,
                        extra_rules: str = "") -> str:
+        stored_messages = await asyncio.to_thread(store.list_messages, conv.id)
         history = [
             Message(role=m.role, content=m.content)
-            for m in store.list_messages(conv.id)
+            for m in stored_messages
             if m.role in ("user", "assistant")
         ][-6:]
         if not history or history[-1].content != user_text:
@@ -213,7 +250,9 @@ class ShoppingAdvisor:
             messages=history,
             system_prompt=RULES + extra_rules + "\n[GROUNDING]\n" + grounding,
         )
-        response = await self.llm.generate(request)
+        response = await asyncio.wait_for(
+            self.llm.generate(request), timeout=self.settings.llm_timeout_seconds
+        )
         return response.content
 
     def _check_grounding(self, reply: str, grounding: str, extra_allowed: set[int]) -> bool:
@@ -221,7 +260,7 @@ class ShoppingAdvisor:
         return all(amount in allowed for amount in extract_money(reply))
 
     async def _emit_reply(self, store, conv, reply: str, intent: str, extra: dict | None = None):
-        store.add_message(conv.id, "assistant", reply)
+        await asyncio.to_thread(store.add_message, conv.id, "assistant", reply)
         CHAT_TURNS.labels(outcome=intent).inc()
         for i in range(0, len(reply), 48):
             yield {"type": "token", "text": reply[i:i + 48]}
@@ -244,7 +283,7 @@ class ShoppingAdvisor:
             reply = results[0].content
         reply = self._repair_faq_coverage(reply, results[0].document_title, user_text)
         citations = sorted({chunk.document_title for chunk in results})
-        store.add_message(conv.id, "assistant", reply)
+        await asyncio.to_thread(store.add_message, conv.id, "assistant", reply)
         CHAT_TURNS.labels(outcome="faq").inc()
         for i in range(0, len(reply), 48):
             yield {"type": "token", "text": reply[i:i + 48]}
@@ -338,6 +377,15 @@ class ShoppingAdvisor:
             {"province": province, "weight_grams": weight},
             ctx,
         )
+        if not result.get("available", True):
+            reply = (
+                "Dạ, phí vận chuyển chính xác cần địa chỉ nhận hàng đầy đủ và kích thước "
+                "kiện hàng. Hệ thống sẽ tính lại tại bước thanh toán; em không đưa ra mức phí "
+                "ước lượng khi chưa đủ dữ liệu để tránh báo sai ạ."
+            )
+            async for event in self._emit_reply(store, conv, reply, "shipping_fee"):
+                yield event
+            return
         grounding = (
             f"- Phí vận chuyển tới {province}: {format_vnd(result['fee_vnd'])}; "
             f"thời gian dự kiến {result['eta_days']} ngày qua {result['carrier']} "
@@ -360,7 +408,7 @@ class ShoppingAdvisor:
             async for event in self._emit_reply(store, conv, reply, "basket"):
                 yield event
             return
-        slots = store.get_slots(conv.id)
+        slots = await asyncio.to_thread(store.get_slots, conv.id)
         products = await self.recommendations.basket(
             skus, 4, budget_vnd=slots.get("budget_vnd")
         )
@@ -377,7 +425,7 @@ class ShoppingAdvisor:
         ]
         names = ", ".join(p.name for p in products)
         reply = f"Dạ, với sản phẩm anh/chị đã chọn, em gợi ý mua kèm: {names}. Đây là các món thường được chọn cùng nhau ạ."
-        store.add_message(conv.id, "assistant", reply)
+        await asyncio.to_thread(store.add_message, conv.id, "assistant", reply)
         CHAT_TURNS.labels(outcome="basket").inc()
         for i in range(0, len(reply), 48):
             yield {"type": "token", "text": reply[i:i + 48]}
@@ -386,17 +434,21 @@ class ShoppingAdvisor:
 
     # -- main shopping path ---------------------------------------------------
     async def _shopping(self, store, conv, principal, ctx, state, user_text):
-        slots = store.get_slots(conv.id)
+        slots = await asyncio.to_thread(store.get_slots, conv.id)
+        stored_messages = await asyncio.to_thread(store.list_messages, conv.id)
         history_users = [
-            m.content for m in store.list_messages(conv.id) if m.role == "user"
+            m.content for m in stored_messages if m.role == "user"
         ]
         if not history_users:
             history_users = [user_text]
-        extraction = await self.llm.generate(
-            LLMRequest(
-                messages=[Message(role="user", content="\n".join(history_users))],
-                tools=[EXTRACT_SPEC],
-            )
+        extraction = await asyncio.wait_for(
+            self.llm.generate(
+                LLMRequest(
+                    messages=[Message(role="user", content="\n".join(history_users))],
+                    tools=[EXTRACT_SPEC],
+                )
+            ),
+            timeout=self.settings.llm_timeout_seconds,
         )
         model_budget = None
         if extraction.tool_calls:
@@ -461,7 +513,7 @@ class ShoppingAdvisor:
             "message_index": evidence.message_index,
             "text": evidence.source_text,
         }
-        store.set_slots(conv.id, slots)
+        await asyncio.to_thread(store.set_slots, conv.id, slots)
 
         missing = []
         if not slots.get("budget_vnd"):
@@ -471,7 +523,7 @@ class ShoppingAdvisor:
         clarifications = int(slots.get("_clarifications", 0))
         if missing and clarifications < 2:
             slots["_clarifications"] = clarifications + 1
-            store.set_slots(conv.id, slots)
+            await asyncio.to_thread(store.set_slots, conv.id, slots)
             known = f" quà {slots['occasion']}" if slots.get("occasion") else ""
             candidate = slots.get("_budget_candidate")
             if candidate and not slots.get("budget_vnd"):
@@ -563,7 +615,7 @@ class ShoppingAdvisor:
                 f"Dạ, hiện em chưa tìm thấy sản phẩm phù hợp còn hàng{budget_text}. "
                 "Anh/chị xem danh mục đã lọc sẵn theo nhu cầu của mình nhé ạ."
             )
-            store.add_message(conv.id, "assistant", reply)
+            await asyncio.to_thread(store.add_message, conv.id, "assistant", reply)
             CHAT_TURNS.labels(outcome="shopping_fallback").inc()
             for i in range(0, len(reply), 48):
                 yield {"type": "token", "text": reply[i:i + 48]}
@@ -601,9 +653,12 @@ class ShoppingAdvisor:
             }
             for p in available
         ]
-        store.add_message(
-            conv.id, "assistant", reply,
-            metadata={"product_ids": [p["id"] for p in available]},
+        await asyncio.to_thread(
+            store.add_message,
+            conv.id,
+            "assistant",
+            reply,
+            {"product_ids": [p["id"] for p in available]},
         )
         CHAT_TURNS.labels(outcome="shopping").inc()
         for i in range(0, len(reply), 48):

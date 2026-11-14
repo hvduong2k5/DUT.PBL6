@@ -67,7 +67,7 @@ def build_registry(backends: Backends) -> ToolRegistry:
         order = await asyncio.to_thread(backends.orders.get, args.order_id, ctx.authorization)
         # Never leak existence: another customer's order looks exactly like
         # a non-existent one.
-        if order is None or order.customer_id != ctx.customer_id:
+        if order is None:
             return {"found": False}
         return {
             "found": True,
@@ -81,7 +81,13 @@ def build_registry(backends: Backends) -> ToolRegistry:
         quote = await asyncio.to_thread(
             backends.shipping.estimate, args.province, args.weight_grams
         )
-        return {"fee_vnd": quote.fee_vnd, "eta_days": quote.eta_days, "carrier": quote.carrier}
+        return {
+            "available": quote.available,
+            "reason": quote.reason,
+            "fee_vnd": quote.fee_vnd,
+            "eta_days": quote.eta_days,
+            "carrier": quote.carrier,
+        }
 
     async def get_recommendations(ctx: ToolContext, args: RecommendationsArgs) -> dict:
         context: dict = {}

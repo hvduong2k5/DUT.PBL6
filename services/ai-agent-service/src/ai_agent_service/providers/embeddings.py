@@ -46,22 +46,27 @@ class GeminiEmbedder:
             raise ProviderError("GEMINI_API_KEY is not configured")
         import httpx
 
-        async with httpx.AsyncClient(
-            base_url=self.settings.gemini_base_url,
-            headers={"Authorization": f"Bearer {self.settings.gemini_api_key}"},
-            timeout=30.0,
-        ) as client:
-            resp = await client.post(
-                "/embeddings",
-                json={
-                    "model": self.settings.embedding_model,
-                    "input": texts,
-                    "dimensions": self.settings.embedding_dim,
-                },
-            )
-            resp.raise_for_status()
-            data = resp.json()
-        return [item["embedding"] for item in data["data"]]
+        try:
+            async with httpx.AsyncClient(
+                base_url=self.settings.gemini_base_url,
+                headers={"Authorization": f"Bearer {self.settings.gemini_api_key}"},
+                timeout=30.0,
+            ) as client:
+                resp = await client.post(
+                    "/embeddings",
+                    json={
+                        "model": self.settings.embedding_model,
+                        "input": texts,
+                        "dimensions": self.settings.embedding_dim,
+                    },
+                )
+                resp.raise_for_status()
+                data = resp.json()
+            return [item["embedding"] for item in data["data"]]
+        except ProviderError:
+            raise
+        except Exception as exc:
+            raise ProviderError("Gemini embedding failed") from exc
 
 
 class TitanEmbedder:
@@ -76,23 +81,26 @@ class TitanEmbedder:
 
         import aioboto3
 
-        if self._session is None:
-            self._session = aioboto3.Session()
-        vectors = []
-        async with self._session.client(
-            "bedrock-runtime", region_name=self.settings.aws_region
-        ) as client:
-            for text in texts:
-                resp = await client.invoke_model(
-                    modelId=self.settings.embedding_model,
-                    body=jsonlib.dumps(
-                        {
-                            "inputText": text,
-                            "dimensions": self.settings.embedding_dim,
-                            "normalize": True,
-                        }
-                    ),
-                )
-                payload = jsonlib.loads(await resp["body"].read())
-                vectors.append(payload["embedding"])
-        return vectors
+        try:
+            if self._session is None:
+                self._session = aioboto3.Session()
+            vectors = []
+            async with self._session.client(
+                "bedrock-runtime", region_name=self.settings.aws_region
+            ) as client:
+                for text in texts:
+                    resp = await client.invoke_model(
+                        modelId=self.settings.embedding_model,
+                        body=jsonlib.dumps(
+                            {
+                                "inputText": text,
+                                "dimensions": self.settings.embedding_dim,
+                                "normalize": True,
+                            }
+                        ),
+                    )
+                    payload = jsonlib.loads(await resp["body"].read())
+                    vectors.append(payload["embedding"])
+            return vectors
+        except Exception as exc:
+            raise ProviderError("Titan embedding failed") from exc

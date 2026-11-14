@@ -8,6 +8,13 @@ def main() -> None:
     if command == "api":
         import uvicorn
 
+        from .config import Settings
+        from .db import run_migrations
+
+        settings = Settings.load()
+        if settings.auto_migrate and not settings.fixtures_mode:
+            run_migrations(settings.database_url, settings.migrations_dir)
+
         uvicorn.run(
             "ai_agent_service.main:create_app",
             factory=True,

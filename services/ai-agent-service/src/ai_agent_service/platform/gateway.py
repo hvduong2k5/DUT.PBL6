@@ -7,6 +7,7 @@ The LLM never calls HTTP or a database directly.
 from __future__ import annotations
 
 import asyncio
+import inspect
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
@@ -60,7 +61,7 @@ class ToolGateway:
         self,
         registry: ToolRegistry,
         timeout_seconds: float = 2.0,
-        recorder: Callable[[dict], None] | None = None,
+        recorder: Callable[[dict], None | Awaitable[None]] | None = None,
     ):
         self.registry = registry
         self.timeout_seconds = timeout_seconds
@@ -99,7 +100,7 @@ class ToolGateway:
             TOOL_CALLS.labels(tool=name, result=status).inc()
             TOOL_SECONDS.labels(tool=name).observe(latency)
             if self.recorder is not None:
-                self.recorder(
+                recorded = self.recorder(
                     {
                         "run_id": ctx.run_id,
                         "tool_name": name,
@@ -108,3 +109,5 @@ class ToolGateway:
                         "latency_ms": int(latency * 1000),
                     }
                 )
+                if inspect.isawaitable(recorded):
+                    await recorded

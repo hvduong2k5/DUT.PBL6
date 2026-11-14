@@ -12,6 +12,7 @@ class Product:
     status: str  # published | discontinued
     description: str = ""
     popularity: int = 0
+    stock_available: int | None = None
 
     def public_dict(self) -> dict:
         return {
@@ -37,3 +38,5 @@ class ShippingQuote:
     fee_vnd: int
     eta_days: str
     carrier: str = "GHN"
+    available: bool = True
+    reason: str | None = None

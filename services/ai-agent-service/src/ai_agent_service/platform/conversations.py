@@ -12,6 +12,7 @@ class Conversation:
     owner_type: str  # guest | customer
     customer_id: str | None
     expires_at: datetime
+    guest_token_hash: str | None = None
 
 
 @dataclass
@@ -23,7 +24,10 @@ class StoredMessage:
 
 class ConversationStore(Protocol):
     def create(
-        self, owner_type: str, customer_id: str | None, retention_days: int
+        self, owner_type: str, customer_id: str | None, retention_days: int,
+        guest_token_hash: str | None = None,
+        idempotency_key: str | None = None,
+        idempotency_owner: str | None = None,
     ) -> Conversation: ...
 
     def get(self, conversation_id: str) -> Conversation | None: ...
@@ -57,17 +61,29 @@ class MemoryConversationStore:
         self._messages: dict[str, list[StoredMessage]] = {}
         self._slots: dict[str, dict] = {}
         self._consent: dict[str, bool] = {}
+        self._idempotent_conversations: dict[tuple[str, str], str] = {}
 
-    def create(self, owner_type, customer_id, retention_days):
+    def create(
+        self, owner_type, customer_id, retention_days, guest_token_hash=None,
+        idempotency_key=None, idempotency_owner=None,
+    ):
+        identity = (idempotency_owner, idempotency_key)
+        if all(identity) and identity in self._idempotent_conversations:
+            existing_id = self._idempotent_conversations[identity]
+            if existing_id in self._conversations:
+                return self._conversations[existing_id]
         conv = Conversation(
             id=uuid.uuid4().hex,
             owner_type=owner_type,
             customer_id=customer_id,
             expires_at=_now() + timedelta(days=retention_days),
+            guest_token_hash=guest_token_hash,
         )
         self._conversations[conv.id] = conv
         self._messages[conv.id] = []
         self._slots[conv.id] = {}
+        if all(identity):
+            self._idempotent_conversations[identity] = conv.id
         return conv
 
     def get(self, conversation_id):
@@ -99,6 +115,11 @@ class MemoryConversationStore:
             self._conversations.pop(cid, None)
             self._messages.pop(cid, None)
             self._slots.pop(cid, None)
+        self._idempotent_conversations = {
+            identity: cid
+            for identity, cid in self._idempotent_conversations.items()
+            if cid in self._conversations
+        }
         return len(expired)
 
 
@@ -114,29 +135,43 @@ class PostgresConversationStore:
 
         return connect(self.database_url)
 
-    def create(self, owner_type, customer_id, retention_days):
+    def create(
+        self, owner_type, customer_id, retention_days, guest_token_hash=None,
+        idempotency_key=None, idempotency_owner=None,
+    ):
         expires = _now() + timedelta(days=retention_days)
         with self._conn() as conn:
             row = conn.execute(
-                "INSERT INTO conversations (owner_type, customer_id, expires_at) "
-                "VALUES (%s, %s, %s) RETURNING id",
-                (owner_type, customer_id, expires),
+                "INSERT INTO conversations "
+                "(owner_type, customer_id, expires_at, guest_token_hash, "
+                "idempotency_key, idempotency_owner) VALUES (%s, %s, %s, %s, %s, %s) "
+                "ON CONFLICT (idempotency_owner, idempotency_key) "
+                "WHERE idempotency_owner IS NOT NULL AND idempotency_key IS NOT NULL DO UPDATE "
+                "SET idempotency_key = EXCLUDED.idempotency_key "
+                "RETURNING id, owner_type, customer_id, expires_at, guest_token_hash",
+                (
+                    owner_type, customer_id, expires, guest_token_hash,
+                    idempotency_key, idempotency_owner,
+                ),
             ).fetchone()
             conv_id = str(row[0])
             conn.execute(
-                "INSERT INTO conversation_contexts (conversation_id) VALUES (%s)", (conv_id,)
+                "INSERT INTO conversation_contexts (conversation_id) VALUES (%s) "
+                "ON CONFLICT (conversation_id) DO NOTHING",
+                (conv_id,),
             )
-        return Conversation(conv_id, owner_type, customer_id, expires)
+        return Conversation(str(row[0]), row[1], row[2], row[3], row[4])
 
     def get(self, conversation_id):
         with self._conn() as conn:
             row = conn.execute(
-                "SELECT id, owner_type, customer_id, expires_at FROM conversations WHERE id = %s",
+                "SELECT id, owner_type, customer_id, expires_at, guest_token_hash "
+                "FROM conversations WHERE id = %s",
                 (conversation_id,),
             ).fetchone()
         if row is None:
             return None
-        return Conversation(str(row[0]), row[1], row[2], row[3])
+        return Conversation(str(row[0]), row[1], row[2], row[3], row[4])
 
     def add_message(self, conversation_id, role, content, metadata=None):
         import json

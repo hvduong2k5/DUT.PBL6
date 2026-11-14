@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from typing import Protocol
 
 from ..config import Settings
+from ..observability import LLM_CALLS, LLM_TOKENS
 
 
 @dataclass
@@ -82,6 +83,49 @@ class LLMProvider(Protocol):
 
 class ProviderError(RuntimeError):
     pass
+
+
+class ObservedProvider:
+    """Metrics decorator that keeps provider concerns out of business workflows."""
+
+    def __init__(self, provider: str, inner: LLMProvider):
+        self.provider = provider
+        self.inner = inner
+
+    def _usage(self, usage: Usage) -> None:
+        LLM_TOKENS.labels(provider=self.provider, direction="input").inc(
+            usage.input_tokens
+        )
+        LLM_TOKENS.labels(provider=self.provider, direction="output").inc(
+            usage.output_tokens
+        )
+
+    async def generate(self, request: LLMRequest) -> LLMResponse:
+        try:
+            response = await self.inner.generate(request)
+        except asyncio.CancelledError:
+            LLM_CALLS.labels(provider=self.provider, result="error").inc()
+            raise
+        except Exception:
+            LLM_CALLS.labels(provider=self.provider, result="error").inc()
+            raise
+        LLM_CALLS.labels(provider=self.provider, result="ok").inc()
+        self._usage(response.usage)
+        return response
+
+    async def stream(self, request: LLMRequest) -> AsyncIterator[LLMStreamEvent]:
+        try:
+            async for event in self.inner.stream(request):
+                if event.kind == "usage" and event.usage is not None:
+                    self._usage(event.usage)
+                yield event
+        except asyncio.CancelledError:
+            LLM_CALLS.labels(provider=self.provider, result="error").inc()
+            raise
+        except Exception:
+            LLM_CALLS.labels(provider=self.provider, result="error").inc()
+            raise
+        LLM_CALLS.labels(provider=self.provider, result="ok").inc()
 
 
 # ---------------------------------------------------------------------------
@@ -248,19 +292,24 @@ class GeminiProvider:
         return LLMResponse(content=message.get("content") or "", tool_calls=calls)
 
     async def generate(self, request: LLMRequest) -> LLMResponse:
-        async with self._client() as client:
-            resp = await client.post("/chat/completions", json=self._payload(request, False))
-            resp.raise_for_status()
-            data = resp.json()
-        choice = data["choices"][0]
-        result = self._parse_message(choice.get("message", {}))
-        result.finish_reason = choice.get("finish_reason") or "stop"
-        usage = data.get("usage") or {}
-        result.usage = Usage(
-            input_tokens=usage.get("prompt_tokens", 0),
-            output_tokens=usage.get("completion_tokens", 0),
-        )
-        return result
+        try:
+            async with self._client() as client:
+                resp = await client.post("/chat/completions", json=self._payload(request, False))
+                resp.raise_for_status()
+                data = resp.json()
+            choice = data["choices"][0]
+            result = self._parse_message(choice.get("message", {}))
+            result.finish_reason = choice.get("finish_reason") or "stop"
+            usage = data.get("usage") or {}
+            result.usage = Usage(
+                input_tokens=usage.get("prompt_tokens", 0),
+                output_tokens=usage.get("completion_tokens", 0),
+            )
+            return result
+        except ProviderError:
+            raise
+        except Exception as exc:
+            raise ProviderError("Gemini generation failed") from exc
 
     async def stream(self, request: LLMRequest) -> AsyncIterator[LLMStreamEvent]:
         async with self._client() as client:
@@ -365,9 +414,12 @@ class BedrockProvider:
         )
 
     async def generate(self, request: LLMRequest) -> LLMResponse:
-        async with self._client() as client:
-            data = await client.converse(**self._converse_kwargs(request))
-        return self._parse_output(data)
+        try:
+            async with self._client() as client:
+                data = await client.converse(**self._converse_kwargs(request))
+            return self._parse_output(data)
+        except Exception as exc:
+            raise ProviderError("Bedrock generation failed") from exc
 
     async def stream(self, request: LLMRequest) -> AsyncIterator[LLMStreamEvent]:
         async with self._client() as client:
