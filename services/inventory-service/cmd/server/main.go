@@ -2,11 +2,15 @@ package main
 
 import (
 	"context"
+	"crypto/rsa"
 	"database/sql"
+	"dut-pbl6/inventory-service/internal/presentation/httpapi"
 	"errors"
 	"fmt"
+	"github.com/golang-jwt/jwt/v5"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"strings"
@@ -248,6 +252,37 @@ func main() {
 		}
 	}()
 
+	var adminHTTP *http.Server
+	if address := os.Getenv("INVENTORY_ADMIN_HTTP_ADDR"); address != "" {
+		issuer := os.Getenv("INVENTORY_STAFF_ISSUER")
+		audience := getEnv("INVENTORY_STAFF_AUDIENCE", "omama-api")
+		keyPEM, readErr := os.ReadFile(os.Getenv("INVENTORY_STAFF_PUBLIC_KEY_FILE"))
+		var publicKey *rsa.PublicKey
+		if readErr == nil {
+			publicKey, readErr = jwt.ParseRSAPublicKeyFromPEM(keyPEM)
+		}
+		if readErr != nil || issuer == "" {
+			log.Fatal("inventory admin API requires a valid issuer and RSA public key file")
+		}
+		var hasSchema bool
+		if err := db.QueryRow("SELECT to_regclass('stock_receipts') IS NOT NULL").Scan(&hasSchema); err != nil || !hasSchema {
+			log.Fatal("apply inventory migration 000005 before enabling the admin API")
+		}
+		mux := http.NewServeMux()
+		mux.Handle("POST "+httpapi.ReceiptPath, httpapi.ReceiptHandler{DB: db, Key: publicKey, Issuer: issuer, Audience: audience})
+		adminHTTP = &http.Server{Addr: address, Handler: mux, ReadHeaderTimeout: 5 * time.Second,
+			ReadTimeout: 10 * time.Second, WriteTimeout: 15 * time.Second}
+		listener, err := net.Listen("tcp", address)
+		if err != nil {
+			log.Fatalf("start inventory admin API: %v", err)
+		}
+		go func() {
+			if err := adminHTTP.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				log.Fatalf("serve inventory admin API: %v", err)
+			}
+		}()
+	}
+
 	// 10. Graceful Shutdown on SIGINT/SIGTERM
 	stopChan := make(chan os.Signal, 1)
 	signal.Notify(stopChan, os.Interrupt, syscall.SIGTERM)
@@ -262,6 +297,12 @@ func main() {
 	_ = expiryWorker.Stop(3 * time.Second)
 	if consumerListener != nil {
 		_ = consumerListener.Stop(3 * time.Second)
+	}
+
+	if adminHTTP != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		_ = adminHTTP.Shutdown(ctx)
+		cancel()
 	}
 
 	// Stop gRPC server

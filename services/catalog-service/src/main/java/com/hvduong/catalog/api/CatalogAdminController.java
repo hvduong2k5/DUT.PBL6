@@ -1,5 +1,6 @@
 package com.hvduong.catalog.api;
 
+import com.hvduong.catalog.application.dto.request.CreateCategoryRequest;
 import com.hvduong.catalog.application.dto.request.CreateProductImageRequest;
 import com.hvduong.catalog.application.dto.request.CreateProductRequest;
 import com.hvduong.catalog.application.dto.request.CreateVariantRequest;
@@ -12,6 +13,7 @@ import com.hvduong.catalog.application.dto.request.UpdateProductRequest;
 import com.hvduong.catalog.application.dto.response.AdminPriceResponse;
 import com.hvduong.catalog.application.dto.response.AdminProductDetailResponse;
 import com.hvduong.catalog.application.dto.response.AdminProductListResponse;
+import com.hvduong.catalog.application.dto.response.CategoryResponse;
 import com.hvduong.catalog.application.dto.response.ProductDetailResponse;
 import com.hvduong.catalog.application.service.CatalogAdminService;
 import com.hvduong.catalog.common.response.ApiResponse;
@@ -45,6 +47,16 @@ import lombok.extern.slf4j.Slf4j;
 public class CatalogAdminController {
 
   private final CatalogAdminService adminService;
+
+  @PreAuthorize("hasAuthority('CATALOG_MANAGE#GLOBAL')")
+  @PostMapping("/categories")
+  public ResponseEntity<ApiResponse<CategoryResponse>> createCategory(
+      @Valid @RequestBody CreateCategoryRequest request,
+      @RequestHeader("Idempotency-Key") String key,
+      @AuthenticationPrincipal Jwt jwt) {
+    return ResponseEntity.status(201)
+        .body(ApiResponse.success(adminService.createCategory(request, jwt.getSubject(), key)));
+  }
 
   private String resolveActorId(Jwt jwt, String actorHeader) {
     if (actorHeader != null && !actorHeader.isBlank()) {

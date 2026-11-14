@@ -21,7 +21,9 @@ func (s *Service) Start(ctx context.Context) {
 			s.stop.Add(1)
 			go s.consumeFulfillment(ctx, topic)
 		}
-		s.startPaymentLoop(ctx, time.Second, "fulfillment shipment retry", s.WorkFulfillmentShipment)
+		if !s.C.ShippingOwnsPackingHandoff {
+			s.startPaymentLoop(ctx, time.Second, "fulfillment shipment retry", s.WorkFulfillmentShipment)
+		}
 	}
 	if s.Shipping != nil && s.CoreCheckout != nil && s.C.Kafka != "" {
 		s.stop.Add(1)
@@ -215,7 +217,7 @@ func (s *Service) startPaymentLoop(ctx context.Context, interval time.Duration, 
 				return
 			case <-ticker.C:
 				if e := work(ctx); e != nil && ctx.Err() == nil {
-					slog.Error(label)
+					slog.Error(label, "error", e)
 				}
 			}
 		}

@@ -24,18 +24,19 @@
         )
     </insert>
 
-    <select id="findById" resultMap="InvitationRowMap">
+    <select id="findByIdForUpdate" resultMap="InvitationRowMap">
         SELECT *
         FROM employee_invitations
         WHERE invitation_id = #{invitationId}
+        FOR UPDATE
     </select>
 
-    <select id="findPendingByPrincipalId" resultMap="InvitationRowMap">
+    <select id="findPendingByPrincipalIdForUpdate" resultMap="InvitationRowMap">
         SELECT *
         FROM employee_invitations
         WHERE principal_id = #{principalId}
           AND invitation_status = 'PENDING'
-          AND expires_at &gt; CURRENT_TIMESTAMP
+        FOR UPDATE
     </select>
 
     <update id="updateStatus">

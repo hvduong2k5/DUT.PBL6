@@ -31,11 +31,29 @@ describe("live Order BFF", () => {
     expect((await handleLiveAdminOrders(request("/api/admin/orders?limit=1&limit=2"), [])).status).toBe(400);
     expect(fetcher).not.toHaveBeenCalled();
   });
-  it("does not enter the mock adapter through standalone OIDC mode", async () => {
+  it("ignores the BFF session cookie and browser bearer in OIDC mode", async () => {
     vi.stubEnv("WEB_AUTH_MODE", "oidc");
+    vi.stubEnv("NEXT_PUBLIC_API_URL", "http://gateway.test/api/v1");
     const fetcher = vi.fn(); vi.stubGlobal("fetch", fetcher);
-    expect((await handleLiveAdminOrders(request(), [])).status).toBe(503);
+    expect((await handleLiveAdminOrders(request(), [])).status).toBe(401);
     expect(fetcher).not.toHaveBeenCalled();
+  });
+  it("forwards the trusted access token to the gateway admin API in OIDC mode", async () => {
+    vi.stubEnv("WEB_AUTH_MODE", "oidc");
+    vi.stubEnv("NEXT_PUBLIC_API_URL", "http://gateway.test/api/v1");
+    const fetcher = vi.fn().mockResolvedValue(Response.json({ items: [], calculated_at: "2026-11-07T12:00:00Z", next_cursor: null }));
+    vi.stubGlobal("fetch", fetcher);
+    const oidcRequest = new NextRequest("http://localhost:3000/api/admin/orders?view=queue&limit=10", { headers: { Cookie: "oma_access_token=staff-access-token; unrelated=private", Authorization: "Bearer forged", "X-Admin-Profile": "SYSTEM_ADMIN" } });
+    const result = await handleLiveAdminOrders(oidcRequest, []);
+    expect(result.status).toBe(200);
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    const [url, init] = fetcher.mock.calls[0];
+    expect(url).toBe("http://gateway.test/api/v1/admin/orders/queue?limit=10");
+    const headers = init.headers as Headers;
+    expect(headers.get("Authorization")).toBe("Bearer staff-access-token");
+    expect(headers.get("Cookie")).toBeNull();
+    expect(headers.get("Accept")).toBe("application/vnd.omama.admin-order+json");
+    expect(headers.get("X-Admin-Profile")).toBeNull();
   });
   it("preserves denial and outages without falling back to mock data", async () => {
     const fetcher = vi.fn(); vi.stubGlobal("fetch", fetcher);

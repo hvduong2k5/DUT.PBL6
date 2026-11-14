@@ -61,3 +61,15 @@ Lease owner crash: next worker claims after DB expiry and increments epoch. Old 
 ## 6. Safe operator capability design
 
 Future recovery APIs create/query recovery operations with permission, reason, assignee, evidence refs and expected version. Allowed: request reconciliation, retry same job identity, record verified external observation, resolve own-source block via policy. Forbidden: PATCH task/stock/payment state directly, delete guard, alter original event/revision, invent CANCELLED proof, resend carrier/refund using fresh key. Every action writes durable audit and produces a reviewable result.
+
+## Outbox dead letters
+
+After 10 recorded Kafka publish failures, a delivery is retained in
+`fulfillment.outbox` with `dead_lettered_at` and `last_error_code`.
+Migration 000004 also quarantines unpublished records that already reached
+10 attempts. Apply it with the publisher stopped to avoid an in-flight
+delivery during the migration. Later deliveries in the same stream wait
+for recovery. Other streams continue. Inspect the worker log by event ID and correct the Kafka issue
+before clearing `dead_lettered_at`, `last_error_code`, and
+`consecutive_failures` for that event and setting `next_run_at` to the
+current time. Preserve the event ID and payload on replay.

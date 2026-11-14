@@ -92,7 +92,7 @@ func (r *EmployeeRepository) ListEmployeesScoped(ctx context.Context, department
 	}
 	defer rows.Close()
 
-	var employees []*domain.EmployeeProfile
+	employees := make([]*domain.EmployeeProfile, 0)
 	for rows.Next() {
 		var emp domain.EmployeeProfile
 		if err := rows.Scan(

@@ -50,12 +50,12 @@ public class RoleAssignmentServiceImpl implements RoleAssignmentService {
             throw new IllegalArgumentException("Self-assignment is forbidden: actor cannot assign a role to themselves");
         }
 
-        // Verify role exists and is active (is_enabled = TRUE) when roleMapper is available
-        if (roleMapper != null && request.getRoleId() != null) {
-            var roleRow = roleMapper.findById(request.getRoleId());
-            if (roleRow == null || Boolean.FALSE.equals(roleRow.getIsEnabled())) {
-                throw new NoSuchElementException("Active role not found with id: " + request.getRoleId());
-            }
+        var role = roleMapper.findByIdForUpdate(request.getRoleId());
+        if (role == null || role.getArchivedAt() != null) {
+            throw new NoSuchElementException("Role not found with id: " + request.getRoleId());
+        }
+        if (!Boolean.TRUE.equals(role.getIsEnabled())) {
+            throw new IllegalStateException("Cannot assign disabled role: " + role.getRoleCode());
         }
 
         // 1. Verify principal exists and is an EMPLOYEE

@@ -96,6 +96,21 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error("MALFORMED_REQUEST_BODY", "Dữ liệu JSON trong phần thân yêu cầu không hợp lệ."));
     }
 
+    @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAccessDenied(org.springframework.security.access.AccessDeniedException ex) {
+        String requestId = "req-" + UUID.randomUUID();
+        log.warn("Access denied [requestId={}]: {}", requestId, ex.getMessage());
+        return ResponseEntity.status(ErrorCode.PERMISSION_DENIED.getHttpStatus())
+                .body(ApiResponse.error(ErrorCode.PERMISSION_DENIED.name(), ErrorCode.PERMISSION_DENIED.getUserMessage(), requestId));
+    }
+
+    @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMissingResource() {
+        String requestId = "req-" + UUID.randomUUID();
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ApiResponse.error("NOT_FOUND", "Không tìm thấy tài nguyên.", requestId));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleGenericException(Exception ex) {
         String requestId = "req-" + UUID.randomUUID();

@@ -1,6 +1,5 @@
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
-import { handleCartRequest } from "@/app/api/cart/cart-handler";
 
 vi.mock("@/lib/auth/customer-access-server", () => ({
   authorizeCustomerCapability: vi.fn().mockResolvedValue({}),
@@ -8,10 +7,17 @@ vi.mock("@/lib/auth/customer-access-server", () => ({
 }));
 afterEach(() => vi.unstubAllGlobals());
 
+// The suite runs non-isolated: another test file may already have
+// evaluated cart-handler against the real customer-access-server, in
+// which case the mock above never binds. Reset the module registry and
+// import the handler inside the test so the mock always applies.
+beforeEach(() => vi.resetModules());
+
 it("reads the new cart after a successful 204 DELETE even when a proxy keeps the JSON content type", async () => {
   const fetcher = vi.fn()
     .mockResolvedValueOnce(new Response(null, { status: 204, headers: { "Content-Type": "application/json" } }))
     .mockResolvedValueOnce(Response.json({ revision: 2, items: [] }));
+  const { handleCartRequest } = await import("@/app/api/cart/cart-handler");
   vi.stubGlobal("fetch", fetcher);
   const request = new NextRequest("http://localhost/api/cart/items/PRIVATE-A", {
     method: "DELETE", headers: { "If-Match": '"1"', Origin: "http://localhost", Cookie: "oma_access_token=fixture" }
