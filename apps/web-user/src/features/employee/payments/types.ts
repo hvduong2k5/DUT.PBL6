@@ -55,3 +55,24 @@ export class AdminPaymentApiError extends Error {
   readonly code: string; readonly status: number; readonly errors: Array<{ field: string; message: string }>;
   constructor(status: number, body: AdminPaymentErrorBody) { super(body.message || "Không thể xử lý yêu cầu vận hành thanh toán."); this.name = "AdminPaymentApiError"; this.status = status; this.code = body.code || "UNKNOWN_ERROR"; this.errors = body.errors ?? []; }
 }
+
+export const PAYMENT_CASE_RESOLUTIONS = ["REFUNDED", "NO_PAYMENT_CONFIRMED", "EXTERNAL_FUNDS_RESOLVED"] as const;
+export type PaymentCaseResolution = (typeof PAYMENT_CASE_RESOLUTIONS)[number];
+export const PAYMENT_CASE_RESOLUTION_LABELS: Record<string, string> = {
+  REFUNDED: "Đã hoàn tiền đầy đủ",
+  NO_PAYMENT_CONFIRMED: "Xác nhận không phát sinh thanh toán",
+  EXTERNAL_FUNDS_RESOLVED: "Đã xử lý nguồn tiền ngoài hệ thống"
+};
+
+// A decision record from the local case authority (F-55): created by a
+// PAYMENT_CASE_DECIDE holder who is not the case assignee, consumed by
+// reference when the assignee resolves the case.
+export interface PaymentCaseDecision {
+  decisionReference: string;
+  caseId: string;
+  resolution: string;
+  resolutionLabel: string;
+  allowed: boolean;
+  evidenceIds: string[];
+  policyVersion: string;
+}
