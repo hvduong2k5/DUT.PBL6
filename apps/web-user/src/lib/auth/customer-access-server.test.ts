@@ -79,4 +79,19 @@ describe("verified Customer access", () => {
     });
     expect(fetchMock).toHaveBeenCalledTimes(4);
   });
+
+  it("guides a pending-verification Customer to activation instead of a bare denial", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(session())
+      .mockResolvedValueOnce(profile("CUSTOMER"))
+      .mockResolvedValueOnce(json({id:"20000000-0000-0000-0000-000000000001",user_id:"10000000-0000-0000-0000-000000000001",status:"PENDING_VERIFICATION"}))
+      .mockResolvedValueOnce(json({ actor: "REGISTERED", capabilities: ["PROFILE_MANAGE"], version: 1 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(authorizeCustomerCapability("00000000-0000-0000-0000-000000000001", "CART_MANAGE")).rejects.toMatchObject({
+      status: 403,
+      code: "ACCOUNT_ACTIVATION_REQUIRED"
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+  });
 });

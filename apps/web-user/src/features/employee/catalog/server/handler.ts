@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { EmployeeAuthorizationError, requireEmployeeSession } from "@/features/employee/auth/server";
-import { applyTrustedSessionCookie } from "@/lib/auth/server-credential";
+import { applyTrustedSessionCookie, getTrustedAccessToken } from "@/lib/auth/server-credential";
+import { usesIdentityBff } from "@/lib/auth/oidc-config";
 import type { AdminProductDetail, AdminProductList, AdminProductSku, AdminProductSummary, ProductSaleStatus, SkuSaleStatus } from "@/features/employee/catalog/types";
 import { parseAdminCatalogPath } from "@/features/employee/catalog/validation";
 
@@ -17,10 +18,21 @@ const SKU_STATUSES = new Set<SkuSaleStatus>(["ON_SALE", "PAUSED", "DISCONTINUED"
 function responseError(code: string, message: string, status: number, errors: Array<{ field: string; message: string }> = []) {
   return NextResponse.json({ code, message, errors, requestId: `BFF-ADMIN-CATALOG-${code}` }, { status });
 }
-function baseUrl() { return (process.env.ADMIN_API_UPSTREAM_URL ?? "http://127.0.0.1:4030/api/v1").replace(/\/$/u, ""); }
+function baseUrl() {
+  // OIDC mode: the catalog admin API sits behind the same gateway base as
+  // identity (IDENTITY_UPSTREAM_URL ends in /api/v1); catalog authorizes
+  // the staff JWT itself via its permission_grants claim.
+  if (!usesIdentityBff()) return (process.env.IDENTITY_UPSTREAM_URL ?? "").replace(/\/$/u, "");
+  return (process.env.ADMIN_API_UPSTREAM_URL ?? "http://127.0.0.1:4030/api/v1").replace(/\/$/u, "");
+}
 function mockProfile() { return process.env.NODE_ENV === "production" ? "" : process.env.ADMIN_MOCK_PROFILE ?? process.env.ADMIN_MOCK_ROLE ?? "SALES_MANAGER"; }
 function headers(request: NextRequest) {
   const result = new Headers({ Accept: "application/json" });
+  if (!usesIdentityBff()) {
+    const token = getTrustedAccessToken(request);
+    if (token) result.set("Authorization", `Bearer ${token}`);
+    return result;
+  }
   applyTrustedSessionCookie(result, request);
   const profile = mockProfile();
   if (profile) result.set("X-Admin-Profile", profile);

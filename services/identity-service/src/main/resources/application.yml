@@ -2,6 +2,8 @@ server:
   port: 8016
 
 app:
+  auth:
+    jwt-clock-skew: 30s
   customer-api:
     gateway-url: ${CUSTOMER_API_GATEWAY_URL:}
   frontend-url: ${FRONTEND_BASE_URL:http://localhost:3000}
@@ -26,6 +28,17 @@ spring:
   flyway:
     enabled: true
     baseline-on-migrate: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
 
 mybatis:
   mapper-locations: classpath:mapper/sql/*.xml

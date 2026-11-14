@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { useRouter } from "next/navigation";
 import type { IdentityProfile } from "@/lib/auth/identity";
 import { identityService } from "@/services/identity-service";
+import { authService } from "@/services/auth-service";
 
 export type AuthStatus = "loading" | "guest" | "authenticated" | "error";
 
@@ -59,13 +60,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
-    try { await identityService.logout(); }
-    finally {
-      setProfile(null);
-      setStatus("guest");
-      router.replace("/");
-      router.refresh();
+    let logoutUrl: string | undefined;
+    try {
+      const result = await authService.logout();
+      logoutUrl = result?.logoutUrl;
+    } catch {
+      // The local sign-out below still applies when the auth route is
+      // unreachable; the session cookies are httpOnly and expire with
+      // the refresh token at the latest.
     }
+    if (logoutUrl) {
+      // OIDC mode (F-13): end the provider-side SSO session, which
+      // returns the browser via /api/auth/oidc/logged-out. Stay pending
+      // so callers cannot navigate locally and race the redirect.
+      window.location.assign(logoutUrl);
+      return new Promise<void>(() => {});
+    }
+    try { await identityService.logout(); } catch { /* local sign-out proceeds */ }
+    setProfile(null);
+    setStatus("guest");
+    router.replace("/");
+    router.refresh();
   }, [router]);
 
   const hasRole = useCallback((roleCode: string) => Boolean(profile?.roles.some((role) => role.roleCode.toLocaleUpperCase("en") === roleCode.toLocaleUpperCase("en"))), [profile]);

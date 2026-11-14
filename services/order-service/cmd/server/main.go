@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -51,6 +52,11 @@ func main() {
 	}
 	options := []grpc.ServerOption{grpc.MaxRecvMsgSize(64 << 10)}
 	certificate, key := os.Getenv("ORDER_GRPC_TLS_CERT"), os.Getenv("ORDER_GRPC_TLS_KEY")
+	if cfg.ShippingOwnsPackingHandoff &&
+		(s.Fulfillment == nil || certificate == "" || key == "" || len(strings.TrimSpace(os.Getenv("ORDER_SHIPPING_CALLER_TOKEN"))) < 32) {
+		slog.Error("Shipping packing handoff requires Fulfillment, Order gRPC TLS and a dedicated Shipping credential")
+		os.Exit(1)
+	}
 	if certificate != "" || key != "" {
 		creds, e := credentials.NewServerTLSFromFile(certificate, key)
 		if e != nil {

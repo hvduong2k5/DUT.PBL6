@@ -19,7 +19,10 @@ export function EmployeeSessionProvider({ children }: { children: ReactNode }) {
   const auth = useAuth();
   const employee = auth.profile?.principalType === "EMPLOYEE" ? auth.profile : null;
   const session = useMemo(() => employee ? toEmployeeSession(employee) : undefined, [employee]);
-  const hasPermission = useCallback((permission: string) => Boolean(employee?.permissions.includes(permission)), [employee]);
+  // Gates across the admin UI check draft-vocabulary permission names, so
+  // they must read the projected session (where IAM grants are expanded
+  // into those names), not the raw identity profile permissions.
+  const hasPermission = useCallback((permission: string) => Boolean(session?.permissions.includes(permission as EmployeePermission)), [session]);
   const hasRole = useCallback((roleCode: string) => Boolean(employee?.roles.some((role) => role.roleCode === roleCode)), [employee]);
   const value = useMemo(() => employee && session ? { employee, session, hasPermission, hasRole, logout: auth.logout } : null, [auth.logout, employee, hasPermission, hasRole, session]);
   return <EmployeeSessionContext.Provider value={value}>{children}</EmployeeSessionContext.Provider>;
