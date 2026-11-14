@@ -21,6 +21,11 @@ IDS = {
     "customer3": "00000000-0000-0000-0000-000000002712",
     "warehouse": WAREHOUSE,
     "outage": ADMIN,
+    "dashboard": ADMIN,
+    "supply": ADMIN,
+    "flat": ADMIN,
+    "warehousegrant": ADMIN,
+    "inactive": ADMIN,
 }
 STAFF_SESSIONS = {
     "f47ac10b-58cc-4372-a567-0e02b2c3d479": "admin",
@@ -28,6 +33,16 @@ STAFF_SESSIONS = {
     "f47ac10b-58cc-4372-a567-0e02b2c3d477": "customer",
     "f47ac10b-58cc-4372-a567-0e02b2c3d476": "customer2",
     "f47ac10b-58cc-4372-a567-0e02b2c3d475": "customer3",
+    "f47ac10b-58cc-4372-a567-0e02b2c3d474": "dashboard",
+    "f47ac10b-58cc-4372-a567-0e02b2c3d473": "supply",
+    "f47ac10b-58cc-4372-a567-0e02b2c3d472": "flat",
+    "f47ac10b-58cc-4372-a567-0e02b2c3d471": "warehousegrant",
+}
+GRANTS = {
+    "dashboard": ["ANALYTICS_DASHBOARD_VIEW#GLOBAL"],
+    "supply": ["ANALYTICS_SUPPLY_VIEW#GLOBAL"],
+    "warehousegrant": ["ANALYTICS_DASHBOARD_VIEW#WAREHOUSE#WH-01"],
+    "inactive": ["ANALYTICS_DASHBOARD_VIEW#GLOBAL"],
 }
 KEY = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 PUBLIC = KEY.public_key().public_bytes(
@@ -50,6 +65,10 @@ def token(kind: str):
         "aud": "omama-api",
         "iss": ISSUER,
         "exp": datetime.now(UTC) + timedelta(minutes=5),
+        "permission_grants": GRANTS.get(kind, []),
+        "permissions": ["ANALYTICS_DASHBOARD_VIEW", "ANALYTICS_SUPPLY_VIEW"]
+        if kind == "flat"
+        else [],
     }
     return {"token": jwt.encode(claims, KEY, algorithm="RS256")}
 
@@ -95,10 +114,24 @@ def identity(
             "principalId": IDS.get(kind, ADMIN),
             "idpSubject": kind,
             "principalType": "CUSTOMER" if kind.startswith("customer") else "EMPLOYEE",
-            "provisioningStatus": "ACTIVE",
+            "provisioningStatus": "DISABLED" if kind == "inactive" else "ACTIVE",
             "displayName": "Nhân viên pilot",
             "email": "pilot@example.test",
-            "permissions": ["INVENTORY_MANAGEMENT_VIEW", "BATCH_VIEW"] if kind == "admin" else [],
+            "permissions": (
+                ["INVENTORY_MANAGEMENT_VIEW", "BATCH_VIEW"]
+                if kind == "admin"
+                else ["ANALYTICS_DASHBOARD_VIEW", "ANALYTICS_SUPPLY_VIEW"]
+                if kind == "flat"
+                else []
+            ),
+            "permissionGrants": [
+                {
+                    "permissionCode": grant.split("#")[0],
+                    "scopeType": grant.split("#")[1],
+                    "scopeId": grant.split("#")[2] if len(grant.split("#")) > 2 else None,
+                }
+                for grant in GRANTS.get(kind, [])
+            ],
             "roles": [
                 {"roleCode": "ADMIN", "scopeType": "WAREHOUSE" if kind == "warehouse" else "GLOBAL"}
             ],

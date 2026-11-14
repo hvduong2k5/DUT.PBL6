@@ -88,6 +88,7 @@ class AuthSettings:
     pilot_ids: frozenset[str]
     audience: str = "omama-api"
     session_origin: str = ""
+    mode: str = "pilot"
 
     @classmethod
     def load(cls):
@@ -100,7 +101,14 @@ class AuthSettings:
             ),
             setting("JWT_AUDIENCE", "omama-api"),
             setting("SESSION_ORIGIN"),
+            setting("AUTH_MODE", "pilot"),
         )
-        if not all((result.issuer, result.public_key, result.identity_url, result.pilot_ids)):
-            raise ValueError("JWT issuer/key, Identity URL and pilot IDs are required for the API")
+        if result.mode not in ("pilot", "scoped"):
+            raise ValueError("ANALYTICS_AUTH_MODE must be pilot or scoped")
+        if not all((result.issuer, result.public_key, result.identity_url)) or (
+            result.mode == "pilot" and not result.pilot_ids
+        ):
+            raise ValueError(
+                "JWT issuer/key, Identity URL and pilot IDs for pilot mode are required"
+            )
         return result
