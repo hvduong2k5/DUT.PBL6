@@ -17,9 +17,30 @@ docker compose -p analytics-local -f services/analytics-service/compose.test.yml
 
 API local bind loopback trên port 18011. Test tạo ngày dữ liệu có thể đối soát, kiểm API HTTP và dùng fixture Identity có khóa ký tạm thời. Kafka, PostgreSQL và ClickHouse chạy thật. Chỉ dùng lệnh xóa volume ở trên cho project test cô lập.
 
+Để giữ một pilot local chạy nền, dùng project riêng `analytics-pilot-local`:
+
+```powershell
+docker compose -p analytics-pilot-local -f services/analytics-service/compose.test.yml up -d --build api collector builder
+Invoke-WebRequest http://127.0.0.1:18011/readyz
+docker compose -p analytics-pilot-local -f services/analytics-service/compose.test.yml ps
+```
+
+`readyz` chỉ chứng minh API nối được PostgreSQL và ClickHouse; Kafka chạy với topic fixture, Identity dùng tài khoản/khóa thử nghiệm. Đường Dashboard không có token phải trả 401. Pilot này không đọc Order/Inventory thật và không chứng minh số liệu kinh doanh. Dừng bằng `docker compose -p analytics-pilot-local -f services/analytics-service/compose.test.yml stop`; chỉ xóa volume của project này sau khi đã lưu bằng chứng cần thiết.
+
 ## Pilot dev
 
 Dùng image build với context gốc repo và `-f services/analytics-service/Dockerfile`. Set `ANALYTICS_IMAGE` bằng image digest, `ANALYTICS_DEV_NETWORK` bằng network private có Kong và `ANALYTICS_DEV_CONFIG` bằng thư mục cấu hình ngoài repo. Tạo `migration/service.env`, `collector/service.env`, `builder/service.env`, `api/service.env`. Mỗi container chỉ mount thư mục cấu hình của role tương ứng tại `/run/analytics`.
+
+Trước khi migrate hoặc bật API trên host shared dev, chạy `services/analytics-service/dev/preflight.ps1 -Supply` với các biến môi trường trên và `ANALYTICS_SUPPLY_INBOX`. Preflight kiểm image digest, network riêng, cấu hình ngoài repo, hai thư mục nguồn và Compose; không in secret hoặc khởi động container. Kết quả pass chỉ xác nhận hạ tầng tối thiểu, không thay cho đối soát dữ liệu và smoke test qua Kong.
+
+`ANALYTICS_AUTH_MODE=pilot` giữ giới hạn UUID pilot. Khi chuyển sang `scoped`, Dashboard yêu cầu `ANALYTICS_DASHBOARD_VIEW#GLOBAL`, Supply yêu cầu `ANALYTICS_SUPPLY_VIEW#GLOBAL`. JWT phải mang `permission_grants` do Identity sync phát; phiên cookie dùng `permissionGrants` từ Identity. Quyền phẳng và tên role không mở API ở chế độ này. Chỉ dùng GLOBAL cho MVP một kho; scope WAREHOUSE chờ hai owner thống nhất ID kho canonical. Migration Identity V14 đăng ký hai permission và cấp cho role ADMIN seed; tạo role nghiệp vụ riêng qua IAM nếu cần.
+
+| Admin route | Quyền ở `scoped` |
+| --- | --- |
+| `GET /dashboard`, `GET /metrics/{metricId}/series` | `ANALYTICS_DASHBOARD_VIEW#GLOBAL` |
+| `GET /supply/workbench`, `GET /supply/velocity`, `GET /supply/expiry-risk` | `ANALYTICS_SUPPLY_VIEW#GLOBAL` |
+
+Sau khi deploy Identity có V14, migration SQL trực tiếp **không tự chạy PermissionSync**. Role ADMIN được bảo vệ, nên `PUT /api/v1/admin/roles/{roleId}/permissions` sẽ bị từ chối. Với mỗi principal ADMIN cần dùng Analytics, người có `PERMISSION_MANAGE` gọi `POST /api/v1/admin/iam/principals/{principalId}/sync-permissions`, rồi yêu cầu nhân viên đăng nhập lại. Kiểm token mới có hai `ANALYTICS_*#GLOBAL`; ADMIN seed có 37 permission thay vì 35. Token cũ giữ grant cũ cho đến khi hết hạn hoặc được cấp lại. Chưa đồng bộ xong thì chưa bật `scoped` cho nhân viên đó.
 
 | Role | Biến cần cấu hình |
 | --- | --- |

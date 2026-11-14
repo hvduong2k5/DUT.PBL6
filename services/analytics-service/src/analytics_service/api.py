@@ -52,6 +52,12 @@ class Role(BaseModel):
     scopeType: str
 
 
+class Grant(BaseModel):
+    permissionCode: str
+    scopeType: str
+    scopeId: str | None = None
+
+
 class Persona(BaseModel):
     principalId: str
     idpSubject: str
@@ -59,6 +65,7 @@ class Persona(BaseModel):
     provisioningStatus: str
     roles: list[Role]
     permissions: list[str] = []
+    permissionGrants: list[Grant] = []
 
 
 class IdentityResponse(BaseModel):
@@ -71,7 +78,9 @@ class PilotAuth:
         self.settings = settings
         self.client = httpx.Client(timeout=2, follow_redirects=False)
 
-    def authorize(self, header, session_cookie=None):
+    def authorize(self, header, session_cookie=None, permission=None):
+        if permission not in ("ANALYTICS_DASHBOARD_VIEW", "ANALYTICS_SUPPLY_VIEW"):
+            raise ValueError("Admin permission must be explicit")
         if not header and self.settings.session_origin and session_cookie:
             try:
                 if str(UUID(session_cookie)) != session_cookie:
@@ -84,6 +93,8 @@ class PilotAuth:
                     "Origin": self.settings.session_origin,
                 }
             )
+            if self.settings.mode == "scoped":
+                return self.scoped(persona, permission, persona.permissionGrants)
             if not {"INVENTORY_MANAGEMENT_VIEW", "BATCH_VIEW"}.issubset(persona.permissions):
                 raise forbidden()
             return self.pilot(persona)
@@ -104,12 +115,34 @@ class PilotAuth:
             actor = str(UUID(claims.get("user_id", "")))
         except (jwt.PyJWTError, ValueError, TypeError, AttributeError) as exc:
             raise unauthenticated() from exc
-        if actor not in self.settings.pilot_ids:
+        if self.settings.mode == "pilot" and actor not in self.settings.pilot_ids:
             raise forbidden()
         persona = self.identity({"Authorization": header})
         if persona.principalId != actor or persona.idpSubject != claims["sub"]:
             raise forbidden()
+        if self.settings.mode == "scoped":
+            return self.scoped(persona, permission, claims.get("permission_grants"))
         return self.pilot(persona)
+
+    def scoped(self, persona, permission, grants):
+        if persona.principalType != "EMPLOYEE" or persona.provisioningStatus != "ACTIVE":
+            raise forbidden()
+        if not isinstance(grants, list) or len(grants) > 128:
+            raise forbidden()
+        if grants and isinstance(grants[0], Grant):
+            allowed = any(
+                grant.permissionCode == permission
+                and grant.scopeType == "GLOBAL"
+                and grant.scopeId in (None, "")
+                for grant in grants
+            )
+        else:
+            allowed = all(isinstance(grant, str) for grant in grants) and (
+                permission + "#GLOBAL" in grants
+            )
+        if not allowed:
+            raise forbidden()
+        return persona.principalId
 
     def identity(self, headers):
         try:
@@ -238,11 +271,12 @@ def create_app(settings=None, auth=None):
             )
         return JSONResponse(status_code=error.status_code, content={"detail": error.detail})
 
-    def authorize(request, allow_session=False):
+    def authorize(request, *, permission, allow_session=False):
         limiter.admit(
             auth.authorize(
                 request.headers.get("Authorization", ""),
                 request.cookies.get("OMAMA_SESSION") if allow_session else None,
+                permission,
             )
         )
 
@@ -310,7 +344,11 @@ def create_app(settings=None, auth=None):
 
     @app.get(PREFIX + "/dashboard")
     def dashboard(request: Request):
-        authorize(request)
+        authorize(
+            request,
+            permission="ANALYTICS_DASHBOARD_VIEW",
+            allow_session=auth.settings.mode == "scoped",
+        )
         args = request.query_params
         compare = args.get("comparison")
         if compare not in (None, "previous_period"):
@@ -321,7 +359,11 @@ def create_app(settings=None, auth=None):
 
     @app.get(PREFIX + "/metrics/{metric_id}/series")
     def series(request: Request, metric_id: str):
-        authorize(request)
+        authorize(
+            request,
+            permission="ANALYTICS_DASHBOARD_VIEW",
+            allow_session=auth.settings.mode == "scoped",
+        )
         args = request.query_params
         if metric_id not in snapshots.ORDER_METRICS:
             raise APIError(400, "INVALID_QUERY", "Metric không hỗ trợ chuỗi ngày.")
@@ -336,7 +378,6 @@ def create_app(settings=None, auth=None):
     if settings.supply_enabled:
 
         def supply_warehouse(request):
-            authorize(request, allow_session=True)
             warehouse = request.query_params.get("warehouseId", "")
             if not re.fullmatch(supply.CODE_PATTERN, warehouse):
                 raise APIError(400, "INVALID_QUERY", "Cần mã kho hợp lệ.")
@@ -357,6 +398,7 @@ def create_app(settings=None, auth=None):
 
         @app.get(PREFIX + "/supply/workbench")
         def workbench(request: Request):
+            authorize(request, permission="ANALYTICS_SUPPLY_VIEW", allow_session=True)
             warehouse = supply_warehouse(request)
             args = request.query_params
             start, end = date_range(args.get("from", ""), args.get("to", ""))
@@ -379,6 +421,7 @@ def create_app(settings=None, auth=None):
 
         @app.get(PREFIX + "/supply/velocity")
         def velocity(request: Request):
+            authorize(request, permission="ANALYTICS_SUPPLY_VIEW", allow_session=True)
             sku, warehouse = supply_scope(request)
             args = request.query_params
             compare = args.get("comparison")
@@ -410,6 +453,7 @@ def create_app(settings=None, auth=None):
 
         @app.get(PREFIX + "/supply/expiry-risk")
         def expiry_risk(request: Request):
+            authorize(request, permission="ANALYTICS_SUPPLY_VIEW", allow_session=True)
             sku, warehouse = supply_scope(request)
             horizon = supply_horizon(request)
             try:
