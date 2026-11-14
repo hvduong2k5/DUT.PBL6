@@ -67,6 +67,24 @@ describe("admin session projection", () => {
   });
 });
 
+describe("employee session IAM alias expansion (F-37B administration)", () => {
+  const staffProfile = { principalId: "p1", principalType: "EMPLOYEE" as const, email: "staff@example.com", displayName: "Staff One", provisioningStatus: "ACTIVE", roles: [{ roleCode: "ADMIN", roleName: "Administrator", scopeType: "GLOBAL" as const }], permissions: ["USER_VIEW", "ROLE_VIEW"] };
+
+  it("lets the IAM USER_VIEW grant satisfy the administration page gates", () => {
+    const session = toEmployeeSession(staffProfile);
+    expect(session?.permissions).toContain("EMPLOYEE_ACCOUNT_VIEW");
+    expect(session?.permissions).toContain("ACCESS_REVIEW_VIEW");
+    expect(session?.permissions).toContain("ROLE_VIEW");
+    expect(session?.permissions).not.toContain("USER_VIEW");
+  });
+
+  it("does not invent administration access without the grant", () => {
+    const session = toEmployeeSession({ ...staffProfile, permissions: ["ORDER_VIEW"] });
+    expect(session?.permissions).not.toContain("EMPLOYEE_ACCOUNT_VIEW");
+    expect(session?.permissions).not.toContain("ACCESS_REVIEW_VIEW");
+  });
+});
+
 describe("employee session projection from identity profiles", () => {
   const profileWith = (permissions: string[]): IdentityProfile => ({
     principalId: "emp-1",
@@ -89,23 +107,5 @@ describe("employee session projection from identity profiles", () => {
     const session = toEmployeeSession(profileWith(["ORDER_VIEW"]));
     expect(session?.permissions).not.toContain("PRODUCT_VIEW");
     expect(session?.permissions).not.toContain("PRODUCT_MANAGE");
-  });
-});
-
-describe("employee session IAM alias expansion (F-37B administration)", () => {
-  const staffProfile = { principalId: "p1", principalType: "EMPLOYEE" as const, email: "staff@example.com", displayName: "Staff One", provisioningStatus: "ACTIVE", roles: [{ roleCode: "ADMIN", roleName: "Administrator", scopeType: "GLOBAL" as const }], permissions: ["USER_VIEW", "ROLE_VIEW"] };
-
-  it("lets the IAM USER_VIEW grant satisfy the administration page gates", () => {
-    const session = toEmployeeSession(staffProfile);
-    expect(session?.permissions).toContain("EMPLOYEE_ACCOUNT_VIEW");
-    expect(session?.permissions).toContain("ACCESS_REVIEW_VIEW");
-    expect(session?.permissions).toContain("ROLE_VIEW");
-    expect(session?.permissions).not.toContain("USER_VIEW");
-  });
-
-  it("does not invent administration access without the grant", () => {
-    const session = toEmployeeSession({ ...staffProfile, permissions: ["ORDER_VIEW"] });
-    expect(session?.permissions).not.toContain("EMPLOYEE_ACCOUNT_VIEW");
-    expect(session?.permissions).not.toContain("ACCESS_REVIEW_VIEW");
   });
 });

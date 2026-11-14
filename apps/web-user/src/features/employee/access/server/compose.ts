@@ -537,11 +537,11 @@ async function composePermissionDetail(client: Client, code: string, now: string
   const entry = aggregatePermissions(catalogue).find((e) => e.code === code);
   if (!entry) throw new AccessUpstreamError(404);
   const summary = permissionSummary(entry, principalsByRole);
-  const module = MODULE_BY_RESOURCE[summary.resource.split("_")[0]];
+  const moduleName = MODULE_BY_RESOURCE[summary.resource.split("_")[0]];
   return {
     ...summary,
     protectedCode: true,
-    usedByModules: module ? [module] : [],
+    usedByModules: moduleName ? [moduleName] : [],
     rolesUsing: entry.roles.map((role) => ({
       roleCode: role.roleCode,
       roleName: role.roleName,

@@ -7,7 +7,7 @@ import { useEmployeeSession } from "@/components/auth/employee-session-provider"
 import { EMPLOYEE_NAVIGATION } from "@/features/employee/shared/navigation";
 import { canUseFulfillment } from "@/features/employee/packing/fulfillment-types";
 
-export function EmployeeShell({ children, fulfillmentEnabled = false }: { children: ReactNode; fulfillmentEnabled?: boolean }) {
+export function EmployeeShell({ children, analyticsEnabled = false, fulfillmentEnabled = false }: { children: ReactNode; analyticsEnabled?: boolean; fulfillmentEnabled?: boolean }) {
   const pathname = usePathname() ?? "/admin";
   const { session, employee, hasPermission, logout } = useEmployeeSession();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -24,7 +24,8 @@ export function EmployeeShell({ children, fulfillmentEnabled = false }: { childr
       <div className="admin-scope"><small>Không gian làm việc</small><strong>{session.employee.department}</strong><span>● Đang hoạt động</span></div>
       <nav>{EMPLOYEE_NAVIGATION.map((section) => {
         const visible = section.items.filter((item) => {
-          const baseVisible = !item.permission || hasPermission(item.permission);
+          const analyticsVisible = item.href !== "/admin/analytics" || (analyticsEnabled && hasPermission("BATCH_VIEW"));
+          const baseVisible = (!item.permission || hasPermission(item.permission)) && analyticsVisible;
           const fulfillmentVisible = fulfillmentEnabled && ["/admin/packing", "/admin/work/packing"].includes(item.href) && canUseFulfillment(employee);
           return baseVisible || fulfillmentVisible;
         });
