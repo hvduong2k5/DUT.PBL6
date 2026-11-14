@@ -18,15 +18,21 @@ VALUES
      'Tiếp nhận và xử lý hồ sơ đối soát thanh toán.')
 ON CONFLICT (permission_code) DO NOTHING;
 
+-- Role-code uniqueness is a PARTIAL unique index (V9, then V13:
+-- uq_iam_roles_role_code_unarchived on (role_code) WHERE archived_at IS NULL),
+-- so ON CONFLICT (role_code) cannot infer it (SQLSTATE 42P10). Seed with a
+-- NOT EXISTS guard instead, which is idempotent under any constraint shape.
 INSERT INTO iam_roles (role_id, role_code, role_name, description, is_protected, is_enabled)
-VALUES (
+SELECT
     'a0000000-0000-0000-0000-000000000002',
     'FINANCE',
     'Tài chính — đối soát thanh toán',
     'Nhân viên tài chính xử lý đối soát và hoàn tiền SePay/VietQR',
     FALSE,
     TRUE
-) ON CONFLICT (role_code) DO NOTHING;
+WHERE NOT EXISTS (
+    SELECT 1 FROM iam_roles WHERE role_code = 'FINANCE' AND archived_at IS NULL
+);
 
 INSERT INTO iam_role_permissions (role_id, permission_code)
 SELECT r.role_id, p.permission_code
