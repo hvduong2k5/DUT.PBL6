@@ -1,6 +1,7 @@
 package com.hvduong.catalog.common.handler;
 
 import com.hvduong.catalog.common.exception.CatalogException;
+import com.hvduong.catalog.common.exception.ErrorCode;
 import com.hvduong.catalog.common.response.ApiResponse;
 
 import java.util.ArrayList;
@@ -55,6 +56,11 @@ public class GlobalRestExceptionHandler {
     log.warn("IllegalArgumentException: {}", ex.getMessage());
     return ResponseEntity.status(HttpStatus.BAD_REQUEST)
         .body(ApiResponse.error("INVALID_ARGUMENT", ex.getMessage()));
+  }
+
+  @ExceptionHandler(org.springframework.web.bind.MissingRequestHeaderException.class)
+  public ResponseEntity<ApiResponse<Void>> handleMissingHeader() {
+    return handleCatalogException(new CatalogException(ErrorCode.INVALID_ARGUMENT));
   }
 
   @ExceptionHandler(Exception.class)

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Internal Employee Web API - Stable
-  version: 1.1.0
+  version: 2.0.0
   description: Implementation-ready contract for employee sessions, permission-scoped
     management views, and approved workbench operations. Authorization MUST use effective
     permissions and data scopes; role names alone are insufficient. The provisional
@@ -485,7 +485,13 @@ paths:
       tags:
       - Access management
       operationId: postAdminEmployeeInvitations
-      summary: Tạo thư mời nhân viên mới kèm mã kích hoạt
+      summary: Tạo lời mời cho tài khoản Keycloak đã chỉ định
+      description: |
+        Yêu cầu EMPLOYEE_INVITE. Quản trị viên lấy subject từ tài khoản Keycloak
+        của người được mời. Sau khi tạo, quản trị viên gửi invitationId thủ công
+        cho người đó cho đến khi F-46 (SMTP của realm) hoàn tất. Client cũ
+        có thể bỏ idpSubject để tạo lời mời chưa liên kết. Các lời mời đó
+        chưa thể được chấp nhận.
       x-lifecycle: stable
       x-backlog:
       - EPIC_22
@@ -494,40 +500,44 @@ paths:
       - success
       - error
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
               type: object
-              required:
-              - email
               properties:
-                email:
+                idpSubject:
                   type: string
-                  format: email
-                roles:
-                  type: array
-                  items:
-                    type: string
-                temporaryPassword:
-                  type: string
+                  minLength: 1
+                  maxLength: 255
+                validDays:
+                  type: integer
+                  default: 7
       responses:
-        '201':
-          description: Invitation created.
+        '200':
+          description: Invitation created with a pending employee principal.
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  invitationId:
-                    type: string
-                    format: uuid
-                  email:
-                    type: string
-                  token:
-                    type: string
-                  expiresAt:
-                    type: string
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      invitationId:
+                        type: string
+                        format: uuid
+                      principalId:
+                        type: string
+                        format: uuid
+                      status:
+                        type: string
+                        enum: [PENDING]
+                      expiresAt:
+                        type: string
+                        format: date-time
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -599,6 +609,144 @@ paths:
           $ref: '#/components/responses/InternalError'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/public/auth/employee-invitations/{invitationId}/accept:
+    post:
+      tags:
+      - Access management
+      operationId: postAcceptEmployeeInvitation
+      summary: Chấp nhận lời mời bằng tài khoản Keycloak được chỉ định
+      description: |
+        Yêu cầu bearer token hợp lệ với issuer và subject trùng principal PENDING.
+        Thành công sẽ kích hoạt principal và đồng bộ quyền. Thao tác chuyển
+        trạng thái đúng một lần theo invitationId. Lời mời cũ chưa gắn subject
+        cần được thay bằng lời mời mới.
+      x-lifecycle: stable
+      x-backlog: [EPIC_22]
+      x-ui-states: [loading, success, error, auth]
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: invitationId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Invitation accepted and employee activated.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, code]
+                properties:
+                  success:
+                    type: boolean
+                  code:
+                    type: string
+              example:
+                success: true
+                code: SUCCESS
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '410':
+          description: The invitation has expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '502':
+          description: The permissions could not be synchronized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/admin/employees:
+    get:
+      tags:
+      - Access management
+      operationId: getAdminEmployeeProfiles
+      summary: Liệt kê hồ sơ nhân sự
+      description: |
+        Yêu cầu EMPLOYEE_PROFILE_VIEW ở phạm vi GLOBAL. Trả về mảng rỗng
+        nếu không có bản ghi khớp.
+      x-lifecycle: stable
+      x-backlog: [EPIC_22]
+      parameters:
+      - name: department_id
+        in: query
+        schema:
+          type: string
+      - name: status
+        in: query
+        schema:
+          type: string
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          default: 20
+          maximum: 100
+      - name: offset
+        in: query
+        schema:
+          type: integer
+          default: 0
+          minimum: 0
+      responses:
+        '200':
+          description: Array of HR profiles.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required: [id, employee_code, full_name, department_id, status]
+                  properties:
+                    id:
+                      type: string
+                      format: uuid
+                    user_id:
+                      type: string
+                      format: uuid
+                    employee_code:
+                      type: string
+                    full_name:
+                      type: string
+                    department_id:
+                      type: string
+                    status:
+                      type: string
+              examples:
+                empty:
+                  value: []
+                populated:
+                  value:
+                  - id: 814fd90b-08ac-4fb4-a04e-52eb444ad95c
+                    employee_code: HR-001
+                    full_name: HR Test
+                    department_id: DEPT-WAREHOUSE
+                    status: ACTIVE
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /api/v1/admin/role-assignments:
     get:
       tags:
@@ -736,7 +884,7 @@ paths:
       - Access management
       operationId: postAdminRoleAssignments
       summary: Gán vai trò có phạm vi cho nhân viên
-      description: Gán vai trò đang hoạt động (is_enabled=true) cho nhân viên (EMPLOYEE). Chặn tự gán vai trò cho chính mình (Self-assign forbidden).
+      description: Gán vai trò đang hoạt động (is_enabled=true) cho nhân viên (EMPLOYEE). Chặn tự gán vai trò cho chính mình (Self-assign forbidden). Vai trò đang tắt trả 409.
       x-lifecycle: stable
       x-backlog:
       - EPIC_22
@@ -1111,12 +1259,13 @@ paths:
       - Access management
       operationId: getAdminRoles
       summary: Lấy danh sách tất cả vai trò
+      description: Requires an employee with ROLE_VIEW or a client-credentials token from identity-service-admin with audience identity-roles-api. The service credential grants access to this list operation only.
       x-lifecycle: stable
       x-backlog:
       - EPIC_22
       responses:
         '200':
-          description: Role list.
+          description: Role list including disabled roles with isEnabled=false. Archived roles are excluded.
           content:
             application/json:
               schema:
@@ -1136,6 +1285,8 @@ paths:
                           type: string
                         description:
                           type: string
+                        isEnabled:
+                          type: boolean
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -1209,7 +1360,7 @@ paths:
           format: uuid
       responses:
         '200':
-          description: Role details.
+          description: Role details including isEnabled=false for a disabled role.
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -1224,13 +1375,13 @@ paths:
       tags:
       - Access management
       operationId: patchAdminRolesRoleId
-      summary: Cập nhật vai trò (Optimistic Concurrency & Soft Delete)
+      summary: Cập nhật thông tin hoặc trạng thái vai trò
       description: |
-        Cập nhật tên/mô tả vai trò hoặc tắt vai trò.
-        Khi `isEnabled=false`: thu hồi toàn bộ phân công đang hoạt động của vai trò, tính lại quyền
-        cho từng principal bị ảnh hưởng, đồng bộ lên Keycloak và thu hồi phiên Keycloak + xóa phiên
-        BFF (Force Re-login). Vai trò đã xóa mềm (`is_enabled=false`) giữ nguyên `role_code` và
-        không được phép kích hoạt lại (409).
+        Role đã tắt vẫn đọc được và có thể cập nhật tên hoặc mô tả. Khi
+        isEnabled=false, Identity thu hồi phân công, đồng bộ quyền và thu hồi
+        phiên của người bị ảnh hưởng. isEnabled=true cho phép gán vai trò trở
+        lại. Phân công đã thu hồi vẫn giữ trạng thái thu hồi. Role đã lưu trữ
+        trả 409 khi PATCH.
       x-lifecycle: stable
       x-backlog:
       - EPIC_22
@@ -1276,7 +1427,7 @@ paths:
       - Access management
       operationId: deleteAdminRolesRoleId
       summary: Xóa vai trò (Bảo vệ vai trò hệ thống, Soft/Hard Delete)
-      description: Chặn xóa vai trò hệ thống (is_protected=true) và vai trò đang có nhân viên gán active (409). Nếu vai trò chưa từng có lịch sử gán thì xóa cứng; nếu đã có lịch sử gán thì xóa mềm (is_enabled=false, giữ nguyên role_code, không cho kích hoạt lại).
+      description: Chặn xóa vai trò hệ thống (is_protected=true) và vai trò đang có nhân viên gán active (409). Nếu vai trò chưa từng có lịch sử gán thì xóa cứng; nếu đã có lịch sử gán thì lưu trữ (archived_at được gán, giữ lịch sử). DELETE lại role đã lưu trữ trả 409.
       x-lifecycle: stable
       x-backlog:
       - EPIC_22
@@ -2826,6 +2977,109 @@ paths:
           minimum: 1
           maximum: 100
           default: 20
+  /api/v1/admin/catalog/categories:
+    post:
+      tags: [Product management]
+      operationId: postAdminCatalogCategories
+      summary: Create an active Catalog category.
+      description: Requires a global CATALOG_MANAGE grant. A retry with the same key and request returns the created category.
+      x-lifecycle: stable
+      x-backlog: [EPIC_04]
+      x-ui-states: [loading, success, error, unauthorized, forbidden]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            minLength: 16
+            maxLength: 128
+            pattern: '^[!-~]+$'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, slug]
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 255
+                slug:
+                  type: string
+                  maxLength: 255
+                  pattern: '^[a-z0-9]+(-[a-z0-9]+)*$'
+                parentId:
+                  type: [string, 'null']
+                  format: uuid
+                description:
+                  type: [string, 'null']
+                  maxLength: 4000
+                position:
+                  type: [integer, 'null']
+                  minimum: 0
+            example:
+              name: Mè xửng
+              slug: me-xung
+      responses:
+        '201':
+          description: Category created or replayed.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                    const: true
+                  data:
+                    type: object
+                    required: [categoryId, name, slug, position]
+                    properties:
+                      categoryId:
+                        type: string
+                        format: uuid
+                      name:
+                        type: string
+                      slug:
+                        type: string
+                      position:
+                        type: integer
+                      parentId:
+                        type: [string, 'null']
+                        format: uuid
+                      description:
+                        type: [string, 'null']
+                      imageUrl:
+                        type: [string, 'null']
+                      children:
+                        type: [array, 'null']
+                        items:
+                          type: object
+              example:
+                success: true
+                data:
+                  categoryId: e062c830-f25d-5f40-93fb-0358d9d45566
+                  name: Mè xửng
+                  slug: me-xung
+                  position: 0
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /api/v1/admin/catalog/products:
     get:
       tags:
@@ -4831,6 +5085,7 @@ paths:
       summary: Idempotent stock receipt command for US-INV-02. The real Inventory
         service validates SKU, Batch identity and source reference before updating
         balances.
+      description: Requires INVENTORY_RECEIPT_CREATE with GLOBAL scope or WAREHOUSE scope matching the SKU.
       x-lifecycle: stable
       x-backlog:
       - EPIC_09
@@ -4843,7 +5098,6 @@ paths:
       x-test-latency-ms: 1200
       security:
       - bearerAuth: []
-      - adminSession: []
       responses:
         '200':
           description: Successful response.
@@ -4915,36 +5169,46 @@ paths:
           application/json:
             schema:
               type: object
-              required:
-              - skuId
-              - batchCode
-              - quantity
-              - reasonCode
-              - expectedRevision
-              - idempotencyKey
+              required: [skuId, quantity, expectedRevision]
               properties:
-                skuId:
-                  type: string
-                batchCode:
-                  type: string
-                quantity:
-                  type: integer
-                reasonCode:
-                  type: string
-                expectedRevision:
-                  type: integer
-                idempotencyKey:
-                  type: string
+                skuId: {type: string, minLength: 1, maxLength: 50}
+                batchMode: {type: string, enum: [NEW, EXISTING]}
+                batchId: {type: string, format: uuid}
+                batchCode: {type: string, minLength: 1, maxLength: 100}
+                supplierId: {type: string, format: uuid}
+                manufacturingDate: {type: string, format: date}
+                expiresAt: {type: string, format: date}
+                quantity: {type: integer, minimum: 1, maximum: 2147483647}
+                sourceReference: {type: string, minLength: 1, maxLength: 160}
+                reasonCode: {type: string, maxLength: 80}
+                expectedRevision: {type: integer, minimum: 0}
+                idempotencyKey: {type: string, description: Must match the header if supplied.}
               additionalProperties: false
+              oneOf:
+                - required: [batchMode, batchId, sourceReference]
+                  properties:
+                    batchMode: {const: EXISTING}
+                - required: [batchMode, batchCode, supplierId, manufacturingDate, expiresAt, sourceReference]
+                  properties:
+                    batchMode: {const: NEW}
+                - required: [batchCode, reasonCode, idempotencyKey]
+                  properties:
+                    batchMode: false
             example:
-              skuId: SKU-MX-GION-500G
+              skuId: MX-GION-500G
+              batchMode: NEW
               batchCode: LOT-20261005-01
+              supplierId: b2222222-2222-2222-2222-222222222222
+              manufacturingDate: '2026-10-05'
+              expiresAt: '2027-03-05'
               quantity: 100
-              reasonCode: PRODUCTION_RECEIPT
+              sourceReference: PRODUCTION-20261005-01
               expectedRevision: 8
-              idempotencyKey: 45e011ce-c117-4644-99f9-b4f5a9873581
       parameters:
-      - $ref: '#/components/parameters/IdempotencyKey'
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema: {type: string, minLength: 16, maxLength: 128}
   /api/v1/admin/orders:
     get:
       tags:
@@ -5430,6 +5694,7 @@ paths:
                         format: email
                       addressDisplay:
                         type: string
+                        description: Street with ward and province names frozen at checkout. Historical snapshots can supply area codes.
                       deliveryNote:
                         type: string
                     additionalProperties: false
