@@ -92,6 +92,10 @@ func main() {
 	redisAddr := getEnv("REDIS_ADDR", "localhost:6379")
 	redisPassword := getEnv("REDIS_PASSWORD", "redispassword")
 	kafkaBrokersStr := getEnv("KAFKA_BROKERS", "") // e.g. "localhost:9092"
+	procurementWarehouseMap := os.Getenv("INVENTORY_PROCUREMENT_WAREHOUSE_MAP")
+	if procurementWarehouseMap != "" && kafkaBrokersStr == "" {
+		log.Fatal("Procurement consumer requires KAFKA_BROKERS")
+	}
 
 	log.Printf("[InventoryService] Starting gRPC service on port %s...", portStr)
 
@@ -144,6 +148,18 @@ func main() {
 	// 6. Launch Background Workers
 	workerCtx, workerCancel := context.WithCancel(context.Background())
 	defer workerCancel()
+
+	if procurementWarehouseMap != "" {
+		mappings, err := presentationkafka.ProcurementWarehouseMap(procurementWarehouseMap)
+		if err != nil {
+			log.Fatal(err)
+		}
+		var schemaReady bool
+		if err := db.QueryRow("SELECT to_regclass('procurement_receipt_inbox') IS NOT NULL").Scan(&schemaReady); err != nil || !schemaReady {
+			log.Fatal("apply Inventory migration 000006 before enabling the Procurement consumer")
+		}
+		go presentationkafka.RunProcurementConsumer(workerCtx, strings.Split(kafkaBrokersStr, ","), db, mappings)
+	}
 
 	// 6.1 Transactional Outbox Publisher Worker
 	outboxWorker := worker.NewOutboxPublisherWorker(outboxRepo, eventPublisher)
