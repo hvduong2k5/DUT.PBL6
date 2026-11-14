@@ -130,7 +130,9 @@ def main():
         result["openapi"].append({"file": name, "status": "PASS", "paths": len(document["paths"])})
         if name == "order-service.openapi.yaml":
             target = document
-    check(target["info"]["version"] == "3.2.0" and target["x-contract-status"] == "proposed", "Target version/status drift")
+    check(target["info"]["version"] == "3.3.0" and target["x-contract-status"] == "proposed", "Target version/status drift")
+    quote_fields = target["components"]["schemas"]["Quote"]["properties"]
+    check({"voucher_code", "merchandise_discount", "shipping_discount"} <= set(quote_fields), "Missing provider-owned voucher quote fields")
     key_schema = next(p["schema"] for p in target["paths"]["/api/v1/checkout"]["post"]["parameters"] if p["name"] == "X-Idempotency-Key")
     check(re.fullmatch(key_schema["pattern"], "checkout-key-123456"), "Idempotency key rejects valid ASCII input")
     check(not re.fullmatch(key_schema["pattern"], "checkout key 123456"), "Idempotency key accepts whitespace")

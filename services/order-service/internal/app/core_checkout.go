@@ -48,7 +48,7 @@ func (c coreSource) Revalidate(ctx context.Context, terms core.SnapshotInput) er
 		if ship.ID != terms.Shipping.QuoteReference || strconv.FormatInt(ship.Version, 10) != terms.Shipping.QuoteVersion || ship.Fee != terms.Shipping.QuotedFee || !ship.Until.Equal(terms.Shipping.ValidUntil) {
 			return persistence.ErrTermsChanged
 		}
-		return nil
+		return c.s.revalidateVoucher(ctx, terms)
 	}
 	e := c.s.Call(ctx, "POST", "/order-core/revalidate", terms, &out)
 	if e != nil {
@@ -57,7 +57,7 @@ func (c coreSource) Revalidate(ctx context.Context, terms core.SnapshotInput) er
 	if !out.Valid {
 		return persistence.ErrTermsChanged
 	}
-	return nil
+	return c.s.revalidateVoucher(ctx, terms)
 }
 func (s *Service) EnableCoreCheckout() error {
 	if os.Getenv("ORDER_CORE_ENABLED") != "true" {
@@ -74,6 +74,9 @@ func (s *Service) EnableCoreCheckout() error {
 		return errors.New("ORDER_MERCHANT_ID must be a stable UUID")
 	}
 	s.CoreCheckout = &persistence.CheckoutRuntime{Store: s.Payment.Store, Source: coreSource{s}, Inventory: inventory}
+	if e := s.EnablePromotionFromEnv(context.Background()); e != nil {
+		return e
+	}
 	if e := s.EnableShippingFromEnv(context.Background()); e != nil {
 		return e
 	}
@@ -144,6 +147,9 @@ func (s *Service) coreQuote(ctx context.Context, p domain.Principal, q domain.Qu
 		expires := now.Add(15 * time.Minute)
 		terms.Payment = core.PaymentTerms{Method: q.Method, Provider: &provider, ReceiverProfileID: &receiver, ReceiverProfileVersion: &version, ExpiresAt: &expires}
 	}
+	if e = s.applyVoucherQuote(ctx, q, &terms); e != nil {
+		return q, e
+	}
 	if _, e = core.NewSnapshot(terms); e != nil {
 		return q, domain.E("INVALID_CANONICAL_TERMS", 503)
 	}
@@ -160,6 +166,8 @@ func (s *Service) coreQuote(ctx context.Context, p domain.Principal, q domain.Qu
 	q.Subtotal = terms.Money.Subtotal
 	q.Shipping = terms.Money.ShippingFee
 	q.Final = terms.Money.FinalAmount
+	q.MerchandiseDiscount = terms.Money.MerchandiseDiscount
+	q.ShippingDiscount = terms.Money.ShippingDiscount
 	q.CatalogSnapshotID = terms.Catalog.SnapshotID
 	q.CatalogExpiresAt = terms.Catalog.ValidUntil
 	q.ShippingReference = terms.Shipping.QuoteReference
@@ -170,6 +178,9 @@ func (s *Service) coreQuote(ctx context.Context, p domain.Principal, q domain.Qu
 	}
 	if terms.Shipping.ValidUntil.Before(q.ExpiresAt) {
 		q.ExpiresAt = terms.Shipping.ValidUntil
+	}
+	if terms.Voucher != nil && terms.Voucher.ValidUntil.Before(q.ExpiresAt) {
+		q.ExpiresAt = terms.Voucher.ValidUntil
 	}
 	terms.Provenance.QuoteHash = core.PayloadHash(domain.Hash(q))
 	stored := domain.StoredQuote{Quote: q, Scope: p.Scope(), Principal: p, Core: &terms}

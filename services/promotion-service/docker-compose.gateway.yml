@@ -1,0 +1,12 @@
+# Optional overlay: docker compose -f docker-compose.yml -f docker-compose.gateway.yml up -d --build
+# Create the shared network separately if Kong has not already created it.
+services:
+  promotion-service:
+    networks:
+      - default
+      - omamx-network
+
+networks:
+  omamx-network:
+    name: omamx-network
+    external: true

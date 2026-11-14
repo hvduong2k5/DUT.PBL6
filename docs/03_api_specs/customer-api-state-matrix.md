@@ -15,6 +15,22 @@ This matrix and the OpenAPI files are the backend handoff. It is intentionally i
 
 Customer APIs distinguish Guest, Registered Customer and verified B2B Customer capabilities. Ownership/grants must be checked server-side.
 
+## Promotion checkout integration (2026-11-14)
+
+- Web sends voucher_code only to the authoritative Order quote; it never submits a discount or total.
+- Quote success displays merchandise/shipping discounts and the resulting final amount. A pending or rejected
+  re-quote disables acceptance; a 422 voucher rejection is actionable and a 503 dependency error never silently
+  removes the requested voucher. Quote expiration requires a new quote.
+- Voucher use requires an active Customer and VIETQR. The web opt-in is NEXT_PUBLIC_MVP_VOUCHER_ENABLED=true;
+  Order must also configure its Promotion provider. Customer/Guest/COD gates remain independent.
+- Voucher listing goes through the gateway root; customer loyalty forwards the resolved credential using the
+  mode-dependent commerce upstream. Neither path uses browser-supplied identity headers.
+- Acceptance keeps the existing quote/cart/payment input and Idempotency-Key. Replay recovers the same operation,
+  hold and finalization; cancellation/timeout remains pending until authoritative resource release is confirmed.
+- See customer-stable.openapi.yaml and mvp-customer.openapi.yaml for the quote and operation schemas.
+- The sandbox Quote and Order.snapshot contract also accepts merchandise_discount and shipping_discount,
+  including zero for undiscounted checkouts. Historical quotes may omit them; unexpected fields remain rejected.
+
 ## Stable operations
 
 | Operation | Backlog | Lifecycle | Success | Empty | Invalid 400/422 | 401 | 403 | 404 | 409 | 429 | Server 500/503 |

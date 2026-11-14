@@ -61,7 +61,18 @@ contracts:
     tasks:
       - Migrate direct checkout to quote, acceptance and CheckoutOperation polling.
       - Map errors and Idempotency-Key to provider headers without retrying mutations automatically.
-      - Keep customer-stable frontend snapshot as historical input; the MVP target wins for overlapping routes.
+      - Customer stable v2 publishes an OpenAPI 3.1 projection of the implemented MVP quote, accept and operation-polling paths.
+  - id: promotion-voucher-checkout
+    owner: promotion-service
+    consumers: [order-service, web-user, gateway-bff]
+    artifact: packages/proto/promotion/v1/promotion.proto
+    state: opt-in-implementation
+    tasks:
+      - Configure Order's dedicated Promotion token and TLS peer; enable the web voucher flag only with this provider.
+      - Quote is read-only; acceptance holds stock/voucher, payment finalizes before PAID, and cancellation releases.
+      - Snapshot 1.1 binds the quoted discount and hold; preserve all 1.0 canonical bytes and hashes.
+      - Run services/promotion-service/scripts/run-checkout-integration.ps1 for native PostgreSQL/Kafka peer evidence.
+      - Register promotion-service:8017 on the deployed Kong network; private commands and gRPC are not public routes.
   - id: catalog-checkout
     owner: catalog-service
     consumers: [order-service]
@@ -183,5 +194,5 @@ contracts:
       - Synchronize user lifecycle status transitions with Keycloak and Outbox.
 out_of_scope:
   - Real refunds and paid cancellation without approval/remote-stop/reversal acceptance.
-  - Vouchers and loyalty until Promotion provider contracts are accepted.
+  - Automatic loyalty earning, checkout point redemption and refund conversion until their Order/Care contracts are accepted.
   - CMS, analytics, full returns workflow and production carrier acceptance.

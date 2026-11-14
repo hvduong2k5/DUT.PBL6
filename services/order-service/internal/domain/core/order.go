@@ -137,6 +137,9 @@ type Aggregate struct {
 
 func Place(snapshot Snapshot, plannedOrderID string, proof ResourceProof, at time.Time) (Aggregate, error) {
 	s := snapshot.Data()
+	if s.Voucher != nil && (s.Voucher.HoldID == nil || s.Voucher.HoldExpiresAt == nil || !at.Add(30*time.Second).Before(*s.Voucher.HoldExpiresAt)) {
+		return Aggregate{}, ErrProof
+	}
 	if snapshot.canonical == "" || plannedOrderID != s.OrderID || !at.Equal(s.PlacedAt) || proof.validate(s) != nil {
 		return Aggregate{}, ErrProof
 	}

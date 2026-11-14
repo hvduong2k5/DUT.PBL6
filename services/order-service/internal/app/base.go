@@ -19,6 +19,7 @@ import (
 	"github.com/omamx/order-service/internal/domain"
 	"github.com/omamx/order-service/internal/fulfillmentprovider"
 	"github.com/omamx/order-service/internal/persistence"
+	"github.com/omamx/order-service/internal/promotionprovider"
 	"github.com/omamx/order-service/internal/sepay"
 	"github.com/omamx/order-service/internal/shippingprovider"
 	"github.com/prometheus/client_golang/prometheus"
@@ -82,6 +83,7 @@ func LoadConfig() (Config, error) {
 }
 
 type Service struct {
+	Promotion            *promotionprovider.Adapter
 	Fulfillment          *fulfillmentprovider.Adapter
 	Shipping             *shippingprovider.Adapter
 	Identity             *CustomerIdentity

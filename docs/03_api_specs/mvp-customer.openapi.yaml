@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: MVP Customer API - integration target
-  version: 1.0.0-integration
+  version: 1.1.0-integration
   description: Git integration target mvp-2026-10-26. Provider and consumer implementation remains gated by packages/contracts/mvp/registry.yaml.
     Async checkout uses quote/revision and CheckoutOperation. Monetary values in the Order flow are integer VND.
     Original provider specs and frontend references are preserved.
@@ -131,6 +131,12 @@ paths:
       operationId: order_createCheckoutQuote
       summary: createCheckoutQuote
       responses:
+        '422':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicError'
         '200':
           description: Durable response
           content:
@@ -237,7 +243,10 @@ paths:
       description: 'Full-cart MVP: quotes every server cart line at cart_revision; no selected-item or partial-cart
         input. A quote does not reserve stock. After successful placement the asynchronous cleanup only removes
         the same cart ID/revision; a changed/replaced cart is preserved. Client must refetch cart after operation
-        success and never clear it locally. Exactly one saved shipping_address_id or inline address is required.'
+        success and never clear it locally. Exactly one saved shipping_address_id or inline address is required.
+        A voucher requires the configured Promotion provider, Customer identity and VIETQR. Discounts are calculated
+        by Promotion and bound to the stored quote; invalid or unavailable vouchers never fall back to a full-price
+        quote. Accept revalidates and reserves both stock and voucher using durable keys.'
       x-provider-contract: order-service
       x-implementation-status: provider-or-adapter-verification-required
       x-contract-status: integration-target
@@ -976,12 +985,12 @@ paths:
   /api/v1/guest-sessions:
     post:
       operationId: order_createGuestSession
+      summary: Create a sandbox guest session
+      security: []
       description: Sandbox opaque Guest principal without account registration
       responses:
         '201':
           description: Signed Guest session token
-      security:
-      - OrderbearerAuth: []
       x-provider-contract: order-service
       x-implementation-status: provider-or-adapter-verification-required
       x-contract-status: integration-target
@@ -2654,6 +2663,17 @@ components:
       - expires_at
       - shipping_expires_at
       properties:
+        voucher_code:
+          type: string
+          pattern: ^[A-Z0-9_-]{3,50}$
+        merchandise_discount:
+          type: integer
+          format: int64
+          minimum: 0
+        shipping_discount:
+          type: integer
+          format: int64
+          minimum: 0
         catalog_snapshot_id:
           type: string
         catalog_expires_at:

@@ -1,9 +1,12 @@
 openapi: 3.1.0
 info:
   title: Customer Web API - Stable
-  version: 1.0.0
+  version: 2.0.0
   description: Implementation-ready contract for Guest, Registered Customer, and verified
     B2B Customer journeys. Marketplace and Offline are channels, not web login roles.
+    Version 2 aligns checkout with the implemented quote, idempotent acceptance and operation-polling
+    contract. The previous direct items-to-order checkout body is replaced. Voucher quotes are opt-in
+    Customer VIETQR requests, calculated by Promotion through Order; clients never submit discounts.
   license:
     name: Proprietary
     identifier: LicenseRef-Proprietary
@@ -2179,212 +2182,341 @@ paths:
           minimum: 1
           maximum: 100
           default: 20
-  /api/v1/checkout:
+  /api/v1/checkout/quote:
     post:
-      tags:
-      - Checkout
-      operationId: postCheckout
-      summary: Khởi tạo đơn hàng D2C và nhận mã thanh toán VietQR động
-      x-lifecycle: stable
-      x-backlog:
-      - EPIC_06
-      x-ui-states:
-      - loading
-      - success
-      - error
-      - unauthorized
-      - forbidden
-      x-test-latency-ms: 1200
-      security:
-      - bearerAuth: []
-      - customerSession: []
-      - guestSession: []
+      operationId: order_createCheckoutQuote
+      summary: createCheckoutQuote
       responses:
-        '201':
-          description: Successful response.
+        '200':
+          description: Durable response
           content:
             application/json:
               schema:
-                type: object
-                required:
-                - order_id
-                - status
-                - subtotal_amount
-                - discount_amount
-                - shipping_fee
-                - final_amount
-                - vietqr_url
-                - payment_expires_at
-                properties:
-                  order_id:
-                    type: string
-                  status:
-                    type: string
-                  subtotal_amount:
-                    type: object
-                    required:
-                    - currency_code
-                    - units
-                    - nanos
-                    properties:
-                      currency_code:
-                        type: string
-                      units:
-                        type: integer
-                      nanos:
-                        type: integer
-                    additionalProperties: false
-                  discount_amount:
-                    type: object
-                    required:
-                    - currency_code
-                    - units
-                    - nanos
-                    properties:
-                      currency_code:
-                        type: string
-                      units:
-                        type: integer
-                      nanos:
-                        type: integer
-                    additionalProperties: false
-                  shipping_fee:
-                    type: object
-                    required:
-                    - currency_code
-                    - units
-                    - nanos
-                    properties:
-                      currency_code:
-                        type: string
-                      units:
-                        type: integer
-                      nanos:
-                        type: integer
-                    additionalProperties: false
-                  final_amount:
-                    type: object
-                    required:
-                    - currency_code
-                    - units
-                    - nanos
-                    properties:
-                      currency_code:
-                        type: string
-                      units:
-                        type: integer
-                      nanos:
-                        type: integer
-                    additionalProperties: false
-                  vietqr_url:
-                    type: string
-                    format: uri
-                  payment_expires_at:
-                    type: string
-                    format: date-time
-                additionalProperties: false
-              examples:
-                success:
-                  summary: Successful response
-                  value:
-                    order_id: ORD-20261015-0042
-                    status: PENDING_PAYMENT
-                    subtotal_amount:
-                      currency_code: VND
-                      units: 345000
-                      nanos: 0
-                    discount_amount:
-                      currency_code: VND
-                      units: 345000
-                      nanos: 0
-                    shipping_fee:
-                      currency_code: VND
-                      units: 345000
-                      nanos: 0
-                    final_amount:
-                      currency_code: VND
-                      units: 345000
-                      nanos: 0
-                    vietqr_url: https://img.vietqr.io/image/970422-0123456789-compact.png?amount=345000&addInfo=ORD202610150042
-                    payment_expires_at: '2026-10-15T08:45:00.000Z'
+                $ref: '#/components/schemas/MvpOrderQuote'
         '400':
-          $ref: '#/components/responses/BadRequest'
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MvpPublicError'
         '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MvpPublicError'
+        '404':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MvpPublicError'
         '409':
-          $ref: '#/components/responses/Conflict'
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MvpPublicError'
         '422':
-          $ref: '#/components/responses/UnprocessableEntity'
-        '500':
-          $ref: '#/components/responses/InternalError'
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MvpPublicError'
         '503':
-          $ref: '#/components/responses/ServiceUnavailable'
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MvpPublicError'
+      security:
+        - bearerAuth: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
+              additionalProperties: false
               required:
-              - channel
-              - shipping_address
-              - payment_method
-              - items
+                - cart_revision
+                - payment_method
               properties:
-                channel:
+                cart_revision:
+                  type: integer
+                  minimum: 0
+                payment_method:
                   type: string
-                shipping_address:
+                  enum:
+                    - VIETQR
+                    - COD
+                shipping_address_id:
+                  type: string
+                  format: uuid
+                address:
                   type: object
+                  additionalProperties: false
                   required:
-                  - recipient_name
-                  - phone_number
-                  - street_address
-                  - ward
-                  - province
+                    - recipient_name
+                    - phone
+                    - street
+                    - ward_code
+                    - province_code
                   properties:
                     recipient_name:
                       type: string
-                    phone_number:
+                      minLength: 1
+                      maxLength: 255
+                    phone:
                       type: string
-                    street_address:
+                      minLength: 1
+                      maxLength: 255
+                    street:
                       type: string
-                    ward:
+                      minLength: 1
+                      maxLength: 255
+                    ward_code:
                       type: string
-                    province:
+                      minLength: 1
+                      maxLength: 255
+                    province_code:
                       type: string
-                  additionalProperties: false
+                      minLength: 1
+                      maxLength: 255
+                voucher_code:
+                  type: string
+              oneOf:
+                - required:
+                    - shipping_address_id
+                  not:
+                    required:
+                      - address
+                - required:
+                    - address
+                  not:
+                    required:
+                      - shipping_address_id
+      description: >-
+        Full-cart MVP: quotes every server cart line at cart_revision; no selected-item or partial-cart input. A
+        quote does not reserve stock. After successful placement the asynchronous cleanup only removes the same
+        cart ID/revision; a changed/replaced cart is preserved. Client must refetch cart after operation success
+        and never clear it locally. Exactly one saved shipping_address_id or inline address is required. A
+        voucher requires the configured Promotion provider, Customer identity and VIETQR. Discounts are
+        calculated by Promotion and bound to the stored quote; invalid or unavailable vouchers never fall back
+        to a full-price quote. Accept revalidates and reserves both stock and voucher using durable keys.
+      x-provider-contract: order-service
+      x-implementation-status: provider-or-adapter-verification-required
+  /api/v1/checkout:
+    post:
+      operationId: order_acceptCheckout
+      summary: acceptCheckout
+      responses:
+        '201':
+          description: Replay of successful checkout, same operation and Order
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MvpOrderCheckoutOperation'
+              example:
+                operation_id: 11111111-1111-4111-8111-111111111111
+                status: SUCCEEDED
+                stage: DONE
+                order_id: 11111111-1111-4111-8111-111111111111
+                accepted_at: '2026-10-15T03:00:00Z'
+                updated_at: '2026-10-15T03:00:00Z'
+          headers:
+            Link:
+              schema:
+                type: string
+              description: 'Present when Order has committed: </api/v1/orders/{order_id}>; rel="item".'
+        '202':
+          description: Durable operation created; no Order is implied
+          headers:
+            Location:
+              schema:
+                type: string
+              description: Existing /api/v1/checkout-operations/{id}
+            Retry-After:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MvpOrderCheckoutOperation'
+              example:
+                operation_id: 11111111-1111-4111-8111-111111111111
+                status: ACCEPTED
+                stage: VALIDATING
+                order_id: null
+                accepted_at: '2026-10-15T03:00:00Z'
+                updated_at: '2026-10-15T03:00:00Z'
+        '400':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MvpPublicError'
+        '401':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MvpPublicError'
+        '403':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MvpPublicError'
+        '404':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MvpPublicError'
+        '409':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MvpPublicError'
+        '410':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MvpPublicError'
+        '413':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MvpPublicError'
+        '422':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MvpPublicError'
+        '429':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MvpPublicError'
+        '503':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MvpPublicError'
+        '504':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MvpPublicError'
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema:
+            type: string
+            minLength: 16
+            maxLength: 128
+            pattern: ^[!-~]{16,128}$
+          x-provider-name: X-Idempotency-Key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - quote_id
+                - cart_revision
+                - payment_method
+              properties:
+                quote_id:
+                  type: string
+                  format: uuid
+                cart_revision:
+                  type: integer
+                  minimum: 0
                 payment_method:
                   type: string
-                items:
-                  type: array
-                  items:
-                    type: object
-                    required:
-                    - sku_code
-                    - quantity
-                    properties:
-                      sku_code:
-                        type: string
-                      quantity:
-                        type: integer
-                    additionalProperties: false
-              additionalProperties: false
-            example:
-              channel: D2C_WEB
-              shipping_address:
-                recipient_name: Nguyen Van An
-                phone_number: 0905123456
-                street_address: 128 Le Loi
-                ward: Phuong Thuan Hoa
-                province: Thanh pho Hue
-              payment_method: VIETQR
-              items:
-              - sku_code: MX-GION-500G
-                quantity: 2
+                  enum:
+                    - VIETQR
+                    - COD
+      description: >-
+        Acceptance verifies owned server quote at DB time and persists operation/input/key. Worker validates
+        commercial conditions and reserves resources asynchronously. Expired terminal replay is 410; keys never
+        become reusable automatically. Key scope is authenticated principal/action; canonical body hash is
+        persisted. Same key with different input returns 409. Transport timeout after sending requires same-key
+        replay/query. New acceptance always returns 202 with null order_id; replay SUCCEEDED returns 201 with
+        the original non-null Order reference.
+      x-provider-contract: order-service
+      x-implementation-status: provider-or-adapter-verification-required
+  /api/v1/checkout-operations/{id}:
+    get:
+      operationId: order_getCheckoutOperation
+      summary: getCheckoutOperation
+      responses:
+        '200':
+          description: Durable response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MvpOrderCheckoutOperation'
+          headers:
+            Link:
+              schema:
+                type: string
+              description: 'Present when Order has committed: </api/v1/orders/{order_id}>; rel="item".'
+        '400':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MvpPublicError'
+        '401':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MvpPublicError'
+        '404':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MvpPublicError'
+        '409':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MvpPublicError'
+        '503':
+          description: Mapped public error; provider data is sanitized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MvpPublicError'
+      security:
+        - bearerAuth: []
       parameters:
-      - $ref: '#/components/parameters/IdempotencyKey'
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      x-provider-contract: order-service
+      x-implementation-status: provider-or-adapter-verification-required
   /api/v1/customer/capabilities:
     get:
       tags:
@@ -4741,7 +4873,10 @@ paths:
                         min_order_amount:
                           type: integer
                         max_discount_amount:
-                          type: integer
+                          description: Null means the offer has no configured maximum discount.
+                          type:
+                          - integer
+                          - 'null'
                         expires_at:
                           type: string
                           format: date-time
@@ -4780,10 +4915,12 @@ paths:
       - name: status
         in: query
         required: false
-        description: Domain status filter. Allowed values are defined by the endpoint
-          response status vocabulary.
+        description: Public vouchers are limited to active offers; ACTIVE is the only
+          accepted value.
         schema:
           type: string
+          enum:
+          - ACTIVE
       - name: page
         in: query
         required: false
@@ -6433,6 +6570,259 @@ components:
         type: string
         format: uuid
   schemas:
+    MvpOrderQuote:
+      type: object
+      additionalProperties: false
+      required:
+        - catalog_snapshot_id
+        - catalog_expires_at
+        - shipping_quote_reference
+        - quote_id
+        - cart_revision
+        - payment_method
+        - items
+        - address
+        - subtotal
+        - shipping_fee
+        - final_amount
+        - expires_at
+        - shipping_expires_at
+      properties:
+        voucher_code:
+          type: string
+          pattern: ^[A-Z0-9_-]{3,50}$
+        merchandise_discount:
+          type: integer
+          format: int64
+          minimum: 0
+        shipping_discount:
+          type: integer
+          format: int64
+          minimum: 0
+        catalog_snapshot_id:
+          type: string
+        catalog_expires_at:
+          type: string
+          format: date-time
+        shipping_quote_reference:
+          type: string
+        source_address_id:
+          type: string
+        source_address_version:
+          type: integer
+          format: int64
+        quote_id:
+          type: string
+        cart_revision:
+          type: integer
+          format: int64
+        payment_method:
+          type: string
+          enum:
+            - VIETQR
+            - COD
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/MvpOrderItem'
+        address:
+          $ref: '#/components/schemas/MvpOrderAddress'
+        subtotal:
+          type: integer
+          format: int64
+        shipping_fee:
+          type: integer
+          format: int64
+        final_amount:
+          type: integer
+          format: int64
+        customer_id:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+        shipping_expires_at:
+          type: string
+          format: date-time
+      description: >-
+        Owned immutable server quote. Confirmation revalidates coherent Catalog/Shipping terms for both transfer
+        and COD. Expiry/retry never extends the commercial deadline.
+    MvpOrderItem:
+      type: object
+      additionalProperties: false
+      required:
+        - sku_code
+        - quantity
+      properties:
+        item_id:
+          type: string
+        sku_code:
+          type: string
+        quantity:
+          type: integer
+          format: int64
+          minimum: 1
+        unit_price:
+          type: integer
+          format: int64
+        product_name:
+          type: string
+        weight_grams:
+          type: integer
+          format: int64
+        catalog_version:
+          type: integer
+          format: int64
+    MvpOrderAddress:
+      type: object
+      additionalProperties: false
+      required:
+        - recipient_name
+        - phone
+        - street
+        - ward_code
+        - province_code
+      properties:
+        recipient_name:
+          type: string
+        phone:
+          type: string
+        street:
+          type: string
+        ward_code:
+          type: string
+        ward_name:
+          type: string
+          readOnly: true
+          description: Canonical ward name when available from Profile.
+        province_code:
+          type: string
+        province_name:
+          type: string
+          readOnly: true
+          description: Canonical province name when available from Profile.
+    MvpPublicError:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - message
+        - requestId
+      properties:
+        code:
+          type: string
+          minLength: 1
+        message:
+          type: string
+          minLength: 1
+        requestId:
+          type: string
+          minLength: 1
+        retryable:
+          type: boolean
+        operation_id:
+          type: string
+          format: uuid
+        details:
+          type: object
+          additionalProperties: true
+    MvpOrderCheckoutOperation:
+      type: object
+      additionalProperties: false
+      required:
+        - operation_id
+        - status
+        - order_id
+        - accepted_at
+        - stage
+        - updated_at
+      properties:
+        operation_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+            - ACCEPTED
+            - PROCESSING
+            - WAITING_RETRY
+            - COMPENSATING
+            - SUCCEEDED
+            - FAILED
+            - MANUAL_REVIEW
+        order_id:
+          type:
+            - string
+            - 'null'
+          format: uuid
+        order_status:
+          type: string
+        error_code:
+          type: string
+        accepted_at:
+          type: string
+          format: date-time
+        stage:
+          type: string
+          enum:
+            - VALIDATING
+            - ACQUIRING
+            - PLACING
+            - COMPENSATING
+            - DONE
+        updated_at:
+          type: string
+          format: date-time
+        retry_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+      description: >-
+        order_id is null until atomic placement. SUCCEEDED requires non-null order_id; FAILED requires error_code.
+        MANUAL_REVIEW preserves unresolved obligations. Before placement poll this operation, not the planned
+        Order UUID.
+      oneOf:
+        - properties:
+            status:
+              enum:
+                - SUCCEEDED
+            order_id:
+              type: string
+              format: uuid
+        - required:
+            - error_code
+          properties:
+            status:
+              enum:
+                - FAILED
+            order_id:
+              type:
+                - string
+                - 'null'
+              enum:
+                - null
+        - properties:
+            status:
+              enum:
+                - ACCEPTED
+                - PROCESSING
+                - WAITING_RETRY
+                - COMPENSATING
+                - MANUAL_REVIEW
+            order_id:
+              type:
+                - string
+                - 'null'
+              enum:
+                - null
+      example:
+        operation_id: 11111111-1111-4111-8111-111111111111
+        status: ACCEPTED
+        stage: VALIDATING
+        order_id: null
+        accepted_at: '2026-10-15T03:00:00Z'
+        updated_at: '2026-10-15T03:00:00Z'
     Error:
       type: object
       required:
