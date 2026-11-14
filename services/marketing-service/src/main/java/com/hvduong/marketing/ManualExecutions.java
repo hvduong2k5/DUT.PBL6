@@ -28,6 +28,35 @@ class ManualExecutions {
         this.commands = commands;
     }
 
+    record HistoryEntry(long version, UUID actorId, String requestId, String fromState, String toState,
+                        String reason, String evidenceRef, Instant occurredAt) {}
+    record HistoryPage(List<HistoryEntry> items, long total, Long nextAfterVersion) {}
+
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
+    public HistoryPage history(StaffActor actor, UUID campaignId, UUID revisionId, UUID id, long afterVersion, int limit) {
+        if (afterVersion < 0 || afterVersion > 9_007_199_254_740_991L || limit < 1 || limit > 100) {
+            throw new MarketingFailure("BAD_REQUEST", 400);
+        }
+        var campaign = campaigns.campaign(campaignId, false);
+        if (!actor.can("MARKETING_CAMPAIGN_VIEW", campaign.departmentId())) {
+            throw new MarketingFailure("RESOURCE_NOT_FOUND", 404);
+        }
+        campaigns.revision(campaignId, revisionId);
+        var execution = get(revisionId, id);
+        var rows = jdbc.sql("""
+                SELECT version, actor_id, request_id, from_state, to_state, reason, evidence_ref, occurred_at
+                FROM campaign_execution_history WHERE execution_id = :id AND version > :after
+                ORDER BY version LIMIT :limit
+                """).param("id", id).param("after", afterVersion).param("limit", limit + 1)
+                .query((rs, row) -> new HistoryEntry(rs.getLong("version"), CampaignStore.uuid(rs, "actor_id"),
+                        rs.getString("request_id"), rs.getString("from_state"), rs.getString("to_state"),
+                        rs.getString("reason"), rs.getString("evidence_ref"), CampaignStore.instant(rs, "occurred_at")))
+                .list();
+        var items = rows.subList(0, Math.min(limit, rows.size()));
+        return new HistoryPage(items, execution.version(), rows.size() > limit ? items.getLast().version() : null);
+    }
+
+
     @Transactional(readOnly = true)
     public Page list(StaffActor actor, UUID campaignId, UUID revisionId) {
         var campaign = campaigns.campaign(campaignId, false);

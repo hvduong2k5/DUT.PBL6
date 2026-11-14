@@ -118,6 +118,19 @@ class CampaignCommandsIntegrationTest {
         executions.act(operator, campaign, revision, id, complete, "execution-complete", "complete");
         assertThat(executions.list(operator, campaign, revision).items().getFirst().state())
                 .isEqualTo(ManualExecutions.State.COMPLETED);
+        var first = executions.history(operator, campaign, revision, id, 0, 2);
+        assertThat(first.total()).isEqualTo(3);
+        assertThat(first.nextAfterVersion()).isEqualTo(2L);
+        assertThat(first.items()).extracting(ManualExecutions.HistoryEntry::toState)
+                .containsExactly("SCHEDULED", "ACTIVE");
+        var last = executions.history(operator, campaign, revision, id, first.nextAfterVersion(), 2);
+        assertThat(last.nextAfterVersion()).isNull();
+        assertThat(last.items().getFirst().evidenceRef()).isEqualTo("manual:report");
+        assertThat(last.items().getFirst().actorId()).isEqualTo(operator.id());
+        var outsider = new StaffActor(UUID.randomUUID(), Set.of(new StaffActor.Grant(
+                "MARKETING_CAMPAIGN_VIEW", "DEPARTMENT", "other")));
+        assertThat(assertThrows(MarketingFailure.class,
+                () -> executions.history(outsider, campaign, revision, id, 0, 2)).status()).isEqualTo(404);
         assertThat(jdbc.sql("SELECT count(*) FROM campaign_execution_history WHERE execution_id = :id")
                 .param("id", id).query(Long.class).single()).isEqualTo(3);
     }

@@ -15,3 +15,7 @@ Operator thực hiện kiểm tra thủ công trước Start, bao gồm Product,
 Bảng campaign_executions lưu revision, approval request, kênh, cửa sổ thời gian, trạng thái và version. Bảng campaign_execution_history lưu actor, request ID, chuyển trạng thái, lý do và evidence. Mỗi command lấy lock Campaign trước, ghi execution, lịch sử và idempotency trong cùng transaction. Schedule và action dùng expectedVersion; schedule kiểm version của revision, action kiểm version của execution. Khi Campaign còn execution chưa kết thúc, tạo revision mới trả 409. Quyền đọc dùng MARKETING_CAMPAIGN_VIEW. Lệnh dùng MARKETING_EXECUTION_MANAGE theo DEPARTMENT hoặc GLOBAL.
 
 Admin API draft nằm dưới revision, gồm GET/POST executions và POST executions/{executionId}/actions. Identity BFF chuyển tiếp cùng suffix. Nghiệm thu tập trung vào schedule lặp, thao tác ngoài kỳ, thay đổi đồng thời, trạng thái theo từng kênh và audit.
+
+### Đọc lịch sử execution
+
+GET executions/{executionId}/history dùng cùng scope với danh sách execution. API trả actor, request ID, trạng thái trước/sau, thời điểm, lý do và mã bằng chứng. UI dùng afterVersion để tải trang tiếp theo theo thứ tự ghi. PostgreSQL đọc execution và lịch sử trong cùng snapshot để total và cursor nhất quán. Scope ngoài phòng ban và execution không thuộc revision đều trả 404. Mã bằng chứng là tham chiếu nội bộ, UI hiển thị dạng văn bản.

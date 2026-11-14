@@ -314,3 +314,4 @@ Paths are relative to the campaign revision. Cookie clients use the matching Ide
 | GET executions | 200 with items and total, including an empty list | 401 renew session, 403 missing permission, 404 hidden or missing revision, 500/503 retry |
 | POST executions | 201 scheduled channel | 409 reload revision or existing execution, 422 invalid channel, 400 invalid body/key, 401/403/404 as above, 500/503 retry with the original key |
 | POST executions/{executionId}/actions | 200 updated execution | 409 refresh state/version, 422 missing reason/evidence or outside schedule, 400 invalid body/key, 401/403/404 as above, 500/503 retry with the original key |
+| GET executions/{executionId}/history | 200 history ordered by version. Past the final version returns empty items and a null nextAfterVersion | 400 invalid cursor/limit, 401 renew session, 404 hidden or missing execution, 500/503 retry |

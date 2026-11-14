@@ -173,6 +173,14 @@ class CampaignController {
         return executions.list(staff(request), campaignId, revisionId);
     }
 
+    @GetMapping("/{campaignId}/revisions/{revisionId}/executions/{executionId}/history")
+    ManualExecutions.HistoryPage executionHistory(HttpServletRequest request, @PathVariable UUID campaignId,
+            @PathVariable UUID revisionId, @PathVariable UUID executionId,
+            @RequestParam(defaultValue = "0") long afterVersion, @RequestParam(defaultValue = "25") int limit) {
+        return executions.history(staff(request), campaignId, revisionId, executionId, afterVersion, limit);
+    }
+
+
     @PostMapping("/{campaignId}/revisions/{revisionId}/executions")
     ResponseEntity<String> schedule(HttpServletRequest request, @PathVariable UUID campaignId,
                                     @PathVariable UUID revisionId, @RequestBody ManualExecutions.Schedule body,
