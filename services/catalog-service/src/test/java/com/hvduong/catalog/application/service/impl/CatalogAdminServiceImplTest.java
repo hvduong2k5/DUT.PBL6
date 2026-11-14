@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
+import com.hvduong.catalog.application.dto.request.CreateCategoryRequest;
 import com.hvduong.catalog.application.dto.request.CreateProductImageRequest;
 import com.hvduong.catalog.application.dto.request.CreateProductRequest;
 import com.hvduong.catalog.application.dto.request.PatchProductRequest;
@@ -38,7 +39,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.springframework.cache.annotation.Cacheable;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @ExtendWith(MockitoExtension.class)
 class CatalogAdminServiceImplTest {
@@ -351,10 +354,40 @@ class CatalogAdminServiceImplTest {
     when(imageMapper.findApprovedByProductId(productId)).thenReturn(List.of());
   }
 
+  @Test
+  void getAdminProductsMustNotShareTheCategoriesCache() throws Exception {
+    // F-43: getAdminProducts once carried the categories list's own
+    // @Cacheable("catalog:categories", 'all'); a cache hit cast the
+    // cached ArrayList of categories to AdminProductListResponse and
+    // the admin products endpoint returned HTTP 500.
+    var method =
+        CatalogAdminServiceImpl.class.getMethod(
+            "getAdminProducts", int.class, int.class, String.class, String.class);
+    assertNull(method.getAnnotation(Cacheable.class));
+    // The categories list itself keeps its cache.
+    var categories = CatalogServiceImpl.class.getMethod("getAllCategories");
+    assertNotNull(categories.getAnnotation(Cacheable.class));
+  }
+
   private void stubDetailMapping() {
     when(dtoMapper.toDetailResponse(any()))
         .thenReturn(ProductDetailResponse.builder().productId(productId).build());
     when(variantMapper.findAllByProductId(productId)).thenReturn(List.of());
     when(imageMapper.findApprovedByProductId(productId)).thenReturn(List.of());
+  }
+
+  @Test
+  void categoryCreationEvictsCacheAfterCommit() {
+    var request = new CreateCategoryRequest("Mè xửng", "me-xung", null, null, 0);
+    when(categoryMapper.insert(any())).thenReturn(1);
+    TransactionSynchronizationManager.initSynchronization();
+    try {
+      adminService.createCategory(request, "employee", "category-create-01");
+      verifyNoInteractions(cacheEvictor);
+      TransactionSynchronizationManager.getSynchronizations().forEach(sync -> sync.afterCommit());
+      verify(cacheEvictor).evictCategoriesCache();
+    } finally {
+      TransactionSynchronizationManager.clearSynchronization();
+    }
   }
 }

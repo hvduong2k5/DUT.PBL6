@@ -24,4 +24,26 @@ class PrincipalAccessTest {
         row.setProvisioningStatus("ACTIVE");row.setPrincipalId(UUID.randomUUID());assertThat(access.employee(authentication)).isFalse();
         assertThat(access.employee(null)).isFalse();
     }
+
+    @Test
+    void limitedGrantTokenRequiresAnActiveMatchingEmployeeRecord() {
+        var principals = mock(IdentityPrincipalMapper.class);
+        var access = new PrincipalAccess(principals);
+        UUID id = UUID.randomUUID();
+        String issuer = "https://identity.test/realms/test";
+        var jwt = Jwt.withTokenValue("fixture").header("alg", "RS256")
+                .issuer(issuer).subject("external-subject")
+                .claim("user_id", id.toString()).claim("principal_type", "EMPLOYEE")
+                .claim("permission_grants", List.of("ROLE_VIEW#GLOBAL")).build();
+        var auth = new SecurityConfig(null, access).jwtAuthenticationConverter().convert(jwt);
+        assertThat(auth.getAuthorities()).extracting("authority").contains("ROLE_VIEW");
+        assertThat(access.employee(auth)).isFalse();
+
+        var row = new IdentityPrincipalRow();
+        row.setPrincipalId(id);
+        row.setPrincipalType("EMPLOYEE");
+        row.setProvisioningStatus("ACTIVE");
+        when(principals.findByIssuerAndSubject(issuer, "external-subject")).thenReturn(row);
+        assertThat(access.employee(auth)).isTrue();
+    }
 }

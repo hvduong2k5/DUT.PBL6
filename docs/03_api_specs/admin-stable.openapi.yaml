@@ -1111,6 +1111,7 @@ paths:
       - Access management
       operationId: getAdminRoles
       summary: Lấy danh sách tất cả vai trò
+      description: Requires an employee with ROLE_VIEW or a client-credentials token from identity-service-admin with audience identity-roles-api. The service credential grants access to this list operation only.
       x-lifecycle: stable
       x-backlog:
       - EPIC_22
@@ -2826,6 +2827,109 @@ paths:
           minimum: 1
           maximum: 100
           default: 20
+  /api/v1/admin/catalog/categories:
+    post:
+      tags: [Product management]
+      operationId: postAdminCatalogCategories
+      summary: Create an active Catalog category.
+      description: Requires a global CATALOG_MANAGE grant. A retry with the same key and request returns the created category.
+      x-lifecycle: stable
+      x-backlog: [EPIC_04]
+      x-ui-states: [loading, success, error, unauthorized, forbidden]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            minLength: 16
+            maxLength: 128
+            pattern: '^[!-~]+$'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, slug]
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 255
+                slug:
+                  type: string
+                  maxLength: 255
+                  pattern: '^[a-z0-9]+(-[a-z0-9]+)*$'
+                parentId:
+                  type: [string, 'null']
+                  format: uuid
+                description:
+                  type: [string, 'null']
+                  maxLength: 4000
+                position:
+                  type: [integer, 'null']
+                  minimum: 0
+            example:
+              name: Mè xửng
+              slug: me-xung
+      responses:
+        '201':
+          description: Category created or replayed.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                    const: true
+                  data:
+                    type: object
+                    required: [categoryId, name, slug, position]
+                    properties:
+                      categoryId:
+                        type: string
+                        format: uuid
+                      name:
+                        type: string
+                      slug:
+                        type: string
+                      position:
+                        type: integer
+                      parentId:
+                        type: [string, 'null']
+                        format: uuid
+                      description:
+                        type: [string, 'null']
+                      imageUrl:
+                        type: [string, 'null']
+                      children:
+                        type: [array, 'null']
+                        items:
+                          type: object
+              example:
+                success: true
+                data:
+                  categoryId: e062c830-f25d-5f40-93fb-0358d9d45566
+                  name: Mè xửng
+                  slug: me-xung
+                  position: 0
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /api/v1/admin/catalog/products:
     get:
       tags:
@@ -4831,6 +4935,7 @@ paths:
       summary: Idempotent stock receipt command for US-INV-02. The real Inventory
         service validates SKU, Batch identity and source reference before updating
         balances.
+      description: Requires INVENTORY_RECEIPT_CREATE with GLOBAL scope or WAREHOUSE scope matching the SKU.
       x-lifecycle: stable
       x-backlog:
       - EPIC_09
@@ -4843,7 +4948,6 @@ paths:
       x-test-latency-ms: 1200
       security:
       - bearerAuth: []
-      - adminSession: []
       responses:
         '200':
           description: Successful response.
@@ -4915,36 +5019,46 @@ paths:
           application/json:
             schema:
               type: object
-              required:
-              - skuId
-              - batchCode
-              - quantity
-              - reasonCode
-              - expectedRevision
-              - idempotencyKey
+              required: [skuId, quantity, expectedRevision]
               properties:
-                skuId:
-                  type: string
-                batchCode:
-                  type: string
-                quantity:
-                  type: integer
-                reasonCode:
-                  type: string
-                expectedRevision:
-                  type: integer
-                idempotencyKey:
-                  type: string
+                skuId: {type: string, minLength: 1, maxLength: 50}
+                batchMode: {type: string, enum: [NEW, EXISTING]}
+                batchId: {type: string, format: uuid}
+                batchCode: {type: string, minLength: 1, maxLength: 100}
+                supplierId: {type: string, format: uuid}
+                manufacturingDate: {type: string, format: date}
+                expiresAt: {type: string, format: date}
+                quantity: {type: integer, minimum: 1, maximum: 2147483647}
+                sourceReference: {type: string, minLength: 1, maxLength: 160}
+                reasonCode: {type: string, maxLength: 80}
+                expectedRevision: {type: integer, minimum: 0}
+                idempotencyKey: {type: string, description: Must match the header if supplied.}
               additionalProperties: false
+              oneOf:
+                - required: [batchMode, batchId, sourceReference]
+                  properties:
+                    batchMode: {const: EXISTING}
+                - required: [batchMode, batchCode, supplierId, manufacturingDate, expiresAt, sourceReference]
+                  properties:
+                    batchMode: {const: NEW}
+                - required: [batchCode, reasonCode, idempotencyKey]
+                  properties:
+                    batchMode: false
             example:
-              skuId: SKU-MX-GION-500G
+              skuId: MX-GION-500G
+              batchMode: NEW
               batchCode: LOT-20261005-01
+              supplierId: b2222222-2222-2222-2222-222222222222
+              manufacturingDate: '2026-10-05'
+              expiresAt: '2027-03-05'
               quantity: 100
-              reasonCode: PRODUCTION_RECEIPT
+              sourceReference: PRODUCTION-20261005-01
               expectedRevision: 8
-              idempotencyKey: 45e011ce-c117-4644-99f9-b4f5a9873581
       parameters:
-      - $ref: '#/components/parameters/IdempotencyKey'
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema: {type: string, minLength: 16, maxLength: 128}
   /api/v1/admin/orders:
     get:
       tags:

@@ -10,6 +10,7 @@ import (
 	commonv1 "github.com/omamx/shipping-service/internal/gen/common/v1"
 	orderv1 "github.com/omamx/shipping-service/internal/gen/order/v1"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 )
@@ -20,8 +21,16 @@ type Client struct {
 	token      string
 }
 
-func New(endpoint, token string) (*Client, error) {
-	connection, err := grpc.NewClient(endpoint, grpc.WithTransportCredentials(insecure.NewCredentials()))
+func New(endpoint, token, caFile, serverName string) (*Client, error) {
+	var transport credentials.TransportCredentials = insecure.NewCredentials()
+	if caFile != "" {
+		tls, err := credentials.NewClientTLSFromFile(caFile, serverName)
+		if err != nil {
+			return nil, fmt.Errorf("load Order gRPC CA: %w", err)
+		}
+		transport = tls
+	}
+	connection, err := grpc.NewClient(endpoint, grpc.WithTransportCredentials(transport))
 	if err != nil {
 		return nil, fmt.Errorf("create Order gRPC client: %w", err)
 	}
