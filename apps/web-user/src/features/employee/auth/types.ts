@@ -71,16 +71,24 @@ export interface AdminSession {
 }
 export type EmployeeSession = AdminSession;
 
+/**
+ * IAM grants whose names differ from the web admin vocabulary. The identity
+ * service authorises the administration surfaces with USER_VIEW, while the
+ * employee pages and the Access Review action were drafted against
+ * EMPLOYEE_ACCOUNT_VIEW / ACCESS_REVIEW_VIEW; likewise the catalog IAM
+ * grants (CATALOG_VIEW / CATALOG_MANAGE) satisfy the catalog workspace's
+ * PRODUCT_* gates. Expansion happens here, at the single session projection
+ * point, so every consumer sees the same session.
+ */
+const IAM_GRANT_ALIASES: Record<string, string[]> = {
+  USER_VIEW: ["USER_VIEW", "EMPLOYEE_ACCOUNT_VIEW", "ACCESS_REVIEW_VIEW"],
+  CATALOG_VIEW: ["CATALOG_VIEW", "PRODUCT_VIEW"],
+  CATALOG_MANAGE: ["CATALOG_MANAGE", "PRODUCT_MANAGE"],
+};
+
 export function toEmployeeSession(profile: IdentityProfile): EmployeeSession | undefined {
   if (profile.principalType !== "EMPLOYEE") return undefined;
-  const granted = new Set(profile.permissions.filter((item): item is EmployeePermission => ADMIN_PERMISSIONS.includes(item as EmployeePermission)));
-  // The IAM catalogue is the source of truth, but parts of the admin UI
-  // were built against a draft permission vocabulary. Expand the real
-  // grants into the draft names those gates use, in this one place:
-  // catalog's IAM grants satisfy the catalog workspace's PRODUCT_* gates.
-  if (granted.has("CATALOG_VIEW")) granted.add("PRODUCT_VIEW");
-  if (granted.has("CATALOG_MANAGE")) granted.add("PRODUCT_MANAGE");
-  const permissions = [...granted];
+  const permissions = profile.permissions.flatMap((item) => IAM_GRANT_ALIASES[item] ?? [item]).filter((item): item is EmployeePermission => ADMIN_PERMISSIONS.includes(item as EmployeePermission));
   const global = profile.roles.some((role) => role.scopeType === "GLOBAL" || !role.scopeType);
   const resources = new Set<string>();
   for (const permission of permissions) {
