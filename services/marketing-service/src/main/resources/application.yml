@@ -1,0 +1,15 @@
+spring:
+  application:
+    name: marketing-service
+  datasource:
+    url: ${MARKETING_DB_URL}
+    username: ${MARKETING_DB_USER}
+    password: ${MARKETING_DB_PASSWORD}
+server:
+  port: ${MARKETING_PORT:8014}
+
+marketing:
+  identity-url: ${MARKETING_IDENTITY_URL:http://identity-service:8016}
+  catalog-url: ${MARKETING_CATALOG_URL:http://catalog-service:8006}
+  admin-origin: ${MARKETING_ADMIN_ORIGIN:}
+  budget-ceiling-vnd: ${MARKETING_BUDGET_CEILING_VND:}

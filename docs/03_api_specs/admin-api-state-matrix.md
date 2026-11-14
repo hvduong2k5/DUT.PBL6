@@ -142,6 +142,22 @@ These rows are proposals. Backend may refine them, but must record the decision 
 | `POST /api/v1/admin/support/tickets/{ticketId}/internal-notes` | EPIC_16 | draft | 201 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
 | `POST /api/v1/admin/inventory/approval-requests/{approvalRequestId}/decision` | EPIC_09 | planned | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
 
+### Marketing planning and approval (draft)
+
+Paths below are relative to /api/v1/admin/marketing. Employee session clients use /api/v1/admin/marketing-api with the same operation suffix through Identity. The loading state keeps the selected department and filter. Pending writes disable duplicate submission. A transport retry of a create or action uses the original Idempotency-Key and body.
+
+| Operation | Success / empty | Invalid or unavailable | Auth / visibility | Conflict |
+|---|---|---|---|---|
+| GET /campaigns | 200 scoped results. Empty returns items [], total 0, nextCursor null | 400 invalid filter/cursor. 500/503 error and retry | 401 sign in again. 403 missing view or requested department access | — |
+| GET /campaigns/{campaignId} and GET /campaigns/{campaignId}/revisions/{revisionId} | 200 revision and review context | 400 invalid ID. 500/503 error and retry | 401 sign in again. 403 missing view. 404 unknown or hidden resource | — |
+| POST /campaigns | 201 new draft | 400 invalid body/header. 422 field errors. 500/503 retry with same key | 401 sign in again. 403 missing edit, budget or department grant | 409 reused key with different request |
+| POST /campaigns/{campaignId}/revisions | 201 new draft from current reviewed revision | 400 invalid body/header. 500/503 retry with same key | 401 sign in again. 403 missing edit. 404 unknown or hidden resource | 409 stale base, state conflict or key reuse |
+| PATCH /campaigns/{campaignId}/revisions/{revisionId} | 200 saved draft | 400 invalid body. 422 field errors. 500/503 preserve edits and reload before retry | 401 sign in again. 403 missing edit or budget grant. 404 unknown or hidden resource | 409 show latest version and retain local edits for comparison |
+| POST /campaigns/{campaignId}/revisions/{revisionId}/submit | 200 in review with request ID | 400 invalid body/header. 422 incomplete brief or Product ineligible. 500/503 show source unavailable where applicable | 401 sign in again. 403 missing submit or Catalog bearer grant for Product evidence. 404 unknown or hidden resource | 409 reload state or replace a key reused with different input |
+| POST revision actions withdraw, approve, reject, request-changes | 200 revision and resulting review state | 400 invalid body/header. 422 show field errors. 500/503 retry with same key | 401 sign in again. 403 missing action grant, self-review or insufficient budget authority. 404 unknown or hidden resource | 409 refresh revision and approval request |
+
+APPROVED is plan and budget approval. Channel readiness is evaluated during execution. See the [implementation design](../02_architecture/services/marketing-service/01_planning_and_approval.md).
+
 ## Catalog admin write contract
 
 Nguồn chi tiết: [`admin-stable.openapi.yaml`](./admin-stable.openapi.yaml) cho tất cả thao tác catalog admin (đọc và ghi). Catalog admin chỉ dùng REST; gRPC chỉ internal.
@@ -288,3 +304,15 @@ Ví dụ xóa mô tả cũ và cập nhật OCOP:
 Inventory receipts require `INVENTORY_RECEIPT_CREATE` globally or for the SKU warehouse. The API checks the expected revision and replays the stored result for matching idempotent retries.
 
 Fulfillment staff routes validate the `omama-api` audience by default. Missing or invalid credentials return 401. Valid credentials without an eligible staff identity or the required grant return 403.
+
+### Marketing manual execution (draft)
+
+Paths are relative to the campaign revision. Cookie clients use the matching Identity BFF path.
+
+| Operation | Success / empty | Error handling |
+|---|---|---|
+| GET executions | 200 with items and total, including an empty list | 401 renew session, 403 missing permission, 404 hidden or missing revision, 500/503 retry |
+| POST executions | 201 scheduled channel | 409 reload revision or existing execution, 422 invalid channel, 400 invalid body/key, 401/403/404 as above, 500/503 retry with the original key |
+| POST executions/{executionId}/actions | 200 updated execution | 409 refresh state/version, 422 missing reason/evidence or outside schedule, 400 invalid body/key, 401/403/404 as above, 500/503 retry with the original key |
+| GET executions/{executionId}/history | 200 history ordered by version. Past the final version returns empty items and a null nextAfterVersion | 400 invalid cursor/limit, 401 renew session, 404 hidden or missing execution, 500/503 retry |
+| POST revoke-approval | 200 revision with approval revocation; affected channels become CANCELLED or STOP_PENDING | 401 renew session, 403 missing approval grant, 404 missing revision, 409 stale or already revoked, 422 missing reason, 500/503 retry with original key |

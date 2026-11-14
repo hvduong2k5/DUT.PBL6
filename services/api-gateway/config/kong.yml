@@ -5,6 +5,28 @@ _transform: true
 # 1. UPSTREAMS & SERVICES (18 MICROSERVICES ROUTING TABLE)
 # ==============================================================================
 services:
+  - name: identity-marketing-bff
+    url: http://identity-service:8016
+    connect_timeout: 2000
+    read_timeout: 15000
+    write_timeout: 5000
+    retries: 0
+    routes:
+      - name: marketing-staff-session
+        paths: [/api/v1/admin/marketing-api/campaigns]
+        strip_path: false
+        methods: [GET, POST, PATCH, OPTIONS]
+  - name: marketing-service
+    url: http://marketing-service:8014
+    connect_timeout: 2000
+    read_timeout: 15000
+    write_timeout: 3000
+    retries: 0
+    routes:
+      - name: marketing-staff
+        paths: [/api/v1/admin/marketing/campaigns]
+        strip_path: false
+        methods: [GET, POST, PATCH, OPTIONS]
   - name: inventory-admin-service
     url: http://inventory-svc:8003
     routes:
