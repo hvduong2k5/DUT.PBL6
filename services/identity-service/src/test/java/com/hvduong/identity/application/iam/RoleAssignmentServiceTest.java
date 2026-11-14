@@ -55,6 +55,7 @@ class RoleAssignmentServiceTest {
         IamRoleRow activeRole = new IamRoleRow();
         activeRole.setIsEnabled(true);
         lenient().when(roleMapper.findById(any())).thenReturn(activeRole);
+        lenient().when(roleMapper.findByIdForUpdate(any())).thenReturn(activeRole);
     }
 
     @Test
@@ -85,6 +86,23 @@ class RoleAssignmentServiceTest {
         verify(permissionSyncService).syncPrincipal(
                 principalId, false, PermissionSyncService.Trigger.ROLE_ASSIGN, assignedBy);
         verify(auditService, times(1)).recordAudit(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void shouldRejectDisabledRoleBeforeInsertingAssignment() {
+        UUID roleId = UUID.randomUUID();
+        var role = new IamRoleRow();
+        role.setRoleCode("DISABLED_STAFF");
+        role.setIsEnabled(false);
+        when(roleMapper.findByIdForUpdate(roleId)).thenReturn(role);
+        var request = new AssignRoleRequest();
+        request.setRoleId(roleId);
+        request.setPrincipalId(UUID.randomUUID());
+
+        assertThatThrownBy(() -> assignmentService.assignRole(request, UUID.randomUUID()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Cannot assign disabled role");
+        verifyNoInteractions(roleAssignmentMapper, permissionSyncService);
     }
 
     @Test

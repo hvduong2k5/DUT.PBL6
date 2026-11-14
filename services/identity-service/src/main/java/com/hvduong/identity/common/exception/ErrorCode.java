@@ -27,7 +27,11 @@ public enum ErrorCode {
     LAST_ADMIN_PROTECTION(107, 409, "Không thể thu hồi hoặc khóa quản trị viên hoạt động cuối cùng của hệ thống."),
     CUSTOMER_ADMIN_ROLE_FORBIDDEN(108, 400, "Không thể gán vai trò quản trị cho tài khoản khách hàng."),
     VERSION_CONFLICT(109, 409, "Dữ liệu đã bị thay đổi bởi người khác. Vui lòng tải lại trang và thử lại."),
-    PERMISSION_SYNC_FAILED(110, 502, "Không thể đồng bộ quyền sang Keycloak. Vui lòng thử lại hoặc chạy lại đồng bộ cho tài khoản này.");
+    PERMISSION_SYNC_FAILED(110, 502, "Không thể đồng bộ quyền sang Keycloak. Vui lòng thử lại hoặc chạy lại đồng bộ cho tài khoản này."),
+    INVITATION_NOT_FOUND(111, 404, "Không tìm thấy lời mời nhân viên."),
+    INVITATION_EXPIRED(112, 410, "Lời mời nhân viên đã hết hạn."),
+    INVITATION_NOT_PENDING(113, 409, "Lời mời nhân viên đã được xử lý."),
+    INVITATION_ACCOUNT_ALREADY_LINKED(114, 409, "Tài khoản Keycloak đã được liên kết.");
 
     private final int protoCode;
     private final int httpStatus;

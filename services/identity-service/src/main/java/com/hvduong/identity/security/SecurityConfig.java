@@ -1,5 +1,6 @@
 package com.hvduong.identity.security;
 
+import com.hvduong.identity.api.account.impl.EmployeeInvitationAcceptanceController;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -35,6 +36,7 @@ public class SecurityConfig {
             .csrf(AbstractHttpConfigurer::disable)
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(authorize -> authorize
+                .requestMatchers(HttpMethod.POST, EmployeeInvitationAcceptanceController.ACCEPT_PATH).authenticated()
                 .requestMatchers("/api/v1/public/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/admin/roles")
                     .access((authentication, context) -> new AuthorizationDecision(

@@ -1,7 +1,7 @@
 # Bổ sung vận hành MS-15 — 08/10/2026
 
 - `PROFILE_INTERNAL_TOKEN` bắt buộc, chỉ dùng server-to-server. Production K8s cần Secret `profile-internal-auth-secret`, key `token`. Không đưa token vào ConfigMap/browser/log.
-- Migration mới: `000003_profile_integrity.up.sql`. Chạy một lần trên volume cũ bằng migration runner hoặc psql trước khi deploy binary; init Docker không chạy lại trên volume đã có dữ liệu. Backup và kiểm tra dữ liệu trước migration production.
+- Chạy các migration `000003_profile_integrity.up.sql` và `000004_normalize_shipping_ward_names.up.sql` theo thứ tự nếu chưa áp dụng. Migration 000004 tạo hàm chuẩn hóa tên phường cho đường ghi địa chỉ và cập nhật các địa chỉ cũ. Chạy một lần trên volume cũ bằng migration runner hoặc psql trước khi deploy binary; init Docker không chạy lại trên volume đã có dữ liệu. Backup và kiểm tra dữ liệu trước migration production.
 - Profile/checkout address đọc PostgreSQL; Redis không quyết định tính đúng đắn của response. Readiness hiện vẫn yêu cầu PostgreSQL và Redis theo policy vận hành hiện hữu.
 - API address mutations yêu cầu If-Match. HR endpoint dùng `/api/v1/admin/employees/compliance`; bỏ alias customer. Forwarded subject phải là UserID, không phải CustomerID.
 - Claim trả 503 là hành vi dự kiến khi chưa có verifier. Không bật thành công giả để làm demo.

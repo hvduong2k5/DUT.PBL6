@@ -13,14 +13,13 @@ public interface EmployeeInvitationMapper {
 
     void insert(EmployeeInvitationRow row);
 
-    Optional<EmployeeInvitationRow> findById(@Param("invitationId") UUID invitationId);
+    Optional<EmployeeInvitationRow> findByIdForUpdate(@Param("invitationId") UUID invitationId);
 
-    Optional<EmployeeInvitationRow> findPendingByPrincipalId(@Param("principalId") UUID principalId);
+    Optional<EmployeeInvitationRow> findPendingByPrincipalIdForUpdate(@Param("principalId") UUID principalId);
 
     int updateStatus(
             @Param("invitationId") UUID invitationId,
-            @Param("newStatus") String newStatus,
-            @Param("timestampColumn") String timestampColumn
+            @Param("newStatus") String newStatus
     );
 }
 

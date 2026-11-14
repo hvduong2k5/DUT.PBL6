@@ -83,6 +83,12 @@ describe("MVP order mappers (F-36)", () => {
     expect(detail.recipient?.addressDisplay).toBe("2 Le Loi, Phường Phú Nhuận, Thành phố Huế");
   });
 
+  it("renders a province once when a historical snapshot has the same suffix on the ward", () => {
+    const order = ownedOrder();
+    order.snapshot!.address.ward_name = "Phường Phú Nhuận, Thành phố Huế";
+    expect(mapMvpOrderDetail(order).recipient?.addressDisplay).toBe("2 Le Loi, Phường Phú Nhuận, Thành phố Huế");
+  });
+
   it("detail falls back to address codes for orders frozen before names were captured", () => {
     const order = ownedOrder();
     const snapshot = order.snapshot!;

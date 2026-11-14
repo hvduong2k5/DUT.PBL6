@@ -1,5 +1,6 @@
 package com.hvduong.identity.domain.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Data;
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -12,6 +13,8 @@ public class IamRoleRow {
     private String description;
     private Boolean isProtected;
     private Boolean isEnabled;
+    @JsonIgnore
+    private OffsetDateTime archivedAt;
     private Long version;
     private UUID createdByPrincipalId;
     private UUID updatedByPrincipalId;
