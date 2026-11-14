@@ -41,10 +41,11 @@ describe("live IAM read consumer", () => {
     expect((await handleLiveAdminAccess(new NextRequest("http://localhost:3000/api/admin/access/roles"), ["roles"])).status).toBe(401);
     expect(fetcher).not.toHaveBeenCalled();
   });
-  it("does not fall back to mock access data in standalone OIDC mode", async () => {
+  it("requires a trusted token instead of falling back to mock data in standalone OIDC mode", async () => {
     vi.stubEnv("WEB_AUTH_MODE", "oidc");
     const fetcher = vi.fn(); vi.stubGlobal("fetch", fetcher);
-    expect((await handleLiveAdminAccess(request(), ["roles"])).status).toBe(503);
+    // The probe request carries no OIDC session cookie, so composition never starts.
+    expect((await handleLiveAdminAccess(request(), ["roles"])).status).toBe(401);
     expect(fetcher).not.toHaveBeenCalled();
   });
 });

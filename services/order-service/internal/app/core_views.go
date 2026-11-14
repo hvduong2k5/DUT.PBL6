@@ -92,6 +92,7 @@ func (s *Service) OrderResponse(o domain.Order, p domain.Principal, detail bool)
 	}
 	out["payment_expires_at"] = o.ExpiresAt
 	out["task_id"] = o.Task
+	out["seal_code"] = o.Seal
 	out["shipment_id"] = o.Shipment
 	return out
 }

@@ -120,3 +120,13 @@ Trong `realm-export.template.json`, cấu hình token tuân thủ nghiêm ngặt
 | `Invalid parameter: redirect_uri` | Client chưa khai báo redirect URI hợp lệ | Vào Admin Console -> Realm `omama` -> Clients -> Thêm URI vào **Valid redirect URIs** |
 | `An internal server error has occurred` ở trang login | Lỗi cú pháp FreeMarker trong theme `.ftl` | Kiểm tra log container: `docker compose logs -f keycloak`, loại bỏ các filter không tương thích như `?html` |
 | Token cũ vẫn dùng được sau khi đổi quyền | Realm đang chạy chưa áp thời lượng 15 phút / rotation | Cập nhật lại `accessTokenLifespan=900` và bật *Revoke Refresh Token* trong *Realm settings -> Tokens* |
+
+### Identity role-list service credential
+
+On an existing realm, add the `identity-roles-api` audience mapper directly
+to `identity-service-admin` and disable standard, implicit and direct access
+flows for that client. For its service account, keep `realm-management`
+`manage-users` and `view-users` and remove the direct `manage-realm` mapping.
+The dedicated audience authorizes only `GET /api/v1/admin/roles` in Identity.
+After applying the realm change, validate role listing and the Identity
+provisioning flow with fresh service tokens.

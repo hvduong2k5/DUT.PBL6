@@ -181,6 +181,29 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/v1/public/auth/health:
+    get:
+      tags: [Authentication]
+      operationId: getPublicAuthHealth
+      summary: Check Identity service health.
+      x-lifecycle: stable
+      x-backlog: [EPIC_01]
+      security: []
+      responses:
+        '200':
+          description: Identity health status.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+              example:
+                status: UP
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /api/v1/public/auth/login:
     get:
       tags:

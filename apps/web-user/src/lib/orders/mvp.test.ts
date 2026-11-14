@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { OwnedOrder } from "@/lib/api-contract";
-import { mapMvpOrderDetail } from "./mvp";
+import { mapMvpOrderDetail, mapMvpOrderListResponse } from "./mvp";
 
 const ORDER_ID = "11111111-1111-4111-8111-111111111111";
 const DIGEST = "a".repeat(64);
@@ -67,7 +67,17 @@ function ownedOrder(overrides: Partial<OwnedOrder> = {}): OwnedOrder {
   } as OwnedOrder;
 }
 
-describe("MVP order recipient address", () => {
+describe("MVP order mappers (F-36)", () => {
+  it("list items carry preview lines and a total item count from the snapshot", () => {
+    const list = mapMvpOrderListResponse({ items: [ownedOrder()], next_cursor: "" });
+    expect(list.items).toHaveLength(1);
+    expect(list.items[0].itemCount).toBe(3);
+    expect(list.items[0].previewItems).toEqual([
+      { name: "Mè Xửng Dẻo Ngự Trà", quantity: 2 },
+      { name: "Mè Xửng giòn", quantity: 1 }
+    ]);
+  });
+
   it("detail renders the recipient address with ward/province names when present", () => {
     const detail = mapMvpOrderDetail(ownedOrder());
     expect(detail.recipient?.addressDisplay).toBe("2 Le Loi, Phường Phú Nhuận, Thành phố Huế");
@@ -96,4 +106,22 @@ describe("MVP order recipient address", () => {
     expect(detail.recipient?.addressDisplay).toBe("2 Le Loi, WARD-PN-016, 75");
   });
 
+  it("cancellation block exposes customer labels instead of raw codes", () => {
+    const detail = mapMvpOrderDetail(ownedOrder());
+    expect(detail.cancellation.statusLabel).toBe("Không có yêu cầu hủy");
+    expect(detail.cancellation.compensationLabel).toBe("Không áp dụng");
+    expect(detail.cancellation.message).not.toMatch(/backend|allowed_actions/i);
+  });
+
+  it("cancel policy copy speaks to the customer, not the backend", () => {
+    const cancellable = mapMvpOrderDetail(ownedOrder({
+      status: "PENDING_PAYMENT",
+      payment_status: "UNPAID",
+      allowed_actions: ["PAY", "CANCEL", "CONTACT_SUPPORT"]
+    }));
+    expect(cancellable.cancellation.message).toBe("Bạn có thể hủy đơn trực tiếp ở bước này.");
+    const paid = mapMvpOrderDetail(ownedOrder({ allowed_actions: ["REQUEST_CANCELLATION", "CONTACT_SUPPORT"] }));
+    expect(paid.cancellation.message).toContain("đội chăm sóc");
+    expect(paid.cancellation.message).not.toMatch(/backend|capability/i);
+  });
 });

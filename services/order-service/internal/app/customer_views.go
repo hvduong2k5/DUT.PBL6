@@ -80,9 +80,13 @@ func (s *Service) CustomerOrder(o domain.Order, p domain.Principal, detail bool)
 			out["compensation_status"] = "SUCCEEDED"
 		}
 	}
-	if detail && o.CoreSnapshot != nil {
+	// Emit the snapshot whenever the caller loaded one: detail reads load it
+	// directly, and the customer list handler re-reads each item with its
+	// snapshot so list previews match the detail. A core snapshot is projected
+	// to the frozen customer quote; a legacy quote passes through as stored.
+	if o.CoreSnapshot != nil {
 		out["snapshot"] = frozenCustomerQuote(*o.CoreSnapshot)
-	} else {
+	} else if o.Snapshot == nil {
 		delete(out, "snapshot")
 	}
 	return out

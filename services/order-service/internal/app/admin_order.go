@@ -48,6 +48,7 @@ type adminOrderSummary struct {
 	Warehouse  string     `json:"warehouse_id"`
 	CustomerID *string    `json:"customer_id"`
 	Task       *string    `json:"task_id"`
+	Seal       *string    `json:"seal_code"`
 	Shipment   *string    `json:"shipment_id"`
 	Final      int64      `json:"final_amount"`
 	ItemCount  int64      `json:"item_count"`
@@ -62,7 +63,7 @@ type adminOrderSummary struct {
 func adminSummary(o domain.Order, count int64) adminOrderSummary {
 	return adminOrderSummary{
 		ID: o.ID, Code: o.Code, Status: o.Status, Payment: o.Payment, Method: o.Method,
-		Stock: o.Stock, Warehouse: o.Warehouse, CustomerID: o.CustomerID, Task: o.Task,
+		Stock: o.Stock, Warehouse: o.Warehouse, CustomerID: o.CustomerID, Task: o.Task, Seal: o.Seal,
 		Shipment: o.Shipment, Final: o.Final, ItemCount: count, Version: o.Version,
 		Hold: o.Hold, ActiveCase: o.ActiveCase, SLA: o.SLA, Created: o.CreatedAt, Updated: o.UpdatedAt,
 	}

@@ -5,8 +5,15 @@ _transform: true
 # 1. UPSTREAMS & SERVICES (18 MICROSERVICES ROUTING TABLE)
 # ==============================================================================
 services:
-  # Fulfillment verifies the signed token and current Employee/ADMIN scope in
-  # Identity. Never expose internal permit/allocation/proof gRPC endpoints.
+  - name: inventory-admin-service
+    url: http://inventory-svc:8003
+    routes:
+      - name: inventory-receipts
+        paths: [/api/v1/admin/inventory/workbench/receipts]
+        strip_path: false
+        methods: [POST, OPTIONS]
+
+  # Fulfillment verifies the signed JWT and scoped grants locally.
   - name: fulfillment-service
     url: http://fulfillment-service:8002
     routes:
@@ -83,6 +90,10 @@ services:
           - /api/v1/admin/iam
         strip_path: false
         methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
+      - name: identity-role-list
+        paths: ['~/api/v1/admin/roles$']
+        strip_path: false
+        methods: [GET]
       - name: identity-staff-order-read
         paths: [/api/v1/admin/order-api]
         strip_path: false

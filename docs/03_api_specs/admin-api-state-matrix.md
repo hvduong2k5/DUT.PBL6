@@ -86,6 +86,7 @@ task 2. Common BFF errors include code, safe message, requestId and errors.
 | `POST /api/v1/admin/b2b/quote-requests/{requestId}/actions` | EPIC_18 | stable | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
 | `GET /api/v1/admin/b2b/quote-requests/{requestId}/files` | EPIC_18 | stable | 200 | 200 (collection empty) | —/— | 401 | 403 | 404 | — | — | 500/503 |
 | `GET /api/v1/admin/b2b/quote-requests/{requestId}/versions` | EPIC_18 | stable | 200 | 200 (collection empty) | —/— | 401 | 403 | 404 | — | — | 500/503 |
+| `POST /api/v1/admin/catalog/categories` | EPIC_04 | stable | 201 | N/A | 400/— | 401 | 403 | 404 | 409 | — | 500 |
 | `GET /api/v1/admin/catalog/products` | EPIC_04 | stable | 200 | 200 (collection empty) | 400/— | 401 | 403 | — | — | — | 500/503 |
 | `GET /api/v1/admin/catalog/products/{productId}` | EPIC_04 | stable | 200 | N/A | —/— | 401 | 403 | 404 | — | — | 500/503 |
 | `POST /api/v1/admin/catalog/products` | EPIC_04 | stable | 200 | N/A | 400/422 | 401 | 403 | — | 409 | — | 500/503 |
@@ -281,3 +282,9 @@ Ví dụ xóa mô tả cũ và cập nhật OCOP:
 4. Every mutation validates `400/422`, transition or revision conflict `409`, and retry behavior.
 5. Every endpoint has controlled latency and `500/503` UI tests.
 6. Error responses preserve `code` and `requestId`; clients do not branch on translated `message`.
+
+`GET /api/v1/admin/roles` also accepts the `identity-service-admin` client-credentials token for audience `identity-roles-api`. This service permission covers the list operation only.
+
+Inventory receipts require `INVENTORY_RECEIPT_CREATE` globally or for the SKU warehouse. The API checks the expected revision and replays the stored result for matching idempotent retries.
+
+Fulfillment staff routes validate the `omama-api` audience by default. Missing or invalid credentials return 401. Valid credentials without an eligible staff identity or the required grant return 403.
