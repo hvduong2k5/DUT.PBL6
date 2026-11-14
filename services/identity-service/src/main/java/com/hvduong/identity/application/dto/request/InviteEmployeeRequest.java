@@ -12,5 +12,6 @@ import lombok.NoArgsConstructor;
 public class InviteEmployeeRequest {
     @Builder.Default
     private int validDays = 7;
+    private String idpSubject;
 }
 

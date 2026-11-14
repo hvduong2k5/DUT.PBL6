@@ -29,8 +29,8 @@ public class EmployeeInvitationController implements EmployeeInvitationApi {
             @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorId
     ) {
         UUID invitedBy = com.hvduong.identity.security.VerifiedActor.id();
-        int validDays = request != null ? request.getValidDays() : 7;
-        InviteEmployeeResponse result = invitationService.inviteEmployee(invitedBy, validDays);
+        InviteEmployeeRequest invite = request != null ? request : new InviteEmployeeRequest();
+        InviteEmployeeResponse result = invitationService.inviteEmployee(invitedBy, invite.getValidDays(), invite.getIdpSubject());
         return ResponseEntity.ok(ApiResponse.success("Tạo thư mời nhân viên thành công", result));
     }
 
