@@ -8,7 +8,7 @@
 | Chat tư vấn | Gửi tin nhắn vào phiên | Luồng SSE: token → product_cards/citations → done (chi tiết [chương 09](09_shopping_workflow_design.md)) |
 | Hỏi FAQ | Câu hỏi khớp nhóm chủ đề FAQ (hạn dùng, bảo quản, làng nghề, địa chỉ…) | Trả lời từ kho tri thức kèm trích dẫn tên tài liệu |
 | Tra trạng thái đơn | Câu hỏi có mã đơn dạng `XX` + số (ví dụ `DH1001`) hoặc từ khóa đơn hàng | Chỉ khách đăng nhập, chỉ đơn của chính khách; đơn của người khác không phân biệt được với đơn không tồn tại |
-| Ước tính phí ship | Câu hỏi phí vận chuyển + tên tỉnh/thành | Gọi tool Shipping, trả phí và thời gian dự kiến |
+| Hỏi phí ship | Câu hỏi phí vận chuyển + tên tỉnh/thành | Chỉ báo cần địa chỉ/kiện hàng đầy đủ và chuyển sang checkout; không bịa quote từ dữ liệu thiếu |
 | Gợi ý mua kèm trong chat | Câu hỏi “mua kèm” + SKU trong tin nhắn | Thẻ sản phẩm từ placement `cart` của Analytics |
 | Xem gợi ý ngoài chat | `GET /api/v1/ai/recommendations?placement=home\|product_detail\|cart` | Danh sách sản phẩm đã resolve về Catalog (chi tiết [chương 11](11_recommendation_consumption.md)) |
 | Feedback | `POST /api/v1/ai/shopping/feedback` với signal `helpful / not_helpful / clicked / dismissed` | Ghi vào `recommendation_feedback` (hoặc bộ nhớ ở chế độ fixture) |
@@ -17,8 +17,8 @@
 ## Vòng đời phiên và retention
 
 - Phiên được cấp `expires_at` ngay lúc tạo: **khách đăng nhập 30 ngày, khách vãng lai 15 ngày** (quyết định 09/11/2026; cấu hình `AI_RETENTION_CUSTOMER_DAYS` / `AI_RETENTION_GUEST_DAYS`).
-- Job dọn dẹp: `python -m ai_agent_service cleanup` xóa mọi phiên đã quá `expires_at` (tin nhắn và context xóa theo khóa ngoại `ON DELETE CASCADE`). Cần đặt lịch chạy định kỳ khi vận hành production; ở chế độ fixture job không làm gì.
-- Quyền sở hữu: phiên `customer` chỉ truy cập được bởi đúng `customer_id` đó; phiên `guest` chỉ bởi khách vãng lai. Mọi truy cập sai chủ đều trả **404** (không lộ sự tồn tại), áp cho cả đọc phiên, gửi tin nhắn và feedback.
+- Runtime production tự chạy cleanup theo `AI_CLEANUP_INTERVAL_SECONDS` (mặc định mỗi giờ); lệnh `python -m ai_agent_service cleanup` vẫn dùng được cho thao tác vận hành thủ công.
+- Quyền sở hữu: phiên `customer` chỉ truy cập được bởi đúng `customer_id`; phiên `guest` cần đúng token riêng của phiên. Sai chủ trả **404**, thiếu/sai guest token trả **401** mà không cấp dữ liệu.
 
 ## Consent lưu lịch sử chat — cơ chế thực thi
 

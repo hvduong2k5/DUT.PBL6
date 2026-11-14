@@ -6,14 +6,14 @@
 
 | Method & path | Quyền | Mô tả |
 | --- | --- | --- |
-| `POST /api/v1/ai/shopping/conversations` | Guest hoặc Bearer JWT | Tạo phiên; 201 kèm `conversation_id`, `owner_type`, `expires_at` |
+| `POST /api/v1/ai/shopping/conversations` | Guest hoặc Bearer JWT | Cần `Idempotency-Key`; 201 kèm token truy cập một lần nếu là guest |
 | `POST /api/v1/ai/shopping/conversations/{id}/messages` | Chủ phiên | Gửi tin nhắn; trả **SSE** (xem giao thức dưới). Nội dung 1–2000 ký tự |
 | `GET /api/v1/ai/shopping/conversations/{id}` | Chủ phiên | Phiên + slot hiện tại + lịch sử tin nhắn đã lưu |
-| `POST /api/v1/ai/shopping/feedback` | Chủ phiên | Signal `helpful / not_helpful / clicked / dismissed`; signal khác → 422 `invalid_signal` |
+| `POST /api/v1/ai/shopping/feedback` | Chủ phiên | Cần `Idempotency-Key`; cùng key khác payload → 409 `idempotency_conflict` |
 | `GET /api/v1/ai/recommendations` | Guest hoặc Bearer JWT | Query `placement` (`home` / `product_detail` / `cart`), `product_id`, `sku_codes` (phẩy ngăn cách) |
 | `GET /api/v1/ai/consent` | Bearer JWT (khách) | Consent lưu lịch sử chat; guest → 401 `login_required` |
 | `PUT /api/v1/ai/consent` | Bearer JWT (khách) | Đặt consent; mỗi lần đổi tăng `version` của bản ghi |
-| `POST /api/v1/ai/knowledge/products/sync` | Nội bộ | Ingestion tri thức. **Đợt 1 chưa có cổng quyền** — đợt 2 sẽ khóa bằng permission grant của nhân viên (xem [chương 07](07_integrations_and_contract_gaps.md)) |
+| `POST /api/v1/ai/knowledge/products/sync` | Nội bộ | Credential từ `AI_INTERNAL_TOKEN_FILE`; không route công khai qua Kong |
 | `GET /health`, `GET /health/ready`, `GET /metrics` | Công khai nội bộ | Sống / sẵn sàng (ping DB ở chế độ thật) / Prometheus |
 
 ## Giao thức SSE của lượt chat
@@ -30,10 +30,11 @@ Mỗi sự kiện là một dòng `data: {json}`. Loại sự kiện:
 
 ## Xác thực và quyền sở hữu
 
-- **Khách vãng lai:** không header `Authorization` → phiên ẩn danh.
-- **Khách đăng nhập:** Bearer JWT được verify RS256 qua JWKS của Keycloak/Identity (cùng mẫu Order/Profile): bắt buộc claim `exp`, `sub`; danh tính khách lấy từ claim **`user_id`**; thiếu `user_id` → 401 `invalid_token`. Cấu hình qua `AI_JWT_ISSUER`, `AI_JWT_AUDIENCE`, `AI_JWKS_URL`; chưa cấu hình JWKS mà có token → 401 `auth_not_configured`.
+- **Khách vãng lai:** không header `Authorization` → phiên ẩn danh; lúc tạo nhận `guest_token`, các lần đọc/gửi/feedback phải gửi `X-Guest-Conversation-Token`. DB chỉ lưu SHA-256 của token.
+- **Khách đăng nhập:** Bearer JWT được verify RS256 qua JWKS, từ chối service/staff claim, rồi đối chiếu `/api/v1/users/me` là principal `CUSTOMER` đang `ACTIVE` và khớp subject/id. Thiếu cấu hình xác thực → fail-closed 503.
 - **Sở hữu phiên:** phiên của khách khác, hoặc phiên guest bị khách đăng nhập truy cập (và ngược lại), đều trả **404 `conversation_not_found`** — không phân biệt được với phiên không tồn tại. Áp dụng cho đọc phiên, gửi tin nhắn và feedback.
-- **Dữ liệu đơn hàng:** tool `get_order_status` yêu cầu khách đăng nhập ở tầng gateway (`requires_customer`), chuyển tiếp nguyên header `Authorization` của khách tới Order, và còn đối chiếu `customer_id` của đơn với khách đang gọi — đơn của người khác trả về đúng hình dạng “không tìm thấy”.
+- **Dữ liệu đơn hàng:** tool `get_order_status` yêu cầu khách đăng nhập và chuyển tiếp nguyên Bearer tới Order. Order là owner của policy ownership; AI gom 401/403/404 thành cùng kết quả “không tìm thấy”, không suy đoán từ field customer cũ.
+- **Lỗi API:** mọi lỗi HTTP của service dùng `{code, message, requestId}` và echo `X-Request-Id`; message an toàn, client chỉ branch theo `code`.
 
 ## Phòng thủ đã triển khai
 

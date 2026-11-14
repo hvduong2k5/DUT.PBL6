@@ -50,7 +50,7 @@ Embedding có cùng mẫu trừu tượng: `FakeEmbedder` (băm SHA-256 có hạ
 **Ghi chú region (10/11/2026):** mặc định ban đầu là `ap-southeast-1` (Singapore), nhưng kiểm chứng thực tế cho thấy Titan Text Embeddings V2 **không được AWS cung cấp tại Singapore** và Nova Pro tại đó chỉ gọi được qua inference profile xuyên region (`apac.amazon.nova-pro-v1:0`). Bao chốt chuyển toàn bộ sang **ap-southeast-2 (Sydney)** — region gần nhất phục vụ cả hai model ngay trong region bằng model ID trực tiếp (đã kiểm chứng bằng lời gọi thật: Nova Pro 63/17 token, Titan V2 trả vector 1024 chiều).
 | `AI_EMBEDDING_PROVIDER` / `AI_EMBEDDING_MODEL` / `AI_EMBEDDING_DIM` | `fake` / `amazon.titan-embed-text-v2:0` / 1024 | Embedding |
 | `AI_FIXTURES` | `1` (bật) | `1` = adapter fixture + store in-memory; `0` = HTTP + PostgreSQL |
-| `AI_CATALOG_BASE_URL` / `AI_INVENTORY_BASE_URL` / `AI_ORDER_BASE_URL` / `AI_SHIPPING_BASE_URL` / `AI_ANALYTICS_BASE_URL` | cổng 8005 / 8001 / 8004 / 8012 / 8011 | Địa chỉ các service bạn (theo cổng đăng ký trong service boundary) |
+| `AI_CATALOG_BASE_URL` / `AI_ORDER_BASE_URL` / `AI_SHIPPING_BASE_URL` / `AI_ANALYTICS_BASE_URL` | cổng 8006 / 8004 / 8012 / 8011 | Địa chỉ service nội bộ; tồn advisory đọc projection từ Catalog, không gọi REST Inventory không tồn tại |
 | `AI_JWT_ISSUER` / `AI_JWT_AUDIENCE` / `AI_JWKS_URL` | trống | Xác thực JWT khách |
 | `AI_TOOL_TIMEOUT_SECONDS` / `AI_MAX_STEPS` / `AI_MAX_TOOL_CALLS` / `AI_MAX_REPLY_TOKENS` | 2.0 / 8 / 10 / 700 | Ngân sách runtime |
 | `AI_RETENTION_CUSTOMER_DAYS` / `AI_RETENTION_GUEST_DAYS` | 30 / 15 | Retention phiên |

@@ -34,25 +34,27 @@ microservices.
 - RAG (pgvector + PostgreSQL FTS hybrid, pre-filtered by visibility/active/
   effective window) supplies meaning — origin, characteristics, FAQ — never
   price or stock facts.
-- Guests chat anonymously; logged-in customers are verified with the same
-  RS256/JWKS pattern as Order/Profile. Order status returns data only to the
-  order's owner; other orders are indistinguishable from non-existent ones.
+- Guests chat with an unguessable conversation token whose hash is stored;
+  the token must accompany every later guest operation. Logged-in customers
+  are verified with RS256/JWKS and, in production, resolved as ACTIVE CUSTOMER
+  principals through Identity. Order status relies on Order's ownership check;
+  other owners and missing orders remain indistinguishable.
 - **Consent & retention**: recommendation consent is owned by Analytics and
   never duplicated. This service's own consent covers chat-history use:
   without it, a customer's messages are not persisted (sessions still work
   from working slots). Conversations expire after **30 days (customers) /
-  15 days (guests)**; run the cleanup job on a schedule.
+  15 days (guests)**; production performs bounded periodic cleanup in-process.
 
 ## API
 
 ```
-POST /api/v1/ai/shopping/conversations                  create session (guest or Bearer JWT)
+POST /api/v1/ai/shopping/conversations                  create session (requires Idempotency-Key)
 POST /api/v1/ai/shopping/conversations/{id}/messages    chat turn — SSE: token / product_cards / citations / done / error
 GET  /api/v1/ai/shopping/conversations/{id}             own session + messages
-POST /api/v1/ai/shopping/feedback                       helpful / not_helpful / clicked / dismissed
+POST /api/v1/ai/shopping/feedback                       idempotent helpful / not_helpful / clicked / dismissed
 GET  /api/v1/ai/recommendations?placement=home|product_detail|cart
 GET|PUT /api/v1/ai/consent                              chat-history consent (customers)
-POST /api/v1/ai/knowledge/products/sync                 internal ingestion (phase 2: staff-grant gated)
+POST /api/v1/ai/knowledge/products/sync                 internal credential only; never gateway-routed
 GET  /health · /health/ready · /metrics
 ```
 
@@ -89,11 +91,18 @@ integration tests (skipped automatically when no database is reachable).
 
 ## Configuration
 
-All settings are environment variables; see `.env.example`. Defaults are
+All settings are environment variables; see `.env.example`. Secret values are
+mounted as files rather than placed in environment variables. Defaults are
 safe for fixture-mode development (`AI_FIXTURES=1`): adapters serve in-repo
 sample data and no external service is called. With `AI_FIXTURES=0`, the
 HTTP adapters in `integrations/http_clients.py` are used — that file is the
 single place to adjust if a business service's public API shape differs.
+
+Production Catalog reads use the stable public product contract. Advisory
+stock filtering uses Catalog's durable Inventory projection; checkout remains
+the authority that revalidates stock against Inventory. Shipping fee answers
+fail closed until a complete checkout address and parcel are available, so the
+agent never fabricates a quote from province and weight alone.
 
 ## Known simplifications (phase 1)
 
@@ -102,5 +111,3 @@ single place to adjust if a business service's public API shape differs.
   streaming is a later optimisation inside the same event protocol.
 - Store/knowledge calls are synchronous psycopg on short queries, outside
   the composition section of a turn.
-- Inventory is consumed through an HTTP adapter interface; if Inventory
-  exposes only gRPC when wiring production, only `http_clients.py` changes.

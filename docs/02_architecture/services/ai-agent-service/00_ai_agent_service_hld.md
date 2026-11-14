@@ -48,4 +48,4 @@ flowchart LR
 
 - Trả lời được soạn trọn bằng `generate()` rồi mới cắt nhỏ thành sự kiện SSE `token`, để hậu kiểm grounding chạy **trước khi** phát bất kỳ token nào. Streaming token thật là tối ưu đợt sau, giữ nguyên giao thức sự kiện.
 - Các lời gọi store/knowledge là psycopg đồng bộ trên truy vấn ngắn, ngoài đoạn soạn trả lời.
-- Chưa có route Kong cho MS-19; API phơi trực tiếp ở cổng 8019 (xem [chương 07](07_integrations_and_contract_gaps.md)).
+- Kong chỉ route ba bề mặt customer (`shopping`, `recommendations`, `consent`) tới MS-19; health, metrics và knowledge ingestion giữ trên mạng nội bộ (xem [chương 07](07_integrations_and_contract_gaps.md)).
