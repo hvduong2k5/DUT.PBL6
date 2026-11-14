@@ -1,4 +1,5 @@
 import time
+import uuid
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -112,10 +113,16 @@ def test_retention_windows_guest_15_customer_30():
 
     app.state.authenticator = fake_auth
     with TestClient(app) as client:
-        guest = client.post("/api/v1/ai/shopping/conversations").json()
+        guest = client.post(
+            "/api/v1/ai/shopping/conversations",
+            headers={"Idempotency-Key": str(uuid.uuid4())},
+        ).json()
         customer = client.post(
             "/api/v1/ai/shopping/conversations",
-            headers={"Authorization": "Bearer cust-1"},
+            headers={
+                "Authorization": "Bearer cust-1",
+                "Idempotency-Key": str(uuid.uuid4()),
+            },
         ).json()
     now = datetime.now(UTC)
     guest_days = (datetime.fromisoformat(guest["expires_at"]) - now).days

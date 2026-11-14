@@ -1,4 +1,5 @@
 import json
+import uuid
 
 import pytest
 from fastapi.testclient import TestClient
@@ -6,6 +7,8 @@ from fastapi.testclient import TestClient
 from ai_agent_service.config import Settings
 from ai_agent_service.main import create_app
 from ai_agent_service.platform.auth import Principal
+
+_GUEST_TOKENS: dict[str, str] = {}
 
 
 def make_app():
@@ -27,17 +30,30 @@ def client():
 
 
 def create_conversation(client, headers=None) -> str:
-    response = client.post("/api/v1/ai/shopping/conversations", headers=headers or {})
+    request_headers = dict(headers or {})
+    request_headers.setdefault("Idempotency-Key", str(uuid.uuid4()))
+    response = client.post(
+        "/api/v1/ai/shopping/conversations", headers=request_headers
+    )
     assert response.status_code == 201
-    return response.json()["conversation_id"]
+    payload = response.json()
+    conversation_id = payload["conversation_id"]
+    if payload.get("guest_token"):
+        _GUEST_TOKENS[conversation_id] = payload["guest_token"]
+    return conversation_id
 
 
 def chat(client, conversation_id, text, headers=None) -> list[dict]:
+    request_headers = dict(headers or {})
+    if "Authorization" not in request_headers and conversation_id in _GUEST_TOKENS:
+        request_headers.setdefault(
+            "X-Guest-Conversation-Token", _GUEST_TOKENS[conversation_id]
+        )
     with client.stream(
         "POST",
         f"/api/v1/ai/shopping/conversations/{conversation_id}/messages",
         json={"content": text},
-        headers=headers or {},
+        headers=request_headers,
     ) as response:
         assert response.status_code == 200
         events = []
@@ -58,6 +74,43 @@ def done(events) -> dict:
 def cards(events) -> list[dict]:
     found = [e["cards"] for e in events if e["type"] == "product_cards"]
     return found[0] if found else []
+
+
+def test_conversation_create_requires_idempotency_key(client):
+    response = client.post("/api/v1/ai/shopping/conversations")
+
+    assert response.status_code == 400
+    assert response.json()["code"] == "idempotency_key_required"
+
+
+def test_conversation_create_replays_same_idempotency_key(client):
+    headers = {"Idempotency-Key": str(uuid.uuid4())}
+
+    first = client.post("/api/v1/ai/shopping/conversations", headers=headers)
+    second = client.post("/api/v1/ai/shopping/conversations", headers=headers)
+
+    assert first.status_code == second.status_code == 201
+    assert first.json()["conversation_id"] == second.json()["conversation_id"]
+    assert first.json()["guest_token"] == second.json()["guest_token"]
+
+
+def test_guest_conversation_requires_bound_token(client):
+    created = client.post(
+        "/api/v1/ai/shopping/conversations",
+        headers={"Idempotency-Key": str(uuid.uuid4())},
+    )
+    payload = created.json()
+    path = f"/api/v1/ai/shopping/conversations/{payload['conversation_id']}"
+
+    missing = client.get(path)
+    accepted = client.get(
+        path,
+        headers={"X-Guest-Conversation-Token": payload["guest_token"]},
+    )
+
+    assert missing.status_code == 401
+    assert missing.json()["code"] == "guest_token_required"
+    assert accepted.status_code == 200
 
 
 def test_guest_clarify_then_recommendations(client):

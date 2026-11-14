@@ -83,7 +83,13 @@ class FixtureInventory:
 
 class FixtureOrders:
     def get(self, order_id: str, authorization: str | None = None):
-        return _ORDERS.get(order_id.upper())
+        if not authorization or not authorization.startswith("Bearer "):
+            return None
+        customer_id = authorization[7:].strip()
+        order = _ORDERS.get(order_id.upper())
+        if order is None or order.customer_id != customer_id:
+            return None
+        return order
 
 
 class FixtureShipping:

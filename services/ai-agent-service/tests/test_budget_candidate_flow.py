@@ -6,12 +6,15 @@ candidate the bot names and asks about; only the customer's direct
 confirmation commits it.
 """
 import json
+import uuid
 
 import pytest
 from fastapi.testclient import TestClient
 
 from ai_agent_service.config import Settings
 from ai_agent_service.main import create_app
+
+_GUEST_TOKENS: dict[str, str] = {}
 
 
 @pytest.fixture(scope="module")
@@ -21,9 +24,15 @@ def client():
 
 
 def _conversation(client) -> str:
-    resp = client.post("/api/v1/ai/shopping/conversations")
+    resp = client.post(
+        "/api/v1/ai/shopping/conversations",
+        headers={"Idempotency-Key": str(uuid.uuid4())},
+    )
     assert resp.status_code == 201
-    return resp.json()["conversation_id"]
+    payload = resp.json()
+    conversation_id = payload["conversation_id"]
+    _GUEST_TOKENS[conversation_id] = payload["guest_token"]
+    return conversation_id
 
 
 def _chat(client, conv_id: str, text: str) -> dict:
@@ -31,6 +40,7 @@ def _chat(client, conv_id: str, text: str) -> dict:
         "POST",
         f"/api/v1/ai/shopping/conversations/{conv_id}/messages",
         json={"content": text},
+        headers={"X-Guest-Conversation-Token": _GUEST_TOKENS[conv_id]},
     ) as resp:
         assert resp.status_code == 200
         body = resp.read().decode("utf-8")

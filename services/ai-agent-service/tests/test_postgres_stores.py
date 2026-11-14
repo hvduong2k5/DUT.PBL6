@@ -47,7 +47,7 @@ def test_postgres_conversation_roundtrip_and_cleanup():
     store.set_history_consent(customer, True)
     assert store.get_history_consent(customer) is True
 
-    expired = store.create("guest", None, 0)
+    expired = store.create("guest", None, 0, guest_token_hash="0" * 64)
     deleted = store.cleanup_expired(datetime.now(UTC) + timedelta(days=1))
     assert deleted >= 1
     assert store.get(expired.id) is None
