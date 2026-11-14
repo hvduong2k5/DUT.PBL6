@@ -129,6 +129,12 @@ export interface AdminPermissionDetail extends AdminPermissionSummary {
   rolesUsing: Array<{ roleCode: string; roleName: string; status: AdminRoleStatus; employeeCount: number }>;
 }
 
+export interface CreateRoleInput { roleCode: string; roleName: string; description: string }
+export interface UpdateRoleInput { roleName?: string; description?: string }
+export interface AssignRoleInput { roleCode: string; scopeType: "GLOBAL" | "WAREHOUSE" | "DEPARTMENT"; scopeId?: string; validFrom?: string; validUntil?: string; reason?: string }
+export interface ResetPasswordInput { newPassword: string; temporary: boolean }
+export interface InvitationCreated { invitationId: string; principalId: string; status: string; expiresAt: string }
+
 interface AdminAccessErrorBody { code?: string; message?: string; errors?: Array<{ field: string; message: string }> }
 export class AdminAccessApiError extends Error {
   readonly code: string;
