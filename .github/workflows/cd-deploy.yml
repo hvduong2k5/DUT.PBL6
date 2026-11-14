@@ -156,7 +156,7 @@ jobs:
           echo "Deploying $APP ($uuid) at $GITHUB_SHA"
           response_file=$(mktemp)
           trap 'rm -f "$response_file"' EXIT
-          status=$(curl -sS -o "$response_file" -w '%{http_code}' -X GET \
+          status=$(curl -sS -o "$response_file" -w '%{http_code}' -X POST \
             --resolve coolify.hvduong.qzz.io:443:$VPS_IP \
             -H "Authorization: Bearer $TOKEN" \
             -H "Accept: application/json" \
