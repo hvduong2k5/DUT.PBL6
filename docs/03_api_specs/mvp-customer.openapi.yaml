@@ -2612,8 +2612,16 @@ components:
           type: string
         ward_code:
           type: string
+        ward_name:
+          type: string
+          readOnly: true
+          description: Canonical ward name when available from Profile.
         province_code:
           type: string
+        province_name:
+          type: string
+          readOnly: true
+          description: Canonical province name when available from Profile.
     OrderCart:
       type: object
       additionalProperties: false
