@@ -145,11 +145,15 @@ export async function oidcLogin(request: NextRequest) {
 }
 
 // Step-up (F-42 MFA follow-up): re-run the authorize flow asking the realm
-// for LoA 2 (password + TOTP). For an existing session Keycloak presents
-// only the missing OTP step; the shared callback then stores the upgraded
-// tokens, which unlocks the payment write tier for its freshness window.
+// for LoA 2 (password + TOTP). prompt=login forces a full re-authentication
+// (password + OTP): on this realm the resumed-session path interposes a
+// credential-selection page and a second code entry, while the fresh
+// re-authentication path was verified end-to-end (acr "2", auth_time moves
+// to the step-up moment, refresh preserves both). The shared callback then
+// stores the upgraded tokens, which unlocks the payment write tier for its
+// freshness window.
 export async function oidcStepUp(request: NextRequest) {
-  return beginOidcFlow(request, { acr_values: "2" }, "/admin/payments");
+  return beginOidcFlow(request, { acr_values: "2", prompt: "login" }, "/admin/payments");
 }
 
 export async function oidcCallback(request: NextRequest) {
