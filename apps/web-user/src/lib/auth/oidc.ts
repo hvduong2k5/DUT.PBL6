@@ -128,16 +128,28 @@ export function clearOidc(response: NextResponse) {
 
 export function trustedOidcOrigin(request: NextRequest): boolean { return request.headers.get("origin") === oidcConfig().origin; }
 
-export async function oidcLogin(request: NextRequest) {
+async function beginOidcFlow(request: NextRequest, extra: Record<string, string>, fallbackReturnUrl: string) {
   const config = oidcConfig();
   const doc = await metadata();
-  const flow: Flow = { state: randomBytes(32).toString("hex"), nonce: randomBytes(32).toString("hex"), verifier: randomBytes(48).toString("base64url"), returnUrl: getSafeReturnUrl(request.nextUrl.searchParams.get("returnUrl") ?? undefined), at: Date.now() };
+  const flow: Flow = { state: randomBytes(32).toString("hex"), nonce: randomBytes(32).toString("hex"), verifier: randomBytes(48).toString("base64url"), returnUrl: getSafeReturnUrl(request.nextUrl.searchParams.get("returnUrl") ?? undefined, fallbackReturnUrl), at: Date.now() };
   const url = new URL(doc.authorization_endpoint);
-  for (const [key, value] of Object.entries({ client_id: config.clientId, redirect_uri: `${config.origin}/api/auth/oidc/callback`, response_type: "code", scope: "openid", state: flow.state, nonce: flow.nonce, code_challenge_method: "S256", code_challenge: createHash("sha256").update(flow.verifier).digest("base64url") })) url.searchParams.set(key, value);
+  for (const [key, value] of Object.entries({ client_id: config.clientId, redirect_uri: `${config.origin}/api/auth/oidc/callback`, response_type: "code", scope: "openid", state: flow.state, nonce: flow.nonce, code_challenge_method: "S256", code_challenge: createHash("sha256").update(flow.verifier).digest("base64url"), ...extra })) url.searchParams.set(key, value);
   const response = NextResponse.redirect(url);
   response.cookies.set(FLOW_COOKIE, seal(flow, FLOW_COOKIE), { ...cookieOptions(), maxAge: 300 });
   response.headers.set("Cache-Control", "no-store");
   return response;
+}
+
+export async function oidcLogin(request: NextRequest) {
+  return beginOidcFlow(request, {}, "/");
+}
+
+// Step-up (F-42 MFA follow-up): re-run the authorize flow asking the realm
+// for LoA 2 (password + TOTP). For an existing session Keycloak presents
+// only the missing OTP step; the shared callback then stores the upgraded
+// tokens, which unlocks the payment write tier for its freshness window.
+export async function oidcStepUp(request: NextRequest) {
+  return beginOidcFlow(request, { acr_values: "2" }, "/admin/payments");
 }
 
 export async function oidcCallback(request: NextRequest) {
