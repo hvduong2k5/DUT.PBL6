@@ -26,4 +26,12 @@ describe("admin payment route validation", () => {
     expect(parseAdminPaymentPath(["refund-approvals", "ap-001"]).kind).toBe("invalid");
     expect(parseAdminPaymentPath(["refund-evidence"])).toEqual({ kind: "refund-evidence-records" });
   });
+
+  it("accepts the evidence vault routes (F-42 slice 3)", () => {
+    expect(parseAdminPaymentPath(["evidence"])).toEqual({ kind: "evidence-create" });
+    expect(parseAdminPaymentPath(["evidence", "ev-001"])).toEqual({ kind: "evidence-view", evidenceId: "ev-001" });
+    expect(parseAdminPaymentPath(["evidence", "ev-001", "content"])).toEqual({ kind: "evidence-content", evidenceId: "ev-001" });
+    expect(parseAdminPaymentPath(["evidence", "ev-001", "download"])).toEqual({ kind: "evidence-download", evidenceId: "ev-001" });
+    expect(parseAdminPaymentPath(["evidence", "ev-001", "bogus"]).kind).toBe("invalid");
+  });
 });
