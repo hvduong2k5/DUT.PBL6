@@ -19,6 +19,7 @@ type Claims struct {
 	PaymentReceivers  []string `json:"payment_receiver_ids,omitempty"`
 	MFAAt             int64    `json:"auth_time,omitempty"`
 	AMR               []string `json:"amr,omitempty"`
+	ACR               string   `json:"acr,omitempty"`
 	Subject           string   `json:"sub"`
 	Role              string   `json:"role"`
 	Warehouse         string   `json:"warehouse,omitempty"`
