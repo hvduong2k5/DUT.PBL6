@@ -36,13 +36,16 @@ func TestPaymentStaffIAMGrants(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sign := func(grants []string, authTime time.Time) string {
+	signClaims := func(grants []string, authTime time.Time, extra map[string]any) string {
 		claims := jwt.MapClaims{"iss": server.URL, "aud": "omama-api", "sub": subject, "user_id": id, "typ": "Bearer", "iat": time.Now().Add(-time.Minute).Unix(), "exp": time.Now().Add(time.Hour).Unix()}
 		if grants != nil {
 			claims["permission_grants"] = grants
 		}
 		if !authTime.IsZero() {
 			claims["auth_time"] = authTime.Unix()
+		}
+		for k, v := range extra {
+			claims[k] = v
 		}
 		token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 		token.Header["kid"] = "key"
@@ -51,6 +54,9 @@ func TestPaymentStaffIAMGrants(t *testing.T) {
 			t.Fatal(e)
 		}
 		return "Bearer " + raw
+	}
+	sign := func(grants []string, authTime time.Time) string {
+		return signClaims(grants, authTime, nil)
 	}
 	svc := &Service{C: Config{AuthMode: "keycloak"}, Identity: verifier, Payment: &persistence.Payment{Connection: "conn-test", Receiver: "recv-test"}}
 	fresh := time.Now().Add(-5 * time.Minute)
@@ -68,10 +74,37 @@ func TestPaymentStaffIAMGrants(t *testing.T) {
 			t.Fatalf("unexpected permission mapping: %v", actor.Permissions)
 		}
 	})
-	t.Run("resolve grant with fresh auth_time maps manage", func(t *testing.T) {
+	t.Run("resolve grant with fresh auth_time but no step-up keeps read only", func(t *testing.T) {
 		actor, e := svc.PaymentStaff(sign([]string{"PAYMENT_RECONCILIATION_VIEW#GLOBAL", "PAYMENT_CASE_RESOLVE#GLOBAL"}, fresh))
+		if e != nil {
+			t.Fatal(e)
+		}
+		if actor.Permissions["payment.reconciliation.manage"] {
+			t.Fatal("a password-only login must not map the write tier")
+		}
+		if !actor.Permissions["payment.reconciliation.read"] {
+			t.Fatalf("read tier missing: %v", actor.Permissions)
+		}
+	})
+	t.Run("resolve grant with acr step-up maps manage", func(t *testing.T) {
+		actor, e := svc.PaymentStaff(signClaims([]string{"PAYMENT_RECONCILIATION_VIEW#GLOBAL", "PAYMENT_CASE_RESOLVE#GLOBAL"}, fresh, map[string]any{"acr": "2", "amr": []string{"pwd", "otp"}}))
 		if e != nil || !actor.Permissions["payment.reconciliation.manage"] {
 			t.Fatalf("manage missing: %v %v", actor.Permissions, e)
+		}
+	})
+	t.Run("resolve grant with amr otp step-up maps manage", func(t *testing.T) {
+		actor, e := svc.PaymentStaff(signClaims([]string{"PAYMENT_RECONCILIATION_VIEW#GLOBAL", "PAYMENT_CASE_RESOLVE#GLOBAL"}, fresh, map[string]any{"amr": []string{"pwd", "otp"}}))
+		if e != nil || !actor.Permissions["payment.reconciliation.manage"] {
+			t.Fatalf("manage missing: %v %v", actor.Permissions, e)
+		}
+	})
+	t.Run("resolve grant with stale step-up keeps read only", func(t *testing.T) {
+		actor, e := svc.PaymentStaff(signClaims([]string{"PAYMENT_RECONCILIATION_VIEW#GLOBAL", "PAYMENT_CASE_RESOLVE#GLOBAL"}, stale, map[string]any{"acr": "2", "amr": []string{"pwd", "otp"}}))
+		if e != nil {
+			t.Fatal(e)
+		}
+		if actor.Permissions["payment.reconciliation.manage"] {
+			t.Fatal("a step-up older than the freshness window must not map the write tier")
 		}
 	})
 	t.Run("resolve grant with stale auth_time keeps read only", func(t *testing.T) {
