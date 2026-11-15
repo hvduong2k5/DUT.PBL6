@@ -54,7 +54,7 @@ Khởi động `api` với `ANALYTICS_SUPPLY_ENABLED=1` và cấu hình Identity
 | ClickHouse lỗi hoặc chưa có generation, Supply vẫn sẵn sàng | 200 | `degraded` | `ready` | `not_ready` |
 | Không tính năng nào sẵn sàng, ví dụ PostgreSQL lỗi trên W6-S | 503 | `not_ready` | `not_ready` | `disabled` |
 
-HTTP 200 giữ process nhận request khi ít nhất một tính năng phục vụ được. Theo dõi `capabilities.dashboard` để phát hiện Dashboard lỗi trong lúc Supply vẫn phục vụ. HTTP 503 kèm `code`, `message` và `requestId`. `/livez` trả `{"status":"ok"}`.
+HTTP 200 giữ process nhận request khi ít nhất một tính năng phục vụ được. Mỗi probe có tối đa hai giây để trả kết quả. Theo dõi `capabilities.dashboard` để phát hiện Dashboard lỗi trong lúc Supply vẫn phục vụ. HTTP 503 kèm `code`, `message` và `requestId`. `/livez` trả `{"status":"ok"}`.
 
 ## Pilot tốc độ bán và cận hạn
 

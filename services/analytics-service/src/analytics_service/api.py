@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import re
 import time
@@ -25,6 +26,7 @@ log = logging.getLogger(__name__)
 PREFIX = "/api/v1/admin/analytics"
 BACKEND_ERRORS = (psycopg.Error, ClickHouseError, OSError, db.Conflict)
 DATE_PATTERN = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
+READINESS_TIMEOUT_SECONDS = 2
 UNAVAILABLE_CODE = "ANALYTICS_TEMPORARILY_UNAVAILABLE"
 
 
@@ -291,32 +293,41 @@ def create_app(settings=None, auth=None):
     def live():
         return {"status": "ok"}
 
+    def supply_ready():
+        with db.connect(settings) as conn:
+            conn.execute("SELECT 1 FROM supply_export LIMIT 1")
+        return True
+
+    def dashboard_ready():
+        with db.connect(settings) as conn:
+            generation = db.get_generation(conn, settings.scope, settings.pipeline)
+        if generation is None:
+            return False
+        client = clickhouse(settings)
+        try:
+            client.query("SELECT 1 FROM analytics_db.order_milestone_daily LIMIT 1")
+        finally:
+            client.close()
+        return True
+
+    async def capability_status(enabled, probe):
+        if not enabled:
+            return "disabled"
+        try:
+            healthy = await asyncio.wait_for(
+                asyncio.to_thread(probe), timeout=READINESS_TIMEOUT_SECONDS
+            )
+        except BACKEND_ERRORS:
+            return "not_ready"
+        return "ready" if healthy else "not_ready"
+
     @app.get("/readyz")
-    def ready(request: Request):
-        capabilities = {"supply": "disabled", "dashboard": "disabled"}
-        if settings.supply_enabled:
-            try:
-                with db.connect(settings) as conn:
-                    conn.execute("SELECT 1 FROM supply_export LIMIT 1")
-                capabilities["supply"] = "ready"
-            except BACKEND_ERRORS:
-                capabilities["supply"] = "not_ready"
-
-        if settings.clickhouse_host:
-            capabilities["dashboard"] = "not_ready"
-            try:
-                with db.connect(settings) as conn:
-                    generation = db.get_generation(conn, settings.scope, settings.pipeline)
-                if generation is not None:
-                    client = clickhouse(settings)
-                    try:
-                        client.query("SELECT 1 FROM analytics_db.order_milestone_daily LIMIT 1")
-                    finally:
-                        client.close()
-                    capabilities["dashboard"] = "ready"
-            except BACKEND_ERRORS:
-                pass
-
+    async def ready(request: Request):
+        supply_status, dashboard_status = await asyncio.gather(
+            capability_status(settings.supply_enabled, supply_ready),
+            capability_status(bool(settings.clickhouse_host), dashboard_ready),
+        )
+        capabilities = {"supply": supply_status, "dashboard": dashboard_status}
         states = capabilities.values()
         if "ready" in states:
             status = "degraded" if "not_ready" in states else "ready"

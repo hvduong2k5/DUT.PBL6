@@ -24,6 +24,7 @@ paths:
         Probe nội bộ tại root của service. Supply cần PostgreSQL và bảng supply_export.
         Dashboard được bật khi đã cấu hình host ClickHouse và cần cả generation đã
         publish cho pipeline/scope hiện tại lẫn bảng tổng hợp đọc được trong ClickHouse.
+        Một tính năng được báo not_ready khi probe của nó quá hai giây.
       responses:
         '200':
           description: Ít nhất một tính năng sẵn sàng. Degraded khi một tính năng khác đang bật gặp lỗi.
