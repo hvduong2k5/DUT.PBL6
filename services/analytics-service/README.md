@@ -37,11 +37,30 @@ Dùng image build với context gốc repo và `-f services/analytics-service/Do
 
 Dùng `repair <topic-id> <partition> <offset> <evidence-ref>` để đọc lại bản ghi gốc khi adapter đã xử lý được. Dùng `--discard` sau khi source owner duyệt bỏ bản ghi. Topic đổi ID hoặc offset không còn trong retention cần pipeline/bootstrap mới theo bằng chứng nguồn. Xác nhận coverage lại sau khi sửa.
 
+## Chạy riêng Supply (W6-S)
+
+Đặt `ANALYTICS_CLICKHOUSE_HOST=` (giá trị rỗng) trong cấu hình của cả lệnh `migrate` và process `api`. Bỏ hẳn biến này vẫn dùng host mặc định `clickhouse`. Nếu dùng `ANALYTICS_CLICKHOUSE_HOST_FILE`, bỏ biến trỏ file hoặc dùng file có giá trị rỗng vì file được ưu tiên.
+
+Chạy `migrate` với DSN PostgreSQL và các role cần cấp quyền. Lệnh áp dụng migration PostgreSQL, bao gồm bảng `analytics_config.supply_export`, rồi ghi log bỏ qua ClickHouse. Bảng `public.analytics_schema_migration` chỉ ghi các migration đã áp dụng. Khi bật Dashboard sau này, đặt host ClickHouse và chạy lại `migrate` để áp dụng phần ClickHouse.
+
+Khởi động `api` với `ANALYTICS_SUPPLY_ENABLED=1` và cấu hình Identity dành cho nhân viên. Dùng `import-supply <manifest>` để nạp thủ công các bản xuất đã đối soát, với cùng pipeline và scope như API. W6-S chạy với PostgreSQL, process API và lệnh import thủ công.
+
+`GET /readyz` trả trạng thái cho từng tính năng. Supply cần kết nối PostgreSQL và đọc được bảng `supply_export`. Dashboard được bật khi host ClickHouse có giá trị, cần generation đã publish cho pipeline/scope hiện tại và cần truy vấn được bảng tổng hợp trong ClickHouse.
+
+| Tình trạng | HTTP | `status` | `capabilities.supply` | `capabilities.dashboard` |
+| --- | --- | --- | --- | --- |
+| W6-S, PostgreSQL sẵn sàng | 200 | `ready` | `ready` | `disabled` |
+| Supply và Dashboard đều sẵn sàng | 200 | `ready` | `ready` | `ready` |
+| ClickHouse lỗi hoặc chưa có generation, Supply vẫn sẵn sàng | 200 | `degraded` | `ready` | `not_ready` |
+| Không tính năng nào sẵn sàng, ví dụ PostgreSQL lỗi trên W6-S | 503 | `not_ready` | `not_ready` | `disabled` |
+
+HTTP 200 giữ process nhận request khi ít nhất một tính năng phục vụ được. Theo dõi `capabilities.dashboard` để phát hiện Dashboard lỗi trong lúc Supply vẫn phục vụ. HTTP 503 kèm `code`, `message` và `requestId`. `/livez` trả `{"status":"ok"}`.
+
 ## Pilot tốc độ bán và cận hạn
 
 Pilot dev chạy trên môi trường phát triển chung với Order, Inventory và Identity của nhóm. Chọn một kho và vài SKU có 14 ngày Việt Nam đã đóng và đối soát. Stack `compose.test.yml` là môi trường cô lập với dữ liệu mẫu để kiểm đường truyền và công thức.
 
-1. Hoàn tất migration PostgreSQL và ClickHouse theo phần trên. Cấu hình `ANALYTICS_SUPPLY_ENABLED=1` và `ANALYTICS_SESSION_ORIGIN` bằng origin chính xác của Web Admin ở role API. Cấp tài khoản nhân viên `ACTIVE`, role `ADMIN` phạm vi `GLOBAL` và thêm UUID vào `ANALYTICS_PILOT_IDS`. Tài khoản mở màn hình cần cả `INVENTORY_MANAGEMENT_VIEW` và `BATCH_VIEW`.
+1. Hoàn tất migration theo cấu hình chạy riêng Supply hoặc cấu hình đầy đủ ở trên. Cấu hình `ANALYTICS_SUPPLY_ENABLED=1` và `ANALYTICS_SESSION_ORIGIN` bằng origin chính xác của Web Admin ở role API. Với chế độ pilot, cấp tài khoản nhân viên `ACTIVE`, role `ADMIN` phạm vi `GLOBAL` và thêm UUID vào `ANALYTICS_PILOT_IDS`. Tài khoản mở màn hình cần cả `INVENTORY_MANAGEMENT_VIEW` và `BATCH_VIEW`.
 2. Đặt `ANALYTICS_SUPPLY_INBOX` là thư mục chia sẻ ngoài repo với hai thư mục con `order-service` và `inventory-service`. Cấp quyền ghi riêng cho owner của từng thư mục. Cấp quyền đọc qua nhóm chung hoặc ACL để UID 10001 đọc được file mode 0640. Worker Analytics mount thư mục chỉ đọc.
 3. Chạy publisher ở phía từng owner với `psql`, Python và role đọc PostgreSQL của owner. Scheduler chạy Order và Inventory daily sau khi bằng chứng của ngày đã đóng sẵn sàng. Chạy snapshot lô theo giờ với revision tăng dần trong ngày. Lần chạy lại cùng revision và nội dung giữ nguyên thời điểm chụp đã công bố. Dùng secret store hoặc cơ chế libpq để cấp credential cho job. [Cách lập manifest cho từng owner](../../docs/02_architecture/services/analytics-service/09_supply_analytics_v1.md)
 4. Bật API, worker và [route Kong](dev/kong-pilot-service.yml). Trên Web Admin cấu hình `ANALYTICS_ADMIN_UPSTREAM_URL` bằng URL nội bộ đầy đủ tới prefix Analytics, ví dụ `http://kong:8000/api/v1/admin/analytics`. Có thể đặt `ANALYTICS_PILOT_WAREHOUSE` để điền sẵn mã kho. Màn hình ở `/admin/analytics`.

@@ -1,13 +1,19 @@
 import hashlib
+import logging
 
 import clickhouse_connect
+from clickhouse_connect.driver.exceptions import ClickHouseError
 from psycopg import sql
 
 from . import db
 from .config import setting
 
+log = logging.getLogger(__name__)
+
 
 def clickhouse(settings):
+    if not settings.clickhouse_host:
+        raise ClickHouseError("ClickHouse is not configured")
     return clickhouse_connect.get_client(
         host=settings.clickhouse_host,
         port=settings.clickhouse_port,
@@ -29,9 +35,12 @@ def migrate(settings):
                store text NOT NULL, version text NOT NULL, checksum text NOT NULL,
                PRIMARY KEY (store, version))"""
         )
-        client = clickhouse(settings)
+        client = clickhouse(settings) if settings.clickhouse_host else None
         try:
             for store in ("postgres", "clickhouse"):
+                if store == "clickhouse" and client is None:
+                    log.info("Skipping ClickHouse migrations: ANALYTICS_CLICKHOUSE_HOST is empty")
+                    continue
                 for path in sorted((settings.migrations / store).glob("*.sql")):
                     body = path.read_text(encoding="utf-8")
                     checksum = hashlib.sha256(body.encode()).hexdigest()
@@ -127,4 +136,5 @@ def migrate(settings):
                     )
                 )
         finally:
-            client.close()
+            if client is not None:
+                client.close()

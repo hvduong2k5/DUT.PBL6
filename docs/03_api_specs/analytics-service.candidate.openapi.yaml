@@ -8,9 +8,45 @@ servers:
 tags:
   - name: Dashboard
   - name: Supply
+  - name: Operations
 security:
   - StaffBearer: []
 paths:
+  /readyz:
+    get:
+      servers:
+        - url: /
+      security: []
+      tags: [Operations]
+      operationId: getAnalyticsReadiness
+      summary: Kiểm tra khả năng phục vụ của Analytics
+      description: >
+        Probe nội bộ tại root của service. Supply cần PostgreSQL và bảng supply_export.
+        Dashboard được bật khi đã cấu hình host ClickHouse và cần cả generation đã
+        publish cho pipeline/scope hiện tại lẫn bảng tổng hợp đọc được trong ClickHouse.
+      responses:
+        '200':
+          description: Ít nhất một tính năng sẵn sàng. Degraded khi một tính năng khác đang bật gặp lỗi.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/AnalyticsReadiness'
+                  - properties:
+                      status: {enum: [ready, degraded]}
+              example:
+                status: ready
+                capabilities: {supply: ready, dashboard: disabled}
+        '503':
+          description: Không có tính năng nào sẵn sàng.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/AnalyticsReadiness'
+                  - $ref: '#/components/schemas/Error'
+                  - properties:
+                      status: {const: not_ready}
   /dashboard:
     get:
       tags: [Dashboard]
@@ -402,6 +438,17 @@ components:
             message: Dashboard tạm thời gián đoạn. Vui lòng thử lại sau.
             requestId: request-103
   schemas:
+    AnalyticsReadiness:
+      type: object
+      required: [status, capabilities]
+      properties:
+        status: {type: string, enum: [ready, degraded, not_ready]}
+        capabilities:
+          type: object
+          required: [supply, dashboard]
+          properties:
+            supply: {type: string, enum: [ready, not_ready, disabled]}
+            dashboard: {type: string, enum: [ready, not_ready, disabled]}
     SupplyCode:
       type: string
       pattern: '^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$'
