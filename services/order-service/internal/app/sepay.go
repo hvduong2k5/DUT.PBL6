@@ -16,6 +16,7 @@ import (
 	"github.com/omamx/order-service/internal/sepay"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -182,11 +183,22 @@ func (s *Service) EnableSePayFromEnv(ctx context.Context) error {
 	}
 	if s.PaymentEvidence == nil {
 		// F-42 slice 2: bank-statement evidence certificates are issued
-		// locally under the PAYMENT_REFUND_VERIFY grant. The evidence
-		// vault (PaymentVault) is deliberately NOT replaced: evidence
-		// file upload/download keeps the external contract and stays
-		// unavailable until a finance service is deployed.
+		// locally under the PAYMENT_REFUND_VERIFY grant.
 		s.PaymentEvidence = p.LocalRefundEvidence()
+	}
+	if s.PaymentVault == nil {
+		// F-42 slice 3: no external finance service exists in this
+		// deployment, so evidence files are vaulted locally: ticketed
+		// uploads behind capability-signed URLs served by this service,
+		// bytes verified against the declared SHA-256 on arrival.
+		base := strings.TrimSpace(os.Getenv("EVIDENCE_VAULT_PUBLIC_BASE"))
+		if base == "" {
+			base = "https://api-pbl6.hvduong.qzz.io"
+		}
+		s.PaymentVault = p.LocalEvidenceVault(base)
+		if u, e := url.Parse(base); e == nil && u.Host != "" {
+			s.PaymentEvidenceHosts = append(s.PaymentEvidenceHosts, u.Host)
+		}
 	}
 	return s.enableInventoryFromEnv(ctx)
 }
