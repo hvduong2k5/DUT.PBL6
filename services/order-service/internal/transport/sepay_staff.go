@@ -337,6 +337,41 @@ func sepayStaffRoutes(s *app.Service, r chi.Router) {
 		}
 		write(w, 200, view)
 	})
+	// F-42 slice 3: evidence content transfer. The ticket endpoints
+	// above are staff-gated; moving the bytes is not — the URL carries
+	// an HMAC signature and a ten-minute expiry minted by the vault.
+	r.Put("/api/v1/admin/payments/evidence-content/{evidence_id}", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
+		if s.Payment == nil {
+			failure(s, w, domain.E("PAYMENT_UNAVAILABLE", 503))
+			return
+		}
+		exp, _ := strconv.ParseInt(r.URL.Query().Get("exp"), 10, 64)
+		if e := s.EvidenceVaultPut(r.Context(), chi.URLParam(r, "evidence_id"), exp, r.URL.Query().Get("sig"), http.MaxBytesReader(w, r.Body, 10485760+1024)); e != nil {
+			sepayError(s, w, e)
+			return
+		}
+		write(w, 200, map[string]any{"stored": true})
+	})
+	r.Get("/api/v1/admin/payments/evidence-content/{evidence_id}", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
+		if s.Payment == nil {
+			failure(s, w, domain.E("PAYMENT_UNAVAILABLE", 503))
+			return
+		}
+		exp, _ := strconv.ParseInt(r.URL.Query().Get("exp"), 10, 64)
+		media, raw, e := s.EvidenceVaultGet(r.Context(), chi.URLParam(r, "evidence_id"), exp, r.URL.Query().Get("sig"))
+		if e != nil {
+			sepayError(s, w, e)
+			return
+		}
+		ext := map[string]string{"application/pdf": "pdf", "image/png": "png", "image/jpeg": "jpg"}[media]
+		w.Header().Set("Content-Type", media)
+		w.Header().Set("Content-Disposition", "attachment; filename=\"evidence-"+chi.URLParam(r, "evidence_id")+"."+ext+"\"")
+		w.Header().Set("Content-Length", strconv.Itoa(len(raw)))
+		w.WriteHeader(200)
+		_, _ = w.Write(raw)
+	})
 	// F-42 slice 2: local refund authority endpoints. Approvals are
 	// created and withdrawn by approve-tier actors and accepted into
 	// refund obligations by a different accept-tier actor; bank-statement
