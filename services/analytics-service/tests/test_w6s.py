@@ -5,6 +5,7 @@ import subprocess
 import sys
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
+from threading import Event
 from uuid import uuid4
 
 import httpx
@@ -210,7 +211,9 @@ def test_supply_only_readiness_and_manual_import(supply_database, staff, tmp_pat
             contract("Error", response)
 
 
-def test_configured_dashboard_readiness_requires_generation_and_clickhouse(supply_database, staff):
+def test_configured_dashboard_readiness_requires_generation_and_clickhouse(
+    supply_database, staff, monkeypatch
+):
     settings = supply_database
     cli("migrate")
     configured = replace(as_api(settings), clickhouse_host="clickhouse")
@@ -255,3 +258,22 @@ def test_configured_dashboard_readiness_requires_generation_and_clickhouse(suppl
                 "dashboard": "not_ready",
             }
             contract("Error", readiness)
+
+    release_probe = Event()
+
+    def stalled_clickhouse(settings):
+        if not release_probe.wait(5):
+            pytest.fail("Readiness waited for the stalled ClickHouse probe")
+        raise OSError("ClickHouse is unreachable")
+
+    monkeypatch.setattr("analytics_service.api.clickhouse", stalled_clickhouse)
+    with TestClient(create_app(configured, auth)) as client:
+        try:
+            readiness = client.get("/readyz")
+            assert readiness.status_code == 200, readiness.text
+            assert readiness.json() == {
+                "status": "degraded",
+                "capabilities": {"supply": "ready", "dashboard": "not_ready"},
+            }
+        finally:
+            release_probe.set()
