@@ -3,6 +3,7 @@ import { parseAdminPaymentPath } from "./validation";
 
 describe("admin payment route validation", () => {
   it("accepts only reconciliation case routes", () => {
+    expect(parseAdminPaymentPath(["step-up-status"])).toEqual({ kind: "step-up-status" });
     expect(parseAdminPaymentPath(["cases"])).toEqual({ kind: "case-list" });
     expect(parseAdminPaymentPath(["cases", "pay-case-001"])).toEqual({ kind: "case-detail", caseId: "pay-case-001" });
     expect(parseAdminPaymentPath(["cases", "pay-case-001", "assign"])).toEqual({ kind: "case-assign", caseId: "pay-case-001" });
