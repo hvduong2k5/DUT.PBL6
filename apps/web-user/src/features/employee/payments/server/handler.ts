@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { EmployeeAuthorizationError, requireEmployeeSession } from "@/features/employee/auth/server";
 import { applyTrustedSessionCookie, getTrustedAccessToken } from "@/lib/auth/server-credential";
 import { usesIdentityBff } from "@/lib/auth/oidc-config";
-import { PAYMENT_CASE_REASON_LABELS, PAYMENT_CASE_RESOLUTIONS, PAYMENT_CASE_RESOLUTION_LABELS, PAYMENT_CASE_STATUS_LABELS, PAYMENT_REFUND_EXECUTION_LABELS, PAYMENT_REFUND_STATUS_LABELS, REFUND_APPROVAL_STATE_LABELS, REFUND_EVIDENCE_DECISION_LABELS, type PaymentCaseDecision, type PaymentCaseDetail, type PaymentCaseList, type PaymentCaseSummary, type PaymentRefundList, type PaymentRefundSummary, type RefundApprovalItem, type RefundCertificateItem, type RefundStartInstructionView } from "@/features/employee/payments/types";
+import { PAYMENT_CASE_REASON_LABELS, PAYMENT_CASE_RESOLUTIONS, PAYMENT_CASE_RESOLUTION_LABELS, PAYMENT_CASE_STATUS_LABELS, PAYMENT_REFUND_EXECUTION_LABELS, PAYMENT_REFUND_STATUS_LABELS, REFUND_APPROVAL_STATE_LABELS, REFUND_EVIDENCE_DECISION_LABELS, EVIDENCE_STATUS_LABELS, type EvidenceObjectView, type PaymentCaseDecision, type PaymentCaseDetail, type PaymentCaseList, type PaymentCaseSummary, type PaymentRefundList, type PaymentRefundSummary, type RefundApprovalItem, type RefundCertificateItem, type RefundStartInstructionView } from "@/features/employee/payments/types";
 import { parseAdminPaymentPath } from "@/features/employee/payments/validation";
 
 interface UpstreamError { code?: string; message?: string; errors?: Array<{ field: string; message: string }> }
@@ -50,11 +50,10 @@ async function upstream(request: NextRequest, path: string, init?: { method: str
 }
 async function session(request: NextRequest) { return requireEmployeeSession(request); }
 
-// The upstream staff API returns persistence views (snake_case).
-// Case views carry no bank data. Refund views are masked upstream; the
-// one place full beneficiary values cross this layer is the verify
-// call's bank evidence, assembled server-side from the sealed
-// certificate and never sent to the browser.
+// The upstream staff API returns the persistence PaymentCase shape
+// (snake_case). Case views carry no bank or beneficiary data, so no
+// field-level redaction applies at this layer; refund views are not proxied
+// by this workspace.
 function mapSummary(value: unknown): PaymentCaseSummary {
   const item = record(value) ? value : {};
   const reason = string(item.reason);
@@ -208,6 +207,22 @@ function mapInstruction(payload: Record<string, unknown>): RefundStartInstructio
   };
 }
 
+// Evidence views carry metadata only; the signed download URL the vault
+// returns is consumed by this layer (evidence-download) and never sent
+// to the browser.
+function mapEvidence(payload: Record<string, unknown>): EvidenceObjectView {
+  const status = string(payload.status);
+  return {
+    evidenceId: string(payload.evidence_id),
+    resourceType: string(payload.resource_type),
+    resourceId: string(payload.resource_id),
+    status,
+    statusLabel: EVIDENCE_STATUS_LABELS[status] ?? status,
+    sha256: string(payload.sha256),
+    expiresAt: nullableString(payload.expires_at)
+  };
+}
+
 // Mirrors the order-service hash of the canonical beneficiary snapshot
 // (Go marshals the string map with sorted keys). Bank codes, account
 // numbers and holder names in this flow are plain ASCII, where Go's
@@ -241,6 +256,17 @@ export async function handleAdminPayments(request: NextRequest, path: string[]) 
         const refundId = request.nextUrl.searchParams.get("refundId") ?? "";
         return NextResponse.json(mapCertificateList(await upstream(request, `admin/payments/refund-evidence?refund_id=${encodeURIComponent(refundId)}`)));
       }
+      if (route.kind === "evidence-view" || route.kind === "evidence-download") {
+        if (!canReadRefunds) return responseError("PERMISSION_FORBIDDEN", "Nhân viên không có quyền xem chứng từ.", 403);
+        const view = await upstream(request, `admin/payments/evidence/${encodeURIComponent(route.evidenceId)}`);
+        if (route.kind === "evidence-view") return NextResponse.json(mapEvidence(view));
+        const downloadUrl = nullableString(view.download_url);
+        if (string(view.status) !== "CLEAN" || !downloadUrl) return responseError("EVIDENCE_NOT_AVAILABLE", "Chứng từ chưa sẵn sàng để tải xuống.", 409);
+        const fileResponse = await fetch(downloadUrl, { cache: "no-store" });
+        if (!fileResponse.ok) return responseError("ADMIN_PAYMENT_ERROR", "Không thể tải tệp chứng từ từ kho.", 502);
+        const fileHeaders = new Headers({ "Content-Type": fileResponse.headers.get("content-type") ?? "application/octet-stream", "Content-Disposition": fileResponse.headers.get("content-disposition") ?? "attachment", "Cache-Control": "no-store" });
+        return new NextResponse(await fileResponse.arrayBuffer(), { status: 200, headers: fileHeaders });
+      }
       if (route.kind === "case-list") return NextResponse.json(mapList(await upstream(request, "admin/payments/reconciliation-cases?limit=100")));
       if (route.kind !== "case-detail" && route.kind !== "case-decisions") return responseError("METHOD_NOT_ALLOWED", "Method không được hỗ trợ.", 405);
       const canReadCases = currentSession.permissions.includes("PAYMENT_RECONCILIATION_VIEW");
@@ -249,7 +275,30 @@ export async function handleAdminPayments(request: NextRequest, path: string[]) 
       if (route.kind === "case-detail") return NextResponse.json(mapDetail(await upstream(request, `admin/payments/reconciliation-cases/${encodeURIComponent(route.caseId)}`)));
       return NextResponse.json(mapDecisionList(await upstream(request, `admin/payments/reconciliation-cases/${encodeURIComponent(route.caseId)}/decisions`)));
     }
-    if (request.method !== "POST" || route.kind === "case-list" || route.kind === "case-detail" || route.kind === "refund-list" || route.kind === "refund-detail") return responseError("METHOD_NOT_ALLOWED", "Method không được hỗ trợ.", 405);
+    if (request.method === "PUT" && route.kind === "evidence-content") {
+      // The browser sends the file bytes plus the ticket URL the vault
+      // minted; this layer checks the URL really is this deployment's
+      // evidence-content endpoint for this object, then forwards the
+      // bytes server-side. The capability signature stays between the
+      // vault and this server.
+      if (!currentSession.permissions.includes("PAYMENT_REFUND_EXECUTE")) return responseError("PERMISSION_FORBIDDEN", "Nhân viên không có quyền tải chứng từ lên kho.", 403);
+      let parsed: URL | null = null;
+      try { parsed = new URL(request.headers.get("x-upload-url") ?? ""); } catch { parsed = null; }
+      let expectedHost = "";
+      try { expectedHost = new URL(baseUrl()).host; } catch { expectedHost = ""; }
+      if (!parsed || parsed.protocol !== "https:" || !expectedHost || parsed.host !== expectedHost || parsed.pathname !== `/api/v1/admin/payments/evidence-content/${route.evidenceId}`) return responseError("INVALID_REQUEST", "URL tải lên không hợp lệ.", 400);
+      const bytes = await request.arrayBuffer();
+      if (!bytes.byteLength || bytes.byteLength > 10485760) return responseError("INVALID_REQUEST", "Tệp chứng từ rỗng hoặc vượt quá 10MB.", 400);
+      const put = await fetch(parsed, { method: "PUT", body: bytes, headers: { "Content-Type": request.headers.get("content-type") ?? "application/octet-stream" }, cache: "no-store" });
+      if (!put.ok) {
+        const text = await put.text().catch(() => "");
+        let code = "EVIDENCE_UPLOAD_FAILED"; let message = "Không thể lưu tệp chứng từ vào kho.";
+        try { const parsedError = JSON.parse(text) as { error?: { code?: string; message?: string } }; code = parsedError.error?.code ?? code; message = parsedError.error?.message ?? message; } catch { /* keep defaults */ }
+        return responseError(code, message, put.status >= 400 && put.status <= 599 ? put.status : 502);
+      }
+      return NextResponse.json({ stored: true });
+    }
+    if (request.method !== "POST" || route.kind === "case-list" || route.kind === "case-detail" || route.kind === "refund-list" || route.kind === "refund-detail" || route.kind === "evidence-view" || route.kind === "evidence-download" || route.kind === "evidence-content") return responseError("METHOD_NOT_ALLOWED", "Method không được hỗ trợ.", 405);
     const rawBody: unknown = await request.json().catch(() => null);
     const body = record(rawBody) ? rawBody : {};
     const casePath = `admin/payments/reconciliation-cases/${encodeURIComponent(path[1] ?? "")}`;
@@ -261,6 +310,19 @@ export async function handleAdminPayments(request: NextRequest, path: string[]) 
       if (!(PAYMENT_CASE_RESOLUTIONS as readonly string[]).includes(resolution) || !reason || reason.length > 1000 || !evidenceIds.length) return responseError("INVALID_REQUEST", "Quyết định cần hướng xử lý, lý do và ít nhất một tham chiếu bằng chứng.", 400);
       const created = await upstream(request, `${casePath}/decisions`, { method: "POST", body: { resolution, reason, evidence_ids: evidenceIds } });
       return NextResponse.json(mapDecision(created), { status: 201 });
+    }
+    if (route.kind === "evidence-create") {
+      if (!currentSession.permissions.includes("PAYMENT_REFUND_EXECUTE")) return responseError("PERMISSION_FORBIDDEN", "Nhân viên không có quyền tải chứng từ lên kho.", 403);
+      const resourceType = string(body.resourceType);
+      const resourceId = string(body.resourceId).trim();
+      const mediaType = string(body.mediaType);
+      const byteSize = number(body.byteSize);
+      const sha256 = string(body.sha256).trim();
+      const reason = string(body.reason).trim();
+      const idempotencyKey = string(body.idempotencyKey).trim();
+      if (!["REFUND", "RECONCILIATION_CASE"].includes(resourceType) || !resourceId || !["application/pdf", "image/png", "image/jpeg"].includes(mediaType) || !Number.isInteger(byteSize) || byteSize < 1 || byteSize > 10485760 || !/^[0-9a-f]{64}$/u.test(sha256) || !reason || reason.length > 1000 || !idempotencyKey) return responseError("INVALID_REQUEST", "Yêu cầu tải chứng từ thiếu loại đối tượng, tệp, SHA-256, lý do hoặc khóa idempotency.", 400);
+      const ticket = await upstream(request, "admin/payments/evidence-uploads", { method: "POST", idempotencyKey, body: { resource_type: resourceType, resource_id: resourceId, media_type: mediaType, byte_size: byteSize, sha256, reason } });
+      return NextResponse.json({ evidenceId: string(ticket.evidence_id), uploadUrl: string(ticket.upload_url), expiresAt: string(ticket.expires_at) }, { status: 201 });
     }
     if (route.kind === "refund-approvals") {
       if (!currentSession.permissions.includes("PAYMENT_REFUND_APPROVE")) return responseError("PERMISSION_FORBIDDEN", "Nhân viên không có quyền phê duyệt hoàn tiền.", 403);

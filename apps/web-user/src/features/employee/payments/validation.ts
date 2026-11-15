@@ -13,5 +13,9 @@ export function parseAdminPaymentPath(path: string[]) {
   if (path.length === 3 && path[0] === "refund-approvals" && path[1] && path[2] === "withdraw") return { kind: "refund-approval-withdraw" as const, approvalId: path[1] };
   if (path.length === 3 && path[0] === "refund-approvals" && path[1] && path[2] === "accept") return { kind: "refund-approval-accept" as const, approvalId: path[1] };
   if (path.length === 1 && path[0] === "refund-evidence") return { kind: "refund-evidence-records" as const };
+  if (path.length === 1 && path[0] === "evidence") return { kind: "evidence-create" as const };
+  if (path.length === 2 && path[0] === "evidence" && path[1]) return { kind: "evidence-view" as const, evidenceId: path[1] };
+  if (path.length === 3 && path[0] === "evidence" && path[1] && path[2] === "content") return { kind: "evidence-content" as const, evidenceId: path[1] };
+  if (path.length === 3 && path[0] === "evidence" && path[1] && path[2] === "download") return { kind: "evidence-download" as const, evidenceId: path[1] };
   return { kind: "invalid" as const };
 }
