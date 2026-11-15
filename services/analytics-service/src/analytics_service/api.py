@@ -25,6 +25,7 @@ log = logging.getLogger(__name__)
 PREFIX = "/api/v1/admin/analytics"
 BACKEND_ERRORS = (psycopg.Error, ClickHouseError, OSError, db.Conflict)
 DATE_PATTERN = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
+UNAVAILABLE_CODE = "ANALYTICS_TEMPORARILY_UNAVAILABLE"
 
 
 class APIError(Exception):
@@ -36,7 +37,7 @@ class APIError(Exception):
 
 
 def unavailable():
-    return APIError(503, "ANALYTICS_TEMPORARILY_UNAVAILABLE", "Dashboard tạm thời gián đoạn.")
+    return APIError(503, UNAVAILABLE_CODE, "Dashboard tạm thời gián đoạn.")
 
 
 def unauthenticated():
@@ -325,18 +326,45 @@ def create_app(settings=None, auth=None):
         return {"status": "ok"}
 
     @app.get("/readyz")
-    def ready():
-        try:
-            with db.connect(settings) as conn:
-                conn.execute("SELECT 1 FROM serving_generation LIMIT 1")
-            client = clickhouse(settings)
+    def ready(request: Request):
+        capabilities = {"supply": "disabled", "dashboard": "disabled"}
+        if settings.supply_enabled:
             try:
-                client.query("SELECT 1 FROM analytics_db.order_milestone_daily LIMIT 1")
-            finally:
-                client.close()
-        except BACKEND_ERRORS as exc:
-            raise unavailable() from exc
-        return {"status": "ready"}
+                with db.connect(settings) as conn:
+                    conn.execute("SELECT 1 FROM supply_export LIMIT 1")
+                capabilities["supply"] = "ready"
+            except BACKEND_ERRORS:
+                capabilities["supply"] = "not_ready"
+
+        if settings.clickhouse_host:
+            capabilities["dashboard"] = "not_ready"
+            try:
+                with db.connect(settings) as conn:
+                    generation = db.get_generation(conn, settings.scope, settings.pipeline)
+                if generation is not None:
+                    client = clickhouse(settings)
+                    try:
+                        client.query("SELECT 1 FROM analytics_db.order_milestone_daily LIMIT 1")
+                    finally:
+                        client.close()
+                    capabilities["dashboard"] = "ready"
+            except BACKEND_ERRORS:
+                pass
+
+        states = capabilities.values()
+        if "ready" in states:
+            status = "degraded" if "not_ready" in states else "ready"
+            return {"status": status, "capabilities": capabilities}
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "not_ready",
+                "capabilities": capabilities,
+                "code": UNAVAILABLE_CODE,
+                "message": "Analytics chưa sẵn sàng.",
+                "requestId": request.state.request_id,
+            },
+        )
 
     @app.get("/metrics")
     def metrics():
