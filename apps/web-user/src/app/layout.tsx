@@ -1,7 +1,24 @@
 import type { Metadata } from "next";
+import { Be_Vietnam_Pro, Playfair_Display } from "next/font/google";
 import { AuthProvider } from "@/components/auth/auth-provider";
 import { RecommendationProvider } from "@/components/recommendation/recommendation-provider";
 import "./globals.css";
+import "@/styles/heritage.css";
+
+const playfair = Playfair_Display({
+  subsets: ["latin", "vietnamese"],
+  weight: ["500", "600", "700"],
+  style: ["normal", "italic"],
+  variable: "--font-playfair",
+  display: "swap"
+});
+
+const beVietnam = Be_Vietnam_Pro({
+  subsets: ["latin", "vietnamese"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-be-vietnam",
+  display: "swap"
+});
 
 export const metadata: Metadata = {
   title: { default: "Ô Mạ Huế", template: "%s · Ô Mạ Huế" },
@@ -9,5 +26,5 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="vi"><body><AuthProvider><RecommendationProvider>{children}</RecommendationProvider></AuthProvider></body></html>;
+  return <html lang="vi" className={`${playfair.variable} ${beVietnam.variable}`}><body><AuthProvider><RecommendationProvider>{children}</RecommendationProvider></AuthProvider></body></html>;
 }
