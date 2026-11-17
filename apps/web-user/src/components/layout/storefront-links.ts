@@ -14,6 +14,6 @@ export const shopLinks = [
 
 export const serviceLinks = [
   { name: "Câu chuyện Gói Huế", href: "/#heritage-story" },
-  { name: "Tra cứu nguồn gốc", href: "/#ocop-traceability" },
+  { name: "Tra cứu nguồn gốc", href: "/#home-batch" },
   { name: "Hỗ trợ khách hàng", href: "/support/request" }
 ];

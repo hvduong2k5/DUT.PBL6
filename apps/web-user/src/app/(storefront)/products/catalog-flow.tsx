@@ -51,6 +51,8 @@ function ProductCard({ product }: { product: ProductSummary }) {
 }
 
 export function CatalogFlow() {
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -193,7 +195,9 @@ export function CatalogFlow() {
       </section>
 
       <div className="catalog-layout">
-        <aside className="catalog-filters" aria-label="Bộ lọc sản phẩm">
+        <button className="catalog-filter-toggle" aria-expanded={filtersOpen} aria-controls="customer-filters" onClick={() => setFiltersOpen(!filtersOpen)}>Bộ lọc sản phẩm {filtersOpen ? "−" : "+"}</button>
+        <aside id="customer-filters" className={"catalog-filters" + (filtersOpen ? " is-open" : "")} aria-label="Bộ lọc sản phẩm">
+          <button className="catalog-filter-toggle" onClick={() => setFiltersOpen(false)}>Xong · Xem sản phẩm</button>
           <div className="filter-title"><div><span aria-hidden="true">⌁</span><h2>Bộ lọc</h2></div><button type="button" onClick={() => resetFilters()}>Đặt lại</button></div>
           {loadingConfig ? <div className="filter-loading">Đang tải bộ lọc…</div> : null}
           {configError ? <div className="filter-error"><p>{configError}</p><button type="button" onClick={() => setRetryKey((value) => value + 1)}>Thử lại</button></div> : null}
@@ -209,7 +213,7 @@ export function CatalogFlow() {
 
         <section className="catalog-results" aria-live="polite" aria-busy={loadingCatalog}>
           <div className="results-toolbar">
-            <div><span className="eyebrow">Bộ sưu tập Ô Mạ</span><h2>{params.get("q") ? `Kết quả cho “${params.get("q")}”` : "Tất cả sản phẩm"}</h2><p>{loadingCatalog ? "Đang tìm thức quà phù hợp…" : `${result?.filteredCount ?? 0} sản phẩm phù hợp`}</p></div>
+            <div><span className="eyebrow">Bộ sưu tập Gói Huế</span><h2>{params.get("q") ? `Kết quả cho “${params.get("q")}”` : "Tất cả sản phẩm"}</h2><p>{loadingCatalog ? "Đang tìm thức quà phù hợp…" : `${result?.filteredCount ?? 0} sản phẩm phù hợp`}</p></div>
             <label>Sắp xếp<select value={params.get("sort") ?? (params.get("q") ? "RELEVANCE" : "CURATED")} onChange={(event) => navigate((next) => next.set("sort", event.target.value))}>{SORT_OPTIONS.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
           </div>
 

@@ -52,7 +52,7 @@ export function MobileTabs({
         </svg>
         <span>Danh mục</span>
       </button>
-      <Link className="mobile-nav-btn" href="/#gift">
+      <Link className="mobile-nav-btn" href="/products?category=qua-bieu">
         <svg
           width="20"
           height="20"
@@ -65,7 +65,7 @@ export function MobileTabs({
           <rect x="3" y="8" width="18" height="13" rx="1" />
           <path d="M12 8v13M3 12h18M12 8c-2-3-5-3-5-1s3 1 5 1 5 1 5-1-3-2-5 1z" />
         </svg>
-        <span>Gói quà</span>
+        <span>Quà biếu</span>
       </Link>
       <button type="button" className="mobile-nav-btn" onClick={onSearch}>
         <svg

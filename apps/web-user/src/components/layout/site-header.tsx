@@ -11,24 +11,13 @@ import { MVP_FEATURE_GATES } from "@/lib/mvp-feature-gates";
 import { GroupOptions } from "@/components/storefront/group-options";
 import { StorefrontDialog } from "@/components/storefront/dialog";
 import { MobileTabs } from "@/components/storefront/mobile-tabs";
-import { useStorefrontView } from "@/components/storefront/view-mode";
+
 import { CartPreview } from "@/components/storefront/cart-preview";
-import { ItemDialog } from "@/components/storefront/item-dialog";
-import { items, type HomeItem } from "@/components/storefront/items";
+import { catalogService } from "@/services/catalog-service";
+import type { ProductSummary } from "@/lib/catalog/types";
 import { collections, shopLinks, serviceLinks } from "./storefront-links";
 
-function normalize(text: string) {
-  return text
-    .normalize("NFD")
-    .replace(/\p{M}/gu, "")
-    .toLowerCase()
-    .replaceAll("đ", "d")
-    .trim();
-}
-
 export function SiteHeader() {
-  const { paper, compact, setPaper, setCompact, setGroup } =
-    useStorefrontView();
   const path = usePathname();
   const router = useRouter();
   const { itemCount } = useCartSummary();
@@ -38,7 +27,6 @@ export function SiteHeader() {
     "categories" | "search" | "cart" | "account" | null
   >(null);
   const [popup, setPopup] = useState<"menu" | "suggest" | null>(null);
-  const [detail, setDetail] = useState<HomeItem | null>(null);
   const [query, setQuery] = useState("");
   const header = useRef<HTMLElement>(null);
   const menuButton = useRef<HTMLButtonElement>(null);
@@ -65,11 +53,9 @@ export function SiteHeader() {
     };
   }, [popup]);
   function pick(group: number) {
-    setGroup(group);
     setPopup(null);
     setPanel(null);
-    if (path === "/") document.getElementById("shop")?.scrollIntoView();
-    else router.push("/#shop");
+    router.push(group < 0 ? "/products" : collections[group].href);
   }
   function open(value: typeof panel) {
     setPopup(null);
@@ -88,26 +74,62 @@ export function SiteHeader() {
       </div>
     </>
   );
-  const matches = items.filter((item) =>
-    normalize(item.name).includes(normalize(query)),
-  );
+  const [matches, setMatches] = useState<ProductSummary[]>([]);
+  const [searchState, setSearchState] = useState<
+    "idle" | "loading" | "ready" | "error"
+  >("idle");
+  useEffect(() => {
+    if (query.trim().length < 2) return;
+    let active = true;
+    const timer = setTimeout(() => {
+      setSearchState("loading");
+      catalogService
+        .getProducts(new URLSearchParams({ q: query.trim(), pageSize: "5" }))
+        .then((data) => {
+          if (active) {
+            setMatches(data.items);
+            setSearchState("ready");
+          }
+        })
+        .catch(() => {
+          if (active) {
+            setMatches([]);
+            setSearchState("error");
+          }
+        });
+    }, 250);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [query]);
   const suggestions = (
     <div className="suggestions">
-      {matches.map((item) => (
-        <button
-          className="suggestion"
-          key={item.slug}
-          onClick={() => {
-            setPanel(null);
-            setPopup(null);
-            setDetail(item);
-          }}
-          type="button"
-        >
-          {item.name}
-        </button>
-      ))}
-      {!matches.length && <p>Chưa tìm thấy thức quà phù hợp.</p>}
+      {(query.trim().length >= 2 && searchState === "ready" ? matches : []).map(
+        (item) => (
+          <button
+            className="suggestion"
+            key={item.slug}
+            onClick={() => {
+              setPanel(null);
+              setPopup(null);
+              router.push("/products/" + item.slug);
+            }}
+            type="button"
+          >
+            {item.name}
+          </button>
+        ),
+      )}
+      {query.trim().length < 2 ? (
+        <p>Nhập ít nhất 2 ký tự để tìm thức quà.</p>
+      ) : searchState === "loading" ? (
+        <p role="status">Đang tìm sản phẩm…</p>
+      ) : searchState === "error" ? (
+        <p>Chưa tải được gợi ý. Bấm tìm kiếm để thử lại.</p>
+      ) : searchState === "ready" && !matches.length ? (
+        <p>Chưa tìm thấy thức quà phù hợp.</p>
+      ) : null}
       <Link
         href={"/products?q=" + encodeURIComponent(query)}
         onClick={() => {
@@ -174,30 +196,6 @@ export function SiteHeader() {
             Quà biếu Cố đô
           </span>
           <div className="top-bar__controls">
-            {path === "/" && (
-              <>
-                <button
-                  className="pill-switch"
-                  aria-pressed={paper}
-                  onClick={() => setPaper(!paper)}
-                >
-                  ❖ Kiểu Hero:{" "}
-                  {paper
-                    ? "Khung Giấy Dó Kiến Trúc"
-                    : "Khung Nâu Trầm & Bàn Trà"}
-                </button>
-                <button
-                  className="pill-switch"
-                  aria-pressed={compact}
-                  onClick={() => {
-                    setCompact(!compact);
-                    setPopup(null);
-                  }}
-                >
-                  Chế độ xem: {compact ? "Mobile (390px)" : "Web Desktop"}
-                </button>
-              </>
-            )}
             <button className="pill-switch" onClick={() => open("account")}>
               Tài khoản
             </button>
@@ -215,16 +213,13 @@ export function SiteHeader() {
               aria-controls="megaDropdown"
               onClick={() => setPopup(popup === "menu" ? null : "menu")}
             >
-              Bộ sưu tập ﹀
+              Sản phẩm ﹀
             </button>
             {collections.map((c, i) => (
               <button key={c.name} className="nav-link" onClick={() => pick(i)}>
                 {c.name}
               </button>
             ))}
-            <Link className="nav-link" href="/#gift">
-              Gói quà
-            </Link>
             <Link className="nav-link" href="/#story">
               Chuyện Huế
             </Link>
@@ -282,7 +277,6 @@ export function SiteHeader() {
         employee={auth.isEmployee}
         onHome={path === "/"}
       />
-      {detail && <ItemDialog item={detail} close={() => setDetail(null)} />}
       {panel && (
         <StorefrontDialog
           close={() => setPanel(null)}

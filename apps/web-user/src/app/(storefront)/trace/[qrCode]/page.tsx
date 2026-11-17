@@ -6,7 +6,7 @@ import { TraceExperience } from "./trace-experience";
 
 export const metadata: Metadata = {
   title: "Truy xuất nguồn gốc OCOP",
-  description: "Kiểm chứng lô sản xuất, nguyên liệu và chứng nhận OCOP của sản phẩm Ô Mạ Huế."
+  description: "Kiểm chứng lô sản xuất, nguyên liệu và chứng nhận OCOP của sản phẩm Gói Huế."
 };
 
 export default async function TracePage({ params }: { params: Promise<{ qrCode: string }> }) {

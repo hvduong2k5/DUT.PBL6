@@ -71,7 +71,7 @@ export function SiteFooter() {
                   </Link>
                 </li>
                 <li>
-                  <Link href="/#gift">Cá nhân hóa hộp quà &amp; thiệp</Link>
+                  <Link href="/products?category=qua-bieu">Chọn quà biếu</Link>
                 </li>
               </ul>
             </div>
@@ -79,7 +79,7 @@ export function SiteFooter() {
               <h3>Chăm sóc khách hàng</h3>
               <ul className="footer-links">
                 <li>
-                  <Link href="/#ocop-traceability">Tra cứu nguồn gốc</Link>
+                  <Link href="/#home-batch">Tra cứu nguồn gốc</Link>
                 </li>
                 <li>
                   <Link href="/support/request">Hỗ trợ khách hàng</Link>

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import Image from "next/image";
 
 export function Story() {
@@ -115,10 +116,10 @@ export function Story() {
               bàn gỗ là lời mời thong thả ngồi lại, kể nhau nghe đôi chuyện xứ
               kinh kỳ.
             </p>
-            <a className="btn btn--paper" href="#shop" data-nav-group="1">
+            <Link className="btn btn--paper" href="/products?category=tra-cung-dinh" data-nav-group="1">
               Khám phá Trà Huế &amp; Mè xửng{" "}
               <span className="btn__arrow">→</span>
-            </a>
+            </Link>
           </div>
           <div className="story-photo-frame">
             <Image
@@ -170,9 +171,9 @@ export function Story() {
               nhà rường và cổng thành cổ kính, để người nhận khi mở hộp như thấy
               cả một góc bình yên của đất thần kinh.
             </p>
-            <a className="btn btn--brown" href="#gift">
+            <Link className="btn btn--brown" href="/products?category=qua-bieu">
               Tự tay gói hộp quà Cố đô <span className="btn__arrow">→</span>
-            </a>
+            </Link>
           </div>
         </div>
       </div>

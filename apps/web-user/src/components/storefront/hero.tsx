@@ -1,3 +1,4 @@
+import Link from "next/link";
 import Image from "next/image";
 
 export function Hero({ paper }: { paper: boolean }) {
@@ -34,20 +35,20 @@ export function Hero({ paper }: { paper: boolean }) {
               — trao gửi bằng cả tấm lòng.
             </p>
             <div className="row" style={{ gap: "14px" }}>
-              <a className="btn" href="#collection">
+              <Link className="btn" href="/products">
                 Khám phá bộ sưu tập <span className="btn__arrow">→</span>
-              </a>
-              <a
+              </Link>
+              <Link
                 className="btn btn--paper"
-                href="#gift"
+                href="/products?category=qua-bieu"
                 style={{
                   background: "rgba(252,249,244,0.12)",
                   color: "var(--kem)",
                   borderColor: "rgba(252,249,244,0.45)",
                 }}
               >
-                Gói quà theo ý bạn
-              </a>
+                Chọn quà biếu
+              </Link>
             </div>
           </div>
           <div className="hero-dark__visual">
@@ -97,13 +98,13 @@ export function Hero({ paper }: { paper: boolean }) {
               Mè xửng dẻo thơm, trà Huế thanh dịu cùng những thức quà đậm tình
               Cố đô.
             </p>
-            <a
+            <Link
               className="btn btn--brown"
-              href="#collection"
+              href="/products"
               style={{ minWidth: "190px" }}
             >
               Khám phá <span className="btn__arrow">→</span>
-            </a>
+            </Link>
           </div>
           <div className="hero-paper__frame">
             <Image

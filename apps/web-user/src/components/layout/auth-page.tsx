@@ -33,7 +33,7 @@ export function AuthPage({ eyebrow, title, description, asideTitle, asideBody, b
                 </article>
               ))}
             </div>
-            <div className="story-signature"><span>✺ Chứng nhận OCOP Cố Đô</span><em>Ô Mạ · 1885</em></div>
+            <div className="story-signature"><span>✺ Chứng nhận OCOP Cố Đô</span><em>Gói Huế · 1885</em></div>
           </aside>
           <div className="auth-content">
             <span className="eyebrow">{eyebrow}</span>

@@ -4,8 +4,8 @@ import { RecommendationProvider } from "@/components/recommendation/recommendati
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: { default: "Ô Mạ Huế", template: "%s · Ô Mạ Huế" },
-  description: "Tinh hoa bánh mứt Cố Đô và trải nghiệm thành viên Tri Kỷ."
+  title: { default: "Gói Huế", template: "%s · Gói Huế" },
+  description: "Mè xửng, trà Huế và quà biếu dành cho người thương."
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
