@@ -13,3 +13,13 @@ python services/marketing-service/scripts/normalize_kpi_export.py export.csv --s
 ```
 
 Chỉ gửi file sang API sau khi script thoát với mã 0.
+
+## Chạy một lô qua Kong
+
+Runner sync_kpi_export.py dùng bearer staff do môi trường cấp qua MARKETING_KPI_BEARER_TOKEN. Cần cả MARKETING_KPI_VIEW để kiểm nguồn và MARKETING_CHANNEL_MANAGE để nhập, theo scope execution. Token dùng trong bộ nhớ. Runner dùng route bearer của Marketing qua Kong, chỉ chấp nhận HTTPS hoặc HTTP loopback và từ chối redirect. Runner yêu cầu operator đã tạo mapping CSV đúng trước lần chạy định kỳ đầu tiên.
+
+```powershell
+python services/marketing-service/scripts/sync_kpi_export.py ms14-kpi.csv --gateway http://127.0.0.1:8000 --campaign <uuid> --revision <uuid> --execution <uuid>
+```
+
+Runner giữ nguyên bytes trong tối đa ba lần thử khi gặp lỗi kết nối hoặc HTTP 502/503/504. Các lỗi còn lại trả mã thoát 2 với status và mã lỗi an toàn. Thành công trả JSON có SHA-256 và số ngày để scheduler lưu checkpoint. Scheduler bên ngoài chịu trách nhiệm cấp token mới, chạy tuần tự theo version và lưu checkpoint bền vững. Provider API và scheduler cụ thể vẫn cần tích hợp riêng.
