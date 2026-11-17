@@ -119,7 +119,7 @@ export function OrderDetailFlow({ orderId }: { orderId: string }) {
 
     <section className="order-status-grid">
       <article><span>▤</span><div><small>Trạng thái đơn</small><strong>{order.statusLabel}</strong><p>{order.statusDescription}</p></div></article>
-      <article><span>◎</span><div><small>Trạng thái thanh toán</small><strong>{order.payment.label}</strong><p>{order.payment.method} · hết hạn {new Date(order.payment.expiresAt).toLocaleString("vi-VN")}</p></div></article>
+      <article><span>◎</span><div><small>Trạng thái thanh toán</small><strong>{order.payment.label}</strong><p>{order.payment.method}{order.payment.expiresAt ? ` · hết hạn ${new Date(order.payment.expiresAt).toLocaleString("vi-VN")}` : ""}</p></div></article>
       <article><span>▱</span><div><small>Trạng thái kho</small><strong>{order.stock.label}</strong></div></article>
     </section>
 

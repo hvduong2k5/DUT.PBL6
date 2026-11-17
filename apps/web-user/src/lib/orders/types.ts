@@ -72,7 +72,7 @@ export interface OrderDetail {
     status: OrderPaymentStatus;
     label: string;
     reference: string;
-    expiresAt: string;
+    expiresAt: string | null;
   };
   stock: { status: OrderStockStatus; label: string };
   shipmentId: string | null;
