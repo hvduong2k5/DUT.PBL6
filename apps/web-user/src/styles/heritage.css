@@ -63,8 +63,10 @@
   );
 }
 
-/* Anchor jumps land below the sticky header */
-html { scroll-padding-top: 96px; }
+/* Anchor jumps land below the sticky header. `clip` (not `hidden`) on html and body keeps the document the only
+   scroller, so the sticky header works and route changes scroll the window instead of an inner box. */
+html { scroll-padding-top: 96px; overflow-x: clip; }
+body { overflow-x: clip; }
 
 /* Base: handmade paper behind the whole page, kit body font */
 body {

@@ -29,5 +29,5 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="vi" className={`${playfair.variable} ${beVietnam.variable}`}><body><AuthProvider><RecommendationProvider>{children}</RecommendationProvider></AuthProvider></body></html>;
+  return <html lang="vi" data-scroll-behavior="smooth" className={`${playfair.variable} ${beVietnam.variable}`}><body><AuthProvider><RecommendationProvider>{children}</RecommendationProvider></AuthProvider></body></html>;
 }
