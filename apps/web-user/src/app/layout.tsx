@@ -6,6 +6,7 @@ import "./globals.css";
 import "@/styles/heritage.css";
 import "@/styles/heritage-shell.css";
 import "@/styles/heritage-home.css";
+import "@/styles/heritage-pages.css";
 
 const playfair = Playfair_Display({
   subsets: ["latin", "vietnamese"],
@@ -23,7 +24,7 @@ const beVietnam = Be_Vietnam_Pro({
 });
 
 export const metadata: Metadata = {
-  title: { default: "Ô Mạ Huế", template: "%s · Ô Mạ Huế" },
+  title: { default: "Gói Huế", template: "%s · Gói Huế" },
   description: "Tinh hoa bánh mứt Cố Đô và trải nghiệm thành viên Tri Kỷ."
 };
 

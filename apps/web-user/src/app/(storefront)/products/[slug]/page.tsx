@@ -6,7 +6,7 @@ import { ProductDetailFlow } from "./product-detail-flow";
 
 export const metadata: Metadata = {
   title: "Chi tiết sản phẩm",
-  description: "Xem thông tin thực phẩm và chọn đúng quy cách sản phẩm Ô Mạ Huế."
+  description: "Xem thông tin thực phẩm và chọn đúng quy cách sản phẩm Gói Huế."
 };
 
 export default async function ProductDetailPage({ params }: { params: Promise<{ slug: string }> }) {

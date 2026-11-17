@@ -209,7 +209,7 @@ export function CatalogFlow() {
 
         <section className="catalog-results" aria-live="polite" aria-busy={loadingCatalog}>
           <div className="results-toolbar">
-            <div><span className="eyebrow">Bộ sưu tập Ô Mạ</span><h2>{params.get("q") ? `Kết quả cho “${params.get("q")}”` : "Tất cả sản phẩm"}</h2><p>{loadingCatalog ? "Đang tìm thức quà phù hợp…" : `${result?.filteredCount ?? 0} sản phẩm phù hợp`}</p></div>
+            <div><span className="eyebrow">Bộ sưu tập Gói Huế</span><h2>{params.get("q") ? `Kết quả cho “${params.get("q")}”` : "Tất cả sản phẩm"}</h2><p>{loadingCatalog ? "Đang tìm thức quà phù hợp…" : `${result?.filteredCount ?? 0} sản phẩm phù hợp`}</p></div>
             <label>Sắp xếp<select value={params.get("sort") ?? (params.get("q") ? "RELEVANCE" : "CURATED")} onChange={(event) => navigate((next) => next.set("sort", event.target.value))}>{SORT_OPTIONS.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
           </div>
 

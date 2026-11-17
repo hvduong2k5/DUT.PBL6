@@ -78,7 +78,7 @@ export function TraceExperience({ qrCode }: { qrCode: string }) {
       {!loading && !error && record ? <>
         <section className="trace-authenticity">
           <div className="trace-seal" aria-hidden="true">✺<small>OCOP</small></div>
-          <div><span className="trace-valid">✓ Hồ sơ hợp lệ</span><h2>{record.product_name}</h2><p>Mã truy xuất <strong>{record.qr_code}</strong> đã được hệ thống Ô Mạ xác nhận.</p></div>
+          <div><span className="trace-valid">✓ Hồ sơ hợp lệ</span><h2>{record.product_name}</h2><p>Mã truy xuất <strong>{record.qr_code}</strong> đã được hệ thống Gói Huế xác nhận.</p></div>
           <div className="trace-stars"><strong>{record.ocop_star} sao</strong><span>{"★".repeat(Math.max(0, Math.min(5, record.ocop_star)))}</span><small>{record.ocop_certificate_no}</small></div>
         </section>
 
