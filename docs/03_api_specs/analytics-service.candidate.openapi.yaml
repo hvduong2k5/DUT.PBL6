@@ -13,11 +13,14 @@ security:
 paths:
   /dashboard:
     get:
+      security:
+        - StaffBearer: []
+        - StaffSession: []
       tags: [Dashboard]
       operationId: getAnalyticsDashboard
       summary: Đọc Dashboard theo kỳ ngày Việt Nam
       description: >
-        Yêu cầu quyền analytics.dashboard.read. Kỳ có từ 1 đến 90 ngày.
+        Yêu cầu ANALYTICS_DASHBOARD_VIEW#GLOBAL trong JWT nhân viên. Kỳ có từ 1 đến 90 ngày.
         Các card báo chất lượng riêng, kể cả khi một provider chưa khả dụng.
       parameters:
         - $ref: '#/components/parameters/FromDate'
@@ -123,11 +126,14 @@ paths:
           $ref: '#/components/responses/Unavailable'
   /metrics/{metricId}/series:
     get:
+      security:
+        - StaffBearer: []
+        - StaffSession: []
       tags: [Dashboard]
       operationId: getAnalyticsMetricSeries
       summary: Đọc chuỗi ngày của một metric Order
       description: >
-        Yêu cầu quyền analytics.dashboard.read. Dùng cùng from/to và snapshotId
+        Yêu cầu ANALYTICS_DASHBOARD_VIEW#GLOBAL. Dùng cùng from/to và snapshotId
         đã nhận từ Dashboard để đối chiếu. Có một bucket mỗi ngày trong kỳ.
         Bucket thiếu coverage trả null. Kỳ có từ 1 đến 90 ngày.
       parameters:
@@ -191,6 +197,7 @@ paths:
       operationId: getSupplyWorkbench
       summary: Xếp hạng SKU và ưu tiên kiểm tra lô theo kho
       description: >-
+        Yêu cầu ANALYTICS_SUPPLY_VIEW#GLOBAL trong JWT nhân viên hoặc grant cùng scope trong phiên Identity.
         Xếp hạng SKU đủ dữ liệu trước, sau đó theo tốc độ bán giảm dần.
         Pilot giới hạn 100 SKU theo mã và 200 lô có rủi ro theo ngày hết hạn.
       security:
@@ -229,7 +236,7 @@ paths:
       description: >
         Dùng ngày Việt Nam với from bao gồm và to loại trừ, tối đa 90 ngày.
         Tốc độ bán chia lượng bán ròng cho số ngày có bản xuất Order đầy đủ.
-        Phải bật capability Supply và có quyền staff pilot.
+        Phải bật capability Supply và có ANALYTICS_SUPPLY_VIEW#GLOBAL.
       parameters:
         - $ref: '#/components/parameters/SupplySku'
         - $ref: '#/components/parameters/SupplyWarehouse'
@@ -268,7 +275,7 @@ paths:
       description: >
         Mô phỏng theo snapshot Inventory còn mới và lịch sử bán/tồn đầy đủ.
         Tính nhu cầu từ ngày sau ngày snapshot. Hạn được hiểu là ngày đầu tiên
-        lô không còn bán được. Phải bật capability Supply và có quyền staff pilot.
+        lô không còn bán được. Phải bật capability Supply và có ANALYTICS_SUPPLY_VIEW#GLOBAL.
       parameters:
         - $ref: '#/components/parameters/SupplySku'
         - $ref: '#/components/parameters/SupplyWarehouse'
@@ -296,12 +303,12 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: Token nhân viên theo Identity. Service kiểm audience và quyền Dashboard.
+      description: Token nhân viên theo Identity. Ở scoped mode service kiểm grant GLOBAL theo từng operation.
     StaffSession:
       type: apiKey
       in: cookie
       name: OMAMA_SESSION
-      description: Phiên Identity cho Web Admin khi bật session origin và cấp đủ quyền pilot.
+      description: Phiên Identity cho Web Admin; scoped mode kiểm permissionGrants cấu trúc từ /users/me.
   headers:
     NoStore:
       description: Phản hồi dành riêng cho người gọi và không được cache bởi HTTP intermediaries.

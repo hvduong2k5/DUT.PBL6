@@ -138,6 +138,23 @@ services:
       interval: 2s
       timeout: 4s
       retries: 20
+  scoped-api:
+    <<: *runtime
+    command: [api]
+    environment:
+      <<: *api-env
+      ANALYTICS_AUTH_MODE: scoped
+      ANALYTICS_PILOT_IDS: ""
+    volumes:
+      - pilot-key:/fixture:ro
+    depends_on:
+      identity-fixture: {condition: service_healthy}
+      migrate: {condition: service_completed_successfully}
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8011/readyz')"]
+      interval: 2s
+      timeout: 4s
+      retries: 20
   tests:
     <<: *test
     profiles: [tests]
@@ -149,6 +166,7 @@ services:
     command: [-q, -p, "no:cacheprovider", --junitxml=/tmp/analytics-pytest.xml]
     depends_on:
       api: {condition: service_healthy}
+      scoped-api: {condition: service_healthy}
       recommendation-api: {condition: service_healthy}
       collector: {condition: service_started}
       builder: {condition: service_started}
