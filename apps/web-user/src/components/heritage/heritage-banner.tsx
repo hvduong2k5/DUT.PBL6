@@ -38,7 +38,6 @@ export function HeritageBanner({ kicker, title, lead, image, slides, titleId, le
   const items: BannerSlide[] = slides?.length ? slides : [{ kicker: kicker ?? "", title, lead, image: image ?? { src: "", alt: "" } }];
   const multi = items.length > 1;
   const [index, setIndex] = useState(0);
-  const [paused, setPaused] = useState(false);
   const [reduceMotion, setReduceMotion] = useState(false);
   
   useEffect(() => {
@@ -50,10 +49,10 @@ export function HeritageBanner({ kicker, title, lead, image, slides, titleId, le
   }, []);
 
   useEffect(() => {
-    if (!multi || paused || reduceMotion) return;
+    if (!multi || reduceMotion) return;
     const timer = setInterval(() => setIndex((value) => (value + 1) % items.length), autoPlayMs);
     return () => clearInterval(timer);
-  }, [multi, paused, reduceMotion, items.length, autoPlayMs, index]);
+  }, [multi, reduceMotion, items.length, autoPlayMs, index]);
 
   const step = (delta: number) => setIndex((value) => (value + delta + items.length) % items.length);
   const arrow = (delta: number, kind: "side" | "row") => <button type="button" className={`gh-banner__arrow gh-banner__arrow--${kind} gh-banner__arrow--${delta < 0 ? "prev" : "next"}`}
@@ -65,7 +64,7 @@ export function HeritageBanner({ kicker, title, lead, image, slides, titleId, le
     className={`gh-banner gh-surface-imperial ${className}`}
     {...(multi ? { role: "group", "aria-roledescription": "carousel", "aria-label": "Giới thiệu nổi bật" } : {})}>
     <div className="gh-banner__copy">
-      <div className="gh-banner__slides" aria-live={multi && paused ? "polite" : "off"}>
+      <div className="gh-banner__slides" aria-live="off">
         {items.map((slide, i) => { const Heading = i === 0 && level === 1 ? "h1" : "h2"; return <div className={`gh-banner__slide${i === index ? " is-active" : ""}`} key={i}
           aria-hidden={i === index ? undefined : true} inert={i === index ? undefined : true}
           {...(multi ? { role: "group", "aria-roledescription": "slide", "aria-label": `${i + 1} / ${items.length}` } : {})}>
@@ -84,7 +83,6 @@ export function HeritageBanner({ kicker, title, lead, image, slides, titleId, le
             aria-label={`Trang ${i + 1} / ${items.length}`} aria-current={i === index ? "true" : undefined} onClick={() => setIndex(i)}><span /></button>)}
         </div>
         {arrow(1, "row")}
-        {reduceMotion ? null : <button type="button" className="gh-banner__pause" onClick={() => setPaused((value) => !value)}>{paused ? "Phát" : "Tạm dừng"}</button>}
       </div> : null}
     </div>
     <div className="gh-banner__visual">

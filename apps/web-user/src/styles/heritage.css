@@ -377,8 +377,6 @@ a.gh-frame-card:hover::before,
 .gh-banner__dots button span { display: block; width: 22px; height: 4px; background: rgba(252, 249, 244, 0.35); transition: background-color 0.25s, width 0.25s; }
 .gh-banner__dots button:hover span { background: rgba(252, 249, 244, 0.7); }
 .gh-banner__dots button.is-active span { width: 34px; background: var(--mat); }
-.gh-banner__pause { min-height: 44px; padding: 0 4px; border: 0; background: none; color: rgba(252, 249, 244, 0.75); font: 600 var(--t-label) var(--chu-doc); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
-.gh-banner__pause:hover { color: var(--kem); }
 .gh-banner__badges { display: flex; flex-wrap: wrap; gap: 8px; margin: 22px 0 0; padding: 0; list-style: none; }
 .gh-banner__badges .gh-badge { position: static; box-shadow: none; }
 @container (max-width: 760px) {
