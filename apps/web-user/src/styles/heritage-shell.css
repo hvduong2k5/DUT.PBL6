@@ -129,11 +129,10 @@
   white-space: nowrap;
   cursor: pointer;
 }
-.gh-account-trigger--guest { padding: 4px 16px; border-radius: var(--r-sm); border-color: var(--mat); background: var(--mat); color: var(--muc); }
 .gh-account-trigger:hover, .gh-account-trigger[aria-expanded="true"] { border-color: var(--mat-sang); background: rgba(212, 162, 76, 0.18); }
-.gh-account-trigger--guest:hover, .gh-account-trigger--guest[aria-expanded="true"] { background: var(--mat-sang); color: var(--muc); }
 .gh-account-trigger__name { overflow: hidden; text-overflow: ellipsis; }
 .gh-avatar { display: grid; flex: 0 0 34px; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: var(--mat); color: var(--muc); font: 700 1rem var(--chu-de); }
+.gh-avatar--guest { background-color: var(--kem); border: 1px solid var(--mat); }
 
 /* ---- Dropdown panels (paper with the architectural stepped frame) ---- */
 .gh-dropdown { position: relative; }
@@ -235,8 +234,8 @@
 @media (max-width: 1320px) {
   .gh-search-wide { display: none; }
   .gh-search-compact { display: block; }
-  .gh-account-trigger__name { display: none; }
-  .gh-account-trigger:not(.gh-account-trigger--guest) { padding-right: 10px; }
+  .gh-account-trigger:not(.gh-account-trigger--guest) .gh-account-trigger__name { display: none; }
+  .gh-account-trigger { padding-right: 10px; }
 }
 @media (max-width: 1100px) {
   .gh-nav, .gh-search-compact, .gh-cart { display: none; }

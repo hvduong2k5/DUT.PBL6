@@ -49,8 +49,8 @@ export function SiteHeader() {
         <li><button type="button" onClick={() => void auth.logout()}>Đăng xuất</button></li>
       </ul>
     </HeaderDropdown>
-    : <HeaderDropdown align="end" triggerClassName="gh-account-trigger gh-account-trigger--guest"
-      label={<>{loading ? "Tài khoản" : "Đăng nhập"}<span className="gh-chevron" aria-hidden="true">﹀</span></>}>
+    : <HeaderDropdown align="end" ariaLabel="Mở menu tài khoản" triggerClassName="gh-account-trigger gh-account-trigger--guest"
+      label={<><span className="gh-avatar gh-avatar--guest gh-emblem" aria-hidden="true" /><span className="gh-account-trigger__name">Tài khoản</span><span className="gh-chevron" aria-hidden="true">﹀</span></>}>
       <div className="gh-account-menu__who"><strong>Chào mừng đến Gói Huế</strong><small>Đăng nhập để theo dõi đơn và nhận ưu đãi.</small></div>
       <div className="gh-account-menu__actions">
         <Link className="gh-btn gh-btn--brown" href="/login?returnUrl=%2Faccount%2Fprofile">Đăng nhập</Link>
