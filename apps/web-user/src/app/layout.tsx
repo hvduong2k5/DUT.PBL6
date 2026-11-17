@@ -5,6 +5,7 @@ import { RecommendationProvider } from "@/components/recommendation/recommendati
 import "./globals.css";
 import "@/styles/heritage.css";
 import "@/styles/heritage-shell.css";
+import "@/styles/heritage-home.css";
 
 const playfair = Playfair_Display({
   subsets: ["latin", "vietnamese"],

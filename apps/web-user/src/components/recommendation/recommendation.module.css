@@ -1,11 +1,27 @@
-.rail { width: min(1180px, 100%); margin: 32px auto; padding: 20px; }
-.rail h2 { font: 600 1.6rem Georgia, serif; color: #563328; margin: 0 0 20px; }
-.grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 16px; }
-.card { display: flex; flex-direction: column; gap: 10px; text-decoration: none; color: #563328; padding: 12px; background: #fffaf3; border: 1px solid #e7d8c4; border-radius: 12px; }
-.card:hover, .card:focus-visible { border-color: #81583b; }
-.image { position: relative; aspect-ratio: 1; border-radius: 8px; overflow: hidden; background: #f0e5d5; display: grid; place-items: center; font: italic 1.5rem Georgia, serif; }
-.card strong { font-size: .95rem; }
-.preferences { max-width: 1180px; margin: 20px auto; padding: 16px 20px; color: #604c3a; font-size: .85rem; }
-.preferences label { display: flex; gap: 10px; align-items: flex-start; margin: 10px 0; }
-@media (max-width: 900px) { .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-@media (max-width: 560px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* Recommendation rails and personalization preferences, styled with the Gói Huế kit tokens. */
+.rail { position: relative; width: min(1280px, 100%); margin: 32px auto; }
+.header { display: flex; align-items: center; justify-content: center; gap: 24px; margin-bottom: 28px; }
+.header h2 { margin: 0; padding-inline: 8px; color: var(--nau-dam); font: 600 clamp(1.5rem, 2vw + 0.8rem, 2.2rem)/1.16 var(--font-display); letter-spacing: -0.015em; text-align: center; text-wrap: balance; }
+.line { flex: 1; height: 1px; background: linear-gradient(90deg, rgba(112, 81, 59, 0.15), var(--nau) 50%, rgba(112, 81, 59, 0.15)); }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(210px, 100%), 1fr)); gap: clamp(16px, 2vw, 24px); }
+.card { display: flex; flex-direction: column; color: var(--nau-dam); text-decoration: none; }
+.card .media { aspect-ratio: 1 / 1; }
+.fallback { position: absolute; inset: 0; display: grid; place-items: center; color: var(--nau); font: italic 1.5rem var(--font-display); }
+.body { display: flex; flex: 1; flex-direction: column; gap: 6px; padding: 14px 8px 6px; border-top: 1px solid var(--vien); margin-top: 10px; }
+.name { min-height: 2.7em; color: var(--nau-dam); font: 600 1.1rem/1.35 var(--font-display); }
+.card:hover .name { color: var(--do-chu-sa); }
+.price { margin-top: auto; color: var(--do-chu-sa); font: 700 1.125rem/1.2 var(--font-be-vietnam), sans-serif; }
+.skeleton { pointer-events: none; }
+.skeleton .media, .skeleton .bar { background: linear-gradient(90deg, #eadbc6 0%, #f4e9d8 50%, #eadbc6 100%); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; }
+.skeleton .bar { height: 16px; margin-top: 10px; }
+.skeleton .bar.short { width: 45%; }
+@keyframes shimmer { to { background-position: -200% 0; } }
+
+.preferences { position: relative; max-width: 1280px; margin: 28px auto 0; padding: 18px 24px; border: 1px solid var(--nau); background-color: var(--kem); background-image: var(--bg-giay); background-size: 450px 450px; color: var(--phu); font-size: 0.95rem; }
+.preferences::after { content: ""; position: absolute; top: 0; right: 0; width: 22px; height: 22px; background: linear-gradient(135deg, var(--mat) 50%, var(--nau-dam) 50%); pointer-events: none; }
+.preferences h3 { margin: 0 0 6px; color: var(--nau-dam); font: 600 1.15rem var(--font-display); }
+.preferences label { display: flex; align-items: flex-start; gap: 12px; min-height: 44px; margin: 6px 0; padding-block: 6px; cursor: pointer; }
+.preferences input[type="checkbox"] { flex: 0 0 22px; width: 22px; height: 22px; margin: 1px 0 0; accent-color: var(--nau-dam); }
+.preferences p { margin: 6px 0 0; color: var(--loi); font-weight: 500; }
+
+@media (prefers-reduced-motion: reduce) { .skeleton .media, .skeleton .bar { animation: none; } }
