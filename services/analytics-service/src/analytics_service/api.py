@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import re
 import time
@@ -25,6 +26,8 @@ log = logging.getLogger(__name__)
 PREFIX = "/api/v1/admin/analytics"
 BACKEND_ERRORS = (psycopg.Error, ClickHouseError, OSError, db.Conflict)
 DATE_PATTERN = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
+READINESS_TIMEOUT_SECONDS = 2
+UNAVAILABLE_CODE = "ANALYTICS_TEMPORARILY_UNAVAILABLE"
 
 
 class APIError(Exception):
@@ -36,7 +39,7 @@ class APIError(Exception):
 
 
 def unavailable():
-    return APIError(503, "ANALYTICS_TEMPORARILY_UNAVAILABLE", "Dashboard tạm thời gián đoạn.")
+    return APIError(503, UNAVAILABLE_CODE, "Dashboard tạm thời gián đoạn.")
 
 
 def unauthenticated():
@@ -324,19 +327,55 @@ def create_app(settings=None, auth=None):
     def live():
         return {"status": "ok"}
 
-    @app.get("/readyz")
-    def ready():
+    def supply_ready():
+        with db.connect(settings) as conn:
+            conn.execute("SELECT 1 FROM supply_export LIMIT 1")
+        return True
+
+    def dashboard_ready():
+        with db.connect(settings) as conn:
+            generation = db.get_generation(conn, settings.scope, settings.pipeline)
+        if generation is None:
+            return False
+        client = clickhouse(settings)
         try:
-            with db.connect(settings) as conn:
-                conn.execute("SELECT 1 FROM serving_generation LIMIT 1")
-            client = clickhouse(settings)
-            try:
-                client.query("SELECT 1 FROM analytics_db.order_milestone_daily LIMIT 1")
-            finally:
-                client.close()
-        except BACKEND_ERRORS as exc:
-            raise unavailable() from exc
-        return {"status": "ready"}
+            client.query("SELECT 1 FROM analytics_db.order_milestone_daily LIMIT 1")
+        finally:
+            client.close()
+        return True
+
+    async def capability_status(enabled, probe):
+        if not enabled:
+            return "disabled"
+        try:
+            healthy = await asyncio.wait_for(
+                asyncio.to_thread(probe), timeout=READINESS_TIMEOUT_SECONDS
+            )
+        except BACKEND_ERRORS:
+            return "not_ready"
+        return "ready" if healthy else "not_ready"
+
+    @app.get("/readyz")
+    async def ready(request: Request):
+        supply_status, dashboard_status = await asyncio.gather(
+            capability_status(settings.supply_enabled, supply_ready),
+            capability_status(bool(settings.clickhouse_host), dashboard_ready),
+        )
+        capabilities = {"supply": supply_status, "dashboard": dashboard_status}
+        states = capabilities.values()
+        if "ready" in states:
+            status = "degraded" if "not_ready" in states else "ready"
+            return {"status": status, "capabilities": capabilities}
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "not_ready",
+                "capabilities": capabilities,
+                "code": UNAVAILABLE_CODE,
+                "message": "Analytics chưa sẵn sàng.",
+                "requestId": request.state.request_id,
+            },
+        )
 
     @app.get("/metrics")
     def metrics():
