@@ -1,3 +1,4 @@
+import "@/styles/storefront-heritage.css";
 import type { ReactNode } from "react";
 import { CustomerSessionProvider } from "@/components/auth/customer-session-provider";
 import { CartSummaryProvider } from "@/components/cart/cart-summary-provider";
