@@ -219,6 +219,13 @@ class CampaignController {
     }
 
 
+    @GetMapping("/{campaignId}/revisions/{revisionId}/kpi-report")
+    ExecutionMetrics.Report kpiReport(HttpServletRequest request, @PathVariable UUID campaignId,
+                                      @PathVariable UUID revisionId) {
+        return metrics.report(staff(request), campaignId, revisionId);
+    }
+
+
     @GetMapping("/{campaignId}/revisions/{revisionId}/executions/{executionId}/metrics")
     ExecutionMetrics.Range executionMetrics(HttpServletRequest request, @PathVariable UUID campaignId,
             @PathVariable UUID revisionId, @PathVariable UUID executionId,

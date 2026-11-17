@@ -38,6 +38,15 @@ class ReviewStore {
                 .optional().orElse(null);
     }
 
+    Snapshot approvedSnapshot(UUID revision) {
+        return jdbc.sql("""
+                SELECT snapshot::text FROM approval_requests WHERE revision_id = :revision AND state = 'APPROVED'
+                """).param("revision", revision)
+                .query((rs, row) -> parse(rs.getString(1), Snapshot.class)).optional()
+                .orElseThrow(() -> new MarketingFailure("STATE_CONFLICT", 409));
+    }
+
+
     Object latestView(UUID revision) {
         return jdbc.sql("""
                 SELECT r.id, r.state, r.submitted_by, r.submitted_at, r.snapshot::text,

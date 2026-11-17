@@ -88,7 +88,7 @@ class CampaignCommandsIntegrationTest {
         var operator = new StaffActor(UUID.randomUUID(), Set.of(grant("PLAN_EDIT"), grant("BUDGET_EDIT"),
                 grant("PLAN_SUBMIT"), grant("EXECUTION_MANAGE"), grant("CAMPAIGN_VIEW"), grant("KPI_VIEW"), grant("CHANNEL_MANAGE")));
         var reviewer = new StaffActor(UUID.randomUUID(), Set.of(grant("PLAN_APPROVE")));
-        var starts = Instant.now().minusSeconds(60);
+        var starts = Instant.now().minusSeconds(86400);
         var ends = starts.plusSeconds(172800);
         var plan = new CampaignPlan("Execution pilot", "Launch", operator.id(), starts, ends, "Asia/Ho_Chi_Minh",
                 100, List.of(new CampaignPlan.Channel("EMAIL", starts, ends, "Launch brief"),
@@ -175,6 +175,16 @@ class CampaignCommandsIntegrationTest {
         assertThat(jdbc.sql("SELECT count(*) FROM campaign_execution_metrics WHERE execution_id = :id")
                 .param("id", id).query(Long.class).single()).isEqualTo(2);
         http.perform(get(metricPath).header("Authorization", "Bearer outsider").param("from", day).param("to", day))
+                .andExpect(status().isNotFound());
+        String report = path.substring(0, path.lastIndexOf('/')) + "/kpi-report";
+        http.perform(get(report).header("Authorization", "Bearer operator"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.coverage").value("PARTIAL"))
+                .andExpect(jsonPath("$.reportedChannelDays").value(1))
+                .andExpect(jsonPath("$.items[0].metricCode").value("CLICKS"))
+                .andExpect(jsonPath("$.items[0].target").value("100"))
+                .andExpect(jsonPath("$.items[0].actual").value("3"))
+                .andExpect(jsonPath("$.items[0].attainmentPercent").value(org.hamcrest.Matchers.nullValue()));
+        http.perform(get(report).header("Authorization", "Bearer outsider"))
                 .andExpect(status().isNotFound());
         String history = path + "/" + id + "/history";
         http.perform(get(history).header("Authorization", "Bearer operator").param("limit", "2"))

@@ -150,3 +150,5 @@ Marketing và Executive chốt taxonomy, các trường bắt buộc còn lại 
 [Thiết kế lập lịch và thực thi thủ công](03_manual_execution.md)
 
 [Thiết kế KPI theo execution](04_execution_kpi.md)
+
+[Báo cáo KPI target–actual](05_kpi_report.md)

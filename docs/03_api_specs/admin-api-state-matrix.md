@@ -323,3 +323,9 @@ Paths are relative to the campaign revision. Cookie clients use the matching Ide
 |---|---|---|
 | GET executions/{executionId}/metrics | 200 with daily coverage. Missing days return null values | 401 renew session, 404 hidden or missing execution, 422 invalid range |
 | PUT executions/{executionId}/metrics/{date} | 200 stored or replayed daily snapshot | 401 renew session, 403 missing channel grant, 404 missing execution, 409 conflicting source version or execution never started, 422 invalid date or counts, 500/503 retry the same version |
+
+### Marketing KPI comparison (draft)
+
+| Operation | Success / empty | Error handling |
+|---|---|---|
+| GET revision/kpi-report | 200 with target metrics and channel-day coverage. No reported days gives NOT_SYNCED and null actuals. PARTIAL suppresses variance and attainment | 400 malformed IDs, 401 renew session, 404 hidden or missing revision, 409 revision has no approved snapshot, 500/503 retry |

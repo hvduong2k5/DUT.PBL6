@@ -1,5 +1,7 @@
 package com.hvduong.marketing;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.HashMap;
@@ -26,12 +28,63 @@ class ExecutionMetrics {
     private final JdbcClient jdbc;
     private final CampaignStore campaigns;
     private final ManualExecutions executions;
+    private final ReviewStore reviews;
 
-    ExecutionMetrics(JdbcClient jdbc, CampaignStore campaigns, ManualExecutions executions) {
+    ExecutionMetrics(JdbcClient jdbc, CampaignStore campaigns, ManualExecutions executions, ReviewStore reviews) {
         this.jdbc = jdbc;
         this.campaigns = campaigns;
         this.executions = executions;
+        this.reviews = reviews;
     }
+
+    record Comparison(String metricCode, String unit, String status, String target, String actual,
+                      String variance, String attainmentPercent) {}
+    record Report(String timeZone, LocalDate throughDate, String coverage, long expectedChannelDays,
+                  long reportedChannelDays, List<Comparison> items) {}
+    private record Totals(long days, BigDecimal impressions, BigDecimal clicks) {}
+
+    @Transactional(isolation = Isolation.REPEATABLE_READ, readOnly = true)
+    public Report report(StaffActor actor, UUID campaignId, UUID revisionId) {
+        var campaign = campaigns.campaign(campaignId, false);
+        if (!actor.can("MARKETING_KPI_VIEW", campaign.departmentId())) {
+            throw new MarketingFailure("RESOURCE_NOT_FOUND", 404);
+        }
+        campaigns.revision(campaignId, revisionId);
+        var plan = reviews.approvedSnapshot(revisionId).submittedPlan();
+        var zone = ZoneId.of(plan.timeZone());
+        LocalDate through = LocalDate.now(zone).minusDays(1);
+        long expected = plan.channels().stream().mapToLong(channel ->
+                channel.endsAt().minusNanos(1).atZone(zone).toLocalDate().toEpochDay()
+                        - channel.startsAt().atZone(zone).toLocalDate().toEpochDay() + 1).sum();
+        Totals totals = jdbc.sql("""
+                SELECT count(*) AS days, sum(impressions) AS impressions, sum(clicks) AS clicks
+                FROM (
+                    SELECT DISTINCT ON (m.execution_id, m.metric_date) m.impressions, m.clicks
+                    FROM campaign_execution_metrics m JOIN campaign_executions e ON e.id = m.execution_id
+                    WHERE e.revision_id = :revision AND m.metric_date <= :through
+                    ORDER BY m.execution_id, m.metric_date, m.source_version DESC
+                ) latest
+                """).param("revision", revisionId).param("through", through)
+                .query((rs, row) -> new Totals(rs.getLong("days"), rs.getBigDecimal("impressions"),
+                        rs.getBigDecimal("clicks"))).single();
+        boolean complete = totals.days() != 0 && totals.days() == expected;
+        String coverage = totals.days() == 0 ? "NOT_SYNCED" : complete ? "COMPLETE" : "PARTIAL";
+        var comparisons = plan.kpiTargets().stream().map(target -> compare(target, totals, complete)).toList();
+        return new Report(plan.timeZone(), through, coverage, expected, totals.days(), comparisons);
+    }
+
+    private Comparison compare(CampaignPlan.KpiTarget target, Totals totals, boolean complete) {
+        boolean supported = "count".equals(target.unit())
+                && ("CLICKS".equals(target.metricCode()) || "IMPRESSIONS".equals(target.metricCode()));
+        BigDecimal actual = supported ? ("CLICKS".equals(target.metricCode()) ? totals.clicks() : totals.impressions()) : null;
+        BigDecimal goal = new BigDecimal(target.target());
+        String variance = actual != null && complete ? actual.subtract(goal).stripTrailingZeros().toPlainString() : null;
+        String percent = actual != null && complete && goal.signum() > 0
+                ? actual.movePointRight(2).divide(goal, 2, RoundingMode.HALF_UP).toPlainString() : null;
+        return new Comparison(target.metricCode(), target.unit(), supported ? "SUPPORTED" : "UNSUPPORTED",
+                target.target(), actual == null ? null : actual.toPlainString(), variance, percent);
+    }
+
 
     @Transactional(isolation = Isolation.REPEATABLE_READ, readOnly = true)
     public Range read(StaffActor actor, UUID campaignId, UUID revisionId, UUID executionId, LocalDate from, LocalDate to) {

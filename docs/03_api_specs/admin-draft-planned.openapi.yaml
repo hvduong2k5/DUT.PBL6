@@ -37,6 +37,40 @@ tags:
   - name: Marketing
     description: Draft Campaign planning and approval operations for EPIC 21.
 paths:
+  /api/v1/admin/marketing/campaigns/{campaignId}/revisions/{revisionId}/kpi-report:
+    x-employee-session-path: '/api/v1/admin/marketing-api/campaigns/{campaignId}/revisions/{revisionId}/kpi-report'
+    parameters:
+      - {name: campaignId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: revisionId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: getMarketingKpiReport
+      summary: Compare approved KPI targets with observed execution metrics
+      description: Requires MARKETING_KPI_VIEW. Actuals include closed local days. Variance and attainment require complete coverage.
+      tags: [Marketing]
+      security:
+        - marketingEmployeeSession: []
+        - bearerAuth: []
+      responses:
+        '200':
+          description: KPI comparisons and approved channel-day coverage.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarketingKpiReport'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /api/v1/admin/marketing/campaigns/{campaignId}/revisions/{revisionId}/executions/{executionId}/metrics:
     x-employee-session-path: '/api/v1/admin/marketing-api/campaigns/{campaignId}/revisions/{revisionId}/executions/{executionId}/metrics'
     parameters:
@@ -1856,6 +1890,28 @@ components:
         type: "string"
         format: "uuid"
   schemas:
+    MarketingKpiReport:
+      type: object
+      required: [timeZone, throughDate, coverage, expectedChannelDays, reportedChannelDays, items]
+      properties:
+        timeZone: {type: string}
+        throughDate: {type: string, format: date}
+        coverage: {type: string, enum: [NOT_SYNCED, PARTIAL, COMPLETE]}
+        expectedChannelDays: {type: integer, minimum: 0}
+        reportedChannelDays: {type: integer, minimum: 0}
+        items:
+          type: array
+          items:
+            type: object
+            required: [metricCode, unit, status, target, actual, variance, attainmentPercent]
+            properties:
+              metricCode: {type: string}
+              unit: {type: string}
+              status: {type: string, enum: [SUPPORTED, UNSUPPORTED]}
+              target: {type: string}
+              actual: {type: [string, 'null']}
+              variance: {type: [string, 'null']}
+              attainmentPercent: {type: [string, 'null']}
     MarketingMetricInput:
       type: object
       additionalProperties: false
