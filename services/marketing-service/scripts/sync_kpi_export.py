@@ -2,12 +2,13 @@
 
 import argparse
 import csv
+from contextlib import closing
 import hashlib
 import io
 import json
 import os
 import re
-import sys
+import sqlite3
 import time
 from pathlib import Path
 from urllib.error import HTTPError, URLError
@@ -15,7 +16,7 @@ from urllib.parse import urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 from uuid import UUID
 
-from normalize_kpi_export import TARGET_HEADER
+from normalize_kpi_export import TARGET_HEADER, integer
 
 MAX_CSV_BYTES = 8192
 MAX_RESPONSE_BYTES = 65536
@@ -47,7 +48,15 @@ def read_batch(path):
     key = rows[1][0] if rows[1] else ""
     if not re.fullmatch(r"[A-Za-z0-9._:-]{1,160}", key) or any(len(row) != 5 or row[0] != key for row in rows[1:]):
         raise ValueError("Expected exactly one valid external execution key")
-    return payload, key, len(rows) - 1
+    versions = {integer(row[2], 1) for row in rows[1:]}
+    if len(versions) != 1:
+        raise ValueError("Expected one source version per export batch")
+    expected = [
+        {"date": row[1], "status": "REPORTED", "sourceVersion": integer(row[2], 1),
+         "impressions": integer(row[3], 0), "clicks": integer(row[4], 0)}
+        for row in rows[1:]
+    ]
+    return payload, key, versions.pop(), expected
 
 
 def call(opener, url, token, payload=None):
@@ -81,10 +90,64 @@ def call(opener, url, token, payload=None):
         time.sleep(2 ** attempt)
 
 
+def sync(checkpoint, path, token, payload, key, version, expected):
+    digest = hashlib.sha256(payload).hexdigest()
+    failure = None
+    status = "IMPORTED"
+    with closing(sqlite3.connect(checkpoint, timeout=5)) as db, db:
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS kpi_batches (
+                destination TEXT NOT NULL,
+                version INTEGER NOT NULL,
+                sha256 TEXT NOT NULL,
+                status TEXT NOT NULL CHECK (status IN ('IMPORTED', 'FAILED')),
+                error TEXT,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (destination, version)
+            )
+            """)
+        db.execute("BEGIN IMMEDIATE")
+        previous = db.execute(
+            "SELECT sha256, status FROM kpi_batches WHERE destination = ? AND version = ?",
+            (path, version),
+        ).fetchone()
+        if previous and previous[0] != digest:
+            raise ValueError("Checkpoint already has a different payload for this version")
+        if previous and previous[1] == "IMPORTED":
+            return "ALREADY_IMPORTED", digest
+        latest = db.execute(
+            "SELECT max(version) FROM kpi_batches WHERE destination = ? AND status = 'IMPORTED'",
+            (path,),
+        ).fetchone()[0]
+        if latest is not None and version < latest:
+            raise ValueError("Export version precedes the last imported version")
+        try:
+            opener = build_opener(NoRedirect())
+            source = call(opener, path + "/source", token)
+            if not isinstance(source, dict) or source.get("type") != "CSV" or source.get("externalExecutionKey") != key:
+                raise ValueError("Execution is not bound to this CSV key")
+            receipt = call(opener, path + "/csv", token, payload)
+            if receipt != expected:
+                raise ValueError("Import receipt did not match the submitted snapshots")
+        except (OSError, ValueError) as error:
+            failure = error
+            status = "FAILED"
+        db.execute("""
+            INSERT INTO kpi_batches (destination, version, sha256, status, error)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT (destination, version) DO UPDATE SET
+                status = excluded.status, error = excluded.error, updated_at = CURRENT_TIMESTAMP
+            """, (path, version, digest, status, str(failure) if failure else None))
+    if failure:
+        raise failure
+    return status, digest
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("csv", type=Path)
     parser.add_argument("--gateway", required=True, type=gateway)
+    parser.add_argument("--checkpoint", required=True, type=Path)
     for field in ("campaign", "revision", "execution"):
         parser.add_argument(f"--{field}", required=True, type=UUID)
     args = parser.parse_args()
@@ -96,21 +159,16 @@ def main():
         f"/executions/{args.execution}/metrics"
     )
     try:
-        payload, key, row_count = read_batch(args.csv)
-        opener = build_opener(NoRedirect())
-        source = call(opener, path + "/source", token)
-        if not isinstance(source, dict) or source.get("type") != "CSV" or source.get("externalExecutionKey") != key:
-            raise ValueError("Execution is not bound to this CSV key")
-        rows = call(opener, path + "/csv", token, payload)
-        if not isinstance(rows, list) or len(rows) != row_count:
-            raise ValueError("Unexpected import receipt")
-    except (OSError, ValueError, csv.Error) as error:
+        payload, key, version, expected = read_batch(args.csv)
+        status, digest = sync(args.checkpoint, path, token, payload, key, version, expected)
+    except (OSError, ValueError, csv.Error, sqlite3.Error) as error:
         parser.exit(2, f"KPI sync failed: {error}\n")
     print(json.dumps({
-        "status": "IMPORTED",
+        "status": status,
         "executionId": str(args.execution),
-        "sha256": hashlib.sha256(payload).hexdigest(),
-        "days": row_count,
+        "sourceVersion": version,
+        "sha256": digest,
+        "days": len(expected),
     }))
 
 
