@@ -9,10 +9,9 @@
   "resetPasswordAllowed": true,
   "rememberMe": true,
   "verifyEmail": false,
-  "internationalizationEnabled": true,
+  "internationalizationEnabled": false,
   "supportedLocales": [
-    "vi",
-    "en"
+    "vi"
   ],
   "defaultLocale": "vi",
   "accessTokenLifespan": 900,
@@ -345,13 +344,14 @@
       "username": "admin",
       "enabled": true,
       "email": "admin@omama.vn",
-      "firstName": "System",
+      "emailVerified": true,
+      "firstName": "Super",
       "lastName": "Admin",
       "credentials": [
         {
           "type": "password",
           "value": "admin",
-          "temporary": true
+          "temporary": false
         }
       ],
       "attributes": {
@@ -360,12 +360,62 @@
         ],
         "principal_type": [
           "EMPLOYEE"
+        ],
+        "permission_grants": [
+          "USER_VIEW#GLOBAL",
+          "USER_STATUS_MANAGE#GLOBAL",
+          "USER_PASSWORD_RESET#GLOBAL",
+          "USER_SESSION_REVOKE#GLOBAL",
+          "EMPLOYEE_INVITE#GLOBAL",
+          "EMPLOYEE_INVITATION_REVOKE#GLOBAL",
+          "ROLE_VIEW#GLOBAL",
+          "ROLE_MANAGE#GLOBAL",
+          "ROLE_ASSIGN#GLOBAL",
+          "PERMISSION_VIEW#GLOBAL",
+          "PERMISSION_MANAGE#GLOBAL",
+          "AUDIT_LOG_VIEW#GLOBAL",
+          "AUDIT_LOG_EXPORT#GLOBAL",
+          "CATALOG_VIEW#GLOBAL",
+          "CATALOG_MANAGE#GLOBAL",
+          "EMPLOYEE_PROFILE_VIEW#GLOBAL",
+          "EMPLOYEE_PROFILE_MANAGE#GLOBAL",
+          "EMPLOYEE_PROFILE_SENSITIVE_VIEW#GLOBAL",
+          "ORDER_VIEW#GLOBAL",
+          "ORDER_STATUS_MANAGE#GLOBAL",
+          "ORDER_SENSITIVE_VIEW#GLOBAL",
+          "FULFILLMENT_VIEW#GLOBAL",
+          "FULFILLMENT_MANAGE#GLOBAL",
+          "INVENTORY_RECEIPT#GLOBAL",
+          "INVENTORY_WORKSPACE_VIEW#GLOBAL",
+          "INVENTORY_WORKSPACE_MANAGE#GLOBAL",
+          "ANALYTICS_DASHBOARD_VIEW#GLOBAL",
+          "ANALYTICS_SUPPLY_VIEW#GLOBAL",
+          "ANALYTICS_FINANCE_VIEW#GLOBAL",
+          "ANALYTICS_CUSTOMER_VIEW#GLOBAL",
+          "PAYMENT_TRANSACTION_VIEW#GLOBAL",
+          "PAYMENT_TRANSACTION_EXPORT#GLOBAL",
+          "PAYMENT_RECONCILIATION_PROCESS#GLOBAL",
+          "PAYMENT_DISPUTE_MANAGE#GLOBAL",
+          "PAYMENT_GATEWAY_CONFIG#GLOBAL"
+        ]
+      },
+      "realmRoles": [
+        "ADMIN"
+      ],
+      "clientRoles": {
+        "realm-management": [
+          "realm-admin"
         ]
       }
     }
   ],
   "roles": {
-    "realm": []
+    "realm": [
+      {
+        "name": "ADMIN",
+        "description": "Quản trị viên toàn hệ thống (Super Admin)"
+      }
+    ]
   },
   "components":   {
     "org.keycloak.userprofile.UserProfileProvider": [
