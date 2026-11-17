@@ -63,6 +63,9 @@
   );
 }
 
+/* Anchor jumps land below the sticky header */
+html { scroll-padding-top: 96px; }
+
 /* Base: handmade paper behind the whole page, kit body font */
 body {
   font-family: var(--chu-doc);
@@ -213,6 +216,11 @@ body {
 }
 .gh-btn--brown.gh-btn--fold::after { background: var(--mat); }
 
+/* Outline button for dark lacquer surfaces */
+.gh-btn--ghost { background: rgba(252, 249, 244, 0.08); border-color: rgba(252, 249, 244, 0.5); color: var(--kem); }
+.gh-btn--ghost::before { border-image-source: var(--khung-don-vang); opacity: 0.55; }
+.gh-btn--ghost:hover:not(:disabled) { background: rgba(252, 249, 244, 0.18); border-color: var(--kem); }
+
 .gh-btn:disabled {
   background: #e2d9cc;
   border-color: #c9bfae;
@@ -282,6 +290,8 @@ body {
   background-size: 100% 100%, 400px 400px;
   clip-path: var(--clip-khung-hue);
   filter: drop-shadow(0 8px 20px rgba(53, 32, 20, 0.08));
+  color: inherit;
+  text-decoration: none;
   transition: transform 0.28s var(--ease-out), filter 0.28s var(--ease-out);
 }
 .gh-frame-card::before {
@@ -317,6 +327,58 @@ a.gh-frame-card:hover::before,
   background: linear-gradient(135deg, var(--mat) 50%, var(--nau-dam) 50%);
   pointer-events: none;
 }
+
+/* ---- Heritage banner: dark lacquer stage + double stepped frame (kit hero A), reused across pages ---- */
+.gh-banner {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr);
+  align-items: stretch;
+  min-height: clamp(360px, 32vw, 500px);
+  overflow: hidden;
+  box-shadow: 0 20px 48px -12px rgba(42, 24, 14, 0.32);
+  container-type: inline-size;
+}
+.gh-banner::before { content: ""; position: absolute; inset: 14px; z-index: 3; border: 16px solid transparent; border-image: var(--khung-doi) 14 stretch; pointer-events: none; }
+.gh-banner__copy { position: relative; z-index: 4; display: flex; flex-direction: column; justify-content: center; padding: clamp(36px, 5cqi, 64px) clamp(28px, 4.5cqi, 60px); }
+.gh-banner__kicker { margin-bottom: 10px; color: var(--mat-sang); font-size: 0.82rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; }
+.gh-banner .gh-banner__title { margin: 0 0 14px; color: var(--kem); font: 600 clamp(2rem, 4.6cqi, 3.9rem)/1.1 var(--chu-de); letter-spacing: -0.02em; text-wrap: balance; }
+.gh-banner__rule { width: 72px; height: 3px; margin-bottom: 18px; background: var(--mat); }
+.gh-banner .gh-banner__lead { max-width: 44ch; margin: 0 0 26px; color: rgba(252, 249, 244, 0.9); font-size: clamp(1rem, 1.5cqi, 1.15rem); line-height: 1.6; }
+.gh-banner__actions { display: flex; flex-wrap: wrap; gap: 14px; }
+.gh-banner__visual { position: relative; z-index: 1; min-height: 300px; }
+.gh-banner__visual img { object-fit: cover; }
+.gh-banner__visual::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, var(--nau-cung-dinh) 0%, rgba(53, 32, 20, 0.45) 16%, transparent 40%); pointer-events: none; }
+.gh-banner__badges { display: flex; flex-wrap: wrap; gap: 8px; margin: 22px 0 0; padding: 0; list-style: none; }
+.gh-banner__badges .gh-badge { position: static; box-shadow: none; }
+@container (max-width: 760px) {
+  .gh-banner .gh-banner__title { font-size: clamp(2rem, 7.5cqi, 3rem); }
+}
+@media (max-width: 960px) {
+  .gh-banner { grid-template-columns: 1fr; }
+  .gh-banner__visual { order: -1; min-height: clamp(220px, 46vw, 360px); }
+  .gh-banner__visual::after { background: linear-gradient(0deg, var(--nau-cung-dinh) 0%, rgba(53, 32, 20, 0.35) 26%, transparent 55%); }
+  .gh-banner__copy { padding-top: 12px; }
+}
+@media (max-width: 600px) {
+  .gh-banner::before { inset: 8px; border-width: 12px; }
+  .gh-banner__copy { padding: 8px 24px 32px; }
+  .gh-banner__actions .gh-btn { flex: 1 1 100%; }
+}
+
+/* ---- Traceability QR form (inside a banner) ---- */
+.gh-trace-form { display: grid; gap: 8px; max-width: 560px; }
+.gh-trace-form__label { color: var(--kem); font-size: var(--t-small); font-weight: 600; }
+.gh-trace-form__row { display: flex; flex-wrap: wrap; gap: 10px; }
+.gh-trace-form__row .gh-field { flex: 1 1 220px; width: auto; border-color: var(--mat); }
+.gh-trace-form__row .gh-btn { flex: 0 0 auto; }
+.gh-trace-form__error { color: #ffd6cf; font-size: var(--t-small); }
+.gh-banner--compact { min-height: clamp(280px, 24vw, 360px); }
+.gh-banner--compact .gh-banner__copy { padding-block: clamp(28px, 3.5cqi, 44px); }
+.gh-banner--compact .gh-banner__title { font-size: clamp(1.9rem, 3.8cqi, 3.1rem); }
+.gh-trace-form__sample { justify-self: start; min-height: 32px; padding: 0; border: 0; background: none; color: var(--mat-sang); font: 600 var(--t-small) var(--chu-doc); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.gh-trace-form__sample:hover { color: var(--kem); }
 
 /* ---- Card media, ribbon badge, price ---- */
 .gh-card-media { position: relative; overflow: hidden; aspect-ratio: 4 / 3; background: #eadbc6; }

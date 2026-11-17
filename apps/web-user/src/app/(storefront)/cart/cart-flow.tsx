@@ -157,7 +157,7 @@ export function CartFlow() {
 
       {cart.items.length === 0 ? (
         <section className="cart-empty-state">
-          <span aria-hidden="true">◇</span>
+          <span className="gh-emblem" aria-hidden="true" />
           <p className="eyebrow">Giỏ hàng trống</p>
           <h2>Chọn một thức quà Huế phù hợp</h2>
           <p>Sản phẩm chỉ được thêm sau khi bạn xác nhận rõ SKU và số lượng tại trang chi tiết.</p>

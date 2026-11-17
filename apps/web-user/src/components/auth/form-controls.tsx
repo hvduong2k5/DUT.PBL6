@@ -7,9 +7,11 @@ interface FieldProps extends InputHTMLAttributes<HTMLInputElement> {
   label: string;
   error?: string;
   hint?: string;
+  /** Accepted for compatibility; decorative glyph icons are no longer rendered. */
   icon?: string;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- icon is intentionally ignored (no decorative glyphs)
 export function FormField({ label, error, hint, icon, id, type, ...inputProps }: FieldProps) {
   const [visible, setVisible] = useState(false);
   const isPassword = type === "password";
@@ -20,11 +22,10 @@ export function FormField({ label, error, hint, icon, id, type, ...inputProps }:
     <label className="form-field" htmlFor={id}>
       <span className="field-label">{label}{inputProps.required ? <b aria-hidden="true"> *</b> : null}</span>
       <span className={`input-wrap ${error ? "has-error" : ""}`}>
-        {icon ? <span className="input-icon" aria-hidden="true">{icon}</span> : null}
         <input id={id} type={inputType} aria-invalid={Boolean(error)} aria-describedby={describedBy} {...inputProps} />
         {isPassword ? (
           <button className="visibility-button" type="button" onClick={() => setVisible((value) => !value)} aria-label={visible ? "Ẩn mật khẩu" : "Hiện mật khẩu"}>
-            {visible ? "◉" : "◎"}
+            {visible ? "Ẩn" : "Hiện"}
           </button>
         ) : null}
       </span>

@@ -91,7 +91,7 @@ export function B2BRequestFlow() {
 
   return <main className="b2b-page">
     <nav className="detail-breadcrumbs"><Link href="/">Trang chủ</Link><span>›</span><strong>Báo giá sỉ B2B</strong></nav>
-    <section className="b2b-hero"><div><span className="eyebrow">Giải pháp quà biếu doanh nghiệp &amp; hội nghị ngoại giao</span><h1>Đặc Quyền Quà Biếu Cố Đô<br />Dành Cho Doanh Nghiệp</h1><p>Tinh hoa bánh mứt Cung Đình trong giải pháp quà tặng có định mức số lượng, nhận diện thương hiệu và điều khoản thương mại minh bạch.</p><div className="b2b-benefits"><span>▦ Tập đoàn &amp; đối tác</span><span>٪ Chiết khấu theo số lượng</span><span>◉ Sản phẩm OCOP</span></div></div><aside><b>Hộp quà thiết kế riêng</b><small>Hỗ trợ khắc logo và thiệp doanh nghiệp</small></aside></section>
+    <section className="b2b-hero"><div><span className="eyebrow">Giải pháp quà biếu doanh nghiệp &amp; hội nghị ngoại giao</span><h1>Đặc Quyền Quà Biếu Cố Đô<br />Dành Cho Doanh Nghiệp</h1><p>Tinh hoa bánh mứt Cung Đình trong giải pháp quà tặng có định mức số lượng, nhận diện thương hiệu và điều khoản thương mại minh bạch.</p><div className="b2b-benefits"><span>▦ Tập đoàn &amp; đối tác</span><span>Chiết khấu theo số lượng</span><span>Sản phẩm OCOP</span></div></div><aside><b>Hộp quà thiết kế riêng</b><small>Hỗ trợ khắc logo và thiệp doanh nghiệp</small></aside></section>
     {created ? <section className="b2b-created" role="status"><span>✓</span><div><h2>Đã tiếp nhận yêu cầu {created.requestNumber}</h2><p>{created.message} Chuyên viên sẽ phản hồi trên tài khoản doanh nghiệp.</p></div><button type="button" onClick={() => setCreated(null)}>Tạo yêu cầu khác</button></section> : null}
 
     <div className="b2b-layout"><form className="b2b-form" onSubmit={submit}>

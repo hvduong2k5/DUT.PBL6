@@ -10,7 +10,7 @@ export function SiteFooter() {
           <div>
             <BrandMark />
             <p>Gìn giữ và tôn vinh phong vị bánh mứt, mè xửng và trà xứ Huế, đóng gói chỉn chu để trao gửi trọn tấm lòng.</p>
-            <span className="gh-footer__chip">✺ OCOP 4 Sao Thừa Thiên Huế</span>
+            <span className="gh-badge gh-badge--gold gh-footer__chip">OCOP 4 sao Thừa Thiên Huế</span>
           </div>
           <div>
             <h2>Bộ sưu tập</h2>

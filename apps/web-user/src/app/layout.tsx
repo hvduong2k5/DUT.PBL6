@@ -7,6 +7,7 @@ import "@/styles/heritage.css";
 import "@/styles/heritage-shell.css";
 import "@/styles/heritage-home.css";
 import "@/styles/heritage-pages.css";
+import "@/styles/heritage-features.css";
 
 const playfair = Playfair_Display({
   subsets: ["latin", "vietnamese"],

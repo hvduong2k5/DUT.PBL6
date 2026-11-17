@@ -1,4 +1,5 @@
 // MOCK-API: temporary seed data taken from goihue_backup.sql (products + categories only).
+// Thumbnails point at Gói Huế kit photos (the dump only has placeholders); they are illustrative.
 // Delete the whole `src/mocks/recommendation` folder when the real recommendation API serves real products.
 
 export interface MockProduct {
@@ -20,7 +21,7 @@ export const MOCK_PRODUCTS: readonly MockProduct[] = [
     name: "Mè Xửng Gừng Huế 250g",
     category: "me-xung-keo-hue",
     priceVnd: 74998,
-    thumbnailUrl: "/images/product-placeholder.svg"
+    thumbnailUrl: "/images/heritage/photos/sp-me-xung-dia.jpg"
   },
   {
     productId: "ccd10d31-954b-4618-902e-8d883d7cd0ca",
@@ -29,7 +30,7 @@ export const MOCK_PRODUCTS: readonly MockProduct[] = [
     name: "Mè Xửng Đậu Phộng 300g",
     category: "me-xung-keo-hue",
     priceVnd: 90000,
-    thumbnailUrl: "/images/product-placeholder.svg"
+    thumbnailUrl: "/images/heritage/photos/cat-me-xung.jpg"
   },
   {
     productId: "afee0ff5-937c-410b-a156-7bfad39c6efa",
@@ -38,7 +39,7 @@ export const MOCK_PRODUCTS: readonly MockProduct[] = [
     name: "Bánh In Đậu Xanh 200g",
     category: "banh-cung-dinh",
     priceVnd: 60000,
-    thumbnailUrl: "/images/product-placeholder.svg"
+    thumbnailUrl: "/images/heritage/photos/hero-tea-table.jpg"
   },
   {
     productId: "9327f6df-83bf-40a3-bf2d-25a509775e49",
@@ -47,7 +48,7 @@ export const MOCK_PRODUCTS: readonly MockProduct[] = [
     name: "Trà Cung Đình Túi Lọc 100g",
     category: "tra-cung-dinh",
     priceVnd: 110000,
-    thumbnailUrl: "/images/product-placeholder.svg"
+    thumbnailUrl: "/images/heritage/photos/sp-tra-sen-lon.jpg"
   },
   {
     productId: "f122d60d-7453-45c6-84a2-3080a85e6cd4",
@@ -56,6 +57,6 @@ export const MOCK_PRODUCTS: readonly MockProduct[] = [
     name: "Hộp Quà Hương Huế",
     category: "qua-bieu",
     priceVnd: 320000,
-    thumbnailUrl: "/images/product-placeholder.svg"
+    thumbnailUrl: "/images/heritage/photos/sp-hop-qua-doan-vien.jpg"
   }
 ];

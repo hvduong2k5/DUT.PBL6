@@ -16,6 +16,26 @@
 
 input[type="checkbox"], input[type="radio"], input[type="range"] { accent-color: var(--nau-dam); }
 
+/* Brand emblem from the kit, used wherever the legacy pages had an improvised glyph icon */
+.gh-emblem {
+  display: inline-block;
+  flex-shrink: 0;
+  min-width: 24px;
+  min-height: 24px;
+  /* !important: legacy icon boxes set the `background` shorthand, which would wipe the emblem. */
+  background-image: url("/images/heritage/logo-goi-hue.svg") !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+  background-size: 58% !important;
+}
+
+.benefit-list .gh-emblem, .trust-row .gh-emblem, .oidc-login-mark.gh-emblem { background-color: var(--kem); border: 1px solid var(--mat); }
+.oidc-login-mark.gh-emblem { background-size: 60%; }
+
+/* Form fields no longer carry a leading glyph icon */
+.input-wrap input { padding-left: 16px; }
+.visibility-button { width: auto; min-width: 44px; padding: 0 8px; color: var(--nau-dam); font: 600 var(--t-label) var(--chu-doc); }
+
 /* ---- Buttons: brown primary with a gold hairline and 45° fold, paper secondary ---- */
 .primary-button, .primary-link {
   position: relative;
@@ -88,11 +108,13 @@ main textarea:focus {
 .product-card:hover { transform: translateY(-4px); box-shadow: none; filter: drop-shadow(0 14px 28px rgba(53, 32, 20, 0.15)); }
 .product-card:hover::before { border-image-source: var(--khung-kien-truc); }
 
+/* ---- Product detail gallery: architectural plaque frame (kit level 2) ---- */
+.gallery-main { border: 0; clip-path: var(--clip-khung-hue); }
+.gallery-main::after { content: ""; position: absolute; inset: 0; z-index: 3; border: 14px solid transparent; border-image: var(--khung-kien-truc) 14 stretch; pointer-events: none; }
+
 /* ---- Functional panels: stronger tea-brown outline and the 45° paper-fold corner (kit level 4) ---- */
-.catalog-filters, .account-card {
-  position: relative;
-  border-color: var(--nau);
-}
+.catalog-filters, .account-card { border-color: var(--nau); }
+.account-card { position: relative; }
 .catalog-filters::after, .account-card::after {
   content: "";
   position: absolute;
@@ -103,6 +125,26 @@ main textarea:focus {
   background: linear-gradient(135deg, var(--mat) 50%, var(--nau-dam) 50%);
   pointer-events: none;
 }
+
+/* ---- Remove the legacy self-drawn patterns and glyph watermarks; dark heroes use the kit double frame ---- */
+.auth-story::after, .trace-panel::after, .catalog-hero::after, .support-hero::after, .trace-search-hero::after, .loyalty-wallet::after {
+  content: "";
+  inset: 10px;
+  right: 10px;
+  bottom: 10px;
+  width: auto;
+  height: auto;
+  border: 14px solid transparent;
+  border-image: var(--khung-doi) 14 stretch;
+  background: none;
+  opacity: 1;
+  font-size: 0;
+  transform: none;
+  pointer-events: none;
+}
+
+.support-hero::after { border-image-source: var(--khung-kien-truc); }
+.support-hero > * { position: relative; z-index: 1; }
 
 /* ---- Headline and link polish ---- */
 .eyebrow { color: var(--nau); letter-spacing: 0.12em; }

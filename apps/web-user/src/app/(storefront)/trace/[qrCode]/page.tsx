@@ -11,5 +11,5 @@ export const metadata: Metadata = {
 
 export default async function TracePage({ params }: { params: Promise<{ qrCode: string }> }) {
   const { qrCode } = await params;
-  return <><SiteHeader /><Suspense fallback={<main className="trace-page"><section className="trace-loading" aria-busy="true"><span /><span /><span /><span /></section></main>}><TraceExperience key={qrCode} qrCode={qrCode} /></Suspense><SiteFooter /></>;
+  return <><SiteHeader /><Suspense fallback={<main className="gh-page" aria-busy="true" />}><TraceExperience key={qrCode} qrCode={qrCode} /></Suspense><SiteFooter /></>;
 }
