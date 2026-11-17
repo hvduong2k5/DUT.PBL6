@@ -1,141 +1,349 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useEffect, useId, useRef, type KeyboardEvent } from "react";
+import { BrandMark } from "./brand-mark";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { useCustomerSession } from "@/components/auth/customer-session-provider";
 import { useCartSummary } from "@/components/cart/cart-summary-provider";
-import { MVP_FEATURE_GATES } from "@/lib/mvp-feature-gates";
 import { useAuth } from "@/components/auth/auth-provider";
-import { BrandMark } from "./brand-mark";
-import { shopLinks, serviceLinks } from "./storefront-links";
+import { MVP_FEATURE_GATES } from "@/lib/mvp-feature-gates";
+import { GroupOptions } from "@/components/storefront/group-options";
+import { StorefrontDialog } from "@/components/storefront/dialog";
+import { MobileTabs } from "@/components/storefront/mobile-tabs";
+import { useStorefrontView } from "@/components/storefront/view-mode";
+import { CartPreview } from "@/components/storefront/cart-preview";
+import { ItemDialog } from "@/components/storefront/item-dialog";
+import { items, type HomeItem } from "@/components/storefront/items";
+import { collections, shopLinks, serviceLinks } from "./storefront-links";
 
-const paths = {
-  home: "m3 10 9-7 9 7v10h-6v-6H9v6H3z",
-  menu: "M3 6h18M3 12h18M3 18h18",
-  search: "M16 16l5 5M18 10a8 8 0 1 1-16 0 8 8 0 1 1 16 0",
-  cart: "M2 3h3l3 12h11l3-9H6M10 20h.1M18 20h.1",
-  user: "M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M4 21v-2a8 8 0 0 1 16 0v2z",
-  down: "m6 9 6 6 6-6"
-};
-function Icon({ name }: { name: keyof typeof paths }) {
-  return <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d={paths[name]} /></svg>;
-}
-
-type NavLink = { name: string; href: string };
-function Links({ links, close }: { links: NavLink[]; close?: () => void }) {
-  return links.map(link => <Link href={link.href} key={link.href} onClick={close}>{link.name}</Link>);
-}
-
-function useAnchoredPopover() {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const panel = ref.current;
-    const trigger = panel?.previousElementSibling;
-    if (!panel || !trigger) return;
-    function position() {
-      if (!panel?.matches(":popover-open") || !trigger) return;
-      const rect = trigger.getBoundingClientRect();
-      panel.style.top = Math.round(rect.bottom + 4) + "px";
-      panel.style.left = Math.max(8, Math.min(rect.left, document.documentElement.clientWidth - panel.offsetWidth - 8)) + "px";
-    }
-    panel.addEventListener("toggle", position);
-    window.addEventListener("resize", position);
-    window.addEventListener("scroll", position, { passive: true });
-    return () => {
-      panel.removeEventListener("toggle", position);
-      window.removeEventListener("resize", position);
-      window.removeEventListener("scroll", position);
-    };
-  });
-  return ref;
-}
-
-function Dropdown({ label, links }: { label: string; links: NavLink[] }) {
-  const id = useId();
-  const ref = useAnchoredPopover();
-  function move(event: KeyboardEvent<HTMLElement>) {
-    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
-    event.preventDefault();
-    ref.current?.showPopover();
-    const items = Array.from(ref.current?.querySelectorAll("a") ?? []);
-    const current = items.indexOf(document.activeElement as HTMLAnchorElement);
-    const next = current < 0 ? (event.key === "ArrowDown" ? 0 : items.length - 1)
-      : (current + (event.key === "ArrowDown" ? 1 : -1) + items.length) % items.length;
-    items[next]?.focus();
-  }
-  return <div className="gh-group" onKeyDown={move}>
-    <button popoverTarget={id}>{label}<Icon name="down" /></button>
-    <div className="gh-popup" popover="auto" ref={ref} id={id}><Links links={links} close={() => ref.current?.hidePopover()} /></div>
-  </div>;
-}
-
-function SearchForm() {
-  return <form className="gh-search" action="/products" method="get" role="search">
-    <input type="search" name="q" minLength={2} aria-label="Tìm sản phẩm" placeholder="Tìm sản phẩm…" />
-    <button aria-label="Tìm kiếm"><Icon name="search" /></button>
-  </form>;
-}
-
-function AccountLinks({ name, links, close, logout }: {
-  name: string; links: NavLink[]; close: () => void; logout: () => void;
-}) {
-  return <>
-    <strong>{name}</strong><Links links={[...links, { name: "Đổi mật khẩu", href: "/settings/password" }]} close={close} />
-    <button onClick={() => { close(); logout(); }}>Đăng xuất</button>
-  </>;
+function normalize(text: string) {
+  return text
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .replaceAll("đ", "d")
+    .trim();
 }
 
 export function SiteHeader() {
-  const auth = useAuth();
-  const { customer, principal, customerAccess, hasCapability } = useCustomerSession();
-  const { itemCount } = useCartSummary();
-  const sheet = useRef<HTMLDialogElement>(null);
-  const account = useAnchoredPopover();
+  const { paper, compact, setPaper, setCompact, setGroup } =
+    useStorefrontView();
   const path = usePathname();
-  const displayName = customer?.displayName ?? principal?.displayName ?? auth.user?.displayName ?? "Tài khoản";
-  const accountHref = auth.isEmployee ? "/admin" : auth.isAuthenticated ? "/account/profile" : "/login?returnUrl=%2Faccount%2Fprofile";
-  const orders = auth.isAuthenticated && customerAccess ? "/account/orders" : MVP_FEATURE_GATES.guestOrder ? "/track-order" : "/login?returnUrl=%2Faccount%2Forders";
-  const help = [...serviceLinks, auth.isEmployee ? { name: "Kênh quản trị", href: "/admin" } : { name: "Đơn hàng", href: orders }];
-  const shopping = auth.isCustomer && hasCapability("B2B_QUOTE_VIEW") ? [...shopLinks, { name: "Báo giá sỉ", href: "/b2b" }] : shopLinks;
-  const profile = auth.isEmployee ? [{ name: "Kênh quản trị", href: "/admin" }] : [{ name: "Hồ sơ cá nhân", href: accountHref }, { name: "Đơn hàng của tôi", href: "/account/orders" }];
-  const close = () => sheet.current?.close();
+  const router = useRouter();
+  const { itemCount } = useCartSummary();
+  const auth = useAuth();
+  const { customerAccess, hasCapability } = useCustomerSession();
+  const [panel, setPanel] = useState<
+    "categories" | "search" | "cart" | "account" | null
+  >(null);
+  const [popup, setPopup] = useState<"menu" | "suggest" | null>(null);
+  const [detail, setDetail] = useState<HomeItem | null>(null);
+  const [query, setQuery] = useState("");
+  const header = useRef<HTMLElement>(null);
+  const menuButton = useRef<HTMLButtonElement>(null);
   useEffect(() => {
-    const query = window.matchMedia("(min-width: 768px)");
-    const change = () => { if (query.matches) sheet.current?.close(); };
-    query.addEventListener("change", change);
-    return () => query.removeEventListener("change", change);
-  }, []);
-  const cart = <><Icon name="cart" />Giỏ hàng{itemCount !== null && itemCount > 0 && <b>{itemCount > 99 ? "99+" : itemCount}</b>}</>;
-  return <>
-    <header className="gh-header"><div className="gh-wrap gh-top">
-      <BrandMark />
-      <nav className="gh-desktop" aria-label="Điều hướng chính">
-        <Dropdown label="Bộ sưu tập" links={shopping} />
-        <Link href="/products?category=qua-bieu">Quà biếu</Link>
-        <Dropdown label="Khám phá" links={help} />
-      </nav>
-      <SearchForm />
-      <div className="gh-tools">
-        {!auth.isEmployee && <Link href="/cart">{cart}</Link>}
-        {auth.isAuthenticated ? <div className="gh-group"><button popoverTarget="gh-account" aria-label="Mở menu tài khoản"><Icon name="user" /></button>
-          <div className="gh-popup gh-right" id="gh-account" ref={account} popover="auto"><AccountLinks name={displayName} links={profile} close={() => account.current?.hidePopover()} logout={auth.logout} /></div>
-        </div> : <Link href={accountHref} aria-label="Đăng nhập"><Icon name="user" /></Link>}
+    if (!popup) return;
+    const cancel = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setPopup(null);
+        if (popup === "menu") menuButton.current?.focus();
+      }
+    };
+    const outside = (e: PointerEvent) => {
+      if (!header.current?.contains(e.target as Node)) setPopup(null);
+    };
+    document.addEventListener("keydown", cancel);
+    document.addEventListener("pointerdown", outside);
+    const mq = window.matchMedia("(max-width: 767px)");
+    const resize = () => setPopup(null);
+    mq.addEventListener("change", resize);
+    return () => {
+      document.removeEventListener("keydown", cancel);
+      document.removeEventListener("pointerdown", outside);
+      mq.removeEventListener("change", resize);
+    };
+  }, [popup]);
+  function pick(group: number) {
+    setGroup(group);
+    setPopup(null);
+    setPanel(null);
+    if (path === "/") document.getElementById("shop")?.scrollIntoView();
+    else router.push("/#shop");
+  }
+  function open(value: typeof panel) {
+    setPopup(null);
+    setPanel(value);
+  }
+  const categories = (
+    <>
+      <div className="between">
+        <strong>Chọn Thức Quà Xứ Huế</strong>
+        <button className="chip-btn" onClick={() => pick(-1)}>
+          Xem tất cả →
+        </button>
       </div>
-    </div></header>
-    <nav className="gh-bottom" aria-label="Điều hướng di động">
-      <Link href="/" aria-current={path === "/" ? "page" : undefined}><Icon name="home" />Trang chủ</Link>
-      <button onClick={() => sheet.current?.showModal()} aria-haspopup="dialog"><Icon name="menu" />Danh mục</button>
-      {!auth.isEmployee && <Link href="/cart" aria-current={path === "/cart" ? "page" : undefined}>{cart}</Link>}
-      <Link href={accountHref} aria-current={path === accountHref ? "page" : undefined}><Icon name="user" />{auth.isEmployee ? "Quản trị" : "Tài khoản"}</Link>
-    </nav>
-    <dialog ref={sheet} className="gh-sheet" aria-labelledby="gh-sheet-title" onClick={event => { if (event.target === sheet.current) close(); }}>
-      <div><header><h2 id="gh-sheet-title">Danh mục</h2><button aria-label="Đóng danh mục" onClick={close}>×</button></header>
-        <nav aria-label="Danh mục và tiện ích"><strong>Bộ sưu tập</strong><Links links={shopping} close={close} />
-          <strong>Khám phá</strong><Links links={help} close={close} />
-          {auth.isAuthenticated && <AccountLinks name={displayName} links={profile} close={close} logout={auth.logout} />}
-        </nav>
+      <div className="mega-dropdown__grid">
+        <GroupOptions choose={pick} menu />
       </div>
-    </dialog>
-  </>;
+    </>
+  );
+  const matches = items.filter((item) =>
+    normalize(item.name).includes(normalize(query)),
+  );
+  const suggestions = (
+    <div className="suggestions">
+      {matches.map((item) => (
+        <button
+          className="suggestion"
+          key={item.slug}
+          onClick={() => {
+            setPanel(null);
+            setPopup(null);
+            setDetail(item);
+          }}
+          type="button"
+        >
+          {item.name}
+        </button>
+      ))}
+      {!matches.length && <p>Chưa tìm thấy thức quà phù hợp.</p>}
+      <Link
+        href={"/products?q=" + encodeURIComponent(query)}
+        onClick={() => {
+          setPanel(null);
+          setPopup(null);
+        }}
+      >
+        Xem trong danh mục →
+      </Link>
+    </div>
+  );
+  const search = (mobile: boolean) => (
+    <form
+      action="/products"
+      role="search"
+      className={mobile ? "sheet-search" : "hue-header-search"}
+    >
+      <svg
+        className="header-search__icon"
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        aria-hidden="true"
+      >
+        <circle cx="11" cy="11" r="7" />
+        <path d="m16 16 4.5 4.5" />
+      </svg>
+      <input
+        className="header-search__input"
+        type="search"
+        name="q"
+        autoComplete="off"
+        aria-label="Tìm sản phẩm đặc sản Huế"
+        placeholder="Tìm sản phẩm..."
+        value={query}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          if (!mobile) setPopup("suggest");
+        }}
+        onFocus={() => {
+          if (!mobile) setPopup("suggest");
+        }}
+      />
+      {!mobile && popup === "suggest" && (
+        <div className="search-suggest-panel">{suggestions}</div>
+      )}
+    </form>
+  );
+  const orders =
+    auth.isAuthenticated && customerAccess
+      ? "/account/orders"
+      : MVP_FEATURE_GATES.guestOrder
+        ? "/track-order"
+        : "/login?returnUrl=%2Faccount%2Forders";
+  return (
+    <div className="hue-surface hue-navigation">
+      <div className="top-bar">
+        <div className="wrap top-bar__inner">
+          <span>
+            ✦ <strong>GÓI HUẾ</strong> · Đặc sản Mè xửng, Trà cung đình &amp;
+            Quà biếu Cố đô
+          </span>
+          <div className="top-bar__controls">
+            {path === "/" && (
+              <>
+                <button
+                  className="pill-switch"
+                  aria-pressed={paper}
+                  onClick={() => setPaper(!paper)}
+                >
+                  ❖ Kiểu Hero:{" "}
+                  {paper
+                    ? "Khung Giấy Dó Kiến Trúc"
+                    : "Khung Nâu Trầm & Bàn Trà"}
+                </button>
+                <button
+                  className="pill-switch"
+                  aria-pressed={compact}
+                  onClick={() => {
+                    setCompact(!compact);
+                    setPopup(null);
+                  }}
+                >
+                  Chế độ xem: {compact ? "Mobile (390px)" : "Web Desktop"}
+                </button>
+              </>
+            )}
+            <button className="pill-switch" onClick={() => open("account")}>
+              Tài khoản
+            </button>
+          </div>
+        </div>
+      </div>
+      <header ref={header} className="hue-site-header">
+        <div className="wrap site-header__inner">
+          <BrandMark />
+          <nav className="hue-main-nav" aria-label="Điều hướng chính">
+            <button
+              className="nav-trigger"
+              ref={menuButton}
+              aria-expanded={popup === "menu"}
+              aria-controls="megaDropdown"
+              onClick={() => setPopup(popup === "menu" ? null : "menu")}
+            >
+              Bộ sưu tập ﹀
+            </button>
+            {collections.map((c, i) => (
+              <button key={c.name} className="nav-link" onClick={() => pick(i)}>
+                {c.name}
+              </button>
+            ))}
+            <Link className="nav-link" href="/#gift">
+              Gói quà
+            </Link>
+            <Link className="nav-link" href="/#story">
+              Chuyện Huế
+            </Link>
+          </nav>
+          <div className="header-tools">
+            {search(false)}
+            <button
+              className="btn-icon"
+              onClick={() => open("search")}
+              aria-label="Tìm kiếm thức quà"
+            >
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+              >
+                <circle cx="11" cy="11" r="7" />
+                <path d="m16 16 4.5 4.5" />
+              </svg>
+            </button>
+            {!auth.isEmployee && (
+              <button className="cart-trigger" onClick={() => open("cart")}>
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                >
+                  <path d="M4 8h16l-1.2 12H5.2L4 8zM8 8V6a4 4 0 0 1 8 0v2" />
+                </svg>
+                Giỏ quà
+                {itemCount !== null && (
+                  <b className="cart-badge">{itemCount}</b>
+                )}
+              </button>
+            )}
+          </div>
+          {popup === "menu" && (
+            <div id="megaDropdown" className="mega-dropdown">
+              {categories}
+            </div>
+          )}
+        </div>
+      </header>
+      <MobileTabs
+        onMenu={() => open("categories")}
+        onSearch={() => open("search")}
+        onCart={() => open("cart")}
+        count={itemCount}
+        employee={auth.isEmployee}
+        onHome={path === "/"}
+      />
+      {detail && <ItemDialog item={detail} close={() => setDetail(null)} />}
+      {panel && (
+        <StorefrontDialog
+          close={() => setPanel(null)}
+          title={
+            {
+              categories: "Chọn thức quà",
+              search: "Tìm kiếm thức quà",
+              cart: "Giỏ quà của bạn",
+              account: "Tài khoản và tiện ích",
+            }[panel]
+          }
+        >
+          {panel === "categories" && categories}
+          {panel === "search" && (
+            <>
+              {search(true)}
+              {suggestions}
+            </>
+          )}
+          {panel === "cart" && <CartPreview close={() => setPanel(null)} />}
+          {panel === "account" && (
+            <nav className="account-links" onClick={() => setPanel(null)}>
+              <Link
+                href={
+                  auth.isEmployee
+                    ? "/admin"
+                    : auth.isAuthenticated
+                      ? "/account/profile"
+                      : "/login?returnUrl=%2Faccount%2Fprofile"
+                }
+              >
+                {auth.isEmployee
+                  ? "Kênh quản trị"
+                  : auth.isAuthenticated
+                    ? "Hồ sơ cá nhân"
+                    : "Đăng nhập"}
+              </Link>
+              {!auth.isEmployee && <Link href={orders}>Đơn hàng</Link>}
+              {auth.isCustomer && hasCapability("B2B_QUOTE_VIEW") && (
+                <Link href="/b2b">Báo giá sỉ</Link>
+              )}
+              {[...shopLinks.slice(4), ...serviceLinks].map((l) => (
+                <Link key={l.href} href={l.href}>
+                  {l.name}
+                </Link>
+              ))}
+              {auth.isAuthenticated && (
+                <>
+                  <Link href="/settings/password">Đổi mật khẩu</Link>
+                  <button
+                    className="chip-btn"
+                    onClick={() => void auth.logout()}
+                  >
+                    Đăng xuất
+                  </button>
+                </>
+              )}
+            </nav>
+          )}
+        </StorefrontDialog>
+      )}
+    </div>
+  );
 }

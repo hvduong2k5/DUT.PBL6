@@ -1,137 +1,2341 @@
+@font-face {
+  font-family: "Be Vietnam Pro";
+  src: url("/fonts/goi-hue/BeVietnamPro-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Be Vietnam Pro";
+  src: url("/fonts/goi-hue/BeVietnamPro-Italic.woff2") format("woff2");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
 /* Gói Huế v2, scoped to the customer shell and Home. */
-.gh-home, .gh-header, .gh-footer, .gh-sheet, .gh-popup, .gh-bottom {
-  --paper: #fcf9f4;
-  --lacquer: #352014;
-  --honey: #d4a24c;
-  --grain: linear-gradient(#fcf9f4ec, #fcf9f4ec), url("/images/goi-hue/08-nen-giay-seamless.jpg");
-  --serif: Georgia, "Times New Roman", serif;
-  color: var(--lacquer);
-  background-color: var(--paper);
-  background-image: var(--grain);
-  background-size: auto, 380px;
+@font-face {
+  font-family: "Playfair Display";
+  src: url("/fonts/goi-hue/PlayfairDisplay.woff2") format("woff2");
+  font-weight: 400 900;
+  font-style: normal;
+  font-display: swap;
 }
-.gh-wrap { width: min(1280px, 91%); margin-inline: auto; }
-.gh-home h1, .gh-home h2, .gh-home h3, .gh-sheet h2 { font-family: var(--serif); font-weight: 500; margin: 0; line-height: 1.14; }
-.gh-home h2 { font-size: clamp(30px, 3.15vw, 48px); letter-spacing: -.035em; }
-.gh-home a, .gh-header a, .gh-bottom a, .gh-sheet a, .gh-footer a, .gh-popup a { text-decoration: none; }
-.gh-header { position: relative; z-index: 25; border-top: 4px solid #563a26; border-bottom: 1px solid #c5ae8d; }
-.gh-top { display: flex; align-items: center; gap: clamp(14px, 2vw, 34px); min-height: 78px; }
-.gh-brand { display: inline-flex; flex: none; align-items: center; gap: 10px; font: 600 clamp(25px, 2.5vw, 38px)/1 var(--serif); letter-spacing: -.055em; white-space: nowrap; }
-.gh-desktop, .gh-tools { display: flex; align-items: center; gap: clamp(7px, 1.4vw, 24px); }
-.gh-top button, .gh-sheet button, .gh-bottom button, .gh-popup button { color: inherit; background: none; border: 0; cursor: pointer; }
-.gh-desktop > a, .gh-group > button, .gh-tools > a { display: inline-flex; gap: 7px; align-items: center; justify-content: center; min-height: 44px; padding: 4px; white-space: nowrap; }
-.gh-group > button svg:last-child { width: 15px; }
-.gh-search { display: flex; align-items: center; margin-left: auto; width: min(22vw, 275px); border: 1px solid #b9a58d; border-radius: 30px; background: #fcf9f4; }
-.gh-search input { background: transparent; border: 0; min-width: 0; width: 100%; padding: 9px 0 9px 16px; color: #352014; }
-.gh-search button, .gh-tools > a, .gh-tools button { min-width: 44px; min-height: 44px; }
-.gh-tools b, .gh-bottom b { padding: 1px 5px; border-radius: 12px; font: bold 12px/1.4 system-ui; background: #563a26; color: white; }
-.gh-popup { position: fixed; inset: auto; margin: 0; min-width: 210px; max-width: min(340px, 90vw); border: 1px solid #b59a77; padding: 8px; box-shadow: 0 12px 30px #35201420; }
 
-.gh-popup a, .gh-popup button, .gh-sheet nav a, .gh-sheet nav button { display: flex; align-items: center; min-height: 44px; padding: 7px 12px; text-align: left; }
-.gh-popup strong { display: block; padding: 8px 12px; overflow-wrap: anywhere; }
-.gh-popup a:hover, .gh-popup button:hover, .gh-sheet nav a:hover { background: #eddfca; }
-.gh-bottom, .gh-sheet:not([open]) { display: none; }
-.gh-hero { background: radial-gradient(ellipse at 60% 60%, #573621, #301c12 74%); color: #fcf9f4; padding: clamp(14px, 2.1vw, 32px) 0; }
-.gh-hero-inner { position: relative; isolation: isolate; display: grid; grid-template-columns: .86fr 1.14fr; align-items: stretch; }
-.gh-hero-inner::after, .gh-tile::after, .gh-story-photo::after, .gh-btn::after {
-  content: ""; position: absolute; inset: 0; border: 12px solid transparent;
-  border-image: url("/images/goi-hue/khung-doi.svg") 12 / 12px stretch; pointer-events: none;
+@font-face {
+  font-family: "Playfair Display";
+  src: url("/fonts/goi-hue/PlayfairDisplay-Italic.woff2") format("woff2");
+  font-weight: 400 900;
+  font-style: italic;
+  font-display: swap;
 }
-.gh-hero-copy { position: relative; align-self: center; z-index: 1; padding: clamp(34px, 4vw, 67px); }
-.gh-hero h1 { font-size: clamp(44px, 4.6vw, 72px); line-height: .99; letter-spacing: -.052em; }
-.gh-hero h1 em { color: #edca93; font-weight: 400; }
-.gh-hero-copy p { max-width: 36ch; margin: 23px 0; font-size: clamp(16px, 1.15vw, 18px); color: #f5e7d7; }
-.gh-studio, .gh-photo, .gh-story-photo { position: relative; overflow: hidden; }
-.gh-studio img, .gh-photo img, .gh-story-photo img { object-fit: cover; }
-.gh-studio { margin: 10px; margin-left: 0; }
-.gh-studio::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, #382216 0%, transparent 15%); }
-.gh-btn { display: inline-flex; position: relative; min-height: 48px; align-items: center; justify-content: center; gap: 18px; padding: 10px 23px; border: 0; background: #563a26; color: #fcf9f4; font-size: 16px; font-weight: 600; line-height: 1.25; cursor: pointer; }
-.gh-btn::after { inset: 3px; border-image-source: url("/images/goi-hue/khung-don-vang.svg"); }
-.gh-btn.gh-gold { color: #2f241c; background: #deb268; font-weight: 650; }
-.gh-btn.gh-gold::after { border-image-source: url("/images/goi-hue/khung-don.svg"); }
-.gh-btn:disabled { opacity: .54; cursor: default; }
-.gh-section { padding-block: clamp(36px, 4.7vw, 68px); }
-.gh-heading { display: flex; align-items: baseline; gap: 16px; justify-content: space-between; margin-bottom: 24px; }
-.gh-heading a, .gh-text-link { text-underline-offset: 5px; text-decoration: underline; color: #563a26; }
-.gh-heading a { white-space: nowrap; }
-.gh-collections, .gh-products { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(14px, 2vw, 28px); }
-.gh-tile { position: relative; padding: 7px; }
-.gh-tile::after, .gh-story-photo::after { border-image-source: url("/images/goi-hue/khung-don.svg"); }
-.gh-photo { aspect-ratio: 1.85; }
-.gh-caption { display: flex; justify-content: space-between; align-items: center; padding: 12px 13px 8px; }
-.gh-caption h3 { font-size: clamp(22px, 2vw, 30px); }
-.gh-caption span, .gh-text-link span { color: #85571e; }
-.gh-divider { height: 18px; background: url("/images/goi-hue/phan-cach.svg") center / 28px 18px no-repeat, linear-gradient(to right,#c6b097 calc(50% - 14px),transparent 0 calc(50% + 14px),#c6b097 0) center / 100% 1px no-repeat; }
-.gh-story { display: grid; grid-template-columns: 1.04fr 1fr; gap: 7%; align-items: center; position: relative; isolation: isolate; }
-.gh-story::after { content: ""; position: absolute; z-index: -1; right: 0; bottom: 0; width: 24%; height: 42%; background: url("/images/goi-hue/03-canh-tra.svg") right bottom / contain no-repeat; opacity: .37; }
-.gh-story-photo { aspect-ratio: 1.7; }
-.gh-story-photo img { padding: 6px; }
-.gh-story p { font-size: 18px; max-width: 45ch; }
-.gh-text-link { display: inline-flex; min-height: 44px; align-items: center; gap: 12px; border: 0; background: none; cursor: pointer; }
-.gh-products { grid-template-columns: repeat(4, minmax(0,1fr)); }
-.gh-products article { display: flex; border: 1px solid #d2bea2; background: linear-gradient(#fdfbf7,#f4e9d6); }
-.gh-products a { display: flex; flex: 1; flex-direction: column; padding: 8px 8px 17px; }
-.gh-products .gh-photo { aspect-ratio: 1.35; }
-.gh-products small, .gh-products h3, .gh-products strong { margin-inline: 8px; }
-.gh-products small { margin-top: 12px; color: #70513b; }
-.gh-products h3 { font-size: clamp(18px, 1.7vw, 25px); margin-block: 5px 10px; }
-.gh-products strong { margin-top: auto; color: #8b261d; }
-.gh-services { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; padding-top: 0; }
-.gh-services > div { border: 1px solid #bca487; padding: clamp(20px, 3vw, 38px); position: relative; background: #fcf9f4; }
-.gh-services > div::after { content:""; position:absolute; top:0; right:0; border:8px solid transparent; border-color:#d4a24c #d4a24c transparent transparent; }
-.gh-services h2 { font-size: clamp(24px, 2.5vw, 36px); }
-.gh-services form { display: grid; gap: 10px; justify-items: start; margin-top: 16px; }
-.gh-services input { min-height: 45px; width: 100%; border: 1px solid #ad967b; background: #fffdf9; padding: 8px 12px; }
-.gh-services form > div { display: flex; flex-wrap: wrap; gap: 14px; }
-.gh-footer { border-top: 1px solid #bca487; background-image: linear-gradient(#fcf9f4eb,#fcf9f4eb),url("/images/goi-hue/09-cong-thanh-phai.svg"); background-size: auto, auto 100%; background-repeat: no-repeat; background-position: center,right bottom; }
-.gh-footer .gh-wrap { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 22px; padding-block: 44px; }
-.gh-footer nav a { display: block; width: fit-content; padding-block: 7px; }
-.gh-footer nav a:hover, .gh-desktop a:hover { text-decoration: underline; }
-:where(.gh-header,.gh-home,.gh-popup,.gh-sheet,.gh-bottom,.gh-footer) :focus-visible { outline: 3px solid #a36d26; outline-offset: 2px; }
-@media (hover:hover) and (prefers-reduced-motion:no-preference) {
-  .gh-tile img, .gh-products img { transition: transform .22s ease; }
-  .gh-tile:hover img, .gh-products a:hover img { transform: scale(1.03); }
+
+@font-face {
+  font-family: "Be Vietnam Pro";
+  src: url("/fonts/goi-hue/BeVietnamPro-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
 }
-@media (min-width:768px) and (max-width:980px) {
-  .gh-top { gap: 9px; width: 96%; }
-  .gh-desktop, .gh-tools { gap: 4px; }
-  .gh-search { width: auto; flex: 1; min-width: 100px; }
+
+@font-face {
+  font-family: "Be Vietnam Pro";
+  src: url("/fonts/goi-hue/BeVietnamPro-SemiBold.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
 }
+
+@font-face {
+  font-family: "Be Vietnam Pro";
+  src: url("/fonts/goi-hue/BeVietnamPro-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+
+@scope (.hue-surface) {
+/* ==========================================================================
+   GÓI HUẾ · DESIGN SYSTEM & THEME TEMPLATE (MÔN 02 · v2.0)
+   Kế thừa Bộ Nhận Diện Gói Huế + Tinh hoa mexungthienhuong.com + taste-skill 2.5
+   Nền giấy Dó thủ công đa lớp, họa tiết văn hóa Cố đô chìm tinh tế,
+   Hệ khung giật cấp cung đình & Kiến trúc UX Web (Dropdown) / Mobile Flutter (BottomSheet & Page Push)
+   ========================================================================== */
+
+
+:scope {
+  /* 1. Bảng màu Thương hiệu Gói Huế & Tinh hoa Cố đô */
+  --kem: #FCF9F4;               /* Kem ngà - Mặt giấy dó sáng đọc nội dung (60%) */
+  --kem-am: #F6EFE2;            /* Kem giấy dó ấm - Nền thẻ & vùng chuyển sắc */
+  --kem-dam: #EDE0CC;           /* Nền giấy dó cổ - Vùng nhấn nền sáng */
+  --nau-dam: #563A26;           /* Nâu đậm Cố đô - Thân chữ G, tiêu đề, khối chủ đạo (20%) */
+  --nau-cung-dinh: #352014;     /* Nâu trầm sơn mài - Nền Hero trưng bày cao cấp */
+  --nau: #70513B;               /* Nâu ấm Trà Huế - Viền khung giật cấp, nét họa tiết (10%) */
+  --mat: #D4A24C;               /* Vàng mật nếp gấp 45° - CTA chính, viền nhấn (10%) */
+  --mat-sang: #E6BC6A;          /* Vàng kim nhạt - Hover & viền sáng trên nền tối */
+  --do-chu-sa: #8B261D;         /* Đỏ chu sa ấn triện (tham chiếu mexungthienhuong) - Nhãn ribbon/badge */
+  --xanh-ngoc: #2D5A3C;         /* Xanh lá sen - Trạng thái thành công / Còn hàng */
+  --muc: #2F241C;               /* Mực tàu - Chữ nội dung chính (Tương phản AAA > 10:1) */
+  --phu: #655241;               /* Chữ phụ, chú thích (Tương phản AA > 5.2:1) */
+  --vien: #DFD1BE;              /* Đường biên mảnh phân cách nội dung */
+  --loi: #8F2817;               /* Đỏ thông báo lỗi */
+
+  /* Alias tương thích ngược */
+  --ivory: var(--kem);
+  --brown: var(--nau-dam);
+  --line: var(--nau);
+  --gold: var(--mat);
+  --ink: var(--muc);
+  --edge: var(--vien);
+
+  /* 2. Typography (Chuẩn hiển thị tiếng Việt có dấu) */
+  --chu-de: "Playfair Display", Georgia, "Times New Roman", "Noto Serif", serif;
+  --chu-doc: "Be Vietnam Pro", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+
+  --t-h1: clamp(2.35rem, 4.6vw + 1rem, 4.25rem);
+  --t-h2: clamp(1.75rem, 2.4vw + 0.85rem, 2.65rem);
+  --t-h3: clamp(1.22rem, 1vw + 0.9rem, 1.5rem);
+  --t-lead: clamp(1.05rem, 0.4vw + 0.95rem, 1.2rem);
+  --t-body: 1rem;               /* 16px chuẩn đọc trên cả Web & Mobile */
+  --t-small: 0.875rem;          /* 14px */
+  --t-label: 0.8125rem;         /* 13px - Không dùng chữ nhỏ hơn 13px theo taste-skill */
+
+  /* 3. Spacing & Layout Grid (taste-skill Rhythm Tokens) */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+  --s-8: 64px;
+  --s-9: 96px;
+  --gut: clamp(16px, 5vw, 72px);
+  --wrap-max: 1280px;
+
+  /* 4. Tài nguyên Khung & Nền Giấy Dó */
+  --bg-giay: url("/images/goi-hue/08-nen-giay-seamless.jpg");
+  --khung-don: url("/images/goi-hue/khung-don.svg");
+  --khung-doi: url("/images/goi-hue/khung-doi.svg");
+  --khung-kien-truc: url("/images/goi-hue/khung-kien-truc.svg");
+  --khung-don-vang: url("/images/goi-hue/khung-don-vang.svg");
+  --phan-cach: url("/images/goi-hue/phan-cach.svg");
+
+  /* 5. Độ cong & Đổ bóng Sơn mài / Giấy Dó */
+  --r-sm: 2px;
+  --r-md: 4px;
+  --r-sheet: 20px;
+  --shadow-card: 0 10px 28px -8px rgba(53, 32, 20, 0.10), 0 2px 6px rgba(53, 32, 20, 0.05);
+  --shadow-hover: 0 18px 36px -10px rgba(53, 32, 20, 0.18), 0 4px 12px rgba(53, 32, 20, 0.08);
+  --shadow-popover: 0 22px 48px -8px rgba(42, 24, 14, 0.24), 0 0 0 1px rgba(112, 81, 59, 0.22);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* Đa giác cắt góc khung giật cấp 2 bậc (khớp tuyệt đối tọa độ M1 9 H5 V5 H9 V1 của khung 48x48 slice 14) */
+  --clip-khung-hue: polygon(
+    1px 9px, 5px 9px, 5px 5px, 9px 5px, 9px 1px,
+    calc(100% - 9px) 1px, calc(100% - 9px) 5px, calc(100% - 5px) 5px, calc(100% - 5px) 9px, calc(100% - 1px) 9px,
+    calc(100% - 1px) calc(100% - 9px), calc(100% - 5px) calc(100% - 9px), calc(100% - 5px) calc(100% - 5px), calc(100% - 9px) calc(100% - 5px), calc(100% - 9px) calc(100% - 1px),
+    9px calc(100% - 1px), 9px calc(100% - 5px), 5px calc(100% - 5px), 5px calc(100% - 9px), 1px calc(100% - 9px)
+  );
+
+  /* 6. Tỷ lệ vàng Họa tiết văn hóa Huế (Motif Scale & Opacity Tokens) */
+  --motif-arch-w: clamp(380px, 36vw, 540px);
+  --motif-arch-opacity: 0.24;
+  --motif-flora-w: clamp(220px, 21vw, 310px);
+  --motif-flora-opacity: 0.85;
+  --motif-soft-mask: linear-gradient(90deg, transparent 0%, #000 18%, #000 88%, transparent 100%);
+}
+
+/* Reset & Cơ sở */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+:scope {
+  scroll-behavior: smooth;
+  scroll-padding-top: 88px;
+  -webkit-text-size-adjust: 100%;
+  overflow-x: clip;
+}
+
+/* ==========================================================================
+   NỀN GIẤY DÓ ĐA LỚP & HỌA TIẾT CHÌM CỐ ĐÔ (MULTI-LAYER PAPER & WATERMARK)
+   Kế thừa cách phối 8 lớp nền của mexungthienhuong.com trên chất liệu Gói Huế
+   ========================================================================== */
+:scope {
+  margin: 0;
+  color: var(--muc);
+  font: 400 var(--t-body)/1.6 var(--chu-doc);
+  background-color: #F7F0E4;
+  /* Lớp nền giấy Dó lặp liền mạch đồng nhất sắc độ tuyệt đối từ trái qua phải */
+  background-image:
+    linear-gradient(rgba(252, 249, 244, 0.52), rgba(252, 249, 244, 0.52)),
+    var(--bg-giay);
+  background-repeat: no-repeat, repeat;
+  background-size: 100% 100%, 600px 600px;
+  overflow-x: hidden;
+  position: relative;
+}
+
+/* Khung giấy Dó toàn trang:
+   QUY TẮC QUAN TRỌNG: Chỉ sử dụng DUY NHẤT 1 hệ họa tiết gắn cố định theo từng phân khu (cuộn tự nhiên cùng mặt giấy),
+   tuyệt đối KHÔNG dùng lớp họa tiết position: fixed đứng yên trên màn hình để tránh chồng chéo và rối mắt khi cuộn. */
+.hue-watermark-canvas {
+  position: relative;
+  isolation: isolate;
+}
+
+/* Lớp giấy Dó cho từng Section / Container (Đồng nhất sắc độ trái - phải) */
+.surface-paper {
+  background-color: var(--kem);
+  background-image:
+    linear-gradient(rgba(252, 249, 244, 0.88), rgba(252, 249, 244, 0.88)),
+    var(--bg-giay);
+  background-size: 100% 100%, 500px 500px;
+}
+
+.surface-parchment {
+  background-color: var(--kem-am);
+  background-image:
+    linear-gradient(rgba(246, 239, 226, 0.88), rgba(246, 239, 226, 0.88)),
+    var(--bg-giay);
+  background-size: 100% 100%, 500px 500px;
+}
+
+.surface-imperial {
+  background-color: var(--nau-cung-dinh);
+  background-image:
+    radial-gradient(circle at 75% 35%, rgba(112, 81, 59, 0.38) 0%, rgba(53, 32, 20, 0.96) 72%);
+  color: var(--kem);
+}
+
+/* ==========================================================================
+   TYPOGRAPHY & ACCESSIBILITY
+   ========================================================================== */
+h1, h2, h3, h4 {
+  font-family: var(--chu-de);
+  color: var(--nau-dam);
+  font-weight: 600;
+  line-height: 1.16;
+  margin: 0;
+  text-wrap: balance;
+}
+
+.surface-imperial h1,
+.surface-imperial h2,
+.surface-imperial h3,
+.dark h1, .dark h2, .dark h3 {
+  color: var(--kem);
+}
+
+h1 { font-size: var(--t-h1); letter-spacing: -0.02em; }
+h2 { font-size: var(--t-h2); letter-spacing: -0.015em; }
+h3 { font-size: var(--t-h3); letter-spacing: -0.01em; }
+p { margin: 0; max-width: 65ch; }
+
+a {
+  color: var(--nau-dam);
+  text-decoration: none;
+  transition: color 0.2s var(--ease-out);
+}
+
+button, input, select, textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  background: none;
+  touch-action: manipulation;
+}
+
+/* Chuẩn Focus Ring nổi bật trên cả nền sáng & tối */
+:focus-visible {
+  outline: 3px solid var(--nau-dam);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 3px var(--kem);
+}
+
+.surface-imperial :focus-visible,
+.dark :focus-visible {
+  outline-color: var(--mat-sang);
+  box-shadow: 0 0 0 3px var(--nau-cung-dinh);
+}
+
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 8px;
+  z-index: 999;
+  padding: 12px 20px;
+  background: var(--nau-dam);
+  color: var(--kem);
+  font-weight: 600;
+  border: 2px solid var(--mat);
+}
+.skip-link:focus {
+  left: var(--gut);
+}
+
+/* ==========================================================================
+   BỐ CỤC LƯỚI 12 CỘT & CONTAINER ĐỒNG ĐỀU BIÊN (taste-skill Equal Edges)
+   ========================================================================== */
+.wrap {
+  width: min(var(--wrap-max), calc(100% - 2 * var(--gut)));
+  margin-inline: auto;
+  position: relative;
+}
+
+.grid-12 {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: var(--s-5);
+}
+
+.grid, .grid-auto {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(270px, 100%), 1fr));
+  gap: var(--s-5);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  flex-wrap: wrap;
+}
+
+.between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-4);
+}
+
+/* ==========================================================================
+   HỆ THỐNG TIÊU ĐỀ CUỐN THƯ & ĐƯỜNG PHÂN CÁCH CỐ ĐÔ
+   Kế thừa đường nối khóa vuông Gói Huế & đầu trục cuốn thư mexungthienhuong
+   ========================================================================== */
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: var(--s-5);
+  margin-bottom: var(--s-6);
+}
+
+.section-header--center {
+  justify-content: center;
+  text-align: center;
+}
+
+.section-header__line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(112, 81, 59, 0.15), var(--nau) 50%, rgba(112, 81, 59, 0.15));
+  position: relative;
+}
+
+.section-header__kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--t-label);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--nau);
+  margin-bottom: 6px;
+}
+
+.section-header__kicker::before,
+.section-header__kicker::after {
+  content: "❖";
+  color: var(--mat);
+  font-size: 0.75rem;
+}
+
+/* Đường phân cách có khóa vuông Hồi Văn ở tâm */
+.rule, .divider-hue {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-block: var(--s-7);
+  position: relative;
+  height: 20px;
+}
+
+.rule::before, .rule::after,
+.divider-hue::before, .divider-hue::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--nau) 20%, var(--nau) 80%, transparent);
+}
+
+.divider-hue__knot {
+  width: 36px;
+  height: 20px;
+  margin-inline: 14px;
+  background: var(--phan-cach) center / contain no-repeat;
+  flex-shrink: 0;
+}
+
+/* ==========================================================================
+   HỆ THỐNG BUTTON GÓI HUẾ (KẾ THỪA KHUNG GIẬT CẤP + NẾP GẤP 45° + CUỐN THƯ)
+   Đảm bảo chiều cao tối thiểu 48px, micro-interaction nâng nhẹ theo taste-skill
+   ========================================================================== */
+.btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 11px 24px;
+  font: 600 1rem/1.2 var(--chu-doc);
+  border-radius: var(--r-sm);
+  background: var(--mat);
+  color: var(--muc);
+  border: 1px solid rgba(112, 81, 59, 0.35);
+  transition: transform 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out), background-color 0.2s var(--ease-out);
+  isolation: isolate;
+}
+
+/* Viền giật cấp bên trong nút (9-slice SVG) */
+.btn::before {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border: 8px solid transparent;
+  border-image: var(--khung-don) 14 stretch;
+  pointer-events: none;
+  opacity: 0.75;
+}
+
+.btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(86, 58, 38, 0.18);
+  background: var(--mat-sang);
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: none;
+}
+
+.btn__arrow {
+  display: inline-block;
+  transition: transform 0.2s var(--ease-out);
+}
+.btn:hover:not(:disabled) .btn__arrow {
+  transform: translateX(4px);
+}
+
+/* Biến thể 1: Nút Nâu Đậm Cố Đô (Khung đôi kem/vàng giống tham-chieu-khung.png) */
+.btn--brown, .btn.brown {
+  background: var(--nau-dam);
+  color: var(--kem);
+  border-color: var(--nau-dam);
+}
+.btn--brown::before, .btn.brown::before {
+  border-image-source: var(--khung-don-vang);
+  opacity: 0.9;
+}
+.btn--brown:hover:not(:disabled), .btn.brown:hover:not(:disabled) {
+  background: #67462F;
+}
+
+/* Biến thể 2: Nút Phụ Nền Giấy Dó (Viền giật cấp nâu) */
+.btn--paper, .btn.alt, .btn.ghost {
+  background-color: var(--kem);
+  background-image: var(--bg-giay);
+  background-size: 300px 300px;
+  color: var(--nau-dam);
+  border: 1px solid var(--nau);
+}
+.btn--paper:hover:not(:disabled), .btn.alt:hover:not(:disabled), .btn.ghost:hover:not(:disabled) {
+  background-color: var(--kem-am);
+  border-color: var(--nau-dam);
+}
+
+/* Biến thể 3: Nút Nếp Gấp 45° Đặc Trưng Logo Gói Huế */
+.btn--fold {
+  padding-right: 32px;
+}
+.btn--fold::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 14px;
+  height: 14px;
+  background: var(--mat);
+  clip-path: polygon(0 100%, 100% 0, 100% 100%);
+  pointer-events: none;
+}
+.btn--gold.btn--fold::after {
+  background: var(--nau-dam);
+}
+
+/* Biến thể 4: Nút Disabled */
+.btn:disabled {
+  background: #E2D9CC;
+  color: #7A6B5D;
+  border-color: #C9BTAE;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+.btn:disabled::before {
+  opacity: 0.25;
+}
+
+/* Nút Icon Chuẩn 44x44px */
+.btn-icon {
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: var(--r-sm);
+  color: var(--nau-dam);
+  position: relative;
+  transition: background-color 0.2s var(--ease-out), transform 0.2s var(--ease-out);
+}
+.btn-icon:hover {
+  background-color: rgba(112, 81, 59, 0.1);
+}
+
+/* ==========================================================================
+   4 CẤP ĐỘ KHUNG COMPONENT & CONTAINER (ORNAMENTAL FRAMES)
+   ========================================================================== */
+
+/* Cấp 1: Khung Trưng Bày Đôi (Hero & Khu Chủ Đề Lớn) */
+.frame-imperial, .feature {
+  position: relative;
+  padding: clamp(24px, 4vw, 48px);
+  border-radius: var(--r-md);
+  isolation: isolate;
+}
+.frame-imperial::before, .feature::before {
+  content: "";
+  position: absolute;
+  inset: 10px;
+  border: 16px solid transparent;
+  border-image: var(--khung-doi) 14 stretch;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Cấp 2: Khung Bài Vị Kiến Trúc Đôi (Vàng Mật + Nâu Ấm trên nền Giấy Dó) */
+.frame-plaque {
+  position: relative;
+  padding: clamp(24px, 3.5vw, 42px);
+  background-color: var(--kem);
+  background-image:
+    linear-gradient(rgba(252, 249, 244, 0.90), rgba(252, 249, 244, 0.90)),
+    var(--bg-giay);
+  background-size: 100% 100%, 420px 420px;
+  clip-path: var(--clip-khung-hue);
+  filter: drop-shadow(0 8px 20px rgba(53, 32, 20, 0.08));
+  isolation: isolate;
+}
+.frame-plaque::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 14px solid transparent;
+  border-image: var(--khung-kien-truc) 14 stretch;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Cấp 3: Khung Danh Mục & Thẻ Sản Phẩm (Kế thừa mexungthienhuong + Gói Huế) */
+.frame-card, .frame {
+  position: relative;
+  padding: 12px;
+  background-color: var(--kem);
+  background-image:
+    linear-gradient(rgba(252, 249, 244, 0.90), rgba(252, 249, 244, 0.90)),
+    var(--bg-giay);
+  background-size: 100% 100%, 400px 400px;
+  clip-path: var(--clip-khung-hue);
+  filter: drop-shadow(0 8px 20px rgba(53, 32, 20, 0.08));
+  transition: transform 0.28s var(--ease-out), filter 0.28s var(--ease-out);
+  isolation: isolate;
+}
+.frame-card::before, .frame::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 14px solid transparent;
+  border-image: var(--khung-don) 14 stretch;
+  pointer-events: none;
+  z-index: 2;
+}
+a.frame-card:hover, button.frame-card:hover, .frame-card--interactive:hover {
+  transform: translateY(-4px);
+  filter: drop-shadow(0 14px 28px rgba(53, 32, 20, 0.15));
+}
+a.frame-card:hover::before, button.frame-card:hover::before, .frame-card--interactive:hover::before {
+  border-image-source: var(--khung-kien-truc);
+}
+
+/* Cấp 4: Khung Chức Năng Nếp Gấp 45° (Giỏ hàng, Form, Thanh toán, Bộ lọc) */
+.frame-functional, .sample {
+  position: relative;
+  padding: 20px 24px;
+  background-color: var(--kem);
+  background-image: var(--bg-giay);
+  background-size: 450px 450px;
+  border: 1px solid var(--nau);
+  box-shadow: 0 2px 10px rgba(53, 32, 20, 0.05);
+}
+.frame-functional--fold::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 22px;
+  height: 22px;
+  background: linear-gradient(135deg, var(--mat) 50%, var(--nau-dam) 50%);
+  pointer-events: none;
+}
+
+/* ==========================================================================
+   THẺ SẢN PHẨM & DANH MỤC (PRODUCT & CATEGORY CARDS)
+   Kết hợp ảnh tỷ lệ chuẩn, nhãn Ribbon Cố đô & hiệu ứng zoom nhẹ 1.03
+   ========================================================================== */
+.card-media {
+  position: relative;
+  overflow: hidden;
+  background: #EADBC6;
+  aspect-ratio: 4 / 3;
+}
+.card-media--square {
+  aspect-ratio: 1 / 1;
+}
+.card-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.45s var(--ease-out);
+}
+.frame-card:hover .card-media img {
+  transform: scale(1.03);
+}
+
+/* Nhãn Ribbon Cố Đô (Lấy cảm hứng từ mexungthienhuong.com) */
+.badge-hue {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  font-size: var(--t-label);
+  font-weight: 600;
+  background: var(--nau-dam);
+  color: var(--kem);
+  border: 1px solid var(--mat);
+  box-shadow: 0 4px 10px rgba(35, 20, 10, 0.25);
+}
+.badge-hue--gold {
+  background: var(--mat);
+  color: var(--muc);
+  border-color: var(--nau-dam);
+}
+.badge-hue--crimson {
+  background: var(--do-chu-sa);
+  color: var(--kem);
+  border-color: var(--mat);
+}
+
+/* Đường viền phân cách mép giấy giữa ảnh và thông tin món */
+.card-body {
+  padding: 16px 10px 8px;
+  position: relative;
+}
+.card-body::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 8px;
+  right: 8px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--vien), transparent);
+}
+
+.price-tag {
+  font-family: var(--chu-doc);
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--do-chu-sa);
+}
+
+/* ==========================================================================
+   FORM CONTROLS (Chuẩn Accessibility: Nhãn cố định, chiều cao 48px, báo lỗi rõ)
+   ========================================================================== */
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hue-field-label {
+  font-size: var(--t-small);
+  font-weight: 600;
+  color: var(--nau-dam);
+}
+
+.field, input[type="search"], input[type="text"], input[type="tel"], input[type="email"], select, textarea {
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 14px;
+  border: 1px solid var(--nau);
+  border-radius: var(--r-sm);
+  background-color: #FFFDFA;
+  color: var(--muc);
+  font: 400 1rem/1.4 var(--chu-doc);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.field:focus, input:focus, select:focus, textarea:focus {
+  border-color: var(--nau-dam);
+  box-shadow: inset 0 0 0 1px var(--nau-dam);
+}
+
+.field[aria-invalid="true"] {
+  border-color: var(--loi);
+  background-color: #FFF8F6;
+}
+
+.hue-field-error {
+  font-size: var(--t-label);
+  color: var(--loi);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ==========================================================================
+   QUY TẮC ĐỐI ỨNG UX: WEB (DROPDOWN / POPOVER) vs MOBILE FLUTTER (BOTTOMSHEET & PAGE PUSH)
+   ========================================================================== */
+
+/* 1. Web Dropdown Panel (>= 768px) */
+.ux-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 50;
+  min-width: 280px;
+  padding: 16px;
+  background-color: var(--kem);
+  background-image: var(--bg-giay);
+  background-size: 400px 400px;
+  clip-path: var(--clip-khung-hue);
+  filter: drop-shadow(0 16px 32px rgba(42, 24, 14, 0.22));
+}
+.ux-dropdown::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 14px solid transparent;
+  border-image: var(--khung-don) 14 stretch;
+  pointer-events: none;
+}
+
+.ux-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--vien);
+  font-weight: 500;
+  transition: background-color 0.15s;
+}
+.ux-option:last-child {
+  border-bottom: none;
+}
+.ux-option:hover, .ux-option[aria-selected="true"] {
+  background-color: rgba(212, 162, 76, 0.18);
+  color: var(--nau-dam);
+}
+
+/* 2. Mobile Bottom Sheet & Full-Screen Page Push (Chuẩn Flutter App) */
+.ux-bottom-sheet {
+  border: none;
+  padding: 14px 20px max(24px, env(safe-area-inset-bottom));
+  background-color: var(--kem);
+  background-image: var(--bg-giay);
+  background-size: 400px 400px;
+  color: var(--muc);
+  border-top: 2px solid var(--mat);
+  border-radius: var(--r-sheet) var(--r-sheet) 0 0;
+  box-shadow: 0 -16px 40px rgba(35, 20, 10, 0.32);
+  width: 100%;
+  max-width: 520px;
+}
+
+.ux-bottom-sheet__handle {
+  width: 44px;
+  height: 5px;
+  border-radius: 99px;
+  background: var(--nau);
+  opacity: 0.45;
+  margin: 0 auto 14px;
+}
+
+/* ==========================================================================
+   STYLES DÀNH RIÊNG CHO TRANG THƯ VIỆN UI MẪU (Thu-vien-UI.:scope)
+   ========================================================================== */
+.ds-topbar {
+  background: var(--nau-cung-dinh);
+  color: var(--kem);
+  border-bottom: 2px solid var(--mat);
+  padding: 10px 0;
+  font-size: var(--t-small);
+}
+
+.ds-nav {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background-color: rgba(252, 249, 244, 0.94);
+  background-image: var(--bg-giay);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--vien);
+  padding: 14px 0;
+}
+
+.ds-nav__links {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.ds-nav__links a {
+  padding: 8px 14px;
+  font-size: var(--t-small);
+  font-weight: 600;
+  border-radius: var(--r-sm);
+  border: 1px solid transparent;
+}
+.ds-nav__links a:hover {
+  background: rgba(212, 162, 76, 0.16);
+  border-color: var(--nau);
+}
+
+.ds-hero {
+  position: relative;
+  padding: clamp(36px, 5vw, 64px) 0;
+  overflow: hidden;
+}
+
+.ds-hero .wrap {
+  position: relative;
+  z-index: 2;
+  padding-top: 28px;
+}
+
+.ds-section {
+  padding-block: clamp(36px, 5vw, 56px);
+  position: relative;
+}
+
+/* Thẻ Màu Nhận Diện */
+.swatch-card {
+  border: 1px solid var(--nau);
+  background: var(--kem);
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+}
+.swatch-card__color {
+  height: 88px;
+  padding: 12px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  font-weight: 700;
+  font-size: var(--t-small);
+}
+.swatch-card__meta {
+  padding: 14px;
+  font-size: var(--t-small);
+}
+
+/* Thẻ Trưng Bày Họa Tiết Văn Hóa Huế (12 Họa tiết) */
+.motif-card {
+  position: relative;
+  padding: 16px;
+  border: 1px solid rgba(112, 81, 59, 0.35);
+  background-color: var(--kem);
+  background-image: var(--bg-giay);
+  background-size: 360px 360px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: transform 0.2s var(--ease-out), border-color 0.2s;
+}
+.motif-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--nau-dam);
+}
+.motif-stage {
+  height: 148px;
+  display: grid;
+  place-items: center;
+  padding: 12px;
+  border: 1px dashed rgba(112, 81, 59, 0.3);
+  position: relative;
+  overflow: hidden;
+  background-color: var(--kem);
+  background-image: var(--bg-giay);
+}
+.motif-stage.is-dark {
+  background-color: var(--nau-cung-dinh);
+  background-image: none;
+  border-color: rgba(212, 162, 76, 0.4);
+}
+.motif-stage img {
+  max-width: 100%;
+  max-height: 124px;
+  object-fit: contain;
+  transition: opacity 0.25s, transform 0.3s;
+}
+.motif-stage.is-dark img.svg-invert {
+  filter: brightness(0) invert(0.95) sepia(0.25) saturate(1.2);
+}
+
+/* Khu Mô Phỏng Đối Chiếu Web vs Mobile Flutter */
+.ux-simulator-grid {
+  display: grid;
+  grid-template-columns: 1.25fr 0.95fr;
+  gap: var(--s-6);
+  align-items: start;
+}
+
+.phone-bezel {
+  width: min(390px, 100%);
+  margin-inline: auto;
+  border: 10px solid #2A1A10;
+  border-radius: 36px;
+  background-color: var(--kem);
+  background-image: var(--bg-giay);
+  box-shadow: 0 24px 60px rgba(35, 20, 10, 0.28), inset 0 0 0 2px var(--mat);
+  overflow: hidden;
+  position: relative;
+}
+
+.phone-notch {
+  height: 26px;
+  background: #2A1A10;
+  color: var(--kem);
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-inline: 20px;
+}
+
+.code-block {
+  background: #24160E;
+  color: #F8EFE2;
+  padding: 20px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--mat);
+  overflow-x: auto;
+  font: 0.85rem/1.55 Consolas, Monaco, monospace;
+}
+
+@media (max-width: 960px) {
+  .ux-simulator-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .hue-watermark-canvas::before {
+    opacity: 0.14;
+    background-size:
+      160px auto,
+      340px auto,
+      280px auto,
+      160px auto,
+      260px auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ==========================================================================
+   GÓI HUẾ · HOME & E-COMMERCE UX TEMPLATE (MÔN 02 · PROTOTYPE v2.0)
+   Kế thừa bộ Token từ ../bo-ui-v01/ui.css
+   Tích hợp Nền giấy Dó đa lớp + 12 Họa tiết văn hóa Huế chìm +
+   Quy chuẩn UX Web (Dropdown / Modal) & Mobile Flutter (BottomSheet / Page Mới)
+   ========================================================================== */
+
+
+:scope {
+  --asset-dir: "/images/goi-hue/";
+}
+
+/* ==========================================================================
+   1. THANH TOPBAR DI SẢN & HEADER ĐIỀU HƯỚNG CHÍNH
+   ========================================================================== */
+.top-bar {
+  background: var(--nau-cung-dinh);
+  color: var(--kem);
+  border-bottom: 2px solid var(--mat);
+  font-size: 0.8125rem;
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  position: relative;
+  z-index: 45;
+}
+
+.top-bar__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-block: 6px;
+}
+
+.top-bar__controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pill-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 2px;
+  border: 1px solid rgba(212, 162, 76, 0.55);
+  background: rgba(252, 249, 244, 0.08);
+  color: var(--kem);
+  font-size: 0.78rem;
+  font-weight: 600;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+.pill-switch:hover, .pill-switch[aria-pressed="true"] {
+  background: var(--mat);
+  color: var(--muc);
+  border-color: var(--mat);
+}
+
+/* Header chính trên nền Giấy Dó có viền mảnh */
+.hue-site-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background-color: rgba(252, 249, 244, 0.95);
+  background-image: url("/images/goi-hue/08-nen-giay-seamless.jpg");
+  background-size: 500px 500px;
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--nau);
+  box-shadow: 0 4px 20px rgba(53, 32, 20, 0.06);
+}
+
+.site-header__inner {
+  min-height: 76px;
+  display: flex;
+  align-items: center;
+  gap: clamp(16px, 3vw, 36px);
+  position: relative;
+}
+
+/* Cụm Logo Gói Huế kèm hoa văn chìm nhẹ phía sau (tham chiếu mexungthienhuong) */
+.brand-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  position: relative;
+  padding-right: 20px;
+  border-right: 1px solid var(--vien);
+}
+.brand-logo__mark {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+}
+.brand-logo__text {
+  font: 700 clamp(1.75rem, 2.4vw, 2.25rem)/1 var(--chu-de);
+  color: var(--nau-dam);
+  letter-spacing: -0.03em;
+}
+
+/* Điều hướng chính trên Desktop */
+.hue-main-nav {
+  display: flex;
+  align-items: center;
+  gap: clamp(14px, 2.2vw, 28px);
+}
+
+.nav-link, .nav-trigger {
+  font: 600 0.98rem/1.2 var(--chu-doc);
+  color: var(--nau-dam);
+  padding: 10px 6px;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+}
+.nav-link::after, .nav-trigger::after {
+  content: "";
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  bottom: 4px;
+  height: 2px;
+  background: var(--mat);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.22s var(--ease-out);
+}
+.nav-link:hover::after, .nav-trigger:hover::after, .nav-trigger[aria-expanded="true"]::after {
+  transform: scaleX(1);
+}
+
+/* Thanh tìm kiếm bo tròn viền mảnh trên Header (như Home-mau.png) */
+.header-tools {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.hue-header-search {
+  position: relative;
+  width: clamp(200px, 22vw, 290px);
+}
+.header-search__input,
+input[type="search"].header-search__input {
+  width: 100%;
+  min-height: 42px;
+  padding: 8px 16px 8px 40px;
+  border-radius: 999px;
+  border: 1px solid var(--nau);
+  background-color: rgba(252, 249, 244, 0.9);
+  font-size: 0.9rem;
+  color: var(--muc);
+}
+.header-search__icon {
+  position: absolute;
+  left: 13px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 17px;
+  height: 17px;
+  color: var(--nau);
+  pointer-events: none;
+}
+
+/* Nút Giỏ Quà trên Header */
+.cart-trigger {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 6px 14px;
+  border: 1px solid var(--nau);
+  border-radius: var(--r-sm);
+  background: rgba(252, 249, 244, 0.85);
+  color: var(--nau-dam);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.cart-trigger:hover {
+  background: var(--kem-am);
+  border-color: var(--nau-dam);
+}
+.cart-badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  padding-inline: 5px;
+  border-radius: 999px;
+  background: var(--mat);
+  color: var(--muc);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+/* Mega Dropdown Danh Mục trên Web Desktop */
+.mega-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 160px;
+  z-index: 60;
+  width: min(680px, 90vw);
+  padding: 22px;
+  background-color: var(--kem);
+  background-image: url("/images/goi-hue/08-nen-giay-seamless.jpg");
+  background-size: 420px 420px;
+  clip-path: var(--clip-khung-hue);
+  filter: drop-shadow(0 18px 36px rgba(42, 24, 14, 0.22));
+}
+.mega-dropdown::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 14px solid transparent;
+  border-image: url("/images/goi-hue/khung-kien-truc.svg") 14 stretch;
+  pointer-events: none;
+}
+
+.mega-dropdown__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 12px;
+}
+
+.mega-cat-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--vien);
+  background: rgba(252, 249, 244, 0.85);
+  text-align: left;
+  transition: transform 0.2s, border-color 0.2s;
+}
+.mega-cat-item:hover {
+  transform: translateY(-2px);
+  border-color: var(--nau-dam);
+  background: var(--kem-am);
+}
+.mega-cat-item img {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+}
+
+/* Gợi ý tìm kiếm nhanh trên Web */
+.search-suggest-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 65;
+  width: min(380px, 92vw);
+  padding: 14px;
+  background-color: var(--kem);
+  background-image: url("/images/goi-hue/08-nen-giay-seamless.jpg");
+  box-shadow: var(--shadow-popover);
+  border: 1px solid var(--nau);
+}
+
+/* ==========================================================================
+   2. VÙNG MỞ ĐẦU (HERO SECTION) · HỖ TRỢ 2 CHẾ ĐỘ THAM CHIẾU CHUẨN
+   - Chế độ A (Imperial Dark): Khung Nâu Trầm Sơn Mài như Home-mau.png & tham-chieu-trung-bay.png
+   - Chế độ B (Paper Architectural Plaque): Khung Giấy Dó Giật Cấp & Hiên Nhà Chìm như tham-chieu-khung.png
+   ========================================================================== */
+.hero-section {
+  position: relative;
+  padding-block: clamp(24px, 3.5vw, 44px) clamp(20px, 3vw, 36px);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.hero-section > .wrap {
+  position: static;
+}
+
+/* Họa tiết cành hoa & kiến trúc Huế chìm ở nền vùng Hero (Neo sát mép trái/phải 0px, tỷ lệ vàng chuẩn ảnh mẫu) */
+.hero-ambient-blossom {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: clamp(220px, 22vw, 320px);
+  height: auto;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.88;
+}
+
+.hero-ambient-veranda {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: clamp(420px, 42vw, 620px);
+  height: auto;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.25;
+}
+
+/* --- CHẾ ĐỘ HERO 1: KHUNG NÂU ĐẬM CỐ ĐÔ (Home-mau.png) --- */
+.hero-stage--dark {
+  position: relative;
+  background-color: var(--nau-cung-dinh);
+  background-image:
+    radial-gradient(ellipse 68% 85% at 72% 48%, rgba(138, 92, 54, 0.36) 0%, rgba(53, 32, 20, 0.98) 75%);
+  color: var(--kem);
+  min-height: clamp(390px, 38vw, 520px);
+  display: grid;
+  grid-template-columns: 5fr 7fr;
+  align-items: center;
+  overflow: hidden;
+  box-shadow: 0 20px 48px -12px rgba(42, 24, 14, 0.32);
+}
+
+.hero-stage--dark::before {
+  content: "";
+  position: absolute;
+  inset: 14px;
+  border: 16px solid transparent;
+  border-image: url("/images/goi-hue/khung-doi.svg") 14 stretch;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.hero-dark__copy {
+  position: relative;
+  z-index: 4;
+  padding: clamp(32px, 5vw, 64px) clamp(24px, 4vw, 56px);
+}
+
+.hero-dark__kicker {
+  display: inline-block;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--mat-sang);
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+
+.hero-dark__title {
+  color: var(--kem);
+  font-size: clamp(2.6rem, 4.8vw, 4.4rem);
+  line-height: 1.08;
+  margin-bottom: 14px;
+}
+
+.hero-dark__rule {
+  width: 72px;
+  height: 3px;
+  background: var(--mat);
+  margin-bottom: 18px;
+}
+
+.hero-dark__lead {
+  color: rgba(252, 249, 244, 0.9);
+  font-size: clamp(1rem, 1.2vw, 1.18rem);
+  margin-bottom: 28px;
+  max-width: 38ch;
+}
+
+.hero-dark__visual {
+  position: relative;
+  height: 100%;
+  min-height: 380px;
+  z-index: 1;
+}
+.hero-dark__visual::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, var(--nau-cung-dinh) 0%, rgba(53, 32, 20, 0.4) 18%, transparent 38%);
+  pointer-events: none;
+}
+.hero-dark__visual img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+}
+
+/* --- CHẾ ĐỘ HERO 2: KHUNG BÀI VỊ GIẤY DÓ & BÀN TRÀ (tham-chieu-khung.png) --- */
+.hero-stage--paper {
+  position: static;
+  display: grid;
+  grid-template-columns: 5fr 7fr;
+  align-items: center;
+  padding-block: 16px 32px;
+  z-index: 2;
+}
+
+.hero-paper__veranda {
+  position: absolute;
+  left: 0;
+  bottom: -10px;
+  width: clamp(360px, 36vw, 520px);
+  height: auto;
+  opacity: 0.24;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.hero-paper__plaque {
+  position: relative;
+  z-index: 3;
+  margin-right: -48px;
+  padding: clamp(28px, 4vw, 48px) clamp(24px, 3.5vw, 44px);
+  background-color: var(--kem);
+  background-image:
+    linear-gradient(rgba(252, 249, 244, 0.94), rgba(252, 249, 244, 0.94)),
+    url("/images/goi-hue/08-nen-giay-seamless.jpg");
+  background-size: 100% 100%, 400px 400px;
+  clip-path: var(--clip-khung-hue);
+  filter: drop-shadow(0 14px 30px rgba(53, 32, 20, 0.14));
+  text-align: center;
+}
+.hero-paper__plaque::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 14px solid transparent;
+  border-image: url("/images/goi-hue/khung-kien-truc.svg") 14 stretch;
+  pointer-events: none;
+}
+
+.hero-paper__frame {
+  position: relative;
+  z-index: 2;
+  padding: 12px;
+  background-color: var(--kem);
+  background-image: url("/images/goi-hue/08-nen-giay-seamless.jpg");
+  clip-path: var(--clip-khung-hue);
+  filter: drop-shadow(0 10px 24px rgba(53, 32, 20, 0.10));
+}
+.hero-paper__frame::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 14px solid transparent;
+  border-image: url("/images/goi-hue/khung-kien-truc.svg") 14 stretch;
+  pointer-events: none;
+  z-index: 2;
+}
+.hero-paper__frame img {
+  width: 100%;
+  aspect-ratio: 16 / 10.5;
+  object-fit: cover;
+  display: block;
+}
+
+/* ==========================================================================
+   3. KHU CHỌN THỨC QUÀ (3 KHUNG DANH MỤC TRƯNG BÀY)
+   ========================================================================== */
+.section-block {
+  position: relative;
+  padding-block: clamp(24px, 3.5vw, 42px);
+  isolation: isolate;
+  overflow-x: clip;
+  overflow-y: visible;
+}
+
+#shop {
+  z-index: 5;
+}
+
+.categories-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(16px, 2.4vw, 28px);
+}
+
+.cat-card {
+  position: relative;
+  padding: 12px;
+  text-align: left;
+  background-color: var(--kem);
+  background-image:
+    linear-gradient(rgba(252, 249, 244, 0.90), rgba(252, 249, 244, 0.90)),
+    url("/images/goi-hue/08-nen-giay-seamless.jpg");
+  background-size: 100% 100%, 400px 400px;
+  clip-path: var(--clip-khung-hue);
+  filter: drop-shadow(0 8px 20px rgba(53, 32, 20, 0.08));
+  transition: transform 0.25s var(--ease-out), filter 0.25s var(--ease-out);
+}
+.cat-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 14px solid transparent;
+  border-image: url("/images/goi-hue/khung-don.svg") 14 stretch;
+  pointer-events: none;
+  z-index: 2;
+}
+.cat-card:hover, .cat-card.is-active {
+  transform: translateY(-4px);
+  filter: drop-shadow(0 14px 28px rgba(53, 32, 20, 0.15));
+}
+.cat-card:hover::before, .cat-card.is-active::before {
+  border-image-source: url("/images/goi-hue/khung-kien-truc.svg");
+}
+
+.cat-card__media {
+  overflow: hidden;
+  aspect-ratio: 16 / 10;
+  background: #E8D8C3;
+}
+.cat-card__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.45s var(--ease-out);
+}
+.cat-card:hover .cat-card__media img {
+  transform: scale(1.03);
+}
+
+.cat-card__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 10px 6px;
+}
+.cat-card__title {
+  font: 600 clamp(1.3rem, 1.8vw, 1.6rem)/1.2 var(--chu-de);
+  color: var(--nau-dam);
+}
+.cat-card__sub {
+  font-size: 0.84rem;
+  color: var(--phu);
+  display: block;
+  margin-top: 2px;
+}
+.cat-card__arrow {
+  font-size: 1.3rem;
+  color: var(--mat);
+  font-weight: 700;
+  transition: transform 0.2s var(--ease-out);
+}
+.cat-card:hover .cat-card__arrow {
+  transform: translateX(4px);
+  color: var(--nau-dam);
+}
+
+/* ==========================================================================
+   4. KHU SẢN PHẨM CHỌN LỌC (BỘ LỌC DROPDOWN, TÌM KIẾM, LƯỚI NGỰ PHẨM)
+   ========================================================================== */
+.shop-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.filter-pills {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.chip-btn {
+  min-height: 40px;
+  padding: 7px 16px;
+  border: 1px solid var(--nau);
+  border-radius: 2px;
+  background: rgba(252, 249, 244, 0.85);
+  color: var(--nau-dam);
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: background-color 0.2s, color 0.2s;
+}
+.chip-btn:hover {
+  background: var(--kem-am);
+}
+.chip-btn.is-active {
+  background: var(--nau-dam);
+  color: var(--kem);
+  border-color: var(--nau-dam);
+}
+
+.products-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(18px, 2.4vw, 28px);
+}
+
+.hue-product-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  background-color: var(--kem);
+  background-image:
+    linear-gradient(rgba(252, 249, 244, 0.90), rgba(252, 249, 244, 0.90)),
+    url("/images/goi-hue/08-nen-giay-seamless.jpg");
+  background-size: 100% 100%, 400px 400px;
+  clip-path: var(--clip-khung-hue);
+  filter: drop-shadow(0 8px 20px rgba(53, 32, 20, 0.08));
+  transition: transform 0.25s var(--ease-out), filter 0.25s var(--ease-out);
+}
+.hue-product-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 14px solid transparent;
+  border-image: url("/images/goi-hue/khung-don.svg") 14 stretch;
+  pointer-events: none;
+  z-index: 2;
+}
+.hue-product-card:hover {
+  transform: translateY(-4px);
+  filter: drop-shadow(0 14px 28px rgba(53, 32, 20, 0.15));
+}
+.hue-product-card:hover::before {
+  border-image-source: url("/images/goi-hue/khung-kien-truc.svg");
+}
+
+.product-card__media {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  background: #EADBC6;
+  cursor: pointer;
+}
+.product-card__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.45s var(--ease-out);
+}
+.hue-product-card:hover .product-card__media img {
+  transform: scale(1.03);
+}
+
+.product-card__body {
+  padding: 14px 8px 6px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+.product-card__meta {
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--phu);
+}
+.product-card__title {
+  font: 600 1.32rem/1.24 var(--chu-de);
+  color: var(--nau-dam);
+  margin: 4px 0 6px;
+  cursor: pointer;
+}
+.product-card__title:hover {
+  color: var(--do-chu-sa);
+}
+.product-card__desc {
+  font-size: 0.9rem;
+  color: var(--phu);
+  margin-bottom: 14px;
+  flex: 1;
+}
+.product-card__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--vien);
+}
+
+/* ==========================================================================
+   5. KHU NGHỆ THUẬT GÓI QUÀ CỐ ĐÔ (3-STEP INTERACTIVE GIFT CUSTOMIZER)
+   ========================================================================== */
+.gift-builder {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1.05fr 1.15fr;
+  gap: clamp(24px, 3.5vw, 44px);
+  padding: clamp(22px, 3vw, 38px);
+  background-color: var(--kem);
+  /* Nền giấy Dó đồng nhất sắc độ tuyệt đối từ trái qua phải */
+  background-image:
+    linear-gradient(rgba(252, 249, 244, 0.90), rgba(252, 249, 244, 0.90)),
+    url("/images/goi-hue/08-nen-giay-seamless.jpg");
+  background-size: 100% 100%, 420px 420px;
+  clip-path: var(--clip-khung-hue);
+  filter: drop-shadow(0 10px 26px rgba(53, 32, 20, 0.10));
+  overflow: hidden;
+  isolation: isolate;
+}
+.gift-builder::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 14px solid transparent;
+  border-image: url("/images/goi-hue/khung-kien-truc.svg") 14 stretch;
+  pointer-events: none;
+  z-index: 3;
+}
+/* Họa tiết Cổng thành & Tường thành Huế neo sát lề trái khung, bề thế dưới chân hộp quà */
+.gift-builder::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: min(52%, 480px);
+  height: 68%;
+  background: url("/images/goi-hue/09-cong-thanh.png") left bottom / contain no-repeat;
+  opacity: 0.26;
+  mask-image: linear-gradient(to right, #000 75%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, #000 75%, transparent 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Sân khấu mô phỏng Hộp quà Gói Huế 3D (Nền trong suốt hoàn toàn để đồng nhất màu với toàn thẻ) */
+.gift-stage {
+  position: relative;
+  z-index: 1;
+  min-height: 360px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: transparent;
+  border-right: 1px dashed rgba(112, 81, 59, 0.28);
+}
+
+.gift-box-preview {
+  position: relative;
+  width: min(320px, 86%);
+  aspect-ratio: 1.42;
+  background-color: var(--paper, #563A26);
+  background-image: url("/images/goi-hue/01-hien-nha.svg");
+  background-position: right -20px bottom -10px;
+  background-size: 240px auto;
+  background-repeat: no-repeat;
+  color: var(--letter, #FCF9F4);
+  border: 1.5px solid #C8A262;
+  box-shadow:
+    0 10px 0 var(--box-side, #3D2819),
+    0 24px 38px rgba(42, 24, 14, 0.28);
+  transform: rotate(-4deg);
+  transition: background-color 0.35s var(--ease-out), color 0.35s var(--ease-out), transform 0.35s var(--ease-out);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 24px 28px;
+  outline: 1px solid currentColor;
+  outline-offset: -9px;
+  overflow: hidden;
+}
+.gift-box-preview:hover {
+  transform: rotate(-1.5deg) translateY(-3px);
+}
+/* Nếp gấp 45° vàng mật góc hộp quà */
+.gift-box-preview::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 44px;
+  height: 44px;
+  background: linear-gradient(135deg, transparent 50%, #D4A24C 50%);
+  pointer-events: none;
+}
+
+.gift-box__ribbon {
+  position: absolute;
+  right: 16%;
+  top: 0;
+  bottom: 0;
+  width: 24px;
+  background: linear-gradient(90deg, #9E783B, #E5C88E 50%, #9E783B);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.18);
+}
+
+.gift-box__tag {
+  position: relative;
+  z-index: 2;
+}
+.gift-box__tag small {
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.9;
+  display: block;
+}
+.gift-box__tag strong {
+  font: 700 clamp(1.65rem, 2.6vw, 2.35rem)/1.1 var(--chu-de);
+  display: block;
+  margin-block: 4px;
+}
+.gift-box__note-preview {
+  font-size: 0.78rem;
+  font-style: italic;
+  opacity: 0.92;
+  margin-top: 6px;
+  max-width: 22ch;
+}
+
+.gift-compartments-summary {
+  margin-top: 22px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  z-index: 2;
+}
+.compartment-pill {
+  background: rgba(252, 249, 244, 0.92);
+  border: 1px solid var(--nau);
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--nau-dam);
+}
+
+/* Bảng tùy chỉnh Màu hộp + Khoang quà + Lời chúc */
+.swatch-list {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.swatch-item {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px 6px 8px;
+  border: 1px solid var(--vien);
+  background: rgba(252, 249, 244, 0.85);
+  cursor: pointer;
+  min-height: 44px;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+.swatch-item input {
+  position: absolute;
+  opacity: 0;
+}
+.swatch-dot {
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--nau);
+  background: var(--chip);
+  display: grid;
+  place-items: center;
+  font-size: 0.8rem;
+}
+.swatch-item:has(input:checked) {
+  border-color: var(--nau-dam);
+  background: var(--kem-am);
+  box-shadow: inset 0 0 0 1px var(--nau-dam);
+}
+.swatch-item:has(input:checked) .swatch-dot::after {
+  content: "✓";
+  color: var(--tick);
+  font-weight: 700;
+}
+
+/* ==========================================================================
+   6. KHU CHUYỆN CỐ ĐÔ & BÊN CHÉN TRÀ HUẾ (WATERMARK KIẾN TRÚC ĐẬM CHẤT HUẾ)
+   ========================================================================== */
+.story-showcase {
+  position: relative;
+  padding-block: clamp(28px, 4vw, 52px) clamp(48px, 6vw, 76px);
+  overflow: hidden;
+}
+
+.hue-story-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.08fr;
+  gap: clamp(24px, 4.5vw, 56px);
+  align-items: center;
+  position: relative;
+  z-index: 2;
+}
+
+.hue-story-copy {
+  position: relative;
+  padding: 20px 0;
+}
+
+.story-photo-frame {
+  position: relative;
+  padding: 12px;
+  background-color: var(--kem);
+  background-image: url("/images/goi-hue/08-nen-giay-seamless.jpg");
+  clip-path: var(--clip-khung-hue);
+  filter: drop-shadow(0 10px 24px rgba(53, 32, 20, 0.10));
+}
+.story-photo-frame::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 14px solid transparent;
+  border-image: url("/images/goi-hue/khung-kien-truc.svg") 14 stretch;
+  pointer-events: none;
+  z-index: 2;
+}
+.story-photo-frame img {
+  width: 100%;
+  aspect-ratio: 16 / 11;
+  object-fit: cover;
+  display: block;
+}
+
+/* ==========================================================================
+   7. FOOTER CỐ ĐÔ & THANH ĐIỀU HƯỚNG ĐÁY MOBILE (BOTTOM NAVIGATION BAR)
+   ========================================================================== */
+.hue-site-footer {
+  position: relative;
+  background-color: var(--nau-cung-dinh);
+  background-image:
+    radial-gradient(circle at 50% 0%, rgba(112, 81, 59, 0.30), rgba(53, 32, 20, 0.98) 75%);
+  color: var(--kem);
+  border-top: 3px solid var(--mat);
+  padding-block: 48px 36px;
+  margin-top: 32px;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.hue-site-footer::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: clamp(320px, 30vw, 440px);
+  height: 200px;
+  background: url("/images/goi-hue/11-cau-truong-tien-phai.png") right bottom / contain no-repeat;
+  filter: brightness(0) invert(1);
+  opacity: 0.16;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.hue-site-footer > .wrap {
+  position: relative;
+  z-index: 1;
+}
+
+.hue-footer-grid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr 1.2fr;
+  gap: 32px;
+  margin-bottom: 32px;
+}
+
+.footer-col h3 {
+  font-size: 1.15rem;
+  color: var(--mat-sang);
+  margin-bottom: 14px;
+}
+
+.footer-links {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.footer-links a {
+  color: rgba(252, 249, 244, 0.84);
+  font-size: 0.92rem;
+}
+.footer-links a:hover {
+  color: var(--mat-sang);
+}
+
+/* Thanh Bottom Navigation Bar dành cho Mobile / Flutter Preview */
+.mobile-bottom-nav {
+  display: none;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 55;
+  background-color: rgba(252, 249, 244, 0.97);
+  background-image: url("/images/goi-hue/08-nen-giay-seamless.jpg");
+  border-top: 1.5px solid var(--nau);
+  box-shadow: 0 -6px 24px rgba(42, 24, 14, 0.14);
+  padding: 4px 6px max(6px, env(safe-area-inset-bottom));
+  justify-content: space-around;
+}
+
+.mobile-nav-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-width: 60px;
+  min-height: 46px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--phu);
+  position: relative;
+}
+.mobile-nav-btn.is-active, .mobile-nav-btn:hover {
+  color: var(--nau-dam);
+}
+.mobile-nav-btn .cart-badge {
+  position: absolute;
+  top: 2px;
+  right: 6px;
+  min-width: 18px;
+  height: 18px;
+  font-size: 0.7rem;
+}
+
+/* ==========================================================================
+   8. DIALOG / BOTTOM SHEET & FULL-SCREEN MOBILE PAGE PUSH (PAGE MỚI)
+   ========================================================================== */
+dialog.hue-dialog {
+  margin: auto;
+  border: 1px solid var(--nau);
+  width: min(640px, 94vw);
+  max-height: 86dvh;
+  padding: 28px;
+  background-color: var(--kem);
+  background-image: url("/images/goi-hue/08-nen-giay-seamless.jpg");
+  background-size: 420px 420px;
+  color: var(--muc);
+  box-shadow: 0 28px 64px rgba(30, 16, 8, 0.38);
+  overflow-y: auto;
+}
+dialog.hue-dialog::backdrop {
+  background: rgba(34, 20, 12, 0.62);
+  backdrop-filter: blur(2px);
+}
+:scope:has(dialog[open]), :scope:has(.mobile-page-overlay:not([hidden])) {
+  overflow: hidden;
+}
+
+/* Lớp Page Mới Toàn Màn Hình trên Mobile / Flutter (Navigator.push) */
+.mobile-page-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  background-color: var(--kem);
+  background-image: url("/images/goi-hue/08-nen-giay-seamless.jpg");
+  background-size: 420px 420px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: pagePushIn 0.24s var(--ease-out);
+}
+
+@keyframes pagePushIn {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+.mobile-page__appbar {
+  background: var(--nau-dam);
+  color: var(--kem);
+  border-bottom: 2px solid var(--mat);
+  min-height: 56px;
+  padding-inline: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.mobile-page__body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 16px 96px;
+}
+
+.mobile-page__bottombar {
+  position: sticky;
+  bottom: 0;
+  background-color: var(--kem);
+  background-image: url("/images/goi-hue/08-nen-giay-seamless.jpg");
+  border-top: 1px solid var(--nau);
+  padding: 12px 16px max(14px, env(safe-area-inset-bottom));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  box-shadow: 0 -8px 24px rgba(42, 24, 14, 0.12);
+}
+
+/* Toast Thông báo */
+#toast {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 90;
+  background: var(--nau-cung-dinh);
+  color: var(--kem);
+  border: 1.5px solid var(--mat);
+  padding: 12px 22px;
+  border-radius: 3px;
+  font-weight: 600;
+  box-shadow: 0 12px 32px rgba(25, 14, 8, 0.35);
+}
+#toast:empty {
+  display: none;
+}
+
+/* ==========================================================================
+   9. CHẾ ĐỘ GIẢ LẬP MOBILE FLUTTER (KHI BẬT NÚT MÔ PHỎNG 390PX TRÊN DESKTOP)
+   & RESPONSIVE NATIVE DƯỚI 768PX
+   ========================================================================== */
+.hue-view.hue-compact :scope {
+  background-color: #261810;
+  padding-block: 20px 84px;
+}
+.hue-view.hue-compact :scope .site-shell {
+  max-width: 412px;
+  margin-inline: auto;
+  background-color: var(--kem);
+  background-image: url("/images/goi-hue/08-nen-giay-seamless.jpg");
+  border: 8px solid #1C110B;
+  border-radius: 32px;
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.55), 0 0 0 2px var(--mat);
+  overflow: clip;
+  position: relative;
+}
+
+@media (max-width: 960px) {
+  .site-header__inner {
+    gap: 10px;
+  }
+  .brand-logo {
+    padding-right: 10px;
+    gap: 8px;
+  }
+  .brand-logo__text {
+    font-size: 1.45rem;
+  }
+  .hue-main-nav {
+    gap: 8px;
+  }
+  .nav-link, .nav-trigger {
+    font-size: 0.85rem;
+    padding: 8px 4px;
+  }
+  .hue-header-search {
+    width: clamp(135px, 18vw, 200px);
+  }
+  .mega-dropdown {
+    left: 16px;
+    right: 16px;
+    width: auto;
+  }
+  .hero-stage--dark,
+  .hero-stage--paper,
+  .gift-builder,
+  .hue-story-grid {
+    grid-template-columns: 1fr;
+  }
+  .hero-paper__plaque {
+    margin-right: 0;
+    margin-bottom: -16px;
+  }
+  .categories-grid,
+  .products-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .hue-footer-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 767px) {
+  :scope {
+    padding-bottom: 72px;
+  }
+  .hue-site-footer {
+    padding-bottom: 104px;
+  }
+  .top-bar__inner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    padding-block: 8px;
+  }
+  .hue-main-nav,
+  .hue-header-search {
+    display: none;
+  }
+  .site-header__inner {
+    min-height: 62px;
+  }
+  .brand-logo {
+    border-right: none;
+    padding-right: 0;
+  }
+  .categories-grid,
+  .products-grid,
+  .hue-footer-grid {
+    grid-template-columns: 1fr;
+  }
+  .cat-card {
+    display: grid;
+    grid-template-columns: 42% 1fr;
+    align-items: center;
+    gap: 12px;
+  }
+  .mobile-bottom-nav {
+    display: flex;
+  }
+  dialog.hue-dialog {
+    width: 100%;
+    max-width: none;
+    margin: auto 0 0;
+    border-radius: 20px 20px 0 0;
+    border-top: 2px solid var(--mat);
+    padding: 14px 18px max(24px, env(safe-area-inset-bottom));
+  }
+  #toast {
+    bottom: 80px;
+    width: max-content;
+    max-width: 92vw;
+  }
+}
+
+/* Áp dụng quy tắc tương tự Mobile cho chế độ Force Mobile Preview trên Desktop */
+.hue-view.hue-compact :scope .hue-site-footer {
+  padding-bottom: 104px;
+}
+.hue-view.hue-compact :scope .hue-main-nav,
+.hue-view.hue-compact :scope .hue-header-search {
+  display: none;
+}
+.hue-view.hue-compact :scope .hero-stage--dark,
+.hue-view.hue-compact :scope .hero-stage--paper,
+.hue-view.hue-compact :scope .gift-builder,
+.hue-view.hue-compact :scope .hue-story-grid,
+.hue-view.hue-compact :scope .categories-grid,
+.hue-view.hue-compact :scope .products-grid,
+.hue-view.hue-compact :scope .hue-footer-grid {
+  grid-template-columns: 1fr;
+}
+.hue-view.hue-compact :scope .hero-paper__plaque {
+  margin-right: 0;
+}
+.hue-view.hue-compact :scope .cat-card {
+  display: grid;
+  grid-template-columns: 42% 1fr;
+  align-items: center;
+  gap: 12px;
+}
+.hue-view.hue-compact :scope .mobile-bottom-nav {
+  display: flex;
+  max-width: 412px;
+  margin-inline: auto;
+  border-radius: 0 0 24px 24px;
+}
+.hue-view.hue-compact :scope dialog.hue-dialog {
+  width: min(412px, 100%);
+  margin: auto auto 0;
+  border-radius: 20px 20px 0 0;
+  border-top: 2px solid var(--mat);
+}
+.hue-view.hue-compact :scope .mobile-page-overlay {
+  max-width: 412px;
+  margin-inline: auto;
+}
+
+}
+
+.hue-view.hue-compact { max-width: 390px; margin-inline: auto; }
+.hue-navigation { position: sticky; top: 0; z-index: 40; overflow: visible; }
+@scope (.hue-surface) {
+  :scope.hue-navigation { overflow: visible; position: sticky; }
+  .hue-main-nav button.nav-link { border: 0; background: none; }
+  .site-header__inner { position: relative; }
+  .mega-cat-item strong { font: 600 1.15rem var(--chu-de); }
+  .mega-cat-item small { color: var(--do-chu-sa); margin-top: auto; }
+  .mega-cat-item span { font-size: .85rem; }
+  .sheet-bar { border-bottom: 1px solid var(--vien); padding-bottom: 12px; margin-bottom: 16px; }
+  .sheet-bar h2 { font-size: 1.55rem; }
+  .sheet-search { display: flex; align-items: center; gap: 8px; }
+  .account-links, .suggestions, .filter-form, .filter-form label { display: grid; gap: 8px; }
+  .account-links a, .suggestions a { padding: 9px; }
+  .filter-anchor { position: relative; gap: 10px; }
+  .filter-anchor .ux-dropdown { right: 0; left: auto; min-width: min(290px, 90vw); z-index: 10; }
+  .product-card__media { padding: 0; width: 100%; border: 0; }
+  .product-card__foot .btn { min-height: 40px; padding: 6px 12px; font-size: .85rem; }
+  .product-card__foot > .row { gap: 6px; }
+  .item-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .item-detail-grid img { width: 100%; height: auto; }
+  .detail-actions { display: flex; flex-wrap: wrap; gap: 10px; padding-block: 12px; }
+  .service-forms { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 24px; }
+  .service-forms form { display: grid; gap: 8px; justify-items: start; }
+  .service-forms h2 { font-size: var(--t-h3); }
+  .service-forms form > div { display: flex; gap: 8px; flex-wrap: wrap; }
+  section[id], #heritage-story { scroll-margin-block-start: 140px; }
+  .sheet-bar, .item-detail-grid, .shop-toolbar { min-width: 0; }
+}
+body:has(.hue-dialog[open]) { overflow: hidden; }
 @media (max-width:767px) {
-  body:has(.gh-bottom) { padding-bottom: calc(65px + env(safe-area-inset-bottom)); }
-  body:has(.gh-sheet[open]) { overflow: hidden; }
-  .gh-top { min-height: 63px; gap: 16px; }
-  .gh-brand { gap: 5px; }
-  .gh-brand img { width: 29px; height: 29px; }
-  .gh-desktop, .gh-tools { display: none; }
-  .gh-search { width: min(48vw, 250px); }
-  .gh-bottom { display: flex; position: fixed; inset: auto 0 0; z-index: 40; border-top: 1px solid #baa384; padding: 4px 4px calc(4px + env(safe-area-inset-bottom)); }
-  .gh-bottom a, .gh-bottom button { flex: 1; min-height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; position: relative; font-size: 12px; }
-  .gh-bottom [aria-current=page] { color: #754817; font-weight: 700; background: #efe4d4; }
-  .gh-bottom b { position: absolute; top: 0; left: 54%; }
-  .gh-sheet[open] { display: block; position: fixed; inset: auto 0 0; margin: 0; width: 100%; max-width: 100%; max-height: 80dvh; padding: 0; border: 1px solid #b49b79; border-radius: 16px 16px 0 0; overscroll-behavior: contain; }
-  .gh-sheet::backdrop { background: #261a12a8; }
-  .gh-sheet > div { padding: 0 20px calc(18px + env(safe-area-inset-bottom)); }
-  .gh-sheet header { position: sticky; top: 0; padding: 15px 0 6px; display: flex; justify-content: space-between; align-items: center; background: var(--paper); border-bottom: 1px solid #d6c6b2; }
-  .gh-sheet header::before { content: ""; position: absolute; top: 6px; width: 36px; height: 3px; border-radius: 2px; left: calc(50% - 18px); background: #baa384; }
-  .gh-sheet header button { width: 44px; height: 44px; font-size: 28px; }
-  .gh-sheet nav strong { display: block; padding-top: 16px; color: #70513b; }
-  .gh-hero { padding-block: 12px; }
-  .gh-hero-inner { grid-template-columns: 1fr; }
-  .gh-hero-copy { padding: 27px 24px 20px; }
-  .gh-hero h1 { font-size: clamp(42px, 9vw, 62px); }
-  .gh-hero h1 br:first-of-type { display: none; }
-  .gh-hero h1 em::before { content: " "; }
-  .gh-hero-copy p { margin: 15px 0; }
-  .gh-studio { margin: 0 8px 8px; aspect-ratio: 2.05; }
-  .gh-studio::after { display: none; }
-  .gh-heading { gap: 8px; align-items: center; margin-bottom: 16px; }
-  .gh-heading a { font-size: 14px; }
-  .gh-collections, .gh-story, .gh-services { grid-template-columns: 1fr; gap: 16px; }
-  .gh-collections .gh-photo { aspect-ratio: 2.4; }
-  .gh-products { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
-  .gh-story p { font-size: 16px; }
-  .gh-footer .gh-wrap { grid-template-columns: 1fr 1fr; }
-  .gh-footer .gh-wrap > div { grid-column: 1/-1; }
-  .gh-footer nav a { min-height: 44px; }
+  .hue-view:has(.mobile-bottom-nav) { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
+  .hue-surface .item-detail-grid, .hue-surface .service-forms { grid-template-columns: 1fr; }
+  .hue-surface dialog.hue-detail[open] { inset: 0; width: 100%; max-width: none; height: 100dvh; max-height: 100dvh; margin: 0; border-radius: 0; }
+  .hue-detail .sheet-bar { position: sticky; top: 0; background: var(--kem); z-index: 1; }
+  .hue-detail .detail-actions { position: sticky; bottom: 0; background: var(--kem); }
+}
+
+@scope (.hue-surface) {
+  .brand-logo, .brand-logo__text, .nav-trigger, .nav-link, .cart-trigger { white-space: nowrap; }
+  .brand-logo { flex-shrink: 0; }
+  .site-header__inner { gap: clamp(12px, 1.5vw, 24px); }
+  .hue-main-nav { gap: clamp(5px, 1.15vw, 18px); }
+  .header-tools { min-width: 0; margin-left: auto; }
+  .hue-header-search { width: clamp(140px, 14vw, 250px); min-width: 0; }
+  .brand-logo__text { line-height: 1.2; }
+  .suggestion { display: block; padding: 8px; text-align: left; }
+  @media (min-width: 768px) and (max-width: 1090px) {
+    .site-header__inner { flex-wrap: wrap; padding-block: 8px; }
+    .hue-main-nav { order: 1; width: 100%; justify-content: space-between; }
+  }
+  @media (max-width: 767px) {
+    .top-bar__inner { gap: 4px; }
+    .top-bar__controls { gap: 4px; }
+    .hero-dark__visual { min-height: 0; aspect-ratio: 1.65; }
+    .hero-ambient-blossom { width: 31vw; }
+    .hero-dark__copy { padding: 32px 24px; }
+  }
+}
+
+.hue-home img[aria-hidden="true"] { height: auto; }
+
+.hue-compact .hue-surface .item-detail-grid,
+.hue-compact .hue-surface .service-forms { grid-template-columns: 1fr; }
+.hue-compact .hue-surface dialog.hue-detail[open] {
+  inset: 0; width: min(390px, 100vw); max-width: 100%; height: 100dvh;
+  max-height: 100dvh; margin: 0 auto; border-radius: 0;
 }

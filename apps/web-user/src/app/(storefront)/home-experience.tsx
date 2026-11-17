@@ -1,95 +1,237 @@
 "use client";
 
 import Link from "next/link";
-import { type FormEvent, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import {
+  RecommendationPreferences,
+  RecommendationRail,
+} from "@/components/recommendation/recommendation-rail";
 import { ProductImage } from "@/components/product/product-image";
-import { RecommendationPreferences, RecommendationRail } from "@/components/recommendation/recommendation-rail";
 import { collections } from "@/components/layout/storefront-links";
+import { Hero } from "@/components/storefront/hero";
+import { Story } from "@/components/storefront/story";
+import { GiftBuilder } from "@/components/storefront/gift-builder";
+import { Collection } from "@/components/storefront/collection";
+import { ShopSection } from "@/components/storefront/shop-section";
+import { CustomerServices } from "@/components/storefront/customer-services";
+import { GroupOptions } from "@/components/storefront/group-options";
+import { StorefrontDialog } from "@/components/storefront/dialog";
+import { ItemDialog } from "@/components/storefront/item-dialog";
+import { useStorefrontView } from "@/components/storefront/view-mode";
+import { items, money, type HomeItem } from "@/components/storefront/items";
 
-const art = "/images/goi-hue/";
-const products = [
-  {
-    "skuId": "SKU-009-500",
-    "slug": "bo-qua-hoang-trieu",
-    "meta": "Trọng lượng: 500g",
-    "name": "Hộp Quà Cố Đô Ngự Thiện",
-    "price": "450.000đ",
-    "image": "/images/goi-hue/photo-sp-hop-qua-mo.jpg"
-  },
-  {
-    "skuId": "SKU-002-200",
-    "slug": "me-xung-deo-ngu-thien",
-    "meta": "Hộp cao cấp: 200g",
-    "name": "Mè Xửng Dẻo Ngự Trà Thượng Hạng",
-    "price": "85.000đ",
-    "image": "/images/goi-hue/photo-sp-me-xung-dia.jpg"
-  },
-  {
-    "skuId": "SKU-006-300",
-    "slug": "banh-dau-xanh-trai-cay",
-    "meta": "Hộp sơn mài: 12 cái",
-    "name": "Bánh Đậu Xanh Trái Cây Nghệ Nhân",
-    "price": "120.000đ",
-    "image": "https://lh3.googleusercontent.com/aida-public/AB6AXuAGdlKPl8besUprgcIcaSNI-VXXEzt-aIkDTw6zE0If6NpcKmXbUXA58HO_oZbPDdSW8L_PwvVi7s3-n4fiI7yFLqHyWKiYM8zP30qlRMzUz2rDLvUDKnxRxHBMBN_TpgSNM9ciBOUI-kxDrnOfioqEgb9W16eSmlaDDnvGH_p6MK5CYsqFmT0ggFzCTnCpTmUHqbI7VNUkbm47hgj65LWqY9tqc9nNXP4jGIkreI45AUAse_CgYT8E"
-  },
-  {
-    "skuId": "SKU-011-150",
-    "slug": "tra-sen-tinh-tam",
-    "meta": "Hộp thiếc cao cấp: 150g",
-    "name": "Trà Sen Bách Diệp Hồ Tịnh Tâm",
-    "price": "380.000đ",
-    "image": "/images/goi-hue/photo-sp-tra-sen-lon.jpg"
-  }
-];
+function Divider() {
+  return (
+    <div className="wrap">
+      <div className="divider-hue" aria-hidden="true">
+        <span className="divider-hue__knot" />
+      </div>
+    </div>
+  );
+}
 
 export function HomeExperience() {
-  const router = useRouter();
-  const [batchCode, setBatchCode] = useState("");
-  const [newsletterSent, setNewsletterSent] = useState(false);
-  function trace(event: FormEvent) {
-    event.preventDefault();
-    if (batchCode.trim()) router.push("/trace/" + encodeURIComponent(batchCode.trim()));
+  const { paper, compact, group, setGroup } = useStorefrontView();
+  const [sort, setSort] = useState("featured");
+  const [filter, setFilter] = useState<"popup" | "sheet" | null>(null);
+  const [detail, setDetail] = useState<HomeItem | null>(null);
+  const [gift, setGift] = useState("");
+  const bar = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const groupName = collections[group]?.name;
+  useEffect(() => {
+    if (!filter) return;
+    const outside = (e: PointerEvent) => {
+      if (filter === "popup" && !bar.current?.contains(e.target as Node))
+        setFilter(null);
+    };
+    const key = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && filter === "popup") {
+        setFilter(null);
+        trigger.current?.focus();
+      }
+    };
+    const media = window.matchMedia("(max-width: 767px)");
+    const resize = () => setFilter(null);
+    media.addEventListener("change", resize);
+    document.addEventListener("pointerdown", outside);
+    document.addEventListener("keydown", key);
+    return () => {
+      media.removeEventListener("change", resize);
+      document.removeEventListener("pointerdown", outside);
+      document.removeEventListener("keydown", key);
+    };
+  }, [filter]);
+  const visible = items.filter((item) => group < 0 || item.group === group);
+  if (sort !== "featured")
+    visible.sort((a, b) =>
+      sort === "price-asc" ? a.amount - b.amount : b.amount - a.amount,
+    );
+  function choose(index: number) {
+    setGroup(index);
+    document.getElementById("shop")?.scrollIntoView();
   }
-  return <main className="gh-home">
-    <section className="gh-hero" aria-labelledby="gh-title"><div className="gh-wrap gh-hero-inner">
-      <div className="gh-hero-copy">
-        <h1 id="gh-title">Phong vị Huế,<br /><em>gói ghém</em><br />trao nhau.</h1>
-        <p>Mè xửng dẻo thơm, trà Huế thanh dịu và những thức quà dành cho người thương.</p>
-        <Link className="gh-btn gh-gold" href="/products">Khám phá bộ sưu tập <span aria-hidden="true">→</span></Link>
+  const filters = (
+    <div className="filter-form">
+      <label>
+        Nhóm thức quà
+        <select
+          className="field"
+          value={group}
+          onChange={(e) => setGroup(Number(e.target.value))}
+        >
+          <option value={-1}>Tất cả</option>
+          {collections.map((c, i) => (
+            <option key={c.name} value={i}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label>
+        Sắp xếp
+        <select
+          className="field"
+          value={sort}
+          onChange={(e) => setSort(e.target.value)}
+        >
+          <option value="featured">Tinh tuyển</option>
+          <option value="price-asc">Giá tăng dần</option>
+          <option value="price-desc">Giá giảm dần</option>
+        </select>
+      </label>
+      <button className="btn btn--brown" onClick={() => setFilter(null)}>
+        Áp dụng
+      </button>
+    </div>
+  );
+  return (
+    <main id="main" className="hue-surface hue-home hue-watermark-canvas">
+      <Hero paper={paper} />
+      <Collection>
+        <GroupOptions choose={choose} selected={group} />
+      </Collection>
+      <Divider />
+      <ShopSection>
+        <div className="shop-toolbar">
+          <div>
+            <span className="section-header__kicker">Tinh tuyển từ Huế</span>
+            <h2>
+              {groupName
+                ? "Bộ sưu tập · " + groupName
+                : "Khám phá bộ sưu tập Gói Huế"}
+            </h2>
+          </div>
+          <div className="row filter-anchor" ref={bar}>
+            <div
+              className="filter-pills"
+              role="group"
+              aria-label="Lọc nhanh theo nhóm món"
+            >
+              {["Tất cả", ...collections.map((c) => c.name)].map((name, i) => (
+                <button
+                  className={"chip-btn" + (group === i - 1 ? " is-active" : "")}
+                  aria-pressed={group === i - 1}
+                  key={name}
+                  onClick={() => setGroup(i - 1)}
+                >
+                  {name}
+                </button>
+              ))}
+            </div>
+            <button
+              className="btn btn--paper"
+              ref={trigger}
+              aria-expanded={!!filter}
+              onClick={() =>
+                setFilter(
+                  filter
+                    ? null
+                    : compact || window.innerWidth < 768
+                      ? "sheet"
+                      : "popup",
+                )
+              }
+            >
+              Bộ lọc &amp; Sắp xếp ⌄
+            </button>
+            {filter === "popup" && <div className="ux-dropdown">{filters}</div>}
+          </div>
+        </div>
+        <div className="products-grid">
+          {visible.map((item) => (
+            <article key={item.skuId} className="hue-product-card">
+              <button
+                className="product-card__media"
+                onClick={() => setDetail(item)}
+                aria-label={"Xem chi tiết " + item.name}
+              >
+                <ProductImage
+                  src={item.image}
+                  width={480}
+                  height={350}
+                  alt={item.name}
+                />
+              </button>
+              <div className="product-card__body">
+                <span className="product-card__meta">
+                  {collections[item.group]?.name ?? "Bánh Huế"} · {item.meta}
+                </span>
+                <h3 className="product-card__title">{item.name}</h3>
+                <div className="product-card__foot">
+                  <span className="price-tag">{money(item.amount)}</span>
+                  <div className="row">
+                    <button
+                      className="btn btn--paper"
+                      onClick={() => setDetail(item)}
+                    >
+                      Chi tiết
+                    </button>
+                    <button className="btn" onClick={() => setDetail(item)}>
+                      {item.group === 2 ? "Chọn hộp" : "+ Giỏ quà"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+      </ShopSection>
+      <Divider />
+      <GiftBuilder onReview={setGift} />
+      <Divider />
+      <div
+        id="heritage-story"
+        onClick={(e) => {
+          if ((e.target as HTMLElement).closest("[data-nav-group]"))
+            setGroup(1);
+        }}
+      >
+        <Story />
       </div>
-      <div className="gh-studio"><ProductImage fill priority sizes="(max-width: 767px) 100vw, 57vw" src={art + "photo-hero-studio.jpg"} alt="Mè xửng, chén trà và hộp quà Gói Huế trên bục trưng bày" /></div>
-    </div></section>
-    <section className="gh-wrap gh-section" aria-labelledby="gh-collections">
-      <div className="gh-heading"><h2 id="gh-collections">Bộ sưu tập Gói Huế</h2><Link href="/products">Xem tất cả →</Link></div>
-      <div className="gh-collections">{collections.map(item => <Link className="gh-tile" href={item.href} key={item.href}>
-        <div className="gh-photo"><ProductImage fill sizes="(max-width: 767px) 92vw, 32vw" src={art + item.image} alt="" /></div>
-        <div className="gh-caption"><h3>{item.name}</h3><span aria-hidden="true">→</span></div>
-      </Link>)}</div>
-    </section>
-    <div className="gh-wrap gh-divider" aria-hidden="true" />
-    <section id="heritage-story" className="gh-wrap gh-section gh-story">
-      <div className="gh-story-photo"><ProductImage fill sizes="(max-width: 767px) 92vw, 50vw" src={art + "photo-story-nha-ruong.jpg"} alt="Hiên gỗ nhà rường nhìn ra khu vườn ở Huế" /></div>
-      <div><h2>Thức quà từ Huế</h2><p>Một miếng mè xửng dẻo bùi, một ngụm trà ấm. Ở Huế, mời nhau đôi thức quà giản dị cũng là cách để câu chuyện bên bàn trà kéo dài thêm một chút.</p>
-      <Link className="gh-text-link" href="/products?category=qua-bieu">Chọn quà biếu <span aria-hidden="true">→</span></Link></div>
-    </section>
-    <section className="gh-wrap gh-section"><div className="gh-heading"><h2>Gợi ý cho bàn trà</h2></div>
-      <div className="gh-products">{products.map(item => <article key={item.skuId}><Link href={"/products/" + item.slug}>
-        <div className="gh-photo"><ProductImage fill sizes="(max-width: 767px) 44vw, 23vw" src={item.image} alt="" /></div>
-        <small>{item.meta}</small><h3>{item.name}</h3><strong>{item.price}</strong>
-      </Link></article>)}</div>
-      <RecommendationPreferences /><RecommendationRail placement="home" />
-    </section>
-    <section className="gh-wrap gh-services gh-section">
-      <div id="ocop-traceability"><h2>Tra cứu nguồn gốc</h2><form onSubmit={trace}>
-        <label htmlFor="gh-batch">Mã trên nhãn sản phẩm</label>
-        <input id="gh-batch" value={batchCode} onChange={event => setBatchCode(event.target.value)} required />
-        <div><button className="gh-btn" disabled={!batchCode.trim()}>Tra cứu</button><button type="button" className="gh-text-link" onClick={() => setBatchCode("QR-OMA-20261015-LOT08")}>Dùng mã mẫu</button></div>
-      </form></div>
-      <div><h2>Nhận tin từ Gói Huế</h2><form onSubmit={event => { event.preventDefault(); event.currentTarget.reset(); setNewsletterSent(true); }}>
-        <label htmlFor="gh-email">Địa chỉ email</label><input id="gh-email" type="email" autoComplete="email" required />
-        <button className="gh-btn">Đăng ký</button>
-      </form>{newsletterSent && <p role="status">Đã ghi nhận trong bản xem thử.</p>}</div>
-    </section>
-  </main>;
+      <div className="wrap">
+        <RecommendationPreferences />
+        <RecommendationRail placement="home" />
+      </div>
+      <CustomerServices />
+      {filter === "sheet" && (
+        <StorefrontDialog
+          title="Bộ lọc & Sắp xếp"
+          close={() => setFilter(null)}
+        >
+          {filters}
+        </StorefrontDialog>
+      )}
+      {detail && <ItemDialog item={detail} close={() => setDetail(null)} />}
+      {gift && (
+        <StorefrontDialog title="Hộp quà theo ý bạn" close={() => setGift("")}>
+          <p>{gift}</p>
+          <p>Hộp phối riêng cần được xác nhận trước khi đặt.</p>
+          <Link className="btn btn--brown" href="/support/request">
+            Liên hệ đặt hộp quà
+          </Link>
+        </StorefrontDialog>
+      )}
+    </main>
+  );
 }

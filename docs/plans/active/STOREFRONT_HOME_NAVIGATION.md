@@ -1,20 +1,27 @@
 # Gói Huế — Home và điều hướng khách hàng
 
-**Trạng thái:** Đã triển khai bước Home, chờ người dùng duyệt giao diện.
-**Nhánh:** `codex/storefront-home-navigation`. Mốc gốc `origin/dev` tại `b3957a89e390d57585ca0e77f30cdd33b4a68da3`. Commit chứa tài liệu này là checkpoint của bước Home.
+**Trạng thái** · Chờ duyệt bản đối chiếu UI/UX v2. Nhánh `codex/storefront-home-navigation` tách từ `dev` tại `b3957a8`. Checkpoint trước là `37053ca`. Commit chứa tài liệu này là checkpoint sửa sai khác với mẫu.
 
-## Phạm vi và quyết định
+## Nguồn để triển khai
 
-- Giữ Next.js, React, router và các provider của `apps/web-user`. Phạm vi hiện tại gồm Home, nhận diện ở header/footer và điều hướng chung trên những trang đang dùng SiteHeader/SiteFooter.
-- Đối chiếu `mon-02/bo-ui-v01/Quy-chuan-UI.md` và `mon-02/home-v02/index.html` ở thư mục báo cáo Gói Huế. Dùng hero trưng bày nâu, ảnh thư viện, nền giấy, khung giật cấp, cành trà cạnh câu chuyện và cổng thành ở chân trang. Ảnh thuộc bộ minh họa môn học.
-- Desktop gom nhóm mua sắm vào **Bộ sưu tập** và thông tin dịch vụ vào **Khám phá**. Giữ Quà biếu ở đầu trang để truy cập nhanh. Dưới 768 px dùng thanh đáy và bảng danh mục mở từ đáy. Dùng quyền và trạng thái đăng nhập hiện có để quyết định các mục B2B, nhân viên, đơn hàng và giỏ.
-- Home dùng đúng slug danh mục, SKU và đường dẫn có sẵn. Bấm sản phẩm để chọn quy cách ở trang chi tiết. Giữ tra cứu lô, gợi ý và tùy chọn cá nhân hóa. Form email tiếp tục là demo cục bộ.
-- Khu vực thay đổi: `apps/web-user/src/app/(storefront)/` (Home và import CSS), `src/components/layout/`, `src/styles/storefront-heritage.css`, `public/images/goi-hue/`. Bước sau mới xét nội dung từng trang con.
+- Thư mục báo cáo local `E:/Goi-Hue-Brand-Report/mon-02`. Dùng `home-v02/index.html`, `home-v02/home.css` và `home-v02/home.js` cho thứ tự, nội dung trình bày, trạng thái và tương tác. Dùng `bo-ui-v01/ui.css` cùng SVG, hình sản phẩm và họa tiết đi kèm cho phần nhận diện.
+- Khi làm trang sau, dùng nguyên thành phần tương ứng trong thư viện. Điều chỉnh bề rộng, khoảng cách và xuống dòng theo màn hình. Ghi rõ sai khác nếu mẫu mô phỏng có thao tác mà dịch vụ hiện tại chưa hỗ trợ.
+- Giữ React/Next.js, routing, session, customer access, phân quyền B2B/nhân viên, cart API và các trang mua hàng hiện hữu.
 
-## Kiểm tra và bàn giao
+## Đã triển khai
 
-- Typecheck, build production, ESLint, 59 file Vitest với 230 test đạt.
-- Kiểm tra trình duyệt Edge bằng phiên khách. Ở 1440 px: dropdown bám dưới nút, dùng được bàn phím và Escape. Ở 390 px: mở/đóng bottom sheet và từ sheet đi đúng `/products?category=tra-cung-dinh`. Kiểm tra chiều rộng 320, 390 và 768 px. Tra mã mẫu dẫn đến `/trace/QR-OMA-20261015-LOT08`.
-- Ảnh kiểm tra ở thư mục báo cáo local `mon-02/DUT-PBL6-home-review/`. Kiểm tra này chỉ xác nhận UI và điều hướng. Luồng có dữ liệu trực tiếp, tài khoản khách/nhân viên đăng nhập, đơn hàng và B2B chưa kiểm tra end-to-end với backend.
-- Chạy lại trong `apps/web-user` bằng `npm ci`, `npm run build`, `npm run start -- -H 127.0.0.1 -p 4321`; mở địa chỉ loopback cổng 4321.
-- Bước tiếp theo: người dùng duyệt Home, menu desktop và bottom sheet trên màn hình hẹp. Sau khi duyệt, thống nhất trang kế tiếp trước khi mở rộng phạm vi.
+- Home dùng hai hero chuyển đổi được, danh mục, bộ lọc và sản phẩm, phối hộp quà và hai vùng câu chuyện theo mẫu. Giữ phần tra cứu lô, đăng ký tin và thành phần recommendation của ứng dụng phía dưới. SKU, giá và đường dẫn sản phẩm đến từ Home hiện hữu của DUT.PBL6.
+- Header dùng menu bộ sưu tập có ảnh. Tìm kiếm hỗ trợ tiếng Việt có dấu/không dấu. Web mở dropdown hoặc hộp chi tiết. Điện thoại dùng thanh đáy 5 mục, bottom sheet và chi tiết toàn màn hình. Ở thanh trên cùng, mục Tài khoản dẫn tới các tiện ích của ứng dụng, thay vị trí liên kết thư viện dành cho người thiết kế.
+- Kiểu chữ Playfair Display và Be Vietnam Pro phục vụ từ `public/fonts/goi-hue` kèm hai giấy phép OFL. Lỗi trước đó là Georgia trên máy thiếu glyph như ế, ị, ử. Khung dùng đúng SVG và tỉ lệ cắt 14 đơn vị của mẫu. Nút có viền trong 8 px, hero có viền 16 px. Giữ chữ thương hiệu và nhãn điều hướng trên một dòng.
+- Phạm vi mã gồm `apps/web-user/src/components/storefront/`, header/footer/logo ở `components/layout/`, Home và layout trong `src/app/(storefront)/`, stylesheet storefront, hình và font. CSS mẫu được giới hạn phạm vi để các trang quản trị và thân trang con giữ giao diện hiện hữu.
+
+## Tích hợp và điểm cần duyệt
+
+- Thẻ Home giữ dữ liệu sản phẩm của ứng dụng. Hộp chi tiết tải quy cách từ product-detail-service. Giỏ nhanh đọc giỏ thật và cập nhật số lượng qua cart-service. Đặt hàng tiếp tục vào luồng checkout hiện tại.
+- Phối hộp riêng có bốn màu, ba tổ hợp, thiệp và giá mẫu. API thêm vào giỏ nhận SKU và số lượng; chưa có trường cho tổ hợp, màu và thiệp. CTA mở bản tóm tắt và dẫn sang hỗ trợ đặt riêng. Bản mẫu Antigravity dùng giỏ giả trong phiên. Cần quyết định về hợp đồng dữ liệu nếu triển khai mua hộp phối riêng.
+- Đã kiểm tra build, lint, typecheck và 230 test. Edge với phiên khách đã kiểm tra menu có ảnh, lọc/sắp xếp, tìm kiếm, đổi hero, xem chi tiết, đổi giấy/tổ hợp/thiệp và bottom sheet. Kiểm tra chiều rộng 1440, 768, 390 và 320 px. Luồng giao dịch có tài khoản và backend thật chưa kiểm thử đầu cuối.
+- Ở desktop 1440 px, so trực tiếp với bản mẫu ở cùng font: hero 1280 × 520 px, ảnh hero rộng 747 px, thẻ danh mục đầu rộng 408 px. Ảnh đối chiếu local nằm tại `mon-02/DUT-PBL6-home-review/`.
+
+## Bàn giao
+
+Chạy trong `apps/web-user` bằng `npm ci`, `npm run build`, rồi `npm run start -- -H 127.0.0.1 -p 4321`. Duyệt Home và điều hướng ở cổng 4321 trước khi tiếp tục sang trang khác.
