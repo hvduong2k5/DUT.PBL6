@@ -37,6 +37,51 @@ tags:
   - name: Marketing
     description: Draft Campaign planning and approval operations for EPIC 21.
 paths:
+  /api/v1/admin/marketing/campaigns/{campaignId}/revisions/{revisionId}/executions/{executionId}/metrics/csv:
+    x-employee-session-path: '/api/v1/admin/marketing-api/campaigns/{campaignId}/revisions/{revisionId}/executions/{executionId}/metrics/csv'
+    parameters:
+      - {name: campaignId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: revisionId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: executionId, in: path, required: true, schema: {type: string, format: uuid}}
+    put:
+      operationId: importMarketingExecutionMetricsCsv
+      summary: Import daily channel metrics from CSV
+      description: Requires MARKETING_CHANNEL_MANAGE. The first successful import binds the external execution key. Corrections use higher per-day source versions. A failed row rolls back the import.
+      tags: [Marketing]
+      security:
+        - marketingEmployeeSession: []
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          text/csv:
+            schema: {type: string, maxLength: 8192}
+      responses:
+        '200':
+          description: Current snapshots for the submitted days.
+          content:
+            application/json:
+              schema:
+                type: array
+                maxItems: 31
+                items:
+                  $ref: '#/components/schemas/MarketingMetricDay'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /api/v1/admin/marketing/campaigns/{campaignId}/revisions/{revisionId}/kpi-report:
     x-employee-session-path: '/api/v1/admin/marketing-api/campaigns/{campaignId}/revisions/{revisionId}/kpi-report'
     parameters:

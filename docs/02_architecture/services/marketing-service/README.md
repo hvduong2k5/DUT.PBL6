@@ -152,3 +152,5 @@ Marketing và Executive chốt taxonomy, các trường bắt buộc còn lại 
 [Thiết kế KPI theo execution](04_execution_kpi.md)
 
 [Báo cáo KPI target–actual](05_kpi_report.md)
+
+[Nhập KPI từ CSV](06_csv_kpi_import.md)

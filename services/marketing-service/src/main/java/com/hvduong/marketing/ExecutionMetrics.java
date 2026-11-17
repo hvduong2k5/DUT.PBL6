@@ -3,6 +3,9 @@ package com.hvduong.marketing;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.List;
@@ -110,6 +113,13 @@ class ExecutionMetrics {
                 || !valid(input.sourceVersion(), 1) || !valid(input.impressions(), 0) || !valid(input.clicks(), 0)) {
             throw invalid();
         }
+        if (csvKey(executionId).isPresent()) {
+            throw new MarketingFailure("STATE_CONFLICT", 409);
+        }
+        return storeDay(actor, executionId, date, input, requestId);
+    }
+
+    private Day storeDay(StaffActor actor, UUID executionId, LocalDate date, Input input, String requestId) {
         Day candidate = new Day(date, "REPORTED", input.sourceVersion(), input.impressions(), input.clicks());
         var existing = snapshots(executionId, date, date);
         if (!existing.isEmpty()) {
@@ -137,6 +147,92 @@ class ExecutionMetrics {
                 .param("actor", actor.id()).param("request", requestId).update();
         return candidate;
     }
+
+    private record CsvRow(String key, LocalDate date, Input input) {}
+
+    @Transactional
+    public List<Day> importCsv(StaffActor actor, UUID campaignId, UUID revisionId, UUID executionId,
+                               String csv, String requestId) {
+        Window window = window(actor, campaignId, revisionId, executionId, true);
+        var rows = parseCsv(csv);
+        LocalDate today = LocalDate.now(window.zone());
+        if (rows.stream().anyMatch(row -> !window.includes(row.date()) || !row.date().isBefore(today))) {
+            throw invalid();
+        }
+        String key = rows.getFirst().key();
+        var bound = csvKey(executionId);
+        if (bound.isPresent()) {
+            if (!bound.get().equals(key)) {
+                throw new MarketingFailure("STATE_CONFLICT", 409);
+            }
+        } else {
+            boolean hasManualMetrics = jdbc.sql("""
+                    SELECT EXISTS (SELECT 1 FROM campaign_execution_metrics WHERE execution_id = :id)
+                    """).param("id", executionId).query(Boolean.class).single();
+            if (hasManualMetrics) {
+                throw new MarketingFailure("STATE_CONFLICT", 409);
+            }
+            int inserted = jdbc.sql("""
+                    INSERT INTO campaign_execution_csv_sources (execution_id, external_key)
+                    VALUES (:id, :key) ON CONFLICT DO NOTHING
+                    """).param("id", executionId).param("key", key).update();
+            if (inserted == 0) {
+                throw new MarketingFailure("STATE_CONFLICT", 409);
+            }
+        }
+        return rows.stream().map(row -> storeDay(actor, executionId, row.date(), row.input(), requestId)).toList();
+    }
+
+    private java.util.Optional<String> csvKey(UUID executionId) {
+        return jdbc.sql("""
+                SELECT external_key FROM campaign_execution_csv_sources WHERE execution_id = :id
+                """).param("id", executionId).query(String.class).optional();
+    }
+
+    private List<CsvRow> parseCsv(String csv) {
+        if (csv.length() > 8192) {
+            throw invalid();
+        }
+        var lines = csv.replaceFirst("^\uFEFF", "").lines().toList();
+        if (lines.size() < 2 || lines.size() > 32
+                || !"external_execution_key,date,source_version,impressions,clicks".equals(lines.getFirst())) {
+            throw invalid();
+        }
+        var rows = new ArrayList<CsvRow>();
+        var dates = new HashSet<LocalDate>();
+        String key = null;
+        for (String line : lines.subList(1, lines.size())) {
+            var fields = line.split(",", -1);
+            if (fields.length != 5 || !fields[0].matches("[A-Za-z0-9._:-]{1,160}")
+                    || (key != null && !key.equals(fields[0])) || !fields[1].matches("[0-9]{4}-[0-9]{2}-[0-9]{2}")) {
+                throw invalid();
+            }
+            key = fields[0];
+            try {
+                var date = LocalDate.parse(fields[1]);
+                var input = new Input(csvNumber(fields[2], 1), csvNumber(fields[3], 0), csvNumber(fields[4], 0));
+                if (!dates.add(date)) {
+                    throw invalid();
+                }
+                rows.add(new CsvRow(key, date, input));
+            } catch (DateTimeParseException error) {
+                throw invalid();
+            }
+        }
+        return rows;
+    }
+
+    private long csvNumber(String field, long minimum) {
+        if (!field.matches("[0-9]{1,16}")) {
+            throw invalid();
+        }
+        long value = Long.parseLong(field);
+        if (!valid(value, minimum)) {
+            throw invalid();
+        }
+        return value;
+    }
+
 
     private Window window(StaffActor actor, UUID campaignId, UUID revisionId, UUID id, boolean write) {
         var campaign = campaigns.campaign(campaignId, write);

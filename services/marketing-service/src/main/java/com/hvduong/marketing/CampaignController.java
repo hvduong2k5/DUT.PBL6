@@ -249,6 +249,19 @@ class CampaignController {
     }
 
 
+    @PutMapping(path = "/{campaignId}/revisions/{revisionId}/executions/{executionId}/metrics/csv",
+            consumes = "text/csv")
+    List<ExecutionMetrics.Day> importMetricsCsv(HttpServletRequest request, @PathVariable UUID campaignId,
+            @PathVariable UUID revisionId, @PathVariable UUID executionId, @RequestBody byte[] body) {
+        var actor = staff(request);
+        if (body.length > 8192) {
+            throw new MarketingFailure("VALIDATION_FAILED", 422);
+        }
+        return metrics.importCsv(actor, campaignId, revisionId, executionId,
+                new String(body, java.nio.charset.StandardCharsets.UTF_8), requestId(request));
+    }
+
+
     private Long metricInteger(JsonNode value) {
         if (!value.isIntegralNumber() || !value.canConvertToLong()) {
             throw new MarketingFailure("VALIDATION_FAILED", 422);
