@@ -1,37 +1,53 @@
-export const PAYMENT_STATUSES = ["PENDING", "CONFIRMED", "FAILED", "EXPIRED", "CANCELLED", "COD_PENDING_COLLECTION", "REFUND_PENDING"] as const;
-export const RECONCILIATION_RESULTS = ["MATCHED", "PENDING", "AMOUNT_MISMATCH", "REFERENCE_MISMATCH", "STATUS_MISMATCH", "UNMATCHED_TRANSACTION", "DUPLICATE_SUSPECTED"] as const;
-export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
-export type ReconciliationResult = (typeof RECONCILIATION_RESULTS)[number];
-export type PaymentRiskState = "NONE" | "ATTENTION" | "BLOCKED";
+// Staff payment workspace contract, aligned with the real order-service
+// staff API (F-42): GET /api/v1/admin/payments/reconciliation-cases[/{id}]
+// returns persistence PaymentCase views — case_id, order_id, receipt_id,
+// observation_id, support_reference, reason, status, assigned_to, version,
+// evidence_ids, refund_ids. Amounts, attempts and provider transactions are
+// not part of that contract and are not shown.
+
+export const PAYMENT_CASE_REASONS = ["UNDERPAYMENT", "OVERPAYMENT", "LATE_PAYMENT", "UNMATCHED_REFERENCE", "EXTRA_RECEIPT", "BLOCKED_PAYMENT"] as const;
+export type PaymentCaseReason = (typeof PAYMENT_CASE_REASONS)[number];
+export const PAYMENT_CASE_STATUSES = ["OPEN", "ASSIGNED", "RESOLVED"] as const;
+export type PaymentCaseStatus = (typeof PAYMENT_CASE_STATUSES)[number];
+
+export const PAYMENT_CASE_REASON_LABELS: Record<string, string> = {
+  UNDERPAYMENT: "Trả thiếu",
+  OVERPAYMENT: "Trả thừa",
+  LATE_PAYMENT: "Trả muộn sau khi đơn đã hết hạn",
+  UNMATCHED_REFERENCE: "Không khớp tham chiếu",
+  EXTRA_RECEIPT: "Giao dịch thừa",
+  BLOCKED_PAYMENT: "Thanh toán bị chặn"
+};
+
+export const PAYMENT_CASE_STATUS_LABELS: Record<string, string> = {
+  OPEN: "Chưa xử lý",
+  ASSIGNED: "Đã tiếp nhận",
+  RESOLVED: "Đã xử lý"
+};
 
 export interface PaymentCaseSummary {
-  caseId: string; caseNumber: string; orderId: string; orderNumber: string; orderStatus: string; orderStatusLabel: string;
-  paymentId: string; methodCode: string; methodLabel: string; paymentStatus: PaymentStatus; paymentStatusLabel: string;
-  amountDueVnd: number; amountConfirmedVnd: number; transactionCount: number; result: ReconciliationResult; resultLabel: string;
-  riskState: PaymentRiskState; riskLabel: string; riskReason: string | null; referenceDisplay: string | null;
-  lastTransactionAt: string | null; updatedAt: string; revision: number;
+  caseId: string;
+  supportReference: string;
+  orderId: string | null;
+  receiptId: string | null;
+  reason: string;
+  reasonLabel: string;
+  status: string;
+  statusLabel: string;
+  assignedTo: string | null;
+  version: number;
 }
 
 export interface PaymentCaseList {
   items: PaymentCaseSummary[];
-  resultCounts: Array<{ result: "ALL" | ReconciliationResult; label: string; count: number }>;
-  methods: Array<{ code: string; label: string }>;
-  paymentStatuses: Array<{ code: PaymentStatus; label: string }>;
+  nextCursor: string | null;
   calculatedAt: string;
 }
 
-export interface PaymentAttempt { attemptId: string; status: string; statusLabel: string; amountVnd: number; createdAt: string; expiresAt: string | null; }
-export interface PaymentTransaction { transactionId: string; providerLabel: string; providerReferenceDisplay: string; bankReferenceDisplay: string | null; receivedAmountVnd: number; currency: string; providerStatusCode: string; verified: boolean; occurredAt: string; receivedAt: string; duplicate: boolean; masked: boolean; }
-export interface PaymentComparison { field: string; label: string; expectedDisplay: string; actualDisplay: string; matched: boolean; }
-export interface PaymentHistoryEvent { eventId: string; label: string; occurredAt: string; actorLabel: string; detail: string | null; }
-
 export interface PaymentCaseDetail extends PaymentCaseSummary {
-  order: { placedAt: string; totalVnd: number; currency: string };
-  attempts: PaymentAttempt[];
-  transactions: PaymentTransaction[];
-  comparisons: PaymentComparison[];
-  history: PaymentHistoryEvent[];
-  originalEvidencePreserved: boolean;
+  observationId: string | null;
+  evidenceIds: string[];
+  refundIds: string[];
 }
 
 interface AdminPaymentErrorBody { code?: string; message?: string; errors?: Array<{ field: string; message: string }> }

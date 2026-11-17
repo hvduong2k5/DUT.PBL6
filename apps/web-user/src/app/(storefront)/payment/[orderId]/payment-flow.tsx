@@ -127,7 +127,7 @@ export function PaymentFlow({ orderId }: { orderId: string }) {
 
     {instructions ? <div className="payment-grid">
       <section className="payment-qr-card" aria-labelledby="qr-title"><div className="payment-card-title"><div><span className="gh-emblem" aria-hidden="true" /><h2 id="qr-title">VietQR hiện hành</h2></div><b>{instructions.provider}</b></div><div className="payment-qr-stage"><Image src={instructions.qrUrl} alt={`Mã VietQR cho Order ${instructions.orderId}`} width={300} height={300} unoptimized /><p>Chỉ quét QR khi trạng thái vẫn cho phép thanh toán và chưa qua thời hạn.</p></div></section>
-      <section className="payment-instruction-card" aria-labelledby="instruction-title"><div className="payment-card-title"><div><span aria-hidden="true">▤</span><h2 id="instruction-title">Thông tin chuyển khoản</h2></div><b>VERSION {instructions.version}</b></div><dl className="payment-instructions">
+      <section className="payment-instruction-card" aria-labelledby="instruction-title"><div className="payment-card-title"><div><span className="gh-emblem" aria-hidden="true" /><h2 id="instruction-title">Thông tin chuyển khoản</h2></div><b>VERSION {instructions.version}</b></div><dl className="payment-instructions">
         <div className="important"><dt>Số tiền chính xác</dt><dd><strong>{VND.format(instructions.amountVnd)}</strong><button type="button" onClick={() => copyValue(String(instructions.amountVnd), "số tiền")}>Chép số tiền</button></dd></div>
         <div><dt>Ngân hàng</dt><dd>{instructions.receiver.bankName} ({instructions.receiver.bankCode})</dd></div>
         <div><dt>Chủ tài khoản</dt><dd>{instructions.receiver.accountHolder}</dd></div>

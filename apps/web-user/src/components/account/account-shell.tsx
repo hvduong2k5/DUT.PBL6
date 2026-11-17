@@ -29,7 +29,7 @@ export function AccountShell({ active, customerName = "Thành viên Tri Kỷ", c
           <nav className="account-menu" aria-label="Điều hướng tài khoản">
             {hasCapability("PROFILE_MANAGE") ? <Link className={active === "profile" ? "active" : ""} href="/account/profile"><span className="gh-emblem" aria-hidden="true" /> Hồ sơ cá nhân <b>›</b></Link> : null}
             {hasCapability("ADDRESS_MANAGE") ? <Link className={active === "addresses" ? "active" : ""} href="/account/addresses"><span className="gh-emblem" aria-hidden="true" /> Sổ địa chỉ nhận hàng <b>›</b></Link> : null}
-            {hasCapability("ORDER_HISTORY_VIEW") ? <Link className={active === "orders" ? "active" : ""} href="/account/orders"><span>▤</span> Đơn hàng của tôi <b>›</b></Link> : null}
+            {hasCapability("ORDER_HISTORY_VIEW") ? <Link className={active === "orders" ? "active" : ""} href="/account/orders"><span className="gh-emblem" aria-hidden="true" /> Đơn hàng của tôi <b>›</b></Link> : null}
             {hasCapability("LOYALTY_VIEW") ? <Link className={active === "loyalty" ? "active" : ""} href="/account/loyalty"><span className="gh-emblem" aria-hidden="true" /> Điểm &amp; ưu đãi <b>›</b></Link> : null}
             <Link href="/settings/password"><span>⌑</span> Đổi mật khẩu <b>›</b></Link>
           </nav>

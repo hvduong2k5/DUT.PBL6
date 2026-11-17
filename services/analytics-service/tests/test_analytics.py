@@ -18,7 +18,7 @@ from openapi_spec_validator import validate
 
 from analytics_service import db, kafka, report, snapshots
 from analytics_service.api import APIError, date_range
-from analytics_service.config import TOPIC, Settings
+from analytics_service.config import TOPIC, AuthSettings, Settings
 from analytics_service.events import TZ, InvalidRecord, OrderAdapter
 from analytics_service.migrate import clickhouse
 
@@ -30,6 +30,7 @@ if not FIXTURES.exists():
 else:
     SPEC = Path("/app/contracts/analytics.openapi.yaml")
 API = "http://api:8011/api/v1/admin/analytics"
+SCOPED_API = "http://scoped-api:8011/api/v1/admin/analytics"
 IDENTITY = "http://identity-fixture:8016"
 
 
@@ -99,6 +100,18 @@ def test_normalizes_timestamp_without_losing_nanosecond_identity():
 
 def test_spec():
     validate(yaml.safe_load(SPEC.read_text(encoding="utf-8")))
+
+
+def test_auth_mode_requires_allowlist_only_for_pilot(monkeypatch):
+    monkeypatch.setenv("ANALYTICS_JWT_ISSUER", "https://identity.example.test")
+    monkeypatch.setenv("ANALYTICS_JWT_PUBLIC_KEY", "test-key")
+    monkeypatch.setenv("ANALYTICS_IDENTITY_URL", "https://identity.example.test")
+    monkeypatch.setenv("ANALYTICS_PILOT_IDS", "")
+    monkeypatch.setenv("ANALYTICS_AUTH_MODE", "pilot")
+    with pytest.raises(ValueError, match="pilot IDs"):
+        AuthSettings.load()
+    monkeypatch.setenv("ANALYTICS_AUTH_MODE", "scoped")
+    assert AuthSettings.load().pilot_ids == frozenset()
 
 
 def wait_for(function, timeout=30):
@@ -217,6 +230,77 @@ def test_runtime(tmp_path):
     assert card(dashboard, "orders_completed")["value"] == "1"
     assert card(dashboard, "profit")["quality"] == "UNAVAILABLE"
     pinned = dashboard.json()["snapshotId"]
+    scoped_supply = [
+        ("/supply/workbench", {"warehouseId": "warehouse-hue", "from": str(day), "to": str(today)}),
+        (
+            "/supply/velocity",
+            {
+                "skuCode": "SKU-01",
+                "warehouseId": "warehouse-hue",
+                "from": str(day),
+                "to": str(today),
+            },
+        ),
+        ("/supply/expiry-risk", {"skuCode": "SKU-01", "warehouseId": "warehouse-hue"}),
+    ]
+    for kind, expected in (
+        ("dashboard", 200),
+        ("supply", 403),
+        ("flat", 403),
+        ("warehousegrant", 403),
+        ("customer", 403),
+        ("inactive", 403),
+    ):
+        response = httpx.get(SCOPED_API + "/dashboard", params=query, headers=headers(kind))
+        assert response.status_code == expected, (kind, response.text)
+    assert httpx.get(SCOPED_API + "/dashboard", params=query).status_code == 401
+    for kind, cookie, expected in (
+        ("dashboard", "f47ac10b-58cc-4372-a567-0e02b2c3d474", 200),
+        ("supply", "f47ac10b-58cc-4372-a567-0e02b2c3d473", 403),
+        ("flat", "f47ac10b-58cc-4372-a567-0e02b2c3d472", 403),
+    ):
+        response = httpx.get(
+            SCOPED_API + "/dashboard", params=query, cookies={"OMAMA_SESSION": cookie}
+        )
+        assert response.status_code == expected, (kind, response.text)
+    for kind, expected in (
+        ("dashboard", 403),
+        ("supply", 200),
+        ("flat", 403),
+        ("customer", 403),
+        ("inactive", 403),
+        ("warehousegrant", 403),
+    ):
+        for path, params in scoped_supply:
+            response = httpx.get(SCOPED_API + path, params=params, headers=headers(kind))
+            assert response.status_code == expected, (kind, path, response.text)
+    for path, params in scoped_supply:
+        assert httpx.get(SCOPED_API + path, params=params).status_code == 401
+    for kind, expected in (
+        ("dashboard", 403),
+        ("supply", 200),
+        ("flat", 403),
+        ("warehousegrant", 403),
+    ):
+        cookie = {
+            "dashboard": "f47ac10b-58cc-4372-a567-0e02b2c3d474",
+            "supply": "f47ac10b-58cc-4372-a567-0e02b2c3d473",
+            "flat": "f47ac10b-58cc-4372-a567-0e02b2c3d472",
+            "warehousegrant": "f47ac10b-58cc-4372-a567-0e02b2c3d471",
+        }[kind]
+        for path, params in scoped_supply:
+            response = httpx.get(
+                SCOPED_API + path, params=params, cookies={"OMAMA_SESSION": cookie}
+            )
+            assert response.status_code == expected, (kind, path, response.text)
+    assert (
+        httpx.get(
+            SCOPED_API + "/metrics/orders_paid/series",
+            params={"from": str(day), "to": str(today), "snapshotId": pinned},
+            headers=headers("dashboard"),
+        ).status_code
+        == 200
+    )
     previous_query = {"from": str(previous), "to": str(day)}
     assert (
         card(

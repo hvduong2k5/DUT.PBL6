@@ -118,9 +118,9 @@ export function OrderDetailFlow({ orderId }: { orderId: string }) {
     {order.operationalHold || order.hasActiveCase ? <div className="checkout-inline-error" role="status"><strong>Đơn đang cần lưu ý</strong><p>{order.statusDescription}</p></div> : null}
 
     <section className="order-status-grid">
-      <article><span>▤</span><div><small>Trạng thái đơn</small><strong>{order.statusLabel}</strong><p>{order.statusDescription}</p></div></article>
-      <article><span className="gh-emblem" aria-hidden="true" /><div><small>Trạng thái thanh toán</small><strong>{order.payment.label}</strong><p>{order.payment.method} · hết hạn {new Date(order.payment.expiresAt).toLocaleString("vi-VN")}</p></div></article>
-      <article><span>▱</span><div><small>Trạng thái kho</small><strong>{order.stock.label}</strong></div></article>
+      <article><span className="gh-emblem" aria-hidden="true" /><div><small>Trạng thái đơn</small><strong>{order.statusLabel}</strong><p>{order.statusDescription}</p></div></article>
+      <article><span className="gh-emblem" aria-hidden="true" /><div><small>Trạng thái thanh toán</small><strong>{order.payment.label}</strong><p>{order.payment.method}{order.payment.expiresAt ? ` · hết hạn ${new Date(order.payment.expiresAt).toLocaleString("vi-VN")}` : ""}</p></div></article>
+      <article><span className="gh-emblem" aria-hidden="true" /><div><small>Trạng thái kho</small><strong>{order.stock.label}</strong></div></article>
     </section>
 
     <section className="order-journey"><header><div><span className="eyebrow">Hành trình giao hàng</span><h2>Theo dõi đơn hàng</h2></div>{tracking?.shipment_id ? <b>Mã vận đơn: {tracking.shipment_id}</b> : null}</header>
