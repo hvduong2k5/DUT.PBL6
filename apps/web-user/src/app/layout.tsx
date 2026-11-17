@@ -4,6 +4,7 @@ import { AuthProvider } from "@/components/auth/auth-provider";
 import { RecommendationProvider } from "@/components/recommendation/recommendation-provider";
 import "./globals.css";
 import "@/styles/heritage.css";
+import "@/styles/heritage-shell.css";
 
 const playfair = Playfair_Display({
   subsets: ["latin", "vietnamese"],
