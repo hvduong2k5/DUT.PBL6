@@ -56,7 +56,7 @@ export function HeritageBanner({ kicker, title, lead, image, slides, titleId, le
 
   const step = (delta: number) => setIndex((value) => (value + delta + items.length) % items.length);
   const arrow = (delta: number) => <button type="button" className={`gh-banner__arrow gh-banner__arrow--${delta < 0 ? "prev" : "next"}`}
-    aria-label={delta < 0 ? "Trang trước" : "Trang kế tiếp"} onClick={() => step(delta)}><span aria-hidden="true">{delta < 0 ? "←" : "→"}</span></button>;
+    aria-label={delta < 0 ? "Trang trước" : "Trang kế tiếp"} onClick={() => step(delta)}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{delta < 0 ? <path d="M19 12H5m6-6-6 6 6 6" /> : <path d="M5 12h14m-6-6 6 6-6 6" />}</svg></button>;
 
   return <div className="gh-banner-shell">
     <div
