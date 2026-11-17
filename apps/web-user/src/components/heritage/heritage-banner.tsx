@@ -55,11 +55,10 @@ export function HeritageBanner({ kicker, title, lead, image, slides, titleId, le
   }, [multi, reduceMotion, items.length, autoPlayMs, index]);
 
   const step = (delta: number) => setIndex((value) => (value + delta + items.length) % items.length);
-  const arrow = (delta: number, kind: "side" | "row") => <button type="button" className={`gh-banner__arrow gh-banner__arrow--${kind} gh-banner__arrow--${delta < 0 ? "prev" : "next"}`}
+  const arrow = (delta: number) => <button type="button" className="gh-banner__arrow"
     aria-label={delta < 0 ? "Trang trước" : "Trang kế tiếp"} onClick={() => step(delta)}><span aria-hidden="true">{delta < 0 ? "←" : "→"}</span></button>;
 
   return <div className="gh-banner-shell">
-    {multi ? <>{arrow(-1, "side")}{arrow(1, "side")}</> : null}
     <div
     className={`gh-banner gh-surface-imperial ${className}`}
     {...(multi ? { role: "group", "aria-roledescription": "carousel", "aria-label": "Giới thiệu nổi bật" } : {})}>
@@ -77,12 +76,12 @@ export function HeritageBanner({ kicker, title, lead, image, slides, titleId, le
       </div>
       {children}
       {multi ? <div className="gh-banner__controls">
-        {arrow(-1, "row")}
+        {arrow(-1)}
         <div className="gh-banner__dots" role="group" aria-label="Chọn trang giới thiệu">
           {items.map((_, i) => <button key={i} type="button" className={i === index ? "is-active" : undefined}
             aria-label={`Trang ${i + 1} / ${items.length}`} aria-current={i === index ? "true" : undefined} onClick={() => setIndex(i)}><span /></button>)}
         </div>
-        {arrow(1, "row")}
+        {arrow(1)}
       </div> : null}
     </div>
     <div className="gh-banner__visual">

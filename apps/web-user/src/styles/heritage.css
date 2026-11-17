@@ -360,20 +360,12 @@ a.gh-frame-card:hover::before,
 .gh-banner__photo.is-active { opacity: 1; }
 .gh-banner__photo img { object-fit: cover; }
 .gh-banner-shell { position: relative; }
-.gh-banner__arrow { display: grid; place-items: center; flex: 0 0 auto; width: 44px; height: 44px; padding: 0; border: 1px solid var(--mat); border-radius: var(--r-sm); font: 600 1.15rem/1 var(--chu-doc); cursor: pointer; transition: background-color 0.2s var(--ease-out), color 0.2s var(--ease-out), transform 0.2s var(--ease-out); }
-/* Side arrows sit in the page gutter next to the banner, never over the photo */
-.gh-banner__arrow--side { position: absolute; top: 50%; z-index: 6; display: none; background-color: var(--kem); background-image: var(--bg-giay); background-size: 300px 300px; color: var(--nau-dam); border-color: var(--nau); box-shadow: 0 6px 16px rgba(53, 32, 20, 0.16); transform: translateY(-50%); }
-.gh-banner__arrow--prev.gh-banner__arrow--side { left: -54px; }
-.gh-banner__arrow--next.gh-banner__arrow--side { right: -54px; }
-.gh-banner__arrow--side:hover { background-color: var(--mat); color: var(--muc); }
-/* Row arrows flank the dots inside the copy column on narrower screens */
-.gh-banner__arrow--row { background: rgba(252, 249, 244, 0.08); color: var(--kem); border-color: rgba(212, 162, 76, 0.7); }
-.gh-banner__arrow--row:hover { background: var(--mat); color: var(--muc); }
-@media (min-width: 1200px) {
-  .gh-banner__arrow--side { display: grid; }
-  .gh-banner__arrow--row { display: none; }
-}
-.gh-banner__controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 22px; }
+/* Quiet arrows that live inside the banner, flanking the dots: visible enough, never louder than the copy */
+.gh-banner__arrow { display: grid; place-items: center; flex: 0 0 auto; width: 36px; height: 44px; padding: 0; border: 0; background: none; color: rgba(252, 249, 244, 0.6); font: 400 1.25rem/1 var(--chu-doc); cursor: pointer; transition: color 0.2s var(--ease-out), transform 0.2s var(--ease-out); }
+.gh-banner__arrow:hover { color: var(--mat-sang); }
+.gh-banner__arrow:first-child:hover { transform: translateX(-3px); }
+.gh-banner__arrow:last-child:hover { transform: translateX(3px); }
+.gh-banner__controls { display: flex; align-items: center; gap: 4px; margin-left: -10px; margin-top: 22px; }
 .gh-banner__dots { display: flex; align-items: center; }
 .gh-banner__dots button { display: grid; place-items: center; width: 32px; height: 44px; padding: 0; border: 0; background: none; cursor: pointer; }
 .gh-banner__dots button span { display: block; width: 22px; height: 4px; background: rgba(252, 249, 244, 0.35); transition: background-color 0.25s, width 0.25s; }
