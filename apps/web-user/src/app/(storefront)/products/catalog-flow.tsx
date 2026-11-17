@@ -7,7 +7,7 @@ import { PublicApiError } from "@/lib/api-contract";
 import type { CatalogResult, DiscoveryConfig, PricePreset, ProductSummary, ProductType } from "@/lib/catalog/types";
 import { catalogService } from "@/services/catalog-service";
 import { ProductImage } from "@/components/product/product-image";
-import { HeritageBanner } from "@/components/heritage/heritage-banner";
+import { HeritageBanner, type BannerSlide } from "@/components/heritage/heritage-banner";
 
 const VND = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 });
 const SORT_OPTIONS = [
@@ -50,6 +50,17 @@ function ProductCard({ product }: { product: ProductSummary }) {
     </article>
   );
 }
+
+const CATALOG_SLIDES: BannerSlide[] = [
+  { kicker: "Tinh tuyển di sản", title: "Khám phá thức quà xứ Huế", lead: "Tìm món quà vừa ý từ những hương vị được gìn giữ qua nhiều thế hệ.",
+    image: { src: "/images/heritage/photos/sp-ke-trung-bay.jpg", alt: "Kệ trưng bày hộp quà Gói Huế" } },
+  { kicker: "Mè xửng & Trà Huế", title: "Hương vị dẻo thơm, thanh dịu", lead: "Mè xửng mạch nha và trà cung đình, đóng gói chỉn chu để thưởng thức hằng ngày.",
+    image: { src: "/images/heritage/photos/sp-me-xung-hop-qua.jpg", alt: "Túi mè xửng giòn, hộp quà và đĩa trà hoa bên đĩa mè xửng" },
+    cta: { href: "/products?category=me-xung-keo-hue", label: "Xem mè xửng Huế" } },
+  { kicker: "Quà biếu Cố đô", title: "Hộp quà trao gửi tấm lòng", lead: "Hộp Đoàn Viên ba khoang, sẵn sàng làm quà cho người thân và đối tác.",
+    image: { src: "/images/heritage/photos/sp-hop-qua-doan-vien.jpg", alt: "Hộp quà Đoàn Viên Gói Huế mở nắp" },
+    cta: { href: "/products?category=qua-bieu", label: "Xem quà biếu" } }
+];
 
 export function CatalogFlow() {
   const router = useRouter();
@@ -184,9 +195,7 @@ export function CatalogFlow() {
   return (
     <main className="catalog-page">
       <div className="catalog-breadcrumbs"><Link href="/">Trang chủ</Link><span>/</span><strong>Khám phá sản phẩm</strong></div>
-      <HeritageBanner className="gh-banner--compact" level={1} titleId="catalog-title" kicker="Tinh tuyển di sản" title="Khám phá thức quà xứ Huế"
-        lead="Tìm món quà vừa ý từ những hương vị được gìn giữ qua nhiều thế hệ."
-        image={{ src: "/images/heritage/photos/sp-ke-trung-bay.jpg", alt: "Kệ trưng bày hộp quà Gói Huế" }}>
+      <HeritageBanner className="gh-banner--compact" level={1} titleId="catalog-title" slides={CATALOG_SLIDES}>
         <form className="gh-trace-form" onSubmit={submitSearch} noValidate>
           <label className="gh-trace-form__label" htmlFor="catalog-keyword">Tìm trong kho thức quà</label>
           <div className="gh-trace-form__row"><input id="catalog-keyword" className="gh-field" value={keyword} onChange={(event) => { setKeyword(event.target.value); setSearchError(""); }} placeholder="Thử “mè xửng”, “hạt sen”, “trà”…" aria-invalid={Boolean(searchError)} /><button type="submit" className="gh-btn gh-btn--fold">Tìm kiếm</button></div>

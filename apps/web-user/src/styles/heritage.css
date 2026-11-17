@@ -347,9 +347,24 @@ a.gh-frame-card:hover::before,
 .gh-banner__rule { width: 72px; height: 3px; margin-bottom: 18px; background: var(--mat); }
 .gh-banner .gh-banner__lead { max-width: 44ch; margin: 0 0 26px; color: rgba(252, 249, 244, 0.9); font-size: clamp(1rem, 1.5cqi, 1.15rem); line-height: 1.6; }
 .gh-banner__actions { display: flex; flex-wrap: wrap; gap: 14px; }
+.gh-banner__slides { display: grid; }
+.gh-banner__slide { grid-area: 1 / 1; display: flex; flex-direction: column; justify-content: center; opacity: 0; visibility: hidden; transform: translateY(8px); transition: opacity 0.6s var(--ease-out), transform 0.6s var(--ease-out), visibility 0s linear 0.6s; }
+.gh-banner__slide.is-active { opacity: 1; visibility: visible; transform: none; transition-delay: 0s; }
+.gh-banner__cta { align-self: flex-start; margin-bottom: 26px; padding-bottom: 2px; border-bottom: 1px solid var(--mat); color: var(--mat-sang); font-weight: 600; text-decoration: none; }
+.gh-banner__cta:hover { color: var(--kem); }
 .gh-banner__visual { position: relative; z-index: 1; min-height: 300px; }
-.gh-banner__visual img { object-fit: cover; }
-.gh-banner__visual::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, var(--nau-cung-dinh) 0%, rgba(53, 32, 20, 0.45) 16%, transparent 40%); pointer-events: none; }
+/* The photo dissolves into the lacquer colour: no hard seam, whatever the background gradient does */
+.gh-banner__photo { position: absolute; inset: 0; opacity: 0; transition: opacity 0.9s ease; -webkit-mask-image: linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.55) 16%, #000 46%); mask-image: linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.55) 16%, #000 46%); }
+.gh-banner__photo.is-active { opacity: 1; }
+.gh-banner__photo img { object-fit: cover; }
+.gh-banner__controls { display: flex; align-items: center; gap: 16px; margin-top: 22px; }
+.gh-banner__dots { display: flex; align-items: center; }
+.gh-banner__dots button { display: grid; place-items: center; width: 32px; height: 44px; padding: 0; border: 0; background: none; cursor: pointer; }
+.gh-banner__dots button span { display: block; width: 22px; height: 4px; background: rgba(252, 249, 244, 0.35); transition: background-color 0.25s, width 0.25s; }
+.gh-banner__dots button:hover span { background: rgba(252, 249, 244, 0.7); }
+.gh-banner__dots button.is-active span { width: 34px; background: var(--mat); }
+.gh-banner__pause { min-height: 44px; padding: 0 4px; border: 0; background: none; color: rgba(252, 249, 244, 0.75); font: 600 var(--t-label) var(--chu-doc); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.gh-banner__pause:hover { color: var(--kem); }
 .gh-banner__badges { display: flex; flex-wrap: wrap; gap: 8px; margin: 22px 0 0; padding: 0; list-style: none; }
 .gh-banner__badges .gh-badge { position: static; box-shadow: none; }
 @container (max-width: 760px) {
@@ -358,8 +373,11 @@ a.gh-frame-card:hover::before,
 @media (max-width: 960px) {
   .gh-banner { grid-template-columns: 1fr; }
   .gh-banner__visual { order: -1; min-height: clamp(220px, 46vw, 360px); }
-  .gh-banner__visual::after { background: linear-gradient(0deg, var(--nau-cung-dinh) 0%, rgba(53, 32, 20, 0.35) 26%, transparent 55%); }
+  .gh-banner__photo { -webkit-mask-image: linear-gradient(0deg, transparent 0%, rgba(0, 0, 0, 0.55) 16%, #000 46%); mask-image: linear-gradient(0deg, transparent 0%, rgba(0, 0, 0, 0.55) 16%, #000 46%); }
   .gh-banner__copy { padding-top: 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gh-banner__slide, .gh-banner__photo, .gh-banner__dots button span { transition-duration: 0.01ms !important; }
 }
 @media (max-width: 600px) {
   .gh-banner::before { inset: 8px; border-width: 12px; }
