@@ -9,7 +9,8 @@ DUT.PBL6 dùng frontend Next.js hiện hữu, backend thông qua API adapter. Nh
 1. Khảo sát dev và thư viện tham chiếu — đã làm.
 2. Home và điều hướng theo mẫu — đã có checkpoint e5b8612. Người dùng cho phép thay cấu trúc để gọn hơn.
 3. Trùng tu UI khách hàng và làm rõ recommendation — triển khai trong STOREFRONT_RENOVATION.md.
-4. Người dùng duyệt giao diện và kiểm thử cùng backend thật — đang chờ sau bản preview.
+4. UI trùng tu đã được duyệt. Bổ sung dữ liệu mẫu SQL và chuyển mock/real/auto — đã triển khai, chờ duyệt dữ liệu.
+5. Sau duyệt dữ liệu, tiếp tục UI khác và kiểm thử backend thật.
 
 ## Quyết định
 

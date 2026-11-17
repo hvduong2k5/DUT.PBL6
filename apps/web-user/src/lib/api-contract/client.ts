@@ -48,6 +48,10 @@ export async function requestPublicJson<T>(input: RequestInfo | URL, options: Pu
     body: body === undefined ? undefined : JSON.stringify(body),
     cache: init.cache ?? "no-store"
   });
+  if (response.headers.get("X-Storefront-Data-Source") === "mock" && typeof window !== "undefined") {
+    document.documentElement.dataset.storefrontSample = "true";
+    window.dispatchEvent(new Event("storefront-sample-data"));
+  }
   const payload = await readPayload(response);
 
   if (!response.ok) {

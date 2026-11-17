@@ -401,3 +401,5 @@
  .customer-storefront .checkout-steps li::after { display:none; }
  .customer-storefront .hue-home img[aria-hidden=true] { max-width:100%; }
 }
+
+.storefront-data-notice { margin:0; padding:8px 4%; background:#f3e5ca; color:#563a26; font-size:13px; text-align:center; }

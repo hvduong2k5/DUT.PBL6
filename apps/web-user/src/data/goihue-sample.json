@@ -1,0 +1,99 @@
+{
+  "source": "goihue_backup.sql",
+  "sourceSha256": "b2a0b91bc3fbdf652ce063e1aec400b34aadb420e7ca945a1c298b92afda2db0",
+  "products": [
+    {
+      "id": "8ec163dc-1893-4d6a-b981-6c096c010554",
+      "name": "Mè Xửng Gừng Huế 250g",
+      "slug": "me-xung-gung-hue-250g",
+      "image": "/images/product-placeholder.svg",
+      "price": 74998,
+      "stock": 49,
+      "active": true,
+      "category": "me-xung-keo-hue",
+      "description": "Mè xửng dẻo kết hợp mè rang, đậu phộng và vị gừng nhẹ. Hộp 250g, phù hợp dùng cùng trà hoặc làm quà."
+    },
+    {
+      "id": "afee0ff5-937c-410b-a156-7bfad39c6efa",
+      "name": "Bánh In Đậu Xanh 200g",
+      "slug": "banh-in-dau-xanh-200g",
+      "image": "/images/product-placeholder.svg",
+      "price": 60000,
+      "stock": 50,
+      "active": true,
+      "category": "banh-cung-dinh",
+      "description": "Bánh in vị đậu xanh, tạo hình hoa văn truyền thống. Hộp 200g, phù hợp dùng trong các buổi thưởng trà."
+    },
+    {
+      "id": "ccd10d31-954b-4618-902e-8d883d7cd0ca",
+      "name": "Mè Xửng Đậu Phộng 300g",
+      "slug": "me-xung-dau-phong-300g",
+      "image": "/images/product-placeholder.svg",
+      "price": 90000,
+      "stock": 40,
+      "active": true,
+      "category": "me-xung-keo-hue",
+      "description": "Mè xửng dẻo truyền thống với đậu phộng rang và lớp mè thơm. Hộp 300g, thích hợp chia sẻ cùng gia đình."
+    },
+    {
+      "id": "9327f6df-83bf-40a3-bf2d-25a509775e49",
+      "name": "Trà Cung Đình Túi Lọc 100g",
+      "slug": "tra-cung-dinh-tui-loc-100g",
+      "image": "/images/product-placeholder.svg",
+      "price": 110000,
+      "stock": 35,
+      "active": true,
+      "category": "tra-cung-dinh",
+      "description": "Trà phối hương theo phong cách Huế, đóng dạng túi lọc tiện pha. Hộp 100g, hương thơm dịu nhẹ."
+    },
+    {
+      "id": "f122d60d-7453-45c6-84a2-3080a85e6cd4",
+      "name": "Hộp Quà Hương Huế",
+      "slug": "hop-qua-huong-hue",
+      "image": "/images/product-placeholder.svg",
+      "price": 320000,
+      "stock": 20,
+      "active": true,
+      "category": "qua-bieu",
+      "description": "Bộ quà mẫu gồm mè xửng, bánh in và trà. Đóng hộp theo phong cách Gói Huế, phù hợp biếu tặng."
+    }
+  ],
+  "categories": [
+    {
+      "id": "00000000-0000-4000-8000-000000000501",
+      "code": "me-xung-keo-hue",
+      "name": "Mè xửng Huế",
+      "image": "/images/product-placeholder.svg",
+      "active": true,
+      "sortOrder": 1,
+      "description": ""
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000503",
+      "code": "tra-cung-dinh",
+      "name": "Trà Huế",
+      "image": "/images/product-placeholder.svg",
+      "active": true,
+      "sortOrder": 3,
+      "description": ""
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000504",
+      "code": "qua-bieu",
+      "name": "Quà biếu",
+      "image": "/images/product-placeholder.svg",
+      "active": true,
+      "sortOrder": 4,
+      "description": ""
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000502",
+      "code": "banh-cung-dinh",
+      "name": "Mức",
+      "image": "/images/product-placeholder.svg",
+      "active": true,
+      "sortOrder": 2,
+      "description": ""
+    }
+  ]
+}

@@ -84,7 +84,7 @@ export function RecommendationProvider({ children }: { children: ReactNode }) {
   }, [measurement]);
 
   const measure = useCallback((name: string, result: Recommendations, items: RecommendationItem[]) => {
-    if (!measurement) return;
+    if (!measurement || result.recommendationId.startsWith("catalog-preview-")) return;
     window.gtag?.("event", name, {
       item_list_id: `rec_${result.placement}_v1`, currency: "VND",
       items: items.map((item) => ({ item_id: item.skuCode, item_name: item.name, price: item.priceVnd, index: item.rank - 1 }))
@@ -104,6 +104,7 @@ export function RecommendationProvider({ children }: { children: ReactNode }) {
   }, [actor, consent]);
 
   const record = useCallback((sku: string, kind: "VIEW_ITEM" | "ADD_TO_CART") => {
+    if (sku.startsWith("DEMO-")) return;
     const state = current.current;
     const provenance = clicks.current.get(sku);
     if (kind === "ADD_TO_CART" && provenance && Date.now() - provenance.at < 30 * 60 * 1000) {
@@ -128,7 +129,7 @@ export function RecommendationProvider({ children }: { children: ReactNode }) {
   }, [measure]);
 
   return <Context.Provider value={{ consent, setConsent, consentError, record, measurement, setMeasurement,
-    click: (result, item) => { clicks.current.set(item.skuCode, { result, at: Date.now() }); measure("select_item", result, [item]); },
+    click: (result, item) => { if (result.recommendationId.startsWith("catalog-preview-")) return; clicks.current.set(item.skuCode, { result, at: Date.now() }); measure("select_item", result, [item]); },
     impression: (result) => measure("view_item_list", result, result.items)
   }}>{children}</Context.Provider>;
 }

@@ -12,6 +12,7 @@
     "dev:support": "node scripts/dev-support.mjs",
     "build": "next build",
     "start": "next start",
+    "preview:data": "node scripts/start-data-preview.mjs",
     "lint": "eslint .",
     "typecheck": "node scripts/typecheck.mjs",
     "test": "vitest run",

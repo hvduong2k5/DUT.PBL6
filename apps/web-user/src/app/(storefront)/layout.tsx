@@ -1,3 +1,4 @@
+import { StorefrontDataNotice } from "@/components/storefront/data-notice";
 import "@/styles/storefront-heritage.css";
 import "@/styles/customer-renovation.css";
 import type { ReactNode } from "react";
@@ -12,7 +13,10 @@ export default function StorefrontLayout({
   return (
     <CustomerSessionProvider>
       <CartSummaryProvider>
-        <div className="customer-storefront">{children}</div>
+        <div className="customer-storefront">
+          <StorefrontDataNotice />
+          {children}
+        </div>
       </CartSummaryProvider>
     </CustomerSessionProvider>
   );

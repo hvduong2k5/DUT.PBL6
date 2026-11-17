@@ -28,6 +28,8 @@ export const cartService = {
   get: getCart,
 
   async addItem(input: AddCartItemInput, mockScenario?: string): Promise<Cart> {
+    if (input.skuId.startsWith("DEMO-")) throw new Error("Đây là sản phẩm mẫu để duyệt giao diện. Chuyển sang dữ liệu thật để đặt hàng.");
+
     const current = await getCart(mockScenario);
     const body: AddCartItemRequest = {
       sku_code: input.skuId,
