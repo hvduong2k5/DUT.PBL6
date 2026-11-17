@@ -10,14 +10,14 @@ import "@/styles/heritage-pages.css";
 import "@/styles/heritage-features.css";
 
 const playfair = Playfair_Display({
-  subsets: ["latin", "vietnamese"],
+  subsets: ["latin", "latin-ext", "vietnamese"],
   weight: ["500", "600", "700"],
   variable: "--font-playfair",
   display: "swap"
 });
 
 const beVietnam = Be_Vietnam_Pro({
-  subsets: ["latin", "vietnamese"],
+  subsets: ["latin", "latin-ext", "vietnamese"],
   weight: ["400", "500", "600", "700"],
   variable: "--font-be-vietnam",
   display: "swap"
