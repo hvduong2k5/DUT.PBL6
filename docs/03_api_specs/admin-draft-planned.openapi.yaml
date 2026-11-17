@@ -57,6 +57,36 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/MarketingKpiReport'
+              examples:
+                noReportedDays:
+                  value:
+                    timeZone: Asia/Ho_Chi_Minh
+                    throughDate: '2026-11-16'
+                    coverage: NOT_SYNCED
+                    expectedChannelDays: 2
+                    reportedChannelDays: 0
+                    items:
+                      - {metricCode: CLICKS, unit: count, status: SUPPORTED, target: '10', actual: null, variance: null, attainmentPercent: null}
+                partialCoverage:
+                  value:
+                    timeZone: Asia/Ho_Chi_Minh
+                    throughDate: '2026-11-16'
+                    coverage: PARTIAL
+                    expectedChannelDays: 2
+                    reportedChannelDays: 1
+                    items:
+                      - {metricCode: CLICKS, unit: count, status: SUPPORTED, target: '10', actual: '8', variance: null, attainmentPercent: null}
+                completeCoverage:
+                  value:
+                    timeZone: Asia/Ho_Chi_Minh
+                    throughDate: '2026-11-16'
+                    coverage: COMPLETE
+                    expectedChannelDays: 2
+                    reportedChannelDays: 2
+                    items:
+                      - {metricCode: CLICKS, unit: count, status: SUPPORTED, target: '10', actual: '8', variance: '-2', attainmentPercent: '80.00'}
+                      - {metricCode: IMPRESSIONS, unit: count, status: SUPPORTED, target: '0', actual: '25', variance: '25', attainmentPercent: null}
+                      - {metricCode: CONVERSIONS, unit: count, status: UNSUPPORTED, target: '5', actual: null, variance: null, attainmentPercent: null}
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
