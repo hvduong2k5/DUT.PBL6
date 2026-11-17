@@ -1,0 +1,33 @@
+# =============================================================================
+# Keycloak Service - Production & Development Container Image
+# Multi-stage optimized build for Keycloak 24 (Quarkus)
+# =============================================================================
+
+# Stage 1: Build & Optimize
+FROM quay.io/keycloak/keycloak:24.0.5 AS builder
+
+# Build-time configurations for Quarkus optimization
+ENV KC_HEALTH_ENABLED=true \
+    KC_METRICS_ENABLED=true \
+    KC_DB=postgres
+
+WORKDIR /opt/keycloak
+
+# Copy custom themes (Ô Mạ Vietnamese theme)
+COPY themes/ /opt/keycloak/themes/
+
+# Copy realm template for automatic first-time import
+COPY realm-export.template.json /opt/keycloak/data/import/realm.json
+
+# Pre-build Keycloak with PostgreSQL and health/metrics enabled
+RUN /opt/keycloak/bin/kc.sh build
+
+# Stage 2: Minimal Runtime
+FROM quay.io/keycloak/keycloak:24.0.5
+COPY --from=builder /opt/keycloak/ /opt/keycloak/
+
+# Public Keycloak HTTP port
+EXPOSE 8080
+
+ENTRYPOINT ["/opt/keycloak/bin/kc.sh"]
+CMD ["start", "--optimized", "--import-realm"]
