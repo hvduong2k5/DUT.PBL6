@@ -316,3 +316,10 @@ Paths are relative to the campaign revision. Cookie clients use the matching Ide
 | POST executions/{executionId}/actions | 200 updated execution | 409 refresh state/version, 422 missing reason/evidence or outside schedule, 400 invalid body/key, 401/403/404 as above, 500/503 retry with the original key |
 | GET executions/{executionId}/history | 200 history ordered by version. Past the final version returns empty items and a null nextAfterVersion | 400 invalid cursor/limit, 401 renew session, 404 hidden or missing execution, 500/503 retry |
 | POST revoke-approval | 200 revision with approval revocation; affected channels become CANCELLED or STOP_PENDING | 401 renew session, 403 missing approval grant, 404 missing revision, 409 stale or already revoked, 422 missing reason, 500/503 retry with original key |
+
+### Marketing execution metrics (draft)
+
+| Operation | Success / empty | Error handling |
+|---|---|---|
+| GET executions/{executionId}/metrics | 200 with daily coverage. Missing days return null values | 401 renew session, 404 hidden or missing execution, 422 invalid range |
+| PUT executions/{executionId}/metrics/{date} | 200 stored or replayed daily snapshot | 401 renew session, 403 missing channel grant, 404 missing execution, 409 conflicting source version or execution never started, 422 invalid date or counts, 500/503 retry the same version |

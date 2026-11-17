@@ -37,6 +37,109 @@ tags:
   - name: Marketing
     description: Draft Campaign planning and approval operations for EPIC 21.
 paths:
+  /api/v1/admin/marketing/campaigns/{campaignId}/revisions/{revisionId}/executions/{executionId}/metrics:
+    x-employee-session-path: '/api/v1/admin/marketing-api/campaigns/{campaignId}/revisions/{revisionId}/executions/{executionId}/metrics'
+    parameters:
+      - name: campaignId
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      - name: revisionId
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      - name: executionId
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+    get:
+      operationId: getMarketingExecutionMetrics
+      summary: Read daily execution metrics and coverage
+      description: Requires MARKETING_KPI_VIEW in the campaign department or GLOBAL.
+      tags: [Marketing]
+      security:
+        - marketingEmployeeSession: []
+        - bearerAuth: []
+      parameters:
+        - {name: from, in: query, required: true, schema: {type: string, format: date}}
+        - {name: to, in: query, required: true, schema: {type: string, format: date}}
+      responses:
+        '200':
+          description: Daily metrics for an inclusive range of up to 31 days.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarketingMetricRange'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/admin/marketing/campaigns/{campaignId}/revisions/{revisionId}/executions/{executionId}/metrics/{date}:
+    x-employee-session-path: '/api/v1/admin/marketing-api/campaigns/{campaignId}/revisions/{revisionId}/executions/{executionId}/metrics/{date}'
+    parameters:
+      - name: campaignId
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      - name: revisionId
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      - name: executionId
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      - name: date
+        in: path
+        required: true
+        schema: {type: string, format: date}
+    put:
+      operationId: recordMarketingExecutionMetrics
+      summary: Record a daily manual metric snapshot
+      description: Requires MARKETING_CHANNEL_MANAGE in the campaign department or GLOBAL.
+      tags: [Marketing]
+      security:
+        - marketingEmployeeSession: []
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MarketingMetricInput'
+      responses:
+        '200':
+          description: The current daily metric snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarketingMetricDay'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /api/v1/admin/marketing/campaigns/{campaignId}/revisions/{revisionId}/executions/{executionId}/history:
     x-employee-session-path: '/api/v1/admin/marketing-api/campaigns/{campaignId}/revisions/{revisionId}/executions/{executionId}/history'
     parameters:
@@ -1753,6 +1856,33 @@ components:
         type: "string"
         format: "uuid"
   schemas:
+    MarketingMetricInput:
+      type: object
+      additionalProperties: false
+      required: [sourceVersion, impressions, clicks]
+      properties:
+        sourceVersion: {type: integer, minimum: 1, maximum: 9007199254740991}
+        impressions: {type: integer, minimum: 0, maximum: 9007199254740991}
+        clicks: {type: integer, minimum: 0, maximum: 9007199254740991}
+    MarketingMetricDay:
+      type: object
+      required: [date, status, sourceVersion, impressions, clicks]
+      properties:
+        date: {type: string, format: date}
+        status: {type: string, enum: [REPORTED, MISSING]}
+        sourceVersion: {type: [integer, 'null']}
+        impressions: {type: [integer, 'null']}
+        clicks: {type: [integer, 'null']}
+    MarketingMetricRange:
+      type: object
+      required: [coverage, items]
+      properties:
+        coverage: {type: string, enum: [NOT_SYNCED, PARTIAL, COMPLETE]}
+        items:
+          type: array
+          maxItems: 31
+          items:
+            $ref: '#/components/schemas/MarketingMetricDay'
     MarketingExecutionHistory:
       type: object
       required: [items, total, nextAfterVersion]

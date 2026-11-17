@@ -15,7 +15,7 @@ services:
       - name: marketing-staff-session
         paths: [/api/v1/admin/marketing-api/campaigns]
         strip_path: false
-        methods: [GET, POST, PATCH, OPTIONS]
+        methods: [GET, POST, PUT, PATCH, OPTIONS]
   - name: marketing-service
     url: http://marketing-service:8014
     connect_timeout: 2000
@@ -26,7 +26,7 @@ services:
       - name: marketing-staff
         paths: [/api/v1/admin/marketing/campaigns]
         strip_path: false
-        methods: [GET, POST, PATCH, OPTIONS]
+        methods: [GET, POST, PUT, PATCH, OPTIONS]
   - name: inventory-admin-service
     url: http://inventory-svc:8003
     routes:

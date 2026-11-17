@@ -212,7 +212,7 @@ class ManualExecutions {
         return campaign;
     }
 
-    private Execution get(UUID revision, UUID id) {
+    Execution get(UUID revision, UUID id) {
         return query("SELECT * FROM campaign_executions WHERE revision_id = :revision AND id = :id", revision, id)
                 .optional().orElseThrow(() -> new MarketingFailure("RESOURCE_NOT_FOUND", 404));
     }

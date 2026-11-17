@@ -1,10 +1,13 @@
 package com.hvduong.marketing;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.servlet.http.HttpServletRequest;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -13,6 +16,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -28,16 +32,18 @@ class CampaignController {
     record Review(long expectedVersion, UUID approvalRequestId, String reason) {}
 
     private final ManualExecutions executions;
+    private final ExecutionMetrics metrics;
     private final MarketingPeers peers;
     private final CampaignCommands commands;
     private final CampaignStore store;
     private final String adminOrigin;
     private final TransactionTemplate readTransaction;
 
-    CampaignController(MarketingPeers peers, CampaignCommands commands, CampaignStore store, ManualExecutions executions,
+    CampaignController(MarketingPeers peers, CampaignCommands commands, CampaignStore store, ManualExecutions executions, ExecutionMetrics metrics,
                        PlatformTransactionManager transactions, @Value("${marketing.admin-origin:}") String adminOrigin) {
         this.peers = peers;
         this.executions = executions;
+        this.metrics = metrics;
         this.commands = commands;
         this.store = store;
         this.adminOrigin = adminOrigin;
@@ -210,6 +216,37 @@ class CampaignController {
             throw new MarketingFailure("BAD_REQUEST", 400);
         }
         return response(executions.revoke(actor, campaignId, revisionId, body, key, requestId(request)));
+    }
+
+
+    @GetMapping("/{campaignId}/revisions/{revisionId}/executions/{executionId}/metrics")
+    ExecutionMetrics.Range executionMetrics(HttpServletRequest request, @PathVariable UUID campaignId,
+            @PathVariable UUID revisionId, @PathVariable UUID executionId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        return metrics.read(staff(request), campaignId, revisionId, executionId, from, to);
+    }
+
+    @PutMapping("/{campaignId}/revisions/{revisionId}/executions/{executionId}/metrics/{date}")
+    ExecutionMetrics.Day recordMetrics(HttpServletRequest request, @PathVariable UUID campaignId,
+            @PathVariable UUID revisionId, @PathVariable UUID executionId, @PathVariable
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestBody JsonNode body) {
+        var actor = staff(request);
+        if (!body.isObject() || body.size() != 3) {
+            throw new MarketingFailure("VALIDATION_FAILED", 422);
+        }
+        var input = new ExecutionMetrics.Input(metricInteger(body.path("sourceVersion")),
+                metricInteger(body.path("impressions")), metricInteger(body.path("clicks")));
+        return metrics.record(actor, campaignId, revisionId, executionId, date, input, requestId(request));
+    }
+
+
+    private Long metricInteger(JsonNode value) {
+        if (!value.isIntegralNumber() || !value.canConvertToLong()) {
+            throw new MarketingFailure("VALIDATION_FAILED", 422);
+        }
+        return value.longValue();
     }
 
 

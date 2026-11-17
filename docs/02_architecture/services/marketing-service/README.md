@@ -148,3 +148,5 @@ Marketing và Executive chốt taxonomy, các trường bắt buộc còn lại 
 [Lộ trình bàn giao Web Admin và lát triển khai tiếp theo](02_handoff_and_next_steps.md)
 
 [Thiết kế lập lịch và thực thi thủ công](03_manual_execution.md)
+
+[Thiết kế KPI theo execution](04_execution_kpi.md)

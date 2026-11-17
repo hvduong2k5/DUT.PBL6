@@ -34,7 +34,7 @@ class CampaignCommandsIntegrationTest {
         var author = new StaffActor(UUID.randomUUID(), Set.of(grant("PLAN_EDIT"), grant("BUDGET_EDIT"), grant("PLAN_SUBMIT")));
         var reviewer = new StaffActor(UUID.randomUUID(), Set.of(grant("PLAN_APPROVE")));
         var starts = Instant.parse("2026-12-01T00:00:00Z");
-        var ends = starts.plusSeconds(3600);
+        var ends = starts.plusSeconds(172800);
         var plan = new CampaignPlan("Pilot", "Launch", author.id(), starts, ends, "Asia/Ho_Chi_Minh", 100,
                 List.of(new CampaignPlan.Channel("EMAIL", starts, ends, "Launch brief")), List.of(),
                 List.of(new CampaignPlan.KpiTarget("CLICKS", "count", "100")));
@@ -86,10 +86,10 @@ class CampaignCommandsIntegrationTest {
     @Test
     void schedulesApprovedChannelAndRecordsManualActionsOnce() throws Exception {
         var operator = new StaffActor(UUID.randomUUID(), Set.of(grant("PLAN_EDIT"), grant("BUDGET_EDIT"),
-                grant("PLAN_SUBMIT"), grant("EXECUTION_MANAGE"), grant("CAMPAIGN_VIEW")));
+                grant("PLAN_SUBMIT"), grant("EXECUTION_MANAGE"), grant("CAMPAIGN_VIEW"), grant("KPI_VIEW"), grant("CHANNEL_MANAGE")));
         var reviewer = new StaffActor(UUID.randomUUID(), Set.of(grant("PLAN_APPROVE")));
         var starts = Instant.now().minusSeconds(60);
-        var ends = starts.plusSeconds(3600);
+        var ends = starts.plusSeconds(172800);
         var plan = new CampaignPlan("Execution pilot", "Launch", operator.id(), starts, ends, "Asia/Ho_Chi_Minh",
                 100, List.of(new CampaignPlan.Channel("EMAIL", starts, ends, "Launch brief"),
                         new CampaignPlan.Channel("SOCIAL", starts, ends, "Social brief")), List.of(),
@@ -144,6 +144,38 @@ class CampaignCommandsIntegrationTest {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.state").value("COMPLETED"));
         http.perform(get(path).header("Authorization", "Bearer operator"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.items[0].state").value("COMPLETED"));
+        String metricPath = path + "/" + id + "/metrics";
+        String day = starts.atZone(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).toLocalDate().toString();
+        http.perform(get(metricPath).header("Authorization", "Bearer operator").param("from", day).param("to", day))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.coverage").value("NOT_SYNCED"))
+                .andExpect(jsonPath("$.items[0].impressions").value(org.hamcrest.Matchers.nullValue()));
+        var put = org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put(metricPath + "/" + day)
+                .header("Authorization", "Bearer operator").contentType("application/json");
+        String zero = """
+                {"sourceVersion":1,"impressions":0,"clicks":0}
+                """;
+        http.perform(put.content(zero)).andExpect(status().isOk()).andExpect(jsonPath("$.impressions").value(0));
+        http.perform(put.content(zero)).andExpect(status().isOk());
+        http.perform(put.content("""
+                {"sourceVersion":1,"impressions":1,"clicks":0}
+                """)).andExpect(status().isConflict());
+        http.perform(put.content("""
+                {"sourceVersion":2,"impressions":25,"clicks":3}
+                """)).andExpect(status().isOk());
+        http.perform(get(metricPath).header("Authorization", "Bearer operator").param("from", day).param("to", day))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.coverage").value("COMPLETE"))
+                .andExpect(jsonPath("$.items[0].impressions").value(25));
+        String nextDay = java.time.LocalDate.parse(day).plusDays(1).toString();
+        http.perform(get(metricPath).header("Authorization", "Bearer operator").param("from", day).param("to", nextDay))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.coverage").value("PARTIAL"))
+                .andExpect(jsonPath("$.items[1].status").value("MISSING"));
+        http.perform(put.content("""
+                {"sourceVersion":3,"impressions":25.5,"clicks":3}
+                """)).andExpect(status().isUnprocessableEntity());
+        assertThat(jdbc.sql("SELECT count(*) FROM campaign_execution_metrics WHERE execution_id = :id")
+                .param("id", id).query(Long.class).single()).isEqualTo(2);
+        http.perform(get(metricPath).header("Authorization", "Bearer outsider").param("from", day).param("to", day))
+                .andExpect(status().isNotFound());
         String history = path + "/" + id + "/history";
         http.perform(get(history).header("Authorization", "Bearer operator").param("limit", "2"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.total").value(3))
