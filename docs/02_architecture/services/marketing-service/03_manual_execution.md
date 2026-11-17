@@ -29,3 +29,14 @@ Test tích hợp chạy Spring MVC và PostgreSQL 16, với Identity fixture c�
 Executive có MARKETING_PLAN_APPROVE theo scope có thể thu hồi approval của revision hiện hành với expectedVersion và lý do. Quyết định APPROVED lịch sử được giữ, còn bản ghi thu hồi riêng là nguồn xác định approval đã mất hiệu lực. GET revision trả bản ghi này trong approvalRequest.revocation. Thu hồi tăng version revision và chặn mọi schedule mới.
 
 Trong cùng transaction, SCHEDULED chuyển CANCELLED vì chưa bắt đầu. ACTIVE và PAUSED chuyển STOP_PENDING vì cần operator xác nhận tình trạng bên ngoài. Operator dùng CONFIRM_STOP với evidenceRef để chuyển CANCELLED. START bị chặn sau thu hồi. Execution đã hoàn tất giữ nguyên. Cùng một khóa hàng Campaign tuần tự hóa schedule, action và revoke. Revision kế tiếp bị chặn khi còn STOP_PENDING.
+
+### Nghiệm thu end-to-end ngày 2026-11-17
+
+Chạy bản 09045ae trong stack Docker cô lập với Kong, Keycloak, Identity, Marketing và PostgreSQL. Ba tài khoản test đăng nhập qua OAuth authorization code và dùng cookie OMAMA_SESSION trong các HTTP client riêng. Operator và reviewer có quyền theo cùng DEPARTMENT. Tài khoản kiểm tra quyền có grant ở DEPARTMENT khác. Quyền lấy từ IAM thật, cấu hình bằng dữ liệu test trong Identity DB.
+
+- Lên lịch, bắt đầu và hoàn tất một kênh. Gửi lại schedule cùng Idempotency-Key trả về cùng execution.
+- Tài khoản sai phòng ban nhận 403 khi bắt đầu execution và 404 khi đọc lịch sử.
+- Thu hồi phê duyệt giữ nguyên COMPLETED, hủy kênh chưa bắt đầu và chuyển kênh đang chạy sang STOP_PENDING. Schedule mới và START sau thu hồi đều trả 409.
+- Operator cung cấp bằng chứng để xác nhận dừng. Lịch sử ghi SCHEDULED, ACTIVE, STOP_PENDING, CANCELLED theo thứ tự và ghi đúng reviewer ở bước thu hồi.
+
+Luồng này dùng Campaign không gắn Product để kiểm riêng execution. Luồng Catalog có Product được kiểm ở smoke test lát 1. Trình duyệt và provider gửi tự động nằm ngoài phạm vi lượt nghiệm thu này.
