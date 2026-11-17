@@ -114,7 +114,7 @@ class ExecutionMetrics {
             throw invalid();
         }
         if (csvKey(executionId).isPresent()) {
-            throw new MarketingFailure("STATE_CONFLICT", 409);
+            throw new MarketingFailure("METRIC_SOURCE_CONFLICT", 409);
         }
         return storeDay(actor, executionId, date, input, requestId);
     }
@@ -128,7 +128,7 @@ class ExecutionMetrics {
                 return latest;
             }
             if (candidate.sourceVersion() <= latest.sourceVersion()) {
-                throw new MarketingFailure("STATE_CONFLICT", 409);
+                throw new MarketingFailure("METRIC_VERSION_CONFLICT", 409);
             }
         }
         boolean started = jdbc.sql("""
@@ -136,7 +136,7 @@ class ExecutionMetrics {
                                WHERE execution_id = :id AND to_state = 'ACTIVE')
                 """).param("id", executionId).query(Boolean.class).single();
         if (!started) {
-            throw new MarketingFailure("STATE_CONFLICT", 409);
+            throw new MarketingFailure("EXECUTION_NOT_STARTED", 409);
         }
         jdbc.sql("""
                 INSERT INTO campaign_execution_metrics
@@ -163,24 +163,36 @@ class ExecutionMetrics {
         var bound = csvKey(executionId);
         if (bound.isPresent()) {
             if (!bound.get().equals(key)) {
-                throw new MarketingFailure("STATE_CONFLICT", 409);
+                throw new MarketingFailure("CSV_MAPPING_CONFLICT", 409);
             }
         } else {
-            boolean hasManualMetrics = jdbc.sql("""
-                    SELECT EXISTS (SELECT 1 FROM campaign_execution_metrics WHERE execution_id = :id)
-                    """).param("id", executionId).query(Boolean.class).single();
-            if (hasManualMetrics) {
-                throw new MarketingFailure("STATE_CONFLICT", 409);
+            if (hasMetrics(executionId)) {
+                throw new MarketingFailure("METRIC_SOURCE_CONFLICT", 409);
             }
             int inserted = jdbc.sql("""
                     INSERT INTO campaign_execution_csv_sources (execution_id, external_key)
                     VALUES (:id, :key) ON CONFLICT DO NOTHING
                     """).param("id", executionId).param("key", key).update();
             if (inserted == 0) {
-                throw new MarketingFailure("STATE_CONFLICT", 409);
+                throw new MarketingFailure("CSV_MAPPING_CONFLICT", 409);
             }
         }
         return rows.stream().map(row -> storeDay(actor, executionId, row.date(), row.input(), requestId)).toList();
+    }
+
+    record MetricSource(String type, String externalExecutionKey) {}
+
+    @Transactional(isolation = Isolation.REPEATABLE_READ, readOnly = true)
+    public MetricSource source(StaffActor actor, UUID campaignId, UUID revisionId, UUID executionId) {
+        window(actor, campaignId, revisionId, executionId, false);
+        return csvKey(executionId).map(key -> new MetricSource("CSV", key))
+                .orElseGet(() -> new MetricSource(hasMetrics(executionId) ? "MANUAL" : "UNBOUND", null));
+    }
+
+    private boolean hasMetrics(UUID executionId) {
+        return jdbc.sql("""
+                SELECT EXISTS (SELECT 1 FROM campaign_execution_metrics WHERE execution_id = :id)
+                """).param("id", executionId).query(Boolean.class).single();
     }
 
     private java.util.Optional<String> csvKey(UUID executionId) {

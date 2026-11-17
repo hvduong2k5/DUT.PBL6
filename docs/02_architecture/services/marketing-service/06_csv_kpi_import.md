@@ -6,6 +6,10 @@ PUT metrics/csv nhận text/csv UTF-8 với header đúng, 1–31 dòng, một k
 
 Giới hạn này dùng CSV cột đơn giản với key ASCII chữ/số và . _ : -. File từ provider phải được chuẩn hóa trước. Adapter tải file tự động và mapping nhiều provider là phần triển khai sau.
 
+### Tra cứu nguồn và chẩn đoán xung đột
+
+GET metrics/source trả UNBOUND khi chưa nhập, MANUAL khi execution đã ghi số liệu thủ công, hoặc CSV kèm externalExecutionKey. Người có MARKETING_KPI_VIEW đúng phạm vi mới xem được. PostgreSQL đọc binding và số liệu trong cùng snapshot. Lỗi ghi 409 phân biệt METRIC_SOURCE_CONFLICT, CSV_MAPPING_CONFLICT, METRIC_VERSION_CONFLICT và EXECUTION_NOT_STARTED. Lỗi mapping không tiết lộ execution đang sở hữu key ở nơi khác.
+
 ## Nghiệm thu CSV qua Kong và Identity
 
 Ngày 2026-11-17, Muse chạy MS14-CSV-KPI-1f5b9ea trên commit 1f5b9ea trong stack Docker cô lập. PUT metrics/csv đi qua Kong và Identity BFF bằng phiên staff. Kết quả 11/11 ca pass.

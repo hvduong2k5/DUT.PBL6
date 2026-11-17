@@ -249,6 +249,12 @@ class CampaignController {
     }
 
 
+    @GetMapping("/{campaignId}/revisions/{revisionId}/executions/{executionId}/metrics/source")
+    ExecutionMetrics.MetricSource metricSource(HttpServletRequest request, @PathVariable UUID campaignId,
+            @PathVariable UUID revisionId, @PathVariable UUID executionId) {
+        return metrics.source(staff(request), campaignId, revisionId, executionId);
+    }
+
     @PutMapping(path = "/{campaignId}/revisions/{revisionId}/executions/{executionId}/metrics/csv",
             consumes = "text/csv")
     List<ExecutionMetrics.Day> importMetricsCsv(HttpServletRequest request, @PathVariable UUID campaignId,

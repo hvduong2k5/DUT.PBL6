@@ -37,6 +37,39 @@ tags:
   - name: Marketing
     description: Draft Campaign planning and approval operations for EPIC 21.
 paths:
+  /api/v1/admin/marketing/campaigns/{campaignId}/revisions/{revisionId}/executions/{executionId}/metrics/source:
+    x-employee-session-path: '/api/v1/admin/marketing-api/campaigns/{campaignId}/revisions/{revisionId}/executions/{executionId}/metrics/source'
+    parameters:
+      - {name: campaignId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: revisionId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: executionId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: getMarketingExecutionMetricSource
+      summary: Read an execution metric source binding
+      description: Requires MARKETING_KPI_VIEW in the campaign department or GLOBAL.
+      tags: [Marketing]
+      security:
+        - marketingEmployeeSession: []
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Metric source and the external key when a CSV binding exists.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarketingMetricSource'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /api/v1/admin/marketing/campaigns/{campaignId}/revisions/{revisionId}/executions/{executionId}/metrics/csv:
     x-employee-session-path: '/api/v1/admin/marketing-api/campaigns/{campaignId}/revisions/{revisionId}/executions/{executionId}/metrics/csv'
     parameters:
@@ -75,7 +108,20 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
-          $ref: '#/components/responses/Conflict'
+          description: Metric source, mapping, version or execution state conflict.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                source:
+                  value: {code: METRIC_SOURCE_CONFLICT, message: 'This execution already uses another metric source.', requestId: req-example}
+                mapping:
+                  value: {code: CSV_MAPPING_CONFLICT, message: 'The external execution key conflicts with an existing mapping.', requestId: req-example}
+                version:
+                  value: {code: METRIC_VERSION_CONFLICT, message: 'The supplied metric version conflicts with the current snapshot.', requestId: req-example}
+                notStarted:
+                  value: {code: EXECUTION_NOT_STARTED, message: 'The execution has not started.', requestId: req-example}
         '422':
           $ref: '#/components/responses/UnprocessableEntity'
         '500':
@@ -242,7 +288,18 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
-          $ref: '#/components/responses/Conflict'
+          description: Metric source, mapping, version or execution state conflict.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                source:
+                  value: {code: METRIC_SOURCE_CONFLICT, message: 'This execution already uses another metric source.', requestId: req-example}
+                version:
+                  value: {code: METRIC_VERSION_CONFLICT, message: 'The supplied metric version conflicts with the current snapshot.', requestId: req-example}
+                notStarted:
+                  value: {code: EXECUTION_NOT_STARTED, message: 'The execution has not started.', requestId: req-example}
         '422':
           $ref: '#/components/responses/UnprocessableEntity'
         '500':
@@ -1965,6 +2022,13 @@ components:
         type: "string"
         format: "uuid"
   schemas:
+    MarketingMetricSource:
+      type: object
+      additionalProperties: false
+      required: [type, externalExecutionKey]
+      properties:
+        type: {type: string, enum: [UNBOUND, MANUAL, CSV]}
+        externalExecutionKey: {type: [string, 'null'], maxLength: 160}
     MarketingKpiReport:
       type: object
       required: [timeZone, throughDate, coverage, expectedChannelDays, reportedChannelDays, items]

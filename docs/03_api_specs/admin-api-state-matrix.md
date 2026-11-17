@@ -335,3 +335,6 @@ Paths are relative to the campaign revision. Cookie clients use the matching Ide
 | Operation | Success | Error handling |
 |---|---|---|
 | PUT executions/{executionId}/metrics/csv | 200 daily snapshots, including identical replay | 401 renew session, 403 missing grant, 404 missing execution, 409 source or version conflict, 422 invalid CSV or date, 500/503 retry unchanged |
+| GET executions/{executionId}/metrics/source | 200 with UNBOUND, MANUAL or CSV and the external execution key for CSV | 401 renew session, 404 hidden or missing execution, 500/503 retry |
+
+For metric writes, METRIC_SOURCE_CONFLICT means the execution already uses another source. CSV_MAPPING_CONFLICT means the CSV key differs from the existing binding or belongs to another execution. METRIC_VERSION_CONFLICT means the supplied daily version is stale or its values differ from the existing version. EXECUTION_NOT_STARTED means no ACTIVE transition has been recorded.

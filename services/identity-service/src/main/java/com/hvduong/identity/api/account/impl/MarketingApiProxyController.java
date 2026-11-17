@@ -44,7 +44,7 @@ public class MarketingApiProxyController {
         }
         String path = request.getRequestURI().substring(PREFIX.length());
         boolean allowed = switch (request.getMethod()) {
-            case "GET" -> path.matches("/campaigns(?:/" + ID + "(?:/revisions/" + ID + "(?:/kpi-report|/executions(?:/" + ID + "/(?:history|metrics))?)?)?)?");
+            case "GET" -> path.matches("/campaigns(?:/" + ID + "(?:/revisions/" + ID + "(?:/kpi-report|/executions(?:/" + ID + "/(?:history|metrics(?:/source)?))?)?)?)?");
             case "POST" -> path.matches("/campaigns(?:/" + ID
                     + "/revisions(?:/" + ID + "/(?:submit|withdraw|approve|reject|request-changes|revoke-approval|executions(?:/" + ID + "/actions)?))?)?");
             case "PUT" -> path.matches("/campaigns/" + ID + "/revisions/" + ID
