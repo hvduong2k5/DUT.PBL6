@@ -361,18 +361,20 @@ a.gh-frame-card:hover::before,
 .gh-banner__photo img { object-fit: cover; }
 .gh-banner-shell { position: relative; }
 /* Quiet arrows on the left/right margins of the banner, above the frame, and three tiny dots at bottom centre */
-.gh-banner__arrow { position: absolute; top: 50%; z-index: 6; display: grid; place-items: center; width: 44px; height: 56px; padding: 0; border: 0; background: none; color: rgba(252, 249, 244, 0.82); font: 400 1.6rem/1 var(--chu-doc); text-shadow: 0 1px 8px rgba(20, 10, 4, 0.75), 0 0 2px rgba(20, 10, 4, 0.5); cursor: pointer; transform: translateY(-50%); transition: color 0.2s var(--ease-out), transform 0.2s var(--ease-out); }
-.gh-banner__arrow--prev { left: 2px; }
-.gh-banner__arrow--next { right: 2px; }
-.gh-banner__arrow:hover { color: var(--mat-sang); }
-.gh-banner__arrow--prev:hover { transform: translate(-2px, -50%); }
-.gh-banner__arrow--next:hover { transform: translate(2px, -50%); }
+.gh-banner__arrow { position: absolute; top: 50%; z-index: 6; display: grid; place-items: center; width: 40px; height: 40px; padding: 0; border: 1px solid rgba(252, 249, 244, 0.28); border-radius: 50%; background: rgba(53, 32, 20, 0.34); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); color: rgba(252, 249, 244, 0.9); font: 400 1.1rem/1 var(--chu-doc); cursor: pointer; opacity: 0; transform: translateY(-50%); transition: opacity 0.25s var(--ease-out), background-color 0.2s var(--ease-out), color 0.2s var(--ease-out), border-color 0.2s var(--ease-out); }
+/* Sit just inside the double frame (frame ends ~30px from the edge) so the arrows never cover its lines */
+.gh-banner__arrow--prev { left: 42px; }
+.gh-banner__arrow--next { right: 42px; }
+.gh-banner:hover .gh-banner__arrow, .gh-banner:focus-within .gh-banner__arrow { opacity: 1; }
+.gh-banner__arrow:hover { background: rgba(212, 162, 76, 0.45); border-color: rgba(230, 188, 106, 0.8); color: var(--kem); }
+@media (hover: none) { .gh-banner__arrow { opacity: 0.85; } }
 .gh-banner__dots { position: absolute; bottom: 20px; left: 50%; z-index: 6; display: flex; align-items: center; transform: translateX(-50%); }
 .gh-banner__dots button { display: grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 0; background: none; cursor: pointer; }
 .gh-banner__dots button span { display: block; width: 6px; height: 6px; border-radius: 50%; background: rgba(252, 249, 244, 0.45); box-shadow: 0 0 0 1px rgba(20, 10, 4, 0.2); transition: background-color 0.25s, transform 0.25s; }
 .gh-banner__dots button:hover span { background: rgba(252, 249, 244, 0.85); }
 .gh-banner__dots button.is-active span { background: var(--mat); transform: scale(1.35); }
 .gh-banner--multi .gh-banner__copy { padding-bottom: clamp(52px, 5cqi, 64px); }
+@media (min-width: 961px) { .gh-banner--multi .gh-banner__copy { padding-left: clamp(96px, 7cqi, 108px); } }
 .gh-banner__badges { display: flex; flex-wrap: wrap; gap: 8px; margin: 22px 0 0; padding: 0; list-style: none; }
 .gh-banner__badges .gh-badge { position: static; box-shadow: none; }
 @container (max-width: 760px) {
@@ -390,6 +392,8 @@ a.gh-frame-card:hover::before,
 }
 @media (max-width: 600px) {
   .gh-banner::before { inset: 8px; border-width: 12px; }
+  .gh-banner__arrow--prev { left: 30px; }
+  .gh-banner__arrow--next { right: 30px; }
   .gh-banner__copy { padding: 8px 24px 32px; }
   .gh-banner__actions .gh-btn { flex: 1 1 100%; }
 }
