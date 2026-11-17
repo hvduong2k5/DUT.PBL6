@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { HeritageBanner } from "@/components/heritage/heritage-banner";
+import { HeritageBanner, type BannerSlide } from "@/components/heritage/heritage-banner";
 import { Motif } from "@/components/heritage/motif";
 import { TraceSearchForm } from "@/components/heritage/trace-search-form";
 import { ProductImage } from "@/components/product/product-image";
@@ -14,6 +14,15 @@ const categories = [
   { href: "/products?category=qua-bieu", name: "Quà biếu", note: "Hộp quà biếu tặng trang nhã", image: "/images/heritage/photos/cat-qua-bieu.jpg" }
 ];
 
+const HERO_SLIDES: BannerSlide[] = [
+  { kicker: "Đặc sản & quà biếu Cố đô", title: "Phong vị Huế", lead: "Mè xửng dẻo thơm, trà Huế thanh dịu, quà biếu đậm tình miền Trung — trao gửi bằng cả tấm lòng.",
+    image: { src: "/images/heritage/photos/hero-studio.jpg", alt: "Hộp quà, lon trà sen và đĩa mè xửng thủ công của Gói Huế" } },
+  { kicker: "Bên chén trà Huế", title: "Thong thả một chén trà", lead: "Mè xửng mạch nha dẻo thơm cùng trà sen thanh dịu — lời mời ngồi lại bên hiên nhà rường.",
+    image: { src: "/images/heritage/photos/hero-tea-table.jpg", alt: "Đĩa mè xửng bên ấm trà sứ xanh trắng dưới nắng hiên nhà" } },
+  { kicker: "Quà biếu Cố đô", title: "Hộp quà trao gửi tấm lòng", lead: "Hộp Đoàn Viên ba khoang, đóng gói chỉn chu cho người thân và đối tác.",
+    image: { src: "/images/heritage/photos/sp-hop-qua-doan-vien.jpg", alt: "Hộp quà Đoàn Viên Gói Huế mở nắp" } }
+];
+
 const traceProofs = ["Chuẩn OCOP 4 sao", "Mã QR từng lô", "Chỉ dẫn địa lý", "Nguồn gốc rõ ràng"];
 
 export function HomeExperience() {
@@ -22,9 +31,7 @@ export function HomeExperience() {
       <Motif name="02-canh-hoa" className="gh-band__blossom" />
       <Motif name="01-hien-nha-phai" className="gh-band__veranda" />
       <div className="gh-wrap">
-        <HeritageBanner level={1} titleId="gh-hero-title" priority kicker="Đặc sản & quà biếu Cố đô" title="Phong vị Huế"
-          lead="Mè xửng dẻo thơm, trà Huế thanh dịu, quà biếu đậm tình miền Trung — trao gửi bằng cả tấm lòng."
-          image={{ src: "/images/heritage/photos/hero-studio.jpg", alt: "Hộp quà, lon trà sen và đĩa mè xửng thủ công của Gói Huế" }}>
+        <HeritageBanner level={1} titleId="gh-hero-title" priority slides={HERO_SLIDES}>
           <div className="gh-banner__actions">
             <Link className="gh-btn gh-btn--fold" href="/products">Khám phá bộ sưu tập <span className="gh-btn__arrow" aria-hidden="true">→</span></Link>
             <a className="gh-btn gh-btn--ghost" href="#ocop-traceability">Truy xuất nguồn gốc</a>
