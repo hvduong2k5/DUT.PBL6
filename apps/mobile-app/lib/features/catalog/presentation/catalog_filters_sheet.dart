@@ -51,7 +51,7 @@ class _FiltersSheetState extends State<_FiltersSheet> {
         children: [
           Text(
             'Tìm thức quà vừa ý',
-            style: Theme.of(context).textTheme.headlineSmall,
+            style: Theme.of(context).textTheme.headlineMedium,
           ),
           const SizedBox(height: 16),
           if (widget.categories.isNotEmpty) ...[

@@ -38,7 +38,10 @@ Assets are copied, never redrawn: web `public/images/heritage/`, mobile `assets/
 
 ## Flow parity
 - Navigation differs on purpose (2026-11-18 decision): native mobile follows the Shopee/Lazada pattern.
-  - Mobile tabs: Trang chu, Danh muc (own page: category rail + product grid), Gio hang, Thong bao, Tai khoan. Tabs only navigate; no side menu (its links live in Tai khoan).
+  - Mobile tabs: Trang chu, Danh muc, Gio hang, Tai khoan. Tabs only navigate; no side menu (its links live in Tai khoan).
+  - Top bar (Home, Danh muc): emblem + search bar + cart + bell. Cart/Account tabs: title + bell (+ cart). Thong bao opens as a pushed page.
+  - Danh muc (/catalog) is the only browse screen for every entry (nav, Home banner, Xem tat ca, collections): category chips, Bo loc sheet (category, price, OCOP, in stock), sort, removable active-filter chips. Search results reuse the same filter bar.
+  - Backend request: attribute filters (huong vi, dip/qua bieu, an vat...) need product attributes or tags in GET /api/v1/products; today only categories, price, OCOP and stock exist, so nothing else is shown.
   - Mobile search: search bar on Home and Danh muc opens a separate search screen; the 5 latest queries are stored on the device.
   - Mobile Uu dai: Home block + Tai khoan link (not a tab).
   - Web (responsive) keeps: Trang chu, Danh muc (sheet), Uu dai, Tim kiem (sheet), Gio hang. Consider aligning web later.
