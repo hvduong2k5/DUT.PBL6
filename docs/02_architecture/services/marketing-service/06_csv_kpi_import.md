@@ -20,3 +20,14 @@ Ngày 2026-11-17, Muse chạy MS14-CSV-KPI-1f5b9ea trên commit 1f5b9ea trong st
 - Đối soát PostgreSQL xác nhận mapping và các bản ghi khớp các lô thành công.
 
 Kết quả trên áp dụng cho CSV import tại 1f5b9ea. API tra cứu nguồn và mã lỗi chi tiết được nghiệm thu riêng.
+
+
+## Demo backend qua API ngày 2026-11-18
+
+Dùng stack Docker cô lập với Kong, Identity BFF, Keycloak và PostgreSQL. Campaign mẫu có một kênh Email và mục tiêu 100 lượt click. Tạo campaign, gửi duyệt và duyệt qua API với hai tài khoản staff. Trạng thái lần lượt là DRAFT, IN_REVIEW và APPROVED. Seed lịch sử execution ACTIVE cho hai ngày đã khép lại để demo ngay.
+
+- GET kpi-report trước khi nhập trả NOT_SYNCED.
+- PUT metrics/csv bản đầu trả 200. Báo cáo trả COMPLETE, 80 lượt click và mức hoàn thành 80%.
+- PUT metrics/csv bản đính chính trả 200. Báo cáo trả COMPLETE, 110 lượt click và mức hoàn thành 110%.
+
+Lượt demo dùng image từ lát CSV 1f5b9ea và dữ liệu giả lập. API tra cứu nguồn, runner định kỳ và Web Admin nằm ngoài phạm vi của lượt chạy này.
