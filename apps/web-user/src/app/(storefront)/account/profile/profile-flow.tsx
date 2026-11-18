@@ -103,7 +103,7 @@ export function ProfileFlow() {
     {loading ? <section className="account-card center-state" aria-live="polite"><span className="large-spinner" /><p>Đang mở hồ sơ Tri Kỷ…</p></section> : !profile ?
       <section className="account-card center-state"><span className="state-icon">!</span><h2>Chưa thể mở hồ sơ</h2><p>{notice?.text}</p><div className="state-actions"><button className="secondary-button" onClick={() => void loadProfile()}>Thử lại</button><Link className="primary-link" href="/login?returnUrl=/account/profile">Đăng nhập lại</Link></div></section> :
       <form className="account-card profile-form" onSubmit={submit} noValidate>
-        <header className="card-heading"><span className="heading-icon">♙</span><div><h2>Thông tin định danh cơ bản</h2><p>Thông tin phục vụ định danh tài khoản và gợi ý cho Checkout.</p></div></header>
+        <header className="card-heading"><span className="heading-icon gh-emblem" aria-hidden="true" /><div><h2>Thông tin định danh cơ bản</h2><p>Thông tin phục vụ định danh tài khoản và gợi ý cho Checkout.</p></div></header>
         {notice && <div className={`status-notice ${notice.kind}`} role="status">{notice.text}</div>}
         {identityProfile?.customerStatus === "PENDING_VERIFICATION" && !activationDone ? <div className="status-notice info" role="note">Tài khoản của bạn đang chờ kích hoạt. Hãy nhập số điện thoại hợp lệ rồi lưu hồ sơ — tài khoản sẽ được kích hoạt để mua hàng ngay khi lưu thành công.</div> : null}
         <div className="profile-grid">

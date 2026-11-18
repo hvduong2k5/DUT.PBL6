@@ -7,7 +7,7 @@ import { CartFlow } from "./cart-flow";
 
 export const metadata: Metadata = {
   title: "Giỏ hàng",
-  description: "Kiểm tra quy cách, số lượng và tạm tính giỏ hàng Ô Mạ Huế."
+  description: "Kiểm tra quy cách, số lượng và tạm tính giỏ hàng Gói Huế."
 };
 
 export default function CartPage() {
