@@ -4,6 +4,7 @@ import Link from "next/link";
 import { HeritageBanner, type BannerSlide } from "@/components/heritage/heritage-banner";
 import { Motif } from "@/components/heritage/motif";
 import { TraceSearchForm } from "@/components/heritage/trace-search-form";
+import { PendingPaymentNotice } from "@/components/orders/pending-payment-notice";
 import { ProductImage } from "@/components/product/product-image";
 import { RecommendationPreferences, RecommendationRail } from "@/components/recommendation/recommendation-rail";
 
@@ -27,6 +28,7 @@ const traceProofs = ["Chuẩn OCOP 4 sao", "Mã QR từng lô", "Chỉ dẫn đ�
 
 export function HomeExperience() {
   return <main className="gh-home" id="main-content">
+    <div className="gh-wrap"><PendingPaymentNotice variant="home" /></div>
     <section className="gh-home-band gh-home-hero" aria-labelledby="gh-hero-title">
       <Motif name="02-canh-hoa" className="gh-band__blossom" />
       <Motif name="01-hien-nha-phai" className="gh-band__veranda" />
