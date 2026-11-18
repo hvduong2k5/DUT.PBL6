@@ -96,7 +96,7 @@ class _IdentityAuthPageState extends State<IdentityAuthPage> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppMobileHeader(
-      title: widget.register ? 'Đăng Ký' : 'Đăng Nhập',
+      title: widget.register ? 'Tạo tài khoản' : 'Đăng nhập tài khoản',
       showBack: true,
     ),
     body: HeritageSurface(

@@ -45,7 +45,7 @@ void main() {
   ) async {
     await tester.pumpWidget(const OmaApp(initialLocation: AppRoutes.login));
     await tester.pumpAndSettle();
-    expect(find.text('Đăng Nhập'), findsOneWidget);
+    expect(find.text('Đăng nhập tài khoản'), findsOneWidget);
 
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();

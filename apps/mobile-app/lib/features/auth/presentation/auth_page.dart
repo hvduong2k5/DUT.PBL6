@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mobile_app/core/widgets/heritage/heritage_emblem.dart';
 import 'package:mobile_app/core/widgets/heritage/heritage_surface.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -111,7 +112,7 @@ class _AuthPageState extends State<AuthPage> {
 
   Widget _buildLocal(BuildContext context) => Scaffold(
     appBar: AppMobileHeader(
-      title: widget.register ? 'Đăng Ký' : 'Đăng Nhập',
+      title: widget.register ? 'Tạo tài khoản' : 'Đăng nhập tài khoản',
       showBack: true,
     ),
     body: HeritageSurface(
@@ -121,11 +122,7 @@ class _AuthPageState extends State<AuthPage> {
             padding: const EdgeInsets.all(AppSpacing.lg),
             children: [
               const SizedBox(height: AppSpacing.xl),
-              const Icon(
-                Icons.local_florist_outlined,
-                size: 48,
-                color: AppColors.headingBrown,
-              ),
+              const Center(child: HeritageEmblem(size: 56)),
               const SizedBox(height: AppSpacing.md),
               Text(
                 widget.register

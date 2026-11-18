@@ -62,7 +62,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
   Widget build(BuildContext context) => BlocBuilder<CartCubit, CartState>(
     builder: (context, cartState) => Scaffold(
       appBar: AppMobileHeader(
-        title: 'Chi Tiết Sản Phẩm',
+        title: 'Chi tiết sản phẩm',
         showBack: true,
         cartCount: cartState.cart.totalItems,
         onCart: () => context.go(AppRoutes.cart),

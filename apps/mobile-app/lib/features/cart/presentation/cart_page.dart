@@ -264,7 +264,7 @@ class CartPage extends StatelessWidget {
                         child: AppPrimaryButton(
                           label: checkoutEnabled
                               ? (continuing ? 'Tiếp tục đơn' : 'Xem báo giá')
-                              : 'Thanh Toán',
+                              : 'Thanh toán',
                           icon: Icons.arrow_forward,
                           onPressed:
                               !context.watch<AuthCubit>().state.canPurchase ||

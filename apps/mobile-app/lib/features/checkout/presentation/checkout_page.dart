@@ -105,7 +105,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
         );
       }
       return Scaffold(
-        appBar: const AppMobileHeader(title: 'Thanh Toán', showBack: true),
+        appBar: const AppMobileHeader(title: 'Thanh toán', showBack: true),
         body: HeritageSurface(
           child: ListView(
             padding: const EdgeInsets.fromLTRB(
