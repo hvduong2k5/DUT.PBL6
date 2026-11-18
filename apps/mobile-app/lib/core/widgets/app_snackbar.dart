@@ -16,10 +16,13 @@ abstract final class AppSnackBar {
   ) => ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
       behavior: SnackBarBehavior.floating,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.all(Radius.circular(2)),
+      ),
       backgroundColor: color,
       content: Row(
         children: [
-          Icon(icon, color: Colors.white),
+          Icon(icon, color: const Color(0xFFFCF9F4)),
           const SizedBox(width: 8),
           Expanded(child: Text(message)),
         ],

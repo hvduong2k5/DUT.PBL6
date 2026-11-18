@@ -1,21 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_app/core/widgets/app_primary_button.dart';
+import 'package:mobile_app/features/catalog/domain/catalog_models.dart';
 import 'package:mobile_app/features/catalog/presentation/catalog_cubit.dart';
 
-Future<CatalogFilters?> showCatalogFilters(
+typedef CatalogFilterResult = ({CatalogFilters filters, String categoryId});
+
+/// Filter sheet: category, price, OCOP stars and stock in one place.
+Future<CatalogFilterResult?> showCatalogFilters(
   BuildContext context,
-  CatalogFilters initial,
-) => showModalBottomSheet<CatalogFilters>(
+  CatalogFilters initial, {
+  List<Category> categories = const [],
+  String categoryId = 'all',
+}) => showModalBottomSheet<CatalogFilterResult>(
   context: context,
   isScrollControlled: true,
   useSafeArea: true,
   showDragHandle: true,
-  builder: (_) => _FiltersSheet(initial),
+  builder: (_) => _FiltersSheet(initial, categories, categoryId),
 );
 
 class _FiltersSheet extends StatefulWidget {
-  const _FiltersSheet(this.initial);
+  const _FiltersSheet(this.initial, this.categories, this.categoryId);
   final CatalogFilters initial;
+  final List<Category> categories;
+  final String categoryId;
   @override
   State<_FiltersSheet> createState() => _FiltersSheetState();
 }
@@ -25,6 +33,7 @@ class _FiltersSheetState extends State<_FiltersSheet> {
       _maximum = widget.initial.maximum,
       _stars = widget.initial.stars;
   late bool _available = widget.initial.availableOnly;
+  late String _category = widget.categoryId;
   @override
   Widget build(BuildContext context) => ConstrainedBox(
     constraints: BoxConstraints(
@@ -42,9 +51,26 @@ class _FiltersSheetState extends State<_FiltersSheet> {
         children: [
           Text(
             'Tìm thức quà vừa ý',
-            style: Theme.of(context).textTheme.headlineSmall,
+            style: Theme.of(context).textTheme.headlineMedium,
           ),
           const SizedBox(height: 16),
+          if (widget.categories.isNotEmpty) ...[
+            Text('Danh mục', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final c in widget.categories)
+                  ChoiceChip(
+                    label: Text(c.name),
+                    selected: _category == c.id,
+                    onSelected: (_) => setState(() => _category = c.id),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 24),
+          ],
           Text('Khoảng giá', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           Wrap(
@@ -103,15 +129,16 @@ class _FiltersSheetState extends State<_FiltersSheet> {
           const SizedBox(height: 24),
           AppPrimaryButton(
             label: 'Áp dụng bộ lọc',
-            onPressed: () => Navigator.of(context).pop(
-              CatalogFilters(
+            onPressed: () => Navigator.of(context).pop((
+              filters: CatalogFilters(
                 minimum: _minimum,
                 maximum: _maximum,
                 stars: _stars,
                 availableOnly: _available,
                 sort: widget.initial.sort,
               ),
-            ),
+              categoryId: _category,
+            )),
           ),
           TextButton(
             onPressed: () => setState(() {
@@ -119,6 +146,7 @@ class _FiltersSheetState extends State<_FiltersSheet> {
               _maximum = null;
               _stars = null;
               _available = false;
+              _category = 'all';
             }),
             child: const Text('Đặt lại các lựa chọn'),
           ),
