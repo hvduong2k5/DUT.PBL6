@@ -69,7 +69,7 @@ void main() {
     await tester.pumpWidget(const OmaApp());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Giỏ Hàng'));
+    await tester.tap(find.text('Giỏ hàng'));
     await tester.pumpAndSettle();
 
     expect(find.text('Giỏ hàng trống'), findsOneWidget);
@@ -132,10 +132,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('home-search-field')), findsOneWidget);
-    expect(find.text('Trang Chủ'), findsOneWidget);
-    expect(find.text('Thực Đơn'), findsOneWidget);
-    expect(find.text('Giỏ Hàng'), findsOneWidget);
-    expect(find.text('Tài Khoản'), findsOneWidget);
+    expect(find.text('Trang chủ'), findsOneWidget);
+    expect(find.text('Danh mục'), findsOneWidget);
+    expect(find.text('Ưu đãi'), findsOneWidget);
+    expect(find.text('Tìm kiếm'), findsOneWidget);
+    expect(find.text('Giỏ hàng'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

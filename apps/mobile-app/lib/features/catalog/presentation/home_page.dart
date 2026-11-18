@@ -119,13 +119,8 @@ class HomePage extends StatelessWidget {
         ),
       ),
       bottomNavigationBar: AppBottomNavigation(
-        activeIndex: 0,
+        active: AppNavTab.home,
         cartCount: cartState.cart.totalItems,
-        onDestinationSelected: (index) {
-          if (index == 1) context.go(AppRoutes.catalog);
-          if (index == 2) context.go(AppRoutes.cart);
-          if (index == 3) context.go(AppRoutes.account);
-        },
       ),
     ),
   );

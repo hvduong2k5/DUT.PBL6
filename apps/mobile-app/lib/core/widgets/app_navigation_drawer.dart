@@ -3,6 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_app/app/router/routes.dart';
 import 'package:mobile_app/core/theme/app_colors.dart';
+import 'package:mobile_app/core/theme/heritage_tokens.dart';
+import 'package:mobile_app/core/widgets/heritage/heritage_emblem.dart';
 import 'package:mobile_app/features/auth/presentation/auth_cubit.dart';
 import 'package:mobile_app/features/cart/presentation/cart_cubit.dart';
 
@@ -25,25 +27,14 @@ class AppNavigationDrawer extends StatelessWidget {
           children: [
             Container(
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
-              color: AppColors.brandBrown,
+              color: HeritageColors.nauCungDinh,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const CircleAvatar(
-                    radius: 24,
-                    backgroundColor: AppColors.honeyGold,
-                    child: Text(
-                      'Ô',
-                      style: TextStyle(
-                        color: AppColors.ctaText,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
+                  const HeritageEmblem(size: 48),
                   const SizedBox(height: 12),
                   const Text(
-                    'Ô Mạ',
+                    'Gói Huế',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 20,
@@ -66,8 +57,8 @@ class AppNavigationDrawer extends StatelessWidget {
               onTap: () => _open(context, AppRoutes.home),
             ),
             _DrawerDestination(
-              icon: Icons.restaurant_menu,
-              label: 'Thực Đơn',
+              icon: Icons.storefront_outlined,
+              label: 'Sản phẩm',
               selected: activeRoute == AppRoutes.catalog,
               onTap: () => _open(context, AppRoutes.catalog),
             ),

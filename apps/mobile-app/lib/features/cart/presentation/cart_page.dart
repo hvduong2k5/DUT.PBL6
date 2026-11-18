@@ -289,13 +289,8 @@ class CartPage extends StatelessWidget {
                 ),
               ),
         bottomNavigationBar: AppBottomNavigation(
-          activeIndex: 2,
+          active: AppNavTab.cart,
           cartCount: cart.totalItems,
-          onDestinationSelected: (index) {
-            if (index == 0) context.go(AppRoutes.home);
-            if (index == 1) context.go(AppRoutes.catalog);
-            if (index == 3) context.go(AppRoutes.account);
-          },
         ),
       );
     },

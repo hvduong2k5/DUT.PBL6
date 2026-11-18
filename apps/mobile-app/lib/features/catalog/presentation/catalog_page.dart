@@ -241,13 +241,8 @@ class _CatalogPageState extends State<CatalogPage> {
         ),
       ),
       bottomNavigationBar: AppBottomNavigation(
-        activeIndex: 1,
+        active: AppNavTab.categories,
         cartCount: cartState.cart.totalItems,
-        onDestinationSelected: (index) {
-          if (index == 0) context.go(AppRoutes.home);
-          if (index == 2) context.go(AppRoutes.cart);
-          if (index == 3) context.go(AppRoutes.account);
-        },
       ),
     ),
   );

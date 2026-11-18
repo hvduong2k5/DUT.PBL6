@@ -71,7 +71,8 @@ class AccountPage extends StatelessWidget {
                   onTap: () => context.push(AppRoutes.profile),
                 ),
                 if (context.select(
-                  (CapabilitiesCubit cubit) => cubit.state.allows('LOYALTY_VIEW'),
+                  (CapabilitiesCubit cubit) =>
+                      cubit.state.allows('LOYALTY_VIEW'),
                 ))
                   _MenuRow(
                     icon: Icons.loyalty_outlined,
@@ -137,13 +138,8 @@ class AccountPage extends StatelessWidget {
             ],
           ),
           bottomNavigationBar: AppBottomNavigation(
-            activeIndex: 3,
+            active: null,
             cartCount: cartState.cart.totalItems,
-            onDestinationSelected: (index) {
-              if (index == 0) context.go(AppRoutes.home);
-              if (index == 1) context.go(AppRoutes.catalog);
-              if (index == 2) context.go(AppRoutes.cart);
-            },
           ),
         );
       },

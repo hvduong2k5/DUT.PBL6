@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_app/app/router/safe_navigation.dart';
-import 'package:mobile_app/core/theme/app_colors.dart';
-import 'package:mobile_app/core/theme/app_radius.dart';
+import 'package:mobile_app/core/theme/heritage_tokens.dart';
+import 'package:mobile_app/core/widgets/heritage/heritage_emblem.dart';
 
 class AppMobileHeader extends StatelessWidget implements PreferredSizeWidget {
   const AppMobileHeader({
     super.key,
-    this.title = 'Ô Mạ',
+    this.title = 'Gói Huế',
     this.showBack = false,
     this.showMenu = false,
     this.onBack,
@@ -26,7 +26,7 @@ class AppMobileHeader extends StatelessWidget implements PreferredSizeWidget {
   Size get preferredSize => const Size.fromHeight(56);
   @override
   Widget build(BuildContext context) {
-    final branded = !showBack && title == 'Ô Mạ';
+    final branded = !showBack && title == 'Gói Huế';
     return AppBar(
       automaticallyImplyLeading: false,
       leadingWidth: showBack || showMenu
@@ -52,43 +52,19 @@ class AppMobileHeader extends StatelessWidget implements PreferredSizeWidget {
           : branded
           ? Padding(
               padding: const EdgeInsets.only(left: 16, top: 8, bottom: 8),
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: AppColors.brandBrown,
-                  borderRadius: BorderRadius.circular(AppRadius.medium),
-                ),
-                child: const Center(
-                  child: Text(
-                    'Ô',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
+              child: const HeritageEmblem(size: 38),
             )
           : null,
       titleSpacing: 8,
       title: branded
-          ? Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: Theme.of(context).textTheme.titleMedium),
-                const Text(
-                  'Tinh hoa bánh mứt ngự trà',
-                  style: TextStyle(fontSize: 9, color: AppColors.textMuted),
-                ),
-              ],
+          ? Text(
+              title,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                color: HeritageColors.kem,
+                fontWeight: FontWeight.w700,
+              ),
             )
-          : Text(title, style: Theme.of(context).textTheme.titleLarge),
-      bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(1),
-        child: Container(
-          height: 1,
-          color: AppColors.border.withValues(alpha: .4),
-        ),
-      ),
+          : Text(title),
       actions: [
         if (onSearch != null)
           SizedBox.square(
@@ -105,7 +81,8 @@ class AppMobileHeader extends StatelessWidget implements PreferredSizeWidget {
             child: Badge(
               isLabelVisible: (cartCount ?? 0) > 0,
               label: Text('$cartCount'),
-              backgroundColor: AppColors.darkRed,
+              backgroundColor: HeritageColors.mat,
+              textColor: HeritageColors.nauCungDinh,
               child: IconButton(
                 onPressed: onCart,
                 icon: const Icon(Icons.shopping_bag_outlined),
