@@ -3,8 +3,11 @@
 .header { display: flex; align-items: center; justify-content: center; gap: 24px; margin-bottom: 28px; }
 .header h2 { margin: 0; padding-inline: 8px; color: var(--nau-dam); font: 600 clamp(1.5rem, 2vw + 0.8rem, 2.2rem)/1.16 var(--font-display); letter-spacing: -0.015em; text-align: center; text-wrap: balance; }
 .line { flex: 1; height: 1px; background: linear-gradient(90deg, rgba(112, 81, 59, 0.15), var(--nau) 50%, rgba(112, 81, 59, 0.15)); }
-.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(210px, 100%), 1fr)); gap: clamp(16px, 2vw, 24px); }
-.card { display: flex; flex-direction: column; color: var(--nau-dam); text-decoration: none; }
+.grid { --gap: clamp(16px, 2vw, 24px); --cols: 2; display: flex; flex-wrap: wrap; justify-content: center; gap: var(--gap); }
+/* Fixed column counts that divide a full rail of six (2x3, 3x2, 6x1) so no card is left alone on a row; shorter rails stay centred. */
+@media (min-width: 640px) { .grid { --cols: 3; } }
+@media (min-width: 1180px) { .grid { --cols: 6; } }
+.card { display: flex; flex: 0 0 calc((100% - (var(--cols) - 1) * var(--gap)) / var(--cols)); flex-direction: column; min-width: 0; color: var(--nau-dam); text-decoration: none; }
 .card .media { aspect-ratio: 1 / 1; }
 .fallback { position: absolute; inset: 0; display: grid; place-items: center; color: var(--nau); font: italic 1.5rem var(--font-display); }
 .body { display: flex; flex: 1; flex-direction: column; gap: 6px; padding: 14px 8px 6px; border-top: 1px solid var(--vien); margin-top: 10px; }
