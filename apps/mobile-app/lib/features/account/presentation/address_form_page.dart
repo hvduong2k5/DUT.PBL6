@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mobile_app/core/widgets/heritage/heritage_surface.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_app/core/theme/app_spacing.dart';
@@ -169,124 +170,127 @@ class _AddressFormPageState extends State<AddressFormPage> {
         title: widget.address == null ? 'Thêm địa chỉ' : 'Sửa địa chỉ',
         showBack: true,
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          AppTextField(
-            controller: _name,
-            label: 'Họ và tên *',
-            enabled: !_saving,
-            errorText: _fieldErrors['recipient_name'] ?? _required(_name.text),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          AppTextField(
-            controller: _phone,
-            label: 'Số điện thoại *',
-            keyboardType: TextInputType.phone,
-            enabled: !_saving,
-            errorText: _fieldErrors['phone_number'] ?? _phoneError,
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          if (_loadingLocations) const LinearProgressIndicator(),
-          if (_locationsError != null) ...[
-            Text(_locationsError!),
-            TextButton(
-              onPressed: _loadLocations,
-              child: const Text('Tải lại khu vực'),
+      body: HeritageSurface(
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            AppTextField(
+              controller: _name,
+              label: 'Họ và tên *',
+              enabled: !_saving,
+              errorText:
+                  _fieldErrors['recipient_name'] ?? _required(_name.text),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            AppTextField(
+              controller: _phone,
+              label: 'Số điện thoại *',
+              keyboardType: TextInputType.phone,
+              enabled: !_saving,
+              errorText: _fieldErrors['phone_number'] ?? _phoneError,
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            if (_loadingLocations) const LinearProgressIndicator(),
+            if (_locationsError != null) ...[
+              Text(_locationsError!),
+              TextButton(
+                onPressed: _loadLocations,
+                child: const Text('Tải lại khu vực'),
+              ),
+            ],
+            DropdownButtonFormField<String>(
+              key: ValueKey(
+                'address-province-${_province.text}-${_locations.length}',
+              ),
+              initialValue: province?.name,
+              isExpanded: true,
+              decoration: InputDecoration(
+                labelText: 'Tỉnh/Thành phố *',
+                errorText:
+                    _fieldErrors['province'] ??
+                    (_submitted && province == null
+                        ? 'Vui lòng chọn tỉnh/thành.'
+                        : null),
+              ),
+              items: _locations
+                  .map(
+                    (item) => DropdownMenuItem(
+                      value: item.name,
+                      child: Text(item.name),
+                    ),
+                  )
+                  .toList(),
+              onChanged: _saving
+                  ? null
+                  : (value) => setState(() {
+                      _province.text = value ?? '';
+                      _ward.clear();
+                    }),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            DropdownButtonFormField<String>(
+              key: ValueKey('address-ward-${_province.text}-${_ward.text}'),
+              initialValue:
+                  province?.wards.any((ward) => ward.name == _ward.text) == true
+                  ? _ward.text
+                  : null,
+              isExpanded: true,
+              decoration: InputDecoration(
+                labelText: 'Phường/Xã *',
+                errorText:
+                    _fieldErrors['ward'] ??
+                    (_submitted &&
+                            (province == null ||
+                                !province.wards.any(
+                                  (ward) => ward.name == _ward.text,
+                                ))
+                        ? 'Vui lòng chọn phường/xã.'
+                        : null),
+              ),
+              items: (province?.wards ?? [])
+                  .map(
+                    (ward) => DropdownMenuItem(
+                      value: ward.name,
+                      child: Text(ward.name),
+                    ),
+                  )
+                  .toList(),
+              onChanged: _saving || province == null
+                  ? null
+                  : (value) => setState(() => _ward.text = value ?? ''),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            AppTextField(
+              controller: _street,
+              label: 'Địa chỉ chi tiết *',
+              hint: 'Số nhà, tên đường…',
+              enabled: !_saving,
+              errorText:
+                  _fieldErrors['street_address'] ?? _required(_street.text),
+            ),
+            const SizedBox(height: 16),
+            SwitchListTile(
+              title: const Text('Đặt làm địa chỉ mặc định'),
+              value: _isDefault,
+              onChanged: _saving
+                  ? null
+                  : (value) => setState(() => _isDefault = value),
+            ),
+            const SizedBox(height: 18),
+            if (_message != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Semantics(liveRegion: true, child: Text(_message!)),
+              ),
+            AppPrimaryButton(
+              label: 'Lưu địa chỉ',
+              loading: _saving,
+              onPressed: _loadingLocations || _locationsError != null
+                  ? null
+                  : _save,
             ),
           ],
-          DropdownButtonFormField<String>(
-            key: ValueKey(
-              'address-province-${_province.text}-${_locations.length}',
-            ),
-            initialValue: province?.name,
-            isExpanded: true,
-            decoration: InputDecoration(
-              labelText: 'Tỉnh/Thành phố *',
-              errorText:
-                  _fieldErrors['province'] ??
-                  (_submitted && province == null
-                      ? 'Vui lòng chọn tỉnh/thành.'
-                      : null),
-            ),
-            items: _locations
-                .map(
-                  (item) => DropdownMenuItem(
-                    value: item.name,
-                    child: Text(item.name),
-                  ),
-                )
-                .toList(),
-            onChanged: _saving
-                ? null
-                : (value) => setState(() {
-                    _province.text = value ?? '';
-                    _ward.clear();
-                  }),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          DropdownButtonFormField<String>(
-            key: ValueKey('address-ward-${_province.text}-${_ward.text}'),
-            initialValue:
-                province?.wards.any((ward) => ward.name == _ward.text) == true
-                ? _ward.text
-                : null,
-            isExpanded: true,
-            decoration: InputDecoration(
-              labelText: 'Phường/Xã *',
-              errorText:
-                  _fieldErrors['ward'] ??
-                  (_submitted &&
-                          (province == null ||
-                              !province.wards.any(
-                                (ward) => ward.name == _ward.text,
-                              ))
-                      ? 'Vui lòng chọn phường/xã.'
-                      : null),
-            ),
-            items: (province?.wards ?? [])
-                .map(
-                  (ward) => DropdownMenuItem(
-                    value: ward.name,
-                    child: Text(ward.name),
-                  ),
-                )
-                .toList(),
-            onChanged: _saving || province == null
-                ? null
-                : (value) => setState(() => _ward.text = value ?? ''),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          AppTextField(
-            controller: _street,
-            label: 'Địa chỉ chi tiết *',
-            hint: 'Số nhà, tên đường…',
-            enabled: !_saving,
-            errorText:
-                _fieldErrors['street_address'] ?? _required(_street.text),
-          ),
-          const SizedBox(height: 16),
-          SwitchListTile(
-            title: const Text('Đặt làm địa chỉ mặc định'),
-            value: _isDefault,
-            onChanged: _saving
-                ? null
-                : (value) => setState(() => _isDefault = value),
-          ),
-          const SizedBox(height: 18),
-          if (_message != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Semantics(liveRegion: true, child: Text(_message!)),
-            ),
-          AppPrimaryButton(
-            label: 'Lưu địa chỉ',
-            loading: _saving,
-            onPressed: _loadingLocations || _locationsError != null
-                ? null
-                : _save,
-          ),
-        ],
+        ),
       ),
     );
   }

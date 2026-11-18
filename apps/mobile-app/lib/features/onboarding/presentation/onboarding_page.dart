@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mobile_app/core/widgets/heritage/heritage_surface.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_app/app/router/routes.dart';
 import 'package:mobile_app/core/storage/onboarding_store.dart';
@@ -61,84 +62,86 @@ class _OnboardingPageState extends State<OnboardingPage> {
       if (!didPop) _finish(AppRoutes.home);
     },
     child: Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: PageView.builder(
-                controller: _controller,
-                itemCount: _slides.length,
-                onPageChanged: (value) => setState(() => _page = value),
-                itemBuilder: (context, index) => _OnboardingSlide(
-                  icon: _slides[index].icon,
-                  title: _slides[index].title,
-                  message: _slides[index].message,
-                ),
-              ),
-            ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(
-                _slides.length,
-                (index) => AnimatedContainer(
-                  key: ValueKey('onboarding-dot-$index'),
-                  duration: const Duration(milliseconds: 180),
-                  width: index == _page ? 24 : 8,
-                  height: 8,
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  decoration: BoxDecoration(
-                    color: index == _page
-                        ? AppColors.brandBrown
-                        : AppColors.border,
-                    borderRadius: BorderRadius.circular(99),
+      body: HeritageSurface(
+        child: SafeArea(
+          child: Column(
+            children: [
+              Expanded(
+                child: PageView.builder(
+                  controller: _controller,
+                  itemCount: _slides.length,
+                  onPageChanged: (value) => setState(() => _page = value),
+                  itemBuilder: (context, index) => _OnboardingSlide(
+                    icon: _slides[index].icon,
+                    title: _slides[index].title,
+                    message: _slides[index].message,
                   ),
                 ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              child: _page < _slides.length - 1
-                  ? SizedBox(
-                      width: double.infinity,
-                      child: AppPrimaryButton(
-                        label: 'Tiếp tục',
-                        icon: Icons.arrow_forward,
-                        onPressed: () => _controller.nextPage(
-                          duration: const Duration(milliseconds: 260),
-                          curve: Curves.easeOut,
-                        ),
-                      ),
-                    )
-                  : Column(
-                      children: [
-                        SizedBox(
-                          width: double.infinity,
-                          child: AppPrimaryButton(
-                            label: 'Đăng nhập',
-                            loading: _finishing,
-                            onPressed: () => _finish(AppRoutes.login),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(
+                  _slides.length,
+                  (index) => AnimatedContainer(
+                    key: ValueKey('onboarding-dot-$index'),
+                    duration: const Duration(milliseconds: 180),
+                    width: index == _page ? 24 : 8,
+                    height: 8,
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    decoration: BoxDecoration(
+                      color: index == _page
+                          ? AppColors.brandBrown
+                          : AppColors.border,
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                child: _page < _slides.length - 1
+                    ? SizedBox(
+                        width: double.infinity,
+                        child: AppPrimaryButton(
+                          label: 'Tiếp tục',
+                          icon: Icons.arrow_forward,
+                          onPressed: () => _controller.nextPage(
+                            duration: const Duration(milliseconds: 260),
+                            curve: Curves.easeOut,
                           ),
                         ),
-                        const SizedBox(height: AppSpacing.sm),
-                        SizedBox(
-                          width: double.infinity,
-                          child: AppSecondaryButton(
-                            label: 'Đăng ký',
+                      )
+                    : Column(
+                        children: [
+                          SizedBox(
+                            width: double.infinity,
+                            child: AppPrimaryButton(
+                              label: 'Đăng nhập',
+                              loading: _finishing,
+                              onPressed: () => _finish(AppRoutes.login),
+                            ),
+                          ),
+                          const SizedBox(height: AppSpacing.sm),
+                          SizedBox(
+                            width: double.infinity,
+                            child: AppSecondaryButton(
+                              label: 'Đăng ký',
+                              onPressed: _finishing
+                                  ? null
+                                  : () => _finish(AppRoutes.register),
+                            ),
+                          ),
+                          TextButton(
                             onPressed: _finishing
                                 ? null
-                                : () => _finish(AppRoutes.register),
+                                : () => _finish(AppRoutes.home),
+                            child: const Text('Tiếp tục với tư cách khách'),
                           ),
-                        ),
-                        TextButton(
-                          onPressed: _finishing
-                              ? null
-                              : () => _finish(AppRoutes.home),
-                          child: const Text('Tiếp tục với tư cách khách'),
-                        ),
-                      ],
-                    ),
-            ),
-          ],
+                        ],
+                      ),
+              ),
+            ],
+          ),
         ),
       ),
     ),

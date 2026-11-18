@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mobile_app/core/widgets/heritage/heritage_surface.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -31,201 +32,206 @@ class _SupportRequestPageState extends State<SupportRequestPage> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: const AppMobileHeader(title: 'Gửi yêu cầu hỗ trợ', showBack: true),
-    body: SafeArea(
-      child: BlocConsumer<SupportCubit, SupportState>(
-        listener: (context, state) {
-          if (state.createdId != null) {
-            context.go(
-              '/support/tickets/${Uri.encodeComponent(state.createdId!)}',
-            );
-          }
-        },
-        builder: (context, state) {
-          final cubit = context.read<SupportCubit>(), data = state.context;
-          if (state.loading) return const AppLoadingView();
-          if (data == null) {
-            return AppErrorView(
-              message: state.error ?? 'Chưa thể mở trung tâm hỗ trợ.',
-              onRetry: cubit.loadContext,
-            );
-          }
-          final subject =
-              data.subjects.where((o) => o.code == _subject).firstOrNull ??
-              data.subjects.firstOrNull;
-          final priority =
-              data.priorities.where((o) => o.code == _priority).firstOrNull ??
-              data.priorities.firstOrNull;
-          return ListView(
-            padding: const EdgeInsets.all(20),
-            children: [
-              Text(
-                'Trao đổi cùng Ban Tri Kỷ',
-                style: Theme.of(context).textTheme.headlineMedium,
-              ),
-              const SizedBox(height: 12),
-              Text(data.servicePromise),
-              _SupportSection(
-                title: '1 · Thông tin người gửi',
-                children: [
-                  Text(
-                    data.guest
-                        ? 'Mua sắm với tư cách khách'
-                        : data.customerName,
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  if (data.customerContact.isNotEmpty)
-                    Text(data.customerContact),
-                  if (data.guest)
+    body: HeritageSurface(
+      child: SafeArea(
+        child: BlocConsumer<SupportCubit, SupportState>(
+          listener: (context, state) {
+            if (state.createdId != null) {
+              context.go(
+                '/support/tickets/${Uri.encodeComponent(state.createdId!)}',
+              );
+            }
+          },
+          builder: (context, state) {
+            final cubit = context.read<SupportCubit>(), data = state.context;
+            if (state.loading) return const AppLoadingView();
+            if (data == null) {
+              return AppErrorView(
+                message: state.error ?? 'Chưa thể mở trung tâm hỗ trợ.',
+                onRetry: cubit.loadContext,
+              );
+            }
+            final subject =
+                data.subjects.where((o) => o.code == _subject).firstOrNull ??
+                data.subjects.firstOrNull;
+            final priority =
+                data.priorities.where((o) => o.code == _priority).firstOrNull ??
+                data.priorities.firstOrNull;
+            return ListView(
+              padding: const EdgeInsets.all(20),
+              children: [
+                Text(
+                  'Trao đổi cùng Ban Tri Kỷ',
+                  style: Theme.of(context).textTheme.headlineMedium,
+                ),
+                const SizedBox(height: 12),
+                Text(data.servicePromise),
+                _SupportSection(
+                  title: '1 · Thông tin người gửi',
+                  children: [
+                    Text(
+                      data.guest
+                          ? 'Mua sắm với tư cách khách'
+                          : data.customerName,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    if (data.customerContact.isNotEmpty)
+                      Text(data.customerContact),
+                    if (data.guest)
+                      const Text(
+                        'Theo dõi trao đổi trong phiên hiện tại. Hãy giữ mã ticket để mở lại khi phiên còn hiệu lực.',
+                      ),
+                  ],
+                ),
+                _SupportSection(
+                  title: '2 · Chủ đề và đơn liên quan',
+                  children: [
+                    DropdownButtonFormField<String>(
+                      initialValue: subject?.code,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Chủ đề cần hỗ trợ',
+                      ),
+                      items: [
+                        for (final option in data.subjects)
+                          DropdownMenuItem(
+                            value: option.code,
+                            child: Text(
+                              option.label,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                      ],
+                      onChanged: state.pending
+                          ? null
+                          : (value) => setState(() => _subject = value),
+                    ),
+                    if (subject != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(subject.description),
+                      ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      initialValue: _order,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Đơn hàng liên quan',
+                      ),
+                      items: [
+                        const DropdownMenuItem(
+                          value: '',
+                          child: Text('Không liên kết đơn'),
+                        ),
+                        for (final order in data.orders)
+                          DropdownMenuItem(
+                            value: order.id,
+                            child: Text(
+                              '#${order.number} · ${order.status}',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                      ],
+                      onChanged: state.pending
+                          ? null
+                          : (value) => setState(() => _order = value ?? ''),
+                    ),
+                    if (data.orders.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 8),
+                        child: Text(
+                          'Chỉ đơn thuộc quyền truy cập mới có thể liên kết.',
+                        ),
+                      ),
+                  ],
+                ),
+                _SupportSection(
+                  title: '3 · Ưu tiên mong muốn',
+                  children: [
+                    DropdownButtonFormField<String>(
+                      initialValue: priority?.code,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Mức độ ưu tiên',
+                      ),
+                      items: [
+                        for (final option in data.priorities)
+                          DropdownMenuItem(
+                            value: option.code,
+                            child: Text(
+                              option.label,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                      ],
+                      onChanged: state.pending
+                          ? null
+                          : (value) => setState(() => _priority = value),
+                    ),
+                    if (priority != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          '${priority.description}\n${priority.promise}',
+                        ),
+                      ),
                     const Text(
-                      'Theo dõi trao đổi trong phiên hiện tại. Hãy giữ mã ticket để mở lại khi phiên còn hiệu lực.',
+                      'CSKH xác định ưu tiên và thời hạn xử lý chính thức.',
                     ),
-                ],
-              ),
-              _SupportSection(
-                title: '2 · Chủ đề và đơn liên quan',
-                children: [
-                  DropdownButtonFormField<String>(
-                    initialValue: subject?.code,
-                    isExpanded: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Chủ đề cần hỗ trợ',
+                  ],
+                ),
+                _SupportSection(
+                  title: '4 · Nội dung yêu cầu',
+                  children: [
+                    AppTextField(
+                      controller: _title,
+                      label: 'Tiêu đề yêu cầu',
+                      enabled: !state.pending,
+                      maxLength: 160,
+                      textInputAction: TextInputAction.next,
                     ),
-                    items: [
-                      for (final option in data.subjects)
-                        DropdownMenuItem(
-                          value: option.code,
-                          child: Text(
-                            option.label,
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                    const SizedBox(height: 16),
+                    AppTextField(
+                      controller: _message,
+                      label: 'Nội dung cần hỗ trợ',
+                      maxLines: 6,
+                      maxLength: 3000,
+                      enabled: !state.pending,
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Tệp đính kèm: chưa hỗ trợ tải tệp trong phiên bản này.',
+                      style: TextStyle(
+                        color: AppColors.textMuted,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+                if (state.error != null) _SupportError(state.error!),
+                AppPrimaryButton(
+                  label: 'Gửi yêu cầu đến Ban Tri Kỷ',
+                  loading: state.pending,
+                  onPressed: subject == null || priority == null
+                      ? null
+                      : () => cubit.create(
+                          subject: subject.code,
+                          title: _title.text,
+                          message: _message.text,
+                          priority: priority.code,
+                          orderId: _order,
                         ),
-                    ],
-                    onChanged: state.pending
-                        ? null
-                        : (value) => setState(() => _subject = value),
-                  ),
-                  if (subject != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Text(subject.description),
-                    ),
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    initialValue: _order,
-                    isExpanded: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Đơn hàng liên quan',
-                    ),
-                    items: [
-                      const DropdownMenuItem(
-                        value: '',
-                        child: Text('Không liên kết đơn'),
-                      ),
-                      for (final order in data.orders)
-                        DropdownMenuItem(
-                          value: order.id,
-                          child: Text(
-                            '#${order.number} · ${order.status}',
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                    ],
-                    onChanged: state.pending
-                        ? null
-                        : (value) => setState(() => _order = value ?? ''),
-                  ),
-                  if (data.orders.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.only(top: 8),
-                      child: Text(
-                        'Chỉ đơn thuộc quyền truy cập mới có thể liên kết.',
-                      ),
-                    ),
-                ],
-              ),
-              _SupportSection(
-                title: '3 · Ưu tiên mong muốn',
-                children: [
-                  DropdownButtonFormField<String>(
-                    initialValue: priority?.code,
-                    isExpanded: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Mức độ ưu tiên',
-                    ),
-                    items: [
-                      for (final option in data.priorities)
-                        DropdownMenuItem(
-                          value: option.code,
-                          child: Text(
-                            option.label,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                    ],
-                    onChanged: state.pending
-                        ? null
-                        : (value) => setState(() => _priority = value),
-                  ),
-                  if (priority != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Text(
-                        '${priority.description}\n${priority.promise}',
-                      ),
-                    ),
-                  const Text(
-                    'CSKH xác định ưu tiên và thời hạn xử lý chính thức.',
-                  ),
-                ],
-              ),
-              _SupportSection(
-                title: '4 · Nội dung yêu cầu',
-                children: [
-                  AppTextField(
-                    controller: _title,
-                    label: 'Tiêu đề yêu cầu',
-                    enabled: !state.pending,
-                    maxLength: 160,
-                    textInputAction: TextInputAction.next,
-                  ),
-                  const SizedBox(height: 16),
-                  AppTextField(
-                    controller: _message,
-                    label: 'Nội dung cần hỗ trợ',
-                    maxLines: 6,
-                    maxLength: 3000,
-                    enabled: !state.pending,
-                  ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Tệp đính kèm: chưa hỗ trợ tải tệp trong phiên bản này.',
-                    style: TextStyle(color: AppColors.textMuted, fontSize: 12),
-                  ),
-                ],
-              ),
-              if (state.error != null) _SupportError(state.error!),
-              AppPrimaryButton(
-                label: 'Gửi yêu cầu đến Ban Tri Kỷ',
-                loading: state.pending,
-                onPressed: subject == null || priority == null
-                    ? null
-                    : () => cubit.create(
-                        subject: subject.code,
-                        title: _title.text,
-                        message: _message.text,
-                        priority: priority.code,
-                        orderId: _order,
-                      ),
-              ),
-              TextButton(
-                onPressed: state.pending
-                    ? null
-                    : () => context.go(AppRoutes.home),
-                child: const Text('Hủy bỏ & về trang chủ'),
-              ),
-            ],
-          );
-        },
+                ),
+                TextButton(
+                  onPressed: state.pending
+                      ? null
+                      : () => context.go(AppRoutes.home),
+                  child: const Text('Hủy bỏ & về trang chủ'),
+                ),
+              ],
+            );
+          },
+        ),
       ),
     ),
   );
@@ -249,135 +255,137 @@ class _SupportTicketPageState extends State<SupportTicketPage> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: const AppMobileHeader(title: 'Trao đổi hỗ trợ', showBack: true),
-    body: SafeArea(
-      child: BlocBuilder<SupportCubit, SupportState>(
-        builder: (context, state) {
-          final cubit = context.read<SupportCubit>(), ticket = state.ticket;
-          if (state.loading) return const AppLoadingView();
-          if (ticket == null) {
-            return AppErrorView(
-              message: state.error ?? 'Chưa thể mở ticket.',
-              onRetry: () => cubit.loadTicket(widget.ticketId),
-              action: TextButton(
-                onPressed: () => context.go(AppRoutes.supportRequest),
-                child: const Text('Gửi yêu cầu mới'),
-              ),
-            );
-          }
-          return ListView(
-            padding: const EdgeInsets.all(20),
-            children: [
-              SelectableText(
-                '#${ticket.number}',
-                style: const TextStyle(color: AppColors.textMuted),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                ticket.title,
-                style: Theme.of(context).textTheme.headlineMedium,
-              ),
-              const SizedBox(height: 12),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Chip(label: Text(ticket.status)),
-              ),
-              Text('${ticket.subject} · ${ticket.priority}'),
-              _SupportSection(
-                title: 'Thông tin tiếp nhận',
-                children: [
-                  Text(ticket.promise),
-                  Text(ticket.assignee),
-                  Text(ticket.description),
-                  if (ticket.order != null)
-                    TextButton(
-                      onPressed: () => context.push(
-                        '/orders/${Uri.encodeComponent(ticket.order!.id)}',
-                      ),
-                      child: Text('Xem đơn #${ticket.order!.number}'),
-                    ),
-                ],
-              ),
-              Text(
-                'Nội dung trao đổi',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              if (ticket.messages.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Text('Chưa có trao đổi công khai.'),
+    body: HeritageSurface(
+      child: SafeArea(
+        child: BlocBuilder<SupportCubit, SupportState>(
+          builder: (context, state) {
+            final cubit = context.read<SupportCubit>(), ticket = state.ticket;
+            if (state.loading) return const AppLoadingView();
+            if (ticket == null) {
+              return AppErrorView(
+                message: state.error ?? 'Chưa thể mở ticket.',
+                onRetry: () => cubit.loadTicket(widget.ticketId),
+                action: TextButton(
+                  onPressed: () => context.go(AppRoutes.supportRequest),
+                  child: const Text('Gửi yêu cầu mới'),
                 ),
-              for (final message in ticket.messages)
-                Card(
-                  color: message.role == 'CUSTOMER' ? AppColors.cream : null,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          message.sender,
-                          style: const TextStyle(fontWeight: FontWeight.w600),
+              );
+            }
+            return ListView(
+              padding: const EdgeInsets.all(20),
+              children: [
+                SelectableText(
+                  '#${ticket.number}',
+                  style: const TextStyle(color: AppColors.textMuted),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  ticket.title,
+                  style: Theme.of(context).textTheme.headlineMedium,
+                ),
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Chip(label: Text(ticket.status)),
+                ),
+                Text('${ticket.subject} · ${ticket.priority}'),
+                _SupportSection(
+                  title: 'Thông tin tiếp nhận',
+                  children: [
+                    Text(ticket.promise),
+                    Text(ticket.assignee),
+                    Text(ticket.description),
+                    if (ticket.order != null)
+                      TextButton(
+                        onPressed: () => context.push(
+                          '/orders/${Uri.encodeComponent(ticket.order!.id)}',
                         ),
-                        Text(
-                          DateFormat(
-                            'dd/MM/yyyy HH:mm',
-                          ).format(message.time.toLocal()),
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: AppColors.textMuted,
+                        child: Text('Xem đơn #${ticket.order!.number}'),
+                      ),
+                  ],
+                ),
+                Text(
+                  'Nội dung trao đổi',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                if (ticket.messages.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Text('Chưa có trao đổi công khai.'),
+                  ),
+                for (final message in ticket.messages)
+                  Card(
+                    color: message.role == 'CUSTOMER' ? AppColors.cream : null,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            message.sender,
+                            style: const TextStyle(fontWeight: FontWeight.w600),
                           ),
-                        ),
-                        const SizedBox(height: 10),
-                        SelectableText(message.message),
-                        for (final file in message.attachments)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 8),
-                            child: Text(
-                              file,
-                              style: const TextStyle(fontSize: 12),
+                          Text(
+                            DateFormat(
+                              'dd/MM/yyyy HH:mm',
+                            ).format(message.time.toLocal()),
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: AppColors.textMuted,
                             ),
                           ),
-                      ],
+                          const SizedBox(height: 10),
+                          SelectableText(message.message),
+                          for (final file in message.attachments)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Text(
+                                file,
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
                   ),
+                _SupportSection(
+                  title: 'Phản hồi thêm',
+                  children: [
+                    if (ticket.canReply) ...[
+                      AppTextField(
+                        controller: _message,
+                        label: 'Lời nhắn gửi Ban Tri Kỷ',
+                        maxLines: 5,
+                        maxLength: 3000,
+                        enabled: !state.pending,
+                      ),
+                      const SizedBox(height: 16),
+                      if (state.error != null) _SupportError(state.error!),
+                      AppPrimaryButton(
+                        label: 'Gửi phản hồi',
+                        loading: state.pending,
+                        onPressed: () async {
+                          final sent = await cubit.reply(_message.text);
+                          if (sent && context.mounted) {
+                            _message.clear();
+                            FocusScope.of(context).unfocus();
+                          }
+                        },
+                      ),
+                    ] else
+                      const Text(
+                        'Ticket đã đóng trao đổi. Hãy tạo yêu cầu mới nếu cần hỗ trợ thêm.',
+                      ),
+                  ],
                 ),
-              _SupportSection(
-                title: 'Phản hồi thêm',
-                children: [
-                  if (ticket.canReply) ...[
-                    AppTextField(
-                      controller: _message,
-                      label: 'Lời nhắn gửi Ban Tri Kỷ',
-                      maxLines: 5,
-                      maxLength: 3000,
-                      enabled: !state.pending,
-                    ),
-                    const SizedBox(height: 16),
-                    if (state.error != null) _SupportError(state.error!),
-                    AppPrimaryButton(
-                      label: 'Gửi phản hồi',
-                      loading: state.pending,
-                      onPressed: () async {
-                        final sent = await cubit.reply(_message.text);
-                        if (sent && context.mounted) {
-                          _message.clear();
-                          FocusScope.of(context).unfocus();
-                        }
-                      },
-                    ),
-                  ] else
-                    const Text(
-                      'Ticket đã đóng trao đổi. Hãy tạo yêu cầu mới nếu cần hỗ trợ thêm.',
-                    ),
-                ],
-              ),
-              TextButton(
-                onPressed: () => context.go(AppRoutes.supportRequest),
-                child: const Text('Gửi yêu cầu khác'),
-              ),
-            ],
-          );
-        },
+                TextButton(
+                  onPressed: () => context.go(AppRoutes.supportRequest),
+                  child: const Text('Gửi yêu cầu khác'),
+                ),
+              ],
+            );
+          },
+        ),
       ),
     ),
   );

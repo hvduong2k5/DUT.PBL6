@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mobile_app/core/widgets/heritage/heritage_surface.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_app/app/router/routes.dart';
@@ -27,115 +28,117 @@ class AccountPage extends StatelessWidget {
         return Scaffold(
           appBar: const AppMobileHeader(title: 'Tài Khoản', showMenu: true),
           drawer: const AppNavigationDrawer(activeRoute: AppRoutes.account),
-          body: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              const PurchaseAccessBanner(),
-              if (authState.sessionRestoreFailed)
-                Card(
-                  child: ListTile(
-                    title: Text(authState.message!),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.refresh),
-                      tooltip: 'Khôi phục phiên',
-                      onPressed: context.read<AuthCubit>().restore,
-                    ),
-                  ),
-                ),
-              if (isGuest)
-                _GuestCard(
-                  onLogin: () => context.push(AppRoutes.login),
-                  onRegister: () => context.push(AppRoutes.register),
-                )
-              else
-                _ProfileCard(user: authState.user!),
-              if (!isGuest) ...[
-                const SizedBox(height: AppSpacing.lg),
-                if (context.read<AuthCubit>().usesBrowserIdentity)
-                  _MenuRow(
-                    icon: Icons.lock_outline,
-                    label: 'Đổi mật khẩu',
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => BlocProvider.value(
-                          value: context.read<AuthCubit>(),
-                          child: const IdentityPasswordPage(),
-                        ),
+          body: HeritageSurface(
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                const PurchaseAccessBanner(),
+                if (authState.sessionRestoreFailed)
+                  Card(
+                    child: ListTile(
+                      title: Text(authState.message!),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.refresh),
+                        tooltip: 'Khôi phục phiên',
+                        onPressed: context.read<AuthCubit>().restore,
                       ),
                     ),
                   ),
-                const _SectionLabel('TÀI KHOẢN'),
-                _MenuRow(
-                  icon: Icons.person_outline,
-                  label: 'Hồ sơ cá nhân',
-                  onTap: () => context.push(AppRoutes.profile),
-                ),
-                if (context.select(
-                  (CapabilitiesCubit cubit) =>
-                      cubit.state.allows('LOYALTY_VIEW'),
-                ))
+                if (isGuest)
+                  _GuestCard(
+                    onLogin: () => context.push(AppRoutes.login),
+                    onRegister: () => context.push(AppRoutes.register),
+                  )
+                else
+                  _ProfileCard(user: authState.user!),
+                if (!isGuest) ...[
+                  const SizedBox(height: AppSpacing.lg),
+                  if (context.read<AuthCubit>().usesBrowserIdentity)
+                    _MenuRow(
+                      icon: Icons.lock_outline,
+                      label: 'Đổi mật khẩu',
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => BlocProvider.value(
+                            value: context.read<AuthCubit>(),
+                            child: const IdentityPasswordPage(),
+                          ),
+                        ),
+                      ),
+                    ),
+                  const _SectionLabel('TÀI KHOẢN'),
                   _MenuRow(
-                    icon: Icons.loyalty_outlined,
-                    label: 'Ví điểm & đặc quyền',
-                    onTap: () => context.push(AppRoutes.loyalty),
+                    icon: Icons.person_outline,
+                    label: 'Hồ sơ cá nhân',
+                    onTap: () => context.push(AppRoutes.profile),
                   ),
-                _MenuRow(
-                  icon: Icons.receipt_long_outlined,
-                  label: 'Đơn hàng của tôi',
-                  onTap: () => context.push(AppRoutes.orders),
-                ),
-                _MenuRow(
-                  icon: Icons.assignment_return_outlined,
-                  label: 'Hồ sơ hậu mãi',
-                  onTap: () => context.push(AppRoutes.returnLookup),
-                ),
-                _MenuRow(
-                  icon: Icons.location_on_outlined,
-                  label: 'Địa chỉ giao hàng',
-                  onTap: () => context.push(AppRoutes.addresses),
-                ),
-                _MenuRow(
-                  icon: Icons.notifications_none,
-                  label: 'Thông báo',
-                  onTap: () => context.push(AppRoutes.notifications),
-                ),
-              ],
-              const SizedBox(height: AppSpacing.md),
-              const _SectionLabel('KHÁC'),
-              _MenuRow(
-                icon: Icons.business_outlined,
-                label: 'Quà biếu doanh nghiệp',
-                onTap: () => context.push(AppRoutes.b2b),
-              ),
-              _MenuRow(
-                icon: Icons.local_offer_outlined,
-                label: 'Ưu đãi Tri Kỷ',
-                onTap: () => context.push(AppRoutes.promotions),
-              ),
-              _MenuRow(
-                icon: Icons.help_outline,
-                label: 'Hỗ trợ',
-                onTap: () => context.push(AppRoutes.supportRequest),
-              ),
-              _MenuRow(
-                icon: Icons.qr_code_2_outlined,
-                label: 'Truy xuất nguồn gốc',
-                onTap: () => context.push(AppRoutes.trace),
-              ),
-              if (!isGuest) ...[
+                  if (context.select(
+                    (CapabilitiesCubit cubit) =>
+                        cubit.state.allows('LOYALTY_VIEW'),
+                  ))
+                    _MenuRow(
+                      icon: Icons.loyalty_outlined,
+                      label: 'Ví điểm & đặc quyền',
+                      onTap: () => context.push(AppRoutes.loyalty),
+                    ),
+                  _MenuRow(
+                    icon: Icons.receipt_long_outlined,
+                    label: 'Đơn hàng của tôi',
+                    onTap: () => context.push(AppRoutes.orders),
+                  ),
+                  _MenuRow(
+                    icon: Icons.assignment_return_outlined,
+                    label: 'Hồ sơ hậu mãi',
+                    onTap: () => context.push(AppRoutes.returnLookup),
+                  ),
+                  _MenuRow(
+                    icon: Icons.location_on_outlined,
+                    label: 'Địa chỉ giao hàng',
+                    onTap: () => context.push(AppRoutes.addresses),
+                  ),
+                  _MenuRow(
+                    icon: Icons.notifications_none,
+                    label: 'Thông báo',
+                    onTap: () => context.push(AppRoutes.notifications),
+                  ),
+                ],
                 const SizedBox(height: AppSpacing.md),
-                OutlinedButton.icon(
-                  onPressed: () => context.read<AuthCubit>().logout(),
-                  icon: const Icon(Icons.logout),
-                  label: const Text('Đăng xuất'),
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size.fromHeight(48),
-                    foregroundColor: AppColors.darkRed,
-                    side: const BorderSide(color: AppColors.darkRed),
-                  ),
+                const _SectionLabel('KHÁC'),
+                _MenuRow(
+                  icon: Icons.business_outlined,
+                  label: 'Quà biếu doanh nghiệp',
+                  onTap: () => context.push(AppRoutes.b2b),
                 ),
+                _MenuRow(
+                  icon: Icons.local_offer_outlined,
+                  label: 'Ưu đãi Tri Kỷ',
+                  onTap: () => context.push(AppRoutes.promotions),
+                ),
+                _MenuRow(
+                  icon: Icons.help_outline,
+                  label: 'Hỗ trợ',
+                  onTap: () => context.push(AppRoutes.supportRequest),
+                ),
+                _MenuRow(
+                  icon: Icons.qr_code_2_outlined,
+                  label: 'Truy xuất nguồn gốc',
+                  onTap: () => context.push(AppRoutes.trace),
+                ),
+                if (!isGuest) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  OutlinedButton.icon(
+                    onPressed: () => context.read<AuthCubit>().logout(),
+                    icon: const Icon(Icons.logout),
+                    label: const Text('Đăng xuất'),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(48),
+                      foregroundColor: AppColors.darkRed,
+                      side: const BorderSide(color: AppColors.darkRed),
+                    ),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
           bottomNavigationBar: AppBottomNavigation(
             active: null,

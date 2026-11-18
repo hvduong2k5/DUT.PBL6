@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mobile_app/core/widgets/heritage/heritage_surface.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_app/app/router/routes.dart';
@@ -18,64 +19,67 @@ class AddressesPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: const AppMobileHeader(title: 'Địa chỉ giao hàng', showBack: true),
-    body: BlocBuilder<AddressesCubit, AddressesState>(
-      builder: (context, state) {
-        if (state.status == AddressesStatus.initial ||
-            state.status == AddressesStatus.loading) {
-          return const AppLoadingView();
-        }
-        if (state.addresses.isEmpty) {
-          if (state.status == AddressesStatus.failure) {
-            return AppErrorView(
-              message: state.message ?? 'Chưa tải được sổ địa chỉ.',
-              onRetry: context.read<AddressesCubit>().load,
+    body: HeritageSurface(
+      child: BlocBuilder<AddressesCubit, AddressesState>(
+        builder: (context, state) {
+          if (state.status == AddressesStatus.initial ||
+              state.status == AddressesStatus.loading) {
+            return const AppLoadingView();
+          }
+          if (state.addresses.isEmpty) {
+            if (state.status == AddressesStatus.failure) {
+              return AppErrorView(
+                message: state.message ?? 'Chưa tải được sổ địa chỉ.',
+                onRetry: context.read<AddressesCubit>().load,
+              );
+            }
+            return AppEmptyView(
+              title: 'Chưa có địa chỉ',
+              message:
+                  'Thêm địa chỉ để việc thanh toán và giao hàng nhanh hơn.',
+              icon: Icons.location_on_outlined,
+              action: FilledButton(
+                onPressed: () async {
+                  await context.push(AppRoutes.addressForm);
+                  if (context.mounted) {
+                    await context.read<AddressesCubit>().load();
+                  }
+                },
+                child: const Text('Thêm địa chỉ'),
+              ),
             );
           }
-          return AppEmptyView(
-            title: 'Chưa có địa chỉ',
-            message: 'Thêm địa chỉ để việc thanh toán và giao hàng nhanh hơn.',
-            icon: Icons.location_on_outlined,
-            action: FilledButton(
-              onPressed: () async {
-                await context.push(AppRoutes.addressForm);
-                if (context.mounted) {
-                  await context.read<AddressesCubit>().load();
-                }
-              },
-              child: const Text('Thêm địa chỉ'),
-            ),
-          );
-        }
-        return ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            if (state.message != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Semantics(
-                  liveRegion: true,
-                  child: Text(
-                    state.message!,
-                    style: const TextStyle(color: AppColors.darkRed),
+          return ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              if (state.message != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Semantics(
+                    liveRegion: true,
+                    child: Text(
+                      state.message!,
+                      style: const TextStyle(color: AppColors.darkRed),
+                    ),
                   ),
                 ),
+              for (final address in state.addresses)
+                _AddressCard(address: address, pending: state.pending),
+              const SizedBox(height: 8),
+              AppPrimaryButton(
+                onPressed: () async {
+                  await context.push(AppRoutes.addressForm);
+                  if (context.mounted) {
+                    await context.read<AddressesCubit>().load();
+                  }
+                },
+                icon: Icons.add,
+                label: 'Thêm địa chỉ mới',
               ),
-            for (final address in state.addresses)
-              _AddressCard(address: address, pending: state.pending),
-            const SizedBox(height: 8),
-            AppPrimaryButton(
-              onPressed: () async {
-                await context.push(AppRoutes.addressForm);
-                if (context.mounted) {
-                  await context.read<AddressesCubit>().load();
-                }
-              },
-              icon: Icons.add,
-              label: 'Thêm địa chỉ mới',
-            ),
-          ],
-        );
-      },
+            ],
+          );
+        },
+      ),
     ),
   );
 }

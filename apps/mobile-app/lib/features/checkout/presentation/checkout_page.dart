@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mobile_app/core/widgets/heritage/heritage_surface.dart';
 import 'package:mobile_app/features/auth/presentation/purchase_access_banner.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -90,322 +91,331 @@ class _CheckoutPageState extends State<CheckoutPage> {
             title: 'Thông tin đặt hàng',
             showBack: true,
           ),
-          body: AppEmptyView(
-            title: 'Chưa chọn sản phẩm',
-            message:
-                'Hãy chọn các dòng khả dụng trong giỏ trước khi thanh toán.',
-            action: AppPrimaryButton(
-              label: 'Về giỏ hàng',
-              onPressed: () => context.go(AppRoutes.cart),
+          body: HeritageSurface(
+            child: AppEmptyView(
+              title: 'Chưa chọn sản phẩm',
+              message:
+                  'Hãy chọn các dòng khả dụng trong giỏ trước khi thanh toán.',
+              action: AppPrimaryButton(
+                label: 'Về giỏ hàng',
+                onPressed: () => context.go(AppRoutes.cart),
+              ),
             ),
           ),
         );
       }
       return Scaffold(
         appBar: const AppMobileHeader(title: 'Thanh Toán', showBack: true),
-        body: ListView(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.md,
-            AppSpacing.xs,
-            AppSpacing.md,
-            110,
-          ),
-          children: [
-            const PurchaseAccessBanner(),
-            if (submitting)
-              Container(
-                margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-                padding: const EdgeInsets.all(AppSpacing.sm),
-                decoration: BoxDecoration(
-                  color: AppColors.muted,
-                  borderRadius: BorderRadius.circular(AppRadius.large),
+        body: HeritageSurface(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.md,
+              AppSpacing.xs,
+              AppSpacing.md,
+              110,
+            ),
+            children: [
+              const PurchaseAccessBanner(),
+              if (submitting)
+                Container(
+                  margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+                  padding: const EdgeInsets.all(AppSpacing.sm),
+                  decoration: BoxDecoration(
+                    color: AppColors.muted,
+                    borderRadius: BorderRadius.circular(AppRadius.large),
+                  ),
+                  child: const Text(
+                    'Đang gửi đơn hàng. Vui lòng không thao tác lặp lại.',
+                    style: TextStyle(fontSize: 12),
+                  ),
                 ),
-                child: const Text(
-                  'Đang gửi đơn hàng. Vui lòng không thao tác lặp lại.',
-                  style: TextStyle(fontSize: 12),
-                ),
-              ),
-            Text(
-              authenticated
-                  ? 'Thanh toán bằng tài khoản'
-                  : 'Thanh toán khách • Không cần tạo tài khoản',
-              style: const TextStyle(
-                color: AppColors.brandBrown,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            if (!authenticated)
-              TextButton(
-                onPressed: submitting
-                    ? null
-                    : () => context.push(
-                        authLocation(
-                          AppRoutes.login,
-                          GoRouterState.of(context).uri.toString(),
-                        ),
-                      ),
-                child: const Text('Đăng nhập để dùng địa chỉ đã lưu'),
-              ),
-            const SizedBox(height: AppSpacing.md),
-            Text(
-              'Thông tin giao hàng',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            if (state.loadingSavedAddress)
-              const LinearProgressIndicator(minHeight: 2),
-            if (state.savedAddress != null)
-              CheckboxListTile(
-                key: const Key('use-account-address'),
-                contentPadding: EdgeInsets.zero,
-                controlAffinity: ListTileControlAffinity.leading,
-                title: const Text('Dùng địa chỉ tài khoản'),
-                subtitle: Text(state.savedAddress!.formatted),
-                value: state.useAccountAddress,
-                onChanged: submitting
-                    ? null
-                    : (value) => context.read<CheckoutCubit>().useSavedAddress(
-                        value ?? false,
-                      ),
-              )
-            else if (state.checkedSavedAddresses)
-              const Padding(
-                padding: EdgeInsets.only(bottom: AppSpacing.sm),
-                child: Text(
-                  'Tài khoản chưa có địa chỉ đã lưu. Vui lòng nhập thủ công.',
-                  style: TextStyle(fontSize: 12, color: AppColors.textMuted),
-                ),
-              ),
-            AppTextField(
-              controller: _name,
-              label: 'Họ và tên *',
-              hint: 'Nguyễn Văn An',
-              enabled: !state.useAccountAddress && !submitting,
-              errorText: state.fieldErrors['fullName'],
-              onChanged: context.read<CheckoutCubit>().setName,
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            AppTextField(
-              controller: _phone,
-              label: 'Số điện thoại *',
-              hint: '09xx xxx xxx',
-              enabled: !state.useAccountAddress && !submitting,
-              keyboardType: TextInputType.phone,
-              errorText: state.fieldErrors['phone'],
-              onChanged: context.read<CheckoutCubit>().setPhone,
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            AppTextField(
-              controller: _street,
-              label: 'Số nhà, tên đường *',
-              hint: '123 Lê Duẩn',
-              enabled: !state.useAccountAddress && !submitting,
-              errorText: state.fieldErrors['streetAddress'],
-              onChanged: context.read<CheckoutCubit>().setStreetAddress,
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            if (state.loadingLocations) const LinearProgressIndicator(),
-            if (state.locationsError != null) ...[
               Text(
-                state.locationsError!,
-                style: const TextStyle(color: AppColors.darkRed),
+                authenticated
+                    ? 'Thanh toán bằng tài khoản'
+                    : 'Thanh toán khách • Không cần tạo tài khoản',
+                style: const TextStyle(
+                  color: AppColors.brandBrown,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-              TextButton(
-                onPressed: context.read<CheckoutCubit>().loadLocations,
-                child: const Text('Tải lại khu vực giao hàng'),
-              ),
-            ],
-            DropdownButtonFormField<String>(
-              key: ValueKey(
-                'province-${state.province}-${state.loadingLocations}',
-              ),
-              initialValue: province?.name,
-              isExpanded: true,
-              decoration: InputDecoration(
-                labelText: 'Tỉnh/Thành phố *',
-                errorText: state.fieldErrors['province'],
-              ),
-              items: state.locations
-                  .map(
-                    (item) => DropdownMenuItem(
-                      value: item.name,
-                      child: Text(item.name),
-                    ),
-                  )
-                  .toList(),
-              onChanged: submitting
-                  ? null
-                  : (value) =>
-                        context.read<CheckoutCubit>().setProvince(value ?? ''),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            DropdownButtonFormField<String>(
-              key: ValueKey('ward-${state.province}-${state.ward}'),
-              initialValue:
-                  province?.wards.any((item) => item.name == state.ward) == true
-                  ? state.ward
-                  : null,
-              isExpanded: true,
-              decoration: InputDecoration(
-                labelText: 'Phường/Xã *',
-                errorText: state.fieldErrors['ward'],
-              ),
-              items: (province?.wards ?? [])
-                  .map(
-                    (item) => DropdownMenuItem(
-                      value: item.name,
-                      child: Text(item.name),
-                    ),
-                  )
-                  .toList(),
-              onChanged: submitting || province == null
-                  ? null
-                  : (value) =>
-                        context.read<CheckoutCubit>().setWard(value ?? ''),
-            ),
-            if (state.fieldErrors['locations'] != null)
-              Text(
-                state.fieldErrors['locations']!,
-                style: const TextStyle(color: AppColors.darkRed),
-              ),
-            const SizedBox(height: AppSpacing.lg),
-            Text(
-              'Phương thức giao hàng',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            Text(
-              'Phí giao hàng sẽ được xác nhận khi đơn hàng được tiếp nhận.',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            const _ApiDrivenCard(
-              title: 'Giao hàng theo địa chỉ nhận',
-              subtitle: 'Phí và thời gian giao được xác nhận khi đặt hàng.',
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            Text(
-              'Phương thức thanh toán',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            ...PaymentMethod.values.map(
-              (method) => Card(
-                color: state.paymentMethod == method
-                    ? AppColors.softYellow
-                    : Colors.white,
-                child: InkWell(
-                  onTap: submitting
+              if (!authenticated)
+                TextButton(
+                  onPressed: submitting
                       ? null
-                      : () => context.read<CheckoutCubit>().setPayment(method),
-                  borderRadius: BorderRadius.circular(AppRadius.large),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(minHeight: 56),
-                    child: Row(
-                      children: [
-                        const SizedBox(width: AppSpacing.sm),
-                        Icon(
-                          state.paymentMethod == method
-                              ? Icons.radio_button_checked
-                              : Icons.radio_button_off,
-                          color: state.paymentMethod == method
-                              ? AppColors.honeyGold
-                              : AppColors.textMuted,
-                        ),
-                        const SizedBox(width: AppSpacing.sm),
-                        Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            child: Text(method.label),
+                      : () => context.push(
+                          authLocation(
+                            AppRoutes.login,
+                            GoRouterState.of(context).uri.toString(),
                           ),
                         ),
-                        const SizedBox(width: AppSpacing.sm),
-                      ],
+                  child: const Text('Đăng nhập để dùng địa chỉ đã lưu'),
+                ),
+              const SizedBox(height: AppSpacing.md),
+              Text(
+                'Thông tin giao hàng',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              if (state.loadingSavedAddress)
+                const LinearProgressIndicator(minHeight: 2),
+              if (state.savedAddress != null)
+                CheckboxListTile(
+                  key: const Key('use-account-address'),
+                  contentPadding: EdgeInsets.zero,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  title: const Text('Dùng địa chỉ tài khoản'),
+                  subtitle: Text(state.savedAddress!.formatted),
+                  value: state.useAccountAddress,
+                  onChanged: submitting
+                      ? null
+                      : (value) => context
+                            .read<CheckoutCubit>()
+                            .useSavedAddress(value ?? false),
+                )
+              else if (state.checkedSavedAddresses)
+                const Padding(
+                  padding: EdgeInsets.only(bottom: AppSpacing.sm),
+                  child: Text(
+                    'Tài khoản chưa có địa chỉ đã lưu. Vui lòng nhập thủ công.',
+                    style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+                  ),
+                ),
+              AppTextField(
+                controller: _name,
+                label: 'Họ và tên *',
+                hint: 'Nguyễn Văn An',
+                enabled: !state.useAccountAddress && !submitting,
+                errorText: state.fieldErrors['fullName'],
+                onChanged: context.read<CheckoutCubit>().setName,
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              AppTextField(
+                controller: _phone,
+                label: 'Số điện thoại *',
+                hint: '09xx xxx xxx',
+                enabled: !state.useAccountAddress && !submitting,
+                keyboardType: TextInputType.phone,
+                errorText: state.fieldErrors['phone'],
+                onChanged: context.read<CheckoutCubit>().setPhone,
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              AppTextField(
+                controller: _street,
+                label: 'Số nhà, tên đường *',
+                hint: '123 Lê Duẩn',
+                enabled: !state.useAccountAddress && !submitting,
+                errorText: state.fieldErrors['streetAddress'],
+                onChanged: context.read<CheckoutCubit>().setStreetAddress,
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              if (state.loadingLocations) const LinearProgressIndicator(),
+              if (state.locationsError != null) ...[
+                Text(
+                  state.locationsError!,
+                  style: const TextStyle(color: AppColors.darkRed),
+                ),
+                TextButton(
+                  onPressed: context.read<CheckoutCubit>().loadLocations,
+                  child: const Text('Tải lại khu vực giao hàng'),
+                ),
+              ],
+              DropdownButtonFormField<String>(
+                key: ValueKey(
+                  'province-${state.province}-${state.loadingLocations}',
+                ),
+                initialValue: province?.name,
+                isExpanded: true,
+                decoration: InputDecoration(
+                  labelText: 'Tỉnh/Thành phố *',
+                  errorText: state.fieldErrors['province'],
+                ),
+                items: state.locations
+                    .map(
+                      (item) => DropdownMenuItem(
+                        value: item.name,
+                        child: Text(item.name),
+                      ),
+                    )
+                    .toList(),
+                onChanged: submitting
+                    ? null
+                    : (value) => context.read<CheckoutCubit>().setProvince(
+                        value ?? '',
+                      ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              DropdownButtonFormField<String>(
+                key: ValueKey('ward-${state.province}-${state.ward}'),
+                initialValue:
+                    province?.wards.any((item) => item.name == state.ward) ==
+                        true
+                    ? state.ward
+                    : null,
+                isExpanded: true,
+                decoration: InputDecoration(
+                  labelText: 'Phường/Xã *',
+                  errorText: state.fieldErrors['ward'],
+                ),
+                items: (province?.wards ?? [])
+                    .map(
+                      (item) => DropdownMenuItem(
+                        value: item.name,
+                        child: Text(item.name),
+                      ),
+                    )
+                    .toList(),
+                onChanged: submitting || province == null
+                    ? null
+                    : (value) =>
+                          context.read<CheckoutCubit>().setWard(value ?? ''),
+              ),
+              if (state.fieldErrors['locations'] != null)
+                Text(
+                  state.fieldErrors['locations']!,
+                  style: const TextStyle(color: AppColors.darkRed),
+                ),
+              const SizedBox(height: AppSpacing.lg),
+              Text(
+                'Phương thức giao hàng',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              Text(
+                'Phí giao hàng sẽ được xác nhận khi đơn hàng được tiếp nhận.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              const _ApiDrivenCard(
+                title: 'Giao hàng theo địa chỉ nhận',
+                subtitle: 'Phí và thời gian giao được xác nhận khi đặt hàng.',
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              Text(
+                'Phương thức thanh toán',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              ...PaymentMethod.values.map(
+                (method) => Card(
+                  color: state.paymentMethod == method
+                      ? AppColors.softYellow
+                      : Colors.white,
+                  child: InkWell(
+                    onTap: submitting
+                        ? null
+                        : () =>
+                              context.read<CheckoutCubit>().setPayment(method),
+                    borderRadius: BorderRadius.circular(AppRadius.large),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(minHeight: 56),
+                      child: Row(
+                        children: [
+                          const SizedBox(width: AppSpacing.sm),
+                          Icon(
+                            state.paymentMethod == method
+                                ? Icons.radio_button_checked
+                                : Icons.radio_button_off,
+                            color: state.paymentMethod == method
+                                ? AppColors.honeyGold
+                                : AppColors.textMuted,
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              child: Text(method.label),
+                            ),
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                        ],
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            Text(
-              'Sản phẩm trong đơn',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.local_offer_outlined),
-                title: const Text('Kiểm tra mã ưu đãi'),
-                subtitle: const Text('Việc áp mã vào đơn hiện chưa khả dụng.'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: submitting
-                    ? null
-                    : () => context.push(
-                        Uri(
-                          path: AppRoutes.promotions,
-                          queryParameters: {
-                            'subtotal': cart.subtotal.units.toString(),
-                          },
-                        ).toString(),
-                      ),
+              const SizedBox(height: AppSpacing.lg),
+              Text(
+                'Sản phẩm trong đơn',
+                style: Theme.of(context).textTheme.titleMedium,
               ),
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  children: [
-                    for (final line in cart.items)
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: const CircleAvatar(
-                          backgroundColor: AppColors.muted,
-                          child: Icon(Icons.redeem_outlined),
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.local_offer_outlined),
+                  title: const Text('Kiểm tra mã ưu đãi'),
+                  subtitle: const Text(
+                    'Việc áp mã vào đơn hiện chưa khả dụng.',
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: submitting
+                      ? null
+                      : () => context.push(
+                          Uri(
+                            path: AppRoutes.promotions,
+                            queryParameters: {
+                              'subtotal': cart.subtotal.units.toString(),
+                            },
+                          ).toString(),
                         ),
-                        title: Text(line.product.name),
-                        subtitle: Text(
-                          '${line.variant.name} • SL ${line.quantity}',
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    children: [
+                      for (final line in cart.items)
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: const CircleAvatar(
+                            backgroundColor: AppColors.muted,
+                            child: Icon(Icons.redeem_outlined),
+                          ),
+                          title: Text(line.product.name),
+                          subtitle: Text(
+                            '${line.variant.name} • SL ${line.quantity}',
+                          ),
+                          trailing: Text(line.subtotal.format()),
                         ),
-                        trailing: Text(line.subtotal.format()),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Expanded(
-                      child: Text(
-                        'Tạm tính hàng',
-                        style: TextStyle(fontWeight: FontWeight.bold),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'Tạm tính hàng',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Flexible(
-                      child: Text(
-                        cart.subtotal.format(),
-                        textAlign: TextAlign.end,
-                        style: Theme.of(context).textTheme.titleLarge,
+                      const SizedBox(width: 12),
+                      Flexible(
+                        child: Text(
+                          cart.subtotal.format(),
+                          textAlign: TextAlign.end,
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-            if (state.message != null &&
-                state.status != CheckoutStatus.submitting)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  state.message!,
-                  style: const TextStyle(color: AppColors.brickRed),
+              if (state.message != null &&
+                  state.status != CheckoutStatus.submitting)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    state.message!,
+                    style: const TextStyle(color: AppColors.brickRed),
+                  ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
         bottomSheet: SafeArea(
           top: false,

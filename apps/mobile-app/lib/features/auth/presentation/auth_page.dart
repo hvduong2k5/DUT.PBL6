@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mobile_app/core/widgets/heritage/heritage_surface.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_app/app/router/routes.dart';
@@ -100,7 +101,10 @@ class _AuthPageState extends State<AuthPage> {
   @override
   Widget build(BuildContext context) {
     if (context.read<AuthCubit>().usesBrowserIdentity) {
-      return IdentityAuthPage(register: widget.register, returnLocation: widget.returnLocation);
+      return IdentityAuthPage(
+        register: widget.register,
+        returnLocation: widget.returnLocation,
+      );
     }
     return _buildLocal(context);
   }
@@ -110,190 +114,200 @@ class _AuthPageState extends State<AuthPage> {
       title: widget.register ? 'Đăng Ký' : 'Đăng Nhập',
       showBack: true,
     ),
-    body: SafeArea(
-      child: BlocBuilder<AuthCubit, AuthState>(
-        builder: (context, state) => ListView(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          children: [
-            const SizedBox(height: AppSpacing.xl),
-            const Icon(
-              Icons.local_florist_outlined,
-              size: 48,
-              color: AppColors.headingBrown,
-            ),
-            const SizedBox(height: AppSpacing.md),
-            Text(
-              widget.register ? 'Trở thành Tri Kỷ' : 'Chào mừng Tri Kỷ trở lại',
-              style: Theme.of(context).textTheme.headlineLarge,
-              textAlign: TextAlign.center,
-            ),
-            Text(
-              widget.register
-                  ? 'Tạo tài khoản để lưu địa chỉ, theo dõi đơn và nhận ưu đãi.'
-                  : 'Đăng nhập để tiếp tục hành trình cùng những thức quà Huế.',
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: AppSpacing.xl),
-            if (state.status == AuthStatus.failure)
-              Container(
-                margin: const EdgeInsets.only(bottom: AppSpacing.md),
-                padding: const EdgeInsets.all(AppSpacing.sm),
-                decoration: BoxDecoration(
-                  color: AppColors.alertPink,
-                  border: Border.all(color: AppColors.darkRed),
-                  borderRadius: BorderRadius.circular(AppRadius.large),
-                ),
-                child: Text(
-                  state.message ?? 'Có lỗi xảy ra.',
-                  style: const TextStyle(color: AppColors.darkRed),
-                ),
+    body: HeritageSurface(
+      child: SafeArea(
+        child: BlocBuilder<AuthCubit, AuthState>(
+          builder: (context, state) => ListView(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            children: [
+              const SizedBox(height: AppSpacing.xl),
+              const Icon(
+                Icons.local_florist_outlined,
+                size: 48,
+                color: AppColors.headingBrown,
               ),
-            if (widget.register) ...[
-              AppTextField(
-                controller: _name,
-                label: 'Họ và tên',
-                errorText: _required(_name.text),
-                enabled: !state.pending,
-                autofillHints: const [AutofillHints.name],
-                textInputAction: TextInputAction.next,
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              AppTextField(
-                controller: _email,
-                label: 'Email khôi phục',
-                keyboardType: TextInputType.emailAddress,
-                enabled: !state.pending,
-                autofillHints: const [AutofillHints.email],
-                errorText: _submitted && !AuthValidation.email(_email.text)
-                    ? 'Vui lòng nhập email hợp lệ.'
-                    : null,
-                textInputAction: TextInputAction.next,
-              ),
-              const SizedBox(height: AppSpacing.sm),
-            ],
-            AppTextField(
-              controller: _identity,
-              label: 'Số điện thoại',
-              keyboardType: TextInputType.phone,
-              errorText: _phoneError,
-              enabled: !state.pending,
-              autofillHints: const [AutofillHints.telephoneNumber],
-              textInputAction: TextInputAction.next,
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            AppTextField(
-              controller: _password,
-              label: 'Mật khẩu',
-              obscureText: !_showPassword,
-              prefixIcon: Icons.lock_outline,
-              errorText: _passwordError,
-              enabled: !state.pending,
-              onChanged: (_) => setState(() {}),
-              autofillHints: [
+              const SizedBox(height: AppSpacing.md),
+              Text(
                 widget.register
-                    ? AutofillHints.newPassword
-                    : AutofillHints.password,
+                    ? 'Trở thành Tri Kỷ'
+                    : 'Chào mừng Tri Kỷ trở lại',
+                style: Theme.of(context).textTheme.headlineLarge,
+                textAlign: TextAlign.center,
+              ),
+              Text(
+                widget.register
+                    ? 'Tạo tài khoản để lưu địa chỉ, theo dõi đơn và nhận ưu đãi.'
+                    : 'Đăng nhập để tiếp tục hành trình cùng những thức quà Huế.',
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: AppSpacing.xl),
+              if (state.status == AuthStatus.failure)
+                Container(
+                  margin: const EdgeInsets.only(bottom: AppSpacing.md),
+                  padding: const EdgeInsets.all(AppSpacing.sm),
+                  decoration: BoxDecoration(
+                    color: AppColors.alertPink,
+                    border: Border.all(color: AppColors.darkRed),
+                    borderRadius: BorderRadius.circular(AppRadius.large),
+                  ),
+                  child: Text(
+                    state.message ?? 'Có lỗi xảy ra.',
+                    style: const TextStyle(color: AppColors.darkRed),
+                  ),
+                ),
+              if (widget.register) ...[
+                AppTextField(
+                  controller: _name,
+                  label: 'Họ và tên',
+                  errorText: _required(_name.text),
+                  enabled: !state.pending,
+                  autofillHints: const [AutofillHints.name],
+                  textInputAction: TextInputAction.next,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                AppTextField(
+                  controller: _email,
+                  label: 'Email khôi phục',
+                  keyboardType: TextInputType.emailAddress,
+                  enabled: !state.pending,
+                  autofillHints: const [AutofillHints.email],
+                  errorText: _submitted && !AuthValidation.email(_email.text)
+                      ? 'Vui lòng nhập email hợp lệ.'
+                      : null,
+                  textInputAction: TextInputAction.next,
+                ),
+                const SizedBox(height: AppSpacing.sm),
               ],
-              textInputAction: widget.register
-                  ? TextInputAction.next
-                  : TextInputAction.done,
-              onSubmitted: widget.register ? null : (_) => _submit(),
-              suffixIcon: IconButton(
-                tooltip: _showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu',
-                constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-                onPressed: () => setState(() => _showPassword = !_showPassword),
-                icon: Icon(
-                  _showPassword ? Icons.visibility_off : Icons.visibility,
-                ),
+              AppTextField(
+                controller: _identity,
+                label: 'Số điện thoại',
+                keyboardType: TextInputType.phone,
+                errorText: _phoneError,
+                enabled: !state.pending,
+                autofillHints: const [AutofillHints.telephoneNumber],
+                textInputAction: TextInputAction.next,
               ),
-            ),
-            if (widget.register) ...[
-              const SizedBox(height: AppSpacing.sm),
-              PasswordChecklist(password: _password.text),
               const SizedBox(height: AppSpacing.sm),
               AppTextField(
-                controller: _confirmation,
-                label: 'Xác nhận mật khẩu',
+                controller: _password,
+                label: 'Mật khẩu',
                 obscureText: !_showPassword,
+                prefixIcon: Icons.lock_outline,
+                errorText: _passwordError,
                 enabled: !state.pending,
-                textInputAction: TextInputAction.done,
-                onSubmitted: (_) => _submit(),
-                errorText: _submitted && _confirmation.text != _password.text
-                    ? 'Mật khẩu không khớp'
-                    : null,
-              ),
-              CheckboxListTile(
-                contentPadding: EdgeInsets.zero,
-                controlAffinity: ListTileControlAffinity.leading,
-                value: _terms,
-                title: const Text(
-                  'Tôi đồng ý với Quy chế Thẻ Tri Kỷ và Chính sách Bảo mật.',
-                  style: TextStyle(fontSize: 13),
+                onChanged: (_) => setState(() {}),
+                autofillHints: [
+                  widget.register
+                      ? AutofillHints.newPassword
+                      : AutofillHints.password,
+                ],
+                textInputAction: widget.register
+                    ? TextInputAction.next
+                    : TextInputAction.done,
+                onSubmitted: widget.register ? null : (_) => _submit(),
+                suffixIcon: IconButton(
+                  tooltip: _showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu',
+                  constraints: const BoxConstraints(
+                    minWidth: 44,
+                    minHeight: 44,
+                  ),
+                  onPressed: () =>
+                      setState(() => _showPassword = !_showPassword),
+                  icon: Icon(
+                    _showPassword ? Icons.visibility_off : Icons.visibility,
+                  ),
                 ),
-                onChanged: state.pending
-                    ? null
-                    : (value) => setState(() => _terms = value ?? false),
               ),
-              if (_submitted && !_terms)
-                const Text(
-                  'Bạn cần chấp nhận điều khoản.',
-                  style: TextStyle(color: AppColors.brickRed),
+              if (widget.register) ...[
+                const SizedBox(height: AppSpacing.sm),
+                PasswordChecklist(password: _password.text),
+                const SizedBox(height: AppSpacing.sm),
+                AppTextField(
+                  controller: _confirmation,
+                  label: 'Xác nhận mật khẩu',
+                  obscureText: !_showPassword,
+                  enabled: !state.pending,
+                  textInputAction: TextInputAction.done,
+                  onSubmitted: (_) => _submit(),
+                  errorText: _submitted && _confirmation.text != _password.text
+                      ? 'Mật khẩu không khớp'
+                      : null,
                 ),
-            ],
-            if (!widget.register)
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton(
-                  onPressed: state.pending
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  value: _terms,
+                  title: const Text(
+                    'Tôi đồng ý với Quy chế Thẻ Tri Kỷ và Chính sách Bảo mật.',
+                    style: TextStyle(fontSize: 13),
+                  ),
+                  onChanged: state.pending
                       ? null
-                      : () => context.push(
-                          authLocation(
-                            AppRoutes.recovery,
-                            widget.returnLocation,
-                          ),
-                        ),
-                  child: const Text('Quên mật khẩu?'),
+                      : (value) => setState(() => _terms = value ?? false),
                 ),
+                if (_submitted && !_terms)
+                  const Text(
+                    'Bạn cần chấp nhận điều khoản.',
+                    style: TextStyle(color: AppColors.brickRed),
+                  ),
+              ],
+              if (!widget.register)
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: state.pending
+                        ? null
+                        : () => context.push(
+                            authLocation(
+                              AppRoutes.recovery,
+                              widget.returnLocation,
+                            ),
+                          ),
+                    child: const Text('Quên mật khẩu?'),
+                  ),
+                ),
+              const SizedBox(height: AppSpacing.lg),
+              AppPrimaryButton(
+                label: widget.register ? 'Đăng ký' : 'Đăng nhập',
+                loading: state.pending,
+                onPressed: _submit,
               ),
-            const SizedBox(height: AppSpacing.lg),
-            AppPrimaryButton(
-              label: widget.register ? 'Đăng ký' : 'Đăng nhập',
-              loading: state.pending,
-              onPressed: _submit,
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            TextButton(
-              onPressed: state.pending
-                  ? null
-                  : () => context.go(
-                      authLocation(
-                        widget.register ? AppRoutes.login : AppRoutes.register,
-                        widget.returnLocation,
-                      ),
-                    ),
-              child: Text(
-                widget.register
-                    ? 'Đã có tài khoản? Đăng nhập'
-                    : 'Chưa có tài khoản? Đăng ký',
-              ),
-            ),
-            if (!widget.register)
+              const SizedBox(height: AppSpacing.sm),
               TextButton(
                 onPressed: state.pending
                     ? null
                     : () => context.go(
-                        Uri.parse(widget.returnLocation).path ==
-                                AppRoutes.checkout
-                            ? widget.returnLocation
-                            : AppRoutes.home,
+                        authLocation(
+                          widget.register
+                              ? AppRoutes.login
+                              : AppRoutes.register,
+                          widget.returnLocation,
+                        ),
                       ),
                 child: Text(
-                  Uri.parse(widget.returnLocation).path == AppRoutes.checkout
-                      ? 'Tiếp tục thanh toán với tư cách khách'
-                      : 'Tiếp tục khám phá với tư cách khách',
+                  widget.register
+                      ? 'Đã có tài khoản? Đăng nhập'
+                      : 'Chưa có tài khoản? Đăng ký',
                 ),
               ),
-          ],
+              if (!widget.register)
+                TextButton(
+                  onPressed: state.pending
+                      ? null
+                      : () => context.go(
+                          Uri.parse(widget.returnLocation).path ==
+                                  AppRoutes.checkout
+                              ? widget.returnLocation
+                              : AppRoutes.home,
+                        ),
+                  child: Text(
+                    Uri.parse(widget.returnLocation).path == AppRoutes.checkout
+                        ? 'Tiếp tục thanh toán với tư cách khách'
+                        : 'Tiếp tục khám phá với tư cách khách',
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     ),
