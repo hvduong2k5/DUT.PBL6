@@ -27,8 +27,8 @@ services/keycloak-service/
 - **Giao diện thuần Tiếng Việt chuẩn Keycloak:**
   - `internationalizationEnabled: true`, `supportedLocales: ["vi"]`, `defaultLocale: "vi"`.
   - Giúp `DefaultLocaleSelectorProvider` của Keycloak nhận diện đúng tiếng Việt cho mọi thông báo hệ thống/lỗi, đồng thời tự động ẩn thanh chuyển đổi ngôn ngữ (do chỉ có 1 locale hợp lệ).
-- **Tài khoản khởi tạo Super Admin (Demo / Development):**
-  - Khởi tạo sẵn user `admin` (`admin@omama.vn` / mật khẩu `admin`) với vai trò `realm-admin` (Keycloak) và đầy đủ các quyền nghiệp vụ `#GLOBAL` đang hoạt động trong hệ thống để phục vụ demo và kiểm thử tức thì.
+- **Tài khoản khởi tạo Super Admin (Demo / Development theo Baseline 7-B):**
+  - Khởi tạo sẵn user `admin` (`admin@omama.vn` / mật khẩu `admin`) với vai trò `realm-admin` trên Keycloak Admin Console. Quyền hạn nghiệp vụ không hardcode trong template mà được cấp phát động thông qua Identity Service (migration `V21` liên kết principal và gán role `ADMIN` #GLOBAL).
 
 ---
 
@@ -118,9 +118,9 @@ Sao chép các biến sau vào mục **Environment Variables** của Application
 
 ---
 
-## 4. Tài Khoản Super Admin (Demo & Nghiệm Thu)
+## 4. Tài Khoản Super Admin & Phân Quyền Theo Baseline 7-B
 
-Trong file template `realm-export.template.json`, tài khoản khởi tạo được thiết lập sẵn phục vụ việc demo và kiểm thử nhanh toàn bộ hệ thống:
+Theo kiến trúc chuẩn của hệ thống (Baseline 7-B), **Keycloak chỉ đóng vai trò IdP xác thực**, không quản lý hay viết tay danh sách quyền hạn nghiệp vụ (`permission_grants`) trong template. Toàn bộ quyền được quản lý và cấp phát từ cơ sở dữ liệu của **Identity Service** thông qua `PermissionSyncService`:
 
 | Thông tin | Giá trị |
 |---|---|
@@ -129,9 +129,9 @@ Trong file template `realm-export.template.json`, tài khoản khởi tạo đư
 | **Email** | `admin@omama.vn` (đã xác thực) |
 | **Vai trò Keycloak (Realm Management)** | `realm-admin` (Toàn quyền quản trị realm `omama` trên Keycloak Admin Console) |
 | **Vai trò Hệ thống (Realm Role)** | `ADMIN` |
-| **Định danh nội bộ (`app_user_id`)** | `a0000000-0000-0000-0000-000000000001` |
+| **Định danh nội bộ (`app_user_id` / `sub`)** | `a0000000-0000-0000-0000-000000000002` |
 | **Loại chủ thể (`principal_type`)** | `EMPLOYEE` |
-| **Đặc quyền dịch vụ (`permission_grants`)** | Đã được chuẩn hóa khớp với Flyway migrations thực tế của hệ thống (`USER_*`, `ROLE_*`, `CATALOG_*`, `ORDER_*`, `FULFILLMENT_TASK_*`, `INVENTORY_*`, `ANALYTICS_*`, `PAYMENT_*`). |
+| **Đặc quyền dịch vụ (`permission_grants`)** | **Không viết tay trong template.** Được Identity Service (`identity_db`) bootstrap tự động qua migration `V21`, gán vai trò `ADMIN` với phạm vi `#GLOBAL`. Khi đăng nhập hoặc chạy đồng bộ, `PermissionSyncService` tự động nạp đầy đủ các quyền thực tế (bao gồm cả `traceability.*` của V20). |
 
 > [!WARNING]
 > Tài khoản này chỉ dành cho mục đích demo / kiểm thử nội bộ. Khi vận hành chính thức, khuyến nghị đổi mật khẩu tài khoản này trên Keycloak Admin Console hoặc quản lý cấp phát tài khoản nhân sự thông qua Identity Service.

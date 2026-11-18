@@ -341,6 +341,7 @@
       }
     },
     {
+      "id": "a0000000-0000-0000-0000-000000000002",
       "username": "admin",
       "enabled": true,
       "email": "admin@omama.vn",
@@ -356,57 +357,10 @@
       ],
       "attributes": {
         "app_user_id": [
-          "a0000000-0000-0000-0000-000000000001"
+          "a0000000-0000-0000-0000-000000000002"
         ],
         "principal_type": [
           "EMPLOYEE"
-        ],
-        "permission_grants": [
-          "USER_VIEW#GLOBAL",
-          "USER_STATUS_MANAGE#GLOBAL",
-          "USER_PASSWORD_RESET#GLOBAL",
-          "USER_SESSION_REVOKE#GLOBAL",
-          "EMPLOYEE_INVITE#GLOBAL",
-          "EMPLOYEE_INVITATION_REVOKE#GLOBAL",
-          "ROLE_VIEW#GLOBAL",
-          "ROLE_MANAGE#GLOBAL",
-          "ROLE_ASSIGN#GLOBAL",
-          "PERMISSION_VIEW#GLOBAL",
-          "PERMISSION_MANAGE#GLOBAL",
-          "AUDIT_LOG_VIEW#GLOBAL",
-          "AUDIT_LOG_EXPORT#GLOBAL",
-          "CATALOG_VIEW#GLOBAL",
-          "CATALOG_MANAGE#GLOBAL",
-          "CATALOG_APPROVE#GLOBAL",
-          "EMPLOYEE_PROFILE_VIEW#GLOBAL",
-          "EMPLOYEE_PROFILE_CREATE#GLOBAL",
-          "EMPLOYEE_PROFILE_SENSITIVE_VIEW#GLOBAL",
-          "EMPLOYEE_COMPLIANCE_VIEW#GLOBAL",
-          "ORDER_VIEW#GLOBAL",
-          "ORDER_SENSITIVE_VIEW#GLOBAL",
-          "ORDER_CANCEL_REQUEST#GLOBAL",
-          "ORDER_HOLD_MANAGE#GLOBAL",
-          "ORDER_RECOVERY_EXECUTE#GLOBAL",
-          "FULFILLMENT_TASK_READ#GLOBAL",
-          "FULFILLMENT_TASK_READ_HISTORY#GLOBAL",
-          "FULFILLMENT_TASK_ASSIGN_SELF#GLOBAL",
-          "FULFILLMENT_TASK_WORK#GLOBAL",
-          "FULFILLMENT_TASK_SEAL#GLOBAL",
-          "FULFILLMENT_TASK_BLOCK#GLOBAL",
-          "FULFILLMENT_TASK_RESOLVE_BLOCK#GLOBAL",
-          "FULFILLMENT_MEDIA_UPLOAD#GLOBAL",
-          "FULFILLMENT_MEDIA_READ_METADATA#GLOBAL",
-          "FULFILLMENT_MEDIA_VIEW#GLOBAL",
-          "INVENTORY_RECEIPT_CREATE#GLOBAL",
-          "INVENTORY_MANAGEMENT_VIEW#GLOBAL",
-          "BATCH_VIEW#GLOBAL",
-          "ANALYTICS_DASHBOARD_VIEW#GLOBAL",
-          "ANALYTICS_SUPPLY_VIEW#GLOBAL",
-          "PAYMENT_VIEW#GLOBAL",
-          "PAYMENT_RECONCILIATION_VIEW#GLOBAL",
-          "PAYMENT_REFUND_VIEW#GLOBAL",
-          "PAYMENT_SENSITIVE_VIEW#GLOBAL",
-          "PAYMENT_CASE_RESOLVE#GLOBAL"
         ]
       },
       "realmRoles": [
