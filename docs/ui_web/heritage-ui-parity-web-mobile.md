@@ -37,7 +37,11 @@ Radii: 2px buttons/inputs, 4px large blocks, 20px bottom sheet. Minimum text 13p
 Assets are copied, never redrawn: web `public/images/heritage/`, mobile `assets/heritage/`.
 
 ## Flow parity
-- Bottom nav order: Trang chu, Danh muc (sheet), Uu dai, Tim kiem (sheet), Gio hang.
+- Navigation differs on purpose (2026-11-18 decision): native mobile follows the Shopee/Lazada pattern.
+  - Mobile tabs: Trang chu, Danh muc (own page: category rail + product grid), Gio hang, Thong bao, Tai khoan. Tabs only navigate; no side menu (its links live in Tai khoan).
+  - Mobile search: search bar on Home and Danh muc opens a separate search screen; the 5 latest queries are stored on the device.
+  - Mobile Uu dai: Home block + Tai khoan link (not a tab).
+  - Web (responsive) keeps: Trang chu, Danh muc (sheet), Uu dai, Tim kiem (sheet), Gio hang. Consider aligning web later.
 - Home order: hero, featured products, collections (real categories), story, trace search, account CTA.
 - Header: imperial brown, gold 3px rule, emblem + "Goi Hue".
 - No API, contract or backend change. Where data is missing the block stays empty; no mock in main code.
@@ -45,7 +49,8 @@ Assets are copied, never redrawn: web `public/images/heritage/`, mobile `assets/
 ## Per-screen checklist (mobile)
 | Screen | Status |
 |---|---|
-| Shell (header, drawer, nav) | done |
+| Shell (search header, 5-tab nav, Account hub) | done |
+| Search screen, Categories tab | done |
 | Home | done |
 | Catalog, product detail | done (reviews section re-skinned through theme only) |
 | Cart | done |
