@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mobile_app/core/widgets/heritage/heritage_form_section.dart';
 import 'package:mobile_app/core/widgets/heritage/heritage_surface.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -396,20 +397,8 @@ class _SupportSection extends StatelessWidget {
   final String title;
   final List<Widget> children;
   @override
-  Widget build(BuildContext context) => Card(
-    margin: const EdgeInsets.symmetric(vertical: 12),
-    child: Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(title, style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 16),
-          ...children,
-        ],
-      ),
-    ),
-  );
+  Widget build(BuildContext context) =>
+      HeritageFormSection(title: title, children: children);
 }
 
 class _SupportError extends StatelessWidget {

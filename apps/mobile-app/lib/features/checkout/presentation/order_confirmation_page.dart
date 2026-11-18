@@ -123,19 +123,26 @@ class OrderConfirmationPage extends StatelessWidget {
                     ),
                     const SizedBox(height: 12),
                   ],
+                  // One primary action: payment when it is due, otherwise
+                  // tracking the order. Continuing to shop is secondary.
                   SizedBox(
                     width: double.infinity,
-                    child: AppSecondaryButton(
-                      label: 'Theo dõi đơn hàng',
-                      onPressed: () => context.go('/orders/$orderId'),
-                    ),
+                    child: confirmation!.paymentMethod != null
+                        ? AppSecondaryButton(
+                            label: 'Theo dõi đơn hàng',
+                            onPressed: () => context.go('/orders/$orderId'),
+                          )
+                        : AppPrimaryButton(
+                            label: 'Theo dõi đơn hàng',
+                            onPressed: () => context.go('/orders/$orderId'),
+                          ),
                   ),
                   const SizedBox(height: AppSpacing.sm),
                   SizedBox(
                     width: double.infinity,
-                    child: AppPrimaryButton(
+                    child: AppSecondaryButton(
                       label: 'Tiếp tục mua sắm',
-                      onPressed: () => context.go(AppRoutes.catalog),
+                      onPressed: () => context.go(AppRoutes.home),
                     ),
                   ),
                 ],
