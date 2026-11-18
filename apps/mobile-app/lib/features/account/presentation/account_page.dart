@@ -9,7 +9,6 @@ import 'package:mobile_app/core/widgets/app_primary_button.dart';
 import 'package:mobile_app/core/widgets/app_secondary_button.dart';
 import 'package:mobile_app/core/widgets/app_bottom_navigation.dart';
 import 'package:mobile_app/core/widgets/app_mobile_header.dart';
-import 'package:mobile_app/core/widgets/app_navigation_drawer.dart';
 import 'package:mobile_app/features/auth/domain/auth_models.dart';
 import 'package:mobile_app/features/auth/presentation/auth_cubit.dart';
 import 'package:mobile_app/features/auth/presentation/capabilities_cubit.dart';
@@ -26,8 +25,7 @@ class AccountPage extends StatelessWidget {
       builder: (context, cartState) {
         final isGuest = authState.status != AuthStatus.authenticated;
         return Scaffold(
-          appBar: const AppMobileHeader(title: 'Tài khoản', showMenu: true),
-          drawer: const AppNavigationDrawer(activeRoute: AppRoutes.account),
+          appBar: const AppMobileHeader(title: 'Tài khoản'),
           body: HeritageSurface(
             child: ListView(
               padding: const EdgeInsets.all(16),
@@ -96,14 +94,15 @@ class AccountPage extends StatelessWidget {
                     label: 'Địa chỉ giao hàng',
                     onTap: () => context.push(AppRoutes.addresses),
                   ),
-                  _MenuRow(
-                    icon: Icons.notifications_none,
-                    label: 'Thông báo',
-                    onTap: () => context.push(AppRoutes.notifications),
-                  ),
                 ],
                 const SizedBox(height: AppSpacing.md),
-                const _SectionLabel('KHÁC'),
+                const _SectionLabel('MUA SẮM & HỖ TRỢ'),
+                if (isGuest)
+                  _MenuRow(
+                    icon: Icons.manage_search_outlined,
+                    label: 'Tra cứu đơn khách',
+                    onTap: () => context.push(AppRoutes.guestOrderLookup),
+                  ),
                 _MenuRow(
                   icon: Icons.business_outlined,
                   label: 'Quà biếu doanh nghiệp',
@@ -141,7 +140,7 @@ class AccountPage extends StatelessWidget {
             ),
           ),
           bottomNavigationBar: AppBottomNavigation(
-            active: null,
+            active: AppNavTab.account,
             cartCount: cartState.cart.totalItems,
           ),
         );

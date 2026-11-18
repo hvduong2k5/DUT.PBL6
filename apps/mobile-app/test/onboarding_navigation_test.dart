@@ -75,38 +75,31 @@ void main() {
     expect(find.text('Giỏ hàng trống'), findsOneWidget);
   });
 
-  testWidgets('Home menu opens and offers functional guest navigation', (
+  testWidgets('Account tab replaces the side menu for guest navigation', (
     tester,
   ) async {
     await tester.pumpWidget(const OmaApp());
     await tester.pumpAndSettle();
+    expect(find.byTooltip('Mở menu'), findsNothing);
 
-    await tester.tap(find.byTooltip('Mở menu'));
+    await tester.tap(find.text('Tài khoản'));
     await tester.pumpAndSettle();
-    expect(find.text('Mua sắm với tư cách khách'), findsOneWidget);
-    expect(find.text('Đăng nhập'), findsOneWidget);
+    expect(find.text('Tra cứu đơn khách'), findsOneWidget);
     expect(find.text('Địa chỉ giao hàng'), findsNothing);
-
-    await tester.ensureVisible(find.text('Đăng nhập'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Đăng nhập'));
-    await tester.pumpAndSettle();
-    expect(find.text('Đăng Nhập'), findsOneWidget);
-  });
-
-  testWidgets('Android back closes the menu before leaving Home', (
-    tester,
-  ) async {
-    await tester.pumpWidget(const OmaApp());
-    await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Mở menu'));
-    await tester.pumpAndSettle();
 
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
-
-    expect(find.text('Mua sắm với tư cách khách'), findsNothing);
     expect(find.byKey(const Key('home-content-scroll')), findsOneWidget);
+  });
+
+  testWidgets('Categories tab is a page with a category rail', (tester) async {
+    await tester.pumpWidget(const OmaApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Danh mục'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('categories-rail')), findsOneWidget);
+    expect(find.byType(BottomSheet), findsNothing);
   });
 
   testWidgets('Android back from root Cart returns Home', (tester) async {
@@ -134,9 +127,9 @@ void main() {
     expect(find.byKey(const Key('home-content-scroll')), findsOneWidget);
     expect(find.text('Trang chủ'), findsOneWidget);
     expect(find.text('Danh mục'), findsOneWidget);
-    expect(find.text('Ưu đãi'), findsOneWidget);
-    expect(find.text('Tìm kiếm'), findsOneWidget);
     expect(find.text('Giỏ hàng'), findsOneWidget);
+    expect(find.text('Thông báo'), findsOneWidget);
+    expect(find.text('Tài khoản'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

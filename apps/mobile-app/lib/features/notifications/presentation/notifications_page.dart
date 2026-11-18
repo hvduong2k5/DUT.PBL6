@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:mobile_app/core/widgets/app_bottom_navigation.dart';
+import 'package:mobile_app/features/cart/presentation/cart_cubit.dart';
 import 'package:mobile_app/core/widgets/heritage/heritage_surface.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mobile_app/core/theme/app_colors.dart';
@@ -12,7 +14,13 @@ class NotificationsPage extends StatelessWidget {
   const NotificationsPage({super.key});
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: const AppMobileHeader(title: 'Thông báo', showBack: true),
+    appBar: const AppMobileHeader(title: 'Thông báo'),
+    bottomNavigationBar: BlocBuilder<CartCubit, CartState>(
+      builder: (context, cart) => AppBottomNavigation(
+        active: AppNavTab.notifications,
+        cartCount: cart.cart.totalItems,
+      ),
+    ),
     body: HeritageSurface(
       child: BlocBuilder<NotificationsCubit, NotificationsState>(
         builder: (context, state) {

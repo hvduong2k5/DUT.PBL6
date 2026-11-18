@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:mobile_app/features/catalog/presentation/categories_page.dart';
+import 'package:mobile_app/features/catalog/presentation/search_page.dart';
 import 'package:mobile_app/core/widgets/app_empty_view.dart';
 import 'package:mobile_app/core/widgets/app_mobile_header.dart';
 import 'package:mobile_app/features/checkout/domain/mvp_purchase_repository.dart';
@@ -313,6 +315,36 @@ GoRouter createAppRouter({
           ),
         ),
       ),
+    ),
+    GoRoute(
+      path: AppRoutes.categories,
+      builder: (context, state) => SafeBackScope(
+        child: BlocProvider(
+          create: (_) =>
+              CatalogCubit(context.read<CatalogRepository>())..load(),
+          child: const CategoriesPage(),
+        ),
+      ),
+    ),
+    GoRoute(
+      path: AppRoutes.search,
+      builder: (context, state) {
+        final query = state.uri.queryParameters['q'] ?? '';
+        return SafeBackScope(
+          child: BlocProvider(
+            key: ValueKey(state.uri.toString()),
+            create: (_) {
+              final cubit = CatalogCubit(
+                context.read<CatalogRepository>(),
+                initialQuery: query,
+              );
+              if (query.trim().isNotEmpty) cubit.load();
+              return cubit;
+            },
+            child: SearchPage(initialQuery: query),
+          ),
+        );
+      },
     ),
     GoRoute(
       path: AppRoutes.product,

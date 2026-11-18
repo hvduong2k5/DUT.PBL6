@@ -2,22 +2,26 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_app/app/router/routes.dart';
 import 'package:mobile_app/core/theme/heritage_tokens.dart';
-import 'package:mobile_app/core/widgets/heritage/heritage_bottom_sheet.dart';
 import 'package:mobile_app/core/widgets/heritage/heritage_icons.dart';
-import 'package:mobile_app/features/catalog/domain/catalog_models.dart';
-import 'package:mobile_app/features/catalog/domain/catalog_repository.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 
-/// Kit bottom navigation (same order as web): Trang chủ, Danh mục (sheet),
-/// Ưu đãi, Tìm kiếm (sheet), Giỏ hàng. Navigates by itself.
-enum AppNavTab { home, categories, promotions, search, cart }
+/// Five top-level destinations (Shopee/Lazada pattern). Every tab navigates
+/// to a screen; none opens a sheet or runs an action.
+enum AppNavTab { home, categories, cart, notifications, account }
 
 class AppBottomNavigation extends StatelessWidget {
   const AppBottomNavigation({super.key, this.active, this.cartCount = 0});
 
-  /// `null` on pages that are not a nav destination (e.g. account).
+  /// `null` on screens that are not a tab root.
   final AppNavTab? active;
   final int cartCount;
+
+  static String route(AppNavTab tab) => switch (tab) {
+    AppNavTab.home => AppRoutes.home,
+    AppNavTab.categories => AppRoutes.categories,
+    AppNavTab.cart => AppRoutes.cart,
+    AppNavTab.notifications => AppRoutes.notifications,
+    AppNavTab.account => AppRoutes.account,
+  };
 
   @override
   Widget build(BuildContext context) => Material(
@@ -36,37 +40,32 @@ class AppBottomNavigation extends StatelessWidget {
                 context,
                 AppNavTab.home,
                 'Trang chủ',
-                HeritageIconKind.home,
-                () => context.go(AppRoutes.home),
+                const HeritageIcon(HeritageIconKind.home),
               ),
               _item(
                 context,
                 AppNavTab.categories,
                 'Danh mục',
-                HeritageIconKind.grid,
-                () => _categories(context),
-              ),
-              _item(
-                context,
-                AppNavTab.promotions,
-                'Ưu đãi',
-                HeritageIconKind.gift,
-                () => context.go(AppRoutes.promotions),
-              ),
-              _item(
-                context,
-                AppNavTab.search,
-                'Tìm kiếm',
-                HeritageIconKind.search,
-                () => _search(context),
+                const HeritageIcon(HeritageIconKind.grid),
               ),
               _item(
                 context,
                 AppNavTab.cart,
                 'Giỏ hàng',
-                HeritageIconKind.cart,
-                () => context.go(AppRoutes.cart),
+                const HeritageIcon(HeritageIconKind.cart),
                 badge: cartCount,
+              ),
+              _item(
+                context,
+                AppNavTab.notifications,
+                'Thông báo',
+                const Icon(Icons.notifications_none, size: 24),
+              ),
+              _item(
+                context,
+                AppNavTab.account,
+                'Tài khoản',
+                const Icon(Icons.person_outline, size: 24),
               ),
             ],
           ),
@@ -79,8 +78,7 @@ class AppBottomNavigation extends StatelessWidget {
     BuildContext context,
     AppNavTab tab,
     String label,
-    HeritageIconKind icon,
-    VoidCallback onTap, {
+    Widget icon, {
     int badge = 0,
   }) {
     final selected = active == tab;
@@ -91,120 +89,41 @@ class AppBottomNavigation extends StatelessWidget {
         selected: selected,
         label: badge > 0 ? '$label, $badge sản phẩm' : label,
         child: InkWell(
-          onTap: onTap,
+          onTap: selected ? null : () => context.go(route(tab)),
           child: ExcludeSemantics(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Badge(
-                  isLabelVisible: badge > 0,
-                  label: Text(badge > 99 ? '99+' : '$badge'),
-                  backgroundColor: HeritageColors.mat,
-                  textColor: HeritageColors.nauCungDinh,
-                  child: HeritageIcon(icon, color: color),
-                ),
-                const SizedBox(height: 4),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                      color: color,
+            child: IconTheme(
+              data: IconThemeData(color: color),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Badge(
+                    isLabelVisible: badge > 0,
+                    label: Text(badge > 99 ? '99+' : '$badge'),
+                    backgroundColor: HeritageColors.mat,
+                    textColor: HeritageColors.nauCungDinh,
+                    child: icon,
+                  ),
+                  const SizedBox(height: 4),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: selected
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                        color: color,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
       ),
     );
-  }
-
-  void _categories(BuildContext context) {
-    final repository = context.read<CatalogRepository>();
-    final router = GoRouter.of(context);
-    showHeritageSheet<void>(
-      context,
-      title: 'Bộ sưu tập',
-      builder: (sheetContext) => FutureBuilder<List<Category>>(
-        future: repository.categories(),
-        builder: (_, snapshot) {
-          final categories = snapshot.data ?? const <Category>[];
-          return ListView(
-            shrinkWrap: true,
-            padding: const EdgeInsets.fromLTRB(8, 0, 8, 16),
-            children: [
-              for (final c in categories)
-                ListTile(
-                  title: Text(c.name),
-                  onTap: () {
-                    Navigator.of(sheetContext).pop();
-                    router.go(
-                      '${AppRoutes.catalog}?category=${Uri.encodeQueryComponent(c.id)}',
-                    );
-                  },
-                ),
-              ListTile(
-                title: const Text(
-                  'Xem tất cả sản phẩm',
-                  style: TextStyle(fontWeight: FontWeight.w700),
-                ),
-                subtitle: const Text('Toàn bộ bộ sưu tập Gói Huế'),
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  router.go(AppRoutes.catalog);
-                },
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  void _search(BuildContext context) {
-    final router = GoRouter.of(context);
-    final controller = TextEditingController();
-    showHeritageSheet<void>(
-      context,
-      title: 'Tìm sản phẩm',
-      builder: (sheetContext) {
-        void submit() {
-          final q = controller.text.trim();
-          Navigator.of(sheetContext).pop();
-          router.go(
-            q.isEmpty
-                ? AppRoutes.catalog
-                : '${AppRoutes.catalog}?q=${Uri.encodeQueryComponent(q)}',
-          );
-        }
-
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              TextField(
-                controller: controller,
-                autofocus: true,
-                textInputAction: TextInputAction.search,
-                onSubmitted: (_) => submit(),
-                decoration: const InputDecoration(
-                  labelText: 'Nhập tên sản phẩm',
-                  hintText: 'Tìm mè xửng, trà sen…',
-                ),
-              ),
-              const SizedBox(height: 12),
-              FilledButton(onPressed: submit, child: const Text('Tìm kiếm')),
-            ],
-          ),
-        );
-      },
-    ).whenComplete(controller.dispose);
   }
 }

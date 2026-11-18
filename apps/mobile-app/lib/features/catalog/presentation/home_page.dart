@@ -9,11 +9,11 @@ import 'package:mobile_app/core/widgets/app_bottom_navigation.dart';
 import 'package:mobile_app/core/widgets/app_empty_view.dart';
 import 'package:mobile_app/core/widgets/app_error_view.dart';
 import 'package:mobile_app/core/widgets/app_loading_view.dart';
-import 'package:mobile_app/core/widgets/app_mobile_header.dart';
-import 'package:mobile_app/core/widgets/app_navigation_drawer.dart';
+import 'package:mobile_app/core/widgets/heritage/heritage_search_bar.dart';
 import 'package:mobile_app/core/widgets/heritage/heritage_banner.dart';
 import 'package:mobile_app/core/widgets/heritage/heritage_button.dart';
 import 'package:mobile_app/core/widgets/heritage/heritage_frame.dart';
+import 'package:mobile_app/core/widgets/heritage/heritage_icons.dart';
 import 'package:mobile_app/core/widgets/heritage/heritage_motif.dart';
 import 'package:mobile_app/core/widgets/heritage/heritage_section_header.dart';
 import 'package:mobile_app/core/widgets/heritage/heritage_surface.dart';
@@ -29,12 +29,7 @@ class HomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) => BlocBuilder<CartCubit, CartState>(
     builder: (context, cartState) => Scaffold(
-      appBar: AppMobileHeader(
-        showMenu: true,
-        cartCount: cartState.cart.totalItems,
-        onCart: () => context.go(AppRoutes.cart),
-      ),
-      drawer: const AppNavigationDrawer(activeRoute: AppRoutes.home),
+      appBar: const HeritageSearchHeader(),
       body: HeritageSurface(
         child: BlocBuilder<CatalogCubit, CatalogState>(
           builder: (context, state) => _HomeBody(state: state),
@@ -92,6 +87,8 @@ class _HomeBody extends StatelessWidget {
           )
         else
           _Featured(state: state),
+        const SizedBox(height: 20),
+        const _PromotionsBlock(),
         const SizedBox(height: 28),
         const _Divider(),
         _Collections(state: state),
@@ -538,6 +535,59 @@ class _AccountCta extends StatelessWidget {
             onPressed: () => context.go(AppRoutes.account),
           ),
         ],
+      ),
+    ),
+  );
+}
+
+/// Promotions are no longer a tab: Home links to them (and so does Account).
+class _PromotionsBlock extends StatelessWidget {
+  const _PromotionsBlock();
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 16),
+    child: Semantics(
+      button: true,
+      label: 'Xem ưu đãi',
+      child: InkWell(
+        key: const Key('home-promotions'),
+        onTap: () => context.push(AppRoutes.promotions),
+        child: HeritageFrame(
+          level: HeritageFrameLevel.functional,
+          padding: const EdgeInsets.fromLTRB(16, 16, 32, 16),
+          child: ExcludeSemantics(
+            child: Row(
+              children: [
+                const HeritageIcon(
+                  HeritageIconKind.gift,
+                  size: 32,
+                  color: AppColors.brickRed,
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Ưu đãi Tri Kỷ',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      const SizedBox(height: 2),
+                      const Text(
+                        'Mã đang phát hành và điều kiện áp dụng',
+                        style: TextStyle(color: AppColors.textMuted),
+                      ),
+                    ],
+                  ),
+                ),
+                const Text(
+                  '→',
+                  style: TextStyle(fontSize: 22, color: AppColors.brandBrown),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     ),
   );

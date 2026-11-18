@@ -13,7 +13,7 @@ import 'package:mobile_app/core/widgets/app_empty_view.dart';
 import 'package:mobile_app/core/widgets/app_error_view.dart';
 import 'package:mobile_app/core/widgets/app_loading_view.dart';
 import 'package:mobile_app/core/widgets/app_mobile_header.dart';
-import 'package:mobile_app/core/widgets/app_navigation_drawer.dart';
+import 'package:mobile_app/core/widgets/heritage/heritage_search_bar.dart';
 import 'package:mobile_app/features/cart/presentation/cart_cubit.dart';
 import 'package:mobile_app/features/catalog/presentation/catalog_cubit.dart';
 import 'package:mobile_app/features/catalog/presentation/widgets/product_card.dart';
@@ -40,12 +40,11 @@ class _CatalogPageState extends State<CatalogPage> {
   Widget build(BuildContext context) => BlocBuilder<CartCubit, CartState>(
     builder: (context, cartState) => Scaffold(
       appBar: AppMobileHeader(
-        title: 'Bộ sưu tập',
-        showMenu: true,
+        title: 'Tất cả sản phẩm',
+        showBack: true,
         cartCount: cartState.cart.totalItems,
         onCart: () => context.go(AppRoutes.cart),
       ),
-      drawer: const AppNavigationDrawer(activeRoute: AppRoutes.catalog),
       body: HeritageSurface(
         child: BlocBuilder<CatalogCubit, CatalogState>(
           builder: (context, state) => Column(
@@ -57,25 +56,7 @@ class _CatalogPageState extends State<CatalogPage> {
                   AppSpacing.md,
                   AppSpacing.xs,
                 ),
-                child: TextField(
-                  controller: _search,
-                  textInputAction: TextInputAction.search,
-                  onSubmitted: (value) {
-                    _debounce?.cancel();
-                    context.read<CatalogCubit>().search(value);
-                  },
-                  onChanged: (value) {
-                    _debounce?.cancel();
-                    _debounce = Timer(
-                      const Duration(milliseconds: 350),
-                      () => context.read<CatalogCubit>().search(value),
-                    );
-                  },
-                  decoration: const InputDecoration(
-                    labelText: 'Tìm sản phẩm',
-                    hintText: 'Tìm mè xửng, trà sen…',
-                  ),
-                ),
+                child: HeritageSearchBar(query: state.query),
               ),
               if (state.searchError != null)
                 Padding(
