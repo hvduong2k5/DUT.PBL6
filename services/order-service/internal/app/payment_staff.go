@@ -62,6 +62,12 @@ func (s *Service) PaymentStaff(bearer string) (persistence.PaymentActor, error) 
 // carry beneficiary bank data. PAYMENT_CASE_DECIDE joins the write tier
 // under the same auth_time freshness rule: it records the resolution
 // decision that a different holder then consumes (F-55 maker-checker).
+// The refund tiers (F-42 slice 2) join the same write tier: approve and
+// accept for PAYMENT_REFUND_APPROVE, execute plus evidence attachment for
+// PAYMENT_REFUND_EXECUTE, verify plus evidence issuance for
+// PAYMENT_REFUND_VERIFY. No tier implies another; the persistence layer
+// separates the duties per person (approver never executes, verifier is
+// neither approver nor executor, issuer is neither approver nor executor).
 func paymentStaffPermissions(grants []domain.PermissionGrant, writeFresh bool) map[string]bool {
 	iam := map[string]bool{}
 	for _, g := range grants {
@@ -81,6 +87,18 @@ func paymentStaffPermissions(grants []domain.PermissionGrant, writeFresh bool) m
 	}
 	if writeFresh && iam["PAYMENT_CASE_DECIDE"] {
 		perms["payment.case.decide"] = true
+	}
+	if writeFresh && iam["PAYMENT_REFUND_APPROVE"] {
+		perms["payment.refund.approve"] = true
+		perms["payment.refund.accept"] = true
+	}
+	if writeFresh && iam["PAYMENT_REFUND_EXECUTE"] {
+		perms["payment.refund.execute"] = true
+		perms["payment.evidence.write"] = true
+	}
+	if writeFresh && iam["PAYMENT_REFUND_VERIFY"] {
+		perms["payment.refund.verify"] = true
+		perms["payment.evidence.issue"] = true
 	}
 	return perms
 }

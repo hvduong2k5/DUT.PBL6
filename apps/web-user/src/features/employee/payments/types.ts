@@ -76,3 +76,113 @@ export interface PaymentCaseDecision {
   evidenceIds: string[];
   policyVersion: string;
 }
+
+// Manual refund authority (F-42 slice 2), aligned with the order-service
+// staff API: refunds, refund approvals and bank-statement certificates.
+// Refund views are masked server-side; the full beneficiary account is
+// revealed only inside a start instruction issued to the current
+// executor, which this BFF passes through without persisting.
+
+export const PAYMENT_REFUND_STATUS_LABELS: Record<string, string> = {
+  MANUAL_REVIEW: "Chờ thực thi",
+  SUBMITTED: "Đã bắt đầu chuyển",
+  UNKNOWN: "Chưa rõ kết quả",
+  SUCCEEDED: "Đã hoàn tiền",
+  FAILED: "Không hoàn được"
+};
+
+export const PAYMENT_REFUND_EXECUTION_LABELS: Record<string, string> = {
+  AWAITING_EXECUTOR: "Chờ người thực thi",
+  CLAIMED: "Đã có người nhận thực thi",
+  STARTED: "Đang chuyển tiền",
+  EVIDENCE_PENDING: "Chờ xác minh chứng từ",
+  UNKNOWN: "Chưa rõ kết quả",
+  VERIFIED_SENT: "Đã xác minh: đã chuyển",
+  VERIFIED_NOT_SENT: "Đã xác minh: chưa chuyển",
+  CANCELLED: "Đã hủy nghĩa vụ"
+};
+
+export const REFUND_APPROVAL_STATE_LABELS: Record<string, string> = {
+  APPROVED: "Đã phê duyệt",
+  WITHDRAWN: "Đã rút phê duyệt"
+};
+
+export const REFUND_EVIDENCE_DECISION_LABELS: Record<string, string> = {
+  SENT: "Đã chuyển tiền",
+  NOT_SENT: "Chưa chuyển tiền",
+  INCONCLUSIVE: "Chưa kết luận"
+};
+
+export interface PaymentRefundSummary {
+  refundId: string;
+  receiptId: string;
+  orderId: string | null;
+  approvalId: string;
+  amount: number;
+  currency: string;
+  status: string;
+  statusLabel: string;
+  executionState: string;
+  executionLabel: string;
+  obligationState: string;
+  executionMode: string;
+  version: number;
+  attemptNumber: number;
+  attemptId: string | null;
+  claimOwner: string | null;
+  claimExpiresAt: string | null;
+  beneficiaryMasked: string;
+  evidenceIds: string[];
+}
+
+export interface PaymentRefundList {
+  items: PaymentRefundSummary[];
+  nextCursor: string | null;
+}
+
+export interface RefundApprovalItem {
+  approvalId: string;
+  receiptId: string;
+  orderId: string | null;
+  amount: number;
+  currency: string;
+  state: string;
+  stateLabel: string;
+  beneficiaryMasked: string;
+  bank: string;
+  holder: string;
+  approverId: string;
+  version: number;
+  withdrawalReference: string | null;
+  reason: string;
+  createdAt: string;
+}
+
+export interface RefundCertificateItem {
+  reference: string;
+  refundId: string;
+  attemptId: string;
+  decision: string;
+  decisionLabel: string;
+  definitive: boolean;
+  amount: number;
+  currency: string;
+  beneficiaryMasked: string;
+  bank: string;
+  holder: string;
+  bankReference: string;
+  occurredAt: string;
+  sha256: string;
+}
+
+export interface RefundStartInstructionView {
+  refund: PaymentRefundSummary;
+  attemptId: string;
+  amount: number;
+  currency: string;
+  bankCode: string;
+  account: string;
+  holder: string;
+  transferContent: string;
+  startedAt: string;
+}
