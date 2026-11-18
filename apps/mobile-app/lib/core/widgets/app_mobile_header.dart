@@ -8,7 +8,6 @@ class AppMobileHeader extends StatelessWidget implements PreferredSizeWidget {
     super.key,
     this.title = 'Gói Huế',
     this.showBack = false,
-    this.showMenu = false,
     this.onBack,
     this.cartCount,
     this.onCart,
@@ -16,7 +15,6 @@ class AppMobileHeader extends StatelessWidget implements PreferredSizeWidget {
   });
   final String title;
   final bool showBack;
-  final bool showMenu;
   final VoidCallback? onBack;
   final int? cartCount;
   final VoidCallback? onCart;
@@ -29,7 +27,7 @@ class AppMobileHeader extends StatelessWidget implements PreferredSizeWidget {
     final branded = !showBack && title == 'Gói Huế';
     return AppBar(
       automaticallyImplyLeading: false,
-      leadingWidth: showBack || showMenu
+      leadingWidth: showBack
           ? 64
           : branded
           ? 56
@@ -39,15 +37,6 @@ class AppMobileHeader extends StatelessWidget implements PreferredSizeWidget {
               onPressed: onBack ?? () => safeBackOrHome(context),
               icon: const Icon(Icons.arrow_back_ios_new),
               tooltip: 'Quay lại',
-            )
-          : showMenu
-          ? Builder(
-              builder: (buttonContext) => IconButton(
-                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-                onPressed: () => Scaffold.of(buttonContext).openDrawer(),
-                icon: const Icon(Icons.menu),
-                tooltip: 'Mở menu',
-              ),
             )
           : branded
           ? Padding(
@@ -60,7 +49,7 @@ class AppMobileHeader extends StatelessWidget implements PreferredSizeWidget {
           ? Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (showMenu || showBack) ...[
+                if (showBack) ...[
                   const HeritageEmblem(size: 32),
                   const SizedBox(width: 8),
                 ],
