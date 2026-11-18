@@ -93,3 +93,33 @@
   .gh-coupon__value::after { top: auto; right: 10px; bottom: -1px; left: 10px; border-right: 0; border-bottom: 2px dashed rgba(212, 162, 76, 0.6); }
 }
 @media (prefers-reduced-motion: reduce) { .gh-skeleton-card { animation: none; } }
+
+/* ---- Unpaid orders: notice (home, orders), order card actions and the pay callout on order detail ---- */
+.gh-notice { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin-block: 16px 0; padding: 12px 16px; border: 1px solid var(--mat); border-left-width: 4px; background: rgba(212, 162, 76, 0.14); color: var(--nau-dam); }
+.gh-notice .gh-emblem { flex: 0 0 28px; width: 28px; height: 28px; background-color: var(--kem); border: 1px solid var(--mat); border-radius: 50%; }
+.gh-notice p { flex: 1 1 240px; margin: 0; color: var(--muc); font-size: 0.95rem; }
+.gh-notice strong { color: var(--nau-dam); }
+.gh-notice__action { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 18px; border: 1px solid var(--nau-dam); border-radius: var(--r-sm); background: var(--nau-dam); color: var(--kem); font: 600 0.92rem var(--chu-doc); text-decoration: none; cursor: pointer; transition: background-color 0.2s var(--ease-out); }
+.gh-notice__action:hover { background: #67462f; }
+.gh-notice--orders { margin-block: 0 14px; }
+
+.order-card--unpaid { border-color: var(--mat); box-shadow: inset 4px 0 0 var(--mat); }
+.order-card--unpaid > footer { display: grid; gap: 12px; }
+.order-card--unpaid > footer p { margin: 0; color: var(--muc); }
+.order-card-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; }
+.order-card-link { color: var(--nau-dam); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+
+.order-pay-callout { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px 28px; margin-block: 20px; padding: 20px 24px; border: 1px solid var(--mat); border-left-width: 5px; background: rgba(212, 162, 76, 0.14); }
+.order-pay-callout h2 { margin: 4px 0 10px; color: var(--nau-dam); font: 600 clamp(1.2rem, 1rem + 0.8vw, 1.6rem)/1.2 var(--chu-de); }
+.order-pay-callout dl { display: flex; flex-wrap: wrap; gap: 6px 28px; margin: 0; }
+.order-pay-callout dl div { display: grid; }
+.order-pay-callout dt { color: var(--phu); font-size: var(--t-label); }
+.order-pay-callout dd { margin: 0; color: var(--nau-dam); font-weight: 700; }
+.order-pay-callout__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; }
+
+.payment-actions p a { color: var(--nau-dam); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+
+@media (max-width: 600px) {
+  .gh-notice__action, .order-pay-callout__actions .primary-link, .order-pay-callout__actions .order-danger-button { width: 100%; }
+  .order-card-actions .primary-link, .order-card-actions .secondary-link { flex: 1 1 100%; text-align: center; }
+}

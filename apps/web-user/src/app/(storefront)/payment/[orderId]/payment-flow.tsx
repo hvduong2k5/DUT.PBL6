@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { PublicApiError } from "@/lib/api-contract";
+import { orderDetailHref, PENDING_PAYMENT_ORDERS_HREF } from "@/lib/orders/pending-payment";
 import type { PaymentInstructionsView, PaymentStatusView } from "@/lib/payment/types";
 import { paymentService } from "@/services/payment-service";
 
@@ -153,6 +154,8 @@ export function PaymentFlow({ orderId }: { orderId: string }) {
 
     {pageError ? <div className="payment-action-error" role="alert">{pageError}</div> : null}
     {copyMessage ? <div className="payment-toast" role="status">{copyMessage}</div> : null}
-    <section className="payment-actions"><div><button className="primary-button" type="button" disabled={checking} onClick={() => void checkStatus()}>{checking ? <><span className="spinner" />Đang kiểm tra…</> : "Kiểm tra trạng thái thanh toán"}</button><Link className="secondary-link" href={`/orders/${encodeURIComponent(orderId)}`}>Xem chi tiết Order</Link></div><p><strong>Polling:</strong> {status.nextPollAfterSeconds > 0 ? `Backend đề nghị kiểm tra lại sau ${status.nextPollAfterSeconds} giây.` : "Backend yêu cầu dừng tự động polling."}</p><Link href="/products">Tiếp tục khám phá sản phẩm</Link></section>
+    <section className="payment-actions">{status.canPay
+      ? <><div><button className="primary-button" type="button" disabled={checking} onClick={() => void checkStatus()}>{checking ? <><span className="spinner" />Đang kiểm tra…</> : "Kiểm tra trạng thái thanh toán"}</button><Link className="secondary-link" href={orderDetailHref(orderId)}>Xem chi tiết đơn</Link></div><p><strong>Polling:</strong> {status.nextPollAfterSeconds > 0 ? `Backend đề nghị kiểm tra lại sau ${status.nextPollAfterSeconds} giây.` : "Backend yêu cầu dừng tự động polling."}</p><p>Chưa muốn thanh toán lúc này? Đơn vẫn nằm trong <Link href={PENDING_PAYMENT_ORDERS_HREF}>Đơn hàng của tôi</Link> để bạn thanh toán hoặc hủy sau.</p></>
+      : <><div><Link className="primary-link" href={orderDetailHref(orderId)}>Theo dõi đơn hàng này</Link><Link className="secondary-link" href="/">Về trang chủ</Link></div><p>{status.nextPollAfterSeconds > 0 ? `Backend đề nghị kiểm tra lại sau ${status.nextPollAfterSeconds} giây.` : "Trạng thái thanh toán đã ổn định."}</p></>}</section>
   </main>;
 }

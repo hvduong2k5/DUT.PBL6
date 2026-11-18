@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { useCustomerSession } from "@/components/auth/customer-session-provider";
 import { createIdempotencyKey, PublicApiError, type OrderTrackingResponse } from "@/lib/api-contract";
+import { isAwaitingPayment, paymentHref } from "@/lib/orders/pending-payment";
 import type { CancelReasonCode, OrderDetail } from "@/lib/orders/types";
 import { orderService } from "@/services/order-service";
 
@@ -59,6 +60,16 @@ export function OrderDetailFlow({ orderId }: { orderId: string }) {
   }, [orderId, scenario]);
 
   useEffect(() => { void Promise.resolve().then(load); }, [load]);
+
+  // "Hủy đơn" on the orders list links here with ?cancel=1: open the dialog once, as soon as the order can be cancelled.
+  const wantsCancel = searchParams.get("cancel") === "1";
+  const autoOpenedCancel = useRef(false);
+  const cancelAvailable = canManageOrder && Boolean(order?.cancellation.canCancel);
+  useEffect(() => {
+    if (!wantsCancel || !cancelAvailable || autoOpenedCancel.current) return;
+    autoOpenedCancel.current = true;
+    void Promise.resolve().then(() => { setDialogOpen(true); setCancelError(""); });
+  }, [wantsCancel, cancelAvailable]);
 
   async function cancelOrder(event: FormEvent) {
     event.preventDefault();
@@ -115,6 +126,11 @@ export function OrderDetailFlow({ orderId }: { orderId: string }) {
     <nav className="detail-breadcrumbs" aria-label="Đường dẫn"><Link href="/">Trang chủ</Link><span>›</span><Link href="/account/orders">Đơn hàng của tôi</Link><span>›</span><strong>#{order.orderNumber}</strong></nav>
     <section className="order-detail-hero"><div><span className="eyebrow">Chi tiết đơn hàng</span><h1>Đơn #{order.orderNumber}</h1><p>Đặt hàng · {new Date(order.placedAt).toLocaleString("vi-VN", { dateStyle: "long", timeStyle: "short" })}</p></div><div className="order-detail-actions"><button type="button" className="secondary-button" onClick={() => window.print()}>In thông tin</button>{canManageOrder && order.cancellation.canCancel ? <button type="button" className="order-danger-button" onClick={() => { setDialogOpen(true); setCancelError(""); }}>Hủy đơn</button> : null}</div></section>
     {notice ? <div className="order-notice" role="status">{notice}</div> : null}
+    {isAwaitingPayment(order) ? <section className="order-pay-callout" aria-labelledby="order-pay-title">
+      <div><span className="eyebrow">Chưa thanh toán</span><h2 id="order-pay-title">Hoàn tất thanh toán cho đơn #{order.orderNumber}</h2>
+        <dl><div><dt>Số tiền cần thanh toán</dt><dd>{VND.format(order.pricing.totalVnd)}</dd></div><div><dt>Phương thức</dt><dd>{order.payment.method}</dd></div>{order.payment.expiresAt ? <div><dt>Hạn thanh toán</dt><dd>{new Date(order.payment.expiresAt).toLocaleString("vi-VN")}</dd></div> : null}</dl></div>
+      <div className="order-pay-callout__actions"><Link className="primary-link" href={paymentHref(order.orderId)}>Thanh toán ngay</Link>{cancelAvailable ? <button type="button" className="order-danger-button" onClick={() => { setDialogOpen(true); setCancelError(""); }}>Hủy đơn</button> : null}</div>
+    </section> : null}
     {order.operationalHold || order.hasActiveCase ? <div className="checkout-inline-error" role="status"><strong>Đơn đang cần lưu ý</strong><p>{order.statusDescription}</p></div> : null}
 
     <section className="order-status-grid">

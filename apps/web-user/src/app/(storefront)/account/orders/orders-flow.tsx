@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AccountShell } from "@/components/account/account-shell";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
+import { PendingPaymentNotice } from "@/components/orders/pending-payment-notice";
 import { PublicApiError } from "@/lib/api-contract";
+import { isAwaitingPayment, orderDetailHref, parseOrderStatusFilter, paymentHref } from "@/lib/orders/pending-payment";
 import type { OrderListResponse, OrderStatus } from "@/lib/orders/types";
 import { orderService } from "@/services/order-service";
 
@@ -51,9 +53,17 @@ function appendUnique(current: OrderListResponse, next: OrderListResponse): Orde
 
 export function OrdersFlow() {
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   const scenario = searchParams.get("mockScenario") ?? undefined;
   const [data, setData] = useState<OrderListResponse | null>(null);
-  const [status, setStatus] = useState<StatusFilter>("ALL");
+  // The status filter lives in the URL (?status=PENDING_PAYMENT), so links from the home page and the back button both work.
+  const status = parseOrderStatusFilter<StatusFilter>(searchParams.get("status"), FILTERS.map((item) => item.value), "ALL");
+  const setStatus = useCallback((next: StatusFilter) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (next === "ALL") params.delete("status"); else params.set("status", next);
+    router.replace(params.size ? `${pathname}?${params}` : pathname, { scroll: false });
+  }, [pathname, router, searchParams]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
@@ -95,16 +105,20 @@ export function OrdersFlow() {
   return <><SiteHeader /><AccountShell active="orders">
     <section className="orders-hero"><div><span className="eyebrow">Nhật ký thưởng thức</span><h1>Đơn hàng của tôi</h1><p>Đơn mới nhất hiển thị trước; trạng thái được cập nhật theo tiến trình xử lý.</p></div><dl><div><dt>Đã tải</dt><dd>{data?.items.length ?? "—"}</dd></div><div><dt>Đang xử lý</dt><dd>{data?.items.filter((item) => ["PENDING_PAYMENT", "PAYMENT_FINALIZING", "PAID", "CONFIRMED_COD", "PROCESSING", "PACKED", "SHIPPED"].includes(item.status)).length ?? "—"}</dd></div></dl></section>
 
+    {status !== "PENDING_PAYMENT" ? <PendingPaymentNotice variant="orders" onShow={() => setStatus("PENDING_PAYMENT")} /> : null}
+
     <section className="orders-toolbar">
       <div className="orders-tabs" role="tablist" aria-label="Lọc theo trạng thái đơn">{FILTERS.map((item) => <button key={item.value} type="button" role="tab" aria-selected={status === item.value} className={status === item.value ? "active" : ""} onClick={() => setStatus(item.value)}>{item.label}</button>)}</div>
       <button type="button" className="secondary-button" disabled={loading || loadingMore} onClick={() => setRefreshKey((value) => value + 1)}>Làm mới từ đầu</button>
     </section>
 
     {loading ? <section className="orders-loading" aria-busy="true"><div /><div /><div /></section> : error && !data ? <section className="orders-state error" role="alert"><span>!</span><h2>Chưa thể mở lịch sử đơn hàng</h2><p>{error}</p><button className="secondary-button" onClick={() => setRefreshKey((value) => value + 1)}>Thử lại</button></section> : !data?.items.length ? <section className="orders-state"><span className="gh-emblem" aria-hidden="true" /><h2>Chưa có đơn phù hợp</h2><p>Chưa có đơn nào ở trạng thái đang lọc.</p><Link className="primary-link" href="/products">Khám phá sản phẩm</Link></section> : <section className="orders-list" aria-live="polite">
-      {data.items.map((order) => <article className="order-card" key={order.orderId}>
+      {data.items.map((order) => <article className={isAwaitingPayment(order) ? "order-card order-card--unpaid" : "order-card"} key={order.orderId}>
         <header><div><strong>#{order.orderNumber}</strong><span>{new Date(order.placedAt).toLocaleString("vi-VN", { dateStyle: "medium", timeStyle: "short" })}</span></div><b className={`order-status ${statusTone(order.status)}`}>{order.statusLabel}</b></header>
         <div className="order-card-body"><div className="order-preview-stack">{order.previewItems.length ? order.previewItems.map((item) => <div className="order-preview" key={`${order.orderId}-${item.name}`}><span className="gh-emblem" aria-hidden="true" /><div><strong>{item.name}</strong><small>Số lượng: {item.quantity}</small></div></div>) : <div className="order-preview"><span className="gh-emblem" aria-hidden="true" /><div><strong>Thông tin sản phẩm đang được cập nhật</strong><small>Mở chi tiết đơn để xem đầy đủ thông tin.</small></div></div>}</div><dl><div><dt>Số món</dt><dd>{order.itemCount ?? "—"}</dd></div><div><dt>Thanh toán</dt><dd>{order.paymentStatusLabel}</dd></div><div><dt>Tổng thanh toán</dt><dd>{VND.format(order.totalVnd)}</dd></div></dl></div>
-        <footer><p>{order.cancelPolicyMessage}</p><Link className="primary-link" href={`/orders/${encodeURIComponent(order.orderId)}`}>Xem chi tiết &amp; tracking</Link></footer>
+        {isAwaitingPayment(order)
+          ? <footer><p><strong>Chưa thanh toán.</strong> Thanh toán {VND.format(order.totalVnd)} bằng {order.paymentMethod} để đơn được chuẩn bị, hoặc hủy nếu bạn không muốn mua nữa.</p><div className="order-card-actions"><Link className="primary-link" href={paymentHref(order.orderId)}>Thanh toán ngay</Link>{order.canCancel ? <Link className="secondary-link" href={orderDetailHref(order.orderId, { cancel: true })}>Hủy đơn</Link> : null}<Link className="order-card-link" href={orderDetailHref(order.orderId)}>Xem chi tiết</Link></div></footer>
+          : <footer><p>{order.cancelPolicyMessage}</p><Link className="primary-link" href={orderDetailHref(order.orderId)}>Xem chi tiết &amp; tracking</Link></footer>}
       </article>)}
       {error ? <div className="status-notice error" role="alert">{error}</div> : null}
       {data.nextCursor ? <button type="button" className="secondary-button" disabled={loadingMore} onClick={() => void loadMore()}>{loadingMore ? "Đang tải…" : "Tải thêm đơn"}</button> : <p className="cart-checkout-note" role="status">Đã tải hết danh sách cho bộ lọc hiện tại.</p>}
