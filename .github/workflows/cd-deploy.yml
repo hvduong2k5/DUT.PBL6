@@ -62,6 +62,7 @@ env:
   APP_UUID_SHIPPING: "vymxdc94fzfrrerg9umizerj"
   APP_UUID_INVENTORY: "qaficsfc5om7icdrjizorqoz"
   APP_UUID_AI: ${{ vars.COOLIFY_APP_UUID_AI }}
+  APP_UUID_TRACEABILITY: ${{ vars.COOLIFY_APP_UUID_TRACEABILITY }}
   APP_UUID_WEB: "plf5cnfxylu2d1cl6cginegx"
   # Kong is a Coolify Service (docker-compose resource), not an Application.
   KONG_UUID: "1tmlaxcmgpkgqadugbfaaddz"
@@ -85,7 +86,7 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             input="${{ inputs.apps }}"
             if [ "$input" = "all" ]; then
-              apps=(identity catalog profile order fulfillment shipping inventory ai web)
+              apps=(identity catalog profile order fulfillment shipping inventory ai traceability web)
             else
               IFS=',' read -ra parts <<< "$input"
               for p in "${parts[@]}"; do add "$(echo "$p" | tr -d ' ')"; done
@@ -110,6 +111,7 @@ jobs:
                 services/shipping-service/*) add shipping ;;
                 services/inventory-service/*) add inventory ;;
                 services/ai-agent-service/*) add ai ;;
+            services/traceability-service/*) add traceability ;;
                 apps/web-user/*) add web ;;
                 services/identity-service/*)
                   echo "::notice::identity-service changed on rc.2 - it deploys from rc.1, cherry-pick the change there to deploy it." ;;
@@ -149,6 +151,7 @@ jobs:
             shipping) uuid="$APP_UUID_SHIPPING" ;;
             inventory) uuid="$APP_UUID_INVENTORY" ;;
             ai) uuid="$APP_UUID_AI" ;;
+            traceability) uuid="$APP_UUID_TRACEABILITY" ;;
             web) uuid="$APP_UUID_WEB" ;;
             *) echo "Unknown app: $APP"; exit 1 ;;
           esac
