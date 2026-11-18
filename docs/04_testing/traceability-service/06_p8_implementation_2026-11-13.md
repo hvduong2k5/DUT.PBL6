@@ -39,3 +39,7 @@ Route đã được thử với Kong DB-less đọc `config/kong.yml`. Kong prod
 - Dockerfile Inventory mặc định build binary ARM64. Đã dùng `TARGETARCH` do Docker BuildKit xác định và xác nhận container chạy trên amd64.
 
 Môi trường E2E dùng mạng và database Docker tạm, lô seed và hai tài khoản riêng trong realm test. Kong chạy DB-less. Đã dọn các container và mạng test sau khi chạy. Kết quả áp dụng cho stack local này.
+
+### Rà soát GĐ0 ngày 18/11/2026 (UTC+7)
+
+Phạm vi Web của PR gồm biến upstream và BFF. Trang QR và kiểu dữ liệu Web lấy nguyên từ dev. Kết quả trình duyệt ngày 13/11 ghi nhận giao diện P8 trước khi thu hẹp phạm vi. Trên staging, kiểm tra riêng mã HTTP 404/410 và hành vi của giao diện Gói Huế theo kế hoạch kiểm thử.

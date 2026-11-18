@@ -70,11 +70,11 @@ export function TraceExperience({ qrCode }: { qrCode: string }) {
           </div> : null}
 
           {!loading && error ? <div className="gh-frame-functional gh-frame-functional--fold gh-state" role="alert">
-            <span className="gh-kicker">{error.status === 410 ? "Hồ sơ từng được công bố" : error.status === 404 ? "Mã chưa có trong hệ thống" : "Kết nối gián đoạn"}</span>
-            <h2>{error.status === 410 ? "Hồ sơ đã ngừng công bố" : error.status === 404 ? "Không tìm thấy mã truy xuất" : "Chưa thể mở hồ sơ nguồn gốc"}</h2>
-            <p>{error.status === 410 ? "Mã QR này từng được công bố và hiện không còn truy cập được." : error.message}</p>
+            <span className="gh-kicker">{error.status === 404 ? "Mã chưa có trong hệ thống" : "Kết nối gián đoạn"}</span>
+            <h2>{error.status === 404 ? "Không tìm thấy mã truy xuất" : "Chưa thể mở hồ sơ nguồn gốc"}</h2>
+            <p>{error.message}</p>
             <div className="gh-state__actions">
-              {error.status !== 404 && error.status !== 410 ? <button type="button" className="gh-btn gh-btn--brown" onClick={retryTraceability}>Thử lại</button> : null}
+              {error.status !== 404 ? <button type="button" className="gh-btn gh-btn--brown" onClick={retryTraceability}>Thử lại</button> : null}
               <Link className="gh-btn gh-btn--paper" href="/products">Khám phá sản phẩm</Link>
             </div>
           </div> : null}
@@ -82,9 +82,9 @@ export function TraceExperience({ qrCode }: { qrCode: string }) {
           {!loading && !error && record ? <>
             <div className="gh-frame-plaque gh-trace-cert">
               <div>
-                <span className="gh-badge gh-badge--gold">{record.mode === "sandbox" ? "Hồ sơ kiểm thử" : record.verification_method === "MANUAL" ? "Xác minh thủ công" : "Hồ sơ đã công bố"}</span>
+                <span className="gh-badge gh-badge--gold">Hồ sơ hợp lệ</span>
                 <h2>{record.product_name}</h2>
-                <p>Mã truy xuất <strong>{record.qr_code}</strong></p>
+                <p>Mã truy xuất <strong>{record.qr_code}</strong> đã được hệ thống Gói Huế xác nhận.</p>
               </div>
               <div className="gh-trace-cert__seal gh-surface-imperial">
                 <span>OCOP</span>
@@ -100,7 +100,7 @@ export function TraceExperience({ qrCode }: { qrCode: string }) {
                 <dl>
                   <div><dt>Ngày sản xuất</dt><dd>{formatDate(record.production_date)}</dd></div>
                   <div><dt>Hạn sử dụng</dt><dd>{formatDate(record.expiry_date)}</dd></div>
-                  <div><dt>Nghệ nhân phụ trách</dt><dd>{record.artisan_name ?? "Chưa có dữ liệu"}</dd></div>
+                  <div><dt>Nghệ nhân phụ trách</dt><dd>{record.artisan_name}</dd></div>
                   <div><dt>Xưởng sản xuất</dt><dd>{record.workshop_location}</dd></div>
                 </dl>
               </article>
@@ -114,7 +114,7 @@ export function TraceExperience({ qrCode }: { qrCode: string }) {
                 <Motif name="12-hoa-sen-cung-dinh" className="gh-trace-card__motif" />
                 <span className="gh-kicker">An toàn thực phẩm</span>
                 <h3>Chứng nhận kiểm định</h3>
-                <p>{record.food_safety_cert ?? "Chưa có dữ liệu"}</p>
+                <p>{record.food_safety_cert}</p>
               </article>
             </div>
 

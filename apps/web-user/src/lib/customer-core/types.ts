@@ -30,10 +30,8 @@ export interface TraceabilityRecord {
   production_date: string;
   expiry_date: string;
   workshop_location: string;
-  artisan_name: string | null;
-  food_safety_cert: string | null;
-  mode?: string;
-  verification_method?: string;
+  artisan_name: string;
+  food_safety_cert: string;
   raw_materials_origin: string;
   crafting_video_url?: string | null;
 }

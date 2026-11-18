@@ -19,8 +19,8 @@ E2E trên Docker local đã đạt. Kế hoạch này kiểm tra bản deploy tr
 | --- | --- | --- |
 | ST-01 | Gọi `/readyz` qua mạng nội bộ. Gọi danh sách admin qua Kong khi thiếu token. | Readiness `200`. Admin `401`. |
 | ST-02 | Người soạn tạo hồ sơ từ lô hợp lệ với `source_namespace=inventory`, rồi gửi duyệt. Người duyệt phê duyệt và publish. | Tạo `201`. Gửi duyệt, duyệt và publish `200`. Audit ghi đúng hai actor. |
-| ST-03 | Mở `/trace/{qrCode}` trong cửa sổ ẩn danh. Mở hồ sơ có trường nghệ nhân hoặc ATTP rỗng. | Public API `200`, `Cache-Control: no-store`. Web hiện đúng lô, revision, xác minh thủ công và trường thiếu. Payload không lộ tham chiếu bằng chứng. |
-| ST-04 | Đình chỉ hồ sơ rồi tải lại cùng QR. Tra thêm mã chưa từng tồn tại. | API và BFF giữ `410` cho hồ sơ đã đình chỉ, `404` cho mã lạ. Web hiển thị đúng từng trạng thái. |
+| ST-03 | Mở `/trace/{qrCode}` trong cửa sổ ẩn danh. Mở hồ sơ có trường nghệ nhân hoặc ATTP rỗng. | Public API `200`, `Cache-Control: no-store`. Web hiện đúng lô. Kiểm tra revision, xác minh thủ công và các trường nullable trong payload. Payload không lộ tham chiếu bằng chứng. |
+| ST-04 | Đình chỉ hồ sơ rồi tải lại cùng QR. Tra thêm mã chưa từng tồn tại. | API và BFF giữ `410` cho hồ sơ đã đình chỉ, `404` cho mã lạ. Web không hiển thị lại hồ sơ đã đình chỉ. Kiểm tra mã HTTP trong Network. |
 | ST-05 | Cho người soạn có quyền approve thử tự duyệt chính hồ sơ mình đã gửi. Thu hồi quyền của tài khoản test rồi thử lại bằng token còn hạn. | Cả hai thao tác bị từ chối `403`. |
 | ST-06 | Tạo với sai SKU hoặc batch UUID không tồn tại. Gửi duyệt hồ sơ của lô cách ly. | Trả `409`. Hồ sơ không được publish. |
 | ST-07 | Duyệt lô test riêng, đổi dữ liệu lô để tăng revision rồi publish. | Publish `409`. QR chưa từng công bố trả `404`. Không tạo event publish. |
