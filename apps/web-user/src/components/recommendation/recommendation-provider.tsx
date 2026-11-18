@@ -45,7 +45,11 @@ export function RecommendationProvider({ children }: { children: ReactNode }) {
       if (active) { setConsentState(null); setConsentError(""); }
       if (!recommendationsEnabled || !actor) return;
       try {
-        const value = await recommendationService.consent();
+        let value = await recommendationService.consent();
+        if (!value.enabled && value.consentVersion === 0) {
+          try { value = await recommendationService.setConsent(true, value); }
+          catch { /* Personalization stays off for this visit; retried on the next load. */ }
+        }
         if (active) setConsentState({ actor, value });
       } catch {
         if (active) setConsentError("Chưa thể tải lựa chọn cá nhân hóa.");
