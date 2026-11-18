@@ -21,9 +21,9 @@ services/keycloak-service/
 - **Không dùng Docker Compose:** Dịch vụ triển khai trực tiếp bằng Dockerfile kết nối vào tài nguyên PostgreSQL độc lập có sẵn (trên Coolify hoặc máy chủ cơ sở dữ liệu dùng chung).
 - **Hỗ trợ song song `Dockerfile` và `Dockerfile.coolify`:** Cả 2 file có nội dung chỉ thị build giống hệt nhau, đảm bảo Coolify build thành công dù cấu hình trỏ tới file nào.
 - **Quarkus Pre-build (Optimized Build):** Dockerfile sử dụng multi-stage build chạy `kc.sh build` ngay lúc build image, giúp container khởi động tức thì trong 2-3 giây ở môi trường production (`start --optimized`).
-- **Kích hoạt Hostname v2 (`KC_FEATURES=hostname:v2`):** Được nướng sẵn ở bước build:
-  - Cho phép cấu hình URL đầy đủ: `KC_HOSTNAME=https://keycloak.omama.vn` (thay vì chỉ nhận hostname trần như ở Hostname v1).
-  - Hỗ trợ `KC_HOSTNAME_BACKCHANNEL_DYNAMIC=true`: Các backend microservices trong mạng nội bộ Coolify có thể gọi trực tiếp Keycloak qua địa chỉ Docker nội bộ (ví dụ `http://keycloak:8080`) mà không bị lỗi lệch URL hay bị ép redirect về domain public.
+- **Tối ưu hóa Hostname & Backchannel:**
+  - `KC_HOSTNAME=https://keycloak.omama.vn`: Cung cấp public base URL cho OIDC discovery và issuer.
+  - `KC_HOSTNAME_STRICT_BACKCHANNEL=false`: Cho phép các backend microservices trong mạng nội bộ Coolify gọi trực tiếp Keycloak qua địa chỉ Docker nội bộ (ví dụ `http://keycloak:8080`) mà không bị lỗi lệch URL hay bị ép redirect về domain public.
 - **Giao diện thuần Tiếng Việt chuẩn Keycloak:**
   - `internationalizationEnabled: true`, `supportedLocales: ["vi"]`, `defaultLocale: "vi"`.
   - Giúp `DefaultLocaleSelectorProvider` của Keycloak nhận diện đúng tiếng Việt cho mọi thông báo hệ thống/lỗi, đồng thời tự động ẩn thanh chuyển đổi ngôn ngữ (do chỉ có 1 locale hợp lệ).
@@ -107,13 +107,13 @@ Sao chép các biến sau vào mục **Environment Variables** của Application
 | `KC_DB_URL` | `jdbc:postgresql://<ten_postgres_resource>:5432/keycloak_db` | URL kết nối database trên mạng nội bộ Coolify |
 | `KC_DB_USERNAME` | `<user_postgres>` | Username đăng nhập PostgreSQL |
 | `KC_DB_PASSWORD` | `<password_postgres>` | Password đăng nhập PostgreSQL |
-| `KC_HOSTNAME` | `https://keycloak.omama.vn` | Domain public truy cập Keycloak (Hostname v2 hỗ trợ full URL) |
+| `KC_HOSTNAME` | `https://keycloak.omama.vn` | Domain public truy cập Keycloak |
 | `KC_PROXY_HEADERS` | `xforwarded` | Bắt buộc khi chạy sau reverse proxy Traefik của Coolify |
 | `KC_HTTP_ENABLED` | `true` | Bật HTTP listener cho kết nối nội bộ từ reverse proxy |
-| `KC_HOSTNAME_BACKCHANNEL_DYNAMIC` | `true` | Cho phép backend services gọi Keycloak qua mạng nội bộ |
+| `KC_HOSTNAME_STRICT_BACKCHANNEL` | `false` | Cho phép backend services gọi Keycloak qua mạng nội bộ |
 
 > [!IMPORTANT]
-> - Các biến build-time (`KC_DB=postgres`, `KC_HEALTH_ENABLED=true`, `KC_METRICS_ENABLED=true`, `KC_FEATURES=hostname:v2`) đã được đóng gói cố định trong image, không cần và không thể ghi đè lúc runtime.
+> - Các biến build-time (`KC_DB=postgres`, `KC_HEALTH_ENABLED=true`, `KC_METRICS_ENABLED=true`) đã được đóng gói cố định trong image, không cần và không thể ghi đè lúc runtime.
 > - Đảm bảo Application Keycloak và PostgreSQL resource nằm trên cùng một Docker Network của Coolify.
 
 ---
