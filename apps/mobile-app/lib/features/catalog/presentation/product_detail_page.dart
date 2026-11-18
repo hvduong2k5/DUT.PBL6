@@ -7,6 +7,9 @@ import 'package:mobile_app/app/router/routes.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:mobile_app/core/theme/app_colors.dart';
 import 'package:mobile_app/core/theme/app_radius.dart';
+import 'package:mobile_app/core/widgets/heritage/heritage_frame.dart';
+import 'package:mobile_app/core/widgets/heritage/heritage_section_header.dart';
+import 'package:mobile_app/core/widgets/heritage/heritage_surface.dart';
 import 'package:mobile_app/core/theme/app_spacing.dart';
 import 'package:mobile_app/core/widgets/app_error_view.dart';
 import 'package:mobile_app/core/widgets/app_loading_view.dart';
@@ -64,253 +67,267 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
         cartCount: cartState.cart.totalItems,
         onCart: () => context.go(AppRoutes.cart),
       ),
-      body: FutureBuilder<Product>(
-        future: _future,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return const AppLoadingView();
-          }
-          if (snapshot.hasError || snapshot.data == null) {
-            return AppErrorView(
-              message: 'Không thể tải thông tin sản phẩm.',
-              onRetry: () => setState(_load),
-            );
-          }
-          final product = snapshot.data!;
-          final images = product.images.isEmpty
-              ? [product.imageUrl]
-              : product.images;
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.md,
-              AppSpacing.xs,
-              AppSpacing.md,
-              110,
-            ),
-            children: [
-              Container(
-                height: 310,
-                decoration: BoxDecoration(
-                  color: AppColors.muted,
-                  borderRadius: BorderRadius.circular(AppRadius.card),
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: AppProductImage(
-                  url: images[_imageIndex],
-                  label: product.name,
-                ),
+      body: HeritageSurface(
+        child: FutureBuilder<Product>(
+          future: _future,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done) {
+              return const AppLoadingView();
+            }
+            if (snapshot.hasError || snapshot.data == null) {
+              return AppErrorView(
+                message: 'Không thể tải thông tin sản phẩm.',
+                onRetry: () => setState(_load),
+              );
+            }
+            final product = snapshot.data!;
+            final images = product.images.isEmpty
+                ? [product.imageUrl]
+                : product.images;
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                AppSpacing.xs,
+                AppSpacing.md,
+                110,
               ),
-              if (images.length > 1) ...[
-                const SizedBox(height: 12),
-                SizedBox(
-                  height: 76,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: images.length,
-                    separatorBuilder: (_, _) => const SizedBox(width: 8),
-                    itemBuilder: (context, index) => Semantics(
-                      selected: index == _imageIndex,
-                      button: true,
-                      label: 'Ảnh sản phẩm ${index + 1} trên ${images.length}',
-                      child: InkWell(
-                        onTap: () => setState(() => _imageIndex = index),
-                        child: Container(
-                          width: 76,
-                          padding: const EdgeInsets.all(3),
-                          decoration: BoxDecoration(
-                            border: Border.all(
-                              color: index == _imageIndex
-                                  ? AppColors.brandBrown
-                                  : AppColors.border,
-                            ),
-                            borderRadius: BorderRadius.circular(
-                              AppRadius.medium,
-                            ),
-                          ),
-                          child: AppProductImage(
-                            url: images[index],
-                            label: product.name,
-                          ),
-                        ),
-                      ),
+              children: [
+                HeritageFrame(
+                  level: HeritageFrameLevel.plaque,
+                  padding: const EdgeInsets.all(10),
+                  child: SizedBox(
+                    height: 290,
+                    width: double.infinity,
+                    child: AppProductImage(
+                      url: images[_imageIndex],
+                      label: product.name,
                     ),
                   ),
                 ),
-              ],
-              const SizedBox(height: AppSpacing.md),
-              Wrap(
-                spacing: 20,
-                runSpacing: 8,
-                children: [
-                  if (product.ocopStars > 0)
-                    Text(
-                      '${product.ocopStars} SAO OCOP',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.brandBrown,
-                      ),
-                    ),
-                  Text(
-                    product.availabilityLabel,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: AppColors.success,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-              if (product.certificateNumber.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: SelectableText(
-                    'Mã chứng nhận OCOP: ${product.certificateNumber}',
-                  ),
-                ),
-              const SizedBox(height: AppSpacing.xs),
-              Text(
-                product.name,
-                style: Theme.of(context).textTheme.headlineMedium,
-              ),
-              if (_selectedVariant?.originalPrice != null &&
-                  _selectedVariant!.originalPrice!.compareTo(
-                        _selectedVariant!.price,
-                      ) >
-                      0)
-                Text(
-                  _selectedVariant!.originalPrice!.format(),
-                  style: const TextStyle(
-                    decoration: TextDecoration.lineThrough,
-                    color: AppColors.textMuted,
-                  ),
-                ),
-              const SizedBox(height: AppSpacing.xs),
-              Text(
-                product.variants.isEmpty
-                    ? 'Chưa công bố giá'
-                    : (_selectedVariant?.price ?? product.price).format(),
-                style: TextStyle(
-                  fontFamily: GoogleFonts.playfairDisplay().fontFamily,
-                  fontSize: 24,
-                  color: AppColors.brickRed,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              Text(
-                'Chọn quy cách',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: product.variants
-                    .map(
-                      (variant) => ChoiceChip(
-                        label: Text(
-                          '${variant.name} · ${variant.stockKnown ? (variant.stock > 0 ? variant.price.format() : 'Hết hàng') : 'Đang cập nhật tồn kho'}',
-                        ),
-                        selected: _selectedVariant?.id == variant.id,
-                        onSelected: variant.stock < 1 || cartState.pending
-                            ? null
-                            : (_) => setState(() {
-                                _selectedVariant = variant;
-                                _quantity = 1;
-                              }),
-                      ),
-                    )
-                    .toList(),
-              ),
-              if (product.variants.isEmpty)
-                const Text('Chưa có quy cách khả dụng.'),
-              const SizedBox(height: 12),
-              if (_selectedVariant == null)
-                const Text(
-                  'Chọn quy cách đã công bố để tiếp tục. Giỏ hàng không giữ tồn hoặc cố định giá.',
-                )
-              else ...[
-                SelectableText('SKU: ${_selectedVariant!.sku}'),
-                if (_selectedVariant!.weightGrams != null)
-                  Text('Khối lượng: ${_selectedVariant!.weightGrams}g'),
-              ],
-              const SizedBox(height: AppSpacing.md),
-              Row(
-                children: [
-                  const Expanded(
-                    child: Text(
-                      'Số lượng',
-                      style: TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed:
-                        _quantity > 1 &&
-                            !cartState.pending &&
-                            _selectedVariant != null
-                        ? () => setState(() => _quantity--)
-                        : null,
-                    icon: const Icon(Icons.remove),
-                    constraints: const BoxConstraints.tightFor(
-                      width: 44,
-                      height: 44,
-                    ),
-                  ),
+                if (images.length > 1) ...[
+                  const SizedBox(height: 12),
                   SizedBox(
-                    width: 40,
-                    child: Text('$_quantity', textAlign: TextAlign.center),
-                  ),
-                  IconButton(
-                    onPressed:
-                        cartState.pending ||
-                            _quantity >= maxCartItemQuantity ||
-                            _selectedVariant == null ||
-                            _quantity >= _selectedVariant!.stock
-                        ? null
-                        : () => setState(() => _quantity++),
-                    icon: const Icon(Icons.add),
-                    constraints: const BoxConstraints.tightFor(
-                      width: 44,
-                      height: 44,
+                    height: 76,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: images.length,
+                      separatorBuilder: (_, _) => const SizedBox(width: 8),
+                      itemBuilder: (context, index) => Semantics(
+                        selected: index == _imageIndex,
+                        button: true,
+                        label:
+                            'Ảnh sản phẩm ${index + 1} trên ${images.length}',
+                        child: InkWell(
+                          onTap: () => setState(() => _imageIndex = index),
+                          child: Container(
+                            width: 76,
+                            padding: const EdgeInsets.all(3),
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: index == _imageIndex
+                                    ? AppColors.brandBrown
+                                    : AppColors.border,
+                              ),
+                              borderRadius: BorderRadius.circular(
+                                AppRadius.medium,
+                              ),
+                            ),
+                            child: AppProductImage(
+                              url: images[index],
+                              label: product.name,
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ],
-              ),
-              const Divider(height: AppSpacing.xl),
-              Text(
-                'Câu chuyện sản phẩm',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: AppSpacing.xs),
-              Text(product.description),
-              if (product.story.isNotEmpty) ...[
-                const SizedBox(height: AppSpacing.sm),
-                Text(product.story),
+                const SizedBox(height: AppSpacing.md),
+                Wrap(
+                  spacing: 20,
+                  runSpacing: 8,
+                  children: [
+                    if (product.ocopStars > 0)
+                      Text(
+                        '${product.ocopStars} SAO OCOP',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.brandBrown,
+                        ),
+                      ),
+                    Text(
+                      product.availabilityLabel,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AppColors.success,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                if (product.certificateNumber.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: SelectableText(
+                      'Mã chứng nhận OCOP: ${product.certificateNumber}',
+                    ),
+                  ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  product.name,
+                  style: Theme.of(context).textTheme.headlineMedium,
+                ),
+                if (_selectedVariant?.originalPrice != null &&
+                    _selectedVariant!.originalPrice!.compareTo(
+                          _selectedVariant!.price,
+                        ) >
+                        0)
+                  Text(
+                    _selectedVariant!.originalPrice!.format(),
+                    style: const TextStyle(
+                      decoration: TextDecoration.lineThrough,
+                      color: AppColors.textMuted,
+                    ),
+                  ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  product.variants.isEmpty
+                      ? 'Chưa công bố giá'
+                      : (_selectedVariant?.price ?? product.price).format(),
+                  style: TextStyle(
+                    fontFamily: GoogleFonts.playfairDisplay().fontFamily,
+                    fontSize: 24,
+                    color: AppColors.brickRed,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                HeritageFrame(
+                  level: HeritageFrameLevel.functional,
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Chọn quy cách',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: product.variants
+                            .map(
+                              (variant) => ChoiceChip(
+                                label: Text(
+                                  '${variant.name} · ${variant.stockKnown ? (variant.stock > 0 ? variant.price.format() : 'Hết hàng') : 'Đang cập nhật tồn kho'}',
+                                ),
+                                selected: _selectedVariant?.id == variant.id,
+                                onSelected:
+                                    variant.stock < 1 || cartState.pending
+                                    ? null
+                                    : (_) => setState(() {
+                                        _selectedVariant = variant;
+                                        _quantity = 1;
+                                      }),
+                              ),
+                            )
+                            .toList(),
+                      ),
+                      if (product.variants.isEmpty)
+                        const Text('Chưa có quy cách khả dụng.'),
+                      const SizedBox(height: 12),
+                      if (_selectedVariant == null)
+                        const Text(
+                          'Chọn quy cách đã công bố để tiếp tục. Giỏ hàng không giữ tồn hoặc cố định giá.',
+                        )
+                      else ...[
+                        SelectableText('SKU: ${_selectedVariant!.sku}'),
+                        if (_selectedVariant!.weightGrams != null)
+                          Text('Khối lượng: ${_selectedVariant!.weightGrams}g'),
+                      ],
+                      const SizedBox(height: AppSpacing.md),
+                      Row(
+                        children: [
+                          const Expanded(
+                            child: Text(
+                              'Số lượng',
+                              style: TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                          IconButton(
+                            onPressed:
+                                _quantity > 1 &&
+                                    !cartState.pending &&
+                                    _selectedVariant != null
+                                ? () => setState(() => _quantity--)
+                                : null,
+                            icon: const Icon(Icons.remove),
+                            constraints: const BoxConstraints.tightFor(
+                              width: 44,
+                              height: 44,
+                            ),
+                          ),
+                          SizedBox(
+                            width: 40,
+                            child: Text(
+                              '$_quantity',
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                          IconButton(
+                            onPressed:
+                                cartState.pending ||
+                                    _quantity >= maxCartItemQuantity ||
+                                    _selectedVariant == null ||
+                                    _quantity >= _selectedVariant!.stock
+                                ? null
+                                : () => setState(() => _quantity++),
+                            icon: const Icon(Icons.add),
+                            constraints: const BoxConstraints.tightFor(
+                              width: 44,
+                              height: 44,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                const HeritageSectionHeader(
+                  kicker: 'Gói Huế',
+                  title: 'Câu chuyện sản phẩm',
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(product.description),
+                if (product.story.isNotEmpty) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(product.story),
+                ],
+                const SizedBox(height: 28),
+                const HeritageSectionHeader(title: 'Thông tin thực phẩm'),
+                const SizedBox(height: 12),
+                const Text(
+                  'Thông tin đang được cập nhật. Chưa có dữ liệu thành phần, cảnh báo dị ứng và hướng dẫn bảo quản. Vui lòng kiểm tra nhãn trên bao bì hoặc tra cứu lô hàng trước khi sử dụng.',
+                ),
+                TextButton(
+                  onPressed: () => context.push(AppRoutes.trace),
+                  child: const Text('Tra cứu lô hàng'),
+                ),
+                BlocProvider(
+                  key: ValueKey('reviews:${product.id}'),
+                  create: (_) => ReviewsCubit(
+                    context.read<ReviewsRepository>(),
+                    product.id,
+                  )..load(),
+                  child: ProductReviewsSection(product: product),
+                ),
               ],
-              const Divider(height: 36),
-              Text(
-                'Thông tin thực phẩm',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'Thông tin đang được cập nhật. Chưa có dữ liệu thành phần, cảnh báo dị ứng và hướng dẫn bảo quản. Vui lòng kiểm tra nhãn trên bao bì hoặc tra cứu lô hàng trước khi sử dụng.',
-              ),
-              TextButton(
-                onPressed: () => context.push(AppRoutes.trace),
-                child: const Text('Tra cứu lô hàng'),
-              ),
-              BlocProvider(
-                key: ValueKey('reviews:${product.id}'),
-                create: (_) =>
-                    ReviewsCubit(context.read<ReviewsRepository>(), product.id)
-                      ..load(),
-                child: ProductReviewsSection(product: product),
-              ),
-            ],
-          );
-        },
+            );
+          },
+        ),
       ),
       bottomSheet: FutureBuilder<Product>(
         future: _future,

@@ -115,7 +115,7 @@ class _IdentityAuthPageState extends State<IdentityAuthPage> {
               const SizedBox(height: 12),
               Text(
                 widget.register
-                    ? 'Tạo tài khoản khách hàng bằng email để tiếp tục hành trình cùng Ô Mạ.'
+                    ? 'Tạo tài khoản khách hàng bằng email để tiếp tục hành trình cùng Gói Huế.'
                     : 'Tiếp tục đăng nhập trong trình duyệt bảo mật. Bạn sẽ được đưa trở lại ứng dụng khi hoàn tất.',
               ),
               const SizedBox(height: 24),

@@ -33,7 +33,7 @@ class OrderConfirmationPage extends StatelessWidget {
             child: Column(
               children: [
                 Text(
-                  'Ô Mạ',
+                  'Gói Huế',
                   style: TextStyle(
                     fontFamily: GoogleFonts.playfairDisplay().fontFamily,
                     fontSize: 22,
@@ -67,7 +67,7 @@ class OrderConfirmationPage extends StatelessWidget {
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 const Text(
-                  'Đơn hàng của bạn đã được ghi nhận. Ô Mạ sẽ thông báo khi có cập nhật mới.',
+                  'Đơn hàng của bạn đã được ghi nhận. Gói Huế sẽ thông báo khi có cập nhật mới.',
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: AppSpacing.lg),
