@@ -58,6 +58,7 @@ Assets are copied, never redrawn: web `public/images/heritage/`, mobile `assets/
 | Promotions, trace | done |
 | Account tab, sign-in | done (imperial header, kit emblem, sentence-case titles) |
 | Quote review | done (functional totals frame, one primary action) |
-| Checkout operation, payment, order detail, support, returns, B2B, notifications | paper surface + themed controls; not yet reviewed on device |
+| Order request, order detail, payment, notifications, support, B2B gate | done, checked on device (functional frames, amount panel, form sections) |
+| Returns form, recovery, addresses, profile, guest lookup, trace detail | kit controls and form sections; not checked on device |
 
 Verification per change: `flutter analyze`, `flutter test`, a real-device screenshot compared with the web at 375px.
