@@ -31,6 +31,9 @@ input[type="checkbox"], input[type="radio"], input[type="range"] { accent-color:
 
 .benefit-list .gh-emblem, .trust-row .gh-emblem, .oidc-login-mark.gh-emblem { background-color: var(--kem); border: 1px solid var(--mat); }
 .oidc-login-mark.gh-emblem { background-size: 60%; }
+/* Account menu: every item carries the same emblem; on the brown active row it sits on a paper-coloured disc so it stays visible */
+.account-menu .gh-emblem { width: 24px; height: 24px; }
+.account-menu a.active .gh-emblem { border-radius: 50%; background-color: var(--kem); }
 
 /* Form fields no longer carry a leading glyph icon */
 .input-wrap input { padding-left: 16px; }

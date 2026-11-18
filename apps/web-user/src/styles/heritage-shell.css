@@ -62,7 +62,7 @@
 .gh-chevron { font-size: 0.8em; line-height: 1; }
 
 .gh-header__tools { display: flex; flex-shrink: 0; align-items: center; gap: 10px; }
-.gh-search { position: relative; width: clamp(200px, 17vw, 260px); }
+.gh-search { position: relative; width: clamp(150px, 12vw, 240px); }
 .gh-search input {
   width: 100%;
   min-height: 44px;
@@ -130,7 +130,7 @@
   cursor: pointer;
 }
 .gh-account-trigger:hover, .gh-account-trigger[aria-expanded="true"] { border-color: var(--mat-sang); background: rgba(212, 162, 76, 0.18); }
-.gh-account-trigger__name { overflow: hidden; text-overflow: ellipsis; }
+.gh-account-trigger__name { min-width: 0; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .gh-avatar { display: grid; flex: 0 0 34px; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: var(--mat); color: var(--muc); font: 700 1rem var(--chu-de); }
 .gh-avatar--guest { background-color: var(--kem); border: 1px solid var(--mat); }
 
@@ -231,6 +231,11 @@
 .gh-footer__bottom { padding-top: 20px; border-top: 1px solid rgba(252, 249, 244, 0.16); color: rgba(252, 249, 244, 0.7); font-size: var(--t-label); }
 
 /* ---- Responsive ---- */
+/* Mid-width desktops: keep the nav, search and a long customer name from colliding (name is truncated, full name is in the menu) */
+@media (min-width: 1321px) and (max-width: 1520px) {
+  .gh-nav-link { padding-inline: 6px; }
+  .gh-account-trigger__name { max-width: 84px; }
+}
 @media (max-width: 1320px) {
   .gh-search-wide { display: none; }
   .gh-search-compact { display: block; }

@@ -31,10 +31,10 @@ export function AccountShell({ active, customerName = "Thành viên Tri Kỷ", c
             {hasCapability("ADDRESS_MANAGE") ? <Link className={active === "addresses" ? "active" : ""} href="/account/addresses"><span className="gh-emblem" aria-hidden="true" /> Sổ địa chỉ nhận hàng <b>›</b></Link> : null}
             {hasCapability("ORDER_HISTORY_VIEW") ? <Link className={active === "orders" ? "active" : ""} href="/account/orders"><span className="gh-emblem" aria-hidden="true" /> Đơn hàng của tôi <b>›</b></Link> : null}
             {hasCapability("LOYALTY_VIEW") ? <Link className={active === "loyalty" ? "active" : ""} href="/account/loyalty"><span className="gh-emblem" aria-hidden="true" /> Điểm &amp; ưu đãi <b>›</b></Link> : null}
-            <Link href="/settings/password"><span>⌑</span> Đổi mật khẩu <b>›</b></Link>
+            <Link href="/settings/password"><span className="gh-emblem" aria-hidden="true" /> Đổi mật khẩu <b>›</b></Link>
           </nav>
           <LogoutButton />
-          <div className="account-help"><span>☏</span><p><strong>Cần hỗ trợ?</strong><br />Hotline Tri Kỷ: 1900 68 Hue</p></div>
+          <div className="account-help"><span className="gh-emblem" aria-hidden="true" /><p><strong>Cần hỗ trợ?</strong><br />Hotline Tri Kỷ: 1900 68 Hue</p></div>
         </aside>
         <div className="account-content">{children}</div>
       </div>
