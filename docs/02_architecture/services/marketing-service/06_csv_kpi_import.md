@@ -5,3 +5,14 @@ Pilot nhận file xuất đã chuẩn hóa, mỗi dòng gồm external_execution
 PUT metrics/csv nhận text/csv UTF-8 với header đúng, 1–31 dòng, một key, mỗi ngày duy nhất, LF hoặc CRLF. Ngày theo timezone của execution, chỉ nhận ngày đã kết thúc và nằm trong kỳ. Số liệu là tổng ngày. Cùng version và giá trị được replay, version cao hơn là correction, version thấp hơn hoặc trùng version khác giá trị trả 409. Execution phải từng bắt đầu. Khóa Campaign tuần tự hóa với ghi thủ công. Mapping và toàn bộ dòng commit cùng transaction. Báo cáo hiện có đọc cùng bảng snapshot, giữ quy tắc coverage và version.
 
 Giới hạn này dùng CSV cột đơn giản với key ASCII chữ/số và . _ : -. File từ provider phải được chuẩn hóa trước. Adapter tải file tự động và mapping nhiều provider là phần triển khai sau.
+
+## Nghiệm thu CSV qua Kong và Identity
+
+Ngày 2026-11-17, Muse chạy MS14-CSV-KPI-1f5b9ea trên commit 1f5b9ea trong stack Docker cô lập. PUT metrics/csv đi qua Kong và Identity BFF bằng phiên staff. Kết quả 11/11 ca pass.
+
+- Nhập lần đầu và replay giữ đúng số dòng. Bản đính chính được chọn trong GET metrics và KPI report.
+- Khi dòng sau xung đột version, dòng trước và toàn bộ lô rollback. Mã key xung đột và việc trộn nguồn manual/CSV bị chặn.
+- Ngày hiện tại, ngày trùng, số thập phân và header sai bị từ chối. Staff sai phòng ban không thể nhập.
+- Đối soát PostgreSQL xác nhận mapping và các bản ghi khớp các lô thành công.
+
+Kết quả trên áp dụng cho CSV import tại 1f5b9ea. API tra cứu nguồn và mã lỗi chi tiết được nghiệm thu riêng.
