@@ -70,7 +70,8 @@ class CartPage extends StatelessWidget {
           title: cart.items.isEmpty
               ? 'Giỏ hàng'
               : 'Giỏ hàng (${cart.totalItems} món)',
-          showBack: true,
+          // Cart is a tab: show back only when it was pushed (e.g. from a product).
+          showBack: GoRouter.of(context).canPop(),
         ),
         body: HeritageSurface(
           child: switch (state.status) {
@@ -260,12 +261,11 @@ class CartPage extends StatelessWidget {
                         ),
                       ),
                       SizedBox(
-                        width: 150,
+                        width: 176,
                         child: AppPrimaryButton(
                           label: checkoutEnabled
                               ? (continuing ? 'Tiếp tục đơn' : 'Xem báo giá')
                               : 'Thanh toán',
-                          icon: Icons.arrow_forward,
                           onPressed:
                               !context.watch<AuthCubit>().state.canPurchase ||
                                   state.pending ||

@@ -1,5 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:mobile_app/core/widgets/heritage/heritage_frame.dart';
+import 'package:mobile_app/core/widgets/app_secondary_button.dart';
+import 'package:mobile_app/core/theme/app_colors.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:mobile_app/core/widgets/heritage/heritage_surface.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -202,9 +206,22 @@ class _MvpQuotePageState extends State<MvpQuotePage> {
                   ),
                 if (quote != null) ...[
                   const SizedBox(height: 16),
-                  _Amount('Tiền hàng', quote.subtotal.format()),
-                  _Amount('Phí giao hàng', quote.shippingFee.format()),
-                  _Amount('Tổng báo giá', quote.total.format()),
+                  HeritageFrame(
+                    level: HeritageFrameLevel.functional,
+                    padding: const EdgeInsets.fromLTRB(16, 12, 28, 12),
+                    child: Column(
+                      children: [
+                        _Amount('Tiền hàng', quote.subtotal.format()),
+                        _Amount('Phí giao hàng', quote.shippingFee.format()),
+                        const Divider(height: 16),
+                        _Amount(
+                          'Tổng báo giá',
+                          quote.total.format(),
+                          emphasis: true,
+                        ),
+                      ],
+                    ),
+                  ),
                   const SizedBox(height: 12),
                   Semantics(
                     liveRegion: true,
@@ -247,15 +264,23 @@ class _MvpQuotePageState extends State<MvpQuotePage> {
                   ],
                 ],
                 const SizedBox(height: 20),
-                AppPrimaryButton(
-                  label: quote == null
-                      ? 'Lấy báo giá cả giỏ'
-                      : 'Lấy báo giá mới',
-                  loading: pending,
-                  onPressed: quote == null
-                      ? cubit.requestQuote
-                      : cubit.refreshQuote,
-                ),
+                // One primary action per screen: while a usable quote can be
+                // confirmed, requoting is secondary; otherwise it is primary.
+                if (quote == null || !usable || !widget.checkoutEnabled)
+                  AppPrimaryButton(
+                    label: quote == null
+                        ? 'Lấy báo giá cả giỏ'
+                        : 'Lấy báo giá mới',
+                    loading: pending,
+                    onPressed: quote == null
+                        ? cubit.requestQuote
+                        : cubit.refreshQuote,
+                  )
+                else
+                  AppSecondaryButton(
+                    label: pending ? 'Đang xử lý...' : 'Lấy báo giá mới',
+                    onPressed: pending ? null : cubit.refreshQuote,
+                  ),
                 const SizedBox(height: 8),
                 OutlinedButton(
                   onPressed: pending ? null : () => context.go('/cart'),
@@ -271,22 +296,36 @@ class _MvpQuotePageState extends State<MvpQuotePage> {
 }
 
 class _Amount extends StatelessWidget {
-  const _Amount(this.label, this.value);
+  const _Amount(this.label, this.value, {this.emphasis = false});
   final String label, value;
+  final bool emphasis;
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.symmetric(vertical: 6),
     child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.baseline,
+      textBaseline: TextBaseline.alphabetic,
       children: [
-        Expanded(child: Text(label)),
-        const SizedBox(width: 12),
-        Flexible(
+        Expanded(
           child: Text(
-            value,
-            textAlign: TextAlign.end,
-            style: Theme.of(context).textTheme.titleMedium,
+            label,
+            style: emphasis
+                ? const TextStyle(fontWeight: FontWeight.w700)
+                : null,
           ),
+        ),
+        const SizedBox(width: 12),
+        Text(
+          value,
+          textAlign: TextAlign.end,
+          style: emphasis
+              ? GoogleFonts.playfairDisplay(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.brickRed,
+                  fontFeatures: const [FontFeature.liningFigures()],
+                )
+              : Theme.of(context).textTheme.titleMedium,
         ),
       ],
     ),
