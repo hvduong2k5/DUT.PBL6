@@ -7,6 +7,7 @@ import { PublicApiError } from "@/lib/api-contract";
 import type { CatalogResult, DiscoveryConfig, PricePreset, ProductSummary, ProductType } from "@/lib/catalog/types";
 import { catalogService } from "@/services/catalog-service";
 import { ProductImage } from "@/components/product/product-image";
+import { HeritageBanner, type BannerSlide } from "@/components/heritage/heritage-banner";
 
 const VND = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 });
 const SORT_OPTIONS = [
@@ -49,6 +50,17 @@ function ProductCard({ product }: { product: ProductSummary }) {
     </article>
   );
 }
+
+const CATALOG_SLIDES: BannerSlide[] = [
+  { kicker: "Tinh tuyển di sản", title: "Khám phá thức quà xứ Huế", lead: "Tìm món quà vừa ý từ những hương vị được gìn giữ qua nhiều thế hệ.",
+    image: { src: "/images/heritage/photos/sp-ke-trung-bay.jpg", alt: "Kệ trưng bày hộp quà Gói Huế" } },
+  { kicker: "Mè xửng & Trà Huế", title: "Hương vị dẻo thơm, thanh dịu", lead: "Mè xửng mạch nha và trà cung đình, đóng gói chỉn chu để thưởng thức hằng ngày.",
+    image: { src: "/images/heritage/photos/sp-me-xung-hop-qua.jpg", alt: "Túi mè xửng giòn, hộp quà và đĩa trà hoa bên đĩa mè xửng" },
+    cta: { href: "/products?category=me-xung-keo-hue", label: "Xem mè xửng Huế" } },
+  { kicker: "Quà biếu Cố đô", title: "Hộp quà trao gửi tấm lòng", lead: "Hộp Đoàn Viên ba khoang, sẵn sàng làm quà cho người thân và đối tác.",
+    image: { src: "/images/heritage/photos/sp-hop-qua-doan-vien.jpg", alt: "Hộp quà Đoàn Viên Gói Huế mở nắp" },
+    cta: { href: "/products?category=qua-bieu", label: "Xem quà biếu" } }
+];
 
 export function CatalogFlow() {
   const router = useRouter();
@@ -183,18 +195,17 @@ export function CatalogFlow() {
   return (
     <main className="catalog-page">
       <div className="catalog-breadcrumbs"><Link href="/">Trang chủ</Link><span>/</span><strong>Khám phá sản phẩm</strong></div>
-      <section className="catalog-hero">
-        <div><span className="eyebrow">Tinh tuyển di sản</span><h1>Khám phá thức quà xứ Huế</h1><p>Tìm món quà vừa ý từ những hương vị được gìn giữ qua nhiều thế hệ.</p></div>
-        <form className="catalog-search" onSubmit={submitSearch} noValidate>
-          <label htmlFor="catalog-keyword">Tìm trong kho thức quà</label>
-          <div><input id="catalog-keyword" value={keyword} onChange={(event) => { setKeyword(event.target.value); setSearchError(""); }} placeholder="Thử “mè xửng”, “hạt sen”, “trà”…" aria-invalid={Boolean(searchError)} /><button type="submit">Tìm kiếm</button></div>
-          {searchError ? <small role="alert">{searchError}</small> : null}
+      <HeritageBanner className="gh-banner--compact" level={1} titleId="catalog-title" slides={CATALOG_SLIDES}>
+        <form className="gh-trace-form" onSubmit={submitSearch} noValidate>
+          <label className="gh-trace-form__label" htmlFor="catalog-keyword">Tìm trong kho thức quà</label>
+          <div className="gh-trace-form__row"><input id="catalog-keyword" className="gh-field" value={keyword} onChange={(event) => { setKeyword(event.target.value); setSearchError(""); }} placeholder="Thử “mè xửng”, “hạt sen”, “trà”…" aria-invalid={Boolean(searchError)} /><button type="submit" className="gh-btn gh-btn--fold">Tìm kiếm</button></div>
+          {searchError ? <small className="gh-trace-form__error" role="alert">{searchError}</small> : null}
         </form>
-      </section>
+      </HeritageBanner>
 
       <div className="catalog-layout">
         <aside className="catalog-filters" aria-label="Bộ lọc sản phẩm">
-          <div className="filter-title"><div><span aria-hidden="true">⌁</span><h2>Bộ lọc</h2></div><button type="button" onClick={() => resetFilters()}>Đặt lại</button></div>
+          <div className="filter-title"><div><h2>Bộ lọc</h2></div><button type="button" onClick={() => resetFilters()}>Đặt lại</button></div>
           {loadingConfig ? <div className="filter-loading">Đang tải bộ lọc…</div> : null}
           {configError ? <div className="filter-error"><p>{configError}</p><button type="button" onClick={() => setRetryKey((value) => value + 1)}>Thử lại</button></div> : null}
           {config ? <>
@@ -203,21 +214,21 @@ export function CatalogFlow() {
             <fieldset><legend>Chứng nhận OCOP</legend><label className={!params.get("ocopStars") ? "selected" : ""}><input type="radio" name="ocopStars" checked={!params.get("ocopStars")} onChange={() => navigate((next) => next.delete("ocopStars"))} />Tất cả hạng sao</label>{[5, 4, 3].map((stars) => <label className={params.get("ocopStars") === String(stars) ? "selected" : ""} key={stars}><input type="radio" name="ocopStars" checked={params.get("ocopStars") === String(stars)} onChange={() => navigate((next) => next.set("ocopStars", String(stars)))} />OCOP {stars} sao</label>)}</fieldset>
             {config.weightOptions.length ? <fieldset><legend>Khối lượng</legend><div className="weight-options">{config.weightOptions.map((weight) => { const checked = (params.get("weights") ?? "").split(",").includes(String(weight)); return <label className={checked ? "selected" : ""} key={weight}><input type="checkbox" checked={checked} onChange={() => toggleWeight(weight)} />{weight}g</label>; })}</div></fieldset> : null}
             {config.productTypes.length ? <fieldset><legend>Loại sản phẩm</legend>{config.productTypes.map((type) => <label className={params.get("productType") === type.value ? "selected" : ""} key={type.value}><input type="checkbox" checked={params.get("productType") === type.value} onChange={() => navigate((next) => { if (next.get("productType") === type.value) next.delete("productType"); else next.set("productType", type.value satisfies ProductType); })} />{type.label}</label>)}</fieldset> : null}
-            <div className="rating-coming"><span>★</span><div><b>Đánh giá khách hàng</b><small>Xem nhận xét đã xác minh tại trang chi tiết sản phẩm.</small></div></div>
+            <div className="rating-coming"><div><b>Đánh giá khách hàng</b><small>Xem nhận xét đã xác minh tại trang chi tiết sản phẩm.</small></div></div>
           </> : null}
         </aside>
 
         <section className="catalog-results" aria-live="polite" aria-busy={loadingCatalog}>
           <div className="results-toolbar">
-            <div><span className="eyebrow">Bộ sưu tập Ô Mạ</span><h2>{params.get("q") ? `Kết quả cho “${params.get("q")}”` : "Tất cả sản phẩm"}</h2><p>{loadingCatalog ? "Đang tìm thức quà phù hợp…" : `${result?.filteredCount ?? 0} sản phẩm phù hợp`}</p></div>
+            <div><span className="eyebrow">Bộ sưu tập Gói Huế</span><h2>{params.get("q") ? `Kết quả cho “${params.get("q")}”` : "Tất cả sản phẩm"}</h2><p>{loadingCatalog ? "Đang tìm thức quà phù hợp…" : `${result?.filteredCount ?? 0} sản phẩm phù hợp`}</p></div>
             <label>Sắp xếp<select value={params.get("sort") ?? (params.get("q") ? "RELEVANCE" : "CURATED")} onChange={(event) => navigate((next) => next.set("sort", event.target.value))}>{SORT_OPTIONS.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
           </div>
 
           {chips.length ? <div className="filter-chips" aria-label="Bộ lọc đang dùng">{chips.map((chip) => <button key={chip.key} type="button" onClick={() => navigate(chip.clear)}>{chip.label}<span aria-hidden="true">×</span></button>)}<button className="clear-filters" type="button" onClick={() => resetFilters(true)}>Xóa tất cả</button></div> : null}
 
           {loadingCatalog ? <div className="catalog-loading"><span className="large-spinner" /><p>Đang tìm thức quà phù hợp…</p></div> : null}
-          {!loadingCatalog && catalogError ? <div className="catalog-state error-state"><span aria-hidden="true">!</span><h2>Kho thức quà đang gián đoạn</h2><p>{catalogError}</p><button className="primary-button" type="button" onClick={() => setRetryKey((value) => value + 1)}>Thử tải lại</button></div> : null}
-          {!loadingCatalog && !catalogError && result?.items.length === 0 ? <div className="catalog-state"><span aria-hidden="true">⌕</span><h2>Chưa tìm thấy thức quà phù hợp</h2><p>Hãy thử từ khóa rộng hơn hoặc bớt một vài bộ lọc.</p><button className="primary-button" type="button" onClick={() => resetFilters(true)}>Xem toàn bộ sản phẩm</button></div> : null}
+          {!loadingCatalog && catalogError ? <div className="catalog-state error-state"><h2>Kho thức quà đang gián đoạn</h2><p>{catalogError}</p><button className="primary-button" type="button" onClick={() => setRetryKey((value) => value + 1)}>Thử tải lại</button></div> : null}
+          {!loadingCatalog && !catalogError && result?.items.length === 0 ? <div className="catalog-state"><h2>Chưa tìm thấy thức quà phù hợp</h2><p>Hãy thử từ khóa rộng hơn hoặc bớt một vài bộ lọc.</p><button className="primary-button" type="button" onClick={() => resetFilters(true)}>Xem toàn bộ sản phẩm</button></div> : null}
           {!loadingCatalog && !catalogError && result?.items.length ? <div className="product-grid">{result.items.map((product) => <ProductCard product={product} key={product.id} />)}</div> : null}
 
           {!loadingCatalog && !catalogError && result && result.filteredCount > pageSize ? <nav className="catalog-pagination" aria-label="Phân trang sản phẩm"><button type="button" disabled={currentPage <= 1} onClick={() => navigate((next) => next.set("page", String(currentPage - 1)), false)}>← Trước</button><span>Trang <strong>{currentPage}</strong> / {totalPages}</span><button type="button" disabled={currentPage >= totalPages} onClick={() => navigate((next) => next.set("page", String(currentPage + 1)), false)}>Sau →</button></nav> : null}
