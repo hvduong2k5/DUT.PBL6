@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:mobile_app/app/router/routes.dart';
 import 'package:mobile_app/core/theme/heritage_tokens.dart';
 import 'package:mobile_app/core/widgets/heritage/heritage_emblem.dart';
@@ -49,7 +50,8 @@ class HeritageSearchBar extends StatelessWidget {
                   query.isEmpty ? hint : query,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
+                  // AppBar titles default to Playfair; the field uses body text.
+                  style: GoogleFonts.beVietnamPro(
                     fontSize: 14,
                     color: query.isEmpty
                         ? HeritageColors.phu

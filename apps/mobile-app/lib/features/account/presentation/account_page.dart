@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:mobile_app/core/theme/heritage_tokens.dart';
+import 'package:mobile_app/core/widgets/heritage/heritage_button.dart';
+import 'package:mobile_app/core/widgets/heritage/heritage_emblem.dart';
+import 'package:mobile_app/core/widgets/heritage/heritage_frame.dart';
 import 'package:mobile_app/core/widgets/heritage/heritage_surface.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_app/app/router/routes.dart';
 import 'package:mobile_app/core/theme/app_colors.dart';
 import 'package:mobile_app/core/theme/app_spacing.dart';
-import 'package:mobile_app/core/widgets/app_primary_button.dart';
-import 'package:mobile_app/core/widgets/app_secondary_button.dart';
 import 'package:mobile_app/core/widgets/app_bottom_navigation.dart';
 import 'package:mobile_app/core/widgets/app_mobile_header.dart';
 import 'package:mobile_app/features/auth/domain/auth_models.dart';
@@ -162,37 +164,41 @@ class _ProfileCard extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) => Card(
-    child: Padding(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      child: Row(
-        children: [
-          CircleAvatar(radius: 34, child: Text(_initials)),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  user.fullName,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                Text(
-                  user.phoneNumber.isEmpty
-                      ? user.email ?? ''
-                      : user.phoneNumber,
-                ),
-                const Text(
-                  'Thông tin hồ sơ người dùng',
-                  style: TextStyle(fontSize: 11),
-                ),
-              ],
-            ),
+  Widget build(BuildContext context) => HeritageFrame(
+    level: HeritageFrameLevel.imperial,
+    padding: const EdgeInsets.all(20),
+    child: Row(
+      children: [
+        CircleAvatar(
+          radius: 32,
+          backgroundColor: HeritageColors.mat,
+          foregroundColor: HeritageColors.nauCungDinh,
+          child: Text(
+            _initials,
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
           ),
-        ],
-      ),
+        ),
+        const SizedBox(width: AppSpacing.md),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                user.fullName,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(color: HeritageColors.kem),
+              ),
+              Text(
+                user.phoneNumber.isEmpty ? user.email ?? '' : user.phoneNumber,
+                style: const TextStyle(color: HeritageColors.kemDam),
+              ),
+            ],
+          ),
+        ),
+      ],
     ),
   );
 }
@@ -202,19 +208,30 @@ class _GuestCard extends StatelessWidget {
   final VoidCallback onLogin;
   final VoidCallback onRegister;
   @override
-  Widget build(BuildContext context) => Column(
-    children: [
-      const CircleAvatar(radius: 34, child: Icon(Icons.person_outline)),
-      const SizedBox(height: AppSpacing.md),
-      Text(
-        'Đăng nhập để quản lý đơn hàng',
-        style: Theme.of(context).textTheme.titleLarge,
-        textAlign: TextAlign.center,
-      ),
-      const SizedBox(height: AppSpacing.md),
-      AppPrimaryButton(onPressed: onLogin, label: 'Đăng nhập'),
-      AppSecondaryButton(onPressed: onRegister, label: 'Đăng ký'),
-    ],
+  Widget build(BuildContext context) => HeritageFrame(
+    level: HeritageFrameLevel.imperial,
+    padding: const EdgeInsets.all(20),
+    child: Column(
+      children: [
+        const HeritageEmblem(size: 56),
+        const SizedBox(height: AppSpacing.sm),
+        Text(
+          'Đăng nhập để quản lý đơn hàng',
+          style: Theme.of(
+            context,
+          ).textTheme.titleLarge?.copyWith(color: HeritageColors.kem),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: AppSpacing.md),
+        HeritageButton(onPressed: onLogin, label: 'Đăng nhập'),
+        const SizedBox(height: AppSpacing.sm),
+        HeritageButton(
+          onPressed: onRegister,
+          label: 'Đăng ký',
+          variant: HeritageButtonVariant.ghost,
+        ),
+      ],
+    ),
   );
 }
 
@@ -227,7 +244,8 @@ class _SectionLabel extends StatelessWidget {
     child: Text(
       label,
       style: const TextStyle(
-        fontSize: 10,
+        fontSize: 13,
+        letterSpacing: 1,
         color: AppColors.textMuted,
         fontWeight: FontWeight.bold,
       ),
