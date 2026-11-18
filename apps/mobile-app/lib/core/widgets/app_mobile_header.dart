@@ -1,35 +1,40 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_app/app/router/safe_navigation.dart';
-import 'package:mobile_app/core/theme/app_colors.dart';
-import 'package:mobile_app/core/theme/app_radius.dart';
+import 'package:mobile_app/core/theme/heritage_tokens.dart';
+import 'package:mobile_app/core/widgets/header_actions.dart';
+import 'package:mobile_app/core/widgets/heritage/heritage_emblem.dart';
 
 class AppMobileHeader extends StatelessWidget implements PreferredSizeWidget {
   const AppMobileHeader({
     super.key,
-    this.title = 'Ô Mạ',
+    this.title = 'Gói Huế',
     this.showBack = false,
-    this.showMenu = false,
     this.onBack,
     this.cartCount,
     this.onCart,
     this.onSearch,
+    this.showCart = false,
+    this.showNotifications = false,
   });
   final String title;
   final bool showBack;
-  final bool showMenu;
   final VoidCallback? onBack;
   final int? cartCount;
   final VoidCallback? onCart;
   final VoidCallback? onSearch;
 
+  /// Shared top-bar shortcuts (cart badge from CartCubit, notifications).
+  final bool showCart;
+  final bool showNotifications;
+
   @override
   Size get preferredSize => const Size.fromHeight(56);
   @override
   Widget build(BuildContext context) {
-    final branded = !showBack && title == 'Ô Mạ';
+    final branded = !showBack && title == 'Gói Huế';
     return AppBar(
       automaticallyImplyLeading: false,
-      leadingWidth: showBack || showMenu
+      leadingWidth: showBack
           ? 64
           : branded
           ? 56
@@ -40,55 +45,31 @@ class AppMobileHeader extends StatelessWidget implements PreferredSizeWidget {
               icon: const Icon(Icons.arrow_back_ios_new),
               tooltip: 'Quay lại',
             )
-          : showMenu
-          ? Builder(
-              builder: (buttonContext) => IconButton(
-                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-                onPressed: () => Scaffold.of(buttonContext).openDrawer(),
-                icon: const Icon(Icons.menu),
-                tooltip: 'Mở menu',
-              ),
-            )
           : branded
           ? Padding(
               padding: const EdgeInsets.only(left: 16, top: 8, bottom: 8),
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: AppColors.brandBrown,
-                  borderRadius: BorderRadius.circular(AppRadius.medium),
-                ),
-                child: const Center(
-                  child: Text(
-                    'Ô',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
+              child: const HeritageEmblem(size: 38),
             )
           : null,
       titleSpacing: 8,
-      title: branded
-          ? Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      title: title == 'Gói Huế'
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Text(title, style: Theme.of(context).textTheme.titleMedium),
-                const Text(
-                  'Tinh hoa bánh mứt ngự trà',
-                  style: TextStyle(fontSize: 9, color: AppColors.textMuted),
+                if (showBack) ...[
+                  const HeritageEmblem(size: 32),
+                  const SizedBox(width: 8),
+                ],
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: HeritageColors.kem,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ],
             )
-          : Text(title, style: Theme.of(context).textTheme.titleLarge),
-      bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(1),
-        child: Container(
-          height: 1,
-          color: AppColors.border.withValues(alpha: .4),
-        ),
-      ),
+          : Text(title),
       actions: [
         if (onSearch != null)
           SizedBox.square(
@@ -99,20 +80,8 @@ class AppMobileHeader extends StatelessWidget implements PreferredSizeWidget {
               tooltip: 'Tìm kiếm',
             ),
           ),
-        if (onCart != null)
-          SizedBox.square(
-            dimension: 48,
-            child: Badge(
-              isLabelVisible: (cartCount ?? 0) > 0,
-              label: Text('$cartCount'),
-              backgroundColor: AppColors.darkRed,
-              child: IconButton(
-                onPressed: onCart,
-                icon: const Icon(Icons.shopping_bag_outlined),
-                tooltip: 'Giỏ hàng',
-              ),
-            ),
-          ),
+        if (showCart || onCart != null) const HeaderCartAction(),
+        if (showNotifications) const HeaderNotificationsAction(),
         const SizedBox(width: 8),
       ],
     );

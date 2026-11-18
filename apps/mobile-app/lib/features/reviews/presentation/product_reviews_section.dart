@@ -156,7 +156,7 @@ class ProductReviewsSection extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 const Text(
-                                  'Ô Mạ phản hồi',
+                                  'Gói Huế phản hồi',
                                   style: TextStyle(fontWeight: FontWeight.w600),
                                 ),
                                 Text(review.reply),

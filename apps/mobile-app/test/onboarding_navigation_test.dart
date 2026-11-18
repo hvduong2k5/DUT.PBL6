@@ -36,7 +36,7 @@ void main() {
 
     await tester.tap(find.text('Tiếp tục với tư cách khách'));
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('home-search-field')), findsOneWidget);
+    expect(find.byKey(const Key('home-content-scroll')), findsOneWidget);
     expect(await store.isCompleted(), isTrue);
   });
 
@@ -45,12 +45,12 @@ void main() {
   ) async {
     await tester.pumpWidget(const OmaApp(initialLocation: AppRoutes.login));
     await tester.pumpAndSettle();
-    expect(find.text('Đăng Nhập'), findsOneWidget);
+    expect(find.text('Đăng nhập tài khoản'), findsOneWidget);
 
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('home-search-field')), findsOneWidget);
+    expect(find.byKey(const Key('home-content-scroll')), findsOneWidget);
   });
 
   testWidgets('visible Login back button falls back to guest Home', (
@@ -62,51 +62,84 @@ void main() {
     await tester.tap(find.byTooltip('Quay lại'));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('home-search-field')), findsOneWidget);
+    expect(find.byKey(const Key('home-content-scroll')), findsOneWidget);
   });
 
   testWidgets('bottom navigation opens the empty guest cart', (tester) async {
     await tester.pumpWidget(const OmaApp());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Giỏ Hàng'));
+    await tester.tap(find.text('Giỏ hàng'));
     await tester.pumpAndSettle();
 
     expect(find.text('Giỏ hàng trống'), findsOneWidget);
   });
 
-  testWidgets('Home menu opens and offers functional guest navigation', (
+  testWidgets('Account tab replaces the side menu for guest navigation', (
     tester,
   ) async {
     await tester.pumpWidget(const OmaApp());
     await tester.pumpAndSettle();
+    expect(find.byTooltip('Mở menu'), findsNothing);
 
-    await tester.tap(find.byTooltip('Mở menu'));
+    await tester.tap(find.text('Tài khoản'));
     await tester.pumpAndSettle();
-    expect(find.text('Mua sắm với tư cách khách'), findsOneWidget);
-    expect(find.text('Đăng nhập'), findsOneWidget);
+    expect(find.text('Tra cứu đơn khách'), findsOneWidget);
     expect(find.text('Địa chỉ giao hàng'), findsNothing);
-
-    await tester.ensureVisible(find.text('Đăng nhập'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Đăng nhập'));
-    await tester.pumpAndSettle();
-    expect(find.text('Đăng Nhập'), findsOneWidget);
-  });
-
-  testWidgets('Android back closes the menu before leaving Home', (
-    tester,
-  ) async {
-    await tester.pumpWidget(const OmaApp());
-    await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Mở menu'));
-    await tester.pumpAndSettle();
 
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
+    expect(find.byKey(const Key('home-content-scroll')), findsOneWidget);
+  });
 
-    expect(find.text('Mua sắm với tư cách khách'), findsNothing);
-    expect(find.byKey(const Key('home-search-field')), findsOneWidget);
+  testWidgets('Danh mục tab and the Home banner open the same filter screen', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const OmaApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Danh mục'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('catalog-browse')), findsOneWidget);
+    expect(find.byKey(const Key('product-filter-bar')), findsOneWidget);
+    expect(find.byKey(const Key('category-chips')), findsOneWidget);
+    expect(find.byKey(const Key('header-cart')), findsOneWidget);
+
+    await tester.tap(find.text('Trang chủ'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Khám phá bộ sưu tập').first);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('catalog-browse')), findsOneWidget);
+    expect(find.byKey(const Key('header-cart')), findsOneWidget);
+  });
+
+  testWidgets('category chip filters the grid in place', (tester) async {
+    await tester.pumpWidget(const OmaApp(initialLocation: '/catalog'));
+    await tester.pumpAndSettle();
+    expect(find.text('4 sản phẩm phù hợp'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Mè Xửng Giòn'));
+    await tester.pumpAndSettle();
+    expect(find.text('4 sản phẩm phù hợp'), findsNothing);
+    expect(find.text('Xóa tất cả'), findsOneWidget);
+  });
+
+  testWidgets('bell in the top bar opens notifications and back returns', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const OmaApp());
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('header-notifications')));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Cập nhật đơn hàng và thông tin dành cho bạn'),
+      findsOneWidget,
+    );
+    expect(find.text('Danh mục'), findsNothing); // pushed page, no bottom nav
+
+    await tester.tap(find.byTooltip('Quay lại'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('home-content-scroll')), findsOneWidget);
   });
 
   testWidgets('Android back from root Cart returns Home', (tester) async {
@@ -117,7 +150,7 @@ void main() {
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('home-search-field')), findsOneWidget);
+    expect(find.byKey(const Key('home-content-scroll')), findsOneWidget);
   });
 
   testWidgets('Home fits a 390px viewport and keeps bottom navigation', (
@@ -131,11 +164,13 @@ void main() {
     await tester.pumpWidget(const OmaApp());
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('home-search-field')), findsOneWidget);
-    expect(find.text('Trang Chủ'), findsOneWidget);
-    expect(find.text('Thực Đơn'), findsOneWidget);
-    expect(find.text('Giỏ Hàng'), findsOneWidget);
-    expect(find.text('Tài Khoản'), findsOneWidget);
+    expect(find.byKey(const Key('home-content-scroll')), findsOneWidget);
+    expect(find.text('Trang chủ'), findsOneWidget);
+    expect(find.text('Danh mục'), findsOneWidget);
+    expect(find.text('Giỏ hàng'), findsOneWidget);
+    expect(find.text('Tài khoản'), findsOneWidget);
+    expect(find.text('Thông báo'), findsNothing);
+    expect(find.byKey(const Key('header-notifications')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

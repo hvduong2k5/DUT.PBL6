@@ -29,7 +29,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.byType(Checkbox), findsNothing);
-      expect(find.text('Thanh Toán'), findsNothing);
+      expect(find.text('Thanh toán'), findsNothing);
       await tester.tap(find.text('Xem báo giá'));
       await tester.pumpAndSettle();
       await tester.scrollUntilVisible(find.text('Lấy báo giá cả giỏ'), 250);
