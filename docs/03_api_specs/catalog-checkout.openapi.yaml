@@ -11,6 +11,29 @@ servers:
 security:
   - internalToken: []
 paths:
+  /api/v1/internal/traceability/products/{product_id}/skus/{sku_code}:
+    get:
+      operationId: getTraceabilityCatalogBinding
+      description: Internal read using a dedicated Traceability X-Internal-Token. Returns bindings for non-public variants.
+      parameters:
+        - {name: product_id, in: path, required: true, schema: {type: string, format: uuid}}
+        - {name: sku_code, in: path, required: true, schema: {type: string, minLength: 1, maxLength: 100}}
+        - {name: X-Internal-Token, in: header, required: true, schema: {type: string}}
+      responses:
+        '200':
+          description: Exact Catalog binding and opaque version
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [product_id, sku_code, catalog_version]
+                properties:
+                  product_id: {type: string, format: uuid}
+                  sku_code: {type: string}
+                  catalog_version: {type: string}
+        '400': {description: Invalid product identifier}
+        '401': {description: Traceability credential missing or invalid}
+        '404': {description: Product and SKU binding does not exist}
   /api/v1/internal/catalog/snapshots:
     post:
       operationId: createCheckoutSnapshot
