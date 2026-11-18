@@ -27,7 +27,11 @@ class AccountPage extends StatelessWidget {
       builder: (context, cartState) {
         final isGuest = authState.status != AuthStatus.authenticated;
         return Scaffold(
-          appBar: const AppMobileHeader(title: 'Tài khoản'),
+          appBar: const AppMobileHeader(
+            title: 'Tài khoản',
+            showCart: true,
+            showNotifications: true,
+          ),
           body: HeritageSurface(
             child: ListView(
               padding: const EdgeInsets.all(16),

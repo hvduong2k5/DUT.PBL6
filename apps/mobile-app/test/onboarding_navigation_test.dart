@@ -92,14 +92,54 @@ void main() {
     expect(find.byKey(const Key('home-content-scroll')), findsOneWidget);
   });
 
-  testWidgets('Categories tab is a page with a category rail', (tester) async {
+  testWidgets('Danh mục tab and the Home banner open the same filter screen', (
+    tester,
+  ) async {
     await tester.pumpWidget(const OmaApp());
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Danh mục'));
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('categories-rail')), findsOneWidget);
-    expect(find.byType(BottomSheet), findsNothing);
+    expect(find.byKey(const Key('catalog-browse')), findsOneWidget);
+    expect(find.byKey(const Key('product-filter-bar')), findsOneWidget);
+    expect(find.byKey(const Key('category-chips')), findsOneWidget);
+    expect(find.byKey(const Key('header-cart')), findsOneWidget);
+
+    await tester.tap(find.text('Trang chủ'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Khám phá bộ sưu tập').first);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('catalog-browse')), findsOneWidget);
+    expect(find.byKey(const Key('header-cart')), findsOneWidget);
+  });
+
+  testWidgets('category chip filters the grid in place', (tester) async {
+    await tester.pumpWidget(const OmaApp(initialLocation: '/catalog'));
+    await tester.pumpAndSettle();
+    expect(find.text('4 sản phẩm phù hợp'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Mè Xửng Giòn'));
+    await tester.pumpAndSettle();
+    expect(find.text('4 sản phẩm phù hợp'), findsNothing);
+    expect(find.text('Xóa tất cả'), findsOneWidget);
+  });
+
+  testWidgets('bell in the top bar opens notifications and back returns', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const OmaApp());
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('header-notifications')));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Cập nhật đơn hàng và thông tin dành cho bạn'),
+      findsOneWidget,
+    );
+    expect(find.text('Danh mục'), findsNothing); // pushed page, no bottom nav
+
+    await tester.tap(find.byTooltip('Quay lại'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('home-content-scroll')), findsOneWidget);
   });
 
   testWidgets('Android back from root Cart returns Home', (tester) async {
@@ -128,8 +168,9 @@ void main() {
     expect(find.text('Trang chủ'), findsOneWidget);
     expect(find.text('Danh mục'), findsOneWidget);
     expect(find.text('Giỏ hàng'), findsOneWidget);
-    expect(find.text('Thông báo'), findsOneWidget);
     expect(find.text('Tài khoản'), findsOneWidget);
+    expect(find.text('Thông báo'), findsNothing);
+    expect(find.byKey(const Key('header-notifications')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

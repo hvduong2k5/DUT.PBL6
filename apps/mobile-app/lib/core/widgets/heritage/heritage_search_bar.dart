@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:mobile_app/app/router/routes.dart';
 import 'package:mobile_app/core/theme/heritage_tokens.dart';
+import 'package:mobile_app/core/widgets/header_actions.dart';
 import 'package:mobile_app/core/widgets/heritage/heritage_emblem.dart';
 import 'package:mobile_app/core/widgets/heritage/heritage_icons.dart';
 
@@ -89,5 +90,10 @@ class HeritageSearchHeader extends StatelessWidget
         Expanded(child: HeritageSearchBar(query: query)),
       ],
     ),
+    actions: const [
+      HeaderCartAction(),
+      HeaderNotificationsAction(),
+      SizedBox(width: 4),
+    ],
   );
 }

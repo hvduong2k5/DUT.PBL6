@@ -72,6 +72,7 @@ class CartPage extends StatelessWidget {
               : 'Giỏ hàng (${cart.totalItems} món)',
           // Cart is a tab: show back only when it was pushed (e.g. from a product).
           showBack: GoRouter.of(context).canPop(),
+          showNotifications: true,
         ),
         body: HeritageSurface(
           child: switch (state.status) {

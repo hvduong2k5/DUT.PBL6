@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:mobile_app/features/catalog/presentation/categories_page.dart';
 import 'package:mobile_app/features/catalog/presentation/search_page.dart';
 import 'package:mobile_app/core/widgets/app_empty_view.dart';
 import 'package:mobile_app/core/widgets/app_mobile_header.dart';
@@ -313,16 +312,6 @@ GoRouter createAppRouter({
           child: CatalogPage(
             initialQuery: state.uri.queryParameters['q'] ?? '',
           ),
-        ),
-      ),
-    ),
-    GoRoute(
-      path: AppRoutes.categories,
-      builder: (context, state) => SafeBackScope(
-        child: BlocProvider(
-          create: (_) =>
-              CatalogCubit(context.read<CatalogRepository>())..load(),
-          child: const CategoriesPage(),
         ),
       ),
     ),

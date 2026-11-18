@@ -10,6 +10,7 @@ import 'package:mobile_app/core/widgets/app_loading_view.dart';
 import 'package:mobile_app/core/widgets/heritage/heritage_surface.dart';
 import 'package:mobile_app/features/catalog/presentation/catalog_cubit.dart';
 import 'package:mobile_app/features/catalog/presentation/widgets/product_card.dart';
+import 'package:mobile_app/features/catalog/presentation/widgets/product_filter_bar.dart';
 
 /// Dedicated search screen: search repeatedly, results come from the catalog
 /// API, and the 5 most recent queries are kept on the device.
@@ -97,7 +98,15 @@ class _SearchPageState extends State<SearchPage> {
       ),
     ),
     body: HeritageSurface(
-      child: _submitted.isEmpty ? _historyView() : _results(),
+      child: _submitted.isEmpty
+          ? _historyView()
+          // Same filter bar as the Danh mục tab, applied to search results.
+          : Column(
+              children: [
+                const ProductFilterBar(),
+                Expanded(child: _results()),
+              ],
+            ),
     ),
   );
 

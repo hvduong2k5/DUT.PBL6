@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_app/app/router/safe_navigation.dart';
 import 'package:mobile_app/core/theme/heritage_tokens.dart';
+import 'package:mobile_app/core/widgets/header_actions.dart';
 import 'package:mobile_app/core/widgets/heritage/heritage_emblem.dart';
 
 class AppMobileHeader extends StatelessWidget implements PreferredSizeWidget {
@@ -12,6 +13,8 @@ class AppMobileHeader extends StatelessWidget implements PreferredSizeWidget {
     this.cartCount,
     this.onCart,
     this.onSearch,
+    this.showCart = false,
+    this.showNotifications = false,
   });
   final String title;
   final bool showBack;
@@ -19,6 +22,10 @@ class AppMobileHeader extends StatelessWidget implements PreferredSizeWidget {
   final int? cartCount;
   final VoidCallback? onCart;
   final VoidCallback? onSearch;
+
+  /// Shared top-bar shortcuts (cart badge from CartCubit, notifications).
+  final bool showCart;
+  final bool showNotifications;
 
   @override
   Size get preferredSize => const Size.fromHeight(56);
@@ -73,21 +80,8 @@ class AppMobileHeader extends StatelessWidget implements PreferredSizeWidget {
               tooltip: 'Tìm kiếm',
             ),
           ),
-        if (onCart != null)
-          SizedBox.square(
-            dimension: 48,
-            child: Badge(
-              isLabelVisible: (cartCount ?? 0) > 0,
-              label: Text('$cartCount'),
-              backgroundColor: HeritageColors.mat,
-              textColor: HeritageColors.nauCungDinh,
-              child: IconButton(
-                onPressed: onCart,
-                icon: const Icon(Icons.shopping_bag_outlined),
-                tooltip: 'Giỏ hàng',
-              ),
-            ),
-          ),
+        if (showCart || onCart != null) const HeaderCartAction(),
+        if (showNotifications) const HeaderNotificationsAction(),
         const SizedBox(width: 8),
       ],
     );

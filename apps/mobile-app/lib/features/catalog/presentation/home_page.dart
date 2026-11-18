@@ -455,11 +455,25 @@ class _TraceState extends State<_Trace> {
             style: TextStyle(color: HeritageColors.kemDam, height: 1.5),
           ),
           const SizedBox(height: 16),
+          const Text(
+            'Mã QR trên nhãn',
+            style: TextStyle(
+              color: HeritageColors.kem,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 6),
           TextField(
             controller: _code,
             textInputAction: TextInputAction.search,
             onSubmitted: (_) => _submit(),
-            decoration: const InputDecoration(labelText: 'Mã QR trên nhãn'),
+            // On the imperial background the outline-notch label would sit
+            // on dark brown and vanish, so the label is drawn above instead.
+            decoration: const InputDecoration(
+              hintText: 'Ví dụ: QR-GH-2026-LOT08',
+              floatingLabelBehavior: FloatingLabelBehavior.never,
+            ),
           ),
           const SizedBox(height: 12),
           HeritageButton(label: 'Truy xuất', onPressed: _submit),

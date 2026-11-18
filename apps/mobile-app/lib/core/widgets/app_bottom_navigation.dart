@@ -4,9 +4,9 @@ import 'package:mobile_app/app/router/routes.dart';
 import 'package:mobile_app/core/theme/heritage_tokens.dart';
 import 'package:mobile_app/core/widgets/heritage/heritage_icons.dart';
 
-/// Five top-level destinations (Shopee/Lazada pattern). Every tab navigates
-/// to a screen; none opens a sheet or runs an action.
-enum AppNavTab { home, categories, cart, notifications, account }
+/// Four top-level destinations. Every tab navigates to a screen; none opens a
+/// sheet. Notifications and a cart shortcut live in the top bar.
+enum AppNavTab { home, categories, cart, account }
 
 class AppBottomNavigation extends StatelessWidget {
   const AppBottomNavigation({super.key, this.active, this.cartCount = 0});
@@ -17,9 +17,8 @@ class AppBottomNavigation extends StatelessWidget {
 
   static String route(AppNavTab tab) => switch (tab) {
     AppNavTab.home => AppRoutes.home,
-    AppNavTab.categories => AppRoutes.categories,
+    AppNavTab.categories => AppRoutes.catalog,
     AppNavTab.cart => AppRoutes.cart,
-    AppNavTab.notifications => AppRoutes.notifications,
     AppNavTab.account => AppRoutes.account,
   };
 
@@ -54,12 +53,6 @@ class AppBottomNavigation extends StatelessWidget {
                 'Giỏ hàng',
                 const HeritageIcon(HeritageIconKind.cart),
                 badge: cartCount,
-              ),
-              _item(
-                context,
-                AppNavTab.notifications,
-                'Thông báo',
-                const Icon(Icons.notifications_none, size: 24),
               ),
               _item(
                 context,
