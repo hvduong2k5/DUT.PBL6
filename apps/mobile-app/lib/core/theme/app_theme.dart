@@ -148,6 +148,16 @@ abstract final class AppTheme {
           side: const BorderSide(color: AppColors.border),
         ),
       ),
+      drawerTheme: const DrawerThemeData(
+        backgroundColor: AppColors.ivory,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(),
+      ),
+      listTileTheme: const ListTileThemeData(
+        selectedColor: AppColors.headingBrown,
+        selectedTileColor: HeritageColors.kemAm,
+        iconColor: AppColors.brandBrown,
+      ),
       bottomSheetTheme: const BottomSheetThemeData(
         backgroundColor: AppColors.ivory,
         surfaceTintColor: Colors.transparent,

@@ -52,7 +52,7 @@ class AppNavigationDrawer extends StatelessWidget {
             ),
             _DrawerDestination(
               icon: Icons.home_outlined,
-              label: 'Trang Chủ',
+              label: 'Trang chủ',
               selected: activeRoute == AppRoutes.home,
               onTap: () => _open(context, AppRoutes.home),
             ),
@@ -66,15 +66,15 @@ class AppNavigationDrawer extends StatelessWidget {
               builder: (context, cartState) => _DrawerDestination(
                 icon: Icons.shopping_bag_outlined,
                 label: cartState.cart.totalItems == 0
-                    ? 'Giỏ Hàng'
-                    : 'Giỏ Hàng (${cartState.cart.totalItems})',
+                    ? 'Giỏ hàng'
+                    : 'Giỏ hàng (${cartState.cart.totalItems})',
                 selected: activeRoute == AppRoutes.cart,
                 onTap: () => _open(context, AppRoutes.cart),
               ),
             ),
             _DrawerDestination(
               icon: Icons.person_outline,
-              label: 'Tài Khoản',
+              label: 'Tài khoản',
               selected: activeRoute == AppRoutes.account,
               onTap: () => _open(context, AppRoutes.account),
             ),

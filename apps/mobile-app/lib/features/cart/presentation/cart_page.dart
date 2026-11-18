@@ -68,8 +68,8 @@ class CartPage extends StatelessWidget {
       return Scaffold(
         appBar: AppMobileHeader(
           title: cart.items.isEmpty
-              ? 'Giỏ Hàng'
-              : 'Giỏ Hàng (${cart.totalItems} món)',
+              ? 'Giỏ hàng'
+              : 'Giỏ hàng (${cart.totalItems} món)',
           showBack: true,
         ),
         body: HeritageSurface(
