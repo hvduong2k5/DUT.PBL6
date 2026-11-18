@@ -1,0 +1,19 @@
+{
+  "batches": [
+    {
+      "product_id": "44444444-4444-4444-8444-444444444444",
+      "sku_code": "SYNTHETIC-SKU-001",
+      "source_namespace": "fixture",
+      "batch_id": "synthetic-batch-001",
+      "batch_code": "SYNTHETIC-LOT-001",
+      "production_date": "2026-10-01",
+      "expiry_date": "2027-01-01",
+      "best_before": "2027-01-01T17:00:00Z",
+      "restricted": false,
+      "depleted": false,
+      "catalog_version": "synthetic-catalog-1",
+      "batch_version": "synthetic-batch-1",
+      "checked_at": "0001-01-01T00:00:00Z"
+    }
+  ]
+}
