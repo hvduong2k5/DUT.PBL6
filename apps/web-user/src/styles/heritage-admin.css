@@ -85,6 +85,22 @@
 .admin-status-tabs button.active { border-color: var(--mat); color: var(--nau-dam); }
 .admin-status-tabs button.active b { background: var(--nau-dam); color: var(--kem); }
 .admin-table th { background: var(--kem-dam); color: var(--nau-dam); font-weight: 700; }
+/* Fixed-layout tables: a long unbroken code (PASSWORD_RESET, USER_PASSWORD_RESET) must wrap inside its cell
+   instead of spilling over the next column. */
+.admin-table th, .admin-table td { overflow-wrap: anywhere; }
+.admin-table td button { overflow-wrap: normal; white-space: nowrap; }
+/* Permission catalog: the Action column was 8% wide, too narrow for 14-character codes in Be Vietnam Pro. */
+.admin-permission-catalog-table { min-width: 1060px; }
+.admin-permission-catalog-table th, .admin-permission-catalog-table td { padding-inline: 6px; }
+.admin-permission-catalog-table th:nth-child(1) { width: 18%; }
+.admin-permission-catalog-table th:nth-child(2) { width: 15%; }
+.admin-permission-catalog-table th:nth-child(3) { width: 16%; }
+.admin-permission-catalog-table th:nth-child(4) { width: 7%; }
+.admin-permission-catalog-table th:nth-child(5) { width: 12%; }
+.admin-permission-catalog-table th:nth-child(6) { width: 7%; }
+.admin-permission-catalog-table th:nth-child(7) { width: 9%; }
+.admin-permission-catalog-table th:nth-child(8) { width: 9%; }
+.admin-permission-catalog-table th:last-child, .admin-permission-catalog-table td:last-child { width: 56px; padding-inline: 4px; text-align: center; }
 .admin-table tbody tr:hover td { background: rgba(212, 162, 76, 0.1); }
 .admin-list-toolbar select, .admin-table-search input, .admin-action-form input, .admin-action-form select, .admin-action-form textarea { border-color: var(--nau); border-radius: var(--r-sm); background-color: #fffdfa; }
 .admin-list-toolbar input:focus, .admin-list-toolbar select:focus, .admin-action-form input:focus, .admin-action-form select:focus, .admin-action-form textarea:focus { border-color: var(--nau-dam); box-shadow: 0 0 0 3px rgba(212, 162, 76, 0.35); }
