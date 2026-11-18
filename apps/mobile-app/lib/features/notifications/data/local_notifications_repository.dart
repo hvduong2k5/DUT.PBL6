@@ -20,9 +20,17 @@ class LocalNotificationsRepository implements NotificationsRepository {
     ),
     AppNotification(
       id: '3',
-      title: 'Gợi ý từ Ô Mạ',
-      message: 'Khám phá thêm các sản phẩm đặc sản Cố Đô trong thực đơn.',
+      title: 'Gợi ý từ Gói Huế',
+      message: 'Khám phá thêm các sản phẩm đặc sản Cố Đô trong bộ sưu tập.',
       timeLabel: 'Hôm qua',
     ),
   ];
+}
+
+/// Real-data mode: no notification endpoint exists in the MVP customer
+/// contract yet, so the list stays empty instead of showing sample data.
+class EmptyNotificationsRepository implements NotificationsRepository {
+  const EmptyNotificationsRepository();
+  @override
+  Future<List<AppNotification>> notifications() async => const [];
 }

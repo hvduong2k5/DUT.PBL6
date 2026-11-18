@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:mobile_app/core/theme/app_colors.dart';
-import 'package:mobile_app/core/theme/app_radius.dart';
+import 'package:mobile_app/core/widgets/heritage/heritage_button.dart';
 
+/// Primary action: kit "brown" button (cream text, gold frame).
 class AppPrimaryButton extends StatelessWidget {
   const AppPrimaryButton({
     super.key,
@@ -16,30 +16,11 @@ class AppPrimaryButton extends StatelessWidget {
   final IconData? icon;
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-    height: 52,
-    child: FilledButton.icon(
-      onPressed: loading ? null : onPressed,
-      style: FilledButton.styleFrom(
-        backgroundColor: AppColors.headingBrown,
-        foregroundColor: AppColors.surface,
-        disabledBackgroundColor: AppColors.border,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppRadius.large),
-        ),
-      ),
-      icon: loading
-          ? const SizedBox.square(
-              dimension: 18,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: AppColors.headingBrown,
-              ),
-            )
-          : icon == null
-          ? const SizedBox.shrink()
-          : Icon(icon, size: 18),
-      label: Text(loading ? 'Đang xử lý...' : label),
-    ),
+  Widget build(BuildContext context) => HeritageButton(
+    label: label,
+    onPressed: onPressed,
+    loading: loading,
+    icon: icon,
+    variant: HeritageButtonVariant.brown,
   );
 }

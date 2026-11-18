@@ -163,7 +163,7 @@ class _OmaAppState extends State<OmaApp> {
         listenWhen: (previous, next) => previous.user?.id != next.user?.id,
         listener: (context, _) => context.read<CartCubit>().identityChanged(),
         child: MaterialApp.router(
-          title: 'Ô Mạ',
+          title: 'Gói Huế',
           locale: const Locale('vi'),
           supportedLocales: const [Locale('vi')],
           localizationsDelegates: GlobalMaterialLocalizations.delegates,

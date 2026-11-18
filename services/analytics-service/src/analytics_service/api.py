@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import re
 import time
@@ -17,7 +18,7 @@ from pydantic import BaseModel, ValidationError
 from starlette.exceptions import HTTPException
 
 from . import db, report, snapshots, supply
-from .config import AuthSettings, Settings, setting
+from .config import JWT_CLOCK_SKEW_SECONDS, AuthSettings, Settings, setting
 from .metrics import QUERY_SECONDS
 from .migrate import clickhouse
 
@@ -25,6 +26,8 @@ log = logging.getLogger(__name__)
 PREFIX = "/api/v1/admin/analytics"
 BACKEND_ERRORS = (psycopg.Error, ClickHouseError, OSError, db.Conflict)
 DATE_PATTERN = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
+READINESS_TIMEOUT_SECONDS = 2
+UNAVAILABLE_CODE = "ANALYTICS_TEMPORARILY_UNAVAILABLE"
 
 
 class APIError(Exception):
@@ -36,7 +39,7 @@ class APIError(Exception):
 
 
 def unavailable():
-    return APIError(503, "ANALYTICS_TEMPORARILY_UNAVAILABLE", "Dashboard tạm thời gián đoạn.")
+    return APIError(503, UNAVAILABLE_CODE, "Dashboard tạm thời gián đoạn.")
 
 
 def unauthenticated():
@@ -52,6 +55,12 @@ class Role(BaseModel):
     scopeType: str
 
 
+class Grant(BaseModel):
+    permissionCode: str
+    scopeType: str
+    scopeId: str | None = None
+
+
 class Persona(BaseModel):
     principalId: str
     idpSubject: str
@@ -59,6 +68,7 @@ class Persona(BaseModel):
     provisioningStatus: str
     roles: list[Role]
     permissions: list[str] = []
+    permissionGrants: list[Grant] = []
 
 
 class IdentityResponse(BaseModel):
@@ -71,7 +81,9 @@ class PilotAuth:
         self.settings = settings
         self.client = httpx.Client(timeout=2, follow_redirects=False)
 
-    def authorize(self, header, session_cookie=None):
+    def authorize(self, header, session_cookie=None, permission=None):
+        if permission not in ("ANALYTICS_DASHBOARD_VIEW", "ANALYTICS_SUPPLY_VIEW"):
+            raise ValueError("Admin permission must be explicit")
         if not header and self.settings.session_origin and session_cookie:
             try:
                 if str(UUID(session_cookie)) != session_cookie:
@@ -84,6 +96,8 @@ class PilotAuth:
                     "Origin": self.settings.session_origin,
                 }
             )
+            if self.settings.mode == "scoped":
+                return self.scoped(persona, permission, persona.permissionGrants)
             if not {"INVENTORY_MANAGEMENT_VIEW", "BATCH_VIEW"}.issubset(persona.permissions):
                 raise forbidden()
             return self.pilot(persona)
@@ -96,7 +110,7 @@ class PilotAuth:
                 algorithms=["RS256"],
                 issuer=self.settings.issuer,
                 audience=self.settings.audience,
-                leeway=5,
+                leeway=JWT_CLOCK_SKEW_SECONDS,
                 options={"require": ["exp", "iss", "sub", "aud"]},
             )
             if claims.get("service"):
@@ -104,12 +118,34 @@ class PilotAuth:
             actor = str(UUID(claims.get("user_id", "")))
         except (jwt.PyJWTError, ValueError, TypeError, AttributeError) as exc:
             raise unauthenticated() from exc
-        if actor not in self.settings.pilot_ids:
+        if self.settings.mode == "pilot" and actor not in self.settings.pilot_ids:
             raise forbidden()
         persona = self.identity({"Authorization": header})
         if persona.principalId != actor or persona.idpSubject != claims["sub"]:
             raise forbidden()
+        if self.settings.mode == "scoped":
+            return self.scoped(persona, permission, claims.get("permission_grants"))
         return self.pilot(persona)
+
+    def scoped(self, persona, permission, grants):
+        if persona.principalType != "EMPLOYEE" or persona.provisioningStatus != "ACTIVE":
+            raise forbidden()
+        if not isinstance(grants, list) or len(grants) > 128:
+            raise forbidden()
+        if grants and isinstance(grants[0], Grant):
+            allowed = any(
+                grant.permissionCode == permission
+                and grant.scopeType == "GLOBAL"
+                and grant.scopeId in (None, "")
+                for grant in grants
+            )
+        else:
+            allowed = all(isinstance(grant, str) for grant in grants) and (
+                permission + "#GLOBAL" in grants
+            )
+        if not allowed:
+            raise forbidden()
+        return persona.principalId
 
     def identity(self, headers):
         try:
@@ -238,11 +274,12 @@ def create_app(settings=None, auth=None):
             )
         return JSONResponse(status_code=error.status_code, content={"detail": error.detail})
 
-    def authorize(request, allow_session=False):
+    def authorize(request, *, permission, allow_session=False):
         limiter.admit(
             auth.authorize(
                 request.headers.get("Authorization", ""),
                 request.cookies.get("OMAMA_SESSION") if allow_session else None,
+                permission,
             )
         )
 
@@ -290,19 +327,55 @@ def create_app(settings=None, auth=None):
     def live():
         return {"status": "ok"}
 
-    @app.get("/readyz")
-    def ready():
+    def supply_ready():
+        with db.connect(settings) as conn:
+            conn.execute("SELECT 1 FROM supply_export LIMIT 1")
+        return True
+
+    def dashboard_ready():
+        with db.connect(settings) as conn:
+            generation = db.get_generation(conn, settings.scope, settings.pipeline)
+        if generation is None:
+            return False
+        client = clickhouse(settings)
         try:
-            with db.connect(settings) as conn:
-                conn.execute("SELECT 1 FROM serving_generation LIMIT 1")
-            client = clickhouse(settings)
-            try:
-                client.query("SELECT 1 FROM analytics_db.order_milestone_daily LIMIT 1")
-            finally:
-                client.close()
-        except BACKEND_ERRORS as exc:
-            raise unavailable() from exc
-        return {"status": "ready"}
+            client.query("SELECT 1 FROM analytics_db.order_milestone_daily LIMIT 1")
+        finally:
+            client.close()
+        return True
+
+    async def capability_status(enabled, probe):
+        if not enabled:
+            return "disabled"
+        try:
+            healthy = await asyncio.wait_for(
+                asyncio.to_thread(probe), timeout=READINESS_TIMEOUT_SECONDS
+            )
+        except BACKEND_ERRORS:
+            return "not_ready"
+        return "ready" if healthy else "not_ready"
+
+    @app.get("/readyz")
+    async def ready(request: Request):
+        supply_status, dashboard_status = await asyncio.gather(
+            capability_status(settings.supply_enabled, supply_ready),
+            capability_status(bool(settings.clickhouse_host), dashboard_ready),
+        )
+        capabilities = {"supply": supply_status, "dashboard": dashboard_status}
+        states = capabilities.values()
+        if "ready" in states:
+            status = "degraded" if "not_ready" in states else "ready"
+            return {"status": status, "capabilities": capabilities}
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "not_ready",
+                "capabilities": capabilities,
+                "code": UNAVAILABLE_CODE,
+                "message": "Analytics chưa sẵn sàng.",
+                "requestId": request.state.request_id,
+            },
+        )
 
     @app.get("/metrics")
     def metrics():
@@ -310,7 +383,11 @@ def create_app(settings=None, auth=None):
 
     @app.get(PREFIX + "/dashboard")
     def dashboard(request: Request):
-        authorize(request)
+        authorize(
+            request,
+            permission="ANALYTICS_DASHBOARD_VIEW",
+            allow_session=auth.settings.mode == "scoped",
+        )
         args = request.query_params
         compare = args.get("comparison")
         if compare not in (None, "previous_period"):
@@ -321,7 +398,11 @@ def create_app(settings=None, auth=None):
 
     @app.get(PREFIX + "/metrics/{metric_id}/series")
     def series(request: Request, metric_id: str):
-        authorize(request)
+        authorize(
+            request,
+            permission="ANALYTICS_DASHBOARD_VIEW",
+            allow_session=auth.settings.mode == "scoped",
+        )
         args = request.query_params
         if metric_id not in snapshots.ORDER_METRICS:
             raise APIError(400, "INVALID_QUERY", "Metric không hỗ trợ chuỗi ngày.")
@@ -336,7 +417,6 @@ def create_app(settings=None, auth=None):
     if settings.supply_enabled:
 
         def supply_warehouse(request):
-            authorize(request, allow_session=True)
             warehouse = request.query_params.get("warehouseId", "")
             if not re.fullmatch(supply.CODE_PATTERN, warehouse):
                 raise APIError(400, "INVALID_QUERY", "Cần mã kho hợp lệ.")
@@ -357,6 +437,7 @@ def create_app(settings=None, auth=None):
 
         @app.get(PREFIX + "/supply/workbench")
         def workbench(request: Request):
+            authorize(request, permission="ANALYTICS_SUPPLY_VIEW", allow_session=True)
             warehouse = supply_warehouse(request)
             args = request.query_params
             start, end = date_range(args.get("from", ""), args.get("to", ""))
@@ -379,6 +460,7 @@ def create_app(settings=None, auth=None):
 
         @app.get(PREFIX + "/supply/velocity")
         def velocity(request: Request):
+            authorize(request, permission="ANALYTICS_SUPPLY_VIEW", allow_session=True)
             sku, warehouse = supply_scope(request)
             args = request.query_params
             compare = args.get("comparison")
@@ -410,6 +492,7 @@ def create_app(settings=None, auth=None):
 
         @app.get(PREFIX + "/supply/expiry-risk")
         def expiry_risk(request: Request):
+            authorize(request, permission="ANALYTICS_SUPPLY_VIEW", allow_session=True)
             sku, warehouse = supply_scope(request)
             horizon = supply_horizon(request)
             try:

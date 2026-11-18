@@ -85,12 +85,11 @@ function mapEffectivePermission(value: unknown): EffectivePermission | null {
 function mapDetail(payload: Record<string, unknown>): EmployeeAccessDetail {
   const summary = mapSummary(payload, true);
   const profile = record(payload.profileReference) ? payload.profileReference : {};
-  const identity = record(payload.identity) ? payload.identity : {};
   const lock = record(payload.lock) ? payload.lock : null;
   return {
     ...summary,
     profileReference: { employeeId: string(profile.employeeId, summary.employeeId), employeeCode: string(profile.employeeCode, summary.employeeCode), profileOwner: "EPIC_02" },
-    identity: { emailVerified: identity.emailVerified === true, lastAuthenticatedAt: typeof identity.lastAuthenticatedAt === "string" ? date(identity.lastAuthenticatedAt) : null, credentialReadable: false },
+    identity: { credentialReadable: false },
     lock: lock ? { effectiveAt: date(lock.effectiveAt), reason: string(lock.reason), decidedByLabel: string(lock.decidedByLabel) } : null,
     roleAssignments: array(payload.roleAssignments).map(mapAssignment),
     effectivePermissions: array(payload.effectivePermissions).map(mapEffectivePermission).filter((item): item is EffectivePermission => item !== null),

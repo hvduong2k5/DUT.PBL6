@@ -21,6 +21,8 @@ type Config struct {
 	FulfillmentV2Group string
 	OrderGRPCEndpoint  string
 	OrderInternalToken string
+	OrderCAFile        string
+	OrderServerName    string
 	DefaultCarrier     string
 	DefaultService     string
 	OutboxPollInterval time.Duration
@@ -54,6 +56,8 @@ func Load() (Config, error) {
 		FulfillmentV2Group: env("SHIPPING_FULFILLMENT_V2_GROUP", "shipping-service-v2"),
 		OrderGRPCEndpoint:  strings.TrimSpace(os.Getenv("SHIPPING_ORDER_GRPC_ENDPOINT")),
 		OrderInternalToken: strings.TrimSpace(os.Getenv("SHIPPING_ORDER_INTERNAL_TOKEN")),
+		OrderCAFile:        strings.TrimSpace(os.Getenv("SHIPPING_ORDER_CA_FILE")),
+		OrderServerName:    strings.TrimSpace(os.Getenv("SHIPPING_ORDER_SERVER_NAME")),
 		DefaultCarrier:     env("SHIPPING_DEFAULT_CARRIER", "FAKE"),
 		DefaultService:     env("SHIPPING_DEFAULT_SERVICE", "STANDARD"),
 		OutboxPollInterval: durationEnv("SHIPPING_OUTBOX_POLL_INTERVAL", time.Second),
@@ -80,6 +84,9 @@ func Load() (Config, error) {
 	}
 	if cfg.OrderGRPCEndpoint != "" && cfg.OrderInternalToken == "" {
 		return Config{}, fmt.Errorf("SHIPPING_ORDER_INTERNAL_TOKEN is required when SHIPPING_ORDER_GRPC_ENDPOINT is set")
+	}
+	if cfg.PackingV2Enabled && (cfg.OrderGRPCEndpoint == "" || cfg.OrderCAFile == "" || cfg.OrderServerName == "") {
+		return Config{}, fmt.Errorf("packing v2 requires an Order gRPC endpoint, CA file and server name")
 	}
 	if cfg.GHNEnabled {
 		if cfg.GHNToken == "" || cfg.GHNShopID <= 0 || cfg.GHNFromDistrictID <= 0 || cfg.GHNFromWardCode == "" {

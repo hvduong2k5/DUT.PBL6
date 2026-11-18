@@ -2,6 +2,10 @@ package transport
 
 import (
 	"context"
+	"crypto/subtle"
+	"errors"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/omamx/order-service/internal/app"
 	"github.com/omamx/order-service/internal/domain"
 	common "github.com/omamx/order-service/internal/gen/common/v1"
@@ -10,6 +14,8 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
+	"os"
+	"strings"
 )
 
 type RPC struct {
@@ -66,6 +72,53 @@ func money(n int64) *common.Money { return &common.Money{CurrencyCode: "VND", Un
 func orderStatus(s string) order.OrderStatus {
 	return order.OrderStatus(order.OrderStatus_value["ORDER_STATUS_"+s])
 }
+func (r *RPC) GetShippingSnapshot(ctx context.Context, in *order.GetShippingSnapshotRequest) (*order.GetShippingSnapshotResponse, error) {
+	if !r.S.C.ShippingOwnsPackingHandoff || r.S.CoreCheckout == nil {
+		return nil, status.Error(codes.Unavailable, "SHIPPING_HANDOFF_DISABLED")
+	}
+	md, _ := metadata.FromIncomingContext(ctx)
+	auth := md.Get("authorization")
+	token := strings.TrimSpace(os.Getenv("ORDER_SHIPPING_CALLER_TOKEN"))
+	if len(token) < 32 || len(auth) != 1 || subtle.ConstantTimeCompare([]byte(auth[0]), []byte("Bearer "+token)) != 1 {
+		return nil, status.Error(codes.Unauthenticated, "SHIPPING_IDENTITY_REQUIRED")
+	}
+	if in == nil || in.RequestingService != "shipping-service" || uuid.Validate(in.OrderId) != nil || uuid.Validate(in.PackageId) != nil {
+		return nil, status.Error(codes.InvalidArgument, "INVALID_SHIPPING_SNAPSHOT_REQUEST")
+	}
+	var scope, state string
+	var eligible, hasShipment bool
+	err := r.S.DB.QueryRow(ctx, `SELECT o.scope,o.status,
+		o.status='PACKED' AND NOT o.operational_hold AND NOT o.has_active_case,
+		o.shipment_id IS NOT NULL
+		FROM orders o JOIN fulfillment_shipping_handoffs h ON h.order_id=o.id
+		WHERE o.id=$1 AND h.package_id=$2 AND o.task_id=h.task_id::text`, in.OrderId, in.PackageId).
+		Scan(&scope, &state, &eligible, &hasShipment)
+	if err == nil && hasShipment {
+		return nil, status.Error(codes.AlreadyExists, "SHIPMENT_ALREADY_ASSOCIATED")
+	}
+	if errors.Is(err, pgx.ErrNoRows) || err == nil && !eligible {
+		return nil, status.Error(codes.FailedPrecondition, "ORDER_NOT_READY_FOR_SHIPPING")
+	}
+	if err != nil {
+		return nil, rpcError(r.S, err)
+	}
+	record, err := r.S.CoreCheckout.Store.LoadOrder(ctx, in.OrderId, scope)
+	if err != nil {
+		return nil, rpcError(r.S, err)
+	}
+	s := record.Snapshot().Data()
+	return &order.GetShippingSnapshotResponse{
+		OrderId: in.OrderId, PackageId: in.PackageId, OrderStatus: orderStatus(state),
+		SnapshotVersion: 1, ReadyGeneration: record.Record().Fulfillment.Generation,
+		ItemsDigest: string(s.Provenance.ItemsDigest), WarehouseId: s.WarehouseID,
+		CheckoutShippingFee: money(s.Money.ShippingFee), CodAmount: money(0),
+		PaymentMethod: s.Payment.Method, CarrierCode: &s.Shipping.CarrierCode,
+		ServiceCode: &s.Shipping.ServiceCode, QuoteId: &s.Shipping.QuoteReference, EligibleForShipping: true,
+		Recipient: &common.Address{RecipientName: s.Address.RecipientName, PhoneNumber: s.Address.PhoneE164,
+			StreetAddress: s.Address.Street, Ward: s.Address.WardCode, Province: s.Address.ProvinceCode, CountryCode: "VN"},
+	}, nil
+}
+
 func (r *RPC) CreatePOSOrder(context.Context, *order.CreatePOSOrderRequest) (*order.CreatePOSOrderResponse, error) {
 	return nil, status.Error(codes.FailedPrecondition, "POS_FEATURE_DISABLED")
 }

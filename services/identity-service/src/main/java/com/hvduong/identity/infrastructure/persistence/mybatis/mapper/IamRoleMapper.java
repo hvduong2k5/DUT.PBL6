@@ -9,24 +9,24 @@ import java.util.UUID;
 public interface IamRoleMapper {
     void insert(IamRoleRow row);
 
-    /** Returns active role only (is_enabled = TRUE). Returns null if not found or soft-deleted. */
+    /** Returns an enabled role. */
     IamRoleRow findById(@Param("roleId") UUID roleId);
 
+    /** Returns the role while it is unarchived. */
+    IamRoleRow findUnarchivedById(@Param("roleId") UUID roleId);
+
     /**
-     * Same lookup as findById but takes a row lock (SELECT ... FOR UPDATE) held
+     * Loads any lifecycle state and takes a row lock (SELECT ... FOR UPDATE) held
      * until the caller's transaction ends. Used to serialize the last-admin
      * check in revokeRole: concurrent revokes of the same role queue on this
      * row, so the admin count they read cannot go stale mid-check.
      */
     IamRoleRow findByIdForUpdate(@Param("roleId") UUID roleId);
 
-    /** Returns role regardless of is_enabled status. Use for soft-delete guard checks. */
-    IamRoleRow findByIdIncludeDisabled(@Param("roleId") UUID roleId);
-
-    /** Returns active role only (is_enabled = TRUE). */
+    /** Returns an unarchived role by code. */
     IamRoleRow findByCode(@Param("roleCode") String roleCode);
 
-    /** Returns all active roles (is_enabled = TRUE), ordered by created_at ASC. */
+    /** Returns all unarchived roles, ordered by creation time. */
     List<IamRoleRow> findAll();
 
     int updateDetails(
@@ -38,7 +38,7 @@ public interface IamRoleMapper {
         @Param("expectedVersion") Long expectedVersion
     );
 
-    /** Soft delete: set is_enabled = FALSE with optimistic lock. Returns 1 on success, 0 on conflict. */
+    /** Archive the role with optimistic locking. Returns 1 on success, 0 on conflict. */
     int softDeleteById(
         @Param("roleId") UUID roleId,
         @Param("updatedBy") UUID updatedBy,

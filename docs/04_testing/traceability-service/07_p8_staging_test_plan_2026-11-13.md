@@ -8,7 +8,7 @@ E2E trên Docker local đã đạt. Kế hoạch này kiểm tra bản deploy tr
 ## Chuẩn bị
 
 - Ghi SHA đang chạy của Traceability, Catalog, Inventory, Identity, Gateway và Web. Xác nhận CI của bản cần kiểm thử đã đạt.
-- Áp dụng migration Traceability ở mode `integration`, chạy API bằng runtime role riêng, áp dụng Identity V12 và Inventory migrations 000002–000004. Kiểm tra DNS nội bộ, Inventory TLS CA, OIDC issuer/audience và credential đọc nguồn.
+- Áp dụng migration Traceability ở mode `integration`, chạy API bằng runtime role riêng, áp dụng Identity V20 và Inventory migrations 000002–000004. Kiểm tra DNS nội bộ, Inventory TLS CA, OIDC issuer/audience và credential đọc nguồn.
 - Cấu hình route public `GET /api/v2/trace/{qr_code}` và route admin `/api/v1/admin/trace/records` trên Kong staging. BFF trỏ `TRACEABILITY_UPSTREAM_URL` tới prefix public v2. Ghi URL Web và Kong trong biên bản.
 - Chuẩn bị các lô test riêng cho luồng chính, cách ly và đổi revision. Có `product_id`, SKU, batch UUID và dữ liệu chứng nhận test. Chuẩn bị hai tài khoản GLOBAL độc lập cho người soạn và người duyệt, cùng tài khoản kiểm tra thiếu quyền nếu cần.
 - Với mỗi thao tác ghi, dùng `X-Idempotency-Key` riêng và lấy `expected_version` từ phản hồi mới nhất. Khi kiểm tra retry, gửi lại đúng body và key của thao tác gốc.

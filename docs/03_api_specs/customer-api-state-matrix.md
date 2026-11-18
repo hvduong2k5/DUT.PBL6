@@ -1,6 +1,6 @@
 # Customer API State Matrix
 
-Updated: 2026-10-17
+Updated: 2026-11-14
 
 This matrix and the OpenAPI files are the backend handoff. It is intentionally independent from test-fixture implementation.
 
@@ -21,6 +21,7 @@ Customer APIs distinguish Guest, Registered Customer and verified B2B Customer c
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | `GET /api/v1/users/me` | EPIC_01 | stable | 200 | N/A | —/— | 401 | — | 404 | — | — | 500/503 |
 | `PUT /api/v1/users/me/password` | EPIC_01 | stable | 200 | N/A | 400/422 | 401 | — | 404 | — | — | 500/503 |
+| `GET /api/v1/public/auth/health` | EPIC_01 | stable | 200 | N/A | — | — | — | — | — | — | 503 |
 | `GET /api/v1/public/auth/login` | EPIC_01 | stable | 200 | N/A | 400/— | — | — | — | — | — | 500/503 |
 | `GET /api/v1/public/auth/callback` | EPIC_01 | stable | 302 | N/A | 400/— | — | — | — | — | — | 500/503 |
 | `GET /api/v1/public/auth/session` | EPIC_01 | stable | 200 | N/A | —/— | 401 | — | — | — | — | 500/503 |
@@ -92,6 +93,13 @@ These rows are proposals. Backend may refine them, but must record the decision 
 | `PATCH /api/v1/notifications/{notificationId}/read` | EPIC_28 | planned | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
 | `GET /api/v1/notification-preferences` | EPIC_28 | planned | 200 | N/A | 400/422 | 401 | 403 | — | — | — | 500/503 |
 | `PUT /api/v1/notification-preferences` | EPIC_28 | planned | 200 | N/A | 400/422 | 401 | 403 | — | 409 | — | 500/503 |
+| `POST /api/v1/ai/shopping/conversations` | US-AI-01 | draft | 201 | N/A | 400/422 | 401 | 403 | — | — | 429 | 500/503 |
+| `GET /api/v1/ai/shopping/conversations/{conversation_id}` | US-AI-01 | draft | 200 | N/A | —/— | 401 | 403 | 404 | — | 429 | 500/503 |
+| `POST /api/v1/ai/shopping/conversations/{conversation_id}/messages` | US-AI-01 | draft | 200 SSE | N/A | —/422 | 401 | 403 | 404 | — | 429 | 500/503 |
+| `POST /api/v1/ai/shopping/feedback` | US-AI-01, US-AI-04 | draft | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | 429 | 500/503 |
+| `GET /api/v1/ai/recommendations` | US-AI-04 | draft | 200 | 200 (items empty) | —/422 | 401 | 403 | — | — | 429 | 500/503 |
+| `GET /api/v1/ai/consent` | US-AI-01 | draft | 200 | N/A | —/— | 401 | — | — | — | 429 | 500/503 |
+| `PUT /api/v1/ai/consent` | US-AI-01 | draft | 200 | N/A | —/422 | 401 | — | — | — | 429 | 500/503 |
 
 ## Acceptance rules
 
@@ -101,3 +109,5 @@ These rows are proposals. Backend may refine them, but must record the decision 
 4. Every mutation validates `400/422`, transition or revision conflict `409`, and retry behavior.
 5. Every endpoint has controlled latency and `500/503` UI tests.
 6. Error responses preserve `code` and `requestId`; clients do not branch on translated `message`.
+
+Web and Mobile show the loyalty wallet entry only when the capability projection includes `LOYALTY_VIEW`. Direct navigation remains subject to the same capability check.

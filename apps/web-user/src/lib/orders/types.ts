@@ -72,7 +72,7 @@ export interface OrderDetail {
     status: OrderPaymentStatus;
     label: string;
     reference: string;
-    expiresAt: string;
+    expiresAt: string | null;
   };
   stock: { status: OrderStockStatus; label: string };
   shipmentId: string | null;
@@ -86,6 +86,8 @@ export interface OrderDetail {
   cancellation: {
     status: OrderCancellationStatus;
     compensationStatus: OrderCompensationStatus;
+    statusLabel: string;
+    compensationLabel: string;
     canCancel: boolean;
     canRequestPaidCancellation: boolean;
     canViewTracking: boolean;

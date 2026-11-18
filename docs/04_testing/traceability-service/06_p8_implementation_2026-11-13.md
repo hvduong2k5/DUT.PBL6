@@ -6,13 +6,13 @@
 ## Thay đổi đã triển khai
 
 1. Catalog đọc binding chính xác qua `GET /api/v1/internal/traceability/products/{product_id}/skus/{sku_code}`. Phiên bản nguồn kết hợp ID variant và revision của product/variant. Inventory cung cấp `omamx.traceability.v1.BatchSource/GetTraceabilityBatch` theo UUID và SKU, kể cả lô hết tồn hoặc bị hạn chế. Traceability đối chiếu cả hai nguồn khi submit và publish. Nếu snapshot đổi sau khi submit, publish trả conflict và hồ sơ cần qua duyệt lại.
-2. Traceability integration xác minh token RS256 của Keycloak với audience `omama-api`, đối chiếu nhân viên còn hoạt động qua Identity `/api/v1/users/me` và chỉ dùng quyền GLOBAL có trong cả token lẫn quyền hiện hành. Migration Identity V12 đăng ký chín permission. Gán quyền cho vai trò soạn và duyệt riêng. Workflow giữ kiểm tra người đóng góp không được tự duyệt.
+2. Traceability integration xác minh token RS256 của Keycloak với audience `omama-api`, đối chiếu nhân viên còn hoạt động qua Identity `/api/v1/users/me` và chỉ dùng quyền GLOBAL có trong cả token lẫn quyền hiện hành. Migration Identity V20 đăng ký chín permission. Gán quyền cho vai trò soạn và duyệt riêng. Workflow giữ kiểm tra người đóng góp không được tự duyệt.
 3. Kong chuyển public `/api/v2/trace/{qr_code}` đến Traceability `/api/v1/trace/{qr_code}` và chuyển admin `/api/v1/admin/trace/records` cùng các thao tác con. Web dùng upstream riêng khi cấu hình, giữ mã HTTP và hiển thị riêng QR đã ngừng công bố, dữ liệu thiếu và hồ sơ xác minh thủ công.
 
 ## Cấu hình môi trường tích hợp
 
 1. Chạy Catalog với `CATALOG_TRACEABILITY_TOKEN` riêng, tối thiểu 32 byte. Inventory cần các migration terminal và batch version, profile `INVENTORY_TERMINAL_ENABLED=true`, TLS hợp lệ và `INVENTORY_TRACEABILITY_TOKEN` riêng. Hai API nguồn chỉ dùng trong mạng nội bộ.
-2. Áp dụng Identity V12. Cấp các quyền trong tài liệu 09 cho hai tài khoản nhân viên riêng với scope GLOBAL và đồng bộ token Keycloak.
+2. Áp dụng Identity V20. Cấp các quyền trong tài liệu 09 cho hai tài khoản nhân viên riêng với scope GLOBAL và đồng bộ token Keycloak.
 3. Tạo database Traceability riêng. Chạy `go run ./cmd/migrate -runtime-role <role>` với `APP_MODE=integration` và DSN của migrator. Khi khởi động API, chuyển sang DSN của runtime role. Điền các biến `TRACEABILITY_*` trong `.env.example`, dùng URL Web HTTPS và chứng thư CA phù hợp với tên máy chủ Inventory. Bind hồ sơ với `source_namespace=inventory` và UUID của bảng `batches`.
 4. Từ thư mục Traceability, chạy `docker compose -f compose.integration.yaml up -d --build`. Đặt `TRACEABILITY_NETWORK` cùng mạng riêng với Kong. Đặt `TRACEABILITY_UPSTREAM_URL=http://kong-gateway:8000/api/v2/trace` nếu DNS của Gateway trên mạng đó là `kong-gateway`.
 

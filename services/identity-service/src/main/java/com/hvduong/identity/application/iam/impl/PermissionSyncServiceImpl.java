@@ -174,7 +174,7 @@ public class PermissionSyncServiceImpl implements PermissionSyncService {
 
     private void auditFailure(UUID principalId, Trigger trigger, UUID actorId, String reasonCode, String message) {
         auditService.recordAudit(
-                actorId != null ? "USER" : "SYSTEM",
+                actorId != null ? "EMPLOYEE" : "SYSTEM",
                 actorId,
                 null,
                 ACTION_SYNC_FAILED,

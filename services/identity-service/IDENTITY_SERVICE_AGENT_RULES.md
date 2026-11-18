@@ -68,7 +68,7 @@ Mọi thay đổi sau phải gọi `PermissionSyncService`:
 - Chạy tay (`MANUAL_RESYNC`) — endpoint đối soát.
 
 ### 3.4 Quy tắc disable role (lỗi P1 của PR #73)
-Thứ tự bắt buộc: lấy danh sách principal bị ảnh hưởng **trước khi** revoke → `softDeleteById` → `revokeAllByRoleId` → với từng principal: tính lại quyền, sync Keycloak, xóa BFF session + logout Keycloak. Không được bỏ qua bước session.
+Thứ tự bắt buộc: lấy danh sách principal bị ảnh hưởng **trước khi** revoke → `updateDetails(isEnabled=false)` → `revokeAllByRoleId` → với từng principal: tính lại quyền, sync Keycloak, xóa BFF session + logout Keycloak. Không được bỏ qua bước session.
 
 ### 3.5 Xử lý lỗi sync & đường đối soát
 - Không được `catch (...) {}` im lặng. Phải `log.error` và ghi audit `IAM_PERMISSION_SYNC_FAILED` với `outcome=FAILED`, `reasonCode` (`KEYCLOAK_SYNC_FAILED`, `PRINCIPAL_NOT_LINKED`, `BFF_SESSION_REVOKE_FAILED`, `KEYCLOAK_LOGOUT_FAILED`), và `details.trigger`.
@@ -94,7 +94,7 @@ Tất cả thời gian sống của Access Token, Refresh Token, BFF Session, Fl
 Khai báo đầy đủ trong `services/identity-service/.env.example` (backend) và `apps/web-user/.env.example` (frontend). Khi deploy trên Coolify, gán giá trị phù hợp tại Environment Variables.
 
 ## 5. Truy vấn đọc Role
-- Mọi truy vấn đọc `iam_roles` phải thêm điều kiện `AND is_enabled = TRUE` (hoặc `deleted_at IS NULL` nếu có).
+- Danh sách và chi tiết vai trò chỉ đọc các dòng `archived_at IS NULL`. Truy vấn tính quyền phải lọc thêm `is_enabled = TRUE`.
 - Mọi truy vấn đọc assignment hiệu lực phải kiểm tra:
   ```sql
   assignment_status = 'ACTIVE'

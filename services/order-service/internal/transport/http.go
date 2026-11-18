@@ -324,15 +324,17 @@ func Handler(s *app.Service) http.Handler {
 				views := make([]any, 0, len(items))
 				for _, item := range items {
 					if strings.Contains(r.Header.Get("Accept"), app.CustomerMediaType) {
-						if item.Cohort == "order-core-1" {
-							var err error
-							item, err = s.GetOrder(r.Context(), item.ID, p, false)
-							if err != nil {
-								failure(s, w, err)
-								return
-							}
+						// The customer contract renders list previews from the
+						// frozen snapshot, so every item is re-read with its
+						// snapshot loaded (core and legacy alike) before the
+						// customer projection runs.
+						var err error
+						item, err = s.GetOrder(r.Context(), item.ID, p, true)
+						if err != nil {
+							failure(s, w, err)
+							return
 						}
-						views = append(views, s.CustomerOrder(item, p, false))
+						views = append(views, s.CustomerOrder(item, p, true))
 					} else {
 						views = append(views, s.OrderResponse(item, p, false))
 					}

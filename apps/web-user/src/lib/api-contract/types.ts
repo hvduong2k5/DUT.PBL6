@@ -110,7 +110,9 @@ export interface OrderAddress {
   phone: string;
   street: string;
   ward_code: string;
+  ward_name?: string;
   province_code: string;
+  province_name?: string;
 }
 
 export interface CreateCheckoutQuoteRequest {
@@ -228,7 +230,7 @@ export interface OwnedOrder {
   task_id: string | null;
   shipment_id: string | null;
   seal_code: string | null;
-  payment_expires_at: IsoDateTime;
+  payment_expires_at: IsoDateTime | null;
   updated_at: IsoDateTime;
   created_at: IsoDateTime;
   sla_due_at: IsoDateTime | null;

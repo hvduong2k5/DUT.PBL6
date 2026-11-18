@@ -58,6 +58,9 @@
       "enabled": true,
       "clientAuthenticatorType": "client-secret",
       "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
       "publicClient": false,
       "protocol": "openid-connect",
       "defaultClientScopes": [
@@ -68,6 +71,17 @@
         "email"
       ],
       "protocolMappers": [
+        {
+          "name": "identity-roles-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "identity-roles-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        },
         {
           "name": "realm-management-roles",
           "protocol": "openid-connect",
@@ -319,6 +333,14 @@
     }
   ],
   "users": [
+    {
+      "username": "service-account-identity-service-admin",
+      "enabled": true,
+      "serviceAccountClientId": "identity-service-admin",
+      "clientRoles": {
+        "realm-management": ["manage-users", "view-users"]
+      }
+    },
     {
       "username": "admin",
       "enabled": true,

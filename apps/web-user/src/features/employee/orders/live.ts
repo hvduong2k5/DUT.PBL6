@@ -59,6 +59,7 @@ const paymentLabels: Record<AdminPaymentStatus, string> = {
   RECONCILIATION_REQUIRED: "Cần đối soát", PARTIALLY_REFUNDED: "Đã hoàn một phần",
   REFUNDED: "Đã hoàn tiền", UNKNOWN: "Chưa xác định",
 };
+const paymentMethodLabels: Record<string, string> = { VIETQR: "VietQR", COD: "COD" };
 const slaLabels: Record<AdminOrderSlaState, string> = {
   ON_TRACK: "Trong SLA", AT_RISK: "Sắp quá SLA", OVERDUE: "Quá SLA",
   COMPLETE: "Đã kết thúc", UNAVAILABLE: "Chưa có hạn SLA",
@@ -144,7 +145,7 @@ export function liveOrderDetail(value: unknown): AdminOrderDetail {
       quantity: line.quantity, unitPriceVnd: line.unit_price, lineSubtotalVnd: line.line_total,
     })),
     pricing: { subtotalVnd: payload.subtotal, shippingFeeVnd: payload.shipping_fee, discountVnd: payload.discount, totalVnd: row.totalVnd },
-    payment: { ...related(order.payment_status, row.paymentStatusLabel), methodLabel: order.payment_method },
+    payment: { ...related(order.payment_status, row.paymentStatusLabel), methodLabel: paymentMethodLabels[order.payment_method] ?? order.payment_method },
     reservation: related(order.stock_status, stockLabels[order.stock_status] ?? "Chưa xác định"),
     packing: related(order.task_id ? "LINKED" : "UNAVAILABLE", order.task_id ? "Đã có task" : "Chưa có task", order.task_id),
     shipping: {

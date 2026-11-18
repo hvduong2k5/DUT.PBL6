@@ -70,3 +70,34 @@ describe("Packing upload and access boundaries", () => {
     for (const url of ["http://attacker.test/video", "http://storage:9000@attacker.test/video", "http://user:secret@storage:9000/video", "file:///etc/passwd"]) expect(() => storageUploadTarget(url)).toThrow();
   });
 });
+
+describe("Fulfillment OIDC BFF", () => {
+  function setupOidc() {
+    vi.stubEnv("WEB_AUTH_MODE", "oidc"); vi.stubEnv("WEB_PUBLIC_URL", base);
+    vi.stubEnv("WEB_OIDC_ALLOW_LOCAL_HTTP", "true");
+    vi.stubEnv("CUSTOMER_CORE_UPSTREAM_URL", "http://identity.test/api/v1/customer-api");
+    vi.stubEnv("IDENTITY_UPSTREAM_URL", "http://identity.test/api/v1");
+    vi.stubEnv("NEXT_PUBLIC_API_URL", "http://gateway.test/api/v1");
+  }
+  it("ignores a browser bearer <redacted> without the trusted token cookie", async () => {
+    setupOidc(); const fetcher = vi.fn(); vi.stubGlobal("fetch", fetcher);
+    const response = await handleFulfillment(new NextRequest(base + "/api/admin/fulfillment/tasks", { headers: { Authorization: "Bearer forged" } }), ["tasks"]);
+    expect(response.status).toBe(401); expect(fetcher).not.toHaveBeenCalled();
+  });
+  it("forwards only the trusted access token to the gateway fulfillment API", async () => {
+    setupOidc();
+    const fetcher = vi.fn()
+      .mockResolvedValueOnce(Response.json({ data: staff }))
+      .mockResolvedValueOnce(Response.json({ items: [], next_cursor: null }));
+    vi.stubGlobal("fetch", fetcher);
+    const response = await handleFulfillment(new NextRequest(base + "/api/admin/fulfillment/tasks", { headers: { Cookie: "oma_access_token=staff-token; other=secret", Authorization: "Bearer forged" } }), ["tasks"]);
+    expect(response.status).toBe(200);
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    const [sessionUrl] = fetcher.mock.calls[0];
+    expect(sessionUrl).toBe("http://identity.test/api/v1/users/me");
+    const [url, init] = fetcher.mock.calls[1];
+    expect(url).toBe("http://gateway.test/api/v1/admin/fulfillment/tasks");
+    expect(init.headers.get("authorization")).toBe("Bearer staff-token");
+    expect(init.headers.get("cookie")).toBeNull();
+  });
+});

@@ -1,9 +1,11 @@
 package com.hvduong.catalog.config;
 
+import java.time.Duration;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -13,6 +15,13 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtDecoders;
+import org.springframework.security.oauth2.jwt.JwtIssuerValidator;
+import org.springframework.security.oauth2.jwt.JwtTimestampValidator;
+import org.springframework.security.oauth2.jwt.JwtValidators;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
+import org.springframework.security.oauth2.jwt.SupplierJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.web.SecurityFilterChain;
 
@@ -56,6 +65,20 @@ public class SecurityConfig {
   }
 
   @Bean
+  JwtDecoder jwtDecoder(
+      @Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}") String issuer,
+      @Value("${app.auth.jwt-clock-skew}") Duration clockSkew) {
+    return new SupplierJwtDecoder(
+        () -> {
+          NimbusJwtDecoder decoder = JwtDecoders.fromIssuerLocation(issuer);
+          decoder.setJwtValidator(
+              JwtValidators.createDefaultWithValidators(
+                  new JwtTimestampValidator(clockSkew), new JwtIssuerValidator(issuer)));
+          return decoder;
+        });
+  }
+
+  @Bean
   public JwtAuthenticationConverter jwtAuthenticationConverter() {
     JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
     converter.setJwtGrantedAuthoritiesConverter(
@@ -72,6 +95,9 @@ public class SecurityConfig {
           if (grants != null) {
             for (String grant : grants) {
               authorities.add(new SimpleGrantedAuthority(parseGrantPermissionCode(grant)));
+              if (grant.endsWith("#GLOBAL") && grant.indexOf('#') == grant.lastIndexOf('#')) {
+                authorities.add(new SimpleGrantedAuthority(grant));
+              }
             }
           }
 
