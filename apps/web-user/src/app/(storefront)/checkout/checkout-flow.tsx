@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ProductImage } from "@/components/product/product-image";
 import { useCartSummary } from "@/components/cart/cart-summary-provider";
@@ -65,6 +65,7 @@ function detailsErrors(error: PublicApiError): Record<string, string> {
 export function CheckoutFlow() {
   const { reload: reloadCartSummary } = useCartSummary();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const mockScenario = searchParams.get("mockScenario") ?? undefined;
   const cartScenario = searchParams.get("cartScenario") ?? undefined;
   const requestOptions = useMemo(() => ({ mockScenario, cartScenario }), [mockScenario, cartScenario]);
@@ -86,6 +87,14 @@ export function CheckoutFlow() {
   const [quoting, setQuoting] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
+
+  // A VietQR order goes straight to its payment page: the customer pays right away, and an unpaid order can be resumed from "Đơn hàng của tôi".
+  const vietQrPaymentPath = operation?.succeeded && operation.orderId && paymentMethod === "VIETQR"
+    ? `/payment/${encodeURIComponent(operation.orderId)}`
+    : null;
+  useEffect(() => {
+    if (vietQrPaymentPath) router.replace(vietQrPaymentPath);
+  }, [router, vietQrPaymentPath]);
 
   useEffect(() => {
     let active = true;
@@ -243,6 +252,10 @@ export function CheckoutFlow() {
   }
   if (!preparation.items.length) {
     return <main className="checkout-page"><CheckoutSteps /><section className="checkout-state-card"><span className="gh-emblem" aria-hidden="true" /><p className="eyebrow">Giỏ hàng trống</p><h1>Chưa có sản phẩm để thanh toán</h1><p>MVP Checkout báo giá toàn bộ giỏ tại một revision, không nhận danh sách dòng được chọn.</p><Link className="primary-link" href="/products">Khám phá sản phẩm</Link></section></main>;
+  }
+
+  if (vietQrPaymentPath) {
+    return <main className="checkout-page"><CheckoutSteps complete /><section className="checkout-confirmed" aria-busy="true"><span className="large-spinner" aria-hidden="true" /><p className="eyebrow">Order đã được tạo</p><h1>Đang mở trang thanh toán…</h1><p>Nếu trang không tự chuyển, <Link href={vietQrPaymentPath}>mở trang thanh toán</Link>.</p></section></main>;
   }
 
   if (operation?.succeeded && operation.orderId) {
