@@ -89,6 +89,11 @@
    instead of spilling over the next column. */
 .admin-table th, .admin-table td { overflow-wrap: anywhere; }
 .admin-table td button { overflow-wrap: normal; white-space: nowrap; }
+/* Row options button: the "•••" text glyphs sat low in Be Vietnam Pro. Hide the text and draw three centred dots. */
+.admin-action-cell > button { position: relative; display: inline-grid; place-items: center; width: 36px; height: 36px; padding: 0; border-color: var(--nau); border-radius: var(--r-sm); background: var(--kem); color: var(--nau-dam); font-size: 0; line-height: 0; letter-spacing: 0; }
+.admin-action-cell > button::before { content: ""; width: 4px; height: 4px; border-radius: 50%; background: currentColor; box-shadow: -8px 0 0 currentColor, 8px 0 0 currentColor; }
+.admin-action-cell > button:hover { border-color: var(--nau-dam); background: var(--kem-am); }
+.admin-action-cell > button:focus-visible { outline: 3px solid var(--nau-dam); outline-offset: 2px; }
 /* Permission catalog: the Action column was 8% wide, too narrow for 14-character codes in Be Vietnam Pro. */
 .admin-permission-catalog-table { min-width: 1060px; }
 .admin-permission-catalog-table th, .admin-permission-catalog-table td { padding-inline: 6px; }
