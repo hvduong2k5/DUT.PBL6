@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:mobile_app/core/widgets/app_bottom_navigation.dart';
+import 'package:mobile_app/features/cart/presentation/cart_cubit.dart';
 import 'package:mobile_app/core/widgets/heritage/heritage_section_header.dart';
 import 'package:mobile_app/core/widgets/heritage/heritage_frame.dart';
 import 'package:mobile_app/core/widgets/heritage/heritage_surface.dart';
@@ -34,6 +36,15 @@ class _PromotionsPageState extends State<PromotionsPage> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: const AppMobileHeader(title: 'Ưu đãi Tri Kỷ', showBack: true),
+    // Same bottom nav as the web storefront, except when opened from checkout.
+    bottomNavigationBar: widget.checkoutSubtotal != null
+        ? null
+        : BlocBuilder<CartCubit, CartState>(
+            builder: (context, cart) => AppBottomNavigation(
+              active: AppNavTab.promotions,
+              cartCount: cart.cart.totalItems,
+            ),
+          ),
     body: HeritageSurface(
       child: BlocBuilder<PromotionsCubit, PromotionsState>(
         builder: (context, state) {
