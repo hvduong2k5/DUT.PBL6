@@ -9,7 +9,8 @@ FROM quay.io/keycloak/keycloak:24.0.5 AS builder
 # Build-time configurations for Quarkus optimization
 ENV KC_HEALTH_ENABLED=true \
     KC_METRICS_ENABLED=true \
-    KC_DB=postgres
+    KC_DB=postgres \
+    KC_FEATURES=hostname:v2
 
 WORKDIR /opt/keycloak
 
