@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:mobile_app/core/theme/heritage_tokens.dart';
+import 'package:mobile_app/core/widgets/heritage/heritage_frame.dart';
 import 'package:mobile_app/core/widgets/heritage/heritage_surface.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -61,23 +63,24 @@ class _LoyaltyPageState extends State<LoyaltyPage> {
                 style: Theme.of(context).textTheme.headlineMedium,
               ),
               const SizedBox(height: 20),
-              Container(
+              HeritageFrame(
+                level: HeritageFrameLevel.imperial,
                 padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: AppColors.headingBrown,
-                  borderRadius: BorderRadius.circular(16),
-                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Ô MẠ · TRI KỶ    Hạng ${overview.tierLabel}',
-                      style: const TextStyle(color: Colors.white),
+                      'GÓI HUẾ · TRI KỶ    Hạng ${overview.tierLabel}',
+                      style: const TextStyle(
+                        color: HeritageColors.matSang,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1,
+                      ),
                     ),
                     const SizedBox(height: 28),
                     const Text(
                       'Điểm khả dụng',
-                      style: TextStyle(color: Colors.white70),
+                      style: TextStyle(color: HeritageColors.kemDam),
                     ),
                     Text(
                       '${overview.points}',
@@ -86,12 +89,12 @@ class _LoyaltyPageState extends State<LoyaltyPage> {
                     ),
                     const Text(
                       'Điểm Di Sản',
-                      style: TextStyle(color: Colors.white70),
+                      style: TextStyle(color: HeritageColors.kemDam),
                     ),
                     const SizedBox(height: 24),
                     SelectableText(
                       overview.customerId,
-                      style: const TextStyle(color: Colors.white),
+                      style: const TextStyle(color: HeritageColors.kem),
                     ),
                   ],
                 ),

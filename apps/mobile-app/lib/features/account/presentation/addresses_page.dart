@@ -111,9 +111,9 @@ class _AddressCard extends StatelessWidget {
                   ),
                   decoration: BoxDecoration(
                     border: Border.all(color: AppColors.border),
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(4),
                   ),
-                  child: const Text('Mặc định', style: TextStyle(fontSize: 10)),
+                  child: const Text('Mặc định', style: TextStyle(fontSize: 13)),
                 ),
             ],
           ),

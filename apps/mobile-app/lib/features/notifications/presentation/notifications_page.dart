@@ -60,7 +60,7 @@ class NotificationsPage extends StatelessWidget {
                       children: [
                         Text(
                           item.timeLabel,
-                          style: const TextStyle(fontSize: 10),
+                          style: const TextStyle(fontSize: 13),
                         ),
                         if (item.unread)
                           const Padding(

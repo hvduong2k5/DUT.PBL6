@@ -81,7 +81,7 @@ class OrderConfirmationPage extends StatelessWidget {
                           const Text(
                             'MÃ ĐƠN HÀNG',
                             style: TextStyle(
-                              fontSize: 10,
+                              fontSize: 13,
                               color: AppColors.textMuted,
                             ),
                           ),

@@ -231,7 +231,7 @@ class _StatusBadge extends StatelessWidget {
       child: Text(
         label,
         style: TextStyle(
-          fontSize: 10,
+          fontSize: 13,
           color: cancelled ? AppColors.darkRed : AppColors.brandBrown,
           fontWeight: FontWeight.w600,
         ),

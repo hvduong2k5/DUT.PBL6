@@ -162,7 +162,7 @@ class _GuestLookupPageState extends State<GuestLookupPage> {
                     child: Text(
                       'Thử nghiệm local: đơn OM-8921, liên hệ 0905123456, mã 789214. Không gửi SMS/email thật.',
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: 13,
                         color: AppColors.textMuted,
                       ),
                     ),

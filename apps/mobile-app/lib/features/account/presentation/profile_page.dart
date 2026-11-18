@@ -87,7 +87,7 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
               const Text(
                 'Số điện thoại tài khoản chưa thể thay đổi tại đây.',
-                style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+                style: TextStyle(color: AppColors.textMuted, fontSize: 13),
               ),
               const SizedBox(height: 16),
               AppTextField(

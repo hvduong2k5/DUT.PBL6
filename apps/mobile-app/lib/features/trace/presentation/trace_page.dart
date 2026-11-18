@@ -205,7 +205,7 @@ class _RecordCard extends StatelessWidget {
                   Text(
                     entry.key,
                     style: const TextStyle(
-                      fontSize: 12,
+                      fontSize: 13,
                       color: AppColors.textMuted,
                     ),
                   ),

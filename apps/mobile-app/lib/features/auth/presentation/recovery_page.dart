@@ -114,7 +114,7 @@ class _RecoveryPageState extends State<RecoveryPage> {
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
                         color: AppColors.errorPale,
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
                         state.message!,
@@ -149,7 +149,7 @@ class _RecoveryPageState extends State<RecoveryPage> {
                   const SizedBox(height: 12),
                   const Text(
                     'Thông báo được giữ giống nhau để bảo vệ thông tin tài khoản.',
-                    style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+                    style: TextStyle(color: AppColors.textMuted, fontSize: 13),
                   ),
                   const SizedBox(height: 24),
                   AppPrimaryButton(

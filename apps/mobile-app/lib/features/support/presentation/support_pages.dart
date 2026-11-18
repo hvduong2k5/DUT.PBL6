@@ -203,7 +203,7 @@ class _SupportRequestPageState extends State<SupportRequestPage> {
                       'Tệp đính kèm: chưa hỗ trợ tải tệp trong phiên bản này.',
                       style: TextStyle(
                         color: AppColors.textMuted,
-                        fontSize: 12,
+                        fontSize: 13,
                       ),
                     ),
                   ],
@@ -330,7 +330,7 @@ class _SupportTicketPageState extends State<SupportTicketPage> {
                               'dd/MM/yyyy HH:mm',
                             ).format(message.time.toLocal()),
                             style: const TextStyle(
-                              fontSize: 11,
+                              fontSize: 13,
                               color: AppColors.textMuted,
                             ),
                           ),
@@ -341,7 +341,7 @@ class _SupportTicketPageState extends State<SupportTicketPage> {
                               padding: const EdgeInsets.only(top: 8),
                               child: Text(
                                 file,
-                                style: const TextStyle(fontSize: 12),
+                                style: const TextStyle(fontSize: 13),
                               ),
                             ),
                         ],

@@ -126,7 +126,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   ),
                   child: const Text(
                     'Đang gửi đơn hàng. Vui lòng không thao tác lặp lại.',
-                    style: TextStyle(fontSize: 12),
+                    style: TextStyle(fontSize: 13),
                   ),
                 ),
               Text(
@@ -135,7 +135,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                     : 'Thanh toán khách • Không cần tạo tài khoản',
                 style: const TextStyle(
                   color: AppColors.brandBrown,
-                  fontSize: 12,
+                  fontSize: 13,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -178,7 +178,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   padding: EdgeInsets.only(bottom: AppSpacing.sm),
                   child: Text(
                     'Tài khoản chưa có địa chỉ đã lưu. Vui lòng nhập thủ công.',
-                    style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+                    style: TextStyle(fontSize: 13, color: AppColors.textMuted),
                   ),
                 ),
               AppTextField(
@@ -299,7 +299,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 (method) => Card(
                   color: state.paymentMethod == method
                       ? AppColors.softYellow
-                      : Colors.white,
+                      : AppColors.surface,
                   child: InkWell(
                     onTap: submitting
                         ? null
