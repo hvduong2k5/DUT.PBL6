@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:mobile_app/core/widgets/heritage/heritage_section_header.dart';
+import 'package:mobile_app/core/widgets/heritage/heritage_frame.dart';
 import 'package:mobile_app/core/widgets/heritage/heritage_surface.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
@@ -39,19 +41,16 @@ class _PromotionsPageState extends State<PromotionsPage> {
           return ListView(
             padding: const EdgeInsets.all(20),
             children: [
-              Text(
-                'Ưu đãi dành cho những cuộc sum vầy',
-                style: Theme.of(context).textTheme.headlineMedium,
+              const HeritageSectionHeader(
+                kicker: 'Ưu đãi',
+                title: 'Ưu đãi dành cho những cuộc sum vầy',
               ),
               const SizedBox(height: 8),
               const Text(
                 'Khám phá mã đang phát hành và kiểm tra điều kiện trước khi đặt hàng.',
+                textAlign: TextAlign.center,
               ),
               const SizedBox(height: 24),
-              Text(
-                'Kho voucher',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
               const SizedBox(height: 12),
               if (state.loading) const LinearProgressIndicator(),
               if (state.error != null) ...[
@@ -71,8 +70,10 @@ class _PromotionsPageState extends State<PromotionsPage> {
                   ),
                 ),
               for (final voucher in state.vouchers)
-                Card(
-                  child: Padding(
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: HeritageFrame(
+                    level: HeritageFrameLevel.card,
                     padding: const EdgeInsets.all(16),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -183,7 +184,7 @@ class _PromotionsPageState extends State<PromotionsPage> {
               const SizedBox(height: 16),
               const Text(
                 'Kiểm tra mã chưa áp dụng ưu đãi vào đơn. Tính năng áp mã khi đặt hàng hiện chưa khả dụng.',
-                style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+                style: TextStyle(fontSize: 13, color: AppColors.textMuted),
               ),
             ],
           );

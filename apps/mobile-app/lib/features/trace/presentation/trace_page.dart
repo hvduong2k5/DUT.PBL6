@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:mobile_app/core/theme/heritage_tokens.dart';
+import 'package:mobile_app/core/widgets/heritage/heritage_frame.dart';
 import 'package:mobile_app/core/widgets/heritage/heritage_surface.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -44,13 +46,37 @@ class _TracePageState extends State<TracePage> {
             return ListView(
               padding: const EdgeInsets.all(20),
               children: [
-                Text(
-                  'Kiểm chứng hành trình của từng thức quà',
-                  style: Theme.of(context).textTheme.headlineMedium,
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  'Nhập mã QR in trên bao bì để xem lô sản xuất, nghệ nhân, nguyên liệu và chứng nhận.',
+                HeritageFrame(
+                  level: HeritageFrameLevel.imperial,
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        '❖  TRUY XUẤT NGUỒN GỐC',
+                        style: TextStyle(
+                          color: HeritageColors.matSang,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.4,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Kiểm chứng hành trình của từng thức quà',
+                        style: Theme.of(context).textTheme.headlineMedium
+                            ?.copyWith(color: HeritageColors.kem),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Nhập mã QR in trên bao bì để xem lô sản xuất, nghệ nhân, nguyên liệu và chứng nhận.',
+                        style: TextStyle(
+                          color: HeritageColors.kemDam,
+                          height: 1.5,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 24),
                 AppTextField(
