@@ -21,7 +21,7 @@ class LocalNotificationsRepository implements NotificationsRepository {
     AppNotification(
       id: '3',
       title: 'Gợi ý từ Gói Huế',
-      message: 'Khám phá thêm các sản phẩm đặc sản Cố Đô trong thực đơn.',
+      message: 'Khám phá thêm các sản phẩm đặc sản Cố Đô trong bộ sưu tập.',
       timeLabel: 'Hôm qua',
     ),
   ];
