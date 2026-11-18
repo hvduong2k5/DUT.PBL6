@@ -36,7 +36,7 @@ void main() {
 
     await tester.tap(find.text('Tiếp tục với tư cách khách'));
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('home-search-field')), findsOneWidget);
+    expect(find.byKey(const Key('home-content-scroll')), findsOneWidget);
     expect(await store.isCompleted(), isTrue);
   });
 
@@ -50,7 +50,7 @@ void main() {
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('home-search-field')), findsOneWidget);
+    expect(find.byKey(const Key('home-content-scroll')), findsOneWidget);
   });
 
   testWidgets('visible Login back button falls back to guest Home', (
@@ -62,7 +62,7 @@ void main() {
     await tester.tap(find.byTooltip('Quay lại'));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('home-search-field')), findsOneWidget);
+    expect(find.byKey(const Key('home-content-scroll')), findsOneWidget);
   });
 
   testWidgets('bottom navigation opens the empty guest cart', (tester) async {
@@ -106,7 +106,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Mua sắm với tư cách khách'), findsNothing);
-    expect(find.byKey(const Key('home-search-field')), findsOneWidget);
+    expect(find.byKey(const Key('home-content-scroll')), findsOneWidget);
   });
 
   testWidgets('Android back from root Cart returns Home', (tester) async {
@@ -117,7 +117,7 @@ void main() {
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('home-search-field')), findsOneWidget);
+    expect(find.byKey(const Key('home-content-scroll')), findsOneWidget);
   });
 
   testWidgets('Home fits a 390px viewport and keeps bottom navigation', (
@@ -131,7 +131,7 @@ void main() {
     await tester.pumpWidget(const OmaApp());
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('home-search-field')), findsOneWidget);
+    expect(find.byKey(const Key('home-content-scroll')), findsOneWidget);
     expect(find.text('Trang chủ'), findsOneWidget);
     expect(find.text('Danh mục'), findsOneWidget);
     expect(find.text('Ưu đãi'), findsOneWidget);
