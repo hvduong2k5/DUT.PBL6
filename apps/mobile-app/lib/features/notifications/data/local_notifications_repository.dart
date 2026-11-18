@@ -26,3 +26,11 @@ class LocalNotificationsRepository implements NotificationsRepository {
     ),
   ];
 }
+
+/// Real-data mode: no notification endpoint exists in the MVP customer
+/// contract yet, so the list stays empty instead of showing sample data.
+class EmptyNotificationsRepository implements NotificationsRepository {
+  const EmptyNotificationsRepository();
+  @override
+  Future<List<AppNotification>> notifications() async => const [];
+}

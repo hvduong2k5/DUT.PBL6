@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mobile_app/core/config/app_features.dart';
 import 'package:mobile_app/core/widgets/heritage/heritage_surface.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
@@ -222,11 +223,12 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                   ),
                 ),
               ),
-              TextButton.icon(
-                onPressed: () => context.push(AppRoutes.supportRequest),
-                icon: const Icon(Icons.support_agent_outlined),
-                label: const Text('Yêu cầu hỗ trợ'),
-              ),
+              if (AppFeatures.current.enabled(AppFeature.support))
+                TextButton.icon(
+                  onPressed: () => context.push(AppRoutes.supportRequest),
+                  icon: const Icon(Icons.support_agent_outlined),
+                  label: const Text('Yêu cầu hỗ trợ'),
+                ),
               if (order.status == OrderStatus.delivered)
                 BlocBuilder<CapabilitiesCubit, CapabilitiesState>(
                   builder: (context, capabilities) =>

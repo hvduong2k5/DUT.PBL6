@@ -2,6 +2,7 @@ abstract final class AppRoutes {
   static const onboarding = '/onboarding';
   static const home = '/';
   static const catalog = '/catalog';
+  static const unavailable = '/unavailable';
   static const search = '/search';
   static const product = '/product/:id';
   static const cart = '/cart';

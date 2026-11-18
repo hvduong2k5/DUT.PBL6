@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mobile_app/core/config/app_features.dart';
 import 'package:mobile_app/core/theme/heritage_tokens.dart';
 import 'package:mobile_app/core/widgets/heritage/heritage_button.dart';
 import 'package:mobile_app/core/widgets/heritage/heritage_emblem.dart';
@@ -76,10 +77,11 @@ class AccountPage extends StatelessWidget {
                     label: 'Hồ sơ cá nhân',
                     onTap: () => context.push(AppRoutes.profile),
                   ),
-                  if (context.select(
-                    (CapabilitiesCubit cubit) =>
-                        cubit.state.allows('LOYALTY_VIEW'),
-                  ))
+                  if (AppFeatures.current.enabled(AppFeature.loyalty) &&
+                      context.select(
+                        (CapabilitiesCubit cubit) =>
+                            cubit.state.allows('LOYALTY_VIEW'),
+                      ))
                     _MenuRow(
                       icon: Icons.loyalty_outlined,
                       label: 'Ví điểm & đặc quyền',
@@ -90,45 +92,62 @@ class AccountPage extends StatelessWidget {
                     label: 'Đơn hàng của tôi',
                     onTap: () => context.push(AppRoutes.orders),
                   ),
-                  _MenuRow(
-                    icon: Icons.assignment_return_outlined,
-                    label: 'Hồ sơ hậu mãi',
-                    onTap: () => context.push(AppRoutes.returnLookup),
-                  ),
+                  if (AppFeatures.current.enabled(AppFeature.returns))
+                    _MenuRow(
+                      icon: Icons.assignment_return_outlined,
+                      label: 'Hồ sơ hậu mãi',
+                      onTap: () => context.push(AppRoutes.returnLookup),
+                    ),
                   _MenuRow(
                     icon: Icons.location_on_outlined,
                     label: 'Địa chỉ giao hàng',
                     onTap: () => context.push(AppRoutes.addresses),
                   ),
                 ],
-                const SizedBox(height: AppSpacing.md),
-                const _SectionLabel('MUA SẮM & HỖ TRỢ'),
-                if (isGuest)
+                if ((isGuest &&
+                        AppFeatures.current.enabled(
+                          AppFeature.guestOrderLookup,
+                        )) ||
+                    [
+                      AppFeature.b2b,
+                      AppFeature.promotions,
+                      AppFeature.support,
+                      AppFeature.trace,
+                    ].any(AppFeatures.current.enabled)) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  const _SectionLabel('MUA SẮM & HỖ TRỢ'),
+                ],
+                if (isGuest &&
+                    AppFeatures.current.enabled(AppFeature.guestOrderLookup))
                   _MenuRow(
                     icon: Icons.manage_search_outlined,
                     label: 'Tra cứu đơn khách',
                     onTap: () => context.push(AppRoutes.guestOrderLookup),
                   ),
-                _MenuRow(
-                  icon: Icons.business_outlined,
-                  label: 'Quà biếu doanh nghiệp',
-                  onTap: () => context.push(AppRoutes.b2b),
-                ),
-                _MenuRow(
-                  icon: Icons.local_offer_outlined,
-                  label: 'Ưu đãi Tri Kỷ',
-                  onTap: () => context.push(AppRoutes.promotions),
-                ),
-                _MenuRow(
-                  icon: Icons.help_outline,
-                  label: 'Hỗ trợ',
-                  onTap: () => context.push(AppRoutes.supportRequest),
-                ),
-                _MenuRow(
-                  icon: Icons.qr_code_2_outlined,
-                  label: 'Truy xuất nguồn gốc',
-                  onTap: () => context.push(AppRoutes.trace),
-                ),
+                if (AppFeatures.current.enabled(AppFeature.b2b))
+                  _MenuRow(
+                    icon: Icons.business_outlined,
+                    label: 'Quà biếu doanh nghiệp',
+                    onTap: () => context.push(AppRoutes.b2b),
+                  ),
+                if (AppFeatures.current.enabled(AppFeature.promotions))
+                  _MenuRow(
+                    icon: Icons.local_offer_outlined,
+                    label: 'Ưu đãi Tri Kỷ',
+                    onTap: () => context.push(AppRoutes.promotions),
+                  ),
+                if (AppFeatures.current.enabled(AppFeature.support))
+                  _MenuRow(
+                    icon: Icons.help_outline,
+                    label: 'Hỗ trợ',
+                    onTap: () => context.push(AppRoutes.supportRequest),
+                  ),
+                if (AppFeatures.current.enabled(AppFeature.trace))
+                  _MenuRow(
+                    icon: Icons.qr_code_2_outlined,
+                    label: 'Truy xuất nguồn gốc',
+                    onTap: () => context.push(AppRoutes.trace),
+                  ),
                 if (!isGuest) ...[
                   const SizedBox(height: AppSpacing.md),
                   OutlinedButton.icon(

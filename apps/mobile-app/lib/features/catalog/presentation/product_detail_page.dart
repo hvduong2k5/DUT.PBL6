@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mobile_app/core/config/app_features.dart';
 import 'package:mobile_app/features/auth/presentation/auth_cubit.dart';
 import 'package:mobile_app/features/auth/presentation/purchase_access_banner.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -313,18 +314,20 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                 const Text(
                   'Thông tin đang được cập nhật. Chưa có dữ liệu thành phần, cảnh báo dị ứng và hướng dẫn bảo quản. Vui lòng kiểm tra nhãn trên bao bì hoặc tra cứu lô hàng trước khi sử dụng.',
                 ),
-                TextButton(
-                  onPressed: () => context.push(AppRoutes.trace),
-                  child: const Text('Tra cứu lô hàng'),
-                ),
-                BlocProvider(
-                  key: ValueKey('reviews:${product.id}'),
-                  create: (_) => ReviewsCubit(
-                    context.read<ReviewsRepository>(),
-                    product.id,
-                  )..load(),
-                  child: ProductReviewsSection(product: product),
-                ),
+                if (AppFeatures.current.enabled(AppFeature.trace))
+                  TextButton(
+                    onPressed: () => context.push(AppRoutes.trace),
+                    child: const Text('Tra cứu lô hàng'),
+                  ),
+                if (AppFeatures.current.enabled(AppFeature.reviews))
+                  BlocProvider(
+                    key: ValueKey('reviews:${product.id}'),
+                    create: (_) => ReviewsCubit(
+                      context.read<ReviewsRepository>(),
+                      product.id,
+                    )..load(),
+                    child: ProductReviewsSection(product: product),
+                  ),
               ],
             );
           },

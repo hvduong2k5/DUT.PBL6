@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:mobile_app/core/config/app_features.dart';
 import 'package:mobile_app/core/widgets/heritage/heritage_surface.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -152,7 +153,8 @@ class _MvpOperationPageState extends State<MvpOperationPage>
                   onPressed: () => context.go(AppRoutes.cart),
                   child: const Text('Về giỏ hàng'),
                 ),
-                if (status == 'MANUAL_REVIEW' || state.message != null)
+                if (AppFeatures.current.enabled(AppFeature.support) &&
+                    (status == 'MANUAL_REVIEW' || state.message != null))
                   TextButton(
                     onPressed: () => context.push(AppRoutes.supportRequest),
                     child: const Text('Liên hệ hỗ trợ'),

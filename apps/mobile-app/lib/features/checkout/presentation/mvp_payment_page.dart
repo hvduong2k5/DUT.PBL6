@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:mobile_app/core/config/app_features.dart';
 import 'package:mobile_app/core/widgets/heritage/heritage_amount_panel.dart';
 import 'package:mobile_app/core/widgets/heritage/heritage_surface.dart';
 import 'package:flutter/services.dart';
@@ -170,10 +171,11 @@ class _MvpPaymentPageState extends State<MvpPaymentPage>
                   onPressed: () => context.go('/orders/${cubit.orderId}'),
                   child: const Text('Xem đơn hàng'),
                 ),
-                TextButton(
-                  onPressed: () => context.push(AppRoutes.supportRequest),
-                  child: const Text('Liên hệ hỗ trợ'),
-                ),
+                if (AppFeatures.current.enabled(AppFeature.support))
+                  TextButton(
+                    onPressed: () => context.push(AppRoutes.supportRequest),
+                    child: const Text('Liên hệ hỗ trợ'),
+                  ),
               ],
             );
           },

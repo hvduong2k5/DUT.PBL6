@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mobile_app/core/config/app_features.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
@@ -88,12 +89,13 @@ class _HomeBody extends StatelessWidget {
         else
           _Featured(state: state),
         const SizedBox(height: 20),
-        const _PromotionsBlock(),
+        if (AppFeatures.current.enabled(AppFeature.promotions))
+          const _PromotionsBlock(),
         const SizedBox(height: 28),
         const _Divider(),
         _Collections(state: state),
         const _Story(),
-        const _Trace(),
+        if (AppFeatures.current.enabled(AppFeature.trace)) const _Trace(),
         const _AccountCta(),
         const SizedBox(height: 24),
       ],

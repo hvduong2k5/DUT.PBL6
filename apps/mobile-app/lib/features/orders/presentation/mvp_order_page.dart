@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mobile_app/core/config/app_features.dart';
 import 'package:mobile_app/core/widgets/heritage/heritage_amount_panel.dart';
 import 'package:mobile_app/core/widgets/heritage/heritage_surface.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -151,9 +152,10 @@ class MvpOrderPage extends StatelessWidget {
                     if (order.shipmentId != null)
                       Text('Mã tham chiếu vận chuyển: ${order.shipmentId}'),
                   ],
-                  if (order.actions.contains('CONTACT_SUPPORT') ||
-                      order.actions.contains('REQUEST_CANCELLATION') ||
-                      state.message != null)
+                  if (AppFeatures.current.enabled(AppFeature.support) &&
+                      (order.actions.contains('CONTACT_SUPPORT') ||
+                          order.actions.contains('REQUEST_CANCELLATION') ||
+                          state.message != null))
                     TextButton(
                       onPressed: () => context.push(AppRoutes.supportRequest),
                       child: const Text('Liên hệ hỗ trợ'),
