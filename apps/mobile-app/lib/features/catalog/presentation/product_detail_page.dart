@@ -200,6 +200,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                     fontSize: 24,
                     color: AppColors.brickRed,
                     fontWeight: FontWeight.bold,
+                    fontFeatures: const [FontFeature.liningFigures()],
                   ),
                 ),
                 const SizedBox(height: AppSpacing.md),

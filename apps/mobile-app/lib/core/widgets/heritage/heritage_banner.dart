@@ -186,7 +186,7 @@ class _Slide extends StatelessWidget {
         ),
       ),
       Padding(
-        padding: const EdgeInsets.fromLTRB(40, 28, 40, 36),
+        padding: const EdgeInsets.fromLTRB(68, 28, 68, 36),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.end,
           crossAxisAlignment: CrossAxisAlignment.start,

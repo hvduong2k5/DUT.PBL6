@@ -16,6 +16,7 @@ abstract final class AppTheme {
         height: height,
         fontWeight: weight,
         color: AppColors.headingBrown,
+        fontFeatures: const [FontFeature.liningFigures()],
       );
 
   static OutlineInputBorder _border(Color color, [double width = 1]) =>

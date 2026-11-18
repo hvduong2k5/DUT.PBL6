@@ -5,6 +5,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_app/app/router/routes.dart';
 import 'package:mobile_app/core/theme/app_colors.dart';
+import 'package:mobile_app/core/widgets/app_product_image.dart';
+import 'package:mobile_app/core/widgets/heritage/heritage_frame.dart';
+import 'package:mobile_app/core/widgets/heritage/heritage_surface.dart';
 import 'package:mobile_app/core/theme/app_radius.dart';
 import 'package:mobile_app/core/theme/app_spacing.dart';
 import 'package:mobile_app/core/widgets/app_bottom_navigation.dart';
@@ -69,90 +72,91 @@ class CartPage extends StatelessWidget {
               : 'Giỏ Hàng (${cart.totalItems} món)',
           showBack: true,
         ),
-        body: switch (state.status) {
-          CartStatus.initial || CartStatus.loading => const AppLoadingView(),
-          CartStatus.failure => AppErrorView(
-            message: state.message ?? 'Không thể tải giỏ hàng.',
-            onRetry: context.read<CartCubit>().load,
-          ),
-          _ when cart.items.isEmpty => AppEmptyView(
-            title: 'Giỏ hàng trống',
-            message:
-                'Bạn chưa có sản phẩm nào trong giỏ. Khám phá những món quà mang hương vị xứ Huế.',
-            icon: Icons.shopping_bag_outlined,
-            action: SizedBox(
-              width: 220,
-              child: AppPrimaryButton(
-                label: 'Khám phá sản phẩm',
-                icon: Icons.arrow_forward,
-                onPressed: () => context.go(AppRoutes.catalog),
+        body: HeritageSurface(
+          child: switch (state.status) {
+            CartStatus.initial || CartStatus.loading => const AppLoadingView(),
+            CartStatus.failure => AppErrorView(
+              message: state.message ?? 'Không thể tải giỏ hàng.',
+              onRetry: context.read<CartCubit>().load,
+            ),
+            _ when cart.items.isEmpty => AppEmptyView(
+              title: 'Giỏ hàng trống',
+              message:
+                  'Bạn chưa có sản phẩm nào trong giỏ. Khám phá những món quà mang hương vị xứ Huế.',
+              icon: Icons.shopping_bag_outlined,
+              action: SizedBox(
+                width: 220,
+                child: AppPrimaryButton(
+                  label: 'Khám phá sản phẩm',
+                  icon: Icons.arrow_forward,
+                  onPressed: () => context.go(AppRoutes.catalog),
+                ),
               ),
             ),
-          ),
-          _ => ListView(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.md,
-              AppSpacing.xs,
-              AppSpacing.md,
-              120,
-            ),
-            children: [
-              if (!checkoutEnabled)
-                CheckboxListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Chọn tất cả sản phẩm khả dụng'),
-                  subtitle: Text(
-                    'Đã chọn ${state.selectedIds.length}/${state.availableIds.length} dòng',
+            _ => ListView(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                AppSpacing.xs,
+                AppSpacing.md,
+                120,
+              ),
+              children: [
+                if (!checkoutEnabled)
+                  CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Chọn tất cả sản phẩm khả dụng'),
+                    subtitle: Text(
+                      'Đã chọn ${state.selectedIds.length}/${state.availableIds.length} dòng',
+                    ),
+                    value:
+                        state.availableIds.isNotEmpty &&
+                        state.selectedIds.length == state.availableIds.length,
+                    onChanged: state.pending
+                        ? null
+                        : (_) => context.read<CartCubit>().toggleAll(),
                   ),
-                  value:
-                      state.availableIds.isNotEmpty &&
-                      state.selectedIds.length == state.availableIds.length,
-                  onChanged: state.pending
-                      ? null
-                      : (_) => context.read<CartCubit>().toggleAll(),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    onPressed: state.pending ? null : () => _clear(context),
+                    icon: const Icon(Icons.delete_outline),
+                    label: const Text('Dọn giỏ hàng'),
+                  ),
                 ),
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton.icon(
-                  onPressed: state.pending ? null : () => _clear(context),
-                  icon: const Icon(Icons.delete_outline),
-                  label: const Text('Dọn giỏ hàng'),
-                ),
-              ),
-              if (state.message != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Semantics(
-                    liveRegion: true,
-                    child: Text(
-                      state.message!,
-                      style: const TextStyle(color: AppColors.darkRed),
+                if (state.message != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Semantics(
+                      liveRegion: true,
+                      child: Text(
+                        state.message!,
+                        style: const TextStyle(color: AppColors.darkRed),
+                      ),
                     ),
                   ),
-                ),
-              if (quoteEnabled && !checkoutEnabled)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: OutlinedButton(
-                    onPressed: state.pending
-                        ? null
-                        : () => context.push(AppRoutes.quoteReview),
-                    child: const Text('Xem báo giá cả giỏ'),
+                if (quoteEnabled && !checkoutEnabled)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: OutlinedButton(
+                      onPressed: state.pending
+                          ? null
+                          : () => context.push(AppRoutes.quoteReview),
+                      child: const Text('Xem báo giá cả giỏ'),
+                    ),
                   ),
-                ),
-              const PurchaseAccessBanner(),
-              for (final line in cart.items)
-                _CartLineTile(
-                  line: line,
-                  selected: state.selectedIds.contains(line.itemId),
-                  available: state.availableIds.contains(line.itemId),
-                  pending:
-                      state.pending ||
-                      !context.watch<AuthCubit>().state.canPurchase,
-                  selectionEnabled: !checkoutEnabled,
-                ),
-              Card(
-                child: Padding(
+                const PurchaseAccessBanner(),
+                for (final line in cart.items)
+                  _CartLineTile(
+                    line: line,
+                    selected: state.selectedIds.contains(line.itemId),
+                    available: state.availableIds.contains(line.itemId),
+                    pending:
+                        state.pending ||
+                        !context.watch<AuthCubit>().state.canPurchase,
+                    selectionEnabled: !checkoutEnabled,
+                  ),
+                HeritageFrame(
+                  level: HeritageFrameLevel.functional,
                   padding: const EdgeInsets.all(AppSpacing.md),
                   child: Column(
                     children: [
@@ -205,17 +209,17 @@ class CartPage extends StatelessWidget {
                       const Text(
                         'Tạm tính chưa gồm phí vận chuyển và ưu đãi. Giá và khả dụng được kiểm tra lại khi đặt hàng.',
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 13,
                           color: AppColors.textMuted,
                         ),
                       ),
                     ],
                   ),
                 ),
-              ),
-            ],
-          ),
-        },
+              ],
+            ),
+          },
+        ),
         bottomSheet: cart.items.isEmpty && !continuing
             ? null
             : SafeArea(
@@ -328,17 +332,10 @@ class _CartLineTile extends StatelessWidget {
                   borderRadius: BorderRadius.circular(AppRadius.large),
                 ),
                 clipBehavior: Clip.antiAlias,
-                child: line.product.imageUrl.isEmpty
-                    ? const Icon(
-                        Icons.redeem_outlined,
-                        color: AppColors.brandBrown,
-                      )
-                    : Image.network(
-                        line.product.imageUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) =>
-                            const Icon(Icons.image_not_supported_outlined),
-                      ),
+                child: AppProductImage(
+                  url: line.product.imageUrl,
+                  label: line.product.name,
+                ),
               ),
               if (selectionEnabled)
                 Checkbox(
@@ -367,7 +364,7 @@ class _CartLineTile extends StatelessWidget {
                 if (!available)
                   const Text(
                     'Quy cách hiện không khả dụng.',
-                    style: TextStyle(color: AppColors.darkRed, fontSize: 12),
+                    style: TextStyle(color: AppColors.darkRed, fontSize: 13),
                   ),
                 Text(
                   line.subtotal.format(),

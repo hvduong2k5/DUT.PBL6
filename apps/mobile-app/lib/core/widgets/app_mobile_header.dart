@@ -56,13 +56,22 @@ class AppMobileHeader extends StatelessWidget implements PreferredSizeWidget {
             )
           : null,
       titleSpacing: 8,
-      title: branded
-          ? Text(
-              title,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: HeritageColors.kem,
-                fontWeight: FontWeight.w700,
-              ),
+      title: title == 'Gói Huế'
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (showMenu || showBack) ...[
+                  const HeritageEmblem(size: 32),
+                  const SizedBox(width: 8),
+                ],
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: HeritageColors.kem,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
             )
           : Text(title),
       actions: [

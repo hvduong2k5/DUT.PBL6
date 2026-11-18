@@ -26,7 +26,7 @@ class HeritageSurface extends StatelessWidget {
               colors: [Color(0xFF4A2D1C), HeritageColors.nauCungDinh],
             ),
           ),
-          child: child,
+          child: Material(type: MaterialType.transparency, child: child),
         );
       case HeritageSurfaceKind.paper:
       case HeritageSurfaceKind.parchment:
@@ -44,7 +44,8 @@ class HeritageSurface extends StatelessWidget {
           ),
           child: DecoratedBox(
             decoration: BoxDecoration(color: tint),
-            child: child,
+            // Lets ListTile/InkWell paint ink above the tinted background.
+            child: Material(type: MaterialType.transparency, child: child),
           ),
         );
     }

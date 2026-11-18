@@ -63,6 +63,7 @@ class ProductCard extends StatelessWidget {
               color: AppColors.brickRed,
               fontSize: 17,
               fontWeight: FontWeight.w700,
+              fontFeatures: const [FontFeature.liningFigures()],
             ),
           ),
           const SizedBox(height: 2),
