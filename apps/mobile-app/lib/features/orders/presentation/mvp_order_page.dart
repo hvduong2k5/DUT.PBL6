@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mobile_app/core/widgets/heritage/heritage_amount_panel.dart';
 import 'package:mobile_app/core/widgets/heritage/heritage_surface.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -113,11 +114,12 @@ class MvpOrderPage extends StatelessWidget {
                     ),
                   ],
                   const SizedBox(height: 20),
-                  Text('Tiền hàng: ${order.subtotal.format()}'),
-                  Text('Phí giao hàng: ${order.shippingFee.format()}'),
-                  Text(
-                    'Tổng đơn: ${order.total.format()}',
-                    style: Theme.of(context).textTheme.titleLarge,
+                  HeritageAmountPanel(
+                    rows: [
+                      ('Tiền hàng', order.subtotal.format()),
+                      ('Phí giao hàng', order.shippingFee.format()),
+                    ],
+                    total: ('Tổng đơn', order.total.format()),
                   ),
                   const SizedBox(height: 20),
                   if (order.canPay)

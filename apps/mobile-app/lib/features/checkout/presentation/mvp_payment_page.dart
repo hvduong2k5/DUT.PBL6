@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:mobile_app/core/widgets/heritage/heritage_amount_panel.dart';
 import 'package:mobile_app/core/widgets/heritage/heritage_surface.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -79,11 +80,14 @@ class _MvpPaymentPageState extends State<MvpPaymentPage>
                 ),
                 if (status != null) ...[
                   const SizedBox(height: 16),
-                  Text('Giá trị cần thanh toán: ${status.expected.format()}'),
-                  Text(
-                    'Tiền đã ghi nhận cho đơn: ${status.allocated.format()}',
+                  HeritageAmountPanel(
+                    rows: [
+                      ('Tiền đã ghi nhận cho đơn', status.allocated.format()),
+                      ('Tiền đã hoàn', status.refunded.format()),
+                    ],
+                    total: ('Giá trị cần thanh toán', status.expected.format()),
                   ),
-                  Text('Tiền đã hoàn: ${status.refunded.format()}'),
+                  const SizedBox(height: 12),
                   if (const {
                     'VERIFYING',
                     'VERIFICATION_DELAYED',
