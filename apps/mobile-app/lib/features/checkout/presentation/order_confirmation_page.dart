@@ -35,7 +35,7 @@ class OrderConfirmationPage extends StatelessWidget {
                 Text(
                   'Ô Mạ',
                   style: TextStyle(
-                    fontFamily: GoogleFonts.notoSerif().fontFamily,
+                    fontFamily: GoogleFonts.playfairDisplay().fontFamily,
                     fontSize: 22,
                     color: AppColors.headingBrown,
                     fontWeight: FontWeight.bold,

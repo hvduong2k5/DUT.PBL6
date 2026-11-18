@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:mobile_app/core/theme/app_colors.dart';
 import 'package:mobile_app/core/theme/app_radius.dart';
 import 'package:mobile_app/features/catalog/domain/catalog_models.dart';
@@ -63,9 +64,9 @@ class ProductCard extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               product.price.format(),
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppColors.brickRed,
-                fontFamily: 'Noto Serif',
+                fontFamily: GoogleFonts.playfairDisplay().fontFamily,
                 fontSize: 17,
                 fontWeight: FontWeight.bold,
               ),

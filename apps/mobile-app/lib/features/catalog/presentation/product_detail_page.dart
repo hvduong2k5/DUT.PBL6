@@ -191,7 +191,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                     ? 'Chưa công bố giá'
                     : (_selectedVariant?.price ?? product.price).format(),
                 style: TextStyle(
-                  fontFamily: GoogleFonts.notoSerif().fontFamily,
+                  fontFamily: GoogleFonts.playfairDisplay().fontFamily,
                   fontSize: 24,
                   color: AppColors.brickRed,
                   fontWeight: FontWeight.bold,
