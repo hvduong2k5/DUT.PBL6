@@ -3,7 +3,7 @@ package com.hvduong.identity.application.audit.impl;
 import com.hvduong.identity.application.audit.AuditService;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.hvduong.identity.infrastructure.persistence.entity.IdentityAuditLogRow;
+import com.hvduong.identity.domain.entity.IdentityAuditLogRow;
 import com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IdentityAuditLogMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

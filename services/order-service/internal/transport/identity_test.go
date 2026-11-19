@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -30,7 +31,17 @@ func TestKeycloakCartHTTPIsolation(t *testing.T) {
 		json.NewEncoder(w).Encode(map[string]any{"keys": []any{map[string]any{"kty": "RSA", "kid": "test", "alg": "RS256", "n": base64.RawURLEncoding.EncodeToString(k.N.Bytes()), "e": base64.RawURLEncoding.EncodeToString(big.NewInt(int64(k.E)).Bytes())}}})
 	}))
 	defer jwks.Close()
+	var pending atomic.Bool
+	profile := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		status := "ACTIVE"
+		if pending.Load() {
+			status = "PENDING_VERIFICATION"
+		}
+		json.NewEncoder(w).Encode(map[string]string{"id": uuid.NewString(), "user_id": r.Header.Get("X-User-ID"), "status": status})
+	}))
+	defer profile.Close()
 	c := app.Config{Mode: "sandbox", AuthMode: "keycloak", OIDCIssuer: jwks.URL, OIDCAudience: "order-api", OIDCJWKSURL: jwks.URL, OIDCAllowLocalHTTP: true, Profile: "http://profile.test", ProfileToken: "test-profile-internal-token"}
+	c.Profile = profile.URL
 	v, e := app.NewCustomerIdentity(c)
 	if e != nil {
 		t.Fatal(e)
@@ -38,14 +49,14 @@ func TestKeycloakCartHTTPIsolation(t *testing.T) {
 	rdb := miniredis.RunT(t)
 	client := redis.NewClient(&redis.Options{Addr: rdb.Addr()})
 	defer client.Close()
-	s := &app.Service{C: c, Identity: v, Redis: client}
+	s := &app.Service{C: c, Identity: v, Redis: client, Client: profile.Client()}
 	a, b := uuid.NewString(), uuid.NewString()
 	for id, sku := range map[string]string{a: "A-private-sku", b: "B-private-sku"} {
 		body, _ := json.Marshal(domain.Cart{Revision: 1, Items: []domain.Item{{SKU: sku}}})
 		rdb.Set("cart:"+(domain.Principal{ID: id, Role: "CUSTOMER"}).Scope(), string(body))
 	}
 	token := func(id string) string {
-		v := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{"iss": jwks.URL, "aud": "order-api", "sub": uuid.NewString(), "user_id": id, "typ": "Bearer", "iat": time.Now().Add(-time.Minute).Unix(), "exp": time.Now().Add(time.Hour).Unix(), "realm_access": map[string]any{"roles": []string{"CUSTOMER"}}})
+		v := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{"iss": jwks.URL, "aud": "order-api", "sub": uuid.NewString(), "user_id": id, "typ": "Bearer", "iat": time.Now().Add(-time.Minute).Unix(), "exp": time.Now().Add(time.Hour).Unix(), "principal_type": "CUSTOMER"})
 		v.Header["kid"] = "test"
 		signed, err := v.SignedString(k)
 		if err != nil {
@@ -80,6 +91,14 @@ func TestKeycloakCartHTTPIsolation(t *testing.T) {
 				}
 			}
 		})
+	}
+	pending.Store(true)
+	request := httptest.NewRequest("POST", "/api/v1/cart/items", nil)
+	request.Header.Set("Authorization", token(a))
+	denied := httptest.NewRecorder()
+	h.ServeHTTP(denied, request)
+	if denied.Code != 403 {
+		t.Fatal("unverified Customer bypassed Web capability gate", denied.Code)
 	}
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, httptest.NewRequest("POST", "/api/v1/guest-sessions", nil))

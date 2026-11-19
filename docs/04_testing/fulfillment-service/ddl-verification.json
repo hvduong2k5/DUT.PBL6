@@ -1,0 +1,15 @@
+{
+  "result": "PASS",
+  "runtime_acceptance": "PENDING",
+  "image": "postgres:16-alpine",
+  "image_id": "sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea",
+  "container": "codex-fulfillment-ddl-bfd92fb355f4",
+  "network": "none",
+  "host_mounts": false,
+  "published_ports": false,
+  "scope": "Candidate schema and eight selected constraint smoke checks; not service concurrency/E2E.",
+  "postgres_version": "PostgreSQL 16.15 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit",
+  "tables_created": 16,
+  "constraint_checks": 8,
+  "disposable_container_stopped": true
+}

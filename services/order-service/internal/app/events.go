@@ -275,6 +275,9 @@ func (s *Service) Recover(ctx context.Context, p domain.Principal, id string) er
 	if !p.Manager() {
 		return domain.E("PERMISSION_DENIED", 403)
 	}
+	if p.IAM && !p.HasPermission("ORDER_RECOVERY_EXECUTE") {
+		return domain.E("PERMISSION_DENIED", 403)
+	}
 	tx, e := s.DB.Begin(ctx)
 	if e != nil {
 		return e
@@ -284,7 +287,7 @@ func (s *Service) Recover(ctx context.Context, p domain.Principal, id string) er
 	var scope, status, stage string
 	e = tx.QueryRow(ctx, "SELECT order_id,scope,status,stage FROM checkout_operations WHERE cohort='sandbox-3.1' AND id=$1 FOR UPDATE", id).Scan(&order, &scope, &status, &stage)
 	if e == nil {
-		if p.Role != "ADMIN" {
+		if p.IAM && !p.PermissionScope("ORDER_RECOVERY_EXECUTE").Global || !p.IAM && p.Role != "ADMIN" {
 			return domain.E("PERMISSION_DENIED", 403)
 		}
 		if status != "MANUAL_REVIEW" {
@@ -308,6 +311,9 @@ func (s *Service) Recover(ctx context.Context, p domain.Principal, id string) er
 			return e
 		}
 		if !CanRead(p, o) {
+			return domain.E("ORDER_NOT_FOUND", 404)
+		}
+		if !p.AllowsAction("ORDER_RECOVERY_EXECUTE", o.Warehouse) {
 			return domain.E("ORDER_NOT_FOUND", 404)
 		}
 		_, e = tx.Exec(ctx, "UPDATE jobs SET status='RETRY',attempts=0,lease_owner=NULL,lease_until=NULL,lease_epoch=lease_epoch+1,run_after=clock_timestamp() WHERE id=$1", id)

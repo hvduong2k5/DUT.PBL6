@@ -1,0 +1,1652 @@
+{
+  "uuid": "00000000-0000-4000-8000-000000000001",
+  "lastMigration": 29,
+  "name": "O Ma - Authentication MVP",
+  "endpointPrefix": "api/v1",
+  "latency": 0,
+  "port": 4010,
+  "hostname": "127.0.0.1",
+  "routes": [
+    {
+      "uuid": "10000000-0000-4000-8000-000000000002",
+      "type": "http",
+      "documentation": "Health check for local tooling.",
+      "method": "get",
+      "endpoint": "health",
+      "responses": [
+        {
+          "uuid": "10000000-0000-4000-8000-000000000001",
+          "body": "{\n  \"status\": \"ok\",\n  \"environment\": \"oma-auth-mvp\",\n  \"version\": \"0.2\"\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "healthy",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "enabled": true,
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "10000000-0000-4000-8000-000000000011",
+      "type": "http",
+      "documentation": "AUTH-C01 — Email/password login. Select deterministic outcomes with X-Mock-Scenario.",
+      "method": "post",
+      "endpoint": "auth/login",
+      "responses": [
+        {
+          "uuid": "10000000-0000-4000-8000-000000000003",
+          "body": "{\n  \"code\": \"AUTHENTICATION_FAILED\",\n  \"message\": \"Email hoặc mật khẩu không chính xác.\",\n  \"requestId\": \"REQ-LOGIN-401\"\n}",
+          "latency": 0,
+          "statusCode": 401,
+          "label": "login-invalid",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "login-invalid",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000004",
+          "body": "{\n  \"code\": \"ACCOUNT_UNAVAILABLE\",\n  \"message\": \"Tài khoản hiện không thể đăng nhập. Vui lòng liên hệ hỗ trợ.\",\n  \"requestId\": \"REQ-LOGIN-403\"\n}",
+          "latency": 0,
+          "statusCode": 403,
+          "label": "login-unavailable",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "login-unavailable",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000005",
+          "body": "{\n  \"code\": \"VALIDATION_ERROR\",\n  \"message\": \"Request is invalid\",\n  \"errors\": [\n    {\n      \"field\": \"email\",\n      \"code\": \"INVALID_FORMAT\",\n      \"message\": \"Email chưa đúng định dạng\"\n    },\n    {\n      \"field\": \"password\",\n      \"code\": \"REQUIRED\",\n      \"message\": \"Vui lòng nhập mật khẩu\"\n    }\n  ],\n  \"requestId\": \"REQ-LOGIN-422\"\n}",
+          "latency": 0,
+          "statusCode": 422,
+          "label": "login-validation",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "login-validation",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000006",
+          "body": "{\n  \"code\": \"RATE_LIMITED\",\n  \"message\": \"Bạn đã thử quá nhiều lần. Vui lòng thử lại sau.\",\n  \"requestId\": \"REQ-LOGIN-429\"\n}",
+          "latency": 0,
+          "statusCode": 429,
+          "label": "login-rate-limited",
+          "headers": [
+            {
+              "key": "Retry-After",
+              "value": "60"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "login-rate-limited",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000007",
+          "body": "{\n  \"code\": \"INTERNAL_SERVER_ERROR\",\n  \"message\": \"Đã xảy ra lỗi hệ thống.\",\n  \"requestId\": \"REQ-LOGIN-500\"\n}",
+          "latency": 0,
+          "statusCode": 500,
+          "label": "login-server-error",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "login-server-error",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000008",
+          "body": "{\n  \"authenticated\": true,\n  \"customer\": {\n    \"id\": \"CUS-001\",\n    \"displayName\": \"Khách Tri Kỷ\",\n    \"status\": \"ACTIVE\"\n  }\n}",
+          "latency": 3000,
+          "statusCode": 200,
+          "label": "login-slow",
+          "headers": [
+            {
+              "key": "Set-Cookie",
+              "value": "__Host-oma_session=mock-session-authenticated; Path=/; Max-Age=86400; HttpOnly; Secure; SameSite=Lax"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "login-slow",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000009",
+          "body": "{\n  \"authenticated\": true,\n  \"customer\": {\n    \"id\": \"CUS-001\",\n    \"displayName\": \"Khách Tri Kỷ\",\n    \"status\": \"ACTIVE\"\n  }\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "login-remembered",
+          "headers": [
+            {
+              "key": "Set-Cookie",
+              "value": "__Host-oma_session=mock-session-remembered; Path=/; Max-Age=2592000; HttpOnly; Secure; SameSite=Lax"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "login-remembered",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000010",
+          "body": "{\n  \"authenticated\": true,\n  \"customer\": {\n    \"id\": \"CUS-001\",\n    \"displayName\": \"Khách Tri Kỷ\",\n    \"status\": \"ACTIVE\"\n  }\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "login-success",
+          "headers": [
+            {
+              "key": "Set-Cookie",
+              "value": "__Host-oma_session=mock-session-authenticated; Path=/; Max-Age=86400; HttpOnly; Secure; SameSite=Lax"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "enabled": true,
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "10000000-0000-4000-8000-000000000015",
+      "type": "http",
+      "documentation": "AUTH-C02 — Bootstrap the current authenticated customer summary.",
+      "method": "get",
+      "endpoint": "auth/me",
+      "responses": [
+        {
+          "uuid": "10000000-0000-4000-8000-000000000012",
+          "body": "{\n  \"code\": \"SESSION_EXPIRED\",\n  \"message\": \"Phiên đăng nhập đã hết hạn.\",\n  \"requestId\": \"REQ-ME-401\"\n}",
+          "latency": 0,
+          "statusCode": 401,
+          "label": "session-expired",
+          "headers": [
+            {
+              "key": "Set-Cookie",
+              "value": "__Host-oma_session=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "session-expired",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000013",
+          "body": "{\n  \"authenticated\": true,\n  \"customer\": {\n    \"id\": \"CUS-001\",\n    \"displayName\": \"Khách Tri Kỷ\",\n    \"status\": \"ACTIVE\"\n  }\n}",
+          "latency": 3000,
+          "statusCode": 200,
+          "label": "me-slow",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "me-slow",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000014",
+          "body": "{\n  \"authenticated\": true,\n  \"customer\": {\n    \"id\": \"CUS-001\",\n    \"displayName\": \"Khách Tri Kỷ\",\n    \"status\": \"ACTIVE\"\n  }\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "me-authenticated",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "enabled": true,
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "10000000-0000-4000-8000-000000000019",
+      "type": "http",
+      "documentation": "AUTH-C03 — Idempotent logout and session cookie removal.",
+      "method": "post",
+      "endpoint": "auth/logout",
+      "responses": [
+        {
+          "uuid": "10000000-0000-4000-8000-000000000016",
+          "body": "{\n  \"code\": \"INTERNAL_SERVER_ERROR\",\n  \"message\": \"Không thể kết thúc phiên lúc này.\",\n  \"requestId\": \"REQ-LOGOUT-500\"\n}",
+          "latency": 0,
+          "statusCode": 500,
+          "label": "logout-server-error",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "logout-server-error",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000017",
+          "body": "",
+          "latency": 3000,
+          "statusCode": 204,
+          "label": "logout-slow",
+          "headers": [
+            {
+              "key": "Set-Cookie",
+              "value": "__Host-oma_session=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax"
+            },
+            {
+              "key": "Clear-Site-Data",
+              "value": "\"cache\", \"cookies\", \"storage\""
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "logout-slow",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000018",
+          "body": "",
+          "latency": 0,
+          "statusCode": 204,
+          "label": "logout-success",
+          "headers": [
+            {
+              "key": "Set-Cookie",
+              "value": "__Host-oma_session=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax"
+            },
+            {
+              "key": "Clear-Site-Data",
+              "value": "\"cache\", \"cookies\", \"storage\""
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "enabled": true,
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "10000000-0000-4000-8000-000000000028",
+      "type": "http",
+      "documentation": "AUTH-C04 — Create a PENDING_VERIFICATION customer registration.",
+      "method": "post",
+      "endpoint": "auth/register",
+      "responses": [
+        {
+          "uuid": "10000000-0000-4000-8000-000000000020",
+          "body": "{\n  \"code\": \"REGISTRATION_NOT_AVAILABLE\",\n  \"message\": \"Không thể tạo tài khoản bằng thông tin này. Bạn có thể đăng nhập hoặc khôi phục quyền truy cập.\",\n  \"requestId\": \"REQ-REG-409\"\n}",
+          "latency": 0,
+          "statusCode": 409,
+          "label": "register-unavailable",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "register-unavailable",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000021",
+          "body": "{\n  \"code\": \"VALIDATION_ERROR\",\n  \"message\": \"Password does not satisfy the approved policy.\",\n  \"errors\": [\n    {\n      \"field\": \"password\",\n      \"code\": \"PASSWORD_TOO_SHORT\",\n      \"message\": \"Mật khẩu phải có ít nhất 15 ký tự\"\n    },\n    {\n      \"field\": \"password\",\n      \"code\": \"PASSWORD_MISSING_UPPERCASE\",\n      \"message\": \"Mật khẩu phải có ít nhất một chữ hoa\"\n    },\n    {\n      \"field\": \"password\",\n      \"code\": \"PASSWORD_MISSING_LOWERCASE\",\n      \"message\": \"Mật khẩu phải có ít nhất một chữ thường\"\n    },\n    {\n      \"field\": \"password\",\n      \"code\": \"PASSWORD_MISSING_DIGIT\",\n      \"message\": \"Mật khẩu phải có ít nhất một chữ số\"\n    },\n    {\n      \"field\": \"password\",\n      \"code\": \"PASSWORD_MISSING_SPECIAL\",\n      \"message\": \"Mật khẩu phải có ít nhất một ký tự đặc biệt\"\n    }\n  ],\n  \"requestId\": \"REQ-REG-422\"\n}",
+          "latency": 0,
+          "statusCode": 422,
+          "label": "register-password-validation",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "register-password-validation",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000022",
+          "body": "{\n  \"code\": \"VALIDATION_ERROR\",\n  \"message\": \"Request is invalid\",\n  \"errors\": [\n    {\n      \"field\": \"displayName\",\n      \"code\": \"REQUIRED\",\n      \"message\": \"Vui lòng nhập tên hiển thị\"\n    },\n    {\n      \"field\": \"email\",\n      \"code\": \"INVALID_FORMAT\",\n      \"message\": \"Email chưa đúng định dạng\"\n    },\n    {\n      \"field\": \"termsVersion\",\n      \"code\": \"TERMS_NOT_ACCEPTED\",\n      \"message\": \"Bạn cần chấp nhận điều khoản\"\n    }\n  ],\n  \"requestId\": \"REQ-REG-422-FIELDS\"\n}",
+          "latency": 0,
+          "statusCode": 422,
+          "label": "register-validation",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "register-validation",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000023",
+          "body": "{\n  \"code\": \"RATE_LIMITED\",\n  \"message\": \"Bạn đã gửi quá nhiều yêu cầu đăng ký.\",\n  \"requestId\": \"REQ-REG-429\"\n}",
+          "latency": 0,
+          "statusCode": 429,
+          "label": "register-rate-limited",
+          "headers": [
+            {
+              "key": "Retry-After",
+              "value": "60"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "register-rate-limited",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000024",
+          "body": "{\n  \"code\": \"NOTIFICATION_DELIVERY_FAILED\",\n  \"message\": \"Chưa thể gửi email xác minh. Vui lòng thử lại.\",\n  \"requestId\": \"REQ-REG-503\"\n}",
+          "latency": 0,
+          "statusCode": 503,
+          "label": "register-delivery-failed",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "register-delivery-failed",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000025",
+          "body": "{\n  \"code\": \"INTERNAL_SERVER_ERROR\",\n  \"message\": \"Đã xảy ra lỗi hệ thống.\",\n  \"requestId\": \"REQ-REG-500\"\n}",
+          "latency": 0,
+          "statusCode": 500,
+          "label": "register-server-error",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "register-server-error",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000026",
+          "body": "{\n  \"status\": \"PENDING_VERIFICATION\",\n  \"verificationId\": \"REGV-001\",\n  \"delivery\": {\n    \"channel\": \"EMAIL\",\n    \"maskedDestination\": \"c***@example.com\"\n  },\n  \"verificationExpiresAt\": \"{{dateTimeShift days=1}}\",\n  \"resendAvailableAt\": \"{{dateTimeShift minutes=1}}\"\n}",
+          "latency": 3000,
+          "statusCode": 201,
+          "label": "register-slow",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "register-slow",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000027",
+          "body": "{\n  \"status\": \"PENDING_VERIFICATION\",\n  \"verificationId\": \"REGV-001\",\n  \"delivery\": {\n    \"channel\": \"EMAIL\",\n    \"maskedDestination\": \"c***@example.com\"\n  },\n  \"verificationExpiresAt\": \"{{dateTimeShift days=1}}\",\n  \"resendAvailableAt\": \"{{dateTimeShift minutes=1}}\"\n}",
+          "latency": 0,
+          "statusCode": 201,
+          "label": "register-pending-verification",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "enabled": true,
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "10000000-0000-4000-8000-000000000035",
+      "type": "http",
+      "documentation": "AUTH-C05 — Exchange a registration magic-link token, activate account, and create session.",
+      "method": "post",
+      "endpoint": "auth/registration-verifications/confirm",
+      "responses": [
+        {
+          "uuid": "10000000-0000-4000-8000-000000000029",
+          "body": "{\n  \"code\": \"VERIFICATION_INVALID\",\n  \"message\": \"Liên kết xác minh không hợp lệ.\",\n  \"requestId\": \"REQ-REGV-422\"\n}",
+          "latency": 0,
+          "statusCode": 422,
+          "label": "registration-link-invalid",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "registration-link-invalid",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000030",
+          "body": "{\n  \"code\": \"VERIFICATION_EXPIRED\",\n  \"message\": \"Liên kết xác minh đã hết hạn.\",\n  \"requestId\": \"REQ-REGV-410\"\n}",
+          "latency": 0,
+          "statusCode": 410,
+          "label": "registration-link-expired",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "registration-link-expired",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000031",
+          "body": "{\n  \"code\": \"VERIFICATION_ALREADY_USED\",\n  \"message\": \"Liên kết xác minh đã được sử dụng.\",\n  \"requestId\": \"REQ-REGV-409\"\n}",
+          "latency": 0,
+          "statusCode": 409,
+          "label": "registration-link-used",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "registration-link-used",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000032",
+          "body": "{\n  \"code\": \"INTERNAL_SERVER_ERROR\",\n  \"message\": \"Đã xảy ra lỗi hệ thống.\",\n  \"requestId\": \"REQ-REGV-500\"\n}",
+          "latency": 0,
+          "statusCode": 500,
+          "label": "registration-link-server-error",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "registration-link-server-error",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000033",
+          "body": "{\n  \"status\": \"ACTIVE\",\n  \"authenticated\": true,\n  \"customer\": {\n    \"id\": \"CUS-001\",\n    \"displayName\": \"Khách Tri Kỷ\",\n    \"status\": \"ACTIVE\"\n  }\n}",
+          "latency": 3000,
+          "statusCode": 200,
+          "label": "registration-link-slow",
+          "headers": [
+            {
+              "key": "Set-Cookie",
+              "value": "__Host-oma_session=mock-session-authenticated; Path=/; Max-Age=86400; HttpOnly; Secure; SameSite=Lax"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "registration-link-slow",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000034",
+          "body": "{\n  \"status\": \"ACTIVE\",\n  \"authenticated\": true,\n  \"customer\": {\n    \"id\": \"CUS-001\",\n    \"displayName\": \"Khách Tri Kỷ\",\n    \"status\": \"ACTIVE\"\n  }\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "registration-link-success",
+          "headers": [
+            {
+              "key": "Set-Cookie",
+              "value": "__Host-oma_session=mock-session-authenticated; Path=/; Max-Age=86400; HttpOnly; Secure; SameSite=Lax"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "enabled": true,
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "10000000-0000-4000-8000-000000000041",
+      "type": "http",
+      "documentation": "AUTH-C06 — Resend registration verification email after server-controlled cooldown.",
+      "method": "post",
+      "endpoint": "auth/registration-verifications/:verificationId/resend",
+      "responses": [
+        {
+          "uuid": "10000000-0000-4000-8000-000000000036",
+          "body": "{\n  \"code\": \"RATE_LIMITED\",\n  \"message\": \"Vui lòng chờ trước khi gửi lại email.\",\n  \"requestId\": \"REQ-REGV-RESEND-429\"\n}",
+          "latency": 0,
+          "statusCode": 429,
+          "label": "registration-resend-rate-limited",
+          "headers": [
+            {
+              "key": "Retry-After",
+              "value": "60"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "registration-resend-rate-limited",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000037",
+          "body": "{\n  \"code\": \"NOTIFICATION_DELIVERY_FAILED\",\n  \"message\": \"Chưa thể gửi email xác minh. Vui lòng thử lại.\",\n  \"requestId\": \"REQ-REGV-RESEND-503\"\n}",
+          "latency": 0,
+          "statusCode": 503,
+          "label": "registration-resend-delivery-failed",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "registration-resend-delivery-failed",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000038",
+          "body": "{\n  \"code\": \"VERIFICATION_REQUEST_INVALID\",\n  \"message\": \"Yêu cầu xác minh không còn hiệu lực.\",\n  \"requestId\": \"REQ-REGV-RESEND-404\"\n}",
+          "latency": 0,
+          "statusCode": 404,
+          "label": "registration-resend-invalid",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "registration-resend-invalid",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000039",
+          "body": "{\n  \"accepted\": true,\n  \"messageCode\": \"VERIFICATION_EMAIL_ACCEPTED\",\n  \"resendAvailableAt\": \"{{dateTimeShift minutes=1}}\"\n}",
+          "latency": 3000,
+          "statusCode": 202,
+          "label": "registration-resend-slow",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "registration-resend-slow",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000040",
+          "body": "{\n  \"accepted\": true,\n  \"messageCode\": \"VERIFICATION_EMAIL_ACCEPTED\",\n  \"resendAvailableAt\": \"{{dateTimeShift minutes=1}}\"\n}",
+          "latency": 0,
+          "statusCode": 202,
+          "label": "registration-resend-accepted",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "enabled": true,
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "10000000-0000-4000-8000-000000000048",
+      "type": "http",
+      "documentation": "AUTH-C07/C10 — Request or resend a neutral password-recovery email response.",
+      "method": "post",
+      "endpoint": "auth/recovery-requests",
+      "responses": [
+        {
+          "uuid": "10000000-0000-4000-8000-000000000042",
+          "body": "{\n  \"accepted\": true,\n  \"messageCode\": \"RECOVERY_REQUEST_ACCEPTED\"\n}",
+          "latency": 0,
+          "statusCode": 202,
+          "label": "recovery-request-unknown",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "recovery-request-unknown",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000043",
+          "body": "{\n  \"code\": \"RATE_LIMITED\",\n  \"message\": \"Vui lòng chờ trước khi yêu cầu lại.\",\n  \"requestId\": \"REQ-REC-429\"\n}",
+          "latency": 0,
+          "statusCode": 429,
+          "label": "recovery-rate-limited",
+          "headers": [
+            {
+              "key": "Retry-After",
+              "value": "60"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "recovery-rate-limited",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000044",
+          "body": "{\n  \"code\": \"NOTIFICATION_DELIVERY_FAILED\",\n  \"message\": \"Chưa thể xử lý yêu cầu lúc này. Vui lòng thử lại.\",\n  \"requestId\": \"REQ-REC-503\"\n}",
+          "latency": 0,
+          "statusCode": 503,
+          "label": "recovery-delivery-failed",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "recovery-delivery-failed",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000045",
+          "body": "{\n  \"code\": \"INTERNAL_SERVER_ERROR\",\n  \"message\": \"Đã xảy ra lỗi hệ thống.\",\n  \"requestId\": \"REQ-REC-500\"\n}",
+          "latency": 0,
+          "statusCode": 500,
+          "label": "recovery-server-error",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "recovery-server-error",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000046",
+          "body": "{\n  \"accepted\": true,\n  \"messageCode\": \"RECOVERY_REQUEST_ACCEPTED\"\n}",
+          "latency": 3000,
+          "statusCode": 202,
+          "label": "recovery-slow",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "recovery-slow",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000047",
+          "body": "{\n  \"accepted\": true,\n  \"messageCode\": \"RECOVERY_REQUEST_ACCEPTED\"\n}",
+          "latency": 0,
+          "statusCode": 202,
+          "label": "recovery-request-accepted",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "enabled": true,
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "10000000-0000-4000-8000-000000000055",
+      "type": "http",
+      "documentation": "AUTH-C08 — Exchange a password-recovery magic-link token for a restricted reset proof.",
+      "method": "post",
+      "endpoint": "auth/recovery-requests/verify",
+      "responses": [
+        {
+          "uuid": "10000000-0000-4000-8000-000000000049",
+          "body": "{\n  \"code\": \"RECOVERY_REQUEST_INVALID\",\n  \"message\": \"Liên kết khôi phục không hợp lệ.\",\n  \"requestId\": \"REQ-RECV-422\"\n}",
+          "latency": 0,
+          "statusCode": 422,
+          "label": "recovery-link-invalid",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "recovery-link-invalid",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000050",
+          "body": "{\n  \"code\": \"RECOVERY_REQUEST_EXPIRED\",\n  \"message\": \"Liên kết khôi phục đã hết hạn.\",\n  \"requestId\": \"REQ-RECV-410\"\n}",
+          "latency": 0,
+          "statusCode": 410,
+          "label": "recovery-link-expired",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "recovery-link-expired",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000051",
+          "body": "{\n  \"code\": \"RECOVERY_REQUEST_ALREADY_USED\",\n  \"message\": \"Liên kết khôi phục đã được sử dụng.\",\n  \"requestId\": \"REQ-RECV-409\"\n}",
+          "latency": 0,
+          "statusCode": 409,
+          "label": "recovery-link-used",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "recovery-link-used",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000052",
+          "body": "{\n  \"code\": \"INTERNAL_SERVER_ERROR\",\n  \"message\": \"Đã xảy ra lỗi hệ thống.\",\n  \"requestId\": \"REQ-RECV-500\"\n}",
+          "latency": 0,
+          "statusCode": 500,
+          "label": "recovery-verify-server-error",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "recovery-verify-server-error",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000053",
+          "body": "{\n  \"verified\": true,\n  \"resetProof\": \"mock-reset-proof-valid\",\n  \"expiresAt\": \"{{dateTimeShift minutes=5}}\"\n}",
+          "latency": 3000,
+          "statusCode": 200,
+          "label": "recovery-verify-slow",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "recovery-verify-slow",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000054",
+          "body": "{\n  \"verified\": true,\n  \"resetProof\": \"mock-reset-proof-valid\",\n  \"expiresAt\": \"{{dateTimeShift minutes=5}}\"\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "recovery-verify-success",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "enabled": true,
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "10000000-0000-4000-8000-000000000063",
+      "type": "http",
+      "documentation": "AUTH-C09 — Reset password, revoke all sessions, and require normal login.",
+      "method": "post",
+      "endpoint": "auth/recovery-requests/reset",
+      "responses": [
+        {
+          "uuid": "10000000-0000-4000-8000-000000000056",
+          "body": "{\n  \"code\": \"VALIDATION_ERROR\",\n  \"message\": \"Password does not satisfy the approved policy.\",\n  \"errors\": [\n    {\n      \"field\": \"newPassword\",\n      \"code\": \"PASSWORD_TOO_SHORT\",\n      \"message\": \"Mật khẩu phải có ít nhất 15 ký tự\"\n    },\n    {\n      \"field\": \"newPassword\",\n      \"code\": \"PASSWORD_MISSING_UPPERCASE\",\n      \"message\": \"Mật khẩu phải có ít nhất một chữ hoa\"\n    },\n    {\n      \"field\": \"newPassword\",\n      \"code\": \"PASSWORD_MISSING_LOWERCASE\",\n      \"message\": \"Mật khẩu phải có ít nhất một chữ thường\"\n    },\n    {\n      \"field\": \"newPassword\",\n      \"code\": \"PASSWORD_MISSING_DIGIT\",\n      \"message\": \"Mật khẩu phải có ít nhất một chữ số\"\n    },\n    {\n      \"field\": \"newPassword\",\n      \"code\": \"PASSWORD_MISSING_SPECIAL\",\n      \"message\": \"Mật khẩu phải có ít nhất một ký tự đặc biệt\"\n    }\n  ],\n  \"requestId\": \"REQ-RESET-422\"\n}",
+          "latency": 0,
+          "statusCode": 422,
+          "label": "recovery-reset-validation",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "recovery-reset-validation",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000057",
+          "body": "{\n  \"code\": \"RESET_PROOF_INVALID\",\n  \"message\": \"Yêu cầu đặt lại mật khẩu không hợp lệ.\",\n  \"requestId\": \"REQ-RESET-PROOF-422\"\n}",
+          "latency": 0,
+          "statusCode": 422,
+          "label": "recovery-reset-proof-invalid",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "recovery-reset-proof-invalid",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000058",
+          "body": "{\n  \"code\": \"RESET_PROOF_EXPIRED\",\n  \"message\": \"Yêu cầu đặt lại mật khẩu đã hết hạn.\",\n  \"requestId\": \"REQ-RESET-PROOF-410\"\n}",
+          "latency": 0,
+          "statusCode": 410,
+          "label": "recovery-reset-proof-expired",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "recovery-reset-proof-expired",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000059",
+          "body": "{\n  \"code\": \"RESET_PROOF_ALREADY_USED\",\n  \"message\": \"Yêu cầu đặt lại mật khẩu đã được sử dụng.\",\n  \"requestId\": \"REQ-RESET-PROOF-409\"\n}",
+          "latency": 0,
+          "statusCode": 409,
+          "label": "recovery-reset-proof-used",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "recovery-reset-proof-used",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000060",
+          "body": "{\n  \"code\": \"INTERNAL_SERVER_ERROR\",\n  \"message\": \"Đã xảy ra lỗi hệ thống.\",\n  \"requestId\": \"REQ-RESET-500\"\n}",
+          "latency": 0,
+          "statusCode": 500,
+          "label": "recovery-reset-server-error",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "recovery-reset-server-error",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000061",
+          "body": "",
+          "latency": 3000,
+          "statusCode": 204,
+          "label": "recovery-reset-slow",
+          "headers": [
+            {
+              "key": "Set-Cookie",
+              "value": "__Host-oma_session=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax"
+            },
+            {
+              "key": "Clear-Site-Data",
+              "value": "\"cache\", \"cookies\", \"storage\""
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "recovery-reset-slow",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "10000000-0000-4000-8000-000000000062",
+          "body": "",
+          "latency": 0,
+          "statusCode": 204,
+          "label": "recovery-reset-success",
+          "headers": [
+            {
+              "key": "Set-Cookie",
+              "value": "__Host-oma_session=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax"
+            },
+            {
+              "key": "Clear-Site-Data",
+              "value": "\"cache\", \"cookies\", \"storage\""
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "enabled": true,
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    }
+  ],
+  "proxyMode": false,
+  "proxyHost": "",
+  "proxyRemovePrefix": false,
+  "tlsOptions": {
+    "enabled": false,
+    "type": "CERT",
+    "pfxPath": "",
+    "certPath": "",
+    "keyPath": "",
+    "caPath": "",
+    "passphrase": ""
+  },
+  "cors": true,
+  "headers": [
+    {
+      "key": "Content-Type",
+      "value": "application/json; charset=utf-8"
+    },
+    {
+      "key": "Cache-Control",
+      "value": "no-store"
+    },
+    {
+      "key": "X-Mock-Environment",
+      "value": "oma-auth-mvp"
+    }
+  ],
+  "proxyReqHeaders": [],
+  "proxyResHeaders": [],
+  "data": [],
+  "folders": [],
+  "rootChildren": [
+    {
+      "type": "route",
+      "uuid": "10000000-0000-4000-8000-000000000002"
+    },
+    {
+      "type": "route",
+      "uuid": "10000000-0000-4000-8000-000000000011"
+    },
+    {
+      "type": "route",
+      "uuid": "10000000-0000-4000-8000-000000000015"
+    },
+    {
+      "type": "route",
+      "uuid": "10000000-0000-4000-8000-000000000019"
+    },
+    {
+      "type": "route",
+      "uuid": "10000000-0000-4000-8000-000000000028"
+    },
+    {
+      "type": "route",
+      "uuid": "10000000-0000-4000-8000-000000000035"
+    },
+    {
+      "type": "route",
+      "uuid": "10000000-0000-4000-8000-000000000041"
+    },
+    {
+      "type": "route",
+      "uuid": "10000000-0000-4000-8000-000000000048"
+    },
+    {
+      "type": "route",
+      "uuid": "10000000-0000-4000-8000-000000000055"
+    },
+    {
+      "type": "route",
+      "uuid": "10000000-0000-4000-8000-000000000063"
+    }
+  ],
+  "callbacks": []
+}

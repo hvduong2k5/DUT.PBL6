@@ -17,9 +17,16 @@ var ErrProof = errors.New("INVENTORY_FINALIZATION_PROOF_UNAVAILABLE")
 type Adapter struct {
 	Client inventory.InventoryServiceClient
 	Token  string
+	// Terminal is opt-in for the real TLS/Bearer provider. The legacy simulator
+	// remains a separate profile; no error triggers a fallback between profiles.
+	Terminal bool
 }
 
 func (a Adapter) Finalize(ctx context.Context, root core.Aggregate, key string) (core.ResourceProof, error) {
+	if a.Terminal {
+		r := root.Record().Reservation
+		return a.terminalCommand(ctx, core.SnapshotInput{OrderID: root.ID(), WarehouseID: r.WarehouseID, Provenance: core.Provenance{ItemsDigest: r.ItemsDigest}}, r, key, "FinalizeReservation")
+	}
 	if a.Client == nil || len(a.Token) < 16 {
 		return core.ResourceProof{}, ErrProof
 	}

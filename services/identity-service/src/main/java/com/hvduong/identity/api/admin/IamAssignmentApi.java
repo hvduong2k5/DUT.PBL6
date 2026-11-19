@@ -1,25 +1,61 @@
 package com.hvduong.identity.api.admin;
 
-import com.hvduong.identity.dto.common.ApiResponse;
-import com.hvduong.identity.dto.request.AssignRoleRequest;
+import java.util.List;
+import java.util.UUID;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+
+import com.hvduong.identity.common.response.ApiResponse;
+import com.hvduong.identity.application.dto.request.AssignRoleRequest;
+import com.hvduong.identity.application.dto.request.UpdateRoleAssignmentRequest;
+import com.hvduong.identity.application.dto.response.RoleAssignmentResponse;
+
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
-import java.util.UUID;
 
 @Tag(name = "IAM Role Assignments", description = "Gán vai trò và phạm vi làm việc cho nhân viên nội bộ theo chuẩn RESTful (Mục 3.3.1)")
-@RequestMapping({"/api/v1/admin/role-assignments", "/api/v1/admin/iam/assignments"})
+@RequestMapping("/api/v1/admin/role-assignments")
 public interface IamAssignmentApi {
+
+    @Operation(summary = "Liệt kê bản ghi gán vai trò", description = "Truy vấn danh sách gán vai trò với bộ lọc tuỳ chọn (principalId, roleId, roleCode, scopeType, scopeId, status).")
+    @SecurityRequirement(name = "bearerAuth")
+    @GetMapping
+    ResponseEntity<ApiResponse<List<RoleAssignmentResponse>>> listAssignments(
+            @RequestParam(required = false) UUID principalId,
+            @RequestParam(required = false) UUID roleId,
+            @RequestParam(required = false) String roleCode,
+            @RequestParam(required = false) String scopeType,
+            @RequestParam(required = false) String scopeId,
+            @RequestParam(required = false) String status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    );
 
     @Operation(summary = "Gán vai trò cho nhân viên [Chuẩn RESTful 3.3.1]", description = "Gán vai trò chức danh kèm phạm vi nghiệp vụ (GLOBAL, WAREHOUSE, STORE) qua POST /api/v1/admin/role-assignments.")
     @SecurityRequirement(name = "bearerAuth")
     @PostMapping
     ResponseEntity<ApiResponse<UUID>> assignRole(
             @RequestBody AssignRoleRequest request,
+            @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorId
+    );
+
+    @Operation(summary = "Cập nhật phân công vai trò [Chuẩn RESTful 3.3.1: HTTP PATCH]", description = "Cập nhật thời hạn hết hạn (validUntil) hoặc lý do phân công vai trò qua HTTP PATCH.")
+    @SecurityRequirement(name = "bearerAuth")
+    @PatchMapping("/{assignmentId}")
+    ResponseEntity<ApiResponse<RoleAssignmentResponse>> updateRoleAssignment(
+            @Parameter(description = "ID của bản ghi gán vai trò", required = true) @PathVariable UUID assignmentId,
+            @RequestBody UpdateRoleAssignmentRequest request,
             @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorId
     );
 

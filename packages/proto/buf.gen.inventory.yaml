@@ -1,0 +1,16 @@
+version: v1
+plugins:
+  - plugin: buf.build/protocolbuffers/go:v1.34.1
+    out: ../../services/inventory-service/pkg/proto
+    opt:
+      - paths=source_relative
+      - Mcommon/v1/types.proto=dut-pbl6/inventory-service/pkg/proto/common/v1;commonv1
+      - Mcommon/v1/errors.proto=dut-pbl6/inventory-service/pkg/proto/common/v1;commonv1
+      - Minventory/v1/inventory.proto=dut-pbl6/inventory-service/pkg/proto/inventory/v1;inventoryv1
+  - plugin: buf.build/grpc/go:v1.3.0
+    out: ../../services/inventory-service/pkg/proto
+    opt:
+      - paths=source_relative
+      - Mcommon/v1/types.proto=dut-pbl6/inventory-service/pkg/proto/common/v1;commonv1
+      - Mcommon/v1/errors.proto=dut-pbl6/inventory-service/pkg/proto/common/v1;commonv1
+      - Minventory/v1/inventory.proto=dut-pbl6/inventory-service/pkg/proto/inventory/v1;inventoryv1

@@ -1,0 +1,295 @@
+import 'package:flutter/material.dart';
+import 'package:mobile_app/core/config/app_features.dart';
+import 'package:mobile_app/core/theme/heritage_tokens.dart';
+import 'package:mobile_app/core/widgets/heritage/heritage_button.dart';
+import 'package:mobile_app/core/widgets/heritage/heritage_emblem.dart';
+import 'package:mobile_app/core/widgets/heritage/heritage_frame.dart';
+import 'package:mobile_app/core/widgets/heritage/heritage_surface.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
+import 'package:mobile_app/app/router/routes.dart';
+import 'package:mobile_app/core/theme/app_colors.dart';
+import 'package:mobile_app/core/theme/app_spacing.dart';
+import 'package:mobile_app/core/widgets/app_bottom_navigation.dart';
+import 'package:mobile_app/core/widgets/app_mobile_header.dart';
+import 'package:mobile_app/features/auth/domain/auth_models.dart';
+import 'package:mobile_app/features/auth/presentation/auth_cubit.dart';
+import 'package:mobile_app/features/auth/presentation/capabilities_cubit.dart';
+import 'package:mobile_app/features/cart/presentation/cart_cubit.dart';
+import 'package:mobile_app/features/auth/presentation/purchase_access_banner.dart';
+import 'package:mobile_app/features/auth/presentation/identity_password_page.dart';
+
+class AccountPage extends StatelessWidget {
+  const AccountPage({super.key});
+
+  @override
+  Widget build(BuildContext context) => BlocBuilder<AuthCubit, AuthState>(
+    builder: (context, authState) => BlocBuilder<CartCubit, CartState>(
+      builder: (context, cartState) {
+        final isGuest = authState.status != AuthStatus.authenticated;
+        return Scaffold(
+          appBar: const AppMobileHeader(
+            title: 'Tài khoản',
+            showCart: true,
+            showNotifications: true,
+          ),
+          body: HeritageSurface(
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                const PurchaseAccessBanner(),
+                if (authState.sessionRestoreFailed)
+                  Card(
+                    child: ListTile(
+                      title: Text(authState.message!),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.refresh),
+                        tooltip: 'Khôi phục phiên',
+                        onPressed: context.read<AuthCubit>().restore,
+                      ),
+                    ),
+                  ),
+                if (isGuest)
+                  _GuestCard(
+                    onLogin: () => context.push(AppRoutes.login),
+                    onRegister: () => context.push(AppRoutes.register),
+                  )
+                else
+                  _ProfileCard(user: authState.user!),
+                if (!isGuest) ...[
+                  const SizedBox(height: AppSpacing.lg),
+                  if (context.read<AuthCubit>().usesBrowserIdentity)
+                    _MenuRow(
+                      icon: Icons.lock_outline,
+                      label: 'Đổi mật khẩu',
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => BlocProvider.value(
+                            value: context.read<AuthCubit>(),
+                            child: const IdentityPasswordPage(),
+                          ),
+                        ),
+                      ),
+                    ),
+                  const _SectionLabel('TÀI KHOẢN'),
+                  _MenuRow(
+                    icon: Icons.person_outline,
+                    label: 'Hồ sơ cá nhân',
+                    onTap: () => context.push(AppRoutes.profile),
+                  ),
+                  if (AppFeatures.current.enabled(AppFeature.loyalty) &&
+                      context.select(
+                        (CapabilitiesCubit cubit) =>
+                            cubit.state.allows('LOYALTY_VIEW'),
+                      ))
+                    _MenuRow(
+                      icon: Icons.loyalty_outlined,
+                      label: 'Ví điểm & đặc quyền',
+                      onTap: () => context.push(AppRoutes.loyalty),
+                    ),
+                  _MenuRow(
+                    icon: Icons.receipt_long_outlined,
+                    label: 'Đơn hàng của tôi',
+                    onTap: () => context.push(AppRoutes.orders),
+                  ),
+                  if (AppFeatures.current.enabled(AppFeature.returns))
+                    _MenuRow(
+                      icon: Icons.assignment_return_outlined,
+                      label: 'Hồ sơ hậu mãi',
+                      onTap: () => context.push(AppRoutes.returnLookup),
+                    ),
+                  _MenuRow(
+                    icon: Icons.location_on_outlined,
+                    label: 'Địa chỉ giao hàng',
+                    onTap: () => context.push(AppRoutes.addresses),
+                  ),
+                ],
+                if ((isGuest &&
+                        AppFeatures.current.enabled(
+                          AppFeature.guestOrderLookup,
+                        )) ||
+                    [
+                      AppFeature.b2b,
+                      AppFeature.promotions,
+                      AppFeature.support,
+                      AppFeature.trace,
+                    ].any(AppFeatures.current.enabled)) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  const _SectionLabel('MUA SẮM & HỖ TRỢ'),
+                ],
+                if (isGuest &&
+                    AppFeatures.current.enabled(AppFeature.guestOrderLookup))
+                  _MenuRow(
+                    icon: Icons.manage_search_outlined,
+                    label: 'Tra cứu đơn khách',
+                    onTap: () => context.push(AppRoutes.guestOrderLookup),
+                  ),
+                if (AppFeatures.current.enabled(AppFeature.b2b))
+                  _MenuRow(
+                    icon: Icons.business_outlined,
+                    label: 'Quà biếu doanh nghiệp',
+                    onTap: () => context.push(AppRoutes.b2b),
+                  ),
+                if (AppFeatures.current.enabled(AppFeature.promotions))
+                  _MenuRow(
+                    icon: Icons.local_offer_outlined,
+                    label: 'Ưu đãi Tri Kỷ',
+                    onTap: () => context.push(AppRoutes.promotions),
+                  ),
+                if (AppFeatures.current.enabled(AppFeature.support))
+                  _MenuRow(
+                    icon: Icons.help_outline,
+                    label: 'Hỗ trợ',
+                    onTap: () => context.push(AppRoutes.supportRequest),
+                  ),
+                if (AppFeatures.current.enabled(AppFeature.trace))
+                  _MenuRow(
+                    icon: Icons.qr_code_2_outlined,
+                    label: 'Truy xuất nguồn gốc',
+                    onTap: () => context.push(AppRoutes.trace),
+                  ),
+                if (!isGuest) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  OutlinedButton.icon(
+                    onPressed: () => context.read<AuthCubit>().logout(),
+                    icon: const Icon(Icons.logout),
+                    label: const Text('Đăng xuất'),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(48),
+                      foregroundColor: AppColors.darkRed,
+                      side: const BorderSide(color: AppColors.darkRed),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          bottomNavigationBar: AppBottomNavigation(
+            active: AppNavTab.account,
+            cartCount: cartState.cart.totalItems,
+          ),
+        );
+      },
+    ),
+  );
+}
+
+class _ProfileCard extends StatelessWidget {
+  const _ProfileCard({required this.user});
+  final AuthUser user;
+
+  String get _initials {
+    final parts = user.fullName.split(' ').where((s) => s.isNotEmpty).toList();
+    if (parts.isEmpty) return 'NA';
+    if (parts.length == 1) return parts[0].characters.first.toUpperCase();
+    return '${parts.first.characters.first}${parts.last.characters.first}'
+        .toUpperCase();
+  }
+
+  @override
+  Widget build(BuildContext context) => HeritageFrame(
+    level: HeritageFrameLevel.imperial,
+    padding: const EdgeInsets.all(20),
+    child: Row(
+      children: [
+        CircleAvatar(
+          radius: 32,
+          backgroundColor: HeritageColors.mat,
+          foregroundColor: HeritageColors.nauCungDinh,
+          child: Text(
+            _initials,
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+          ),
+        ),
+        const SizedBox(width: AppSpacing.md),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                user.fullName,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(color: HeritageColors.kem),
+              ),
+              Text(
+                user.phoneNumber.isEmpty ? user.email ?? '' : user.phoneNumber,
+                style: const TextStyle(color: HeritageColors.kemDam),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _GuestCard extends StatelessWidget {
+  const _GuestCard({required this.onLogin, required this.onRegister});
+  final VoidCallback onLogin;
+  final VoidCallback onRegister;
+  @override
+  Widget build(BuildContext context) => HeritageFrame(
+    level: HeritageFrameLevel.imperial,
+    padding: const EdgeInsets.all(20),
+    child: Column(
+      children: [
+        const HeritageEmblem(size: 56),
+        const SizedBox(height: AppSpacing.sm),
+        Text(
+          'Đăng nhập để quản lý đơn hàng',
+          style: Theme.of(
+            context,
+          ).textTheme.titleLarge?.copyWith(color: HeritageColors.kem),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: AppSpacing.md),
+        HeritageButton(onPressed: onLogin, label: 'Đăng nhập'),
+        const SizedBox(height: AppSpacing.sm),
+        HeritageButton(
+          onPressed: onRegister,
+          label: 'Đăng ký',
+          variant: HeritageButtonVariant.ghost,
+        ),
+      ],
+    ),
+  );
+}
+
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel(this.label);
+  final String label;
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+    child: Text(
+      label,
+      style: const TextStyle(
+        fontSize: 13,
+        letterSpacing: 1,
+        color: AppColors.textMuted,
+        fontWeight: FontWeight.bold,
+      ),
+    ),
+  );
+}
+
+class _MenuRow extends StatelessWidget {
+  const _MenuRow({required this.icon, required this.label, this.onTap});
+  final IconData icon;
+  final String label;
+  final VoidCallback? onTap;
+  @override
+  Widget build(BuildContext context) => Card(
+    margin: const EdgeInsets.only(bottom: 8),
+    child: ListTile(
+      minTileHeight: 56,
+      leading: Icon(icon),
+      title: Text(label),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: onTap,
+    ),
+  );
+}

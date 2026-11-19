@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IamRolePermissionMapper">
+
+    <insert id="insert">
+        INSERT INTO iam_role_permissions (role_id, permission_code)
+        VALUES (#{roleId}, #{permissionCode})
+    </insert>
+
+    <select id="findByRoleId" resultType="com.hvduong.identity.domain.entity.IamRolePermissionRow">
+        SELECT *
+        FROM iam_role_permissions
+        WHERE role_id = #{roleId}
+    </select>
+
+    <delete id="deleteByRoleIdAndPermission">
+        DELETE FROM iam_role_permissions
+        WHERE role_id = #{roleId} AND permission_code = #{permissionCode}
+    </delete>
+
+    <delete id="deleteByRoleId">
+        DELETE FROM iam_role_permissions
+        WHERE role_id = #{roleId}
+    </delete>
+
+    <!-- Effective permissions = active assignments of enabled roles. Never read a stale copy. -->
+    <select id="findEffectivePermissionCodesByPrincipal" resultType="java.lang.String">
+        SELECT DISTINCT rp.permission_code
+        FROM iam_role_assignments ra
+        JOIN iam_roles r ON r.role_id = ra.role_id
+                        AND r.is_enabled = TRUE
+        JOIN iam_role_permissions rp ON rp.role_id = ra.role_id
+        WHERE ra.principal_id = #{principalId}
+          AND ra.assignment_status = 'ACTIVE'
+          AND ra.valid_from &lt;= #{now}
+          AND (ra.valid_until IS NULL OR ra.valid_until &gt; #{now})
+          AND rp.permission_code IS NOT NULL
+          AND rp.permission_code &lt;&gt; ''
+        ORDER BY rp.permission_code
+    </select>
+
+    <!-- Effective permission grants with scope. Each element binds one permission to its assignment scope. -->
+    <select id="findEffectivePermissionGrantsByPrincipal" resultMap="PermissionGrantRowMap">
+        SELECT DISTINCT
+            rp.permission_code     AS permissionCode,
+            ra.scope_type          AS scopeType,
+            ra.scope_id            AS scopeId
+        FROM iam_role_assignments ra
+        JOIN iam_roles r ON r.role_id = ra.role_id
+                        AND r.is_enabled = TRUE
+        JOIN iam_role_permissions rp ON rp.role_id = ra.role_id
+        WHERE ra.principal_id = #{principalId}
+          AND ra.assignment_status = 'ACTIVE'
+          AND ra.valid_from &lt;= #{now}
+          AND (ra.valid_until IS NULL OR ra.valid_until &gt; #{now})
+          AND rp.permission_code IS NOT NULL
+          AND rp.permission_code &lt;&gt; ''
+        ORDER BY rp.permission_code, ra.scope_type, ra.scope_id
+    </select>
+
+    <resultMap id="PermissionGrantRowMap" type="com.hvduong.identity.infrastructure.persistence.mybatis.mapper.IamRolePermissionMapper$PermissionGrantRow">
+        <result property="permissionCode" column="permissionCode"/>
+        <result property="scopeType" column="scopeType"/>
+        <result property="scopeId" column="scopeId"/>
+    </resultMap>
+
+</mapper>

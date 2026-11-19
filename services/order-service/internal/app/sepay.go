@@ -165,7 +165,36 @@ func (s *Service) EnableSePayFromEnv(ctx context.Context) error {
 			}
 		}
 	}
-	if target := os.Getenv("SEPAY_INVENTORY_GRPC"); target != "" {
+	return s.enableInventoryFromEnv(ctx)
+}
+
+func (s *Service) enableInventoryFromEnv(ctx context.Context) error {
+	target := os.Getenv("SEPAY_INVENTORY_GRPC")
+	profile := os.Getenv("SEPAY_INVENTORY_PROFILE")
+	configured := profile != "" || os.Getenv("SEPAY_INVENTORY_TOKEN_FILE") != "" || os.Getenv("SEPAY_INVENTORY_CA_FILE") != "" || os.Getenv("SEPAY_INVENTORY_SERVER_NAME") != ""
+	if target == "" && configured {
+		return errors.New("Inventory profile requires SEPAY_INVENTORY_GRPC")
+	}
+	if target != "" {
+		if profile == "terminal" {
+			raw, e := os.ReadFile(os.Getenv("SEPAY_INVENTORY_TOKEN_FILE"))
+			if e != nil {
+				return e
+			}
+			adapter, conn, e := paymentinventory.DialTerminal(ctx, target, strings.TrimSpace(string(raw)), os.Getenv("SEPAY_INVENTORY_CA_FILE"), os.Getenv("SEPAY_INVENTORY_SERVER_NAME"))
+			if e != nil {
+				return e
+			}
+			s.PaymentInventory = adapter
+			s.PaymentClose = conn.Close
+			return nil
+		}
+		if profile != "" && profile != "sandbox" {
+			return errors.New("unknown SEPAY_INVENTORY_PROFILE")
+		}
+		if os.Getenv("SEPAY_INVENTORY_TOKEN_FILE") != "" || os.Getenv("SEPAY_INVENTORY_CA_FILE") != "" || os.Getenv("SEPAY_INVENTORY_SERVER_NAME") != "" {
+			return errors.New("terminal Inventory configuration requires SEPAY_INVENTORY_PROFILE=terminal")
+		}
 		conn, e := grpc.DialContext(ctx, target, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if e != nil {
 			return e

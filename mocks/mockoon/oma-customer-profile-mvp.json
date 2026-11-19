@@ -1,0 +1,1032 @@
+{
+  "uuid": "20000000-0000-4000-8000-000000000000",
+  "lastMigration": 29,
+  "name": "O Ma - Customer Profile MVP",
+  "endpointPrefix": "api/v1",
+  "latency": 0,
+  "port": 4011,
+  "hostname": "127.0.0.1",
+  "routes": [
+    {
+      "uuid": "20000000-0000-4000-8000-000000000002",
+      "type": "http",
+      "documentation": "Health check for Customer Profile MVP.",
+      "method": "get",
+      "endpoint": "health",
+      "responses": [
+        {
+          "uuid": "20000000-0000-4000-8000-000000000001",
+          "body": "{\n  \"status\": \"ok\",\n  \"environment\": \"oma-customer-profile-mvp\",\n  \"version\": \"0.1\"\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "healthy",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "enabled": true,
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "20000000-0000-4000-8000-000000000008",
+      "type": "http",
+      "documentation": "PROFILE-C01 — current Customer profile.",
+      "method": "get",
+      "endpoint": "customers/me/profile",
+      "responses": [
+        {
+          "uuid": "20000000-0000-4000-8000-000000000003",
+          "body": "{\n  \"id\": \"CUS-001\",\n  \"fullName\": \"Tôn Thất Hoàng\",\n  \"email\": \"hoang.tonthat@example.com\",\n  \"emailVerified\": true,\n  \"phone\": null,\n  \"dateOfBirth\": null,\n  \"gender\": null,\n  \"version\": 3,\n  \"updatedAt\": \"2026-09-25T08:30:00Z\"\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "profile-empty-phone",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "profile-empty-phone",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "20000000-0000-4000-8000-000000000004",
+          "body": "{\n  \"code\": \"UNAUTHENTICATED\",\n  \"message\": \"Phiên đăng nhập không hợp lệ.\",\n  \"requestId\": \"REQ-PROFILE-401\"\n}",
+          "latency": 0,
+          "statusCode": 401,
+          "label": "profile-unauthenticated",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "profile-unauthenticated",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "20000000-0000-4000-8000-000000000005",
+          "body": "{\n  \"code\": \"SERVICE_UNAVAILABLE\",\n  \"message\": \"Chưa thể tải hồ sơ lúc này.\",\n  \"requestId\": \"REQ-PROFILE-503\"\n}",
+          "latency": 0,
+          "statusCode": 503,
+          "label": "profile-server-error",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "profile-server-error",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "20000000-0000-4000-8000-000000000006",
+          "body": "{\n  \"id\": \"CUS-001\",\n  \"fullName\": \"Tôn Thất Hoàng\",\n  \"email\": \"hoang.tonthat@example.com\",\n  \"emailVerified\": true,\n  \"phone\": \"+84912345892\",\n  \"dateOfBirth\": \"1985-11-18\",\n  \"gender\": \"MALE\",\n  \"version\": 3,\n  \"updatedAt\": \"2026-09-25T08:30:00Z\"\n}",
+          "latency": 3000,
+          "statusCode": 200,
+          "label": "profile-slow",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "profile-slow",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "20000000-0000-4000-8000-000000000007",
+          "body": "{\n  \"id\": \"CUS-001\",\n  \"fullName\": \"Tôn Thất Hoàng\",\n  \"email\": \"hoang.tonthat@example.com\",\n  \"emailVerified\": true,\n  \"phone\": \"+84912345892\",\n  \"dateOfBirth\": \"1985-11-18\",\n  \"gender\": \"MALE\",\n  \"version\": 3,\n  \"updatedAt\": \"2026-09-25T08:30:00Z\"\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "profile-success",
+          "headers": [
+            {
+              "key": "ETag",
+              "value": "\"profile-v3\""
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "enabled": true,
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "20000000-0000-4000-8000-000000000014",
+      "type": "http",
+      "documentation": "PROFILE-C02 — update current Customer profile.",
+      "method": "patch",
+      "endpoint": "customers/me/profile",
+      "responses": [
+        {
+          "uuid": "20000000-0000-4000-8000-000000000009",
+          "body": "{\n  \"code\": \"VALIDATION_ERROR\",\n  \"message\": \"Hồ sơ chưa hợp lệ.\",\n  \"errors\": [\n    {\n      \"field\": \"fullName\",\n      \"code\": \"TOO_SHORT\",\n      \"message\": \"Họ và tên phải có ít nhất 2 ký tự\"\n    },\n    {\n      \"field\": \"phone\",\n      \"code\": \"INVALID_FORMAT\",\n      \"message\": \"Số điện thoại chưa đúng định dạng\"\n    },\n    {\n      \"field\": \"dateOfBirth\",\n      \"code\": \"DATE_IN_FUTURE\",\n      \"message\": \"Ngày sinh không được ở tương lai\"\n    }\n  ],\n  \"requestId\": \"REQ-PROFILE-422\"\n}",
+          "latency": 0,
+          "statusCode": 422,
+          "label": "profile-validation",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "profile-validation",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "20000000-0000-4000-8000-000000000010",
+          "body": "{\n  \"code\": \"VERSION_CONFLICT\",\n  \"message\": \"Hồ sơ vừa được cập nhật ở nơi khác.\",\n  \"requestId\": \"REQ-PROFILE-409\"\n}",
+          "latency": 0,
+          "statusCode": 409,
+          "label": "profile-conflict",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "profile-conflict",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "20000000-0000-4000-8000-000000000011",
+          "body": "{\n  \"code\": \"SERVICE_UNAVAILABLE\",\n  \"message\": \"Chưa thể lưu hồ sơ lúc này.\",\n  \"requestId\": \"REQ-PROFILE-UPD-503\"\n}",
+          "latency": 0,
+          "statusCode": 503,
+          "label": "profile-server-error",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "profile-server-error",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "20000000-0000-4000-8000-000000000012",
+          "body": "{\n  \"id\": \"CUS-001\",\n  \"fullName\": \"Tôn Thất Hoàng Minh\",\n  \"email\": \"hoang.tonthat@example.com\",\n  \"emailVerified\": true,\n  \"phone\": \"+84912345892\",\n  \"dateOfBirth\": \"1985-11-18\",\n  \"gender\": \"MALE\",\n  \"version\": 4,\n  \"updatedAt\": \"2026-09-25T09:00:00Z\"\n}",
+          "latency": 3000,
+          "statusCode": 200,
+          "label": "profile-update-slow",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "profile-update-slow",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "20000000-0000-4000-8000-000000000013",
+          "body": "{\n  \"id\": \"CUS-001\",\n  \"fullName\": \"Tôn Thất Hoàng Minh\",\n  \"email\": \"hoang.tonthat@example.com\",\n  \"emailVerified\": true,\n  \"phone\": \"+84912345892\",\n  \"dateOfBirth\": \"1985-11-18\",\n  \"gender\": \"MALE\",\n  \"version\": 4,\n  \"updatedAt\": \"2026-09-25T09:00:00Z\"\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "profile-updated",
+          "headers": [
+            {
+              "key": "ETag",
+              "value": "\"profile-v4\""
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "enabled": true,
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "20000000-0000-4000-8000-000000000020",
+      "type": "http",
+      "documentation": "ADDRESS-C01 — current Customer address book.",
+      "method": "get",
+      "endpoint": "customers/me/addresses",
+      "responses": [
+        {
+          "uuid": "20000000-0000-4000-8000-000000000015",
+          "body": "{\n  \"items\": [],\n  \"total\": 0\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "addresses-empty",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "addresses-empty",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "20000000-0000-4000-8000-000000000016",
+          "body": "{\n  \"code\": \"UNAUTHENTICATED\",\n  \"message\": \"Phiên đăng nhập không hợp lệ.\",\n  \"requestId\": \"REQ-ADDRESSES-401\"\n}",
+          "latency": 0,
+          "statusCode": 401,
+          "label": "addresses-unauthenticated",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "addresses-unauthenticated",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "20000000-0000-4000-8000-000000000017",
+          "body": "{\n  \"code\": \"SERVICE_UNAVAILABLE\",\n  \"message\": \"Chưa thể tải sổ địa chỉ.\",\n  \"requestId\": \"REQ-ADDRESSES-503\"\n}",
+          "latency": 0,
+          "statusCode": 503,
+          "label": "addresses-server-error",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "addresses-server-error",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "20000000-0000-4000-8000-000000000018",
+          "body": "{\n  \"items\": [\n    {\n      \"id\": \"ADDR-001\",\n      \"label\": \"Nhà riêng\",\n      \"type\": \"HOME\",\n      \"recipientName\": \"Tôn Thất Hoàng\",\n      \"recipientPhone\": \"+84912345892\",\n      \"province\": {\n        \"code\": \"VN-HUE\",\n        \"name\": \"Thành phố Huế\"\n      },\n      \"district\": {\n        \"code\": \"HUE-CENTER\",\n        \"name\": \"Khu vực trung tâm Huế\"\n      },\n      \"ward\": {\n        \"code\": \"PHU-HOI\",\n        \"name\": \"Phường Phú Hội\"\n      },\n      \"addressLine\": \"54 Lê Lợi\",\n      \"deliveryNote\": \"Gọi trước khi giao, cổng gỗ bên tay phải.\",\n      \"isDefault\": true,\n      \"version\": 2,\n      \"updatedAt\": \"2026-09-25T08:30:00Z\"\n    },\n    {\n      \"id\": \"ADDR-002\",\n      \"label\": \"Văn phòng\",\n      \"type\": \"OFFICE\",\n      \"recipientName\": \"Tôn Thất Hoàng\",\n      \"recipientPhone\": \"+84912345892\",\n      \"province\": {\n        \"code\": \"VN-DNG\",\n        \"name\": \"Thành phố Đà Nẵng\"\n      },\n      \"district\": {\n        \"code\": \"NGU-HANH-SON\",\n        \"name\": \"Ngũ Hành Sơn\"\n      },\n      \"ward\": {\n        \"code\": \"HOA-HAI\",\n        \"name\": \"Phường Hòa Hải\"\n      },\n      \"addressLine\": \"Tòa nhà FPT Complex, đường Nam Kỳ Khởi Nghĩa\",\n      \"deliveryNote\": \"Lễ tân sảnh B tiếp nhận trong giờ hành chính.\",\n      \"isDefault\": false,\n      \"version\": 1,\n      \"updatedAt\": \"2026-09-24T10:00:00Z\"\n    },\n    {\n      \"id\": \"ADDR-003\",\n      \"label\": \"Biếu tặng phụ mẫu\",\n      \"type\": \"GIFT\",\n      \"recipientName\": \"Cụ Tôn Thất Kính\",\n      \"recipientPhone\": \"+84905123456\",\n      \"province\": {\n        \"code\": \"VN-HUE\",\n        \"name\": \"Thành phố Huế\"\n      },\n      \"district\": {\n        \"code\": \"HUE-CENTER\",\n        \"name\": \"Khu vực trung tâm Huế\"\n      },\n      \"ward\": {\n        \"code\": \"THUAN-HOA\",\n        \"name\": \"Phường Thuận Hóa\"\n      },\n      \"addressLine\": \"12 Đinh Bộ Lĩnh\",\n      \"deliveryNote\": \"Vui lòng gọi trước và giao nhẹ tay.\",\n      \"isDefault\": false,\n      \"version\": 1,\n      \"updatedAt\": \"2026-09-23T09:15:00Z\"\n    }\n  ],\n  \"total\": 3\n}",
+          "latency": 3000,
+          "statusCode": 200,
+          "label": "addresses-slow",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "addresses-slow",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "20000000-0000-4000-8000-000000000019",
+          "body": "{\n  \"items\": [\n    {\n      \"id\": \"ADDR-001\",\n      \"label\": \"Nhà riêng\",\n      \"type\": \"HOME\",\n      \"recipientName\": \"Tôn Thất Hoàng\",\n      \"recipientPhone\": \"+84912345892\",\n      \"province\": {\n        \"code\": \"VN-HUE\",\n        \"name\": \"Thành phố Huế\"\n      },\n      \"district\": {\n        \"code\": \"HUE-CENTER\",\n        \"name\": \"Khu vực trung tâm Huế\"\n      },\n      \"ward\": {\n        \"code\": \"PHU-HOI\",\n        \"name\": \"Phường Phú Hội\"\n      },\n      \"addressLine\": \"54 Lê Lợi\",\n      \"deliveryNote\": \"Gọi trước khi giao, cổng gỗ bên tay phải.\",\n      \"isDefault\": true,\n      \"version\": 2,\n      \"updatedAt\": \"2026-09-25T08:30:00Z\"\n    },\n    {\n      \"id\": \"ADDR-002\",\n      \"label\": \"Văn phòng\",\n      \"type\": \"OFFICE\",\n      \"recipientName\": \"Tôn Thất Hoàng\",\n      \"recipientPhone\": \"+84912345892\",\n      \"province\": {\n        \"code\": \"VN-DNG\",\n        \"name\": \"Thành phố Đà Nẵng\"\n      },\n      \"district\": {\n        \"code\": \"NGU-HANH-SON\",\n        \"name\": \"Ngũ Hành Sơn\"\n      },\n      \"ward\": {\n        \"code\": \"HOA-HAI\",\n        \"name\": \"Phường Hòa Hải\"\n      },\n      \"addressLine\": \"Tòa nhà FPT Complex, đường Nam Kỳ Khởi Nghĩa\",\n      \"deliveryNote\": \"Lễ tân sảnh B tiếp nhận trong giờ hành chính.\",\n      \"isDefault\": false,\n      \"version\": 1,\n      \"updatedAt\": \"2026-09-24T10:00:00Z\"\n    },\n    {\n      \"id\": \"ADDR-003\",\n      \"label\": \"Biếu tặng phụ mẫu\",\n      \"type\": \"GIFT\",\n      \"recipientName\": \"Cụ Tôn Thất Kính\",\n      \"recipientPhone\": \"+84905123456\",\n      \"province\": {\n        \"code\": \"VN-HUE\",\n        \"name\": \"Thành phố Huế\"\n      },\n      \"district\": {\n        \"code\": \"HUE-CENTER\",\n        \"name\": \"Khu vực trung tâm Huế\"\n      },\n      \"ward\": {\n        \"code\": \"THUAN-HOA\",\n        \"name\": \"Phường Thuận Hóa\"\n      },\n      \"addressLine\": \"12 Đinh Bộ Lĩnh\",\n      \"deliveryNote\": \"Vui lòng gọi trước và giao nhẹ tay.\",\n      \"isDefault\": false,\n      \"version\": 1,\n      \"updatedAt\": \"2026-09-23T09:15:00Z\"\n    }\n  ],\n  \"total\": 3\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "addresses-success",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "enabled": true,
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "20000000-0000-4000-8000-000000000025",
+      "type": "http",
+      "documentation": "ADDRESS-C02 — create address.",
+      "method": "post",
+      "endpoint": "customers/me/addresses",
+      "responses": [
+        {
+          "uuid": "20000000-0000-4000-8000-000000000021",
+          "body": "{\n  \"code\": \"VALIDATION_ERROR\",\n  \"message\": \"Địa chỉ chưa hợp lệ.\",\n  \"errors\": [\n    {\n      \"field\": \"label\",\n      \"code\": \"REQUIRED\",\n      \"message\": \"Vui lòng đặt tên địa chỉ\"\n    },\n    {\n      \"field\": \"recipientName\",\n      \"code\": \"REQUIRED\",\n      \"message\": \"Vui lòng nhập tên người nhận\"\n    },\n    {\n      \"field\": \"recipientPhone\",\n      \"code\": \"INVALID_FORMAT\",\n      \"message\": \"Số điện thoại chưa đúng định dạng\"\n    },\n    {\n      \"field\": \"addressLine\",\n      \"code\": \"TOO_SHORT\",\n      \"message\": \"Vui lòng nhập địa chỉ chi tiết\"\n    }\n  ],\n  \"requestId\": \"REQ-ADDRESS-422\"\n}",
+          "latency": 0,
+          "statusCode": 422,
+          "label": "address-validation",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "address-validation",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "20000000-0000-4000-8000-000000000022",
+          "body": "{\n  \"code\": \"ADDRESS_LIMIT_REACHED\",\n  \"message\": \"Bạn đã đạt giới hạn địa chỉ có thể lưu.\",\n  \"requestId\": \"REQ-ADDRESS-LIMIT\"\n}",
+          "latency": 0,
+          "statusCode": 409,
+          "label": "address-limit",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "address-limit",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "20000000-0000-4000-8000-000000000023",
+          "body": "{\n  \"id\": \"ADDR-004\",\n  \"label\": \"Địa chỉ mới\",\n  \"type\": \"OTHER\",\n  \"recipientName\": \"Tôn Thất Hoàng\",\n  \"recipientPhone\": \"+84912345892\",\n  \"province\": {\n    \"code\": \"VN-HUE\",\n    \"name\": \"Thành phố Huế\"\n  },\n  \"district\": {\n    \"code\": \"HUE-CENTER\",\n    \"name\": \"Khu vực trung tâm Huế\"\n  },\n  \"ward\": {\n    \"code\": \"PHU-HOI\",\n    \"name\": \"Phường Phú Hội\"\n  },\n  \"addressLine\": \"128 Lê Lợi\",\n  \"deliveryNote\": \"Gọi trước khi giao, cổng gỗ bên tay phải.\",\n  \"isDefault\": false,\n  \"version\": 1,\n  \"updatedAt\": \"2026-09-25T09:20:00Z\"\n}",
+          "latency": 3000,
+          "statusCode": 201,
+          "label": "address-save-slow",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "address-save-slow",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "20000000-0000-4000-8000-000000000024",
+          "body": "{\n  \"id\": \"ADDR-004\",\n  \"label\": \"Địa chỉ mới\",\n  \"type\": \"OTHER\",\n  \"recipientName\": \"Tôn Thất Hoàng\",\n  \"recipientPhone\": \"+84912345892\",\n  \"province\": {\n    \"code\": \"VN-HUE\",\n    \"name\": \"Thành phố Huế\"\n  },\n  \"district\": {\n    \"code\": \"HUE-CENTER\",\n    \"name\": \"Khu vực trung tâm Huế\"\n  },\n  \"ward\": {\n    \"code\": \"PHU-HOI\",\n    \"name\": \"Phường Phú Hội\"\n  },\n  \"addressLine\": \"128 Lê Lợi\",\n  \"deliveryNote\": \"Gọi trước khi giao, cổng gỗ bên tay phải.\",\n  \"isDefault\": false,\n  \"version\": 1,\n  \"updatedAt\": \"2026-09-25T09:20:00Z\"\n}",
+          "latency": 0,
+          "statusCode": 201,
+          "label": "address-created",
+          "headers": [
+            {
+              "key": "Location",
+              "value": "/api/v1/customers/me/addresses/ADDR-004"
+            },
+            {
+              "key": "ETag",
+              "value": "\"address-v1\""
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "enabled": true,
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "20000000-0000-4000-8000-000000000031",
+      "type": "http",
+      "documentation": "ADDRESS-C03 — update owned address.",
+      "method": "patch",
+      "endpoint": "customers/me/addresses/:addressId",
+      "responses": [
+        {
+          "uuid": "20000000-0000-4000-8000-000000000026",
+          "body": "{\n  \"code\": \"VALIDATION_ERROR\",\n  \"message\": \"Địa chỉ chưa hợp lệ.\",\n  \"errors\": [\n    {\n      \"field\": \"addressLine\",\n      \"code\": \"REQUIRED\",\n      \"message\": \"Vui lòng nhập địa chỉ chi tiết\"\n    }\n  ],\n  \"requestId\": \"REQ-ADDRESS-UPD-422\"\n}",
+          "latency": 0,
+          "statusCode": 422,
+          "label": "address-validation",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "address-validation",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "20000000-0000-4000-8000-000000000027",
+          "body": "{\n  \"code\": \"ADDRESS_NOT_FOUND\",\n  \"message\": \"Không tìm thấy địa chỉ.\",\n  \"requestId\": \"REQ-ADDRESS-404\"\n}",
+          "latency": 0,
+          "statusCode": 404,
+          "label": "address-not-found",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "address-not-found",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "20000000-0000-4000-8000-000000000028",
+          "body": "{\n  \"code\": \"VERSION_CONFLICT\",\n  \"message\": \"Địa chỉ vừa được cập nhật ở nơi khác.\",\n  \"requestId\": \"REQ-ADDRESS-409\"\n}",
+          "latency": 0,
+          "statusCode": 409,
+          "label": "address-conflict",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "address-conflict",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "20000000-0000-4000-8000-000000000029",
+          "body": "{\n  \"id\": \"ADDR-001\",\n  \"label\": \"Nhà riêng đã cập nhật\",\n  \"type\": \"HOME\",\n  \"recipientName\": \"Tôn Thất Hoàng\",\n  \"recipientPhone\": \"+84912345892\",\n  \"province\": {\n    \"code\": \"VN-HUE\",\n    \"name\": \"Thành phố Huế\"\n  },\n  \"district\": {\n    \"code\": \"HUE-CENTER\",\n    \"name\": \"Khu vực trung tâm Huế\"\n  },\n  \"ward\": {\n    \"code\": \"PHU-HOI\",\n    \"name\": \"Phường Phú Hội\"\n  },\n  \"addressLine\": \"54 Lê Lợi\",\n  \"deliveryNote\": \"Gọi trước khi giao, cổng gỗ bên tay phải.\",\n  \"isDefault\": true,\n  \"version\": 3,\n  \"updatedAt\": \"2026-09-25T09:30:00Z\"\n}",
+          "latency": 3000,
+          "statusCode": 200,
+          "label": "address-save-slow",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "address-save-slow",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "20000000-0000-4000-8000-000000000030",
+          "body": "{\n  \"id\": \"ADDR-001\",\n  \"label\": \"Nhà riêng đã cập nhật\",\n  \"type\": \"HOME\",\n  \"recipientName\": \"Tôn Thất Hoàng\",\n  \"recipientPhone\": \"+84912345892\",\n  \"province\": {\n    \"code\": \"VN-HUE\",\n    \"name\": \"Thành phố Huế\"\n  },\n  \"district\": {\n    \"code\": \"HUE-CENTER\",\n    \"name\": \"Khu vực trung tâm Huế\"\n  },\n  \"ward\": {\n    \"code\": \"PHU-HOI\",\n    \"name\": \"Phường Phú Hội\"\n  },\n  \"addressLine\": \"54 Lê Lợi\",\n  \"deliveryNote\": \"Gọi trước khi giao, cổng gỗ bên tay phải.\",\n  \"isDefault\": true,\n  \"version\": 3,\n  \"updatedAt\": \"2026-09-25T09:30:00Z\"\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "address-updated",
+          "headers": [
+            {
+              "key": "ETag",
+              "value": "\"address-v3\""
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "enabled": true,
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "20000000-0000-4000-8000-000000000036",
+      "type": "http",
+      "documentation": "ADDRESS-C04 — delete owned address and return synchronized list.",
+      "method": "delete",
+      "endpoint": "customers/me/addresses/:addressId",
+      "responses": [
+        {
+          "uuid": "20000000-0000-4000-8000-000000000032",
+          "body": "{\n  \"code\": \"ADDRESS_NOT_FOUND\",\n  \"message\": \"Không tìm thấy địa chỉ.\",\n  \"requestId\": \"REQ-ADDRESS-DEL-404\"\n}",
+          "latency": 0,
+          "statusCode": 404,
+          "label": "address-not-found",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "address-not-found",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "20000000-0000-4000-8000-000000000033",
+          "body": "{\n  \"code\": \"VERSION_CONFLICT\",\n  \"message\": \"Sổ địa chỉ vừa thay đổi. Vui lòng tải lại.\",\n  \"requestId\": \"REQ-ADDRESS-DEL-409\"\n}",
+          "latency": 0,
+          "statusCode": 409,
+          "label": "address-conflict",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "address-conflict",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "20000000-0000-4000-8000-000000000034",
+          "body": "{\n  \"items\": [\n    {\n      \"id\": \"ADDR-002\",\n      \"label\": \"Văn phòng\",\n      \"type\": \"OFFICE\",\n      \"recipientName\": \"Tôn Thất Hoàng\",\n      \"recipientPhone\": \"+84912345892\",\n      \"province\": {\n        \"code\": \"VN-DNG\",\n        \"name\": \"Thành phố Đà Nẵng\"\n      },\n      \"district\": {\n        \"code\": \"NGU-HANH-SON\",\n        \"name\": \"Ngũ Hành Sơn\"\n      },\n      \"ward\": {\n        \"code\": \"HOA-HAI\",\n        \"name\": \"Phường Hòa Hải\"\n      },\n      \"addressLine\": \"Tòa nhà FPT Complex, đường Nam Kỳ Khởi Nghĩa\",\n      \"deliveryNote\": \"Lễ tân sảnh B tiếp nhận trong giờ hành chính.\",\n      \"isDefault\": true,\n      \"version\": 1,\n      \"updatedAt\": \"2026-09-24T10:00:00Z\"\n    },\n    {\n      \"id\": \"ADDR-003\",\n      \"label\": \"Biếu tặng phụ mẫu\",\n      \"type\": \"GIFT\",\n      \"recipientName\": \"Cụ Tôn Thất Kính\",\n      \"recipientPhone\": \"+84905123456\",\n      \"province\": {\n        \"code\": \"VN-HUE\",\n        \"name\": \"Thành phố Huế\"\n      },\n      \"district\": {\n        \"code\": \"HUE-CENTER\",\n        \"name\": \"Khu vực trung tâm Huế\"\n      },\n      \"ward\": {\n        \"code\": \"THUAN-HOA\",\n        \"name\": \"Phường Thuận Hóa\"\n      },\n      \"addressLine\": \"12 Đinh Bộ Lĩnh\",\n      \"deliveryNote\": \"Vui lòng gọi trước và giao nhẹ tay.\",\n      \"isDefault\": false,\n      \"version\": 1,\n      \"updatedAt\": \"2026-09-23T09:15:00Z\"\n    }\n  ],\n  \"total\": 2\n}",
+          "latency": 3000,
+          "statusCode": 200,
+          "label": "address-action-slow",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "address-action-slow",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "20000000-0000-4000-8000-000000000035",
+          "body": "{\n  \"items\": [\n    {\n      \"id\": \"ADDR-002\",\n      \"label\": \"Văn phòng\",\n      \"type\": \"OFFICE\",\n      \"recipientName\": \"Tôn Thất Hoàng\",\n      \"recipientPhone\": \"+84912345892\",\n      \"province\": {\n        \"code\": \"VN-DNG\",\n        \"name\": \"Thành phố Đà Nẵng\"\n      },\n      \"district\": {\n        \"code\": \"NGU-HANH-SON\",\n        \"name\": \"Ngũ Hành Sơn\"\n      },\n      \"ward\": {\n        \"code\": \"HOA-HAI\",\n        \"name\": \"Phường Hòa Hải\"\n      },\n      \"addressLine\": \"Tòa nhà FPT Complex, đường Nam Kỳ Khởi Nghĩa\",\n      \"deliveryNote\": \"Lễ tân sảnh B tiếp nhận trong giờ hành chính.\",\n      \"isDefault\": true,\n      \"version\": 1,\n      \"updatedAt\": \"2026-09-24T10:00:00Z\"\n    },\n    {\n      \"id\": \"ADDR-003\",\n      \"label\": \"Biếu tặng phụ mẫu\",\n      \"type\": \"GIFT\",\n      \"recipientName\": \"Cụ Tôn Thất Kính\",\n      \"recipientPhone\": \"+84905123456\",\n      \"province\": {\n        \"code\": \"VN-HUE\",\n        \"name\": \"Thành phố Huế\"\n      },\n      \"district\": {\n        \"code\": \"HUE-CENTER\",\n        \"name\": \"Khu vực trung tâm Huế\"\n      },\n      \"ward\": {\n        \"code\": \"THUAN-HOA\",\n        \"name\": \"Phường Thuận Hóa\"\n      },\n      \"addressLine\": \"12 Đinh Bộ Lĩnh\",\n      \"deliveryNote\": \"Vui lòng gọi trước và giao nhẹ tay.\",\n      \"isDefault\": false,\n      \"version\": 1,\n      \"updatedAt\": \"2026-09-23T09:15:00Z\"\n    }\n  ],\n  \"total\": 2\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "address-deleted",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "enabled": true,
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "20000000-0000-4000-8000-000000000041",
+      "type": "http",
+      "documentation": "ADDRESS-C05 — atomically set default address.",
+      "method": "put",
+      "endpoint": "customers/me/addresses/:addressId/default",
+      "responses": [
+        {
+          "uuid": "20000000-0000-4000-8000-000000000037",
+          "body": "{\n  \"code\": \"ADDRESS_NOT_FOUND\",\n  \"message\": \"Không tìm thấy địa chỉ.\",\n  \"requestId\": \"REQ-ADDRESS-DEFAULT-404\"\n}",
+          "latency": 0,
+          "statusCode": 404,
+          "label": "address-not-found",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "address-not-found",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "20000000-0000-4000-8000-000000000038",
+          "body": "{\n  \"code\": \"VERSION_CONFLICT\",\n  \"message\": \"Sổ địa chỉ vừa thay đổi. Vui lòng tải lại.\",\n  \"requestId\": \"REQ-ADDRESS-DEFAULT-409\"\n}",
+          "latency": 0,
+          "statusCode": 409,
+          "label": "address-conflict",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "address-conflict",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "20000000-0000-4000-8000-000000000039",
+          "body": "{\n  \"items\": [\n    {\n      \"id\": \"ADDR-001\",\n      \"label\": \"Nhà riêng\",\n      \"type\": \"HOME\",\n      \"recipientName\": \"Tôn Thất Hoàng\",\n      \"recipientPhone\": \"+84912345892\",\n      \"province\": {\n        \"code\": \"VN-HUE\",\n        \"name\": \"Thành phố Huế\"\n      },\n      \"district\": {\n        \"code\": \"HUE-CENTER\",\n        \"name\": \"Khu vực trung tâm Huế\"\n      },\n      \"ward\": {\n        \"code\": \"PHU-HOI\",\n        \"name\": \"Phường Phú Hội\"\n      },\n      \"addressLine\": \"54 Lê Lợi\",\n      \"deliveryNote\": \"Gọi trước khi giao, cổng gỗ bên tay phải.\",\n      \"isDefault\": false,\n      \"version\": 2,\n      \"updatedAt\": \"2026-09-25T08:30:00Z\"\n    },\n    {\n      \"id\": \"ADDR-002\",\n      \"label\": \"Văn phòng\",\n      \"type\": \"OFFICE\",\n      \"recipientName\": \"Tôn Thất Hoàng\",\n      \"recipientPhone\": \"+84912345892\",\n      \"province\": {\n        \"code\": \"VN-DNG\",\n        \"name\": \"Thành phố Đà Nẵng\"\n      },\n      \"district\": {\n        \"code\": \"NGU-HANH-SON\",\n        \"name\": \"Ngũ Hành Sơn\"\n      },\n      \"ward\": {\n        \"code\": \"HOA-HAI\",\n        \"name\": \"Phường Hòa Hải\"\n      },\n      \"addressLine\": \"Tòa nhà FPT Complex, đường Nam Kỳ Khởi Nghĩa\",\n      \"deliveryNote\": \"Lễ tân sảnh B tiếp nhận trong giờ hành chính.\",\n      \"isDefault\": true,\n      \"version\": 1,\n      \"updatedAt\": \"2026-09-24T10:00:00Z\"\n    },\n    {\n      \"id\": \"ADDR-003\",\n      \"label\": \"Biếu tặng phụ mẫu\",\n      \"type\": \"GIFT\",\n      \"recipientName\": \"Cụ Tôn Thất Kính\",\n      \"recipientPhone\": \"+84905123456\",\n      \"province\": {\n        \"code\": \"VN-HUE\",\n        \"name\": \"Thành phố Huế\"\n      },\n      \"district\": {\n        \"code\": \"HUE-CENTER\",\n        \"name\": \"Khu vực trung tâm Huế\"\n      },\n      \"ward\": {\n        \"code\": \"THUAN-HOA\",\n        \"name\": \"Phường Thuận Hóa\"\n      },\n      \"addressLine\": \"12 Đinh Bộ Lĩnh\",\n      \"deliveryNote\": \"Vui lòng gọi trước và giao nhẹ tay.\",\n      \"isDefault\": false,\n      \"version\": 1,\n      \"updatedAt\": \"2026-09-23T09:15:00Z\"\n    }\n  ],\n  \"total\": 3\n}",
+          "latency": 3000,
+          "statusCode": 200,
+          "label": "address-action-slow",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "header",
+              "modifier": "X-Mock-Scenario",
+              "value": "address-action-slow",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "20000000-0000-4000-8000-000000000040",
+          "body": "{\n  \"items\": [\n    {\n      \"id\": \"ADDR-001\",\n      \"label\": \"Nhà riêng\",\n      \"type\": \"HOME\",\n      \"recipientName\": \"Tôn Thất Hoàng\",\n      \"recipientPhone\": \"+84912345892\",\n      \"province\": {\n        \"code\": \"VN-HUE\",\n        \"name\": \"Thành phố Huế\"\n      },\n      \"district\": {\n        \"code\": \"HUE-CENTER\",\n        \"name\": \"Khu vực trung tâm Huế\"\n      },\n      \"ward\": {\n        \"code\": \"PHU-HOI\",\n        \"name\": \"Phường Phú Hội\"\n      },\n      \"addressLine\": \"54 Lê Lợi\",\n      \"deliveryNote\": \"Gọi trước khi giao, cổng gỗ bên tay phải.\",\n      \"isDefault\": false,\n      \"version\": 2,\n      \"updatedAt\": \"2026-09-25T08:30:00Z\"\n    },\n    {\n      \"id\": \"ADDR-002\",\n      \"label\": \"Văn phòng\",\n      \"type\": \"OFFICE\",\n      \"recipientName\": \"Tôn Thất Hoàng\",\n      \"recipientPhone\": \"+84912345892\",\n      \"province\": {\n        \"code\": \"VN-DNG\",\n        \"name\": \"Thành phố Đà Nẵng\"\n      },\n      \"district\": {\n        \"code\": \"NGU-HANH-SON\",\n        \"name\": \"Ngũ Hành Sơn\"\n      },\n      \"ward\": {\n        \"code\": \"HOA-HAI\",\n        \"name\": \"Phường Hòa Hải\"\n      },\n      \"addressLine\": \"Tòa nhà FPT Complex, đường Nam Kỳ Khởi Nghĩa\",\n      \"deliveryNote\": \"Lễ tân sảnh B tiếp nhận trong giờ hành chính.\",\n      \"isDefault\": true,\n      \"version\": 1,\n      \"updatedAt\": \"2026-09-24T10:00:00Z\"\n    },\n    {\n      \"id\": \"ADDR-003\",\n      \"label\": \"Biếu tặng phụ mẫu\",\n      \"type\": \"GIFT\",\n      \"recipientName\": \"Cụ Tôn Thất Kính\",\n      \"recipientPhone\": \"+84905123456\",\n      \"province\": {\n        \"code\": \"VN-HUE\",\n        \"name\": \"Thành phố Huế\"\n      },\n      \"district\": {\n        \"code\": \"HUE-CENTER\",\n        \"name\": \"Khu vực trung tâm Huế\"\n      },\n      \"ward\": {\n        \"code\": \"THUAN-HOA\",\n        \"name\": \"Phường Thuận Hóa\"\n      },\n      \"addressLine\": \"12 Đinh Bộ Lĩnh\",\n      \"deliveryNote\": \"Vui lòng gọi trước và giao nhẹ tay.\",\n      \"isDefault\": false,\n      \"version\": 1,\n      \"updatedAt\": \"2026-09-23T09:15:00Z\"\n    }\n  ],\n  \"total\": 3\n}",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "address-default-updated",
+          "headers": [],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "enabled": true,
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    }
+  ],
+  "proxyMode": false,
+  "proxyHost": "",
+  "proxyRemovePrefix": false,
+  "tlsOptions": {
+    "enabled": false,
+    "type": "CERT",
+    "pfxPath": "",
+    "certPath": "",
+    "keyPath": "",
+    "caPath": "",
+    "passphrase": ""
+  },
+  "cors": true,
+  "headers": [
+    {
+      "key": "Content-Type",
+      "value": "application/json; charset=utf-8"
+    },
+    {
+      "key": "Cache-Control",
+      "value": "no-store"
+    },
+    {
+      "key": "X-Mock-Environment",
+      "value": "oma-customer-profile-mvp"
+    }
+  ],
+  "proxyReqHeaders": [],
+  "proxyResHeaders": [],
+  "data": [],
+  "folders": [],
+  "rootChildren": [
+    {
+      "type": "route",
+      "uuid": "20000000-0000-4000-8000-000000000002"
+    },
+    {
+      "type": "route",
+      "uuid": "20000000-0000-4000-8000-000000000008"
+    },
+    {
+      "type": "route",
+      "uuid": "20000000-0000-4000-8000-000000000014"
+    },
+    {
+      "type": "route",
+      "uuid": "20000000-0000-4000-8000-000000000020"
+    },
+    {
+      "type": "route",
+      "uuid": "20000000-0000-4000-8000-000000000025"
+    },
+    {
+      "type": "route",
+      "uuid": "20000000-0000-4000-8000-000000000031"
+    },
+    {
+      "type": "route",
+      "uuid": "20000000-0000-4000-8000-000000000036"
+    },
+    {
+      "type": "route",
+      "uuid": "20000000-0000-4000-8000-000000000041"
+    }
+  ],
+  "callbacks": []
+}

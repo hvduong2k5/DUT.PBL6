@@ -1,0 +1,74 @@
+# API Specifications
+
+Thư mục này chứa các API contract theo vòng đời `candidate → reviewed → approved`.
+
+## Authentication MVP
+
+| Artefact | Trạng thái | Mục đích |
+| --- | --- | --- |
+| `authentication-mvp.openapi.yaml` | `0.1.0-candidate` | OpenAPI đề xuất từ UI implementation và Mockoon. |
+| `AUTHENTICATION_MVP_CONTRACT_REVIEW.md` | `PROPOSED / NOT APPROVED` | Context, implementation findings và câu hỏi cần review. |
+
+## Customer Profile & Address Book MVP
+
+| Artefact | Trạng thái | Mục đích |
+| --- | --- | --- |
+| `customer-profile-mvp.openapi.yaml` | `0.1.0-candidate` | OpenAPI đề xuất từ UI đã duyệt, implementation và Mockoon. |
+| `CUSTOMER_PROFILE_MVP_CONTRACT_REVIEW.md` | `PROPOSED / NOT APPROVED` | Context, implementation findings và câu hỏi cần review. |
+
+## Shopping Cart MVP
+
+| Artefact | Trạng thái | Mục đích |
+| --- | --- | --- |
+| `shopping-cart-mvp.openapi.yaml` | `0.1.0-candidate` | OpenAPI đề xuất từ UI đã duyệt, implementation và Mockoon. |
+| `SHOPPING_CART_MVP_CONTRACT_REVIEW.md` | `PROPOSED / NOT APPROVED` | Ranh giới Cart/Checkout, implementation findings và câu hỏi cần review. |
+
+## Checkout MVP
+
+| Artefact | Trạng thái | Mục đích |
+| --- | --- | --- |
+| `checkout-mvp.openapi.yaml` | `0.1.0-candidate` | OpenAPI đề xuất từ UI Checkout đã duyệt, implementation và Mockoon. |
+| `CHECKOUT_MVP_CONTRACT_REVIEW.md` | `PROPOSED / NOT APPROVED` | Session, shipping quote, atomic reservation/Order và Payment boundary cần review. |
+
+## Payment MVP
+
+| Artefact | Trạng thái | Mục đích |
+| --- | --- | --- |
+| `payment-mvp.openapi.yaml` | `0.1.0-candidate` | OpenAPI đề xuất từ UI Payment đã duyệt, implementation và Mockoon. |
+| `PAYMENT_MVP_CONTRACT_REVIEW.md` | `PROPOSED / NOT APPROVED` | Trusted verification, Bank Transfer/QR, COD, retry và reconciliation boundary cần review. |
+
+## Order Management MVP
+
+| Artefact | Trạng thái | Mục đích |
+| --- | --- | --- |
+| `order-management-mvp.openapi.yaml` | `0.1.0-candidate` | OpenAPI đề xuất từ UI Order Management đã duyệt, implementation và Mockoon. |
+| `ORDER_MANAGEMENT_MVP_CONTRACT_REVIEW.md` | `PROPOSED / NOT APPROVED` | Ownership Customer/Guest, state projection, cancellation idempotency và cross-domain handoff cần review. |
+
+## Return & Refund MVP
+
+| Artefact | Trạng thái | Mục đích |
+| --- | --- | --- |
+| `return-refund-mvp.openapi.yaml` | `0.1.0-candidate` | OpenAPI đề xuất từ UI Return & Refund đã duyệt, implementation và Mockoon. |
+| `RETURN_REFUND_MVP_CONTRACT_REVIEW.md` | `PROPOSED / NOT APPROVED` | Eligibility, evidence/media, Case lifecycle, pickup, inspection và Refund orchestration cần review. |
+
+## Customer Service MVP
+
+| Artefact | Trạng thái | Mục đích |
+| --- | --- | --- |
+| `customer-service-mvp.openapi.yaml` | `0.1.0-candidate` | OpenAPI đề xuất từ UI Customer Service đã duyệt, implementation và Mockoon. |
+| `CUSTOMER_SERVICE_MVP_CONTRACT_REVIEW.md` | `PROPOSED / NOT APPROVED` | Guest access, Ticket/message visibility, SLA, media và Notification boundary cần review. |
+
+Validate bằng Redocly recommended rules:
+
+```powershell
+npx @redocly/cli lint .\docs\03_api_specs\authentication-mvp.openapi.yaml
+npx @redocly/cli lint .\docs\03_api_specs\customer-profile-mvp.openapi.yaml
+npx @redocly/cli lint .\docs\03_api_specs\shopping-cart-mvp.openapi.yaml
+npx @redocly/cli lint .\docs\03_api_specs\checkout-mvp.openapi.yaml
+npx @redocly/cli lint .\docs\03_api_specs\payment-mvp.openapi.yaml
+npx @redocly/cli lint .\docs\03_api_specs\order-management-mvp.openapi.yaml
+npx @redocly/cli lint .\docs\03_api_specs\return-refund-mvp.openapi.yaml
+npx @redocly/cli lint .\docs\03_api_specs\customer-service-mvp.openapi.yaml
+```
+
+Candidate không được coi là production contract cho đến khi Backend, Architecture và Security phê duyệt. Mockoon chỉ được đồng bộ theo thay đổi contract sau review.

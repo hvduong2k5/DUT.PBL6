@@ -9,6 +9,7 @@ import (
 	"github.com/omamx/profile-service/internal/usecase"
 	"github.com/omamx/profile-service/tests/testhelper"
 	"github.com/stretchr/testify/require"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -104,6 +105,31 @@ func TestProfileIntegrity(t *testing.T) {
 		require.NoError(t, addresses.CreateAddress(ctx, a))
 		require.NotEqual(t, "forged", a.WardName)
 		require.Equal(t, "+84905111111", a.PhoneNumber)
+	})
+	t.Run("normalizes canonical ward names on write and backfills stored names", func(t *testing.T) {
+		_, err := pool.Exec(ctx, `UPDATE administrative_units SET full_name = 'Phường Phú Nhuận, Thành phố Huế' WHERE code = 'WARD-TH-001'`)
+		require.NoError(t, err)
+		a := makeAddress(101)
+		require.NoError(t, addresses.CreateAddress(ctx, a))
+		require.Equal(t, "Phường Phú Nhuận", a.WardName)
+		require.NoError(t, addresses.UpdateAddress(ctx, a))
+		require.Equal(t, "Phường Phú Nhuận", a.WardName)
+
+		_, err = pool.Exec(ctx, `UPDATE shipping_addresses SET ward_name = ward_name || ', ' || province_name WHERE id = $1`, a.ID)
+		require.NoError(t, err)
+		migration, err := os.ReadFile("../../migrations/000004_normalize_shipping_ward_names.up.sql")
+		require.NoError(t, err)
+		_, err = pool.Exec(ctx, string(migration))
+		require.NoError(t, err)
+		second, err := pool.Exec(ctx, string(migration))
+		require.NoError(t, err)
+		require.Zero(t, second.RowsAffected())
+		saved, err := addresses.GetOwnedAddress(ctx, id, a.ID)
+		require.NoError(t, err)
+		require.Equal(t, "Phường Phú Nhuận", saved.WardName)
+		require.Equal(t, a.Version, saved.Version)
+		_, err = pool.Exec(ctx, `UPDATE administrative_units SET full_name = 'Phường Phú Nhuận' WHERE code = 'WARD-TH-001'`)
+		require.NoError(t, err)
 	})
 	t.Run("outbox failure rolls back profile address and claim", func(t *testing.T) {
 		_, err := pool.Exec(ctx, `CREATE FUNCTION test_reject_outbox() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'test outbox failure'; END $$;

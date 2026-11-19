@@ -1,0 +1,13 @@
+{
+  "shared_commit": "a24492b63c364f93ad19d880798137e554898c3f",
+  "status": "dev-baseline-plus-opt-in-mvp-packing-ports",
+  "candidate_acceptance": "opt-in-MVP-see-packages/contracts/mvp/fulfillment-integration.md",
+  "files": {
+    "packing.proto": "d742e6d2247023460465ff20eb8cdfb5e99ba972d3dc5bdbdc53883dbbae9ff3",
+    "order/v1/order.proto": "65d4bed6e668b6ef58915e1264658c57985be2574d8c80081490774bde03c29c",
+    "fulfillment/v1/fulfillment.proto": "564811ddc72802bc66ff1554f07674b638b8708399dee773e0cca7afeb1cd72f",
+    "common/v1/errors.proto": "9c306c0f430dd1a5e3b1f41a6f512f0dd3ca9bd3f6e26331a2d788405aad1a5b",
+    "common/v1/types.proto": "c73eb8ab710ce5db25e2c54e26bcd3306b1c5c3e375b600e0c85b4e97b707878",
+    "common/v1/workflow.proto": "4222118a1f6c2b1417bb9f4c3081880543955efde786a938f605fb5b7dd3822a"
+  }
+}

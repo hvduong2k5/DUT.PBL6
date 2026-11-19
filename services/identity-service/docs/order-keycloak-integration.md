@@ -8,12 +8,14 @@ service trước khi thử chung; chỉ merge contract #34 không triển khai c
 - Registration truyền `principalId` do Identity sinh vào `KeycloakAdminClient`.
 - Keycloak user được ghi attribute `app_user_id` bằng principal đó, không phải subject
   của Keycloak và không phải input người đăng ký.
-- Sau tạo user, gán realm role `CUSTOMER`; lỗi gán role phải báo provisioning thất bại,
-  không trả kết quả thành công. Nếu bước này lỗi sau khi user đã tạo, tài khoản có thể
-  còn ở Keycloak: cần reconciliation hiện trạng trước khi retry, không tạo principal
-  mới hay xóa account tự động. Thay đổi này chưa sửa toàn bộ saga đăng ký hiện có.
+- Người mua được nhận diện bằng attribute/claim `principal_type=CUSTOMER`. Từ bước
+  cuối của rollout 7-B, `createUser` không còn gán realm role `CUSTOMER` và
+  Order/Profile không còn đọc `realm_access.roles` cho khách. Lỗi provisioning
+  phải báo thất bại, không trả kết quả thành công. Nếu bước tạo user lỗi giữa
+  chừng, tài khoản có thể còn ở Keycloak: cần reconciliation hiện trạng trước khi
+  retry, không tạo principal mới hay xóa account tự động.
 - Realm template có thêm client scope `order-customer`: audience `order-api`, claim
-  `user_id`, mapper `realm_access.roles` và role scope mapping CUSTOMER. Audience
+  `user_id`, mapper `realm_access.roles` và mapper `principal_type`. Audience
   `omama-api` cũ và các client khác được giữ nguyên.
 
 ## Realm đã chạy cần cập nhật cấu hình
@@ -21,12 +23,11 @@ service trước khi thử chung; chỉ merge contract #34 không triển khai c
 File realm template chỉ tác dụng khi import; không tự cập nhật realm đang tồn tại.
 Trên realm test, tạo scope `order-customer` với ba mapper trong template và thêm nó
 vào Default client scopes của `frontend-web` (và Mobile client nếu có). Giữ scope
-`roles` nếu client cũ cần; scope mới tự map `realm_access.roles`. Thêm role scope
-mapping CUSTOMER theo `scopeMappings` trong template. Không gắn scope này vào service account
+`roles` nếu client cũ cần; scope mới tự map `realm_access.roles`. Không gắn scope này vào service account
 admin để giả lập người mua.
 
 **Bắt buộc trước khi tin claim:** cấu hình User Profile cho `app_user_id` chỉ admin
-được xem/sửa. File [attribute mẫu](../deploy/keycloak/order-user-profile-attribute.json)
+được xem/sửa. File [attribute mẫu](../../keycloak-service/order-user-profile-attribute.json)
 là một phần tử để thêm vào danh sách `attributes` của User Profile hiện tại; không
 ghi đè toàn bộ cấu hình bằng file này. Admin Console → Realm → User profile, hoặc
 GET/merge/PUT API cấu hình profile qua quyền admin. Kiểm chứng người mua không thể
@@ -34,7 +35,7 @@ GET/merge/PUT API cấu hình profile qua quyền admin. Kiểm chứng người
 unmanaged attributes rộng cho khách.
 
 Tài khoản cũ thiếu attribute cần backfill từ `identity_principals.principal_id` và
-`idp_subject` đã có, kiểm khớp account và cấp role đúng. Không suy từ email và không
+`idp_subject` đã có, kiểm khớp account và attribute `principal_type` đúng. Không suy từ email và không
 sinh ID mới. Khi mapper/role đổi, đăng nhập lại để lấy access token mới.
 
 Order kiểm RS256/JWKS, issuer chính xác, audience `order-api`, typ `Bearer`, thời gian,

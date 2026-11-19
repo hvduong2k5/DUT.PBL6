@@ -1,0 +1,5 @@
+{
+  "DATA_SOURCE": "mockoon",
+  "APP_ENV": "mock",
+  "API_BASE_URL": "http://10.0.2.2:4010"
+}

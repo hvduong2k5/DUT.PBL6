@@ -10,7 +10,7 @@ on:
       - 'docs/03_api_specs/order*.yaml'
       - '.github/workflows/order-service.yml'
   push:
-    branches: [main, develop]
+    branches: [dev, main, develop]
     paths:
       - 'services/order-service/**'
       - 'packages/proto/**'

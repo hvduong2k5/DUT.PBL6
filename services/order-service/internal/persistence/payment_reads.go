@@ -64,6 +64,16 @@ func (p *Payment) statusLocked(ctx context.Context, tx pgx.Tx, id, scope string)
 		if e != nil {
 			return e
 		}
+		if out.IntentStatus == "CLOSED" {
+			// CLOSED is the internal end state of an intent whose order was
+			// cancelled (timeout sweep or actor cancel). The public payment
+			// contract has no CLOSED value; translate it here (F-54).
+			if a.State() == core.CancelledTimeout {
+				out.IntentStatus = "EXPIRED"
+			} else {
+				out.IntentStatus = "CANCELLED"
+			}
+		}
 		out.OrderID = id
 		out.Provider = "SEPAY"
 		out.Method = "VIETQR"
@@ -82,11 +92,15 @@ func (p *Payment) statusLocked(ctx context.Context, tx pgx.Tx, id, scope string)
 		case a.State() == core.PaymentFinalizing:
 			out.Display = "FINALIZING"
 			out.Poll = 3
+		case out.Review:
+			// An open reconciliation case outranks expiry: a late, under- or
+			// over-paid order is expired AND under review at once, and the
+			// customer must see the review state (with its support
+			// reference), not a bare expiry (F-54).
+			out.Display = "RECONCILIATION_REQUIRED"
+			out.Poll = 0
 		case a.State().Terminal() || !out.Now.Before(out.Expires):
 			out.Display = "EXPIRED"
-			out.Poll = 0
-		case out.Review:
-			out.Display = "RECONCILIATION_REQUIRED"
 			out.Poll = 0
 		case out.Started != nil:
 			out.Display = "VERIFYING"

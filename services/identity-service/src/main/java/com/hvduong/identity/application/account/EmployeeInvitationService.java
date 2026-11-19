@@ -1,6 +1,6 @@
 package com.hvduong.identity.application.account;
 
-import com.hvduong.identity.dto.response.InviteEmployeeResponse;
+import com.hvduong.identity.application.dto.response.InviteEmployeeResponse;
 
 import java.util.UUID;
 
@@ -12,9 +12,9 @@ public interface EmployeeInvitationService {
     @Deprecated
     class InviteResult extends InviteEmployeeResponse {}
 
-    InviteEmployeeResponse inviteEmployee(UUID invitedBy, int validDays);
+    InviteEmployeeResponse inviteEmployee(UUID invitedBy, int validDays, String idpSubject);
 
-    boolean acceptInvitation(UUID invitationId, String idpSubject);
+    void acceptInvitation(UUID invitationId, String issuer, String idpSubject);
 
     boolean revokeInvitation(UUID invitationId, UUID revokedBy);
 }

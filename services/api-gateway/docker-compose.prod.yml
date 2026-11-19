@@ -1,0 +1,85 @@
+version: '3.8'
+
+# =============================================================================
+# KONG API GATEWAY - PRODUCTION / COOLIFY DEPLOYMENT
+# =============================================================================
+# - Chạy Kong OSS phiên bản 3.9.3 kết nối cơ sở dữ liệu PostgreSQL
+# - Bootstrap schema tự động qua container kong-migrations
+# - Tích hợp mạng 'coolify' và sẵn sàng cho Traefik Reverse Proxy
+# =============================================================================
+
+services:
+  kong-migrations:
+    image: '${KONG_IMAGE:-kong/kong:3.9.3}'
+    container_name: omafood-kong-migrations
+    restart: 'no'
+    environment:
+      KONG_DATABASE: postgres
+      KONG_PG_HOST: '${KONG_PG_HOST:?Vui lòng cấu hình KONG_PG_HOST trên Coolify}'
+      KONG_PG_PORT: '${KONG_PG_PORT:-5432}'
+      KONG_PG_DATABASE: '${KONG_PG_DATABASE:-kong}'
+      KONG_PG_USER: '${KONG_PG_USER:?Vui lòng cấu hình KONG_PG_USER trên Coolify}'
+      KONG_PG_PASSWORD: '${KONG_PG_PASSWORD:?Vui lòng cấu hình KONG_PG_PASSWORD trên Coolify}'
+    command:
+      - /bin/sh
+      - '-c'
+      - |
+        set -e
+        echo "========================================="
+        echo "Kong OSS database bootstrap"
+        echo "========================================="
+        kong migrations bootstrap
+        echo "========================================="
+        echo "Kong database bootstrap completed"
+        echo "========================================="
+    networks:
+      - coolify
+
+  kong:
+    image: '${KONG_IMAGE:-kong/kong:3.9.3}'
+    container_name: omafood-kong-gateway
+    restart: unless-stopped
+    depends_on:
+      kong-migrations:
+        condition: service_completed_successfully
+    expose:
+      - 8000
+      - 8001
+      - 8002
+    ports:
+      - "${KONG_PROXY_PORT:-8000}:8000"
+      - "${KONG_PROXY_SSL_PORT:-8443}:8443"
+    environment:
+      KONG_DATABASE: postgres
+      KONG_PG_HOST: '${KONG_PG_HOST:?Vui lòng cấu hình KONG_PG_HOST trên Coolify}'
+      KONG_PG_PORT: '${KONG_PG_PORT:-5432}'
+      KONG_PG_DATABASE: '${KONG_PG_DATABASE:-kong}'
+      KONG_PG_USER: '${KONG_PG_USER:?Vui lòng cấu hình KONG_PG_USER trên Coolify}'
+      KONG_PG_PASSWORD: '${KONG_PG_PASSWORD:?Vui lòng cấu hình KONG_PG_PASSWORD trên Coolify}'
+      KONG_PROXY_LISTEN: '0.0.0.0:8000, 0.0.0.0:8443 ssl'
+      KONG_ADMIN_LISTEN: '0.0.0.0:8001, 0.0.0.0:8444 ssl'
+      KONG_ADMIN_GUI_LISTEN: '0.0.0.0:8002, 0.0.0.0:8445 ssl'
+      KONG_ADMIN_GUI_URL: '${KONG_ADMIN_GUI_URL:?Vui lòng cấu hình KONG_ADMIN_GUI_URL trên Coolify}'
+      KONG_ADMIN_GUI_API_URL: '${KONG_ADMIN_GUI_API_URL:?Vui lòng cấu hình KONG_ADMIN_GUI_API_URL trên Coolify}'
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_LOG_LEVEL: '${KONG_LOG_LEVEL:-notice}'
+    networks:
+      - coolify
+    healthcheck:
+      test:
+        - CMD
+        - kong
+        - health
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+
+networks:
+  coolify:
+    external: true
+    name: coolify
+

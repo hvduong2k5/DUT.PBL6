@@ -1,6 +1,6 @@
 # Customer API State Matrix
 
-Updated: 2026-10-17
+Updated: 2026-11-14
 
 This matrix and the OpenAPI files are the backend handoff. It is intentionally independent from test-fixture implementation.
 
@@ -19,16 +19,15 @@ Customer APIs distinguish Guest, Registered Customer and verified B2B Customer c
 
 | Operation | Backlog | Lifecycle | Success | Empty | Invalid 400/422 | 401 | 403 | 404 | 409 | 429 | Server 500/503 |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| `POST /api/v1/auth/login` | EPIC_01 | stable | 200 | N/A | 400/422 | 401 | 403 | — | 409 | — | 500/503 |
-| `POST /api/v1/auth/logout` | EPIC_01 | stable | 200 | N/A | 400/422 | 401 | 403 | — | 409 | — | 500/503 |
-| `GET /api/v1/auth/me` | EPIC_01 | stable | 200 | N/A | 400/— | 401 | 403 | — | — | — | 500/503 |
 | `GET /api/v1/users/me` | EPIC_01 | stable | 200 | N/A | —/— | 401 | — | 404 | — | — | 500/503 |
-| `POST /api/v1/auth/recovery-requests` | EPIC_01 | stable | 202 | N/A | 400/422 | — | — | — | 409 | 429 | 500/503 |
-| `POST /api/v1/auth/recovery-requests/reset` | EPIC_01 | stable | 204 | N/A | 400/422 | — | — | — | 409 | 429 | 500/503 |
-| `POST /api/v1/auth/recovery-requests/verify` | EPIC_01 | stable | 200 | N/A | 400/422 | — | — | — | 409 | 429 | 500/503 |
-| `POST /api/v1/auth/refresh` | EPIC_01 | stable | 200 | N/A | 400/422 | 401 | 403 | — | 409 | — | 500/503 |
-| `POST /api/v1/auth/register` | EPIC_01 | stable | 201 | N/A | 400/422 | — | — | — | 409 | — | 500/503 |
-| `POST /api/v1/public/registration/customer` | EPIC_01 | stable | 200 | N/A | 400/— | — | — | — | 409 | — | 500/503 |
+| `PUT /api/v1/users/me/password` | EPIC_01 | stable | 200 | N/A | 400/422 | 401 | — | 404 | — | — | 500/503 |
+| `GET /api/v1/public/auth/health` | EPIC_01 | stable | 200 | N/A | — | — | — | — | — | — | 503 |
+| `GET /api/v1/public/auth/login` | EPIC_01 | stable | 200 | N/A | 400/— | — | — | — | — | — | 500/503 |
+| `GET /api/v1/public/auth/callback` | EPIC_01 | stable | 302 | N/A | 400/— | — | — | — | — | — | 500/503 |
+| `GET /api/v1/public/auth/session` | EPIC_01 | stable | 200 | N/A | —/— | 401 | — | — | — | — | 500/503 |
+| `POST /api/v1/public/auth/tokens/refresh` | EPIC_01 | stable | 200 | N/A | —/— | 401 | — | — | — | — | 500/503 |
+| `POST /api/v1/public/auth/logout` | EPIC_01 | stable | 200 | N/A | —/— | 401 | — | — | — | — | 500/503 |
+| `POST /api/v1/public/customer-registrations` | EPIC_01 | stable | 200 | N/A | 400/422 | — | — | — | 409 | — | 500/503 |
 | `GET /api/v1/b2b/context` | EPIC_18 | stable | 200 | N/A | 400/— | 401 | 403 | — | — | — | 500/503 |
 | `POST /api/v1/b2b/quote-requests` | EPIC_18 | stable | 201 | N/A | 400/422 | 401 | 403 | — | 409 | — | 500/503 |
 | `GET /api/v1/b2b/quotes/{quoteId}` | EPIC_18 | stable | 200 | N/A | —/— | 401 | 403 | 404 | — | — | 500/503 |
@@ -71,6 +70,7 @@ Customer APIs distinguish Guest, Registered Customer and verified B2B Customer c
 | `GET /api/v1/support/tickets/{ticketId}` | EPIC_16 | stable | 200 | N/A | —/— | 401 | 403 | 404 | — | — | 500/503 |
 | `POST /api/v1/support/tickets/{ticketId}/messages` | EPIC_16 | stable | 201 | N/A | 400/422 | 401 | 403 | 404 | 409 | 429 | 500/503 |
 | `GET /api/v1/trace/{qr_code}` | EPIC_19 | stable | 200 | N/A | —/— | — | — | 404 | — | — | 500/503 |
+| `GET /api/v2/trace/{qr_code}` | EPIC_19 | P8 | 200 (nullable fields and verification method) | N/A | —/— | — | — | 404 unknown, 410 unpublished after publication | — | — | 503 |
 | `POST /api/v1/webhooks/logistics/ghn` | EPIC_11, EPIC_12 | stable | 200 | N/A | 400/422 | 401 | — | — | 409 | — | 500/503 |
 | `POST /api/v1/webhooks/marketplace/shopee` | EPIC_11, EPIC_12 | stable | 200 | N/A | 400/422 | 401 | — | — | 409 | — | 500/503 |
 | `POST /api/v1/webhooks/marketplace/tiktok` | EPIC_11, EPIC_12 | stable | 200 | N/A | 400/422 | 401 | — | — | 409 | — | 500/503 |
@@ -87,14 +87,19 @@ These rows are proposals. Backend may refine them, but must record the decision 
 | `GET /api/v1/returns` | EPIC_14 | draft | 200 | 200 (collection empty) | 400/422 | 401 | 403 | — | — | — | 500/503 |
 | `POST /api/v1/returns/{returnId}/supplements` | EPIC_14 | draft | 201 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
 | `GET /api/v1/support/tickets` | EPIC_16 | draft | 200 | 200 (collection empty) | 400/422 | 401 | 403 | — | — | — | 500/503 |
-| `POST /api/v1/auth/verification-requests` | EPIC_01 | deprecated | 202 | N/A | 400/422 | — | — | — | 409 | 429 | 500/503 |
-| `POST /api/v1/auth/verification-requests/confirm` | EPIC_01 | deprecated | 200 | N/A | 400/422 | — | — | — | 409 | 429 | 500/503 |
 | `POST /api/v1/b2b/quote-requests/{requestId}/messages` | EPIC_18 | planned | 201 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
 | `GET /api/v1/loyalty/transactions` | EPIC_17 | planned | 200 | 200 (collection empty) | 400/422 | 401 | 403 | — | — | — | 500/503 |
 | `GET /api/v1/notifications` | EPIC_28 | planned | 200 | 200 (collection empty) | 400/422 | 401 | 403 | — | — | — | 500/503 |
 | `PATCH /api/v1/notifications/{notificationId}/read` | EPIC_28 | planned | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
 | `GET /api/v1/notification-preferences` | EPIC_28 | planned | 200 | N/A | 400/422 | 401 | 403 | — | — | — | 500/503 |
 | `PUT /api/v1/notification-preferences` | EPIC_28 | planned | 200 | N/A | 400/422 | 401 | 403 | — | 409 | — | 500/503 |
+| `POST /api/v1/ai/shopping/conversations` | US-AI-01 | draft | 201 | N/A | 400/422 | 401 | 403 | — | — | 429 | 500/503 |
+| `GET /api/v1/ai/shopping/conversations/{conversation_id}` | US-AI-01 | draft | 200 | N/A | —/— | 401 | 403 | 404 | — | 429 | 500/503 |
+| `POST /api/v1/ai/shopping/conversations/{conversation_id}/messages` | US-AI-01 | draft | 200 SSE | N/A | —/422 | 401 | 403 | 404 | — | 429 | 500/503 |
+| `POST /api/v1/ai/shopping/feedback` | US-AI-01, US-AI-04 | draft | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | 429 | 500/503 |
+| `GET /api/v1/ai/recommendations` | US-AI-04 | draft | 200 | 200 (items empty) | —/422 | 401 | 403 | — | — | 429 | 500/503 |
+| `GET /api/v1/ai/consent` | US-AI-01 | draft | 200 | N/A | —/— | 401 | — | — | — | 429 | 500/503 |
+| `PUT /api/v1/ai/consent` | US-AI-01 | draft | 200 | N/A | —/422 | 401 | — | — | — | 429 | 500/503 |
 
 ## Acceptance rules
 
@@ -104,3 +109,5 @@ These rows are proposals. Backend may refine them, but must record the decision 
 4. Every mutation validates `400/422`, transition or revision conflict `409`, and retry behavior.
 5. Every endpoint has controlled latency and `500/503` UI tests.
 6. Error responses preserve `code` and `requestId`; clients do not branch on translated `message`.
+
+Web and Mobile show the loyalty wallet entry only when the capability projection includes `LOYALTY_VIEW`. Direct navigation remains subject to the same capability check.

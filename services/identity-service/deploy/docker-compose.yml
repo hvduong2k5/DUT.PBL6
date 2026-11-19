@@ -1,5 +1,8 @@
 version: '3.8'
 
+# =============================================================================
+# IDENTITY SERVICE - PRODUCTION / COOLIFY DEPLOYMENT
+# =============================================================================
 services:
   identity-service:
     build:
@@ -9,25 +12,46 @@ services:
     restart: unless-stopped
     env_file:
       - ../.env
+    expose:
+      - 8016
+      - 9016
+    ports:
+      - "${SERVER_PORT:-8016}:8016"
+      - "${GRPC_SERVER_PORT:-9016}:9016"
     environment:
       SERVER_PORT: ${SERVER_PORT:-8016}
       GRPC_SERVER_PORT: ${GRPC_SERVER_PORT:-9016}
 
-      # Kết nối đến PostgreSQL server có sẵn của bạn
+      # Kết nối CSDL PostgreSQL
       SPRING_DATASOURCE_URL: jdbc:postgresql://${DB_HOST}:${DB_PORT:-5432}/${DB_NAME:-identity_db}
       SPRING_DATASOURCE_USERNAME: ${DB_USERNAME}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
 
-      # Kết nối đến Keycloak độc lập
-      KEYCLOAK_SERVER_URL: ${KEYCLOAK_SERVER_URL}
+      # Kết nối Keycloak (gọi nội bộ qua mạng Docker coolify & public ra ngoài cho user)
+      KEYCLOAK_SERVER_URL: ${KEYCLOAK_SERVER_URL:-http://omafood-keycloak-standalone:8080}
+      KEYCLOAK_PUBLIC_URL: ${KEYCLOAK_PUBLIC_URL:-https://keycloak.omama.vn}
+      AUTH_REDIRECT_URI: ${AUTH_REDIRECT_URI:-https://api.omama.vn/api/v1/public/auth/callback}
+      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-https://omama.vn}
       KEYCLOAK_REALM: ${KEYCLOAK_REALM:-omama}
       KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:-identity-service-admin}
       KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET}
-      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: ${KEYCLOAK_SERVER_URL}/realms/${KEYCLOAK_REALM:-omama}
-      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: ${KEYCLOAK_SERVER_URL}/realms/${KEYCLOAK_REALM:-omama}/protocol/openid-connect/certs
+      KEYCLOAK_PUBLIC_CLIENT_ID: ${KEYCLOAK_PUBLIC_CLIENT_ID:-frontend-web}
+      KEYCLOAK_SCOPE: ${KEYCLOAK_SCOPE:-openid}
+      CUSTOMER_API_GATEWAY_URL: ${CUSTOMER_API_GATEWAY_URL:?Configure the internal Gateway URL}
+      IDENTITY_REGISTRATION_FINGERPRINT_KEY: ${IDENTITY_REGISTRATION_FINGERPRINT_KEY:?Configure the registration HMAC secret}
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: ${KEYCLOAK_PUBLIC_URL:-https://keycloak.omama.vn}/realms/${KEYCLOAK_REALM:-omama}
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: ${KEYCLOAK_SERVER_URL:-http://omafood-keycloak-standalone:8080}/realms/${KEYCLOAK_REALM:-omama}/protocol/openid-connect/certs
 
-      # Kết nối Kafka Broker
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:-localhost:9092}
-    ports:
-      - "${SERVER_PORT:-8016}:8016"
-      - "${GRPC_SERVER_PORT:-9016}:9016"
+      # Cấu hình BFF Session Cookie (Bảo mật trên Production HTTPS)
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      COOKIE_SAME_SITE: ${COOKIE_SAME_SITE:-Lax}
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
+
+      # Kết nối Kafka Cluster trên Coolify
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}
+    networks:
+      - coolify
+
+networks:
+  coolify:
+    external: true

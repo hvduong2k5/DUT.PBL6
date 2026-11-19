@@ -1,0 +1,5 @@
+{
+  "DATA_SOURCE": "backend",
+  "APP_ENV": "development",
+  "API_BASE_URL": ""
+}

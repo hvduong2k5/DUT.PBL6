@@ -1,0 +1,91 @@
+{
+  "design_version": "1.0",
+  "python_version": "3.14.3",
+  "validation_dependencies": {
+    "PyYAML": "6.0.3",
+    "jsonschema": "4.26.0",
+    "openapi-spec-validator": "0.7.2",
+    "grpcio-tools": "1.85.0",
+    "protobuf": "7.36.2",
+    "pglast": "8.7"
+  },
+  "checks": [
+    {
+      "name": "markdown_links_and_fences",
+      "status": "PASS",
+      "files": 24,
+      "local_links": 80
+    },
+    {
+      "name": "pinned_source_manifest",
+      "status": "PASS",
+      "verified_blobs": 34,
+      "unavailable_blobs": 0,
+      "snapshot_count": 1
+    },
+    {
+      "name": "openapi_and_positive_examples",
+      "status": "PASS",
+      "operations": 17,
+      "schemas": 28,
+      "component_examples": 19,
+      "linked_examples": 8
+    },
+    {
+      "name": "openapi_negative_guards",
+      "status": "PASS",
+      "rejected": 9,
+      "cases": [
+        "zero_weight",
+        "fractional_dimensions",
+        "caller_role_injection",
+        "unnormalized_seal",
+        "zero_task_version",
+        "negative_quantity",
+        "assignment_role_injection",
+        "checklist_bypass",
+        "unsupported_media_type"
+      ]
+    },
+    {
+      "name": "packing_event_and_cross_artifact_bindings",
+      "status": "PASS",
+      "rejected_negative_events": 8,
+      "digest": "a70dd9eecf2ba6537a9027f1d7974ddea8ffa8f0d73b88d3f0ff69cc46472208",
+      "note": "Synthetic shape/binding verification only; no real media or peer proof."
+    },
+    {
+      "name": "canonical_hash_vectors",
+      "status": "PASS",
+      "vectors": 4,
+      "note": "Candidate interop vectors; independent Go/Java provider acceptance remains pending."
+    },
+    {
+      "name": "task_accepted_candidate_schema",
+      "status": "PASS",
+      "note": "New discovery fact proposal; no shared runtime acceptance."
+    },
+    {
+      "name": "candidate_proto_compile_and_examples",
+      "status": "PASS",
+      "services": 3,
+      "messages": 14,
+      "examples": 4
+    },
+    {
+      "name": "candidate_sql_parse",
+      "status": "PASS",
+      "statements": 36,
+      "note": "Syntax only; no DB constraints/races executed."
+    },
+    {
+      "name": "drawio_structure",
+      "status": "PASS",
+      "pages": 4,
+      "note": "XML/edge validation; not a visual render test."
+    }
+  ],
+  "result": "PASS",
+  "runtime_acceptance": "PENDING",
+  "scope": "Static documents/contracts/examples only; no peer/service/database calls."
+}

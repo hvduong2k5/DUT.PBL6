@@ -1,0 +1,6 @@
+.env*
+tests/results/
+*.log
+local-keys/
+*.pem
+*.key

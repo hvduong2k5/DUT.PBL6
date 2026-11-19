@@ -1,0 +1,8 @@
+{
+  "DATA_SOURCE": "backend",
+  "APP_ENV": "production",
+  "AUTH_MODE": "identity",
+  "API_BASE_URL": "https://api.omama.vn",
+  "IDENTITY_BASE_URL": "https://api.omama.vn/api/v1",
+  "IDENTITY_AUTHORIZATION_ORIGINS": "https://auth.omama.vn"
+}

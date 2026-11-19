@@ -59,10 +59,14 @@ Các hợp đồng này được định nghĩa bằng **Protocol Buffers v3** �
 
 ---
 
-### 2.3. MS-05: `CatalogService` (Port nội bộ: 8005)
-- **Tệp định nghĩa:** [`packages/proto/catalog/v1/catalog.proto`](../../packages/proto/catalog/v1/catalog.proto)
-- **Bên Cung Cấp (Provider):** `catalog-service` (Node.js/Go)
-- **Bên Tiêu Thụ (Consumer):** `order-service`, `api-gateway`, `channel-service`
+### 2.3. MS-05: CatalogService (Port nội bộ: HTTP 8005 / gRPC 9005)
+- **Tệp định nghĩa:** [packages/proto/catalog/v1/catalog.proto](../../packages/proto/catalog/v1/catalog.proto)
+- **Bên Cung Cấp (Provider):** catalog-service (Java Spring Boot)
+- **Bên Tiêu Thụ gRPC (Consumer):** order-service (MS-04)
+
+> **Kiến trúc phân lập giao thức của Catalog Service:**
+> - **Chiều North - South (Gateway & Client):** Toàn bộ API duyệt danh mục (/api/v1/categories), sản phẩm (/api/v1/products/**) và quản trị CMS (/api/v1/admin/catalog/**) đều sử dụng **REST API (HTTP/JSON)** chạy trên cổng 8005. Có xác thực JWT và kiểm tra quyền RBAC (CATALOG_VIEW, CATALOG_MANAGE, CATALOG_APPROVE).
+> - **Chiều East - West (Inter-Service nội bộ):** Các phương thức thẩm định giá và thông số kỹ thuật phục vụ đặt hàng tiếp tục chạy trên giao thức **gRPC** hiệu năng cao tại cổng 9005.
 
 #### Chi tiết các RPC Methods:
 1. `ValidatePriceAndSKU(ValidatePriceAndSKURequest) returns (ValidatePriceAndSKUResponse)`:
@@ -128,15 +132,16 @@ Các hợp đồng này được định nghĩa bằng **Protocol Buffers v3** �
 
 ---
 
-### 2.8. MS-16: `IdentityService` (Port nội bộ: 8016)
+### 2.8. MS-16: `IdentityService` (Port nội bộ: HTTP 8016 / gRPC 9016)
 - **Tệp định nghĩa:** [`packages/proto/identity/v1/identity.proto`](../../packages/proto/identity/v1/identity.proto)
 - **Bên Cung Cấp (Provider):** `identity-service`
-- **Bên Tiêu Thụ (Consumer):** `finance-service` (MS-09), `order-service` (MS-04), `api-gateway`
+- **Bên Tiêu Thụ (Consumer):** `finance-service` (MS-09), `order-service` (MS-04)
 
 #### Chi tiết các RPC Methods:
 1. `CheckSpecializedPermission(SpecializedPermissionRequest) returns (SpecializedPermissionResponse)`:
    - **Mục đích:** Thẩm duyệt phân quyền động (ABAC/PBAC) cho các hành động có rủi ro tài chính cao (HLD Mục 3.5 & 4.7):
      - *"Kế toán duyệt Refund > 10 triệu VND"* (Cần Giám đốc phê duyệt).
      - *"Giám đốc duyệt chiết khấu B2B > 25%"*.
-2. `GetJwksPublicKey(GetJwksPublicKeyRequest) returns (GetJwksPublicKeyResponse)`:
-   - **Mục đích:** Cung cấp khóa công khai JWKS để API Gateway nạp cache cục bộ định kỳ, xác thực JWT ngay tại biên mà không gọi blocking vào Identity Service.
+
+> **Ghi chú về Xác thực JWT & JWKS:**  
+> API Gateway (Kong) và các microservice nội bộ không gọi RPC vào Identity Service để xác thực JWT. Thay vào đó, Gateway và các service đọc trực tiếp tập khóa công khai JWKS từ **Keycloak OIDC Discovery Endpoint** (`http://keycloak:8080/realms/omama/protocol/openid-connect/certs`), lưu cache vào RAM và kiểm tra chữ ký cục bộ siêu tốc (< 0.1ms). Phương thức `GetJwksPublicKey` trước đây đã được loại bỏ hoàn toàn khỏi hợp đồng Proto và wire baselines để đảm bảo tính tinh gọn (Clean Architecture).

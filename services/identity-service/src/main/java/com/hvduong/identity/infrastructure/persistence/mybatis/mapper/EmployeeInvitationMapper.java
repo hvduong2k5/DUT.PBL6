@@ -1,6 +1,6 @@
 package com.hvduong.identity.infrastructure.persistence.mybatis.mapper;
 
-import com.hvduong.identity.infrastructure.persistence.entity.*;
+import com.hvduong.identity.domain.entity.*;
 
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -13,14 +13,13 @@ public interface EmployeeInvitationMapper {
 
     void insert(EmployeeInvitationRow row);
 
-    Optional<EmployeeInvitationRow> findById(@Param("invitationId") UUID invitationId);
+    Optional<EmployeeInvitationRow> findByIdForUpdate(@Param("invitationId") UUID invitationId);
 
-    Optional<EmployeeInvitationRow> findPendingByPrincipalId(@Param("principalId") UUID principalId);
+    Optional<EmployeeInvitationRow> findPendingByPrincipalIdForUpdate(@Param("principalId") UUID principalId);
 
     int updateStatus(
             @Param("invitationId") UUID invitationId,
-            @Param("newStatus") String newStatus,
-            @Param("timestampColumn") String timestampColumn
+            @Param("newStatus") String newStatus
     );
 }
 

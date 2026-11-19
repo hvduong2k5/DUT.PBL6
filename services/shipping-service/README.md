@@ -74,7 +74,6 @@ reconcile by a stable client reference before retrying a create. Return records 
 shipments, and their events use `shipping.return.events.v1` (partition key `return_shipment_id`).
 Shipping does not approve Care cases, issue refunds, or change Order state. Return event
 consumers remain pending integration acceptance.
-
 ## GHN staging adapter
 
 GHN remains disabled by default. Configure sandbox credentials locally or through deployment
@@ -119,17 +118,29 @@ invalid secrets and malformed provider payloads are rejected with non-retryable 
 
 ## Order and Fulfillment integration
 
-Order owns the packing-to-shipment handoff. It consumes the proof-bearing Fulfillment packing
+By default, Order owns the packing-to-shipment handoff. It consumes the proof-bearing Fulfillment packing
 event, verifies the exact Fulfillment revisions, persists a durable handoff, and calls Shipping's
 gRPC v2 `CreateShipment`; Order also consumes `shipping.events.v2` and verifies exact Shipping
-revisions. Shipping therefore does not consume Fulfillment events or call Order's
-`GetShippingSnapshot`. This avoids two services independently creating a shipment for the same
-package. Shipping v2 is enabled by default for the Order integration; configure the same service
+revisions. In this default mode, leave `SHIPPING_ORDER_GRPC_ENDPOINT` unset so Shipping does not
+also consume Fulfillment events or call Order's `GetShippingSnapshot`. Shipping v2 is enabled
+by default for the Order integration; configure the same service
 credential on both sides: Order's `ORDER_SHIPPING_TOKEN_FILE` must
 contain the value configured as Shipping's `SHIPPING_INTERNAL_TOKEN` (minimum 32 characters).
 Outside explicit sandbox loopback, Order verifies Shipping's gRPC TLS certificate using its
 configured CA and server name, so Shipping production deployments must configure its gRPC
 certificate and key.
+
+The merged F-41 integration also supports an opt-in Shipping-owned handoff. To use it, set
+`ORDER_SHIPPING_OWNS_PACKING_HANDOFF=true` on Order (which disables Order's shipment-create
+worker and enables its authenticated `GetShippingSnapshot` RPC). Configure
+`SHIPPING_ORDER_GRPC_ENDPOINT`, `SHIPPING_ORDER_INTERNAL_TOKEN` (matching
+`ORDER_SHIPPING_CALLER_TOKEN`), `SHIPPING_ORDER_CA_FILE` and `SHIPPING_ORDER_SERVER_NAME` on
+Shipping. Set `SHIPPING_PACKING_V2_ENABLED=true` to additionally consume proof-bearing
+`fulfillment.events.v2`; the legacy `fulfillment.events.v1` consumer is also registered.
+Never run both handoff owners for the same deployment or publish a package to both packing
+topics. The consumer retains the provider-neutral snapshot and package idempotency checks;
+outbound shipment creation, employee JWT reads and Care return pickups share the same
+Shipping implementation in either mode. TLS is required by configuration for packing v2.
 
 ## Local verification
 

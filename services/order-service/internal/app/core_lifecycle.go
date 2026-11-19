@@ -15,9 +15,29 @@ func (s *Service) setCoreHold(ctx context.Context, p domain.Principal, id string
 	if !p.Manager() {
 		return domain.E("PERMISSION_DENIED", 403)
 	}
+	if p.IAM && !p.HasPermission("ORDER_HOLD_MANAGE") {
+		return domain.E("PERMISSION_DENIED", 403)
+	}
+	// The legacy admission barrier cannot authorize stopping a real packing
+	// task. Keep this operation closed until its remote cancellation handshake.
+	if s.Fulfillment != nil {
+		if p.IAM {
+			o, err := s.getCoreOrder(ctx, id, p, false)
+			if err != nil {
+				return err
+			}
+			if !p.AllowsAction("ORDER_HOLD_MANAGE", o.Warehouse) {
+				return domain.E("ORDER_NOT_FOUND", 404)
+			}
+		}
+		return domain.E("FULFILLMENT_STOP_CAPABILITY_UNAVAILABLE", 409)
+	}
 	o, e := s.getCoreOrder(ctx, id, p, false)
 	if e != nil {
 		return e
+	}
+	if !p.AllowsAction("ORDER_HOLD_MANAGE", o.Warehouse) {
+		return domain.E("ORDER_NOT_FOUND", 404)
 	}
 	var prior string
 	if e = s.DB.QueryRow(ctx, "SELECT request_hash FROM command_registry WHERE scope=$1 AND kind=$2 AND key=$3", p.Scope(), "CORE_HOLD:"+id, key).Scan(&prior); e == nil {
@@ -55,8 +75,16 @@ func (s *Service) setCoreHold(ctx context.Context, p domain.Principal, id string
 
 func (s *Service) processCoreEvent(ctx context.Context, event domain.Event) (string, error) {
 	var proof persistence.SourceEvidence
-	if e := s.Call(ctx, "GET", "/order-core/resources/"+url.PathEscape(event.ResourceID)+"?source="+url.QueryEscape(event.Source)+"&version="+strconv.FormatInt(event.Version, 10), nil, &proof); e != nil {
-		return "", e
+	var err error
+	if event.Source == "shipping" && s.Shipping != nil {
+		proof, err = s.Shipping.Revision(ctx, event.ResourceID, event.Version)
+	} else if event.Source == "fulfillment" && s.Fulfillment != nil {
+		proof, err = s.Fulfillment.Revision(ctx, event.ResourceID, event.Version)
+	} else {
+		err = s.Call(ctx, "GET", "/order-core/resources/"+url.PathEscape(event.ResourceID)+"?source="+url.QueryEscape(event.Source)+"&version="+strconv.FormatInt(event.Version, 10), nil, &proof)
+	}
+	if err != nil {
+		return "", err
 	}
 	status, e := s.CoreCheckout.Store.ApplySource(ctx, event, proof)
 	return status, coreFailure(e)

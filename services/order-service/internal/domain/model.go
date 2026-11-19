@@ -27,17 +27,27 @@ func (e *Error) Error() string        { return e.Code }
 func E(code string, status int) error { return &Error{code, status} }
 
 type Principal struct {
-	ID         string `json:"id"`
-	Role       string `json:"role"`
-	Warehouse  string `json:"warehouse"`
-	CustomerID string `json:"customer_id,omitempty"`
+	ID         string            `json:"id"`
+	Role       string            `json:"role"`
+	Warehouse  string            `json:"warehouse"`
+	CustomerID string            `json:"customer_id,omitempty"`
+	IAM        bool              `json:"-"`
+	Grants     []PermissionGrant `json:"-"`
 }
 
 func (p Principal) Scope() string { return strings.ToLower(p.Role) + ":" + p.ID }
 func (p Principal) Staff() bool {
+	if p.IAM {
+		return p.Role == "EMPLOYEE"
+	}
 	return p.Role == "ADMIN" || p.Role == "SALES_MANAGER" || p.Role == "WAREHOUSE_STAFF" || p.Role == "PACKING_STAFF" || p.Role == "CUSTOMER_SERVICE"
 }
-func (p Principal) Manager() bool { return p.Role == "ADMIN" || p.Role == "SALES_MANAGER" }
+func (p Principal) Manager() bool {
+	if p.IAM {
+		return p.HasPermission("ORDER_HOLD_MANAGE") || p.HasPermission("ORDER_RECOVERY_EXECUTE") || p.HasPermission("ORDER_CANCEL_REQUEST")
+	}
+	return p.Role == "ADMIN" || p.Role == "SALES_MANAGER"
+}
 
 type Item struct {
 	ItemID    string `json:"item_id,omitempty"`
@@ -49,11 +59,13 @@ type Item struct {
 	Version   int64  `json:"catalog_version,omitempty"`
 }
 type Address struct {
-	Name     string `json:"recipient_name"`
-	Phone    string `json:"phone"`
-	Street   string `json:"street"`
-	Ward     string `json:"ward_code"`
-	Province string `json:"province_code"`
+	Name         string `json:"recipient_name"`
+	Phone        string `json:"phone"`
+	Street       string `json:"street"`
+	Ward         string `json:"ward_code"`
+	WardName     string `json:"ward_name,omitempty"`
+	Province     string `json:"province_code"`
+	ProvinceName string `json:"province_name,omitempty"`
 }
 
 var phonePattern = regexp.MustCompile(`^(?:\+84|0)[35789][0-9]{8}$`)

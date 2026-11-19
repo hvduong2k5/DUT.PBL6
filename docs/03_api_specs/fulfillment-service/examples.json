@@ -1,0 +1,428 @@
+{
+  "notice": "Synthetic fixtures; checksums/URLs are illustrative, not verified runtime evidence.",
+  "task": {
+    "task_id": "00000002-0002-4002-8002-000000000002",
+    "order_id": "00000001-0001-4001-8001-000000000001",
+    "workflow_state": "IN_PROGRESS",
+    "version": 7,
+    "ready_generation": 1,
+    "warehouse_id": "WH-HUE-01",
+    "assignee_id": "00000008-0008-4008-8008-000000000008",
+    "packing_due_at": "2026-10-30T10:00:00Z",
+    "admitted_at": "2026-10-30T07:00:00Z",
+    "integration": {
+      "order_source": "PENDING",
+      "shipping": "PENDING"
+    },
+    "items_digest": "a70dd9eecf2ba6537a9027f1d7974ddea8ffa8f0d73b88d3f0ff69cc46472208",
+    "policy_version": "packing-hue.v1",
+    "evidence_mode": "VIDEO_REQUIRED",
+    "items": [
+      {
+        "order_line_id": "00000004-0004-4004-8004-000000000004",
+        "sku_code": "MX-GION-500G",
+        "product_name": "Mè xửng giòn 500g",
+        "packaging_text": "Hộp 500g",
+        "quantity": 2,
+        "fragile": true
+      }
+    ],
+    "allocations": [
+      {
+        "allocation_id": "00000009-0009-4009-8009-000000000009",
+        "order_line_id": "00000004-0004-4004-8004-000000000004",
+        "batch_id": "00000006-0006-4006-8006-000000000006",
+        "batch_code": "BATCH-20261020-01",
+        "allocated_quantity": 2,
+        "counted_quantity": 2,
+        "allocation_version": 3,
+        "batch_valid_until": "2027-01-20T17:00:00Z",
+        "currently_eligible": true,
+        "eligibility_revision": 5,
+        "last_validated_at": "2026-10-30T07:10:00Z"
+      }
+    ],
+    "checklist": [
+      {
+        "item_code": "SKU_MATCH",
+        "definition": "Đúng SKU theo snapshot",
+        "required": true,
+        "result": "PASS",
+        "confirmed_by": "00000008-0008-4008-8008-000000000008",
+        "confirmed_at": "2026-10-30T07:12:00Z",
+        "note": null
+      },
+      {
+        "item_code": "QUANTITY_MATCH",
+        "definition": "Đủ số lượng",
+        "required": true,
+        "result": "PASS",
+        "confirmed_by": "00000008-0008-4008-8008-000000000008",
+        "confirmed_at": "2026-10-30T07:12:00Z",
+        "note": null
+      },
+      {
+        "item_code": "BATCH_VALID",
+        "definition": "Đúng batch và còn hạn",
+        "required": true,
+        "result": "PASS",
+        "confirmed_by": "00000008-0008-4008-8008-000000000008",
+        "confirmed_at": "2026-10-30T07:12:00Z",
+        "note": null
+      },
+      {
+        "item_code": "PACKAGING_INTACT",
+        "definition": "Bao bì nguyên vẹn",
+        "required": true,
+        "result": "PASS",
+        "confirmed_by": "00000008-0008-4008-8008-000000000008",
+        "confirmed_at": "2026-10-30T07:12:00Z",
+        "note": null
+      }
+    ],
+    "active_blocks": [],
+    "package": {
+      "package_id": "00000003-0003-4003-8003-000000000003",
+      "state": "DRAFT",
+      "seal_code": null,
+      "parcel": null,
+      "primary_evidence_id": null
+    },
+    "queue_as_of": "2026-10-30T07:10:00Z",
+    "channel": "D2C_WEB",
+    "line_count": 1,
+    "total_quantity": 2,
+    "active_block_count": 0,
+    "priority_reason": "NORMAL",
+    "deadline_revision": 1
+  },
+  "task_page": {
+    "items": [
+      {
+        "task_id": "00000002-0002-4002-8002-000000000002",
+        "order_id": "00000001-0001-4001-8001-000000000001",
+        "workflow_state": "IN_PROGRESS",
+        "version": 7,
+        "ready_generation": 1,
+        "warehouse_id": "WH-HUE-01",
+        "assignee_id": "00000008-0008-4008-8008-000000000008",
+        "packing_due_at": "2026-10-30T10:00:00Z",
+        "admitted_at": "2026-10-30T07:00:00Z",
+        "integration": {
+          "order_source": "PENDING",
+          "shipping": "PENDING"
+        },
+        "channel": "D2C_WEB",
+        "line_count": 1,
+        "total_quantity": 2,
+        "active_block_count": 0,
+        "priority_reason": "NORMAL",
+        "deadline_revision": 1
+      }
+    ],
+    "next_cursor": null,
+    "queue_as_of": "2026-10-30T07:10:00Z"
+  },
+  "seal_request": {
+    "package_id": "00000003-0003-4003-8003-000000000003",
+    "seal_code": "SEAL-OMA-20261030-0001",
+    "parcel": {
+      "weight_grams": 1100,
+      "length_cm": 25,
+      "width_cm": 18,
+      "height_cm": 12,
+      "fragile": true
+    },
+    "primary_evidence_id": "00000007-0007-4007-8007-000000000007"
+  },
+  "seal_receipt": {
+    "task_id": "00000002-0002-4002-8002-000000000002",
+    "order_id": "00000001-0001-4001-8001-000000000001",
+    "package_id": "00000003-0003-4003-8003-000000000003",
+    "workflow_state": "COMPLETED",
+    "version": 8,
+    "seal_code": "SEAL-OMA-20261030-0001",
+    "packed_at": "2026-10-30T07:15:00Z",
+    "integration": {
+      "order_source": "PENDING",
+      "shipping": "PENDING"
+    }
+  },
+  "media_file": {
+    "file_id": "00000007-0007-4007-8007-000000000007",
+    "task_id": "00000002-0002-4002-8002-000000000002",
+    "package_id": "00000003-0003-4003-8003-000000000003",
+    "status": "VERIFIED",
+    "media_type": "video/mp4",
+    "size_bytes": 1048576,
+    "verified_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "verified_at": "2026-10-30T07:14:00Z"
+  },
+  "packing_completed_v2": {
+    "specversion": "1.0",
+    "id": "00000010-0010-4010-8010-000000000010",
+    "source": "https://omama.vn/services/fulfillment-service",
+    "type": "vn.omama.fulfillment.packing.completed.v2",
+    "subject": "order_id:00000001-0001-4001-8001-000000000001",
+    "time": "2026-10-30T07:15:00Z",
+    "datacontenttype": "application/json",
+    "traceparent": "00-11111111111111111111111111111111-2222222222222222-01",
+    "data": {
+      "order_id": "00000001-0001-4001-8001-000000000001",
+      "package_id": "00000003-0003-4003-8003-000000000003",
+      "packer_staff_id": "00000008-0008-4008-8008-000000000008",
+      "seal_code": "SEAL-OMA-20261030-0001",
+      "parcel": {
+        "weight_grams": 1100,
+        "length_cm": 25,
+        "width_cm": 18,
+        "height_cm": 12,
+        "fragile": true
+      },
+      "s3_video_object_key": "packing-evidence/verified/00000007-0007-4007-8007-000000000007.mp4",
+      "video_checksum_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "scanned_batch_codes": [
+        "BATCH-20261020-01"
+      ],
+      "packed_at": "2026-10-30T07:15:00Z",
+      "task_id": "00000002-0002-4002-8002-000000000002",
+      "resource_version": 8,
+      "ready_generation": 1
+    }
+  },
+  "packing_snapshot": {
+    "schema_version": "packing-inputs.v1",
+    "contract_version": "order-3.2",
+    "snapshot_id": "packing-snapshot-00000001-0001-4001-8001-000000000001",
+    "snapshot_version": 4,
+    "order_id": "00000001-0001-4001-8001-000000000001",
+    "ready_generation": 1,
+    "items_digest": "a70dd9eecf2ba6537a9027f1d7974ddea8ffa8f0d73b88d3f0ff69cc46472208",
+    "warehouse_id": "WH-HUE-01",
+    "reservation_id": "00000005-0005-4005-8005-000000000005",
+    "channel": "D2C_WEB",
+    "packing_due_at": "2026-10-30T10:00:00Z",
+    "deadline_revision": 1,
+    "lines": [
+      {
+        "order_line_id": "00000004-0004-4004-8004-000000000004",
+        "sku_code": "MX-GION-500G",
+        "product_name": "Mè xửng giòn 500g",
+        "packaging_text": "Hộp 500g",
+        "quantity": 2,
+        "fragile": true
+      }
+    ],
+    "policy": {
+      "policy_version": "packing-hue.v1",
+      "evidence_mode": "VIDEO_REQUIRED",
+      "checklist": [
+        {
+          "item_code": "SKU_MATCH",
+          "definition": "Đúng SKU theo snapshot",
+          "required": true
+        },
+        {
+          "item_code": "QUANTITY_MATCH",
+          "definition": "Đủ số lượng",
+          "required": true
+        },
+        {
+          "item_code": "BATCH_VALID",
+          "definition": "Đúng batch và còn hạn",
+          "required": true
+        },
+        {
+          "item_code": "PACKAGING_INTACT",
+          "definition": "Bao bì nguyên vẹn",
+          "required": true
+        }
+      ],
+      "maximum_weight_grams": 30000,
+      "maximum_dimension_cm": 150,
+      "maximum_video_bytes": 209715200,
+      "maximum_video_seconds": 600
+    }
+  },
+  "committed_allocation": {
+    "contract_version": "order-3.2",
+    "order_id": "00000001-0001-4001-8001-000000000001",
+    "reservation_id": "00000005-0005-4005-8005-000000000005",
+    "state": "COMMITTED",
+    "allocation_version": 3,
+    "items_digest": "a70dd9eecf2ba6537a9027f1d7974ddea8ffa8f0d73b88d3f0ff69cc46472208",
+    "warehouse_id": "WH-HUE-01",
+    "observed_at": "2026-10-30T07:00:00Z",
+    "slots": [
+      {
+        "allocation_id": "00000009-0009-4009-8009-000000000009",
+        "order_line_id": "00000004-0004-4004-8004-000000000004",
+        "sku_code": "MX-GION-500G",
+        "batch_id": "00000006-0006-4006-8006-000000000006",
+        "batch_code": "BATCH-20261020-01",
+        "allocated_quantity": 2,
+        "batch_valid_until": "2027-01-20T17:00:00Z",
+        "eligibility_revision": 5,
+        "currently_eligible": true,
+        "location_reference": "WH-HUE-01/A1"
+      }
+    ],
+    "original_commit_decision_id": "00000011-0011-4011-8011-000000000011",
+    "ready_generation": 1
+  },
+  "packing_validation": {
+    "allowed": true,
+    "reason_code": "",
+    "validation_id": "00000012-0012-4012-8012-000000000012",
+    "observed_at": "2026-10-30T07:14:58Z",
+    "valid_until": "2026-10-30T07:15:03Z",
+    "order_id": "00000001-0001-4001-8001-000000000001",
+    "task_id": "00000002-0002-4002-8002-000000000002",
+    "reservation_id": "00000005-0005-4005-8005-000000000005",
+    "allocation_version": 3,
+    "ready_generation": 1,
+    "items_digest": "a70dd9eecf2ba6537a9027f1d7974ddea8ffa8f0d73b88d3f0ff69cc46472208",
+    "warehouse_id": "WH-HUE-01",
+    "contract_version": "order-3.2",
+    "slots": [
+      {
+        "allocation_id": "00000009-0009-4009-8009-000000000009",
+        "order_line_id": "00000004-0004-4004-8004-000000000004",
+        "sku_code": "MX-GION-500G",
+        "batch_id": "00000006-0006-4006-8006-000000000006",
+        "batch_code": "BATCH-20261020-01",
+        "allocated_quantity": 2,
+        "batch_valid_until": "2027-01-20T17:00:00Z",
+        "eligibility_revision": 5,
+        "currently_eligible": true,
+        "location_reference": "WH-HUE-01/A1"
+      }
+    ]
+  },
+  "package_revision": {
+    "order_id": "00000001-0001-4001-8001-000000000001",
+    "task_id": "00000002-0002-4002-8002-000000000002",
+    "package_id": "00000003-0003-4003-8003-000000000003",
+    "sealed_task_version": 8,
+    "ready_generation": 1,
+    "items_digest": "a70dd9eecf2ba6537a9027f1d7974ddea8ffa8f0d73b88d3f0ff69cc46472208",
+    "warehouse_id": "WH-HUE-01",
+    "seal_code": "SEAL-OMA-20261030-0001",
+    "parcel": {
+      "weight_grams": 1100,
+      "length_cm": 25,
+      "width_cm": 18,
+      "height_cm": 12,
+      "fragile": true
+    },
+    "packed_at": "2026-10-30T07:15:00Z",
+    "immutable_video_object_key": "packing-evidence/verified/00000007-0007-4007-8007-000000000007.mp4",
+    "video_checksum_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "contract_version": "order-3.2"
+  },
+  "error": {
+    "code": "CHECKLIST_INCOMPLETE",
+    "message": "Checklist bat buoc chua dat.",
+    "request_id": "00000013-0013-4013-8013-000000000013",
+    "retryable": false,
+    "details": {
+      "missing_items": [
+        "QUANTITY_MATCH"
+      ]
+    }
+  },
+  "command_outcome": {
+    "action": "SealTask",
+    "order_id": "00000001-0001-4001-8001-000000000001",
+    "command_key": "seal-task-20261030-0001",
+    "result": "APPLIED",
+    "decision_id": "00000014-0014-4014-8014-000000000014",
+    "decision_at": "2026-10-30T07:15:00Z",
+    "resulting_state": "COMPLETED",
+    "task_id": "00000002-0002-4002-8002-000000000002",
+    "version": 8
+  },
+  "assign_request": {},
+  "empty_request": {},
+  "pick_request": {
+    "counted_quantity": 2,
+    "allocation_version": 3
+  },
+  "checklist_request": {
+    "result": "PASS",
+    "note": "Đã đối chiếu SKU và số lượng."
+  },
+  "block_request": {
+    "reason_code": "PACKAGING_DAMAGED",
+    "reason": "Hộp bị móp, cần thay bao bì trước khi niêm phong."
+  },
+  "resolve_block_request": {
+    "reason": "Đã thay hộp và kiểm tra lại."
+  },
+  "reopen_request": {
+    "reason": "Phát hiện sai lệch trước bàn giao; MVP hiện chưa hỗ trợ mở lại."
+  },
+  "media_session_request": {
+    "package_id": "00000003-0003-4003-8003-000000000003",
+    "media_type": "video/mp4",
+    "size_bytes": 1048576,
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "media_session": {
+    "file_id": "00000007-0007-4007-8007-000000000007",
+    "status": "CREATED",
+    "upload_url": "https://upload.invalid/example-only",
+    "expires_at": "2026-10-30T07:20:00Z"
+  },
+  "media_access_request": {
+    "purpose": "PACKING_REVIEW"
+  },
+  "media_access": {
+    "url": "https://media.invalid/example-only",
+    "expires_at": "2026-10-30T07:20:00Z",
+    "access_audit_id": "00000016-0016-4016-8016-000000000016"
+  },
+  "task_history_page": {
+    "items": [
+      {
+        "history_id": "00000017-0017-4017-8017-000000000017",
+        "task_version": 7,
+        "action": "ConfirmChecklist",
+        "actor_id": "00000008-0008-4008-8008-000000000008",
+        "reason": null,
+        "occurred_at": "2026-10-30T07:12:00Z"
+      }
+    ],
+    "next_cursor": null
+  },
+  "media_pending": {
+    "file_id": "00000007-0007-4007-8007-000000000007",
+    "task_id": "00000002-0002-4002-8002-000000000002",
+    "package_id": "00000003-0003-4003-8003-000000000003",
+    "status": "VERIFYING",
+    "media_type": "video/mp4",
+    "size_bytes": 1048576,
+    "verified_sha256": null,
+    "verified_at": null
+  },
+  "task_accepted_v1": {
+    "specversion": "1.0",
+    "id": "00000018-0018-4018-8018-000000000018",
+    "source": "https://omama.vn/services/fulfillment-service",
+    "type": "vn.omama.fulfillment.task.accepted.v1",
+    "subject": "order_id:00000001-0001-4001-8001-000000000001",
+    "time": "2026-10-30T07:00:00Z",
+    "datacontenttype": "application/json",
+    "traceparent": "00-11111111111111111111111111111111-2222222222222222-01",
+    "data": {
+      "order_id": "00000001-0001-4001-8001-000000000001",
+      "task_id": "00000002-0002-4002-8002-000000000002",
+      "resource_version": 1,
+      "ready_generation": 1,
+      "kind": "PACKING_ACCEPTED",
+      "items_digest": "a70dd9eecf2ba6537a9027f1d7974ddea8ffa8f0d73b88d3f0ff69cc46472208",
+      "warehouse_id": "WH-HUE-01",
+      "occurred_at": "2026-10-30T07:00:00Z"
+    }
+  }
+}

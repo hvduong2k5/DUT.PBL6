@@ -19,9 +19,6 @@ service IdentityService {
   // Thẩm duyệt phân quyền động (ABAC/PBAC) cho các hành động có rủi ro tài chính cao
   // Ví dụ: "Kế toán duyệt Refund > 10 triệu VND", "Giám đốc duyệt chiết khấu B2B > 25%"
   rpc CheckSpecializedPermission(SpecializedPermissionRequest) returns (SpecializedPermissionResponse);
-
-  // Cung cấp public key JWKS để API Gateway nạp vào cache cục bộ định kỳ (Local JWT Validation)
-  rpc GetJwksPublicKey(GetJwksPublicKeyRequest) returns (GetJwksPublicKeyResponse);
 }
 
 // Yêu cầu thẩm duyệt quyền động
@@ -53,17 +50,4 @@ message SpecializedPermissionResponse {
 
   // Chi tiết lỗi nếu phát sinh sự cố trong quá trình thẩm duyệt
   optional omamx.common.v1.ErrorDetail error = 4;
-}
-
-// Yêu cầu lấy JWKS Public Key
-message GetJwksPublicKeyRequest {
-  // Key ID (Optional - nếu bỏ trống sẽ lấy key active mới nhất)
-  optional string key_id = 1;
-}
-
-// Phản hồi JWKS Public Key
-message GetJwksPublicKeyResponse {
-  string key_id = 1;
-  string algorithm = 2;      // Ví dụ: "RS256" hoặc "EdDSA"
-  string public_key_pem = 3;  // Chuỗi chứng chỉ khóa công khai định dạng PEM
 }

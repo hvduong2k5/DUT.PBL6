@@ -3,8 +3,10 @@ package middleware
 import (
 	"context"
 	"crypto/subtle"
+	"errors"
 	"github.com/google/uuid"
 	"github.com/omamx/profile-service/internal/domain"
+	"github.com/omamx/profile-service/internal/infrastructure/security"
 	"net/http"
 	"strings"
 )
@@ -15,13 +17,55 @@ const (
 	UserIDKey     contextKey = "user_id"
 	UserRoleKey   contextKey = "user_role"
 	CustomerIDKey contextKey = "customer_id"
+	PrincipalKey  contextKey = "verified_principal"
 )
 
 // Forwarded identities are accepted only from an authenticated internal caller.
 // The token must remain server-side and the service must not be publicly exposed.
 func AuthContextWithToken(token string) func(http.Handler) http.Handler {
+	return AuthContextWithIdentity(token, nil)
+}
+
+type BearerIdentity interface {
+	Authenticate(context.Context, string) (security.Principal, error)
+}
+
+func AuthContextWithIdentity(token string, identity BearerIdentity) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if len(r.Header.Values("Authorization")) > 0 {
+				if identity == nil || len(r.Header.Values("Authorization")) != 1 {
+					authError(w, 401, "UNAUTHENTICATED")
+					return
+				}
+				principal, err := identity.Authenticate(r.Context(), r.Header.Get("Authorization"))
+				if errors.Is(err, security.ErrPrincipalForbidden) {
+					authError(w, 403, "PRINCIPAL_FORBIDDEN")
+					return
+				}
+				if errors.Is(err, security.ErrStaffTokenRequired) {
+					authError(w, 403, "STAFF_TOKEN_REQUIRED")
+					return
+				}
+				if errors.Is(err, security.ErrCustomerRequired) {
+					authError(w, 403, "CUSTOMER_REQUIRED")
+					return
+				}
+				if errors.Is(err, security.ErrIdentityUnavailable) {
+					authError(w, 503, "IDENTITY_UNAVAILABLE")
+					return
+				}
+				id, parseErr := uuid.Parse(principal.ID)
+				if err != nil || parseErr != nil || id == uuid.Nil {
+					authError(w, 401, "UNAUTHENTICATED")
+					return
+				}
+				ctx := context.WithValue(r.Context(), UserIDKey, id)
+				ctx = context.WithValue(ctx, UserRoleKey, principal.Role)
+				ctx = context.WithValue(ctx, PrincipalKey, principal)
+				next.ServeHTTP(w, r.WithContext(ctx))
+				return
+			}
 			supplied := r.Header.Get("X-Internal-Token")
 			if token == "" || subtle.ConstantTimeCompare([]byte(supplied), []byte(token)) != 1 {
 				authError(w, 401, "UNAUTHENTICATED")
@@ -46,6 +90,10 @@ type CustomerResolver interface {
 func ResolveCustomer(repo CustomerResolver) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if role, _ := r.Context().Value(UserRoleKey).(string); role != "CUSTOMER" {
+				authError(w, 403, "CUSTOMER_REQUIRED")
+				return
+			}
 			uid, ok := GetUserIDFromContext(r.Context())
 			if !ok {
 				authError(w, 401, "UNAUTHENTICATED")
@@ -60,7 +108,40 @@ func ResolveCustomer(repo CustomerResolver) func(http.Handler) http.Handler {
 				}
 				return
 			}
+			if profile.Status == "SUSPENDED" || profile.Status == "DELETED" {
+				authError(w, 403, "CUSTOMER_FORBIDDEN")
+				return
+			}
+			if profile.Status != "ACTIVE" && strings.TrimSuffix(r.URL.Path, "/") != "/api/v1/profile" {
+				authError(w, 403, "CUSTOMER_VERIFICATION_REQUIRED")
+				return
+			}
 			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), CustomerIDKey, profile.ID)))
+		})
+	}
+}
+
+func StaffScope(ctx context.Context, permission string) domain.PermissionScope {
+	p, ok := ctx.Value(PrincipalKey).(security.Principal)
+	if !ok || p.Role != "EMPLOYEE" {
+		return domain.PermissionScope{}
+	}
+	// MVP HR manages the whole company. Department is a filter on employee
+	// data, not an implicit authorization boundary of the employee's own team.
+	scope := domain.ScopeFor(p.Grants, permission, "DEPARTMENT")
+	return domain.PermissionScope{Global: scope.Global}
+}
+
+func RequirePermission(permission string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			scope := StaffScope(r.Context(), permission)
+			if !scope.Global && len(scope.IDs) == 0 {
+				authError(w, 403, "PERMISSION_DENIED")
+				return
+			}
+			w.Header().Set("Cache-Control", "no-store")
+			next.ServeHTTP(w, r)
 		})
 	}
 }
@@ -85,7 +166,7 @@ func RequireRole(roles ...string) func(http.Handler) http.Handler {
 func authError(w http.ResponseWriter, status int, code string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_, _ = w.Write([]byte(`{"error":"access denied","code":"` + code + `"}`))
+	_, _ = w.Write([]byte(`{"error":"access denied","code":"` + code + `","message":"Access denied","requestId":"` + uuid.NewString() + `","retryable":false}`))
 }
 func GetUserIDFromContext(ctx context.Context) (uuid.UUID, bool) {
 	id, ok := ctx.Value(UserIDKey).(uuid.UUID)

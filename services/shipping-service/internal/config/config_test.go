@@ -2,6 +2,24 @@ package config
 
 import "testing"
 
+func TestPackingV2RequiresOrderTLS(t *testing.T) {
+	setRequiredBaseEnvironment(t)
+	t.Setenv("SHIPPING_GHN_ENABLED", "false")
+	t.Setenv("SHIPPING_PACKING_V2_ENABLED", "true")
+	t.Setenv("SHIPPING_ORDER_GRPC_ENDPOINT", "order.internal:9004")
+	t.Setenv("SHIPPING_ORDER_INTERNAL_TOKEN", "fixture-token")
+	t.Setenv("SHIPPING_ORDER_CA_FILE", "")
+	t.Setenv("SHIPPING_ORDER_SERVER_NAME", "")
+	if _, err := Load(); err == nil {
+		t.Fatal("packing v2 accepted a plaintext Order connection")
+	}
+	t.Setenv("SHIPPING_ORDER_CA_FILE", "/run/secrets/order-ca.pem")
+	t.Setenv("SHIPPING_ORDER_SERVER_NAME", "order.internal")
+	if _, err := Load(); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestLoadLeavesGHNDisabledWithoutCredentials(t *testing.T) {
 	setRequiredBaseEnvironment(t)
 	t.Setenv("SHIPPING_GHN_ENABLED", "false")
@@ -26,6 +44,9 @@ func TestLoadEnablesShippingV2ForOrderIntegrationByDefault(t *testing.T) {
 	}
 	if !cfg.V2Enabled {
 		t.Fatal("Shipping gRPC v2 must be enabled by default for the Order integration")
+	}
+	if cfg.PackingV2Enabled || cfg.OrderGRPCEndpoint != "" {
+		t.Fatal("packing consumption must remain opt-in for the default Order-owned handoff")
 	}
 }
 
@@ -57,7 +78,6 @@ func TestLoadRequiresServiceTokenAtOrderCompatibleLength(t *testing.T) {
 		t.Fatal("expected short service token to be rejected")
 	}
 }
-
 func TestLoadRequiresCompleteGHNCredentialsWhenEnabled(t *testing.T) {
 	setRequiredBaseEnvironment(t)
 	t.Setenv("SHIPPING_GHN_ENABLED", "true")
@@ -83,6 +103,11 @@ func TestLoadRequiresCompleteGHNCredentialsWhenEnabled(t *testing.T) {
 
 func setRequiredBaseEnvironment(t *testing.T) {
 	t.Helper()
+	t.Setenv("SHIPPING_ORDER_GRPC_ENDPOINT", "")
+	t.Setenv("SHIPPING_ORDER_INTERNAL_TOKEN", "")
+	t.Setenv("SHIPPING_PACKING_V2_ENABLED", "false")
+	t.Setenv("SHIPPING_ORDER_CA_FILE", "")
+	t.Setenv("SHIPPING_ORDER_SERVER_NAME", "")
 	t.Setenv("SHIPPING_ENV", "local")
 	t.Setenv("SHIPPING_INTERNAL_TOKEN", "shipping-local-development-secret")
 	t.Setenv("SHIPPING_GRPC_TLS_CERT_FILE", "")

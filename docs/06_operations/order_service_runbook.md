@@ -46,3 +46,14 @@ Forward migrations bảo toàn financial records/registry; down migration ban đ
 ## 5. Giới hạn nghiệm thu
 
 Go tests chứng minh resume/replay/rollback/lease và simulator terminal protocol. Production provider, Identity, FEFO, OTP, MS-18 end-to-end và full PITR restore chưa có evidence. `APP_MODE=production` bị từ chối. Không áp tài khoản/secret sandbox vào môi trường nhận tiền thật.
+
+## Packing handoff to Shipping
+
+For the Wave 2 consumer, set `ORDER_SHIPPING_OWNS_PACKING_HANDOFF=true`
+and provision a distinct `ORDER_SHIPPING_CALLER_TOKEN` for the Order snapshot
+RPC. Set the same token as `SHIPPING_ORDER_INTERNAL_TOKEN` in Shipping, then
+configure `SHIPPING_ORDER_GRPC_ENDPOINT`, `SHIPPING_ORDER_CA_FILE` and
+`SHIPPING_ORDER_SERVER_NAME` and enable `SHIPPING_PACKING_V2_ENABLED`.
+Order still verifies Fulfillment proof and persists the package association.
+Shipping creates the shipment after Order returns the frozen eligible snapshot.
+Drain existing shipment handoffs before switching creation ownership.

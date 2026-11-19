@@ -33,17 +33,36 @@ type EnvelopeEncryptor struct {
 	kmsClient VaultKMSClient
 	keyName   string
 	// Short-lived in-memory DEK cache with automatic zeroize on eviction
-	dekCache *expirable.LRU[string, []byte]
-	mu       sync.RWMutex
+	dekCache *expirable.LRU[string, *cachedKey]
+}
+
+// Cache eviction can run while a caller copies a key. Keep those operations
+// under the same lock, and retry Vault if eviction has already erased it.
+type cachedKey struct {
+	mu    sync.Mutex
+	bytes []byte
+}
+
+func (k *cachedKey) copy() []byte {
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	return append([]byte(nil), k.bytes...)
+}
+
+func (k *cachedKey) erase() {
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	for i := range k.bytes {
+		k.bytes[i] = 0
+	}
+	k.bytes = nil
 }
 
 func NewEnvelopeEncryptor(kms VaultKMSClient, keyName string, cacheTTL time.Duration) *EnvelopeEncryptor {
 	// Khởi tạo expirable LRU cache (TTL 3-5 phút, max 1000 keys)
-	cache := expirable.NewLRU[string, []byte](1000, func(key string, val []byte) {
+	cache := expirable.NewLRU[string, *cachedKey](1000, func(key string, val *cachedKey) {
 		// Hook OnEvict: Tự động zeroize DEK trong RAM khi hết hạn
-		for i := range val {
-			val[i] = 0
-		}
+		val.erase()
 	}, cacheTTL)
 
 	return &EnvelopeEncryptor{
@@ -107,15 +126,13 @@ func (e *EnvelopeEncryptor) Decrypt(ctx context.Context, payload *EncryptedPaylo
 	cacheKey := hashDEKKey(payload.EncryptedDEK)
 	var dek []byte
 
-	e.mu.RLock()
 	cachedDEK, found := e.dekCache.Get(cacheKey)
-	e.mu.RUnlock()
 
 	if found {
 		// Sao chép an toàn để sử dụng
-		dek = make([]byte, len(cachedDEK))
-		copy(dek, cachedDEK)
-	} else {
+		dek = cachedDEK.copy()
+	}
+	if len(dek) == 0 {
 		// Cache Miss: Gọi Vault Transit Engine unwrap DEK
 		unwrappedDEK, err := e.kmsClient.DecryptDEK(ctx, e.keyName, payload.EncryptedDEK, payload.KEKVersion)
 		if err != nil {
@@ -126,9 +143,7 @@ func (e *EnvelopeEncryptor) Decrypt(ctx context.Context, payload *EncryptedPaylo
 		// Lưu bản sao vào cache RAM
 		dekCopy := make([]byte, len(dek))
 		copy(dekCopy, dek)
-		e.mu.Lock()
-		e.dekCache.Add(cacheKey, dekCopy)
-		e.mu.Unlock()
+		e.dekCache.Add(cacheKey, &cachedKey{bytes: dekCopy})
 	}
 
 	defer func() {

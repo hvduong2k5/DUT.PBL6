@@ -1,6 +1,6 @@
 services:
   kong-gateway:
-    image: kong:3.9
+    image: ${KONG_IMAGE:-kong:3.9.3}
     container_name: omamx-kong-gateway
     restart: unless-stopped
     networks:

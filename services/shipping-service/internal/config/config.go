@@ -21,12 +21,21 @@ type Config struct {
 	OIDCJWKSURL        string
 	FakeWebhookSecret  string
 	KafkaBrokers       []string
+	FulfillmentTopic   string
+	FulfillmentGroup   string
+	FulfillmentV2Topic string
+	FulfillmentV2Group string
+	OrderGRPCEndpoint  string
+	OrderInternalToken string
+	OrderCAFile        string
+	OrderServerName    string
 	DefaultCarrier     string
 	DefaultService     string
 	OutboxPollInterval time.Duration
 	ShutdownTimeout    time.Duration
 	DatabaseTimeout    time.Duration
 	V2Enabled          bool
+	PackingV2Enabled   bool
 	GHNEnabled         bool
 	GHNBaseURL         string
 	GHNToken           string
@@ -53,12 +62,21 @@ func Load() (Config, error) {
 		OIDCJWKSURL:        strings.TrimSpace(os.Getenv("SHIPPING_OIDC_JWKS_URL")),
 		FakeWebhookSecret:  strings.TrimSpace(os.Getenv("SHIPPING_FAKE_WEBHOOK_SECRET")),
 		KafkaBrokers:       csvEnv("SHIPPING_KAFKA_BROKERS", "localhost:9092"),
+		FulfillmentTopic:   env("SHIPPING_FULFILLMENT_TOPIC", "fulfillment.events.v1"),
+		FulfillmentGroup:   env("SHIPPING_FULFILLMENT_GROUP", "shipping-service-v1"),
+		FulfillmentV2Topic: env("SHIPPING_FULFILLMENT_V2_TOPIC", "fulfillment.events.v2"),
+		FulfillmentV2Group: env("SHIPPING_FULFILLMENT_V2_GROUP", "shipping-service-v2"),
+		OrderGRPCEndpoint:  strings.TrimSpace(os.Getenv("SHIPPING_ORDER_GRPC_ENDPOINT")),
+		OrderInternalToken: strings.TrimSpace(os.Getenv("SHIPPING_ORDER_INTERNAL_TOKEN")),
+		OrderCAFile:        strings.TrimSpace(os.Getenv("SHIPPING_ORDER_CA_FILE")),
+		OrderServerName:    strings.TrimSpace(os.Getenv("SHIPPING_ORDER_SERVER_NAME")),
 		DefaultCarrier:     env("SHIPPING_DEFAULT_CARRIER", "FAKE"),
 		DefaultService:     env("SHIPPING_DEFAULT_SERVICE", "STANDARD"),
 		OutboxPollInterval: durationEnv("SHIPPING_OUTBOX_POLL_INTERVAL", time.Second),
 		ShutdownTimeout:    durationEnv("SHIPPING_SHUTDOWN_TIMEOUT", 10*time.Second),
 		DatabaseTimeout:    durationEnv("SHIPPING_DATABASE_TIMEOUT", 5*time.Second),
 		V2Enabled:          boolEnv("SHIPPING_V2_ENABLED", true),
+		PackingV2Enabled:   boolEnv("SHIPPING_PACKING_V2_ENABLED", false),
 		GHNEnabled:         boolEnv("SHIPPING_GHN_ENABLED", false),
 		GHNBaseURL:         env("SHIPPING_GHN_BASE_URL", "https://dev-online-gateway.ghn.vn"),
 		GHNToken:           strings.TrimSpace(os.Getenv("SHIPPING_GHN_TOKEN")),
@@ -84,6 +102,12 @@ func Load() (Config, error) {
 	}
 	if cfg.FakeWebhookSecret == "" {
 		return Config{}, fmt.Errorf("SHIPPING_FAKE_WEBHOOK_SECRET is required")
+	}
+	if cfg.OrderGRPCEndpoint != "" && cfg.OrderInternalToken == "" {
+		return Config{}, fmt.Errorf("SHIPPING_ORDER_INTERNAL_TOKEN is required when SHIPPING_ORDER_GRPC_ENDPOINT is set")
+	}
+	if cfg.PackingV2Enabled && (cfg.OrderGRPCEndpoint == "" || cfg.OrderCAFile == "" || cfg.OrderServerName == "") {
+		return Config{}, fmt.Errorf("packing v2 requires an Order gRPC endpoint, CA file and server name")
 	}
 	if cfg.GHNEnabled {
 		if cfg.GHNToken == "" || cfg.GHNShopID <= 0 || cfg.GHNFromDistrictID <= 0 || cfg.GHNFromWardCode == "" {

@@ -1,0 +1,21 @@
+name: ai-agent-service
+
+on:
+  push:
+    paths:
+      - "services/ai-agent-service/**"
+      - ".github/workflows/ai-agent-service.yml"
+  pull_request:
+    paths:
+      - "services/ai-agent-service/**"
+      - ".github/workflows/ai-agent-service.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run ai-agent-service test suite (Docker)
+        run: |
+          docker compose -f services/ai-agent-service/compose.test.yml \
+            up --build --abort-on-container-exit --exit-code-from tests

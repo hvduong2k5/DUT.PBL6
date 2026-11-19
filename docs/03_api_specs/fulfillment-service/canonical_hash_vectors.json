@@ -1,0 +1,74 @@
+{
+  "status": "candidate-interop-vectors",
+  "note": "Derived from proposed Order3.2 normalization; provider/client acceptance still pending. Protobuf Timestamp is nested seconds/nanos, nanos=0 omitted; REST version is normalized from If-Match.",
+  "vectors": [
+    {
+      "name": "items_digest",
+      "canonical_model": [
+        {
+          "quantity": 2,
+          "sku_code": "MX-GION-500G"
+        }
+      ],
+      "canonical_utf8": "[{\"quantity\":2,\"sku_code\":\"MX-GION-500G\"}]",
+      "sha256": "a70dd9eecf2ba6537a9027f1d7974ddea8ffa8f0d73b88d3f0ff69cc46472208"
+    },
+    {
+      "name": "grpc_accept_task",
+      "canonical_model": {
+        "contract_version": "order-3.2",
+        "generation": 1,
+        "order_id": "00000001-0001-4001-8001-000000000001",
+        "permit": {
+          "permit_id": "00000015-0015-4015-8015-000000000015",
+          "order_id": "00000001-0001-4001-8001-000000000001",
+          "generation": 1,
+          "items_digest": "a70dd9eecf2ba6537a9027f1d7974ddea8ffa8f0d73b88d3f0ff69cc46472208",
+          "warehouse_id": "WH-HUE-01",
+          "order_version": 8,
+          "policy_version": "packing-hue.v1",
+          "expires_at": {
+            "seconds": 1793343630
+          },
+          "task_request_key": "accept-task-20261030-0001",
+          "audience": "fulfillment-service"
+        }
+      },
+      "canonical_utf8": "{\"contract_version\":\"order-3.2\",\"generation\":1,\"order_id\":\"00000001-0001-4001-8001-000000000001\",\"permit\":{\"audience\":\"fulfillment-service\",\"expires_at\":{\"seconds\":1793343630},\"generation\":1,\"items_digest\":\"a70dd9eecf2ba6537a9027f1d7974ddea8ffa8f0d73b88d3f0ff69cc46472208\",\"order_id\":\"00000001-0001-4001-8001-000000000001\",\"order_version\":8,\"permit_id\":\"00000015-0015-4015-8015-000000000015\",\"policy_version\":\"packing-hue.v1\",\"task_request_key\":\"accept-task-20261030-0001\",\"warehouse_id\":\"WH-HUE-01\"}}",
+      "sha256": "5ff6dc25fc298e50212dafa593b09d0b86989de67327914a27f75054bba773fb"
+    },
+    {
+      "name": "grpc_cancel_task",
+      "canonical_model": {
+        "contract_version": "order-3.2",
+        "generation": 1,
+        "order_id": "00000001-0001-4001-8001-000000000001",
+        "reason": "OPERATIONAL_HOLD"
+      },
+      "canonical_utf8": "{\"contract_version\":\"order-3.2\",\"generation\":1,\"order_id\":\"00000001-0001-4001-8001-000000000001\",\"reason\":\"OPERATIONAL_HOLD\"}",
+      "sha256": "4e3cb5b6e66b6dd7d1bf8778a56fa34f177bb8bc94d576f1f8a201a5122bbc2c"
+    },
+    {
+      "name": "rest_seal_task",
+      "canonical_model": {
+        "action": "SealTask",
+        "task_id": "00000002-0002-4002-8002-000000000002",
+        "expected_version": 7,
+        "body": {
+          "package_id": "00000003-0003-4003-8003-000000000003",
+          "seal_code": "SEAL-OMA-20261030-0001",
+          "parcel": {
+            "weight_grams": 1100,
+            "length_cm": 25,
+            "width_cm": 18,
+            "height_cm": 12,
+            "fragile": true
+          },
+          "primary_evidence_id": "00000007-0007-4007-8007-000000000007"
+        }
+      },
+      "canonical_utf8": "{\"action\":\"SealTask\",\"body\":{\"package_id\":\"00000003-0003-4003-8003-000000000003\",\"parcel\":{\"fragile\":true,\"height_cm\":12,\"length_cm\":25,\"weight_grams\":1100,\"width_cm\":18},\"primary_evidence_id\":\"00000007-0007-4007-8007-000000000007\",\"seal_code\":\"SEAL-OMA-20261030-0001\"},\"expected_version\":7,\"task_id\":\"00000002-0002-4002-8002-000000000002\"}",
+      "sha256": "e014fb4844fd174a6d80ccdb0cf5674f0989932b5644f3eb55d08696e61adcde"
+    }
+  ]
+}

@@ -1,0 +1,79 @@
+openapi: 3.0.3
+info:
+  title: Customer onboarding and checkout locations support APIs
+  version: 1.0.0
+  description: Outside the pinned 30-operation purchase target. Registration creates Identity; Customer provisioning is asynchronous and remains PENDING_VERIFICATION. It never issues tokens or proves phone verification.
+paths:
+  /api/v1/public/customer-registrations:
+    post:
+      operationId: registerCustomerIdentity
+      description: Public Identity provider operation, called through the Web BFF. Body idempotencyKey is required. Fingerprint is computed by the server using a configured HMAC key. Same key/different payload is 409. A PENDING replay does not claim provisioning has finished. Registration is rate-limited at Gateway.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, firstName, lastName, rawPassword, idempotencyKey]
+              properties:
+                email: {type: string, format: email, maxLength: 254}
+                firstName: {type: string, minLength: 1, maxLength: 100}
+                lastName: {type: string, minLength: 1, maxLength: 100}
+                rawPassword: {type: string, minLength: 12, maxLength: 128, writeOnly: true}
+                idempotencyKey: {type: string, pattern: '^[A-Za-z0-9_-]{16,128}$'}
+      responses:
+        '200':
+          description: Identity operation outcome, not Customer activation or authenticated session
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success: {type: boolean, enum: [true]}
+                  data:
+                    type: object
+                    required: [principalId, status]
+                    properties:
+                      principalId: {type: string, format: uuid}
+                      status: {type: string, enum: [ACTIVE, COMPLETED, PENDING, IDP_CREATED, EVENT_QUEUED]}
+        '409': {description: Key reused with different payload}
+        '422': {description: Invalid registration fields}
+        '429': {description: Registration rate limit exceeded}
+        '500': {description: Identity provider provisioning failed; operation retained for diagnosis}
+        '503': {description: Registration is not configured or unavailable}
+  /api/v1/locations/checkout:
+    get:
+      operationId: getCanonicalCheckoutLocations
+      description: Profile owns the dataset, read from the same administrative_units parent/child records used when writing addresses. Authentication required. Seed data is not a claim of national completeness or current legal authority.
+      security: [{bearerAuth: []}]
+      responses:
+        '200':
+          description: Supported province and ward codes
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [provinces]
+                properties:
+                  provinces:
+                    type: array
+                    items:
+                      type: object
+                      required: [provinceCode, provinceName, wards]
+                      properties:
+                        provinceCode: {type: string}
+                        provinceName: {type: string}
+                        wards:
+                          type: array
+                          items:
+                            type: object
+                            required: [wardCode, wardName]
+                            properties:
+                              wardCode: {type: string}
+                              wardName: {type: string}
+        '401': {description: Missing or invalid authentication}
+        '503': {description: No usable dataset or database unavailable}
+components:
+  securitySchemes:
+    bearerAuth: {type: http, scheme: bearer, bearerFormat: JWT}

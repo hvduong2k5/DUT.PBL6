@@ -28,7 +28,7 @@ Chỉ BANK_ACCOUNT/VND đang được hỗ trợ. Profile đã dùng không sử
 
 `ORDER_ENCRYPTION_KEY` và audit/credential key hiện đi qua `CALLBACK_SECRET` phải ổn định để đọc evidence/dedup/Guest session. Không thay key để reset data; production cần keyring/migration riêng. File token/secret/profile/key lưu ngoài repository, chỉ user/service account được đọc.
 
-`SEPAY_INVENTORY_GRPC` phải là Inventory3.2 có command proof. Bản này chỉ cho TEST internal network với internal token; không xem insecure gRPC sandbox là transport production. Nếu chưa cấu hình, receipt vẫn được đối chiếu nhưng Order chưa thể qua FINALIZING thành PAID.
+`SEPAY_INVENTORY_GRPC` phải là Inventory3.2 có command proof. Với provider thật, đặt `SEPAY_INVENTORY_PROFILE=terminal`, token file riêng, CA và server name để dùng TLS/Bearer; xem [hướng dẫn Order–Inventory và bài test hai service](../../docs/04_testing/order-service/order-inventory-integration.md). Profile rỗng/`sandbox` chỉ giữ adapter TEST simulator cũ; không xem insecure gRPC sandbox là transport production. Nếu chưa cấu hình, receipt vẫn được đối chiếu nhưng Order chưa thể qua FINALIZING thành PAID.
 
 Care/Finance URLs là base URL của owning authority theo ADR009, không nhận URL tùy ý từ public body. Evidence hosts là danh sách hostname HTTPS được phép, phân cách bằng dấu phẩy. Chưa có các authority này thì manual commands fail closed. Guest grants chỉ mint khi có PKCS8 PEM P-256 key và pinned key ID; sandbox Guest sessions tối đa24h, grants10m.
 

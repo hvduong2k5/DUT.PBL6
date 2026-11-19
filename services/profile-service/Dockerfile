@@ -3,6 +3,9 @@
 # =============================================================================
 FROM golang:1.22-alpine AS builder
 
+ARG TARGETOS
+ARG TARGETARCH
+
 WORKDIR /app
 
 RUN apk add --no-cache git ca-certificates tzdata
@@ -12,7 +15,7 @@ RUN go mod download
 
 COPY . .
 
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build \
     -ldflags="-w -s -X main.version=1.0.0" \
     -o /app/bin/profile-service \
     ./cmd/server/main.go

@@ -27,7 +27,7 @@ func insertEvent(ctx context.Context, tx pgx.Tx, aggregate, id, event string, pa
 	return err
 }
 func canonicalArea(ctx context.Context, tx pgx.Tx, a *domain.ShippingAddress) error {
-	err := tx.QueryRow(ctx, `SELECT w.full_name,p.full_name FROM administrative_units w
+	err := tx.QueryRow(ctx, `SELECT profile_normalize_ward_name(w.full_name, p.full_name), p.full_name FROM administrative_units w
  JOIN administrative_units p ON w.parent_code=p.code
  WHERE w.code=$1 AND p.code=$2 AND w.level='WARD' AND p.level='PROVINCE'`, a.WardCode, a.ProvinceCode).Scan(&a.WardName, &a.ProvinceName)
 	if errors.Is(err, pgx.ErrNoRows) {

@@ -26,7 +26,7 @@ class KeycloakLiveProvisioningTest {
                         "Integration", suffix, System.getenv("KEYCLOAK_TEST_CUSTOMER_PASSWORD"));
                 var resource = kc.realm(realm).users().get(subject);
                 assertEquals(principal.toString(), resource.toRepresentation().getAttributes().get("app_user_id").getFirst());
-                assertTrue(resource.roles().realmLevel().listAll().stream().anyMatch(r -> "CUSTOMER".equals(r.getName())));
+                assertEquals("CUSTOMER", resource.toRepresentation().getAttributes().get("principal_type").getFirst());
                 assertNotEquals(principal.toString(), subject);
                 // Test-only account setup: no email provider or password-change UI in this slice.
                 var user = resource.toRepresentation();

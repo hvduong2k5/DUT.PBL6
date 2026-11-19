@@ -1,0 +1,368 @@
+{
+ "recorded_at": "2026-11-10T11:56:17.943825+00:00",
+ "model_id": "amazon.nova-pro-v1:0",
+ "region": "ap-southeast-2",
+ "prompt_version": "extract-spec-v2-2026-11-10",
+ "schema_version": "needs-v1",
+ "recordings": [
+  {
+   "case_id": "B01",
+   "conversation_hash": "29177bd24dfb5023e0f481153d25b3b2011ebf8cd5b8647fe53ffded76615cf8",
+   "raw_arguments": {
+    "budget_vnd": 200000,
+    "recipient": "mẹ"
+   }
+  },
+  {
+   "case_id": "B02",
+   "conversation_hash": "400d57a8485099866124fe4a29323e9b12f6ae746e379398b0b325c51e28fea8",
+   "raw_arguments": {
+    "budget_vnd": 500000,
+    "recipient": "sếp"
+   }
+  },
+  {
+   "case_id": "B03",
+   "conversation_hash": "0fa88104b60f834f37c296912618d5f4be088421f7771b977e3446697effb7e6",
+   "raw_arguments": {
+    "occasion": "Tết",
+    "tastes": [],
+    "budget_vnd": 1000000,
+    "recipient": "bố mẹ"
+   }
+  },
+  {
+   "case_id": "B04",
+   "conversation_hash": "22ecddcd695db24207efcf4b26988f25a71136638d234520370096297ce7caca",
+   "raw_arguments": {
+    "occasion": "unspecified",
+    "tastes": [],
+    "budget_vnd": 300000,
+    "recipient": "đồng nghiệp"
+   }
+  },
+  {
+   "case_id": "B05",
+   "conversation_hash": "cb858313e9a6c8d635dbdd70ff48f87f87030fa12810627e68bdf6dcb6454ffc",
+   "raw_arguments": {
+    "occasion": "Tết",
+    "budget_vnd": 2500000
+   }
+  },
+  {
+   "case_id": "B06",
+   "conversation_hash": "3dad2d398fcd8bfc868407cfae093d93631adfa0945638583ff811059fdfdc0d",
+   "raw_arguments": {
+    "occasion": "",
+    "budget_vnd": 5,
+    "recipient": "mẹ"
+   }
+  },
+  {
+   "case_id": "B07",
+   "conversation_hash": "c4b18724a984bc54c07f05834f54e54ee5946e84bfef0ce57244d879e1366179",
+   "raw_arguments": {
+    "occasion": "",
+    "budget_vnd": 0,
+    "recipient": "mẹ"
+   }
+  },
+  {
+   "case_id": "B08",
+   "conversation_hash": "ec951d0e642cea8cfce4950d5ac03d4e1c1fb0a8125f93258bb1ed49e9d64a5c",
+   "raw_arguments": {
+    "budget_vnd": 1,
+    "recipient": "bạn"
+   }
+  },
+  {
+   "case_id": "B09",
+   "conversation_hash": "79d2833e219b6ef24c001e702544034ee34094f14a37e0b5b13adfa59530b108",
+   "raw_arguments": {
+    "budget_vnd": 5000000000,
+    "recipient": "mẹ"
+   }
+  },
+  {
+   "case_id": "B10",
+   "conversation_hash": "8ba324d776b177b74f1469fb4d78e4c241fee3bc8bd0b2459060699479aa8e1d",
+   "raw_arguments": {
+    "occasion": "tặng",
+    "budget_vnd": 500,
+    "recipient": "bạn gái"
+   }
+  },
+  {
+   "case_id": "B11",
+   "conversation_hash": "a08ead9f1e17303a93b2ce19c31fa39496d5ea3ebd39d89daa0b5d4e90eaa0b9",
+   "raw_arguments": {
+    "occasion": "",
+    "budget_vnd": 200000,
+    "recipient": "mẹ"
+   }
+  },
+  {
+   "case_id": "B12",
+   "conversation_hash": "385ab414a72b7adccf671565dbd73896416ff7d6e207f5e3065aac906ca9f0cb",
+   "raw_arguments": {
+    "occasion": "gift",
+    "tastes": [],
+    "budget_vnd": 100000,
+    "recipient": "bạn"
+   }
+  },
+  {
+   "case_id": "B13",
+   "conversation_hash": "2862d4829ab6fc300cbf2f67f94b702c55e5f9462d20d1dd953bed128247826f",
+   "raw_arguments": {
+    "budget_vnd": 100,
+    "recipient": "bố"
+   }
+  },
+  {
+   "case_id": "B14",
+   "conversation_hash": "bab7430323d546eeca5628814f178f42f994a7e1768103bd8af0f0f310c7ce9f",
+   "raw_arguments": {
+    "occasion": "",
+    "budget_vnd": 500,
+    "recipient": "mẹ"
+   }
+  },
+  {
+   "case_id": "B15",
+   "conversation_hash": "ff55559b5ee7388422e2cc131f51f6f3f4a65c6d1b47de4ead74b8a0584ad3c0",
+   "raw_arguments": {
+    "budget_vnd": 5000000,
+    "recipient": "sếp"
+   }
+  },
+  {
+   "case_id": "B16",
+   "conversation_hash": "2b1e4227da905bffc6f0cb2b5b74cee0b9ddcc9407fbd57b2fe4af1f51e3a25f",
+   "raw_arguments": {
+    "occasion": "",
+    "recipient": "mẹ"
+   }
+  },
+  {
+   "case_id": "B17",
+   "conversation_hash": "9bacdac21d6b4d283e60acdfa2b2c88e2bf6049c461f15b3cddcb4c1ff3c6c35",
+   "raw_arguments": {
+    "occasion": "tặng",
+    "tastes": [],
+    "recipient": "bạn gái"
+   }
+  },
+  {
+   "case_id": "B18",
+   "conversation_hash": "23e721605a4a0098cc8aae961ebd12c825d6e8fab9c6f1c27625d6ff3efb3140",
+   "raw_arguments": {
+    "occasion": "general",
+    "recipient": "boss"
+   }
+  },
+  {
+   "case_id": "B19",
+   "conversation_hash": "66bc0401a13ea47f9a76d495e9846b4f44052d6b8b4112a67c0f589a747cb4e2",
+   "raw_arguments": {}
+  },
+  {
+   "case_id": "B20",
+   "conversation_hash": "0b154841214b46613237590fad65934f682ee0b85717b05cd4035d48165c032f",
+   "raw_arguments": {
+    "tastes": [
+     "hộp quà"
+    ],
+    "budget_vnd": 150000
+   }
+  },
+  {
+   "case_id": "B21",
+   "conversation_hash": "3a08699c7972d90628c301ea6e02aabb7fdda5883d68ee0b524000760d3a8019",
+   "raw_arguments": {
+    "budget_vnd": 500000
+   }
+  },
+  {
+   "case_id": "B22",
+   "conversation_hash": "2c340c8367924007f0073a022192eb1f5fcb453603b651292aed4377c10c6d4f",
+   "raw_arguments": {
+    "budget_vnd": 169000
+   }
+  },
+  {
+   "case_id": "B23",
+   "conversation_hash": "50da5fcaf3cb848c9de99addaffbca9c2331a98f73fb19764ac36bff1ed7df06",
+   "raw_arguments": {
+    "occasion": "không rõ",
+    "tastes": [
+     "hộp"
+    ],
+    "budget_vnd": 200000,
+    "recipient": "mẹ"
+   }
+  },
+  {
+   "case_id": "B24",
+   "conversation_hash": "7d0c7ab62281ff7a900be6105cb0ee077a37beda81977df70b1c5625c2b2f116",
+   "raw_arguments": {
+    "budget_vnd": 100000
+   }
+  },
+  {
+   "case_id": "B25",
+   "conversation_hash": "d73f6900bd7c33e53aad4b2ac538ea094acd477f72ba0de8ee84280db3425254",
+   "raw_arguments": {
+    "occasion": "tết",
+    "tastes": [
+     "mè xửng dẻo"
+    ],
+    "budget_vnd": 200000,
+    "recipient": "bố mẹ"
+   }
+  },
+  {
+   "case_id": "B26",
+   "conversation_hash": "c897e558a37e5c00e0fcd579f1b3919239474907d6ccd4ce667bd3eb2b85bcbd",
+   "raw_arguments": {
+    "budget_vnd": 300000
+   }
+  },
+  {
+   "case_id": "B27",
+   "conversation_hash": "6b11bc7f38faef0a4c8f6570b0f57494d251641e2aba77fc242c21bc0d8001f1",
+   "raw_arguments": {
+    "budget_vnd": 200000
+   }
+  },
+  {
+   "case_id": "B28",
+   "conversation_hash": "79f9f6bc353391b67d57070cfcaefe8ee8a55410250955aa79a418eb6760a0ef",
+   "raw_arguments": {
+    "budget_vnd": 500000
+   }
+  },
+  {
+   "case_id": "B29",
+   "conversation_hash": "88d60a86b4e44f8c108735d024ef8429802fb3a97265af18bceb2f8ec1ba342e",
+   "raw_arguments": {
+    "budget_vnd": 5000000
+   }
+  },
+  {
+   "case_id": "B30",
+   "conversation_hash": "7af318168d1d5c12b8d0a208281d812189240083ec017ff8bb99a1fe5be0b9e0",
+   "raw_arguments": {
+    "budget_vnd": 1000000
+   }
+  },
+  {
+   "case_id": "B31",
+   "conversation_hash": "ed11563ccf5acc4f704e3f2c0d2b145dbc97cb5eeab6af6f91caeab3c24daca3",
+   "raw_arguments": {
+    "occasion": ".",
+    "tastes": [],
+    "budget_vnd": 150000,
+    "recipient": "mẹ"
+   }
+  },
+  {
+   "case_id": "B32",
+   "conversation_hash": "165661ec25abe360d810485af0121621ceb6623c0c5ff85a5f0e6915e69d4f09",
+   "raw_arguments": {
+    "budget_vnd": 250000
+   }
+  },
+  {
+   "case_id": "B33",
+   "conversation_hash": "f4fde270a471cf1e09a97d5a12dc0a216ab55ee10e5c3de235db27bad181632b",
+   "raw_arguments": {
+    "budget_vnd": 200000
+   }
+  },
+  {
+   "case_id": "B34",
+   "conversation_hash": "2e1dd53196a375717bff01692064d93436a1cc7d307f7708025921be2c73f73e",
+   "raw_arguments": {
+    "budget_vnd": 300000
+   }
+  },
+  {
+   "case_id": "B35",
+   "conversation_hash": "79443db8c14010e661da03583f77d2384a387ad7435ce632bc3fa6706d986ed0",
+   "raw_arguments": {
+    "budget_vnd": 500000
+   }
+  },
+  {
+   "case_id": "B36",
+   "conversation_hash": "1b5258213b0169a64cd9992e3c6827c9a42aa980c74e71e03b82c5340b13ef8f",
+   "raw_arguments": {
+    "budget_vnd": 400000
+   }
+  },
+  {
+   "case_id": "B37",
+   "conversation_hash": "d68f17414a3e464fd12840cc8688971dccaef512c463856aed32b5bc4ea0e8f3",
+   "raw_arguments": {
+    "occasion": "tặng",
+    "tastes": [],
+    "budget_vnd": 200000,
+    "recipient": "mẹ"
+   }
+  },
+  {
+   "case_id": "B38",
+   "conversation_hash": "2acca245daa1a1c68230d39ce2de857505180a559ab91e9beee38addd0e12c8f",
+   "raw_arguments": {
+    "budget_vnd": 500000
+   }
+  },
+  {
+   "case_id": "B39",
+   "conversation_hash": "bfe03f902120c71282fdc357f2b7f5f9f039b5c034f103875b39ac57210e094e",
+   "raw_arguments": {
+    "budget_vnd": 200000
+   }
+  },
+  {
+   "case_id": "B40",
+   "conversation_hash": "7544401cd3022798ed71eb375e644625797408e6925d7805c6656fa175fdf684",
+   "raw_arguments": {
+    "budget_vnd": 200000,
+    "recipient": "mẹ"
+   }
+  },
+  {
+   "case_id": "B41",
+   "conversation_hash": "08b4a4d209e5f9ad5830c3518696b826be7fc5001b86ba60a0266a007fdee263",
+   "raw_arguments": {
+    "budget_vnd": 200000
+   }
+  },
+  {
+   "case_id": "B42",
+   "conversation_hash": "b704ec7a4845706cdc82e5bb0c41b12aeaf479e5f202f0b95c56e5a05a127a7e",
+   "raw_arguments": {
+    "budget_vnd": 300000,
+    "recipient": "bà"
+   }
+  },
+  {
+   "case_id": "B43",
+   "conversation_hash": "51347b9ab9147220bb4b295b10822dc2c5d0f19ae324c8b6bff8a1d4238b7c44",
+   "raw_arguments": {
+    "budget_vnd": 200000
+   }
+  },
+  {
+   "case_id": "B44",
+   "conversation_hash": "f8f428d505ba18d908d2e0bccb54dc6ca7120029def04aca3db73c0b9a9a0dd1",
+   "raw_arguments": {
+    "budget_vnd": 200000
+   }
+  }
+ ],
+ "extended_at": "2026-11-10T12:40:24.857713+00:00",
+ "extension_note": "B37-B44 recorded 2026-11-10 (dot 1.7) with the same model, region and prompt version; earlier entries untouched."
+}

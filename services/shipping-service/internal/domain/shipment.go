@@ -30,12 +30,12 @@ const (
 )
 
 var (
-	ErrInvalidShipment     = errors.New("invalid shipment")
-	ErrInvalidTransition   = errors.New("invalid shipment status transition")
-	ErrConcurrentUpdate    = errors.New("shipment was updated concurrently")
-	ErrShipmentNotFound    = errors.New("shipment not found")
-	ErrTrackingNotFound    = errors.New("tracking code not found")
-	ErrDuplicateEvent      = errors.New("tracking event already processed")
+	ErrInvalidShipment    = errors.New("invalid shipment")
+	ErrInvalidTransition  = errors.New("invalid shipment status transition")
+	ErrConcurrentUpdate   = errors.New("shipment was updated concurrently")
+	ErrShipmentNotFound   = errors.New("shipment not found")
+	ErrTrackingNotFound   = errors.New("tracking code not found")
+	ErrDuplicateEvent     = errors.New("tracking event already processed")
 	ErrUnsupportedCarrier = errors.New("unsupported carrier")
 )
 

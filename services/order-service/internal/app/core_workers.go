@@ -90,7 +90,7 @@ func (s *Service) getCoreOrder(ctx context.Context, id string, p domain.Principa
 	data := a.Snapshot().Data()
 	o.ItemsDigest = data.Provenance.ItemsDigest
 	if detail {
-		if p.Role == "CUSTOMER_SERVICE" {
+		if !p.CanSeeRecipient(o) {
 			data.Address.Street = "[masked]"
 			data.Address.RecipientName = "[masked]"
 			data.Address.PhoneE164 = "[masked]"

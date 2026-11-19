@@ -221,18 +221,19 @@ func (c *IdentityConsumer) Start(ctx context.Context) {
 				continue
 			}
 
-			handleCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
-			err = c.handle(handleCtx, msg.Value)
-			cancel()
-			if err != nil {
-				// The offset is deliberately left uncommitted so the event
-				// is redelivered on a later session; back off so a failing
-				// dependency does not spin the loop meanwhile.
-				log.Error().Err(err).Msg("identity consumer: handling failed; offset not committed")
+			// Retry this message before fetching another. Committing a later
+			// offset would otherwise silently acknowledge this failed event.
+			for {
+				handleCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+				err = c.handle(handleCtx, msg.Value)
+				cancel()
+				if err == nil {
+					break
+				}
+				log.Error().Err(err).Msg("identity consumer: retrying current message; offset not committed")
 				if !c.backoff(ctx, 2*time.Second) {
 					return
 				}
-				continue
 			}
 			if err := reader.CommitMessages(ctx, msg); err != nil && ctx.Err() == nil && !c.stopped() {
 				log.Error().Err(err).Msg("identity consumer: commit failed")
