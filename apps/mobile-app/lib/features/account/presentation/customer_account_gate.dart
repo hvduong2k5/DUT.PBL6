@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mobile_app/core/widgets/heritage/heritage_surface.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_app/app/router/routes.dart';
@@ -26,20 +27,22 @@ class CustomerAccountGate extends StatelessWidget {
   @override
   Widget build(BuildContext context) => BlocBuilder<AuthCubit, AuthState>(
     builder: (context, state) => state.status == AuthStatus.restoring
-        ? const Scaffold(body: AppLoadingView())
+        ? const Scaffold(body: HeritageSurface(child: AppLoadingView()))
         : state.sessionRestoreFailed
         ? Scaffold(
             appBar: const AppMobileHeader(
               title: 'Phiên tài khoản',
               showBack: true,
             ),
-            body: AppErrorView(
-              message: state.message!,
-              onRetry: context.read<AuthCubit>().restore,
-              action: TextButton(
-                onPressed: () =>
-                    context.go(authLocation(AppRoutes.login, returnLocation)),
-                child: const Text('Đăng nhập lại'),
+            body: HeritageSurface(
+              child: AppErrorView(
+                message: state.message!,
+                onRetry: context.read<AuthCubit>().restore,
+                action: TextButton(
+                  onPressed: () =>
+                      context.go(authLocation(AppRoutes.login, returnLocation)),
+                  child: const Text('Đăng nhập lại'),
+                ),
               ),
             ),
           )
@@ -62,14 +65,16 @@ class CustomerAccountGate extends StatelessWidget {
               title: 'Tài khoản Tri Kỷ',
               showBack: true,
             ),
-            body: AppEmptyView(
-              title: 'Đăng nhập để tiếp tục',
-              message:
-                  'Thông tin tài khoản của bạn được bảo vệ trong phiên đăng nhập.',
-              action: AppPrimaryButton(
-                label: 'Đăng nhập',
-                onPressed: () =>
-                    context.go(authLocation(AppRoutes.login, returnLocation)),
+            body: HeritageSurface(
+              child: AppEmptyView(
+                title: 'Đăng nhập để tiếp tục',
+                message:
+                    'Thông tin tài khoản của bạn được bảo vệ trong phiên đăng nhập.',
+                action: AppPrimaryButton(
+                  label: 'Đăng nhập',
+                  onPressed: () =>
+                      context.go(authLocation(AppRoutes.login, returnLocation)),
+                ),
               ),
             ),
           ),

@@ -22,7 +22,7 @@ export function EmployeeDashboard() {
       <article><span>Role được gán</span><strong>{session.roles.length}</strong><small>{session.roles.join(" · ") || "Chưa có role"}</small></article>
     </section>
     <section className="employee-module-grid" aria-label="Các phân hệ được phép truy cập">
-      {groups.map((section) => <article key={section.group}><h2>{section.group}</h2><div>{section.items.map((item) => <Link href={item.href} key={item.href}><span>{item.icon}</span><strong>{item.label}</strong><b>›</b></Link>)}</div></article>)}
+      {groups.map((section) => <article key={section.group}><h2>{section.group}</h2><div>{section.items.map((item) => <Link href={item.href} key={item.href}><strong>{item.label}</strong><b aria-hidden="true">→</b></Link>)}</div></article>)}
       {!groups.length ? <div className="admin-empty-state"><strong>Chưa có phân hệ được cấp quyền</strong><p>Liên hệ quản trị viên Access Management để kiểm tra Role và Permission.</p></div> : null}
     </section>
   </main>;

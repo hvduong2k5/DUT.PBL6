@@ -11,7 +11,7 @@ class PasswordChecklist extends StatelessWidget {
     padding: const EdgeInsets.all(12),
     decoration: BoxDecoration(
       color: AppColors.canvas,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(4),
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,

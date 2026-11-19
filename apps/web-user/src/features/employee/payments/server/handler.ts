@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { EmployeeAuthorizationError, requireEmployeeSession } from "@/features/employee/auth/server";
-import { applyTrustedSessionCookie } from "@/lib/auth/server-credential";
-import { PAYMENT_STATUSES, RECONCILIATION_RESULTS, type PaymentCaseDetail, type PaymentCaseList, type PaymentCaseSummary, type PaymentRiskState, type PaymentStatus, type ReconciliationResult } from "@/features/employee/payments/types";
+import { applyTrustedSessionCookie, getTrustedAccessToken } from "@/lib/auth/server-credential";
+import { usesIdentityBff } from "@/lib/auth/oidc-config";
+import { PAYMENT_CASE_REASON_LABELS, PAYMENT_CASE_STATUS_LABELS, type PaymentCaseDetail, type PaymentCaseList, type PaymentCaseSummary } from "@/features/employee/payments/types";
 import { parseAdminPaymentPath } from "@/features/employee/payments/validation";
 
 interface UpstreamError { code?: string; message?: string; errors?: Array<{ field: string; message: string }> }
@@ -10,44 +11,77 @@ const record = (value: unknown): value is Record<string, unknown> => Boolean(val
 const string = (value: unknown, fallback = "") => typeof value === "string" ? value : fallback;
 const number = (value: unknown, fallback = 0) => typeof value === "number" && Number.isFinite(value) ? value : fallback;
 const array = (value: unknown): unknown[] => Array.isArray(value) ? value : [];
-const date = (value: unknown) => { const raw = string(value); return raw && !Number.isNaN(Date.parse(raw)) ? raw : new Date().toISOString(); };
-const nullableDate = (value: unknown) => { const raw = string(value); return raw && !Number.isNaN(Date.parse(raw)) ? raw : null; };
 const nullableString = (value: unknown) => typeof value === "string" && value.trim() ? value : null;
-const STATUSES = new Set<PaymentStatus>(PAYMENT_STATUSES);
-const RESULTS = new Set<ReconciliationResult>(RECONCILIATION_RESULTS);
-const RISKS = new Set<PaymentRiskState>(["NONE", "ATTENTION", "BLOCKED"]);
+const stringList = (value: unknown): string[] => array(value).filter((item): item is string => typeof item === "string" && item.length > 0);
 
 function responseError(code: string, message: string, status: number, errors: Array<{ field: string; message: string }> = []) { return NextResponse.json({ code, message, errors, requestId: `BFF-ADMIN-PAYMENT-${code}` }, { status }); }
-function baseUrl() { return (process.env.ADMIN_API_UPSTREAM_URL ?? "http://127.0.0.1:4030/api/v1").replace(/\/$/u, ""); }
+
+// The live staff surface authenticates exactly like the orders live handler:
+// in OIDC mode the browser session holds the Keycloak access token, and the
+// owning API verifies that JWT itself — forward it as a Bearer credential to
+// the public gateway base. The identity-bff deployment keeps the legacy
+// session-cookie behaviour against ADMIN_API_UPSTREAM_URL.
+function baseUrl() {
+  if (usesIdentityBff()) return (process.env.ADMIN_API_UPSTREAM_URL ?? "http://127.0.0.1:4030/api/v1").replace(/\/$/u, "");
+  return (process.env.NEXT_PUBLIC_API_URL ?? process.env.ADMIN_API_UPSTREAM_URL ?? "http://127.0.0.1:4030/api/v1").replace(/\/$/u, "");
+}
 function mockProfile() { return process.env.NODE_ENV === "production" ? "" : process.env.ADMIN_MOCK_PROFILE ?? process.env.ADMIN_MOCK_ROLE ?? "SALES_MANAGER"; }
-function headers(request: NextRequest) { const result = new Headers({ Accept: "application/json" }); applyTrustedSessionCookie(result, request); const profile = mockProfile(); if (profile) result.set("X-Admin-Profile", profile); return result; }
-async function upstream(request: NextRequest, path: string) { const response = await fetch(`${baseUrl()}/${path}`, { headers: headers(request), cache: "no-store", redirect: "manual" }); const payload: unknown = (response.headers.get("content-type") ?? "").includes("application/json") ? await response.json() : {}; if (!response.ok) throw new UpstreamHttpError(response.status, record(payload) ? payload : {}); return record(payload) ? payload : {}; }
+function headers(request: NextRequest) {
+  const result = new Headers({ Accept: "application/json" });
+  if (usesIdentityBff()) applyTrustedSessionCookie(result, request);
+  else { const token = getTrustedAccessToken(request); if (token) result.set("Authorization", `Bearer ${token}`); }
+  const profile = mockProfile(); if (profile) result.set("X-Admin-Profile", profile);
+  return result;
+}
+async function upstream(request: NextRequest, path: string) {
+  const response = await fetch(`${baseUrl()}/${path}`, { headers: headers(request), cache: "no-store", redirect: "manual" });
+  const payload: unknown = (response.headers.get("content-type") ?? "").includes("application/json") ? await response.json() : {};
+  if (!response.ok) {
+    const body = record(payload) ? payload : {};
+    // Owning APIs answer with a nested {"error": {code, message}} envelope.
+    const nested = record(body.error) ? body.error : {};
+    throw new UpstreamHttpError(response.status, { code: string(nested.code) || string(body.code), message: string(nested.message) || string(body.message), errors: array(body.errors) as UpstreamError["errors"] });
+  }
+  return record(payload) ? payload : {};
+}
 async function session(request: NextRequest) { return requireEmployeeSession(request); }
-function paymentStatus(value: unknown): PaymentStatus { const result = string(value) as PaymentStatus; return STATUSES.has(result) ? result : "PENDING"; }
-function reconciliationResult(value: unknown): ReconciliationResult { const result = string(value) as ReconciliationResult; return RESULTS.has(result) ? result : "PENDING"; }
-function riskState(value: unknown): PaymentRiskState { const result = string(value) as PaymentRiskState; return RISKS.has(result) ? result : "NONE"; }
-function maskReference(value: unknown, allowed: boolean) { const raw = nullableString(value); if (!raw) return null; if (allowed) return raw; const tail = raw.replace(/\s/gu, "").slice(-4); return `••••${tail}`; }
+
+// The upstream staff API returns the persistence PaymentCase shape
+// (snake_case). Case views carry no bank or beneficiary data, so no
+// field-level redaction applies at this layer; refund views are not proxied
+// by this workspace.
 function mapSummary(value: unknown): PaymentCaseSummary {
   const item = record(value) ? value : {};
-  return { caseId: string(item.caseId), caseNumber: string(item.caseNumber), orderId: string(item.orderId), orderNumber: string(item.orderNumber), orderStatus: string(item.orderStatus), orderStatusLabel: string(item.orderStatusLabel), paymentId: string(item.paymentId), methodCode: string(item.methodCode), methodLabel: string(item.methodLabel), paymentStatus: paymentStatus(item.paymentStatus), paymentStatusLabel: string(item.paymentStatusLabel), amountDueVnd: Math.max(0, number(item.amountDueVnd)), amountConfirmedVnd: Math.max(0, number(item.amountConfirmedVnd)), transactionCount: Math.max(0, number(item.transactionCount)), result: reconciliationResult(item.result), resultLabel: string(item.resultLabel), riskState: riskState(item.riskState), riskLabel: string(item.riskLabel), riskReason: nullableString(item.riskReason), referenceDisplay: nullableString(item.referenceDisplay), lastTransactionAt: nullableDate(item.lastTransactionAt), updatedAt: date(item.updatedAt), revision: Math.max(1, number(item.revision, 1)) };
+  const reason = string(item.reason);
+  const status = string(item.status);
+  return {
+    caseId: string(item.case_id),
+    supportReference: string(item.support_reference),
+    orderId: nullableString(item.order_id),
+    receiptId: nullableString(item.receipt_id),
+    reason,
+    reasonLabel: PAYMENT_CASE_REASON_LABELS[reason] ?? reason,
+    status,
+    statusLabel: PAYMENT_CASE_STATUS_LABELS[status] ?? status,
+    assignedTo: nullableString(item.assigned_to),
+    version: Math.max(1, number(item.version, 1))
+  };
 }
+
 function mapList(payload: Record<string, unknown>): PaymentCaseList {
-  const items = array(payload.items).map(mapSummary).filter((item) => item.caseId);
-  const resultCounts = array(payload.resultCounts).map((value) => { const item = record(value) ? value : {}; const raw = string(item.result) as "ALL" | ReconciliationResult; return { result: raw === "ALL" || RESULTS.has(raw as ReconciliationResult) ? raw : "ALL", label: string(item.label), count: Math.max(0, number(item.count)) }; });
-  if (!resultCounts.some((item) => item.result === "ALL")) resultCounts.unshift({ result: "ALL", label: "Tất cả", count: items.length });
-  const methods = array(payload.methods).map((value) => { const item = record(value) ? value : {}; return { code: string(item.code), label: string(item.label) }; }).filter((item) => item.code);
-  const paymentStatuses = array(payload.paymentStatuses).map((value) => { const item = record(value) ? value : {}; return { code: paymentStatus(item.code), label: string(item.label) }; });
-  return { items, resultCounts, methods, paymentStatuses, calculatedAt: date(payload.calculatedAt) };
+  return {
+    items: array(payload.items).map(mapSummary).filter((item) => item.caseId),
+    nextCursor: nullableString(payload.next_cursor),
+    calculatedAt: new Date().toISOString()
+  };
 }
-function mapDetail(payload: Record<string, unknown>, canViewSensitive: boolean): PaymentCaseDetail {
-  const order = record(payload.order) ? payload.order : {};
-  return { ...mapSummary(payload),
-    order: { placedAt: date(order.placedAt), totalVnd: Math.max(0, number(order.totalVnd)), currency: string(order.currency, "VND") },
-    attempts: array(payload.attempts).map((value) => { const item = record(value) ? value : {}; return { attemptId: string(item.attemptId), status: string(item.status), statusLabel: string(item.statusLabel), amountVnd: Math.max(0, number(item.amountVnd)), createdAt: date(item.createdAt), expiresAt: nullableDate(item.expiresAt) }; }).filter((item) => item.attemptId),
-    transactions: array(payload.transactions).map((value) => { const item = record(value) ? value : {}; return { transactionId: string(item.transactionId), providerLabel: string(item.providerLabel), providerReferenceDisplay: maskReference(item.providerReference, canViewSensitive) ?? "Không có", bankReferenceDisplay: maskReference(item.bankReference, canViewSensitive), receivedAmountVnd: Math.max(0, number(item.receivedAmountVnd)), currency: string(item.currency, "VND"), providerStatusCode: string(item.providerStatusCode), verified: item.verified === true, occurredAt: date(item.occurredAt), receivedAt: date(item.receivedAt), duplicate: item.duplicate === true, masked: !canViewSensitive }; }).filter((item) => item.transactionId),
-    comparisons: array(payload.comparisons).map((value) => { const item = record(value) ? value : {}; return { field: string(item.field), label: string(item.label), expectedDisplay: string(item.expectedDisplay), actualDisplay: string(item.actualDisplay), matched: item.matched === true }; }).filter((item) => item.field),
-    history: array(payload.history).map((value) => { const item = record(value) ? value : {}; return { eventId: string(item.eventId), label: string(item.label), occurredAt: date(item.occurredAt), actorLabel: string(item.actorLabel), detail: nullableString(item.detail) }; }).filter((item) => item.eventId),
-    originalEvidencePreserved: payload.originalEvidencePreserved === true
+
+function mapDetail(payload: Record<string, unknown>): PaymentCaseDetail {
+  return {
+    ...mapSummary(payload),
+    observationId: nullableString(payload.observation_id),
+    evidenceIds: stringList(payload.evidence_ids),
+    refundIds: stringList(payload.refund_ids)
   };
 }
 
@@ -58,9 +92,9 @@ export async function handleAdminPayments(request: NextRequest, path: string[]) 
   try {
     const currentSession = await session(request);
     if (!currentSession.permissions.includes("PAYMENT_VIEW")) return responseError("PERMISSION_FORBIDDEN", "Nhân viên không có quyền xem Payment.", 403);
-    if (route.kind === "case-list") return NextResponse.json(mapList(await upstream(request, "admin/payments/cases")));
+    if (route.kind === "case-list") return NextResponse.json(mapList(await upstream(request, "admin/payments/reconciliation-cases?limit=100")));
     if (!currentSession.permissions.includes("PAYMENT_RECONCILIATION_VIEW")) return responseError("PERMISSION_FORBIDDEN", "Nhân viên không có quyền xem hồ sơ đối soát.", 403);
-    return NextResponse.json(mapDetail(await upstream(request, `admin/payments/cases/${encodeURIComponent(route.caseId)}`), currentSession.permissions.includes("PAYMENT_SENSITIVE_VIEW")));
+    return NextResponse.json(mapDetail(await upstream(request, `admin/payments/reconciliation-cases/${encodeURIComponent(route.caseId)}`)));
   } catch (cause) { if (cause instanceof EmployeeAuthorizationError) return responseError(cause.code, cause.message, cause.status);
     if (cause instanceof UpstreamHttpError) return responseError(cause.body.code || "ADMIN_PAYMENT_ERROR", cause.body.message || "Không thể xử lý yêu cầu vận hành thanh toán.", cause.status >= 400 && cause.status <= 599 ? cause.status : 500, cause.body.errors ?? []);
     return responseError("ADMIN_PAYMENT_UPSTREAM_UNAVAILABLE", "Không thể kết nối dịch vụ thanh toán nội bộ.", 503);

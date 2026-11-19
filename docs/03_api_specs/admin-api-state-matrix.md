@@ -15,6 +15,8 @@ This matrix and the OpenAPI files are the backend handoff. It is intentionally i
 
 Employee APIs require authentication, effective permission and server-side data-scope enforcement. A hidden menu is not authorization.
 
+Analytics MVP scoped mode: Dashboard and metric series require `ANALYTICS_DASHBOARD_VIEW#GLOBAL`; all Supply reads require `ANALYTICS_SUPPLY_VIEW#GLOBAL`. Bearer JWT takes the grant from `permission_grants`; Identity session takes structured `permissionGrants`. Flat `permissions`, role `ADMIN`, and WAREHOUSE/DEPARTMENT grants do not authorize these routes. Missing token/session → 401; authenticated actor without matching grant or ACTIVE EMPLOYEE state → 403. Pilot UUID allowlist mode remains dev-only.
+
 ## Provisional JWT consumer rollout (parts 3–4)
 
 Direct Profile contract is version 2.0.0: staff JWT v1 with GLOBAL HR permission;

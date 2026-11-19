@@ -28,7 +28,7 @@ function ReviewCard({ review }: { review: ProductReview }) {
       {review.is_verified_purchase ? <span className="verified-review">✓ Đã mua sản phẩm</span> : null}
       <p>{review.comment}</p>
       {review.media_urls.length ? <div className="review-media-links">{review.media_urls.map((url, index) => <a href={url} target="_blank" rel="noreferrer" key={url}>Xem ảnh đánh giá {index + 1} ↗</a>)}</div> : null}
-      {review.seller_reply ? <blockquote><strong>Ô Mạ phản hồi</strong><p>{review.seller_reply}</p></blockquote> : null}
+      {review.seller_reply ? <blockquote><strong>Gói Huế phản hồi</strong><p>{review.seller_reply}</p></blockquote> : null}
     </article>
   );
 }

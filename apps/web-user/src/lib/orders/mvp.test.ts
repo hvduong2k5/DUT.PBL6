@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { OwnedOrder } from "@/lib/api-contract";
-import { mapMvpOrderDetail, mapMvpOrderListResponse } from "./mvp";
+import { isOwnedOrdersResponse, mapMvpOrderDetail, mapMvpOrderListResponse } from "./mvp";
 
 const ORDER_ID = "11111111-1111-4111-8111-111111111111";
 const DIGEST = "a".repeat(64);
@@ -123,5 +123,21 @@ describe("MVP order mappers (F-36)", () => {
     const paid = mapMvpOrderDetail(ownedOrder({ allowed_actions: ["REQUEST_CANCELLATION", "CONTACT_SUPPORT"] }));
     expect(paid.cancellation.message).toContain("đội chăm sóc");
     expect(paid.cancellation.message).not.toMatch(/backend|capability/i);
+  });
+
+  it("accepts a COD order whose payment_expires_at is null (F-52)", () => {
+    const base = ownedOrder();
+    const cod = ownedOrder({
+      payment_method: "COD",
+      status: "CONFIRMED_COD",
+      payment_status: "UNPAID",
+      payment_reference: "",
+      payment_expires_at: null,
+      snapshot: { ...base.snapshot!, payment_method: "COD" }
+    });
+    expect(isOwnedOrdersResponse({ items: [cod], next_cursor: "" })).toBe(true);
+    const list = mapMvpOrderListResponse({ items: [cod], next_cursor: "" });
+    expect(list.items).toHaveLength(1);
+    expect(mapMvpOrderDetail(cod).payment.expiresAt).toBeNull();
   });
 });
