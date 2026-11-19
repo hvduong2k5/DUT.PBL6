@@ -27,11 +27,14 @@ Issuer tasks 1–2 are pending; see [handoff](../06_operations/profile-order-jwt
 
 Promotion's service-backend coupon routes (`/api/v1/admin/coupons`) now verify the signed
 employee JWT (`principal_type=EMPLOYEE`, `omama-api` audience) and require `PROMOTION_VIEW#GLOBAL`
-for listing or `PROMOTION_MANAGE#GLOBAL` for mutations. These permission codes are a provisional
-Identity handoff, not yet confirmed/seeded by the Identity owner. The backend routes are not
-currently exposed as Admin stable operations or mapped to an Identity/BFF route; add the external
-operation to OpenAPI only when that facade/path is agreed. Until then, missing JWT verification
-configuration fails closed and role/header claims do not grant access.
+for listing or `PROMOTION_MANAGE#GLOBAL` for mutations. Identity migration V22 now seeds both
+permissions and grants them to the enabled, unarchived ADMIN role, without creating employee
+assignments or widening scope. Deploy the migration, sync each affected employee through the IAM
+sync-permissions endpoint (forceRelogin=false for additive grants), then refresh tokens before
+accepting the admin rollout. The direct backend routes are registered in Kong; this does not
+implement a separate coupon UI/BFF facade or change the historical UI-format operations below.
+Missing JWT verifier configuration returns 503; absent/invalid JWT returns 401; valid customer,
+role-only employee or non-GLOBAL grant returns 403. Empty authorized lists remain 200 with empty items.
 
 The entries below supplement the existing UI-format rows, without rewriting
 historical inferred examples. Producer responses and BFF adaptation are defined

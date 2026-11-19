@@ -3,6 +3,7 @@ import copy
 import json
 from pathlib import Path
 import re
+import sqlite3
 import unittest
 
 import yaml
@@ -13,6 +14,33 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class PromotionCheckoutContracts(unittest.TestCase):
+    def test_identity_seed_grants_promotion_without_role_or_scope_bypass(self):
+        seed = ROOT / "services/identity-service/src/main/resources/db/migration/V22__seed_promotion_permissions.sql"
+        # This seed uses portable INSERT/SELECT/ON CONFLICT only. Run it twice
+        # against a memory database; the Java JDBC test separately covers PostgreSQL.
+        with sqlite3.connect(":memory:") as db:
+            db.executescript("""
+                CREATE TABLE iam_permissions(permission_code TEXT PRIMARY KEY,resource_code TEXT,action_code TEXT,
+                  risk_level TEXT,scope_required BOOLEAN,description TEXT,UNIQUE(resource_code,action_code));
+                CREATE TABLE iam_roles(role_id TEXT PRIMARY KEY,role_code TEXT,is_enabled BOOLEAN,archived_at TEXT);
+                CREATE TABLE iam_role_permissions(role_id TEXT REFERENCES iam_roles,permission_code TEXT REFERENCES iam_permissions,
+                  PRIMARY KEY(role_id,permission_code));
+                INSERT INTO iam_roles VALUES ('active','ADMIN',TRUE,NULL),('disabled','ADMIN',FALSE,NULL),
+                  ('archived','ADMIN',TRUE,'2026-01-01'),('other','FINANCE',TRUE,NULL);
+            """)
+            sql = seed.read_text(encoding="utf-8")
+            db.executescript(sql)
+            db.executescript(sql)
+            self.assertEqual(db.execute("SELECT role_id,permission_code FROM iam_role_permissions ORDER BY permission_code").fetchall(),
+                             [("active", "PROMOTION_MANAGE"), ("active", "PROMOTION_VIEW")])
+            self.assertEqual(db.execute("SELECT count(*) FROM iam_permissions WHERE scope_required=TRUE").fetchone()[0], 2)
+        spec = yaml.safe_load((ROOT / "docs/03_api_specs/admin-stable.openapi.yaml").read_text(encoding="utf-8"))
+        auth = spec["x-promotion-backend-authorization"]
+        self.assertEqual(auth["read-grant"], "PROMOTION_VIEW#GLOBAL")
+        self.assertEqual(auth["mutation-grant"], "PROMOTION_MANAGE#GLOBAL")
+        self.assertFalse(auth["role-bypass"])
+        self.assertEqual(ROOT / auth["identity-seed"], seed)
+
     def test_sandbox_order_snapshot_preserves_discount_fields_and_strict_shape(self):
         spec = yaml.safe_load((ROOT / "docs/03_api_specs/order-service.sandbox-3.1.openapi.yaml").read_text(encoding="utf-8"))
 

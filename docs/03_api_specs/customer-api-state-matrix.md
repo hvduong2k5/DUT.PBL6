@@ -18,6 +18,8 @@ Customer APIs distinguish Guest, Registered Customer and verified B2B Customer c
 ## Promotion checkout integration (2026-11-14)
 
 - Web sends voucher_code only to the authoritative Order quote; it never submits a discount or total.
+- Promotion DB/gRPC outages return 503 for quote requests. Accepted checkout revalidation retries within the
+  existing budget/deadline, rather than treating an infrastructure error as changed voucher eligibility.
 - Quote success displays merchandise/shipping discounts and the resulting final amount. A pending or rejected
   re-quote disables acceptance; a 422 voucher rejection is actionable and a 503 dependency error never silently
   removes the requested voucher. Quote expiration requires a new quote.

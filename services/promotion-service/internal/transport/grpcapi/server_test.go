@@ -1,8 +1,12 @@
 package grpcapi
 
 import (
+	"context"
+	"errors"
+	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/omamx/promotion-service/internal/domain"
 	commonv1 "github.com/omamx/promotion-service/internal/gen/common/v1"
@@ -10,6 +14,50 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
+
+type discountRepository struct {
+	voucherRepository
+	err error
+}
+
+func (r discountRepository) CalculateDiscount(context.Context, string, string, int64, int64, string, time.Time) (domain.Coupon, int64, error) {
+	return domain.Coupon{}, 0, r.err
+}
+
+func TestDiscountDistinguishesEligibilityFromDependencyFailure(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		err  error
+		code codes.Code
+	}{
+		{"not found", domain.ErrVoucherNotFound, codes.OK},
+		{"inactive", domain.ErrVoucherInactive, codes.OK},
+		{"expired", domain.ErrVoucherExpired, codes.OK},
+		{"minimum", domain.ErrMinimumNotMet, codes.OK},
+		{"limit", domain.ErrUsageLimit, codes.OK},
+		{"wrapped eligibility", fmt.Errorf("eligibility: %w", domain.ErrVoucherExpired), codes.OK},
+		{"database", errors.New("postgres password=must-not-leak disconnected"), codes.Unavailable},
+		{"canceled", context.Canceled, codes.Canceled},
+		{"deadline", context.DeadlineExceeded, codes.DeadlineExceeded},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			server := NewServer(discountRepository{err: tc.err})
+			response, err := server.CalculateDiscount(context.Background(), &promotionv1.CalculateDiscountRequest{
+				VoucherCode: "WELCOME", CustomerId: "customer-1", OrderSubtotal: money(100000, "VND"), ShippingFee: money(20000, "VND"),
+			})
+			if status.Code(err) != tc.code {
+				t.Fatal("wrong discount error classification", response, err)
+			}
+			if tc.code == codes.OK {
+				if response == nil || response.IsApplicable {
+					t.Fatal("business rejection must be inapplicable", response)
+				}
+			} else if response != nil || strings.Contains(err.Error(), "must-not-leak") {
+				t.Fatal("dependency failure was turned into a business rejection or leaked a secret", response, err)
+			}
+		})
+	}
+}
 
 func TestValidateCommand(t *testing.T) {
 	validHash := strings.Repeat("a", 64)

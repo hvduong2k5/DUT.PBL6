@@ -29,6 +29,23 @@ A rejected voucher after stock/funds commitment parks payment finalization for r
 it never changes the order to full price or authorizes fulfillment without the discount proof.
 Order snapshot 1.1 records the voucher; existing 1.0 snapshots and hashes are preserved.
 
+Promotion uses Order migration `000012_promotion_checkout.up.sql`: versions 9-11 belong to
+F-42 (case decisions, refund authority, evidence vault) on the release stack. The Order runner
+uses the version in each filename, not its position in a list, and rejects duplicate versions.
+It does not insert fictitious history entries for files missing from this branch. When the
+F-42 stack is merged, its unchanged migrations are discovered at 9-11 and Promotion remains 12.
+Version 12 also tolerates the identical voucher table created by the earlier development-only
+Promotion version 9; never remove or relabel release migration history to deploy this feature.
+An old development version-9 record does not prove that F-42 case-decision DDL ran. Before using
+such a database with the F-42 release, back it up and reconcile its history with the release owner,
+or recreate only a disposable development database. This change never rewrites that history.
+
+Only explicit voucher eligibility errors return `is_applicable=false`. Database/unexpected
+failures return sanitized gRPC `Unavailable`; cancellation and deadline errors retain their
+gRPC status. Order returns 503 when quoting and retries accepted checkout revalidation within
+its existing retry/deadline budget. It must not compensate a checkout merely because Promotion
+is temporarily unavailable, nor silently remove the requested voucher.
+
 The Order deployment needs `ORDER_PROMOTION_GRPC`, `ORDER_PROMOTION_TOKEN_FILE` (matching this
 service's `PROMOTION_INTERNAL_TOKEN`), `ORDER_PROMOTION_CA_FILE` and `ORDER_PROMOTION_SERVER_NAME`.
 Set `PROMOTION_GRPC_TLS_CERT_FILE` and `PROMOTION_GRPC_TLS_KEY_FILE` on Promotion and mount both
@@ -84,6 +101,17 @@ mount the matching Identity/Keycloak RSA public key read-only at that path. Unti
 configured, admin routes fail closed with `503 AUTH_UNAVAILABLE`. Keep the key public only (never
 mount a signing private key). gRPC and service-to-service loyalty routes continue using their
 separate internal tokens. Do not expose service-internal routes directly to untrusted networks.
+
+Identity migration `V22__seed_promotion_permissions.sql` is included in this change. It seeds
+`PROMOTION_VIEW` and `PROMOTION_MANAGE` and grants both to the enabled, unarchived ADMIN role;
+it does not create employee assignments or widen a WAREHOUSE assignment to GLOBAL. V18 is not
+used because the current Identity sequence already includes V19-V21. Deploy Identity's migration,
+then for each affected active employee use the existing IAM sync endpoint
+`POST /api/v1/admin/iam/principals/{principalId}/sync-permissions?forceRelogin=false`, authorized
+under Identity's IAM permissions, and refresh/re-login to obtain the new signed grants.
+Verify effective permissions and `PROMOTION_VIEW#GLOBAL` / `PROMOTION_MANAGE#GLOBAL` in a real
+employee token before accepting admin rollout. Seed data alone cannot update previously issued
+JWTs. Promotion continues rejecting role-only tokens, customers, and non-GLOBAL grants.
 A lifecycle worker advances scheduled coupons and ends expired ones;
 all manual/automatic status changes are audited. A voucher expiry worker marks overdue `HELD`
 resources as `EXPIRED` in batches using PostgreSQL time, incrementing the resource version. It

@@ -7,6 +7,8 @@ info:
     Version 2 aligns checkout with the implemented quote, idempotent acceptance and operation-polling
     contract. The previous direct items-to-order checkout body is replaced. Voucher quotes are opt-in
     Customer VIETQR requests, calculated by Promotion through Order; clients never submit discounts.
+    Promotion dependency failures remain retryable during accepted checkout revalidation; only an explicit
+    eligibility rejection or changed commercial terms invalidate the voucher quote.
   license:
     name: Proprietary
     identifier: LicenseRef-Proprietary

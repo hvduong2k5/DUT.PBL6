@@ -7,7 +7,9 @@ ALTER TABLE orders ADD CONSTRAINT core_order_shape CHECK(cohort<>'order-core-1' 
     OR (owner_kind='GUEST' AND guest_session_id IS NOT NULL AND customer_id IS NULL)) AND owner_kind IS NOT NULL
   AND ((method='VIETQR' AND payment_expires_at IS NOT NULL) OR (method='COD' AND payment_expires_at IS NULL))));
 
-CREATE TABLE order_voucher_finalizations (
+-- IF NOT EXISTS also supports a development database that applied the earlier
+-- Promotion-only version 9 before versions 9-11 were reserved by F-42.
+CREATE TABLE IF NOT EXISTS order_voucher_finalizations (
  order_id uuid PRIMARY KEY REFERENCES orders(id),
  hold_id uuid NOT NULL UNIQUE,
  decision_id text NOT NULL,

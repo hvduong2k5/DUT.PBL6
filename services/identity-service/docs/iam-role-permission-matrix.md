@@ -26,6 +26,12 @@
 | `CATALOG_VIEW` | CATALOG | VIEW | LOW | FALSE | Xem danh mục và chi tiết sản phẩm trong hệ thống quản trị |
 | `CATALOG_MANAGE` | CATALOG | MANAGE | HIGH | TRUE | Tạo/cập nhật/xóa sản phẩm, biến thể, bảng giá, ảnh |
 | `CATALOG_APPROVE` | CATALOG | APPROVE | HIGH | TRUE | Phê duyệt/từ chối sản phẩm (chuyển trạng thái vòng đời) |
+| `PROMOTION_VIEW` | PROMOTION | VIEW | LOW | TRUE | Đọc quản trị coupon; Promotion yêu cầu grant GLOBAL |
+| `PROMOTION_MANAGE` | PROMOTION | MANAGE | HIGH | TRUE | Tạo/sửa/phát hành/tạm dừng coupon; Promotion yêu cầu grant GLOBAL |
+
+Promotion được seed bởi `V22__seed_promotion_permissions.sql`, gán quyền cho role ADMIN đang bật và chưa archive.
+Migration không tạo phân công nhân viên, không đổi scope và không cho phép bypass theo tên role. Sau khi deploy,
+sync các nhân viên bị ảnh hưởng bằng PermissionSyncService (forceRelogin=false) rồi refresh JWT để nhận grant mới.
 
 > **Quy tắc:** Danh sách permission trên được seed trong migration `V7__seed_identity_roles_and_permissions.sql` và `V8__seed_catalog_permissions.sql` của `identity-service`.
 >

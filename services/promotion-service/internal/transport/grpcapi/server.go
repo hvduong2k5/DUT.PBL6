@@ -26,10 +26,18 @@ const orderContractVersion = "order-3.2"
 
 type Server struct {
 	promotionv1.UnimplementedPromotionServiceServer
-	vouchers *postgres.VoucherRepository
+	vouchers voucherRepository
 }
 
-func NewServer(vouchers *postgres.VoucherRepository) *Server {
+type voucherRepository interface {
+	CalculateDiscount(context.Context, string, string, int64, int64, string, time.Time) (domain.Coupon, int64, error)
+	LockVoucher(context.Context, postgres.LockRequest, time.Time) (postgres.Hold, error)
+	ReleaseHold(context.Context, string, string, string, string, string, string, string, *int64, time.Time) (postgres.Hold, error)
+	FinalizeHold(context.Context, string, string, string, string, *int64, time.Time) (postgres.Hold, error)
+	GetHoldByOrder(context.Context, string, string, string, string, string) (postgres.Hold, *postgres.HoldCommandEvidence, error)
+}
+
+func NewServer(vouchers voucherRepository) *Server {
 	return &Server{vouchers: vouchers}
 }
 
@@ -131,7 +139,15 @@ func (s *Server) CalculateDiscount(ctx context.Context, request *promotionv1.Cal
 	}
 	coupon, discount, err := s.vouchers.CalculateDiscount(ctx, request.GetVoucherCode(), request.GetCustomerId(), subtotal, shippingFee, currency, time.Now().UTC())
 	if err != nil {
-		return &promotionv1.CalculateDiscountResponse{IsApplicable: false, Description: err.Error()}, nil
+		if isEligibilityError(err) {
+			return &promotionv1.CalculateDiscountResponse{IsApplicable: false, Description: err.Error()}, nil
+		}
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return nil, status.FromContextError(err).Err()
+		}
+		// Unknown/DB errors are retryable dependency failures, never a rejected
+		// voucher. Do not expose SQL, connection strings or driver messages.
+		return nil, status.Error(codes.Unavailable, "promotion discount calculation is unavailable")
 	}
 	return &promotionv1.CalculateDiscountResponse{IsApplicable: true, EstimatedDiscount: money(discount, currency), Description: fmt.Sprintf("%s discount", coupon.DiscountType), DiscountType: discountType(coupon.DiscountType), ValidUntil: timestamppb.New(coupon.EndsAt), PolicyVersion: "promotion-voucher-1"}, nil
 }
