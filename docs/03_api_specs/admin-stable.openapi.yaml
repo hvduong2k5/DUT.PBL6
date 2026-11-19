@@ -10,8 +10,8 @@ x-shipping-provider-integration:
   internal-routes-exposed: false
   web-bff-connected: false
   description: >-
-    Kong forwards employee bearer tokens unchanged to Shipping on port 8012,
-    rewriting /api/v2/admin/shipping to the provider's /api/v1/admin/shipping.
+    Kong forwards employee bearer tokens and the full v2 path unchanged to Shipping on port 8012.
+    Shipping exposes v2 aliases using the same JWT middleware and handlers as its v1 provider reads.
     Direct backend reads return snake_case shipment fields (detail has shipment/tracking_events),
     not the UI camelCase projection below. The current Web shipping BFF still targets its
     legacy facade on port 4030; connecting that UI requires a separate authenticated adapter.

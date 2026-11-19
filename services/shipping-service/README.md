@@ -154,7 +154,8 @@ Shipping implementation in either mode. TLS is required by configuration for pac
    the local stack is not a production secret/TLS provisioning mechanism.
 3. Load `services/api-gateway/config/kong.yml` into the gateway. The public admin provider routes
    are `GET /api/v2/admin/shipping/shipments` and `GET /api/v2/admin/shipping/shipments/{id}`;
-   Kong rewrites their prefix to the backend's v1 path. The legacy camelCase v1 UI contract is
+   Kong preserves their full path; Shipping serves authenticated v2 aliases of its provider reads.
+   The legacy camelCase v1 UI contract is
    not replaced by these snake_case provider routes. The public callback is
    `POST /api/v1/webhooks/logistics/ghn`. The DB-less local gateway mounts
    it; the DB-backed production gateway requires the deployment owner to apply it to Kong's DB.

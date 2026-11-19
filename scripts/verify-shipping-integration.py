@@ -39,14 +39,17 @@ class ShippingIntegrationTests(unittest.TestCase):
             self.assertTrue(service["url"].startswith("http://shipping-service:8012"))
             self.assertEqual(service["retries"], 0)
             for route in service["routes"]:
-                self.assertEqual(route["strip_path"], name == "shipping-admin-service")
+                self.assertFalse(route["strip_path"])
                 self.assertNotIn("plugins", route)  # Never inject a service token or bypass JWT.
-        # Verify Kong's regex prefix consumption preserves the backend suffix.
+        # Public v2 aliases are implemented by Shipping: keep the full path unchanged.
         service = self.services["shipping-admin-service"]
         for suffix in ("/shipments", "/shipments/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"):
             path = "/api/v2/admin/shipping" + suffix
             pattern = next(p for p in service["routes"][0]["paths"] if re.match(p[1:], path))
-            self.assertEqual(service["url"] + path[re.match(pattern[1:], path).end():], "http://shipping-service:8012/api/v1/admin/shipping" + suffix)
+            self.assertEqual(re.match(pattern[1:], path).group(0), path)
+            self.assertEqual(service["url"] + path, "http://shipping-service:8012/api/v2/admin/shipping" + suffix)
+            self.assertNotIn("(?", pattern)
+            self.assertNotRegex(pattern, r"\\[1-9]")
         remove = next(p for p in self.kong["plugins"] if p["name"] == "request-transformer")["config"]["remove"]["headers"]
         self.assertIn("X-Internal-Token", remove)
         self.assertNotIn("Authorization", remove)

@@ -948,6 +948,7 @@ def main():
             ("http://omamx-profile-service:8080", "profile"),
             ("http://catalog-service:8006", "catalog"),
             ("http://order-service:8004", "order"),
+            ("http://shipping-service:8012", "shipping"),
         ]:
             kong = kong.replace(old, f"http://host.docker.internal:{ports[key]}")
         if args.fulfillment:
@@ -960,7 +961,7 @@ def main():
         kong_file.write_text(kong, encoding="utf-8")
         container(
             "codex-web-gateway-" + suffix,
-            "kong:3.9",
+            "kong:3.9.3",
             [
                 *(["--network",fulfillment_network] if args.fulfillment else []),
                 "--add-host",
@@ -981,7 +982,18 @@ def main():
                 str(kong_file) + ":/etc/kong/kong.yml:ro",
             ],
         )
-        wait(f"http://127.0.0.1:{ports['gateway_admin']}/status")
+        try:
+            wait(f"http://127.0.0.1:{ports['gateway_admin']}/status")
+        except RuntimeError:
+            # Capture Kong's actual startup/parser failure before cleanup removes it.
+            gateway_logs = subprocess.run(
+                ["docker", "logs", "codex-web-gateway-" + suffix],
+                capture_output=True, text=True, check=False,
+            )
+            log = gateway_logs.stdout + gateway_logs.stderr
+            (folder / "gateway.log").write_text(log, encoding="utf-8")
+            print("=== GATEWAY STARTUP LOG ===\n" + log[-16000:], flush=True)
+            raise
         if args.fulfillment:
             # Container-to-container traffic uses the private Docker network;
             # Linux cannot reach another container's host-loopback mapping.

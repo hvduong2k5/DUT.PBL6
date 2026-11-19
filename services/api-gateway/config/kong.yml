@@ -8,7 +8,7 @@ services:
   # MS-12: Shipping verifies employee JWTs itself; no service token injection.
   # Exact routes deliberately exclude internal commands and delivery workbench.
   - name: shipping-admin-service
-    url: http://shipping-service:8012/api/v1/admin/shipping
+    url: http://shipping-service:8012
     connect_timeout: 2000
     read_timeout: 5000
     write_timeout: 5000
@@ -16,10 +16,10 @@ services:
     routes:
       - name: shipping-admin-reads
         paths:
-          # Consume only the v2 prefix; the lookahead validates the entire suffix.
-          - '~/api/v2/admin/shipping(?=/shipments$)'
-          - '~/api/v2/admin/shipping(?=/shipments/[0-9a-fA-F-]{36}$)'
-        strip_path: true
+          # Kong's expression router uses Rust regex: no look-around/backreferences.
+          - '~/api/v2/admin/shipping/shipments$'
+          - '~/api/v2/admin/shipping/shipments/[0-9a-fA-F-]{36}$'
+        strip_path: false
         methods: [GET, OPTIONS]
   - name: shipping-ghn-webhook-service
     url: http://shipping-service:8012

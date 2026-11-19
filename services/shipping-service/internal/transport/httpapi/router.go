@@ -55,6 +55,9 @@ func NewRouter(service *application.Service, internalToken, fakeWebhookSecret, g
 	r.With(h.requireInternalToken).Post("/api/v1/internal/shipments/{shipmentID}/handover", h.confirmHandover)
 	r.With(h.requireStaffShipmentView).Get("/api/v1/admin/shipping/shipments", h.listShipments)
 	r.With(h.requireStaffShipmentView).Get("/api/v1/admin/shipping/shipments/{shipmentID}", h.getShipment)
+	// Preserve the public provider v2 path; no Kong regex rewrite is needed.
+	r.With(h.requireStaffShipmentView).Get("/api/v2/admin/shipping/shipments", h.listShipments)
+	r.With(h.requireStaffShipmentView).Get("/api/v2/admin/shipping/shipments/{shipmentID}", h.getShipment)
 	r.With(h.requireInternalToken).Get("/api/v1/orders/{orderID}/tracking", h.trackOrder)
 	r.Post("/api/v1/webhooks/logistics/fake", h.fakeWebhook)
 	r.Post("/api/v1/webhooks/logistics/ghn", h.ghnWebhook)
