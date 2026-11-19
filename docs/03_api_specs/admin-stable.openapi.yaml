@@ -1,4 +1,21 @@
 openapi: 3.1.0
+x-shipping-provider-integration:
+  employee-grant: SHIPMENT_VIEW#GLOBAL
+  jwt-audience: omama-api
+  identity-seed: services/identity-service/src/main/resources/db/migration/V23__seed_shipping_permissions.sql
+  kong-admin-methods: [GET, OPTIONS]
+  kong-admin-prefix: /api/v2/admin/shipping
+  kong-ghn-callback: POST /api/v1/webhooks/logistics/ghn
+  callback-authentication: X-GHN-Webhook-Secret (validated by Shipping, not a staff JWT)
+  internal-routes-exposed: false
+  web-bff-connected: false
+  description: >-
+    Kong forwards employee bearer tokens unchanged to Shipping on port 8012,
+    rewriting /api/v2/admin/shipping to the provider's /api/v1/admin/shipping.
+    Direct backend reads return snake_case shipment fields (detail has shipment/tracking_events),
+    not the UI camelCase projection below. The current Web shipping BFF still targets its
+    legacy facade on port 4030; connecting that UI requires a separate authenticated adapter.
+    No company-driver workbench, internal command, order tracking or fake webhook is exposed.
 info:
   title: Internal Employee Web API - Stable
   version: 2.0.0
@@ -42,6 +59,72 @@ security:
 - bearerAuth: []
 - adminSession: []
 paths:
+  /api/v2/admin/shipping/shipments:
+    get:
+      operationId: getShippingProviderShipmentsV2
+      tags: [Shipping]
+      summary: Read the Shipping backend projection without the legacy UI facade
+      x-lifecycle: stable
+      x-required-permissions: [SHIPMENT_VIEW]
+      x-required-grant-scope: GLOBAL
+      security: [{bearerAuth: []}]
+      parameters:
+        - {name: page, in: query, schema: {type: integer, minimum: 1, default: 1}}
+        - {name: pageSize, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 20}}
+        - {name: status, in: query, schema: {type: string}, description: Supported backend ShipmentStatus value}
+        - {name: carrier, in: query, schema: {type: string}}
+        - {name: orderId, in: query, schema: {type: string}}
+      responses:
+        '200':
+          description: Backend list; empty collections are arrays, not null
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, page, page_size]
+                properties:
+                  items: {type: array, items: {$ref: '#/components/schemas/ShippingProviderShipment'}}
+                  page: {type: integer, minimum: 1}
+                  page_size: {type: integer, minimum: 1, maximum: 100}
+              examples:
+                empty: {value: {items: [], page: 1, page_size: 20}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '500': {$ref: '#/components/responses/InternalError'}
+        '502': {description: Gateway could not reach Shipping}
+        '503': {$ref: '#/components/responses/ServiceUnavailable'}
+  /api/v2/admin/shipping/shipments/{shipmentId}:
+    get:
+      operationId: getShippingProviderShipmentV2
+      tags: [Shipping]
+      summary: Read a shipment and its backend tracking events
+      x-lifecycle: stable
+      x-required-permissions: [SHIPMENT_VIEW]
+      x-required-grant-scope: GLOBAL
+      security: [{bearerAuth: []}]
+      parameters:
+        - {name: shipmentId, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        '200':
+          description: Authorized backend shipment projection, not the v1 UI facade
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [shipment, tracking_events]
+                properties:
+                  shipment: {$ref: '#/components/schemas/ShippingProviderShipment'}
+                  tracking_events:
+                    type: array
+                    items: {$ref: '#/components/schemas/ShippingProviderTrackingEvent'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '500': {$ref: '#/components/responses/InternalError'}
+        '502': {description: Gateway could not reach Shipping}
+        '503': {$ref: '#/components/responses/ServiceUnavailable'}
   /api/v1/admin/users:
     get:
       operationId: getAdminUsers
@@ -11505,6 +11588,58 @@ components:
         type: string
         format: uuid
   schemas:
+    ShippingProviderShipment:
+      type: object
+      description: Raw Shipping read model; recipient fields require the same GLOBAL staff grant
+      required: [shipment_id, shipment_number, order_id, package_id, carrier_code, service_code, status, recipient, parcel, cod_amount_vnd, checkout_fee_vnd, revision, created_at, updated_at]
+      properties:
+        shipment_id: {type: string, format: uuid}
+        shipment_number: {type: string}
+        order_id: {type: string}
+        package_id: {type: string}
+        carrier_code: {type: string}
+        service_code: {type: string}
+        tracking_code: {type: string}
+        status: {type: string}
+        recipient:
+          type: object
+          required: [name, phone, street, ward, province]
+          properties:
+            name: {type: string}
+            phone: {type: string}
+            street: {type: string}
+            ward: {type: string}
+            district: {type: string}
+            province: {type: string}
+            country_code: {type: string}
+        parcel:
+          type: object
+          required: [weight_grams, length_cm, width_cm, height_cm, fragile]
+          properties:
+            weight_grams: {type: integer, format: int64}
+            length_cm: {type: integer}
+            width_cm: {type: integer}
+            height_cm: {type: integer}
+            fragile: {type: boolean}
+        cod_amount_vnd: {type: integer, format: int64, minimum: 0}
+        checkout_fee_vnd: {type: integer, format: int64, minimum: 0}
+        revision: {type: integer, format: int64, minimum: 1}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+      additionalProperties: true
+    ShippingProviderTrackingEvent:
+      type: object
+      required: [id, shipment_id, external_event_id, carrier_code, provider_status_code, mapping_result, event_at, received_at]
+      properties:
+        id: {type: string, format: uuid}
+        shipment_id: {type: string, format: uuid}
+        external_event_id: {type: string}
+        carrier_code: {type: string}
+        provider_status_code: {type: string}
+        mapping_result: {type: string}
+        event_at: {type: string, format: date-time}
+        received_at: {type: string, format: date-time}
+      additionalProperties: true
     Error:
       type: object
       required:

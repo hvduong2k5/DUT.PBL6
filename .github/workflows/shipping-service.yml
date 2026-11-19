@@ -1,0 +1,45 @@
+name: Shipping integration gates
+on:
+  pull_request:
+    paths: ['services/shipping-service/**', 'services/api-gateway/**', 'services/identity-service/src/main/resources/db/migration/V23__seed_shipping_permissions.sql', 'docs/03_api_specs/**', 'scripts/verify-shipping-integration.py', '.github/workflows/shipping-service.yml']
+  push:
+    branches: [dev, main, feat/shipping-service]
+    paths: ['services/shipping-service/**', 'services/api-gateway/**', 'scripts/verify-shipping-integration.py', '.github/workflows/shipping-service.yml']
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: shipping
+          POSTGRES_PASSWORD: shipping-test-only
+          POSTGRES_DB: shipping_test
+        ports: ['5432:5432']
+        options: --health-cmd="pg_isready -U shipping" --health-interval=5s --health-timeout=5s --health-retries=10
+    env:
+      SHIPPING_TEST_DATABASE_URL: postgres://shipping:shipping-test-only@localhost:5432/shipping_test?sslmode=disable
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: services/shipping-service/go.mod
+          cache-dependency-path: services/shipping-service/go.sum
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Routing, IAM and contract guards
+        run: |
+          python -m pip install -r packages/contracts/mvp/requirements.txt
+          python scripts/verify-shipping-integration.py
+      - name: Unit and real PostgreSQL transport integration
+        working-directory: services/shipping-service
+        run: |
+          go test -race -count=1 ./...
+          go vet ./...
+          go build -o /tmp/shipping-service ./cmd/server
+      - name: Validate Kong configuration with the deployed image version
+        run: docker run --rm -e KONG_DATABASE=off -v "$PWD/services/api-gateway/config/kong.yml:/config/kong.yml:ro" kong:3.9.3 kong config parse /config/kong.yml

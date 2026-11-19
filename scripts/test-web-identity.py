@@ -877,6 +877,7 @@ def main():
         shipping_token = secrets.token_urlsafe(32)
         shipping_webhook = secrets.token_urlsafe(32)
         env.update(
+            SHIPPING_ENV="local",
             SHIPPING_DATABASE_URL=f"postgres://peer:{password}@127.0.0.1:{ports['db']}/{db_name}?sslmode=disable&search_path=shipping",
             SHIPPING_HTTP_ADDRESS=f"127.0.0.1:{ports['shipping']}",
             SHIPPING_GRPC_ADDRESS=f"127.0.0.1:{ports['shipping_grpc']}",

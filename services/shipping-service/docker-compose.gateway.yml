@@ -1,0 +1,13 @@
+# Attach only the application to Kong's network, not PostgreSQL or Kafka.
+# docker compose -f docker-compose.yml -f docker-compose.gateway.yml up -d --build
+services:
+  shipping-service:
+    networks:
+      default: {}
+      gateway:
+        aliases: [shipping-service]
+
+networks:
+  gateway:
+    name: ${SHIPPING_GATEWAY_NETWORK:-omamx-network}
+    external: true

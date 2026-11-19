@@ -163,8 +163,8 @@ services:
       SHIPPING_GHN_RECONCILE_TIMEOUT: ${SHIPPING_GHN_RECONCILE_TIMEOUT:-5s}
       SHIPPING_GHN_QUOTE_TTL: ${SHIPPING_GHN_QUOTE_TTL:-15m}
     ports:
-      - "8012:8012"
-      - "9012:9012"
+      - "127.0.0.1:8012:8012"
+      - "127.0.0.1:9012:9012"
     depends_on:
       shipping-postgres:
         condition: service_healthy

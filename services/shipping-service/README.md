@@ -45,7 +45,7 @@ authentication on the admin routes.
 
 ## Implemented endpoints
 
-The REST contract is documented in [`shipping-service.openapi.yaml`](../../docs/03_api_specs/shipping-service.openapi.yaml), with access and response-state notes in [`shipping-api-state-matrix.md`](../../docs/03_api_specs/shipping-api-state-matrix.md). These routes are internal/provider endpoints, not public Kong APIs. Errors include `requestId` and the matching `X-Request-Id` response header.
+The existing provider contract is documented in [`shipping-service.openapi.yaml`](../../docs/03_api_specs/shipping-service.openapi.yaml). Gateway/auth rollout is tracked in the shared [`admin-stable.openapi.yaml`](../../docs/03_api_specs/admin-stable.openapi.yaml) and [`admin-api-state-matrix.md`](../../docs/03_api_specs/admin-api-state-matrix.md). Only admin shipment reads and the GHN callback are registered at Kong; internal commands, order tracking and the fake callback are not public. Errors include `requestId` and the matching `X-Request-Id` response header.
 
 - `POST /api/v1/internal/shipping/quotes`
 - `POST /api/v1/internal/shipments`
@@ -143,6 +143,51 @@ outbound shipment creation, employee JWT reads and Care return pickups share the
 Shipping implementation in either mode. TLS is required by configuration for packing v2.
 
 ## Local verification
+
+### Gateway and owning-service deployment
+
+1. Create the local shared network once: `docker network create omamx-network` (skip if it exists).
+2. Start Shipping with `docker compose -f docker-compose.yml -f docker-compose.gateway.yml up -d --build`.
+   Only the application joins the external network under DNS `shipping-service`; the database and
+   Kafka remain on the private Compose network. For Coolify set `SHIPPING_GATEWAY_NETWORK=coolify`.
+   A production application still needs `SHIPPING_ENV=production` and mounted gRPC TLS files;
+   the local stack is not a production secret/TLS provisioning mechanism.
+3. Load `services/api-gateway/config/kong.yml` into the gateway. The public admin provider routes
+   are `GET /api/v2/admin/shipping/shipments` and `GET /api/v2/admin/shipping/shipments/{id}`;
+   Kong rewrites their prefix to the backend's v1 path. The legacy camelCase v1 UI contract is
+   not replaced by these snake_case provider routes. The public callback is
+   `POST /api/v1/webhooks/logistics/ghn`. The DB-less local gateway mounts
+   it; the DB-backed production gateway requires the deployment owner to apply it to Kong's DB.
+   Committing YAML does not update an already-running gateway. Admin reads forward the employee
+   bearer unchanged; GHN must supply `X-GHN-Webhook-Secret`. Kong never injects an internal token.
+4. Deploy Identity V23, sync affected principals using the existing IAM sync-permissions endpoint
+   (`forceRelogin=false`), then refresh JWTs. Required grant is `SHIPMENT_VIEW#GLOBAL` and audience
+   `omama-api`. V22 is reserved by Promotion: deploy that seed before V23 in the shared
+   Identity migration stream. If Shipping must deploy first, coordinate a new higher version
+   for the still-unreleased Promotion seed; do not enable out-of-order migrations blindly or
+   rewrite applied Flyway history. Existing JWTs are not changed by a SQL migration.
+5. Keep one packing-handoff owner as described above. With Order-owned handoff, configure
+   Order's Shipping endpoint/CA/token, shared Kafka broker and `shipping.events.v2`. With F-41
+   Shipping-owned handoff, additionally configure the dedicated snapshot credential and Order's
+   ownership flag. Fulfillment remains the packing-proof producer in both modes.
+6. Care's approved-return caller is implemented on its own branch, not present in this checkout.
+   It calls the private `POST /api/v1/internal/return-shipments`, sends the Shipping service token
+   and a stable `Idempotency-Key`; it does not call Kong or trigger a refund through Shipping.
+
+The Web admin Shipping BFF still targets port 4030 and expects camelCase UI projections plus
+session credentials. Shipping returns its snake_case provider read model and verifies a JWT.
+Do not point that BFF at this service without an explicit authentication/projection adapter;
+this backend/gateway task does not claim the admin UI or company-driver workbench is connected.
+Customer checkout and tracking continue through Order, not an unprotected Shipping endpoint.
+
+The `Shipping integration gates` workflow runs regression guards, race/unit tests, real
+PostgreSQL transport/outbox tests and Kong config validation. Locally run
+`python scripts/verify-shipping-integration.py` with the MVP requirements installed.
+Set `SHIPPING_TEST_DATABASE_URL` to a **disposable/test** PostgreSQL database to enable the
+isolated-schema gRPC/HTTP persistence test. It uses a FAKE carrier and verifies persisted outbox
+rows, not live Kafka delivery or real Order/Care processes. Full Web/Identity/Order/Fulfillment/
+Shipping acceptance remains in `scripts/test-web-identity.py --fulfillment`; GHN sandbox
+acceptance and real employee token checks remain deployment checks.
 
 ```powershell
 go mod download

@@ -5,7 +5,7 @@ info:
   description: >-
     Contract for the implemented Shipping HTTP endpoints. These are employee-admin,
     service-to-service, operational, and provider-webhook endpoints; they are not a customer-facing API and
-    are not currently exposed through Kong. Order integrations should use the versioned
+    are private except for admin reads (via the explicit Kong v2 provider prefix) and the GHN callback. Order integrations should use the versioned
     Shipping gRPC contract unless an owning-service decision explicitly selects HTTP.
     Version 2.0.0 requires Idempotency-Key on shipment creation, cancellation, and handover.
     Version 2.1.0 rejects reuse of a shipment-creation key with a different request payload.
@@ -620,7 +620,7 @@ components:
       type: object
       required: [order_id, package_id, carrier_code, service_code, recipient, parcel]
       properties:
-        idempotency_key: { type: string, deprecated: true, description: Legacy body field. If present, it must match the required Idempotency-Key header. }
+        idempotency_key: { type: string, deprecated: true, description: 'Legacy body field. If present, it must match the required Idempotency-Key header.' }
         order_id: { type: string, minLength: 1 }
         package_id: { type: string, minLength: 1 }
         seal_code: { type: string }
