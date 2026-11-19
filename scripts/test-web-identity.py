@@ -878,6 +878,9 @@ def main():
         shipping_webhook = secrets.token_urlsafe(32)
         env.update(
             SHIPPING_ENV="local",
+            SHIPPING_OIDC_ISSUER=issuer,
+            SHIPPING_OIDC_AUDIENCE="omama-api",
+            SHIPPING_OIDC_JWKS_URL=issuer + "/protocol/openid-connect/certs",
             SHIPPING_DATABASE_URL=f"postgres://peer:{password}@127.0.0.1:{ports['db']}/{db_name}?sslmode=disable&search_path=shipping",
             SHIPPING_HTTP_ADDRESS=f"127.0.0.1:{ports['shipping']}",
             SHIPPING_GRPC_ADDRESS=f"127.0.0.1:{ports['shipping_grpc']}",
@@ -1049,6 +1052,7 @@ def main():
                 {"grant_type": "password", "client_id": "admin-cli", "username": "admin", "password": admin_password}, form=True)
             assert status == 200, "Fixture administrator unavailable"
             grant_rows = sql("SELECT DISTINCT rp.permission_code || '#' || ra.scope_type || CASE WHEN ra.scope_id IS NOT NULL AND ra.scope_id <> '' THEN '#' || ra.scope_id ELSE '' END FROM identity.iam_role_assignments ra JOIN identity.iam_roles r ON r.role_id = ra.role_id AND r.is_enabled = TRUE JOIN identity.iam_role_permissions rp ON rp.role_id = ra.role_id WHERE ra.principal_id = '" + accounts["E"]["principal"] + "' AND ra.assignment_status = 'ACTIVE' AND ra.valid_from <= now() AND (ra.valid_until IS NULL OR ra.valid_until > now()) ORDER BY 1;", tuples=True)
+            assert "SHIPMENT_VIEW#GLOBAL" in grant_rows.splitlines(), "Fixture employee is missing the Identity Shipping seed/global assignment"
             # Keycloak silently drops user attributes that are not
             # declared in the realm user profile (verified on 24.0.5):
             # declare the grant attribute before writing it,

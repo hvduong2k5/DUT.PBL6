@@ -107,6 +107,14 @@ def prepare(root, folder, ports, env, accounts, sql, run, container, request,
     return network, scanner
 
 
+def read_shipping_for_employee(request, shipping, shipment_id, employee_token):
+    """Admin reads use the employee JWT; never fall back to a service token."""
+    return request(
+        shipping + "/api/v2/admin/shipping/shipments/" + shipment_id,
+        token=employee_token,
+    )
+
+
 def pack(request, gateway, token, customer_token, folder, order_id, order_until,
          shipping, shipping_token, control, run, scanner, shipping_control=None, handoff=None,
          web=None, staff_cookie=None, customer_cookie=None):
@@ -196,7 +204,7 @@ def pack(request, gateway, token, customer_token, folder, order_id, order_until,
         assert original_handoff and original_handoff["attempts"]>0 and original_handoff["shipment_id"] is None and original_handoff["shipments"]==0,("durable Shipping outage",original_handoff)
         shipping_control(True)
     order=order_until(order_id,lambda o:bool(o.get("shipment_id")))
-    status,tracking,_=request(shipping+"/api/v1/admin/shipping/shipments/"+order["shipment_id"],token=shipping_token)
+    status,tracking,_=read_shipping_for_employee(request,shipping,order["shipment_id"],token)
     assert status==200,("shipment tracking",status,tracking)
     assert tracking["shipment"]["package_id"]==package and tracking["shipment"]["parcel"]==parcel,("Shipping did not use sealed parcel",tracking)
     if original_handoff:
