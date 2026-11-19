@@ -135,4 +135,8 @@ message CalculateDiscountResponse {
   bool is_applicable = 1;
   optional omamx.common.v1.Money estimated_discount = 2;
   string description = 3;
+  // Quote-only evidence; no usage is held until ValidateAndLockVoucher.
+  DiscountType discount_type = 4;
+  google.protobuf.Timestamp valid_until = 5;
+  string policy_version = 6;
 }

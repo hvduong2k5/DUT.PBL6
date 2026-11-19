@@ -32,6 +32,12 @@ type CheckoutRuntime struct {
 	Store     *Store
 	Source    CheckoutSource
 	Inventory CheckoutInventory
+	Promotion CheckoutPromotion
+}
+type CheckoutPromotion interface {
+	Hold(context.Context, core.SnapshotInput) (*core.VoucherTerms, error)
+	Release(context.Context, core.SnapshotInput) error
+	Finalize(context.Context, core.SnapshotInput) (core.VoucherDecision, error)
 }
 type checkoutWork struct {
 	LeaseFence
@@ -299,6 +305,9 @@ func (r *CheckoutRuntime) Work(ctx context.Context) (bool, error) {
 			if terms.Shipping.ValidUntil.Before(expiry) {
 				expiry = terms.Shipping.ValidUntil
 			}
+			if terms.Voucher != nil && terms.Voucher.ValidUntil.Before(expiry) {
+				expiry = terms.Voucher.ValidUntil
+			}
 			terms.Payment.ExpiresAt = &expiry
 		}
 		if _, e = core.NewSnapshot(terms); e != nil {
@@ -333,6 +342,24 @@ func (r *CheckoutRuntime) Work(ctx context.Context) (bool, error) {
 		if proof.State != "RESERVED" {
 			return true, r.advance(ctx, w, "COMPENSATE", terms, &proof)
 		}
+		if terms.Voucher != nil {
+			if r.Promotion == nil {
+				e = ErrCapability
+				break
+			}
+			var held *core.VoucherTerms
+			held, e = r.Promotion.Hold(ctx, terms)
+			if errors.Is(e, core.ErrVoucherRejected) {
+				return true, r.advance(ctx, w, "COMPENSATE", terms, &proof)
+			}
+			if e != nil {
+				break
+			}
+			terms.Voucher = held
+			if terms.Payment.ExpiresAt != nil && terms.Voucher.HoldExpiresAt.Before(*terms.Payment.ExpiresAt) {
+				terms.Payment.ExpiresAt = terms.Voucher.HoldExpiresAt
+			}
+		}
 		if terms.Payment.ExpiresAt != nil && proof.ExpiresAt.Before(*terms.Payment.ExpiresAt) {
 			terms.Payment.ExpiresAt = &proof.ExpiresAt
 		}
@@ -364,6 +391,15 @@ func (r *CheckoutRuntime) Work(ctx context.Context) (bool, error) {
 			return true, r.park(context.WithoutCancel(ctx), w, "STAGE_DEADLINE_EXCEEDED")
 		}
 		if w.Stage == "COMPENSATE" {
+			if terms.Voucher != nil {
+				if r.Promotion == nil {
+					e = ErrCapability
+					break
+				}
+				if e = r.Promotion.Release(ctx, terms); e != nil {
+					break
+				}
+			}
 			proof, e = r.Inventory.Release(ctx, terms, proof, "inventory:release:"+w.Planned)
 			if e != nil {
 				break
@@ -387,6 +423,18 @@ func (r *CheckoutRuntime) Work(ctx context.Context) (bool, error) {
 		if terms.Payment.Method == "COD" {
 			proof, e = r.Inventory.Commit(ctx, terms, proof, "inventory:cod-finalize:"+w.Planned)
 			if e != nil {
+				break
+			}
+		}
+		if terms.Voucher != nil {
+			if r.Promotion == nil {
+				e = ErrCapability
+				break
+			}
+			if _, e = r.Promotion.Hold(ctx, terms); e != nil {
+				if errors.Is(e, core.ErrVoucherRejected) {
+					return true, r.advance(ctx, w, "COMPENSATE", terms, &proof)
+				}
 				break
 			}
 		}

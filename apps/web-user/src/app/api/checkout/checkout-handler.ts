@@ -132,6 +132,13 @@ function isOrderQuote(value: unknown): value is OrderQuote {
     && Number(value.shipping_fee) >= 0
     && Number.isSafeInteger(value.final_amount)
     && Number(value.final_amount) >= 0
+    && Number.isSafeInteger(value.merchandise_discount ?? 0)
+    && Number(value.merchandise_discount ?? 0) >= 0
+    && Number(value.merchandise_discount ?? 0) <= Number(value.subtotal)
+    && Number.isSafeInteger(value.shipping_discount ?? 0)
+    && Number(value.shipping_discount ?? 0) >= 0
+    && Number(value.shipping_discount ?? 0) <= Number(value.shipping_fee)
+    && Number(value.final_amount) === Number(value.subtotal) + Number(value.shipping_fee) - Number(value.merchandise_discount ?? 0) - Number(value.shipping_discount ?? 0)
     && isIsoDateTime(value.expires_at)
     && isIsoDateTime(value.shipping_expires_at);
 }

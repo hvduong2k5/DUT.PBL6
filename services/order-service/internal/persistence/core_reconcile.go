@@ -187,6 +187,17 @@ func (r *CheckoutRuntime) WorkReconcile(ctx context.Context) (bool, error) {
 		}
 		disposition = reconcileCompensate
 	}
+	if disposition == reconcileCompensate && terms.Voucher != nil {
+		if r.Promotion == nil {
+			e = ErrCapability
+		} else {
+			e = r.Promotion.Release(ctx, terms)
+		}
+		if e != nil {
+			_ = r.retryReconcile(context.WithoutCancel(ctx), w)
+			return true, e
+		}
+	}
 	return true, r.finishReconcile(ctx, w, disposition, operation, checkoutWorkflow, opStage)
 }
 

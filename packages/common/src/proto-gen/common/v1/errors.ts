@@ -42,6 +42,24 @@ export enum ErrorCode {
   ERR_CATALOG_PRODUCT_OUT_OF_SEASON = 201,
   /** ERR_CATALOG_VARIANT_MISMATCH - Biến thể SKU không khớp với sản phẩm cha */
   ERR_CATALOG_VARIANT_MISMATCH = 202,
+  /** ERR_CATALOG_PRODUCT_NOT_FOUND - Không tìm thấy sản phẩm */
+  ERR_CATALOG_PRODUCT_NOT_FOUND = 203,
+  /** ERR_CATALOG_VARIANT_NOT_FOUND - Không tìm thấy biến thể sản phẩm */
+  ERR_CATALOG_VARIANT_NOT_FOUND = 204,
+  /** ERR_CATALOG_CATEGORY_NOT_FOUND - Không tìm thấy danh mục */
+  ERR_CATALOG_CATEGORY_NOT_FOUND = 205,
+  /** ERR_CATALOG_PRODUCT_NOT_PUBLIC - Sản phẩm chưa được duyệt hoặc ngừng bán */
+  ERR_CATALOG_PRODUCT_NOT_PUBLIC = 206,
+  /** ERR_CATALOG_SKU_DUPLICATE - Trùng mã SKU */
+  ERR_CATALOG_SKU_DUPLICATE = 207,
+  /** ERR_CATALOG_PRODUCT_INVALID_STATE - Sai trạng thái sản phẩm */
+  ERR_CATALOG_PRODUCT_INVALID_STATE = 208,
+  /** ERR_CATALOG_PRICE_NOT_FOUND - Không tìm thấy giá */
+  ERR_CATALOG_PRICE_NOT_FOUND = 209,
+  /** ERR_CATALOG_SLUG_DUPLICATE - Trùng slug */
+  ERR_CATALOG_SLUG_DUPLICATE = 210,
+  /** ERR_CATALOG_VERSION_CONFLICT - Xung đột phiên bản (Optimistic Locking) */
+  ERR_CATALOG_VERSION_CONFLICT = 211,
   /** ERR_PROMOTION_VOUCHER_NOT_FOUND - --- LỖI MIỀN KHUYẾN MÃI & VOUCHER (MS-07: PROMOTION - 300 - 399) --- */
   ERR_PROMOTION_VOUCHER_NOT_FOUND = 300,
   /** ERR_PROMOTION_VOUCHER_EXPIRED - Mã giảm giá đã hết hạn sử dụng */
@@ -141,6 +159,33 @@ export function errorCodeFromJSON(object: any): ErrorCode {
     case 202:
     case "ERR_CATALOG_VARIANT_MISMATCH":
       return ErrorCode.ERR_CATALOG_VARIANT_MISMATCH;
+    case 203:
+    case "ERR_CATALOG_PRODUCT_NOT_FOUND":
+      return ErrorCode.ERR_CATALOG_PRODUCT_NOT_FOUND;
+    case 204:
+    case "ERR_CATALOG_VARIANT_NOT_FOUND":
+      return ErrorCode.ERR_CATALOG_VARIANT_NOT_FOUND;
+    case 205:
+    case "ERR_CATALOG_CATEGORY_NOT_FOUND":
+      return ErrorCode.ERR_CATALOG_CATEGORY_NOT_FOUND;
+    case 206:
+    case "ERR_CATALOG_PRODUCT_NOT_PUBLIC":
+      return ErrorCode.ERR_CATALOG_PRODUCT_NOT_PUBLIC;
+    case 207:
+    case "ERR_CATALOG_SKU_DUPLICATE":
+      return ErrorCode.ERR_CATALOG_SKU_DUPLICATE;
+    case 208:
+    case "ERR_CATALOG_PRODUCT_INVALID_STATE":
+      return ErrorCode.ERR_CATALOG_PRODUCT_INVALID_STATE;
+    case 209:
+    case "ERR_CATALOG_PRICE_NOT_FOUND":
+      return ErrorCode.ERR_CATALOG_PRICE_NOT_FOUND;
+    case 210:
+    case "ERR_CATALOG_SLUG_DUPLICATE":
+      return ErrorCode.ERR_CATALOG_SLUG_DUPLICATE;
+    case 211:
+    case "ERR_CATALOG_VERSION_CONFLICT":
+      return ErrorCode.ERR_CATALOG_VERSION_CONFLICT;
     case 300:
     case "ERR_PROMOTION_VOUCHER_NOT_FOUND":
       return ErrorCode.ERR_PROMOTION_VOUCHER_NOT_FOUND;
@@ -246,6 +291,24 @@ export function errorCodeToJSON(object: ErrorCode): string {
       return "ERR_CATALOG_PRODUCT_OUT_OF_SEASON";
     case ErrorCode.ERR_CATALOG_VARIANT_MISMATCH:
       return "ERR_CATALOG_VARIANT_MISMATCH";
+    case ErrorCode.ERR_CATALOG_PRODUCT_NOT_FOUND:
+      return "ERR_CATALOG_PRODUCT_NOT_FOUND";
+    case ErrorCode.ERR_CATALOG_VARIANT_NOT_FOUND:
+      return "ERR_CATALOG_VARIANT_NOT_FOUND";
+    case ErrorCode.ERR_CATALOG_CATEGORY_NOT_FOUND:
+      return "ERR_CATALOG_CATEGORY_NOT_FOUND";
+    case ErrorCode.ERR_CATALOG_PRODUCT_NOT_PUBLIC:
+      return "ERR_CATALOG_PRODUCT_NOT_PUBLIC";
+    case ErrorCode.ERR_CATALOG_SKU_DUPLICATE:
+      return "ERR_CATALOG_SKU_DUPLICATE";
+    case ErrorCode.ERR_CATALOG_PRODUCT_INVALID_STATE:
+      return "ERR_CATALOG_PRODUCT_INVALID_STATE";
+    case ErrorCode.ERR_CATALOG_PRICE_NOT_FOUND:
+      return "ERR_CATALOG_PRICE_NOT_FOUND";
+    case ErrorCode.ERR_CATALOG_SLUG_DUPLICATE:
+      return "ERR_CATALOG_SLUG_DUPLICATE";
+    case ErrorCode.ERR_CATALOG_VERSION_CONFLICT:
+      return "ERR_CATALOG_VERSION_CONFLICT";
     case ErrorCode.ERR_PROMOTION_VOUCHER_NOT_FOUND:
       return "ERR_PROMOTION_VOUCHER_NOT_FOUND";
     case ErrorCode.ERR_PROMOTION_VOUCHER_EXPIRED:

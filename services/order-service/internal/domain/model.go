@@ -100,24 +100,27 @@ type CheckoutInput struct {
 	Method   string `json:"payment_method"`
 }
 type Quote struct {
-	CatalogSnapshotID string    `json:"catalog_snapshot_id"`
-	CatalogExpiresAt  time.Time `json:"catalog_expires_at"`
-	ShippingReference string    `json:"shipping_quote_reference"`
-	AddressID         string    `json:"source_address_id,omitempty"`
-	AddressVersion    int64     `json:"source_address_version,omitempty"`
-	ID                string    `json:"quote_id"`
-	Scope             string    `json:"-"`
-	Principal         Principal `json:"-"`
-	Revision          int64     `json:"cart_revision"`
-	Method            string    `json:"payment_method"`
-	Items             []Item    `json:"items"`
-	Address           Address   `json:"address"`
-	Subtotal          int64     `json:"subtotal"`
-	Shipping          int64     `json:"shipping_fee"`
-	Final             int64     `json:"final_amount"`
-	CustomerID        string    `json:"customer_id,omitempty"`
-	ExpiresAt         time.Time `json:"expires_at"`
-	ShippingExpiresAt time.Time `json:"shipping_expires_at"`
+	Voucher             string    `json:"voucher_code,omitempty"`
+	MerchandiseDiscount int64     `json:"merchandise_discount"`
+	ShippingDiscount    int64     `json:"shipping_discount"`
+	CatalogSnapshotID   string    `json:"catalog_snapshot_id"`
+	CatalogExpiresAt    time.Time `json:"catalog_expires_at"`
+	ShippingReference   string    `json:"shipping_quote_reference"`
+	AddressID           string    `json:"source_address_id,omitempty"`
+	AddressVersion      int64     `json:"source_address_version,omitempty"`
+	ID                  string    `json:"quote_id"`
+	Scope               string    `json:"-"`
+	Principal           Principal `json:"-"`
+	Revision            int64     `json:"cart_revision"`
+	Method              string    `json:"payment_method"`
+	Items               []Item    `json:"items"`
+	Address             Address   `json:"address"`
+	Subtotal            int64     `json:"subtotal"`
+	Shipping            int64     `json:"shipping_fee"`
+	Final               int64     `json:"final_amount"`
+	CustomerID          string    `json:"customer_id,omitempty"`
+	ExpiresAt           time.Time `json:"expires_at"`
+	ShippingExpiresAt   time.Time `json:"shipping_expires_at"`
 }
 
 // StoredQuote retains server ownership; Quote's public JSON intentionally omits scope/principal.

@@ -139,6 +139,9 @@ export interface MvpCheckoutPreparation {
 }
 
 export interface MvpCheckoutQuote {
+	merchandiseDiscountVnd: number;
+	shippingDiscountVnd: number;
+	voucherCode?: string;
   quoteId: string;
   cartRevision: number;
   paymentMethod: MvpCheckoutPaymentMethod;

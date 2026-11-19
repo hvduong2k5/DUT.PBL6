@@ -8,6 +8,7 @@ on:
       - 'packages/events/**'
       - 'packages/contracts/**'
       - 'docs/03_api_specs/**'
+      - 'scripts/verify-promotion-checkout-contracts.py'
       - '.github/workflows/contracts.yml'
   push:
     branches: [dev, develop, main, integration/mvp-contracts]
@@ -16,6 +17,7 @@ on:
       - 'packages/events/**'
       - 'packages/contracts/**'
       - 'docs/03_api_specs/**'
+      - 'scripts/verify-promotion-checkout-contracts.py'
       - '.github/workflows/contracts.yml'
 
 permissions:
@@ -47,6 +49,7 @@ jobs:
       - name: Order proof and negative contract regressions
         run: |
           python packages/contracts/verify_order_design.py --descriptor .system_generated/mvp-contracts/descriptor.pb --output .system_generated/mvp-contracts/order-design-verification.json
+          python scripts/verify-promotion-checkout-contracts.py
       - name: Upload static contract evidence
         if: always()
         uses: actions/upload-artifact@v4

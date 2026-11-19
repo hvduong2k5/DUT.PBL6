@@ -123,7 +123,15 @@ export function buildMvpQuoteRequest(input: {
 }
 
 export function mapMvpCheckoutQuote(quote: OrderQuote): MvpCheckoutQuote {
+  const merchandiseDiscountVnd = checkedTotal(quote.merchandise_discount ?? 0, "Quote.merchandise_discount");
+  const shippingDiscountVnd = checkedTotal(quote.shipping_discount ?? 0, "Quote.shipping_discount");
+  if (merchandiseDiscountVnd > quote.subtotal || shippingDiscountVnd > quote.shipping_fee || quote.final_amount !== quote.subtotal + quote.shipping_fee - merchandiseDiscountVnd - shippingDiscountVnd) {
+    throw new Error("Quote totals do not match the server discounts");
+  }
   return {
+    merchandiseDiscountVnd,
+    shippingDiscountVnd,
+    voucherCode: quote.voucher_code,
     quoteId: requiredText(quote.quote_id, "Quote.quote_id"),
     cartRevision: checkedTotal(quote.cart_revision, "Quote.cart_revision"),
     paymentMethod: quote.payment_method,
