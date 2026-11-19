@@ -5,7 +5,7 @@ import { HeritageBanner, type BannerSlide } from "@/components/heritage/heritage
 import { Motif } from "@/components/heritage/motif";
 import { TraceSearchForm } from "@/components/heritage/trace-search-form";
 import { ProductImage } from "@/components/product/product-image";
-import { RecommendationPreferences, RecommendationRail } from "@/components/recommendation/recommendation-rail";
+import { RecommendationRail } from "@/components/recommendation/recommendation-rail";
 
 const categories = [
   { href: "/products?category=me-xung-keo-hue", name: "Mè xửng Huế", note: "Dẻo thơm mạch nha, mè rang", image: "/images/heritage/photos/cat-me-xung.jpg" },
@@ -43,7 +43,6 @@ export function HomeExperience() {
     <section className="gh-home-section" id="featured" aria-label="Sản phẩm nổi bật">
       <div className="gh-wrap">
         <RecommendationRail placement="home" />
-        <RecommendationPreferences />
       </div>
     </section>
 
