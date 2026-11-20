@@ -82,6 +82,101 @@ security:
 - bearerAuth: []
 - adminSession: []
 paths:
+  /api/admin/shipping/company/shipments:
+    get:
+      operationId: bffListCompanyShipments
+      tags: [Shipping]
+      summary: Web same-origin adapter for assigned company shipments
+      security: [{companyOidcCookie: []}]
+      x-required-permissions: [SHIPMENT_EXECUTE]
+      x-feature-flag: SHIPPING_COMPANY_BFF_ENABLED
+      description: >-
+        Opt-in Web BFF, not the legacy 4030 facade. Requires WEB_AUTH_MODE=oidc. Reads only
+        server-held oma_access_token cookie and forwards bearer to configured Shipping HTTPS
+        origin; browser Authorization/actor/internal-token headers are ignored. Shipping checks
+        signed GLOBAL grant, live employee and assignment. identity-bff opaque-session mode
+        returns 503 SHIPPING_AUTH_RELAY_REQUIRED until an Identity Shipping relay is built.
+        No session ID is treated as JWT. Default disabled 404. Cache-Control private, no-store.
+      parameters:
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 50}}
+        - {name: offset, in: query, schema: {type: integer, minimum: 0, maximum: 10000, default: 0}}
+      responses:
+        '200': {$ref: '#/paths/~1api~1v2~1admin~1shipping~1workbench~1shipments/get/responses/200'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '502': {$ref: '#/components/responses/InternalError'}
+        '503': {$ref: '#/components/responses/ServiceUnavailable'}
+  /api/admin/shipping/company/shipments/{shipmentId}:
+    get:
+      operationId: bffGetCompanyShipment
+      tags: [Shipping]
+      summary: Web same-origin adapter for owned delivery detail
+      security: [{companyOidcCookie: []}]
+      x-required-permissions: [SHIPMENT_EXECUTE]
+      x-feature-flag: SHIPPING_COMPANY_BFF_ENABLED
+      description: Same OIDC-only BFF boundary as list. No query overrides. Backend ownership gates recipient data; no frontend-only filtering or broad read fallback. identity-bff mode is unsupported (503). No private credentials returned.
+      parameters:
+        - {name: shipmentId, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        '200': {$ref: '#/paths/~1api~1v2~1admin~1shipping~1workbench~1shipments~1{shipmentId}/get/responses/200'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '502': {$ref: '#/components/responses/InternalError'}
+        '503': {$ref: '#/components/responses/ServiceUnavailable'}
+  /api/admin/shipping/company/shipments/{shipmentId}/accept:
+    post:
+      operationId: bffAcceptCompanyShipment
+      tags: [Shipping]
+      summary: Web adapter for driver acceptance
+      security: [{companyOidcCookie: []}]
+      x-required-permissions: [SHIPMENT_EXECUTE]
+      x-feature-flag: SHIPPING_COMPANY_BFF_ENABLED
+      description: Same OIDC-only boundary. Explicit same-origin Origin required; cross-site denied. JSON body limited to 4 KiB. Idempotency-Key forwarded unchanged; no actor override. Backend remains authoritative. Does not manufacture warehouse handover. identity-bff mode returns 503.
+      parameters:
+        - {name: shipmentId, in: path, required: true, schema: {type: string, format: uuid}}
+        - {name: Idempotency-Key, in: header, required: true, schema: {type: string, minLength: 16, maxLength: 128, pattern: '^[!-~]+$'}}
+      requestBody: {$ref: '#/paths/~1api~1v2~1admin~1shipping~1shipments~1{shipmentId}~1accept/post/requestBody'}
+      responses:
+        '200': {$ref: '#/paths/~1api~1v2~1admin~1shipping~1shipments~1{shipmentId}~1accept/post/responses/200'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '413': {description: Action body exceeds 4 KiB, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '415': {description: JSON required, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '422': {$ref: '#/components/responses/UnprocessableEntity'}
+        '502': {$ref: '#/components/responses/InternalError'}
+        '503': {$ref: '#/components/responses/ServiceUnavailable'}
+  /api/admin/shipping/company/shipments/{shipmentId}/progress:
+    post:
+      operationId: bffProgressCompanyShipment
+      tags: [Shipping]
+      summary: Web adapter for assigned driver progress
+      security: [{companyOidcCookie: []}]
+      x-required-permissions: [SHIPMENT_EXECUTE]
+      x-feature-flag: SHIPPING_COMPANY_BFF_ENABLED
+      description: Same OIDC-only cookie, same-origin, 4 KiB JSON and idempotency boundary as accept. Backend enforces ownership, acceptance, revisions and transitions. Employee manual attestation only; no verified photo/COD/refund claim. identity-bff mode returns 503. Network retries preserve action key and payload; refresh on 409 before a new action.
+      parameters:
+        - {name: shipmentId, in: path, required: true, schema: {type: string, format: uuid}}
+        - {name: Idempotency-Key, in: header, required: true, schema: {type: string, minLength: 16, maxLength: 128, pattern: '^[!-~]+$'}}
+      requestBody: {$ref: '#/paths/~1api~1v2~1admin~1shipping~1shipments~1{shipmentId}~1progress/post/requestBody'}
+      responses:
+        '200': {$ref: '#/paths/~1api~1v2~1admin~1shipping~1shipments~1{shipmentId}~1progress/post/responses/200'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '413': {description: Action body exceeds 4 KiB, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '415': {description: JSON required, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '422': {$ref: '#/components/responses/UnprocessableEntity'}
+        '502': {$ref: '#/components/responses/InternalError'}
+        '503': {$ref: '#/components/responses/ServiceUnavailable'}
   /api/v2/admin/shipping/workbench/shipments:
     get:
       operationId: listAssignedInternalShipmentsV2
@@ -11973,6 +12068,11 @@ paths:
           minLength: 1
 components:
   securitySchemes:
+    companyOidcCookie:
+      type: apiKey
+      in: cookie
+      name: oma_access_token
+      description: Server-held HttpOnly OIDC staff access token; no browser bearer or opaque Identity session substitution.
     bearerAuth:
       type: http
       scheme: bearer

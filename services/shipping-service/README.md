@@ -89,7 +89,13 @@ operator override for GHN shipments. Implementation proceeds in separately teste
 3. **Implemented opt-in backend:** driver JWT permission and assignee-bound acceptance/progress,
    manual reasons, atomic shipment/tracking/revision/outbox writes and retry protection.
    Verified photo evidence, live Identity provisioning and end-to-end consumer acceptance remain pending.
-4. **Pending:** connect actual employee Web BFF/workbench and register only approved public routes.
+4. **Opt-in OIDC Web adapter implemented:** company list/detail/accept/progress at
+   `/api/admin/shipping/company/shipments`; enable Web `SHIPPING_COMPANY_BFF_ENABLED=true`
+   and configure server-only `SHIPPING_COMPANY_UPSTREAM_URL` to the HTTPS Shipping origin.
+   UI `/admin/work/delivery` uses SHIPMENT_EXECUTE and real provider data when enabled.
+   Default remains off; legacy 4030 routes are unchanged. Identity-bff opaque sessions have
+   no Shipping bearer relay yet and fail closed with 503, not a fake JWT/internal token.
+   Identity relay, gateway route registration and browser/live acceptance remain pending.
 5. **Pending:** company-delivery return workflow, integration with Order/Care, then joint Coolify
    acceptance for GHN and INTERNAL. A returned outbound parcel and a Care-approved new pickup
    remain distinct resources/workflows; neither directly executes a refund.

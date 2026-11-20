@@ -1,5 +1,12 @@
 # Internal Employee API State Matrix
 
+### Opt-in company delivery Web adapter
+
+- `/api/admin/shipping/company/shipments` GET, `/{shipmentId}` GET, `/{shipmentId}/accept` POST and `/{shipmentId}/progress` POST map only to the corresponding Shipping v2 provider. `SHIPPING_COMPANY_BFF_ENABLED=false` by default. OIDC bearer-cookie mode only; identity-bff session relay is NOT implemented and returns 503, not a mock fallback.
+- Workbench `/admin/work/delivery` switches to company UI when enabled. SHIPMENT_EXECUTE is a UI navigation gate; signed JWT grants and resource ownership remain enforced by Shipping. Lists, detail, recipient, acceptance and progress come from real provider APIs. Existing legacy UI remains unchanged when disabled.
+- Success/empty: provider data, no fabricated assignee. Loading disables actions and selection; reason required for progress. Warehouse handover cannot be triggered by driver. Retry retains key for unchanged payload; refresh after 409. Errors: 400 input, 401 sign-in, 403 grant/ownership/origin, 404 missing/disabled, 409 conflict, 413 >4 KiB, 415 media type, 422 validation, 502 malformed/redirect upstream, 503 unavailable or missing session relay. Errors are safe, requestId-bearing and no-store. No JWT/internal token reaches browser responses.
+- Mutations require explicit same-origin Origin; only server cookie bearer and idempotency key forwarded. No actor/role/internal-token headers or arbitrary upstream selection. No verified photo, COD settlement or refund claim. Live Identity/JWT and browser E2E acceptance remain pending; do not enable in identity-bff deployment until relay exists.
+
 ### Assigned company-driver reads (opt-in v2 provider API)
 
 - GET `/api/v2/admin/shipping/workbench/shipments` and `.../{shipmentId}` require signed `SHIPMENT_EXECUTE#GLOBAL` plus live ACTIVE EMPLOYEE. The backend always filters by JWT user_id and current assignment; GLOBAL is not a cross-driver read grant. Legacy v1 workbench/UI remains separate.

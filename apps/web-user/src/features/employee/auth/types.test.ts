@@ -108,4 +108,11 @@ describe("employee session projection from identity profiles", () => {
     expect(session?.permissions).not.toContain("PRODUCT_VIEW");
     expect(session?.permissions).not.toContain("PRODUCT_MANAGE");
   });
+
+  it("projects company execution for navigation without inventing management access",()=>{
+    const session=toEmployeeSession(profileWith(["SHIPMENT_EXECUTE"]));
+    expect(session?.permissions).toEqual(expect.arrayContaining(["SHIPMENT_EXECUTE","DELIVERY_WORKBENCH_VIEW"]));
+    expect(session?.permissions).not.toContain("SHIPMENT_MANAGEMENT_VIEW");
+    expect(toEmployeeSession(profileWith(["SHIPMENT_VIEW"]))?.permissions).not.toContain("SHIPMENT_EXECUTE");
+  });
 });
