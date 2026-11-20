@@ -248,7 +248,45 @@ func TestPostgresAssignmentHTTPAndSignedJWT(t *testing.T) {
 		s := create(carrier.InternalCode)
 		acceptPath := "/api/v2/admin/shipping/shipments/" + s.ID.String() + "/accept"
 		token := f.token(t, "SHIPMENT_EXECUTE#GLOBAL")
+		workbenchPath := "/api/v2/admin/shipping/workbench/shipments"
+		call("GET", workbenchPath, "", "", "", 401)
+		call("GET", workbenchPath, full, "", "", 403)
+		empty := call("GET", workbenchPath, token, "", "", 200)
+		if !strings.Contains(empty.Body.String(), `"items":[]`) || !strings.Contains(empty.Body.String(), `"total":0`) {
+			t.Fatal("empty workbench contract")
+		}
+		reassigned := create(carrier.InternalCode)
+		reassign := domain.AssignInternalDelivery{ShipmentID: reassigned.ID, DriverID: f.actorID, ActorID: f.actorID, ExpectedVersion: 0, Reason: "Ownership fixture", IdempotencyKey: "read-reassign-0001"}
+		if _, err := svc.AssignInternalDelivery(ctx, reassign); err != nil {
+			t.Fatal(err)
+		}
+		call("GET", workbenchPath+"/"+reassigned.ID.String(), token, "", "", 200)
+		reassign.DriverID = f.driverID
+		reassign.ExpectedVersion = 1
+		reassign.IdempotencyKey = "read-reassign-0002"
+		if _, err := svc.AssignInternalDelivery(ctx, reassign); err != nil {
+			t.Fatal(err)
+		}
+		denied := call("GET", workbenchPath+"/"+reassigned.ID.String(), token, "", "", 404)
+		if strings.Contains(denied.Body.String(), "0900000001") {
+			t.Fatal("reassignment leaked recipient")
+		}
+		call("GET", workbenchPath+"/"+fake.ID.String(), token, "", "", 404)
+		call("GET", workbenchPath+"?driver_id="+f.driverID.String(), token, "", "", 400)
+		call("GET", workbenchPath+"?limit=0", token, "", "", 400)
+		call("GET", workbenchPath+"?offset=-1", token, "", "", 400)
+		call("GET", workbenchPath+"?limit=1&limit=2", token, "", "", 400)
+		call("GET", workbenchPath+"/"+s.ID.String(), token, "", "", 404)
 		defaultRouter := NewRouter(svc, "internal-token", "fake-secret", "", zerolog.Nop(), f.auth)
+		if w := assignmentHTTPCall(defaultRouter, "GET", workbenchPath, token, "", ""); w.Code != 404 {
+			t.Fatal("disabled workbench exposed")
+		}
+		f.actorStatus.Store("SUSPENDED")
+		call("GET", workbenchPath, token, "", "", 403)
+		f.actorStatus.Store("ACTIVE")
+		f.directoryStatus.Store(503)
+		call("GET", workbenchPath+"/"+s.ID.String(), token, "", "", 503)
+		f.directoryStatus.Store(200)
 		if w := assignmentHTTPCall(defaultRouter, "POST", acceptPath, token, "acceptance-key-0001", `{"expected_version":1}`); w.Code != 404 {
 			t.Fatal("disabled acceptance exposed")
 		}
@@ -261,12 +299,31 @@ func TestPostgresAssignmentHTTPAndSignedJWT(t *testing.T) {
 			t.Fatal(err)
 		}
 		call("POST", acceptPath, token, "acceptance-key-0001", `{"expected_version":1}`, 403)
+		call("GET", workbenchPath+"/"+s.ID.String(), token, "", "", 404)
 		a.DriverID = f.actorID
 		a.ExpectedVersion = 1
 		a.IdempotencyKey = "dispatch-for-accept-002"
 		if _, err := svc.AssignInternalDelivery(ctx, a); err != nil {
 			t.Fatal(err)
 		}
+		list := call("GET", workbenchPath+"?limit=1&offset=0", token, "", "", 200)
+		var driverList domain.DriverShipmentList
+		if err := json.Unmarshal(list.Body.Bytes(), &driverList); err != nil || driverList.Total != 1 || len(driverList.Items) != 1 || driverList.Items[0].Accepted || driverList.Items[0].AssignmentVersion != 2 {
+			t.Fatalf("workbench list: %s %v", list.Body, err)
+		}
+		if strings.Contains(list.Body.String(), `"recipient"`) || strings.Contains(list.Body.String(), `"phone"`) {
+			t.Fatal("list exposed recipient")
+		}
+		ownDetail := call("GET", workbenchPath+"/"+s.ID.String(), token, "", "", 200)
+		if ownDetail.Header().Get("Cache-Control") != "private, no-store" {
+			t.Fatal("workbench PII cache policy missing")
+		}
+		var driverDetail domain.DriverShipmentDetail
+		if err := json.Unmarshal(ownDetail.Body.Bytes(), &driverDetail); err != nil || driverDetail.Recipient.Phone != "0900000001" || driverDetail.AssignmentVersion != 2 {
+			t.Fatalf("owned detail: %s %v", ownDetail.Body, err)
+		}
+		call("GET", workbenchPath+"?offset=1", token, "", "", 200)
+		call("GET", workbenchPath+"/"+s.ID.String()+"?actor_id="+f.actorID.String(), token, "", "", 400)
 		call("POST", acceptPath, token, "", `{"expected_version":2}`, 400)
 		call("POST", acceptPath, token, "acceptance-key-0001", `{}`, 400)
 		call("POST", acceptPath, token, "acceptance-key-0001", `{"expected_version":2,"actor_id":"`+f.actorID.String()+`"}`, 400)
@@ -279,6 +336,10 @@ func TestPostgresAssignmentHTTPAndSignedJWT(t *testing.T) {
 		call("POST", acceptPath, token, "acceptance-key-0001", `{"expected_version":2}`, 503)
 		f.directoryStatus.Store(200)
 		first := call("POST", acceptPath, token, "acceptance-key-0001", `{"expected_version":2}`, 200)
+		acceptedDetail := call("GET", workbenchPath+"/"+s.ID.String(), token, "", "", 200)
+		if !strings.Contains(acceptedDetail.Body.String(), `"accepted":true`) {
+			t.Fatal("acceptance missing from workbench")
+		}
 		var receipt domain.InternalDeliveryAcceptance
 		if err := json.Unmarshal(first.Body.Bytes(), &receipt); err != nil || receipt.DriverID != f.actorID || receipt.AssignmentVersion != 2 {
 			t.Fatalf("invalid receipt: %+v %v", receipt, err)

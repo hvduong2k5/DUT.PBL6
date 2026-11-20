@@ -37,6 +37,7 @@ class ShippingIntegrationTests(unittest.TestCase):
             ("GET", "/api/v2/admin/shipping/shipments/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/assignment/history"),
             ("POST", "/api/v2/admin/shipping/shipments/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/accept"),
             ("POST", "/api/v2/admin/shipping/shipments/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/progress"),
+            ("GET", "/api/v2/admin/shipping/workbench/shipments/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"),
         ]:
             with self.subTest(method=method, path=path):
                 self.assertEqual(self.matches(method, path), [])
@@ -139,6 +140,23 @@ class ShippingIntegrationTests(unittest.TestCase):
             event["data"]["status"] = status
             event["type"] = "vn.omama.shipping.shipment." + name.removeprefix("shipment_").replace("_", "-") + ".v2"
             Draft202012Validator(schema, format_checker=FormatChecker()).validate(event)
+
+    def test_driver_read_contract_preserves_owned_projection(self):
+        spec = yaml.safe_load((ROOT / "docs/03_api_specs/admin-stable.openapi.yaml").read_text(encoding="utf-8"))
+        for suffix in ("", "/{shipmentId}"):
+            op = spec["paths"]["/api/v2/admin/shipping/workbench/shipments" + suffix]["get"]
+            self.assertEqual(op["security"], [{"bearerAuth": []}])
+            self.assertEqual(op["x-required-permissions"], ["SHIPMENT_EXECUTE"])
+            self.assertEqual(op["x-feature-flag"], "SHIPPING_INTERNAL_ASSIGNMENTS_ENABLED")
+            content = op["responses"]["200"]["content"]["application/json"]
+            validator = Draft202012Validator({**content["schema"], "components": spec["components"]}, format_checker=FormatChecker())
+            if "example" in content:
+                validator.validate(content["example"])
+            for example in content.get("examples", {}).values():
+                validator.validate(example["value"])
+            self.assertTrue({"400", "401", "403", "404", "503"}.issubset(op["responses"]))
+        self.assertNotIn("recipient", spec["components"]["schemas"]["ShippingDriverSummary"]["properties"])
+        self.assertIn("recipient", spec["components"]["schemas"]["ShippingDriverDetail"]["allOf"][1]["properties"])
 
     def test_seed_is_idempotent_and_only_grants_active_admin(self):
         sql = (ROOT / "services/identity-service/src/main/resources/db/migration/V23__seed_shipping_permissions.sql").read_text()

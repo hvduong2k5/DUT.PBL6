@@ -130,6 +130,16 @@ immutable retries, carrier/status/COD restrictions and transaction rollback on i
 
 ### Internal driver progress
 
+Driver discovery is available at GET `/api/v2/admin/shipping/workbench/shipments` and
+`.../{shipmentID}` with the same opt-in flag, SHIPMENT_EXECUTE#GLOBAL and live employee gate.
+PostgreSQL enforces JWT-user ownership before returning data. List summaries contain no
+recipient PII; detail returns recipient/parcel only to the current assignee. The response
+includes `assignment_version`, `accepted` and shipment `revision` for action forms. Unknown,
+unowned and non-INTERNAL detail all return 404. Actor/driver query overrides are rejected.
+Lists support limit 1..100 (default 50), offset 0..10000, deterministic assignment ordering,
+empty arrays/zero totals and consistent snapshot totals. Terminal assignments remain listed.
+These v2 provider reads are not yet mapped by the legacy v1 Web BFF or registered at Kong.
+
 POST `/api/v2/admin/shipping/shipments/{shipmentID}/progress` shares the opt-in assignment
 flag and requires SHIPMENT_EXECUTE#GLOBAL plus live ACTIVE EMPLOYEE validation. Payload:
 `{ "assignment_version": 1, "expected_revision": 4, "status": "IN_TRANSIT", "reason": "Started route" }`.

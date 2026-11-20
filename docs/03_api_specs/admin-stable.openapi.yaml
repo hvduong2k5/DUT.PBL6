@@ -82,6 +82,103 @@ security:
 - bearerAuth: []
 - adminSession: []
 paths:
+  /api/v2/admin/shipping/workbench/shipments:
+    get:
+      operationId: listAssignedInternalShipmentsV2
+      tags: [Shipping]
+      summary: List only the authenticated driver's assigned company shipments
+      x-lifecycle: stable
+      x-required-permissions: [SHIPMENT_EXECUTE]
+      x-required-grant-scope: GLOBAL
+      x-feature-flag: SHIPPING_INTERNAL_ASSIGNMENTS_ENABLED
+      security: [{bearerAuth: []}]
+      description: >-
+        Signed SHIPMENT_EXECUTE#GLOBAL plus live ACTIVE EMPLOYEE required. Backend derives
+        driver from JWT user_id and filters current assignment in PostgreSQL; responses use
+        Cache-Control private, no-store. GLOBAL never
+        grants another driver's resources. Only prepaid INTERNAL, including terminal assignments.
+        Does not require broad SHIPMENT_VIEW or USER_VIEW. No recipient phone/address in list.
+        Sorted assigned_at descending then shipment UUID; total/items use one repeatable snapshot.
+        offset pagination may shift across requests after reassignment. Unknown/duplicate query
+        parameters, including driver_id or actor overrides, return 400. Default disabled is 404.
+        No Kong route or Web BFF mapping yet; legacy v1 workbench contract remains separate.
+      parameters:
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 50}}
+        - {name: offset, in: query, schema: {type: integer, minimum: 0, maximum: 10000, default: 0}}
+      responses:
+        '200':
+          description: Assigned summaries; empty items and zero total when no assignments
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, total, limit, offset]
+                properties:
+                  items: {type: array, items: {$ref: '#/components/schemas/ShippingDriverSummary'}}
+                  total: {type: integer, minimum: 0}
+                  limit: {type: integer, minimum: 1, maximum: 100}
+                  offset: {type: integer, minimum: 0, maximum: 10000}
+              examples:
+                empty:
+                  value: {items: [], total: 0, limit: 50, offset: 0}
+                success:
+                  value:
+                    items: [{shipment_id: a0000000-0000-0000-0000-000000000001, shipment_number: SHIP-001, order_id: ORDER-001, package_id: PACKAGE-001, status: HANDED_OVER, revision: 4, assignment_version: 1, accepted: true}]
+                    total: 1
+                    limit: 50
+                    offset: 0
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '500': {$ref: '#/components/responses/InternalError'}
+        '503': {$ref: '#/components/responses/ServiceUnavailable'}
+  /api/v2/admin/shipping/workbench/shipments/{shipmentId}:
+    get:
+      operationId: getAssignedInternalShipmentV2
+      tags: [Shipping]
+      summary: Read recipient and action versions for an assigned company shipment
+      x-lifecycle: stable
+      x-required-permissions: [SHIPMENT_EXECUTE]
+      x-required-grant-scope: GLOBAL
+      x-feature-flag: SHIPPING_INTERNAL_ASSIGNMENTS_ENABLED
+      security: [{bearerAuth: []}]
+      description: >-
+        Same JWT/live employee gate as assigned list. Shipment and current ownership/acceptance
+        use one repeatable database snapshot. Only current assigned driver receives recipient
+        and parcel; unassigned, other-driver, non-INTERNAL and missing IDs all return 404.
+        No actor/driver query overrides, global management lookup or role bypass. assignment_version
+        and revision are distinct optimistic tokens for accept/progress. No private tracking notes,
+        dispatcher identities or provider credentials returned. Terminal assignments remain readable
+        while assigned. Not connected to Kong/BFF/UI; feature disabled returns 404.
+      parameters:
+        - {name: shipmentId, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        '200':
+          description: Owned detail; no empty success response
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ShippingDriverDetail'}
+              example:
+                shipment_id: a0000000-0000-0000-0000-000000000001
+                shipment_number: SHIP-001
+                order_id: ORDER-001
+                package_id: PACKAGE-001
+                status: HANDED_OVER
+                revision: 4
+                assignment_version: 1
+                accepted: true
+                recipient: {name: Test recipient, phone: '0900000001', street: Test street, ward: Test ward, district: Test district, province: Test province, country_code: VN}
+                parcel: {weight_grams: 500, length_cm: 20, width_cm: 15, height_cm: 10, fragile: false}
+                tracking_code: INT-a0000000-0000-0000-0000-000000000001
+                handed_over_at: '2026-11-20T10:00:00Z'
+                estimated_delivery_at: null
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '500': {$ref: '#/components/responses/InternalError'}
+        '503': {$ref: '#/components/responses/ServiceUnavailable'}
   /api/v2/admin/shipping/shipments/{shipmentId}/progress:
     post:
       operationId: progressInternalDeliveryV2
@@ -11895,6 +11992,48 @@ components:
         type: string
         format: uuid
   schemas:
+    ShippingDriverSummary:
+      type: object
+      required: [shipment_id, shipment_number, order_id, package_id, status, revision, assignment_version, accepted]
+      properties:
+        shipment_id: {type: string, format: uuid}
+        shipment_number: {type: string}
+        order_id: {type: string}
+        package_id: {type: string}
+        status: {type: string, enum: [CREATING, CREATION_FAILED, CREATED, READY_FOR_HANDOVER, HANDED_OVER, IN_TRANSIT, OUT_FOR_DELIVERY, DELIVERED, DELIVERY_FAILED, RETURNING, RETURNED, CANCELLED]}
+        revision: {type: integer, minimum: 1}
+        assignment_version: {type: integer, minimum: 1}
+        accepted: {type: boolean}
+    ShippingDriverDetail:
+      allOf:
+        - {$ref: '#/components/schemas/ShippingDriverSummary'}
+        - type: object
+          required: [recipient, parcel, tracking_code, handed_over_at, estimated_delivery_at]
+          properties:
+            recipient:
+              type: object
+              required: [name, phone, street, ward, district, province, country_code]
+              properties:
+                name: {type: string}
+                phone: {type: string}
+                street: {type: string}
+                ward: {type: string}
+                district: {type: string}
+                province: {type: string}
+                country_code: {type: string}
+                postal_code: {type: string}
+            parcel:
+              type: object
+              required: [weight_grams, length_cm, width_cm, height_cm, fragile]
+              properties:
+                weight_grams: {type: integer, minimum: 1}
+                length_cm: {type: integer, minimum: 1}
+                width_cm: {type: integer, minimum: 1}
+                height_cm: {type: integer, minimum: 1}
+                fragile: {type: boolean}
+            tracking_code: {type: string}
+            handed_over_at: {type: [string, 'null'], format: date-time}
+            estimated_delivery_at: {type: [string, 'null'], format: date-time}
     ShippingDriverAssignment:
       type: object
       required: [shipment_id, driver_id, assigned_by, version, reason, assigned_at]

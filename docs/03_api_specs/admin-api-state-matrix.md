@@ -1,5 +1,12 @@
 # Internal Employee API State Matrix
 
+### Assigned company-driver reads (opt-in v2 provider API)
+
+- GET `/api/v2/admin/shipping/workbench/shipments` and `.../{shipmentId}` require signed `SHIPMENT_EXECUTE#GLOBAL` plus live ACTIVE EMPLOYEE. The backend always filters by JWT user_id and current assignment; GLOBAL is not a cross-driver read grant. Legacy v1 workbench/UI remains separate.
+- List success: 200 summaries without recipient PII, current assignment version/accepted flag and shipment revision. Empty: `items: [], total: 0`; offset beyond total returns empty items with actual total. Limit 1..100 (default 50), offset 0..10000. Detail success: 200 current assigned recipient/parcel and versions; no empty success.
+- Loading: skeleton and disable actions until detail loaded; after reassign/409 refresh list/detail. 401 invalid JWT; 403 missing permission/inactive employee; 400 malformed UUID/pagination or unknown/duplicate queries; 404 disabled, unknown/unowned/non-INTERNAL detail (same response); 503 Identity unavailable; 500 storage failure. No client-supplied actor/driver override. List/total and detail ownership/data use repeatable snapshots. No internal tracking notes or broad management fallback.
+- Default `SHIPPING_INTERNAL_ASSIGNMENTS_ENABLED=false`; Kong/BFF/UI connection still pending. No frontend-only ownership filtering is accepted as the security boundary.
+
 ### Internal driver progress (opt-in provider API)
 
 - `POST /api/v2/admin/shipping/shipments/{shipmentId}/progress`: signed `SHIPMENT_EXECUTE#GLOBAL`, live ACTIVE EMPLOYEE, current assigned driver and accepted assignment required. GLOBAL never bypasses resource ownership. Default flag is off; no Kong/UI connection yet.
