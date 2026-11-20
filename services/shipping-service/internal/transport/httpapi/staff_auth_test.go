@@ -50,6 +50,18 @@ func TestJWTStaffAuthenticatorPermissionAndAudiencePolicy(t *testing.T) {
 		mutate    func(map[string]any)
 		wantError error
 	}{
+		{name: "mixed Identity permission catalog", mutate: func(c map[string]any) {
+			c["permission_grants"] = []string{"SHIPMENT_VIEW#GLOBAL", "ORDER_VIEW#GLOBAL", "traceability.read_internal#GLOBAL", "traceability.read_evidence#GLOBAL"}
+		}},
+		{name: "lowercase unrelated grant does not authorize Shipping", mutate: func(c map[string]any) {
+			c["permission_grants"] = []string{"traceability.read_internal#GLOBAL"}
+		}, wantError: errStaffForbidden},
+		{name: "shipment permission remains case sensitive", mutate: func(c map[string]any) {
+			c["permission_grants"] = []string{"shipment_view#GLOBAL"}
+		}, wantError: errStaffForbidden},
+		{name: "invalid permission prefix", mutate: func(c map[string]any) {
+			c["permission_grants"] = []string{"SHIPMENT_VIEW#GLOBAL", "1invalid#GLOBAL"}
+		}, wantError: errStaffUnauthenticated},
 		{name: "wrong audience", mutate: func(c map[string]any) { c["aud"] = "order-api" }, wantError: errStaffUnauthenticated},
 		{name: "wrong issuer", mutate: func(c map[string]any) { c["iss"] = "https://other.example/realm" }, wantError: errStaffUnauthenticated},
 		{name: "expired", mutate: func(c map[string]any) { c["exp"] = time.Now().Add(-time.Minute).Unix() }, wantError: errStaffUnauthenticated},

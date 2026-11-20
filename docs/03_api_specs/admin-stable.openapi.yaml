@@ -12,6 +12,11 @@ x-shipping-provider-integration:
   description: >-
     Kong forwards employee bearer tokens and the full v2 path unchanged to Shipping on port 8012.
     Shipping exposes v2 aliases using the same JWT middleware and handlers as its v1 provider reads.
+    Permission codes in the shared Identity catalog may start with an uppercase or lowercase
+    ASCII letter and contain ASCII letters, digits, underscore, dot, colon or hyphen (maximum
+    160 characters). Valid unrelated grants, including traceability.read_internal#GLOBAL,
+    do not invalidate the employee JWT. Authorization still requires the exact, case-sensitive
+    SHIPMENT_VIEW#GLOBAL grant; unrelated or differently cased grants do not authorize reads.
     Direct backend reads return snake_case shipment fields (detail has shipment/tracking_events),
     not the UI camelCase projection below. The current Web shipping BFF still targets its
     legacy facade on port 4030; connecting that UI requires a separate authenticated adapter.

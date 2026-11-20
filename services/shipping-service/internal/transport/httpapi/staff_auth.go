@@ -210,7 +210,9 @@ func validatePermissionGrants(grants []string) error {
 }
 
 func validPermissionCode(value string) bool {
-	if len(value) == 0 || len(value) > 160 || value[0] < 'A' || value[0] > 'Z' {
+	// Identity also seeds lowercase codes such as traceability.read_internal.
+	// Validate the shared catalog syntax without changing case-sensitive grants.
+	if len(value) == 0 || len(value) > 160 || !((value[0] >= 'A' && value[0] <= 'Z') || (value[0] >= 'a' && value[0] <= 'z')) {
 		return false
 	}
 	for _, r := range value {
