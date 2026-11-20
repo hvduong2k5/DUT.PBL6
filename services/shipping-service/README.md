@@ -81,7 +81,9 @@ operator override for GHN shipments. Implementation proceeds in separately teste
 
 1. **Implemented foundation:** opt-in provider, configured flat rate/estimated transit time,
    stable shipment references, existing create/cancel/idempotency lifecycle and independent tests.
-2. **Pending:** persistent driver assignment, assignment/reassignment audit and concurrency guards.
+2. **Implemented storage/application foundation:** persistent driver assignment, immutable
+   assignment/reassignment audit, actor-scoped idempotency and concurrency guards. No REST
+   assignment endpoint or employee-directory validation is exposed yet.
 3. **Pending:** employee JWT permissions and assignee-bound delivery actions with proof/reasons,
    atomic shipment/tracking/revision/outbox writes and retry protection.
 4. **Pending:** connect actual employee Web BFF/workbench and register only approved public routes.
@@ -104,6 +106,24 @@ Driver action authorization must also match the stored assignee; a GLOBAL action
 does not permit manipulating another driver's shipment. These are proposals, not Identity seed
 or workbench acceptance. Start with prepaid/no-COD delivery; require reason for failure and
 an approved immutable proof reference before declaring proof-bearing delivery complete.
+
+Assignment storage uses `internal_deliveries` for current state and
+`internal_delivery_assignment_events` for append-only snapshots (migration 000010). Initial
+assignment expects version 0; reassignment requires the current assignment version and a reason.
+Only prepaid INTERNAL shipments in CREATED/READY_FOR_HANDOVER can be assigned; the same driver
+with a new key is rejected as a no-op, and reassignment after handover is not yet supported.
+The repository locks the shipment row and commits assignment plus audit in one transaction.
+The assignment version is distinct from the shipment proof revision: assigning a driver does
+not invent a tracking event, change shipment status or publish an Order lifecycle event.
+Exact retries return their original snapshot even after a later reassignment; changed payloads
+or reuse against another shipment conflict. Actor IDs must come from the future verified employee
+principal, never a client-supplied override; driver eligibility must be checked with Identity
+before public rollout. Stored UUIDs alone do not prove that a driver is an active employee.
+
+Run the real PostgreSQL assignment suite with `SHIPPING_TEST_DATABASE_URL` pointing to a test
+database and `go test -race ./internal/repository/postgres -run TestPostgresInternalDeliveryAssignments`.
+It creates/drops its own random schema and verifies migration replay, concurrent assignment,
+immutable retries, carrier/status/COD restrictions and transaction rollback on injected failure.
 
 ## GHN staging adapter
 
