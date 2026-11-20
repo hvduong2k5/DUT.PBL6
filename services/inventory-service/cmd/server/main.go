@@ -26,6 +26,7 @@ import (
 	"dut-pbl6/inventory-service/internal/infrastructure/worker"
 	presentationgrpc "dut-pbl6/inventory-service/internal/presentation/grpc"
 	presentationkafka "dut-pbl6/inventory-service/internal/presentation/kafka"
+	"dut-pbl6/inventory-service/migrations"
 	inventoryv1 "dut-pbl6/inventory-service/pkg/proto/inventory/v1"
 	packingv1 "dut-pbl6/inventory-service/pkg/proto/packing/v1"
 	traceabilityv1 "dut-pbl6/inventory-service/pkg/proto/traceability/v1"
@@ -110,6 +111,13 @@ func main() {
 	db.SetMaxOpenConns(25)
 	db.SetMaxIdleConns(10)
 	db.SetConnMaxLifetime(5 * time.Minute)
+
+	seedCtx, cancelSeed := context.WithTimeout(context.Background(), 30*time.Second)
+	err = migrations.ApplyDemoSeed(seedCtx, db)
+	cancelSeed()
+	if err != nil {
+		log.Fatalf("[InventoryService] Demo migration 000007 failed: %v", err)
+	}
 
 	// 2. Initialize Redis Client & Distributed Lock Adapter
 	rdb := goredis.NewClient(&goredis.Options{
