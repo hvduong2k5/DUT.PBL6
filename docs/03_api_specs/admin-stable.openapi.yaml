@@ -20,6 +20,8 @@ x-shipping-provider-integration:
     assignment-directory-read-permission: USER_VIEW#GLOBAL
     assignment-kong-connected: false
     driver-web-workbench-implemented: true
+    dispatcher-web-implemented: true
+    dispatcher-web-path: /admin/shipping/dispatch
     driver-web-feature-flag: SHIPPING_COMPANY_BFF_ENABLED
     identity-session-relay-implemented: true
     identity-session-relay-feature-flag: IDENTITY_SHIPPING_API_ENABLED
@@ -87,6 +89,105 @@ security:
 - bearerAuth: []
 - adminSession: []
 paths:
+  /api/admin/shipping/company/shipments/{shipmentId}/assignment:
+    get:
+      operationId: bffDispatchRead
+      tags: [Shipping]
+      summary: Read company assignment
+      security: [{companyOidcCookie: []}, {adminSession: []}]
+      x-required-permissions: [SHIPMENT_ASSIGN]
+      x-required-grant-scope: GLOBAL
+      x-feature-flag: SHIPPING_COMPANY_BFF_ENABLED
+      description: >-
+        Dispatcher BFF allowlist. OIDC forwards only server cookie JWT; identity-bff forwards
+        only OMAMA_SESSION and trusted Origin to Identity shipping-api relay. Shipping checks
+        exact signed GLOBAL permission, live employee state, INTERNAL carrier and assignment
+        version. POST additionally requires USER_VIEW#GLOBAL for target eligibility. No actor
+        overrides, role bypass, fake directory data or broad read fallback. Current assignment
+        404 alone cannot imply initial version 0; history must succeed for the same shipment.
+        UI uses Identity principal UUIDs, not Keycloak subjects. Missing/inactive/customer target
+        is rejected by provider. New writes require before-handover lifecycle and reason.
+        Exact retries preserve key/payload. Refresh on 409. Default off; legacy management
+        UI remains separate; no driver directory autocomplete or identity grants created here.
+      parameters:
+        - {name: shipmentId, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        '200': {$ref: '#/paths/~1api~1v2~1admin~1shipping~1shipments~1{shipmentId}~1assignment/get/responses/200'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/UnprocessableEntity'}
+        '502': {$ref: '#/components/responses/InternalError'}
+        '503': {$ref: '#/components/responses/ServiceUnavailable'}
+    post:
+      operationId: bffDispatchAssign
+      tags: [Shipping]
+      summary: Assign or reassign a company driver
+      security: [{companyOidcCookie: []}, {adminSession: []}]
+      x-required-permissions: [SHIPMENT_ASSIGN, USER_VIEW]
+      x-required-grant-scope: GLOBAL
+      x-feature-flag: SHIPPING_COMPANY_BFF_ENABLED
+      description: >-
+        Dispatcher BFF allowlist. OIDC forwards only server cookie JWT; identity-bff forwards
+        only OMAMA_SESSION and trusted Origin to Identity shipping-api relay. Shipping checks
+        exact signed GLOBAL permission, live employee state, INTERNAL carrier and assignment
+        version. POST additionally requires USER_VIEW#GLOBAL for target eligibility. No actor
+        overrides, role bypass, fake directory data or broad read fallback. Current assignment
+        404 alone cannot imply initial version 0; history must succeed for the same shipment.
+        UI uses Identity principal UUIDs, not Keycloak subjects. Missing/inactive/customer target
+        is rejected by provider. New writes require before-handover lifecycle and reason.
+        Exact retries preserve key/payload. Refresh on 409. Default off; legacy management
+        UI remains separate; no driver directory autocomplete or identity grants created here.
+      parameters:
+        - {name: shipmentId, in: path, required: true, schema: {type: string, format: uuid}}
+        - {name: Idempotency-Key, in: header, required: true, schema: {type: string, minLength: 16, maxLength: 128, pattern: '^[!-~]+$'}}
+      requestBody: {$ref: '#/paths/~1api~1v2~1admin~1shipping~1shipments~1{shipmentId}~1assignment/post/requestBody'}
+      responses:
+        '200': {$ref: '#/paths/~1api~1v2~1admin~1shipping~1shipments~1{shipmentId}~1assignment/post/responses/200'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/UnprocessableEntity'}
+        '502': {$ref: '#/components/responses/InternalError'}
+        '503': {$ref: '#/components/responses/ServiceUnavailable'}
+        '413': {description: Body exceeds 4 KiB, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '415': {description: JSON required, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  /api/admin/shipping/company/shipments/{shipmentId}/assignment/history:
+    get:
+      operationId: bffDispatchHistory
+      tags: [Shipping]
+      summary: Read company assignment history
+      security: [{companyOidcCookie: []}, {adminSession: []}]
+      x-required-permissions: [SHIPMENT_ASSIGN]
+      x-required-grant-scope: GLOBAL
+      x-feature-flag: SHIPPING_COMPANY_BFF_ENABLED
+      description: >-
+        Dispatcher BFF allowlist. OIDC forwards only server cookie JWT; identity-bff forwards
+        only OMAMA_SESSION and trusted Origin to Identity shipping-api relay. Shipping checks
+        exact signed GLOBAL permission, live employee state, INTERNAL carrier and assignment
+        version. POST additionally requires USER_VIEW#GLOBAL for target eligibility. No actor
+        overrides, role bypass, fake directory data or broad read fallback. Current assignment
+        404 alone cannot imply initial version 0; history must succeed for the same shipment.
+        UI uses Identity principal UUIDs, not Keycloak subjects. Missing/inactive/customer target
+        is rejected by provider. New writes require before-handover lifecycle and reason.
+        Exact retries preserve key/payload. Refresh on 409. Default off; legacy management
+        UI remains separate; no driver directory autocomplete or identity grants created here.
+      parameters:
+        - {name: shipmentId, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        '200': {$ref: '#/paths/~1api~1v2~1admin~1shipping~1shipments~1{shipmentId}~1assignment~1history/get/responses/200'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/UnprocessableEntity'}
+        '502': {$ref: '#/components/responses/InternalError'}
+        '503': {$ref: '#/components/responses/ServiceUnavailable'}
   /api/v1/admin/shipping-api/workbench/shipments:
     get:
       operationId: identityShippingRelay0get

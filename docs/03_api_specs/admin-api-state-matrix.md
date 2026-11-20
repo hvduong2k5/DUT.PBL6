@@ -1,5 +1,13 @@
 # Internal Employee API State Matrix
 
+### Company dispatcher Web UI (opt-in)
+
+- `/admin/shipping/dispatch` requires SHIPMENT_ASSIGN for navigation and uses BFF GET/POST `/api/admin/shipping/company/shipments/{shipmentId}/assignment` plus GET `.../assignment/history`. Same SHIPPING_COMPANY_BFF_ENABLED flag, OIDC bearer or identity-bff session relay; no mock 4030 fallback. Existing management page is preserved and links to this screen when enabled.
+- Input is explicit shipment UUID and Identity driver principalId (not Keycloak sub); no fabricated employee names or directory autocomplete. Backend verifies active employee and GLOBAL grants. POST also requires USER_VIEW#GLOBAL. UI does not assign IAM roles or bypass the provider's before-handover restriction.
+- Success: current assignment/reassignment snapshot and immutable ordered audit. Empty: successful history with items []/total 0 and missing current assignment means initial expected_version 0. A current 404 alone never authorizes version 0 for an unknown shipment. Loading disables editing/submission. Selected UUID must match loaded state; changing it requires reload.
+- Retry: identical payload retains key after network error; 409 invalidates loaded state and requires refresh. Missing input/UUID/reason is blocked; reason <=500 characters without controls. POST actor is always from authenticated backend principal, never UI body. Errors: 400 malformed/override, 401 sign-in, 403 permission/directory access, 404 missing/non-INTERNAL/unassigned, 409 version/lifecycle/key conflict, 413/415 payload/media, 422 ineligible target/no-op/validation, 502/503 invalid/unavailable upstream. No falsely successful UI state when save fails.
+- No browser/live account acceptance yet; live dispatch E2E remains pending. Dispatcher UI does not confirm warehouse handover, delivery, COD or refunds.
+
 ### Opt-in company delivery Web adapter
 
 - `/api/admin/shipping/company/shipments` GET, `/{shipmentId}` GET, `/{shipmentId}/accept` POST and `/{shipmentId}/progress` POST map only to the corresponding Shipping v2 provider. `SHIPPING_COMPANY_BFF_ENABLED=false` by default. OIDC bearer-cookie mode sends server JWT direct; identity-bff forwards only OMAMA_SESSION to Identity `/api/v1/admin/shipping-api/**`, whose existing session filter refreshes/resolves the JWT. No mock fallback or session-as-JWT substitution.

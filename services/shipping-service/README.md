@@ -188,7 +188,12 @@ ownership, versioning, replay, reassignment and handover boundaries.
 Enable `SHIPPING_INTERNAL_ASSIGNMENTS_ENABLED=true` only with internal delivery enabled and
 `SHIPPING_IDENTITY_BASE_URL` set to the Identity origin. HTTPS is required except loopback HTTP
 in local mode. The flag defaults to false and assignment routes are not registered at Kong yet.
-The company-driver UI uses its new authenticated adapter; dispatcher assignment UI remains pending.
+The opt-in dispatcher UI is `/admin/shipping/dispatch` (linked from management when enabled).
+It loads current assignment/history by shipment UUID and accepts an Identity principal UUID
+plus reason for assign/reassign. It uses the existing cookie/bearer BFF and Identity relay;
+no employee name or eligibility is fabricated. There is no dedicated driver directory yet.
+Current 404 alone is not treated as an initial assignment: history must succeed first.
+409 requires reload; network retries preserve key/payload. Legacy management remains intact.
 
 Assignment GET/current/history require `SHIPMENT_ASSIGN#GLOBAL`. POST additionally requires
 `USER_VIEW#GLOBAL`, because the existing Identity provider protects `GET /api/v1/admin/users/{id}`

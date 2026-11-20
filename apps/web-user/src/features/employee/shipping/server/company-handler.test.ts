@@ -8,6 +8,27 @@ function request(method="GET",body?:string,origin="http://localhost:3000"){
 describe("company Shipping BFF",()=>{
   beforeEach(()=>{vi.stubEnv("WEB_AUTH_MODE","oidc");vi.stubEnv("SHIPPING_COMPANY_BFF_ENABLED","true");vi.stubEnv("SHIPPING_COMPANY_UPSTREAM_URL","http://127.0.0.1:8012");});
   afterEach(()=>{vi.unstubAllGlobals();vi.unstubAllEnvs();});
+  it("supports dispatcher assignment/history projections without forwarding private extra fields",async()=>{
+    const assignment={shipment_id:id,driver_id:id,assigned_by:id,version:1,reason:"Dispatch",assigned_at:"2026-11-20T10:00:00Z"};
+    const fetcher=vi.fn().mockImplementation(async()=>Response.json({...assignment,secret:"do-not-expose"}));vi.stubGlobal("fetch",fetcher);
+    const current=await handleCompanyShipping(request(),["shipments",id,"assignment"]);expect(current.status).toBe(200);expect(await current.json()).toEqual(assignment);
+    expect(fetcher.mock.calls[0][0]).toBe(`http://127.0.0.1:8012/api/v2/admin/shipping/shipments/${id}/assignment`);
+    const save=await handleCompanyShipping(request("POST",JSON.stringify({driver_id:id,expected_version:0,reason:"Dispatch"})),["shipments",id,"assignment"]);expect(save.status).toBe(200);
+    const init=fetcher.mock.calls[1][1];expect(init.headers.get("Idempotency-Key")).toBe("action-key-0000001");expect(init.headers.get("X-Actor-ID")).toBeNull();
+    fetcher.mockResolvedValue(Response.json({items:[{...assignment,event_id:id,previous_driver_id:null,secret:"do-not-expose"}],total:1}));
+    const history=await handleCompanyShipping(request(),["shipments",id,"assignment","history"]);expect(history.status).toBe(200);expect(await history.text()).not.toContain("do-not-expose");
+    expect((await handleCompanyShipping(request("POST",'{"actor_id":"spoof"}'),["shipments",id,"assignment"])).status).toBe(400);
+    expect((await handleCompanyShipping(request("POST","{}"),["shipments",id,"assignment","history"])).status).toBe(405);
+  });
+  it("routes dispatcher mutations through the Identity session relay",async()=>{
+    vi.stubEnv("WEB_AUTH_MODE","identity-bff");vi.stubEnv("WEB_PUBLIC_URL","http://localhost:3000");vi.stubEnv("WEB_OIDC_ALLOW_LOCAL_HTTP","true");vi.stubEnv("IDENTITY_UPSTREAM_URL","http://identity.test/api/v1");
+    const assignment={shipment_id:id,driver_id:id,assigned_by:id,version:1,reason:"Dispatch",assigned_at:"2026-11-20T10:00:00Z"};
+    const fetcher=vi.fn().mockResolvedValue(Response.json(assignment));vi.stubGlobal("fetch",fetcher);
+    const req=new NextRequest("http://localhost:3000/api/admin/shipping/company/shipments",{method:"POST",headers:{Cookie:`OMAMA_SESSION=${id}`,Origin:"http://localhost:3000","Content-Type":"application/json","Idempotency-Key":"dispatch-session-key-01"},body:JSON.stringify({driver_id:id,expected_version:0,reason:"Dispatch"})});
+    expect((await handleCompanyShipping(req,["shipments",id,"assignment"])).status).toBe(200);
+    expect(fetcher.mock.calls[0][0]).toBe(`http://identity.test/api/v1/admin/shipping-api/shipments/${id}/assignment`);
+    expect(fetcher.mock.calls[0][1].headers.get("Cookie")).toBe(`OMAMA_SESSION=${id}`);expect(fetcher.mock.calls[0][1].headers.get("Authorization")).toBeNull();
+  });
   it("forwards only trusted bearer to exact owned read routes",async()=>{
     const fetcher=vi.fn().mockResolvedValue(Response.json({items:[],total:0,limit:50,offset:0}));vi.stubGlobal("fetch",fetcher);
     const response=await handleCompanyShipping(request(),["shipments"]);

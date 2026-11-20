@@ -115,4 +115,7 @@ describe("employee session projection from identity profiles", () => {
     expect(session?.permissions).not.toContain("SHIPMENT_MANAGEMENT_VIEW");
     expect(toEmployeeSession(profileWith(["SHIPMENT_VIEW"]))?.permissions).not.toContain("SHIPMENT_EXECUTE");
   });
+  it("projects dispatch navigation independently of driver execution",()=>{
+    const session=toEmployeeSession(profileWith(["SHIPMENT_ASSIGN"]));expect(session?.permissions).toEqual(expect.arrayContaining(["SHIPMENT_ASSIGN","SHIPMENT_MANAGEMENT_VIEW"]));expect(session?.permissions).not.toContain("SHIPMENT_EXECUTE");
+  });
 });

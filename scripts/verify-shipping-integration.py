@@ -190,6 +190,20 @@ class ShippingIntegrationTests(unittest.TestCase):
                 for op in item.values():
                     self.assertIn({"adminSession": []}, op["security"])
 
+    def test_dispatch_bff_contract_reuses_provider_shapes(self):
+        spec = yaml.safe_load((ROOT / "docs/03_api_specs/admin-stable.openapi.yaml").read_text(encoding="utf-8"))
+        path = spec["paths"]["/api/admin/shipping/company/shipments/{shipmentId}/assignment"]
+        self.assertEqual(path["get"]["x-required-permissions"], ["SHIPMENT_ASSIGN"])
+        self.assertEqual(path["post"]["x-required-permissions"], ["SHIPMENT_ASSIGN", "USER_VIEW"])
+        history = spec["paths"]["/api/admin/shipping/company/shipments/{shipmentId}/assignment/history"]["get"]
+        for op in (path["get"], path["post"], history):
+            self.assertEqual(op["x-feature-flag"], "SHIPPING_COMPANY_BFF_ENABLED")
+            self.assertEqual(op["security"], [{"companyOidcCookie": []}, {"adminSession": []}])
+            self.assertEqual(op["x-required-grant-scope"], "GLOBAL")
+            self.assertIn("$ref", op["responses"]["200"])
+        self.assertIn("requestBody", path["post"])
+        self.assertTrue(spec["x-shipping-provider-integration"]["company-delivery"]["dispatcher-web-implemented"])
+
     def test_seed_is_idempotent_and_only_grants_active_admin(self):
         sql = (ROOT / "services/identity-service/src/main/resources/db/migration/V23__seed_shipping_permissions.sql").read_text()
         # Portable SQL regression, not PostgreSQL/Flyway runtime acceptance.
