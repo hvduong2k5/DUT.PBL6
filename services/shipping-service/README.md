@@ -187,8 +187,48 @@ PostgreSQL transport/outbox tests and Kong config validation. Locally run
 Set `SHIPPING_TEST_DATABASE_URL` to a **disposable/test** PostgreSQL database to enable the
 isolated-schema gRPC/HTTP persistence test. It uses a FAKE carrier and verifies persisted outbox
 rows, not live Kafka delivery or real Order/Care processes. Full Web/Identity/Order/Fulfillment/
-Shipping acceptance remains in `scripts/test-web-identity.py --fulfillment`; GHN sandbox
-acceptance and real employee token checks remain deployment checks.
+Shipping acceptance remains in `scripts/test-web-identity.py --fulfillment`; GHN production
+acceptance and deployed employee token checks remain deployment checks. The live staging
+verification below is separate from CI's deterministic fake-carrier acceptance.
+
+### Live GHN staging verification (2026-11-20)
+
+Verified against `https://dev-online-gateway.ghn.vn` using local Shipping, PostgreSQL and Kafka,
+with a temporary HTTPS tunnel restricted to the exact GHN callback path. No production order
+or real customer was used; the successful test order had zero COD and was cancelled afterwards.
+
+- Token/shop lookup succeeded; the configured shop was active and its pickup district/ward
+  matched local configuration. Preview through Shipping returned a fee of 53,900 VND for a
+  500 g test parcel.
+- Shipment creation returned 201. Replaying the same create key returned the same shipment
+  and carrier tracking code; PostgreSQL contained exactly one row for that test order.
+- A5 print-token generation returned a short-lived staging URL; fetching its page returned
+  200 with non-empty HTML. Neither the print token nor its URL is recorded here.
+- GHN itself delivered the create callback through the tunnel; Shipping persisted an applied
+  `ready_to_pick` event and advanced to `READY_FOR_HANDOVER`.
+- Cancellation through Shipping returned 200. Replaying its action key did not increase the
+  revision. GHN order detail independently confirmed `cancel`; GHN's actual cancellation
+  callback was also persisted. Replaying the cancellation event identity returned 200 /
+  `DUPLICATE`, with one event row and no revision increase.
+- Created/status-changed outbox rows were marked published to the local Kafka v1 topic. This
+  carrier smoke test used synthetic order/package identifiers, not Fulfillment proof; it is
+  not evidence of a live GHN-to-Order v2 consumer run. The full internal v2 path is covered by
+  the separate fake-carrier acceptance workflow.
+- Missing/incorrect webhook secrets returned 401; a correct secret with invalid payload
+  returned 400. The temporary tunnel returned 404 for admin and internal command paths.
+
+One earlier create attempt failed because GHN's staging warehouse-routing service timed out
+(`WAREHOUSE_NOT_FOUND`). A client-reference lookup confirmed no order existed for that attempt
+before a separate test case was created successfully. This is not proof of automatic recovery
+from every ambiguous provider failure. A cancelled order was found by carrier order code even
+when its client-reference lookup returned not found; use authoritative carrier detail when
+investigating cancellation.
+
+Still outside this staging smoke test: physical pickup/delivery/failure/return transitions,
+live GHN plus the full Order/Fulfillment stack, production gateway/TLS/secrets deployment, and
+GHN customer-return pickup (the return MVP remains FAKE-only). A temporary tunnel URL is not a
+deployment endpoint: disable the staging portal callback after the tunnel is stopped, or replace
+it with the deployed callback URL before resuming tests. Never commit webhook/API secrets.
 
 ```powershell
 go mod download
