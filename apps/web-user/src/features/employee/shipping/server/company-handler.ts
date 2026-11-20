@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { usesOidc } from "@/lib/auth/oidc-config";
-import { getTrustedAccessToken } from "@/lib/auth/server-credential";
+import { usesIdentityBff, usesOidc } from "@/lib/auth/oidc-config";
+import { applyTrustedSessionCookie, getTrustedAccessToken } from "@/lib/auth/server-credential";
 
 const uuid = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/iu;
 const record=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==="object"&&!Array.isArray(v);
@@ -31,7 +31,8 @@ export async function handleCompanyShipping(request: NextRequest, path: string[]
   const action = path.length === 3 && path[0] === "shipments" && uuid.test(path[1]) && ["accept", "progress"].includes(path[2]);
   if (!list && !detail && !action) return error(404, "NOT_FOUND", "Unknown company delivery route.");
   if (request.method !== (action ? "POST" : "GET")) return error(405, "METHOD_NOT_ALLOWED", "Method not allowed.");
-  if (!usesOidc()) return error(503, "SHIPPING_AUTH_RELAY_REQUIRED", "Company delivery requires the OIDC bearer integration; the Identity session relay is not configured.");
+  const sessionMode=usesIdentityBff();
+  if (!usesOidc()&&!sessionMode) return error(503, "SHIPPING_AUTH_MODE_UNSUPPORTED", "Company delivery requires OIDC or an Identity session.");
   const token = getTrustedAccessToken(request);
   if (!token) return error(401, "AUTH_REQUIRED", "Employee sign-in is required.");
   const query = new URLSearchParams();
@@ -39,7 +40,8 @@ export async function handleCompanyShipping(request: NextRequest, path: string[]
     if (!list || !["limit", "offset"].includes(key) || query.has(key) || !/^\d+$/u.test(value)) return error(400, "INVALID_REQUEST", "Invalid pagination or query override.");
     query.set(key, value);
   }
-  const headers = new Headers({ Accept: "application/json", Authorization: `Bearer ${token}` });
+  const headers = new Headers({ Accept: "application/json" });
+  if(sessionMode)applyTrustedSessionCookie(headers,request);else headers.set("Authorization",`Bearer ${token}`);
   let body: string | undefined;
   if (action) {
     // Cookie-authenticated writes require an explicit same-origin browser request.
@@ -58,10 +60,10 @@ export async function handleCompanyShipping(request: NextRequest, path: string[]
     headers.set("Content-Type", "application/json"); headers.set("Idempotency-Key", key);
   }
   try {
-    const base = new URL(process.env.SHIPPING_COMPANY_UPSTREAM_URL ?? "");
-    if (base.username || base.password || base.search || base.hash || base.pathname !== "/" || (base.protocol !== "https:" && !(process.env.NODE_ENV !== "production" && base.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(base.hostname)))) throw new Error("invalid upstream");
+    const base = new URL((sessionMode?process.env.IDENTITY_UPSTREAM_URL:process.env.SHIPPING_COMPANY_UPSTREAM_URL) ?? "");
+    if (base.username || base.password || base.search || base.hash || (sessionMode?!["/","/api/v1","/api/v1/"].includes(base.pathname):base.pathname!=="/") || (base.protocol !== "https:" && !(base.protocol === "http:" && (sessionMode || (process.env.NODE_ENV !== "production" && ["localhost", "127.0.0.1", "[::1]"].includes(base.hostname)))))) throw new Error("invalid upstream");
     const target = action ? `shipments/${path[1]}/${path[2]}` : `workbench/shipments${detail ? `/${path[1]}` : ""}`;
-    const response = await fetch(`${base.origin}/api/v2/admin/shipping/${target}${query.size ? `?${query}` : ""}`, { method: request.method, headers, body, cache: "no-store", redirect: "manual", signal: AbortSignal.timeout(10000) });
+    const response = await fetch(`${base.origin}${sessionMode?"/api/v1/admin/shipping-api":"/api/v2/admin/shipping"}/${target}${query.size ? `?${query}` : ""}`, { method: request.method, headers, body, cache: "no-store", redirect: "manual", signal: AbortSignal.timeout(10000) });
     if (response.status >= 300 && response.status < 400) return error(502, "SHIPPING_INVALID_RESPONSE", "Shipping redirect rejected.");
     if (!response.headers.get("content-type")?.includes("application/json")) return error(502, "SHIPPING_INVALID_RESPONSE", "Invalid Shipping response.");
     const payload: unknown = await response.json();

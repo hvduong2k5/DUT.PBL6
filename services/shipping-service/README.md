@@ -89,13 +89,16 @@ operator override for GHN shipments. Implementation proceeds in separately teste
 3. **Implemented opt-in backend:** driver JWT permission and assignee-bound acceptance/progress,
    manual reasons, atomic shipment/tracking/revision/outbox writes and retry protection.
    Verified photo evidence, live Identity provisioning and end-to-end consumer acceptance remain pending.
-4. **Opt-in OIDC Web adapter implemented:** company list/detail/accept/progress at
+4. **Opt-in Web adapter implemented:** company list/detail/accept/progress at
    `/api/admin/shipping/company/shipments`; enable Web `SHIPPING_COMPANY_BFF_ENABLED=true`
-   and configure server-only `SHIPPING_COMPANY_UPSTREAM_URL` to the HTTPS Shipping origin.
+   and configure `IDENTITY_UPSTREAM_URL` for session mode, or server-only
+   `SHIPPING_COMPANY_UPSTREAM_URL` to the HTTPS Shipping origin for OIDC direct mode.
    UI `/admin/work/delivery` uses SHIPMENT_EXECUTE and real provider data when enabled.
-   Default remains off; legacy 4030 routes are unchanged. Identity-bff opaque sessions have
-   no Shipping bearer relay yet and fail closed with 503, not a fake JWT/internal token.
-   Identity relay, gateway route registration and browser/live acceptance remain pending.
+   Default remains off; legacy 4030 routes are unchanged. Identity-bff forwards OMAMA_SESSION
+   to Identity shipping-api relay, which resolves/refreshes and forwards the stored JWT.
+   Enable IDENTITY_SHIPPING_API_ENABLED and configure IDENTITY_SHIPPING_API_URL origin;
+   HTTPS preferred, trusted-network HTTP only with explicit insecure opt-in. OIDC direct
+   mode remains available. Gateway route registration and browser/live acceptance remain pending.
 5. **Pending:** company-delivery return workflow, integration with Order/Care, then joint Coolify
    acceptance for GHN and INTERNAL. A returned outbound parcel and a Care-approved new pickup
    remain distinct resources/workflows; neither directly executes a refund.
@@ -112,8 +115,8 @@ accepted. Existing GHN/fake behavior and their credentials are unchanged.
 Assignment APIs enforce `SHIPMENT_ASSIGN#GLOBAL` for dispatch. `SHIPMENT_EXECUTE#GLOBAL`
 is required for driver acceptance/progress, separate from existing shipment read permission.
 Driver action authorization must also match the stored assignee; a GLOBAL action grant alone
-does not permit manipulating another driver's shipment. These grants are not seeded in Identity
-by this task and driver workbench is not accepted yet. Start with prepaid/no-COD delivery; require reason for failure and
+does not permit manipulating another driver's shipment. Identity V24 seeds these permissions;
+live IAM sync and driver workbench acceptance remain required. Start with prepaid/no-COD delivery; require reason for failure and
 an approved immutable proof reference before declaring proof-bearing delivery complete.
 
 Assignment storage uses `internal_deliveries` for current state and
@@ -176,8 +179,8 @@ the database lock, an ACTIVE EMPLOYEE validated via Identity `/api/v1/users/me`,
 Idempotency-Key and JSON `{ "expected_version": 1 }`. Actor/driver overrides are rejected.
 USER_VIEW is not required for the driver's self-service action. GLOBAL is the token scope,
 not an ownership bypass; SHIPMENT_ASSIGN/SHIPMENT_VIEW alone cannot accept a delivery.
-Identity must provision SHIPMENT_EXECUTE before rollout. No Kong route or driver UI yet;
-driver UI and deployment acceptance remain pending. PostgreSQL tests cover
+Identity V24 plus IAM resync must provision SHIPMENT_EXECUTE before rollout. Opt-in driver
+UI exists, but Kong routes and live deployment acceptance remain pending. PostgreSQL tests cover
 ownership, versioning, replay, reassignment and handover boundaries.
 
 ### Dispatcher assignment API
@@ -185,7 +188,7 @@ ownership, versioning, replay, reassignment and handover boundaries.
 Enable `SHIPPING_INTERNAL_ASSIGNMENTS_ENABLED=true` only with internal delivery enabled and
 `SHIPPING_IDENTITY_BASE_URL` set to the Identity origin. HTTPS is required except loopback HTTP
 in local mode. The flag defaults to false and assignment routes are not registered at Kong yet.
-The existing UI workbench still needs a BFF projection/authentication adapter.
+The company-driver UI uses its new authenticated adapter; dispatcher assignment UI remains pending.
 
 Assignment GET/current/history require `SHIPMENT_ASSIGN#GLOBAL`. POST additionally requires
 `USER_VIEW#GLOBAL`, because the existing Identity provider protects `GET /api/v1/admin/users/{id}`

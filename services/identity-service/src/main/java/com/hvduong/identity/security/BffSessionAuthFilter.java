@@ -143,7 +143,8 @@ public class BffSessionAuthFilter extends OncePerRequestFilter {
         // incorrectly replace this explicit 400/403 with a 401.
         response.setStatus(status);
         response.setContentType("application/json");
-        response.getWriter().write("{\"success\":false,\"code\":\"" + code + "\"}");
+        response.getWriter().write("{\"success\":false,\"code\":\"" + code
+                + "\",\"message\":\"Authentication request rejected.\",\"requestId\":\"" + UUID.randomUUID() + "\"}");
     }
 
     private String cookie(HttpServletRequest request, String name) {

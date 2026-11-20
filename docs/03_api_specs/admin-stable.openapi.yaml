@@ -19,6 +19,11 @@ x-shipping-provider-integration:
     assignment-permission: SHIPMENT_ASSIGN#GLOBAL
     assignment-directory-read-permission: USER_VIEW#GLOBAL
     assignment-kong-connected: false
+    driver-web-workbench-implemented: true
+    driver-web-feature-flag: SHIPPING_COMPANY_BFF_ENABLED
+    identity-session-relay-implemented: true
+    identity-session-relay-feature-flag: IDENTITY_SHIPPING_API_ENABLED
+    internal-delivery-permission-seed: services/identity-service/src/main/resources/db/migration/V24__seed_internal_shipping_permissions.sql
     cod-supported: false
     label-supported: false
     description: >-
@@ -82,21 +87,314 @@ security:
 - bearerAuth: []
 - adminSession: []
 paths:
+  /api/v1/admin/shipping-api/workbench/shipments:
+    get:
+      operationId: identityShippingRelay0get
+      tags: [Shipping]
+      summary: Identity session relay for GET /workbench/shipments
+      security: [{adminSession: []}, {bearerAuth: []}]
+      x-required-permissions: [SHIPMENT_EXECUTE]
+      x-required-grant-scope: GLOBAL
+      x-feature-flag: IDENTITY_SHIPPING_API_ENABLED
+      description: >-
+        Identity resolves/refreshes OMAMA_SESSION through its existing session filter, validates
+        the signed JWT and ACTIVE EMPLOYEE principal, then forwards only that JWT to Shipping.
+        Exact GLOBAL grant required; roles/flat permission lists do not bypass checks. Shipping
+        remains authoritative for ownership, assignment acceptance, revisions and lifecycle.
+        Only fixed allowlisted paths/methods and limit/offset on lists are accepted. No arbitrary
+        URL, actor or internal-token header forwarding. Cookie writes require configured frontend
+        Origin. Mutations require Idempotency-Key and JSON <=4 KiB; response capped at 1 MiB.
+        Redirects are rejected; upstream errors use a safe envelope. Disabled by default (404 for
+        an otherwise authorized caller); live IAM resync and deployment acceptance still required.
+      parameters:
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 50}}
+        - {name: offset, in: query, schema: {type: integer, minimum: 0, maximum: 10000, default: 0}}
+      responses:
+        '200': {$ref: '#/paths/~1api~1v2~1admin~1shipping~1workbench~1shipments/get/responses/200'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/UnprocessableEntity'}
+        '502': {$ref: '#/components/responses/InternalError'}
+        '503': {$ref: '#/components/responses/ServiceUnavailable'}
+  /api/v1/admin/shipping-api/workbench/shipments/{shipmentId}:
+    get:
+      operationId: identityShippingRelay1get
+      tags: [Shipping]
+      summary: Identity session relay for GET /workbench/shipments/{shipmentId}
+      security: [{adminSession: []}, {bearerAuth: []}]
+      x-required-permissions: [SHIPMENT_EXECUTE]
+      x-required-grant-scope: GLOBAL
+      x-feature-flag: IDENTITY_SHIPPING_API_ENABLED
+      description: >-
+        Identity resolves/refreshes OMAMA_SESSION through its existing session filter, validates
+        the signed JWT and ACTIVE EMPLOYEE principal, then forwards only that JWT to Shipping.
+        Exact GLOBAL grant required; roles/flat permission lists do not bypass checks. Shipping
+        remains authoritative for ownership, assignment acceptance, revisions and lifecycle.
+        Only fixed allowlisted paths/methods and limit/offset on lists are accepted. No arbitrary
+        URL, actor or internal-token header forwarding. Cookie writes require configured frontend
+        Origin. Mutations require Idempotency-Key and JSON <=4 KiB; response capped at 1 MiB.
+        Redirects are rejected; upstream errors use a safe envelope. Disabled by default (404 for
+        an otherwise authorized caller); live IAM resync and deployment acceptance still required.
+      parameters:
+        - {name: shipmentId, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        '200': {$ref: '#/paths/~1api~1v2~1admin~1shipping~1workbench~1shipments~1{shipmentId}/get/responses/200'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/UnprocessableEntity'}
+        '502': {$ref: '#/components/responses/InternalError'}
+        '503': {$ref: '#/components/responses/ServiceUnavailable'}
+  /api/v1/admin/shipping-api/shipments:
+    get:
+      operationId: identityShippingRelay2get
+      tags: [Shipping]
+      summary: Identity session relay for GET /shipments
+      security: [{adminSession: []}, {bearerAuth: []}]
+      x-required-permissions: [SHIPMENT_VIEW]
+      x-required-grant-scope: GLOBAL
+      x-feature-flag: IDENTITY_SHIPPING_API_ENABLED
+      description: >-
+        Identity resolves/refreshes OMAMA_SESSION through its existing session filter, validates
+        the signed JWT and ACTIVE EMPLOYEE principal, then forwards only that JWT to Shipping.
+        Exact GLOBAL grant required; roles/flat permission lists do not bypass checks. Shipping
+        remains authoritative for ownership, assignment acceptance, revisions and lifecycle.
+        Only fixed allowlisted paths/methods and limit/offset on lists are accepted. No arbitrary
+        URL, actor or internal-token header forwarding. Cookie writes require configured frontend
+        Origin. Mutations require Idempotency-Key and JSON <=4 KiB; response capped at 1 MiB.
+        Redirects are rejected; upstream errors use a safe envelope. Disabled by default (404 for
+        an otherwise authorized caller); live IAM resync and deployment acceptance still required.
+      parameters:
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 50}}
+        - {name: offset, in: query, schema: {type: integer, minimum: 0, maximum: 10000, default: 0}}
+      responses:
+        '200': {$ref: '#/paths/~1api~1v2~1admin~1shipping~1shipments/get/responses/200'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/UnprocessableEntity'}
+        '502': {$ref: '#/components/responses/InternalError'}
+        '503': {$ref: '#/components/responses/ServiceUnavailable'}
+  /api/v1/admin/shipping-api/shipments/{shipmentId}:
+    get:
+      operationId: identityShippingRelay3get
+      tags: [Shipping]
+      summary: Identity session relay for GET /shipments/{shipmentId}
+      security: [{adminSession: []}, {bearerAuth: []}]
+      x-required-permissions: [SHIPMENT_VIEW]
+      x-required-grant-scope: GLOBAL
+      x-feature-flag: IDENTITY_SHIPPING_API_ENABLED
+      description: >-
+        Identity resolves/refreshes OMAMA_SESSION through its existing session filter, validates
+        the signed JWT and ACTIVE EMPLOYEE principal, then forwards only that JWT to Shipping.
+        Exact GLOBAL grant required; roles/flat permission lists do not bypass checks. Shipping
+        remains authoritative for ownership, assignment acceptance, revisions and lifecycle.
+        Only fixed allowlisted paths/methods and limit/offset on lists are accepted. No arbitrary
+        URL, actor or internal-token header forwarding. Cookie writes require configured frontend
+        Origin. Mutations require Idempotency-Key and JSON <=4 KiB; response capped at 1 MiB.
+        Redirects are rejected; upstream errors use a safe envelope. Disabled by default (404 for
+        an otherwise authorized caller); live IAM resync and deployment acceptance still required.
+      parameters:
+        - {name: shipmentId, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        '200': {$ref: '#/paths/~1api~1v2~1admin~1shipping~1shipments~1{shipmentId}/get/responses/200'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/UnprocessableEntity'}
+        '502': {$ref: '#/components/responses/InternalError'}
+        '503': {$ref: '#/components/responses/ServiceUnavailable'}
+  /api/v1/admin/shipping-api/shipments/{shipmentId}/assignment:
+    get:
+      operationId: identityShippingRelay4get
+      tags: [Shipping]
+      summary: Identity session relay for GET /shipments/{shipmentId}/assignment
+      security: [{adminSession: []}, {bearerAuth: []}]
+      x-required-permissions: [SHIPMENT_ASSIGN]
+      x-required-grant-scope: GLOBAL
+      x-feature-flag: IDENTITY_SHIPPING_API_ENABLED
+      description: >-
+        Identity resolves/refreshes OMAMA_SESSION through its existing session filter, validates
+        the signed JWT and ACTIVE EMPLOYEE principal, then forwards only that JWT to Shipping.
+        Exact GLOBAL grant required; roles/flat permission lists do not bypass checks. Shipping
+        remains authoritative for ownership, assignment acceptance, revisions and lifecycle.
+        Only fixed allowlisted paths/methods and limit/offset on lists are accepted. No arbitrary
+        URL, actor or internal-token header forwarding. Cookie writes require configured frontend
+        Origin. Mutations require Idempotency-Key and JSON <=4 KiB; response capped at 1 MiB.
+        Redirects are rejected; upstream errors use a safe envelope. Disabled by default (404 for
+        an otherwise authorized caller); live IAM resync and deployment acceptance still required.
+      parameters:
+        - {name: shipmentId, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        '200': {$ref: '#/paths/~1api~1v2~1admin~1shipping~1shipments~1{shipmentId}~1assignment/get/responses/200'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/UnprocessableEntity'}
+        '502': {$ref: '#/components/responses/InternalError'}
+        '503': {$ref: '#/components/responses/ServiceUnavailable'}
+    post:
+      operationId: identityShippingRelay4post
+      tags: [Shipping]
+      summary: Identity session relay for POST /shipments/{shipmentId}/assignment
+      security: [{adminSession: []}, {bearerAuth: []}]
+      x-required-permissions: [SHIPMENT_ASSIGN, USER_VIEW]
+      x-required-grant-scope: GLOBAL
+      x-feature-flag: IDENTITY_SHIPPING_API_ENABLED
+      description: >-
+        Identity resolves/refreshes OMAMA_SESSION through its existing session filter, validates
+        the signed JWT and ACTIVE EMPLOYEE principal, then forwards only that JWT to Shipping.
+        Exact GLOBAL grant required; roles/flat permission lists do not bypass checks. Shipping
+        remains authoritative for ownership, assignment acceptance, revisions and lifecycle.
+        Only fixed allowlisted paths/methods and limit/offset on lists are accepted. No arbitrary
+        URL, actor or internal-token header forwarding. Cookie writes require configured frontend
+        Origin. Mutations require Idempotency-Key and JSON <=4 KiB; response capped at 1 MiB.
+        Redirects are rejected; upstream errors use a safe envelope. Disabled by default (404 for
+        an otherwise authorized caller); live IAM resync and deployment acceptance still required.
+      parameters:
+        - {name: shipmentId, in: path, required: true, schema: {type: string, format: uuid}}
+        - {name: Idempotency-Key, in: header, required: true, schema: {type: string, minLength: 16, maxLength: 128, pattern: '^[!-~]+$'}}
+      requestBody: {$ref: '#/paths/~1api~1v2~1admin~1shipping~1shipments~1{shipmentId}~1assignment/post/requestBody'}
+      responses:
+        '200': {$ref: '#/paths/~1api~1v2~1admin~1shipping~1shipments~1{shipmentId}~1assignment/post/responses/200'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/UnprocessableEntity'}
+        '502': {$ref: '#/components/responses/InternalError'}
+        '503': {$ref: '#/components/responses/ServiceUnavailable'}
+        '413': {description: Action body exceeds 4 KiB, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '415': {description: JSON required, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  /api/v1/admin/shipping-api/shipments/{shipmentId}/assignment/history:
+    get:
+      operationId: identityShippingRelay5get
+      tags: [Shipping]
+      summary: Identity session relay for GET /shipments/{shipmentId}/assignment/history
+      security: [{adminSession: []}, {bearerAuth: []}]
+      x-required-permissions: [SHIPMENT_ASSIGN]
+      x-required-grant-scope: GLOBAL
+      x-feature-flag: IDENTITY_SHIPPING_API_ENABLED
+      description: >-
+        Identity resolves/refreshes OMAMA_SESSION through its existing session filter, validates
+        the signed JWT and ACTIVE EMPLOYEE principal, then forwards only that JWT to Shipping.
+        Exact GLOBAL grant required; roles/flat permission lists do not bypass checks. Shipping
+        remains authoritative for ownership, assignment acceptance, revisions and lifecycle.
+        Only fixed allowlisted paths/methods and limit/offset on lists are accepted. No arbitrary
+        URL, actor or internal-token header forwarding. Cookie writes require configured frontend
+        Origin. Mutations require Idempotency-Key and JSON <=4 KiB; response capped at 1 MiB.
+        Redirects are rejected; upstream errors use a safe envelope. Disabled by default (404 for
+        an otherwise authorized caller); live IAM resync and deployment acceptance still required.
+      parameters:
+        - {name: shipmentId, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        '200': {$ref: '#/paths/~1api~1v2~1admin~1shipping~1shipments~1{shipmentId}~1assignment~1history/get/responses/200'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/UnprocessableEntity'}
+        '502': {$ref: '#/components/responses/InternalError'}
+        '503': {$ref: '#/components/responses/ServiceUnavailable'}
+  /api/v1/admin/shipping-api/shipments/{shipmentId}/accept:
+    post:
+      operationId: identityShippingRelay6post
+      tags: [Shipping]
+      summary: Identity session relay for POST /shipments/{shipmentId}/accept
+      security: [{adminSession: []}, {bearerAuth: []}]
+      x-required-permissions: [SHIPMENT_EXECUTE]
+      x-required-grant-scope: GLOBAL
+      x-feature-flag: IDENTITY_SHIPPING_API_ENABLED
+      description: >-
+        Identity resolves/refreshes OMAMA_SESSION through its existing session filter, validates
+        the signed JWT and ACTIVE EMPLOYEE principal, then forwards only that JWT to Shipping.
+        Exact GLOBAL grant required; roles/flat permission lists do not bypass checks. Shipping
+        remains authoritative for ownership, assignment acceptance, revisions and lifecycle.
+        Only fixed allowlisted paths/methods and limit/offset on lists are accepted. No arbitrary
+        URL, actor or internal-token header forwarding. Cookie writes require configured frontend
+        Origin. Mutations require Idempotency-Key and JSON <=4 KiB; response capped at 1 MiB.
+        Redirects are rejected; upstream errors use a safe envelope. Disabled by default (404 for
+        an otherwise authorized caller); live IAM resync and deployment acceptance still required.
+      parameters:
+        - {name: shipmentId, in: path, required: true, schema: {type: string, format: uuid}}
+        - {name: Idempotency-Key, in: header, required: true, schema: {type: string, minLength: 16, maxLength: 128, pattern: '^[!-~]+$'}}
+      requestBody: {$ref: '#/paths/~1api~1v2~1admin~1shipping~1shipments~1{shipmentId}~1accept/post/requestBody'}
+      responses:
+        '200': {$ref: '#/paths/~1api~1v2~1admin~1shipping~1shipments~1{shipmentId}~1accept/post/responses/200'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/UnprocessableEntity'}
+        '502': {$ref: '#/components/responses/InternalError'}
+        '503': {$ref: '#/components/responses/ServiceUnavailable'}
+        '413': {description: Action body exceeds 4 KiB, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '415': {description: JSON required, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  /api/v1/admin/shipping-api/shipments/{shipmentId}/progress:
+    post:
+      operationId: identityShippingRelay7post
+      tags: [Shipping]
+      summary: Identity session relay for POST /shipments/{shipmentId}/progress
+      security: [{adminSession: []}, {bearerAuth: []}]
+      x-required-permissions: [SHIPMENT_EXECUTE]
+      x-required-grant-scope: GLOBAL
+      x-feature-flag: IDENTITY_SHIPPING_API_ENABLED
+      description: >-
+        Identity resolves/refreshes OMAMA_SESSION through its existing session filter, validates
+        the signed JWT and ACTIVE EMPLOYEE principal, then forwards only that JWT to Shipping.
+        Exact GLOBAL grant required; roles/flat permission lists do not bypass checks. Shipping
+        remains authoritative for ownership, assignment acceptance, revisions and lifecycle.
+        Only fixed allowlisted paths/methods and limit/offset on lists are accepted. No arbitrary
+        URL, actor or internal-token header forwarding. Cookie writes require configured frontend
+        Origin. Mutations require Idempotency-Key and JSON <=4 KiB; response capped at 1 MiB.
+        Redirects are rejected; upstream errors use a safe envelope. Disabled by default (404 for
+        an otherwise authorized caller); live IAM resync and deployment acceptance still required.
+      parameters:
+        - {name: shipmentId, in: path, required: true, schema: {type: string, format: uuid}}
+        - {name: Idempotency-Key, in: header, required: true, schema: {type: string, minLength: 16, maxLength: 128, pattern: '^[!-~]+$'}}
+      requestBody: {$ref: '#/paths/~1api~1v2~1admin~1shipping~1shipments~1{shipmentId}~1progress/post/requestBody'}
+      responses:
+        '200': {$ref: '#/paths/~1api~1v2~1admin~1shipping~1shipments~1{shipmentId}~1progress/post/responses/200'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/UnprocessableEntity'}
+        '502': {$ref: '#/components/responses/InternalError'}
+        '503': {$ref: '#/components/responses/ServiceUnavailable'}
+        '413': {description: Action body exceeds 4 KiB, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '415': {description: JSON required, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
   /api/admin/shipping/company/shipments:
     get:
       operationId: bffListCompanyShipments
       tags: [Shipping]
       summary: Web same-origin adapter for assigned company shipments
-      security: [{companyOidcCookie: []}]
+      security: [{companyOidcCookie: []}, {adminSession: []}]
       x-required-permissions: [SHIPMENT_EXECUTE]
       x-feature-flag: SHIPPING_COMPANY_BFF_ENABLED
       description: >-
-        Opt-in Web BFF, not the legacy 4030 facade. Requires WEB_AUTH_MODE=oidc. Reads only
-        server-held oma_access_token cookie and forwards bearer to configured Shipping HTTPS
-        origin; browser Authorization/actor/internal-token headers are ignored. Shipping checks
-        signed GLOBAL grant, live employee and assignment. identity-bff opaque-session mode
-        returns 503 SHIPPING_AUTH_RELAY_REQUIRED until an Identity Shipping relay is built.
-        No session ID is treated as JWT. Default disabled 404. Cache-Control private, no-store.
+        Opt-in Web BFF, not the legacy 4030 facade. In WEB_AUTH_MODE=identity-bff, forwards only
+        OMAMA_SESSION and trusted web Origin to Identity /api/v1/admin/shipping-api. Identity
+        resolves/refreshes the stored JWT and relays it to Shipping. In oidc mode, forwards only
+        server-held oma_access_token as bearer directly to configured Shipping HTTPS origin.
+        Browser Authorization/actor/internal-token headers are ignored. Shipping checks signed
+        GLOBAL grant, live employee and assignment. No session ID is treated as JWT.
+        Both Web and Identity relay flags default off. Cache-Control private, no-store.
       parameters:
         - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 50}}
         - {name: offset, in: query, schema: {type: integer, minimum: 0, maximum: 10000, default: 0}}
@@ -113,10 +411,10 @@ paths:
       operationId: bffGetCompanyShipment
       tags: [Shipping]
       summary: Web same-origin adapter for owned delivery detail
-      security: [{companyOidcCookie: []}]
+      security: [{companyOidcCookie: []}, {adminSession: []}]
       x-required-permissions: [SHIPMENT_EXECUTE]
       x-feature-flag: SHIPPING_COMPANY_BFF_ENABLED
-      description: Same OIDC-only BFF boundary as list. No query overrides. Backend ownership gates recipient data; no frontend-only filtering or broad read fallback. identity-bff mode is unsupported (503). No private credentials returned.
+      description: Same dual-mode BFF boundary as list (opaque session via Identity relay, OIDC bearer direct). No query overrides. Backend ownership gates recipient data; no frontend-only filtering or broad read fallback. No private credentials returned. Identity relay must be enabled/configured for session mode.
       parameters:
         - {name: shipmentId, in: path, required: true, schema: {type: string, format: uuid}}
       responses:
@@ -132,10 +430,10 @@ paths:
       operationId: bffAcceptCompanyShipment
       tags: [Shipping]
       summary: Web adapter for driver acceptance
-      security: [{companyOidcCookie: []}]
+      security: [{companyOidcCookie: []}, {adminSession: []}]
       x-required-permissions: [SHIPMENT_EXECUTE]
       x-feature-flag: SHIPPING_COMPANY_BFF_ENABLED
-      description: Same OIDC-only boundary. Explicit same-origin Origin required; cross-site denied. JSON body limited to 4 KiB. Idempotency-Key forwarded unchanged; no actor override. Backend remains authoritative. Does not manufacture warehouse handover. identity-bff mode returns 503.
+      description: Same dual-mode boundary as list. Explicit same-origin Origin required; cross-site denied. In session mode the BFF forwards configured web Origin and only OMAMA_SESSION to Identity. JSON body limited to 4 KiB. Idempotency-Key forwarded unchanged; no actor override. Backend remains authoritative. Does not manufacture warehouse handover.
       parameters:
         - {name: shipmentId, in: path, required: true, schema: {type: string, format: uuid}}
         - {name: Idempotency-Key, in: header, required: true, schema: {type: string, minLength: 16, maxLength: 128, pattern: '^[!-~]+$'}}
@@ -157,10 +455,10 @@ paths:
       operationId: bffProgressCompanyShipment
       tags: [Shipping]
       summary: Web adapter for assigned driver progress
-      security: [{companyOidcCookie: []}]
+      security: [{companyOidcCookie: []}, {adminSession: []}]
       x-required-permissions: [SHIPMENT_EXECUTE]
       x-feature-flag: SHIPPING_COMPANY_BFF_ENABLED
-      description: Same OIDC-only cookie, same-origin, 4 KiB JSON and idempotency boundary as accept. Backend enforces ownership, acceptance, revisions and transitions. Employee manual attestation only; no verified photo/COD/refund claim. identity-bff mode returns 503. Network retries preserve action key and payload; refresh on 409 before a new action.
+      description: Same dual-mode cookie, same-origin, 4 KiB JSON and idempotency boundary as accept. Session mode uses Identity shipping-api relay; OIDC sends server bearer direct. Backend enforces ownership, acceptance, revisions and transitions. Employee manual attestation only; no verified photo/COD/refund claim. Network retries preserve action key and payload; refresh on 409 before a new action.
       parameters:
         - {name: shipmentId, in: path, required: true, schema: {type: string, format: uuid}}
         - {name: Idempotency-Key, in: header, required: true, schema: {type: string, minLength: 16, maxLength: 128, pattern: '^[!-~]+$'}}
@@ -468,7 +766,7 @@ paths:
         shipment lifecycle or publishing a delivery event. Exact retries return the original
         snapshot, but current actor/driver eligibility must still pass before replay.
         Driver delivery permission is checked separately by future delivery action APIs.
-        Identity must provision SHIPMENT_ASSIGN before rollout; this task does not seed it.
+        Identity V24 seeds SHIPMENT_ASSIGN; IAM resync and fresh scoped JWTs are required before rollout.
         BODY unknown fields (including actor_id) are rejected. No production route until
         feature enablement, Identity grant provisioning and gateway acceptance.
       parameters:

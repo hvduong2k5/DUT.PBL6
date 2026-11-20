@@ -1,5 +1,18 @@
 # Ma trận phân quyền IAM — Identity Service
 
+## Shipping company delivery extension (V24)
+
+| Permission | Required scope | Enforcement |
+|---|---|---|
+| SHIPMENT_VIEW | GLOBAL | Management shipment reads (V23) |
+| SHIPMENT_ASSIGN | GLOBAL | Assign/reassign and assignment/history reads; POST also requires existing USER_VIEW#GLOBAL |
+| SHIPMENT_EXECUTE | GLOBAL | Driver list/detail/accept/progress; Shipping additionally requires current assignment ownership and acceptance/version checks |
+
+V24 maps only enabled/non-archived ADMIN bundles; no new role, principal or role assignment.
+ADMIN is an assignment bundle, never a runtime permission bypass. Existing assignment scope
+is preserved; warehouse grants do not become GLOBAL. Sync affected principals through
+PermissionSyncService and refresh JWTs after migration. Seed SQL alone does not update tokens.
+
 **Mục đích:** Định nghĩa rõ ràng danh sách role, permission, scope và quy tắc gán thu hồi trong hệ thống.
 
 **File liên quan:** `services/identity-service/src/main/resources/db/migration/V2__create_iam_role_permission_model.sql`

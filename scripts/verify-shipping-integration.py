@@ -158,6 +158,38 @@ class ShippingIntegrationTests(unittest.TestCase):
         self.assertNotIn("recipient", spec["components"]["schemas"]["ShippingDriverSummary"]["properties"])
         self.assertIn("recipient", spec["components"]["schemas"]["ShippingDriverDetail"]["allOf"][1]["properties"])
 
+    def test_internal_delivery_seed_is_additive_scoped_and_idempotent(self):
+        sql = (ROOT / "services/identity-service/src/main/resources/db/migration/V24__seed_internal_shipping_permissions.sql").read_text()
+        db = sqlite3.connect(":memory:")
+        self.addCleanup(db.close)
+        db.executescript("""
+            CREATE TABLE iam_permissions(permission_code TEXT PRIMARY KEY, resource_code TEXT, action_code TEXT, risk_level TEXT, scope_required BOOLEAN, description TEXT);
+            CREATE TABLE iam_roles(role_id TEXT PRIMARY KEY, role_code TEXT, is_enabled BOOLEAN, archived_at TEXT);
+            CREATE TABLE iam_role_permissions(role_id TEXT, permission_code TEXT, PRIMARY KEY(role_id,permission_code));
+            INSERT INTO iam_roles VALUES ('active','ADMIN',TRUE,NULL),('disabled','ADMIN',FALSE,NULL),('archived','ADMIN',TRUE,'2026-01-01'),('other','FINANCE',TRUE,NULL);
+        """)
+        db.executescript(sql)
+        db.executescript(sql)
+        self.assertEqual(db.execute("SELECT role_id,permission_code FROM iam_role_permissions ORDER BY permission_code").fetchall(), [("active", "SHIPMENT_ASSIGN"), ("active", "SHIPMENT_EXECUTE")])
+        self.assertEqual(db.execute("SELECT scope_required FROM iam_permissions").fetchall(), [(1,), (1,)])
+        self.assertNotIn("INSERT INTO iam_role_assignments", sql)
+
+    def test_identity_relay_contract_is_explicit_and_cookie_compatible(self):
+        spec = yaml.safe_load((ROOT / "docs/03_api_specs/admin-stable.openapi.yaml").read_text(encoding="utf-8"))
+        relay = {p: item for p, item in spec["paths"].items() if p.startswith("/api/v1/admin/shipping-api/")}
+        self.assertEqual(len(relay), 8)
+        for item in relay.values():
+            for method, op in item.items():
+                if method not in ("get", "post"):
+                    continue
+                self.assertEqual(op["security"], [{"adminSession": []}, {"bearerAuth": []}])
+                self.assertEqual(op["x-feature-flag"], "IDENTITY_SHIPPING_API_ENABLED")
+                self.assertEqual(op["x-required-grant-scope"], "GLOBAL")
+        for path, item in spec["paths"].items():
+            if path.startswith("/api/admin/shipping/company/"):
+                for op in item.values():
+                    self.assertIn({"adminSession": []}, op["security"])
+
     def test_seed_is_idempotent_and_only_grants_active_admin(self):
         sql = (ROOT / "services/identity-service/src/main/resources/db/migration/V23__seed_shipping_permissions.sql").read_text()
         # Portable SQL regression, not PostgreSQL/Flyway runtime acceptance.
