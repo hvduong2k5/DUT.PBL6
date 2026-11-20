@@ -82,6 +82,71 @@ security:
 - bearerAuth: []
 - adminSession: []
 paths:
+  /api/v2/admin/shipping/shipments/{shipmentId}/accept:
+    post:
+      operationId: acceptInternalDeliveryV2
+      tags: [Shipping]
+      summary: Accept the current company-driver assignment
+      x-lifecycle: stable
+      x-required-permissions: [SHIPMENT_EXECUTE]
+      x-required-grant-scope: GLOBAL
+      x-feature-flag: SHIPPING_INTERNAL_ASSIGNMENTS_ENABLED
+      security: [{bearerAuth: []}]
+      description: >-
+        Requires signed SHIPMENT_EXECUTE#GLOBAL and ACTIVE EMPLOYEE validated through
+        Identity /api/v1/users/me. No USER_VIEW or role bypass. The JWT user_id must equal
+        the assigned driver under the database lock; GLOBAL does not bypass ownership.
+        Only prepaid INTERNAL shipments before handover accept new actions. expected_version
+        is the assignment version. Reassignment requires new acceptance. Exact retries return
+        the original receipt after reassignment/handover, subject to current JWT/live employee
+        validation. Unknown fields including actor_id/driver_id are rejected. Does not change
+        shipment status/revision or emit delivery events. Disabled returns 404. Not registered
+        at Kong; Identity must provision SHIPMENT_EXECUTE before rollout.
+      parameters:
+        - {name: shipmentId, in: path, required: true, schema: {type: string, format: uuid}}
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: {type: string, minLength: 16, maxLength: 128, pattern: '^[!-~]+$'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [expected_version]
+              properties:
+                expected_version: {type: integer, format: int64, minimum: 1, maximum: 9223372036854775806}
+            example: {expected_version: 1}
+      responses:
+        '200':
+          description: New receipt or original receipt on exact replay
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [shipment_id, driver_id, assignment_version, accepted_at]
+                properties:
+                  shipment_id: {type: string, format: uuid}
+                  driver_id: {type: string, format: uuid}
+                  assignment_version: {type: integer, minimum: 1}
+                  accepted_at: {type: string, format: date-time}
+              example: {shipment_id: a0000000-0000-0000-0000-000000000001, driver_id: a0000000-0000-0000-0000-000000000002, assignment_version: 1, accepted_at: '2026-11-20T10:00:00Z'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '413':
+          description: Body exceeds 1 MiB
+          content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+        '415':
+          description: application/json required
+          content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+        '422': {$ref: '#/components/responses/UnprocessableEntity'}
+        '500': {$ref: '#/components/responses/InternalError'}
+        '503': {$ref: '#/components/responses/ServiceUnavailable'}
   /api/v2/admin/shipping/shipments/{shipmentId}/assignment:
     parameters:
       - {name: shipmentId, in: path, required: true, schema: {type: string, format: uuid}}

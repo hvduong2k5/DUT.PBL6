@@ -1,5 +1,12 @@
 # Internal Employee API State Matrix
 
+### Internal driver acceptance (opt-in provider API)
+
+- `POST /api/v2/admin/shipping/shipments/{shipmentId}/accept`: signed `SHIPMENT_EXECUTE#GLOBAL`, live ACTIVE EMPLOYEE and locked assignment ownership required; no role/internal-token bypass or USER_VIEW requirement. Identity grant provisioning is pending.
+- Success: 200 receipt; exact idempotent replay returns original receipt. No empty success state. Loading: disable submit while in flight; retry with the same key and payload.
+- Auth: 401 invalid/missing JWT; 403 missing permission, inactive employee or different assigned driver. 404 missing shipment/assignment or disabled feature; 409 stale version, lifecycle conflict or reused key; 422 invalid version/non-INTERNAL shipment; 400 malformed/missing input; 413 oversized body; 415 wrong media type; 503 Identity unavailable; 500 persistence failure.
+- Uses `SHIPPING_INTERNAL_ASSIGNMENTS_ENABLED` (default false); no Kong/UI connection yet. Acceptance is not pickup/handover and emits no delivery event. Actor overrides are rejected. Reassignment requires fresh acceptance; later delivery actions remain pending.
+
 Updated: 2026-11-07
 
 This matrix and the OpenAPI files are the backend handoff. It is intentionally independent from test-fixture implementation.

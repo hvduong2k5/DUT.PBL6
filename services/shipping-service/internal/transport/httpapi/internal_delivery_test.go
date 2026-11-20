@@ -242,4 +242,55 @@ func TestPostgresAssignmentHTTPAndSignedJWT(t *testing.T) {
 	}
 	call("POST", path, full, "assignment-key-0001", body, 200)
 	call("POST", path, full, "assignment-late-0001", strings.Replace(body, `"expected_version":0`, `"expected_version":1`, 1), 409)
+
+	t.Run("driver acceptance JWT ownership and retry", func(t *testing.T) {
+		s := create(carrier.InternalCode)
+		acceptPath := "/api/v2/admin/shipping/shipments/" + s.ID.String() + "/accept"
+		token := f.token(t, "SHIPMENT_EXECUTE#GLOBAL")
+		defaultRouter := NewRouter(svc, "internal-token", "fake-secret", "", zerolog.Nop(), f.auth)
+		if w := assignmentHTTPCall(defaultRouter, "POST", acceptPath, token, "acceptance-key-0001", `{"expected_version":1}`); w.Code != 404 {
+			t.Fatal("disabled acceptance exposed")
+		}
+		call("POST", acceptPath, "", "acceptance-key-0001", `{"expected_version":1}`, 401)
+		call("POST", acceptPath, full, "acceptance-key-0001", `{"expected_version":1}`, 403)
+		call("POST", acceptPath, f.token(t, "SHIPMENT_EXECUTE#WAREHOUSE#WH-1"), "acceptance-key-0001", `{"expected_version":1}`, 403)
+		call("POST", acceptPath, token, "acceptance-key-0001", `{"expected_version":1}`, 404)
+		a := domain.AssignInternalDelivery{ShipmentID: s.ID, DriverID: f.driverID, ActorID: f.actorID, ExpectedVersion: 0, Reason: "Dispatch", IdempotencyKey: "dispatch-for-accept-001"}
+		if _, err := svc.AssignInternalDelivery(ctx, a); err != nil {
+			t.Fatal(err)
+		}
+		call("POST", acceptPath, token, "acceptance-key-0001", `{"expected_version":1}`, 403)
+		a.DriverID = f.actorID
+		a.ExpectedVersion = 1
+		a.IdempotencyKey = "dispatch-for-accept-002"
+		if _, err := svc.AssignInternalDelivery(ctx, a); err != nil {
+			t.Fatal(err)
+		}
+		call("POST", acceptPath, token, "", `{"expected_version":2}`, 400)
+		call("POST", acceptPath, token, "acceptance-key-0001", `{}`, 400)
+		call("POST", acceptPath, token, "acceptance-key-0001", `{"expected_version":2,"actor_id":"`+f.actorID.String()+`"}`, 400)
+		call("POST", acceptPath, token, "acceptance-key-0001", `{"expected_version":0}`, 422)
+		call("POST", acceptPath, token, "acceptance-key-0001", `{"expected_version":1}`, 409)
+		f.actorStatus.Store("SUSPENDED")
+		call("POST", acceptPath, token, "acceptance-key-0001", `{"expected_version":2}`, 403)
+		f.actorStatus.Store("ACTIVE")
+		f.directoryStatus.Store(503)
+		call("POST", acceptPath, token, "acceptance-key-0001", `{"expected_version":2}`, 503)
+		f.directoryStatus.Store(200)
+		first := call("POST", acceptPath, token, "acceptance-key-0001", `{"expected_version":2}`, 200)
+		var receipt domain.InternalDeliveryAcceptance
+		if err := json.Unmarshal(first.Body.Bytes(), &receipt); err != nil || receipt.DriverID != f.actorID || receipt.AssignmentVersion != 2 {
+			t.Fatalf("invalid receipt: %+v %v", receipt, err)
+		}
+		if replay := call("POST", acceptPath, token, "acceptance-key-0001", `{"expected_version":2}`, 200); replay.Body.String() != first.Body.String() {
+			t.Fatal("replay changed receipt")
+		}
+		call("POST", acceptPath, token, "acceptance-key-0001", `{"expected_version":1}`, 409)
+		call("POST", strings.Replace(acceptPath, s.ID.String(), fake.ID.String(), 1), token, "acceptance-fake-0001", `{"expected_version":1}`, 422)
+		if _, err := svc.ConfirmHandover(ctx, s.ID, "acceptance-handover-001"); err != nil {
+			t.Fatal(err)
+		}
+		call("POST", acceptPath, token, "acceptance-key-0001", `{"expected_version":2}`, 200)
+		call("POST", acceptPath, token, "acceptance-late-0001", `{"expected_version":2}`, 409)
+	})
 }

@@ -98,6 +98,22 @@ class ShippingIntegrationTests(unittest.TestCase):
             for value in response.get("examples", {}).values():
                 validate.validate(value["value"])
 
+    def test_acceptance_contract_binds_actor_to_jwt(self):
+        spec = yaml.safe_load((ROOT / "docs/03_api_specs/admin-stable.openapi.yaml").read_text(encoding="utf-8"))
+        op = spec["paths"]["/api/v2/admin/shipping/shipments/{shipmentId}/accept"]["post"]
+        self.assertEqual(op["security"], [{"bearerAuth": []}])
+        self.assertEqual(op["x-required-permissions"], ["SHIPMENT_EXECUTE"])
+        self.assertEqual(op["x-required-grant-scope"], "GLOBAL")
+        self.assertEqual(op["x-feature-flag"], "SHIPPING_INTERNAL_ASSIGNMENTS_ENABLED")
+        request = op["requestBody"]["content"]["application/json"]
+        validator = Draft202012Validator(request["schema"])
+        validator.validate(request["example"])
+        for invalid in ({}, {"expected_version": 0}, {"expected_version": 1.5}, {"expected_version": 1, "actor_id": "spoof"}, {"expected_version": 1, "driver_id": "spoof"}):
+            self.assertFalse(validator.is_valid(invalid), invalid)
+        response = op["responses"]["200"]["content"]["application/json"]
+        Draft202012Validator(response["schema"], format_checker=FormatChecker()).validate(response["example"])
+        self.assertTrue({"400", "401", "403", "404", "409", "422", "503"}.issubset(op["responses"]))
+
     def test_seed_is_idempotent_and_only_grants_active_admin(self):
         sql = (ROOT / "services/identity-service/src/main/resources/db/migration/V23__seed_shipping_permissions.sql").read_text()
         # Portable SQL regression, not PostgreSQL/Flyway runtime acceptance.

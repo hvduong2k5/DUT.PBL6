@@ -70,6 +70,7 @@ func newRouter(service *application.Service, internalToken, fakeWebhookSecret, g
 	r.With(h.requireStaffShipmentView).Get("/api/v2/admin/shipping/shipments", h.listShipments)
 	r.With(h.requireStaffShipmentView).Get("/api/v2/admin/shipping/shipments/{shipmentID}", h.getShipment)
 	if directory != nil {
+		r.Post("/api/v2/admin/shipping/shipments/{shipmentID}/accept", h.acceptInternalDelivery)
 		r.Get("/api/v2/admin/shipping/shipments/{shipmentID}/assignment", h.getInternalAssignment)
 		r.Post("/api/v2/admin/shipping/shipments/{shipmentID}/assignment", h.assignInternalDelivery)
 		r.Get("/api/v2/admin/shipping/shipments/{shipmentID}/assignment/history", h.internalAssignmentHistory)

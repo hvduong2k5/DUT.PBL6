@@ -17,15 +17,19 @@ type permissionAuthenticator interface {
 }
 
 func (h *Router) assignmentActor(w http.ResponseWriter, r *http.Request, mutation bool) (StaffPrincipal, bool) {
+	return h.internalDeliveryActor(w, r, "SHIPMENT_ASSIGN", mutation)
+}
+
+func (h *Router) internalDeliveryActor(w http.ResponseWriter, r *http.Request, permission string, mutation bool) (StaffPrincipal, bool) {
 	auth, ok := h.staffAuth.(permissionAuthenticator)
 	if !ok {
 		writeError(w, 401, "UNAUTHORIZED", "valid employee authentication is required")
 		return StaffPrincipal{}, false
 	}
-	p, err := auth.AuthenticatePermission(r.Context(), r.Header.Get("Authorization"), "SHIPMENT_ASSIGN")
+	p, err := auth.AuthenticatePermission(r.Context(), r.Header.Get("Authorization"), permission)
 	if err != nil {
 		if errors.Is(err, errStaffForbidden) {
-			writeError(w, 403, "FORBIDDEN", "global shipment assignment permission is required")
+			writeError(w, 403, "FORBIDDEN", "required global shipment permission is missing")
 		} else {
 			writeError(w, 401, "UNAUTHORIZED", "valid employee authentication is required")
 		}
@@ -57,6 +61,8 @@ func (h *Router) assignmentActor(w http.ResponseWriter, r *http.Request, mutatio
 
 func (h *Router) assignmentError(w http.ResponseWriter, err error) {
 	switch {
+	case errors.Is(err, domain.ErrDriverNotAssigned):
+		writeError(w, 403, "FORBIDDEN", "delivery is not assigned to this employee")
 	case errors.Is(err, application.ErrEmployeeUnauthenticated):
 		writeError(w, 401, "UNAUTHORIZED", "employee authentication was rejected")
 	case errors.Is(err, application.ErrEmployeeForbidden):
@@ -70,6 +76,38 @@ func (h *Router) assignmentError(w http.ResponseWriter, err error) {
 	default:
 		h.handleError(w, err)
 	}
+}
+
+func (h *Router) acceptInternalDelivery(w http.ResponseWriter, r *http.Request) {
+	p, ok := h.internalDeliveryActor(w, r, "SHIPMENT_EXECUTE", false)
+	if !ok {
+		return
+	}
+	key, ok := requireIdempotencyKey(w, r)
+	if !ok {
+		return
+	}
+	id, ok := h.internalAssignmentTarget(w, r)
+	if !ok {
+		return
+	}
+	var body struct {
+		ExpectedVersion *int64 `json:"expected_version"`
+	}
+	if !decodeJSON(w, r, &body) {
+		return
+	}
+	if body.ExpectedVersion == nil {
+		writeError(w, 400, "INVALID_REQUEST", "expected_version is required")
+		return
+	}
+	actor, _ := uuid.Parse(p.UserID)
+	result, err := h.service.AcceptInternalDelivery(r.Context(), domain.AcceptInternalDelivery{ShipmentID: id, ActorID: actor, ExpectedVersion: *body.ExpectedVersion, IdempotencyKey: key})
+	if err != nil {
+		h.assignmentError(w, err)
+		return
+	}
+	writeJSON(w, 200, result)
 }
 
 func (h *Router) internalAssignmentTarget(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool) {

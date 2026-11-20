@@ -11,7 +11,7 @@ type InternalDeliveryAcceptanceRepository interface {
 }
 
 // Trusted transport only: authenticate and validate live employee state before calling.
-// No REST route exposes this primitive until the driver workbench authorization is wired.
+// The opt-in driver acceptance transport enforces JWT permission and live employee state.
 func (s *Service) AcceptInternalDelivery(ctx context.Context, c domain.AcceptInternalDelivery) (*domain.InternalDeliveryAcceptance, error) {
 	if err := c.Validate(); err != nil {
 		return nil, err

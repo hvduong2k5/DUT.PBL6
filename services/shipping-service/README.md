@@ -134,8 +134,14 @@ assigned driver can accept before handover; stale versions and duplicate new act
 rejected. Exact retries return the original receipt even after reassignment or handover.
 Reassignment requires a new acceptance: old receipts never authorize a new assignment.
 Acceptance does not change shipment status/revision or publish a delivery event to Order.
-The application primitive is not exposed by REST or Kong yet; driver JWT/scope enforcement
-and subsequent delivery actions remain the next workbench step. PostgreSQL tests cover
+POST `/api/v2/admin/shipping/shipments/{shipmentID}/accept` is enabled by the same opt-in
+assignment flag. It requires SHIPMENT_EXECUTE#GLOBAL plus resource ownership checked under
+the database lock, an ACTIVE EMPLOYEE validated via Identity `/api/v1/users/me`, an
+Idempotency-Key and JSON `{ "expected_version": 1 }`. Actor/driver overrides are rejected.
+USER_VIEW is not required for the driver's self-service action. GLOBAL is the token scope,
+not an ownership bypass; SHIPMENT_ASSIGN/SHIPMENT_VIEW alone cannot accept a delivery.
+Identity must provision SHIPMENT_EXECUTE before rollout. No Kong route or driver UI yet;
+subsequent delivery actions remain the next workbench step. PostgreSQL tests cover
 ownership, versioning, replay, reassignment and handover boundaries.
 
 ### Dispatcher assignment API
