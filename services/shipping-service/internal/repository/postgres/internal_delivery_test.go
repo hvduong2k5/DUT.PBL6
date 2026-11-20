@@ -73,6 +73,110 @@ func TestPostgresInternalDeliveryAssignments(t *testing.T) {
 		return domain.AssignInternalDelivery{ShipmentID: s.ID, DriverID: uuid.New(), ActorID: uuid.New(), Reason: "Initial dispatch", IdempotencyKey: "assign-" + uuid.NewString()}
 	}
 
+	t.Run("acceptance guards and concurrent winner", func(t *testing.T) {
+		for _, code := range []string{carrier.InternalCode, "FAKE"} {
+			s := create(code)
+			_, err := svc.AcceptInternalDelivery(ctx, domain.AcceptInternalDelivery{ShipmentID: s.ID, ActorID: uuid.New(), ExpectedVersion: 1, IdempotencyKey: "unassigned-" + uuid.NewString()})
+			want := domain.ErrAssignmentNotFound
+			if code == "FAKE" {
+				want = domain.ErrInvalidShipment
+			}
+			if !errors.Is(err, want) {
+				t.Fatalf("%s: %v", code, err)
+			}
+		}
+		s := create(carrier.InternalCode)
+		a := command(s)
+		if _, err := svc.AssignInternalDelivery(ctx, a); err != nil {
+			t.Fatal(err)
+		}
+		results := make(chan error, 2)
+		for i := 0; i < 2; i++ {
+			go func() {
+				_, err := svc.AcceptInternalDelivery(ctx, domain.AcceptInternalDelivery{ShipmentID: s.ID, ActorID: a.DriverID, ExpectedVersion: 1, IdempotencyKey: "race-" + uuid.NewString()})
+				results <- err
+			}()
+		}
+		wins := 0
+		for i := 0; i < 2; i++ {
+			err := <-results
+			if err == nil {
+				wins++
+			} else if !errors.Is(err, domain.ErrIdempotencyConflict) {
+				t.Fatal(err)
+			}
+		}
+		if wins != 1 {
+			t.Fatalf("acceptance winners: %d", wins)
+		}
+	})
+
+	t.Run("accept assigned delivery and invalidate on reassignment", func(t *testing.T) {
+		s := create(carrier.InternalCode)
+		a := command(s)
+		if _, err := svc.AssignInternalDelivery(ctx, a); err != nil {
+			t.Fatal(err)
+		}
+		c := domain.AcceptInternalDelivery{ShipmentID: s.ID, ActorID: a.DriverID, ExpectedVersion: 1, IdempotencyKey: "accept-" + uuid.NewString()}
+		wrong := c
+		wrong.ActorID = uuid.New()
+		if _, err := svc.AcceptInternalDelivery(ctx, wrong); !errors.Is(err, domain.ErrDriverNotAssigned) {
+			t.Fatalf("wrong driver: %v", err)
+		}
+		stale := c
+		stale.ExpectedVersion = 2
+		if _, err := svc.AcceptInternalDelivery(ctx, stale); !errors.Is(err, domain.ErrConcurrentUpdate) {
+			t.Fatalf("stale: %v", err)
+		}
+		first, err := svc.AcceptInternalDelivery(ctx, c)
+		if err != nil || first.AcceptedAt.IsZero() {
+			t.Fatalf("accept: %+v %v", first, err)
+		}
+		replay, err := svc.AcceptInternalDelivery(ctx, c)
+		if err != nil || *first != *replay {
+			t.Fatalf("retry: %+v %v", replay, err)
+		}
+		changed := c
+		changed.ExpectedVersion = 2
+		if _, err := svc.AcceptInternalDelivery(ctx, changed); !errors.Is(err, domain.ErrIdempotencyConflict) {
+			t.Fatalf("changed payload: %v", err)
+		}
+		extra := c
+		extra.IdempotencyKey = "accept-again-" + uuid.NewString()
+		if _, err := svc.AcceptInternalDelivery(ctx, extra); !errors.Is(err, domain.ErrIdempotencyConflict) {
+			t.Fatalf("double accept: %v", err)
+		}
+		a.ExpectedVersion = 1
+		a.DriverID = uuid.New()
+		a.IdempotencyKey = "reassign-" + uuid.NewString()
+		if _, err := svc.AssignInternalDelivery(ctx, a); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := svc.AcceptInternalDelivery(ctx, extra); !errors.Is(err, domain.ErrDriverNotAssigned) {
+			t.Fatalf("old driver: %v", err)
+		}
+		c.ActorID = a.DriverID
+		c.ExpectedVersion = 2
+		c.IdempotencyKey = "accept-new-" + uuid.NewString()
+		if _, err := svc.AcceptInternalDelivery(ctx, c); err != nil {
+			t.Fatal(err)
+		}
+		current, err := repo.GetByID(ctx, s.ID)
+		if err != nil || current.Status != s.Status || current.Revision != s.Revision {
+			t.Fatal("acceptance changed shipment proof")
+		}
+		if _, err := svc.ConfirmHandover(ctx, s.ID, "handover-"+uuid.NewString()); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := svc.AcceptInternalDelivery(ctx, c); err != nil {
+			t.Fatalf("retry after handover: %v", err)
+		}
+		c.IdempotencyKey = "late-accept-" + uuid.NewString()
+		if _, err := svc.AcceptInternalDelivery(ctx, c); !errors.Is(err, domain.ErrInvalidTransition) {
+			t.Fatalf("late accept: %v", err)
+		}
+	})
+
 	t.Run("assign reassign replay and audit", func(t *testing.T) {
 		s := create(carrier.InternalCode)
 		c := command(s)

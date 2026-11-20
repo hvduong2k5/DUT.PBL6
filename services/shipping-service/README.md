@@ -127,6 +127,17 @@ database and `go test -race ./internal/repository/postgres -run TestPostgresInte
 It creates/drops its own random schema and verifies migration replay, concurrent assignment,
 immutable retries, carrier/status/COD restrictions and transaction rollback on injected failure.
 
+### Driver acceptance foundation
+
+Migration 000011 persists acceptance against an immutable assignment version. Only the
+assigned driver can accept before handover; stale versions and duplicate new actions are
+rejected. Exact retries return the original receipt even after reassignment or handover.
+Reassignment requires a new acceptance: old receipts never authorize a new assignment.
+Acceptance does not change shipment status/revision or publish a delivery event to Order.
+The application primitive is not exposed by REST or Kong yet; driver JWT/scope enforcement
+and subsequent delivery actions remain the next workbench step. PostgreSQL tests cover
+ownership, versioning, replay, reassignment and handover boundaries.
+
 ### Dispatcher assignment API
 
 Enable `SHIPPING_INTERNAL_ASSIGNMENTS_ENABLED=true` only with internal delivery enabled and
