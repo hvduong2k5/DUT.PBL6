@@ -2,6 +2,10 @@ server:
   port: 8016
 
 app:
+  shipping-api:
+    enabled: ${IDENTITY_SHIPPING_API_ENABLED:false}
+    url: ${IDENTITY_SHIPPING_API_URL:}
+    allow-insecure-http: ${IDENTITY_SHIPPING_API_ALLOW_INSECURE_HTTP:false}
   auth:
     jwt-clock-skew: 30s
   customer-api:

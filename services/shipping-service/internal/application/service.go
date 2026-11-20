@@ -22,7 +22,8 @@ type ListFilter struct {
 
 type Repository interface {
 	Ping(context.Context) error
-	BeginCreation(context.Context, string, *domain.Shipment) (*domain.Shipment, bool, error)
+	BeginCreation(context.Context, string, string, *domain.Shipment) (*domain.Shipment, bool, error)
+	BindAction(context.Context, uuid.UUID, string, string, string) error
 	Save(context.Context, *domain.Shipment, int64, *domain.TrackingEvent, *domain.DomainEvent) error
 	GetByID(context.Context, uuid.UUID) (*domain.Shipment, error)
 	GetByTracking(context.Context, string, string) (*domain.Shipment, error)
@@ -40,10 +41,26 @@ type QuoteRepository interface {
 	SaveQuote(context.Context, *domain.ShippingQuote) (*domain.ShippingQuote, bool, error)
 }
 
+type ReturnShipmentRepository interface {
+	BeginReturnCreation(context.Context, string, string, *domain.ReturnShipment) (*domain.ReturnShipment, bool, error)
+	SaveReturnShipment(context.Context, *domain.ReturnShipment, int64, *domain.ReturnShipmentEvent) error
+	GetReturnShipment(context.Context, uuid.UUID) (*domain.ReturnShipment, error)
+}
+
 type ProviderError struct {
 	Shipment *domain.Shipment
 	Cause    error
 }
+
+type ReturnProviderError struct {
+	ReturnShipment *domain.ReturnShipment
+	Cause          error
+}
+
+func (e *ReturnProviderError) Error() string {
+	return "return carrier operation failed: " + e.Cause.Error()
+}
+func (e *ReturnProviderError) Unwrap() error { return e.Cause }
 
 type PackingCompleted struct {
 	EventID             string
@@ -74,16 +91,16 @@ type OrderShippingSnapshot struct {
 	EligibleForShipping bool
 }
 
+type ShippingSnapshotProvider interface {
+	GetShippingSnapshot(context.Context, string, string) (OrderShippingSnapshot, error)
+}
+
 type LabelAccess struct {
 	ShipmentID     uuid.UUID `json:"shipment_id"`
 	LabelReference string    `json:"label_reference"`
 	Format         string    `json:"format"`
 	URL            string    `json:"label_url"`
 	ExpiresAt      time.Time `json:"expires_at"`
-}
-
-type ShippingSnapshotProvider interface {
-	GetShippingSnapshot(context.Context, string, string) (OrderShippingSnapshot, error)
 }
 
 func (e *ProviderError) Error() string { return "carrier operation failed: " + e.Cause.Error() }
@@ -111,7 +128,17 @@ func (s *Service) Quote(ctx context.Context, carrierCode string, request carrier
 	if !ok {
 		return carrier.Quote{}, fmt.Errorf("%w: %s", domain.ErrUnsupportedCarrier, carrierCode)
 	}
-	return provider.Quote(ctx, request)
+	if err := request.Destination.Validate(); err != nil {
+		return carrier.Quote{}, err
+	}
+	if err := request.Parcel.Validate(); err != nil {
+		return carrier.Quote{}, err
+	}
+	quote, err := provider.Quote(ctx, request)
+	if err != nil {
+		return carrier.Quote{}, &ProviderError{Cause: err}
+	}
+	return quote, nil
 }
 
 func (s *Service) BoundQuote(ctx context.Context, command domain.BoundQuoteCommand) (*domain.ShippingQuote, error) {
@@ -168,15 +195,15 @@ func (s *Service) CreateShipment(ctx context.Context, cmd domain.CreateShipmentC
 	if err != nil {
 		return nil, err
 	}
-	requestedEventVersion := shipment.EventVersion
-	shipment, inserted, err := s.repository.BeginCreation(ctx, cmd.IdempotencyKey, shipment)
+	requestHash, err := cmd.RequestHash()
+	if err != nil {
+		return nil, err
+	}
+	shipment, inserted, err := s.repository.BeginCreation(ctx, cmd.IdempotencyKey, requestHash, shipment)
 	if err != nil {
 		return nil, err
 	}
 	if !inserted {
-		if shipment.EventVersion != requestedEventVersion {
-			return nil, domain.ErrIdempotencyConflict
-		}
 		return shipment, nil
 	}
 
@@ -260,6 +287,82 @@ func (s *Service) CreateFromPacking(ctx context.Context, event PackingCompleted,
 	})
 }
 
+func (s *Service) CreateReturnShipment(ctx context.Context, cmd domain.CreateReturnShipmentCommand) (*domain.ReturnShipment, error) {
+	if err := cmd.Validate(); err != nil {
+		return nil, err
+	}
+	provider, ok := s.carriers.Get(cmd.CarrierCode)
+	if !ok {
+		return nil, fmt.Errorf("%w: %s", domain.ErrUnsupportedCarrier, cmd.CarrierCode)
+	}
+	returnCarrier, ok := provider.(carrier.ReturnCarrier)
+	if !ok {
+		return nil, fmt.Errorf("%w: carrier %s does not support return pickup", domain.ErrUnsupportedCarrier, cmd.CarrierCode)
+	}
+	repository, ok := s.repository.(ReturnShipmentRepository)
+	if !ok {
+		return nil, errors.New("return shipment repository is not configured")
+	}
+	shipment, err := domain.NewReturnShipment(cmd, s.now())
+	if err != nil {
+		return nil, err
+	}
+	requestHash, err := cmd.RequestHash()
+	if err != nil {
+		return nil, err
+	}
+	shipment, inserted, err := repository.BeginReturnCreation(ctx, cmd.IdempotencyKey, requestHash, shipment)
+	if err != nil {
+		return nil, err
+	}
+	if !inserted && shipment.Status == domain.ReturnShipmentCreated {
+		return shipment, nil
+	}
+	result, providerErr := returnCarrier.CreateReturnShipment(ctx, carrier.ReturnCreateRequest{
+		IdempotencyKey: cmd.IdempotencyKey, ReturnShipmentID: shipment.ID.String(),
+		ReturnCaseID: shipment.ReturnCaseID, OrderID: shipment.OrderID, PackageID: shipment.PackageID,
+		ServiceCode: shipment.ServiceCode, PickupAddress: shipment.PickupAddress,
+		Destination: shipment.Destination, Parcel: shipment.Parcel,
+		ReasonCode: shipment.ReasonCode, ShippingNotes: cmd.ShippingNotes,
+	})
+	if providerErr != nil {
+		expectedRevision := shipment.Revision
+		now := s.now()
+		if err := shipment.MarkCreationFailed("CARRIER_REJECTED", "carrier rejected return shipment creation", now); err != nil {
+			return nil, errors.Join(providerErr, err)
+		}
+		event := domain.NewReturnShipmentEvent("creation-failed", shipment, now)
+		if err := repository.SaveReturnShipment(ctx, shipment, expectedRevision, &event); err != nil {
+			return nil, errors.Join(providerErr, err)
+		}
+		return shipment, &ReturnProviderError{ReturnShipment: shipment, Cause: providerErr}
+	}
+	expectedRevision := shipment.Revision
+	now := s.now()
+	if err := shipment.MarkCreated(result.CarrierOrderID, result.TrackingCode, result.EstimatedFeeVND, now); err != nil {
+		return nil, err
+	}
+	event := domain.NewReturnShipmentEvent("created", shipment, now)
+	if err := repository.SaveReturnShipment(ctx, shipment, expectedRevision, &event); err != nil {
+		if errors.Is(err, domain.ErrConcurrentUpdate) {
+			latest, readErr := repository.GetReturnShipment(ctx, shipment.ID)
+			if readErr == nil && latest.Status == domain.ReturnShipmentCreated {
+				return latest, nil
+			}
+		}
+		return nil, err
+	}
+	return shipment, nil
+}
+
+func (s *Service) GetReturnShipment(ctx context.Context, id uuid.UUID) (*domain.ReturnShipment, error) {
+	repository, ok := s.repository.(ReturnShipmentRepository)
+	if !ok {
+		return nil, errors.New("return shipment repository is not configured")
+	}
+	return repository.GetReturnShipment(ctx, id)
+}
+
 func (s *Service) failCreation(ctx context.Context, shipment *domain.Shipment, code string, cause error) (*domain.Shipment, error) {
 	expectedRevision := shipment.Revision
 	now := s.now()
@@ -273,10 +376,20 @@ func (s *Service) failCreation(ctx context.Context, shipment *domain.Shipment, c
 	return shipment, &ProviderError{Shipment: shipment, Cause: cause}
 }
 
-func (s *Service) ConfirmHandover(ctx context.Context, id uuid.UUID) (*domain.Shipment, error) {
+func (s *Service) ConfirmHandover(ctx context.Context, id uuid.UUID, idempotencyKey string) (*domain.Shipment, error) {
 	shipment, err := s.repository.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
+	}
+	requestHash, err := hashActionRequest(actionRequest{Action: "HANDOVER", ShipmentID: id})
+	if err != nil {
+		return nil, err
+	}
+	if err := s.repository.BindAction(ctx, id, "HANDOVER", idempotencyKey, requestHash); err != nil {
+		return nil, err
+	}
+	if shipment.HandedOverAt != nil {
+		return shipment, nil
 	}
 	expectedRevision := shipment.Revision
 	now := s.now()
@@ -285,18 +398,33 @@ func (s *Service) ConfirmHandover(ctx context.Context, id uuid.UUID) (*domain.Sh
 	}
 	event := domain.NewDomainEvent("handed-over", shipment, now)
 	if err := s.repository.Save(ctx, shipment, expectedRevision, nil, &event); err != nil {
+		if errors.Is(err, domain.ErrConcurrentUpdate) {
+			latest, readErr := s.repository.GetByID(ctx, id)
+			if readErr == nil && latest.HandedOverAt != nil {
+				return latest, nil
+			}
+		}
 		return nil, err
 	}
 	return shipment, nil
 }
 
-func (s *Service) CancelShipment(ctx context.Context, id uuid.UUID, reasonCode, reason string) (*domain.Shipment, error) {
+func (s *Service) CancelShipment(ctx context.Context, id uuid.UUID, idempotencyKey, reasonCode, reason string) (*domain.Shipment, error) {
 	reasonCode, err := normalizeCancellationReason(reasonCode)
 	if err != nil {
 		return nil, err
 	}
 	shipment, err := s.repository.GetByID(ctx, id)
 	if err != nil {
+		return nil, err
+	}
+	requestHash, err := hashActionRequest(actionRequest{
+		Action: "CANCEL", ShipmentID: id, ReasonCode: reasonCode, Reason: reason,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if err := s.repository.BindAction(ctx, id, "CANCEL", idempotencyKey, requestHash); err != nil {
 		return nil, err
 	}
 	if shipment.Status == domain.StatusCancelled {
@@ -332,6 +460,12 @@ func (s *Service) CancelShipment(ctx context.Context, id uuid.UUID, reasonCode, 
 		EventAt: now, ReceivedAt: now,
 	}
 	if err := s.repository.Save(ctx, shipment, expectedRevision, tracking, nil); err != nil {
+		if errors.Is(err, domain.ErrConcurrentUpdate) {
+			latest, readErr := s.repository.GetByID(ctx, id)
+			if readErr == nil && latest.Status == domain.StatusCancelled {
+				return latest, nil
+			}
+		}
 		return nil, err
 	}
 	return shipment, nil
@@ -469,11 +603,24 @@ func (s *Service) GetShipment(ctx context.Context, id uuid.UUID) (*domain.Shipme
 		return nil, nil, err
 	}
 	timeline, err := s.repository.TrackingTimeline(ctx, id)
-	return shipment, timeline, err
+	if err != nil {
+		return nil, nil, err
+	}
+	if timeline == nil {
+		timeline = []domain.TrackingEvent{}
+	}
+	return shipment, timeline, nil
 }
 
 func (s *Service) GetShipmentTimeline(ctx context.Context, id uuid.UUID) ([]domain.TrackingEvent, error) {
-	return s.repository.TrackingTimeline(ctx, id)
+	timeline, err := s.repository.TrackingTimeline(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if timeline == nil {
+		timeline = []domain.TrackingEvent{}
+	}
+	return timeline, nil
 }
 
 func (s *Service) GetShipmentRevision(ctx context.Context, shipmentID uuid.UUID, resourceVersion int64) (*domain.ShipmentRevision, error) {
@@ -488,7 +635,14 @@ func (s *Service) GetShipmentRevision(ctx context.Context, shipmentID uuid.UUID,
 }
 
 func (s *Service) TrackOrder(ctx context.Context, orderID string) ([]domain.Shipment, error) {
-	return s.repository.ListByOrder(ctx, orderID)
+	shipments, err := s.repository.ListByOrder(ctx, orderID)
+	if err != nil {
+		return nil, err
+	}
+	if shipments == nil {
+		shipments = []domain.Shipment{}
+	}
+	return shipments, nil
 }
 
 func (s *Service) TrackByCode(ctx context.Context, carrierCode, trackingCode string) (*domain.Shipment, []domain.TrackingEvent, error) {
@@ -497,7 +651,13 @@ func (s *Service) TrackByCode(ctx context.Context, carrierCode, trackingCode str
 		return nil, nil, err
 	}
 	timeline, err := s.repository.TrackingTimeline(ctx, shipment.ID)
-	return shipment, timeline, err
+	if err != nil {
+		return nil, nil, err
+	}
+	if timeline == nil {
+		timeline = []domain.TrackingEvent{}
+	}
+	return shipment, timeline, nil
 }
 
 func (s *Service) ListShipments(ctx context.Context, filter ListFilter) ([]domain.Shipment, error) {
@@ -507,5 +667,12 @@ func (s *Service) ListShipments(ctx context.Context, filter ListFilter) ([]domai
 	if filter.Offset < 0 {
 		filter.Offset = 0
 	}
-	return s.repository.List(ctx, filter)
+	shipments, err := s.repository.List(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+	if shipments == nil {
+		shipments = []domain.Shipment{}
+	}
+	return shipments, nil
 }

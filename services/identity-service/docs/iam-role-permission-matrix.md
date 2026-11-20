@@ -1,5 +1,18 @@
 # Ma trận phân quyền IAM — Identity Service
 
+## Shipping company delivery extension (V24)
+
+| Permission | Required scope | Enforcement |
+|---|---|---|
+| SHIPMENT_VIEW | GLOBAL | Management shipment reads (V23) |
+| SHIPMENT_ASSIGN | GLOBAL | Assign/reassign and assignment/history reads; POST also requires existing USER_VIEW#GLOBAL |
+| SHIPMENT_EXECUTE | GLOBAL | Driver list/detail/accept/progress; Shipping additionally requires current assignment ownership and acceptance/version checks |
+
+V24 maps only enabled/non-archived ADMIN bundles; no new role, principal or role assignment.
+ADMIN is an assignment bundle, never a runtime permission bypass. Existing assignment scope
+is preserved; warehouse grants do not become GLOBAL. Sync affected principals through
+PermissionSyncService and refresh JWTs after migration. Seed SQL alone does not update tokens.
+
 **Mục đích:** Định nghĩa rõ ràng danh sách role, permission, scope và quy tắc gán thu hồi trong hệ thống.
 
 **File liên quan:** `services/identity-service/src/main/resources/db/migration/V2__create_iam_role_permission_model.sql`
@@ -83,6 +96,10 @@
 ---
 
 ## 7. Quy tắc JWT claims (chốt trước PR #71 / #73)
+
+Migration ordering: V22 (Promotion) must precede V23 (Shipping) in the shared release stream. If release order changes before either seed is deployed, coordinate a higher number for the still-unreleased later seed. Do not rewrite applied migration history or silently rely on out-of-order execution.
+
+Shipping rollout (V23): `SHIPMENT_VIEW` is seeded and assigned to enabled, non-archived ADMIN roles. Direct Shipping reads require `SHIPMENT_VIEW#GLOBAL` in a JWT for `omama-api`; warehouse/department-only assignments do not grant global access. After deploying this additive migration, sync affected principals through `PermissionSyncService` with `forceRelogin=false`, then refresh JWTs. V22 remains reserved by the Promotion integration. The seed does not create principals, widen assignment scope or bypass permission checks with an ADMIN role.
 
 - **Thêm claim `principal_type` vào JWT.** Giá trị: `CUSTOMER` hoặc `EMPLOYEE`. Nguồn: `identity_principals.principal_type`. Được ghi vào Keycloak user attribute `principal_type`, rồi protocol mapper đưa vào claim `principal_type` của access token.
 - **Stale data tối đa 15 phút:** Access token chỉ sống 15 phút (`accessTokenLifespan = 900s`). Nếu `principal_type` thay đổi (rất hiếm), token cũ vẫn có giá trị đến khi hết hạn, sau đó phải refresh để nhận claim mới.

@@ -17,6 +17,7 @@ import (
 	"github.com/omamx/shipping-service/internal/config"
 	shippingv1 "github.com/omamx/shipping-service/internal/gen/shipping/v1"
 	shippingv2 "github.com/omamx/shipping-service/internal/gen/shipping/v2"
+	identityclient "github.com/omamx/shipping-service/internal/infrastructure/identity"
 	shippingkafka "github.com/omamx/shipping-service/internal/infrastructure/kafka"
 	"github.com/omamx/shipping-service/internal/infrastructure/ordergrpc"
 	postgresrepo "github.com/omamx/shipping-service/internal/repository/postgres"
@@ -34,6 +35,10 @@ func main() {
 	cfg, err := config.Load()
 	if err != nil {
 		logger.Fatal().Err(err).Msg("load configuration")
+	}
+	staffAuth, err := httpapi.NewJWTStaffAuthenticator(cfg.OIDCIssuer, cfg.OIDCAudience, cfg.OIDCJWKSURL)
+	if err != nil {
+		logger.Fatal().Err(err).Msg("configure employee JWT authentication")
 	}
 
 	rootCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -60,6 +65,14 @@ func main() {
 
 	repository := postgresrepo.New(pool)
 	providers := []carrier.Carrier{carrier.NewFake()}
+	if cfg.InternalDeliveryEnabled {
+		internalProvider, err := carrier.NewInternal(cfg.InternalDeliveryFeeVND, cfg.InternalDeliveryETA)
+		if err != nil {
+			logger.Fatal().Err(err).Msg("configure internal delivery carrier")
+		}
+		providers = append(providers, internalProvider)
+		logger.Warn().Msg("Internal delivery carrier foundation enabled; employee workbench is not yet implemented")
+	}
 	if cfg.GHNEnabled {
 		ghnProvider, providerErr := ghncarrier.New(ghncarrier.Config{
 			BaseURL: cfg.GHNBaseURL, Token: cfg.GHNToken, ShopID: cfg.GHNShopID,
@@ -90,7 +103,7 @@ func main() {
 		logger.Fatal().Err(err).Msg("listen for gRPC")
 	}
 	grpcOptions := []grpc.ServerOption{grpc.UnaryInterceptor(grpcapi.AuthUnaryInterceptor(cfg.InternalToken))}
-	certFile, keyFile := os.Getenv("SHIPPING_GRPC_TLS_CERT_FILE"), os.Getenv("SHIPPING_GRPC_TLS_KEY_FILE")
+	certFile, keyFile := cfg.GRPCTLSCertFile, cfg.GRPCTLSKeyFile
 	if certFile != "" || keyFile != "" {
 		transport, err := credentials.NewServerTLSFromFile(certFile, keyFile)
 		if err != nil {
@@ -146,7 +159,14 @@ func main() {
 		logger.Warn().Msg("PackingCompleted consumer disabled: SHIPPING_ORDER_GRPC_ENDPOINT is not configured")
 	}
 
-	handler := httpapi.NewRouter(service, cfg.InternalToken, cfg.FakeWebhookSecret, cfg.GHNWebhookSecret, logger)
+	handler := httpapi.NewRouter(service, cfg.InternalToken, cfg.FakeWebhookSecret, cfg.GHNWebhookSecret, logger, staffAuth)
+	if cfg.InternalAssignmentsEnabled {
+		directory, err := identityclient.NewDirectory(cfg.IdentityBaseURL, cfg.Environment == "local")
+		if err != nil {
+			logger.Fatal().Err(err).Msg("configure assignment employee directory")
+		}
+		handler = httpapi.NewRouterWithAssignments(service, cfg.InternalToken, cfg.FakeWebhookSecret, cfg.GHNWebhookSecret, logger, staffAuth, directory)
+	}
 	server := &http.Server{
 		Addr: cfg.HTTPAddress, Handler: handler,
 		ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second,

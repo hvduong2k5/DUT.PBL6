@@ -1,5 +1,41 @@
 # Identity & Access Management (IAM) Service — O Mạ PBL6
 
+## Shipping session relay rollout
+
+`/api/v1/admin/shipping-api/**` is an explicit allowlist, not a general proxy. The existing
+session filter resolves/refreshes OMAMA_SESSION into a validated JWT; the relay checks the
+ACTIVE EMPLOYEE record and exact signed GLOBAL permission, then forwards only the bearer
+and required action headers to Shipping. Shipping independently enforces assignment ownership,
+acceptance, versions and lifecycle. No service/internal token is substituted for the employee.
+
+- `SHIPMENT_VIEW#GLOBAL`: management list/detail.
+- `SHIPMENT_ASSIGN#GLOBAL`: assignment/history; assignment POST also needs `USER_VIEW#GLOBAL`.
+- `SHIPMENT_EXECUTE#GLOBAL`: current driver's workbench, acceptance and delivery progress.
+
+Enable `IDENTITY_SHIPPING_API_ENABLED=true` only after provider and IAM acceptance. Set
+`IDENTITY_SHIPPING_API_URL` to the Shipping origin (no /api suffix), preferably HTTPS.
+Private-network HTTP requires explicit `IDENTITY_SHIPPING_API_ALLOW_INSECURE_HTTP=true`;
+do not use that setting on an untrusted network. `FRONTEND_BASE_URL` must match the Web
+origin for session-cookie writes. Web uses `IDENTITY_UPSTREAM_URL` and
+`SHIPPING_COMPANY_BFF_ENABLED=true`; it never sends session IDs as bearer tokens.
+
+Migration V24 adds the two internal delivery permissions and maps them only to existing
+enabled/non-archived ADMIN bundles. It does not create principals, roles, GLOBAL assignments,
+or real driver accounts. Apply prior released migrations first (V22 remains reserved for
+the Promotion stack; V23 is the shipping-read seed). Recheck migration version reservations
+against the release branch before deployment; never renumber applied migrations.
+
+After the additive seed, an authorized IAM operator must call
+`POST /api/v1/admin/iam/principals/{principalId}/sync-permissions?forceRelogin=false`
+for affected existing holders. This invokes PermissionSyncService, including audit/failure
+handling; requires PERMISSION_MANAGE. Verify success, then refresh the session/JWT (or sign
+in again) to obtain the new scoped claims. SQL cannot edit already-issued tokens or Keycloak
+attributes. Grant role changes for ordinary drivers through existing audited IAM APIs, not
+direct SQL or automatic GLOBAL role assignment. IAM revocation paths remain unchanged.
+
+Relay tests exercise real HTTP forwarding plus Spring session/security filters with explicit
+session/DB/JWT-decoder fixtures; they are not proof of production Keycloak/GHN/browser E2E.
+
 Dịch vụ Quản lý Định danh & Phân quyền tập trung (Identity & Access Management) cho hệ sinh thái Thương mại điện tử **Mè Xửng O Mạ**.
 
 ---

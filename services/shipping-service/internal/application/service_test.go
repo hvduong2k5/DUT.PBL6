@@ -7,19 +7,12 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/omamx/shipping-service/internal/carrier"
 	"github.com/omamx/shipping-service/internal/domain"
 )
-
-type memoryRepository struct {
-	mu       sync.Mutex
-	byID     map[uuid.UUID]*domain.Shipment
-	byKey    map[string]uuid.UUID
-	timeline map[uuid.UUID][]domain.TrackingEvent
-	eventIDs map[string]struct{}
-}
 
 type snapshotStub struct {
 	snapshot OrderShippingSnapshot
@@ -30,8 +23,108 @@ func (s snapshotStub) GetShippingSnapshot(context.Context, string, string) (Orde
 	return s.snapshot, s.err
 }
 
+type memoryRepository struct {
+	mu                sync.Mutex
+	byID              map[uuid.UUID]*domain.Shipment
+	byKey             map[string]uuid.UUID
+	hashes            map[string]string
+	timeline          map[uuid.UUID][]domain.TrackingEvent
+	eventIDs          map[string]struct{}
+	actionsByKey      map[string]actionBinding
+	actionsByShipment map[string]actionBinding
+}
+
+type actionBinding struct {
+	shipmentID uuid.UUID
+	action     string
+	key        string
+	hash       string
+}
+
 func newMemoryRepository() *memoryRepository {
-	return &memoryRepository{byID: map[uuid.UUID]*domain.Shipment{}, byKey: map[string]uuid.UUID{}, timeline: map[uuid.UUID][]domain.TrackingEvent{}, eventIDs: map[string]struct{}{}}
+	return &memoryRepository{
+		byID: map[uuid.UUID]*domain.Shipment{}, byKey: map[string]uuid.UUID{}, hashes: map[string]string{},
+		timeline: map[uuid.UUID][]domain.TrackingEvent{}, eventIDs: map[string]struct{}{},
+		actionsByKey: map[string]actionBinding{}, actionsByShipment: map[string]actionBinding{},
+	}
+}
+
+func TestCreateFromPackingUsesImmutableOrderSnapshotAndPackageIdempotency(t *testing.T) {
+	repository := newMemoryRepository()
+	service := NewService(repository, carrier.NewRegistry(carrier.NewFake()))
+	event := PackingCompleted{
+		EventID: "event-1", OrderID: "ord-1", PackageID: "pkg-1", SealCode: "seal-1",
+		Parcel: domain.Parcel{WeightGrams: 1200, LengthCM: 30, WidthCM: 20, HeightCM: 15, Fragile: true},
+	}
+	snapshots := snapshotStub{snapshot: OrderShippingSnapshot{
+		OrderID: "ord-1", PackageID: "pkg-1", EligibleForShipping: true,
+		Recipient:      domain.Recipient{Name: "Nguyen Van A", Phone: "0905000000", Street: "1 Nguyen Hue", Ward: "Thuan Hoa", District: "Phu Xuan", Province: "Hue", CountryCode: "VN"},
+		CheckoutFeeVND: 30_000, CODAmountVND: 250_000,
+	}}
+	first, err := service.CreateFromPacking(context.Background(), event, snapshots, carrier.FakeCode, "STANDARD")
+	if err != nil {
+		t.Fatal(err)
+	}
+	event.EventID = "event-2"
+	second, err := service.CreateFromPacking(context.Background(), event, snapshots, carrier.FakeCode, "STANDARD")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.ID != second.ID || len(repository.byID) != 1 {
+		t.Fatal("re-emitted packing event created a duplicate shipment")
+	}
+	if first.CODAmountVND != 250_000 || first.CheckoutFeeVND != 30_000 || first.Parcel != event.Parcel {
+		t.Fatal("shipment did not preserve order snapshot and fulfillment parcel data")
+	}
+}
+
+func TestCreateFromPackingRejectsSnapshotIdentityMismatch(t *testing.T) {
+	service := NewService(newMemoryRepository(), carrier.NewRegistry(carrier.NewFake()))
+	event := PackingCompleted{
+		EventID: "event-1", OrderID: "ord-1", PackageID: "pkg-1", SealCode: "seal-1",
+		Parcel: domain.Parcel{WeightGrams: 1200, LengthCM: 30, WidthCM: 20, HeightCM: 15},
+	}
+	_, err := service.CreateFromPacking(context.Background(), event, snapshotStub{snapshot: OrderShippingSnapshot{
+		OrderID: "ord-1", PackageID: "another-package", EligibleForShipping: true,
+	}}, carrier.FakeCode, "STANDARD")
+	if err == nil {
+		t.Fatal("expected mismatched snapshot to be rejected")
+	}
+}
+
+func TestCreateFromPackingV2PreservesProofAndPayloadIdempotency(t *testing.T) {
+	repository := newMemoryRepository()
+	service := NewService(repository, carrier.NewRegistry(carrier.NewFake()))
+	event := PackingCompleted{
+		EventID: uuid.NewString(), EventVersion: 2, OrderID: uuid.NewString(),
+		PackageID: uuid.NewString(), SealCode: "seal-v2", TaskID: uuid.NewString(),
+		TaskResourceVersion: 3, ReadyGeneration: 2, PackedAt: time.Now().UTC(),
+		Parcel: domain.Parcel{WeightGrams: 1000, LengthCM: 20, WidthCM: 15, HeightCM: 10},
+	}
+	snapshots := snapshotStub{snapshot: OrderShippingSnapshot{
+		OrderID: event.OrderID, PackageID: event.PackageID, EligibleForShipping: true,
+		SnapshotVersion: 1, ReadyGeneration: 2, ItemsDigest: strings.Repeat("a", 64), WarehouseID: "WH-HCM-01",
+		Recipient: domain.Recipient{Name: "Customer", Phone: "0905000000", Street: "1 Test Street", Ward: "Ward", Province: "Hue", CountryCode: "VN"},
+	}}
+	first, err := service.CreateFromPacking(context.Background(), event, snapshots, carrier.FakeCode, "STANDARD")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.EventVersion != 2 || first.PackingTaskID != event.TaskID || first.PackingTaskVersion != 3 || first.ReadyGeneration != 2 {
+		t.Fatalf("packing proof was lost during merge: %+v", first)
+	}
+	event.EventID = uuid.NewString()
+	replayed, err := service.CreateFromPacking(context.Background(), event, snapshots, carrier.FakeCode, "STANDARD")
+	if err != nil || replayed.ID != first.ID {
+		t.Fatalf("packing replay must return the existing shipment: %v", err)
+	}
+	snapshots.snapshot.Recipient.Name = "Different Customer"
+	if _, err := service.CreateFromPacking(context.Background(), event, snapshots, carrier.FakeCode, "STANDARD"); !errors.Is(err, domain.ErrIdempotencyConflict) {
+		t.Fatalf("changed packing snapshot must not reuse a shipment key: %v", err)
+	}
+	if len(repository.byID) != 1 {
+		t.Fatal("packing replay created an extra shipment")
+	}
 }
 
 func cloneShipment(value *domain.Shipment) *domain.Shipment {
@@ -43,17 +136,42 @@ func cloneShipment(value *domain.Shipment) *domain.Shipment {
 
 func (r *memoryRepository) Ping(context.Context) error { return nil }
 
-func (r *memoryRepository) BeginCreation(_ context.Context, key string, shipment *domain.Shipment) (*domain.Shipment, bool, error) {
+func (r *memoryRepository) BeginCreation(_ context.Context, key, requestHash string, shipment *domain.Shipment) (*domain.Shipment, bool, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if id, ok := r.byKey[key]; ok {
+		if r.hashes[key] != requestHash {
+			return nil, false, domain.ErrIdempotencyConflict
+		}
 		return cloneShipment(r.byID[id]), false, nil
 	}
 	r.byKey[key] = shipment.ID
+	r.hashes[key] = requestHash
 	r.byID[shipment.ID] = cloneShipment(shipment)
 	return cloneShipment(shipment), true, nil
 }
 
+func (r *memoryRepository) BindAction(_ context.Context, shipmentID uuid.UUID, action, key, requestHash string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	binding := actionBinding{shipmentID: shipmentID, action: action, key: key, hash: requestHash}
+	if previous, exists := r.actionsByKey[key]; exists {
+		if previous != binding {
+			return domain.ErrIdempotencyConflict
+		}
+		return nil
+	}
+	shipmentAction := action + ":" + shipmentID.String()
+	if previous, exists := r.actionsByShipment[shipmentAction]; exists {
+		if previous != binding {
+			return domain.ErrIdempotencyConflict
+		}
+		return nil
+	}
+	r.actionsByKey[key] = binding
+	r.actionsByShipment[shipmentAction] = binding
+	return nil
+}
 func (r *memoryRepository) Save(_ context.Context, shipment *domain.Shipment, expectedRevision int64, tracking *domain.TrackingEvent, _ *domain.DomainEvent) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -112,13 +230,40 @@ func (r *memoryRepository) ListByOrder(_ context.Context, orderID string) ([]dom
 func (r *memoryRepository) List(_ context.Context, _ ListFilter) ([]domain.Shipment, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	result := make([]domain.Shipment, 0, len(r.byID))
+	var result []domain.Shipment
 	for _, value := range r.byID {
 		result = append(result, *cloneShipment(value))
 	}
 	return result, nil
 }
 
+func TestReadCollectionsAreNonNilWhenEmpty(t *testing.T) {
+	repository := newMemoryRepository()
+	service := NewService(repository, carrier.NewRegistry(carrier.NewFake()))
+	ctx := context.Background()
+
+	listed, err := service.ListShipments(ctx, ListFilter{Limit: 20})
+	if err != nil || listed == nil {
+		t.Fatalf("empty shipment list must be a non-nil slice: result=%v err=%v", listed, err)
+	}
+	ordered, err := service.TrackOrder(ctx, "order-without-shipments")
+	if err != nil || ordered == nil {
+		t.Fatalf("empty order shipment list must be a non-nil slice: result=%v err=%v", ordered, err)
+	}
+
+	shipment, err := service.CreateShipment(ctx, applicationCommand())
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, events, err := service.GetShipment(ctx, shipment.ID)
+	if err != nil || events == nil {
+		t.Fatalf("empty shipment timeline must be a non-nil slice: result=%v err=%v", events, err)
+	}
+	events, err = service.GetShipmentTimeline(ctx, shipment.ID)
+	if err != nil || events == nil {
+		t.Fatalf("empty tracking timeline must be a non-nil slice: result=%v err=%v", events, err)
+	}
+}
 func (r *memoryRepository) TrackingTimeline(_ context.Context, id uuid.UUID) ([]domain.TrackingEvent, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -152,6 +297,21 @@ func TestCreateShipmentIsIdempotent(t *testing.T) {
 	}
 }
 
+func TestCreateShipmentRejectsReusedKeyWithDifferentPayload(t *testing.T) {
+	repository := newMemoryRepository()
+	service := NewService(repository, carrier.NewRegistry(carrier.NewFake()))
+	command := applicationCommand()
+	if _, err := service.CreateShipment(context.Background(), command); err != nil {
+		t.Fatal(err)
+	}
+	command.Recipient.Name = "Different Recipient"
+	if _, err := service.CreateShipment(context.Background(), command); !errors.Is(err, domain.ErrIdempotencyConflict) {
+		t.Fatalf("expected idempotency conflict, got %v", err)
+	}
+	if len(repository.byID) != 1 {
+		t.Fatalf("expected original shipment to remain the only shipment, got %d", len(repository.byID))
+	}
+}
 func TestCancelShipmentTransitionsAndIsIdempotent(t *testing.T) {
 	repository := newMemoryRepository()
 	service := NewService(repository, carrier.NewRegistry(carrier.NewFake()))
@@ -159,19 +319,22 @@ func TestCancelShipmentTransitionsAndIsIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cancelled, err := service.CancelShipment(context.Background(), shipment.ID, carrier.CancelReasonOther, "Không còn nhu cầu giao")
+	cancelled, err := service.CancelShipment(context.Background(), shipment.ID, "cancel-shipment-key-01", carrier.CancelReasonOther, "Không còn nhu cầu giao")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if cancelled.Status != domain.StatusCancelled {
 		t.Fatalf("expected cancelled shipment, got %s", cancelled.Status)
 	}
-	replayed, err := service.CancelShipment(context.Background(), shipment.ID, carrier.CancelReasonOther, "retry")
+	replayed, err := service.CancelShipment(context.Background(), shipment.ID, "cancel-shipment-key-01", carrier.CancelReasonOther, "Không còn nhu cầu giao")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if replayed.Status != domain.StatusCancelled || replayed.Revision != cancelled.Revision {
 		t.Fatalf("idempotent cancellation changed shipment: %+v", replayed)
+	}
+	if _, err := service.CancelShipment(context.Background(), shipment.ID, "cancel-shipment-key-01", carrier.CancelReasonOther, "different payload"); !errors.Is(err, domain.ErrIdempotencyConflict) {
+		t.Fatalf("reusing cancellation key with changed reason must conflict, got %v", err)
 	}
 	timeline, err := repository.TrackingTimeline(context.Background(), shipment.ID)
 	if err != nil {
@@ -189,11 +352,11 @@ func TestCancelShipmentRejectsAfterHandover(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	shipment, err = service.ConfirmHandover(context.Background(), shipment.ID)
+	shipment, err = service.ConfirmHandover(context.Background(), shipment.ID, "handover-shipment-key-01")
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = service.CancelShipment(context.Background(), shipment.ID, carrier.CancelReasonOther, "too late")
+	_, err = service.CancelShipment(context.Background(), shipment.ID, "cancel-after-handover-key-01", carrier.CancelReasonOther, "too late")
 	if !errors.Is(err, domain.ErrInvalidTransition) {
 		t.Fatalf("expected invalid transition, got %v", err)
 	}
@@ -206,7 +369,7 @@ func TestCancelShipmentRejectsUnknownReasonCode(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = service.CancelShipment(context.Background(), shipment.ID, "UNKNOWN", "invalid")
+	_, err = service.CancelShipment(context.Background(), shipment.ID, "invalid-cancel-key-01", "UNKNOWN", "invalid")
 	if !errors.Is(err, domain.ErrInvalidShipment) {
 		t.Fatalf("expected invalid shipment, got %v", err)
 	}
@@ -243,7 +406,7 @@ func TestGenerateLabelURLRejectsCancelledShipment(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	shipment, err = service.CancelShipment(context.Background(), shipment.ID, carrier.CancelReasonOther, "cancel")
+	shipment, err = service.CancelShipment(context.Background(), shipment.ID, "label-cancel-key-0001", carrier.CancelReasonOther, "cancel")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -260,7 +423,7 @@ func TestWebhookIsDeduplicated(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	shipment, err = service.ConfirmHandover(context.Background(), shipment.ID)
+	shipment, err = service.ConfirmHandover(context.Background(), shipment.ID, "webhook-handover-key-01")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -295,7 +458,7 @@ func TestOlderWebhookDoesNotRegressShipment(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	shipment, err = service.ConfirmHandover(context.Background(), shipment.ID)
+	shipment, err = service.ConfirmHandover(context.Background(), shipment.ID, "webhook-handover-key-02")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -310,48 +473,5 @@ func TestOlderWebhookDoesNotRegressShipment(t *testing.T) {
 	}
 	if result != "STALE" || updated.Status != domain.StatusInTransit {
 		t.Fatalf("stale event regressed shipment: %s %s", result, updated.Status)
-	}
-}
-
-func TestCreateFromPackingUsesImmutableOrderSnapshotAndPackageIdempotency(t *testing.T) {
-	repository := newMemoryRepository()
-	service := NewService(repository, carrier.NewRegistry(carrier.NewFake()))
-	event := PackingCompleted{
-		EventID: "event-1", OrderID: "ord-1", PackageID: "pkg-1", SealCode: "seal-1",
-		Parcel: domain.Parcel{WeightGrams: 1200, LengthCM: 30, WidthCM: 20, HeightCM: 15, Fragile: true},
-	}
-	snapshots := snapshotStub{snapshot: OrderShippingSnapshot{
-		OrderID: "ord-1", PackageID: "pkg-1", EligibleForShipping: true,
-		Recipient:      domain.Recipient{Name: "Nguyen Van A", Phone: "0905000000", Street: "1 Nguyen Hue", Ward: "Thuan Hoa", District: "Phu Xuan", Province: "Hue", CountryCode: "VN"},
-		CheckoutFeeVND: 30_000, CODAmountVND: 250_000,
-	}}
-	first, err := service.CreateFromPacking(context.Background(), event, snapshots, carrier.FakeCode, "STANDARD")
-	if err != nil {
-		t.Fatal(err)
-	}
-	event.EventID = "event-2"
-	second, err := service.CreateFromPacking(context.Background(), event, snapshots, carrier.FakeCode, "STANDARD")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if first.ID != second.ID || len(repository.byID) != 1 {
-		t.Fatal("re-emitted packing event created a duplicate shipment")
-	}
-	if first.CODAmountVND != 250_000 || first.CheckoutFeeVND != 30_000 || first.Parcel != event.Parcel {
-		t.Fatal("shipment did not preserve order snapshot and fulfillment parcel data")
-	}
-}
-
-func TestCreateFromPackingRejectsSnapshotIdentityMismatch(t *testing.T) {
-	service := NewService(newMemoryRepository(), carrier.NewRegistry(carrier.NewFake()))
-	event := PackingCompleted{
-		EventID: "event-1", OrderID: "ord-1", PackageID: "pkg-1", SealCode: "seal-1",
-		Parcel: domain.Parcel{WeightGrams: 1200, LengthCM: 30, WidthCM: 20, HeightCM: 15},
-	}
-	_, err := service.CreateFromPacking(context.Background(), event, snapshotStub{snapshot: OrderShippingSnapshot{
-		OrderID: "ord-1", PackageID: "another-package", EligibleForShipping: true,
-	}}, carrier.FakeCode, "STANDARD")
-	if err == nil {
-		t.Fatal("expected mismatched snapshot to be rejected")
 	}
 }

@@ -5,6 +5,34 @@ _transform: true
 # 1. UPSTREAMS & SERVICES (18 MICROSERVICES ROUTING TABLE)
 # ==============================================================================
 services:
+  # MS-12: Shipping verifies employee JWTs itself; no service token injection.
+  # Exact routes deliberately exclude internal commands and delivery workbench.
+  - name: shipping-admin-service
+    url: http://shipping-service:8012
+    connect_timeout: 2000
+    read_timeout: 5000
+    write_timeout: 5000
+    retries: 0
+    routes:
+      - name: shipping-admin-reads
+        paths:
+          # Kong's expression router uses Rust regex: no look-around/backreferences.
+          - '~/api/v2/admin/shipping/shipments$'
+          - '~/api/v2/admin/shipping/shipments/[0-9a-fA-F-]{36}$'
+        strip_path: false
+        methods: [GET, OPTIONS]
+  - name: shipping-ghn-webhook-service
+    url: http://shipping-service:8012
+    connect_timeout: 2000
+    read_timeout: 15000
+    write_timeout: 5000
+    retries: 0
+    routes:
+      - name: shipping-ghn-webhook
+        paths: ['~/api/v1/webhooks/logistics/ghn$']
+        strip_path: false
+        methods: [POST]
+
   - name: traceability-public
     url: http://traceability-service:8003/api/v1/trace
     routes:

@@ -7,8 +7,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
+	"mime"
 	"net/http"
 	"strconv"
 	"strings"
@@ -24,34 +24,100 @@ import (
 )
 
 type Router struct {
-	service           *application.Service
-	internalToken     string
-	fakeWebhookSecret string
-	ghnWebhookSecret  string
-	logger            zerolog.Logger
+	service             *application.Service
+	internalToken       string
+	staffAuth           StaffAuthenticator
+	assignmentDirectory application.AssignmentDirectory
+	fakeWebhookSecret   string
+	ghnWebhookSecret    string
+	logger              zerolog.Logger
 }
 
-func NewRouter(service *application.Service, internalToken, fakeWebhookSecret, ghnWebhookSecret string, logger zerolog.Logger) http.Handler {
+func NewRouter(service *application.Service, internalToken, fakeWebhookSecret, ghnWebhookSecret string, logger zerolog.Logger, staffAuth ...StaffAuthenticator) http.Handler {
+	var auth StaffAuthenticator
+	if len(staffAuth) > 0 {
+		auth = staffAuth[0]
+	}
+	return newRouter(service, internalToken, fakeWebhookSecret, ghnWebhookSecret, logger, auth, nil)
+}
+
+func NewRouterWithAssignments(service *application.Service, internalToken, fakeWebhookSecret, ghnWebhookSecret string, logger zerolog.Logger, auth StaffAuthenticator, directory application.AssignmentDirectory) http.Handler {
+	return newRouter(service, internalToken, fakeWebhookSecret, ghnWebhookSecret, logger, auth, directory)
+}
+
+func newRouter(service *application.Service, internalToken, fakeWebhookSecret, ghnWebhookSecret string, logger zerolog.Logger, auth StaffAuthenticator, directory application.AssignmentDirectory) http.Handler {
 	h := &Router{
 		service: service, internalToken: internalToken,
 		fakeWebhookSecret: fakeWebhookSecret, ghnWebhookSecret: ghnWebhookSecret, logger: logger,
+		staffAuth: auth, assignmentDirectory: directory,
 	}
 	r := chi.NewRouter()
-	r.Use(middleware.RequestID, middleware.RealIP, middleware.Recoverer)
+	r.Use(middleware.RequestID, middleware.RealIP, h.recoverer)
+	r.Use(h.requestIDHeader)
 	r.Use(h.requestLog)
 	r.Get("/health/live", h.live)
 	r.Get("/health/ready", h.ready)
 	r.With(h.requireInternalToken).Post("/api/v1/internal/shipping/quotes", h.quote)
 	r.With(h.requireInternalToken).Post("/api/v1/internal/shipments", h.createShipment)
+	r.With(h.requireInternalToken).Post("/api/v1/internal/return-shipments", h.createReturnShipment)
+	r.With(h.requireInternalToken).Get("/api/v1/internal/return-shipments/{returnShipmentID}", h.getReturnShipment)
 	r.With(h.requireInternalToken).Post("/api/v1/internal/shipments/{shipmentID}/cancel", h.cancelShipment)
 	r.With(h.requireInternalToken).Post("/api/v1/internal/shipments/{shipmentID}/label-url", h.generateLabelURL)
 	r.With(h.requireInternalToken).Post("/api/v1/internal/shipments/{shipmentID}/handover", h.confirmHandover)
-	r.With(h.requireInternalToken).Get("/api/v1/admin/shipping/shipments", h.listShipments)
-	r.With(h.requireInternalToken).Get("/api/v1/admin/shipping/shipments/{shipmentID}", h.getShipment)
+	r.With(h.requireStaffShipmentView).Get("/api/v1/admin/shipping/shipments", h.listShipments)
+	r.With(h.requireStaffShipmentView).Get("/api/v1/admin/shipping/shipments/{shipmentID}", h.getShipment)
+	// Preserve the public provider v2 path; no Kong regex rewrite is needed.
+	r.With(h.requireStaffShipmentView).Get("/api/v2/admin/shipping/shipments", h.listShipments)
+	r.With(h.requireStaffShipmentView).Get("/api/v2/admin/shipping/shipments/{shipmentID}", h.getShipment)
+	if directory != nil {
+		r.Get("/api/v2/admin/shipping/workbench/shipments", h.listDriverShipments)
+		r.Get("/api/v2/admin/shipping/workbench/shipments/{shipmentID}", h.getDriverShipment)
+		r.Post("/api/v2/admin/shipping/shipments/{shipmentID}/progress", h.progressInternalDelivery)
+		r.Post("/api/v2/admin/shipping/shipments/{shipmentID}/accept", h.acceptInternalDelivery)
+		r.Get("/api/v2/admin/shipping/shipments/{shipmentID}/assignment", h.getInternalAssignment)
+		r.Post("/api/v2/admin/shipping/shipments/{shipmentID}/assignment", h.assignInternalDelivery)
+		r.Get("/api/v2/admin/shipping/shipments/{shipmentID}/assignment/history", h.internalAssignmentHistory)
+	}
 	r.With(h.requireInternalToken).Get("/api/v1/orders/{orderID}/tracking", h.trackOrder)
 	r.Post("/api/v1/webhooks/logistics/fake", h.fakeWebhook)
 	r.Post("/api/v1/webhooks/logistics/ghn", h.ghnWebhook)
 	return r
+}
+
+type recoveryResponseWriter struct {
+	http.ResponseWriter
+	wroteHeader bool
+}
+
+func (w *recoveryResponseWriter) WriteHeader(status int) {
+	if !w.wroteHeader {
+		w.wroteHeader = true
+	}
+	w.ResponseWriter.WriteHeader(status)
+}
+
+func (w *recoveryResponseWriter) Write(body []byte) (int, error) {
+	if !w.wroteHeader {
+		w.WriteHeader(http.StatusOK)
+	}
+	return w.ResponseWriter.Write(body)
+}
+
+func (w *recoveryResponseWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
+
+func (h *Router) recoverer(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		tracked := &recoveryResponseWriter{ResponseWriter: w}
+		defer func() {
+			if recovered := recover(); recovered != nil {
+				h.logger.Error().Interface("panic", recovered).Msg("http handler panic")
+				if !tracked.wroteHeader {
+					writeError(tracked, http.StatusInternalServerError, "INTERNAL_ERROR", "an internal error occurred")
+				}
+			}
+		}()
+		next.ServeHTTP(tracked, r)
+	})
 }
 
 func (h *Router) live(w http.ResponseWriter, _ *http.Request) {
@@ -84,6 +150,11 @@ func (h *Router) quote(w http.ResponseWriter, r *http.Request) {
 		Destination: request.Destination, Parcel: request.Parcel, ServiceCode: request.ServiceCode,
 	})
 	if err != nil {
+		var providerErr *application.ProviderError
+		if errors.As(err, &providerErr) {
+			writeError(w, http.StatusBadGateway, "CARRIER_QUOTE_FAILED", "carrier could not calculate the shipping quote")
+			return
+		}
 		h.handleError(w, err)
 		return
 	}
@@ -91,22 +162,27 @@ func (h *Router) quote(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Router) createShipment(w http.ResponseWriter, r *http.Request) {
+	headerKey, ok := requireIdempotencyKey(w, r)
+	if !ok {
+		return
+	}
 	var command domain.CreateShipmentCommand
 	if !decodeJSON(w, r, &command) {
 		return
 	}
-	if headerKey := strings.TrimSpace(r.Header.Get("Idempotency-Key")); headerKey != "" {
-		if command.IdempotencyKey != "" && command.IdempotencyKey != headerKey {
-			writeError(w, http.StatusBadRequest, "IDEMPOTENCY_KEY_MISMATCH", "header and body idempotency keys differ")
-			return
-		}
-		command.IdempotencyKey = headerKey
+	if command.IdempotencyKey != "" && command.IdempotencyKey != headerKey {
+		writeError(w, http.StatusBadRequest, "IDEMPOTENCY_KEY_MISMATCH", "header and body idempotency keys differ")
+		return
 	}
+	command.IdempotencyKey = headerKey
 	shipment, err := h.service.CreateShipment(r.Context(), command)
 	if err != nil {
 		var providerErr *application.ProviderError
 		if errors.As(err, &providerErr) {
-			writeJSON(w, http.StatusBadGateway, map[string]any{"error": errorBody{Code: "CARRIER_REJECTED", Message: providerErr.Cause.Error()}, "shipment": shipment})
+			writeJSON(w, http.StatusBadGateway, map[string]any{
+				"error":    errorBody{Code: "CARRIER_REJECTED", Message: "carrier rejected shipment creation", RequestID: w.Header().Get("X-Request-Id")},
+				"shipment": shipment,
+			})
 			return
 		}
 		h.handleError(w, err)
@@ -115,13 +191,57 @@ func (h *Router) createShipment(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, shipment)
 }
 
+func (h *Router) createReturnShipment(w http.ResponseWriter, r *http.Request) {
+	headerKey, ok := requireIdempotencyKey(w, r)
+	if !ok {
+		return
+	}
+	var command domain.CreateReturnShipmentCommand
+	if !decodeJSON(w, r, &command) {
+		return
+	}
+	command.IdempotencyKey = headerKey
+	shipment, err := h.service.CreateReturnShipment(r.Context(), command)
+	if err != nil {
+		var providerErr *application.ReturnProviderError
+		if errors.As(err, &providerErr) {
+			writeJSON(w, http.StatusBadGateway, map[string]any{
+				"error":           errorBody{Code: "CARRIER_REJECTED", Message: "carrier rejected return shipment creation", RequestID: w.Header().Get("X-Request-Id")},
+				"return_shipment": shipment,
+			})
+			return
+		}
+		h.handleError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, shipment)
+}
+
+func (h *Router) getReturnShipment(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(chi.URLParam(r, "returnShipmentID"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_RETURN_SHIPMENT_ID", "returnShipmentID must be a UUID")
+		return
+	}
+	shipment, err := h.service.GetReturnShipment(r.Context(), id)
+	if err != nil {
+		h.handleError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, shipment)
+}
+
 func (h *Router) confirmHandover(w http.ResponseWriter, r *http.Request) {
+	idempotencyKey, ok := requireIdempotencyKey(w, r)
+	if !ok {
+		return
+	}
 	id, err := uuid.Parse(chi.URLParam(r, "shipmentID"))
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_SHIPMENT_ID", "shipmentID must be a UUID")
 		return
 	}
-	shipment, err := h.service.ConfirmHandover(r.Context(), id)
+	shipment, err := h.service.ConfirmHandover(r.Context(), id, idempotencyKey)
 	if err != nil {
 		h.handleError(w, err)
 		return
@@ -135,6 +255,10 @@ type cancelShipmentRequest struct {
 }
 
 func (h *Router) cancelShipment(w http.ResponseWriter, r *http.Request) {
+	idempotencyKey, ok := requireIdempotencyKey(w, r)
+	if !ok {
+		return
+	}
 	id, err := uuid.Parse(chi.URLParam(r, "shipmentID"))
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_SHIPMENT_ID", "shipmentID must be a UUID")
@@ -144,12 +268,12 @@ func (h *Router) cancelShipment(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &request) {
 		return
 	}
-	shipment, err := h.service.CancelShipment(r.Context(), id, request.ReasonCode, request.Reason)
+	shipment, err := h.service.CancelShipment(r.Context(), id, idempotencyKey, request.ReasonCode, request.Reason)
 	if err != nil {
 		var providerErr *application.ProviderError
 		if errors.As(err, &providerErr) {
 			writeJSON(w, http.StatusBadGateway, map[string]any{
-				"error":    errorBody{Code: "CARRIER_CANCEL_REJECTED", Message: providerErr.Cause.Error()},
+				"error":    errorBody{Code: "CARRIER_CANCEL_REJECTED", Message: "carrier rejected shipment cancellation", RequestID: w.Header().Get("X-Request-Id")},
 				"shipment": shipment,
 			})
 			return
@@ -178,7 +302,7 @@ func (h *Router) generateLabelURL(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		var providerErr *application.ProviderError
 		if errors.As(err, &providerErr) {
-			writeError(w, http.StatusBadGateway, "LABEL_GENERATION_FAILED", providerErr.Cause.Error())
+			writeError(w, http.StatusBadGateway, "LABEL_GENERATION_FAILED", "carrier could not generate the shipment label")
 			return
 		}
 		h.handleError(w, err)
@@ -202,13 +326,43 @@ func (h *Router) getShipment(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Router) listShipments(w http.ResponseWriter, r *http.Request) {
-	page := parsePositiveInt(r.URL.Query().Get("page"), 1)
-	pageSize := parsePositiveInt(r.URL.Query().Get("pageSize"), 20)
-	if pageSize > 100 {
-		pageSize = 100
+	query := r.URL.Query()
+	if len(query["page"]) > 1 || len(query["pageSize"]) > 1 {
+		writeError(w, http.StatusBadRequest, "INVALID_PAGINATION", "page and pageSize may only be specified once")
+		return
+	}
+	if len(query["status"]) > 1 {
+		writeError(w, http.StatusBadRequest, "INVALID_STATUS_FILTER", "status may only be specified once")
+		return
+	}
+	if len(query["carrier"]) > 1 || len(query["orderId"]) > 1 {
+		writeError(w, http.StatusBadRequest, "INVALID_FILTER", "carrier and orderId may only be specified once")
+		return
+	}
+	page, validPage := 1, true
+	if query.Has("page") {
+		page, validPage = parsePositiveInt(query.Get("page"))
+	}
+	pageSize, validPageSize := 20, true
+	if query.Has("pageSize") {
+		pageSize, validPageSize = parsePositiveInt(query.Get("pageSize"))
+	}
+	if !validPage || !validPageSize || pageSize > 100 {
+		writeError(w, http.StatusBadRequest, "INVALID_PAGINATION", "page must be positive and pageSize must be between 1 and 100")
+		return
+	}
+	maxInt := int(^uint(0) >> 1)
+	if page-1 > maxInt/pageSize {
+		writeError(w, http.StatusBadRequest, "INVALID_PAGINATION", "page and pageSize exceed the supported offset range")
+		return
+	}
+	status := domain.ShipmentStatus(r.URL.Query().Get("status"))
+	if status != "" && !isValidShipmentStatus(status) {
+		writeError(w, http.StatusBadRequest, "INVALID_STATUS_FILTER", "status must be a supported shipment status")
+		return
 	}
 	items, err := h.service.ListShipments(r.Context(), application.ListFilter{
-		Status:      domain.ShipmentStatus(r.URL.Query().Get("status")),
+		Status:      status,
 		CarrierCode: strings.ToUpper(r.URL.Query().Get("carrier")), OrderID: r.URL.Query().Get("orderId"),
 		Limit: pageSize, Offset: (page - 1) * pageSize,
 	})
@@ -217,6 +371,18 @@ func (h *Router) listShipments(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"items": items, "page": page, "page_size": pageSize})
+}
+
+func isValidShipmentStatus(status domain.ShipmentStatus) bool {
+	switch status {
+	case domain.StatusCreating, domain.StatusCreationFailed, domain.StatusCreated,
+		domain.StatusReadyForHandover, domain.StatusHandedOver, domain.StatusInTransit,
+		domain.StatusOutForDelivery, domain.StatusDelivered, domain.StatusDeliveryFailed,
+		domain.StatusReturning, domain.StatusReturned, domain.StatusCancelled:
+		return true
+	default:
+		return false
+	}
 }
 
 type publicTracking struct {
@@ -275,15 +441,22 @@ func publicEvents(events []domain.TrackingEvent) []domain.TrackingEvent {
 func (h *Router) fakeWebhook(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 1<<20))
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "INVALID_BODY", "request body is invalid or too large")
+		writeBodyReadError(w, err)
 		return
 	}
 	if !verifySignature(body, r.Header.Get("X-Shipping-Signature"), h.fakeWebhookSecret) {
 		writeError(w, http.StatusUnauthorized, "INVALID_SIGNATURE", "webhook signature is invalid")
 		return
 	}
+	if !requireJSONContentType(w, r) {
+		return
+	}
 	shipment, result, err := h.service.ApplyWebhook(r.Context(), carrier.FakeCode, body)
 	if err != nil {
+		if errors.Is(err, carrier.ErrInvalidWebhook) {
+			writeError(w, http.StatusBadRequest, "INVALID_WEBHOOK", "carrier webhook payload is invalid")
+			return
+		}
 		h.handleError(w, err)
 		return
 	}
@@ -300,16 +473,19 @@ func (h *Router) ghnWebhook(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "INVALID_WEBHOOK_SECRET", "webhook authentication failed")
 		return
 	}
+	if !requireJSONContentType(w, r) {
+		return
+	}
 	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 1<<20))
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "INVALID_BODY", "request body is invalid or too large")
+		writeBodyReadError(w, err)
 		return
 	}
 	shipment, result, err := h.service.ApplyWebhook(r.Context(), "GHN", body)
 	if err != nil {
 		switch {
 		case errors.Is(err, carrier.ErrInvalidWebhook):
-			writeError(w, http.StatusBadRequest, "INVALID_GHN_WEBHOOK", err.Error())
+			writeError(w, http.StatusBadRequest, "INVALID_GHN_WEBHOOK", "GHN webhook payload is invalid")
 		case errors.Is(err, domain.ErrTrackingNotFound), errors.Is(err, domain.ErrShipmentNotFound):
 			// GHN can deliver the create callback before the local create transaction commits.
 			// A retryable response prevents that callback from being dropped permanently.
@@ -351,6 +527,43 @@ func (h *Router) requireInternalToken(next http.Handler) http.Handler {
 	})
 }
 
+func (h *Router) requireStaffShipmentView(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if h.staffAuth == nil {
+			writeError(w, http.StatusUnauthorized, "UNAUTHORIZED", "valid employee authentication is required")
+			return
+		}
+		if _, err := h.staffAuth.Authenticate(r.Context(), r.Header.Get("Authorization")); err != nil {
+			if errors.Is(err, errStaffForbidden) {
+				writeError(w, http.StatusForbidden, "FORBIDDEN", "shipment view permission is required")
+				return
+			}
+			writeError(w, http.StatusUnauthorized, "UNAUTHORIZED", "valid employee authentication is required")
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func requireIdempotencyKey(w http.ResponseWriter, r *http.Request) (string, bool) {
+	key := r.Header.Get("Idempotency-Key")
+	if key == "" {
+		writeError(w, http.StatusBadRequest, "IDEMPOTENCY_KEY_REQUIRED", "Idempotency-Key header is required")
+		return "", false
+	}
+	if len(key) < 16 || len(key) > 128 {
+		writeError(w, http.StatusBadRequest, "INVALID_IDEMPOTENCY_KEY", "Idempotency-Key must contain 16-128 printable ASCII characters without spaces")
+		return "", false
+	}
+	for _, character := range []byte(key) {
+		if character < 0x21 || character > 0x7e {
+			writeError(w, http.StatusBadRequest, "INVALID_IDEMPOTENCY_KEY", "Idempotency-Key must contain 16-128 printable ASCII characters without spaces")
+			return "", false
+		}
+	}
+	return key, true
+}
+
 func (h *Router) requestLog(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		started := time.Now()
@@ -362,12 +575,14 @@ func (h *Router) requestLog(next http.Handler) http.Handler {
 
 func (h *Router) handleError(w http.ResponseWriter, err error) {
 	switch {
-	case errors.Is(err, domain.ErrShipmentNotFound), errors.Is(err, domain.ErrTrackingNotFound):
-		writeError(w, http.StatusNotFound, "NOT_FOUND", err.Error())
+	case errors.Is(err, domain.ErrShipmentNotFound), errors.Is(err, domain.ErrReturnShipmentNotFound), errors.Is(err, domain.ErrTrackingNotFound):
+		writeError(w, http.StatusNotFound, "NOT_FOUND", "shipping or tracking resource was not found")
 	case errors.Is(err, domain.ErrInvalidShipment), errors.Is(err, domain.ErrUnsupportedCarrier):
-		writeError(w, http.StatusUnprocessableEntity, "VALIDATION_FAILED", err.Error())
+		writeError(w, http.StatusUnprocessableEntity, "VALIDATION_FAILED", "request does not satisfy shipping requirements")
+	case errors.Is(err, domain.ErrIdempotencyConflict):
+		writeError(w, http.StatusConflict, "IDEMPOTENCY_KEY_REUSED", "Idempotency-Key was already used with a different request")
 	case errors.Is(err, domain.ErrInvalidTransition), errors.Is(err, domain.ErrConcurrentUpdate):
-		writeError(w, http.StatusConflict, "CONFLICT", err.Error())
+		writeError(w, http.StatusConflict, "CONFLICT", "shipment state changed or does not allow this action")
 	default:
 		h.logger.Error().Err(err).Msg("request failed")
 		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "an internal error occurred")
@@ -375,12 +590,20 @@ func (h *Router) handleError(w http.ResponseWriter, err error) {
 }
 
 type errorBody struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
+	Code      string `json:"code"`
+	Message   string `json:"message"`
+	RequestID string `json:"requestId"`
 }
 
 func writeError(w http.ResponseWriter, status int, code, message string) {
-	writeJSON(w, status, map[string]any{"error": errorBody{Code: code, Message: message}})
+	writeJSON(w, status, errorBody{Code: code, Message: message, RequestID: w.Header().Get("X-Request-Id")})
+}
+
+func (h *Router) requestIDHeader(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Request-Id", middleware.GetReqID(r.Context()))
+		next.ServeHTTP(w, r)
+	})
 }
 
 func writeJSON(w http.ResponseWriter, status int, value any) {
@@ -390,23 +613,53 @@ func writeJSON(w http.ResponseWriter, status int, value any) {
 }
 
 func decodeJSON(w http.ResponseWriter, r *http.Request, target any) bool {
+	if !requireJSONContentType(w, r) {
+		return false
+	}
 	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(target); err != nil {
-		writeError(w, http.StatusBadRequest, "INVALID_JSON", fmt.Sprintf("invalid request body: %v", err))
+		writeJSONDecodeError(w, err)
 		return false
 	}
 	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
-		writeError(w, http.StatusBadRequest, "INVALID_JSON", "request body must contain one JSON value")
+		writeJSONDecodeError(w, err)
 		return false
 	}
 	return true
 }
 
-func parsePositiveInt(raw string, fallback int) int {
+func writeJSONDecodeError(w http.ResponseWriter, err error) {
+	var maxBytesError *http.MaxBytesError
+	if errors.As(err, &maxBytesError) {
+		writeError(w, http.StatusRequestEntityTooLarge, "PAYLOAD_TOO_LARGE", "request body exceeds the 1 MiB limit")
+		return
+	}
+	writeError(w, http.StatusBadRequest, "INVALID_JSON", "request body must be valid JSON matching the documented schema")
+}
+
+func writeBodyReadError(w http.ResponseWriter, err error) {
+	var maxBytesError *http.MaxBytesError
+	if errors.As(err, &maxBytesError) {
+		writeError(w, http.StatusRequestEntityTooLarge, "PAYLOAD_TOO_LARGE", "request body exceeds the 1 MiB limit")
+		return
+	}
+	writeError(w, http.StatusBadRequest, "INVALID_BODY", "request body is invalid")
+}
+
+func requireJSONContentType(w http.ResponseWriter, r *http.Request) bool {
+	mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	if err != nil || !strings.EqualFold(mediaType, "application/json") {
+		writeError(w, http.StatusUnsupportedMediaType, "UNSUPPORTED_MEDIA_TYPE", "Content-Type must be application/json")
+		return false
+	}
+	return true
+}
+
+func parsePositiveInt(raw string) (int, bool) {
 	value, err := strconv.Atoi(raw)
 	if err != nil || value <= 0 {
-		return fallback
+		return 0, false
 	}
-	return value
+	return value, true
 }
