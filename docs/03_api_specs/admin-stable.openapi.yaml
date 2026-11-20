@@ -9,6 +9,18 @@ x-shipping-provider-integration:
   callback-authentication: X-GHN-Webhook-Secret (validated by Shipping, not a staff JWT)
   internal-routes-exposed: false
   web-bff-connected: false
+  company-delivery:
+    carrier-code: INTERNAL
+    feature-flag: SHIPPING_INTERNAL_DELIVERY_ENABLED
+    default-enabled: false
+    employee-workbench-implemented: false
+    cod-supported: false
+    label-supported: false
+    description: >-
+      Opt-in carrier foundation only. Existing private quote/create/cancel APIs may select
+      INTERNAL when enabled with explicit fee and ETA configuration. No employee assignment
+      or mutation API is exposed by this foundation, and no public INTERNAL webhook exists.
+      Shipment/provider reads keep the existing schema. FAKE and GHN behavior is unchanged.
   description: >-
     Kong forwards employee bearer tokens and the full v2 path unchanged to Shipping on port 8012.
     Shipping exposes v2 aliases using the same JWT middleware and handlers as its v1 provider reads.

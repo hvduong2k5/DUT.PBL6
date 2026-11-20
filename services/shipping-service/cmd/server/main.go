@@ -64,6 +64,14 @@ func main() {
 
 	repository := postgresrepo.New(pool)
 	providers := []carrier.Carrier{carrier.NewFake()}
+	if cfg.InternalDeliveryEnabled {
+		internalProvider, err := carrier.NewInternal(cfg.InternalDeliveryFeeVND, cfg.InternalDeliveryETA)
+		if err != nil {
+			logger.Fatal().Err(err).Msg("configure internal delivery carrier")
+		}
+		providers = append(providers, internalProvider)
+		logger.Warn().Msg("Internal delivery carrier foundation enabled; employee workbench is not yet implemented")
+	}
 	if cfg.GHNEnabled {
 		ghnProvider, providerErr := ghncarrier.New(ghncarrier.Config{
 			BaseURL: cfg.GHNBaseURL, Token: cfg.GHNToken, ShopID: cfg.GHNShopID,

@@ -103,6 +103,7 @@ func TestLoadRequiresCompleteGHNCredentialsWhenEnabled(t *testing.T) {
 
 func setRequiredBaseEnvironment(t *testing.T) {
 	t.Helper()
+	t.Setenv("SHIPPING_INTERNAL_DELIVERY_ENABLED", "false")
 	t.Setenv("SHIPPING_ORDER_GRPC_ENDPOINT", "")
 	t.Setenv("SHIPPING_ORDER_INTERNAL_TOKEN", "")
 	t.Setenv("SHIPPING_PACKING_V2_ENABLED", "false")
@@ -113,4 +114,33 @@ func setRequiredBaseEnvironment(t *testing.T) {
 	t.Setenv("SHIPPING_GRPC_TLS_CERT_FILE", "")
 	t.Setenv("SHIPPING_GRPC_TLS_KEY_FILE", "")
 	t.Setenv("SHIPPING_FAKE_WEBHOOK_SECRET", "fake-secret")
+}
+
+func TestInternalDeliveryRequiresExplicitPolicyAndIsOptIn(t *testing.T) {
+	setRequiredBaseEnvironment(t)
+	t.Setenv("SHIPPING_GHN_ENABLED", "false")
+	t.Setenv("SHIPPING_INTERNAL_DELIVERY_ENABLED", "")
+	cfg, err := Load()
+	if err != nil || cfg.InternalDeliveryEnabled {
+		t.Fatalf("internal carrier must be disabled by default: %v", err)
+	}
+	t.Setenv("SHIPPING_INTERNAL_DELIVERY_ENABLED", "true")
+	for _, tc := range []struct{ fee, eta string }{
+		{"", "24h"}, {"bad", "24h"}, {"-1", "24h"}, {"1000000001", "24h"},
+		{"25000", ""}, {"25000", "invalid"}, {"25000", "0s"}, {"25000", "-1h"}, {"25000", "744h"},
+	} {
+		t.Run(tc.fee+"/"+tc.eta, func(t *testing.T) {
+			t.Setenv("SHIPPING_INTERNAL_DELIVERY_FEE_VND", tc.fee)
+			t.Setenv("SHIPPING_INTERNAL_DELIVERY_ETA", tc.eta)
+			if _, err := Load(); err == nil {
+				t.Fatal("invalid/missing policy accepted")
+			}
+		})
+	}
+	t.Setenv("SHIPPING_INTERNAL_DELIVERY_FEE_VND", "25000")
+	t.Setenv("SHIPPING_INTERNAL_DELIVERY_ETA", "24h")
+	cfg, err = Load()
+	if err != nil || !cfg.InternalDeliveryEnabled || cfg.InternalDeliveryFeeVND != 25000 || cfg.InternalDeliveryETA.Hours() != 24 {
+		t.Fatalf("valid policy rejected: %v", err)
+	}
 }

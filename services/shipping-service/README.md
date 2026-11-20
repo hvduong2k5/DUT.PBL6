@@ -74,6 +74,37 @@ reconcile by a stable client reference before retrying a create. Return records 
 shipments, and their events use `shipping.return.events.v1` (partition key `return_shipment_id`).
 Shipping does not approve Care cases, issue refunds, or change Order state. Return event
 consumers remain pending integration acceptance.
+## Company delivery implementation plan
+
+Company fleet delivery is a separate `INTERNAL` carrier, not a rename of `FAKE` and not an
+operator override for GHN shipments. Implementation proceeds in separately tested tasks:
+
+1. **Implemented foundation:** opt-in provider, configured flat rate/estimated transit time,
+   stable shipment references, existing create/cancel/idempotency lifecycle and independent tests.
+2. **Pending:** persistent driver assignment, assignment/reassignment audit and concurrency guards.
+3. **Pending:** employee JWT permissions and assignee-bound delivery actions with proof/reasons,
+   atomic shipment/tracking/revision/outbox writes and retry protection.
+4. **Pending:** connect actual employee Web BFF/workbench and register only approved public routes.
+5. **Pending:** company-delivery return workflow, integration with Order/Care, then joint Coolify
+   acceptance for GHN and INTERNAL. A returned outbound parcel and a Care-approved new pickup
+   remain distinct resources/workflows; neither directly executes a refund.
+
+Keep `SHIPPING_INTERNAL_DELIVERY_ENABLED=false` until workbench acceptance. When explicitly
+testing the foundation, set `SHIPPING_INTERNAL_DELIVERY_FEE_VND` (0..1,000,000,000) and
+`SHIPPING_INTERNAL_DELIVERY_ETA` (positive Go duration, at most 720h). No tariff is silently
+selected. The example 25,000 VND / 24h is a development example, not an approved production rate.
+The provider accepts `STANDARD`, creates `INT-<shipment UUID>` tracking codes, and does not
+invent a driver, pickup confirmation, proof, printable URL or delivered state. Nonzero COD is
+rejected until collection/reconciliation policy is implemented. No public INTERNAL webhook is
+accepted. Existing GHN/fake behavior and their credentials are unchanged.
+
+Proposed permissions for the subsequent task: `SHIPMENT_ASSIGN#GLOBAL` for dispatch and
+`SHIPMENT_DELIVER#GLOBAL` for driver actions, in addition to existing shipment read permission.
+Driver action authorization must also match the stored assignee; a GLOBAL action grant alone
+does not permit manipulating another driver's shipment. These are proposals, not Identity seed
+or workbench acceptance. Start with prepaid/no-COD delivery; require reason for failure and
+an approved immutable proof reference before declaring proof-bearing delivery complete.
+
 ## GHN staging adapter
 
 GHN remains disabled by default. Configure sandbox credentials locally or through deployment

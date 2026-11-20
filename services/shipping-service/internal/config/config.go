@@ -46,6 +46,10 @@ type Config struct {
 	GHNRequestTimeout  time.Duration
 	GHNRecoveryTimeout time.Duration
 	GHNQuoteTTL        time.Duration
+
+	InternalDeliveryEnabled bool
+	InternalDeliveryFeeVND  int64
+	InternalDeliveryETA     time.Duration
 }
 
 func Load() (Config, error) {
@@ -87,6 +91,8 @@ func Load() (Config, error) {
 		GHNRequestTimeout:  durationEnv("SHIPPING_GHN_REQUEST_TIMEOUT", 10*time.Second),
 		GHNRecoveryTimeout: durationEnv("SHIPPING_GHN_RECONCILE_TIMEOUT", 5*time.Second),
 		GHNQuoteTTL:        durationEnv("SHIPPING_GHN_QUOTE_TTL", 15*time.Minute),
+
+		InternalDeliveryEnabled: boolEnv("SHIPPING_INTERNAL_DELIVERY_ENABLED", false),
 	}
 	if cfg.Environment != "local" && cfg.Environment != "production" {
 		return Config{}, fmt.Errorf("SHIPPING_ENV must be local or production")
@@ -116,6 +122,17 @@ func Load() (Config, error) {
 		if cfg.GHNWebhookSecret == "" {
 			return Config{}, fmt.Errorf("SHIPPING_GHN_WEBHOOK_SECRET is required when GHN is enabled")
 		}
+	}
+	if cfg.InternalDeliveryEnabled {
+		fee, err := strconv.ParseInt(strings.TrimSpace(os.Getenv("SHIPPING_INTERNAL_DELIVERY_FEE_VND")), 10, 64)
+		if err != nil || fee < 0 || fee > 1_000_000_000 {
+			return Config{}, fmt.Errorf("enabled internal delivery requires explicit SHIPPING_INTERNAL_DELIVERY_FEE_VND between 0 and 1000000000")
+		}
+		eta, err := time.ParseDuration(strings.TrimSpace(os.Getenv("SHIPPING_INTERNAL_DELIVERY_ETA")))
+		if err != nil || eta <= 0 || eta > 30*24*time.Hour {
+			return Config{}, fmt.Errorf("enabled internal delivery requires explicit SHIPPING_INTERNAL_DELIVERY_ETA within 30 days")
+		}
+		cfg.InternalDeliveryFeeVND, cfg.InternalDeliveryETA = fee, eta
 	}
 	return cfg, nil
 }
