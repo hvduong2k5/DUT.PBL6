@@ -35,6 +35,8 @@ class ShippingIntegrationTests(unittest.TestCase):
             ("GET", "/api/v2/admin/shipping/shipments/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/assignment"),
             ("POST", "/api/v2/admin/shipping/shipments/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/assignment"),
             ("GET", "/api/v2/admin/shipping/shipments/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/assignment/history"),
+            ("POST", "/api/v2/admin/shipping/shipments/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/accept"),
+            ("POST", "/api/v2/admin/shipping/shipments/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/progress"),
         ]:
             with self.subTest(method=method, path=path):
                 self.assertEqual(self.matches(method, path), [])
@@ -113,6 +115,30 @@ class ShippingIntegrationTests(unittest.TestCase):
         response = op["responses"]["200"]["content"]["application/json"]
         Draft202012Validator(response["schema"], format_checker=FormatChecker()).validate(response["example"])
         self.assertTrue({"400", "401", "403", "404", "409", "422", "503"}.issubset(op["responses"]))
+
+    def test_progress_contract_and_internal_event_compatibility(self):
+        spec = yaml.safe_load((ROOT / "docs/03_api_specs/admin-stable.openapi.yaml").read_text(encoding="utf-8"))
+        op = spec["paths"]["/api/v2/admin/shipping/shipments/{shipmentId}/progress"]["post"]
+        self.assertEqual(op["security"], [{"bearerAuth": []}])
+        self.assertEqual(op["x-required-permissions"], ["SHIPMENT_EXECUTE"])
+        self.assertEqual(op["x-required-grant-scope"], "GLOBAL")
+        self.assertEqual(op["x-feature-flag"], "SHIPPING_INTERNAL_ASSIGNMENTS_ENABLED")
+        request = op["requestBody"]["content"]["application/json"]
+        validate = Draft202012Validator(request["schema"])
+        example = request["example"]
+        validate.validate(example)
+        for invalid in ({}, {**example, "actor_id": "spoof"}, {**example, "assignment_version": 0}, {**example, "expected_revision": 0}, {**example, "status": "HANDED_OVER"}, {**example, "status": "CANCELLED"}, {**example, "reason": "x" * 501}):
+            self.assertFalse(validate.is_valid(invalid), invalid)
+        response = op["responses"]["200"]["content"]["application/json"]
+        Draft202012Validator(response["schema"], format_checker=FormatChecker()).validate(response["example"])
+        import json
+        for name, status in (("shipment_delivered", "DELIVERED"), ("shipment_delivery_failed", "DELIVERY_FAILED"), ("shipment_status_changed", "IN_TRANSIT"), ("shipment_returning", "RETURNING"), ("shipment_returned", "RETURNED")):
+            schema = json.loads((ROOT / f"packages/events/schemas/shipping/v2/{name}.event.json").read_text())
+            event = json.loads((ROOT / "packages/events/examples/shipping/v2/shipment_delivered.json").read_text())
+            event["data"]["carrier_code"] = "INTERNAL"
+            event["data"]["status"] = status
+            event["type"] = "vn.omama.shipping.shipment." + name.removeprefix("shipment_").replace("_", "-") + ".v2"
+            Draft202012Validator(schema, format_checker=FormatChecker()).validate(event)
 
     def test_seed_is_idempotent_and_only_grants_active_admin(self):
         sql = (ROOT / "services/identity-service/src/main/resources/db/migration/V23__seed_shipping_permissions.sql").read_text()

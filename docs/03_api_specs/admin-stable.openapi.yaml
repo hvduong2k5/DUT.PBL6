@@ -25,7 +25,7 @@ x-shipping-provider-integration:
       Opt-in carrier foundation only. Existing private quote/create/cancel APIs may select
       INTERNAL when enabled with explicit fee and ETA configuration. Assignment reads/mutations
       are separately opt-in, validate live Identity employee state and are not registered at Kong.
-      Driver delivery actions/UI remain pending. No public INTERNAL webhook exists.
+      Driver acceptance/progress APIs are opt-in; UI remains pending. No public INTERNAL webhook exists.
       Shipment/provider reads keep the existing schema. FAKE and GHN behavior is unchanged.
   description: >-
     Kong forwards employee bearer tokens and the full v2 path unchanged to Shipping on port 8012.
@@ -82,6 +82,83 @@ security:
 - bearerAuth: []
 - adminSession: []
 paths:
+  /api/v2/admin/shipping/shipments/{shipmentId}/progress:
+    post:
+      operationId: progressInternalDeliveryV2
+      tags: [Shipping]
+      summary: Record assigned company-driver delivery progress
+      x-lifecycle: stable
+      x-required-permissions: [SHIPMENT_EXECUTE]
+      x-required-grant-scope: GLOBAL
+      x-feature-flag: SHIPPING_INTERNAL_ASSIGNMENTS_ENABLED
+      security: [{bearerAuth: []}]
+      description: >-
+        Requires signed SHIPMENT_EXECUTE#GLOBAL and live ACTIVE EMPLOYEE from Identity
+        /api/v1/users/me. GLOBAL never bypasses ownership. Under one shipment lock, the
+        actor must be the current driver, assignment_version must match an accepted current
+        assignment and expected_revision must match the shipment. Only prepaid INTERNAL.
+        Warehouse handover is required first; driver cannot manufacture it. Allowed steps:
+        HANDED_OVER to IN_TRANSIT to OUT_FOR_DELIVERY; OUT_FOR_DELIVERY to DELIVERED or
+        DELIVERY_FAILED; DELIVERY_FAILED to OUT_FOR_DELIVERY or RETURNING; RETURNING to
+        RETURNED. Terminal DELIVERED/RETURNED cannot advance. No same-state new actions.
+        reason is an employee attestation, not verified photo evidence or financial settlement.
+        Shipment, tracking, immutable actor audit, revision proof where applicable and existing
+        versioned event outbox commit atomically. Existing Kafka worker delivers to Order;
+        this response does not assert consumer acceptance. Exact retries return the original
+        receipt even after later transitions, subject to current JWT/live employee checks.
+        Unknown fields/actor overrides are rejected. Default disabled returns 404; no Kong/UI
+        connection yet. Identity must provision SHIPMENT_EXECUTE before rollout.
+      parameters:
+        - {name: shipmentId, in: path, required: true, schema: {type: string, format: uuid}}
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: {type: string, minLength: 16, maxLength: 128, pattern: '^[!-~]+$'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [assignment_version, expected_revision, status, reason]
+              properties:
+                assignment_version: {type: integer, format: int64, minimum: 1, maximum: 9223372036854775806}
+                expected_revision: {type: integer, format: int64, minimum: 1, maximum: 9223372036854775806}
+                status: {type: string, enum: [IN_TRANSIT, OUT_FOR_DELIVERY, DELIVERED, DELIVERY_FAILED, RETURNING, RETURNED]}
+                reason: {type: string, minLength: 1, maxLength: 500, description: Nonblank employee attestation without control characters; not public tracking text}
+            example: {assignment_version: 1, expected_revision: 4, status: IN_TRANSIT, reason: Started delivery route}
+      responses:
+        '200':
+          description: Committed progress receipt or immutable original replay
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [shipment_id, actor_id, assignment_version, revision, status, event_id, occurred_at]
+                properties:
+                  shipment_id: {type: string, format: uuid}
+                  actor_id: {type: string, format: uuid}
+                  assignment_version: {type: integer, minimum: 1}
+                  revision: {type: integer, minimum: 1}
+                  status: {type: string, enum: [IN_TRANSIT, OUT_FOR_DELIVERY, DELIVERED, DELIVERY_FAILED, RETURNING, RETURNED]}
+                  event_id: {type: string, format: uuid}
+                  occurred_at: {type: string, format: date-time}
+              example: {shipment_id: a0000000-0000-0000-0000-000000000001, actor_id: a0000000-0000-0000-0000-000000000002, assignment_version: 1, revision: 5, status: IN_TRANSIT, event_id: a0000000-0000-0000-0000-000000000003, occurred_at: '2026-11-20T10:00:00Z'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '413':
+          description: Body exceeds 1 MiB
+          content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+        '415':
+          description: application/json required
+          content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+        '422': {$ref: '#/components/responses/UnprocessableEntity'}
+        '500': {$ref: '#/components/responses/InternalError'}
+        '503': {$ref: '#/components/responses/ServiceUnavailable'}
   /api/v2/admin/shipping/shipments/{shipmentId}/accept:
     post:
       operationId: acceptInternalDeliveryV2

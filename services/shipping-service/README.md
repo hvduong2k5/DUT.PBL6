@@ -86,8 +86,9 @@ operator override for GHN shipments. Implementation proceeds in separately teste
 2. **Implemented storage/application foundation:** persistent driver assignment, immutable
    assignment/reassignment audit, actor-scoped idempotency and concurrency guards. Opt-in REST
    assignment endpoints now validate signed dispatcher permissions and live Identity state.
-3. **Pending:** driver JWT permissions and assignee-bound delivery actions with proof/reasons,
-   atomic shipment/tracking/revision/outbox writes and retry protection.
+3. **Implemented opt-in backend:** driver JWT permission and assignee-bound acceptance/progress,
+   manual reasons, atomic shipment/tracking/revision/outbox writes and retry protection.
+   Verified photo evidence, live Identity provisioning and end-to-end consumer acceptance remain pending.
 4. **Pending:** connect actual employee Web BFF/workbench and register only approved public routes.
 5. **Pending:** company-delivery return workflow, integration with Order/Care, then joint Coolify
    acceptance for GHN and INTERNAL. A returned outbound parcel and a Care-approved new pickup
@@ -102,8 +103,8 @@ invent a driver, pickup confirmation, proof, printable URL or delivered state. N
 rejected until collection/reconciliation policy is implemented. No public INTERNAL webhook is
 accepted. Existing GHN/fake behavior and their credentials are unchanged.
 
-Assignment APIs enforce `SHIPMENT_ASSIGN#GLOBAL` for dispatch. `SHIPMENT_DELIVER#GLOBAL` is
-proposed for future driver actions, in addition to existing shipment read permission.
+Assignment APIs enforce `SHIPMENT_ASSIGN#GLOBAL` for dispatch. `SHIPMENT_EXECUTE#GLOBAL`
+is required for driver acceptance/progress, separate from existing shipment read permission.
 Driver action authorization must also match the stored assignee; a GLOBAL action grant alone
 does not permit manipulating another driver's shipment. These grants are not seeded in Identity
 by this task and driver workbench is not accepted yet. Start with prepaid/no-COD delivery; require reason for failure and
@@ -127,6 +128,25 @@ database and `go test -race ./internal/repository/postgres -run TestPostgresInte
 It creates/drops its own random schema and verifies migration replay, concurrent assignment,
 immutable retries, carrier/status/COD restrictions and transaction rollback on injected failure.
 
+### Internal driver progress
+
+POST `/api/v2/admin/shipping/shipments/{shipmentID}/progress` shares the opt-in assignment
+flag and requires SHIPMENT_EXECUTE#GLOBAL plus live ACTIVE EMPLOYEE validation. Payload:
+`{ "assignment_version": 1, "expected_revision": 4, "status": "IN_TRANSIT", "reason": "Started route" }`.
+Idempotency-Key is required; actor comes only from JWT. Under a shipment lock, the current
+driver and accepted current assignment are checked, then the shipment revision is compared.
+Warehouse handover must already exist. Stages are HANDED_OVER → IN_TRANSIT → OUT_FOR_DELIVERY
+→ DELIVERED/DELIVERY_FAILED; failed deliveries may retry OUT_FOR_DELIVERY or RETURNING → RETURNED.
+No skips, repeated new actions or terminal rewrites. Acceptance/reassignment cannot bypass this.
+
+Migration 000012 stores immutable actor/action receipts. Status, tracking, receipt, applicable
+exact-revision proof and existing versioned event outbox commit in one transaction. The existing
+Kafka worker publishes these events; no new Order protocol is introduced. Order's adapter uses
+created/handed-over/delivered/delivery-failed v2 proofs; intermediate/return events keep their
+existing semantics and do not imply automatic refund or Care return-pickup completion.
+Reason is a private manual attestation, not verified photo evidence; settlement_verified remains
+false. GHN/FAKE cannot use these employee actions. No new Kong route/UI is enabled yet.
+
 ### Driver acceptance foundation
 
 Migration 000011 persists acceptance against an immutable assignment version. Only the
@@ -141,7 +161,7 @@ Idempotency-Key and JSON `{ "expected_version": 1 }`. Actor/driver overrides are
 USER_VIEW is not required for the driver's self-service action. GLOBAL is the token scope,
 not an ownership bypass; SHIPMENT_ASSIGN/SHIPMENT_VIEW alone cannot accept a delivery.
 Identity must provision SHIPMENT_EXECUTE before rollout. No Kong route or driver UI yet;
-subsequent delivery actions remain the next workbench step. PostgreSQL tests cover
+driver UI and deployment acceptance remain pending. PostgreSQL tests cover
 ownership, versioning, replay, reassignment and handover boundaries.
 
 ### Dispatcher assignment API

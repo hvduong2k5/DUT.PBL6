@@ -229,6 +229,13 @@ func (r *Repository) Save(ctx context.Context, shipment *domain.Shipment, expect
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
+	if err := saveShipmentTx(ctx, tx, shipment, expectedRevision, tracking, event); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+func saveShipmentTx(ctx context.Context, tx pgx.Tx, shipment *domain.Shipment, expectedRevision int64, tracking *domain.TrackingEvent, event *domain.DomainEvent) error {
 	if tracking != nil {
 		tag, insertErr := tx.Exec(ctx, `
 			INSERT INTO tracking_events (
@@ -296,7 +303,7 @@ func (r *Repository) Save(ctx context.Context, shipment *domain.Shipment, expect
 			return insertErr
 		}
 	}
-	return tx.Commit(ctx)
+	return nil
 }
 
 func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Shipment, error) {

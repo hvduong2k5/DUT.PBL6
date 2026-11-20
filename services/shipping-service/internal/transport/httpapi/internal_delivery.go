@@ -110,6 +110,41 @@ func (h *Router) acceptInternalDelivery(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, 200, result)
 }
 
+func (h *Router) progressInternalDelivery(w http.ResponseWriter, r *http.Request) {
+	p, ok := h.internalDeliveryActor(w, r, "SHIPMENT_EXECUTE", false)
+	if !ok {
+		return
+	}
+	key, ok := requireIdempotencyKey(w, r)
+	if !ok {
+		return
+	}
+	id, ok := h.internalAssignmentTarget(w, r)
+	if !ok {
+		return
+	}
+	var body struct {
+		AssignmentVersion *int64                `json:"assignment_version"`
+		ExpectedRevision  *int64                `json:"expected_revision"`
+		Status            domain.ShipmentStatus `json:"status"`
+		Reason            string                `json:"reason"`
+	}
+	if !decodeJSON(w, r, &body) {
+		return
+	}
+	if body.AssignmentVersion == nil || body.ExpectedRevision == nil {
+		writeError(w, 400, "INVALID_REQUEST", "assignment_version and expected_revision are required")
+		return
+	}
+	actor, _ := uuid.Parse(p.UserID)
+	result, err := h.service.ProgressInternalDelivery(r.Context(), domain.ProgressInternalDelivery{ShipmentID: id, ActorID: actor, AssignmentVersion: *body.AssignmentVersion, ExpectedRevision: *body.ExpectedRevision, Status: body.Status, Reason: body.Reason, IdempotencyKey: key})
+	if err != nil {
+		h.assignmentError(w, err)
+		return
+	}
+	writeJSON(w, 200, result)
+}
+
 func (h *Router) internalAssignmentTarget(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool) {
 	id, err := uuid.Parse(chi.URLParam(r, "shipmentID"))
 	if err != nil || id == uuid.Nil {

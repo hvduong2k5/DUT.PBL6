@@ -3,6 +3,7 @@ package postgres_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"strings"
 	"sync"
@@ -72,6 +73,170 @@ func TestPostgresInternalDeliveryAssignments(t *testing.T) {
 	command := func(s *domain.Shipment) domain.AssignInternalDelivery {
 		return domain.AssignInternalDelivery{ShipmentID: s.ID, DriverID: uuid.New(), ActorID: uuid.New(), Reason: "Initial dispatch", IdempotencyKey: "assign-" + uuid.NewString()}
 	}
+
+	t.Run("driver progress atomic outbox revisions replay and return", func(t *testing.T) {
+		prepare := func() (*domain.Shipment, domain.ProgressInternalDelivery) {
+			s := create(carrier.InternalCode)
+			if _, err := pool.Exec(ctx, `UPDATE shipments SET event_version=2,ready_generation=1,seal_code='INTERNAL-SEAL' WHERE id=$1`, s.ID); err != nil {
+				t.Fatal(err)
+			}
+			a := command(s)
+			if _, err := svc.AssignInternalDelivery(ctx, a); err != nil {
+				t.Fatal(err)
+			}
+			c := domain.ProgressInternalDelivery{ShipmentID: s.ID, ActorID: a.DriverID, AssignmentVersion: 1, ExpectedRevision: s.Revision, Status: domain.StatusInTransit, Reason: "Started route", IdempotencyKey: "progress-" + uuid.NewString()}
+			if _, err := svc.ProgressInternalDelivery(ctx, c); !errors.Is(err, domain.ErrInvalidTransition) {
+				t.Fatalf("unaccepted: %v", err)
+			}
+			if _, err := svc.AcceptInternalDelivery(ctx, domain.AcceptInternalDelivery{ShipmentID: s.ID, ActorID: a.DriverID, ExpectedVersion: 1, IdempotencyKey: "accept-" + uuid.NewString()}); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := svc.ProgressInternalDelivery(ctx, c); !errors.Is(err, domain.ErrInvalidTransition) {
+				t.Fatalf("before handover: %v", err)
+			}
+			s, err := svc.ConfirmHandover(ctx, s.ID, "handover-"+uuid.NewString())
+			if err != nil {
+				t.Fatal(err)
+			}
+			c.ExpectedRevision = s.Revision
+			return s, c
+		}
+		s, c := prepare()
+		wrong := c
+		wrong.ActorID = uuid.New()
+		if _, err := svc.ProgressInternalDelivery(ctx, wrong); !errors.Is(err, domain.ErrDriverNotAssigned) {
+			t.Fatalf("wrong actor: %v", err)
+		}
+		stale := c
+		stale.AssignmentVersion++
+		if _, err := svc.ProgressInternalDelivery(ctx, stale); !errors.Is(err, domain.ErrConcurrentUpdate) {
+			t.Fatalf("stale assignment: %v", err)
+		}
+		first, err := svc.ProgressInternalDelivery(ctx, c)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, state := range []domain.ShipmentStatus{domain.StatusOutForDelivery, domain.StatusDeliveryFailed, domain.StatusReturning, domain.StatusReturned} {
+			current, err := repo.GetByID(ctx, s.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			c.ExpectedRevision = current.Revision
+			c.Status = state
+			c.IdempotencyKey = "progress-" + uuid.NewString()
+			if _, err := svc.ProgressInternalDelivery(ctx, c); err != nil {
+				t.Fatal(err)
+			}
+		}
+		original := c
+		original.Status = domain.StatusInTransit
+		original.ExpectedRevision = first.Revision - 1
+		// Replay uses the original key/payload, not the latest receipt.
+		var originalKey string
+		if err := pool.QueryRow(ctx, `SELECT idempotency_key FROM internal_delivery_progress_events WHERE id=$1`, first.EventID).Scan(&originalKey); err != nil {
+			t.Fatal(err)
+		}
+		original.IdempotencyKey = originalKey
+		replay, err := svc.ProgressInternalDelivery(ctx, original)
+		if err != nil || *replay != *first {
+			t.Fatalf("replay: %+v %v", replay, err)
+		}
+		original.Reason = "Different"
+		if _, err := svc.ProgressInternalDelivery(ctx, original); !errors.Is(err, domain.ErrIdempotencyConflict) {
+			t.Fatalf("changed replay: %v", err)
+		}
+		var events, tracking, outbox int
+		if err := pool.QueryRow(ctx, `SELECT count(*) FROM internal_delivery_progress_events WHERE shipment_id=$1`, s.ID).Scan(&events); err != nil {
+			t.Fatal(err)
+		}
+		if err := pool.QueryRow(ctx, `SELECT count(*) FROM tracking_events WHERE shipment_id=$1 AND carrier_code='INTERNAL'`, s.ID).Scan(&tracking); err != nil {
+			t.Fatal(err)
+		}
+		if err := pool.QueryRow(ctx, `SELECT count(*) FROM outbox_events o JOIN internal_delivery_progress_events p ON o.id=p.id WHERE p.shipment_id=$1 AND o.topic='shipping.events.v2'`, s.ID).Scan(&outbox); err != nil {
+			t.Fatal(err)
+		}
+		if events != 5 || tracking != 5 || outbox != 5 {
+			t.Fatalf("atomic counts %d/%d/%d", events, tracking, outbox)
+		}
+		// Outbox failure must roll back shipment, timeline, audit and proof.
+		s2, c2 := prepare()
+		if _, err := pool.Exec(ctx, `CREATE FUNCTION reject_internal_progress() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.event_type LIKE '%status-changed%' THEN RAISE EXCEPTION 'fixture outbox unavailable'; END IF; RETURN NEW; END $$; CREATE TRIGGER reject_internal_progress BEFORE INSERT ON outbox_events FOR EACH ROW EXECUTE FUNCTION reject_internal_progress()`); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := svc.ProgressInternalDelivery(ctx, c2); err == nil {
+			t.Fatal("outbox failure accepted")
+		}
+		if _, err := pool.Exec(ctx, `DROP TRIGGER reject_internal_progress ON outbox_events; DROP FUNCTION reject_internal_progress()`); err != nil {
+			t.Fatal(err)
+		}
+		unchanged, err := repo.GetByID(ctx, s2.ID)
+		if err != nil || unchanged.Revision != s2.Revision || unchanged.Status != s2.Status {
+			t.Fatal("outbox failure changed shipment")
+		}
+		if err := pool.QueryRow(ctx, `SELECT count(*) FROM tracking_events WHERE shipment_id=$1`, s2.ID).Scan(&tracking); err != nil || tracking != 0 {
+			t.Fatal("outbox failure left tracking")
+		}
+		if _, err := svc.ProgressInternalDelivery(ctx, c2); err != nil {
+			t.Fatalf("retry after outage: %v", err)
+		}
+		current, err := repo.GetByID(ctx, s2.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		c2.ExpectedRevision = current.Revision
+		c2.Status = domain.StatusOutForDelivery
+		c2.IdempotencyKey = "out-for-delivery-" + uuid.NewString()
+		if _, err := svc.ProgressInternalDelivery(ctx, c2); err != nil {
+			t.Fatal(err)
+		}
+		current, err = repo.GetByID(ctx, s2.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		c2.ExpectedRevision = current.Revision
+		c2.Status = domain.StatusDelivered
+		c2.IdempotencyKey = "delivered-" + uuid.NewString()
+		result, err := svc.ProgressInternalDelivery(ctx, c2)
+		if err != nil {
+			t.Fatal(err)
+		}
+		proof, err := repo.GetRevision(ctx, s2.ID, result.Revision)
+		if err != nil || proof.Kind != domain.RevisionKindDelivered || proof.SettlementVerified {
+			t.Fatalf("delivered proof: %+v %v", proof, err)
+		}
+		var eventType, carrierCode, resourceVersion string
+		if err := pool.QueryRow(ctx, `SELECT payload->>'type',payload->'data'->>'carrier_code',payload->'data'->>'resource_version' FROM outbox_events WHERE id=$1`, result.EventID).Scan(&eventType, &carrierCode, &resourceVersion); err != nil || eventType != "vn.omama.shipping.shipment.delivered.v2" || carrierCode != "INTERNAL" || resourceVersion != fmt.Sprint(result.Revision) {
+			t.Fatalf("Order wire mismatch: %s %s %s %v", eventType, carrierCode, resourceVersion, err)
+		}
+		_, race := prepare()
+		results := make(chan error, 2)
+		for i := 0; i < 2; i++ {
+			go func() {
+				cmd := race
+				cmd.IdempotencyKey = "progress-race-" + uuid.NewString()
+				_, err := svc.ProgressInternalDelivery(ctx, cmd)
+				results <- err
+			}()
+		}
+		wins := 0
+		for i := 0; i < 2; i++ {
+			err := <-results
+			if err == nil {
+				wins++
+			} else if !errors.Is(err, domain.ErrConcurrentUpdate) {
+				t.Fatalf("concurrent progress: %v", err)
+			}
+		}
+		if wins != 1 {
+			t.Fatalf("concurrent progress winners: %d", wins)
+		}
+		c2.ExpectedRevision = result.Revision
+		c2.Status = domain.StatusReturning
+		c2.IdempotencyKey = "after-delivery-" + uuid.NewString()
+		if _, err := svc.ProgressInternalDelivery(ctx, c2); !errors.Is(err, domain.ErrInvalidTransition) {
+			t.Fatalf("terminal guard: %v", err)
+		}
+	})
 
 	t.Run("acceptance guards and concurrent winner", func(t *testing.T) {
 		for _, code := range []string{carrier.InternalCode, "FAKE"} {

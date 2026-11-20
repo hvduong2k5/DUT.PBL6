@@ -6,6 +6,7 @@ import (
 	"crypto/rsa"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
@@ -292,5 +293,28 @@ func TestPostgresAssignmentHTTPAndSignedJWT(t *testing.T) {
 		}
 		call("POST", acceptPath, token, "acceptance-key-0001", `{"expected_version":2}`, 200)
 		call("POST", acceptPath, token, "acceptance-late-0001", `{"expected_version":2}`, 409)
+		progressPath := strings.TrimSuffix(acceptPath, "/accept") + "/progress"
+		shipment, _, err := svc.GetShipment(ctx, s.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		payload := `{"assignment_version":2,"expected_revision":` + fmt.Sprint(shipment.Revision) + `,"status":"IN_TRANSIT","reason":"Started route"}`
+		call("POST", progressPath, "", "progress-key-0001", payload, 401)
+		call("POST", progressPath, full, "progress-key-0001", payload, 403)
+		call("POST", progressPath, token, "", payload, 400)
+		call("POST", progressPath, token, "progress-key-0001", strings.TrimSuffix(payload, "}")+`,"actor_id":"`+f.actorID.String()+`"}`, 400)
+		call("POST", progressPath, token, "progress-key-0001", strings.Replace(payload, "IN_TRANSIT", "DELIVERED", 1), 409)
+		f.actorStatus.Store("SUSPENDED")
+		call("POST", progressPath, token, "progress-key-0001", payload, 403)
+		f.actorStatus.Store("ACTIVE")
+		f.directoryStatus.Store(503)
+		call("POST", progressPath, token, "progress-key-0001", payload, 503)
+		f.directoryStatus.Store(200)
+		progress := call("POST", progressPath, token, "progress-key-0001", payload, 200)
+		if retry := call("POST", progressPath, token, "progress-key-0001", payload, 200); retry.Body.String() != progress.Body.String() {
+			t.Fatal("progress replay changed")
+		}
+		call("POST", progressPath, token, "progress-stale-0001", payload, 409)
+		call("POST", progressPath, token, "progress-key-0001", strings.Replace(payload, "Started route", "Changed reason", 1), 409)
 	})
 }
