@@ -5,9 +5,26 @@ import unittest
 from unittest.mock import Mock
 
 from mvp_fulfillment_checks import read_shipping_for_employee
+from mvp_customer_checks import confirm_shipping_handover
 
 
 class ShippingFixtureAuthTests(unittest.TestCase):
+    def test_handover_uses_internal_token_and_stable_action_key(self):
+        response = (200, {"status": "HANDED_OVER", "revision": 2}, {})
+        request = Mock(return_value=response)
+        shipment = "a0000000-0000-0000-0000-000000000001"
+        for _ in range(2):
+            self.assertEqual(confirm_shipping_handover(request, "http://shipping", shipment, "internal-token"), response)
+        self.assertEqual(request.call_count, 2)
+        for call in request.call_args_list:
+            self.assertEqual(call.args, ("http://shipping/api/v1/internal/shipments/" + shipment + "/handover", {}))
+            self.assertEqual(call.kwargs, {
+                "token": "internal-token", "method": "POST",
+                "headers": {"Idempotency-Key": "web-e2e-handover-" + shipment},
+            })
+        confirm_shipping_handover(request, "http://shipping", "another-shipment", "internal-token")
+        self.assertNotEqual(request.call_args.kwargs["headers"], request.call_args_list[0].kwargs["headers"])
+
     def test_admin_projection_uses_employee_bearer_and_v2_route(self):
         response = (200, {"shipment": {"package_id": "package-1"}}, {})
         request = Mock(return_value=response)
