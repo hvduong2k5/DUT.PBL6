@@ -56,6 +56,8 @@ The existing provider contract is documented in [`shipping-service.openapi.yaml`
 - `POST /api/v1/internal/shipments/{shipmentID}/handover`
 - `GET /api/v1/admin/shipping/shipments`
 - `GET /api/v1/admin/shipping/shipments/{shipmentID}`
+- `GET/POST /api/v2/admin/shipping/shipments/{shipmentID}/assignment` (separate opt-in flag)
+- `GET /api/v2/admin/shipping/shipments/{shipmentID}/assignment/history` (separate opt-in flag)
 - `GET /api/v1/orders/{orderID}/tracking`
 - `POST /api/v1/webhooks/logistics/fake`
 - `POST /api/v1/webhooks/logistics/ghn` (only active when GHN is configured)
@@ -82,9 +84,9 @@ operator override for GHN shipments. Implementation proceeds in separately teste
 1. **Implemented foundation:** opt-in provider, configured flat rate/estimated transit time,
    stable shipment references, existing create/cancel/idempotency lifecycle and independent tests.
 2. **Implemented storage/application foundation:** persistent driver assignment, immutable
-   assignment/reassignment audit, actor-scoped idempotency and concurrency guards. No REST
-   assignment endpoint or employee-directory validation is exposed yet.
-3. **Pending:** employee JWT permissions and assignee-bound delivery actions with proof/reasons,
+   assignment/reassignment audit, actor-scoped idempotency and concurrency guards. Opt-in REST
+   assignment endpoints now validate signed dispatcher permissions and live Identity state.
+3. **Pending:** driver JWT permissions and assignee-bound delivery actions with proof/reasons,
    atomic shipment/tracking/revision/outbox writes and retry protection.
 4. **Pending:** connect actual employee Web BFF/workbench and register only approved public routes.
 5. **Pending:** company-delivery return workflow, integration with Order/Care, then joint Coolify
@@ -100,11 +102,11 @@ invent a driver, pickup confirmation, proof, printable URL or delivered state. N
 rejected until collection/reconciliation policy is implemented. No public INTERNAL webhook is
 accepted. Existing GHN/fake behavior and their credentials are unchanged.
 
-Proposed permissions for the subsequent task: `SHIPMENT_ASSIGN#GLOBAL` for dispatch and
-`SHIPMENT_DELIVER#GLOBAL` for driver actions, in addition to existing shipment read permission.
+Assignment APIs enforce `SHIPMENT_ASSIGN#GLOBAL` for dispatch. `SHIPMENT_DELIVER#GLOBAL` is
+proposed for future driver actions, in addition to existing shipment read permission.
 Driver action authorization must also match the stored assignee; a GLOBAL action grant alone
-does not permit manipulating another driver's shipment. These are proposals, not Identity seed
-or workbench acceptance. Start with prepaid/no-COD delivery; require reason for failure and
+does not permit manipulating another driver's shipment. These grants are not seeded in Identity
+by this task and driver workbench is not accepted yet. Start with prepaid/no-COD delivery; require reason for failure and
 an approved immutable proof reference before declaring proof-bearing delivery complete.
 
 Assignment storage uses `internal_deliveries` for current state and
@@ -116,14 +118,38 @@ The repository locks the shipment row and commits assignment plus audit in one t
 The assignment version is distinct from the shipment proof revision: assigning a driver does
 not invent a tracking event, change shipment status or publish an Order lifecycle event.
 Exact retries return their original snapshot even after a later reassignment; changed payloads
-or reuse against another shipment conflict. Actor IDs must come from the future verified employee
-principal, never a client-supplied override; driver eligibility must be checked with Identity
-before public rollout. Stored UUIDs alone do not prove that a driver is an active employee.
+or reuse against another shipment conflict. Actor IDs come from the verified employee principal,
+never a client-supplied override; the opt-in API checks live Identity actor and driver eligibility.
+Stored UUIDs alone do not prove that a driver is an active employee.
 
 Run the real PostgreSQL assignment suite with `SHIPPING_TEST_DATABASE_URL` pointing to a test
 database and `go test -race ./internal/repository/postgres -run TestPostgresInternalDeliveryAssignments`.
 It creates/drops its own random schema and verifies migration replay, concurrent assignment,
 immutable retries, carrier/status/COD restrictions and transaction rollback on injected failure.
+
+### Dispatcher assignment API
+
+Enable `SHIPPING_INTERNAL_ASSIGNMENTS_ENABLED=true` only with internal delivery enabled and
+`SHIPPING_IDENTITY_BASE_URL` set to the Identity origin. HTTPS is required except loopback HTTP
+in local mode. The flag defaults to false and assignment routes are not registered at Kong yet.
+The existing UI workbench still needs a BFF projection/authentication adapter.
+
+Assignment GET/current/history require `SHIPMENT_ASSIGN#GLOBAL`. POST additionally requires
+`USER_VIEW#GLOBAL`, because the existing Identity provider protects `GET /api/v1/admin/users/{id}`
+with USER_VIEW. Shipping forwards the verified caller's bearer, not a shared token or actor
+header. Each request validates ACTIVE EMPLOYEE state and matching user_id/sub at `/api/v1/users/me`.
+POST also checks the target's current ACTIVE EMPLOYEE state through that admin detail endpoint.
+No fresh Identity permission list replaces signed JWT grants. Directory timeout, malformed data,
+principal mismatch or redirect fails closed with 503; ineligible target is 422; insufficient
+directory access or inactive actor is 403. Exact retries still require current eligibility.
+POST body is `{driver_id, expected_version, reason}` plus a 16..128 printable ASCII
+`Idempotency-Key`; unknown fields such as actor_id are rejected. History returns `{items: [],
+total: 0}` when empty. Actor/driver UUIDs are Identity principal IDs, not Keycloak subjects.
+
+Identity provisioning of SHIPMENT_ASSIGN, affected role assignments and real JWT acceptance
+remain rollout work. No Identity migration, frontend code or permission bypass is introduced by
+this task. The HTTP/PostgreSQL suite verifies signed RS256 tokens against a test JWKS and an
+explicit HTTP fixture matching Identity's existing DTOs; it is not a live Identity deployment test.
 
 ## GHN staging adapter
 

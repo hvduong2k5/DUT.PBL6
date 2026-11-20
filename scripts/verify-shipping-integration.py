@@ -5,6 +5,7 @@ import sqlite3
 import unittest
 
 import yaml
+from jsonschema import Draft202012Validator, FormatChecker
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -31,6 +32,9 @@ class ShippingIntegrationTests(unittest.TestCase):
             ("GET", "/api/v2/admin/shipping/shipments/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/cancel"),
             ("GET", "/api/v1/admin/shipping/shipments/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/cancel"),
             ("POST", "/api/v1/webhooks/logistics/ghn/extra"),
+            ("GET", "/api/v2/admin/shipping/shipments/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/assignment"),
+            ("POST", "/api/v2/admin/shipping/shipments/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/assignment"),
+            ("GET", "/api/v2/admin/shipping/shipments/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/assignment/history"),
         ]:
             with self.subTest(method=method, path=path):
                 self.assertEqual(self.matches(method, path), [])
@@ -62,6 +66,37 @@ class ShippingIntegrationTests(unittest.TestCase):
         self.assertIn("shipping-service", overlay["services"]["shipping-service"]["networks"]["gateway"]["aliases"])
         compose = yaml.safe_load((ROOT / "services/shipping-service/docker-compose.yml").read_text())
         self.assertTrue(all(p.startswith("127.0.0.1:") for p in compose["services"]["shipping-service"]["ports"]))
+
+    def test_assignment_contract_and_examples_preserve_actor_boundary(self):
+        spec = yaml.safe_load((ROOT / "docs/03_api_specs/admin-stable.openapi.yaml").read_text(encoding="utf-8"))
+        path = spec["paths"]["/api/v2/admin/shipping/shipments/{shipmentId}/assignment"]
+        self.assertEqual(path["post"]["x-required-permissions"], ["SHIPMENT_ASSIGN", "USER_VIEW"])
+        self.assertEqual(path["get"]["x-required-permissions"], ["SHIPMENT_ASSIGN"])
+        self.assertEqual(path["post"]["x-feature-flag"], "SHIPPING_INTERNAL_ASSIGNMENTS_ENABLED")
+        schema = path["post"]["requestBody"]["content"]["application/json"]["schema"]
+        example = path["post"]["requestBody"]["content"]["application/json"]["example"]
+        validator = Draft202012Validator(schema, format_checker=FormatChecker())
+        validator.validate(example)
+        for invalid in (
+            {**example, "actor_id": "a0000000-0000-0000-0000-000000000009"},
+            {k: v for k, v in example.items() if k != "expected_version"},
+            {**example, "expected_version": -1},
+            {**example, "expected_version": 1.5},
+            {**example, "driver_id": "not-a-uuid"},
+            {**example, "reason": "x" * 501},
+        ):
+            self.assertFalse(validator.is_valid(invalid), invalid)
+        for operation in (path["get"], path["post"], spec["paths"]["/api/v2/admin/shipping/shipments/{shipmentId}/assignment/history"]["get"]):
+            self.assertEqual(operation["security"], [{"bearerAuth": []}])
+            self.assertEqual(operation["x-required-grant-scope"], "GLOBAL")
+            self.assertTrue({"401", "403", "404", "503"}.issubset(operation["responses"]))
+            response = operation["responses"]["200"]["content"]["application/json"]
+            schema = {**response["schema"], "components": spec["components"]}
+            validate = Draft202012Validator(schema, format_checker=FormatChecker())
+            if "example" in response:
+                validate.validate(response["example"])
+            for value in response.get("examples", {}).values():
+                validate.validate(value["value"])
 
     def test_seed_is_idempotent_and_only_grants_active_admin(self):
         sql = (ROOT / "services/identity-service/src/main/resources/db/migration/V23__seed_shipping_permissions.sql").read_text()

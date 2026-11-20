@@ -14,12 +14,18 @@ x-shipping-provider-integration:
     feature-flag: SHIPPING_INTERNAL_DELIVERY_ENABLED
     default-enabled: false
     employee-workbench-implemented: false
+    assignment-api-implemented: true
+    assignment-feature-flag: SHIPPING_INTERNAL_ASSIGNMENTS_ENABLED
+    assignment-permission: SHIPMENT_ASSIGN#GLOBAL
+    assignment-directory-read-permission: USER_VIEW#GLOBAL
+    assignment-kong-connected: false
     cod-supported: false
     label-supported: false
     description: >-
       Opt-in carrier foundation only. Existing private quote/create/cancel APIs may select
-      INTERNAL when enabled with explicit fee and ETA configuration. No employee assignment
-      or mutation API is exposed by this foundation, and no public INTERNAL webhook exists.
+      INTERNAL when enabled with explicit fee and ETA configuration. Assignment reads/mutations
+      are separately opt-in, validate live Identity employee state and are not registered at Kong.
+      Driver delivery actions/UI remain pending. No public INTERNAL webhook exists.
       Shipment/provider reads keep the existing schema. FAKE and GHN behavior is unchanged.
   description: >-
     Kong forwards employee bearer tokens and the full v2 path unchanged to Shipping on port 8012.
@@ -76,6 +82,148 @@ security:
 - bearerAuth: []
 - adminSession: []
 paths:
+  /api/v2/admin/shipping/shipments/{shipmentId}/assignment:
+    parameters:
+      - {name: shipmentId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: getInternalDeliveryAssignmentV2
+      tags: [Shipping]
+      summary: Read the current company-driver assignment
+      x-lifecycle: stable
+      x-required-permissions: [SHIPMENT_ASSIGN]
+      x-required-grant-scope: GLOBAL
+      x-feature-flag: SHIPPING_INTERNAL_ASSIGNMENTS_ENABLED
+      security: [{bearerAuth: []}]
+      description: >-
+        Dispatcher-only provider API, not the legacy camelCase UI workbench. Feature disabled
+        means the route is absent (404). Requires signed SHIPMENT_ASSIGN#GLOBAL and a live
+        ACTIVE EMPLOYEE response from Identity /api/v1/users/me with matching principal/sub.
+        Only INTERNAL shipments are supported; read history is allowed after handover.
+        No assignment is 404, not an invented employee. Not registered at Kong in this task.
+      responses:
+        '200':
+          description: Current assignment (not the shipment proof revision)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ShippingDriverAssignment'}
+              example: {shipment_id: a0000000-0000-0000-0000-000000000001, driver_id: a0000000-0000-0000-0000-000000000002, assigned_by: a0000000-0000-0000-0000-000000000003, version: 1, reason: Initial dispatch, assigned_at: '2026-11-20T10:00:00Z'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '422': {$ref: '#/components/responses/UnprocessableEntity'}
+        '500': {$ref: '#/components/responses/InternalError'}
+        '503': {$ref: '#/components/responses/ServiceUnavailable'}
+    post:
+      operationId: assignInternalDeliveryDriverV2
+      tags: [Shipping]
+      summary: Assign or reassign a company driver before handover
+      x-lifecycle: stable
+      x-required-permissions: [SHIPMENT_ASSIGN, USER_VIEW]
+      x-required-grant-scope: GLOBAL
+      x-feature-flag: SHIPPING_INTERNAL_ASSIGNMENTS_ENABLED
+      security: [{bearerAuth: []}]
+      description: >-
+        Requires exact SHIPMENT_ASSIGN#GLOBAL and USER_VIEW#GLOBAL signed grants. Shipping
+        forwards this employee bearer to existing Identity /api/v1/users/me and
+        /api/v1/admin/users/{driverId}; no internal token, actor override or role bypass.
+        Actor and target must be ACTIVE EMPLOYEE principals. Target UUID alone is insufficient.
+        Only prepaid INTERNAL shipments in CREATED/READY_FOR_HANDOVER accept a new assignment.
+        expected_version is 0 initially or the current assignment version for reassignment;
+        it is not the shipment revision. Writes assignment/audit atomically without changing
+        shipment lifecycle or publishing a delivery event. Exact retries return the original
+        snapshot, but current actor/driver eligibility must still pass before replay.
+        Driver delivery permission is checked separately by future delivery action APIs.
+        Identity must provision SHIPMENT_ASSIGN before rollout; this task does not seed it.
+        BODY unknown fields (including actor_id) are rejected. No production route until
+        feature enablement, Identity grant provisioning and gateway acceptance.
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: {type: string, minLength: 16, maxLength: 128, pattern: '^[!-~]+$'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [driver_id, expected_version, reason]
+              properties:
+                driver_id: {type: string, format: uuid}
+                expected_version: {type: integer, format: int64, minimum: 0, maximum: 9223372036854775806}
+                reason: {type: string, minLength: 1, maxLength: 500, description: Nonblank reason without control characters}
+            example: {driver_id: a0000000-0000-0000-0000-000000000002, expected_version: 0, reason: Initial dispatch}
+      responses:
+        '200':
+          description: New assignment or original snapshot on exact replay
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ShippingDriverAssignment'}
+              example: {shipment_id: a0000000-0000-0000-0000-000000000001, driver_id: a0000000-0000-0000-0000-000000000002, assigned_by: a0000000-0000-0000-0000-000000000003, version: 1, reason: Initial dispatch, assigned_at: '2026-11-20T10:00:00Z'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '413':
+          description: PAYLOAD_TOO_LARGE (body exceeds 1 MiB)
+          content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+        '415':
+          description: UNSUPPORTED_MEDIA_TYPE (application/json required)
+          content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+        '422': {$ref: '#/components/responses/UnprocessableEntity'}
+        '500': {$ref: '#/components/responses/InternalError'}
+        '503': {$ref: '#/components/responses/ServiceUnavailable'}
+      x-error-codes: [UNAUTHORIZED, FORBIDDEN, INVALID_SHIPMENT_ID, INVALID_REQUEST, INVALID_JSON, IDEMPOTENCY_KEY_REQUIRED, INVALID_IDEMPOTENCY_KEY, VALIDATION_FAILED, DRIVER_INELIGIBLE, NOT_FOUND, CONFLICT, IDEMPOTENCY_KEY_REUSED, PAYLOAD_TOO_LARGE, UNSUPPORTED_MEDIA_TYPE, IDENTITY_UNAVAILABLE, INTERNAL_ERROR]
+  /api/v2/admin/shipping/shipments/{shipmentId}/assignment/history:
+    get:
+      operationId: getInternalDeliveryAssignmentHistoryV2
+      tags: [Shipping]
+      summary: Read immutable company-driver assignment history
+      x-lifecycle: stable
+      x-required-permissions: [SHIPMENT_ASSIGN]
+      x-required-grant-scope: GLOBAL
+      x-feature-flag: SHIPPING_INTERNAL_ASSIGNMENTS_ENABLED
+      security: [{bearerAuth: []}]
+      description: Same live dispatcher authorization as current assignment. Ordered by assignment version; no history returns 200 with items [] and total 0. Loading is client-side; Identity outage is 503. Not registered at Kong yet.
+      parameters:
+        - {name: shipmentId, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        '200':
+          description: Assignment history including previous driver, or empty array
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, total]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      allOf:
+                        - {$ref: '#/components/schemas/ShippingDriverAssignment'}
+                        - type: object
+                          required: [event_id, previous_driver_id]
+                          properties:
+                            event_id: {type: string, format: uuid}
+                            previous_driver_id: {type: [string, 'null'], format: uuid}
+                  total: {type: integer, minimum: 0}
+              examples:
+                empty: {value: {items: [], total: 0}}
+                success:
+                  value:
+                    items:
+                      - {event_id: a0000000-0000-0000-0000-000000000004, shipment_id: a0000000-0000-0000-0000-000000000001, driver_id: a0000000-0000-0000-0000-000000000002, assigned_by: a0000000-0000-0000-0000-000000000003, version: 1, reason: Initial dispatch, assigned_at: '2026-11-20T10:00:00Z', previous_driver_id: null}
+                    total: 1
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '422': {$ref: '#/components/responses/UnprocessableEntity'}
+        '500': {$ref: '#/components/responses/InternalError'}
+        '503': {$ref: '#/components/responses/ServiceUnavailable'}
   /api/v2/admin/shipping/shipments:
     get:
       operationId: getShippingProviderShipmentsV2
@@ -11605,6 +11753,16 @@ components:
         type: string
         format: uuid
   schemas:
+    ShippingDriverAssignment:
+      type: object
+      required: [shipment_id, driver_id, assigned_by, version, reason, assigned_at]
+      properties:
+        shipment_id: {type: string, format: uuid}
+        driver_id: {type: string, format: uuid}
+        assigned_by: {type: string, format: uuid, description: Actor taken only from verified JWT}
+        version: {type: integer, format: int64, minimum: 1}
+        reason: {type: string, minLength: 1, maxLength: 500}
+        assigned_at: {type: string, format: date-time}
     ShippingProviderShipment:
       type: object
       description: Raw Shipping read model; recipient fields require the same GLOBAL staff grant

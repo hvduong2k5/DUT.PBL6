@@ -17,6 +17,7 @@ import (
 	"github.com/omamx/shipping-service/internal/config"
 	shippingv1 "github.com/omamx/shipping-service/internal/gen/shipping/v1"
 	shippingv2 "github.com/omamx/shipping-service/internal/gen/shipping/v2"
+	identityclient "github.com/omamx/shipping-service/internal/infrastructure/identity"
 	shippingkafka "github.com/omamx/shipping-service/internal/infrastructure/kafka"
 	"github.com/omamx/shipping-service/internal/infrastructure/ordergrpc"
 	postgresrepo "github.com/omamx/shipping-service/internal/repository/postgres"
@@ -159,6 +160,13 @@ func main() {
 	}
 
 	handler := httpapi.NewRouter(service, cfg.InternalToken, cfg.FakeWebhookSecret, cfg.GHNWebhookSecret, logger, staffAuth)
+	if cfg.InternalAssignmentsEnabled {
+		directory, err := identityclient.NewDirectory(cfg.IdentityBaseURL, cfg.Environment == "local")
+		if err != nil {
+			logger.Fatal().Err(err).Msg("configure assignment employee directory")
+		}
+		handler = httpapi.NewRouterWithAssignments(service, cfg.InternalToken, cfg.FakeWebhookSecret, cfg.GHNWebhookSecret, logger, staffAuth, directory)
+	}
 	server := &http.Server{
 		Addr: cfg.HTTPAddress, Handler: handler,
 		ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second,

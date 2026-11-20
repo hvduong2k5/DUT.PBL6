@@ -29,7 +29,9 @@ var (
 const shipmentViewPermission = "SHIPMENT_VIEW"
 
 type StaffPrincipal struct {
-	UserID string
+	UserID           string
+	Subject          string
+	PermissionGrants []string
 }
 
 type StaffAuthenticator interface {
@@ -97,6 +99,11 @@ func secureOIDCURL(value *url.URL) bool {
 }
 
 func (a *jwtStaffAuthenticator) Authenticate(ctx context.Context, authorization string) (StaffPrincipal, error) {
+	return a.AuthenticatePermission(ctx, authorization, shipmentViewPermission)
+}
+
+// Permission is selected by the server route, never by a client header/body.
+func (a *jwtStaffAuthenticator) AuthenticatePermission(ctx context.Context, authorization, permission string) (StaffPrincipal, error) {
 	parts := strings.Fields(authorization)
 	if len(authorization) > 8192 || len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
 		return StaffPrincipal{}, errStaffUnauthenticated
@@ -139,8 +146,8 @@ func (a *jwtStaffAuthenticator) Authenticate(ctx context.Context, authorization 
 	}
 	for _, grant := range claims.PermissionGrants {
 		parts := strings.Split(grant, "#")
-		if parts[0] == shipmentViewPermission && parts[1] == "GLOBAL" {
-			return StaffPrincipal{UserID: userID.String()}, nil
+		if parts[0] == permission && parts[1] == "GLOBAL" {
+			return StaffPrincipal{UserID: userID.String(), Subject: claims.Subject, PermissionGrants: claims.PermissionGrants}, nil
 		}
 	}
 	return StaffPrincipal{}, errStaffForbidden

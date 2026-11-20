@@ -47,9 +47,11 @@ type Config struct {
 	GHNRecoveryTimeout time.Duration
 	GHNQuoteTTL        time.Duration
 
-	InternalDeliveryEnabled bool
-	InternalDeliveryFeeVND  int64
-	InternalDeliveryETA     time.Duration
+	InternalDeliveryEnabled    bool
+	InternalDeliveryFeeVND     int64
+	InternalDeliveryETA        time.Duration
+	InternalAssignmentsEnabled bool
+	IdentityBaseURL            string
 }
 
 func Load() (Config, error) {
@@ -92,7 +94,9 @@ func Load() (Config, error) {
 		GHNRecoveryTimeout: durationEnv("SHIPPING_GHN_RECONCILE_TIMEOUT", 5*time.Second),
 		GHNQuoteTTL:        durationEnv("SHIPPING_GHN_QUOTE_TTL", 15*time.Minute),
 
-		InternalDeliveryEnabled: boolEnv("SHIPPING_INTERNAL_DELIVERY_ENABLED", false),
+		InternalDeliveryEnabled:    boolEnv("SHIPPING_INTERNAL_DELIVERY_ENABLED", false),
+		InternalAssignmentsEnabled: boolEnv("SHIPPING_INTERNAL_ASSIGNMENTS_ENABLED", false),
+		IdentityBaseURL:            strings.TrimSpace(os.Getenv("SHIPPING_IDENTITY_BASE_URL")),
 	}
 	if cfg.Environment != "local" && cfg.Environment != "production" {
 		return Config{}, fmt.Errorf("SHIPPING_ENV must be local or production")
@@ -133,6 +137,9 @@ func Load() (Config, error) {
 			return Config{}, fmt.Errorf("enabled internal delivery requires explicit SHIPPING_INTERNAL_DELIVERY_ETA within 30 days")
 		}
 		cfg.InternalDeliveryFeeVND, cfg.InternalDeliveryETA = fee, eta
+	}
+	if cfg.InternalAssignmentsEnabled && (!cfg.InternalDeliveryEnabled || cfg.IdentityBaseURL == "") {
+		return Config{}, fmt.Errorf("internal assignment API requires internal delivery and SHIPPING_IDENTITY_BASE_URL")
 	}
 	return cfg, nil
 }

@@ -24,21 +24,32 @@ import (
 )
 
 type Router struct {
-	service           *application.Service
-	internalToken     string
-	staffAuth         StaffAuthenticator
-	fakeWebhookSecret string
-	ghnWebhookSecret  string
-	logger            zerolog.Logger
+	service             *application.Service
+	internalToken       string
+	staffAuth           StaffAuthenticator
+	assignmentDirectory application.AssignmentDirectory
+	fakeWebhookSecret   string
+	ghnWebhookSecret    string
+	logger              zerolog.Logger
 }
 
 func NewRouter(service *application.Service, internalToken, fakeWebhookSecret, ghnWebhookSecret string, logger zerolog.Logger, staffAuth ...StaffAuthenticator) http.Handler {
+	var auth StaffAuthenticator
+	if len(staffAuth) > 0 {
+		auth = staffAuth[0]
+	}
+	return newRouter(service, internalToken, fakeWebhookSecret, ghnWebhookSecret, logger, auth, nil)
+}
+
+func NewRouterWithAssignments(service *application.Service, internalToken, fakeWebhookSecret, ghnWebhookSecret string, logger zerolog.Logger, auth StaffAuthenticator, directory application.AssignmentDirectory) http.Handler {
+	return newRouter(service, internalToken, fakeWebhookSecret, ghnWebhookSecret, logger, auth, directory)
+}
+
+func newRouter(service *application.Service, internalToken, fakeWebhookSecret, ghnWebhookSecret string, logger zerolog.Logger, auth StaffAuthenticator, directory application.AssignmentDirectory) http.Handler {
 	h := &Router{
 		service: service, internalToken: internalToken,
 		fakeWebhookSecret: fakeWebhookSecret, ghnWebhookSecret: ghnWebhookSecret, logger: logger,
-	}
-	if len(staffAuth) > 0 {
-		h.staffAuth = staffAuth[0]
+		staffAuth: auth, assignmentDirectory: directory,
 	}
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID, middleware.RealIP, h.recoverer)
@@ -58,6 +69,11 @@ func NewRouter(service *application.Service, internalToken, fakeWebhookSecret, g
 	// Preserve the public provider v2 path; no Kong regex rewrite is needed.
 	r.With(h.requireStaffShipmentView).Get("/api/v2/admin/shipping/shipments", h.listShipments)
 	r.With(h.requireStaffShipmentView).Get("/api/v2/admin/shipping/shipments/{shipmentID}", h.getShipment)
+	if directory != nil {
+		r.Get("/api/v2/admin/shipping/shipments/{shipmentID}/assignment", h.getInternalAssignment)
+		r.Post("/api/v2/admin/shipping/shipments/{shipmentID}/assignment", h.assignInternalDelivery)
+		r.Get("/api/v2/admin/shipping/shipments/{shipmentID}/assignment/history", h.internalAssignmentHistory)
+	}
 	r.With(h.requireInternalToken).Get("/api/v1/orders/{orderID}/tracking", h.trackOrder)
 	r.Post("/api/v1/webhooks/logistics/fake", h.fakeWebhook)
 	r.Post("/api/v1/webhooks/logistics/ghn", h.ghnWebhook)

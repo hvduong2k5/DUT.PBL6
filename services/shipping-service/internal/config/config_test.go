@@ -104,6 +104,7 @@ func TestLoadRequiresCompleteGHNCredentialsWhenEnabled(t *testing.T) {
 func setRequiredBaseEnvironment(t *testing.T) {
 	t.Helper()
 	t.Setenv("SHIPPING_INTERNAL_DELIVERY_ENABLED", "false")
+	t.Setenv("SHIPPING_INTERNAL_ASSIGNMENTS_ENABLED", "false")
 	t.Setenv("SHIPPING_ORDER_GRPC_ENDPOINT", "")
 	t.Setenv("SHIPPING_ORDER_INTERNAL_TOKEN", "")
 	t.Setenv("SHIPPING_PACKING_V2_ENABLED", "false")
@@ -114,6 +115,26 @@ func setRequiredBaseEnvironment(t *testing.T) {
 	t.Setenv("SHIPPING_GRPC_TLS_CERT_FILE", "")
 	t.Setenv("SHIPPING_GRPC_TLS_KEY_FILE", "")
 	t.Setenv("SHIPPING_FAKE_WEBHOOK_SECRET", "fake-secret")
+}
+
+func TestInternalAssignmentAPIRequiresDeliveryAndDirectory(t *testing.T) {
+	setRequiredBaseEnvironment(t)
+	t.Setenv("SHIPPING_GHN_ENABLED", "false")
+	t.Setenv("SHIPPING_INTERNAL_ASSIGNMENTS_ENABLED", "true")
+	t.Setenv("SHIPPING_IDENTITY_BASE_URL", "")
+	if _, err := Load(); err == nil {
+		t.Fatal("assignment API enabled without delivery")
+	}
+	t.Setenv("SHIPPING_INTERNAL_DELIVERY_ENABLED", "true")
+	t.Setenv("SHIPPING_INTERNAL_DELIVERY_FEE_VND", "25000")
+	t.Setenv("SHIPPING_INTERNAL_DELIVERY_ETA", "24h")
+	if _, err := Load(); err == nil {
+		t.Fatal("assignment API enabled without Identity")
+	}
+	t.Setenv("SHIPPING_IDENTITY_BASE_URL", "https://identity.example.test")
+	if cfg, err := Load(); err != nil || !cfg.InternalAssignmentsEnabled {
+		t.Fatalf("valid config rejected: %v", err)
+	}
 }
 
 func TestInternalDeliveryRequiresExplicitPolicyAndIsOptIn(t *testing.T) {

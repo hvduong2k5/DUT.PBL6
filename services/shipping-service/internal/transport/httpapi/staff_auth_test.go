@@ -84,6 +84,23 @@ func TestJWTStaffAuthenticatorPermissionAndAudiencePolicy(t *testing.T) {
 	if _, err := auth.Authenticate(context.Background(), "Bearer internal-service-token"); err != errStaffUnauthenticated {
 		t.Fatalf("internal token must not authenticate employee admin routes: %v", err)
 	}
+	assignmentClaims := cloneClaims(baseClaims)
+	assignmentClaims["permission_grants"] = []string{"SHIPMENT_ASSIGN#GLOBAL", "USER_VIEW#GLOBAL"}
+	assignmentJWT := "Bearer " + signStaffToken(t, privateKey, assignmentClaims)
+	principal, err := auth.AuthenticatePermission(context.Background(), assignmentJWT, "SHIPMENT_ASSIGN")
+	if err != nil || principal.Subject != "keycloak-subject" || len(principal.PermissionGrants) != 2 {
+		t.Fatalf("assignment auth: %+v %v", principal, err)
+	}
+	if _, err := auth.Authenticate(context.Background(), assignmentJWT); err != errStaffForbidden {
+		t.Fatal("assignment permission implicitly granted shipment view")
+	}
+	if _, err := auth.AuthenticatePermission(context.Background(), "Bearer "+signStaffToken(t, privateKey, baseClaims), "SHIPMENT_ASSIGN"); err != errStaffForbidden {
+		t.Fatal("view permission implicitly granted assignment")
+	}
+	assignmentClaims["permission_grants"] = []string{"SHIPMENT_ASSIGN#WAREHOUSE#WH-1"}
+	if _, err := auth.AuthenticatePermission(context.Background(), "Bearer "+signStaffToken(t, privateKey, assignmentClaims), "SHIPMENT_ASSIGN"); err != errStaffForbidden {
+		t.Fatal("warehouse grant authorized global assignment")
+	}
 }
 
 func signStaffToken(t *testing.T, key *rsa.PrivateKey, claims map[string]any) string {
