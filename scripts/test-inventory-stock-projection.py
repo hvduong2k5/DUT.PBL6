@@ -14,7 +14,10 @@ def run(args, **kwargs):
     return subprocess.run(args, check=True, env=env, **kwargs)
 
 def sql(statement):
-    return run(["docker", "exec", "-i", name, "psql", "-U", "postgres", "-v", "ON_ERROR_STOP=1", "-At"], input=statement, text=True, capture_output=True).stdout.strip()
+    try:
+        return run(["docker", "exec", "-i", name, "psql", "-h", "127.0.0.1", "-U", "postgres", "-v", "ON_ERROR_STOP=1", "-At"], input=statement, text=True, capture_output=True).stdout.strip()
+    except subprocess.CalledProcessError as error:
+        raise RuntimeError(f"test database SQL failed: {error.stderr.strip()}") from error
 
 def latest():
     return json.loads(sql("SELECT payload FROM outbox_events WHERE event_type='inventory.stock-changed.v1' ORDER BY (payload->>'inventory_version')::bigint DESC LIMIT 1"))
@@ -23,13 +26,13 @@ try:
     run(["docker", "run", "-d", "--name", name, "-e", "POSTGRES_PASSWORD", "postgres:16-alpine"], stdout=subprocess.DEVNULL)
     import time
     for _ in range(60):
-        ready = subprocess.run(["docker", "exec", name, "pg_isready", "-U", "postgres"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        ready = subprocess.run(["docker", "exec", name, "pg_isready", "-h", "127.0.0.1", "-U", "postgres"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         if ready.returncode == 0:
-            # Postgres init has a temporary server; exec waits for the final server.
+            # The init server only listens on a Unix socket; TCP requires the final server.
             try:
                 sql("SELECT 1")
                 break
-            except subprocess.CalledProcessError:
+            except RuntimeError:
                 pass
         time.sleep(1)
     else:

@@ -149,3 +149,28 @@ Tất cả các sự kiện bất đồng bộ được quản lý trong thư m�
 - `ProductPriceChanged`: [`product_price_changed.event.json`](../../packages/events/schemas/catalog/v1/product_price_changed.event.json)
 - **Topic:** `catalog.events.v1` | **Partition Key:** `product_id`
 - Outbox publisher giữ nguyên event ID khi retry; consumer cần idempotent vì giao nhận là at-least-once.
+
+### Inventory implementation policy (2026-11-21)
+
+Inventory consumes the canonical schema in section 2.5 unchanged. String supplier
+codes map to internal UUIDs; event IDs remain text. Receipt/PO/origin/received_at
+are preserved in procurement_receipts. KG converts exactly to grams only for
+SKUs configured with GRAM base units; unit-counted SKUs accept integral UNIT/PIECE.
+Each immutable receipt line gets a separate quarantined batch with unknown dates
+left NULL. Receipt arrival never implies QC approval or sellable stock.
+
+Retries are bounded (5 attempts, 1/2/4/8-second backoff), followed by
+procurement.events.dlq.v1 with the standard exception/original-topic headers and
+original partition/offset. Poison payloads go directly to DLQ. Source offsets
+commit only after transactional processing or durable DLQ acknowledgement.
+See services/inventory-service/MIGRATIONS.md for cutover, optional seed and schema jobs.
+
+### Receiving corrections (2026-11-21)
+
+GoodsReceived unit spelling is case-insensitive for KG/G/GRAM/UNIT/PIECE. KG must
+convert to an exact integer gram; G/GRAM and UNIT/PIECE require integers, bounded
+by int32 Inventory capacity. The canonical JSON Schema now expresses supported
+units, precision and bounds. Other Procurement CloudEvent types on this shared
+topic are ignored by the Inventory receipt handler; invalid GoodsReceived still
+uses the documented retry/DLQ policy. Numeric replay hashes use exact values,
+independent of spelling. Permanent event evidence survives inbox retention.
