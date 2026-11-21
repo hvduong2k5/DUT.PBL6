@@ -1,31 +1,22 @@
 package com.hvduong.catalog.api;
 
-import com.hvduong.catalog.application.dto.request.CheckoutSnapshotRequest;
-import com.hvduong.catalog.application.dto.request.PriceValidationRequest;
 import com.hvduong.catalog.application.dto.request.ProductFilterRequest;
 import com.hvduong.catalog.application.dto.response.CategoryListResponse;
 import com.hvduong.catalog.application.dto.response.ProductVariantResponse;
 import com.hvduong.catalog.application.service.CatalogService;
-import com.hvduong.catalog.application.service.CheckoutSnapshotService;
 import com.hvduong.catalog.common.enums.SalesChannel;
 import com.hvduong.catalog.common.enums.SortBy;
 
 import java.math.BigDecimal;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -42,18 +33,14 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 
-/** Public DTO adapter; checkout endpoints are authenticated internal calls. */
+/** Public DTO adapter for Catalog read APIs. */
 @Tag(name = "Catalog Public", description = "Các API tra cứu danh mục, sản phẩm công khai")
 @RestController
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
 public class CatalogHttpController {
   private final CatalogService catalog;
-  private final CheckoutSnapshotService snapshots;
   private final ObjectMapper json;
-
-  @Value("${catalog.internal-token:}")
-  private String internalToken;
 
   private Object dto(Object value) {
     return json.copy()
@@ -210,37 +197,5 @@ public class CatalogHttpController {
       throw new ResponseStatusException(
           HttpStatus.SERVICE_UNAVAILABLE, "CATALOG_PRICE_UNAVAILABLE");
     return value;
-  }
-
-  @PostMapping("/internal/catalog/snapshots")
-  public Object snapshot(
-      @RequestHeader(name = "X-Internal-Token", required = false) String token,
-      @RequestBody CheckoutSnapshotRequest request) {
-    authorize(token);
-    return snapshots.create(request);
-  }
-
-  @PostMapping("/internal/catalog/snapshots/{id}/revalidate")
-  public Object revalidate(
-      @RequestHeader(name = "X-Internal-Token", required = false) String token,
-      @PathVariable String id) {
-    authorize(token);
-    return Map.of("valid", snapshots.revalidate(id));
-  }
-
-  @PostMapping("/internal/prices/validate")
-  public Object validatePriceAndSku(
-      @RequestHeader(name = "X-Internal-Token", required = false) String token,
-      @RequestBody PriceValidationRequest request) {
-    authorize(token);
-    return catalog.validatePrices(request);
-  }
-
-  private void authorize(String token) {
-    if (internalToken.length() < 32
-        || token == null
-        || !MessageDigest.isEqual(
-            internalToken.getBytes(StandardCharsets.UTF_8), token.getBytes(StandardCharsets.UTF_8)))
-      throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
   }
 }

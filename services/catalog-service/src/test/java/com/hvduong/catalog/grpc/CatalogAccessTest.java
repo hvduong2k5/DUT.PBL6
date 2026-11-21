@@ -13,13 +13,14 @@ class CatalogAccessTest {
 
   @Test
   @SuppressWarnings({"unchecked", "rawtypes"})
-  void rejectsInternalCheckoutSnapshotWithoutValidInternalToken() {
+  void rejectsInternalValidateCheckoutPricingWithoutValidInternalToken() {
     var access = new CatalogAccess();
     ReflectionTestUtils.setField(
         access, "internalToken", "very-long-internal-secret-token-32-chars");
 
     var call = mock(ServerCall.class);
-    when(call.getMethodDescriptor()).thenReturn(CatalogServiceGrpc.getGetCheckoutSnapshotMethod());
+    when(call.getMethodDescriptor())
+        .thenReturn(CatalogServiceGrpc.getValidateCheckoutPricingMethod());
     var handler = mock(ServerCallHandler.class);
     access.interceptCall(call, new Metadata(), handler);
     verify(call).close(eq(Status.UNAUTHENTICATED), any(Metadata.class));
@@ -28,13 +29,14 @@ class CatalogAccessTest {
 
   @Test
   @SuppressWarnings({"unchecked", "rawtypes"})
-  void allowsInternalCheckoutSnapshotWithValidInternalToken() {
+  void allowsInternalValidateCheckoutPricingWithValidInternalToken() {
     var access = new CatalogAccess();
     String validToken = "very-long-internal-secret-token-32-chars";
     ReflectionTestUtils.setField(access, "internalToken", validToken);
 
     var call = mock(ServerCall.class);
-    when(call.getMethodDescriptor()).thenReturn(CatalogServiceGrpc.getGetCheckoutSnapshotMethod());
+    when(call.getMethodDescriptor())
+        .thenReturn(CatalogServiceGrpc.getValidateCheckoutPricingMethod());
     var handler = mock(ServerCallHandler.class);
     when(handler.startCall(any(), any())).thenReturn(new ServerCall.Listener() {});
 

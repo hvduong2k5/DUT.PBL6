@@ -964,6 +964,10 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
           "Variant " + variantId + " không thuộc Product " + productId);
     }
 
+    variantMapper.incrementPriceRevision(variantId);
+    variant = variantMapper.findById(variantId).orElseThrow();
+    long currentPriceRevision = variant.getPriceRevision();
+
     List<Map<String, Object>> changedPrices =
         request.getPrices().stream()
             .map(
@@ -987,6 +991,7 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
                   price.put("currency_code", entry.getCurrencyCode());
                   price.put("amount_units", entry.getAmountUnits());
                   price.put("amount_nanos", 0);
+                  price.put("price_revision", currentPriceRevision);
                   return price;
                 })
             .toList();
@@ -994,6 +999,7 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
     eventData.put("product_id", productId.toString());
     eventData.put("variant_id", variantId.toString());
     eventData.put("sku_code", variant.getSkuCode());
+    eventData.put("price_revision", currentPriceRevision);
     eventData.put("prices", changedPrices);
     eventData.put("changed_by", actorId);
     outboxWriter.enqueue(

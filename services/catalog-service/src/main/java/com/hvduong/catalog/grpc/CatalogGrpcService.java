@@ -1,32 +1,34 @@
 package com.hvduong.catalog.grpc;
 
-import com.hvduong.catalog.application.dto.request.CheckoutSnapshotRequest;
-import com.hvduong.catalog.application.dto.response.PriceValidationResponse;
-import com.hvduong.catalog.application.dto.response.ProductVariantResponse;
-import com.hvduong.catalog.application.service.CatalogService;
-import com.hvduong.catalog.application.service.CheckoutSnapshotService;
-import com.hvduong.catalog.common.enums.SalesChannel;
+import com.hvduong.catalog.common.enums.ApprovalStatus;
+import com.hvduong.catalog.common.enums.ListingStatus;
 import com.hvduong.catalog.common.exception.CatalogException;
 import com.hvduong.catalog.common.exception.ErrorCode;
 import com.hvduong.catalog.domain.entity.ChannelPrice;
+import com.hvduong.catalog.domain.entity.Product;
 import com.hvduong.catalog.domain.entity.ProductVariant;
 import com.hvduong.catalog.repository.mybatis.ChannelPriceMapper;
+import com.hvduong.catalog.repository.mybatis.ProductMapper;
 import com.hvduong.catalog.repository.mybatis.ProductVariantMapper;
 
+import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-import org.springframework.web.server.ResponseStatusException;
+import org.springframework.util.StringUtils;
 
 import com.google.protobuf.Timestamp;
 import com.omamx.proto.catalog.v1.*;
+import com.omamx.proto.common.v1.ErrorDetail;
 import com.omamx.proto.common.v1.Money;
 import com.omamx.proto.common.v1.PaginationResponse;
-import com.omamx.proto.common.v1.Weight;
-import com.omamx.proto.common.v1.WeightUnit;
 
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
@@ -43,36 +45,323 @@ import net.devh.boot.grpc.server.service.GrpcService;
 @RequiredArgsConstructor
 public class CatalogGrpcService extends CatalogServiceGrpc.CatalogServiceImplBase {
 
-  private final CatalogService catalogService;
-  private final CatalogGrpcMapper grpcMapper;
-  private final CheckoutSnapshotService snapshots;
   private final ProductVariantMapper variantMapper;
+  private final ProductMapper productMapper;
   private final ChannelPriceMapper channelPriceMapper;
+  private final CatalogGrpcMapper grpcMapper;
 
   @Override
-  public void validatePriceAndSKU(
-      ValidatePriceAndSKURequest request, StreamObserver<ValidatePriceAndSKUResponse> observer) {
-    log.debug("[gRPC-Internal] validatePriceAndSKU: itemsCount={}", request.getItemsCount());
+  public void validateCheckoutPricing(
+      ValidateCheckoutPricingRequest request,
+      StreamObserver<ValidateCheckoutPricingResponse> observer) {
+    log.debug(
+        "[gRPC-Internal] validateCheckoutPricing: channel={}, itemsCount={}",
+        request.getChannel(),
+        request.getItemsCount());
     complete(
         observer,
         () -> {
-          var validationReq = grpcMapper.toValidationRequest(request);
-          PriceValidationResponse result = catalogService.validatePrices(validationReq);
-          return grpcMapper.toValidationResponse(result);
+          if (request.getChannel() == null
+              || request.getChannel() == SalesChannel.SALES_CHANNEL_UNSPECIFIED) {
+            throw new CatalogException(
+                ErrorCode.INVALID_ARGUMENT, "Sales channel must be specified");
+          }
+
+          if (request.getItemsCount() < 1 || request.getItemsCount() > 100) {
+            throw new CatalogException(
+                ErrorCode.INVALID_ARGUMENT, "Items count must be between 1 and 100");
+          }
+
+          var domainChannel = grpcMapper.toSalesChannel(request.getChannel());
+          if (domainChannel == null) {
+            throw new CatalogException(
+                ErrorCode.INVALID_ARGUMENT, "Unsupported sales channel: " + request.getChannel());
+          }
+
+          // Kiểm tra tính hợp lệ và không trùng lặp SKU
+          Set<String> seenSkus = new HashSet<>();
+          for (CheckoutItemInput item : request.getItemsList()) {
+            if (!StringUtils.hasText(item.getSkuCode())) {
+              throw new CatalogException(ErrorCode.INVALID_ARGUMENT, "sku_code is required");
+            }
+            if (item.getQuantity() < 1 || item.getQuantity() > 999) {
+              throw new CatalogException(
+                  ErrorCode.INVALID_ARGUMENT,
+                  "Quantity must be between 1 and 999 for SKU: " + item.getSkuCode());
+            }
+            if (!seenSkus.add(item.getSkuCode())) {
+              throw new CatalogException(
+                  ErrorCode.INVALID_ARGUMENT, "Duplicate SKU detected: " + item.getSkuCode());
+            }
+          }
+
+          List<ValidatedCheckoutItem> validatedItems = new ArrayList<>();
+          List<PriceDiscrepancy> discrepancies = new ArrayList<>();
+          long canonicalSubtotalUnits = 0L;
+          Money zeroMoney =
+              Money.newBuilder().setCurrencyCode("VND").setUnits(0).setNanos(0).build();
+
+          for (CheckoutItemInput item : request.getItemsList()) {
+            String sku = item.getSkuCode();
+            Optional<ProductVariant> variantOpt = variantMapper.findBySkuCode(sku);
+
+            if (variantOpt.isEmpty()) {
+              discrepancies.add(
+                  PriceDiscrepancy.newBuilder()
+                      .setSkuCode(sku)
+                      .setClientUnitPrice(item.getClientUnitPrice())
+                      .setAuthoritativeUnitPrice(zeroMoney)
+                      .setDiscrepancyReason(ValidationIssue.VALIDATION_ISSUE_SKU_NOT_FOUND)
+                      .build());
+              validatedItems.add(
+                  ValidatedCheckoutItem.newBuilder()
+                      .setSkuCode(sku)
+                      .setQuantity(item.getQuantity())
+                      .setAuthoritativeUnitPrice(zeroMoney)
+                      .setIsSellable(false)
+                      .build());
+              continue;
+            }
+
+            ProductVariant variant = variantOpt.get();
+            if (variant.getListingStatus() != ListingStatus.ACTIVE) {
+              discrepancies.add(
+                  PriceDiscrepancy.newBuilder()
+                      .setSkuCode(sku)
+                      .setClientUnitPrice(item.getClientUnitPrice())
+                      .setAuthoritativeUnitPrice(zeroMoney)
+                      .setDiscrepancyReason(ValidationIssue.VALIDATION_ISSUE_SKU_INACTIVE)
+                      .build());
+              validatedItems.add(
+                  ValidatedCheckoutItem.newBuilder()
+                      .setProductId(
+                          variant.getProductId() != null ? variant.getProductId().toString() : "")
+                      .setVariantId(variant.getId() != null ? variant.getId().toString() : "")
+                      .setSkuCode(sku)
+                      .setVariantName(
+                          variant.getVariantName() != null ? variant.getVariantName() : "")
+                      .setQuantity(item.getQuantity())
+                      .setAuthoritativeUnitPrice(zeroMoney)
+                      .setNetWeight(
+                          grpcMapper.toWeightProto(
+                              variant.getWeightValue(), variant.getWeightUnit()))
+                      .setPackagingType(grpcMapper.toPackagingTypeProto(variant.getPackagingType()))
+                      .setIsSellable(false)
+                      .setVariantVersion(variant.getVersion())
+                      .setPriceVersion(variant.getPriceRevision())
+                      .build());
+              continue;
+            }
+
+            Optional<Product> productOpt = productMapper.findById(variant.getProductId());
+            if (productOpt.isEmpty()
+                || productOpt.get().getApprovalStatus() != ApprovalStatus.APPROVED
+                || productOpt.get().getListingStatus() != ListingStatus.ACTIVE) {
+              discrepancies.add(
+                  PriceDiscrepancy.newBuilder()
+                      .setSkuCode(sku)
+                      .setClientUnitPrice(item.getClientUnitPrice())
+                      .setAuthoritativeUnitPrice(zeroMoney)
+                      .setDiscrepancyReason(ValidationIssue.VALIDATION_ISSUE_PRODUCT_NOT_APPROVED)
+                      .build());
+              validatedItems.add(
+                  ValidatedCheckoutItem.newBuilder()
+                      .setProductId(
+                          variant.getProductId() != null ? variant.getProductId().toString() : "")
+                      .setVariantId(variant.getId() != null ? variant.getId().toString() : "")
+                      .setSkuCode(sku)
+                      .setProductName(productOpt.map(Product::getName).orElse(""))
+                      .setVariantName(
+                          variant.getVariantName() != null ? variant.getVariantName() : "")
+                      .setQuantity(item.getQuantity())
+                      .setAuthoritativeUnitPrice(zeroMoney)
+                      .setNetWeight(
+                          grpcMapper.toWeightProto(
+                              variant.getWeightValue(), variant.getWeightUnit()))
+                      .setPackagingType(grpcMapper.toPackagingTypeProto(variant.getPackagingType()))
+                      .setIsSellable(false)
+                      .setProductVersion(productOpt.map(Product::getVersion).orElse(0L))
+                      .setVariantVersion(variant.getVersion())
+                      .setPriceVersion(variant.getPriceRevision())
+                      .build());
+              continue;
+            }
+
+            Product product = productOpt.get();
+            Optional<ChannelPrice> priceOpt =
+                channelPriceMapper.findActiveByVariantAndChannel(
+                    variant.getId(), domainChannel.getValue());
+            if (priceOpt.isEmpty()) {
+              discrepancies.add(
+                  PriceDiscrepancy.newBuilder()
+                      .setSkuCode(sku)
+                      .setClientUnitPrice(item.getClientUnitPrice())
+                      .setAuthoritativeUnitPrice(zeroMoney)
+                      .setDiscrepancyReason(ValidationIssue.VALIDATION_ISSUE_PRICE_NOT_CONFIGURED)
+                      .build());
+              validatedItems.add(
+                  ValidatedCheckoutItem.newBuilder()
+                      .setProductId(product.getId().toString())
+                      .setVariantId(variant.getId().toString())
+                      .setSkuCode(sku)
+                      .setProductName(product.getName() != null ? product.getName() : "")
+                      .setVariantName(
+                          variant.getVariantName() != null ? variant.getVariantName() : "")
+                      .setQuantity(item.getQuantity())
+                      .setAuthoritativeUnitPrice(zeroMoney)
+                      .setNetWeight(
+                          grpcMapper.toWeightProto(
+                              variant.getWeightValue(), variant.getWeightUnit()))
+                      .setPackagingType(grpcMapper.toPackagingTypeProto(variant.getPackagingType()))
+                      .setIsSellable(false)
+                      .setProductVersion(product.getVersion())
+                      .setVariantVersion(variant.getVersion())
+                      .setPriceVersion(variant.getPriceRevision())
+                      .build());
+              continue;
+            }
+
+            ChannelPrice price = priceOpt.get();
+            Money authoritativePrice =
+                Money.newBuilder()
+                    .setCurrencyCode(
+                        price.getCurrencyCode() != null ? price.getCurrencyCode() : "VND")
+                    .setUnits(price.getAmountUnits())
+                    .setNanos(price.getAmountNanos())
+                    .build();
+
+            canonicalSubtotalUnits =
+                Math.addExact(
+                    canonicalSubtotalUnits,
+                    Math.multiplyExact(price.getAmountUnits(), (long) item.getQuantity()));
+
+            boolean priceMatches = true;
+            ValidationIssue discrepancyIssue = ValidationIssue.VALIDATION_ISSUE_PRICE_CHANGED;
+
+            if (item.hasClientUnitPrice()) {
+              if (StringUtils.hasText(item.getClientUnitPrice().getCurrencyCode())
+                  && !"VND".equalsIgnoreCase(item.getClientUnitPrice().getCurrencyCode())) {
+                priceMatches = false;
+                discrepancyIssue = ValidationIssue.VALIDATION_ISSUE_CURRENCY_MISMATCH;
+              } else if (item.getClientUnitPrice().getUnits() != price.getAmountUnits()
+                  || item.getClientUnitPrice().getNanos() != price.getAmountNanos()) {
+                priceMatches = false;
+                discrepancyIssue = ValidationIssue.VALIDATION_ISSUE_PRICE_CHANGED;
+              }
+            }
+
+            if (!priceMatches) {
+              discrepancies.add(
+                  PriceDiscrepancy.newBuilder()
+                      .setSkuCode(sku)
+                      .setClientUnitPrice(item.getClientUnitPrice())
+                      .setAuthoritativeUnitPrice(authoritativePrice)
+                      .setDiscrepancyReason(discrepancyIssue)
+                      .build());
+            }
+
+            validatedItems.add(
+                ValidatedCheckoutItem.newBuilder()
+                    .setProductId(product.getId().toString())
+                    .setVariantId(variant.getId().toString())
+                    .setSkuCode(sku)
+                    .setProductName(product.getName() != null ? product.getName() : "")
+                    .setVariantName(
+                        variant.getVariantName() != null ? variant.getVariantName() : "")
+                    .setQuantity(item.getQuantity())
+                    .setAuthoritativeUnitPrice(authoritativePrice)
+                    .setNetWeight(
+                        grpcMapper.toWeightProto(variant.getWeightValue(), variant.getWeightUnit()))
+                    .setPackagingType(grpcMapper.toPackagingTypeProto(variant.getPackagingType()))
+                    .setIsSellable(true)
+                    .setProductVersion(product.getVersion())
+                    .setVariantVersion(variant.getVersion())
+                    .setPriceVersion(variant.getPriceRevision())
+                    .build());
+          }
+
+          boolean isValid = discrepancies.isEmpty();
+          Instant now = Instant.now();
+          Timestamp evaluatedAt =
+              Timestamp.newBuilder()
+                  .setSeconds(now.getEpochSecond())
+                  .setNanos(now.getNano())
+                  .build();
+
+          var responseBuilder =
+              ValidateCheckoutPricingResponse.newBuilder()
+                  .setIsValid(isValid)
+                  .addAllItems(validatedItems)
+                  .setCanonicalSubtotal(
+                      Money.newBuilder()
+                          .setCurrencyCode("VND")
+                          .setUnits(canonicalSubtotalUnits)
+                          .setNanos(0)
+                          .build())
+                  .addAllDiscrepancies(discrepancies)
+                  .setEvaluatedAt(evaluatedAt);
+
+          if (!isValid) {
+            responseBuilder.setError(
+                ErrorDetail.newBuilder()
+                    .setErrorCode(com.omamx.proto.common.v1.ErrorCode.ERR_CATALOG_PRICE_TAMPERED)
+                    .setUserMessage(
+                        "Thông tin giá hoặc sản phẩm đã thay đổi, vui lòng tải lại giỏ hàng.")
+                    .setDevMessage(
+                        "Checkout pricing validation detected discrepancies in items or pricing")
+                    .setDomain("catalog")
+                    .build());
+          }
+
+          return responseBuilder.build();
         });
   }
 
   @Override
   public void getProductVariant(
       GetProductVariantRequest request, StreamObserver<GetProductVariantResponse> observer) {
-    log.debug("[gRPC-Internal] getProductVariant: skuCode={}", request.getSkuCode());
+    log.debug(
+        "[gRPC-Internal] getProductVariant: skuCode={}, channel={}",
+        request.getSkuCode(),
+        request.getChannel());
     complete(
         observer,
         () -> {
-          ProductVariantResponse variant = catalogService.getVariantBySkuCode(request.getSkuCode());
-          return GetProductVariantResponse.newBuilder()
-              .setVariant(grpcMapper.toVariantDetailProto(variant))
-              .build();
+          if (!StringUtils.hasText(request.getSkuCode())) {
+            throw new CatalogException(ErrorCode.INVALID_ARGUMENT, "sku_code is required");
+          }
+
+          ProductVariant variant =
+              variantMapper
+                  .findBySkuCode(request.getSkuCode())
+                  .orElseThrow(
+                      () ->
+                          new CatalogException(
+                              ErrorCode.CATALOG_VARIANT_NOT_FOUND,
+                              "SKU not found: " + request.getSkuCode()));
+
+          Product product =
+              productMapper
+                  .findById(variant.getProductId())
+                  .orElseThrow(
+                      () ->
+                          new CatalogException(
+                              ErrorCode.CATALOG_PRODUCT_NOT_FOUND,
+                              "Product not found for SKU: " + request.getSkuCode()));
+
+          ChannelPrice price = null;
+          if (request.getChannel() != SalesChannel.SALES_CHANNEL_UNSPECIFIED) {
+            var domainChannel = grpcMapper.toSalesChannel(request.getChannel());
+            if (domainChannel != null) {
+              price =
+                  channelPriceMapper
+                      .findActiveByVariantAndChannel(variant.getId(), domainChannel.getValue())
+                      .orElse(null);
+            }
+          }
+
+          ProductVariantDetail detail = grpcMapper.toVariantDetailProto(variant, product, price);
+          return GetProductVariantResponse.newBuilder().setVariant(detail).build();
         });
   }
 
@@ -80,10 +369,11 @@ public class CatalogGrpcService extends CatalogServiceGrpc.CatalogServiceImplBas
   public void listProductVariants(
       ListProductVariantsRequest request, StreamObserver<ListProductVariantsResponse> observer) {
     log.debug(
-        "[gRPC-Internal] listProductVariants: categoryId={}, ocopRating={}, activeOnly={}, page={}, pageSize={}",
+        "[gRPC-Internal] listProductVariants: categoryId={}, ocopRating={}, activeOnly={}, channel={}, page={}, pageSize={}",
         request.getCategoryId(),
         request.getOcopRating(),
         request.getActiveOnly(),
+        request.getChannel(),
         request.getPagination().getPage(),
         request.getPagination().getPageSize());
     complete(
@@ -107,31 +397,50 @@ public class CatalogGrpcService extends CatalogServiceGrpc.CatalogServiceImplBas
             }
           }
 
-          String ocopRating = request.getOcopRating().isEmpty() ? null : request.getOcopRating();
-          // Proto3 optional bool default là false; contract ghi default = true,
-          // nên chỉ lọc active khi client gửi rõ ràng active_only = true.
+          String ocopRating = null;
+          if (request.hasOcopRating()
+              && request.getOcopRating() != OcopRating.OCOP_RATING_UNSPECIFIED) {
+            ocopRating = String.valueOf(request.getOcopRating().getNumber());
+          }
+
           Boolean activeOnly = request.hasActiveOnly() && request.getActiveOnly() ? true : null;
 
           List<ProductVariant> variants =
               variantMapper.findByFilter(categoryId, ocopRating, activeOnly, offset, pageSize);
           long total = variantMapper.countByFilter(categoryId, ocopRating, activeOnly);
 
-          // Batch load giá hiện hành theo kênh D2C_WEB
+          // Batch load prices theo kênh nếu có
           List<UUID> variantIds =
               variants.stream().map(ProductVariant::getId).collect(Collectors.toList());
           Map<UUID, ChannelPrice> currentPriceByVariant = new HashMap<>();
-          if (!variantIds.isEmpty()) {
+          var domainChannel = grpcMapper.toSalesChannel(request.getChannel());
+          if (domainChannel != null && !variantIds.isEmpty()) {
             for (ChannelPrice price :
                 channelPriceMapper.findActiveCurrentByVariantIds(
-                    variantIds, SalesChannel.D2C_WEB.getValue())) {
+                    variantIds, domainChannel.getValue())) {
               currentPriceByVariant.putIfAbsent(price.getVariantId(), price);
             }
+          }
+
+          // Batch load products
+          List<UUID> productIds =
+              variants.stream()
+                  .map(ProductVariant::getProductId)
+                  .distinct()
+                  .collect(Collectors.toList());
+          Map<UUID, Product> productsById = new HashMap<>();
+          for (UUID pid : productIds) {
+            productMapper.findById(pid).ifPresent(p -> productsById.put(p.getId(), p));
           }
 
           List<ProductVariantDetail> variantDetails =
               variants.stream()
                   .map(
-                      v -> grpcMapper.toVariantDetailProto(v, currentPriceByVariant.get(v.getId())))
+                      v ->
+                          grpcMapper.toVariantDetailProto(
+                              v,
+                              productsById.get(v.getProductId()),
+                              currentPriceByVariant.get(v.getId())))
                   .collect(Collectors.toList());
 
           int totalPages = pageSize == 0 ? 0 : (int) Math.ceil((double) total / pageSize);
@@ -150,64 +459,59 @@ public class CatalogGrpcService extends CatalogServiceGrpc.CatalogServiceImplBas
   }
 
   @Override
-  public void getCheckoutSnapshot(
-      GetCheckoutSnapshotRequest request, StreamObserver<GetCheckoutSnapshotResponse> observer) {
-    log.debug("[gRPC-Internal] getCheckoutSnapshot: itemsCount={}", request.getItemsCount());
-    try {
-      if (!"catalog-checkout-1.0".equals(request.getContractVersion())) {
-        observer.onError(
-            Status.INVALID_ARGUMENT
-                .withDescription("UNSUPPORTED_CONTRACT_VERSION")
-                .asRuntimeException());
-        return;
-      }
-      var snapshot =
-          snapshots.create(
-              new CheckoutSnapshotRequest(
-                  request.getItemsList().stream()
-                      .map(
-                          item ->
-                              new CheckoutSnapshotRequest.Selection(
-                                  item.getSkuCode(), item.getQuantity()))
-                      .toList(),
-                  request.getChannel()));
-      var response =
-          GetCheckoutSnapshotResponse.newBuilder()
-              .setSnapshotId(snapshot.snapshotId())
-              .setCatalogVersion(snapshot.catalogVersion())
-              .setContractVersion(snapshot.contractVersion())
-              .setValidUntil(
-                  Timestamp.newBuilder()
-                      .setSeconds(snapshot.validUntil().getEpochSecond())
-                      .setNanos(snapshot.validUntil().getNano()))
-              .setSubtotal(Money.newBuilder().setCurrencyCode("VND").setUnits(snapshot.subtotal()));
+  public void getTraceabilityBinding(
+      GetTraceabilityBindingRequest request,
+      StreamObserver<GetTraceabilityBindingResponse> observer) {
+    log.debug(
+        "[gRPC-Internal] getTraceabilityBinding: productId={}, skuCode={}",
+        request.getProductId(),
+        request.getSkuCode());
+    complete(
+        observer,
+        () -> {
+          UUID productUuid;
+          try {
+            productUuid = UUID.fromString(request.getProductId());
+          } catch (IllegalArgumentException e) {
+            throw new CatalogException(ErrorCode.INVALID_ARGUMENT, "Invalid product UUID");
+          }
+          ProductVariant variant =
+              variantMapper
+                  .findBySkuCode(request.getSkuCode())
+                  .orElseThrow(
+                      () ->
+                          new CatalogException(
+                              ErrorCode.CATALOG_VARIANT_NOT_FOUND,
+                              "SKU not found: " + request.getSkuCode()));
+          if (!productUuid.equals(variant.getProductId())) {
+            throw new CatalogException(
+                ErrorCode.CATALOG_VARIANT_NOT_FOUND,
+                "SKU "
+                    + request.getSkuCode()
+                    + " does not belong to product "
+                    + request.getProductId());
+          }
+          Product product =
+              productMapper
+                  .findById(productUuid)
+                  .orElseThrow(
+                      () ->
+                          new CatalogException(
+                              ErrorCode.CATALOG_PRODUCT_NOT_FOUND,
+                              "Product not found: " + request.getProductId()));
 
-      for (var item : snapshot.items()) {
-        response.addItems(
-            CheckoutSnapshotItem.newBuilder()
-                .setSkuCode(item.skuCode())
-                .setQuantity(Math.toIntExact(item.quantity()))
-                .setProductName(item.productName())
-                .setUnitPrice(Money.newBuilder().setCurrencyCode("VND").setUnits(item.unitPrice()))
-                .setNetWeight(
-                    Weight.newBuilder()
-                        .setDecimalValue(Long.toString(item.weightGrams()))
-                        .setUnit(WeightUnit.WEIGHT_UNIT_GRAM))
-                .setPackagingType(item.packagingType())
-                .setIsActive(item.isActive()));
-      }
-      observer.onNext(response.build());
-      observer.onCompleted();
-    } catch (ResponseStatusException | IllegalArgumentException error) {
-      observer.onError(
-          Status.FAILED_PRECONDITION
-              .withDescription("CATALOG_SELECTION_UNAVAILABLE")
-              .asRuntimeException());
-    } catch (Exception error) {
-      log.error("[gRPC-Internal] Error executing getCheckoutSnapshot", error);
-      observer.onError(
-          Status.UNAVAILABLE.withDescription("CATALOG_UNAVAILABLE").asRuntimeException());
-    }
+          String versionFingerprint =
+              variant.getId().toString() + ":" + product.getVersion() + ":" + variant.getVersion();
+
+          return GetTraceabilityBindingResponse.newBuilder()
+              .setProductId(product.getId().toString())
+              .setSkuCode(variant.getSkuCode())
+              .setVersionFingerprint(versionFingerprint)
+              .setProductVersion(product.getVersion())
+              .setVariantVersion(variant.getVersion())
+              .setVariantId(variant.getId().toString())
+              .build();
+        });
   }
 
   @FunctionalInterface

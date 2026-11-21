@@ -16,6 +16,7 @@
         <result property="shelfLifeDays" column="shelf_life_days"/>
         <result property="listingStatus" column="listing_status"/>
         <result property="version"      column="version"/>
+        <result property="priceRevision" column="price_revision"/>
         <result property="createdAt"    column="created_at"/>
         <result property="updatedAt"    column="updated_at"/>
     </resultMap>
@@ -135,6 +136,13 @@
             updated_at     = NOW()
         WHERE id = #{id}
           AND version = #{expectedVersion}
+    </update>
+
+    <update id="incrementPriceRevision">
+        UPDATE product_variants SET
+            price_revision = price_revision + 1,
+            updated_at     = NOW()
+        WHERE id = #{id}
     </update>
 
 </mapper>

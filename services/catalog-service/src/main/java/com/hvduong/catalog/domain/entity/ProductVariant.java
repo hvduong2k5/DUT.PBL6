@@ -35,6 +35,7 @@ public class ProductVariant {
   private Integer shelfLifeDays; // Hạn sử dụng (số ngày từ NSX)
   private ListingStatus listingStatus;
   private long version;
+  private long priceRevision;
   private Instant createdAt;
   private Instant updatedAt;
 
