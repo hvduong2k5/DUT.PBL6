@@ -3764,8 +3764,7 @@ paths:
                       - name
                       - weight_gram
                       - price
-                      - original_price
-                      - stock_available
+                      - stock_status
                       properties:
                         variant_id:
                           type: string
@@ -3789,20 +3788,17 @@ paths:
                             nanos:
                               type: integer
                           additionalProperties: false
-                        original_price:
-                          type: object
-                          required:
-                          - currency_code
-                          - units
-                          - nanos
-                          properties:
-                            currency_code:
-                              type: string
-                            units:
-                              type: integer
-                            nanos:
-                              type: integer
-                          additionalProperties: false
+                        price_version:
+                          type: integer
+                          format: int64
+                          description: Revision đơn điệu của giá SKU.
+                        stock_status:
+                          type: string
+                          enum:
+                          - UNKNOWN
+                          - IN_STOCK
+                          - OUT_OF_STOCK
+                          description: Trạng thái tồn kho tham khảo từ Catalog projection (Inventory là nguồn sự thật duy nhất).
                         stock_available:
                           type:
                           - integer
@@ -3841,10 +3837,8 @@ paths:
                         currency_code: VND
                         units: 345000
                         nanos: 0
-                      original_price:
-                        currency_code: VND
-                        units: 345000
-                        nanos: 0
+                      price_version: 1
+                      stock_status: IN_STOCK
                       stock_available: 150
         '404':
           $ref: '#/components/responses/NotFound'
@@ -4022,6 +4016,146 @@ paths:
           minimum: 1
           maximum: 100
           default: 20
+  /api/v1/products/variants/{sku}:
+    get:
+      tags:
+      - Catalog
+      operationId: getProductVariantBySku
+      summary: Lấy thông tin chi tiết biến thể SKU và giá theo kênh bán
+      description: Truy vấn biến thể SKU, giá theo kênh bán (channel) và trạng thái tồn kho tham khảo (stock_status). Mặc định channel là D2C_WEB. Kênh B2B_WHOLESALE, POS_QUAY, SHOPEE, TIKTOK yêu cầu định danh hợp lệ.
+      x-lifecycle: stable
+      x-backlog:
+      - EPIC_04
+      x-ui-states:
+      - loading
+      - success
+      - error
+      - unauthorized
+      - forbidden
+      x-test-latency-ms: 1200
+      security: []
+      parameters:
+      - name: sku
+        in: path
+        required: true
+        description: Mã SKU của biến thể sản phẩm.
+        schema:
+          type: string
+          minLength: 1
+      - name: channel
+        in: query
+        required: false
+        description: Kênh bán hàng cần lấy giá. Mặc định là D2C_WEB.
+        schema:
+          type: string
+          enum:
+          - D2C_WEB
+          - MOBILE_APP
+          - B2B_WHOLESALE
+          - POS_QUAY
+          - SHOPEE
+          - TIKTOK
+          default: D2C_WEB
+      responses:
+        '200':
+          description: Lấy thông tin biến thể thành công.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - variant
+                properties:
+                  variant:
+                    type: object
+                    required:
+                    - variant_id
+                    - sku_code
+                    - name
+                    - channel
+                    - weight_gram
+                    - price
+                    - price_version
+                    - stock_status
+                    properties:
+                      variant_id:
+                        type: string
+                      sku_code:
+                        type: string
+                      name:
+                        type: string
+                      channel:
+                        type: string
+                        enum:
+                        - D2C_WEB
+                        - MOBILE_APP
+                        - B2B_WHOLESALE
+                        - POS_QUAY
+                        - SHOPEE
+                        - TIKTOK
+                      weight_gram:
+                        type: integer
+                        format: int64
+                      price:
+                        type: object
+                        required:
+                        - currency_code
+                        - units
+                        - nanos
+                        properties:
+                          currency_code:
+                            type: string
+                          units:
+                            type: integer
+                          nanos:
+                            type: integer
+                        additionalProperties: false
+                      price_version:
+                        type: integer
+                        format: int64
+                        description: Revision đơn điệu của giá SKU trên kênh bán.
+                      stock_status:
+                        type: string
+                        enum:
+                        - UNKNOWN
+                        - IN_STOCK
+                        - OUT_OF_STOCK
+                        description: Trạng thái tồn kho tham khảo từ Catalog projection (Inventory là nguồn sự thật duy nhất).
+                      stock_available:
+                        type:
+                        - integer
+                        - 'null'
+                        format: int64
+                        description: Số lượng tồn kho tham khảo (nếu được phép công khai).
+                    additionalProperties: false
+                additionalProperties: false
+              examples:
+                success:
+                  summary: Phản hồi thành công
+                  value:
+                    variant:
+                      variant_id: 78e9b001-2026-4020-8020-000000000001
+                      sku_code: GAO-ST25-1KG
+                      name: Gạo ST25 1KG
+                      channel: D2C_WEB
+                      weight_gram: 1000
+                      price:
+                        currency_code: VND
+                        units: 55000
+                        nanos: 0
+                      price_version: 4
+                      stock_status: IN_STOCK
+                      stock_available: null
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /api/v1/profile:
     get:
       tags:

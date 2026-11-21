@@ -58,6 +58,13 @@ enum PackagingType {
   PACKAGING_TYPE_DANG_ROI = 5;
 }
 
+enum StockStatus {
+  STOCK_STATUS_UNSPECIFIED = 0;
+  STOCK_STATUS_UNKNOWN = 1;
+  STOCK_STATUS_IN_STOCK = 2;
+  STOCK_STATUS_OUT_OF_STOCK = 3;
+}
+
 enum ValidationIssue {
   VALIDATION_ISSUE_UNSPECIFIED = 0;
   VALIDATION_ISSUE_PRICE_CHANGED = 1;
@@ -157,6 +164,9 @@ message ProductVariantDetail {
   PackagingType packaging_type = 9;
   optional int32 shelf_life_days = 10;
   bool is_active = 11;
+  int64 price_version = 12;
+  StockStatus stock_status = 13;
+  optional int64 stock_available = 14;
 }
 
 message GetProductVariantResponse {
