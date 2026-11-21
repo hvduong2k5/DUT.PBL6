@@ -216,3 +216,45 @@ Khi khách mua số lượng $N$ của một SKU:
 - **Worker 2 (Hàng ngày lúc 01:00 AM):**
   - Quét các Batch có $ExpiryDate \le NOW()$: Đổi trạng thái sang `EXPIRED`, trừ ra khỏi khả dụng, phát cảnh báo.
   - Quét các Batch có $NOW() < ExpiryDate \le NOW() + 45\text{ ngày}$: Gắn nhãn `NEAR_EXPIRY` và phát sự kiện `ExpiryWarningEvent`.
+
+## Inventory Procurement consumer — quyết định triển khai 21/11/2026
+
+Giữ nguyên schema canonical GoodsReceivedEvent, không yêu cầu producer thêm field
+ngoài hợp đồng. `id` và `supplier_id` nhận chuỗi; inbox phân biệt bằng `(source,id)`.
+Bảng procurement_supplier_mapping ánh xạ mã NCC sang UUID nội bộ, không sao chép hồ
+sơ NCC. Receipt lưu PO, ngày nhận, tên NCC, vùng nguyên liệu, payload và vị trí Kafka.
+
+- `quantity_received` là lượng thực nhận; contract không có accepted/rejected nên
+  Inventory không tự suy diễn kết quả QC. Mỗi `(source,receipt_id,sku)` tạo một batch
+  riêng QUARANTINE, không gộp supplier lot. `batch_code` nội bộ sinh từ receipt binding.
+- Ngày SX/HSD không có thì để NULL, chỉ được phép khi batch QUARANTINE. Không bịa
+  ngày sản xuất từ received_at. Tồn vật lý tăng nhưng tồn bán được không tăng.
+  Luồng QC bổ sung ngày đúng trước khi chuyển ACTIVE; PR này không thêm API QC.
+- Cấu hình SKU base unit bắt buộc: GRAM nhận KG×1000 hoặc G/GRAM; UNIT nhận
+  UNIT/PIECE nguyên. Không làm tròn; từ chối phân số nhỏ hơn gram/đơn vị và overflow.
+  Base unit được chốt vào DB lần nhận đầu; đổi env trái giá trị đó bị từ chối.
+- Event ID trùng payload khác hoặc receipt ID trùng nội dung khác đi DLQ. Replay
+  cùng receipt bằng event ID mới không cộng kho lần hai. Inbox có thể dọn sau 90 ngày
+  bằng inventory_prune_procurement_inbox; receipt evidence/dedupe vẫn được giữ.
+- Consumer chỉ bật bằng INVENTORY_PROCUREMENT_ENABLED=true cùng broker/map hợp lệ.
+  Group mới bắt đầu LastOffset; group có offset dùng offset đã commit. Trước cutover
+  phải quyết định vị trí bắt đầu. Replay lịch sử/DLQ chỉ sau khi đối soát stock và dùng
+  nguyên source/id/receipt_id, không tự reset group về đầu.
+- Lỗi xử lý retry tối đa 5 lần với backoff 1/2/4/8 giây. Event invalid không retry.
+  Hết retry gửi procurement.events.dlq.v1, giữ payload/key gốc cùng header
+  x-exception-message/x-exception-stacktrace/x-original-topic và partition/offset.
+  Chỉ commit sau DB commit hoặc DLQ ack. DLQ/commit lỗi thì giữ offset và báo unhealthy.
+  Handler panic được bắt; stack đi vào DLQ, không làm chết gRPC.
+
+Vận hành: xem services/inventory-service/MIGRATIONS.md và .env.example. Catalog seed
+40 SKU được bàn giao riêng, chưa phải điều kiện đã hoàn tất cho storefront demo.
+
+Operations state coverage: GET /readyz returns 200 with ready for a disabled/healthy
+consumer and 503 while an enabled consumer is starting or blocked. GET /metrics
+returns process-local counters and group lag; lag -1 means unavailable/uninitialized.
+There are no loading/empty business collections. These endpoints deliberately have
+no application login and must bind to a private operations interface. Their contract
+is docs/03_api_specs/inventory-operations.openapi.yaml. Alert on readiness failure,
+DLQ growth, retry growth, sustained lag and unavailable lag samples. Schedule the
+inbox retention SQL as a daily maintenance job with a 90-day cutoff; keep receipt
+records for dedupe/evidence and never truncate that ledger to save space.
