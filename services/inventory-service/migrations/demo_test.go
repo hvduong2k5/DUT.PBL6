@@ -12,7 +12,7 @@ import (
 	_ "github.com/lib/pq"
 )
 
-func seedDatabase(t *testing.T) *sql.DB {
+func seedDatabase(t *testing.T, empty ...bool) *sql.DB {
 	t.Helper()
 	dsn := os.Getenv("INVENTORY_TEST_DB_URL")
 	if dsn == "" {
@@ -32,12 +32,15 @@ func seedDatabase(t *testing.T) *sql.DB {
 		_, _ = db.Exec("SET search_path TO public; DROP SCHEMA " + schema + " CASCADE")
 		_ = db.Close()
 	})
+	if len(empty) > 0 && empty[0] {
+		return db
+	}
 	files, err := filepath.Glob("*.up.sql")
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, file := range files {
-		if strings.HasPrefix(file, "000007_") {
+		if file >= "000006" {
 			continue
 		}
 		data, err := os.ReadFile(file)
@@ -47,6 +50,9 @@ func seedDatabase(t *testing.T) *sql.DB {
 		if _, err = db.Exec(string(data)); err != nil {
 			t.Fatalf("apply %s: %v", file, err)
 		}
+	}
+	if err := Baseline(context.Background(), db); err != nil {
+		t.Fatal(err)
 	}
 	return db
 }
@@ -67,11 +73,11 @@ func rollbackSeed(db *sql.DB) error {
 	return tx.Commit()
 }
 
-func TestDemoSeedStartupPreservesStockAndRefusesUsedRollback(t *testing.T) {
+func TestDemoSeedMigrationPreservesStockAndRefusesUsedRollback(t *testing.T) {
 	db := seedDatabase(t)
 	ctx := context.Background()
 	for range 2 {
-		if err := ApplyDemoSeed(ctx, db); err != nil {
+		if err := Apply(ctx, db); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -82,7 +88,7 @@ func TestDemoSeedStartupPreservesStockAndRefusesUsedRollback(t *testing.T) {
 	if _, err := db.Exec("UPDATE batches SET physical_qty=physical_qty-1 WHERE sku='OM-MX-01'; UPDATE inventory_items SET physical_qty=physical_qty-1 WHERE sku='OM-MX-01'"); err != nil {
 		t.Fatal(err)
 	}
-	if err := ApplyDemoSeed(ctx, db); err != nil {
+	if err := Apply(ctx, db); err != nil {
 		t.Fatal(err)
 	}
 	if err := db.QueryRow("SELECT physical_qty FROM inventory_items WHERE sku='OM-MX-01'").Scan(&stock); err != nil || stock != 79 {
@@ -109,7 +115,7 @@ VALUES ('9b200005-2026-4020-8020-000000000001','OM-MX-01','PREEXISTING-LOT',
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = ApplyDemoSeed(context.Background(), db); err != nil {
+	if err = Apply(context.Background(), db); err != nil {
 		t.Fatal(err)
 	}
 	if err = rollbackSeed(db); err != nil {
@@ -121,5 +127,112 @@ VALUES ('9b200005-2026-4020-8020-000000000001','OM-MX-01','PREEXISTING-LOT',
 	}
 	if err = db.QueryRow("SELECT count(*) FROM batches WHERE batch_code='PREEXISTING-LOT'").Scan(&count); err != nil || count != 1 {
 		t.Fatalf("rollback removed pre-existing batch: %d, %v", count, err)
+	}
+}
+
+func TestRunnerFreshDatabaseAndChecksum(t *testing.T) {
+	db := seedDatabase(t, true)
+	ctx := context.Background()
+	if err := Verify(ctx, db); err == nil {
+		t.Fatal("verify accepted missing history")
+	}
+	var exists bool
+	if err := db.QueryRow("SELECT to_regclass('inventory_schema_migrations') IS NOT NULL").Scan(&exists); err != nil || exists {
+		t.Fatal("verify wrote history", err)
+	}
+	if err := Apply(ctx, db); err != nil {
+		t.Fatal(err)
+	}
+	if err := Apply(ctx, db); err != nil {
+		t.Fatal(err)
+	}
+	if err := Verify(ctx, db); err != nil {
+		t.Fatal(err)
+	}
+	var count int
+	if err := db.QueryRow("SELECT count(*) FROM inventory_schema_migrations").Scan(&count); err != nil || count != 7 {
+		t.Fatal(count, err)
+	}
+	if _, err := db.Exec("UPDATE inventory_schema_migrations SET checksum='tampered' WHERE version='000003'"); err != nil {
+		t.Fatal(err)
+	}
+	for _, fn := range []func(context.Context, *sql.DB) error{Apply, Verify} {
+		if err := fn(ctx, db); err == nil || !strings.Contains(err.Error(), "checksum mismatch") {
+			t.Fatal("checksum was not rejected", err)
+		}
+	}
+}
+
+func TestRunnerRequiresLegacyBaseline(t *testing.T) {
+	db := seedDatabase(t)
+	ctx := context.Background()
+	if _, err := db.Exec("DROP TABLE inventory_schema_migrations"); err != nil {
+		t.Fatal(err)
+	}
+	if err := Apply(ctx, db); err == nil || !strings.Contains(err.Error(), "baseline") {
+		t.Fatal("legacy database was not refused", err)
+	}
+	if err := Baseline(ctx, db); err != nil {
+		t.Fatal(err)
+	}
+	if err := Verify(ctx, db); err == nil || !strings.Contains(err.Error(), "000006") {
+		t.Fatal("missing migration not detected", err)
+	}
+	if err := Apply(ctx, db); err != nil {
+		t.Fatal(err)
+	}
+	if err := Verify(ctx, db); err != nil {
+		t.Fatal(err)
+	}
+	if err := Baseline(ctx, db); err == nil {
+		t.Fatal("baseline accepted tracked database")
+	}
+}
+
+func TestRunnerRollsBackPendingBatch(t *testing.T) {
+	db := seedDatabase(t)
+	ctx := context.Background()
+	if _, err := db.Exec("CREATE TABLE inventory_demo_seed_000007 (wrong_column text)"); err != nil {
+		t.Fatal(err)
+	}
+	if err := Apply(ctx, db); err == nil {
+		t.Fatal("invalid seed schema accepted")
+	}
+	var exists bool
+	if err := db.QueryRow("SELECT to_regclass('procurement_receipt_inbox') IS NOT NULL").Scan(&exists); err != nil || exists {
+		t.Fatal("000006 was not rolled back", err)
+	}
+	var count int
+	if err := db.QueryRow("SELECT count(*) FROM inventory_schema_migrations").Scan(&count); err != nil || count != 5 {
+		t.Fatal("history partially committed", count, err)
+	}
+}
+
+func TestConcurrentMigrationJobs(t *testing.T) {
+	db := seedDatabase(t, true)
+	var schema string
+	if err := db.QueryRow("SELECT current_schema()").Scan(&schema); err != nil {
+		t.Fatal(err)
+	}
+	other, err := sql.Open("postgres", os.Getenv("INVENTORY_TEST_DB_URL"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer other.Close()
+	other.SetMaxOpenConns(1)
+	if _, err := other.Exec("SET search_path TO " + schema + ",public"); err != nil {
+		t.Fatal(err)
+	}
+	results := make(chan error, 2)
+	for _, connection := range []*sql.DB{db, other} {
+		go func(connection *sql.DB) { results <- Apply(context.Background(), connection) }(connection)
+	}
+	for range 2 {
+		if err := <-results; err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := Verify(context.Background(), db); err != nil {
+		t.Fatal(err)
 	}
 }

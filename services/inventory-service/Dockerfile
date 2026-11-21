@@ -10,12 +10,14 @@ ARG TARGETOS=linux
 ARG TARGETARCH
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
     go build -trimpath -ldflags="-s -w" -o /out/inventory-service ./cmd/server
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags="-s -w" -o /out/inventory-migrate ./cmd/migrate
 
 FROM alpine:3.20
 RUN addgroup -S app && adduser -S app -G app
 WORKDIR /app
 COPY --from=build /out/inventory-service ./inventory-service
-# SQL migrations ship with the image in case the runtime applies them from disk.
+COPY --from=build /out/inventory-migrate ./inventory-migrate
+# Embedded SQL is also retained on disk for operator inspection.
 COPY --from=build /src/migrations ./migrations
 USER app
 ENV PORT=8001
