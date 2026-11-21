@@ -4210,6 +4210,130 @@ paths:
           $ref: '#/components/responses/CatalogAdminInternalError'
         '503':
           $ref: '#/components/responses/CatalogAdminServiceUnavailable'
+    post:
+      tags:
+      - Product management
+      operationId: postAdminCatalogProductsProductIdSkusSkuIdPrices
+      summary: Lên lịch hoặc tạo bản ghi giá mới theo khoảng hiệu lực cho SKU.
+      description: Tạo bản ghi giá trong khoảng [effectiveFrom, effectiveTo). Nếu bị overlap với khoảng giá đã có cùng kênh, trả về 409 Conflict theo Exclusion Constraint V11.
+      x-lifecycle: stable
+      x-backlog:
+      - EPIC_04
+      x-ui-states:
+      - loading
+      - success
+      - error
+      - unauthorized
+      - forbidden
+      x-test-latency-ms: 1200
+      security:
+      - bearerAuth: []
+      - adminSession: []
+      parameters:
+      - name: productId
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+      - name: skuId
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CatalogAdminPriceCreateRequest'
+      responses:
+        '201':
+          description: Đã tạo và lên lịch giá thành công.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogAdminPriceSingleResponse'
+        '400':
+          $ref: '#/components/responses/CatalogAdminBadRequest'
+        '401':
+          $ref: '#/components/responses/CatalogAdminUnauthorized'
+        '403':
+          $ref: '#/components/responses/CatalogAdminForbidden'
+        '404':
+          $ref: '#/components/responses/CatalogAdminNotFound'
+        '409':
+          $ref: '#/components/responses/CatalogAdminConflict'
+        '422':
+          $ref: '#/components/responses/CatalogAdminUnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/CatalogAdminInternalError'
+        '503':
+          $ref: '#/components/responses/CatalogAdminServiceUnavailable'
+  /api/v1/admin/catalog/products/{productId}/skus/{skuId}/prices/{priceId}:
+    delete:
+      tags:
+      - Product management
+      operationId: deleteAdminCatalogProductsProductIdSkusSkuIdPricesPriceId
+      summary: Hủy bản ghi giá đã lên lịch trong tương lai.
+      description: Chỉ cho phép hủy/xóa bản ghi giá chưa tới thời điểm hiệu lực (effectiveFrom > now). Giá đang hoặc đã từng có hiệu lực không được xóa.
+      x-lifecycle: stable
+      x-backlog:
+      - EPIC_04
+      x-ui-states:
+      - loading
+      - success
+      - error
+      - unauthorized
+      - forbidden
+      x-test-latency-ms: 1200
+      security:
+      - bearerAuth: []
+      - adminSession: []
+      parameters:
+      - name: productId
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+      - name: skuId
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+      - name: priceId
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+      responses:
+        '200':
+          description: Đã hủy bản ghi giá tương lai thành công.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminApiSuccessResponse'
+        '400':
+          $ref: '#/components/responses/CatalogAdminBadRequest'
+        '401':
+          $ref: '#/components/responses/CatalogAdminUnauthorized'
+        '403':
+          $ref: '#/components/responses/CatalogAdminForbidden'
+        '404':
+          $ref: '#/components/responses/CatalogAdminNotFound'
+        '409':
+          $ref: '#/components/responses/CatalogAdminConflict'
+        '422':
+          $ref: '#/components/responses/CatalogAdminUnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/CatalogAdminInternalError'
+        '503':
+          $ref: '#/components/responses/CatalogAdminServiceUnavailable'
   /api/v1/admin/catalog/products/{productId}/images:
     post:
       tags:
@@ -12629,6 +12753,11 @@ components:
       required:
       - prices
       properties:
+        expectedVariantVersion:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Optimistic lock version của ProductVariant để chống ghi đè đồng thời.
         prices:
           type: array
           items:
@@ -12649,11 +12778,70 @@ components:
               amountUnits:
                 type: integer
                 minimum: 0
+              amountNanos:
+                type: integer
+                minimum: 0
+                maximum: 999999999
+                default: 0
               currencyCode:
                 type: string
+                default: VND
               effectiveFrom:
                 type: string
                 format: date-time
+              effectiveTo:
+                type:
+                - string
+                - 'null'
+                format: date-time
+      additionalProperties: false
+    CatalogAdminPriceCreateRequest:
+      type: object
+      required:
+      - channel
+      - amountUnits
+      - effectiveFrom
+      properties:
+        channel:
+          type: string
+          enum:
+          - D2C_WEB
+          - MOBILE_APP
+          - B2B_WHOLESALE
+          - POS_QUAY
+          - SHOPEE
+          - TIKTOK
+        currencyCode:
+          type: string
+          default: VND
+        amountUnits:
+          type: integer
+          minimum: 0
+        amountNanos:
+          type: integer
+          minimum: 0
+          maximum: 999999999
+          default: 0
+        effectiveFrom:
+          type: string
+          format: date-time
+          description: Thời điểm bắt đầu hiệu lực (hỗ trợ hẹn giờ tương lai).
+        effectiveTo:
+          type:
+          - string
+          - 'null'
+          format: date-time
+          description: Thời điểm kết thúc hiệu lực (null = vô thời hạn).
+      additionalProperties: false
+    CatalogAdminPriceSingleResponse:
+      allOf:
+      - $ref: '#/components/schemas/AdminApiSuccessResponse'
+      - type: object
+        required:
+        - data
+        properties:
+          data:
+            $ref: '#/components/schemas/CatalogAdminPriceRecord'
       additionalProperties: false
     CatalogAdminImageCreateRequest:
       type: object

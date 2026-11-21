@@ -104,6 +104,8 @@ task 2. Common BFF errors include code, safe message, requestId and errors.
 | `PATCH /api/v1/admin/catalog/products/{productId}/skus/{skuId}` | EPIC_04 | stable | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
 | `GET /api/v1/admin/catalog/products/{productId}/skus/{skuId}/prices` | EPIC_04 | stable | 200 | 200 (empty list) | 400/— | 401 | 403 | 404 | — | — | 500/503 |
 | `PUT /api/v1/admin/catalog/products/{productId}/skus/{skuId}/prices` | EPIC_04 | stable | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
+| `POST /api/v1/admin/catalog/products/{productId}/skus/{skuId}/prices` | EPIC_04 | stable | 201 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
+| `DELETE /api/v1/admin/catalog/products/{productId}/skus/{skuId}/prices/{priceId}` | EPIC_04 | stable | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
 | `POST /api/v1/admin/catalog/products/{productId}/images` | EPIC_04 | stable | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
 | `PATCH /api/v1/admin/catalog/products/{productId}/images/{imageId}` | EPIC_04 | stable | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
 | `DELETE /api/v1/admin/catalog/products/{productId}/images/{imageId}` | EPIC_04 | stable | 200 | N/A | —/— | 401 | 403 | 404 | — | — | 500/503 |
@@ -228,12 +230,15 @@ Ví dụ xóa mô tả cũ và cập nhật OCOP:
 - `skuCode` bất biến, không đổi qua PATCH.
 - PATCH SKU không đổi giá; giá dùng endpoint `/prices`.
 
-### Giá theo kênh
+### Giá theo kênh (Temporal Pricing - Database V11)
 
-- `GET .../skus/{skuId}/prices` trả mọi bản ghi giá (ACTIVE, SUPERSEDED, EXPIRED) của SKU.
-- `PUT .../skus/{skuId}/prices` supersede giá ACTIVE cùng kênh rồi tạo bản ghi mới với `effectiveFrom = now`.
+- `GET .../skus/{skuId}/prices`: Trả mọi bản ghi giá (ACTIVE, SUPERSEDED, EXPIRED) của SKU.
+- `PUT .../skus/{skuId}/prices`: Cập nhật bảng giá áp dụng ngay (tự động supersede giá ACTIVE hiện hành tại `now` và tạo bản ghi mới từ `now -> infinity`). Hỗ trợ `expectedVariantVersion` để chống conflict đồng thời.
+- `POST .../skus/{skuId}/prices`: Lên lịch hoặc tạo một slot giá mới theo khoảng `[effectiveFrom, effectiveTo)`. Bắt buộc `effectiveTo > effectiveFrom`. Chống chồng lấn khoảng hiệu lực bằng PostgreSQL Exclusion Constraint (`tstzrange` + `&&`); vi phạm trả về `409 Conflict`.
+- `DELETE .../skus/{skuId}/prices/{priceId}`: Hủy slot giá đã lên lịch trong tương lai (`effectiveFrom > now`). Cấm xóa cứng bản ghi giá đã hoặc đang có hiệu lực.
 - Kênh: `D2C_WEB`, `MOBILE_APP`, `B2B_WHOLESALE`, `POS_QUAY`, `SHOPEE`, `TIKTOK`.
-- VND dùng `amountUnits`, `amountNanos = 0`; chống chồng lấn khoảng hiệu lực bằng `tstzrange` + `&&`.
+- VND dùng `amountUnits`, `amountNanos = 0`.
+- Outbox event: Chỉ phát sự kiện `vn.omama.catalog.product.price.changed.v1` và tăng `price_revision` khi giá thay đổi có hiệu lực ngay (`effectiveFrom <= now`). Giá tương lai không phát event thay đổi giá giỏ hàng.
 
 ### Ảnh sản phẩm
 
