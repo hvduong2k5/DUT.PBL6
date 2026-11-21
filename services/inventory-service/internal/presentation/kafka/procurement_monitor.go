@@ -2,7 +2,9 @@ package kafka
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"github.com/google/uuid"
 	segmentio "github.com/segmentio/kafka-go"
 	"net/http"
 	"sync/atomic"
@@ -20,7 +22,11 @@ func ProcurementMonitor(enabled bool) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /readyz", func(w http.ResponseWriter, r *http.Request) {
 		if enabled && !procurementHealthy.Load() {
-			http.Error(w, "procurement consumer unhealthy", http.StatusServiceUnavailable)
+			requestID := uuid.NewString()
+			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("X-Request-Id", requestID)
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_ = json.NewEncoder(w).Encode(map[string]string{"code": "PROCUREMENT_CONSUMER_UNHEALTHY", "message": "Procurement consumer is unavailable", "requestId": requestID})
 			return
 		}
 		fmt.Fprintln(w, "ready")
