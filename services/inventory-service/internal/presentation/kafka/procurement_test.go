@@ -239,6 +239,11 @@ func TestProcurementReadiness(t *testing.T) {
 	r := httptest.NewRecorder()
 	ProcurementMonitor(true).ServeHTTP(r, httptest.NewRequest("GET", "/readyz", nil))
 	require.Equal(t, 503, r.Code)
+	var failure map[string]string
+	require.NoError(t, json.Unmarshal(r.Body.Bytes(), &failure))
+	require.Equal(t, "PROCUREMENT_CONSUMER_UNHEALTHY", failure["code"])
+	require.Equal(t, r.Header().Get("X-Request-Id"), failure["requestId"])
+	require.NotEmpty(t, failure["requestId"])
 	r = httptest.NewRecorder()
 	ProcurementMonitor(false).ServeHTTP(r, httptest.NewRequest("GET", "/readyz", nil))
 	require.Equal(t, 200, r.Code)

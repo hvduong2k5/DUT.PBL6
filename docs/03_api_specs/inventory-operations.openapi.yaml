@@ -25,9 +25,18 @@ paths:
         '503':
           description: Enabled consumer is starting, blocked or stopped after panic
           content:
-            text/plain:
-              schema: {type: string}
-              example: "procurement consumer unhealthy\n"
+            application/json:
+              schema:
+                type: object
+                required: [code, message, requestId]
+                properties:
+                  code: {type: string, enum: [PROCUREMENT_CONSUMER_UNHEALTHY]}
+                  message: {type: string}
+                  requestId: {type: string}
+              example:
+                code: PROCUREMENT_CONSUMER_UNHEALTHY
+                message: Procurement consumer is unavailable
+                requestId: 66ce37bd-f925-4b29-aaee-f3a04c521741
   /metrics:
     get:
       operationId: inventoryOperationsMetrics
