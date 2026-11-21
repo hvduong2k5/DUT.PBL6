@@ -266,3 +266,61 @@ func TestReceiptBaseUnitCannotChangeAfterReceiving(t *testing.T) {
 	require.NoError(t, db.QueryRow("SELECT physical_qty FROM inventory_items WHERE sku='SKU'").Scan(&qty))
 	require.Equal(t, 2500, qty)
 }
+
+func TestRetainedEvidenceAndNumericReplay(t *testing.T) {
+	db := testdb.Open(t)
+	provision(t, db)
+	store := receiptStore(t, db)
+	ctx := context.Background()
+	msg := receiptMessage(t)
+	require.NoError(t, store.handle(ctx, msg))
+	alias := changed(t, msg, "id", `"alias"`)
+	alias = changed(t, alias, "data.quantity_received", `2.50`)
+	require.NoError(t, store.handle(ctx, alias))
+	_, err := db.Exec("SELECT inventory_prune_procurement_inbox(now()+interval '1 day')")
+	require.NoError(t, err)
+	var count int
+	require.NoError(t, db.QueryRow("SELECT count(*) FROM procurement_receipt_inbox").Scan(&count))
+	require.Zero(t, count)
+	require.ErrorContains(t, store.handle(ctx, changed(t, msg, "data.receipt_id", `"REUSED"`)), "event ID reused")
+	require.NoError(t, store.handle(ctx, msg))
+	require.NoError(t, store.handle(ctx, alias))
+	require.NoError(t, db.QueryRow("SELECT physical_qty FROM inventory_items WHERE sku='SKU'").Scan(&count))
+	require.Equal(t, 2500, count)
+	lower := changed(t, msg, "data.unit", `"kg"`)
+	decoded, err := decodeReceipt(lower)
+	require.NoError(t, err)
+	qty, err := receiptQuantity(decoded, "GRAM")
+	require.NoError(t, err)
+	require.Equal(t, int64(2500), qty)
+}
+func TestOtherProcurementEventIsNotDeadLettered(t *testing.T) {
+	r := &procurementReaderStub{}
+	w := &procurementDLTStub{}
+	msg := KafkaMessage{Value: []byte(`{"specversion":"1.0","id":"approved-1","source":"https://omama.vn/services/procurement-service","type":"vn.omama.procurement.purchase.order.approved.v1"}`)}
+	require.NoError(t, processWithRetry(context.Background(), r, w, func(context.Context, KafkaMessage) error {
+		t.Fatal("foreign event passed to receipt handler")
+		return nil
+	}, msg, 0))
+	require.Equal(t, 1, r.commits)
+	require.Zero(t, w.writes)
+}
+
+func TestLegacyHashesRemainReplayable(t *testing.T) {
+	db := testdb.Open(t)
+	provision(t, db)
+	store := receiptStore(t, db)
+	ctx := context.Background()
+	msg := receiptMessage(t)
+	require.NoError(t, store.handle(ctx, msg))
+	e, err := decodeReceipt(msg)
+	require.NoError(t, err)
+	_, err = db.Exec("UPDATE procurement_event_ledger SET payload_hash=$1,hash_version=1", payloadHash(e))
+	require.NoError(t, err)
+	_, err = db.Exec("UPDATE procurement_receipts SET data_hash=$1", payloadHash(e.Data))
+	require.NoError(t, err)
+	msg = changed(t, msg, "data.quantity_received", `2.50`)
+	require.NoError(t, store.handle(ctx, msg))
+	msg = changed(t, msg, "id", `"legacy-alias"`)
+	require.NoError(t, store.handle(ctx, msg))
+}

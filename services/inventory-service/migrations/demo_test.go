@@ -81,7 +81,7 @@ func TestRunnerFreshDatabaseAndChecksum(t *testing.T) {
 		t.Fatal(err)
 	}
 	var count int
-	if err := db.QueryRow("SELECT count(*) FROM inventory_schema_migrations").Scan(&count); err != nil || count != 7 {
+	if err := db.QueryRow("SELECT count(*) FROM inventory_schema_migrations").Scan(&count); err != nil || count != 8 {
 		t.Fatal(count, err)
 	}
 	if _, err := db.Exec("UPDATE inventory_schema_migrations SET checksum='tampered' WHERE version='000003'"); err != nil {
@@ -197,6 +197,16 @@ func TestCanonicalMigrationRoundTripWithoutBusinessData(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer tx.Rollback()
+	newer, readErr := os.ReadFile("000009_receipt_evidence_and_qc.down.sql")
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	if _, err = tx.Exec(string(newer)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = tx.Exec("DELETE FROM inventory_schema_migrations WHERE version='000009'"); err != nil {
+		t.Fatal(err)
+	}
 	if _, err = tx.Exec(string(data)); err != nil {
 		t.Fatal(err)
 	}
@@ -211,5 +221,30 @@ func TestCanonicalMigrationRoundTripWithoutBusinessData(t *testing.T) {
 	}
 	if err = Verify(ctx, db); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestRejectMissingTablesAndGuards(t *testing.T) {
+	for _, ddl := range []string{"DROP TABLE inventory_procurement_sku_units", "ALTER TABLE batches DISABLE TRIGGER inventory_batch_revision", "DROP TRIGGER inventory_legacy_cohort ON stock_reservations"} {
+		t.Run(ddl, func(t *testing.T) {
+			db := seedDatabase(t, true)
+			ctx := context.Background()
+			if err := Apply(ctx, db); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := db.Exec(ddl); err != nil {
+				t.Fatal(err)
+			}
+			if err := Verify(ctx, db); err == nil {
+				t.Fatal("incomplete schema accepted")
+			}
+		})
+	}
+	db := seedDatabase(t)
+	if _, err := db.Exec("DROP TABLE inventory_schema_migrations; DROP TRIGGER inventory_legacy_cohort ON stock_reservations"); err != nil {
+		t.Fatal(err)
+	}
+	if err := Baseline(context.Background(), db); err == nil {
+		t.Fatal("incomplete legacy baseline accepted")
 	}
 }

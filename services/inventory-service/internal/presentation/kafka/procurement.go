@@ -74,6 +74,7 @@ func decodeReceipt(msg KafkaMessage) (goodsReceipt, error) {
 	if _, err = time.Parse(time.RFC3339Nano, e.Time); err != nil {
 		return e, invalidReceipt("invalid CloudEvent time")
 	}
+	e.Data.Unit = strings.ToUpper(strings.TrimSpace(e.Data.Unit))
 	d := e.Data
 	if !identifier(d.Receipt, 256) || !identifier(d.PO, 256) || !identifier(d.Supplier, 256) || !identifier(d.SKU, 50) || !identifier(d.Warehouse, 256) || string(msg.Key) != d.SKU {
 		return e, invalidReceipt("invalid receipt identifiers or partition key")
@@ -157,9 +158,9 @@ func (s procurementStore) handle(ctx context.Context, msg KafkaMessage) error {
 		return err
 	}
 	defer tx.Rollback()
-	hash := payloadHash(e)
-	result, err := tx.ExecContext(ctx, `INSERT INTO procurement_receipt_inbox(event_id,source,topic,partition_id,offset_id,payload_hash)
- VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING`, e.ID, e.Source, msg.Topic, msg.Partition, msg.Offset, hash)
+	hash := canonicalHash(e)
+	legacyHash := payloadHash(e)
+	result, err := tx.ExecContext(ctx, `INSERT INTO procurement_event_ledger(event_id,source,payload_hash) VALUES($1,$2,$3) ON CONFLICT DO NOTHING`, e.ID, e.Source, hash)
 	if err != nil {
 		return err
 	}
@@ -169,13 +170,26 @@ func (s procurementStore) handle(ctx context.Context, msg KafkaMessage) error {
 	}
 	if rows == 0 {
 		var original string
-		if err = tx.QueryRowContext(ctx, `SELECT payload_hash FROM procurement_receipt_inbox WHERE source=$1 AND event_id=$2`, e.Source, e.ID).Scan(&original); err != nil {
+		var hashVersion int
+		if err = tx.QueryRowContext(ctx, `SELECT payload_hash,hash_version FROM procurement_event_ledger WHERE source=$1 AND event_id=$2`, e.Source, e.ID).Scan(&original, &hashVersion); err != nil {
 			return err
 		}
-		if original != hash {
+		if hashVersion == 1 && original != legacyHash {
+			var oldPayload []byte
+			if lookupErr := tx.QueryRowContext(ctx, `SELECT payload FROM procurement_receipts WHERE source=$1 AND event_id=$2`, e.Source, e.ID).Scan(&oldPayload); lookupErr == nil {
+				if prior, decodeErr := decodeReceipt(KafkaMessage{Key: msg.Key, Value: oldPayload}); decodeErr == nil {
+					original = canonicalHash(prior)
+					hashVersion = 2
+				}
+			}
+		}
+		if original != hash && !(hashVersion == 1 && original == legacyHash) {
 			return invalidReceipt("event ID reused with different payload")
 		}
 		return tx.Commit()
+	}
+	if _, err = tx.ExecContext(ctx, `INSERT INTO procurement_receipt_inbox(event_id,source,topic,partition_id,offset_id,payload_hash) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING`, e.ID, e.Source, msg.Topic, msg.Partition, msg.Offset, hash); err != nil {
+		return err
 	}
 	var actual uuid.UUID
 	var stock int64
@@ -189,12 +203,19 @@ func (s procurementStore) handle(ctx context.Context, msg KafkaMessage) error {
 	if actual != warehouse {
 		return invalidReceipt("SKU warehouse does not match mapped warehouse")
 	}
-	dataHash := payloadHash(d)
+	dataHash := canonicalHash(d)
 	var existing string
 	err = tx.QueryRowContext(ctx, `SELECT data_hash FROM procurement_receipts WHERE source=$1 AND receipt_id=$2 AND sku=$3`, e.Source, d.Receipt, d.SKU).Scan(&existing)
 	if err == nil {
-		if existing != dataHash {
-			return invalidReceipt("receipt ID reused with different receipt data")
+		if existing != dataHash && existing != payloadHash(d) {
+			var previous []byte
+			if err = tx.QueryRowContext(ctx, `SELECT payload FROM procurement_receipts WHERE source=$1 AND receipt_id=$2 AND sku=$3`, e.Source, d.Receipt, d.SKU).Scan(&previous); err != nil {
+				return err
+			}
+			prior, decodeErr := decodeReceipt(KafkaMessage{Key: msg.Key, Value: previous})
+			if decodeErr != nil || canonicalHash(prior.Data) != dataHash {
+				return invalidReceipt("receipt ID reused with different receipt data")
+			}
 		}
 		return tx.Commit()
 	}
@@ -263,6 +284,15 @@ func processWithRetry(ctx context.Context, r MessageReader, w deadLetterWriter, 
 	attempts := 0
 	for attempts < 5 {
 		attempts++
+		var envelope struct {
+			Type    string `json:"type"`
+			Version string `json:"specversion"`
+			ID      string `json:"id"`
+			Source  string `json:"source"`
+		}
+		if json.Unmarshal(msg.Value, &envelope) == nil && envelope.Type != goodsReceivedType && strings.HasPrefix(envelope.Type, "vn.omama.procurement.") && envelope.Version == "1.0" && identifier(envelope.ID, 256) && identifier(envelope.Source, 1000) {
+			return r.CommitMessages(ctx, msg)
+		}
 		attemptCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 		err = safelyHandle(attemptCtx, handle, msg)
 		cancel()
@@ -377,4 +407,33 @@ func procurementRetry(ctx context.Context, err error) bool {
 	case <-time.After(5 * time.Second):
 		return true
 	}
+}
+
+// Canonical hashes compare JSON numbers by exact rational value rather than spelling.
+func canonicalHash(v any) string {
+	raw, _ := json.Marshal(v)
+	dec := json.NewDecoder(strings.NewReader(string(raw)))
+	dec.UseNumber()
+	var value any
+	_ = dec.Decode(&value)
+	var normalize func(any) any
+	normalize = func(v any) any {
+		switch x := v.(type) {
+		case json.Number:
+			q, ok := new(big.Rat).SetString(string(x))
+			if ok {
+				return map[string]string{"$number": q.RatString()}
+			}
+		case map[string]any:
+			for k, v := range x {
+				x[k] = normalize(v)
+			}
+		case []any:
+			for i, v := range x {
+				x[i] = normalize(v)
+			}
+		}
+		return v
+	}
+	return payloadHash(normalize(value))
 }

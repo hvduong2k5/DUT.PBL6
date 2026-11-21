@@ -121,7 +121,10 @@ func run(ctx context.Context, db *sql.DB, baseline bool) error {
 		return err
 	}
 	if baseline {
-		// Presence checks cannot prove historical SQL contents; operator attestation is required.
+		if err = verifyLegacyObjects(ctx, tx); err != nil {
+			return err
+		}
+		// Operator attestation is still required for historical data semantics.
 		if _, err = tx.ExecContext(ctx, `SELECT sku, physical_qty FROM inventory_items LIMIT 0;
 SELECT version FROM batches LIMIT 0; SELECT order_id FROM inventory_terminal LIMIT 0;
 SELECT actor_id, idem_key FROM stock_receipts LIMIT 0;
@@ -183,10 +186,47 @@ func Verify(ctx context.Context, db *sql.DB) error {
 			return fmt.Errorf("Inventory schema missing migration %s; run inventory-migrate before starting the server", m.name)
 		}
 	}
-	if _, err = tx.ExecContext(ctx, `SELECT event_id,source,payload_hash,topic,partition_id,offset_id FROM procurement_receipt_inbox LIMIT 0;
+	if err = verifyLegacyObjects(ctx, tx); err != nil {
+		return err
+	}
+	if _, err = tx.ExecContext(ctx, `SELECT sku,base_unit FROM inventory_procurement_sku_units LIMIT 0;
+SELECT source,event_id,payload_hash,hash_version FROM procurement_event_ledger LIMIT 0;
+SELECT actor_id,idem_key,batch_id,request,response FROM inventory_qc_releases LIMIT 0;
+SELECT event_id,source,payload_hash,topic,partition_id,offset_id FROM procurement_receipt_inbox LIMIT 0;
 SELECT supplier_lot_code,version,mfg_date,exp_date FROM batches LIMIT 0;
 SELECT source,receipt_id,batch_id,base_unit,data_hash FROM procurement_receipts LIMIT 0;`); err != nil {
 		return fmt.Errorf("Inventory schema is incomplete despite migration history; repair using the reviewed migration job: %w", err)
 	}
 	return tx.Commit()
+}
+
+func verifyLegacyObjects(ctx context.Context, tx *sql.Tx) error {
+	for _, name := range []string{"inventory_items", "batches", "stock_reservations", "stock_reservation_allocations", "stock_adjustments", "idempotency_keys", "outbox_events", "inventory_terminal", "stock_receipts"} {
+		var exists bool
+		if err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=current_schema() AND c.relname=$1 AND c.relkind='r')`, name).Scan(&exists); err != nil {
+			return err
+		}
+		if !exists {
+			return fmt.Errorf("Inventory schema incomplete: missing table %s", name)
+		}
+	}
+	for _, signature := range []string{"inventory_cohort_guard()", "inventory_batch_revision()", "inventory_sellable_quantity(text,timestamp with time zone)", "inventory_emit_stock_snapshot(text)", "inventory_stock_snapshot_trigger()"} {
+		var exists bool
+		if err := tx.QueryRowContext(ctx, `SELECT to_regprocedure(format('%I.%s',current_schema(),$1::text)) IS NOT NULL`, signature).Scan(&exists); err != nil {
+			return err
+		}
+		if !exists {
+			return fmt.Errorf("Inventory schema incomplete: missing function %s", signature)
+		}
+	}
+	for _, pair := range [][2]string{{"stock_reservations", "inventory_legacy_cohort"}, {"batches", "inventory_batch_revision"}, {"inventory_items", "inventory_item_snapshot"}, {"batches", "inventory_batch_snapshot"}} {
+		var exists bool
+		if err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM pg_trigger t WHERE t.tgrelid=to_regclass($1) AND t.tgname=$2 AND t.tgenabled IN ('O','A'))`, pair[0], pair[1]).Scan(&exists); err != nil {
+			return err
+		}
+		if !exists {
+			return fmt.Errorf("Inventory schema incomplete: missing or disabled trigger %s", pair[1])
+		}
+	}
+	return nil
 }
