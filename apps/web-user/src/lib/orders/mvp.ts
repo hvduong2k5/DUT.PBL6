@@ -150,7 +150,7 @@ export function isOwnedOrder(value: unknown): value is OwnedOrder {
     && isNullableText(value.task_id)
     && isNullableText(value.shipment_id)
     && isNullableText(value.seal_code)
-    && isDateTime(value.payment_expires_at)
+    && (value.payment_method === "COD" && value.payment_expires_at === null || isDateTime(value.payment_expires_at))
     && isDateTime(value.updated_at)
     && isDateTime(value.created_at)
     && isNullableDateTime(value.sla_due_at)
@@ -274,7 +274,7 @@ export function mapMvpOrderDetail(value: OwnedOrder): OrderDetail {
       status: value.payment_status,
       label: PAYMENT_LABELS[value.payment_status],
       reference: value.payment_reference,
-      expiresAt: value.payment_expires_at
+      expiresAt: value.payment_expires_at ?? ""
     },
     stock: { status: value.stock_status, label: STOCK_LABELS[value.stock_status] },
     shipmentId: value.shipment_id,
