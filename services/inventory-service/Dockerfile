@@ -12,6 +12,7 @@ RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
     go build -trimpath -ldflags="-s -w" -o /out/inventory-service ./cmd/server
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags="-s -w" -o /out/inventory-migrate ./cmd/migrate
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags="-s -w" -o /out/inventory-seed-demo ./cmd/seed-demo
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags="-s -w" -o /out/inventory-qc-release ./cmd/qc-release
 
 FROM alpine:3.20
 RUN addgroup -S app && adduser -S app -G app
@@ -19,6 +20,7 @@ WORKDIR /app
 COPY --from=build /out/inventory-service ./inventory-service
 COPY --from=build /out/inventory-migrate ./inventory-migrate
 COPY --from=build /out/inventory-seed-demo ./inventory-seed-demo
+COPY --from=build /out/inventory-qc-release ./inventory-qc-release
 # Embedded SQL is also retained on disk for operator inspection.
 COPY --from=build /src/migrations ./migrations
 USER app
