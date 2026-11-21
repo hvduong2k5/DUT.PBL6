@@ -28,7 +28,7 @@ func seedDatabase(t *testing.T, empty ...bool) *sql.DB {
 		t.Fatal(err)
 	}
 	schema := "inventory_seed_test_" + strings.ReplaceAll(uuid.NewString(), "-", "")
-	if _, err = db.Exec("CREATE SCHEMA " + schema + "; SET search_path TO " + schema + ",public"); err != nil {
+	if _, err = db.Exec("CREATE SCHEMA " + schema + "; SET search_path TO " + schema); err != nil {
 		db.Close()
 		t.Fatal(err)
 	}
@@ -151,7 +151,7 @@ func TestConcurrentMigrationJobs(t *testing.T) {
 	}
 	defer other.Close()
 	other.SetMaxOpenConns(1)
-	if _, err := other.Exec("SET search_path TO " + schema + ",public"); err != nil {
+	if _, err := other.Exec("SET search_path TO " + schema); err != nil {
 		t.Fatal(err)
 	}
 	results := make(chan error, 2)
