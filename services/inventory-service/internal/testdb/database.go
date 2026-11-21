@@ -28,7 +28,7 @@ func Open(t *testing.T) *sql.DB {
 		t.Fatal(err)
 	}
 	schema := "inv_test_" + strings.ReplaceAll(uuid.NewString(), "-", "")
-	if _, err = db.Exec("CREATE SCHEMA " + schema + "; SET search_path TO " + schema + ",public"); err != nil {
+	if _, err = db.Exec("CREATE SCHEMA " + schema + "; SET search_path TO " + schema); err != nil {
 		db.Close()
 		t.Fatal(err)
 	}
@@ -50,7 +50,7 @@ func Second(t *testing.T, db *sql.DB) *sql.DB {
 		t.Fatal(err)
 	}
 	other.SetMaxOpenConns(1)
-	if _, err = other.Exec("SET search_path TO " + schema + ",public"); err != nil {
+	if _, err = other.Exec("SET search_path TO " + schema); err != nil {
 		other.Close()
 		t.Fatal(err)
 	}
