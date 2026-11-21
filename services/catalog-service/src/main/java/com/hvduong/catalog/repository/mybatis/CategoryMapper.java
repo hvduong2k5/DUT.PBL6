@@ -1,6 +1,7 @@
 package com.hvduong.catalog.repository.mybatis;
 
 import com.hvduong.catalog.domain.entity.Category;
+import com.hvduong.catalog.repository.mybatis.projection.CategoryCountRow;
 
 import java.util.List;
 import java.util.Optional;
@@ -34,4 +35,8 @@ public interface CategoryMapper {
   long countProductsByCategoryId(@Param("categoryId") UUID categoryId);
 
   long countChildrenByParentId(@Param("parentId") UUID parentId);
+
+  List<Category> findAllAdmin();
+
+  List<CategoryCountRow> countProductsGroupedByCategoryId();
 }

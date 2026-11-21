@@ -43,7 +43,9 @@ public enum ErrorCode {
   CATALOG_PRICE_OVERLAP_CONFLICT(
       217, 409, "Khoảng thời gian hiệu lực bị trùng lặp với bản giá đã tồn tại trên kênh này."),
   CATALOG_PRICE_CANNOT_DELETE_ACTIVE(
-      218, 422, "Chỉ có thể hủy bản ghi giá chưa tới thời điểm hiệu lực.");
+      218, 422, "Chỉ có thể hủy bản ghi giá chưa tới thời điểm hiệu lực."),
+  CATALOG_CATEGORY_SEARCH_REQUIRES_FLAT_FORMAT(
+      219, 400, "Tìm kiếm danh mục theo từ khóa chỉ hỗ trợ định dạng phẳng (format=flat).");
 
   private final int protoCode;
   private final int httpStatus;

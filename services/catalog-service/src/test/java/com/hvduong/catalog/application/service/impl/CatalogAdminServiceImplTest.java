@@ -14,6 +14,8 @@ import com.hvduong.catalog.application.dto.request.PatchVariantRequest;
 import com.hvduong.catalog.application.dto.request.UpdateCategoryRequest;
 import com.hvduong.catalog.application.dto.request.UpdatePriceRequest;
 import com.hvduong.catalog.application.dto.request.UpdateProductRequest;
+import com.hvduong.catalog.application.dto.response.AdminCategoryItem;
+import com.hvduong.catalog.application.dto.response.AdminCategoryListResponse;
 import com.hvduong.catalog.application.dto.response.AdminPriceResponse;
 import com.hvduong.catalog.application.dto.response.ProductDetailResponse;
 import com.hvduong.catalog.application.mapper.CatalogDtoMapper;
@@ -34,6 +36,7 @@ import com.hvduong.catalog.repository.mybatis.ChannelPriceMapper;
 import com.hvduong.catalog.repository.mybatis.ProductImageMapper;
 import com.hvduong.catalog.repository.mybatis.ProductMapper;
 import com.hvduong.catalog.repository.mybatis.ProductVariantMapper;
+import com.hvduong.catalog.repository.mybatis.projection.CategoryCountRow;
 
 import java.time.Instant;
 import java.util.List;
@@ -662,5 +665,134 @@ class CatalogAdminServiceImplTest {
             () -> adminService.deleteScheduledPrice(productId, skuId, priceId, "admin-1"));
     assertEquals(ErrorCode.CATALOG_PRICE_CANNOT_DELETE_ACTIVE, ex.getErrorCode());
     verify(channelPriceMapper, never()).deleteFuturePriceById(any(), any());
+  }
+
+  @Test
+  void getAdminCategories_TreeMode_ReturnsHierarchicalStructure() {
+    UUID rootId = UUID.randomUUID();
+    UUID childId = UUID.randomUUID();
+
+    Category root =
+        Category.builder()
+            .id(rootId)
+            .parentId(null)
+            .name("Kẹo Mè Xửng")
+            .slug("keo-me-xung")
+            .position(1)
+            .isActive(true)
+            .version(1L)
+            .build();
+    Category child =
+        Category.builder()
+            .id(childId)
+            .parentId(rootId)
+            .name("Mè Xửng Giòn")
+            .slug("me-xung-gion")
+            .position(1)
+            .isActive(true)
+            .version(1L)
+            .build();
+
+    when(categoryMapper.findAllAdmin()).thenReturn(List.of(root, child));
+    when(categoryMapper.countProductsGroupedByCategoryId())
+        .thenReturn(List.of(new CategoryCountRow(rootId, 5L), new CategoryCountRow(childId, 3L)));
+
+    AdminCategoryListResponse res = adminService.getAdminCategories("tree", null, null, null);
+
+    assertNotNull(res);
+    assertEquals(1, res.getCategories().size());
+    AdminCategoryItem rootItem = res.getCategories().get(0);
+    assertEquals(rootId, rootItem.getCategoryId());
+    assertEquals(5L, rootItem.getProductCount());
+    assertEquals(1L, rootItem.getChildrenCount());
+    assertEquals(1, rootItem.getChildren().size());
+
+    AdminCategoryItem childItem = rootItem.getChildren().get(0);
+    assertEquals(childId, childItem.getCategoryId());
+    assertEquals(rootId, childItem.getParentId());
+    assertEquals("Kẹo Mè Xửng", childItem.getParentName());
+    assertEquals(3L, childItem.getProductCount());
+    assertEquals(0L, childItem.getChildrenCount());
+  }
+
+  @Test
+  void getAdminCategories_FlatMode_ReturnsAllFlatWithParentName() {
+    UUID rootId = UUID.randomUUID();
+    UUID childId = UUID.randomUUID();
+
+    Category root =
+        Category.builder()
+            .id(rootId)
+            .parentId(null)
+            .name("Kẹo Mè Xửng")
+            .slug("keo-me-xung")
+            .position(1)
+            .isActive(true)
+            .version(1L)
+            .build();
+    Category child =
+        Category.builder()
+            .id(childId)
+            .parentId(rootId)
+            .name("Mè Xửng Giòn")
+            .slug("me-xung-gion")
+            .position(2)
+            .isActive(true)
+            .version(1L)
+            .build();
+
+    when(categoryMapper.findAllAdmin()).thenReturn(List.of(root, child));
+    when(categoryMapper.countProductsGroupedByCategoryId()).thenReturn(List.of());
+
+    AdminCategoryListResponse res = adminService.getAdminCategories("flat", null, null, null);
+
+    assertNotNull(res);
+    assertEquals(2, res.getCategories().size());
+    assertEquals("Kẹo Mè Xửng", res.getCategories().get(1).getParentName());
+    assertTrue(res.getCategories().get(1).getChildren().isEmpty());
+  }
+
+  @Test
+  void getAdminCategories_TreeModeWithQuery_ThrowsException() {
+    CatalogException ex =
+        assertThrows(
+            CatalogException.class,
+            () -> adminService.getAdminCategories("tree", "keo", null, null));
+    assertEquals(ErrorCode.CATALOG_CATEGORY_SEARCH_REQUIRES_FLAT_FORMAT, ex.getErrorCode());
+  }
+
+  @Test
+  void getAdminCategories_FlatModeWithQuery_FiltersCorrectly() {
+    UUID id1 = UUID.randomUUID();
+    UUID id2 = UUID.randomUUID();
+
+    Category cat1 =
+        Category.builder()
+            .id(id1)
+            .name("Kẹo Mè Xửng")
+            .slug("keo-me-xung")
+            .position(1)
+            .isActive(true)
+            .version(1L)
+            .build();
+    Category cat2 =
+        Category.builder()
+            .id(id2)
+            .name("Trà Cung Đình")
+            .slug("tra-cung-dinh")
+            .position(2)
+            .isActive(true)
+            .version(1L)
+            .build();
+
+    when(categoryMapper.findAllAdmin()).thenReturn(List.of(cat1, cat2));
+    when(categoryMapper.countProductsGroupedByCategoryId()).thenReturn(List.of());
+
+    AdminCategoryListResponse res =
+        adminService.getAdminCategories("flat", "cung-dinh", null, null);
+
+    assertNotNull(res);
+    assertEquals(1, res.getCategories().size());
+    assertEquals(id2, res.getCategories().get(0).getCategoryId());
   }
 }

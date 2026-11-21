@@ -12,6 +12,8 @@ import com.hvduong.catalog.application.dto.request.UpdateCategoryRequest;
 import com.hvduong.catalog.application.dto.request.UpdatePriceRequest;
 import com.hvduong.catalog.application.dto.request.UpdateProductImageRequest;
 import com.hvduong.catalog.application.dto.request.UpdateProductRequest;
+import com.hvduong.catalog.application.dto.response.AdminCategoryItem;
+import com.hvduong.catalog.application.dto.response.AdminCategoryListResponse;
 import com.hvduong.catalog.application.dto.response.AdminPriceResponse;
 import com.hvduong.catalog.application.dto.response.AdminProductDetailResponse;
 import com.hvduong.catalog.application.dto.response.AdminProductListItemResponse;
@@ -43,10 +45,12 @@ import com.hvduong.catalog.repository.mybatis.ProductMapper;
 import com.hvduong.catalog.repository.mybatis.ProductVariantMapper;
 import com.hvduong.catalog.repository.mybatis.projection.AdminCategoryRow;
 import com.hvduong.catalog.repository.mybatis.projection.AdminStatusCountRow;
+import com.hvduong.catalog.repository.mybatis.projection.CategoryCountRow;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -57,7 +61,9 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
@@ -176,6 +182,141 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
         });
 
     return dtoMapper.toCategoryResponse(categoryMapper.findById(categoryId).orElse(category));
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public AdminCategoryListResponse getAdminCategories(
+      String format, String q, Boolean isActive, UUID parentId) {
+    String resolvedFormat =
+        (format == null || format.isBlank()) ? "tree" : format.trim().toLowerCase(Locale.ROOT);
+    boolean isTree = "tree".equals(resolvedFormat);
+    boolean isFlat = "flat".equals(resolvedFormat);
+
+    if (!isTree && !isFlat) {
+      throw new CatalogException(
+          ErrorCode.INVALID_ARGUMENT, "format chỉ chấp nhận giá trị 'tree' hoặc 'flat'");
+    }
+
+    boolean hasQuery = (q != null && !q.isBlank());
+    if (isTree && hasQuery) {
+      throw new CatalogException(ErrorCode.CATALOG_CATEGORY_SEARCH_REQUIRES_FLAT_FORMAT);
+    }
+
+    List<Category> allCategories = categoryMapper.findAllAdmin();
+    Map<UUID, Long> productCountMap =
+        categoryMapper.countProductsGroupedByCategoryId().stream()
+            .collect(Collectors.toMap(CategoryCountRow::getCategoryId, CategoryCountRow::getCount));
+
+    Map<UUID, Long> childrenCountMap =
+        allCategories.stream()
+            .filter(c -> c.getParentId() != null)
+            .collect(Collectors.groupingBy(Category::getParentId, Collectors.counting()));
+
+    Map<UUID, Category> categoryById =
+        allCategories.stream().collect(Collectors.toMap(Category::getId, c -> c));
+
+    Function<Category, AdminCategoryItem> toItem =
+        c -> {
+          String parentName =
+              (c.getParentId() != null && categoryById.containsKey(c.getParentId()))
+                  ? categoryById.get(c.getParentId()).getName()
+                  : null;
+          return AdminCategoryItem.builder()
+              .categoryId(c.getId())
+              .parentId(c.getParentId())
+              .parentName(parentName)
+              .name(c.getName())
+              .slug(c.getSlug())
+              .description(c.getDescription())
+              .imageUrl(c.getImageUrl())
+              .position(c.getPosition())
+              .isActive(c.isActive())
+              .productCount(productCountMap.getOrDefault(c.getId(), 0L))
+              .childrenCount(childrenCountMap.getOrDefault(c.getId(), 0L))
+              .version(c.getVersion())
+              .createdAt(c.getCreatedAt())
+              .updatedAt(c.getUpdatedAt())
+              .children(new ArrayList<>())
+              .build();
+        };
+
+    if (isFlat) {
+      Stream<Category> stream = allCategories.stream();
+      if (isActive != null) {
+        stream = stream.filter(c -> c.isActive() == isActive);
+      }
+      if (parentId != null) {
+        stream = stream.filter(c -> parentId.equals(c.getParentId()));
+      }
+      if (hasQuery) {
+        String query = q.trim().toLowerCase(Locale.ROOT);
+        stream =
+            stream.filter(
+                c ->
+                    (c.getName() != null && c.getName().toLowerCase(Locale.ROOT).contains(query))
+                        || (c.getSlug() != null
+                            && c.getSlug().toLowerCase(Locale.ROOT).contains(query)));
+      }
+      List<AdminCategoryItem> items =
+          stream
+              .map(toItem)
+              .sorted(
+                  Comparator.comparingInt(AdminCategoryItem::getPosition)
+                      .thenComparing(AdminCategoryItem::getName))
+              .collect(Collectors.toList());
+      return AdminCategoryListResponse.builder().categories(items).build();
+    }
+
+    // Tree Mode:
+    Stream<Category> stream = allCategories.stream();
+    if (isActive != null) {
+      stream = stream.filter(c -> c.isActive() == isActive);
+    }
+    List<Category> filteredCategories = stream.toList();
+    Map<UUID, AdminCategoryItem> itemMap =
+        filteredCategories.stream()
+            .map(toItem)
+            .collect(Collectors.toMap(AdminCategoryItem::getCategoryId, item -> item));
+
+    for (AdminCategoryItem item : itemMap.values()) {
+      if (item.getParentId() != null && itemMap.containsKey(item.getParentId())) {
+        itemMap.get(item.getParentId()).getChildren().add(item);
+      }
+    }
+
+    for (AdminCategoryItem item : itemMap.values()) {
+      item.getChildren()
+          .sort(
+              Comparator.comparingInt(AdminCategoryItem::getPosition)
+                  .thenComparing(AdminCategoryItem::getName));
+    }
+
+    List<AdminCategoryItem> rootItems;
+    if (parentId != null) {
+      if (itemMap.containsKey(parentId)) {
+        rootItems = itemMap.get(parentId).getChildren();
+      } else {
+        rootItems =
+            itemMap.values().stream()
+                .filter(item -> parentId.equals(item.getParentId()))
+                .sorted(
+                    Comparator.comparingInt(AdminCategoryItem::getPosition)
+                        .thenComparing(AdminCategoryItem::getName))
+                .collect(Collectors.toList());
+      }
+    } else {
+      rootItems =
+          itemMap.values().stream()
+              .filter(
+                  item -> item.getParentId() == null || !itemMap.containsKey(item.getParentId()))
+              .sorted(
+                  Comparator.comparingInt(AdminCategoryItem::getPosition)
+                      .thenComparing(AdminCategoryItem::getName))
+              .collect(Collectors.toList());
+    }
+
+    return AdminCategoryListResponse.builder().categories(rootItems).build();
   }
 
   @Override

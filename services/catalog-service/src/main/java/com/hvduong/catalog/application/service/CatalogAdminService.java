@@ -12,6 +12,7 @@ import com.hvduong.catalog.application.dto.request.UpdateCategoryRequest;
 import com.hvduong.catalog.application.dto.request.UpdatePriceRequest;
 import com.hvduong.catalog.application.dto.request.UpdateProductImageRequest;
 import com.hvduong.catalog.application.dto.request.UpdateProductRequest;
+import com.hvduong.catalog.application.dto.response.AdminCategoryListResponse;
 import com.hvduong.catalog.application.dto.response.AdminPriceResponse;
 import com.hvduong.catalog.application.dto.response.AdminProductDetailResponse;
 import com.hvduong.catalog.application.dto.response.AdminProductListResponse;
@@ -29,6 +30,10 @@ public interface CatalogAdminService {
   AdminProductListResponse getAdminProducts(int page, int pageSize, String q, String status);
 
   AdminProductDetailResponse getAdminProductDetail(String productId);
+
+  /** Tra cứu danh sách danh mục phân cấp (tree) hoặc phẳng (flat) cho Admin CMS. */
+  AdminCategoryListResponse getAdminCategories(
+      String format, String q, Boolean isActive, UUID parentId);
 
   CategoryResponse getCategory(UUID categoryId);
 

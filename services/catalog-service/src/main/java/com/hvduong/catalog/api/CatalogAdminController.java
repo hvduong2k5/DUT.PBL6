@@ -13,6 +13,7 @@ import com.hvduong.catalog.application.dto.request.UpdateCategoryRequest;
 import com.hvduong.catalog.application.dto.request.UpdatePriceRequest;
 import com.hvduong.catalog.application.dto.request.UpdateProductImageRequest;
 import com.hvduong.catalog.application.dto.request.UpdateProductRequest;
+import com.hvduong.catalog.application.dto.response.AdminCategoryListResponse;
 import com.hvduong.catalog.application.dto.response.AdminPriceResponse;
 import com.hvduong.catalog.application.dto.response.AdminProductDetailResponse;
 import com.hvduong.catalog.application.dto.response.AdminProductListResponse;
@@ -64,6 +65,42 @@ import lombok.extern.slf4j.Slf4j;
 public class CatalogAdminController {
 
   private final CatalogAdminService adminService;
+
+  @Operation(
+      summary = "Lấy danh sách toàn bộ danh mục sản phẩm phục vụ quản trị CMS",
+      description =
+          "Hỗ trợ duyệt cây (format=tree, mặc định) hoặc danh sách phẳng (format=flat). Khi tìm kiếm theo q, yêu cầu format=flat. Yêu cầu quyền CATALOG_VIEW.")
+  @ApiResponses({
+    @ApiResponse(responseCode = "200", description = "Lấy danh sách danh mục thành công"),
+    @ApiResponse(responseCode = "400", description = "Dữ liệu đầu vào không hợp lệ"),
+    @ApiResponse(responseCode = "401", description = "Chưa xác thực"),
+    @ApiResponse(responseCode = "403", description = "Không có quyền thực hiện"),
+    @ApiResponse(responseCode = "500", description = "Lỗi hệ thống nội bộ")
+  })
+  @PreAuthorize("hasAuthority('CATALOG_VIEW')")
+  @GetMapping("/categories")
+  public ResponseEntity<BaseResponse<AdminCategoryListResponse>> getAdminCategories(
+      @Parameter(description = "Chế độ hiển thị: tree hoặc flat (mặc định: tree)")
+          @RequestParam(required = false, defaultValue = "tree")
+          String format,
+      @Parameter(description = "Từ khóa tìm kiếm theo tên hoặc slug (yêu cầu format=flat)")
+          @RequestParam(required = false)
+          String q,
+      @Parameter(description = "Lọc theo trạng thái kích hoạt (true/false)")
+          @RequestParam(required = false)
+          Boolean isActive,
+      @Parameter(description = "ID danh mục cha (UUID)") @RequestParam(required = false)
+          UUID parentId) {
+    log.info(
+        "[REST-ADMIN] getAdminCategories: format={}, q={}, isActive={}, parentId={}",
+        format,
+        q,
+        isActive,
+        parentId);
+    AdminCategoryListResponse result =
+        adminService.getAdminCategories(format, q, isActive, parentId);
+    return ResponseEntity.ok(BaseResponse.success("Lấy danh sách danh mục thành công", result));
+  }
 
   @Operation(
       summary = "Tạo danh mục sản phẩm mới",

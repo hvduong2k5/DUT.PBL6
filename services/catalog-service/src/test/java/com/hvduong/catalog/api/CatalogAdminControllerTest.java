@@ -10,14 +10,19 @@ import com.hvduong.catalog.application.dto.request.CreateProductRequest;
 import com.hvduong.catalog.application.dto.request.PatchProductRequest;
 import com.hvduong.catalog.application.dto.request.PatchVariantRequest;
 import com.hvduong.catalog.application.dto.request.ProductTransitionRequest;
+import com.hvduong.catalog.application.dto.response.AdminCategoryItem;
+import com.hvduong.catalog.application.dto.response.AdminCategoryListResponse;
 import com.hvduong.catalog.application.dto.response.AdminPriceResponse;
 import com.hvduong.catalog.application.dto.response.AdminProductDetailResponse;
 import com.hvduong.catalog.application.dto.response.AdminProductListResponse;
 import com.hvduong.catalog.application.dto.response.ProductDetailResponse;
 import com.hvduong.catalog.application.service.CatalogAdminService;
+import com.hvduong.catalog.common.exception.CatalogException;
+import com.hvduong.catalog.common.exception.ErrorCode;
 import com.hvduong.catalog.common.handler.GlobalRestExceptionHandler;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -429,5 +434,42 @@ class CatalogAdminControllerTest {
                     + priceId))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.message").value("Hủy bản ghi giá thành công"));
+  }
+
+  @Test
+  void getsAdminCategoriesSuccessfully() throws Exception {
+    UUID catId = UUID.randomUUID();
+    var item =
+        AdminCategoryItem.builder()
+            .categoryId(catId)
+            .name("Mè Xửng")
+            .slug("me-xung")
+            .position(1)
+            .isActive(true)
+            .productCount(10L)
+            .childrenCount(0L)
+            .version(1L)
+            .build();
+    var listRes = AdminCategoryListResponse.builder().categories(List.of(item)).build();
+
+    when(adminService.getAdminCategories(eq("tree"), isNull(), isNull(), isNull()))
+        .thenReturn(listRes);
+
+    mockMvc
+        .perform(get("/api/v1/admin/catalog/categories").param("format", "tree"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.categories[0].categoryId").value(catId.toString()))
+        .andExpect(jsonPath("$.data.categories[0].productCount").value(10));
+  }
+
+  @Test
+  void getsAdminCategoriesWithSearchInTreeModeReturns400() throws Exception {
+    when(adminService.getAdminCategories(eq("tree"), eq("keo"), isNull(), isNull()))
+        .thenThrow(new CatalogException(ErrorCode.CATALOG_CATEGORY_SEARCH_REQUIRES_FLAT_FORMAT));
+
+    mockMvc
+        .perform(get("/api/v1/admin/catalog/categories").param("format", "tree").param("q", "keo"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("CATALOG_CATEGORY_SEARCH_REQUIRES_FLAT_FORMAT"));
   }
 }
