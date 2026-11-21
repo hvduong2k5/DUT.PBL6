@@ -221,3 +221,11 @@ Sáng 13/11 Muse chạy lại toàn bộ golden path bằng UI thật với tài
 - **F-38 — Các lỗi trình bày storefront (UI/UX, Medium).** Header nhấp nháy trạng thái ẩn danh vài giây mỗi lần tải trang; chuỗi header lỗi/truncate ("1900 68 Hue", "Giao hàng chuẩn quốc bảo toàn quốc"); hai badge OCOP chồng lên tiêu đề sản phẩm; ký hiệu tiền không nhất quán (đ ở trang chủ, ₫ ở nơi khác) và giá gạch ngang chỉ có ở trang chủ; trang chi tiết không hiện tồn kho, biến thể ghi "QUY CÁCH ĐANG XÁC NHẬN", thông tin thành phần/dị ứng/bảo quản trống; sổ địa chỉ: panel chồng sidebar ở viewport ~1043px, dropdown tỉnh chỉ có 4 thành phố, danh sách phường Huế thiếu và không theo thứ tự, địa chỉ đã lưu render trùng thành phố + thiếu dấu cách ("2 Le Loi,Phường Phú Nhuận, Thành phố Huế,Thành phố Huế"); checkout lộ chữ nội bộ ("expiry canonical", Idempotency-Key, revision) và bộ lọc đơn có "Đã xác nhận COD" dù checkout chỉ có VietQR; SĐT sau lưu bị đổi sang +84 không giải thích; phiên khách chỉ 15 phút, không cảnh báo hết hạn.
 - **F-39 — Token admin của Keycloak thiếu claim vai trò (Infra, Medium).** Token cấp qua admin-cli password grant cho hvduong (giữ full admin roles trong DB) không mang realm_access/resource_access → gọi Admin API ghi (bật/tắt Direct Access Grants) bị 403; phải dùng kcadm.sh trong container Keycloak. Token master chỉ sống 60 giây. Mọi tự động hoá realm trong tương lai phải tính tới điểm này.
 - **F-40 — Thiếu topic Kafka profile.events.v1 (Infra, Medium).** Topic chưa từng được tạo trên Kafka của VPS → outbox của profile-service lỗi publish mỗi giây (Unknown Topic Or Partition); thao tác lưu vẫn thành công và sự kiện được giữ để retry nên chưa mất dữ liệu, nhưng sự kiện profile chưa từng publish được và log bị spam. Cần tạo topic (cùng tham số như các topic sự kiện khác) hoặc tắt publisher nếu không dùng.
+
+### Superseded Inventory seed instructions — 2026-11-21
+
+The legacy seed_sample_data.sql path described above is disabled to prevent
+TRUNCATE from removing live stock. Inventory now ships separate inventory-migrate
+and inventory-seed-demo jobs. Server startup only verifies schema. Demo seed is
+opt-in via INVENTORY_SEED_DEMO=true and skips existing SKUs. See
+services/inventory-service/MIGRATIONS.md before using any old deployment commands.

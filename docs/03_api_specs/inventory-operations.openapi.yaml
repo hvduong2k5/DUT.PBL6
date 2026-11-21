@@ -1,0 +1,45 @@
+openapi: 3.0.3
+info:
+  title: Inventory private operations API
+  version: 1.0.0
+  description: |
+    Internal monitoring listener enabled only with INVENTORY_METRICS_ADDR.
+    Bind to a private interface/network. It exposes no business payloads.
+    Readiness is 503 if the enabled Procurement consumer is unhealthy, and 200
+    when disabled or healthy. Retry/DLQ counters reset on process restart.
+servers:
+  - url: http://127.0.0.1:8011
+security: []
+paths:
+  /readyz:
+    get:
+      operationId: inventoryOperationsReadiness
+      summary: Check Procurement consumer readiness
+      responses:
+        '200':
+          description: Ready or consumer explicitly disabled
+          content:
+            text/plain:
+              schema: {type: string}
+              example: "ready\n"
+        '503':
+          description: Enabled consumer is starting, blocked or stopped after panic
+          content:
+            text/plain:
+              schema: {type: string}
+              example: "procurement consumer unhealthy\n"
+  /metrics:
+    get:
+      operationId: inventoryOperationsMetrics
+      summary: Read Procurement Prometheus counters and gauges
+      responses:
+        '200':
+          description: Process-local receiving metrics
+          content:
+            text/plain:
+              schema: {type: string}
+              example: |
+                inventory_procurement_healthy 1
+                inventory_procurement_retries_total 0
+                inventory_procurement_dlq_total 0
+                inventory_procurement_consumer_lag 0

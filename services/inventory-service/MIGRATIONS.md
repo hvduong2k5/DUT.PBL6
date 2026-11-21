@@ -1,75 +1,129 @@
-# Inventory migration job
+# Inventory migration and demo jobs
 
 Updated: 2026-11-21.
 
-The same binaries and migration set are used in every environment. The server only
-calls `migrations.Verify`: it never applies schema changes or inserts demo stock.
-Run the migration job successfully before starting the new server release.
+All environments use the same image and binaries. Only environment variables and
+job commands differ. The server verifies schema read-only and never migrates or
+seeds. No deployment command should run a destructive SQL seed.
 
-## New database
+## Commands
 
-Set `DB_URL` for the intended Inventory database, then run from this service:
+Set DB_URL to the intended Inventory database. Run from services/inventory-service:
 
 ```sh
 go run ./cmd/migrate
+# Optional demo job; default is disabled, including when DB_URL is absent.
+INVENTORY_SEED_DEMO=true go run ./cmd/seed-demo
 go run ./cmd/server
 ```
 
-The images include `/app/inventory-migrate`. Run a separate job using the same
-release image, overriding its entrypoint to `/app/inventory-migrate`; provide
-`DB_URL`. Start the service only after that job exits successfully. This also
-applies to the Coolify image; do not append arguments to its server entrypoint.
+Both Dockerfiles package /app/inventory-migrate, /app/inventory-seed-demo, and
+/app/inventory-service. On Docker/Coolify run migration and optional seed as
+separate jobs, overriding the image ENTRYPOINT to the corresponding binary.
+Wait for each job to exit successfully before starting the server. The Coolify
+server entrypoint is a wrapper for secrets; passing arguments to that wrapper
+does not select another job. Production leaves INVENTORY_SEED_DEMO unset/false.
 
-## Existing database with manually applied 000001–000005
+## Existing manually migrated databases
 
-Back up the database and confirm all five original migrations were applied.
-Stop the old server during the transition. Baseline only records checksums; it
-does not execute these SQL files or prove their historical contents. It checks
-key legacy tables, the batch version column, and the stock projection function.
+Back up and stop stock writers for this one-time transition. Confirm the exact
+original migrations 000001–000005 were already applied, then run:
 
 ```sh
 go run ./cmd/migrate baseline
 go run ./cmd/migrate
 ```
 
-In the release image, the equivalent commands are `/app/inventory-migrate baseline`
-and `/app/inventory-migrate`. Baseline is one-time and refuses databases already
-containing the migration history table. Do not baseline an incomplete schema.
-If 000006 or 000007 were also applied manually, reconcile that database explicitly
-before adopting this runner; this baseline covers only 000001–000005.
+Baseline records checksums without replaying SQL. It checks key tables, the batch
+version column, and the stock function; presence checks cannot prove historical
+SQL contents. Baseline refuses a database already containing migration history.
+Do not use it on a partial schema. A DB with manual 000006 must first have its
+history reconciled by an operator; this baseline only attests 000001–000005.
 
-## Guarantees and operational limits
+000007 was an unreleased demo-only migration in earlier versions of PR #118. It
+is removed from the schema set, its number remains reserved, and demo SQL now
+belongs to internal/seed. New schema changes use 000008. Never renumber 000008 to
+fill the gap. Migrations 000001–000006 are unchanged. If an earlier PR build was
+used to record 000007 in a test DB, the new runner deliberately rejects that
+unknown history entry. Inspect/back up that DB and reconcile its history before
+switching builds; do not overwrite checksums or rerun old DDL. Existing demo data
+is retained, and existing SKUs are skipped by the optional seed job.
 
-- All pending SQL and history writes share one transaction and advisory lock.
-  Failure rolls back the entire pending batch. Concurrent migration jobs serialize.
-- Files are embedded and run in lexical order. Versions must be unique.
-- `inventory_schema_migrations(version, checksum, applied_at)` tracks SHA-256
-  checksums with CRLF normalized to LF so Windows and Linux builds agree.
-- Existing matching versions are skipped. Changed checksums, unknown versions,
-  and history gaps fail. Restore the original SQL; never overwrite checksums to
-  conceal an edited migration.
-- Missing history on a legacy database stops with baseline instructions; it never
-  reruns 000001 automatically. Server verification is read-only and fails when any
-  packaged migration is missing or its checksum differs.
-- **000007 still contains demo stock. Running this release's migration job in any
-  environment applies that data.** Moving execution out of the server does not
-  make this migration optional. Review the seed before running the job on real data.
-- The runner has no automatic down command. For a reviewed manual rollback, stop
-  the service, acquire the runner advisory transaction lock (2026112101), execute
-  the matching down SQL, then delete only that version's history row in the same
-  transaction. Roll back latest versions first. Seed rollback refuses used stock.
-  Running this release's migration job again will reapply any removed version;
-  the server refuses a database missing its required migrations.
+## Runner guarantees
 
-## Integration tests
+Embedded *.up.sql files execute lexically in one transaction protected by an
+advisory lock (2026112101). inventory_schema_migrations tracks version, checksum,
+and applied_at. SHA-256 normalizes CRLF to LF for Windows/Linux parity. Matching
+checksums skip. Duplicate versions, history gaps, unknown versions, and checksum
+mismatches fail. Any pending migration failure rolls back the whole batch.
+Server Verify also probes required receipt/batch columns to catch partial schema
+changes even if an operator recorded incorrect history. The migration job can
+wait up to five minutes; the server only checks and never competes for DDL locks.
 
-Use a disposable PostgreSQL 16 database and set `INVENTORY_TEST_DB_URL`:
+There is no automatic schema down command. For an approved rollback, stop stock
+writers, lock 2026112101 transactionally, apply the latest matching down SQL, and
+remove only its history row in that same transaction. 000008 refuses rollback
+once canonical receipt evidence or nullable-date batches exist. Never delete
+business records merely to force rollback.
+
+## Optional demo data
+
+INVENTORY_SEED_DEMO=true is required by the seed CLI for both up and down:
 
 ```sh
-go test ./migrations -v -count=1
-go test ./...
+INVENTORY_SEED_DEMO=true go run ./cmd/seed-demo
+INVENTORY_SEED_DEMO=true go run ./cmd/seed-demo down
 ```
 
-Tests create isolated schemas and cover fresh install, legacy baseline, repeat
-execution, checksum mismatch, missing schema, atomic rollback, stock preservation,
-and seed rollback ownership. Database tests skip when the test URL is absent.
+A single VALUES list defines 40 OM-* finished-good SKUs and 2,600 physical units.
+Inventory seed does not create Catalog products or images. Existing SKUs (even
+stock 0 or a different warehouse) are skipped with notices and never replenished.
+Concurrent jobs serialize. Stock snapshots intentionally emit two absolute
+versions per newly seeded SKU (80 outbox events for a fresh seed). Snapshot
+versions remain monotonic across a reviewed rollback and later reseed while the
+outbox history is retained; do not purge that history during this demo lifecycle.
+
+Dates are synthetic: manufacture = first seed date minus 7 days, expiry = first
+seed date plus 90 days. Reruns do not refresh dates. After expiry, stock becomes
+unsellable as intended; create a fresh disposable demo DB for a new demo cycle.
+The ACTIVE state is appropriate with 90 days remaining (near-expiry is <=45 days).
+
+Rollback requires stopping all stock writers. It refuses changed quantities,
+status/version, extra batches, reservations, adjustments, receipts, or procurement
+references. It emits a higher-version zero snapshot before deleting owned rows,
+keeps outbox/audit history, and preserves all preexisting rows. The old
+migrations/seed_sample_data.sql now fails clearly rather than TRUNCATE stock.
+infra/scripts/init-inventory-data.ps1 uses the same runner and accepts -SeedDemo.
+
+Catalog handoff remains separate: Downloads/V12__seed_pbl6_demo.sql was supplied
+to the Catalog owner. It is not merged by this PR and its migration number must
+be rechecked there. Before a storefront demo, that owner must load the matching
+40 OM-* SKU definitions and prices. Until then, Inventory stock alone cannot make
+those products appear in the storefront. Nine demo weights and stock/dates remain
+synthetic; images are deferred.
+
+## Test commands
+
+Use a disposable PostgreSQL 16 database, set INVENTORY_TEST_DB_URL, then:
+
+```sh
+python ../../scripts/test-inventory-procurement-contract.py
+go test ./...
+go test -race -count=1 ./...
+```
+
+CI provisions PostgreSQL, validates the canonical fixture with JSON Schema, runs
+migrate twice, confirms default seed inserts nothing, runs explicit seed twice,
+and executes race/integration tests. Tests create isolated schemas. DB tests
+skip when INVENTORY_TEST_DB_URL is absent; CI always supplies it. Live Procurement
+producer integration remains a deployment check because that service is absent
+from this repository.
+
+Monitoring: set INVENTORY_METRICS_ADDR to a private listener, scrape /metrics and
+check /readyz. Group lag polls committed versus end offsets every 15 seconds;
+-1 means no complete sample is available (including an uninitialized group).
+Use broker ACLs allowing topic metadata and group offset reads. Schedule
+SELECT inventory_prune_procurement_inbox(now()-interval '90 days') daily; this
+only removes inbox rows backed by permanent receipt evidence. Replayed receipts
+remain deduplicated after pruning. DLQ retention is 90 days; inspect/replay before
+expiry, retaining original source/id/receipt_id and reconciling stock first.
