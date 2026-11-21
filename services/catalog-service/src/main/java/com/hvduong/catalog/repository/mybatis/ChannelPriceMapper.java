@@ -32,4 +32,6 @@ public interface ChannelPriceMapper {
   void supersedePreviousPrice(@Param("variantId") UUID variantId, @Param("channel") String channel);
 
   Optional<ChannelPrice> findById(@Param("id") UUID id);
+
+  int deleteFuturePriceById(@Param("id") UUID id, @Param("variantId") UUID variantId);
 }

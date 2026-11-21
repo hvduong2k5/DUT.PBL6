@@ -1,6 +1,7 @@
 package com.hvduong.catalog.application.service;
 
 import com.hvduong.catalog.application.dto.request.CreateCategoryRequest;
+import com.hvduong.catalog.application.dto.request.CreatePriceScheduleRequest;
 import com.hvduong.catalog.application.dto.request.CreateProductImageRequest;
 import com.hvduong.catalog.application.dto.request.CreateProductRequest;
 import com.hvduong.catalog.application.dto.request.CreateVariantRequest;
@@ -80,4 +81,11 @@ public interface CatalogAdminService {
 
   ProductDetailResponse updateVariantPrices(
       UUID productId, UUID variantId, UpdatePriceRequest request, String actorId);
+
+  /** Lên lịch hoặc tạo bản ghi giá mới theo khoảng thời gian hiệu lực cho SKU. */
+  AdminPriceResponse schedulePrice(
+      UUID productId, UUID skuId, CreatePriceScheduleRequest request, String actorId);
+
+  /** Hủy bản ghi giá đã lên lịch trong tương lai (chưa tới effective_from). */
+  void deleteScheduledPrice(UUID productId, UUID skuId, UUID priceId, String actorId);
 }

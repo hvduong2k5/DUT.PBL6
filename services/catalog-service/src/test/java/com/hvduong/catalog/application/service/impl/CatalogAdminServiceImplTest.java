@@ -5,12 +5,14 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 import com.hvduong.catalog.application.dto.request.CreateCategoryRequest;
+import com.hvduong.catalog.application.dto.request.CreatePriceScheduleRequest;
 import com.hvduong.catalog.application.dto.request.CreateProductImageRequest;
 import com.hvduong.catalog.application.dto.request.CreateProductRequest;
 import com.hvduong.catalog.application.dto.request.PatchCategoryRequest;
 import com.hvduong.catalog.application.dto.request.PatchProductRequest;
 import com.hvduong.catalog.application.dto.request.PatchVariantRequest;
 import com.hvduong.catalog.application.dto.request.UpdateCategoryRequest;
+import com.hvduong.catalog.application.dto.request.UpdatePriceRequest;
 import com.hvduong.catalog.application.dto.request.UpdateProductRequest;
 import com.hvduong.catalog.application.dto.response.AdminPriceResponse;
 import com.hvduong.catalog.application.dto.response.ProductDetailResponse;
@@ -462,5 +464,203 @@ class CatalogAdminServiceImplTest {
         assertThrows(
             CatalogException.class, () -> adminService.patchCategory(catA, patchReq, "admin-1"));
     assertEquals(ErrorCode.INVALID_ARGUMENT, ex.getErrorCode());
+  }
+
+  @Test
+  void updateVariantPrices_ThrowsWhenVersionConflict() {
+    UUID variantId = UUID.randomUUID();
+    ProductVariant variant =
+        ProductVariant.builder().id(variantId).productId(productId).version(2L).build();
+    when(variantMapper.findById(variantId)).thenReturn(Optional.of(variant));
+
+    UpdatePriceRequest req =
+        UpdatePriceRequest.builder()
+            .expectedVariantVersion(1L)
+            .prices(
+                List.of(
+                    UpdatePriceRequest.PriceEntry.builder()
+                        .channel(SalesChannel.D2C_WEB)
+                        .amountUnits(50000L)
+                        .currencyCode("VND")
+                        .build()))
+            .build();
+
+    CatalogException ex =
+        assertThrows(
+            CatalogException.class,
+            () -> adminService.updateVariantPrices(productId, variantId, req, "admin-1"));
+    assertEquals(ErrorCode.CATALOG_VERSION_CONFLICT, ex.getErrorCode());
+  }
+
+  @Test
+  void schedulePrice_Future_DoesNotIncrementPriceRevisionOrPublishOutbox() {
+    UUID skuId = UUID.randomUUID();
+    Product product = new Product();
+    product.setId(productId);
+    ProductVariant variant =
+        ProductVariant.builder()
+            .id(skuId)
+            .productId(productId)
+            .skuCode("MX-TEST")
+            .version(1L)
+            .priceRevision(1L)
+            .build();
+
+    when(productMapper.findById(productId)).thenReturn(Optional.of(product));
+    when(variantMapper.findById(skuId)).thenReturn(Optional.of(variant));
+
+    Instant futureFrom = Instant.now().plusSeconds(3600);
+    CreatePriceScheduleRequest req =
+        CreatePriceScheduleRequest.builder()
+            .channel(SalesChannel.D2C_WEB)
+            .amountUnits(70000L)
+            .amountNanos(0)
+            .currencyCode("VND")
+            .effectiveFrom(futureFrom)
+            .build();
+
+    AdminPriceResponse res = adminService.schedulePrice(productId, skuId, req, "admin-1");
+
+    assertNotNull(res);
+    assertEquals("D2C_WEB", res.getChannel());
+    assertEquals(70000L, res.getAmountUnits());
+    verify(channelPriceMapper, never()).supersedePreviousPrice(any(), any());
+    verify(variantMapper, never()).incrementPriceRevision(any());
+    verify(outboxWriter, never()).enqueue(any(), any(), any(), any());
+    verify(channelPriceMapper, times(1)).insert(any());
+  }
+
+  @Test
+  void schedulePrice_Immediate_IncrementsRevisionAndPublishesOutbox() {
+    UUID skuId = UUID.randomUUID();
+    Product product = new Product();
+    product.setId(productId);
+    ProductVariant variant =
+        ProductVariant.builder()
+            .id(skuId)
+            .productId(productId)
+            .skuCode("MX-TEST")
+            .version(1L)
+            .priceRevision(1L)
+            .build();
+    ProductVariant updatedVariant =
+        ProductVariant.builder()
+            .id(skuId)
+            .productId(productId)
+            .skuCode("MX-TEST")
+            .version(1L)
+            .priceRevision(2L)
+            .build();
+
+    when(productMapper.findById(productId)).thenReturn(Optional.of(product));
+    when(variantMapper.findById(skuId))
+        .thenReturn(Optional.of(variant), Optional.of(updatedVariant));
+
+    Instant pastFrom = Instant.now().minusSeconds(10);
+    CreatePriceScheduleRequest req =
+        CreatePriceScheduleRequest.builder()
+            .channel(SalesChannel.D2C_WEB)
+            .amountUnits(80000L)
+            .amountNanos(0)
+            .currencyCode("VND")
+            .effectiveFrom(pastFrom)
+            .build();
+
+    AdminPriceResponse res = adminService.schedulePrice(productId, skuId, req, "admin-1");
+
+    assertNotNull(res);
+    assertEquals(80000L, res.getAmountUnits());
+    verify(channelPriceMapper).supersedePreviousPrice(skuId, SalesChannel.D2C_WEB.getValue());
+    verify(variantMapper).incrementPriceRevision(skuId);
+    verify(outboxWriter)
+        .enqueue(
+            eq("Product"),
+            eq(productId.toString()),
+            eq("vn.omama.catalog.product.price.changed.v1"),
+            any());
+  }
+
+  @Test
+  void schedulePrice_ThrowsWhenEffectiveToBeforeEffectiveFrom() {
+    UUID skuId = UUID.randomUUID();
+    Product product = new Product();
+    product.setId(productId);
+    ProductVariant variant =
+        ProductVariant.builder().id(skuId).productId(productId).version(1L).build();
+
+    when(productMapper.findById(productId)).thenReturn(Optional.of(product));
+    when(variantMapper.findById(skuId)).thenReturn(Optional.of(variant));
+
+    Instant from = Instant.now().plusSeconds(3600);
+    Instant to = from.minusSeconds(60);
+    CreatePriceScheduleRequest req =
+        CreatePriceScheduleRequest.builder()
+            .channel(SalesChannel.D2C_WEB)
+            .amountUnits(80000L)
+            .effectiveFrom(from)
+            .effectiveTo(to)
+            .build();
+
+    CatalogException ex =
+        assertThrows(
+            CatalogException.class,
+            () -> adminService.schedulePrice(productId, skuId, req, "admin-1"));
+    assertEquals(ErrorCode.INVALID_ARGUMENT, ex.getErrorCode());
+  }
+
+  @Test
+  void deleteScheduledPrice_FuturePrice_Success() {
+    UUID skuId = UUID.randomUUID();
+    UUID priceId = UUID.randomUUID();
+    Product product = new Product();
+    product.setId(productId);
+    ProductVariant variant =
+        ProductVariant.builder().id(skuId).productId(productId).version(1L).build();
+
+    ChannelPrice price =
+        ChannelPrice.builder()
+            .id(priceId)
+            .variantId(skuId)
+            .channel(SalesChannel.D2C_WEB)
+            .effectiveFrom(Instant.now().plusSeconds(7200))
+            .build();
+
+    when(productMapper.findById(productId)).thenReturn(Optional.of(product));
+    when(variantMapper.findById(skuId)).thenReturn(Optional.of(variant));
+    when(channelPriceMapper.findById(priceId)).thenReturn(Optional.of(price));
+    when(channelPriceMapper.deleteFuturePriceById(priceId, skuId)).thenReturn(1);
+
+    assertDoesNotThrow(
+        () -> adminService.deleteScheduledPrice(productId, skuId, priceId, "admin-1"));
+    verify(channelPriceMapper).deleteFuturePriceById(priceId, skuId);
+  }
+
+  @Test
+  void deleteScheduledPrice_ActivePrice_ThrowsCannotDelete() {
+    UUID skuId = UUID.randomUUID();
+    UUID priceId = UUID.randomUUID();
+    Product product = new Product();
+    product.setId(productId);
+    ProductVariant variant =
+        ProductVariant.builder().id(skuId).productId(productId).version(1L).build();
+
+    ChannelPrice price =
+        ChannelPrice.builder()
+            .id(priceId)
+            .variantId(skuId)
+            .channel(SalesChannel.D2C_WEB)
+            .effectiveFrom(Instant.now().minusSeconds(100))
+            .build();
+
+    when(productMapper.findById(productId)).thenReturn(Optional.of(product));
+    when(variantMapper.findById(skuId)).thenReturn(Optional.of(variant));
+    when(channelPriceMapper.findById(priceId)).thenReturn(Optional.of(price));
+
+    CatalogException ex =
+        assertThrows(
+            CatalogException.class,
+            () -> adminService.deleteScheduledPrice(productId, skuId, priceId, "admin-1"));
+    assertEquals(ErrorCode.CATALOG_PRICE_CANNOT_DELETE_ACTIVE, ex.getErrorCode());
+    verify(channelPriceMapper, never()).deleteFuturePriceById(any(), any());
   }
 }

@@ -10,6 +10,7 @@ import com.hvduong.catalog.application.dto.request.CreateProductRequest;
 import com.hvduong.catalog.application.dto.request.PatchProductRequest;
 import com.hvduong.catalog.application.dto.request.PatchVariantRequest;
 import com.hvduong.catalog.application.dto.request.ProductTransitionRequest;
+import com.hvduong.catalog.application.dto.response.AdminPriceResponse;
 import com.hvduong.catalog.application.dto.response.AdminProductDetailResponse;
 import com.hvduong.catalog.application.dto.response.AdminProductListResponse;
 import com.hvduong.catalog.application.dto.response.ProductDetailResponse;
@@ -362,5 +363,71 @@ class CatalogAdminControllerTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.data.skuCode").value("MXG-150G"))
         .andExpect(jsonPath("$.data.name").value("Gói 150g"));
+  }
+
+  @Test
+  void schedulesPriceSuccessfully() throws Exception {
+    UUID productId = UUID.randomUUID();
+    UUID skuId = UUID.randomUUID();
+    UUID priceId = UUID.randomUUID();
+
+    AdminPriceResponse priceRes =
+        AdminPriceResponse.builder()
+            .priceId(priceId.toString())
+            .channel("D2C_WEB")
+            .currencyCode("VND")
+            .amountUnits(55000L)
+            .amountNanos(0)
+            .status("ACTIVE")
+            .effectiveFrom("2026-12-01T00:00:00Z")
+            .revision(1L)
+            .build();
+
+    when(adminService.schedulePrice(eq(productId), eq(skuId), any(), anyString()))
+        .thenReturn(priceRes);
+
+    String body =
+        """
+        {
+          "channel": "D2C_WEB",
+          "currencyCode": "VND",
+          "amountUnits": 55000,
+          "amountNanos": 0,
+          "effectiveFrom": "2026-12-01T00:00:00Z"
+        }
+        """;
+
+    mockMvc
+        .perform(
+            post("/api/v1/admin/catalog/products/" + productId + "/skus/" + skuId + "/prices")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.data.priceId").value(priceId.toString()))
+        .andExpect(jsonPath("$.data.channel").value("D2C_WEB"))
+        .andExpect(jsonPath("$.data.amountUnits").value(55000));
+  }
+
+  @Test
+  void deletesScheduledPriceSuccessfully() throws Exception {
+    UUID productId = UUID.randomUUID();
+    UUID skuId = UUID.randomUUID();
+    UUID priceId = UUID.randomUUID();
+
+    doNothing()
+        .when(adminService)
+        .deleteScheduledPrice(eq(productId), eq(skuId), eq(priceId), anyString());
+
+    mockMvc
+        .perform(
+            delete(
+                "/api/v1/admin/catalog/products/"
+                    + productId
+                    + "/skus/"
+                    + skuId
+                    + "/prices/"
+                    + priceId))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.message").value("Hủy bản ghi giá thành công"));
   }
 }

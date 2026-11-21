@@ -15,7 +15,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class ApiResponse<T> {
+public class BaseResponse<T> {
 
   private boolean success;
   private String code;
@@ -35,8 +35,8 @@ public class ApiResponse<T> {
     private String message;
   }
 
-  public static <T> ApiResponse<T> success(T data) {
-    return ApiResponse.<T>builder()
+  public static <T> BaseResponse<T> success(T data) {
+    return BaseResponse.<T>builder()
         .success(true)
         .code("SUCCESS")
         .message("Thao tác thành công")
@@ -45,8 +45,8 @@ public class ApiResponse<T> {
         .build();
   }
 
-  public static <T> ApiResponse<T> success(String message, T data) {
-    return ApiResponse.<T>builder()
+  public static <T> BaseResponse<T> success(String message, T data) {
+    return BaseResponse.<T>builder()
         .success(true)
         .code("SUCCESS")
         .message(message)
@@ -55,8 +55,8 @@ public class ApiResponse<T> {
         .build();
   }
 
-  public static <T> ApiResponse<T> error(String code, String message) {
-    return ApiResponse.<T>builder()
+  public static <T> BaseResponse<T> error(String code, String message) {
+    return BaseResponse.<T>builder()
         .success(false)
         .code(code)
         .message(message)
@@ -65,8 +65,8 @@ public class ApiResponse<T> {
         .build();
   }
 
-  public static <T> ApiResponse<T> validationError(List<ValidationError> errors) {
-    return ApiResponse.<T>builder()
+  public static <T> BaseResponse<T> validationError(List<ValidationError> errors) {
+    return BaseResponse.<T>builder()
         .success(false)
         .code("VALIDATION_ERROR")
         .message("Dữ liệu đầu vào không hợp lệ")

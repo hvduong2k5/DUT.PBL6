@@ -96,4 +96,11 @@
           AND (effective_to IS NULL OR effective_to &gt; NOW())
     </update>
 
+    <delete id="deleteFuturePriceById">
+        DELETE FROM channel_prices
+        WHERE id = #{id}
+          AND variant_id = #{variantId}
+          AND effective_from &gt; NOW()
+    </delete>
+
 </mapper>

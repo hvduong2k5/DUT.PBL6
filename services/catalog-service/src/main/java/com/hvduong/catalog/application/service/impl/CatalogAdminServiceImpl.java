@@ -1,6 +1,7 @@
 package com.hvduong.catalog.application.service.impl;
 
 import com.hvduong.catalog.application.dto.request.CreateCategoryRequest;
+import com.hvduong.catalog.application.dto.request.CreatePriceScheduleRequest;
 import com.hvduong.catalog.application.dto.request.CreateProductImageRequest;
 import com.hvduong.catalog.application.dto.request.CreateProductRequest;
 import com.hvduong.catalog.application.dto.request.CreateVariantRequest;
@@ -964,49 +965,210 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
           "Variant " + variantId + " không thuộc Product " + productId);
     }
 
-    variantMapper.incrementPriceRevision(variantId);
-    variant = variantMapper.findById(variantId).orElseThrow();
-    long currentPriceRevision = variant.getPriceRevision();
+    if (request.getExpectedVariantVersion() != null
+        && variant.getVersion() != request.getExpectedVariantVersion()) {
+      throw CatalogException.versionConflict(variantId.toString());
+    }
 
-    List<Map<String, Object>> changedPrices =
-        request.getPrices().stream()
-            .map(
-                entry -> {
-                  channelPriceMapper.supersedePreviousPrice(
-                      variantId, entry.getChannel().getValue());
-                  channelPriceMapper.insert(
-                      ChannelPrice.builder()
-                          .id(UUID.randomUUID())
-                          .variantId(variantId)
-                          .channel(entry.getChannel())
-                          .currencyCode(entry.getCurrencyCode())
-                          .amountUnits(entry.getAmountUnits())
-                          .amountNanos(0)
-                          .status("ACTIVE")
-                          .effectiveFrom(Instant.now())
-                          .createdBy(actorId)
-                          .build());
-                  Map<String, Object> price = new LinkedHashMap<>();
-                  price.put("channel", entry.getChannel().name());
-                  price.put("currency_code", entry.getCurrencyCode());
-                  price.put("amount_units", entry.getAmountUnits());
-                  price.put("amount_nanos", 0);
-                  price.put("price_revision", currentPriceRevision);
-                  return price;
-                })
-            .toList();
-    Map<String, Object> eventData = new LinkedHashMap<>();
-    eventData.put("product_id", productId.toString());
-    eventData.put("variant_id", variantId.toString());
-    eventData.put("sku_code", variant.getSkuCode());
-    eventData.put("price_revision", currentPriceRevision);
-    eventData.put("prices", changedPrices);
-    eventData.put("changed_by", actorId);
-    outboxWriter.enqueue(
-        "Product", productId.toString(), "vn.omama.catalog.product.price.changed.v1", eventData);
+    List<Map<String, Object>> changedPrices = new ArrayList<>();
+    Instant now = Instant.now();
+
+    for (UpdatePriceRequest.PriceEntry entry : request.getPrices()) {
+      Instant effectiveFrom = entry.getEffectiveFrom() != null ? entry.getEffectiveFrom() : now;
+      if (entry.getEffectiveTo() != null && !entry.getEffectiveTo().isAfter(effectiveFrom)) {
+        throw new CatalogException(
+            ErrorCode.INVALID_ARGUMENT, "Thời điểm kết thúc phải sau thời điểm bắt đầu");
+      }
+      boolean isImmediate = !effectiveFrom.isAfter(now);
+      if (isImmediate) {
+        channelPriceMapper.supersedePreviousPrice(variantId, entry.getChannel().getValue());
+      }
+      int nanos = entry.getAmountNanos() != null ? entry.getAmountNanos() : 0;
+      String currency = entry.getCurrencyCode() != null ? entry.getCurrencyCode() : "VND";
+
+      ChannelPrice priceEntity =
+          ChannelPrice.builder()
+              .id(UUID.randomUUID())
+              .variantId(variantId)
+              .channel(entry.getChannel())
+              .currencyCode(currency)
+              .amountUnits(entry.getAmountUnits())
+              .amountNanos(nanos)
+              .status("ACTIVE")
+              .effectiveFrom(effectiveFrom)
+              .effectiveTo(entry.getEffectiveTo())
+              .createdBy(actorId)
+              .build();
+
+      try {
+        channelPriceMapper.insert(priceEntity);
+      } catch (org.springframework.dao.DataIntegrityViolationException ex) {
+        String msg = ex.getMessage();
+        if (msg != null
+            && (msg.contains("excl_channel_prices_no_overlap") || msg.contains("23P01"))) {
+          throw new CatalogException(ErrorCode.CATALOG_PRICE_OVERLAP_CONFLICT);
+        }
+        throw ex;
+      }
+
+      if (isImmediate) {
+        Map<String, Object> price = new LinkedHashMap<>();
+        price.put("channel", entry.getChannel().name());
+        price.put("currency_code", currency);
+        price.put("amount_units", entry.getAmountUnits());
+        price.put("amount_nanos", nanos);
+        changedPrices.add(price);
+      }
+    }
+
+    if (!changedPrices.isEmpty()) {
+      variantMapper.incrementPriceRevision(variantId);
+      variant = variantMapper.findById(variantId).orElseThrow();
+      long currentPriceRevision = variant.getPriceRevision();
+      for (Map<String, Object> p : changedPrices) {
+        p.put("price_revision", currentPriceRevision);
+      }
+      Map<String, Object> eventData = new LinkedHashMap<>();
+      eventData.put("product_id", productId.toString());
+      eventData.put("variant_id", variantId.toString());
+      eventData.put("sku_code", variant.getSkuCode());
+      eventData.put("price_revision", currentPriceRevision);
+      eventData.put("prices", changedPrices);
+      eventData.put("changed_by", actorId);
+      outboxWriter.enqueue(
+          "Product", productId.toString(), "vn.omama.catalog.product.price.changed.v1", eventData);
+    }
 
     cacheEvictor.evictCategoriesCache();
     return buildDetailResponse(productMapper.findById(productId).orElseThrow());
+  }
+
+  @Override
+  @Transactional
+  @CacheEvict(value = "catalog:product", allEntries = true)
+  public AdminPriceResponse schedulePrice(
+      UUID productId, UUID skuId, CreatePriceScheduleRequest request, String actorId) {
+    log.info(
+        "[CATALOG-ADMIN] schedulePrice: productId={}, skuId={}, channel={}",
+        productId,
+        skuId,
+        request.getChannel());
+
+    findProductOrThrow(productId);
+    ProductVariant variant = findVariantOfProduct(productId, skuId);
+
+    if (request.getEffectiveTo() != null
+        && !request.getEffectiveTo().isAfter(request.getEffectiveFrom())) {
+      throw new CatalogException(
+          ErrorCode.INVALID_ARGUMENT, "Thời điểm kết thúc phải sau thời điểm bắt đầu");
+    }
+
+    Instant effectiveFrom = request.getEffectiveFrom();
+    Instant now = Instant.now();
+    boolean isImmediate = !effectiveFrom.isAfter(now);
+
+    if (isImmediate) {
+      channelPriceMapper.supersedePreviousPrice(skuId, request.getChannel().getValue());
+    }
+
+    int nanos = request.getAmountNanos() != null ? request.getAmountNanos() : 0;
+    String currency = request.getCurrencyCode() != null ? request.getCurrencyCode() : "VND";
+
+    ChannelPrice newPrice =
+        ChannelPrice.builder()
+            .id(UUID.randomUUID())
+            .variantId(skuId)
+            .channel(request.getChannel())
+            .currencyCode(currency)
+            .amountUnits(request.getAmountUnits())
+            .amountNanos(nanos)
+            .status("ACTIVE")
+            .effectiveFrom(effectiveFrom)
+            .effectiveTo(request.getEffectiveTo())
+            .createdBy(actorId)
+            .build();
+
+    try {
+      channelPriceMapper.insert(newPrice);
+    } catch (org.springframework.dao.DataIntegrityViolationException ex) {
+      String msg = ex.getMessage();
+      if (msg != null
+          && (msg.contains("excl_channel_prices_no_overlap") || msg.contains("23P01"))) {
+        throw new CatalogException(ErrorCode.CATALOG_PRICE_OVERLAP_CONFLICT);
+      }
+      throw ex;
+    }
+
+    if (isImmediate) {
+      variantMapper.incrementPriceRevision(skuId);
+      variant = variantMapper.findById(skuId).orElseThrow();
+      long currentPriceRevision = variant.getPriceRevision();
+
+      Map<String, Object> price = new LinkedHashMap<>();
+      price.put("channel", request.getChannel().name());
+      price.put("currency_code", currency);
+      price.put("amount_units", request.getAmountUnits());
+      price.put("amount_nanos", nanos);
+      price.put("price_revision", currentPriceRevision);
+
+      Map<String, Object> eventData = new LinkedHashMap<>();
+      eventData.put("product_id", productId.toString());
+      eventData.put("variant_id", skuId.toString());
+      eventData.put("sku_code", variant.getSkuCode());
+      eventData.put("price_revision", currentPriceRevision);
+      eventData.put("prices", List.of(price));
+      eventData.put("changed_by", actorId);
+      outboxWriter.enqueue(
+          "Product", productId.toString(), "vn.omama.catalog.product.price.changed.v1", eventData);
+
+      cacheEvictor.evictCategoriesCache();
+    }
+
+    return AdminPriceResponse.builder()
+        .priceId(newPrice.getId().toString())
+        .channel(newPrice.getChannel().name())
+        .currencyCode(newPrice.getCurrencyCode())
+        .amountUnits(newPrice.getAmountUnits())
+        .amountNanos(newPrice.getAmountNanos())
+        .status(newPrice.getStatus())
+        .effectiveFrom(formatInstant(newPrice.getEffectiveFrom()))
+        .effectiveTo(formatInstant(newPrice.getEffectiveTo()))
+        .revision(newPrice.getVersion())
+        .build();
+  }
+
+  @Override
+  @Transactional
+  public void deleteScheduledPrice(UUID productId, UUID skuId, UUID priceId, String actorId) {
+    log.info(
+        "[CATALOG-ADMIN] deleteScheduledPrice: productId={}, skuId={}, priceId={}, actor={}",
+        productId,
+        skuId,
+        priceId,
+        actorId);
+
+    findProductOrThrow(productId);
+    findVariantOfProduct(productId, skuId);
+
+    ChannelPrice price =
+        channelPriceMapper
+            .findById(priceId)
+            .orElseThrow(() -> CatalogException.notFound("ChannelPrice", priceId.toString()));
+
+    if (!price.getVariantId().equals(skuId)) {
+      throw new CatalogException(
+          ErrorCode.RESOURCE_NOT_FOUND, "Bản ghi giá không thuộc SKU: " + skuId);
+    }
+
+    Instant now = Instant.now();
+    if (price.getEffectiveFrom() != null && !price.getEffectiveFrom().isAfter(now)) {
+      throw new CatalogException(ErrorCode.CATALOG_PRICE_CANNOT_DELETE_ACTIVE);
+    }
+
+    int deleted = channelPriceMapper.deleteFuturePriceById(priceId, skuId);
+    if (deleted == 0) {
+      throw new CatalogException(ErrorCode.CATALOG_PRICE_CANNOT_DELETE_ACTIVE);
+    }
   }
 
   // ── Private helpers ───────────────────────────────────────────────────────
