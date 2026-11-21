@@ -451,6 +451,47 @@ Product
 - Dữ liệu Supplier công khai phải tối thiểu cần thiết, không lộ hợp đồng, giá mua, thông tin liên hệ riêng hoặc bí mật kinh doanh.
 - Quyết định duyệt/từ chối/đình chỉ cần actor, thời điểm, lý do, revision và dữ liệu trước/sau theo chính sách Audit.
 
+### 6.5. Quyết định nghiệp vụ QR theo lô — đã chốt ngày 21/11/2026
+
+Quyết định này chốt phạm vi triển khai tiếp theo theo xác nhận của chủ yêu cầu; không phải tuyên bố các chức năng dưới đây đã được implement hoặc kiểm thử. Các khả năng cấp Product/SKU trong Epic vẫn là khả năng mở rộng, không thay thế định danh lô trong luồng này.
+
+**Định danh và nội dung QR**
+
+- QR truy xuất thuộc hồ sơ Batch/Lot, không thuộc đơn hàng hoặc từng đơn vị bao gói. Nhiều sản phẩm cùng lô có thể dùng cùng QR.
+- QR chứa URL đầy đủ của trang công khai `/trace/{qr_code}`, lấy từ `qr_url` của hồ sơ; không chứa link API, link chi tiết đơn hàng, thông tin người mua hay token đăng nhập.
+- Tạo hình QR từ link đã có là bước phục vụ in tem, không tạo hồ sơ nguồn gốc mới hoặc cấp mã khác mỗi lần tải/in lại.
+
+**Luồng nhân viên**
+
+1. Nhân viên có quyền tạo hồ sơ gắn đúng Product–SKU–Batch, nhập nguồn gốc và gửi duyệt.
+2. Người có quyền thực hiện duyệt và công bố theo workflow hiện hành; duyệt chưa đồng nghĩa với công bố.
+3. Tại chi tiết hồ sơ đang được công bố và còn đủ điều kiện công khai, nhân viên có quyền được dùng “Tải QR / In tem”. Tem thể hiện QR, tên sản phẩm và mã lô để đối chiếu khi dán.
+4. Khi đóng gói, nhân viên đối chiếu lô thực tế của sản phẩm với lô trên tem rồi dán lên bao bì sản phẩm tương ứng. Không chọn tem chỉ dựa vào tên sản phẩm hoặc SKU.
+5. In lại cùng tem giữ nguyên mã và link. Hồ sơ chưa công bố, bị đình chỉ, lưu trữ hoặc không còn đủ điều kiện công khai không được cung cấp như tem nguồn gốc hợp lệ để dán mới. QR đã in vẫn dẫn tới trạng thái an toàn theo quy tắc công khai hiện hành.
+
+Quyền tải/in phải được xác định theo permission và scope trong bước thiết kế contract; quyết định này không tạo role mới hoặc mặc nhiên cho phép mọi nhân viên in tem. Quy trình xử lý tem sai, thất lạc và giả mạo vẫn là điểm mở ở Mục 8.
+
+**Luồng khách hàng và đơn hàng**
+
+- Người cầm sản phẩm dùng camera điện thoại quét tem và mở thẳng trang nguồn gốc công khai, không bắt buộc đăng nhập và không cần mở website trước.
+- Người mua đăng nhập có thể vào lịch sử đơn hàng → chi tiết đơn hàng → “Xem nguồn gốc” theo các lô thực tế đã đóng gói/xuất giao. Không yêu cầu sinh QR trong UI khách hàng cho mục đích in tem.
+- Một dòng đơn có thể thuộc nhiều lô; hiển thị riêng từng lô và số lượng tương ứng. Chỉ dẫn tới hồ sơ khớp lô thực tế, không suy đoán bằng SKU, không thay bằng hồ sơ mẫu hoặc lô mới nhất.
+- Khi chưa xác định lô hoặc chưa có hồ sơ công khai hợp lệ, hiển thị trạng thái chưa sẵn sàng phù hợp; không tạo liên kết truy xuất giả. Truy cập đơn hàng vẫn tuân thủ quyền sở hữu đơn, độc lập với quyền đọc hồ sơ nguồn gốc công khai.
+- Bỏ khối nhập mã truy xuất lớn ở trang chủ; giữ điểm tra cứu nhỏ tại footer và hướng dẫn trên trang sản phẩm. Trang sản phẩm không tự chọn hồ sơ của một lô cụ thể.
+
+**Ranh giới phạm vi**
+
+- Một QR của một lô không đại diện cho cả thùng đơn chứa nhiều sản phẩm hoặc nhiều lô. QR tổng hợp nguồn gốc kiện hàng là khả năng riêng, chưa thuộc quyết định triển khai này.
+- Backend hiện có mã/link QR; cần bổ sung phần tạo hình, tải/in tem và liên kết dữ liệu dòng đơn–lô–hồ sơ công khai. Thay đổi API, permission hoặc trạng thái UI phải cập nhật contract/state matrix tương ứng trong `docs/03_api_specs/` trước hoặc song song với code; mục này không tự định nghĩa endpoint mới.
+
+**Tiêu chí nghiệm thu cho bản triển khai tiếp theo**
+
+- QR tải/in giải mã thành đúng `qr_url`; quét bằng thiết bị không đăng nhập mở đúng hồ sơ lô.
+- Tải/in lại không đổi mã; hồ sơ chưa công bố hoặc không hợp lệ không có hành động in tem hợp lệ.
+- Đơn nhiều dòng hoặc một dòng nhiều lô dẫn đúng từng hồ sơ và số lượng thực giao; chưa có dữ liệu không dẫn sang mã mẫu.
+- Hồ sơ bị đình chỉ/hết hiệu lực sau khi in trả trạng thái an toàn, không chuyển QR sang lô khác.
+- Khách khác không đọc được chi tiết đơn không thuộc quyền của mình; trang nguồn gốc công khai không tiết lộ dữ liệu đơn hàng/người mua.
+
 ## 7. Traceability
 
 | User Story | Business Rule | Epic phụ thuộc | Kết quả cần kiểm thử |
@@ -465,7 +506,7 @@ Product
 ## 8. Điểm cần chốt trước khi thiết kế kỹ thuật
 
 - Ánh xạ actor “Manager” cho `US-OCOP-04~06`: `ACT-12`, `ACT-15` hay vai trò mới; ai tạo, ai duyệt và có bắt buộc phân tách nhiệm vụ không.
-- QR được cấp theo Product, SKU, Batch hay từng đơn vị bao gói; ai tạo/in/kích hoạt và quy trình xử lý mã in sai/thất lạc/giả mạo.
+- Đã chốt QR theo Batch, luồng công bố → tải/in → đối chiếu và dán tem ở Mục 6.5. Còn cần chốt permission/scope cụ thể cho tải/in và quy trình xử lý mã in sai/thất lạc/giả mạo; QR tổng hợp kiện hàng nằm ngoài phạm vi hiện tại.
 - Bộ trường traceability bắt buộc cho từng cấp; dữ liệu nào kế thừa và dữ liệu nào phải có riêng theo Batch.
 - Mô hình nguyên liệu nhiều cấp, vùng địa lý, nhà sản xuất/cơ sở, công đoạn và quan hệ với Supplier/PO của EPIC 27.
 - Danh mục chứng nhận, trường bắt buộc, phạm vi, ngày hiệu lực/hết hạn và quy trình gia hạn/thu hồi.
