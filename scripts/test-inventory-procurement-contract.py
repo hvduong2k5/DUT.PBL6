@@ -12,3 +12,11 @@ assert fixture["data"]["supplier_id"] == "SUP-HTX-QUANG-THO"
 assert fixture["id"] == "receipt-event-01"
 assert "quantity_accepted" not in fixture["data"]
 print("PASS: canonical GoodsReceived schema validates the Go consumer fixture")
+
+import copy
+validator=Draft7Validator(schema,format_checker=FormatChecker())
+for unit,quantity,valid in [('kg',2.5,True),('GRAM',1,True),('UNIT',2.5,False),('KG',0.0101,False),('LB',2,False),('UNIT',2147483648,False)]:
+    candidate=copy.deepcopy(fixture)
+    candidate['data'].update(unit=unit,quantity_received=quantity)
+    assert validator.is_valid(candidate)==valid,(unit,quantity,valid)
+print('PASS: supported units, integer conversion and overflow contract cases')
