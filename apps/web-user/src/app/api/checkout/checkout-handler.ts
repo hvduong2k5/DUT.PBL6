@@ -7,7 +7,7 @@ import {
   type PublicErrorBody
 } from "@/lib/api-contract";
 import { customerAccessFailure } from "@/lib/auth/customer-access-server";
-import { applyStorefrontAuthorization, authorizeStorefrontCapability, withGuestCookie, storefrontUpstream, GuestRateLimitError } from "@/lib/auth/storefront-credential";
+import { applyStorefrontAuthorization, authorizeStorefrontCapability, withGuestCookie, storefrontUpstream, guestCredential, GuestRateLimitError } from "@/lib/auth/storefront-credential";
 import { MVP_FEATURE_GATES } from "@/lib/mvp-feature-gates";
 import {
   parseMvpCheckoutRoute,
@@ -198,9 +198,10 @@ async function handleAuthorizedCheckoutRequest(request: NextRequest, path: strin
       }
       const parsed = validateMvpQuoteRequest(body);
       if (!parsed.data) return publicErrorResponse(400, "INVALID_REQUEST", "Yêu cầu tạo quote chưa hợp lệ.", "BFF-CHECKOUT-QUOTE", { errors: parsed.errors });
-      if (parsed.data.payment_method === "COD" && !MVP_FEATURE_GATES.cod) {
+      if (parsed.data.payment_method === "COD" && !(guestCredential(request) ? process.env.GUEST_COD_CHECKOUT_ENABLED === "true" : MVP_FEATURE_GATES.cod)) {
         return publicErrorResponse(403, "FEATURE_NOT_ENABLED", "COD chưa được bật cho Web MVP hiện tại.", "BFF-CHECKOUT-COD-GATE");
       }
+      if (guestCredential(request) && parsed.data.payment_method === "VIETQR" && process.env.GUEST_VIETQR_CHECKOUT_ENABLED !== "true") return publicErrorResponse(403,"GUEST_CHECKOUT_DISABLED","Thanh toán VietQR cho khách chưa được bật.","BFF-CHECKOUT-GUEST-GATE");
       if (parsed.data.voucher_code && !MVP_FEATURE_GATES.voucher) {
         return publicErrorResponse(403, "FEATURE_NOT_ENABLED", "Voucher chưa được bật cho Web MVP hiện tại.", "BFF-CHECKOUT-VOUCHER-GATE");
       }
@@ -218,9 +219,10 @@ async function handleAuthorizedCheckoutRequest(request: NextRequest, path: strin
     }
     const parsed = validateMvpAcceptRequest(body);
     if (!parsed.data) return publicErrorResponse(400, "INVALID_REQUEST", "Yêu cầu accept Checkout chưa hợp lệ.", "BFF-CHECKOUT-ACCEPT", { errors: parsed.errors });
-    if (parsed.data.payment_method === "COD" && !MVP_FEATURE_GATES.cod) {
+    if (parsed.data.payment_method === "COD" && !(guestCredential(request) ? process.env.GUEST_COD_CHECKOUT_ENABLED === "true" : MVP_FEATURE_GATES.cod)) {
       return publicErrorResponse(403, "FEATURE_NOT_ENABLED", "COD chưa được bật cho Web MVP hiện tại.", "BFF-CHECKOUT-COD-GATE");
     }
+    if (guestCredential(request) && parsed.data.payment_method === "VIETQR" && process.env.GUEST_VIETQR_CHECKOUT_ENABLED !== "true") return publicErrorResponse(403,"GUEST_CHECKOUT_DISABLED","Thanh toán VietQR cho khách chưa được bật.","BFF-CHECKOUT-GUEST-GATE");
     const result = await callUpstream(request, "checkout", "POST", route.mockScenario, parsed.data, idempotencyKey);
     if (!result.response.ok) return relayUpstreamError(result.payload, result.response);
     if (result.response.status !== 201 && result.response.status !== 202) {

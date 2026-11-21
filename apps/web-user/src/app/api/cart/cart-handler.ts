@@ -13,6 +13,8 @@ import {
   validateMvpUpdateCartItemInput
 } from "@/lib/cart/validation";
 import { NextRequest } from "next/server";
+import { hasCustomerCredential } from "@/lib/auth/storefront-credential";
+import { MVP_FEATURE_GATES } from "@/lib/mvp-feature-gates";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -149,6 +151,9 @@ async function handleAuthorizedCartRequest(request: NextRequest, path: string[])
     return publicErrorResponse(400, "INVALID_REQUEST", "Mock scenario không khả dụng trong production.", "BFF-CART-SCENARIO");
   }
 
+  if (request.method !== "GET" && !hasCustomerCredential(request) && MVP_FEATURE_GATES.guestOrder && process.env.GUEST_CART_MUTATION_ENABLED !== "true") {
+    return publicErrorResponse(403, "GUEST_CART_DISABLED", "Giỏ hàng cho khách chưa được bật.", "BFF-CART-GUEST-GATE");
+  }
   try {
     await authorizeStorefrontCapability(request, "CART_MANAGE", request.method !== "GET");
   } catch (cause) {

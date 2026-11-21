@@ -1,15 +1,53 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
-import { authorizeCustomerCapability } from "./customer-access-server";
-import { authorizeStorefrontCapability, applyStorefrontAuthorization, withGuestCookie } from "./storefront-credential";
-import { handleCartRequest } from "@/app/api/cart/cart-handler";
-import { POST as createGuestSession } from "@/app/api/guest-session/route";
+let authorizeCustomerCapability: typeof import("./customer-access-server")["authorizeCustomerCapability"];
+let authorizeStorefrontCapability: typeof import("./storefront-credential")["authorizeStorefrontCapability"];
+let applyStorefrontAuthorization: typeof import("./storefront-credential")["applyStorefrontAuthorization"];
+let withGuestCookie: typeof import("./storefront-credential")["withGuestCookie"];
+let handleCartRequest: typeof import("@/app/api/cart/cart-handler")["handleCartRequest"];
+let createGuestSession: typeof import("@/app/api/guest-session/route")["POST"];
 
-vi.mock("@/lib/mvp-feature-gates", () => ({ MVP_FEATURE_GATES: { guestOrder: true, cod: true } }));
-vi.mock("./customer-access-server", async (original) => ({ ...await original<typeof import("./customer-access-server")>(), authorizeCustomerCapability: vi.fn() }));
-afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); vi.clearAllMocks(); });
+beforeEach(async () => {
+  vi.resetModules();
+  vi.doUnmock("./customer-access-server");
+  vi.doMock("@/lib/mvp-feature-gates", () => ({ MVP_FEATURE_GATES: { guestOrder: true, cod: true } }));
+  const access = await import("./customer-access-server");
+  authorizeCustomerCapability = vi.spyOn(access, "authorizeCustomerCapability");
+  ({ authorizeStorefrontCapability, applyStorefrontAuthorization, withGuestCookie } = await import("./storefront-credential"));
+  ({ handleCartRequest } = await import("@/app/api/cart/cart-handler"));
+  ({ POST: createGuestSession } = await import("@/app/api/guest-session/route"));
+});
+afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); vi.restoreAllMocks(); vi.doUnmock("@/lib/mvp-feature-gates"); });
 
 describe("guest storefront credentials", () => {
+  it("keeps a disabled guest mutation from issuing or forwarding anything", async () => {
+    const fetcher = vi.fn(); vi.stubGlobal("fetch", fetcher);
+    const request = new NextRequest("http://localhost/api/cart/items", { method: "POST", headers: { Origin: "http://localhost" }, body: JSON.stringify({ sku_code: "MX-GION-500G", quantity: 2, revision: 0 }) });
+    const response = await handleCartRequest(request, ["items"]);
+    expect(response.status).toBe(403);
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+  it("forwards a guest cart mutation using only its guest credential", async () => {
+    vi.stubEnv("GUEST_CART_MUTATION_ENABLED", "true");
+    vi.stubEnv("GUEST_ORDER_UPSTREAM_URL", "http://gateway/api/v1");
+    const fetcher = vi.fn().mockResolvedValue(Response.json({ revision: 1, items: [{ sku_code: "MX-GION-500G", quantity: 2 }] })); vi.stubGlobal("fetch", fetcher);
+    const request = new NextRequest("http://localhost/api/cart/items", { method: "POST", headers: { Origin: "http://localhost", Cookie: "oma_guest_session=guest-token" }, body: JSON.stringify({ sku_code: "MX-GION-500G", quantity: 2, revision: 0 }) });
+    const response = await handleCartRequest(request, ["items"]);
+    expect(response.status).toBe(200);
+    expect(fetcher.mock.calls[0][0]).toBe("http://gateway/api/v1/cart/items");
+    expect(fetcher.mock.calls[0][1].headers.get("Authorization")).toBe("Bearer guest-token");
+    expect(fetcher.mock.calls[0][1].headers.has("Cookie")).toBe(false);
+    expect(authorizeCustomerCapability).not.toHaveBeenCalled();
+  });
+  it("keeps VietQR disabled independently of guest COD", async () => {
+    vi.stubEnv("GUEST_COD_CHECKOUT_ENABLED", "true");
+    const fetcher = vi.fn(); vi.stubGlobal("fetch", fetcher);
+    const { handleCheckoutRequest } = await import("@/app/api/checkout/checkout-handler");
+    const request = new NextRequest("http://localhost/api/checkout/quote", { method: "POST", headers: { Origin: "http://localhost", Cookie: "oma_guest_session=guest-token" }, body: JSON.stringify({ cart_revision: 1, payment_method: "VIETQR", address: { recipient_name: "Guest Customer", phone: "0901234567", street: "1 Test Street", province_code: "75", ward_code: "HUE-01" } }) });
+    const response = await handleCheckoutRequest(request, ["quote"]);
+    expect(response.status).toBe(403);
+    expect(fetcher).not.toHaveBeenCalled();
+  });
   it("rejects client security overrides before issuing a session", async () => {
     const fetcher = vi.fn(); vi.stubGlobal("fetch", fetcher);
     const response = await createGuestSession(new NextRequest("http://localhost/api/guest-session", { method: "POST", headers: { Origin: "http://localhost", "Content-Type": "application/json" }, body: JSON.stringify({ role: "CUSTOMER" }) }));

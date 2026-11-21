@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
-import { handleCartRequest } from "@/app/api/cart/cart-handler";
+
 
 vi.mock("@/lib/auth/customer-access-server", () => ({
   authorizeCustomerCapability: vi.fn().mockResolvedValue({}),
@@ -9,6 +9,8 @@ vi.mock("@/lib/auth/customer-access-server", () => ({
 afterEach(() => vi.unstubAllGlobals());
 
 it("reads the new cart after a successful 204 DELETE even when a proxy keeps the JSON content type", async () => {
+  vi.resetModules();
+  const { handleCartRequest } = await import("@/app/api/cart/cart-handler");
   const fetcher = vi.fn()
     .mockResolvedValueOnce(new Response(null, { status: 204, headers: { "Content-Type": "application/json" } }))
     .mockResolvedValueOnce(Response.json({ revision: 2, items: [] }));

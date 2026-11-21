@@ -45,6 +45,14 @@ tags:
   description: Traceability operations for the customer web application.
 - name: Partner webhooks
   description: Partner webhooks operations for the customer web application.
+x-guest-cart-policy:
+  mutation-flag: GUEST_CART_MUTATION_ENABLED
+  mutations-per-session-minute: 60
+  cod-flag: GUEST_COD_CHECKOUT_ENABLED
+  pending-unpaid-order-limit: 3
+  quota-status: 429
+  quota-code: GUEST_PENDING_ORDER_LIMIT
+  admission: A locked persisted guest session serializes order admission including in-flight operations. Replays return the existing result at quota.
 paths:
   /api/v1/checkout/quote:
     post:
@@ -2283,6 +2291,16 @@ paths:
           $ref: '#/components/responses/InternalError'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
+        '429':
+          description: Guest quota exhausted; no new cart mutation or checkout operation is persisted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: GUEST_RATE_LIMITED
+                message: Please retry after the quota window or pending orders have cleared.
+                requestId: f53-guest-quota
       requestBody:
         required: true
         content:
@@ -2456,6 +2474,16 @@ paths:
           $ref: '#/components/responses/InternalError'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
+        '429':
+          description: Guest quota exhausted; no new cart mutation or checkout operation is persisted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: GUEST_RATE_LIMITED
+                message: Please retry after the quota window or pending orders have cleared.
+                requestId: f53-guest-quota
       parameters:
       - name: item_id
         in: path
@@ -2630,6 +2658,16 @@ paths:
           $ref: '#/components/responses/InternalError'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
+        '429':
+          description: Guest quota exhausted; no new cart mutation or checkout operation is persisted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: GUEST_RATE_LIMITED
+                message: Please retry after the quota window or pending orders have cleared.
+                requestId: f53-guest-quota
       parameters:
       - name: item_id
         in: path
@@ -2890,6 +2928,16 @@ paths:
           $ref: '#/components/responses/InternalError'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
+        '429':
+          description: Guest quota exhausted; no new cart mutation or checkout operation is persisted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: GUEST_PENDING_ORDER_LIMIT
+                message: Please retry after the quota window or pending orders have cleared.
+                requestId: f53-guest-quota
       requestBody:
         required: true
         content:

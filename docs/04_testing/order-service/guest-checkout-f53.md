@@ -85,6 +85,25 @@ An initial Kong regex syntax error was corrected and verified with
 interrupted a later linker invocation; the affected checks passed again with
 `GOMEMLIMIT=256MiB`, `GOMAXPROCS=2` and `go test -p 1`.
 
+## B-G1 guest cart and COD
+
+Implemented independent cart/COD admission flags, guest inline-address preparation,
+credential-owned order reads and the order-code/tracking handoff. Cart mutation
+quota is 60/session/minute. PostgreSQL admission locks the session and permits
+at most 3 unpaid pending orders, counting in-flight operations; concurrent keys
+cannot bypass it and existing idempotent results can replay at quota.
+
+Tests cover keycloak-mode guest COD over HTTP through CONFIRMED_COD persistence,
+a fourth-order rejection, replay at quota, eight concurrent admission keys,
+cart flag-off and 60/61 mutation requests. The simulator address seam is unchanged.
+
+The existing phone-OTP extension remains the tracking provider. The UI stops
+submissions after five attempts and hides the local fixture OTP in production.
+The external provider must enforce its own five-attempt limit; the UI is not a
+server-side security boundary. Verify that provider during live acceptance.
+
+`PROOF-COD-01` is pending the audited rc.2 deployment and a real logged-out order.
+
 ## Release acceptance
 
 B-G1 must not start before the B-G0 regression gate passes. B-G1, B-G2 and B-G3

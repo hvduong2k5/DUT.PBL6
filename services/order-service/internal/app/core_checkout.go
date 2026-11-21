@@ -246,14 +246,25 @@ func (s *Service) acceptCore(ctx context.Context, p domain.Principal, key string
 		}
 	}
 	raw, _ := json.Marshal(persistence.AcceptedCheckout{Terms: *stored.Core, QuoteExpires: stored.Quote.ExpiresAt})
-	a, e := s.Payment.Store.Accept(ctx, persistence.AcceptanceInput{Owner: stored.Core.Owner, Method: in.Method, Key: key, RequestHash: hash, QuoteID: in.QuoteID, CartID: stored.Core.Provenance.CartID, CartRevision: in.Revision, SelectionDigest: selection, QuoteHash: stored.Core.Provenance.QuoteHash, QuoteExpiresAt: stored.Quote.ExpiresAt, AcceptedJSON: raw})
+	a, e := s.Payment.Store.Accept(ctx, persistence.AcceptanceInput{GuestPendingLimit: s.guestPendingLimit(p), Owner: stored.Core.Owner, Method: in.Method, Key: key, RequestHash: hash, QuoteID: in.QuoteID, CartID: stored.Core.Provenance.CartID, CartRevision: in.Revision, SelectionDigest: selection, QuoteHash: stored.Core.Provenance.QuoteHash, QuoteExpiresAt: stored.Quote.ExpiresAt, AcceptedJSON: raw})
 	if e != nil {
-		return domain.Operation{}, 409, coreFailure(e)
+		failure := coreFailure(e)
+		if errors.Is(e, persistence.ErrGuestPendingLimit) {
+			return domain.Operation{}, 429, failure
+		}
+		if errors.Is(e, persistence.ErrScope) {
+			return domain.Operation{}, 401, failure
+		}
+		return domain.Operation{}, 409, failure
 	}
 	return s.coreOperation(ctx, a.OperationID, p)
 }
 func coreFailure(e error) error {
 	switch {
+	case errors.Is(e, persistence.ErrGuestPendingLimit):
+		return domain.E("GUEST_PENDING_ORDER_LIMIT", 429)
+	case errors.Is(e, persistence.ErrScope):
+		return domain.E("UNAUTHENTICATED", 401)
 	case errors.Is(e, persistence.ErrQuoteUsed):
 		return domain.E("QUOTE_ALREADY_USED", 409)
 	case errors.Is(e, persistence.ErrSubmitted):
@@ -293,4 +304,11 @@ func (s *Service) coreOperation(ctx context.Context, id string, p domain.Princip
 		_ = s.DB.QueryRow(ctx, "SELECT COALESCE(error_code,'CHECKOUT_FAILED') FROM checkout_operations WHERE id=$1", id).Scan(&out.ErrorCode)
 	}
 	return out, status, nil
+}
+
+func (s *Service) guestPendingLimit(p domain.Principal) int {
+	if s.C.AuthMode == "keycloak" && p.PrincipalKind() == domain.Guest {
+		return 3
+	}
+	return 0
 }

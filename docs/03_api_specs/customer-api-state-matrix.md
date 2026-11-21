@@ -114,3 +114,12 @@ All guest feature flags default OFF. Customer login presence takes precedence ov
 | `DELETE /api/v1/orders/{order_id}/guest-payment-access` | 204 / revoke pending | N/A | 400 key, 404 ownership, 503 | Active owning guest session only |
 
 AUTH-11..16 must pass before enabling cart/COD. Customer step-up and cross-customer isolation remain mandatory. The rc.2 pick, deployment, Kong restart after recreation, live COD/SePay/merge proofs require Muse audit and Bao approval; local checks alone are not release acceptance.
+
+
+## F-53 guest cart and COD (B-G1)
+
+Guest cart mutations require `GUEST_CART_MUTATION_ENABLED` plus the storefront guest gate; disabled mutations return 403 before lazy issuance. Mutations are limited to 60/session/minute (429). Customer account surfaces keep their existing authorization.
+
+Guest COD quote/accept requires `GUEST_COD_CHECKOUT_ENABLED`, uses an inline address and does not fetch Profile. Loading disables duplicate submission, empty cart stays 200, stale revision is 409, invalid/unserviceable address is 422, and dependency failure is 503. A transaction serializes admission on the session and limits unpaid pending orders plus in-flight checkout to 3; the fourth returns 429 `GUEST_PENDING_ORDER_LIMIT` without creating an operation. Idempotent replay remains available at quota. Guest checkout shows the authoritative order code and phone-OTP tracking guidance. Cross-session order reads return 404; account history and cancellation remain customer-only for session guests.
+
+The current simulator province 75 / ward HUE-01 seam is unchanged. `PROOF-COD-01` remains a live post-audit acceptance requirement.

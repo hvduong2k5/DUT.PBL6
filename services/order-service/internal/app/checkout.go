@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/omamx/order-service/internal/domain"
+	"github.com/omamx/order-service/internal/persistence"
 	"github.com/redis/go-redis/v9"
 	"net/http"
 	"sort"
@@ -380,6 +381,20 @@ func (s *Service) Accept(ctx context.Context, p domain.Principal, key string, in
 		return domain.Operation{}, 503, e
 	}
 	defer tx.Rollback(ctx)
+	if s.C.AuthMode == "keycloak" && p.PrincipalKind() == domain.Guest {
+		if _, e = tx.Exec(ctx, "SELECT pg_advisory_xact_lock(hashtextextended($1,0))", "CHECKOUT:"+p.Scope()+":"+key); e != nil {
+			return domain.Operation{}, 503, e
+		}
+		if prior, code, err := s.replay(ctx, p, key, hash); !errors.Is(err, pgx.ErrNoRows) {
+			return prior, code, err
+		}
+		if e = persistence.GuardGuestPending(ctx, tx, p.ID, 3); e != nil {
+			if errors.Is(e, persistence.ErrGuestPendingLimit) {
+				return domain.Operation{}, 429, domain.E("GUEST_PENDING_ORDER_LIMIT", 429)
+			}
+			return domain.Operation{}, 401, domain.E("UNAUTHENTICATED", 401)
+		}
+	}
 	var now time.Time
 	if e = tx.QueryRow(ctx, "SELECT clock_timestamp()").Scan(&now); e != nil {
 		return domain.Operation{}, 503, e

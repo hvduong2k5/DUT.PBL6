@@ -6,7 +6,8 @@ import {
   type PublicErrorBody
 } from "@/lib/api-contract";
 import { authorizeCustomerCapability, requireCustomerSession, customerAccessFailure } from "@/lib/auth/customer-access-server";
-import { applyTrustedAuthorization, getTrustedAccessToken } from "@/lib/auth/server-credential";
+import { getTrustedAccessToken } from "@/lib/auth/server-credential";
+import { applyStorefrontAuthorization, authorizeStorefrontCapability, storefrontUpstream, hasCustomerCredential, GUEST_COOKIE } from "@/lib/auth/storefront-credential";
 import { MVP_FEATURE_GATES } from "@/lib/mvp-feature-gates";
 import { GUEST_ORDER_ACCESS_COOKIE, decodeGuestOrderAccess, encodeGuestOrderAccess } from "@/lib/orders/guest-access";
 import { isOrderCancellation, isOrderTrackingResponse, isOwnedOrder, isOwnedOrdersResponse } from "@/lib/orders/mvp";
@@ -47,7 +48,7 @@ function upstreamHeaders(
   ifMatch?: string
 ) {
   const headers = new Headers({ Accept: "application/vnd.omama.customer-mvp+json, application/json" });
-  applyTrustedAuthorization(headers, request);
+  applyStorefrontAuthorization(headers, request);
   if (hasBody) headers.set("Content-Type", "application/json");
   if (idempotencyKey) headers.set("Idempotency-Key", idempotencyKey);
   if (ifMatch) headers.set("If-Match", ifMatch);
@@ -64,7 +65,7 @@ async function upstream(
   idempotencyKey?: string,
   ifMatch?: string
 ) {
-  const base = (process.env.CUSTOMER_CORE_UPSTREAM_URL ?? "http://127.0.0.1:4010/api/v1").replace(/\/$/u, "");
+  const base = storefrontUpstream(request);
   const response = await fetch(`${base}/${path}`, {
     method,
     headers: upstreamHeaders(request, scenario, body !== undefined, idempotencyKey, ifMatch),
@@ -150,7 +151,7 @@ export async function handleOrderRequest(request: NextRequest, path: string[]): 
   }
 
   const accessToken = getTrustedAccessToken(request);
-  if (isGuestExtension && accessToken) {
+  if (isGuestExtension && hasCustomerCredential(request)) {
     try { await requireCustomerSession(accessToken); }
     catch (cause) { const failure = customerAccessFailure(cause); return publicErrorResponse(failure.status, failure.code, failure.message, "BFF-ORDER-ACCESS"); }
   }
@@ -158,10 +159,15 @@ export async function handleOrderRequest(request: NextRequest, path: string[]): 
     ? decodeGuestOrderAccess(request.cookies.get(GUEST_ORDER_ACCESS_COOKIE)?.value)
     : undefined;
   const isGatedGuestDetail = route.operation === "detail"
-    && !accessToken
+    && !hasCustomerCredential(request)
     && guestAccess?.orderId === route.orderId;
 
-  if (!isGuestExtension && !isGatedGuestDetail) {
+  const sessionGuestRead = !hasCustomerCredential(request) && MVP_FEATURE_GATES.guestOrder && request.cookies.has(GUEST_COOKIE) && (route.operation === "detail" || route.operation === "tracking");
+  if (sessionGuestRead) {
+    try { await authorizeStorefrontCapability(request,"ORDER_HISTORY_VIEW"); }
+    catch(cause) { const failure=customerAccessFailure(cause);return publicErrorResponse(failure.status,failure.code,failure.message,"BFF-ORDER-GUEST-ACCESS"); }
+  }
+  if (!isGuestExtension && !isGatedGuestDetail && !sessionGuestRead) {
     try {
       await authorizeCustomerCapability(accessToken, "ORDER_HISTORY_VIEW");
     } catch (cause) {

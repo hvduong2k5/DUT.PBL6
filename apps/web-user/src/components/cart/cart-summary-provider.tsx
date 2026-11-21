@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { useCustomerSession } from "@/components/auth/customer-session-provider";
 import type { Cart } from "@/lib/cart/types";
 import { cartService } from "@/services/cart-service";
+import { MVP_FEATURE_GATES } from "@/lib/mvp-feature-gates";
 
 interface CartSummaryValue {
   itemCount: number | null;
@@ -27,7 +28,7 @@ export function CartSummaryProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (session.status === "authenticated" && session.customerAccess) void Promise.resolve().then(reload);
+    if (session.status === "authenticated" && session.customerAccess || session.status === "guest" && MVP_FEATURE_GATES.guestOrder) void Promise.resolve().then(reload);
     else if (session.status !== "loading") void Promise.resolve().then(() => setItemCount(null));
   }, [reload, session.customerAccess, session.status]);
 

@@ -166,3 +166,37 @@ func TestCustomerPaymentWriteDoesNotSwitchToGuestCookieSTEP07(t *testing.T) {
 		}
 	}
 }
+
+func TestGuestCartFlagAndMutationQuota(t *testing.T) {
+	s := guestService(t)
+	h := Handler(s)
+	now := time.Now()
+	id := uuid.NewString()
+	token, e := s.SignGuestSession(id, now, now.Add(time.Hour))
+	if e != nil {
+		t.Fatal(e)
+	}
+	if e = s.GuestStore.CreateGuestSession(context.Background(), id, token, now, now.Add(time.Hour)); e != nil {
+		t.Fatal(e)
+	}
+	mutate := func(revision int) *httptest.ResponseRecorder {
+		body, _ := json.Marshal(map[string]any{"sku_code": "MX-GION-500G", "quantity": 1, "revision": revision})
+		r := httptest.NewRequest("POST", "/api/v1/cart/items", bytes.NewReader(body))
+		r.Header.Set("Authorization", "Bearer "+token)
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		return w
+	}
+	if w := mutate(0); w.Code != 403 {
+		t.Fatal("guest mutation flag off", w.Code)
+	}
+	s.C.GuestCartMutationEnabled = true
+	for i := 0; i < 60; i++ {
+		if w := mutate(i); w.Code != 200 {
+			t.Fatal("mutation before quota", i, w.Code, w.Body)
+		}
+	}
+	if w := mutate(60); w.Code != 429 {
+		t.Fatal("guest mutation quota bypassed", w.Code, w.Body)
+	}
+}
