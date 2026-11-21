@@ -38,7 +38,8 @@ public enum ErrorCode {
   CATALOG_IMAGE_NOT_FOUND(212, 404, "Không tìm thấy ảnh sản phẩm."),
   CATALOG_IMAGE_INVALID(213, 400, "Loại ảnh hoặc trạng thái ảnh không hợp lệ."),
   CATALOG_VARIANT_INVALID(214, 400, "Thông tin biến thể sản phẩm không hợp lệ."),
-  CATALOG_CATEGORY_SLUG_DUPLICATE(215, 409, "Đường dẫn này đã được danh mục khác sử dụng.");
+  CATALOG_CATEGORY_SLUG_DUPLICATE(215, 409, "Đường dẫn này đã được danh mục khác sử dụng."),
+  CATALOG_CATEGORY_IN_USE(216, 409, "Không thể xóa danh mục đang có sản phẩm hoặc danh mục con.");
 
   private final int protoCode;
   private final int httpStatus;

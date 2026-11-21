@@ -110,13 +110,11 @@ public class SecurityConfig {
       java.util.regex.Pattern.compile("^[A-Za-z][A-Za-z0-9_.:-]{0,159}$");
 
   /**
-   * Extracts the permission code from one {@code permission_grants} entry:
-   * {@code PERMISSION#SCOPE_TYPE} for GLOBAL grants,
-   * {@code PERMISSION#SCOPE_TYPE#SCOPE_ID} for WAREHOUSE and DEPARTMENT
-   * grants. The grammar mirrors the Order/Profile staff-claims parser so
-   * every consumer reads the Identity contract the same way; a malformed
-   * entry fails the conversion closed instead of silently widening or
-   * narrowing access.
+   * Extracts the permission code from one {@code permission_grants} entry: {@code
+   * PERMISSION#SCOPE_TYPE} for GLOBAL grants, {@code PERMISSION#SCOPE_TYPE#SCOPE_ID} for WAREHOUSE
+   * and DEPARTMENT grants. The grammar mirrors the Order/Profile staff-claims parser so every
+   * consumer reads the Identity contract the same way; a malformed entry fails the conversion
+   * closed instead of silently widening or narrowing access.
    */
   static String parseGrantPermissionCode(String grant) {
     String[] parts = grant.split("#", -1);

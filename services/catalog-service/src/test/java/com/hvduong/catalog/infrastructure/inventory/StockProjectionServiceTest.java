@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.hvduong.catalog.repository.mybatis.StockAvailabilityMapper;
@@ -17,7 +18,8 @@ import org.junit.jupiter.api.Test;
 class StockProjectionServiceTest {
 
   private final StockAvailabilityMapper mapper = mock(StockAvailabilityMapper.class);
-  private final StockProjectionService service = new StockProjectionService(mapper);
+  private final InventoryStockClient liveInventory = mock(InventoryStockClient.class);
+  private final StockProjectionService service = new StockProjectionService(mapper, liveInventory);
 
   @Test
   void returnsNullForSkuWhoseInventoryStateHasNotBeenSynchronized() {
@@ -30,6 +32,17 @@ class StockProjectionServiceTest {
         service.getAvailableQuantities(List.of("SKU-1", "SKU-2", "SKU-1"));
 
     assertThat(quantities).containsEntry("SKU-1", 7L).containsEntry("SKU-2", null);
+  }
+
+  @Test
+  void returnsLiveInventoryWhenConfigured() {
+    when(liveInventory.configured()).thenReturn(true);
+    when(liveInventory.available(List.of("SKU-1"))).thenReturn(Map.of("SKU-1", 15L));
+
+    Map<String, Long> quantities = service.getAvailableQuantities(List.of("SKU-1"));
+
+    assertThat(quantities).containsEntry("SKU-1", 15L);
+    verifyNoInteractions(mapper);
   }
 
   @Test

@@ -7,7 +7,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,8 +21,7 @@ public class StockProjectionService {
 
   private final StockAvailabilityMapper stockAvailabilityMapper;
 
-  @Autowired(required = false)
-  private InventoryStockClient liveInventory;
+  private final InventoryStockClient liveInventory;
 
   /**
    * Returns one entry per requested SKU. A null value means the quantity is not known yet because
