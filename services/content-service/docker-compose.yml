@@ -9,7 +9,6 @@ services:
     ports: ["127.0.0.1:15410:5432"]
     volumes:
       - content_data:/var/lib/postgresql/data
-      - ./migrations/000001_content.up.sql:/docker-entrypoint-initdb.d/001.sql:ro
     mem_limit: 256m
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U content_dev -d content_db"]
@@ -23,6 +22,11 @@ services:
       DATABASE_URL: postgres://content_dev:local_content_only@db:5432/content_db?sslmode=disable
       DB_MAX_CONNS: "5"
       LOG_LEVEL: info
+      # The image entrypoint applies pending migrations before starting the API.
+      # Staff API stays closed (401) until an issuer and public key are provided:
+      CONTENT_JWT_ISSUER: ${CONTENT_JWT_ISSUER:-}
+      CONTENT_JWT_PUBLIC_KEY: ${CONTENT_JWT_PUBLIC_KEY:-}
+      CONTENT_STAFF_AUDIENCE: ${CONTENT_STAFF_AUDIENCE:-omama-api}
     ports: ["127.0.0.1:8010:8010"]
     mem_limit: 128m
     depends_on:

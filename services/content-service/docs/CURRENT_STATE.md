@@ -1,24 +1,49 @@
 # Content Service handoff
 
-Current task (2026-10-12): fix publish authorization only. Completed domain/usecase
-checks requiring CONTENT_APPROVER or ADMIN; the existing APPROVED-only state guard
-is preserved. Publish returns 403 for editors, 401 for missing/invalid verified
-identity, and 409 for invalid publication state. Other transition errors retain
-their existing contract. Auth middleware, repository, migrations and transactions
-are unchanged. No other review findings are included.
+Current task (2026-11-21): address the PR #52 review by hvduong2k5 (code items only).
 
-Intentionally changed: domain/usecase authorization, HTTP publish error mapping,
-their tests, PostgreSQL denial regression, README and current plan/handoff.
-Verification: go fmt ./..., go test ./..., go test -race ./..., go vet ./...,
-go build ./... all PASS in WSL Go 1.22.12. Tests include 35 HTTP role/state cases,
-direct domain and usecase denial, unchanged PostgreSQL data on denied publication,
-and existing migration/history/optimistic-locking/transaction tests. Real integration
-used isolated disposable schemas in the local Docker DB on port 15410; none skipped.
-No failing tests. Docker API image was not rebuilt for this fix.
-Starting HEAD: 4ceffc2 (Docker recovery documentation). Local fix commit follows
-this handoff; use git log -1 for its hash. Next: inspect final diff and commit
-locally only. No push/merge/PR. The untracked user archive
-services/content-service.rar is intentionally untouched and excluded from staging.
+Changed, all inside services/content-service:
+- Admin boundary: RS256 staff-token verifier (`middleware/jwt.go`) wired in
+  `cmd/server`, fail-closed when `CONTENT_JWT_ISSUER`/`CONTENT_JWT_PUBLIC_KEY` are
+  unset. Authority comes only from signed `permission_grants` (GLOBAL scope);
+  role names and ADMIN carry no authority. Non-staff valid tokens are 403.
+  Per-action permissions `CONTENT_ARTICLE_{VIEW,CREATE,EDIT,SUBMIT,APPROVE,REJECT,PUBLISH,HIDE}`.
+- Flat error envelope `{code,message,requestId,errors?}` everywhere; request ID in
+  context; every invalid transition is 409 `INVALID_STATE`.
+- `Idempotency-Key` (optional, honored when present) for admin POSTs, stored in
+  `idempotency_keys` (migration 000002).
+- `restore` action (hide -> publish the same approved snapshot) and an append-only
+  `audit_events` trail for create/edit/submit/approve/reject/publish/hide/restore.
+- Repository only inserts new revisions and moves status with a compare-and-set;
+  PUBLISHED status is immutable (trigger); unique violations map to 409.
+- Public reads: `Cache-Control: public, max-age=60, s-maxage=300` + ETag/304;
+  admin and errors `no-store`.
+- Config for timeouts/pool/body size; panic recovery logs the stack.
+- Migration runner (`cmd/migrate`, embedded SQL, `schema_migrations`, advisory lock),
+  container entrypoint that migrates before start, `Dockerfile.coolify`.
+- README/AGENTS.md updated; AGENTS.md no longer forbids contract updates.
+
+Review items NOT done here (need decisions or are outside this directory):
+contract and state-matrix updates in docs/03_api_specs, architecture/requirements
+doc sync, Kafka event catalog, `.github/workflows` (CI and cd-deploy),
+`docs/06_operations/cd-coolify.md`, IAM permission seed for `CONTENT_*`, and the
+MVP features of review section 3 (Product SEO, media, scheduling, preview,
+redirect/sitemap, archive, full SEO render, metrics). The review's claim that the
+list query selects `body` is not accurate for this branch: only the `q` filter reads it.
+
+VERIFICATION STATUS (Go 1.22.12 portable, Windows): go mod tidy (no further change),
+go vet ./..., go build ./..., gofmt (ignoring CRLF) and go test -count=1 ./... PASS;
+go test -race ./internal/... PASS. Unit and HTTP tests include real RS256 token
+verification, error envelope, caching, idempotency and the hide/restore/audit flow.
+NOT VERIFIED: every test in ./tests/integration is SKIPPED because no PostgreSQL was
+available (Docker/WSL cannot start on this machine). Migration 000002, the migrate
+runner, the repository write path (append-only revisions, status compare-and-set,
+audit rows), the PostgreSQL idempotency store and the Docker images have never run.
+Before merging run: CONTENT_TEST_DATABASE_URL=... go test -count=1 ./tests/integration
+against a disposable database, and `docker build` both Dockerfiles.
+
+Previous task (2026-10-12): publication restricted to approvers/admins by role
+(superseded by per-permission grants above).
 
 Earlier scope: standalone MS-10 editorial CMS; Docker daemon recovery and
 container verification completed on 2026-10-11, with docs-only changes at that time.

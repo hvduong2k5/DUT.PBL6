@@ -11,15 +11,10 @@ type Service struct{ repo domain.Repository }
 
 func New(repo domain.Repository) *Service { return &Service{repo: repo} }
 func (s *Service) Create(ctx context.Context, c domain.Content, actor domain.Identity) (*domain.Article, error) {
-	if err := actor.Authorize(false); err != nil {
+	a, err := domain.NewArticle(c, actor, time.Now().UTC())
+	if err != nil {
 		return nil, err
 	}
-	if err := c.Validate(); err != nil {
-		return nil, err
-	}
-	now := time.Now().UTC()
-	r := domain.Revision{ID: uuid.New(), Number: 1, Status: domain.Draft, Content: c, CreatedBy: actor.ID, CreatedAt: now}
-	a := &domain.Article{ID: uuid.New(), Version: 1, CurrentRevisionID: r.ID, CreatedAt: now, UpdatedAt: now, Revisions: []domain.Revision{r}}
 	if err := s.repo.Create(ctx, a); err != nil {
 		return nil, err
 	}
@@ -36,7 +31,7 @@ type Patch struct {
 }
 
 func (s *Service) Update(ctx context.Context, id uuid.UUID, version int64, p Patch, actor domain.Identity) (*domain.Article, error) {
-	if err := actor.Authorize(false); err != nil {
+	if err := actor.Authorize(domain.PermEdit); err != nil {
 		return nil, err
 	}
 	if version < 1 || (p.Title == nil && p.Slug == nil && p.Body == nil && p.Category == nil && p.SEO == nil && p.Media == nil) {
@@ -66,7 +61,11 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, version int64, p Pat
 	})
 }
 func (s *Service) Transition(ctx context.Context, id uuid.UUID, version int64, action, reason string, actor domain.Identity) (*domain.Article, error) {
-	if err := actor.Authorize(action == "approve" || action == "reject" || action == "publish"); err != nil {
+	permission, known := domain.ActionPermission(action)
+	if !known {
+		return nil, domain.ErrValidation
+	}
+	if err := actor.Authorize(permission); err != nil {
 		return nil, err
 	}
 	if version < 1 {
@@ -75,7 +74,7 @@ func (s *Service) Transition(ctx context.Context, id uuid.UUID, version int64, a
 	return s.repo.Mutate(ctx, id, version, func(a *domain.Article) error { return a.Transition(action, reason, actor, time.Now().UTC()) })
 }
 func (s *Service) Get(ctx context.Context, id uuid.UUID, actor domain.Identity) (*domain.Article, error) {
-	if err := actor.Authorize(false); err != nil {
+	if err := actor.Authorize(domain.PermView); err != nil {
 		return nil, err
 	}
 	return s.repo.Get(ctx, id)
@@ -85,7 +84,7 @@ func (s *Service) GetPublished(ctx context.Context, slug string) (*domain.Articl
 }
 func (s *Service) List(ctx context.Context, f domain.Filter, actor domain.Identity) ([]domain.Article, int64, error) {
 	if !f.Public {
-		if err := actor.Authorize(false); err != nil {
+		if err := actor.Authorize(domain.PermView); err != nil {
 			return nil, 0, err
 		}
 	}

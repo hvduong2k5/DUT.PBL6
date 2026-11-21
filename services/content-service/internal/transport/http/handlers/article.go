@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io"
@@ -16,75 +18,128 @@ import (
 	"github.com/rs/zerolog"
 )
 
+// DefaultMaxBody caps JSON request bodies unless the executable configures it.
+const DefaultMaxBody int64 = 1 << 20
+
+// Cache policy for anonymous reads of published content; everything else is
+// no-store (set by the router).
+const publicCacheControl = "public, max-age=60, s-maxage=300"
+
 type Handler struct {
 	service *usecase.Service
 	log     zerolog.Logger
+	maxBody int64
 }
 
-func New(s *usecase.Service, log zerolog.Logger) *Handler { return &Handler{service: s, log: log} }
+func New(s *usecase.Service, log zerolog.Logger, maxBody int64) *Handler {
+	if maxBody < 1 {
+		maxBody = DefaultMaxBody
+	}
+	return &Handler{service: s, log: log, maxBody: maxBody}
+}
 func JSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(v)
 }
-func Error(w http.ResponseWriter, status int, code, message string) {
-	JSON(w, status, map[string]any{"error": map[string]string{"code": code, "message": message}})
+
+// FieldError describes one invalid field in an error body.
+type FieldError struct {
+	Field   string `json:"field,omitempty"`
+	Message string `json:"message"`
 }
-func (h *Handler) DomainError(w http.ResponseWriter, err error) {
+
+// ErrorBody is the flat error envelope required by the Admin/Customer contracts.
+type ErrorBody struct {
+	Code      string       `json:"code"`
+	Message   string       `json:"message"`
+	RequestID string       `json:"requestId"`
+	Errors    []FieldError `json:"errors,omitempty"`
+}
+
+// Error writes the single error envelope used by every failure, including 404,
+// 405, panics and readiness.
+func Error(w http.ResponseWriter, r *http.Request, status int, code, message string) {
+	JSON(w, status, ErrorBody{Code: code, Message: message, RequestID: middleware.RequestID(r.Context())})
+}
+func (h *Handler) DomainError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.Is(err, domain.ErrUnauthenticated):
-		Error(w, 401, "UNAUTHENTICATED", "verified identity required")
+		Error(w, r, 401, "UNAUTHENTICATED", "verified identity required")
 	case errors.Is(err, domain.ErrForbidden):
-		Error(w, 403, "FORBIDDEN", "permission denied")
+		Error(w, r, 403, "FORBIDDEN", "permission denied")
 	case errors.Is(err, domain.ErrNotFound):
-		Error(w, 404, "NOT_FOUND", "article not found")
+		Error(w, r, 404, "NOT_FOUND", "article not found")
 	case errors.Is(err, domain.ErrConflict):
-		Error(w, 409, "VERSION_CONFLICT", "reload the article and retry with its current version")
+		Error(w, r, 409, "VERSION_CONFLICT", "reload the article and retry with its current version")
 	case errors.Is(err, domain.ErrSlug):
-		Error(w, 409, "DUPLICATE_SLUG", "slug already reserved")
+		Error(w, r, 409, "DUPLICATE_SLUG", "slug already reserved")
 	case errors.Is(err, domain.ErrState):
-		Error(w, 422, "INVALID_STATE", "invalid status transition")
+		Error(w, r, 409, "INVALID_STATE", "invalid status transition")
 	case errors.Is(err, domain.ErrValidation):
-		Error(w, 422, "VALIDATION_ERROR", "invalid article input")
+		Error(w, r, 422, "VALIDATION_ERROR", "invalid article input")
 	default:
-		h.log.Error().Err(err).Msg("article operation failed")
-		Error(w, 500, "INTERNAL_ERROR", "internal server error")
+		h.log.Error().Err(err).Str("request_id", middleware.RequestID(r.Context())).Msg("article operation failed")
+		Error(w, r, 500, "INTERNAL_ERROR", "internal server error")
 	}
 }
-func decode(w http.ResponseWriter, r *http.Request, v any) bool {
+func (h *Handler) decode(w http.ResponseWriter, r *http.Request, v any) bool {
 	if strings.Split(r.Header.Get("Content-Type"), ";")[0] != "application/json" {
-		Error(w, 400, "BAD_REQUEST", "Content-Type must be application/json")
+		Error(w, r, 400, "BAD_REQUEST", "Content-Type must be application/json")
 		return false
 	}
-	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+	r.Body = http.MaxBytesReader(w, r.Body, h.maxBody)
 	d := json.NewDecoder(r.Body)
 	d.DisallowUnknownFields()
 	if err := d.Decode(v); err != nil {
-		Error(w, 400, "BAD_REQUEST", "invalid JSON body")
+		Error(w, r, 400, "BAD_REQUEST", "invalid JSON body")
 		return false
 	}
 	if err := d.Decode(&struct{}{}); err != io.EOF {
-		Error(w, 400, "BAD_REQUEST", "exactly one JSON object is required")
+		Error(w, r, 400, "BAD_REQUEST", "exactly one JSON object is required")
 		return false
 	}
 	return true
 }
+
+// publicJSON serves anonymous published content with a strong ETag so CDNs and
+// browsers can revalidate with If-None-Match.
+func publicJSON(w http.ResponseWriter, r *http.Request, v any) {
+	raw, err := json.Marshal(v)
+	if err != nil {
+		Error(w, r, 500, "INTERNAL_ERROR", "internal server error")
+		return
+	}
+	sum := sha256.Sum256(raw)
+	etag := `"` + hex.EncodeToString(sum[:16]) + `"`
+	w.Header().Set("ETag", etag)
+	w.Header().Set("Cache-Control", publicCacheControl)
+	for _, candidate := range strings.Split(r.Header.Get("If-None-Match"), ",") {
+		if c := strings.TrimSpace(candidate); c == etag || c == "W/"+etag || c == "*" {
+			w.WriteHeader(http.StatusNotModified)
+			return
+		}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(append(raw, '\n'))
+}
 func id(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool) {
 	v, e := uuid.Parse(chi.URLParam(r, "id"))
 	if e != nil || v == uuid.Nil {
-		Error(w, 400, "BAD_REQUEST", "invalid article ID")
+		Error(w, r, 400, "BAD_REQUEST", "invalid article ID")
 		return uuid.Nil, false
 	}
 	return v, true
 }
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	var req ContentDTO
-	if !decode(w, r, &req) {
+	if !h.decode(w, r, &req) {
 		return
 	}
 	a, err := h.service.Create(r.Context(), req.domain(), middleware.Identity(r.Context()))
 	if err != nil {
-		h.DomainError(w, err)
+		h.DomainError(w, r, err)
 		return
 	}
 	w.Header().Set("Location", "/api/v1/admin/articles/"+a.ID.String())
@@ -101,7 +156,7 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 	}
 	a, err := h.service.Get(r.Context(), v, middleware.Identity(r.Context()))
 	if err != nil {
-		h.DomainError(w, err)
+		h.DomainError(w, r, err)
 		return
 	}
 	respondAdmin(w, 200, a)
@@ -112,7 +167,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req PatchRequest
-	if !decode(w, r, &req) {
+	if !h.decode(w, r, &req) {
 		return
 	}
 	p := usecase.Patch{Title: req.Title, Slug: req.Slug, Body: req.Body, Category: req.Category}
@@ -126,7 +181,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 	a, err := h.service.Update(r.Context(), v, req.Version, p, middleware.Identity(r.Context()))
 	if err != nil {
-		h.DomainError(w, err)
+		h.DomainError(w, r, err)
 		return
 	}
 	respondAdmin(w, 200, a)
@@ -138,16 +193,12 @@ func (h *Handler) Action(action string) http.HandlerFunc {
 			return
 		}
 		var req ActionRequest
-		if !decode(w, r, &req) {
+		if !h.decode(w, r, &req) {
 			return
 		}
 		a, err := h.service.Transition(r.Context(), v, req.Version, action, req.Reason, middleware.Identity(r.Context()))
 		if err != nil {
-			if action == "publish" && errors.Is(err, domain.ErrState) {
-				Error(w, http.StatusConflict, "INVALID_STATE", "invalid status transition")
-			} else {
-				h.DomainError(w, err)
-			}
+			h.DomainError(w, r, err)
 			return
 		}
 		respondAdmin(w, 200, a)
@@ -156,10 +207,10 @@ func (h *Handler) Action(action string) http.HandlerFunc {
 func (h *Handler) PublicDetail(w http.ResponseWriter, r *http.Request) {
 	a, err := h.service.GetPublished(r.Context(), chi.URLParam(r, "slug"))
 	if err != nil {
-		h.DomainError(w, err)
+		h.DomainError(w, r, err)
 		return
 	}
-	JSON(w, 200, publicDTO(a))
+	publicJSON(w, r, publicDTO(a))
 }
 func (h *Handler) List(public bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -167,12 +218,12 @@ func (h *Handler) List(public bool) http.HandlerFunc {
 		for name, target := range map[string]*int{"page": &f.Page, "limit": &f.Limit} {
 			if values, ok := r.URL.Query()[name]; ok {
 				if len(values) != 1 {
-					Error(w, 400, "BAD_REQUEST", "invalid pagination")
+					Error(w, r, 400, "BAD_REQUEST", "invalid pagination")
 					return
 				}
 				v, e := strconv.Atoi(values[0])
 				if e != nil {
-					Error(w, 400, "BAD_REQUEST", "invalid pagination")
+					Error(w, r, 400, "BAD_REQUEST", "invalid pagination")
 					return
 				}
 				*target = v
@@ -180,7 +231,7 @@ func (h *Handler) List(public bool) http.HandlerFunc {
 		}
 		items, total, err := h.service.List(r.Context(), f, middleware.Identity(r.Context()))
 		if err != nil {
-			h.DomainError(w, err)
+			h.DomainError(w, r, err)
 			return
 		}
 		if public {
@@ -190,7 +241,7 @@ func (h *Handler) List(public bool) http.HandlerFunc {
 				item.Body = ""
 				out = append(out, item)
 			}
-			JSON(w, 200, map[string]any{"items": out, "total": total, "page": f.Page, "limit": f.Limit})
+			publicJSON(w, r, map[string]any{"items": out, "total": total, "page": f.Page, "limit": f.Limit})
 		} else {
 			out := make([]AdminResponse, 0, len(items))
 			for n := range items {

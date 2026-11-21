@@ -16,10 +16,40 @@ type Memory struct {
 	mu    sync.Mutex
 	items map[uuid.UUID]*domain.Article
 	slugs map[string]uuid.UUID
+	keys  map[string]*domain.IdempotencyRecord
 }
 
+var _ domain.Repository = (*Memory)(nil)
+var _ domain.IdempotencyStore = (*Memory)(nil)
+
 func NewMemory() *Memory {
-	return &Memory{items: map[uuid.UUID]*domain.Article{}, slugs: map[string]uuid.UUID{}}
+	return &Memory{items: map[uuid.UUID]*domain.Article{}, slugs: map[string]uuid.UUID{}, keys: map[string]*domain.IdempotencyRecord{}}
+}
+
+func keyID(principal uuid.UUID, key string) string { return principal.String() + "/" + key }
+func (m *Memory) Begin(_ context.Context, principal uuid.UUID, key, hash string) (domain.IdempotencyRecord, bool, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if rec, ok := m.keys[keyID(principal, key)]; ok {
+		return *rec, false, nil
+	}
+	m.keys[keyID(principal, key)] = &domain.IdempotencyRecord{RequestHash: hash}
+	return domain.IdempotencyRecord{RequestHash: hash}, true, nil
+}
+func (m *Memory) Complete(_ context.Context, principal uuid.UUID, key string, status int, headers map[string]string, body []byte) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	rec := m.keys[keyID(principal, key)]
+	rec.Completed, rec.Status, rec.Headers, rec.Body = true, status, headers, append([]byte(nil), body...)
+	return nil
+}
+func (m *Memory) Abandon(_ context.Context, principal uuid.UUID, key string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if rec := m.keys[keyID(principal, key)]; rec != nil && !rec.Completed {
+		delete(m.keys, keyID(principal, key))
+	}
+	return nil
 }
 func clone(a *domain.Article) *domain.Article {
 	raw, _ := json.Marshal(a)
@@ -134,4 +164,31 @@ func (m *Memory) List(_ context.Context, f domain.Filter) ([]domain.Article, int
 func Content(slug string) domain.Content {
 	return domain.Content{Title: "Hue heritage", Slug: slug, Body: "Original story", Category: "heritage", SEO: domain.SEO{Title: "Hue", Keywords: []string{"Hue"}}, Media: []domain.MediaReference{}}
 }
-func Actor(role string) domain.Identity { return domain.Identity{ID: uuid.New(), Role: role} }
+
+// Actor returns a verified test identity holding GLOBAL grants for the given
+// permissions. Test identities never exist in the production executable.
+func Actor(perms ...domain.Permission) domain.Identity {
+	id := domain.Identity{ID: uuid.New()}
+	for _, p := range perms {
+		id.Grants = append(id.Grants, domain.Grant{Permission: p, ScopeType: domain.ScopeGlobal})
+	}
+	return id
+}
+
+// Editor can draft and submit but not review or publish.
+func Editor() domain.Identity {
+	return Actor(domain.PermView, domain.PermCreate, domain.PermEdit, domain.PermSubmit, domain.PermHide)
+}
+
+// Approver can review, publish and hide.
+func Approver() domain.Identity {
+	return Actor(domain.PermView, domain.PermApprove, domain.PermReject, domain.PermPublish, domain.PermHide)
+}
+
+// Full holds every content permission, the way a content administrator is granted them.
+func Full() domain.Identity {
+	return Actor(domain.PermView, domain.PermCreate, domain.PermEdit, domain.PermSubmit, domain.PermApprove, domain.PermReject, domain.PermPublish, domain.PermHide)
+}
+
+// Customer is a verified principal that holds no content grants.
+func Customer() domain.Identity { return Actor() }

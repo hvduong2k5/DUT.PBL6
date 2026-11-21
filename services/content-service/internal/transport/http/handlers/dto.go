@@ -95,6 +95,14 @@ type SlugResponse struct {
 	Slug      string    `json:"slug"`
 	CreatedAt time.Time `json:"created_at"`
 }
+type AuditResponse struct {
+	ID         uuid.UUID `json:"id"`
+	RevisionID uuid.UUID `json:"revision_id"`
+	Action     string    `json:"action"`
+	ActorID    uuid.UUID `json:"actor_id"`
+	Reason     string    `json:"reason"`
+	CreatedAt  time.Time `json:"created_at"`
+}
 type AdminResponse struct {
 	ID                  uuid.UUID          `json:"id"`
 	Version             int64              `json:"version"`
@@ -104,6 +112,7 @@ type AdminResponse struct {
 	Revisions           []RevisionResponse `json:"revisions,omitempty"`
 	Decisions           []DecisionResponse `json:"decisions,omitempty"`
 	Slugs               []SlugResponse     `json:"slug_history,omitempty"`
+	Audit               []AuditResponse    `json:"audit,omitempty"`
 	CreatedAt           time.Time          `json:"created_at"`
 	UpdatedAt           time.Time          `json:"updated_at"`
 }
@@ -122,6 +131,9 @@ func adminDTO(a *domain.Article, history bool) AdminResponse {
 		}
 		for _, h := range a.Slugs {
 			out.Slugs = append(out.Slugs, SlugResponse{Slug: h.Slug, CreatedAt: h.CreatedAt})
+		}
+		for _, e := range a.Events {
+			out.Audit = append(out.Audit, AuditResponse{ID: e.ID, RevisionID: e.RevisionID, Action: e.Action, ActorID: e.ActorID, Reason: e.Reason, CreatedAt: e.CreatedAt})
 		}
 	}
 	return out

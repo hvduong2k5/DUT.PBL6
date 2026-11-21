@@ -1,0 +1,25 @@
+# Git-based deployment variant (Coolify) of the repo Dockerfile.
+# Identical build; the entrypoint additionally materializes the staff JWT public
+# key from CONTENT_JWT_PUBLIC_KEY_B64, because Coolify cannot mount files into
+# app containers (W0 E3). Pending migrations run before the API starts unless
+# RUN_MIGRATIONS=false.
+FROM golang:1.22.12-alpine AS builder
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/content-service ./cmd/server \
+ && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/content-migrate ./cmd/migrate
+
+FROM alpine:3.20
+RUN apk add --no-cache ca-certificates && addgroup -S app && adduser -S -G app app && mkdir -p /run/secrets && chown app:app /run/secrets
+COPY --from=builder /out/ /usr/local/bin/
+RUN printf '%s\n' '#!/bin/sh' \
+  'set -e' \
+  'if [ -n "$CONTENT_JWT_PUBLIC_KEY_B64" ]; then printf %s "$CONTENT_JWT_PUBLIC_KEY_B64" | base64 -d > /run/secrets/jwt-public.pem; export CONTENT_JWT_PUBLIC_KEY=/run/secrets/jwt-public.pem; fi' \
+  'if [ "${RUN_MIGRATIONS:-true}" != "false" ]; then content-migrate up; fi' \
+  'exec content-service' > /entrypoint.sh && chmod +x /entrypoint.sh
+USER app
+EXPOSE 8010
+HEALTHCHECK --interval=10s --timeout=3s --retries=3 CMD wget -q -O /dev/null http://127.0.0.1:8010/livez || exit 1
+ENTRYPOINT ["/entrypoint.sh"]

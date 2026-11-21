@@ -35,19 +35,80 @@ func ValidStatus(s Status) bool {
 	return s == Draft || s == Pending || s == Approved || s == Rejected || s == Published
 }
 
-type Identity struct {
-	ID   uuid.UUID
-	Role string
+// Permission is a content permission code issued by Identity. Role names never
+// authorize anything here, including ADMIN: only a granted permission does.
+type Permission string
+
+const (
+	PermView    Permission = "CONTENT_ARTICLE_VIEW"
+	PermCreate  Permission = "CONTENT_ARTICLE_CREATE"
+	PermEdit    Permission = "CONTENT_ARTICLE_EDIT"
+	PermSubmit  Permission = "CONTENT_ARTICLE_SUBMIT"
+	PermApprove Permission = "CONTENT_ARTICLE_APPROVE"
+	PermReject  Permission = "CONTENT_ARTICLE_REJECT"
+	PermPublish Permission = "CONTENT_ARTICLE_PUBLISH"
+	PermHide    Permission = "CONTENT_ARTICLE_HIDE"
+)
+
+const ScopeGlobal = "GLOBAL"
+
+// Grant binds one permission to the scope it was issued for. Only GLOBAL grants
+// authorize content operations in this service version.
+type Grant struct {
+	Permission Permission
+	ScopeType  string
+	ScopeID    string
 }
 
-func (i Identity) Authorize(approval bool) error {
+// Identity is a verified EMPLOYEE principal with its signed permission grants.
+type Identity struct {
+	ID     uuid.UUID
+	Grants []Grant
+}
+
+// Authorize requires a verified identity and a GLOBAL grant for the permission.
+func (i Identity) Authorize(p Permission) error {
 	if i.ID == uuid.Nil {
 		return ErrUnauthenticated
 	}
-	if i.Role == "ADMIN" || i.Role == "CONTENT_APPROVER" || (!approval && i.Role == "CONTENT_EDITOR") {
-		return nil
+	for _, g := range i.Grants {
+		if g.Permission == p && g.ScopeType == ScopeGlobal {
+			return nil
+		}
 	}
 	return ErrForbidden
+}
+
+// Staff reports whether the identity holds any GLOBAL grant. The admin API is
+// closed to every other principal, whatever role names it may carry.
+func (i Identity) Staff() bool {
+	if i.ID == uuid.Nil {
+		return false
+	}
+	for _, g := range i.Grants {
+		if g.ScopeType == ScopeGlobal {
+			return true
+		}
+	}
+	return false
+}
+
+// ActionPermission maps an editorial action to the permission that guards it.
+// Restoring a hidden article re-publishes an already approved snapshot.
+func ActionPermission(action string) (Permission, bool) {
+	switch action {
+	case "submit":
+		return PermSubmit, true
+	case "approve":
+		return PermApprove, true
+	case "reject":
+		return PermReject, true
+	case "publish", "restore":
+		return PermPublish, true
+	case "hide":
+		return PermHide, true
+	}
+	return "", false
 }
 
 type SEO struct {
@@ -126,6 +187,16 @@ type SlugHistory struct {
 	Slug      string
 	CreatedAt time.Time
 }
+
+// AuditEvent is the append-only trail of every editorial action.
+type AuditEvent struct {
+	ID         uuid.UUID
+	RevisionID uuid.UUID
+	Action     string
+	ActorID    uuid.UUID
+	Reason     string
+	CreatedAt  time.Time
+}
 type Article struct {
 	ID                  uuid.UUID
 	Version             int64
@@ -137,6 +208,11 @@ type Article struct {
 	Revisions           []Revision
 	Decisions           []Decision
 	Slugs               []SlugHistory
+	Events              []AuditEvent
+}
+
+func (a *Article) audit(action string, revisionID uuid.UUID, reason string, actor Identity, now time.Time) {
+	a.Events = append(a.Events, AuditEvent{ID: uuid.New(), RevisionID: revisionID, Action: action, ActorID: actor.ID, Reason: reason, CreatedAt: now})
 }
 
 func (a *Article) Current() *Revision { return a.Revision(a.CurrentRevisionID) }
@@ -149,9 +225,23 @@ func (a *Article) Revision(id uuid.UUID) *Revision {
 	return nil
 }
 
+// NewArticle creates a version-1 article whose first revision is a DRAFT.
+func NewArticle(c Content, actor Identity, now time.Time) (*Article, error) {
+	if err := actor.Authorize(PermCreate); err != nil {
+		return nil, err
+	}
+	if err := c.Validate(); err != nil {
+		return nil, err
+	}
+	r := Revision{ID: uuid.New(), Number: 1, Status: Draft, Content: c, CreatedBy: actor.ID, CreatedAt: now}
+	a := &Article{ID: uuid.New(), Version: 1, CurrentRevisionID: r.ID, CreatedAt: now, UpdatedAt: now, Revisions: []Revision{r}}
+	a.audit("create", r.ID, "", actor, now)
+	return a, nil
+}
+
 // Content snapshots are append-only. Only moderation status may change.
 func (a *Article) Edit(c Content, actor Identity, now time.Time) error {
-	if err := actor.Authorize(false); err != nil {
+	if err := actor.Authorize(PermEdit); err != nil {
 		return err
 	}
 	if err := c.Validate(); err != nil {
@@ -167,10 +257,15 @@ func (a *Article) Edit(c Content, actor Identity, now time.Time) error {
 	next := Revision{ID: uuid.New(), Number: r.Number + 1, Status: Draft, Content: c, CreatedBy: actor.ID, CreatedAt: now}
 	a.Revisions = append(a.Revisions, next)
 	a.CurrentRevisionID = next.ID
+	a.audit("edit", next.ID, "", actor, now)
 	return nil
 }
 func (a *Article) Transition(action, reason string, actor Identity, now time.Time) error {
-	if err := actor.Authorize(action == "approve" || action == "reject" || action == "publish"); err != nil {
+	permission, known := ActionPermission(action)
+	if !known {
+		return ErrValidation
+	}
+	if err := actor.Authorize(permission); err != nil {
 		return err
 	}
 	r := a.Current()
@@ -183,6 +278,7 @@ func (a *Article) Transition(action, reason string, actor Identity, now time.Tim
 			return ErrState
 		}
 		r.Status = Pending
+		reason = ""
 	case "approve", "reject":
 		if r.Status != Pending {
 			return ErrState
@@ -206,14 +302,29 @@ func (a *Article) Transition(action, reason string, actor Identity, now time.Tim
 		id := r.ID
 		a.PublishedRevisionID = &id
 		a.Visible = true
+		reason = ""
 	case "hide":
 		if !a.Visible || a.PublishedRevisionID == nil {
 			return ErrState
 		}
+		reason = strings.TrimSpace(reason)
+		if len(reason) > 2000 {
+			return ErrValidation
+		}
 		a.Visible = false
-	default:
-		return ErrValidation
+	case "restore":
+		// Make the previously published snapshot public again without a new review.
+		if a.Visible || a.PublishedRevisionID == nil {
+			return ErrState
+		}
+		a.Visible = true
+		reason = ""
 	}
+	subject := r.ID
+	if (action == "hide" || action == "restore") && a.PublishedRevisionID != nil {
+		subject = *a.PublishedRevisionID
+	}
+	a.audit(action, subject, reason, actor, now)
 	return nil
 }
 

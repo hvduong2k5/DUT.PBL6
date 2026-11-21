@@ -13,8 +13,9 @@ import (
 func TestEditorialLifecyclePreservesPublishedSnapshot(t *testing.T) {
 	ctx := context.Background()
 	s := usecase.New(testhelper.NewMemory())
-	editor := testhelper.Actor("CONTENT_EDITOR")
-	approver := testhelper.Actor("CONTENT_APPROVER")
+	editor := testhelper.Editor()
+	// The approver also needs the submit grant to push the revision it just reviewed.
+	approver := testhelper.Full()
 	a, err := s.Create(ctx, testhelper.Content("hue-story"), editor)
 	require.NoError(t, err)
 	require.EqualValues(t, 1, a.Version)
@@ -61,6 +62,17 @@ func TestEditorialLifecyclePreservesPublishedSnapshot(t *testing.T) {
 	require.False(t, a.Visible)
 	_, err = s.GetPublished(ctx, "hue-story")
 	require.ErrorIs(t, err, domain.ErrNotFound)
+	// Restoring re-exposes the approved snapshot; only a publisher may do it.
+	_, err = s.Transition(ctx, a.ID, a.Version, "restore", "", editor)
+	require.ErrorIs(t, err, domain.ErrForbidden)
+	restored, err := s.Transition(ctx, a.ID, a.Version, "restore", "", approver)
+	require.NoError(t, err)
+	require.True(t, restored.Visible)
+	pub, err = s.GetPublished(ctx, "hue-story")
+	require.NoError(t, err)
+	require.Equal(t, "Reviewed story", pub.Revision(publishedID).Content.Body)
+	a, err = s.Transition(ctx, a.ID, restored.Version, "hide", "", editor)
+	require.NoError(t, err)
 	for _, action := range []string{"submit", "approve", "publish"} {
 		a, err = s.Transition(ctx, a.ID, a.Version, action, "", approver)
 		require.NoError(t, err)
@@ -79,8 +91,8 @@ func TestPublishDeniedBeforeRepositoryAccess(t *testing.T) {
 		actor domain.Identity
 		want  error
 	}{
-		{"editor", testhelper.Actor("CONTENT_EDITOR"), domain.ErrForbidden},
-		{"other role", testhelper.Actor("CUSTOMER"), domain.ErrForbidden},
+		{"editor", testhelper.Editor(), domain.ErrForbidden},
+		{"no grants", testhelper.Customer(), domain.ErrForbidden},
 		{"missing identity", domain.Identity{}, domain.ErrUnauthenticated},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -95,7 +107,7 @@ func TestPublishDeniedBeforeRepositoryAccess(t *testing.T) {
 func TestCreateUpdateConflictsAndValidation(t *testing.T) {
 	ctx := context.Background()
 	s := usecase.New(testhelper.NewMemory())
-	actor := testhelper.Actor("ADMIN")
+	actor := testhelper.Full()
 	a, err := s.Create(ctx, testhelper.Content("unique"), actor)
 	require.NoError(t, err)
 	_, err = s.Create(ctx, testhelper.Content("unique"), actor)
@@ -116,8 +128,18 @@ func TestCreateUpdateConflictsAndValidation(t *testing.T) {
 	require.ErrorIs(t, err, domain.ErrValidation)
 	_, err = s.Create(ctx, testhelper.Content("other"), domain.Identity{})
 	require.ErrorIs(t, err, domain.ErrUnauthenticated)
-	_, err = s.Create(ctx, testhelper.Content("other"), testhelper.Actor("CUSTOMER"))
+	_, err = s.Create(ctx, testhelper.Content("other"), testhelper.Customer())
 	require.ErrorIs(t, err, domain.ErrForbidden)
+	_, err = s.Create(ctx, testhelper.Content("other"), testhelper.Approver())
+	require.ErrorIs(t, err, domain.ErrForbidden, "approving is not creating")
+	_, err = s.Update(ctx, a.ID, a.Version, usecase.Patch{Title: &title}, testhelper.Approver())
+	require.ErrorIs(t, err, domain.ErrForbidden)
+	_, err = s.Get(ctx, a.ID, testhelper.Customer())
+	require.ErrorIs(t, err, domain.ErrForbidden)
+	_, _, err = s.List(ctx, domain.Filter{Page: 1, Limit: 10}, testhelper.Customer())
+	require.ErrorIs(t, err, domain.ErrForbidden)
+	_, err = s.Transition(ctx, a.ID, a.Version, "delete", "", actor)
+	require.ErrorIs(t, err, domain.ErrValidation)
 	items, total, err := s.List(ctx, domain.Filter{Page: 1, Limit: 10, Status: domain.Draft, Query: "updated"}, actor)
 	require.NoError(t, err)
 	require.EqualValues(t, 1, total)

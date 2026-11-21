@@ -30,8 +30,14 @@ func dbError(err error) error {
 		return domain.ErrNotFound
 	}
 	var p *pgconn.PgError
-	if errors.As(err, &p) && p.Code == "23505" && p.ConstraintName == "slug_history_pkey" {
-		return domain.ErrSlug
+	if errors.As(err, &p) && p.Code == "23505" {
+		if p.ConstraintName == "slug_history_pkey" {
+			return domain.ErrSlug
+		}
+		// articles_pkey, article_revisions_pkey and
+		// article_revisions_article_id_revision_number_key mean another writer
+		// created the same row first, which is a version conflict, not a 500.
+		return domain.ErrConflict
 	}
 	return err
 }
@@ -52,7 +58,7 @@ func (r *Repository) Create(ctx context.Context, a *domain.Article) error {
 	if err != nil {
 		return dbError(err)
 	}
-	if err = saveChildren(ctx, tx, a); err != nil {
+	if err = saveChildren(ctx, tx, a, persisted{}); err != nil {
 		return dbError(err)
 	}
 	if err = tx.Commit(ctx); err != nil {
@@ -78,12 +84,13 @@ func (r *Repository) Mutate(ctx context.Context, id uuid.UUID, version int64, ap
 	if err != nil {
 		return nil, err
 	}
+	old := snapshot(a)
 	if err = apply(a); err != nil {
 		return nil, err
 	}
 	a.Version++
 	a.UpdatedAt = time.Now().UTC()
-	if err = saveChildren(ctx, tx, a); err != nil {
+	if err = saveChildren(ctx, tx, a, old); err != nil {
 		return nil, dbError(err)
 	}
 	tag, err := tx.Exec(ctx, `UPDATE articles SET version=$2,current_revision_id=$3,published_revision_id=$4,visible=$5,updated_at=$6 WHERE id=$1 AND version=$7`, a.ID, a.Version, a.CurrentRevisionID, a.PublishedRevisionID, a.Visible, a.UpdatedAt, version)
@@ -103,8 +110,44 @@ func (r *Repository) Mutate(ctx context.Context, id uuid.UUID, version int64, ap
 	}
 	return a, nil
 }
-func saveChildren(ctx context.Context, q querier, a *domain.Article) error {
+
+// persisted records which rows already exist so a write only appends new
+// revisions, decisions and audit events and moves a revision's status at most
+// once per mutation, guarded by the status that was read under the row lock.
+type persisted struct {
+	revisions map[uuid.UUID]domain.Status
+	decisions map[uuid.UUID]bool
+	events    map[uuid.UUID]bool
+}
+
+func snapshot(a *domain.Article) persisted {
+	p := persisted{revisions: map[uuid.UUID]domain.Status{}, decisions: map[uuid.UUID]bool{}, events: map[uuid.UUID]bool{}}
+	for _, r := range a.Revisions {
+		p.revisions[r.ID] = r.Status
+	}
+	for _, d := range a.Decisions {
+		p.decisions[d.ID] = true
+	}
+	for _, e := range a.Events {
+		p.events[e.ID] = true
+	}
+	return p
+}
+func saveChildren(ctx context.Context, q querier, a *domain.Article, old persisted) error {
 	for _, rev := range a.Revisions {
+		if was, exists := old.revisions[rev.ID]; exists {
+			if was == rev.Status {
+				continue
+			}
+			tag, err := q.Exec(ctx, `UPDATE article_revisions SET status=$2 WHERE id=$1 AND article_id=$4 AND status=$3`, rev.ID, rev.Status, was, a.ID)
+			if err != nil {
+				return err
+			}
+			if tag.RowsAffected() != 1 {
+				return domain.ErrConflict
+			}
+			continue
+		}
 		seo, err := json.Marshal(rev.Content.SEO)
 		if err != nil {
 			return err
@@ -118,7 +161,7 @@ func saveChildren(ctx context.Context, q querier, a *domain.Article) error {
 			return err
 		}
 		_, err = q.Exec(ctx, `INSERT INTO article_revisions(id,article_id,revision_number,status,title,slug,body,category,seo,media,created_by,created_at)
-VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) ON CONFLICT(id) DO UPDATE SET status=EXCLUDED.status`, rev.ID, a.ID, rev.Number, rev.Status, rev.Content.Title, rev.Content.Slug, rev.Content.Body, rev.Content.Category, seo, raw, rev.CreatedBy, rev.CreatedAt)
+VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`, rev.ID, a.ID, rev.Number, rev.Status, rev.Content.Title, rev.Content.Slug, rev.Content.Body, rev.Content.Category, seo, raw, rev.CreatedBy, rev.CreatedAt)
 		if err != nil {
 			return err
 		}
@@ -134,8 +177,18 @@ ON CONFLICT(slug) DO UPDATE SET slug=EXCLUDED.slug WHERE slug_history.article_id
 		}
 	}
 	for _, d := range a.Decisions {
-		_, err := q.Exec(ctx, `INSERT INTO approval_decisions(id,article_id,revision_id,status,reason,actor_id,created_at) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(id) DO NOTHING`, d.ID, a.ID, d.RevisionID, d.Status, d.Reason, d.ActorID, d.CreatedAt)
-		if err != nil {
+		if old.decisions[d.ID] {
+			continue
+		}
+		if _, err := q.Exec(ctx, `INSERT INTO approval_decisions(id,article_id,revision_id,status,reason,actor_id,created_at) VALUES($1,$2,$3,$4,$5,$6,$7)`, d.ID, a.ID, d.RevisionID, d.Status, d.Reason, d.ActorID, d.CreatedAt); err != nil {
+			return err
+		}
+	}
+	for _, e := range a.Events {
+		if old.events[e.ID] {
+			continue
+		}
+		if _, err := q.Exec(ctx, `INSERT INTO audit_events(id,article_id,revision_id,action,actor_id,reason,created_at) VALUES($1,$2,$3,$4,$5,$6,$7)`, e.ID, a.ID, e.RevisionID, e.Action, e.ActorID, e.Reason, e.CreatedAt); err != nil {
 			return err
 		}
 	}
@@ -190,6 +243,7 @@ func load(ctx context.Context, q querier, id uuid.UUID, history, public bool) (*
 	}
 	a.Decisions = []domain.Decision{}
 	a.Slugs = []domain.SlugHistory{}
+	a.Events = []domain.AuditEvent{}
 	rows, err = q.Query(ctx, `SELECT id,revision_id,status,reason,actor_id,created_at FROM approval_decisions WHERE article_id=$1 ORDER BY created_at,id`, id)
 	if err != nil {
 		return nil, err
@@ -218,6 +272,23 @@ func load(ctx context.Context, q querier, id uuid.UUID, history, public bool) (*
 			return nil, err
 		}
 		a.Slugs = append(a.Slugs, h)
+	}
+	err = rows.Err()
+	rows.Close()
+	if err != nil {
+		return nil, err
+	}
+	rows, err = q.Query(ctx, `SELECT id,revision_id,action,actor_id,reason,created_at FROM audit_events WHERE article_id=$1 ORDER BY created_at,id`, id)
+	if err != nil {
+		return nil, err
+	}
+	for rows.Next() {
+		var e domain.AuditEvent
+		if err = rows.Scan(&e.ID, &e.RevisionID, &e.Action, &e.ActorID, &e.Reason, &e.CreatedAt); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		a.Events = append(a.Events, e)
 	}
 	err = rows.Err()
 	rows.Close()

@@ -13,3 +13,22 @@ type Repository interface {
 	List(context.Context, Filter) ([]Article, int64, error)
 	Mutate(context.Context, uuid.UUID, int64, func(*Article) error) (*Article, error)
 }
+
+// IdempotencyRecord is the stored outcome of one Idempotency-Key. A record is
+// scoped to the verified principal, so keys never collide across users.
+type IdempotencyRecord struct {
+	RequestHash string
+	Completed   bool
+	Status      int
+	Headers     map[string]string
+	Body        []byte
+}
+
+// IdempotencyStore guarantees a retried write returns the first response.
+// Begin reports created=true when the caller owns the key and must run the
+// operation; otherwise the existing record is returned.
+type IdempotencyStore interface {
+	Begin(ctx context.Context, principal uuid.UUID, key, requestHash string) (rec IdempotencyRecord, created bool, err error)
+	Complete(ctx context.Context, principal uuid.UUID, key string, status int, headers map[string]string, body []byte) error
+	Abandon(ctx context.Context, principal uuid.UUID, key string) error
+}
