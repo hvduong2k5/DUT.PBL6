@@ -31,6 +31,10 @@ default to `false`. The order identity compose overlay passes the flags through.
 `GUEST_SESSION_SECRET` must contain at least 32 bytes and differ from
 `ORDER_JWT_SECRET`.
 
+Set `NEXT_PUBLIC_MVP_GUEST_ORDER_ENABLED` before building Web; the BFF and Order
+flags are server configuration. Registered Customer COD retains its independent
+`NEXT_PUBLIC_MVP_COD_ENABLED` gate.
+
 With `WEB_AUTH_MODE=identity-bff`, set `GUEST_ORDER_UPSTREAM_URL` to the direct
 gateway `/api/v1` base. The customer `/customer-api` session proxy is not an
 anonymous issuance path. Missing guest routing configuration fails closed.
@@ -168,6 +172,12 @@ checkout cleanup both clearing the converted cart and preserving a later edit.
 BFF tests cover source/Customer credential separation, cookie preservation on
 failure, stable retry key and login without a guest cookie.
 
+Successful merge responses forward their validated original JSON bytes, so
+large int64 Catalog versions cannot be rounded by BFF serialization. Guest cart
+mutation rechecks revocation on its existing transaction connection; a real
+PostgreSQL/Redis regression with a one-connection pool verifies successful
+mutation and rejection after revocation without nested pool acquisition.
+
 The nullable COD payment deadline mismatch in the existing Web consumer was
 fixed separately in `5cdf8181`, with a versioned pinned contract correction and
 regressions for both guest and registered COD.
@@ -176,6 +186,42 @@ Run `python scripts/test-web-identity.py --guest-checkout` to extend the complet
 real-stack fixture with logged-out COD/VietQR and a real OIDC login/Identity-proxy
 merge. The fixture transfers remain TEST; `PROOF-MERGE-01` and the live COD/VietQR
 proofs still require Muse audit, Bao approval, rc.2 deployment and live evidence.
+
+## Final local regression (2026-11-21)
+
+Implementation HEAD: `5b45d5f7`. The full Web fixture passed on `db3fcdd5`;
+the subsequent backend change reuses the same SQL transaction connection and
+is covered by the single-connection integration regression and final Go suite.
+Web source is unchanged between these revisions.
+
+| Gate | Result |
+| --- | --- |
+| `go vet ./...` | PASS |
+| `go test -p 1 -count=1 ./...`, real PostgreSQL/Redis/Kafka, `ORDER_GUEST_TEST_KONG=true` | PASS |
+| Web `npm run verify:mvp` | PASS: 50 files, 169 tests; typecheck and lint |
+| Web `npm run build` | PASS |
+| All four required frontend OpenAPI files and the pinned MVP Customer contract | PASS; existing warnings remain |
+| `python scripts/test-web-identity.py --guest-checkout` | PASS, four accounts, actual OIDC/Identity proxy and service stack |
+
+The full fixture verifies guest COD, guest VietQR with order-grant-only polling
+and TEST settlement, Customer COD, Customer VietQR through delivery/history,
+merge x2+x3=x5, dropped-SKU reasons, replay after revocation, result retrieval,
+login without a source cookie, refresh/logout, owner isolation and persona gates.
+It asserts exactly five orders, four stock-commit events, physical/batch stock
+95 and reserved/batch-reserved stock 0. Fulfillment/packing and SePay statements
+are TEST; the carrier is FAKE. Optional Flutter client runtime was not run.
+
+The local fixture result is recorded in the ignored
+`.system_generated/web-identity/result.json`; detailed logs are in
+`E:/DUT.K1N4/stage/f53-final-web-identity.log`, `f53-final-go-tests.log`,
+`f53-final-web-gates.log` and `f53-final-web-build.log`. Use the fixture's
+`--keep-running` option to inspect its disposable SQL state before cleanup.
+
+One previous full Go run reported `ORDER_DEADLINE_GUARD` in
+`TestSePayObserveAllocateFinalizeReplay`. Five immediate focused repetitions
+passed, as did the persistence package on the clean full rerun. The cause was
+not established; no payment/deadline guard was changed. The failed run is
+preserved locally in `E:/DUT.K1N4/stage/f53-go-tests-deadline-guard.log`.
 
 ## Release acceptance
 
