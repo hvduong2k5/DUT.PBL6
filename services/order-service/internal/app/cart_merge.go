@@ -54,7 +54,12 @@ func (s *Service) mutateStorefrontCart(ctx context.Context, p domain.Principal, 
 		return domain.Cart{}, e
 	}
 	if p.PrincipalKind() == domain.Guest {
-		if s.GuestSessions() == nil || s.GuestSessions().CheckGuestSession(ctx, p.ID) != nil {
+		// Recheck revocation under the cart fence using this transaction's
+		// connection. Borrowing another pool connection here can starve a small
+		// pool while concurrent mutations hold its remaining connections.
+		var active bool
+		err := tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM guest_checkout_sessions WHERE sid=$1 AND revoked_at IS NULL AND expires_at>clock_timestamp())", p.ID).Scan(&active)
+		if err != nil || !active {
 			return domain.Cart{}, domain.E("UNAUTHENTICATED", 401)
 		}
 	}

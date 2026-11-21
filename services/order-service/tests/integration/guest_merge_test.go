@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -12,9 +13,36 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/omamx/order-service/internal/domain"
 	"github.com/omamx/order-service/internal/persistence"
 )
+
+func TestGuestCartMutationWithSingleDatabaseConnection(t *testing.T) {
+	h := newHarness(t)
+	previous := h.S.DB
+	cfg := previous.Config()
+	cfg.MaxConns = 1
+	limited, err := pgxpool.NewWithConfig(h.ctx, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.S.DB = limited
+	defer func() { h.S.DB = previous; limited.Close() }()
+	enableKeycloakGuest(t, h)
+	ctx, cancel := context.WithTimeout(h.ctx, time.Second)
+	defer cancel()
+	cart, err := h.S.MutateCart(ctx, h.Principal, "MX-GION-500G", 1, 0, true)
+	if err != nil || cart.Revision != 1 || len(cart.Items) != 1 {
+		t.Fatal("guest mutation borrowed a nested database connection", cart, err)
+	}
+	if err = h.S.GuestSessions().RevokeGuestSession(ctx, h.Principal.ID, h.Token); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = h.S.MutateCart(ctx, h.Principal, "MX-GION-500G", 1, 1, true); err == nil {
+		t.Fatal("revoked guest mutated the cart")
+	}
+}
 
 func mergeCarts(t *testing.T) (*harness, domain.Principal, domain.Principal, string) {
 	t.Helper()
