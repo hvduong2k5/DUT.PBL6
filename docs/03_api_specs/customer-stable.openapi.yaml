@@ -2074,7 +2074,8 @@ paths:
       tags:
       - Catalog
       operationId: getCategories
-      summary: Lấy danh sách cây danh mục sản phẩm OCOP
+      summary: Lấy danh sách phẳng các danh mục sản phẩm đang hoạt động, kèm parent_id để client tự phân cấp hiển thị.
+      description: Trả về danh sách phẳng các danh mục sản phẩm đang hoạt động (kèm parent_id để client tự phân cấp hiển thị trên menu/giao diện).
       x-lifecycle: stable
       x-backlog:
       - EPIC_03

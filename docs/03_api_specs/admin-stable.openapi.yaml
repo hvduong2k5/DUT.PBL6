@@ -2978,6 +2978,105 @@ paths:
           maximum: 100
           default: 20
   /api/v1/admin/catalog/categories:
+    get:
+      tags: [Product management]
+      operationId: getAdminCatalogCategories
+      summary: Lấy danh sách toàn bộ danh mục sản phẩm phục vụ quản trị CMS.
+      description: Hỗ trợ duyệt cây (format=tree, mặc định) hoặc danh sách phẳng (format=flat). Khi tìm kiếm theo q, yêu cầu format=flat (format=tree&q sẽ trả về 400). Yêu cầu quyền CATALOG_VIEW.
+      x-lifecycle: stable
+      x-backlog: [EPIC_04]
+      x-ui-states: [loading, success, empty, error, unauthorized, forbidden]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: format
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [tree, flat]
+            default: tree
+          description: Chế độ hiển thị cây phân cấp (tree) hoặc phẳng (flat). Mặc định là tree.
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 255
+          description: Tìm kiếm theo tên hoặc slug danh mục (chỉ áp dụng khi format=flat, nếu gọi với format=tree sẽ trả về 400 CATEGORY_SEARCH_REQUIRES_FLAT_FORMAT).
+        - name: isActive
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: Lọc theo trạng thái kích hoạt (true/false, bỏ trống = lấy tất cả).
+        - name: parentId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: Lọc danh mục con trực tiếp (flat) hoặc cây con (tree) của parentId.
+      responses:
+        '200':
+          description: Lấy danh sách danh mục thành công.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogAdminCategoryListResponse'
+              examples:
+                success:
+                  summary: Danh sách cây danh mục thành công
+                  value:
+                    success: true
+                    code: SUCCESS
+                    message: Thao tác thành công
+                    data:
+                      categories:
+                        - categoryId: 4b684cb6-bf88-444a-9eb8-cbfbe9e89d1b
+                          parentId: null
+                          name: Kẹo Mè Xửng Huế
+                          slug: keo-me-xung-hue
+                          description: Các dòng mè xửng truyền thống
+                          imageUrl: https://cdn.omama.vn/categories/me-xung.jpg
+                          position: 1
+                          isActive: true
+                          productCount: 12
+                          childrenCount: 2
+                          version: 1
+                          createdAt: '2026-11-20T10:00:00Z'
+                          updatedAt: '2026-11-21T15:30:00Z'
+                          children:
+                            - categoryId: c2005555-0000-0000-0000-000000000001
+                              parentId: 4b684cb6-bf88-444a-9eb8-cbfbe9e89d1b
+                              name: Mè Xửng Giòn
+                              slug: me-xung-gion
+                              description: Mè xửng giòn hạt mè vàng ươm
+                              imageUrl: https://cdn.omama.vn/categories/gion.jpg
+                              position: 1
+                              isActive: true
+                              productCount: 5
+                              childrenCount: 0
+                              version: 0
+                              createdAt: '2026-11-20T10:05:00Z'
+                              updatedAt: '2026-11-20T10:05:00Z'
+                              children: []
+                empty:
+                  summary: Không có danh mục nào phù hợp
+                  value:
+                    success: true
+                    code: SUCCESS
+                    message: Thao tác thành công
+                    data:
+                      categories: []
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
     post:
       tags: [Product management]
       operationId: postAdminCatalogCategories
@@ -13037,6 +13136,111 @@ components:
                 type: array
                 items:
                   $ref: '#/components/schemas/CatalogAdminPriceRecord'
+      additionalProperties: false
+    CatalogAdminCategoryItem:
+      type: object
+      required:
+        - categoryId
+        - name
+        - slug
+        - position
+        - isActive
+        - productCount
+        - childrenCount
+        - version
+        - children
+      properties:
+        categoryId:
+          type: string
+          format: uuid
+        parentId:
+          type:
+            - string
+            - 'null'
+          format: uuid
+          description: ID danh mục cha (null nếu là root).
+        parentName:
+          type:
+            - string
+            - 'null'
+          description: Tên danh mục cha (hỗ trợ hiển thị ngữ cảnh ở flat mode).
+        name:
+          type: string
+          description: Tên danh mục.
+        slug:
+          type: string
+          description: Đường dẫn slug URL-friendly.
+        description:
+          type:
+            - string
+            - 'null'
+          description: Mô tả danh mục.
+        imageUrl:
+          type:
+            - string
+            - 'null'
+          format: uri
+          description: URL ảnh đại diện danh mục.
+        position:
+          type: integer
+          minimum: 0
+          description: Thứ tự sắp xếp trong cùng cấp.
+        isActive:
+          type: boolean
+          description: Trạng thái hiển thị công khai.
+        productCount:
+          type: integer
+          minimum: 0
+          description: Số lượng sản phẩm được gán trực tiếp vào danh mục này.
+        childrenCount:
+          type: integer
+          minimum: 0
+          description: Số lượng danh mục con trực tiếp.
+        version:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Phiên bản optimistic locking.
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/CatalogAdminCategoryItem'
+          description: Danh sách danh mục con (luôn là mảng rỗng [] nếu không có con hoặc ở chế độ flat).
+      additionalProperties: false
+    CatalogAdminCategoryListResponse:
+      type: object
+      required:
+        - success
+        - data
+      properties:
+        success:
+          type: boolean
+          const: true
+        code:
+          type: string
+          example: SUCCESS
+        message:
+          type: string
+          example: Thao tác thành công
+        data:
+          type: object
+          required:
+            - categories
+          properties:
+            categories:
+              type: array
+              items:
+                $ref: '#/components/schemas/CatalogAdminCategoryItem'
+          additionalProperties: false
+        timestamp:
+          type: string
+          format: date-time
       additionalProperties: false
   responses:
     BadRequest:
