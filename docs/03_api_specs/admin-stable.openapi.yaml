@@ -16,6 +16,8 @@ servers:
 - url: https://api.omama.vn
   description: Production API gateway
 tags:
+- name: Inventory operations
+  description: Private Inventory monitoring endpoints, separate from employee business APIs.
 - name: Access management
   description: Access management operations for the admin web application.
 - name: B2B
@@ -42,6 +44,75 @@ security:
 - bearerAuth: []
 - adminSession: []
 paths:
+  /readyz:
+    get:
+      operationId: inventoryOperationsReadiness
+      summary: Check Procurement consumer readiness
+      responses:
+        '200':
+          description: Ready or consumer explicitly disabled
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: 'ready
+
+                '
+        '503':
+          description: Enabled consumer is starting, blocked or stopped after panic
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: PROCUREMENT_CONSUMER_UNHEALTHY
+                message: Procurement consumer is unavailable
+                requestId: 66ce37bd-f925-4b29-aaee-f3a04c521741
+      tags:
+      - Inventory operations
+      x-lifecycle: stable
+      x-internal: true
+      x-frontend-consumer: false
+      security: []
+      servers: &id001
+      - url: http://127.0.0.1:8011
+      description: Private Inventory operations listener selected by INVENTORY_METRICS_ADDR.
+        The shown address is the local default; use the configured private address on
+        deploy. Not exposed through the production API gateway and not called by Customer
+        or Employee Web. No application JWT/session is used on this private listener;
+        enforce network isolation.
+  /metrics:
+    get:
+      operationId: inventoryOperationsMetrics
+      summary: Read Procurement Prometheus counters and gauges
+      responses:
+        '200':
+          description: Process-local receiving metrics
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: 'inventory_procurement_healthy 1
+
+                inventory_procurement_retries_total 0
+
+                inventory_procurement_dlq_total 0
+
+                inventory_procurement_consumer_lag 0
+
+                '
+      tags:
+      - Inventory operations
+      x-lifecycle: stable
+      x-internal: true
+      x-frontend-consumer: false
+      security: []
+      servers: *id001
+      description: Private Inventory operations listener selected by INVENTORY_METRICS_ADDR.
+        The shown address is the local default; use the configured private address on
+        deploy. Not exposed through the production API gateway and not called by Customer
+        or Employee Web. No application JWT/session is used on this private listener;
+        enforce network isolation.
   /api/v1/admin/users:
     get:
       operationId: getAdminUsers

@@ -1,6 +1,6 @@
 # Internal Employee API State Matrix
 
-Updated: 2026-11-07
+Updated: 2026-11-21
 
 This matrix and the OpenAPI files are the backend handoff. It is intentionally independent from test-fixture implementation.
 
@@ -290,3 +290,23 @@ Ví dụ xóa mô tả cũ và cập nhật OCOP:
 Inventory receipts require `INVENTORY_RECEIPT_CREATE` globally or for the SKU warehouse. The API checks the expected revision and replays the stored result for matching idempotent retries.
 
 Fulfillment staff routes validate the `omama-api` audience by default. Missing or invalid credentials return 401. Valid credentials without an eligible staff identity or the required grant return 403.
+
+## Private Inventory operations (contract consolidation — 2026-11-21)
+
+These operations are documented in admin-stable.openapi.yaml with per-operation
+private servers. They are not Employee Web routes and are not published by Kong.
+The employee authentication rule above continues to apply to business APIs;
+these monitoring endpoints use network isolation on INVENTORY_METRICS_ADDR,
+without staff JWT/session authentication. Do not expose them via the public gateway.
+No Customer/Employee UI state or business authorization policy changes here.
+
+| Operation | Success | Failure | Loading / empty | Authentication |
+|---|---|---|---|---|
+| GET /readyz | 200 text/plain: consumer disabled or healthy | 503 shared Error: enabled consumer starting/blocked/stopped | N/A: operations probe, no UI or collection | No JWT on private listener; 401/403 N/A |
+| GET /metrics | 200 Prometheus text: process counters and group lag | Listener/network failure is transport-level; no application error response declared | N/A: operations scrape, no UI or collection | No JWT on private listener; 401/403 N/A |
+
+Readiness failures include stable code PROCUREMENT_CONSUMER_UNHEALTHY, safe
+message, requestId and X-Request-Id. Lag -1 means unavailable/uninitialized.
+Operation-level servers and security override the document's production gateway
+and employee authentication defaults. The independent Inventory operations spec
+was consolidated here; runtime URLs and response bodies are unchanged.

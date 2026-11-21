@@ -254,7 +254,7 @@ consumer and 503 while an enabled consumer is starting or blocked. GET /metrics
 returns process-local counters and group lag; lag -1 means unavailable/uninitialized.
 There are no loading/empty business collections. These endpoints deliberately have
 no application login and must bind to a private operations interface. Their contract
-is docs/03_api_specs/inventory-operations.openapi.yaml. Alert on readiness failure,
+is docs/03_api_specs/admin-stable.openapi.yaml (/readyz and /metrics, private Inventory servers). Alert on readiness failure,
 DLQ growth, retry growth, sustained lag and unavailable lag samples. Schedule the
 inbox retention SQL as a daily maintenance job with a 90-day cutoff; keep receipt
 records for dedupe/evidence and never truncate that ledger to save space.
