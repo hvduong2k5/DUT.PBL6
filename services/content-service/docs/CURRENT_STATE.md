@@ -35,12 +35,16 @@ VERIFICATION STATUS (Go 1.22.12 portable, Windows): go mod tidy (no further chan
 go vet ./..., go build ./..., gofmt (ignoring CRLF) and go test -count=1 ./... PASS;
 go test -race ./internal/... PASS. Unit and HTTP tests include real RS256 token
 verification, error envelope, caching, idempotency and the hide/restore/audit flow.
-NOT VERIFIED: every test in ./tests/integration is SKIPPED because no PostgreSQL was
-available (Docker/WSL cannot start on this machine). Migration 000002, the migrate
-runner, the repository write path (append-only revisions, status compare-and-set,
-audit rows), the PostgreSQL idempotency store and the Docker images have never run.
-Before merging run: CONTENT_TEST_DATABASE_URL=... go test -count=1 ./tests/integration
-against a disposable database, and `docker build` both Dockerfiles.
+POSTGRESQL VERIFIED (2026-11-21, portable PostgreSQL 16.4 on loopback, disposable
+database): all 7 tests in ./tests/integration PASS with CONTENT_TEST_DATABASE_URL set
+(migration up/down/up and constraints, adoption of a psql-created database, DB error
+mapping, PostgreSQL idempotency store, editorial lifecycle with hide/restore/audit,
+concurrent version and slug races, real HTTP). go test -count=1 ./... PASS. The
+`cmd/migrate` CLI was run against a fresh database: `up` applied 1 and 2, a second `up`
+applied none, `down` reverted only 000002.
+NOT VERIFIED: the Docker images (`Dockerfile`, `Dockerfile.coolify`) were not built
+because the Docker engine cannot start on this machine; run `docker build` for both
+before merging.
 
 Previous task (2026-10-12): publication restricted to approvers/admins by role
 (superseded by per-permission grants above).
