@@ -8,6 +8,7 @@ plugins {
 
 spotless {
     java {
+        target 'src/*/java/**/*.java'
         googleJavaFormat('1.17.0')
         importOrder 'com.hvduong', 'java', 'javax', 'org', 'com', ''
         removeUnusedImports()

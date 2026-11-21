@@ -348,4 +348,19 @@ git log --oneline -10
 
 ---
 
+## 13. Quy tắc Docker & Containerization
+
+- **Không dùng docker-compose:** Tuyệt đối không tạo hoặc duy trì file `docker-compose.yml` cho `catalog-service`.
+- **Duy trì đúng 2 file Dockerfile:**
+  1. **`Dockerfile` (Dev / Local):**
+     - Base image: `eclipse-temurin:21-jre-alpine`.
+     - Đóng gói file JAR prebuilt từ `build/libs/catalog-service-*.jar`.
+     - Phục vụ việc build và chạy nhanh container trực tiếp bằng lệnh `docker run` hoặc trong môi trường dev/WSL.
+  2. **`Dockerfile.coolify` (Production / Coolify Git Deploy):**
+     - Multi-stage build độc lập: Stage 1 dùng `gradle:9.2.0-jdk21` build source code từ root repo (`packages/proto` + `services/catalog-service`), Stage 2 package sang `eclipse-temurin:21-jre-alpine`.
+     - Phục vụ triển khai Git-based webhook tự động trên Coolify production.
+- **File `.dockerignore`:** Bắt buộc có để loại trừ `.gradle/`, `.git/`, `build/classes/`, `.idea/`, file `.env`.
+
+---
+
 *Tài liệu này được tạo để agent hiểu nhanh cấu trúc và quy tắc của Catalog Service. Nếu có thay đổi cấu trúc lớn, cần cập nhật lại file này.*
