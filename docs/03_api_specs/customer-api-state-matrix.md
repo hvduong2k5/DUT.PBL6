@@ -123,3 +123,16 @@ Guest cart mutations require `GUEST_CART_MUTATION_ENABLED` plus the storefront g
 Guest COD quote/accept requires `GUEST_COD_CHECKOUT_ENABLED`, uses an inline address and does not fetch Profile. Loading disables duplicate submission, empty cart stays 200, stale revision is 409, invalid/unserviceable address is 422, and dependency failure is 503. A transaction serializes admission on the session and limits unpaid pending orders plus in-flight checkout to 3; the fourth returns 429 `GUEST_PENDING_ORDER_LIMIT` without creating an operation. Idempotent replay remains available at quota. Guest checkout shows the authoritative order code and phone-OTP tracking guidance. Cross-session order reads return 404; account history and cancellation remain customer-only for session guests.
 
 The current simulator province 75 / ward HUE-01 seam is unchanged. `PROOF-COD-01` remains a live post-audit acceptance requirement.
+
+
+## F-53 guest VietQR (B-G2)
+
+`GUEST_VIETQR_CHECKOUT_ENABLED` is independent of COD. The Web lazily exchanges the active guest session for an exact-order payment read grant, stores it in an httpOnly cookie scoped to that order's payment BFF routes, and forwards only the grant on polling. The session token cannot read payment; another order's grant returns 401. Any present invalid Customer credential returns an error without switching to the guest grant.
+
+| Operation | Success/loading | Failure/auth |
+| --- | --- | --- |
+| Web `POST /api/payments/orders/{orderId}/guest-access` | 204 / disable duplicate action; token never exposed | 400 input, 401 missing/invalid credential, 403 flag/principal, 404 ownership, 409 replay, 503 dependency |
+| `GET /api/v1/orders/{order_id}/payment` | 200 / display current state and bounded polling | 401 grant, 403 principal, 404 owner, 503 dependency |
+| `GET /api/v1/orders/{order_id}/payment-instructions` | 200 / display QR only while payable | 401 grant, 403 principal, 404 owner, 409 expired, 503 dependency |
+
+SePay verification remains HMAC-SHA256 over timestamp + raw payload (five-minute window), durable deduplicated observation, canonical API row verification and exactly-once allocation/finalization. An observation alone cannot settle. Late money stays in reconciliation and cannot auto-fulfil. `PROOF-VQR-01` requires the separately approved live transfer and duplicate replay; local TEST statements do not satisfy that live proof.

@@ -1,6 +1,9 @@
 import { normalizePublicError, type PublicErrorBody } from "@/lib/api-contract";
 import { authorizeCustomerCapability, customerAccessFailure } from "@/lib/auth/customer-access-server";
-import { applyTrustedSessionCookie, getTrustedSessionCookie } from "@/lib/auth/server-credential";
+import { applyTrustedAuthorization, getTrustedAccessToken } from "@/lib/auth/server-credential";
+import { hasCustomerCredential } from "@/lib/auth/storefront-credential";
+import { guestPaymentCookie } from "@/lib/payment/guest-server";
+import { MVP_FEATURE_GATES } from "@/lib/mvp-feature-gates";
 import { isPaymentInstructions, isPaymentStatus } from "@/lib/payment/mvp";
 import { parsePaymentRoute } from "@/lib/payment/validation";
 import { NextRequest, NextResponse } from "next/server";
@@ -10,18 +13,19 @@ function publicErrorResponse(status: number, code: string, message: string, requ
   return NextResponse.json(body, { status });
 }
 
-function upstreamHeaders(request: NextRequest, scenario?: string) {
+function upstreamHeaders(request: NextRequest, scenario?: string, grantToken?: string) {
   const headers = new Headers({ Accept: "application/json" });
-  applyTrustedSessionCookie(headers, request);
+  if (grantToken) headers.set("Authorization", `Bearer ${grantToken}`);
+  else applyTrustedAuthorization(headers, request);
   if (process.env.NODE_ENV !== "production" && scenario) headers.set("X-Mock-Scenario", scenario);
   return headers;
 }
 
-async function upstream(request: NextRequest, path: string, scenario?: string) {
-  const base = (process.env.CUSTOMER_CORE_UPSTREAM_URL ?? "http://127.0.0.1:4010/api/v1").replace(/\/$/u, "");
+async function upstream(request: NextRequest, path: string, scenario?: string, grantToken?: string) {
+  const base = ((grantToken ? process.env.GUEST_ORDER_UPSTREAM_URL : undefined) ?? process.env.CUSTOMER_CORE_UPSTREAM_URL ?? "http://127.0.0.1:4010/api/v1").replace(/\/$/u, "");
   const response = await fetch(`${base}/${path}`, {
     method: "GET",
-    headers: upstreamHeaders(request, scenario),
+    headers: upstreamHeaders(request, scenario, grantToken),
     cache: "no-store",
     redirect: "manual"
   });
@@ -63,19 +67,22 @@ export async function handlePaymentRequest(request: NextRequest, path: string[])
     return publicErrorResponse(400, "INVALID_REQUEST", "Mock scenario không khả dụng trong production.", "BFF-PAYMENT-SCENARIO");
   }
 
-  const sessionCookie = getTrustedSessionCookie(request);
-  try {
-    await authorizeCustomerCapability(sessionCookie, "ORDER_HISTORY_VIEW");
-  } catch (cause) {
-    const failure = customerAccessFailure(cause);
-    return publicErrorResponse(failure.status, failure.code, failure.message, "BFF-PAYMENT-ACCESS");
+  let grantToken: string | undefined;
+  if (hasCustomerCredential(request)) {
+    try { await authorizeCustomerCapability(getTrustedAccessToken(request), "ORDER_HISTORY_VIEW"); }
+    catch(cause) { const failure=customerAccessFailure(cause);return publicErrorResponse(failure.status,failure.code,failure.message,"BFF-PAYMENT-ACCESS"); }
+  } else {
+    if (!MVP_FEATURE_GATES.guestOrder) return publicErrorResponse(401,"AUTH_REQUIRED","Vui lòng đăng nhập.","BFF-PAYMENT-ACCESS");
+    grantToken=request.cookies.get(guestPaymentCookie(route.orderId))?.value;
+    if (!grantToken) return publicErrorResponse(401,"GUEST_PAYMENT_ACCESS_REQUIRED","Cần xác minh quyền xem thanh toán của đơn này.","BFF-PAYMENT-ACCESS");
+    if (!process.env.GUEST_ORDER_UPSTREAM_URL) return publicErrorResponse(503,"GUEST_ROUTE_UNAVAILABLE","Chưa cấu hình dịch vụ thanh toán khách.","BFF-PAYMENT-ACCESS");
   }
 
   try {
     const upstreamPath = route.operation === "instructions"
       ? `orders/${encodeURIComponent(route.orderId)}/payment-instructions`
       : `orders/${encodeURIComponent(route.orderId)}/payment`;
-    const result = await upstream(request, upstreamPath, route.mockScenario);
+    const result = await upstream(request, upstreamPath, route.mockScenario, grantToken);
     if (!result.response.ok) return relayError(result.payload, result.response);
     if (result.response.status !== 200) {
       return publicErrorResponse(502, "INVALID_PAYMENT_STATUS", "Payment trả HTTP status ngoài contract.", "BFF-PAYMENT-CONTRACT");

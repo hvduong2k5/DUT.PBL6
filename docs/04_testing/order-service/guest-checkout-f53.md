@@ -104,6 +104,29 @@ server-side security boundary. Verify that provider during live acceptance.
 
 `PROOF-COD-01` is pending the audited rc.2 deployment and a real logged-out order.
 
+## B-G2 guest VietQR
+
+The payment BFF now mints an existing order-bound ES256 grant using the active
+session and stores it in an httpOnly cookie scoped to that exact order's payment
+routes. Polling sends only the grant upstream; it never forwards the guest
+session credential or identity cookies. Customer credential presence still wins,
+and a failed customer validation cannot switch to the grant. An expired browser
+grant cookie can be renewed lazily without exposing its token in JavaScript.
+
+Verified SePay code: HMAC-SHA256 over timestamp plus raw payload, +/-300 second
+window, deduplicated persisted observations, canonical SePay API rows, then
+transactional allocation and inventory finalization. No browser action can mark
+an order paid. Existing late-money reconciliation behavior is unchanged.
+
+Local tests include guest keycloak-mode VietQR quote/checkout, exact-order grant
+reads, rejection of a session as a grant, rejection on another order, signed
+webhook plus TEST statement settlement, duplicate webhook replay with one receipt,
+one allocation and one FIRST_PAID milestone, and actual timeout followed by late
+money with no allocation/fulfilment. BFF tests verify cookie scope, no JSON token
+exposure, grant-only polling and invalid customer-session precedence.
+
+`PROOF-VQR-01` remains pending the approved live SePay transfer after deployment.
+
 ## Release acceptance
 
 B-G1 must not start before the B-G0 regression gate passes. B-G1, B-G2 and B-G3

@@ -54,6 +54,192 @@ x-guest-cart-policy:
   quota-code: GUEST_PENDING_ORDER_LIMIT
   admission: A locked persisted guest session serializes order admission including in-flight operations. Replays return the existing result at quota.
 paths:
+  /api/v1/orders/{order_id}/payment:
+    get:
+      tags:
+      - Payments
+      operationId: getOwnedOrderPayment
+      summary: Read exact-order payment state using Customer identity or a payment read grant
+      x-lifecycle: stable
+      x-backlog:
+      - F-53
+      x-ui-states:
+      - loading
+      - success
+      - error
+      - unauthorized
+      - forbidden
+      parameters:
+      - name: order_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      security:
+      - bearerAuth: []
+      - customerSession: []
+      - guestPaymentGrant: []
+      description: A guest session token cannot read payment. Guest payment grant must be ES256, order-bound,
+        active, scope payment:read, issuer order-service-guest and audience order-payment. Polling never
+        settles money. Settlement uses the authenticated SePay webhook observation and canonical API reconciliation/finalization
+        pipeline; replay is idempotent. Late money enters reconciliation and never reopens an expired order.
+        All responses are no-store.
+      responses:
+        '200':
+          description: Current persisted payment projection or immutable instructions.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - order_id
+                - intent_id
+                - provider
+                - method
+                - currency
+                - expires_at
+                properties:
+                  order_id:
+                    type: string
+                    format: uuid
+                  intent_id:
+                    type: string
+                    format: uuid
+                  provider:
+                    type: string
+                    const: SEPAY
+                  method:
+                    type: string
+                    const: VIETQR
+                  currency:
+                    type: string
+                    const: VND
+                  expires_at:
+                    type: string
+                    format: date-time
+        '400': &id001
+          description: Controlled failure.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401': *id001
+        '403': *id001
+        '404': *id001
+        '409': *id001
+        '503': *id001
+  /api/v1/orders/{order_id}/payment-instructions:
+    get:
+      tags:
+      - Payments
+      operationId: getOwnedOrderPaymentInstructions
+      summary: Read exact-order payment state using Customer identity or a payment read grant
+      x-lifecycle: stable
+      x-backlog:
+      - F-53
+      x-ui-states:
+      - loading
+      - success
+      - error
+      - unauthorized
+      - forbidden
+      parameters:
+      - name: order_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      security:
+      - bearerAuth: []
+      - customerSession: []
+      - guestPaymentGrant: []
+      description: A guest session token cannot read payment. Guest payment grant must be ES256, order-bound,
+        active, scope payment:read, issuer order-service-guest and audience order-payment. Polling never
+        settles money. Settlement uses the authenticated SePay webhook observation and canonical API reconciliation/finalization
+        pipeline; replay is idempotent. Late money enters reconciliation and never reopens an expired order.
+        All responses are no-store.
+      responses:
+        '200':
+          description: Current persisted payment projection or immutable instructions.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - order_id
+                - intent_id
+                - provider
+                - method
+                - currency
+                - expires_at
+                properties:
+                  order_id:
+                    type: string
+                    format: uuid
+                  intent_id:
+                    type: string
+                    format: uuid
+                  provider:
+                    type: string
+                    const: SEPAY
+                  method:
+                    type: string
+                    const: VIETQR
+                  currency:
+                    type: string
+                    const: VND
+                  expires_at:
+                    type: string
+                    format: date-time
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+        '409': *id001
+        '503': *id001
+  /api/payments/orders/{orderId}/guest-access:
+    post:
+      servers:
+      - url: https://omama.vn
+      tags:
+      - Payments
+      operationId: postStorefrontGuestPaymentAccess
+      summary: Lazily store a guest order payment grant in an httpOnly cookie
+      x-lifecycle: stable
+      x-backlog:
+      - F-53
+      x-ui-states:
+      - loading
+      - success
+      - error
+      - unauthorized
+      - forbidden
+      parameters:
+      - name: orderId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      security:
+      - guestSession: []
+      - customerSession: []
+      description: Same-origin Web BFF action. Customer credential presence takes precedence and is validated;
+        it never switches to a guest cookie. Active guest session mints via the direct gateway. Requires
+        GUEST_VIETQR_CHECKOUT_ENABLED and the web guest gate. The cookie is httpOnly, host-only, SameSite=Lax
+        and scoped to /api/payments/orders/{orderId}; expires with the ten-minute grant. No token in JSON,
+        URLs or browser storage. Payment polling forwards only the order grant.
+      responses:
+        '204':
+          description: Credential ready; no token body.
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '404': *id001
+        '409': *id001
+        '503': *id001
   /api/v1/checkout/quote:
     post:
       tags:
@@ -7019,6 +7205,11 @@ paths:
       - $ref: '#/components/parameters/IdempotencyKey'
 components:
   securitySchemes:
+    guestPaymentGrant:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: ES256 order-bound payment:read grant; never a guest session or customer credential.
     bearerAuth:
       type: http
       scheme: bearer

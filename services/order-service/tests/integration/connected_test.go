@@ -533,7 +533,17 @@ func TestConnectedAdmissionHoldResumeFencesOldGeneration(t *testing.T) {
 	}
 }
 func TestConnectedUnpaidTimeoutAndBankTimeBeforeDeadline(t *testing.T) {
+	testUnpaidTimeoutAndBankTime(t, false)
+}
+func TestGuestVietQRLateMoneyNeverFulfils(t *testing.T) {
+	testUnpaidTimeoutAndBankTime(t, true)
+}
+func testUnpaidTimeoutAndBankTime(t *testing.T, guest bool) {
 	h, statement, receiver := connectedHarness(t)
+	if guest {
+		enableKeycloakGuest(t, h)
+		h.S.C.GuestVietQRCheckoutEnabled = true
+	}
 	if e := h.Sim.SetFault(h.ctx, "core_terms", "short_expiry", 1); e != nil {
 		t.Fatal(e)
 	}

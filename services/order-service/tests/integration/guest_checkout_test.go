@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/omamx/order-service/internal/domain"
 	"github.com/omamx/order-service/internal/persistence"
+	"github.com/omamx/order-service/internal/sepay"
 )
 
 func enableKeycloakGuest(t *testing.T, h *harness) {
@@ -85,5 +86,41 @@ func TestGuestCODKeycloakHTTPAndPendingLimit(t *testing.T) {
 	}
 	if _, code, e := h.accept(firstQuote, firstKey); code != 201 || e != nil {
 		t.Fatal("quota denied persisted idempotent replay", code, e)
+	}
+}
+
+func TestGuestVietQRGrantSettlementAndReplay(t *testing.T) {
+	h, statement, receiver := connectedHarness(t)
+	enableKeycloakGuest(t, h)
+	h.S.C.GuestVietQRCheckoutEnabled = true
+	_, order := httpCoreOrder(t, h, "VIETQR")
+	if code := h.request(h.API.URL, "GET", "/api/v1/orders/"+order.ID+"/payment", h.Token, nil, nil); code != 403 {
+		t.Fatal("session used as payment grant", code)
+	}
+	var grant persistence.GuestGrant
+	if code := h.request(h.API.URL, "POST", "/api/v1/orders/"+order.ID+"/guest-payment-access", h.Token, nil, &grant, "Idempotency-Key", uuid.NewString()); code != 201 {
+		t.Fatal("guest grant mint", code)
+	}
+	var instructions persistence.Instructions
+	untilConnected(t, func() bool {
+		return h.request(h.API.URL, "GET", "/api/v1/orders/"+order.ID+"/payment-instructions", grant.Token, nil, &instructions) == 200
+	})
+	if code := h.request(h.API.URL, "GET", "/api/v1/orders/"+uuid.NewString()+"/payment", grant.Token, nil, nil); code != 401 {
+		t.Fatal("cross-order grant", code)
+	}
+	row := sepay.Transaction{ID: uuid.NewString(), BankAccountID: receiver.BankID, Account: receiver.Account, Direction: "in", In: instructions.Amount, Date: time.Now().UTC().Truncate(time.Second).Format(time.RFC3339), Content: instructions.Code, Reference: uuid.NewString()}
+	sendConnectedWebhook(t, h, row)
+	if h.count("SELECT count(*) FROM receipts") != 0 {
+		t.Fatal("webhook booked unverified money")
+	}
+	statement.add(row)
+	sendConnectedWebhook(t, h, row)
+	untilConnected(t, func() bool {
+		var status persistence.PaymentStatus
+		return h.request(h.API.URL, "GET", "/api/v1/orders/"+order.ID+"/payment", grant.Token, nil, &status) == 200 && status.OrderStatus == "PAID"
+	})
+	sendConnectedWebhook(t, h, row)
+	if h.count("SELECT count(*) FROM allocations") != 1 || h.count("SELECT count(*) FROM receipts") != 1 || h.count("SELECT count(*) FROM order_milestones WHERE kind='FIRST_PAID'") != 1 {
+		t.Fatal("guest settlement duplicated")
 	}
 }
