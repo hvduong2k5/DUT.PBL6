@@ -111,11 +111,11 @@ func main() {
 	db.SetMaxIdleConns(10)
 	db.SetConnMaxLifetime(5 * time.Minute)
 
-	seedCtx, cancelSeed := context.WithTimeout(context.Background(), 30*time.Second)
-	err = migrations.ApplyDemoSeed(seedCtx, db)
-	cancelSeed()
+	schemaCtx, cancelSchema := context.WithTimeout(context.Background(), 30*time.Second)
+	err = migrations.Verify(schemaCtx, db)
+	cancelSchema()
 	if err != nil {
-		log.Fatalf("[InventoryService] Demo migration 000007 failed: %v", err)
+		log.Fatalf("[InventoryService] Schema verification failed: %v", err)
 	}
 
 	// 2. Initialize Redis Client & Distributed Lock Adapter
