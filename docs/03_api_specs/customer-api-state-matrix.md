@@ -122,7 +122,7 @@ Guest cart mutations require `GUEST_CART_MUTATION_ENABLED` plus the storefront g
 
 Guest COD quote/accept requires `GUEST_COD_CHECKOUT_ENABLED`, uses an inline address and does not fetch Profile. Loading disables duplicate submission, empty cart stays 200, stale revision is 409, invalid/unserviceable address is 422, and dependency failure is 503. A transaction serializes admission on the session and limits unpaid pending orders plus in-flight checkout to 3; the fourth returns 429 `GUEST_PENDING_ORDER_LIMIT` without creating an operation. Idempotent replay remains available at quota. Guest checkout shows the authoritative order code and phone-OTP tracking guidance. Cross-session order reads return 404; account history and cancellation remain customer-only for session guests.
 
-The current simulator province 75 / ward HUE-01 seam is unchanged. `PROOF-COD-01` remains a live post-audit acceptance requirement.
+The current simulator province 75 / ward HUE-01 seam is unchanged. Real Catalog COD also requires an explicit `ORDER_COD_POLICY_REFERENCE`; empty returns 422 `COD_NOT_AVAILABLE` for both Customer and Guest. The server snapshots the final collect amount. `CONFIRMED_COD` remains `UNPAID`, with no payment deadline or bank receiver; Finance settlement remains required for completion. `PROOF-COD-01` remains a live post-audit acceptance requirement.
 
 
 ## F-53 guest VietQR (B-G2)

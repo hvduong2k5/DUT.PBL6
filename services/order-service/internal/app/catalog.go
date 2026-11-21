@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -88,6 +89,10 @@ func (s *Service) catalogValidation(ctx context.Context, input, output any) erro
 // quote provider; sandbox callers must explicitly label their TEST provider.
 func (s *Service) catalogTerms(ctx context.Context, q domain.Quote) (core.SnapshotInput, error) {
 	var terms core.SnapshotInput
+	policy := s.C.CODPolicyReference
+	if q.Method == "COD" && (policy == "" || strings.TrimSpace(policy) != policy || len(policy) > 255) {
+		return terms, domain.E("COD_NOT_AVAILABLE", 422)
+	}
 	snapshot, err := s.catalogSnapshot(ctx, q.Items)
 	if err != nil {
 		return terms, err
@@ -115,10 +120,12 @@ func (s *Service) catalogTerms(ctx context.Context, q domain.Quote) (core.Snapsh
 	terms.Money = core.SnapshotMoney{Currency: "VND", Subtotal: snapshot.Subtotal, ShippingFee: quote.Fee, FinalAmount: snapshot.Subtotal + quote.Fee}
 	terms.Policies = core.Policies{Order: "order-core-1.0", Checkout: "cart-checkout-1.0", Payment: "payment-sepay-1.1", Shipping: "shipping-v2"}
 	terms.Payment.Method = q.Method
-	// COD completion requires Finance evidence and is deliberately unavailable
-	// until its provider is integrated; no default settlement proof is fabricated.
+	// Placement records the amount still to collect, never evidence of payment.
+	// Completion continues to require the existing Finance settlement authority.
 	if q.Method == "COD" {
-		return terms, domain.E("COD_NOT_AVAILABLE", 422)
+		amount := terms.Money.FinalAmount
+		terms.Payment.CODPolicyReference = &policy
+		terms.Payment.CollectAmount = &amount
 	}
 	return terms, nil
 }

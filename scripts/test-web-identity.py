@@ -109,7 +109,18 @@ def main():
     gateway = f"http://127.0.0.1:{ports['gateway']}"
     account_password = "Synthetic-Web-Test-2026-" + suffix
     if args.guest_checkout:
-        env.update(WEB_TEST_GUEST_CHECKOUT="true",GUEST_SESSION_SECRET=secrets.token_urlsafe(48),NEXT_PUBLIC_MVP_GUEST_ORDER_ENABLED="true",GUEST_ORDER_UPSTREAM_URL=gateway+"/api/v1",GUEST_SESSION_ISSUANCE_ENABLED="true",GUEST_CART_MUTATION_ENABLED="true",GUEST_COD_CHECKOUT_ENABLED="true",GUEST_VIETQR_CHECKOUT_ENABLED="true",GUEST_CART_MERGE_ENABLED="true")
+        env.update(
+            WEB_TEST_GUEST_CHECKOUT="true",
+            GUEST_SESSION_SECRET=secrets.token_urlsafe(48),
+            NEXT_PUBLIC_MVP_GUEST_ORDER_ENABLED="true",
+            NEXT_PUBLIC_MVP_COD_ENABLED="true",
+            GUEST_ORDER_UPSTREAM_URL=gateway+"/api/v1",
+            GUEST_SESSION_ISSUANCE_ENABLED="true",
+            GUEST_CART_MUTATION_ENABLED="true",
+            GUEST_COD_CHECKOUT_ENABLED="true",
+            GUEST_VIETQR_CHECKOUT_ENABLED="true",
+            GUEST_CART_MERGE_ENABLED="true",
+        )
     accounts = {
         key: {
             "principal": str(uuid.uuid4()),
@@ -1414,6 +1425,8 @@ def main():
                     shipping_webhook,
                     packing=real_packing,
                 )
+                if args.guest_checkout:
+                    guest_purchases(request, web, f"http://127.0.0.1:{ports['control']}", customer_opener=opener)
             elif key == "B":
                 for path in [
                     "/api/orders/" + placed_order,
@@ -1528,15 +1541,16 @@ def main():
             .splitlines()[2]
             .strip()
         )
+        expected_physical = 95 if args.guest_checkout else 98
         assert stock == {
-            "physical": 98,
+            "physical": expected_physical,
             "reserved": 0,
-            "batch_physical": 98,
+            "batch_physical": expected_physical,
             "batch_reserved": 0,
-            "events": 1,
+            "events": 4 if args.guest_checkout else 1,
         }, ("Inventory did not reserve/release/commit exactly once", stock)
-        inventory_projection(98)
-        assert "(2 rows)" in sql("SELECT id FROM orders.orders;")
+        inventory_projection(expected_physical)
+        assert ("(5 rows)" if args.guest_checkout else "(2 rows)") in sql("SELECT id FROM orders.orders;")
         mobile_client_runtime="NOT_RUN"
         if args.flutter:
             session=native_identity(request,gateway,issuer,profile_url,f"http://127.0.0.1:{ports['order']}",accounts["B"],account_password,False,retain=True)
@@ -1546,7 +1560,7 @@ def main():
             with (folder/"mobile-live.log").open("w",encoding="utf-8") as log:
                 run([args.flutter,"test","--no-pub","--dart-define=IDENTITY_ALLOW_HTTP=true","test/live_mvp_contract_test.dart"],ROOT/"apps/mobile-app",stdout=log,stderr=log)
             after=json.loads(sql(f"SELECT json_build_object('physical',physical_qty,'reserved',reserved_qty) FROM \"{inventory_schema}\".inventory_items WHERE sku='PEER';",tuples=True))
-            assert after == {"physical":98,"reserved":0}, ("Native cancellation did not release Inventory",after)
+            assert after == {"physical":expected_physical,"reserved":0}, ("Native cancellation did not release Inventory",after)
             mobile_client_runtime="PASS"
             print("PASS: native Dart runtime -> real Catalog/Profile/cart/quote/checkout/replay/order/payment instructions/cancel -> Inventory released",flush=True)
         result = {
@@ -1557,6 +1571,7 @@ def main():
             "scope": "real Web/Keycloak/Kong/Identity/Profile/Catalog/Order/Inventory-TLS/Shipping-v2/PostgreSQL/Redis/Kafka; " + ("real Fulfillment/RustFS-versioned-video/ffprobe/ClamAV (fixture signature DB); " if args.fulfillment else "Fulfillment TEST; ") + "SePay statements TEST, carrier FAKE, no external money",
             "mobile_client_runtime": mobile_client_runtime,
             "accounts": 4,
+            "guest_checkout": args.guest_checkout,
             "inventory": stock,
             "flows": [
                 "native-identity-pkce-state-refresh-logout-and-persona-gates",
@@ -1568,6 +1583,7 @@ def main():
                 "shipping-revision-kafka-delivery-order-history",
                 "native-app-bound-PKCE-refresh-logout-persona-gates",
                 *( ["native-Dart-real-purchase-cancel-and-Inventory-release"] if args.flutter else [] ),
+                *( ["guest-COD-and-VietQR-order-grant-TEST-settlement", "OIDC-Customer-cart-merge-replay-revocation-dropped-SKU", "registered-Customer-COD"] if args.guest_checkout else [] ),
             ],
         }
         (folder / "result.json").write_text(json.dumps(result, indent=2))

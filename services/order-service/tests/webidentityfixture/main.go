@@ -27,6 +27,7 @@ func main() {
 		cfg.GuestSessionIssuanceEnabled = true
 		cfg.GuestCartMutationEnabled = true
 		cfg.GuestCODCheckoutEnabled = true
+		cfg.CODPolicyReference = "f53-test-cod-1"
 		cfg.GuestVietQRCheckoutEnabled = true
 		cfg.GuestCartMergeEnabled = true
 	}

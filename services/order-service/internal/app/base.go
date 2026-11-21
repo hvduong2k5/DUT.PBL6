@@ -35,6 +35,7 @@ import (
 )
 
 type Config struct {
+	CODPolicyReference                                                                                                           string
 	GuestTrustedProxyCIDRs                                                                                                       []string
 	GuestSessionIssuanceEnabled                                                                                                  bool
 	GuestSessionSecret                                                                                                           string
@@ -57,6 +58,7 @@ func LoadConfig() (Config, error) {
 	c := Config{SourceTopic: os.Getenv("ORDER_SOURCE_TOPIC"), ConsumerGroup: os.Getenv("ORDER_CONSUMER_GROUP"), ProfileToken: os.Getenv("PROFILE_INTERNAL_TOKEN"), DB: os.Getenv("DATABASE_URL"), Redis: os.Getenv("REDIS_ADDR"), Dependencies: os.Getenv("DEPENDENCY_URL"), Profile: os.Getenv("PROFILE_URL"), InternalToken: os.Getenv("ORDER_INTERNAL_TOKEN"), JWTSecret: os.Getenv("ORDER_JWT_SECRET"), EncryptionKey: os.Getenv("ORDER_ENCRYPTION_KEY"), CallbackSecret: os.Getenv("CALLBACK_SECRET"), Receiver: os.Getenv("PAYMENT_RECEIVER"), Kafka: os.Getenv("KAFKA_BROKERS"), HTTP: os.Getenv("HTTP_ADDR"), GRPC: os.Getenv("GRPC_ADDR"), Mode: os.Getenv("APP_MODE"), Poll: 100 * time.Millisecond, AutoComplete: os.Getenv("ENABLE_AUTO_COMPLETE") == "true"}
 	c.IdentityURL = os.Getenv("IDENTITY_URL")
 	c.CatalogURL = os.Getenv("ORDER_CATALOG_URL")
+	c.CODPolicyReference = os.Getenv("ORDER_COD_POLICY_REFERENCE")
 	c.CatalogWarehouse = os.Getenv("ORDER_WAREHOUSE_ID")
 	c.CatalogShippingCarrier = os.Getenv("ORDER_QUOTE_CARRIER_CODE")
 	c.CatalogShippingService = os.Getenv("ORDER_QUOTE_SERVICE_CODE")

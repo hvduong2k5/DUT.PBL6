@@ -8,21 +8,24 @@ import urllib.request
 import uuid
 
 
-def guest_purchases(request, web, control):
-    for method in ["COD", "VIETQR"]:
+def guest_purchases(request, web, control, customer_opener=None):
+    for method in (["COD"] if customer_opener else ["COD", "VIETQR"]):
         jar = http.cookiejar.CookieJar()
-        opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
+        opener = customer_opener or urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
 
         def call(path, body=None, verb=None, headers=None):
             return request(web + path, body, method=verb, opener=opener,
                            headers={"Origin": web, **(headers or {})})
 
         status, cart, _ = call("/api/cart")
-        assert status == 200 and not cart["items"] and not list(jar), "page read created a guest session"
-        status, cart, _ = call("/api/cart/items", {"sku_code": "PEER", "quantity": 1, "revision": 0}, "POST")
+        assert status == 200 and not cart["items"], ("expected empty purchase cart", status, cart)
+        if not customer_opener:
+            assert not list(jar), "page read created a guest session"
+        status, cart, _ = call("/api/cart/items", {"sku_code": "PEER", "quantity": 1, "revision": cart["revision"]}, "POST")
         assert status == 200, ("guest cart", method, status, cart)
-        assert any(c.name == "oma_guest_session" and c.has_nonstandard_attr("HttpOnly") for c in jar)
-        assert not any(c.name == "OMAMA_SESSION" for c in jar), "guest acquired identity material"
+        if not customer_opener:
+            assert any(c.name == "oma_guest_session" and c.has_nonstandard_attr("HttpOnly") for c in jar)
+            assert not any(c.name == "OMAMA_SESSION" for c in jar), "guest acquired identity material"
         quote_input = {"cart_revision": cart["revision"], "payment_method": method,
                        "address": {"recipient_name": "Guest TEST", "phone": "0905123456",
                                    "street": "Test only", "province_code": "75", "ward_code": "HUE-01"}}
@@ -35,6 +38,7 @@ def guest_purchases(request, web, control):
         for _ in range(30):
             if operation["status"] == "SUCCEEDED":
                 break
+            time.sleep(0.2)
             status, operation, _ = call("/api/checkout/operations/" + operation["operation_id"])
             assert status == 200, ("guest operation", status, operation)
         assert operation["status"] == "SUCCEEDED", operation
@@ -50,6 +54,7 @@ def guest_purchases(request, web, control):
             assert status == 204, ("guest payment grant", status)
             assert any(c.name.startswith("oma_guest_payment_") and c.has_nonstandard_attr("HttpOnly") for c in jar)
             for _ in range(20):
+                time.sleep(0.2)
                 status, payment, _ = call(f"/api/payments/orders/{order_id}/status")
                 assert status == 200, ("guest payment poll", status, payment)
                 if payment["can_pay"]:
@@ -58,11 +63,12 @@ def guest_purchases(request, web, control):
             assert call(f"/api/payments/orders/{order_id}/instructions")[0] == 200
             assert request(control + "/pay?order=" + order_id, {}, method="POST")[0] == 202
             for _ in range(25):
+                time.sleep(0.2)
                 status, payment, _ = call(f"/api/payments/orders/{order_id}/status")
                 if status == 200 and payment["order_status"] == "PAID":
                     break
             assert payment["order_status"] == "PAID", ("guest TEST settlement", payment)
-        print("PASS: logged-out real Web BFF -> gateway -> guest " + method + " checkout/owned reads" +
+        print("PASS: real Web BFF -> gateway -> " + ("registered Customer " if customer_opener else "logged-out guest ") + method + " checkout/owned reads" +
               ("/order-grant polling/TEST settlement" if method == "VIETQR" else "/CONFIRMED_COD"), flush=True)
 
 

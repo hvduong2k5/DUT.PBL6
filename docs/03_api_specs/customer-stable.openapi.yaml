@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Customer Web API - Stable
-  version: 1.2.0
+  version: 1.2.1
   description: Implementation-ready contract for Guest, Registered Customer, and verified
     B2B Customer journeys. Marketplace and Offline are channels, not web login roles.
   license:
@@ -49,6 +49,7 @@ x-guest-cart-policy:
   mutation-flag: GUEST_CART_MUTATION_ENABLED
   mutations-per-session-minute: 60
   cod-flag: GUEST_COD_CHECKOUT_ENABLED
+  cod-collection-policy: ORDER_COD_POLICY_REFERENCE (required with the real Catalog provider; empty rejects COD with 422 COD_NOT_AVAILABLE)
   pending-unpaid-order-limit: 3
   quota-status: 429
   quota-code: GUEST_PENDING_ORDER_LIMIT
@@ -476,6 +477,9 @@ paths:
         methods in keycloak mode; all flags default false. Guest skips Identity/Profile only after the guest
         route allowlist. Saved addresses remain customer-only. The existing simulator accepts province 75
         and ward HUE-01; this seam is unchanged.
+        Real Catalog COD additionally requires a server-configured ORDER_COD_POLICY_REFERENCE. The
+        canonical snapshot records the final collect amount, with no bank receiver or payment deadline.
+        A confirmed COD order remains UNPAID; completion still requires Finance settlement evidence.
       requestBody:
         required: true
         content:

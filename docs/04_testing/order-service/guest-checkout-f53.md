@@ -93,6 +93,12 @@ quota is 60/session/minute. PostgreSQL admission locks the session and permits
 at most 3 unpaid pending orders, counting in-flight operations; concurrent keys
 cannot bypass it and existing idempotent results can replay at quota.
 
+Real Catalog COD requires `ORDER_COD_POLICY_REFERENCE` (an explicit versioned
+collection policy; empty keeps that provider's COD admission off). Placement
+snapshots only the amount to collect and leaves payment UNPAID. The previous
+blanket rejection mixed placement with the later Finance settlement requirement;
+the completion evidence gate remains enforced. No paid/settled proof is created.
+
 Tests cover keycloak-mode guest COD over HTTP through CONFIRMED_COD persistence,
 a fourth-order rejection, replay at quota, eight concurrent admission keys,
 cart flag-off and 60/61 mutation requests. The simulator address seam is unchanged.
