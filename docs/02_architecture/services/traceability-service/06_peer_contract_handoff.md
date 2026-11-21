@@ -14,7 +14,7 @@
 
 Tham chiếu [Inventory proto](../../../../packages/proto/inventory/v1/inventory.proto),
 [Packing proto](../../../../packages/proto/packing/v1/packing.proto),
-[Catalog checkout OpenAPI](../../../03_api_specs/catalog-checkout.openapi.yaml),
+[Catalog proto](../../../../packages/proto/catalog/v1/catalog.proto),
 [staff token schema](../../../../packages/contracts/iam/staff-token.v1.schema.json),
 [customer OpenAPI](../../../03_api_specs/customer-stable.openapi.yaml) và
 [MVP registry](../../../../packages/contracts/mvp/registry.yaml).

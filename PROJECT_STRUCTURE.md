@@ -296,7 +296,6 @@ docs/
 │   ├── mvp-customer.openapi.yaml          # Public contract (Web/Mobile/BFF)
 │   ├── admin-stable.openapi.yaml          # Admin read contract (đã cập nhật ApiResponse envelope)
 │   ├── admin-draft-planned.openapi.yaml   # Admin write contract (draft, chưa freeze)
-│   ├── catalog-checkout.openapi.yaml      # Internal HTTP contract (checkout/snapshot)
 │   ├── openapi_d2c.yaml                   # D2C contract
 │   ├── customer-stable.openapi.yaml
 │   ├── customer-draft-planned.openapi.yaml

@@ -182,10 +182,9 @@ services/catalog-service/
 - 401: Giữ response chung của Spring Security.
 - Admin write (POST/PUT): Bọc trong `ApiResponse` envelope.
 
-### 4.3. Internal Contract (`catalog-checkout.openapi.yaml`)
-- Port 8005 (không phải 8006).
-- Snapshot chỉ nhận `D2C_WEB` / `MOBILE_APP`.
-- Endpoint `/api/v1/internal/prices/validate` deprecated + bắt buộc `X-Internal-Token`.
+### 4.3. Internal Communication (East-West)
+- Toàn bộ giao tiếp nội bộ giữa các microservices (Checkout pricing, Traceability binding, SKU lookup) đã chuyển 100% sang gRPC (`packages/proto/catalog/v1/catalog.proto`).
+- Các REST internal adapter cũ (`/api/v1/internal/prices/validate`, `/api/v1/internal/catalog/snapshots`, `/api/v1/internal/traceability/...`) và file `catalog-checkout.openapi.yaml` đã được decommission hoàn toàn.
 
 ### 4.4. gRPC Contract (`packages/proto/catalog/v1/catalog.proto`)
 - Chỉ dùng nội bộ. Không khôi phục `catalog_public.proto` / `catalog_admin.proto`.

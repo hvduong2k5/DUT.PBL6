@@ -57,7 +57,7 @@ fix(catalog): escape XML comparison operators in ProductMapper.xml
 - Admin catalog API contract: `docs/03_api_specs/admin-stable.openapi.yaml`
 - Admin state matrix: `docs/03_api_specs/admin-api-state-matrix.md`
 - Do not create new catalog doc files outside `docs/03_api_specs/`.
-- `catalog-checkout.openapi.yaml` must be kept (referenced by `packages/contracts/mvp/registry.yaml`).
+- Internal service-to-service communication (Checkout, Traceability) uses gRPC `packages/proto/catalog/v1/catalog.proto`. Internal REST adapters are fully decommissioned.
 
 ## Frontend API Contract Handoff
 
