@@ -183,5 +183,10 @@ func Verify(ctx context.Context, db *sql.DB) error {
 			return fmt.Errorf("Inventory schema missing migration %s; run inventory-migrate before starting the server", m.name)
 		}
 	}
+	if _, err = tx.ExecContext(ctx, `SELECT event_id,source,payload_hash,topic,partition_id,offset_id FROM procurement_receipt_inbox LIMIT 0;
+SELECT supplier_lot_code,version,mfg_date,exp_date FROM batches LIMIT 0;
+SELECT source,receipt_id,batch_id,base_unit,data_hash FROM procurement_receipts LIMIT 0;`); err != nil {
+		return fmt.Errorf("Inventory schema is incomplete despite migration history; repair using the reviewed migration job: %w", err)
+	}
 	return tx.Commit()
 }

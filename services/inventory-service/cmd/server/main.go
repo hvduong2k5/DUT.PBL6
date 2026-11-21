@@ -94,8 +94,9 @@ func main() {
 	redisAddr := getEnv("REDIS_ADDR", "localhost:6379")
 	redisPassword := getEnv("REDIS_PASSWORD", "redispassword")
 	kafkaBrokersStr := getEnv("KAFKA_BROKERS", "") // e.g. "localhost:9092"
+	procurementEnabled := getEnv("INVENTORY_PROCUREMENT_ENABLED", "false") == "true"
 	procurementWarehouseMap := os.Getenv("INVENTORY_PROCUREMENT_WAREHOUSE_MAP")
-	if procurementWarehouseMap != "" && kafkaBrokersStr == "" {
+	if procurementEnabled && kafkaBrokersStr == "" {
 		log.Fatal("Procurement consumer requires KAFKA_BROKERS")
 	}
 
@@ -158,16 +159,33 @@ func main() {
 	workerCtx, workerCancel := context.WithCancel(context.Background())
 	defer workerCancel()
 
-	if procurementWarehouseMap != "" {
+	if procurementEnabled {
 		mappings, err := presentationkafka.ProcurementWarehouseMap(procurementWarehouseMap)
 		if err != nil {
 			log.Fatal(err)
 		}
-		var schemaReady bool
-		if err := db.QueryRow("SELECT to_regclass('procurement_receipt_inbox') IS NOT NULL").Scan(&schemaReady); err != nil || !schemaReady {
-			log.Fatal("apply Inventory migration 000006 before enabling the Procurement consumer")
+		units, err := presentationkafka.ProcurementUnitMap(os.Getenv("INVENTORY_PROCUREMENT_UNIT_MAP"))
+		if err != nil {
+			log.Fatal(err)
 		}
-		go presentationkafka.RunProcurementConsumer(workerCtx, strings.Split(kafkaBrokersStr, ","), db, mappings)
+		go presentationkafka.RunProcurementConsumer(workerCtx, strings.Split(kafkaBrokersStr, ","), db, mappings, units)
+	}
+
+	if !procurementEnabled {
+		log.Print("[Inventory Procurement] consumer disabled: INVENTORY_PROCUREMENT_ENABLED=false")
+	}
+	if addr := os.Getenv("INVENTORY_METRICS_ADDR"); addr != "" {
+		metricsServer := &http.Server{Addr: addr, Handler: presentationkafka.ProcurementMonitor(procurementEnabled), ReadHeaderTimeout: 5 * time.Second}
+		listener, err := net.Listen("tcp", addr)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer metricsServer.Close()
+		go func() {
+			if err := metricsServer.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				log.Printf("Inventory metrics server: %v", err)
+			}
+		}()
 	}
 
 	// 6.1 Transactional Outbox Publisher Worker

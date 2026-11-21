@@ -37,12 +37,12 @@ func packingSlots(ctx context.Context, tx *sql.Tx, r *terminalRecord, lines map[
 	out := []*packing.BatchSlot{}
 	for _, a := range r.allocations {
 		var code, state string
-		var until time.Time
+		var until sql.NullTime
 		var revision int64
 		if e := tx.QueryRowContext(ctx, `SELECT batch_code,status,exp_date::timestamptz,version FROM batches WHERE id=$1 AND sku=$2 FOR SHARE`, a.BatchID, a.SKU).Scan(&code, &state, &until, &revision); e != nil {
 			return nil, e
 		}
-		out = append(out, &packing.BatchSlot{AllocationId: allocationID(r.outcome.ReservationId, a.SKU, a.BatchID.String()), OrderLineId: lines[a.SKU], SkuCode: a.SKU, BatchId: a.BatchID.String(), BatchCode: code, AllocatedQuantity: int32(a.AllocatedQty), BatchValidUntil: timestamppb.New(until), EligibilityRevision: revision, CurrentlyEligible: state == "ACTIVE" || state == "NEAR_EXPIRY"})
+		out = append(out, &packing.BatchSlot{AllocationId: allocationID(r.outcome.ReservationId, a.SKU, a.BatchID.String()), OrderLineId: lines[a.SKU], SkuCode: a.SKU, BatchId: a.BatchID.String(), BatchCode: code, AllocatedQuantity: int32(a.AllocatedQty), BatchValidUntil: optionalBatchDate(until.Time), EligibilityRevision: revision, CurrentlyEligible: until.Valid && (state == "ACTIVE" || state == "NEAR_EXPIRY")})
 	}
 	return out, nil
 }
