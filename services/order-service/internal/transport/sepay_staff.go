@@ -275,6 +275,39 @@ func sepayStaffRoutes(s *app.Service, r chi.Router) {
 		}
 		write(w, 200, view)
 	})
+	r.Post("/api/v1/admin/payments/reconciliation-cases/{case_id}/decisions", func(w http.ResponseWriter, r *http.Request) {
+		actor, ok := paymentStaff(s, w, r)
+		if !ok {
+			return
+		}
+		var in struct {
+			Reason     string   `json:"reason"`
+			Resolution string   `json:"resolution"`
+			Evidence   []string `json:"evidence_ids"`
+		}
+		if e := paymentDecode(w, r, &in); e != nil {
+			failure(s, w, e)
+			return
+		}
+		view, e := s.Payment.CreateCaseDecision(r.Context(), actor, chi.URLParam(r, "case_id"), in.Resolution, in.Reason, in.Evidence)
+		if e != nil {
+			sepayError(s, w, e)
+			return
+		}
+		write(w, 201, view)
+	})
+	r.Get("/api/v1/admin/payments/reconciliation-cases/{case_id}/decisions", func(w http.ResponseWriter, r *http.Request) {
+		actor, ok := paymentStaff(s, w, r)
+		if !ok {
+			return
+		}
+		items, e := s.Payment.ListCaseDecisions(r.Context(), actor, chi.URLParam(r, "case_id"))
+		if e != nil {
+			sepayError(s, w, e)
+			return
+		}
+		write(w, 200, map[string]any{"items": items})
+	})
 	r.Post("/api/v1/admin/payments/evidence-uploads", func(w http.ResponseWriter, r *http.Request) {
 		actor, ok := paymentStaff(s, w, r)
 		if !ok {
