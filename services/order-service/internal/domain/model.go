@@ -27,10 +27,33 @@ func (e *Error) Error() string        { return e.Code }
 func E(code string, status int) error { return &Error{code, status} }
 
 type Principal struct {
-	ID         string `json:"id"`
-	Role       string `json:"role"`
-	Warehouse  string `json:"warehouse"`
-	CustomerID string `json:"customer_id,omitempty"`
+	Kind       PrincipalKind `json:"kind,omitempty"`
+	ID         string        `json:"id"`
+	Role       string        `json:"role"`
+	Warehouse  string        `json:"warehouse"`
+	CustomerID string        `json:"customer_id,omitempty"`
+}
+
+type PrincipalKind string
+
+const (
+	Customer          PrincipalKind = "CUSTOMER"
+	Guest             PrincipalKind = "GUEST"
+	GuestPaymentGrant PrincipalKind = "GUEST_PAYMENT_GRANT"
+	Employee          PrincipalKind = "EMPLOYEE"
+)
+
+func (p Principal) PrincipalKind() PrincipalKind {
+	if p.Kind != "" {
+		return p.Kind
+	}
+	if p.Role == "CUSTOMER" {
+		return Customer
+	}
+	if p.Role == "GUEST" {
+		return Guest
+	}
+	return Employee
 }
 
 func (p Principal) Scope() string { return strings.ToLower(p.Role) + ":" + p.ID }

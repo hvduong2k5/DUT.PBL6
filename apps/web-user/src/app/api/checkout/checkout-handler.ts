@@ -6,8 +6,8 @@ import {
   type OrderQuote,
   type PublicErrorBody
 } from "@/lib/api-contract";
-import { authorizeCustomerCapability, customerAccessFailure } from "@/lib/auth/customer-access-server";
-import { applyTrustedAuthorization, getTrustedAccessToken } from "@/lib/auth/server-credential";
+import { customerAccessFailure } from "@/lib/auth/customer-access-server";
+import { applyStorefrontAuthorization, authorizeStorefrontCapability, withGuestCookie, storefrontUpstream, GuestRateLimitError } from "@/lib/auth/storefront-credential";
 import { MVP_FEATURE_GATES } from "@/lib/mvp-feature-gates";
 import {
   parseMvpCheckoutRoute,
@@ -45,7 +45,7 @@ function publicErrorResponse(
 
 function upstreamHeaders(request: NextRequest, scenario?: string, hasBody = false, idempotencyKey?: string): Headers {
   const headers = new Headers({ Accept: "application/vnd.omama.customer-mvp+json, application/json" });
-  applyTrustedAuthorization(headers, request);
+  applyStorefrontAuthorization(headers, request);
   if (hasBody) headers.set("Content-Type", "application/json");
   if (idempotencyKey) headers.set("Idempotency-Key", idempotencyKey);
   if (process.env.NODE_ENV !== "production" && scenario) headers.set("X-Mock-Scenario", scenario);
@@ -60,7 +60,7 @@ async function callUpstream(
   body?: unknown,
   idempotencyKey?: string
 ) {
-  const base = (process.env.CUSTOMER_CORE_UPSTREAM_URL ?? "http://127.0.0.1:4010/api/v1").replace(/\/$/u, "");
+  const base = storefrontUpstream(request);
   const response = await fetch(`${base}/${path}`, {
     method,
     headers: upstreamHeaders(request, scenario, body !== undefined, idempotencyKey),
@@ -144,7 +144,11 @@ function isCheckoutOperation(value: unknown): value is CheckoutOperation {
     && isIsoDateTime(value.updated_at);
 }
 
-export async function handleCheckoutRequest(request: NextRequest, path: string[]): Promise<Response> {
+export function handleCheckoutRequest(request: NextRequest, path: string[]): Promise<Response> {
+  return withGuestCookie(request, () => handleAuthorizedCheckoutRequest(request, path));
+}
+
+async function handleAuthorizedCheckoutRequest(request: NextRequest, path: string[]): Promise<Response> {
   const route = parseMvpCheckoutRoute(request.method, path, request.nextUrl.searchParams);
   if (route.error || !route.operation) {
     const notFound = route.error?.field === "path";
@@ -163,11 +167,10 @@ export async function handleCheckoutRequest(request: NextRequest, path: string[]
     return publicErrorResponse(400, "INVALID_REQUEST", "Mock scenario không khả dụng trong production.", "BFF-CHECKOUT-SCENARIO");
   }
 
-  const accessToken = getTrustedAccessToken(request);
   try {
-    await authorizeCustomerCapability(accessToken, "CHECKOUT_CREATE");
+    await authorizeStorefrontCapability(request, "CHECKOUT_CREATE", request.method !== "GET");
   } catch (cause) {
-    const failure = customerAccessFailure(cause);
+    const failure = cause instanceof GuestRateLimitError ? { status: 429, code: cause.code, message: "Vui lòng thử lại sau." } : customerAccessFailure(cause);
     return publicErrorResponse(failure.status, failure.code, failure.message, "BFF-CHECKOUT-ACCESS");
   }
 

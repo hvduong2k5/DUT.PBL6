@@ -202,6 +202,9 @@ func (s *Service) Canonical(ctx context.Context, q domain.Quote) (domain.Quote, 
 	return q, nil
 }
 func (s *Service) CreateQuote(ctx context.Context, p domain.Principal, in domain.QuoteInput) (domain.Quote, error) {
+	if e := s.GuestPaymentMethodAllowed(p, in.Method); e != nil {
+		return domain.Quote{}, e
+	}
 	if p.Role != "CUSTOMER" && p.Role != "GUEST" {
 		return domain.Quote{}, domain.E("PERMISSION_DENIED", 403)
 	}
@@ -325,6 +328,9 @@ func (s *Service) replay(ctx context.Context, p domain.Principal, key, hash stri
 	return o, 202, nil
 }
 func (s *Service) Accept(ctx context.Context, p domain.Principal, key string, in domain.CheckoutInput) (domain.Operation, int, error) {
+	if e := s.GuestPaymentMethodAllowed(p, in.Method); e != nil {
+		return domain.Operation{}, 403, e
+	}
 	if s.CoreCheckout != nil {
 		return s.acceptCore(ctx, p, key, in)
 	}

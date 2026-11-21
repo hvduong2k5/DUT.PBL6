@@ -100,3 +100,17 @@ These rows are proposals. Backend may refine them, but must record the decision 
 4. Every mutation validates `400/422`, transition or revision conflict `409`, and retry behavior.
 5. Every endpoint has controlled latency and `500/503` UI tests.
 6. Error responses preserve `code` and `requestId`; clients do not branch on translated `message`.
+
+
+## F-53 guest checkout trust boundary (B-G0)
+
+All guest feature flags default OFF. Customer login presence takes precedence over any guest cookie, including invalid/expired login sessions. Guest fixed capabilities cover cart, checkout and exact own-order reads only; account/profile/history, employee and payment writes retain customer/employee authorization. Payment grants cover exact-order payment reads only and never use guest-session validation. No fallback after either validator rejects a token.
+
+| Operation | Success / loading | Empty | Errors | Authentication / authorization |
+| --- | --- | --- | --- | --- |
+| `POST /api/v1/guest-sessions` | 201 / disable duplicate action | No session for plain page views or an empty cart read | 400 input overrides, 429 quota, 503 persistence | Anonymous; 403 when issuance flag off |
+| `DELETE /api/v1/guest-sessions/current` | 204 / revoke pending | N/A | 503 | 401 invalid session; 403 wrong principal |
+| `POST /api/v1/orders/{order_id}/guest-payment-access` | 201 / mint pending | N/A | 400 key, 404 ownership, 409 replay, 503 | Active owning guest session only |
+| `DELETE /api/v1/orders/{order_id}/guest-payment-access` | 204 / revoke pending | N/A | 400 key, 404 ownership, 503 | Active owning guest session only |
+
+AUTH-11..16 must pass before enabling cart/COD. Customer step-up and cross-customer isolation remain mandatory. The rc.2 pick, deployment, Kong restart after recreation, live COD/SePay/merge proofs require Muse audit and Bao approval; local checks alone are not release acceptance.

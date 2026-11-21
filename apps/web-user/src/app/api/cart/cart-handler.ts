@@ -5,8 +5,8 @@ import {
   type OrderItem,
   type PublicErrorBody
 } from "@/lib/api-contract";
-import { authorizeCustomerCapability, customerAccessFailure } from "@/lib/auth/customer-access-server";
-import { applyTrustedAuthorization, getTrustedAccessToken } from "@/lib/auth/server-credential";
+import { customerAccessFailure } from "@/lib/auth/customer-access-server";
+import { applyStorefrontAuthorization, authorizeStorefrontCapability, withGuestCookie, storefrontUpstream, hasStorefrontToken, GuestRateLimitError } from "@/lib/auth/storefront-credential";
 import {
   parseMvpCartRoute,
   validateMvpAddCartItemInput,
@@ -41,7 +41,7 @@ function publicErrorResponse(
 
 function upstreamHeaders(request: NextRequest, hasBody: boolean, scenario?: string): Headers {
   const headers = new Headers({ Accept: "application/json" });
-  applyTrustedAuthorization(headers, request);
+  applyStorefrontAuthorization(headers, request);
   const ifMatch = request.headers.get("if-match");
   if (ifMatch) headers.set("If-Match", ifMatch);
   if (hasBody) headers.set("Content-Type", "application/json");
@@ -50,7 +50,7 @@ function upstreamHeaders(request: NextRequest, hasBody: boolean, scenario?: stri
 }
 
 async function callUpstream(request: NextRequest, path: string, method: string, scenario?: string, body?: unknown) {
-  const base = (process.env.CUSTOMER_CORE_UPSTREAM_URL ?? "http://127.0.0.1:4010/api/v1").replace(/\/$/u, "");
+  const base = storefrontUpstream(request);
   const response = await fetch(`${base}/${path}`, {
     method,
     headers: upstreamHeaders(request, body !== undefined, scenario),
@@ -126,7 +126,11 @@ function normalizeCart(payload: unknown, fallbackRevision: number, updatedItem?:
   return { revision: fallbackRevision, items };
 }
 
-export async function handleCartRequest(request: NextRequest, path: string[]): Promise<Response> {
+export function handleCartRequest(request: NextRequest, path: string[]): Promise<Response> {
+  return withGuestCookie(request, () => handleAuthorizedCartRequest(request, path));
+}
+
+async function handleAuthorizedCartRequest(request: NextRequest, path: string[]): Promise<Response> {
   const validation = parseMvpCartRoute(request.method, path, request.nextUrl.searchParams);
   if (validation.error || !validation.operation) {
     const notFound = validation.error?.field === "path";
@@ -145,16 +149,16 @@ export async function handleCartRequest(request: NextRequest, path: string[]): P
     return publicErrorResponse(400, "INVALID_REQUEST", "Mock scenario không khả dụng trong production.", "BFF-CART-SCENARIO");
   }
 
-  const accessToken = getTrustedAccessToken(request);
   try {
-    await authorizeCustomerCapability(accessToken, "CART_MANAGE");
+    await authorizeStorefrontCapability(request, "CART_MANAGE", request.method !== "GET");
   } catch (cause) {
-    const failure = customerAccessFailure(cause);
+    const failure = cause instanceof GuestRateLimitError ? { status: 429, code: cause.code, message: "Vui lòng thử lại sau." } : customerAccessFailure(cause);
     return publicErrorResponse(failure.status, failure.code, failure.message, "BFF-CART-ACCESS");
   }
 
   try {
     if (validation.operation === "get-cart") {
+      if (!hasStorefrontToken(request)) return Response.json({ revision: 0, items: [] });
       const result = await callUpstream(request, "cart", "GET", validation.mockScenario);
       if (!result.response.ok) return relayUpstreamError(result.payload, result.response);
       const cart = normalizeCart(result.payload, 0);

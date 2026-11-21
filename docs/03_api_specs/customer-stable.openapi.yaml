@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Customer Web API - Stable
-  version: 1.0.0
+  version: 1.1.0
   description: Implementation-ready contract for Guest, Registered Customer, and verified
     B2B Customer journeys. Marketplace and Offline are channels, not web login roles.
   license:
@@ -46,6 +46,598 @@ tags:
 - name: Partner webhooks
   description: Partner webhooks operations for the customer web application.
 paths:
+  /api/v1/checkout/quote:
+    post:
+      tags:
+      - Checkout
+      operationId: postCheckoutQuote
+      summary: Quote the credential-owned full cart; guests use an inline address
+      x-lifecycle: stable
+      x-backlog:
+      - F-53
+      x-ui-states:
+      - loading
+      - success
+      - error
+      - unauthorized
+      - forbidden
+      security:
+      - bearerAuth: []
+      - customerSession: []
+      - guestSession: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/vnd.omama.customer-mvp+json:
+              schema:
+                type: object
+                required:
+                - quote_id
+                - cart_revision
+                - payment_method
+                - items
+                - address
+                - final_amount
+                - expires_at
+                properties:
+                  quote_id:
+                    type: string
+                    format: uuid
+                  cart_revision:
+                    type: integer
+                  payment_method:
+                    type: string
+                    enum:
+                    - COD
+                    - VIETQR
+                  items:
+                    type: array
+                    items:
+                      type: object
+                  address: &id002
+                    type: object
+                    required:
+                    - recipient_name
+                    - phone
+                    - street
+                    - province_code
+                    - ward_code
+                    additionalProperties: false
+                    properties:
+                      recipient_name:
+                        type: string
+                      phone:
+                        type: string
+                      street:
+                        type: string
+                      province_code:
+                        type: string
+                      ward_code:
+                        type: string
+                  subtotal:
+                    type: integer
+                  shipping_fee:
+                    type: integer
+                  final_amount:
+                    type: integer
+                  expires_at:
+                    type: string
+                    format: date-time
+                  shipping_expires_at:
+                    type: string
+                    format: date-time
+        '400': &id001
+          description: Controlled error; stable code, safe message and requestId.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401': *id001
+        '403': *id001
+        '409': *id001
+        '422': *id001
+        '503': *id001
+      description: GUEST_COD_CHECKOUT_ENABLED and GUEST_VIETQR_CHECKOUT_ENABLED independently gate guest
+        methods in keycloak mode; all flags default false. Guest skips Identity/Profile only after the guest
+        route allowlist. Saved addresses remain customer-only. The existing simulator accepts province 75
+        and ward HUE-01; this seam is unchanged.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - cart_revision
+              - payment_method
+              additionalProperties: false
+              properties:
+                cart_revision:
+                  type: integer
+                  minimum: 0
+                payment_method:
+                  type: string
+                  enum:
+                  - COD
+                  - VIETQR
+                address: *id002
+                shipping_address_id:
+                  type: string
+                  format: uuid
+                voucher_code:
+                  type: string
+              oneOf:
+              - required:
+                - address
+              - required:
+                - shipping_address_id
+            example:
+              cart_revision: 1
+              payment_method: COD
+              address:
+                recipient_name: Guest
+                phone: '0901234567'
+                street: 1 Test Street
+                province_code: '75'
+                ward_code: HUE-01
+  /api/v1/checkout-operations/{id}:
+    get:
+      tags:
+      - Checkout
+      operationId: getCheckoutOperation
+      summary: Read this credential-owned checkout operation
+      x-lifecycle: stable
+      x-backlog:
+      - F-53
+      x-ui-states:
+      - loading
+      - success
+      - error
+      - unauthorized
+      - forbidden
+      security:
+      - bearerAuth: []
+      - customerSession: []
+      - guestSession: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - operation_id
+                - status
+                - accepted_at
+                properties:
+                  operation_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    enum:
+                    - ACCEPTED
+                    - PROCESSING
+                    - SUCCEEDED
+                    - FAILED
+                    - MANUAL_REVIEW
+                  order_id:
+                    type:
+                    - string
+                    - 'null'
+                    format: uuid
+                  order_status:
+                    type: string
+                  accepted_at:
+                    type: string
+                    format: date-time
+        '400': *id001
+        '401': *id001
+        '403': *id001
+        '409': *id001
+        '422': *id001
+        '503': *id001
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+  /api/v1/guest-sessions:
+    post:
+      tags:
+      - Authentication
+      operationId: postGuestSessions
+      summary: Issue a server-owned guest checkout session
+      description: GUEST_SESSION_ISSUANCE_ENABLED defaults false in keycloak mode (403 GUEST_SESSIONS_DISABLED).
+        Dedicated HS256, typ guest-session+jwt, issuer order-service-guest-session, audience order-storefront.
+        Exactly one persisted session, maximum 24 hours. No identity or Keycloak credential required. Reject
+        all input fields including role, scope, session_id, expires_in, issuer and audience. Limit 10 per
+        ingress IP/hour (configurable); 429 persists nothing. BFF creates lazily on an action and stores
+        only an httpOnly SameSite=Lax host cookie; page views never issue. Invalid existing login credentials
+        never fall back to guest.
+      x-lifecycle: stable
+      x-backlog:
+      - F-53
+      x-ui-states:
+      - loading
+      - success
+      - error
+      - unauthorized
+      - forbidden
+      security: []
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - session_id
+                - access_token
+                - expires_at
+                properties:
+                  session_id:
+                    type: string
+                    format: uuid
+                  access_token:
+                    type: string
+                  expires_at:
+                    type: string
+                    format: date-time
+              example:
+                session_id: 10000000-0000-4000-8000-000000000053
+                access_token: <dedicated-guest-session-jwt>
+                expires_at: '2026-11-22T00:00:00Z'
+        '400':
+          description: Controlled failure. Error code, safe message and requestId; 401 invalid credential,
+            403 insufficient permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: INVALID_REQUEST
+                message: The guest request could not be completed.
+                requestId: 10000000-0000-4000-8000-000000000053
+        '401':
+          description: Controlled failure. Error code, safe message and requestId; 401 invalid credential,
+            403 insufficient permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: UNAUTHENTICATED
+                message: The guest request could not be completed.
+                requestId: 10000000-0000-4000-8000-000000000053
+        '403':
+          description: Controlled failure. Error code, safe message and requestId; 401 invalid credential,
+            403 insufficient permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: GUEST_SESSIONS_DISABLED
+                message: The guest request could not be completed.
+                requestId: 10000000-0000-4000-8000-000000000053
+        '429':
+          description: Controlled failure. Error code, safe message and requestId; 401 invalid credential,
+            403 insufficient permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: GUEST_RATE_LIMITED
+                message: The guest request could not be completed.
+                requestId: 10000000-0000-4000-8000-000000000053
+        '503':
+          description: Controlled failure. Error code, safe message and requestId; 401 invalid credential,
+            403 insufficient permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: GUEST_SESSION_UNAVAILABLE
+                message: The guest request could not be completed.
+                requestId: 10000000-0000-4000-8000-000000000053
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+            example: {}
+  /api/v1/guest-sessions/current:
+    delete:
+      tags:
+      - Authentication
+      operationId: deleteCurrentGuestSession
+      summary: Revoke this guest session and its grants
+      description: Guest session only; customer and payment grant credentials are forbidden. Revokes persisted
+        session; payment grants immediately become invalid.
+      x-lifecycle: stable
+      x-backlog:
+      - F-53
+      x-ui-states:
+      - loading
+      - success
+      - error
+      - unauthorized
+      - forbidden
+      security:
+      - guestSession: []
+      responses:
+        '204':
+          description: Success
+        '400':
+          description: Controlled failure. Error code, safe message and requestId; 401 invalid credential,
+            403 insufficient permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: INVALID_REQUEST
+                message: The guest request could not be completed.
+                requestId: 10000000-0000-4000-8000-000000000053
+        '401':
+          description: Controlled failure. Error code, safe message and requestId; 401 invalid credential,
+            403 insufficient permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: UNAUTHENTICATED
+                message: The guest request could not be completed.
+                requestId: 10000000-0000-4000-8000-000000000053
+        '403':
+          description: Controlled failure. Error code, safe message and requestId; 401 invalid credential,
+            403 insufficient permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: PERMISSION_DENIED
+                message: The guest request could not be completed.
+                requestId: 10000000-0000-4000-8000-000000000053
+        '429':
+          description: Controlled failure. Error code, safe message and requestId; 401 invalid credential,
+            403 insufficient permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: GUEST_RATE_LIMITED
+                message: The guest request could not be completed.
+                requestId: 10000000-0000-4000-8000-000000000053
+        '503':
+          description: Controlled failure. Error code, safe message and requestId; 401 invalid credential,
+            403 insufficient permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: GUEST_SESSION_UNAVAILABLE
+                message: The guest request could not be completed.
+                requestId: 10000000-0000-4000-8000-000000000053
+  /api/v1/orders/{order_id}/guest-payment-access:
+    parameters:
+    - name: order_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    post:
+      tags:
+      - Payments
+      operationId: postGuestPaymentAccess
+      summary: Mint or revoke an order-bound guest payment read grant
+      description: Only the owning active guest session. Required Idempotency-Key (16-128 characters). Grant
+        issuer order-service-guest, audience order-payment, scope payment:read; ES256 key remains separate.
+        A grant permits only GET payment and payment-instructions for this order; no staff writes, cart
+        or checkout.
+      x-lifecycle: stable
+      x-backlog:
+      - F-53
+      x-ui-states:
+      - loading
+      - success
+      - error
+      - unauthorized
+      - forbidden
+      security:
+      - guestSession: []
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - access_token
+                - order_id
+                - expires_at
+                properties:
+                  access_token:
+                    type: string
+                  token_type:
+                    type: string
+                    const: Bearer
+                  order_id:
+                    type: string
+                    format: uuid
+                  expires_at:
+                    type: string
+                    format: date-time
+                  session_expires_at:
+                    type: string
+                    format: date-time
+                  grant_version:
+                    type: integer
+        '400':
+          description: Controlled failure. Error code, safe message and requestId; 401 invalid credential,
+            403 insufficient permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: INVALID_REQUEST
+                message: The guest request could not be completed.
+                requestId: 10000000-0000-4000-8000-000000000053
+        '401':
+          description: Controlled failure. Error code, safe message and requestId; 401 invalid credential,
+            403 insufficient permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: UNAUTHENTICATED
+                message: The guest request could not be completed.
+                requestId: 10000000-0000-4000-8000-000000000053
+        '403':
+          description: Controlled failure. Error code, safe message and requestId; 401 invalid credential,
+            403 insufficient permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: PERMISSION_DENIED
+                message: The guest request could not be completed.
+                requestId: 10000000-0000-4000-8000-000000000053
+        '429':
+          description: Controlled failure. Error code, safe message and requestId; 401 invalid credential,
+            403 insufficient permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: GUEST_RATE_LIMITED
+                message: The guest request could not be completed.
+                requestId: 10000000-0000-4000-8000-000000000053
+        '503':
+          description: Controlled failure. Error code, safe message and requestId; 401 invalid credential,
+            403 insufficient permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: GUEST_SESSION_UNAVAILABLE
+                message: The guest request could not be completed.
+                requestId: 10000000-0000-4000-8000-000000000053
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 16
+          maxLength: 128
+    delete:
+      tags:
+      - Payments
+      operationId: deleteGuestPaymentAccess
+      summary: Mint or revoke an order-bound guest payment read grant
+      description: Only the owning active guest session. Required Idempotency-Key (16-128 characters). Grant
+        issuer order-service-guest, audience order-payment, scope payment:read; ES256 key remains separate.
+        A grant permits only GET payment and payment-instructions for this order; no staff writes, cart
+        or checkout.
+      x-lifecycle: stable
+      x-backlog:
+      - F-53
+      x-ui-states:
+      - loading
+      - success
+      - error
+      - unauthorized
+      - forbidden
+      security:
+      - guestSession: []
+      responses:
+        '204':
+          description: Success
+        '400':
+          description: Controlled failure. Error code, safe message and requestId; 401 invalid credential,
+            403 insufficient permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: INVALID_REQUEST
+                message: The guest request could not be completed.
+                requestId: 10000000-0000-4000-8000-000000000053
+        '401':
+          description: Controlled failure. Error code, safe message and requestId; 401 invalid credential,
+            403 insufficient permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: UNAUTHENTICATED
+                message: The guest request could not be completed.
+                requestId: 10000000-0000-4000-8000-000000000053
+        '403':
+          description: Controlled failure. Error code, safe message and requestId; 401 invalid credential,
+            403 insufficient permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: PERMISSION_DENIED
+                message: The guest request could not be completed.
+                requestId: 10000000-0000-4000-8000-000000000053
+        '429':
+          description: Controlled failure. Error code, safe message and requestId; 401 invalid credential,
+            403 insufficient permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: GUEST_RATE_LIMITED
+                message: The guest request could not be completed.
+                requestId: 10000000-0000-4000-8000-000000000053
+        '503':
+          description: Controlled failure. Error code, safe message and requestId; 401 invalid credential,
+            403 insufficient permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: GUEST_SESSION_UNAVAILABLE
+                message: The guest request could not be completed.
+                requestId: 10000000-0000-4000-8000-000000000053
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 16
+          maxLength: 128
   /api/v1/users/me:
     get:
       tags:
@@ -2735,6 +3327,7 @@ paths:
       - bearerAuth: []
       - customerSession: []
       - guestGrant: []
+      - guestSession: []
       responses:
         '200':
           description: Successful response.
@@ -3040,6 +3633,7 @@ paths:
       - bearerAuth: []
       - customerSession: []
       - guestGrant: []
+      - guestSession: []
       responses:
         '200':
           description: Successful response.
@@ -6393,6 +6987,7 @@ components:
       type: apiKey
       in: cookie
       name: guest_session
+      description: Storefront BFF guest cookie; direct Order calls use the dedicated guest session as a Bearer token.
     guestGrant:
       type: apiKey
       in: cookie
