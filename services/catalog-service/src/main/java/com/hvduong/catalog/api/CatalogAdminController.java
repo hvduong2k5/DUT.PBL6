@@ -9,6 +9,7 @@ import com.hvduong.catalog.application.dto.request.PatchCategoryRequest;
 import com.hvduong.catalog.application.dto.request.PatchProductRequest;
 import com.hvduong.catalog.application.dto.request.PatchVariantRequest;
 import com.hvduong.catalog.application.dto.request.ProductTransitionRequest;
+import com.hvduong.catalog.application.dto.request.ReviewProductImageRequest;
 import com.hvduong.catalog.application.dto.request.UpdateCategoryRequest;
 import com.hvduong.catalog.application.dto.request.UpdatePriceRequest;
 import com.hvduong.catalog.application.dto.request.UpdateProductImageRequest;
@@ -424,12 +425,11 @@ public class CatalogAdminController {
           "Thêm metadata ảnh (object key MinIO/S3). Nếu role=COVER và mediaStatus=APPROVED, "
               + "ảnh cover APPROVED cũ sẽ tự động được hạ xuống GALLERY.")
   @ApiResponses({
-    @ApiResponse(responseCode = "200", description = "Thêm ảnh sản phẩm thành công"),
+    @ApiResponse(responseCode = "201", description = "Thêm ảnh sản phẩm thành công"),
     @ApiResponse(responseCode = "400", description = "Dữ liệu ảnh không hợp lệ"),
     @ApiResponse(responseCode = "401", description = "Chưa xác thực"),
     @ApiResponse(responseCode = "403", description = "Không có quyền thực hiện"),
-    @ApiResponse(responseCode = "404", description = "Không tìm thấy sản phẩm"),
-    @ApiResponse(responseCode = "409", description = "Xung đột trạng thái ảnh")
+    @ApiResponse(responseCode = "404", description = "Không tìm thấy sản phẩm")
   })
   @PreAuthorize("hasAuthority('CATALOG_MANAGE')")
   @PostMapping("/products/{productId}/images")
@@ -441,13 +441,14 @@ public class CatalogAdminController {
     String actorId = resolveActorId(jwt, actorHeader);
     log.info("[REST-ADMIN] addImage: productId={}, actor={}", productId, actorId);
     ProductDetailResponse result = adminService.addImage(productId, request, actorId);
-    return ResponseEntity.ok(BaseResponse.success("Thêm ảnh sản phẩm thành công", result));
+    return ResponseEntity.status(HttpStatus.CREATED)
+        .body(BaseResponse.success("Thêm ảnh sản phẩm thành công", result));
   }
 
   @Operation(
-      summary = "Cập nhật metadata/trạng thái ảnh sản phẩm",
+      summary = "Cập nhật metadata hiển thị ảnh sản phẩm",
       description =
-          "Cập nhật alt text, role, thứ tự và trạng thái kiểm duyệt ảnh với optimistic locking.")
+          "Cập nhật alt text, role, thứ tự hiển thị với optimistic locking. Không cho phép sửa mediaStatus hoặc scanStatus.")
   @ApiResponses({
     @ApiResponse(responseCode = "200", description = "Cập nhật ảnh sản phẩm thành công"),
     @ApiResponse(responseCode = "400", description = "Dữ liệu cập nhật không hợp lệ"),
@@ -472,6 +473,38 @@ public class CatalogAdminController {
         actorId);
     ProductDetailResponse result = adminService.updateImage(productId, imageId, request, actorId);
     return ResponseEntity.ok(BaseResponse.success("Cập nhật ảnh sản phẩm thành công", result));
+  }
+
+  @Operation(
+      summary = "Kiểm duyệt nội dung ảnh sản phẩm",
+      description =
+          "Duyệt hoặc từ chối ảnh sản phẩm (Content Moderation). Yêu cầu quyền CATALOG_APPROVE. Ảnh phải có scanStatus là CLEAN và mediaStatus là PENDING_REVIEW.")
+  @ApiResponses({
+    @ApiResponse(responseCode = "200", description = "Kiểm duyệt ảnh sản phẩm thành công"),
+    @ApiResponse(responseCode = "400", description = "Dữ liệu hoặc trạng thái duyệt không hợp lệ"),
+    @ApiResponse(responseCode = "401", description = "Chưa xác thực"),
+    @ApiResponse(responseCode = "403", description = "Không có quyền thực hiện hoặc vi phạm SoD"),
+    @ApiResponse(responseCode = "404", description = "Không tìm thấy ảnh hoặc sản phẩm"),
+    @ApiResponse(responseCode = "409", description = "Xung đột phiên bản (optimistic lock)"),
+    @ApiResponse(responseCode = "422", description = "Ảnh chưa được quét an toàn mã độc")
+  })
+  @PreAuthorize("hasAuthority('CATALOG_APPROVE')")
+  @PostMapping("/products/{productId}/images/{imageId}/review")
+  public ResponseEntity<BaseResponse<ProductDetailResponse>> reviewImage(
+      @Parameter(description = "ID sản phẩm (UUID)", required = true) @PathVariable UUID productId,
+      @Parameter(description = "ID ảnh (UUID)", required = true) @PathVariable UUID imageId,
+      @Valid @RequestBody ReviewProductImageRequest request,
+      @AuthenticationPrincipal Jwt jwt,
+      @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorHeader) {
+    String actorId = resolveActorId(jwt, actorHeader);
+    log.info(
+        "[REST-ADMIN] reviewImage: productId={}, imageId={}, decision={}, actor={}",
+        productId,
+        imageId,
+        request.getDecision(),
+        actorId);
+    ProductDetailResponse result = adminService.reviewImage(productId, imageId, request, actorId);
+    return ResponseEntity.ok(BaseResponse.success("Kiểm duyệt ảnh sản phẩm thành công", result));
   }
 
   @Operation(

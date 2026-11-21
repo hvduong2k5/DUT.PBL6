@@ -18,6 +18,12 @@ public class AdminProductImageResponse {
   private String role;
   private Integer position;
   private String mediaStatus;
+  private String scanStatus;
+  private String scannedAt;
+  private String rejectedReason;
+  private String uploadedBy;
+  private String reviewedBy;
+  private String reviewedAt;
   private Long revision;
   private String createdAt;
   private String updatedAt;

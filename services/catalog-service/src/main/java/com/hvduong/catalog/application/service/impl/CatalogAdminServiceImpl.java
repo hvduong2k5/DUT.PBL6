@@ -8,6 +8,7 @@ import com.hvduong.catalog.application.dto.request.CreateVariantRequest;
 import com.hvduong.catalog.application.dto.request.PatchCategoryRequest;
 import com.hvduong.catalog.application.dto.request.PatchProductRequest;
 import com.hvduong.catalog.application.dto.request.PatchVariantRequest;
+import com.hvduong.catalog.application.dto.request.ReviewProductImageRequest;
 import com.hvduong.catalog.application.dto.request.UpdateCategoryRequest;
 import com.hvduong.catalog.application.dto.request.UpdatePriceRequest;
 import com.hvduong.catalog.application.dto.request.UpdateProductImageRequest;
@@ -1005,17 +1006,7 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
     findProductOrThrow(productId);
 
     String role = normalizeEnum("GALLERY", request.getRole(), CatalogConstants.IMAGE_ROLES, "role");
-    String mediaStatus =
-        normalizeEnum(
-            "PENDING_SCAN",
-            request.getMediaStatus(),
-            CatalogConstants.IMAGE_STATUSES,
-            "mediaStatus");
     int position = request.getPosition() == null ? 0 : request.getPosition();
-
-    if (isApprovedCover(role, mediaStatus)) {
-      imageMapper.demoteOtherApprovedCovers(productId, null);
-    }
 
     imageMapper.insert(
         ProductImage.builder()
@@ -1025,7 +1016,9 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
             .altText(trimToNull(request.getAltText()))
             .role(role)
             .position(position)
-            .mediaStatus(mediaStatus)
+            .mediaStatus("PENDING_SCAN")
+            .scanStatus("PENDING")
+            .uploadedBy(actorId)
             .version(0L)
             .build());
 
@@ -1045,23 +1038,19 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
       image.setAltText(trimToNull(request.getAltText()));
     }
     if (request.getRole() != null) {
-      image.setRole(
-          normalizeEnum(image.getRole(), request.getRole(), CatalogConstants.IMAGE_ROLES, "role"));
-    }
-    if (request.getMediaStatus() != null) {
-      image.setMediaStatus(
-          normalizeEnum(
-              image.getMediaStatus(),
-              request.getMediaStatus(),
-              CatalogConstants.IMAGE_STATUSES,
-              "mediaStatus"));
+      String newRole =
+          normalizeEnum(image.getRole(), request.getRole(), CatalogConstants.IMAGE_ROLES, "role");
+      if ("APPROVED".equals(image.getMediaStatus())
+          && "COVER".equals(newRole)
+          && !"COVER".equals(image.getRole())) {
+        throw new CatalogException(
+            ErrorCode.CATALOG_IMAGE_APPROVED_ROLE_CHANGE_FORBIDDEN,
+            "Không thể chuyển ảnh đã duyệt thành COVER qua PATCH. Thao tác cần quyền CATALOG_APPROVE.");
+      }
+      image.setRole(newRole);
     }
     if (request.getPosition() != null) {
       image.setPosition(request.getPosition());
-    }
-
-    if (isApprovedCover(image.getRole(), image.getMediaStatus())) {
-      imageMapper.demoteOtherApprovedCovers(productId, imageId);
     }
 
     image.setVersion(request.getExpectedVersion());
@@ -1071,6 +1060,101 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
 
     cacheEvictor.evictCategoriesCache();
     return buildDetailResponse(findProductOrThrow(productId));
+  }
+
+  @Override
+  @Transactional
+  @CacheEvict(value = "catalog:product", allEntries = true)
+  public ProductDetailResponse reviewImage(
+      UUID productId, UUID imageId, ReviewProductImageRequest request, String actorId) {
+    // 1. Khóa dòng Product bằng FOR UPDATE để serialize concurrent cover reviews
+    productMapper
+        .findByIdForUpdate(productId)
+        .orElseThrow(
+            () ->
+                new CatalogException(
+                    ErrorCode.CATALOG_PRODUCT_NOT_FOUND, "Không tìm thấy sản phẩm."));
+
+    ProductImage image = findImageOfProduct(productId, imageId);
+
+    // 2. Kiểm tra scan_status phải là CLEAN
+    if (!"CLEAN".equals(image.getScanStatus())) {
+      throw new CatalogException(
+          ErrorCode.CATALOG_IMAGE_NOT_SCANNED,
+          "Ảnh chưa được Media Service quét an toàn mã độc hoặc quét không đạt (scan_status != CLEAN).");
+    }
+
+    // 3. Kiểm tra media_status phải là PENDING_REVIEW
+    if (!"PENDING_REVIEW".equals(image.getMediaStatus())) {
+      throw new CatalogException(
+          ErrorCode.CATALOG_IMAGE_NOT_PENDING_REVIEW,
+          "Ảnh không ở trạng thái chờ duyệt (PENDING_REVIEW). Trạng thái hiện tại: "
+              + image.getMediaStatus());
+    }
+
+    // 4. Separation of Duties: Người upload không được tự phê duyệt
+    if (actorId != null && actorId.equals(image.getUploadedBy())) {
+      throw new CatalogException(
+          ErrorCode.CATALOG_IMAGE_CANNOT_SELF_REVIEW,
+          "Người tải ảnh lên không được phép tự phê duyệt ảnh (Separation of Duties).");
+    }
+
+    // 5. Xử lý quyết định
+    String decision = request.getDecision().toUpperCase();
+    if ("APPROVED".equals(decision)) {
+      if ("COVER".equals(image.getRole())) {
+        imageMapper.demoteOtherApprovedCovers(productId, imageId);
+      }
+      image.setMediaStatus("APPROVED");
+      image.setRejectedReason(null);
+    } else if ("REJECTED".equals(decision)) {
+      requireText(request.getReason(), "reason");
+      image.setMediaStatus("REJECTED");
+      image.setRejectedReason(request.getReason().trim());
+    } else {
+      throw new CatalogException(
+          ErrorCode.CATALOG_IMAGE_INVALID, "decision phải là APPROVED hoặc REJECTED.");
+    }
+
+    image.setReviewedBy(actorId);
+    image.setReviewedAt(Instant.now());
+    image.setVersion(request.getExpectedVersion());
+
+    if (imageMapper.update(image) == 0) {
+      throw CatalogException.versionConflict(imageId.toString());
+    }
+
+    cacheEvictor.evictCategoriesCache();
+    return buildDetailResponse(findProductOrThrow(productId));
+  }
+
+  @Override
+  @Transactional
+  public void handleScanResult(UUID imageId, String scanStatus, Instant scannedAt) {
+    ProductImage image =
+        imageMapper
+            .findById(imageId)
+            .orElseThrow(
+                () ->
+                    new CatalogException(
+                        ErrorCode.CATALOG_IMAGE_NOT_FOUND, "Không tìm thấy ảnh: " + imageId));
+
+    String normalizedScanStatus =
+        normalizeEnum("PENDING", scanStatus, CatalogConstants.IMAGE_SCAN_STATUSES, "scanStatus");
+    Instant scanTime = scannedAt != null ? scannedAt : Instant.now();
+    String newMediaStatus = image.getMediaStatus();
+
+    if ("CLEAN".equals(normalizedScanStatus)) {
+      if ("PENDING_SCAN".equals(image.getMediaStatus())) {
+        newMediaStatus = "PENDING_REVIEW";
+      }
+    } else if ("INFECTED".equals(normalizedScanStatus) || "FAILED".equals(normalizedScanStatus)) {
+      newMediaStatus = "REJECTED";
+      image.setRejectedReason(
+          "Quét an toàn thất bại hoặc phát hiện mã độc: " + normalizedScanStatus);
+    }
+
+    imageMapper.updateScanResult(imageId, normalizedScanStatus, newMediaStatus, scanTime);
   }
 
   @Override

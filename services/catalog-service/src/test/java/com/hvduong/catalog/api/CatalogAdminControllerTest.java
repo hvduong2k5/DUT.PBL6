@@ -10,6 +10,7 @@ import com.hvduong.catalog.application.dto.request.CreateProductRequest;
 import com.hvduong.catalog.application.dto.request.PatchProductRequest;
 import com.hvduong.catalog.application.dto.request.PatchVariantRequest;
 import com.hvduong.catalog.application.dto.request.ProductTransitionRequest;
+import com.hvduong.catalog.application.dto.request.ReviewProductImageRequest;
 import com.hvduong.catalog.application.dto.response.AdminCategoryItem;
 import com.hvduong.catalog.application.dto.response.AdminCategoryListResponse;
 import com.hvduong.catalog.application.dto.response.AdminPriceResponse;
@@ -229,9 +230,29 @@ class CatalogAdminControllerTest {
             post("/api/v1/admin/catalog/products/" + productId + "/images")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(req)))
-        .andExpect(status().isOk())
+        .andExpect(status().isCreated())
         .andExpect(jsonPath("$.success").value(true))
         .andExpect(jsonPath("$.message").value("Thêm ảnh sản phẩm thành công"));
+  }
+
+  @Test
+  void reviewImage_WithCatalogApprove_ReturnsSuccess() throws Exception {
+    UUID productId = UUID.randomUUID();
+    UUID imageId = UUID.randomUUID();
+    ReviewProductImageRequest req =
+        ReviewProductImageRequest.builder().decision("APPROVED").expectedVersion(1L).build();
+
+    ProductDetailResponse res = ProductDetailResponse.builder().productId(productId).build();
+    when(adminService.reviewImage(eq(productId), eq(imageId), any(), any())).thenReturn(res);
+
+    mockMvc
+        .perform(
+            post("/api/v1/admin/catalog/products/" + productId + "/images/" + imageId + "/review")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(req)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.success").value(true))
+        .andExpect(jsonPath("$.message").value("Kiểm duyệt ảnh sản phẩm thành công"));
   }
 
   @Test

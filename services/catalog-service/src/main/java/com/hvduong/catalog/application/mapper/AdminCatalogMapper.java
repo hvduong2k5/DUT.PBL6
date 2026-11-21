@@ -116,7 +116,11 @@ public final class AdminCatalogMapper {
   public static String coverImageUrl(List<ProductImage> images) {
     if (images == null || images.isEmpty()) return null;
     return images.stream()
-        .filter(img -> "COVER".equals(img.getRole()) && "APPROVED".equals(img.getMediaStatus()))
+        .filter(
+            img ->
+                "COVER".equals(img.getRole())
+                    && "APPROVED".equals(img.getMediaStatus())
+                    && "CLEAN".equals(img.getScanStatus()))
         .findFirst()
         .map(img -> imageUrl(img.getObjectKey()))
         .orElse(null);
@@ -143,6 +147,12 @@ public final class AdminCatalogMapper {
         .role(image.getRole())
         .position(image.getPosition())
         .mediaStatus(image.getMediaStatus())
+        .scanStatus(image.getScanStatus())
+        .scannedAt(formatInstant(image.getScannedAt()))
+        .rejectedReason(image.getRejectedReason())
+        .uploadedBy(image.getUploadedBy())
+        .reviewedBy(image.getReviewedBy())
+        .reviewedAt(formatInstant(image.getReviewedAt()))
         .revision(image.getVersion())
         .createdAt(formatInstant(image.getCreatedAt()))
         .updatedAt(formatInstant(image.getUpdatedAt()))
@@ -153,7 +163,11 @@ public final class AdminCatalogMapper {
   public static String coverImageAlt(List<ProductImage> images, String productName) {
     if (images == null || images.isEmpty()) return productName;
     return images.stream()
-        .filter(img -> "COVER".equals(img.getRole()) && "APPROVED".equals(img.getMediaStatus()))
+        .filter(
+            img ->
+                "COVER".equals(img.getRole())
+                    && "APPROVED".equals(img.getMediaStatus())
+                    && "CLEAN".equals(img.getScanStatus()))
         .findFirst()
         .map(ProductImage::getAltText)
         .filter(org.springframework.util.StringUtils::hasText)

@@ -21,7 +21,4 @@ public class CreateProductImageRequest {
 
   @Min(value = 0, message = "position phải lớn hơn hoặc bằng 0")
   private Integer position = 0;
-
-  /** PENDING_SCAN | APPROVED | REJECTED. Mặc định PENDING_SCAN cho ảnh mới tải lên. */
-  private String mediaStatus;
 }

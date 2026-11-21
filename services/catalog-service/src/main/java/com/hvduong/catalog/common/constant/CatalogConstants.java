@@ -37,7 +37,11 @@ public final class CatalogConstants {
 
   /** Các trạng thái kiểm duyệt ảnh hợp lệ theo enum {@code media_status}. */
   public static final java.util.Set<String> IMAGE_STATUSES =
-      java.util.Set.of("PENDING_SCAN", "APPROVED", "REJECTED");
+      java.util.Set.of("PENDING_SCAN", "PENDING_REVIEW", "APPROVED", "REJECTED");
+
+  /** Các trạng thái quét an toàn mã độc theo enum {@code media_scan_status}. */
+  public static final java.util.Set<String> IMAGE_SCAN_STATUSES =
+      java.util.Set.of("PENDING", "CLEAN", "INFECTED", "FAILED");
 
   /** Các loại bao bì hợp lệ theo enum {@code packaging_type}. */
   public static final java.util.Set<String> PACKAGING_TYPES =

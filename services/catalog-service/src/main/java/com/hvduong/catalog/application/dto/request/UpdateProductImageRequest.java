@@ -18,9 +18,6 @@ public class UpdateProductImageRequest {
   @Min(value = 0, message = "position phải lớn hơn hoặc bằng 0")
   private Integer position;
 
-  /** PENDING_SCAN | APPROVED | REJECTED. */
-  private String mediaStatus;
-
   @NotNull(message = "expectedVersion không được bỏ trống")
   private Long expectedVersion;
 }

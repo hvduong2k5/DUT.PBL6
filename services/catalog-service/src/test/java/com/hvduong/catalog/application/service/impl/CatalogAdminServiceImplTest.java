@@ -11,6 +11,7 @@ import com.hvduong.catalog.application.dto.request.CreateProductRequest;
 import com.hvduong.catalog.application.dto.request.PatchCategoryRequest;
 import com.hvduong.catalog.application.dto.request.PatchProductRequest;
 import com.hvduong.catalog.application.dto.request.PatchVariantRequest;
+import com.hvduong.catalog.application.dto.request.ReviewProductImageRequest;
 import com.hvduong.catalog.application.dto.request.UpdateCategoryRequest;
 import com.hvduong.catalog.application.dto.request.UpdatePriceRequest;
 import com.hvduong.catalog.application.dto.request.UpdateProductRequest;
@@ -46,6 +47,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.cache.annotation.Cacheable;
@@ -244,25 +246,126 @@ class CatalogAdminServiceImplTest {
   }
 
   @Test
-  void addImage_ApprovedCover_DemotesPreviousCover() {
+  void addImage_CreatesPendingImage() {
     CreateProductImageRequest req = new CreateProductImageRequest();
     req.setObjectKey("products/cover-new.jpg");
     req.setRole("COVER");
-    req.setMediaStatus("APPROVED");
 
     Product product = new Product();
     product.setId(productId);
     product.setVersion(1L);
 
     when(productMapper.findById(productId)).thenReturn(Optional.of(product));
-    when(imageMapper.demoteOtherApprovedCovers(productId, null)).thenReturn(1);
     stubDetailMapping();
 
     ProductDetailResponse result = adminService.addImage(productId, req, "admin-1");
 
     assertNotNull(result);
-    verify(imageMapper).demoteOtherApprovedCovers(productId, null);
-    verify(imageMapper).insert(any(ProductImage.class));
+    ArgumentCaptor<ProductImage> captor = ArgumentCaptor.forClass(ProductImage.class);
+    verify(imageMapper).insert(captor.capture());
+    assertEquals("PENDING_SCAN", captor.getValue().getMediaStatus());
+    assertEquals("PENDING", captor.getValue().getScanStatus());
+    assertEquals("admin-1", captor.getValue().getUploadedBy());
+    verify(imageMapper, never()).demoteOtherApprovedCovers(any(), any());
+  }
+
+  @Test
+  void reviewImage_ApprovedCover_DemotesPreviousCoverAndApproves() {
+    UUID imageId = UUID.randomUUID();
+    Product product = new Product();
+    product.setId(productId);
+    product.setVersion(1L);
+
+    ProductImage image =
+        ProductImage.builder()
+            .id(imageId)
+            .productId(productId)
+            .objectKey("products/cover.webp")
+            .role("COVER")
+            .mediaStatus("PENDING_REVIEW")
+            .scanStatus("CLEAN")
+            .uploadedBy("staff-uploader")
+            .version(1L)
+            .build();
+
+    ReviewProductImageRequest req =
+        ReviewProductImageRequest.builder().decision("APPROVED").expectedVersion(1L).build();
+
+    when(productMapper.findByIdForUpdate(productId)).thenReturn(Optional.of(product));
+    when(productMapper.findById(productId)).thenReturn(Optional.of(product));
+    when(imageMapper.findById(imageId)).thenReturn(Optional.of(image));
+    when(imageMapper.demoteOtherApprovedCovers(productId, imageId)).thenReturn(1);
+    when(imageMapper.update(any(ProductImage.class))).thenReturn(1);
+    stubDetailMapping();
+
+    ProductDetailResponse result = adminService.reviewImage(productId, imageId, req, "moderator-2");
+
+    assertNotNull(result);
+    verify(imageMapper).demoteOtherApprovedCovers(productId, imageId);
+    verify(imageMapper).update(image);
+    assertEquals("APPROVED", image.getMediaStatus());
+    assertEquals("moderator-2", image.getReviewedBy());
+    assertNotNull(image.getReviewedAt());
+  }
+
+  @Test
+  void reviewImage_NotClean_ThrowsCatalogException() {
+    UUID imageId = UUID.randomUUID();
+    Product product = new Product();
+    product.setId(productId);
+
+    ProductImage image =
+        ProductImage.builder()
+            .id(imageId)
+            .productId(productId)
+            .role("GALLERY")
+            .mediaStatus("PENDING_REVIEW")
+            .scanStatus("PENDING")
+            .uploadedBy("staff-uploader")
+            .version(1L)
+            .build();
+
+    ReviewProductImageRequest req =
+        ReviewProductImageRequest.builder().decision("APPROVED").expectedVersion(1L).build();
+
+    when(productMapper.findByIdForUpdate(productId)).thenReturn(Optional.of(product));
+    when(imageMapper.findById(imageId)).thenReturn(Optional.of(image));
+
+    CatalogException ex =
+        assertThrows(
+            CatalogException.class,
+            () -> adminService.reviewImage(productId, imageId, req, "moderator-2"));
+    assertEquals(ErrorCode.CATALOG_IMAGE_NOT_SCANNED, ex.getErrorCode());
+  }
+
+  @Test
+  void reviewImage_SelfReview_ThrowsCatalogException() {
+    UUID imageId = UUID.randomUUID();
+    Product product = new Product();
+    product.setId(productId);
+
+    ProductImage image =
+        ProductImage.builder()
+            .id(imageId)
+            .productId(productId)
+            .role("GALLERY")
+            .mediaStatus("PENDING_REVIEW")
+            .scanStatus("CLEAN")
+            .uploadedBy("actor-same")
+            .version(1L)
+            .build();
+
+    ReviewProductImageRequest req =
+        ReviewProductImageRequest.builder().decision("APPROVED").expectedVersion(1L).build();
+
+    when(productMapper.findByIdForUpdate(productId)).thenReturn(Optional.of(product));
+    when(imageMapper.findById(imageId)).thenReturn(Optional.of(image));
+
+    CatalogException ex =
+        assertThrows(
+            CatalogException.class,
+            () -> adminService.reviewImage(productId, imageId, req, "actor-same"));
+    assertEquals(ErrorCode.CATALOG_IMAGE_CANNOT_SELF_REVIEW, ex.getErrorCode());
   }
 
   @Test

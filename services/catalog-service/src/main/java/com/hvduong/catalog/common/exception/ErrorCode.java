@@ -45,7 +45,16 @@ public enum ErrorCode {
   CATALOG_PRICE_CANNOT_DELETE_ACTIVE(
       218, 422, "Chỉ có thể hủy bản ghi giá chưa tới thời điểm hiệu lực."),
   CATALOG_CATEGORY_SEARCH_REQUIRES_FLAT_FORMAT(
-      219, 400, "Tìm kiếm danh mục theo từ khóa chỉ hỗ trợ định dạng phẳng (format=flat).");
+      219, 400, "Tìm kiếm danh mục theo từ khóa chỉ hỗ trợ định dạng phẳng (format=flat)."),
+  CATALOG_IMAGE_NOT_SCANNED(
+      220, 422, "Ảnh chưa được quét an toàn mã độc hoặc quét không đạt (scan_status != CLEAN)."),
+  CATALOG_IMAGE_NOT_PENDING_REVIEW(221, 400, "Ảnh không ở trạng thái chờ duyệt (PENDING_REVIEW)."),
+  CATALOG_IMAGE_CANNOT_SELF_REVIEW(
+      222, 403, "Người tải ảnh lên không được phép tự phê duyệt ảnh (Separation of Duties)."),
+  CATALOG_IMAGE_APPROVED_ROLE_CHANGE_FORBIDDEN(
+      223,
+      403,
+      "Không thể chuyển ảnh đã duyệt thành COVER qua PATCH. Thao tác cần quyền CATALOG_APPROVE.");
 
   private final int protoCode;
   private final int httpStatus;

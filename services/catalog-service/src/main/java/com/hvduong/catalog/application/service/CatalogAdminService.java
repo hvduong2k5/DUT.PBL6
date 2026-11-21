@@ -8,6 +8,7 @@ import com.hvduong.catalog.application.dto.request.CreateVariantRequest;
 import com.hvduong.catalog.application.dto.request.PatchCategoryRequest;
 import com.hvduong.catalog.application.dto.request.PatchProductRequest;
 import com.hvduong.catalog.application.dto.request.PatchVariantRequest;
+import com.hvduong.catalog.application.dto.request.ReviewProductImageRequest;
 import com.hvduong.catalog.application.dto.request.UpdateCategoryRequest;
 import com.hvduong.catalog.application.dto.request.UpdatePriceRequest;
 import com.hvduong.catalog.application.dto.request.UpdateProductImageRequest;
@@ -81,6 +82,11 @@ public interface CatalogAdminService {
 
   ProductDetailResponse updateImage(
       UUID productId, UUID imageId, UpdateProductImageRequest request, String actorId);
+
+  ProductDetailResponse reviewImage(
+      UUID productId, UUID imageId, ReviewProductImageRequest request, String actorId);
+
+  void handleScanResult(UUID imageId, String scanStatus, java.time.Instant scannedAt);
 
   ProductDetailResponse deleteImage(UUID productId, UUID imageId, String actorId);
 
