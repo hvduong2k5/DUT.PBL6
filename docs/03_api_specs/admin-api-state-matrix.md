@@ -107,8 +107,9 @@ task 2. Common BFF errors include code, safe message, requestId and errors.
 | `PUT /api/v1/admin/catalog/products/{productId}/skus/{skuId}/prices` | EPIC_04 | stable | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
 | `POST /api/v1/admin/catalog/products/{productId}/skus/{skuId}/prices` | EPIC_04 | stable | 201 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
 | `DELETE /api/v1/admin/catalog/products/{productId}/skus/{skuId}/prices/{priceId}` | EPIC_04 | stable | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
-| `POST /api/v1/admin/catalog/products/{productId}/images` | EPIC_04 | stable | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
+| `POST /api/v1/admin/catalog/products/{productId}/images` | EPIC_04 | stable | 201 | N/A | 400/422 | 401 | 403 | 404 | — | — | 500/503 |
 | `PATCH /api/v1/admin/catalog/products/{productId}/images/{imageId}` | EPIC_04 | stable | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
+| `POST /api/v1/admin/catalog/products/{productId}/images/{imageId}/review` | EPIC_04 | stable | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
 | `DELETE /api/v1/admin/catalog/products/{productId}/images/{imageId}` | EPIC_04 | stable | 200 | N/A | —/— | 401 | 403 | 404 | — | — | 500/503 |
 | `GET /api/v1/admin/inventory/skus` | EPIC_09 | stable | 200 | 200 (collection empty) | 400/— | 401 | 403 | — | — | — | 500/503 |
 | `GET /api/v1/admin/inventory/skus/{skuId}` | EPIC_09 | stable | 200 | N/A | —/— | 401 | 403 | 404 | — | — | 500/503 |
@@ -245,10 +246,16 @@ Ví dụ xóa mô tả cũ và cập nhật OCOP:
 
 - Lưu `objectKey` (MinIO/S3); response trả thêm `url = https://cdn.omama.vn/ + objectKey` (giữ nguyên nếu objectKey là URL tuyệt đối).
 - `role`: `COVER` | `GALLERY` | `THUMBNAIL` (mặc định `GALLERY`).
-- `mediaStatus`: `PENDING_SCAN` | `APPROVED` | `REJECTED` (mặc định `PENDING_SCAN`).
-- Bất biến: tối đa một ảnh `COVER` + `APPROVED`. Khi thêm/sửa thành cover APPROVED, cover cũ tự hạ xuống `GALLERY`.
+- Phân tách hai lớp trạng thái:
+  - `scanStatus`: `PENDING` | `CLEAN` | `INFECTED` | `FAILED` (do Media Service kiểm tra an toàn mã độc cập nhật).
+  - `mediaStatus`: `PENDING_SCAN` → `PENDING_REVIEW` → `APPROVED` | `REJECTED` (do Content Moderator duyệt).
+- Ảnh chỉ được hiển thị công khai khi đồng thời: `scanStatus == CLEAN` VÀ `mediaStatus == APPROVED`.
+- Đăng ký ảnh mới (`POST /images`): server tự gán `mediaStatus = PENDING_SCAN`, `scanStatus = PENDING`, `uploadedBy = actorId`.
+- Sửa metadata (`PATCH /images/{imageId}`): chỉ sửa `altText`, `position`, `role`. Cấm sửa `mediaStatus` hoặc `scanStatus`. Không cho phép chuyển ảnh đã `APPROVED` thành `COVER` qua PATCH.
+- Duyệt ảnh (`POST /images/{imageId}/review`): yêu cầu quyền `CATALOG_APPROVE`. Chỉ duyệt khi `scanStatus == CLEAN` và `mediaStatus == PENDING_REVIEW`. Tuân thủ Separation of Duties (người upload không được tự duyệt).
+- Bất biến: tối đa một ảnh `COVER` + `APPROVED` + `CLEAN`. Khi duyệt một ảnh COVER thành APPROVED, cover cũ tự hạ xuống `GALLERY` trong cùng transaction khóa dòng Product.
 - `DELETE` chỉ xóa metadata; object trên storage do job dọn dẹp riêng xử lý.
-- PATCH ảnh yêu cầu `expectedVersion` của ảnh.
+- Optimistic locking: PATCH và review ảnh đều yêu cầu `expectedVersion`.
 
 ### Vòng đời
 

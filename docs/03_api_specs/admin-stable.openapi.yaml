@@ -3757,6 +3757,7 @@ paths:
                         role: COVER
                         position: 0
                         mediaStatus: APPROVED
+                        scanStatus: CLEAN
                         revision: 2
                         createdAt: '2026-10-01T08:00:00.000Z'
                         updatedAt: '2026-10-02T02:10:00.000Z'
@@ -4438,8 +4439,8 @@ paths:
       tags:
       - Product management
       operationId: postAdminCatalogProductsProductIdImages
-      summary: Thêm metadata ảnh cho Product cho EPIC_04.
-      description: Khi role là COVER và mediaStatus là APPROVED, cover đã duyệt trước đó sẽ bị hạ xuống GALLERY.
+      summary: Đăng ký ảnh mới cho Product cho EPIC_04.
+      description: Đăng ký objectKey đã tải lên thành công qua Media Service. Trạng thái ban đầu luôn là mediaStatus=PENDING_SCAN và scanStatus=PENDING. Không cho phép client tự set trạng thái duyệt.
       x-lifecycle: stable
       x-backlog:
       - EPIC_04
@@ -4468,8 +4469,8 @@ paths:
             schema:
               $ref: '#/components/schemas/CatalogAdminImageCreateRequest'
       responses:
-        '200':
-          description: Đã thêm ảnh thành công.
+        '201':
+          description: Đã đăng ký ảnh thành công (trạng thái PENDING_SCAN).
           content:
             application/json:
               schema:
@@ -4495,7 +4496,8 @@ paths:
       tags:
       - Product management
       operationId: patchAdminCatalogProductsProductIdImagesImageId
-      summary: Cập nhật metadata và trạng thái duyệt ảnh cho EPIC_04.
+      summary: Cập nhật metadata hiển thị ảnh sản phẩm cho EPIC_04.
+      description: Cập nhật altText, role, position với optimistic locking. Không cho phép sửa mediaStatus hoặc scanStatus. Nếu ảnh đã APPROVED, không cho phép đổi role thành COVER qua PATCH.
       x-lifecycle: stable
       x-backlog:
       - EPIC_04
@@ -4598,6 +4600,69 @@ paths:
           $ref: '#/components/responses/CatalogAdminForbidden'
         '404':
           $ref: '#/components/responses/CatalogAdminNotFound'
+        '500':
+          $ref: '#/components/responses/CatalogAdminInternalError'
+        '503':
+          $ref: '#/components/responses/CatalogAdminServiceUnavailable'
+  /api/v1/admin/catalog/products/{productId}/images/{imageId}/review:
+    post:
+      tags:
+      - Product management
+      operationId: postAdminCatalogProductsProductIdImagesImageIdReview
+      summary: Kiểm duyệt nội dung ảnh sản phẩm (Content Moderation) cho EPIC_04.
+      description: Yêu cầu quyền CATALOG_APPROVE. Chỉ kiểm duyệt được khi ảnh đã được Media Service quét sạch mã độc (scanStatus=CLEAN) và đang chờ duyệt (mediaStatus=PENDING_REVIEW). Không cho phép người tải ảnh tự phê duyệt (Separation of Duties). Khóa Product khi duyệt ảnh COVER để đảm bảo duy nhất.
+      x-lifecycle: stable
+      x-backlog:
+      - EPIC_04
+      x-ui-states:
+      - loading
+      - success
+      - error
+      - unauthorized
+      - forbidden
+      x-test-latency-ms: 1200
+      security:
+      - bearerAuth: []
+      - adminSession: []
+      parameters:
+      - name: productId
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+      - name: imageId
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CatalogAdminImageReviewRequest'
+      responses:
+        '200':
+          description: Đã kiểm duyệt ảnh thành công.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogAdminProductWriteResponse'
+        '400':
+          $ref: '#/components/responses/CatalogAdminBadRequest'
+        '401':
+          $ref: '#/components/responses/CatalogAdminUnauthorized'
+        '403':
+          $ref: '#/components/responses/CatalogAdminForbidden'
+        '404':
+          $ref: '#/components/responses/CatalogAdminNotFound'
+        '409':
+          $ref: '#/components/responses/CatalogAdminConflict'
+        '422':
+          $ref: '#/components/responses/CatalogAdminUnprocessableEntity'
         '500':
           $ref: '#/components/responses/CatalogAdminInternalError'
         '503':
@@ -12438,6 +12503,7 @@ components:
             - role
             - position
             - mediaStatus
+            - scanStatus
             properties:
               imageId:
                 type: string
@@ -12465,8 +12531,38 @@ components:
                 type: string
                 enum:
                 - PENDING_SCAN
+                - PENDING_REVIEW
                 - APPROVED
                 - REJECTED
+              scanStatus:
+                type: string
+                enum:
+                - PENDING
+                - CLEAN
+                - INFECTED
+                - FAILED
+              scannedAt:
+                type:
+                - string
+                - 'null'
+                format: date-time
+              rejectedReason:
+                type:
+                - string
+                - 'null'
+              uploadedBy:
+                type:
+                - string
+                - 'null'
+              reviewedBy:
+                type:
+                - string
+                - 'null'
+              reviewedAt:
+                type:
+                - string
+                - 'null'
+                format: date-time
               revision:
                 type: integer
                 format: int64
@@ -12967,13 +13063,6 @@ components:
           type: integer
           minimum: 0
           description: Vị trí hiển thị; mặc định 0.
-        mediaStatus:
-          type: string
-          enum:
-          - PENDING_SCAN
-          - APPROVED
-          - REJECTED
-          description: Mặc định PENDING_SCAN cho ảnh mới.
       additionalProperties: false
     CatalogAdminImagePatchRequest:
       type: object
@@ -12994,16 +13083,34 @@ components:
         position:
           type: integer
           minimum: 0
-        mediaStatus:
-          type: string
-          enum:
-          - PENDING_SCAN
-          - APPROVED
-          - REJECTED
         expectedVersion:
           type: integer
           format: int64
           minimum: 0
+      additionalProperties: false
+    CatalogAdminImageReviewRequest:
+      type: object
+      required:
+      - decision
+      - expectedVersion
+      properties:
+        decision:
+          type: string
+          enum:
+          - APPROVED
+          - REJECTED
+          description: Quyết định kiểm duyệt ảnh (APPROVED hoặc REJECTED).
+        reason:
+          type:
+          - string
+          - 'null'
+          maxLength: 1000
+          description: Lý do từ chối ảnh; bắt buộc khi decision là REJECTED.
+        expectedVersion:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Phiên bản optimistic-lock hiện tại của ảnh.
       additionalProperties: false
     CatalogAdminProductWriteResponse:
       allOf:
