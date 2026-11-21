@@ -92,7 +92,7 @@ Rollback requires stopping all stock writers. It refuses changed quantities,
 status/version, extra batches, reservations, adjustments, receipts, or procurement
 references. It emits a higher-version zero snapshot before deleting owned rows,
 keeps outbox/audit history, and preserves all preexisting rows. The old
-migrations/seed_sample_data.sql now fails clearly rather than TRUNCATE stock.
+migrations/seed_sample_data.sql has been removed; use cmd/seed-demo instead.
 infra/scripts/init-inventory-data.ps1 uses the same runner and accepts -SeedDemo.
 
 Catalog handoff remains separate: Downloads/V12__seed_pbl6_demo.sql was supplied
